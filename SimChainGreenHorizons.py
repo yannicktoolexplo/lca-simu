@@ -5,9 +5,17 @@ import line_production
 from SupplyChainOptimization import run_supply_chain_optimization
 import matplotlib.pyplot as plt
 
+
+import numpy as np
+import matplotlib.pyplot as plt
+from statsmodels.tsa.arima.model import ARIMA
+from statsmodels.tsa.stattools import adfuller
+from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
+from greytheory import GreyTheory
+grey = GreyTheory()
+
 from data_tools import plot_surface, visualize_stock_levels, plot_co2_emissions, round_to_nearest_significant
 
-from statsmodels.tsa.arima.model import ARIMA
 import pandas as pd
 
 def main_function():
@@ -39,91 +47,92 @@ def main_function():
 
     # Original data: Number of seats
     original_data=data['Total Seats made'][1]
-    # print(original_data)
+    original_data_np = np.array(original_data)
+    print(original_data)
 
-
-    # Fit an ARIMA model to the original data
-    # The order (p, d, q) of the ARIMA model is a hyperparameter that usually requires tuning
-    # For simplicity, we'll start with a basic configuration (1, 1, 1), but this may need to be adjusted
+    # ARIMA Model Implementation
+    # 1. Fit ARIMA(1,1,1) model
     arima_model = ARIMA(original_data, order=(1, 1, 1))
-    arima_results = arima_model.fit()  
+    arima_model_fit = arima_model.fit()
+    arima_prediction = arima_model_fit.forecast(steps=1)[0]
 
-    # Forecasting 50% more data points than the original dataset
-    forecast_length = int(len(original_data) * 0.5)
-    forecasted_data_arima = arima_results.forecast(steps=forecast_length)
+    # Grey Theory GM(1,1) Model Implementation
+    class GreyMath:
+        def solve_equations(self, equations, equals):
+            transposed_equations = np.asarray(equations).T.tolist()
+            square_matrix = np.dot(transposed_equations, equations)
+            bx_y = np.dot(transposed_equations, equals)
+            return np.linalg.solve(square_matrix, bx_y).tolist()
 
-    # Generating x-coordinates for the forecasted data for plotting
-    x_forecast_arima = list(range(len(original_data) + 1, len(original_data) + 1 + forecast_length))  
+    class GreyLib:
+        def __init__(self, alpha=0.5):
+            self.alpha = alpha
+            self.grey_math = GreyMath()
 
-    # Number of original data points
-    n_original = len(original_data)
+        def ago(self, patterns):
+            ago_boxes = [] 
+            z_boxes   = []
+            pattern_index = 0
+            for x_patterns in patterns:
+                x_ago   = []
+                sum     = 0.0
+                x_index = 0
+                for x_value in x_patterns:
+                    sum += x_value
+                    x_ago.append(sum)
+                    if pattern_index == 0 and x_index > 0:
+                        z_value = (self.alpha * sum) + ((1 - self.alpha) * x_ago[x_index - 1])
+                        z_boxes.append(z_value)
+                    x_index += 1
+                ago_boxes.append(x_ago)
+                pattern_index += 1
+            return (ago_boxes, z_boxes)
 
-    # X-coordinates for the original data
-    x_original = list(range(1, n_original + 1))
+        def forecast(self, data):
+            ago_result = self.ago([data])
+            z_boxes = ago_result[1]
+            factors = []
+            for z in z_boxes:
+                factors.append([-z, 1])
+            Y = data[1:]
+            a, b = self.grey_math.solve_equations(factors, Y)
+            x1 = data[0]
+            next_value = (1 - np.exp(a)) * (x1 - (b / a)) * np.exp(-a * len(data))
+            return next_value
 
 
-    # # Initialize Grey Theory
-    grey = GreyTheory()
-
-    # # Reinitializing the Grey GM(1,1) model
+    # GM11
     gm11 = grey.gm11
 
-    # Configuring GM11 model parameters
-    gm11.alpha = 0.55
-    gm11.convolution = True  # Convolutional forecasting of GM11.
-    gm11.stride = 5 
-    gm11.length = 6
-    pattern_count = len(original_data)
+    # Recent subset of data for gm11
+    subset_size = int(len(original_data_np) * 0.2)  # 20% of the data
+    recent_data_subset = original_data_np[-subset_size:]
 
-    # Adding each value of original_data as a separate pattern
-    for i, value in enumerate(original_data):
-        gm11.add_pattern(value, "d{}".format(i))
-
-    # Perform forecasting
+    # To try customized alpha for IAGO of Z.
+    gm11.alpha = 0.5
+    
+    # Applying GM(1,1) on the most recent subset of data
+    for value in recent_data_subset:
+        gm11.add_pattern(value, "a")
     gm11.forecast()
+    gm_prediction_recent_subset = [gm11.analyzed_results[-1].forecast_value]
+    print(gm_prediction_recent_subset)
 
-    # Retrieving the forecasted results
-    forecasted_results = gm11.forecasted_outputs
-    # Starting point of forcasted data
-    forecast_start_point = len(original_data) - pattern_count + gm11.length
-    # Adjusting the x-coordinates for the forecasted data
-    x_forecasted_corrected = [forecast_start_point + i * gm11.stride for i in range(len(forecasted_results))]
-
-    gm11.clean_forecasted()
-
-    # Configuring GM11 model parameters
-    gm11.alpha = 0.55
-    gm11.convolution = True  # Convolutional forecasting of GM11.
-    gm11.stride = 10 
-    gm11.length = 3
-
-    # Adding each value of original_data as a separate pattern
-    for i, value in enumerate(forecasted_results[-gm11.stride:]):
-        gm11.add_pattern(value, "d{}".format(i))
-
-    gm11.continue_forecasting(forecasted_results[-gm11.stride:])
-    next_forecasted_results = gm11.forecasted_outputs
-
-    # Display the forecasted results
-    # print(forecasted_results)
-
-
-    next_forecast_start_point = len(original_data) - gm11.stride * (len(forecasted_results[-gm11.stride:])- 1) + gm11.stride * gm11.length
-
-
-    x_next_forecasted_corrected = [next_forecast_start_point + i * gm11.stride for i in range(len(next_forecasted_results))]
-
-    # Create a figure
+    # Plotting
     plt.figure(figsize=(12, 6))
-
-    plt.plot(x_original, original_data, label='Original Data', color='blue')
-    plt.plot(x_forecast_arima, forecasted_data_arima, label='ARIMA Forecasted Data', color='red', linestyle='--')
-    plt.plot(x_forecasted_corrected, forecasted_results, label='Forecasted Data (Convolutional)', color='green', linestyle='--')
-    plt.plot(x_next_forecasted_corrected, next_forecasted_results, label='Forecasted Data (Convolutional)', color='orange', linestyle='--')
-    plt.title('Original Data and ARIMA Forecasted Data and Forecasted Data (Convolutional)')
-    plt.xlabel('Time Period / Sequence Number')
-    plt.ylabel('Values')
-    plt.show()
+    extended_original_data = original_data + [arima_prediction]
+    plt.plot(extended_original_data, marker='x', linestyle='--', color='gray', label='Original Data with ARIMA Prediction')
+    plt.scatter(len(original_data), arima_prediction, color='red', label='ARIMA Prediction')
+    shift_index = len(original_data) - len(recent_data_subset)
+    shifted_recent_indices = [i + shift_index for i in range(len(recent_data_subset))]
+    plt.plot(shifted_recent_indices, recent_data_subset, marker='o', linestyle='-', color='blue', label='Recent Data for GM(1,1)')
+    plt.scatter(len(original_data), gm_prediction_recent_subset, color='green', label='GM(1,1) Prediction')
+    plt.title("Comparison of ARIMA Prediction and GM(1,1) with Recent Data Subset")
+    plt.xlabel("Data Points")
+    plt.ylabel("Values")
+    plt.legend()
+    plt.grid(True)
+    plt.show()    
 
 
 if __name__ == '__main__':
