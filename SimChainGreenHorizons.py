@@ -46,93 +46,58 @@ def main_function():
     #########################################################################################################
 
     # Original data: Number of seats
-    original_data=data['Total Seats made'][1]
+    original_data = data['Total Seats made'][1]
     original_data_np = np.array(original_data)
     print(original_data)
 
-    # ARIMA Model Implementation
-    # 1. Fit ARIMA(1,1,1) model
+    # ARIMA Model Implementation for multiple future points
+    num_future_points = 20  # Number of points you want to predict
     arima_model = ARIMA(original_data, order=(1, 1, 1))
     arima_model_fit = arima_model.fit()
-    arima_prediction = arima_model_fit.forecast(steps=1)[0]
+    arima_predictions = arima_model_fit.forecast(steps=num_future_points)
 
-    # Grey Theory GM(1,1) Model Implementation
-    class GreyMath:
-        def solve_equations(self, equations, equals):
-            transposed_equations = np.asarray(equations).T.tolist()
-            square_matrix = np.dot(transposed_equations, equations)
-            bx_y = np.dot(transposed_equations, equals)
-            return np.linalg.solve(square_matrix, bx_y).tolist()
-
-    class GreyLib:
-        def __init__(self, alpha=0.5):
-            self.alpha = alpha
-            self.grey_math = GreyMath()
-
-        def ago(self, patterns):
-            ago_boxes = [] 
-            z_boxes   = []
-            pattern_index = 0
-            for x_patterns in patterns:
-                x_ago   = []
-                sum     = 0.0
-                x_index = 0
-                for x_value in x_patterns:
-                    sum += x_value
-                    x_ago.append(sum)
-                    if pattern_index == 0 and x_index > 0:
-                        z_value = (self.alpha * sum) + ((1 - self.alpha) * x_ago[x_index - 1])
-                        z_boxes.append(z_value)
-                    x_index += 1
-                ago_boxes.append(x_ago)
-                pattern_index += 1
-            return (ago_boxes, z_boxes)
-
-        def forecast(self, data):
-            ago_result = self.ago([data])
-            z_boxes = ago_result[1]
-            factors = []
-            for z in z_boxes:
-                factors.append([-z, 1])
-            Y = data[1:]
-            a, b = self.grey_math.solve_equations(factors, Y)
-            x1 = data[0]
-            next_value = (1 - np.exp(a)) * (x1 - (b / a)) * np.exp(-a * len(data))
-            return next_value
-
-
-    # GM11
     gm11 = grey.gm11
 
-    # Recent subset of data for gm11
+    # Recent subset of data for GM(1,1)
     subset_size = int(len(original_data_np) * 0.2)  # 20% of the data
     recent_data_subset = original_data_np[-subset_size:]
 
-    # To try customized alpha for IAGO of Z.
-    gm11.alpha = 0.5
+    # Predicting multiple future points with GM(1,1)
+    # gm11.clean_forecasted()  # Clear previous data patterns
+    current_data = list(recent_data_subset)
     
-    # Applying GM(1,1) on the most recent subset of data
-    for value in recent_data_subset:
+    for value in current_data:
         gm11.add_pattern(value, "a")
-    gm11.forecast()
-    gm_prediction_recent_subset = [gm11.analyzed_results[-1].forecast_value]
-    print(gm_prediction_recent_subset)
+
+    gm_predictions = []
+
+    for i in range(num_future_points):
+
+        gm11.period = i
+        gm11.forecast()
+        next_value = gm11.analyzed_results[-1].forecast_value
+        gm_predictions.append(next_value)
+        current_data.append(next_value)  # Append prediction for the next iteration
+        # gm11.clean_forecasted()  # Clear for the next iteration
 
     # Plotting
     plt.figure(figsize=(12, 6))
-    extended_original_data = original_data + [arima_prediction]
-    plt.plot(extended_original_data, marker='x', linestyle='--', color='gray', label='Original Data with ARIMA Prediction')
-    plt.scatter(len(original_data), arima_prediction, color='red', label='ARIMA Prediction')
+    extended_original_data = original_data + arima_predictions.tolist()
+    plt.plot(extended_original_data, marker='x', linestyle='--', color='gray', label='Original Data with ARIMA Predictions')
+    plt.scatter(range(len(original_data), len(original_data) + num_future_points), arima_predictions, color='red', label='ARIMA Predictions')
+
+    # Assuming you want to plot the recent subset along with GM(1,1) predictions
     shift_index = len(original_data) - len(recent_data_subset)
     shifted_recent_indices = [i + shift_index for i in range(len(recent_data_subset))]
     plt.plot(shifted_recent_indices, recent_data_subset, marker='o', linestyle='-', color='blue', label='Recent Data for GM(1,1)')
-    plt.scatter(len(original_data), gm_prediction_recent_subset, color='green', label='GM(1,1) Prediction')
-    plt.title("Comparison of ARIMA Prediction and GM(1,1) with Recent Data Subset")
+    plt.scatter(range(len(original_data), len(original_data) + num_future_points), gm_predictions, color='green', label='GM(1,1) Predictions')
+
+    plt.title("Comparison of ARIMA and GM(1,1) Predictions with Recent Data Subset")
     plt.xlabel("Data Points")
     plt.ylabel("Values")
     plt.legend()
     plt.grid(True)
-    plt.show()    
+    plt.show()
 
 
 if __name__ == '__main__':
