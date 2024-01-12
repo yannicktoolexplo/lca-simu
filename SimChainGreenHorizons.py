@@ -26,8 +26,6 @@ def main_function():
 
     fig_opti, fig2_opti, source, target, value, node_labels = run_supply_chain_optimization()
 
-    # print(node_labels)
-
     # Show the figure
     # fig_opti.show()
 
@@ -35,11 +33,6 @@ def main_function():
     # Show the figure
     # fig2_opti.show()
 
-    # # # Assuming 'final_report.csv' is generated and saved in the 'data' directory within the same directory as your script
-    # # csv_file_path = os.path.join(absolute_path, 'data/final_report.csv')
-
-    # # Call the function to plot the CO2 emissions
-    # plot_co2_emissions(csv_file_path)
 
     forecasted_data = []
     previous_forecasted_results = []
@@ -50,7 +43,7 @@ def main_function():
     gm11 = grey.gm11
 
     original_data=data['Total Seats made'][1]
-    print(original_data)
+    # print(original_data)
 
 
 if __name__ == '__main__':
