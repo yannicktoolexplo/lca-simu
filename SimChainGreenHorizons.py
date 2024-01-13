@@ -5,6 +5,7 @@ import line_production
 from SupplyChainOptimization import run_supply_chain_optimization
 import matplotlib.pyplot as plt
 import math
+import copy
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -65,23 +66,22 @@ def main_function():
 
     # Predicting multiple future points with GM(1,1)
     # gm11.clean_forecasted()  # Clear previous data patterns
-    current_data = list(recent_data_subset)
-    data = list(recent_data_subset)
+    # current_data = list(recent_data_subset)
     
-    for value in current_data:
-        gm11.add_pattern(value, "a")
+    # for value in current_data:
+    #     gm11.add_pattern(value, "a")
 
-    gm_predictions_or = []
-    gm11.alpha = 0.55
+    # gm_predictions_or = []
+    # gm11.alpha = 0.55
 
-    for i in range(num_future_points):
+    # for i in range(num_future_points):
 
-        gm11.period = i
-        gm11.forecast()
-        next_value = gm11.analyzed_results[-1].forecast_value
-        gm_predictions_or.append(next_value)
-        current_data.append(next_value)  # Append prediction for the next iteration
-        gm11.clean_forecasted()  # Clear for the next iteration
+    #     gm11.period = i
+    #     gm11.forecast()
+    #     next_value = gm11.analyzed_results[-1].forecast_value
+    #     gm_predictions_or.append(next_value)
+    #     current_data.append(next_value)  # Append prediction for the next iteration
+    #     gm11.clean_forecasted()  # Clear for the next iteration
 
 
     # Simplified GM(1,1) model implementation
@@ -384,8 +384,8 @@ def main_function():
     arima_predictions = [round(num, 1) for num in arima_predictions]
     print(arima_predictions)
 
-    gm_predictions_or = [round(num, 1) for num in gm_predictions_or]
-    print(gm_predictions_or)
+    # gm_predictions_or = [round(num, 1) for num in gm_predictions_or]
+    # print(gm_predictions_or)
 
     gm_predictions = [round(num, 1) for num in gm_predictions]
     print(gm_predictions)
@@ -401,9 +401,8 @@ def main_function():
     shift_index = len(original_data) - len(recent_data_subset)
     shifted_recent_indices = [i + shift_index for i in range(len(recent_data_subset))]
     plt.plot(shifted_recent_indices, recent_data_subset, marker='o', linestyle='-', color='blue', label='Recent Data for GM(1,1)')
-    # plt.scatter(range(len(original_data) - len(recent_data_subset), len(original_data)  + num_future_points - 1 ), gm_predictions, color='orange', label='GM(1,1) Predictions')
     plt.scatter(range(len(original_data), len(original_data)  + num_future_points ), gm_predictions, color='green', label='GM(1,1) Predictions')
-    plt.scatter(range(len(original_data), len(original_data)  + num_future_points ), gm_predictions_or, color='orange', label='GM(1,1) Predictions or')
+    # plt.scatter(range(len(original_data), len(original_data)  + num_future_points ), gm_predictions_or, color='orange', label='GM(1,1) Predictions or')
     
     plt.title("Comparison of ARIMA and GM(1,1) Predictions with Recent Data Subset")
     plt.xlabel("Data Points")
