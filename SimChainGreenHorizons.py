@@ -1,8 +1,8 @@
 
 import os
-from greytheory import GreyTheory
-import line_production
-from SupplyChainOptimization import run_supply_chain_optimization
+# from greytheory import GreyTheory
+# import line_production
+# from SupplyChainOptimization import run_supply_chain_optimization
 import matplotlib.pyplot as plt
 import math
 import copy
@@ -12,10 +12,9 @@ import matplotlib.pyplot as plt
 from statsmodels.tsa.arima.model import ARIMA
 from statsmodels.tsa.stattools import adfuller
 from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
-from greytheory import GreyTheory
 
 
-from data_tools import plot_surface, visualize_stock_levels, plot_co2_emissions, round_to_nearest_significant
+# from data_tools import plot_surface, visualize_stock_levels, plot_co2_emissions, round_to_nearest_significant
 
 import pandas as pd
 
@@ -24,18 +23,25 @@ def main_function():
 
     absolute_path = os.path.dirname(__file__)
 
-    # Example usage of the plotting functions from data_tools.py
+    #Round to nearest multiple of the power of 10
+    def round_to_nearest_significant(number):
+        if number == 0:
+            return 0
+        power = 10 ** math.floor(math.log10(abs(number)))
+        return power * 10 if number >= power * 5 else power
     
-    data, total_factory_lines = line_production.get_data()
-    number_of_seat = data['Total Seats made'][1][-1] 
-    rounded_value = round_to_nearest_significant(number_of_seat)
-    ytick_param = rounded_value / (rounded_value/(rounded_value/10))
+    # data, total_factory_lines = line_production.get_data()
+    
+    data_set = [8, 16, 16, 16, 20, 24, 32, 40, 48, 56, 64, 72, 80, 88, 92, 100, 108, 116, 124, 132, 140, 148, 156, 164, 172, 180, 184, 192, 200, 284, 292, 300, 308, 316, 324, 332, 340, 348, 356, 360, 368, 372, 380, 388, 396, 404, 412, 420, 428, 520, 524, 532, 540, 548, 556, 560, 568, 576, 584, 592, 600, 608, 616, 620, 628, 636, 644, 652, 660, 748, 756, 764, 772, 780, 788, 796, 804, 812, 820, 824, 832, 840, 848, 856, 864, 872, 880, 888, 972, 980, 988, 996, 1004, 1012, 1020, 1028, 1036, 1040, 1048, 1056, 1060, 1068, 1076, 1084, 1092, 1100, 1108, 1116, 1204, 1212, 1220, 1228, 1236, 1244, 1244, 1252, 1260, 1268, 1276, 1284, 1292, 1300, 1304]
+    # number_of_seat = data[-1] 
+    # rounded_value = round_to_nearest_significant(number_of_seat)
+    # ytick_param = rounded_value / (rounded_value/(rounded_value/10))
 
 
     # visualize_stock_levels(data, ytick_param)
 
 
-    fig_opti, fig2_opti, source, target, value, node_labels = run_supply_chain_optimization()
+    # fig_opti, fig2_opti, source, target, value, node_labels = run_supply_chain_optimization()
 
     # Show the figure
     # fig_opti.show()
@@ -47,7 +53,8 @@ def main_function():
     #########################################################################################################
 
     # Original data: Number of seats
-    original_data = data['Total Seats made'][1]
+    original_data = data_set[:-20]
+    # original_data = data
     original_data_np = np.array(original_data)
     print(original_data)
 
@@ -57,8 +64,8 @@ def main_function():
     arima_model_fit = arima_model.fit()
     arima_predictions = arima_model_fit.forecast(steps=num_future_points)
 
-    grey = GreyTheory()
-    gm11 = grey.gm11
+    # grey = GreyTheory()
+    # gm11 = grey.gm11
 
     # Recent subset of data for GM(1,1)
     subset_size = int(len(original_data_np) * 0.2)  # 20% of the data
@@ -360,11 +367,15 @@ def main_function():
             # Last GreyForecast() object is the next moment forecasted.
             return self.analyzed_results[-1].forecast_value
 
+    class GreyTheory:
+        def __init__(self):
+            self.gm11 = GreyGM11()
+
     grey = GreyTheory()
     gm11 = grey.gm11
-    data = list(recent_data_subset)
+    grey_data_set = list(recent_data_subset)
     
-    for value in data:
+    for value in grey_data_set:
         gm11.add_pattern(value, "a")
 
     gm_predictions = []
@@ -377,7 +388,7 @@ def main_function():
         gm11.forecast()
         next_value = gm11.analyzed_results[-1].forecast_value
         gm_predictions.append(next_value)
-        data.append(next_value)  # Append prediction for the next iteration
+        grey_data_set.append(next_value)  # Append prediction for the next iteration
         gm11.clean_forecasted()  # Clear for the next iteration
 
 
@@ -394,7 +405,7 @@ def main_function():
     # Plotting
     plt.figure(figsize=(12, 6))
     extended_original_data = original_data + arima_predictions
-    plt.plot(extended_original_data, marker='x', linestyle='--', color='gray', label='Original Data with ARIMA Predictions')
+    # plt.plot(extended_original_data, marker='x', linestyle='--', color='gray', label='Original Data with ARIMA Predictions')
     plt.scatter(range(len(original_data), len(original_data) + num_future_points), arima_predictions, color='red', label='ARIMA Predictions')
 
     # Assuming you want to plot the recent subset along with GM(1,1) predictions
@@ -404,6 +415,9 @@ def main_function():
     plt.scatter(range(len(original_data), len(original_data)  + num_future_points ), gm_predictions, color='green', label='GM(1,1) Predictions')
     # plt.scatter(range(len(original_data), len(original_data)  + num_future_points ), gm_predictions_or, color='orange', label='GM(1,1) Predictions or')
     
+    shifted_indices = [0 + i for i in range(len(data_set))]
+    plt.plot(shifted_indices,data_set, marker='.', linestyle='--', color='gray', label='Original Data')
+
     plt.title("Comparison of ARIMA and GM(1,1) Predictions with Recent Data Subset")
     plt.xlabel("Data Points")
     plt.ylabel("Values")
