@@ -14,7 +14,11 @@
 import os
 import pandas as pd
 from pulp import *
+from pulp import utilities
 import plotly.graph_objects as go
+import line_production
+import random
+random.seed(1447)
 
 def run_supply_chain_optimization():
     absolute_path = os.path.dirname(__file__)
@@ -49,8 +53,29 @@ def run_supply_chain_optimization():
     # #### Plants Capacity
 
     # Two types of plants: Low Capacity and High Capacity Plant
-    cap = pd.read_excel(os.path.join(absolute_path,'data/capacity.xlsx'), index_col = 0)
-  
+    file_path = os.path.join(absolute_path, 'data/capacity.xlsx')
+    cap = pd.read_excel(file_path, index_col = 0)
+    data = line_production.get_data()
+    nos_texas_low = 0.6 * data['Total Seats made'][1][-1]
+    nos_texas_high = 1.2 * data['Total Seats made'][1][-1]
+    nos_california_low = 0.3 * data['Total Seats made'][1][-1]
+    nos_california_high = 0.6 * data['Total Seats made'][1][-1]
+    nos_UK_low = 0.15 * data['Total Seats made'][1][-1]
+    nos_UK_high = 0.3 * data['Total Seats made'][1][-1]
+    nos_france_low = 0.45 * data['Total Seats made'][1][-1]
+    nos_france_high = 0.9 * data['Total Seats made'][1][-1]
+    cap.iloc[0, 0] = nos_texas_low
+    cap.iloc[0, 1] = nos_texas_high
+    cap.iloc[1, 0] = nos_california_low
+    cap.iloc[1, 1] = nos_california_high
+    cap.iloc[2, 0] = nos_UK_low
+    cap.iloc[2, 1] = nos_UK_high
+    cap.iloc[3, 0] = nos_france_low
+    cap.iloc[3, 1] = nos_france_high
+
+    # Save the modified DataFrame back to the Excel file
+    cap.to_excel(file_path)
+    # cap = pd.read_excel(file_path, index_col = 0)
 
     # #### Demand 
 
@@ -91,9 +116,9 @@ def run_supply_chain_optimization():
                                         
     # Solve Model
     model.solve()
-    # print("Total Costs = {:,} ($/Month)".format(int(value(model.objective))))
-    # print("---------")  
-    # print('\n' + "Status: {}".format(LpStatus[model.status]))
+    print("Total Costs = {:,} ($/Month)".format(int(utilities.value(model.objective))))
+    print("---------")  
+    print('\n' + "Status: {}".format(LpStatus[model.status]))
 
 
     # Dictionnary
@@ -290,4 +315,4 @@ def run_supply_chain_optimization():
     # sys.exit(exit_code)
 
 
-    return fig, fig2 , source, target, value, node_labels
+    return fig, fig2, value, cap
