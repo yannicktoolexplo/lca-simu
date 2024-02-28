@@ -6,6 +6,9 @@ seats_made = 0
 val1 = 0
 val2 = 0
 data1 = []
+conso_elec= []
+conso_eau = [] #m3 world equivalent
+mineral_metal_used = []  #equivalent kg antimoine
 data2 = []
 frame_data = []
 armrest_data = []
@@ -236,7 +239,10 @@ class seat_Factory:
             val2 = self.dispatch.level
             data2.append(val2) 
             val1 = seats_made + self.dispatch.level
-            data1.append(val1)  
+            data1.append(val1) 
+            conso_elec.append(val1*113.53)
+            conso_eau.append(val1*31652.52) #m3 world equivalent
+            mineral_metal_used.append(val1*0.4525)   #equivalent kg antimoine
             time.append(env.now/8)    
         
 def frame_maker(env, seat_factory):
@@ -334,6 +340,9 @@ data = {
     'Fabric Stock': (time_fabric, fabric_stock_data),
     'Paint Stock': (time_paint, paint_stock_data),
     'Total Seats made': (time, data1),
+    'Electrical Consumption': (time, conso_elec),
+    'Water Consumption': (time, conso_eau),
+    'Mineral and Metal Used': (time, mineral_metal_used),
     'Aluminium Stock': (time_aluminium, aluminium_stock_data)
 }
 
