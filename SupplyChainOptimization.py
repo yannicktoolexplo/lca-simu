@@ -219,6 +219,8 @@ def run_supply_chain_optimization():
     color=link_colors  # Use the production colors for links
     ))])
 
+
+
     distances_to_paris = {
     'Canada': 6000,   # by air
     'France': 1000,    # by road

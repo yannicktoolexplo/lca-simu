@@ -6,6 +6,9 @@ import numpy as np
 import math
 
 def plot_surface(absolute_path):
+    """
+    Crée un graphique de surface à partir d'un dataframe et de trois colonnes.
+    """
     surface_data = pd.read_csv(os.path.join(absolute_path, 'output/shaft.csv'))
     surface_data['station_id'] = pd.to_numeric(surface_data['station_id'], errors='coerce').astype('Int64')
     surface_data['surface'] = pd.to_numeric(surface_data['surface'], errors='coerce').astype(float)
@@ -79,6 +82,25 @@ def plot_co2_emissions(csv_file_path):
     for i, v in enumerate(emissions):
         plt.text(i, v + max(emissions) * 0.01, f"{v:.2f}", ha='center', va='bottom')
     
+    # Show plot
+    plt.tight_layout()
+    plt.show()
+
+def plot_bar(data_bars, modes, xlabel='X Label', ylabel='Y Label', title='Title'):
+
+    # Create a bar diagram
+    plt.figure(figsize=(10, 6))
+    plt.bar(modes, data_bars)
+
+    # Adding labels and title
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    plt.title(title)
+
+    # Display numeric labels on each bar
+    for i, v in enumerate(data_bars):
+        plt.text(i, v + max(data_bars) * 0.01, f"{v:.2f}", ha='center', va='bottom')
+
     # Show plot
     plt.tight_layout()
     plt.show()
