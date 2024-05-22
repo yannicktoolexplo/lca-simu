@@ -1,0 +1,7 @@
+
+stock flow {
+    stock[Stock] = 100;
+    flow[Inflow] = 10;
+    flow[Outflow] = 8;
+    Stock = Stock + Inflow - Outflow;
+}
