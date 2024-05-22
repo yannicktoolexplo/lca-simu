@@ -85,35 +85,6 @@ def main_function():
     arima_model_fit = arima_model.fit()
     arima_predictions = arima_model_fit.forecast(steps=num_future_points)
 
-    # grey = GreyTheory()
-    # gm11 = grey.gm11
-
-    # Recent subset of data for GM(1,1)
-    # subset_size = int(len(original_data_np) * 0.1)  # 20% of the data
-    # recent_data_subset = original_data_np[-subset_size:]
-
-    # Predicting multiple future points with GM(1,1)
-    # gm11.clean_forecasted()  # Clear previous data patterns
-    # current_data = list(recent_data_subset)
-    
-    # for value in current_data:
-    #     gm11.add_pattern(value, "a")
-
-    # gm_predictions_or = []
-    # gm11.alpha = 0.55
-
-    # for i in range(num_future_points):
-
-    #     gm11.period = i
-    #     gm11.forecast()
-    #     next_value = gm11.analyzed_results[-1].forecast_value
-    #     gm_predictions_or.append(next_value)
-    #     current_data.append(next_value)  # Append prediction for the next iteration
-    #     gm11.clean_forecasted()  # Clear for the next iteration
-
-
-    
-
     grey = GreyTheory()
     gm11 = grey.gm11
     grey_data_set = list(recent_data_subset)
