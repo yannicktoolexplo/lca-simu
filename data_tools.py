@@ -30,18 +30,6 @@ def plot_surface(absolute_path):
     plt.legend(loc='upper right')
     plt.savefig(os.path.join(absolute_path, 'output/shaft_surface.png'))
 
-def visualize_stock_levels(data, ytick_param):
-    """
-    Visualizes stock levels over time using a line chart.
-    The function takes stock level data and y-axis tick parameter as input and creates a line chart for each item.
-    """
-    fig, ax = plt.subplots()
-
-    # Plot stock levels over time for each item
-    for label, (time_vector, values) in data.items():
-        plotting_of_data(ax, time_vector, values, ytick_param, label)
-
-    plt.show()
 
 def plotting_of_data(ax, time, data_entry, ysize, label_string):
     """
