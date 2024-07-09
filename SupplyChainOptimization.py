@@ -17,6 +17,7 @@ from pulp import *
 from pulp import utilities
 import plotly.graph_objects as go
 import line_production
+import math
 import random
 random.seed(1447)
 
@@ -57,14 +58,14 @@ def run_supply_chain_optimization():
     data = line_production.get_data()
 
     # Calculate the capacity limits for each plant based on the total seats made
-    nos_texas_low = 0.6 * data['Total Seats made'][1][-1]
-    nos_texas_high = 1.2 * data['Total Seats made'][1][-1]
-    nos_california_low = 0.3 * data['Total Seats made'][1][-1]
-    nos_california_high = 0.6 * data['Total Seats made'][1][-1]
-    nos_UK_low = 0.15 * data['Total Seats made'][1][-1]
-    nos_UK_high = 0.3 * data['Total Seats made'][1][-1]
-    nos_france_low = 0.45 * data['Total Seats made'][1][-1]
-    nos_france_high = 0.9 * data['Total Seats made'][1][-1]
+    nos_texas_low = math.ceil(0.6 * data['Total Seats made'][1][-1])
+    nos_texas_high = math.ceil(1.2 * data['Total Seats made'][1][-1])
+    nos_california_low = math.ceil(0.3 * data['Total Seats made'][1][-1])
+    nos_california_high = math.ceil(0.6 * data['Total Seats made'][1][-1])
+    nos_UK_low = math.ceil(0.15 * data['Total Seats made'][1][-1])
+    nos_UK_high = math.ceil(0.3 * data['Total Seats made'][1][-1])
+    nos_france_low = math.ceil(0.45 * data['Total Seats made'][1][-1])
+    nos_france_high = math.ceil(0.9 * data['Total Seats made'][1][-1])
 
     # Update the capacity DataFrame with the calculated limits
     cap.iloc[0, 0] = nos_texas_low
@@ -213,7 +214,7 @@ def run_supply_chain_optimization():
     # Define distances to Paris for each country
     distances_to_paris = {
         'Canada': 6000,   # by air
-        'France': 1000,    # by road
+        'France': 800,    # by road
         'USA': 6000,      # by air
         'Brazil': 7000,   # by air
         'Japan': 10000    # by air

@@ -46,7 +46,7 @@ total_time = hours * days
 # Containers
 
 # Aluminium container
-aluminium_capacity = 600
+aluminium_capacity = 400
 initial_aluminium = 100
 
 # Foam container
@@ -54,7 +54,7 @@ foam_capacity = 400
 initial_foam = 100
 
 # Fabric container
-fabric_capacity = 300
+fabric_capacity = 400
 initial_fabric = 100
 
 # Paint container
@@ -140,7 +140,8 @@ class seat_Factory:
         yield env.timeout(0)
         while True:
             if self.aluminium.level <= aluminium_critial_stock:
-                # ... (existing code)
+                yield env.timeout(8)
+                yield self.aluminium.put(100)
                 yield env.timeout(8)
             else:
                 yield env.timeout(1)
@@ -155,7 +156,8 @@ class seat_Factory:
         yield env.timeout(0)
         while True:
             if self.foam.level <= foam_critical_stock:
-                # ... (existing code)
+                yield env.timeout(12)
+                yield self.foam.put(100)
                 yield env.timeout(8)
             else:
                 yield env.timeout(1)
@@ -170,7 +172,8 @@ class seat_Factory:
         yield env.timeout(0)
         while True:
             if self.fabric.level <= fabric_critical_stock:
-                # ... (existing code)
+                yield env.timeout(10)
+                yield self.fabric.put(100)
                 yield env.timeout(8)
             else:
                 yield env.timeout(1)
@@ -381,10 +384,14 @@ data = {
     'Fabric Stock': (time_fabric, fabric_stock_data),
     'Paint Stock': (time_paint, paint_stock_data),
     'Total Seats made': (time, data1),
+    'Aluminium Stock': (time_aluminium, aluminium_stock_data)
+}
+
+data_enviro = {
+
     'Electrical Consumption': (time, conso_elec),
     'Water Consumption': (time, conso_eau),
     'Mineral and Metal Used': (time, mineral_metal_used),
-    'Aluminium Stock': (time_aluminium, aluminium_stock_data)
 }
 
 def get_data():
@@ -392,3 +399,9 @@ def get_data():
     A function that returns the simulation data.
     """
     return data
+
+def get_data_enviro():
+    """
+    A function that returns the simulation data.
+    """
+    return data_enviro
