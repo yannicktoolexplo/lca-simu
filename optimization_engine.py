@@ -17,74 +17,30 @@ from pulp import *
 from pulp import utilities
 import plotly.graph_objects as go
 import line_production
+import production_engine
+import logistics_engine
 import math
 import random
 random.seed(1447)
 
-def run_supply_chain_optimization():
+def run_supply_chain_optimization(capacity_limits):
     """
     Runs the supply chain optimization using given data and constraints.
     This function reads data from multiple Excel files, processes the data, and sets up the optimization problem.
     """
     absolute_path = os.path.dirname(__file__)
 
-    # ### Plant Location
+    """Runs the supply chain optimization using given data and constraints."""
+    # Load freight costs and demand data
+    freight_costs, demand = logistics_engine.load_freight_costs_and_demands()
 
-    # #### Manufacturing variable costs
+    # Load fixed and variable costs
+    fixed_costs, var_cost = production_engine.load_fixed_and_variable_costs(freight_costs)
+    
+    
+    # Load and update capacity limits
+    cap = production_engine.load_capacity_limits(capacity_limits)
 
-    # Import Costs
-    manvar_costs = pd.read_excel(os.path.join(absolute_path, 'data/variable_costs.xlsx'), index_col=0)
-
-    # #### Freight costs
-
-    # Import Costs
-    freight_costs = pd.read_excel(os.path.join(absolute_path, 'data/freight_costs.xlsx'), index_col=0)
-
-    # #### Variable Costs
-
-    # Variable Costs
-    var_cost = freight_costs / 1000 + manvar_costs
-
-    # #### Fixed Costs
-
-    # Import Costs
-    fixed_costs = pd.read_excel(os.path.join(absolute_path, 'data/fixed_cost.xlsx'), index_col=0)
-
-    # #### Plants Capacity
-
-    # Two types of plants: Low Capacity and High Capacity Plant
-    file_path = os.path.join(absolute_path, 'data/capacity.xlsx')
-    cap = pd.read_excel(file_path, index_col=0)
-    data = line_production.get_data()
-
-    # Calculate the capacity limits for each plant based on the total seats made
-    nos_texas_low = math.ceil(0.6 * data['Total Seats made'][1][-1])
-    nos_texas_high = math.ceil(1.2 * data['Total Seats made'][1][-1])
-    nos_california_low = math.ceil(0.3 * data['Total Seats made'][1][-1])
-    nos_california_high = math.ceil(0.6 * data['Total Seats made'][1][-1])
-    nos_UK_low = math.ceil(0.15 * data['Total Seats made'][1][-1])
-    nos_UK_high = math.ceil(0.3 * data['Total Seats made'][1][-1])
-    nos_france_low = math.ceil(0.45 * data['Total Seats made'][1][-1])
-    nos_france_high = math.ceil(0.9 * data['Total Seats made'][1][-1])
-
-    # Update the capacity DataFrame with the calculated limits
-    cap.iloc[0, 0] = nos_texas_low
-    cap.iloc[0, 1] = nos_texas_high
-    cap.iloc[1, 0] = nos_california_low
-    cap.iloc[1, 1] = nos_california_high
-    cap.iloc[2, 0] = nos_UK_low
-    cap.iloc[2, 1] = nos_UK_high
-    cap.iloc[3, 0] = nos_france_low
-    cap.iloc[3, 1] = nos_france_high
-
-    # Save the modified DataFrame back to the Excel file
-    cap.to_excel(file_path)
-    # cap = pd.read_excel(file_path, index_col = 0)
-
-# #### Demand
-
-    # -- Demand
-    demand = pd.read_excel(os.path.join(absolute_path, 'data/demand.xlsx'), index_col=0)
 
     # Define Decision Variables
     loc_prod = ['Texas', 'California', 'UK', 'France']
@@ -110,6 +66,14 @@ def run_supply_chain_optimization():
     for i in loc_prod:
         model += lpSum([x[(i, j)] for j in loc_demand]) <= lpSum([cap.loc[i, s] * y[(i, s)]
                                                                  for s in size])
+        
+    # Define logical constraint: Add a logical constraint so that if the high capacity plant in USA is open, then a low capacity plant in Germany is also opened.
+    model += y[('Texas','High')] <= y[('California','Low')]
+    model += y[('California','High')] <= y[('Texas','Low')]
+    model += y[('Texas','High')] + y[('California','High')] <= y[('France','Low')]
+    model += y[('UK','High')] <= y[('France','Low')]  
+    model += y[('France','High')] <= y[('UK','Low')]  
+    model += y[('France','High')] + y[('UK','High')] <= y[('Texas','Low')]
 
     # Solve Model
     model.solve()
@@ -128,6 +92,7 @@ def run_supply_chain_optimization():
         else:
             name = v.name.replace('production__', '').replace('_', '')
             dict_prod[name] = v.varValue
+        # print(name, "=", v.varValue)
 
     # Filter to keep only non-zero flux
     non_zero_flux = {k: v for k, v in dict_prod.items() if v > 0}
@@ -160,7 +125,6 @@ def run_supply_chain_optimization():
     for s, t, v in zip(source, target, value):
         production_totals[loc_prod[s]] += v
         market_totals[loc_demand[t]] += v
-
 
 
     # Return
