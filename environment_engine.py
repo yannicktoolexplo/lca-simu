@@ -1,15 +1,10 @@
 # environment_engine.py
 
 import math
+from logistics_engine import distances
 
 # Define distances to Paris for each country
-distances_to_paris = {
-    'Canada': 6000,   # by air
-    'France': 800,    # by road
-    'USA': 6000,      # by air
-    'Brazil': 7000,   # by air
-    'Japan': 10000    # by air
-}
+
 
 # CO2 emission factors (in kg CO2 per ton-km)
 co2_factors = {
@@ -26,12 +21,21 @@ production_co2_factors = {
     'France': 2
 }
 
-def calculate_co2_emissions(country, amount):
-    mode = 'air'  # Default mode
-    if country == 'France':
+def calculate_distribution_co2_emissions(source, destination, amount):
+    """Calculate the CO2 emissions for transporting a given quantity from source to destination."""
+    # Default mode is air unless specified otherwise
+    mode = 'air'
+    
+    if source == 'France' and destination == 'France':
         mode = 'road'
+    elif source == 'France' and destination == 'UK':
+        mode = 'train'
+    elif source == 'UK' and destination == 'France':
+        mode = 'train'
+    
     # Calculate distance
-    distance = distances_to_paris.get(country, 0)
+    distance = distances.get((source, destination), 0)
+    
     # Calculate CO2 emissions
     return amount * distance * co2_factors[mode] / 1000
 
