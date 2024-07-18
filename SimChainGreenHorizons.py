@@ -7,8 +7,8 @@ import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import line_production
-from optimization_engine import run_supply_chain_optimization
-from environment_engine import calculate_co2_emissions, calculate_production_co2_emissions
+from optimization_engine import run_supply_chain_optimization, run_supply_chain_optimization_minimize_co2
+from environment_engine import calculate_distribution_co2_emissions, calculate_production_co2_emissions
 
 from data_tools import round_to_nearest_significant
 
@@ -61,8 +61,20 @@ def plot_production_co2_emissions(production_co2_totals):
     countries = list(production_co2_totals.keys())
     co2_emissions = list(production_co2_totals.values())
 
+    # Calculer les émissions globales
+    total_emissions = sum(co2_emissions)
+    countries.append('Global Total')
+    co2_emissions.append(total_emissions)
+
     fig = go.Figure(data=[go.Bar(x=countries, y=co2_emissions, marker_color='rgba(255, 0, 0, 0.6)')])
-    fig.update_layout(title_text="Production CO2 Emissions by Country", xaxis_title="Country", yaxis_title="CO2 Emissions (kg)")
+
+    # Ajouter des annotations pour afficher les totaux des émissions de CO2
+    annotations = []
+    for i, value in enumerate(co2_emissions):
+        annotations.append(dict(x=countries[i], y=value, text=f'{value:.2f} kg', showarrow=False, yshift=10))
+
+    fig.update_layout(title_text="Production CO2 Emissions by Country", xaxis_title="Country", yaxis_title="CO2 Emissions (kg)", annotations=annotations)
+
     fig.show()
 
 def calculate_capacity_limits(data):
@@ -167,7 +179,97 @@ def main_function():
         ))])
 
     # Calculer les émissions de CO2 pour le transport et la production
-    co2_emissions = [calculate_co2_emissions(loc_demand[s], value[i]) for i, s in enumerate(source)]
+    co2_emissions = [calculate_distribution_co2_emissions(loc_prod[s], loc_demand[t], value[i]) for i, (s, t) in enumerate(zip(source, target))]
+    production_co2_emissions = [calculate_production_co2_emissions(loc_prod[s], value[i]) for i, s in enumerate(source)]
+
+    production_co2_totals = {location: 0 for location in loc_prod}
+    market2_totals = {location: 0 for location in loc_demand}
+
+    # Agréger les émissions de CO2 par lieu de production et marché
+    for s, t, p, v in zip(source, target, production_co2_emissions, value):
+        production_co2_totals[loc_prod[s]] += p
+        market2_totals[loc_demand[t]] += v
+
+    node2_labels = [f"{loc_prod[i]} CO2 Emission\n({production_co2_totals[loc_prod[i]]} kg CO2)" for i in range(len(loc_prod))]
+    node2_labels += [f"{loc_demand[i]} Market\n({market2_totals[loc_demand[i]]} Units)" for i in range(len(loc_demand))]
+
+    link2_labels = [f"{c:,.2f} kg CO2" for c in co2_emissions]
+
+    # Créer et afficher le diagramme Sankey pour les émissions de CO2
+    fig_CO2 = go.Figure(data=[go.Sankey(
+        node=dict(
+            pad=15,
+            thickness=20,
+            line=dict(color="black", width=0.5),
+            label=node2_labels,
+            color=node_colors
+        ),
+        link=dict(
+            source=source,
+            target=[i + len(loc_prod) for i in target],
+            value=co2_emissions,
+            label=link2_labels,
+            color=link_colors
+        ))])
+
+    # Afficher les diagrammes Sankey
+    fig_prod.show()
+    fig_CO2.show()
+
+    # Plot des émissions de CO2 de production par pays
+    plot_production_co2_emissions(production_co2_totals)
+
+
+
+########################### CO2_opti
+
+ # Exécuter l'optimisation de la chaîne d'approvisionnement avec les limites de capacité calculées
+    source, target, value, production_totals, market_totals, loc_prod, loc_demand, cap = run_supply_chain_optimization_minimize_co2(capacity_limits)
+
+    # Préparer les étiquettes et couleurs pour le diagramme Sankey de la production
+    node_labels = [f"{loc_prod[i]} Production\n({production_totals[loc_prod[i]]} Units)" for i in range(len(loc_prod))]
+    node_labels += [f"{loc_demand[i]} Market\n({market_totals[loc_demand[i]]} Units)" for i in range(len(loc_demand))]
+    link_labels = [f"{v:,.0f} Units" for v in value]
+
+    base_colors = {
+        'Texas': 'rgba(255, 127, 14, 0.8)',
+        'California': 'rgba(255, 127, 14, 0.8)',
+        'UK': 'rgba(148, 103, 189, 0.8)',
+        'France': 'rgba(214, 39, 40, 0.8)',
+    }
+
+    target_colors = {
+        'USA': 'rgba(255, 127, 14, 0.5)',
+        'Canada': 'rgba(255, 215, 0, 0.5)',
+        'Japan': 'rgba(44, 160, 44, 0.5)',
+        'Brazil': 'rgba(31, 119, 180, 0.5)',
+        'France': 'rgba(214, 39, 40, 0.5)'
+    }
+
+    production_colors = [base_colors[place] for place in loc_prod]
+    market_colors = [target_colors[place] for place in loc_demand]
+    node_colors = production_colors + market_colors
+    link_colors = [market_colors[i] for i in target]
+
+    # Créer et afficher le diagramme Sankey pour la production
+    fig_prod = go.Figure(data=[go.Sankey(
+        node=dict(
+            pad=15,
+            thickness=20,
+            line=dict(color="black", width=0.5),
+            label=node_labels,
+            color=node_colors
+        ),
+        link=dict(
+            source=source,
+            target=[i + len(loc_prod) for i in target],
+            value=value,
+            label=link_labels,
+            color=link_colors
+        ))])
+
+    # Calculer les émissions de CO2 pour le transport et la production
+    co2_emissions = [calculate_distribution_co2_emissions(loc_prod[s], loc_demand[t], value[i]) for i, (s, t) in enumerate(zip(source, target))]
     production_co2_emissions = [calculate_production_co2_emissions(loc_prod[s], value[i]) for i, s in enumerate(source)]
 
     production_co2_totals = {location: 0 for location in loc_prod}
