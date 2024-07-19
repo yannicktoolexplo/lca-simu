@@ -106,6 +106,24 @@ def main_function():
     # Charger les données de production et environnementales
     data = line_production.get_data()
     data_enviro = line_production.get_data_enviro()
+
+    # Collectez les données depuis line_production
+    production_data = line_production.get_data()
+    enviro_data = line_production.get_data_enviro()
+
+    # Utilisez les données collectées dans le reste du script
+    seat_stock = production_data['Seat Stock']
+    frame_data = production_data['Frame Data']
+    armrest_data = production_data['Armrest Data']
+    foam_stock = production_data['Foam Stock']
+    fabric_stock = production_data['Fabric Stock']
+    paint_stock = production_data['Paint Stock']
+    total_seats_made = production_data['Total Seats made']
+    aluminium_stock = production_data['Aluminium Stock']
+
+    electrical_consumption = enviro_data['Electrical Consumption']
+    water_consumption = enviro_data['Water Consumption']
+    mineral_metal_used = enviro_data['Mineral and Metal Used']
     
     # Préparer les données de stock pour chaque composant sauf 'Total Seats made'
     stock_data = {
