@@ -3,7 +3,76 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import numpy as np
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 import math
+
+
+def plot_stock_levels(stock_data, total_seats_data):
+    """Plot stock levels using Plotly."""
+    fig = make_subplots(rows=2, cols=1, shared_xaxes=True, subplot_titles=["Stock Levels Over Time", "Total Seats Made Over Time"])
+
+    for label, (time_vector, values) in stock_data.items():
+        fig.add_trace(go.Scatter(x=time_vector, y=values, mode='lines+markers', name=label), row=1, col=1)
+
+    fig.add_trace(go.Scatter(x=total_seats_data[0], y=total_seats_data[1], mode='lines+markers', name='Total Seats made'), row=2, col=1)
+
+    fig.update_layout(height=800, title_text="Stock Levels and Total Seats Made Over Time", showlegend=True)
+    fig.update_xaxes(title_text="Time")
+    fig.update_yaxes(title_text="Stock Level", row=1, col=1)
+    fig.update_yaxes(title_text="Total Seats Made", row=2, col=1)
+
+    fig.show()
+
+
+def plot_resource_consumption(data_enviro):
+    """Plot resource consumption using Plotly."""
+    fig_conso = make_subplots(rows=3, cols=1, shared_xaxes=True, subplot_titles=("Electrical Consumption", "Water Consumption", "Mineral and Metal Used"))
+
+    fig_conso.add_trace(go.Scatter(x=data_enviro['Electrical Consumption'][0], y=data_enviro['Electrical Consumption'][1], fill='tozeroy', name='Electrical Consumption', fillcolor='rgba(0, 0, 255, 0.2)', marker={'color': 'rgba(0, 0, 255, 1)'}), row=1, col=1)
+    fig_conso.add_trace(go.Scatter(x=data_enviro['Water Consumption'][0], y=data_enviro['Water Consumption'][1], fill='tozeroy', name='Water Consumption', fillcolor='rgba(0, 255, 0, 0.2)', marker={'color': 'rgba(0, 255, 0, 1)'}), row=2, col=1)
+    fig_conso.add_trace(go.Scatter(x=data_enviro['Mineral and Metal Used'][0], y=data_enviro['Mineral and Metal Used'][1], fill='tozeroy', name='Mineral and Metal Used', fillcolor='rgba(255, 0, 0, 0.2)', marker={'color': 'rgba(255, 0, 0, 1)'}), row=3, col=1)
+
+    fig_conso.update_layout(height=900, title_text="Resource Consumption over Time", showlegend=False)
+    fig_conso.update_xaxes(title_text="Time")
+    fig_conso.update_yaxes(title_text="Consumption")
+
+    fig_conso.show()
+
+def plot_total_resource_consumption(data_enviro):
+    """Plot total resource consumption using Plotly."""
+    total_electrical = sum(data_enviro['Electrical Consumption'][1])
+    total_water = sum(data_enviro['Water Consumption'][1])
+    total_minerals = sum(data_enviro['Mineral and Metal Used'][1])
+
+    categories = ['Electrical Consumption', 'Water Consumption', 'Mineral and Metal Used']
+    totals = [total_electrical, total_water, total_minerals]
+
+    fig = go.Figure(data=[go.Bar(x=categories, y=totals, marker_color=['rgba(0, 0, 255, 0.6)', 'rgba(0, 255, 0, 0.6)', 'rgba(255, 0, 0, 0.6)'])])
+    fig.update_layout(title_text="Total Resource Consumption", xaxis_title="Resource Type", yaxis_title="Total Consumption")
+
+    fig.show()
+
+def plot_production_co2_emissions(production_co2_totals):
+    """Plot production CO2 emissions by country using Plotly."""
+    countries = list(production_co2_totals.keys())
+    co2_emissions = list(production_co2_totals.values())
+
+    # Calculer les émissions globales
+    total_emissions = sum(co2_emissions)
+    countries.append('Global Total')
+    co2_emissions.append(total_emissions)
+
+    fig = go.Figure(data=[go.Bar(x=countries, y=co2_emissions, marker_color='rgba(255, 0, 0, 0.6)')])
+
+    # Ajouter des annotations pour afficher les totaux des émissions de CO2
+    annotations = []
+    for i, value in enumerate(co2_emissions):
+        annotations.append(dict(x=countries[i], y=value, text=f'{value:.2f} kg', showarrow=False, yshift=10))
+
+    fig.update_layout(title_text="Production CO2 Emissions by Country", xaxis_title="Country", yaxis_title="CO2 Emissions (kg)", annotations=annotations)
+
+    fig.show()    
 
 def plot_surface(absolute_path):
     """
