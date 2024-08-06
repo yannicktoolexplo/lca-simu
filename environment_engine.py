@@ -21,6 +21,56 @@ production_co2_factors = {
     'France': 2
 }
 
+
+def calculate_lca_indicators(total_seats_made):
+    """
+    Calculate LCA indicators based on the number of seats made using EF 3.0 format.
+    
+    :param total_seats_made: Number of seats produced
+    :return: Dictionary with LCA indicators
+    """
+    lca_indicators = {
+        'Climate Change': total_seats_made * 50,  # kg CO2 eq
+        'Ozone Depletion': total_seats_made * 0.0005,  # kg CFC-11 eq
+        'Terrestrial Ecotoxicity': total_seats_made * 2,  # CTUe
+        'Freshwater Ecotoxicity': total_seats_made * 1.5,  # CTUe
+        'Terrestrial Acidification': total_seats_made * 0.3,  # mol H+ eq
+        'Marine Eutrophication': total_seats_made * 0.1,  # kg N eq
+        'Freshwater Eutrophication': total_seats_made * 0.05,  # kg P eq
+        'Water Use': total_seats_made * 31652.52,  # m³
+        'Fossil Fuel Depletion': total_seats_made * 2000,  # MJ
+        'Particulate Matter Formation': total_seats_made * 0.02  # kg PM2.5 eq
+    }
+    return lca_indicators
+
+def calculate_lca_indicators_pers_eq(total_seats_made):
+    """
+    Calculate LCA indicators based on the number of seats made using EF 3.0 format (pers. eq.).
+    
+    :param total_seats_made: Number of seats produced
+    :return: Dictionary with LCA indicators
+    """
+    lca_indicators = {
+        'Acidification': total_seats_made * 0.3,  # pers. eq.
+        'Climate Change': total_seats_made * 1.2,  # pers. eq.
+        'Ecotoxicity, freshwater': total_seats_made * 1.7,  # pers. eq.
+        'Eutrophication, freshwater': total_seats_made * 0.6,  # pers. eq.
+        'Eutrophication, marine': total_seats_made * 0.1,  # pers. eq.
+        'Eutrophication, terrestrial': total_seats_made * 0.1,  # pers. eq.
+        'Human toxicity, cancer': total_seats_made * 0.1,  # pers. eq.
+        'Human toxicity, non-cancer': total_seats_made * 0.2,  # pers. eq.
+        'Ionising radiation, human health': total_seats_made * 0.1,  # pers. eq.
+        'Land Use': total_seats_made * 0.0,  # pers. eq.
+        'Ozone depletion': total_seats_made * 0.0,  # pers. eq.
+        'Particulate matter': total_seats_made * 0.3,  # pers. eq.
+        'Photochemical ozone formation, human health': total_seats_made * 0.2,  # pers. eq.
+        'Resource use, fossils': total_seats_made * 0.8,  # pers. eq.
+        'Resource use, mineral and metals': total_seats_made * 12.8,  # pers. eq.
+        'Water use': total_seats_made * 5.3  # pers. eq.
+    }
+    return lca_indicators
+
+
 def calculate_distribution_co2_emissions(source, destination, amount):
     """Calculate the CO2 emissions for transporting a given quantity from source to destination."""
     # Default mode is air unless specified otherwise

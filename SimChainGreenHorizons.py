@@ -9,22 +9,35 @@ from plotly.subplots import make_subplots
 import line_production
 import production_engine
 from optimization_engine import run_supply_chain_optimization, run_supply_chain_optimization_minimize_co2
-from environment_engine import calculate_distribution_co2_emissions, calculate_production_co2_emissions
-
+import environment_engine 
 import data_tools
 
 def main_function():
     """Main function to run the analysis and plots."""
     
-    # Définir le chemin absolu du répertoire courant
-    absolute_path = os.path.dirname(__file__)
+    # Configuration personnalisée
+    custom_config = line_production.FactoryConfig(
+        hours=8,  # Par exemple, changer les heures de travail par jour à 10
+        days=21,  # Par exemple, changer le nombre de jours ouvrables à 30
+        initial_aluminium=150,  # Par exemple, changer le stock initial d'aluminium
+        initial_foam=150,  # Par exemple, changer le stock initial de mousse
+        initial_fabric=150,  # Par exemple, changer le stock initial de tissu
+        initial_paint=150  # Par exemple, changer le stock initial de peinture
+    )
 
-    # Charger les données de production et environnementales
+    # Exécution de la simulation avec la configuration personnalisée
+    seat_factory = line_production.run_simulation(custom_config)
 
     # Collectez les données depuis line_production
-    production_data = line_production.get_data()
-    enviro_data = line_production.get_data_enviro()
+    production_data = line_production.get_data(seat_factory)
+    total_seats_made = production_data['Total Seats made'][1][-1]
 
+    # Calcul des indicateurs environnementaux
+    # enviro_data = environment_engine.calculate_lca_indicators(total_seats_made)
+    enviro_data = environment_engine.calculate_lca_indicators_pers_eq(total_seats_made)
+
+    # Plot des indicateurs environnementaux
+    data_tools.plot_lca_indicators(enviro_data)
 
     # Préparer les données de stock pour chaque composant sauf 'Total Seats made'
     stock_data = {
@@ -44,10 +57,10 @@ def main_function():
     data_tools.plot_stock_levels(stock_data, total_seats_data)
     
     # Plot de la consommation des ressources
-    data_tools.plot_resource_consumption(enviro_data)
+    # data_tools.plot_resource_consumption(enviro_data)
     
     # Plot de la consommation totale des ressources
-    data_tools.plot_total_resource_consumption(enviro_data)
+    # data_tools.plot_total_resource_consumption(enviro_data)
 
     # Calculer les limites de capacité basées sur les données de production
     capacity_limits = production_engine.calculate_capacity_limits(production_data)
@@ -98,8 +111,8 @@ def main_function():
         ))])
 
     # Calculer les émissions de CO2 pour le transport et la production
-    co2_emissions = [calculate_distribution_co2_emissions(loc_prod[s], loc_demand[t], value[i]) for i, (s, t) in enumerate(zip(source, target))]
-    production_co2_emissions = [calculate_production_co2_emissions(loc_prod[s], value[i]) for i, s in enumerate(source)]
+    co2_emissions = [environment_engine.calculate_distribution_co2_emissions(loc_prod[s], loc_demand[t], value[i]) for i, (s, t) in enumerate(zip(source, target))]
+    production_co2_emissions = [environment_engine.calculate_production_co2_emissions(loc_prod[s], value[i]) for i, s in enumerate(source)]
 
     production_co2_totals = {location: 0 for location in loc_prod}
     market2_totals = {location: 0 for location in loc_demand}
@@ -188,8 +201,8 @@ def main_function():
         ))])
 
     # Calculer les émissions de CO2 pour le transport et la production
-    co2_emissions = [calculate_distribution_co2_emissions(loc_prod[s], loc_demand[t], value[i]) for i, (s, t) in enumerate(zip(source, target))]
-    production_co2_emissions = [calculate_production_co2_emissions(loc_prod[s], value[i]) for i, s in enumerate(source)]
+    co2_emissions = [environment_engine.calculate_distribution_co2_emissions(loc_prod[s], loc_demand[t], value[i]) for i, (s, t) in enumerate(zip(source, target))]
+    production_co2_emissions = [environment_engine.calculate_production_co2_emissions(loc_prod[s], value[i]) for i, s in enumerate(source)]
 
     production_co2_totals = {location: 0 for location in loc_prod}
     market2_totals = {location: 0 for location in loc_demand}
