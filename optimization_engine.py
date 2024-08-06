@@ -64,9 +64,8 @@ def run_supply_chain_optimization(capacity_limits):
     for j in loc_demand:
         model += lpSum([x[(i, j)] for i in loc_prod]) == demand.loc[j, 'Demand']
     for i in loc_prod:
-        model += lpSum([x[(i, j)] for j in loc_demand]) <= lpSum([cap.loc[i, s] * y[(i, s)]
-                                                                 for s in size])
-        
+        model += lpSum([x[(i, j)] for j in loc_demand]) <= lpSum([cap.loc[i, s] * y[(i, s)] for s in size]) +lpSum([x[(i, j)] for j in loc_demand]) >= 50 * lpSum([y[(i, s)] for s in size])
+    
     # Define logical constraint: Add a logical constraint so that if the high capacity plant in USA is open, then a low capacity plant in Germany is also opened.
     model += y[('Texas','High')] <= y[('California','Low')]
     model += y[('California','High')] <= y[('Texas','Low')]
@@ -168,7 +167,7 @@ def run_supply_chain_optimization_minimize_co2(capacity_limits):
     for j in loc_demand:
         model += lpSum([x[(i, j)] for i in loc_prod]) == demand.loc[j, 'Demand']
     for i in loc_prod:
-        model += lpSum([x[(i, j)] for j in loc_demand]) <= lpSum([cap.loc[i, s] * y[(i, s)] for s in size])
+        model += lpSum([x[(i, j)] for j in loc_demand]) <= lpSum([cap.loc[i, s] * y[(i, s)] for s in size]) +lpSum([x[(i, j)] for j in loc_demand]) >= 50 * lpSum([y[(i, s)] for s in size])
 
     # Define logical constraint: Add a logical constraint so that if the high capacity plant in USA is open, then a low capacity plant in Germany is also opened.
     model += y[('Texas','High')] <= y[('California','Low')]
@@ -177,6 +176,9 @@ def run_supply_chain_optimization_minimize_co2(capacity_limits):
     model += y[('UK','High')] <= y[('France','Low')]  
     model += y[('France','High')] <= y[('UK','Low')]  
     model += y[('France','High')] + y[('UK','High')] <= y[('Texas','Low')]
+
+    # New constraint: minimum production of 50 units per node
+
 
     # Solve Model
     model.solve()

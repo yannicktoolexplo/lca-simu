@@ -7,6 +7,29 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import math
 
+def plot_lca_indicators(lca_data):
+    """
+    Plot LCA indicators using Plotly.
+    
+    :param lca_data: Dictionary with LCA indicators
+    """
+    categories = list(lca_data.keys())
+    values = list(lca_data.values())
+
+     # Ajouter des annotations pour afficher les valeurs au-dessus de chaque barre
+    annotations = []
+    for i, value in enumerate(values):
+        annotations.append(dict(x=categories[i], y=value, text=f'{value:.2f}', showarrow=False, yshift=10))
+
+    fig = go.Figure(data=[go.Bar(x=categories, y=values, marker_color='rgba(0, 0, 255, 0.6)')])
+    fig.update_layout(
+        title_text="LCA Indicators",
+        xaxis_title="Indicator",
+        yaxis_title="Value",
+        annotations=annotations
+    )
+
+    fig.show()
 
 def plot_stock_levels(stock_data, total_seats_data):
     """Plot stock levels using Plotly."""
