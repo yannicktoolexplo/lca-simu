@@ -1,77 +1,33 @@
 import random
 import simpy
 
-class FactoryConfig:
-     def __init__(self, hours=8, days=23, initial_aluminium=100, initial_foam=100, initial_fabric=100, initial_paint=100):
-        self.hours = hours
-        self.days = days
-        self.total_time = self.hours * self.days
-
-        # Containers capacities
-        self.aluminium_capacity = 400
-        self.initial_aluminium = initial_aluminium
-        self.foam_capacity = 400
-        self.initial_foam = initial_foam
-        self.fabric_capacity = 400
-        self.initial_fabric = initial_fabric
-        self.paint_capacity = 200
-        self.initial_paint = initial_paint
-        self.dispatch_capacity = 500
-
-        # Other capacities
-        self.frame_pre_paint_capacity = 60
-        self.armrest_pre_paint_capacity = 60
-        self.frame_post_paint_capacity = 120
-        self.armrest_post_paint_capacity = 120
-
-        # Number of employees per activity
-        self.num_frame = 2
-        self.mean_frame = 1
-        self.std_frame = 0.1
-        self.num_armrest = 2
-        self.mean_armrest = 1
-        self.std_armrest = 0.2
-        self.num_paint = 2
-        self.mean_paint = 2
-        self.std_paint = 0.3
-        self.num_ensam = 5
-        self.mean_ensam = 1
-        self.std_ensam = 0.2
-
-        # Critical stock levels (based on 1 business day greater than supplier delivery time)
-        self.aluminium_critial_stock = (((8 / self.mean_frame) * self.num_frame +
-                                        (8 / self.mean_armrest) * self.num_armrest) * 1)  # 2 days to deliver + 1 margin
-        self.foam_critical_stock = (((8 / self.mean_frame) * self.num_frame +
-                                    (8 / self.mean_armrest) * self.num_armrest) * 1)  # 1 day to deliver + 1 margin
-        self.fabric_critical_stock = (((8 / self.mean_frame) * self.num_frame +
-                                      (8 / self.mean_armrest) * self.num_armrest) * 1)  # 1 day to deliver + 1 margin
-        self.paint_critical_stock = (8 / self.mean_paint) * self.num_paint  # 1 day to deliver + 1 margin
-
-# Factory Class
-class SeatFactory:
+class ProductionLine:
     def __init__(self, env, config):
         self.env = env
         self.config = config
         self.init_containers()
         self.init_controls()
         self.init_data_tracking()
+        self.start_production_processes()
 
     def init_containers(self):
-        self.aluminium = simpy.Container(self.env, capacity=self.config.aluminium_capacity, init=self.config.initial_aluminium)
-        self.foam = simpy.Container(self.env, capacity=self.config.foam_capacity, init=self.config.initial_foam)
-        self.fabric = simpy.Container(self.env, capacity=self.config.fabric_capacity, init=self.config.initial_fabric)
-        self.paint = simpy.Container(self.env, capacity=self.config.paint_capacity, init=self.config.initial_paint)
-        self.dispatch = simpy.Container(self.env, capacity=self.config.dispatch_capacity, init=2)
-        self.frame_pre_paint = simpy.Container(self.env, capacity=self.config.frame_pre_paint_capacity, init=5)
-        self.armrest_pre_paint = simpy.Container(self.env, capacity=self.config.armrest_pre_paint_capacity, init=2)
-        self.frame_post_paint = simpy.Container(self.env, capacity=self.config.frame_post_paint_capacity, init=2)
-        self.armrest_post_paint = simpy.Container(self.env, capacity=self.config.armrest_post_paint_capacity, init=2)
+        # Initialiser les containers avec les capacités et stocks initiaux configurables
+        self.aluminium = simpy.Container(self.env, capacity=self.config['aluminium_capacity'], init=self.config['initial_aluminium'])
+        self.foam = simpy.Container(self.env, capacity=self.config['foam_capacity'], init=self.config['initial_foam'])
+        self.fabric = simpy.Container(self.env, capacity=self.config['fabric_capacity'], init=self.config['initial_fabric'])
+        self.paint = simpy.Container(self.env, capacity=self.config['paint_capacity'], init=self.config['initial_paint'])
+        self.dispatch = simpy.Container(self.env, capacity=self.config['dispatch_capacity'], init=2)
+        self.frame_pre_paint = simpy.Container(self.env, capacity=self.config['frame_pre_paint_capacity'], init=5)
+        self.armrest_pre_paint = simpy.Container(self.env, capacity=self.config['armrest_pre_paint_capacity'], init=2)
+        self.frame_post_paint = simpy.Container(self.env, capacity=self.config['frame_post_paint_capacity'], init=2)
+        self.armrest_post_paint = simpy.Container(self.env, capacity=self.config['armrest_post_paint_capacity'], init=2)
 
     def init_controls(self):
-        self.env.process(self.stock_control(self.aluminium, self.config.aluminium_critial_stock, 100, 8, 'aluminium'))
-        self.env.process(self.stock_control(self.foam, self.config.foam_critical_stock, 100, 12, 'foam'))
-        self.env.process(self.stock_control(self.fabric, self.config.fabric_critical_stock, 100, 10, 'fabric'))
-        self.env.process(self.stock_control(self.paint, self.config.paint_critical_stock, 50, 9, 'paint'))
+        # Contrôle des stocks
+        self.env.process(self.stock_control(self.aluminium, self.config['aluminium_critial_stock'], 100, 8, 'aluminium'))
+        self.env.process(self.stock_control(self.foam, self.config['foam_critical_stock'], 100, 12, 'foam'))
+        self.env.process(self.stock_control(self.fabric, self.config['fabric_critical_stock'], 100, 10, 'fabric'))
+        self.env.process(self.stock_control(self.paint, self.config['paint_critical_stock'], 50, 9, 'paint'))
         self.env.process(self.dispatch_seats_control())
 
     def init_data_tracking(self):
@@ -94,6 +50,58 @@ class SeatFactory:
         self.time_fabric = []
         self.time_paint = []
         self.time = []
+
+    def start_production_processes(self):
+        # Démarrer les processus de fabrication
+        self.env.process(self.process_generator(self.env, self.config['num_frame'], self.frame_maker))
+        self.env.process(self.process_generator(self.env, self.config['num_armrest'], self.armrest_maker))
+        self.env.process(self.process_generator(self.env, self.config['num_paint'], self.painter))
+        self.env.process(self.process_generator(self.env, self.config['num_ensam'], self.assembler))
+
+    def process_generator(self, env, num, process_func):
+        for _ in range(num):
+            env.process(process_func(env))
+            yield env.timeout(0)
+
+    def frame_maker(self, env):
+        while True:
+            yield self.aluminium.get(1)
+            yield self.foam.get(1)
+            yield self.fabric.get(1)
+            frame_time = random.gauss(self.config['mean_frame'], self.config['std_frame'])
+            yield env.timeout(frame_time)
+            yield self.frame_pre_paint.put(1)
+            self.frame_data.append(self.frame_pre_paint.level)
+            self.time_frame.append(env.now / 8)  # Update frame time vector
+
+    def armrest_maker(self, env):
+        while True:
+            yield self.aluminium.get(0.1)
+            yield self.foam.get(0.1)
+            yield self.fabric.get(0.1)
+            armrest_time = random.gauss(self.config['mean_armrest'], self.config['std_armrest'])
+            yield env.timeout(armrest_time)
+            yield self.armrest_pre_paint.put(2)
+            self.armrest_data.append(self.armrest_pre_paint.level)
+            self.time_armrest.append(env.now / 8)  # Update armrest time vector
+
+    def painter(self, env):
+        while True:
+            yield self.paint.get(1)
+            yield self.frame_pre_paint.get(2)
+            yield self.armrest_pre_paint.get(4)
+            paint_time = random.gauss(self.config['mean_paint'], self.config['std_paint'])
+            yield env.timeout(paint_time)
+            yield self.frame_post_paint.put(2)
+            yield self.armrest_post_paint.put(4)
+
+    def assembler(self, env):
+        while True:
+            yield self.frame_post_paint.get(1)
+            yield self.armrest_post_paint.get(2)
+            assembling_time = max(random.gauss(self.config['mean_ensam'], self.config['std_ensam']), 1)
+            yield env.timeout(assembling_time)
+            yield self.dispatch.put(1)
 
     def stock_control(self, container, critical_level, refill_amount, delivery_time, name):
         while True:
@@ -133,86 +141,36 @@ class SeatFactory:
             self.seats_made_data.append(self.seats_made + self.dispatch.level)
             self.time.append(self.env.now / 8)
 
-def process_generator(env, seat_factory, num, process_func):
-    for _ in range(num):
-        env.process(process_func(env, seat_factory))
-        yield env.timeout(0)
+    def get_data(self):
+        return {
+            'Seat Stock': (self.time, self.seat_stock_data),
+            'Frame Data': (self.time_frame, self.frame_data),
+            'Armrest Data': (self.time_armrest, self.armrest_data),
+            'Foam Stock': (self.time_foam, self.foam_stock_data),
+            'Fabric Stock': (self.time_fabric, self.fabric_stock_data),
+            'Paint Stock': (self.time_paint, self.paint_stock_data),
+            'Total Seats made': (self.time, self.seats_made_data),
+            'Aluminium Stock': (self.time_aluminium, self.aluminium_stock_data)
+        }
 
-def frame_maker(env, seat_factory):
-    while True:
-        yield seat_factory.aluminium.get(1)
-        yield seat_factory.foam.get(1)
-        yield seat_factory.fabric.get(1)
-        frame_time = random.gauss(seat_factory.config.mean_frame, seat_factory.config.std_frame)
-        yield env.timeout(frame_time)
-        yield seat_factory.frame_pre_paint.put(1)
-        seat_factory.frame_data.append(seat_factory.frame_pre_paint.level)
-        seat_factory.time_frame.append(env.now / 8)  # Update frame time vector
+    def get_data_enviro(self):
+        return {
+            'Electrical Consumption': (self.time, self.conso_elec),
+            'Water Consumption': (self.time, self.conso_eau),
+            'Mineral and Metal Used': (self.time, self.mineral_metal_used),
+        }
 
-def armrest_maker(env, seat_factory):
-    while True:
-        yield seat_factory.aluminium.get(0.1)
-        yield seat_factory.foam.get(0.1)
-        yield seat_factory.fabric.get(0.1)
-        armrest_time = random.gauss(seat_factory.config.mean_armrest, seat_factory.config.std_armrest)
-        yield env.timeout(armrest_time)
-        yield seat_factory.armrest_pre_paint.put(2)
-        seat_factory.armrest_data.append(seat_factory.armrest_pre_paint.level)
-        seat_factory.time_armrest.append(env.now / 8)  # Update armrest time vector
-
-def painter(env, seat_factory):
-    while True:
-        yield seat_factory.paint.get(1)
-        yield seat_factory.frame_pre_paint.get(2)
-        yield seat_factory.armrest_pre_paint.get(4)
-        paint_time = random.gauss(seat_factory.config.mean_paint, seat_factory.config.std_paint)
-        yield env.timeout(paint_time)
-        yield seat_factory.frame_post_paint.put(2)
-        yield seat_factory.armrest_post_paint.put(4)
-
-def assembler(env, seat_factory):
-    while True:
-        yield seat_factory.frame_post_paint.get(1)
-        yield seat_factory.armrest_post_paint.get(2)
-        assembling_time = max(random.gauss(seat_factory.config.mean_ensam, seat_factory.config.std_ensam), 1)
-        yield env.timeout(assembling_time)
-        yield seat_factory.dispatch.put(1)
-
-def run_simulation(config):
+def run_simulation(lines_config):
     env = simpy.Environment()
-    seat_factory = SeatFactory(env, config)
+    production_lines = []
 
-    env.process(process_generator(env, seat_factory, config.num_frame, frame_maker))
-    env.process(process_generator(env, seat_factory, config.num_armrest, armrest_maker))
-    env.process(process_generator(env, seat_factory, config.num_paint, painter))
-    env.process(process_generator(env, seat_factory, config.num_ensam, assembler))
+    for config in lines_config:
+        line = ProductionLine(env, config)
+        production_lines.append(line)
 
-    env.run(until=config.total_time)
+    env.run(until=max(config['total_time'] for config in lines_config))
 
-    print(f'Total seats made: {seat_factory.seats_made + seat_factory.dispatch.level}')
-    return seat_factory
+    all_production_data = [line.get_data() for line in production_lines]
+    all_enviro_data = [line.get_data_enviro() for line in production_lines]
 
-# Data collection functions
-def get_data(seat_factory):
-    return {
-        'Seat Stock': (seat_factory.time, seat_factory.seat_stock_data),
-        'Frame Data': (seat_factory.time_frame, seat_factory.frame_data),
-        'Armrest Data': (seat_factory.time_armrest, seat_factory.armrest_data),
-        'Foam Stock': (seat_factory.time_foam, seat_factory.foam_stock_data),
-        'Fabric Stock': (seat_factory.time_fabric, seat_factory.fabric_stock_data),
-        'Paint Stock': (seat_factory.time_paint, seat_factory.paint_stock_data),
-        'Total Seats made': (seat_factory.time, seat_factory.seats_made_data),
-        'Aluminium Stock': (seat_factory.time_aluminium, seat_factory.aluminium_stock_data)
-    }
-
-def get_data_enviro(seat_factory):
-    return {
-        'Electrical Consumption': (seat_factory.time, seat_factory.conso_elec),
-        'Water Consumption': (seat_factory.time, seat_factory.conso_eau),
-        'Mineral and Metal Used': (seat_factory.time, seat_factory.mineral_metal_used),
-    }
-
-# Main execution
-if __name__ == "__main__":
-    config = FactoryConfig()
-    seat_factory = run_simulation(config)
+    return all_production_data, all_enviro_data
