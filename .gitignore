@@ -1,0 +1,68 @@
+# Fichiers vscode :
+.vscode
+
+
+# Fichiers générés par PyCharm
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# Fichiers de sauvegarde et d'historique
+*.bak
+*.swp
+*~
+
+# Fichiers de configuration de l'environnement virtuel Python
+venv/
+env/
+ENV/
+
+# Fichiers de dépendances Python
+lib/
+libs/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Fichiers de sortie et de construction
+build/
+dist/
+*.egg-info/
+*.pyc
+*.pyo
+*.pyd
+
+# Fichiers d'environnement spécifiques
+.env
+
+# Fichiers de cache
+__pycache__/
+
+# Fichiers de documentation générés
+docs/_build/
+
+# Fichiers de configuration spécifiques à l'utilisateur
+*.ini
+*.iml
+*.xml
+
+# Fichiers de journalisation
+*.log
+logs/
+
+# Fichiers d'authentification et de clés
+*.key
+*.pem
+*.p12
+
+# Fichiers pour les migrations de la base de données
+migrations/
+
+# Fichiers output
+data_output
+
+# openai env
+.env
+
+#les logs, Roberta
+lightning_logs/
