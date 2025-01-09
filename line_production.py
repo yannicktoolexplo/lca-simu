@@ -153,6 +153,7 @@ class ProductionLine:
             'Aluminium Stock': (self.time_aluminium, self.aluminium_stock_data)
         }
 
+
     def get_data_enviro(self):
         return {
             'Electrical Consumption': (self.time, self.conso_elec),

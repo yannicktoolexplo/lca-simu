@@ -5,6 +5,7 @@ import pandas as pd
 API_KEY = "0f9b43b457facd531052c888f5e9cd50"
 BASE_URL = "https://api.stlouisfed.org/fred"
 
+
 def get_category_series(category_id):
     """
     Récupère les séries d'une catégorie FRED donnée.
