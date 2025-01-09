@@ -155,3 +155,18 @@ def calculate_distribution_co2_emissions(source, destination, amount):
 def calculate_production_co2_emissions(country, amount):
     co2_factor = production_co2_factors.get(country, 0)
     return amount * co2_factor
+
+
+def calculate_supply_co2_supply_emissions(distance, quantity, co2_per_km_ton=0.02):
+    """
+    Calcule les coûts et les émissions liés au transport.
+    
+    :param distance: Distance parcourue (en km)
+    :param quantity: Quantité transportée (en tonnes)
+    :param cost_per_km_ton: Coût par km par tonne
+    :param co2_per_km_ton: Émissions de CO2 par km par tonne
+    :return: Dictionnaire contenant le coût et les émissions
+    """
+
+    emissions = distance * quantity * co2_per_km_ton
+    return  emissions

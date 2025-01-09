@@ -19,6 +19,8 @@ import plotly.graph_objects as go
 import line_production.production_engine as production_engine
 import distribution.distribution_engine as distribution_engine
 import environment.environment_engine as environment_engine
+from environment.environment_engine import calculate_supply_co2_supply_emissions
+from supply.supply_engine import get_supply_cost
 import math
 import random
 random.seed(1447)
@@ -228,3 +230,33 @@ def run_supply_chain_optimization_minimize_co2(capacity_limits):
 
     # Return
     return source, target, value, production_totals, market_totals, loc_prod, loc_demand, cap
+
+def select_best_supplier(material, quantity, site_location, suppliers):
+    """
+    Sélectionne le fournisseur optimal pour un matériau donné en fonction des coûts et des émissions.
+
+    :param material: Type de matériau (ex. 'aluminium', 'fabric', 'polymers')
+    :param quantity: Quantité en tonnes
+    :param site_location: Localisation du site (ex. 'Texas')
+    :param suppliers: Liste des fournisseurs pour le matériau
+    :return: Dictionnaire avec le fournisseur choisi, les coûts et les émissions
+    """
+    material_suppliers = suppliers[material]
+
+
+    best_supplier = None
+    min_cost = float('inf')
+    total_emissions = 0
+    cost_per_km_ton = get_supply_cost()
+
+    for supplier in material_suppliers:
+        distance = supplier['distance_to_sites'][site_location]
+        cost = quantity * distance * cost_per_km_ton
+        emissions = calculate_supply_co2_supply_emissions(distance, quantity)
+
+        if cost < min_cost:  # Trouver le fournisseur le plus économique
+            min_cost = cost
+            total_emissions = emissions
+            best_supplier = supplier['name']
+
+    return {'supplier': best_supplier, 'cost': min_cost, 'emissions': total_emissions}
