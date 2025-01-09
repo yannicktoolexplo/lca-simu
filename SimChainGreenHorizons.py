@@ -14,12 +14,9 @@ import environment.environment_engine as environment_engine
 import utils.data_tools as data_tools
 from line_production.line_production_settings import lines_config
 from supply.supply_settings import suppliers
-from supply.supply_engine import calculate_best_supply_chain
+from optimization.optimization_engine import select_best_supplier
 
 def main_function():
-
-    
-
 
     # Exécution de la simulation pour plusieurs lignes de production
     all_production_data, all_enviro_data = line_production.run_simulation(lines_config)
@@ -58,9 +55,9 @@ def main_function():
         polymer_quantity = 3 * total_seats_made / 1000
 
         # Calculs logistiques
-        alu_supply = calculate_best_supply_chain('aluminium', alu_quantity, location, suppliers)
-        fabric_supply = calculate_best_supply_chain('fabric', fabric_quantity, location, suppliers)
-        polymer_supply = calculate_best_supply_chain('polymers', polymer_quantity, location, suppliers)
+        alu_supply = select_best_supplier('aluminium', alu_quantity, location, suppliers)
+        fabric_supply = select_best_supplier('fabric', fabric_quantity, location, suppliers)
+        polymer_supply = select_best_supplier('polymers', polymer_quantity, location, suppliers)
 
         # Résumer les résultats
         print(f"Fournisseur aluminium: {alu_supply['supplier']}, Coût: {alu_supply['cost']:.2f} €, CO₂: {alu_supply['emissions']:.2f} kg")
