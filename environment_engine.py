@@ -6,6 +6,7 @@ from logistics_engine import distances
 # Define distances to Paris for each country
 
 
+
 # CO2 emission factors (in kg CO2 per ton-km)
 co2_factors = {
     'road': 0.096,
