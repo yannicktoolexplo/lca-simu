@@ -56,6 +56,7 @@ def plot_lca_combined_indicators(production_lca, usage_lca, title="Combined LCA 
     ))
 
 
+
     # Usage bar with annotations, stacked on top of production
     fig.add_trace(go.Bar(
         name='Usage',

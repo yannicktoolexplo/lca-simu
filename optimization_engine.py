@@ -61,6 +61,8 @@ def run_supply_chain_optimization(capacity_limits):
               + lpSum([var_cost.loc[i, j] * x[(i, j)] for i in loc_prod for j in loc_demand]))
 
 
+
+
     # Add Constraints
     for j in loc_demand:
         model += lpSum([x[(i, j)] for i in loc_prod]) == demand.loc[j, 'Demand']
