@@ -154,6 +154,7 @@ class ProductionLine:
         }
 
 
+
     def get_data_enviro(self):
         return {
             'Electrical Consumption': (self.time, self.conso_elec),

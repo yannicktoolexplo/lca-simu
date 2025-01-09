@@ -24,6 +24,7 @@ def calculate_capacity_limits(data):
     return capacity_limits
 
 
+
 def load_fixed_and_variable_costs(freight_costs):
     """Load fixed and variable costs from Excel files."""
     absolute_path = os.path.dirname(__file__)

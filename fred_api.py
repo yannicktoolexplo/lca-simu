@@ -7,6 +7,7 @@ BASE_URL = "https://api.stlouisfed.org/fred"
 
 
 def get_category_series(category_id):
+    
     """
     Récupère les séries d'une catégorie FRED donnée.
     

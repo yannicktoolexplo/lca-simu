@@ -7,6 +7,7 @@ from logistics_engine import distances
 
 
 
+
 # CO2 emission factors (in kg CO2 per ton-km)
 co2_factors = {
     'road': 0.096,

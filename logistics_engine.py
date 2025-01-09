@@ -47,6 +47,7 @@ def load_freight_costs_and_demands():
     return freight_costs, demand
 
 
+
 def calculate_best_supply_chain(material, quantity, site_location, suppliers):
     """
     Calcule le fournisseur optimal en fonction du coût et des émissions pour un matériau donné.
