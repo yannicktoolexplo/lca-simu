@@ -7,7 +7,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import math
 
-def plot_lca_indicators(lca_data):
+def plot_lca_indicators(lca_data,title="LCA Indicators", color='rgba(0, 0, 255, 0.6)'):
     """
     Plot LCA indicators using Plotly.
     
@@ -21,15 +21,59 @@ def plot_lca_indicators(lca_data):
     for i, value in enumerate(values):
         annotations.append(dict(x=categories[i], y=value, text=f'{value:.2f}', showarrow=False, yshift=10))
 
-    fig = go.Figure(data=[go.Bar(x=categories, y=values, marker_color='rgba(0, 0, 255, 0.6)')])
+    fig = go.Figure(data=[go.Bar(x=categories, y=values, marker_color=color)])
     fig.update_layout(
-        title_text="LCA Indicators",
+        title_text=title,
         xaxis_title="Indicator",
         yaxis_title="Value",
         annotations=annotations
     )
 
     fig.show()
+
+def plot_lca_combined_indicators(production_lca, usage_lca, title="Combined LCA Indicators"):
+    """
+    Plot combined LCA indicators showing both production and usage phases stacked.
+    
+    :param production_lca: Dictionary with production LCA indicators
+    :param usage_lca: Dictionary with usage LCA indicators
+    :param title: Title for the plot
+    """
+    categories = list(production_lca.keys())
+    production_values = list(production_lca.values())
+    usage_values = list(usage_lca.values())
+
+    fig = go.Figure()
+
+    # Production bar with annotations
+    fig.add_trace(go.Bar(
+        name='Production',
+        x=categories,
+        y=production_values,
+        marker_color='rgba(0, 0, 255, 0.6)',
+        text=[f'{v:.2f}' for v in production_values],  # Annotation text
+        textposition='inside'  # Position annotations inside bars
+    ))
+
+    # Usage bar with annotations, stacked on top of production
+    fig.add_trace(go.Bar(
+        name='Usage',
+        x=categories,
+        y=usage_values,
+        marker_color='rgba(255, 223, 0, 0.6)',
+        text=[f'{v:.2f}' for v in usage_values],  # Annotation text
+        textposition='inside'  # Position annotations inside bars
+    ))
+
+    fig.update_layout(
+        title_text=title,
+        xaxis_title="Indicator",
+        yaxis_title="Value",
+        barmode='stack',  # Stack bars on top of each other
+        showlegend=True
+    )
+
+    fig.show() 
 
 def plot_stock_levels(stock_data, total_seats_data):
     """Plot stock levels using Plotly."""
