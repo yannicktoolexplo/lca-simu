@@ -3,175 +3,23 @@ import math
 import copy
 
 
-
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-import line_production
-import logistics_engine
-import production_engine
-from optimization_engine import run_supply_chain_optimization, run_supply_chain_optimization_minimize_co2
-import environment_engine 
-import data_tools
+import line_production.line_production as line_production
+import distribution.distribution_engine as distribution_engine
+from optimization.optimization_engine import run_supply_chain_optimization, run_supply_chain_optimization_minimize_co2
+import environment.environment_engine as environment_engine 
+import utils.data_tools as data_tools
+from line_production.line_production_settings import lines_config
+from supply.supply_settings import suppliers
+from supply.supply_engine import calculate_best_supply_chain
 
 def main_function():
 
-    # Configuration de plusieurs lignes de production
-    lines_config = [
-        {   'location': 'Texas',  # Location added
-            'hours': 8,
-            'days': 30,
-            'total_time': 240,  # En heures
-            'aluminium_capacity': 500,
-            'initial_aluminium': 200,
-            'foam_capacity': 450,
-            'initial_foam': 180,
-            'fabric_capacity': 500,
-            'initial_fabric': 180,
-            'paint_capacity': 250,
-            'initial_paint': 180,
-            'dispatch_capacity': 600,
-            'frame_pre_paint_capacity': 80,
-            'armrest_pre_paint_capacity': 80,
-            'frame_post_paint_capacity': 140,
-            'armrest_post_paint_capacity': 140,
-            'aluminium_critial_stock': 60,
-            'foam_critical_stock': 60,
-            'fabric_critical_stock': 60,
-            'paint_critical_stock': 30,
-            'num_frame': 3,
-            'mean_frame': 0.9,
-            'std_frame': 0.15,
-            'num_armrest': 3,
-            'mean_armrest': 0.9,
-            'std_armrest': 0.15,
-            'num_paint': 3,
-            'mean_paint': 1.8,
-            'std_paint': 0.25,
-            'num_ensam': 6,
-            'mean_ensam': 1,
-            'std_ensam': 0.25
-        },
-        {   'location': 'California',
-            'hours': 8,
-            'days': 21,
-            'total_time': 168,  # En heures
-            'aluminium_capacity': 400,
-            'initial_aluminium': 150,
-            'foam_capacity': 400,
-            'initial_foam': 150,
-            'fabric_capacity': 400,
-            'initial_fabric': 150,
-            'paint_capacity': 200,
-            'initial_paint': 150,
-            'dispatch_capacity': 500,
-            'frame_pre_paint_capacity': 60,
-            'armrest_pre_paint_capacity': 60,
-            'frame_post_paint_capacity': 120,
-            'armrest_post_paint_capacity': 120,
-            'aluminium_critial_stock': 50,
-            'foam_critical_stock': 50,
-            'fabric_critical_stock': 50,
-            'paint_critical_stock': 20,
-            'num_frame': 2,
-            'mean_frame': 1,
-            'std_frame': 0.1,
-            'num_armrest': 2,
-            'mean_armrest': 1,
-            'std_armrest': 0.2,
-            'num_paint': 2,
-            'mean_paint': 2,
-            'std_paint': 0.3,
-            'num_ensam': 5,
-            'mean_ensam': 1,
-            'std_ensam': 0.2
-        },
-        {   'location': 'France',
-            'hours': 8,
-            'days': 21,
-            'total_time': 168,  # En heures
-            'aluminium_capacity': 400,
-            'initial_aluminium': 150,
-            'foam_capacity': 400,
-            'initial_foam': 150,
-            'fabric_capacity': 400,
-            'initial_fabric': 150,
-            'paint_capacity': 200,
-            'initial_paint': 150,
-            'dispatch_capacity': 500,
-            'frame_pre_paint_capacity': 60,
-            'armrest_pre_paint_capacity': 60,
-            'frame_post_paint_capacity': 120,
-            'armrest_post_paint_capacity': 120,
-            'aluminium_critial_stock': 50,
-            'foam_critical_stock': 50,
-            'fabric_critical_stock': 50,
-            'paint_critical_stock': 20,
-            'num_frame': 2,
-            'mean_frame': 1,
-            'std_frame': 0.1,
-            'num_armrest': 2,
-            'mean_armrest': 1,
-            'std_armrest': 0.2,
-            'num_paint': 2,
-            'mean_paint': 2,
-            'std_paint': 0.3,
-            'num_ensam': 5,
-            'mean_ensam': 1,
-            'std_ensam': 0.2
-        },
-        {   'location': 'UK',
-            'hours': 8,
-            'days': 21,
-            'total_time': 168,  # En heures
-            'aluminium_capacity': 400,
-            'initial_aluminium': 150,
-            'foam_capacity': 400,
-            'initial_foam': 150,
-            'fabric_capacity': 400,
-            'initial_fabric': 150,
-            'paint_capacity': 200,
-            'initial_paint': 150,
-            'dispatch_capacity': 500,
-            'frame_pre_paint_capacity': 60,
-            'armrest_pre_paint_capacity': 60,
-            'frame_post_paint_capacity': 120,
-            'armrest_post_paint_capacity': 120,
-            'aluminium_critial_stock': 50,
-            'foam_critical_stock': 50,
-            'fabric_critical_stock': 50,
-            'paint_critical_stock': 20,
-            'num_frame': 2,
-            'mean_frame': 1,
-            'std_frame': 0.1,
-            'num_armrest': 2,
-            'mean_armrest': 1,
-            'std_armrest': 0.2,
-            'num_paint': 2,
-            'mean_paint': 2,
-            'std_paint': 0.3,
-            'num_ensam': 5,
-            'mean_ensam': 1,
-            'std_ensam': 0.2
-        }
-    ]
+    
 
-    suppliers = {
-    'aluminium': [
-        {'name': 'Constellium', 'location': 'France', 'distance_to_sites': {'Texas': 8000, 'California': 8200, 'France': 200, 'UK': 500}},
-        {'name': 'Arconic', 'location': 'USA', 'distance_to_sites': {'Texas': 2000, 'California': 3000, 'France': 8500, 'UK': 9000}},
-        {'name': 'Norsk Hydro', 'location': 'Norway', 'distance_to_sites': {'Texas': 7500, 'California': 8000, 'France': 1500, 'UK': 1200}}
-    ],
-    'fabric': [
-        {'name': 'Toray Industries', 'location': 'Japan', 'distance_to_sites': {'Texas': 11000, 'California': 10500, 'France': 9400, 'UK': 9100}},
-        {'name': 'Hexcel', 'location': 'USA', 'distance_to_sites': {'Texas': 1000, 'California': 2500, 'France': 8500, 'UK': 8700}}
-    ],
-    'polymers': [
-        {'name': 'Sabic', 'location': 'Saudi Arabia', 'distance_to_sites': {'Texas': 13000, 'California': 12500, 'France': 4500, 'UK': 4200}},
-        {'name': 'BASF', 'location': 'Germany', 'distance_to_sites': {'Texas': 9500, 'California': 9800, 'France': 300, 'UK': 600}}
-    ]
-    }
 
     # Exécution de la simulation pour plusieurs lignes de production
     all_production_data, all_enviro_data = line_production.run_simulation(lines_config)
@@ -210,9 +58,9 @@ def main_function():
         polymer_quantity = 3 * total_seats_made / 1000
 
         # Calculs logistiques
-        alu_supply = logistics_engine.calculate_best_supply_chain('aluminium', alu_quantity, location, suppliers)
-        fabric_supply = logistics_engine.calculate_best_supply_chain('fabric', fabric_quantity, location, suppliers)
-        polymer_supply = logistics_engine.calculate_best_supply_chain('polymers', polymer_quantity, location, suppliers)
+        alu_supply = calculate_best_supply_chain('aluminium', alu_quantity, location, suppliers)
+        fabric_supply = calculate_best_supply_chain('fabric', fabric_quantity, location, suppliers)
+        polymer_supply = calculate_best_supply_chain('polymers', polymer_quantity, location, suppliers)
 
         # Résumer les résultats
         print(f"Fournisseur aluminium: {alu_supply['supplier']}, Coût: {alu_supply['cost']:.2f} €, CO₂: {alu_supply['emissions']:.2f} kg")
