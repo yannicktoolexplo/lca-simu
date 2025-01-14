@@ -24,14 +24,14 @@ distances = {
     ('UK', 'Canada'): 5200,
     ('UK', 'Japan'): 9600,
     ('UK', 'Brazil'): 9400,
-    ('UK', 'France'): 800,  # by road
+    ('UK', 'France'): 800,  
     
     # France to demand locations
     ('France', 'USA'): 7600,
     ('France', 'Canada'): 6000,
     ('France', 'Japan'): 9700,
     ('France', 'Brazil'): 8900,
-    ('France', 'France'): 200  # local production
+    ('France', 'France'): 200  
 }
 
 def load_freight_costs_and_demands():
