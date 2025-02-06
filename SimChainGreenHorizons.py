@@ -1,457 +1,302 @@
 import os
 import math
 import copy
-
-
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import line_production.line_production as line_production
+import economic.cost_engine as cost_engine
 import distribution.distribution_engine as distribution_engine
 from optimization.optimization_engine import run_supply_chain_optimization, run_supply_chain_optimization_minimize_co2
-import environment.environment_engine as environment_engine 
+import environment.environment_engine as environment_engine
 import utils.data_tools as data_tools
 from line_production.line_production_settings import lines_config
-from line_production.production_engine import calculate_capacity_limits
+from line_production.production_engine import calculate_capacity_limits, load_capacity_limits, run_simple_supply_allocation
 from supply.supply_settings import suppliers
+import supply.supply_engine as supply_engine
 from optimization.optimization_engine import select_best_supplier
 
 def main_function():
 
     # Exécution de la simulation pour plusieurs lignes de production
     all_production_data, all_enviro_data = line_production.run_simulation(lines_config)
+    max_production = {}
+    capacity_limits = {}
+    cap = {}
+
 
     # Traiter les données de chaque ligne indépendamment ou les agréger
     for i, (production_data, enviro_data) in enumerate(zip(all_production_data, all_enviro_data)):
-        print(f"Ligne de production {i+1} :")
+    
+        location = lines_config[i]['location']
+        total_seats_made = production_data['Total Seats made'][1][-1]  # Dernier total produit
+        max_production[location] = total_seats_made
+
+        print(f"Max Ligne de production {i+1} ({location}): {total_seats_made} sièges produits.")
+
+
+
+    # data_tools.display_all_lca_indicators(all_production_data, all_enviro_data, lines_config)
+    # data_tools.display_all_stock_variations(all_production_data, lines_config)
+
+
+
+    # Calculer les capacités dynamiquement
+    capacity_limits = load_capacity_limits(max_production)
+
+
+    freight_cost, demand = distribution_engine.load_freight_costs_and_demands()
+
+
+    
+
+
+    # Appel de la fonction
+    source, target, value, production_totals, market_totals, loc_prod, loc_demand, cap = run_simple_supply_allocation(capacity_limits, demand)
+    allocation = supply_engine.simple_supply_allocation(production_totals)
+
+
+    # 5️⃣ **Vérification de l’approvisionnement et des fournisseurs sélectionnés**
+    print("\n📦 **Fournisseurs sélectionnés pour chaque site de production :**")
+    for location in production_totals.keys():
+        supply_details = supply_engine.manage_fixed_supply(location)
+        print(f"📍 {location}:")
+        for material, details in supply_details.items():
+            print(f"  - {material.capitalize()} : {details['supplier']} (délai {details['delivery_time']} jours)")
+    
+
+    # Affichage des résultats
+    # print("Capacités dynamiques calculées :", capacity_limits)
+    # print("Supply Allocation:",allocation)
+    # print("Production Totals:", production_totals)
+    # print("Market Totals:", market_totals)
+    # print("Capacités:", cap)
+
+    # 6️⃣ **Vérification de l’équilibre production vs demande**
+    total_production = sum(production_totals.values())
+    total_demand = sum(market_totals.values())
+
+    print("\n📊 **Résumé de l’allocation :**")
+    print(f"🔹 Production totale : {total_production}")
+    print(f"🔹 Demande totale : {total_demand}")
+    if total_production >= total_demand:
+        print("✅ L’offre est suffisante pour répondre à la demande.")
+    else:
+        print("⚠️ L’offre est insuffisante pour couvrir la demande !")
+
+    # 7️⃣ **Calcul des coûts**
+    cost_results = cost_engine.calculate_total_costs(
+        source, target, value, production_totals, market_totals, loc_prod, loc_demand, cap
+    )
+
+    print("\n💰 **Coûts par pays :**")
+    for country, cost in cost_results['country_costs'].items():
+        print(f"  {country}: {cost:.2f} €")
+
+    print(f"\n💰 **Coût total :** {cost_results['total_cost']:.2f} €")
+
+    # 8️⃣ **Calcul des indicateurs environnementaux**
+    production_co2_totals = {}
+    transport_co2_totals = []
+
+    for i, source_index in enumerate(source):
+        source_location = loc_prod[source_index]
+        dest_location = loc_demand[target[i]]
+        seats_sent = value[i]  # 🔹 Nombre de sièges envoyés à ce pays
+
+        print(f"🔎 Vérification : Source = {source_location}, Destination = {dest_location}, Sièges envoyés : {seats_sent}")
+        
+        # Utiliser directement l’indicateur "Climate Change" du LCA Production basé sur les sièges envoyés
+        lca_indicators = environment_engine.calculate_lca_production_IFE_raw(seats_sent)
+        production_co2 = lca_indicators["Climate Change"]
+
+        # 🔹 Ajouter les émissions LCA pour ce flux spécifique
+        if dest_location not in production_co2_totals:
+            production_co2_totals[dest_location] = 0  # Initialiser si besoin
+        production_co2_totals[dest_location] += production_co2
+
+        print(f"🔍 Vérification des émissions LCA pour {source_location} → {dest_location}:")
+        print(f"➡ Sièges envoyés : {seats_sent}")
+        print(f"➡ Valeur LCA Climate Change : {production_co2:.2f} kg CO₂")
+
+        # Calcul des émissions liées au transport
+        transport_co2 = environment_engine.calculate_distribution_co2_emissions(source_location, dest_location, seats_sent)
+        transport_co2_totals.append(transport_co2)
+
+    total_co2 = sum(production_co2_totals.values()) + sum(transport_co2_totals)
+
+    # 📊 **Affichage des nouvelles émissions LCA**
+    print("\n🌱 **Émissions de CO₂ par pays (Production) :**")
+    for country, emissions in production_co2_totals.items():
+        print(f"  {country}: {emissions:.2f} kg CO₂")
+
+    print("\n🚛 **Émissions de CO₂ liées au transport :**")
+    print(f"🔹 Total : {sum(transport_co2_totals):.2f} kg CO₂")
+
+
+    print("\n🚛 **Vérification des flux de transport et des distances utilisées :**")
+    for i, source_index in enumerate(source):
+        source_location = loc_prod[source_index]
+        dest_location = loc_demand[target[i]]
+        distance_used = distribution_engine.distances.get((source_location, dest_location), "Non trouvé")
+
+        print(f"📍 {source_location} → {dest_location} | Distance utilisée : {distance_used} km | CO₂ : {transport_co2_totals[i]:.2f} kg")
+
+
+    print(f"\n🌍 **Émissions de CO₂ totales :** {total_co2:.2f} kg CO₂")
+
+    # 9️⃣ **Visualisation des résultats**
+    print("\n📈 **Affichage des résultats :**")
+
+    #Affichage des données de production
+
+    # 🔹 Création d'un seul graphique avec deux subplots (Sankey + Bar Chart)
+    fig = make_subplots(
+        rows=2, cols=1, 
+        subplot_titles=[
+            "Flux de production et de distribution (Sankey)", 
+            "Coûts de production par pays"
+        ],
+        specs=[[{"type": "domain"}], [{"type": "xy"}]],  # 🔹 Définir Sankey en "domain" et Bar Chart en "xy"
+        vertical_spacing=0.15  # 🔹 Réduction de l'espacement pour une meilleure répartition
+    )
+
+    # Graphique 1️⃣ : Diagramme de Sankey
+    sankey_figure = data_tools.plot_production_sankey(
+        source, target, value, production_totals, market_totals, loc_prod, loc_demand, return_figure=True
+    )
+
+    # Ajouter le diagramme de Sankey au subplot (avec type domain)
+    fig.add_trace(
+        go.Sankey(
+            node=sankey_figure.data[0].node,  # Récupérer les noeuds du Sankey
+            link=sankey_figure.data[0].link   # Récupérer les liens du Sankey
+        ),
+        row=1, col=1
+    )
+
+    # Graphique 2️⃣ : Coûts de production par pays
+    fig.add_trace(go.Bar(
+        x=list(cost_results['country_costs'].keys()),
+        y=list(cost_results['country_costs'].values()),
+        text=[f"{v:.2f} €" for v in cost_results['country_costs'].values()],
+        textposition='outside',
+        marker_color='green'
+    ), row=2, col=1)
+
+    # Mise à jour de la mise en page
+    fig.update_layout(
+        title="Analyse des flux de production et des coûts",
+        height=900,  # 🔹 Ajustement de la hauteur totale
+        showlegend=False
+    )
+
+    # Ajustement des titres des axes
+    fig.update_xaxes(title_text="Pays producteur", row=2, col=1)
+    fig.update_yaxes(title_text="Coût de production (€)", row=2, col=1)
+
+    # Affichage du graphique combiné
+    fig.show()
+
+
+
+    # 🔹 Données pour les graphiques
+    production_co2_per_producer = {}  # Total par pays de production
+    production_co2_per_requester = {}  # Répartition par pays demandeur
+
+    for i, source_index in enumerate(source):
+        source_location = loc_prod[source_index]
+        dest_location = loc_demand[target[i]]
+        seats_sent = value[i]  # 🔹 Nombre de sièges envoyés
+        production_co2 = production_co2_totals[dest_location]  # Déjà calculé
+
+        # 🔹 Agréger les émissions par pays producteur
+        if source_location not in production_co2_per_producer:
+            production_co2_per_producer[source_location] = 0
+        production_co2_per_producer[source_location] += production_co2
+
+        # 🔹 Répartition des émissions de production par pays demandeur
+        if dest_location not in production_co2_per_requester:
+            production_co2_per_requester[dest_location] = 0
+        production_co2_per_requester[dest_location] += production_co2
+
+    # 🔹 Création d'un seul graphique avec deux subplots
+    fig = make_subplots(
+        rows=2, cols=1, 
+        subplot_titles=[
+            "Total des émissions de production par pays producteur", 
+            "Répartition des émissions de production par pays demandeur"
+        ],
+        vertical_spacing=0.2  # Espacement entre les deux graphiques
+    )
+
+    # Graphique 1️⃣ : Total des émissions de production par pays producteur
+    fig.add_trace(go.Bar(
+        x=list(production_co2_per_producer.keys()),
+        y=list(production_co2_per_producer.values()),
+        text=[f"{v:.2f}" for v in production_co2_per_producer.values()],
+        textposition='outside',
+        marker_color='blue'
+    ), row=1, col=1)
+
+    # Graphique 2️⃣ : Répartition des émissions de production par pays demandeur
+    fig.add_trace(go.Bar(
+        x=list(production_co2_per_requester.keys()),
+        y=list(production_co2_per_requester.values()),
+        text=[f"{v:.2f}" for v in production_co2_per_requester.values()],
+        textposition='outside',
+        marker_color='orange'
+    ), row=2, col=1)
+
+    # Mise à jour de la mise en page
+    fig.update_layout(
+        title="Analyse des émissions de production et de leur répartition",
+        height=800,  # Ajustement de la hauteur pour tout afficher
+        showlegend=False
+    )
+
+    # Ajustement des titres des axes
+    fig.update_xaxes(title_text="Pays producteur", row=1, col=1)
+    fig.update_yaxes(title_text="Émissions CO₂ (kg CO₂)", row=1, col=1)
+
+    fig.update_xaxes(title_text="Pays demandeur", row=2, col=1)
+    fig.update_yaxes(title_text="Émissions CO₂ (kg CO₂)", row=2, col=1)
+
+    # Affichage du graphique
+    fig.show()
+
+
+    # 🔍 10️⃣ Filtrer uniquement les lignes de production actives APRES allocation
+    active_production_data = []
+    active_enviro_data = []
+    active_lines_config = []
+
+    for i, production_data in enumerate(all_production_data):
+        location = lines_config[i]['location']
         total_seats_made = production_data['Total Seats made'][1][-1]
 
-        # Calcul des indicateurs pour la phase de production
-        production_lca = environment_engine.calculate_lca_indicators_pers_eq(total_seats_made)
-        
-        # Calcul des indicateurs pour la phase d'utilisation
-        usage_lca = environment_engine.calculate_lca_indicators_usage_phase(total_seats_made, seat_weight=120)
-        
-        # # Affichage des indicateurs environnementaux pour la production (en bleu par défaut)
-        # data_tools.plot_lca_indicators(production_lca, title=f"Ligne {i+1} - Production LCA Indicators")
+        # 🔥 Si la ligne a effectivement produit, on la garde
+        if location in production_totals and production_totals[location] > 0:
+            active_production_data.append(production_data)
+            active_enviro_data.append(all_enviro_data[i])
+            active_lines_config.append(lines_config[i])
 
-        # # Affichage des indicateurs environnementaux pour l'utilisation (en jaune)
-        # data_tools.plot_lca_indicators(usage_lca, title=f"Ligne {i+1} - Usage LCA Indicators", color='rgba(255, 223, 0, 0.6)')
+    # 🔥 Vérification finale
+    print("\n🔍 **Lignes de production actives après allocation :**")
+    for line in active_lines_config:
+        print(f"✅ {line['location']} - Production : {production_totals[line['location']]} sièges")
 
-        # Affichage des indicateurs environnementaux combinés (production + utilisation)
-        data_tools.plot_lca_combined_indicators(production_lca, usage_lca, title=f"Ligne {i+1} - Combined LCA Indicators")
-        
-        # Plot des niveaux de stock et du total des sièges produits
-        data_tools.plot_stock_levels(production_data, production_data['Total Seats made'])
+    # 📈 Affichage des indicateurs environnementaux uniquement pour les lignes actives
+    if active_production_data:
+        print(f"📊 Affichage des indicateurs environnementaux pour {len(active_production_data)} ligne(s) active(s).")
+        data_tools.display_all_lca_indicators(active_production_data, active_enviro_data, active_lines_config,production_totals)
 
 
-    for i, (production_data, enviro_data) in enumerate(zip(all_production_data, all_enviro_data)):
-        location = lines_config[i]['location']
-        print(f"Ligne de production {i+1} - Location: {location}")
-        
-        # Quantités en tonnes
-        alu_quantity = 5 * total_seats_made / 1000
-        fabric_quantity = 2 * total_seats_made / 1000
-        polymer_quantity = 3 * total_seats_made / 1000
+    else:
+        print("\n⚠️ Aucune ligne de production active, pas d'affichage des indicateurs environnementaux.")
 
-        # Calculs logistiques
-        alu_supply = select_best_supplier('aluminium', alu_quantity, location, suppliers)
-        fabric_supply = select_best_supplier('fabric', fabric_quantity, location, suppliers)
-        polymer_supply = select_best_supplier('polymers', polymer_quantity, location, suppliers)
 
-        # Résumer les résultats
-        print(f"Fournisseur aluminium: {alu_supply['supplier']}, Coût: {alu_supply['cost']:.2f} €, CO₂: {alu_supply['emissions']:.2f} kg")
-        print(f"Fournisseur tissu: {fabric_supply['supplier']}, Coût: {fabric_supply['cost']:.2f} €, CO₂: {fabric_supply['emissions']:.2f} kg")
-        print(f"Fournisseur polymères: {polymer_supply['supplier']}, Coût: {polymer_supply['cost']:.2f} €, CO₂: {polymer_supply['emissions']:.2f} kg")
-
-
-#     """Main function to run the analysis and plots."""
-    
-    # Configuration personnalisée
-    # custom_config = line_production.line_production.FactoryConfig(
-    #     hours=8,  # Par exemple, changer les heures de travail par jour à 10
-    #     days=21,  # Par exemple, changer le nombre de jours ouvrables à 30
-    #     initial_aluminium=150,  # Par exemple, changer le stock initial d'aluminium
-    #     initial_foam=150,  # Par exemple, changer le stock initial de mousse
-    #     initial_fabric=150,  # Par exemple, changer le stock initial de tissu
-    #     initial_paint=150  # Par exemple, changer le stock initial de peinture
-    # )
-
-    # Exécution de la simulation avec la configuration personnalisée
-    # seat_factory = line_production.line_production.run_simulation(custom_config)
-
-    # Collectez les données depuis line_production
-    # production_data = line_production.get_data(seat_factory)
-#     total_seats_made = production_data['Total Seats made'][1][-1]
-
-#     # Calcul des indicateurs environnementaux
-#     # enviro_data = environment_engine.calculate_lca_indicators(total_seats_made)
-#     enviro_data = environment_engine.calculate_lca_indicators_pers_eq(total_seats_made)
-
-#     # Plot des indicateurs environnementaux
-#     data_tools.plot_lca_indicators(enviro_data)
-
-#     # Préparer les données de stock pour chaque composant sauf 'Total Seats made'
-#     stock_data = {
-#         'Seat Stock': production_data['Seat Stock'],
-#         'Frame Data': production_data['Frame Data'],
-#         'Armrest Data': production_data['Armrest Data'],
-#         'Foam Stock': production_data['Foam Stock'],
-#         'Fabric Stock': production_data['Fabric Stock'],
-#         'Paint Stock': production_data['Paint Stock'],
-#         'Aluminium Stock': production_data['Aluminium Stock']
-#     }
-
-    # Préparer les données pour 'Total Seats made'
-    # total_seats_data = production_data['Total Seats made']
-    
-#     # Plot des niveaux de stock et du total des sièges produits
-#     data_tools.plot_stock_levels(stock_data, total_seats_data)
-    
-#     # Plot de la consommation des ressources
-#     # data_tools.plot_resource_consumption(enviro_data)
-    
-#     # Plot de la consommation totale des ressources
-#     # data_tools.plot_total_resource_consumption(enviro_data)
-
-    # # Calculer les limites de capacité basées sur les données de production
-    # capacity_limits = calculate_capacity_limits(production_data)
-
-    # # Exécuter l'optimisation de la chaîne d'approvisionnement avec les limites de capacité calculées
-    # source, target, value, production_totals, market_totals, loc_prod, loc_demand, cap = run_supply_chain_optimization(capacity_limits)
-    # print(source)
-    # print(target)
-    # print(value)
-    # print(production_totals)
-    # print(market_totals)
-    # print(loc_prod)
-    # print(loc_demand)
-    # print(cap)
-#     # Préparer les étiquettes et couleurs pour le diagramme Sankey de la production
-#     node_labels = [f"{loc_prod[i]} Production\n({production_totals[loc_prod[i]]} Units)" for i in range(len(loc_prod))]
-#     node_labels += [f"{loc_demand[i]} Market\n({market_totals[loc_demand[i]]} Units)" for i in range(len(loc_demand))]
-#     link_labels = [f"{v:,.0f} Units" for v in value]
-
-#     base_colors = {
-#         'Texas': 'rgba(255, 127, 14, 0.8)',
-#         'California': 'rgba(255, 127, 14, 0.8)',
-#         'UK': 'rgba(148, 103, 189, 0.8)',
-#         'France': 'rgba(214, 39, 40, 0.8)',
-#     }
-
-#     target_colors = {
-#         'USA': 'rgba(255, 127, 14, 0.5)',
-#         'Canada': 'rgba(255, 215, 0, 0.5)',
-#         'Japan': 'rgba(44, 160, 44, 0.5)',
-#         'Brazil': 'rgba(31, 119, 180, 0.5)',
-#         'France': 'rgba(214, 39, 40, 0.5)'
-#     }
-
-#     production_colors = [base_colors[place] for place in loc_prod]
-#     market_colors = [target_colors[place] for place in loc_demand]
-#     node_colors = production_colors + market_colors
-#     link_colors = [market_colors[i] for i in target]
-
-#     # Créer et afficher le diagramme Sankey pour la production
-#     fig_prod = go.Figure(data=[go.Sankey(
-#         node=dict(
-#             pad=15,
-#             thickness=20,
-#             line=dict(color="black", width=0.5),
-#             label=node_labels,
-#             color=node_colors
-#         ),
-#         link=dict(
-#             source=source,
-#             target=[i + len(loc_prod) for i in target],
-#             value=value,
-#             label=link_labels,
-#             color=link_colors
-#         ))])
-
-# # Calculer les émissions de CO2 pour le transport et la production
-#     co2_emissions = [environment_engine.calculate_distribution_co2_emissions(loc_prod[s], loc_demand[t], value[i]) for i, (s, t) in enumerate(zip(source, target))]
-#     production_co2_emissions = [environment_engine.calculate_production_co2_emissions(loc_prod[s], value[i]) for i, s in enumerate(source)]
-
-#     def calculate_total_co2_emissions(loc_prod, source, co2_emissions,production_co2_emissions):
-
-#         total_emissions = {location: 0.0 for location in loc_prod}
-
-#         for i, source_index in enumerate(source):
-#                 location = loc_prod[source_index]
-#                 # Add distribution CO2 emissions
-#                 total_emissions[location] += co2_emissions[i]
-#                 # Add production CO2 emissions
-#                 total_emissions[location] += production_co2_emissions[source_index]
-
-#         return total_emissions
-    
-#     production_totals_emissions = calculate_total_co2_emissions(loc_prod, source, co2_emissions, production_co2_emissions)
-#     print(production_totals_emissions)
-
-#     def calculate_total_costs(source, target, value, production_totals, market_totals, loc_prod, loc_demand, cap):
-#         """
-#         Calculate production costs for each country and total costs based on capacity, fixed costs,
-#         and variable costs.
-
-#         :param source: List of source indices corresponding to emissions.
-#         :param target: List of target indices corresponding to emissions.
-#         :param value: List of quantities transported between source and target.
-#         :param production_totals: List of total production quantities per source.
-#         :param market_totals: Dictionary with market demand totals per region (e.g., {'USA': 176.0, 'France': 308.0}).
-#         :param loc_prod: List of production locations (e.g., ['Texas', 'California', 'UK', 'France']).
-#         :param loc_demand: List of demand locations (e.g., ['USA', 'Canada', 'Japan', 'Brazil', 'France']).
-#         :param cap: Dictionary with production capacities (keys are locations, values are {'Low': x, 'High': y}).
-#         :return: Dictionary with production distribution, costs per country, and the total cost.
-#         """
-#         # Initialize results
-#         production_distribution = {location: 0 for location in loc_prod}
-#         total_costs = {location: 0.0 for location in loc_prod}
-
-#         # Distribute market demand to production countries
-#         for market, demand in market_totals.items():
-#             # Sort by capacity to prioritize higher capacity locations
-#             sorted_capacity = sorted(cap.items(), key=lambda x: x[1]['High'], reverse=True)
-#             remaining_demand = demand
-
-#             for country, capacities in sorted_capacity:
-#                 if country not in loc_prod:
-#                     continue
-
-#                 low_cap = capacities['Low']
-#                 high_cap = capacities['High']
-
-#                 # Determine how much of the demand can be fulfilled by this country
-#                 allocated = min(remaining_demand, high_cap)
-#                 production_distribution[country] += allocated
-#                 remaining_demand -= allocated
-
-#                 # Break if demand is fully allocated
-#                 if remaining_demand <= 0:
-#                     break
-
-#         # Calculate costs for each country
-#         for i, source_index in enumerate(source):
-#             location = loc_prod[source_index]
-#             low_cap = cap[location]['Low']
-#             high_cap = cap[location]['High']
-
-#             # Determine if low or high capacity applies
-#             capacity_type = 'Low' if production_totals[source_index] <= low_cap else 'High'
-
-#             # Example fixed and variable costs (replace these with actual values as needed)
-#             fixed_cost = 1000 if capacity_type == 'Low' else 2000  # Replace with actual fixed costs
-#             variable_cost = 10  # Replace with actual variable costs per unit
-
-#             # Calculate total cost for the country
-#             total_costs[location] += fixed_cost + (variable_cost * production_totals[source_index])
-
-#         # Calculate total cost across all countries
-#         total_cost = sum(total_costs.values())
-
-#         return {
-#             'production_distribution': production_distribution,
-#             'country_costs': total_costs,
-#             'total_cost': total_cost
-#         }
-
-#     def plot_costs(country_costs, total_cost):
-#         """
-#         Plot the costs per producing country and the total cost using Plotly.
-
-#         :param country_costs: Dictionary with costs per country.
-#         :param total_cost: Total cost across all countries.
-#         """
-#         countries = list(country_costs.keys())
-#         costs = list(country_costs.values())
-
-#         # Create the bar chart
-#         fig = go.Figure()
-
-#         # Add bars for each country
-#         fig.add_trace(go.Bar(
-#             x=countries,
-#             y=costs,
-#             text=[f'{cost:.2f}' for cost in costs],
-#             textposition='auto',
-#             name='Country Costs'
-#         ))
-
-#         # Add a bar for the total cost
-#         fig.add_trace(go.Bar(
-#             x=['Total'],
-#             y=[total_cost],
-#             text=[f'{total_cost:.2f}'],
-#             textposition='auto',
-#             name='Total Cost',
-#             marker=dict(color='red')
-#         ))
-
-#         # Update layout
-#         fig.update_layout(
-#             title='Production Costs per Country and Total',
-#             xaxis_title='Producing Country',
-#             yaxis_title='Cost (€)',
-#             barmode='group',
-#             legend_title='Legend'
-#         )
-
-#         # Show the plot
-#         fig.show()
-
-
-#     # Example Usage
-#     source = [1, 3, 0, 0, 2]
-#     target = [1, 3, 4, 0, 2]
-#     value = [99.0, 187.0, 308.0, 176.0, 159.5]
-#     production_totals = [484.0, 99, 159.5, 187]
-#     market_totals = {'USA': 176.0, 'Canada': 99.0, 'Japan': 159.5, 'Brazil': 187.0, 'France': 308.0}
-#     loc_prod = ['Texas', 'California', 'UK', 'France']
-#     loc_demand = ['USA', 'Canada', 'Japan', 'Brazil', 'France']
-#     cap = {
-#         'Texas': {'Low': 252, 'High': 503},
-#         'California': {'Low': 126, 'High': 252},
-#         'UK': {'Low': 63, 'High': 126},
-#         'France': {'Low': 189, 'High': 378}
-#     }
-
-#     result = calculate_total_costs(source, target, value, production_totals, market_totals, loc_prod, loc_demand, cap)
-
-#     # Display results
-#     print("Production Distribution:", result['production_distribution'])
-#     print("Country Costs:", result['country_costs'])
-#     print("Total Cost:", result['total_cost'])
-
-#     # Plot the costs
-#     plot_costs(result['country_costs'], result['total_cost'])
-
-
-#     market2_totals = {location: 0 for location in loc_demand}
-
-#     # Agréger les émissions de CO2 par lieu de production et marché
-#     for s, t, p, v in zip(source, target, production_co2_emissions, value):
-#         production_co2_totals[loc_prod[s]] += p
-#         market2_totals[loc_demand[t]] += v
-
-#     node2_labels = [f"{loc_prod[i]} CO2 Emission\n({production_co2_totals[loc_prod[i]]} kg CO2)" for i in range(len(loc_prod))]
-#     node2_labels += [f"{loc_demand[i]} Market\n({market2_totals[loc_demand[i]]} Units)" for i in range(len(loc_demand))]
-
-#     link2_labels = [f"{c:,.2f} kg CO2" for c in co2_emissions]
-
-#     # Créer et afficher le diagramme Sankey pour les émissions de CO2
-#     fig_CO2 = go.Figure(data=[go.Sankey(
-#         node=dict(
-#             pad=15,
-#             thickness=20,
-#             line=dict(color="black", width=0.5),
-#             label=node2_labels,
-#             color=node_colors
-#         ),
-#         link=dict(
-#             source=source,
-#             target=[i + len(loc_prod) for i in target],
-#             value=co2_emissions,
-#             label=link2_labels,
-#             color=link_colors
-#         ))])
-
-#     # Afficher les diagrammes Sankey
-#     fig_prod.show()
-#     fig_CO2.show()
-
-    # # Plot des émissions de CO2 de production par pays
-    # data_tools.plot_production_co2_emissions(production_totals_emissions)
-
-
-
-# ########################### CO2_opti
-
-#  # Exécuter l'optimisation de la chaîne d'approvisionnement avec les limites de capacité calculées
-#     source, target, value, production_totals, market_totals, loc_prod, loc_demand, cap = run_supply_chain_optimization_minimize_co2(capacity_limits)
-
-#     # Préparer les étiquettes et couleurs pour le diagramme Sankey de la production
-#     node_labels = [f"{loc_prod[i]} Production\n({production_totals[loc_prod[i]]} Units)" for i in range(len(loc_prod))]
-#     node_labels += [f"{loc_demand[i]} Market\n({market_totals[loc_demand[i]]} Units)" for i in range(len(loc_demand))]
-#     link_labels = [f"{v:,.0f} Units" for v in value]
-
-#     base_colors = {
-#         'Texas': 'rgba(255, 127, 14, 0.8)',
-#         'California': 'rgba(255, 127, 14, 0.8)',
-#         'UK': 'rgba(148, 103, 189, 0.8)',
-#         'France': 'rgba(214, 39, 40, 0.8)',
-#     }
-
-#     target_colors = {
-#         'USA': 'rgba(255, 127, 14, 0.5)',
-#         'Canada': 'rgba(255, 215, 0, 0.5)',
-#         'Japan': 'rgba(44, 160, 44, 0.5)',
-#         'Brazil': 'rgba(31, 119, 180, 0.5)',
-#         'France': 'rgba(214, 39, 40, 0.5)'
-#     }
-
-#     production_colors = [base_colors[place] for place in loc_prod]
-#     market_colors = [target_colors[place] for place in loc_demand]
-#     node_colors = production_colors + market_colors
-#     link_colors = [market_colors[i] for i in target]
-
-#     # Créer et afficher le diagramme Sankey pour la production
-#     fig_prod = go.Figure(data=[go.Sankey(
-#         node=dict(
-#             pad=15,
-#             thickness=20,
-#             line=dict(color="black", width=0.5),
-#             label=node_labels,
-#             color=node_colors
-#         ),
-#         link=dict(
-#             source=source,
-#             target=[i + len(loc_prod) for i in target],
-#             value=value,
-#             label=link_labels,
-#             color=link_colors
-#         ))])
-
-#     # Calculer les émissions de CO2 pour le transport et la production
-#     co2_emissions = [environment_engine.calculate_distribution_co2_emissions(loc_prod[s], loc_demand[t], value[i]) for i, (s, t) in enumerate(zip(source, target))]
-#     production_co2_emissions = [environment_engine.calculate_production_co2_emissions(loc_prod[s], value[i]) for i, s in enumerate(source)]
-
-#     production_co2_totals = {location: 0 for location in loc_prod}
-#     market2_totals = {location: 0 for location in loc_demand}
-
-#     # Agréger les émissions de CO2 par lieu de production et marché
-#     for s, t, p, v in zip(source, target, production_co2_emissions, value):
-#         production_co2_totals[loc_prod[s]] += p
-#         market2_totals[loc_demand[t]] += v
-
-#     node2_labels = [f"{loc_prod[i]} CO2 Emission\n({production_co2_totals[loc_prod[i]]} kg CO2)" for i in range(len(loc_prod))]
-#     node2_labels += [f"{loc_demand[i]} Market\n({market2_totals[loc_demand[i]]} Units)" for i in range(len(loc_demand))]
-
-#     link2_labels = [f"{c:,.2f} kg CO2" for c in co2_emissions]
-
-#     # Créer et afficher le diagramme Sankey pour les émissions de CO2
-#     fig_CO2 = go.Figure(data=[go.Sankey(
-#         node=dict(
-#             pad=15,
-#             thickness=20,
-#             line=dict(color="black", width=0.5),
-#             label=node2_labels,
-#             color=node_colors
-#         ),
-#         link=dict(
-#             source=source,
-#             target=[i + len(loc_prod) for i in target],
-#             value=co2_emissions,
-#             label=link2_labels,
-#             color=link_colors
-#         ))])
-
-#     # Afficher les diagrammes Sankey
-#     fig_prod.show()
-#     fig_CO2.show()
-
-#     # Plot des émissions de CO2 de production par pays
-#     data_tools.plot_production_co2_emissions(production_co2_totals)
 
 if __name__ == '__main__':
     main_function()

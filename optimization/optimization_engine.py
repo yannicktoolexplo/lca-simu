@@ -20,7 +20,7 @@ import line_production.production_engine as production_engine
 import distribution.distribution_engine as distribution_engine
 import environment.environment_engine as environment_engine
 from environment.environment_engine import calculate_supply_co2_supply_emissions
-from supply.supply_engine import get_supply_cost
+from economic.cost_engine import get_supply_cost
 import math
 import random
 random.seed(1447)
@@ -247,11 +247,10 @@ def select_best_supplier(material, quantity, site_location, suppliers):
     best_supplier = None
     min_cost = float('inf')
     total_emissions = 0
-    cost_per_km_ton = get_supply_cost()
 
     for supplier in material_suppliers:
         distance = supplier['distance_to_sites'][site_location]
-        cost = quantity * distance * cost_per_km_ton
+        cost = get_supply_cost(quantity, distance)
         emissions = calculate_supply_co2_supply_emissions(distance, quantity)
 
         if cost < min_cost:  # Trouver le fournisseur le plus économique

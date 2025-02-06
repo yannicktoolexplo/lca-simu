@@ -3,6 +3,7 @@
 import os
 import math
 import pandas as pd
+import copy
 
 def calculate_capacity_limits(data):
     """Calculate the capacity limits for each plant based on the total seats made."""
@@ -35,17 +36,106 @@ def load_fixed_and_variable_costs(freight_costs):
     
     return fixed_costs, variable_costs
 
-def load_capacity_limits(capacity_limits):
-    """Load and update capacity limits."""
-    absolute_path = os.path.dirname(__file__)
-    cap = pd.read_excel(os.path.join(absolute_path, 'data/capacity.xlsx'), index_col=0)
+# def load_capacity_limits(capacity_limits):
+#     """Load and update capacity limits."""
+#     absolute_path = os.path.dirname(__file__)
+#     cap = pd.read_excel(os.path.join(absolute_path, 'data/capacity.xlsx'), index_col=0)
     
-    # Update the capacity DataFrame with the calculated limits
-    for location, (low, high) in capacity_limits.items():
-        cap.loc[location, 'Low'] = low
-        cap.loc[location, 'High'] = high
+#     # Update the capacity DataFrame with the calculated limits
+#     for location, (low, high) in capacity_limits.items():
+#         cap.loc[location, 'Low'] = low
+#         cap.loc[location, 'High'] = high
 
-    # Save the modified DataFrame back to the Excel file
-    cap.to_excel(os.path.join(absolute_path, 'data/capacity.xlsx'))
+#     # Save the modified DataFrame back to the Excel file
+#     cap.to_excel(os.path.join(absolute_path, 'data/capacity.xlsx'))
     
-    return cap
+#     return cap
+
+def load_capacity_limits(production_totals):
+    """
+    Charge les limites de capacité en fonction des totaux de production simulés pour chaque ligne.
+
+    :param production_totals: Liste des totaux de production pour chaque ligne.
+    :return: Dictionnaire des limites de capacité par localisation.
+    """
+    capacity_l = {}
+
+    for location, total_production in production_totals.items():
+        capacity_l[location] = {
+            'Low': total_production / 2,  # La moitié du total de production comme capacité basse
+            'High': total_production      # Total de production comme capacité haute
+        }
+
+    return capacity_l
+
+
+def run_simple_supply_allocation(capacity_limits, demand):
+    """
+    Réalise une allocation simple de la production en priorisant :
+    - France puis UK pour la demande française
+    - UK puis France pour la demande britannique
+    - Texas puis California pour la demande américaine
+    """
+
+    # Faire une copie profonde des capacités pour éviter les modifications accidentelles
+    original_capacity_limits = copy.deepcopy(capacity_limits)
+
+    # Si `demand` est un DataFrame, convertir correctement
+    if isinstance(demand, pd.DataFrame):
+        if 'Demand' in demand.columns:
+            demand = demand['Demand'].to_dict()
+        else:
+            raise ValueError("Le DataFrame `demand` doit contenir une colonne nommée 'Demand'.")
+
+    loc_prod = list(capacity_limits.keys())  # Sites de production
+    loc_demand = list(demand.keys())  # Marchés de consommation
+
+    # Initialisation des allocations
+    allocation = {prod: {market: 0 for market in loc_demand} for prod in loc_prod}
+    production_totals = {prod: 0 for prod in loc_prod}
+    market_totals = {market: 0 for market in loc_demand}
+
+    # Réinitialisation des capacités
+    capacity_limits = copy.deepcopy(original_capacity_limits)
+
+    # 🔹 Allocation avec priorité locale optimisée
+    for market, qty in demand.items():
+        remaining_qty = int(qty)
+
+        # Définir l'ordre de priorité des sites de production
+        if market == "France":
+            priority_sites = ["France", "UK", "Texas", "California"]  # France > UK > USA
+        elif market == "UK":
+            priority_sites = ["UK", "France", "Texas", "California"]  # UK > France > USA
+        else:
+            priority_sites = ["France", "UK", "California", "Texas"]  # Europe > USA
+
+        for prod_site in priority_sites:
+            available_capacity = int(capacity_limits[prod_site]['High'])
+
+            if available_capacity > 0:
+                allocated = min(remaining_qty, available_capacity)
+                allocation[prod_site][market] += allocated
+                capacity_limits[prod_site]['High'] -= allocated
+                production_totals[prod_site] += allocated
+                market_totals[market] += allocated
+                remaining_qty -= allocated
+
+                print(f"✅ {allocated} sièges alloués de {prod_site} vers {market}")
+
+            if remaining_qty <= 0:
+                break  # Toute la demande a été couverte, on passe au marché suivant
+
+    # Conversion en source, target, value
+    source, target, value = [], [], []
+    for prod, markets in allocation.items():
+        for market, qty in markets.items():
+            if qty > 0:
+                source.append(loc_prod.index(prod))
+                target.append(loc_demand.index(market))
+                value.append(qty)
+
+    # Restaurer les capacités à l'état d'origine pour vérification
+    capacity_limits = original_capacity_limits
+
+    return source, target, value, production_totals, market_totals, loc_prod, loc_demand, capacity_limits

@@ -1,5 +1,6 @@
 import random
 import simpy
+from supply.supply_engine import manage_fixed_supply
 
 class ProductionLine:
     def __init__(self, env, config):
@@ -24,10 +25,11 @@ class ProductionLine:
 
     def init_controls(self):
         # Contrôle des stocks
-        self.env.process(self.stock_control(self.aluminium, self.config['aluminium_critial_stock'], 100, 8, 'aluminium'))
-        self.env.process(self.stock_control(self.foam, self.config['foam_critical_stock'], 100, 12, 'foam'))
-        self.env.process(self.stock_control(self.fabric, self.config['fabric_critical_stock'], 100, 10, 'fabric'))
-        self.env.process(self.stock_control(self.paint, self.config['paint_critical_stock'], 50, 9, 'paint'))
+        supply = manage_fixed_supply(self.config['location'])
+        self.env.process(self.stock_control(self.aluminium, self.config['aluminium_critial_stock'],  supply['aluminium']['quantity'],  supply['aluminium']['delivery_time'], 'aluminium'))
+        self.env.process(self.stock_control(self.foam, self.config['foam_critical_stock'], supply['polymers']['quantity'], supply['polymers']['delivery_time'], 'foam'))
+        self.env.process(self.stock_control(self.fabric, self.config['fabric_critical_stock'], supply['fabric']['quantity'], supply['fabric']['delivery_time'], 'fabric'))
+        self.env.process(self.stock_control(self.paint, self.config['paint_critical_stock'],  supply['paint']['quantity'], supply['paint']['delivery_time'], 'paint'))
         self.env.process(self.dispatch_seats_control())
 
     def init_data_tracking(self):

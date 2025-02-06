@@ -6,6 +6,7 @@ import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import math
+import environment.environment_engine as environment_engine
 
 def plot_lca_indicators(lca_data,title="LCA Indicators", color='rgba(0, 0, 255, 0.6)'):
     """
@@ -78,17 +79,14 @@ def plot_lca_combined_indicators(production_lca, usage_lca, title="Combined LCA 
 
 def plot_stock_levels(stock_data, total_seats_data):
     """Plot stock levels using Plotly."""
-    fig = make_subplots(rows=2, cols=1, shared_xaxes=True, subplot_titles=["Stock Levels Over Time", "Total Seats Made Over Time"])
+    fig = make_subplots(rows=1, cols=1, shared_xaxes=True, subplot_titles=["Stock Levels Over Time"])
 
     for label, (time_vector, values) in stock_data.items():
         fig.add_trace(go.Scatter(x=time_vector, y=values, mode='lines+markers', name=label), row=1, col=1)
 
-    fig.add_trace(go.Scatter(x=total_seats_data[0], y=total_seats_data[1], mode='lines+markers', name='Total Seats made'), row=2, col=1)
-
-    fig.update_layout(height=800, title_text="Stock Levels and Total Seats Made Over Time", showlegend=True)
+    fig.update_layout(height=600, title_text="Stock Levels Over Time", showlegend=True)
     fig.update_xaxes(title_text="Time")
     fig.update_yaxes(title_text="Stock Level", row=1, col=1)
-    fig.update_yaxes(title_text="Total Seats Made", row=2, col=1)
 
     fig.show()
 
@@ -264,3 +262,577 @@ def round_to_nearest_significant(number):
 
     # Determine the nearest significant multiple of the power of 10
     return power * 10 if number >= power * 5 else power
+
+# def plot_production_sankey(source, target, value, production_totals, market_totals, loc_prod, loc_demand):
+#     """
+#     Create and display a Sankey diagram for production distribution.
+
+#     :param source: List of source indices corresponding to production locations.
+#     :param target: List of target indices corresponding to demand locations.
+#     :param value: List of quantities transported between source and target.
+#     :param production_totals: Dictionary with total production quantities for each location.
+#     :param market_totals: Dictionary with market demand totals for each location.
+#     :param loc_prod: List of production locations.
+#     :param loc_demand: List of demand locations.
+#     """
+#     # Prepare labels and colors for the Sankey diagram
+#     node_labels = [
+#         f"{loc_prod[i]} Production\n({production_totals[loc_prod[i]]} Units)" for i in range(len(loc_prod))
+#     ]
+#     node_labels += [
+#         f"{loc_demand[i]} Market\n({market_totals[loc_demand[i]]} Units)" for i in range(len(loc_demand))
+#     ]
+#     link_labels = [f"{v:,.0f} Units" for v in value]
+
+#     base_colors = {
+#         'Texas': 'rgba(255, 127, 14, 0.8)',
+#         'California': 'rgba(255, 127, 14, 0.8)',
+#         'UK': 'rgba(148, 103, 189, 0.8)',
+#         'France': 'rgba(214, 39, 40, 0.8)',
+#     }
+
+#     target_colors = {
+#         'USA': 'rgba(255, 127, 14, 0.5)',
+#         'Canada': 'rgba(255, 215, 0, 0.5)',
+#         'Japan': 'rgba(44, 160, 44, 0.5)',
+#         'Brazil': 'rgba(31, 119, 180, 0.5)',
+#         'France': 'rgba(214, 39, 40, 0.5)',
+#     }
+
+#     production_colors = [base_colors[place] for place in loc_prod]
+#     market_colors = [target_colors[place] for place in loc_demand]
+#     node_colors = production_colors + market_colors
+#     link_colors = [market_colors[i] for i in target]
+
+#     # Create and display the Sankey diagram
+#     fig_prod = go.Figure(
+#         data=[
+#             go.Sankey(
+#                 node=dict(
+#                     pad=15,
+#                     thickness=20,
+#                     line=dict(color="black", width=0.5),
+#                     label=node_labels,
+#                     color=node_colors,
+#                 ),
+#                 link=dict(
+#                     source=source,
+#                     target=[i + len(loc_prod) for i in target],
+#                     value=value,
+#                     label=link_labels,
+#                     color=link_colors,
+#                 ),
+#             )
+#         ]
+#     )
+
+#     # Update layout and show plot
+#     fig_prod.update_layout(
+#         title_text="Production Distribution Sankey Diagram",
+#         font_size=10
+#     )
+#     fig_prod.show()
+
+import plotly.graph_objects as go
+
+def plot_production_sankey(source, target, value, production_totals, market_totals, loc_prod, loc_demand, return_figure=False):
+    """
+    Génère un diagramme de Sankey pour représenter les flux de production et de distribution.
+
+    :param source: Liste des indices des sources.
+    :param target: Liste des indices des cibles.
+    :param value: Liste des valeurs des flux.
+    :param production_totals: Dictionnaire des productions totales.
+    :param market_totals: Dictionnaire des demandes totales.
+    :param loc_prod: Liste des sites de production.
+    :param loc_demand: Liste des marchés de consommation.
+    :param return_figure: Booléen, si True retourne la figure Plotly au lieu de l'afficher.
+    :return: Objet Plotly Figure si return_figure=True, sinon affiche directement le graphique.
+    """
+
+    # 🔹 Création des labels pour les nœuds avec quantité produite et demandée
+    node_labels = [
+        f"{loc_prod[i]} Production\n({production_totals[loc_prod[i]]} Units)" for i in range(len(loc_prod))
+    ]
+    node_labels += [
+        f"{loc_demand[i]} Market\n({market_totals[loc_demand[i]]} Units)" for i in range(len(loc_demand))
+    ]
+    link_labels = [f"{v:,.0f} Units" for v in value]
+
+    # 🔹 Définition des couleurs
+    base_colors = {
+        'Texas': 'rgba(255, 127, 14, 0.8)',
+        'California': 'rgba(255, 127, 14, 0.8)',
+        'UK': 'rgba(148, 103, 189, 0.8)',
+        'France': 'rgba(214, 39, 40, 0.8)',
+    }
+
+    target_colors = {
+        'USA': 'rgba(255, 127, 14, 0.5)',
+        'Canada': 'rgba(255, 215, 0, 0.5)',
+        'Japan': 'rgba(44, 160, 44, 0.5)',
+        'Brazil': 'rgba(31, 119, 180, 0.5)',
+        'France': 'rgba(214, 39, 40, 0.5)',
+    }
+
+    # 🔹 Attribution des couleurs aux nœuds et liens
+    production_colors = [base_colors.get(place, 'rgba(100, 100, 100, 0.8)') for place in loc_prod]
+    market_colors = [target_colors.get(place, 'rgba(150, 150, 150, 0.5)') for place in loc_demand]
+    node_colors = production_colors + market_colors
+    link_colors = [market_colors[i] for i in target]  # Couleur des flux basée sur la destination
+
+    # 🔹 Création du diagramme de Sankey
+    fig_prod = go.Figure(
+        data=[
+            go.Sankey(
+                node=dict(
+                    pad=15,
+                    thickness=20,
+                    line=dict(color="black", width=0.5),
+                    label=node_labels,
+                    color=node_colors,
+                ),
+                link=dict(
+                    source=source,
+                    target=[i + len(loc_prod) for i in target],  # Décalage pour séparer source & destination
+                    value=value,
+                    label=link_labels,
+                    color=link_colors,
+                ),
+            )
+        ]
+    )
+
+    # 🔹 Mise en page améliorée
+    fig_prod.update_layout(
+        title_text="Flux de production et de distribution (Sankey)",
+        font_size=10,
+        height=600  # Ajustement pour une meilleure visibilité
+    )
+
+    # 🔹 Retourne ou affiche le diagramme
+    if return_figure:
+        return fig_prod  # 🔹 Retourne l'objet Plotly si demandé
+    else:
+        fig_prod.show()  # 🔹 Sinon, affiche directement
+
+
+def plot_sankey_production_co2_emissions(source, target, co2_emissions, production_co2_emissions, value, loc_prod, loc_demand):
+    """
+    Create and display a Sankey diagram for CO2 emissions.
+
+    :param source: List of source indices corresponding to production locations.
+    :param target: List of target indices corresponding to demand locations.
+    :param co2_emissions: List of CO2 emissions for transportation between source and target.
+    :param production_co2_emissions: List of CO2 emissions for production at each source location.
+    :param value: List of quantities transported between source and target.
+    :param loc_prod: List of production locations.
+    :param loc_demand: List of demand locations.
+    """
+    # Aggregate CO2 emissions by production location and market
+    production_co2_totals = {location: 0 for location in loc_prod}
+    market2_totals = {location: 0 for location in loc_demand}
+
+    for s, t, p, v in zip(source, target, production_co2_emissions, value):
+        production_co2_totals[loc_prod[s]] += p
+        market2_totals[loc_demand[t]] += v
+
+    # Prepare labels and colors for the Sankey diagram
+    node2_labels = [
+        f"{loc_prod[i]} CO2 Emission\n({production_co2_totals[loc_prod[i]]} kg CO2)" for i in range(len(loc_prod))
+    ]
+    node2_labels += [
+        f"{loc_demand[i]} Market\n({market2_totals[loc_demand[i]]} Units)" for i in range(len(loc_demand))
+    ]
+
+    link2_labels = [f"{c:,.2f} kg CO2" for c in co2_emissions]
+
+    base_colors = {
+        'Texas': 'rgba(255, 127, 14, 0.8)',
+        'California': 'rgba(255, 127, 14, 0.8)',
+        'UK': 'rgba(148, 103, 189, 0.8)',
+        'France': 'rgba(214, 39, 40, 0.8)',
+    }
+
+    target_colors = {
+        'USA': 'rgba(255, 127, 14, 0.5)',
+        'Canada': 'rgba(255, 215, 0, 0.5)',
+        'Japan': 'rgba(44, 160, 44, 0.5)',
+        'Brazil': 'rgba(31, 119, 180, 0.5)',
+        'France': 'rgba(214, 39, 40, 0.5)',
+    }
+
+    production_colors = [base_colors[place] for place in loc_prod]
+    market_colors = [target_colors[place] for place in loc_demand]
+    node_colors = production_colors + market_colors
+    link_colors = [market_colors[i] for i in target]
+
+    # Create and display the Sankey diagram for CO2 emissions
+    fig_CO2 = go.Figure(
+        data=[
+            go.Sankey(
+                node=dict(
+                    pad=15,
+                    thickness=20,
+                    line=dict(color="black", width=0.5),
+                    label=node2_labels,
+                    color=node_colors,
+                ),
+                link=dict(
+                    source=source,
+                    target=[i + len(loc_prod) for i in target],
+                    value=co2_emissions,
+                    label=link2_labels,
+                    color=link_colors,
+                ),
+            )
+        ]
+    )
+
+    # Update layout and show plot
+    fig_CO2.update_layout(
+        title_text="CO2 Emissions Sankey Diagram",
+        font_size=10
+    )
+    fig_CO2.show()
+
+def plot_costs(country_costs, total_cost):
+    """
+    Plot the costs per producing country and the total cost using Plotly.
+
+    :param country_costs: Dictionary with costs per country.
+    :param total_cost: Total cost across all countries.
+    """
+    countries = list(country_costs.keys())
+    costs = list(country_costs.values())
+
+    # Create the bar chart
+    fig = go.Figure()
+
+    # Add bars for each country
+    fig.add_trace(go.Bar(
+        x=countries,
+        y=costs,
+        text=[f'{cost:.2f}' for cost in costs],
+        textposition='auto',
+        name='Country Costs'
+    ))
+
+    # Add a bar for the total cost
+    fig.add_trace(go.Bar(
+        x=['Total'],
+        y=[total_cost],
+        text=[f'{total_cost:.2f}'],
+        textposition='auto',
+        name='Total Cost',
+        marker=dict(color='red')
+    ))
+
+    # Update layout
+    fig.update_layout(
+        title='Production Costs per Country and Total',
+        xaxis_title='Producing Country',
+        yaxis_title='Cost (€)',
+        barmode='group',
+        legend_title='Legend'
+    )
+
+    # Show the plot
+    fig.show()
+
+
+
+
+
+# def display_all_lca_indicators(all_production_data, all_enviro_data, lines_config, production_totals, use_allocated_production=True):
+#     """
+#     Affiche les indicateurs LCA pour chaque pays en utilisant soit la production réelle après allocation,
+#     soit la production maximale initialement simulée.
+
+#     :param all_production_data: Liste des données de production par ligne.
+#     :param all_enviro_data: Liste des données environnementales.
+#     :param lines_config: Configuration des lignes de production.
+#     :param production_totals: Dictionnaire des productions réelles après allocation.
+#     :param use_allocated_production: Booléen, si True utilise la production réelle, sinon utilise la production simulée.
+#     """
+
+#     # 🔍 Vérification stricte des lignes actives
+#     active_data = [
+#         (prod_data, enviro_data, config)
+#         for prod_data, enviro_data, config in zip(all_production_data, all_enviro_data, lines_config)
+#         if production_totals.get(config['location'], 0) > 0  # Filtre basé sur la production réelle
+#     ]
+
+#     if not active_data:
+#         print("⚠️ Aucune ligne active, pas d'affichage des indicateurs LCA.")
+#         return
+
+
+#     # 🔥 Debugging: Afficher exactement les lignes prises en compte
+#     for _, _, line_config in active_data:
+#         print(f"✅ {line_config['location']} inclus dans l'affichage des LCA.")
+
+#     # Titles for each column
+#     column_titles = ["Production LCA", "Usage LCA", "Combined LCA"]
+
+#     # Create subplots: One row per production line, one column per type of LCA
+#     fig_lca = make_subplots(
+#         rows=len(active_data), cols=3,
+#         column_titles=column_titles,
+#         horizontal_spacing=0.1,
+#         vertical_spacing=0.1
+#     )
+
+#     for i, (production_data, enviro_data, line_config) in enumerate(active_data):
+#         location = line_config['location']
+        
+#         # Choix de la production à utiliser
+#         total_seats_made = production_totals.get(location, 0) if use_allocated_production else production_data['Total Seats made'][1][-1]
+
+#         print(f"🔍 Vérification LCA pour {location} (mode {'alloué' if use_allocated_production else 'simulé'}):")
+#         print(f"➡ Production utilisée : {total_seats_made}")
+
+#         # Calcul des indicateurs LCA
+#         production_lca = environment_engine.calculate_lca_indicators_pers_eq(total_seats_made)
+#         usage_lca = environment_engine.calculate_lca_indicators_usage_phase(total_seats_made, seat_weight=120)
+#         combined_lca = {key: production_lca[key] + usage_lca[key] for key in production_lca.keys()}
+
+#         # Ajouter les valeurs sur les barres (text)
+#         fig_lca.add_trace(
+#             go.Bar(
+#                 x=list(production_lca.keys()),
+#                 y=list(production_lca.values()),
+#                 text=[f"{v:.2f}" for v in production_lca.values()],
+#                 textposition='inside',
+#                 marker_color='blue'
+#             ),
+#             row=i + 1, col=1
+#         )
+
+#         fig_lca.add_trace(
+#             go.Bar(
+#                 x=list(usage_lca.keys()),
+#                 y=list(usage_lca.values()),
+#                 text=[f"{v:.2f}" for v in usage_lca.values()],
+#                 textposition='inside',
+#                 marker_color='orange'
+#             ),
+#             row=i + 1, col=2
+#         )
+
+#         fig_lca.add_trace(
+#             go.Bar(
+#                 x=list(combined_lca.keys()),
+#                 y=list(combined_lca.values()),
+#                 text=[f"{v:.2f}" for v in combined_lca.values()],
+#                 textposition='inside',
+#                 marker_color='green'
+#             ),
+#             row=i + 1, col=3
+#         )
+
+#         # 🔹 Ajout de la localisation dans l'axe Y
+#         fig_lca.update_yaxes(title_text=f"LCA Value ({location})", row=i + 1, col=1)
+#         fig_lca.update_yaxes(title_text=f"LCA Value ({location})", row=i + 1, col=2)
+#         fig_lca.update_yaxes(title_text=f"LCA Value ({location})", row=i + 1, col=3)
+
+#     # Mise à jour du layout général
+#     fig_lca.update_layout(
+#         title="LCA Indicators for Active Production Lines",
+#         height=400 * len(active_data),  # Ajustement dynamique de la hauteur
+#         showlegend=False,  # ❌ Suppression des légendes inutiles
+#         legend_tracegroupgap=30
+#     )
+
+#     # Ajustement de la police globale pour une meilleure lisibilité
+#     fig_lca.update_xaxes(tickfont=dict(size=8))
+
+#     # Affichage du graphique
+#     fig_lca.show()
+
+
+
+def display_all_lca_indicators(all_production_data, all_enviro_data, lines_config, production_totals, use_allocated_production=True):
+    """
+    Affiche les indicateurs LCA :
+    - Échelle adaptative pour Production et Usage.
+    - Échelle fixe pour la LCA combinée avec superposition des barres (Usage en bas, Production au-dessus).
+    - Affichage des valeurs à l'intérieur des barres pour tous les graphiques.
+    
+    :param all_production_data: Liste des données de production par ligne.
+    :param all_enviro_data: Liste des données environnementales.
+    :param lines_config: Configuration des lignes de production.
+    :param production_totals: Dictionnaire des productions réelles après allocation.
+    :param use_allocated_production: Booléen, si True utilise la production réelle, sinon utilise la production simulée.
+    """
+
+    # 🔍 Filtrage des lignes actives
+    active_data = [
+        (prod_data, enviro_data, config)
+        for prod_data, enviro_data, config in zip(all_production_data, all_enviro_data, lines_config)
+        if production_totals.get(config['location'], 0) > 0
+    ]
+
+    if not active_data:
+        print("⚠️ Aucune ligne active, pas d'affichage des indicateurs LCA.")
+        return
+
+    # 🔥 Debugging: Afficher les lignes incluses
+    for _, _, line_config in active_data:
+        print(f"✅ {line_config['location']} inclus dans l'affichage des LCA.")
+
+    # 🔹 Définir les titres des colonnes
+    column_titles = ["Production LCA", "Usage LCA", "Combined LCA"]
+
+    # 🔹 Créer les sous-graphes
+    fig_lca = make_subplots(
+        rows=len(active_data), cols=3,
+        column_titles=column_titles,
+        horizontal_spacing=0.1,
+        vertical_spacing=0.1
+    )
+
+    # Calcul de la valeur maximale pour les graphiques combinés
+    max_value_global_combined = 0
+    for production_data, _, line_config in active_data:
+        location = line_config['location']
+        total_seats_made = production_totals.get(location, 0) if use_allocated_production else production_data['Total Seats made'][1][-1]
+
+        production_lca = environment_engine.calculate_lca_indicators_pers_eq(total_seats_made)
+        usage_lca = environment_engine.calculate_lca_indicators_usage_phase(total_seats_made, seat_weight=120)
+        combined_lca = {key: production_lca[key] + usage_lca[key] for key in production_lca.keys()}
+
+        max_value_line_combined = max(combined_lca.values())
+        max_value_global_combined = max(max_value_global_combined, max_value_line_combined)
+
+    # Boucle sur chaque ligne active
+    for i, (production_data, enviro_data, line_config) in enumerate(active_data):
+        location = line_config['location']
+        total_seats_made = production_totals.get(location, 0) if use_allocated_production else production_data['Total Seats made'][1][-1]
+
+        print(f"🔍 Vérification LCA pour {location} (mode {'alloué' if use_allocated_production else 'simulé'}):")
+        print(f"➡ Production utilisée : {total_seats_made}")
+
+        # 🔹 Calcul des indicateurs LCA
+        production_lca = environment_engine.calculate_lca_indicators_pers_eq(total_seats_made)
+        usage_lca = environment_engine.calculate_lca_indicators_usage_phase(total_seats_made, seat_weight=120)
+        combined_lca = {key: production_lca[key] + usage_lca[key] for key in production_lca.keys()}
+
+        # 🔹 Graphique Production LCA avec échelle adaptative
+        fig_lca.add_trace(
+            go.Bar(
+                x=list(production_lca.keys()),
+                y=list(production_lca.values()),
+                text=[f"{v:.2f}" for v in production_lca.values()],
+                textposition='inside',
+                marker_color='blue',
+                name='Production'
+            ),
+            row=i + 1, col=1
+        )
+
+        # 🔹 Graphique Usage LCA avec échelle adaptative
+        fig_lca.add_trace(
+            go.Bar(
+                x=list(usage_lca.keys()),
+                y=list(usage_lca.values()),
+                text=[f"{v:.2f}" for v in usage_lca.values()],
+                textposition='inside',
+                marker_color='orange',
+                name='Usage'
+            ),
+            row=i + 1, col=2
+        )
+
+        # 🔹 Graphique combiné avec superposition et affichage des valeurs
+        fig_lca.add_trace(
+            go.Bar(
+                x=list(usage_lca.keys()),
+                y=list(usage_lca.values()),
+                text=[f"{v:.2f}" for v in usage_lca.values()],
+                textposition='inside',
+                marker_color='orange',
+                name='Usage'
+            ),
+            row=i + 1, col=3
+        )
+        fig_lca.add_trace(
+            go.Bar(
+                x=list(production_lca.keys()),
+                y=list(production_lca.values()),
+                text=[f"{v:.2f}" for v in production_lca.values()],
+                textposition='inside',
+                marker_color='blue',
+                name='Production'
+            ),
+            row=i + 1, col=3
+        )
+
+        # 🔹 Échelle fixe pour les graphiques combinés uniquement
+        fig_lca.update_yaxes(range=[0, max_value_global_combined], row=i + 1, col=3)
+
+        # 🔹 Ajouter la localisation dans l'axe Y
+        for col in range(1, 4):
+            fig_lca.update_yaxes(title_text=f"LCA Value ({location})", row=i + 1, col=col)
+
+    # 🔹 Mise à jour du layout
+    fig_lca.update_layout(
+        title="LCA Indicators for Active Production Lines",
+        height=400 * len(active_data),
+        barmode='stack',  # Mode superposition pour les graphiques combinés
+        showlegend=False,
+    )
+
+    # 🔹 Ajustement de la police
+    fig_lca.update_xaxes(tickfont=dict(size=8))
+
+    # 🔹 Affichage final
+    fig_lca.show()
+
+
+
+
+def display_all_stock_variations(all_production_data, lines_config):
+        """
+        Display all stock level variations for all production lines with separate legend groups.
+
+        :param all_production_data: List of production data for all lines.
+        :param lines_config: Configuration for all production lines.
+        """
+        # Create subplot titles
+        subplot_titles = [f"Ligne {i + 1} - Stock Levels ({lines_config[i]['location']})" for i in range(len(all_production_data))]
+        fig_stock = make_subplots(
+            rows=len(all_production_data), cols=1,
+            subplot_titles=subplot_titles,
+            vertical_spacing=0.1
+        )
+
+        for i, production_data in enumerate(all_production_data):
+            legend_group = str(i + 1)  # Create a unique legend group for each subplot
+            for label, (time_vector, values) in production_data.items():
+                # Add trace for stock level
+                fig_stock.add_trace(
+                    go.Scatter(
+                        x=list(time_vector),
+                        y=values,
+                        mode='lines+markers',
+                        name=f"{label} ({lines_config[i]['location']})",
+                        legendgroup=legend_group  # Assign traces to a specific legend group
+                    ),
+                    row=i + 1, col=1
+                )
+
+        # Update layout to include legend trace group gap
+        fig_stock.update_layout(
+            title="All Stock Level Variations",
+            height=400 * len(all_production_data),  # Adjust height dynamically
+            showlegend=True,
+            legend_tracegroupgap= 400 * len(all_production_data)* 0.18  # Add space between legend groups
+        )
+
+        # Update axis labels
+        fig_stock.update_xaxes(title_text="Time (Steps)")
+        fig_stock.update_yaxes(title_text="Stock Level")
+
+        # Show the plot
+        fig_stock.show()

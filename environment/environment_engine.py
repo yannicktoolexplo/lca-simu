@@ -23,24 +23,57 @@ production_co2_factors = {
 }
 
 
-def calculate_lca_indicators(total_seats_made):
+def calculate_lca_production_IFE_raw(total_seats_made):
     """
-    Calculate LCA indicators based on the number of seats made using EF 3.0 format.
+    Calculate LCA indicators based on the number of seats made using EF 3.0 format with raw units, here with IFE production.
     
     :param total_seats_made: Number of seats produced
     :return: Dictionary with LCA indicators
     """
     lca_indicators = {
-        'Climate Change': total_seats_made * 50,  # kg CO2 eq
-        'Ozone Depletion': total_seats_made * 0.0005,  # kg CFC-11 eq
-        'Terrestrial Ecotoxicity': total_seats_made * 2,  # CTUe
-        'Freshwater Ecotoxicity': total_seats_made * 1.5,  # CTUe
-        'Terrestrial Acidification': total_seats_made * 0.3,  # mol H+ eq
-        'Marine Eutrophication': total_seats_made * 0.1,  # kg N eq
-        'Freshwater Eutrophication': total_seats_made * 0.05,  # kg P eq
-        'Water Use': total_seats_made * 31652.52,  # m³
-        'Fossil Fuel Depletion': total_seats_made * 2000,  # MJ
-        'Particulate Matter Formation': total_seats_made * 0.02  # kg PM2.5 eq
+        'Acidification': total_seats_made * 13.09237607,  # [Mole of H+ eq.]
+        'Climate Change': total_seats_made * 2582.287353,  # [kg CO2 eq.]
+        'Ecotoxicity, freshwater': total_seats_made * 232243.8539,  #  [CTUe]
+        'Eutrophication, freshwater': total_seats_made * 2.309760193,  # [kg P eq.]
+        'Eutrophication, marine': total_seats_made * 3.704748951,  #  [kg N eq.]
+        'Eutrophication, terrestrial': total_seats_made * 38.02415126,  # [Mole of N eq.]
+        'Human toxicity, cancer': total_seats_made * 3.95365e-06,  # [CTUh]
+        'Human toxicity, non-cancer': total_seats_made * 9.79493e-05,  # [CTUh]
+        'Ionising radiation, human health': total_seats_made * 443.5525878,  # [kBq U235 eq.]
+        'Land Use': total_seats_made * 10624.50424,  # [Pt]
+        'Ozone depletion': total_seats_made * 0.000140771,  # [kg CFC-11 eq.]
+        'Particulate matter': total_seats_made * 0.000137194,  #  [Disease incidences]
+        'Photochemical ozone formation, human health': total_seats_made * 8.273784513,  #  [kg NMVOC eq.]
+        'Resource use, fossils': total_seats_made * 34240.35081,  #  [MJ]
+        'Resource use, mineral and metals': total_seats_made * 0.674237358,  # [kg Sb eq.]
+        'Water use': total_seats_made * 43061.84508  # [m³ world equiv.]
+    }
+    return lca_indicators
+
+def calculate_lca_production_raw(total_seats_made):
+    """
+    Calculate LCA indicators based on the number of seats made using EF 3.0 format with raw units, here without IFE production.
+    
+    :param total_seats_made: Number of seats produced
+    :return: Dictionary with LCA indicators
+    """
+    lca_indicators = {
+        'Acidification': total_seats_made * 6.490526071,  # [Mole of H+ eq.]
+        'Climate Change': total_seats_made * 1220.749353,  # [kg CO2 eq.]
+        'Ecotoxicity, freshwater': total_seats_made * 8262.833891,  #  [CTUe]
+        'Eutrophication, freshwater': total_seats_made * 0.026654693,  # [kg P eq.]
+        'Eutrophication, marine': total_seats_made * 1.081066951,  #  [kg N eq.]
+        'Eutrophication, terrestrial': total_seats_made * 14.96747126,  # [Mole of N eq.]
+        'Human toxicity, cancer': total_seats_made * 2.32202e-06,  # [CTUh]
+        'Human toxicity, non-cancer': total_seats_made * 1.8811e-05,  # [CTUh]
+        'Ionising radiation, human health': total_seats_made * 237.1920013,  # [kBq U235 eq.]
+        'Land Use': total_seats_made * 3141.142985,  # [Pt]
+        'Ozone depletion': total_seats_made * 9.73286e-06,  # [kg CFC-11 eq.]
+        'Particulate matter': total_seats_made * 6.53679e-05,  #  [Disease incidences]
+        'Photochemical ozone formation, human health': total_seats_made * 2.535363827,  #  [kg NMVOC eq.]
+        'Resource use, fossils': total_seats_made * 16664.58542,  #  [MJ]
+        'Resource use, mineral and metals': total_seats_made * 0.015825398,  # [kg Sb eq.]
+        'Water use': total_seats_made * 3913.457619 # [m³ world equiv.]
     }
     return lca_indicators
 
@@ -170,3 +203,16 @@ def calculate_supply_co2_supply_emissions(distance, quantity, co2_per_km_ton=0.0
 
     emissions = distance * quantity * co2_per_km_ton
     return  emissions
+
+def calculate_total_co2_emissions(loc_prod, source, co2_emissions,production_co2_emissions):
+
+    total_emissions = {location: 0.0 for location in loc_prod}
+
+    for i, source_index in enumerate(source):
+            location = loc_prod[source_index]
+            # Add distribution CO2 emissions
+            total_emissions[location] += co2_emissions[i]
+            # Add production CO2 emissions
+            total_emissions[location] += production_co2_emissions[source_index]
+
+    return total_emissions
