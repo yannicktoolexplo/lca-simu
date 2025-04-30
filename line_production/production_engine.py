@@ -108,7 +108,7 @@ def run_simple_supply_allocation(capacity_limits, demand):
         elif market == "UK":
             priority_sites = ["UK", "France", "Texas", "California"]  # UK > France > USA
         else:
-            priority_sites = ["France", "UK", "California", "Texas"]  # Europe > USA
+            priority_sites = ["Texas", "California", "France", "UK"]  # USA > EU
 
         for prod_site in priority_sites:
             available_capacity = int(capacity_limits[prod_site]['High'])
