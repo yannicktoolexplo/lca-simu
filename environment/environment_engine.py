@@ -19,11 +19,11 @@ production_co2_factors = {
     'Texas': 3.5,
     'California': 3,
     'UK': 3,
-    'France': 2
+    'France': 1
 }
 
 
-def calculate_lca_production_IFE_raw(total_seats_made):
+def calculate_lca_production_IFE_raw(total_seats_made, site):
     """
     Calculate LCA indicators based on the number of seats made using EF 3.0 format with raw units, here with IFE production.
     
@@ -32,7 +32,7 @@ def calculate_lca_production_IFE_raw(total_seats_made):
     """
     lca_indicators = {
         'Acidification': total_seats_made * 13.09237607,  # [Mole of H+ eq.]
-        'Climate Change': total_seats_made * 2582.287353,  # [kg CO2 eq.]
+        'Climate Change': total_seats_made * 2582.287353 * production_co2_factors[site],  # [kg CO2 eq.]
         'Ecotoxicity, freshwater': total_seats_made * 232243.8539,  #  [CTUe]
         'Eutrophication, freshwater': total_seats_made * 2.309760193,  # [kg P eq.]
         'Eutrophication, marine': total_seats_made * 3.704748951,  #  [kg N eq.]
@@ -50,7 +50,7 @@ def calculate_lca_production_IFE_raw(total_seats_made):
     }
     return lca_indicators
 
-def calculate_lca_production_raw(total_seats_made):
+def calculate_lca_production_raw(total_seats_made, site):
     """
     Calculate LCA indicators based on the number of seats made using EF 3.0 format with raw units, here without IFE production.
     
@@ -59,7 +59,7 @@ def calculate_lca_production_raw(total_seats_made):
     """
     lca_indicators = {
         'Acidification': total_seats_made * 6.490526071,  # [Mole of H+ eq.]
-        'Climate Change': total_seats_made * 1220.749353,  # [kg CO2 eq.]
+        'Climate Change': total_seats_made * 1220.749353 * production_co2_factors[site],  # [kg CO2 eq.]
         'Ecotoxicity, freshwater': total_seats_made * 8262.833891,  #  [CTUe]
         'Eutrophication, freshwater': total_seats_made * 0.026654693,  # [kg P eq.]
         'Eutrophication, marine': total_seats_made * 1.081066951,  #  [kg N eq.]
@@ -77,7 +77,7 @@ def calculate_lca_production_raw(total_seats_made):
     }
     return lca_indicators
 
-def calculate_lca_indicators_pers_eq(total_seats_made):
+def calculate_lca_indicators_pers_eq(total_seats_made, site):
     """
     Calculate LCA indicators based on the number of seats made using EF 3.0 format (pers. eq.).
     
@@ -86,7 +86,7 @@ def calculate_lca_indicators_pers_eq(total_seats_made):
     """
     lca_indicators = {
         'Acidification': total_seats_made * 0.252205866014651,  # pers. eq.
-        'Climate Change': total_seats_made * 1.17634325257031,  # pers. eq.
+        'Climate Change': total_seats_made * 1.17634325257031 * production_co2_factors[site],  # pers. eq.
         'Ecotoxicity, freshwater': total_seats_made * 1.68770297069081,  # pers. eq.
         'Eutrophication, freshwater': total_seats_made * 0.644605414956476,  # pers. eq.
         'Eutrophication, marine': total_seats_made * 0.100959582665168,  # pers. eq.
@@ -138,33 +138,19 @@ def calculate_lca_indicators_usage_phase(total_seats_made, seat_weight=130):
     }
     return lca_indicators_usage
 
-def calculate_lca_indicators_total(total_seats_made):
+def calculate_lca_indicators_total(total_seats_made, site):
     """
-    Calculate LCA indicators for the usage phase based on alternative coefficients.
-    
-    :param total_seats_made: Number of seats produced and used
-    :return: Dictionary with LCA indicators for usage phase
+    Calcule les indicateurs LCA totaux en sommant explicitement
+    la phase d'usage et la phase personnelle (personnal equipment).
     """
-    # Coefficients for the usage phase
-    lca_indicators_total = {
-        'Acidification': total_seats_made * 33.1471143460147,  # pers. eq.
-        'Climate Change': total_seats_made * 192.97400894857,  # pers. eq.
-        'Ecotoxicity, freshwater': total_seats_made * 34.3930935626908,  # pers. eq.
-        'Eutrophication, freshwater': total_seats_made * 0.684714854956476,  # pers. eq.
-        'Eutrophication, marine': total_seats_made * 20.2861680946652,  # pers. eq.
-        'Eutrophication, terrestrial': total_seats_made * 30.7915706944821,  # pers. eq.
-        'Human toxicity, cancer': total_seats_made * 1.78107742136055,  # pers. eq.
-        'Human toxicity, non-cancer': total_seats_made * 5.05910990339973,  # pers. eq.
-        'Ionising radiation, human health': total_seats_made * 0.221485511553737,  # pers. eq.
-        'Land Use': total_seats_made * 0.0550967460501254,  # pers. eq.
-        'Ozone depletion': total_seats_made * 0.00278162628444284,  # pers. eq.
-        'Particulate matter': total_seats_made * 14.5100101363764,  # pers. eq.
-        'Photochemical ozone formation, human health': total_seats_made * 44.8964303908889,  # pers. eq.
-        'Resource use, fossils': total_seats_made * 128.4794888717,  # pers. eq.
-        'Resource use, mineral and metals': total_seats_made * 13.1028613145325,  # pers. eq.
-        'Water use': total_seats_made * 5.35923896308499  # pers. eq.
-    }
-    return lca_indicators_total
+    usage = calculate_lca_indicators_usage_phase(total_seats_made)
+    pers_eq = calculate_lca_indicators_pers_eq(total_seats_made, site)
+
+    total = {}
+    for indicator in usage:
+        total[indicator] = usage[indicator] + pers_eq.get(indicator, 0)
+
+    return total
 
 
 def calculate_distribution_co2_emissions(source, destination, amount):

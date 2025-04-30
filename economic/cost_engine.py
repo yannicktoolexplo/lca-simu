@@ -11,69 +11,141 @@ def get_supply_cost(quantity, distance):
     
     return quantity * distance * cost_per_km_ton
 
-
-def calculate_total_costs(source, target, value, production_totals, market_totals, loc_prod, loc_demand, cap):
+def calculate_additional_costs(production_totals, material_usage_kg, distance_to_supplier, cost_per_km_ton=0.1, storage_cost_per_unit=2.0):
     """
-    Calculate production costs for each country and total costs based on capacity, fixed costs,
-    and variable costs.
+    Calcule les coûts d'approvisionnement (transport des matériaux) et de stockage pour chaque site.
 
-    :param source: List of source indices corresponding to emissions.
-    :param target: List of target indices corresponding to emissions.
-    :param value: List of quantities transported between source and target.
-    :param production_totals: List of total production quantities per source.
-    :param market_totals: Dictionary with market demand totals per region (e.g., {'USA': 176.0, 'France': 308.0}).
-    :param loc_prod: List of production locations (e.g., ['Texas', 'California', 'UK', 'France']).
-    :param loc_demand: List of demand locations (e.g., ['USA', 'Canada', 'Japan', 'Brazil', 'France']).
-    :param cap: Dictionary with production capacities (keys are locations, values are {'Low': x, 'High': y}).
-    :return: Dictionary with production distribution, costs per country, and the total cost.
+    :param production_totals: dict {location: units_produced}
+    :param material_usage_kg: dict {material: kg_per_unit}
+    :param distance_to_supplier: dict {location: distance in km}
+    :param cost_per_km_ton: coût en €/tonne.km
+    :param storage_cost_per_unit: coût de stockage par unité produite
+    :return: dict {location: total_additional_cost}
     """
-    # Initialize results
+    locations = production_totals.keys()
+    materials = material_usage_kg.keys()
+    total_additional_costs = {}
+
+    for loc in locations:
+        supply_cost_total = 0
+        for mat in materials:
+            kg_per_unit = material_usage_kg[mat]
+            total_kg = kg_per_unit * production_totals[loc]
+            total_ton = total_kg / 1000
+            dist = distance_to_supplier[loc]
+            supply_cost = total_ton * dist * cost_per_km_ton
+            supply_cost_total += supply_cost
+
+        storage_cost = storage_cost_per_unit * production_totals[loc]
+        total_additional_costs[loc] = supply_cost_total + storage_cost
+
+    return total_additional_costs
+
+
+def calculate_total_costs(data):
+    """
+    Calcule les coûts totaux d'une allocation de production.
+    Prend en argument un dictionnaire contenant tous les éléments nécessaires.
+    """
+    source = data["source"]
+    target = data["target"]
+    value = data["value"]
+    production_totals = data["production_totals"]
+    market_totals = data["market_totals"]
+    loc_prod = data["loc_prod"]
+    loc_demand = data["loc_demand"]
+    cap = data["cap"]
+    fixed_costs = data["fixed_costs"]
+    variable_costs = data["variable_costs"]
+
+    include_supply = data.get("include_supply", True)
+    include_storage = data.get("include_storage", True)
+
     production_distribution = {location: 0 for location in loc_prod}
     total_costs = {location: 0.0 for location in loc_prod}
 
-    # Distribute market demand to production countries
-    for market, demand in market_totals.items():
-        # Sort by capacity to prioritize higher capacity locations
-        sorted_capacity = sorted(cap.items(), key=lambda x: x[1]['High'], reverse=True)
-        remaining_demand = demand
+    # Paramètres simplifiés
+    material_usage_kg = {
+        'aluminium': 5,
+        'fabric': 3,
+        'polymers': 4,
+        'paint': 1
+    }
+    distance_to_supplier = {
+        'Texas': 8000,
+        'California': 7500,
+        'UK': 500,
+        'France': 300
+    }
+    cost_per_km_ton = 0.1
+    storage_cost_per_unit = 2.0
 
-        for country, capacities in sorted_capacity:
-            if country not in loc_prod:
-                continue
-
-            low_cap = capacities['Low']
-            high_cap = capacities['High']
-
-            # Determine how much of the demand can be fulfilled by this country
-            allocated = min(remaining_demand, high_cap)
-            production_distribution[country] += allocated
-            remaining_demand -= allocated
-
-            # Break if demand is fully allocated
-            if remaining_demand <= 0:
-                break
-
-    # Calculate costs for each country
     for i, source_index in enumerate(source):
         location = loc_prod[source_index]
+        destination = loc_demand[target[i]]
+        quantity = value[i]
+
         low_cap = cap[location]['Low']
         high_cap = cap[location]['High']
-
-        # Determine if low or high capacity applies
         capacity_type = 'Low' if production_totals[location] <= low_cap else 'High'
 
-        # Example fixed and variable costs (replace these with actual values as needed)
-        fixed_cost = 1000 if capacity_type == 'Low' else 2000  # Replace with actual fixed costs
-        variable_cost = 10  # Replace with actual variable costs per unit
+        fixed = fixed_costs.loc[location, capacity_type]
+        variable = variable_costs.loc[location, destination]
+        cost = fixed + variable * quantity
 
-        # Calculate total cost for the country
-        total_costs[location] += fixed_cost + (variable_cost * production_totals[location])
+        if include_supply:
+            supply_cost = 0
+            for mat, kg_per_unit in material_usage_kg.items():
+                tons = (kg_per_unit * quantity) / 1000
+                dist = distance_to_supplier[location]
+                supply_cost += tons * dist * cost_per_km_ton
+            cost += supply_cost
 
-    # Calculate total cost across all countries
-    total_cost = sum(total_costs.values())
+        if include_storage:
+            storage_cost = quantity * storage_cost_per_unit
+            cost += storage_cost
+
+        total_costs[location] += cost
+        production_distribution[location] += quantity
 
     return {
-        'production_distribution': production_distribution,
-        'country_costs': total_costs,
-        'total_cost': total_cost
+        "production_distribution": production_distribution,
+        "country_costs": total_costs,
+        "total_cost": sum(total_costs.values())
     }
+
+def get_unit_cost(i, j, variable_costs, include_supply=True, include_storage=True):
+    """
+    Calcule le coût unitaire total pour un flux i → j, incluant :
+    - coût variable (production + transport)
+    - approvisionnement en matières premières (optionnel)
+    - coût de stockage (optionnel)
+    """
+    # Coût variable de base
+    total = variable_costs.loc[i, j]
+
+    # Approvisionnement (matières premières → fournisseur)
+    if include_supply:
+        material_usage_kg = {
+            'aluminium': 5,
+            'fabric': 3,
+            'polymers': 4,
+            'paint': 1
+        }
+        cost_per_km_ton = 0.1
+        distance_to_supplier = {
+            'Texas': 8000,
+            'California': 7500,
+            'UK': 500,
+            'France': 300
+        }
+        dist = distance_to_supplier.get(i, 500)
+        supply_cost = sum((kg / 1000) * dist * cost_per_km_ton for kg in material_usage_kg.values())
+        total += supply_cost
+
+    # Stockage
+    if include_storage:
+        total += 2.0  # €/unité stockée
+
+    return total
+

@@ -417,7 +417,7 @@ def plot_production_sankey(source, target, value, production_totals, market_tota
         fig_prod.show()  # 🔹 Sinon, affiche directement
 
 
-def plot_sankey_production_co2_emissions(source, target, co2_emissions, production_co2_emissions, value, loc_prod, loc_demand):
+def plot_sankey_production_co2_emissions(source, target, co2_emissions, production_co2_emissions, value, loc_prod, loc_demand, return_figure=False):
     """
     Create and display a Sankey diagram for CO2 emissions.
 
@@ -494,7 +494,10 @@ def plot_sankey_production_co2_emissions(source, target, co2_emissions, producti
         title_text="CO2 Emissions Sankey Diagram",
         font_size=10
     )
-    fig_CO2.show()
+    if return_figure:
+        return fig_CO2
+    else:
+        fig_CO2.show()
 
 def plot_costs(country_costs, total_cost):
     """
@@ -698,9 +701,10 @@ def display_all_lca_indicators(all_production_data, all_enviro_data, lines_confi
         location = line_config['location']
         total_seats_made = production_totals.get(location, 0) if use_allocated_production else production_data['Total Seats made'][1][-1]
 
-        production_lca = environment_engine.calculate_lca_indicators_pers_eq(total_seats_made)
-        usage_lca = environment_engine.calculate_lca_indicators_usage_phase(total_seats_made, seat_weight=120)
-        combined_lca = {key: production_lca[key] + usage_lca[key] for key in production_lca.keys()}
+        for site, total_seats_made in production_totals.items():
+            production_lca = environment_engine.calculate_lca_indicators_pers_eq(total_seats_made, site)
+            usage_lca = environment_engine.calculate_lca_indicators_usage_phase(total_seats_made, seat_weight=120)
+            combined_lca = {key: production_lca[key] + usage_lca[key] for key in production_lca.keys()}
 
         max_value_line_combined = max(combined_lca.values())
         max_value_global_combined = max(max_value_global_combined, max_value_line_combined)
@@ -714,7 +718,7 @@ def display_all_lca_indicators(all_production_data, all_enviro_data, lines_confi
         print(f"➡ Production utilisée : {total_seats_made}")
 
         # 🔹 Calcul des indicateurs LCA
-        production_lca = environment_engine.calculate_lca_indicators_pers_eq(total_seats_made)
+        production_lca = environment_engine.calculate_lca_indicators_pers_eq(total_seats_made, site)
         usage_lca = environment_engine.calculate_lca_indicators_usage_phase(total_seats_made, seat_weight=120)
         combined_lca = {key: production_lca[key] + usage_lca[key] for key in production_lca.keys()}
 
