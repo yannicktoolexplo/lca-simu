@@ -3,38 +3,34 @@ from .supply_settings import suppliers
 from economic.cost_engine import get_supply_cost
 from optimization.optimization_engine import select_best_supplier
 
-def manage_fixed_supply(location):
+def manage_fixed_supply(location, seat_weight=130):
     """
-    Gère l'approvisionnement en matériaux avec des quantités fixes et ajuste les délais de livraison
-    en fonction du fournisseur sélectionné.
-
-    :param location: Localisation de la ligne de production.
-    :return: Dictionnaire contenant les quantités, délais de livraison et fournisseurs sélectionnés.
+    Gère l'approvisionnement en matériaux avec des quantités proportionnelles au poids du siège.
     """
-    materials = {
-        'aluminium': {'quantity': 25},  # Quantité en kg
-        'fabric': {'quantity': 25},
-        'polymers': {'quantity': 25},
-        'paint': {'quantity': 25}
+    materials_ratio = {
+        'aluminium': 0.4,
+        'fabric': 0.3,
+        'polymers': 0.2,
+        'paint': 0.1
     }
 
-    supply_summary = {}
+    materials = {}
 
-    for material, info in materials.items():
-        quantity_tonnes = info['quantity'] / 1000  # Convertir en tonnes
+    for material, ratio in materials_ratio.items():
+        kg_quantity = ratio * seat_weight
+        quantity_tonnes = kg_quantity / 1000
+
         selected_supplier = select_best_supplier(material, quantity_tonnes, location, suppliers)
-
-        # Calculer le délai de livraison en fonction de la distance
         distance = suppliers[material][0]['distance_to_sites'][location]
-        delivery_time = max(1, int(distance / 1000))  # Exemple : 1 jour par 1000 km
+        delivery_time = max(1, int(distance / 1000))
 
-        supply_summary[material] = {
-            'quantity': info['quantity'],
+        materials[material] = {
+            'quantity': kg_quantity,
             'delivery_time': delivery_time,
             'supplier': selected_supplier['supplier']
         }
 
-    return supply_summary
+    return materials
 
 def simple_supply_allocation(production_totals):
     """

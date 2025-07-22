@@ -30,7 +30,7 @@ from environment.environment_engine import (
     calculate_lca_production_IFE_raw
 )
 from distribution.distribution_engine import load_freight_costs_and_demands
-from line_production.production_engine import load_fixed_and_variable_costs, load_capacity_limits
+from line_production.production_engine import load_fixed_and_variable_costs, load_capacity_limits, run_simple_supply_allocation
 
 def add_common_constraints(model, x, y, cap, loc_prod, loc_demand, size, demand):
     """
@@ -354,3 +354,90 @@ def select_best_supplier(material, quantity, site_location, suppliers):
             best_supplier = supplier['name']
 
     return {'supplier': best_supplier, 'cost': min_cost, 'emissions': total_emissions}
+
+def run_supply_chain_lightweight_scenario(capacity_limits, demand, seat_weight=110):
+    from line_production.production_engine import run_simple_supply_allocation
+    from line_production.line_production_settings import lines_config
+    from line_production.line_production import run_simulation
+    from economic.cost_engine import calculate_total_costs
+    from environment.environment_engine import calculate_lca_production_IFE_raw, calculate_distribution_co2_emissions
+
+    source, target, value, production_totals, market_totals, loc_prod, loc_demand, cap = \
+        run_simple_supply_allocation(capacity_limits, demand)
+
+    # Simulation ligne pour environnement
+    all_production_data, all_enviro_data = run_simulation(lines_config, seat_weight=seat_weight)
+
+    freight_costs, _ = load_freight_costs_and_demands()
+    fixed_costs, variable_costs = load_fixed_and_variable_costs(freight_costs)
+
+    cost_results = calculate_total_costs({
+        "source": source,
+        "target": target,
+        "value": value,
+        "production_totals": production_totals,
+        "market_totals": market_totals,
+        "loc_prod": loc_prod,
+        "loc_demand": loc_demand,
+        "cap": cap,
+        "fixed_costs": fixed_costs,
+        "variable_costs": variable_costs,
+        "include_supply": True,
+        "include_storage": True
+    })
+
+    total_co2 = sum([
+        calculate_lca_production_IFE_raw(value[i], loc_prod[source[i]])["Climate Change"] +
+        calculate_distribution_co2_emissions(loc_prod[source[i]], loc_demand[target[i]], value[i])
+        for i in range(len(source))
+    ])
+
+    return {
+        "source": source,
+        "target": target,
+        "value": value,
+        "production_totals": production_totals,
+        "market_totals": market_totals,
+        "loc_prod": loc_prod,
+        "loc_demand": loc_demand,
+        "cap": cap,
+        "costs": cost_results,
+        "total_co2": total_co2,
+        "production_data": all_production_data,
+        "environment_data": all_enviro_data,
+        "config": {"lines_config": lines_config},
+        "seat_weight": seat_weight  # 👈 pour usage dans le LCA plus tard
+    }
+
+def run_supply_chain_allocation_as_dict(allocation_function, capacity_limits, demand):
+    source, target, value, production_totals, market_totals, loc_prod, loc_demand, cap = allocation_function(capacity_limits, demand)
+    return {
+        "source": source,
+        "target": target,
+        "value": value,
+        "production_totals": production_totals,
+        "market_totals": market_totals,
+        "loc_prod": loc_prod,
+        "loc_demand": loc_demand,
+        "cap": cap
+    }
+
+def run_simple_allocation_dict(capacity_limits, demand):
+
+    return run_supply_chain_allocation_as_dict(run_simple_supply_allocation, capacity_limits, demand)
+
+def run_optimization_allocation_dict(capacity_limits, demand):
+
+    return run_supply_chain_allocation_as_dict(run_supply_chain_optimization, capacity_limits, demand)
+
+def run_optimization_co2_allocation_dict(capacity_limits, demand):
+
+    return run_supply_chain_allocation_as_dict(run_supply_chain_optimization_minimize_co2, capacity_limits, demand)
+
+def run_multiobjective_allocation_dict(capacity_limits, demand):
+
+    return run_supply_chain_allocation_as_dict(
+        lambda cap, dem: run_supply_chain_optimization_multiobjective(cap, dem, alpha=1, beta=1),
+        capacity_limits,
+        demand
+    )

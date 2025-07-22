@@ -3,13 +3,14 @@ import simpy
 from supply.supply_engine import manage_fixed_supply
 
 class ProductionLine:
-    def __init__(self, env, config):
+    def __init__(self, env, config, seat_weight=130):
         self.env = env
         self.config = config
         self.init_containers()
-        self.init_controls()
+        self.init_controls(seat_weight)
         self.init_data_tracking()
         self.start_production_processes()
+
 
     def init_containers(self):
         # Initialiser les containers avec les capacités et stocks initiaux configurables
@@ -23,9 +24,9 @@ class ProductionLine:
         self.frame_post_paint = simpy.Container(self.env, capacity=self.config['frame_post_paint_capacity'], init=2)
         self.armrest_post_paint = simpy.Container(self.env, capacity=self.config['armrest_post_paint_capacity'], init=2)
 
-    def init_controls(self):
+    def init_controls(self, seat_weight):
         # Contrôle des stocks
-        supply = manage_fixed_supply(self.config['location'])
+        supply = manage_fixed_supply(self.config['location'], seat_weight)
         self.env.process(self.stock_control(self.aluminium, self.config['aluminium_critial_stock'],  supply['aluminium']['quantity'],  supply['aluminium']['delivery_time'], 'aluminium'))
         self.env.process(self.stock_control(self.foam, self.config['foam_critical_stock'], supply['polymers']['quantity'], supply['polymers']['delivery_time'], 'foam'))
         self.env.process(self.stock_control(self.fabric, self.config['fabric_critical_stock'], supply['fabric']['quantity'], supply['fabric']['delivery_time'], 'fabric'))
@@ -163,12 +164,12 @@ class ProductionLine:
             'Mineral and Metal Used': (self.time, self.mineral_metal_used),
         }
 
-def run_simulation(lines_config):
+def run_simulation(lines_config, seat_weight=130):
     env = simpy.Environment()
     production_lines = []
 
     for config in lines_config:
-        line = ProductionLine(env, config)
+        line = ProductionLine(env, config, seat_weight)
         production_lines.append(line)
 
     env.run(until=max(config['total_time'] for config in lines_config))
