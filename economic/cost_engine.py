@@ -1,4 +1,4 @@
-def get_supply_cost(quantity, distance):
+def get_supply_cost(quantity, distance, seat_weight = 130):
     """
     Calcule le coût d'approvisionnement pour une quantité donnée.
 
@@ -8,10 +8,11 @@ def get_supply_cost(quantity, distance):
     :return: Coût total en euros.
     """
     cost_per_km_ton=0.1
-    
-    return quantity * distance * cost_per_km_ton
+    weight_factor = seat_weight / 130
 
-def calculate_additional_costs(production_totals, material_usage_kg, distance_to_supplier, cost_per_km_ton=0.1, storage_cost_per_unit=2.0):
+    return weight_factor * quantity * distance * cost_per_km_ton
+
+def calculate_additional_costs(production_totals, material_usage_kg, distance_to_supplier, cost_per_km_ton=0.1, storage_cost_per_unit=2.0, seat_weight = 130):
     """
     Calcule les coûts d'approvisionnement (transport des matériaux) et de stockage pour chaque site.
 
@@ -22,6 +23,7 @@ def calculate_additional_costs(production_totals, material_usage_kg, distance_to
     :param storage_cost_per_unit: coût de stockage par unité produite
     :return: dict {location: total_additional_cost}
     """
+    weight_factor = seat_weight / 130
     locations = production_totals.keys()
     materials = material_usage_kg.keys()
     total_additional_costs = {}
@@ -30,7 +32,7 @@ def calculate_additional_costs(production_totals, material_usage_kg, distance_to
         supply_cost_total = 0
         for mat in materials:
             kg_per_unit = material_usage_kg[mat]
-            total_kg = kg_per_unit * production_totals[loc]
+            total_kg = weight_factor * kg_per_unit * production_totals[loc]
             total_ton = total_kg / 1000
             dist = distance_to_supplier[loc]
             supply_cost = total_ton * dist * cost_per_km_ton
@@ -42,7 +44,7 @@ def calculate_additional_costs(production_totals, material_usage_kg, distance_to
     return total_additional_costs
 
 
-def calculate_total_costs(data):
+def calculate_total_costs(data, seat_weight=130):
     """
     Calcule les coûts totaux d'une allocation de production.
     Prend en argument un dictionnaire contenant tous les éléments nécessaires.
@@ -64,13 +66,16 @@ def calculate_total_costs(data):
     production_distribution = {location: 0 for location in loc_prod}
     total_costs = {location: 0.0 for location in loc_prod}
 
+    weight_factor = seat_weight / 130
+
     # Paramètres simplifiés
     material_usage_kg = {
-        'aluminium': 5,
-        'fabric': 3,
-        'polymers': 4,
-        'paint': 1
+    'aluminium': 5 * weight_factor,
+    'fabric': 3 * weight_factor,
+    'polymers': 4 * weight_factor,
+    'paint': 1 * weight_factor
     }
+
     distance_to_supplier = {
         'Texas': 8000,
         'California': 7500,
@@ -114,7 +119,7 @@ def calculate_total_costs(data):
         "total_cost": sum(total_costs.values())
     }
 
-def get_unit_cost(i, j, variable_costs, include_supply=True, include_storage=True):
+def get_unit_cost(i, j, variable_costs, include_supply=True, include_storage=True, seat_weight=130):
     """
     Calcule le coût unitaire total pour un flux i → j, incluant :
     - coût variable (production + transport)
@@ -124,13 +129,14 @@ def get_unit_cost(i, j, variable_costs, include_supply=True, include_storage=Tru
     # Coût variable de base
     total = variable_costs.loc[i, j]
 
+    weight_factor = seat_weight / 130
     # Approvisionnement (matières premières → fournisseur)
     if include_supply:
         material_usage_kg = {
-            'aluminium': 5,
-            'fabric': 3,
-            'polymers': 4,
-            'paint': 1
+        'aluminium': 5 * weight_factor,
+        'fabric': 3 * weight_factor,
+        'polymers': 4 * weight_factor,
+        'paint': 1 * weight_factor
         }
         cost_per_km_ton = 0.1
         distance_to_supplier = {

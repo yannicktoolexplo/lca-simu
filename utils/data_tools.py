@@ -655,7 +655,7 @@ def plot_costs(country_costs, total_cost):
 
 
 
-def display_all_lca_indicators(all_production_data, all_enviro_data, lines_config, production_totals, use_allocated_production=True):
+def display_all_lca_indicators(all_production_data, all_enviro_data, lines_config, production_totals, use_allocated_production=True, seat_weight=130):
     """
     Affiche les indicateurs LCA :
     - Échelle adaptative pour Production et Usage.
@@ -703,7 +703,7 @@ def display_all_lca_indicators(all_production_data, all_enviro_data, lines_confi
 
         for site, total_seats_made in production_totals.items():
             production_lca = environment_engine.calculate_lca_indicators_pers_eq(total_seats_made, site)
-            usage_lca = environment_engine.calculate_lca_indicators_usage_phase(total_seats_made, seat_weight=120)
+            usage_lca = environment_engine.calculate_lca_indicators_usage_phase(total_seats_made, seat_weight=seat_weight)
             combined_lca = {key: production_lca[key] + usage_lca[key] for key in production_lca.keys()}
 
         max_value_line_combined = max(combined_lca.values())
@@ -791,7 +791,7 @@ def display_all_lca_indicators(all_production_data, all_enviro_data, lines_confi
     fig_lca.update_xaxes(tickfont=dict(size=8))
 
     # 🔹 Affichage final
-    fig_lca.show()
+    return fig_lca
 
 
 

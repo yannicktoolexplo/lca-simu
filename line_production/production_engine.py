@@ -139,3 +139,27 @@ def run_simple_supply_allocation(capacity_limits, demand):
     capacity_limits = original_capacity_limits
 
     return source, target, value, production_totals, market_totals, loc_prod, loc_demand, capacity_limits
+
+def run_simulation_step(current_stock, command_quantity, max_capacity=50, daily_consumption=10):
+    """
+    Simule un pas de production pour une ligne vivante.
+    
+    :param current_stock: stock actuel
+    :param command_quantity: commande décidée par le moteur vivant
+    :param max_capacity: capacité maximale de production par jour
+    :param daily_consumption: consommation fixe ou estimée
+    :return: dictionnaire avec résultats du step
+    """
+
+    # Appliquer la contrainte de capacité
+    actual_production = min(command_quantity, max_capacity)
+
+    # Mise à jour du stock
+    stock_variation = actual_production - daily_consumption
+    new_stock = current_stock + stock_variation
+
+    return {
+        "produced": actual_production,
+        "new_stock": new_stock,
+        "stock_variation": stock_variation
+    }
