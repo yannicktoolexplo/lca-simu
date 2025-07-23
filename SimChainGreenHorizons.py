@@ -26,6 +26,8 @@ from optimization.optimization_engine import (
 )
 from hybrid_regulation_engine import run_simulation_vivant
 import pprint
+from event_engine import EventManager, example_events
+
 
 def main_function():
     # Simulation DES
@@ -36,17 +38,39 @@ def main_function():
         for i, data in enumerate(all_production_data)
     }
 
+    # ----------- AJOUT GESTIONNAIRE ÉVÉNEMENTS ----------- #
+    system_state = {
+        'capacity': max_production.copy(),
+        'capacity_nominal': max_production.copy(),
+        'supply': {'aluminium': 1000, 'fabric': 800, 'polymers': 600, 'paint': 400},
+        'supply_nominal': {'aluminium': 1000, 'fabric': 800, 'polymers': 600, 'paint': 400},
+    }
+    event_manager = EventManager(example_events)
+    # ----------- FIN AJOUT -----------
+
+
+
     print("\n🧮 Capacité maximale par site (simulation) :")
     for site, total in max_production.items():
         print(f"  {site} : Low = {round(total/2)} unités, High = {int(total)} unités")
 
+
     config = {
         "lines_config": lines_config,
         "include_supply": True,
-        "include_storage": True
+        "include_storage": True,
     }
 
-    # Scénarios classiques
+    # Simulation événements perturbateurs avant les scénarios
+    N = 60  # nombre de pas à simuler (ou adapte à ta durée)
+    for t in range(N):
+        event_manager.step(t, system_state)
+        # Ici tu pourrais loguer ou afficher la capacité courante
+        if t in [19, 20, 24, 25, 50, 59, 60]:  # exemples pour voir le changement
+            print(f"[t={t}] Capacité France = {system_state['capacity']['France']}, Aluminium = {system_state['supply']['aluminium']}")
+
+    config["capacity_override"] = system_state["capacity"]
+
     result_baseline = run_scenario(run_simple_allocation_dict, config)
     result_optim_cost = run_scenario(run_optimization_allocation_dict, config)
     result_optim_co2 = run_scenario(run_optimization_co2_allocation_dict, config)
@@ -54,6 +78,7 @@ def main_function():
     result_lightweight = run_scenario(
     lambda cap, demand: run_supply_chain_lightweight_scenario(cap, demand, seat_weight=70),
     {**config, "seat_weight": 70})
+
 
 
 
@@ -99,6 +124,7 @@ def main_function():
         "Lightweight": result_lightweight 
     }
 
+
     for scenario_id, (name, result) in enumerate(scenario_results.items(), start=1):
         for site, total in result["production_totals"].items():
             session.execute(insert(result_table).values(
@@ -138,11 +164,22 @@ def main_function():
         use_allocated_production=True,seat_weight=seat_weight
     )
 
+
+
+
+
+
+
     return {
         "figures": comparison_figs + sankey_figs,
         "lca_fig": fig_lca_fr,
-        "vivant_raw_data": result_vivant_raw  # Pour affichage tension dans dashboard
+        "vivant_raw_data": result_vivant_raw,  # Pour affichage tension dans dashboard
+         "scenario_results": scenario_results,
     }
+
+
 
 if __name__ == '__main__':
     main_function()
+    # 🟦 Simulation vivante avec perturbation
+
