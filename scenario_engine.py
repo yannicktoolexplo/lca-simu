@@ -24,6 +24,7 @@ import plotly.graph_objects as go
 import plotly.subplots as sp
 from utils.data_tools import display_all_lca_indicators
 from line_production.line_production_settings import lines_config
+from economic.cost_engine import calculer_penalite_non_livraison
 
 def run_scenario(allocation_function, config):
     all_production_data, all_enviro_data = run_simulation(config["lines_config"], events=config.get("events"))
@@ -53,6 +54,18 @@ def run_scenario(allocation_function, config):
         "include_supply": config.get("include_supply", True),
         "include_storage": config.get("include_storage", True)
     }, seat_weight=result.get("seat_weight", 130))
+
+    # Calcul de la pénalité de non-livraison (par site et totale)
+    print("[DEBUG market_totals]", result["market_totals"])
+    print("[DEBUG demand]", demand)
+
+    penalites, total_penalite = calculer_penalite_non_livraison(result["market_totals"], demand)
+
+    cost_results["penalties"] = penalites
+    cost_results["total_penalty"] = total_penalite
+    cost_results["total_cost_with_penalty"] = cost_results.get("total_cost", 0) + total_penalite
+
+
 
     total_co2 = sum([
         calculate_lca_production_IFE_raw(
@@ -86,7 +99,8 @@ def compare_scenarios(results_dict, return_figures=False):
     figures = []
     scenario_names = list(results_dict.keys())
 
-    total_costs = [results_dict[name]["costs"]["total_cost"] for name in scenario_names]
+    total_costs = [results_dict[name]["costs"].get("total_cost_with_penalty", results_dict[name]["costs"]["total_cost"]) for name in scenario_names]
+
     total_co2 = [results_dict[name]["total_co2"] for name in scenario_names]
     all_sites = list(results_dict[scenario_names[0]]['production_totals'].keys())
     production_per_site = {
@@ -119,14 +133,14 @@ def compare_scenarios(results_dict, return_figures=False):
     else:
         fig.show()
 
-    # LCA unitaire France
-    usage_fr = environment_engine.calculate_lca_indicators_usage_phase(1)
-    pers_eq_fr = environment_engine.calculate_lca_indicators_pers_eq(1, site='France')
-    total_fr = environment_engine.calculate_lca_indicators_total(1, site='France')
-    fake_config = [cfg for cfg in lines_config if cfg["location"] == "France"]
-    fake_production_data = [{"Total Seats made": ([], [1])}]
-    fake_enviro_data = [{}]
-    display_all_lca_indicators(fake_production_data, fake_enviro_data, fake_config, {"France": 1}) 
+
+    # LCA totale tous sièges et tous sites
+    total_units = sum([v for v in results_dict[scenario_names[0]]["production_totals"].values()])
+    fake_config_tot = lines_config
+    fake_production_data_tot = [{"Total Seats made": ([], [total_units])}]
+    fake_enviro_data_tot = [{}]
+    display_all_lca_indicators(fake_production_data_tot, fake_enviro_data_tot, fake_config_tot, {"ALL": total_units})
+
 
 
 

@@ -5,9 +5,9 @@ from event_engine import PerturbationEvent
 scenario_events = {
     "baseline": [],
     "crise": [
-        # Exemples : panne en France au jour 5 pendant 3 jours, et rupture aluminium au jour 10 pendant 5 jours
-        PerturbationEvent(time=40, target="France", event_type="panne", magnitude=1.0, duration=24, description="Grève totale France (3 jours)"),
-        PerturbationEvent(time=80, target="aluminium", event_type="rupture_fournisseur", magnitude=1.0, duration=40, description="Rupture aluminium (5 jours)")
+        # Exemples : panne en France, et rupture aluminium 
+        PerturbationEvent(time=10, target="France", event_type="panne", magnitude=1.0, duration=200, description="Panne longue France"),
+        PerturbationEvent(time=20, target="aluminium", event_type="rupture_fournisseur", magnitude=1.0, duration=200, description="Rupture aluminium")
     ],
     "surcapacite": [
         # Par exemple, sur-demande qui pousse temporairement la production au-delà de la capacité nominale
@@ -28,7 +28,7 @@ lines_config = [
         'days': 30,
         'total_time': 240,  # En heures
         'aluminium_capacity': 1000,
-        'initial_aluminium': 800,
+        'initial_aluminium': 100,
         'foam_capacity': 900,
         'initial_foam': 700,
         'fabric_capacity': 1000,
@@ -62,7 +62,7 @@ lines_config = [
         'days': 21,
         'total_time': 168,  # En heures
         'aluminium_capacity': 500,
-        'initial_aluminium': 350,
+        'initial_aluminium': 100,
         'foam_capacity': 450,
         'initial_foam': 300,
         'fabric_capacity': 500,
@@ -96,7 +96,7 @@ lines_config = [
         'days': 21,
         'total_time': 168,  # En heures
         'aluminium_capacity': 400,
-        'initial_aluminium': 300,
+        'initial_aluminium': 100,
         'foam_capacity': 400,
         'initial_foam': 300,
         'fabric_capacity': 400,
@@ -130,7 +130,7 @@ lines_config = [
         'days': 21,
         'total_time': 168,  # En heures
         'aluminium_capacity': 350,
-        'initial_aluminium': 250,
+        'initial_aluminium': 100,
         'foam_capacity': 350,
         'initial_foam': 250,
         'fabric_capacity': 350,

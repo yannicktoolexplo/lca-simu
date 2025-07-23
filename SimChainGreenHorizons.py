@@ -158,11 +158,33 @@ def main_function():
 
 
 
+    # 2. Préparer les données pour tous les sites
+    all_production_data_tot = result_multi["production_data"]  # Liste de dicts pour chaque site
+    all_enviro_data_tot = result_multi["environment_data"]
+    all_config_tot = lines_config  # toute la config
+
+    production_totals_tot = result_multi["production_totals"]  # dict par site
+    seat_weight = 130  # ou adapte si variable
+
+    # 1. Calculer la production totale tous sites (sur le scénario de référence ou multi-objectifs)
+    total_production = sum(result_multi["production_totals"].values())
+
+    # 3. Génère la figure LCA totale (tous sites, toutes productions)
+    fig_lca_total = display_all_lca_indicators(
+        all_production_data=all_production_data_tot,
+        all_enviro_data=all_enviro_data_tot,
+        lines_config=all_config_tot,
+        production_totals=production_totals_tot,
+        use_allocated_production=True, seat_weight=seat_weight
+)
+
 
 
     return {
         "figures": comparison_figs + sankey_figs,
         "lca_fig": fig_lca_fr,
+        "production_totals_sum": total_production,
+        "lca_fig_total": fig_lca_total,  # <-- Nouvelle clé
         "vivant_raw_data": result_vivant_raw,  # Pour affichage tension dans dashboard
          "scenario_results": scenario_results,
     }

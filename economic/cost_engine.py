@@ -155,3 +155,31 @@ def get_unit_cost(i, j, variable_costs, include_supply=True, include_storage=Tru
 
     return total
 
+# Montant de la pénalité par unité non livrée (modifiable selon le secteur)
+PENALITE_NON_LIVRAISON = 200  # €/unité
+
+def calculer_penalite_non_livraison(market_totals, demand):
+    # --- Patch pour supporter DataFrame ou Series pandas
+    if hasattr(demand, "to_dict"):
+        if hasattr(demand, "columns") and "Demand" in demand.columns:
+            demand_dict = demand["Demand"].to_dict()
+        else:
+            demand_dict = demand.to_dict()
+    else:
+        demand_dict = demand
+    # ---
+
+    total_penalty = 0
+    penalties = {}
+    for market in demand_dict:
+        prod = market_totals.get(market, 0)
+        demande = demand_dict.get(market, 0)
+        manque = max(0, demande - prod)
+        penalty = manque * 200  # adapte si besoin
+        penalties[market] = penalty
+        total_penalty += penalty
+        print(f"[DEBUG PENALITE] market={market}, prod={prod}, demande={demande}, manque={manque}, pénalité={penalty}")
+
+    print(f"[PENALITE TOTALE] {total_penalty}")
+    return penalties, total_penalty
+
