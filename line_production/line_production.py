@@ -1,6 +1,7 @@
 import random
 import simpy
 from supply.supply_engine import manage_fixed_supply
+from event_engine import EventManager
 
 class ProductionLine:
     def __init__(self, env, config, seat_weight=130):
@@ -9,6 +10,14 @@ class ProductionLine:
         self.init_containers()
         self.init_controls(seat_weight)
         self.init_data_tracking()
+        # 🔻 Ajout des drapeaux de perturbation
+        self.active = True  # indique si la ligne tourne normalement
+        self.supply_enabled = {
+            'aluminium': True,
+            'foam': True,
+            'fabric': True,
+            'paint': True
+        }
         self.start_production_processes()
 
 
@@ -68,6 +77,11 @@ class ProductionLine:
 
     def frame_maker(self, env):
         while True:
+            # ➡️ Si la ligne est en panne, on attend 1h avant de re-tester
+            if not self.active:
+                yield env.timeout(1)   # pause d'un pas de temps (1 heure) pendant la panne
+                continue
+            # Reprise du fonctionnement normal si self.active = True)
             yield self.aluminium.get(1)
             yield self.foam.get(1)
             yield self.fabric.get(1)
@@ -108,7 +122,10 @@ class ProductionLine:
 
     def stock_control(self, container, critical_level, refill_amount, delivery_time, name):
         while True:
-            if container.level <= critical_level:
+            # ➡️ Si la ressource est en rupture fournisseur, on suspend les réapprovisionnements
+            if not self.supply_enabled.get(name, True):
+                yield self.env.timeout(1)  # on attend 1h avant de re-vérifier
+            elif container.level <= critical_level:
                 yield self.env.timeout(delivery_time)
                 yield container.put(refill_amount)
                 yield self.env.timeout(8)
@@ -164,7 +181,7 @@ class ProductionLine:
             'Mineral and Metal Used': (self.time, self.mineral_metal_used),
         }
 
-def run_simulation(lines_config, seat_weight=130):
+def run_simulation(lines_config, seat_weight=130, events=None):
     env = simpy.Environment()
     production_lines = []
 
@@ -172,9 +189,58 @@ def run_simulation(lines_config, seat_weight=130):
         line = ProductionLine(env, config, seat_weight)
         production_lines.append(line)
 
-    env.run(until=max(config['total_time'] for config in lines_config))
+        # 🔻 Intégration du moteur d’événements
+    if events:
+        for event in events:
+            if event.event_type == "panne":
+                env.process(handle_breakdown_event(env, event, production_lines))
+            elif event.event_type == "rupture_fournisseur":
+                env.process(handle_supply_event(env, event, production_lines))
+            elif event.event_type == "retard":
+                # env.process(handle_delay_event(env, event, production_lines))
+                pass
+    # Lancement de la simulation jusqu'à la fin de l'horizon temporel
+    env.run(until=max(cfg['total_time'] for cfg in lines_config))
 
     all_production_data = [line.get_data() for line in production_lines]
     all_enviro_data = [line.get_data_enviro() for line in production_lines]
 
     return all_production_data, all_enviro_data
+
+def handle_breakdown_event(env, event, production_lines):
+    # Arrêt complet d'un site de production pendant event.duration heures
+    yield env.timeout(event.time)
+    print(f"⚡ [t={env.now}] Panne sur site {event.target} : arrêt de la production ({event.description})")
+    # Désactiver la ligne ciblée
+    for line in production_lines:
+        if line.config['location'] == event.target:
+            line.active = False
+    # Maintenir la panne pendant la durée spécifiée
+    yield env.timeout(event.duration)
+    # Fin de la panne, on réactive la ligne
+    for line in production_lines:
+        if line.config['location'] == event.target:
+            line.active = True
+    print(f"✅ [t={env.now}] Fin de la panne sur {event.target}, reprise de la production.")
+
+def handle_supply_event(env, event, production_lines):
+    # Rupture d'une ressource (matière première) pendant event.duration
+    yield env.timeout(event.time)
+    print(f"⚡ [t={env.now}] Rupture de fourniture : {event.target} indisponible ({event.description})")
+    # Désactiver l'approvisionnement de la ressource sur tous les sites
+    for line in production_lines:
+        if event.target in line.supply_enabled:
+            line.supply_enabled[event.target] = False
+            # Optionnel : vider le stock actuel pour simuler rupture immédiate
+            if line.__dict__.get(event.target) is not None:
+                # Retire tout le contenu du container correspondant (ex: aluminium)
+                amount = line.__dict__[event.target].level
+                if amount > 0:
+                    yield line.__dict__[event.target].get(amount)
+    # Durée de la perturbation
+    yield env.timeout(event.duration)
+    # Rétablissement de l'approvisionnement
+    for line in production_lines:
+        if event.target in line.supply_enabled:
+            line.supply_enabled[event.target] = True
+    print(f"✅ [t={env.now}] Fin de rupture : {event.target} de nouveau approvisionné.")

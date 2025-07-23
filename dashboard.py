@@ -4,7 +4,6 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from SimChainGreenHorizons import main_function
 import plotly.express as px
-from run_simulation_vivante import run_simulation_vivante
 from line_production.line_production_settings import lines_config
 
 # Connexion à la base locale SQLite
@@ -41,23 +40,7 @@ if st.button("🚀 Lancer la simulation"):
         st.header("Production dynamique – Effet d'une perturbation (simulation vivante)")
 
         scenario_results = result["scenario_results"]
-        prod_viv = scenario_results["Simulation vivante"]["production_data"]
 
-        # Trouver l'index France dans lines_config
-        fr_index = next(i for i, cfg in enumerate(lines_config) if cfg["location"] == "France")
-        
-        fig, ax = plt.subplots(figsize=(10,4))
-        ax.plot(prod_viv["France"], label="France (simulation vivante)")
-        ax.plot(prod_viv["Texas"], label="Texas (simulation vivante)")
-        prod_base = scenario_results["Baseline"]["production_data"]["France"]  # Adapter selon le format
-        ax.plot(prod_base, '--', label="France (Baseline)")
-        # Ajoute les autres courbes/scénarios si tu veux
-        ax.set_xlabel("Jour")
-        ax.set_ylabel("Production")
-        ax.set_title("Production quotidienne – Scénario Simulation vivante")
-        ax.legend()
-        ax.grid(True)
-        st.pyplot(fig)
 
         # 🧠 Tension cognitive – scénario vivant
         st.markdown("### 🧠 Tension cognitive – Système vivant")
