@@ -1,5 +1,26 @@
 # line_production_settings.py
 
+from event_engine import PerturbationEvent
+
+scenario_events = {
+    "baseline": [],
+    "crise": [
+        # Exemples : panne en France au jour 5 pendant 3 jours, et rupture aluminium au jour 10 pendant 5 jours
+        PerturbationEvent(time=40, target="France", event_type="panne", magnitude=1.0, duration=24, description="Grève totale France (3 jours)"),
+        PerturbationEvent(time=80, target="aluminium", event_type="rupture_fournisseur", magnitude=1.0, duration=40, description="Rupture aluminium (5 jours)")
+    ],
+    "surcapacite": [
+        # Par exemple, sur-demande qui pousse temporairement la production au-delà de la capacité nominale
+        # (On simule en fait une augmentation de capacité requise, ce qui pourrait être interprété par magnitude < 0 pour signifier +50% de capacité ?)
+        # Ici on n'affecte pas directement la production_line mais on pourrait utiliser cet événement au niveau allocation.
+    ],
+    "vivant": [
+        # On peut reprendre l'exemple d'événements vivants déjà défini
+        PerturbationEvent(time=20, target="France", event_type="panne", magnitude=1.0, duration=5, description="Arrêt total France"),
+        PerturbationEvent(time=50, target="aluminium", event_type="rupture_fournisseur", magnitude=1.0, duration=10, description="Plus d'aluminium")
+    ]
+}
+
 # Configuration de plusieurs lignes de production
 lines_config = [
     {   'location': 'Texas',  # Grand centre de production

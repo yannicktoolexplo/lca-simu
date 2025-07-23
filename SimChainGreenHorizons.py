@@ -26,8 +26,10 @@ from optimization.optimization_engine import (
 )
 from hybrid_regulation_engine import run_simulation_vivant
 import pprint
-from event_engine import EventManager, example_events
 
+from event_engine import EventManager, PerturbationEvent
+from line_production.line_production_settings import lines_config, scenario_events
+from line_production.line_production import run_simulation
 
 def main_function():
     # Simulation DES
@@ -37,17 +39,6 @@ def main_function():
         lines_config[i]['location']: data['Total Seats made'][1][-1]
         for i, data in enumerate(all_production_data)
     }
-
-    # ----------- AJOUT GESTIONNAIRE ÉVÉNEMENTS ----------- #
-    system_state = {
-        'capacity': max_production.copy(),
-        'capacity_nominal': max_production.copy(),
-        'supply': {'aluminium': 1000, 'fabric': 800, 'polymers': 600, 'paint': 400},
-        'supply_nominal': {'aluminium': 1000, 'fabric': 800, 'polymers': 600, 'paint': 400},
-    }
-    event_manager = EventManager(example_events)
-    # ----------- FIN AJOUT -----------
-
 
 
     print("\n🧮 Capacité maximale par site (simulation) :")
@@ -61,17 +52,15 @@ def main_function():
         "include_storage": True,
     }
 
-    # Simulation événements perturbateurs avant les scénarios
-    N = 60  # nombre de pas à simuler (ou adapte à ta durée)
-    for t in range(N):
-        event_manager.step(t, system_state)
-        # Ici tu pourrais loguer ou afficher la capacité courante
-        if t in [19, 20, 24, 25, 50, 59, 60]:  # exemples pour voir le changement
-            print(f"[t={t}] Capacité France = {system_state['capacity']['France']}, Aluminium = {system_state['supply']['aluminium']}")
 
-    config["capacity_override"] = system_state["capacity"]
 
+    # Scénario baseline (aucun événement)
     result_baseline = run_scenario(run_simple_allocation_dict, config)
+
+    # Scénario crise (perturbations activées)
+    config_crise = { **config, "events": scenario_events["crise"] }
+    result_crise = run_scenario(run_simple_allocation_dict, config_crise)
+
     result_optim_cost = run_scenario(run_optimization_allocation_dict, config)
     result_optim_co2 = run_scenario(run_optimization_co2_allocation_dict, config)
     result_multi = run_scenario(run_multiobjective_allocation_dict, config)
@@ -118,6 +107,7 @@ def main_function():
 
     scenario_results = {
         "Baseline": result_baseline,
+        "Crise": result_crise,
         "Optimisation Coût": result_optim_cost,
         "Optimisation CO₂": result_optim_co2,
         "MultiObjectifs": result_multi,

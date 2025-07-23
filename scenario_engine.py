@@ -26,7 +26,7 @@ from utils.data_tools import display_all_lca_indicators
 from line_production.line_production_settings import lines_config
 
 def run_scenario(allocation_function, config):
-    all_production_data, all_enviro_data = run_simulation(config["lines_config"])
+    all_production_data, all_enviro_data = run_simulation(config["lines_config"], events=config.get("events"))
     seat_weight = config.get("seat_weight", 130)
     max_production = {
         config["lines_config"][i]['location']: data['Total Seats made'][1][-1]
