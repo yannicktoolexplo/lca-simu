@@ -41,13 +41,15 @@ def add_common_constraints(model, x, y, cap, loc_prod, loc_demand, size, demand)
     - Satisfaction de la demande
     """
     for i in loc_prod:
+        # Minimum de production si l’usine est activée
+        model += lpSum([x[(i, j)] for j in loc_demand]) >= 50 * lpSum([y[(i, s)] for s in size]), f"Min_prod_{i}"
+        
         # Capacité maximale (selon activation Low ou High)
         model += lpSum([x[(i, j)] for j in loc_demand]) <= (
             cap[i]['Low'] * y[(i, 'Low')] + cap[i]['High'] * y[(i, 'High')]
         ), f"Cap_max_{i}"
 
-        # Minimum de production si l’usine est activée
-        model += lpSum([x[(i, j)] for j in loc_demand]) >= 50 * lpSum([y[(i, s)] for s in size]), f"Min_prod_{i}"
+
 
         # Interdiction d'activer Low et High en même temps
         model += y[(i, 'Low')] + y[(i, 'High')] <= 1, f"Exclusive_LH_{i}"

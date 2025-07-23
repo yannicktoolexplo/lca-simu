@@ -23,8 +23,10 @@ if st.button("🚀 Lancer la simulation"):
         for fig in figures:
             st.plotly_chart(fig, use_container_width=True)
 
-        st.markdown("### 🌍 Analyse du Cycle de Vie – 1 siège produit en France")
-        st.plotly_chart(result["lca_fig"], use_container_width=True)
+        # Affichage LCA totale tous sièges et tous pays/sites
+        st.markdown(f"### 🌍 Analyse du Cycle de Vie : Optimisation Multiobjectifs – **{int(result['production_totals_sum'])} sièges, tous sites**")
+        st.plotly_chart(result["lca_fig_total"], use_container_width=True)
+
 
         # 🔁 Attente courte pour laisser le temps d’écrire dans la base
         import time
