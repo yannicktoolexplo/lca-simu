@@ -54,14 +54,36 @@ def calculate_total_costs(data, seat_weight=130):
     value = data["value"]
     production_totals = data["production_totals"]
     market_totals = data["market_totals"]
-    loc_prod = data["loc_prod"]
-    loc_demand = data["loc_demand"]
+    loc_prod = data.get("loc_prod") or []
+    print("DEBUG dans cost_engine avant test vide : loc_prod =", loc_prod, "type =", type(loc_prod))
+
+    if isinstance(loc_prod, dict):
+        loc_prod_list = list(loc_prod.keys())
+    else:
+        loc_prod_list = loc_prod
+
+    if not loc_prod_list:
+        raise ValueError("loc_prod_list est vide : la fonction d'allocation ne fournit pas la liste des sites de production.")
+
+    loc_demand = data.get("loc_demand") or []
+    if isinstance(loc_demand, dict):
+        loc_demand_list = list(loc_demand.keys())
+    else:
+        loc_demand_list = loc_demand
     cap = data["cap"]
     fixed_costs = data["fixed_costs"]
     variable_costs = data["variable_costs"]
 
     include_supply = data.get("include_supply", True)
     include_storage = data.get("include_storage", True)
+
+    if isinstance(loc_prod, list):
+        production_distribution = {location: 0 for location in loc_prod}
+    elif isinstance(loc_prod, dict):
+        production_distribution = {location: 0 for location in loc_prod.keys()}
+    else:
+        production_distribution = {}
+
 
     production_distribution = {location: 0 for location in loc_prod}
     total_costs = {location: 0.0 for location in loc_prod}
@@ -86,8 +108,9 @@ def calculate_total_costs(data, seat_weight=130):
     storage_cost_per_unit = 2.0
 
     for i, source_index in enumerate(source):
-        location = loc_prod[source_index]
-        destination = loc_demand[target[i]]
+        print("DEBUG i:", i, "source_index:", source_index)
+        location = loc_prod_list[source_index]
+        destination = loc_demand_list[target[i]]
         quantity = value[i]
 
         low_cap = cap[location]['Low']

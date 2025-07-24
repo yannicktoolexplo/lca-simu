@@ -137,6 +137,7 @@ def run_simple_supply_allocation(capacity_limits, demand):
 
     # Restaurer les capacités à l'état d'origine pour vérification
     capacity_limits = original_capacity_limits
+    loc_prod = list(capacity_limits.keys())  # ou similaire, NON VIDE
 
     return source, target, value, production_totals, market_totals, loc_prod, loc_demand, capacity_limits
 
