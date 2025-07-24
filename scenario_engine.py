@@ -40,13 +40,28 @@ def run_scenario(allocation_function, config):
 
     result = allocation_function(cap, demand)
 
+    # Vérification pour éviter plantage en cas d'allocation vide
+    loc_prod = result.get("loc_prod")
+    if not loc_prod or len(loc_prod) == 0:
+        print("ERREUR : Pas de sites de production alloués, on skip le calcul de coûts pour ce scénario !")
+        return {
+            **result,
+            "costs": {},
+            "total_co2": 0,
+            "production_data": all_production_data,
+            "environment_data": all_enviro_data,
+            "config": config,
+            "seat_weight": seat_weight
+        }
+
+
     cost_results = calculate_total_costs({
         "source": result["source"],
         "target": result["target"],
         "value": result["value"],
         "production_totals": result["production_totals"],
         "market_totals": result["market_totals"],
-        "loc_prod": result["loc_prod"],
+        "loc_prod": result["loc_prod"],   
         "loc_demand": result["loc_demand"],
         "cap": result["cap"],
         "fixed_costs": fixed_costs,
@@ -132,7 +147,6 @@ def compare_scenarios(results_dict, return_figures=False):
         return [fig]
     else:
         fig.show()
-
 
     # LCA totale tous sièges et tous sites
     total_units = sum([v for v in results_dict[scenario_names[0]]["production_totals"].values()])

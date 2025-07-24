@@ -107,19 +107,21 @@ def main_function():
 
     scenario_results = {
         "Baseline": {**result_baseline, "allocation_func": run_simple_allocation_dict},
-        "Crise": {**result_crise, "allocation_func": run_simple_allocation_dict},
         "Optimisation Coût": {**result_optim_cost, "allocation_func": run_optimization_allocation_dict},
         "Optimisation CO₂": {**result_optim_co2, "allocation_func": run_optimization_co2_allocation_dict},
         "MultiObjectifs": {**result_multi, "allocation_func": run_multiobjective_allocation_dict},
         "Lightweight": {**result_lightweight, "allocation_func": lambda cap, demand: run_supply_chain_lightweight_scenario(cap, demand, seat_weight=70)},
     }
 
+    # --- Résultat du scénario de crise à part ---
+    crisis_result = {**result_crise, "allocation_func": run_simple_allocation_dict}
 
     for name, result in scenario_results.items():
         base_config = {
             "lines_config": lines_config,
             "include_supply": True,
             "include_storage": True,
+            "loc_prod": {},  # <-- ajout temporaire si tu n’as pas la vraie valeur
         }
 
         res_supply = run_scenario(result["allocation_func"], {**base_config, "events": scenario_events["shock_supply"]})
@@ -132,25 +134,43 @@ def main_function():
             "distribution": res_dist
         }
 
+        crisis_result["resilience_test"] = {
+        "supply": res_supply,
+        "production": res_prod,
+        "distribution": res_dist
+    }
+
     # --- Ensuite SEULEMENT, boucle pour calculer les scores de résilience ---
     def compute_resilience_score(result_nominal, result_crisis):
-        prod_nominal = sum(result_nominal["production_totals"].values())
-        prod_crisis  = sum(result_crisis["production_totals"].values())
-        if prod_nominal == 0:
+        prod_nominal = result_nominal.get("production_totals")
+        prod_crisis  = result_crisis.get("production_totals")
+        if prod_nominal is None or prod_crisis is None:
             return 0
-        return round(100 * prod_crisis / prod_nominal, 1)
+        prod_nominal_sum = sum(prod_nominal.values())
+        prod_crisis_sum = sum(prod_crisis.values())
+        if prod_nominal_sum == 0:
+            return 0
+        return round(100 * min(prod_crisis_sum, prod_nominal_sum) / max(prod_nominal_sum, 1), 1)
+
 
     for name, results in scenario_results.items():
         # On récupère le résultat nominal (sans choc) et ceux des 3 chocs
         nominal = results
         tests   = results["resilience_test"]
-        scores = {
-            phase: compute_resilience_score(nominal, tests[phase])
-            for phase in ["supply", "production", "distribution"]
-        }
+    scores = {}
+    for phase in ["supply", "production", "distribution"]:
+        test = tests.get(phase)
+        if test is None:
+            scores[phase] = 0
+        else:
+            scores[phase] = compute_resilience_score(nominal, test)
+
         scores["total"] = round(sum(scores.values()) / 3, 1)
         scenario_results[name]["resilience_scores"] = scores
-
+    tests = crisis_result["resilience_test"]
+    scores = {phase: compute_resilience_score(crisis_result, tests[phase]) for phase in ["supply", "production", "distribution"]}
+    scores["total"] = round(sum(scores.values()) / 3, 1)
+    crisis_result["resilience_scores"] = scores
 
     for scenario_id, (name, result) in enumerate(scenario_results.items(), start=1):
         for site, total in result["production_totals"].items():
@@ -166,6 +186,13 @@ def main_function():
     # Visualisation comparative
     comparison_figs = compare_scenarios(scenario_results, return_figures=True)
     sankey_figs = display_sankey_for_scenarios(scenario_results, return_figures=True)
+
+    # Visualisation comparative pour la crise seule (ou plusieurs scénarios de crise si besoin)
+    crisis_figs = compare_scenarios({"Crise": crisis_result}, return_figures=True)
+    # Sankey pour la crise seule
+    crisis_sankey_figs = display_sankey_for_scenarios({"Crise": crisis_result}, return_figures=True)
+
+
 
     # 🇫🇷 Analyse LCA France uniquement (sur scénario multi-objectif)
     fr_config = [cfg for cfg in lines_config if cfg["location"] == "France"]
@@ -223,6 +250,8 @@ def main_function():
         "lca_fig_total": fig_lca_total,  # <-- Nouvelle clé
         "vivant_raw_data": result_vivant_raw,  # Pour affichage tension dans dashboard
          "scenario_results": scenario_results,
+         "crisis_result": crisis_result,   
+         "crisis_figures": crisis_figs + crisis_sankey_figs       # Crise à part !
     }
 
 

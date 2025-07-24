@@ -6,7 +6,7 @@ scenario_events = {
     "baseline": [],
     "crise": [
         # Exemples : panne en France, et rupture aluminium 
-        PerturbationEvent(time=10, target="France", event_type="panne", magnitude=1.0, duration=200, description="Panne longue France"),
+        PerturbationEvent(time=10, target="France", event_type="panne", magnitude=1.0, duration=100, description="Panne longue France"),
         PerturbationEvent(time=20, target="aluminium", event_type="rupture_fournisseur", magnitude=1.0, duration=200, description="Rupture aluminium")
     ],
     "surcapacite": [
@@ -21,20 +21,20 @@ scenario_events = {
     ],
     "shock_supply": [
         PerturbationEvent(
-            time=50, target="aluminium", event_type="rupture_fournisseur",
-            magnitude=1.0, duration=40, description="Rupture critique d’aluminium"
+            time=10, target="aluminium", event_type="rupture_fournisseur",
+            magnitude=1.0, duration=100, description="Rupture critique d’aluminium"
         )
     ],
     "shock_production": [
         PerturbationEvent(
-            time=50, target="Texas", event_type="panne",
-            magnitude=1.0, duration=40, description="Panne usine Texas"
+            time=10, target="Texas", event_type="panne",
+            magnitude=1.0, duration=100, description="Panne usine Texas"
         )
     ],
     "shock_distribution": [
         PerturbationEvent(
-            time=50, target="aluminium", event_type="retard",
-            magnitude=8, duration=40, description="Retard logistique majeur"
+            time=10, target="aluminium", event_type="retard",
+            magnitude=8, duration=100, description="Retard logistique majeur"
         )
     ],
 }
