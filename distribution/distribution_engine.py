@@ -1,47 +1,37 @@
-# distribution_engine.py
-
 import os
 import pandas as pd
 
-# Define distances between locations in km
+# Distances par défaut (km) entre les sites de production et les marchés de demande.
 distances = {
-    # Texas to demand locations
+    # Texas vers marchés
     ('Texas', 'USA'): 2400,
     ('Texas', 'Canada'): 3000,
     ('Texas', 'Japan'): 11000,
     ('Texas', 'Brazil'): 8000,
     ('Texas', 'France'): 8500,
-    
-    # California to demand locations
+    # California vers marchés
     ('California', 'USA'): 3800,
     ('California', 'Canada'): 1300,
     ('California', 'Japan'): 9000,
     ('California', 'Brazil'): 10500,
     ('California', 'France'): 9300,
-    
-    # UK to demand locations
+    # UK vers marchés
     ('UK', 'USA'): 5600,
     ('UK', 'Canada'): 5200,
     ('UK', 'Japan'): 9600,
     ('UK', 'Brazil'): 9400,
-    ('UK', 'France'): 800,  
-    
-    # France to demand locations
+    ('UK', 'France'): 800,
+    # France vers marchés
     ('France', 'USA'): 7600,
     ('France', 'Canada'): 6000,
     ('France', 'Japan'): 9700,
     ('France', 'Brazil'): 8900,
-    ('France', 'France'): 200  
+    ('France', 'France'): 200
 }
 
 def load_freight_costs_and_demands():
-    """Load costs and demand data from Excel files."""
-    absolute_path = os.path.dirname(__file__)
-
-    # Load Freight Costs
-    freight_costs = pd.read_excel(os.path.join(absolute_path, 'data/freight_costs.xlsx'), index_col=0)
-
-    # Load Demand
-    demand = pd.read_excel(os.path.join(absolute_path, 'data/demand.xlsx'), index_col=0)
-
+    """Charge les coûts de fret et la demande à partir des fichiers Excel dans le dossier data."""
+    base_path = os.path.join(os.path.dirname(__file__), 'data')
+    freight_costs = pd.read_excel(os.path.join(base_path, 'freight_costs.xlsx'), index_col=0)
+    demand = pd.read_excel(os.path.join(base_path, 'demand.xlsx'), index_col=0)
     return freight_costs, demand

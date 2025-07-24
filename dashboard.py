@@ -1,107 +1,63 @@
 import streamlit as st
-from sqlalchemy import create_engine
 import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-from SimChainGreenHorizons import main_function
 import plotly.express as px
-from line_production.line_production_settings import lines_config
+from sqlalchemy import create_engine
+from SimChainGreenHorizons import main_function
 
-# Connexion à la base locale SQLite
-engine = create_engine('sqlite:///simchain.db')
+# Configuration de la base de données SQLite
+DB_PATH = 'sqlite:///simchain.db'
+engine = create_engine(DB_PATH)
 
 st.title("📊 Supply Chain Simulator – Dashboard")
 
-# Bouton de simulation
+# Bouton pour lancer la simulation
 if st.button("🚀 Lancer la simulation"):
     with st.spinner("Simulation en cours..."):
-        result = main_function()  # ✅ figures, lca_fig, vivant_raw_data
-
-        figures = result["figures"]
+        result = main_function()  # Exécuter la simulation complète
         st.success("✅ Simulation terminée !")
 
+        # Afficher les graphiques comparatifs des scénarios
         st.markdown("### 📈 Résultats comparés des scénarios")
-        for fig in figures:
+        for fig in result["figures"]:
             st.plotly_chart(fig, use_container_width=True)
 
-        st.markdown("### 🚨 Résultats – scénario de crise")
+        # Afficher les graphiques pour le scénario de crise
+        st.markdown("### 🚨 Résultats – Scénario de crise")
         for fig in result.get("crisis_figures", []):
             st.plotly_chart(fig, use_container_width=True)
 
-        # Affichage LCA totale tous sièges et tous pays/sites
-        st.markdown(f"### 🌍 Analyse du Cycle de Vie : Optimisation Multiobjectifs – **{int(result['production_totals_sum'])} sièges, tous sites**")
+        # Affichage de l'analyse LCA totale pour tous sites (scénario multi-objectifs)
+        total_units = int(result["production_totals_sum"])
+        st.markdown(f"### 🌍 Analyse du Cycle de Vie – Optimisation Multi-Objectifs ({total_units} sièges, tous sites)")
         st.plotly_chart(result["lca_fig_total"], use_container_width=True)
 
-        # --- Résultats, figures, etc. ---
-        scenario_results = result["scenario_results"]
-        crisis_result = result["crisis_result"]
-
-
-
-        # 🔁 Attente courte pour laisser le temps d’écrire dans la base
-        import time
-        time.sleep(1.0)
-
+        # Résultats enregistrés en base de données
         st.markdown("### 📦 Résultats enregistrés dans la base")
+        # Attendre un court instant que la base soit mise à jour
+        import time; time.sleep(1.0)
         df = pd.read_sql("SELECT * FROM result", con=engine)
         if not df.empty:
             st.dataframe(df)
         else:
             st.warning("❌ Aucune donnée trouvée dans la table `result`.")
 
-        # st.header("Production dynamique – Effet d'une perturbation (simulation vivante)")
-        # # 🧠 Tension cognitive – scénario vivant
-        # st.markdown("### 🧠 Tension cognitive – Système vivant")
-
-        # vivant_data = result.get("vivant_raw_data", [])
-        # if vivant_data:
-        #     df_vivant = pd.DataFrame(vivant_data)
-        #     if not df_vivant.empty:
-        #         fig_tension = px.line(df_vivant, x="day", y="tension", color="site",
-        #                             title="Évolution de la tension cognitive par site")
-        #         st.plotly_chart(fig_tension, use_container_width=True)
-
-        #         fig_command = px.line(df_vivant, x="day", y="command", color="site",
-        #                             title="Commande décidée par jour")
-        #         st.plotly_chart(fig_command, use_container_width=True)
-
-        #         fig_stock = px.line(df_vivant, x="day", y="stock", color="site",
-        #                             title="Évolution du stock par site")
-        #         st.plotly_chart(fig_stock, use_container_width=True)
-
-
-
-        #     else:
-        #         st.info("Pas de données pour le scénario vivant.")
-        # else:
-        #     st.info("Le scénario vivant n'a pas été simulé ou retourné.")
-
-
-        # --- Construction DataFrame pour affichage (scores de résilience) ---
+        # Calculer les scores de résilience de chaque scénario et les afficher
         df_scores = pd.DataFrame.from_dict({
             name: res.get("resilience_scores", {"supply": 0, "production": 0, "distribution": 0, "total": 0})
-            for name, res in scenario_results.items()
+            for name, res in result["scenario_results"].items()
         }, orient='index')
-
-        # Ajout du scénario crise à la main
-        df_scores.loc["Crise"] = crisis_result["resilience_scores"]
-
-        # Affichage du tableau complet
+        df_scores.loc["Crise"] = result["crisis_result"]["resilience_scores"]
         st.markdown("### 🟦 Scores de résilience par scénario")
         st.dataframe(df_scores)
-
-        # --- Exemple Plotly plus interactif ---
-        fig_plotly = px.bar(
-            df_scores.reset_index(),
-            x="index", y="total",
-            color="index",
+        # Exemple de visualisation interactive des scores de résilience
+        fig_resilience = px.bar(
+            df_scores.reset_index(), x="index", y="total", color="index",
             color_discrete_map={name: ("#4895ef" if name != "Crise" else "#e63946") for name in df_scores.index},
             title="Score de résilience par scénario"
         )
-        st.plotly_chart(fig_plotly, use_container_width=True)
+        st.plotly_chart(fig_resilience, use_container_width=True)
 
-
-# 🟡 Affichage si simulation non encore lancée
+# Si aucune simulation n'a encore été lancée, afficher le contenu actuel de la base (le cas échéant)
 else:
     st.markdown("### 📦 Résultats enregistrés dans la base")
     try:

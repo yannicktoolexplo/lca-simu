@@ -1,378 +1,234 @@
-# ---
-# jupyter:
-#   jupytext:
-#     text_representation:
-#       extension: .py
-#       format_name: light
-#       format_version: '1.5'
-#       jupytext_version: 1.16.0
-#   kernelspec:
-#     display_name: Python 3
-#     language: python
-#     name: python3
-# ---
 import os
-import pandas as pd
-from pulp import *
-from pulp import utilities
-import plotly.graph_objects as go
-import line_production.production_engine as production_engine
-import distribution.distribution_engine as distribution_engine
-import environment.environment_engine as environment_engine
-from environment.environment_engine import calculate_supply_co2_supply_emissions
-from economic.cost_engine import get_supply_cost
-from economic.cost_engine import get_supply_cost, get_unit_cost, calculate_total_costs
 import math
 import random
-random.seed(1447)
-from environment.environment_engine import (
-    calculate_distribution_co2_emissions,
-    calculate_lca_production_IFE_raw
-)
+import pandas as pd
+from pulp import LpProblem, LpMinimize, lpSum, LpVariable, PULP_CBC_CMD, LpStatus
+from line_production.line_production import run_simulation
+from environment import environment_engine
+from economic.cost_engine import get_supply_cost, get_unit_cost, calculate_total_costs
 from distribution.distribution_engine import load_freight_costs_and_demands
-from line_production.production_engine import load_fixed_and_variable_costs, load_capacity_limits, run_simple_supply_allocation
+from line_production.production_engine import load_fixed_and_variable_costs, run_simple_supply_allocation
+from line_production.line_production_settings import lines_config
+
+# Configuration par défaut des sites de production et marchés de demande
+DEFAULT_PROD_SITES = ['Texas', 'California', 'UK', 'France']
+DEFAULT_DEMAND_MARKETS = ['USA', 'Canada', 'Japan', 'Brazil', 'France']
+MIN_PRODUCTION_IF_ACTIVE = 50  # Production minimale (unités) si un site est activé
 
 def add_common_constraints(model, x, y, cap, loc_prod, loc_demand, size, demand):
     """
-    Contraintes de base communes à tous les scénarios :
-    - Capacité maximale autorisée selon Low/High
-    - Minimum 50 unités si une usine est activée
-    - Non-activation simultanée Low + High
-    - Satisfaction de la demande
+    Ajoute les contraintes communes de base au modèle d'optimisation :
+    - Capacité maximale autorisée selon Low/High par site.
+    - Minimum de production (MIN_PRODUCTION_IF_ACTIVE) si une usine est activée.
+    - Pas d'activation simultanée des modes Low et High.
+    - Satisfaction complète de la demande pour chaque marché.
     """
     for i in loc_prod:
-        # Minimum de production si l’usine est activée
-        model += lpSum([x[(i, j)] for j in loc_demand]) >= 50 * lpSum([y[(i, s)] for s in size]), f"Min_prod_{i}"
-        
-        # Capacité maximale (selon activation Low ou High)
+        # 1. Contraintes de production minimale si l'usine est ouverte
+        model += lpSum([x[(i, j)] for j in loc_demand]) >= MIN_PRODUCTION_IF_ACTIVE * lpSum([y[(i, s)] for s in size]), f"MinProd_{i}"
+        # 2. Contraintes de capacité maximale (selon niveau Low/High actif)
         model += lpSum([x[(i, j)] for j in loc_demand]) <= (
             cap[i]['Low'] * y[(i, 'Low')] + cap[i]['High'] * y[(i, 'High')]
-        ), f"Cap_max_{i}"
-
-
-
-        # Interdiction d'activer Low et High en même temps
+        ), f"CapMax_{i}"
+        # 3. Empêcher d'activer Low et High simultanément pour un même site
         model += y[(i, 'Low')] + y[(i, 'High')] <= 1, f"Exclusive_LH_{i}"
-
-    # Satisfaction de la demande par marché
+    # 4. Satisfaction de la demande de chaque marché j
     for j in loc_demand:
-        # print(f"[DEBUG] Contrainte demand {j} = {demand.loc[j, 'Demand']}")
         model += lpSum([x[(i, j)] for i in loc_prod]) == demand.loc[j, 'Demand'], f"Demand_{j}"
-
 
 def run_supply_chain_optimization(capacity_limits, demand=None):
     """
-    Optimisation mono-objectif sur le coût total.
-    Ne tient compte que des contraintes économiques + contraintes de base.
+    Optimisation mono-objectif minimisant le coût total (production + transport). 
+    Ne considère que les contraintes économiques et de capacité.
+    :param capacity_limits: dict des capacités Low/High par site (ex: {'France': {'Low': ..., 'High': ...}, ...})
+    :param demand: DataFrame ou None (si None, on utilisera les données internes via load_freight_costs_and_demands)
+    :return: tuple (source, target, value_list, production_totals, market_totals, loc_prod, loc_demand, cap)
     """
-    # Données
-    freight_costs, demand = load_freight_costs_and_demands()
-    fixed_costs, var_cost = load_fixed_and_variable_costs(freight_costs)
+    # Charger les données de demande et coûts si non fournies
+    freight_costs, demand_df = load_freight_costs_and_demands() if demand is None else (load_freight_costs_and_demands()[0], demand)
+    fixed_costs, var_costs = load_fixed_and_variable_costs(freight_costs)
     cap = capacity_limits
-
-    loc_prod = ['Texas', 'California', 'UK', 'France']
-    loc_demand = ['USA', 'Canada', 'Japan', 'Brazil', 'France']
+    loc_prod = list(cap.keys())
+    loc_demand = list(demand_df.index)
     size = ['Low', 'High']
-
+    # Définir le modèle d'optimisation (minimisation de coût)
     model = LpProblem("Cost_Minimization", LpMinimize)
-
-    x = LpVariable.dicts("production_", [(i, j) for i in loc_prod for j in loc_demand], lowBound=0, cat='Continuous')
-    y = LpVariable.dicts("plant_", [(i, s) for i in loc_prod for s in size], cat='Binary')
-
-    # OBJECTIF : coût total
-    total_cost = lpSum([
-        fixed_costs.loc[i, s] * y[(i, s)]
+    # Variables de décision: x(i,j) = quantité produite sur site i pour marché j, y(i,s) = binaire activation niveau s sur site i
+    x = LpVariable.dicts("production", [(i, j) for i in loc_prod for j in loc_demand], lowBound=0, cat='Continuous')
+    y = LpVariable.dicts("plant", [(i, s) for i in loc_prod for s in size], cat='Binary')
+    # Objectif: minimiser le coût total
+    total_cost_expr = lpSum([
+        fixed_costs.loc[i, s] * y[(i, s)] 
         for i in loc_prod for s in size
     ]) + lpSum([
-        get_unit_cost(i, j, var_cost) * x[(i, j)]
+        get_unit_cost(i, j, var_costs) * x[(i, j)]
         for i in loc_prod for j in loc_demand
     ])
-    model += total_cost
-
-    # Contraintes de base (capacité, activation, minimum production, demande)
-    add_common_constraints(model, x, y, cap, loc_prod, loc_demand, size, demand)
-
-    # Contraintes logiques économiques (si souhaitées)
-    model += y[('Texas','High')] <= y[('California','Low')]
-    model += y[('California','High')] <= y[('Texas','Low')]
-    model += y[('Texas','High')] + y[('California','High')] <= y[('France','Low')]
-    model += y[('UK','High')] <= y[('France','Low')]
-    model += y[('France','High')] <= y[('UK','Low')]
-    model += y[('France','High')] + y[('UK','High')] <= y[('Texas','Low')]
-
-    # Résolution
+    model += total_cost_expr
+    # Contraintes de base
+    add_common_constraints(model, x, y, cap, loc_prod, loc_demand, size, demand_df)
+    # Résoudre le modèle sans affichage de log
     model.solve(PULP_CBC_CMD(msg=False))
-    # print("Total Cost = {:,} €".format(int(utilities.value(model.objective))))
-    # print("Status:", LpStatus[model.status])
-
-    # Extraction
-    dict_prod = {
-        (i, j): x[(i, j)].varValue
-        for i in loc_prod for j in loc_demand if x[(i, j)].varValue > 0
+    # Extraire les variables solution (production non nulles)
+    production = {
+        (i, j): x[(i, j)].value() 
+        for i in loc_prod for j in loc_demand if x[(i, j)].value() is not None and x[(i, j)].value() > 0
     }
-
+    # Construire les listes source, target, value correspondant au flux >0
     source, target, value_list = [], [], []
-    for (i, j), v in dict_prod.items():
+    for (i, j), qty in production.items():
         source.append(loc_prod.index(i))
         target.append(loc_demand.index(j))
-        value_list.append(v)
-
+        value_list.append(qty)
+    # Totaux de production par site et par marché
     production_totals = {i: 0 for i in loc_prod}
     market_totals = {j: 0 for j in loc_demand}
-    for s, t, v in zip(source, target, value_list):
-        production_totals[loc_prod[s]] += v
-        market_totals[loc_demand[t]] += v
-
+    for s_idx, t_idx, qty in zip(source, target, value_list):
+        production_totals[loc_prod[s_idx]] += qty
+        market_totals[loc_demand[t_idx]] += qty
     return source, target, value_list, production_totals, market_totals, loc_prod, loc_demand, cap
-
 
 def run_supply_chain_optimization_minimize_co2(capacity_limits, demand=None):
     """
-    Optimisation mono-objectif pour minimiser les émissions de CO₂.
-    Inclut uniquement les contraintes environnementales + contraintes de base.
+    Optimisation mono-objectif minimisant les émissions CO₂ totales (production + transport).
+    Utilise les mêmes contraintes de base.
     """
-    freight_costs, demand = load_freight_costs_and_demands()
-    fixed_costs, var_cost = load_fixed_and_variable_costs(freight_costs)
+    freight_costs, demand_df = load_freight_costs_and_demands() if demand is None else (load_freight_costs_and_demands()[0], demand)
+    fixed_costs, var_costs = load_fixed_and_variable_costs(freight_costs)
     cap = capacity_limits
-
-    loc_prod = ['Texas', 'California', 'UK', 'France']
-    loc_demand = ['USA', 'Canada', 'Japan', 'Brazil', 'France']
+    loc_prod = list(cap.keys())
+    loc_demand = list(demand_df.index)
     size = ['Low', 'High']
-
     model = LpProblem("CO2_Minimization", LpMinimize)
-
-    x = LpVariable.dicts("production_", [(i, j) for i in loc_prod for j in loc_demand], lowBound=0, cat='Continuous')
-    y = LpVariable.dicts("plant_", [(i, s) for i in loc_prod for s in size], cat='Binary')
-
-    # OBJECTIF : CO2 total (production + transport)
-    total_co2 = lpSum([
-        calculate_distribution_co2_emissions(i, j, x[(i, j)]) +
-        calculate_lca_production_IFE_raw(x[(i, j)], i)["Climate Change"]
+    x = LpVariable.dicts("production", [(i, j) for i in loc_prod for j in loc_demand], lowBound=0, cat='Continuous')
+    y = LpVariable.dicts("plant", [(i, s) for i in loc_prod for s in size], cat='Binary')
+    # Objectif: minimiser le CO₂ total (production + distribution)
+    total_co2_expr = lpSum([
+        environment_engine.calculate_distribution_co2_emissions(i, j, x[(i, j)]) +
+        environment_engine.calculate_lca_production_IFE_raw(x[(i, j)], i)["Climate Change"]
         for i in loc_prod for j in loc_demand
     ])
-    model += total_co2
-
-    # Contraintes de base
-    add_common_constraints(model, x, y, cap, loc_prod, loc_demand, size, demand)
-
-    # Contraintes environnementales (priorité sobriété CO₂)
-    production_co2_factors = {'France': 1, 'UK': 3, 'California': 3, 'Texas': 3.5}
-    sorted_sites = sorted(production_co2_factors.items(), key=lambda x: x[1])
-    for i in range(1, len(sorted_sites)):
-        prev_site = sorted_sites[i - 1][0]
-        curr_site = sorted_sites[i][0]
-        model += y[(curr_site, 'Low')] <= y[(prev_site, 'High')], f"Env_Low_{curr_site}"
-        model += y[(curr_site, 'High')] <= y[(curr_site, 'Low')], f"Env_High_{curr_site}"
-
-    # SOLVE
+    model += total_co2_expr
+    add_common_constraints(model, x, y, cap, loc_prod, loc_demand, size, demand_df)
     model.solve(PULP_CBC_CMD(msg=False))
-    # print("Total CO₂ Emissions = {:,} kg".format(int(utilities.value(model.objective))))
-    # print("Status:", LpStatus[model.status])
-
-    # Résultats
-    dict_prod = {
-        (i, j): x[(i, j)].varValue
-        for i in loc_prod for j in loc_demand if x[(i, j)].varValue > 0
+    production = {
+        (i, j): x[(i, j)].value() 
+        for i in loc_prod for j in loc_demand if x[(i, j)].value() is not None and x[(i, j)].value() > 0
     }
-
     source, target, value_list = [], [], []
-    for (i, j), v in dict_prod.items():
+    for (i, j), qty in production.items():
         source.append(loc_prod.index(i))
         target.append(loc_demand.index(j))
-        value_list.append(v)
-
+        value_list.append(qty)
     production_totals = {i: 0 for i in loc_prod}
     market_totals = {j: 0 for j in loc_demand}
-    for s, t, v in zip(source, target, value_list):
-        production_totals[loc_prod[s]] += v
-        market_totals[loc_demand[t]] += v
-
+    for s_idx, t_idx, qty in zip(source, target, value_list):
+        production_totals[loc_prod[s_idx]] += qty
+        market_totals[loc_demand[t_idx]] += qty
     return source, target, value_list, production_totals, market_totals, loc_prod, loc_demand, cap
-
-
-
 
 def run_supply_chain_optimization_multiobjective(capacity_limits, demand, alpha=1.0, beta=1.0):
     """
-    Optimisation multi-objectif pondérée : coût + émissions de CO₂.
-    Inclut à la fois contraintes économiques et environnementales.
+    Optimisation bi-objectif pondérée (coût + CO₂). 
+    Combine les contraintes économiques et environnementales.
+    :param alpha: poids du coût dans la fonction objectif
+    :param beta: poids des émissions CO₂ dans la fonction objectif
     """
-    # Références pour normalisation
-    ref_result_cost = run_supply_chain_optimization(capacity_limits, demand)
+    # Calculer solutions de référence pour normaliser les objectifs
+    ref_cost_solution = run_supply_chain_optimization(capacity_limits, demand)
     ref_costs = calculate_total_costs({
-        "source": ref_result_cost[0],
-        "target": ref_result_cost[1],
-        "value": ref_result_cost[2],
-        "production_totals": ref_result_cost[3],
-        "market_totals": ref_result_cost[4],
-        "loc_prod": ref_result_cost[5],
-        "loc_demand": ref_result_cost[6],
-        "cap": ref_result_cost[7],
+        "source": ref_cost_solution[0],
+        "target": ref_cost_solution[1],
+        "value": ref_cost_solution[2],
+        "production_totals": ref_cost_solution[3],
+        "market_totals": ref_cost_solution[4],
+        "loc_prod": ref_cost_solution[5],
+        "loc_demand": ref_cost_solution[6],
+        "cap": ref_cost_solution[7],
         "fixed_costs": load_fixed_and_variable_costs(load_freight_costs_and_demands()[0])[0],
-        "variable_costs": load_fixed_and_variable_costs(load_freight_costs_and_demands()[0])[1],
+        "variable_costs": load_fixed_and_variable_costs(load_freight_costs_and_demands()[0])[1]
     })
-    ref_cost = ref_costs["total_cost"]
-
-    ref_result_co2 = run_supply_chain_optimization_minimize_co2(capacity_limits, demand)
-    ref_co2 = sum([
-        calculate_lca_production_IFE_raw(v, ref_result_co2[5][s])["Climate Change"] +
-        calculate_distribution_co2_emissions(ref_result_co2[5][s], ref_result_co2[6][t], v)
-        for s, t, v in zip(ref_result_co2[0], ref_result_co2[1], ref_result_co2[2])
+    ref_total_cost = ref_costs["total_cost"]
+    ref_co2_solution = run_supply_chain_optimization_minimize_co2(capacity_limits, demand)
+    ref_total_co2 = sum([
+        environment_engine.calculate_lca_production_IFE_raw(v, ref_co2_solution[5][s])["Climate Change"] +
+        environment_engine.calculate_distribution_co2_emissions(ref_co2_solution[5][s], ref_co2_solution[6][t], v)
+        for s, t, v in zip(ref_co2_solution[0], ref_co2_solution[1], ref_co2_solution[2])
     ])
-
-    # Données
-    freight_costs, _ = load_freight_costs_and_demands()
-    fixed_costs, var_cost = load_fixed_and_variable_costs(freight_costs)
+    freight_costs, demand_df = load_freight_costs_and_demands() if demand is None else (load_freight_costs_and_demands()[0], demand)
+    fixed_costs, var_costs = load_fixed_and_variable_costs(freight_costs)
     cap = capacity_limits
-
-    loc_prod = ['Texas', 'California', 'UK', 'France']
-    loc_demand = ['USA', 'Canada', 'Japan', 'Brazil', 'France']
+    loc_prod = list(cap.keys())
+    loc_demand = list(demand_df.index)
     size = ['Low', 'High']
-
     model = LpProblem("MultiObjectiveOptimization", LpMinimize)
-
-    # Création de noms propres et sans caractères spéciaux
+    # Variables x (production) avec nom unique pour éviter conflits de nommage
     x_names = [f"{i}_{j}" for i in loc_prod for j in loc_demand]
     x_vars = LpVariable.dicts("x", x_names, lowBound=0, cat='Continuous')
-
-    # Mapping clair (i, j) → variable
-    x = {
-        (i, j): x_vars[f"{i}_{j}"]
-        for i in loc_prod for j in loc_demand
-    }
-
-    y = LpVariable.dicts("plant_", [(i, s) for i in loc_prod for s in size], cat='Binary')
-
-    # OBJECTIF
+    x = {(i, j): x_vars[f"{i}_{j}"] for i in loc_prod for j in loc_demand}
+    y = LpVariable.dicts("plant", [(i, s) for i in loc_prod for s in size], cat='Binary')
+    # Fonction objectif pondérée normalisée
     cost_expr = lpSum([fixed_costs.loc[i, s] * y[(i, s)] for i in loc_prod for s in size]) + \
-                lpSum([get_unit_cost(i, j, var_cost) * x[(i, j)] for i in loc_prod for j in loc_demand])
-
+               lpSum([get_unit_cost(i, j, var_costs) * x[(i, j)] for i in loc_prod for j in loc_demand])
     co2_expr = lpSum([
-        calculate_distribution_co2_emissions(i, j, x[(i, j)]) +
-        calculate_lca_production_IFE_raw(x[(i, j)], i)["Climate Change"]
+        environment_engine.calculate_distribution_co2_emissions(i, j, x[(i, j)]) +
+        environment_engine.calculate_lca_production_IFE_raw(x[(i, j)], i)["Climate Change"]
         for i in loc_prod for j in loc_demand
     ])
-
-    norm_cost = cost_expr / ref_cost if ref_cost > 0 else cost_expr
-    norm_co2 = co2_expr / ref_co2 if ref_co2 > 0 else co2_expr
-
+    norm_cost = cost_expr / ref_total_cost if ref_total_cost > 0 else cost_expr
+    norm_co2 = co2_expr / ref_total_co2 if ref_total_co2 > 0 else co2_expr
     model += alpha * norm_cost + beta * norm_co2
-
-    # Contraintes de base
-    add_common_constraints(model, x, y, cap, loc_prod, loc_demand, size, demand)
-
-
-
-    # # Contraintes environnementales (sobriété progressive)
-    # production_co2_factors = {'France': 1, 'UK': 3, 'California': 3, 'Texas': 3.5}
-    # sorted_sites = sorted(production_co2_factors.items(), key=lambda x: x[1])
-    # for i in range(1, len(sorted_sites)):
-    #     prev_site = sorted_sites[i - 1][0]
-    #     curr_site = sorted_sites[i][0]
-    #     model += y[(curr_site, 'Low')] <= y[(prev_site, 'High')], f"Env_Low_{curr_site}"
-    #     model += y[(curr_site, 'High')] <= y[(curr_site, 'Low')], f"Env_High_{curr_site}"
-
-    # Contraintes économiques (logique d'ouverture)
-    model += y[('Texas','High')] <= y[('California','Low')]
-    model += y[('California','High')] <= y[('Texas','Low')]
-    model += y[('Texas','High')] + y[('California','High')] <= y[('France','Low')]
-    model += y[('UK','High')] <= y[('France','Low')]
-    model += y[('France','High')] <= y[('UK','Low')]
-    model += y[('France','High')] + y[('UK','High')] <= y[('Texas','Low')]
-
-
-    model.writeLP("debug_model.lp")
-
-    # Résolution
+    add_common_constraints(model, x, y, cap, loc_prod, loc_demand, size, demand_df)
     model.solve(PULP_CBC_CMD(msg=False))
-    # print("\n[VAR CHECK] Toutes les variables avec valeur négative :")
-    # for v in model.variables():
-    #     if v.varValue is not None and v.varValue < -0.001:
-    #         print(v.name, "=", v.varValue)
-    # print("Status:", LpStatus[model.status])
-    # print("Normalized Objective =", round(value(model.objective), 3))
     if LpStatus[model.status] != 'Optimal':
-        # print("⚠️ Aucune solution réalisable. Abandon de l'extraction.")
-        return None, None, None, None, None, None, None, None
-
-    # Résultats
-    dict_prod = {
-        (i, j): x[(i, j)].varValue
-        for i in loc_prod for j in loc_demand if x[(i, j)].varValue > 0
+        # Pas de solution réalisable
+        return (None,)*8
+    production = {
+        (i, j): x[(i, j)].value() 
+        for i in loc_prod for j in loc_demand if x[(i, j)].value() is not None and x[(i, j)].value() > 0
     }
-
     source, target, value_list = [], [], []
-    for (i, j), v in dict_prod.items():
+    for (i, j), qty in production.items():
         source.append(loc_prod.index(i))
         target.append(loc_demand.index(j))
-        value_list.append(v)
-
+        value_list.append(qty)
     production_totals = {i: 0 for i in loc_prod}
     market_totals = {j: 0 for j in loc_demand}
-    for s, t, v in zip(source, target, value_list):
-        production_totals[loc_prod[s]] += v
-        market_totals[loc_demand[t]] += v
-
-    # print("\n[DEBUG] Total production =", sum(production_totals.values()))
-    # print("[DEBUG] Total demand =", demand['Demand'].sum())
-    # print(f"[DEBUG] Flux : {loc_prod[s]} → {loc_demand[t]} = {v}")
-
-    # for market, val in market_totals.items():
-        # print(f"[CHECK] Total reçu par {market}: {val} (vs. demande {demand.loc[market, 'Demand']})")
-
-    # print("\n[VAR DEBUG] Variables non nulles dans le modèle :")
-    # for v in model.variables():
-    #     if abs(v.varValue) > 0.01:
-    #         print(v.name, "=", v.varValue)
-
+    for s_idx, t_idx, qty in zip(source, target, value_list):
+        production_totals[loc_prod[s_idx]] += qty
+        market_totals[loc_demand[t_idx]] += qty
     return source, target, value_list, production_totals, market_totals, loc_prod, loc_demand, cap
-
 
 def select_best_supplier(material, quantity, site_location, suppliers):
     """
-    Sélectionne le fournisseur optimal pour un matériau donné en fonction des coûts et des émissions.
-
-    :param material: Type de matériau (ex. 'aluminium', 'fabric', 'polymers')
-    :param quantity: Quantité en tonnes
-    :param site_location: Localisation du site (ex. 'Texas')
-    :param suppliers: Liste des fournisseurs pour le matériau
-    :return: Dictionnaire avec le fournisseur choisi, les coûts et les émissions
+    Sélectionne le meilleur fournisseur (coût minimal) pour fournir `quantity` tonnes de `material` au site `site_location`.
+    Retourne un dictionnaire avec le nom du fournisseur, le coût et les émissions correspondantes.
     """
     material_suppliers = suppliers[material]
-
-
-    best_supplier = None
+    best_supplier_name = None
     min_cost = float('inf')
-    total_emissions = 0
-
+    emissions_for_best = 0.0
     for supplier in material_suppliers:
         distance = supplier['distance_to_sites'][site_location]
         cost = get_supply_cost(quantity, distance)
-        emissions = calculate_supply_co2_supply_emissions(distance, quantity)
-
-        if cost < min_cost:  # Trouver le fournisseur le plus économique
+        emissions = environment_engine.calculate_supply_co2_supply_emissions(distance, quantity)
+        if cost < min_cost:
             min_cost = cost
-            total_emissions = emissions
-            best_supplier = supplier['name']
-
-    return {'supplier': best_supplier, 'cost': min_cost, 'emissions': total_emissions}
+            emissions_for_best = emissions
+            best_supplier_name = supplier['name']
+    return {'supplier': best_supplier_name, 'cost': min_cost, 'emissions': emissions_for_best}
 
 def run_supply_chain_lightweight_scenario(capacity_limits, demand, seat_weight=110):
-    from line_production.production_engine import run_simple_supply_allocation
-    from line_production.line_production_settings import lines_config
-    from line_production.line_production import run_simulation
-    from economic.cost_engine import calculate_total_costs
-    from environment.environment_engine import calculate_lca_production_IFE_raw, calculate_distribution_co2_emissions
-
-    source, target, value, production_totals, market_totals, loc_prod, loc_demand, cap = \
-        run_simple_supply_allocation(capacity_limits, demand)
-
-    # Simulation ligne pour environnement
+    """
+    Exécute un scénario simplifié "lightweight" (ex: variation de poids de siège), 
+    puis calcule ses coûts et émissions totales.
+    """
+    # Utiliser une allocation simple pour ce scénario
+    source, target, value, production_totals, market_totals, loc_prod, loc_demand, cap = run_simple_supply_allocation(capacity_limits, demand)
+    # Simuler la production détaillée pour collecter les données environnementales (avec seat_weight spécifique)
     all_production_data, all_enviro_data = run_simulation(lines_config, seat_weight=seat_weight)
-
     freight_costs, _ = load_freight_costs_and_demands()
     fixed_costs, variable_costs = load_fixed_and_variable_costs(freight_costs)
-
     cost_results = calculate_total_costs({
         "source": source,
         "target": target,
@@ -387,13 +243,11 @@ def run_supply_chain_lightweight_scenario(capacity_limits, demand, seat_weight=1
         "include_supply": True,
         "include_storage": True
     })
-
-    total_co2 = sum([
-        calculate_lca_production_IFE_raw(value[i], loc_prod[source[i]])["Climate Change"] +
-        calculate_distribution_co2_emissions(loc_prod[source[i]], loc_demand[target[i]], value[i])
+    total_co2 = sum(
+        environment_engine.calculate_lca_production_IFE_raw(value[i], loc_prod[source[i]])["Climate Change"]
+        + environment_engine.calculate_distribution_co2_emissions(loc_prod[source[i]], loc_demand[target[i]], value[i])
         for i in range(len(source))
-    ])
-
+    )
     return {
         "source": source,
         "target": target,
@@ -407,11 +261,14 @@ def run_supply_chain_lightweight_scenario(capacity_limits, demand, seat_weight=1
         "total_co2": total_co2,
         "production_data": all_production_data,
         "environment_data": all_enviro_data,
-        "config": {"lines_config": lines_config},
-        "seat_weight": seat_weight  # 👈 pour usage dans le LCA plus tard
+        "config": {"lines_config": capacity_limits},  # Conserver la config utilisée (capacités)
+        "seat_weight": seat_weight
     }
 
 def run_supply_chain_allocation_as_dict(allocation_function, capacity_limits, demand):
+    """
+    Enveloppe pour exécuter une fonction d'allocation de supply chain et retourner un dictionnaire standardisé.
+    """
     source, target, value, production_totals, market_totals, loc_prod, loc_demand, cap = allocation_function(capacity_limits, demand)
     return {
         "source": source,
@@ -424,22 +281,18 @@ def run_supply_chain_allocation_as_dict(allocation_function, capacity_limits, de
         "cap": cap
     }
 
+# Fonctions utilitaires renvoyant un dictionnaire de résultat à partir des différentes stratégies
 def run_simple_allocation_dict(capacity_limits, demand):
-
     return run_supply_chain_allocation_as_dict(run_simple_supply_allocation, capacity_limits, demand)
 
 def run_optimization_allocation_dict(capacity_limits, demand):
-
     return run_supply_chain_allocation_as_dict(run_supply_chain_optimization, capacity_limits, demand)
 
 def run_optimization_co2_allocation_dict(capacity_limits, demand):
-
     return run_supply_chain_allocation_as_dict(run_supply_chain_optimization_minimize_co2, capacity_limits, demand)
 
 def run_multiobjective_allocation_dict(capacity_limits, demand):
-
     return run_supply_chain_allocation_as_dict(
-        lambda cap, dem: run_supply_chain_optimization_multiobjective(cap, dem, alpha=1, beta=1),
-        capacity_limits,
-        demand
+        lambda cap, dem: run_supply_chain_optimization_multiobjective(cap, dem, alpha=1.0, beta=1.0),
+        capacity_limits, demand
     )
