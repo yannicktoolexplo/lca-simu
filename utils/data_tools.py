@@ -676,13 +676,13 @@ def display_all_lca_indicators(all_production_data, all_enviro_data, lines_confi
         if production_totals.get(config['location'], 0) > 0
     ]
 
-    if not active_data:
-        print("⚠️ Aucune ligne active, pas d'affichage des indicateurs LCA.")
-        return
+    # if not active_data:
+    #     print("⚠️ Aucune ligne active, pas d'affichage des indicateurs LCA.")
+    #     return
 
     # 🔥 Debugging: Afficher les lignes incluses
-    for _, _, line_config in active_data:
-        print(f"✅ {line_config['location']} inclus dans l'affichage des LCA.")
+    # for _, _, line_config in active_data:
+    #     print(f"✅ {line_config['location']} inclus dans l'affichage des LCA.")
 
     # 🔹 Définir les titres des colonnes
     column_titles = ["Production LCA", "Usage LCA", "Combined LCA"]
@@ -714,8 +714,8 @@ def display_all_lca_indicators(all_production_data, all_enviro_data, lines_confi
         location = line_config['location']
         total_seats_made = production_totals.get(location, 0) if use_allocated_production else production_data['Total Seats made'][1][-1]
 
-        print(f"🔍 Vérification LCA pour {location} (mode {'alloué' if use_allocated_production else 'simulé'}):")
-        print(f"➡ Production utilisée : {total_seats_made}")
+        # print(f"🔍 Vérification LCA pour {location} (mode {'alloué' if use_allocated_production else 'simulé'}):")
+        # print(f"➡ Production utilisée : {total_seats_made}")
 
         # 🔹 Calcul des indicateurs LCA
         production_lca = environment_engine.calculate_lca_indicators_pers_eq(total_seats_made, site)

@@ -121,7 +121,7 @@ def run_simple_supply_allocation(capacity_limits, demand):
                 market_totals[market] += allocated
                 remaining_qty -= allocated
 
-                print(f"✅ {allocated} sièges alloués de {prod_site} vers {market}")
+                # print(f"✅ {allocated} sièges alloués de {prod_site} vers {market}")
 
             if remaining_qty <= 0:
                 break  # Toute la demande a été couverte, on passe au marché suivant

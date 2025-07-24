@@ -41,9 +41,9 @@ def main_function():
     }
 
 
-    print("\n🧮 Capacité maximale par site (simulation) :")
-    for site, total in max_production.items():
-        print(f"  {site} : Low = {round(total/2)} unités, High = {int(total)} unités")
+    # print("\n🧮 Capacité maximale par site (simulation) :")
+    # for site, total in max_production.items():
+    #     print(f"  {site} : Low = {round(total/2)} unités, High = {int(total)} unités")
 
 
     config = {
@@ -73,7 +73,7 @@ def main_function():
 
     # 🧠 Nouveau scénario vivant
     result_vivant_raw = run_simulation_vivant(lines_config)
-    pprint.pprint(lines_config)
+    # pprint.pprint(lines_config)
     result_vivant = {
         "production_totals": {
             site: sum([r["stock"] for r in result_vivant_raw if r["site"] == site])

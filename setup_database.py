@@ -38,4 +38,3 @@ result = Table('result', metadata,
 
 # 3. Créer les tables dans la base
 metadata.create_all(engine)
-print("✅ Base simchain.db créée avec les tables.")
