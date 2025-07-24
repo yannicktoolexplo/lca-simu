@@ -1,6 +1,7 @@
 import streamlit as st
 from sqlalchemy import create_engine
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
 from SimChainGreenHorizons import main_function
 import plotly.express as px
@@ -69,6 +70,14 @@ if st.button("🚀 Lancer la simulation"):
                 st.info("Pas de données pour le scénario vivant.")
         else:
             st.info("Le scénario vivant n'a pas été simulé ou retourné.")
+
+
+        scores_df = pd.DataFrame.from_dict({
+            name: res["resilience_scores"]
+            for name, res in scenario_results.items()
+        }, orient='index')
+        st.dataframe(scores_df)
+
 
 # 🟡 Affichage si simulation non encore lancée
 else:

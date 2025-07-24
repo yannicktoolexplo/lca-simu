@@ -106,13 +106,50 @@ def main_function():
     session = Session()
 
     scenario_results = {
-        "Baseline": result_baseline,
-        "Crise": result_crise,
-        "Optimisation Coût": result_optim_cost,
-        "Optimisation CO₂": result_optim_co2,
-        "MultiObjectifs": result_multi,
-        "Lightweight": result_lightweight 
+        "Baseline": {**result_baseline, "allocation_func": run_simple_allocation_dict},
+        "Crise": {**result_crise, "allocation_func": run_simple_allocation_dict},
+        "Optimisation Coût": {**result_optim_cost, "allocation_func": run_optimization_allocation_dict},
+        "Optimisation CO₂": {**result_optim_co2, "allocation_func": run_optimization_co2_allocation_dict},
+        "MultiObjectifs": {**result_multi, "allocation_func": run_multiobjective_allocation_dict},
+        "Lightweight": {**result_lightweight, "allocation_func": lambda cap, demand: run_supply_chain_lightweight_scenario(cap, demand, seat_weight=70)},
     }
+
+
+    for name, result in scenario_results.items():
+        base_config = {
+            "lines_config": lines_config,
+            "include_supply": True,
+            "include_storage": True,
+        }
+
+        res_supply = run_scenario(result["allocation_func"], {**base_config, "events": scenario_events["shock_supply"]})
+        res_prod   = run_scenario(result["allocation_func"], {**base_config, "events": scenario_events["shock_production"]})
+        res_dist   = run_scenario(result["allocation_func"], {**base_config, "events": scenario_events["shock_distribution"]})
+
+        scenario_results[name]["resilience_test"] = {
+            "supply": res_supply,
+            "production": res_prod,
+            "distribution": res_dist
+        }
+
+    # --- Ensuite SEULEMENT, boucle pour calculer les scores de résilience ---
+    def compute_resilience_score(result_nominal, result_crisis):
+        prod_nominal = sum(result_nominal["production_totals"].values())
+        prod_crisis  = sum(result_crisis["production_totals"].values())
+        if prod_nominal == 0:
+            return 0
+        return round(100 * prod_crisis / prod_nominal, 1)
+
+    for name, results in scenario_results.items():
+        # On récupère le résultat nominal (sans choc) et ceux des 3 chocs
+        nominal = results
+        tests   = results["resilience_test"]
+        scores = {
+            phase: compute_resilience_score(nominal, tests[phase])
+            for phase in ["supply", "production", "distribution"]
+        }
+        scores["total"] = round(sum(scores.values()) / 3, 1)
+        scenario_results[name]["resilience_scores"] = scores
 
 
     for scenario_id, (name, result) in enumerate(scenario_results.items(), start=1):
@@ -177,7 +214,6 @@ def main_function():
         production_totals=production_totals_tot,
         use_allocated_production=True, seat_weight=seat_weight
 )
-
 
 
     return {
