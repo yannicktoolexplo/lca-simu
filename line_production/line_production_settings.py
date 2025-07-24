@@ -18,8 +18,27 @@ scenario_events = {
         # On peut reprendre l'exemple d'événements vivants déjà défini
         PerturbationEvent(time=20, target="France", event_type="panne", magnitude=1.0, duration=5, description="Arrêt total France"),
         PerturbationEvent(time=50, target="aluminium", event_type="rupture_fournisseur", magnitude=1.0, duration=10, description="Plus d'aluminium")
-    ]
+    ],
+    "shock_supply": [
+        PerturbationEvent(
+            time=50, target="aluminium", event_type="rupture_fournisseur",
+            magnitude=1.0, duration=40, description="Rupture critique d’aluminium"
+        )
+    ],
+    "shock_production": [
+        PerturbationEvent(
+            time=50, target="Texas", event_type="panne",
+            magnitude=1.0, duration=40, description="Panne usine Texas"
+        )
+    ],
+    "shock_distribution": [
+        PerturbationEvent(
+            time=50, target="aluminium", event_type="retard",
+            magnitude=8, duration=40, description="Retard logistique majeur"
+        )
+    ],
 }
+
 
 # Configuration de plusieurs lignes de production
 lines_config = [
