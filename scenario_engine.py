@@ -71,8 +71,8 @@ def run_scenario(allocation_function, config):
     }, seat_weight=result.get("seat_weight", 130))
 
     # Calcul de la pénalité de non-livraison (par site et totale)
-    print("[DEBUG market_totals]", result["market_totals"])
-    print("[DEBUG demand]", demand)
+    # print("[DEBUG market_totals]", result["market_totals"])
+    # print("[DEBUG demand]", demand)
 
     penalites, total_penalite = calculer_penalite_non_livraison(result["market_totals"], demand)
 

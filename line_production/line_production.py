@@ -210,7 +210,7 @@ def run_simulation(lines_config, seat_weight=130, events=None):
 def handle_breakdown_event(env, event, production_lines):
     # Arrêt complet d'un site de production pendant event.duration heures
     yield env.timeout(event.time)
-    print(f"⚡ [t={env.now}] Panne sur site {event.target} : arrêt de la production ({event.description})")
+    # print(f"⚡ [t={env.now}] Panne sur site {event.target} : arrêt de la production ({event.description})")
     # Désactiver la ligne ciblée
     for line in production_lines:
         if line.config['location'] == event.target:
@@ -221,12 +221,12 @@ def handle_breakdown_event(env, event, production_lines):
     for line in production_lines:
         if line.config['location'] == event.target:
             line.active = True
-    print(f"✅ [t={env.now}] Fin de la panne sur {event.target}, reprise de la production.")
+    # print(f"✅ [t={env.now}] Fin de la panne sur {event.target}, reprise de la production.")
 
 def handle_supply_event(env, event, production_lines):
     # Rupture d'une ressource (matière première) pendant event.duration
     yield env.timeout(event.time)
-    print(f"⚡ [t={env.now}] Rupture de fourniture : {event.target} indisponible ({event.description})")
+    # print(f"⚡ [t={env.now}] Rupture de fourniture : {event.target} indisponible ({event.description})")
     # Désactiver l'approvisionnement de la ressource sur tous les sites
     for line in production_lines:
         if event.target in line.supply_enabled:
@@ -243,4 +243,4 @@ def handle_supply_event(env, event, production_lines):
     for line in production_lines:
         if event.target in line.supply_enabled:
             line.supply_enabled[event.target] = True
-    print(f"✅ [t={env.now}] Fin de rupture : {event.target} de nouveau approvisionné.")
+    # print(f"✅ [t={env.now}] Fin de rupture : {event.target} de nouveau approvisionné.")

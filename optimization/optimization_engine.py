@@ -56,7 +56,7 @@ def add_common_constraints(model, x, y, cap, loc_prod, loc_demand, size, demand)
 
     # Satisfaction de la demande par marché
     for j in loc_demand:
-        print(f"[DEBUG] Contrainte demand {j} = {demand.loc[j, 'Demand']}")
+        # print(f"[DEBUG] Contrainte demand {j} = {demand.loc[j, 'Demand']}")
         model += lpSum([x[(i, j)] for i in loc_prod]) == demand.loc[j, 'Demand'], f"Demand_{j}"
 
 
@@ -101,9 +101,9 @@ def run_supply_chain_optimization(capacity_limits, demand=None):
     model += y[('France','High')] + y[('UK','High')] <= y[('Texas','Low')]
 
     # Résolution
-    model.solve()
-    print("Total Cost = {:,} €".format(int(utilities.value(model.objective))))
-    print("Status:", LpStatus[model.status])
+    model.solve(PULP_CBC_CMD(msg=False))
+    # print("Total Cost = {:,} €".format(int(utilities.value(model.objective))))
+    # print("Status:", LpStatus[model.status])
 
     # Extraction
     dict_prod = {
@@ -165,9 +165,9 @@ def run_supply_chain_optimization_minimize_co2(capacity_limits, demand=None):
         model += y[(curr_site, 'High')] <= y[(curr_site, 'Low')], f"Env_High_{curr_site}"
 
     # SOLVE
-    model.solve()
-    print("Total CO₂ Emissions = {:,} kg".format(int(utilities.value(model.objective))))
-    print("Status:", LpStatus[model.status])
+    model.solve(PULP_CBC_CMD(msg=False))
+    # print("Total CO₂ Emissions = {:,} kg".format(int(utilities.value(model.objective))))
+    # print("Status:", LpStatus[model.status])
 
     # Résultats
     dict_prod = {
@@ -284,15 +284,15 @@ def run_supply_chain_optimization_multiobjective(capacity_limits, demand, alpha=
     model.writeLP("debug_model.lp")
 
     # Résolution
-    model.solve()
-    print("\n[VAR CHECK] Toutes les variables avec valeur négative :")
-    for v in model.variables():
-        if v.varValue is not None and v.varValue < -0.001:
-            print(v.name, "=", v.varValue)
-    print("Status:", LpStatus[model.status])
-    print("Normalized Objective =", round(value(model.objective), 3))
+    model.solve(PULP_CBC_CMD(msg=False))
+    # print("\n[VAR CHECK] Toutes les variables avec valeur négative :")
+    # for v in model.variables():
+    #     if v.varValue is not None and v.varValue < -0.001:
+    #         print(v.name, "=", v.varValue)
+    # print("Status:", LpStatus[model.status])
+    # print("Normalized Objective =", round(value(model.objective), 3))
     if LpStatus[model.status] != 'Optimal':
-        print("⚠️ Aucune solution réalisable. Abandon de l'extraction.")
+        # print("⚠️ Aucune solution réalisable. Abandon de l'extraction.")
         return None, None, None, None, None, None, None, None
 
     # Résultats
@@ -313,17 +313,17 @@ def run_supply_chain_optimization_multiobjective(capacity_limits, demand, alpha=
         production_totals[loc_prod[s]] += v
         market_totals[loc_demand[t]] += v
 
-    print("\n[DEBUG] Total production =", sum(production_totals.values()))
-    print("[DEBUG] Total demand =", demand['Demand'].sum())
-    print(f"[DEBUG] Flux : {loc_prod[s]} → {loc_demand[t]} = {v}")
+    # print("\n[DEBUG] Total production =", sum(production_totals.values()))
+    # print("[DEBUG] Total demand =", demand['Demand'].sum())
+    # print(f"[DEBUG] Flux : {loc_prod[s]} → {loc_demand[t]} = {v}")
 
-    for market, val in market_totals.items():
-        print(f"[CHECK] Total reçu par {market}: {val} (vs. demande {demand.loc[market, 'Demand']})")
+    # for market, val in market_totals.items():
+        # print(f"[CHECK] Total reçu par {market}: {val} (vs. demande {demand.loc[market, 'Demand']})")
 
-    print("\n[VAR DEBUG] Variables non nulles dans le modèle :")
-    for v in model.variables():
-        if abs(v.varValue) > 0.01:
-            print(v.name, "=", v.varValue)
+    # print("\n[VAR DEBUG] Variables non nulles dans le modèle :")
+    # for v in model.variables():
+    #     if abs(v.varValue) > 0.01:
+    #         print(v.name, "=", v.varValue)
 
     return source, target, value_list, production_totals, market_totals, loc_prod, loc_demand, cap
 

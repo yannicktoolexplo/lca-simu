@@ -24,7 +24,7 @@ class EventManager:
             if event.time == time:
                 self.active_events.append({'event': event, 'time_left': event.duration})
                 self.events.remove(event)
-                print(f"⚡ [t={time}] Déclenchement : {event.description}")
+                # print(f"⚡ [t={time}] Déclenchement : {event.description}")
         # 2. Appliquer les effets de toutes les perturbations actives
         for e in self.active_events:
             event = e['event']
@@ -44,7 +44,7 @@ class EventManager:
         for e in list(self.active_events):
             if e['time_left'] <= 0:
                 event = e['event']
-                print(f"✅ [t={time}] Fin de l'événement : {event.description}")
+                # print(f"✅ [t={time}] Fin de l'événement : {event.description}")
                 # Restaurer les valeurs nominales à la fin de l'événement
                 if event.event_type == "panne":
                     system_state['capacity'][event.target] = system_state['capacity_nominal'][event.target]

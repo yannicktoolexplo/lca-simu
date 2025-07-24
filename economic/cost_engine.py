@@ -55,7 +55,7 @@ def calculate_total_costs(data, seat_weight=130):
     production_totals = data["production_totals"]
     market_totals = data["market_totals"]
     loc_prod = data.get("loc_prod") or []
-    print("DEBUG dans cost_engine avant test vide : loc_prod =", loc_prod, "type =", type(loc_prod))
+    # print("DEBUG dans cost_engine avant test vide : loc_prod =", loc_prod, "type =", type(loc_prod))
 
     if isinstance(loc_prod, dict):
         loc_prod_list = list(loc_prod.keys())
@@ -108,7 +108,6 @@ def calculate_total_costs(data, seat_weight=130):
     storage_cost_per_unit = 2.0
 
     for i, source_index in enumerate(source):
-        print("DEBUG i:", i, "source_index:", source_index)
         location = loc_prod_list[source_index]
         destination = loc_demand_list[target[i]]
         quantity = value[i]
@@ -201,8 +200,8 @@ def calculer_penalite_non_livraison(market_totals, demand):
         penalty = manque * 200  # adapte si besoin
         penalties[market] = penalty
         total_penalty += penalty
-        print(f"[DEBUG PENALITE] market={market}, prod={prod}, demande={demande}, manque={manque}, pénalité={penalty}")
+        # print(f"[DEBUG PENALITE] market={market}, prod={prod}, demande={demande}, manque={manque}, pénalité={penalty}")
 
-    print(f"[PENALITE TOTALE] {total_penalty}")
+    # print(f"[PENALITE TOTALE] {total_penalty}")
     return penalties, total_penalty
 
