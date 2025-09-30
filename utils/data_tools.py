@@ -839,4 +839,25 @@ def display_all_stock_variations(all_production_data, lines_config):
         fig_stock.update_yaxes(title_text="Stock Level")
 
         # Show the plot
-        fig_stock.show()
+        return fig_stock
+
+# Exemple : calculer la courbe temporelle totale sur tous les sites
+def get_total_prod_curve(result):
+    prod_datas = result.get("production_data", [])
+    # On garde uniquement les sites avec une clé et une liste non vide
+    filtered = [
+        site_data for site_data in prod_datas
+        if site_data.get("Total Seats made")
+        and isinstance(site_data["Total Seats made"], (list, tuple))
+        and len(site_data["Total Seats made"]) > 1
+        and isinstance(site_data["Total Seats made"][1], (list, tuple))
+        and len(site_data["Total Seats made"][1]) > 0
+    ]
+    if not filtered:
+        return []
+    # Longueur minimale sur tous les sites valides
+    n_times = min(len(site_data["Total Seats made"][1]) for site_data in filtered)
+    return [
+        sum(site_data["Total Seats made"][1][t] for site_data in filtered)
+        for t in range(n_times)
+    ]
