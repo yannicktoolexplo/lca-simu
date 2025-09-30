@@ -1,10 +1,11 @@
 from sqlalchemy import create_engine, MetaData, Table, Column, Integer, Float, String, Boolean, ForeignKey
 
-# 1. Créer une base SQLite
-engine = create_engine('sqlite:///simchain.db')
+# Chemin de la base de données SQLite
+DB_PATH = 'sqlite:///simchain.db'
+engine = create_engine(DB_PATH)
 metadata = MetaData()
 
-# 2. Définir la structure des tables
+# Définition des tables de la base de données
 production_line = Table('production_line', metadata,
     Column('id', Integer, primary_key=True),
     Column('location', String),
@@ -36,5 +37,5 @@ result = Table('result', metadata,
     Column('total_co2', Float)
 )
 
-# 3. Créer les tables dans la base
+# Créer toutes les tables dans la base de données
 metadata.create_all(engine)
