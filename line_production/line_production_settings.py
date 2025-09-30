@@ -3,28 +3,27 @@ from event_engine import PerturbationEvent
 # Définition des événements scénarios (combinaisons d'événements perturbateurs)
 scenario_events = {
     "baseline": [],
-    "crise": [
+    "Rupture Alu": [
         # Exemples d'événements de crise : panne longue en France, rupture aluminium
-        PerturbationEvent(time=10, target="France", event_type="panne", magnitude=1.0, duration=100, description="Panne longue France"),
         PerturbationEvent(time=20, target="aluminium", event_type="rupture_fournisseur", magnitude=1.0, duration=200, description="Rupture aluminium")
     ],
-    "surcapacite": [
-        # Scénario de surcapacité (exemple placeholder)
-        # (peut rester vide ou être défini ultérieurement)
+    "Panne Texas": [
+        PerturbationEvent(time=20, target="Texas", event_type="panne", magnitude=1.0, duration=200, description="Nouvelle panne Texas"),
     ],
+
     "vivant": [
         # Événements utilisés pour le scénario vivant (système vivant dynamique)
         PerturbationEvent(time=20, target="France", event_type="panne", magnitude=1.0, duration=5,  description="Arrêt total France"),
         PerturbationEvent(time=50, target="aluminium", event_type="rupture_fournisseur", magnitude=1.0, duration=10, description="Rupture aluminium")
     ],
     "shock_supply": [
-        PerturbationEvent(time=10, target="aluminium", event_type="rupture_fournisseur", magnitude=1.0, duration=100, description="Rupture critique d’aluminium")
+        PerturbationEvent(time=10, target="aluminium", event_type="rupture_fournisseur", magnitude=1.0, duration=200, description="Rupture critique d’aluminium")
     ],
     "shock_production": [
-        PerturbationEvent(time=10, target="Texas", event_type="panne", magnitude=1.0, duration=100, description="Panne majeure sur Texas")
+        PerturbationEvent(time=10, target="Texas", event_type="panne", magnitude=1.0, duration=200, description="Panne majeure sur Texas")
     ],
     "shock_distribution": [
-        PerturbationEvent(time=10, target="aluminium", event_type="retard", magnitude=8, duration=100, description="Retard logistique majeur sur aluminium")
+        PerturbationEvent(time=10, target="aluminium", event_type="retard", magnitude=8, duration=200, description="Retard logistique majeur sur aluminium")
     ]
 }
 
@@ -32,12 +31,12 @@ scenario_events = {
 lines_config = [
     {   'location': 'Texas',     # Grand site de production
         'hours': 8,
-        'days': 30,
-        'total_time': 240,      # 8h * 30j
+        'days': 21,
+        'total_time': 168,      # 8h * 21j
         'aluminium_capacity': 1000, 'initial_aluminium': 100,
-        'foam_capacity': 900,      'initial_foam': 700,
-        'fabric_capacity': 1000,   'initial_fabric': 800,
-        'paint_capacity': 500,     'initial_paint': 400,
+        'foam_capacity': 900,      'initial_foam': 300,
+        'fabric_capacity': 1000,   'initial_fabric': 350,
+        'paint_capacity': 500,     'initial_paint': 200,
         'dispatch_capacity': 1200,
         'frame_pre_paint_capacity': 150, 'armrest_pre_paint_capacity': 150,
         'frame_post_paint_capacity': 300, 'armrest_post_paint_capacity': 300,

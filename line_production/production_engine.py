@@ -1,5 +1,3 @@
-# production_engine.py
-
 import os
 import math
 import pandas as pd
@@ -50,6 +48,56 @@ def load_fixed_and_variable_costs(freight_costs):
 #     cap.to_excel(os.path.join(absolute_path, 'data/capacity.xlsx'))
     
 #     return cap
+
+def get_global_production_rate(result,lines_config, cap_max):
+    prod_datas = result.get("production_data", [])
+    filtered = [
+        site_data for site_data in prod_datas
+        if site_data.get("Total Seats made")
+        and isinstance(site_data["Total Seats made"], (list, tuple))
+        and len(site_data["Total Seats made"]) > 1
+        and isinstance(site_data["Total Seats made"][1], (list, tuple))
+        and len(site_data["Total Seats made"][1]) > 0
+    ]
+    if not filtered:
+        return []
+    n_times = min(len(site_data["Total Seats made"][1]) for site_data in filtered)
+    total_cap_max = sum(cap_max[cfg['location']] for cfg in lines_config)
+    taux = []
+    for t in range(n_times):
+        prod_reelle = sum(site_data["Total Seats made"][1][t] for site_data in filtered)
+        taux.append(prod_reelle / total_cap_max if total_cap_max > 0 else 0)
+    return taux
+
+def get_global_production_rate_journalier(result, lines_config, cap_max):
+    """
+    Retourne la courbe de taux de production instantané (journalier, par pas) pour l'ensemble du système.
+    """
+    prod_datas = result.get("production_data", [])
+    filtered = [
+        site_data for site_data in prod_datas
+        if site_data.get("Total Seats made")
+        and isinstance(site_data["Total Seats made"], (list, tuple))
+        and len(site_data["Total Seats made"]) > 1
+        and isinstance(site_data["Total Seats made"][1], (list, tuple))
+        and len(site_data["Total Seats made"][1]) > 0
+    ]
+    if not filtered:
+        return []
+    n_times = min(len(site_data["Total Seats made"][1]) for site_data in filtered)
+    total_cap_max = sum(cap_max[cfg['location']] for cfg in lines_config)
+    taux = []
+    for t in range(n_times):
+        # Calcule la production instantanée (non cumulée)
+        prod_reelle = 0
+        for site_data in filtered:
+            prod_curve = site_data["Total Seats made"][1]
+            prod_jour = prod_curve[t] if t == 0 else prod_curve[t] - prod_curve[t-1]
+            prod_reelle += prod_jour
+        taux.append(prod_reelle / total_cap_max if total_cap_max > 0 else 0)
+    return taux
+
+
 
 def load_capacity_limits(production_totals):
     """

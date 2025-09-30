@@ -14,6 +14,7 @@ from environment.environment_engine import (
 from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 
+
 def run_scenario(allocation_function, config):
     """
     Exécute une simulation complète de chaîne d'approvisionnement pour un scénario donné.

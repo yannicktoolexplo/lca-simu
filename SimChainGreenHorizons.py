@@ -8,11 +8,14 @@ from optimization.optimization_engine import (
 )
 from line_production.line_production_settings import lines_config, scenario_events
 from line_production.line_production import run_simulation
+from line_production.production_engine import get_global_production_rate
 from sqlalchemy import create_engine, Table, MetaData, insert
 from sqlalchemy.orm import sessionmaker
-from utils.data_tools import display_all_lca_indicators
+from utils.data_tools import display_all_lca_indicators, get_total_prod_curve
 from hybrid_regulation_engine import run_simulation_vivant
 from scenario_engine import run_scenario, compare_scenarios, display_sankey_for_scenarios
+from resilience_indicators import compute_resilience_indicators, resilience_on_curve
+from copy import deepcopy
 
 # Configuration constants
 DEFAULT_SEAT_WEIGHT = 130       # Poids de siège par défaut (kg)
@@ -24,11 +27,39 @@ def main_function():
     émissions et scores de résilience, puis retourne les résultats formatés pour le tableau de bord."""
     # 1. Simulation de base (production sans événements)
     all_production_data, _ = run_simulation(lines_config)
+
     # Calculer la production totale simulée par site (pour définir capacités)
-    max_production = {
-        cfg['location']: data['Total Seats made'][1][-1]
-        for cfg, data in zip(lines_config, all_production_data)
+    lines_config_max = deepcopy(lines_config)
+    for cfg in lines_config_max:
+        for mat in ["aluminium", "foam", "fabric", "paint"]:
+            cap_key = f"{mat}_capacity"
+            init_key = f"initial_{mat}"
+            # Met un stock initial très grand
+            cfg[init_key] = 1_000_000
+            # Aligne la capacité sur ce stock si besoin
+            cfg[cap_key] = max(cfg.get(cap_key, 0), cfg[init_key])
+
+
+    config_maxcap = {
+        "lines_config": lines_config_max,
+        "include_supply": False,   # on ne veut pas de réapprovisionnement automatique
+        "include_storage": True,
+        "events": None
     }
+
+    result_maxcap = run_scenario(run_simple_allocation_dict, config_maxcap)
+
+
+    cap_max = {}
+    prod_datas = result_maxcap.get("production_data", [])
+    for cfg, site_data in zip(lines_config, prod_datas):
+        # Attention, on cherche la *prod max sur un pas de temps*, pas le cumul
+        prod_par_temps = site_data["Total Seats made"][1]
+        cap_max[cfg['location']] = max(prod_par_temps)
+        print(f"Capacité max observée pour {cfg['location']} : {cap_max[cfg['location']]}")
+
+
+
 
     # Configuration de base pour les scénarios
     base_config = {
@@ -40,8 +71,10 @@ def main_function():
     # 2. Exécuter les différents scénarios sans perturbation
     result_baseline = run_scenario(run_simple_allocation_dict, base_config)
     # Scénario avec perturbations (crise)
-    config_crise = {**base_config, "events": scenario_events["crise"]}
+    config_crise = {**base_config, "events": scenario_events["Rupture Alu"]}
+    config_crise2 = {**base_config, "events": scenario_events["Panne Texas"]}
     result_crise = run_scenario(run_simple_allocation_dict, config_crise)
+    result_crise2 = run_scenario(run_simple_allocation_dict, config_crise2)
     # Optimisation coût, optimisation CO₂, multi-objectifs, scénario simplifié léger
     result_optim_cost = run_scenario(run_optimization_allocation_dict, base_config)
     result_optim_co2 = run_scenario(run_optimization_co2_allocation_dict, base_config)
@@ -91,51 +124,64 @@ def main_function():
         "Lightweight":     {**result_lightweight, "allocation_func": lambda cap, demand: run_supply_chain_lightweight_scenario(cap, demand, seat_weight=LIGHTWEIGHT_SEAT_WEIGHT)}
     }
     # Stocker également le scénario de crise à part
-    crisis_result = {**result_crise, "allocation_func": run_simple_allocation_dict}
+    crisis_results = {
+    "Baseline": {**result_baseline,   "allocation_func": run_simple_allocation_dict},
+    "Crise 1": {**result_crise, "allocation_func": run_simple_allocation_dict},
+    "Crise 2": {**result_crise2, "allocation_func": run_simple_allocation_dict}
+}
 
-    # 5. Pour chaque scénario, simuler des perturbations de type choc (approvisionnement, production, distribution)
+
+    # 5. Pour chaque scénario nominal (hors crise)
     for name, scenario_res in scenario_results.items():
-        # Config de base pour les simulations de choc (pas d'événement initial dans loc_prod)
         config_shock = {**base_config, "loc_prod": {}}
-        # Exécuter les trois types de chocs séparément
         res_supply = run_scenario(scenario_res["allocation_func"], {**config_shock, "events": scenario_events["shock_supply"]})
         res_prod   = run_scenario(scenario_res["allocation_func"], {**config_shock, "events": scenario_events["shock_production"]})
         res_dist   = run_scenario(scenario_res["allocation_func"], {**config_shock, "events": scenario_events["shock_distribution"]})
-        # Enregistrer les résultats des tests de résilience dans le scénario correspondant
-        scenario_results[name]["resilience_test"] = {
-            "supply": res_supply,
-            "production": res_prod,
-            "distribution": res_dist
-        }
-        # Pour le scénario de crise, on utilise les mêmes chocs (on prend le dernier calculé dans la boucle)
-        crisis_result["resilience_test"] = {
+        scenario_res["resilience_test"] = {
             "supply": res_supply,
             "production": res_prod,
             "distribution": res_dist
         }
 
-    # 6. Calculer les scores de résilience pour chaque scénario et pour la crise
+    # 5bis. Pour chaque scénario de crise
+    for name, crisis_res in crisis_results.items():
+        # Tu peux adapter les chocs ici si tu veux, ou garder ceux de scenario_events["shock_*"]
+        config_shock = {**base_config, "loc_prod": {}}
+        res_supply = run_scenario(crisis_res["allocation_func"], {**config_shock, "events": scenario_events["shock_supply"]})
+        res_prod   = run_scenario(crisis_res["allocation_func"], {**config_shock, "events": scenario_events["shock_production"]})
+        res_dist   = run_scenario(crisis_res["allocation_func"], {**config_shock, "events": scenario_events["shock_distribution"]})
+        crisis_res["resilience_test"] = {
+            "supply": res_supply,
+            "production": res_prod,
+            "distribution": res_dist
+        }
+
+    # 6. Score de résilience - scenarios normaux
     def compute_resilience_score(result_nominal, result_crisis):
-        """Calcule un score de résilience (en %) entre un scénario nominal et son scénario sous choc."""
         prod_nominal = result_nominal.get("production_totals", {})
-        prod_crisis = result_crisis.get("production_totals", {})
+        prod_crisis = {}
+        if result_crisis and isinstance(result_crisis, dict):
+            prod_crisis = result_crisis.get("production_totals", {}) or {}
         total_nominal = sum(prod_nominal.values())
         total_crisis = sum(prod_crisis.values())
         if total_nominal == 0:
             return 0.0
-        # Score = 100 * (production sous choc / production nominale) (limité à 100 si crise > nominal par exception)
         return round(100 * min(total_crisis, total_nominal) / total_nominal, 1)
 
     for name, scenario_res in scenario_results.items():
         tests = scenario_res["resilience_test"]
         scores = {phase: compute_resilience_score(scenario_res, tests[phase]) for phase in ["supply", "production", "distribution"]}
         scores["total"] = round(sum(scores.values()) / 3, 1)
-        scenario_results[name]["resilience_scores"] = scores
-    # Score pour le scénario de crise
-    tests = crisis_result["resilience_test"]
-    crisis_scores = {phase: compute_resilience_score(crisis_result, tests[phase]) for phase in ["supply", "production", "distribution"]}
-    crisis_scores["total"] = round(sum(crisis_scores.values()) / 3, 1)
-    crisis_result["resilience_scores"] = crisis_scores
+        scenario_res["resilience_scores"] = scores
+
+    # Calculer les scores de résilience pour chaque scénario de crise
+    for name, scenario_res in crisis_results.items():
+        tests = scenario_res.get("resilience_test", {})
+        scores = {phase: compute_resilience_score(scenario_res, tests.get(phase, {})) for phase in ["supply", "production", "distribution"]}
+        scores["total"] = round(sum(scores.values()) / 3, 1)
+        crisis_results[name]["resilience_scores"] = scores
+
+
 
     # 7. Enregistrer les résultats de production dans la base de données
     for scenario_id, (name, scenario_res) in enumerate(scenario_results.items(), start=1):
@@ -152,9 +198,9 @@ def main_function():
     # 8. Préparer les visualisations comparatives des scénarios
     comparison_figs = compare_scenarios(scenario_results, return_figures=True)
     sankey_figs = display_sankey_for_scenarios(scenario_results, return_figures=True)
-    # Visualisations pour le scénario de crise seul
-    crisis_figs = compare_scenarios({"Crise": crisis_result}, return_figures=True)
-    crisis_sankey_figs = display_sankey_for_scenarios({"Crise": crisis_result}, return_figures=True)
+    # Pour la visualisation groupée de tous les scénarios de crise :
+    crisis_figs = compare_scenarios(crisis_results, return_figures=True)
+    crisis_sankey_figs = display_sankey_for_scenarios(crisis_results, return_figures=True)
 
     # 9. Analyse LCA ciblée sur la France (scénario multi-objectifs)
     fr_config = [cfg for cfg in lines_config if cfg["location"] == "France"]
@@ -184,6 +230,30 @@ def main_function():
         seat_weight=DEFAULT_SEAT_WEIGHT
     )
 
+
+
+    # 1. Calcule la courbe du taux de prod (%) pour chaque scénario (baseline et crises)
+    rate_curve_baseline = get_global_production_rate(result_baseline,lines_config, cap_max)
+    time_vector = list(range(len(rate_curve_baseline)))
+
+    for name, result_crise in crisis_results.items():
+        rate_curve_crise = get_global_production_rate(result_crise,lines_config, cap_max)
+        min_len = min(len(rate_curve_baseline), len(rate_curve_crise), len(time_vector))
+        rate_curve_baseline_aligned = rate_curve_baseline[:min_len]
+        rate_curve_crise_aligned = rate_curve_crise[:min_len]
+        time_vector_aligned = time_vector[:min_len]
+        
+        # 1. Résilience "comparée au nominal" (sur taux)
+        indicators_ref = compute_resilience_indicators(
+            rate_curve_baseline_aligned, rate_curve_crise_aligned, time_vector_aligned
+        )
+        # 2. Résilience "auto-détection" sur la courbe de taux
+        indicators_auto = resilience_on_curve(rate_curve_crise_aligned, time_vector=time_vector_aligned)
+        
+        result_crise["resilience_indicators"] = indicators_ref
+        result_crise["resilience_auto_indicators"] = indicators_auto
+
+
     # Préparer le dictionnaire de résultats final à retourner
     return {
         "figures": comparison_figs + sankey_figs,
@@ -192,8 +262,10 @@ def main_function():
         "lca_fig_total": fig_lca_total,
         "vivant_raw_data": result_vivant_raw,
         "scenario_results": scenario_results,
-        "crisis_result": crisis_result,
-        "crisis_figures": crisis_figs + crisis_sankey_figs
+        "crisis_results": crisis_results,
+        "crisis_figures": crisis_figs + crisis_sankey_figs,
+        "cap_max": cap_max, 
+        "lines_config": lines_config
     }
 
 if __name__ == '__main__':
