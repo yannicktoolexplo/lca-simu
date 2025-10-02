@@ -1,6 +1,10 @@
+from __future__ import annotations
 import simpy
 import random
 from supply.supply_engine import manage_fixed_supply
+from typing import Dict, Any, List, Tuple
+from collections import defaultdict
+import math
 
 class ProductionLine:
     def __init__(self, env, config, seat_weight=130):
@@ -171,6 +175,7 @@ def run_simulation(lines_config, seat_weight=130, events=None):
     :param events: Liste d'événements à injecter (ou None)
     :return: (all_production_data, all_enviro_data)
     """
+    print("[SimPy] run_simulation called with", [(getattr(e, "event_type", None), getattr(e, "target", None), getattr(e, "time", None), getattr(e, "duration", None)) for e in (events or [])])
     env = simpy.Environment()
     lines = []
     for cfg in lines_config:

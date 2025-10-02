@@ -182,21 +182,72 @@ def _dummy_sim_func(config: Dict[str, Any], events: List[Any]) -> Dict[str, Any]
 # directement tes objets à main() (base_config, state_for_suite).
 # ---------------------------------------------------------------------------
 
-def build_base_config() -> Dict[str, Any]:
+# --- AJOUT EN HAUT DU FICHIER SI ABSENT ---
+import importlib
+
+def _auto_load_lines_config():
     """
-    Charge la config de base du projet si disponible, sinon fallback minimal.
+    Essaie de récupérer lines_config/LINES_CONFIG où qu'il soit :
+    - line_production.line_production_settings
+    - line_production_settings
+    - scenario_engine
+    Si non trouvé, essaye des builders (build_lines_config / get_lines_config / make_lines_config).
     """
-    try:
-        # ⬇️ adapte selon ton projet (si tu exposes une base_config ou un builder)
-        from scenario_engine import base_config as DEFAULT_BASE_CONFIG
-        return dict(DEFAULT_BASE_CONFIG)
-    except Exception:
-        # Fallback minimal si tu n'exposes pas de config par défaut
-        return {
-            "horizon": 120,
-            # ajoute ici toute clé requise par run_scenario(...) dans ton projet
-            # "lines_config": [...], "seat_weight": 130, ...
-        }
+    candidates = [
+        ("line_production.line_production_settings", "LINES_CONFIG"),
+        ("line_production.line_production_settings", "lines_config"),
+        ("line_production_settings", "LINES_CONFIG"),
+        ("line_production_settings", "lines_config"),
+        ("scenario_engine", "LINES_CONFIG"),
+        ("scenario_engine", "lines_config"),
+    ]
+    for mod_name, var_name in candidates:
+        try:
+            m = importlib.import_module(mod_name)
+            if hasattr(m, var_name):
+                val = getattr(m, var_name)
+                if isinstance(val, list) and len(val) > 0:
+                    return val
+        except Exception:
+            pass
+        # tente des builders dans ce module
+        try:
+            m = importlib.import_module(mod_name)
+            for fn_name in ("build_lines_config", "get_lines_config", "make_lines_config"):
+                if hasattr(m, fn_name):
+                    val = getattr(m, fn_name)()
+                    if isinstance(val, list) and len(val) > 0:
+                        return val
+        except Exception:
+            pass
+    raise RuntimeError(
+        "Impossible de trouver 'lines_config' / 'LINES_CONFIG'. "
+        "Expose une variable LINES_CONFIG (liste de dicts lignes) "
+        "ou adapte _auto_load_lines_config()."
+    )
+
+def build_base_config() -> dict:
+    """
+    Base config MINIMALE exigée par run_scenario: elle DOIT contenir 'lines_config'.
+    On calcule aussi un 'horizon' raisonnable (max total_time des lignes).
+    """
+    LINES_CONFIG = _auto_load_lines_config()
+    horizon = max([lc.get("total_time", 0) for lc in LINES_CONFIG] + [120])
+    return {
+        "lines_config": LINES_CONFIG,
+        "target_daily_output": "auto",
+        "horizon": horizon,
+        "time_units_per_day": 8,           # ← pour adapter le calendrier des événements
+        "target_daily_output": 120.0,      # ← demande/jour (ajuste à ta réalité)
+        "cost_params": {
+            "c_var": 100.0,
+            "c_fixed_per_day": 2000.0,
+            "c_freight": 10.0,
+            "penalty_per_missing": 150.0,
+        },
+    }
+
+
 
 
 def build_state_for_suite() -> Dict[str, Any]:
@@ -217,7 +268,7 @@ def build_state_for_suite() -> Dict[str, Any]:
     # 2) fallback : routes/parts de démo
     return {
         "capacity_nominal": {"PLANT_FR": 800, "PLANT_UK": 500, "PLANT_US": 600},
-        "supply_nominal": {"Al": 10000, "Ti": 500, "Foam": 8000},
+        "supply_nominal": {"Al": 10000, "Fabric": 500, "Foam": 8000},
         "routes": {
             ("SUP_Al", "PLANT_FR", "road"): {"cap_per_day": 5000, "lead_time": 2, "active": True},
             ("PLANT_FR", "DC_FR", "road"):  {"cap_per_day": 1200, "lead_time": 1, "active": True},
@@ -283,6 +334,23 @@ def _export_csv(path: str, rows: List[Dict[str, Any]]):
 # ---------------------------------------------------------------------------
 
 def main():
+
+    # AJOUTE juste avant l’appel :
+    include = {
+        "site_shutdown": True,
+        "site_capacity_drop": True,
+        "material_block": True,
+        "material_capacity_drop": True,
+        # tout le reste désactivé pour l’instant
+        "route_blocked": False,
+        "capacity_drop": False,
+        "leadtime_spike": False,
+        "mode_ban": False,
+        "node_closed": False,
+    }
+
+
+
     parser = argparse.ArgumentParser(description="Comparatif de chocs & métriques de résilience")
     parser.add_argument("--start", type=int, default=20, help="Instant de début des chocs (pas de temps)")
     parser.add_argument("--duration", type=int, default=10, help="Durée des chocs (pas de temps)")
@@ -299,6 +367,7 @@ def main():
     base_config["_suite_state"] = state_for_suite
 
 
+
     # Choix de la fonction de simulation
     sim = _dummy_sim_func if args.use_dummy else default_sim_func
 
@@ -313,11 +382,13 @@ def main():
 
     # Exécution
     try:
+        # MODIFIE l’appel run_suite :
         baseline_res, rows = runner.run_suite(
             base_config,
             state_for_suite,
             start_time=args.start,
             duration_days=args.duration,
+            include=include,                 # <-- ici
         )
     except NotImplementedError as e:
         print("[ERREUR] default_sim_func n’est pas encore branché.")
