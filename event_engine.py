@@ -25,13 +25,13 @@ class EventManager:
             if event.time == time:
                 self.active_events.append({'event': event, 'time_left': event.duration})
                 self.events.remove(event)
-                # (Optionnel: journalisation d'un événement déclenché)
+                # (Optionnel: journalisation de l'événement déclenché)
 
         # 2. Appliquer les effets de toutes les perturbations actives sur l'état du système
         for active in list(self.active_events):
             event = active['event']
             if event.event_type == "panne":
-                # Panne machine/site: arrêt total (magnitude=1.0) ou réduction de capacité
+                # Panne machine/site: arrêt total (magnitude=1.0) ou réduction de capacité partielle
                 if event.magnitude == 1.0:
                     system_state['capacity'][event.target] = 0
                 else:
@@ -42,19 +42,48 @@ class EventManager:
             elif event.event_type == "retard":
                 # Retard fournisseur: on augmente le délai de livraison associé à la ressource
                 system_state['delays'][event.target] = system_state['delays'].get(event.target, 0) + event.magnitude
-            # Réduire d'une unité le temps restant de l'événement
+            elif event.event_type == "greve":
+                # Grève sur site: arrêt total ou baisse de rendement du site de production
+                if event.magnitude == 1.0:
+                    system_state['capacity'][event.target] = 0
+                else:
+                    system_state['capacity'][event.target] = system_state['capacity_nominal'][event.target] * (1 - event.magnitude)
+            elif event.event_type == "greve_fournisseur":
+                # Grève chez le fournisseur: plus aucune livraison de la ressource cible
+                system_state['supply'][event.target] = 0
+            elif event.event_type == "logistique":
+                # Crise logistique: perturbation des transports pour la ressource cible
+                # Par exemple, arrêt total des livraisons (magnitude=1.0) ou réduction du flux (ex: magnitude=0.5 pour 50% de livraisons en moins)
+                if event.magnitude == 1.0:
+                    system_state['supply'][event.target] = 0
+                else:
+                    # On réduit la disponibilité de la ressource (simule des livraisons partielles)
+                    system_state['supply'][event.target] = system_state['supply_nominal'][event.target] * (1 - event.magnitude)
+            elif event.event_type == "hausse_cout":
+                # Hausse des coûts logistiques: on applique un multiplicateur de coût temporaire
+                # On stocke un facteur de surcoût dans l'état du système (utilisable plus tard dans le calcul des coûts)
+                system_state.setdefault('cost_factor', 1.0)
+                system_state['cost_factor'] *= (1 + event.magnitude)
+            # Réduire d'une unité le temps restant de l'événement actif
             active['time_left'] -= 1
 
-        # 3. Désactiver les événements expirés et rétablir l’état nominal après leur fin
+        # 3. Désactiver les événements expirés et rétablir l'état nominal après leur fin
         for active in list(self.active_events):
             if active['time_left'] <= 0:
                 event = active['event']
                 # Rétablir les valeurs nominales à la fin de l'événement
-                if event.event_type == "panne":
+                if event.event_type == "panne" or event.event_type == "greve":
                     system_state['capacity'][event.target] = system_state['capacity_nominal'][event.target]
-                elif event.event_type == "rupture_fournisseur":
+                elif event.event_type == "rupture_fournisseur" or event.event_type == "greve_fournisseur":
                     system_state['supply'][event.target] = system_state['supply_nominal'][event.target]
                 elif event.event_type == "retard":
                     # On réduit le délai supplémentaire ajouté (retour à l'état initial)
                     system_state['delays'][event.target] -= event.magnitude
+                elif event.event_type == "logistique":
+                    # Fin de la crise logistique: rétablissement du stock de la ressource
+                    system_state['supply'][event.target] = system_state['supply_nominal'][event.target]
+                elif event.event_type == "hausse_cout":
+                    # Fin de la hausse des coûts: on retire le surcoût appliqué
+                    system_state['cost_factor'] /= (1 + event.magnitude)
+                # Retirer l'événement de la liste des actifs
                 self.active_events.remove(active)
