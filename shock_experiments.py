@@ -43,7 +43,7 @@ class ShockExperimentRunner:
         cfg = deepcopy(base_config); cfg["events"] = events
         return self.sim_func(cfg, events)
 
-    def run_suite(self, base_config: Dict, state_for_suite: Dict, start_time=20, duration_days=10) -> Tuple[Dict, List[ShockResultRow]]:
+    def run_suite(self, base_config: Dict, state_for_suite: Dict, start_time=20, duration_days=10, include: Dict[str, bool]=None) -> Tuple[Dict, List[ShockResultRow]]:
         # 1) baseline
         baseline_res = self.run_baseline(base_config)
         B_ts = self.ts_extractor(baseline_res)
@@ -51,7 +51,7 @@ class ShockExperimentRunner:
         B_serv = self.service_extractor(baseline_res) if self.service_extractor else None
 
         # 2) suite de chocs
-        suite = build_shock_suite(state_for_suite, start_time=start_time, duration_days=duration_days)
+        suite = build_shock_suite(state_for_suite, start_time=start_time, duration_days=duration_days, include=include)
         rows: List[ShockResultRow] = []
 
         # 3) exécutions
