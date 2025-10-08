@@ -233,3 +233,19 @@ def _handle_delay_event(env, event, lines):
     for line in lines:
         if event.target in line.supply_enabled:
             line.supply_enabled[event.target] = True
+
+def _handle_supply_event(env, event, lines):
+    yield env.timeout(event.time)
+    for line in lines:
+        if event.target in line.supply_enabled:
+            line.supply_enabled[event.target] = False
+            # OPTIONNEL: contrôler la purge via event.drain (défaut: True)
+            drain = getattr(event, "drain", True)
+            if drain and hasattr(line, event.target):
+                container = getattr(line, event.target)
+                if container.level > 0:
+                    yield container.get(container.level)
+    yield env.timeout(event.duration)
+    for line in lines:
+        if event.target in line.supply_enabled:
+            line.supply_enabled[event.target] = True
