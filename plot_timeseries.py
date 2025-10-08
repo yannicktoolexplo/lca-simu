@@ -3,10 +3,31 @@ import argparse
 import importlib
 import os
 import matplotlib.pyplot as plt
+import numpy as np
 
 from adapters import default_sim_func, default_ts_extractor
 
 # --------- utilitaires pour récupérer ta config lignes ----------
+
+import math
+
+def _is_daily_series(ts, base_config) -> bool:
+    """True si la série est déjà agrégée par jour."""
+    if not isinstance(ts, (list, tuple)):
+        return False
+    H   = int(base_config.get("horizon", len(ts)))
+    tud = max(1, int(base_config.get("time_units_per_day", 1)))
+    expected_days = max(1, math.ceil(H / tud))
+    return abs(len(ts) - expected_days) <= 2
+
+def _x_for_ts(ts, base_config):
+    """Axe X en JOURS, quel que soit l’échantillonnage."""
+    tud = max(1, int(base_config.get("time_units_per_day", 1)))
+    if _is_daily_series(ts, base_config):
+        return list(range(len(ts)))            # déjà en jours
+    else:
+        return [t / tud for t in range(len(ts))]  # pas -> jours
+
 def _auto_load_lines_config():
     candidates = [
         ("line_production.line_production_settings", "LINES_CONFIG"),
@@ -108,13 +129,13 @@ def main():
     ts_choc = _run_and_get_ts(default_sim_func if not args.use_dummy else (lambda c, e: _dummy_fallback(c, e)), base, [ev])
 
     # axe temps en jours
-    import numpy as np
-    t = np.arange(len(ts_base)) / float(tu_per_day)
+# axe temps en jours (robuste)
+    t_base  = _x_for_ts(ts_base, base)
+    t_choc  = _x_for_ts(ts_choc, base)
 
-    # plot
     plt.figure(figsize=(10, 5))
-    plt.plot(t, ts_base, label="baseline", marker="o")
-    plt.plot(t, ts_choc, label=f"{args.shock_type}::{args.target}", marker="o")
+    plt.plot(t_base, ts_base, label="baseline", marker="o")
+    plt.plot(t_choc, ts_choc, label=f"{args.shock_type}::{args.target}", marker="o")
     # fenêtre du choc
     plt.axvspan(args.start, args.start + args.duration, alpha=0.15, label="fenêtre de choc")
     plt.xlabel("Temps (jours)")
