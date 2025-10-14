@@ -1,198 +1,208 @@
-# plot_timeseries.py
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
 import argparse
-import importlib
-import os
-import matplotlib.pyplot as plt
+import sys
 import numpy as np
+import matplotlib.pyplot as plt
+from line_production.line_production_settings import lines_config
 
-from adapters import default_sim_func, default_ts_extractor
+# --- import robuste du moteur de simulation (plusieurs chemins possibles) ---
+def _import_run_simulation():
+    try:
+        from line_production.production_engine import run_simulation
+        return run_simulation
+    except Exception:
+        pass
+    try:
+        from line_production.line_production import run_simulation
+        return run_simulation
+    except Exception:
+        pass
+    raise ImportError(
+        "Impossible d’importer run_simulation (essaie line_production.production_engine ou line_production.line_production)."
+    )
 
-# --------- utilitaires pour récupérer ta config lignes ----------
+# --- extraction robuste d'une série depuis le résultat retour du moteur ---
+# --- extraction robuste d'une série depuis le résultat retour du moteur ---
+def _get_series(res, prefer=None):
+    """
+    Accepte:
+      - dict : on prend prefer ou une clé candidate
+      - list/tuple : on fouille chaque item (dict -> clé, ou array 1D directement)
+      - array/list 1D : on le prend tel quel
+    """
+    import numpy as _np
 
-import math
-
-def _is_daily_series(ts, base_config) -> bool:
-    """True si la série est déjà agrégée par jour."""
-    if not isinstance(ts, (list, tuple)):
-        return False
-    H   = int(base_config.get("horizon", len(ts)))
-    tud = max(1, int(base_config.get("time_units_per_day", 1)))
-    expected_days = max(1, math.ceil(H / tud))
-    return abs(len(ts) - expected_days) <= 2
-
-def _x_for_ts(ts, base_config):
-    """Axe X en JOURS, quel que soit l’échantillonnage."""
-    tud = max(1, int(base_config.get("time_units_per_day", 1)))
-    if _is_daily_series(ts, base_config):
-        return list(range(len(ts)))            # déjà en jours
-    else:
-        return [t / tud for t in range(len(ts))]  # pas -> jours
-
-def _auto_load_lines_config():
-    candidates = [
-        ("line_production.line_production_settings", "LINES_CONFIG"),
-        ("line_production.line_production_settings", "lines_config"),
-        ("line_production_settings", "LINES_CONFIG"),
-        ("line_production_settings", "lines_config"),
-        ("scenario_engine", "LINES_CONFIG"),
-        ("scenario_engine", "lines_config"),
+    candidate_keys = [
+        "total_production", "production_total", "prod_total",
+        "production", "prod", "y_total", "y", "total_output"
     ]
-    for mod_name, var_name in candidates:
-        try:
-            m = importlib.import_module(mod_name)
-            if hasattr(m, var_name):
-                val = getattr(m, var_name)
-                if isinstance(val, list) and len(val) > 0:
-                    return val
-        except Exception:
-            pass
-    raise RuntimeError("Impossible de trouver LINES_CONFIG. Expose une variable liste de configs de lignes.")
 
-def build_base_config():
-    LINES_CONFIG = _auto_load_lines_config()
-    horizon = max([lc.get("total_time", 0) for lc in LINES_CONFIG] + [120])
-    return {
-        "lines_config": LINES_CONFIG,
-        "horizon": horizon,
-        "time_units_per_day": 8,
-        "target_daily_output": 120.0,
-        "cost_params": {
-            "c_var": 100.0, "c_fixed_per_day": 2000.0, "c_freight": 10.0, "penalty_per_missing": 150.0,
-        },
-    }
+    def _as_series(obj):
+        # ndarray / list / tuple -> si 1D on le prend
+        if isinstance(obj, (list, tuple, _np.ndarray)):
+            arr = _np.asarray(obj, dtype=float)
+            if arr.ndim == 1:
+                return arr
+            if arr.ndim > 1 and 1 in arr.shape:
+                return arr.reshape(-1)
+            return None
+        # dict -> prefer puis candidates
+        if isinstance(obj, dict):
+            if prefer and prefer in obj:
+                return _np.asarray(obj[prefer], dtype=float)
+            for k in candidate_keys:
+                if k in obj:
+                    return _np.asarray(obj[k], dtype=float)
+            return None
+        return None
 
-# --------- mapping "haut niveau" -> events SimPy que ton moteur comprend ----------
-_MAT_ALIASES = {
-    "al": "aluminium", "aluminium": "aluminium",
-    "foam": "foam", "polymers": "foam",
-    "fabric": "fabric", "tissu": "fabric",
-    "paint": "paint",
-}
+    # 1) essai direct
+    s = _as_series(res)
+    if s is not None:
+        return s
 
-def _mk_event(shock_type: str, target: str, t0_days: int, dur_days: int, tu_per_day: int, magnitude: float = 1.0, drain: bool = None):
-    """
-    Retourne un dict "event" pour ton run_simulation :
-      {'event_type': 'panne'|'rupture_fournisseur'|'retard', 'target': <...>, 'time': <tu>, 'duration': <tu>, 'magnitude': <f>, 'drain': <bool?>}
-    """
-    t0 = int(t0_days * tu_per_day)
-    dur = int(dur_days * tu_per_day)
-    st = shock_type.lower()
+    # 2) si c'est un conteneur, on le parcourt
+    if isinstance(res, (list, tuple)):
+        for it in res:
+            s = _as_series(it)
+            if s is not None:
+                return s
 
-    if st in ("site_shutdown", "panne"):
-        return {"event_type": "panne", "target": target, "time": t0, "duration": dur, "magnitude": magnitude}
+    # 3) rien trouvé -> message explicite
+    raise TypeError(
+        f"Impossible d'extraire une série. Type(res)={type(res).__name__}; "
+        f"contenu indicatif={str(res)[:200]}..."
+    )
 
-    if st in ("material_block", "rupture", "rupture_fournisseur"):
-        tgt = _MAT_ALIASES.get(target.lower(), target)
-        ev = {"event_type": "rupture_fournisseur", "target": tgt, "time": t0, "duration": dur, "magnitude": magnitude}
-        if drain is not None:
-            ev["drain"] = bool(drain)  # optionnel : si tu patches _handle_supply_event pour lire ev.get("drain")
-        return ev
 
-    if st in ("leadtime_spike", "retard", "material_delay"):
-        tgt = _MAT_ALIASES.get(target.lower(), target)
-        return {"event_type": "retard", "target": tgt, "time": t0, "duration": dur, "magnitude": magnitude}
-
-    raise ValueError(f"Type de choc non supporté ici: {shock_type}")
-
-# --------- exécution & extraction série ----------
-def _run_and_get_ts(sim_fn, base_cfg, events):
-    cfg = dict(base_cfg)
-    cfg["events"] = events
-    res = sim_fn(cfg, events)  # adapters.default_sim_func sait dispatch vers ta SimPy
-    ts = default_ts_extractor(res)
-    return ts  # liste[float] longueur = horizon
 
 def main():
-    p = argparse.ArgumentParser(description="Courbe temporelle baseline vs choc (production totale)")
-    p.add_argument("--shock-type", required=True,
-                   choices=["site_shutdown","material_block","material_delay","panne","rupture_fournisseur","retard"],
-                   help="Type de perturbation à injecter")
-    p.add_argument("--target", required=True, help="Cible du choc (ex: PLANT_FR, aluminium, fabric, foam)")
-    p.add_argument("--start", type=int, default=20, help="Début (en jours)")
-    p.add_argument("--duration", type=int, default=10, help="Durée (en jours)")
-    p.add_argument("--magnitude", type=float, default=1.0, help="Amplitude relative (si pertinent)")
-    p.add_argument("--no-drain", action="store_true",
-                   help="Pour material_block: ne pas purger le stock à t0 (si tu as patché _handle_supply_event pour lire 'drain').")
-    p.add_argument("--use-dummy", action="store_true", help="Forcer le dummy (debug)")
-    p.add_argument("--save", type=str, default="", help="Chemin PNG (facultatif). Sinon, affiche à l'écran.")
-    args = p.parse_args()
+    parser = argparse.ArgumentParser(description="Baseline vs choc — production (matplotlib, fond clair)")
+    parser.add_argument("--shock-type", required=True, help="type de choc (ex: site_shutdown)")
+    parser.add_argument("--target", required=True, help="cible du choc (ex: PLANT_FR)")
+    parser.add_argument("--start", type=int, default=20, help="début du choc (jour)")
+    parser.add_argument("--duration", type=int, default=25, help="durée du choc (jours)")
+    parser.add_argument("--horizon", type=int, default=45, help="nb de jours à simuler (>= start+duration)")
+    parser.add_argument("--series-key", type=str, default=None, help="(optionnel) clé explicite de la série dans le retour simu")
+    parser.add_argument("--save", type=str, default=None, help="chemin du PNG à enregistrer (sinon plt.show())")
+    args = parser.parse_args()
 
-    base = build_base_config()
-    tu_per_day = int(base.get("time_units_per_day", 8))
-
-    # baseline
-    ts_base = _run_and_get_ts(default_sim_func if not args.use_dummy else (lambda c, e: _dummy_fallback(c, e)), base, [])
-
-    # choc
-    ev = _mk_event(args.shock_type, args.target, args.start, args.duration, tu_per_day,
-                   magnitude=args.magnitude, drain=(False if args.no_drain else None))
-    ts_choc = _run_and_get_ts(default_sim_func if not args.use_dummy else (lambda c, e: _dummy_fallback(c, e)), base, [ev])
-
-    # axe temps en jours
-# axe temps en jours (robuste)
-    t_base  = _x_for_ts(ts_base, base)
-    t_choc  = _x_for_ts(ts_choc, base)
+    # horizon effectif au moins jusqu'à la fin du choc
+    horizon = max(int(args.horizon), int(args.start + args.duration))
 
 
+    run_simulation = _import_run_simulation()
 
-    # ===== DIAGNOSTIC DES VECTEURS (aucune modif d'affichage) ====
-    
-    def diag_series(name, arr, start):
-        a = np.asarray(arr, dtype=float)
+    # --- 1) Baseline : même système, aucun choc ---
+    res_base = None
+    try:
+        res_base = run_simulation(lines_config, n_days=horizon)
+    except TypeError:
+        try:
+            res_base = run_simulation(lines_config, horizon=horizon)
+        except TypeError:
+            try:
+                # dernier recours : sans param de durée (le moteur gère l'horizon en interne)
+                res_base = run_simulation(lines_config)
+            except Exception as e:
+                raise RuntimeError(f"Echec baseline: {e}")
+
+    # --- 2) Choc : même système + arrêt ciblé dans la fenêtre de choc ---
+    shock_kwargs = dict(
+        shock_type=args.shock_type,
+        target=args.target,
+        shock_start=int(args.start),
+        shock_duration=int(args.duration),
+    )
+
+    res_choc = None
+    # ordre d'essai: kwargs à plat, puis horizon=..., puis shock=dict
+    try:
+        res_choc = run_simulation(lines_config, n_days=horizon, **shock_kwargs)
+    except TypeError:
+        try:
+            res_choc = run_simulation(lines_config, horizon=horizon, **shock_kwargs)
+        except TypeError:
+            try:
+                res_choc = run_simulation(lines_config, n_days=horizon, shock=shock_kwargs)
+            except TypeError:
+                try:
+                    res_choc = run_simulation(lines_config, shock=shock_kwargs)
+                except Exception as e:
+                    raise RuntimeError(f"Echec choc: {e}")
+
+    # Sanity check
+    if res_base is None:
+        raise RuntimeError("Baseline: run_simulation(...) n'a rien retourné (None).")
+    if res_choc is None:
+        raise RuntimeError("Choc: run_simulation(...) n'a rien retourné (None).")
+
+    # Logs de types (protégés)
+    print("[baseline] type:", type(res_base).__name__)
+    print("[choc    ] type:", type(res_choc).__name__)
+
+
+    # --- extraction des séries (sans modif des données) ---
+    y_base_raw = _get_series(res_base, prefer=args.series_key)
+    y_choc_raw = _get_series(res_choc, prefer=args.series_key)
+
+    # === diagnostics (affichage console) ===
+    def _diag(name, a):
+        a = np.asarray(a, dtype=float)
         n = a.size
-        has_data = n > 0 and np.any(~np.isnan(a))
-        if has_data:
-            first_valid = int(np.argmax(~np.isnan(a)))
-            last_valid  = int(n - 1 - np.argmax((~np.isnan(a))[::-1]))
-        else:
-            first_valid = last_valid = None
-        nan_after_start = (np.isnan(a[start:]).any() if start < n else "n/a")
-        print(f"[{name}] len={n}  first_valid={first_valid}  last_valid={last_valid}  "
-            f"nan_after_start={nan_after_start}")
+        if n == 0:
+            print(f"[{name}] len=0 (vide)")
+            return
+        mask = ~np.isnan(a)
+        if not mask.any():
+            print(f"[{name}] len={n} (toutes valeurs NaN)")
+            return
+        first = int(np.argmax(mask))
+        last = int(n - 1 - np.argmax(mask[::-1]))
+        print(f"[{name}] len={n}  first_valid={first}  last_valid={last}")
 
-    print(">> CHECK vecteurs pour le tracé (aucune modification des données)")
-    print(f"start={int(args.start)}  duration={int(args.duration)}")
-    diag_series("baseline", ts_base, int(args.start))
-    diag_series("shock",    ts_choc, int(args.start))
-
-    
-
-    plt.figure(figsize=(10, 5), facecolor='white')
-    ax = plt.gca()
-    ax.patch.set_alpha(0.3)
-    ax.set_facecolor('white')  # fond des axes blanc
-    plt.plot(t_base, ts_base, label="baseline", marker="o")
-    plt.plot(t_choc, ts_choc, label=f"{args.shock_type}::{args.target}", marker="o")
-    # fenêtre du choc
-    plt.axvspan(args.start, args.start + args.duration, alpha=0.15, label="fenêtre de choc")
-    plt.xlabel("Temps (jours)")
-    plt.ylabel("Production totale (u/jour)")
-    plt.title("Baseline vs choc — production")
-    plt.legend()
-    plt.grid(True, alpha=0.3)
+    print(">> DIAG: horizon=", horizon, "start=", args.start, "duration=", args.duration)
+    _diag("baseline", y_base_raw)
+    _diag("choc    ", y_choc_raw)
 
 
+    # on trace UNIQUEMENT ce qui existe (pas de ffill, pas de padding visuel)
+    n_base = min(len(y_base_raw), horizon)
+    n_choc = min(len(y_choc_raw), horizon)
+    t_base = np.arange(n_base)
+    t_choc = np.arange(n_choc)
+
+    # --- Plot ---
+    fig, ax = plt.subplots(figsize=(12, 6), facecolor="white")
+    ax.set_facecolor("white")
+
+    # fenêtre de choc derrière les courbes
+    x0 = int(args.start)
+    x1 = int(min(args.start + args.duration, horizon))
+    ax.axvspan(x0, x1, alpha=0.08, color="grey", label="fenêtre de choc", zorder=0)
+
+    ax.plot(t_base, y_base_raw[:n_base], marker="o", label="baseline", zorder=2)
+    ax.plot(t_choc, y_choc_raw[:n_choc], marker="o",
+            label=f"{args.shock_type}::{args.target}", zorder=2)
+
+    ax.set_xlim(0, horizon - 1)
+    ax.set_xlabel("Temps (jours)")
+    ax.set_ylabel("Production totale (u/jour)")
+    ax.set_title("Baseline vs choc — production")
+    ax.grid(True, alpha=0.3)
+    ax.legend(framealpha=0.95, facecolor="white")
 
     if args.save:
-        os.makedirs(os.path.dirname(args.save) or ".", exist_ok=True)
-        plt.savefig(args.save, bbox_inches="tight", dpi=150)
+        plt.savefig(args.save, dpi=150, bbox_inches="tight")
         print(f"[OK] Figure -> {args.save}")
     else:
         plt.show()
 
-# fallback minuscule si --use-dummy (optionnel)
-def _dummy_fallback(cfg, events):
-    # production plate + drop simple (utile si tu veux tester sans ta SimPy)
-    H = cfg.get("horizon", 120)
-    base = [100.0]*H
-    prod = base[:]
-    tu_per_day = cfg.get("time_units_per_day", 8)
-    for ev in events:
-        t0, d = int(ev["time"]), int(ev["duration"])
-        drop = 0.5
-        for t in range(t0, min(H, t0+d)):
-            prod[t] *= (1.0 - drop)
-    return {"production_ts_total": prod, "costs": {}, "service": {}}
-
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        print("ERREUR:", e, file=sys.stderr)
+        sys.exit(1)
