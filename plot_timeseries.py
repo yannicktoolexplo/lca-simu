@@ -133,7 +133,34 @@ def main():
     t_base  = _x_for_ts(ts_base, base)
     t_choc  = _x_for_ts(ts_choc, base)
 
-    plt.figure(figsize=(10, 5))
+
+
+    # ===== DIAGNOSTIC DES VECTEURS (aucune modif d'affichage) ====
+    
+    def diag_series(name, arr, start):
+        a = np.asarray(arr, dtype=float)
+        n = a.size
+        has_data = n > 0 and np.any(~np.isnan(a))
+        if has_data:
+            first_valid = int(np.argmax(~np.isnan(a)))
+            last_valid  = int(n - 1 - np.argmax((~np.isnan(a))[::-1]))
+        else:
+            first_valid = last_valid = None
+        nan_after_start = (np.isnan(a[start:]).any() if start < n else "n/a")
+        print(f"[{name}] len={n}  first_valid={first_valid}  last_valid={last_valid}  "
+            f"nan_after_start={nan_after_start}")
+
+    print(">> CHECK vecteurs pour le tracé (aucune modification des données)")
+    print(f"start={int(args.start)}  duration={int(args.duration)}")
+    diag_series("baseline", ts_base, int(args.start))
+    diag_series("shock",    ts_choc, int(args.start))
+
+    
+
+    plt.figure(figsize=(10, 5), facecolor='white')
+    ax = plt.gca()
+    ax.patch.set_alpha(0.3)
+    ax.set_facecolor('white')  # fond des axes blanc
     plt.plot(t_base, ts_base, label="baseline", marker="o")
     plt.plot(t_choc, ts_choc, label=f"{args.shock_type}::{args.target}", marker="o")
     # fenêtre du choc
@@ -143,6 +170,8 @@ def main():
     plt.title("Baseline vs choc — production")
     plt.legend()
     plt.grid(True, alpha=0.3)
+
+
 
     if args.save:
         os.makedirs(os.path.dirname(args.save) or ".", exist_ok=True)
