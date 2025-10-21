@@ -175,6 +175,34 @@ def run_simulation(lines_config, seat_weight=130, events=None):
     :param events: Liste d'événements à injecter (ou None)
     :return: (all_production_data, all_enviro_data)
     """
+    # --- TS COLLECTORS (time-series) ---
+    def _iter_sites_from_cfg(lines_cfg):
+        """Itère (name, hours) depuis la config, qu'elle soit dict ou list."""
+        if isinstance(lines_cfg, dict):
+            for name, sc in lines_cfg.items():
+                if isinstance(sc, dict):
+                    yield str(name), int(sc.get("hours", 24))
+        elif isinstance(lines_cfg, list):
+            for sc in lines_cfg:
+                if isinstance(sc, dict):
+                    name = sc.get("name") or sc.get("site") or sc.get("id") or "site"
+                    yield str(name), int(sc.get("hours", 24))
+
+    # Collecteur par site
+    _TS = {name: {"name": name, "hours": hours, "times": [], "Total Seats made": []}
+        for name, hours in _iter_sites_from_cfg(lines_config)}
+
+    def _ts_push(site_name, t, cum):
+        """Enregistre un point (t, cumul) pour le site."""
+        ts = _TS.get(str(site_name))
+        if ts is not None:
+            ts["times"].append(float(t))
+            ts["Total Seats made"].append(float(cum))
+
+
+
+
+
     print("[SimPy] run_simulation called with", [(getattr(e, "event_type", None), getattr(e, "target", None), getattr(e, "time", None), getattr(e, "duration", None)) for e in (events or [])])
     env = simpy.Environment()
     lines = []
