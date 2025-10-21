@@ -185,8 +185,10 @@ def run_simulation(lines_config, seat_weight=130, events=None):
         elif isinstance(lines_cfg, list):
             for sc in lines_cfg:
                 if isinstance(sc, dict):
-                    name = sc.get("name") or sc.get("site") or sc.get("id") or "site"
+                    # Utiliser 'location' comme nom de site si présent
+                    name = sc.get("location") or sc.get("name") or sc.get("site") or sc.get("id") or "site"
                     yield str(name), int(sc.get("hours", 24))
+
 
     # Collecteur par site
     _TS = {name: {"name": name, "hours": hours, "times": [], "Total Seats made": []}
@@ -219,10 +221,27 @@ def run_simulation(lines_config, seat_weight=130, events=None):
             elif event.event_type == "retard":
                 env.process(_handle_delay_event(env, event, lines))
     # Exécution jusqu'à la fin du planning
+    # Exécution de la simulation
     env.run(until=max(cfg['total_time'] for cfg in lines_config))
-    all_production_data = [line.get_data() for line in lines]
-    all_enviro_data = [line.get_data_enviro() for line in lines]
+
+    # Récupérer les données de chaque ligne
+    all_production_data = []
+    all_enviro_data = []
+    for line in lines:
+        data = line.get_data()
+        # Ajouter le nom du site et heures/jour pour référence
+        loc = line.config.get("location") or line.config.get("name") or line.config.get("site") or line.config.get("id") or ""
+        data['name'] = str(loc)
+        data['hours'] = int(line.config.get("hours", 24))
+        all_production_data.append(data)
+        # Données environnementales (si utiles plus tard) avec mêmes identifiants
+        env_data = line.get_data_enviro() or {}
+        env_data['name'] = str(loc)
+        env_data['hours'] = int(line.config.get("hours", 24))
+        all_enviro_data.append(env_data)
+
     return all_production_data, all_enviro_data
+
 
 # --- Handlers pour événements ---
 

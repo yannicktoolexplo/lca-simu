@@ -11,6 +11,8 @@ import argparse
 import copy
 import math
 from typing import Any, Dict, List, Optional, Tuple, Union
+from types import SimpleNamespace
+
 
 import matplotlib.pyplot as plt
 
@@ -272,46 +274,46 @@ def build_event(
     duration_days: int,
     magnitude: Optional[float] = None,
     config: Optional[Dict[str, Any]] = None,
-) -> Dict[str, Any]:
+) -> Any:
     """
-    Construit un événement "générique" compris par le moteur.
-    On passe un dict 'event' et on laisse run_simulation l'interpréter (via try/except wrapper).
+    Construit un événement COMPATIBLE avec run_simulation:
+      - event_type: 'panne' | 'rupture_fournisseur' | 'retard'
+      - target: nom du site (ex: 'France') OU nom de matière (ex: 'aluminium')
+      - time, duration: en HEURES (pas en jours)
     """
-    t_norm = normalize_target(target)
-    tgt_type = guess_target_type(t_norm, config or lines_config)
+    HOURS_PER_DAY = 8  # cohérent avec get_data() qui fait env.now/8
 
+    t_norm = normalize_target(target)
     st = shock_type.strip().lower()
 
-    # Mapping minimal générique
-    # - site_shutdown -> panne complète du site
-    # - site_capacity_drop -> baisse de capacité (approx: panne partielle)
-    # - material_block -> rupture complète matière
-    # - material_capacity_drop -> réduction temporaire du flux (retard)
     if st == "site_shutdown":
-        ev_type = "panne"
-        ev_mag = 1.0
+        event_type = "panne"
     elif st == "site_capacity_drop":
-        ev_type = "panne"
-        ev_mag = 1.0 if magnitude is None else float(magnitude)
+        # pas de baisse partielle native → fallback sur 'panne' (arrêt total)
+        event_type = "panne"
     elif st == "material_block":
-        ev_type = "rupture_fournisseur"
-        ev_mag = 1.0
+        event_type = "rupture_fournisseur"
     elif st == "material_capacity_drop":
-        ev_type = "retard"
-        ev_mag = 1.0 if magnitude is None else float(magnitude)
+        event_type = "retard"
     else:
-        # fallback : considérer comme 'retard'
-        ev_type = "retard"
-        ev_mag = 1.0 if magnitude is None else float(magnitude)
+        event_type = "retard"
 
-    return {
-        "type": ev_type,
-        "target_type": tgt_type,     # 'site' ou 'resource'
-        "target": t_norm,            # ex: "France" ou "aluminium"
-        "start_day": int(start_day),
-        "duration_days": int(duration_days),
-        "magnitude": float(ev_mag),
-    }
+    # time/duration attendus en heures dans les handlers
+    time_h = int(start_day) * HOURS_PER_DAY
+    duration_h = int(duration_days) * HOURS_PER_DAY
+
+    # Option 'drain' utile pour rupture_fournisseur (purge du stock)
+    drain = True if event_type == "rupture_fournisseur" else False
+
+    return SimpleNamespace(
+        event_type=event_type,
+        target=t_norm,
+        time=time_h,
+        duration=duration_h,
+        magnitude=float(magnitude) if magnitude is not None else None,
+        drain=drain,
+    )
+
 
 
 def clone_config_with_horizon(
@@ -353,13 +355,17 @@ def clone_config_with_horizon(
 
 def call_run_simulation_positional(
     cfg: Dict[str, Any],
-    events_list: Optional[List[Dict[str, Any]]] = None,
+    events_list: Optional[List[Any]] = None,
 ) -> Any:
     """
-    Le moteur SimPy attend la configuration en 1er argument.
-    Les events sont déjà injectés dans la cfg (voir main()).
+    Passe la config en 1er argument et les événements via le kwarg 'events'.
+    Déballe (production, enviro) → production.
     """
-    return run_simulation(cfg)
+    result = run_simulation(cfg, events=events_list)
+    if isinstance(result, tuple) and len(result) >= 1:
+        return result[0]  # on garde la partie "production"
+    return result
+
 
 
 
@@ -556,94 +562,36 @@ def main():
     cfg_base = clone_config_with_horizon(lines_config, horizon_days=horizon)
     cfg_shock = clone_config_with_horizon(lines_config, horizon_days=horizon)
 
-    # 3) Purger tout event en baseline
-    for scfg in _iter_site_cfgs(cfg_base):
-        scfg.pop("events", None)
 
-    # 4) Injecter l’event dans chaque site pour le scénario choc
-    for scfg in _iter_site_cfgs(cfg_shock):
-        evs = scfg.get("events")
-        if not isinstance(evs, list):
-            evs = []
-        evs.append(event)
-        scfg["events"] = evs
 
     # 5) Sanity checks
     def _count_sites(cfg_obj):
         return sum(1 for _ in _iter_site_cfgs(cfg_obj))
     if _count_sites(cfg_base) == 0 or _count_sites(cfg_shock) == 0:
-        raise RuntimeError("La configuration des sites est vide après clonage. Vérifie lines_config et clone_config_with_horizon.")
+        raise RuntimeError("Configuration des sites vide après clonage. Vérifie lines_config et clone_config_with_horizon.")
 
-    # 6) Lancer baseline PUIS choc (dans cet ordre), et protéger les affectations
-    res_base = None
-    res_shock = None
-
+    # 6) Lancer baseline PUIS choc (baseline sans event, choc avec event)
     print("[Sim] baseline…")
-    try:
-        res_base = call_run_simulation_positional(cfg_base)
-    except Exception as e:
-        raise RuntimeError(f"Echec simulation baseline: {e}")
+    res_base = call_run_simulation_positional(cfg_base, events_list=None)
 
     print("[Sim] choc…")
-    try:
-        res_shock = call_run_simulation_positional(cfg_shock)
-    except Exception as e:
-        raise RuntimeError(f"Echec simulation choc: {e}")
+    res_shock = call_run_simulation_positional(cfg_shock, events_list=[event])
 
-    # 7) Déballer les résultats en dict si besoin
-    res_base = _unwrap_result(res_base)
-    res_shock = _unwrap_result(res_shock)
+    # 7) Noms/sites & heures
+    site_names = _ordered_site_names(cfg_base)              # ex: ['France','Texas','UK','California']
+    site_hours = _hours_per_site_from_cfg(cfg_base, 8)      # 8 par défaut (times déjà en 'jours')
 
-    print("[DBG] len(res_base) =", len(res_base) if isinstance(res_base, list) else "n/a")
-    if isinstance(res_base, list) and res_base:
-        print("[DBG] type(res_base[0]) =", type(res_base[0]))
-        if isinstance(res_base[0], dict):
-            print("[DBG] keys(res_base[0]) =", list(res_base[0].keys()))
+    # 8) Normaliser → {site_name: block}
+    sites_base = _normalize_sites_map(res_base, site_names)
+    sites_shock = _normalize_sites_map(res_shock, site_names)
 
-
-    # Construire site_hours depuis le résultat normalisé (prioritaire)
-    site_hours = {}
-    sites_map_base = _normalize_sites_map(res_base)
-    if sites_map_base:
-        for site_name, blk in sites_map_base.items():
-            # récupérer hours si présent dans le bloc, sinon 24
-            h = blk.get("hours", blk.get("hours_per_day", None))
-            try:
-                site_hours[str(site_name)] = int(h) if h is not None else 24
-            except Exception:
-                site_hours[str(site_name)] = 24
-    # fallback: depuis la config
-    if not site_hours:
-        def _nm(sc):
-            return sc.get("name") or sc.get("site") or sc.get("id")
-        if isinstance(cfg_base, dict):
-            for name, sc in cfg_base.items():
-                if isinstance(sc, dict):
-                    key = name if isinstance(name, str) else (_nm(sc) or name)
-                    if key:
-                        site_hours[str(key)] = int(sc.get("hours", 24)) if isinstance(sc.get("hours", 24), (int, float)) else 24
-        elif isinstance(cfg_base, list):
-            for sc in cfg_base:
-                if isinstance(sc, dict):
-                    key = _nm(sc)
-                    if key:
-                        site_hours[str(key)] = int(sc.get("hours", 24)) if isinstance(sc.get("hours", 24), (int, float)) else 24
-
-
-
-    # 9) Choisir la série à tracer (site ciblé pour shocks site_*, sinon agrégé)
-    # Noms de sites dans le même ordre que lines_config
-    site_names = _ordered_site_names(cfg_base)
-    # Heures par jour (si non renseigné, on met 8 par défaut, car tu utilises env.now/8)
-    site_hours = _hours_per_site_from_cfg(cfg_base, default=8)
-
+    # 9) Choisir la série à tracer (site cible pour site_*, sinon agrégé)
     shock_is_site = args.shock_type.lower().startswith("site_")
     target_norm = normalize_target(args.target)
 
-    if shock_is_site and target_norm in site_hours:
-        base_daily = _extract_site_daily_production_from_block(_normalize_sites_map(res_base, site_names).get(target_norm, {}), hours_per_day=1)
-        shock_daily = _extract_site_daily_production_from_block(_normalize_sites_map(res_shock, site_names).get(target_norm, {}), hours_per_day=1)
-
+    if shock_is_site and target_norm in sites_base:
+        base_daily = _extract_site_daily_production_from_block(sites_base[target_norm], hours_per_day=1)
+        shock_daily = _extract_site_daily_production_from_block(sites_shock.get(target_norm, {}), hours_per_day=1)
         if not base_daily or not shock_daily:
             base_daily = _aggregate_daily_across_sites(res_base, site_hours, site_names)
             shock_daily = _aggregate_daily_across_sites(res_shock, site_hours, site_names)
@@ -655,19 +603,18 @@ def main():
         shock_daily = _aggregate_daily_across_sites(res_shock, site_hours, site_names)
         title = f"{args.shock_type}::{args.target}"
 
-
+    # 10) Garde-fous + debug utile
     if not base_daily or not shock_daily:
-        # Aide au debug minimaliste
-        print("[DEBUG] type(res_base) =", type(res_base))
-        if isinstance(res_base, dict):
-            print("[DEBUG] keys(res_base) =", list(res_base.keys())[:12])
+        print("[DBG] sites_base keys:", list(sites_base.keys()))
+        print("[DBG] sites_shock keys:", list(sites_shock.keys()))
+        if shock_is_site:
+            print("[DBG] target_norm:", target_norm)
         raise RuntimeError(
             "Impossible d'extraire des séries journalières (baseline ou choc). "
-            "Le format du résultat de run_simulation ne contient pas les clés attendues "
-            "('times' + 'Total Seats made' par site, ou bloc 'sites')."
+            "Vérifie que chaque bloc site contient 'Total Seats made': (times, cumul)."
         )
 
-    # 10) Harmoniser longueurs et tracer
+    # 11) Harmoniser longueurs et tracer
     L = max(len(base_daily), len(shock_daily), horizon)
     if len(base_daily) < L:
         base_daily += [0.0] * (L - len(base_daily))
@@ -682,6 +629,7 @@ def main():
         title=title,
         save_path=args.save,
     )
+
 
 
 
