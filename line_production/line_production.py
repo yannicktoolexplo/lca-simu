@@ -1,10 +1,19 @@
 from __future__ import annotations
 import simpy
 import random
-from supply.supply_engine import manage_fixed_supply
+# (en haut de line_production.py)
+# Remplace l'import historique par un import souple :
+try:
+    # Nouveau réseau global : utilisera les délais fournisseur global -> hub -> site
+    from supply_network import get_supply_plan as manage_fixed_supply
+except Exception:
+    # Fallback : ton moteur historique
+    from supply.supply_engine import manage_fixed_supply
+
 from typing import Dict, Any, List, Tuple
 from collections import defaultdict
 import math
+from types import SimpleNamespace
 
 class ProductionLine:
     def __init__(self, env, config, seat_weight=130):
@@ -16,6 +25,7 @@ class ProductionLine:
         self._init_tracking()
         self.active = True
         self.supply_enabled = {mat: True for mat in ['aluminium', 'foam', 'fabric', 'paint']}
+        self.dispatch_batch = int(self.config.get("dispatch_batch", 50))
         self._launch_processes()
 
     def _init_containers(self):
@@ -42,6 +52,9 @@ class ProductionLine:
         self.time, self.time_aluminium = [], []
         self.time_foam, self.time_fabric = [], []
         self.time_paint, self.time_frame, self.time_armrest = [], [], []
+        self.capacity_factor = 1.0  # 1.0 = capacité nominale ; <1.0 = baisse de cadence
+        self.material_factor = {mat: 1.0 for mat in ['aluminium', 'foam', 'fabric', 'paint']}  # 1.0 = apport nominal
+
 
     def _launch_processes(self):
         cfg = self.config
@@ -78,39 +91,54 @@ class ProductionLine:
             yield self.foam.get(1)
             yield self.fabric.get(1)
             t = random.gauss(self.config['mean_frame'], self.config['std_frame'])
-            yield self.env.timeout(t)
+            eff = max(self.capacity_factor, 1e-6)
+            yield self.env.timeout(t / eff)
             yield self.frame_pre_paint.put(1)
             self.frame_data.append(self.frame_pre_paint.level)
             self.time_frame.append(self.env.now / 8)
 
+
     def _armrest_maker(self):
         while True:
+            if not self.active:
+                yield self.env.timeout(1)
+                continue
             yield self.aluminium.get(0.1)
             yield self.foam.get(0.1)
             yield self.fabric.get(0.1)
             t = random.gauss(self.config['mean_armrest'], self.config['std_armrest'])
-            yield self.env.timeout(t)
+            eff = max(self.capacity_factor, 1e-6)
+            yield self.env.timeout(t / eff)
             yield self.armrest_pre_paint.put(2)
             self.armrest_data.append(self.armrest_pre_paint.level)
             self.time_armrest.append(self.env.now / 8)
 
     def _painter(self):
         while True:
+            if not self.active:
+                yield self.env.timeout(1)
+                continue
             yield self.paint.get(1)
             yield self.frame_pre_paint.get(2)
             yield self.armrest_pre_paint.get(4)
             t = random.gauss(self.config['mean_paint'], self.config['std_paint'])
-            yield self.env.timeout(t)
+            eff = max(self.capacity_factor, 1e-6)
+            yield self.env.timeout(t / eff)
             yield self.frame_post_paint.put(2)
             yield self.armrest_post_paint.put(4)
 
     def _assembler(self):
         while True:
+            if not self.active:
+                yield self.env.timeout(1)
+                continue
             yield self.frame_post_paint.get(1)
             yield self.armrest_post_paint.get(2)
             t = max(random.gauss(self.config['mean_ensam'], self.config['std_ensam']), 1)
-            yield self.env.timeout(t)
+            eff = max(self.capacity_factor, 1e-6)
+            yield self.env.timeout(t / eff)
             yield self.dispatch.put(1)
+
 
     def _stock_control(self, container, critical_level, refill_amount, delivery_time, name):
         while True:
@@ -118,8 +146,15 @@ class ProductionLine:
                 yield self.env.timeout(1)
             elif container.level <= critical_level:
                 yield self.env.timeout(delivery_time)
-                yield container.put(refill_amount)
+                # facteur matière (0..1) ; si supply_enabled False => blocage total
+                if not self.supply_enabled.get(name, True):
+                    effective_qty = 0.0
+                else:
+                    effective_qty = float(refill_amount) * float(self.material_factor.get(name, 1.0))
+                if effective_qty > 0:
+                    yield container.put(effective_qty)
                 yield self.env.timeout(8)
+
             else:
                 yield self.env.timeout(1)
             # Stock tracking (échantillonnage)
@@ -138,7 +173,7 @@ class ProductionLine:
 
     def _dispatch_seats_control(self):
         while True:
-            if self.dispatch.level >= 50:
+            if self.dispatch.level >= self.dispatch_batch:
                 yield self.env.timeout(4)
                 self.seats_made += self.dispatch.level
                 yield self.env.timeout(1)
@@ -167,7 +202,7 @@ class ProductionLine:
         # (Placeholder pour les variables environnementales)
         return {}
 
-def run_simulation(lines_config, seat_weight=130, events=None):
+def run_simulation(lines_config, seat_weight=130, events=None, seed: int = 42):
     """
     Simule l'ensemble des lignes de production sur la période définie, avec gestion d'événements.
     :param lines_config: Liste des configurations de lignes (dictionnaires)
@@ -175,6 +210,46 @@ def run_simulation(lines_config, seat_weight=130, events=None):
     :param events: Liste d'événements à injecter (ou None)
     :return: (all_production_data, all_enviro_data)
     """
+
+
+    def _to_event_obj(e):
+        # Supporte dicts venant de plot_timeseries + valeurs par défaut
+        if isinstance(e, dict):
+            etype = e.get("type") or e.get("event_type")
+            target = e.get("target")
+            # Les CLI passent start/duration en JOURS → convertis en HEURES (8 par défaut ici)
+            HOURS_PER_DAY = 8
+            start_d = int(e.get("start_day", 0))
+            dur_d   = int(e.get("duration_days", 0))
+            mag     = e.get("magnitude", 1.0)
+            if mag is None:
+                mag = 1.0
+            drain   = e.get("drain", True)
+            return SimpleNamespace(
+                event_type=etype,
+                target=target,
+                time=start_d * HOURS_PER_DAY,
+                duration=dur_d * HOURS_PER_DAY,
+                magnitude=float(mag),
+                drain=bool(drain),
+            )
+        # déjà un objet (SimpleNamespace par ex.)
+        mag = getattr(e, "magnitude", 1.0)
+        if mag is None:
+            mag = 1.0
+        return SimpleNamespace(
+            event_type=getattr(e, "event_type", None),
+            target=getattr(e, "target", None),
+            time=int(getattr(e, "time", 0)),
+            duration=int(getattr(e, "duration", 0)),
+            magnitude=float(mag),
+            drain=bool(getattr(e, "drain", True)),
+        )
+
+    # Normaliser la liste d'événements
+    events = [ _to_event_obj(e) for e in (events or []) ]
+
+
     # --- TS COLLECTORS (time-series) ---
     def _iter_sites_from_cfg(lines_cfg):
         """Itère (name, hours) depuis la config, qu'elle soit dict ou list."""
@@ -201,11 +276,12 @@ def run_simulation(lines_config, seat_weight=130, events=None):
             ts["times"].append(float(t))
             ts["Total Seats made"].append(float(cum))
 
-
-
-
-
-    print("[SimPy] run_simulation called with", [(getattr(e, "event_type", None), getattr(e, "target", None), getattr(e, "time", None), getattr(e, "duration", None)) for e in (events or [])])
+    # Seed pour reproductibilité scénario par scénario
+    random.seed(seed)
+    print("[SimPy] run_simulation called with",
+          [(getattr(e, "event_type", None), getattr(e, "target", None),
+            getattr(e, "time", None), getattr(e, "duration", None),
+            getattr(e, "magnitude", None)) for e in (events or [])])
     env = simpy.Environment()
     lines = []
     for cfg in lines_config:
@@ -246,29 +322,87 @@ def run_simulation(lines_config, seat_weight=130, events=None):
 # --- Handlers pour événements ---
 
 def _handle_breakdown_event(env, event, lines):
+    """
+    event.event_type == 'panne'
+    - magnitude == 1.0  => arrêt total (active=False)
+    - 0 < magnitude < 1 => baisse de capacité (capacity_factor = 1 - magnitude)
+    - magnitude None     => arrêt total (compat)
+    """
+    mag = getattr(event, "magnitude", None)
     yield env.timeout(event.time)
-    for line in lines:
-        if line.config['location'] == event.target:
-            line.active = False
+
+    if mag is None or mag >= 1.0:
+        # arrêt total
+        for line in lines:
+            if line.config['location'] == event.target:
+                line.active = False
+    else:
+        # baisse partielle
+        for line in lines:
+            if line.config['location'] == event.target:
+                line.capacity_factor = max(1.0 - float(mag), 0.0)
+
     yield env.timeout(event.duration)
+
+    # Rétablissement
     for line in lines:
         if line.config['location'] == event.target:
             line.active = True
+            line.capacity_factor = 1.0
+
 
 def _handle_supply_event(env, event, lines):
+    """Rupture matière : magnitude m ∈ [0,1]
+       m=1.0  -> blocage total de la matière
+       m=0.5  -> 50% du flux normal (on simule en n'autorisant l'appro au stock qu'un pas sur deux)
+    """
     yield env.timeout(event.time)
-    for line in lines:
-        if event.target in line.supply_enabled:
-            line.supply_enabled[event.target] = False
-            # (Optionnel) vider stock immédiatement
-            if hasattr(line, event.target):
-                container = getattr(line, event.target)
-                if container.level > 0:
-                    yield container.get(container.level)
-    yield env.timeout(event.duration)
+    m_raw = getattr(event, "magnitude", 1.0)
+    m = 1.0 if m_raw is None else float(m_raw)
+    m = max(0.0, min(1.0, m))
+
+    # blocage total ?
+    if m >= 0.999:
+        for line in lines:
+            if event.target in line.supply_enabled:
+                line.supply_enabled[event.target] = False
+                if getattr(event, "drain", True) and hasattr(line, event.target):
+                    container = getattr(line, event.target)
+                    if container.level > 0:
+                        yield container.get(container.level)
+        yield env.timeout(event.duration)
+        for line in lines:
+            if event.target in line.supply_enabled:
+                line.supply_enabled[event.target] = True
+        return
+
+    # réduction partielle: on active un "throttle" simple par pas de 1h
+    end_time = event.time + event.duration
+    while env.now < end_time:
+        for line in lines:
+            # on coupe l'appro x% du temps selon m
+            # ex: m=0.6 -> 60% du temps coupé / 40% ouvert
+            if event.target in line.supply_enabled:
+                line.supply_enabled[event.target] = False
+        yield env.timeout(1 * m)  # couper pendant m heures
+        for line in lines:
+            if event.target in line.supply_enabled:
+                line.supply_enabled[event.target] = True
+        yield env.timeout(1 * (1 - m))  # ouvrir pendant (1-m) heures
+    # fin fenêtre
     for line in lines:
         if event.target in line.supply_enabled:
             line.supply_enabled[event.target] = True
+
+
+    yield env.timeout(event.duration)
+
+    # Rétablissement
+    for line in lines:
+        if event.target in line.material_factor:
+            line.material_factor[event.target] = 1.0
+            line.supply_enabled[event.target] = True
+
 
 def _handle_delay_event(env, event, lines):
     # (Exemple : bloque l’approvisionnement d’un composant pendant event.duration)
@@ -281,18 +415,29 @@ def _handle_delay_event(env, event, lines):
         if event.target in line.supply_enabled:
             line.supply_enabled[event.target] = True
 
-def _handle_supply_event(env, event, lines):
+def _handle_delay_event(env, event, lines):
+    """
+    event.event_type == 'retard'
+    Interprété comme une réduction temporaire du flux.
+    """
+    mag_raw = getattr(event, "magnitude", 1.0)
+    mag = 1.0 if mag_raw is None else float(mag_raw)
     yield env.timeout(event.time)
+
     for line in lines:
-        if event.target in line.supply_enabled:
-            line.supply_enabled[event.target] = False
-            # OPTIONNEL: contrôler la purge via event.drain (défaut: True)
-            drain = getattr(event, "drain", True)
-            if drain and hasattr(line, event.target):
-                container = getattr(line, event.target)
-                if container.level > 0:
-                    yield container.get(container.level)
+        if event.target in line.material_factor:
+            if mag >= 1.0:
+                # retard extrême ~ blocage
+                line.material_factor[event.target] = 0.0
+                line.supply_enabled[event.target] = False
+            else:
+                line.material_factor[event.target] = max(1.0 - mag, 0.0)
+                line.supply_enabled[event.target] = True
+
     yield env.timeout(event.duration)
+
     for line in lines:
-        if event.target in line.supply_enabled:
+        if event.target in line.material_factor:
+            line.material_factor[event.target] = 1.0
             line.supply_enabled[event.target] = True
+
