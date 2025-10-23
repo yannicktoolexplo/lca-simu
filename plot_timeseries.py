@@ -12,6 +12,7 @@ import copy
 import math
 from typing import Any, Dict, List, Optional, Tuple, Union
 from types import SimpleNamespace
+import numpy as np
 
 
 import matplotlib.pyplot as plt
@@ -486,6 +487,57 @@ def _aggregate_daily_across_sites(
 # ------------------------------------------------------------------------------
 # Plot
 # ------------------------------------------------------------------------------
+def moving_average(arr: List[float], win: int) -> List[float]:
+    if not arr or win <= 1:
+        return arr
+    out, s = [], 0.0
+    q = []
+    for x in arr:
+        q.append(x); s += x
+        if len(q) > win:
+            s -= q.pop(0)
+        out.append(s / len(q))
+    return out
+
+def compute_kpis(base: List[float], shock: List[float], threshold: float = None):
+    """
+    Retourne dict: loss, max_gap, days_below (nbr de jours shock<threshold),
+    ttr (1er jour où shock >= 95% baseline ET reste au-dessus ensuite).
+    """
+    n = min(len(base), len(shock))
+    if n == 0:
+        return {"loss": 0.0, "max_gap": 0.0, "days_below": 0, "ttr": None}
+
+    diff = [max(0.0, base[i] - shock[i]) for i in range(n)]
+    loss = float(sum(diff))
+    max_gap = float(max(diff)) if diff else 0.0
+
+    # days_below: si pas de threshold fourni, on prend 50% du médian baseline
+    if threshold is None:
+        b_sorted = sorted(base[:n])
+        med = b_sorted[n//2] if n else 0.0
+        threshold = 0.5 * med
+    days_below = sum(1 for i in range(n) if shock[i] < threshold)
+
+    # TTR: time to recover (jour où shock >= 0.95*baseline et le reste)
+    ttr = None
+    for i in range(n):
+        if base[i] <= 0:
+            continue
+        if shock[i] >= 0.95 * base[i]:
+            # vérifie qu'on reste proche ensuite (fenêtre prudente de 5 jours)
+            ok = True
+            for j in range(i, min(n, i+5)):
+                if base[j] > 0 and shock[j] < 0.9 * base[j]:
+                    ok = False; break
+            if ok:
+                ttr = i + 1  # index->jour
+                break
+
+    return {"loss": loss, "max_gap": max_gap, "days_below": int(days_below), "ttr": ttr}
+
+
+
 
 def plot_baseline_vs_shock(
     daily_base: List[float],
@@ -494,17 +546,15 @@ def plot_baseline_vs_shock(
     duration: int,
     title: str,
     save_path: Optional[str] = None,
+    kpi_box: Optional[Dict[str, float]] = None,
 ):
     days = list(range(1, max(len(daily_base), len(daily_shock)) + 1))
 
     plt.figure(figsize=(10, 5))
     ax = plt.gca()
-
-    # courbes
     ax.plot(days[: len(daily_base)], daily_base, marker="o", label="baseline")
     ax.plot(days[: len(daily_shock)], daily_shock, marker="o", label=title)
 
-    # fenêtre de choc
     if duration > 0:
         ax.axvspan(start, start + duration, alpha=0.15, hatch="///", label="fenêtre de choc")
 
@@ -514,11 +564,21 @@ def plot_baseline_vs_shock(
     ax.legend()
     ax.grid(True, alpha=0.3)
 
+    # Encadré KPI
+    if kpi_box:
+        txt = (f"Perte: {int(kpi_box['loss'])} u\n"
+               f"Creux max: {int(kpi_box['max_gap'])} u/j\n"
+               f"Jours < seuil: {kpi_box['days_below']}\n"
+               f"TTR: {kpi_box['ttr'] if kpi_box['ttr'] is not None else '—'} j")
+        ax.text(0.02, 0.98, txt, transform=ax.transAxes, va="top", ha="left",
+                bbox=dict(boxstyle="round,pad=0.4", facecolor="white", alpha=0.8))
+
     if save_path:
         plt.savefig(save_path, bbox_inches="tight", dpi=150)
         print(f"[OK] Figure sauvegardée : {save_path}")
     else:
         plt.show()
+
 
 
 # ------------------------------------------------------------------------------
@@ -536,6 +596,23 @@ def _iter_site_cfgs(cfg_obj):
             if isinstance(scfg, dict):
                 yield scfg
 
+
+def cap_from_baseline(series: List[float], mode: str = "max") -> float:
+    arr = np.array(series, dtype=float)
+    arr = arr[~np.isnan(arr)]
+    if arr.size == 0:
+        return 0.0
+    if mode == "p95":
+        return float(np.percentile(arr, 95))
+    return float(np.max(arr))
+
+def clip_to_cap(series: List[float], cap: float) -> List[float]:
+    if cap <= 0:
+        return series
+    return [min(float(x), cap) for x in series]
+
+
+
 def main():
     p = argparse.ArgumentParser(description="Comparer baseline vs choc (production/jour)")
     p.add_argument("--shock-type", required=True, help="site_shutdown, site_capacity_drop, material_block, ...")
@@ -545,6 +622,18 @@ def main():
     p.add_argument("--horizon", type=int, required=True, help="horizon de simulation (en jours)")
     p.add_argument("--magnitude", type=float, default=None, help="intensité (optionnel, ex: 0.5)")
     p.add_argument("--save", default=None, help="chemin du PNG de sortie")
+    p.add_argument("--kpi-threshold", type=float, default=None, help="seuil u/j pour 'jours sous seuil' (défaut=50% médian baseline)")
+    p.add_argument("--ma", type=int, default=0, help="fenêtre de moyenne glissante appliquée aux courbes (0=aucun)")
+    p.add_argument("--csv", default=None, help="chemin CSV pour exporter baseline/shock/diff (optionnel)")
+    p.add_argument("--cap-mode", choices=["max", "p95"], default="max",
+               help="Comment estimer la capacité depuis la baseline: max ou p95 (défaut: max)")
+    p.add_argument("--cap-mult", type=float, default=1.0,
+                help="Facteur d'overdrive autorisé par rapport à la capacité (ex: 1.1 = +10%)")
+    p.add_argument("--enforce-cap", action="store_true",
+                help="Si présent, on bride la courbe choc à la capacité estimée")
+
+
+    
     args = p.parse_args()
 
     # 1) Construire l'événement et horizon
@@ -603,6 +692,23 @@ def main():
         shock_daily = _aggregate_daily_across_sites(res_shock, site_hours, site_names)
         title = f"{args.shock_type}::{args.target}"
 
+
+    # === CAPACITÉ NOMINALE DEPUIS BASELINE ===
+    # Cap = (max ou p95) des u/j de la baseline, multiplié par cap_mult
+    nominal_cap = cap_from_baseline(base_daily[:horizon], mode=args.cap_mode) * float(args.cap_mult)
+
+    print(f"[INFO] Capacité nominale estimée ({args.cap_mode} * {args.cap_mult:.2f}) : {nominal_cap:.2f} u/j")
+
+    # (option) calcul “mensuel” indicatif si tu utilises des jours ouvrés fixes (ex: 20)
+    working_days = 20
+    print(f"[INFO] Capacité mensuelle indicative ≈ {nominal_cap*working_days:.0f} u / {working_days} j ouvrés")
+
+    # ENFORCE: brider la courbe choc si demandé
+    if args.enforce_cap and nominal_cap > 0:
+        shock_daily = clip_to_cap(shock_daily, nominal_cap)
+        print("[INFO] enforce-cap: courbe choc bridée à la capacité nominale")
+
+
     # 10) Garde-fous + debug utile
     if not base_daily or not shock_daily:
         print("[DBG] sites_base keys:", list(sites_base.keys()))
@@ -621,14 +727,38 @@ def main():
     if len(shock_daily) < L:
         shock_daily += [0.0] * (L - len(shock_daily))
 
+
+        # Lissage si demandé
+    if args.ma and args.ma > 1:
+        base_daily = moving_average(base_daily, args.ma)
+        shock_daily = moving_average(shock_daily, args.ma)
+
+    # KPIs
+    kpis = compute_kpis(base_daily[:horizon], shock_daily[:horizon], threshold=args.kpi_threshold)
+
+    # Export CSV si demandé
+    if args.csv:
+        import csv
+        with open(args.csv, "w", newline="", encoding="utf-8") as f:
+            w = csv.writer(f)
+            w.writerow(["day", "baseline", "shock", "diff"])
+            for d in range(1, horizon+1):
+                b = base_daily[d-1] if d-1 < len(base_daily) else 0.0
+                s = shock_daily[d-1] if d-1 < len(shock_daily) else 0.0
+                w.writerow([d, b, s, max(0.0, b-s)])
+        print(f"[OK] CSV exporté: {args.csv}")
+    
+
     plot_baseline_vs_shock(
-        daily_base=base_daily[:horizon],
-        daily_shock=shock_daily[:horizon],
-        start=int(args.start),
-        duration=int(args.duration),
-        title=title,
-        save_path=args.save,
-    )
+            daily_base=base_daily[:horizon],
+            daily_shock=shock_daily[:horizon],
+            start=int(args.start),
+            duration=int(args.duration),
+            title=title,
+            save_path=args.save,
+            kpi_box=kpis,
+        )
+
 
 
 
