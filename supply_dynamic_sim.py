@@ -24,7 +24,8 @@ def _build_path(material: str, site: str) -> List[Dict]:
     names = [global_name, hub, plant_name]
     return [n for n in tiers if n.get("name") in names]
 
-def run_supply_simulation(material: str, site: str, daily_demand: float, duration_days: int):
+def run_supply_simulation(material: str, site: str, duration_days: int, daily_demand: float):
+
     env = simpy.Environment()
     path = _build_path(material, site)
 

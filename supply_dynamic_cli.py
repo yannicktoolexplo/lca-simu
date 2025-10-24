@@ -21,10 +21,12 @@ def main():
 
     run_supply_simulation(
         material=args.material,
+        site=args.site,
         duration_days=args.duration,
         daily_demand=args.daily_demand,
-        site_name=args.site
     )
+
+
 
 
 
