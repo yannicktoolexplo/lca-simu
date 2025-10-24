@@ -20,11 +20,12 @@ def main():
     args = parser.parse_args()
 
     run_supply_simulation(
-        material=args.material.lower(),
+        material=args.material,
         duration_days=args.duration,
-        site_target=args.site,
-        demand_per_day=args.daily_demand,
+        daily_demand=args.daily_demand,
+        site_name=args.site
     )
+
 
 
 if __name__ == "__main__":
