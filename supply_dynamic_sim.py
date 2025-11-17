@@ -1,59 +1,57 @@
 # supply_dynamic_sim.py
-# -*- coding: utf-8 -*-
-"""
-Simulation SimPy d’un flux matière dynamique dans le réseau multi-niveaux.
-"""
-
-import simpy
-from typing import List, Dict, Optional
-from supply_network import SUPPLY_NETWORK, REGION_FOR_SITE, MATERIALS_PER_SEAT
-
-HOURS_PER_DAY = 8
-
-def _find_node(tiers: List[Dict], name: str) -> Optional[Dict]:
-    for n in tiers:
-        if n.get("name") == name:
-            return n
-    return None
-
-def _build_path(material: str, site: str) -> List[Dict]:
-    tiers = SUPPLY_NETWORK[material]["tiers"]
-    hub = REGION_FOR_SITE.get(site, "hub_Europe")
-    global_name = f"supplier_global_{material.capitalize()}"
-    plant_name = f"plant_{site}"
-    names = [global_name, hub, plant_name]
-    return [n for n in tiers if n.get("name") in names]
+import matplotlib.pyplot as plt
+from supply_network import get_supply_plan
 
 def run_supply_simulation(material: str, site: str, duration_days: int, daily_demand: float):
+    plan = get_supply_plan(site, seat_weight=130)
+    delivery_info = plan.get(material)
+    if not delivery_info:
+        print(f"[ERREUR] Pas de plan d'approvisionnement pour {material} vers {site}")
+        return
 
-    env = simpy.Environment()
-    path = _build_path(material, site)
+    delivery_qty = delivery_info["quantity"]
+    delivery_freq = delivery_info["delivery_time"]  # en heures SimPy → 1 jour = 8h
+    delivery_freq_days = int(delivery_freq // 8)
 
-    inventory = {node["name"]: 0.0 for node in path}
-    logs = {node["name"]: [] for node in path}
+    print(f"[INFO] Simulation {material} vers {site} ({duration_days} jours)")
+    print(f"  - Demande journalière : {daily_demand}")
+    print(f"  - Livraison : {delivery_qty} toutes les {delivery_freq_days} jours")
 
-    def delivery_process(env, src: Dict, dst: Dict):
-        while True:
-            yield env.timeout(dst["lead_time_days"] * HOURS_PER_DAY)
-            qty = dst.get("capacity_tonnes_per_day", 10.0)
-            inventory[dst["name"]] += qty
-            logs[dst["name"]].append((env.now / HOURS_PER_DAY, inventory[dst["name"]]))
+    stock = 0.0
+    stock_series = []
+    deliveries = []
+    shortages = []
 
-    def consumption(env):
-        plant = path[-1]["name"]
-        while True:
-            yield env.timeout(HOURS_PER_DAY)
-            inventory[plant] -= daily_demand
-            if inventory[plant] < 0:
-                inventory[plant] = 0
-            logs[plant].append((env.now / HOURS_PER_DAY, inventory[plant]))
+    for day in range(1, duration_days + 1):
+        # Livraison si le jour est un multiple
+        if (day - 1) % delivery_freq_days == 0:
+            stock += delivery_qty
+            deliveries.append(day)
+        else:
+            deliveries.append(None)
 
-    for i in range(1, len(path)):
-        src = path[i - 1]
-        dst = path[i]
-        env.process(delivery_process(env, src, dst))
+        if stock >= daily_demand:
+            stock -= daily_demand
+            shortages.append(0)
+        else:
+            shortages.append(daily_demand - stock)
+            stock = 0
 
-    env.process(consumption(env))
-    env.run(until=duration_days * HOURS_PER_DAY)
+        stock_series.append(stock)
 
-    return logs
+    # Affichage texte
+    total_shortage = sum(shortages)
+    print(f"[RÉSULTAT] Manque total sur {duration_days} jours : {total_shortage:.1f} unités")
+
+    # Graphe
+    days = list(range(1, duration_days + 1))
+    plt.figure(figsize=(10, 5))
+    plt.plot(days, stock_series, label="Stock")
+    plt.bar(days, shortages, color="red", alpha=0.3, label="Manque")
+    plt.xlabel("Jour")
+    plt.ylabel("Stock")
+    plt.title(f"Stock de {material} vers {site}")
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.show()
