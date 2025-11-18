@@ -158,10 +158,11 @@ def main_function():
 
     # 6. Score de résilience - scenarios normaux
     def compute_resilience_score(result_nominal, result_crisis):
-        prod_nominal = result_nominal.get("production_totals", {})
+
+        prod_nominal = (result_nominal or {}).get("production_totals") or {}
         prod_crisis = {}
         if result_crisis and isinstance(result_crisis, dict):
-            prod_crisis = result_crisis.get("production_totals", {}) or {}
+            prod_crisis = (result_crisis or {}).get("production_totals") or {}
         total_nominal = sum(prod_nominal.values())
         total_crisis = sum(prod_crisis.values())
         if total_nominal == 0:
@@ -182,17 +183,34 @@ def main_function():
         crisis_results[name]["resilience_scores"] = scores
 
 
-
     # 7. Enregistrer les résultats de production dans la base de données
     for scenario_id, (name, scenario_res) in enumerate(scenario_results.items(), start=1):
-        for site, total in scenario_res["production_totals"].items():
+        # Récupérer les totaux de production de façon robuste
+        prod_totals = scenario_res.get("production_totals") or {}
+
+        # Sécurité : si ce n’est pas un dict, on log et on ignore
+        if not isinstance(prod_totals, dict):
+            print(f"⚠️ production_totals invalide pour le scénario '{name}':", prod_totals)
+            prod_totals = {}
+
+        # Récupérer aussi les coûts/CO2 de façon défensive
+        costs = scenario_res.get("costs") or {}
+        if not isinstance(costs, dict):
+            print(f"⚠️ costs invalide pour le scénario '{name}':", costs)
+            costs = {}
+
+        total_cost = costs.get("total_cost", 0.0)
+        total_co2 = scenario_res.get("total_co2", 0.0)
+
+        for site, total in prod_totals.items():
             session.execute(insert(result_table).values(
                 scenario_id=scenario_id,
                 site=site,
                 total_production=total,
-                total_cost=scenario_res["costs"].get("total_cost", 0.0),
-                total_co2=scenario_res.get("total_co2", 0.0)
+                total_cost=total_cost,
+                total_co2=total_co2
             ))
+
     session.commit()
 
     # 8. Préparer les visualisations comparatives des scénarios
@@ -202,33 +220,103 @@ def main_function():
     crisis_figs = compare_scenarios(crisis_results, return_figures=True)
     crisis_sankey_figs = display_sankey_for_scenarios(crisis_results, return_figures=True)
 
+
+    print("DEBUG scenario_results keys =", list(scenario_results.keys()))
+    print("DEBUG type MultiObjectifs =", type(scenario_results.get("MultiObjectifs", None)))
+
+
+    # ------------------------------------------------------------------
+    # Petit utilitaire pour uniformiser ce qu'on reçoit (list, dict, etc.)
+    # ------------------------------------------------------------------
+    def _extract_figs(obj):
+        """
+        Normalise en liste de figures Plotly, quel que soit le format :
+        - None -> []
+        - list -> list
+        - dict -> valeurs (et sous-valeurs si dict de dict/list)
+        - figure seule -> [figure]
+        """
+        if obj is None:
+            return []
+
+        # Déjà une liste de figures
+        if isinstance(obj, list):
+            return obj
+
+        # Dictionnaire : on a peut-être {scenario: fig} ou {scenario: {type: fig}}
+        if isinstance(obj, dict):
+            figs = []
+            for v in obj.values():
+                if isinstance(v, list):
+                    figs.extend(v)
+                elif isinstance(v, dict):
+                    # dict imbriqué, on récupère les valeurs
+                    for vv in v.values():
+                        figs.append(vv)
+                else:
+                    figs.append(v)
+            return figs
+
+        # Cas "figure seule"
+        return [obj]
+
+    all_figs = []
+    all_figs += _extract_figs(comparison_figs)
+    all_figs += _extract_figs(sankey_figs)
+    all_figs += _extract_figs(crisis_figs)
+    all_figs += _extract_figs(crisis_sankey_figs)
+
     # 9. Analyse LCA ciblée sur la France (scénario multi-objectifs)
-    fr_config = [cfg for cfg in lines_config if cfg["location"] == "France"]
+    fr_config = [c for c in lines_config if c["location"] == "France"]
     fr_index = lines_config.index(fr_config[0]) if fr_config else 0
+
     fr_production_data = [result_multi["production_data"][fr_index]]
     fr_enviro_data = [result_multi["environment_data"][fr_index]]
-    fr_totals = {"France": result_multi["production_totals"].get("France", 0)}
-    # Utiliser le poids de siège du scénario multi (ou défaut)
-    seat_weight = result_multi.get("seat_weight", DEFAULT_SEAT_WEIGHT)
+
+    prod_totals_multi = result_multi.get("production_totals") or {}
+    print("DEBUG MultiObjectifs – production_totals =", prod_totals_multi)
+
+    fr_totals = {"France": prod_totals_multi.get("France", 0)}
+
+    seat_weight = result_multi.get("seat_weight", DEFAULT_SEAT_WEIGHT)  # utilisé ailleurs, pas dans cette fonction
+
     fig_lca_fr = display_all_lca_indicators(
-        all_production_data=fr_production_data,
-        all_enviro_data=fr_enviro_data,
-        lines_config=fr_config,
-        production_totals=fr_totals,
+        fr_production_data,
+        fr_enviro_data,
+        [fr_config[0]],
+        fr_totals,
         use_allocated_production=True,
-        seat_weight=seat_weight
+        seat_weight=seat_weight,
+        return_fig=True,  # <-- important
     )
 
+
+
+
+
+
     # 10. Analyse LCA globale tous sites (scénario multi-objectifs)
-    total_production = sum(result_multi["production_totals"].values())
-    fig_lca_total = display_all_lca_indicators(
-        all_production_data=result_multi["production_data"],
-        all_enviro_data=result_multi["environment_data"],
-        lines_config=lines_config,
-        production_totals=result_multi["production_totals"],
-        use_allocated_production=True,
-        seat_weight=DEFAULT_SEAT_WEIGHT
-    )
+    result_multi = scenario_results.get("MultiObjectifs", {})
+    prod_totals_multi = result_multi.get("production_totals", {}) or {}
+
+    print("DEBUG MultiObjectifs production_totals =",
+      scenario_results.get("MultiObjectifs", {}).get("production_totals"))
+    total_production = sum(prod_totals_multi.values())
+
+    if total_production <= 0:
+        print("⚠️ Analyse LCA globale : aucune production totale dans le scénario multi-objectifs.")
+        fig_lca_total = None
+    else:
+        fig_lca_total = display_all_lca_indicators(
+            all_production_data=result_multi["production_data"],
+            all_enviro_data=result_multi["environment_data"],
+            lines_config=lines_config,
+            production_totals=prod_totals_multi,
+            use_allocated_production=True,
+            seat_weight=seat_weight,
+            return_fig=True,
+        )
+
 
 
 
@@ -253,17 +341,20 @@ def main_function():
         result_crise["resilience_indicators"] = indicators_ref
         result_crise["resilience_auto_indicators"] = indicators_auto
 
+    # 10bis. Normaliser aussi les figures de crise
+    crisis_all_figs = _extract_figs(crisis_figs) + _extract_figs(crisis_sankey_figs) 
+
 
     # Préparer le dictionnaire de résultats final à retourner
     return {
-        "figures": comparison_figs + sankey_figs,
+        "figures": all_figs,
         "lca_fig": fig_lca_fr,
         "production_totals_sum": total_production,
         "lca_fig_total": fig_lca_total,
         "vivant_raw_data": result_vivant_raw,
         "scenario_results": scenario_results,
         "crisis_results": crisis_results,
-        "crisis_figures": crisis_figs + crisis_sankey_figs,
+        "crisis_figures": crisis_all_figs,
         "cap_max": cap_max, 
         "lines_config": lines_config
     }

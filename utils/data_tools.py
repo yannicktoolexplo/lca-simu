@@ -350,12 +350,26 @@ def plot_production_sankey(source, target, value, production_totals, market_tota
     :return: Objet Plotly Figure si return_figure=True, sinon affiche directement le graphique.
     """
 
+ # Normalisation
+    production_totals = production_totals or {}
+    market_totals = market_totals or {}
+    loc_prod = loc_prod or []
+    loc_demand = loc_demand or []
+
+    # Sécurité : on ne fait rien si les listes sont vides
+    if not loc_prod or not loc_demand:
+        print("⚠️ plot_production_sankey : loc_prod ou loc_demand vides → Sankey ignoré.")
+        from plotly.graph_objects import Figure
+        return Figure() if return_figure else None
+
     # 🔹 Création des labels pour les nœuds avec quantité produite et demandée
     node_labels = [
-        f"{loc_prod[i]} Production\n({production_totals[loc_prod[i]]} Units)" for i in range(len(loc_prod))
+        f"{loc_prod[i]} Production\n({production_totals.get(loc_prod[i], 0)} Units)"
+        for i in range(len(loc_prod))
     ]
     node_labels += [
-        f"{loc_demand[i]} Market\n({market_totals[loc_demand[i]]} Units)" for i in range(len(loc_demand))
+        f"{loc_demand[i]} Market\n({market_totals.get(loc_demand[i], 0)} Units)"
+        for i in range(len(loc_demand))
     ]
     link_labels = [f"{v:,.0f} Units" for v in value]
 
@@ -655,143 +669,191 @@ def plot_costs(country_costs, total_cost):
 
 
 
-def display_all_lca_indicators(all_production_data, all_enviro_data, lines_config, production_totals, use_allocated_production=True, seat_weight=130):
+def display_all_lca_indicators(
+    all_production_data,
+    all_enviro_data,
+    lines_config,
+    production_totals,
+    use_allocated_production=True,
+    seat_weight=130,
+    return_fig=False,
+):
     """
-    Affiche les indicateurs LCA :
-    - Échelle adaptative pour Production et Usage.
-    - Échelle fixe pour la LCA combinée avec superposition des barres (Usage en bas, Production au-dessus).
-    - Affichage des valeurs à l'intérieur des barres pour tous les graphiques.
-    
-    :param all_production_data: Liste des données de production par ligne.
-    :param all_enviro_data: Liste des données environnementales.
-    :param lines_config: Configuration des lignes de production.
-    :param production_totals: Dictionnaire des productions réelles après allocation.
-    :param use_allocated_production: Booléen, si True utilise la production réelle, sinon utilise la production simulée.
+    Affiche / retourne une figure Plotly avec les indicateurs LCA :
+    - Colonne 1 : LCA Production (échelle adaptative)
+    - Colonne 2 : LCA Usage (échelle adaptative)
+    - Colonne 3 : LCA combinée (Production + Usage) avec échelle FIXE commune
+
+    :param all_production_data: liste de dicts de production (par ligne SimPy)
+    :param all_enviro_data: liste des données environnementales (non utilisées ici mais gardées pour cohérence)
+    :param lines_config: liste de configs de lignes (chaque config contient au moins 'location')
+    :param production_totals: dict {location: production allouée} après optimisation
+    :param use_allocated_production: si True → utilise production_totals, sinon la prod simulée brute
+    :param seat_weight: poids du siège pour la phase d’usage
+    :param return_fig: si True → retourne la figure, sinon fig.show()
     """
 
-    # 🔍 Filtrage des lignes actives
+    # 🔍 Filtrage des lignes actives (production > 0)
     active_data = [
         (prod_data, enviro_data, config)
         for prod_data, enviro_data, config in zip(all_production_data, all_enviro_data, lines_config)
-        if production_totals.get(config['location'], 0) > 0
+        if production_totals.get(config["location"], 0) > 0
     ]
 
-    # if not active_data:
-    #     print("⚠️ Aucune ligne active, pas d'affichage des indicateurs LCA.")
-    #     return
+    if not active_data:
+        print("⚠️ display_all_lca_indicators : aucun site actif, production_totals =", production_totals)
+        fig_empty = go.Figure()
+        fig_empty.update_layout(
+            title="Aucune donnée LCA active (production totale = 0)",
+            xaxis_title="",
+            yaxis_title="",
+        )
+        return fig_empty if return_fig else fig_empty.show()
 
-    # 🔥 Debugging: Afficher les lignes incluses
-    # for _, _, line_config in active_data:
-    #     print(f"✅ {line_config['location']} inclus dans l'affichage des LCA.")
+    # On sépare les listes filtrées
+    all_production_data, all_enviro_data, active_configs = zip(*active_data)
 
-    # 🔹 Définir les titres des colonnes
+    # Titres des colonnes
     column_titles = ["Production LCA", "Usage LCA", "Combined LCA"]
 
-    # 🔹 Créer les sous-graphes
     fig_lca = make_subplots(
-        rows=len(active_data), cols=3,
+        rows=len(active_data),
+        cols=3,
         column_titles=column_titles,
         horizontal_spacing=0.1,
-        vertical_spacing=0.1
+        vertical_spacing=0.15,
     )
 
-    # Calcul de la valeur maximale pour les graphiques combinés
-    max_value_global_combined = 0
+    # 🔹 1ère passe : calcul du max global pour l'échelle de la colonne "Combined"
+    max_value_global_combined = 0.0
+
     for production_data, _, line_config in active_data:
-        location = line_config['location']
-        total_seats_made = production_totals.get(location, 0) if use_allocated_production else production_data['Total Seats made'][1][-1]
+        location = line_config["location"]
+        if use_allocated_production:
+            total_seats_made = production_totals.get(location, 0)
+        else:
+            total_seats_made = production_data["Total Seats made"][1][-1]
 
-        for site, total_seats_made in production_totals.items():
-            production_lca = environment_engine.calculate_lca_indicators_pers_eq(total_seats_made, site)
-            usage_lca = environment_engine.calculate_lca_indicators_usage_phase(total_seats_made, seat_weight=seat_weight)
-            combined_lca = {key: production_lca[key] + usage_lca[key] for key in production_lca.keys()}
+        if total_seats_made <= 0:
+            continue
 
-        max_value_line_combined = max(combined_lca.values())
-        max_value_global_combined = max(max_value_global_combined, max_value_line_combined)
+        # LCA production + usage pour cette ligne
+        production_lca = environment_engine.calculate_lca_indicators_pers_eq(
+            total_seats_made, location
+        )
+        usage_lca = environment_engine.calculate_lca_indicators_usage_phase(
+            total_seats_made, seat_weight=seat_weight
+        )
+        combined_lca = {
+            key: production_lca[key] + usage_lca[key]
+            for key in production_lca.keys()
+        }
 
-    # Boucle sur chaque ligne active
+        max_value_line = max(combined_lca.values()) if combined_lca else 0.0
+        max_value_global_combined = max(max_value_global_combined, max_value_line)
+
+    if max_value_global_combined <= 0:
+        # Sécurité au cas où tout est nul
+        max_value_global_combined = 1.0
+
+    # 🔹 2e passe : construction des graphes
     for i, (production_data, enviro_data, line_config) in enumerate(active_data):
-        location = line_config['location']
-        total_seats_made = production_totals.get(location, 0) if use_allocated_production else production_data['Total Seats made'][1][-1]
+        location = line_config["location"]
+        if use_allocated_production:
+            total_seats_made = production_totals.get(location, 0)
+        else:
+            total_seats_made = production_data["Total Seats made"][1][-1]
 
-        # print(f"🔍 Vérification LCA pour {location} (mode {'alloué' if use_allocated_production else 'simulé'}):")
-        # print(f"➡ Production utilisée : {total_seats_made}")
+        if total_seats_made <= 0:
+            continue
 
-        # 🔹 Calcul des indicateurs LCA
-        production_lca = environment_engine.calculate_lca_indicators_pers_eq(total_seats_made, site)
-        usage_lca = environment_engine.calculate_lca_indicators_usage_phase(total_seats_made, seat_weight=120)
-        combined_lca = {key: production_lca[key] + usage_lca[key] for key in production_lca.keys()}
+        production_lca = environment_engine.calculate_lca_indicators_pers_eq(
+            total_seats_made, location
+        )
+        usage_lca = environment_engine.calculate_lca_indicators_usage_phase(
+            total_seats_made, seat_weight=seat_weight
+        )
+        combined_lca = {
+            key: production_lca[key] + usage_lca[key]
+            for key in production_lca.keys()
+        }
 
-        # 🔹 Graphique Production LCA avec échelle adaptative
+        # --- Colonne 1 : Production LCA ---
         fig_lca.add_trace(
             go.Bar(
                 x=list(production_lca.keys()),
                 y=list(production_lca.values()),
                 text=[f"{v:.2f}" for v in production_lca.values()],
-                textposition='inside',
-                marker_color='blue',
-                name='Production'
+                textposition="inside",
+                marker_color="blue",
+                name=f"Production ({location})",
             ),
-            row=i + 1, col=1
+            row=i + 1,
+            col=1,
         )
 
-        # 🔹 Graphique Usage LCA avec échelle adaptative
+        # --- Colonne 2 : Usage LCA ---
         fig_lca.add_trace(
             go.Bar(
                 x=list(usage_lca.keys()),
                 y=list(usage_lca.values()),
                 text=[f"{v:.2f}" for v in usage_lca.values()],
-                textposition='inside',
-                marker_color='orange',
-                name='Usage'
+                textposition="inside",
+                marker_color="orange",
+                name=f"Usage ({location})",
             ),
-            row=i + 1, col=2
+            row=i + 1,
+            col=2,
         )
 
-        # 🔹 Graphique combiné avec superposition et affichage des valeurs
+        # --- Colonne 3 : Combiné (stack) ---
         fig_lca.add_trace(
             go.Bar(
                 x=list(usage_lca.keys()),
                 y=list(usage_lca.values()),
                 text=[f"{v:.2f}" for v in usage_lca.values()],
-                textposition='inside',
-                marker_color='orange',
-                name='Usage'
+                textposition="inside",
+                marker_color="orange",
+                name=f"Usage ({location})",
             ),
-            row=i + 1, col=3
+            row=i + 1,
+            col=3,
         )
         fig_lca.add_trace(
             go.Bar(
                 x=list(production_lca.keys()),
                 y=list(production_lca.values()),
                 text=[f"{v:.2f}" for v in production_lca.values()],
-                textposition='inside',
-                marker_color='blue',
-                name='Production'
+                textposition="inside",
+                marker_color="blue",
+                name=f"Production ({location})",
             ),
-            row=i + 1, col=3
+            row=i + 1,
+            col=3,
         )
 
-        # 🔹 Échelle fixe pour les graphiques combinés uniquement
+        # Échelle fixe pour la colonne combinée
         fig_lca.update_yaxes(range=[0, max_value_global_combined], row=i + 1, col=3)
 
-        # 🔹 Ajouter la localisation dans l'axe Y
-        for col in range(1, 4):
+        # Label Y avec la localisation
+        for col in range(1, 3 + 1):
             fig_lca.update_yaxes(title_text=f"LCA Value ({location})", row=i + 1, col=col)
 
-    # 🔹 Mise à jour du layout
     fig_lca.update_layout(
         title="LCA Indicators for Active Production Lines",
         height=400 * len(active_data),
-        barmode='stack',  # Mode superposition pour les graphiques combinés
+        barmode="stack",  # important pour la colonne combinée
         showlegend=False,
     )
 
-    # 🔹 Ajustement de la police
     fig_lca.update_xaxes(tickfont=dict(size=8))
 
-    # 🔹 Affichage final
-    return fig_lca
+    if return_fig:
+        return fig_lca
+    else:
+        fig_lca.show()
+        return fig_lca
+
 
 
 
