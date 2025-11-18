@@ -86,86 +86,203 @@ def run_scenario(allocation_function, config):
         "seat_weight": seat_weight
     }
 
-def compare_scenarios(results_dict, return_figures=False):
+def compare_scenarios(results_dict, return_figures=True):
     """
-    Compare plusieurs scénarios en produisant des graphiques barres pour le coût total, le CO₂ total et la production par site.
-    :param results_dict: dict {nom_scenario: result_dict}
-    :param return_figures: Si True, retourne les figures Plotly au lieu de les afficher.
-    :return: Liste de figures Plotly si return_figures=True.
+    Compare plusieurs scénarios : production totale, coût, CO2, production par site.
+    Version robuste qui tolère des production_totals / costs manquants ou None.
     """
-    scenario_names = list(results_dict.keys())
-    total_costs = [
-        results_dict[name]["costs"].get("total_cost_with_penalty", results_dict[name]["costs"].get("total_cost", 0)) 
-        for name in scenario_names
-    ]
-    total_co2 = [results_dict[name]["total_co2"] for name in scenario_names]
-    # Préparer les données de production par site pour chaque scénario
-    all_sites = list(results_dict[scenario_names[0]]['production_totals'].keys())
-    production_per_site = {
-        site: [results_dict[name]['production_totals'].get(site, 0) for name in scenario_names]
-        for site in all_sites
-    }
-    # Créer la figure avec 3 sous-graphiques comparatifs
-    fig = make_subplots(rows=1, cols=3, subplot_titles=("Coût total (€)", "Émissions CO₂ totales (kg)", "Production par site"))
-    fig.add_trace(go.Bar(x=scenario_names, y=total_costs, name="Coût (€)", marker_color="skyblue",
-                         text=[f"{int(v/1000):,}k".replace(",", " ") for v in total_costs], textposition='auto'),
-                  row=1, col=1)
-    fig.add_trace(go.Bar(x=scenario_names, y=total_co2, name="CO₂ (kg)", marker_color="lightgreen",
-                         text=[f"{int(v/1000):,}k".replace(",", " ") for v in total_co2], textposition='auto'),
-                  row=1, col=2)
-    for site in all_sites:
-        fig.add_trace(go.Bar(x=scenario_names, y=production_per_site[site], name=site,
-                             text=[round(v) for v in production_per_site[site]], textposition='auto'),
-                      row=1, col=3)
-    fig.update_layout(title_text="Comparaison des scénarios", height=500, width=1200, barmode='stack')
-    if return_figures:
-        return [fig]
-    else:
-        fig.show()
+    if not results_dict:
+        print("⚠️ compare_scenarios : results_dict est vide")
+        return {} if return_figures else None
+
+    print("DEBUG compare_scenarios – scénarios :", list(results_dict.keys()))
+
+    # 1. Normaliser les résultats (production_totals, costs, total_co2)
+    normalized = {}
+    for name, res in results_dict.items():
+        if res is None:
+            print(f"⚠️ Résultats vides pour le scénario '{name}'")
+            res = {}
+
+        prod = res.get("production_totals") or {}
+        if not isinstance(prod, dict):
+            print(f"⚠️ production_totals invalide pour '{name}' :", prod)
+            prod = {}
+
+        costs = res.get("costs") or {}
+        if not isinstance(costs, dict):
+            print(f"⚠️ costs invalide pour '{name}' :", costs)
+            costs = {}
+
+        total_cost = costs.get("total_cost", 0.0)
+        total_co2 = res.get("total_co2", 0.0)
+
+        normalized[name] = {
+            "production_totals": prod,
+            "total_cost": total_cost,
+            "total_co2": total_co2,
+        }
+
+    scenario_names = list(normalized.keys())
+
+    # 2. Union de tous les sites sur tous les scénarios
+    all_sites = sorted({
+        site
+        for res in normalized.values()
+        for site in res["production_totals"].keys()
+    })
+
+    if not all_sites:
+        print("⚠️ Aucun site dans production_totals pour aucun scénario.")
+        if return_figures:
+            # Tu peux ici renvoyer un dict de figures vides si ton dashboard s'y attend
+            return {}
         return None
 
-def display_sankey_for_scenarios(results_dict, return_figures=False):
+    # 3. Agrégats par scénario
+    total_production = [
+        sum(normalized[name]["production_totals"].values())
+        for name in scenario_names
+    ]
+    total_costs = [normalized[name]["total_cost"] for name in scenario_names]
+    total_co2 = [normalized[name]["total_co2"] for name in scenario_names]
+
+    # 4. Production par site et par scénario
+    production_per_site = {
+        site: [
+            normalized[name]["production_totals"].get(site, 0)
+            for name in scenario_names
+        ]
+        for site in all_sites
+    }
+
+    # 5. Construction des figures Plotly (garde ton code existant ici)
+    # ----------------------------------------------------------------
+    # Exemple générique, à adapter à ce que tu as déjà :
+
+    from plotly.subplots import make_subplots
+    import plotly.graph_objects as go
+
+    fig = make_subplots(
+        rows=1, cols=3,
+        subplot_titles=("Production totale", "Coût total", "CO₂ total"),
+        shared_yaxes=False
+    )
+
+    # Barres production totale
+    fig.add_trace(
+        go.Bar(x=scenario_names, y=total_production, name="Production totale"),
+        row=1, col=1
+    )
+
+    # Barres coût total
+    fig.add_trace(
+        go.Bar(x=scenario_names, y=total_costs, name="Coût total"),
+        row=1, col=2
+    )
+
+    # Barres CO2 total
+    fig.add_trace(
+        go.Bar(x=scenario_names, y=total_co2, name="CO₂ total"),
+        row=1, col=3
+    )
+
+    fig.update_layout(barmode="group", title="Comparaison des scénarios")
+
+    # Exemple de figure "production par site" (facultatif selon ton code initial)
+    fig_sites = go.Figure()
+    for site, values in production_per_site.items():
+        fig_sites.add_trace(go.Bar(x=scenario_names, y=values, name=site))
+    fig_sites.update_layout(
+        barmode="stack",
+        title="Production par site et par scénario"
+    )
+
+    if return_figures:
+        # Adapte la structure retournée si ton dashboard attend autre chose
+        return {
+            "summary": fig,
+            "per_site": fig_sites,
+        }
+    else:
+        fig.show()
+        fig_sites.show()
+        return None
+
+
+def display_sankey_for_scenarios(results_dict, return_figures=True):
     """
-    Génère pour chaque scénario un diagramme de Sankey double (flux de production et flux de CO₂).
-    :param results_dict: dict {nom_scenario: result_dict}
-    :param return_figures: Si True, retourne les figures au lieu de les afficher.
-    :return: Liste de figures Plotly si return_figures=True.
+    Construit les Sankey pour chaque scénario.
+    Version robuste : tolère des champs manquants, saute les scénarios bancals.
     """
-    figures = []
+    if not results_dict:
+        print("⚠️ display_sankey_for_scenarios : results_dict vide")
+        return {} if return_figures else None
+
+    from utils.data_tools import plot_production_sankey  # adapte l'import si besoin
+
+    sankey_figs = {}
+
     for name, result in results_dict.items():
-        seat_weight = result.get("seat_weight", 130)
-        # Diagramme Sankey pour la production
-        sankey_prod = plot_production_sankey(
-            source=result["source"], target=result["target"], value=result["value"],
-            production_totals=result["production_totals"], market_totals=result["market_totals"],
-            loc_prod=result["loc_prod"], loc_demand=result["loc_demand"], return_figure=True
-        )
-        # Diagramme Sankey pour les émissions CO₂
-        co2_emissions = [
-            calculate_distribution_co2_emissions(result["loc_prod"][s], result["loc_demand"][t], v, seat_weight=seat_weight)
-            for s, t, v in zip(result["source"], result["target"], result["value"])
-        ]
-        production_co2 = [
-            calculate_lca_production_IFE_raw(v, result["loc_prod"][s], seat_weight=seat_weight)["Climate Change"]
-            for s, v in zip(result["source"], result["value"])
-        ]
-        sankey_co2 = plot_sankey_production_co2_emissions(
-            source=result["source"], target=result["target"],
-            co2_emissions=co2_emissions, production_co2_emissions=production_co2,
-            value=result["value"], loc_prod=result["loc_prod"], loc_demand=result["loc_demand"],
-            return_figure=True
-        )
-        # Combiner les deux diagrammes Sankey dans une figure
-        fig = make_subplots(rows=1, cols=2, specs=[[{"type": "domain"}, {"type": "domain"}]],
-                            subplot_titles=(f"Flux de production – {name}", f"Émissions CO₂ – {name}"))
-        # Ajouter les trace Sankey pour la production (col1) et CO2 (col2)
-        for trace in sankey_prod.data:
-            fig.add_trace(trace, row=1, col=1)
-        for trace in sankey_co2.data:
-            fig.add_trace(trace, row=1, col=2)
-        fig.update_layout(height=600, width=1200)
-        if return_figures:
-            figures.append(fig)
-        else:
-            fig.show()
-    return figures if return_figures else None
+        print(f"\nDEBUG Sankey – scénario '{name}'")
+
+        if result is None:
+            print(f"  ⚠️ Résultat None pour '{name}', Sankey ignoré.")
+            continue
+
+        # Normalisation : None → structures vides
+        source = result.get("source") or []
+        target = result.get("target") or []
+        value = result.get("value") or []
+        production_totals = result.get("production_totals") or {}
+        market_totals = result.get("market_totals") or {}
+        loc_prod = result.get("loc_prod") or []
+        loc_demand = result.get("loc_demand") or []
+
+        print("  source len :", len(source) if source is not None else "None")
+        print("  target len :", len(target) if target is not None else "None")
+        print("  value len  :", len(value)  if value  is not None else "None")
+        print("  loc_prod   :", loc_prod)
+        print("  loc_demand :", loc_demand)
+
+        # Vérifs minimales pour éviter les crashs
+        if not source or not target or not value:
+            print(f"  ⚠️ Scénario '{name}' : source/target/value vides, Sankey ignoré.")
+            continue
+
+        if len(source) != len(target) or len(source) != len(value):
+            print(f"  ⚠️ Scénario '{name}' : tailles incohérentes source/target/value, Sankey ignoré.")
+            continue
+
+        if not loc_prod or not loc_demand:
+            print(f"  ⚠️ Scénario '{name}' : loc_prod/loc_demand vides, Sankey ignoré.")
+            continue
+
+        if not isinstance(production_totals, dict) or not isinstance(market_totals, dict):
+            print(f"  ⚠️ Scénario '{name}' : production_totals/market_totals non dict, Sankey ignoré.")
+            continue
+
+        try:
+            sankey_prod = plot_production_sankey(
+                source=source,
+                target=target,
+                value=value,
+                production_totals=production_totals,
+                market_totals=market_totals,
+                loc_prod=loc_prod,
+                loc_demand=loc_demand,
+                return_figure=True,
+            )
+            sankey_figs[name] = sankey_prod
+
+        except Exception as e:
+            print(f"  ⚠️ Erreur lors de plot_production_sankey pour '{name}' :", e)
+            continue
+
+    if return_figures:
+        return sankey_figs
+    else:
+        # Si tu veux les afficher directement : 
+        # for fig in sankey_figs.values(): fig.show()
+        return None
+

@@ -64,9 +64,20 @@ if st.button("🚀 Lancer la simulation"):
 
 
         # Affichage de l'analyse LCA totale pour tous sites (scénario multi-objectifs)
-        total_units = int(result["production_totals_sum"])
-        st.markdown(f"### 🌍 Analyse du Cycle de Vie – Optimisation Multi-Objectifs ({total_units} sièges, tous sites)")
-        st.plotly_chart(result["lca_fig_total"], use_container_width=True, key="fig_lca_total")
+        total_units = int(result.get("production_totals_sum", 0))
+        lca_fig_total = result.get("lca_fig_total", None)
+
+        if lca_fig_total is not None:
+            st.markdown(
+                f"### 🌍 Analyse du Cycle de Vie – Optimisation Multi-Objectifs\n"
+                f"Nombre total de sièges produits : **{total_units}**"
+            )
+            st.plotly_chart(lca_fig_total, use_container_width=True, key="lca_multi_total")
+        else:
+            st.warning(
+                "⚠️ Aucun graphique LCA global pour le scénario multi-objectifs : "
+                "production totale nulle ou aucune ligne active (MultiObjectifs ne produit rien)."
+            )
 
 
         # Résultats enregistrés en base de données
