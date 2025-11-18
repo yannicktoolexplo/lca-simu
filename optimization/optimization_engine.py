@@ -145,55 +145,105 @@ def run_supply_chain_optimization_multiobjective(capacity_limits, demand, alpha=
         "variable_costs": load_fixed_and_variable_costs(load_freight_costs_and_demands()[0])[1]
     })
     ref_total_cost = ref_costs["total_cost"]
+
     ref_co2_solution = run_supply_chain_optimization_minimize_co2(capacity_limits, demand)
     ref_total_co2 = sum([
         environment_engine.calculate_lca_production_IFE_raw(v, ref_co2_solution[5][s])["Climate Change"] +
         environment_engine.calculate_distribution_co2_emissions(ref_co2_solution[5][s], ref_co2_solution[6][t], v)
         for s, t, v in zip(ref_co2_solution[0], ref_co2_solution[1], ref_co2_solution[2])
     ])
+
+    # DEBUG références
+    print("[MultiObj] ref_total_cost =", ref_total_cost)
+    print("[MultiObj] ref_total_co2  =", ref_total_co2)
+
     freight_costs, demand_df = load_freight_costs_and_demands() if demand is None else (load_freight_costs_and_demands()[0], demand)
     fixed_costs, var_costs = load_fixed_and_variable_costs(freight_costs)
     cap = capacity_limits
     loc_prod = list(cap.keys())
     loc_demand = list(demand_df.index)
     size = ['Low', 'High']
+
     model = LpProblem("MultiObjectiveOptimization", LpMinimize)
+
     # Variables x (production) avec nom unique pour éviter conflits de nommage
     x_names = [f"{i}_{j}" for i in loc_prod for j in loc_demand]
     x_vars = LpVariable.dicts("x", x_names, lowBound=0, cat='Continuous')
     x = {(i, j): x_vars[f"{i}_{j}"] for i in loc_prod for j in loc_demand}
     y = LpVariable.dicts("plant", [(i, s) for i in loc_prod for s in size], cat='Binary')
+
     # Fonction objectif pondérée normalisée
     cost_expr = lpSum([fixed_costs.loc[i, s] * y[(i, s)] for i in loc_prod for s in size]) + \
-               lpSum([get_unit_cost(i, j, var_costs) * x[(i, j)] for i in loc_prod for j in loc_demand])
+                lpSum([get_unit_cost(i, j, var_costs) * x[(i, j)] for i in loc_prod for j in loc_demand])
     co2_expr = lpSum([
         environment_engine.calculate_distribution_co2_emissions(i, j, x[(i, j)]) +
         environment_engine.calculate_lca_production_IFE_raw(x[(i, j)], i)["Climate Change"]
         for i in loc_prod for j in loc_demand
     ])
+
     norm_cost = cost_expr / ref_total_cost if ref_total_cost > 0 else cost_expr
     norm_co2 = co2_expr / ref_total_co2 if ref_total_co2 > 0 else co2_expr
+
     model += alpha * norm_cost + beta * norm_co2
+
     add_common_constraints(model, x, y, cap, loc_prod, loc_demand, size, demand_df)
+
+    # --- RÉSOLUTION + DEBUG ---
     model.solve(PULP_CBC_CMD(msg=False))
-    if LpStatus[model.status] != 'Optimal':
-        # Pas de solution réalisable
-        return (None,)*8
+    status = LpStatus[model.status]
+    print("[MultiObj] solver status =", status)
+
+    # total production brute (avant filtrage >0)
+    total_prod = 0.0
+    prod_by_site = {i: 0.0 for i in loc_prod}
+    prod_by_market = {j: 0.0 for j in loc_demand}
+
+    for i in loc_prod:
+        for j in loc_demand:
+            val = x[(i, j)].value()
+            if val is None:
+                val = 0.0
+            total_prod += val
+            prod_by_site[i] += val
+            prod_by_market[j] += val
+
+    print("[MultiObj] total production =", total_prod)
+    print("[MultiObj] production by site   =", prod_by_site)
+    print("[MultiObj] production by market =", prod_by_market)
+
+    # DEBUG : valeurs des y
+    y_values = {(i, s): y[(i, s)].value() for i in loc_prod for s in size}
+    print("[MultiObj] plant activations y(i,s) =", y_values)
+
+    if status != 'Optimal':
+        print("[MultiObj] ⚠️ Statut solver =", status,
+          "→ on utilise quand même la solution de relaxation (x,y) pour le scénario MultiObjectifs.")
+
+    # --- construction du dictionnaire production comme avant ---
     production = {
         (i, j): x[(i, j)].value() 
-        for i in loc_prod for j in loc_demand if x[(i, j)].value() is not None and x[(i, j)].value() > 0
+        for i in loc_prod for j in loc_demand
+        if x[(i, j)].value() is not None and x[(i, j)].value() > 0
     }
+
+    print("[MultiObj] nombre de flux non nuls =", len(production))
+
     source, target, value_list = [], [], []
     for (i, j), qty in production.items():
         source.append(loc_prod.index(i))
         target.append(loc_demand.index(j))
         value_list.append(qty)
+
     production_totals = {i: 0 for i in loc_prod}
     market_totals = {j: 0 for j in loc_demand}
     for s_idx, t_idx, qty in zip(source, target, value_list):
         production_totals[loc_prod[s_idx]] += qty
         market_totals[loc_demand[t_idx]] += qty
+
+    print("[MultiObj] production_totals (non filtré côté dashboard) =", production_totals)
+
     return source, target, value_list, production_totals, market_totals, loc_prod, loc_demand, cap
+
 
 def select_best_supplier(material, quantity, site_location, suppliers):
     """
