@@ -73,7 +73,7 @@ def main_function():
 
     # Configuration de base pour les scénarios
     base_config = {
-        "lines_config": lines_config_max,
+        "lines_config": lines_config,
         "include_supply": True,
         "include_storage": True,
         "capacity_limits": baseline_capacity_limits
@@ -85,7 +85,7 @@ def main_function():
     # recalculer les capacités à partir de la simu avec événements ---
 
     crisis_base_config = {
-        "lines_config": lines_config_max,
+        "lines_config": lines_config,
         "include_supply": True,
         "include_storage": True,
         # PAS de "capacity_limits" ici
@@ -352,14 +352,12 @@ def main_function():
 
     # --- Capacités de normalisation pour les courbes de taux (0–1) ---
     # On ne touche PAS à cap_max utilisé pour l’optimisation.
-    # --- Capacités de normalisation pour les courbes de taux (0–1) ---
-    # On ne touche PAS à cap_max utilisé pour l’optimisation.
     def compute_daily_from_cumul(cumul):
         if not cumul:
             return []
         daily = [cumul[0]]
         for i in range(1, len(cumul)):
-            daily.append(max(cumul[i] - cumul[i - 1], 0.0))
+            daily.append(max(cumul[i] - cumul[i-1], 0.0))
         return daily
 
     cap_norm = {}
@@ -370,12 +368,11 @@ def main_function():
         daily = compute_daily_from_cumul(cumul)
         # on évite de diviser par 0 : si aucune production, on met 1.0
         cap_norm[location] = max(daily) if daily else 1.0
-        print(
-            f"Capacité de normalisation (prod/jour max) pour {location} : {cap_norm[location]}"
-        )
+        print(f"Capacité de normalisation (prod/jour max) pour {location} : {cap_norm[location]}")
 
 
-    # 1. Courbes de taux de production (normalisé par ligne avec cap_norm)
+
+        # 1. Courbes de taux de production (normalisé par ligne avec cap_norm)
     _, baseline_rates_smooth, baseline_global_smooth = compute_line_rate_curves(
         result_baseline,
         lines_config,
@@ -383,79 +380,20 @@ def main_function():
         window=5,
     )
 
-    # === Vecteur de temps réel issu du moteur de production ===
-    # On récupère l'axe des temps utilisé pour "Total Seats made"
-    raw_time_vector = result_baseline["production_data"][0]["Total Seats made"][0]
-
-    # Le lissage peut réduire un peu la longueur -> on aligne les deux
-    n = min(len(baseline_global_smooth), len(raw_time_vector))
-    baseline_global_smooth = baseline_global_smooth[:n]
-    raw_time_vector = raw_time_vector[:n]
-
+    time_vector = list(range(len(baseline_global_smooth)))
 
     # ➜ Normalisation globale : 1 = pic global du Baseline
     global_peak = max(baseline_global_smooth) if baseline_global_smooth else 1.0
-    if global_peak <= 0:
-        global_peak = 1.0
-    baseline_global_norm_full = [x / global_peak for x in baseline_global_smooth]
-
-    # --- WARM-UP : on enlève la montée en régime --------------------
-    WARMUP_THRESHOLD = 0.15  # 15 % du pic global
-
-    warmup_idx = 0
-    for i, v in enumerate(baseline_global_norm_full):
-        if v >= WARMUP_THRESHOLD:
-            warmup_idx = i
-            break
-
-    # baseline tronquée après warm-up
-    baseline_global_norm = baseline_global_norm_full[warmup_idx:]
-    time_vector = raw_time_vector[warmup_idx:]  # on garde les jours réels (3,4,...,20)
-
-    # Sécurité : si pour une raison quelconque la courbe est vide
-    if not baseline_global_norm:
-        baseline_global_norm = baseline_global_norm_full
-        time_vector = raw_time_vector
-        warmup_idx = 0
+    baseline_global_norm = [x / global_peak for x in baseline_global_smooth]
 
     rate_curve_baseline = baseline_global_norm  # utilisé comme référence résilience
 
-    # Tronquer aussi les courbes par ligne pour rester cohérent
-    baseline_rates_cut = {
-        site: curve[warmup_idx:] for site, curve in baseline_rates_smooth.items()
-    }
-
     scenario_results["Baseline"]["rate_curves"] = {
-        "per_line": baseline_rates_cut,   # toujours 0–1 par ligne, post warm-up
-        "global": rate_curve_baseline,   # 0–1, pic Baseline = 1, post warm-up
+        "per_line": baseline_rates_smooth,   # toujours 0–1 par ligne
+        "global": baseline_global_norm,      # 0–1, pic Baseline = 1
         "time": time_vector,
     }
 
-    # --- 11. Construction d'un signal de performance agrégé (Baseline + Crises) ---
-
-    # KPI 1 : taux de production global normalisé (déjà bien défini)
-    kpi_baseline = {
-        "prod_rate": rate_curve_baseline,
-    }
-
-    # Pondérations : pour l'instant, on met tout sur le taux de prod
-    weights_perf = {
-        "prod_rate": 1.0,
-    }
-
-    perf_baseline = compute_perf_signal(
-        kpi_baseline,
-        weights=weights_perf,
-        window=7,   # lissage plus fort que pour les taux bruts
-    )
-
-    # On garde un time_vector cohérent (même découpe que baseline_global_norm)
-    time_perf = time_vector[: len(perf_baseline)]
-
-    scenario_results["Baseline"]["perf_signal"] = {
-        "global": list(perf_baseline),
-        "time": time_perf,
-    }
 
     # 2. Pour chaque scénario de crise : courbes de taux + indicateurs de résilience
     for name, result_crise in crisis_results.items():
@@ -467,32 +405,24 @@ def main_function():
         )
 
         # ➜ Appliquer la même normalisation globale que pour le Baseline
-        crise_global_norm_full = [x / global_peak for x in crise_global_smooth]
+        crise_global_norm = [x / global_peak for x in crise_global_smooth]
 
-        # on tronque la crise au même warm-up que le Baseline
-        crise_global_norm = crise_global_norm_full[warmup_idx:]
-        crise_per_line_cut = {
-            site: curve[warmup_idx:] for site, curve in crise_rates_smooth.items()
-        }
+        rate_curve_crise = crise_global_norm
 
-        # alignement des longueurs
-        min_len = min(
-            len(rate_curve_baseline),
-            len(crise_global_norm),
-            len(time_vector),
-        )
+        min_len = min(len(rate_curve_baseline), len(rate_curve_crise), len(time_vector))
         rate_curve_baseline_aligned = rate_curve_baseline[:min_len]
-        rate_curve_crise_aligned = crise_global_norm[:min_len]
+        rate_curve_crise_aligned = rate_curve_crise[:min_len]
         time_vector_aligned = time_vector[:min_len]
 
-        # 2.1 Résilience "comparée au nominal" (baseline vs crise) – sur le taux
+
+        # 2.1 Résilience "comparée au nominal" (baseline vs crise)
         indicators_ref = compute_resilience_indicators(
             rate_curve_baseline_aligned,
             rate_curve_crise_aligned,
             time_vector_aligned,
         )
 
-        # 2.2 Résilience "auto-détection" – sur le taux
+        # 2.2 Résilience "auto-détection" : analyse de la forme de la courbe de crise seule
         indicators_auto = resilience_on_curve(
             rate_curve_crise_aligned,
             time_vector=time_vector_aligned,
@@ -501,60 +431,21 @@ def main_function():
         result_crise["resilience_indicators"] = indicators_ref
         result_crise["resilience_auto_indicators"] = indicators_auto
         result_crise["rate_curves"] = {
-            "per_line": crise_per_line_cut,     # 0–1 par ligne, aligné, post warm-up
-            "global": rate_curve_crise_aligned, # 0–1, aligné, post warm-up
+            "per_line": crise_rates_smooth,    # 0–1 par ligne
+            "global": rate_curve_crise,        # 0–1, même échelle globale que Baseline
             "time": time_vector_aligned,
         }
 
-        # --- Signal de performance agrégé pour ce scénario de crise ---
-        kpi_crise = {
-            "prod_rate": rate_curve_crise_aligned,
-        }
 
-        perf_crise = compute_perf_signal(
-            kpi_crise,
-            weights=weights_perf,   # même pondération pour comparer correctement
-            window=7,
-        )
-
-        # On aligne la longueur avec le signal baseline
-        min_len_perf = min(len(perf_baseline), len(perf_crise))
-        perf_baseline_aligned = perf_baseline[:min_len_perf]
-        perf_crise_aligned = perf_crise[:min_len_perf]
-        time_perf_aligned = time_perf[:min_len_perf]
-
-        # Indicateurs de résilience basés sur la performance agrégée
-        indicators_ref_perf = compute_resilience_indicators(
-            list(perf_baseline_aligned),
-            list(perf_crise_aligned),
-            list(time_perf_aligned),
-        )
-        indicators_auto_perf = resilience_on_curve(
-            list(perf_crise_aligned),
-            time_vector=list(time_perf_aligned),
-        )
-
-        result_crise["resilience_perf_indicators"] = indicators_ref_perf
-        result_crise["resilience_perf_auto_indicators"] = indicators_auto_perf
-        result_crise["perf_signal"] = {
-            "global": list(perf_crise),
-            "time": list(time_perf_aligned),
-        }
-
-    # Auto-résilience du baseline lui-même – sur le taux
+    # (optionnel) Auto-résilience du baseline lui-même
     scenario_results["Baseline"]["resilience_auto_indicators"] = resilience_on_curve(
         rate_curve_baseline,
         time_vector=time_vector,
     )
 
-    # Auto-résilience sur le signal de performance agrégé (Baseline)
-    scenario_results["Baseline"]["resilience_perf_auto_indicators"] = resilience_on_curve(
-        list(perf_baseline),
-        time_vector=list(time_perf),
-    )
 
     # 10bis. Normaliser aussi les figures de crise
-    crisis_all_figs = _extract_figs(crisis_figs) + _extract_figs(crisis_sankey_figs)
+    crisis_all_figs = _extract_figs(crisis_figs) + _extract_figs(crisis_sankey_figs) 
 
 
     # Préparer le dictionnaire de résultats final à retourner

@@ -20,6 +20,7 @@ def main():
     p.add_argument("--metric", default="lost_area_rel",
                    choices=["lost_area_rel","score","cost_delta_rel","amplitude_rel"])
     p.add_argument("--save", default="plots/heatmap.png")
+    p.add_argument("--durations", nargs="+", type=int, default=[15])
     args = p.parse_args()
 
     df = pd.read_csv(args.sweep)
