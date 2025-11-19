@@ -22,19 +22,32 @@ def run_scenario(allocation_function, config):
     :param config: Dictionnaire de configuration pour la simulation (peut contenir 'lines_config', 'events', etc.).
     :return: Dictionnaire de résultats du scénario (production_totals, market_totals, costs, total_co2, etc.).
     """
-    # Lancer la simulation de production (éventuellement avec événements perturbateurs)
-    all_production_data, all_enviro_data = run_simulation(config["lines_config"], events=config.get("events"))
+    # 1) Simulation de production (avec éventuels événements)
+    all_production_data, all_enviro_data = run_simulation(
+        config["lines_config"],
+        events=config.get("events")
+    )
     seat_weight = config.get("seat_weight", 130)
-    # Calcul des capacités Low/High pour chaque site en fonction de la production simulée
-    max_production = {
-        cfg['location']: data['Total Seats made'][1][-1] 
-        for cfg, data in zip(config["lines_config"], all_production_data)
-    }
-    cap = load_capacity_limits(max_production)
-    # Charger les coûts de transport (freight) et la demande depuis les données
+
+    # 2) Capacités : soit on utilise celles fournies dans la config, soit on les reconstruit
+    capacity_limits_cfg = config.get("capacity_limits", None)
+
+    if capacity_limits_cfg is not None:
+        # ✅ Capacités de référence (cap_max → capacity_limits) passées par simchaingreenhorizons.py
+        cap = capacity_limits_cfg
+    else:
+        # ⚠️ Fallback : ancien comportement, dérivé de la production cumulée SimPy
+        max_production = {
+            cfg['location']: data['Total Seats made'][1][-1]
+            for cfg, data in zip(config["lines_config"], all_production_data)
+        }
+        cap = load_capacity_limits(max_production)
+
+    # 3) Demande + coûts
     freight_costs, demand = load_freight_costs_and_demands()
     fixed_costs, variable_costs = load_fixed_and_variable_costs(freight_costs)
-    # Exécuter l'allocation de production/distribution avec la fonction spécifiée
+
+    # 4) Allocation
     result = allocation_function(cap, demand)
     # Vérifier qu'il y a au moins un site de production sélectionné, sinon renvoyer résultat minimal
     loc_prod = result.get("loc_prod")
@@ -114,7 +127,7 @@ def compare_scenarios(results_dict, return_figures=True):
             print(f"⚠️ costs invalide pour '{name}' :", costs)
             costs = {}
 
-        total_cost = costs.get("total_cost", 0.0)
+        total_cost = costs.get("total_cost_with_penalty",costs.get("total_cost", 0.0))
         total_co2 = res.get("total_co2", 0.0)
 
         normalized[name] = {
