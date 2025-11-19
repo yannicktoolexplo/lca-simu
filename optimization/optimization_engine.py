@@ -3,7 +3,7 @@ from line_production.line_production import run_simulation
 from environment import environment_engine
 from economic.cost_engine import get_supply_cost, get_unit_cost, calculate_total_costs
 from distribution.distribution_engine import load_freight_costs_and_demands
-from line_production.production_engine import load_fixed_and_variable_costs, run_simple_supply_allocation
+from line_production.production_engine import load_fixed_and_variable_costs, run_simple_supply_allocation, build_capacity_limits_from_cap_max
 from line_production.line_production_settings import lines_config
 
 # Configuration par défaut des sites de production et marchés de demande

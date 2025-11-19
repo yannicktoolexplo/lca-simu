@@ -4,6 +4,7 @@ from typing import Callable, Dict, Any, List, Tuple
 from copy import deepcopy
 from resilience_metrics import compute_metrics, ResilienceMetrics
 from shock_suite import build_shock_suite, estimate_exogenous_severity
+import pandas as pd
 
 @dataclass
 class ShockResultRow:
@@ -53,6 +54,7 @@ class ShockExperimentRunner:
         # 2) suite de chocs
         suite = build_shock_suite(state_for_suite, start_time=start_time, duration_days=duration_days, include=include)
         rows: List[ShockResultRow] = []
+
 
         # 3) exécutions
         for name, evs in suite.items():
