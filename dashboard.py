@@ -7,6 +7,7 @@ import plotly.graph_objects as go
 import streamlit as st
 from sqlalchemy import create_engine
 
+from resilience_analysis import compare_scenarios
 from SimChainGreenHorizons import main_function
 
 # ------------------------------------------------------------------------------
@@ -363,61 +364,19 @@ if st.button("🚀 Lancer la simulation"):
             st.write(ind_ref)
             st.write("**Détection auto sur la courbe de taux**")
             st.write(ind_auto)
-    # ------------------------------------------------------------------
-    # 9bis. Courbes de performance agrégée – par scénario de crise
-    # ------------------------------------------------------------------
-    st.markdown("### 📈 Signal de performance agrégé – scénarios de crise")
-
-    for name, res in crisis_results.items():
-        perf = res.get("perf_signal", {})
-        t = perf.get("time", [])
-        g = perf.get("global", [])
-        if not t or not g:
-            continue
-
-        st.subheader(f"Scénario : {name} (performance agrégée)")
-
-        fig_perf = go.Figure()
-        fig_perf.add_trace(
-            go.Scatter(
-                x=t,
-                y=g,
-                mode="lines",
-                name="Perf agrégée (0–1)",
-            )
-        )
-
-        ind_ref = res.get("resilience_perf_indicators", {})
-        ind_auto = res.get("resilience_perf_auto_indicators", {})
-
-        # Tu peux réutiliser la logique d’annotation de plot_crisis_rate_with_indicators
-        # si tu veux visualiser le creux et la recovery sur ce signal.
-
-        fig_perf.update_layout(
-            title=f"Performance agrégée (0–1) – {name}",
-            xaxis_title="Temps",
-            yaxis_title="Performance (0–1)",
-        )
-        st.plotly_chart(fig_perf, use_container_width=True)
-
-        with st.expander("Voir les indicateurs de résilience (performance agrégée)"):
-            st.write("**Par rapport à la référence Baseline (performance)**")
-            st.write(ind_ref)
-            st.write("**Détection auto sur la courbe de performance**")
-            st.write(ind_auto)
 
     # ------------------------------------------------------------------
-    # 10. Courbes de taux par ligne pour Baseline + Crises
+    # 9bis. Courbes de taux par ligne pour Baseline + Crises
     # ------------------------------------------------------------------
     st.markdown("### 📈 Taux de production par ligne – Baseline et scénarios de crise")
 
-    # Baseline
-    st.subheader("Baseline – taux de production par ligne")
-    fig_baseline_lines = plot_per_line_rates(
-        scenario_results["Baseline"].get("rate_curves", {}),
-        "Taux de production par ligne – Baseline",
-    )
-    st.plotly_chart(fig_baseline_lines, use_container_width=True, key="fig_lines_Baseline")
+    # # Baseline
+    # st.subheader("Baseline – taux de production par ligne")
+    # fig_baseline_lines = plot_per_line_rates(
+    #     scenario_results["Baseline"].get("rate_curves", {}),
+    #     "Taux de production par ligne – Baseline",
+    # )
+    # st.plotly_chart(fig_baseline_lines, use_container_width=True, key="fig_lines_Baseline")
 
     # Crises
     for i, (scenario_name, scenario_res) in enumerate(crisis_results.items()):
@@ -432,6 +391,90 @@ if st.button("🚀 Lancer la simulation"):
             key=f"fig_lines_{scenario_name}_{i}",
         )
 
+
+    # ------------------------------------------------------------------
+    # 10. Radar chart des scores de résilience (R1–R4)
+    # ------------------------------------------------------------------
+    # === RADAR de résilience basé sur les taux ===
+    import plotly.graph_objects as go
+    from resilience_analysis import radar_indicators
+
+    baseline = crisis_results["Baseline"]
+    time_vector = baseline["rate_curves"]["time"]
+    baseline_curve = baseline["rate_curves"]["global"]
+    baseline_total = sum(baseline["production_totals"].values())
+
+    fig_radar = go.Figure()
+    categories = ["R1 Amplitude", "R2 Recovery", "R3 Aire", "R4 Ratio", "R5 ProdCumul"]
+
+    for name, crisis in crisis_results.items():
+        crisis_curve = crisis["rate_curves"]["global"]
+        crisis_total = sum(crisis["production_totals"].values())
+        scores = radar_indicators(baseline_curve, crisis_curve, time_vector, baseline_total, crisis_total)
+        values = [scores[k] for k in categories] + [scores[categories[0]]]  # fermer le polygone
+
+        fig_radar.add_trace(go.Scatterpolar(
+            r=values,
+            theta=categories + [categories[0]],
+            fill='toself',
+            name=f"{name} (score: {scores['Score global']})"
+        ))
+
+    fig_radar.update_layout(
+        polar=dict(radialaxis=dict(visible=True, range=[0, 1.2])),
+        showlegend=True,
+        title="Radar de résilience"
+    )
+    st.plotly_chart(fig_radar, use_container_width=True)
+
+
+    # ===============================
+    #  SCÉNARIO OPTIMISÉ RÉSILIENCE
+    # ===============================
+    opt_res = result.get("resilience_optimized")
+
+    if opt_res:
+        st.markdown("## 🔵 Scénario Résilience Optimisé")
+
+        st.write(f"**Meilleure configuration** : {opt_res['best_name']}")
+        st.write(f"**Score moyen de résilience** : {opt_res['best_score']:.1f} / 100")
+
+        # Radar combiné Crise 1 / Crise 2
+        import plotly.graph_objects as go
+        categories = ["R1 Amplitude","R2 Recovery","R3 Aire","R4 Ratio","R5 ProdCumul"]
+
+        fig_r = go.Figure()
+
+        def avg(a,b): return 0.5*(a+b)
+
+        rad1 = opt_res["radar_crise1"]
+        rad2 = opt_res["radar_crise2"]
+        values = [avg(rad1[c], rad2[c]) for c in categories]
+        values += [values[0]]
+
+        fig_r.add_trace(go.Scatterpolar(
+            r=values,
+            theta=categories + [categories[0]],
+            fill='toself',
+            name="Optimisé Résilience"
+        ))
+
+        fig_r.update_layout(
+            title="Radar - Scénario Optimisé Résilience",
+            polar=dict(radialaxis=dict(visible=True, range=[0, 1.2]))
+        )
+
+        st.plotly_chart(fig_r, use_container_width=True)
+
+        st.markdown("### 📊 Détail complet des configurations testées")
+        st.dataframe([
+            {"Configuration": s["name"], "Score": s["score"]}
+            for s in opt_res["summary"]
+        ])
+
+
+
+   
 else:
     # Si aucune simulation n'a encore été lancée, afficher éventuellement la base
     st.markdown("### 📦 Résultats enregistrés dans la base")
