@@ -4,6 +4,8 @@ from optimization.optimization_engine import (
     run_optimization_co2_allocation_dict,
     run_multiobjective_allocation_dict,
     run_supply_chain_lightweight_scenario,
+    run_resilience_allocation_dict,
+    run_resilience_optimization
 
 )
 from line_production.line_production_settings import lines_config, scenario_events
@@ -151,7 +153,8 @@ def main_function():
         "Optimisation Coût":  {**result_optim_cost, "allocation_func": run_optimization_allocation_dict},
         "Optimisation CO₂":   {**result_optim_co2,  "allocation_func": run_optimization_co2_allocation_dict},
         "MultiObjectifs":  {**result_multi,     "allocation_func": run_multiobjective_allocation_dict},
-        "Lightweight":     {**result_lightweight, "allocation_func": lambda cap, demand: run_supply_chain_lightweight_scenario(cap, demand, seat_weight=LIGHTWEIGHT_SEAT_WEIGHT)}
+        "Lightweight":     {**result_lightweight, "allocation_func": lambda cap, demand: run_supply_chain_lightweight_scenario(cap, demand, seat_weight=LIGHTWEIGHT_SEAT_WEIGHT)},
+        "Optimisation Résilience": {    "allocation_func": run_resilience_allocation_dict},
     }
     # Stocker également le scénario de crise à part
     crisis_results = {
@@ -456,7 +459,7 @@ def main_function():
         "global": list(perf_baseline),
         "time": time_perf,
     }
-
+    scenario_results["Baseline"]["global_production"] = list(perf_baseline)
     # 2. Pour chaque scénario de crise : courbes de taux + indicateurs de résilience
     for name, result_crise in crisis_results.items():
         _, crise_rates_smooth, crise_global_smooth = compute_line_rate_curves(
@@ -540,6 +543,7 @@ def main_function():
             "global": list(perf_crise),
             "time": list(time_perf_aligned),
         }
+        result_crise["global_production"] = list(perf_crise_aligned)
 
     # Auto-résilience du baseline lui-même – sur le taux
     scenario_results["Baseline"]["resilience_auto_indicators"] = resilience_on_curve(
@@ -552,9 +556,44 @@ def main_function():
         list(perf_baseline),
         time_vector=list(time_perf),
     )
+ 
 
     # 10bis. Normaliser aussi les figures de crise
     crisis_all_figs = _extract_figs(crisis_figs) + _extract_figs(crisis_sankey_figs)
+
+
+    # ==================================================
+    # Optimisation Résilience
+    # ==================================================
+# ==================================================
+# Optimisation Résilience
+# ==================================================
+
+    # ⚠️ IMPORTANT : utiliser baseline_capacity_limits (dict) et PAS lines_config (list)
+    best_resilient, summary_resilience = run_resilience_optimization(
+        baseline_capacity_limits,
+        base_config,
+        crisis_base_config,
+        scenario_events
+    )
+
+    if best_resilient is None:
+        # Pas de solution trouvée → on ne remonte pas de scénario d'optimisation résilience
+        print("[ResilienceOpt] Aucune configuration valide trouvée "
+            "→ pas de scénario 'Optimisation Résilience' dans ce run.")
+        resilience_opt_result = None
+    else:
+        best_score, best_name, best_capacities, radar_c1, radar_c2 = best_resilient
+        resilience_opt_result = {
+            "best_score": best_score,
+            "best_name": best_name,
+            "best_capacities": best_capacities,
+            "radar_crise1": radar_c1,
+            "radar_crise2": radar_c2,
+            "summary": summary_resilience,
+        }
+
+
 
 
     # Préparer le dictionnaire de résultats final à retourner
@@ -567,6 +606,7 @@ def main_function():
         "scenario_results": scenario_results,
         "crisis_results": crisis_results,
         "crisis_figures": crisis_all_figs,
+        "resilience_optimized": resilience_opt_result,
         "cap_max": cap_max, 
         "lines_config": lines_config
     }

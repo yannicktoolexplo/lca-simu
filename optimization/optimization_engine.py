@@ -5,6 +5,10 @@ from economic.cost_engine import get_supply_cost, get_unit_cost, calculate_total
 from distribution.distribution_engine import load_freight_costs_and_demands
 from line_production.production_engine import load_fixed_and_variable_costs, run_simple_supply_allocation, build_capacity_limits_from_cap_max
 from line_production.line_production_settings import lines_config
+from scenario_engine import run_scenario, compare_scenarios
+from typing import Dict, Tuple, List
+import itertools
+from copy import deepcopy
 
 # Configuration par défaut des sites de production et marchés de demande
 DEFAULT_PROD_SITES = ['Texas', 'California', 'UK', 'France']
@@ -327,6 +331,130 @@ def run_supply_chain_allocation_as_dict(allocation_function, capacity_limits, de
         "cap": cap
     }
 
+# ============================================================
+#  Optimisation Résilience (meta-optimisation)
+# ============================================================
+
+def _build_capacities_from_modes(
+    baseline_cap: Dict[str, Dict[str, float]],
+    modes: Dict[str, str]
+) -> Dict[str, Dict[str, float]]:
+    """
+    baseline_cap[site] = {'Low': ..., 'High': ...}
+    modes[site] in {'OFF','LOW','HIGH'}
+    """
+    cap_limits: Dict[str, Dict[str, float]] = {}
+    for site, base_cap in baseline_cap.items():
+        mode = modes[site]
+        if mode == "OFF":
+            cap_limits[site] = {"Low": 0.0, "High": 0.0}
+        elif mode == "LOW":
+            cap_limits[site] = {"Low": float(base_cap.get("Low", 0.0)), "High": 0.0}
+        elif mode == "HIGH":
+            cap_limits[site] = {"Low": 0.0, "High": float(base_cap.get("High", 0.0))}
+        else:
+            # sécurité : on reprend la capacité de base telle quelle
+            cap_limits[site] = {
+                "Low": float(base_cap.get("Low", 0.0)),
+                "High": float(base_cap.get("High", 0.0)),
+            }
+    return cap_limits
+
+
+def run_resilience_optimization(
+    baseline_capacity_limits: Dict[str, Dict[str, float]],
+    base_config: Dict,
+    crisis_base_config: Dict,
+    scenario_events: Dict[str, List[Tuple]],
+):
+    """
+    Explore toutes les combinaisons OFF / LOW / HIGH pour chaque site
+    en partant des capacités déjà calculées (baseline_capacity_limits).
+
+    Pour chaque combinaison :
+      - scénario nominal
+      - scénario Crise 1
+      - scénario Crise 2
+      - calcul des indicateurs de résilience et d'un score agrégé
+
+    Retourne :
+      best = (best_score, config_name, best_cap_limits, radar_crise1, radar_crise2)
+      summary = liste de tuples pour analyse éventuelle
+    """
+    from scenario_engine import run_scenario
+    from resilience_analysis import compute_resilience_indicators, radar_indicators
+    from line_production.production_engine import compute_line_rate_curves  # pour cohérence
+
+    site_names = list(baseline_capacity_limits.keys())
+    mode_choices = ["OFF", "LOW", "HIGH"]
+
+    best = None
+    summary = []
+
+    for combo in itertools.product(mode_choices, repeat=len(site_names)):
+        modes = {site: mode for site, mode in zip(site_names, combo)}
+        cap_limits = _build_capacities_from_modes(baseline_capacity_limits, modes)
+
+        # si tout est OFF → pas la peine de simuler
+        total_cap = sum(cap_limits[s]["Low"] + cap_limits[s]["High"] for s in site_names)
+        if total_cap <= 0:
+            continue
+
+        # --- Nominal ---
+        cfg_nom = deepcopy(base_config)
+        cfg_nom["capacity_limits"] = cap_limits
+        res_nom = run_scenario(run_simple_allocation_dict, cfg_nom)
+
+        try:
+            t_nom = res_nom["rate_curves"]["time"]
+            g_nom = res_nom["rate_curves"]["global"]
+        except KeyError:
+            continue
+
+        # --- Crise 1 ---
+        cfg_c1 = deepcopy(crisis_base_config)
+        cfg_c1["capacity_limits"] = cap_limits
+        cfg_c1["events"] = scenario_events["Crise 1"]
+        res_c1 = run_scenario(run_simple_allocation_dict, cfg_c1)
+
+        # --- Crise 2 ---
+        cfg_c2 = deepcopy(crisis_base_config)
+        cfg_c2["capacity_limits"] = cap_limits
+        cfg_c2["events"] = scenario_events["Crise 2"]
+        res_c2 = run_scenario(run_simple_allocation_dict, cfg_c2)
+
+        try:
+            g_c1 = res_c1["rate_curves"]["global"]
+            g_c2 = res_c2["rate_curves"]["global"]
+        except KeyError:
+            continue
+
+        # indicateurs + radars
+        ind_c1 = compute_resilience_indicators(g_nom, g_c1, t_nom)
+        ind_c2 = compute_resilience_indicators(g_nom, g_c2, t_nom)
+
+        radar_c1 = radar_indicators(ind_c1)
+        radar_c2 = radar_indicators(ind_c2)
+
+        # score moyen sur les 5 indicateurs, puis moyenne des 2 crises
+        score_c1 = (radar_c1["R1 Amplitude"] + radar_c1["R2 Recovery"]
+                    + radar_c1["R3 Aire"] + radar_c1["R4 Ratio"] + radar_c1["R5 ProdCumul"]) / 5.0
+        score_c2 = (radar_c2["R1 Amplitude"] + radar_c2["R2 Recovery"]
+                    + radar_c2["R3 Aire"] + radar_c2["R4 Ratio"] + radar_c2["R5 ProdCumul"]) / 5.0
+        global_score = (score_c1 + score_c2) / 2.0
+
+        config_name = " | ".join(f"{s}:{modes[s]}" for s in site_names)
+
+        summary.append((global_score, config_name, cap_limits, radar_c1, radar_c2))
+
+        if (best is None) or (global_score > best[0]):
+            best = (global_score, config_name, cap_limits, radar_c1, radar_c2)
+
+    return best, summary
+
+
+
+
 # Fonctions utilitaires renvoyant un dictionnaire de résultat à partir des différentes stratégies
 def run_simple_allocation_dict(capacity_limits, demand):
     return run_supply_chain_allocation_as_dict(run_simple_supply_allocation, capacity_limits, demand)
@@ -342,3 +470,70 @@ def run_multiobjective_allocation_dict(capacity_limits, demand):
         lambda cap, dem: run_supply_chain_optimization_multiobjective(cap, dem, alpha=1.0, beta=1.0),
         capacity_limits, demand
     )
+
+def run_resilience_allocation_dict(capacity_limits, demand):
+    """
+    Allocation basée sur l'optimisation de résilience.
+    Utilise les 'capacity_limits' baseline comme référence,
+    explore OFF/LOW/HIGH, choisit la meilleure config, puis fait une allocation simple.
+    """
+    from scenario_engine import run_scenario
+    from line_production.line_production_settings import lines_config, scenario_events
+
+    base_config = {
+        "lines_config": lines_config,
+        "include_supply": True,
+        "include_storage": True,
+        "capacity_limits": capacity_limits,
+    }
+    crisis_base_config = {
+        "lines_config": lines_config,
+        "include_supply": True,
+        "include_storage": True,
+        "capacity_limits": capacity_limits,
+    }
+
+    best, summary = run_resilience_optimization(
+        capacity_limits,
+        base_config,
+        crisis_base_config,
+        scenario_events,
+    )
+
+    if best is None:
+        # fallback : on retombe sur l'allocation simple baseline
+        source, target, value, production_totals, market_totals, loc_prod, loc_demand, cap = \
+            run_simple_supply_allocation(capacity_limits, demand)
+        return {
+            "source": source,
+            "target": target,
+            "value": value,
+            "production_totals": production_totals,
+            "market_totals": market_totals,
+            "loc_prod": loc_prod,
+            "loc_demand": loc_demand,
+            "cap": cap,
+            "resilience_score": 0.0,
+            "best_config_name": "Baseline (fallback)",
+        }
+
+    best_score, best_name, best_cap_limits, radar1, radar2 = best
+
+    # Allocation finale avec la meilleure config
+    source, target, value, production_totals, market_totals, loc_prod, loc_demand, cap = \
+        run_simple_supply_allocation(best_cap_limits, demand)
+
+    return {
+        "source": source,
+        "target": target,
+        "value": value,
+        "production_totals": production_totals,
+        "market_totals": market_totals,
+        "loc_prod": loc_prod,
+        "loc_demand": loc_demand,
+        "cap": best_cap_limits,
+        "resilience_score": best_score,
+        "best_config_name": best_name,
+        "radar_crise1": radar1,
+        "radar_crise2": radar2,
+    }
