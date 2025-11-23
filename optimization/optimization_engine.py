@@ -348,13 +348,23 @@ def _build_capacities_from_modes(
     """
     cap_limits: Dict[str, Dict[str, float]] = {}
     for site, base_cap in baseline_cap.items():
+        low_val = float(base_cap.get("Low", 0.0))
+        high_val = float(base_cap.get("High", 0.0))
+        delta = max(high_val - low_val, 0.0)
+        quarter_low = 0.25 * low_val
+        three_quarter = low_val + 0.75 * delta if delta > 0 else 0.75 * high_val
+
         mode = modes[site]
         if mode == "OFF":
             cap_limits[site] = {"Low": 0.0, "High": 0.0}
+        elif mode == "LOW_QUARTER":
+            cap_limits[site] = {"Low": quarter_low, "High": quarter_low}
         elif mode == "LOW":
-            cap_limits[site] = {"Low": float(base_cap.get("Low", 0.0)), "High": 0.0}
+            cap_limits[site] = {"Low": low_val, "High": low_val}
+        elif mode == "THREE_QUARTER":
+            cap_limits[site] = {"Low": three_quarter, "High": three_quarter}
         elif mode == "HIGH":
-            cap_limits[site] = {"Low": 0.0, "High": float(base_cap.get("High", 0.0))}
+            cap_limits[site] = {"Low": high_val, "High": high_val}
         else:
             # sécurité : on reprend la capacité de base telle quelle
             cap_limits[site] = {
@@ -511,7 +521,7 @@ def run_resilience_optimization(
     g_ref_norm = [x / ref_peak for x in g_ref_raw]
 
     site_names = list(baseline_capacity_limits.keys())
-    mode_choices = ["OFF", "LOW", "HIGH"]
+    mode_choices = ["OFF", "LOW_QUARTER", "LOW", "THREE_QUARTER", "HIGH"]
 
     best = None
     summary = []

@@ -17,6 +17,7 @@ from line_production.production_engine import (
     compute_line_rate_curves,
     build_capacity_limits_from_cap_max,
 )
+from event_engine import PerturbationEvent
 
 from sqlalchemy import (
     create_engine,
@@ -225,6 +226,33 @@ def main_function():
     }
     for scenario_res in scenario_results.values():
         _adjust_production_curves_to_match_totals(scenario_res)
+    # Scénarios de crises pour la résilience : rupture de chaque matière et panne de chaque site
+    resilience_event_definitions = {}
+    material_events = ["aluminium", "foam", "fabric", "paint"]
+    site_names = [cfg.get("location") for cfg in lines_config if cfg.get("location")]
+    for mat in material_events:
+        resilience_event_definitions[f"Rupture {mat.capitalize()}"] = [
+            PerturbationEvent(
+                time=20,
+                target=mat,
+                event_type="rupture_fournisseur",
+                magnitude=1.0,
+                duration=200,
+                description=f"Rupture {mat}",
+            )
+        ]
+    for site in site_names:
+        resilience_event_definitions[f"Panne {site}"] = [
+            PerturbationEvent(
+                time=20,
+                target=site,
+                event_type="panne",
+                magnitude=1.0,
+                duration=200,
+                description=f"Panne {site}",
+            )
+        ]
+
     # Stocker également le scénario de crise à part
     crisis_results = {
     "Baseline": {**result_baseline,   "allocation_func": run_simple_allocation_dict},
@@ -235,10 +263,11 @@ def main_function():
     # ==================================================
     # Optimisation Résilience (avant les comparaisons)
     # ==================================================
-    scenario_events_res = {
-        "Crise 1": scenario_events["Rupture Alu"],
-        "Crise 2": scenario_events["Panne Texas"],
-    }
+    scenario_events_res = {}
+    crisis_counter = 1
+    for crisis_name, events in resilience_event_definitions.items():
+        scenario_events_res[f"Crise {crisis_counter}"] = events
+        crisis_counter += 1
 
     resilience_base_config = deepcopy(base_config)
     resilience_base_config["lines_config"] = deepcopy(lines_config)
@@ -270,15 +299,16 @@ def main_function():
             "capacity_limits": best_capacities
         }
         result_resilience = run_scenario(run_optimization_allocation_dict, optimized_config)
+        # calcul moyenne radars sur toutes les crises utilisées
+        radar_keys = ["R1 Amplitude", "R2 Recovery", "R3 Aire", "R4 Ratio", "R5 ProdCumul", "Score global"]
+        radar_avg_opt = {key: (radar_c1.get(key, 0.0) + radar_c2.get(key, 0.0)) / 2.0 for key in radar_keys}
+
         scenario_results["Optimisation Résilience"] = {
             **result_resilience,
             "allocation_func": run_optimization_allocation_dict,
             "resilience_score": best_score_pct,
             "best_config_name": best_name,
-            "resilience_radar_avg": {
-                key: (radar_c1.get(key, 0.0) + radar_c2.get(key, 0.0)) / 2.0
-                for key in ["R1 Amplitude", "R2 Recovery", "R3 Aire", "R4 Ratio", "R5 ProdCumul", "Score global"]
-            },
+            "resilience_radar_avg": radar_avg_opt,
         }
         _adjust_production_curves_to_match_totals(scenario_results["Optimisation Résilience"])
         resilience_opt_result = {
@@ -383,21 +413,21 @@ def main_function():
 
     # 5. Pour chaque scénario nominal (hors crise)
     for name, scenario_res in scenario_results.items():
-        config_shock = {**base_config, "loc_prod": {}}
-        res_supply = run_scenario(scenario_res["allocation_func"], {**config_shock, "events": scenario_events["shock_supply"]})
-        res_prod   = run_scenario(scenario_res["allocation_func"], {**config_shock, "events": scenario_events["shock_production"]})
-        res_dist   = run_scenario(scenario_res["allocation_func"], {**config_shock, "events": scenario_events["shock_distribution"]})
+        base_cfg = deepcopy(scenario_res.get("config", base_config))
+        base_cfg.pop("events", None)
+
+        res_supply = run_scenario(scenario_res["allocation_func"], {**deepcopy(base_cfg), "events": scenario_events["shock_supply"]})
+        res_prod   = run_scenario(scenario_res["allocation_func"], {**deepcopy(base_cfg), "events": scenario_events["shock_production"]})
+        res_dist   = run_scenario(scenario_res["allocation_func"], {**deepcopy(base_cfg), "events": scenario_events["shock_distribution"]})
         scenario_res["resilience_test"] = {
             "supply": res_supply,
             "production": res_prod,
             "distribution": res_dist
         }
-        res_crise1 = run_scenario(scenario_res["allocation_func"], {**config_shock, "events": scenario_events["Rupture Alu"]})
-        res_crise2 = run_scenario(scenario_res["allocation_func"], {**config_shock, "events": scenario_events["Panne Texas"]})
-        scenario_res["resilience_crises"] = {
-            "Crise 1": res_crise1,
-            "Crise 2": res_crise2,
-        }
+        scenario_res["resilience_crises"] = {}
+        for crisis_name, events in resilience_event_definitions.items():
+            res_crisis = run_scenario(scenario_res["allocation_func"], {**deepcopy(base_cfg), "events": events})
+            scenario_res["resilience_crises"][crisis_name] = res_crisis
 
     # 5bis. Pour chaque scénario de crise
     for name, crisis_res in crisis_results.items():
