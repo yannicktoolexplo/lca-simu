@@ -481,21 +481,29 @@ if st.button("🚀 Lancer la simulation"):
                 for metric in categories + ["Score global"]
             }
 
-        baseline_values = baseline_reference_values
-        baseline_score_display = baseline_reference_score
-        if not baseline_values:
-            base_scores = radar_indicators(
-                baseline_curve,
-                baseline_curve,
-                baseline_time,
-                baseline_total,
-                baseline_total,
-            )
-            baseline_values = [base_scores[c] for c in categories]
+        baseline_scores_avg = scenario_results.get("Baseline", {}).get("resilience_radar_avg")
+        baseline_values = None
+        baseline_score_display = None
+        if baseline_scores_avg:
+            baseline_values = [baseline_scores_avg.get(c, 0.0) for c in categories]
             baseline_values.append(baseline_values[0])
-            baseline_score_display = base_scores["Score global"]
-            baseline_reference_values = baseline_values
-            baseline_reference_score = baseline_score_display
+            baseline_score_display = baseline_scores_avg.get("Score global", 0.0)
+        else:
+            baseline_values = baseline_reference_values
+            baseline_score_display = baseline_reference_score
+            if not baseline_values:
+                base_scores = radar_indicators(
+                    baseline_curve,
+                    baseline_curve,
+                    baseline_time,
+                    baseline_total,
+                    baseline_total,
+                )
+                baseline_values = [base_scores[c] for c in categories]
+                baseline_values.append(baseline_values[0])
+                baseline_score_display = base_scores["Score global"]
+                baseline_reference_values = baseline_values
+                baseline_reference_score = baseline_score_display
 
         if not opt_avg_scores:
             st.warning("⚠️ L’optimisation résilience n’a pas trouvé de configuration valide. Aucun radar n’est affiché.")
