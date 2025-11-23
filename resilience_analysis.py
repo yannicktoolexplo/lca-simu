@@ -112,35 +112,42 @@ def compare_scenarios(baseline, crisis, time_vector):
 def radar_indicators(baseline_curve, crisis_curve, time_vector, total_baseline, total_crisis):
     indicators = compute_resilience_indicators(baseline_curve, crisis_curve, time_vector)
 
-    def safe_inv(x):
-        # None, NaN, inf → on retourne 0 (pas de contribution positive)
-        if x is None:
-            return 0.0
+    def _to_float(value, default=0.0):
         try:
-            x = float(x)
+            value = float(value)
         except (TypeError, ValueError):
+            return default
+        if math.isnan(value) or math.isinf(value):
+            return default
+        return value
+
+    def _loss_to_score(loss_value):
+        loss = _to_float(loss_value, 0.0)
+        if loss <= 0:
+            return 1.0
+        return 1.0 / (1.0 + loss)
+
+    def _ratio_score(ratio_value):
+        ratio = _to_float(ratio_value, 0.0)
+        if ratio <= 0:
             return 0.0
-        if math.isnan(x) or math.isinf(x):
-            return 0.0
-        return 1.0 / (1.0 + x)
+        return min(ratio, 1.0)
 
     score = {
-        "R1 Amplitude": safe_inv(indicators["rel_amplitude"]),
-        "R2 Recovery": safe_inv(indicators.get("recovery_time", 0.0)),
-        "R3 Aire":      safe_inv(indicators["norm_performance_area"]),
-        "R4 Ratio":     float(indicators.get("prod_ratio", 0.0) or 0.0),
-        "R5 ProdCumul": (float(total_crisis) / float(total_baseline)) if total_baseline > 0 else 0.0,
+        "R1 Amplitude": _loss_to_score(indicators.get("rel_amplitude", 0.0)),
+        "R2 Recovery": _loss_to_score(indicators.get("recovery_time", 0.0)),
+        "R3 Aire": _loss_to_score(indicators.get("norm_performance_area", 0.0)),
+        "R4 Ratio": _ratio_score(indicators.get("prod_ratio", 0.0)),
+        "R5 ProdCumul": _ratio_score(
+            (float(total_crisis) / float(total_baseline)) if total_baseline > 0 else 0.0
+        ),
     }
 
-    # Nettoyage de sécurité au cas où
     clean_vals = []
-    for v in score.values():
-        try:
-            v = float(v)
-        except (TypeError, ValueError):
-            v = 0.0
-        if math.isnan(v) or math.isinf(v):
-            v = 0.0
+    for key, value in score.items():
+        v = _to_float(value, 0.0)
+        v = min(max(v, 0.0), 1.0)
+        score[key] = v
         clean_vals.append(v)
 
     score["Score global"] = round(100.0 * sum(clean_vals) / len(clean_vals), 1)
