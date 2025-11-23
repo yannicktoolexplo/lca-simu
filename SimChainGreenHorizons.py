@@ -5,7 +5,8 @@ from optimization.optimization_engine import (
     run_multiobjective_allocation_dict,
     run_supply_chain_lightweight_scenario,
     run_resilience_allocation_dict,
-    run_resilience_optimization
+    run_resilience_optimization,
+    build_capacity_limits_from_cap_max
 
 )
 from line_production.line_production_settings import lines_config, scenario_events
@@ -562,36 +563,58 @@ def main_function():
     crisis_all_figs = _extract_figs(crisis_figs) + _extract_figs(crisis_sankey_figs)
 
 
+
     # ==================================================
     # Optimisation Résilience
     # ==================================================
-# ==================================================
-# Optimisation Résilience
-# ==================================================
 
-    # ⚠️ IMPORTANT : utiliser baseline_capacity_limits (dict) et PAS lines_config (list)
+    # Étape intermédiaire : vérifier la correspondance des sites
+    baseline_capacity_limits_clean = build_capacity_limits_from_cap_max(cap_max)
+
+    print("Type de base_config['capacity_limits']:", type(base_config["capacity_limits"]))
+    print("Contenu de base_config['capacity_limits']:", base_config["capacity_limits"])
+
+    # Mapping cohérent avec ce qu'on a utilisé plus haut pour les crises
+    scenario_events_res = {
+        "Crise 1": scenario_events["Rupture Alu"],
+        "Crise 2": scenario_events["Panne Texas"],
+    }
+
     best_resilient, summary_resilience = run_resilience_optimization(
-        baseline_capacity_limits,
+        base_config["capacity_limits"],   # <-- au lieu de lines_config
         base_config,
         crisis_base_config,
-        scenario_events
+        scenario_events_res,
     )
 
+
+
     if best_resilient is None:
-        # Pas de solution trouvée → on ne remonte pas de scénario d'optimisation résilience
-        print("[ResilienceOpt] Aucune configuration valide trouvée "
-            "→ pas de scénario 'Optimisation Résilience' dans ce run.")
-        resilience_opt_result = None
+        print("[ResilienceOpt] Aucune configuration valide trouvée.")
+        resilience_opt_result = {
+            "best_score": 0.0,
+            "best_name": "Aucune configuration valide",
+            "best_capacities": {},
+            "radar_crise1": {},
+            "radar_crise2": {},
+            "summary": []
+        }
     else:
-        best_score, best_name, best_capacities, radar_c1, radar_c2 = best_resilient
+        best_score, best_name, best_capacities, radar_c1, radar_c2 = best_resilient[:5]
+        print("radar_crise1:", radar_c1)
+        print("radar_crise2:", radar_c2)
         resilience_opt_result = {
             "best_score": best_score,
             "best_name": best_name,
             "best_capacities": best_capacities,
             "radar_crise1": radar_c1,
             "radar_crise2": radar_c2,
-            "summary": summary_resilience,
-        }
+            "summary": [
+                {"score": s[0], "name": s[1]} for s in summary_resilience
+            ]
+    }
+
+
 
 
 
