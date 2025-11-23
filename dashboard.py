@@ -436,41 +436,49 @@ if st.button("🚀 Lancer la simulation"):
     if opt_res:
         st.markdown("## 🔵 Scénario Résilience Optimisé")
 
-        st.write(f"**Meilleure configuration** : {opt_res['best_name']}")
-        st.write(f"**Score moyen de résilience** : {opt_res['best_score']:.1f} / 100")
+        st.write(f"**Meilleure configuration** : {opt_res.get('best_name', 'N/A')}")
+        st.write(f"**Score moyen de résilience** : {opt_res.get('best_score', 0):.1f} / 100")
 
         # Radar combiné Crise 1 / Crise 2
         import plotly.graph_objects as go
-        categories = ["R1 Amplitude","R2 Recovery","R3 Aire","R4 Ratio","R5 ProdCumul"]
+        categories = ["R1 Amplitude", "R2 Recovery", "R3 Aire", "R4 Ratio", "R5 ProdCumul"]
 
         fig_r = go.Figure()
+        rad1 = opt_res.get("radar_crise1", {})
+        rad2 = opt_res.get("radar_crise2", {})
 
-        def avg(a,b): return 0.5*(a+b)
+        def avg(a, b): 
+            return 0.5 * (a + b) if isinstance(a, (int, float)) and isinstance(b, (int, float)) else 0
 
-        rad1 = opt_res["radar_crise1"]
-        rad2 = opt_res["radar_crise2"]
-        values = [avg(rad1[c], rad2[c]) for c in categories]
-        values += [values[0]]
+        # Vérifie la présence des données avant d’afficher
+        if not rad1 or not rad2 or any(c not in rad1 for c in categories) or any(c not in rad2 for c in categories):
+            st.warning("⚠️ L’optimisation résilience n’a pas trouvé de configuration valide. Aucun radar n’est affiché.")
+        else:
+            values = [avg(rad1[c], rad2[c]) for c in categories]
+            values += [values[0]]
+            fig_r.add_trace(go.Scatterpolar(
+                r=values,
+                theta=categories + [categories[0]],
+                fill='toself',
+                name='Optim Résilience',
+                line=dict(color='black', dash='dash')
+            ))
 
-        fig_r.add_trace(go.Scatterpolar(
-            r=values,
-            theta=categories + [categories[0]],
-            fill='toself',
-            name="Optimisé Résilience"
-        ))
+            fig_r.update_layout(
+                title="Radar – Scénario Optimisé Résilience",
+                polar=dict(radialaxis=dict(visible=True, range=[0, 1.2]))
+            )
+            st.plotly_chart(fig_r, use_container_width=True)
 
-        fig_r.update_layout(
-            title="Radar - Scénario Optimisé Résilience",
-            polar=dict(radialaxis=dict(visible=True, range=[0, 1.2]))
-        )
-
-        st.plotly_chart(fig_r, use_container_width=True)
-
+        # Tableau récapitulatif des configurations testées
         st.markdown("### 📊 Détail complet des configurations testées")
-        st.dataframe([
-            {"Configuration": s["name"], "Score": s["score"]}
-            for s in opt_res["summary"]
-        ])
+        if opt_res.get("summary"):
+            st.dataframe([
+                {"Configuration": s.get("name", "N/A"), "Score": s.get("score", 0.0)}
+                for s in opt_res["summary"]
+            ])
+        else:
+            st.info("Aucune configuration de résilience n’a été trouvée.")
 
 
 
