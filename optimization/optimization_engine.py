@@ -474,10 +474,26 @@ def run_resilience_optimization(
         return time, daily
 
     # --------------------------------------------------------
+    def _build_lines_config_for_cap(lines_source, cap_limits):
+        """
+        Filtre les lignes actives en fonction des capacités (OFF => retiré).
+        """
+        filtered = []
+        for cfg in lines_source or []:
+            loc = cfg.get("location")
+            site_cap = cap_limits.get(loc, {})
+            total = float(site_cap.get("Low", 0.0)) + float(site_cap.get("High", 0.0))
+            if total > 0:
+                filtered.append(deepcopy(cfg))
+        return filtered
 
     # Construire une référence unique (baseline complet) pour comparer toutes les configurations
     ref_config = deepcopy(base_config)
     ref_config["capacity_limits"] = baseline_capacity_limits
+    ref_config["lines_config"] = _build_lines_config_for_cap(
+        base_config.get("lines_config", []),
+        baseline_capacity_limits,
+    )
     reference_result = run_scenario(run_simple_allocation_dict, ref_config)
     try:
         t_ref_raw, g_ref_raw = _build_global_rate_curve_from_production(reference_result, "Baseline (référence)")
@@ -513,20 +529,30 @@ def run_resilience_optimization(
             continue
 
         # --- Nominal ---
+        lines_cfg_filtered = _build_lines_config_for_cap(
+            base_config.get("lines_config", []),
+            cap_limits,
+        )
+        if not lines_cfg_filtered:
+            continue
+
         cfg_nom = deepcopy(base_config)
         cfg_nom["capacity_limits"] = cap_limits
+        cfg_nom["lines_config"] = lines_cfg_filtered
         res_nom = run_scenario(run_simple_allocation_dict, cfg_nom)
 
         # --- Crise 1 ---
         cfg_c1 = deepcopy(crisis_base_config)
         cfg_c1["capacity_limits"] = cap_limits
         cfg_c1["events"] = scenario_events["Crise 1"]
+        cfg_c1["lines_config"] = deepcopy(lines_cfg_filtered)
         res_c1 = run_scenario(run_simple_allocation_dict, cfg_c1)
 
         # --- Crise 2 ---
         cfg_c2 = deepcopy(crisis_base_config)
         cfg_c2["capacity_limits"] = cap_limits
         cfg_c2["events"] = scenario_events["Crise 2"]
+        cfg_c2["lines_config"] = deepcopy(lines_cfg_filtered)
         res_c2 = run_scenario(run_simple_allocation_dict, cfg_c2)
 
         # --- Construire les courbes globales normalisées ---
@@ -542,40 +568,40 @@ def run_resilience_optimization(
             continue
 
         # --- Alignement des longueurs ---
-        min_len = min(len(t_ref_raw), len(g_ref_norm), len(t_nom), len(g_nom), len(g_c1), len(g_c2))
+        min_len = min(len(t_nom), len(g_nom), len(g_c1), len(g_c2))
         if min_len == 0:
             print("[ResilienceOpt] ⚠️ Courbes vides après alignement, config ignorée.")
             continue
 
-        t_aligned = t_ref_raw[:min_len]
-        g_ref_aligned_norm = g_ref_norm[:min_len]
-
+        t_aligned = t_nom[:min_len]
         g_nom_aligned = g_nom[:min_len]
         g_c1_aligned = g_c1[:min_len]
         g_c2_aligned = g_c2[:min_len]
 
-        g_nom_norm = [x / ref_peak for x in g_nom_aligned]
-        g_c1_norm = [x / ref_peak for x in g_c1_aligned]
-        g_c2_norm = [x / ref_peak for x in g_c2_aligned]
+        peak_nom = max(g_nom_aligned) if g_nom_aligned else 0.0
+        if peak_nom <= 0:
+            peak_nom = 1.0
+        g_nom_norm = [x / peak_nom for x in g_nom_aligned]
+        g_c1_norm = [x / peak_nom for x in g_c1_aligned]
+        g_c2_norm = [x / peak_nom for x in g_c2_aligned]
 
         # --- Indicateurs + radars ---
         try:
             # On calcule les radars de résilience à partir des courbes alignées
-            # Totaux de production (approche simple : somme des débits globaux)
-            total_baseline = float(sum(g_ref_raw[:min_len]))
+            total_baseline = float(sum(g_nom_aligned))
             total_c1 = float(sum(g_c1_aligned))
             total_c2 = float(sum(g_c2_aligned))
 
             # Radar pour chaque scénario de crise (C1, C2) par rapport au nominal
             radar_c1 = radar_indicators(
-                g_ref_aligned_norm,  # baseline_curve
+                g_nom_norm,  # baseline_curve
                 g_c1_norm,   # crisis_curve
                 t_aligned,      # time_vector
                 total_baseline,
                 total_c1,
             )
             radar_c2 = radar_indicators(
-                g_ref_aligned_norm,
+                g_nom_norm,
                 g_c2_norm,
                 t_aligned,
                 total_baseline,
@@ -695,9 +721,16 @@ def run_resilience_allocation_dict(capacity_limits, demand):
     best_score_pct = round(best_score * 100.0, 1)
 
 
-    # Allocation finale avec la meilleure config
-    source, target, value, production_totals, market_totals, loc_prod, loc_demand, cap = \
-        run_simple_supply_allocation(best_cap_limits, demand)
+    # Allocation finale avec la meilleure config (optimisation coût)
+    allocation = run_supply_chain_allocation_as_dict(run_supply_chain_optimization, best_cap_limits, demand)
+    source = allocation["source"]
+    target = allocation["target"]
+    value = allocation["value"]
+    production_totals = allocation["production_totals"]
+    market_totals = allocation["market_totals"]
+    loc_prod = allocation["loc_prod"]
+    loc_demand = allocation["loc_demand"]
+    cap = allocation["cap"]
 
     return {
         "source": source,
@@ -707,7 +740,7 @@ def run_resilience_allocation_dict(capacity_limits, demand):
         "market_totals": market_totals,
         "loc_prod": loc_prod,
         "loc_demand": loc_demand,
-        "cap": best_cap_limits,
+        "cap": cap,
         "resilience_score": best_score_pct,
         "best_config_name": best_name,
         "radar_crise1": radar1,

@@ -406,18 +406,28 @@ if st.button("🚀 Lancer la simulation"):
 
     fig_radar = go.Figure()
     categories = ["R1 Amplitude", "R2 Recovery", "R3 Aire", "R4 Ratio", "R5 ProdCumul"]
+    baseline_radar_values = None
+    baseline_radar_score = None
 
     for name, crisis in crisis_results.items():
         crisis_curve = crisis["rate_curves"]["global"]
         crisis_total = sum(crisis["production_totals"].values())
         scores = radar_indicators(baseline_curve, crisis_curve, time_vector, baseline_total, crisis_total)
         values = [scores[k] for k in categories] + [scores[categories[0]]]  # fermer le polygone
-
+        trace_line = {}
+        fill_color = None
+        if name == "Baseline":
+            baseline_radar_values = list(values)
+            baseline_radar_score = scores["Score global"]
+            trace_line["color"] = "#636EFA"
+            fill_color = "rgba(99,110,250,0.35)"
         fig_radar.add_trace(go.Scatterpolar(
             r=values,
             theta=categories + [categories[0]],
             fill='toself',
-            name=f"{name} (score: {scores['Score global']})"
+            name=f"{name} (score: {scores['Score global']})",
+            line=trace_line,
+            fillcolor=fill_color,
         ))
 
     fig_radar.update_layout(
@@ -426,6 +436,8 @@ if st.button("🚀 Lancer la simulation"):
         title="Radar de résilience"
     )
     st.plotly_chart(fig_radar, width='stretch')
+    baseline_reference_values = baseline_radar_values
+    baseline_reference_score = baseline_radar_score or 0.0
 
 
     # ===============================
@@ -446,6 +458,17 @@ if st.button("🚀 Lancer la simulation"):
         fig_r = go.Figure()
         rad1 = opt_res.get("radar_crise1", {})
         rad2 = opt_res.get("radar_crise2", {})
+        baseline_curve = baseline["rate_curves"]["global"]
+        baseline_time = baseline["rate_curves"]["time"]
+        baseline_total = sum(baseline["production_totals"].values())
+        scenario_colors = {
+            "Optim Résilience": "#FFB300",
+            "Baseline": "#636EFA",
+            "Optimisation Coût": "#1f77b4",
+            "Optimisation CO₂": "#2ca02c",
+            "MultiObjectifs": "#d62728",
+            "Lightweight": "#9467bd",
+        }
 
         def avg(a, b): 
             return 0.5 * (a + b) if isinstance(a, (int, float)) and isinstance(b, (int, float)) else 0
@@ -454,15 +477,90 @@ if st.button("🚀 Lancer la simulation"):
         if not rad1 or not rad2 or any(c not in rad1 for c in categories) or any(c not in rad2 for c in categories):
             st.warning("⚠️ L’optimisation résilience n’a pas trouvé de configuration valide. Aucun radar n’est affiché.")
         else:
-            values = [avg(rad1[c], rad2[c]) for c in categories]
-            values += [values[0]]
-            fig_r.add_trace(go.Scatterpolar(
-                r=values,
-                theta=categories + [categories[0]],
-                fill='toself',
-                name='Optim Résilience',
-                line=dict(color='black', dash='dash')
-            ))
+            optim_trace = [avg(rad1[c], rad2[c]) for c in categories]
+            optim_trace.append(optim_trace[0])
+            baseline_values = baseline_reference_values
+            baseline_score_display = baseline_reference_score
+            if not baseline_values:
+                base_scores = radar_indicators(
+                    baseline_curve,
+                    baseline_curve,
+                    baseline_time,
+                    baseline_total,
+                    baseline_total,
+                )
+                baseline_values = [base_scores[c] for c in categories]
+                baseline_values.append(baseline_values[0])
+                baseline_score_display = base_scores["Score global"]
+                baseline_reference_values = baseline_values
+            scenario_traces = [
+                ("Optim Résilience", optim_trace, opt_res.get("best_score", 0.0)),
+                ("Baseline", baseline_values, baseline_score_display),
+            ]
+            for scenario_name in ["Optimisation Coût", "Optimisation CO₂", "MultiObjectifs", "Lightweight"]:
+                scenario = scenario_results.get(scenario_name)
+                if not scenario:
+                    continue
+                rate_curves = scenario.get("rate_curves", {})
+                nominal_curve = rate_curves.get("global", [])
+                nominal_time = rate_curves.get("time", [])
+                nominal_total = sum((scenario.get("production_totals") or {}).values())
+                crises = scenario.get("resilience_crises") or {}
+                if not nominal_curve or not nominal_time or nominal_total <= 0 or not crises:
+                    continue
+                crisis_curves = []
+                for crisis_key in ["Crise 1", "Crise 2"]:
+                    entry = crises.get(crisis_key)
+                    if not entry:
+                        continue
+                    rc = entry.get("rate_curves", {})
+                    crisis_curve = (rc or {}).get("global", [])
+                    crisis_time = (rc or {}).get("time", [])
+                    crisis_total = sum((entry.get("production_totals") or {}).values())
+                    if not crisis_curve or not crisis_time or crisis_total <= 0:
+                        continue
+                    min_len = min(len(nominal_curve), len(crisis_curve), len(nominal_time))
+                    if min_len == 0:
+                        continue
+                    score = radar_indicators(
+                        nominal_curve[:min_len],
+                        crisis_curve[:min_len],
+                        nominal_time[:min_len],
+                        nominal_total,
+                        crisis_total,
+                    )
+                    crisis_curves.append(score)
+                if crisis_curves:
+                    averaged = []
+                    for c in categories:
+                        averaged.append(sum(score.get(c, 0.0) for score in crisis_curves) / len(crisis_curves))
+                    averaged.append(averaged[0])
+                    scenario_traces.append(
+                        (
+                            scenario_name,
+                            averaged,
+                            sum(score.get("Score global", 0.0) for score in crisis_curves) / len(crisis_curves),
+                        )
+                    )
+
+            for name, values, score in scenario_traces:
+                color = scenario_colors.get(name)
+                line_options = dict(color=color)
+                fillcolor = None
+                opacity = 0.6
+                if name == "Baseline":
+                    line_options["dash"] = "dot"
+                    fillcolor = "rgba(135, 137, 140, 0.35)"
+                    opacity = 0.8
+                fig_r.add_trace(go.Scatterpolar(
+                    r=values,
+                    theta=categories + [categories[0]],
+                    fill='toself',
+                    name=f"{name} (score: {score:.1f})",
+                    line=line_options,
+                    fillcolor=fillcolor,
+                    opacity=opacity,
+                ))
 
             fig_r.update_layout(
                 title="Radar – Scénario Optimisé Résilience",
