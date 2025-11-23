@@ -33,6 +33,7 @@ from utils.data_tools import display_all_lca_indicators, get_total_prod_curve
 from hybrid_regulation_engine import run_simulation_vivant
 from scenario_engine import run_scenario, compare_scenarios, display_sankey_for_scenarios
 from resilience_indicators import compute_resilience_indicators, resilience_on_curve
+from resilience_analysis import radar_indicators
 from copy import deepcopy
 from performance_engine import compute_perf_signal, aggregate_multi_kpi
 
@@ -118,12 +119,30 @@ def main_function():
     result_crise2 = run_scenario(run_simple_allocation_dict, config_crise2)
 
     # Optimisation coût, optimisation CO₂, multi-objectifs, scénario simplifié léger
-    result_optim_cost = run_scenario(run_optimization_allocation_dict, base_config)
-    result_optim_co2 = run_scenario(run_optimization_co2_allocation_dict, base_config)
-    result_multi = run_scenario(run_multiobjective_allocation_dict, base_config)
-    result_lightweight = run_scenario(
+    def run_scenario_with_adjusted_config(allocation_func, scenario_name, seat_weight=DEFAULT_SEAT_WEIGHT):
+        custom_lines = []
+        for cfg, base_cfg in zip(lines_config_max, lines_config):
+            custom_cfg = deepcopy(cfg)
+            custom_cfg["seat_weight"] = seat_weight
+            custom_cfg["include_site"] = True
+            # On peut utiliser la config de lignes nominales pour identifier le site
+            custom_lines.append(custom_cfg)
+        scenario_config = {
+            "lines_config": custom_lines,
+            "include_supply": True,
+            "include_storage": True,
+            "capacity_limits": base_config["capacity_limits"],
+            "seat_weight": seat_weight,
+        }
+        return run_scenario(allocation_func, scenario_config)
+
+    result_optim_cost = run_scenario_with_adjusted_config(run_optimization_allocation_dict, "Optimisation Coût")
+    result_optim_co2 = run_scenario_with_adjusted_config(run_optimization_co2_allocation_dict, "Optimisation CO₂")
+    result_multi = run_scenario_with_adjusted_config(run_multiobjective_allocation_dict, "MultiObjectifs")
+    result_lightweight = run_scenario_with_adjusted_config(
         lambda cap, demand: run_supply_chain_lightweight_scenario(cap, demand, seat_weight=LIGHTWEIGHT_SEAT_WEIGHT),
-        {**base_config, "seat_weight": LIGHTWEIGHT_SEAT_WEIGHT}
+        "Lightweight",
+        seat_weight=LIGHTWEIGHT_SEAT_WEIGHT,
     )
 
     # 3. Simulation vivante (système vivant avec logique de régulation cognitive)
@@ -170,6 +189,31 @@ def main_function():
     session = Session()
 
 
+    def _adjust_production_curves_to_match_totals(scenario_res):
+        prod_totals = scenario_res.get("production_totals") or {}
+        prod_data = scenario_res.get("production_data") or []
+        if not prod_totals or not prod_data:
+            return
+        for site_data in prod_data:
+            name = site_data.get("name") or site_data.get("location") or ""
+            totals = site_data.get("Total Seats made")
+            if not totals or len(totals) < 2:
+                continue
+            curve = totals[1]
+            if not curve:
+                continue
+            sim_total = float(curve[-1])
+            target_total = float(prod_totals.get(name, sim_total))
+            if sim_total <= 0:
+                scale = 0.0
+            else:
+                scale = target_total / sim_total
+            if abs(scale - 1.0) > 1e-6:
+                site_data["Total Seats made"] = (
+                    totals[0],
+                    [v * scale for v in curve]
+                )
+
     # Regrouper tous les résultats de scénarios dans un dictionnaire
     scenario_results = {
         "Baseline":        {**result_baseline,   "allocation_func": run_simple_allocation_dict},
@@ -179,6 +223,8 @@ def main_function():
         "Lightweight":     {**result_lightweight, "allocation_func": lambda cap, demand: run_supply_chain_lightweight_scenario(cap, demand, seat_weight=LIGHTWEIGHT_SEAT_WEIGHT)},
         "Optimisation Résilience": {    "allocation_func": run_resilience_allocation_dict},
     }
+    for scenario_res in scenario_results.values():
+        _adjust_production_curves_to_match_totals(scenario_res)
     # Stocker également le scénario de crise à part
     crisis_results = {
     "Baseline": {**result_baseline,   "allocation_func": run_simple_allocation_dict},
@@ -229,7 +275,12 @@ def main_function():
             "allocation_func": run_optimization_allocation_dict,
             "resilience_score": best_score_pct,
             "best_config_name": best_name,
+            "resilience_radar_avg": {
+                key: (radar_c1.get(key, 0.0) + radar_c2.get(key, 0.0)) / 2.0
+                for key in ["R1 Amplitude", "R2 Recovery", "R3 Aire", "R4 Ratio", "R5 ProdCumul", "Score global"]
+            },
         }
+        _adjust_production_curves_to_match_totals(scenario_results["Optimisation Résilience"])
         resilience_opt_result = {
             "best_score": best_score_pct,
             "best_name": best_name,
@@ -241,6 +292,94 @@ def main_function():
                 for s in sorted(summary_resilience, key=lambda item: item[0], reverse=True)
             ]
         }
+
+    def _build_global_rate_curve(result_dict):
+        prod_datas = result_dict.get("production_data") or []
+        time = None
+        global_cumul = None
+        for site_data in prod_datas:
+            total = site_data.get("Total Seats made")
+            if not total or len(total) < 2:
+                continue
+            t_site = list(total[0])
+            cumul_site = [float(v) for v in total[1]]
+            if time is None:
+                time = t_site
+                global_cumul = cumul_site
+            else:
+                n = min(len(time), len(t_site), len(cumul_site))
+                if n <= 0:
+                    continue
+                time = time[:n]
+                global_cumul = global_cumul[:n]
+                for k in range(n):
+                    global_cumul[k] += cumul_site[k]
+        if not time or not global_cumul:
+            return [], [], 0.0
+        daily = []
+        prev = 0.0
+        for v in global_cumul:
+            inc = max(float(v) - prev, 0.0)
+            daily.append(inc)
+            prev = float(v)
+        peak = max(daily) if daily else 0.0
+        if peak <= 0:
+            peak = 1.0
+        norm_curve = [d / peak for d in daily]
+        time = time[:len(norm_curve)]
+        total = float(sum(daily))
+        return time, norm_curve, total
+
+    def _compute_average_radar(nominal_result, crisis_results):
+        time_nom, curve_nom, total_nom = _build_global_rate_curve(nominal_result)
+        if not curve_nom or not time_nom or total_nom <= 0:
+            return None
+        radars = []
+        for crisis_res in (crisis_results or {}).values():
+            t_cr, curve_cr, total_cr = _build_global_rate_curve(crisis_res)
+            if not curve_cr or not t_cr or total_cr <= 0:
+                continue
+            min_len = min(len(curve_nom), len(curve_cr), len(time_nom), len(t_cr))
+            if min_len == 0:
+                continue
+            scores = radar_indicators(
+                curve_nom[:min_len],
+                curve_cr[:min_len],
+                time_nom[:min_len],
+                total_nom,
+                total_cr,
+            )
+            radars.append(scores)
+        if not radars:
+            return None
+        keys = ["R1 Amplitude", "R2 Recovery", "R3 Aire", "R4 Ratio", "R5 ProdCumul", "Score global"]
+        avg = {key: sum(r.get(key, 0.0) for r in radars) / len(radars) for key in keys}
+        return avg
+
+    def _adjust_production_curves_to_match_totals(scenario_res):
+        prod_totals = scenario_res.get("production_totals") or {}
+        prod_data = scenario_res.get("production_data") or []
+        if not prod_totals or not prod_data:
+            return
+        for site_data in prod_data:
+            name = site_data.get("name") or site_data.get("location") or ""
+            totals = site_data.get("Total Seats made")
+            if not totals or len(totals) < 2:
+                continue
+            curve = totals[1]
+            if not curve:
+                continue
+            sim_total = float(curve[-1])
+            target_total = float(prod_totals.get(name, sim_total))
+            if sim_total <= 0:
+                scale = 0.0
+            else:
+                scale = target_total / sim_total
+            if abs(scale - 1.0) > 1e-6:
+                site_data["Total Seats made"] = (
+                    totals[0],
+                    [v * scale for v in curve]
+                )
 
     # 5. Pour chaque scénario nominal (hors crise)
     for name, scenario_res in scenario_results.items():
@@ -298,6 +437,11 @@ def main_function():
         scores = {phase: compute_resilience_score(scenario_res, tests.get(phase, {})) for phase in ["supply", "production", "distribution"]}
         scores["total"] = round(sum(scores.values()) / 3, 1)
         crisis_results[name]["resilience_scores"] = scores
+
+    for scenario_res in scenario_results.values():
+        radar_avg = _compute_average_radar(scenario_res, scenario_res.get("resilience_crises"))
+        if radar_avg:
+            scenario_res["resilience_radar_avg"] = radar_avg
 
 
     # 7. Enregistrer les résultats de production dans la base de données
