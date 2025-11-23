@@ -18,7 +18,16 @@ from line_production.production_engine import (
     build_capacity_limits_from_cap_max,
 )
 
-from sqlalchemy import create_engine, Table, MetaData, insert
+from sqlalchemy import (
+    create_engine,
+    Table,
+    MetaData,
+    insert,
+    Column,
+    Integer,
+    Float,
+    String,
+)
 from sqlalchemy.orm import sessionmaker
 from utils.data_tools import display_all_lca_indicators, get_total_prod_curve
 from hybrid_regulation_engine import run_simulation_vivant
@@ -143,7 +152,20 @@ def main_function():
     engine = create_engine(DB_PATH)
     metadata = MetaData()
     metadata.reflect(bind=engine)
-    result_table = Table('result', metadata, autoload_with=engine)
+    if 'result' in metadata.tables:
+        result_table = metadata.tables['result']
+    else:
+        result_table = Table(
+            'result',
+            metadata,
+            Column('id', Integer, primary_key=True, autoincrement=True),
+            Column('scenario_id', Integer),
+            Column('site', String),
+            Column('total_production', Float),
+            Column('total_cost', Float),
+            Column('total_co2', Float),
+        )
+        metadata.create_all(engine, tables=[result_table])
     Session = sessionmaker(bind=engine)
     session = Session()
 
