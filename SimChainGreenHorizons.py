@@ -6,7 +6,7 @@ from optimization.optimization_engine import (
     run_supply_chain_lightweight_scenario,
     run_resilience_allocation_dict,
     run_resilience_optimization,
-    build_capacity_limits_from_cap_max
+    build_capacity_limits_from_cap_max,
 
 )
 from line_production.line_production_settings import lines_config, scenario_events
@@ -17,15 +17,27 @@ from line_production.production_engine import (
     compute_line_rate_curves,
     build_capacity_limits_from_cap_max,
 )
+from event_engine import PerturbationEvent
 
-from sqlalchemy import create_engine, Table, MetaData, insert
+from sqlalchemy import (
+    create_engine,
+    Table,
+    MetaData,
+    insert,
+    Column,
+    Integer,
+    Float,
+    String,
+)
 from sqlalchemy.orm import sessionmaker
 from utils.data_tools import display_all_lca_indicators, get_total_prod_curve
 from hybrid_regulation_engine import run_simulation_vivant
 from scenario_engine import run_scenario, compare_scenarios, display_sankey_for_scenarios
 from resilience_indicators import compute_resilience_indicators, resilience_on_curve
+from resilience_analysis import radar_indicators
 from copy import deepcopy
 from performance_engine import compute_perf_signal, aggregate_multi_kpi
+from typing import Dict, Iterable, List, Tuple
 
 
 # Configuration constants
@@ -33,88 +45,335 @@ DEFAULT_SEAT_WEIGHT = 130       # Poids de siège par défaut (kg)
 LIGHTWEIGHT_SEAT_WEIGHT = 70    # Poids de siège utilisé pour le scénario lightweight (kg)
 DB_PATH = 'sqlite:///simchain.db'  # Chemin de la base de données SQLite
 
-def main_function():
-    """Exécute la simulation logistique pour différents scénarios, calcule les coûts, 
-    émissions et scores de résilience, puis retourne les résultats formatés pour le tableau de bord."""
-    # 1. Simulation de base (production sans événements)
-    all_production_data, _ = run_simulation(lines_config)
 
-    # Calculer la production totale simulée par site (pour définir capacités)
-    lines_config_max = deepcopy(lines_config)
+def _prepare_lines_config_max(lines: List[Dict], stock_level: int = 1_000_000) -> List[Dict]:
+    """Return a copy of ``lines`` with oversized stocks to measure peak capacities."""
+    lines_config_max = deepcopy(lines)
     for cfg in lines_config_max:
         for mat in ["aluminium", "foam", "fabric", "paint"]:
             cap_key = f"{mat}_capacity"
             init_key = f"initial_{mat}"
-            # Met un stock initial très grand
-            cfg[init_key] = 1_000_000
-            # Aligne la capacité sur ce stock si besoin
+            cfg[init_key] = stock_level
             cfg[cap_key] = max(cfg.get(cap_key, 0), cfg[init_key])
+    return lines_config_max
 
 
+def _compute_capacity_limits(lines_max: List[Dict]) -> Tuple[Dict, Dict]:
+    """Simulate with large stocks to derive baseline capacity limits."""
     config_maxcap = {
-        "lines_config": lines_config_max,
-        "include_supply": False,   # on ne veut pas de réapprovisionnement automatique
+        "lines_config": lines_max,
+        "include_supply": False,
         "include_storage": True,
-        "events": None
+        "events": None,
     }
-
     result_maxcap = run_scenario(run_simple_allocation_dict, config_maxcap)
 
-
-    cap_max = {}
-    prod_datas = result_maxcap.get("production_data", [])
-    for cfg, site_data in zip(lines_config, prod_datas):
-        # Attention, on cherche la *prod max sur un pas de temps*, pas le cumul
+    cap_max: Dict[str, float] = {}
+    for cfg, site_data in zip(lines_config, result_maxcap.get("production_data", [])):
         prod_par_temps = site_data["Total Seats made"][1]
-        cap_max[cfg['location']] = max(prod_par_temps)
+        cap_max[cfg["location"]] = max(prod_par_temps)
         print(f"Capacité max observée pour {cfg['location']} : {cap_max[cfg['location']]}")
 
-        # ✅ Capacités de référence utilisées par tous les scénarios
-    baseline_capacity_limits = build_capacity_limits_from_cap_max(cap_max)
+    return build_capacity_limits_from_cap_max(cap_max), cap_max
 
 
+def _build_scenario_config(
+    lines: List[Dict],
+    capacity_limits: Dict | None = None,
+    seat_weight: float | None = None,
+    include_supply: bool = True,
+    include_storage: bool = True,
+    events: Iterable | None = None,
+) -> Dict:
+    config = {
+        "lines_config": deepcopy(lines),
+        "include_supply": include_supply,
+        "include_storage": include_storage,
+    }
+    if capacity_limits is not None:
+        config["capacity_limits"] = capacity_limits
+    if seat_weight is not None:
+        config["seat_weight"] = seat_weight
+    if events is not None:
+        config["events"] = events
+    return config
+
+
+def _run_allocation_with_weight(
+    allocation_func,
+    base_lines: List[Dict],
+    capacity_limits: Dict,
+    seat_weight: float,
+):
+    custom_lines = []
+    for cfg in base_lines:
+        custom_cfg = deepcopy(cfg)
+        custom_cfg["seat_weight"] = seat_weight
+        custom_cfg["include_site"] = True
+        custom_lines.append(custom_cfg)
+    scenario_config = _build_scenario_config(
+        custom_lines,
+        capacity_limits=capacity_limits,
+        seat_weight=seat_weight,
+    )
+    return run_scenario(allocation_func, scenario_config)
+
+
+def _adjust_production_curves_to_match_totals(scenario_res: Dict) -> None:
+    prod_totals = scenario_res.get("production_totals") or {}
+    prod_data = scenario_res.get("production_data") or []
+    if not prod_totals or not prod_data:
+        return
+    for site_data in prod_data:
+        name = site_data.get("name") or site_data.get("location") or ""
+        totals = site_data.get("Total Seats made")
+        if not totals or len(totals) < 2:
+            continue
+        curve = totals[1]
+        if not curve:
+            continue
+        sim_total = float(curve[-1])
+        target_total = float(prod_totals.get(name, sim_total))
+        scale = 0.0 if sim_total <= 0 else target_total / sim_total
+        if abs(scale - 1.0) > 1e-6:
+            site_data["Total Seats made"] = (
+                totals[0],
+                [v * scale for v in curve],
+            )
+
+
+def _build_resilience_event_definitions(lines: List[Dict]) -> Dict[str, List[PerturbationEvent]]:
+    resilience_event_definitions: Dict[str, List[PerturbationEvent]] = {}
+    material_events = ["aluminium", "foam", "fabric", "paint"]
+    site_names = [cfg.get("location") for cfg in lines if cfg.get("location")]
+    for mat in material_events:
+        resilience_event_definitions[f"Rupture {mat.capitalize()}"] = [
+            PerturbationEvent(
+                time=20,
+                target=mat,
+                event_type="rupture_fournisseur",
+                magnitude=1.0,
+                duration=200,
+                description=f"Rupture {mat}",
+            )
+        ]
+    for site in site_names:
+        resilience_event_definitions[f"Panne {site}"] = [
+            PerturbationEvent(
+                time=20,
+                target=site,
+                event_type="panne",
+                magnitude=1.0,
+                duration=200,
+                description=f"Panne {site}",
+            )
+        ]
+    return resilience_event_definitions
+
+
+def _compute_resilience_score(result_nominal: Dict, result_crisis: Dict) -> float:
+    prod_nominal = (result_nominal or {}).get("production_totals") or {}
+    prod_crisis = (result_crisis or {}).get("production_totals") or {}
+    total_nominal = sum(prod_nominal.values())
+    total_crisis = sum(prod_crisis.values())
+    if total_nominal == 0:
+        return 0.0
+    return round(100 * min(total_crisis, total_nominal) / total_nominal, 1)
+
+
+def _build_global_rate_curve(result_dict: Dict) -> Tuple[List, List, float]:
+    prod_datas = result_dict.get("production_data") or []
+    time = None
+    global_cumul = None
+    for site_data in prod_datas:
+        total = site_data.get("Total Seats made")
+        if not total or len(total) < 2:
+            continue
+        t_site = list(total[0])
+        cumul_site = [float(v) for v in total[1]]
+        if time is None:
+            time = t_site
+            global_cumul = cumul_site
+        else:
+            n = min(len(time), len(t_site), len(cumul_site))
+            if n <= 0:
+                continue
+            time = time[:n]
+            global_cumul = global_cumul[:n]
+            for k in range(n):
+                global_cumul[k] += cumul_site[k]
+    if not time or not global_cumul:
+        return [], [], 0.0
+    daily = []
+    prev = 0.0
+    for v in global_cumul:
+        inc = max(float(v) - prev, 0.0)
+        daily.append(inc)
+        prev = float(v)
+    peak = max(daily) if daily else 0.0
+    if peak <= 0:
+        peak = 1.0
+    norm_curve = [d / peak for d in daily]
+    time = time[: len(norm_curve)]
+    total = float(sum(daily))
+    return time, norm_curve, total
+
+
+def _compute_average_radar(nominal_result: Dict, crisis_results: Dict) -> Dict | None:
+    time_nom, curve_nom, total_nom = _build_global_rate_curve(nominal_result)
+    if not curve_nom or not time_nom or total_nom <= 0:
+        return None
+    radars = []
+    for crisis_res in (crisis_results or {}).values():
+        t_cr, curve_cr, total_cr = _build_global_rate_curve(crisis_res)
+        if not curve_cr or not t_cr or total_cr <= 0:
+            continue
+        min_len = min(len(curve_nom), len(curve_cr), len(time_nom), len(t_cr))
+        if min_len == 0:
+            continue
+        scores = radar_indicators(
+            curve_nom[:min_len],
+            curve_cr[:min_len],
+            time_nom[:min_len],
+            total_nom,
+            total_cr,
+        )
+        radars.append(scores)
+    if not radars:
+        return None
+    keys = ["R1 Amplitude", "R2 Recovery", "R3 Aire", "R4 Ratio", "R5 ProdCumul", "Score global"]
+    return {key: sum(r.get(key, 0.0) for r in radars) / len(radars) for key in keys}
+
+
+def _extract_figs(obj):
+    """Normalise en liste de figures Plotly quel que soit le format en entrée."""
+    if obj is None:
+        return []
+    if isinstance(obj, list):
+        return obj
+    if isinstance(obj, dict):
+        figs = []
+        for v in obj.values():
+            if isinstance(v, list):
+                figs.extend(v)
+            elif isinstance(v, dict):
+                figs.extend(v.values())
+            else:
+                figs.append(v)
+        return figs
+    return [obj]
+
+
+def _compute_daily_from_cumul(cumul: List[float]) -> List[float]:
+    if not cumul:
+        return []
+    daily = [cumul[0]]
+    for i in range(1, len(cumul)):
+        daily.append(max(cumul[i] - cumul[i - 1], 0.0))
+    return daily
+
+
+def _persist_results_to_db(scenario_results: Dict, db_path: str = DB_PATH) -> None:
+    engine = create_engine(db_path)
+    metadata = MetaData()
+    metadata.reflect(bind=engine)
+    if 'result' in metadata.tables:
+        result_table = metadata.tables['result']
+    else:
+        result_table = Table(
+            'result',
+            metadata,
+            Column('id', Integer, primary_key=True, autoincrement=True),
+            Column('scenario_id', Integer),
+            Column('site', String),
+            Column('total_production', Float),
+            Column('total_cost', Float),
+            Column('total_co2', Float),
+        )
+        metadata.create_all(engine, tables=[result_table])
+    Session = sessionmaker(bind=engine)
+    session = Session()
+    for scenario_id, (name, scenario_res) in enumerate(scenario_results.items(), start=1):
+        prod_totals = scenario_res.get("production_totals") or {}
+        if not isinstance(prod_totals, dict):
+            print(f"⚠️ production_totals invalide pour le scénario '{name}':", prod_totals)
+            prod_totals = {}
+        costs = scenario_res.get("costs") or {}
+        if not isinstance(costs, dict):
+            print(f"⚠️ costs invalide pour le scénario '{name}':", costs)
+            costs = {}
+        total_cost = costs.get("total_cost", 0.0)
+        total_co2 = scenario_res.get("total_co2", 0.0)
+        for site, total in prod_totals.items():
+            session.execute(insert(result_table).values(
+                scenario_id=scenario_id,
+                site=site,
+                total_production=total,
+                total_cost=total_cost,
+                total_co2=total_co2
+            ))
+    session.commit()
+    session.close()
+
+def main_function():
+    """Exécute la simulation logistique pour différents scénarios, calcule les coûts,
+    émissions et scores de résilience, puis retourne les résultats formatés pour le tableau de bord."""
+    # 1. Simulation de base (production sans événements)
+    all_production_data, _ = run_simulation(lines_config)
+
+    lines_config_max = _prepare_lines_config_max(lines_config)
+    baseline_capacity_limits, cap_max = _compute_capacity_limits(lines_config_max)
 
     # Configuration de base pour les scénarios
-    base_config = {
-        "lines_config": lines_config_max,
-        "include_supply": True,
-        "include_storage": True,
-        "capacity_limits": baseline_capacity_limits
-    }
+    base_config = _build_scenario_config(
+        lines_config_max,
+        capacity_limits=baseline_capacity_limits,
+        include_supply=True,
+        include_storage=True,
+    )
 
     # 2. Exécuter les différents scénarios sans perturbation
     result_baseline = run_scenario(run_simple_allocation_dict, base_config)
     # --- Configs CRISES : SANS capacity_limits pour laisser run_scenario
     # recalculer les capacités à partir de la simu avec événements ---
 
-    crisis_base_config = {
-        "lines_config": lines_config_max,
-        "include_supply": True,
-        "include_storage": True,
-        # PAS de "capacity_limits" ici
-    }
+    crisis_base_config = _build_scenario_config(
+        lines_config_max,
+        include_supply=True,
+        include_storage=True,
+    )
 
-    config_crise = {
-        **crisis_base_config,
-        "events": scenario_events["Rupture Alu"],
-    }
-
-    config_crise2 = {
-        **crisis_base_config,
-        "events": scenario_events["Panne Texas"],
-    }
+    config_crise = {**crisis_base_config, "events": scenario_events["Rupture Alu"]}
+    config_crise2 = {**crisis_base_config, "events": scenario_events["Panne Texas"]}
 
     # Ces résultats de crise auront des capacités dégradées
     result_crise = run_scenario(run_simple_allocation_dict, config_crise)
     result_crise2 = run_scenario(run_simple_allocation_dict, config_crise2)
 
     # Optimisation coût, optimisation CO₂, multi-objectifs, scénario simplifié léger
-    result_optim_cost = run_scenario(run_optimization_allocation_dict, base_config)
-    result_optim_co2 = run_scenario(run_optimization_co2_allocation_dict, base_config)
-    result_multi = run_scenario(run_multiobjective_allocation_dict, base_config)
-    result_lightweight = run_scenario(
+    result_optim_cost = _run_allocation_with_weight(
+        run_optimization_allocation_dict,
+        lines_config_max,
+        base_config["capacity_limits"],
+        DEFAULT_SEAT_WEIGHT,
+    )
+    result_optim_co2 = _run_allocation_with_weight(
+        run_optimization_co2_allocation_dict,
+        lines_config_max,
+        base_config["capacity_limits"],
+        DEFAULT_SEAT_WEIGHT,
+    )
+    result_multi = _run_allocation_with_weight(
+        run_multiobjective_allocation_dict,
+        lines_config_max,
+        base_config["capacity_limits"],
+        DEFAULT_SEAT_WEIGHT,
+    )
+    result_lightweight = _run_allocation_with_weight(
         lambda cap, demand: run_supply_chain_lightweight_scenario(cap, demand, seat_weight=LIGHTWEIGHT_SEAT_WEIGHT),
-        {**base_config, "seat_weight": LIGHTWEIGHT_SEAT_WEIGHT}
+        lines_config_max,
+        base_config["capacity_limits"],
+        LIGHTWEIGHT_SEAT_WEIGHT,
     )
 
     # 3. Simulation vivante (système vivant avec logique de régulation cognitive)
@@ -139,15 +398,6 @@ def main_function():
         "cap": {}
     }
 
-    # 4. Préparation de la base de données SQLite et insertion des résultats
-    engine = create_engine(DB_PATH)
-    metadata = MetaData()
-    metadata.reflect(bind=engine)
-    result_table = Table('result', metadata, autoload_with=engine)
-    Session = sessionmaker(bind=engine)
-    session = Session()
-
-
     # Regrouper tous les résultats de scénarios dans un dictionnaire
     scenario_results = {
         "Baseline":        {**result_baseline,   "allocation_func": run_simple_allocation_dict},
@@ -157,6 +407,11 @@ def main_function():
         "Lightweight":     {**result_lightweight, "allocation_func": lambda cap, demand: run_supply_chain_lightweight_scenario(cap, demand, seat_weight=LIGHTWEIGHT_SEAT_WEIGHT)},
         "Optimisation Résilience": {    "allocation_func": run_resilience_allocation_dict},
     }
+    for scenario_res in scenario_results.values():
+        _adjust_production_curves_to_match_totals(scenario_res)
+    # Scénarios de crises pour la résilience : rupture de chaque matière et panne de chaque site
+    resilience_event_definitions = _build_resilience_event_definitions(lines_config)
+
     # Stocker également le scénario de crise à part
     crisis_results = {
     "Baseline": {**result_baseline,   "allocation_func": run_simple_allocation_dict},
@@ -164,18 +419,86 @@ def main_function():
     "Crise 2": {**result_crise2, "allocation_func": run_simple_allocation_dict}
 }
 
+    # ==================================================
+    # Optimisation Résilience (avant les comparaisons)
+    # ==================================================
+    scenario_events_res = {}
+    crisis_counter = 1
+    for crisis_name, events in resilience_event_definitions.items():
+        scenario_events_res[f"Crise {crisis_counter}"] = events
+        crisis_counter += 1
+
+    resilience_base_config = deepcopy(base_config)
+    resilience_base_config["lines_config"] = deepcopy(lines_config)
+    resilience_crisis_config = deepcopy(crisis_base_config)
+    resilience_crisis_config["lines_config"] = deepcopy(lines_config)
+
+    best_resilient, summary_resilience = run_resilience_optimization(
+        base_config["capacity_limits"],
+        resilience_base_config,
+        resilience_crisis_config,
+        scenario_events_res,
+    )
+
+    if best_resilient is None:
+        print("[ResilienceOpt] Aucune configuration valide trouvée.")
+        resilience_opt_result = {
+            "best_score": 0.0,
+            "best_name": "Aucune configuration valide",
+            "best_capacities": {},
+            "radar_crise1": {},
+            "radar_crise2": {},
+            "summary": []
+        }
+    else:
+        best_score, best_name, best_capacities, radar_c1, radar_c2 = best_resilient[:5]
+        best_score_pct = round(best_score * 100.0, 1)
+        optimized_config = {
+            **base_config,
+            "capacity_limits": best_capacities
+        }
+        result_resilience = run_scenario(run_optimization_allocation_dict, optimized_config)
+        # calcul moyenne radars sur toutes les crises utilisées
+        radar_keys = ["R1 Amplitude", "R2 Recovery", "R3 Aire", "R4 Ratio", "R5 ProdCumul", "Score global"]
+        radar_avg_opt = {key: (radar_c1.get(key, 0.0) + radar_c2.get(key, 0.0)) / 2.0 for key in radar_keys}
+
+        scenario_results["Optimisation Résilience"] = {
+            **result_resilience,
+            "allocation_func": run_optimization_allocation_dict,
+            "resilience_score": best_score_pct,
+            "best_config_name": best_name,
+            "resilience_radar_avg": radar_avg_opt,
+        }
+        _adjust_production_curves_to_match_totals(scenario_results["Optimisation Résilience"])
+        resilience_opt_result = {
+            "best_score": best_score_pct,
+            "best_name": best_name,
+            "best_capacities": best_capacities,
+            "radar_crise1": radar_c1,
+            "radar_crise2": radar_c2,
+            "summary": [
+                {"score": round(s[0] * 100.0, 1), "name": s[1]}
+                for s in sorted(summary_resilience, key=lambda item: item[0], reverse=True)
+            ]
+        }
 
     # 5. Pour chaque scénario nominal (hors crise)
     for name, scenario_res in scenario_results.items():
-        config_shock = {**base_config, "loc_prod": {}}
-        res_supply = run_scenario(scenario_res["allocation_func"], {**config_shock, "events": scenario_events["shock_supply"]})
-        res_prod   = run_scenario(scenario_res["allocation_func"], {**config_shock, "events": scenario_events["shock_production"]})
-        res_dist   = run_scenario(scenario_res["allocation_func"], {**config_shock, "events": scenario_events["shock_distribution"]})
+        base_cfg = deepcopy(scenario_res.get("config", base_config))
+        base_cfg.pop("events", None)
+
+        res_supply = run_scenario(scenario_res["allocation_func"], {**deepcopy(base_cfg), "events": scenario_events["shock_supply"]})
+        res_prod   = run_scenario(scenario_res["allocation_func"], {**deepcopy(base_cfg), "events": scenario_events["shock_production"]})
+        res_dist   = run_scenario(scenario_res["allocation_func"], {**deepcopy(base_cfg), "events": scenario_events["shock_distribution"]})
         scenario_res["resilience_test"] = {
             "supply": res_supply,
             "production": res_prod,
             "distribution": res_dist
         }
+        scenario_res["resilience_crises"] = {}
+        for crisis_name, events in resilience_event_definitions.items():
+            res_crisis = run_scenario(scenario_res["allocation_func"], {**deepcopy(base_cfg), "events": events})
+            scenario_res["resilience_crises"][crisis_name] = res_crisis
 
     # 5bis. Pour chaque scénario de crise
     for name, crisis_res in crisis_results.items():
@@ -191,61 +514,27 @@ def main_function():
         }
 
     # 6. Score de résilience - scenarios normaux
-    def compute_resilience_score(result_nominal, result_crisis):
-
-        prod_nominal = (result_nominal or {}).get("production_totals") or {}
-        prod_crisis = {}
-        if result_crisis and isinstance(result_crisis, dict):
-            prod_crisis = (result_crisis or {}).get("production_totals") or {}
-        total_nominal = sum(prod_nominal.values())
-        total_crisis = sum(prod_crisis.values())
-        if total_nominal == 0:
-            return 0.0
-        return round(100 * min(total_crisis, total_nominal) / total_nominal, 1)
-
     for name, scenario_res in scenario_results.items():
         tests = scenario_res["resilience_test"]
-        scores = {phase: compute_resilience_score(scenario_res, tests[phase]) for phase in ["supply", "production", "distribution"]}
+        scores = {phase: _compute_resilience_score(scenario_res, tests[phase]) for phase in ["supply", "production", "distribution"]}
         scores["total"] = round(sum(scores.values()) / 3, 1)
         scenario_res["resilience_scores"] = scores
 
     # Calculer les scores de résilience pour chaque scénario de crise
     for name, scenario_res in crisis_results.items():
         tests = scenario_res.get("resilience_test", {})
-        scores = {phase: compute_resilience_score(scenario_res, tests.get(phase, {})) for phase in ["supply", "production", "distribution"]}
+        scores = {phase: _compute_resilience_score(scenario_res, tests.get(phase, {})) for phase in ["supply", "production", "distribution"]}
         scores["total"] = round(sum(scores.values()) / 3, 1)
         crisis_results[name]["resilience_scores"] = scores
 
+    for scenario_res in scenario_results.values():
+        radar_avg = _compute_average_radar(scenario_res, scenario_res.get("resilience_crises"))
+        if radar_avg:
+            scenario_res["resilience_radar_avg"] = radar_avg
+
 
     # 7. Enregistrer les résultats de production dans la base de données
-    for scenario_id, (name, scenario_res) in enumerate(scenario_results.items(), start=1):
-        # Récupérer les totaux de production de façon robuste
-        prod_totals = scenario_res.get("production_totals") or {}
-
-        # Sécurité : si ce n’est pas un dict, on log et on ignore
-        if not isinstance(prod_totals, dict):
-            print(f"⚠️ production_totals invalide pour le scénario '{name}':", prod_totals)
-            prod_totals = {}
-
-        # Récupérer aussi les coûts/CO2 de façon défensive
-        costs = scenario_res.get("costs") or {}
-        if not isinstance(costs, dict):
-            print(f"⚠️ costs invalide pour le scénario '{name}':", costs)
-            costs = {}
-
-        total_cost = costs.get("total_cost", 0.0)
-        total_co2 = scenario_res.get("total_co2", 0.0)
-
-        for site, total in prod_totals.items():
-            session.execute(insert(result_table).values(
-                scenario_id=scenario_id,
-                site=site,
-                total_production=total,
-                total_cost=total_cost,
-                total_co2=total_co2
-            ))
-
-    session.commit()
+    _persist_results_to_db(scenario_results)
 
     # 8. Préparer les visualisations comparatives des scénarios
     comparison_figs = compare_scenarios(scenario_results, return_figures=True)
@@ -258,41 +547,6 @@ def main_function():
     print("DEBUG scenario_results keys =", list(scenario_results.keys()))
     print("DEBUG type MultiObjectifs =", type(scenario_results.get("MultiObjectifs", None)))
 
-
-    # ------------------------------------------------------------------
-    # Petit utilitaire pour uniformiser ce qu'on reçoit (list, dict, etc.)
-    # ------------------------------------------------------------------
-    def _extract_figs(obj):
-        """
-        Normalise en liste de figures Plotly, quel que soit le format :
-        - None -> []
-        - list -> list
-        - dict -> valeurs (et sous-valeurs si dict de dict/list)
-        - figure seule -> [figure]
-        """
-        if obj is None:
-            return []
-
-        # Déjà une liste de figures
-        if isinstance(obj, list):
-            return obj
-
-        # Dictionnaire : on a peut-être {scenario: fig} ou {scenario: {type: fig}}
-        if isinstance(obj, dict):
-            figs = []
-            for v in obj.values():
-                if isinstance(v, list):
-                    figs.extend(v)
-                elif isinstance(v, dict):
-                    # dict imbriqué, on récupère les valeurs
-                    for vv in v.values():
-                        figs.append(vv)
-                else:
-                    figs.append(v)
-            return figs
-
-        # Cas "figure seule"
-        return [obj]
 
     # Figures "nominales" (sans crises)
     all_figs = []
@@ -358,20 +612,12 @@ def main_function():
     # On ne touche PAS à cap_max utilisé pour l’optimisation.
     # --- Capacités de normalisation pour les courbes de taux (0–1) ---
     # On ne touche PAS à cap_max utilisé pour l’optimisation.
-    def compute_daily_from_cumul(cumul):
-        if not cumul:
-            return []
-        daily = [cumul[0]]
-        for i in range(1, len(cumul)):
-            daily.append(max(cumul[i] - cumul[i - 1], 0.0))
-        return daily
-
     cap_norm = {}
     prod_datas_baseline = result_baseline.get("production_data", [])
     for cfg, site_data in zip(lines_config, prod_datas_baseline):
         location = cfg["location"]
         cumul = site_data["Total Seats made"][1]
-        daily = compute_daily_from_cumul(cumul)
+        daily = _compute_daily_from_cumul(cumul)
         # on évite de diviser par 0 : si aucune production, on met 1.0
         cap_norm[location] = max(daily) if daily else 1.0
         print(
@@ -575,50 +821,6 @@ def main_function():
     print("Contenu de base_config['capacity_limits']:", base_config["capacity_limits"])
 
     # Mapping cohérent avec ce qu'on a utilisé plus haut pour les crises
-    scenario_events_res = {
-        "Crise 1": scenario_events["Rupture Alu"],
-        "Crise 2": scenario_events["Panne Texas"],
-    }
-
-    best_resilient, summary_resilience = run_resilience_optimization(
-        base_config["capacity_limits"],   # <-- au lieu de lines_config
-        base_config,
-        crisis_base_config,
-        scenario_events_res,
-    )
-
-
-
-    if best_resilient is None:
-        print("[ResilienceOpt] Aucune configuration valide trouvée.")
-        resilience_opt_result = {
-            "best_score": 0.0,
-            "best_name": "Aucune configuration valide",
-            "best_capacities": {},
-            "radar_crise1": {},
-            "radar_crise2": {},
-            "summary": []
-        }
-    else:
-        best_score, best_name, best_capacities, radar_c1, radar_c2 = best_resilient[:5]
-        print("radar_crise1:", radar_c1)
-        print("radar_crise2:", radar_c2)
-        resilience_opt_result = {
-            "best_score": best_score,
-            "best_name": best_name,
-            "best_capacities": best_capacities,
-            "radar_crise1": radar_c1,
-            "radar_crise2": radar_c2,
-            "summary": [
-                {"score": s[0], "name": s[1]} for s in summary_resilience
-            ]
-    }
-
-
-
-
-
-
     # Préparer le dictionnaire de résultats final à retourner
     return {
         "figures": all_figs,
