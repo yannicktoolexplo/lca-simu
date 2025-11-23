@@ -530,24 +530,24 @@ def run_resilience_optimization(
 
         # --- Indicateurs + radars ---
         try:
-            # On calcule les radars de résilience à partir des courbes
+            # On calcule les radars de résilience à partir des courbes alignées
             # Totaux de production (approche simple : somme des débits globaux)
-            total_baseline = float(sum(g_nom))
-            total_c1 = float(sum(g_c1))
-            total_c2 = float(sum(g_c2))
+            total_baseline = float(sum(g_nom_aligned))
+            total_c1 = float(sum(g_c1_aligned))
+            total_c2 = float(sum(g_c2_aligned))
 
             # Radar pour chaque scénario de crise (C1, C2) par rapport au nominal
             radar_c1 = radar_indicators(
-                g_nom,      # baseline_curve
-                g_c1,       # crisis_curve
-                t_nom,      # time_vector
+                g_nom_aligned,  # baseline_curve
+                g_c1_aligned,   # crisis_curve
+                t_aligned,      # time_vector
                 total_baseline,
                 total_c1,
             )
             radar_c2 = radar_indicators(
-                g_nom,
-                g_c2,
-                t_nom,
+                g_nom_aligned,
+                g_c2_aligned,
+                t_aligned,
                 total_baseline,
                 total_c2,
             )
