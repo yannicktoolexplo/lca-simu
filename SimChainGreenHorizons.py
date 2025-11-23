@@ -186,6 +186,56 @@ def main_function():
     "Crise 2": {**result_crise2, "allocation_func": run_simple_allocation_dict}
 }
 
+    # ==================================================
+    # Optimisation Résilience (avant les comparaisons)
+    # ==================================================
+    scenario_events_res = {
+        "Crise 1": scenario_events["Rupture Alu"],
+        "Crise 2": scenario_events["Panne Texas"],
+    }
+
+    best_resilient, summary_resilience = run_resilience_optimization(
+        base_config["capacity_limits"],
+        base_config,
+        crisis_base_config,
+        scenario_events_res,
+    )
+
+    if best_resilient is None:
+        print("[ResilienceOpt] Aucune configuration valide trouvée.")
+        resilience_opt_result = {
+            "best_score": 0.0,
+            "best_name": "Aucune configuration valide",
+            "best_capacities": {},
+            "radar_crise1": {},
+            "radar_crise2": {},
+            "summary": []
+        }
+    else:
+        best_score, best_name, best_capacities, radar_c1, radar_c2 = best_resilient[:5]
+        best_score_pct = round(best_score * 100.0, 1)
+        optimized_config = {
+            **base_config,
+            "capacity_limits": best_capacities
+        }
+        result_resilience = run_scenario(run_simple_allocation_dict, optimized_config)
+        scenario_results["Optimisation Résilience"] = {
+            **result_resilience,
+            "allocation_func": run_simple_allocation_dict,
+            "resilience_score": best_score_pct,
+            "best_config_name": best_name,
+        }
+        resilience_opt_result = {
+            "best_score": best_score_pct,
+            "best_name": best_name,
+            "best_capacities": best_capacities,
+            "radar_crise1": radar_c1,
+            "radar_crise2": radar_c2,
+            "summary": [
+                {"score": round(s[0] * 100.0, 1), "name": s[1]}
+                for s in sorted(summary_resilience, key=lambda item: item[0], reverse=True)
+            ]
+        }
 
     # 5. Pour chaque scénario nominal (hors crise)
     for name, scenario_res in scenario_results.items():
@@ -597,50 +647,6 @@ def main_function():
     print("Contenu de base_config['capacity_limits']:", base_config["capacity_limits"])
 
     # Mapping cohérent avec ce qu'on a utilisé plus haut pour les crises
-    scenario_events_res = {
-        "Crise 1": scenario_events["Rupture Alu"],
-        "Crise 2": scenario_events["Panne Texas"],
-    }
-
-    best_resilient, summary_resilience = run_resilience_optimization(
-        base_config["capacity_limits"],   # <-- au lieu de lines_config
-        base_config,
-        crisis_base_config,
-        scenario_events_res,
-    )
-
-
-
-    if best_resilient is None:
-        print("[ResilienceOpt] Aucune configuration valide trouvée.")
-        resilience_opt_result = {
-            "best_score": 0.0,
-            "best_name": "Aucune configuration valide",
-            "best_capacities": {},
-            "radar_crise1": {},
-            "radar_crise2": {},
-            "summary": []
-        }
-    else:
-        best_score, best_name, best_capacities, radar_c1, radar_c2 = best_resilient[:5]
-        print("radar_crise1:", radar_c1)
-        print("radar_crise2:", radar_c2)
-        resilience_opt_result = {
-            "best_score": best_score,
-            "best_name": best_name,
-            "best_capacities": best_capacities,
-            "radar_crise1": radar_c1,
-            "radar_crise2": radar_c2,
-            "summary": [
-                {"score": s[0], "name": s[1]} for s in summary_resilience
-            ]
-    }
-
-
-
-
-
-
     # Préparer le dictionnaire de résultats final à retourner
     return {
         "figures": all_figs,

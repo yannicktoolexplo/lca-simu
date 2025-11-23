@@ -204,14 +204,14 @@ if st.button("🚀 Lancer la simulation"):
     # ------------------------------------------------------------------
     st.markdown("### 📈 Résultats comparés des scénarios (nominal)")
     for i, fig in enumerate(result["figures"]):
-        st.plotly_chart(fig, use_container_width=True, key=f"fig_scenario_{i}")
+        st.plotly_chart(fig, width='stretch', key=f"fig_scenario_{i}")
 
     # ------------------------------------------------------------------
     # 2. Graphiques comparatifs des scénarios de crise
     # ------------------------------------------------------------------
     st.markdown("### 📈 Résultats comparés des scénarios de crise")
     for i, fig in enumerate(result["crisis_figures"]):
-        st.plotly_chart(fig, use_container_width=True, key=f"fig_crise_{i}")
+        st.plotly_chart(fig, width='stretch', key=f"fig_crise_{i}")
 
     # ------------------------------------------------------------------
     # 3. Baseline vs Crises – Production totale par site
@@ -244,7 +244,7 @@ if st.button("🚀 Lancer la simulation"):
         barmode="group",
         title="Production totale par site : Baseline vs scénarios de crise",
     )
-    st.plotly_chart(fig_compare, use_container_width=True, key="fig_compare_baseline_crises")
+    st.plotly_chart(fig_compare, width='stretch', key="fig_compare_baseline_crises")
 
     # ------------------------------------------------------------------
     # 4. Analyse LCA globale (scénario multi-objectifs)
@@ -257,7 +257,7 @@ if st.button("🚀 Lancer la simulation"):
             f"### 🌍 Analyse du Cycle de Vie – Optimisation Multi-Objectifs\n"
             f"Nombre total de sièges produits : **{total_units}**"
         )
-        st.plotly_chart(lca_fig_total, use_container_width=True, key="lca_multi_total")
+        st.plotly_chart(lca_fig_total, width='stretch', key="lca_multi_total")
     else:
         st.warning(
             "⚠️ Aucun graphique LCA global pour le scénario multi-objectifs : "
@@ -310,7 +310,7 @@ if st.button("🚀 Lancer la simulation"):
     #     title="Score de résilience (total) par scénario",
     # )
     # fig_resilience.update_layout(xaxis_title="Scénario", yaxis_title="Score total (0–100)")
-    # st.plotly_chart(fig_resilience, use_container_width=True, key="fig_resilience")
+    # st.plotly_chart(fig_resilience, width='stretch', key="fig_resilience")
 
     # ------------------------------------------------------------------
     # 7. Indicateurs détaillés de résilience pour les scénarios de crise
@@ -343,7 +343,7 @@ if st.button("🚀 Lancer la simulation"):
         name: res.get("rate_curves", {}) for name, res in crisis_results.items()
     }
     fig_global_rates = plot_global_rate_curves(baseline_rc, crisis_rc_dict)
-    st.plotly_chart(fig_global_rates, use_container_width=True, key="fig_global_rates")
+    st.plotly_chart(fig_global_rates, width='stretch', key="fig_global_rates")
 
     # ------------------------------------------------------------------
     # 9. Courbes de taux global + indicateurs pour chaque crise
@@ -357,7 +357,7 @@ if st.button("🚀 Lancer la simulation"):
 
         st.subheader(f"Scénario : {name}")
         fig = plot_crisis_rate_with_indicators(name, rate_curves, ind_ref, ind_auto)
-        st.plotly_chart(fig, use_container_width=True, key=f"fig_rate_global_{name}")
+        st.plotly_chart(fig, width='stretch', key=f"fig_rate_global_{name}")
 
         with st.expander("Voir les indicateurs de résilience pour ce scénario"):
             st.write("**Par rapport à la référence nominale (Baseline)**")
@@ -376,7 +376,7 @@ if st.button("🚀 Lancer la simulation"):
     #     scenario_results["Baseline"].get("rate_curves", {}),
     #     "Taux de production par ligne – Baseline",
     # )
-    # st.plotly_chart(fig_baseline_lines, use_container_width=True, key="fig_lines_Baseline")
+    # st.plotly_chart(fig_baseline_lines, width='stretch', key="fig_lines_Baseline")
 
     # Crises
     for i, (scenario_name, scenario_res) in enumerate(crisis_results.items()):
@@ -387,7 +387,7 @@ if st.button("🚀 Lancer la simulation"):
         )
         st.plotly_chart(
             fig_lines,
-            use_container_width=True,
+            width='stretch',
             key=f"fig_lines_{scenario_name}_{i}",
         )
 
@@ -425,7 +425,7 @@ if st.button("🚀 Lancer la simulation"):
         showlegend=True,
         title="Radar de résilience"
     )
-    st.plotly_chart(fig_radar, use_container_width=True)
+    st.plotly_chart(fig_radar, width='stretch')
 
 
     # ===============================
@@ -468,7 +468,7 @@ if st.button("🚀 Lancer la simulation"):
                 title="Radar – Scénario Optimisé Résilience",
                 polar=dict(radialaxis=dict(visible=True, range=[0, 1.2]))
             )
-            st.plotly_chart(fig_r, use_container_width=True)
+            st.plotly_chart(fig_r, width='stretch')
 
         # Tableau récapitulatif des configurations testées
         st.markdown("### 📊 Détail complet des configurations testées")

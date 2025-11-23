@@ -394,15 +394,9 @@ def run_resilience_optimization(
         # Mais pour la logique combinatoire d'optimisation, on travaille avec le dict nominal :
         baseline_capacity_limits = base_config["capacity_limits"]
     else:
-        lines_config = None
+        lines_config = base_config.get("lines_config")
 
     print(baseline_capacity_limits)
-
-    site_names = list(baseline_capacity_limits.keys())
-    mode_choices = ["OFF", "LOW", "HIGH"]
-
-    best = None
-    summary = []
 
     # --------------------------------------------------------
     # Helper : reconstruire une courbe globale normalisée
@@ -423,33 +417,44 @@ def run_resilience_optimization(
             return t, g
 
         # 2) sinon, on reconstruit depuis production_data
-        prod_datas = result.get("production_data")
+        prod_datas = result.get("production_data") or []
+        prod_totals = result.get("production_totals") or {}
         if not prod_datas:
             print(f"[ResilienceOpt] ⚠️ Pas de 'production_data' pour {label}, config ignorée.")
             raise KeyError("production_data missing")
 
         time = None
         global_cumul = None
+        lines_list = lines_config or []
 
-        for site_data in prod_datas:
-            # On suppose "Total Seats made" = (time_vector, cumul_production)
-            if "Total Seats made" not in site_data:
-                print(f"[ResilienceOpt] ⚠️ 'Total Seats made' manquant pour {label}, config ignorée.")
-                raise KeyError("Total Seats made missing")
+        for idx, site_data in enumerate(prod_datas):
+            total_seats = site_data.get("Total Seats made")
+            if not total_seats or len(total_seats) < 2:
+                continue
 
-            t_site, cumul_site = site_data["Total Seats made"]
-            t_site = list(t_site)
-            cumul_site = list(cumul_site)
+            t_site = list(total_seats[0])
+            cumul_site = [float(v) for v in total_seats[1]]
+            if not cumul_site:
+                continue
+
+            cfg = lines_list[idx] if idx < len(lines_list) else {}
+            loc = (cfg or {}).get("location") or site_data.get("location") or site_data.get("site") or f"site_{idx}"
+            sim_total = cumul_site[-1]
+            actual_total = float(prod_totals.get(loc, sim_total))
+            scale = (actual_total / sim_total) if sim_total > 0 else 0.0
+            scaled_curve = [v * scale for v in cumul_site]
 
             if time is None:
                 time = t_site
-                global_cumul = [float(v) for v in cumul_site]
+                global_cumul = scaled_curve
             else:
-                n = min(len(time), len(t_site), len(cumul_site))
+                n = min(len(time), len(t_site), len(scaled_curve))
+                if n == 0:
+                    continue
                 time = time[:n]
                 global_cumul = global_cumul[:n]
                 for k in range(n):
-                    global_cumul[k] += float(cumul_site[k])
+                    global_cumul[k] += scaled_curve[k]
 
         if time is None or global_cumul is None or len(global_cumul) == 0:
             print(f"[ResilienceOpt] ⚠️ Courbe cumulée vide pour {label}, config ignorée.")
@@ -463,18 +468,37 @@ def run_resilience_optimization(
             daily.append(inc)
             prev = float(v)
 
-        peak = max(daily) if daily else 0.0
-        if peak <= 0:
-            # pas de production : on renvoie une courbe plate à 0
-            peak = 1.0
-        global_norm = [d / peak for d in daily]
+        # on aligne time sur la longueur de daily
+        time = time[:len(daily)]
 
-        # on aligne time sur la longueur de global_norm
-        time = time[:len(global_norm)]
-
-        return time, global_norm
+        return time, daily
 
     # --------------------------------------------------------
+
+    # Construire une référence unique (baseline complet) pour comparer toutes les configurations
+    ref_config = deepcopy(base_config)
+    ref_config["capacity_limits"] = baseline_capacity_limits
+    reference_result = run_scenario(run_simple_allocation_dict, ref_config)
+    try:
+        t_ref_raw, g_ref_raw = _build_global_rate_curve_from_production(reference_result, "Baseline (référence)")
+    except KeyError:
+        print("[ResilienceOpt] ⚠️ Impossible de construire la référence nominale.")
+        return None, []
+
+    if not g_ref_raw:
+        print("[ResilienceOpt] ⚠️ Référence nominale vide.")
+        return None, []
+
+    ref_peak = max(g_ref_raw)
+    if ref_peak <= 0:
+        ref_peak = 1.0
+    g_ref_norm = [x / ref_peak for x in g_ref_raw]
+
+    site_names = list(baseline_capacity_limits.keys())
+    mode_choices = ["OFF", "LOW", "HIGH"]
+
+    best = None
+    summary = []
 
     for combo in itertools.product(mode_choices, repeat=len(site_names)):
 
@@ -518,35 +542,41 @@ def run_resilience_optimization(
             continue
 
         # --- Alignement des longueurs ---
-        min_len = min(len(t_nom), len(g_nom), len(g_c1), len(g_c2))
+        min_len = min(len(t_ref_raw), len(g_ref_norm), len(t_nom), len(g_nom), len(g_c1), len(g_c2))
         if min_len == 0:
             print("[ResilienceOpt] ⚠️ Courbes vides après alignement, config ignorée.")
             continue
 
-        t_aligned = t_nom[:min_len]
+        t_aligned = t_ref_raw[:min_len]
+        g_ref_aligned_norm = g_ref_norm[:min_len]
+
         g_nom_aligned = g_nom[:min_len]
         g_c1_aligned = g_c1[:min_len]
         g_c2_aligned = g_c2[:min_len]
+
+        g_nom_norm = [x / ref_peak for x in g_nom_aligned]
+        g_c1_norm = [x / ref_peak for x in g_c1_aligned]
+        g_c2_norm = [x / ref_peak for x in g_c2_aligned]
 
         # --- Indicateurs + radars ---
         try:
             # On calcule les radars de résilience à partir des courbes alignées
             # Totaux de production (approche simple : somme des débits globaux)
-            total_baseline = float(sum(g_nom_aligned))
+            total_baseline = float(sum(g_ref_raw[:min_len]))
             total_c1 = float(sum(g_c1_aligned))
             total_c2 = float(sum(g_c2_aligned))
 
             # Radar pour chaque scénario de crise (C1, C2) par rapport au nominal
             radar_c1 = radar_indicators(
-                g_nom_aligned,  # baseline_curve
-                g_c1_aligned,   # crisis_curve
+                g_ref_aligned_norm,  # baseline_curve
+                g_c1_norm,   # crisis_curve
                 t_aligned,      # time_vector
                 total_baseline,
                 total_c1,
             )
             radar_c2 = radar_indicators(
-                g_nom_aligned,
-                g_c2_aligned,
+                g_ref_aligned_norm,
+                g_c2_norm,
                 t_aligned,
                 total_baseline,
                 total_c2,
@@ -582,7 +612,7 @@ def run_resilience_optimization(
         summary.append((global_score, config_name, cap_limits, radar_c1, radar_c2))
 
         if (best is None) or (global_score > best[0]):
-            best = (global_score, config_name, cap_limits, radar_c1, radar_c2, t_aligned, g_nom_aligned)
+            best = (global_score, config_name, cap_limits, radar_c1, radar_c2, t_aligned, g_nom_norm)
 
     print(f"[ResilienceOpt] Nombre de combinaisons testées : {len(summary)}")
 
@@ -662,6 +692,7 @@ def run_resilience_allocation_dict(capacity_limits, demand):
         }
 
     best_score, best_name, best_cap_limits, radar1, radar2, t_nom, g_nom = best
+    best_score_pct = round(best_score * 100.0, 1)
 
 
     # Allocation finale avec la meilleure config
@@ -677,7 +708,7 @@ def run_resilience_allocation_dict(capacity_limits, demand):
         "loc_prod": loc_prod,
         "loc_demand": loc_demand,
         "cap": best_cap_limits,
-        "resilience_score": best_score,
+        "resilience_score": best_score_pct,
         "best_config_name": best_name,
         "radar_crise1": radar1,
         "radar_crise2": radar2,
@@ -686,4 +717,3 @@ def run_resilience_allocation_dict(capacity_limits, demand):
             "global": g_nom,
         }
     }
-
