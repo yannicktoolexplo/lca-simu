@@ -194,10 +194,15 @@ def main_function():
         "Crise 2": scenario_events["Panne Texas"],
     }
 
+    resilience_base_config = deepcopy(base_config)
+    resilience_base_config["lines_config"] = deepcopy(lines_config)
+    resilience_crisis_config = deepcopy(crisis_base_config)
+    resilience_crisis_config["lines_config"] = deepcopy(lines_config)
+
     best_resilient, summary_resilience = run_resilience_optimization(
         base_config["capacity_limits"],
-        base_config,
-        crisis_base_config,
+        resilience_base_config,
+        resilience_crisis_config,
         scenario_events_res,
     )
 
@@ -218,10 +223,10 @@ def main_function():
             **base_config,
             "capacity_limits": best_capacities
         }
-        result_resilience = run_scenario(run_simple_allocation_dict, optimized_config)
+        result_resilience = run_scenario(run_optimization_allocation_dict, optimized_config)
         scenario_results["Optimisation Résilience"] = {
             **result_resilience,
-            "allocation_func": run_simple_allocation_dict,
+            "allocation_func": run_optimization_allocation_dict,
             "resilience_score": best_score_pct,
             "best_config_name": best_name,
         }
@@ -247,6 +252,12 @@ def main_function():
             "supply": res_supply,
             "production": res_prod,
             "distribution": res_dist
+        }
+        res_crise1 = run_scenario(scenario_res["allocation_func"], {**config_shock, "events": scenario_events["Rupture Alu"]})
+        res_crise2 = run_scenario(scenario_res["allocation_func"], {**config_shock, "events": scenario_events["Panne Texas"]})
+        scenario_res["resilience_crises"] = {
+            "Crise 1": res_crise1,
+            "Crise 2": res_crise2,
         }
 
     # 5bis. Pour chaque scénario de crise
