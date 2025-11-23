@@ -474,74 +474,54 @@ if st.button("🚀 Lancer la simulation"):
             return 0.5 * (a + b) if isinstance(a, (int, float)) and isinstance(b, (int, float)) else 0
 
         # Vérifie la présence des données avant d’afficher
-        if not rad1 or not rad2 or any(c not in rad1 for c in categories) or any(c not in rad2 for c in categories):
+        opt_avg_scores = scenario_results.get("Optimisation Résilience", {}).get("resilience_radar_avg")
+        if not opt_avg_scores and rad1 and rad2:
+            opt_avg_scores = {
+                metric: (rad1.get(metric, 0.0) + rad2.get(metric, 0.0)) / 2.0
+                for metric in categories + ["Score global"]
+            }
+
+        baseline_values = baseline_reference_values
+        baseline_score_display = baseline_reference_score
+        if not baseline_values:
+            base_scores = radar_indicators(
+                baseline_curve,
+                baseline_curve,
+                baseline_time,
+                baseline_total,
+                baseline_total,
+            )
+            baseline_values = [base_scores[c] for c in categories]
+            baseline_values.append(baseline_values[0])
+            baseline_score_display = base_scores["Score global"]
+            baseline_reference_values = baseline_values
+            baseline_reference_score = baseline_score_display
+
+        if not opt_avg_scores:
             st.warning("⚠️ L’optimisation résilience n’a pas trouvé de configuration valide. Aucun radar n’est affiché.")
         else:
-            optim_trace = [avg(rad1[c], rad2[c]) for c in categories]
-            optim_trace.append(optim_trace[0])
-            baseline_values = baseline_reference_values
-            baseline_score_display = baseline_reference_score
-            if not baseline_values:
-                base_scores = radar_indicators(
-                    baseline_curve,
-                    baseline_curve,
-                    baseline_time,
-                    baseline_total,
-                    baseline_total,
-                )
-                baseline_values = [base_scores[c] for c in categories]
-                baseline_values.append(baseline_values[0])
-                baseline_score_display = base_scores["Score global"]
-                baseline_reference_values = baseline_values
-            scenario_traces = [
-                ("Optim Résilience", optim_trace, opt_res.get("best_score", 0.0)),
-                ("Baseline", baseline_values, baseline_score_display),
-            ]
+            def trace_values_from_scores(scores_dict):
+                if not scores_dict:
+                    return None
+                values = [scores_dict.get(c, 0.0) for c in categories]
+                values.append(values[0])
+                return values
+
+            scenario_traces = []
+            optim_values = trace_values_from_scores(opt_avg_scores)
+            if optim_values:
+                scenario_traces.append(("Optim Résilience", optim_values, opt_res.get("best_score", 0.0)))
+            if baseline_values:
+                scenario_traces.append(("Baseline", baseline_values, baseline_score_display))
+
             for scenario_name in ["Optimisation Coût", "Optimisation CO₂", "MultiObjectifs", "Lightweight"]:
-                scenario = scenario_results.get(scenario_name)
-                if not scenario:
+                scenario = scenario_results.get(scenario_name, {})
+                avg_scores = scenario.get("resilience_radar_avg")
+                if not avg_scores:
                     continue
-                rate_curves = scenario.get("rate_curves", {})
-                nominal_curve = rate_curves.get("global", [])
-                nominal_time = rate_curves.get("time", [])
-                nominal_total = sum((scenario.get("production_totals") or {}).values())
-                crises = scenario.get("resilience_crises") or {}
-                if not nominal_curve or not nominal_time or nominal_total <= 0 or not crises:
-                    continue
-                crisis_curves = []
-                for crisis_key in ["Crise 1", "Crise 2"]:
-                    entry = crises.get(crisis_key)
-                    if not entry:
-                        continue
-                    rc = entry.get("rate_curves", {})
-                    crisis_curve = (rc or {}).get("global", [])
-                    crisis_time = (rc or {}).get("time", [])
-                    crisis_total = sum((entry.get("production_totals") or {}).values())
-                    if not crisis_curve or not crisis_time or crisis_total <= 0:
-                        continue
-                    min_len = min(len(nominal_curve), len(crisis_curve), len(nominal_time))
-                    if min_len == 0:
-                        continue
-                    score = radar_indicators(
-                        nominal_curve[:min_len],
-                        crisis_curve[:min_len],
-                        nominal_time[:min_len],
-                        nominal_total,
-                        crisis_total,
-                    )
-                    crisis_curves.append(score)
-                if crisis_curves:
-                    averaged = []
-                    for c in categories:
-                        averaged.append(sum(score.get(c, 0.0) for score in crisis_curves) / len(crisis_curves))
-                    averaged.append(averaged[0])
-                    scenario_traces.append(
-                        (
-                            scenario_name,
-                            averaged,
-                            sum(score.get("Score global", 0.0) for score in crisis_curves) / len(crisis_curves),
-                        )
-                    )
+                values = trace_values_from_scores(avg_scores)
+                if values:
+                    scenario_traces.append((scenario_name, values, avg_scores.get("Score global", 0.0)))
 
             for name, values, score in scenario_traces:
                 color = scenario_colors.get(name)
