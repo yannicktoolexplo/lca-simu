@@ -161,12 +161,17 @@ def load_enriched(path: Path) -> List[Dict[str, Any]]:
                     nm = entry.get("name") or entry.get("supplier") or ""
                     loc = entry.get("location") or entry.get("country") or ""
                     is_p = bool(entry.get("is_primary", False))
+                    lat = entry.get("lat")
+                    lon = entry.get("lon")
                     # Normalise à partir de name/location
                     supplier, country, is_star = extract_name_and_country(nm, loc)
                     is_primary = is_p or is_star
+                    lat = float(lat) if isinstance(lat, (int, float, str)) and str(lat).strip() not in ("", "None") else None
+                    lon = float(lon) if isinstance(lon, (int, float, str)) and str(lon).strip() not in ("", "None") else None
                 else:
                     # chaîne brute
                     supplier, country, is_primary = extract_name_and_country(str(entry), "")
+                    lat = lon = None
 
                 if not supplier:
                     continue
@@ -176,7 +181,9 @@ def load_enriched(path: Path) -> List[Dict[str, Any]]:
                 tiers_out[tier].append({
                     "supplier": supplier,
                     "country": country,
-                    "is_primary": is_primary
+                    "is_primary": is_primary,
+                    "lat": lat,
+                    "lon": lon,
                 })
 
         records.append({"system": system, "component": component, "tiers": tiers_out})
@@ -268,7 +275,14 @@ function scaleWidth(value, vmin, vmax, wmin=0.8, wmax=6) {{
 }}
 
 const countryCoords = DATA.country_coords || {{}};
-function getLatLon(country) {{
+function getLatLon(supplier) {{
+  if (!supplier) return null;
+  const lat = supplier.lat;
+  const lon = supplier.lon;
+  if (typeof lat === "number" && typeof lon === "number" && isFinite(lat) && isFinite(lon)) {{
+    return {{lat, lon}};
+  }}
+  const country = supplier.country;
   if (!country) return null;
   const coords = countryCoords[country];
   return coords ? {{lat: coords[0], lon: coords[1]}} : null;
@@ -314,7 +328,7 @@ function buildTraces() {{
       const suppliers = (rec.tiers && rec.tiers[tier]) ? rec.tiers[tier] : [];
       for (const s of suppliers) {{
         if (filters.onlyPrimary && !s.is_primary) continue;
-        const loc = getLatLon(s.country);
+        const loc = getLatLon(s);
         if (!loc) continue;
         xs.push(loc.lon); ys.push(loc.lat);
         texts.push(`${{s.supplier || "?"}} — ${{s.country || "?"}}\\n[${{rec.system}}] ${{rec.component}}`);
@@ -352,7 +366,7 @@ function buildTraces() {{
 
       for (const f of fromList) {{
         if (currentFilters().onlyPrimary && !f.is_primary) continue;
-        const fLoc = getLatLon(f.country);
+        const fLoc = getLatLon(f);
         if (!fLoc) continue;
 
         // Option “units” future : si tu ajoutes une quantité (f.units), on la sommera ici
@@ -360,7 +374,7 @@ function buildTraces() {{
 
         for (const t of toList) {{
           if (toTier !== "safran" && currentFilters().onlyPrimary && !t.is_primary) continue;
-          const tLoc = (toTier === "safran") ? {{lat: DATA.safran.lat, lon: DATA.safran.lon}} : getLatLon(t.country);
+          const tLoc = (toTier === "safran") ? {{lat: DATA.safran.lat, lon: DATA.safran.lon}} : getLatLon(t);
           if (!tLoc) continue;
 
           const key = `${{fLoc.lat.toFixed(3)}},${{fLoc.lon.toFixed(3)}}->${{tLoc.lat.toFixed(3)}},${{tLoc.lon.toFixed(3)}}`;
