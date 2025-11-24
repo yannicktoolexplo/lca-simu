@@ -264,6 +264,14 @@ def _extract_figs(obj):
     return [obj]
 
 
+def _run_resilience_phases(allocation_func, base_cfg: Dict, shocks: Dict[str, Iterable]) -> Dict[str, Dict]:
+    """Execute standard supply/production/distribution shocks for a scenario config."""
+    return {
+        phase: run_scenario(allocation_func, {**deepcopy(base_cfg), "events": shock_events})
+        for phase, shock_events in shocks.items()
+    }
+
+
 def _compute_daily_from_cumul(cumul: List[float]) -> List[float]:
     if not cumul:
         return []
@@ -482,36 +490,42 @@ def main_function():
             ]
         }
 
+    # Jeux de chocs standard utilisés pour les tests de résilience
+    standard_shocks = {
+        "supply": scenario_events["shock_supply"],
+        "production": scenario_events["shock_production"],
+        "distribution": scenario_events["shock_distribution"],
+    }
+
+    def _base_config_without_events(scenario_res: Dict) -> Dict:
+        cfg = deepcopy(scenario_res.get("config", base_config))
+        cfg.pop("events", None)
+        return cfg
+
     # 5. Pour chaque scénario nominal (hors crise)
     for name, scenario_res in scenario_results.items():
-        base_cfg = deepcopy(scenario_res.get("config", base_config))
-        base_cfg.pop("events", None)
-
-        res_supply = run_scenario(scenario_res["allocation_func"], {**deepcopy(base_cfg), "events": scenario_events["shock_supply"]})
-        res_prod   = run_scenario(scenario_res["allocation_func"], {**deepcopy(base_cfg), "events": scenario_events["shock_production"]})
-        res_dist   = run_scenario(scenario_res["allocation_func"], {**deepcopy(base_cfg), "events": scenario_events["shock_distribution"]})
-        scenario_res["resilience_test"] = {
-            "supply": res_supply,
-            "production": res_prod,
-            "distribution": res_dist
-        }
+        base_cfg = _base_config_without_events(scenario_res)
+        scenario_res["resilience_test"] = _run_resilience_phases(
+            scenario_res["allocation_func"],
+            base_cfg,
+            standard_shocks,
+        )
         scenario_res["resilience_crises"] = {}
         for crisis_name, events in resilience_event_definitions.items():
-            res_crisis = run_scenario(scenario_res["allocation_func"], {**deepcopy(base_cfg), "events": events})
+            res_crisis = run_scenario(
+                scenario_res["allocation_func"],
+                {**deepcopy(base_cfg), "events": events},
+            )
             scenario_res["resilience_crises"][crisis_name] = res_crisis
 
     # 5bis. Pour chaque scénario de crise
+    crisis_res_base_cfg = {**base_config, "loc_prod": {}}
     for name, crisis_res in crisis_results.items():
-        # Tu peux adapter les chocs ici si tu veux, ou garder ceux de scenario_events["shock_*"]
-        config_shock = {**base_config, "loc_prod": {}}
-        res_supply = run_scenario(crisis_res["allocation_func"], {**config_shock, "events": scenario_events["shock_supply"]})
-        res_prod   = run_scenario(crisis_res["allocation_func"], {**config_shock, "events": scenario_events["shock_production"]})
-        res_dist   = run_scenario(crisis_res["allocation_func"], {**config_shock, "events": scenario_events["shock_distribution"]})
-        crisis_res["resilience_test"] = {
-            "supply": res_supply,
-            "production": res_prod,
-            "distribution": res_dist
-        }
+        crisis_res["resilience_test"] = _run_resilience_phases(
+            crisis_res["allocation_func"],
+            crisis_res_base_cfg,
+            standard_shocks,
+        )
 
     # 6. Score de résilience - scenarios normaux
     for name, scenario_res in scenario_results.items():
@@ -804,11 +818,6 @@ def main_function():
         time_vector=list(time_perf),
     )
  
-
-    # 10bis. Normaliser aussi les figures de crise
-    crisis_all_figs = _extract_figs(crisis_figs) + _extract_figs(crisis_sankey_figs)
-
-
 
     # ==================================================
     # Optimisation Résilience
