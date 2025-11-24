@@ -3,18 +3,18 @@ import json, os, math, pandas as pd
 
 COUNTRY_CENTROIDS = {
     "France": (46.2, 2.21), "Allemagne": (51.16, 10.45), "Germany": (51.16, 10.45),
-    "Belgique": (50.50, 4.47), "Belgium": (50.50, 4.47),
+    "Belgique": (None, None), "Belgium": (None, None),
     "Luxembourg": (49.81, 6.13), "Suisse": (46.82, 8.23), "Switzerland": (46.82, 8.23),
     "Italie": (41.87, 12.57), "Italy": (41.87, 12.57), "Espagne": (40.46, -3.75), "Spain": (40.46, -3.75),
-    "Pays-Bas": (52.13, 5.29), "Netherlands": (52.13, 5.29), "Autriche": (47.52, 14.55), "Austria": (47.52,14.55),
-    "Pologne": (51.92, 19.15), "Poland": (51.92, 19.15), "Tchéquie": (49.82, 15.47), "Czech Republic": (49.82, 15.47),
-    "Suède": (60.13, 18.64), "Sweden": (60.13,18.64), "Norvège": (60.47, 8.47), "Norway": (60.47,8.47),
-    "Royaume-Uni": (55.38, -3.44), "United Kingdom": (55.38,-3.44), "Angleterre": (52.36, -1.17),
-    "Irlande": (53.14, -7.69), "Ireland": (53.14,-7.69), "Portugal": (39.40, -8.22),
-    "USA": (39.38, -99.12), "États-Unis": (39.38,-99.12), "United States": (39.38,-99.12),
-    "Canada": (56.13, -106.35), "Mexique": (23.63, -102.55), "Brazil": (-14.24,-51.93), "Brésil": (-14.24,-51.93),
-    "Chine": (35.86, 104.20), "China": (35.86, 104.20), "Japon": (36.20, 138.25), "Japan": (36.20,138.25),
-    "Inde": (20.59, 78.96), "India": (20.59, 78.96), "Thaïlande": (15.87, 100.99), "Thailand": (15.87,100.99),
+    "Pays-Bas": (52.13, 5.29), "Netherlands": (52.13, 5.29), "Autriche": (None, None), "Austria": (None,None),
+    "Pologne": (None, None), "Poland": (None, None), "Tchéquie": (49.82, 15.47), "Czech Republic": (49.82, 15.47),
+    "Suède": (None, None), "Sweden": (None,None), "Norvège": (60.47, 8.47), "Norway": (60.47,8.47),
+    "Royaume-Uni": (None, None), "United Kingdom": (None,None), "Angleterre": (52.36, -1.17),
+    "Irlande": (None, None), "Ireland": (None,None), "Portugal": (39.40, -8.22),
+    "USA": (None, None), "États-Unis": (None,None), "United States": (None,None),
+    "Canada": (None, None), "Mexique": (23.63, -102.55), "Brazil": (-14.24,-51.93), "Brésil": (-14.24,-51.93),
+    "Chine": (None, None), "China": (None, None), "Japon": (None, None), "Japan": (None,None),
+    "Inde": (None, None), "India": (None, None), "Thaïlande": (None, None), "Thailand": (None,None),
     "Corée du Sud": (36.50, 127.98), "South Korea": (36.50,127.98), "Taïwan": (23.70, 121.00), "Taiwan": (23.70,121.00),
     "Singapour": (1.35, 103.82), "Singapore": (1.35, 103.82), "Malaisie": (4.21, 101.98), "Malaysia": (4.21,101.98),
     "Turquie": (39.92, 32.86), "Turkey": (39.92,32.86),
@@ -76,6 +76,12 @@ def get_coords(name, country, geolook):
 
 def extract_tiers(record):
     tiers = []
+    transport = record.get("transport") or {}
+    # modes globaux par leg (optionnels)
+    modes_to_first = transport.get("to_first_transformation", {}).get("modes", [])
+    modes_to_safran = transport.get("from_supplier_to_FRN-F1F796DB13C8E2", {}).get("modes", [])
+    # mine_to_refinery non utilisé dans le graphe actuel (pas de leg explicite)
+
     sup = record.get("suppliers", {})
     mapping = [
         ("primary_material","Matière 1ère"),
@@ -91,14 +97,24 @@ def extract_tiers(record):
             if isinstance(it, dict):
                 name = norm(it.get("name","")) or "(sans nom)"
                 country = norm(it.get("location","")) or "Inconnu"
-                tiers.append({"name": name, "country": country, "role": role})
+                modes = it.get("mode") or it.get("modes")
+                if isinstance(modes, str):
+                    modes = [m.strip() for m in modes.split(",") if m.strip()]
+                elif not isinstance(modes, (list, tuple)):
+                    modes = []
+                # inject global transport hints if missing
+                if not modes and role == "1ère transformation":
+                    modes = modes_to_first if isinstance(modes_to_first, list) else []
+                if not modes and role == "Tier 1":
+                    modes = modes_to_safran if isinstance(modes_to_safran, list) else []
+                tiers.append({"name": name, "country": country, "role": role, "modes": modes})
             elif isinstance(it, str) and it.strip():
-                tiers.append({"name": it.strip(), "country": "Inconnu", "role": role})
+                tiers.append({"name": it.strip(), "country": "Inconnu", "role": role, "modes": []})
     return tiers
 
 def build_graph(records, geolook):
     nodes = {}
-    edges = []
+    edges = []  # (src_key, dst_key, distance_km, component, modes)
     def ensure_node(name, country, role):
         key = (name, role)
         if key in nodes:
@@ -113,27 +129,33 @@ def build_graph(records, geolook):
         prim  = [t for t in tiers if t["role"]=="Matière 1ère"]
         first = [t for t in tiers if t["role"]=="1ère transformation"]
         tier1 = [t for t in tiers if t["role"]=="Tier 1"]
-        safran_key = ensure_node("Safran", "France", "Client")
+        safran_key = ensure_node("FRN-F1F796DB13C8E2", "France", "Client")
 
         pkeys = [ensure_node(t["name"], t["country"], t["role"]) for t in prim]
         fkeys = [ensure_node(t["name"], t["country"], t["role"]) for t in first]
         tkeys = [ensure_node(t["name"], t["country"], t["role"]) for t in tier1]
+        p_modes = [t.get("modes", []) for t in prim]
+        f_modes = [t.get("modes", []) for t in first]
+        t_modes = [t.get("modes", []) for t in tier1]
 
-        def add_edge(a, b):
+        def add_edge(a, b, modes):
             sa = nodes[a]; sb = nodes[b]
             dist = haversine_km(sa["lat"], sa["lon"], sb["lat"], sb["lon"])
-            edges.append((a, b, dist, component))
+            edges.append((a, b, dist, component, modes))
 
         if pkeys and fkeys:
-            for a in pkeys:
-                for b in fkeys:
-                    add_edge(a,b)
+            for ia, a in enumerate(pkeys):
+                for ib, b in enumerate(fkeys):
+                    modes = p_modes[ia] or f_modes[ib]
+                    add_edge(a,b, modes)
         if fkeys and tkeys:
-            for a in fkeys:
-                for b in tkeys:
-                    add_edge(a,b)
+            for ia, a in enumerate(fkeys):
+                for ib, b in enumerate(tkeys):
+                    modes = f_modes[ia] or t_modes[ib]
+                    add_edge(a,b, modes)
         if tkeys:
-            for a in tkeys:
-                add_edge(a, safran_key)
+            for ia, a in enumerate(tkeys):
+                modes = t_modes[ia] or []
+                add_edge(a, safran_key, modes)
 
     return nodes, edges
