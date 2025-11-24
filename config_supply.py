@@ -10,9 +10,10 @@ PROCESSING_TIME_DAYS = {
 }
 
 ROLE_CAPACITY = {
-    "Matière 1ère": 10,
-    "1ère transformation": 8,
-    "Tier 1": 6,
+    # Capacités élargies pour réduire les files d'attente
+    "Matière 1ère": 30,
+    "1ère transformation": 24,
+    "Tier 1": 18,
     "Client": 999999,
 }
 
@@ -23,7 +24,8 @@ PROCESSING_JITTER = 0.2
 TRANSIT_JITTER = 0.15
 
 DEFAULT_UNITS_PER_COMPONENT = 5
-SIM_HORIZON_DAYS = 60
+# Horizon étendu pour permettre l'acheminement de toutes les unités
+SIM_HORIZON_DAYS = 300
 
 EVENTS_CSV = "supply_events.csv"
 ARRIVALS_CSV = "supply_arrivals.csv"

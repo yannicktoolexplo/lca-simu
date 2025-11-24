@@ -9,8 +9,9 @@ from config_supply import (
 from data_loader_supply import load_json, load_geocoding, build_graph
 from sim_supply import simulate_supply
 
-JSON_PATH = "supplychain_ultimate_DEDUP.json"
-GEOCODING_XLSX = "geocoding_table_filled.xlsx"
+# Fichiers par défaut (surchargables par variables d'environnement)
+JSON_PATH = os.environ.get("JSON_PATH", "supplychain_ultimate_DEDUP.json")
+GEOCODING_XLSX = os.environ.get("GEOCODING_XLSX", "geocoding_table_filled.xlsx")
 
 def run_simulation():
     assert os.path.exists(JSON_PATH), f"JSON not found: {JSON_PATH}"
