@@ -76,6 +76,12 @@ def get_coords(name, country, geolook):
 
 def extract_tiers(record):
     tiers = []
+    transport = record.get("transport") or {}
+    # modes globaux par leg (optionnels)
+    modes_to_first = transport.get("to_first_transformation", {}).get("modes", [])
+    modes_to_safran = transport.get("from_supplier_to_safran", {}).get("modes", [])
+    # mine_to_refinery non utilisé dans le graphe actuel (pas de leg explicite)
+
     sup = record.get("suppliers", {})
     mapping = [
         ("primary_material","Matière 1ère"),
@@ -91,14 +97,24 @@ def extract_tiers(record):
             if isinstance(it, dict):
                 name = norm(it.get("name","")) or "(sans nom)"
                 country = norm(it.get("location","")) or "Inconnu"
-                tiers.append({"name": name, "country": country, "role": role})
+                modes = it.get("mode") or it.get("modes")
+                if isinstance(modes, str):
+                    modes = [m.strip() for m in modes.split(",") if m.strip()]
+                elif not isinstance(modes, (list, tuple)):
+                    modes = []
+                # inject global transport hints if missing
+                if not modes and role == "1ère transformation":
+                    modes = modes_to_first if isinstance(modes_to_first, list) else []
+                if not modes and role == "Tier 1":
+                    modes = modes_to_safran if isinstance(modes_to_safran, list) else []
+                tiers.append({"name": name, "country": country, "role": role, "modes": modes})
             elif isinstance(it, str) and it.strip():
-                tiers.append({"name": it.strip(), "country": "Inconnu", "role": role})
+                tiers.append({"name": it.strip(), "country": "Inconnu", "role": role, "modes": []})
     return tiers
 
 def build_graph(records, geolook):
     nodes = {}
-    edges = []
+    edges = []  # (src_key, dst_key, distance_km, component, modes)
     def ensure_node(name, country, role):
         key = (name, role)
         if key in nodes:
@@ -118,22 +134,28 @@ def build_graph(records, geolook):
         pkeys = [ensure_node(t["name"], t["country"], t["role"]) for t in prim]
         fkeys = [ensure_node(t["name"], t["country"], t["role"]) for t in first]
         tkeys = [ensure_node(t["name"], t["country"], t["role"]) for t in tier1]
+        p_modes = [t.get("modes", []) for t in prim]
+        f_modes = [t.get("modes", []) for t in first]
+        t_modes = [t.get("modes", []) for t in tier1]
 
-        def add_edge(a, b):
+        def add_edge(a, b, modes):
             sa = nodes[a]; sb = nodes[b]
             dist = haversine_km(sa["lat"], sa["lon"], sb["lat"], sb["lon"])
-            edges.append((a, b, dist, component))
+            edges.append((a, b, dist, component, modes))
 
         if pkeys and fkeys:
-            for a in pkeys:
-                for b in fkeys:
-                    add_edge(a,b)
+            for ia, a in enumerate(pkeys):
+                for ib, b in enumerate(fkeys):
+                    modes = p_modes[ia] or f_modes[ib]
+                    add_edge(a,b, modes)
         if fkeys and tkeys:
-            for a in fkeys:
-                for b in tkeys:
-                    add_edge(a,b)
+            for ia, a in enumerate(fkeys):
+                for ib, b in enumerate(tkeys):
+                    modes = f_modes[ia] or t_modes[ib]
+                    add_edge(a,b, modes)
         if tkeys:
-            for a in tkeys:
-                add_edge(a, safran_key)
+            for ia, a in enumerate(tkeys):
+                modes = t_modes[ia] or []
+                add_edge(a, safran_key, modes)
 
     return nodes, edges

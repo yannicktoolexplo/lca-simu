@@ -20,7 +20,14 @@ def run_simulation():
     nodes, edges = build_graph(records, geolook)
 
     components = sorted(set([e[3] for e in edges if e[3]]))
-    demands = {c: DEFAULT_UNITS_PER_COMPONENT for c in components} if components else {"GENERIC": DEFAULT_UNITS_PER_COMPONENT}
+    # Exclure packaging (emballage de transport) de la demande
+    demands = {c: DEFAULT_UNITS_PER_COMPONENT for c in components
+               if c.strip().lower() not in {"packaging", "transport"}}
+    if not demands and components:
+        # fallback si tout a été filtré
+        demands = {components[0]: DEFAULT_UNITS_PER_COMPONENT}
+    elif not demands:
+        demands = {"GENERIC": DEFAULT_UNITS_PER_COMPONENT}
 
     with open(EVENTS_CSV, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)

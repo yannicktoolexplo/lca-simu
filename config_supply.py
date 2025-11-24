@@ -24,8 +24,8 @@ PROCESSING_JITTER = 0.2
 TRANSIT_JITTER = 0.15
 
 DEFAULT_UNITS_PER_COMPONENT = 5
-# Horizon étendu pour permettre l'acheminement de toutes les unités
-SIM_HORIZON_DAYS = 300
+# Horizon suffisamment long tout en restant compact (packaging/transport exclus)
+SIM_HORIZON_DAYS = 200
 
 EVENTS_CSV = "supply_events.csv"
 ARRIVALS_CSV = "supply_arrivals.csv"
