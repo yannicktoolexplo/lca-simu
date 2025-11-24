@@ -109,3 +109,14 @@ data/demand.xlsx
 data/capacity.xlsx
 SimChainGreenHorizons.py
 data.zip
+arrivals_cumulative.png
+supply_arrivals.csv
+supply_events.csv
+analysis/component_edges_modes.csv
+analysis/component_edges_segments.csv
+analysis/component_suppliers_modes.csv
+analysis/output8_incoherences.md
+analysis/output8_suppliers_localisation.md
+analysis/sim_report/arrivals_hist.png
+analysis/sim_report/slow_components_boxplot.png
+analysis/sim_report/summary.txt
