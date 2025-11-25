@@ -1,6 +1,6 @@
 # supply_dynamic_sim.py
 import matplotlib.pyplot as plt
-from supply_network import get_supply_plan
+from resilience.supply_network import get_supply_plan
 
 def run_supply_simulation(material: str, site: str, duration_days: int, daily_demand: float):
     plan = get_supply_plan(site, seat_weight=130)

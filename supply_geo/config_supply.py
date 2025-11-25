@@ -27,5 +27,5 @@ DEFAULT_UNITS_PER_COMPONENT = 5
 # Horizon suffisamment long tout en restant compact (packaging/transport exclus)
 SIM_HORIZON_DAYS = 200
 
-EVENTS_CSV = "supply_events.csv"
-ARRIVALS_CSV = "supply_arrivals.csv"
+EVENTS_CSV = "analysis/supply_events.csv"
+ARRIVALS_CSV = "analysis/supply_arrivals.csv"

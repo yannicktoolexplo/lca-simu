@@ -1,7 +1,7 @@
 from sqlalchemy import create_engine, MetaData, Table, Column, Integer, Float, String, Boolean, ForeignKey
 
 # Chemin de la base de données SQLite
-DB_PATH = 'sqlite:///simchain.db'
+DB_PATH = 'sqlite:///data/simchain.db'
 engine = create_engine(DB_PATH)
 metadata = MetaData()
 

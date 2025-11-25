@@ -2,8 +2,8 @@
 from dataclasses import dataclass
 from typing import Callable, Dict, Any, List, Tuple
 from copy import deepcopy
-from resilience_metrics import compute_metrics, ResilienceMetrics
-from shock_suite import build_shock_suite, estimate_exogenous_severity
+from resilience.resilience_metrics import compute_metrics, ResilienceMetrics
+from shocks.shock_suite import build_shock_suite, estimate_exogenous_severity
 import pandas as pd
 
 @dataclass

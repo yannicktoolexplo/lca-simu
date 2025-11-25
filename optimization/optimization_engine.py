@@ -5,12 +5,11 @@ from economic.cost_engine import get_supply_cost, get_unit_cost, calculate_total
 from distribution.distribution_engine import load_freight_costs_and_demands
 from line_production.production_engine import load_fixed_and_variable_costs, run_simple_supply_allocation, build_capacity_limits_from_cap_max
 from line_production.line_production_settings import lines_config
-from scenario_engine import run_scenario, compare_scenarios
+from resilience.scenario_engine import run_scenario, compare_scenarios
 from typing import Dict, Tuple, List
 import itertools
 from copy import deepcopy
-from scenario_engine import run_scenario
-from resilience_analysis import compute_resilience_indicators, radar_indicators
+from resilience.resilience_analysis import compute_resilience_indicators, radar_indicators
 from line_production.production_engine import compute_line_rate_curves  # pour cohérence
 
 # Configuration par défaut des sites de production et marchés de demande
@@ -680,7 +679,7 @@ def run_resilience_allocation_dict(capacity_limits, demand):
     Utilise les 'capacity_limits' baseline comme référence,
     explore OFF/LOW/HIGH, choisit la meilleure config, puis fait une allocation simple.
     """
-    from scenario_engine import run_scenario
+    from resilience.scenario_engine import run_scenario
     from line_production.line_production_settings import lines_config, scenario_events
 
     base_config = {

@@ -1,4 +1,4 @@
-from event_engine import PerturbationEvent
+from resilience.event_engine import PerturbationEvent
 
 # Définition des événements scénarios (combinaisons d'événements perturbateurs)
 scenario_events = {

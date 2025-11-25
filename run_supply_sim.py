@@ -2,12 +2,14 @@ import os, csv, simpy, argparse
 import pandas as pd
 import matplotlib.pyplot as plt
 from collections import defaultdict
-from config_supply import (
-    DEFAULT_UNITS_PER_COMPONENT, SIM_HORIZON_DAYS,
-    EVENTS_CSV, ARRIVALS_CSV
+from supply_geo.config_supply import (
+    DEFAULT_UNITS_PER_COMPONENT,
+    SIM_HORIZON_DAYS,
+    EVENTS_CSV,
+    ARRIVALS_CSV,
 )
-from data_loader_supply import load_json, load_geocoding, build_graph
-from sim_supply import simulate_supply
+from supply_geo.data_loader_supply import load_json, load_geocoding, build_graph
+from supply_geo.sim_supply import simulate_supply
 
 # Fichiers par défaut (surchargables par variables d'environnement)
 JSON_PATH = os.environ.get("JSON_PATH", "supplychain_ultimate_DEDUP.json")

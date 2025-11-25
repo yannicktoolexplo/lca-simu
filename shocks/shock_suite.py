@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Tuple, Optional
 
 # Essaie d'importer ta CrisisEvent ; sinon fallback compatible
 try:
-    from event_engine import CrisisEvent  # adapte si ton module a un autre nom
+    from resilience.event_engine import CrisisEvent  # adapte si ton module a un autre nom
 except Exception:
     from dataclasses import dataclass
     @dataclass

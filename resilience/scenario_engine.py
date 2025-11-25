@@ -2,7 +2,7 @@ from line_production.line_production import run_simulation
 from line_production.line_production_settings import lines_config
 from line_production.production_engine import load_capacity_limits, load_fixed_and_variable_costs
 from distribution.distribution_engine import load_freight_costs_and_demands
-from utils.data_tools import plot_production_sankey, plot_sankey_production_co2_emissions, display_all_lca_indicators
+from tools.data_tools import plot_production_sankey, plot_sankey_production_co2_emissions, display_all_lca_indicators
 from economic.cost_engine import calculate_total_costs, calculer_penalite_non_livraison
 from environment.environment_engine import (
     calculate_lca_production_IFE_raw,
@@ -232,7 +232,7 @@ def display_sankey_for_scenarios(results_dict, return_figures=True):
         print("⚠️ display_sankey_for_scenarios : results_dict vide")
         return {} if return_figures else None
 
-    from utils.data_tools import plot_production_sankey  # adapte l'import si besoin
+    from tools.data_tools import plot_production_sankey  # adapte l'import si besoin
 
     sankey_figs = {}
 
@@ -298,4 +298,3 @@ def display_sankey_for_scenarios(results_dict, return_figures=True):
         # Si tu veux les afficher directement : 
         # for fig in sankey_figs.values(): fig.show()
         return None
-

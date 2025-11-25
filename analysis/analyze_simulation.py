@@ -57,8 +57,8 @@ def events_summary(events_df: pd.DataFrame):
 
 def main():
     parser = argparse.ArgumentParser(description='Analyse des résultats de simulation supply.')
-    parser.add_argument('--arrivals', default='supply_arrivals.csv', help='CSV des arrivées (supply_arrivals.csv)')
-    parser.add_argument('--events', default='supply_events.csv', help='CSV des événements (supply_events.csv)')
+    parser.add_argument('--arrivals', default='analysis/supply_arrivals.csv', help='CSV des arrivées (supply_arrivals.csv)')
+    parser.add_argument('--events', default='analysis/supply_events.csv', help='CSV des événements (supply_events.csv)')
     parser.add_argument('--outdir', default='analysis/sim_report', help='Répertoire de sortie pour graphiques et résumé')
     args = parser.parse_args()
 

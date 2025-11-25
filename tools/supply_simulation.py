@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 Moteur SimPy pour simuler dynamiquement un réseau d'approvisionnement.
-Basé sur le graph supply_network.py.
+Basé sur le graph resilience.supply_network.py.
 
 Chaque nœud (mine, usine, hub...) devient un processus SimPy avec :
 - une production (ou transformation) selon une capacité
@@ -13,7 +13,7 @@ Ce moteur est *indépendant* du moteur de production de sièges existant.
 
 import simpy
 from typing import Dict, List
-from supply_network import SUPPLY_NETWORK
+from resilience.supply_network import SUPPLY_NETWORK
 
 
 class SupplyNode:

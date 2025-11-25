@@ -5,7 +5,7 @@ import random
 # Remplace l'import historique par un import souple :
 try:
     # Nouveau réseau global : utilisera les délais fournisseur global -> hub -> site
-    from supply_network import get_supply_plan as manage_fixed_supply
+    from resilience.supply_network import get_supply_plan as manage_fixed_supply
 except Exception:
     # Fallback : ton moteur historique
     from supply.supply_engine import manage_fixed_supply
@@ -440,4 +440,3 @@ def _handle_delay_event(env, event, lines):
         if event.target in line.material_factor:
             line.material_factor[event.target] = 1.0
             line.supply_enabled[event.target] = True
-
