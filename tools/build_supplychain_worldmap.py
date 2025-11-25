@@ -57,43 +57,75 @@ COUNTRY_ALIASES = {
 COUNTRY_COORDS = {
     "France": (46.2276, 2.2137),
     "United Kingdom": (55.3781, -3.4360),
+    "England": (52.3555, -1.1743),
+    "Denmark": (56.2639, 9.5018),
+    "Finland": (61.9241, 25.7482),
+    "Luxembourg": (49.8153, 6.1296),
     "Belgium": (50.5039, 4.4699),
     "Germany": (51.1657, 10.4515),
     "Sweden": (60.1282, 18.6435),
+    "Norway": (60.4720, 8.4689),
     "Poland": (51.9194, 19.1451),
     "Ireland": (53.1424, -7.6921),
     "Austria": (47.5162, 14.5501),
     "Italy": (41.8719, 12.5674),
     "Spain": (40.4637, -3.7492),
     "Portugal": (39.3999, -8.2245),
+    "Switzerland": (46.8182, 8.2275),
+    "Netherlands": (52.1326, 5.2913),
+    "Lithuania": (55.1694, 23.8813),
+    "Latvia": (56.8796, 24.6032),
+    "Czech Republic": (49.8175, 15.4729),
+
     "China": (35.8617, 104.1954),
     "India": (20.5937, 78.9629),
     "Japan": (36.2048, 138.2529),
     "Thailand": (15.8700, 100.9925),
     "United States": (39.7837304, -100.4458825),
     "Canada": (56.1304, -106.3468),
+    "Mexico": (23.6345, -102.5528),
     "Brazil": (-14.2350, -51.9253),
-    "Switzerland": (46.8182, 8.2275),
-    "Netherlands": (52.1326, 5.2913),
+    "Cameroon": (7.3697, 12.3547),
+    "Nigeria": (9.0820, 8.6753),
+    "Liberia": (6.4281, -9.4295),
+    "Côte d’Ivoire": (7.5400, -5.5471),
+    "Ivory Coast": (7.5400, -5.5471),
+    "Indonesia": (-0.7893, 113.9213),
+    "Philippines": (12.8797, 121.7740),
+    "Saudi Arabia": (23.8859, 45.0792),
+    "Thailand": (15.8700, 100.9925),
 }
 
-TIERS_ORDER = ["primary_material", "raw_material", "first_transformation", "tier1"]
+TIERS_ORDER = [
+    "tier4_raw_material",
+    "tier3_first_transformation",
+    "tier2_second_transformation",
+    "tier1",
+    "logistics",
+    "oem",
+]
 
 # Couleurs des NŒUDS (markers) par tier
 TIER_STYLES = {
-    "primary_material":     {"name": "Primary material",      "color": "#7D3C98", "symbol": "diamond"},
-    "raw_material":         {"name": "Raw material",          "color": "#1E8449", "symbol": "square"},
-    "first_transformation": {"name": "1st transformation",    "color": "#CA6F1E", "symbol": "triangle-up"},
-    "tier1":                {"name": "Tier 1",                "color": "#2874A6", "symbol": "circle"},
+    "tier4_raw_material":        {"name": "Tier 4 • Matière",      "color": "#7D3C98", "symbol": "diamond"},
+    "tier3_first_transformation": {"name": "Tier 3 • 1ère transfo", "color": "#1E8449", "symbol": "square"},
+    "tier2_second_transformation": {"name": "Tier 2 • 2e transfo",  "color": "#CA6F1E", "symbol": "triangle-up"},
+    "tier1":                     {"name": "Tier 1",               "color": "#2874A6", "symbol": "circle"},
+    "oem":                       {"name": "OEM",                  "color": "#000000", "symbol": "star"},
 }
 
 # Libellés de flux et COULEURS des flux (lignes)
-FLOW_LABELS = ["Primary → Raw", "Raw → 1st transf.", "1st transf. → Tier 1", "Tier 1 → Safran"]
+FLOW_LABELS = [
+    "Tier4 → Tier3",
+    "Tier3 → Tier2",
+    "Tier2 → Tier1",
+    "Tier1 → OEM",
+]
 FLOW_STYLES = {
-  "Primary → Raw":        {"color": "#8A2BE2"},  # violet
-  "Raw → 1st transf.":    {"color": "#2CA02C"},  # vert
-  "1st transf. → Tier 1": {"color": "#FF7F0E"},  # orange
-  "Tier 1 → Safran":      {"color": "#1F77B4"},  # bleu
+  "Tier4 → Tier3": {"color": "#8A2BE2"},  # violet
+  "Tier3 → Tier2": {"color": "#2CA02C"},  # vert
+  "Tier2 → Tier1": {"color": "#FF7F0E"},  # orange
+  "Tier1 → OEM":   {"color": "#1F77B4"},  # bleu
 }
 
 def normalize_country(raw: Optional[str]) -> Optional[str]:
@@ -136,6 +168,10 @@ def load_enriched(path: Path) -> List[Dict[str, Any]]:
     """
     Charge le JSON enrichi (liste d'objets) et fabrique DES 'records' utilisables par la visualisation :
       { system, component, tiers: { tier1:[{supplier,country,is_primary},...], ... } }
+
+    Compatible avec :
+      - ancien format {suppliers: {raw_material: [...], first_transformation: [...], tier1: [...]}}
+      - nouveau format aplati {suppliers: [ {name, location, role_hint, description, ...}, ... ] }
     """
     raw = json.loads(path.read_text(encoding="utf-8"))
     if isinstance(raw, dict) and "records" in raw:
@@ -149,34 +185,37 @@ def load_enriched(path: Path) -> List[Dict[str, Any]]:
             continue
         system = (rec.get("system") or "").strip()
         component = (rec.get("component") or "").strip()
-        suppliers = rec.get("suppliers") or {}
+        suppliers_obj = rec.get("suppliers") or {}
 
-        tiers_out = {k: [] for k in TIERS_ORDER}
-        for tier in TIERS_ORDER:
-            lst = suppliers.get(tier, []) or []
-            if not isinstance(lst, list):
-                continue
-            for entry in lst:
-                if isinstance(entry, dict):
-                    nm = entry.get("name") or entry.get("supplier") or ""
-                    loc = entry.get("location") or entry.get("country") or ""
-                    is_p = bool(entry.get("is_primary", False))
-                    lat = entry.get("lat")
-                    lon = entry.get("lon")
-                    # Normalise à partir de name/location
-                    supplier, country, is_star = extract_name_and_country(nm, loc)
-                    is_primary = is_p or is_star
-                    lat = float(lat) if isinstance(lat, (int, float, str)) and str(lat).strip() not in ("", "None") else None
-                    lon = float(lon) if isinstance(lon, (int, float, str)) and str(lon).strip() not in ("", "None") else None
-                else:
-                    # chaîne brute
-                    supplier, country, is_primary = extract_name_and_country(str(entry), "")
-                    lat = lon = None
+        # Prépare la structure tierisée de sortie
+        tiers_out: Dict[str, List[Dict[str, Any]]] = {k: [] for k in TIERS_ORDER}
 
-                if not supplier:
+        if isinstance(suppliers_obj, list):
+            # Nouveau format aplati : chaque entrée porte son role_hint (ou fallback role)
+            for entry in suppliers_obj:
+                if not isinstance(entry, dict):
                     continue
-                # ignore si pays inconnu ET impossible de déduire -> la carte ne saura pas placer
-                if country is None:
+                nm = entry.get("name") or entry.get("supplier") or ""
+                loc = entry.get("location") or entry.get("country") or ""
+                role_hint = entry.get("role_hint") or entry.get("role") or ""
+                # map role_hint -> tier bucket, sinon on ignore
+                tier = None
+                for t in TIERS_ORDER:
+                    if role_hint == t:
+                        tier = t
+                        break
+                if tier is None:
+                    # logistique ou oem sont aussi présents dans TIERS_ORDER
+                    continue
+                is_p = bool(entry.get("is_primary", False))
+                lat = entry.get("lat")
+                lon = entry.get("lon")
+                desc = entry.get("description") or entry.get("notes") or ""
+                supplier, country, is_star = extract_name_and_country(nm, loc)
+                is_primary = is_p or is_star
+                lat = float(lat) if isinstance(lat, (int, float, str)) and str(lat).strip() not in ("", "None") else None
+                lon = float(lon) if isinstance(lon, (int, float, str)) and str(lon).strip() not in ("", "None") else None
+                if not supplier or country is None:
                     continue
                 tiers_out[tier].append({
                     "supplier": supplier,
@@ -184,7 +223,51 @@ def load_enriched(path: Path) -> List[Dict[str, Any]]:
                     "is_primary": is_primary,
                     "lat": lat,
                     "lon": lon,
+                    "role": role_hint,
+                    "description": desc,
                 })
+        else:
+            # Ancien format : dictionnaire par tier
+            suppliers_dict = suppliers_obj if isinstance(suppliers_obj, dict) else {}
+            for tier in TIERS_ORDER:
+                lst = suppliers_dict.get(tier, []) or []
+                if not isinstance(lst, list):
+                    continue
+                for entry in lst:
+                    if isinstance(entry, dict):
+                        nm = entry.get("name") or entry.get("supplier") or ""
+                        loc = entry.get("location") or entry.get("country") or ""
+                        is_p = bool(entry.get("is_primary", False))
+                        lat = entry.get("lat")
+                        lon = entry.get("lon")
+                        role_hint = entry.get("role_hint") or tier
+                        desc = entry.get("description") or ""
+                        # Normalise à partir de name/location
+                        supplier, country, is_star = extract_name_and_country(nm, loc)
+                        is_primary = is_p or is_star
+                        lat = float(lat) if isinstance(lat, (int, float, str)) and str(lat).strip() not in ("", "None") else None
+                        lon = float(lon) if isinstance(lon, (int, float, str)) and str(lon).strip() not in ("", "None") else None
+                    else:
+                        # chaîne brute
+                        supplier, country, is_primary = extract_name_and_country(str(entry), "")
+                        lat = lon = None
+                        role_hint = tier
+                        desc = ""
+
+                    if not supplier:
+                        continue
+                    # ignore si pays inconnu ET impossible de déduire -> la carte ne saura pas placer
+                    if country is None:
+                        continue
+                    tiers_out[tier].append({
+                        "supplier": supplier,
+                        "country": country,
+                        "is_primary": is_primary,
+                        "lat": lat,
+                        "lon": lon,
+                        "role": role_hint,
+                        "description": desc,
+                    })
 
         records.append({"system": system, "component": component, "tiers": tiers_out})
     return records
@@ -239,19 +322,17 @@ def html_template(title: str, data_json: str) -> str:
     <label for="componentSel">Composant</label>
     <select id="componentSel"></select>
   </div>
-  <div>
+  <div id="tiersContainer">
     <label>Niveaux</label>
-    <label><input type="checkbox" class="tierChk" value="primary_material"> Primary</label>
-    <label><input type="checkbox" class="tierChk" value="raw_material" checked> Raw</label>
-    <label><input type="checkbox" class="tierChk" value="first_transformation" checked> 1st transf.</label>
-    <label><input type="checkbox" class="tierChk" value="tier1" checked> Tier 1</label>
+    <!-- les cases seront injectées dynamiquement -->
   </div>
   <div>
     <label>Flux</label>
-    <label><input type="checkbox" class="flowChk" value="Primary → Raw" checked> P→R</label>
-    <label><input type="checkbox" class="flowChk" value="Raw → 1st transf." checked> R→1st</label>
-    <label><input type="checkbox" class="flowChk" value="1st transf. → Tier 1" checked> 1st→T1</label>
-    <label><input type="checkbox" class="flowChk" value="Tier 1 → Safran" checked> T1→Safran</label>
+    <label><input type="checkbox" id="showFlows"> Afficher</label>
+    <label><input type="checkbox" class="flowChk" value="Tier4 → Tier3" checked> T4→T3</label>
+    <label><input type="checkbox" class="flowChk" value="Tier3 → Tier2" checked> T3→T2</label>
+    <label><input type="checkbox" class="flowChk" value="Tier2 → Tier1" checked> T2→T1</label>
+    <label><input type="checkbox" class="flowChk" value="Tier1 → OEM" checked> T1→OEM</label>
   </div>
   <div>
     <label><input type="checkbox" id="onlyPrimary"> Fournisseurs principaux uniquement</label>
@@ -261,7 +342,25 @@ def html_template(title: str, data_json: str) -> str:
 <div id="chart"></div>
 
 <script>
-const DATA = {data_json};
+// Supprime les nœuds logistiques pour l’affichage (pas de points, pas de cases)
+const DATA_RAW = {data_json};
+const DATA = (function() {{
+  const filteredRecords = (DATA_RAW.records || []).map(r => {{
+    const tiers = r.tiers || {{}};
+    const {{ logistics, ...rest }} = tiers; // retire la clé logistics
+    return {{ ...r, tiers: rest }};
+  }});
+  const tiersList = (DATA_RAW.tiers || []).filter(t => t !== "logistics");
+  const tierStyles = Object.fromEntries(
+    Object.entries(DATA_RAW.tier_styles || {{}}).filter(([k,_]) => k !== "logistics")
+  );
+  return {{
+    ...DATA_RAW,
+    tiers: tiersList,
+    tier_styles: tierStyles,
+    records: filteredRecords
+  }};
+}})();
 
 // === Styles des flux par catégorie ===
 const FLOW_STYLES = DATA.flow_styles || {{}};
@@ -274,6 +373,18 @@ function scaleWidth(value, vmin, vmax, wmin=0.8, wmax=6) {{
   return wmin + r * (wmax - wmin);
 }}
 
+// Distance haversine approximative en km
+function haversineKm(lat1, lon1, lat2, lon2) {{
+  const toRad = d => d * Math.PI / 180;
+  const R = 6371;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon/2)**2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}}
+
+const MIN_FLOW_DIST_KM = 10; // filtre les flux quasi nuls (nœuds co-localisés)
+
 const countryCoords = DATA.country_coords || {{}};
 function getLatLon(supplier) {{
   if (!supplier) return null;
@@ -282,10 +393,8 @@ function getLatLon(supplier) {{
   if (typeof lat === "number" && typeof lon === "number" && isFinite(lat) && isFinite(lon)) {{
     return {{lat, lon}};
   }}
-  const country = supplier.country;
-  if (!country) return null;
-  const coords = countryCoords[country];
-  return coords ? {{lat: coords[0], lon: coords[1]}} : null;
+  // Pas de fallback sur un centroïde pays : si pas de coordonnées précises, on ne trace pas.
+  return null;
 }}
 
 function fillSelect(sel, options) {{
@@ -303,13 +412,32 @@ function currentFilters() {{
   const tierChks = Array.from(document.querySelectorAll(".tierChk")).filter(x => x.checked).map(x => x.value);
   const flowChks = Array.from(document.querySelectorAll(".flowChk")).filter(x => x.checked).map(x => x.value);
   const onlyPrimary = document.getElementById("onlyPrimary").checked;
-  return {{ system: sys, component: comp, tiers: tierChks, flows: flowChks, onlyPrimary }};
+  const showFlows = document.getElementById("showFlows")?.checked ?? false;
+  return {{ system: sys, component: comp, tiers: tierChks, flows: flowChks, onlyPrimary, showFlows }};
 }}
 
 function recordMatches(rec, filters) {{
   if (filters.system !== "All" && rec.system !== filters.system) return false;
   if (filters.component !== "All" && rec.component !== filters.component) return false;
   return true;
+}}
+
+
+function initTierCheckboxes() {{
+  const container = document.getElementById('tiersContainer');
+  container.innerHTML = '<label>Niveaux</label>';
+  const tiers = DATA.tiers || [];
+  tiers.forEach(t => {{
+    const lbl = document.createElement('label');
+    const cb = document.createElement('input');
+    cb.type = 'checkbox'; cb.className = 'tierChk'; cb.value = t;
+    // cocher par défaut tous sauf peut-être logistics et oem
+    cb.checked = (t !== 'logistics' && t !== 'oem');
+    lbl.appendChild(cb);
+    const labelTxt = (DATA.tier_styles[t] && DATA.tier_styles[t].name) ? DATA.tier_styles[t].name : t;
+    lbl.appendChild(document.createTextNode(' ' + labelTxt));
+    container.appendChild(lbl);
+  }});
 }}
 
 function buildTraces() {{
@@ -351,6 +479,7 @@ function buildTraces() {{
 
   // Lignes/flux avec agrégation par paire de pays
   function addLines(fromTier, toTier, label) {{
+    if (!currentFilters().showFlows) return;
     if (!currentFilters().flows.includes(label)) return;
 
     const style = FLOW_STYLES[label] || {{ color: "#888" }};
@@ -360,9 +489,7 @@ function buildTraces() {{
       if (!recordMatches(rec, currentFilters())) continue;
 
       const fromList = (rec.tiers && rec.tiers[fromTier]) ? rec.tiers[fromTier] : [];
-      const toList   = (toTier === "safran")
-        ? [{{ supplier: "Safran", country: "France" }}]
-        : ((rec.tiers && rec.tiers[toTier]) ? rec.tiers[toTier] : []);
+      const toList   = (rec.tiers && rec.tiers[toTier]) ? rec.tiers[toTier] : [];
 
       for (const f of fromList) {{
         if (currentFilters().onlyPrimary && !f.is_primary) continue;
@@ -373,9 +500,13 @@ function buildTraces() {{
         const fUnits = (typeof f.units === "number" && f.units > 0) ? f.units : 1;
 
         for (const t of toList) {{
-          if (toTier !== "safran" && currentFilters().onlyPrimary && !t.is_primary) continue;
-          const tLoc = (toTier === "safran") ? {{lat: DATA.safran.lat, lon: DATA.safran.lon}} : getLatLon(t);
+          if (currentFilters().onlyPrimary && !t.is_primary) continue;
+          const tLoc = getLatLon(t);
           if (!tLoc) continue;
+
+          // Ignore les flux quasi nuls (co-localisation ou même site)
+          const dist = haversineKm(fLoc.lat, fLoc.lon, tLoc.lat, tLoc.lon);
+          if (dist < MIN_FLOW_DIST_KM) continue;
 
           const key = `${{fLoc.lat.toFixed(3)}},${{fLoc.lon.toFixed(3)}}->${{tLoc.lat.toFixed(3)}},${{tLoc.lon.toFixed(3)}}`;
           const inc = fUnits; // aujourd’hui: 1 par edge ; demain: mets ta vraie quantité
@@ -410,10 +541,10 @@ function buildTraces() {{
     }});
   }}
 
-  addLines("primary_material", "raw_material", "Primary → Raw");
-  addLines("raw_material", "first_transformation", "Raw → 1st transf.");
-  addLines("first_transformation", "tier1", "1st transf. → Tier 1");
-  addLines("tier1", "safran", "Tier 1 → Safran");
+  addLines("tier4_raw_material", "tier3_first_transformation", "Tier4 → Tier3");
+  addLines("tier3_first_transformation", "tier2_second_transformation", "Tier3 → Tier2");
+  addLines("tier2_second_transformation", "tier1", "Tier2 → Tier1");
+  addLines("tier1", "oem", "Tier1 → OEM");
 
   return traces.concat(lines);
 }}
@@ -453,11 +584,13 @@ function refreshDependentSelects() {{
 }}
 
 function initUI() {{
+  // Injecte dynamiquement les cases à cocher des niveaux
+  initTierCheckboxes();
   fillSelect(document.getElementById("systemSel"), DATA.systems || ["All"]);
   fillSelect(document.getElementById("componentSel"), DATA.components || ["All"]);
   document.getElementById("systemSel").addEventListener("change", ()=>{{ refreshDependentSelects(); draw(); }});
   document.getElementById("componentSel").addEventListener("change", ()=>{{ refreshDependentSelects(); draw(); }});
-  for (const el of document.querySelectorAll(".tierChk, .flowChk, #onlyPrimary")) {{ el.addEventListener("change", draw); }}
+  for (const el of document.querySelectorAll(".tierChk, .flowChk, #onlyPrimary, #showFlows")) {{ el.addEventListener("change", draw); }}
   draw();
 }}
 window.addEventListener("load", initUI);

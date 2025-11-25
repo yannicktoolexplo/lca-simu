@@ -74,47 +74,49 @@ def get_coords(name, country, geolook):
         return COUNTRY_CENTROIDS[country]
     return (0.0, 0.0)
 
+ROLE_ORDER = ["tier4_raw_material","tier3_first_transformation","tier2_second_transformation","tier1","oem"]
+
 def extract_tiers(record):
     tiers = []
     transport = record.get("transport") or {}
-    # modes globaux par leg (optionnels)
     modes_to_first = transport.get("to_first_transformation", {}).get("modes", [])
     modes_to_safran = transport.get("from_supplier_to_safran", {}).get("modes", [])
-    # mine_to_refinery non utilisé dans le graphe actuel (pas de leg explicite)
 
-    sup = record.get("suppliers", {})
-    mapping = [
-        ("primary_material","Matière 1ère"),
-        ("raw_material","Matière 1ère"),
-        ("first_transformation","1ère transformation"),
-        ("tier1","Tier 1")
-    ]
-    for key, role in mapping:
-        arr = []
-        if isinstance(sup, dict):
-            arr = sup.get(key, []) or []
-        for it in arr:
-            if isinstance(it, dict):
-                name = norm(it.get("name","")) or "(sans nom)"
-                country = norm(it.get("location","")) or "Inconnu"
-                modes = it.get("mode") or it.get("modes")
-                if isinstance(modes, str):
-                    modes = [m.strip() for m in modes.split(",") if m.strip()]
-                elif not isinstance(modes, (list, tuple)):
-                    modes = []
-                # inject global transport hints if missing
-                if not modes and role == "1ère transformation":
-                    modes = modes_to_first if isinstance(modes_to_first, list) else []
-                if not modes and role == "Tier 1":
-                    modes = modes_to_safran if isinstance(modes_to_safran, list) else []
-                tiers.append({"name": name, "country": country, "role": role, "modes": modes})
-            elif isinstance(it, str) and it.strip():
-                tiers.append({"name": it.strip(), "country": "Inconnu", "role": role, "modes": []})
+    sup_list = record.get("suppliers") or []
+    # fallback ancienne structure
+    if isinstance(sup_list, dict):
+        tmp = []
+        for key in ["raw_material","first_transformation","tier1"]:
+            for it in sup_list.get(key,[]) or []:
+                if isinstance(it, dict):
+                    tmp.append(it)
+        sup_list = tmp
+
+    for it in sup_list:
+        if not isinstance(it, dict):
+            continue
+        name = norm(it.get("name","")) or "(sans nom)"
+        country = norm(it.get("location","")) or "Inconnu"
+        role_hint = norm(it.get("role_hint","")) or "unknown"
+        is_primary = bool(it.get("is_primary"))
+        if role_hint == "logistics":
+            continue
+        modes = it.get("mode") or it.get("modes") or []
+        if isinstance(modes, str):
+            modes = [m.strip() for m in modes.split(",") if m.strip()]
+        elif not isinstance(modes,(list,tuple)):
+            modes=[]
+        if not modes and role_hint in {"tier3_first_transformation","tier2_second_transformation"}:
+            modes = modes_to_first if isinstance(modes_to_first,list) else []
+        if not modes and role_hint=="tier1":
+            modes = modes_to_safran if isinstance(modes_to_safran,list) else []
+        tiers.append({"name": name, "country": country, "role": role_hint, "modes": modes, "is_primary": is_primary})
     return tiers
 
 def build_graph(records, geolook):
     nodes = {}
     edges = []  # (src_key, dst_key, distance_km, component, modes)
+    role_order_index = {r:i for i,r in enumerate(ROLE_ORDER)}
     def ensure_node(name, country, role):
         key = (name, role)
         if key in nodes:
@@ -126,17 +128,55 @@ def build_graph(records, geolook):
     for rec in records:
         component = norm(rec.get("component","")) or norm(rec.get("system",""))
         tiers = extract_tiers(rec)
-        prim  = [t for t in tiers if t["role"]=="Matière 1ère"]
-        first = [t for t in tiers if t["role"]=="1ère transformation"]
-        tier1 = [t for t in tiers if t["role"]=="Tier 1"]
-        safran_key = ensure_node("Safran", "France", "Client")
+        # Dédoublonnage global par rôle
+        by_role = {}
+        for t in tiers:
+            r = t["role"]
+            by_role.setdefault(r, []).append(t)
 
-        pkeys = [ensure_node(t["name"], t["country"], t["role"]) for t in prim]
-        fkeys = [ensure_node(t["name"], t["country"], t["role"]) for t in first]
-        tkeys = [ensure_node(t["name"], t["country"], t["role"]) for t in tier1]
-        p_modes = [t.get("modes", []) for t in prim]
-        f_modes = [t.get("modes", []) for t in first]
-        t_modes = [t.get("modes", []) for t in tier1]
+        def dedup_keys(lst):
+            grouped={}
+            for t in lst:
+                k=(t["name"], t["country"], t["role"])
+                if k not in grouped:
+                    grouped[k]={"is_primary": t.get("is_primary", False), "modes": t.get("modes", [])}
+                else:
+                    grouped[k]["is_primary"] = grouped[k]["is_primary"] or t.get("is_primary", False)
+                    if not grouped[k]["modes"] and t.get("modes"):
+                        grouped[k]["modes"]=t.get("modes", [])
+            prim_present = any(v["is_primary"] for v in grouped.values())
+            items=[]
+            for (name,country,role),meta in grouped.items():
+                if prim_present and not meta["is_primary"]:
+                    continue
+                items.append((ensure_node(name,country,role), meta["modes"]))
+            if not items:
+                items=[(ensure_node(name,country,role), meta["modes"]) for (name,country,role),meta in grouped.items()]
+            keys=[k for k,_ in items]; modes=[m for _,m in items]
+            return keys, modes
+
+        role_nodes = {}
+        role_modes = {}
+        for role, lst in by_role.items():
+            k,m = dedup_keys(lst)
+            role_nodes[role]=k; role_modes[role]=m
+
+        # création des arêtes selon l'ordre des rôles
+        def add_edge(a, b, modes):
+            sa = nodes[a]; sb = nodes[b]
+            dist = haversine_km(sa["lat"], sa["lon"], sb["lat"], sb["lon"])
+            edges.append((a, b, dist, component, modes))
+
+        for i in range(len(ROLE_ORDER)-1):
+            src_role = ROLE_ORDER[i]; dst_role = ROLE_ORDER[i+1]
+            src_keys = role_nodes.get(src_role, [])
+            dst_keys = role_nodes.get(dst_role, [])
+            src_modes = role_modes.get(src_role, [])
+            dst_modes = role_modes.get(dst_role, [])
+            for ia,a in enumerate(src_keys):
+                for ib,b in enumerate(dst_keys):
+                    modes = src_modes[ia] if ia < len(src_modes) and src_modes[ia] else (dst_modes[ib] if ib < len(dst_modes) else [])
+                    add_edge(a,b,modes)
 
         def add_edge(a, b, modes):
             sa = nodes[a]; sb = nodes[b]
