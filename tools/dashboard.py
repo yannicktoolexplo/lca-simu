@@ -1,4 +1,6 @@
 import time
+import os
+import sys
 
 import numpy as np
 import pandas as pd
@@ -7,13 +9,18 @@ import plotly.graph_objects as go
 import streamlit as st
 from sqlalchemy import create_engine
 
-from resilience_analysis import compare_scenarios
+# Ensure project root in path when launched via streamlit
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if ROOT not in sys.path:
+    sys.path.insert(0, ROOT)
+
+from resilience.resilience_analysis import compare_scenarios
 from SimChainGreenHorizons import main_function
 
 # ------------------------------------------------------------------------------
 # Configuration de la base de données SQLite
 # ------------------------------------------------------------------------------
-DB_PATH = "sqlite:///simchain.db"
+DB_PATH = "sqlite:///data/simchain.db"
 engine = create_engine(DB_PATH)
 
 st.title("📊 Supply Chain Simulator – Dashboard")
@@ -397,7 +404,7 @@ if st.button("🚀 Lancer la simulation"):
     # ------------------------------------------------------------------
     # === RADAR de résilience basé sur les taux ===
     import plotly.graph_objects as go
-    from resilience_analysis import radar_indicators
+    from resilience.resilience_analysis import radar_indicators
 
     baseline = crisis_results["Baseline"]
     time_vector = baseline["rate_curves"]["time"]

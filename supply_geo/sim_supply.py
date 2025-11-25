@@ -2,10 +2,20 @@
 import random, math, csv
 import simpy
 from collections import defaultdict
-from config_supply import (DEFAULT_RANDOM_SEED, PROCESSING_TIME_DAYS, ROLE_CAPACITY,
-                           SPEEDS_KMPH, INTERCONTINENTAL_MODE, PROCESSING_JITTER,
-                           TRANSIT_JITTER, TRANSPORT_OVERRIDE, DEFAULT_UNITS_PER_COMPONENT,
-                           SIM_HORIZON_DAYS, EVENTS_CSV, ARRIVALS_CSV)
+from supply_geo.config_supply import (
+    DEFAULT_RANDOM_SEED,
+    PROCESSING_TIME_DAYS,
+    ROLE_CAPACITY,
+    SPEEDS_KMPH,
+    INTERCONTINENTAL_MODE,
+    PROCESSING_JITTER,
+    TRANSIT_JITTER,
+    TRANSPORT_OVERRIDE,
+    DEFAULT_UNITS_PER_COMPONENT,
+    SIM_HORIZON_DAYS,
+    EVENTS_CSV,
+    ARRIVALS_CSV,
+)
 
 def same_continent(lat1, lon1, lat2, lon2):
     def haversine_km(a1, o1, a2, o2):

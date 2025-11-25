@@ -1,5 +1,5 @@
 from line_production.line_production_settings import scenario_events
-from hybrid_regulation_engine import run_simulation_vivant
+from resilience.hybrid_regulation_engine import run_simulation_vivant
 
 def run_simulation_vivante(lines_config, N=60):
     """
@@ -22,7 +22,7 @@ def run_simulation_vivante(lines_config, N=60):
     }
     # Utiliser le EventManager avec des événements exemples (scénario "vivant")
     events_vivants = scenario_events.get("vivant", [])
-    from event_engine import EventManager
+    from resilience.event_engine import EventManager
     event_manager = EventManager(events_vivants)
     # Dictionnaire pour stocker la production quotidienne de chaque site
     production_per_site = {site: [] for site in sites}

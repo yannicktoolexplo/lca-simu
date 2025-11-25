@@ -17,7 +17,7 @@ from line_production.production_engine import (
     compute_line_rate_curves,
     build_capacity_limits_from_cap_max,
 )
-from event_engine import PerturbationEvent
+from resilience.event_engine import PerturbationEvent
 
 from sqlalchemy import (
     create_engine,
@@ -30,20 +30,20 @@ from sqlalchemy import (
     String,
 )
 from sqlalchemy.orm import sessionmaker
-from utils.data_tools import display_all_lca_indicators, get_total_prod_curve
-from hybrid_regulation_engine import run_simulation_vivant
-from scenario_engine import run_scenario, compare_scenarios, display_sankey_for_scenarios
-from resilience_indicators import compute_resilience_indicators, resilience_on_curve
-from resilience_analysis import radar_indicators
+from tools.data_tools import display_all_lca_indicators, get_total_prod_curve
+from resilience.hybrid_regulation_engine import run_simulation_vivant
+from resilience.scenario_engine import run_scenario, compare_scenarios, display_sankey_for_scenarios
+from resilience.resilience_indicators import compute_resilience_indicators, resilience_on_curve
+from resilience.resilience_analysis import radar_indicators
 from copy import deepcopy
-from performance_engine import compute_perf_signal, aggregate_multi_kpi
+from resilience.performance_engine import compute_perf_signal, aggregate_multi_kpi
 from typing import Dict, Iterable, List, Tuple
 
 
 # Configuration constants
 DEFAULT_SEAT_WEIGHT = 130       # Poids de siège par défaut (kg)
 LIGHTWEIGHT_SEAT_WEIGHT = 70    # Poids de siège utilisé pour le scénario lightweight (kg)
-DB_PATH = 'sqlite:///simchain.db'  # Chemin de la base de données SQLite
+DB_PATH = 'sqlite:///data/simchain.db'  # Chemin de la base de données SQLite
 
 
 def _prepare_lines_config_max(lines: List[Dict], stock_level: int = 1_000_000) -> List[Dict]:

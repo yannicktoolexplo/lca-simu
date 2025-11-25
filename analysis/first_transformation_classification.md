@@ -1,0 +1,57 @@
+# Nœuds de première transformation (et assimilés)
+
+Source : extraction des `first_transformation` du JSON et classification métier. Les acteurs marqués ✅ sont de matière première, ⚙️ transformation, 🧩 aval/composants.
+
+- FRN-0D8AFB8AB6CBCA — Danemark — 🧩 aval (équipement)  
+- FRN-E0AC66F8EC6C54 — France — ⚙️ textile  
+- FRN-D562155C5EAD74 — France — ⚙️ métallique  
+- FRN-D2C24A0C097FC3 — France — ⚙️ aluminium (laminage/extrusion)  
+- FRN-2F86C605D36715 — France — ⚙️ alliages  
+- FRN-61C32423BFF67F — France — ✅ chimie de base  
+- FRN-A98036B11DAF17 — France — 🧩 sous-ensemble  
+- FRN-83186B5AEF84D8 — France — ⚙️ métallurgie (forges)  
+- Auger — France — 🧩 usinage  
+- FRN-1FBDAEFBEB869B — Allemagne — ⚙️ métaux non ferreux  
+- FRN-301ED6D3E70080 — Allemagne — ✅ chimie de base  
+- FRN-0A6EA63B8561C3 — Belgique — 🧩 produit fini (revêtement)  
+- FRN-4AAE68951598B8 — France — ⚙️ formulation PU  
+- FRN-2FC748C1ABC9C3 — Allemagne — ✅ chimie de base  
+- FRN-4BB98A8F3046A5 — France — ⚙️ textile technique  
+- FRN-0B3DAD918C8F64 — USA — ⚙️ polymères techniques  
+- FRN-869E1A8BB344FD — Canada — 🧩 électronique  
+- FRN-F05E300AE66407 — France — ⚙️ résines  
+- FRN-727BE76F9CE12D — France — 🧩 service industriel  
+- FRN-1DE52367D9D2BE — Allemagne — ⚙️ polymères techniques  
+- FRN-C3B826345B6812 — France — ⚙️ fonderie  
+- FRN-446E35B7988374 — France — ⚙️ stratifiés  
+- FRN-1BDCFA9C2C8341 — USA — 🧩 intégration systèmes  
+- FRN-655B21F6A3D529 — France — ⚙️ mécanique  
+- FRN-1318E9740D89D0 — Italie — ⚙️ tannerie  
+- FRN-87FB5EDE498059 — Allemagne — ⚙️ chimie appliquée  
+- FRN-EAF03ECECB6231 — France — 🧩 opto-électronique  
+- Intel — USA — 🧩 semi-conducteurs  
+- FRN-5E8C7A0B3C0183 — Allemagne — 🧩 instrumentation  
+- FRN-D5AC44A74AFB92 — Allemagne — ⚙️ bois / panneaux  
+- FRN-E857FD00FA3A46 — France — ⚙️ cuir  
+- FRN-935B8529CE61B4 — France — 🧩 produit fini  
+- FRN-8DD799E0AA036C — USA — 🧩 GPU / semi-conducteurs  
+- FRN-045ADA837ADDB0 — Suède — 🧩 produit fini (sols)  
+- Polymère — France — ⚙️ polymères  
+- FRN-DA7F97DC1B47FC — France — ⚙️ chimie industrielle  
+- FRN-CEF93150EAB259 — Arabie Saoudite — ✅ pétrochimie  
+- FRN-F1F796DB13C8E2 — France — 🧩 intégrateur  
+- FRN-099010FD9764F4 — USA — ⚙️ chimie appliquée  
+- FRN-77A20D424743A6 — France — ⚙️ verre / matériaux  
+- FRN-692EAC3B5CF3EE — Allemagne — 🧩 intégration électrique  
+- FRN-8694A96AFD62DA — Angleterre — 🧩 design circuits  
+- FRN-5AA9E59DA0B02F — Inde — ✅ acier primaire  
+- FRN-CF3D91FACC36F2 — France — ⚙️ textile enduit  
+- FRN-A00FD04291B8DD — USA — 🧩 fonderie semi-conducteurs  
+- FRN-BD805D8D4EB65E — France — ⚙️ sidérurgie  
+- FRN-9C546CCC918C61 — Japon — ⚙️ fibres / polymères  
+- FRN-8096761E14DF1D — France — ⚙️ fibre carbone  
+- FRN-1E191B6E8030DB — Japon — ⚙️ silicones / chimie  
+- FRN-68DAD6BBF1BAEB — Japon — ⚙️ revêtements synthétiques  
+- FRN-60698C6D4CC207 — Finlande — 🧩 instrumentation  
+- FRN-B18137D5260D41 — France — 🧩 intégrateur auto  
+- FRN-8F3177205B17E8 — Chine — ✅ extraction minière  
