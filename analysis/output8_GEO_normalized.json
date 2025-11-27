@@ -825,8 +825,8 @@
         }
       },
       "market_share_pct": "",
-      "mass_kg": 0.0,
-      "mass_estimation_method": "no_data_in_source_file",
+      "mass_kg": 0.392,
+      "mass_estimation_method": "quantity_material.xlsx",
       "transport_normalization_notes": {
         "to_first_transformation": [
           "Unmapped token 'Bilogistik SA' from 'Bilogistik SA'"
@@ -1021,8 +1021,8 @@
         }
       },
       "market_share_pct": "",
-      "mass_kg": 0.0,
-      "mass_estimation_method": "no_data_in_source_file"
+      "mass_kg": 0.006,
+      "mass_estimation_method": "quantity_material.xlsx"
     },
     {
       "user": "Safran",
@@ -1571,8 +1571,8 @@
         }
       },
       "market_share_pct": "",
-      "mass_kg": 0.0,
-      "mass_estimation_method": "no_data_in_source_file"
+      "mass_kg": 0.95,
+      "mass_estimation_method": "quantity_material.xlsx"
     },
     {
       "user": "Safran",
@@ -24560,8 +24560,8 @@
         }
       },
       "market_share_pct": "",
-      "mass_kg": 0.0,
-      "mass_estimation_method": "no_data_in_source_file"
+      "mass_kg": 0.0424456,
+      "mass_estimation_method": "quantity_material.xlsx"
     },
     {
       "user": "Safran",
@@ -31426,8 +31426,8 @@
         }
       },
       "market_share_pct": "",
-      "mass_kg": 0.0,
-      "mass_estimation_method": "no_data_in_source_file"
+      "mass_kg": 1.493,
+      "mass_estimation_method": "quantity_material.xlsx"
     },
     {
       "user": "Safran",
@@ -35715,8 +35715,8 @@
         }
       },
       "market_share_pct": "",
-      "mass_kg": 0.0,
-      "mass_estimation_method": "no_data_in_source_file"
+      "mass_kg": 6.929846599999996,
+      "mass_estimation_method": "quantity_material.xlsx"
     },
     {
       "user": "Safran",
@@ -35932,8 +35932,8 @@
         }
       },
       "market_share_pct": "",
-      "mass_kg": 0.0,
-      "mass_estimation_method": "no_data_in_source_file"
+      "mass_kg": 10.7460895,
+      "mass_estimation_method": "quantity_material.xlsx"
     },
     {
       "user": "Safran",
@@ -36216,8 +36216,8 @@
         }
       },
       "market_share_pct": "",
-      "mass_kg": 0.0,
-      "mass_estimation_method": "no_data_in_source_file"
+      "mass_kg": 0.01,
+      "mass_estimation_method": "quantity_material.xlsx"
     },
     {
       "user": "Safran",
@@ -36379,8 +36379,8 @@
         }
       },
       "market_share_pct": "",
-      "mass_kg": 0.0,
-      "mass_estimation_method": "no_data_in_source_file"
+      "mass_kg": 0.0049932,
+      "mass_estimation_method": "quantity_material.xlsx"
     },
     {
       "user": "Safran",
@@ -38715,8 +38715,8 @@
         }
       },
       "market_share_pct": "",
-      "mass_kg": 0.0,
-      "mass_estimation_method": "no_data_in_source_file"
+      "mass_kg": 0.3,
+      "mass_estimation_method": "quantity_material.xlsx"
     },
     {
       "user": "Safran",
@@ -39020,8 +39020,8 @@
         }
       },
       "market_share_pct": "",
-      "mass_kg": 0.0,
-      "mass_estimation_method": "no_data_in_source_file"
+      "mass_kg": 0.16883620000000002,
+      "mass_estimation_method": "quantity_material.xlsx"
     },
     {
       "user": "Safran",
@@ -39392,8 +39392,8 @@
         }
       },
       "market_share_pct": "",
-      "mass_kg": 0.0,
-      "mass_estimation_method": "no_data_in_source_file"
+      "mass_kg": 0.0259419,
+      "mass_estimation_method": "quantity_material.xlsx"
     },
     {
       "user": "Safran",
@@ -41451,8 +41451,8 @@
         }
       },
       "market_share_pct": "",
-      "mass_kg": 0.0,
-      "mass_estimation_method": "no_data_in_source_file"
+      "mass_kg": 0.08499999999999999,
+      "mass_estimation_method": "quantity_material.xlsx"
     },
     {
       "user": "Safran",
@@ -41657,8 +41657,8 @@
         }
       },
       "market_share_pct": "",
-      "mass_kg": 0.0,
-      "mass_estimation_method": "no_data_in_source_file"
+      "mass_kg": 0.092,
+      "mass_estimation_method": "quantity_material.xlsx"
     },
     {
       "user": "Safran",
@@ -41863,8 +41863,8 @@
         }
       },
       "market_share_pct": "",
-      "mass_kg": 0.0,
-      "mass_estimation_method": "no_data_in_source_file"
+      "mass_kg": 0.867,
+      "mass_estimation_method": "quantity_material.xlsx"
     },
     {
       "user": "Safran",
