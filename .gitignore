@@ -120,3 +120,4 @@ analysis/output8_suppliers_localisation.md
 analysis/sim_report/arrivals_hist.png
 analysis/sim_report/slow_components_boxplot.png
 analysis/sim_report/summary.txt
+analysis/sim_flows.html
