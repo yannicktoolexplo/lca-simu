@@ -18,7 +18,7 @@ import csv
 import math
 import sys
 
-from shock_experiments import ShockExperimentRunner
+from shocks.shock_experiments import ShockExperimentRunner
 from adapters import (
     default_sim_func,
     default_ts_extractor,
@@ -200,8 +200,8 @@ def _auto_load_lines_config():
         ("line_production.line_production_settings", "lines_config"),
         ("line_production_settings", "LINES_CONFIG"),
         ("line_production_settings", "lines_config"),
-        ("scenario_engine", "LINES_CONFIG"),
-        ("scenario_engine", "lines_config"),
+        ("resilience.scenario_engine", "LINES_CONFIG"),
+        ("resilience.scenario_engine", "lines_config"),
     ]
     for mod_name, var_name in candidates:
         try:
@@ -258,7 +258,7 @@ def build_state_for_suite() -> Dict[str, Any]:
     """
     # 1) essaie d'importer un état nominal du projet
     try:
-        from scenario_engine import get_nominal_state  # si tu as une fonction utilitaire
+        from resilience.scenario_engine import get_nominal_state  # si tu as une fonction utilitaire
         st = get_nominal_state()
         # s'assure que les clés attendues existent
         if "routes" in st and any(k in st for k in ("capacity_nominal","capacity")) and any(k in st for k in ("supply_nominal","supply")):

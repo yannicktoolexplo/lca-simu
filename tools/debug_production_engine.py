@@ -5,7 +5,7 @@ from copy import deepcopy
 from line_production.line_production import run_simulation
 from line_production.line_production_settings import lines_config, scenario_events
 from line_production.production_engine import build_capacity_limits_from_cap_max
-from scenario_engine import run_scenario
+from resilience.scenario_engine import run_scenario
 from optimization.optimization_engine import run_simple_allocation_dict
 
 def compute_daily_from_cumul(cumul):

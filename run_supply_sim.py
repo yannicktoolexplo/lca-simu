@@ -2,15 +2,18 @@ import os, csv, simpy, argparse
 import pandas as pd
 import matplotlib.pyplot as plt
 from collections import defaultdict
-from config_supply import (
-    DEFAULT_UNITS_PER_COMPONENT, SIM_HORIZON_DAYS,
-    EVENTS_CSV, ARRIVALS_CSV
+from supply_geo.config_supply import (
+    DEFAULT_UNITS_PER_COMPONENT,
+    SIM_HORIZON_DAYS,
+    EVENTS_CSV,
+    ARRIVALS_CSV,
 )
-from data_loader_supply import load_json, load_geocoding, build_graph
-from sim_supply import simulate_supply
+from supply_geo.data_loader_supply import load_json, load_geocoding, build_graph
+from supply_geo.sim_supply import simulate_supply
 
-JSON_PATH = "supplychain_ultimate_DEDUP.json"
-GEOCODING_XLSX = "geocoding_table_filled.xlsx"
+# Fichiers par défaut (surchargables par variables d'environnement)
+JSON_PATH = os.environ.get("JSON_PATH", "supplychain_ultimate_DEDUP.json")
+GEOCODING_XLSX = os.environ.get("GEOCODING_XLSX", "geocoding_table_filled.xlsx")
 
 def run_simulation():
     assert os.path.exists(JSON_PATH), f"JSON not found: {JSON_PATH}"
@@ -19,7 +22,14 @@ def run_simulation():
     nodes, edges = build_graph(records, geolook)
 
     components = sorted(set([e[3] for e in edges if e[3]]))
-    demands = {c: DEFAULT_UNITS_PER_COMPONENT for c in components} if components else {"GENERIC": DEFAULT_UNITS_PER_COMPONENT}
+    # Exclure packaging (emballage de transport) de la demande
+    demands = {c: DEFAULT_UNITS_PER_COMPONENT for c in components
+               if c.strip().lower() not in {"packaging", "transport"}}
+    if not demands and components:
+        # fallback si tout a été filtré
+        demands = {components[0]: DEFAULT_UNITS_PER_COMPONENT}
+    elif not demands:
+        demands = {"GENERIC": DEFAULT_UNITS_PER_COMPONENT}
 
     with open(EVENTS_CSV, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)

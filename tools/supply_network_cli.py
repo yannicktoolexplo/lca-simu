@@ -14,7 +14,7 @@ Exemples :
 import argparse
 import networkx as nx
 import matplotlib.pyplot as plt
-from supply_network import SUPPLY_NETWORK, trace_path, _find_node
+from resilience.supply_network import SUPPLY_NETWORK, trace_path, _find_node
 
 def build_full_graph(material: str) -> nx.DiGraph:
     G = nx.DiGraph()

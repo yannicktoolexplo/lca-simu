@@ -15,13 +15,17 @@ Ce projet fait partie de l’initiative **LCA-SIMU** pilotée par SCALIAN et IMT
 ```bash
 simchaingreenhorizons/
 ├── SimChainGreenHorizons.py         # Script principal d'exécution
-├── dashboard.py                     # Interface Streamlit pour visualiser les résultats
+├── run_supply_sim.py                # Simulation supply géocodée (supply_geo)
+├── supply_dynamic_sim.py            # Simu supply légère (basée sur supply_network)
+├── resilience/                      # Événements, scénarios, résilience, supply_network léger
+├── supply_geo/                      # Simulation supply étendue géocodée
+├── supply_light/                    # Graphe supply léger (utilisé par supply_dynamic_sim)
 ├── optimization/                    # Moteur d’optimisation multi-objectif
 ├── line_production/                 # Moteur de production par ligne
 ├── economic/                        # Calcul des coûts fixes, variables, et logistique
 ├── environment/                     # Moteur ACV (phase production, usage, transport)
 ├── predictions/                     # Modules prédictifs (demande, rupture, etc.)
-├── supply/                          # Gestion de l’approvisionnement
-├── scenario_engine.py               # Générateur de scénarios combinés
-├── data/                            # Fichiers Excel de demande, coûts, distances...
+├── tools/                           # Outils/CLI/visualisations (data_tools, plots…)
+├── analysis/                        # Analyses et rapports (CSV, graphiques)
+├── data/                            # Fichiers Excel/JSON/DB (demande, coûts, GEO, simchain.db)
 └── utils/                           # Fonctions communes et outils de visualisation
