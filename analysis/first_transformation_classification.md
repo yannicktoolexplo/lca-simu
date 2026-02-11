@@ -1,0 +1,57 @@
+# Nœuds de première transformation (et assimilés)
+
+Source : extraction des `first_transformation` du JSON et classification métier. Les acteurs marqués ✅ sont de matière première, ⚙️ transformation, 🧩 aval/composants.
+
+- A Tech Supply APS — Danemark — 🧩 aval (équipement)  
+- ASD Textiles — France — ⚙️ textile  
+- Altec Etirage — France — ⚙️ métallique  
+- Aluminium France — France — ⚙️ aluminium (laminage/extrusion)  
+- Ampco Metal France — France — ⚙️ alliages  
+- Arkema S.A — France — ✅ chimie de base  
+- Auberon technologie — France — 🧩 sous-ensemble  
+- Aubert & Duval — France — ⚙️ métallurgie (forges)  
+- Auger — France — 🧩 usinage  
+- Aurubis — Allemagne — ⚙️ métaux non ferreux  
+- BASF — Allemagne — ✅ chimie de base  
+- Balterio — Belgique — 🧩 produit fini (revêtement)  
+- Baulé - Exsto polymère — France — ⚙️ formulation PU  
+- Bayer — Allemagne — ✅ chimie de base  
+- DIATEX — France — ⚙️ textile technique  
+- DuPont de Nemours — USA — ⚙️ polymères techniques  
+- E2IP — Canada — 🧩 électronique  
+- EPODEX — France — ⚙️ résines  
+- EUREKA SARL DERAYGE SERVICE — France — 🧩 service industriel  
+- Ensinger — Allemagne — ⚙️ polymères techniques  
+- Euralliage — France — ⚙️ fonderie  
+- FORMICA — France — ⚙️ stratifiés  
+- General Electric — USA — 🧩 intégration systèmes  
+- Groupe SAGAERT — France — ⚙️ mécanique  
+- Gruppo Mastrotto (Arzignano, Italie) — Italie — ⚙️ tannerie  
+- HENKEL — Allemagne — ⚙️ chimie appliquée  
+- Innoptec — France — 🧩 opto-électronique  
+- Intel — USA — 🧩 semi-conducteurs  
+- Krohne — Allemagne — 🧩 instrumentation  
+- Kronotex GmbH & Co — Allemagne — ⚙️ bois / panneaux  
+- La Filière Française du Cuir — France — ⚙️ cuir  
+- Maison Fichet — France — 🧩 produit fini  
+- NVIDIA — USA — 🧩 GPU / semi-conducteurs  
+- Pergo — Suède — 🧩 produit fini (sols)  
+- Polymère — France — ⚙️ polymères  
+- Rhône Poulenc — France — ⚙️ chimie industrielle  
+- SABIC — Arabie Saoudite — ✅ pétrochimie  
+- SAFRAN — France — 🧩 intégrateur  
+- SIKA — USA — ⚙️ chimie appliquée  
+- Saint-Gobain — France — ⚙️ verre / matériaux  
+- Siemens — Allemagne — 🧩 intégration électrique  
+- Silicon Engineering — Angleterre — 🧩 design circuits  
+- TATA Steel — Inde — ✅ acier primaire  
+- TELATEX — France — ⚙️ textile enduit  
+- TSMC — USA — 🧩 fonderie semi-conducteurs  
+- Thyssen Group — France — ⚙️ sidérurgie  
+- Toray — Japon — ⚙️ fibres / polymères  
+- Toray Carbon Fibers Europe - Lacq — France — ⚙️ fibre carbone  
+- Toschiba-Shinetsu — Japon — ⚙️ silicones / chimie  
+- Ultrafabrics (Japon) — Japon — ⚙️ revêtements synthétiques  
+- Vaisala — Finlande — 🧩 instrumentation  
+- Valeo — France — 🧩 intégrateur auto  
+- Zijin Mining Group — Chine — ✅ extraction minière  

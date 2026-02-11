@@ -1,0 +1,76 @@
+=== Goulots (attente prod) ===
+                             count      mean       max
+node_or_leg                                           
+Plastiforme                     20  4.245990  4.640460
+Racelogic                        5  4.221432  4.702915
+Expliseat (France) (France)      5  4.198769  4.609383
+Tyco Electronic                  5  4.194019  4.645210
+SONY                             5  4.159810  4.751633
+SCHOTT                           5  4.157382  4.546223
+Ancra Aircraft                  10  4.152516  4.473556
+JV GROUP                        10  4.135659  4.747536
+THALES                          25  4.130289  4.770003
+PMV                             10  4.119305  4.715590
+Figeac Aéro (France)             5  4.108615  4.747313
+Plastitek                       45  4.104657  4.767179
+ESPACE                          35  4.096330  4.708919
+TA Aerospace                     8  4.084183  4.492105
+SUMPAR (France)                 20  4.081690  4.782559
+General Electric                 5  4.075041  4.753393
+Segnere aero SAS                20  4.067113  4.758872
+Figeac Aéro                     25  4.061409  4.729414
+Lauak Group                     60  4.058121  4.751268
+J&C Aero                        30  4.036297  4.679778
+
+=== Occupation (START_PROC par jour) ===
+                                                            mean  max
+node_or_leg                                                          
+Krohne                                                  1.707317   30
+TATA Steel                                              1.630435   30
+Toray                                                   2.500000   25
+MGA Villeneuve St Lot                                   1.150442   18
+CEVA Logistics                                         15.000000   15
+Hindalco                                                1.451613   15
+Chalco                                                  1.818182   10
+Zhejiang Yuxin Textile Co., Ltd.                        1.290323   10
+Toschiba-Shinetsu                                       1.818182   10
+Shandong Loyal Chemical Co., Ltd.                      10.000000   10
+China Baowu                                             1.195652   10
+Aubert&Duval --> mais n'est pas extracteur du minerai   5.000000    5
+3M                                                      5.000000    5
+Aluminium                                               5.000000    5
+ESPACE (France)                                         5.000000    5
+E2IP --> Apriori monosource --> dangereux               1.666667    5
+Group Mondi                                             5.000000    5
+MGR FOAMTEX                                             1.111111    5
+Maison Fichet                                           1.666667    5
+Expliseat (France) (France)                             5.000000    5
+
+=== Modes (occurrences) ===
+mode
+Camion                70749
+Bateau                42062
+Train                 13763
+Avion                   408
+Interne entreprise       90
+
+=== Modes (distance cumulée km) ===
+mode
+Camion                2.052385e+08
+Bateau                1.361863e+08
+Train                 5.814170e+07
+Avion                 1.170162e+06
+Interne entreprise    6.545817e+03
+
+=== Distances > 5000 km (top 10) ===
+        component                      from_name from_country          to_name to_country  distance_km
+A5086 - Aluminium                          Alcoa          USA       Euralliage     France     7710.244
+A5086 - Aluminium                          Alcoa          USA Aluminium France     France     7710.244
+A5086 - Aluminium                          Alcoa          USA    Thyssen group     France     7710.244
+A5086 - Aluminium                       Hindalco         Inde       Euralliage     France     7369.542
+A5086 - Aluminium                       Hindalco         Inde Aluminium France     France     7369.542
+A5086 - Aluminium                       Hindalco         Inde    Thyssen group     France     7369.542
+A5086 - Aluminium Aluminium Corporation of China        Chine       Euralliage     France     8024.360
+A5086 - Aluminium Aluminium Corporation of China        Chine Aluminium France     France     8024.360
+A5086 - Aluminium Aluminium Corporation of China        Chine    Thyssen group     France     8024.360
+A5086 - Aluminium                     TATA Steel         Inde       Euralliage     France     7369.542
