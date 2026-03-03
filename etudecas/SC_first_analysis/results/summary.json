@@ -1,0 +1,615 @@
+{
+  "schema_version": "0.3",
+  "meta": {
+    "project": "Data_poc.xlsx -> supply graph",
+    "source_file": "Data_poc.xlsx",
+    "time_unit": "Day",
+    "money_unit": "€",
+    "carbon_unit": "Kilogram",
+    "notes": [
+      "Fields with is_default=true were filled with standard placeholder values because Data_poc.xlsx did not provide them."
+    ],
+    "simulation_prep": {
+      "prepared_for_simulation": true,
+      "prepared_at_utc": "2026-03-03T16:51:09.232990+00:00",
+      "assumption_version": "v1",
+      "notes": [
+        "Missing/default values were replaced with explicit assumptions for first-pass simulation.",
+        "Review simulation_prep_report before running production scenarios."
+      ]
+    }
+  },
+  "counts": {
+    "items": 25,
+    "nodes": 29,
+    "edges": 33,
+    "scenarios": 1
+  },
+  "distribution": {
+    "node_types": {
+      "supplier_dc": 23,
+      "distribution_center": 3,
+      "factory": 2,
+      "customer": 1
+    },
+    "edge_types": {
+      "transport": 33
+    }
+  },
+  "connectivity": {
+    "isolated_nodes": [
+      "DC-1450",
+      "DC-1920"
+    ],
+    "source_nodes": [
+      "SDC-1450",
+      "SDC-VD0500655A",
+      "SDC-VD0505677A",
+      "SDC-VD0508918A",
+      "SDC-VD0514881A",
+      "SDC-VD0518684A",
+      "SDC-VD0519670A",
+      "SDC-VD0520115A",
+      "SDC-VD0520132A",
+      "SDC-VD0525412A",
+      "SDC-VD0901566A",
+      "SDC-VD0910216A",
+      "SDC-VD0914320A",
+      "SDC-VD0914360C",
+      "SDC-VD0914690A",
+      "SDC-VD0951020A",
+      "SDC-VD0964290A",
+      "SDC-VD0989480A",
+      "SDC-VD0990780A",
+      "SDC-VD0993480A",
+      "SDC-VD1091642A",
+      "SDC-VD1095770A",
+      "SDC-VD1096202A"
+    ],
+    "sink_nodes": [
+      "C-XXXXX"
+    ],
+    "weakly_connected_components": {
+      "count": 3,
+      "sizes": [
+        27,
+        1,
+        1
+      ],
+      "largest_component_size": 27
+    },
+    "top_in_degree": [
+      [
+        "M-1810",
+        21
+      ],
+      [
+        "M-1430",
+        8
+      ],
+      [
+        "C-XXXXX",
+        2
+      ],
+      [
+        "DC-1910",
+        2
+      ],
+      [
+        "DC-1450",
+        0
+      ]
+    ],
+    "top_out_degree": [
+      [
+        "DC-1910",
+        2
+      ],
+      [
+        "SDC-1450",
+        2
+      ],
+      [
+        "SDC-VD0519670A",
+        2
+      ],
+      [
+        "SDC-VD0520132A",
+        2
+      ],
+      [
+        "SDC-VD0910216A",
+        2
+      ]
+    ]
+  },
+  "data_quality": {
+    "geo": {
+      "total_nodes": 29,
+      "filled_lat_lon": 29,
+      "missing_lat_lon": 0
+    },
+    "edge_defaults": {
+      "lead_time_is_default": 0,
+      "transport_cost_zero_default": 0,
+      "delay_limit_default": 0,
+      "order_terms_price_null": 4
+    },
+    "inventory_states": 57,
+    "inventory_initial_default_count": 0,
+    "process_count": 2,
+    "process_capacity_default_count": 0,
+    "process_cost_default_count": 0,
+    "edge_item_missing_refs": []
+  },
+  "geography": {
+    "node_country_distribution": {
+      "France": 19,
+      "Germany": 4,
+      "unknown": 3,
+      "Belgium": 1,
+      "Italy": 1,
+      "Sweden": 1
+    },
+    "top_countries": [
+      [
+        "France",
+        19
+      ],
+      [
+        "Germany",
+        4
+      ],
+      [
+        "unknown",
+        3
+      ],
+      [
+        "Belgium",
+        1
+      ],
+      [
+        "Italy",
+        1
+      ],
+      [
+        "Sweden",
+        1
+      ]
+    ],
+    "edge_country_known_count": 27,
+    "edge_cross_border_count": 7,
+    "edge_domestic_count": 20,
+    "edge_missing_country_count": 6
+  },
+  "supply_risk": {
+    "single_source_receiving_pairs_count": 22,
+    "single_source_receiving_pairs": [
+      {
+        "receiving_node": "C-XXXXX",
+        "item_id": "item:268091",
+        "supplier_count": 1,
+        "suppliers": [
+          "DC-1910"
+        ]
+      },
+      {
+        "receiving_node": "C-XXXXX",
+        "item_id": "item:268967",
+        "supplier_count": 1,
+        "suppliers": [
+          "DC-1910"
+        ]
+      },
+      {
+        "receiving_node": "DC-1910",
+        "item_id": "item:268091",
+        "supplier_count": 1,
+        "suppliers": [
+          "M-1810"
+        ]
+      },
+      {
+        "receiving_node": "DC-1910",
+        "item_id": "item:268967",
+        "supplier_count": 1,
+        "suppliers": [
+          "M-1430"
+        ]
+      },
+      {
+        "receiving_node": "M-1430",
+        "item_id": "item:038005",
+        "supplier_count": 1,
+        "suppliers": [
+          "SDC-VD0520132A"
+        ]
+      },
+      {
+        "receiving_node": "M-1430",
+        "item_id": "item:042342",
+        "supplier_count": 1,
+        "suppliers": [
+          "SDC-VD0914690A"
+        ]
+      },
+      {
+        "receiving_node": "M-1430",
+        "item_id": "item:333362",
+        "supplier_count": 1,
+        "suppliers": [
+          "SDC-VD0525412A"
+        ]
+      },
+      {
+        "receiving_node": "M-1430",
+        "item_id": "item:344135",
+        "supplier_count": 1,
+        "suppliers": [
+          "SDC-VD0993480A"
+        ]
+      },
+      {
+        "receiving_node": "M-1430",
+        "item_id": "item:708073",
+        "supplier_count": 1,
+        "suppliers": [
+          "SDC-VD0520115A"
+        ]
+      },
+      {
+        "receiving_node": "M-1430",
+        "item_id": "item:730384",
+        "supplier_count": 1,
+        "suppliers": [
+          "SDC-VD0508918A"
+        ]
+      },
+      {
+        "receiving_node": "M-1430",
+        "item_id": "item:734545",
+        "supplier_count": 1,
+        "suppliers": [
+          "SDC-VD1095770A"
+        ]
+      },
+      {
+        "receiving_node": "M-1430",
+        "item_id": "item:773474",
+        "supplier_count": 1,
+        "suppliers": [
+          "SDC-1450"
+        ]
+      },
+      {
+        "receiving_node": "M-1810",
+        "item_id": "item:001757",
+        "supplier_count": 1,
+        "suppliers": [
+          "SDC-VD0951020A"
+        ]
+      },
+      {
+        "receiving_node": "M-1810",
+        "item_id": "item:016332",
+        "supplier_count": 1,
+        "suppliers": [
+          "SDC-VD0514881A"
+        ]
+      },
+      {
+        "receiving_node": "M-1810",
+        "item_id": "item:029313",
+        "supplier_count": 1,
+        "suppliers": [
+          "SDC-VD0519670A"
+        ]
+      },
+      {
+        "receiving_node": "M-1810",
+        "item_id": "item:039668",
+        "supplier_count": 1,
+        "suppliers": [
+          "SDC-VD1096202A"
+        ]
+      },
+      {
+        "receiving_node": "M-1810",
+        "item_id": "item:049371",
+        "supplier_count": 1,
+        "suppliers": [
+          "SDC-VD0520132A"
+        ]
+      },
+      {
+        "receiving_node": "M-1810",
+        "item_id": "item:099439",
+        "supplier_count": 1,
+        "suppliers": [
+          "SDC-VD0505677A"
+        ]
+      },
+      {
+        "receiving_node": "M-1810",
+        "item_id": "item:338928",
+        "supplier_count": 1,
+        "suppliers": [
+          "SDC-VD0901566A"
+        ]
+      },
+      {
+        "receiving_node": "M-1810",
+        "item_id": "item:338929",
+        "supplier_count": 1,
+        "suppliers": [
+          "SDC-VD0914360C"
+        ]
+      },
+      {
+        "receiving_node": "M-1810",
+        "item_id": "item:426331",
+        "supplier_count": 1,
+        "suppliers": [
+          "SDC-VD0989480A"
+        ]
+      },
+      {
+        "receiving_node": "M-1810",
+        "item_id": "item:693055",
+        "supplier_count": 1,
+        "suppliers": [
+          "SDC-1450"
+        ]
+      }
+    ],
+    "items_with_one_or_zero_unique_suppliers": [
+      {
+        "item_id": "item:001757",
+        "supplier_count": 1
+      },
+      {
+        "item_id": "item:016332",
+        "supplier_count": 1
+      },
+      {
+        "item_id": "item:029313",
+        "supplier_count": 1
+      },
+      {
+        "item_id": "item:038005",
+        "supplier_count": 1
+      },
+      {
+        "item_id": "item:039668",
+        "supplier_count": 1
+      },
+      {
+        "item_id": "item:042342",
+        "supplier_count": 1
+      },
+      {
+        "item_id": "item:049371",
+        "supplier_count": 1
+      },
+      {
+        "item_id": "item:099439",
+        "supplier_count": 1
+      },
+      {
+        "item_id": "item:333362",
+        "supplier_count": 1
+      },
+      {
+        "item_id": "item:338928",
+        "supplier_count": 1
+      },
+      {
+        "item_id": "item:338929",
+        "supplier_count": 1
+      },
+      {
+        "item_id": "item:344135",
+        "supplier_count": 1
+      },
+      {
+        "item_id": "item:426331",
+        "supplier_count": 1
+      },
+      {
+        "item_id": "item:693055",
+        "supplier_count": 1
+      },
+      {
+        "item_id": "item:708073",
+        "supplier_count": 1
+      },
+      {
+        "item_id": "item:730384",
+        "supplier_count": 1
+      },
+      {
+        "item_id": "item:734545",
+        "supplier_count": 1
+      },
+      {
+        "item_id": "item:773474",
+        "supplier_count": 1
+      }
+    ]
+  },
+  "demand_checks": {
+    "rows": [
+      {
+        "scenario_id": "scn:BASE",
+        "node_id": "C-XXXXX",
+        "item_id": "item:268967",
+        "profile_points": 1,
+        "demand_values": [
+          120.0
+        ],
+        "is_zero_demand": false,
+        "reachable_from_upstream": true
+      },
+      {
+        "scenario_id": "scn:BASE",
+        "node_id": "C-XXXXX",
+        "item_id": "item:268091",
+        "profile_points": 1,
+        "demand_values": [
+          120.0
+        ],
+        "is_zero_demand": false,
+        "reachable_from_upstream": true
+      }
+    ],
+    "unreachable_demand_rows": [],
+    "zero_demand_rows": []
+  },
+  "node_degrees": [
+    {
+      "node_id": "M-1430",
+      "in_degree": 8,
+      "out_degree": 1
+    },
+    {
+      "node_id": "M-1810",
+      "in_degree": 21,
+      "out_degree": 1
+    },
+    {
+      "node_id": "DC-1920",
+      "in_degree": 0,
+      "out_degree": 0
+    },
+    {
+      "node_id": "SDC-VD0520132A",
+      "in_degree": 0,
+      "out_degree": 2
+    },
+    {
+      "node_id": "SDC-VD0914690A",
+      "in_degree": 0,
+      "out_degree": 1
+    },
+    {
+      "node_id": "DC-1450",
+      "in_degree": 0,
+      "out_degree": 0
+    },
+    {
+      "node_id": "SDC-VD0525412A",
+      "in_degree": 0,
+      "out_degree": 1
+    },
+    {
+      "node_id": "SDC-VD0993480A",
+      "in_degree": 0,
+      "out_degree": 1
+    },
+    {
+      "node_id": "SDC-VD0520115A",
+      "in_degree": 0,
+      "out_degree": 1
+    },
+    {
+      "node_id": "SDC-VD0508918A",
+      "in_degree": 0,
+      "out_degree": 1
+    },
+    {
+      "node_id": "SDC-VD1095770A",
+      "in_degree": 0,
+      "out_degree": 1
+    },
+    {
+      "node_id": "SDC-VD0951020A",
+      "in_degree": 0,
+      "out_degree": 2
+    },
+    {
+      "node_id": "SDC-VD0519670A",
+      "in_degree": 0,
+      "out_degree": 2
+    },
+    {
+      "node_id": "SDC-VD0518684A",
+      "in_degree": 0,
+      "out_degree": 1
+    },
+    {
+      "node_id": "SDC-VD0910216A",
+      "in_degree": 0,
+      "out_degree": 2
+    },
+    {
+      "node_id": "SDC-VD1091642A",
+      "in_degree": 0,
+      "out_degree": 2
+    },
+    {
+      "node_id": "SDC-VD0500655A",
+      "in_degree": 0,
+      "out_degree": 1
+    },
+    {
+      "node_id": "SDC-VD0990780A",
+      "in_degree": 0,
+      "out_degree": 1
+    },
+    {
+      "node_id": "SDC-VD0514881A",
+      "in_degree": 0,
+      "out_degree": 1
+    },
+    {
+      "node_id": "SDC-VD1096202A",
+      "in_degree": 0,
+      "out_degree": 1
+    },
+    {
+      "node_id": "SDC-VD0914320A",
+      "in_degree": 0,
+      "out_degree": 1
+    },
+    {
+      "node_id": "SDC-VD0964290A",
+      "in_degree": 0,
+      "out_degree": 1
+    },
+    {
+      "node_id": "SDC-VD0505677A",
+      "in_degree": 0,
+      "out_degree": 1
+    },
+    {
+      "node_id": "SDC-VD0901566A",
+      "in_degree": 0,
+      "out_degree": 1
+    },
+    {
+      "node_id": "SDC-VD0914360C",
+      "in_degree": 0,
+      "out_degree": 1
+    },
+    {
+      "node_id": "SDC-VD0989480A",
+      "in_degree": 0,
+      "out_degree": 1
+    },
+    {
+      "node_id": "C-XXXXX",
+      "in_degree": 2,
+      "out_degree": 0
+    },
+    {
+      "node_id": "DC-1910",
+      "in_degree": 2,
+      "out_degree": 2
+    },
+    {
+      "node_id": "SDC-1450",
+      "in_degree": 0,
+      "out_degree": 2
+    }
+  ]
+}

@@ -1,0 +1,77 @@
+{
+  "run_context": {
+    "scenario_id": "scn:BASE",
+    "sim_days": 11,
+    "input_file": "etudecas/simulation_prep/result/supply_graph_poc_simulation_ready.json",
+    "counts": {
+      "nodes": 29,
+      "edges": 33,
+      "lanes": 33,
+      "demand_rows": 2
+    }
+  },
+  "service_level": {
+    "total_demand": 2640.0,
+    "total_served": 2640.0,
+    "fill_rate": 1.0,
+    "ending_backlog": 0.0,
+    "backlog_days_count": 2,
+    "stockout_days_count": 2,
+    "stockout_days": [
+      0,
+      1
+    ],
+    "max_backlog": 480.0,
+    "max_backlog_day": 1,
+    "backlog_clear_day": 2
+  },
+  "flow_dynamics": {
+    "total_shipped": 10184.8142,
+    "total_arrived": 9223.0938,
+    "total_produced": 269.745,
+    "shipped_spike_days": [],
+    "demand_volatility_std": 0.0,
+    "shipped_volatility_std": 688.7498972251875,
+    "bullwhip_proxy": null,
+    "arrivals_vs_shipped_ratio": 0.9055730942487582,
+    "produced_vs_served_ratio": 0.10217613636363637
+  },
+  "inventory_costs": {
+    "avg_inventory": 79063.2387090909,
+    "inventory_p10": 77808.8277,
+    "inventory_p90": 80570.0,
+    "ending_inventory": 77537.9552,
+    "total_cost": 40074.6115,
+    "holding_cost": 34787.825,
+    "transport_cost": 5286.7865,
+    "holding_cost_share_pct": 86.80764129179393,
+    "transport_cost_share_pct": 13.192358708206068,
+    "avg_daily_cost": 3643.1465,
+    "cost_per_served_unit": 15.179777083333333
+  },
+  "model_inputs_signal": {
+    "demand_unique_values": [
+      240.0
+    ],
+    "days_simulated": 11
+  },
+  "prep_context": {
+    "prep_changed_edges": 33,
+    "prep_changed_nodes": 29,
+    "prep_zero_demand_after_prep": 0,
+    "prep_missing_geo_after_prep": 0
+  },
+  "warnings": [
+    "Ruptures observées sur 2 jour(s): [0, 1].",
+    "Le coût de stockage domine le coût total.",
+    "Demande entièrement constante: la simulation ne teste pas la variabilité.",
+    "Horizon court (<30 jours): vision partielle de la dynamique."
+  ],
+  "recommendations": [
+    "Le niveau de service est bon. Passer à des scénarios stress (retard fournisseur, hausse demande).",
+    "Augmenter le stock de sécurité sur les couples critiques pour absorber le démarrage.",
+    "Réduire les stocks initiaux et calibrer les politiques de réapprovisionnement.",
+    "Ajouter une demande variable (step/seasonality) pour tester la robustesse.",
+    "Allonger l'horizon (60-120 jours) pour observer les régimes stabilisés."
+  ]
+}

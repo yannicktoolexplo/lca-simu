@@ -1,17 +1,20 @@
 #!/usr/bin/env python3
 """
-Build an interactive HTML world map from supply_graph_poc_geocoded.json.
+Build an interactive HTML world map from a geocoded supply graph.
 
-Inspired by tools/build_supplychain_worldmap.py but adapted to the
-nodes/edges schema of the geocoded supply graph.
+Includes hover overlays for factory nodes using simulation outputs:
+- incoming input-stock time series
+- outgoing production time series
 """
 
 from __future__ import annotations
 
 import argparse
+import csv
 import html
 import json
 import sys
+from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
@@ -28,13 +31,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--input",
         "-i",
-        default="etudecas/result_geocodage/supply_graph_poc_geocoded.json",
+        default="etudecas/simulation_prep/result/supply_graph_poc_simulation_ready.json",
         help="Input geocoded supply graph JSON.",
     )
     parser.add_argument(
         "--output",
         "-o",
-        default="etudecas/affichage_result/supply_graph_poc_geocoded_map.html",
+        default="etudecas/simulation/result/supply_graph_poc_geocoded_map_with_factory_hover.html",
         help="Output HTML file.",
     )
     parser.add_argument(
@@ -42,7 +45,24 @@ def parse_args() -> argparse.Namespace:
         default="Supply Graph POC - Geocoded Map",
         help="HTML page title.",
     )
+    parser.add_argument(
+        "--sim-input-stocks-csv",
+        default="etudecas/simulation/result/production_input_stocks_daily.csv",
+        help="Simulation CSV for input material stocks.",
+    )
+    parser.add_argument(
+        "--sim-output-products-csv",
+        default="etudecas/simulation/result/production_output_products_daily.csv",
+        help="Simulation CSV for output products production.",
+    )
     return parser.parse_args()
+
+
+def to_float(x: Any) -> float | None:
+    try:
+        return float(x)
+    except (TypeError, ValueError):
+        return None
 
 
 def compact_graph_payload(raw: dict[str, Any]) -> dict[str, Any]:
@@ -104,6 +124,117 @@ def compact_graph_payload(raw: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def build_factory_hover_series(
+    raw: dict[str, Any],
+    sim_input_stocks_csv: Path,
+    sim_output_products_csv: Path,
+) -> dict[str, Any]:
+    nodes = raw.get("nodes", []) or []
+    items = raw.get("items", []) or []
+
+    factory_ids = {
+        str(n.get("id"))
+        for n in nodes
+        if str(n.get("type") or "") == "factory"
+    }
+    node_name = {str(n.get("id")): str(n.get("name") or str(n.get("id"))) for n in nodes}
+
+    item_label: dict[str, str] = {}
+    for it in items:
+        iid = str(it.get("id"))
+        code = str(it.get("code") or "").strip()
+        name = str(it.get("name") or "").strip()
+        item_label[iid] = code if code else (name if name else iid)
+
+    in_unit_by_node_item: dict[tuple[str, str], str] = {}
+    out_unit_by_node_item: dict[tuple[str, str], str] = {}
+    for n in nodes:
+        nid = str(n.get("id"))
+        inv = n.get("inventory") or {}
+        for st in (inv.get("states") or []):
+            item_id = str(st.get("item_id"))
+            uom = str(st.get("uom") or "").strip()
+            if item_id and uom:
+                in_unit_by_node_item[(nid, item_id)] = uom
+        for p in (n.get("processes") or []):
+            for inp in (p.get("inputs") or []):
+                item_id = str(inp.get("item_id"))
+                uom = str(inp.get("ratio_unit") or "").strip()
+                if item_id and uom and (nid, item_id) not in in_unit_by_node_item:
+                    in_unit_by_node_item[(nid, item_id)] = uom
+            for out in (p.get("outputs") or []):
+                item_id = str(out.get("item_id"))
+                uom = str(out.get("uom") or "").strip()
+                if item_id and uom:
+                    out_unit_by_node_item[(nid, item_id)] = uom
+
+    incoming_raw: dict[str, dict[str, list[tuple[int, float]]]] = defaultdict(lambda: defaultdict(list))
+    if sim_input_stocks_csv.exists():
+        with sim_input_stocks_csv.open("r", encoding="utf-8", newline="") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                node_id = str(row.get("node_id") or "")
+                if node_id not in factory_ids:
+                    continue
+                item_id = str(row.get("item_id") or "")
+                day = int(to_float(row.get("day")) or 0)
+                val = float(to_float(row.get("stock_before_production")) or 0.0)
+                incoming_raw[node_id][item_id].append((day, val))
+
+    outgoing_raw: dict[str, dict[str, list[tuple[int, float, float]]]] = defaultdict(lambda: defaultdict(list))
+    if sim_output_products_csv.exists():
+        with sim_output_products_csv.open("r", encoding="utf-8", newline="") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                node_id = str(row.get("node_id") or "")
+                if node_id not in factory_ids:
+                    continue
+                item_id = str(row.get("item_id") or "")
+                day = int(to_float(row.get("day")) or 0)
+                prod = float(to_float(row.get("produced_qty")) or 0.0)
+                cum = float(to_float(row.get("cum_produced_qty")) or 0.0)
+                outgoing_raw[node_id][item_id].append((day, prod, cum))
+
+    out: dict[str, Any] = {}
+    for node_id in sorted(factory_ids):
+        incoming = []
+        for item_id, pts in sorted(incoming_raw[node_id].items(), key=lambda x: item_label.get(x[0], x[0])):
+            pts_sorted = sorted(pts, key=lambda x: x[0])
+            incoming.append(
+                {
+                    "item_id": item_id,
+                    "item_label": item_label.get(item_id, item_id),
+                    "unit": in_unit_by_node_item.get((node_id, item_id), ""),
+                    "days": [p[0] for p in pts_sorted],
+                    "values": [p[1] for p in pts_sorted],
+                }
+            )
+
+        outgoing = []
+        for item_id, pts in sorted(outgoing_raw[node_id].items(), key=lambda x: item_label.get(x[0], x[0])):
+            pts_sorted = sorted(pts, key=lambda x: x[0])
+            outgoing.append(
+                {
+                    "item_id": item_id,
+                    "item_label": item_label.get(item_id, item_id),
+                    "unit": out_unit_by_node_item.get((node_id, item_id), "unit/day"),
+                    "days": [p[0] for p in pts_sorted],
+                    "values": [p[1] for p in pts_sorted],
+                    "cum_values": [p[2] for p in pts_sorted],
+                }
+            )
+
+        if incoming or outgoing:
+            out[node_id] = {
+                "node_id": node_id,
+                "node_name": node_name.get(node_id, node_id),
+                "incoming": incoming,
+                "outgoing": outgoing,
+            }
+
+    return out
+
+
 def html_template(title: str, data_json: str) -> str:
     return f"""<!doctype html>
 <html>
@@ -154,6 +285,40 @@ def html_template(title: str, data_json: str) -> str:
       width: 100%;
       height: calc(100vh - 64px);
     }}
+    #factoryHoverPanel {{
+      position: fixed;
+      right: 16px;
+      top: 88px;
+      width: min(760px, calc(100vw - 32px));
+      max-height: calc(100vh - 110px);
+      background: rgba(255,255,255,0.98);
+      border: 1px solid #cbd5e1;
+      border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.18);
+      z-index: 20;
+      overflow: hidden;
+      display: none;
+      padding: 10px;
+    }}
+    #factoryHoverPanel.visible {{
+      display: block;
+    }}
+    #factoryHoverTitle {{
+      font-size: 13px;
+      font-weight: 700;
+      margin: 0 0 8px 0;
+      color: #0f172a;
+    }}
+    .factoryHoverGrid {{
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }}
+    .factoryPlot {{
+      height: clamp(160px, calc((100vh - 210px) / 2), 260px);
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+    }}
   </style>
 </head>
 <body>
@@ -167,11 +332,22 @@ def html_template(title: str, data_json: str) -> str:
   </div>
   <div id="chart"></div>
 
+  <div id="factoryHoverPanel">
+    <div id="factoryHoverTitle"></div>
+    <div class="factoryHoverGrid">
+      <div id="factoryIncomingChart" class="factoryPlot"></div>
+      <div id="factoryOutgoingChart" class="factoryPlot"></div>
+    </div>
+  </div>
+
   <script>
     const DATA = {data_json};
     const STYLES = DATA.node_type_styles || {{}};
+    const FACTORY_SERIES = DATA.factory_hover_series || {{}};
     const nodeById = Object.fromEntries((DATA.nodes || []).map(n => [n.id, n]));
     const defaultPalette = ["#1f77b4", "#d62728", "#ff7f0e", "#2ca02c", "#9467bd", "#8c564b"];
+    let currentFactoryHoverId = null;
+    let hoverHandlersBound = false;
 
     function styleForType(nodeType, idx) {{
       const s = STYLES[nodeType] || {{}};
@@ -239,7 +415,6 @@ def html_template(title: str, data_json: str) -> str:
 
       const spanLat = Math.max(maxLat - minLat, 1);
       const spanLon = Math.max(maxLon - minLon, 1);
-      // Approximation robuste pour zoomer sans réduire la taille du canvas.
       const effectiveSpan = Math.max(spanLat, spanLon * 0.55);
       const scale = clamp(120 / effectiveSpan, 1.1, 25);
 
@@ -276,6 +451,7 @@ def html_template(title: str, data_json: str) -> str:
           lon: subset.map(n => n.lon),
           lat: subset.map(n => n.lat),
           text: subset.map(nodeText),
+          customdata: subset.map(n => [n.id, n.type, n.name || n.id]),
           hovertemplate: "%{{text}}<extra></extra>",
           marker: {{
             size: 9,
@@ -318,6 +494,101 @@ def html_template(title: str, data_json: str) -> str:
       return {{ traces, visibleNodes }};
     }}
 
+    function hideFactoryPanel() {{
+      const panel = document.getElementById("factoryHoverPanel");
+      panel.classList.remove("visible");
+      currentFactoryHoverId = null;
+    }}
+
+    function chartLayoutBase(titleText, yTitle) {{
+      return {{
+        title: {{text: titleText, font: {{size: 12}}}},
+        margin: {{l: 45, r: 10, t: 32, b: 36}},
+        paper_bgcolor: "rgba(0,0,0,0)",
+        plot_bgcolor: "rgba(0,0,0,0)",
+        xaxis: {{title: "Jour", showgrid: true, gridcolor: "#e2e8f0"}},
+        yaxis: {{title: yTitle, showgrid: true, gridcolor: "#e2e8f0"}},
+        legend: {{orientation: "h", font: {{size: 10}}}},
+      }};
+    }}
+
+    function showFactoryPanel(factoryId) {{
+      const info = FACTORY_SERIES[factoryId];
+      if (!info) {{
+        hideFactoryPanel();
+        return;
+      }}
+
+      const panel = document.getElementById("factoryHoverPanel");
+      const title = document.getElementById("factoryHoverTitle");
+      const incomingDiv = document.getElementById("factoryIncomingChart");
+      const outgoingDiv = document.getElementById("factoryOutgoingChart");
+      title.textContent = `Factory: ${{info.node_name || factoryId}} (${{factoryId}})`;
+
+      if (currentFactoryHoverId !== factoryId) {{
+        const incomingTraces = (info.incoming || []).map((s) => ({{
+          type: "scatter",
+          mode: "lines+markers",
+          name: `${{s.item_label}}${{s.unit ? ` (${{s.unit}})` : ""}}`,
+          x: s.days || [],
+          y: s.values || [],
+          line: {{width: 1.8}},
+          marker: {{size: 4}},
+          hovertemplate: `${{s.item_label}}<br>Jour=%{{x}}<br>Stock=%{{y:.3f}}${{s.unit ? ` ${{s.unit}}` : ""}}<extra></extra>`,
+        }}));
+
+        const outgoingTraces = (info.outgoing || []).map((s) => ({{
+          type: "scatter",
+          mode: "lines+markers",
+          name: `${{s.item_label}}${{s.unit ? ` (${{s.unit}})` : ""}}`,
+          x: s.days || [],
+          y: s.values || [],
+          line: {{width: 1.8}},
+          marker: {{size: 4}},
+          hovertemplate: `${{s.item_label}}<br>Jour=%{{x}}<br>Production=%{{y:.3f}}${{s.unit ? ` ${{s.unit}}` : ""}}<extra></extra>`,
+        }}));
+
+        Plotly.react(
+          incomingDiv,
+          incomingTraces,
+          chartLayoutBase("Matieres entrantes (stock avant production)", "Stock"),
+          {{displayModeBar: false, responsive: true}}
+        );
+        Plotly.react(
+          outgoingDiv,
+          outgoingTraces,
+          chartLayoutBase("Produits sortants (production journaliere)", "Production"),
+          {{displayModeBar: false, responsive: true}}
+        );
+      }}
+
+      currentFactoryHoverId = factoryId;
+      panel.classList.add("visible");
+    }}
+
+    function bindHoverHandlers() {{
+      if (hoverHandlersBound) return;
+      const gd = document.getElementById("chart");
+      gd.on("plotly_hover", (ev) => {{
+        const p = ev && ev.points && ev.points.length ? ev.points[0] : null;
+        if (!p || !Array.isArray(p.customdata)) {{
+          hideFactoryPanel();
+          return;
+        }}
+        const nodeId = p.customdata[0];
+        const nodeType = p.customdata[1];
+        if (nodeType !== "factory") {{
+          hideFactoryPanel();
+          return;
+        }}
+        showFactoryPanel(nodeId);
+      }});
+      gd.on("plotly_unhover", () => {{
+        hideFactoryPanel();
+      }});
+      hoverHandlersBound = true;
+    }}
+
     function draw() {{
       const {{ traces, visibleNodes }} = buildTraces();
       const geoView = computeGeoView(visibleNodes);
@@ -341,7 +612,10 @@ def html_template(title: str, data_json: str) -> str:
         legend: {{orientation: "h"}},
         geo: geoLayout
       }};
+
+      hideFactoryPanel();
       Plotly.newPlot("chart", traces, layout, {{displayModeBar: true, responsive: true}});
+      bindHoverHandlers();
     }}
 
     function init() {{
@@ -363,11 +637,14 @@ def main() -> None:
     args = parse_args()
     in_path = Path(args.input)
     out_path = Path(args.output)
+    sim_input = Path(args.sim_input_stocks_csv)
+    sim_output = Path(args.sim_output_products_csv)
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     try:
         raw = json.loads(in_path.read_text(encoding="utf-8"))
         payload = compact_graph_payload(raw)
+        payload["factory_hover_series"] = build_factory_hover_series(raw, sim_input, sim_output)
     except Exception as exc:
         print(f"[ERROR] Unable to read/parse input JSON: {exc}", file=sys.stderr)
         sys.exit(1)

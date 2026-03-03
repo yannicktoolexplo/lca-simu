@@ -1,0 +1,395 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>Supply Graph POC - Geocoded Map</title>
+  <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+  <style>
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      color: #0f172a;
+      background: #f8fafc;
+    }
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      padding: 12px 16px;
+      border-bottom: 1px solid #e2e8f0;
+      background: #ffffff;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .title {
+      font-weight: 700;
+      font-size: 14px;
+      margin-right: 8px;
+    }
+    .meta {
+      font-size: 12px;
+      color: #475569;
+      margin-right: 14px;
+    }
+    .box {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    #typeFilters label {
+      margin-right: 8px;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+    #chart {
+      width: 100%;
+      height: calc(100vh - 64px);
+    }
+    #factoryHoverPanel {
+      position: fixed;
+      right: 16px;
+      top: 88px;
+      width: min(760px, calc(100vw - 32px));
+      max-height: calc(100vh - 110px);
+      background: rgba(255,255,255,0.98);
+      border: 1px solid #cbd5e1;
+      border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.18);
+      z-index: 20;
+      overflow: hidden;
+      display: none;
+      padding: 10px;
+    }
+    #factoryHoverPanel.visible {
+      display: block;
+    }
+    #factoryHoverTitle {
+      font-size: 13px;
+      font-weight: 700;
+      margin: 0 0 8px 0;
+      color: #0f172a;
+    }
+    .factoryHoverGrid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+    .factoryPlot {
+      height: clamp(160px, calc((100vh - 210px) / 2), 260px);
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <div class="title">Supply Graph POC - Geocoded Map</div>
+    <div class="meta" id="stats"></div>
+    <div class="box">
+      <label><input type="checkbox" id="showEdges" checked> Afficher flux</label>
+    </div>
+    <div class="box" id="typeFilters"></div>
+  </div>
+  <div id="chart"></div>
+
+  <div id="factoryHoverPanel">
+    <div id="factoryHoverTitle"></div>
+    <div class="factoryHoverGrid">
+      <div id="factoryIncomingChart" class="factoryPlot"></div>
+      <div id="factoryOutgoingChart" class="factoryPlot"></div>
+    </div>
+  </div>
+
+  <script>
+    const DATA = {"schema_version": "0.3", "meta": {"project": "Data_poc.xlsx -> supply graph", "source_file": "Data_poc.xlsx", "time_unit": "Day", "money_unit": "€", "carbon_unit": "Kilogram", "notes": ["Fields with is_default=true were filled with standard placeholder values because Data_poc.xlsx did not provide them."], "simulation_prep": {"prepared_for_simulation": true, "prepared_at_utc": "2026-03-03T17:00:18.266204+00:00", "assumption_version": "v1", "notes": ["Missing/default values were replaced with explicit assumptions for first-pass simulation.", "Review simulation_prep_report before running production scenarios."]}}, "nodes": [{"id": "M-1430", "type": "factory", "name": "Manufacturer of Drugs - D1430", "location_ID": "France - GIEN - 45500", "country": "France", "lat": 47.7, "lon": 2.633333}, {"id": "M-1810", "type": "factory", "name": "Manufacturer of Cosmetics - D1810", "location_ID": "France - AVENE - 34260", "country": "France", "lat": 43.756966, "lon": 3.09923}, {"id": "DC-1920", "type": "distribution_center", "name": "Distribution Center of Muret - D1920", "location_ID": "France - MURET - 31600", "country": "France", "lat": 43.466667, "lon": 1.35}, {"id": "SDC-VD0520132A", "type": "supplier_dc", "name": "Supplier of Raw Materials - VD0520132A", "location_ID": "France - CERGY PONTOISE - 95892", "country": "France", "lat": 49.034, "lon": 2.063}, {"id": "SDC-VD0914690A", "type": "supplier_dc", "name": "Supplier of Raw Materials - VD0914690A", "location_ID": "Belgique - BORNEM - 2880", "country": "Belgium", "lat": 51.099606, "lon": 4.240459}, {"id": "DC-1450", "type": "distribution_center", "name": "Supplier of Raw Materials - D1450", "location_ID": "France - GAILLAC - 81600", "country": "France", "lat": 43.901816, "lon": 1.896506}, {"id": "SDC-VD0525412A", "type": "supplier_dc", "name": "Supplier of Packaging - VD0525412A", "location_ID": "France - CHAMPNIERS - 16430", "country": "France", "lat": 45.716671, "lon": 0.196451}, {"id": "SDC-VD0993480A", "type": "supplier_dc", "name": "Supplier of Packaging - VD0993480A", "location_ID": "France - CONDE SUR NOIREAU - 14110", "country": "France", "lat": 48.853, "lon": -0.55}, {"id": "SDC-VD0520115A", "type": "supplier_dc", "name": "Supplier of Packaging - VD0520115A", "location_ID": "Allemagne - HEILIGENROTH - 56412", "country": "Germany", "lat": 50.448501, "lon": 7.863068}, {"id": "SDC-VD0508918A", "type": "supplier_dc", "name": "Supplier of Packaging - VD0508918A", "location_ID": "France - LA FERTE BERNARD - 72400", "country": "France", "lat": 48.183331, "lon": 0.66667}, {"id": "SDC-VD1095770A", "type": "supplier_dc", "name": "Supplier of Packaging - VD1095770A", "location_ID": "France - CHATEAUNEUF LA FORET - 87130", "country": "France", "lat": 45.713108, "lon": 1.606463}, {"id": "SDC-VD0951020A", "type": "supplier_dc", "name": "Supplier of Raw Materials - VD0951020A", "location_ID": "France - MONTREUIL - 93100", "country": "France", "lat": 48.863812, "lon": 2.448451}, {"id": "SDC-VD0519670A", "type": "supplier_dc", "name": "Supplier of Raw Materials - VD0519670A", "location_ID": "France - ST SULPICE - 81370", "country": "France", "lat": 43.773, "lon": 1.687}, {"id": "SDC-VD0518684A", "type": "supplier_dc", "name": "Supplier of Raw Materials - VD0518684A", "location_ID": "Allemagne - HAMBURG - 20095", "country": "Germany", "lat": 53.550848, "lon": 9.999304}, {"id": "SDC-VD0910216A", "type": "supplier_dc", "name": "Supplier of Raw Materials - VD0910216A", "location_ID": "France - LYON - 69005", "country": "France", "lat": 45.7611, "lon": 4.8268}, {"id": "SDC-VD1091642A", "type": "supplier_dc", "name": "Supplier of Raw Materials - VD1091642A", "location_ID": "France - VENETTE - 60280", "country": "France", "lat": 49.41595, "lon": 2.800696}, {"id": "SDC-VD0500655A", "type": "supplier_dc", "name": "Supplier of Raw Materials - VD0500655A", "location_ID": "Germany - EMMERICH - 46446", "country": "Germany", "lat": 51.839593, "lon": 6.25173}, {"id": "SDC-VD0990780A", "type": "supplier_dc", "name": "Supplier of Raw Materials - VD0990780A", "location_ID": "Italie - CARASCO GE - 16042", "country": "Italy", "lat": 44.3504, "lon": 9.3466}, {"id": "SDC-VD0514881A", "type": "supplier_dc", "name": "Supplier of Raw Materials - VD0514881A", "location_ID": "Suède - GÖTEBORG - 402 58", "country": "Sweden", "lat": 57.7072, "lon": 11.9668}, {"id": "SDC-VD1096202A", "type": "supplier_dc", "name": "Supplier of Raw Materials - VD1096202A", "location_ID": "France - FONTENAY SOUS BOIS - 94120", "country": "France", "lat": 48.851542, "lon": 2.475907}, {"id": "SDC-VD0914320A", "type": "supplier_dc", "name": "Supplier of Raw Materials - VD0914320A", "location_ID": "France - PEYPIN - 13124", "country": "France", "lat": 43.384147, "lon": 5.577433}, {"id": "SDC-VD0964290A", "type": "supplier_dc", "name": "Supplier of Raw Materials - VD0964290A", "location_ID": "France - FONTENAY SOUS BOIS - 94120", "country": "France", "lat": 48.851542, "lon": 2.475907}, {"id": "SDC-VD0505677A", "type": "supplier_dc", "name": "Supplier of Raw Materials - VD0505677A", "location_ID": "Germany - LUDWIGSHAFEN - 67056", "country": "Germany", "lat": 49.4949, "lon": 8.434}, {"id": "SDC-VD0901566A", "type": "supplier_dc", "name": "Supplier of Packaging - VD0901566A", "location_ID": "France - SAINTE MENEHOULD - 51800", "country": "France", "lat": 49.090822, "lon": 4.892978}, {"id": "SDC-VD0914360C", "type": "supplier_dc", "name": "Supplier of Packaging - VD0914360C", "location_ID": "France - CHAZELLES - 16380", "country": "France", "lat": 45.64714, "lon": 0.367019}, {"id": "SDC-VD0989480A", "type": "supplier_dc", "name": "Supplier of Packaging - VD0989480A", "location_ID": "France - EXIDEUIL-SUR-VIENNE - 16150", "country": "France", "lat": 45.886926, "lon": 0.673743}, {"id": "C-XXXXX", "type": "customer", "name": "C-XXXXX", "location_ID": null, "country": null, "lat": 48.866667, "lon": 2.333333}, {"id": "DC-1910", "type": "distribution_center", "name": "DC-1910", "location_ID": null, "country": null, "lat": 43.466667, "lon": 1.35}, {"id": "SDC-1450", "type": "supplier_dc", "name": "SDC-1450", "location_ID": null, "country": null, "lat": 43.901816, "lon": 1.896506}], "edges": [{"id": "edge:SDC-VD0520132A_TO_M-1430_038005", "type": "transport", "from": "SDC-VD0520132A", "to": "M-1430", "items": ["item:038005"]}, {"id": "edge:SDC-VD0914690A_TO_M-1430_042342", "type": "transport", "from": "SDC-VD0914690A", "to": "M-1430", "items": ["item:042342"]}, {"id": "edge:SDC-VD0525412A_TO_M-1430_333362", "type": "transport", "from": "SDC-VD0525412A", "to": "M-1430", "items": ["item:333362"]}, {"id": "edge:SDC-VD0993480A_TO_M-1430_344135", "type": "transport", "from": "SDC-VD0993480A", "to": "M-1430", "items": ["item:344135"]}, {"id": "edge:SDC-VD0520115A_TO_M-1430_708073", "type": "transport", "from": "SDC-VD0520115A", "to": "M-1430", "items": ["item:708073"]}, {"id": "edge:SDC-VD0508918A_TO_M-1430_730384", "type": "transport", "from": "SDC-VD0508918A", "to": "M-1430", "items": ["item:730384"]}, {"id": "edge:SDC-VD1095770A_TO_M-1430_734545", "type": "transport", "from": "SDC-VD1095770A", "to": "M-1430", "items": ["item:734545"]}, {"id": "edge:SDC-1450_TO_M-1430_773474", "type": "transport", "from": "SDC-1450", "to": "M-1430", "items": ["item:773474"]}, {"id": "edge:SDC-VD0951020A_TO_M-1810_001757", "type": "transport", "from": "SDC-VD0951020A", "to": "M-1810", "items": ["item:001757"]}, {"id": "edge:SDC-VD0519670A_TO_M-1810_001848", "type": "transport", "from": "SDC-VD0519670A", "to": "M-1810", "items": ["item:001848"]}, {"id": "edge:SDC-VD0951020A_TO_M-1810_001848", "type": "transport", "from": "SDC-VD0951020A", "to": "M-1810", "items": ["item:001848"]}, {"id": "edge:SDC-VD0518684A_TO_M-1810_001893", "type": "transport", "from": "SDC-VD0518684A", "to": "M-1810", "items": ["item:001893"]}, {"id": "edge:SDC-VD0910216A_TO_M-1810_001893", "type": "transport", "from": "SDC-VD0910216A", "to": "M-1810", "items": ["item:001893"]}, {"id": "edge:SDC-VD1091642A_TO_M-1810_001893", "type": "transport", "from": "SDC-VD1091642A", "to": "M-1810", "items": ["item:001893"]}, {"id": "edge:SDC-VD0500655A_TO_M-1810_002612", "type": "transport", "from": "SDC-VD0500655A", "to": "M-1810", "items": ["item:002612"]}, {"id": "edge:SDC-VD0910216A_TO_M-1810_002612", "type": "transport", "from": "SDC-VD0910216A", "to": "M-1810", "items": ["item:002612"]}, {"id": "edge:SDC-VD0990780A_TO_M-1810_002612", "type": "transport", "from": "SDC-VD0990780A", "to": "M-1810", "items": ["item:002612"]}, {"id": "edge:SDC-VD1091642A_TO_M-1810_002612", "type": "transport", "from": "SDC-VD1091642A", "to": "M-1810", "items": ["item:002612"]}, {"id": "edge:SDC-VD0514881A_TO_M-1810_016332", "type": "transport", "from": "SDC-VD0514881A", "to": "M-1810", "items": ["item:016332"]}, {"id": "edge:SDC-VD0519670A_TO_M-1810_029313", "type": "transport", "from": "SDC-VD0519670A", "to": "M-1810", "items": ["item:029313"]}, {"id": "edge:SDC-VD1096202A_TO_M-1810_039668", "type": "transport", "from": "SDC-VD1096202A", "to": "M-1810", "items": ["item:039668"]}, {"id": "edge:SDC-VD0520132A_TO_M-1810_049371", "type": "transport", "from": "SDC-VD0520132A", "to": "M-1810", "items": ["item:049371"]}, {"id": "edge:SDC-VD0914320A_TO_M-1810_055703", "type": "transport", "from": "SDC-VD0914320A", "to": "M-1810", "items": ["item:055703"]}, {"id": "edge:SDC-VD0964290A_TO_M-1810_055703", "type": "transport", "from": "SDC-VD0964290A", "to": "M-1810", "items": ["item:055703"]}, {"id": "edge:SDC-VD0505677A_TO_M-1810_099439", "type": "transport", "from": "SDC-VD0505677A", "to": "M-1810", "items": ["item:099439"]}, {"id": "edge:SDC-VD0901566A_TO_M-1810_338928", "type": "transport", "from": "SDC-VD0901566A", "to": "M-1810", "items": ["item:338928"]}, {"id": "edge:SDC-VD0914360C_TO_M-1810_338929", "type": "transport", "from": "SDC-VD0914360C", "to": "M-1810", "items": ["item:338929"]}, {"id": "edge:SDC-VD0989480A_TO_M-1810_426331", "type": "transport", "from": "SDC-VD0989480A", "to": "M-1810", "items": ["item:426331"]}, {"id": "edge:SDC-1450_TO_M-1810_693055", "type": "transport", "from": "SDC-1450", "to": "M-1810", "items": ["item:693055"]}, {"id": "edge:M-1430_TO_DC-1910_268967", "type": "transport", "from": "M-1430", "to": "DC-1910", "items": ["item:268967"]}, {"id": "edge:M-1810_TO_DC-1910_268091", "type": "transport", "from": "M-1810", "to": "DC-1910", "items": ["item:268091"]}, {"id": "edge:DC-1910_TO_C-XXXXX_268967", "type": "transport", "from": "DC-1910", "to": "C-XXXXX", "items": ["item:268967"]}, {"id": "edge:DC-1910_TO_C-XXXXX_268091", "type": "transport", "from": "DC-1910", "to": "C-XXXXX", "items": ["item:268091"]}], "node_types": ["customer", "distribution_center", "factory", "supplier_dc"], "node_type_styles": {"supplier_dc": {"name": "Supplier DC", "color": "#1f77b4", "symbol": "circle"}, "factory": {"name": "Factory", "color": "#d62728", "symbol": "square"}, "distribution_center": {"name": "Distribution Center", "color": "#ff7f0e", "symbol": "diamond"}, "customer": {"name": "Customer", "color": "#2ca02c", "symbol": "star"}}, "factory_hover_series": {"M-1430": {"node_id": "M-1430", "node_name": "Manufacturer of Drugs - D1430", "incoming": [{"item_id": "item:038005", "item_label": "038005", "unit": "KG", "days": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], "values": [1200.0, 1200.0, 1200.0, 1199.652, 1199.652, 1200.0, 1199.652, 1199.652, 1200.0, 1199.913, 1199.913]}, {"item_id": "item:042342", "item_label": "042342", "unit": "UN", "days": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], "values": [1200.0, 1200.0, 1200.0, 0.0, 0.0, 1200.0, 0.0, 0.0, 300.0, 0.0, 0.0]}, {"item_id": "item:333362", "item_label": "333362", "unit": "UN", "days": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], "values": [1200.0, 1200.0, 1200.0, 1180.113354, 1180.113354, 1200.0, 1180.113354, 1180.113354, 1200.0, 1195.028338, 1195.028338]}, {"item_id": "item:344135", "item_label": "344135", "unit": "UN", "days": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], "values": [1200.0, 1200.0, 1200.0, 1180.113354, 1180.113354, 1200.0, 1180.113354, 1180.113354, 1200.0, 1195.028338, 1195.028338]}, {"item_id": "item:708073", "item_label": "708073", "unit": "KG", "days": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], "values": [1200.0, 1200.0, 1200.0, 1199.842299, 1199.842299, 1200.0, 1199.842299, 1199.842299, 1200.0, 1199.960575, 1199.960575]}, {"item_id": "item:730384", "item_label": "730384", "unit": "M", "days": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], "values": [1200.0, 1200.0, 1200.0, 1195.784031, 1195.784031, 1200.0, 1195.784031, 1195.784031, 1200.0, 1198.946008, 1198.946008]}, {"item_id": "item:734545", "item_label": "734545", "unit": "UN", "days": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], "values": [1200.0, 1200.0, 1200.0, 1199.840907, 1199.840907, 1200.0, 1199.840907, 1199.840907, 1200.0, 1199.960227, 1199.960227]}, {"item_id": "item:773474", "item_label": "773474", "unit": "G", "days": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], "values": [1200.0, 1200.0, 1200.0, 1008.00004, 1008.00004, 1200.0, 1008.00004, 1008.00004, 1200.0, 1152.00001, 1152.00001]}], "outgoing": [{"item_id": "item:268967", "item_label": "268967", "unit": "unit/day", "days": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], "values": [0.0, 0.0, 19.886646, 0.0, 0.0, 19.886646, 0.0, 0.0, 4.971662, 0.0, 0.0], "cum_values": [0.0, 0.0, 19.886646, 19.886646, 19.886646, 39.773292, 39.773292, 39.773292, 44.744954, 44.744954, 44.744954]}]}, "M-1810": {"node_id": "M-1810", "node_name": "Manufacturer of Cosmetics - D1810", "incoming": [{"item_id": "item:001757", "item_label": "001757", "unit": "KG", "days": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], "values": [1850.0, 1850.0, 1850.0, 1849.9594, 1849.9188, 1849.9188, 1849.9188, 1849.9188, 1849.9188, 1849.9188, 1849.9188]}, {"item_id": "item:001848", "item_label": "001848", "unit": "KG", "days": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], "values": [1850.0, 1850.0, 1850.0, 1849.96955, 1849.9391, 1849.9391, 1849.9391, 1849.9391, 1849.9391, 1849.9391, 1849.9391]}, {"item_id": "item:001893", "item_label": "001893", "unit": "KG", "days": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], "values": [1850.0, 1850.0, 1850.0, 1849.80715, 1849.6143, 1849.6143, 1849.6143, 1849.6143, 1849.6143, 1849.6143, 1849.6143]}, {"item_id": "item:002612", "item_label": "002612", "unit": "KG", "days": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], "values": [1850.0, 1850.0, 1850.0, 1849.94925, 1849.8985, 1849.8985, 1849.8985, 1849.8985, 1849.8985, 1849.8985, 1849.8985]}, {"item_id": "item:016332", "item_label": "016332", "unit": "KG", "days": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], "values": [1850.0, 1850.0, 1850.0, 1849.98782, 1849.97564, 1849.96346, 1849.95128, 1849.95128, 1849.95128, 1849.95128, 1849.95128]}, {"item_id": "item:029313", "item_label": "029313", "unit": "KG", "days": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], "values": [1850.0, 1850.0, 1850.0, 1849.998985, 1849.99797, 1849.99797, 1849.99797, 1849.99797, 1849.99797, 1849.99797, 1849.99797]}, {"item_id": "item:039668", "item_label": "039668", "unit": "KG", "days": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], "values": [1850.0, 1850.0, 1850.0, 1849.998985, 1849.99797, 1849.99797, 1849.99797, 1849.99797, 1849.99797, 1849.99797, 1849.99797]}, {"item_id": "item:049371", "item_label": "049371", "unit": "KG", "days": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], "values": [1850.0, 1850.0, 1850.0, 1849.962445, 1849.92489, 1849.92489, 1849.92489, 1849.92489, 1849.92489, 1849.92489, 1849.92489]}, {"item_id": "item:055703", "item_label": "055703", "unit": "KG", "days": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], "values": [1850.0, 1850.0, 1850.0, 1849.99797, 1849.99594, 1849.99594, 1849.99594, 1849.99594, 1849.99594, 1849.99594, 1849.99594]}, {"item_id": "item:099439", "item_label": "099439", "unit": "KG", "days": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], "values": [1850.0, 1850.0, 1850.0, 1849.94925, 1849.8985, 1849.8985, 1849.8985, 1849.8985, 1849.8985, 1849.8985, 1849.8985]}, {"item_id": "item:338928", "item_label": "338928", "unit": "UN", "days": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], "values": [1850.0, 1850.0, 1850.0, 1825.0, 1800.0, 1800.0, 1800.0, 1800.0, 1800.0, 1800.0, 1800.0]}, {"item_id": "item:338929", "item_label": "338929", "unit": "UN", "days": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], "values": [1850.0, 1850.0, 1850.0, 1825.0, 1800.0, 1800.0, 1800.0, 1800.0, 1800.0, 1800.0, 1800.0]}, {"item_id": "item:426331", "item_label": "426331", "unit": "UN", "days": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], "values": [1850.0, 1850.0, 1850.0, 1849.725, 1849.45, 1849.45, 1849.45, 1849.45, 1849.45, 1849.45, 1849.45]}, {"item_id": "item:693055", "item_label": "693055", "unit": "G", "days": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], "values": [1850.0, 1850.0, 1850.0, 1839.85, 1829.7, 1829.7, 1829.7, 1829.7, 1829.7, 1829.7, 1829.7]}], "outgoing": [{"item_id": "item:268091", "item_label": "268091", "unit": "unit/day", "days": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], "values": [0.0, 0.0, 25.0, 25.0, 25.0, 25.0, 25.0, 25.0, 25.0, 25.0, 25.0], "cum_values": [0.0, 0.0, 25.0, 50.0, 75.0, 100.0, 125.0, 150.0, 175.0, 200.0, 225.0]}]}}};
+    const STYLES = DATA.node_type_styles || {};
+    const FACTORY_SERIES = DATA.factory_hover_series || {};
+    const nodeById = Object.fromEntries((DATA.nodes || []).map(n => [n.id, n]));
+    const defaultPalette = ["#1f77b4", "#d62728", "#ff7f0e", "#2ca02c", "#9467bd", "#8c564b"];
+    let currentFactoryHoverId = null;
+    let hoverHandlersBound = false;
+
+    function styleForType(nodeType, idx) {
+      const s = STYLES[nodeType] || {};
+      return {
+        name: s.name || nodeType,
+        color: s.color || defaultPalette[idx % defaultPalette.length],
+        symbol: s.symbol || "circle",
+      };
+    }
+
+    function initFilters() {
+      const container = document.getElementById("typeFilters");
+      container.innerHTML = "<strong style='font-size:12px;'>Types:</strong>";
+      (DATA.node_types || []).forEach((t, idx) => {
+        const style = styleForType(t, idx);
+        const lbl = document.createElement("label");
+        lbl.innerHTML = `<input class="typeChk" type="checkbox" value="${t}" checked> ${style.name}`;
+        container.appendChild(lbl);
+      });
+    }
+
+    function selectedTypes() {
+      return new Set(Array.from(document.querySelectorAll(".typeChk"))
+        .filter(x => x.checked)
+        .map(x => x.value));
+    }
+
+    function nodeText(n) {
+      const loc = n.location_ID ? n.location_ID : "n/a";
+      const country = n.country ? n.country : "n/a";
+      return `${n.name || n.id}<br>ID: ${n.id}<br>Type: ${n.type}<br>Country: ${country}<br>Location: ${loc}`;
+    }
+
+    function edgeText(e) {
+      const itemCount = Array.isArray(e.items) ? e.items.length : 0;
+      const itemPreview = itemCount ? e.items.join(", ") : "n/a";
+      return `Edge: ${e.id}<br>${e.from} -> ${e.to}<br>Items (${itemCount}): ${itemPreview}`;
+    }
+
+    function clamp(value, min, max) {
+      return Math.min(Math.max(value, min), max);
+    }
+
+    function computeGeoView(visibleNodes) {
+      if (!visibleNodes.length) {
+        return { scale: 1 };
+      }
+      const lats = visibleNodes.map(n => n.lat);
+      const lons = visibleNodes.map(n => n.lon);
+
+      let minLat = Math.min(...lats);
+      let maxLat = Math.max(...lats);
+      let minLon = Math.min(...lons);
+      let maxLon = Math.max(...lons);
+
+      const latSpan = Math.max(maxLat - minLat, 0.5);
+      const lonSpan = Math.max(maxLon - minLon, 0.5);
+      const padLat = Math.max(latSpan * 0.25, 2.0);
+      const padLon = Math.max(lonSpan * 0.25, 2.0);
+
+      minLat = clamp(minLat - padLat, -85, 85);
+      maxLat = clamp(maxLat + padLat, -85, 85);
+      minLon = clamp(minLon - padLon, -180, 180);
+      maxLon = clamp(maxLon + padLon, -180, 180);
+
+      const spanLat = Math.max(maxLat - minLat, 1);
+      const spanLon = Math.max(maxLon - minLon, 1);
+      const effectiveSpan = Math.max(spanLat, spanLon * 0.55);
+      const scale = clamp(120 / effectiveSpan, 1.1, 25);
+
+      return {
+        scale: scale,
+        center: {
+          lat: (minLat + maxLat) / 2,
+          lon: (minLon + maxLon) / 2,
+        }
+      };
+    }
+
+    function buildTraces() {
+      const traces = [];
+      const visibleTypes = selectedTypes();
+      const showEdges = document.getElementById("showEdges").checked;
+
+      const visibleNodes = (DATA.nodes || []).filter(n =>
+        visibleTypes.has(n.type) &&
+        Number.isFinite(n.lat) &&
+        Number.isFinite(n.lon)
+      );
+      const visibleNodeIds = new Set(visibleNodes.map(n => n.id));
+
+      (DATA.node_types || []).forEach((nodeType, idx) => {
+        if (!visibleTypes.has(nodeType)) return;
+        const style = styleForType(nodeType, idx);
+        const subset = visibleNodes.filter(n => n.type === nodeType);
+        if (!subset.length) return;
+        traces.push({
+          type: "scattergeo",
+          mode: "markers",
+          name: style.name,
+          lon: subset.map(n => n.lon),
+          lat: subset.map(n => n.lat),
+          text: subset.map(nodeText),
+          customdata: subset.map(n => [n.id, n.type, n.name || n.id]),
+          hovertemplate: "%{text}<extra></extra>",
+          marker: {
+            size: 9,
+            color: style.color,
+            symbol: style.symbol,
+            line: { width: 0.6, color: "#111827" }
+          }
+        });
+      });
+
+      let drawnEdges = 0;
+      if (showEdges) {
+        for (const e of (DATA.edges || [])) {
+          const src = nodeById[e.from];
+          const dst = nodeById[e.to];
+          if (!src || !dst) continue;
+          if (!visibleNodeIds.has(src.id) || !visibleNodeIds.has(dst.id)) continue;
+          if (!Number.isFinite(src.lat) || !Number.isFinite(src.lon)) continue;
+          if (!Number.isFinite(dst.lat) || !Number.isFinite(dst.lon)) continue;
+          const itemCount = Array.isArray(e.items) ? e.items.length : 0;
+          const width = 1 + Math.min(itemCount, 4);
+          traces.push({
+            type: "scattergeo",
+            mode: "lines",
+            showlegend: false,
+            lon: [src.lon, dst.lon],
+            lat: [src.lat, dst.lat],
+            line: { width, color: "#475569" },
+            opacity: 0.65,
+            text: edgeText(e),
+            hovertemplate: "%{text}<extra></extra>",
+          });
+          drawnEdges += 1;
+        }
+      }
+
+      document.getElementById("stats").textContent =
+        `${visibleNodes.length} nodes visibles / ${(DATA.nodes || []).length} | ` +
+        `${showEdges ? drawnEdges : 0} flux affiches / ${(DATA.edges || []).length}`;
+      return { traces, visibleNodes };
+    }
+
+    function hideFactoryPanel() {
+      const panel = document.getElementById("factoryHoverPanel");
+      panel.classList.remove("visible");
+      currentFactoryHoverId = null;
+    }
+
+    function chartLayoutBase(titleText, yTitle) {
+      return {
+        title: {text: titleText, font: {size: 12}},
+        margin: {l: 45, r: 10, t: 32, b: 36},
+        paper_bgcolor: "rgba(0,0,0,0)",
+        plot_bgcolor: "rgba(0,0,0,0)",
+        xaxis: {title: "Jour", showgrid: true, gridcolor: "#e2e8f0"},
+        yaxis: {title: yTitle, showgrid: true, gridcolor: "#e2e8f0"},
+        legend: {orientation: "h", font: {size: 10}},
+      };
+    }
+
+    function showFactoryPanel(factoryId) {
+      const info = FACTORY_SERIES[factoryId];
+      if (!info) {
+        hideFactoryPanel();
+        return;
+      }
+
+      const panel = document.getElementById("factoryHoverPanel");
+      const title = document.getElementById("factoryHoverTitle");
+      const incomingDiv = document.getElementById("factoryIncomingChart");
+      const outgoingDiv = document.getElementById("factoryOutgoingChart");
+      title.textContent = `Factory: ${info.node_name || factoryId} (${factoryId})`;
+
+      if (currentFactoryHoverId !== factoryId) {
+        const incomingTraces = (info.incoming || []).map((s) => ({
+          type: "scatter",
+          mode: "lines+markers",
+          name: `${s.item_label}${s.unit ? ` (${s.unit})` : ""}`,
+          x: s.days || [],
+          y: s.values || [],
+          line: {width: 1.8},
+          marker: {size: 4},
+          hovertemplate: `${s.item_label}<br>Jour=%{x}<br>Stock=%{y:.3f}${s.unit ? ` ${s.unit}` : ""}<extra></extra>`,
+        }));
+
+        const outgoingTraces = (info.outgoing || []).map((s) => ({
+          type: "scatter",
+          mode: "lines+markers",
+          name: `${s.item_label}${s.unit ? ` (${s.unit})` : ""}`,
+          x: s.days || [],
+          y: s.values || [],
+          line: {width: 1.8},
+          marker: {size: 4},
+          hovertemplate: `${s.item_label}<br>Jour=%{x}<br>Production=%{y:.3f}${s.unit ? ` ${s.unit}` : ""}<extra></extra>`,
+        }));
+
+        Plotly.react(
+          incomingDiv,
+          incomingTraces,
+          chartLayoutBase("Matieres entrantes (stock avant production)", "Stock"),
+          {displayModeBar: false, responsive: true}
+        );
+        Plotly.react(
+          outgoingDiv,
+          outgoingTraces,
+          chartLayoutBase("Produits sortants (production journaliere)", "Production"),
+          {displayModeBar: false, responsive: true}
+        );
+      }
+
+      currentFactoryHoverId = factoryId;
+      panel.classList.add("visible");
+    }
+
+    function bindHoverHandlers() {
+      if (hoverHandlersBound) return;
+      const gd = document.getElementById("chart");
+      gd.on("plotly_hover", (ev) => {
+        const p = ev && ev.points && ev.points.length ? ev.points[0] : null;
+        if (!p || !Array.isArray(p.customdata)) {
+          hideFactoryPanel();
+          return;
+        }
+        const nodeId = p.customdata[0];
+        const nodeType = p.customdata[1];
+        if (nodeType !== "factory") {
+          hideFactoryPanel();
+          return;
+        }
+        showFactoryPanel(nodeId);
+      });
+      gd.on("plotly_unhover", () => {
+        hideFactoryPanel();
+      });
+      hoverHandlersBound = true;
+    }
+
+    function draw() {
+      const { traces, visibleNodes } = buildTraces();
+      const geoView = computeGeoView(visibleNodes);
+      const geoLayout = {
+        scope: "world",
+        projection: {type: "natural earth", scale: geoView.scale || 1},
+        showland: true,
+        landcolor: "#eef2f7",
+        showcountries: true,
+        countrycolor: "#cbd5e1",
+        showocean: true,
+        oceancolor: "#f8fbff"
+      };
+      if (geoView.center) {
+        geoLayout.center = geoView.center;
+      }
+
+      const layout = {
+        margin: {l: 0, r: 0, t: 0, b: 0},
+        showlegend: true,
+        legend: {orientation: "h"},
+        geo: geoLayout
+      };
+
+      hideFactoryPanel();
+      Plotly.newPlot("chart", traces, layout, {displayModeBar: true, responsive: true});
+      bindHoverHandlers();
+    }
+
+    function init() {
+      initFilters();
+      document.getElementById("showEdges").addEventListener("change", draw);
+      for (const chk of document.querySelectorAll(".typeChk")) {
+        chk.addEventListener("change", draw);
+      }
+      draw();
+    }
+
+    window.addEventListener("load", init);
+  </script>
+</body>
+</html>
