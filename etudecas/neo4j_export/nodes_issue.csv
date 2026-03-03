@@ -1,6 +1,0 @@
-issue_id,severity,area,description
-ISSUE_001,high,SD frequency,Potential bullwhip resonance: orders peak gain 25.4 dB at 0.009 cycles/day.
-ISSUE_002,medium,SD nonlinearity,Order signal distortion is elevated (2nd harmonic ratio 2.12).
-ISSUE_003,high,DES tail risk,Customer backlog tail risk is high: P95 max backlog 230.5 units.
-ISSUE_004,high,DES variability,Bullwhip ratio tail is high (P95=13.48).
-ISSUE_005,medium,DES transport,"Lead-time variability is significant (mean=2.33d, P95=4.44d)."
