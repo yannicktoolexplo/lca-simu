@@ -1,0 +1,31 @@
+actor_id,actor_code,name,role,description,layer,location_id,lat,lon,degree_centrality,is_placeholder
+Actor:C - XXXXX,C - XXXXX,Actor:C - XXXXX,Customer,C - XXXXX,actor_placeholder,,,,0.0379746835443,true
+Actor:DC - 1910,DC - 1910,Actor:DC - 1910,Distribution Center,DC - 1910,actor_placeholder,,,,0.0379746835443,true
+Actor:DC - D1910,DC - D1910,Actor:DC - D1910,Distribution Center,DC - D1910,actor_placeholder,,,,0.0506329113924,true
+Distribution Center of D1920 - D1920,D1920,Distribution Center of D1920 - D1920,Distribution Center,Distribution Center of D1920 - D1920,actor,D1920,,,0.0126582278481,false
+Manufacturer of Cosmetics - D1810,D1810,Manufacturer of Cosmetics - D1810,Manufacturer,Manufacturer of Cosmetics - D1810,actor,D1810,,,0.430379746835,false
+Manufacturer of Drugs - D1430,D1430,Manufacturer of Drugs - D1430,Manufacturer,Manufacturer of Drugs - D1430,actor,D1430,,,0.240506329114,false
+Pharmacist - XXXX,XXXX,Pharmacist - XXXX,Customer,Pharmacist - XXXX,actor,Paris,,,0,false
+Supplier of Packaging - VD0508918A,VD0508918A,Supplier of Packaging - VD0508918A,Supplier Distribution Center,Supplier of Packaging - VD0508918A,actor,VD0508918A,,,0.0253164556962,false
+Supplier of Packaging - VD0520115A,VD0520115A,Supplier of Packaging - VD0520115A,Supplier Distribution Center,Supplier of Packaging - VD0520115A,actor,VD0520115A,,,0.0253164556962,false
+Supplier of Packaging - VD0525412A,VD0525412A,Supplier of Packaging - VD0525412A,Supplier Distribution Center,Supplier of Packaging - VD0525412A,actor,VD0525412A,,,0.0253164556962,false
+Supplier of Packaging - VD0901566A,VD0901566A,Supplier of Packaging - VD0901566A,Supplier Distribution Center,Supplier of Packaging - VD0901566A,actor,VD0901566A,,,0.0253164556962,false
+Supplier of Packaging - VD0914360C,VD0914360C,Supplier of Packaging - VD0914360C,Supplier Distribution Center,Supplier of Packaging - VD0914360C,actor,VD0914360C,,,0.0253164556962,false
+Supplier of Packaging - VD0989480A,VD0989480A,Supplier of Packaging - VD0989480A,Supplier Distribution Center,Supplier of Packaging - VD0989480A,actor,VD0989480A,,,0.0253164556962,false
+Supplier of Packaging - VD0993480A,VD0993480A,Supplier of Packaging - VD0993480A,Supplier Distribution Center,Supplier of Packaging - VD0993480A,actor,VD0993480A,,,0.0253164556962,false
+Supplier of Packaging - VD1095770A,VD1095770A,Supplier of Packaging - VD1095770A,Supplier Distribution Center,Supplier of Packaging - VD1095770A,actor,VD1095770A,,,0.0253164556962,false
+Supplier of Raw Materials - D1450,D1450,Supplier of Raw Materials - D1450,Supplier Distribution Center,Supplier of Raw Materials - D1450,actor,D1450,,,0.0506329113924,false
+Supplier of Raw Materials - VD0500655A,VD0500655A,Supplier of Raw Materials - VD0500655A,Supplier Distribution Center,Supplier of Raw Materials - VD0500655A,actor,VD0500655A,,,0.0253164556962,false
+Supplier of Raw Materials - VD0505677A,VD0505677A,Supplier of Raw Materials - VD0505677A,Supplier Distribution Center,Supplier of Raw Materials - VD0505677A,actor,VD0505677A,,,0.0253164556962,false
+Supplier of Raw Materials - VD0514881A,VD0514881A,Supplier of Raw Materials - VD0514881A,Supplier Distribution Center,Supplier of Raw Materials - VD0514881A,actor,VD0514881A,,,0.0253164556962,false
+Supplier of Raw Materials - VD0518684A,VD0518684A,Supplier of Raw Materials - VD0518684A,Supplier Distribution Center,Supplier of Raw Materials - VD0518684A,actor,VD0518684A,,,0.0253164556962,false
+Supplier of Raw Materials - VD0519670A,VD0519670A,Supplier of Raw Materials - VD0519670A,Supplier Distribution Center,Supplier of Raw Materials - VD0519670A,actor,VD0519670A,,,0.0379746835443,false
+Supplier of Raw Materials - VD0520132A,VD0520132A,Supplier of Raw Materials - VD0520132A,Supplier Distribution Center,Supplier of Raw Materials - VD0520132A,actor,VD0520132A,,,0.0506329113924,false
+Supplier of Raw Materials - VD0910216A,VD0910216A,Supplier of Raw Materials - VD0910216A,Supplier Distribution Center,Supplier of Raw Materials - VD0910216A,actor,VD0910216A,,,0.0379746835443,false
+Supplier of Raw Materials - VD0914320A,VD0914320A,Supplier of Raw Materials - VD0914320A,Supplier Distribution Center,Supplier of Raw Materials - VD0914320A,actor,VD0914320A,,,0.0253164556962,false
+Supplier of Raw Materials - VD0914690A,VD0914690A,Supplier of Raw Materials - VD0914690A,Supplier Distribution Center,Supplier of Raw Materials - VD0914690A,actor,VD0914690A,,,0.0253164556962,false
+Supplier of Raw Materials - VD0951020A,VD0951020A,Supplier of Raw Materials - VD0951020A,Supplier Distribution Center,Supplier of Raw Materials - VD0951020A,actor,VD0951020A,,,0.0379746835443,false
+Supplier of Raw Materials - VD0964290A,VD0964290A,Supplier of Raw Materials - VD0964290A,Supplier Distribution Center,Supplier of Raw Materials - VD0964290A,actor,SITE0002,,,0.0253164556962,false
+Supplier of Raw Materials - VD0990780A,VD0990780A,Supplier of Raw Materials - VD0990780A,Supplier Distribution Center,Supplier of Raw Materials - VD0990780A,actor,VD0990780A,,,0.0253164556962,false
+Supplier of Raw Materials - VD1091642A,VD1091642A,Supplier of Raw Materials - VD1091642A,Supplier Distribution Center,Supplier of Raw Materials - VD1091642A,actor,VD1091642A,,,0.0379746835443,false
+Supplier of Raw Materials - VD1096202A,VD1096202A,Supplier of Raw Materials - VD1096202A,Supplier Distribution Center,Supplier of Raw Materials - VD1096202A,actor,SITE0002,,,0.0253164556962,false

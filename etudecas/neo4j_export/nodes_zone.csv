@@ -1,0 +1,6 @@
+zone_id,zone,zone_score
+DISTRIBUTION_TO_CUSTOMER,distribution_to_customer,0.415006769792
+MANUFACTURER_TO_DISTRIBUTION,manufacturer_to_distribution,0.709622366091
+MANUFACTURING_INTERNAL,manufacturing_internal,1
+OTHER,other,0
+SUPPLIER_TO_MANUFACTURER,supplier_to_manufacturer,0.697180832122

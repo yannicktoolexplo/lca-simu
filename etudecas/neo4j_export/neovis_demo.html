@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>NeoVis Supply Risk Demo</title>
+    <style>
+      :root {
+        --bg: #f4f6f8;
+        --panel: #ffffff;
+        --text: #1f2a37;
+        --muted: #5f6b7a;
+        --border: #d3dae3;
+        --accent: #1456b8;
+      }
+      body {
+        margin: 0;
+        font-family: "Segoe UI", Tahoma, sans-serif;
+        color: var(--text);
+        background: var(--bg);
+      }
+      .layout {
+        display: grid;
+        grid-template-columns: 340px 1fr;
+        min-height: 100vh;
+      }
+      .panel {
+        background: var(--panel);
+        border-right: 1px solid var(--border);
+        padding: 16px;
+      }
+      .panel h1 {
+        margin: 0 0 10px;
+        font-size: 18px;
+      }
+      .panel p {
+        margin: 0 0 12px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .field {
+        margin-bottom: 10px;
+      }
+      .field label {
+        display: block;
+        font-size: 12px;
+        color: var(--muted);
+        margin-bottom: 4px;
+      }
+      .field input,
+      .field textarea,
+      .field select {
+        width: 100%;
+        box-sizing: border-box;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 8px;
+        font-size: 13px;
+        font-family: inherit;
+        background: #fff;
+      }
+      .field textarea {
+        min-height: 150px;
+        resize: vertical;
+        font-family: Consolas, "Courier New", monospace;
+      }
+      .row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+      .btns {
+        display: flex;
+        gap: 8px;
+        margin-top: 10px;
+      }
+      button {
+        border: 1px solid var(--accent);
+        color: #fff;
+        background: var(--accent);
+        border-radius: 6px;
+        padding: 8px 12px;
+        cursor: pointer;
+        font-size: 13px;
+      }
+      button.secondary {
+        color: var(--accent);
+        background: #fff;
+      }
+      #status {
+        margin-top: 10px;
+        font-size: 12px;
+        color: var(--muted);
+        white-space: pre-wrap;
+      }
+      #viz {
+        min-height: 100vh;
+      }
+      .legend {
+        margin-top: 16px;
+        font-size: 12px;
+      }
+      .legend div {
+        margin-top: 6px;
+      }
+      @media (max-width: 900px) {
+        .layout {
+          grid-template-columns: 1fr;
+        }
+        .panel {
+          border-right: 0;
+          border-bottom: 1px solid var(--border);
+        }
+        #viz {
+          min-height: 70vh;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="layout">
+      <div class="panel">
+        <h1>NeoVis Supply Risk</h1>
+        <p>
+          Vue interactive Neo4j pour la supply chain. Renseigne ta connexion puis lance la requête.
+        </p>
+
+        <div class="field">
+          <label for="uri">Bolt URI</label>
+          <input id="uri" value="bolt://localhost:7687" />
+        </div>
+        <div class="field row">
+          <div>
+            <label for="user">User</label>
+            <input id="user" value="neo4j" />
+          </div>
+          <div>
+            <label for="database">Database</label>
+            <input id="database" value="neo4j" />
+          </div>
+        </div>
+        <div class="field">
+          <label for="password">Password</label>
+          <input id="password" type="password" placeholder="Neo4j password" />
+        </div>
+
+        <div class="field">
+          <label for="preset">Preset</label>
+          <select id="preset">
+            <option value="risk">Issue -> Links/Actors/Products à risque</option>
+            <option value="flow">Flux supply et liens risqués</option>
+            <option value="bom">BOM + risques supply</option>
+            <option value="generic">Test générique (tout graphe)</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="cypher">Cypher</label>
+          <textarea id="cypher"></textarea>
+        </div>
+
+        <div class="btns">
+          <button id="renderBtn">Render</button>
+          <button class="secondary" id="fitBtn">Fit</button>
+        </div>
+        <div id="status">Prêt.</div>
+
+        <div class="legend">
+          <strong>Style</strong>
+          <div>- `SupplyLink`: taille = `risk_score`, couleur = `risk_display`</div>
+          <div>- `Issue`: rouge/orange selon sévérité</div>
+          <div>- `Actor`: couleur par rôle</div>
+        </div>
+      </div>
+      <div id="viz"></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/neovis.js@2.1.0"></script>
+    <script>
+      const PRESETS = {
+        risk: `
+MATCH (i:Issue)-[:IMPACTS_LINK]->(l:SupplyLink)
+OPTIONAL MATCH (i)-[:IMPACTS_ACTOR]->(a:Actor)
+OPTIONAL MATCH (i)-[:IMPACTS_PRODUCT]->(p:Product)
+RETURN i,l,a,p
+LIMIT 220
+`.trim(),
+        flow: `
+MATCH (a:Actor)-[:SUPPLIES_LINK]->(l:SupplyLink)-[:DELIVERS_TO]->(b:Actor)
+MATCH (l)-[:FOR_PRODUCT]->(p:Product)
+RETURN a,l,b,p
+LIMIT 260
+`.trim(),
+        bom: `
+MATCH (in:Product)-[:BOM_COMPONENT_OF]->(out:Product)
+OPTIONAL MATCH (l:SupplyLink)-[:FOR_PRODUCT]->(in)
+OPTIONAL MATCH (s:Actor)-[:SUPPLIES_LINK]->(l)-[:DELIVERS_TO]->(t:Actor)
+RETURN in,out,l,s,t
+LIMIT 260
+`.trim(),
+        generic: `
+MATCH (n)
+OPTIONAL MATCH (n)-[r]->(m)
+RETURN n,r,m
+LIMIT 260
+`.trim(),
+      };
+
+      const statusEl = document.getElementById("status");
+      const cypherEl = document.getElementById("cypher");
+      const presetEl = document.getElementById("preset");
+
+      cypherEl.value = PRESETS.risk;
+      presetEl.addEventListener("change", () => {
+        cypherEl.value = PRESETS[presetEl.value];
+      });
+
+      let vizInstance = null;
+
+      function setStatus(msg) {
+        statusEl.textContent = msg;
+      }
+
+      function getConfig() {
+        return {
+          containerId: "viz",
+          neo4j: {
+            serverUrl: document.getElementById("uri").value.trim(),
+            serverUser: document.getElementById("user").value.trim(),
+            serverPassword: document.getElementById("password").value,
+            database: document.getElementById("database").value.trim(),
+          },
+          labels: {
+            Actor: {
+              label: "actor_code",
+              group: "role",
+              value: "degree_centrality",
+              [NeoVis.NEOVIS_ADVANCED_CONFIG]: {
+                static: {
+                  font: { size: 22 },
+                },
+              },
+            },
+            Product: {
+              label: "product_code",
+              value: "bom_criticality",
+              [NeoVis.NEOVIS_ADVANCED_CONFIG]: {
+                static: {
+                  color: "#4C78A8",
+                },
+              },
+            },
+            SupplyLink: {
+              label: "link_id",
+              value: "risk_score",
+              [NeoVis.NEOVIS_ADVANCED_CONFIG]: {
+                static: {
+                  shape: "dot",
+                  color: "#D62728",
+                },
+              },
+            },
+            Issue: {
+              label: "issue_id",
+              group: "severity",
+              [NeoVis.NEOVIS_ADVANCED_CONFIG]: {
+                static: {
+                  shape: "star",
+                  color: "#B22222",
+                  size: 35,
+                },
+              },
+            },
+            RiskZone: {
+              label: "zone",
+              value: "zone_score",
+              [NeoVis.NEOVIS_ADVANCED_CONFIG]: {
+                static: {
+                  shape: "box",
+                  color: "#8C564B",
+                },
+              },
+            },
+            SummaryMetric: {
+              label: "metric",
+              [NeoVis.NEOVIS_ADVANCED_CONFIG]: {
+                static: {
+                  shape: "diamond",
+                  color: "#1f77b4",
+                },
+              },
+            },
+            Organization: {
+              label: "name",
+              [NeoVis.NEOVIS_ADVANCED_CONFIG]: {
+                static: {
+                  shape: "hexagon",
+                  color: "#2ca02c",
+                },
+              },
+            },
+          },
+          relationships: {
+            SUPPLIES_LINK: { value: "max_risk_display" },
+            DELIVERS_TO: {},
+            FOR_PRODUCT: {},
+            IMPACTS_LINK: { value: "impact_score" },
+            IMPACTS_ACTOR: { value: "impact_score" },
+            IMPACTS_PRODUCT: { value: "impact_score" },
+            IN_ZONE: {},
+            SUPPLIES_PRODUCT: {},
+            USED_BY: {},
+            BOM_COMPONENT_OF: { value: "quantity" },
+            OWNS_OR_OPERATES: {},
+            HIGHLIGHTS_ACTOR: { value: "score" },
+            SUPPLIES: { value: "max_risk_display" },
+          },
+          initialCypher: cypherEl.value,
+          visConfig: {
+            nodes: {
+              font: { face: "Segoe UI", size: 20 },
+            },
+            edges: {
+              smooth: false,
+              color: { inherit: true },
+            },
+            physics: {
+              stabilization: { iterations: 150 },
+              barnesHut: { gravitationalConstant: -25000, springLength: 125 },
+            },
+            interaction: {
+              hover: true,
+              navigationButtons: true,
+              keyboard: true,
+            },
+          },
+        };
+      }
+
+      async function renderGraph() {
+        try {
+          if (!window.NeoVis) {
+            setStatus(
+              "NeoVis non charge. Le CDN est peut-etre bloque.\n" +
+                "Ouvre la console navigateur (F12) et verifie les erreurs de chargement de script."
+            );
+            return;
+          }
+          setStatus("Connexion et rendu en cours...");
+          const cfg = getConfig();
+          const NeoVisCtor = window.NeoVis.default || window.NeoVis;
+          if (!NeoVisCtor) {
+            setStatus("Objet NeoVis introuvable (version/CDN incompatible).");
+            return;
+          }
+          vizInstance = new NeoVisCtor(cfg);
+          vizInstance.render();
+          setStatus(
+            "Rendu lance.\n" +
+              "Si la vue reste vide: verifie URL/credentials/database, puis teste le preset generic."
+          );
+        } catch (err) {
+          setStatus("Erreur: " + (err && err.message ? err.message : String(err)));
+        }
+      }
+
+      document.getElementById("renderBtn").addEventListener("click", renderGraph);
+      document.getElementById("fitBtn").addEventListener("click", () => {
+        if (vizInstance && vizInstance.network) {
+          vizInstance.network.fit({ animation: true });
+          setStatus("Vue recadrée.");
+        }
+      });
+
+      window.addEventListener("error", (e) => {
+        setStatus("Erreur JS: " + e.message);
+      });
+    </script>
+  </body>
+</html>
