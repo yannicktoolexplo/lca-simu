@@ -1,0 +1,26 @@
+{
+  "actor_count": 30,
+  "product_count": 49,
+  "supply_edge_count": 28,
+  "role_counts": {
+    "Manufacturer": 2,
+    "Distribution Center": 3,
+    "Supplier Distribution Center": 23,
+    "Customer": 2
+  },
+  "flow_counts": {
+    "Manufacturer -> Distribution Center": 2,
+    "Supplier Distribution Center -> Manufacturer": 25,
+    "Distribution Center -> Customer": 1
+  },
+  "median_distance_km_by_flow": {
+    "Manufacturer -> Distribution Center": 312.830166324003,
+    "Supplier Distribution Center -> Manufacturer": 426.17789947053313,
+    "Distribution Center -> Customer": 605.193859956571
+  },
+  "suggested_transport_days": {
+    "transport_1_days": 2,
+    "transport_2_days": 2,
+    "transport_3_days": 3
+  }
+}

@@ -1,0 +1,41 @@
+Supply issue localization report
+
+DES zone risk scores (normalized):
+- supplier_to_manufacturer: 0.697
+- manufacturing_internal: 1.000
+- manufacturer_to_distribution: 0.710
+- distribution_to_customer: 0.415
+
+SD reception-node indicators:
+- reception_score_0_1: 0.764
+- stock_peak_gain_db: 18.337
+- stock_distortion_ratio: 0.040
+- backlog_peak_gain_db: -257.959
+
+Data_poc enrichment:
+- relation_rows_loaded: 33
+- relation_rows_matched_to_graph_edges: 25
+- bom_products_with_criticality: 23
+
+Top localized risky links:
+- VD0514881A -> D1810 | product=16332 | type=raw_material | zone=supplier_to_manufacturer | risk=0.77 | display=1.00
+- VD0505677A -> D1810 | product=99439 | type=raw_material | zone=supplier_to_manufacturer | risk=0.70 | display=0.96
+- VD0518684A -> D1810 | product=1893 | type=raw_material | zone=supplier_to_manufacturer | risk=0.69 | display=0.93
+- VD0520132A -> D1810 | product=49371 | type=raw_material | zone=supplier_to_manufacturer | risk=0.69 | display=0.89
+- VD1096202A -> D1810 | product=39668 | type=raw_material | zone=supplier_to_manufacturer | risk=0.67 | display=0.85
+- VD0951020A -> D1810 | product=1848 | type=raw_material | zone=supplier_to_manufacturer | risk=0.67 | display=0.81
+- VD0901566A -> D1810 | product=338928 | type=packaging | zone=supplier_to_manufacturer | risk=0.66 | display=0.78
+- VD0914690A -> D1430 | product=42342 | type=raw_material | zone=supplier_to_manufacturer | risk=0.65 | display=0.74
+- VD0914360C -> D1810 | product=338929 | type=packaging | zone=supplier_to_manufacturer | risk=0.64 | display=0.70
+- VD0989480A -> D1810 | product=426331 | type=packaging | zone=supplier_to_manufacturer | risk=0.63 | display=0.67
+- D1430 -> DC - D1910 | product=268967 | type=finished_or_intermediate | zone=manufacturer_to_distribution | risk=0.63 | display=0.63
+- D1450 -> D1810 | product=693055 | type=raw_material | zone=supplier_to_manufacturer | risk=0.62 | display=0.59
+- VD0519670A -> D1810 | product=29313 | type=raw_material | zone=supplier_to_manufacturer | risk=0.62 | display=0.56
+- VD0964290A -> D1810 | product=55703 | type=raw_material | zone=supplier_to_manufacturer | risk=0.58 | display=0.52
+
+Detected issues:
+- [high] SD frequency: Potential bullwhip resonance: orders peak gain 25.4 dB at 0.009 cycles/day.
+- [medium] SD nonlinearity: Order signal distortion is elevated (2nd harmonic ratio 2.12).
+- [high] DES tail risk: Customer backlog tail risk is high: P95 max backlog 230.5 units.
+- [high] DES variability: Bullwhip ratio tail is high (P95=13.48).
+- [medium] DES transport: Lead-time variability is significant (mean=2.33d, P95=4.44d).

@@ -1,0 +1,40 @@
+{
+  "graph_path": "/workspaces/lca-simu/knowledge_graph.json",
+  "coords_path": "/workspaces/lca-simu/actor_coords.json",
+  "report_path": "/workspaces/lca-simu/advanced_complex_full_report.json",
+  "output_html": "/workspaces/lca-simu/supply_issue_annotated_interactive.html",
+  "zone_scores": {
+    "supplier_to_manufacturer": 0.6971808321217128,
+    "manufacturing_internal": 1.0,
+    "manufacturer_to_distribution": 0.709622366091297,
+    "distribution_to_customer": 0.4150067697920004,
+    "other": 0.0
+  },
+  "sd_reception": {
+    "score": 0.7640469866588008,
+    "stock_peak_gain_db": 18.337127679811218,
+    "stock_distortion_ratio": 0.040274984312015816,
+    "backlog_peak_gain_db": -257.959422813693
+  },
+  "data_poc_used": true,
+  "data_poc_relation_rows": 33,
+  "data_poc_relation_rows_matched": 25,
+  "data_poc_bom_criticality_products": 23,
+  "top_localized_links": [
+    "VD0514881A -> D1810 | product=16332 | type=raw_material | zone=supplier_to_manufacturer | risk=0.77 | display=1.00",
+    "VD0505677A -> D1810 | product=99439 | type=raw_material | zone=supplier_to_manufacturer | risk=0.70 | display=0.96",
+    "VD0518684A -> D1810 | product=1893 | type=raw_material | zone=supplier_to_manufacturer | risk=0.69 | display=0.93",
+    "VD0520132A -> D1810 | product=49371 | type=raw_material | zone=supplier_to_manufacturer | risk=0.69 | display=0.89",
+    "VD1096202A -> D1810 | product=39668 | type=raw_material | zone=supplier_to_manufacturer | risk=0.67 | display=0.85",
+    "VD0951020A -> D1810 | product=1848 | type=raw_material | zone=supplier_to_manufacturer | risk=0.67 | display=0.81",
+    "VD0901566A -> D1810 | product=338928 | type=packaging | zone=supplier_to_manufacturer | risk=0.66 | display=0.78",
+    "VD0914690A -> D1430 | product=42342 | type=raw_material | zone=supplier_to_manufacturer | risk=0.65 | display=0.74",
+    "VD0914360C -> D1810 | product=338929 | type=packaging | zone=supplier_to_manufacturer | risk=0.64 | display=0.70",
+    "VD0989480A -> D1810 | product=426331 | type=packaging | zone=supplier_to_manufacturer | risk=0.63 | display=0.67",
+    "D1430 -> DC - D1910 | product=268967 | type=finished_or_intermediate | zone=manufacturer_to_distribution | risk=0.63 | display=0.63",
+    "D1450 -> D1810 | product=693055 | type=raw_material | zone=supplier_to_manufacturer | risk=0.62 | display=0.59",
+    "VD0519670A -> D1810 | product=29313 | type=raw_material | zone=supplier_to_manufacturer | risk=0.62 | display=0.56",
+    "VD0964290A -> D1810 | product=55703 | type=raw_material | zone=supplier_to_manufacturer | risk=0.58 | display=0.52"
+  ],
+  "detailed_report": "Supply issue localization report\n\nDES zone risk scores (normalized):\n- supplier_to_manufacturer: 0.697\n- manufacturing_internal: 1.000\n- manufacturer_to_distribution: 0.710\n- distribution_to_customer: 0.415\n\nSD reception-node indicators:\n- reception_score_0_1: 0.764\n- stock_peak_gain_db: 18.337\n- stock_distortion_ratio: 0.040\n- backlog_peak_gain_db: -257.959\n\nData_poc enrichment:\n- relation_rows_loaded: 33\n- relation_rows_matched_to_graph_edges: 25\n- bom_products_with_criticality: 23\n\nTop localized risky links:\n- VD0514881A -> D1810 | product=16332 | type=raw_material | zone=supplier_to_manufacturer | risk=0.77 | display=1.00\n- VD0505677A -> D1810 | product=99439 | type=raw_material | zone=supplier_to_manufacturer | risk=0.70 | display=0.96\n- VD0518684A -> D1810 | product=1893 | type=raw_material | zone=supplier_to_manufacturer | risk=0.69 | display=0.93\n- VD0520132A -> D1810 | product=49371 | type=raw_material | zone=supplier_to_manufacturer | risk=0.69 | display=0.89\n- VD1096202A -> D1810 | product=39668 | type=raw_material | zone=supplier_to_manufacturer | risk=0.67 | display=0.85\n- VD0951020A -> D1810 | product=1848 | type=raw_material | zone=supplier_to_manufacturer | risk=0.67 | display=0.81\n- VD0901566A -> D1810 | product=338928 | type=packaging | zone=supplier_to_manufacturer | risk=0.66 | display=0.78\n- VD0914690A -> D1430 | product=42342 | type=raw_material | zone=supplier_to_manufacturer | risk=0.65 | display=0.74\n- VD0914360C -> D1810 | product=338929 | type=packaging | zone=supplier_to_manufacturer | risk=0.64 | display=0.70\n- VD0989480A -> D1810 | product=426331 | type=packaging | zone=supplier_to_manufacturer | risk=0.63 | display=0.67\n- D1430 -> DC - D1910 | product=268967 | type=finished_or_intermediate | zone=manufacturer_to_distribution | risk=0.63 | display=0.63\n- D1450 -> D1810 | product=693055 | type=raw_material | zone=supplier_to_manufacturer | risk=0.62 | display=0.59\n- VD0519670A -> D1810 | product=29313 | type=raw_material | zone=supplier_to_manufacturer | risk=0.62 | display=0.56\n- VD0964290A -> D1810 | product=55703 | type=raw_material | zone=supplier_to_manufacturer | risk=0.58 | display=0.52\n\nDetected issues:\n- [high] SD frequency: Potential bullwhip resonance: orders peak gain 25.4 dB at 0.009 cycles/day.\n- [medium] SD nonlinearity: Order signal distortion is elevated (2nd harmonic ratio 2.12).\n- [high] DES tail risk: Customer backlog tail risk is high: P95 max backlog 230.5 units.\n- [high] DES variability: Bullwhip ratio tail is high (P95=13.48).\n- [medium] DES transport: Lead-time variability is significant (mean=2.33d, P95=4.44d)."
+}
