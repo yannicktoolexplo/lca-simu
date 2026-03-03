@@ -1,0 +1,277 @@
+{
+  "generated_at_utc": "2026-03-03T14:30:20.469320+00:00",
+  "input_json": "etudecas/donnees/supply_graph_poc.json",
+  "coords_json": "etudecas/scripts_geocodage/legacy_actor_coords.json",
+  "output_json": "etudecas/result_geocodage/supply_graph_poc_geocoded.json",
+  "total_nodes": 29,
+  "geocoded_nodes": 29,
+  "unmatched_nodes": 0,
+  "method_counts": {
+    "legacy_id_map": 29,
+    "unmatched": 0
+  },
+  "unmatched_node_ids": [],
+  "rows": [
+    {
+      "node_id": "M-1430",
+      "status": "geocoded",
+      "method": "legacy_id_map",
+      "legacy_key": "M - D1430",
+      "location_ID": "France - GIEN - 45500",
+      "lat": 47.7,
+      "lon": 2.633333
+    },
+    {
+      "node_id": "M-1810",
+      "status": "geocoded",
+      "method": "legacy_id_map",
+      "legacy_key": "M - D1810",
+      "location_ID": "France - AVENE - 34260",
+      "lat": 43.756966,
+      "lon": 3.09923
+    },
+    {
+      "node_id": "DC-1920",
+      "status": "geocoded",
+      "method": "legacy_id_map",
+      "legacy_key": "DC - 1920",
+      "location_ID": "France - MURET - 31600",
+      "lat": 43.466667,
+      "lon": 1.35
+    },
+    {
+      "node_id": "SDC-VD0520132A",
+      "status": "geocoded",
+      "method": "legacy_id_map",
+      "legacy_key": "SDC - VD0520132A",
+      "location_ID": "France - CERGY PONTOISE - 95892",
+      "lat": 49.034,
+      "lon": 2.063
+    },
+    {
+      "node_id": "SDC-VD0914690A",
+      "status": "geocoded",
+      "method": "legacy_id_map",
+      "legacy_key": "SDC - VD0914690A",
+      "location_ID": "Belgique - BORNEM - 2880",
+      "lat": 51.099606,
+      "lon": 4.240459
+    },
+    {
+      "node_id": "DC-1450",
+      "status": "geocoded",
+      "method": "legacy_id_map",
+      "legacy_key": "SDC - D1450",
+      "location_ID": "France - GAILLAC - 81600",
+      "lat": 43.901816,
+      "lon": 1.896506
+    },
+    {
+      "node_id": "SDC-VD0525412A",
+      "status": "geocoded",
+      "method": "legacy_id_map",
+      "legacy_key": "SDC - VD0525412A",
+      "location_ID": "France - CHAMPNIERS - 16430",
+      "lat": 45.716671,
+      "lon": 0.196451
+    },
+    {
+      "node_id": "SDC-VD0993480A",
+      "status": "geocoded",
+      "method": "legacy_id_map",
+      "legacy_key": "SDC - VD0993480A",
+      "location_ID": "France - CONDE SUR NOIREAU - 14110",
+      "lat": 48.853,
+      "lon": -0.55
+    },
+    {
+      "node_id": "SDC-VD0520115A",
+      "status": "geocoded",
+      "method": "legacy_id_map",
+      "legacy_key": "SDC - VD0520115A",
+      "location_ID": "Allemagne - HEILIGENROTH - 56412",
+      "lat": 50.448501,
+      "lon": 7.863068
+    },
+    {
+      "node_id": "SDC-VD0508918A",
+      "status": "geocoded",
+      "method": "legacy_id_map",
+      "legacy_key": "SDC - VD0508918A",
+      "location_ID": "France - LA FERTE BERNARD - 72400",
+      "lat": 48.183331,
+      "lon": 0.66667
+    },
+    {
+      "node_id": "SDC-VD1095770A",
+      "status": "geocoded",
+      "method": "legacy_id_map",
+      "legacy_key": "SDC - VD1095770A",
+      "location_ID": "France - CHATEAUNEUF LA FORET - 87130",
+      "lat": 45.713108,
+      "lon": 1.606463
+    },
+    {
+      "node_id": "SDC-VD0951020A",
+      "status": "geocoded",
+      "method": "legacy_id_map",
+      "legacy_key": "SDC - VD0951020A",
+      "location_ID": "France - MONTREUIL - 93100",
+      "lat": 48.863812,
+      "lon": 2.448451
+    },
+    {
+      "node_id": "SDC-VD0519670A",
+      "status": "geocoded",
+      "method": "legacy_id_map",
+      "legacy_key": "SDC - VD0519670A",
+      "location_ID": "France - ST SULPICE - 81370",
+      "lat": 43.773,
+      "lon": 1.687
+    },
+    {
+      "node_id": "SDC-VD0518684A",
+      "status": "geocoded",
+      "method": "legacy_id_map",
+      "legacy_key": "SDC - VD0518684A",
+      "location_ID": "Allemagne - HAMBURG - 20095",
+      "lat": 53.550848,
+      "lon": 9.999304
+    },
+    {
+      "node_id": "SDC-VD0910216A",
+      "status": "geocoded",
+      "method": "legacy_id_map",
+      "legacy_key": "SDC - VD0910216A",
+      "location_ID": "France - LYON - 69005",
+      "lat": 45.7611,
+      "lon": 4.8268
+    },
+    {
+      "node_id": "SDC-VD1091642A",
+      "status": "geocoded",
+      "method": "legacy_id_map",
+      "legacy_key": "SDC - VD1091642A",
+      "location_ID": "France - VENETTE - 60280",
+      "lat": 49.41595,
+      "lon": 2.800696
+    },
+    {
+      "node_id": "SDC-VD0500655A",
+      "status": "geocoded",
+      "method": "legacy_id_map",
+      "legacy_key": "SDC - VD0500655A",
+      "location_ID": "Germany - EMMERICH - 46446",
+      "lat": 51.839593,
+      "lon": 6.25173
+    },
+    {
+      "node_id": "SDC-VD0990780A",
+      "status": "geocoded",
+      "method": "legacy_id_map",
+      "legacy_key": "SDC - VD0990780A",
+      "location_ID": "Italie - CARASCO GE - 16042",
+      "lat": 44.3504,
+      "lon": 9.3466
+    },
+    {
+      "node_id": "SDC-VD0514881A",
+      "status": "geocoded",
+      "method": "legacy_id_map",
+      "legacy_key": "SDC - VD0514881A",
+      "location_ID": "Suède - GÖTEBORG - 402 58",
+      "lat": 57.7072,
+      "lon": 11.9668
+    },
+    {
+      "node_id": "SDC-VD1096202A",
+      "status": "geocoded",
+      "method": "legacy_id_map",
+      "legacy_key": "SDC - VD1096202A",
+      "location_ID": "France - FONTENAY SOUS BOIS - 94120",
+      "lat": 48.851542,
+      "lon": 2.475907
+    },
+    {
+      "node_id": "SDC-VD0914320A",
+      "status": "geocoded",
+      "method": "legacy_id_map",
+      "legacy_key": "SDC - VD0914320A",
+      "location_ID": "France - PEYPIN - 13124",
+      "lat": 43.384147,
+      "lon": 5.577433
+    },
+    {
+      "node_id": "SDC-VD0964290A",
+      "status": "geocoded",
+      "method": "legacy_id_map",
+      "legacy_key": "SDC - VD0964290A",
+      "location_ID": "France - FONTENAY SOUS BOIS - 94120",
+      "lat": 48.851542,
+      "lon": 2.475907
+    },
+    {
+      "node_id": "SDC-VD0505677A",
+      "status": "geocoded",
+      "method": "legacy_id_map",
+      "legacy_key": "SDC - VD0505677A",
+      "location_ID": "Germany - LUDWIGSHAFEN - 67056",
+      "lat": 49.4949,
+      "lon": 8.434
+    },
+    {
+      "node_id": "SDC-VD0901566A",
+      "status": "geocoded",
+      "method": "legacy_id_map",
+      "legacy_key": "SDC - VD0901566A",
+      "location_ID": "France - SAINTE MENEHOULD - 51800",
+      "lat": 49.090822,
+      "lon": 4.892978
+    },
+    {
+      "node_id": "SDC-VD0914360C",
+      "status": "geocoded",
+      "method": "legacy_id_map",
+      "legacy_key": "SDC - VD0914360C",
+      "location_ID": "France - CHAZELLES - 16380",
+      "lat": 45.64714,
+      "lon": 0.367019
+    },
+    {
+      "node_id": "SDC-VD0989480A",
+      "status": "geocoded",
+      "method": "legacy_id_map",
+      "legacy_key": "SDC - VD0989480A",
+      "location_ID": "France - EXIDEUIL-SUR-VIENNE - 16150",
+      "lat": 45.886926,
+      "lon": 0.673743
+    },
+    {
+      "node_id": "C-XXXXX",
+      "status": "geocoded",
+      "method": "legacy_id_map",
+      "legacy_key": "C - XXXXX",
+      "location_ID": null,
+      "lat": 48.866667,
+      "lon": 2.333333
+    },
+    {
+      "node_id": "DC-1910",
+      "status": "geocoded",
+      "method": "legacy_id_map",
+      "legacy_key": "DC - 1910",
+      "location_ID": null,
+      "lat": 43.466667,
+      "lon": 1.35
+    },
+    {
+      "node_id": "SDC-1450",
+      "status": "geocoded",
+      "method": "legacy_id_map",
+      "legacy_key": "SDC - D1450",
+      "location_ID": null,
+      "lat": 43.901816,
+      "lon": 1.896506
+    }
+  ]
+}
