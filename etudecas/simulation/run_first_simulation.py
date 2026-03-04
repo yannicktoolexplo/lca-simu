@@ -8,6 +8,8 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import math
+import random
 import re
 import subprocess
 import sys
@@ -131,6 +133,18 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Skip PNG plot generation.",
     )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=42,
+        help="Random seed used by stochastic replenishment (default: 42).",
+    )
+    parser.add_argument(
+        "--stochastic-lead-times",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Enable stochastic lead times sampled from lane metadata (default: enabled).",
+    )
     return parser.parse_args()
 
 
@@ -180,6 +194,9 @@ def lane_records(edges: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], dic
         dst = str(e.get("to"))
         lead = e.get("lead_time") or {}
         lead_days = int(round(max(1.0, to_float((lead or {}).get("mean"), 1.0))))
+        lead_days_mean = max(1.0, to_float((lead or {}).get("mean"), 1.0))
+        lead_stages = int(round(max(1.0, to_float((lead or {}).get("stages"), 1.0))))
+        lead_time_type = str((lead or {}).get("type", "constant"))
         tc = e.get("transport_cost") or {}
         cost = to_float((tc or {}).get("value"), 0.0)
         ot = e.get("order_terms") or {}
@@ -194,6 +211,11 @@ def lane_records(edges: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], dic
             1.0,
         )
         reliability = max(0.01, min(1.0, reliability))
+        supply_order_frequency = (ot.get("supply_order_frequency") or {})
+        order_frequency_days = int(
+            round(max(1.0, to_float((supply_order_frequency or {}).get("value"), 1.0)))
+        )
+        delay_step_limit = int(round(max(1.0, to_float(((e.get("delay_step_limit") or {}).get("value")), 999.0))))
         for item_id in (e.get("items") or []):
             lane = {
                 "edge_id": str(e.get("id")),
@@ -201,6 +223,11 @@ def lane_records(edges: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], dic
                 "dst": dst,
                 "item_id": str(item_id),
                 "lead_days": lead_days,
+                "lead_days_mean": lead_days_mean,
+                "lead_stages": lead_stages,
+                "lead_time_type": lead_time_type,
+                "order_frequency_days": order_frequency_days,
+                "delay_step_limit": delay_step_limit,
                 "unit_transport_cost": cost,
                 "unit_purchase_cost": unit_purchase_cost,
                 "reliability": reliability,
@@ -212,6 +239,51 @@ def lane_records(edges: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], dic
         values.sort(key=lambda x: (x["unit_transport_cost"], x["lead_days"], x["src"]))
         lanes_by_dest_item[key] = values
     return lanes, lanes_by_dest_item
+
+
+def sample_lead_days(lane: dict[str, Any], rng: random.Random, stochastic: bool) -> int:
+    deterministic = int(round(max(1.0, to_float(lane.get("lead_days"), 1.0))))
+    if not stochastic:
+        return deterministic
+
+    mean = max(1.0, to_float(lane.get("lead_days_mean"), deterministic))
+    stages = int(round(max(1.0, to_float(lane.get("lead_stages"), 1.0))))
+    lt_type = str(lane.get("lead_time_type", "constant")).lower()
+
+    sampled = mean
+    if "erlang" in lt_type:
+        sampled = rng.gammavariate(stages, mean / stages)
+    elif "constant" not in lt_type:
+        sigma = max(0.25, 0.30 * mean)
+        sampled = rng.gauss(mean, sigma)
+
+    sampled_days = int(max(1, math.ceil(sampled)))
+    delay_limit = int(round(max(1.0, to_float(lane.get("delay_step_limit"), 999.0))))
+    return min(sampled_days, delay_limit)
+
+
+def lead_time_cover_days(lane: dict[str, Any], stochastic: bool) -> int:
+    """
+    Return conservative lead-time coverage in days for stock sizing.
+    With stochastic lead-times, use an approximate p95.
+    """
+    mean = max(1.0, to_float(lane.get("lead_days_mean"), lane.get("lead_days", 1.0)))
+    if not stochastic:
+        cover = int(round(max(1.0, to_float(lane.get("lead_days"), mean))))
+    else:
+        stages = max(1.0, to_float(lane.get("lead_stages"), 1.0))
+        lt_type = str(lane.get("lead_time_type", "constant")).lower()
+        if "erlang" in lt_type:
+            # Erlang(k, theta): sd = mean / sqrt(k)
+            sd = mean / math.sqrt(stages)
+        elif "constant" in lt_type:
+            sd = 0.0
+        else:
+            # Fallback dispersion used in sampling branch.
+            sd = max(0.25, 0.30 * mean)
+        cover = int(math.ceil(mean + 1.65 * sd))
+    delay_limit = int(round(max(1.0, to_float(lane.get("delay_step_limit"), 999.0))))
+    return max(1, min(cover, delay_limit))
 
 
 def propagate_demand_rates(
@@ -264,6 +336,7 @@ def try_generate_plots(
     input_stock_rows: list[dict[str, Any]],
     output_prod_rows: list[dict[str, Any]],
     output_dir: Path,
+    item_unit_map: dict[str, str] | None = None,
 ) -> dict[str, str]:
     try:
         import matplotlib.pyplot as plt  # type: ignore
@@ -281,26 +354,99 @@ def try_generate_plots(
         val = r.get("stock_end_of_day", r.get("stock_before_production", 0.0))
         by_factory_item_day[factory][item][day] = to_float(val, 0.0)
 
+    item_unit_map = item_unit_map or {}
+    unit_axes_order = ("KG", "G", "UN")
+
     for factory, item_map in sorted(by_factory_item_day.items()):
         if not item_map:
             continue
         all_days = sorted({d for values in item_map.values() for d in values.keys()})
         if not all_days:
             continue
-        plt.figure(figsize=(13, 7))
+        fig, ax_kg = plt.subplots(figsize=(14, 7))
+        ax_g = ax_kg.twinx()
+        ax_un = ax_kg.twinx()
+        ax_un.spines["right"].set_position(("outward", 62))
+
+        axis_for_unit = {
+            "KG": ax_kg,
+            "G": ax_g,
+            "UN": ax_un,
+        }
+        unit_cmap = {
+            "KG": plt.cm.Blues,
+            "G": plt.cm.Oranges,
+            "UN": plt.cm.Greens,
+        }
+        lines_by_axis: dict[str, list[Any]] = {u: [] for u in unit_axes_order}
+        labels_by_axis: dict[str, list[str]] = {u: [] for u in unit_axes_order}
+        items_by_unit: dict[str, list[str]] = {u: [] for u in unit_axes_order}
+
+        for item in sorted(item_map.keys()):
+            unit = normalize_unit(item_unit_map.get(item, ""))
+            target_unit = unit if unit in axis_for_unit else "KG"
+            items_by_unit[target_unit].append(item)
+
+        color_by_item: dict[str, Any] = {}
+        for unit in unit_axes_order:
+            items = items_by_unit[unit]
+            if not items:
+                continue
+            cmap = unit_cmap[unit]
+            n = len(items)
+            for idx, item in enumerate(items):
+                # Keep colors in a readable mid/high range for each unit palette.
+                t = 0.40 if n == 1 else 0.35 + (0.55 * idx / (n - 1))
+                color_by_item[item] = cmap(t)
+
         for item in sorted(item_map.keys()):
             series = [item_map[item].get(d, 0.0) for d in all_days]
-            plt.plot(all_days, series, marker="o", linewidth=1.4, label=item)
-        plt.title(f"Stocks de fin de journee des matieres premieres - {factory}")
-        plt.xlabel("Jour")
-        plt.ylabel("Stock fin de journee (unites)")
-        plt.grid(alpha=0.3)
-        plt.legend(ncol=2, fontsize=8)
-        plt.tight_layout()
+            unit = normalize_unit(item_unit_map.get(item, ""))
+            target_unit = unit if unit in axis_for_unit else "KG"
+            axis = axis_for_unit[target_unit]
+            line = axis.plot(
+                all_days,
+                series,
+                marker="o",
+                linewidth=1.4,
+                color=color_by_item.get(item),
+            )[0]
+            lines_by_axis[target_unit].append(line)
+            labels_by_axis[target_unit].append(f"{item} [{target_unit}]")
+
+        ax_kg.set_title(f"Stocks de fin de journee des matieres premieres - {factory}")
+        ax_kg.set_xlabel("Jour")
+        ax_kg.set_ylabel("Stock (KG)")
+        ax_g.set_ylabel("Stock (G)")
+        ax_un.set_ylabel("Stock (UN)")
+        ax_kg.grid(alpha=0.3)
+
+        legend_positions = {
+            "KG": (0.17, 0.02),
+            "G": (0.50, 0.02),
+            "UN": (0.83, 0.02),
+        }
+        for unit in unit_axes_order:
+            unit_lines = lines_by_axis[unit]
+            unit_labels = labels_by_axis[unit]
+            if not unit_lines:
+                continue
+            fig.legend(
+                unit_lines,
+                unit_labels,
+                ncol=1,
+                fontsize=8,
+                title=unit,
+                title_fontsize=9,
+                loc="lower center",
+                bbox_to_anchor=legend_positions[unit],
+                frameon=True,
+            )
+        fig.subplots_adjust(right=0.83, bottom=0.34)
         safe_factory = re.sub(r"[^A-Za-z0-9_-]+", "_", factory)
         out = output_dir / f"production_input_stocks_by_material_{safe_factory}.png"
-        plt.savefig(out, dpi=150)
-        plt.close()
+        fig.savefig(out, dpi=150)
+        plt.close(fig)
         generated[f"production_input_stocks_by_material_{factory}"] = str(out)
 
     # Plot 2: production of output products.
@@ -369,6 +515,10 @@ def main() -> None:
     sim_days = args.days if args.days > 0 else (default_days if default_days > 0 else 30)
     safety_stock_days = max(0.0, scenario_policy_value(scenario, "safety_stock_days", 7.0))
     review_period_days = max(1, int(round(scenario_policy_value(scenario, "review_period_days", 1.0))))
+    fg_target_days = max(0.0, scenario_policy_value(scenario, "fg_target_days", 0.0))
+    production_gap_gain = max(0.0, scenario_policy_value(scenario, "production_gap_gain", 0.25))
+    production_smoothing = min(0.95, max(0.0, scenario_policy_value(scenario, "production_smoothing", 0.20)))
+    rng = random.Random(args.seed)
 
     stock: dict[tuple[str, str], float] = defaultdict(float)
     holding_cost: dict[tuple[str, str], float] = defaultdict(float)
@@ -385,6 +535,9 @@ def main() -> None:
             holding_cost[key] = to_float((hc or {}).get("value"), 0.0)
 
     lanes, lanes_by_dest_item = lane_records(edges)
+    lanes_by_src_item: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
+    for lane in lanes:
+        lanes_by_src_item[(str(lane["src"]), str(lane["item_id"]))].append(lane)
     inbound_pairs = set(lanes_by_dest_item.keys())
     outbound_pairs = {(str(l["src"]), str(l["item_id"])) for l in lanes}
     produced_pairs = {
@@ -412,6 +565,8 @@ def main() -> None:
 
     # Small safety target for pairs with demand signal if base stock is absent.
     for pair, d0 in propagated_demand_daily.items():
+        if pair not in inbound_pairs:
+            continue
         if base_stock.get(pair, 0.0) <= 0:
             base_stock[pair] = max(50.0, 7.0 * d0)
 
@@ -467,9 +622,13 @@ def main() -> None:
     production_input_pairs = sorted(production_input_pairs)
     production_output_pairs = sorted(production_output_pairs)
     cum_output_by_pair: dict[tuple[str, str], float] = defaultdict(float)
+    prev_production_command_by_pair: dict[tuple[str, str], float] = {}
     pair_max_lead_days: dict[tuple[str, str], int] = {}
+    pair_stock_cover_days: dict[tuple[str, str], int] = {}
     for pair, lane_list in lanes_by_dest_item.items():
         pair_max_lead_days[pair] = max(int(to_float(l.get("lead_days"), 1.0)) for l in lane_list) if lane_list else 1
+        max_cover = max(lead_time_cover_days(l, args.stochastic_lead_times) for l in lane_list) if lane_list else 1
+        pair_stock_cover_days[pair] = max_cover + review_period_days
 
     # Bootstrap opening stocks for production inputs so each pair can cover at least its lead-time demand.
     # This avoids artificial periodic starvation when initial stock is below lead-time consumption.
@@ -500,8 +659,12 @@ def main() -> None:
                     required_daily_input_by_pair[key] += cap * req_per_unit
 
     for pair, daily_req in required_daily_input_by_pair.items():
-        lead_days = pair_max_lead_days.get(pair, 1)
-        target = max(base_stock.get(pair, 0.0), daily_req * float(lead_days))
+        cover_days = pair_stock_cover_days.get(pair, pair_max_lead_days.get(pair, 1) + review_period_days)
+        target = max(
+            base_stock.get(pair, 0.0),
+            daily_req * float(cover_days),
+            safety_stock_days * daily_req,
+        )
         current = stock.get(pair, 0.0)
         if target > current + 1e-9:
             add_qty = target - current
@@ -512,7 +675,8 @@ def main() -> None:
                 {
                     "node_id": pair[0],
                     "item_id": pair[1],
-                    "lead_days": lead_days,
+                    "lead_days": pair_max_lead_days.get(pair, 1),
+                    "cover_days": cover_days,
                     "daily_req_at_cap": round(daily_req, 6),
                     "added_opening_qty": round(add_qty, 6),
                     "target_opening_stock": round(target, 6),
@@ -521,6 +685,12 @@ def main() -> None:
     opening_stock_bootstrap_rows.sort(key=lambda r: (r["node_id"], r["item_id"]))
 
     for day in range(sim_days):
+        demand_target_today = {
+            pair: max(0.0, profile_value(profile, day))
+            for pair, profile in demand_profiles.items()
+        }
+        propagated_demand_today = propagate_demand_rates(demand_target_today, lanes)
+
         arrivals_today = pipeline.pop(day, [])
         arrivals_qty = 0.0
         arrivals_today_by_pair: dict[tuple[str, str], float] = defaultdict(float)
@@ -594,7 +764,23 @@ def main() -> None:
                         input_limits.append(stock[key] / req_per_unit)
 
                 max_from_inputs = min(input_limits) if input_limits else cap
-                qty = max(0.0, min(cap, max_from_inputs))
+                out_pair = (nid, out_item)
+                out_signal = max(0.0, propagated_demand_today.get(out_pair, 0.0))
+                out_stock = max(0.0, stock[out_pair])
+                out_target = max(base_stock.get(out_pair, 0.0), fg_target_days * out_signal)
+                out_gap = out_target - out_stock
+                raw_command = out_signal + production_gap_gain * out_gap
+
+                if out_signal <= 1e-9 and out_pair not in lanes_by_src_item:
+                    # Preserve previous behavior for isolated processes not linked to demand flow.
+                    raw_command = cap
+
+                prev_cmd = prev_production_command_by_pair.get(out_pair, raw_command)
+                desired_qty = production_smoothing * prev_cmd + (1.0 - production_smoothing) * raw_command
+                desired_qty = max(0.0, desired_qty)
+                prev_production_command_by_pair[out_pair] = desired_qty
+
+                qty = max(0.0, min(cap, max_from_inputs, desired_qty))
                 if qty <= 0:
                     continue
 
@@ -646,8 +832,7 @@ def main() -> None:
         demand_today = 0.0
         served_today = 0.0
         for pair in demand_pairs:
-            profile = demand_profiles.get(pair, [])
-            dval = profile_value(profile, day)
+            dval = demand_target_today.get(pair, 0.0)
             required = backlog[pair] + dval
             available = stock[pair]
             served = min(available, required)
@@ -667,10 +852,15 @@ def main() -> None:
         shipped_today_to_pair: dict[tuple[str, str], float] = defaultdict(float)
         for pair, lane_list in lanes_by_dest_item.items():
             dst, item_id = pair
-            target = base_stock.get(pair, 0.0) + backlog[pair]
-            d0 = propagated_demand_daily.get(pair, 0.0)
-            if d0 > 0:
-                target = max(target, safety_stock_days * d0 + backlog[pair])
+            target = base_stock.get(pair, 0.0)
+            item_daily_req = required_daily_input_by_pair.get(pair, propagated_demand_today.get(pair, 0.0))
+            if item_daily_req > 0:
+                target = max(
+                    target,
+                    safety_stock_days * item_daily_req,
+                    item_daily_req * float(pair_stock_cover_days.get(pair, review_period_days + 1)),
+                )
+            target += backlog[pair]
 
             if day % review_period_days != 0:
                 continue
@@ -683,6 +873,9 @@ def main() -> None:
             for lane in lane_list:
                 if remaining <= 1e-9:
                     break
+                lane_review_days = int(round(max(1.0, to_float(lane.get("order_frequency_days"), 1.0))))
+                if day % lane_review_days != 0:
+                    continue
                 src_pair = (lane["src"], item_id)
                 available = stock[src_pair]
                 if src_pair in externally_sourced_pairs_set and available < remaining:
@@ -699,7 +892,8 @@ def main() -> None:
                     continue
 
                 stock[src_pair] -= pull_qty
-                arrival_day = day + lane["lead_days"]
+                lead_days = sample_lead_days(lane, rng, args.stochastic_lead_times)
+                arrival_day = day + lead_days
                 pipeline[arrival_day].append((dst, item_id, delivered_qty, lane["edge_id"]))
                 in_transit[pair] += delivered_qty
                 remaining -= delivered_qty
@@ -777,6 +971,11 @@ def main() -> None:
         "policy": {
             "safety_stock_days": safety_stock_days,
             "review_period_days": review_period_days,
+            "fg_target_days": fg_target_days,
+            "production_gap_gain": production_gap_gain,
+            "production_smoothing": production_smoothing,
+            "stochastic_lead_times": bool(args.stochastic_lead_times),
+            "seed": int(args.seed),
         },
         "counts": {
             "nodes": len(nodes),
@@ -913,7 +1112,12 @@ def main() -> None:
 
     generated_plots: dict[str, str] = {}
     if not args.skip_plots:
-        generated_plots = try_generate_plots(input_stock_rows, output_prod_rows, output_dir)
+        generated_plots = try_generate_plots(
+            input_stock_rows=input_stock_rows,
+            output_prod_rows=output_prod_rows,
+            output_dir=output_dir,
+            item_unit_map=item_unit_map,
+        )
         legacy_agg_input_plot = output_dir / "production_input_stocks.png"
         if legacy_agg_input_plot.exists():
             legacy_agg_input_plot.unlink()
@@ -967,6 +1171,11 @@ def main() -> None:
 - Horizon (days): {summary['sim_days']}
 - Safety stock policy (days): {summary['policy']['safety_stock_days']}
 - Replenishment review period (days): {summary['policy']['review_period_days']}
+- Finished-goods target cover (days): {summary['policy']['fg_target_days']}
+- Production stock-gap gain: {summary['policy']['production_gap_gain']}
+- Production smoothing factor: {summary['policy']['production_smoothing']}
+- Stochastic lead times: {summary['policy']['stochastic_lead_times']}
+- Random seed: {summary['policy']['seed']}
 - Nodes: {summary['counts']['nodes']}
 - Edges: {summary['counts']['edges']}
 - Lanes (edge x item): {summary['counts']['lanes']}
