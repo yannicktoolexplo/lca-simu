@@ -11,7 +11,7 @@
     ],
     "simulation_prep": {
       "prepared_for_simulation": true,
-      "prepared_at_utc": "2026-03-03T17:00:18.266204+00:00",
+      "prepared_at_utc": "2026-03-04T10:02:27.810920+00:00",
       "assumption_version": "v1",
       "notes": [
         "Missing/default values were replaced with explicit assumptions for first-pass simulation.",
@@ -340,13 +340,13 @@
           {
             "item_id": "item:038005",
             "state_id": "I_038005",
-            "initial": 1200.0,
+            "initial": 0.0,
             "uom": "KG",
             "holding_cost": {
               "value": 0.04,
               "per": "unit*day",
               "is_default": false,
-              "source": "simulation_prep_assumption"
+              "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
             "uom_source": "simulation_prep_inferred_from_relations_bom",
@@ -355,13 +355,13 @@
           {
             "item_id": "item:042342",
             "state_id": "I_042342",
-            "initial": 1200.0,
+            "initial": 0.0,
             "uom": "UN",
             "holding_cost": {
               "value": 0.04,
               "per": "unit*day",
               "is_default": false,
-              "source": "simulation_prep_assumption"
+              "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
             "initial_source": "simulation_prep_assumption"
@@ -369,27 +369,27 @@
           {
             "item_id": "item:268967",
             "state_id": "I_268967",
-            "initial": 1200.0,
+            "initial": 0.0,
             "uom": "UN",
             "holding_cost": {
               "value": 0.04,
               "per": "unit*day",
               "is_default": false,
-              "source": "simulation_prep_assumption"
+              "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
-            "initial_source": "simulation_prep_assumption"
+            "initial_source": "simulation_prep_assumption_factory_output_zero"
           },
           {
             "item_id": "item:333362",
             "state_id": "I_333362",
-            "initial": 1200.0,
+            "initial": 0.0,
             "uom": "UN",
             "holding_cost": {
               "value": 0.04,
               "per": "unit*day",
               "is_default": false,
-              "source": "simulation_prep_assumption"
+              "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
             "initial_source": "simulation_prep_assumption"
@@ -397,13 +397,13 @@
           {
             "item_id": "item:344135",
             "state_id": "I_344135",
-            "initial": 1200.0,
+            "initial": 0.0,
             "uom": "UN",
             "holding_cost": {
               "value": 0.04,
               "per": "unit*day",
               "is_default": false,
-              "source": "simulation_prep_assumption"
+              "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
             "initial_source": "simulation_prep_assumption"
@@ -411,13 +411,13 @@
           {
             "item_id": "item:708073",
             "state_id": "I_708073",
-            "initial": 1200.0,
+            "initial": 0.0,
             "uom": "KG",
             "holding_cost": {
               "value": 0.04,
               "per": "unit*day",
               "is_default": false,
-              "source": "simulation_prep_assumption"
+              "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
             "uom_source": "simulation_prep_inferred_from_relations_bom",
@@ -426,13 +426,13 @@
           {
             "item_id": "item:730384",
             "state_id": "I_730384",
-            "initial": 1200.0,
+            "initial": 0.0,
             "uom": "M",
             "holding_cost": {
               "value": 0.04,
               "per": "unit*day",
               "is_default": false,
-              "source": "simulation_prep_assumption"
+              "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
             "uom_source": "simulation_prep_inferred_from_relations_bom",
@@ -441,13 +441,13 @@
           {
             "item_id": "item:734545",
             "state_id": "I_734545",
-            "initial": 1200.0,
+            "initial": 0.0,
             "uom": "UN",
             "holding_cost": {
               "value": 0.04,
               "per": "unit*day",
               "is_default": false,
-              "source": "simulation_prep_assumption"
+              "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
             "initial_source": "simulation_prep_assumption"
@@ -455,13 +455,13 @@
           {
             "item_id": "item:773474",
             "state_id": "I_773474",
-            "initial": 1200.0,
+            "initial": 0.0,
             "uom": "G",
             "holding_cost": {
-              "value": 0.04,
+              "value": 4e-05,
               "per": "unit*day",
               "is_default": false,
-              "source": "simulation_prep_assumption"
+              "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
             "uom_source": "simulation_prep_inferred_from_relations_bom",
@@ -633,13 +633,13 @@
           {
             "item_id": "item:001757",
             "state_id": "I_001757",
-            "initial": 1850.0,
+            "initial": 0.0,
             "uom": "KG",
             "holding_cost": {
               "value": 0.04,
               "per": "unit*day",
               "is_default": false,
-              "source": "simulation_prep_assumption"
+              "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
             "uom_source": "simulation_prep_inferred_from_relations_bom",
@@ -648,13 +648,13 @@
           {
             "item_id": "item:001848",
             "state_id": "I_001848",
-            "initial": 1850.0,
+            "initial": 0.0,
             "uom": "KG",
             "holding_cost": {
               "value": 0.04,
               "per": "unit*day",
               "is_default": false,
-              "source": "simulation_prep_assumption"
+              "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
             "uom_source": "simulation_prep_inferred_from_relations_bom",
@@ -663,13 +663,13 @@
           {
             "item_id": "item:001893",
             "state_id": "I_001893",
-            "initial": 1850.0,
+            "initial": 0.0,
             "uom": "KG",
             "holding_cost": {
               "value": 0.04,
               "per": "unit*day",
               "is_default": false,
-              "source": "simulation_prep_assumption"
+              "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
             "uom_source": "simulation_prep_inferred_from_relations_bom",
@@ -678,13 +678,13 @@
           {
             "item_id": "item:002612",
             "state_id": "I_002612",
-            "initial": 1850.0,
+            "initial": 0.0,
             "uom": "KG",
             "holding_cost": {
               "value": 0.04,
               "per": "unit*day",
               "is_default": false,
-              "source": "simulation_prep_assumption"
+              "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
             "uom_source": "simulation_prep_inferred_from_relations_bom",
@@ -693,13 +693,13 @@
           {
             "item_id": "item:016332",
             "state_id": "I_016332",
-            "initial": 1850.0,
+            "initial": 0.0,
             "uom": "KG",
             "holding_cost": {
               "value": 0.04,
               "per": "unit*day",
               "is_default": false,
-              "source": "simulation_prep_assumption"
+              "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
             "uom_source": "simulation_prep_inferred_from_relations_bom",
@@ -708,13 +708,13 @@
           {
             "item_id": "item:029313",
             "state_id": "I_029313",
-            "initial": 1850.0,
+            "initial": 0.0,
             "uom": "KG",
             "holding_cost": {
               "value": 0.04,
               "per": "unit*day",
               "is_default": false,
-              "source": "simulation_prep_assumption"
+              "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
             "uom_source": "simulation_prep_inferred_from_relations_bom",
@@ -723,13 +723,13 @@
           {
             "item_id": "item:039668",
             "state_id": "I_039668",
-            "initial": 1850.0,
+            "initial": 0.0,
             "uom": "KG",
             "holding_cost": {
               "value": 0.04,
               "per": "unit*day",
               "is_default": false,
-              "source": "simulation_prep_assumption"
+              "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
             "uom_source": "simulation_prep_inferred_from_relations_bom",
@@ -738,13 +738,13 @@
           {
             "item_id": "item:049371",
             "state_id": "I_049371",
-            "initial": 1850.0,
+            "initial": 0.0,
             "uom": "KG",
             "holding_cost": {
               "value": 0.04,
               "per": "unit*day",
               "is_default": false,
-              "source": "simulation_prep_assumption"
+              "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
             "uom_source": "simulation_prep_inferred_from_relations_bom",
@@ -753,13 +753,13 @@
           {
             "item_id": "item:055703",
             "state_id": "I_055703",
-            "initial": 1850.0,
+            "initial": 0.0,
             "uom": "KG",
             "holding_cost": {
               "value": 0.04,
               "per": "unit*day",
               "is_default": false,
-              "source": "simulation_prep_assumption"
+              "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
             "uom_source": "simulation_prep_inferred_from_relations_bom",
@@ -768,13 +768,13 @@
           {
             "item_id": "item:099439",
             "state_id": "I_099439",
-            "initial": 1850.0,
+            "initial": 0.0,
             "uom": "KG",
             "holding_cost": {
               "value": 0.04,
               "per": "unit*day",
               "is_default": false,
-              "source": "simulation_prep_assumption"
+              "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
             "uom_source": "simulation_prep_inferred_from_relations_bom",
@@ -783,27 +783,27 @@
           {
             "item_id": "item:268091",
             "state_id": "I_268091",
-            "initial": 1850.0,
+            "initial": 0.0,
             "uom": "UN",
             "holding_cost": {
               "value": 0.04,
               "per": "unit*day",
               "is_default": false,
-              "source": "simulation_prep_assumption"
+              "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
-            "initial_source": "simulation_prep_assumption"
+            "initial_source": "simulation_prep_assumption_factory_output_zero"
           },
           {
             "item_id": "item:338928",
             "state_id": "I_338928",
-            "initial": 1850.0,
+            "initial": 0.0,
             "uom": "UN",
             "holding_cost": {
               "value": 0.04,
               "per": "unit*day",
               "is_default": false,
-              "source": "simulation_prep_assumption"
+              "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
             "initial_source": "simulation_prep_assumption"
@@ -811,13 +811,13 @@
           {
             "item_id": "item:338929",
             "state_id": "I_338929",
-            "initial": 1850.0,
+            "initial": 0.0,
             "uom": "UN",
             "holding_cost": {
               "value": 0.04,
               "per": "unit*day",
               "is_default": false,
-              "source": "simulation_prep_assumption"
+              "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
             "initial_source": "simulation_prep_assumption"
@@ -825,13 +825,13 @@
           {
             "item_id": "item:426331",
             "state_id": "I_426331",
-            "initial": 1850.0,
+            "initial": 0.0,
             "uom": "UN",
             "holding_cost": {
               "value": 0.04,
               "per": "unit*day",
               "is_default": false,
-              "source": "simulation_prep_assumption"
+              "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
             "initial_source": "simulation_prep_assumption"
@@ -839,17 +839,33 @@
           {
             "item_id": "item:693055",
             "state_id": "I_693055",
-            "initial": 1850.0,
+            "initial": 0.0,
             "uom": "G",
             "holding_cost": {
-              "value": 0.04,
+              "value": 4e-05,
               "per": "unit*day",
               "is_default": false,
-              "source": "simulation_prep_assumption"
+              "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
             "uom_source": "simulation_prep_inferred_from_relations_bom",
             "initial_source": "simulation_prep_assumption"
+          },
+          {
+            "item_id": "item:693710",
+            "state_id": "I_693710_ASSUMED_Q",
+            "initial": 700.0,
+            "uom": "G",
+            "holding_cost": {
+              "value": 4e-05,
+              "per": "unit*day",
+              "is_default": false,
+              "source": "simulation_prep_gaillac_question_mark_assumption"
+            },
+            "is_default_initial": false,
+            "initial_source": "simulation_prep_gaillac_question_mark_assumption",
+            "uom_source": "simulation_prep_gaillac_question_mark_assumption",
+            "assumption_label": "GAILLAC?"
           }
         ],
         "backlogs": [],
@@ -1119,13 +1135,13 @@
           {
             "item_id": "item:038005",
             "state_id": "I_038005",
-            "initial": 1500.0,
+            "initial": 180.0,
             "uom": "KG",
             "holding_cost": {
               "value": 0.04,
               "per": "unit*day",
               "is_default": false,
-              "source": "simulation_prep_assumption"
+              "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
             "uom_source": "simulation_prep_inferred_from_relations_bom",
@@ -1134,13 +1150,13 @@
           {
             "item_id": "item:049371",
             "state_id": "I_049371",
-            "initial": 1500.0,
+            "initial": 180.0,
             "uom": "KG",
             "holding_cost": {
               "value": 0.04,
               "per": "unit*day",
               "is_default": false,
-              "source": "simulation_prep_assumption"
+              "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
             "uom_source": "simulation_prep_inferred_from_relations_bom",
@@ -1196,13 +1212,13 @@
           {
             "item_id": "item:042342",
             "state_id": "I_042342",
-            "initial": 1500.0,
+            "initial": 180.0,
             "uom": "UN",
             "holding_cost": {
               "value": 0.04,
               "per": "unit*day",
               "is_default": false,
-              "source": "simulation_prep_assumption"
+              "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
             "initial_source": "simulation_prep_assumption"
@@ -1303,13 +1319,13 @@
           {
             "item_id": "item:333362",
             "state_id": "I_333362",
-            "initial": 1500.0,
+            "initial": 180.0,
             "uom": "UN",
             "holding_cost": {
               "value": 0.04,
               "per": "unit*day",
               "is_default": false,
-              "source": "simulation_prep_assumption"
+              "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
             "initial_source": "simulation_prep_assumption"
@@ -1364,13 +1380,13 @@
           {
             "item_id": "item:344135",
             "state_id": "I_344135",
-            "initial": 1500.0,
+            "initial": 180.0,
             "uom": "UN",
             "holding_cost": {
               "value": 0.04,
               "per": "unit*day",
               "is_default": false,
-              "source": "simulation_prep_assumption"
+              "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
             "initial_source": "simulation_prep_assumption"
@@ -1425,13 +1441,13 @@
           {
             "item_id": "item:708073",
             "state_id": "I_708073",
-            "initial": 1500.0,
+            "initial": 180.0,
             "uom": "KG",
             "holding_cost": {
               "value": 0.04,
               "per": "unit*day",
               "is_default": false,
-              "source": "simulation_prep_assumption"
+              "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
             "uom_source": "simulation_prep_inferred_from_relations_bom",
@@ -1487,13 +1503,13 @@
           {
             "item_id": "item:730384",
             "state_id": "I_730384",
-            "initial": 1500.0,
+            "initial": 180.0,
             "uom": "M",
             "holding_cost": {
               "value": 0.04,
               "per": "unit*day",
               "is_default": false,
-              "source": "simulation_prep_assumption"
+              "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
             "uom_source": "simulation_prep_inferred_from_relations_bom",
@@ -1549,13 +1565,13 @@
           {
             "item_id": "item:734545",
             "state_id": "I_734545",
-            "initial": 1500.0,
+            "initial": 180.0,
             "uom": "UN",
             "holding_cost": {
               "value": 0.04,
               "per": "unit*day",
               "is_default": false,
-              "source": "simulation_prep_assumption"
+              "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
             "initial_source": "simulation_prep_assumption"
@@ -1610,13 +1626,13 @@
           {
             "item_id": "item:001757",
             "state_id": "I_001757",
-            "initial": 1500.0,
+            "initial": 180.0,
             "uom": "KG",
             "holding_cost": {
               "value": 0.04,
               "per": "unit*day",
               "is_default": false,
-              "source": "simulation_prep_assumption"
+              "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
             "uom_source": "simulation_prep_inferred_from_relations_bom",
@@ -1625,13 +1641,13 @@
           {
             "item_id": "item:001848",
             "state_id": "I_001848",
-            "initial": 1500.0,
+            "initial": 180.0,
             "uom": "KG",
             "holding_cost": {
               "value": 0.04,
               "per": "unit*day",
               "is_default": false,
-              "source": "simulation_prep_assumption"
+              "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
             "uom_source": "simulation_prep_inferred_from_relations_bom",
@@ -1687,13 +1703,13 @@
           {
             "item_id": "item:001848",
             "state_id": "I_001848",
-            "initial": 1500.0,
+            "initial": 180.0,
             "uom": "KG",
             "holding_cost": {
               "value": 0.04,
               "per": "unit*day",
               "is_default": false,
-              "source": "simulation_prep_assumption"
+              "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
             "uom_source": "simulation_prep_inferred_from_relations_bom",
@@ -1702,13 +1718,13 @@
           {
             "item_id": "item:029313",
             "state_id": "I_029313",
-            "initial": 1500.0,
+            "initial": 180.0,
             "uom": "KG",
             "holding_cost": {
               "value": 0.04,
               "per": "unit*day",
               "is_default": false,
-              "source": "simulation_prep_assumption"
+              "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
             "uom_source": "simulation_prep_inferred_from_relations_bom",
@@ -1764,13 +1780,13 @@
           {
             "item_id": "item:001893",
             "state_id": "I_001893",
-            "initial": 1500.0,
+            "initial": 180.0,
             "uom": "KG",
             "holding_cost": {
               "value": 0.04,
               "per": "unit*day",
               "is_default": false,
-              "source": "simulation_prep_assumption"
+              "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
             "uom_source": "simulation_prep_inferred_from_relations_bom",
@@ -1826,13 +1842,13 @@
           {
             "item_id": "item:001893",
             "state_id": "I_001893",
-            "initial": 1500.0,
+            "initial": 180.0,
             "uom": "KG",
             "holding_cost": {
               "value": 0.04,
               "per": "unit*day",
               "is_default": false,
-              "source": "simulation_prep_assumption"
+              "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
             "uom_source": "simulation_prep_inferred_from_relations_bom",
@@ -1841,13 +1857,13 @@
           {
             "item_id": "item:002612",
             "state_id": "I_002612",
-            "initial": 1500.0,
+            "initial": 180.0,
             "uom": "KG",
             "holding_cost": {
               "value": 0.04,
               "per": "unit*day",
               "is_default": false,
-              "source": "simulation_prep_assumption"
+              "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
             "uom_source": "simulation_prep_inferred_from_relations_bom",
@@ -1903,13 +1919,13 @@
           {
             "item_id": "item:001893",
             "state_id": "I_001893",
-            "initial": 1500.0,
+            "initial": 180.0,
             "uom": "KG",
             "holding_cost": {
               "value": 0.04,
               "per": "unit*day",
               "is_default": false,
-              "source": "simulation_prep_assumption"
+              "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
             "uom_source": "simulation_prep_inferred_from_relations_bom",
@@ -1918,13 +1934,13 @@
           {
             "item_id": "item:002612",
             "state_id": "I_002612",
-            "initial": 1500.0,
+            "initial": 180.0,
             "uom": "KG",
             "holding_cost": {
               "value": 0.04,
               "per": "unit*day",
               "is_default": false,
-              "source": "simulation_prep_assumption"
+              "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
             "uom_source": "simulation_prep_inferred_from_relations_bom",
@@ -1980,13 +1996,13 @@
           {
             "item_id": "item:002612",
             "state_id": "I_002612",
-            "initial": 1500.0,
+            "initial": 180.0,
             "uom": "KG",
             "holding_cost": {
               "value": 0.04,
               "per": "unit*day",
               "is_default": false,
-              "source": "simulation_prep_assumption"
+              "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
             "uom_source": "simulation_prep_inferred_from_relations_bom",
@@ -2042,13 +2058,13 @@
           {
             "item_id": "item:002612",
             "state_id": "I_002612",
-            "initial": 1500.0,
+            "initial": 180.0,
             "uom": "KG",
             "holding_cost": {
               "value": 0.04,
               "per": "unit*day",
               "is_default": false,
-              "source": "simulation_prep_assumption"
+              "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
             "uom_source": "simulation_prep_inferred_from_relations_bom",
@@ -2104,13 +2120,13 @@
           {
             "item_id": "item:016332",
             "state_id": "I_016332",
-            "initial": 1500.0,
+            "initial": 180.0,
             "uom": "KG",
             "holding_cost": {
               "value": 0.04,
               "per": "unit*day",
               "is_default": false,
-              "source": "simulation_prep_assumption"
+              "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
             "uom_source": "simulation_prep_inferred_from_relations_bom",
@@ -2166,13 +2182,13 @@
           {
             "item_id": "item:039668",
             "state_id": "I_039668",
-            "initial": 1500.0,
+            "initial": 180.0,
             "uom": "KG",
             "holding_cost": {
               "value": 0.04,
               "per": "unit*day",
               "is_default": false,
-              "source": "simulation_prep_assumption"
+              "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
             "uom_source": "simulation_prep_inferred_from_relations_bom",
@@ -2228,13 +2244,13 @@
           {
             "item_id": "item:055703",
             "state_id": "I_055703",
-            "initial": 1500.0,
+            "initial": 180.0,
             "uom": "KG",
             "holding_cost": {
               "value": 0.04,
               "per": "unit*day",
               "is_default": false,
-              "source": "simulation_prep_assumption"
+              "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
             "uom_source": "simulation_prep_inferred_from_relations_bom",
@@ -2290,13 +2306,13 @@
           {
             "item_id": "item:055703",
             "state_id": "I_055703",
-            "initial": 1500.0,
+            "initial": 180.0,
             "uom": "KG",
             "holding_cost": {
               "value": 0.04,
               "per": "unit*day",
               "is_default": false,
-              "source": "simulation_prep_assumption"
+              "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
             "uom_source": "simulation_prep_inferred_from_relations_bom",
@@ -2352,13 +2368,13 @@
           {
             "item_id": "item:099439",
             "state_id": "I_099439",
-            "initial": 1500.0,
+            "initial": 180.0,
             "uom": "KG",
             "holding_cost": {
               "value": 0.04,
               "per": "unit*day",
               "is_default": false,
-              "source": "simulation_prep_assumption"
+              "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
             "uom_source": "simulation_prep_inferred_from_relations_bom",
@@ -2414,13 +2430,13 @@
           {
             "item_id": "item:338928",
             "state_id": "I_338928",
-            "initial": 1500.0,
+            "initial": 180.0,
             "uom": "UN",
             "holding_cost": {
               "value": 0.04,
               "per": "unit*day",
               "is_default": false,
-              "source": "simulation_prep_assumption"
+              "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
             "initial_source": "simulation_prep_assumption"
@@ -2475,13 +2491,13 @@
           {
             "item_id": "item:338929",
             "state_id": "I_338929",
-            "initial": 1500.0,
+            "initial": 180.0,
             "uom": "UN",
             "holding_cost": {
               "value": 0.04,
               "per": "unit*day",
               "is_default": false,
-              "source": "simulation_prep_assumption"
+              "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
             "initial_source": "simulation_prep_assumption"
@@ -2536,13 +2552,13 @@
           {
             "item_id": "item:426331",
             "state_id": "I_426331",
-            "initial": 1500.0,
+            "initial": 180.0,
             "uom": "UN",
             "holding_cost": {
               "value": 0.04,
               "per": "unit*day",
               "is_default": false,
-              "source": "simulation_prep_assumption"
+              "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
             "initial_source": "simulation_prep_assumption"
@@ -2574,15 +2590,16 @@
       "type": "customer",
       "name": "C-XXXXX",
       "role_raw": null,
-      "location_ID": null,
+      "location_ID": "Paris",
       "geo": {
         "lat": 48.866667,
         "lon": 2.333333,
-        "country": null,
+        "country": "France",
         "raw": {
           "method": "legacy_id_map",
           "legacy_key": "C - XXXXX",
-          "location_ID": null
+          "location_ID": "Paris",
+          "source": "simulation_prep_acteurs_recovery"
         }
       },
       "defaults": {
@@ -2603,7 +2620,7 @@
               "value": 0.04,
               "per": "unit*day",
               "is_default": false,
-              "source": "simulation_prep_assumption"
+              "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
             "initial_source": "simulation_prep_assumption"
@@ -2617,107 +2634,7 @@
               "value": 0.04,
               "per": "unit*day",
               "is_default": false,
-              "source": "simulation_prep_assumption"
-            },
-            "is_default_initial": false,
-            "initial_source": "simulation_prep_assumption"
-          }
-        ],
-        "backlogs": [
-          {
-            "item_id": "item:268091",
-            "state_id": "B_268091",
-            "initial": 0.0,
-            "uom": "UN",
-            "penalty_cost": {
-              "value": 0.0,
-              "per": "unit*day",
-              "is_default": true
-            },
-            "is_default_initial": true
-          },
-          {
-            "item_id": "item:268967",
-            "state_id": "B_268967",
-            "initial": 0.0,
-            "uom": "UN",
-            "penalty_cost": {
-              "value": 0.0,
-              "per": "unit*day",
-              "is_default": true
-            },
-            "is_default_initial": true
-          }
-        ],
-        "wip": []
-      },
-      "processes": [],
-      "policies": {
-        "ordering": [],
-        "production": [],
-        "simulation_policy": {
-          "service_level_target": 0.95,
-          "review_period_days": 7,
-          "reorder_mode": "base_stock",
-          "source": "simulation_prep_assumption"
-        }
-      },
-      "accounting": {
-        "defaults_used": true
-      },
-      "lca": {
-        "defaults_used": true
-      }
-    },
-    {
-      "id": "DC-1910",
-      "type": "distribution_center",
-      "name": "DC-1910",
-      "role_raw": null,
-      "location_ID": null,
-      "geo": {
-        "lat": 43.466667,
-        "lon": 1.35,
-        "country": null,
-        "raw": {
-          "method": "legacy_id_map",
-          "legacy_key": "DC - 1910",
-          "location_ID": null
-        }
-      },
-      "defaults": {
-        "geo": false,
-        "node_from_relations_only": true
-      },
-      "attrs": {
-        "source_sheet": "Relations_acteurs"
-      },
-      "inventory": {
-        "states": [
-          {
-            "item_id": "item:268091",
-            "state_id": "I_268091",
-            "initial": 1300.0,
-            "uom": "UN",
-            "holding_cost": {
-              "value": 0.04,
-              "per": "unit*day",
-              "is_default": false,
-              "source": "simulation_prep_assumption"
-            },
-            "is_default_initial": false,
-            "initial_source": "simulation_prep_assumption"
-          },
-          {
-            "item_id": "item:268967",
-            "state_id": "I_268967",
-            "initial": 1300.0,
-            "uom": "UN",
-            "holding_cost": {
-              "value": 0.04,
-              "per": "unit*day",
-              "is_default": false,
-              "source": "simulation_prep_assumption"
+              "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
             "initial_source": "simulation_prep_assumption"
@@ -2797,13 +2714,13 @@
           {
             "item_id": "item:693055",
             "state_id": "I_693055",
-            "initial": 1500.0,
+            "initial": 180.0,
             "uom": "G",
             "holding_cost": {
-              "value": 0.04,
+              "value": 4e-05,
               "per": "unit*day",
               "is_default": false,
-              "source": "simulation_prep_assumption"
+              "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
             "uom_source": "simulation_prep_inferred_from_relations_bom",
@@ -2812,17 +2729,33 @@
           {
             "item_id": "item:773474",
             "state_id": "I_773474",
-            "initial": 1500.0,
+            "initial": 180.0,
             "uom": "G",
             "holding_cost": {
-              "value": 0.04,
+              "value": 4e-05,
               "per": "unit*day",
               "is_default": false,
-              "source": "simulation_prep_assumption"
+              "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
             "uom_source": "simulation_prep_inferred_from_relations_bom",
             "initial_source": "simulation_prep_assumption"
+          },
+          {
+            "item_id": "item:693710",
+            "state_id": "I_693710_Q",
+            "initial": 3000.0,
+            "uom": "G",
+            "holding_cost": {
+              "value": 4e-05,
+              "per": "unit*day",
+              "is_default": false,
+              "source": "simulation_prep_gaillac_question_mark_assumption"
+            },
+            "is_default_initial": false,
+            "initial_source": "simulation_prep_gaillac_question_mark_assumption",
+            "uom_source": "simulation_prep_gaillac_question_mark_assumption",
+            "assumption_label": "GAILLAC?"
           }
         ],
         "backlogs": [],
@@ -2844,6 +2777,16 @@
       },
       "lca": {
         "defaults_used": true
+      },
+      "assumptions": {
+        "is_assumed": true,
+        "label": "GAILLAC?",
+        "source": "simulation_prep_gaillac_question_mark_assumption",
+        "item_693710_supplier_mapping": {
+          "is_assumed": true,
+          "label": "GAILLAC?",
+          "source": "simulation_prep_gaillac_question_mark_assumption"
+        }
       }
     }
   ],
@@ -2860,11 +2803,10 @@
       "distance_km": 154.2,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 3.0,
+        "mean": 8.0,
         "stages": 4,
         "time_unit": "day",
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "is_default": true
       },
       "order_terms": {
         "sell_price": 4.57,
@@ -2873,15 +2815,13 @@
         "is_default": false
       },
       "transport_cost": {
-        "value": 0.1996,
+        "value": 0.0,
         "per": "unit",
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "is_default": true
       },
       "delay_step_limit": {
-        "value": 21,
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "value": 999,
+        "is_default": true
       },
       "attrs": {
         "source_row": 0
@@ -2899,11 +2839,10 @@
       "distance_km": 395.5,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 3.0,
+        "mean": 8.0,
         "stages": 4,
         "time_unit": "day",
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "is_default": true
       },
       "order_terms": {
         "sell_price": 2.21,
@@ -2912,15 +2851,13 @@
         "is_default": false
       },
       "transport_cost": {
-        "value": 0.4651,
+        "value": 0.0,
         "per": "unit",
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "is_default": true
       },
       "delay_step_limit": {
-        "value": 21,
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "value": 999,
+        "is_default": true
       },
       "attrs": {
         "source_row": 1
@@ -2938,11 +2875,10 @@
       "distance_km": 288.3,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 3.0,
+        "mean": 8.0,
         "stages": 4,
         "time_unit": "day",
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "is_default": true
       },
       "order_terms": {
         "sell_price": 273.21,
@@ -2951,15 +2887,13 @@
         "is_default": false
       },
       "transport_cost": {
-        "value": 0.3471,
+        "value": 0.0,
         "per": "unit",
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "is_default": true
       },
       "delay_step_limit": {
-        "value": 21,
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "value": 999,
+        "is_default": true
       },
       "attrs": {
         "source_row": 2
@@ -2977,11 +2911,10 @@
       "distance_km": 268.2,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 3.0,
+        "mean": 8.0,
         "stages": 4,
         "time_unit": "day",
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "is_default": true
       },
       "order_terms": {
         "sell_price": 4.03,
@@ -2990,15 +2923,13 @@
         "is_default": false
       },
       "transport_cost": {
-        "value": 0.325,
+        "value": 0.0,
         "per": "unit",
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "is_default": true
       },
       "delay_step_limit": {
-        "value": 21,
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "value": 999,
+        "is_default": true
       },
       "attrs": {
         "source_row": 3
@@ -3016,11 +2947,10 @@
       "distance_km": 488.2,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 3.0,
+        "mean": 8.0,
         "stages": 4,
         "time_unit": "day",
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "is_default": true
       },
       "order_terms": {
         "sell_price": 3.59,
@@ -3029,15 +2959,13 @@
         "is_default": false
       },
       "transport_cost": {
-        "value": 0.567,
+        "value": 0.0,
         "per": "unit",
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "is_default": true
       },
       "delay_step_limit": {
-        "value": 21,
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "value": 999,
+        "is_default": true
       },
       "attrs": {
         "source_row": 4
@@ -3055,11 +2983,10 @@
       "distance_km": 156.0,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 3.0,
+        "mean": 8.0,
         "stages": 4,
         "time_unit": "day",
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "is_default": true
       },
       "order_terms": {
         "sell_price": 0.0,
@@ -3068,15 +2995,13 @@
         "is_default": false
       },
       "transport_cost": {
-        "value": 0.2016,
+        "value": 0.0,
         "per": "unit",
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "is_default": true
       },
       "delay_step_limit": {
-        "value": 21,
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "value": 999,
+        "is_default": true
       },
       "attrs": {
         "source_row": 5
@@ -3094,11 +3019,10 @@
       "distance_km": 234.4,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 3.0,
+        "mean": 8.0,
         "stages": 4,
         "time_unit": "day",
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "is_default": true
       },
       "order_terms": {
         "sell_price": 426.44,
@@ -3107,15 +3031,13 @@
         "is_default": false
       },
       "transport_cost": {
-        "value": 0.2878,
+        "value": 0.0,
         "per": "unit",
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "is_default": true
       },
       "delay_step_limit": {
-        "value": 21,
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "value": 999,
+        "is_default": true
       },
       "attrs": {
         "source_row": 6
@@ -3133,11 +3055,10 @@
       "distance_km": 426.2,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 3.0,
+        "mean": 8.0,
         "stages": 4,
         "time_unit": "day",
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "is_default": true
       },
       "order_terms": {
         "sell_price": 0.0,
@@ -3146,15 +3067,13 @@
         "is_default": false
       },
       "transport_cost": {
-        "value": 0.4988,
+        "value": 0.0,
         "per": "unit",
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "is_default": true
       },
       "delay_step_limit": {
-        "value": 21,
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "value": 999,
+        "is_default": true
       },
       "attrs": {
         "source_row": 7
@@ -3172,11 +3091,10 @@
       "distance_km": 570.0,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 3.0,
+        "mean": 8.0,
         "stages": 4,
         "time_unit": "day",
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "is_default": true
       },
       "order_terms": {
         "sell_price": 5.43,
@@ -3185,15 +3103,13 @@
         "is_default": false
       },
       "transport_cost": {
-        "value": 0.657,
+        "value": 0.0,
         "per": "unit",
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "is_default": true
       },
       "delay_step_limit": {
-        "value": 21,
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "value": 999,
+        "is_default": true
       },
       "attrs": {
         "source_row": 8
@@ -3211,11 +3127,10 @@
       "distance_km": 113.4,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 3.0,
+        "mean": 8.0,
         "stages": 4,
         "time_unit": "day",
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "is_default": true
       },
       "order_terms": {
         "sell_price": 4.2,
@@ -3224,15 +3139,13 @@
         "is_default": false
       },
       "transport_cost": {
-        "value": 0.1547,
+        "value": 0.0,
         "per": "unit",
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "is_default": true
       },
       "delay_step_limit": {
-        "value": 21,
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "value": 999,
+        "is_default": true
       },
       "attrs": {
         "source_row": 9
@@ -3250,11 +3163,10 @@
       "distance_km": 570.0,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 3.0,
+        "mean": 8.0,
         "stages": 4,
         "time_unit": "day",
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "is_default": true
       },
       "order_terms": {
         "sell_price": 1.58,
@@ -3263,15 +3175,13 @@
         "is_default": false
       },
       "transport_cost": {
-        "value": 0.657,
+        "value": 0.0,
         "per": "unit",
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "is_default": true
       },
       "delay_step_limit": {
-        "value": 21,
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "value": 999,
+        "is_default": true
       },
       "attrs": {
         "source_row": 10
@@ -3289,11 +3199,10 @@
       "distance_km": 1199.9,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 3.85,
+        "mean": 8.0,
         "stages": 4,
         "time_unit": "day",
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "is_default": true
       },
       "order_terms": {
         "sell_price": 4.4,
@@ -3302,15 +3211,13 @@
         "is_default": false
       },
       "transport_cost": {
-        "value": 1.3499,
+        "value": 0.0,
         "per": "unit",
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "is_default": true
       },
       "delay_step_limit": {
-        "value": 21,
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "value": 999,
+        "is_default": true
       },
       "attrs": {
         "source_row": 11
@@ -3328,11 +3235,10 @@
       "distance_km": 261.3,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 3.0,
+        "mean": 8.0,
         "stages": 4,
         "time_unit": "day",
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "is_default": true
       },
       "order_terms": {
         "sell_price": 4.64,
@@ -3341,15 +3247,13 @@
         "is_default": false
       },
       "transport_cost": {
-        "value": 0.3174,
+        "value": 0.0,
         "per": "unit",
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "is_default": true
       },
       "delay_step_limit": {
-        "value": 21,
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "value": 999,
+        "is_default": true
       },
       "attrs": {
         "source_row": 12
@@ -3367,11 +3271,10 @@
       "distance_km": 629.7,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 3.0,
+        "mean": 8.0,
         "stages": 4,
         "time_unit": "day",
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "is_default": true
       },
       "order_terms": {
         "sell_price": 5105.0,
@@ -3380,15 +3283,13 @@
         "is_default": false
       },
       "transport_cost": {
-        "value": 0.7227,
+        "value": 0.0,
         "per": "unit",
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "is_default": true
       },
       "delay_step_limit": {
-        "value": 21,
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "value": 999,
+        "is_default": true
       },
       "attrs": {
         "source_row": 13
@@ -3406,11 +3307,10 @@
       "distance_km": 928.8,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 3.43,
+        "mean": 8.0,
         "stages": 4,
         "time_unit": "day",
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "is_default": true
       },
       "order_terms": {
         "sell_price": 1340.0,
@@ -3419,15 +3319,13 @@
         "is_default": false
       },
       "transport_cost": {
-        "value": 1.0517,
+        "value": 0.0,
         "per": "unit",
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "is_default": true
       },
       "delay_step_limit": {
-        "value": 21,
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "value": 999,
+        "is_default": true
       },
       "attrs": {
         "source_row": 14
@@ -3445,11 +3343,10 @@
       "distance_km": 261.3,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 3.0,
+        "mean": 8.0,
         "stages": 4,
         "time_unit": "day",
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "is_default": true
       },
       "order_terms": {
         "sell_price": 820.0,
@@ -3458,15 +3355,13 @@
         "is_default": false
       },
       "transport_cost": {
-        "value": 0.3174,
+        "value": 0.0,
         "per": "unit",
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "is_default": true
       },
       "delay_step_limit": {
-        "value": 21,
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "value": 999,
+        "is_default": true
       },
       "attrs": {
         "source_row": 15
@@ -3484,11 +3379,10 @@
       "distance_km": 503.5,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 3.0,
+        "mean": 8.0,
         "stages": 4,
         "time_unit": "day",
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "is_default": true
       },
       "order_terms": {
         "sell_price": 1295.0,
@@ -3497,15 +3391,13 @@
         "is_default": false
       },
       "transport_cost": {
-        "value": 0.5839,
+        "value": 0.0,
         "per": "unit",
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "is_default": true
       },
       "delay_step_limit": {
-        "value": 21,
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "value": 999,
+        "is_default": true
       },
       "attrs": {
         "source_row": 16
@@ -3523,11 +3415,10 @@
       "distance_km": 629.7,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 3.0,
+        "mean": 8.0,
         "stages": 4,
         "time_unit": "day",
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "is_default": true
       },
       "order_terms": {
         "sell_price": 1225.0,
@@ -3536,15 +3427,13 @@
         "is_default": false
       },
       "transport_cost": {
-        "value": 0.7227,
+        "value": 0.0,
         "per": "unit",
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "is_default": true
       },
       "delay_step_limit": {
-        "value": 21,
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "value": 999,
+        "is_default": true
       },
       "attrs": {
         "source_row": 17
@@ -3562,11 +3451,10 @@
       "distance_km": 1668.7,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 4.57,
+        "mean": 8.0,
         "stages": 4,
         "time_unit": "day",
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "is_default": true
       },
       "order_terms": {
         "sell_price": 27.62,
@@ -3575,15 +3463,13 @@
         "is_default": false
       },
       "transport_cost": {
-        "value": 1.8656,
+        "value": 0.0,
         "per": "unit",
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "is_default": true
       },
       "delay_step_limit": {
-        "value": 21,
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "value": 999,
+        "is_default": true
       },
       "attrs": {
         "source_row": 18
@@ -3601,11 +3487,10 @@
       "distance_km": 113.4,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 3.0,
+        "mean": 8.0,
         "stages": 4,
         "time_unit": "day",
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "is_default": true
       },
       "order_terms": {
         "sell_price": 2.07,
@@ -3614,15 +3499,13 @@
         "is_default": false
       },
       "transport_cost": {
-        "value": 0.1547,
+        "value": 0.0,
         "per": "unit",
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "is_default": true
       },
       "delay_step_limit": {
-        "value": 21,
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "value": 999,
+        "is_default": true
       },
       "attrs": {
         "source_row": 19
@@ -3640,11 +3523,10 @@
       "distance_km": 568.5,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 3.0,
+        "mean": 8.0,
         "stages": 4,
         "time_unit": "day",
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "is_default": true
       },
       "order_terms": {
         "sell_price": 12.21,
@@ -3653,15 +3535,13 @@
         "is_default": false
       },
       "transport_cost": {
-        "value": 0.6554,
+        "value": 0.0,
         "per": "unit",
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "is_default": true
       },
       "delay_step_limit": {
-        "value": 21,
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "value": 999,
+        "is_default": true
       },
       "attrs": {
         "source_row": 20
@@ -3679,11 +3559,10 @@
       "distance_km": 592.1,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 3.0,
+        "mean": 8.0,
         "stages": 4,
         "time_unit": "day",
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "is_default": true
       },
       "order_terms": {
         "sell_price": 14.65,
@@ -3692,15 +3571,13 @@
         "is_default": false
       },
       "transport_cost": {
-        "value": 0.6813,
+        "value": 0.0,
         "per": "unit",
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "is_default": true
       },
       "delay_step_limit": {
-        "value": 21,
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "value": 999,
+        "is_default": true
       },
       "attrs": {
         "source_row": 21
@@ -3718,11 +3595,10 @@
       "distance_km": 203.9,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 3.0,
+        "mean": 8.0,
         "stages": 4,
         "time_unit": "day",
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "is_default": true
       },
       "order_terms": {
         "sell_price": 20.35,
@@ -3731,15 +3607,13 @@
         "is_default": false
       },
       "transport_cost": {
-        "value": 0.2543,
+        "value": 0.0,
         "per": "unit",
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "is_default": true
       },
       "delay_step_limit": {
-        "value": 21,
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "value": 999,
+        "is_default": true
       },
       "attrs": {
         "source_row": 22
@@ -3757,11 +3631,10 @@
       "distance_km": 568.5,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 3.0,
+        "mean": 8.0,
         "stages": 4,
         "time_unit": "day",
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "is_default": true
       },
       "order_terms": {
         "sell_price": 49.2,
@@ -3770,15 +3643,13 @@
         "is_default": false
       },
       "transport_cost": {
-        "value": 0.6554,
+        "value": 0.0,
         "per": "unit",
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "is_default": true
       },
       "delay_step_limit": {
-        "value": 21,
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "value": 999,
+        "is_default": true
       },
       "attrs": {
         "source_row": 23
@@ -3796,11 +3667,10 @@
       "distance_km": 756.6,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 3.16,
+        "mean": 8.0,
         "stages": 4,
         "time_unit": "day",
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "is_default": true
       },
       "order_terms": {
         "sell_price": 9.17,
@@ -3809,15 +3679,13 @@
         "is_default": false
       },
       "transport_cost": {
-        "value": 0.8623,
+        "value": 0.0,
         "per": "unit",
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "is_default": true
       },
       "delay_step_limit": {
-        "value": 21,
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "value": 999,
+        "is_default": true
       },
       "attrs": {
         "source_row": 24
@@ -3835,11 +3703,10 @@
       "distance_km": 608.8,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 3.0,
+        "mean": 8.0,
         "stages": 4,
         "time_unit": "day",
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "is_default": true
       },
       "order_terms": {
         "sell_price": 141.31,
@@ -3848,15 +3715,13 @@
         "is_default": false
       },
       "transport_cost": {
-        "value": 0.6997,
+        "value": 0.0,
         "per": "unit",
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "is_default": true
       },
       "delay_step_limit": {
-        "value": 21,
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "value": 999,
+        "is_default": true
       },
       "attrs": {
         "source_row": 25
@@ -3874,11 +3739,10 @@
       "distance_km": 301.3,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 3.0,
+        "mean": 8.0,
         "stages": 4,
         "time_unit": "day",
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "is_default": true
       },
       "order_terms": {
         "sell_price": 215.85,
@@ -3887,15 +3751,13 @@
         "is_default": false
       },
       "transport_cost": {
-        "value": 0.3614,
+        "value": 0.0,
         "per": "unit",
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "is_default": true
       },
       "delay_step_limit": {
-        "value": 21,
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "value": 999,
+        "is_default": true
       },
       "attrs": {
         "source_row": 26
@@ -3913,11 +3775,10 @@
       "distance_km": 304.4,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 3.0,
+        "mean": 8.0,
         "stages": 4,
         "time_unit": "day",
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "is_default": true
       },
       "order_terms": {
         "sell_price": 503.93,
@@ -3926,15 +3787,13 @@
         "is_default": false
       },
       "transport_cost": {
-        "value": 0.3648,
+        "value": 0.0,
         "per": "unit",
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "is_default": true
       },
       "delay_step_limit": {
-        "value": 21,
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "value": 999,
+        "is_default": true
       },
       "attrs": {
         "source_row": 27
@@ -3952,11 +3811,10 @@
       "distance_km": 97.8,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 3.0,
+        "mean": 8.0,
         "stages": 4,
         "time_unit": "day",
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "is_default": true
       },
       "order_terms": {
         "sell_price": 0.0,
@@ -3965,15 +3823,13 @@
         "is_default": false
       },
       "transport_cost": {
-        "value": 0.1376,
+        "value": 0.0,
         "per": "unit",
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "is_default": true
       },
       "delay_step_limit": {
-        "value": 21,
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "value": 999,
+        "is_default": true
       },
       "attrs": {
         "source_row": 28
@@ -3983,7 +3839,7 @@
       "id": "edge:M-1430_TO_DC-1910_268967",
       "type": "transport",
       "from": "M-1430",
-      "to": "DC-1910",
+      "to": "DC-1920",
       "items": [
         "item:268967"
       ],
@@ -3991,28 +3847,26 @@
       "distance_km": 481.2,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 2.5,
+        "mean": 5.0,
         "stages": 4,
         "time_unit": "day",
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "is_default": true
       },
       "order_terms": {
         "sell_price": null,
-        "price_base": null,
+        "price_base": 1.0,
         "quantity_unit": "UN",
-        "is_default": true
+        "is_default": true,
+        "source": "data_poc_relations_acteurs"
       },
       "transport_cost": {
-        "value": 0.5593,
+        "value": 0.0,
         "per": "unit",
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "is_default": true
       },
       "delay_step_limit": {
-        "value": 21,
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "value": 999,
+        "is_default": true
       },
       "attrs": {
         "source_row": 29
@@ -4022,7 +3876,7 @@
       "id": "edge:M-1810_TO_DC-1910_268091",
       "type": "transport",
       "from": "M-1810",
-      "to": "DC-1910",
+      "to": "DC-1920",
       "items": [
         "item:268091"
       ],
@@ -4030,28 +3884,26 @@
       "distance_km": 144.5,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 2.5,
+        "mean": 5.0,
         "stages": 4,
         "time_unit": "day",
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "is_default": true
       },
       "order_terms": {
         "sell_price": null,
-        "price_base": null,
+        "price_base": 1.0,
         "quantity_unit": "UN",
-        "is_default": true
+        "is_default": true,
+        "source": "data_poc_relations_acteurs"
       },
       "transport_cost": {
-        "value": 0.189,
+        "value": 0.0,
         "per": "unit",
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "is_default": true
       },
       "delay_step_limit": {
-        "value": 21,
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "value": 999,
+        "is_default": true
       },
       "attrs": {
         "source_row": 30
@@ -4060,7 +3912,7 @@
     {
       "id": "edge:DC-1910_TO_C-XXXXX_268967",
       "type": "transport",
-      "from": "DC-1910",
+      "from": "DC-1920",
       "to": "C-XXXXX",
       "items": [
         "item:268967"
@@ -4069,28 +3921,26 @@
       "distance_km": 605.2,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 2.0,
+        "mean": 3.0,
         "stages": 4,
         "time_unit": "day",
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "is_default": true
       },
       "order_terms": {
         "sell_price": null,
-        "price_base": null,
+        "price_base": 1.0,
         "quantity_unit": "UN",
-        "is_default": true
+        "is_default": true,
+        "source": "data_poc_relations_acteurs"
       },
       "transport_cost": {
-        "value": 0.6957,
+        "value": 0.0,
         "per": "unit",
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "is_default": true
       },
       "delay_step_limit": {
-        "value": 21,
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "value": 999,
+        "is_default": true
       },
       "attrs": {
         "source_row": 31
@@ -4099,7 +3949,7 @@
     {
       "id": "edge:DC-1910_TO_C-XXXXX_268091",
       "type": "transport",
-      "from": "DC-1910",
+      "from": "DC-1920",
       "to": "C-XXXXX",
       "items": [
         "item:268091"
@@ -4108,39 +3958,81 @@
       "distance_km": 605.2,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 2.0,
+        "mean": 3.0,
         "stages": 4,
         "time_unit": "day",
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "is_default": true
       },
       "order_terms": {
         "sell_price": null,
-        "price_base": null,
+        "price_base": 1.0,
         "quantity_unit": "UN",
-        "is_default": true
+        "is_default": true,
+        "source": "data_poc_relations_acteurs"
       },
       "transport_cost": {
-        "value": 0.6957,
+        "value": 0.0,
         "per": "unit",
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "is_default": true
       },
       "delay_step_limit": {
-        "value": 21,
-        "is_default": false,
-        "source": "simulation_prep_assumption"
+        "value": 999,
+        "is_default": true
       },
       "attrs": {
         "source_row": 32
       }
+    },
+    {
+      "id": "edge:SDC-1450_TO_M-1810_693710_Q",
+      "type": "transport",
+      "from": "SDC-1450",
+      "to": "M-1810",
+      "items": [
+        "item:693710"
+      ],
+      "order_terms": {
+        "sell_price": null,
+        "price_base": 1.0,
+        "quantity_unit": "G",
+        "supply_order_frequency": {
+          "value": 1,
+          "time_unit": "day",
+          "is_default": true
+        },
+        "customer_priority_rank": null,
+        "supplier_priority_rank": null
+      },
+      "lead_time": {
+        "type": "erlang_pipeline",
+        "mean": 1.0,
+        "stages": 4,
+        "time_unit": "day",
+        "is_default": false,
+        "source": "simulation_prep_gaillac_question_mark_assumption"
+      },
+      "distance_km": 0.0,
+      "transport_cost": {
+        "value": 0.05,
+        "per": "unit",
+        "is_default": false,
+        "source": "simulation_prep_gaillac_question_mark_assumption"
+      },
+      "delay_step_limit": {
+        "value": 21,
+        "is_default": false,
+        "source": "simulation_prep_gaillac_question_mark_assumption"
+      },
+      "is_assumed": true,
+      "assumption_label": "GAILLAC?",
+      "source": "simulation_prep_gaillac_question_mark_assumption"
     }
   ],
   "scenarios": [
     {
       "id": "scn:BASE",
       "horizon": {
-        "steps_to_run": 11,
+        "steps_to_run": 30,
         "time_unit": "Day"
       },
       "demand": [
@@ -4150,7 +4042,7 @@
           "profile": [
             {
               "type": "constant",
-              "value": 120.0,
+              "value": 25.0,
               "uom": "unit/day",
               "is_default": false,
               "source": "simulation_prep_assumption"
@@ -4163,7 +4055,7 @@
           "profile": [
             {
               "type": "constant",
-              "value": 120.0,
+              "value": 25.0,
               "uom": "unit/day",
               "is_default": false,
               "source": "simulation_prep_assumption"

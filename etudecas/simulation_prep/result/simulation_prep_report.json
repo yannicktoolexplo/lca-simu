@@ -1,19 +1,32 @@
 {
-  "generated_at_utc": "2026-03-03T17:00:18.266828+00:00",
+  "generated_at_utc": "2026-03-04T10:02:28.059938+00:00",
   "changes": {
+    "assumed_gaillac_destination_inventory_state_added": 1,
+    "assumed_gaillac_supplier_edge_added": 1,
+    "assumed_gaillac_supplier_inventory_state_added": 1,
+    "assumed_gaillac_supplier_node_tagged": 1,
+    "customer_location_recovered_from_acteurs": 1,
     "demand_profile_updated": 2,
     "demand_rows_added": 1,
-    "edge_delay_limit_updated": 33,
     "edge_distance_filled": 33,
-    "edge_lead_time_updated": 33,
-    "edge_transport_cost_updated": 33,
-    "inventory_holding_cost_updated": 57,
-    "inventory_initial_updated": 57,
+    "edge_endpoint_reconciled_dc1910_to_dc1920": 4,
+    "edge_order_terms_pricing_aligned_from_data_poc": 4,
+    "inventory_holding_cost_updated": 55,
+    "inventory_initial_updated": 55,
     "inventory_uom_harmonized": 37,
-    "node_policy_added": 29,
+    "node_alias_merged_dc1910_into_dc1920": 1,
+    "node_policy_added": 28,
     "process_capacity_updated": 2,
-    "process_cost_updated": 2
+    "process_cost_updated": 2,
+    "scenario_horizon_updated": 1
   },
+  "invented_entities": [
+    {
+      "entity_type": "edge",
+      "id": "edge:SDC-1450_TO_M-1810_693710_Q",
+      "label": "SUPPLY_LINK_GAILLAC?_MISSING_INPUT_693710"
+    }
+  ],
   "item_unit_map_sample": {
     "item:001757": "KG",
     "item:001848": "KG",
@@ -37,7 +50,7 @@
     "item:693055": "G"
   },
   "changed_entities": {
-    "edge_count": 33,
+    "edge_count": 34,
     "node_count": 29,
     "demand_rows_count": 3,
     "demand_rows": [
@@ -65,21 +78,42 @@
     "missing_geo_nodes_count": 0,
     "missing_geo_nodes": [],
     "edges_missing_distance_count": 0,
-    "edges_zero_transport_cost_count": 0,
+    "edges_zero_transport_cost_count": 33,
+    "edges_factory_input_missing_sell_price_count": 1,
+    "edges_factory_input_missing_sell_price": [
+      "edge:SDC-1450_TO_M-1810_693710_Q"
+    ],
     "zero_demand_rows_count": 0,
     "zero_demand_rows": []
   },
+  "data_poc_price_integration": {
+    "enabled": true,
+    "xlsx_path": "etudecas/donnees/Data_poc.xlsx",
+    "sheet_found": true,
+    "rows_read": 33,
+    "rows_mapped": 33
+  },
   "assumptions": {
     "inventory_base_stock_by_node_type": {
-      "supplier_dc": 1500.0,
-      "factory": 800.0,
-      "distribution_center": 1200.0,
+      "supplier_dc": 180.0,
+      "factory": 0.0,
+      "distribution_center": 120.0,
       "customer": 0.0
     },
     "delay_step_limit_assumed": 21,
-    "holding_cost_per_unit_day_assumed": 0.04,
+    "holding_cost_per_unit_day_assumed": {
+      "default": 0.04,
+      "G": 4e-05
+    },
     "process_cost_per_unit_assumed": 0.35,
-    "demand_constant_assumed_customer": 120.0,
-    "demand_constant_assumed_other": 80.0
+    "demand_default_customer_rule": "max(10, 1.0 * total_production_capacity_of_item)",
+    "demand_constant_assumed_customer_fallback": 25.0,
+    "demand_constant_assumed_other": 40.0,
+    "service_warm_start_customer_buffer_days": 0.0,
+    "service_warm_start_upstream_dc_buffer_days": 0.0,
+    "dc_alias_reconciliation": "DC-1910 merged into DC-1920",
+    "customer_location_recovery": "C-XXXXX location_ID set to Paris",
+    "assumed_supplier_label_for_item_693710": "GAILLAC?",
+    "simulation_horizon_days_default": 30
   }
 }

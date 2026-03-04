@@ -178,7 +178,9 @@ def build_factory_hover_series(
                     continue
                 item_id = str(row.get("item_id") or "")
                 day = int(to_float(row.get("day")) or 0)
-                val = float(to_float(row.get("stock_before_production")) or 0.0)
+                val = to_float(row.get("stock_end_of_day"))
+                if val is None:
+                    val = to_float(row.get("stock_before_production")) or 0.0
                 incoming_raw[node_id][item_id].append((day, val))
 
     outgoing_raw: dict[str, dict[str, list[tuple[int, float, float]]]] = defaultdict(lambda: defaultdict(list))

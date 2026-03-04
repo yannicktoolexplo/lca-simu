@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import re
 from collections import Counter, defaultdict
 from copy import deepcopy
 from datetime import datetime, timezone
@@ -42,6 +43,29 @@ def parse_args() -> argparse.Namespace:
         default="etudecas/simulation_prep/result/simulation_prep_report.md",
         help="Output prep report Markdown.",
     )
+    parser.add_argument(
+        "--data-poc-xlsx",
+        default="etudecas/donnees/Data_poc.xlsx",
+        help="Optional Data_poc.xlsx path used to align material prices from Relations_acteurs.",
+    )
+    parser.add_argument(
+        "--customer-warm-start-days",
+        type=float,
+        default=0.0,
+        help="Optional customer warm-start stock buffer in demand-days (default: 0).",
+    )
+    parser.add_argument(
+        "--upstream-dc-warm-start-days",
+        type=float,
+        default=0.0,
+        help="Optional upstream DC warm-start stock buffer in demand-days (default: 0).",
+    )
+    parser.add_argument(
+        "--simulation-days",
+        type=int,
+        default=30,
+        help="Target simulation horizon in days injected into scenario.horizon.steps_to_run (default: 30).",
+    )
     return parser.parse_args()
 
 
@@ -60,6 +84,15 @@ def normalize_unit(unit: Any) -> str:
         "UNITS": "UN",
     }
     return aliases.get(s, s)
+
+
+def default_holding_cost_for_unit(unit: Any) -> float:
+    u = normalize_unit(unit)
+    # Keep a consistent carrying-cost basis across mass units.
+    # 0.04 per KG/day => 0.00004 per G/day.
+    if u == "G":
+        return 0.00004
+    return 0.04
 
 
 def infer_item_unit_map(nodes: list[dict[str, Any]], edges: list[dict[str, Any]]) -> dict[str, str]:
@@ -129,6 +162,169 @@ def estimate_transport_cost_per_unit(distance_km: float) -> float:
     return round(max(0.05, 0.03 + 0.0011 * distance_km), 4)
 
 
+def canonical_item_id(value: Any) -> str:
+    s = str(value or "").strip()
+    if not s:
+        return ""
+    if s.lower().startswith("item:"):
+        raw = s.split(":", 1)[1].strip()
+        if raw.isdigit():
+            return f"item:{raw.zfill(6)}"
+        return f"item:{raw}"
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        ival = int(float(value))
+        return f"item:{ival:06d}"
+    s_clean = s.replace(" ", "")
+    if re.fullmatch(r"[0-9]+(?:\\.0+)?", s_clean):
+        ival = int(float(s_clean))
+        return f"item:{ival:06d}"
+    return f"item:{s_clean}"
+
+
+def canonical_actor_id(value: Any) -> str:
+    s = str(value or "").strip()
+    if not s:
+        return ""
+    m = re.match(r"^([A-Za-z]+)\s*-\s*(.+)$", s)
+    if not m:
+        return s.replace(" ", "")
+    prefix = m.group(1).upper()
+    code = m.group(2).strip().upper().replace(" ", "")
+
+    if prefix == "M":
+        if code.startswith("D") and code[1:].isdigit():
+            code = code[1:]
+        return f"M-{code}"
+    if prefix == "DC":
+        if code.startswith("D") and code[1:].isdigit():
+            code = code[1:]
+        if code == "1910":
+            code = "1920"
+        return f"DC-{code}"
+    if prefix == "SDC":
+        if code.startswith("D") and code[1:].isdigit():
+            code = code[1:]
+        return f"SDC-{code}"
+    if prefix == "C":
+        return f"C-{code}"
+    return s.replace(" ", "")
+
+
+def profile_day0_value(profile: list[dict[str, Any]]) -> float:
+    if not profile:
+        return 0.0
+    step_candidates: list[tuple[int, float]] = []
+    for p in profile:
+        if not isinstance(p, dict):
+            continue
+        ptype = str(p.get("type", "constant")).lower()
+        if ptype == "constant":
+            return max(0.0, to_float(p.get("value")) or 0.0)
+        if ptype == "step":
+            start = int(to_float(p.get("start_day")) or 0)
+            val = max(0.0, to_float(p.get("value")) or 0.0)
+            if start <= 0:
+                step_candidates.append((start, val))
+        if ptype == "piecewise":
+            for pt in (p.get("points") or []):
+                if not isinstance(pt, dict):
+                    continue
+                t = int(to_float(pt.get("t")) or 0)
+                v = max(0.0, to_float(pt.get("value")) or 0.0)
+                if t <= 0:
+                    step_candidates.append((t, v))
+    if step_candidates:
+        step_candidates.sort(key=lambda x: x[0])
+        return step_candidates[-1][1]
+    return 0.0
+
+
+def weekly_fluctuating_profile(base: float, horizon_days: int) -> list[dict[str, Any]]:
+    """
+    Deterministic weekly pattern centered on the same mean as `base`.
+    """
+    factors = [0.8, 0.95, 1.05, 1.2, 1.1, 1.0, 0.9]  # mean = 1.0
+    days = max(1, int(horizon_days))
+    points = [{"t": d, "value": round(max(0.0, base * factors[d % 7]), 6)} for d in range(days)]
+    return [
+        {
+            "type": "piecewise",
+            "points": points,
+            "uom": "unit/day",
+            "is_default": False,
+            "source": "simulation_prep_assumption_weekly_fluctuation",
+        }
+    ]
+
+
+def load_prices_from_data_poc(xlsx_path: Path) -> tuple[dict[tuple[str, str, str], dict[str, Any]], dict[str, Any]]:
+    price_map: dict[tuple[str, str, str], dict[str, Any]] = {}
+    stats: dict[str, Any] = {
+        "enabled": False,
+        "xlsx_path": str(xlsx_path),
+        "sheet_found": False,
+        "rows_read": 0,
+        "rows_mapped": 0,
+    }
+    if not xlsx_path.exists():
+        stats["error"] = "xlsx_not_found"
+        return price_map, stats
+
+    try:
+        import openpyxl  # type: ignore
+    except Exception:
+        stats["error"] = "openpyxl_not_available"
+        return price_map, stats
+
+    wb = openpyxl.load_workbook(xlsx_path, data_only=True, read_only=True)
+    if "Relations_acteurs" not in wb.sheetnames:
+        stats["error"] = "relations_acteurs_sheet_missing"
+        return price_map, stats
+
+    stats["enabled"] = True
+    stats["sheet_found"] = True
+    ws = wb["Relations_acteurs"]
+    rows = list(ws.iter_rows(values_only=True))
+    if not rows:
+        return price_map, stats
+    headers = [str(h or "").strip() for h in rows[0]]
+    idx = {h: i for i, h in enumerate(headers)}
+    required = {"customer", "supplier", "product", "sell_price", "price_base", "quantity_unit"}
+    if not required.issubset(set(idx.keys())):
+        stats["error"] = "missing_required_columns"
+        stats["columns"] = headers
+        return price_map, stats
+
+    for r in rows[1:]:
+        stats["rows_read"] += 1
+        customer = canonical_actor_id(r[idx["customer"]])
+        supplier = canonical_actor_id(r[idx["supplier"]])
+        item_id = canonical_item_id(r[idx["product"]])
+        if not customer or not supplier or not item_id:
+            continue
+        sell_price = to_float(r[idx["sell_price"]])
+        price_base = to_float(r[idx["price_base"]])
+        unit = normalize_unit(r[idx["quantity_unit"]])
+        key = (supplier, customer, item_id)
+        rec = {
+            "sell_price": sell_price,
+            "price_base": price_base if price_base and price_base > 0 else 1.0,
+            "quantity_unit": unit,
+            "source": "data_poc_relations_acteurs",
+        }
+        # Keep latest non-null pricing if duplicates appear.
+        existing = price_map.get(key)
+        if existing is None:
+            price_map[key] = rec
+        else:
+            ex_sp = to_float(existing.get("sell_price"))
+            if ex_sp is None and sell_price is not None:
+                price_map[key] = rec
+
+    stats["rows_mapped"] = len(price_map)
+    return price_map, stats
+
+
 def ensure_sim_meta(graph: dict[str, Any]) -> None:
     meta = graph.setdefault("meta", {})
     prep = {
@@ -143,7 +339,13 @@ def ensure_sim_meta(graph: dict[str, Any]) -> None:
     meta["simulation_prep"] = prep
 
 
-def prepare_graph(graph: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+def prepare_graph(
+    graph: dict[str, Any],
+    data_poc_xlsx: Path | None = None,
+    customer_warm_start_days: float = 0.0,
+    upstream_dc_warm_start_days: float = 0.0,
+    simulation_days: int = 30,
+) -> tuple[dict[str, Any], dict[str, Any]]:
     g = deepcopy(graph)
     ensure_sim_meta(g)
 
@@ -151,12 +353,251 @@ def prepare_graph(graph: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]
     edges = g.get("edges", []) or []
     scenarios = g.get("scenarios", []) or []
     node_by_id, coords = build_node_maps(nodes)
-    item_unit_map = infer_item_unit_map(nodes, edges)
 
-    in_degree: dict[str, int] = defaultdict(int)
-    for e in edges:
-        dst = str(e.get("to"))
-        in_degree[dst] += 1
+    change_counts = defaultdict(int)
+    changed_edge_ids: list[str] = []
+    changed_node_ids: list[str] = []
+    changed_demand_rows: list[dict[str, str]] = []
+    invented_entities: list[dict[str, str]] = []
+
+    # Reconcile known alias mismatch: DC-1910 (relations) == DC-1920 (actors).
+    if "DC-1910" in node_by_id and "DC-1920" in node_by_id:
+        for e in edges:
+            edge_changed = False
+            if str(e.get("from")) == "DC-1910":
+                e["from"] = "DC-1920"
+                edge_changed = True
+            if str(e.get("to")) == "DC-1910":
+                e["to"] = "DC-1920"
+                edge_changed = True
+            if edge_changed:
+                change_counts["edge_endpoint_reconciled_dc1910_to_dc1920"] += 1
+                changed_edge_ids.append(str(e.get("id")))
+
+        nodes[:] = [n for n in nodes if str(n.get("id")) != "DC-1910"]
+        change_counts["node_alias_merged_dc1910_into_dc1920"] += 1
+        changed_node_ids.extend(["DC-1910", "DC-1920"])
+        node_by_id, coords = build_node_maps(nodes)
+
+    # Recover customer location from Acteurs context.
+    customer = node_by_id.get("C-XXXXX")
+    if isinstance(customer, dict) and not str(customer.get("location_ID") or "").strip():
+        customer["location_ID"] = "Paris"
+        geo = customer.get("geo")
+        if not isinstance(geo, dict):
+            geo = {}
+            customer["geo"] = geo
+        if not str(geo.get("country") or "").strip():
+            geo["country"] = "France"
+        raw_geo = geo.get("raw")
+        if not isinstance(raw_geo, dict):
+            raw_geo = {}
+            geo["raw"] = raw_geo
+        raw_geo["location_ID"] = "Paris"
+        raw_geo["source"] = "simulation_prep_acteurs_recovery"
+        change_counts["customer_location_recovered_from_acteurs"] += 1
+        changed_node_ids.append("C-XXXXX")
+        node_by_id, coords = build_node_maps(nodes)
+
+    item_unit_map = infer_item_unit_map(nodes, edges)
+    price_map: dict[tuple[str, str, str], dict[str, Any]] = {}
+    price_import_stats: dict[str, Any] = {"enabled": False}
+    if data_poc_xlsx is not None:
+        price_map, price_import_stats = load_prices_from_data_poc(data_poc_xlsx)
+
+    # Assumed supplier mapping for missing modeled input item:693710 -> M-1810.
+    invented_item_id = "item:693710"
+    invented_dst_node = "M-1810"
+    has_process_input = False
+    if invented_dst_node in node_by_id:
+        for p in (node_by_id[invented_dst_node].get("processes") or []):
+            for inp in (p.get("inputs") or []):
+                if str(inp.get("item_id")) == invented_item_id:
+                    has_process_input = True
+                    break
+            if has_process_input:
+                break
+
+    has_existing_lane = any(
+        str(e.get("to")) == invented_dst_node and invented_item_id in (e.get("items") or [])
+        for e in edges
+    )
+    invented_source_tag = "simulation_prep_gaillac_question_mark_assumption"
+    assumption_label = "GAILLAC?"
+    supplier_candidates = ["SDC-1450", "DC-1450"]
+    invented_supplier_id = next((sid for sid in supplier_candidates if sid in node_by_id), supplier_candidates[0])
+    invented_edge_id = f"edge:{invented_supplier_id}_TO_M-1810_693710_Q"
+
+    if has_process_input and not has_existing_lane and invented_dst_node in node_by_id:
+        dst_node = node_by_id[invented_dst_node]
+        dst_geo = (dst_node.get("geo") or {}) if isinstance(dst_node.get("geo"), dict) else {}
+        unit = item_unit_map.get(invented_item_id, "G")
+        initial_qty = 3000.0
+
+        inv_node = node_by_id.get(invented_supplier_id)
+        if not isinstance(inv_node, dict):
+            inv_node = {
+                "id": invented_supplier_id,
+                "type": "supplier_dc",
+                "name": "Supplier of Raw Materials - D1450 ?",
+                "location_ID": "France - GAILLAC - 81600",
+                "geo": {
+                    "lat": to_float(dst_geo.get("lat")),
+                    "lon": to_float(dst_geo.get("lon")),
+                    "country": dst_geo.get("country") or "France",
+                    "raw": {
+                        "method": "simulation_prep_assumed_supplier",
+                        "note": "Assumed Gaillac supplier mapping (uncertain) for item:693710",
+                    },
+                },
+                "inventory": {
+                    "states": [],
+                    "backlogs": [],
+                    "wip": [],
+                },
+                "processes": [],
+                "policies": {},
+                "assumptions": {
+                    "is_assumed": True,
+                    "label": assumption_label,
+                    "source": invented_source_tag,
+                },
+            }
+            nodes.append(inv_node)
+            change_counts["assumed_gaillac_supplier_node_added"] += 1
+            changed_node_ids.append(invented_supplier_id)
+            invented_entities.append(
+                {
+                    "entity_type": "node",
+                    "id": invented_supplier_id,
+                    "label": assumption_label,
+                }
+            )
+            node_by_id, coords = build_node_maps(nodes)
+
+        assumptions = inv_node.get("assumptions")
+        if not isinstance(assumptions, dict):
+            assumptions = {}
+            inv_node["assumptions"] = assumptions
+        assumptions["is_assumed"] = True
+        assumptions["label"] = assumption_label
+        assumptions["source"] = invented_source_tag
+        assumptions["item_693710_supplier_mapping"] = {
+            "is_assumed": True,
+            "label": assumption_label,
+            "source": invented_source_tag,
+        }
+        change_counts["assumed_gaillac_supplier_node_tagged"] += 1
+
+        inv_states = ((inv_node.get("inventory") or {}).get("states") or [])
+        has_inv_state = any(str(s.get("item_id")) == invented_item_id for s in inv_states)
+        if not has_inv_state:
+            inv_states.append(
+                {
+                    "item_id": invented_item_id,
+                    "state_id": "I_693710_Q",
+                    "initial": initial_qty,
+                    "uom": unit,
+                    "holding_cost": {
+                        "value": default_holding_cost_for_unit(unit),
+                        "per": "unit*day",
+                        "is_default": False,
+                        "source": invented_source_tag,
+                    },
+                    "is_default_initial": False,
+                    "initial_source": invented_source_tag,
+                    "uom_source": invented_source_tag,
+                    "assumption_label": assumption_label,
+                }
+            )
+            inv_node.setdefault("inventory", {})["states"] = inv_states
+            change_counts["assumed_gaillac_supplier_inventory_state_added"] += 1
+            changed_node_ids.append(invented_supplier_id)
+
+        if not any(str(e.get("id")) == invented_edge_id for e in edges):
+            edges.append(
+                {
+                    "id": invented_edge_id,
+                    "type": "transport",
+                    "from": invented_supplier_id,
+                    "to": invented_dst_node,
+                    "items": [invented_item_id],
+                    "order_terms": {
+                        "sell_price": None,
+                        "price_base": 1.0,
+                        "quantity_unit": unit,
+                        "supply_order_frequency": {"value": 1, "time_unit": "day", "is_default": True},
+                        "customer_priority_rank": None,
+                        "supplier_priority_rank": None,
+                    },
+                    "lead_time": {
+                        "type": "erlang_pipeline",
+                        "mean": 1.0,
+                        "stages": 4,
+                        "time_unit": "day",
+                        "is_default": False,
+                        "source": invented_source_tag,
+                    },
+                    "distance_km": 0.0,
+                    "transport_cost": {
+                        "value": 0.05,
+                        "per": "unit",
+                        "is_default": False,
+                        "source": invented_source_tag,
+                    },
+                    "delay_step_limit": {
+                        "value": 21,
+                        "is_default": False,
+                        "source": invented_source_tag,
+                    },
+                    "is_assumed": True,
+                    "assumption_label": assumption_label,
+                    "source": invented_source_tag,
+                }
+            )
+            change_counts["assumed_gaillac_supplier_edge_added"] += 1
+            changed_edge_ids.append(invented_edge_id)
+            invented_entities.append(
+                {
+                    "entity_type": "edge",
+                    "id": invented_edge_id,
+                    "label": f"SUPPLY_LINK_{assumption_label}_MISSING_INPUT_693710",
+                }
+            )
+            node_by_id, coords = build_node_maps(nodes)
+            item_unit_map = infer_item_unit_map(nodes, edges)
+
+        # Ensure destination factory tracks modeled inventory state for this input.
+        dst_inv = dst_node.get("inventory")
+        if not isinstance(dst_inv, dict):
+            dst_inv = {"states": [], "backlogs": [], "wip": []}
+            dst_node["inventory"] = dst_inv
+        dst_states = dst_inv.get("states")
+        if not isinstance(dst_states, list):
+            dst_states = []
+            dst_inv["states"] = dst_states
+        has_dst_state = any(str(s.get("item_id")) == invented_item_id for s in dst_states)
+        if not has_dst_state:
+            dst_states.append(
+                {
+                    "item_id": invented_item_id,
+                    "state_id": "I_693710_ASSUMED_Q",
+                    "initial": 700.0,
+                    "uom": unit,
+                    "holding_cost": {
+                        "value": default_holding_cost_for_unit(unit),
+                        "per": "unit*day",
+                        "is_default": False,
+                        "source": invented_source_tag,
+                    },
+                    "is_default_initial": False,
+                    "initial_source": invented_source_tag,
+                    "uom_source": invented_source_tag,
+                    "assumption_label": assumption_label,
+                }
+            )
+            change_counts["assumed_gaillac_destination_inventory_state_added"] += 1
+            changed_node_ids.append(invented_dst_node)
 
     customer_ids = {
         str(n.get("id"))
@@ -170,11 +611,6 @@ def prepare_graph(graph: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]
             continue
         for item_id in (e.get("items") or []):
             customer_item_pairs.add((dst, str(item_id)))
-
-    change_counts = defaultdict(int)
-    changed_edge_ids: list[str] = []
-    changed_node_ids: list[str] = []
-    changed_demand_rows: list[dict[str, str]] = []
 
     # Edge-level enrichment
     for e in edges:
@@ -196,6 +632,52 @@ def prepare_graph(graph: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]
             changed_edge_ids.append(eid)
 
         effective_dist = to_float(e.get("distance_km")) or computed_dist or 500.0
+
+        # Try to align pricing terms from Data_poc Relations_acteurs.
+        ot = e.get("order_terms") or {}
+        order_terms_changed = False
+        for item_id in (e.get("items") or []):
+            key = (src, dst, str(item_id))
+            rec = price_map.get(key)
+            if not rec:
+                continue
+            target_price = to_float(rec.get("sell_price"))
+            target_base = to_float(rec.get("price_base")) or 1.0
+            target_unit = normalize_unit(rec.get("quantity_unit"))
+            cur_price = to_float(ot.get("sell_price"))
+            cur_base = to_float(ot.get("price_base"))
+            cur_unit = normalize_unit(ot.get("quantity_unit"))
+
+            if target_price is not None and (cur_price is None or abs(cur_price - target_price) > 1e-12):
+                ot["sell_price"] = target_price
+                order_terms_changed = True
+            if cur_base is None or abs(cur_base - target_base) > 1e-12:
+                ot["price_base"] = target_base
+                order_terms_changed = True
+            if target_unit and cur_unit != target_unit:
+                ot["quantity_unit"] = target_unit
+                order_terms_changed = True
+
+        if order_terms_changed:
+            ot["source"] = "data_poc_relations_acteurs"
+            e["order_terms"] = ot
+            change_counts["edge_order_terms_pricing_aligned_from_data_poc"] += 1
+            if eid not in changed_edge_ids:
+                changed_edge_ids.append(eid)
+
+    # Normalize scenario horizons to a consistent simulation window.
+    target_sim_days = max(1, int(simulation_days))
+    for scn in scenarios:
+        h = scn.get("horizon")
+        if not isinstance(h, dict):
+            h = {}
+        current_steps = int(to_float(h.get("steps_to_run")) or 0)
+        current_unit = str(h.get("time_unit") or "").strip()
+        if current_steps != target_sim_days or current_unit.lower() != "day":
+            h["steps_to_run"] = target_sim_days
+            h["time_unit"] = "Day"
+            scn["horizon"] = h
+            change_counts["scenario_horizon_updated"] += 1
 
         lead = e.get("lead_time") or {}
         if not isinstance(lead, dict):
@@ -240,9 +722,9 @@ def prepare_graph(graph: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]
 
     # Node-level enrichment
     node_base_stock = {
-        "supplier_dc": 1500.0,
-        "factory": 800.0,
-        "distribution_center": 1200.0,
+        "supplier_dc": 180.0,
+        "factory": 0.0,
+        "distribution_center": 120.0,
         "customer": 0.0,
     }
     for n in nodes:
@@ -250,6 +732,12 @@ def prepare_graph(graph: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]
         ntype = str(n.get("type") or "unknown")
         inv = n.get("inventory") or {}
         states = inv.get("states") or []
+        factory_output_items = {
+            str(out.get("item_id"))
+            for p in (n.get("processes") or [])
+            for out in (p.get("outputs") or [])
+            if out.get("item_id")
+        }
         node_changed = False
 
         for st in states:
@@ -264,25 +752,36 @@ def prepare_graph(graph: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]
 
             initial = to_float(st.get("initial"))
             if initial is None or initial <= 0:
-                base = node_base_stock.get(ntype, 500.0)
-                uplift = float(in_degree.get(nid, 0) * 50)
-                new_initial = round(base + uplift, 2)
-                if ntype == "customer":
+                if ntype == "factory" and item_id in factory_output_items:
+                    # If no explicit data exists, finished-goods start at zero to observe production dynamics.
                     new_initial = 0.0
+                    st["initial_source"] = "simulation_prep_assumption_factory_output_zero"
+                else:
+                    base = node_base_stock.get(ntype, 500.0)
+                    new_initial = round(base, 2)
+                    if ntype == "customer":
+                        new_initial = 0.0
+                    st["initial_source"] = "simulation_prep_assumption"
                 st["initial"] = new_initial
                 st["is_default_initial"] = False
-                st["initial_source"] = "simulation_prep_assumption"
                 change_counts["inventory_initial_updated"] += 1
                 node_changed = True
 
             hc = st.get("holding_cost") or {}
             if isinstance(hc, dict):
                 hc_val = to_float(hc.get("value"))
-                if hc.get("is_default") is True or hc_val is None or hc_val == 0:
-                    hc["value"] = 0.04
+                source = str(hc.get("source") or "")
+                unit_for_cost = target_uom or current_uom
+                target_hc = default_holding_cost_for_unit(unit_for_cost)
+                should_fill = hc.get("is_default") is True or hc_val is None or hc_val == 0
+                should_rescale_assumed = source.startswith("simulation_prep_") and (
+                    hc_val is None or abs(hc_val - target_hc) > 1e-12
+                )
+                if should_fill or should_rescale_assumed:
+                    hc["value"] = target_hc
                     hc["per"] = "unit*day"
                     hc["is_default"] = False
-                    hc["source"] = "simulation_prep_assumption"
+                    hc["source"] = "simulation_prep_assumption_unit_scaled"
                     st["holding_cost"] = hc
                     change_counts["inventory_holding_cost_updated"] += 1
                     node_changed = True
@@ -346,6 +845,19 @@ def prepare_graph(graph: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]
         if node_changed:
             changed_node_ids.append(nid)
 
+    # Capacity envelope by finished item after process-enrichment
+    # (used to build realistic default demand assumptions).
+    item_production_capacity: dict[str, float] = defaultdict(float)
+    for n in nodes:
+        for p in (n.get("processes") or []):
+            cap = to_float(((p.get("capacity") or {}).get("max_rate"))) or 0.0
+            if cap <= 0:
+                continue
+            for out in (p.get("outputs") or []):
+                item_id = str(out.get("item_id"))
+                if item_id:
+                    item_production_capacity[item_id] += cap
+
     # Demand enrichment
     for scn in scenarios:
         sid = str(scn.get("id") or "unknown_scn")
@@ -405,14 +917,21 @@ def prepare_graph(graph: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]
                     break
 
             if is_all_zero:
-                base = 120.0 if str((node_by_id.get(node_id) or {}).get("type")) == "customer" else 80.0
-                for p in profile:
-                    if isinstance(p, dict):
-                        p["type"] = p.get("type") or "constant"
-                        p["value"] = base
-                        p["uom"] = p.get("uom") or "unit/day"
-                        p["is_default"] = False
-                        p["source"] = "simulation_prep_assumption"
+                if str((node_by_id.get(node_id) or {}).get("type")) == "customer":
+                    # Realistic default: align demand to nominal producible envelope when not provided.
+                    item_id = str(d.get("item_id"))
+                    cap = to_float(item_production_capacity.get(item_id)) or 0.0
+                    base = round(max(10.0, 1.0 * cap), 2) if cap > 0 else 25.0
+                    d["profile"] = weekly_fluctuating_profile(base, target_sim_days)
+                else:
+                    base = 40.0
+                    for p in profile:
+                        if isinstance(p, dict):
+                            p["type"] = p.get("type") or "constant"
+                            p["value"] = base
+                            p["uom"] = p.get("uom") or "unit/day"
+                            p["is_default"] = False
+                            p["source"] = "simulation_prep_assumption"
                 change_counts["demand_profile_updated"] += 1
                 changed_demand_rows.append(
                     {
@@ -421,6 +940,101 @@ def prepare_graph(graph: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]
                         "item_id": str(d.get("item_id")),
                         "action": "filled_zero_or_missing_profile",
                     }
+                )
+
+    # Warm-start service buffers on demand-serving lanes to avoid cold-start bias:
+    # - customer buffer: 1 day of demand
+    # - immediate upstream DC buffer: 2 days of demand
+    customer_buffer_days = max(0.0, float(customer_warm_start_days))
+    upstream_dc_buffer_days = max(0.0, float(upstream_dc_warm_start_days))
+    demand_day0_by_pair: dict[tuple[str, str], float] = defaultdict(float)
+    for scn in scenarios:
+        for d in (scn.get("demand") or []):
+            if not isinstance(d, dict):
+                continue
+            pair = (str(d.get("node_id")), str(d.get("item_id")))
+            v = profile_day0_value(d.get("profile") or [])
+            if v > demand_day0_by_pair[pair]:
+                demand_day0_by_pair[pair] = v
+
+    inbound_to_customer_item: dict[tuple[str, str], list[str]] = defaultdict(list)
+    for e in edges:
+        dst = str(e.get("to"))
+        if str((node_by_id.get(dst) or {}).get("type") or "") != "customer":
+            continue
+        src = str(e.get("from"))
+        for item_id in (e.get("items") or []):
+            inbound_to_customer_item[(dst, str(item_id))].append(src)
+
+    def ensure_inventory_state(node_id: str, item_id: str, target_initial: float, initial_source: str) -> None:
+        nonlocal change_counts, changed_node_ids
+        n = node_by_id.get(node_id)
+        if not isinstance(n, dict):
+            return
+        inv = n.get("inventory")
+        if not isinstance(inv, dict):
+            inv = {"states": [], "backlogs": [], "wip": []}
+            n["inventory"] = inv
+        states = inv.get("states")
+        if not isinstance(states, list):
+            states = []
+            inv["states"] = states
+        state = next((s for s in states if str(s.get("item_id")) == item_id), None)
+        target_initial = round(max(0.0, target_initial), 6)
+        unit = item_unit_map.get(item_id, "UN")
+        if not isinstance(state, dict):
+            state = {
+                "item_id": item_id,
+                "state_id": f"I_{item_id.replace('item:', '')}_{node_id.replace('-', '_')}",
+                "initial": target_initial,
+                "uom": unit,
+                "holding_cost": {
+                    "value": default_holding_cost_for_unit(unit),
+                    "per": "unit*day",
+                    "is_default": False,
+                    "source": "simulation_prep_assumption",
+                },
+                "is_default_initial": False,
+                "initial_source": initial_source,
+                "uom_source": "simulation_prep_inferred_from_relations_bom",
+            }
+            states.append(state)
+            change_counts["inventory_state_added_for_service_warm_start"] += 1
+            changed_node_ids.append(node_id)
+        else:
+            current = to_float(state.get("initial")) or 0.0
+            if target_initial > current + 1e-9:
+                state["initial"] = target_initial
+                state["is_default_initial"] = False
+                state["initial_source"] = initial_source
+                if not normalize_unit(state.get("uom")) and unit:
+                    state["uom"] = unit
+                    state["uom_source"] = "simulation_prep_inferred_from_relations_bom"
+                change_counts["inventory_initial_updated_for_service_warm_start"] += 1
+                changed_node_ids.append(node_id)
+
+    for (customer_id, item_id), d0 in sorted(demand_day0_by_pair.items()):
+        if d0 <= 0:
+            continue
+        if customer_buffer_days > 0:
+            customer_target = d0 * customer_buffer_days
+            ensure_inventory_state(
+                customer_id,
+                item_id,
+                customer_target,
+                "simulation_prep_assumption_customer_warm_start_buffer",
+            )
+        for src in inbound_to_customer_item.get((customer_id, item_id), []):
+            src_type = str((node_by_id.get(src) or {}).get("type") or "")
+            if src_type != "distribution_center":
+                continue
+            if upstream_dc_buffer_days > 0:
+                upstream_target = d0 * upstream_dc_buffer_days
+                ensure_inventory_state(
+                    src,
+                    item_id,
+                    upstream_target,
+                    "simulation_prep_assumption_upstream_dc_warm_start_buffer",
                 )
 
     # Validation snapshot after enrichment
@@ -432,10 +1046,17 @@ def prepare_graph(graph: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]
 
     edges_missing_distance = [str(e.get("id")) for e in edges if to_float(e.get("distance_km")) is None]
     edges_zero_transport_cost = []
+    edges_factory_input_missing_sell_price = []
     for e in edges:
         tc = e.get("transport_cost") or {}
         if to_float((tc or {}).get("value")) in (None, 0.0):
             edges_zero_transport_cost.append(str(e.get("id")))
+        dst = str(e.get("to"))
+        dst_type = str((node_by_id.get(dst) or {}).get("type") or "")
+        if dst_type == "factory":
+            ot = e.get("order_terms") or {}
+            if to_float((ot or {}).get("sell_price")) is None:
+                edges_factory_input_missing_sell_price.append(str(e.get("id")))
     zero_demand_rows = []
     for scn in scenarios:
         sid = str(scn.get("id") or "")
@@ -452,6 +1073,7 @@ def prepare_graph(graph: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]
     report = {
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
         "changes": dict(sorted(change_counts.items())),
+        "invented_entities": invented_entities,
         "item_unit_map_sample": dict(sorted(item_unit_map.items())[:20]),
         "changed_entities": {
             "edge_count": len(set(changed_edge_ids)),
@@ -464,16 +1086,30 @@ def prepare_graph(graph: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]
             "missing_geo_nodes": sorted(missing_geo_nodes),
             "edges_missing_distance_count": len(edges_missing_distance),
             "edges_zero_transport_cost_count": len(edges_zero_transport_cost),
+            "edges_factory_input_missing_sell_price_count": len(edges_factory_input_missing_sell_price),
+            "edges_factory_input_missing_sell_price": sorted(edges_factory_input_missing_sell_price),
             "zero_demand_rows_count": len(zero_demand_rows),
             "zero_demand_rows": zero_demand_rows,
         },
+        "data_poc_price_integration": price_import_stats,
         "assumptions": {
             "inventory_base_stock_by_node_type": node_base_stock,
             "delay_step_limit_assumed": 21,
-            "holding_cost_per_unit_day_assumed": 0.04,
+            "holding_cost_per_unit_day_assumed": {
+                "default": 0.04,
+                "G": 0.00004,
+            },
             "process_cost_per_unit_assumed": 0.35,
-            "demand_constant_assumed_customer": 120.0,
-            "demand_constant_assumed_other": 80.0,
+            "demand_default_customer_rule": "weekly_fluctuating_profile(base=max(10, 1.0 * total_production_capacity_of_item))",
+            "demand_default_customer_weekly_pattern": [0.8, 0.95, 1.05, 1.2, 1.1, 1.0, 0.9],
+            "demand_constant_assumed_customer_fallback": 25.0,
+            "demand_constant_assumed_other": 40.0,
+            "service_warm_start_customer_buffer_days": customer_buffer_days,
+            "service_warm_start_upstream_dc_buffer_days": upstream_dc_buffer_days,
+            "dc_alias_reconciliation": "DC-1910 merged into DC-1920",
+            "customer_location_recovery": "C-XXXXX location_ID set to Paris",
+            "assumed_supplier_label_for_item_693710": "GAILLAC?",
+            "simulation_horizon_days_default": target_sim_days,
         },
     }
     return g, report
@@ -495,14 +1131,23 @@ def report_markdown(report: dict[str, Any], input_path: str, output_graph_path: 
 - Edge lead times updated: {c.get('edge_lead_time_updated', 0)}
 - Edge transport costs updated: {c.get('edge_transport_cost_updated', 0)}
 - Edge delay limits updated: {c.get('edge_delay_limit_updated', 0)}
+- Edge pricing aligned from Data_poc Relations_acteurs: {c.get('edge_order_terms_pricing_aligned_from_data_poc', 0)}
 - Inventory initials updated: {c.get('inventory_initial_updated', 0)}
 - Inventory holding costs updated: {c.get('inventory_holding_cost_updated', 0)}
 - Inventory UOM harmonized: {c.get('inventory_uom_harmonized', 0)}
 - Node policies added: {c.get('node_policy_added', 0)}
 - Process capacities updated: {c.get('process_capacity_updated', 0)}
 - Process costs updated: {c.get('process_cost_updated', 0)}
+- DC alias reconciliations (1910->1920): {c.get('node_alias_merged_dc1910_into_dc1920', 0)}
+- Customer location recovered: {c.get('customer_location_recovered_from_acteurs', 0)}
+- Assumed Gaillac supplier nodes added: {c.get('assumed_gaillac_supplier_node_added', 0)}
+- Assumed Gaillac supplier node tags updated: {c.get('assumed_gaillac_supplier_node_tagged', 0)}
+- Assumed Gaillac supplier edges added: {c.get('assumed_gaillac_supplier_edge_added', 0)}
+- Assumed Gaillac supplier inventory states added: {c.get('assumed_gaillac_supplier_inventory_state_added', 0)}
+- Assumed destination inventory states added (M-1810, 693710): {c.get('assumed_gaillac_destination_inventory_state_added', 0)}
 - Demand rows added: {c.get('demand_rows_added', 0)}
 - Demand rows updated: {c.get('demand_profile_updated', 0)}
+- Scenario horizons updated to default simulation days: {c.get('scenario_horizon_updated', 0)}
 
 ## Changed entities
 - Changed edges: {ch.get('edge_count', 0)}
@@ -513,7 +1158,15 @@ def report_markdown(report: dict[str, Any], input_path: str, output_graph_path: 
 - Missing geo nodes: {v.get('missing_geo_nodes_count', 0)}
 - Edges still missing distance: {v.get('edges_missing_distance_count', 0)}
 - Edges still zero transport cost: {v.get('edges_zero_transport_cost_count', 0)}
+- Factory inbound edges missing sell_price: {v.get('edges_factory_input_missing_sell_price_count', 0)}
 - Zero-demand rows remaining: {v.get('zero_demand_rows_count', 0)}
+
+## Data_poc pricing import
+- Enabled: {report.get('data_poc_price_integration', {}).get('enabled', False)}
+- XLSX path: {report.get('data_poc_price_integration', {}).get('xlsx_path', '')}
+- Rows read: {report.get('data_poc_price_integration', {}).get('rows_read', 0)}
+- Rows mapped: {report.get('data_poc_price_integration', {}).get('rows_mapped', 0)}
+- Error: {report.get('data_poc_price_integration', {}).get('error', 'none')}
 
 ## Review reminder
 This graph is assumption-based and intended for pre-simulation validation.
@@ -527,11 +1180,18 @@ def main() -> None:
     out_graph = Path(args.output_graph)
     out_report_json = Path(args.output_report_json)
     out_report_md = Path(args.output_report_md)
+    data_poc_xlsx = Path(args.data_poc_xlsx) if str(args.data_poc_xlsx).strip() else None
 
     out_graph.parent.mkdir(parents=True, exist_ok=True)
 
     raw = json.loads(input_path.read_text(encoding="utf-8"))
-    prepared, report = prepare_graph(raw)
+    prepared, report = prepare_graph(
+        raw,
+        data_poc_xlsx,
+        customer_warm_start_days=args.customer_warm_start_days,
+        upstream_dc_warm_start_days=args.upstream_dc_warm_start_days,
+        simulation_days=args.simulation_days,
+    )
 
     out_graph.write_text(json.dumps(prepared, indent=2, ensure_ascii=False), encoding="utf-8")
     out_report_json.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
