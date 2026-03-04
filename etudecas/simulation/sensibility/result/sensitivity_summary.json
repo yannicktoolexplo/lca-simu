@@ -1,0 +1,1106 @@
+{
+  "generated_at_utc": "2026-03-04T10:02:31.709093+00:00",
+  "input": "etudecas/simulation_prep/result/supply_graph_poc_simulation_ready.json",
+  "run_script": "etudecas/simulation/run_first_simulation.py",
+  "scenario_id": "scn:BASE",
+  "days_override": 30,
+  "delta": 0.2,
+  "case_count": 18,
+  "successful_cases": 18,
+  "failed_cases": 0,
+  "deterministic_check": {
+    "status": "pass",
+    "max_abs_diff": 0.0,
+    "abs_diff_by_kpi": {
+      "kpi::avg_inventory": 0.0,
+      "kpi::ending_backlog": 0.0,
+      "kpi::ending_inventory": 0.0,
+      "kpi::fill_rate": 0.0,
+      "kpi::total_arrived": 0.0,
+      "kpi::total_cost": 0.0,
+      "kpi::total_demand": 0.0,
+      "kpi::total_external_procured_qty": 0.0,
+      "kpi::total_holding_cost": 0.0,
+      "kpi::total_logistics_cost": 0.0,
+      "kpi::total_opening_stock_bootstrap_qty": 0.0,
+      "kpi::total_produced": 0.0,
+      "kpi::total_purchase_cost": 0.0,
+      "kpi::total_served": 0.0,
+      "kpi::total_shipped": 0.0,
+      "kpi::total_transport_cost": 0.0,
+      "kpi::total_unreliable_loss_qty": 0.0
+    }
+  },
+  "kpis": [
+    "kpi::avg_inventory",
+    "kpi::ending_backlog",
+    "kpi::ending_inventory",
+    "kpi::fill_rate",
+    "kpi::total_arrived",
+    "kpi::total_cost",
+    "kpi::total_demand",
+    "kpi::total_external_procured_qty",
+    "kpi::total_holding_cost",
+    "kpi::total_logistics_cost",
+    "kpi::total_opening_stock_bootstrap_qty",
+    "kpi::total_produced",
+    "kpi::total_purchase_cost",
+    "kpi::total_served",
+    "kpi::total_shipped",
+    "kpi::total_transport_cost",
+    "kpi::total_unreliable_loss_qty"
+  ],
+  "normalized_sensitivity_by_parameter": {
+    "lead_time_scale": {
+      "kpi::avg_inventory": {
+        "low": 7272.6868,
+        "high": 9139.5847,
+        "baseline": 8081.6759,
+        "slope_dy_dx": 4667.244749999999,
+        "normalized_sensitivity": 0.5775095175494477
+      },
+      "kpi::ending_backlog": {
+        "low": 300.0,
+        "high": 500.0,
+        "baseline": 400.0,
+        "slope_dy_dx": 500.0000000000001,
+        "normalized_sensitivity": 1.2500000000000002
+      },
+      "kpi::ending_inventory": {
+        "low": 4937.9023,
+        "high": 4937.9023,
+        "baseline": 4937.9023,
+        "slope_dy_dx": 0.0,
+        "normalized_sensitivity": 0.0
+      },
+      "kpi::fill_rate": {
+        "low": 0.8,
+        "high": 0.666667,
+        "baseline": 0.733333,
+        "slope_dy_dx": -0.33333250000000014,
+        "normalized_sensitivity": -0.45454452479296603
+      },
+      "kpi::total_arrived": {
+        "low": 49660.349,
+        "high": 41892.7575,
+        "baseline": 45776.5532,
+        "slope_dy_dx": -19418.97875000001,
+        "normalized_sensitivity": -0.42421233999767394
+      },
+      "kpi::total_cost": {
+        "low": 6552.6777,
+        "high": 8491.4354,
+        "baseline": 7392.806,
+        "slope_dy_dx": 4846.894250000001,
+        "normalized_sensitivity": 0.6556230814118484
+      },
+      "kpi::total_demand": {
+        "low": 1500.0,
+        "high": 1500.0,
+        "baseline": 1500.0,
+        "slope_dy_dx": 0.0,
+        "normalized_sensitivity": 0.0
+      },
+      "kpi::total_external_procured_qty": {
+        "low": 54542.0385,
+        "high": 54542.0385,
+        "baseline": 54542.0385,
+        "slope_dy_dx": 0.0,
+        "normalized_sensitivity": 0.0
+      },
+      "kpi::total_holding_cost": {
+        "low": 5686.8348,
+        "high": 7625.5925,
+        "baseline": 6526.9631,
+        "slope_dy_dx": 4846.894250000001,
+        "normalized_sensitivity": 0.7425956261343045
+      },
+      "kpi::total_logistics_cost": {
+        "low": 5808.6348,
+        "high": 7747.3925,
+        "baseline": 6648.7631,
+        "slope_dy_dx": 4846.894250000001,
+        "normalized_sensitivity": 0.728991870683436
+      },
+      "kpi::total_opening_stock_bootstrap_qty": {
+        "low": 11201.3872,
+        "high": 18668.9787,
+        "baseline": 14935.183,
+        "slope_dy_dx": 18668.978750000006,
+        "normalized_sensitivity": 1.2500000000000002
+      },
+      "kpi::total_produced": {
+        "low": 1500.0,
+        "high": 1500.0,
+        "baseline": 1500.0,
+        "slope_dy_dx": 0.0,
+        "normalized_sensitivity": 0.0
+      },
+      "kpi::total_purchase_cost": {
+        "low": 744.0429,
+        "high": 744.0429,
+        "baseline": 744.0429,
+        "slope_dy_dx": 0.0,
+        "normalized_sensitivity": 0.0
+      },
+      "kpi::total_served": {
+        "low": 1200.0,
+        "high": 1000.0,
+        "baseline": 1100.0,
+        "slope_dy_dx": -500.0000000000001,
+        "normalized_sensitivity": -0.45454545454545464
+      },
+      "kpi::total_shipped": {
+        "low": 61242.9362,
+        "high": 61142.9362,
+        "baseline": 61192.9362,
+        "slope_dy_dx": -250.00000000000006,
+        "normalized_sensitivity": -0.004085438868024118
+      },
+      "kpi::total_transport_cost": {
+        "low": 121.8,
+        "high": 121.8,
+        "baseline": 121.8,
+        "slope_dy_dx": 0.0,
+        "normalized_sensitivity": 0.0
+      },
+      "kpi::total_unreliable_loss_qty": {
+        "low": 0.0,
+        "high": 0.0,
+        "baseline": 0.0,
+        "slope_dy_dx": 0.0,
+        "normalized_sensitivity": NaN
+      }
+    },
+    "transport_cost_scale": {
+      "kpi::avg_inventory": {
+        "low": 8081.6759,
+        "high": 8081.6759,
+        "baseline": 8081.6759,
+        "slope_dy_dx": 0.0,
+        "normalized_sensitivity": 0.0
+      },
+      "kpi::ending_backlog": {
+        "low": 400.0,
+        "high": 400.0,
+        "baseline": 400.0,
+        "slope_dy_dx": 0.0,
+        "normalized_sensitivity": 0.0
+      },
+      "kpi::ending_inventory": {
+        "low": 4937.9023,
+        "high": 4937.9023,
+        "baseline": 4937.9023,
+        "slope_dy_dx": 0.0,
+        "normalized_sensitivity": 0.0
+      },
+      "kpi::fill_rate": {
+        "low": 0.733333,
+        "high": 0.733333,
+        "baseline": 0.733333,
+        "slope_dy_dx": 0.0,
+        "normalized_sensitivity": 0.0
+      },
+      "kpi::total_arrived": {
+        "low": 45776.5532,
+        "high": 45776.5532,
+        "baseline": 45776.5532,
+        "slope_dy_dx": 0.0,
+        "normalized_sensitivity": 0.0
+      },
+      "kpi::total_cost": {
+        "low": 7368.446,
+        "high": 7417.166,
+        "baseline": 7392.806,
+        "slope_dy_dx": 121.80000000000067,
+        "normalized_sensitivity": 0.01647547629411629
+      },
+      "kpi::total_demand": {
+        "low": 1500.0,
+        "high": 1500.0,
+        "baseline": 1500.0,
+        "slope_dy_dx": 0.0,
+        "normalized_sensitivity": 0.0
+      },
+      "kpi::total_external_procured_qty": {
+        "low": 54542.0385,
+        "high": 54542.0385,
+        "baseline": 54542.0385,
+        "slope_dy_dx": 0.0,
+        "normalized_sensitivity": 0.0
+      },
+      "kpi::total_holding_cost": {
+        "low": 6526.9631,
+        "high": 6526.9631,
+        "baseline": 6526.9631,
+        "slope_dy_dx": 0.0,
+        "normalized_sensitivity": 0.0
+      },
+      "kpi::total_logistics_cost": {
+        "low": 6624.4031,
+        "high": 6673.1231,
+        "baseline": 6648.7631,
+        "slope_dy_dx": 121.79999999999839,
+        "normalized_sensitivity": 0.018319196844297007
+      },
+      "kpi::total_opening_stock_bootstrap_qty": {
+        "low": 14935.183,
+        "high": 14935.183,
+        "baseline": 14935.183,
+        "slope_dy_dx": 0.0,
+        "normalized_sensitivity": 0.0
+      },
+      "kpi::total_produced": {
+        "low": 1500.0,
+        "high": 1500.0,
+        "baseline": 1500.0,
+        "slope_dy_dx": 0.0,
+        "normalized_sensitivity": 0.0
+      },
+      "kpi::total_purchase_cost": {
+        "low": 744.0429,
+        "high": 744.0429,
+        "baseline": 744.0429,
+        "slope_dy_dx": 0.0,
+        "normalized_sensitivity": 0.0
+      },
+      "kpi::total_served": {
+        "low": 1100.0,
+        "high": 1100.0,
+        "baseline": 1100.0,
+        "slope_dy_dx": 0.0,
+        "normalized_sensitivity": 0.0
+      },
+      "kpi::total_shipped": {
+        "low": 61192.9362,
+        "high": 61192.9362,
+        "baseline": 61192.9362,
+        "slope_dy_dx": 0.0,
+        "normalized_sensitivity": 0.0
+      },
+      "kpi::total_transport_cost": {
+        "low": 97.44,
+        "high": 146.16,
+        "baseline": 121.8,
+        "slope_dy_dx": 121.80000000000003,
+        "normalized_sensitivity": 1.0000000000000002
+      },
+      "kpi::total_unreliable_loss_qty": {
+        "low": 0.0,
+        "high": 0.0,
+        "baseline": 0.0,
+        "slope_dy_dx": 0.0,
+        "normalized_sensitivity": NaN
+      }
+    },
+    "supplier_stock_scale": {
+      "kpi::avg_inventory": {
+        "low": 6644.6192,
+        "high": 9532.2192,
+        "baseline": 8081.6759,
+        "slope_dy_dx": 7219.0,
+        "normalized_sensitivity": 0.8932553209662862
+      },
+      "kpi::ending_backlog": {
+        "low": 400.0,
+        "high": 400.0,
+        "baseline": 400.0,
+        "slope_dy_dx": 0.0,
+        "normalized_sensitivity": 0.0
+      },
+      "kpi::ending_inventory": {
+        "low": 3596.9023,
+        "high": 6329.9023,
+        "baseline": 4937.9023,
+        "slope_dy_dx": 6832.5,
+        "normalized_sensitivity": 1.383684727824607
+      },
+      "kpi::fill_rate": {
+        "low": 0.733333,
+        "high": 0.733333,
+        "baseline": 0.733333,
+        "slope_dy_dx": 0.0,
+        "normalized_sensitivity": 0.0
+      },
+      "kpi::total_arrived": {
+        "low": 45776.5532,
+        "high": 45776.5532,
+        "baseline": 45776.5532,
+        "slope_dy_dx": 0.0,
+        "normalized_sensitivity": 0.0
+      },
+      "kpi::total_cost": {
+        "low": 6408.4292,
+        "high": 8386.8334,
+        "baseline": 7392.806,
+        "slope_dy_dx": 4946.010500000001,
+        "normalized_sensitivity": 0.6690302031461398
+      },
+      "kpi::total_demand": {
+        "low": 1500.0,
+        "high": 1500.0,
+        "baseline": 1500.0,
+        "slope_dy_dx": 0.0,
+        "normalized_sensitivity": 0.0
+      },
+      "kpi::total_external_procured_qty": {
+        "low": 54845.0385,
+        "high": 54290.0385,
+        "baseline": 54542.0385,
+        "slope_dy_dx": -1387.5000000000002,
+        "normalized_sensitivity": -0.02543909318680856
+      },
+      "kpi::total_holding_cost": {
+        "low": 5542.5863,
+        "high": 7520.9905,
+        "baseline": 6526.9631,
+        "slope_dy_dx": 4946.010500000001,
+        "normalized_sensitivity": 0.7577812872881112
+      },
+      "kpi::total_logistics_cost": {
+        "low": 5664.3863,
+        "high": 7642.7905,
+        "baseline": 6648.7631,
+        "slope_dy_dx": 4946.010500000001,
+        "normalized_sensitivity": 0.7438993427213553
+      },
+      "kpi::total_opening_stock_bootstrap_qty": {
+        "low": 14935.183,
+        "high": 14935.183,
+        "baseline": 14935.183,
+        "slope_dy_dx": 0.0,
+        "normalized_sensitivity": 0.0
+      },
+      "kpi::total_produced": {
+        "low": 1500.0,
+        "high": 1500.0,
+        "baseline": 1500.0,
+        "slope_dy_dx": 0.0,
+        "normalized_sensitivity": 0.0
+      },
+      "kpi::total_purchase_cost": {
+        "low": 744.0429,
+        "high": 744.0429,
+        "baseline": 744.0429,
+        "slope_dy_dx": 0.0,
+        "normalized_sensitivity": 0.0
+      },
+      "kpi::total_served": {
+        "low": 1100.0,
+        "high": 1100.0,
+        "baseline": 1100.0,
+        "slope_dy_dx": 0.0,
+        "normalized_sensitivity": 0.0
+      },
+      "kpi::total_shipped": {
+        "low": 61192.9362,
+        "high": 61192.9362,
+        "baseline": 61192.9362,
+        "slope_dy_dx": 0.0,
+        "normalized_sensitivity": 0.0
+      },
+      "kpi::total_transport_cost": {
+        "low": 121.8,
+        "high": 121.8,
+        "baseline": 121.8,
+        "slope_dy_dx": 0.0,
+        "normalized_sensitivity": 0.0
+      },
+      "kpi::total_unreliable_loss_qty": {
+        "low": 0.0,
+        "high": 0.0,
+        "baseline": 0.0,
+        "slope_dy_dx": 0.0,
+        "normalized_sensitivity": NaN
+      }
+    },
+    "production_stock_scale": {
+      "kpi::avg_inventory": {
+        "low": 7941.6759,
+        "high": 8221.6759,
+        "baseline": 8081.6759,
+        "slope_dy_dx": 700.0000000000001,
+        "normalized_sensitivity": 0.08661569811281347
+      },
+      "kpi::ending_backlog": {
+        "low": 400.0,
+        "high": 400.0,
+        "baseline": 400.0,
+        "slope_dy_dx": 0.0,
+        "normalized_sensitivity": 0.0
+      },
+      "kpi::ending_inventory": {
+        "low": 4797.9023,
+        "high": 5077.9023,
+        "baseline": 4937.9023,
+        "slope_dy_dx": 700.0000000000001,
+        "normalized_sensitivity": 0.1417606014602598
+      },
+      "kpi::fill_rate": {
+        "low": 0.733333,
+        "high": 0.733333,
+        "baseline": 0.733333,
+        "slope_dy_dx": 0.0,
+        "normalized_sensitivity": 0.0
+      },
+      "kpi::total_arrived": {
+        "low": 45776.5532,
+        "high": 45776.5532,
+        "baseline": 45776.5532,
+        "slope_dy_dx": 0.0,
+        "normalized_sensitivity": 0.0
+      },
+      "kpi::total_cost": {
+        "low": 7392.638,
+        "high": 7392.974,
+        "baseline": 7392.806,
+        "slope_dy_dx": 0.8400000000006005,
+        "normalized_sensitivity": 0.00011362397444226191
+      },
+      "kpi::total_demand": {
+        "low": 1500.0,
+        "high": 1500.0,
+        "baseline": 1500.0,
+        "slope_dy_dx": 0.0,
+        "normalized_sensitivity": 0.0
+      },
+      "kpi::total_external_procured_qty": {
+        "low": 54542.0385,
+        "high": 54542.0385,
+        "baseline": 54542.0385,
+        "slope_dy_dx": 0.0,
+        "normalized_sensitivity": 0.0
+      },
+      "kpi::total_holding_cost": {
+        "low": 6526.7951,
+        "high": 6527.1311,
+        "baseline": 6526.9631,
+        "slope_dy_dx": 0.8399999999983268,
+        "normalized_sensitivity": 0.00012869691265733166
+      },
+      "kpi::total_logistics_cost": {
+        "low": 6648.5951,
+        "high": 6648.9311,
+        "baseline": 6648.7631,
+        "slope_dy_dx": 0.8400000000006005,
+        "normalized_sensitivity": 0.00012633928858145064
+      },
+      "kpi::total_opening_stock_bootstrap_qty": {
+        "low": 14935.183,
+        "high": 14935.183,
+        "baseline": 14935.183,
+        "slope_dy_dx": 0.0,
+        "normalized_sensitivity": 0.0
+      },
+      "kpi::total_produced": {
+        "low": 1500.0,
+        "high": 1500.0,
+        "baseline": 1500.0,
+        "slope_dy_dx": 0.0,
+        "normalized_sensitivity": 0.0
+      },
+      "kpi::total_purchase_cost": {
+        "low": 744.0429,
+        "high": 744.0429,
+        "baseline": 744.0429,
+        "slope_dy_dx": 0.0,
+        "normalized_sensitivity": 0.0
+      },
+      "kpi::total_served": {
+        "low": 1100.0,
+        "high": 1100.0,
+        "baseline": 1100.0,
+        "slope_dy_dx": 0.0,
+        "normalized_sensitivity": 0.0
+      },
+      "kpi::total_shipped": {
+        "low": 61192.9362,
+        "high": 61192.9362,
+        "baseline": 61192.9362,
+        "slope_dy_dx": 0.0,
+        "normalized_sensitivity": 0.0
+      },
+      "kpi::total_transport_cost": {
+        "low": 121.8,
+        "high": 121.8,
+        "baseline": 121.8,
+        "slope_dy_dx": 0.0,
+        "normalized_sensitivity": 0.0
+      },
+      "kpi::total_unreliable_loss_qty": {
+        "low": 0.0,
+        "high": 0.0,
+        "baseline": 0.0,
+        "slope_dy_dx": 0.0,
+        "normalized_sensitivity": NaN
+      }
+    },
+    "demand_item_scale::item:268091": {
+      "kpi::avg_inventory": {
+        "low": 8103.3425,
+        "high": 8081.6759,
+        "baseline": 8081.6759,
+        "slope_dy_dx": -54.16649999999892,
+        "normalized_sensitivity": -0.006702384588325166
+      },
+      "kpi::ending_backlog": {
+        "low": 280.0,
+        "high": 550.0,
+        "baseline": 400.0,
+        "slope_dy_dx": 675.0000000000001,
+        "normalized_sensitivity": 1.6875000000000004
+      },
+      "kpi::ending_inventory": {
+        "low": 4987.9023,
+        "high": 4937.9023,
+        "baseline": 4937.9023,
+        "slope_dy_dx": -125.00000000000003,
+        "normalized_sensitivity": -0.025314393117903535
+      },
+      "kpi::fill_rate": {
+        "low": 0.792593,
+        "high": 0.666667,
+        "baseline": 0.733333,
+        "slope_dy_dx": -0.314815,
+        "normalized_sensitivity": -0.42929337695153497
+      },
+      "kpi::total_arrived": {
+        "low": 45706.5532,
+        "high": 45776.5532,
+        "baseline": 45776.5532,
+        "slope_dy_dx": 175.00000000000003,
+        "normalized_sensitivity": 0.0038229177988874886
+      },
+      "kpi::total_cost": {
+        "low": 7418.806,
+        "high": 7392.806,
+        "baseline": 7392.806,
+        "slope_dy_dx": -65.00000000000001,
+        "normalized_sensitivity": -0.008792331355644936
+      },
+      "kpi::total_demand": {
+        "low": 1350.0,
+        "high": 1650.0,
+        "baseline": 1500.0,
+        "slope_dy_dx": 750.0000000000001,
+        "normalized_sensitivity": 0.5000000000000001
+      },
+      "kpi::total_external_procured_qty": {
+        "low": 54542.0385,
+        "high": 54542.0385,
+        "baseline": 54542.0385,
+        "slope_dy_dx": 0.0,
+        "normalized_sensitivity": 0.0
+      },
+      "kpi::total_holding_cost": {
+        "low": 6552.9631,
+        "high": 6526.9631,
+        "baseline": 6526.9631,
+        "slope_dy_dx": -65.00000000000001,
+        "normalized_sensitivity": -0.00995868966993241
+      },
+      "kpi::total_logistics_cost": {
+        "low": 6674.7631,
+        "high": 6648.7631,
+        "baseline": 6648.7631,
+        "slope_dy_dx": -65.00000000000001,
+        "normalized_sensitivity": -0.009776254473557648
+      },
+      "kpi::total_opening_stock_bootstrap_qty": {
+        "low": 14935.183,
+        "high": 14935.183,
+        "baseline": 14935.183,
+        "slope_dy_dx": 0.0,
+        "normalized_sensitivity": 0.0
+      },
+      "kpi::total_produced": {
+        "low": 1500.0,
+        "high": 1500.0,
+        "baseline": 1500.0,
+        "slope_dy_dx": 0.0,
+        "normalized_sensitivity": 0.0
+      },
+      "kpi::total_purchase_cost": {
+        "low": 744.0429,
+        "high": 744.0429,
+        "baseline": 744.0429,
+        "slope_dy_dx": 0.0,
+        "normalized_sensitivity": 0.0
+      },
+      "kpi::total_served": {
+        "low": 1070.0,
+        "high": 1100.0,
+        "baseline": 1100.0,
+        "slope_dy_dx": 75.00000000000001,
+        "normalized_sensitivity": 0.06818181818181819
+      },
+      "kpi::total_shipped": {
+        "low": 61102.9362,
+        "high": 61192.9362,
+        "baseline": 61192.9362,
+        "slope_dy_dx": 225.00000000000006,
+        "normalized_sensitivity": 0.0036768949812217063
+      },
+      "kpi::total_transport_cost": {
+        "low": 121.8,
+        "high": 121.8,
+        "baseline": 121.8,
+        "slope_dy_dx": 0.0,
+        "normalized_sensitivity": 0.0
+      },
+      "kpi::total_unreliable_loss_qty": {
+        "low": 0.0,
+        "high": 0.0,
+        "baseline": 0.0,
+        "slope_dy_dx": 0.0,
+        "normalized_sensitivity": NaN
+      }
+    },
+    "demand_item_scale::item:268967": {
+      "kpi::avg_inventory": {
+        "low": 8103.3425,
+        "high": 8081.6759,
+        "baseline": 8081.6759,
+        "slope_dy_dx": -54.16649999999892,
+        "normalized_sensitivity": -0.006702384588325166
+      },
+      "kpi::ending_backlog": {
+        "low": 280.0,
+        "high": 550.0,
+        "baseline": 400.0,
+        "slope_dy_dx": 675.0000000000001,
+        "normalized_sensitivity": 1.6875000000000004
+      },
+      "kpi::ending_inventory": {
+        "low": 4987.9023,
+        "high": 4937.9023,
+        "baseline": 4937.9023,
+        "slope_dy_dx": -125.00000000000003,
+        "normalized_sensitivity": -0.025314393117903535
+      },
+      "kpi::fill_rate": {
+        "low": 0.792593,
+        "high": 0.666667,
+        "baseline": 0.733333,
+        "slope_dy_dx": -0.314815,
+        "normalized_sensitivity": -0.42929337695153497
+      },
+      "kpi::total_arrived": {
+        "low": 45706.5532,
+        "high": 45776.5532,
+        "baseline": 45776.5532,
+        "slope_dy_dx": 175.00000000000003,
+        "normalized_sensitivity": 0.0038229177988874886
+      },
+      "kpi::total_cost": {
+        "low": 7418.806,
+        "high": 7392.806,
+        "baseline": 7392.806,
+        "slope_dy_dx": -65.00000000000001,
+        "normalized_sensitivity": -0.008792331355644936
+      },
+      "kpi::total_demand": {
+        "low": 1350.0,
+        "high": 1650.0,
+        "baseline": 1500.0,
+        "slope_dy_dx": 750.0000000000001,
+        "normalized_sensitivity": 0.5000000000000001
+      },
+      "kpi::total_external_procured_qty": {
+        "low": 54542.0385,
+        "high": 54542.0385,
+        "baseline": 54542.0385,
+        "slope_dy_dx": 0.0,
+        "normalized_sensitivity": 0.0
+      },
+      "kpi::total_holding_cost": {
+        "low": 6552.9631,
+        "high": 6526.9631,
+        "baseline": 6526.9631,
+        "slope_dy_dx": -65.00000000000001,
+        "normalized_sensitivity": -0.00995868966993241
+      },
+      "kpi::total_logistics_cost": {
+        "low": 6674.7631,
+        "high": 6648.7631,
+        "baseline": 6648.7631,
+        "slope_dy_dx": -65.00000000000001,
+        "normalized_sensitivity": -0.009776254473557648
+      },
+      "kpi::total_opening_stock_bootstrap_qty": {
+        "low": 14935.183,
+        "high": 14935.183,
+        "baseline": 14935.183,
+        "slope_dy_dx": 0.0,
+        "normalized_sensitivity": 0.0
+      },
+      "kpi::total_produced": {
+        "low": 1500.0,
+        "high": 1500.0,
+        "baseline": 1500.0,
+        "slope_dy_dx": 0.0,
+        "normalized_sensitivity": 0.0
+      },
+      "kpi::total_purchase_cost": {
+        "low": 744.0429,
+        "high": 744.0429,
+        "baseline": 744.0429,
+        "slope_dy_dx": 0.0,
+        "normalized_sensitivity": 0.0
+      },
+      "kpi::total_served": {
+        "low": 1070.0,
+        "high": 1100.0,
+        "baseline": 1100.0,
+        "slope_dy_dx": 75.00000000000001,
+        "normalized_sensitivity": 0.06818181818181819
+      },
+      "kpi::total_shipped": {
+        "low": 61102.9362,
+        "high": 61192.9362,
+        "baseline": 61192.9362,
+        "slope_dy_dx": 225.00000000000006,
+        "normalized_sensitivity": 0.0036768949812217063
+      },
+      "kpi::total_transport_cost": {
+        "low": 121.8,
+        "high": 121.8,
+        "baseline": 121.8,
+        "slope_dy_dx": 0.0,
+        "normalized_sensitivity": 0.0
+      },
+      "kpi::total_unreliable_loss_qty": {
+        "low": 0.0,
+        "high": 0.0,
+        "baseline": 0.0,
+        "slope_dy_dx": 0.0,
+        "normalized_sensitivity": NaN
+      }
+    },
+    "capacity_node_scale::M-1430": {
+      "kpi::avg_inventory": {
+        "low": 7774.2333,
+        "high": 8403.7931,
+        "baseline": 8081.6759,
+        "slope_dy_dx": 1573.8995000000027,
+        "normalized_sensitivity": 0.1947491485027261
+      },
+      "kpi::ending_backlog": {
+        "low": 510.0,
+        "high": 305.0,
+        "baseline": 400.0,
+        "slope_dy_dx": -512.5000000000001,
+        "normalized_sensitivity": -1.2812500000000002
+      },
+      "kpi::ending_inventory": {
+        "low": 4974.7166,
+        "high": 4936.8879,
+        "baseline": 4937.9023,
+        "slope_dy_dx": -94.57175000000008,
+        "normalized_sensitivity": -0.01915221165878476
+      },
+      "kpi::fill_rate": {
+        "low": 0.66,
+        "high": 0.796667,
+        "baseline": 0.733333,
+        "slope_dy_dx": 0.3416675,
+        "normalized_sensitivity": 0.46591043905019963
+      },
+      "kpi::total_arrived": {
+        "low": 37594.917,
+        "high": 53923.1894,
+        "baseline": 45776.5532,
+        "slope_dy_dx": 40820.68100000001,
+        "normalized_sensitivity": 0.891737759757762
+      },
+      "kpi::total_cost": {
+        "low": 6999.5202,
+        "high": 7803.7015,
+        "baseline": 7392.806,
+        "slope_dy_dx": 2010.453250000001,
+        "normalized_sensitivity": 0.27194724844666573
+      },
+      "kpi::total_demand": {
+        "low": 1500.0,
+        "high": 1500.0,
+        "baseline": 1500.0,
+        "slope_dy_dx": 0.0,
+        "normalized_sensitivity": 0.0
+      },
+      "kpi::total_external_procured_qty": {
+        "low": 43742.5308,
+        "high": 65352.3462,
+        "baseline": 54542.0385,
+        "slope_dy_dx": 54024.53850000001,
+        "normalized_sensitivity": 0.9905119057843796
+      },
+      "kpi::total_holding_cost": {
+        "low": 6212.0444,
+        "high": 6859.4915,
+        "baseline": 6526.9631,
+        "slope_dy_dx": 1618.6177500000013,
+        "normalized_sensitivity": 0.24798941333068072
+      },
+      "kpi::total_logistics_cost": {
+        "low": 6333.8444,
+        "high": 6981.2915,
+        "baseline": 6648.7631,
+        "slope_dy_dx": 1618.6177500000013,
+        "normalized_sensitivity": 0.24344644645257418
+      },
+      "kpi::total_opening_stock_bootstrap_qty": {
+        "low": 12045.4971,
+        "high": 17824.8689,
+        "baseline": 14935.183,
+        "slope_dy_dx": 14448.429500000006,
+        "normalized_sensitivity": 0.9674089363350958
+      },
+      "kpi::total_produced": {
+        "low": 1350.0,
+        "high": 1650.0,
+        "baseline": 1500.0,
+        "slope_dy_dx": 750.0000000000001,
+        "normalized_sensitivity": 0.5000000000000001
+      },
+      "kpi::total_purchase_cost": {
+        "low": 665.6758,
+        "high": 822.41,
+        "baseline": 744.0429,
+        "slope_dy_dx": 391.8355000000001,
+        "normalized_sensitivity": 0.5266302520997109
+      },
+      "kpi::total_served": {
+        "low": 990.0,
+        "high": 1195.0,
+        "baseline": 1100.0,
+        "slope_dy_dx": 512.5000000000001,
+        "normalized_sensitivity": 0.46590909090909105
+      },
+      "kpi::total_shipped": {
+        "low": 50081.6142,
+        "high": 72259.2583,
+        "baseline": 61192.9362,
+        "slope_dy_dx": 55444.110250000005,
+        "normalized_sensitivity": 0.9060540920734574
+      },
+      "kpi::total_transport_cost": {
+        "low": 121.8,
+        "high": 121.8,
+        "baseline": 121.8,
+        "slope_dy_dx": 0.0,
+        "normalized_sensitivity": 0.0
+      },
+      "kpi::total_unreliable_loss_qty": {
+        "low": 0.0,
+        "high": 0.0,
+        "baseline": 0.0,
+        "slope_dy_dx": 0.0,
+        "normalized_sensitivity": NaN
+      }
+    },
+    "capacity_node_scale::M-1810": {
+      "kpi::avg_inventory": {
+        "low": 8364.3833,
+        "high": 7817.5564,
+        "baseline": 8081.6759,
+        "slope_dy_dx": -1367.067249999998,
+        "normalized_sensitivity": -0.16915640603701987
+      },
+      "kpi::ending_backlog": {
+        "low": 510.0,
+        "high": 305.0,
+        "baseline": 400.0,
+        "slope_dy_dx": -512.5000000000001,
+        "normalized_sensitivity": -1.2812500000000002
+      },
+      "kpi::ending_inventory": {
+        "low": 5445.5074,
+        "high": 4455.2971,
+        "baseline": 4937.9023,
+        "slope_dy_dx": -2475.525750000002,
+        "normalized_sensitivity": -0.5013314560719442
+      },
+      "kpi::fill_rate": {
+        "low": 0.66,
+        "high": 0.796667,
+        "baseline": 0.733333,
+        "slope_dy_dx": 0.3416675,
+        "normalized_sensitivity": 0.46591043905019963
+      },
+      "kpi::total_arrived": {
+        "low": 44802.8788,
+        "high": 46715.2277,
+        "baseline": 45776.5532,
+        "slope_dy_dx": 4780.872250000012,
+        "normalized_sensitivity": 0.10443932353561325
+      },
+      "kpi::total_cost": {
+        "low": 7302.3667,
+        "high": 7500.2507,
+        "baseline": 7392.806,
+        "slope_dy_dx": 494.71000000000015,
+        "normalized_sensitivity": 0.06691775761463241
+      },
+      "kpi::total_demand": {
+        "low": 1500.0,
+        "high": 1500.0,
+        "baseline": 1500.0,
+        "slope_dy_dx": 0.0,
+        "normalized_sensitivity": 0.0
+      },
+      "kpi::total_external_procured_qty": {
+        "low": 54181.1385,
+        "high": 54902.9385,
+        "baseline": 54542.0385,
+        "slope_dy_dx": 1804.4999999999895,
+        "normalized_sensitivity": 0.03308457200403299
+      },
+      "kpi::total_holding_cost": {
+        "low": 6531.3253,
+        "high": 6539.6063,
+        "baseline": 6526.9631,
+        "slope_dy_dx": 20.702499999999876,
+        "normalized_sensitivity": 0.0031718426598734526
+      },
+      "kpi::total_logistics_cost": {
+        "low": 6628.7653,
+        "high": 6685.7663,
+        "baseline": 6648.7631,
+        "slope_dy_dx": 142.50250000000054,
+        "normalized_sensitivity": 0.02143293389412544
+      },
+      "kpi::total_opening_stock_bootstrap_qty": {
+        "low": 14837.8323,
+        "high": 15032.5337,
+        "baseline": 14935.183,
+        "slope_dy_dx": 486.7534999999999,
+        "normalized_sensitivity": 0.03259106366490453
+      },
+      "kpi::total_produced": {
+        "low": 1350.0,
+        "high": 1650.0,
+        "baseline": 1500.0,
+        "slope_dy_dx": 750.0000000000001,
+        "normalized_sensitivity": 0.5000000000000001
+      },
+      "kpi::total_purchase_cost": {
+        "low": 673.6014,
+        "high": 814.4844,
+        "baseline": 744.0429,
+        "slope_dy_dx": 352.20750000000015,
+        "normalized_sensitivity": 0.4733698823011417
+      },
+      "kpi::total_served": {
+        "low": 990.0,
+        "high": 1195.0,
+        "baseline": 1100.0,
+        "slope_dy_dx": 512.5000000000001,
+        "normalized_sensitivity": 0.46590909090909105
+      },
+      "kpi::total_shipped": {
+        "low": 60065.6711,
+        "high": 62275.2014,
+        "baseline": 61192.9362,
+        "slope_dy_dx": 5523.825749999997,
+        "normalized_sensitivity": 0.09026900967696984
+      },
+      "kpi::total_transport_cost": {
+        "low": 97.44,
+        "high": 146.16,
+        "baseline": 121.8,
+        "slope_dy_dx": 121.80000000000003,
+        "normalized_sensitivity": 1.0000000000000002
+      },
+      "kpi::total_unreliable_loss_qty": {
+        "low": 0.0,
+        "high": 0.0,
+        "baseline": 0.0,
+        "slope_dy_dx": 0.0,
+        "normalized_sensitivity": NaN
+      }
+    }
+  },
+  "top_drivers": {
+    "kpi::fill_rate": [
+      {
+        "parameter": "capacity_node_scale::M-1430",
+        "normalized_sensitivity": 0.46591043905019963,
+        "slope_dy_dx": 0.3416675
+      },
+      {
+        "parameter": "capacity_node_scale::M-1810",
+        "normalized_sensitivity": 0.46591043905019963,
+        "slope_dy_dx": 0.3416675
+      },
+      {
+        "parameter": "lead_time_scale",
+        "normalized_sensitivity": -0.45454452479296603,
+        "slope_dy_dx": -0.33333250000000014
+      },
+      {
+        "parameter": "demand_item_scale::item:268091",
+        "normalized_sensitivity": -0.42929337695153497,
+        "slope_dy_dx": -0.314815
+      },
+      {
+        "parameter": "demand_item_scale::item:268967",
+        "normalized_sensitivity": -0.42929337695153497,
+        "slope_dy_dx": -0.314815
+      }
+    ],
+    "kpi::ending_backlog": [
+      {
+        "parameter": "demand_item_scale::item:268091",
+        "normalized_sensitivity": 1.6875000000000004,
+        "slope_dy_dx": 675.0000000000001
+      },
+      {
+        "parameter": "demand_item_scale::item:268967",
+        "normalized_sensitivity": 1.6875000000000004,
+        "slope_dy_dx": 675.0000000000001
+      },
+      {
+        "parameter": "capacity_node_scale::M-1430",
+        "normalized_sensitivity": -1.2812500000000002,
+        "slope_dy_dx": -512.5000000000001
+      },
+      {
+        "parameter": "capacity_node_scale::M-1810",
+        "normalized_sensitivity": -1.2812500000000002,
+        "slope_dy_dx": -512.5000000000001
+      },
+      {
+        "parameter": "lead_time_scale",
+        "normalized_sensitivity": 1.2500000000000002,
+        "slope_dy_dx": 500.0000000000001
+      }
+    ],
+    "kpi::total_cost": [
+      {
+        "parameter": "supplier_stock_scale",
+        "normalized_sensitivity": 0.6690302031461398,
+        "slope_dy_dx": 4946.010500000001
+      },
+      {
+        "parameter": "lead_time_scale",
+        "normalized_sensitivity": 0.6556230814118484,
+        "slope_dy_dx": 4846.894250000001
+      },
+      {
+        "parameter": "capacity_node_scale::M-1430",
+        "normalized_sensitivity": 0.27194724844666573,
+        "slope_dy_dx": 2010.453250000001
+      },
+      {
+        "parameter": "capacity_node_scale::M-1810",
+        "normalized_sensitivity": 0.06691775761463241,
+        "slope_dy_dx": 494.71000000000015
+      },
+      {
+        "parameter": "transport_cost_scale",
+        "normalized_sensitivity": 0.01647547629411629,
+        "slope_dy_dx": 121.80000000000067
+      }
+    ]
+  }
+}
