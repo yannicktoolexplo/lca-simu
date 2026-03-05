@@ -22,3 +22,14 @@
   - `first_simulation_*`
   - `production_*`
   - `general_analysis_insights.md`
+  - `deep_supply_analysis.md`
+  - `deep_supply_analysis_summary.json`
+  - `full_system_exploration_report.md`
+  - `full_system_exploration_summary.json`
+  - `full_system_exploration_samples.csv`
+
+- `etudecas/simulation/result/max_param_exploration/`:
+  - exploration elargie (757 runs)
+  - `full_system_exploration_report.md`
+  - `full_system_exploration_summary.json`
+  - `full_system_exploration_samples.csv`

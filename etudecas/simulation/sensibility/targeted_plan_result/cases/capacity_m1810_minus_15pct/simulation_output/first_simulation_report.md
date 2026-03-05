@@ -6,6 +6,19 @@
 - Horizon (days): 30
 - Safety stock policy (days): 7.0
 - Replenishment review period (days): 1
+- Finished-goods target cover (days): 0.0
+- Production stock-gap gain: 0.25
+- Production smoothing factor: 0.2
+- Stochastic lead times: True
+- Random seed: 42
+- Economic policy transport floor /km: 0.02 / 8e-05
+- Economic policy purchase floor: 0.01
+- Holding cost scale: 1.0
+- External procurement enabled: True
+- External procurement lead days: 4
+- External procurement daily cap days: 2.0
+- External procurement min daily cap qty: 0.0
+- External procurement unit cost / multiplier / transport unit: 0.0 / 2.0 / 0.04
 - Nodes: 28
 - Edges: 34
 - Lanes (edge x item): 34
@@ -22,33 +35,39 @@
 
 ## KPIs
 - Total demand: 1500.0
-- Total served: 1017.5
-- Fill rate: 0.678333
-- Ending backlog: 482.5
-- Total produced: 1387.5
-- Total shipped: 60347.4874
-- Avg inventory: 8292.7808
-- Ending inventory: 5318.6061
-- Transport cost: 103.53
-- Holding cost: 6529.834
-- Purchase cost (from order_terms sell_price): 691.2118
-- Logistics cost (transport + holding): 6633.364
-- Total cost: 7324.5758
-- Total external procured qty (unmodeled upstream): 54271.3635
-- Total opening stock bootstrap qty: 14862.17
+- Total served: 1326.3217
+- Fill rate: 0.884214
+- Ending backlog: 173.6783
+- Total produced: 1347.7998
+- Total shipped: 54824.8695
+- Avg inventory: 23306.0879
+- Ending inventory: 17278.9688
+- Transport cost: 3918.9802
+- Holding cost: 22081.2995
+- Purchase cost (from order_terms sell_price): 2897.1669
+- Logistics cost (transport + holding): 26000.2797
+- Total cost: 28897.4466
+- Total external procured ordered qty: 53173.2517
+- Total external procured arrived qty: 48888.1254
+- Total external procured rejected qty (cap-limited): 20022.7678
+- Total external procurement cost premium: 3936.5639
+- Cost share holding / transport / purchase: 0.764126 / 0.135617 / 0.100257
+- Total opening stock bootstrap qty: 29724.3399
 - Total unreliable supplier loss qty: 0.0
+- Economic consistency status: ok
+- Economic consistency warnings: []
 
 ## Top backlog pairs
 [
   {
     "node_id": "C-XXXXX",
-    "item_id": "item:268091",
-    "backlog": 282.5
+    "item_id": "item:268967",
+    "backlog": 93.658
   },
   {
     "node_id": "C-XXXXX",
-    "item_id": "item:268967",
-    "backlog": 200.0
+    "item_id": "item:268091",
+    "backlog": 80.0203
   }
 ]
 
@@ -61,6 +80,12 @@
 - production_input_replenishment_shipments_daily.csv
 - production_input_stocks_pivot.csv
 - production_output_products_daily.csv
+- production_supplier_shipments_daily.csv
+- production_supplier_stocks_daily.csv
+- production_dc_stocks_daily.csv
 - production_input_stocks_by_material_*.png (not generated)
 - production_output_products.png (not generated)
+- production_output_products_by_factory_*.png (not generated)
+- production_supplier_input_stocks_by_material_*.png (not generated)
+- production_dc_factory_outputs_by_material_*.png (not generated)
 - supply_graph_poc_geocoded_map_with_factory_hover.html (not generated)

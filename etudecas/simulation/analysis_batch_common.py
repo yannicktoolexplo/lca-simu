@@ -94,6 +94,27 @@ def apply_scales(
     safety_stock_days_scale = to_float(factors.get("safety_stock_days_scale", 1.0), 1.0)
     review_period_scale = to_float(factors.get("review_period_scale", 1.0), 1.0)
     supplier_reliability_scale = to_float(factors.get("supplier_reliability_scale", 1.0), 1.0)
+    fg_target_days_scale = to_float(factors.get("fg_target_days_scale", 1.0), 1.0)
+    production_gap_gain_scale = to_float(factors.get("production_gap_gain_scale", 1.0), 1.0)
+    production_smoothing_scale = to_float(factors.get("production_smoothing_scale", 1.0), 1.0)
+    holding_cost_scale = to_float(factors.get("holding_cost_scale", 1.0), 1.0)
+    purchase_cost_floor_scale = to_float(factors.get("purchase_cost_floor_scale", 1.0), 1.0)
+    external_procurement_daily_cap_days_scale = to_float(
+        factors.get("external_procurement_daily_cap_days_scale", 1.0),
+        1.0,
+    )
+    external_procurement_lead_days_scale = to_float(
+        factors.get("external_procurement_lead_days_scale", 1.0),
+        1.0,
+    )
+    external_procurement_cost_multiplier_scale = to_float(
+        factors.get("external_procurement_cost_multiplier_scale", 1.0),
+        1.0,
+    )
+    external_procurement_transport_cost_scale = to_float(
+        factors.get("external_procurement_transport_cost_scale", 1.0),
+        1.0,
+    )
 
     if any(
         v <= 0
@@ -107,6 +128,15 @@ def apply_scales(
             safety_stock_days_scale,
             review_period_scale,
             supplier_reliability_scale,
+            fg_target_days_scale,
+            production_gap_gain_scale,
+            production_smoothing_scale,
+            holding_cost_scale,
+            purchase_cost_floor_scale,
+            external_procurement_daily_cap_days_scale,
+            external_procurement_lead_days_scale,
+            external_procurement_cost_multiplier_scale,
+            external_procurement_transport_cost_scale,
         ]
     ):
         raise ValueError("All factors must be strictly positive.")
@@ -118,8 +148,71 @@ def apply_scales(
         scale_profile_values(d.get("profile") or [], scale)
     base_safety_days = to_float(scn.get("safety_stock_days", 7.0), 7.0)
     base_review_days = to_float(scn.get("review_period_days", 1.0), 1.0)
+    base_fg_target_days = to_float(scn.get("fg_target_days", 0.0), 0.0)
+    base_production_gap_gain = to_float(scn.get("production_gap_gain", 0.25), 0.25)
+    base_production_smoothing = to_float(scn.get("production_smoothing", 0.20), 0.20)
     scn["safety_stock_days"] = round(max(0.0, base_safety_days * safety_stock_days_scale), 6)
     scn["review_period_days"] = max(1, int(round(max(1.0, base_review_days * review_period_scale))))
+    scn["fg_target_days"] = round(max(0.0, base_fg_target_days * fg_target_days_scale), 6)
+    scn["production_gap_gain"] = round(max(0.0, base_production_gap_gain * production_gap_gain_scale), 6)
+    scn["production_smoothing"] = round(
+        min(0.95, max(0.0, base_production_smoothing * production_smoothing_scale)),
+        6,
+    )
+    econ = scn.get("economic_policy")
+    if not isinstance(econ, dict):
+        econ = {}
+    econ["transport_cost_floor_per_unit"] = round(
+        max(0.0, to_float(econ.get("transport_cost_floor_per_unit"), 0.02) * transport_cost_scale),
+        6,
+    )
+    econ["transport_cost_per_km_per_unit"] = round(
+        max(0.0, to_float(econ.get("transport_cost_per_km_per_unit"), 0.00008) * transport_cost_scale),
+        6,
+    )
+    econ["external_procurement_transport_cost_per_unit"] = round(
+        max(
+            0.0,
+            to_float(econ.get("external_procurement_transport_cost_per_unit"), 0.04)
+            * transport_cost_scale
+            * external_procurement_transport_cost_scale,
+        ),
+        6,
+    )
+    econ["holding_cost_scale"] = round(
+        max(0.01, to_float(econ.get("holding_cost_scale"), 1.0) * holding_cost_scale),
+        6,
+    )
+    econ["purchase_cost_floor_per_unit"] = round(
+        max(0.0, to_float(econ.get("purchase_cost_floor_per_unit"), 0.01) * purchase_cost_floor_scale),
+        6,
+    )
+    econ["external_procurement_daily_cap_days"] = round(
+        max(
+            0.0,
+            to_float(econ.get("external_procurement_daily_cap_days"), 2.0)
+            * external_procurement_daily_cap_days_scale,
+        ),
+        6,
+    )
+    econ["external_procurement_lead_days"] = int(
+        round(
+            max(
+                0.0,
+                to_float(econ.get("external_procurement_lead_days"), 4.0)
+                * external_procurement_lead_days_scale,
+            )
+        )
+    )
+    econ["external_procurement_cost_multiplier"] = round(
+        max(
+            0.1,
+            to_float(econ.get("external_procurement_cost_multiplier"), 2.0)
+            * external_procurement_cost_multiplier_scale,
+        ),
+        6,
+    )
+    scn["economic_policy"] = econ
 
     for n in data.get("nodes", []) or []:
         node_id = str(n.get("id"))

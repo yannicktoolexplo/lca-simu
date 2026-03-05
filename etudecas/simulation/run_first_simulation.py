@@ -186,7 +186,14 @@ def choose_scenario(data: dict[str, Any], scenario_id: str) -> dict[str, Any]:
     return scenarios[0] if scenarios else {"id": scenario_id, "demand": []}
 
 
-def lane_records(edges: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], dict[tuple[str, str], list[dict[str, Any]]]]:
+def lane_records(
+    edges: list[dict[str, Any]],
+    economic_policy: dict[str, float] | None = None,
+) -> tuple[list[dict[str, Any]], dict[tuple[str, str], list[dict[str, Any]]]]:
+    economic_policy = economic_policy or {}
+    transport_floor = max(0.0, to_float(economic_policy.get("transport_cost_floor_per_unit"), 0.02))
+    transport_per_km = max(0.0, to_float(economic_policy.get("transport_cost_per_km_per_unit"), 0.00008))
+    purchase_floor = max(0.0, to_float(economic_policy.get("purchase_cost_floor_per_unit"), 0.01))
     lanes: list[dict[str, Any]] = []
     lanes_by_dest_item: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
     for e in edges:
@@ -197,14 +204,18 @@ def lane_records(edges: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], dic
         lead_days_mean = max(1.0, to_float((lead or {}).get("mean"), 1.0))
         lead_stages = int(round(max(1.0, to_float((lead or {}).get("stages"), 1.0))))
         lead_time_type = str((lead or {}).get("type", "constant"))
+        distance_km = max(0.0, to_float(e.get("distance_km"), 0.0))
         tc = e.get("transport_cost") or {}
-        cost = to_float((tc or {}).get("value"), 0.0)
+        explicit_transport_cost = max(0.0, to_float((tc or {}).get("value"), 0.0))
+        fallback_transport_cost = max(transport_floor, distance_km * transport_per_km)
+        # Most lanes in this model have a default 0 transport_cost, so force a realistic floor by distance.
+        cost = explicit_transport_cost if explicit_transport_cost > 0 else fallback_transport_cost
         ot = e.get("order_terms") or {}
         sell_price = to_float((ot or {}).get("sell_price"), 0.0)
         price_base = to_float((ot or {}).get("price_base"), 1.0)
         if price_base <= 0:
             price_base = 1.0
-        unit_purchase_cost = max(0.0, sell_price / price_base)
+        unit_purchase_cost = max(purchase_floor, max(0.0, sell_price / price_base))
         service_level = e.get("service_level") or {}
         reliability = to_float(
             service_level.get("otif", e.get("otif", 1.0)),
@@ -230,6 +241,8 @@ def lane_records(edges: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], dic
                 "delay_step_limit": delay_step_limit,
                 "unit_transport_cost": cost,
                 "unit_purchase_cost": unit_purchase_cost,
+                "raw_transport_cost": explicit_transport_cost,
+                "transport_cost_is_fallback": explicit_transport_cost <= 0,
                 "reliability": reliability,
             }
             lanes.append(lane)
@@ -332,9 +345,33 @@ def scenario_policy_value(scenario: dict[str, Any], key: str, default: float) ->
     return to_float(raw, default)
 
 
+def scenario_policy_bool(scenario: dict[str, Any], key: str, default: bool) -> bool:
+    raw = scenario.get(key, None)
+    if raw is None:
+        policy = scenario.get("inventory_policy") or {}
+        raw = policy.get(key, None)
+    if raw is None:
+        return default
+    if isinstance(raw, bool):
+        return raw
+    return str(raw).strip().lower() in {"1", "true", "yes", "y", "on"}
+
+
+def scenario_policy_dict(scenario: dict[str, Any], key: str) -> dict[str, Any]:
+    raw = scenario.get(key, None)
+    if raw is None:
+        policy = scenario.get("inventory_policy") or {}
+        raw = policy.get(key, None)
+    return raw if isinstance(raw, dict) else {}
+
+
 def try_generate_plots(
     input_stock_rows: list[dict[str, Any]],
     output_prod_rows: list[dict[str, Any]],
+    supplier_shipment_rows: list[dict[str, Any]],
+    supplier_factory_items: dict[str, set[tuple[str, str]]] | None,
+    dc_factory_items: dict[str, set[tuple[str, str]]] | None,
+    dc_node_ids: set[str] | None,
     output_dir: Path,
     item_unit_map: dict[str, str] | None = None,
 ) -> dict[str, str]:
@@ -356,6 +393,113 @@ def try_generate_plots(
 
     item_unit_map = item_unit_map or {}
     unit_axes_order = ("KG", "G", "UN")
+    unit_cmap = {
+        "KG": plt.cm.Blues,
+        "G": plt.cm.Oranges,
+        "UN": plt.cm.Greens,
+    }
+
+    def plot_stock_multiaxis(
+        item_map: dict[str, dict[int, float]],
+        title: str,
+        out_path: Path,
+        y_label_prefix: str = "Stock",
+        unit_by_item: dict[str, str] | None = None,
+        legend_label_by_item: dict[str, str] | None = None,
+    ) -> bool:
+        if not item_map:
+            return False
+        all_days = sorted({d for values in item_map.values() for d in values.keys()})
+        if not all_days:
+            return False
+
+        unit_by_item = unit_by_item or {}
+        legend_label_by_item = legend_label_by_item or {}
+        items_by_unit: dict[str, list[str]] = {u: [] for u in unit_axes_order}
+        for item in sorted(item_map.keys()):
+            unit = normalize_unit(unit_by_item.get(item, item_unit_map.get(item, "")))
+            target_unit = unit if unit in items_by_unit else "KG"
+            items_by_unit[target_unit].append(item)
+
+        present_units = [u for u in unit_axes_order if items_by_unit[u]]
+        if not present_units:
+            return False
+
+        fig, ax_primary = plt.subplots(figsize=(14, 7))
+        axis_for_unit: dict[str, Any] = {}
+        for idx, unit in enumerate(present_units):
+            if idx == 0:
+                axis_for_unit[unit] = ax_primary
+            else:
+                axis = ax_primary.twinx()
+                if idx >= 2:
+                    axis.spines["right"].set_position(("outward", 62 * (idx - 1)))
+                axis_for_unit[unit] = axis
+
+        color_by_item: dict[str, Any] = {}
+        for unit in present_units:
+            items = items_by_unit[unit]
+            cmap = unit_cmap[unit]
+            n = len(items)
+            for idx, item in enumerate(items):
+                t = 0.40 if n == 1 else 0.35 + (0.55 * idx / (n - 1))
+                color_by_item[item] = cmap(t)
+
+        lines_by_axis: dict[str, list[Any]] = {u: [] for u in present_units}
+        labels_by_axis: dict[str, list[str]] = {u: [] for u in present_units}
+
+        for item in sorted(item_map.keys()):
+            series = [item_map[item].get(d, 0.0) for d in all_days]
+            unit = normalize_unit(unit_by_item.get(item, item_unit_map.get(item, "")))
+            target_unit = unit if unit in axis_for_unit else present_units[0]
+            axis = axis_for_unit[target_unit]
+            line = axis.plot(
+                all_days,
+                series,
+                marker="o",
+                linewidth=1.4,
+                color=color_by_item.get(item),
+            )[0]
+            lines_by_axis[target_unit].append(line)
+            legend_label = legend_label_by_item.get(item, item)
+            labels_by_axis[target_unit].append(f"{legend_label} [{target_unit}]")
+
+        ax_primary.set_title(title)
+        ax_primary.set_xlabel("Jour")
+        ax_primary.grid(alpha=0.3)
+        for unit in present_units:
+            axis_for_unit[unit].set_ylabel(f"{y_label_prefix} ({unit})")
+
+        if len(present_units) == 1:
+            x_positions = [0.50]
+        elif len(present_units) == 2:
+            x_positions = [0.30, 0.70]
+        else:
+            x_positions = [0.17, 0.50, 0.83]
+        legend_positions = {unit: (x_positions[idx], 0.02) for idx, unit in enumerate(present_units)}
+
+        for unit in present_units:
+            unit_lines = lines_by_axis[unit]
+            unit_labels = labels_by_axis[unit]
+            if not unit_lines:
+                continue
+            fig.legend(
+                unit_lines,
+                unit_labels,
+                ncol=1,
+                fontsize=8,
+                title=unit,
+                title_fontsize=9,
+                loc="lower center",
+                bbox_to_anchor=legend_positions[unit],
+                frameon=True,
+            )
+
+        right_by_count = {1: 0.95, 2: 0.90, 3: 0.83}
+        fig.subplots_adjust(right=right_by_count.get(len(present_units), 0.83), bottom=0.34)
+        fig.savefig(out_path, dpi=150)
+        plt.close(fig)
+        return True
 
     for factory, item_map in sorted(by_factory_item_day.items()):
         if not item_map:
@@ -451,9 +595,15 @@ def try_generate_plots(
 
     # Plot 2: production of output products.
     by_pair: dict[str, list[tuple[int, float]]] = defaultdict(list)
+    by_factory_pair: dict[str, dict[str, list[tuple[int, float]]]] = defaultdict(lambda: defaultdict(list))
     for r in output_prod_rows:
-        label = pair_label(str(r["node_id"]), str(r["item_id"]))
-        by_pair[label].append((int(r["day"]), to_float(r["produced_qty"], 0.0)))
+        factory = str(r["node_id"])
+        item_id = str(r["item_id"])
+        day = int(r["day"])
+        qty = to_float(r["produced_qty"], 0.0)
+        label = pair_label(factory, item_id)
+        by_pair[label].append((day, qty))
+        by_factory_pair[factory][item_id].append((day, qty))
 
     if by_pair:
         plt.figure(figsize=(12, 6))
@@ -472,6 +622,91 @@ def try_generate_plots(
         plt.savefig(out, dpi=150)
         plt.close()
         generated["production_output_products_png"] = str(out)
+
+    for factory, item_map in sorted(by_factory_pair.items()):
+        if not item_map:
+            continue
+        plt.figure(figsize=(12, 6))
+        for item_id in sorted(item_map.keys()):
+            points = sorted(item_map[item_id], key=lambda x: x[0])
+            days = [p[0] for p in points]
+            vals = [p[1] for p in points]
+            plt.plot(days, vals, marker="o", linewidth=1.8, label=item_id)
+        plt.title(f"Production journaliere des produits finis - {factory}")
+        plt.xlabel("Jour")
+        plt.ylabel("Production (unites/jour)")
+        plt.grid(alpha=0.3)
+        plt.legend()
+        plt.tight_layout()
+        safe_factory = re.sub(r"[^A-Za-z0-9_-]+", "_", factory)
+        out = output_dir / f"production_output_products_by_factory_{safe_factory}.png"
+        plt.savefig(out, dpi=150)
+        plt.close()
+        generated[f"production_output_products_by_factory_{factory}"] = str(out)
+
+    # Plot 3: supplier view = downstream factory input stocks on supplier-related items.
+    supplier_factory_items = supplier_factory_items or {}
+    for supplier, scoped_pairs in sorted(supplier_factory_items.items()):
+        item_map: dict[str, dict[int, float]] = {}
+        unit_by_item: dict[str, str] = {}
+        legend_label_by_item: dict[str, str] = {}
+        for factory, item in sorted(scoped_pairs):
+            factory_series = by_factory_item_day.get(factory, {}).get(item)
+            if not factory_series:
+                continue
+            series_key = f"{factory}|{item}"
+            item_map[series_key] = dict(factory_series)
+            unit_by_item[series_key] = normalize_unit(item_unit_map.get(item, ""))
+            legend_label_by_item[series_key] = f"{item} ({factory})"
+        if not item_map:
+            continue
+        safe_supplier = re.sub(r"[^A-Za-z0-9_-]+", "_", supplier)
+        out = output_dir / f"production_supplier_input_stocks_by_material_{safe_supplier}.png"
+        if plot_stock_multiaxis(
+            item_map,
+            f"Stocks d'entree usine (produits du fournisseur) - {supplier}",
+            out,
+            y_label_prefix="Stock",
+            unit_by_item=unit_by_item,
+            legend_label_by_item=legend_label_by_item,
+        ):
+            generated[f"production_supplier_input_stocks_by_material_{supplier}"] = str(out)
+
+    # Plot 4: distribution center view = upstream factory output series for DC-related items.
+    dc_factory_items = dc_factory_items or {}
+    by_factory_output_item_day: dict[str, dict[str, dict[int, float]]] = defaultdict(lambda: defaultdict(dict))
+    for r in output_prod_rows:
+        day = int(r["day"])
+        factory = str(r["node_id"])
+        item = str(r["item_id"])
+        val = to_float(r.get("produced_qty"), 0.0)
+        by_factory_output_item_day[factory][item][day] = val
+
+    for dc_node, scoped_pairs in sorted(dc_factory_items.items()):
+        item_map: dict[str, dict[int, float]] = {}
+        unit_by_item: dict[str, str] = {}
+        legend_label_by_item: dict[str, str] = {}
+        for factory, item in sorted(scoped_pairs):
+            factory_series = by_factory_output_item_day.get(factory, {}).get(item)
+            if not factory_series:
+                continue
+            series_key = f"{factory}|{item}"
+            item_map[series_key] = dict(factory_series)
+            unit_by_item[series_key] = normalize_unit(item_unit_map.get(item, ""))
+            legend_label_by_item[series_key] = f"{item} ({factory})"
+        if not item_map:
+            continue
+        safe_dc = re.sub(r"[^A-Za-z0-9_-]+", "_", dc_node)
+        out = output_dir / f"production_dc_factory_outputs_by_material_{safe_dc}.png"
+        if plot_stock_multiaxis(
+            item_map,
+            f"Productions usines liees au distribution center - {dc_node}",
+            out,
+            y_label_prefix="Production",
+            unit_by_item=unit_by_item,
+            legend_label_by_item=legend_label_by_item,
+        ):
+            generated[f"production_dc_factory_outputs_by_material_{dc_node}"] = str(out)
 
     return generated
 
@@ -518,6 +753,60 @@ def main() -> None:
     fg_target_days = max(0.0, scenario_policy_value(scenario, "fg_target_days", 0.0))
     production_gap_gain = max(0.0, scenario_policy_value(scenario, "production_gap_gain", 0.25))
     production_smoothing = min(0.95, max(0.0, scenario_policy_value(scenario, "production_smoothing", 0.20)))
+    economic_policy_cfg = scenario_policy_dict(scenario, "economic_policy")
+    economic_policy = {
+        "transport_cost_floor_per_unit": max(
+            0.0,
+            to_float(economic_policy_cfg.get("transport_cost_floor_per_unit"), 0.02),
+        ),
+        "transport_cost_per_km_per_unit": max(
+            0.0,
+            to_float(economic_policy_cfg.get("transport_cost_per_km_per_unit"), 0.00008),
+        ),
+        "purchase_cost_floor_per_unit": max(
+            0.0,
+            to_float(economic_policy_cfg.get("purchase_cost_floor_per_unit"), 0.01),
+        ),
+        "holding_cost_scale": max(
+            0.0,
+            to_float(economic_policy_cfg.get("holding_cost_scale"), 1.0),
+        ),
+        "external_procurement_enabled": (
+            economic_policy_cfg.get("external_procurement_enabled")
+            if isinstance(economic_policy_cfg.get("external_procurement_enabled"), bool)
+            else str(
+                economic_policy_cfg.get(
+                    "external_procurement_enabled",
+                    scenario_policy_bool(scenario, "external_procurement_enabled", True),
+                )
+            ).strip().lower()
+            in {"1", "true", "yes", "y", "on"}
+        ),
+        "external_procurement_lead_days": max(
+            0,
+            int(round(to_float(economic_policy_cfg.get("external_procurement_lead_days"), 4.0))),
+        ),
+        "external_procurement_daily_cap_days": max(
+            0.0,
+            to_float(economic_policy_cfg.get("external_procurement_daily_cap_days"), 2.0),
+        ),
+        "external_procurement_min_daily_cap_qty": max(
+            0.0,
+            to_float(economic_policy_cfg.get("external_procurement_min_daily_cap_qty"), 0.0),
+        ),
+        "external_procurement_unit_cost": max(
+            0.0,
+            to_float(economic_policy_cfg.get("external_procurement_unit_cost"), 0.0),
+        ),
+        "external_procurement_cost_multiplier": max(
+            0.0,
+            to_float(economic_policy_cfg.get("external_procurement_cost_multiplier"), 2.0),
+        ),
+        "external_procurement_transport_cost_per_unit": max(
+            0.0,
+            to_float(economic_policy_cfg.get("external_procurement_transport_cost_per_unit"), 0.04),
+        ),
+    }
     rng = random.Random(args.seed)
 
     stock: dict[tuple[str, str], float] = defaultdict(float)
@@ -532,12 +821,39 @@ def main() -> None:
             stock[key] = initial
             base_stock[key] = initial
             hc = st.get("holding_cost") or {}
-            holding_cost[key] = to_float((hc or {}).get("value"), 0.0)
+            holding_cost[key] = to_float((hc or {}).get("value"), 0.0) * economic_policy["holding_cost_scale"]
 
-    lanes, lanes_by_dest_item = lane_records(edges)
+    lanes, lanes_by_dest_item = lane_records(edges, economic_policy=economic_policy)
+    lanes_with_fallback_transport_cost = sum(1 for l in lanes if bool(l.get("transport_cost_is_fallback")))
+    lanes_with_explicit_transport_cost = len(lanes) - lanes_with_fallback_transport_cost
     lanes_by_src_item: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
     for lane in lanes:
         lanes_by_src_item[(str(lane["src"]), str(lane["item_id"]))].append(lane)
+    node_type_by_id = {str(n.get("id")): str(n.get("type") or "") for n in nodes}
+    supplier_node_ids = {
+        node_id
+        for node_id, node_type in node_type_by_id.items()
+        if node_type == "supplier_dc"
+    }
+    dc_node_ids = {
+        node_id
+        for node_id, node_type in node_type_by_id.items()
+        if node_type == "distribution_center"
+    }
+    supplier_factory_items: dict[str, set[tuple[str, str]]] = defaultdict(set)
+    for lane in lanes:
+        src = str(lane["src"])
+        dst = str(lane["dst"])
+        item_id = str(lane["item_id"])
+        if src in supplier_node_ids and node_type_by_id.get(dst) == "factory":
+            supplier_factory_items[src].add((dst, item_id))
+    dc_factory_items: dict[str, set[tuple[str, str]]] = defaultdict(set)
+    for lane in lanes:
+        src = str(lane["src"])
+        dst = str(lane["dst"])
+        item_id = str(lane["item_id"])
+        if dst in dc_node_ids and node_type_by_id.get(src) == "factory":
+            dc_factory_items[dst].add((src, item_id))
     inbound_pairs = set(lanes_by_dest_item.keys())
     outbound_pairs = {(str(l["src"]), str(l["item_id"])) for l in lanes}
     produced_pairs = {
@@ -572,7 +888,9 @@ def main() -> None:
 
     backlog: dict[tuple[str, str], float] = defaultdict(float)
     pipeline: dict[int, list[tuple[str, str, float, str]]] = defaultdict(list)
+    external_pipeline: dict[int, list[tuple[str, str, float]]] = defaultdict(list)
     in_transit: dict[tuple[str, str], float] = defaultdict(float)
+    external_in_transit: dict[tuple[str, str], float] = defaultdict(float)
 
     total_demand = 0.0
     total_served = 0.0
@@ -582,8 +900,11 @@ def main() -> None:
     total_transport_cost = 0.0
     total_holding_cost = 0.0
     total_external_procured = 0.0
+    total_external_procured_arrived = 0.0
+    total_external_procured_rejected = 0.0
     total_unreliable_loss_qty = 0.0
     total_purchase_cost = 0.0
+    total_external_procurement_cost = 0.0
 
     daily_rows: list[dict[str, Any]] = []
     input_stock_rows: list[dict[str, Any]] = []
@@ -591,6 +912,9 @@ def main() -> None:
     input_consumption_rows: list[dict[str, Any]] = []
     input_arrival_rows: list[dict[str, Any]] = []
     input_shipment_rows: list[dict[str, Any]] = []
+    supplier_shipment_rows: list[dict[str, Any]] = []
+    supplier_stock_rows: list[dict[str, Any]] = []
+    dc_stock_rows: list[dict[str, Any]] = []
 
     production_input_pairs: list[tuple[str, str]] = []
     production_output_pairs: list[tuple[str, str]] = []
@@ -601,6 +925,20 @@ def main() -> None:
     seen_output_pairs: set[tuple[str, str]] = set()
     seen_unconstrained: set[tuple[str, str]] = set()
     stock_pairs = set(stock.keys())
+    supplier_stock_pairs = sorted(
+        {
+            pair
+            for pair in (stock_pairs | outbound_pairs)
+            if pair[0] in supplier_node_ids
+        }
+    )
+    dc_stock_pairs = sorted(
+        {
+            pair
+            for pair in (stock_pairs | inbound_pairs | outbound_pairs)
+            if pair[0] in dc_node_ids
+        }
+    )
     for n in nodes:
         nid = str(n.get("id"))
         for p in (n.get("processes") or []):
@@ -692,14 +1030,21 @@ def main() -> None:
         propagated_demand_today = propagate_demand_rates(demand_target_today, lanes)
 
         arrivals_today = pipeline.pop(day, [])
+        external_arrivals_today = external_pipeline.pop(day, [])
         arrivals_qty = 0.0
+        external_arrivals_qty = 0.0
         arrivals_today_by_pair: dict[tuple[str, str], float] = defaultdict(float)
         for dst, item_id, qty, _lane_id in arrivals_today:
             stock[(dst, item_id)] += qty
             in_transit[(dst, item_id)] -= qty
             arrivals_qty += qty
             arrivals_today_by_pair[(dst, item_id)] += qty
+        for src, item_id, qty in external_arrivals_today:
+            stock[(src, item_id)] += qty
+            external_in_transit[(src, item_id)] -= qty
+            external_arrivals_qty += qty
         total_arrived += arrivals_qty
+        total_external_procured_arrived += external_arrivals_qty
 
         # Snapshot: raw material stocks at production input before production starts.
         day_input_rows_by_pair: dict[tuple[str, str], dict[str, Any]] = {}
@@ -849,7 +1194,9 @@ def main() -> None:
         transport_cost_today = 0.0
         purchase_cost_today = 0.0
         external_procured_today = 0.0
+        external_procured_rejected_today = 0.0
         shipped_today_to_pair: dict[tuple[str, str], float] = defaultdict(float)
+        external_ordered_today_by_src_pair: dict[tuple[str, str], float] = defaultdict(float)
         for pair, lane_list in lanes_by_dest_item.items():
             dst, item_id = pair
             target = base_stock.get(pair, 0.0)
@@ -879,10 +1226,41 @@ def main() -> None:
                 src_pair = (lane["src"], item_id)
                 available = stock[src_pair]
                 if src_pair in externally_sourced_pairs_set and available < remaining:
-                    top_up = remaining - available
-                    stock[src_pair] += top_up
+                    if economic_policy["external_procurement_enabled"]:
+                        ext_gap = remaining - available
+                        ext_daily_signal = max(
+                            propagated_demand_today.get(src_pair, 0.0),
+                            item_daily_req,
+                        )
+                        ext_cap_today = max(
+                            economic_policy["external_procurement_min_daily_cap_qty"],
+                            economic_policy["external_procurement_daily_cap_days"] * ext_daily_signal,
+                        )
+                        ext_cap_left = max(0.0, ext_cap_today - external_ordered_today_by_src_pair[src_pair])
+                        ext_order_qty = min(ext_gap, ext_cap_left)
+                        if ext_order_qty > 1e-9:
+                            ext_lead_days = int(economic_policy["external_procurement_lead_days"])
+                            ext_arrival_day = day + ext_lead_days
+                            external_pipeline[ext_arrival_day].append((src_pair[0], src_pair[1], ext_order_qty))
+                            external_in_transit[src_pair] += ext_order_qty
+                            external_procured_today += ext_order_qty
+                            external_ordered_today_by_src_pair[src_pair] += ext_order_qty
+                            ref_purchase = max(
+                                economic_policy["purchase_cost_floor_per_unit"],
+                                to_float(lane.get("unit_purchase_cost"), 0.0),
+                            )
+                            ext_unit_purchase = max(
+                                economic_policy["external_procurement_unit_cost"],
+                                ref_purchase * economic_policy["external_procurement_cost_multiplier"],
+                            )
+                            ext_unit_transport = economic_policy["external_procurement_transport_cost_per_unit"]
+                            ext_order_cost = ext_order_qty * (ext_unit_purchase + ext_unit_transport)
+                            purchase_cost_today += ext_order_qty * ext_unit_purchase
+                            transport_cost_today += ext_order_qty * ext_unit_transport
+                            total_external_procurement_cost += ext_order_cost
+                        ext_rejected = max(0.0, ext_gap - ext_order_qty)
+                        external_procured_rejected_today += ext_rejected
                     available = stock[src_pair]
-                    external_procured_today += top_up
                 if available <= 1e-9:
                     continue
                 rel = max(0.01, min(1.0, to_float(lane.get("reliability"), 1.0)))
@@ -902,11 +1280,26 @@ def main() -> None:
                 transport_cost_today += delivered_qty * lane["unit_transport_cost"]
                 purchase_cost_today += delivered_qty * lane["unit_purchase_cost"]
                 total_unreliable_loss_qty += max(0.0, pull_qty - delivered_qty)
+                supplier_shipment_rows.append(
+                    {
+                        "day": day,
+                        "src_node_id": str(lane["src"]),
+                        "dst_node_id": str(dst),
+                        "item_id": str(item_id),
+                        "shipped_qty": round(delivered_qty, 6),
+                        "pulled_qty": round(pull_qty, 6),
+                        "lead_days": int(lead_days),
+                        "arrival_day": int(arrival_day),
+                        "reliability": round(rel, 6),
+                        "uom": item_unit_map.get(item_id, ""),
+                    }
+                )
 
         total_shipped += shipped_today
         total_transport_cost += transport_cost_today
         total_purchase_cost += purchase_cost_today
         total_external_procured += external_procured_today
+        total_external_procured_rejected += external_procured_rejected_today
         for node_id, item_id in production_input_pairs:
             input_shipment_rows.append(
                 {
@@ -933,6 +1326,25 @@ def main() -> None:
             if row is not None:
                 row["stock_end_of_day"] = round(stock[(node_id, item_id)], 6)
 
+        for node_id, item_id in supplier_stock_pairs:
+            supplier_stock_rows.append(
+                {
+                    "day": day,
+                    "node_id": node_id,
+                    "item_id": item_id,
+                    "stock_end_of_day": round(stock[(node_id, item_id)], 6),
+                }
+            )
+        for node_id, item_id in dc_stock_pairs:
+            dc_stock_rows.append(
+                {
+                    "day": day,
+                    "node_id": node_id,
+                    "item_id": item_id,
+                    "stock_end_of_day": round(stock[(node_id, item_id)], 6),
+                }
+            )
+
         daily_rows.append(
             {
                 "day": day,
@@ -946,7 +1358,9 @@ def main() -> None:
                 "holding_cost_day": round(holding_cost_today, 4),
                 "transport_cost_day": round(transport_cost_today, 4),
                 "purchase_cost_day": round(purchase_cost_today, 4),
-                "external_procured_qty": round(external_procured_today, 4),
+                "external_procured_ordered_qty": round(external_procured_today, 4),
+                "external_procured_arrived_qty": round(external_arrivals_qty, 4),
+                "external_procured_rejected_qty": round(external_procured_rejected_today, 4),
             }
         )
 
@@ -963,6 +1377,19 @@ def main() -> None:
         ],
         key=lambda x: -x["backlog"],
     )[:10]
+    total_cost = total_transport_cost + total_holding_cost + total_purchase_cost
+    holding_share = total_holding_cost / max(1e-12, total_cost)
+    transport_share = total_transport_cost / max(1e-12, total_cost)
+    purchase_share = total_purchase_cost / max(1e-12, total_cost)
+    economic_warnings: list[str] = []
+    if holding_share > 0.90:
+        economic_warnings.append("holding_cost_share_above_90pct")
+    if transport_share < 0.02:
+        economic_warnings.append("transport_cost_share_below_2pct")
+    if purchase_share < 0.02:
+        economic_warnings.append("purchase_cost_share_below_2pct")
+    if total_external_procured > 0 and total_external_procured_arrived <= 1e-9:
+        economic_warnings.append("external_procurement_ordered_but_not_arrived_in_horizon")
 
     summary = {
         "input_file": str(input_path),
@@ -976,6 +1403,19 @@ def main() -> None:
             "production_smoothing": production_smoothing,
             "stochastic_lead_times": bool(args.stochastic_lead_times),
             "seed": int(args.seed),
+            "economic_policy": {
+                "transport_cost_floor_per_unit": economic_policy["transport_cost_floor_per_unit"],
+                "transport_cost_per_km_per_unit": economic_policy["transport_cost_per_km_per_unit"],
+                "purchase_cost_floor_per_unit": economic_policy["purchase_cost_floor_per_unit"],
+                "holding_cost_scale": economic_policy["holding_cost_scale"],
+                "external_procurement_enabled": economic_policy["external_procurement_enabled"],
+                "external_procurement_lead_days": economic_policy["external_procurement_lead_days"],
+                "external_procurement_daily_cap_days": economic_policy["external_procurement_daily_cap_days"],
+                "external_procurement_min_daily_cap_qty": economic_policy["external_procurement_min_daily_cap_qty"],
+                "external_procurement_unit_cost": economic_policy["external_procurement_unit_cost"],
+                "external_procurement_cost_multiplier": economic_policy["external_procurement_cost_multiplier"],
+                "external_procurement_transport_cost_per_unit": economic_policy["external_procurement_transport_cost_per_unit"],
+            },
         },
         "counts": {
             "nodes": len(nodes),
@@ -1024,6 +1464,8 @@ def main() -> None:
             "lane_purchase_cost_stats": {
                 "lanes_with_positive_purchase_cost": sum(1 for l in lanes if to_float(l.get("unit_purchase_cost"), 0.0) > 0),
                 "lanes_with_zero_purchase_cost": sum(1 for l in lanes if to_float(l.get("unit_purchase_cost"), 0.0) <= 0),
+                "lanes_with_explicit_transport_cost": lanes_with_explicit_transport_cost,
+                "lanes_with_fallback_transport_cost": lanes_with_fallback_transport_cost,
             },
         },
         "kpis": {
@@ -1040,10 +1482,23 @@ def main() -> None:
             "total_holding_cost": round(total_holding_cost, 4),
             "total_purchase_cost": round(total_purchase_cost, 4),
             "total_logistics_cost": round(total_transport_cost + total_holding_cost, 4),
-            "total_cost": round(total_transport_cost + total_holding_cost + total_purchase_cost, 4),
+            "total_cost": round(total_cost, 4),
+            "total_external_procured_ordered_qty": round(total_external_procured, 4),
+            "total_external_procured_arrived_qty": round(total_external_procured_arrived, 4),
+            "total_external_procured_rejected_qty": round(total_external_procured_rejected, 4),
             "total_external_procured_qty": round(total_external_procured, 4),
+            "total_external_procurement_cost": round(total_external_procurement_cost, 4),
             "total_opening_stock_bootstrap_qty": round(total_opening_stock_bootstrap, 4),
             "total_unreliable_loss_qty": round(total_unreliable_loss_qty, 4),
+            "cost_share_holding": round(holding_share, 6),
+            "cost_share_transport": round(transport_share, 6),
+            "cost_share_purchase": round(purchase_share, 6),
+        },
+        "economic_consistency": {
+            "status": "warn" if economic_warnings else "ok",
+            "warnings": economic_warnings,
+            "transport_cost_share_target_min": 0.02,
+            "holding_cost_share_target_max": 0.90,
         },
         "top_backlog_pairs": top_backlog,
     }
@@ -1056,6 +1511,9 @@ def main() -> None:
     input_arrival_path = output_dir / "production_input_replenishment_arrivals_daily.csv"
     input_shipment_path = output_dir / "production_input_replenishment_shipments_daily.csv"
     output_prod_path = output_dir / "production_output_products_daily.csv"
+    supplier_shipment_path = output_dir / "production_supplier_shipments_daily.csv"
+    supplier_stock_path = output_dir / "production_supplier_stocks_daily.csv"
+    dc_stock_path = output_dir / "production_dc_stocks_daily.csv"
 
     summary_path.write_text(json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")
     with daily_path.open("w", encoding="utf-8", newline="") as f:
@@ -1092,6 +1550,35 @@ def main() -> None:
         writer.writeheader()
         writer.writerows(output_prod_rows)
 
+    with supplier_shipment_path.open("w", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(
+            f,
+            fieldnames=[
+                "day",
+                "src_node_id",
+                "dst_node_id",
+                "item_id",
+                "shipped_qty",
+                "pulled_qty",
+                "lead_days",
+                "arrival_day",
+                "reliability",
+                "uom",
+            ],
+        )
+        writer.writeheader()
+        writer.writerows(supplier_shipment_rows)
+
+    with supplier_stock_path.open("w", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=["day", "node_id", "item_id", "stock_end_of_day"])
+        writer.writeheader()
+        writer.writerows(supplier_stock_rows)
+
+    with dc_stock_path.open("w", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=["day", "node_id", "item_id", "stock_end_of_day"])
+        writer.writeheader()
+        writer.writerows(dc_stock_rows)
+
     # Pivot file for easier read: one column per (factory,item) input stock.
     input_pairs = sorted({(str(r["node_id"]), str(r["item_id"])) for r in input_stock_rows})
     input_pivot_path = output_dir / "production_input_stocks_pivot.csv"
@@ -1115,6 +1602,10 @@ def main() -> None:
         generated_plots = try_generate_plots(
             input_stock_rows=input_stock_rows,
             output_prod_rows=output_prod_rows,
+            supplier_shipment_rows=supplier_shipment_rows,
+            supplier_factory_items=supplier_factory_items,
+            dc_factory_items=dc_factory_items,
+            dc_node_ids=dc_node_ids,
             output_dir=output_dir,
             item_unit_map=item_unit_map,
         )
@@ -1138,6 +1629,10 @@ def main() -> None:
                 str(input_stock_path),
                 "--sim-output-products-csv",
                 str(output_prod_path),
+                "--sim-input-stocks-png-dir",
+                str(output_dir),
+                "--sim-output-products-png-dir",
+                str(output_dir),
             ]
             try:
                 subprocess.run(map_cmd, check=True, capture_output=True, text=True)
@@ -1155,6 +1650,21 @@ def main() -> None:
         path
         for key, path in sorted(generated_plots.items())
         if key.startswith("production_input_stocks_by_material_")
+    ]
+    detailed_output_plot_paths = [
+        path
+        for key, path in sorted(generated_plots.items())
+        if key.startswith("production_output_products_by_factory_")
+    ]
+    detailed_supplier_plot_paths = [
+        path
+        for key, path in sorted(generated_plots.items())
+        if key.startswith("production_supplier_input_stocks_by_material_")
+    ]
+    detailed_dc_plot_paths = [
+        path
+        for key, path in sorted(generated_plots.items())
+        if key.startswith("production_dc_factory_outputs_by_material_")
     ]
 
     output_pairs_txt = ", ".join(pair_label(n, i) for n, i in production_output_pairs) or "n/a"
@@ -1176,6 +1686,14 @@ def main() -> None:
 - Production smoothing factor: {summary['policy']['production_smoothing']}
 - Stochastic lead times: {summary['policy']['stochastic_lead_times']}
 - Random seed: {summary['policy']['seed']}
+- Economic policy transport floor /km: {summary['policy']['economic_policy']['transport_cost_floor_per_unit']} / {summary['policy']['economic_policy']['transport_cost_per_km_per_unit']}
+- Economic policy purchase floor: {summary['policy']['economic_policy']['purchase_cost_floor_per_unit']}
+- Holding cost scale: {summary['policy']['economic_policy']['holding_cost_scale']}
+- External procurement enabled: {summary['policy']['economic_policy']['external_procurement_enabled']}
+- External procurement lead days: {summary['policy']['economic_policy']['external_procurement_lead_days']}
+- External procurement daily cap days: {summary['policy']['economic_policy']['external_procurement_daily_cap_days']}
+- External procurement min daily cap qty: {summary['policy']['economic_policy']['external_procurement_min_daily_cap_qty']}
+- External procurement unit cost / multiplier / transport unit: {summary['policy']['economic_policy']['external_procurement_unit_cost']} / {summary['policy']['economic_policy']['external_procurement_cost_multiplier']} / {summary['policy']['economic_policy']['external_procurement_transport_cost_per_unit']}
 - Nodes: {summary['counts']['nodes']}
 - Edges: {summary['counts']['edges']}
 - Lanes (edge x item): {summary['counts']['lanes']}
@@ -1204,9 +1722,15 @@ def main() -> None:
 - Purchase cost (from order_terms sell_price): {summary['kpis']['total_purchase_cost']}
 - Logistics cost (transport + holding): {summary['kpis']['total_logistics_cost']}
 - Total cost: {summary['kpis']['total_cost']}
-- Total external procured qty (unmodeled upstream): {summary['kpis']['total_external_procured_qty']}
+- Total external procured ordered qty: {summary['kpis']['total_external_procured_ordered_qty']}
+- Total external procured arrived qty: {summary['kpis']['total_external_procured_arrived_qty']}
+- Total external procured rejected qty (cap-limited): {summary['kpis']['total_external_procured_rejected_qty']}
+- Total external procurement cost premium: {summary['kpis']['total_external_procurement_cost']}
+- Cost share holding / transport / purchase: {summary['kpis']['cost_share_holding']} / {summary['kpis']['cost_share_transport']} / {summary['kpis']['cost_share_purchase']}
 - Total opening stock bootstrap qty: {summary['kpis']['total_opening_stock_bootstrap_qty']}
 - Total unreliable supplier loss qty: {summary['kpis']['total_unreliable_loss_qty']}
+- Economic consistency status: {summary['economic_consistency']['status']}
+- Economic consistency warnings: {summary['economic_consistency']['warnings']}
 
 ## Top backlog pairs
 {json.dumps(summary['top_backlog_pairs'], indent=2, ensure_ascii=False)}
@@ -1220,8 +1744,14 @@ def main() -> None:
 - production_input_replenishment_shipments_daily.csv
 - production_input_stocks_pivot.csv
 - production_output_products_daily.csv
+- production_supplier_shipments_daily.csv
+- production_supplier_stocks_daily.csv
+- production_dc_stocks_daily.csv
 - production_input_stocks_by_material_*.png ({', '.join(detailed_input_plot_paths) if detailed_input_plot_paths else 'not generated'})
 - production_output_products.png ({generated_plots.get('production_output_products_png', 'not generated')})
+- production_output_products_by_factory_*.png ({', '.join(detailed_output_plot_paths) if detailed_output_plot_paths else 'not generated'})
+- production_supplier_input_stocks_by_material_*.png ({', '.join(detailed_supplier_plot_paths) if detailed_supplier_plot_paths else 'not generated'})
+- production_dc_factory_outputs_by_material_*.png ({', '.join(detailed_dc_plot_paths) if detailed_dc_plot_paths else 'not generated'})
 - supply_graph_poc_geocoded_map_with_factory_hover.html ({generated_map_path or 'not generated'})
 """
     report_path.write_text(report, encoding="utf-8")
@@ -1235,6 +1765,9 @@ def main() -> None:
     print(f"[OK] Production input replenishment shipments CSV: {input_shipment_path.resolve()}")
     print(f"[OK] Production input stocks pivot CSV: {input_pivot_path.resolve()}")
     print(f"[OK] Production output products CSV: {output_prod_path.resolve()}")
+    print(f"[OK] Production supplier shipments CSV: {supplier_shipment_path.resolve()}")
+    print(f"[OK] Production supplier stocks CSV: {supplier_stock_path.resolve()}")
+    print(f"[OK] Production distribution center stocks CSV: {dc_stock_path.resolve()}")
     if generated_plots:
         for _, path in sorted(generated_plots.items()):
             print(f"[OK] Plot generated: {Path(path).resolve()}")
