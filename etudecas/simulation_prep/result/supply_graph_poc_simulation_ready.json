@@ -2614,7 +2614,7 @@
           {
             "item_id": "item:268091",
             "state_id": "I_268091",
-            "initial": 150.0,
+            "initial": 204.0,
             "uom": "UN",
             "holding_cost": {
               "value": 0.04,
@@ -2628,7 +2628,7 @@
           {
             "item_id": "item:268967",
             "state_id": "I_268967",
-            "initial": 150.0,
+            "initial": 204.0,
             "uom": "UN",
             "holding_cost": {
               "value": 0.04,

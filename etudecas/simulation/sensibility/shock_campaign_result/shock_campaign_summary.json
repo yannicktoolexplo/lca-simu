@@ -1,0 +1,328 @@
+{
+  "generated_at_utc": "2026-03-05T15:22:09.123368+00:00",
+  "input": "etudecas/simulation_prep/result/supply_graph_poc_simulation_ready.json",
+  "run_script": "etudecas/simulation/run_first_simulation.py",
+  "scenario_id": "scn:BASE",
+  "days_override": 30,
+  "scenario_count": 55,
+  "successful_scenarios": 55,
+  "failed_scenarios": 0,
+  "baseline_kpis": {
+    "kpi::avg_inventory": 22701.7116,
+    "kpi::cost_share_holding": 0.75786,
+    "kpi::cost_share_purchase": 0.10459,
+    "kpi::cost_share_transport": 0.137549,
+    "kpi::ending_backlog": 81.8736,
+    "kpi::ending_inventory": 14655.5045,
+    "kpi::fill_rate": 0.945418,
+    "kpi::total_arrived": 37280.0003,
+    "kpi::total_cost": 28723.7188,
+    "kpi::total_demand": 1500.0,
+    "kpi::total_external_procured_arrived_qty": 49149.966,
+    "kpi::total_external_procured_ordered_qty": 53342.633,
+    "kpi::total_external_procured_qty": 53342.633,
+    "kpi::total_external_procured_rejected_qty": 19998.7226,
+    "kpi::total_external_procurement_cost": 3999.8027,
+    "kpi::total_holding_cost": 21768.5663,
+    "kpi::total_logistics_cost": 25719.4932,
+    "kpi::total_opening_stock_bootstrap_qty": 29870.366,
+    "kpi::total_produced": 1425.1456,
+    "kpi::total_purchase_cost": 3004.2256,
+    "kpi::total_served": 1418.1264,
+    "kpi::total_shipped": 55453.5434,
+    "kpi::total_transport_cost": 3950.9269,
+    "kpi::total_unreliable_loss_qty": 0.0
+  },
+  "top_scenarios": {
+    "best_fill_rate": [
+      {
+        "scenario_id": "demand_scale_down",
+        "category": "single_factor_global",
+        "kpi::fill_rate": 1.0,
+        "kpi::total_cost": 29422.2698,
+        "kpi::ending_backlog": 0.0
+      },
+      {
+        "scenario_id": "supplier_stock_scale_up_severe",
+        "category": "single_factor_global",
+        "kpi::fill_rate": 1.0,
+        "kpi::total_cost": 29496.6895,
+        "kpi::ending_backlog": 0.0
+      },
+      {
+        "scenario_id": "demand_drop_recovery_50",
+        "category": "profile_shock",
+        "kpi::fill_rate": 1.0,
+        "kpi::total_cost": 32306.3012,
+        "kpi::ending_backlog": 0.0
+      },
+      {
+        "scenario_id": "combo_resilience_max",
+        "category": "combined_mitigation",
+        "kpi::fill_rate": 1.0,
+        "kpi::total_cost": 51029.445,
+        "kpi::ending_backlog": 0.0
+      },
+      {
+        "scenario_id": "lead_time_scale_down",
+        "category": "single_factor_global",
+        "kpi::fill_rate": 0.99736,
+        "kpi::total_cost": 26078.2981,
+        "kpi::ending_backlog": 3.96
+      },
+      {
+        "scenario_id": "demand_item_268967_down",
+        "category": "single_factor_item_demand",
+        "kpi::fill_rate": 0.997126,
+        "kpi::total_cost": 30804.9566,
+        "kpi::ending_backlog": 3.6647
+      },
+      {
+        "scenario_id": "demand_drop_recovery_30",
+        "category": "profile_shock",
+        "kpi::fill_rate": 0.987374,
+        "kpi::total_cost": 34985.5022,
+        "kpi::ending_backlog": 11.9997
+      },
+      {
+        "scenario_id": "supplier_stock_scale_up",
+        "category": "single_factor_global",
+        "kpi::fill_rate": 0.979228,
+        "kpi::total_cost": 28717.5411,
+        "kpi::ending_backlog": 31.1581
+      }
+    ],
+    "lowest_total_cost": [
+      {
+        "scenario_id": "combo_dual_plant_outage",
+        "category": "combined_stress",
+        "kpi::total_cost": 18182.3037,
+        "kpi::fill_rate": 0.737833,
+        "kpi::ending_backlog": 393.25
+      },
+      {
+        "scenario_id": "capacity_scale_down_severe",
+        "category": "single_factor_global",
+        "kpi::total_cost": 19803.6861,
+        "kpi::fill_rate": 0.773667,
+        "kpi::ending_backlog": 339.5
+      },
+      {
+        "scenario_id": "capacity_M-1430_down30",
+        "category": "single_factor_node_capacity",
+        "kpi::total_cost": 20590.7964,
+        "kpi::fill_rate": 0.879357,
+        "kpi::ending_backlog": 180.9645
+      },
+      {
+        "scenario_id": "combo_extreme_black_swan",
+        "category": "combined_stress",
+        "kpi::total_cost": 21225.5275,
+        "kpi::fill_rate": 0.112177,
+        "kpi::ending_backlog": 3281.3953
+      },
+      {
+        "scenario_id": "capacity_scale_down",
+        "category": "single_factor_global",
+        "kpi::total_cost": 22692.4945,
+        "kpi::fill_rate": 0.845333,
+        "kpi::ending_backlog": 232.0
+      },
+      {
+        "scenario_id": "capacity_M-1430_down20",
+        "category": "single_factor_node_capacity",
+        "kpi::total_cost": 24620.9151,
+        "kpi::fill_rate": 0.900224,
+        "kpi::ending_backlog": 149.6647
+      },
+      {
+        "scenario_id": "combo_systemic_stress",
+        "category": "combined_stress",
+        "kpi::total_cost": 24839.0344,
+        "kpi::fill_rate": 0.223371,
+        "kpi::ending_backlog": 2333.104
+      },
+      {
+        "scenario_id": "lead_time_scale_down",
+        "category": "single_factor_global",
+        "kpi::total_cost": 26078.2981,
+        "kpi::fill_rate": 0.99736,
+        "kpi::ending_backlog": 3.96
+      }
+    ],
+    "lowest_ending_backlog": [
+      {
+        "scenario_id": "demand_scale_down",
+        "category": "single_factor_global",
+        "kpi::ending_backlog": 0.0,
+        "kpi::fill_rate": 1.0,
+        "kpi::total_cost": 29422.2698
+      },
+      {
+        "scenario_id": "supplier_stock_scale_up_severe",
+        "category": "single_factor_global",
+        "kpi::ending_backlog": 0.0,
+        "kpi::fill_rate": 1.0,
+        "kpi::total_cost": 29496.6895
+      },
+      {
+        "scenario_id": "demand_drop_recovery_50",
+        "category": "profile_shock",
+        "kpi::ending_backlog": 0.0,
+        "kpi::fill_rate": 1.0,
+        "kpi::total_cost": 32306.3012
+      },
+      {
+        "scenario_id": "combo_resilience_max",
+        "category": "combined_mitigation",
+        "kpi::ending_backlog": 0.0,
+        "kpi::fill_rate": 1.0,
+        "kpi::total_cost": 51029.445
+      },
+      {
+        "scenario_id": "demand_item_268967_down",
+        "category": "single_factor_item_demand",
+        "kpi::ending_backlog": 3.6647,
+        "kpi::fill_rate": 0.997126,
+        "kpi::total_cost": 30804.9566
+      },
+      {
+        "scenario_id": "lead_time_scale_down",
+        "category": "single_factor_global",
+        "kpi::ending_backlog": 3.96,
+        "kpi::fill_rate": 0.99736,
+        "kpi::total_cost": 26078.2981
+      },
+      {
+        "scenario_id": "demand_drop_recovery_30",
+        "category": "profile_shock",
+        "kpi::ending_backlog": 11.9997,
+        "kpi::fill_rate": 0.987374,
+        "kpi::total_cost": 34985.5022
+      },
+      {
+        "scenario_id": "supplier_stock_scale_up",
+        "category": "single_factor_global",
+        "kpi::ending_backlog": 31.1581,
+        "kpi::fill_rate": 0.979228,
+        "kpi::total_cost": 28717.5411
+      }
+    ],
+    "worst_fill_rate": [
+      {
+        "scenario_id": "combo_extreme_black_swan",
+        "category": "combined_stress",
+        "kpi::fill_rate": 0.112177,
+        "kpi::total_cost": 21225.5275,
+        "kpi::ending_backlog": 3281.3953
+      },
+      {
+        "scenario_id": "combo_systemic_stress",
+        "category": "combined_stress",
+        "kpi::fill_rate": 0.223371,
+        "kpi::total_cost": 24839.0344,
+        "kpi::ending_backlog": 2333.104
+      },
+      {
+        "scenario_id": "combo_supplier_crunch",
+        "category": "combined_stress",
+        "kpi::fill_rate": 0.417627,
+        "kpi::total_cost": 38409.4371,
+        "kpi::ending_backlog": 873.5598
+      },
+      {
+        "scenario_id": "combo_logistics_strike",
+        "category": "combined_stress",
+        "kpi::fill_rate": 0.481107,
+        "kpi::total_cost": 53735.1567,
+        "kpi::ending_backlog": 778.34
+      },
+      {
+        "scenario_id": "review_period_scale_7d",
+        "category": "single_factor_global",
+        "kpi::fill_rate": 0.538728,
+        "kpi::total_cost": 35266.3511,
+        "kpi::ending_backlog": 691.9086
+      },
+      {
+        "scenario_id": "combo_demand_boom",
+        "category": "combined_stress",
+        "kpi::fill_rate": 0.582137,
+        "kpi::total_cost": 28239.2051,
+        "kpi::ending_backlog": 1100.4
+      },
+      {
+        "scenario_id": "review_period_scale_4d",
+        "category": "single_factor_global",
+        "kpi::fill_rate": 0.621552,
+        "kpi::total_cost": 28198.8649,
+        "kpi::ending_backlog": 567.6723
+      },
+      {
+        "scenario_id": "supplier_reliability_scale_75pct",
+        "category": "single_factor_global",
+        "kpi::fill_rate": 0.652784,
+        "kpi::total_cost": 28412.2305,
+        "kpi::ending_backlog": 520.8233
+      }
+    ],
+    "highest_ending_backlog": [
+      {
+        "scenario_id": "combo_extreme_black_swan",
+        "category": "combined_stress",
+        "kpi::ending_backlog": 3281.3953,
+        "kpi::fill_rate": 0.112177,
+        "kpi::total_cost": 21225.5275
+      },
+      {
+        "scenario_id": "combo_systemic_stress",
+        "category": "combined_stress",
+        "kpi::ending_backlog": 2333.104,
+        "kpi::fill_rate": 0.223371,
+        "kpi::total_cost": 24839.0344
+      },
+      {
+        "scenario_id": "combo_demand_boom",
+        "category": "combined_stress",
+        "kpi::ending_backlog": 1100.4,
+        "kpi::fill_rate": 0.582137,
+        "kpi::total_cost": 28239.2051
+      },
+      {
+        "scenario_id": "combo_supplier_crunch",
+        "category": "combined_stress",
+        "kpi::ending_backlog": 873.5598,
+        "kpi::fill_rate": 0.417627,
+        "kpi::total_cost": 38409.4371
+      },
+      {
+        "scenario_id": "combo_logistics_strike",
+        "category": "combined_stress",
+        "kpi::ending_backlog": 778.34,
+        "kpi::fill_rate": 0.481107,
+        "kpi::total_cost": 53735.1567
+      },
+      {
+        "scenario_id": "review_period_scale_7d",
+        "category": "single_factor_global",
+        "kpi::ending_backlog": 691.9086,
+        "kpi::fill_rate": 0.538728,
+        "kpi::total_cost": 35266.3511
+      },
+      {
+        "scenario_id": "review_period_scale_4d",
+        "category": "single_factor_global",
+        "kpi::ending_backlog": 567.6723,
+        "kpi::fill_rate": 0.621552,
+        "kpi::total_cost": 28198.8649
+      },
+      {
+        "scenario_id": "demand_scale_up_severe",
+        "category": "single_factor_global",
+        "kpi::ending_backlog": 567.0,
+        "kpi::fill_rate": 0.73,
+        "kpi::total_cost": 28251.5091
+      }
+    ]
+  }
+}

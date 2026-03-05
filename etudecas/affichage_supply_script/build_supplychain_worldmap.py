@@ -10,9 +10,11 @@ Includes hover overlays for factory nodes using simulation outputs:
 from __future__ import annotations
 
 import argparse
+import base64
 import csv
 import html
 import json
+import re
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -54,6 +56,16 @@ def parse_args() -> argparse.Namespace:
         "--sim-output-products-csv",
         default="etudecas/simulation/result/production_output_products_daily.csv",
         help="Simulation CSV for output products production.",
+    )
+    parser.add_argument(
+        "--sim-input-stocks-png-dir",
+        default="etudecas/simulation/result",
+        help="Directory containing production_input_stocks_by_material_<factory>.png files.",
+    )
+    parser.add_argument(
+        "--sim-output-products-png-dir",
+        default="etudecas/simulation/result",
+        help="Directory containing production_output_products_by_factory_<factory>.png files.",
     )
     return parser.parse_args()
 
@@ -237,6 +249,87 @@ def build_factory_hover_series(
     return out
 
 
+def load_png_payload(png_path: Path) -> dict[str, Any] | None:
+    if not png_path.exists():
+        return None
+    try:
+        b64 = base64.b64encode(png_path.read_bytes()).decode("ascii")
+    except Exception:
+        return None
+    return {
+        "mime": "image/png",
+        "data_b64": b64,
+        "filename": png_path.name,
+    }
+
+
+def build_factory_hover_images(
+    raw: dict[str, Any],
+    input_png_dir: Path,
+    output_png_dir: Path,
+) -> dict[str, Any]:
+    nodes = raw.get("nodes", []) or []
+    factory_ids = sorted(
+        str(n.get("id"))
+        for n in nodes
+        if str(n.get("type") or "") == "factory"
+    )
+    out: dict[str, Any] = {}
+    for factory_id in factory_ids:
+        safe_factory = re.sub(r"[^A-Za-z0-9_-]+", "_", factory_id)
+        incoming = load_png_payload(input_png_dir / f"production_input_stocks_by_material_{safe_factory}.png")
+        outgoing = load_png_payload(output_png_dir / f"production_output_products_by_factory_{safe_factory}.png")
+        if outgoing is None:
+            # Backward compatibility if only the global output chart exists.
+            outgoing = load_png_payload(output_png_dir / "production_output_products.png")
+        if not incoming and not outgoing:
+            continue
+        out[factory_id] = {"incoming": incoming, "outgoing": outgoing}
+    return out
+
+
+def build_supplier_hover_images(raw: dict[str, Any], png_dir: Path) -> dict[str, Any]:
+    nodes = raw.get("nodes", []) or []
+    supplier_ids = sorted(
+        str(n.get("id"))
+        for n in nodes
+        if str(n.get("type") or "") == "supplier_dc"
+    )
+    out: dict[str, Any] = {}
+    for supplier_id in supplier_ids:
+        safe_supplier = re.sub(r"[^A-Za-z0-9_-]+", "_", supplier_id)
+        image = load_png_payload(png_dir / f"production_supplier_input_stocks_by_material_{safe_supplier}.png")
+        if image is None:
+            image = load_png_payload(png_dir / f"production_supplier_shipments_by_material_{safe_supplier}.png")
+        if image is None:
+            # Backward compatibility with previous supplier stock plots.
+            image = load_png_payload(png_dir / f"production_supplier_stocks_by_material_{safe_supplier}.png")
+        if image:
+            out[supplier_id] = image
+    return out
+
+
+def build_distribution_center_hover_images(raw: dict[str, Any], png_dir: Path) -> dict[str, Any]:
+    nodes = raw.get("nodes", []) or []
+    dc_ids = sorted(
+        str(n.get("id"))
+        for n in nodes
+        if str(n.get("type") or "") == "distribution_center"
+    )
+    out: dict[str, Any] = {}
+    for dc_id in dc_ids:
+        safe_dc = re.sub(r"[^A-Za-z0-9_-]+", "_", dc_id)
+        image = load_png_payload(png_dir / f"production_dc_factory_outputs_by_material_{safe_dc}.png")
+        if image is None:
+            image = load_png_payload(png_dir / f"production_dc_shipments_by_material_{safe_dc}.png")
+        if image is None:
+            # Backward compatibility with previous DC stock plots.
+            image = load_png_payload(png_dir / f"production_dc_stocks_by_material_{safe_dc}.png")
+        if image:
+            out[dc_id] = image
+    return out
+
+
 def html_template(title: str, data_json: str) -> str:
     return f"""<!doctype html>
 <html>
@@ -298,7 +391,7 @@ def html_template(title: str, data_json: str) -> str:
       border-radius: 12px;
       box-shadow: 0 10px 30px rgba(15, 23, 42, 0.18);
       z-index: 20;
-      overflow: hidden;
+      overflow: auto;
       display: none;
       padding: 10px;
     }}
@@ -316,10 +409,31 @@ def html_template(title: str, data_json: str) -> str:
       grid-template-columns: 1fr;
       gap: 10px;
     }}
+    .factoryPlotBlock {{
+      display: block;
+    }}
+    .factoryPlotLabel {{
+      font-size: 11px;
+      color: #334155;
+      margin: 0 0 4px 2px;
+      font-weight: 600;
+    }}
     .factoryPlot {{
-      height: clamp(160px, calc((100vh - 210px) / 2), 260px);
+      width: 100%;
+      height: clamp(300px, 42.5vh, 425px);
+      object-fit: contain;
+      object-position: center top;
       border: 1px solid #e2e8f0;
       border-radius: 8px;
+      background: #fff;
+    }}
+    .factoryPlotOutgoing {{
+      height: clamp(237.5px, 33.75vh, 337.5px);
+    }}
+    #factoryHoverNoImage {{
+      font-size: 12px;
+      color: #475569;
+      padding: 8px 2px;
     }}
   </style>
 </head>
@@ -337,8 +451,15 @@ def html_template(title: str, data_json: str) -> str:
   <div id="factoryHoverPanel">
     <div id="factoryHoverTitle"></div>
     <div class="factoryHoverGrid">
-      <div id="factoryIncomingChart" class="factoryPlot"></div>
-      <div id="factoryOutgoingChart" class="factoryPlot"></div>
+      <div id="incomingBlock" class="factoryPlotBlock">
+        <div id="incomingLabel" class="factoryPlotLabel">Stock matieres premieres (entree)</div>
+        <img id="factoryIncomingImage" class="factoryPlot" alt="Factory incoming stock chart"/>
+      </div>
+      <div id="outgoingBlock" class="factoryPlotBlock">
+        <div id="outgoingLabel" class="factoryPlotLabel">Production produits finis (sortie)</div>
+        <img id="factoryOutgoingImage" class="factoryPlot factoryPlotOutgoing" alt="Factory output production chart"/>
+      </div>
+      <div id="factoryHoverNoImage" style="display:none;">Aucun PNG disponible pour ce noeud.</div>
     </div>
   </div>
 
@@ -346,6 +467,9 @@ def html_template(title: str, data_json: str) -> str:
     const DATA = {data_json};
     const STYLES = DATA.node_type_styles || {{}};
     const FACTORY_SERIES = DATA.factory_hover_series || {{}};
+    const FACTORY_HOVER_IMAGES = DATA.factory_hover_images || {{}};
+    const SUPPLIER_HOVER_IMAGES = DATA.supplier_hover_images || {{}};
+    const DC_HOVER_IMAGES = DATA.distribution_center_hover_images || {{}};
     const nodeById = Object.fromEntries((DATA.nodes || []).map(n => [n.id, n]));
     const defaultPalette = ["#1f77b4", "#d62728", "#ff7f0e", "#2ca02c", "#9467bd", "#8c564b"];
     let currentFactoryHoverId = null;
@@ -498,6 +622,22 @@ def html_template(title: str, data_json: str) -> str:
 
     function hideFactoryPanel() {{
       const panel = document.getElementById("factoryHoverPanel");
+      const incomingBlock = document.getElementById("incomingBlock");
+      const outgoingBlock = document.getElementById("outgoingBlock");
+      const incomingLabel = document.getElementById("incomingLabel");
+      const outgoingLabel = document.getElementById("outgoingLabel");
+      const incomingImg = document.getElementById("factoryIncomingImage");
+      const outgoingImg = document.getElementById("factoryOutgoingImage");
+      const noImg = document.getElementById("factoryHoverNoImage");
+      incomingBlock.style.display = "block";
+      outgoingBlock.style.display = "block";
+      incomingLabel.textContent = "Stock matieres premieres (entree)";
+      outgoingLabel.textContent = "Production produits finis (sortie)";
+      incomingImg.removeAttribute("src");
+      incomingImg.style.display = "none";
+      outgoingImg.removeAttribute("src");
+      outgoingImg.style.display = "none";
+      noImg.style.display = "none";
       panel.classList.remove("visible");
       currentFactoryHoverId = null;
     }}
@@ -514,57 +654,82 @@ def html_template(title: str, data_json: str) -> str:
       }};
     }}
 
-    function showFactoryPanel(factoryId) {{
-      const info = FACTORY_SERIES[factoryId];
-      if (!info) {{
+    function showFactoryPanel(nodeId, nodeType) {{
+      const info = FACTORY_SERIES[nodeId];
+      const factoryImageInfo = FACTORY_HOVER_IMAGES[nodeId];
+      const supplierImageInfo = SUPPLIER_HOVER_IMAGES[nodeId];
+      const dcImageInfo = DC_HOVER_IMAGES[nodeId];
+      if (nodeType === "factory" && !info && !factoryImageInfo) {{
+        hideFactoryPanel();
+        return;
+      }}
+      if (nodeType === "supplier_dc" && !supplierImageInfo) {{
+        hideFactoryPanel();
+        return;
+      }}
+      if (nodeType === "distribution_center" && !dcImageInfo) {{
         hideFactoryPanel();
         return;
       }}
 
       const panel = document.getElementById("factoryHoverPanel");
       const title = document.getElementById("factoryHoverTitle");
-      const incomingDiv = document.getElementById("factoryIncomingChart");
-      const outgoingDiv = document.getElementById("factoryOutgoingChart");
-      title.textContent = `Factory: ${{info.node_name || factoryId}} (${{factoryId}})`;
+      const incomingBlock = document.getElementById("incomingBlock");
+      const outgoingBlock = document.getElementById("outgoingBlock");
+      const incomingLabel = document.getElementById("incomingLabel");
+      const outgoingLabel = document.getElementById("outgoingLabel");
+      const incomingImg = document.getElementById("factoryIncomingImage");
+      const outgoingImg = document.getElementById("factoryOutgoingImage");
+      const noImg = document.getElementById("factoryHoverNoImage");
+      const nodeInfo = nodeById[nodeId] || {{}};
+      const nodeName = (info && info.node_name) ? info.node_name : (nodeInfo.name || nodeId);
+      const nodeTitle = nodeType === "factory" ? "Factory" :
+        (nodeType === "supplier_dc" ? "Supplier" : "Distribution Center");
+      title.textContent = `${{nodeTitle}}: ${{nodeName}} (${{nodeId}})`;
 
-      if (currentFactoryHoverId !== factoryId) {{
-        const incomingTraces = (info.incoming || []).map((s) => ({{
-          type: "scatter",
-          mode: "lines+markers",
-          name: `${{s.item_label}}${{s.unit ? ` (${{s.unit}})` : ""}}`,
-          x: s.days || [],
-          y: s.values || [],
-          line: {{width: 1.8}},
-          marker: {{size: 4}},
-          hovertemplate: `${{s.item_label}}<br>Jour=%{{x}}<br>Stock=%{{y:.3f}}${{s.unit ? ` ${{s.unit}}` : ""}}<extra></extra>`,
-        }}));
-
-        const outgoingTraces = (info.outgoing || []).map((s) => ({{
-          type: "scatter",
-          mode: "lines+markers",
-          name: `${{s.item_label}}${{s.unit ? ` (${{s.unit}})` : ""}}`,
-          x: s.days || [],
-          y: s.values || [],
-          line: {{width: 1.8}},
-          marker: {{size: 4}},
-          hovertemplate: `${{s.item_label}}<br>Jour=%{{x}}<br>Production=%{{y:.3f}}${{s.unit ? ` ${{s.unit}}` : ""}}<extra></extra>`,
-        }}));
-
-        Plotly.react(
-          incomingDiv,
-          incomingTraces,
-          chartLayoutBase("Matieres entrantes (stock avant production)", "Stock"),
-          {{displayModeBar: false, responsive: true}}
-        );
-        Plotly.react(
-          outgoingDiv,
-          outgoingTraces,
-          chartLayoutBase("Produits sortants (production journaliere)", "Production"),
-          {{displayModeBar: false, responsive: true}}
-        );
+      let incomingImageInfo = null;
+      let outgoingImageInfo = null;
+      if (nodeType === "factory") {{
+        incomingBlock.style.display = "block";
+        outgoingBlock.style.display = "block";
+        incomingLabel.textContent = "Stock matieres premieres (entree)";
+        outgoingLabel.textContent = "Production produits finis (sortie)";
+        incomingImageInfo = (factoryImageInfo && factoryImageInfo.incoming) ? factoryImageInfo.incoming :
+          ((factoryImageInfo && factoryImageInfo.data_b64) ? factoryImageInfo : null);
+        outgoingImageInfo = (factoryImageInfo && factoryImageInfo.outgoing) ? factoryImageInfo.outgoing : null;
+      }} else if (nodeType === "supplier_dc") {{
+        incomingBlock.style.display = "block";
+        outgoingBlock.style.display = "none";
+        incomingLabel.textContent = "Stocks d'entree usine lies au fournisseur";
+        incomingImageInfo = supplierImageInfo;
+      }} else if (nodeType === "distribution_center") {{
+        incomingBlock.style.display = "block";
+        outgoingBlock.style.display = "none";
+        incomingLabel.textContent = "Productions usines liees au distribution center";
+        incomingImageInfo = dcImageInfo;
       }}
 
-      currentFactoryHoverId = factoryId;
+      let visibleCount = 0;
+      if (incomingImageInfo && incomingImageInfo.data_b64) {{
+        incomingImg.src = `data:${{incomingImageInfo.mime || "image/png"}};base64,${{incomingImageInfo.data_b64}}`;
+        incomingImg.style.display = "block";
+        visibleCount += 1;
+      }} else {{
+        incomingImg.removeAttribute("src");
+        incomingImg.style.display = "none";
+      }}
+
+      if (outgoingImageInfo && outgoingImageInfo.data_b64) {{
+        outgoingImg.src = `data:${{outgoingImageInfo.mime || "image/png"}};base64,${{outgoingImageInfo.data_b64}}`;
+        outgoingImg.style.display = "block";
+        visibleCount += 1;
+      }} else {{
+        outgoingImg.removeAttribute("src");
+        outgoingImg.style.display = "none";
+      }}
+      noImg.style.display = visibleCount ? "none" : "block";
+
+      currentFactoryHoverId = nodeId;
       panel.classList.add("visible");
     }}
 
@@ -579,11 +744,11 @@ def html_template(title: str, data_json: str) -> str:
         }}
         const nodeId = p.customdata[0];
         const nodeType = p.customdata[1];
-        if (nodeType !== "factory") {{
+        if (nodeType !== "factory" && nodeType !== "supplier_dc" && nodeType !== "distribution_center") {{
           hideFactoryPanel();
           return;
         }}
-        showFactoryPanel(nodeId);
+        showFactoryPanel(nodeId, nodeType);
       }});
       gd.on("plotly_unhover", () => {{
         hideFactoryPanel();
@@ -641,12 +806,17 @@ def main() -> None:
     out_path = Path(args.output)
     sim_input = Path(args.sim_input_stocks_csv)
     sim_output = Path(args.sim_output_products_csv)
+    sim_input_png_dir = Path(args.sim_input_stocks_png_dir)
+    sim_output_png_dir = Path(args.sim_output_products_png_dir)
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     try:
         raw = json.loads(in_path.read_text(encoding="utf-8"))
         payload = compact_graph_payload(raw)
         payload["factory_hover_series"] = build_factory_hover_series(raw, sim_input, sim_output)
+        payload["factory_hover_images"] = build_factory_hover_images(raw, sim_input_png_dir, sim_output_png_dir)
+        payload["supplier_hover_images"] = build_supplier_hover_images(raw, sim_input_png_dir)
+        payload["distribution_center_hover_images"] = build_distribution_center_hover_images(raw, sim_input_png_dir)
     except Exception as exc:
         print(f"[ERROR] Unable to read/parse input JSON: {exc}", file=sys.stderr)
         sys.exit(1)

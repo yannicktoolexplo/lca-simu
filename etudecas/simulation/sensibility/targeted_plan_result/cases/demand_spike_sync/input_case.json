@@ -2614,7 +2614,7 @@
           {
             "item_id": "item:268091",
             "state_id": "I_268091",
-            "initial": 0.0,
+            "initial": 204.0,
             "uom": "UN",
             "holding_cost": {
               "value": 0.04,
@@ -2628,7 +2628,7 @@
           {
             "item_id": "item:268967",
             "state_id": "I_268967",
-            "initial": 0.0,
+            "initial": 204.0,
             "uom": "UN",
             "holding_cost": {
               "value": 0.04,
@@ -4147,15 +4147,15 @@
               "points": [
                 {
                   "t": 0,
-                  "value": 25.0
+                  "value": 20.0
                 },
                 {
                   "t": 3,
-                  "value": 32.5
+                  "value": 26.0
                 },
                 {
                   "t": 7,
-                  "value": 25.0
+                  "value": 20.0
                 }
               ],
               "uom": "unit/day",
@@ -4172,15 +4172,15 @@
               "points": [
                 {
                   "t": 0,
-                  "value": 25.0
+                  "value": 24.0
                 },
                 {
                   "t": 3,
-                  "value": 32.5
+                  "value": 31.2
                 },
                 {
                   "t": 7,
-                  "value": 25.0
+                  "value": 24.0
                 }
               ],
               "uom": "unit/day",
@@ -4196,7 +4196,12 @@
         "demand": true
       },
       "safety_stock_days": 7.0,
-      "review_period_days": 1
+      "review_period_days": 1,
+      "economic_policy": {
+        "transport_cost_floor_per_unit": 0.02,
+        "transport_cost_per_km_per_unit": 8e-05,
+        "external_procurement_transport_cost_per_unit": 0.04
+      }
     }
   ]
 }
