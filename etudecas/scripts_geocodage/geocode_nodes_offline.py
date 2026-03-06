@@ -25,6 +25,16 @@ COUNTRY_MAP = {
     "Suede\u0300": "Sweden",
     "Su\u00e8de": "Sweden",
     "Germany": "Germany",
+    "USA": "United States",
+    "United States": "United States",
+}
+COUNTRY_CENTROIDS = {
+    "France": (46.2276, 2.2137),
+    "Belgium": (50.5039, 4.4699),
+    "Germany": (51.1657, 10.4515),
+    "Italy": (41.8719, 12.5674),
+    "Sweden": (60.1282, 18.6435),
+    "United States": (39.8283, -98.5795),
 }
 TYPE_TO_PREFIX = {
     "factory": "M",
@@ -232,6 +242,34 @@ def main() -> None:
             row["method"] = "location_fallback"
             row["lat"] = lat
             row["lon"] = lon
+
+    for row in report_rows:
+        if row["status"] == "geocoded":
+            continue
+        node_id = str(row["node_id"])
+        node = next((n for n in nodes if str(n.get("id")) == node_id), None)
+        if not isinstance(node, dict):
+            continue
+        location_id = row.get("location_ID")
+        country = country_from_location(location_id)
+        if country not in COUNTRY_CENTROIDS:
+            continue
+        lat, lon = COUNTRY_CENTROIDS[country]
+        geo = node["geo"]
+        geo["lat"] = lat
+        geo["lon"] = lon
+        geo["country"] = country
+        geo["raw"] = {
+            "method": "country_centroid",
+            "legacy_key": None,
+            "location_ID": location_id,
+        }
+        node.setdefault("defaults", {})["geo"] = False
+        method_counts["country_centroid"] += 1
+        row["status"] = "geocoded"
+        row["method"] = "country_centroid"
+        row["lat"] = lat
+        row["lon"] = lon
 
     geocoded_rows = [row for row in report_rows if row["status"] == "geocoded"]
     unmatched_rows = [row for row in report_rows if row["status"] != "geocoded"]

@@ -1,5 +1,5 @@
 {
-  "generated_at_utc": "2026-03-04T10:02:28.059938+00:00",
+  "generated_at_utc": "2026-03-06T15:47:37.351407+00:00",
   "changes": {
     "assumed_gaillac_destination_inventory_state_added": 1,
     "assumed_gaillac_supplier_edge_added": 1,
@@ -8,23 +8,26 @@
     "customer_location_recovered_from_acteurs": 1,
     "demand_profile_updated": 2,
     "demand_rows_added": 1,
-    "edge_distance_filled": 33,
+    "edge_delay_limit_updated": 4,
+    "edge_distance_filled": 37,
     "edge_endpoint_reconciled_dc1910_to_dc1920": 4,
+    "edge_lead_time_updated": 4,
     "edge_order_terms_pricing_aligned_from_data_poc": 4,
-    "inventory_holding_cost_updated": 55,
-    "inventory_initial_updated": 55,
-    "inventory_uom_harmonized": 37,
+    "edge_transport_cost_updated": 37,
+    "inventory_holding_cost_updated": 60,
+    "inventory_initial_updated": 60,
+    "inventory_uom_harmonized": 10,
     "node_alias_merged_dc1910_into_dc1920": 1,
-    "node_policy_added": 28,
+    "node_policy_added": 32,
     "process_capacity_updated": 2,
-    "process_cost_updated": 2,
+    "process_cost_updated": 3,
     "scenario_horizon_updated": 1
   },
   "invented_entities": [
     {
       "entity_type": "edge",
-      "id": "edge:SDC-1450_TO_M-1810_693710_Q",
-      "label": "SUPPLY_LINK_GAILLAC?_MISSING_INPUT_693710"
+      "id": "edge:SDC-1450_TO_M-1810_007923_Q",
+      "label": "SUPPLY_LINK_GAILLAC?_MISSING_INPUT_007923"
     }
   ],
   "item_unit_map_sample": {
@@ -32,7 +35,9 @@
     "item:001848": "KG",
     "item:001893": "KG",
     "item:002612": "KG",
+    "item:007923": "G",
     "item:016332": "KG",
+    "item:021081": "KG",
     "item:029313": "KG",
     "item:038005": "KG",
     "item:039668": "KG",
@@ -45,13 +50,11 @@
     "item:333362": "UN",
     "item:338928": "UN",
     "item:338929": "UN",
-    "item:344135": "UN",
-    "item:426331": "UN",
-    "item:693055": "G"
+    "item:344135": "UN"
   },
   "changed_entities": {
-    "edge_count": 34,
-    "node_count": 29,
+    "edge_count": 38,
+    "node_count": 33,
     "demand_rows_count": 3,
     "demand_rows": [
       {
@@ -78,10 +81,10 @@
     "missing_geo_nodes_count": 0,
     "missing_geo_nodes": [],
     "edges_missing_distance_count": 0,
-    "edges_zero_transport_cost_count": 33,
+    "edges_zero_transport_cost_count": 0,
     "edges_factory_input_missing_sell_price_count": 1,
     "edges_factory_input_missing_sell_price": [
-      "edge:SDC-1450_TO_M-1810_693710_Q"
+      "edge:SDC-1450_TO_M-1810_007923_Q"
     ],
     "zero_demand_rows_count": 0,
     "zero_demand_rows": []
@@ -106,14 +109,23 @@
       "G": 4e-05
     },
     "process_cost_per_unit_assumed": 0.35,
-    "demand_default_customer_rule": "max(10, 1.0 * total_production_capacity_of_item)",
+    "demand_default_customer_rule": "weekly_fluctuating_profile(base=max(10, 1.0 * total_production_capacity_of_item))",
+    "demand_default_customer_weekly_pattern": [
+      0.8,
+      0.95,
+      1.05,
+      1.2,
+      1.1,
+      1.0,
+      0.9
+    ],
     "demand_constant_assumed_customer_fallback": 25.0,
     "demand_constant_assumed_other": 40.0,
     "service_warm_start_customer_buffer_days": 0.0,
     "service_warm_start_upstream_dc_buffer_days": 0.0,
     "dc_alias_reconciliation": "DC-1910 merged into DC-1920",
     "customer_location_recovery": "C-XXXXX location_ID set to Paris",
-    "assumed_supplier_label_for_item_693710": "GAILLAC?",
+    "assumed_supplier_label_for_unsourced_m1810_item": "item:007923: GAILLAC?",
     "simulation_horizon_days_default": 30
   }
 }

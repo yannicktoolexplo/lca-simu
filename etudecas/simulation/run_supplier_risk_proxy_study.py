@@ -166,6 +166,32 @@ def pair_key(supplier_id: str, item_id: str, node_id: str) -> str:
     return f"{supplier_id}|{item_id}|{node_id}"
 
 
+def detect_special_item_id(base_data: dict[str, Any], pair_rows: list[dict[str, Any]] | None = None) -> str | None:
+    if pair_rows:
+        assumed_items = [str(row.get("item_id")) for row in pair_rows if row.get("is_assumed_edge")]
+        if assumed_items:
+            return sorted(set(assumed_items))[0]
+
+    inbound_pairs = {
+        (str(edge.get("to")), str(item_id))
+        for edge in (base_data.get("edges") or [])
+        for item_id in (edge.get("items") or [])
+    }
+    preferred = ["item:007923", "item:693710"]
+    candidates: list[tuple[int, str]] = []
+    for node in base_data.get("nodes") or []:
+        if str(node.get("id")) != "M-1810":
+            continue
+        for proc in node.get("processes") or []:
+            for inp in proc.get("inputs") or []:
+                item_id = str(inp.get("item_id"))
+                if (str(node.get("id")), item_id) in inbound_pairs:
+                    continue
+                priority = preferred.index(item_id) if item_id in preferred else len(preferred)
+                candidates.append((priority, item_id))
+    return sorted(candidates)[0][1] if candidates else None
+
+
 def build_supplier_material_pairs(base_data: dict[str, Any]) -> list[dict[str, Any]]:
     node_types = {str(node.get("id")): str(node.get("type")) for node in base_data.get("nodes") or []}
     node_names = {str(node.get("id")): str(node.get("name", node.get("id"))) for node in base_data.get("nodes") or []}
@@ -271,7 +297,7 @@ def build_rows() -> tuple[list[dict[str, Any]], dict[str, Any], list[dict[str, A
     return results, baseline_summary, pair_meta
 
 
-def compute_scores(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def compute_scores(rows: list[dict[str, Any]], special_item_id: str | None = None) -> list[dict[str, Any]]:
     supplier_count_values = {r["pair_key"]: float(r["supplier_count_for_item"]) for r in rows}
     demand_values = {r["pair_key"]: to_float(r["downstream_demand_total"]) for r in rows}
     volume_values = {r["pair_key"]: math.log1p(max(0.0, to_float(r["total_consumed"]))) for r in rows}
@@ -322,7 +348,7 @@ def compute_scores(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         supplier_count = int(to_float(row["supplier_count_for_item"], 1.0))
         mono_source_risk = {1: 1.0, 2: 0.6, 3: 0.3, 4: 0.15}.get(supplier_count, 0.05)
         uncertainty_penalty = 0.0
-        if row["item_id"] == "item:693710":
+        if special_item_id and row["item_id"] == special_item_id:
             uncertainty_penalty = 1.0
         elif row["item_id"] == "item:730384":
             uncertainty_penalty = 0.6
@@ -469,7 +495,12 @@ def markdown_table(rows: list[dict[str, Any]], columns: list[str]) -> str:
     return "\n".join(out)
 
 
-def build_report(scored_rows: list[dict[str, Any]], supplier_rows: list[dict[str, Any]], baseline: dict[str, Any]) -> tuple[dict[str, Any], str]:
+def build_report(
+    scored_rows: list[dict[str, Any]],
+    supplier_rows: list[dict[str, Any]],
+    baseline: dict[str, Any],
+    special_item_id: str | None = None,
+) -> tuple[dict[str, Any], str]:
     top_pairs = scored_rows[:15]
     top_suppliers = supplier_rows[:12]
     highest_incident = sorted(scored_rows, key=lambda r: -to_float(r["p_incident_30d_proxy"]))[:12]
@@ -493,10 +524,12 @@ def build_report(scored_rows: list[dict[str, Any]], supplier_rows: list[dict[str
         "largest_delay_backlog_pairs": biggest_delay,
     }
 
+    special_item_label = special_item_id or "item:007923"
+
     report = f"""# Etude etendue proxy de risque fournisseur-matiere
 
 ## Perimetre
-- Base: baseline preparee avec hypothese conservee `item:693710 -> SDC-1450 / Gaillac`
+- Base: baseline preparee avec hypothese conservee `{special_item_label} -> SDC-1450 / Gaillac`
 - Cible: couples `supplier -> factory -> item` de la supply amont
 - Nombre de couples analyses: **{len(scored_rows)}**
 - Nature des probabilites: **proxy**, pas empirique. Elles servent a classer/prioriser tant que le score industriel 22 criteres n'est pas disponible.
@@ -561,7 +594,7 @@ Lecture:
 ## 9) Ce qu'on peut deja dire proprement
 1. Ce classement est utile pour une **priorisation provisoire** avant le score industriel 22 criteres.
 2. Les couples mono-source fortement exposes a la demande restent logiquement en tete.
-3. `item:693710` reste un cas special: visible dans le classement, mais une partie du signal depend de l'hypothese Gaillac.
+3. `{special_item_label}` reste un cas special: visible dans le classement, mais une partie du signal depend de l'hypothese Gaillac.
 4. `item:730384` peut remonter via son ambiguite d'unite/semantique, mais son impact operationnel simule reste plus faible que les matieres majeures.
 5. Cette etude est plus utile pour la **priorisation relative** que pour donner un pourcentage "vrai" d'incident.
 
@@ -578,9 +611,11 @@ Lecture:
 def main() -> None:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     base_rows, baseline_summary, _ = build_rows()
-    scored_rows = compute_scores(base_rows)
+    base_data = load_json(BASE_INPUT)
+    special_item_id = detect_special_item_id(base_data, base_rows)
+    scored_rows = compute_scores(base_rows, special_item_id=special_item_id)
     supplier_rows = aggregate_by_supplier(scored_rows)
-    summary, report = build_report(scored_rows, supplier_rows, baseline_summary)
+    summary, report = build_report(scored_rows, supplier_rows, baseline_summary, special_item_id=special_item_id)
 
     write_csv(OUT_DIR / "supplier_material_risk_proxy_table.csv", scored_rows)
     write_csv(OUT_DIR / "supplier_aggregate_risk_proxy_table.csv", supplier_rows)

@@ -1,13 +1,14 @@
 {
-  "generated_at_utc": "2026-03-03T14:30:20.469320+00:00",
+  "generated_at_utc": "2026-03-06T15:47:37.087050+00:00",
   "input_json": "etudecas/donnees/supply_graph_poc.json",
   "coords_json": "etudecas/scripts_geocodage/legacy_actor_coords.json",
   "output_json": "etudecas/result_geocodage/supply_graph_poc_geocoded.json",
-  "total_nodes": 29,
-  "geocoded_nodes": 29,
+  "total_nodes": 33,
+  "geocoded_nodes": 33,
   "unmatched_nodes": 0,
   "method_counts": {
     "legacy_id_map": 29,
+    "country_centroid": 4,
     "unmatched": 0
   },
   "unmatched_node_ids": [],
@@ -269,9 +270,45 @@
       "status": "geocoded",
       "method": "legacy_id_map",
       "legacy_key": "SDC - D1450",
-      "location_ID": null,
+      "location_ID": "France - GAILLAC - 81600",
       "lat": 43.901816,
       "lon": 1.896506
+    },
+    {
+      "node_id": "SDC-VD0949099A",
+      "status": "geocoded",
+      "method": "country_centroid",
+      "legacy_key": null,
+      "location_ID": "USA - NC BOONE - 28607",
+      "lat": 39.8283,
+      "lon": -98.5795
+    },
+    {
+      "node_id": "SDC-VD0960508A",
+      "status": "geocoded",
+      "method": "country_centroid",
+      "legacy_key": null,
+      "location_ID": "USA - 9664 DURHAM - 27704",
+      "lat": 39.8283,
+      "lon": -98.5795
+    },
+    {
+      "node_id": "SDC-VD0972460A",
+      "status": "geocoded",
+      "method": "country_centroid",
+      "legacy_key": null,
+      "location_ID": "USA - FELDA - 33930",
+      "lat": 39.8283,
+      "lon": -98.5795
+    },
+    {
+      "node_id": "SDC-VD0975221A",
+      "status": "geocoded",
+      "method": "country_centroid",
+      "legacy_key": null,
+      "location_ID": "USA - FORT PIEERCE FL - 34947",
+      "lat": 39.8283,
+      "lon": -98.5795
     }
   ]
 }

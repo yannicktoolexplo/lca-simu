@@ -7,11 +7,33 @@
     "money_unit": "€",
     "carbon_unit": "Kilogram",
     "notes": [
-      "Fields with is_default=true were filled with standard placeholder values because Data_poc.xlsx did not provide them."
+      "Fields with is_default=true were filled with standard placeholder values because Data_poc.xlsx did not provide them.",
+      "Graph enriched with auxiliary case-study Excel workbooks (021081.xlsx, 268191.xlsx, 268967.xlsx, Fournisseur.xlsx)."
     ],
+    "source_files": [
+      "Data_poc.xlsx",
+      "Fournisseur.xlsx",
+      "021081.xlsx",
+      "268191.xlsx",
+      "268967.xlsx"
+    ],
+    "case_data_refresh": {
+      "enabled": true,
+      "source_files": [
+        "Fournisseur.xlsx",
+        "021081.xlsx",
+        "268191.xlsx",
+        "268967.xlsx"
+      ],
+      "upstream_extension": {
+        "input_item": "item:021081",
+        "producer_node_id": "SDC-1450",
+        "output_item": "item:773474"
+      }
+    },
     "simulation_prep": {
       "prepared_for_simulation": true,
-      "prepared_at_utc": "2026-03-04T10:02:27.810920+00:00",
+      "prepared_at_utc": "2026-03-06T15:47:37.127561+00:00",
       "assumption_version": "v1",
       "notes": [
         "Missing/default values were replaced with explicit assumptions for first-pass simulation.",
@@ -256,17 +278,6 @@
       }
     },
     {
-      "id": "item:693710",
-      "code": "693710",
-      "name": "Product 693710",
-      "kind": "unknown",
-      "uom_default": null,
-      "defaults": {
-        "kind": true,
-        "name": true
-      }
-    },
-    {
       "id": "item:708073",
       "code": "708073",
       "name": "Product 708073",
@@ -308,6 +319,30 @@
       "defaults": {
         "kind": true,
         "name": true
+      }
+    },
+    {
+      "id": "item:021081",
+      "code": "021081",
+      "name": "Product 021081",
+      "kind": "unknown",
+      "uom_default": "KG",
+      "defaults": {
+        "kind": true,
+        "name": true,
+        "uom_default": false
+      }
+    },
+    {
+      "id": "item:007923",
+      "code": "007923",
+      "name": "Product 007923",
+      "kind": "unknown",
+      "uom_default": "G",
+      "defaults": {
+        "kind": true,
+        "name": true,
+        "uom_default": false
       }
     }
   ],
@@ -435,7 +470,6 @@
               "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
-            "uom_source": "simulation_prep_inferred_from_relations_bom",
             "initial_source": "simulation_prep_assumption"
           },
           {
@@ -464,7 +498,6 @@
               "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
-            "uom_source": "simulation_prep_inferred_from_relations_bom",
             "initial_source": "simulation_prep_assumption"
           }
         ],
@@ -585,6 +618,10 @@
                 "is_default": true
               }
             ]
+          },
+          "attrs": {
+            "source_workbook": "268967.xlsx",
+            "source_sheet": "BOM"
           }
         }
       ],
@@ -672,7 +709,6 @@
               "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
-            "uom_source": "simulation_prep_inferred_from_relations_bom",
             "initial_source": "simulation_prep_assumption"
           },
           {
@@ -687,7 +723,6 @@
               "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
-            "uom_source": "simulation_prep_inferred_from_relations_bom",
             "initial_source": "simulation_prep_assumption"
           },
           {
@@ -848,12 +883,11 @@
               "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
-            "uom_source": "simulation_prep_inferred_from_relations_bom",
             "initial_source": "simulation_prep_assumption"
           },
           {
-            "item_id": "item:693710",
-            "state_id": "I_693710_ASSUMED_Q",
+            "item_id": "item:007923",
+            "state_id": "I_007923_ASSUMED_Q",
             "initial": 840.0,
             "uom": "G",
             "holding_cost": {
@@ -980,7 +1014,7 @@
               }
             },
             {
-              "item_id": "item:693710",
+              "item_id": "item:007923",
               "ratio_per_batch": 3248.0,
               "ratio_unit": "G",
               "defaults": {
@@ -1041,6 +1075,10 @@
                 "is_default": true
               }
             ]
+          },
+          "attrs": {
+            "source_workbook": "268191.xlsx",
+            "source_sheet": "BOM"
           }
         }
       ],
@@ -1144,7 +1182,6 @@
               "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
-            "uom_source": "simulation_prep_inferred_from_relations_bom",
             "initial_source": "simulation_prep_assumption"
           },
           {
@@ -1159,7 +1196,6 @@
               "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
-            "uom_source": "simulation_prep_inferred_from_relations_bom",
             "initial_source": "simulation_prep_assumption"
           }
         ],
@@ -1450,7 +1486,6 @@
               "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
-            "uom_source": "simulation_prep_inferred_from_relations_bom",
             "initial_source": "simulation_prep_assumption"
           }
         ],
@@ -1512,7 +1547,6 @@
               "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
-            "uom_source": "simulation_prep_inferred_from_relations_bom",
             "initial_source": "simulation_prep_assumption"
           }
         ],
@@ -1635,7 +1669,6 @@
               "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
-            "uom_source": "simulation_prep_inferred_from_relations_bom",
             "initial_source": "simulation_prep_assumption"
           },
           {
@@ -1650,7 +1683,6 @@
               "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
-            "uom_source": "simulation_prep_inferred_from_relations_bom",
             "initial_source": "simulation_prep_assumption"
           }
         ],
@@ -1712,7 +1744,6 @@
               "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
-            "uom_source": "simulation_prep_inferred_from_relations_bom",
             "initial_source": "simulation_prep_assumption"
           },
           {
@@ -1727,7 +1758,6 @@
               "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
-            "uom_source": "simulation_prep_inferred_from_relations_bom",
             "initial_source": "simulation_prep_assumption"
           }
         ],
@@ -1789,7 +1819,6 @@
               "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
-            "uom_source": "simulation_prep_inferred_from_relations_bom",
             "initial_source": "simulation_prep_assumption"
           }
         ],
@@ -1851,7 +1880,6 @@
               "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
-            "uom_source": "simulation_prep_inferred_from_relations_bom",
             "initial_source": "simulation_prep_assumption"
           },
           {
@@ -1866,7 +1894,6 @@
               "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
-            "uom_source": "simulation_prep_inferred_from_relations_bom",
             "initial_source": "simulation_prep_assumption"
           }
         ],
@@ -1928,7 +1955,6 @@
               "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
-            "uom_source": "simulation_prep_inferred_from_relations_bom",
             "initial_source": "simulation_prep_assumption"
           },
           {
@@ -1943,7 +1969,6 @@
               "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
-            "uom_source": "simulation_prep_inferred_from_relations_bom",
             "initial_source": "simulation_prep_assumption"
           }
         ],
@@ -2005,7 +2030,6 @@
               "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
-            "uom_source": "simulation_prep_inferred_from_relations_bom",
             "initial_source": "simulation_prep_assumption"
           }
         ],
@@ -2067,7 +2091,6 @@
               "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
-            "uom_source": "simulation_prep_inferred_from_relations_bom",
             "initial_source": "simulation_prep_assumption"
           }
         ],
@@ -2129,7 +2152,6 @@
               "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
-            "uom_source": "simulation_prep_inferred_from_relations_bom",
             "initial_source": "simulation_prep_assumption"
           }
         ],
@@ -2191,7 +2213,6 @@
               "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
-            "uom_source": "simulation_prep_inferred_from_relations_bom",
             "initial_source": "simulation_prep_assumption"
           }
         ],
@@ -2253,7 +2274,6 @@
               "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
-            "uom_source": "simulation_prep_inferred_from_relations_bom",
             "initial_source": "simulation_prep_assumption"
           }
         ],
@@ -2315,7 +2335,6 @@
               "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
-            "uom_source": "simulation_prep_inferred_from_relations_bom",
             "initial_source": "simulation_prep_assumption"
           }
         ],
@@ -2377,7 +2396,6 @@
               "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
-            "uom_source": "simulation_prep_inferred_from_relations_bom",
             "initial_source": "simulation_prep_assumption"
           }
         ],
@@ -2614,7 +2632,7 @@
           {
             "item_id": "item:268091",
             "state_id": "I_268091",
-            "initial": 204.0,
+            "initial": 0.0,
             "uom": "UN",
             "holding_cost": {
               "value": 0.04,
@@ -2628,7 +2646,7 @@
           {
             "item_id": "item:268967",
             "state_id": "I_268967",
-            "initial": 204.0,
+            "initial": 0.0,
             "uom": "UN",
             "holding_cost": {
               "value": 0.04,
@@ -2689,17 +2707,17 @@
     {
       "id": "SDC-1450",
       "type": "supplier_dc",
-      "name": "SDC-1450",
+      "name": "Supplier of Raw Materials - D1450",
       "role_raw": null,
-      "location_ID": null,
+      "location_ID": "France - GAILLAC - 81600",
       "geo": {
         "lat": 43.901816,
         "lon": 1.896506,
-        "country": null,
+        "country": "France",
         "raw": {
           "method": "legacy_id_map",
           "legacy_key": "SDC - D1450",
-          "location_ID": null
+          "location_ID": "France - GAILLAC - 81600"
         }
       },
       "defaults": {
@@ -2707,14 +2725,15 @@
         "node_from_relations_only": true
       },
       "attrs": {
-        "source_sheet": "Relations_acteurs"
+        "source_sheet": "Relations_acteurs",
+        "location_source": "Fournisseur.xlsx"
       },
       "inventory": {
         "states": [
           {
             "item_id": "item:693055",
             "state_id": "I_693055",
-            "initial": 180.0,
+            "initial": 216.0,
             "uom": "G",
             "holding_cost": {
               "value": 4e-05,
@@ -2723,13 +2742,12 @@
               "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
-            "uom_source": "simulation_prep_inferred_from_relations_bom",
             "initial_source": "simulation_prep_assumption"
           },
           {
             "item_id": "item:773474",
             "state_id": "I_773474",
-            "initial": 180.0,
+            "initial": 216.0,
             "uom": "G",
             "holding_cost": {
               "value": 4e-05,
@@ -2738,13 +2756,26 @@
               "source": "simulation_prep_assumption_unit_scaled"
             },
             "is_default_initial": false,
-            "uom_source": "simulation_prep_inferred_from_relations_bom",
             "initial_source": "simulation_prep_assumption"
           },
           {
-            "item_id": "item:693710",
-            "state_id": "I_693710_Q",
-            "initial": 3000.0,
+            "item_id": "item:021081",
+            "state_id": "I_021081",
+            "initial": 216.0,
+            "uom": "KG",
+            "holding_cost": {
+              "value": 0.04,
+              "per": "unit*day",
+              "is_default": false,
+              "source": "simulation_prep_assumption_unit_scaled"
+            },
+            "is_default_initial": false,
+            "initial_source": "simulation_prep_assumption"
+          },
+          {
+            "item_id": "item:007923",
+            "state_id": "I_007923_Q",
+            "initial": 3600.0,
             "uom": "G",
             "holding_cost": {
               "value": 4e-05,
@@ -2756,6 +2787,125 @@
             "initial_source": "simulation_prep_gaillac_question_mark_assumption",
             "uom_source": "simulation_prep_gaillac_question_mark_assumption",
             "assumption_label": "GAILLAC?"
+          }
+        ],
+        "backlogs": [],
+        "wip": []
+      },
+      "processes": [
+        {
+          "id": "proc:MAKE_773474",
+          "type": "transform",
+          "outputs": [
+            {
+              "item_id": "item:773474",
+              "rate_id": "Q_MAKE_773474",
+              "uom": "G/day"
+            }
+          ],
+          "inputs": [
+            {
+              "item_id": "item:021081",
+              "ratio_per_batch": 8.94,
+              "ratio_unit": "KG",
+              "defaults": {
+                "quantity": false
+              }
+            }
+          ],
+          "batch_size": 1000.0,
+          "batch_size_unit": "G",
+          "wip": {
+            "state_id": "WIP_773474",
+            "tau_process": 3.0,
+            "time_unit": "day",
+            "is_default": true
+          },
+          "capacity": {
+            "max_rate": 500000.0,
+            "uom": "G/day",
+            "is_default": false,
+            "source": "case_data_upstream_bom_assumption"
+          },
+          "cost": {
+            "value": 0.35,
+            "per": "unit",
+            "is_default": false,
+            "source": "simulation_prep_assumption"
+          },
+          "lca": {
+            "factors": [
+              {
+                "impact": "GWP100",
+                "value": 0.0,
+                "per": "unit",
+                "is_default": true
+              }
+            ]
+          },
+          "attrs": {
+            "source_workbook": "021081.xlsx",
+            "source_sheet": "BOM"
+          }
+        }
+      ],
+      "policies": {
+        "ordering": [],
+        "production": [],
+        "simulation_policy": {
+          "service_level_target": 0.95,
+          "review_period_days": 7,
+          "reorder_mode": "base_stock",
+          "source": "simulation_prep_assumption"
+        }
+      },
+      "accounting": {
+        "defaults_used": true
+      },
+      "lca": {
+        "defaults_used": true
+      },
+      "assumptions": {
+        "is_assumed": true,
+        "label": "GAILLAC?",
+        "source": "simulation_prep_gaillac_question_mark_assumption",
+        "item_007923_supplier_mapping": {
+          "is_assumed": true,
+          "label": "GAILLAC?",
+          "source": "simulation_prep_gaillac_question_mark_assumption"
+        }
+      }
+    },
+    {
+      "id": "SDC-VD0949099A",
+      "type": "supplier_dc",
+      "name": "Supplier of Raw Materials - VD0949099A",
+      "location_ID": "USA - NC BOONE - 28607",
+      "geo": {
+        "lat": 39.8283,
+        "lon": -98.5795,
+        "country": "United States",
+        "raw": {
+          "method": "country_centroid",
+          "legacy_key": null,
+          "location_ID": "USA - NC BOONE - 28607"
+        }
+      },
+      "inventory": {
+        "states": [
+          {
+            "item_id": "item:021081",
+            "state_id": "I_021081",
+            "initial": 180.0,
+            "uom": "KG",
+            "holding_cost": {
+              "value": 0.04,
+              "per": "unit*day",
+              "is_default": false,
+              "source": "simulation_prep_assumption_unit_scaled"
+            },
+            "is_default_initial": false,
+            "initial_source": "simulation_prep_assumption"
           }
         ],
         "backlogs": [],
@@ -2778,16 +2928,197 @@
       "lca": {
         "defaults_used": true
       },
-      "assumptions": {
-        "is_assumed": true,
-        "label": "GAILLAC?",
-        "source": "simulation_prep_gaillac_question_mark_assumption",
-        "item_693710_supplier_mapping": {
-          "is_assumed": true,
-          "label": "GAILLAC?",
-          "source": "simulation_prep_gaillac_question_mark_assumption"
+      "attrs": {
+        "source_sheet": "FIA",
+        "location_source": "Fournisseur.xlsx"
+      },
+      "defaults": {
+        "geo": false
+      },
+      "role_raw": "Supplier Distribution Center"
+    },
+    {
+      "id": "SDC-VD0960508A",
+      "type": "supplier_dc",
+      "name": "Supplier of Raw Materials - VD0960508A",
+      "location_ID": "USA - 9664 DURHAM - 27704",
+      "geo": {
+        "lat": 39.8283,
+        "lon": -98.5795,
+        "country": "United States",
+        "raw": {
+          "method": "country_centroid",
+          "legacy_key": null,
+          "location_ID": "USA - 9664 DURHAM - 27704"
         }
-      }
+      },
+      "inventory": {
+        "states": [
+          {
+            "item_id": "item:021081",
+            "state_id": "I_021081",
+            "initial": 180.0,
+            "uom": "KG",
+            "holding_cost": {
+              "value": 0.04,
+              "per": "unit*day",
+              "is_default": false,
+              "source": "simulation_prep_assumption_unit_scaled"
+            },
+            "is_default_initial": false,
+            "initial_source": "simulation_prep_assumption"
+          }
+        ],
+        "backlogs": [],
+        "wip": []
+      },
+      "processes": [],
+      "policies": {
+        "ordering": [],
+        "production": [],
+        "simulation_policy": {
+          "service_level_target": 0.95,
+          "review_period_days": 7,
+          "reorder_mode": "base_stock",
+          "source": "simulation_prep_assumption"
+        }
+      },
+      "accounting": {
+        "defaults_used": true
+      },
+      "lca": {
+        "defaults_used": true
+      },
+      "attrs": {
+        "source_sheet": "FIA",
+        "location_source": "Fournisseur.xlsx"
+      },
+      "defaults": {
+        "geo": false
+      },
+      "role_raw": "Supplier Distribution Center"
+    },
+    {
+      "id": "SDC-VD0972460A",
+      "type": "supplier_dc",
+      "name": "Supplier of Raw Materials - VD0972460A",
+      "location_ID": "USA - FELDA - 33930",
+      "geo": {
+        "lat": 39.8283,
+        "lon": -98.5795,
+        "country": "United States",
+        "raw": {
+          "method": "country_centroid",
+          "legacy_key": null,
+          "location_ID": "USA - FELDA - 33930"
+        }
+      },
+      "inventory": {
+        "states": [
+          {
+            "item_id": "item:021081",
+            "state_id": "I_021081",
+            "initial": 180.0,
+            "uom": "KG",
+            "holding_cost": {
+              "value": 0.04,
+              "per": "unit*day",
+              "is_default": false,
+              "source": "simulation_prep_assumption_unit_scaled"
+            },
+            "is_default_initial": false,
+            "initial_source": "simulation_prep_assumption"
+          }
+        ],
+        "backlogs": [],
+        "wip": []
+      },
+      "processes": [],
+      "policies": {
+        "ordering": [],
+        "production": [],
+        "simulation_policy": {
+          "service_level_target": 0.95,
+          "review_period_days": 7,
+          "reorder_mode": "base_stock",
+          "source": "simulation_prep_assumption"
+        }
+      },
+      "accounting": {
+        "defaults_used": true
+      },
+      "lca": {
+        "defaults_used": true
+      },
+      "attrs": {
+        "source_sheet": "FIA",
+        "location_source": "Fournisseur.xlsx"
+      },
+      "defaults": {
+        "geo": false
+      },
+      "role_raw": "Supplier Distribution Center"
+    },
+    {
+      "id": "SDC-VD0975221A",
+      "type": "supplier_dc",
+      "name": "Supplier of Raw Materials - VD0975221A",
+      "location_ID": "USA - FORT PIEERCE FL - 34947",
+      "geo": {
+        "lat": 39.8283,
+        "lon": -98.5795,
+        "country": "United States",
+        "raw": {
+          "method": "country_centroid",
+          "legacy_key": null,
+          "location_ID": "USA - FORT PIEERCE FL - 34947"
+        }
+      },
+      "inventory": {
+        "states": [
+          {
+            "item_id": "item:021081",
+            "state_id": "I_021081",
+            "initial": 180.0,
+            "uom": "KG",
+            "holding_cost": {
+              "value": 0.04,
+              "per": "unit*day",
+              "is_default": false,
+              "source": "simulation_prep_assumption_unit_scaled"
+            },
+            "is_default_initial": false,
+            "initial_source": "simulation_prep_assumption"
+          }
+        ],
+        "backlogs": [],
+        "wip": []
+      },
+      "processes": [],
+      "policies": {
+        "ordering": [],
+        "production": [],
+        "simulation_policy": {
+          "service_level_target": 0.95,
+          "review_period_days": 7,
+          "reorder_mode": "base_stock",
+          "source": "simulation_prep_assumption"
+        }
+      },
+      "accounting": {
+        "defaults_used": true
+      },
+      "lca": {
+        "defaults_used": true
+      },
+      "attrs": {
+        "source_sheet": "FIA",
+        "location_source": "Fournisseur.xlsx"
+      },
+      "defaults": {
+        "geo": false
+      },
+      "role_raw": "Supplier Distribution Center"
     }
   ],
   "edges": [
@@ -2803,28 +3134,39 @@
       "distance_km": 154.2,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 8.0,
+        "mean": 154.0,
         "stages": 4,
         "time_unit": "day",
-        "is_default": true
+        "is_default": false,
+        "source": "case_data_fia"
       },
       "order_terms": {
         "sell_price": 4.57,
         "price_base": 1.0,
         "quantity_unit": "KG",
-        "is_default": false
+        "is_default": false,
+        "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.0,
+        "value": 0.1996,
         "per": "unit",
-        "is_default": true
+        "is_default": false,
+        "source": "simulation_prep_assumption"
       },
       "delay_step_limit": {
-        "value": 999,
-        "is_default": true
+        "value": 308,
+        "is_default": false,
+        "source": "case_data_fia_assumption_from_lead_time"
       },
       "attrs": {
-        "source_row": 0
+        "source_row": 0,
+        "source_sheet": "FIA",
+        "source_workbook": "268967.xlsx",
+        "product_code": "268967",
+        "supplier_account": "VD0520132A",
+        "standard_order_qty": 10000.0,
+        "standard_order_uom": "KG",
+        "pricing_currency": "EUR"
       },
       "service_level": {
         "otif": 1.0
@@ -2842,28 +3184,39 @@
       "distance_km": 395.5,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 8.0,
+        "mean": 21.0,
         "stages": 4,
         "time_unit": "day",
-        "is_default": true
+        "is_default": false,
+        "source": "case_data_fia"
       },
       "order_terms": {
         "sell_price": 2.21,
         "price_base": 1000.0,
         "quantity_unit": "UN",
-        "is_default": false
+        "is_default": false,
+        "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.0,
+        "value": 0.4651,
         "per": "unit",
-        "is_default": true
+        "is_default": false,
+        "source": "simulation_prep_assumption"
       },
       "delay_step_limit": {
-        "value": 999,
-        "is_default": true
+        "value": 42,
+        "is_default": false,
+        "source": "case_data_fia_assumption_from_lead_time"
       },
       "attrs": {
-        "source_row": 1
+        "source_row": 1,
+        "source_sheet": "FIA",
+        "source_workbook": "268967.xlsx",
+        "product_code": "268967",
+        "supplier_account": "VD0914690A",
+        "standard_order_qty": 30000000.0,
+        "standard_order_uom": "UN",
+        "pricing_currency": "EUR"
       },
       "service_level": {
         "otif": 1.0
@@ -2881,28 +3234,39 @@
       "distance_km": 288.3,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 8.0,
+        "mean": 60.0,
         "stages": 4,
         "time_unit": "day",
-        "is_default": true
+        "is_default": false,
+        "source": "case_data_fia"
       },
       "order_terms": {
         "sell_price": 273.21,
         "price_base": 1000.0,
         "quantity_unit": "UN",
-        "is_default": false
+        "is_default": false,
+        "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.0,
+        "value": 0.3471,
         "per": "unit",
-        "is_default": true
+        "is_default": false,
+        "source": "simulation_prep_assumption"
       },
       "delay_step_limit": {
-        "value": 999,
-        "is_default": true
+        "value": 120,
+        "is_default": false,
+        "source": "case_data_fia_assumption_from_lead_time"
       },
       "attrs": {
-        "source_row": 2
+        "source_row": 2,
+        "source_sheet": "FIA",
+        "source_workbook": "268967.xlsx",
+        "product_code": "268967",
+        "supplier_account": "VD0525412A",
+        "standard_order_qty": 5000.0,
+        "standard_order_uom": "UN",
+        "pricing_currency": "EUR"
       },
       "service_level": {
         "otif": 1.0
@@ -2920,28 +3284,39 @@
       "distance_km": 268.2,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 8.0,
+        "mean": 35.0,
         "stages": 4,
         "time_unit": "day",
-        "is_default": true
+        "is_default": false,
+        "source": "case_data_fia"
       },
       "order_terms": {
         "sell_price": 4.03,
         "price_base": 1000.0,
         "quantity_unit": "UN",
-        "is_default": false
+        "is_default": false,
+        "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.0,
+        "value": 0.325,
         "per": "unit",
-        "is_default": true
+        "is_default": false,
+        "source": "simulation_prep_assumption"
       },
       "delay_step_limit": {
-        "value": 999,
-        "is_default": true
+        "value": 70,
+        "is_default": false,
+        "source": "case_data_fia_assumption_from_lead_time"
       },
       "attrs": {
-        "source_row": 3
+        "source_row": 3,
+        "source_sheet": "FIA",
+        "source_workbook": "268967.xlsx",
+        "product_code": "268967",
+        "supplier_account": "VD0993480A",
+        "standard_order_qty": 120000.0,
+        "standard_order_uom": "UN",
+        "pricing_currency": "EUR"
       },
       "service_level": {
         "otif": 1.0
@@ -2959,28 +3334,39 @@
       "distance_km": 488.2,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 8.0,
+        "mean": 28.0,
         "stages": 4,
         "time_unit": "day",
-        "is_default": true
+        "is_default": false,
+        "source": "case_data_fia"
       },
       "order_terms": {
         "sell_price": 3.59,
         "price_base": 1.0,
         "quantity_unit": "KG",
-        "is_default": false
+        "is_default": false,
+        "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.0,
+        "value": 0.567,
         "per": "unit",
-        "is_default": true
+        "is_default": false,
+        "source": "simulation_prep_assumption"
       },
       "delay_step_limit": {
-        "value": 999,
-        "is_default": true
+        "value": 56,
+        "is_default": false,
+        "source": "case_data_fia_assumption_from_lead_time"
       },
       "attrs": {
-        "source_row": 4
+        "source_row": 4,
+        "source_sheet": "FIA",
+        "source_workbook": "268967.xlsx",
+        "product_code": "268967",
+        "supplier_account": "VD0520115A",
+        "standard_order_qty": 5000000.0,
+        "standard_order_uom": "KG",
+        "pricing_currency": "EUR"
       },
       "service_level": {
         "otif": 1.0
@@ -2998,28 +3384,39 @@
       "distance_km": 156.0,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 8.0,
+        "mean": 56.0,
         "stages": 4,
         "time_unit": "day",
-        "is_default": true
+        "is_default": false,
+        "source": "case_data_fia"
       },
       "order_terms": {
         "sell_price": 0.0,
         "price_base": 1000.0,
         "quantity_unit": "M",
-        "is_default": false
+        "is_default": false,
+        "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.0,
+        "value": 0.2016,
         "per": "unit",
-        "is_default": true
+        "is_default": false,
+        "source": "simulation_prep_assumption"
       },
       "delay_step_limit": {
-        "value": 999,
-        "is_default": true
+        "value": 112,
+        "is_default": false,
+        "source": "case_data_fia_assumption_from_lead_time"
       },
       "attrs": {
-        "source_row": 5
+        "source_row": 5,
+        "source_sheet": "FIA",
+        "source_workbook": "268967.xlsx",
+        "product_code": "268967",
+        "supplier_account": "VD0508918A",
+        "standard_order_qty": 370000.0,
+        "standard_order_uom": "M",
+        "pricing_currency": "EUR"
       },
       "service_level": {
         "otif": 1.0
@@ -3037,28 +3434,39 @@
       "distance_km": 234.4,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 8.0,
+        "mean": 21.0,
         "stages": 4,
         "time_unit": "day",
-        "is_default": true
+        "is_default": false,
+        "source": "case_data_fia"
       },
       "order_terms": {
         "sell_price": 426.44,
         "price_base": 1000.0,
         "quantity_unit": "UN",
-        "is_default": false
+        "is_default": false,
+        "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.0,
+        "value": 0.2878,
         "per": "unit",
-        "is_default": true
+        "is_default": false,
+        "source": "simulation_prep_assumption"
       },
       "delay_step_limit": {
-        "value": 999,
-        "is_default": true
+        "value": 42,
+        "is_default": false,
+        "source": "case_data_fia_assumption_from_lead_time"
       },
       "attrs": {
-        "source_row": 6
+        "source_row": 6,
+        "source_sheet": "FIA",
+        "source_workbook": "268967.xlsx",
+        "product_code": "268967",
+        "supplier_account": "VD1095770A",
+        "standard_order_qty": 6300.0,
+        "standard_order_uom": "UN",
+        "pricing_currency": "EUR"
       },
       "service_level": {
         "otif": 1.0
@@ -3076,28 +3484,39 @@
       "distance_km": 426.2,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 8.0,
+        "mean": 10.0,
         "stages": 4,
         "time_unit": "day",
-        "is_default": true
+        "is_default": false,
+        "source": "case_data_fia"
       },
       "order_terms": {
         "sell_price": 0.0,
         "price_base": 1000.0,
         "quantity_unit": "G",
-        "is_default": false
+        "is_default": false,
+        "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.0,
+        "value": 0.4988,
         "per": "unit",
-        "is_default": true
+        "is_default": false,
+        "source": "simulation_prep_assumption"
       },
       "delay_step_limit": {
-        "value": 999,
-        "is_default": true
+        "value": 24,
+        "is_default": false,
+        "source": "case_data_fia_assumption_from_lead_time"
       },
       "attrs": {
-        "source_row": 7
+        "source_row": 7,
+        "source_sheet": "FIA",
+        "source_workbook": "268967.xlsx",
+        "product_code": "268967",
+        "supplier_account": "D1450",
+        "standard_order_qty": 1.0,
+        "standard_order_uom": "G",
+        "pricing_currency": "EUR"
       },
       "service_level": {
         "otif": 1.0
@@ -3115,28 +3534,39 @@
       "distance_km": 570.0,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 8.0,
+        "mean": 84.0,
         "stages": 4,
         "time_unit": "day",
-        "is_default": true
+        "is_default": false,
+        "source": "case_data_fia"
       },
       "order_terms": {
         "sell_price": 5.43,
         "price_base": 1.0,
         "quantity_unit": "KG",
-        "is_default": false
+        "is_default": false,
+        "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.0,
+        "value": 0.657,
         "per": "unit",
-        "is_default": true
+        "is_default": false,
+        "source": "simulation_prep_assumption"
       },
       "delay_step_limit": {
-        "value": 999,
-        "is_default": true
+        "value": 168,
+        "is_default": false,
+        "source": "case_data_fia_assumption_from_lead_time"
       },
       "attrs": {
-        "source_row": 8
+        "source_row": 8,
+        "source_sheet": "FIA",
+        "source_workbook": "268191.xlsx",
+        "product_code": "268091",
+        "supplier_account": "VD0951020A",
+        "standard_order_qty": 100.0,
+        "standard_order_uom": "KG",
+        "pricing_currency": "EUR"
       },
       "service_level": {
         "otif": 1.0
@@ -3154,28 +3584,39 @@
       "distance_km": 113.4,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 8.0,
+        "mean": 21.0,
         "stages": 4,
         "time_unit": "day",
-        "is_default": true
+        "is_default": false,
+        "source": "case_data_fia"
       },
       "order_terms": {
         "sell_price": 4.2,
         "price_base": 1.0,
         "quantity_unit": "KG",
-        "is_default": false
+        "is_default": false,
+        "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.0,
+        "value": 0.1547,
         "per": "unit",
-        "is_default": true
+        "is_default": false,
+        "source": "simulation_prep_assumption"
       },
       "delay_step_limit": {
-        "value": 999,
-        "is_default": true
+        "value": 42,
+        "is_default": false,
+        "source": "case_data_fia_assumption_from_lead_time"
       },
       "attrs": {
-        "source_row": 9
+        "source_row": 9,
+        "source_sheet": "FIA",
+        "source_workbook": "268191.xlsx",
+        "product_code": "268091",
+        "supplier_account": "VD0519670A",
+        "standard_order_qty": 4000.0,
+        "standard_order_uom": "KG",
+        "pricing_currency": "EUR"
       },
       "service_level": {
         "otif": 1.0
@@ -3193,28 +3634,39 @@
       "distance_km": 570.0,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 8.0,
+        "mean": 56.0,
         "stages": 4,
         "time_unit": "day",
-        "is_default": true
+        "is_default": false,
+        "source": "case_data_fia"
       },
       "order_terms": {
         "sell_price": 1.58,
         "price_base": 1.0,
         "quantity_unit": "KG",
-        "is_default": false
+        "is_default": false,
+        "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.0,
+        "value": 0.657,
         "per": "unit",
-        "is_default": true
+        "is_default": false,
+        "source": "simulation_prep_assumption"
       },
       "delay_step_limit": {
-        "value": 999,
-        "is_default": true
+        "value": 112,
+        "is_default": false,
+        "source": "case_data_fia_assumption_from_lead_time"
       },
       "attrs": {
-        "source_row": 10
+        "source_row": 10,
+        "source_sheet": "FIA",
+        "source_workbook": "268191.xlsx",
+        "product_code": "268091",
+        "supplier_account": "VD0951020A",
+        "standard_order_qty": 6000.0,
+        "standard_order_uom": "KG",
+        "pricing_currency": "EUR"
       },
       "service_level": {
         "otif": 1.0
@@ -3232,28 +3684,39 @@
       "distance_km": 1199.9,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 8.0,
+        "mean": 56.0,
         "stages": 4,
         "time_unit": "day",
-        "is_default": true
+        "is_default": false,
+        "source": "case_data_fia"
       },
       "order_terms": {
         "sell_price": 4.4,
         "price_base": 1.0,
         "quantity_unit": "KG",
-        "is_default": false
+        "is_default": false,
+        "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.0,
+        "value": 1.3499,
         "per": "unit",
-        "is_default": true
+        "is_default": false,
+        "source": "simulation_prep_assumption"
       },
       "delay_step_limit": {
-        "value": 999,
-        "is_default": true
+        "value": 112,
+        "is_default": false,
+        "source": "case_data_fia_assumption_from_lead_time"
       },
       "attrs": {
-        "source_row": 11
+        "source_row": 11,
+        "source_sheet": "FIA",
+        "source_workbook": "268191.xlsx",
+        "product_code": "268091",
+        "supplier_account": "VD0518684A",
+        "standard_order_qty": 22800.0,
+        "standard_order_uom": "KG",
+        "pricing_currency": "EUR"
       },
       "service_level": {
         "otif": 1.0
@@ -3271,28 +3734,39 @@
       "distance_km": 261.3,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 8.0,
+        "mean": 28.0,
         "stages": 4,
         "time_unit": "day",
-        "is_default": true
+        "is_default": false,
+        "source": "case_data_fia"
       },
       "order_terms": {
         "sell_price": 4.64,
         "price_base": 1.0,
         "quantity_unit": "KG",
-        "is_default": false
+        "is_default": false,
+        "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.0,
+        "value": 0.3174,
         "per": "unit",
-        "is_default": true
+        "is_default": false,
+        "source": "simulation_prep_assumption"
       },
       "delay_step_limit": {
-        "value": 999,
-        "is_default": true
+        "value": 56,
+        "is_default": false,
+        "source": "case_data_fia_assumption_from_lead_time"
       },
       "attrs": {
-        "source_row": 12
+        "source_row": 12,
+        "source_sheet": "FIA",
+        "source_workbook": "268191.xlsx",
+        "product_code": "268091",
+        "supplier_account": "VD0910216A",
+        "standard_order_qty": 23920.0,
+        "standard_order_uom": "KG",
+        "pricing_currency": "EUR"
       },
       "service_level": {
         "otif": 1.0
@@ -3310,28 +3784,39 @@
       "distance_km": 629.7,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 8.0,
+        "mean": 42.0,
         "stages": 4,
         "time_unit": "day",
-        "is_default": true
+        "is_default": false,
+        "source": "case_data_fia"
       },
       "order_terms": {
         "sell_price": 5105.0,
         "price_base": 1000.0,
         "quantity_unit": "KG",
-        "is_default": false
+        "is_default": false,
+        "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.0,
+        "value": 0.7227,
         "per": "unit",
-        "is_default": true
+        "is_default": false,
+        "source": "simulation_prep_assumption"
       },
       "delay_step_limit": {
-        "value": 999,
-        "is_default": true
+        "value": 84,
+        "is_default": false,
+        "source": "case_data_fia_assumption_from_lead_time"
       },
       "attrs": {
-        "source_row": 13
+        "source_row": 13,
+        "source_sheet": "FIA",
+        "source_workbook": "268191.xlsx",
+        "product_code": "268091",
+        "supplier_account": "VD1091642A",
+        "standard_order_qty": 20900.0,
+        "standard_order_uom": "KG",
+        "pricing_currency": "EUR"
       },
       "service_level": {
         "otif": 1.0
@@ -3349,28 +3834,39 @@
       "distance_km": 928.8,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 8.0,
+        "mean": 28.0,
         "stages": 4,
         "time_unit": "day",
-        "is_default": true
+        "is_default": false,
+        "source": "case_data_fia"
       },
       "order_terms": {
         "sell_price": 1340.0,
         "price_base": 1000.0,
         "quantity_unit": "KG",
-        "is_default": false
+        "is_default": false,
+        "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.0,
+        "value": 1.0517,
         "per": "unit",
-        "is_default": true
+        "is_default": false,
+        "source": "simulation_prep_assumption"
       },
       "delay_step_limit": {
-        "value": 999,
-        "is_default": true
+        "value": 56,
+        "is_default": false,
+        "source": "case_data_fia_assumption_from_lead_time"
       },
       "attrs": {
-        "source_row": 14
+        "source_row": 14,
+        "source_sheet": "FIA",
+        "source_workbook": "268191.xlsx",
+        "product_code": "268091",
+        "supplier_account": "VD0500655A",
+        "standard_order_qty": 21600.0,
+        "standard_order_uom": "KG",
+        "pricing_currency": "EUR"
       },
       "service_level": {
         "otif": 1.0
@@ -3388,28 +3884,39 @@
       "distance_km": 261.3,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 8.0,
+        "mean": 35.0,
         "stages": 4,
         "time_unit": "day",
-        "is_default": true
+        "is_default": false,
+        "source": "case_data_fia"
       },
       "order_terms": {
         "sell_price": 820.0,
         "price_base": 1000.0,
         "quantity_unit": "KG",
-        "is_default": false
+        "is_default": false,
+        "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.0,
+        "value": 0.3174,
         "per": "unit",
-        "is_default": true
+        "is_default": false,
+        "source": "simulation_prep_assumption"
       },
       "delay_step_limit": {
-        "value": 999,
-        "is_default": true
+        "value": 70,
+        "is_default": false,
+        "source": "case_data_fia_assumption_from_lead_time"
       },
       "attrs": {
-        "source_row": 15
+        "source_row": 15,
+        "source_sheet": "FIA",
+        "source_workbook": "268191.xlsx",
+        "product_code": "268091",
+        "supplier_account": "VD0910216A",
+        "standard_order_qty": 22500.0,
+        "standard_order_uom": "KG",
+        "pricing_currency": "EUR"
       },
       "service_level": {
         "otif": 1.0
@@ -3427,28 +3934,39 @@
       "distance_km": 503.5,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 8.0,
+        "mean": 35.0,
         "stages": 4,
         "time_unit": "day",
-        "is_default": true
+        "is_default": false,
+        "source": "case_data_fia"
       },
       "order_terms": {
         "sell_price": 1295.0,
         "price_base": 1000.0,
         "quantity_unit": "KG",
-        "is_default": false
+        "is_default": false,
+        "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.0,
+        "value": 0.5839,
         "per": "unit",
-        "is_default": true
+        "is_default": false,
+        "source": "simulation_prep_assumption"
       },
       "delay_step_limit": {
-        "value": 999,
-        "is_default": true
+        "value": 70,
+        "is_default": false,
+        "source": "case_data_fia_assumption_from_lead_time"
       },
       "attrs": {
-        "source_row": 16
+        "source_row": 16,
+        "source_sheet": "FIA",
+        "source_workbook": "268191.xlsx",
+        "product_code": "268091",
+        "supplier_account": "VD0990780A",
+        "standard_order_qty": 23750.0,
+        "standard_order_uom": "KG",
+        "pricing_currency": "EUR"
       },
       "service_level": {
         "otif": 1.0
@@ -3466,28 +3984,39 @@
       "distance_km": 629.7,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 8.0,
+        "mean": 35.0,
         "stages": 4,
         "time_unit": "day",
-        "is_default": true
+        "is_default": false,
+        "source": "case_data_fia"
       },
       "order_terms": {
         "sell_price": 1225.0,
         "price_base": 1000.0,
         "quantity_unit": "KG",
-        "is_default": false
+        "is_default": false,
+        "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.0,
+        "value": 0.7227,
         "per": "unit",
-        "is_default": true
+        "is_default": false,
+        "source": "simulation_prep_assumption"
       },
       "delay_step_limit": {
-        "value": 999,
-        "is_default": true
+        "value": 70,
+        "is_default": false,
+        "source": "case_data_fia_assumption_from_lead_time"
       },
       "attrs": {
-        "source_row": 17
+        "source_row": 17,
+        "source_sheet": "FIA",
+        "source_workbook": "268191.xlsx",
+        "product_code": "268091",
+        "supplier_account": "VD1091642A",
+        "standard_order_qty": 22500.0,
+        "standard_order_uom": "KG",
+        "pricing_currency": "EUR"
       },
       "service_level": {
         "otif": 1.0
@@ -3505,28 +4034,39 @@
       "distance_km": 1668.7,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 8.0,
+        "mean": 49.0,
         "stages": 4,
         "time_unit": "day",
-        "is_default": true
+        "is_default": false,
+        "source": "case_data_fia"
       },
       "order_terms": {
         "sell_price": 27.62,
         "price_base": 1.0,
         "quantity_unit": "KG",
-        "is_default": false
+        "is_default": false,
+        "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.0,
+        "value": 1.8656,
         "per": "unit",
-        "is_default": true
+        "is_default": false,
+        "source": "simulation_prep_assumption"
       },
       "delay_step_limit": {
-        "value": 999,
-        "is_default": true
+        "value": 98,
+        "is_default": false,
+        "source": "case_data_fia_assumption_from_lead_time"
       },
       "attrs": {
-        "source_row": 18
+        "source_row": 18,
+        "source_sheet": "FIA",
+        "source_workbook": "268191.xlsx",
+        "product_code": "268091",
+        "supplier_account": "VD0514881A",
+        "standard_order_qty": 1100.0,
+        "standard_order_uom": "KG",
+        "pricing_currency": "EUR"
       },
       "service_level": {
         "otif": 1.0
@@ -3544,28 +4084,39 @@
       "distance_km": 113.4,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 8.0,
+        "mean": 56.0,
         "stages": 4,
         "time_unit": "day",
-        "is_default": true
+        "is_default": false,
+        "source": "case_data_fia"
       },
       "order_terms": {
         "sell_price": 2.07,
         "price_base": 1.0,
         "quantity_unit": "KG",
-        "is_default": false
+        "is_default": false,
+        "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.0,
+        "value": 0.1547,
         "per": "unit",
-        "is_default": true
+        "is_default": false,
+        "source": "simulation_prep_assumption"
       },
       "delay_step_limit": {
-        "value": 999,
-        "is_default": true
+        "value": 112,
+        "is_default": false,
+        "source": "case_data_fia_assumption_from_lead_time"
       },
       "attrs": {
-        "source_row": 19
+        "source_row": 19,
+        "source_sheet": "FIA",
+        "source_workbook": "268191.xlsx",
+        "product_code": "268091",
+        "supplier_account": "VD0519670A",
+        "standard_order_qty": 300.0,
+        "standard_order_uom": "KG",
+        "pricing_currency": "EUR"
       },
       "service_level": {
         "otif": 1.0
@@ -3583,28 +4134,39 @@
       "distance_km": 568.5,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 8.0,
+        "mean": 35.0,
         "stages": 4,
         "time_unit": "day",
-        "is_default": true
+        "is_default": false,
+        "source": "case_data_fia"
       },
       "order_terms": {
         "sell_price": 12.21,
         "price_base": 1.0,
         "quantity_unit": "KG",
-        "is_default": false
+        "is_default": false,
+        "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.0,
+        "value": 0.6554,
         "per": "unit",
-        "is_default": true
+        "is_default": false,
+        "source": "simulation_prep_assumption"
       },
       "delay_step_limit": {
-        "value": 999,
-        "is_default": true
+        "value": 70,
+        "is_default": false,
+        "source": "case_data_fia_assumption_from_lead_time"
       },
       "attrs": {
-        "source_row": 20
+        "source_row": 20,
+        "source_sheet": "FIA",
+        "source_workbook": "268191.xlsx",
+        "product_code": "268091",
+        "supplier_account": "VD1096202A",
+        "standard_order_qty": 450.0,
+        "standard_order_uom": "KG",
+        "pricing_currency": "EUR"
       },
       "service_level": {
         "otif": 1.0
@@ -3622,28 +4184,39 @@
       "distance_km": 592.1,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 8.0,
+        "mean": 147.0,
         "stages": 4,
         "time_unit": "day",
-        "is_default": true
+        "is_default": false,
+        "source": "case_data_fia"
       },
       "order_terms": {
         "sell_price": 14.65,
         "price_base": 1.0,
         "quantity_unit": "KG",
-        "is_default": false
+        "is_default": false,
+        "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.0,
+        "value": 0.6813,
         "per": "unit",
-        "is_default": true
+        "is_default": false,
+        "source": "simulation_prep_assumption"
       },
       "delay_step_limit": {
-        "value": 999,
-        "is_default": true
+        "value": 294,
+        "is_default": false,
+        "source": "case_data_fia_assumption_from_lead_time"
       },
       "attrs": {
-        "source_row": 21
+        "source_row": 21,
+        "source_sheet": "FIA",
+        "source_workbook": "268191.xlsx",
+        "product_code": "268091",
+        "supplier_account": "VD0520132A",
+        "standard_order_qty": 1600.0,
+        "standard_order_uom": "KG",
+        "pricing_currency": "EUR"
       },
       "service_level": {
         "otif": 1.0
@@ -3661,28 +4234,39 @@
       "distance_km": 203.9,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 8.0,
+        "mean": 21.0,
         "stages": 4,
         "time_unit": "day",
-        "is_default": true
+        "is_default": false,
+        "source": "case_data_fia"
       },
       "order_terms": {
         "sell_price": 20.35,
         "price_base": 1.0,
         "quantity_unit": "KG",
-        "is_default": false
+        "is_default": false,
+        "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.0,
+        "value": 0.2543,
         "per": "unit",
-        "is_default": true
+        "is_default": false,
+        "source": "simulation_prep_assumption"
       },
       "delay_step_limit": {
-        "value": 999,
-        "is_default": true
+        "value": 42,
+        "is_default": false,
+        "source": "case_data_fia_assumption_from_lead_time"
       },
       "attrs": {
-        "source_row": 22
+        "source_row": 22,
+        "source_sheet": "FIA",
+        "source_workbook": "268191.xlsx",
+        "product_code": "268091",
+        "supplier_account": "VD0914320A",
+        "standard_order_qty": 300.0,
+        "standard_order_uom": "KG",
+        "pricing_currency": "EUR"
       },
       "service_level": {
         "otif": 1.0
@@ -3700,28 +4284,39 @@
       "distance_km": 568.5,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 8.0,
+        "mean": 42.0,
         "stages": 4,
         "time_unit": "day",
-        "is_default": true
+        "is_default": false,
+        "source": "case_data_fia"
       },
       "order_terms": {
         "sell_price": 49.2,
         "price_base": 1.0,
         "quantity_unit": "KG",
-        "is_default": false
+        "is_default": false,
+        "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.0,
+        "value": 0.6554,
         "per": "unit",
-        "is_default": true
+        "is_default": false,
+        "source": "simulation_prep_assumption"
       },
       "delay_step_limit": {
-        "value": 999,
-        "is_default": true
+        "value": 84,
+        "is_default": false,
+        "source": "case_data_fia_assumption_from_lead_time"
       },
       "attrs": {
-        "source_row": 23
+        "source_row": 23,
+        "source_sheet": "FIA",
+        "source_workbook": "268191.xlsx",
+        "product_code": "268091",
+        "supplier_account": "VD0964290A",
+        "standard_order_qty": 300.0,
+        "standard_order_uom": "KG",
+        "pricing_currency": "EUR"
       },
       "service_level": {
         "otif": 1.0
@@ -3739,28 +4334,39 @@
       "distance_km": 756.6,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 8.0,
+        "mean": 35.0,
         "stages": 4,
         "time_unit": "day",
-        "is_default": true
+        "is_default": false,
+        "source": "case_data_fia"
       },
       "order_terms": {
         "sell_price": 9.17,
         "price_base": 1.0,
         "quantity_unit": "KG",
-        "is_default": false
+        "is_default": false,
+        "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.0,
+        "value": 0.8623,
         "per": "unit",
-        "is_default": true
+        "is_default": false,
+        "source": "simulation_prep_assumption"
       },
       "delay_step_limit": {
-        "value": 999,
-        "is_default": true
+        "value": 70,
+        "is_default": false,
+        "source": "case_data_fia_assumption_from_lead_time"
       },
       "attrs": {
-        "source_row": 24
+        "source_row": 24,
+        "source_sheet": "FIA",
+        "source_workbook": "268191.xlsx",
+        "product_code": "268091",
+        "supplier_account": "VD0505677A",
+        "standard_order_qty": 4200.0,
+        "standard_order_uom": "KG",
+        "pricing_currency": "EUR"
       },
       "service_level": {
         "otif": 1.0
@@ -3778,28 +4384,39 @@
       "distance_km": 608.8,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 8.0,
+        "mean": 70.0,
         "stages": 4,
         "time_unit": "day",
-        "is_default": true
+        "is_default": false,
+        "source": "case_data_fia"
       },
       "order_terms": {
         "sell_price": 141.31,
         "price_base": 1000.0,
         "quantity_unit": "UN",
-        "is_default": false
+        "is_default": false,
+        "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.0,
+        "value": 0.6997,
         "per": "unit",
-        "is_default": true
+        "is_default": false,
+        "source": "simulation_prep_assumption"
       },
       "delay_step_limit": {
-        "value": 999,
-        "is_default": true
+        "value": 140,
+        "is_default": false,
+        "source": "case_data_fia_assumption_from_lead_time"
       },
       "attrs": {
-        "source_row": 25
+        "source_row": 25,
+        "source_sheet": "FIA",
+        "source_workbook": "268191.xlsx",
+        "product_code": "268091",
+        "supplier_account": "VD0901566A",
+        "standard_order_qty": 25000.0,
+        "standard_order_uom": "UN",
+        "pricing_currency": "EUR"
       },
       "service_level": {
         "otif": 1.0
@@ -3817,28 +4434,39 @@
       "distance_km": 301.3,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 8.0,
+        "mean": 42.0,
         "stages": 4,
         "time_unit": "day",
-        "is_default": true
+        "is_default": false,
+        "source": "case_data_fia"
       },
       "order_terms": {
         "sell_price": 215.85,
         "price_base": 1000.0,
         "quantity_unit": "UN",
-        "is_default": false
+        "is_default": false,
+        "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.0,
+        "value": 0.3614,
         "per": "unit",
-        "is_default": true
+        "is_default": false,
+        "source": "simulation_prep_assumption"
       },
       "delay_step_limit": {
-        "value": 999,
-        "is_default": true
+        "value": 84,
+        "is_default": false,
+        "source": "case_data_fia_assumption_from_lead_time"
       },
       "attrs": {
-        "source_row": 26
+        "source_row": 26,
+        "source_sheet": "FIA",
+        "source_workbook": "268191.xlsx",
+        "product_code": "268091",
+        "supplier_account": "VD0914360C",
+        "standard_order_qty": 5000.0,
+        "standard_order_uom": "UN",
+        "pricing_currency": "EUR"
       },
       "service_level": {
         "otif": 1.0
@@ -3856,28 +4484,39 @@
       "distance_km": 304.4,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 8.0,
+        "mean": 28.0,
         "stages": 4,
         "time_unit": "day",
-        "is_default": true
+        "is_default": false,
+        "source": "case_data_fia"
       },
       "order_terms": {
         "sell_price": 503.93,
         "price_base": 1000.0,
         "quantity_unit": "UN",
-        "is_default": false
+        "is_default": false,
+        "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.0,
+        "value": 0.3648,
         "per": "unit",
-        "is_default": true
+        "is_default": false,
+        "source": "simulation_prep_assumption"
       },
       "delay_step_limit": {
-        "value": 999,
-        "is_default": true
+        "value": 56,
+        "is_default": false,
+        "source": "case_data_fia_assumption_from_lead_time"
       },
       "attrs": {
-        "source_row": 27
+        "source_row": 27,
+        "source_sheet": "FIA",
+        "source_workbook": "268191.xlsx",
+        "product_code": "268091",
+        "supplier_account": "VD0989480A",
+        "standard_order_qty": 19200.0,
+        "standard_order_uom": "UN",
+        "pricing_currency": "EUR"
       },
       "service_level": {
         "otif": 1.0
@@ -3895,28 +4534,39 @@
       "distance_km": 97.8,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 8.0,
+        "mean": 70.0,
         "stages": 4,
         "time_unit": "day",
-        "is_default": true
+        "is_default": false,
+        "source": "case_data_fia"
       },
       "order_terms": {
         "sell_price": 0.0,
         "price_base": 1000.0,
         "quantity_unit": "G",
-        "is_default": false
+        "is_default": false,
+        "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.0,
+        "value": 0.1376,
         "per": "unit",
-        "is_default": true
+        "is_default": false,
+        "source": "simulation_prep_assumption"
       },
       "delay_step_limit": {
-        "value": 999,
-        "is_default": true
+        "value": 140,
+        "is_default": false,
+        "source": "case_data_fia_assumption_from_lead_time"
       },
       "attrs": {
-        "source_row": 28
+        "source_row": 28,
+        "source_sheet": "FIA",
+        "source_workbook": "268191.xlsx",
+        "product_code": "268091",
+        "supplier_account": "D1450",
+        "standard_order_qty": 1.0,
+        "standard_order_uom": "G",
+        "pricing_currency": "EUR"
       },
       "service_level": {
         "otif": 1.0
@@ -3934,10 +4584,11 @@
       "distance_km": 481.2,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 5.0,
+        "mean": 2.5,
         "stages": 4,
         "time_unit": "day",
-        "is_default": true
+        "is_default": false,
+        "source": "simulation_prep_assumption"
       },
       "order_terms": {
         "sell_price": null,
@@ -3947,13 +4598,15 @@
         "source": "data_poc_relations_acteurs"
       },
       "transport_cost": {
-        "value": 0.0,
+        "value": 0.5593,
         "per": "unit",
-        "is_default": true
+        "is_default": false,
+        "source": "simulation_prep_assumption"
       },
       "delay_step_limit": {
-        "value": 999,
-        "is_default": true
+        "value": 21,
+        "is_default": false,
+        "source": "simulation_prep_assumption"
       },
       "attrs": {
         "source_row": 29
@@ -3974,10 +4627,11 @@
       "distance_km": 144.5,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 5.0,
+        "mean": 2.5,
         "stages": 4,
         "time_unit": "day",
-        "is_default": true
+        "is_default": false,
+        "source": "simulation_prep_assumption"
       },
       "order_terms": {
         "sell_price": null,
@@ -3987,13 +4641,15 @@
         "source": "data_poc_relations_acteurs"
       },
       "transport_cost": {
-        "value": 0.0,
+        "value": 0.189,
         "per": "unit",
-        "is_default": true
+        "is_default": false,
+        "source": "simulation_prep_assumption"
       },
       "delay_step_limit": {
-        "value": 999,
-        "is_default": true
+        "value": 21,
+        "is_default": false,
+        "source": "simulation_prep_assumption"
       },
       "attrs": {
         "source_row": 30
@@ -4014,10 +4670,11 @@
       "distance_km": 605.2,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 3.0,
+        "mean": 2.0,
         "stages": 4,
         "time_unit": "day",
-        "is_default": true
+        "is_default": false,
+        "source": "simulation_prep_assumption"
       },
       "order_terms": {
         "sell_price": null,
@@ -4027,13 +4684,15 @@
         "source": "data_poc_relations_acteurs"
       },
       "transport_cost": {
-        "value": 0.0,
+        "value": 0.6957,
         "per": "unit",
-        "is_default": true
+        "is_default": false,
+        "source": "simulation_prep_assumption"
       },
       "delay_step_limit": {
-        "value": 999,
-        "is_default": true
+        "value": 21,
+        "is_default": false,
+        "source": "simulation_prep_assumption"
       },
       "attrs": {
         "source_row": 31
@@ -4054,10 +4713,11 @@
       "distance_km": 605.2,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 3.0,
+        "mean": 2.0,
         "stages": 4,
         "time_unit": "day",
-        "is_default": true
+        "is_default": false,
+        "source": "simulation_prep_assumption"
       },
       "order_terms": {
         "sell_price": null,
@@ -4067,13 +4727,15 @@
         "source": "data_poc_relations_acteurs"
       },
       "transport_cost": {
-        "value": 0.0,
+        "value": 0.6957,
         "per": "unit",
-        "is_default": true
+        "is_default": false,
+        "source": "simulation_prep_assumption"
       },
       "delay_step_limit": {
-        "value": 999,
-        "is_default": true
+        "value": 21,
+        "is_default": false,
+        "source": "simulation_prep_assumption"
       },
       "attrs": {
         "source_row": 32
@@ -4083,12 +4745,208 @@
       }
     },
     {
-      "id": "edge:SDC-1450_TO_M-1810_693710_Q",
+      "id": "edge:SDC-VD0949099A_TO_SDC-1450_021081",
+      "type": "transport",
+      "from": "SDC-VD0949099A",
+      "to": "SDC-1450",
+      "items": [
+        "item:021081"
+      ],
+      "mode": "truck",
+      "distance_km": 7773.5,
+      "lead_time": {
+        "type": "erlang_pipeline",
+        "mean": 120.0,
+        "stages": 4,
+        "time_unit": "day",
+        "is_default": false,
+        "source": "case_data_fia"
+      },
+      "order_terms": {
+        "sell_price": 12.1,
+        "price_base": 1.0,
+        "quantity_unit": "KG",
+        "is_default": false,
+        "source": "case_data_fia"
+      },
+      "transport_cost": {
+        "value": 8.5808,
+        "per": "unit",
+        "is_default": false,
+        "source": "simulation_prep_assumption"
+      },
+      "delay_step_limit": {
+        "value": 240,
+        "is_default": false,
+        "source": "case_data_fia_assumption_from_lead_time"
+      },
+      "attrs": {
+        "source_sheet": "FIA",
+        "source_workbook": "021081.xlsx",
+        "product_code": "773474",
+        "supplier_account": "VD0949099A",
+        "standard_order_qty": 20000.0,
+        "standard_order_uom": "KG",
+        "pricing_currency": "USD"
+      },
+      "service_level": {
+        "otif": 1.0
+      }
+    },
+    {
+      "id": "edge:SDC-VD0960508A_TO_SDC-1450_021081",
+      "type": "transport",
+      "from": "SDC-VD0960508A",
+      "to": "SDC-1450",
+      "items": [
+        "item:021081"
+      ],
+      "mode": "truck",
+      "distance_km": 7773.5,
+      "lead_time": {
+        "type": "erlang_pipeline",
+        "mean": 120.0,
+        "stages": 4,
+        "time_unit": "day",
+        "is_default": false,
+        "source": "case_data_fia"
+      },
+      "order_terms": {
+        "sell_price": 12.1,
+        "price_base": 1.0,
+        "quantity_unit": "KG",
+        "is_default": false,
+        "source": "case_data_fia"
+      },
+      "transport_cost": {
+        "value": 8.5808,
+        "per": "unit",
+        "is_default": false,
+        "source": "simulation_prep_assumption"
+      },
+      "delay_step_limit": {
+        "value": 240,
+        "is_default": false,
+        "source": "case_data_fia_assumption_from_lead_time"
+      },
+      "attrs": {
+        "source_sheet": "FIA",
+        "source_workbook": "021081.xlsx",
+        "product_code": "773474",
+        "supplier_account": "VD0960508A",
+        "standard_order_qty": 1.0,
+        "standard_order_uom": "KG",
+        "pricing_currency": "USD"
+      },
+      "service_level": {
+        "otif": 1.0
+      }
+    },
+    {
+      "id": "edge:SDC-VD0972460A_TO_SDC-1450_021081",
+      "type": "transport",
+      "from": "SDC-VD0972460A",
+      "to": "SDC-1450",
+      "items": [
+        "item:021081"
+      ],
+      "mode": "truck",
+      "distance_km": 7773.5,
+      "lead_time": {
+        "type": "erlang_pipeline",
+        "mean": 120.0,
+        "stages": 4,
+        "time_unit": "day",
+        "is_default": false,
+        "source": "case_data_fia"
+      },
+      "order_terms": {
+        "sell_price": 12.15,
+        "price_base": 1.0,
+        "quantity_unit": "KG",
+        "is_default": false,
+        "source": "case_data_fia"
+      },
+      "transport_cost": {
+        "value": 8.5808,
+        "per": "unit",
+        "is_default": false,
+        "source": "simulation_prep_assumption"
+      },
+      "delay_step_limit": {
+        "value": 240,
+        "is_default": false,
+        "source": "case_data_fia_assumption_from_lead_time"
+      },
+      "attrs": {
+        "source_sheet": "FIA",
+        "source_workbook": "021081.xlsx",
+        "product_code": "773474",
+        "supplier_account": "VD0972460A",
+        "standard_order_qty": 1.0,
+        "standard_order_uom": "KG",
+        "pricing_currency": "USD"
+      },
+      "service_level": {
+        "otif": 1.0
+      }
+    },
+    {
+      "id": "edge:SDC-VD0975221A_TO_SDC-1450_021081",
+      "type": "transport",
+      "from": "SDC-VD0975221A",
+      "to": "SDC-1450",
+      "items": [
+        "item:021081"
+      ],
+      "mode": "truck",
+      "distance_km": 7773.5,
+      "lead_time": {
+        "type": "erlang_pipeline",
+        "mean": 120.0,
+        "stages": 4,
+        "time_unit": "day",
+        "is_default": false,
+        "source": "case_data_fia"
+      },
+      "order_terms": {
+        "sell_price": 15.0,
+        "price_base": 1.0,
+        "quantity_unit": "KG",
+        "is_default": false,
+        "source": "case_data_fia"
+      },
+      "transport_cost": {
+        "value": 8.5808,
+        "per": "unit",
+        "is_default": false,
+        "source": "simulation_prep_assumption"
+      },
+      "delay_step_limit": {
+        "value": 240,
+        "is_default": false,
+        "source": "case_data_fia_assumption_from_lead_time"
+      },
+      "attrs": {
+        "source_sheet": "FIA",
+        "source_workbook": "021081.xlsx",
+        "product_code": "773474",
+        "supplier_account": "VD0975221A",
+        "standard_order_qty": 20000.0,
+        "standard_order_uom": "KG",
+        "pricing_currency": "USD"
+      },
+      "service_level": {
+        "otif": 1.0
+      }
+    },
+    {
+      "id": "edge:SDC-1450_TO_M-1810_007923_Q",
       "type": "transport",
       "from": "SDC-1450",
       "to": "M-1810",
       "items": [
-        "item:693710"
+        "item:007923"
       ],
       "order_terms": {
         "sell_price": null,
@@ -4151,124 +5009,124 @@
                 },
                 {
                   "t": 1,
-                  "value": 22.0
+                  "value": 23.75
                 },
                 {
                   "t": 2,
-                  "value": 24.0
+                  "value": 26.25
                 },
                 {
                   "t": 3,
-                  "value": 26.0
+                  "value": 30.0
                 },
                 {
                   "t": 4,
-                  "value": 28.0
+                  "value": 27.5
                 },
                 {
                   "t": 5,
-                  "value": 30.0
+                  "value": 25.0
                 },
                 {
                   "t": 6,
-                  "value": 28.0
+                  "value": 22.5
                 },
                 {
                   "t": 7,
-                  "value": 26.0
+                  "value": 20.0
                 },
                 {
                   "t": 8,
-                  "value": 24.0
+                  "value": 23.75
                 },
                 {
                   "t": 9,
-                  "value": 22.0
+                  "value": 26.25
                 },
                 {
                   "t": 10,
-                  "value": 20.0
+                  "value": 30.0
                 },
                 {
                   "t": 11,
-                  "value": 22.0
+                  "value": 27.5
                 },
                 {
                   "t": 12,
-                  "value": 24.0
+                  "value": 25.0
                 },
                 {
                   "t": 13,
-                  "value": 26.0
+                  "value": 22.5
                 },
                 {
                   "t": 14,
-                  "value": 28.0
-                },
-                {
-                  "t": 15,
-                  "value": 30.0
-                },
-                {
-                  "t": 16,
-                  "value": 28.0
-                },
-                {
-                  "t": 17,
-                  "value": 26.0
-                },
-                {
-                  "t": 18,
-                  "value": 24.0
-                },
-                {
-                  "t": 19,
-                  "value": 22.0
-                },
-                {
-                  "t": 20,
                   "value": 20.0
                 },
                 {
-                  "t": 21,
-                  "value": 22.0
+                  "t": 15,
+                  "value": 23.75
                 },
                 {
-                  "t": 22,
-                  "value": 24.0
+                  "t": 16,
+                  "value": 26.25
                 },
                 {
-                  "t": 23,
-                  "value": 26.0
-                },
-                {
-                  "t": 24,
-                  "value": 28.0
-                },
-                {
-                  "t": 25,
+                  "t": 17,
                   "value": 30.0
                 },
                 {
+                  "t": 18,
+                  "value": 27.5
+                },
+                {
+                  "t": 19,
+                  "value": 25.0
+                },
+                {
+                  "t": 20,
+                  "value": 22.5
+                },
+                {
+                  "t": 21,
+                  "value": 20.0
+                },
+                {
+                  "t": 22,
+                  "value": 23.75
+                },
+                {
+                  "t": 23,
+                  "value": 26.25
+                },
+                {
+                  "t": 24,
+                  "value": 30.0
+                },
+                {
+                  "t": 25,
+                  "value": 27.5
+                },
+                {
                   "t": 26,
-                  "value": 28.0
+                  "value": 25.0
                 },
                 {
                   "t": 27,
-                  "value": 26.0
+                  "value": 22.5
                 },
                 {
                   "t": 28,
-                  "value": 24.0
+                  "value": 20.0
                 },
                 {
                   "t": 29,
-                  "value": 22.0
+                  "value": 23.75
                 }
               ],
               "uom": "unit/day",
               "is_default": false,
-              "source": "simulation_prep_assumption"
+              "source": "simulation_prep_assumption_weekly_fluctuation"
             }
           ]
         },
@@ -4281,71 +5139,71 @@
               "points": [
                 {
                   "t": 0,
-                  "value": 24.0
+                  "value": 20.0
                 },
                 {
                   "t": 1,
-                  "value": 22.0
+                  "value": 23.75
                 },
                 {
                   "t": 2,
-                  "value": 20.0
+                  "value": 26.25
                 },
                 {
                   "t": 3,
-                  "value": 22.0
-                },
-                {
-                  "t": 4,
-                  "value": 24.0
-                },
-                {
-                  "t": 5,
-                  "value": 26.0
-                },
-                {
-                  "t": 6,
-                  "value": 28.0
-                },
-                {
-                  "t": 7,
                   "value": 30.0
                 },
                 {
-                  "t": 8,
-                  "value": 28.0
+                  "t": 4,
+                  "value": 27.5
                 },
                 {
-                  "t": 9,
-                  "value": 26.0
+                  "t": 5,
+                  "value": 25.0
                 },
                 {
-                  "t": 10,
-                  "value": 24.0
+                  "t": 6,
+                  "value": 22.5
                 },
                 {
-                  "t": 11,
-                  "value": 22.0
-                },
-                {
-                  "t": 12,
+                  "t": 7,
                   "value": 20.0
                 },
                 {
+                  "t": 8,
+                  "value": 23.75
+                },
+                {
+                  "t": 9,
+                  "value": 26.25
+                },
+                {
+                  "t": 10,
+                  "value": 30.0
+                },
+                {
+                  "t": 11,
+                  "value": 27.5
+                },
+                {
+                  "t": 12,
+                  "value": 25.0
+                },
+                {
                   "t": 13,
-                  "value": 22.0
+                  "value": 22.5
                 },
                 {
                   "t": 14,
-                  "value": 24.0
+                  "value": 20.0
                 },
                 {
                   "t": 15,
-                  "value": 26.0
+                  "value": 23.75
                 },
                 {
                   "t": 16,
-                  "value": 28.0
+                  "value": 26.25
                 },
                 {
                   "t": 17,
@@ -4353,56 +5211,56 @@
                 },
                 {
                   "t": 18,
-                  "value": 28.0
+                  "value": 27.5
                 },
                 {
                   "t": 19,
-                  "value": 26.0
+                  "value": 25.0
                 },
                 {
                   "t": 20,
-                  "value": 24.0
+                  "value": 22.5
                 },
                 {
                   "t": 21,
-                  "value": 22.0
-                },
-                {
-                  "t": 22,
                   "value": 20.0
                 },
                 {
+                  "t": 22,
+                  "value": 23.75
+                },
+                {
                   "t": 23,
-                  "value": 22.0
+                  "value": 26.25
                 },
                 {
                   "t": 24,
-                  "value": 24.0
-                },
-                {
-                  "t": 25,
-                  "value": 26.0
-                },
-                {
-                  "t": 26,
-                  "value": 28.0
-                },
-                {
-                  "t": 27,
                   "value": 30.0
                 },
                 {
+                  "t": 25,
+                  "value": 27.5
+                },
+                {
+                  "t": 26,
+                  "value": 25.0
+                },
+                {
+                  "t": 27,
+                  "value": 22.5
+                },
+                {
                   "t": 28,
-                  "value": 28.0
+                  "value": 20.0
                 },
                 {
                   "t": 29,
-                  "value": 26.0
+                  "value": 23.75
                 }
               ],
               "uom": "unit/day",
               "is_default": false,
-              "source": "simulation_prep_assumption"
+              "source": "simulation_prep_assumption_weekly_fluctuation"
             }
           ],
           "defaults": {
@@ -4415,10 +5273,18 @@
       },
       "safety_stock_days": 7.0,
       "review_period_days": 1,
+      "fg_target_days": 0.0,
+      "production_gap_gain": 0.25,
+      "production_smoothing": 0.2,
       "economic_policy": {
         "transport_cost_floor_per_unit": 0.02,
         "transport_cost_per_km_per_unit": 8e-05,
-        "external_procurement_transport_cost_per_unit": 0.04
+        "external_procurement_transport_cost_per_unit": 0.04,
+        "holding_cost_scale": 1.0,
+        "purchase_cost_floor_per_unit": 0.01,
+        "external_procurement_daily_cap_days": 2.0,
+        "external_procurement_lead_days": 4,
+        "external_procurement_cost_multiplier": 2.0
       }
     }
   ]

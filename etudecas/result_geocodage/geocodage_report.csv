@@ -27,4 +27,8 @@ SDC-VD0914360C,geocoded,legacy_id_map,SDC - VD0914360C,France - CHAZELLES - 1638
 SDC-VD0989480A,geocoded,legacy_id_map,SDC - VD0989480A,France - EXIDEUIL-SUR-VIENNE - 16150,45.886926,0.673743
 C-XXXXX,geocoded,legacy_id_map,C - XXXXX,None,48.866667,2.333333
 DC-1910,geocoded,legacy_id_map,DC - 1910,None,43.466667,1.35
-SDC-1450,geocoded,legacy_id_map,SDC - D1450,None,43.901816,1.896506
+SDC-1450,geocoded,legacy_id_map,SDC - D1450,France - GAILLAC - 81600,43.901816,1.896506
+SDC-VD0949099A,geocoded,country_centroid,None,USA - NC BOONE - 28607,39.8283,-98.5795
+SDC-VD0960508A,geocoded,country_centroid,None,USA - 9664 DURHAM - 27704,39.8283,-98.5795
+SDC-VD0972460A,geocoded,country_centroid,None,USA - FELDA - 33930,39.8283,-98.5795
+SDC-VD0975221A,geocoded,country_centroid,None,USA - FORT PIEERCE FL - 34947,39.8283,-98.5795

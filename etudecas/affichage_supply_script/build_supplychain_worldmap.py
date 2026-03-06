@@ -2,9 +2,9 @@
 """
 Build an interactive HTML world map from a geocoded supply graph.
 
-Includes hover overlays for factory nodes using simulation outputs:
-- incoming input-stock time series
-- outgoing production time series
+Includes two hover-panel modes:
+- Simulation: current operational stock / production PNGs
+- Sensitivity: low/base/high comparisons built from sensitivity case outputs
 """
 
 from __future__ import annotations
@@ -13,6 +13,7 @@ import argparse
 import base64
 import csv
 import html
+import io
 import json
 import re
 import sys
@@ -60,12 +61,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--sim-input-stocks-png-dir",
         default="etudecas/simulation/result",
-        help="Directory containing production_input_stocks_by_material_<factory>.png files.",
+        help="Directory containing input/supplier/DC PNG files.",
     )
     parser.add_argument(
         "--sim-output-products-png-dir",
         default="etudecas/simulation/result",
         help="Directory containing production_output_products_by_factory_<factory>.png files.",
+    )
+    parser.add_argument(
+        "--sensitivity-cases-csv",
+        default="etudecas/simulation/sensibility/result/sensitivity_cases.csv",
+        help="Sensitivity cases summary CSV.",
     )
     return parser.parse_args()
 
@@ -88,8 +94,8 @@ def compact_graph_payload(raw: dict[str, Any]) -> dict[str, Any]:
         if not isinstance(node, dict):
             continue
         geo = node.get("geo", {}) or {}
-        lat = geo.get("lat")
-        lon = geo.get("lon")
+        lat = node.get("lat", geo.get("lat"))
+        lon = node.get("lon", geo.get("lon"))
         try:
             lat = float(lat) if lat is not None else None
             lon = float(lon) if lon is not None else None
@@ -249,18 +255,21 @@ def build_factory_hover_series(
     return out
 
 
+def png_payload_from_bytes(png_bytes: bytes, filename: str) -> dict[str, Any]:
+    return {
+        "mime": "image/png",
+        "data_b64": base64.b64encode(png_bytes).decode("ascii"),
+        "filename": filename,
+    }
+
+
 def load_png_payload(png_path: Path) -> dict[str, Any] | None:
     if not png_path.exists():
         return None
     try:
-        b64 = base64.b64encode(png_path.read_bytes()).decode("ascii")
+        return png_payload_from_bytes(png_path.read_bytes(), png_path.name)
     except Exception:
         return None
-    return {
-        "mime": "image/png",
-        "data_b64": b64,
-        "filename": png_path.name,
-    }
 
 
 def build_factory_hover_images(
@@ -280,7 +289,6 @@ def build_factory_hover_images(
         incoming = load_png_payload(input_png_dir / f"production_input_stocks_by_material_{safe_factory}.png")
         outgoing = load_png_payload(output_png_dir / f"production_output_products_by_factory_{safe_factory}.png")
         if outgoing is None:
-            # Backward compatibility if only the global output chart exists.
             outgoing = load_png_payload(output_png_dir / "production_output_products.png")
         if not incoming and not outgoing:
             continue
@@ -298,14 +306,14 @@ def build_supplier_hover_images(raw: dict[str, Any], png_dir: Path) -> dict[str,
     out: dict[str, Any] = {}
     for supplier_id in supplier_ids:
         safe_supplier = re.sub(r"[^A-Za-z0-9_-]+", "_", supplier_id)
-        image = load_png_payload(png_dir / f"production_supplier_input_stocks_by_material_{safe_supplier}.png")
-        if image is None:
-            image = load_png_payload(png_dir / f"production_supplier_shipments_by_material_{safe_supplier}.png")
-        if image is None:
-            # Backward compatibility with previous supplier stock plots.
-            image = load_png_payload(png_dir / f"production_supplier_stocks_by_material_{safe_supplier}.png")
-        if image:
-            out[supplier_id] = image
+        incoming = load_png_payload(png_dir / f"production_supplier_input_stocks_by_material_{safe_supplier}.png")
+        if incoming is None:
+            incoming = load_png_payload(png_dir / f"production_supplier_shipments_by_material_{safe_supplier}.png")
+        if incoming is None:
+            incoming = load_png_payload(png_dir / f"production_supplier_stocks_by_material_{safe_supplier}.png")
+        outgoing = load_png_payload(png_dir / f"production_supplier_shipments_by_material_{safe_supplier}.png")
+        if incoming or outgoing:
+            out[supplier_id] = {"incoming": incoming, "outgoing": outgoing}
     return out
 
 
@@ -319,15 +327,345 @@ def build_distribution_center_hover_images(raw: dict[str, Any], png_dir: Path) -
     out: dict[str, Any] = {}
     for dc_id in dc_ids:
         safe_dc = re.sub(r"[^A-Za-z0-9_-]+", "_", dc_id)
-        image = load_png_payload(png_dir / f"production_dc_factory_outputs_by_material_{safe_dc}.png")
-        if image is None:
-            image = load_png_payload(png_dir / f"production_dc_shipments_by_material_{safe_dc}.png")
-        if image is None:
-            # Backward compatibility with previous DC stock plots.
-            image = load_png_payload(png_dir / f"production_dc_stocks_by_material_{safe_dc}.png")
-        if image:
-            out[dc_id] = image
+        incoming = load_png_payload(png_dir / f"production_dc_factory_outputs_by_material_{safe_dc}.png")
+        if incoming is None:
+            incoming = load_png_payload(png_dir / f"production_dc_shipments_by_material_{safe_dc}.png")
+        if incoming is None:
+            incoming = load_png_payload(png_dir / f"production_dc_stocks_by_material_{safe_dc}.png")
+        if incoming:
+            out[dc_id] = {"incoming": incoming, "outgoing": None}
     return out
+
+
+def read_csv_rows(csv_path: Path) -> list[dict[str, str]]:
+    if not csv_path.exists():
+        return []
+    with csv_path.open("r", encoding="utf-8", newline="") as f:
+        return list(csv.DictReader(f))
+
+
+def build_edge_item_sets(raw: dict[str, Any]) -> tuple[dict[str, set[str]], dict[str, set[str]]]:
+    incoming_items: dict[str, set[str]] = defaultdict(set)
+    outgoing_items: dict[str, set[str]] = defaultdict(set)
+    for edge in raw.get("edges", []) or []:
+        src = str(edge.get("from") or "")
+        dst = str(edge.get("to") or "")
+        for item_id in edge.get("items") or []:
+            item = str(item_id)
+            if src:
+                outgoing_items[src].add(item)
+            if dst:
+                incoming_items[dst].add(item)
+    return incoming_items, outgoing_items
+
+
+def aggregate_daily_series(
+    rows: list[dict[str, str]],
+    *,
+    value_field: str,
+    node_field: str | None = None,
+    node_id: str | None = None,
+    item_ids: set[str] | None = None,
+) -> list[tuple[int, float]]:
+    by_day: dict[int, float] = defaultdict(float)
+    for row in rows:
+        if node_field and node_id is not None and str(row.get(node_field) or "") != node_id:
+            continue
+        item_id = str(row.get("item_id") or "")
+        if item_ids is not None and item_id not in item_ids:
+            continue
+        day = int(to_float(row.get("day")) or 0)
+        value = float(to_float(row.get(value_field)) or 0.0)
+        by_day[day] += value
+    return sorted(by_day.items(), key=lambda it: it[0])
+
+
+def build_line_chart_payload(
+    series_map: dict[str, list[tuple[int, float]]],
+    *,
+    title: str,
+    y_label: str,
+    filename: str,
+) -> dict[str, Any] | None:
+    usable = {label: pts for label, pts in series_map.items() if pts}
+    if not usable:
+        return None
+
+    try:
+        import matplotlib
+
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt  # type: ignore
+    except Exception:
+        return None
+
+    colors = ["#0f766e", "#2563eb", "#dc2626", "#d97706", "#7c3aed", "#475569"]
+    fig, ax = plt.subplots(figsize=(9.8, 4.8))
+    for idx, (label, points) in enumerate(usable.items()):
+        days = [p[0] for p in points]
+        values = [p[1] for p in points]
+        ax.plot(
+            days,
+            values,
+            label=label,
+            linewidth=2.1,
+            color=colors[idx % len(colors)],
+        )
+
+    ax.set_title(title, fontsize=12, pad=10)
+    ax.set_xlabel("Jour")
+    ax.set_ylabel(y_label)
+    ax.grid(True, which="major", color="#e2e8f0", linewidth=0.9)
+    ax.set_facecolor("#ffffff")
+    fig.patch.set_facecolor("#ffffff")
+    ax.legend(loc="best", fontsize=8.5, frameon=False)
+    fig.tight_layout()
+
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    return png_payload_from_bytes(buf.getvalue(), filename)
+
+
+def case_rows_by_id(case_rows: list[dict[str, str]]) -> dict[str, dict[str, str]]:
+    return {
+        str(row.get("case_id") or ""): row
+        for row in case_rows
+        if str(row.get("status") or "").lower() == "ok"
+    }
+
+
+def case_output_dir(case_row: dict[str, str] | None) -> Path | None:
+    if not case_row:
+        return None
+    raw = str(case_row.get("case_output_dir") or "").strip()
+    return Path(raw) if raw else None
+
+
+def build_factory_sensitivity_hover_images(
+    raw: dict[str, Any],
+    case_rows: list[dict[str, str]],
+    csv_cache: dict[Path, list[dict[str, str]]],
+) -> dict[str, Any]:
+    nodes = raw.get("nodes", []) or []
+    by_case_id = case_rows_by_id(case_rows)
+    baseline_dir = case_output_dir(by_case_id.get("baseline"))
+    if baseline_dir is None:
+        return {}
+
+    out: dict[str, Any] = {}
+    for node in nodes:
+        node_id = str(node.get("id") or "")
+        if str(node.get("type") or "") != "factory":
+            continue
+
+        low_dir = case_output_dir(by_case_id.get(f"capacity_{node_id}_low"))
+        high_dir = case_output_dir(by_case_id.get(f"capacity_{node_id}_high"))
+        if low_dir is None and high_dir is None:
+            continue
+
+        input_series: dict[str, list[tuple[int, float]]] = {}
+        output_series: dict[str, list[tuple[int, float]]] = {}
+        for label, root in (
+            ("Cap. -20%", low_dir),
+            ("Base", baseline_dir),
+            ("Cap. +20%", high_dir),
+        ):
+            if root is None:
+                continue
+            input_csv = root / "production_input_stocks_daily.csv"
+            output_csv = root / "production_output_products_daily.csv"
+            if input_csv not in csv_cache:
+                csv_cache[input_csv] = read_csv_rows(input_csv)
+            if output_csv not in csv_cache:
+                csv_cache[output_csv] = read_csv_rows(output_csv)
+            input_series[label] = aggregate_daily_series(
+                csv_cache[input_csv],
+                value_field="stock_end_of_day",
+                node_field="node_id",
+                node_id=node_id,
+            )
+            output_series[label] = aggregate_daily_series(
+                csv_cache[output_csv],
+                value_field="cum_produced_qty",
+                node_field="node_id",
+                node_id=node_id,
+            )
+
+        incoming = build_line_chart_payload(
+            input_series,
+            title=f"{node_id} - stock total intrants par scenario de capacite",
+            y_label="Stock total",
+            filename=f"{node_id}_sensitivity_input.png",
+        )
+        outgoing = build_line_chart_payload(
+            output_series,
+            title=f"{node_id} - production cumulee par scenario de capacite",
+            y_label="Production cumulee",
+            filename=f"{node_id}_sensitivity_output.png",
+        )
+        if incoming or outgoing:
+            out[node_id] = {"incoming": incoming, "outgoing": outgoing}
+    return out
+
+
+def build_supplier_sensitivity_hover_images(
+    raw: dict[str, Any],
+    case_rows: list[dict[str, str]],
+    csv_cache: dict[Path, list[dict[str, str]]],
+) -> dict[str, Any]:
+    nodes = raw.get("nodes", []) or []
+    by_case_id = case_rows_by_id(case_rows)
+    baseline_dir = case_output_dir(by_case_id.get("baseline"))
+    low_dir = case_output_dir(by_case_id.get("supplier_stock_scale_low"))
+    high_dir = case_output_dir(by_case_id.get("supplier_stock_scale_high"))
+    if baseline_dir is None:
+        return {}
+
+    out: dict[str, Any] = {}
+    for node in nodes:
+        node_id = str(node.get("id") or "")
+        if str(node.get("type") or "") != "supplier_dc":
+            continue
+
+        capacity_low_dir = case_output_dir(by_case_id.get(f"capacity_{node_id}_low"))
+        capacity_high_dir = case_output_dir(by_case_id.get(f"capacity_{node_id}_high"))
+        if capacity_low_dir is not None or capacity_high_dir is not None:
+            scenario_specs = (
+                ("Cap. -20%", capacity_low_dir),
+                ("Base", baseline_dir),
+                ("Cap. +20%", capacity_high_dir),
+            )
+            title_suffix = "scenario de capacite"
+        else:
+            scenario_specs = (
+                ("Stock four. -20%", low_dir),
+                ("Base", baseline_dir),
+                ("Stock four. +20%", high_dir),
+            )
+            title_suffix = "scenario de stock fournisseur"
+
+        shipment_series: dict[str, list[tuple[int, float]]] = {}
+        stock_series: dict[str, list[tuple[int, float]]] = {}
+        for label, root in scenario_specs:
+            if root is None:
+                continue
+            shipments_csv = root / "production_supplier_shipments_daily.csv"
+            stocks_csv = root / "production_supplier_stocks_daily.csv"
+            if shipments_csv not in csv_cache:
+                csv_cache[shipments_csv] = read_csv_rows(shipments_csv)
+            if stocks_csv not in csv_cache:
+                csv_cache[stocks_csv] = read_csv_rows(stocks_csv)
+            shipment_series[label] = aggregate_daily_series(
+                csv_cache[shipments_csv],
+                value_field="shipped_qty",
+                node_field="src_node_id",
+                node_id=node_id,
+            )
+            stock_series[label] = aggregate_daily_series(
+                csv_cache[stocks_csv],
+                value_field="stock_end_of_day",
+                node_field="node_id",
+                node_id=node_id,
+            )
+
+        incoming = build_line_chart_payload(
+            shipment_series,
+            title=f"{node_id} - expeditions par {title_suffix}",
+            y_label="Quantite expediee / jour",
+            filename=f"{node_id}_sensitivity_shipments.png",
+        )
+        outgoing = build_line_chart_payload(
+            stock_series,
+            title=f"{node_id} - stock disponible par {title_suffix}",
+            y_label="Stock fin de journee",
+            filename=f"{node_id}_sensitivity_stock.png",
+        )
+        if incoming or outgoing:
+            out[node_id] = {"incoming": incoming, "outgoing": outgoing}
+    return out
+
+
+def build_distribution_center_sensitivity_hover_images(
+    raw: dict[str, Any],
+    case_rows: list[dict[str, str]],
+    csv_cache: dict[Path, list[dict[str, str]]],
+) -> dict[str, Any]:
+    nodes = raw.get("nodes", []) or []
+    incoming_items, outgoing_items = build_edge_item_sets(raw)
+    by_case_id = case_rows_by_id(case_rows)
+    baseline_dir = case_output_dir(by_case_id.get("baseline"))
+    if baseline_dir is None:
+        return {}
+
+    out: dict[str, Any] = {}
+    for node in nodes:
+        node_id = str(node.get("id") or "")
+        if str(node.get("type") or "") != "distribution_center":
+            continue
+
+        dc_item_ids = set(incoming_items.get(node_id, set())) | set(outgoing_items.get(node_id, set()))
+        demand_case_specs: list[tuple[str, Path | None, set[str]]] = [("Base", baseline_dir, dc_item_ids)]
+        for item_id in sorted(dc_item_ids):
+            code = item_id.split(":", 1)[-1]
+            demand_case_specs.append((f"{code} -20%", case_output_dir(by_case_id.get(f"demand_item_{code}_low")), {item_id}))
+            demand_case_specs.append((f"{code} +20%", case_output_dir(by_case_id.get(f"demand_item_{code}_high")), {item_id}))
+
+        stock_series: dict[str, list[tuple[int, float]]] = {}
+        backlog_series: dict[str, list[tuple[int, float]]] = {}
+        for label, root, item_ids in demand_case_specs:
+            if root is None:
+                continue
+            dc_stock_csv = root / "production_dc_stocks_daily.csv"
+            demand_csv = root / "production_demand_service_daily.csv"
+            if dc_stock_csv not in csv_cache:
+                csv_cache[dc_stock_csv] = read_csv_rows(dc_stock_csv)
+            if demand_csv not in csv_cache:
+                csv_cache[demand_csv] = read_csv_rows(demand_csv)
+            stock_series[label] = aggregate_daily_series(
+                csv_cache[dc_stock_csv],
+                value_field="stock_end_of_day",
+                node_field="node_id",
+                node_id=node_id,
+                item_ids=item_ids,
+            )
+            backlog_series[label] = aggregate_daily_series(
+                csv_cache[demand_csv],
+                value_field="backlog_end_qty",
+                item_ids=item_ids,
+            )
+
+        incoming = build_line_chart_payload(
+            stock_series,
+            title=f"{node_id} - stock DC par scenario de demande",
+            y_label="Stock fin de journee",
+            filename=f"{node_id}_sensitivity_dc_stock.png",
+        )
+        outgoing = build_line_chart_payload(
+            backlog_series,
+            title=f"{node_id} - backlog client par scenario de demande",
+            y_label="Backlog fin de journee",
+            filename=f"{node_id}_sensitivity_backlog.png",
+        )
+        if incoming or outgoing:
+            out[node_id] = {"incoming": incoming, "outgoing": outgoing}
+    return out
+
+
+def build_sensitivity_hover_payloads(
+    raw: dict[str, Any],
+    sensitivity_cases_csv: Path,
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+    case_rows = read_csv_rows(sensitivity_cases_csv)
+    if not case_rows:
+        return {}, {}, {}
+
+    csv_cache: dict[Path, list[dict[str, str]]] = {}
+    return (
+        build_factory_sensitivity_hover_images(raw, case_rows, csv_cache),
+        build_supplier_sensitivity_hover_images(raw, case_rows, csv_cache),
+        build_distribution_center_sensitivity_hover_images(raw, case_rows, csv_cache),
+    )
 
 
 def html_template(title: str, data_json: str) -> str:
@@ -370,6 +708,26 @@ def html_template(title: str, data_json: str) -> str:
       display: flex;
       align-items: center;
       gap: 8px;
+    }}
+    .modeTabs {{
+      display: inline-flex;
+      border: 1px solid #cbd5e1;
+      border-radius: 999px;
+      overflow: hidden;
+      background: #f8fafc;
+    }}
+    .modeBtn {{
+      border: 0;
+      background: transparent;
+      color: #334155;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 7px 12px;
+      cursor: pointer;
+    }}
+    .modeBtn.active {{
+      background: #0f172a;
+      color: #ffffff;
     }}
     #typeFilters label {{
       margin-right: 8px;
@@ -442,6 +800,12 @@ def html_template(title: str, data_json: str) -> str:
     <div class="title">{html.escape(title)}</div>
     <div class="meta" id="stats"></div>
     <div class="box">
+      <div class="modeTabs">
+        <button id="modeOps" class="modeBtn active" type="button">Simulation</button>
+        <button id="modeSensitivity" class="modeBtn" type="button">Sensibilite</button>
+      </div>
+    </div>
+    <div class="box">
       <label><input type="checkbox" id="showEdges" checked> Afficher flux</label>
     </div>
     <div class="box" id="typeFilters"></div>
@@ -453,11 +817,11 @@ def html_template(title: str, data_json: str) -> str:
     <div class="factoryHoverGrid">
       <div id="incomingBlock" class="factoryPlotBlock">
         <div id="incomingLabel" class="factoryPlotLabel">Stock matieres premieres (entree)</div>
-        <img id="factoryIncomingImage" class="factoryPlot" alt="Factory incoming stock chart"/>
+        <img id="factoryIncomingImage" class="factoryPlot" alt="Node incoming chart"/>
       </div>
       <div id="outgoingBlock" class="factoryPlotBlock">
         <div id="outgoingLabel" class="factoryPlotLabel">Production produits finis (sortie)</div>
-        <img id="factoryOutgoingImage" class="factoryPlot factoryPlotOutgoing" alt="Factory output production chart"/>
+        <img id="factoryOutgoingImage" class="factoryPlot factoryPlotOutgoing" alt="Node outgoing chart"/>
       </div>
       <div id="factoryHoverNoImage" style="display:none;">Aucun PNG disponible pour ce noeud.</div>
     </div>
@@ -466,13 +830,17 @@ def html_template(title: str, data_json: str) -> str:
   <script>
     const DATA = {data_json};
     const STYLES = DATA.node_type_styles || {{}};
-    const FACTORY_SERIES = DATA.factory_hover_series || {{}};
     const FACTORY_HOVER_IMAGES = DATA.factory_hover_images || {{}};
     const SUPPLIER_HOVER_IMAGES = DATA.supplier_hover_images || {{}};
     const DC_HOVER_IMAGES = DATA.distribution_center_hover_images || {{}};
+    const FACTORY_SENSITIVITY_HOVER_IMAGES = DATA.factory_sensitivity_hover_images || {{}};
+    const SUPPLIER_SENSITIVITY_HOVER_IMAGES = DATA.supplier_sensitivity_hover_images || {{}};
+    const DC_SENSITIVITY_HOVER_IMAGES = DATA.distribution_center_sensitivity_hover_images || {{}};
     const nodeById = Object.fromEntries((DATA.nodes || []).map(n => [n.id, n]));
     const defaultPalette = ["#1f77b4", "#d62728", "#ff7f0e", "#2ca02c", "#9467bd", "#8c564b"];
     let currentFactoryHoverId = null;
+    let currentFactoryHoverType = null;
+    let currentPanelMode = "ops";
     let hoverHandlersBound = false;
 
     function styleForType(nodeType, idx) {{
@@ -640,34 +1008,77 @@ def html_template(title: str, data_json: str) -> str:
       noImg.style.display = "none";
       panel.classList.remove("visible");
       currentFactoryHoverId = null;
+      currentFactoryHoverType = null;
     }}
 
-    function chartLayoutBase(titleText, yTitle) {{
+    function panelLabels(nodeType) {{
+      if (currentPanelMode === "sensitivity") {{
+        if (nodeType === "factory") {{
+          return {{
+            incoming: "Sensibilite capacite - stock total intrants",
+            outgoing: "Sensibilite capacite - production cumulee"
+          }};
+        }}
+        if (nodeType === "supplier_dc") {{
+          return {{
+            incoming: "Sensibilite supply - expeditions",
+            outgoing: "Sensibilite supply - stock disponible"
+          }};
+        }}
+        if (nodeType === "distribution_center") {{
+          return {{
+            incoming: "Sensibilite demande - stock distribution center",
+            outgoing: "Sensibilite demande - backlog client"
+          }};
+        }}
+      }}
+      if (nodeType === "supplier_dc") {{
+        return {{
+          incoming: "Stocks d'entree usine lies au fournisseur",
+          outgoing: "Expeditions du fournisseur"
+        }};
+      }}
+      if (nodeType === "distribution_center") {{
+        return {{
+          incoming: "Productions usines liees au distribution center",
+          outgoing: "Sorties distribution center"
+        }};
+      }}
       return {{
-        title: {{text: titleText, font: {{size: 12}}}},
-        margin: {{l: 45, r: 10, t: 32, b: 36}},
-        paper_bgcolor: "rgba(0,0,0,0)",
-        plot_bgcolor: "rgba(0,0,0,0)",
-        xaxis: {{title: "Jour", showgrid: true, gridcolor: "#e2e8f0"}},
-        yaxis: {{title: yTitle, showgrid: true, gridcolor: "#e2e8f0"}},
-        legend: {{orientation: "h", font: {{size: 10}}}},
+        incoming: "Stock matieres premieres (entree)",
+        outgoing: "Production produits finis (sortie)"
       }};
     }}
 
+    function panelImages(nodeId, nodeType) {{
+      if (currentPanelMode === "sensitivity") {{
+        if (nodeType === "factory") return FACTORY_SENSITIVITY_HOVER_IMAGES[nodeId] || null;
+        if (nodeType === "supplier_dc") return SUPPLIER_SENSITIVITY_HOVER_IMAGES[nodeId] || null;
+        if (nodeType === "distribution_center") return DC_SENSITIVITY_HOVER_IMAGES[nodeId] || null;
+        return null;
+      }}
+      if (nodeType === "factory") return FACTORY_HOVER_IMAGES[nodeId] || null;
+      if (nodeType === "supplier_dc") return SUPPLIER_HOVER_IMAGES[nodeId] || null;
+      if (nodeType === "distribution_center") return DC_HOVER_IMAGES[nodeId] || null;
+      return null;
+    }}
+
+    function applyModeUi() {{
+      document.getElementById("modeOps").classList.toggle("active", currentPanelMode === "ops");
+      document.getElementById("modeSensitivity").classList.toggle("active", currentPanelMode === "sensitivity");
+    }}
+
+    function setPanelMode(mode) {{
+      currentPanelMode = mode;
+      applyModeUi();
+      if (currentFactoryHoverId && currentFactoryHoverType) {{
+        showFactoryPanel(currentFactoryHoverId, currentFactoryHoverType);
+      }}
+    }}
+
     function showFactoryPanel(nodeId, nodeType) {{
-      const info = FACTORY_SERIES[nodeId];
-      const factoryImageInfo = FACTORY_HOVER_IMAGES[nodeId];
-      const supplierImageInfo = SUPPLIER_HOVER_IMAGES[nodeId];
-      const dcImageInfo = DC_HOVER_IMAGES[nodeId];
-      if (nodeType === "factory" && !info && !factoryImageInfo) {{
-        hideFactoryPanel();
-        return;
-      }}
-      if (nodeType === "supplier_dc" && !supplierImageInfo) {{
-        hideFactoryPanel();
-        return;
-      }}
-      if (nodeType === "distribution_center" && !dcImageInfo) {{
+      const images = panelImages(nodeId, nodeType);
+      if (!images) {{
         hideFactoryPanel();
         return;
       }}
@@ -682,32 +1093,21 @@ def html_template(title: str, data_json: str) -> str:
       const outgoingImg = document.getElementById("factoryOutgoingImage");
       const noImg = document.getElementById("factoryHoverNoImage");
       const nodeInfo = nodeById[nodeId] || {{}};
-      const nodeName = (info && info.node_name) ? info.node_name : (nodeInfo.name || nodeId);
+      const nodeName = nodeInfo.name || nodeId;
       const nodeTitle = nodeType === "factory" ? "Factory" :
         (nodeType === "supplier_dc" ? "Supplier" : "Distribution Center");
-      title.textContent = `${{nodeTitle}}: ${{nodeName}} (${{nodeId}})`;
+      const modeTitle = currentPanelMode === "sensitivity" ? "Sensibilite" : "Simulation";
+      title.textContent = `${{nodeTitle}}: ${{nodeName}} (${{nodeId}}) · ${{modeTitle}}`;
 
-      let incomingImageInfo = null;
-      let outgoingImageInfo = null;
-      if (nodeType === "factory") {{
-        incomingBlock.style.display = "block";
-        outgoingBlock.style.display = "block";
-        incomingLabel.textContent = "Stock matieres premieres (entree)";
-        outgoingLabel.textContent = "Production produits finis (sortie)";
-        incomingImageInfo = (factoryImageInfo && factoryImageInfo.incoming) ? factoryImageInfo.incoming :
-          ((factoryImageInfo && factoryImageInfo.data_b64) ? factoryImageInfo : null);
-        outgoingImageInfo = (factoryImageInfo && factoryImageInfo.outgoing) ? factoryImageInfo.outgoing : null;
-      }} else if (nodeType === "supplier_dc") {{
-        incomingBlock.style.display = "block";
-        outgoingBlock.style.display = "none";
-        incomingLabel.textContent = "Stocks d'entree usine lies au fournisseur";
-        incomingImageInfo = supplierImageInfo;
-      }} else if (nodeType === "distribution_center") {{
-        incomingBlock.style.display = "block";
-        outgoingBlock.style.display = "none";
-        incomingLabel.textContent = "Productions usines liees au distribution center";
-        incomingImageInfo = dcImageInfo;
-      }}
+      const labels = panelLabels(nodeType);
+      incomingLabel.textContent = labels.incoming;
+      outgoingLabel.textContent = labels.outgoing;
+
+      const incomingImageInfo = images.incoming || null;
+      const outgoingImageInfo = images.outgoing || null;
+
+      incomingBlock.style.display = incomingImageInfo ? "block" : "none";
+      outgoingBlock.style.display = outgoingImageInfo ? "block" : "none";
 
       let visibleCount = 0;
       if (incomingImageInfo && incomingImageInfo.data_b64) {{
@@ -727,9 +1127,10 @@ def html_template(title: str, data_json: str) -> str:
         outgoingImg.removeAttribute("src");
         outgoingImg.style.display = "none";
       }}
-      noImg.style.display = visibleCount ? "none" : "block";
 
+      noImg.style.display = visibleCount ? "none" : "block";
       currentFactoryHoverId = nodeId;
+      currentFactoryHoverType = nodeType;
       panel.classList.add("visible");
     }}
 
@@ -787,7 +1188,10 @@ def html_template(title: str, data_json: str) -> str:
 
     function init() {{
       initFilters();
+      applyModeUi();
       document.getElementById("showEdges").addEventListener("change", draw);
+      document.getElementById("modeOps").addEventListener("click", () => setPanelMode("ops"));
+      document.getElementById("modeSensitivity").addEventListener("click", () => setPanelMode("sensitivity"));
       for (const chk of document.querySelectorAll(".typeChk")) {{
         chk.addEventListener("change", draw);
       }}
@@ -808,6 +1212,7 @@ def main() -> None:
     sim_output = Path(args.sim_output_products_csv)
     sim_input_png_dir = Path(args.sim_input_stocks_png_dir)
     sim_output_png_dir = Path(args.sim_output_products_png_dir)
+    sensitivity_cases_csv = Path(args.sensitivity_cases_csv)
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     try:
@@ -817,6 +1222,11 @@ def main() -> None:
         payload["factory_hover_images"] = build_factory_hover_images(raw, sim_input_png_dir, sim_output_png_dir)
         payload["supplier_hover_images"] = build_supplier_hover_images(raw, sim_input_png_dir)
         payload["distribution_center_hover_images"] = build_distribution_center_hover_images(raw, sim_input_png_dir)
+        (
+            payload["factory_sensitivity_hover_images"],
+            payload["supplier_sensitivity_hover_images"],
+            payload["distribution_center_sensitivity_hover_images"],
+        ) = build_sensitivity_hover_payloads(raw, sensitivity_cases_csv)
     except Exception as exc:
         print(f"[ERROR] Unable to read/parse input JSON: {exc}", file=sys.stderr)
         sys.exit(1)

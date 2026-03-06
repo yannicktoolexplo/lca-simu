@@ -2,8 +2,8 @@
 """
 Targeted review of model assumptions, policies and targeted disruptions.
 
-This script keeps the current working hypothesis that item 693710 is supplied
-from SDC-1450 / Gaillac, while explicitly testing how much results depend on it.
+This script tests how much results depend on the currently unsourced special
+input of M-1810, using the detected item from the prepared graph.
 """
 
 from __future__ import annotations
@@ -25,6 +25,11 @@ BASE_INPUT = ROOT / "sensibility" / "shock_campaign_result" / "cases" / "baselin
 FULL_SAMPLES = ROOT / "result" / "full_system_exploration_samples.csv"
 CRITICAL_MATERIALS = ROOT / "result" / "critical_input_materials_analysis.csv"
 OUT_DIR = ROOT / "result" / "model_assumption_review"
+DEFAULT_SPECIAL_SUPPLIER_ID = "SDC-1450"
+DEFAULT_SPECIAL_SUPPLIER_NAME = "Supplier of Raw Materials - D1450"
+DEFAULT_SPECIAL_SUPPLIER_LOCATION = "France - GAILLAC - 81600"
+DEFAULT_SPECIAL_SUPPLIER_LAT = 43.901816
+DEFAULT_SPECIAL_SUPPLIER_LON = 1.896506
 
 
 def safe_float(value: Any, default: float = 0.0) -> float:
@@ -127,9 +132,88 @@ def remove_inventory_state(data: dict[str, Any], node_id: str, item_id: str) -> 
     inv["states"] = [s for s in (inv.get("states") or []) if str(s.get("item_id")) != item_id]
 
 
-def remove_693710_supplier_mapping(data: dict[str, Any]) -> None:
-    remove_edge(data, "edge:SDC-1450_TO_M-1810_693710_Q")
-    remove_inventory_state(data, "SDC-1450", "item:693710")
+def has_inbound_edge(data: dict[str, Any], dst_node_id: str, item_id: str) -> bool:
+    return any(
+        str(edge.get("to")) == dst_node_id and item_id in (edge.get("items") or [])
+        for edge in (data.get("edges") or [])
+    )
+
+
+def detect_special_item_config(data: dict[str, Any]) -> dict[str, Any]:
+    node = find_node(data, "M-1810")
+    preferred = ["item:007923", "item:693710"]
+    candidates: list[tuple[int, str, str]] = []
+    for proc in node.get("processes") or []:
+        for inp in proc.get("inputs") or []:
+            item_id = str(inp.get("item_id"))
+            if has_inbound_edge(data, "M-1810", item_id):
+                continue
+            unit = str(inp.get("ratio_unit") or "G")
+            priority = preferred.index(item_id) if item_id in preferred else len(preferred)
+            candidates.append((priority, item_id, unit))
+    if not candidates:
+        return {
+            "special_item_id": "item:007923",
+            "special_item_code": "007923",
+            "special_item_unit": "G",
+            "gaillac_edge_id": "edge:SDC-1450_TO_M-1810_007923_Q",
+            "alt_edge_id": "edge:SDC-VD0519670A_TO_M-1810_007923_ASSUMED",
+            "local_supplier_id": "SDC-ASSUMED-007923",
+            "local_edge_id": "edge:SDC-ASSUMED-007923_TO_M-1810_007923",
+        }
+    _, item_id, unit = sorted(candidates)[0]
+    code = item_id.split(":")[-1]
+    return {
+        "special_item_id": item_id,
+        "special_item_code": code,
+        "special_item_unit": unit,
+        "gaillac_edge_id": f"edge:{DEFAULT_SPECIAL_SUPPLIER_ID}_TO_M-1810_{code}_Q",
+        "alt_edge_id": f"edge:SDC-VD0519670A_TO_M-1810_{code}_ASSUMED",
+        "local_supplier_id": f"SDC-ASSUMED-{code}",
+        "local_edge_id": f"edge:SDC-ASSUMED-{code}_TO_M-1810_{code}",
+    }
+
+
+def special_case_ids(config: dict[str, Any]) -> dict[str, str]:
+    code = str(config["special_item_code"])
+    return {
+        "no_supplier_mapping": f"hyp_{code}_no_supplier_mapping",
+        "reroute_existing": f"hyp_{code}_vd0519670a",
+        "dedicated_local": f"hyp_{code}_dedicated_local",
+        "gaillac_outage": f"disrupt_{code}_gaillac_outage_5d",
+    }
+
+
+def ensure_default_special_mapping(data: dict[str, Any], config: dict[str, Any]) -> None:
+    item_id = str(config["special_item_id"])
+    edge_id = str(config["gaillac_edge_id"])
+    if has_inbound_edge(data, "M-1810", item_id):
+        return
+    add_supplier_node_if_missing(
+        data,
+        node_id=DEFAULT_SPECIAL_SUPPLIER_ID,
+        name=DEFAULT_SPECIAL_SUPPLIER_NAME,
+        location_id=DEFAULT_SPECIAL_SUPPLIER_LOCATION,
+        lat=DEFAULT_SPECIAL_SUPPLIER_LAT,
+        lon=DEFAULT_SPECIAL_SUPPLIER_LON,
+    )
+    add_supplier_mapping(
+        data,
+        src_node_id=DEFAULT_SPECIAL_SUPPLIER_ID,
+        dst_node_id="M-1810",
+        item_id=item_id,
+        initial_qty=3000.0,
+        uom=str(config["special_item_unit"]),
+        lead_days=8.0,
+        transport_cost_per_unit=0.05,
+        edge_id=edge_id,
+        assumption_label=f"GAILLAC_{config['special_item_code']}",
+    )
+
+
+def remove_special_supplier_mapping(data: dict[str, Any], config: dict[str, Any]) -> None:
+    remove_edge(data, str(config["gaillac_edge_id"]))
+    remove_inventory_state(data, DEFAULT_SPECIAL_SUPPLIER_ID, str(config["special_item_id"]))
 
 
 def add_supplier_node_if_missing(
@@ -310,68 +394,75 @@ def non_dominated_points(rows: list[dict[str, Any]], fill_key: str, cost_key: st
     return keep
 
 
-def build_case_specs() -> list[dict[str, Any]]:
+def build_case_specs(config: dict[str, Any]) -> list[dict[str, Any]]:
+    item_id = str(config["special_item_id"])
+    item_code = str(config["special_item_code"])
+    unit = str(config["special_item_unit"])
+    case_ids = special_case_ids(config)
     return [
         {
             "case_id": "baseline_gaillac",
             "category": "baseline",
-            "description": "Current prepared baseline with assumed 693710 -> SDC-1450 / Gaillac.",
-            "mutator": lambda d: None,
+            "description": f"Current baseline with assumed {item_code} -> {DEFAULT_SPECIAL_SUPPLIER_ID} / Gaillac.",
+            "mutator": lambda d: ensure_default_special_mapping(d, config),
         },
         {
-            "case_id": "hyp_693710_no_supplier_mapping",
+            "case_id": case_ids["no_supplier_mapping"],
             "category": "hypothesis",
-            "description": "Remove assumed supplier mapping for 693710 but keep other baseline assumptions.",
+            "description": f"Remove assumed supplier mapping for {item_code} but keep other baseline assumptions.",
             "mutator": lambda d: (
-                remove_693710_supplier_mapping(d),
-                set_inventory_initial(d, "M-1810", "item:693710", 700.0),
+                ensure_default_special_mapping(d, config),
+                remove_special_supplier_mapping(d, config),
+                set_inventory_initial(d, "M-1810", item_id, 700.0),
             ),
         },
         {
-            "case_id": "hyp_693710_vd0519670a",
+            "case_id": case_ids["reroute_existing"],
             "category": "hypothesis",
-            "description": "Re-route 693710 to existing supplier SDC-VD0519670A instead of Gaillac.",
+            "description": f"Re-route {item_code} to existing supplier SDC-VD0519670A instead of Gaillac.",
             "mutator": lambda d: (
-                remove_693710_supplier_mapping(d),
+                ensure_default_special_mapping(d, config),
+                remove_special_supplier_mapping(d, config),
                 add_supplier_mapping(
                     d,
                     src_node_id="SDC-VD0519670A",
                     dst_node_id="M-1810",
-                    item_id="item:693710",
+                    item_id=item_id,
                     initial_qty=3000.0,
-                    uom="G",
+                    uom=unit,
                     lead_days=8.0,
                     transport_cost_per_unit=0.05,
-                    edge_id="edge:SDC-VD0519670A_TO_M-1810_693710_ASSUMED",
-                    assumption_label="ALT_VD0519670A",
+                    edge_id=str(config["alt_edge_id"]),
+                    assumption_label=f"ALT_VD0519670A_{item_code}",
                 ),
             ),
         },
         {
-            "case_id": "hyp_693710_dedicated_local",
+            "case_id": case_ids["dedicated_local"],
             "category": "hypothesis",
-            "description": "Assign 693710 to a dedicated local assumed supplier near Avene.",
+            "description": f"Assign {item_code} to a dedicated local assumed supplier near Avene.",
             "mutator": lambda d: (
-                remove_693710_supplier_mapping(d),
+                ensure_default_special_mapping(d, config),
+                remove_special_supplier_mapping(d, config),
                 add_supplier_node_if_missing(
                     d,
-                    node_id="SDC-ASSUMED-693710",
-                    name="Assumed Supplier 693710",
+                    node_id=str(config["local_supplier_id"]),
+                    name=f"Assumed Supplier {item_code}",
                     location_id="France - AVENE - 34260",
                     lat=43.756966,
                     lon=3.09923,
                 ),
                 add_supplier_mapping(
                     d,
-                    src_node_id="SDC-ASSUMED-693710",
+                    src_node_id=str(config["local_supplier_id"]),
                     dst_node_id="M-1810",
-                    item_id="item:693710",
+                    item_id=item_id,
                     initial_qty=3000.0,
-                    uom="G",
+                    uom=unit,
                     lead_days=2.0,
                     transport_cost_per_unit=0.03,
-                    edge_id="edge:SDC-ASSUMED-693710_TO_M-1810_693710",
-                    assumption_label="LOCAL_693710",
+                    edge_id=str(config["local_edge_id"]),
+                    assumption_label=f"LOCAL_{item_code}",
                 ),
             ),
         },
@@ -425,10 +516,11 @@ def build_case_specs() -> list[dict[str, Any]]:
         {
             "case_id": "strict_raw_supported_only",
             "category": "strict_mode",
-            "description": "Strict mode: no external procurement, no assumed supplier for 693710, no bootstrap.",
+            "description": f"Strict mode: no external procurement, no assumed supplier for {item_code}, no bootstrap.",
             "mutator": lambda d: (
-                remove_693710_supplier_mapping(d),
-                set_inventory_initial(d, "M-1810", "item:693710", 0.0),
+                ensure_default_special_mapping(d, config),
+                remove_special_supplier_mapping(d, config),
+                set_inventory_initial(d, "M-1810", item_id, 0.0),
                 set_external_policy(d, external_procurement_enabled=False),
                 set_review_policy(d, bootstrap_scale=0.0),
             ),
@@ -490,10 +582,13 @@ def build_case_specs() -> list[dict[str, Any]]:
             "mutator": lambda d: set_lane_outage(d, "edge:SDC-1450_TO_M-1430_773474", 5, 9, 0.0),
         },
         {
-            "case_id": "disrupt_693710_gaillac_outage_5d",
+            "case_id": case_ids["gaillac_outage"],
             "category": "targeted_disruption",
-            "description": "Temporary 5-day outage of assumed 693710 lane from Gaillac.",
-            "mutator": lambda d: set_lane_outage(d, "edge:SDC-1450_TO_M-1810_693710_Q", 5, 9, 0.0),
+            "description": f"Temporary 5-day outage of assumed {item_code} lane from Gaillac.",
+            "mutator": lambda d: (
+                ensure_default_special_mapping(d, config),
+                set_lane_outage(d, str(config["gaillac_edge_id"]), 5, 9, 0.0),
+            ),
         },
         {
             "case_id": "disrupt_730384_outage_5d",
@@ -518,7 +613,8 @@ def build_case_specs() -> list[dict[str, Any]]:
 
 def run_cases() -> tuple[list[dict[str, Any]], dict[str, Any]]:
     base_data = load_json(BASE_INPUT)
-    case_specs = build_case_specs()
+    config = detect_special_item_config(base_data)
+    case_specs = build_case_specs(config)
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     runs_dir = OUT_DIR / "cases"
     runs_dir.mkdir(parents=True, exist_ok=True)
@@ -627,14 +723,15 @@ def summarize_backlog_causes(results: list[dict[str, Any]], case_id: str) -> dic
     }
 
 
-def build_fragility_map(results: list[dict[str, Any]], baseline_row: dict[str, Any]) -> list[dict[str, Any]]:
+def build_fragility_map(results: list[dict[str, Any]], baseline_row: dict[str, Any], config: dict[str, Any]) -> list[dict[str, Any]]:
     with CRITICAL_MATERIALS.open(encoding="utf-8", newline="") as f:
         rows = list(csv.DictReader(f))
 
+    case_ids = special_case_ids(config)
     disruption_case_by_item = {
         "item:042342": "disrupt_042342_outage_5d",
         "item:773474": "disrupt_773474_outage_5d",
-        "item:693710": "disrupt_693710_gaillac_outage_5d",
+        str(config["special_item_id"]): case_ids["gaillac_outage"],
         "item:730384": "disrupt_730384_outage_5d",
         "item:333362": "disrupt_333362_outage_5d",
     }
@@ -656,7 +753,7 @@ def build_fragility_map(results: list[dict[str, Any]], baseline_row: dict[str, A
                 6,
             )
         dependency = "low"
-        if item_id == "item:693710":
+        if item_id == str(config["special_item_id"]):
             dependency = "high_assumed_supplier"
         elif item_id == "item:730384":
             dependency = "medium_unit_M_ambiguous"
@@ -684,8 +781,10 @@ def build_fragility_map(results: list[dict[str, Any]], baseline_row: dict[str, A
     return out
 
 
-def build_confidence_table(results: list[dict[str, Any]], baseline_row: dict[str, Any]) -> list[dict[str, Any]]:
+def build_confidence_table(results: list[dict[str, Any]], baseline_row: dict[str, Any], config: dict[str, Any]) -> list[dict[str, Any]]:
     by_case = {r["case_id"]: r for r in results}
+    item_code = str(config["special_item_code"])
+    case_ids = special_case_ids(config)
     return [
         {
             "conclusion": "Mono-sourcing de item:042342 sur M-1430",
@@ -695,11 +794,14 @@ def build_confidence_table(results: list[dict[str, Any]], baseline_row: dict[str
             "evidence": "Supplier count = 1, highest criticality score.",
         },
         {
-            "conclusion": "Criticité élevée de item:693710 sur M-1810",
+            "conclusion": f"Criticité élevée de item:{item_code} sur M-1810",
             "confidence": "medium",
             "hypothesis_dependency": "high",
-            "observed_vs_assumed": "Observed in BOM, but supplier mapping is assumed to SDC-1450/Gaillac.",
-            "evidence": f"No-supplier mapping fill {safe_float(by_case['hyp_693710_no_supplier_mapping']['fill_rate']):.3f}; 5-day outage fill {safe_float(by_case['disrupt_693710_gaillac_outage_5d']['fill_rate']):.3f}.",
+            "observed_vs_assumed": f"Observed in BOM, but supplier mapping is assumed to {DEFAULT_SPECIAL_SUPPLIER_ID}/Gaillac.",
+            "evidence": (
+                f"No-supplier mapping fill {safe_float(by_case[case_ids['no_supplier_mapping']]['fill_rate']):.3f}; "
+                f"5-day outage fill {safe_float(by_case[case_ids['gaillac_outage']]['fill_rate']):.3f}."
+            ),
         },
         {
             "conclusion": "M-1810 agit comme goulot service/backlog",
@@ -716,7 +818,7 @@ def build_confidence_table(results: list[dict[str, Any]], baseline_row: dict[str
             "evidence": "capacity_node_scale::M-1430 remains top cost driver.",
         },
         {
-            "conclusion": "La baseline à 94.5% repose fortement sur stock bootstrap + appro externe",
+            "conclusion": f"La baseline à {safe_float(baseline_row.get('fill_rate')) * 100.0:.1f}% repose fortement sur stock bootstrap + appro externe",
             "confidence": "high",
             "hypothesis_dependency": "high",
             "observed_vs_assumed": "Observed via strict mode and external-off cases; both are model assumptions, not source data.",
@@ -775,6 +877,7 @@ def build_report(
     backlog_summary: dict[str, Any],
     confidence_rows: list[dict[str, Any]],
     fragility_rows: list[dict[str, Any]],
+    config: dict[str, Any],
 ) -> tuple[dict[str, Any], str]:
     by_case = {r["case_id"]: r for r in results}
     baseline_row = by_case["baseline_gaillac"]
@@ -787,6 +890,7 @@ def build_report(
     hypothesis_cases = [r for r in results if r["category"] == "hypothesis"]
     policy_cases = [r for r in results if r["category"] == "policy"]
     disruption_cases = [r for r in results if r["category"] == "targeted_disruption"]
+    item_code = str(config["special_item_code"])
 
     hypothesis_cases.sort(key=lambda r: safe_float(r["fill_rate"]))
     policy_cases.sort(key=lambda r: safe_float(r["fill_rate"]))
@@ -808,7 +912,7 @@ def build_report(
     report = f"""# Revue approfondie des hypotheses et de la robustesse du modele supply
 
 ## Perimetre
-- Base de travail: input prepare avec hypothese conservee `item:693710 -> SDC-1450 / Gaillac`
+- Base de travail: input prepare avec hypothese conservee `item:{item_code} -> {DEFAULT_SPECIAL_SUPPLIER_ID} / Gaillac`
 - Objectif: distinguer ce qui est robuste, tester les hypotheses de completion, construire un mode strict, comparer des politiques de pilotage, decomposer les causes du backlog, cartographier la fragilite matiere, tracer des frontieres cout/service et tester des ruptures ciblees.
 
 ## 1) Baseline conservee
@@ -825,7 +929,7 @@ def build_report(
 {markdown_table(hypothesis_cases, ['case_id', 'description', 'fill_rate', 'ending_backlog', 'total_cost', 'total_external_procured_ordered_qty', 'total_opening_stock_bootstrap_qty'])}
 
 Lecture:
-- Les hypotheses qui changent le plus la lecture sont celles sur `693710`, l'appro externe et le bootstrap de stock initial.
+- Les hypotheses qui changent le plus la lecture sont celles sur `{item_code}`, l'appro externe et le bootstrap de stock initial.
 - `730384` en unite `M` reste un point de vigilance de semantique/metier, mais sous les buffers actuels ce n'est pas un driver majeur de degradation.
 
 ## 4) Mode strict "sans hypotheses fortes"
@@ -863,7 +967,7 @@ Lecture:
 
 Lecture:
 - `item:042342` reste la fragilite structurelle majeure.
-- `item:693710` est un cas particulier: criticite operationnelle visible, mais dependance forte a l'hypothese Gaillac.
+- `item:{item_code}` est un cas particulier: criticite operationnelle visible, mais dependance forte a l'hypothese Gaillac.
 - `item:730384` et `item:333362` ressortent davantage comme points de vigilance de donnees / semantique que comme fragilites operationnelles dominantes dans la baseline.
 
 ## 8) Frontiere cout / service
@@ -887,13 +991,13 @@ Lecture:
 
 Lecture:
 - Les ruptures les plus destructrices restent celles touchant les intrants critiques mono-source ou le pilotage.
-- Les outages ponctuels sur `042342`, `773474` et `693710` sont nettement plus instructifs que des chocs globaux abstraits.
+- Les outages ponctuels sur `042342`, `773474` et `{item_code}` sont nettement plus instructifs que des chocs globaux abstraits.
 - Les tests packaging `730384` / `333362` ne degradent pas fortement la baseline actuelle, ce qui suggere que leur enjeu est aujourd'hui plus data-quality que capacitaire.
 
 ## 10) Conclusion operative
 1. La representation actuelle est utile pour raisonner, mais une partie non negligeable de la performance baseline repose sur des hypotheses de preparation.
 2. Les conclusions les plus robustes sont: fragilite mono-source, sensibilite forte a la revue/pilotage, importance de `M-1810` pour le service et de `M-1430` pour le cout.
-3. Les conclusions les moins robustes sont: criticite absolue de `693710`, niveau absolu des couts et ampleur exacte de la resilience fournie par l'externe.
+3. Les conclusions les moins robustes sont: criticite absolue de `{item_code}`, niveau absolu des couts et ampleur exacte de la resilience fournie par l'externe.
 4. Le mode strict est la meilleure borne basse "supportee par la donnee brute".
 5. Les ruptures ciblees et la carte de fragilite sont les sorties les plus utiles pour discuter concretement avec l'industriel sans surpromettre sur la precision du modele.
 """
@@ -901,18 +1005,107 @@ Lecture:
     return summary, report
 
 
+def build_onepager(summary: dict[str, Any], results: list[dict[str, Any]], config: dict[str, Any]) -> str:
+    baseline = summary["baseline_case"]
+    by_case = {row["case_id"]: row for row in results}
+    case_ids = special_case_ids(config)
+    item_code = str(config["special_item_code"])
+    return f"""# Synthese 1 page - robustesse du modele supply
+
+## A dire en ouverture
+Le modele actuel est **utile pour raisonner** sur la supply, mais il ne faut pas le presenter comme une copie fidele de l'operationnel.
+Il capte bien la structure reseau, les dependances matieres, les effets delai / revue / capacite / stock.
+En revanche, une partie importante de la performance baseline depend encore d'**hypotheses de preparation**.
+
+## Ce qui est solide
+- `item:042342` sur `M-1430` est une **fragilite structurelle robuste**.
+- `M-1810` ressort comme **goulot service / backlog**.
+- `M-1430` ressort comme **driver principal de cout**.
+- La **frequence de revue / pilotage** est un levier majeur:
+  - baseline: fill rate `{safe_float(baseline['fill_rate']):.3f}`
+  - revue `7 jours`: fill rate `{safe_float(by_case['policy_review_7d']['fill_rate']):.3f}`
+
+## Ce qui depend fortement des hypotheses
+- `item:{item_code}` est bien dans la BOM, mais **son fournisseur est suppose**:
+  - hypothese conservee: `{item_code} -> {DEFAULT_SPECIAL_SUPPLIER_ID} / Gaillac`
+- Le niveau de performance baseline depend fortement de:
+  - l'**appro externe**
+  - le **bootstrap de stock initial**
+  - certaines hypotheses de completion du reseau
+- Le **niveau absolu des couts** reste moins robuste que les tendances relatives.
+
+## Chiffres cles a retenir
+- Baseline actuelle:
+  - fill rate `{safe_float(baseline['fill_rate']):.3f}`
+  - backlog final `{safe_float(baseline['ending_backlog']):.1f}`
+  - cout total `{safe_float(baseline['total_cost']) / 1000.0:.1f}k`
+- Sans mapping fournisseur pour `{item_code}`:
+  - fill rate `{safe_float(by_case[case_ids['no_supplier_mapping']]['fill_rate']):.3f}`
+  - backlog `{safe_float(by_case[case_ids['no_supplier_mapping']]['ending_backlog']):.1f}`
+- Sans appro externe:
+  - fill rate `{safe_float(by_case['hyp_external_off']['fill_rate']):.3f}`
+  - backlog `{safe_float(by_case['hyp_external_off']['ending_backlog']):.1f}`
+- Mode strict "donnee brute seulement":
+  - fill rate `{safe_float(by_case['strict_raw_supported_only']['fill_rate']):.3f}`
+  - backlog `{safe_float(by_case['strict_raw_supported_only']['ending_backlog']):.1f}`
+
+## Lecture simple
+- La baseline est **bonne**, mais elle est aussi **protectrice**.
+- Elle n'est pas uniquement portee par une supply "intrinsequement robuste":
+  - elle est aussi soutenue par des stocks initiaux et des mecanismes de secours.
+- Donc:
+  - les **tendances** du modele sont utiles
+  - les **niveaux absolus** doivent encore etre pris avec prudence
+
+## Ce que montrent les tests cibles
+- Rupture 5 jours sur `042342`:
+  - fill rate `{safe_float(by_case['disrupt_042342_outage_5d']['fill_rate']):.3f}`
+  - backlog `{safe_float(by_case['disrupt_042342_outage_5d']['ending_backlog']):.1f}`
+- Rupture 5 jours sur `773474`:
+  - fill rate `{safe_float(by_case['disrupt_773474_outage_5d']['fill_rate']):.3f}`
+  - backlog `{safe_float(by_case['disrupt_773474_outage_5d']['ending_backlog']):.1f}`
+- Rupture 5 jours sur `{item_code}` (hypothese Gaillac):
+  - fill rate `{safe_float(by_case[case_ids['gaillac_outage']]['fill_rate']):.3f}`
+  - backlog `{safe_float(by_case[case_ids['gaillac_outage']]['ending_backlog']):.1f}`
+- Baisse de capacite `M-1810` de 30%:
+  - fill rate `{safe_float(by_case['disrupt_M1810_capacity_down30']['fill_rate']):.3f}`
+  - backlog `{safe_float(by_case['disrupt_M1810_capacity_down30']['ending_backlog']):.1f}`
+
+Conclusion:
+- les intrants critiques mono-source et `M-1810` sont les points les plus sensibles
+- les tests packaging `730384` / `333362` sont aujourd'hui plus des sujets de **qualite de donnee** que de risque operationnel majeur
+
+## Message prudent mais utile pour l'industriel
+On peut dire:
+
+> Le modele est deja utile pour identifier les dependances critiques, les matieres les plus sensibles, l'effet du pilotage MRP/revue et les zones de fragilite.
+> En revanche, une partie importante de la performance actuelle depend encore d'hypotheses de preparation, notamment autour de `{item_code}`, de l'appro externe et des stocks initiaux.
+
+## Les 5 messages les plus importants
+1. `042342` est la fragilite la plus robuste du modele.
+2. `M-1810` est le principal goulot service.
+3. `{item_code}` est important, mais sa lecture depend de l'hypothese Gaillac.
+4. La revue/pilotage change enormement le resultat.
+5. La baseline est credible comme scenario de travail, pas encore comme verite operationnelle.
+"""
+
+
 def main() -> None:
+    base_data = load_json(BASE_INPUT)
+    config = detect_special_item_config(base_data)
     results, baseline_summary = run_cases()
     baseline_row = next(r for r in results if r["case_id"] == "baseline_gaillac")
     backlog_summary = summarize_backlog_causes(results, "baseline_gaillac")
-    confidence_rows = build_confidence_table(results, baseline_row)
-    fragility_rows = build_fragility_map(results, baseline_row)
-    summary, report = build_report(results, baseline_summary, backlog_summary, confidence_rows, fragility_rows)
+    confidence_rows = build_confidence_table(results, baseline_row, config)
+    fragility_rows = build_fragility_map(results, baseline_row, config)
+    summary, report = build_report(results, baseline_summary, backlog_summary, confidence_rows, fragility_rows, config)
+    onepager = build_onepager(summary, results, config)
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     write_results_csv(results, OUT_DIR / "scenario_results.csv")
     write_json(OUT_DIR / "model_assumption_review_summary.json", summary)
     (OUT_DIR / "model_assumption_review_report.md").write_text(report, encoding="utf-8")
+    (OUT_DIR / "model_assumption_review_onepager.md").write_text(onepager, encoding="utf-8")
 
     print(f"[OK] Scenario results: {(OUT_DIR / 'scenario_results.csv').resolve()}")
     print(f"[OK] Summary JSON: {(OUT_DIR / 'model_assumption_review_summary.json').resolve()}")

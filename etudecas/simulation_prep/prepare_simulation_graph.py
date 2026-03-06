@@ -121,6 +121,33 @@ def infer_item_unit_map(nodes: list[dict[str, Any]], edges: list[dict[str, Any]]
     return out
 
 
+def detect_unsourced_input_item(
+    node: dict[str, Any],
+    edges: list[dict[str, Any]],
+    *,
+    preferred_items: list[str] | None = None,
+) -> tuple[str | None, str]:
+    inbound_pairs = {
+        (str(edge.get("to")), str(item_id))
+        for edge in edges
+        for item_id in (edge.get("items") or [])
+    }
+    node_id = str(node.get("id"))
+    preferred_rank = {item_id: idx for idx, item_id in enumerate(preferred_items or [])}
+    candidates: list[tuple[int, str, str]] = []
+    for process in node.get("processes") or []:
+        for inp in process.get("inputs") or []:
+            item_id = str(inp.get("item_id"))
+            if not item_id or (node_id, item_id) in inbound_pairs:
+                continue
+            unit = str(inp.get("ratio_unit") or "G")
+            candidates.append((preferred_rank.get(item_id, len(preferred_rank)), item_id, unit))
+    if not candidates:
+        return None, "G"
+    _, item_id, unit = sorted(candidates)[0]
+    return item_id, unit
+
+
 def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     r = 6371.0
     p1 = math.radians(lat1)
@@ -405,33 +432,35 @@ def prepare_graph(
     if data_poc_xlsx is not None:
         price_map, price_import_stats = load_prices_from_data_poc(data_poc_xlsx)
 
-    # Assumed supplier mapping for missing modeled input item:693710 -> M-1810.
-    invented_item_id = "item:693710"
+    # Assumed supplier mapping for the currently modeled but unsourced M-1810 input.
     invented_dst_node = "M-1810"
+    invented_item_id = None
+    invented_item_code = ""
+    invented_unit = "G"
     has_process_input = False
     if invented_dst_node in node_by_id:
-        for p in (node_by_id[invented_dst_node].get("processes") or []):
-            for inp in (p.get("inputs") or []):
-                if str(inp.get("item_id")) == invented_item_id:
-                    has_process_input = True
-                    break
-            if has_process_input:
-                break
+        invented_item_id, invented_unit = detect_unsourced_input_item(
+            node_by_id[invented_dst_node],
+            edges,
+            preferred_items=["item:007923", "item:693710"],
+        )
+        has_process_input = invented_item_id is not None
+        invented_item_code = invented_item_id.split(":", 1)[1] if invented_item_id else ""
 
     has_existing_lane = any(
         str(e.get("to")) == invented_dst_node and invented_item_id in (e.get("items") or [])
         for e in edges
-    )
+    ) if invented_item_id else False
     invented_source_tag = "simulation_prep_gaillac_question_mark_assumption"
     assumption_label = "GAILLAC?"
     supplier_candidates = ["SDC-1450", "DC-1450"]
     invented_supplier_id = next((sid for sid in supplier_candidates if sid in node_by_id), supplier_candidates[0])
-    invented_edge_id = f"edge:{invented_supplier_id}_TO_M-1810_693710_Q"
+    invented_edge_id = f"edge:{invented_supplier_id}_TO_M-1810_{invented_item_code}_Q" if invented_item_code else ""
 
-    if has_process_input and not has_existing_lane and invented_dst_node in node_by_id:
+    if has_process_input and invented_item_id and not has_existing_lane and invented_dst_node in node_by_id:
         dst_node = node_by_id[invented_dst_node]
         dst_geo = (dst_node.get("geo") or {}) if isinstance(dst_node.get("geo"), dict) else {}
-        unit = item_unit_map.get(invented_item_id, "G")
+        unit = item_unit_map.get(invented_item_id, invented_unit or "G")
         initial_qty = 3000.0
 
         inv_node = node_by_id.get(invented_supplier_id)
@@ -447,7 +476,7 @@ def prepare_graph(
                     "country": dst_geo.get("country") or "France",
                     "raw": {
                         "method": "simulation_prep_assumed_supplier",
-                        "note": "Assumed Gaillac supplier mapping (uncertain) for item:693710",
+                        "note": f"Assumed Gaillac supplier mapping (uncertain) for {invented_item_id}",
                     },
                 },
                 "inventory": {
@@ -482,7 +511,7 @@ def prepare_graph(
         assumptions["is_assumed"] = True
         assumptions["label"] = assumption_label
         assumptions["source"] = invented_source_tag
-        assumptions["item_693710_supplier_mapping"] = {
+        assumptions[f"item_{invented_item_code}_supplier_mapping"] = {
             "is_assumed": True,
             "label": assumption_label,
             "source": invented_source_tag,
@@ -495,7 +524,7 @@ def prepare_graph(
             inv_states.append(
                 {
                     "item_id": invented_item_id,
-                    "state_id": "I_693710_Q",
+                    "state_id": f"I_{invented_item_code}_Q",
                     "initial": initial_qty,
                     "uom": unit,
                     "holding_cost": {
@@ -561,7 +590,7 @@ def prepare_graph(
                 {
                     "entity_type": "edge",
                     "id": invented_edge_id,
-                    "label": f"SUPPLY_LINK_{assumption_label}_MISSING_INPUT_693710",
+                    "label": f"SUPPLY_LINK_{assumption_label}_MISSING_INPUT_{invented_item_code}",
                 }
             )
             node_by_id, coords = build_node_maps(nodes)
@@ -581,7 +610,7 @@ def prepare_graph(
             dst_states.append(
                 {
                     "item_id": invented_item_id,
-                    "state_id": "I_693710_ASSUMED_Q",
+                    "state_id": f"I_{invented_item_code}_ASSUMED_Q",
                     "initial": 700.0,
                     "uom": unit,
                     "holding_cost": {
@@ -678,6 +707,20 @@ def prepare_graph(
             h["time_unit"] = "Day"
             scn["horizon"] = h
             change_counts["scenario_horizon_updated"] += 1
+
+    for e in edges:
+        eid = str(e.get("id"))
+        src = str(e.get("from"))
+        dst = str(e.get("to"))
+        src_type = str((node_by_id.get(src) or {}).get("type") or "")
+        dst_type = str((node_by_id.get(dst) or {}).get("type") or "")
+
+        src_c = coords.get(src)
+        dst_c = coords.get(dst)
+        computed_dist = None
+        if src_c and dst_c:
+            computed_dist = round(haversine_km(src_c[0], src_c[1], dst_c[0], dst_c[1]), 1)
+        effective_dist = to_float(e.get("distance_km")) or computed_dist or 500.0
 
         lead = e.get("lead_time") or {}
         if not isinstance(lead, dict):
@@ -1063,10 +1106,20 @@ def prepare_graph(
         for d in (scn.get("demand") or []):
             vals = []
             for p in (d.get("profile") or []):
-                if isinstance(p, dict):
-                    v = to_float(p.get("value"))
-                    if v is not None:
-                        vals.append(v)
+                if not isinstance(p, dict):
+                    continue
+                ptype = str(p.get("type", "constant")).lower()
+                if ptype == "piecewise":
+                    for pt in (p.get("points") or []):
+                        if not isinstance(pt, dict):
+                            continue
+                        v = to_float(pt.get("value"))
+                        if v is not None:
+                            vals.append(v)
+                    continue
+                v = to_float(p.get("value"))
+                if v is not None:
+                    vals.append(v)
             if not vals or all(v == 0 for v in vals):
                 zero_demand_rows.append({"scenario_id": sid, "node_id": str(d.get("node_id")), "item_id": str(d.get("item_id"))})
 
@@ -1108,7 +1161,9 @@ def prepare_graph(
             "service_warm_start_upstream_dc_buffer_days": upstream_dc_buffer_days,
             "dc_alias_reconciliation": "DC-1910 merged into DC-1920",
             "customer_location_recovery": "C-XXXXX location_ID set to Paris",
-            "assumed_supplier_label_for_item_693710": "GAILLAC?",
+            "assumed_supplier_label_for_unsourced_m1810_item": (
+                f"{invented_item_id}: GAILLAC?" if invented_item_id else None
+            ),
             "simulation_horizon_days_default": target_sim_days,
         },
     }
@@ -1144,7 +1199,7 @@ def report_markdown(report: dict[str, Any], input_path: str, output_graph_path: 
 - Assumed Gaillac supplier node tags updated: {c.get('assumed_gaillac_supplier_node_tagged', 0)}
 - Assumed Gaillac supplier edges added: {c.get('assumed_gaillac_supplier_edge_added', 0)}
 - Assumed Gaillac supplier inventory states added: {c.get('assumed_gaillac_supplier_inventory_state_added', 0)}
-- Assumed destination inventory states added (M-1810, 693710): {c.get('assumed_gaillac_destination_inventory_state_added', 0)}
+- Assumed destination inventory states added (M-1810 unsourced input): {c.get('assumed_gaillac_destination_inventory_state_added', 0)}
 - Demand rows added: {c.get('demand_rows_added', 0)}
 - Demand rows updated: {c.get('demand_profile_updated', 0)}
 - Scenario horizons updated to default simulation days: {c.get('scenario_horizon_updated', 0)}
