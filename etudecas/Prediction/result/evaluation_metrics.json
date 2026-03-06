@@ -1,0 +1,11 @@
+{
+  "train_rows": 2160,
+  "calibration_rows": 480,
+  "test_rows": 480,
+  "test_incident_rate": 0.1,
+  "roc_auc": 0.6950954861111112,
+  "pr_auc": 0.22521778352853658,
+  "brier_score": 0.08504568847470605,
+  "top_decile_precision": 0.3076923076923077,
+  "top_decile_recall": 0.3333333333333333
+}
