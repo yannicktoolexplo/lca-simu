@@ -22,8 +22,8 @@ from analysis_batch_common import load_json, numeric_kpis, run_simulation, write
 ROOT = Path(__file__).resolve().parent
 RUN_SCRIPT = ROOT / "run_first_simulation.py"
 BASE_INPUT = ROOT / "sensibility" / "shock_campaign_result" / "cases" / "baseline" / "input_case.json"
-FULL_SAMPLES = ROOT / "result" / "full_system_exploration_samples.csv"
-CRITICAL_MATERIALS = ROOT / "result" / "critical_input_materials_analysis.csv"
+FULL_SAMPLES = ROOT / "result" / "data" / "full_system_exploration_samples.csv"
+CRITICAL_MATERIALS = ROOT / "result" / "data" / "critical_input_materials_analysis.csv"
 OUT_DIR = ROOT / "result" / "model_assumption_review"
 DEFAULT_SPECIAL_SUPPLIER_ID = "SDC-1450"
 DEFAULT_SPECIAL_SUPPLIER_NAME = "Supplier of Raw Materials - D1450"

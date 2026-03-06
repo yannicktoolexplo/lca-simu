@@ -25,7 +25,7 @@ from analysis_batch_common import load_json, numeric_kpis, run_simulation, write
 ROOT = Path(__file__).resolve().parent
 RUN_SCRIPT = ROOT / "run_first_simulation.py"
 BASE_INPUT = ROOT / "result" / "model_assumption_review" / "cases" / "baseline_gaillac" / "input_case.json"
-CRITICAL_MATERIALS = ROOT / "result" / "critical_input_materials_analysis.csv"
+CRITICAL_MATERIALS = ROOT / "result" / "data" / "critical_input_materials_analysis.csv"
 OUT_DIR = ROOT / "result" / "supplier_risk_proxy_study"
 
 

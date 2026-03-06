@@ -17,6 +17,11 @@ from collections import defaultdict, deque
 from pathlib import Path
 from typing import Any
 
+try:
+    from .result_paths import data_path, ensure_standard_dirs, plots_path, report_path, summary_path
+except ImportError:
+    from result_paths import data_path, ensure_standard_dirs, plots_path, report_path, summary_path
+
 
 def to_float(x: Any, default: float = 0.0) -> float:
     try:
@@ -120,7 +125,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--map-output",
-        default="etudecas/simulation/result/supply_graph_poc_geocoded_map_with_factory_hover.html",
+        default="etudecas/simulation/result/maps/supply_graph_poc_geocoded_map_with_factory_hover.html",
         help="Path to generated hover-map HTML.",
     )
     parser.add_argument(
@@ -393,6 +398,19 @@ def try_generate_plots(
     except Exception:
         return {}
 
+    plot_root = output_dir / "plots"
+    factory_input_dir = plot_root / "factories" / "input_stocks"
+    factory_output_dir = plot_root / "factories" / "output_products"
+    supplier_input_dir = plot_root / "suppliers" / "input_stocks"
+    dc_output_dir = plot_root / "distribution_centers" / "factory_outputs"
+    for plot_dir in (
+        factory_input_dir,
+        factory_output_dir,
+        supplier_input_dir,
+        dc_output_dir,
+    ):
+        plot_dir.mkdir(parents=True, exist_ok=True)
+
     generated: dict[str, str] = {}
 
     # Plot 1: raw-material input stocks by material for each factory.
@@ -601,7 +619,7 @@ def try_generate_plots(
             )
         fig.subplots_adjust(right=0.83, bottom=0.34)
         safe_factory = re.sub(r"[^A-Za-z0-9_-]+", "_", factory)
-        out = output_dir / f"production_input_stocks_by_material_{safe_factory}.png"
+        out = factory_input_dir / f"production_input_stocks_by_material_{safe_factory}.png"
         fig.savefig(out, dpi=150)
         plt.close(fig)
         generated[f"production_input_stocks_by_material_{factory}"] = str(out)
@@ -631,7 +649,7 @@ def try_generate_plots(
         plt.grid(alpha=0.3)
         plt.legend()
         plt.tight_layout()
-        out = output_dir / "production_output_products.png"
+        out = factory_output_dir / "production_output_products.png"
         plt.savefig(out, dpi=150)
         plt.close()
         generated["production_output_products_png"] = str(out)
@@ -652,7 +670,7 @@ def try_generate_plots(
         plt.legend()
         plt.tight_layout()
         safe_factory = re.sub(r"[^A-Za-z0-9_-]+", "_", factory)
-        out = output_dir / f"production_output_products_by_factory_{safe_factory}.png"
+        out = factory_output_dir / f"production_output_products_by_factory_{safe_factory}.png"
         plt.savefig(out, dpi=150)
         plt.close()
         generated[f"production_output_products_by_factory_{factory}"] = str(out)
@@ -674,7 +692,7 @@ def try_generate_plots(
         if not item_map:
             continue
         safe_supplier = re.sub(r"[^A-Za-z0-9_-]+", "_", supplier)
-        out = output_dir / f"production_supplier_input_stocks_by_material_{safe_supplier}.png"
+        out = supplier_input_dir / f"production_supplier_input_stocks_by_material_{safe_supplier}.png"
         if plot_stock_multiaxis(
             item_map,
             f"Stocks d'entree du noeud aval (produits du fournisseur) - {supplier}",
@@ -710,7 +728,7 @@ def try_generate_plots(
         if not item_map:
             continue
         safe_dc = re.sub(r"[^A-Za-z0-9_-]+", "_", dc_node)
-        out = output_dir / f"production_dc_factory_outputs_by_material_{safe_dc}.png"
+        out = dc_output_dir / f"production_dc_factory_outputs_by_material_{safe_dc}.png"
         if plot_stock_multiaxis(
             item_map,
             f"Productions usines liees au distribution center - {dc_node}",
@@ -729,6 +747,7 @@ def main() -> None:
     input_path = Path(args.input)
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
+    ensure_standard_dirs(output_dir)
 
     data = json.loads(input_path.read_text(encoding="utf-8"))
     nodes = data.get("nodes", []) or []
@@ -1588,21 +1607,21 @@ def main() -> None:
         "top_backlog_pairs": top_backlog,
     }
 
-    summary_path = output_dir / "first_simulation_summary.json"
-    daily_path = output_dir / "first_simulation_daily.csv"
-    report_path = output_dir / "first_simulation_report.md"
-    input_stock_path = output_dir / "production_input_stocks_daily.csv"
-    input_consumption_path = output_dir / "production_input_consumption_daily.csv"
-    input_arrival_path = output_dir / "production_input_replenishment_arrivals_daily.csv"
-    input_shipment_path = output_dir / "production_input_replenishment_shipments_daily.csv"
-    output_prod_path = output_dir / "production_output_products_daily.csv"
-    supplier_shipment_path = output_dir / "production_supplier_shipments_daily.csv"
-    supplier_stock_path = output_dir / "production_supplier_stocks_daily.csv"
-    dc_stock_path = output_dir / "production_dc_stocks_daily.csv"
-    demand_pair_path = output_dir / "production_demand_service_daily.csv"
-    production_constraint_path = output_dir / "production_constraint_daily.csv"
+    summary_output_path = summary_path(output_dir, "first_simulation_summary.json")
+    daily_path = data_path(output_dir, "first_simulation_daily.csv")
+    report_output_path = report_path(output_dir, "first_simulation_report.md")
+    input_stock_path = data_path(output_dir, "production_input_stocks_daily.csv")
+    input_consumption_path = data_path(output_dir, "production_input_consumption_daily.csv")
+    input_arrival_path = data_path(output_dir, "production_input_replenishment_arrivals_daily.csv")
+    input_shipment_path = data_path(output_dir, "production_input_replenishment_shipments_daily.csv")
+    output_prod_path = data_path(output_dir, "production_output_products_daily.csv")
+    supplier_shipment_path = data_path(output_dir, "production_supplier_shipments_daily.csv")
+    supplier_stock_path = data_path(output_dir, "production_supplier_stocks_daily.csv")
+    dc_stock_path = data_path(output_dir, "production_dc_stocks_daily.csv")
+    demand_pair_path = data_path(output_dir, "production_demand_service_daily.csv")
+    production_constraint_path = data_path(output_dir, "production_constraint_daily.csv")
 
-    summary_path.write_text(json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")
+    summary_output_path.write_text(json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")
     with daily_path.open("w", encoding="utf-8", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=list(daily_rows[0].keys()) if daily_rows else [])
         if daily_rows:
@@ -1704,7 +1723,7 @@ def main() -> None:
 
     # Pivot file for easier read: one column per (factory,item) input stock.
     input_pairs = sorted({(str(r["node_id"]), str(r["item_id"])) for r in input_stock_rows})
-    input_pivot_path = output_dir / "production_input_stocks_pivot.csv"
+    input_pivot_path = data_path(output_dir, "production_input_stocks_pivot.csv")
     per_day_values: dict[int, dict[tuple[str, str], float]] = defaultdict(dict)
     for r in input_stock_rows:
         day = int(r["day"])
@@ -1735,6 +1754,7 @@ def main() -> None:
         legacy_agg_input_plot = output_dir / "production_input_stocks.png"
         if legacy_agg_input_plot.exists():
             legacy_agg_input_plot.unlink()
+    plot_root = plots_path(output_dir)
     map_output_path = Path(args.map_output)
     generated_map_path: str | None = None
     if not args.skip_map:
@@ -1753,9 +1773,9 @@ def main() -> None:
                 "--sim-output-products-csv",
                 str(output_prod_path),
                 "--sim-input-stocks-png-dir",
-                str(output_dir),
+                str(plot_root),
                 "--sim-output-products-png-dir",
-                str(output_dir),
+                str(plot_root),
             ]
             try:
                 subprocess.run(map_cmd, check=True, capture_output=True, text=True)
@@ -1860,31 +1880,31 @@ def main() -> None:
 {json.dumps(summary['top_backlog_pairs'], indent=2, ensure_ascii=False)}
 
 ## Files
-- first_simulation_summary.json
-- first_simulation_daily.csv
-- production_input_stocks_daily.csv
-- production_input_consumption_daily.csv
-- production_input_replenishment_arrivals_daily.csv
-- production_input_replenishment_shipments_daily.csv
-- production_input_stocks_pivot.csv
-- production_output_products_daily.csv
-- production_demand_service_daily.csv
-- production_constraint_daily.csv
-- production_supplier_shipments_daily.csv
-- production_supplier_stocks_daily.csv
-- production_dc_stocks_daily.csv
+- summaries/first_simulation_summary.json
+- data/first_simulation_daily.csv
+- data/production_input_stocks_daily.csv
+- data/production_input_consumption_daily.csv
+- data/production_input_replenishment_arrivals_daily.csv
+- data/production_input_replenishment_shipments_daily.csv
+- data/production_input_stocks_pivot.csv
+- data/production_output_products_daily.csv
+- data/production_demand_service_daily.csv
+- data/production_constraint_daily.csv
+- data/production_supplier_shipments_daily.csv
+- data/production_supplier_stocks_daily.csv
+- data/production_dc_stocks_daily.csv
 - production_input_stocks_by_material_*.png ({', '.join(detailed_input_plot_paths) if detailed_input_plot_paths else 'not generated'})
 - production_output_products.png ({generated_plots.get('production_output_products_png', 'not generated')})
 - production_output_products_by_factory_*.png ({', '.join(detailed_output_plot_paths) if detailed_output_plot_paths else 'not generated'})
 - production_supplier_input_stocks_by_material_*.png ({', '.join(detailed_supplier_plot_paths) if detailed_supplier_plot_paths else 'not generated'})
 - production_dc_factory_outputs_by_material_*.png ({', '.join(detailed_dc_plot_paths) if detailed_dc_plot_paths else 'not generated'})
-- supply_graph_poc_geocoded_map_with_factory_hover.html ({generated_map_path or 'not generated'})
+- maps/supply_graph_poc_geocoded_map_with_factory_hover.html ({generated_map_path or 'not generated'})
 """
-    report_path.write_text(report, encoding="utf-8")
+    report_output_path.write_text(report, encoding="utf-8")
 
-    print(f"[OK] Simulation summary: {summary_path.resolve()}")
+    print(f"[OK] Simulation summary: {summary_output_path.resolve()}")
     print(f"[OK] Simulation daily CSV: {daily_path.resolve()}")
-    print(f"[OK] Simulation report: {report_path.resolve()}")
+    print(f"[OK] Simulation report: {report_output_path.resolve()}")
     print(f"[OK] Production input stocks CSV: {input_stock_path.resolve()}")
     print(f"[OK] Production input consumption CSV: {input_consumption_path.resolve()}")
     print(f"[OK] Production input replenishment arrivals CSV: {input_arrival_path.resolve()}")

@@ -19,14 +19,29 @@
   - `targeted_experiment_insights.md`
 
 - `etudecas/simulation/result/` (resultats generaux):
-  - `first_simulation_*`
-  - `production_*`
-  - `general_analysis_insights.md`
-  - `deep_supply_analysis.md`
-  - `deep_supply_analysis_summary.json`
-  - `full_system_exploration_report.md`
-  - `full_system_exploration_summary.json`
-  - `full_system_exploration_samples.csv`
+  - `data/`
+    - `first_simulation_daily.csv`
+    - `production_*.csv`
+    - `critical_input_materials_analysis.csv`
+    - `fill_rate_whatif_analysis.csv`
+    - `full_system_exploration_samples.csv`
+  - `summaries/`
+    - `first_simulation_summary.json`
+    - `deep_supply_analysis_summary.json`
+    - `full_system_exploration_summary.json`
+  - `reports/`
+    - `first_simulation_report.md`
+    - `general_analysis_insights.md`
+    - `deep_supply_analysis.md`
+    - `deep_supply_analysis_technical_review.md`
+    - `full_system_exploration_report.md`
+  - `maps/`
+    - `supply_graph_poc_geocoded_map_with_factory_hover.html`
+  - `plots/`
+    - `factories/input_stocks/`
+    - `factories/output_products/`
+    - `suppliers/input_stocks/`
+    - `distribution_centers/factory_outputs/`
 
 - `etudecas/simulation/result/max_param_exploration/`:
   - exploration elargie (757 runs)

@@ -35,6 +35,7 @@ from etudecas.simulation.analysis_batch_common import (  # noqa: E402
     to_float,
     write_json,
 )
+from etudecas.simulation.result_paths import data_path, ensure_standard_dirs, report_path, summary_path  # noqa: E402
 
 
 def parse_args() -> argparse.Namespace:
@@ -135,10 +136,11 @@ def main() -> None:
     run_script = Path(args.run_script)
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
+    ensure_standard_dirs(output_dir)
 
-    samples_csv = output_dir / "full_system_exploration_samples.csv"
-    summary_json = output_dir / "full_system_exploration_summary.json"
-    report_md = output_dir / "full_system_exploration_report.md"
+    samples_csv = data_path(output_dir, "full_system_exploration_samples.csv")
+    summary_json = summary_path(output_dir, "full_system_exploration_summary.json")
+    report_md = report_path(output_dir, "full_system_exploration_report.md")
 
     base_data = load_json(input_path)
     demand_items = detect_demand_items(base_data, args.scenario_id)

@@ -20,27 +20,27 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--stocks-csv",
-        default="etudecas/simulation/result/production_input_stocks_daily.csv",
+        default="etudecas/simulation/result/data/production_input_stocks_daily.csv",
     )
     parser.add_argument(
         "--consumption-csv",
-        default="etudecas/simulation/result/production_input_consumption_daily.csv",
+        default="etudecas/simulation/result/data/production_input_consumption_daily.csv",
     )
     parser.add_argument(
         "--arrivals-csv",
-        default="etudecas/simulation/result/production_input_replenishment_arrivals_daily.csv",
+        default="etudecas/simulation/result/data/production_input_replenishment_arrivals_daily.csv",
     )
     parser.add_argument(
         "--shipments-csv",
-        default="etudecas/simulation/result/production_input_replenishment_shipments_daily.csv",
+        default="etudecas/simulation/result/data/production_input_replenishment_shipments_daily.csv",
     )
     parser.add_argument(
         "--baseline-summary",
-        default="etudecas/simulation/result/first_simulation_summary.json",
+        default="etudecas/simulation/result/summaries/first_simulation_summary.json",
     )
     parser.add_argument(
         "--baseline-daily-csv",
-        default="etudecas/simulation/result/first_simulation_daily.csv",
+        default="etudecas/simulation/result/data/first_simulation_daily.csv",
     )
     parser.add_argument(
         "--sensitivity-summary",
@@ -56,7 +56,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--full-exploration-summary",
-        default="etudecas/simulation/result/full_system_exploration_summary.json",
+        default="etudecas/simulation/result/summaries/full_system_exploration_summary.json",
     )
     parser.add_argument(
         "--shock-summary",
@@ -64,15 +64,15 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--output-csv",
-        default="etudecas/simulation/result/critical_input_materials_analysis.csv",
+        default="etudecas/simulation/result/data/critical_input_materials_analysis.csv",
     )
     parser.add_argument(
         "--output-summary-json",
-        default="etudecas/simulation/result/deep_supply_analysis_summary.json",
+        default="etudecas/simulation/result/summaries/deep_supply_analysis_summary.json",
     )
     parser.add_argument(
         "--output-markdown",
-        default="etudecas/simulation/result/deep_supply_analysis.md",
+        default="etudecas/simulation/result/reports/deep_supply_analysis.md",
     )
     return parser.parse_args()
 
@@ -426,6 +426,8 @@ def main() -> None:
     output_summary_json = Path(args.output_summary_json)
     output_markdown = Path(args.output_markdown)
     output_csv.parent.mkdir(parents=True, exist_ok=True)
+    output_summary_json.parent.mkdir(parents=True, exist_ok=True)
+    output_markdown.parent.mkdir(parents=True, exist_ok=True)
 
     with output_csv.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=list(rows[0].keys()))

@@ -40,7 +40,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--output",
         "-o",
-        default="etudecas/simulation/result/supply_graph_poc_geocoded_map_with_factory_hover.html",
+        default="etudecas/simulation/result/maps/supply_graph_poc_geocoded_map_with_factory_hover.html",
         help="Output HTML file.",
     )
     parser.add_argument(
@@ -50,22 +50,22 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--sim-input-stocks-csv",
-        default="etudecas/simulation/result/production_input_stocks_daily.csv",
+        default="etudecas/simulation/result/data/production_input_stocks_daily.csv",
         help="Simulation CSV for input material stocks.",
     )
     parser.add_argument(
         "--sim-output-products-csv",
-        default="etudecas/simulation/result/production_output_products_daily.csv",
+        default="etudecas/simulation/result/data/production_output_products_daily.csv",
         help="Simulation CSV for output products production.",
     )
     parser.add_argument(
         "--sim-input-stocks-png-dir",
-        default="etudecas/simulation/result",
+        default="etudecas/simulation/result/plots",
         help="Directory containing input/supplier/DC PNG files.",
     )
     parser.add_argument(
         "--sim-output-products-png-dir",
-        default="etudecas/simulation/result",
+        default="etudecas/simulation/result/plots",
         help="Directory containing production_output_products_by_factory_<factory>.png files.",
     )
     parser.add_argument(
@@ -272,6 +272,18 @@ def load_png_payload(png_path: Path) -> dict[str, Any] | None:
         return None
 
 
+def resolve_plot_payload(base_dir: Path, relative_path: Path, legacy_name: str) -> dict[str, Any] | None:
+    candidates = [
+        base_dir / relative_path,
+        base_dir / legacy_name,
+    ]
+    for candidate in candidates:
+        payload = load_png_payload(candidate)
+        if payload is not None:
+            return payload
+    return None
+
+
 def build_factory_hover_images(
     raw: dict[str, Any],
     input_png_dir: Path,
@@ -286,10 +298,22 @@ def build_factory_hover_images(
     out: dict[str, Any] = {}
     for factory_id in factory_ids:
         safe_factory = re.sub(r"[^A-Za-z0-9_-]+", "_", factory_id)
-        incoming = load_png_payload(input_png_dir / f"production_input_stocks_by_material_{safe_factory}.png")
-        outgoing = load_png_payload(output_png_dir / f"production_output_products_by_factory_{safe_factory}.png")
+        incoming = resolve_plot_payload(
+            input_png_dir,
+            Path("factories") / "input_stocks" / f"production_input_stocks_by_material_{safe_factory}.png",
+            f"production_input_stocks_by_material_{safe_factory}.png",
+        )
+        outgoing = resolve_plot_payload(
+            output_png_dir,
+            Path("factories") / "output_products" / f"production_output_products_by_factory_{safe_factory}.png",
+            f"production_output_products_by_factory_{safe_factory}.png",
+        )
         if outgoing is None:
-            outgoing = load_png_payload(output_png_dir / "production_output_products.png")
+            outgoing = resolve_plot_payload(
+                output_png_dir,
+                Path("factories") / "output_products" / "production_output_products.png",
+                "production_output_products.png",
+            )
         if not incoming and not outgoing:
             continue
         out[factory_id] = {"incoming": incoming, "outgoing": outgoing}
@@ -306,7 +330,11 @@ def build_supplier_hover_images(raw: dict[str, Any], png_dir: Path) -> dict[str,
     out: dict[str, Any] = {}
     for supplier_id in supplier_ids:
         safe_supplier = re.sub(r"[^A-Za-z0-9_-]+", "_", supplier_id)
-        incoming = load_png_payload(png_dir / f"production_supplier_input_stocks_by_material_{safe_supplier}.png")
+        incoming = resolve_plot_payload(
+            png_dir,
+            Path("suppliers") / "input_stocks" / f"production_supplier_input_stocks_by_material_{safe_supplier}.png",
+            f"production_supplier_input_stocks_by_material_{safe_supplier}.png",
+        )
         if incoming is None:
             incoming = load_png_payload(png_dir / f"production_supplier_shipments_by_material_{safe_supplier}.png")
         if incoming is None:
@@ -327,7 +355,11 @@ def build_distribution_center_hover_images(raw: dict[str, Any], png_dir: Path) -
     out: dict[str, Any] = {}
     for dc_id in dc_ids:
         safe_dc = re.sub(r"[^A-Za-z0-9_-]+", "_", dc_id)
-        incoming = load_png_payload(png_dir / f"production_dc_factory_outputs_by_material_{safe_dc}.png")
+        incoming = resolve_plot_payload(
+            png_dir,
+            Path("distribution_centers") / "factory_outputs" / f"production_dc_factory_outputs_by_material_{safe_dc}.png",
+            f"production_dc_factory_outputs_by_material_{safe_dc}.png",
+        )
         if incoming is None:
             incoming = load_png_payload(png_dir / f"production_dc_shipments_by_material_{safe_dc}.png")
         if incoming is None:

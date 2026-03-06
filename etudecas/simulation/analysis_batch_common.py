@@ -14,6 +14,11 @@ import sys
 from pathlib import Path
 from typing import Any
 
+try:
+    from .result_paths import resolve_existing_path, summary_path
+except ImportError:
+    from result_paths import resolve_existing_path, summary_path
+
 
 def to_float(x: Any, default: float = 0.0) -> float:
     try:
@@ -288,8 +293,11 @@ def run_simulation(
         message = "\n".join([part for part in [stdout, stderr] if part]).strip()
         raise RuntimeError(f"Simulation failed for {input_json}:\n{message}")
 
-    summary_path = output_dir / "first_simulation_summary.json"
-    summary = load_json(summary_path)
+    summary_file = resolve_existing_path(
+        summary_path(output_dir, "first_simulation_summary.json"),
+        output_dir / "first_simulation_summary.json",
+    )
+    summary = load_json(summary_file)
     return summary, proc.stdout
 
 
