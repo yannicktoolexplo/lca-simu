@@ -244,6 +244,7 @@ def lane_records(
                 "raw_transport_cost": explicit_transport_cost,
                 "transport_cost_is_fallback": explicit_transport_cost <= 0,
                 "reliability": reliability,
+                "availability_profile": e.get("availability_profile") or [],
             }
             lanes.append(lane)
             lanes_by_dest_item[(dst, str(item_id))].append(lane)
@@ -252,6 +253,18 @@ def lane_records(
         values.sort(key=lambda x: (x["unit_transport_cost"], x["lead_days"], x["src"]))
         lanes_by_dest_item[key] = values
     return lanes, lanes_by_dest_item
+
+
+def lane_availability_multiplier(lane: dict[str, Any], day: int) -> float:
+    mult = 1.0
+    for window in lane.get("availability_profile") or []:
+        if not isinstance(window, dict):
+            continue
+        start = int(round(to_float(window.get("start_day"), 0.0)))
+        end = int(round(to_float(window.get("end_day"), start)))
+        if start <= day <= end:
+            mult *= max(0.0, to_float(window.get("multiplier"), 1.0))
+    return max(0.0, mult)
 
 
 def sample_lead_days(lane: dict[str, Any], rng: random.Random, stochastic: bool) -> int:
@@ -915,6 +928,8 @@ def main() -> None:
     supplier_shipment_rows: list[dict[str, Any]] = []
     supplier_stock_rows: list[dict[str, Any]] = []
     dc_stock_rows: list[dict[str, Any]] = []
+    demand_pair_rows: list[dict[str, Any]] = []
+    production_constraint_rows: list[dict[str, Any]] = []
 
     production_input_pairs: list[tuple[str, str]] = []
     production_output_pairs: list[tuple[str, str]] = []
@@ -972,6 +987,10 @@ def main() -> None:
     # This avoids artificial periodic starvation when initial stock is below lead-time consumption.
     opening_stock_bootstrap_rows: list[dict[str, Any]] = []
     total_opening_stock_bootstrap = 0.0
+    opening_stock_bootstrap_scale = max(
+        0.0,
+        to_float(scenario.get("opening_stock_bootstrap_scale", 1.0), 1.0),
+    )
     required_daily_input_by_pair: dict[tuple[str, str], float] = defaultdict(float)
     for n in nodes:
         nid = str(n.get("id"))
@@ -1004,6 +1023,7 @@ def main() -> None:
             safety_stock_days * daily_req,
         )
         current = stock.get(pair, 0.0)
+        target *= opening_stock_bootstrap_scale
         if target > current + 1e-9:
             add_qty = target - current
             stock[pair] = current + add_qty
@@ -1126,6 +1146,50 @@ def main() -> None:
                 prev_production_command_by_pair[out_pair] = desired_qty
 
                 qty = max(0.0, min(cap, max_from_inputs, desired_qty))
+                binding_cause = "none"
+                binding_item = ""
+                if desired_qty > 1e-9:
+                    input_binding_item = ""
+                    input_binding_value = float("inf")
+                    for inp in (p.get("inputs") or []):
+                        in_item = str(inp.get("item_id"))
+                        key = (nid, in_item)
+                        modeled_input = key in inbound_pairs or key in stock_pairs
+                        if not modeled_input:
+                            continue
+                        ratio = to_float(inp.get("ratio_per_batch"), 0.0)
+                        req_per_unit_raw = ratio / batch_size if batch_size > 0 else 0.0
+                        input_unit = normalize_unit(inp.get("ratio_unit"))
+                        item_unit = normalize_unit(item_unit_map.get(in_item, input_unit))
+                        req_per_unit = convert_quantity(req_per_unit_raw, input_unit, item_unit)
+                        if req_per_unit <= 0:
+                            continue
+                        item_limit = stock[key] / req_per_unit
+                        if item_limit < input_binding_value:
+                            input_binding_value = item_limit
+                            input_binding_item = in_item
+                    if qty + 1e-9 < desired_qty:
+                        if max_from_inputs <= cap + 1e-9 and max_from_inputs <= desired_qty + 1e-9:
+                            binding_cause = "input_shortage"
+                            binding_item = input_binding_item
+                        elif cap <= max_from_inputs + 1e-9 and cap <= desired_qty + 1e-9:
+                            binding_cause = "capacity"
+                        else:
+                            binding_cause = "policy_command"
+                    production_constraint_rows.append(
+                        {
+                            "day": day,
+                            "node_id": nid,
+                            "output_item_id": out_item,
+                            "desired_qty": round(desired_qty, 6),
+                            "actual_qty": round(qty, 6),
+                            "cap_qty": round(cap, 6),
+                            "max_from_inputs_qty": round(max_from_inputs, 6),
+                            "binding_cause": binding_cause,
+                            "binding_input_item_id": binding_item,
+                            "shortfall_vs_desired_qty": round(max(0.0, desired_qty - qty), 6),
+                        }
+                    )
                 if qty <= 0:
                     continue
 
@@ -1185,6 +1249,18 @@ def main() -> None:
             backlog[pair] = required - served
             demand_today += dval
             served_today += served
+            demand_pair_rows.append(
+                {
+                    "day": day,
+                    "node_id": pair[0],
+                    "item_id": pair[1],
+                    "demand_qty": round(dval, 6),
+                    "required_with_backlog_qty": round(required, 6),
+                    "served_qty": round(served, 6),
+                    "backlog_end_qty": round(backlog[pair], 6),
+                    "available_before_service_qty": round(available, 6),
+                }
+            )
 
         total_demand += demand_today
         total_served += served_today
@@ -1224,7 +1300,10 @@ def main() -> None:
                 if day % lane_review_days != 0:
                     continue
                 src_pair = (lane["src"], item_id)
-                available = stock[src_pair]
+                availability_mult = lane_availability_multiplier(lane, day)
+                if availability_mult <= 1e-9:
+                    continue
+                available = stock[src_pair] * availability_mult
                 if src_pair in externally_sourced_pairs_set and available < remaining:
                     if economic_policy["external_procurement_enabled"]:
                         ext_gap = remaining - available
@@ -1401,6 +1480,7 @@ def main() -> None:
             "fg_target_days": fg_target_days,
             "production_gap_gain": production_gap_gain,
             "production_smoothing": production_smoothing,
+            "opening_stock_bootstrap_scale": opening_stock_bootstrap_scale,
             "stochastic_lead_times": bool(args.stochastic_lead_times),
             "seed": int(args.seed),
             "economic_policy": {
@@ -1514,6 +1594,8 @@ def main() -> None:
     supplier_shipment_path = output_dir / "production_supplier_shipments_daily.csv"
     supplier_stock_path = output_dir / "production_supplier_stocks_daily.csv"
     dc_stock_path = output_dir / "production_dc_stocks_daily.csv"
+    demand_pair_path = output_dir / "production_demand_service_daily.csv"
+    production_constraint_path = output_dir / "production_constraint_daily.csv"
 
     summary_path.write_text(json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")
     with daily_path.open("w", encoding="utf-8", newline="") as f:
@@ -1549,6 +1631,42 @@ def main() -> None:
         writer = csv.DictWriter(f, fieldnames=["day", "node_id", "item_id", "produced_qty", "cum_produced_qty"])
         writer.writeheader()
         writer.writerows(output_prod_rows)
+
+    with demand_pair_path.open("w", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(
+            f,
+            fieldnames=[
+                "day",
+                "node_id",
+                "item_id",
+                "demand_qty",
+                "required_with_backlog_qty",
+                "served_qty",
+                "backlog_end_qty",
+                "available_before_service_qty",
+            ],
+        )
+        writer.writeheader()
+        writer.writerows(demand_pair_rows)
+
+    with production_constraint_path.open("w", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(
+            f,
+            fieldnames=[
+                "day",
+                "node_id",
+                "output_item_id",
+                "desired_qty",
+                "actual_qty",
+                "cap_qty",
+                "max_from_inputs_qty",
+                "binding_cause",
+                "binding_input_item_id",
+                "shortfall_vs_desired_qty",
+            ],
+        )
+        writer.writeheader()
+        writer.writerows(production_constraint_rows)
 
     with supplier_shipment_path.open("w", encoding="utf-8", newline="") as f:
         writer = csv.DictWriter(
@@ -1684,6 +1802,7 @@ def main() -> None:
 - Finished-goods target cover (days): {summary['policy']['fg_target_days']}
 - Production stock-gap gain: {summary['policy']['production_gap_gain']}
 - Production smoothing factor: {summary['policy']['production_smoothing']}
+- Opening stock bootstrap scale: {summary['policy']['opening_stock_bootstrap_scale']}
 - Stochastic lead times: {summary['policy']['stochastic_lead_times']}
 - Random seed: {summary['policy']['seed']}
 - Economic policy transport floor /km: {summary['policy']['economic_policy']['transport_cost_floor_per_unit']} / {summary['policy']['economic_policy']['transport_cost_per_km_per_unit']}
@@ -1744,6 +1863,8 @@ def main() -> None:
 - production_input_replenishment_shipments_daily.csv
 - production_input_stocks_pivot.csv
 - production_output_products_daily.csv
+- production_demand_service_daily.csv
+- production_constraint_daily.csv
 - production_supplier_shipments_daily.csv
 - production_supplier_stocks_daily.csv
 - production_dc_stocks_daily.csv
@@ -1765,6 +1886,8 @@ def main() -> None:
     print(f"[OK] Production input replenishment shipments CSV: {input_shipment_path.resolve()}")
     print(f"[OK] Production input stocks pivot CSV: {input_pivot_path.resolve()}")
     print(f"[OK] Production output products CSV: {output_prod_path.resolve()}")
+    print(f"[OK] Production demand service CSV: {demand_pair_path.resolve()}")
+    print(f"[OK] Production constraint CSV: {production_constraint_path.resolve()}")
     print(f"[OK] Production supplier shipments CSV: {supplier_shipment_path.resolve()}")
     print(f"[OK] Production supplier stocks CSV: {supplier_stock_path.resolve()}")
     print(f"[OK] Production distribution center stocks CSV: {dc_stock_path.resolve()}")
