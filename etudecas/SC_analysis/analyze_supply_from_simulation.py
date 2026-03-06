@@ -18,12 +18,12 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Analyze supply chain from simulation outputs.")
     parser.add_argument(
         "--sim-summary",
-        default="etudecas/simulation/result/first_simulation_summary.json",
+        default="etudecas/simulation/result/summaries/first_simulation_summary.json",
         help="Simulation summary JSON.",
     )
     parser.add_argument(
         "--sim-daily",
-        default="etudecas/simulation/result/first_simulation_daily.csv",
+        default="etudecas/simulation/result/data/first_simulation_daily.csv",
         help="Simulation daily CSV.",
     )
     parser.add_argument(
