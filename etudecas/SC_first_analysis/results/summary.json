@@ -7,33 +7,46 @@
     "money_unit": "€",
     "carbon_unit": "Kilogram",
     "notes": [
-      "Fields with is_default=true were filled with standard placeholder values because Data_poc.xlsx did not provide them."
+      "Fields with is_default=true were filled with standard placeholder values because Data_poc.xlsx did not provide them.",
+      "Graph enriched with auxiliary case-study Excel workbooks (021081.xlsx, 268191.xlsx, 268967.xlsx, Fournisseur.xlsx)."
     ],
-    "simulation_prep": {
-      "prepared_for_simulation": true,
-      "prepared_at_utc": "2026-03-03T16:51:09.232990+00:00",
-      "assumption_version": "v1",
-      "notes": [
-        "Missing/default values were replaced with explicit assumptions for first-pass simulation.",
-        "Review simulation_prep_report before running production scenarios."
-      ]
+    "source_files": [
+      "Data_poc.xlsx",
+      "Fournisseur.xlsx",
+      "021081.xlsx",
+      "268191.xlsx",
+      "268967.xlsx"
+    ],
+    "case_data_refresh": {
+      "enabled": true,
+      "source_files": [
+        "Fournisseur.xlsx",
+        "021081.xlsx",
+        "268191.xlsx",
+        "268967.xlsx"
+      ],
+      "upstream_extension": {
+        "input_item": "item:021081",
+        "producer_node_id": "SDC-1450",
+        "output_item": "item:773474"
+      }
     }
   },
   "counts": {
-    "items": 25,
-    "nodes": 29,
-    "edges": 33,
+    "items": 26,
+    "nodes": 33,
+    "edges": 37,
     "scenarios": 1
   },
   "distribution": {
     "node_types": {
-      "supplier_dc": 23,
+      "supplier_dc": 27,
       "distribution_center": 3,
       "factory": 2,
       "customer": 1
     },
     "edge_types": {
-      "transport": 33
+      "transport": 37
     }
   },
   "connectivity": {
@@ -42,7 +55,6 @@
       "DC-1920"
     ],
     "source_nodes": [
-      "SDC-1450",
       "SDC-VD0500655A",
       "SDC-VD0505677A",
       "SDC-VD0508918A",
@@ -57,8 +69,12 @@
       "SDC-VD0914320A",
       "SDC-VD0914360C",
       "SDC-VD0914690A",
+      "SDC-VD0949099A",
       "SDC-VD0951020A",
+      "SDC-VD0960508A",
       "SDC-VD0964290A",
+      "SDC-VD0972460A",
+      "SDC-VD0975221A",
       "SDC-VD0989480A",
       "SDC-VD0990780A",
       "SDC-VD0993480A",
@@ -72,11 +88,11 @@
     "weakly_connected_components": {
       "count": 3,
       "sizes": [
-        27,
+        31,
         1,
         1
       ],
-      "largest_component_size": 27
+      "largest_component_size": 31
     },
     "top_in_degree": [
       [
@@ -88,16 +104,16 @@
         8
       ],
       [
+        "SDC-1450",
+        4
+      ],
+      [
         "C-XXXXX",
         2
       ],
       [
         "DC-1910",
         2
-      ],
-      [
-        "DC-1450",
-        0
       ]
     ],
     "top_out_degree": [
@@ -125,28 +141,29 @@
   },
   "data_quality": {
     "geo": {
-      "total_nodes": 29,
-      "filled_lat_lon": 29,
+      "total_nodes": 33,
+      "filled_lat_lon": 33,
       "missing_lat_lon": 0
     },
     "edge_defaults": {
-      "lead_time_is_default": 0,
-      "transport_cost_zero_default": 0,
-      "delay_limit_default": 0,
+      "lead_time_is_default": 4,
+      "transport_cost_zero_default": 37,
+      "delay_limit_default": 4,
       "order_terms_price_null": 4
     },
-    "inventory_states": 57,
-    "inventory_initial_default_count": 0,
-    "process_count": 2,
-    "process_capacity_default_count": 0,
-    "process_cost_default_count": 0,
+    "inventory_states": 62,
+    "inventory_initial_default_count": 62,
+    "process_count": 3,
+    "process_capacity_default_count": 2,
+    "process_cost_default_count": 3,
     "edge_item_missing_refs": []
   },
   "geography": {
     "node_country_distribution": {
-      "France": 19,
+      "France": 20,
       "Germany": 4,
-      "unknown": 3,
+      "United States": 4,
+      "unknown": 2,
       "Belgium": 1,
       "Italy": 1,
       "Sweden": 1
@@ -154,15 +171,19 @@
     "top_countries": [
       [
         "France",
-        19
+        20
       ],
       [
         "Germany",
         4
       ],
       [
+        "United States",
+        4
+      ],
+      [
         "unknown",
-        3
+        2
       ],
       [
         "Belgium",
@@ -177,10 +198,10 @@
         1
       ]
     ],
-    "edge_country_known_count": 27,
-    "edge_cross_border_count": 7,
-    "edge_domestic_count": 20,
-    "edge_missing_country_count": 6
+    "edge_country_known_count": 33,
+    "edge_cross_border_count": 11,
+    "edge_domestic_count": 22,
+    "edge_missing_country_count": 4
   },
   "supply_risk": {
     "single_source_receiving_pairs_count": 22,
@@ -445,25 +466,26 @@
         "item_id": "item:268967",
         "profile_points": 1,
         "demand_values": [
-          120.0
+          0.0
         ],
-        "is_zero_demand": false,
-        "reachable_from_upstream": true
-      },
-      {
-        "scenario_id": "scn:BASE",
-        "node_id": "C-XXXXX",
-        "item_id": "item:268091",
-        "profile_points": 1,
-        "demand_values": [
-          120.0
-        ],
-        "is_zero_demand": false,
+        "is_zero_demand": true,
         "reachable_from_upstream": true
       }
     ],
     "unreachable_demand_rows": [],
-    "zero_demand_rows": []
+    "zero_demand_rows": [
+      {
+        "scenario_id": "scn:BASE",
+        "node_id": "C-XXXXX",
+        "item_id": "item:268967",
+        "profile_points": 1,
+        "demand_values": [
+          0.0
+        ],
+        "is_zero_demand": true,
+        "reachable_from_upstream": true
+      }
+    ]
   },
   "node_degrees": [
     {
@@ -608,8 +630,28 @@
     },
     {
       "node_id": "SDC-1450",
-      "in_degree": 0,
+      "in_degree": 4,
       "out_degree": 2
+    },
+    {
+      "node_id": "SDC-VD0949099A",
+      "in_degree": 0,
+      "out_degree": 1
+    },
+    {
+      "node_id": "SDC-VD0960508A",
+      "in_degree": 0,
+      "out_degree": 1
+    },
+    {
+      "node_id": "SDC-VD0972460A",
+      "in_degree": 0,
+      "out_degree": 1
+    },
+    {
+      "node_id": "SDC-VD0975221A",
+      "in_degree": 0,
+      "out_degree": 1
     }
   ]
 }

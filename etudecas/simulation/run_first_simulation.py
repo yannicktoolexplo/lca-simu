@@ -657,7 +657,7 @@ def try_generate_plots(
         plt.close()
         generated[f"production_output_products_by_factory_{factory}"] = str(out)
 
-    # Plot 3: supplier view = downstream factory input stocks on supplier-related items.
+    # Plot 3: supplier view = downstream process-node input stocks on supplier-related items.
     supplier_factory_items = supplier_factory_items or {}
     for supplier, scoped_pairs in sorted(supplier_factory_items.items()):
         item_map: dict[str, dict[int, float]] = {}
@@ -677,7 +677,7 @@ def try_generate_plots(
         out = output_dir / f"production_supplier_input_stocks_by_material_{safe_supplier}.png"
         if plot_stock_multiaxis(
             item_map,
-            f"Stocks d'entree usine (produits du fournisseur) - {supplier}",
+            f"Stocks d'entree du noeud aval (produits du fournisseur) - {supplier}",
             out,
             y_label_prefix="Stock",
             unit_by_item=unit_by_item,
@@ -854,11 +854,16 @@ def main() -> None:
         if node_type == "distribution_center"
     }
     supplier_factory_items: dict[str, set[tuple[str, str]]] = defaultdict(set)
+    process_node_ids = {
+        str(n.get("id"))
+        for n in nodes
+        if n.get("processes")
+    }
     for lane in lanes:
         src = str(lane["src"])
         dst = str(lane["dst"])
         item_id = str(lane["item_id"])
-        if src in supplier_node_ids and node_type_by_id.get(dst) == "factory":
+        if src in supplier_node_ids and dst in process_node_ids:
             supplier_factory_items[src].add((dst, item_id))
     dc_factory_items: dict[str, set[tuple[str, str]]] = defaultdict(set)
     for lane in lanes:

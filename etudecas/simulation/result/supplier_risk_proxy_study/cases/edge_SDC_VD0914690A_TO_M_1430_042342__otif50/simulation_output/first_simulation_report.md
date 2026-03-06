@@ -20,55 +20,55 @@
 - External procurement daily cap days: 2.0
 - External procurement min daily cap qty: 0.0
 - External procurement unit cost / multiplier / transport unit: 0.0 / 2.0 / 0.04
-- Nodes: 28
-- Edges: 34
-- Lanes (edge x item): 34
+- Nodes: 32
+- Edges: 38
+- Lanes (edge x item): 38
 - Demand rows: 2
-- Input material pairs tracked: 23
-- Output product pairs tracked: 2 (M-1430 | item:268967, M-1810 | item:268091)
+- Input material pairs tracked: 24
+- Output product pairs tracked: 3 (M-1430 | item:268967, M-1810 | item:268091, SDC-1450 | item:773474)
 - Inputs non modelises par Relations_acteurs (non bloquants): 0 (none)
 - Conversions d'unites BOM appliquees: 10
 - Mismatch d'unites non convertis: 0
 - Assumed supplier nodes (explicitly tagged, includes '?'): 1 (SDC-1450)
-- Assumed supply edges (explicitly tagged, includes '?'): 1 (edge:SDC-1450_TO_M-1810_693710_Q)
-- External upstream sourcing for unmodeled source pairs: 30
-- Opening stock bootstrap pairs (lead-time coverage at max capacity): 22
+- Assumed supply edges (explicitly tagged, includes '?'): 1 (edge:SDC-1450_TO_M-1810_007923_Q)
+- External upstream sourcing for unmodeled source pairs: 33
+- Opening stock bootstrap pairs (lead-time coverage at max capacity): 23
 
 ## KPIs
-- Total demand: 1500.0
-- Total served: 1446.8756
-- Fill rate: 0.964584
-- Ending backlog: 53.1244
-- Total produced: 1425.1456
-- Total shipped: 52936.4576
-- Avg inventory: 19682.3387
-- Ending inventory: 14601.5239
-- Transport cost: 5635.7649
-- Holding cost: 18086.0801
-- Purchase cost (from order_terms sell_price): 3860.6527
-- Logistics cost (transport + holding): 23721.845
-- Total cost: 27582.4977
-- Total external procured ordered qty: 97422.5303
-- Total external procured arrived qty: 84575.1538
-- Total external procured rejected qty (cap-limited): 40688.3679
-- Total external procurement cost premium: 6644.5965
-- Cost share holding / transport / purchase: 0.655709 / 0.204324 / 0.139967
-- Total opening stock bootstrap qty: 29870.366
-- Total unreliable supplier loss qty: 38018.7336
-- Economic consistency status: ok
-- Economic consistency warnings: []
+- Total demand: 1487.5
+- Total served: 1151.3134
+- Fill rate: 0.773992
+- Ending backlog: 336.1866
+- Total produced: 2605.5657
+- Total shipped: 45692.2694
+- Avg inventory: 1043238.2339
+- Ending inventory: 1033089.6157
+- Transport cost: 23535.6119
+- Holding cost: 1245395.4703
+- Purchase cost (from order_terms sell_price): 3460.5259
+- Logistics cost (transport + holding): 1268931.0822
+- Total cost: 1272391.6081
+- Total external procured ordered qty: 78682.1675
+- Total external procured arrived qty: 77328.6087
+- Total external procured rejected qty (cap-limited): 35821.1592
+- Total external procurement cost premium: 5469.3283
+- Cost share holding / transport / purchase: 0.978783 / 0.018497 / 0.00272
+- Total opening stock bootstrap qty: 1060029.4897
+- Total unreliable supplier loss qty: 36288.1888
+- Economic consistency status: warn
+- Economic consistency warnings: ['holding_cost_share_above_90pct', 'transport_cost_share_below_2pct', 'purchase_cost_share_below_2pct']
 
 ## Top backlog pairs
 [
   {
     "node_id": "C-XXXXX",
-    "item_id": "item:268967",
-    "backlog": 49.4597
+    "item_id": "item:268091",
+    "backlog": 175.1697
   },
   {
     "node_id": "C-XXXXX",
-    "item_id": "item:268091",
-    "backlog": 3.6647
+    "item_id": "item:268967",
+    "backlog": 161.0169
   }
 ]
 

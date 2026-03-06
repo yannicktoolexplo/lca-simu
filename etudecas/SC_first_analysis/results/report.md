@@ -1,29 +1,29 @@
 # SC first analysis
 
 ## Executive summary
-- Items: 25
-- Nodes: 29
-- Edges: 33
+- Items: 26
+- Nodes: 33
+- Edges: 37
 - Scenarios: 1
-- Geo completeness: 29 / 29 (100.0%)
-- Single-source pairs: 22 (66.7% des edges)
-- Cross-border edges: 7 / 27 (25.9%)
+- Geo completeness: 33 / 33 (100.0%)
+- Single-source pairs: 22 (59.5% des edges)
+- Cross-border edges: 11 / 33 (33.3%)
 
 ## Coverage des questions d'analyse
 | Question | Statut | Evidence |
 |---|---|---|
 | 1. Structure réseau saine ? | Partiel | 3 composantes, 2 nœuds isolés |
 | 2. Dépendances critiques ? | Oui | 22 couples mono-source |
-| 3. Demande servable ? | Oui | 2 lignes, 0 non atteignables, 0 à demande nulle |
-| 4. Risque géographique ? | Partiel | 7 flux cross-border, concentration pays mesurée |
-| 5. Réel vs défaut ? | Oui | lead_time par défaut: 0/33 |
+| 3. Demande servable ? | Partiel | 1 lignes, 0 non atteignables, 1 à demande nulle |
+| 4. Risque géographique ? | Partiel | 11 flux cross-border, concentration pays mesurée |
+| 5. Réel vs défaut ? | Oui | lead_time par défaut: 4/37 |
 | 6. Priorités d'enrichissement ? | Partiel | Voir section Priorités |
 
 ## Connectivity
 - Weakly connected components: 3
-- Largest component size: 27
+- Largest component size: 31
 - Isolated nodes: 2
-- Source nodes: 23
+- Source nodes: 26
 - Sink nodes: 1
 
 ### Top nœuds entrants (in-degree)
@@ -31,9 +31,9 @@
 |---|---|
 | M-1810 | 21 |
 | M-1430 | 8 |
+| SDC-1450 | 4 |
 | C-XXXXX | 2 |
 | DC-1910 | 2 |
-| DC-1450 | 0 |
 
 ### Top nœuds sortants (out-degree)
 | Node | Out-degree |
@@ -45,25 +45,26 @@
 | SDC-VD0910216A | 2 |
 
 ## Data quality
-- Geo filled (lat/lon): 29 / 29
-- Edge lead_time default count: 0 / 33
-- Edge transport_cost zero default count: 0 / 33
-- Inventory states with default initial: 0 / 57
-- Process capacity default count: 0 / 2
-- Process cost default count: 0 / 2
+- Geo filled (lat/lon): 33 / 33
+- Edge lead_time default count: 4 / 37
+- Edge transport_cost zero default count: 37 / 37
+- Inventory states with default initial: 62 / 62
+- Process capacity default count: 2 / 3
+- Process cost default count: 3 / 3
 
 ## Geography
-- Countries represented: 6
-- Edge with known countries: 27 / 33
-- Cross-border edges: 7
-- Domestic edges: 20
+- Countries represented: 7
+- Edge with known countries: 33 / 37
+- Cross-border edges: 11
+- Domestic edges: 22
 
 ### Top countries (nodes)
 | Country | Node count |
 |---|---|
-| France | 19 |
+| France | 20 |
 | Germany | 4 |
-| unknown | 3 |
+| United States | 4 |
+| unknown | 2 |
 | Belgium | 1 |
 | Italy | 1 |
 | Sweden | 1 |
@@ -87,11 +88,13 @@
 | M-1430 | item:730384 | SDC-VD0508918A |
 
 ## Demand checks
-- Demand rows: 2
+- Demand rows: 1
 - Unreachable demand rows: 0
-- Zero-demand rows: 0
+- Zero-demand rows: 1
 
 ## Priorités d'action
+- Renseigner une demande non nulle pour pouvoir tester le service level et les ruptures.
+- Renseigner les coûts logistiques pour fiabiliser le coût total.
 - Traiter les couples mono-source (dual sourcing ou stock de sécurité ciblé).
 - Décider du sort des nœuds isolés (supprimer, connecter ou documenter).
 

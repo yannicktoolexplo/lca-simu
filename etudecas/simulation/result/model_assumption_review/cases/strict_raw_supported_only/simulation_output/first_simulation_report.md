@@ -20,55 +20,55 @@
 - External procurement daily cap days: 2.0
 - External procurement min daily cap qty: 0.0
 - External procurement unit cost / multiplier / transport unit: 0.0 / 2.0 / 0.04
-- Nodes: 28
-- Edges: 33
-- Lanes (edge x item): 33
+- Nodes: 32
+- Edges: 37
+- Lanes (edge x item): 37
 - Demand rows: 2
-- Input material pairs tracked: 22
-- Output product pairs tracked: 2 (M-1430 | item:268967, M-1810 | item:268091)
+- Input material pairs tracked: 23
+- Output product pairs tracked: 3 (M-1430 | item:268967, M-1810 | item:268091, SDC-1450 | item:773474)
 - Inputs non modelises par Relations_acteurs (non bloquants): 0 (none)
 - Conversions d'unites BOM appliquees: 10
 - Mismatch d'unites non convertis: 0
 - Assumed supplier nodes (explicitly tagged, includes '?'): 1 (SDC-1450)
 - Assumed supply edges (explicitly tagged, includes '?'): 0 (none)
-- External upstream sourcing for unmodeled source pairs: 29
+- External upstream sourcing for unmodeled source pairs: 32
 - Opening stock bootstrap pairs (lead-time coverage at max capacity): 0
 
 ## KPIs
-- Total demand: 1500.0
-- Total served: 410.983
-- Fill rate: 0.273989
-- Ending backlog: 1089.017
-- Total produced: 2.983
-- Total shipped: 1358.3769
-- Avg inventory: 4854.723
-- Ending inventory: 5004.5019
-- Transport cost: 38.8311
-- Holding cost: 5496.2054
-- Purchase cost (from order_terms sell_price): 211.7771
-- Logistics cost (transport + holding): 5535.0365
-- Total cost: 5746.8136
+- Total demand: 1487.5
+- Total served: 0.0
+- Fill rate: 0.0
+- Ending backlog: 1487.5
+- Total produced: 1293.75
+- Total shipped: 3658.3307
+- Avg inventory: 4464.6278
+- Ending inventory: 5577.6323
+- Transport cost: 7432.279
+- Holding cost: 4832.7586
+- Purchase cost (from order_terms sell_price): 10349.5742
+- Logistics cost (transport + holding): 12265.0376
+- Total cost: 22614.6118
 - Total external procured ordered qty: 0.0
 - Total external procured arrived qty: 0.0
 - Total external procured rejected qty (cap-limited): 0.0
 - Total external procurement cost premium: 0.0
-- Cost share holding / transport / purchase: 0.956392 / 0.006757 / 0.036851
+- Cost share holding / transport / purchase: 0.213701 / 0.328649 / 0.45765
 - Total opening stock bootstrap qty: 0.0
 - Total unreliable supplier loss qty: 0.0
-- Economic consistency status: warn
-- Economic consistency warnings: ['holding_cost_share_above_90pct', 'transport_cost_share_below_2pct']
+- Economic consistency status: ok
+- Economic consistency warnings: []
 
 ## Top backlog pairs
 [
   {
     "node_id": "C-XXXXX",
-    "item_id": "item:268091",
-    "backlog": 546.0
+    "item_id": "item:268967",
+    "backlog": 743.75
   },
   {
     "node_id": "C-XXXXX",
-    "item_id": "item:268967",
-    "backlog": 543.017
+    "item_id": "item:268091",
+    "backlog": 743.75
   }
 ]
 
