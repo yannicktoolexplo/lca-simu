@@ -1,0 +1,14 @@
+{
+  "data_history": "/workspaces/lca-simu/etudecas/Prediction/data/synthetic_supplier_item_history.csv",
+  "predicted_pairs": "/workspaces/lca-simu/etudecas/Prediction/result/predicted_supplier_item_risk.csv",
+  "predicted_suppliers": "/workspaces/lca-simu/etudecas/Prediction/result/predicted_supplier_risk.csv",
+  "metrics": "/workspaces/lca-simu/etudecas/Prediction/result/evaluation_metrics.json",
+  "report": "/workspaces/lca-simu/etudecas/Prediction/result/prediction_poc_report.md",
+  "plots": [
+    "/workspaces/lca-simu/etudecas/Prediction/result/calibration_curve.png",
+    "/workspaces/lca-simu/etudecas/Prediction/result/top_pair_predicted_risk.png",
+    "/workspaces/lca-simu/etudecas/Prediction/result/predicted_probability_vs_conditional_impact.png",
+    "/workspaces/lca-simu/etudecas/Prediction/result/top_supplier_predicted_risk.png",
+    "/workspaces/lca-simu/etudecas/Prediction/result/model_feature_coefficients.png"
+  ]
+}
