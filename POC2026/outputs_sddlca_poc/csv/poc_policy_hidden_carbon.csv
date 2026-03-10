@@ -1,6 +1,6 @@
 policy_name,policy_label,hidden_carbon_vs_dynamic,hidden_carbon_vs_classical
-baseline,Baseline,1207.3,1210.14
-backup_early,Backup early,1886.83,1878.59
-inventory_buffer,Inventory buffer,1002.27,993.66
-low_carbon,Low-carbon discipline,1073.68,1077.3
-service_first,Service first,1076.07,1067.46
+baseline,Reference,1207.3,1210.14
+backup_early,Backup anticipe,1886.83,1878.59
+inventory_buffer,Stock tampon,1002.27,993.66
+low_carbon,Discipline carbone,1073.68,1077.3
+service_first,Service prioritaire,1076.07,1067.46
