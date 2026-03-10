@@ -264,8 +264,24 @@ def lane_records(
             lanes.append(lane)
             lanes_by_dest_item[(dst, str(item_id))].append(lane)
 
+    def mrp_split_shares(count: int) -> list[float]:
+        if count <= 0:
+            return []
+        if count == 1:
+            return [1.0]
+        if count == 2:
+            return [0.7, 0.3]
+        if count == 3:
+            return [0.7, 0.2, 0.1]
+        tail = 0.1 / float(count - 2)
+        return [0.7, 0.2] + [tail] * (count - 2)
+
     for key, values in lanes_by_dest_item.items():
         values.sort(key=lambda x: (x["unit_transport_cost"], x["lead_days"], x["src"]))
+        shares = mrp_split_shares(len(values))
+        for rank, (lane, share) in enumerate(zip(values, shares), start=1):
+            lane["mrp_share"] = share
+            lane["mrp_rank"] = rank
         lanes_by_dest_item[key] = values
     return lanes, lanes_by_dest_item
 
@@ -1460,20 +1476,43 @@ def main() -> None:
                 continue
 
             remaining = needed
+            active_lanes: list[tuple[dict[str, Any], float]] = []
             for lane in lane_list:
-                if remaining <= 1e-9:
-                    break
                 lane_review_days = int(round(max(1.0, to_float(lane.get("order_frequency_days"), 1.0))))
                 if day % lane_review_days != 0:
                     continue
-                src_pair = (lane["src"], item_id)
                 availability_mult = lane_availability_multiplier(lane, day)
                 if availability_mult <= 1e-9:
                     continue
+                active_lanes.append((lane, availability_mult))
+
+            if not active_lanes:
+                continue
+
+            active_share_total = sum(max(0.0, to_float(lane.get("mrp_share"), 0.0)) for lane, _ in active_lanes)
+
+            def try_ship_lane(
+                lane: dict[str, Any],
+                availability_mult: float,
+                desired_delivered_qty: float,
+                remaining_need_qty: float,
+            ) -> float:
+                nonlocal shipped_today
+                nonlocal transport_cost_today
+                nonlocal purchase_cost_today
+                nonlocal external_procured_today
+                nonlocal external_procured_rejected_today
+                nonlocal supplier_capacity_binding_qty_today
+                nonlocal total_external_procurement_cost
+                nonlocal total_unreliable_loss_qty
+
+                if desired_delivered_qty <= 1e-9 or remaining_need_qty <= 1e-9:
+                    return 0.0
+                src_pair = (lane["src"], item_id)
                 available = stock[src_pair] * availability_mult
-                if src_pair in externally_sourced_pairs_set and available < remaining:
+                if src_pair in externally_sourced_pairs_set and available < remaining_need_qty:
                     if economic_policy["external_procurement_enabled"]:
-                        ext_gap = remaining - available
+                        ext_gap = remaining_need_qty - available
                         ext_daily_signal = max(
                             propagated_demand_today.get(src_pair, 0.0),
                             item_daily_req,
@@ -1508,9 +1547,9 @@ def main() -> None:
                         external_procured_rejected_today += ext_rejected
                     available = stock[src_pair]
                 if available <= 1e-9:
-                    continue
+                    return 0.0
                 rel = max(0.01, min(1.0, to_float(lane.get("reliability"), 1.0)))
-                unconstrained_pull_qty = min(available, remaining / rel)
+                unconstrained_pull_qty = min(available, desired_delivered_qty / rel)
                 supplier_capacity_left = supplier_daily_capacity_by_pair.get(src_pair)
                 if supplier_capacity_left is not None:
                     supplier_capacity_left = max(
@@ -1524,7 +1563,7 @@ def main() -> None:
                     pull_qty = unconstrained_pull_qty
                 delivered_qty = pull_qty * rel
                 if pull_qty <= 1e-9 or delivered_qty <= 1e-9:
-                    continue
+                    return 0.0
 
                 stock[src_pair] -= pull_qty
                 supplier_capacity_used_today_by_src_pair[src_pair] += pull_qty
@@ -1532,7 +1571,6 @@ def main() -> None:
                 arrival_day = day + lead_days
                 pipeline[arrival_day].append((dst, item_id, delivered_qty, lane["edge_id"]))
                 in_transit[pair] += delivered_qty
-                remaining -= delivered_qty
                 shipped_today += delivered_qty
                 shipped_today_to_pair[(dst, item_id)] += delivered_qty
                 transport_cost_today += delivered_qty * lane["unit_transport_cost"]
@@ -1551,6 +1589,30 @@ def main() -> None:
                         "reliability": round(rel, 6),
                         "uom": item_unit_map.get(item_id, ""),
                     }
+                )
+                return delivered_qty
+
+            if active_share_total > 1e-9 and len(active_lanes) > 1:
+                for lane, availability_mult in active_lanes:
+                    if remaining <= 1e-9:
+                        break
+                    lane_share = max(0.0, to_float(lane.get("mrp_share"), 0.0))
+                    lane_target_qty = needed * lane_share / active_share_total
+                    remaining -= try_ship_lane(
+                        lane,
+                        availability_mult,
+                        desired_delivered_qty=min(remaining, lane_target_qty),
+                        remaining_need_qty=remaining,
+                    )
+
+            for lane, availability_mult in active_lanes:
+                if remaining <= 1e-9:
+                    break
+                remaining -= try_ship_lane(
+                    lane,
+                    availability_mult,
+                    desired_delivered_qty=remaining,
+                    remaining_need_qty=remaining,
                 )
 
         total_shipped += shipped_today

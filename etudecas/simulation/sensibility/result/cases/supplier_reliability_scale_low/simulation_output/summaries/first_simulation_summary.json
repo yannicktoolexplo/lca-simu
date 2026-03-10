@@ -1116,30 +1116,30 @@
   },
   "kpis": {
     "total_demand": 1487.5,
-    "total_served": 41.1982,
-    "ending_backlog": 1446.3018,
-    "fill_rate": 0.027696,
-    "total_shipped": 12476.4901,
-    "total_arrived": 3761.7625,
-    "total_produced": 2368.3654,
-    "avg_inventory": 1052617.3113,
-    "ending_inventory": 1048430.9216,
-    "total_transport_cost": 8402.7258,
-    "total_holding_cost": 1258998.4449,
-    "total_purchase_cost": 3601.5456,
-    "total_logistics_cost": 1267401.1707,
-    "total_cost": 1271002.7163,
-    "total_external_procured_ordered_qty": 77308.6115,
-    "total_external_procured_arrived_qty": 75559.8926,
-    "total_external_procured_rejected_qty": 59819.6479,
-    "total_external_procured_qty": 77308.6115,
-    "total_external_procurement_cost": 6167.8282,
+    "total_served": 40.8728,
+    "ending_backlog": 1446.6272,
+    "fill_rate": 0.027477,
+    "total_shipped": 12477.0371,
+    "total_arrived": 3910.4238,
+    "total_produced": 2370.2298,
+    "avg_inventory": 1052619.0264,
+    "ending_inventory": 1048328.9645,
+    "total_transport_cost": 8408.8406,
+    "total_holding_cost": 1259011.5535,
+    "total_purchase_cost": 3608.7987,
+    "total_logistics_cost": 1267420.3941,
+    "total_cost": 1271029.1928,
+    "total_external_procured_ordered_qty": 77428.3149,
+    "total_external_procured_arrived_qty": 75444.506,
+    "total_external_procured_rejected_qty": 59891.0936,
+    "total_external_procured_qty": 77428.3149,
+    "total_external_procurement_cost": 6177.6366,
     "total_opening_stock_bootstrap_qty": 1060029.4897,
-    "total_unreliable_loss_qty": 49905.9603,
-    "total_supplier_capacity_binding_qty": 351445.4544,
-    "cost_share_holding": 0.990555,
-    "cost_share_transport": 0.006611,
-    "cost_share_purchase": 0.002834
+    "total_unreliable_loss_qty": 49908.1486,
+    "total_supplier_capacity_binding_qty": 351102.9334,
+    "cost_share_holding": 0.990545,
+    "cost_share_transport": 0.006616,
+    "cost_share_purchase": 0.002839
   },
   "economic_consistency": {
     "status": "warn",
@@ -1154,13 +1154,13 @@
   "top_backlog_pairs": [
     {
       "node_id": "C-XXXXX",
-      "item_id": "item:268967",
-      "backlog": 723.1627
+      "item_id": "item:268091",
+      "backlog": 723.5391
     },
     {
       "node_id": "C-XXXXX",
-      "item_id": "item:268091",
-      "backlog": 723.1391
+      "item_id": "item:268967",
+      "backlog": 723.0881
     }
   ]
 }

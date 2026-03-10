@@ -1490,9 +1490,19 @@ def build_supplier_local_criticality(
     edges = raw.get("edges", []) or []
     supplier_ids = sorted(str(n.get("id")) for n in nodes if str(n.get("type") or "") == "supplier_dc")
     node_name = {str(n.get("id")): str(n.get("name") or str(n.get("id"))) for n in nodes}
+    supplier_has_explicit_capacity = {
+        str(n.get("id")): any(
+            to_float(((proc.get("capacity") or {}).get("max_rate"))) not in (None, 0.0)
+            and (to_float(((proc.get("capacity") or {}).get("max_rate"))) or 0.0) > 0.0
+            for proc in (n.get("processes") or [])
+        )
+        for n in nodes
+        if str(n.get("type") or "") == "supplier_dc"
+    }
     incoming_items, outgoing_items = build_edge_item_sets(raw)
     edges_by_src: dict[str, list[dict[str, Any]]] = defaultdict(list)
     suppliers_for_pair: dict[tuple[str, str], set[str]] = defaultdict(set)
+    target_share_by_supplier_pair: dict[tuple[str, tuple[str, str]], float] = {}
     supplier_initial_total: dict[str, float] = {}
     for n in nodes:
         if str(n.get("type") or "") != "supplier_dc":
@@ -1509,6 +1519,50 @@ def build_supplier_local_criticality(
         for item_id in e.get("items") or []:
             suppliers_for_pair[(dst, str(item_id))].add(src)
 
+    def edge_transport_cost(edge: dict[str, Any]) -> float:
+        tc = edge.get("transport_cost") or {}
+        val = to_float((tc or {}).get("value"))
+        if val is not None and val > 0:
+            return val
+        distance = to_float(edge.get("distance_km"))
+        return max(0.02, (distance or 0.0) * 0.00008)
+
+    def edge_lead_days(edge: dict[str, Any]) -> float:
+        return max(1.0, to_float(((edge.get("lead_time") or {}).get("mean"))) or 1.0)
+
+    def mrp_split_shares(count: int) -> list[float]:
+        if count <= 0:
+            return []
+        if count == 1:
+            return [1.0]
+        if count == 2:
+            return [0.7, 0.3]
+        if count == 3:
+            return [0.7, 0.2, 0.1]
+        tail = 0.1 / float(count - 2)
+        return [0.7, 0.2] + [tail] * (count - 2)
+
+    edges_by_pair: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
+    for edge in edges:
+        dst = str(edge.get("to") or "")
+        src = str(edge.get("from") or "")
+        if not dst or not src:
+            continue
+        for item_id in edge.get("items") or []:
+            edges_by_pair[(dst, str(item_id))].append(edge)
+    for pair, pair_edges in edges_by_pair.items():
+        sorted_edges = sorted(
+            pair_edges,
+            key=lambda edge: (
+                edge_transport_cost(edge),
+                edge_lead_days(edge),
+                str(edge.get("from") or ""),
+            ),
+        )
+        shares = mrp_split_shares(len(sorted_edges))
+        for edge, share in zip(sorted_edges, shares):
+            target_share_by_supplier_pair[(str(edge.get("from") or ""), pair)] = share
+
     shipment_rows = read_csv_rows(supplier_shipments_csv)
     stock_rows = read_csv_rows(supplier_stocks_csv)
     capacity_rows = read_csv_rows(supplier_capacity_csv)
@@ -1521,16 +1575,24 @@ def build_supplier_local_criticality(
     baseline_struct = by_case_struct.get("baseline")
 
     shipped_qty_by_supplier: dict[str, float] = defaultdict(float)
+    shipped_qty_by_supplier_pair: dict[tuple[str, tuple[str, str]], float] = defaultdict(float)
+    total_pair_flow_qty: dict[tuple[str, str], float] = defaultdict(float)
     active_days_by_supplier: dict[str, set[int]] = defaultdict(set)
     first_day_by_supplier: dict[str, int] = {}
     last_day_by_supplier: dict[str, int] = {}
     for row in shipment_rows:
         src = str(row.get("src_node_id") or "")
+        dst = str(row.get("dst_node_id") or "")
+        item_id = str(row.get("item_id") or "")
         qty = max(0.0, to_float(row.get("shipped_qty")) or 0.0)
         day = int(to_float(row.get("day")) or 0)
         if not src:
             continue
         shipped_qty_by_supplier[src] += qty
+        if dst and item_id:
+            pair = (dst, item_id)
+            shipped_qty_by_supplier_pair[(src, pair)] += qty
+            total_pair_flow_qty[pair] += qty
         if qty > 0:
             active_days_by_supplier[src].add(day)
             first_day_by_supplier[src] = min(first_day_by_supplier.get(src, day), day)
@@ -1645,6 +1707,29 @@ def build_supplier_local_criticality(
             item_labels += ", ..."
         total_shipped_qty = shipped_qty_by_supplier.get(supplier_id, 0.0)
         active_days = len(active_days_by_supplier.get(supplier_id, set()))
+        served_pairs = sorted(
+            {
+                pair
+                for (src, pair), qty in shipped_qty_by_supplier_pair.items()
+                if src == supplier_id and qty > 1e-9
+            }
+        )
+        all_supported_pairs = sorted(
+            {
+                (str(e.get("to") or ""), str(item_id))
+                for e in edges_by_src.get(supplier_id, [])
+                for item_id in (e.get("items") or [])
+                if e.get("to") is not None
+            }
+        )
+        observed_share_den = sum(total_pair_flow_qty.get(pair, 0.0) for pair in all_supported_pairs)
+        observed_share_num = sum(shipped_qty_by_supplier_pair.get((supplier_id, pair), 0.0) for pair in all_supported_pairs)
+        observed_sourcing_share = (observed_share_num / observed_share_den) if observed_share_den > 1e-9 else 0.0
+        target_share_weighted_num = sum(
+            target_share_by_supplier_pair.get((supplier_id, pair), 0.0) * total_pair_flow_qty.get(pair, 0.0)
+            for pair in all_supported_pairs
+        )
+        target_sourcing_share = (target_share_weighted_num / observed_share_den) if observed_share_den > 1e-9 else 0.0
         local_score = (
             0.35 * volume_score.get(supplier_id, 0.0)
             + 0.20 * (active_days / max_active_days if max_active_days > 0 else 0.0)
@@ -1677,6 +1762,9 @@ def build_supplier_local_criticality(
             "min_stock_end_of_day": round(min_stock_by_supplier.get(supplier_id, 0.0), 4),
             "avg_capacity_utilization": round(avg_capacity_utilization_by_supplier.get(supplier_id, 0.0), 6),
             "max_capacity_utilization": round(max_capacity_utilization_by_supplier.get(supplier_id, 0.0), 6),
+            "observed_sourcing_share": round(observed_sourcing_share, 6),
+            "target_sourcing_share": round(target_sourcing_share, 6),
+            "capacity_metric_mode": "explicit_capacity" if supplier_has_explicit_capacity.get(supplier_id, False) else "sourcing_share",
             "shortage_supported_qty": round(raw_metrics[supplier_id]["shortage_supported_qty"], 4),
             "shortage_supported_events": int(raw_metrics[supplier_id]["shortage_supported_events"]),
             "standard_best_driver": std_label,
@@ -1698,8 +1786,6 @@ def build_supplier_local_criticality(
                 metric_label_value("Flux expedie total", f"{row['total_shipped_qty']:.2f}"),
                 metric_label_value("Jours actifs", str(row["active_days"])),
                 metric_label_value("Paires mono-source", str(row["sole_source_pairs"])),
-                metric_label_value("Utilisation cap. moy.", f"{row['avg_capacity_utilization']:.2%}"),
-                metric_label_value("Utilisation cap. max", f"{row['max_capacity_utilization']:.2%}"),
                 metric_label_value("Exposition shortage", f"{row['shortage_supported_qty']:.2f}"),
                 metric_label_value("Driver standard", std_label or "n/a"),
                 metric_label_value("Driver structurel", struct_label or "n/a"),
@@ -1714,6 +1800,24 @@ def build_supplier_local_criticality(
                 "overall": round(overall_score, 6),
             },
         }
+        if supplier_has_explicit_capacity.get(supplier_id, False):
+            metrics_by_supplier[supplier_id]["summary_lines"].insert(
+                4,
+                metric_label_value("Utilisation cap. moy.", f"{row['avg_capacity_utilization']:.2%}"),
+            )
+            metrics_by_supplier[supplier_id]["summary_lines"].insert(
+                5,
+                metric_label_value("Utilisation cap. max", f"{row['max_capacity_utilization']:.2%}"),
+            )
+        else:
+            metrics_by_supplier[supplier_id]["summary_lines"].insert(
+                4,
+                metric_label_value("Part sourcing observee", f"{row['observed_sourcing_share']:.1%}"),
+            )
+            metrics_by_supplier[supplier_id]["summary_lines"].insert(
+                5,
+                metric_label_value("Part cible MRP", f"{row['target_sourcing_share']:.1%}"),
+            )
 
     ranking_rows.sort(key=lambda row: (-float(row["overall_criticality_score"]), -float(row["total_shipped_qty"]), row["supplier_id"]))
     for rank, row in enumerate(ranking_rows, start=1):

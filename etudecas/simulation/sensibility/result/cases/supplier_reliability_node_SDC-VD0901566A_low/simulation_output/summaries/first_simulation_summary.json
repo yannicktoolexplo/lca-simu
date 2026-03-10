@@ -1116,30 +1116,30 @@
   },
   "kpis": {
     "total_demand": 1487.5,
-    "total_served": 1151.3134,
-    "ending_backlog": 336.1866,
-    "fill_rate": 0.773992,
-    "total_shipped": 44887.5288,
-    "total_arrived": 21113.7052,
-    "total_produced": 2600.9048,
-    "avg_inventory": 1047454.8354,
-    "ending_inventory": 1042732.8409,
-    "total_transport_cost": 21635.4204,
-    "total_holding_cost": 1250499.4674,
-    "total_purchase_cost": 2838.2638,
-    "total_logistics_cost": 1272134.8878,
-    "total_cost": 1274973.1516,
+    "total_served": 1116.99,
+    "ending_backlog": 370.51,
+    "fill_rate": 0.750918,
+    "total_shipped": 45142.1489,
+    "total_arrived": 12573.6312,
+    "total_produced": 2605.5657,
+    "avg_inventory": 1045876.6154,
+    "ending_inventory": 1033640.4152,
+    "total_transport_cost": 21744.4728,
+    "total_holding_cost": 1248572.3661,
+    "total_purchase_cost": 2844.6636,
+    "total_logistics_cost": 1270316.8388,
+    "total_cost": 1273161.5024,
     "total_external_procured_ordered_qty": 43491.6812,
     "total_external_procured_arrived_qty": 43057.6346,
-    "total_external_procured_rejected_qty": 19714.2381,
+    "total_external_procured_rejected_qty": 19713.8923,
     "total_external_procured_qty": 43491.6812,
     "total_external_procurement_cost": 3518.4168,
     "total_opening_stock_bootstrap_qty": 1060029.4897,
     "total_unreliable_loss_qty": 694.0,
-    "total_supplier_capacity_binding_qty": 42650.7805,
-    "cost_share_holding": 0.980805,
-    "cost_share_transport": 0.016969,
-    "cost_share_purchase": 0.002226
+    "total_supplier_capacity_binding_qty": 42640.3445,
+    "cost_share_holding": 0.980687,
+    "cost_share_transport": 0.017079,
+    "cost_share_purchase": 0.002234
   },
   "economic_consistency": {
     "status": "warn",
@@ -1155,12 +1155,12 @@
     {
       "node_id": "C-XXXXX",
       "item_id": "item:268091",
-      "backlog": 175.1697
+      "backlog": 200.1697
     },
     {
       "node_id": "C-XXXXX",
       "item_id": "item:268967",
-      "backlog": 161.0169
+      "backlog": 170.3403
     }
   ]
 }

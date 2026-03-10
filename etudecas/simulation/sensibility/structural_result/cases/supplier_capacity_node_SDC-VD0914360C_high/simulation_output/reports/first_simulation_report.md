@@ -40,19 +40,19 @@
 - Fill rate: 0.553381
 - Ending backlog: 1300.7779
 - Total produced: 4278.7768
-- Total shipped: 11200.9977
-- Avg inventory: 510963.357
-- Ending inventory: 498515.9678
-- Transport cost: 9857.3335
-- Holding cost: 1221290.5116
-- Purchase cost (from order_terms sell_price): 10124.425
-- Logistics cost (transport + holding): 1231147.845
-- Total cost: 1241272.2701
+- Total shipped: 11219.6414
+- Avg inventory: 510461.9185
+- Ending inventory: 498414.6339
+- Transport cost: 9874.6771
+- Holding cost: 1220271.49
+- Purchase cost (from order_terms sell_price): 10125.62
+- Logistics cost (transport + holding): 1230146.1671
+- Total cost: 1240271.7872
 - Total external procured ordered qty: 0.0
 - Total external procured arrived qty: 0.0
 - Total external procured rejected qty (cap-limited): 0.0
 - Total external procurement cost premium: 0.0
-- Cost share holding / transport / purchase: 0.983902 / 0.007941 / 0.008156
+- Cost share holding / transport / purchase: 0.983874 / 0.007962 / 0.008164
 - Total opening stock bootstrap qty: 529924.7449
 - Total unreliable supplier loss qty: 0.0
 - Total supplier capacity binding qty: 2299.6819

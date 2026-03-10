@@ -36,23 +36,23 @@
 
 ## KPIs
 - Total demand: 2912.5
-- Total served: 1583.7565
-- Fill rate: 0.543779
-- Ending backlog: 1328.7435
-- Total produced: 4278.7768
-- Total shipped: 11191.6758
-- Avg inventory: 510896.8925
-- Ending inventory: 498418.0364
-- Transport cost: 9850.8483
-- Holding cost: 1221381.5206
-- Purchase cost (from order_terms sell_price): 10124.3318
-- Logistics cost (transport + holding): 1231232.3688
-- Total cost: 1241356.7007
+- Total served: 1616.3831
+- Fill rate: 0.554981
+- Ending backlog: 1296.1169
+- Total produced: 4285.8956
+- Total shipped: 11217.6763
+- Avg inventory: 510824.8487
+- Ending inventory: 498127.5112
+- Transport cost: 9872.2467
+- Holding cost: 1221084.9326
+- Purchase cost (from order_terms sell_price): 10126.3943
+- Logistics cost (transport + holding): 1230957.1792
+- Total cost: 1241083.5735
 - Total external procured ordered qty: 0.0
 - Total external procured arrived qty: 0.0
 - Total external procured rejected qty (cap-limited): 0.0
 - Total external procurement cost premium: 0.0
-- Cost share holding / transport / purchase: 0.983909 / 0.007936 / 0.008156
+- Cost share holding / transport / purchase: 0.983886 / 0.007955 / 0.008159
 - Total opening stock bootstrap qty: 529924.7449
 - Total unreliable supplier loss qty: 0.0
 - Total supplier capacity binding qty: 2474.9484
@@ -64,7 +64,7 @@
   {
     "node_id": "C-XXXXX",
     "item_id": "item:268967",
-    "backlog": 1011.656
+    "backlog": 979.0295
   },
   {
     "node_id": "C-XXXXX",
