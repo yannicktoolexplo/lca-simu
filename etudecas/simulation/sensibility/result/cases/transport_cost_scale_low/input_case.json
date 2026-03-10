@@ -39,6 +39,22 @@
         "Missing/default values were replaced with explicit assumptions for first-pass simulation.",
         "Review simulation_prep_report before running production scenarios."
       ]
+    },
+    "baseline_calibration": {
+      "target": "annual_fill_rate_around_0.90",
+      "applied_on_utc": "2026-03-10T16:25:37.845210+00:00",
+      "factors": {
+        "supplier_reliability_scale": 0.96,
+        "supplier_stock_scale": 0.95,
+        "external_procurement_daily_cap_days_scale": 0.8,
+        "external_procurement_lead_days_scale": 1.25
+      },
+      "capacity_node_scale": {},
+      "supplier_node_scale": {},
+      "supplier_capacity_node_scale": {},
+      "edge_src_reliability_scale": {},
+      "backup_file": "etudecas/simulation_prep/result/supply_graph_poc_simulation_ready_pre_supplier_sensitivity_rebalance.json",
+      "source_file": "etudecas/simulation_prep/result/supply_graph_poc_simulation_ready_pre_target90.json"
     }
   },
   "defaults": {
@@ -1173,7 +1189,7 @@
           {
             "item_id": "item:038005",
             "state_id": "I_038005",
-            "initial": 180.0,
+            "initial": 171.0,
             "uom": "KG",
             "holding_cost": {
               "value": 0.04,
@@ -1187,7 +1203,7 @@
           {
             "item_id": "item:049371",
             "state_id": "I_049371",
-            "initial": 180.0,
+            "initial": 171.0,
             "uom": "KG",
             "holding_cost": {
               "value": 0.04,
@@ -1251,7 +1267,7 @@
           {
             "item_id": "item:042342",
             "state_id": "I_042342",
-            "initial": 180.0,
+            "initial": 171.0,
             "uom": "UN",
             "holding_cost": {
               "value": 0.04,
@@ -1361,7 +1377,7 @@
           {
             "item_id": "item:333362",
             "state_id": "I_333362",
-            "initial": 180.0,
+            "initial": 171.0,
             "uom": "UN",
             "holding_cost": {
               "value": 0.04,
@@ -1425,7 +1441,7 @@
           {
             "item_id": "item:344135",
             "state_id": "I_344135",
-            "initial": 180.0,
+            "initial": 171.0,
             "uom": "UN",
             "holding_cost": {
               "value": 0.04,
@@ -1489,7 +1505,7 @@
           {
             "item_id": "item:708073",
             "state_id": "I_708073",
-            "initial": 180.0,
+            "initial": 171.0,
             "uom": "KG",
             "holding_cost": {
               "value": 0.04,
@@ -1553,7 +1569,7 @@
           {
             "item_id": "item:730384",
             "state_id": "I_730384",
-            "initial": 180.0,
+            "initial": 171.0,
             "uom": "M",
             "holding_cost": {
               "value": 0.04,
@@ -1617,7 +1633,7 @@
           {
             "item_id": "item:734545",
             "state_id": "I_734545",
-            "initial": 180.0,
+            "initial": 171.0,
             "uom": "UN",
             "holding_cost": {
               "value": 0.04,
@@ -1681,7 +1697,7 @@
           {
             "item_id": "item:001757",
             "state_id": "I_001757",
-            "initial": 180.0,
+            "initial": 171.0,
             "uom": "KG",
             "holding_cost": {
               "value": 0.04,
@@ -1695,7 +1711,7 @@
           {
             "item_id": "item:001848",
             "state_id": "I_001848",
-            "initial": 180.0,
+            "initial": 171.0,
             "uom": "KG",
             "holding_cost": {
               "value": 0.04,
@@ -1759,7 +1775,7 @@
           {
             "item_id": "item:001848",
             "state_id": "I_001848",
-            "initial": 180.0,
+            "initial": 171.0,
             "uom": "KG",
             "holding_cost": {
               "value": 0.04,
@@ -1773,7 +1789,7 @@
           {
             "item_id": "item:029313",
             "state_id": "I_029313",
-            "initial": 180.0,
+            "initial": 171.0,
             "uom": "KG",
             "holding_cost": {
               "value": 0.04,
@@ -1837,7 +1853,7 @@
           {
             "item_id": "item:001893",
             "state_id": "I_001893",
-            "initial": 180.0,
+            "initial": 171.0,
             "uom": "KG",
             "holding_cost": {
               "value": 0.04,
@@ -1901,7 +1917,7 @@
           {
             "item_id": "item:001893",
             "state_id": "I_001893",
-            "initial": 180.0,
+            "initial": 171.0,
             "uom": "KG",
             "holding_cost": {
               "value": 0.04,
@@ -1915,7 +1931,7 @@
           {
             "item_id": "item:002612",
             "state_id": "I_002612",
-            "initial": 180.0,
+            "initial": 171.0,
             "uom": "KG",
             "holding_cost": {
               "value": 0.04,
@@ -1979,7 +1995,7 @@
           {
             "item_id": "item:001893",
             "state_id": "I_001893",
-            "initial": 180.0,
+            "initial": 171.0,
             "uom": "KG",
             "holding_cost": {
               "value": 0.04,
@@ -1993,7 +2009,7 @@
           {
             "item_id": "item:002612",
             "state_id": "I_002612",
-            "initial": 180.0,
+            "initial": 171.0,
             "uom": "KG",
             "holding_cost": {
               "value": 0.04,
@@ -2057,7 +2073,7 @@
           {
             "item_id": "item:002612",
             "state_id": "I_002612",
-            "initial": 180.0,
+            "initial": 171.0,
             "uom": "KG",
             "holding_cost": {
               "value": 0.04,
@@ -2121,7 +2137,7 @@
           {
             "item_id": "item:002612",
             "state_id": "I_002612",
-            "initial": 180.0,
+            "initial": 171.0,
             "uom": "KG",
             "holding_cost": {
               "value": 0.04,
@@ -2185,7 +2201,7 @@
           {
             "item_id": "item:016332",
             "state_id": "I_016332",
-            "initial": 180.0,
+            "initial": 171.0,
             "uom": "KG",
             "holding_cost": {
               "value": 0.04,
@@ -2249,7 +2265,7 @@
           {
             "item_id": "item:039668",
             "state_id": "I_039668",
-            "initial": 180.0,
+            "initial": 171.0,
             "uom": "KG",
             "holding_cost": {
               "value": 0.04,
@@ -2313,7 +2329,7 @@
           {
             "item_id": "item:055703",
             "state_id": "I_055703",
-            "initial": 180.0,
+            "initial": 171.0,
             "uom": "KG",
             "holding_cost": {
               "value": 0.04,
@@ -2377,7 +2393,7 @@
           {
             "item_id": "item:055703",
             "state_id": "I_055703",
-            "initial": 180.0,
+            "initial": 171.0,
             "uom": "KG",
             "holding_cost": {
               "value": 0.04,
@@ -2441,7 +2457,7 @@
           {
             "item_id": "item:099439",
             "state_id": "I_099439",
-            "initial": 180.0,
+            "initial": 171.0,
             "uom": "KG",
             "holding_cost": {
               "value": 0.04,
@@ -2505,7 +2521,7 @@
           {
             "item_id": "item:338928",
             "state_id": "I_338928",
-            "initial": 180.0,
+            "initial": 171.0,
             "uom": "UN",
             "holding_cost": {
               "value": 0.04,
@@ -2569,7 +2585,7 @@
           {
             "item_id": "item:338929",
             "state_id": "I_338929",
-            "initial": 180.0,
+            "initial": 171.0,
             "uom": "UN",
             "holding_cost": {
               "value": 0.04,
@@ -2633,7 +2649,7 @@
           {
             "item_id": "item:426331",
             "state_id": "I_426331",
-            "initial": 180.0,
+            "initial": 171.0,
             "uom": "UN",
             "holding_cost": {
               "value": 0.04,
@@ -2965,7 +2981,7 @@
           {
             "item_id": "item:021081",
             "state_id": "I_021081",
-            "initial": 180.0,
+            "initial": 171.0,
             "uom": "KG",
             "holding_cost": {
               "value": 0.04,
@@ -3029,7 +3045,7 @@
           {
             "item_id": "item:021081",
             "state_id": "I_021081",
-            "initial": 180.0,
+            "initial": 171.0,
             "uom": "KG",
             "holding_cost": {
               "value": 0.04,
@@ -3093,7 +3109,7 @@
           {
             "item_id": "item:021081",
             "state_id": "I_021081",
-            "initial": 180.0,
+            "initial": 171.0,
             "uom": "KG",
             "holding_cost": {
               "value": 0.04,
@@ -3157,7 +3173,7 @@
           {
             "item_id": "item:021081",
             "state_id": "I_021081",
-            "initial": 180.0,
+            "initial": 171.0,
             "uom": "KG",
             "holding_cost": {
               "value": 0.04,
@@ -3229,7 +3245,7 @@
         "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.03992,
+        "value": 0.15968,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -3250,7 +3266,7 @@
         "pricing_currency": "EUR"
       },
       "service_level": {
-        "otif": 1.0
+        "otif": 0.96
       }
     },
     {
@@ -3279,7 +3295,7 @@
         "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.09302,
+        "value": 0.37208,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -3300,7 +3316,7 @@
         "pricing_currency": "EUR"
       },
       "service_level": {
-        "otif": 1.0
+        "otif": 0.96
       }
     },
     {
@@ -3329,7 +3345,7 @@
         "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.06942,
+        "value": 0.27768,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -3350,7 +3366,7 @@
         "pricing_currency": "EUR"
       },
       "service_level": {
-        "otif": 1.0
+        "otif": 0.96
       }
     },
     {
@@ -3379,7 +3395,7 @@
         "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.065,
+        "value": 0.26,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -3400,7 +3416,7 @@
         "pricing_currency": "EUR"
       },
       "service_level": {
-        "otif": 1.0
+        "otif": 0.96
       }
     },
     {
@@ -3429,7 +3445,7 @@
         "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.1134,
+        "value": 0.4536,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -3450,7 +3466,7 @@
         "pricing_currency": "EUR"
       },
       "service_level": {
-        "otif": 1.0
+        "otif": 0.96
       }
     },
     {
@@ -3479,7 +3495,7 @@
         "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.04032,
+        "value": 0.16128,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -3500,7 +3516,7 @@
         "pricing_currency": "EUR"
       },
       "service_level": {
-        "otif": 1.0
+        "otif": 0.96
       }
     },
     {
@@ -3529,7 +3545,7 @@
         "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.05756,
+        "value": 0.23024,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -3550,7 +3566,7 @@
         "pricing_currency": "EUR"
       },
       "service_level": {
-        "otif": 1.0
+        "otif": 0.96
       }
     },
     {
@@ -3579,7 +3595,7 @@
         "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.09976,
+        "value": 0.39904,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -3600,7 +3616,7 @@
         "pricing_currency": "EUR"
       },
       "service_level": {
-        "otif": 1.0
+        "otif": 0.96
       }
     },
     {
@@ -3629,7 +3645,7 @@
         "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.1314,
+        "value": 0.5256,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -3650,7 +3666,7 @@
         "pricing_currency": "EUR"
       },
       "service_level": {
-        "otif": 1.0
+        "otif": 0.96
       }
     },
     {
@@ -3679,7 +3695,7 @@
         "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.03094,
+        "value": 0.12376,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -3700,7 +3716,7 @@
         "pricing_currency": "EUR"
       },
       "service_level": {
-        "otif": 1.0
+        "otif": 0.96
       }
     },
     {
@@ -3729,7 +3745,7 @@
         "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.1314,
+        "value": 0.5256,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -3750,7 +3766,7 @@
         "pricing_currency": "EUR"
       },
       "service_level": {
-        "otif": 1.0
+        "otif": 0.96
       }
     },
     {
@@ -3779,7 +3795,7 @@
         "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.26998,
+        "value": 1.07992,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -3800,7 +3816,7 @@
         "pricing_currency": "EUR"
       },
       "service_level": {
-        "otif": 1.0
+        "otif": 0.96
       }
     },
     {
@@ -3829,7 +3845,7 @@
         "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.06348,
+        "value": 0.25392,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -3850,7 +3866,7 @@
         "pricing_currency": "EUR"
       },
       "service_level": {
-        "otif": 1.0
+        "otif": 0.96
       }
     },
     {
@@ -3879,7 +3895,7 @@
         "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.14454,
+        "value": 0.57816,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -3900,7 +3916,7 @@
         "pricing_currency": "EUR"
       },
       "service_level": {
-        "otif": 1.0
+        "otif": 0.96
       }
     },
     {
@@ -3929,7 +3945,7 @@
         "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.21034,
+        "value": 0.84136,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -3950,7 +3966,7 @@
         "pricing_currency": "EUR"
       },
       "service_level": {
-        "otif": 1.0
+        "otif": 0.96
       }
     },
     {
@@ -3979,7 +3995,7 @@
         "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.06348,
+        "value": 0.25392,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -4000,7 +4016,7 @@
         "pricing_currency": "EUR"
       },
       "service_level": {
-        "otif": 1.0
+        "otif": 0.96
       }
     },
     {
@@ -4029,7 +4045,7 @@
         "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.11678,
+        "value": 0.46712,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -4050,7 +4066,7 @@
         "pricing_currency": "EUR"
       },
       "service_level": {
-        "otif": 1.0
+        "otif": 0.96
       }
     },
     {
@@ -4079,7 +4095,7 @@
         "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.14454,
+        "value": 0.57816,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -4100,7 +4116,7 @@
         "pricing_currency": "EUR"
       },
       "service_level": {
-        "otif": 1.0
+        "otif": 0.96
       }
     },
     {
@@ -4129,7 +4145,7 @@
         "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.37312,
+        "value": 1.49248,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -4150,7 +4166,7 @@
         "pricing_currency": "EUR"
       },
       "service_level": {
-        "otif": 1.0
+        "otif": 0.96
       }
     },
     {
@@ -4179,7 +4195,7 @@
         "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.03094,
+        "value": 0.12376,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -4200,7 +4216,7 @@
         "pricing_currency": "EUR"
       },
       "service_level": {
-        "otif": 1.0
+        "otif": 0.96
       }
     },
     {
@@ -4229,7 +4245,7 @@
         "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.13108,
+        "value": 0.52432,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -4250,7 +4266,7 @@
         "pricing_currency": "EUR"
       },
       "service_level": {
-        "otif": 1.0
+        "otif": 0.96
       }
     },
     {
@@ -4279,7 +4295,7 @@
         "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.13626,
+        "value": 0.54504,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -4300,7 +4316,7 @@
         "pricing_currency": "EUR"
       },
       "service_level": {
-        "otif": 1.0
+        "otif": 0.96
       }
     },
     {
@@ -4329,7 +4345,7 @@
         "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.05086,
+        "value": 0.20344,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -4350,7 +4366,7 @@
         "pricing_currency": "EUR"
       },
       "service_level": {
-        "otif": 1.0
+        "otif": 0.96
       }
     },
     {
@@ -4379,7 +4395,7 @@
         "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.13108,
+        "value": 0.52432,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -4400,7 +4416,7 @@
         "pricing_currency": "EUR"
       },
       "service_level": {
-        "otif": 1.0
+        "otif": 0.96
       }
     },
     {
@@ -4429,7 +4445,7 @@
         "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.17246,
+        "value": 0.68984,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -4450,7 +4466,7 @@
         "pricing_currency": "EUR"
       },
       "service_level": {
-        "otif": 1.0
+        "otif": 0.96
       }
     },
     {
@@ -4479,7 +4495,7 @@
         "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.13994,
+        "value": 0.55976,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -4500,7 +4516,7 @@
         "pricing_currency": "EUR"
       },
       "service_level": {
-        "otif": 1.0
+        "otif": 0.96
       }
     },
     {
@@ -4529,7 +4545,7 @@
         "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.07228,
+        "value": 0.28912,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -4550,7 +4566,7 @@
         "pricing_currency": "EUR"
       },
       "service_level": {
-        "otif": 1.0
+        "otif": 0.96
       }
     },
     {
@@ -4579,7 +4595,7 @@
         "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.07296,
+        "value": 0.29184,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -4600,7 +4616,7 @@
         "pricing_currency": "EUR"
       },
       "service_level": {
-        "otif": 1.0
+        "otif": 0.96
       }
     },
     {
@@ -4629,7 +4645,7 @@
         "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.02752,
+        "value": 0.11008,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -4650,7 +4666,7 @@
         "pricing_currency": "EUR"
       },
       "service_level": {
-        "otif": 1.0
+        "otif": 0.96
       }
     },
     {
@@ -4679,7 +4695,7 @@
         "source": "data_poc_relations_acteurs"
       },
       "transport_cost": {
-        "value": 0.11186,
+        "value": 0.44744,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -4693,7 +4709,7 @@
         "source_row": 29
       },
       "service_level": {
-        "otif": 1.0
+        "otif": 0.96
       }
     },
     {
@@ -4722,7 +4738,7 @@
         "source": "data_poc_relations_acteurs"
       },
       "transport_cost": {
-        "value": 0.0378,
+        "value": 0.1512,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -4736,7 +4752,7 @@
         "source_row": 30
       },
       "service_level": {
-        "otif": 1.0
+        "otif": 0.96
       }
     },
     {
@@ -4765,7 +4781,7 @@
         "source": "data_poc_relations_acteurs"
       },
       "transport_cost": {
-        "value": 0.13914,
+        "value": 0.55656,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -4779,7 +4795,7 @@
         "source_row": 31
       },
       "service_level": {
-        "otif": 1.0
+        "otif": 0.96
       }
     },
     {
@@ -4808,7 +4824,7 @@
         "source": "data_poc_relations_acteurs"
       },
       "transport_cost": {
-        "value": 0.13914,
+        "value": 0.55656,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -4822,7 +4838,7 @@
         "source_row": 32
       },
       "service_level": {
-        "otif": 1.0
+        "otif": 0.96
       }
     },
     {
@@ -4851,7 +4867,7 @@
         "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 1.71616,
+        "value": 6.86464,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -4871,7 +4887,7 @@
         "pricing_currency": "USD"
       },
       "service_level": {
-        "otif": 1.0
+        "otif": 0.96
       }
     },
     {
@@ -4900,7 +4916,7 @@
         "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 1.71616,
+        "value": 6.86464,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -4920,7 +4936,7 @@
         "pricing_currency": "USD"
       },
       "service_level": {
-        "otif": 1.0
+        "otif": 0.96
       }
     },
     {
@@ -4949,7 +4965,7 @@
         "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 1.71616,
+        "value": 6.86464,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -4969,7 +4985,7 @@
         "pricing_currency": "USD"
       },
       "service_level": {
-        "otif": 1.0
+        "otif": 0.96
       }
     },
     {
@@ -4998,7 +5014,7 @@
         "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 1.71616,
+        "value": 6.86464,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -5018,7 +5034,7 @@
         "pricing_currency": "USD"
       },
       "service_level": {
-        "otif": 1.0
+        "otif": 0.96
       }
     },
     {
@@ -5051,7 +5067,7 @@
       },
       "distance_km": 0.0,
       "transport_cost": {
-        "value": 0.01,
+        "value": 0.04,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_gaillac_question_mark_assumption"
@@ -5065,7 +5081,7 @@
       "assumption_label": "GAILLAC?",
       "source": "simulation_prep_gaillac_question_mark_assumption",
       "service_level": {
-        "otif": 1.0
+        "otif": 0.96
       }
     }
   ],
@@ -5358,13 +5374,13 @@
       "production_gap_gain": 0.25,
       "production_smoothing": 0.2,
       "economic_policy": {
-        "transport_cost_floor_per_unit": 0.004,
-        "transport_cost_per_km_per_unit": 1.6e-05,
-        "external_procurement_transport_cost_per_unit": 0.008,
+        "transport_cost_floor_per_unit": 0.016,
+        "transport_cost_per_km_per_unit": 6.4e-05,
+        "external_procurement_transport_cost_per_unit": 0.032,
         "holding_cost_scale": 1.0,
         "purchase_cost_floor_per_unit": 0.01,
-        "external_procurement_daily_cap_days": 2.0,
-        "external_procurement_lead_days": 4,
+        "external_procurement_daily_cap_days": 1.6,
+        "external_procurement_lead_days": 5,
         "external_procurement_cost_multiplier": 2.0
       }
     }

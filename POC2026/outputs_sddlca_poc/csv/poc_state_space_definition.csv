@@ -1,0 +1,6 @@
+component,location,description
+backlog,state_start_backlog / state_end_backlog,Unserved demand carried from one week to the next.
+main_pipeline_eta_i,state_*_main_pipeline_eta_0..n,Main-supplier replenishment pipeline by time-to-arrival bucket.
+backup_pipeline_eta_i,state_*_backup_pipeline_eta_0..n,Backup-supplier replenishment pipeline by time-to-arrival bucket.
+raw_inventory_layers,state_*_raw_inventory_layers,FIFO raw-material batches with source provenance and quantity.
+fg_inventory_layers,state_*_fg_inventory_layers,FIFO finished-goods batches with source provenance and quantity.
