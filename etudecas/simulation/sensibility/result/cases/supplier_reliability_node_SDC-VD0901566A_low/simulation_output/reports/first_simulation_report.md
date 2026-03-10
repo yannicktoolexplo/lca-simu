@@ -36,25 +36,26 @@
 
 ## KPIs
 - Total demand: 1487.5
-- Total served: 1180.9728
-- Fill rate: 0.793931
-- Ending backlog: 306.5272
+- Total served: 1151.3134
+- Fill rate: 0.773992
+- Ending backlog: 336.1866
 - Total produced: 2600.9048
-- Total shipped: 44979.2775
-- Avg inventory: 1043910.258
-- Ending inventory: 1030831.745
-- Transport cost: 21703.4056
-- Holding cost: 1246169.3907
-- Purchase cost (from order_terms sell_price): 2878.7341
-- Logistics cost (transport + holding): 1267872.7962
-- Total cost: 1270751.5303
-- Total external procured ordered qty: 43585.6812
-- Total external procured arrived qty: 43151.6346
-- Total external procured rejected qty (cap-limited): 22570.3016
-- Total external procurement cost premium: 3548.7431
-- Cost share holding / transport / purchase: 0.980655 / 0.017079 / 0.002265
+- Total shipped: 44887.5288
+- Avg inventory: 1047454.8354
+- Ending inventory: 1042732.8409
+- Transport cost: 21635.4204
+- Holding cost: 1250499.4674
+- Purchase cost (from order_terms sell_price): 2838.2638
+- Logistics cost (transport + holding): 1272134.8878
+- Total cost: 1274973.1516
+- Total external procured ordered qty: 43491.6812
+- Total external procured arrived qty: 43057.6346
+- Total external procured rejected qty (cap-limited): 19714.2381
+- Total external procurement cost premium: 3518.4168
+- Cost share holding / transport / purchase: 0.980805 / 0.016969 / 0.002226
 - Total opening stock bootstrap qty: 1060029.4897
-- Total unreliable supplier loss qty: 1089.6
+- Total unreliable supplier loss qty: 694.0
+- Total supplier capacity binding qty: 42650.7805
 - Economic consistency status: warn
 - Economic consistency warnings: ['holding_cost_share_above_90pct', 'transport_cost_share_below_2pct', 'purchase_cost_share_below_2pct']
 
@@ -62,13 +63,13 @@
 [
   {
     "node_id": "C-XXXXX",
-    "item_id": "item:268967",
-    "backlog": 156.3575
+    "item_id": "item:268091",
+    "backlog": 175.1697
   },
   {
     "node_id": "C-XXXXX",
-    "item_id": "item:268091",
-    "backlog": 150.1697
+    "item_id": "item:268967",
+    "backlog": 161.0169
   }
 ]
 
@@ -85,6 +86,7 @@
 - data/production_constraint_daily.csv
 - data/production_supplier_shipments_daily.csv
 - data/production_supplier_stocks_daily.csv
+- data/production_supplier_capacity_daily.csv
 - data/production_dc_stocks_daily.csv
 - production_input_stocks_by_material_*.png (not generated)
 - production_output_products.png (not generated)

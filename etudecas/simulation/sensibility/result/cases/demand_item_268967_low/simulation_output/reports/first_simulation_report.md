@@ -36,25 +36,26 @@
 
 ## KPIs
 - Total demand: 892.5
-- Total served: 665.615
-- Fill rate: 0.745787
-- Ending backlog: 226.885
+- Total served: 684.3746
+- Fill rate: 0.766806
+- Ending backlog: 208.1254
 - Total produced: 2049.7894
-- Total shipped: 16285.6476
-- Avg inventory: 1062939.6941
-- Ending inventory: 1059474.874
-- Transport cost: 7174.4211
-- Holding cost: 1265947.2381
-- Purchase cost (from order_terms sell_price): 1358.7476
-- Logistics cost (transport + holding): 1273121.6592
-- Total cost: 1274480.4068
+- Total shipped: 16279.3976
+- Avg inventory: 1062950.0038
+- Ending inventory: 1059643.1062
+- Transport cost: 7169.848
+- Holding cost: 1265966.3158
+- Purchase cost (from order_terms sell_price): 1351.2989
+- Logistics cost (transport + holding): 1273136.1638
+- Total cost: 1274487.4627
 - Total external procured ordered qty: 12253.1358
 - Total external procured arrived qty: 11955.4397
 - Total external procured rejected qty (cap-limited): 617.6224
 - Total external procurement cost premium: 1185.2566
-- Cost share holding / transport / purchase: 0.993305 / 0.005629 / 0.001066
+- Cost share holding / transport / purchase: 0.993314 / 0.005626 / 0.00106
 - Total opening stock bootstrap qty: 1060029.4897
 - Total unreliable supplier loss qty: 0.0
+- Total supplier capacity binding qty: 477.1105
 - Economic consistency status: warn
 - Economic consistency warnings: ['holding_cost_share_above_90pct', 'transport_cost_share_below_2pct', 'purchase_cost_share_below_2pct']
 
@@ -63,12 +64,12 @@
   {
     "node_id": "C-XXXXX",
     "item_id": "item:268091",
-    "backlog": 198.2942
+    "backlog": 175.1697
   },
   {
     "node_id": "C-XXXXX",
     "item_id": "item:268967",
-    "backlog": 28.5908
+    "backlog": 32.9557
   }
 ]
 
@@ -85,6 +86,7 @@
 - data/production_constraint_daily.csv
 - data/production_supplier_shipments_daily.csv
 - data/production_supplier_stocks_daily.csv
+- data/production_supplier_capacity_daily.csv
 - data/production_dc_stocks_daily.csv
 - production_input_stocks_by_material_*.png (not generated)
 - production_output_products.png (not generated)

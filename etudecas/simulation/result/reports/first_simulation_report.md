@@ -36,25 +36,26 @@
 
 ## KPIs
 - Total demand: 1487.5
-- Total served: 1171.6524
-- Fill rate: 0.787666
-- Ending backlog: 315.8476
-- Total produced: 2610.2267
-- Total shipped: 45988.6462
-- Avg inventory: 1045717.0788
-- Ending inventory: 1035949.2243
-- Transport cost: 22239.9661
-- Holding cost: 1248373.7888
-- Purchase cost (from order_terms sell_price): 2746.5618
-- Logistics cost (transport + holding): 1270613.7549
-- Total cost: 1273360.3167
-- Total external procured ordered qty: 42871.1216
+- Total served: 1162.1606
+- Fill rate: 0.781284
+- Ending backlog: 325.3394
+- Total produced: 2614.8876
+- Total shipped: 46208.4339
+- Avg inventory: 1046128.9486
+- Ending inventory: 1033961.4795
+- Transport cost: 22323.3389
+- Holding cost: 1248863.4761
+- Purchase cost (from order_terms sell_price): 2743.7201
+- Logistics cost (transport + holding): 1271186.8149
+- Total cost: 1273930.5351
+- Total external procured ordered qty: 42873.2405
 - Total external procured arrived qty: 42489.9504
-- Total external procured rejected qty (cap-limited): 18148.2001
-- Total external procurement cost premium: 3318.2119
-- Cost share holding / transport / purchase: 0.980377 / 0.017466 / 0.002157
+- Total external procured rejected qty (cap-limited): 18138.8782
+- Total external procurement cost premium: 3318.8968
+- Cost share holding / transport / purchase: 0.980323 / 0.017523 / 0.002154
 - Total opening stock bootstrap qty: 1060029.4897
 - Total unreliable supplier loss qty: 0.0
+- Total supplier capacity binding qty: 39143.1929
 - Economic consistency status: warn
 - Economic consistency warnings: ['holding_cost_share_above_90pct', 'transport_cost_share_below_2pct', 'purchase_cost_share_below_2pct']
 
@@ -63,7 +64,7 @@
   {
     "node_id": "C-XXXXX",
     "item_id": "item:268967",
-    "backlog": 165.6779
+    "backlog": 175.1697
   },
   {
     "node_id": "C-XXXXX",
@@ -85,10 +86,11 @@
 - data/production_constraint_daily.csv
 - data/production_supplier_shipments_daily.csv
 - data/production_supplier_stocks_daily.csv
+- data/production_supplier_capacity_daily.csv
 - data/production_dc_stocks_daily.csv
 - production_input_stocks_by_material_*.png (etudecas/simulation/result/plots/factories/input_stocks/production_input_stocks_by_material_M-1430.png, etudecas/simulation/result/plots/factories/input_stocks/production_input_stocks_by_material_M-1810.png, etudecas/simulation/result/plots/factories/input_stocks/production_input_stocks_by_material_SDC-1450.png)
 - production_output_products.png (etudecas/simulation/result/plots/factories/output_products/production_output_products.png)
 - production_output_products_by_factory_*.png (etudecas/simulation/result/plots/factories/output_products/production_output_products_by_factory_M-1430.png, etudecas/simulation/result/plots/factories/output_products/production_output_products_by_factory_M-1810.png, etudecas/simulation/result/plots/factories/output_products/production_output_products_by_factory_SDC-1450.png)
 - production_supplier_input_stocks_by_material_*.png (etudecas/simulation/result/plots/suppliers/input_stocks/production_supplier_input_stocks_by_material_SDC-1450.png, etudecas/simulation/result/plots/suppliers/input_stocks/production_supplier_input_stocks_by_material_SDC-VD0500655A.png, etudecas/simulation/result/plots/suppliers/input_stocks/production_supplier_input_stocks_by_material_SDC-VD0505677A.png, etudecas/simulation/result/plots/suppliers/input_stocks/production_supplier_input_stocks_by_material_SDC-VD0508918A.png, etudecas/simulation/result/plots/suppliers/input_stocks/production_supplier_input_stocks_by_material_SDC-VD0514881A.png, etudecas/simulation/result/plots/suppliers/input_stocks/production_supplier_input_stocks_by_material_SDC-VD0518684A.png, etudecas/simulation/result/plots/suppliers/input_stocks/production_supplier_input_stocks_by_material_SDC-VD0519670A.png, etudecas/simulation/result/plots/suppliers/input_stocks/production_supplier_input_stocks_by_material_SDC-VD0520115A.png, etudecas/simulation/result/plots/suppliers/input_stocks/production_supplier_input_stocks_by_material_SDC-VD0520132A.png, etudecas/simulation/result/plots/suppliers/input_stocks/production_supplier_input_stocks_by_material_SDC-VD0525412A.png, etudecas/simulation/result/plots/suppliers/input_stocks/production_supplier_input_stocks_by_material_SDC-VD0901566A.png, etudecas/simulation/result/plots/suppliers/input_stocks/production_supplier_input_stocks_by_material_SDC-VD0910216A.png, etudecas/simulation/result/plots/suppliers/input_stocks/production_supplier_input_stocks_by_material_SDC-VD0914320A.png, etudecas/simulation/result/plots/suppliers/input_stocks/production_supplier_input_stocks_by_material_SDC-VD0914360C.png, etudecas/simulation/result/plots/suppliers/input_stocks/production_supplier_input_stocks_by_material_SDC-VD0914690A.png, etudecas/simulation/result/plots/suppliers/input_stocks/production_supplier_input_stocks_by_material_SDC-VD0949099A.png, etudecas/simulation/result/plots/suppliers/input_stocks/production_supplier_input_stocks_by_material_SDC-VD0951020A.png, etudecas/simulation/result/plots/suppliers/input_stocks/production_supplier_input_stocks_by_material_SDC-VD0960508A.png, etudecas/simulation/result/plots/suppliers/input_stocks/production_supplier_input_stocks_by_material_SDC-VD0964290A.png, etudecas/simulation/result/plots/suppliers/input_stocks/production_supplier_input_stocks_by_material_SDC-VD0972460A.png, etudecas/simulation/result/plots/suppliers/input_stocks/production_supplier_input_stocks_by_material_SDC-VD0975221A.png, etudecas/simulation/result/plots/suppliers/input_stocks/production_supplier_input_stocks_by_material_SDC-VD0989480A.png, etudecas/simulation/result/plots/suppliers/input_stocks/production_supplier_input_stocks_by_material_SDC-VD0990780A.png, etudecas/simulation/result/plots/suppliers/input_stocks/production_supplier_input_stocks_by_material_SDC-VD0993480A.png, etudecas/simulation/result/plots/suppliers/input_stocks/production_supplier_input_stocks_by_material_SDC-VD1091642A.png, etudecas/simulation/result/plots/suppliers/input_stocks/production_supplier_input_stocks_by_material_SDC-VD1095770A.png, etudecas/simulation/result/plots/suppliers/input_stocks/production_supplier_input_stocks_by_material_SDC-VD1096202A.png)
 - production_dc_factory_outputs_by_material_*.png (etudecas/simulation/result/plots/distribution_centers/factory_outputs/production_dc_factory_outputs_by_material_DC-1920.png)
-- maps/supply_graph_poc_geocoded_map_with_factory_hover.html (etudecas/simulation/result/maps/supply_graph_poc_geocoded_map_with_factory_hover.html)
+- maps/supply_graph_poc_geocoded_map_with_factory_hover.html (not generated)

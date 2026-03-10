@@ -1218,6 +1218,9 @@
       },
       "lca": {
         "defaults_used": true
+      },
+      "simulation_constraints": {
+        "supplier_capacity_scale": 1.0
       }
     },
     {
@@ -1279,6 +1282,9 @@
       },
       "lca": {
         "defaults_used": true
+      },
+      "simulation_constraints": {
+        "supplier_capacity_scale": 1.0
       }
     },
     {
@@ -1386,6 +1392,9 @@
       },
       "lca": {
         "defaults_used": true
+      },
+      "simulation_constraints": {
+        "supplier_capacity_scale": 1.0
       }
     },
     {
@@ -1447,6 +1456,9 @@
       },
       "lca": {
         "defaults_used": true
+      },
+      "simulation_constraints": {
+        "supplier_capacity_scale": 1.0
       }
     },
     {
@@ -1508,6 +1520,9 @@
       },
       "lca": {
         "defaults_used": true
+      },
+      "simulation_constraints": {
+        "supplier_capacity_scale": 1.0
       }
     },
     {
@@ -1569,6 +1584,9 @@
       },
       "lca": {
         "defaults_used": true
+      },
+      "simulation_constraints": {
+        "supplier_capacity_scale": 1.0
       }
     },
     {
@@ -1630,6 +1648,9 @@
       },
       "lca": {
         "defaults_used": true
+      },
+      "simulation_constraints": {
+        "supplier_capacity_scale": 1.0
       }
     },
     {
@@ -1705,6 +1726,9 @@
       },
       "lca": {
         "defaults_used": true
+      },
+      "simulation_constraints": {
+        "supplier_capacity_scale": 1.0
       }
     },
     {
@@ -1780,6 +1804,9 @@
       },
       "lca": {
         "defaults_used": true
+      },
+      "simulation_constraints": {
+        "supplier_capacity_scale": 1.0
       }
     },
     {
@@ -1841,6 +1868,9 @@
       },
       "lca": {
         "defaults_used": true
+      },
+      "simulation_constraints": {
+        "supplier_capacity_scale": 1.0
       }
     },
     {
@@ -1916,6 +1946,9 @@
       },
       "lca": {
         "defaults_used": true
+      },
+      "simulation_constraints": {
+        "supplier_capacity_scale": 1.0
       }
     },
     {
@@ -1991,6 +2024,9 @@
       },
       "lca": {
         "defaults_used": true
+      },
+      "simulation_constraints": {
+        "supplier_capacity_scale": 1.0
       }
     },
     {
@@ -2052,6 +2088,9 @@
       },
       "lca": {
         "defaults_used": true
+      },
+      "simulation_constraints": {
+        "supplier_capacity_scale": 1.0
       }
     },
     {
@@ -2113,6 +2152,9 @@
       },
       "lca": {
         "defaults_used": true
+      },
+      "simulation_constraints": {
+        "supplier_capacity_scale": 1.0
       }
     },
     {
@@ -2174,6 +2216,9 @@
       },
       "lca": {
         "defaults_used": true
+      },
+      "simulation_constraints": {
+        "supplier_capacity_scale": 1.0
       }
     },
     {
@@ -2235,6 +2280,9 @@
       },
       "lca": {
         "defaults_used": true
+      },
+      "simulation_constraints": {
+        "supplier_capacity_scale": 1.0
       }
     },
     {
@@ -2296,6 +2344,9 @@
       },
       "lca": {
         "defaults_used": true
+      },
+      "simulation_constraints": {
+        "supplier_capacity_scale": 1.0
       }
     },
     {
@@ -2357,6 +2408,9 @@
       },
       "lca": {
         "defaults_used": true
+      },
+      "simulation_constraints": {
+        "supplier_capacity_scale": 1.0
       }
     },
     {
@@ -2418,6 +2472,9 @@
       },
       "lca": {
         "defaults_used": true
+      },
+      "simulation_constraints": {
+        "supplier_capacity_scale": 1.0
       }
     },
     {
@@ -2479,6 +2536,9 @@
       },
       "lca": {
         "defaults_used": true
+      },
+      "simulation_constraints": {
+        "supplier_capacity_scale": 1.0
       }
     },
     {
@@ -2540,6 +2600,9 @@
       },
       "lca": {
         "defaults_used": true
+      },
+      "simulation_constraints": {
+        "supplier_capacity_scale": 1.0
       }
     },
     {
@@ -2601,6 +2664,9 @@
       },
       "lca": {
         "defaults_used": true
+      },
+      "simulation_constraints": {
+        "supplier_capacity_scale": 1.0
       }
     },
     {
@@ -2874,6 +2940,9 @@
           "label": "GAILLAC?",
           "source": "simulation_prep_gaillac_question_mark_assumption"
         }
+      },
+      "simulation_constraints": {
+        "supplier_capacity_scale": 1.0
       }
     },
     {
@@ -2935,7 +3004,10 @@
       "defaults": {
         "geo": false
       },
-      "role_raw": "Supplier Distribution Center"
+      "role_raw": "Supplier Distribution Center",
+      "simulation_constraints": {
+        "supplier_capacity_scale": 1.0
+      }
     },
     {
       "id": "SDC-VD0960508A",
@@ -2996,7 +3068,10 @@
       "defaults": {
         "geo": false
       },
-      "role_raw": "Supplier Distribution Center"
+      "role_raw": "Supplier Distribution Center",
+      "simulation_constraints": {
+        "supplier_capacity_scale": 1.0
+      }
     },
     {
       "id": "SDC-VD0972460A",
@@ -3057,7 +3132,10 @@
       "defaults": {
         "geo": false
       },
-      "role_raw": "Supplier Distribution Center"
+      "role_raw": "Supplier Distribution Center",
+      "simulation_constraints": {
+        "supplier_capacity_scale": 1.0
+      }
     },
     {
       "id": "SDC-VD0975221A",
@@ -3118,7 +3196,10 @@
       "defaults": {
         "geo": false
       },
-      "role_raw": "Supplier Distribution Center"
+      "role_raw": "Supplier Distribution Center",
+      "simulation_constraints": {
+        "supplier_capacity_scale": 1.0
+      }
     }
   ],
   "edges": [

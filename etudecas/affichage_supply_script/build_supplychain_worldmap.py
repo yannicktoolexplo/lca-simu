@@ -75,9 +75,39 @@ def parse_args() -> argparse.Namespace:
         help="Sensitivity cases summary CSV.",
     )
     parser.add_argument(
+        "--supplier-shipments-csv",
+        default="etudecas/simulation/result/data/production_supplier_shipments_daily.csv",
+        help="Baseline supplier shipments CSV.",
+    )
+    parser.add_argument(
+        "--supplier-stocks-csv",
+        default="etudecas/simulation/result/data/production_supplier_stocks_daily.csv",
+        help="Baseline supplier stocks CSV.",
+    )
+    parser.add_argument(
+        "--supplier-capacity-csv",
+        default="etudecas/simulation/result/data/production_supplier_capacity_daily.csv",
+        help="Baseline supplier capacity utilization CSV.",
+    )
+    parser.add_argument(
+        "--production-constraint-csv",
+        default="etudecas/simulation/result/data/production_constraint_daily.csv",
+        help="Production constraint CSV used to detect critical supplied items.",
+    )
+    parser.add_argument(
         "--structural-sensitivity-cases-csv",
         default="etudecas/simulation/sensibility/structural_result/sensitivity_cases.csv",
         help="Structural sensitivity cases summary CSV.",
+    )
+    parser.add_argument(
+        "--supplier-local-criticality-csv",
+        default="etudecas/simulation/result/data/supplier_local_criticality_ranking.csv",
+        help="Output CSV ranking for supplier local criticality.",
+    )
+    parser.add_argument(
+        "--supplier-local-criticality-json",
+        default="etudecas/simulation/result/summaries/supplier_local_criticality_summary.json",
+        help="Output JSON summary for supplier local criticality.",
     )
     return parser.parse_args()
 
@@ -748,8 +778,14 @@ def select_best_supplier_case_pair(
             by_case_id.get(f"supplier_reliability_node_{safe_node}_high"),
         ),
         (
-            "capacite locale",
-            "Cap.",
+            "capacite fournisseur locale",
+            "Cap. four.",
+            by_case_id.get(f"supplier_capacity_node_{safe_node}_low"),
+            by_case_id.get(f"supplier_capacity_node_{safe_node}_high"),
+        ),
+        (
+            "capacite process locale",
+            "Cap. proc.",
             by_case_id.get(f"capacity_{safe_node}_low"),
             by_case_id.get(f"capacity_{safe_node}_high"),
         ),
@@ -1437,6 +1473,278 @@ def build_structural_sensitivity_hover_payloads(
     )
 
 
+def metric_label_value(label: str, value: Any) -> dict[str, str]:
+    return {"label": label, "value": str(value)}
+
+
+def build_supplier_local_criticality(
+    raw: dict[str, Any],
+    supplier_shipments_csv: Path,
+    supplier_stocks_csv: Path,
+    supplier_capacity_csv: Path,
+    production_constraint_csv: Path,
+    sensitivity_cases_csv: Path,
+    structural_sensitivity_cases_csv: Path,
+) -> tuple[dict[str, Any], list[dict[str, Any]], dict[str, Any]]:
+    nodes = raw.get("nodes", []) or []
+    edges = raw.get("edges", []) or []
+    supplier_ids = sorted(str(n.get("id")) for n in nodes if str(n.get("type") or "") == "supplier_dc")
+    node_name = {str(n.get("id")): str(n.get("name") or str(n.get("id"))) for n in nodes}
+    incoming_items, outgoing_items = build_edge_item_sets(raw)
+    edges_by_src: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    suppliers_for_pair: dict[tuple[str, str], set[str]] = defaultdict(set)
+    supplier_initial_total: dict[str, float] = {}
+    for n in nodes:
+        if str(n.get("type") or "") != "supplier_dc":
+            continue
+        supplier_initial_total[str(n.get("id"))] = sum(
+            max(0.0, to_float((st or {}).get("initial")) or 0.0)
+            for st in ((n.get("inventory") or {}).get("states") or [])
+        )
+    for e in edges:
+        src = str(e.get("from") or "")
+        dst = str(e.get("to") or "")
+        if src:
+            edges_by_src[src].append(e)
+        for item_id in e.get("items") or []:
+            suppliers_for_pair[(dst, str(item_id))].add(src)
+
+    shipment_rows = read_csv_rows(supplier_shipments_csv)
+    stock_rows = read_csv_rows(supplier_stocks_csv)
+    capacity_rows = read_csv_rows(supplier_capacity_csv)
+    constraint_rows = read_csv_rows(production_constraint_csv)
+    sensitivity_case_rows = read_csv_rows(sensitivity_cases_csv)
+    structural_case_rows = read_csv_rows(structural_sensitivity_cases_csv)
+    by_case_std = case_rows_by_id(sensitivity_case_rows)
+    by_case_struct = case_rows_by_id(structural_case_rows)
+    baseline_std = by_case_std.get("baseline")
+    baseline_struct = by_case_struct.get("baseline")
+
+    shipped_qty_by_supplier: dict[str, float] = defaultdict(float)
+    active_days_by_supplier: dict[str, set[int]] = defaultdict(set)
+    first_day_by_supplier: dict[str, int] = {}
+    last_day_by_supplier: dict[str, int] = {}
+    for row in shipment_rows:
+        src = str(row.get("src_node_id") or "")
+        qty = max(0.0, to_float(row.get("shipped_qty")) or 0.0)
+        day = int(to_float(row.get("day")) or 0)
+        if not src:
+            continue
+        shipped_qty_by_supplier[src] += qty
+        if qty > 0:
+            active_days_by_supplier[src].add(day)
+            first_day_by_supplier[src] = min(first_day_by_supplier.get(src, day), day)
+            last_day_by_supplier[src] = max(last_day_by_supplier.get(src, day), day)
+
+    avg_stock_by_supplier: dict[str, float] = defaultdict(float)
+    min_stock_by_supplier: dict[str, float] = {}
+    stock_count_by_supplier: dict[str, int] = defaultdict(int)
+    for row in stock_rows:
+        node_id = str(row.get("node_id") or "")
+        val = max(0.0, to_float(row.get("stock_end_of_day")) or 0.0)
+        avg_stock_by_supplier[node_id] += val
+        stock_count_by_supplier[node_id] += 1
+        min_stock_by_supplier[node_id] = min(min_stock_by_supplier.get(node_id, val), val)
+    for supplier_id, total in list(avg_stock_by_supplier.items()):
+        count = max(1, stock_count_by_supplier.get(supplier_id, 0))
+        avg_stock_by_supplier[supplier_id] = total / count
+
+    avg_capacity_utilization_by_supplier: dict[str, float] = defaultdict(float)
+    max_capacity_utilization_by_supplier: dict[str, float] = defaultdict(float)
+    capacity_count_by_supplier: dict[str, int] = defaultdict(int)
+    for row in capacity_rows:
+        node_id = str(row.get("node_id") or "")
+        util = max(0.0, to_float(row.get("utilization")) or 0.0)
+        avg_capacity_utilization_by_supplier[node_id] += util
+        capacity_count_by_supplier[node_id] += 1
+        max_capacity_utilization_by_supplier[node_id] = max(
+            max_capacity_utilization_by_supplier.get(node_id, 0.0),
+            util,
+        )
+    for supplier_id, total in list(avg_capacity_utilization_by_supplier.items()):
+        count = max(1, capacity_count_by_supplier.get(supplier_id, 0))
+        avg_capacity_utilization_by_supplier[supplier_id] = total / count
+
+    shortage_qty_by_item: dict[str, float] = defaultdict(float)
+    shortage_events_by_item: dict[str, int] = defaultdict(int)
+    for row in constraint_rows:
+        if str(row.get("binding_cause") or "") != "input_shortage":
+            continue
+        item_id = str(row.get("binding_input_item_id") or "")
+        if not item_id:
+            continue
+        shortage_qty_by_item[item_id] += max(0.0, to_float(row.get("shortfall_vs_desired_qty")) or 0.0)
+        shortage_events_by_item[item_id] += 1
+
+    total_shipped_all = sum(shipped_qty_by_supplier.values())
+    max_active_days = max((len(days) for days in active_days_by_supplier.values()), default=1)
+
+    def normalize_map(values: dict[str, float], log_scale: bool = False) -> dict[str, float]:
+        transformed: dict[str, float] = {}
+        for key, value in values.items():
+            transformed[key] = math.log1p(value) if log_scale else value
+        max_value = max(transformed.values(), default=0.0)
+        if max_value <= 0:
+            return {key: 0.0 for key in values}
+        return {key: transformed.get(key, 0.0) / max_value for key in values}
+
+    raw_metrics: dict[str, dict[str, float]] = {}
+    for supplier_id in supplier_ids:
+        supplied_items = sorted(outgoing_items.get(supplier_id, set()))
+        dest_nodes = sorted({str(e.get("to") or "") for e in edges_by_src.get(supplier_id, []) if e.get("to") is not None})
+        sole_source_pairs = 0
+        shared_source_pairs = 0
+        for e in edges_by_src.get(supplier_id, []):
+            dst = str(e.get("to") or "")
+            for item_id in e.get("items") or []:
+                pair_suppliers = suppliers_for_pair.get((dst, str(item_id)), set())
+                if len(pair_suppliers) <= 1:
+                    sole_source_pairs += 1
+                else:
+                    shared_source_pairs += 1
+        shortage_supported_qty = sum(shortage_qty_by_item.get(item_id, 0.0) for item_id in supplied_items)
+        shortage_supported_events = sum(shortage_events_by_item.get(item_id, 0) for item_id in supplied_items)
+        std_label, std_short, std_low, std_high, std_fill_impact, std_backlog_impact = select_best_supplier_case_pair(
+            by_case_std,
+            baseline_std,
+            supplier_id,
+        )
+        struct_label, struct_short, struct_low, struct_high, struct_fill_impact, struct_backlog_impact = (
+            select_best_supplier_case_pair(by_case_struct, baseline_struct, supplier_id)
+        )
+        raw_metrics[supplier_id] = {
+            "total_shipped_qty": shipped_qty_by_supplier.get(supplier_id, 0.0),
+            "active_days": float(len(active_days_by_supplier.get(supplier_id, set()))),
+            "sole_source_pairs": float(sole_source_pairs),
+            "shared_source_pairs": float(shared_source_pairs),
+            "shortage_supported_qty": shortage_supported_qty,
+            "shortage_supported_events": float(shortage_supported_events),
+            "standard_fill_impact": std_fill_impact,
+            "structural_fill_impact": struct_fill_impact,
+            "standard_backlog_impact": std_backlog_impact,
+            "structural_backlog_impact": struct_backlog_impact,
+        }
+
+    volume_score = normalize_map({k: v["total_shipped_qty"] for k, v in raw_metrics.items()}, log_scale=True)
+    shortage_score = normalize_map({k: v["shortage_supported_qty"] for k, v in raw_metrics.items()}, log_scale=True)
+    sole_source_score = normalize_map({k: v["sole_source_pairs"] for k, v in raw_metrics.items()})
+    standard_system_score = normalize_map(
+        {k: v["standard_fill_impact"] * 100.0 + v["standard_backlog_impact"] / 100.0 for k, v in raw_metrics.items()}
+    )
+    structural_system_score = normalize_map(
+        {k: v["structural_fill_impact"] * 100.0 + v["structural_backlog_impact"] / 100.0 for k, v in raw_metrics.items()}
+    )
+
+    metrics_by_supplier: dict[str, Any] = {}
+    ranking_rows: list[dict[str, Any]] = []
+    for supplier_id in supplier_ids:
+        supplied_items = sorted(outgoing_items.get(supplier_id, set()))
+        dest_nodes = sorted({str(e.get("to") or "") for e in edges_by_src.get(supplier_id, []) if e.get("to") is not None})
+        item_labels = ", ".join(item.split(":", 1)[-1] for item in supplied_items[:5])
+        if len(supplied_items) > 5:
+            item_labels += ", ..."
+        total_shipped_qty = shipped_qty_by_supplier.get(supplier_id, 0.0)
+        active_days = len(active_days_by_supplier.get(supplier_id, set()))
+        local_score = (
+            0.35 * volume_score.get(supplier_id, 0.0)
+            + 0.20 * (active_days / max_active_days if max_active_days > 0 else 0.0)
+            + 0.25 * sole_source_score.get(supplier_id, 0.0)
+            + 0.20 * shortage_score.get(supplier_id, 0.0)
+        )
+        system_score = 0.5 * standard_system_score.get(supplier_id, 0.0) + 0.5 * structural_system_score.get(supplier_id, 0.0)
+        overall_score = 0.55 * local_score + 0.45 * system_score
+        std_label, _std_short, _std_low, _std_high, std_fill_impact, std_backlog_impact = select_best_supplier_case_pair(
+            by_case_std,
+            baseline_std,
+            supplier_id,
+        )
+        struct_label, _struct_short, _struct_low, _struct_high, struct_fill_impact, struct_backlog_impact = (
+            select_best_supplier_case_pair(by_case_struct, baseline_struct, supplier_id)
+        )
+        row = {
+            "supplier_id": supplier_id,
+            "supplier_name": node_name.get(supplier_id, supplier_id),
+            "items_supplied_count": len(supplied_items),
+            "dest_nodes_count": len(dest_nodes),
+            "sole_source_pairs": int(raw_metrics[supplier_id]["sole_source_pairs"]),
+            "shared_source_pairs": int(raw_metrics[supplier_id]["shared_source_pairs"]),
+            "total_shipped_qty": round(total_shipped_qty, 4),
+            "active_days": active_days,
+            "first_shipment_day": first_day_by_supplier.get(supplier_id, ""),
+            "last_shipment_day": last_day_by_supplier.get(supplier_id, ""),
+            "initial_stock_total": round(supplier_initial_total.get(supplier_id, 0.0), 4),
+            "avg_stock_end_of_day": round(avg_stock_by_supplier.get(supplier_id, 0.0), 4),
+            "min_stock_end_of_day": round(min_stock_by_supplier.get(supplier_id, 0.0), 4),
+            "avg_capacity_utilization": round(avg_capacity_utilization_by_supplier.get(supplier_id, 0.0), 6),
+            "max_capacity_utilization": round(max_capacity_utilization_by_supplier.get(supplier_id, 0.0), 6),
+            "shortage_supported_qty": round(raw_metrics[supplier_id]["shortage_supported_qty"], 4),
+            "shortage_supported_events": int(raw_metrics[supplier_id]["shortage_supported_events"]),
+            "standard_best_driver": std_label,
+            "standard_fill_impact": round(std_fill_impact, 6),
+            "standard_backlog_impact": round(std_backlog_impact, 4),
+            "structural_best_driver": struct_label,
+            "structural_fill_impact": round(struct_fill_impact, 6),
+            "structural_backlog_impact": round(struct_backlog_impact, 4),
+            "local_criticality_score": round(local_score, 6),
+            "system_criticality_score": round(system_score, 6),
+            "overall_criticality_score": round(overall_score, 6),
+            "top_items_preview": item_labels,
+            "destinations_preview": ", ".join(dest_nodes[:4]) + (", ..." if len(dest_nodes) > 4 else ""),
+        }
+        ranking_rows.append(row)
+        metrics_by_supplier[supplier_id] = {
+            "summary_lines": [
+                metric_label_value("Rang local/systeme", ""),
+                metric_label_value("Flux expedie total", f"{row['total_shipped_qty']:.2f}"),
+                metric_label_value("Jours actifs", str(row["active_days"])),
+                metric_label_value("Paires mono-source", str(row["sole_source_pairs"])),
+                metric_label_value("Utilisation cap. moy.", f"{row['avg_capacity_utilization']:.2%}"),
+                metric_label_value("Utilisation cap. max", f"{row['max_capacity_utilization']:.2%}"),
+                metric_label_value("Exposition shortage", f"{row['shortage_supported_qty']:.2f}"),
+                metric_label_value("Driver standard", std_label or "n/a"),
+                metric_label_value("Driver structurel", struct_label or "n/a"),
+                metric_label_value("Score criticite locale", f"{local_score:.3f}"),
+                metric_label_value("Score criticite systeme", f"{system_score:.3f}"),
+            ],
+            "items": supplied_items,
+            "destinations": dest_nodes,
+            "scores": {
+                "local": round(local_score, 6),
+                "system": round(system_score, 6),
+                "overall": round(overall_score, 6),
+            },
+        }
+
+    ranking_rows.sort(key=lambda row: (-float(row["overall_criticality_score"]), -float(row["total_shipped_qty"]), row["supplier_id"]))
+    for rank, row in enumerate(ranking_rows, start=1):
+        row["rank"] = rank
+        supplier_metrics = metrics_by_supplier.get(str(row["supplier_id"]), {})
+        if supplier_metrics:
+            supplier_metrics["rank"] = rank
+            for entry in supplier_metrics.get("summary_lines", []):
+                if entry.get("label") == "Rang local/systeme":
+                    entry["value"] = f"{rank}"
+                    break
+
+    summary = {
+        "supplier_count": len(ranking_rows),
+        "top_local_criticality": ranking_rows[:10],
+        "methodology": {
+            "local_score_weights": {
+                "volume": 0.35,
+                "active_days": 0.20,
+                "sole_source_pairs": 0.25,
+                "shortage_exposure": 0.20,
+            },
+            "overall_score_weights": {
+                "local": 0.55,
+                "system": 0.45,
+            },
+        },
+    }
+    return metrics_by_supplier, ranking_rows, summary
+
+
 def html_template(title: str, data_json: str) -> str:
     return f"""<!doctype html>
 <html>
@@ -1536,6 +1844,40 @@ def html_template(title: str, data_json: str) -> str:
       grid-template-columns: 1fr;
       gap: 10px;
     }}
+    .panelMeta {{
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      background: #f8fafc;
+      padding: 10px 12px;
+    }}
+    .panelMetaTitle {{
+      font-size: 11px;
+      font-weight: 700;
+      color: #0f172a;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }}
+    .panelMetaGrid {{
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 6px 12px;
+    }}
+    .panelMetaRow {{
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 11px;
+      color: #334155;
+    }}
+    .panelMetaLabel {{
+      color: #64748b;
+    }}
+    .panelMetaValue {{
+      font-weight: 600;
+      color: #0f172a;
+      text-align: right;
+    }}
     .factoryPlotBlock {{
       display: block;
     }}
@@ -1585,6 +1927,10 @@ def html_template(title: str, data_json: str) -> str:
   <div id="factoryHoverPanel">
     <div id="factoryHoverTitle"></div>
     <div class="factoryHoverGrid">
+      <div id="panelMeta" class="panelMeta" style="display:none;">
+        <div id="panelMetaTitle" class="panelMetaTitle">Criticite locale</div>
+        <div id="panelMetaGrid" class="panelMetaGrid"></div>
+      </div>
       <div id="incomingBlock" class="factoryPlotBlock">
         <div id="incomingLabel" class="factoryPlotLabel">Stock matieres premieres (entree)</div>
         <img id="factoryIncomingImage" class="factoryPlot" alt="Node incoming chart"/>
@@ -1609,6 +1955,7 @@ def html_template(title: str, data_json: str) -> str:
     const FACTORY_STRUCTURAL_HOVER_IMAGES = DATA.factory_structural_hover_images || {{}};
     const SUPPLIER_STRUCTURAL_HOVER_IMAGES = DATA.supplier_structural_hover_images || {{}};
     const DC_STRUCTURAL_HOVER_IMAGES = DATA.distribution_center_structural_hover_images || {{}};
+    const SUPPLIER_LOCAL_METRICS = DATA.supplier_local_metrics || {{}};
     const nodeById = Object.fromEntries((DATA.nodes || []).map(n => [n.id, n]));
     const defaultPalette = ["#1f77b4", "#d62728", "#ff7f0e", "#2ca02c", "#9467bd", "#8c564b"];
     let currentFactoryHoverId = null;
@@ -1765,6 +2112,8 @@ def html_template(title: str, data_json: str) -> str:
       const panel = document.getElementById("factoryHoverPanel");
       const incomingBlock = document.getElementById("incomingBlock");
       const outgoingBlock = document.getElementById("outgoingBlock");
+      const metaBlock = document.getElementById("panelMeta");
+      const metaGrid = document.getElementById("panelMetaGrid");
       const incomingLabel = document.getElementById("incomingLabel");
       const outgoingLabel = document.getElementById("outgoingLabel");
       const incomingImg = document.getElementById("factoryIncomingImage");
@@ -1778,10 +2127,43 @@ def html_template(title: str, data_json: str) -> str:
       incomingImg.style.display = "none";
       outgoingImg.removeAttribute("src");
       outgoingImg.style.display = "none";
+      metaGrid.innerHTML = "";
+      metaBlock.style.display = "none";
       noImg.style.display = "none";
       panel.classList.remove("visible");
       currentFactoryHoverId = null;
       currentFactoryHoverType = null;
+    }}
+
+    function renderPanelMeta(nodeId, nodeType) {{
+      const metaBlock = document.getElementById("panelMeta");
+      const metaTitle = document.getElementById("panelMetaTitle");
+      const metaGrid = document.getElementById("panelMetaGrid");
+      metaGrid.innerHTML = "";
+      if (nodeType !== "supplier_dc") {{
+        metaBlock.style.display = "none";
+        return;
+      }}
+      const metrics = SUPPLIER_LOCAL_METRICS[nodeId] || null;
+      if (!metrics || !Array.isArray(metrics.summary_lines) || !metrics.summary_lines.length) {{
+        metaBlock.style.display = "none";
+        return;
+      }}
+      metaTitle.textContent = "Criticite locale fournisseur";
+      metrics.summary_lines.forEach((entry) => {{
+        const row = document.createElement("div");
+        row.className = "panelMetaRow";
+        const label = document.createElement("div");
+        label.className = "panelMetaLabel";
+        label.textContent = entry.label || "";
+        const value = document.createElement("div");
+        value.className = "panelMetaValue";
+        value.textContent = entry.value || "";
+        row.appendChild(label);
+        row.appendChild(value);
+        metaGrid.appendChild(row);
+      }});
+      metaBlock.style.display = "block";
     }}
 
     function panelLabels(nodeType) {{
@@ -1875,6 +2257,7 @@ def html_template(title: str, data_json: str) -> str:
       const labels = panelLabels(nodeType);
       incomingLabel.textContent = labels.incoming;
       outgoingLabel.textContent = labels.outgoing;
+      renderPanelMeta(nodeId, nodeType);
 
       const incomingImageInfo = images.incoming || null;
       const outgoingImageInfo = images.outgoing || null;
@@ -1987,8 +2370,16 @@ def main() -> None:
     sim_input_png_dir = Path(args.sim_input_stocks_png_dir)
     sim_output_png_dir = Path(args.sim_output_products_png_dir)
     sensitivity_cases_csv = Path(args.sensitivity_cases_csv)
+    supplier_shipments_csv = Path(args.supplier_shipments_csv)
+    supplier_stocks_csv = Path(args.supplier_stocks_csv)
+    supplier_capacity_csv = Path(args.supplier_capacity_csv)
+    production_constraint_csv = Path(args.production_constraint_csv)
     structural_sensitivity_cases_csv = Path(args.structural_sensitivity_cases_csv)
+    supplier_local_criticality_csv = Path(args.supplier_local_criticality_csv)
+    supplier_local_criticality_json = Path(args.supplier_local_criticality_json)
     out_path.parent.mkdir(parents=True, exist_ok=True)
+    supplier_local_criticality_csv.parent.mkdir(parents=True, exist_ok=True)
+    supplier_local_criticality_json.parent.mkdir(parents=True, exist_ok=True)
 
     try:
         raw = json.loads(in_path.read_text(encoding="utf-8"))
@@ -2007,9 +2398,39 @@ def main() -> None:
             payload["supplier_structural_hover_images"],
             payload["distribution_center_structural_hover_images"],
         ) = build_structural_sensitivity_hover_payloads(raw, structural_sensitivity_cases_csv)
+        (
+            payload["supplier_local_metrics"],
+            supplier_local_ranking_rows,
+            supplier_local_summary,
+        ) = build_supplier_local_criticality(
+            raw,
+            supplier_shipments_csv,
+            supplier_stocks_csv,
+            supplier_capacity_csv,
+            production_constraint_csv,
+            sensitivity_cases_csv,
+            structural_sensitivity_cases_csv,
+        )
     except Exception as exc:
         print(f"[ERROR] Unable to read/parse input JSON: {exc}", file=sys.stderr)
         sys.exit(1)
+
+    csv_columns = sorted({key for row in supplier_local_ranking_rows for key in row.keys()})
+    with supplier_local_criticality_csv.open("w", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=csv_columns)
+        writer.writeheader()
+        writer.writerows(supplier_local_ranking_rows)
+    supplier_local_criticality_json.write_text(
+        json.dumps(
+            {
+                "summary": supplier_local_summary,
+                "ranking": supplier_local_ranking_rows,
+            },
+            indent=2,
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
 
     html_str = html_template(args.title, json.dumps(payload, ensure_ascii=False))
     out_path.write_text(html_str, encoding="utf-8")

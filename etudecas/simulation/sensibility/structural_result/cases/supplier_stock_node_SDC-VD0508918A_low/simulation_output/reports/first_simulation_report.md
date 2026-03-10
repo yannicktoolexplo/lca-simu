@@ -36,25 +36,26 @@
 
 ## KPIs
 - Total demand: 2912.5
-- Total served: 1597.7393
-- Fill rate: 0.54858
-- Ending backlog: 1314.7607
-- Total produced: 4285.8956
-- Total shipped: 11078.3372
-- Avg inventory: 510642.3908
-- Ending inventory: 498054.4627
-- Transport cost: 9842.0857
-- Holding cost: 1220820.7807
-- Purchase cost (from order_terms sell_price): 10123.9923
-- Logistics cost (transport + holding): 1230662.8664
-- Total cost: 1240786.8587
+- Total served: 1605.4636
+- Fill rate: 0.551232
+- Ending backlog: 1307.0364
+- Total produced: 4274.1159
+- Total shipped: 11047.52
+- Avg inventory: 510659.0895
+- Ending inventory: 498584.4682
+- Transport cost: 9822.4056
+- Holding cost: 1220821.5424
+- Purchase cost (from order_terms sell_price): 10122.3705
+- Logistics cost (transport + holding): 1230643.948
+- Total cost: 1240766.3185
 - Total external procured ordered qty: 0.0
 - Total external procured arrived qty: 0.0
 - Total external procured rejected qty (cap-limited): 0.0
 - Total external procurement cost premium: 0.0
-- Cost share holding / transport / purchase: 0.983909 / 0.007932 / 0.008159
+- Cost share holding / transport / purchase: 0.983925 / 0.007916 / 0.008158
 - Total opening stock bootstrap qty: 529924.7449
 - Total unreliable supplier loss qty: 0.0
+- Total supplier capacity binding qty: 1942.3849
 - Economic consistency status: warn
 - Economic consistency warnings: ['holding_cost_share_above_90pct', 'transport_cost_share_below_2pct', 'purchase_cost_share_below_2pct']
 
@@ -63,12 +64,12 @@
   {
     "node_id": "C-XXXXX",
     "item_id": "item:268967",
-    "backlog": 997.6732
+    "backlog": 988.3514
   },
   {
     "node_id": "C-XXXXX",
     "item_id": "item:268091",
-    "backlog": 317.0874
+    "backlog": 318.6851
   }
 ]
 
@@ -85,6 +86,7 @@
 - data/production_constraint_daily.csv
 - data/production_supplier_shipments_daily.csv
 - data/production_supplier_stocks_daily.csv
+- data/production_supplier_capacity_daily.csv
 - data/production_dc_stocks_daily.csv
 - production_input_stocks_by_material_*.png (not generated)
 - production_output_products.png (not generated)

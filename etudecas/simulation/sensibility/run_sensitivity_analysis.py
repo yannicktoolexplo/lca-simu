@@ -91,12 +91,14 @@ def base_case() -> dict[str, Any]:
             "supplier_stock_scale": 1.0,
             "production_stock_scale": 1.0,
             "capacity_scale": 1.0,
+            "supplier_capacity_scale": 1.0,
             "safety_stock_days_scale": 1.0,
             "supplier_reliability_scale": 1.0,
         },
         "demand_item_scale": {},
         "capacity_node_scale": {},
         "supplier_node_scale": {},
+        "supplier_capacity_node_scale": {},
         "edge_src_lead_time_scale": {},
         "edge_src_reliability_scale": {},
     }
@@ -108,6 +110,7 @@ def clone_case_config(case_cfg: dict[str, Any]) -> dict[str, Any]:
         "demand_item_scale": dict(case_cfg["demand_item_scale"]),
         "capacity_node_scale": dict(case_cfg["capacity_node_scale"]),
         "supplier_node_scale": dict(case_cfg["supplier_node_scale"]),
+        "supplier_capacity_node_scale": dict(case_cfg["supplier_capacity_node_scale"]),
         "edge_src_lead_time_scale": dict(case_cfg["edge_src_lead_time_scale"]),
         "edge_src_reliability_scale": dict(case_cfg["edge_src_reliability_scale"]),
     }
@@ -142,6 +145,7 @@ def case_levels(parameter_kind: str, delta: float, severity_profile: str) -> tup
         "production_stock": (0.2, 1.8),
         "safety_stock_days": (0.2, 2.0),
         "supplier_reliability": (0.2, 1.0),
+        "supplier_capacity": (0.2, 1.8),
         "demand_item": (0.2, 1.8),
         "capacity_node": (0.2, 1.8),
         "supplier_node": (0.2, 1.8),
@@ -190,6 +194,7 @@ def build_design(
         "lead_time_scale",
         "transport_cost_scale",
         "supplier_stock_scale",
+        "supplier_capacity_scale",
         "production_stock_scale",
         "safety_stock_days_scale",
         "supplier_reliability_scale",
@@ -198,6 +203,7 @@ def build_design(
         "lead_time_scale": "lead_time",
         "transport_cost_scale": "transport_cost",
         "supplier_stock_scale": "supplier_stock",
+        "supplier_capacity_scale": "supplier_capacity",
         "production_stock_scale": "production_stock",
         "safety_stock_days_scale": "safety_stock_days",
         "supplier_reliability_scale": "supplier_reliability",
@@ -258,6 +264,22 @@ def build_design(
             design.append(
                 {
                     "case_id": f"supplier_stock_node_{safe_name(node)}_{level}",
+                    "parameter": pname,
+                    "level": level,
+                    "value": val,
+                    "config": cfg,
+                }
+            )
+
+    for node in supplier_nodes:
+        pname = f"supplier_capacity_node_scale::{node}"
+        p_lo, p_hi = case_levels("supplier_capacity", delta, severity_profile)
+        for level, val in [("low", p_lo), ("high", p_hi)]:
+            cfg = clone_case_config(base_case())
+            cfg["supplier_capacity_node_scale"][node] = val
+            design.append(
+                {
+                    "case_id": f"supplier_capacity_node_{safe_name(node)}_{level}",
                     "parameter": pname,
                     "level": level,
                     "value": val,
@@ -368,6 +390,7 @@ def main() -> None:
             demand_item_scale=cfg["demand_item_scale"],
             capacity_node_scale=cfg["capacity_node_scale"],
             supplier_node_scale=cfg["supplier_node_scale"],
+            supplier_capacity_node_scale=cfg["supplier_capacity_node_scale"],
             edge_src_lead_time_scale=cfg["edge_src_lead_time_scale"],
             edge_src_reliability_scale=cfg["edge_src_reliability_scale"],
         )
@@ -388,6 +411,7 @@ def main() -> None:
         row.update({f"demand_item::{k}": v for k, v in cfg["demand_item_scale"].items()})
         row.update({f"capacity_node::{k}": v for k, v in cfg["capacity_node_scale"].items()})
         row.update({f"supplier_node::{k}": v for k, v in cfg["supplier_node_scale"].items()})
+        row.update({f"supplier_capacity_node::{k}": v for k, v in cfg["supplier_capacity_node_scale"].items()})
         row.update({f"edge_src_lead_time::{k}": v for k, v in cfg["edge_src_lead_time_scale"].items()})
         row.update({f"edge_src_reliability::{k}": v for k, v in cfg["edge_src_reliability_scale"].items()})
 

@@ -221,6 +221,14 @@ def lane_records(
         if price_base <= 0:
             price_base = 1.0
         unit_purchase_cost = max(purchase_floor, max(0.0, sell_price / price_base))
+        order_unit = normalize_unit((ot or {}).get("quantity_unit"))
+        attrs = e.get("attrs") or {}
+        standard_order_qty_raw = max(0.0, to_float(attrs.get("standard_order_qty"), 0.0))
+        standard_order_uom = normalize_unit(attrs.get("standard_order_uom") or order_unit)
+        if standard_order_qty_raw > 0 and can_convert_units(standard_order_uom, order_unit):
+            standard_order_qty = convert_quantity(standard_order_qty_raw, standard_order_uom, order_unit)
+        else:
+            standard_order_qty = standard_order_qty_raw
         service_level = e.get("service_level") or {}
         reliability = to_float(
             service_level.get("otif", e.get("otif", 1.0)),
@@ -250,6 +258,8 @@ def lane_records(
                 "transport_cost_is_fallback": explicit_transport_cost <= 0,
                 "reliability": reliability,
                 "availability_profile": e.get("availability_profile") or [],
+                "standard_order_qty": standard_order_qty,
+                "standard_order_uom": order_unit or standard_order_uom,
             }
             lanes.append(lane)
             lanes_by_dest_item[(dst, str(item_id))].append(lane)
@@ -258,6 +268,34 @@ def lane_records(
         values.sort(key=lambda x: (x["unit_transport_cost"], x["lead_days"], x["src"]))
         lanes_by_dest_item[key] = values
     return lanes, lanes_by_dest_item
+
+
+def node_review_period_days(node: dict[str, Any], default: int = 7) -> int:
+    sim_policy = ((node.get("policies") or {}).get("simulation_policy") or {})
+    return int(round(max(1.0, to_float(sim_policy.get("review_period_days"), float(default)))))
+
+
+def process_output_capacity_by_item(
+    node: dict[str, Any],
+    item_unit_map: dict[str, str],
+) -> dict[str, float]:
+    out: dict[str, float] = defaultdict(float)
+    for proc in (node.get("processes") or []):
+        cap = max(0.0, to_float(((proc.get("capacity") or {}).get("max_rate")), 0.0))
+        if cap <= 0:
+            continue
+        for output in (proc.get("outputs") or []):
+            item_id = str(output.get("item_id") or "")
+            if not item_id:
+                continue
+            output_uom = str(output.get("uom") or "")
+            output_unit = normalize_unit(output_uom.split("/", 1)[0] if "/" in output_uom else output_uom)
+            item_unit = normalize_unit(item_unit_map.get(item_id, output_unit))
+            value = cap
+            if output_unit and item_unit and can_convert_units(output_unit, item_unit):
+                value = convert_quantity(cap, output_unit, item_unit)
+            out[item_id] += max(0.0, value)
+    return dict(out)
 
 
 def lane_availability_multiplier(lane: dict[str, Any], day: int) -> float:
@@ -381,6 +419,95 @@ def scenario_policy_dict(scenario: dict[str, Any], key: str) -> dict[str, Any]:
         policy = scenario.get("inventory_policy") or {}
         raw = policy.get(key, None)
     return raw if isinstance(raw, dict) else {}
+
+
+def derive_supplier_daily_capacity_by_pair(
+    *,
+    nodes: list[dict[str, Any]],
+    supplier_node_ids: set[str],
+    lanes_by_src_item: dict[tuple[str, str], list[dict[str, Any]]],
+    required_daily_input_by_pair: dict[tuple[str, str], float],
+    propagated_demand_today: dict[tuple[str, str], float],
+    item_unit_map: dict[str, str],
+    stock: dict[tuple[str, str], float],
+    default_review_period_days: int,
+    stochastic_lead_times: bool,
+) -> tuple[dict[tuple[str, str], float], list[dict[str, Any]]]:
+    node_by_id = {str(n.get("id")): n for n in nodes}
+    capacity_by_pair: dict[tuple[str, str], float] = {}
+    metadata_rows: list[dict[str, Any]] = []
+
+    for src_pair, lane_list in sorted(lanes_by_src_item.items()):
+        src, item_id = src_pair
+        if src not in supplier_node_ids:
+            continue
+
+        node = node_by_id.get(src, {})
+        review_days = node_review_period_days(node, default_review_period_days)
+        sim_constraints = node.get("simulation_constraints") or {}
+        node_capacity_scale = max(0.01, to_float(sim_constraints.get("supplier_capacity_scale"), 1.0))
+        initial_stock = max(0.0, stock.get(src_pair, 0.0))
+        inventory_fallback = initial_stock / max(1.0, float(review_days))
+        process_capacity = process_output_capacity_by_item(node, item_unit_map).get(item_id, 0.0)
+
+        downstream_requirement = 0.0
+        downstream_signal = 0.0
+        standard_hints: list[float] = []
+        for lane in lane_list:
+            dst_pair = (str(lane["dst"]), item_id)
+            downstream_requirement += max(0.0, required_daily_input_by_pair.get(dst_pair, 0.0))
+            downstream_signal += max(0.0, propagated_demand_today.get(dst_pair, 0.0))
+            standard_qty = max(0.0, to_float(lane.get("standard_order_qty"), 0.0))
+            if standard_qty > 0:
+                hint_days = max(
+                    1.0,
+                    float(review_days),
+                    float(lane.get("order_frequency_days", 1)),
+                    float(lead_time_cover_days(lane, stochastic_lead_times)),
+                )
+                standard_hints.append(standard_qty / hint_days)
+
+        demand_anchor = max(downstream_requirement, downstream_signal)
+        if process_capacity > 0:
+            nominal_capacity = process_capacity
+            basis = "process_capacity"
+        elif demand_anchor > 0:
+            nominal_capacity = max(demand_anchor * 1.25, inventory_fallback, 1.0)
+            basis = "downstream_requirement"
+        else:
+            nominal_capacity = max(inventory_fallback, 1.0)
+            basis = "inventory_fallback"
+
+        if standard_hints and nominal_capacity > 0:
+            plausible_hints = [
+                hint
+                for hint in standard_hints
+                if nominal_capacity * 0.25 <= hint <= nominal_capacity * 4.0
+            ]
+            if plausible_hints:
+                nominal_capacity = max(nominal_capacity, sum(plausible_hints) / len(plausible_hints))
+                basis += "+fia_hint"
+
+        scaled_capacity = max(0.01, nominal_capacity * node_capacity_scale)
+        capacity_by_pair[src_pair] = scaled_capacity
+        metadata_rows.append(
+            {
+                "node_id": src,
+                "item_id": item_id,
+                "review_period_days": review_days,
+                "initial_stock_qty": round(initial_stock, 6),
+                "inventory_fallback_qty_per_day": round(inventory_fallback, 6),
+                "downstream_requirement_qty_per_day": round(downstream_requirement, 6),
+                "downstream_signal_qty_per_day": round(downstream_signal, 6),
+                "process_capacity_qty_per_day": round(process_capacity, 6),
+                "nominal_capacity_qty_per_day": round(nominal_capacity, 6),
+                "applied_capacity_scale": round(node_capacity_scale, 6),
+                "effective_capacity_qty_per_day": round(scaled_capacity, 6),
+                "basis": basis,
+            }
+        )
+
+    return capacity_by_pair, metadata_rows
 
 
 def try_generate_plots(
@@ -1066,6 +1193,20 @@ def main() -> None:
             )
     opening_stock_bootstrap_rows.sort(key=lambda r: (r["node_id"], r["item_id"]))
 
+    supplier_daily_capacity_by_pair, supplier_capacity_metadata_rows = derive_supplier_daily_capacity_by_pair(
+        nodes=nodes,
+        supplier_node_ids=supplier_node_ids,
+        lanes_by_src_item=lanes_by_src_item,
+        required_daily_input_by_pair=required_daily_input_by_pair,
+        propagated_demand_today=propagated_demand_daily,
+        item_unit_map=item_unit_map,
+        stock=stock,
+        default_review_period_days=review_period_days,
+        stochastic_lead_times=args.stochastic_lead_times,
+    )
+    supplier_capacity_daily_rows: list[dict[str, Any]] = []
+    total_supplier_capacity_binding_qty = 0.0
+
     for day in range(sim_days):
         demand_target_today = {
             pair: max(0.0, profile_value(profile, day))
@@ -1295,8 +1436,10 @@ def main() -> None:
         purchase_cost_today = 0.0
         external_procured_today = 0.0
         external_procured_rejected_today = 0.0
+        supplier_capacity_binding_qty_today = 0.0
         shipped_today_to_pair: dict[tuple[str, str], float] = defaultdict(float)
         external_ordered_today_by_src_pair: dict[tuple[str, str], float] = defaultdict(float)
+        supplier_capacity_used_today_by_src_pair: dict[tuple[str, str], float] = defaultdict(float)
         for pair, lane_list in lanes_by_dest_item.items():
             dst, item_id = pair
             target = base_stock.get(pair, 0.0)
@@ -1367,12 +1510,24 @@ def main() -> None:
                 if available <= 1e-9:
                     continue
                 rel = max(0.01, min(1.0, to_float(lane.get("reliability"), 1.0)))
-                pull_qty = min(available, remaining / rel)
+                unconstrained_pull_qty = min(available, remaining / rel)
+                supplier_capacity_left = supplier_daily_capacity_by_pair.get(src_pair)
+                if supplier_capacity_left is not None:
+                    supplier_capacity_left = max(
+                        0.0,
+                        supplier_capacity_left * availability_mult - supplier_capacity_used_today_by_src_pair[src_pair],
+                    )
+                    if supplier_capacity_left + 1e-9 < unconstrained_pull_qty:
+                        supplier_capacity_binding_qty_today += unconstrained_pull_qty - max(0.0, supplier_capacity_left)
+                    pull_qty = min(unconstrained_pull_qty, supplier_capacity_left)
+                else:
+                    pull_qty = unconstrained_pull_qty
                 delivered_qty = pull_qty * rel
                 if pull_qty <= 1e-9 or delivered_qty <= 1e-9:
                     continue
 
                 stock[src_pair] -= pull_qty
+                supplier_capacity_used_today_by_src_pair[src_pair] += pull_qty
                 lead_days = sample_lead_days(lane, rng, args.stochastic_lead_times)
                 arrival_day = day + lead_days
                 pipeline[arrival_day].append((dst, item_id, delivered_qty, lane["edge_id"]))
@@ -1403,6 +1558,7 @@ def main() -> None:
         total_purchase_cost += purchase_cost_today
         total_external_procured += external_procured_today
         total_external_procured_rejected += external_procured_rejected_today
+        total_supplier_capacity_binding_qty += supplier_capacity_binding_qty_today
         for node_id, item_id in production_input_pairs:
             input_shipment_rows.append(
                 {
@@ -1411,6 +1567,20 @@ def main() -> None:
                     "item_id": item_id,
                     "shipped_to_node_qty": round(shipped_today_to_pair[(node_id, item_id)], 6),
                     "uom": item_unit_map.get(item_id, ""),
+                }
+            )
+        for src_pair, nominal_cap in supplier_daily_capacity_by_pair.items():
+            src, item_id = src_pair
+            used_qty = supplier_capacity_used_today_by_src_pair.get(src_pair, 0.0)
+            supplier_capacity_daily_rows.append(
+                {
+                    "day": day,
+                    "node_id": src,
+                    "item_id": item_id,
+                    "capacity_qty_per_day": round(nominal_cap, 6),
+                    "used_qty": round(used_qty, 6),
+                    "remaining_capacity_qty": round(max(0.0, nominal_cap - used_qty), 6),
+                    "utilization": round(used_qty / nominal_cap, 6) if nominal_cap > 1e-9 else 0.0,
                 }
             )
 
@@ -1464,6 +1634,7 @@ def main() -> None:
                 "external_procured_ordered_qty": round(external_procured_today, 4),
                 "external_procured_arrived_qty": round(external_arrivals_qty, 4),
                 "external_procured_rejected_qty": round(external_procured_rejected_today, 4),
+                "supplier_capacity_binding_qty": round(supplier_capacity_binding_qty_today, 4),
             }
         )
 
@@ -1565,6 +1736,7 @@ def main() -> None:
                 for n, i in externally_sourced_pairs
             ],
             "opening_stock_bootstrap_pairs": opening_stock_bootstrap_rows,
+            "supplier_daily_capacity_pairs": supplier_capacity_metadata_rows,
             "lane_purchase_cost_stats": {
                 "lanes_with_positive_purchase_cost": sum(1 for l in lanes if to_float(l.get("unit_purchase_cost"), 0.0) > 0),
                 "lanes_with_zero_purchase_cost": sum(1 for l in lanes if to_float(l.get("unit_purchase_cost"), 0.0) <= 0),
@@ -1594,6 +1766,7 @@ def main() -> None:
             "total_external_procurement_cost": round(total_external_procurement_cost, 4),
             "total_opening_stock_bootstrap_qty": round(total_opening_stock_bootstrap, 4),
             "total_unreliable_loss_qty": round(total_unreliable_loss_qty, 4),
+            "total_supplier_capacity_binding_qty": round(total_supplier_capacity_binding_qty, 4),
             "cost_share_holding": round(holding_share, 6),
             "cost_share_transport": round(transport_share, 6),
             "cost_share_purchase": round(purchase_share, 6),
@@ -1617,6 +1790,7 @@ def main() -> None:
     output_prod_path = data_path(output_dir, "production_output_products_daily.csv")
     supplier_shipment_path = data_path(output_dir, "production_supplier_shipments_daily.csv")
     supplier_stock_path = data_path(output_dir, "production_supplier_stocks_daily.csv")
+    supplier_capacity_path = data_path(output_dir, "production_supplier_capacity_daily.csv")
     dc_stock_path = data_path(output_dir, "production_dc_stocks_daily.csv")
     demand_pair_path = data_path(output_dir, "production_demand_service_daily.csv")
     production_constraint_path = data_path(output_dir, "production_constraint_daily.csv")
@@ -1716,6 +1890,22 @@ def main() -> None:
         writer.writeheader()
         writer.writerows(supplier_stock_rows)
 
+    with supplier_capacity_path.open("w", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(
+            f,
+            fieldnames=[
+                "day",
+                "node_id",
+                "item_id",
+                "capacity_qty_per_day",
+                "used_qty",
+                "remaining_capacity_qty",
+                "utilization",
+            ],
+        )
+        writer.writeheader()
+        writer.writerows(supplier_capacity_daily_rows)
+
     with dc_stock_path.open("w", encoding="utf-8", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=["day", "node_id", "item_id", "stock_end_of_day"])
         writer.writeheader()
@@ -1776,6 +1966,14 @@ def main() -> None:
                 str(plot_root),
                 "--sim-output-products-png-dir",
                 str(plot_root),
+                "--supplier-shipments-csv",
+                str(supplier_shipment_path),
+                "--supplier-stocks-csv",
+                str(supplier_stock_path),
+                "--supplier-capacity-csv",
+                str(supplier_capacity_path),
+                "--production-constraint-csv",
+                str(production_constraint_path),
             ]
             try:
                 subprocess.run(map_cmd, check=True, capture_output=True, text=True)
@@ -1873,6 +2071,7 @@ def main() -> None:
 - Cost share holding / transport / purchase: {summary['kpis']['cost_share_holding']} / {summary['kpis']['cost_share_transport']} / {summary['kpis']['cost_share_purchase']}
 - Total opening stock bootstrap qty: {summary['kpis']['total_opening_stock_bootstrap_qty']}
 - Total unreliable supplier loss qty: {summary['kpis']['total_unreliable_loss_qty']}
+- Total supplier capacity binding qty: {summary['kpis']['total_supplier_capacity_binding_qty']}
 - Economic consistency status: {summary['economic_consistency']['status']}
 - Economic consistency warnings: {summary['economic_consistency']['warnings']}
 
@@ -1892,6 +2091,7 @@ def main() -> None:
 - data/production_constraint_daily.csv
 - data/production_supplier_shipments_daily.csv
 - data/production_supplier_stocks_daily.csv
+- data/production_supplier_capacity_daily.csv
 - data/production_dc_stocks_daily.csv
 - production_input_stocks_by_material_*.png ({', '.join(detailed_input_plot_paths) if detailed_input_plot_paths else 'not generated'})
 - production_output_products.png ({generated_plots.get('production_output_products_png', 'not generated')})
@@ -1915,6 +2115,7 @@ def main() -> None:
     print(f"[OK] Production constraint CSV: {production_constraint_path.resolve()}")
     print(f"[OK] Production supplier shipments CSV: {supplier_shipment_path.resolve()}")
     print(f"[OK] Production supplier stocks CSV: {supplier_stock_path.resolve()}")
+    print(f"[OK] Production supplier capacity CSV: {supplier_capacity_path.resolve()}")
     print(f"[OK] Production distribution center stocks CSV: {dc_stock_path.resolve()}")
     if generated_plots:
         for _, path in sorted(generated_plots.items()):
