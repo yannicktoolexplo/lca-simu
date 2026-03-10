@@ -61,6 +61,24 @@ def parse_args() -> argparse.Namespace:
         default=0.2,
         help="Symmetric relative perturbation for OAT (e.g. 0.2 -> 0.8 and 1.2).",
     )
+    parser.add_argument(
+        "--opening-stock-bootstrap-scale",
+        type=float,
+        default=None,
+        help="Override scenario opening_stock_bootstrap_scale before running the batch.",
+    )
+    parser.add_argument(
+        "--external-procurement-enabled",
+        type=str,
+        default=None,
+        help="Override scenario economic_policy.external_procurement_enabled with true/false.",
+    )
+    parser.add_argument(
+        "--severity-profile",
+        choices=["balanced", "aggressive"],
+        default="balanced",
+        help="Sensitivity amplitude profile. 'aggressive' uses stronger parameter swings.",
+    )
     return parser.parse_args()
 
 
@@ -73,9 +91,14 @@ def base_case() -> dict[str, Any]:
             "supplier_stock_scale": 1.0,
             "production_stock_scale": 1.0,
             "capacity_scale": 1.0,
+            "safety_stock_days_scale": 1.0,
+            "supplier_reliability_scale": 1.0,
         },
         "demand_item_scale": {},
         "capacity_node_scale": {},
+        "supplier_node_scale": {},
+        "edge_src_lead_time_scale": {},
+        "edge_src_reliability_scale": {},
     }
 
 
@@ -84,12 +107,59 @@ def clone_case_config(case_cfg: dict[str, Any]) -> dict[str, Any]:
         "factors": dict(case_cfg["factors"]),
         "demand_item_scale": dict(case_cfg["demand_item_scale"]),
         "capacity_node_scale": dict(case_cfg["capacity_node_scale"]),
+        "supplier_node_scale": dict(case_cfg["supplier_node_scale"]),
+        "edge_src_lead_time_scale": dict(case_cfg["edge_src_lead_time_scale"]),
+        "edge_src_reliability_scale": dict(case_cfg["edge_src_reliability_scale"]),
     }
 
 
-def build_design(data: dict[str, Any], scenario_id: str, delta: float) -> list[dict[str, Any]]:
+def detect_supplier_nodes(data: dict[str, Any]) -> list[str]:
+    outgoing_sources = {
+        str(edge.get("from"))
+        for edge in (data.get("edges") or [])
+        if edge.get("from") is not None
+    }
+    out: list[str] = []
+    for node in data.get("nodes", []) or []:
+        node_id = str(node.get("id"))
+        if str(node.get("type") or "") == "supplier_dc" and node_id in outgoing_sources:
+            out.append(node_id)
+    return sorted(set(out))
+
+
+def case_levels(parameter_kind: str, delta: float, severity_profile: str) -> tuple[float, float]:
+    lo = 1.0 - delta
+    hi = 1.0 + delta
+    if severity_profile != "aggressive":
+        if parameter_kind.endswith("reliability"):
+            return max(0.2, lo), min(1.0, hi)
+        return lo, hi
+
+    aggressive_levels = {
+        "lead_time": (0.5, 1.8),
+        "transport_cost": (0.2, 2.0),
+        "supplier_stock": (0.2, 1.8),
+        "production_stock": (0.2, 1.8),
+        "safety_stock_days": (0.2, 2.0),
+        "supplier_reliability": (0.2, 1.0),
+        "demand_item": (0.2, 1.8),
+        "capacity_node": (0.2, 1.8),
+        "supplier_node": (0.2, 1.8),
+        "edge_src_lead_time": (0.5, 1.8),
+        "edge_src_reliability": (0.2, 1.0),
+    }
+    return aggressive_levels.get(parameter_kind, (lo, hi))
+
+
+def build_design(
+    data: dict[str, Any],
+    scenario_id: str,
+    delta: float,
+    severity_profile: str,
+) -> list[dict[str, Any]]:
     demand_items = detect_demand_items(data, scenario_id)
     production_nodes = detect_production_nodes(data)
+    supplier_nodes = detect_supplier_nodes(data)
     lo = 1.0 - delta
     hi = 1.0 + delta
     if lo <= 0:
@@ -121,9 +191,20 @@ def build_design(data: dict[str, Any], scenario_id: str, delta: float) -> list[d
         "transport_cost_scale",
         "supplier_stock_scale",
         "production_stock_scale",
+        "safety_stock_days_scale",
+        "supplier_reliability_scale",
     ]
+    global_param_kinds = {
+        "lead_time_scale": "lead_time",
+        "transport_cost_scale": "transport_cost",
+        "supplier_stock_scale": "supplier_stock",
+        "production_stock_scale": "production_stock",
+        "safety_stock_days_scale": "safety_stock_days",
+        "supplier_reliability_scale": "supplier_reliability",
+    }
     for p in global_params:
-        for level, val in [("low", lo), ("high", hi)]:
+        p_lo, p_hi = case_levels(global_param_kinds[p], delta, severity_profile)
+        for level, val in [("low", p_lo), ("high", p_hi)]:
             cfg = clone_case_config(base_case())
             cfg["factors"][p] = val
             design.append(
@@ -138,7 +219,8 @@ def build_design(data: dict[str, Any], scenario_id: str, delta: float) -> list[d
 
     for item in demand_items:
         pname = f"demand_item_scale::{item}"
-        for level, val in [("low", lo), ("high", hi)]:
+        p_lo, p_hi = case_levels("demand_item", delta, severity_profile)
+        for level, val in [("low", p_lo), ("high", p_hi)]:
             cfg = clone_case_config(base_case())
             cfg["demand_item_scale"][item] = val
             design.append(
@@ -153,7 +235,8 @@ def build_design(data: dict[str, Any], scenario_id: str, delta: float) -> list[d
 
     for node in production_nodes:
         pname = f"capacity_node_scale::{node}"
-        for level, val in [("low", lo), ("high", hi)]:
+        p_lo, p_hi = case_levels("capacity_node", delta, severity_profile)
+        for level, val in [("low", p_lo), ("high", p_hi)]:
             cfg = clone_case_config(base_case())
             cfg["capacity_node_scale"][node] = val
             design.append(
@@ -166,7 +249,87 @@ def build_design(data: dict[str, Any], scenario_id: str, delta: float) -> list[d
                 }
             )
 
+    for node in supplier_nodes:
+        pname = f"supplier_node_scale::{node}"
+        p_lo, p_hi = case_levels("supplier_node", delta, severity_profile)
+        for level, val in [("low", p_lo), ("high", p_hi)]:
+            cfg = clone_case_config(base_case())
+            cfg["supplier_node_scale"][node] = val
+            design.append(
+                {
+                    "case_id": f"supplier_stock_node_{safe_name(node)}_{level}",
+                    "parameter": pname,
+                    "level": level,
+                    "value": val,
+                    "config": cfg,
+                }
+            )
+
+    for node in supplier_nodes:
+        pname = f"edge_src_lead_time_scale::{node}"
+        p_lo, p_hi = case_levels("edge_src_lead_time", delta, severity_profile)
+        for level, val in [("low", p_lo), ("high", p_hi)]:
+            cfg = clone_case_config(base_case())
+            cfg["edge_src_lead_time_scale"][node] = val
+            design.append(
+                {
+                    "case_id": f"supplier_lead_time_node_{safe_name(node)}_{level}",
+                    "parameter": pname,
+                    "level": level,
+                    "value": val,
+                    "config": cfg,
+                }
+            )
+
+    for node in supplier_nodes:
+        pname = f"edge_src_reliability_scale::{node}"
+        p_lo, p_hi = case_levels("edge_src_reliability", delta, severity_profile)
+        for level, val in [("low", p_lo), ("high", p_hi)]:
+            cfg = clone_case_config(base_case())
+            cfg["edge_src_reliability_scale"][node] = val
+            design.append(
+                {
+                    "case_id": f"supplier_reliability_node_{safe_name(node)}_{level}",
+                    "parameter": pname,
+                    "level": level,
+                    "value": val,
+                    "config": cfg,
+                }
+            )
+
     return design
+
+
+def parse_bool(text: str | None) -> bool | None:
+    if text is None:
+        return None
+    normalized = str(text).strip().lower()
+    if normalized in {"1", "true", "yes", "y", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "n", "off"}:
+        return False
+    raise ValueError(f"Invalid boolean value: {text}")
+
+
+def apply_batch_overrides(
+    data: dict[str, Any],
+    scenario_id: str,
+    *,
+    opening_stock_bootstrap_scale: float | None,
+    external_procurement_enabled: bool | None,
+) -> None:
+    scenarios = data.get("scenarios", []) or []
+    scn = next((s for s in scenarios if str(s.get("id")) == scenario_id), scenarios[0] if scenarios else None)
+    if not isinstance(scn, dict):
+        return
+    if opening_stock_bootstrap_scale is not None:
+        scn["opening_stock_bootstrap_scale"] = max(0.0, float(opening_stock_bootstrap_scale))
+    if external_procurement_enabled is not None:
+        econ = scn.get("economic_policy")
+        if not isinstance(econ, dict):
+            econ = {}
+        econ["external_procurement_enabled"] = bool(external_procurement_enabled)
+        scn["economic_policy"] = econ
 
 
 def main() -> None:
@@ -179,7 +342,14 @@ def main() -> None:
     cases_dir.mkdir(parents=True, exist_ok=True)
 
     base_data = load_json(input_path)
-    design = build_design(base_data, args.scenario_id, args.delta)
+    batch_external_procurement_enabled = parse_bool(args.external_procurement_enabled)
+    apply_batch_overrides(
+        base_data,
+        args.scenario_id,
+        opening_stock_bootstrap_scale=args.opening_stock_bootstrap_scale,
+        external_procurement_enabled=batch_external_procurement_enabled,
+    )
+    design = build_design(base_data, args.scenario_id, args.delta, args.severity_profile)
     print(f"[INFO] Sensitivity design cases: {len(design)}")
 
     rows: list[dict[str, Any]] = []
@@ -197,6 +367,9 @@ def main() -> None:
             factors=cfg["factors"],
             demand_item_scale=cfg["demand_item_scale"],
             capacity_node_scale=cfg["capacity_node_scale"],
+            supplier_node_scale=cfg["supplier_node_scale"],
+            edge_src_lead_time_scale=cfg["edge_src_lead_time_scale"],
+            edge_src_reliability_scale=cfg["edge_src_reliability_scale"],
         )
         write_json(case_input, mutated)
 
@@ -214,6 +387,9 @@ def main() -> None:
         row.update({f"factor::{k}": v for k, v in cfg["factors"].items()})
         row.update({f"demand_item::{k}": v for k, v in cfg["demand_item_scale"].items()})
         row.update({f"capacity_node::{k}": v for k, v in cfg["capacity_node_scale"].items()})
+        row.update({f"supplier_node::{k}": v for k, v in cfg["supplier_node_scale"].items()})
+        row.update({f"edge_src_lead_time::{k}": v for k, v in cfg["edge_src_lead_time_scale"].items()})
+        row.update({f"edge_src_reliability::{k}": v for k, v in cfg["edge_src_reliability_scale"].items()})
 
         try:
             summary, _ = run_simulation(
@@ -348,6 +524,24 @@ def main() -> None:
         "scenario_id": args.scenario_id,
         "days_override": args.days,
         "delta": args.delta,
+        "severity_profile": args.severity_profile,
+        "parameter_levels": {
+            "lead_time": list(case_levels("lead_time", args.delta, args.severity_profile)),
+            "transport_cost": list(case_levels("transport_cost", args.delta, args.severity_profile)),
+            "supplier_stock": list(case_levels("supplier_stock", args.delta, args.severity_profile)),
+            "production_stock": list(case_levels("production_stock", args.delta, args.severity_profile)),
+            "safety_stock_days": list(case_levels("safety_stock_days", args.delta, args.severity_profile)),
+            "supplier_reliability": list(case_levels("supplier_reliability", args.delta, args.severity_profile)),
+            "demand_item": list(case_levels("demand_item", args.delta, args.severity_profile)),
+            "capacity_node": list(case_levels("capacity_node", args.delta, args.severity_profile)),
+            "supplier_node": list(case_levels("supplier_node", args.delta, args.severity_profile)),
+            "edge_src_lead_time": list(case_levels("edge_src_lead_time", args.delta, args.severity_profile)),
+            "edge_src_reliability": list(case_levels("edge_src_reliability", args.delta, args.severity_profile)),
+        },
+        "batch_overrides": {
+            "opening_stock_bootstrap_scale": args.opening_stock_bootstrap_scale,
+            "external_procurement_enabled": batch_external_procurement_enabled,
+        },
         "case_count": len(design),
         "successful_cases": len(ok_rows),
         "failed_cases": len(design) - len(ok_rows),
@@ -372,6 +566,8 @@ def main() -> None:
 - Scenario: {args.scenario_id}
 - Days override: {args.days}
 - OAT delta: +/-{args.delta * 100:.1f}%
+- Severity profile: {args.severity_profile}
+- Parameter levels: {json.dumps(summary['parameter_levels'], ensure_ascii=False)}
 - Cases total: {len(design)}
 - Cases success: {len(ok_rows)}
 - Cases failed: {len(failed)}

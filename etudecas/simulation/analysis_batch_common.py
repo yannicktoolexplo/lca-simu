@@ -84,10 +84,16 @@ def apply_scales(
     factors: dict[str, float],
     demand_item_scale: dict[str, float] | None = None,
     capacity_node_scale: dict[str, float] | None = None,
+    supplier_node_scale: dict[str, float] | None = None,
+    edge_src_lead_time_scale: dict[str, float] | None = None,
+    edge_src_reliability_scale: dict[str, float] | None = None,
 ) -> dict[str, Any]:
     data = copy.deepcopy(base_data)
     demand_item_scale = demand_item_scale or {}
     capacity_node_scale = capacity_node_scale or {}
+    supplier_node_scale = supplier_node_scale or {}
+    edge_src_lead_time_scale = edge_src_lead_time_scale or {}
+    edge_src_reliability_scale = edge_src_reliability_scale or {}
     production_nodes = set(detect_production_nodes(data))
 
     demand_global_scale = to_float(factors.get("demand_scale", 1.0), 1.0)
@@ -145,6 +151,12 @@ def apply_scales(
         ]
     ):
         raise ValueError("All factors must be strictly positive.")
+    if any(v <= 0 for v in supplier_node_scale.values()):
+        raise ValueError("All supplier_node_scale values must be strictly positive.")
+    if any(v <= 0 for v in edge_src_lead_time_scale.values()):
+        raise ValueError("All edge_src_lead_time_scale values must be strictly positive.")
+    if any(v <= 0 for v in edge_src_reliability_scale.values()):
+        raise ValueError("All edge_src_reliability_scale values must be strictly positive.")
 
     scn = choose_scenario(data, scenario_id)
     for d in (scn.get("demand", []) or []):
@@ -221,6 +233,7 @@ def apply_scales(
 
     for n in data.get("nodes", []) or []:
         node_id = str(n.get("id"))
+        node_type = str(n.get("type") or "")
         node_cap_scale = to_float(capacity_node_scale.get(node_id, 1.0), 1.0) * capacity_global_scale
         if node_cap_scale <= 0:
             raise ValueError(f"Invalid capacity scale for node {node_id}: {node_cap_scale}")
@@ -233,6 +246,8 @@ def apply_scales(
         inv = n.get("inventory") or {}
         states = inv.get("states") or []
         inv_factor = production_stock_scale if node_id in production_nodes else supplier_stock_scale
+        if node_type == "supplier_dc":
+            inv_factor *= to_float(supplier_node_scale.get(node_id, 1.0), 1.0)
         for st in states:
             if "initial" in st:
                 st["initial"] = round(max(0.0, to_float(st.get("initial"), 0.0) * inv_factor), 6)
@@ -240,10 +255,13 @@ def apply_scales(
         n["inventory"] = inv
 
     for e in data.get("edges", []) or []:
+        edge_src = str(e.get("from") or "")
+        edge_lead_scale = to_float(edge_src_lead_time_scale.get(edge_src, 1.0), 1.0) * lead_time_scale
+        edge_reliability = to_float(edge_src_reliability_scale.get(edge_src, 1.0), 1.0)
         lead = e.get("lead_time") or {}
         for k in ["mean", "min", "max"]:
             if k in lead:
-                lead[k] = round(max(0.05, to_float(lead.get(k), 0.0) * lead_time_scale), 6)
+                lead[k] = round(max(0.05, to_float(lead.get(k), 0.0) * edge_lead_scale), 6)
         e["lead_time"] = lead
 
         tc = e.get("transport_cost") or {}
@@ -253,7 +271,10 @@ def apply_scales(
 
         service_level = e.get("service_level") or {}
         base_rel = to_float(service_level.get("otif", e.get("otif", 1.0)), 1.0)
-        service_level["otif"] = round(min(1.0, max(0.01, base_rel * supplier_reliability_scale)), 6)
+        service_level["otif"] = round(
+            min(1.0, max(0.01, base_rel * supplier_reliability_scale * edge_reliability)),
+            6,
+        )
         e["service_level"] = service_level
 
     return data

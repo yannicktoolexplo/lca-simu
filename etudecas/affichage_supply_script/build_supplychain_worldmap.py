@@ -15,6 +15,7 @@ import csv
 import html
 import io
 import json
+import math
 import re
 import sys
 from collections import defaultdict
@@ -72,6 +73,11 @@ def parse_args() -> argparse.Namespace:
         "--sensitivity-cases-csv",
         default="etudecas/simulation/sensibility/result/sensitivity_cases.csv",
         help="Sensitivity cases summary CSV.",
+    )
+    parser.add_argument(
+        "--structural-sensitivity-cases-csv",
+        default="etudecas/simulation/sensibility/structural_result/sensitivity_cases.csv",
+        help="Structural sensitivity cases summary CSV.",
     )
     return parser.parse_args()
 
@@ -474,35 +480,484 @@ def case_output_dir(case_row: dict[str, str] | None) -> Path | None:
     return Path(raw) if raw else None
 
 
+def safe_case_token(value: str) -> str:
+    return re.sub(r"[^A-Za-z0-9_-]+", "_", str(value))
+
+
+def kpi_from_case(case_row: dict[str, str] | None, kpi_name: str) -> float | None:
+    if not case_row:
+        return None
+    value = to_float(case_row.get(f"kpi::{kpi_name}"))
+    if value is None or math.isnan(value):
+        return None
+    return value
+
+
+def build_bar_chart_payload(
+    value_map: dict[str, float | None],
+    *,
+    title: str,
+    y_label: str,
+    filename: str,
+) -> dict[str, Any] | None:
+    usable = [(label, value) for label, value in value_map.items() if value is not None and not math.isnan(value)]
+    if not usable:
+        return None
+
+    try:
+        import matplotlib
+
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt  # type: ignore
+    except Exception:
+        return None
+
+    labels = [label for label, _ in usable]
+    values = [float(value) for _, value in usable]
+    colors = []
+    for label in labels:
+        if label == "Base":
+            colors.append("#2563eb")
+        elif "-" in label:
+            colors.append("#d97706")
+        else:
+            colors.append("#0f766e")
+
+    fig, ax = plt.subplots(figsize=(8.4, 4.8))
+    bars = ax.bar(labels, values, color=colors, width=0.62)
+    ax.set_title(title, fontsize=12, pad=10)
+    ax.set_ylabel(y_label)
+    ax.grid(True, axis="y", color="#e2e8f0", linewidth=0.9)
+    ax.set_axisbelow(True)
+    ax.set_facecolor("#ffffff")
+    fig.patch.set_facecolor("#ffffff")
+    ax.tick_params(axis="x", labelrotation=18)
+
+    ymax = max(values) if values else 0.0
+    ymin = min(values) if values else 0.0
+    span = max(abs(ymax - ymin), abs(ymax), 1.0)
+    pad = span * 0.08
+    ax.set_ylim(ymin - pad, ymax + pad)
+    for bar, value in zip(bars, values):
+        label = f"{value:.3f}" if abs(value) < 10 else f"{value:.1f}"
+        ax.text(
+            bar.get_x() + bar.get_width() / 2,
+            value + (pad * 0.15 if value >= 0 else -pad * 0.4),
+            label,
+            ha="center",
+            va="bottom" if value >= 0 else "top",
+            fontsize=8.5,
+            color="#0f172a",
+        )
+
+    fig.tight_layout()
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    return png_payload_from_bytes(buf.getvalue(), filename)
+
+
+def multiplier_label(value: float | None, fallback: str) -> str:
+    if value is None:
+        return fallback
+    if abs(value - 1.0) <= 1e-9:
+        return "Base"
+    return f"x{value:.2f}"
+
+
+def align_series(
+    baseline_points: list[tuple[int, float]],
+    scenario_points: list[tuple[int, float]],
+) -> list[tuple[int, float]]:
+    base_map = {day: value for day, value in baseline_points}
+    scen_map = {day: value for day, value in scenario_points}
+    days = sorted(set(base_map) | set(scen_map))
+    return [(day, scen_map.get(day, 0.0) - base_map.get(day, 0.0)) for day in days]
+
+
+def build_combo_bar_line_payload(
+    value_map: dict[str, float | None],
+    delta_series_map: dict[str, list[tuple[int, float]]],
+    *,
+    bar_title: str,
+    bar_y_label: str,
+    line_title: str,
+    line_y_label: str,
+    filename: str,
+    note: str | None = None,
+) -> dict[str, Any] | None:
+    usable_bars = [(label, value) for label, value in value_map.items() if value is not None and not math.isnan(value)]
+    usable_lines = {label: pts for label, pts in delta_series_map.items() if pts}
+    if not usable_bars and not usable_lines:
+        return None
+
+    try:
+        import matplotlib
+
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt  # type: ignore
+    except Exception:
+        return None
+
+    fig, axes = plt.subplots(2, 1, figsize=(9.2, 7.2), gridspec_kw={"height_ratios": [1.0, 1.15]})
+    fig.patch.set_facecolor("#ffffff")
+    colors = ["#d97706", "#0f766e", "#dc2626", "#7c3aed", "#475569"]
+
+    ax_bar = axes[0]
+    if usable_bars:
+        labels = [label for label, _ in usable_bars]
+        values = [float(value) for _, value in usable_bars]
+        bar_colors = []
+        for label in labels:
+            if label == "Base":
+                bar_colors.append("#2563eb")
+            elif any(token in label for token in ["x0.", "x0,", "-"]):
+                bar_colors.append("#d97706")
+            else:
+                bar_colors.append("#0f766e")
+        bars = ax_bar.bar(labels, values, color=bar_colors, width=0.62)
+        ymax = max(values) if values else 0.0
+        ymin = min(values) if values else 0.0
+        span = max(abs(ymax - ymin), abs(ymax), 1.0)
+        pad = span * 0.10
+        ax_bar.set_ylim(ymin - pad, ymax + pad)
+        for bar, value in zip(bars, values):
+            label = f"{value:.3f}" if abs(value) < 10 else f"{value:.1f}"
+            ax_bar.text(
+                bar.get_x() + bar.get_width() / 2,
+                value + (pad * 0.10 if value >= 0 else -pad * 0.35),
+                label,
+                ha="center",
+                va="bottom" if value >= 0 else "top",
+                fontsize=8.3,
+                color="#0f172a",
+            )
+        ax_bar.set_ylabel(bar_y_label)
+        ax_bar.tick_params(axis="x", labelrotation=18)
+        ax_bar.grid(True, axis="y", color="#e2e8f0", linewidth=0.9)
+        ax_bar.set_axisbelow(True)
+    else:
+        ax_bar.axis("off")
+    ax_bar.set_title(bar_title, fontsize=12, pad=10)
+    ax_bar.set_facecolor("#ffffff")
+
+    ax_line = axes[1]
+    if usable_lines:
+        for idx, (label, points) in enumerate(usable_lines.items()):
+            days = [p[0] for p in points]
+            values = [p[1] for p in points]
+            ax_line.plot(
+                days,
+                values,
+                label=label,
+                linewidth=2.1,
+                color=colors[idx % len(colors)],
+            )
+        ax_line.axhline(0.0, color="#94a3b8", linewidth=1.0, linestyle="--")
+        ax_line.set_xlabel("Jour")
+        ax_line.set_ylabel(line_y_label)
+        ax_line.grid(True, which="major", color="#e2e8f0", linewidth=0.9)
+        ax_line.legend(loc="best", fontsize=8.2, frameon=False)
+    else:
+        ax_line.axis("off")
+    ax_line.set_title(line_title, fontsize=11, pad=8)
+    ax_line.set_facecolor("#ffffff")
+
+    if note:
+        fig.text(0.5, 0.012, note, ha="center", va="bottom", fontsize=9.5, color="#475569")
+
+    fig.tight_layout(rect=(0, 0.03 if note else 0, 1, 1))
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    return png_payload_from_bytes(buf.getvalue(), filename)
+
+
+def build_note_payload(title: str, message: str, filename: str) -> dict[str, Any] | None:
+    try:
+        import matplotlib
+
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt  # type: ignore
+    except Exception:
+        return None
+
+    fig, ax = plt.subplots(figsize=(8.4, 3.0))
+    fig.patch.set_facecolor("#ffffff")
+    ax.set_facecolor("#ffffff")
+    ax.axis("off")
+    ax.text(0.5, 0.68, title, ha="center", va="center", fontsize=13, fontweight="bold", color="#0f172a")
+    ax.text(0.5, 0.38, message, ha="center", va="center", fontsize=11, color="#475569")
+    fig.tight_layout()
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    return png_payload_from_bytes(buf.getvalue(), filename)
+
+
+def local_signal_strength(
+    baseline_row: dict[str, str] | None,
+    low_row: dict[str, str] | None,
+    high_row: dict[str, str] | None,
+) -> tuple[float, float]:
+    base_fill = kpi_from_case(baseline_row, "fill_rate") or 0.0
+    base_backlog = kpi_from_case(baseline_row, "ending_backlog") or 0.0
+    fill_impact = max(
+        abs((kpi_from_case(low_row, "fill_rate") or base_fill) - base_fill),
+        abs((kpi_from_case(high_row, "fill_rate") or base_fill) - base_fill),
+    )
+    backlog_impact = max(
+        abs((kpi_from_case(low_row, "ending_backlog") or base_backlog) - base_backlog),
+        abs((kpi_from_case(high_row, "ending_backlog") or base_backlog) - base_backlog),
+    )
+    return fill_impact, backlog_impact
+
+
+def cumulative_series(points: list[tuple[int, float]]) -> list[tuple[int, float]]:
+    total = 0.0
+    out: list[tuple[int, float]] = []
+    for day, value in points:
+        total += value
+        out.append((day, total))
+    return out
+
+
+def select_best_supplier_case_pair(
+    by_case_id: dict[str, dict[str, str]],
+    baseline_row: dict[str, str] | None,
+    node_id: str,
+) -> tuple[str, str, dict[str, str] | None, dict[str, str] | None, float, float]:
+    safe_node = safe_case_token(node_id)
+    candidates: list[tuple[str, str, dict[str, str] | None, dict[str, str] | None]] = [
+        (
+            "stock fournisseur local",
+            "Stock four.",
+            by_case_id.get(f"supplier_stock_node_{safe_node}_low"),
+            by_case_id.get(f"supplier_stock_node_{safe_node}_high"),
+        ),
+        (
+            "lead time sortant local",
+            "Lead time",
+            by_case_id.get(f"supplier_lead_time_node_{safe_node}_low"),
+            by_case_id.get(f"supplier_lead_time_node_{safe_node}_high"),
+        ),
+        (
+            "capacite locale",
+            "Cap.",
+            by_case_id.get(f"capacity_{safe_node}_low"),
+            by_case_id.get(f"capacity_{safe_node}_high"),
+        ),
+    ]
+    best_label = ""
+    best_short = ""
+    best_low: dict[str, str] | None = None
+    best_high: dict[str, str] | None = None
+    best_score = -1.0
+    best_fill_impact = 0.0
+    best_backlog_impact = 0.0
+    for label, short_label, low_row, high_row in candidates:
+        if low_row is None and high_row is None:
+            continue
+        fill_impact, backlog_impact = local_signal_strength(baseline_row, low_row, high_row)
+        score = fill_impact * 100.0 + backlog_impact / 25.0
+        if score > best_score:
+            best_label = label
+            best_short = short_label
+            best_low = low_row
+            best_high = high_row
+            best_score = score
+            best_fill_impact = fill_impact
+            best_backlog_impact = backlog_impact
+    return best_label, best_short, best_low, best_high, best_fill_impact, best_backlog_impact
+
+
 def build_factory_sensitivity_hover_images(
     raw: dict[str, Any],
     case_rows: list[dict[str, str]],
     csv_cache: dict[Path, list[dict[str, str]]],
 ) -> dict[str, Any]:
+    by_case_id = case_rows_by_id(case_rows)
+    baseline_row = by_case_id.get("baseline")
+    if baseline_row is None:
+        return {}
+
+    out: dict[str, Any] = {}
+    for node in raw.get("nodes", []) or []:
+        node_id = str(node.get("id") or "")
+        if str(node.get("type") or "") != "factory":
+            continue
+
+        safe_node = safe_case_token(node_id)
+        low_row = by_case_id.get(f"capacity_{safe_node}_low")
+        high_row = by_case_id.get(f"capacity_{safe_node}_high")
+        if low_row is None and high_row is None:
+            continue
+
+        incoming = build_bar_chart_payload(
+            {
+                "Cap. -20%": kpi_from_case(low_row, "fill_rate"),
+                "Base": kpi_from_case(baseline_row, "fill_rate"),
+                "Cap. +20%": kpi_from_case(high_row, "fill_rate"),
+            },
+            title=f"{node_id} - impact capacite sur fill rate systeme",
+            y_label="Fill rate",
+            filename=f"{node_id}_sensitivity_fill_rate.png",
+        )
+        outgoing = build_bar_chart_payload(
+            {
+                "Cap. -20%": kpi_from_case(low_row, "ending_backlog"),
+                "Base": kpi_from_case(baseline_row, "ending_backlog"),
+                "Cap. +20%": kpi_from_case(high_row, "ending_backlog"),
+            },
+            title=f"{node_id} - impact capacite sur backlog final",
+            y_label="Backlog final",
+            filename=f"{node_id}_sensitivity_backlog.png",
+        )
+        if incoming or outgoing:
+            out[node_id] = {"incoming": incoming, "outgoing": outgoing}
+    return out
+
+
+def build_supplier_sensitivity_hover_images(
+    raw: dict[str, Any],
+    case_rows: list[dict[str, str]],
+    csv_cache: dict[Path, list[dict[str, str]]],
+) -> dict[str, Any]:
+    by_case_id = case_rows_by_id(case_rows)
+    baseline_row = by_case_id.get("baseline")
+    if baseline_row is None:
+        return {}
+
+    out: dict[str, Any] = {}
+    for node in raw.get("nodes", []) or []:
+        node_id = str(node.get("id") or "")
+        if str(node.get("type") or "") != "supplier_dc":
+            continue
+
+        best_label, best_short, best_low, best_high, best_fill_impact, best_backlog_impact = (
+            select_best_supplier_case_pair(by_case_id, baseline_row, node_id)
+        )
+        if best_low is None and best_high is None:
+            continue
+
+        if best_fill_impact < 0.002 and best_backlog_impact < 5.0:
+            note = build_note_payload(
+                f"{node_id} - sensibilite locale faible",
+                "Aucun impact systeme materiel detecte sur 30 jours\npour les chocs locaux testes.",
+                f"{node_id}_sensitivity_note.png",
+            )
+            out[node_id] = {"incoming": note, "outgoing": None}
+            continue
+
+        incoming = build_bar_chart_payload(
+            {
+                f"{best_short} -20%": kpi_from_case(best_low, "fill_rate"),
+                "Base": kpi_from_case(baseline_row, "fill_rate"),
+                f"{best_short} +20%": kpi_from_case(best_high, "fill_rate"),
+            },
+            title=f"{node_id} - impact {best_label} sur fill rate systeme",
+            y_label="Fill rate",
+            filename=f"{node_id}_sensitivity_fill_rate.png",
+        )
+        outgoing = build_bar_chart_payload(
+            {
+                f"{best_short} -20%": kpi_from_case(best_low, "ending_backlog"),
+                "Base": kpi_from_case(baseline_row, "ending_backlog"),
+                f"{best_short} +20%": kpi_from_case(best_high, "ending_backlog"),
+            },
+            title=f"{node_id} - impact {best_label} sur backlog final",
+            y_label="Backlog final",
+            filename=f"{node_id}_sensitivity_backlog.png",
+        )
+        out[node_id] = {"incoming": incoming, "outgoing": outgoing}
+    return out
+
+
+def build_distribution_center_sensitivity_hover_images(
+    raw: dict[str, Any],
+    case_rows: list[dict[str, str]],
+    csv_cache: dict[Path, list[dict[str, str]]],
+) -> dict[str, Any]:
     nodes = raw.get("nodes", []) or []
+    incoming_items, outgoing_items = build_edge_item_sets(raw)
+    by_case_id = case_rows_by_id(case_rows)
+    baseline_row = by_case_id.get("baseline")
+    if baseline_row is None:
+        return {}
+
+    out: dict[str, Any] = {}
+    for node in nodes:
+        node_id = str(node.get("id") or "")
+        if str(node.get("type") or "") != "distribution_center":
+            continue
+
+        dc_item_ids = set(incoming_items.get(node_id, set())) | set(outgoing_items.get(node_id, set()))
+        fill_values: dict[str, float | None] = {"Base": kpi_from_case(baseline_row, "fill_rate")}
+        backlog_values: dict[str, float | None] = {"Base": kpi_from_case(baseline_row, "ending_backlog")}
+        for item_id in sorted(dc_item_ids):
+            code = item_id.split(":", 1)[-1]
+            fill_values[f"{code} -20%"] = kpi_from_case(by_case_id.get(f"demand_item_{code}_low"), "fill_rate")
+            fill_values[f"{code} +20%"] = kpi_from_case(by_case_id.get(f"demand_item_{code}_high"), "fill_rate")
+            backlog_values[f"{code} -20%"] = kpi_from_case(by_case_id.get(f"demand_item_{code}_low"), "ending_backlog")
+            backlog_values[f"{code} +20%"] = kpi_from_case(by_case_id.get(f"demand_item_{code}_high"), "ending_backlog")
+
+        incoming = build_bar_chart_payload(
+            fill_values,
+            title=f"{node_id} - impact demande servie sur fill rate systeme",
+            y_label="Fill rate",
+            filename=f"{node_id}_sensitivity_fill_rate.png",
+        )
+        outgoing = build_bar_chart_payload(
+            backlog_values,
+            title=f"{node_id} - impact demande servie sur backlog final",
+            y_label="Backlog final",
+            filename=f"{node_id}_sensitivity_backlog.png",
+        )
+        if incoming or outgoing:
+            out[node_id] = {"incoming": incoming, "outgoing": outgoing}
+    return out
+
+
+def build_sensitivity_hover_payloads(
+    raw: dict[str, Any],
+    sensitivity_cases_csv: Path,
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+    case_rows = read_csv_rows(sensitivity_cases_csv)
+    if not case_rows:
+        return {}, {}, {}
+
+    csv_cache: dict[Path, list[dict[str, str]]] = {}
+    return (
+        build_factory_sensitivity_hover_images(raw, case_rows, csv_cache),
+        build_supplier_sensitivity_hover_images(raw, case_rows, csv_cache),
+        build_distribution_center_sensitivity_hover_images(raw, case_rows, csv_cache),
+    )
+
+
+def build_factory_structural_hover_images(
+    raw: dict[str, Any],
+    case_rows: list[dict[str, str]],
+    csv_cache: dict[Path, list[dict[str, str]]],
+) -> dict[str, Any]:
     by_case_id = case_rows_by_id(case_rows)
     baseline_dir = case_output_dir(by_case_id.get("baseline"))
     if baseline_dir is None:
         return {}
 
     out: dict[str, Any] = {}
-    for node in nodes:
+    for node in raw.get("nodes", []) or []:
         node_id = str(node.get("id") or "")
         if str(node.get("type") or "") != "factory":
             continue
-
-        low_dir = case_output_dir(by_case_id.get(f"capacity_{node_id}_low"))
-        high_dir = case_output_dir(by_case_id.get(f"capacity_{node_id}_high"))
+        safe_node = safe_case_token(node_id)
+        low_dir = case_output_dir(by_case_id.get(f"capacity_{safe_node}_low"))
+        high_dir = case_output_dir(by_case_id.get(f"capacity_{safe_node}_high"))
         if low_dir is None and high_dir is None:
             continue
 
         input_series: dict[str, list[tuple[int, float]]] = {}
         output_series: dict[str, list[tuple[int, float]]] = {}
-        for label, root in (
-            ("Cap. -20%", low_dir),
-            ("Base", baseline_dir),
-            ("Cap. +20%", high_dir),
-        ):
+        for label, root in (("Cap. -20%", low_dir), ("Base", baseline_dir), ("Cap. +20%", high_dir)):
             if root is None:
                 continue
             input_csv = root / "production_input_stocks_daily.csv"
@@ -526,60 +981,61 @@ def build_factory_sensitivity_hover_images(
 
         incoming = build_line_chart_payload(
             input_series,
-            title=f"{node_id} - stock total intrants par scenario de capacite",
+            title=f"{node_id} - structurel: stock intrants par scenario de capacite",
             y_label="Stock total",
-            filename=f"{node_id}_sensitivity_input.png",
+            filename=f"{node_id}_structural_input.png",
         )
         outgoing = build_line_chart_payload(
             output_series,
-            title=f"{node_id} - production cumulee par scenario de capacite",
+            title=f"{node_id} - structurel: production cumulee par scenario de capacite",
             y_label="Production cumulee",
-            filename=f"{node_id}_sensitivity_output.png",
+            filename=f"{node_id}_structural_output.png",
         )
         if incoming or outgoing:
             out[node_id] = {"incoming": incoming, "outgoing": outgoing}
     return out
 
 
-def build_supplier_sensitivity_hover_images(
+def build_supplier_structural_hover_images(
     raw: dict[str, Any],
     case_rows: list[dict[str, str]],
     csv_cache: dict[Path, list[dict[str, str]]],
 ) -> dict[str, Any]:
-    nodes = raw.get("nodes", []) or []
     by_case_id = case_rows_by_id(case_rows)
-    baseline_dir = case_output_dir(by_case_id.get("baseline"))
-    low_dir = case_output_dir(by_case_id.get("supplier_stock_scale_low"))
-    high_dir = case_output_dir(by_case_id.get("supplier_stock_scale_high"))
+    baseline_row = by_case_id.get("baseline")
+    baseline_dir = case_output_dir(baseline_row)
     if baseline_dir is None:
         return {}
 
     out: dict[str, Any] = {}
-    for node in nodes:
+    for node in raw.get("nodes", []) or []:
         node_id = str(node.get("id") or "")
         if str(node.get("type") or "") != "supplier_dc":
             continue
 
-        capacity_low_dir = case_output_dir(by_case_id.get(f"capacity_{node_id}_low"))
-        capacity_high_dir = case_output_dir(by_case_id.get(f"capacity_{node_id}_high"))
-        if capacity_low_dir is not None or capacity_high_dir is not None:
-            scenario_specs = (
-                ("Cap. -20%", capacity_low_dir),
-                ("Base", baseline_dir),
-                ("Cap. +20%", capacity_high_dir),
+        best_label, best_short, best_low_row, best_high_row, best_fill_impact, best_backlog_impact = (
+            select_best_supplier_case_pair(by_case_id, baseline_row, node_id)
+        )
+        if best_low_row is None and best_high_row is None:
+            continue
+        if best_fill_impact < 0.002 and best_backlog_impact < 5.0:
+            note = build_note_payload(
+                f"{node_id} - structurel: impact faible",
+                "Impact local faible dans le mode structurel\n(horizon long, bootstrap reduit, sans achat externe).",
+                f"{node_id}_structural_note.png",
             )
-            title_suffix = "scenario de capacite"
-        else:
-            scenario_specs = (
-                ("Stock four. -20%", low_dir),
-                ("Base", baseline_dir),
-                ("Stock four. +20%", high_dir),
-            )
-            title_suffix = "scenario de stock fournisseur"
+            out[node_id] = {"incoming": note, "outgoing": None}
+            continue
 
+        low_dir = case_output_dir(best_low_row)
+        high_dir = case_output_dir(best_high_row)
         shipment_series: dict[str, list[tuple[int, float]]] = {}
         stock_series: dict[str, list[tuple[int, float]]] = {}
-        for label, root in scenario_specs:
+        for label, root in (
+            (f"{best_short} -20%", low_dir),
+            ("Base", baseline_dir),
+            (f"{best_short} +20%", high_dir),
+        ):
             if root is None:
                 continue
             shipments_csv = root / "production_supplier_shipments_daily.csv"
@@ -603,22 +1059,22 @@ def build_supplier_sensitivity_hover_images(
 
         incoming = build_line_chart_payload(
             shipment_series,
-            title=f"{node_id} - expeditions par {title_suffix}",
+            title=f"{node_id} - structurel: expeditions par scenario {best_label}",
             y_label="Quantite expediee / jour",
-            filename=f"{node_id}_sensitivity_shipments.png",
+            filename=f"{node_id}_structural_shipments.png",
         )
         outgoing = build_line_chart_payload(
             stock_series,
-            title=f"{node_id} - stock disponible par {title_suffix}",
+            title=f"{node_id} - structurel: stock disponible par scenario {best_label}",
             y_label="Stock fin de journee",
-            filename=f"{node_id}_sensitivity_stock.png",
+            filename=f"{node_id}_structural_stock.png",
         )
         if incoming or outgoing:
             out[node_id] = {"incoming": incoming, "outgoing": outgoing}
     return out
 
 
-def build_distribution_center_sensitivity_hover_images(
+def build_distribution_center_structural_hover_images(
     raw: dict[str, Any],
     case_rows: list[dict[str, str]],
     csv_cache: dict[Path, list[dict[str, str]]],
@@ -637,66 +1093,65 @@ def build_distribution_center_sensitivity_hover_images(
             continue
 
         dc_item_ids = set(incoming_items.get(node_id, set())) | set(outgoing_items.get(node_id, set()))
-        demand_case_specs: list[tuple[str, Path | None, set[str]]] = [("Base", baseline_dir, dc_item_ids)]
+        backlog_series: dict[str, list[tuple[int, float]]] = {}
+        served_series: dict[str, list[tuple[int, float]]] = {}
         for item_id in sorted(dc_item_ids):
             code = item_id.split(":", 1)[-1]
-            demand_case_specs.append((f"{code} -20%", case_output_dir(by_case_id.get(f"demand_item_{code}_low")), {item_id}))
-            demand_case_specs.append((f"{code} +20%", case_output_dir(by_case_id.get(f"demand_item_{code}_high")), {item_id}))
-
-        stock_series: dict[str, list[tuple[int, float]]] = {}
-        backlog_series: dict[str, list[tuple[int, float]]] = {}
-        for label, root, item_ids in demand_case_specs:
-            if root is None:
-                continue
-            dc_stock_csv = root / "production_dc_stocks_daily.csv"
-            demand_csv = root / "production_demand_service_daily.csv"
-            if dc_stock_csv not in csv_cache:
-                csv_cache[dc_stock_csv] = read_csv_rows(dc_stock_csv)
-            if demand_csv not in csv_cache:
-                csv_cache[demand_csv] = read_csv_rows(demand_csv)
-            stock_series[label] = aggregate_daily_series(
-                csv_cache[dc_stock_csv],
-                value_field="stock_end_of_day",
-                node_field="node_id",
-                node_id=node_id,
-                item_ids=item_ids,
-            )
-            backlog_series[label] = aggregate_daily_series(
-                csv_cache[demand_csv],
-                value_field="backlog_end_qty",
-                item_ids=item_ids,
-            )
+            specs = [
+                ("Base", baseline_dir, dc_item_ids),
+                (f"{code} -20%", case_output_dir(by_case_id.get(f"demand_item_{code}_low")), {item_id}),
+                (f"{code} +20%", case_output_dir(by_case_id.get(f"demand_item_{code}_high")), {item_id}),
+            ]
+            for label, root, item_ids in specs:
+                if root is None:
+                    continue
+                demand_csv = root / "production_demand_service_daily.csv"
+                if demand_csv not in csv_cache:
+                    csv_cache[demand_csv] = read_csv_rows(demand_csv)
+                if label not in backlog_series:
+                    backlog_series[label] = aggregate_daily_series(
+                        csv_cache[demand_csv],
+                        value_field="backlog_end_qty",
+                        item_ids=item_ids,
+                    )
+                if label not in served_series:
+                    served_daily = aggregate_daily_series(
+                        csv_cache[demand_csv],
+                        value_field="served_qty",
+                        item_ids=item_ids,
+                    )
+                    served_series[label] = cumulative_series(served_daily)
 
         incoming = build_line_chart_payload(
-            stock_series,
-            title=f"{node_id} - stock DC par scenario de demande",
-            y_label="Stock fin de journee",
-            filename=f"{node_id}_sensitivity_dc_stock.png",
+            backlog_series,
+            title=f"{node_id} - structurel: backlog client par scenario de demande",
+            y_label="Backlog fin de journee",
+            filename=f"{node_id}_structural_backlog.png",
         )
         outgoing = build_line_chart_payload(
-            backlog_series,
-            title=f"{node_id} - backlog client par scenario de demande",
-            y_label="Backlog fin de journee",
-            filename=f"{node_id}_sensitivity_backlog.png",
+            served_series,
+            title=f"{node_id} - structurel: servi cumule par scenario de demande",
+            y_label="Servi cumule",
+            filename=f"{node_id}_structural_served.png",
         )
         if incoming or outgoing:
             out[node_id] = {"incoming": incoming, "outgoing": outgoing}
     return out
 
 
-def build_sensitivity_hover_payloads(
+def build_structural_sensitivity_hover_payloads(
     raw: dict[str, Any],
-    sensitivity_cases_csv: Path,
+    structural_cases_csv: Path,
 ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
-    case_rows = read_csv_rows(sensitivity_cases_csv)
+    case_rows = read_csv_rows(structural_cases_csv)
     if not case_rows:
         return {}, {}, {}
 
     csv_cache: dict[Path, list[dict[str, str]]] = {}
     return (
-        build_factory_sensitivity_hover_images(raw, case_rows, csv_cache),
-        build_supplier_sensitivity_hover_images(raw, case_rows, csv_cache),
-        build_distribution_center_sensitivity_hover_images(raw, case_rows, csv_cache),
+        build_factory_structural_hover_images(raw, case_rows, csv_cache),
+        build_supplier_structural_hover_images(raw, case_rows, csv_cache),
+        build_distribution_center_structural_hover_images(raw, case_rows, csv_cache),
     )
 
 
@@ -835,6 +1290,7 @@ def html_template(title: str, data_json: str) -> str:
       <div class="modeTabs">
         <button id="modeOps" class="modeBtn active" type="button">Simulation</button>
         <button id="modeSensitivity" class="modeBtn" type="button">Sensibilite</button>
+        <button id="modeStructural" class="modeBtn" type="button">Structurel</button>
       </div>
     </div>
     <div class="box">
@@ -868,6 +1324,9 @@ def html_template(title: str, data_json: str) -> str:
     const FACTORY_SENSITIVITY_HOVER_IMAGES = DATA.factory_sensitivity_hover_images || {{}};
     const SUPPLIER_SENSITIVITY_HOVER_IMAGES = DATA.supplier_sensitivity_hover_images || {{}};
     const DC_SENSITIVITY_HOVER_IMAGES = DATA.distribution_center_sensitivity_hover_images || {{}};
+    const FACTORY_STRUCTURAL_HOVER_IMAGES = DATA.factory_structural_hover_images || {{}};
+    const SUPPLIER_STRUCTURAL_HOVER_IMAGES = DATA.supplier_structural_hover_images || {{}};
+    const DC_STRUCTURAL_HOVER_IMAGES = DATA.distribution_center_structural_hover_images || {{}};
     const nodeById = Object.fromEntries((DATA.nodes || []).map(n => [n.id, n]));
     const defaultPalette = ["#1f77b4", "#d62728", "#ff7f0e", "#2ca02c", "#9467bd", "#8c564b"];
     let currentFactoryHoverId = null;
@@ -1045,24 +1504,28 @@ def html_template(title: str, data_json: str) -> str:
 
     function panelLabels(nodeType) {{
       if (currentPanelMode === "sensitivity") {{
+        return {{
+          incoming: "Impact systeme - fill rate",
+          outgoing: "Impact systeme - backlog final"
+        }};
+      }}
+      if (currentPanelMode === "structural") {{
         if (nodeType === "factory") {{
           return {{
-            incoming: "Sensibilite capacite - stock total intrants",
-            outgoing: "Sensibilite capacite - production cumulee"
+            incoming: "Structurel - stock intrants",
+            outgoing: "Structurel - production cumulee"
           }};
         }}
         if (nodeType === "supplier_dc") {{
           return {{
-            incoming: "Sensibilite supply - expeditions",
-            outgoing: "Sensibilite supply - stock disponible"
+            incoming: "Structurel - expeditions",
+            outgoing: "Structurel - stock disponible"
           }};
         }}
-        if (nodeType === "distribution_center") {{
-          return {{
-            incoming: "Sensibilite demande - stock distribution center",
-            outgoing: "Sensibilite demande - backlog client"
-          }};
-        }}
+        return {{
+          incoming: "Structurel - backlog client",
+          outgoing: "Structurel - servi cumule"
+        }};
       }}
       if (nodeType === "supplier_dc") {{
         return {{
@@ -1089,6 +1552,12 @@ def html_template(title: str, data_json: str) -> str:
         if (nodeType === "distribution_center") return DC_SENSITIVITY_HOVER_IMAGES[nodeId] || null;
         return null;
       }}
+      if (currentPanelMode === "structural") {{
+        if (nodeType === "factory") return FACTORY_STRUCTURAL_HOVER_IMAGES[nodeId] || null;
+        if (nodeType === "supplier_dc") return SUPPLIER_STRUCTURAL_HOVER_IMAGES[nodeId] || null;
+        if (nodeType === "distribution_center") return DC_STRUCTURAL_HOVER_IMAGES[nodeId] || null;
+        return null;
+      }}
       if (nodeType === "factory") return FACTORY_HOVER_IMAGES[nodeId] || null;
       if (nodeType === "supplier_dc") return SUPPLIER_HOVER_IMAGES[nodeId] || null;
       if (nodeType === "distribution_center") return DC_HOVER_IMAGES[nodeId] || null;
@@ -1098,6 +1567,7 @@ def html_template(title: str, data_json: str) -> str:
     function applyModeUi() {{
       document.getElementById("modeOps").classList.toggle("active", currentPanelMode === "ops");
       document.getElementById("modeSensitivity").classList.toggle("active", currentPanelMode === "sensitivity");
+      document.getElementById("modeStructural").classList.toggle("active", currentPanelMode === "structural");
     }}
 
     function setPanelMode(mode) {{
@@ -1128,7 +1598,8 @@ def html_template(title: str, data_json: str) -> str:
       const nodeName = nodeInfo.name || nodeId;
       const nodeTitle = nodeType === "factory" ? "Factory" :
         (nodeType === "supplier_dc" ? "Supplier" : "Distribution Center");
-      const modeTitle = currentPanelMode === "sensitivity" ? "Sensibilite" : "Simulation";
+      const modeTitle = currentPanelMode === "sensitivity" ? "Sensibilite" :
+        (currentPanelMode === "structural" ? "Structurel" : "Simulation");
       title.textContent = `${{nodeTitle}}: ${{nodeName}} (${{nodeId}}) · ${{modeTitle}}`;
 
       const labels = panelLabels(nodeType);
@@ -1224,6 +1695,7 @@ def html_template(title: str, data_json: str) -> str:
       document.getElementById("showEdges").addEventListener("change", draw);
       document.getElementById("modeOps").addEventListener("click", () => setPanelMode("ops"));
       document.getElementById("modeSensitivity").addEventListener("click", () => setPanelMode("sensitivity"));
+      document.getElementById("modeStructural").addEventListener("click", () => setPanelMode("structural"));
       for (const chk of document.querySelectorAll(".typeChk")) {{
         chk.addEventListener("change", draw);
       }}
@@ -1245,6 +1717,7 @@ def main() -> None:
     sim_input_png_dir = Path(args.sim_input_stocks_png_dir)
     sim_output_png_dir = Path(args.sim_output_products_png_dir)
     sensitivity_cases_csv = Path(args.sensitivity_cases_csv)
+    structural_sensitivity_cases_csv = Path(args.structural_sensitivity_cases_csv)
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     try:
@@ -1259,6 +1732,11 @@ def main() -> None:
             payload["supplier_sensitivity_hover_images"],
             payload["distribution_center_sensitivity_hover_images"],
         ) = build_sensitivity_hover_payloads(raw, sensitivity_cases_csv)
+        (
+            payload["factory_structural_hover_images"],
+            payload["supplier_structural_hover_images"],
+            payload["distribution_center_structural_hover_images"],
+        ) = build_structural_sensitivity_hover_payloads(raw, structural_sensitivity_cases_csv)
     except Exception as exc:
         print(f"[ERROR] Unable to read/parse input JSON: {exc}", file=sys.stderr)
         sys.exit(1)
