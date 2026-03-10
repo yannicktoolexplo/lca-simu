@@ -2326,7 +2326,7 @@
           {
             "item_id": "item:055703",
             "state_id": "I_055703",
-            "initial": 216.0,
+            "initial": 324.0,
             "uom": "KG",
             "holding_cost": {
               "value": 0.04,

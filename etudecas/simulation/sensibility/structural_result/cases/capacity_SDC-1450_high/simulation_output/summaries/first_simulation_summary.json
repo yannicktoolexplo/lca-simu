@@ -624,9 +624,9 @@
         "item_id": "item:021081",
         "lead_days": 120,
         "cover_days": 220,
-        "daily_req_at_cap": 5364.0,
-        "added_opening_qty": 589860.0,
-        "target_opening_stock": 590040.0
+        "daily_req_at_cap": 8046.0,
+        "added_opening_qty": 884880.0,
+        "target_opening_stock": 885060.0
       }
     ],
     "lane_purchase_cost_stats": {
@@ -644,23 +644,23 @@
     "total_shipped": 11222.3372,
     "total_arrived": 9820.5628,
     "total_produced": 4285.8956,
-    "avg_inventory": 609090.3908,
-    "ending_inventory": 596538.4627,
+    "avg_inventory": 904110.3908,
+    "ending_inventory": 891558.4627,
     "total_transport_cost": 9871.1161,
-    "total_holding_cost": 1457095.9807,
+    "total_holding_cost": 2165143.9807,
     "total_purchase_cost": 10125.4323,
-    "total_logistics_cost": 1466967.0968,
-    "total_cost": 1477092.5291,
+    "total_logistics_cost": 2175015.0968,
+    "total_cost": 2185140.5291,
     "total_external_procured_ordered_qty": 0.0,
     "total_external_procured_arrived_qty": 0.0,
     "total_external_procured_rejected_qty": 0.0,
     "total_external_procured_qty": 0.0,
     "total_external_procurement_cost": 0.0,
-    "total_opening_stock_bootstrap_qty": 628264.7449,
+    "total_opening_stock_bootstrap_qty": 923284.7449,
     "total_unreliable_loss_qty": 0.0,
-    "cost_share_holding": 0.986462,
-    "cost_share_transport": 0.006683,
-    "cost_share_purchase": 0.006855
+    "cost_share_holding": 0.990849,
+    "cost_share_transport": 0.004517,
+    "cost_share_purchase": 0.004634
   },
   "economic_consistency": {
     "status": "warn",

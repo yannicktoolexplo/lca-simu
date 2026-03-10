@@ -1477,7 +1477,7 @@
           {
             "item_id": "item:708073",
             "state_id": "I_708073",
-            "initial": 216.0,
+            "initial": 324.0,
             "uom": "KG",
             "holding_cost": {
               "value": 0.04,

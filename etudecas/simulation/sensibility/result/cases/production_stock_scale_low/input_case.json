@@ -888,7 +888,7 @@
           {
             "item_id": "item:007923",
             "state_id": "I_007923_ASSUMED_Q",
-            "initial": 560.0,
+            "initial": 140.0,
             "uom": "G",
             "holding_cost": {
               "value": 4e-05,
@@ -2733,7 +2733,7 @@
           {
             "item_id": "item:693055",
             "state_id": "I_693055",
-            "initial": 144.0,
+            "initial": 36.0,
             "uom": "G",
             "holding_cost": {
               "value": 4e-05,
@@ -2747,7 +2747,7 @@
           {
             "item_id": "item:773474",
             "state_id": "I_773474",
-            "initial": 144.0,
+            "initial": 36.0,
             "uom": "G",
             "holding_cost": {
               "value": 4e-05,
@@ -2761,7 +2761,7 @@
           {
             "item_id": "item:021081",
             "state_id": "I_021081",
-            "initial": 144.0,
+            "initial": 36.0,
             "uom": "KG",
             "holding_cost": {
               "value": 0.04,
@@ -2775,7 +2775,7 @@
           {
             "item_id": "item:007923",
             "state_id": "I_007923_Q",
-            "initial": 2400.0,
+            "initial": 600.0,
             "uom": "G",
             "holding_cost": {
               "value": 4e-05,

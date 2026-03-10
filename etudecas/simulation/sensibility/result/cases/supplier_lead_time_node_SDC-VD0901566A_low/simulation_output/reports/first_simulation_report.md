@@ -41,19 +41,19 @@
 - Ending backlog: 315.8476
 - Total produced: 2610.2267
 - Total shipped: 45988.6462
-- Avg inventory: 1045098.9945
-- Ending inventory: 1035353.9598
+- Avg inventory: 1044147.9233
+- Ending inventory: 1034427.0728
 - Transport cost: 22239.9661
-- Holding cost: 1247632.0877
+- Holding cost: 1246490.8023
 - Purchase cost (from order_terms sell_price): 2746.5618
-- Logistics cost (transport + holding): 1269872.0538
-- Total cost: 1272618.6155
+- Logistics cost (transport + holding): 1268730.7684
+- Total cost: 1271477.3301
 - Total external procured ordered qty: 42871.1216
 - Total external procured arrived qty: 42489.9504
 - Total external procured rejected qty (cap-limited): 18148.2001
 - Total external procurement cost premium: 3318.2119
-- Cost share holding / transport / purchase: 0.980366 / 0.017476 / 0.002158
-- Total opening stock bootstrap qty: 1059404.4897
+- Cost share holding / transport / purchase: 0.980348 / 0.017491 / 0.00216
+- Total opening stock bootstrap qty: 1058429.4897
 - Total unreliable supplier loss qty: 0.0
 - Economic consistency status: warn
 - Economic consistency warnings: ['holding_cost_share_above_90pct', 'transport_cost_share_below_2pct', 'purchase_cost_share_below_2pct']

@@ -523,7 +523,7 @@
       {
         "node_id": "M-1810",
         "item_id": "item:002612",
-        "lead_days": 35,
+        "lead_days": 50,
         "cover_days": 65,
         "daily_req_at_cap": 0.05075,
         "added_opening_qty": 3.29875,

@@ -742,6 +742,12 @@ def select_best_supplier_case_pair(
             by_case_id.get(f"supplier_lead_time_node_{safe_node}_high"),
         ),
         (
+            "fiabilite locale",
+            "OTIF",
+            by_case_id.get(f"supplier_reliability_node_{safe_node}_low"),
+            by_case_id.get(f"supplier_reliability_node_{safe_node}_high"),
+        ),
+        (
             "capacite locale",
             "Cap.",
             by_case_id.get(f"capacity_{safe_node}_low"),
@@ -778,7 +784,8 @@ def build_factory_sensitivity_hover_images(
 ) -> dict[str, Any]:
     by_case_id = case_rows_by_id(case_rows)
     baseline_row = by_case_id.get("baseline")
-    if baseline_row is None:
+    baseline_dir = case_output_dir(baseline_row)
+    if baseline_row is None or baseline_dir is None:
         return {}
 
     out: dict[str, Any] = {}
@@ -792,25 +799,83 @@ def build_factory_sensitivity_hover_images(
         high_row = by_case_id.get(f"capacity_{safe_node}_high")
         if low_row is None and high_row is None:
             continue
+        low_label = multiplier_label(to_float(low_row.get("value")) if low_row else None, "Low")
+        high_label = multiplier_label(to_float(high_row.get("value")) if high_row else None, "High")
+        low_dir = case_output_dir(low_row)
+        high_dir = case_output_dir(high_row)
 
-        incoming = build_bar_chart_payload(
+        base_input_csv = baseline_dir / "production_input_stocks_daily.csv"
+        base_output_csv = baseline_dir / "production_output_products_daily.csv"
+        if base_input_csv not in csv_cache:
+            csv_cache[base_input_csv] = read_csv_rows(base_input_csv)
+        if base_output_csv not in csv_cache:
+            csv_cache[base_output_csv] = read_csv_rows(base_output_csv)
+        base_input_series = aggregate_daily_series(
+            csv_cache[base_input_csv],
+            value_field="stock_end_of_day",
+            node_field="node_id",
+            node_id=node_id,
+        )
+        base_output_series = aggregate_daily_series(
+            csv_cache[base_output_csv],
+            value_field="cum_produced_qty",
+            node_field="node_id",
+            node_id=node_id,
+        )
+        input_deltas: dict[str, list[tuple[int, float]]] = {}
+        output_deltas: dict[str, list[tuple[int, float]]] = {}
+        for label, root in ((low_label, low_dir), (high_label, high_dir)):
+            if root is None:
+                continue
+            input_csv = root / "production_input_stocks_daily.csv"
+            output_csv = root / "production_output_products_daily.csv"
+            if input_csv not in csv_cache:
+                csv_cache[input_csv] = read_csv_rows(input_csv)
+            if output_csv not in csv_cache:
+                csv_cache[output_csv] = read_csv_rows(output_csv)
+            input_deltas[label] = align_series(
+                base_input_series,
+                aggregate_daily_series(
+                    csv_cache[input_csv],
+                    value_field="stock_end_of_day",
+                    node_field="node_id",
+                    node_id=node_id,
+                ),
+            )
+            output_deltas[label] = align_series(
+                base_output_series,
+                aggregate_daily_series(
+                    csv_cache[output_csv],
+                    value_field="cum_produced_qty",
+                    node_field="node_id",
+                    node_id=node_id,
+                ),
+            )
+
+        incoming = build_combo_bar_line_payload(
             {
-                "Cap. -20%": kpi_from_case(low_row, "fill_rate"),
+                low_label: kpi_from_case(low_row, "fill_rate"),
                 "Base": kpi_from_case(baseline_row, "fill_rate"),
-                "Cap. +20%": kpi_from_case(high_row, "fill_rate"),
+                high_label: kpi_from_case(high_row, "fill_rate"),
             },
-            title=f"{node_id} - impact capacite sur fill rate systeme",
-            y_label="Fill rate",
+            input_deltas,
+            bar_title=f"{node_id} - impact capacite sur fill rate systeme",
+            bar_y_label="Fill rate",
+            line_title=f"{node_id} - ecart de stock intrants vs baseline",
+            line_y_label="Delta stock total",
             filename=f"{node_id}_sensitivity_fill_rate.png",
         )
-        outgoing = build_bar_chart_payload(
+        outgoing = build_combo_bar_line_payload(
             {
-                "Cap. -20%": kpi_from_case(low_row, "ending_backlog"),
+                low_label: kpi_from_case(low_row, "ending_backlog"),
                 "Base": kpi_from_case(baseline_row, "ending_backlog"),
-                "Cap. +20%": kpi_from_case(high_row, "ending_backlog"),
+                high_label: kpi_from_case(high_row, "ending_backlog"),
             },
-            title=f"{node_id} - impact capacite sur backlog final",
-            y_label="Backlog final",
+            output_deltas,
+            bar_title=f"{node_id} - impact capacite sur backlog final",
+            bar_y_label="Backlog final",
+            line_title=f"{node_id} - ecart de production cumulee vs baseline",
+            line_y_label="Delta production cumulee",
             filename=f"{node_id}_sensitivity_backlog.png",
         )
         if incoming or outgoing:
@@ -825,7 +890,8 @@ def build_supplier_sensitivity_hover_images(
 ) -> dict[str, Any]:
     by_case_id = case_rows_by_id(case_rows)
     baseline_row = by_case_id.get("baseline")
-    if baseline_row is None:
+    baseline_dir = case_output_dir(baseline_row)
+    if baseline_row is None or baseline_dir is None:
         return {}
 
     out: dict[str, Any] = {}
@@ -839,35 +905,88 @@ def build_supplier_sensitivity_hover_images(
         )
         if best_low is None and best_high is None:
             continue
-
-        if best_fill_impact < 0.002 and best_backlog_impact < 5.0:
-            note = build_note_payload(
-                f"{node_id} - sensibilite locale faible",
-                "Aucun impact systeme materiel detecte sur 30 jours\npour les chocs locaux testes.",
-                f"{node_id}_sensitivity_note.png",
-            )
-            out[node_id] = {"incoming": note, "outgoing": None}
-            continue
-
-        incoming = build_bar_chart_payload(
-            {
-                f"{best_short} -20%": kpi_from_case(best_low, "fill_rate"),
-                "Base": kpi_from_case(baseline_row, "fill_rate"),
-                f"{best_short} +20%": kpi_from_case(best_high, "fill_rate"),
-            },
-            title=f"{node_id} - impact {best_label} sur fill rate systeme",
-            y_label="Fill rate",
-            filename=f"{node_id}_sensitivity_fill_rate.png",
+        low_label = multiplier_label(to_float(best_low.get("value")) if best_low else None, "Low")
+        high_label = multiplier_label(to_float(best_high.get("value")) if best_high else None, "High")
+        low_dir = case_output_dir(best_low)
+        high_dir = case_output_dir(best_high)
+        base_ship_csv = baseline_dir / "production_supplier_shipments_daily.csv"
+        base_stock_csv = baseline_dir / "production_supplier_stocks_daily.csv"
+        if base_ship_csv not in csv_cache:
+            csv_cache[base_ship_csv] = read_csv_rows(base_ship_csv)
+        if base_stock_csv not in csv_cache:
+            csv_cache[base_stock_csv] = read_csv_rows(base_stock_csv)
+        base_ship_series = aggregate_daily_series(
+            csv_cache[base_ship_csv],
+            value_field="shipped_qty",
+            node_field="src_node_id",
+            node_id=node_id,
         )
-        outgoing = build_bar_chart_payload(
+        base_stock_series = aggregate_daily_series(
+            csv_cache[base_stock_csv],
+            value_field="stock_end_of_day",
+            node_field="node_id",
+            node_id=node_id,
+        )
+        ship_deltas: dict[str, list[tuple[int, float]]] = {}
+        stock_deltas: dict[str, list[tuple[int, float]]] = {}
+        for label, root in ((low_label, low_dir), (high_label, high_dir)):
+            if root is None:
+                continue
+            ship_csv = root / "production_supplier_shipments_daily.csv"
+            stock_csv = root / "production_supplier_stocks_daily.csv"
+            if ship_csv not in csv_cache:
+                csv_cache[ship_csv] = read_csv_rows(ship_csv)
+            if stock_csv not in csv_cache:
+                csv_cache[stock_csv] = read_csv_rows(stock_csv)
+            ship_deltas[label] = align_series(
+                base_ship_series,
+                aggregate_daily_series(
+                    csv_cache[ship_csv],
+                    value_field="shipped_qty",
+                    node_field="src_node_id",
+                    node_id=node_id,
+                ),
+            )
+            stock_deltas[label] = align_series(
+                base_stock_series,
+                aggregate_daily_series(
+                    csv_cache[stock_csv],
+                    value_field="stock_end_of_day",
+                    node_field="node_id",
+                    node_id=node_id,
+                ),
+            )
+        note = None
+        if best_fill_impact < 0.002 and best_backlog_impact < 5.0:
+            note = "Impact faible: le nœud bouge peu sur le système malgré un choc local fort."
+
+        incoming = build_combo_bar_line_payload(
             {
-                f"{best_short} -20%": kpi_from_case(best_low, "ending_backlog"),
-                "Base": kpi_from_case(baseline_row, "ending_backlog"),
-                f"{best_short} +20%": kpi_from_case(best_high, "ending_backlog"),
+                low_label: kpi_from_case(best_low, "fill_rate"),
+                "Base": kpi_from_case(baseline_row, "fill_rate"),
+                high_label: kpi_from_case(best_high, "fill_rate"),
             },
-            title=f"{node_id} - impact {best_label} sur backlog final",
-            y_label="Backlog final",
+            ship_deltas,
+            bar_title=f"{node_id} - impact {best_label} sur fill rate systeme",
+            bar_y_label="Fill rate",
+            line_title=f"{node_id} - ecart d'expeditions vs baseline",
+            line_y_label="Delta expeditions / jour",
+            filename=f"{node_id}_sensitivity_fill_rate.png",
+            note=note,
+        )
+        outgoing = build_combo_bar_line_payload(
+            {
+                low_label: kpi_from_case(best_low, "ending_backlog"),
+                "Base": kpi_from_case(baseline_row, "ending_backlog"),
+                high_label: kpi_from_case(best_high, "ending_backlog"),
+            },
+            stock_deltas,
+            bar_title=f"{node_id} - impact {best_label} sur backlog final",
+            bar_y_label="Backlog final",
+            line_title=f"{node_id} - ecart de stock disponible vs baseline",
+            line_y_label="Delta stock fin de journee",
             filename=f"{node_id}_sensitivity_backlog.png",
+            note=note,
         )
         out[node_id] = {"incoming": incoming, "outgoing": outgoing}
     return out
@@ -882,7 +1001,8 @@ def build_distribution_center_sensitivity_hover_images(
     incoming_items, outgoing_items = build_edge_item_sets(raw)
     by_case_id = case_rows_by_id(case_rows)
     baseline_row = by_case_id.get("baseline")
-    if baseline_row is None:
+    baseline_dir = case_output_dir(baseline_row)
+    if baseline_row is None or baseline_dir is None:
         return {}
 
     out: dict[str, Any] = {}
@@ -892,25 +1012,77 @@ def build_distribution_center_sensitivity_hover_images(
             continue
 
         dc_item_ids = set(incoming_items.get(node_id, set())) | set(outgoing_items.get(node_id, set()))
+        base_demand_csv = baseline_dir / "production_demand_service_daily.csv"
+        if base_demand_csv not in csv_cache:
+            csv_cache[base_demand_csv] = read_csv_rows(base_demand_csv)
         fill_values: dict[str, float | None] = {"Base": kpi_from_case(baseline_row, "fill_rate")}
         backlog_values: dict[str, float | None] = {"Base": kpi_from_case(baseline_row, "ending_backlog")}
+        backlog_deltas: dict[str, list[tuple[int, float]]] = {}
+        served_deltas: dict[str, list[tuple[int, float]]] = {}
         for item_id in sorted(dc_item_ids):
             code = item_id.split(":", 1)[-1]
-            fill_values[f"{code} -20%"] = kpi_from_case(by_case_id.get(f"demand_item_{code}_low"), "fill_rate")
-            fill_values[f"{code} +20%"] = kpi_from_case(by_case_id.get(f"demand_item_{code}_high"), "fill_rate")
-            backlog_values[f"{code} -20%"] = kpi_from_case(by_case_id.get(f"demand_item_{code}_low"), "ending_backlog")
-            backlog_values[f"{code} +20%"] = kpi_from_case(by_case_id.get(f"demand_item_{code}_high"), "ending_backlog")
+            base_backlog_series = aggregate_daily_series(
+                csv_cache[base_demand_csv],
+                value_field="backlog_end_qty",
+                item_ids={item_id},
+            )
+            base_served_series = cumulative_series(
+                aggregate_daily_series(
+                    csv_cache[base_demand_csv],
+                    value_field="served_qty",
+                    item_ids={item_id},
+                )
+            )
+            low_row = by_case_id.get(f"demand_item_{code}_low")
+            high_row = by_case_id.get(f"demand_item_{code}_high")
+            low_label = multiplier_label(to_float(low_row.get("value")) if low_row else None, f"{code} low")
+            high_label = multiplier_label(to_float(high_row.get("value")) if high_row else None, f"{code} high")
+            fill_values[f"{code} {low_label}"] = kpi_from_case(low_row, "fill_rate")
+            fill_values[f"{code} {high_label}"] = kpi_from_case(high_row, "fill_rate")
+            backlog_values[f"{code} {low_label}"] = kpi_from_case(low_row, "ending_backlog")
+            backlog_values[f"{code} {high_label}"] = kpi_from_case(high_row, "ending_backlog")
+            for label, row in ((f"{code} {low_label}", low_row), (f"{code} {high_label}", high_row)):
+                root = case_output_dir(row)
+                if root is None:
+                    continue
+                demand_csv = root / "production_demand_service_daily.csv"
+                if demand_csv not in csv_cache:
+                    csv_cache[demand_csv] = read_csv_rows(demand_csv)
+                backlog_deltas[label] = align_series(
+                    base_backlog_series,
+                    aggregate_daily_series(
+                        csv_cache[demand_csv],
+                        value_field="backlog_end_qty",
+                        item_ids={item_id},
+                    ),
+                )
+                served_deltas[label] = align_series(
+                    base_served_series,
+                    cumulative_series(
+                        aggregate_daily_series(
+                            csv_cache[demand_csv],
+                            value_field="served_qty",
+                            item_ids={item_id},
+                        )
+                    ),
+                )
 
-        incoming = build_bar_chart_payload(
+        incoming = build_combo_bar_line_payload(
             fill_values,
-            title=f"{node_id} - impact demande servie sur fill rate systeme",
-            y_label="Fill rate",
+            backlog_deltas,
+            bar_title=f"{node_id} - impact demande sur fill rate systeme",
+            bar_y_label="Fill rate",
+            line_title=f"{node_id} - ecart de backlog client vs baseline",
+            line_y_label="Delta backlog",
             filename=f"{node_id}_sensitivity_fill_rate.png",
         )
-        outgoing = build_bar_chart_payload(
+        outgoing = build_combo_bar_line_payload(
             backlog_values,
-            title=f"{node_id} - impact demande servie sur backlog final",
-            y_label="Backlog final",
+            served_deltas,
+            bar_title=f"{node_id} - impact demande sur backlog final",
+            bar_y_label="Backlog final",
+            line_title=f"{node_id} - ecart de servi cumule vs baseline",
+            line_y_label="Delta servi cumule",
             filename=f"{node_id}_sensitivity_backlog.png",
         )
         if incoming or outgoing:
@@ -940,8 +1112,9 @@ def build_factory_structural_hover_images(
     csv_cache: dict[Path, list[dict[str, str]]],
 ) -> dict[str, Any]:
     by_case_id = case_rows_by_id(case_rows)
+    baseline_row = by_case_id.get("baseline")
     baseline_dir = case_output_dir(by_case_id.get("baseline"))
-    if baseline_dir is None:
+    if baseline_row is None or baseline_dir is None:
         return {}
 
     out: dict[str, Any] = {}
@@ -952,12 +1125,34 @@ def build_factory_structural_hover_images(
         safe_node = safe_case_token(node_id)
         low_dir = case_output_dir(by_case_id.get(f"capacity_{safe_node}_low"))
         high_dir = case_output_dir(by_case_id.get(f"capacity_{safe_node}_high"))
+        low_row = by_case_id.get(f"capacity_{safe_node}_low")
+        high_row = by_case_id.get(f"capacity_{safe_node}_high")
         if low_dir is None and high_dir is None:
             continue
 
-        input_series: dict[str, list[tuple[int, float]]] = {}
-        output_series: dict[str, list[tuple[int, float]]] = {}
-        for label, root in (("Cap. -20%", low_dir), ("Base", baseline_dir), ("Cap. +20%", high_dir)):
+        low_label = multiplier_label(to_float(low_row.get("value")) if low_row else None, "Low")
+        high_label = multiplier_label(to_float(high_row.get("value")) if high_row else None, "High")
+        base_input_csv = baseline_dir / "production_input_stocks_daily.csv"
+        base_output_csv = baseline_dir / "production_output_products_daily.csv"
+        if base_input_csv not in csv_cache:
+            csv_cache[base_input_csv] = read_csv_rows(base_input_csv)
+        if base_output_csv not in csv_cache:
+            csv_cache[base_output_csv] = read_csv_rows(base_output_csv)
+        base_input_series = aggregate_daily_series(
+            csv_cache[base_input_csv],
+            value_field="stock_end_of_day",
+            node_field="node_id",
+            node_id=node_id,
+        )
+        base_output_series = aggregate_daily_series(
+            csv_cache[base_output_csv],
+            value_field="cum_produced_qty",
+            node_field="node_id",
+            node_id=node_id,
+        )
+        input_deltas: dict[str, list[tuple[int, float]]] = {}
+        output_deltas: dict[str, list[tuple[int, float]]] = {}
+        for label, root in ((low_label, low_dir), (high_label, high_dir)):
             if root is None:
                 continue
             input_csv = root / "production_input_stocks_daily.csv"
@@ -966,29 +1161,49 @@ def build_factory_structural_hover_images(
                 csv_cache[input_csv] = read_csv_rows(input_csv)
             if output_csv not in csv_cache:
                 csv_cache[output_csv] = read_csv_rows(output_csv)
-            input_series[label] = aggregate_daily_series(
-                csv_cache[input_csv],
-                value_field="stock_end_of_day",
-                node_field="node_id",
-                node_id=node_id,
+            input_deltas[label] = align_series(
+                base_input_series,
+                aggregate_daily_series(
+                    csv_cache[input_csv],
+                    value_field="stock_end_of_day",
+                    node_field="node_id",
+                    node_id=node_id,
+                ),
             )
-            output_series[label] = aggregate_daily_series(
-                csv_cache[output_csv],
-                value_field="cum_produced_qty",
-                node_field="node_id",
-                node_id=node_id,
+            output_deltas[label] = align_series(
+                base_output_series,
+                aggregate_daily_series(
+                    csv_cache[output_csv],
+                    value_field="cum_produced_qty",
+                    node_field="node_id",
+                    node_id=node_id,
+                ),
             )
 
-        incoming = build_line_chart_payload(
-            input_series,
-            title=f"{node_id} - structurel: stock intrants par scenario de capacite",
-            y_label="Stock total",
+        incoming = build_combo_bar_line_payload(
+            {
+                low_label: kpi_from_case(low_row, "fill_rate"),
+                "Base": kpi_from_case(baseline_row, "fill_rate"),
+                high_label: kpi_from_case(high_row, "fill_rate"),
+            },
+            input_deltas,
+            bar_title=f"{node_id} - structurel: impact capacite sur fill rate",
+            bar_y_label="Fill rate",
+            line_title=f"{node_id} - structurel: ecart de stock intrants vs baseline",
+            line_y_label="Delta stock total",
             filename=f"{node_id}_structural_input.png",
         )
-        outgoing = build_line_chart_payload(
-            output_series,
-            title=f"{node_id} - structurel: production cumulee par scenario de capacite",
-            y_label="Production cumulee",
+        outgoing = build_combo_bar_line_payload(
+            {
+                low_label: kpi_from_case(low_row, "ending_backlog"),
+                "Base": kpi_from_case(baseline_row, "ending_backlog"),
+                high_label: kpi_from_case(high_row, "ending_backlog"),
+            },
+            output_deltas,
+            bar_title=f"{node_id} - structurel: impact capacite sur backlog",
+            bar_y_label="Backlog final",
+            line_title=f"{node_id} - structurel: ecart de production cumulee vs baseline",
+            line_y_label="Delta production cumulee",
             filename=f"{node_id}_structural_output.png",
         )
         if incoming or outgoing:
@@ -1018,24 +1233,32 @@ def build_supplier_structural_hover_images(
         )
         if best_low_row is None and best_high_row is None:
             continue
-        if best_fill_impact < 0.002 and best_backlog_impact < 5.0:
-            note = build_note_payload(
-                f"{node_id} - structurel: impact faible",
-                "Impact local faible dans le mode structurel\n(horizon long, bootstrap reduit, sans achat externe).",
-                f"{node_id}_structural_note.png",
-            )
-            out[node_id] = {"incoming": note, "outgoing": None}
-            continue
 
         low_dir = case_output_dir(best_low_row)
         high_dir = case_output_dir(best_high_row)
-        shipment_series: dict[str, list[tuple[int, float]]] = {}
-        stock_series: dict[str, list[tuple[int, float]]] = {}
-        for label, root in (
-            (f"{best_short} -20%", low_dir),
-            ("Base", baseline_dir),
-            (f"{best_short} +20%", high_dir),
-        ):
+        low_label = multiplier_label(to_float(best_low_row.get("value")) if best_low_row else None, "Low")
+        high_label = multiplier_label(to_float(best_high_row.get("value")) if best_high_row else None, "High")
+        base_ship_csv = baseline_dir / "production_supplier_shipments_daily.csv"
+        base_stock_csv = baseline_dir / "production_supplier_stocks_daily.csv"
+        if base_ship_csv not in csv_cache:
+            csv_cache[base_ship_csv] = read_csv_rows(base_ship_csv)
+        if base_stock_csv not in csv_cache:
+            csv_cache[base_stock_csv] = read_csv_rows(base_stock_csv)
+        base_ship_series = aggregate_daily_series(
+            csv_cache[base_ship_csv],
+            value_field="shipped_qty",
+            node_field="src_node_id",
+            node_id=node_id,
+        )
+        base_stock_series = aggregate_daily_series(
+            csv_cache[base_stock_csv],
+            value_field="stock_end_of_day",
+            node_field="node_id",
+            node_id=node_id,
+        )
+        ship_deltas: dict[str, list[tuple[int, float]]] = {}
+        stock_deltas: dict[str, list[tuple[int, float]]] = {}
+        for label, root in ((low_label, low_dir), (high_label, high_dir)):
             if root is None:
                 continue
             shipments_csv = root / "production_supplier_shipments_daily.csv"
@@ -1044,30 +1267,56 @@ def build_supplier_structural_hover_images(
                 csv_cache[shipments_csv] = read_csv_rows(shipments_csv)
             if stocks_csv not in csv_cache:
                 csv_cache[stocks_csv] = read_csv_rows(stocks_csv)
-            shipment_series[label] = aggregate_daily_series(
-                csv_cache[shipments_csv],
-                value_field="shipped_qty",
-                node_field="src_node_id",
-                node_id=node_id,
+            ship_deltas[label] = align_series(
+                base_ship_series,
+                aggregate_daily_series(
+                    csv_cache[shipments_csv],
+                    value_field="shipped_qty",
+                    node_field="src_node_id",
+                    node_id=node_id,
+                ),
             )
-            stock_series[label] = aggregate_daily_series(
-                csv_cache[stocks_csv],
-                value_field="stock_end_of_day",
-                node_field="node_id",
-                node_id=node_id,
+            stock_deltas[label] = align_series(
+                base_stock_series,
+                aggregate_daily_series(
+                    csv_cache[stocks_csv],
+                    value_field="stock_end_of_day",
+                    node_field="node_id",
+                    node_id=node_id,
+                ),
             )
 
-        incoming = build_line_chart_payload(
-            shipment_series,
-            title=f"{node_id} - structurel: expeditions par scenario {best_label}",
-            y_label="Quantite expediee / jour",
+        note = None
+        if best_fill_impact < 0.002 and best_backlog_impact < 5.0:
+            note = "Impact faible mais courbes affichees pour comparaison structurelle."
+
+        incoming = build_combo_bar_line_payload(
+            {
+                low_label: kpi_from_case(best_low_row, "fill_rate"),
+                "Base": kpi_from_case(baseline_row, "fill_rate"),
+                high_label: kpi_from_case(best_high_row, "fill_rate"),
+            },
+            ship_deltas,
+            bar_title=f"{node_id} - structurel: impact {best_label} sur fill rate",
+            bar_y_label="Fill rate",
+            line_title=f"{node_id} - structurel: ecart d'expeditions vs baseline",
+            line_y_label="Delta expeditions / jour",
             filename=f"{node_id}_structural_shipments.png",
+            note=note,
         )
-        outgoing = build_line_chart_payload(
-            stock_series,
-            title=f"{node_id} - structurel: stock disponible par scenario {best_label}",
-            y_label="Stock fin de journee",
+        outgoing = build_combo_bar_line_payload(
+            {
+                low_label: kpi_from_case(best_low_row, "ending_backlog"),
+                "Base": kpi_from_case(baseline_row, "ending_backlog"),
+                high_label: kpi_from_case(best_high_row, "ending_backlog"),
+            },
+            stock_deltas,
+            bar_title=f"{node_id} - structurel: impact {best_label} sur backlog",
+            bar_y_label="Backlog final",
+            line_title=f"{node_id} - structurel: ecart de stock disponible vs baseline",
+            line_y_label="Delta stock fin de journee",
             filename=f"{node_id}_structural_stock.png",
+            note=note,
         )
         if incoming or outgoing:
             out[node_id] = {"incoming": incoming, "outgoing": outgoing}
@@ -1082,8 +1331,9 @@ def build_distribution_center_structural_hover_images(
     nodes = raw.get("nodes", []) or []
     incoming_items, outgoing_items = build_edge_item_sets(raw)
     by_case_id = case_rows_by_id(case_rows)
+    baseline_row = by_case_id.get("baseline")
     baseline_dir = case_output_dir(by_case_id.get("baseline"))
-    if baseline_dir is None:
+    if baseline_row is None or baseline_dir is None:
         return {}
 
     out: dict[str, Any] = {}
@@ -1093,45 +1343,77 @@ def build_distribution_center_structural_hover_images(
             continue
 
         dc_item_ids = set(incoming_items.get(node_id, set())) | set(outgoing_items.get(node_id, set()))
-        backlog_series: dict[str, list[tuple[int, float]]] = {}
-        served_series: dict[str, list[tuple[int, float]]] = {}
+        base_demand_csv = baseline_dir / "production_demand_service_daily.csv"
+        if base_demand_csv not in csv_cache:
+            csv_cache[base_demand_csv] = read_csv_rows(base_demand_csv)
+        fill_values: dict[str, float | None] = {"Base": kpi_from_case(baseline_row, "fill_rate")}
+        backlog_values: dict[str, float | None] = {"Base": kpi_from_case(baseline_row, "ending_backlog")}
+        backlog_deltas: dict[str, list[tuple[int, float]]] = {}
+        served_deltas: dict[str, list[tuple[int, float]]] = {}
         for item_id in sorted(dc_item_ids):
             code = item_id.split(":", 1)[-1]
-            specs = [
-                ("Base", baseline_dir, dc_item_ids),
-                (f"{code} -20%", case_output_dir(by_case_id.get(f"demand_item_{code}_low")), {item_id}),
-                (f"{code} +20%", case_output_dir(by_case_id.get(f"demand_item_{code}_high")), {item_id}),
-            ]
-            for label, root, item_ids in specs:
+            base_backlog_series = aggregate_daily_series(
+                csv_cache[base_demand_csv],
+                value_field="backlog_end_qty",
+                item_ids={item_id},
+            )
+            base_served_series = cumulative_series(
+                aggregate_daily_series(
+                    csv_cache[base_demand_csv],
+                    value_field="served_qty",
+                    item_ids={item_id},
+                )
+            )
+            low_row = by_case_id.get(f"demand_item_{code}_low")
+            high_row = by_case_id.get(f"demand_item_{code}_high")
+            low_label = multiplier_label(to_float(low_row.get("value")) if low_row else None, f"{code} low")
+            high_label = multiplier_label(to_float(high_row.get("value")) if high_row else None, f"{code} high")
+            fill_values[f"{code} {low_label}"] = kpi_from_case(low_row, "fill_rate")
+            fill_values[f"{code} {high_label}"] = kpi_from_case(high_row, "fill_rate")
+            backlog_values[f"{code} {low_label}"] = kpi_from_case(low_row, "ending_backlog")
+            backlog_values[f"{code} {high_label}"] = kpi_from_case(high_row, "ending_backlog")
+            for label, row in ((f"{code} {low_label}", low_row), (f"{code} {high_label}", high_row)):
+                root = case_output_dir(row)
                 if root is None:
                     continue
                 demand_csv = root / "production_demand_service_daily.csv"
                 if demand_csv not in csv_cache:
                     csv_cache[demand_csv] = read_csv_rows(demand_csv)
-                if label not in backlog_series:
-                    backlog_series[label] = aggregate_daily_series(
+                backlog_deltas[label] = align_series(
+                    base_backlog_series,
+                    aggregate_daily_series(
                         csv_cache[demand_csv],
                         value_field="backlog_end_qty",
-                        item_ids=item_ids,
-                    )
-                if label not in served_series:
-                    served_daily = aggregate_daily_series(
-                        csv_cache[demand_csv],
-                        value_field="served_qty",
-                        item_ids=item_ids,
-                    )
-                    served_series[label] = cumulative_series(served_daily)
+                        item_ids={item_id},
+                    ),
+                )
+                served_deltas[label] = align_series(
+                    base_served_series,
+                    cumulative_series(
+                        aggregate_daily_series(
+                            csv_cache[demand_csv],
+                            value_field="served_qty",
+                            item_ids={item_id},
+                        )
+                    ),
+                )
 
-        incoming = build_line_chart_payload(
-            backlog_series,
-            title=f"{node_id} - structurel: backlog client par scenario de demande",
-            y_label="Backlog fin de journee",
+        incoming = build_combo_bar_line_payload(
+            fill_values,
+            backlog_deltas,
+            bar_title=f"{node_id} - structurel: impact demande sur fill rate",
+            bar_y_label="Fill rate",
+            line_title=f"{node_id} - structurel: ecart de backlog client vs baseline",
+            line_y_label="Delta backlog",
             filename=f"{node_id}_structural_backlog.png",
         )
-        outgoing = build_line_chart_payload(
-            served_series,
-            title=f"{node_id} - structurel: servi cumule par scenario de demande",
-            y_label="Servi cumule",
+        outgoing = build_combo_bar_line_payload(
+            backlog_values,
+            served_deltas,
+            bar_title=f"{node_id} - structurel: impact demande sur backlog",
+            bar_y_label="Backlog final",
+            line_title=f"{node_id} - structurel: ecart de servi cumule vs baseline",
+            line_y_label="Delta servi cumule",
             filename=f"{node_id}_structural_served.png",
         )
         if incoming or outgoing:
@@ -1505,26 +1787,14 @@ def html_template(title: str, data_json: str) -> str:
     function panelLabels(nodeType) {{
       if (currentPanelMode === "sensitivity") {{
         return {{
-          incoming: "Impact systeme - fill rate",
-          outgoing: "Impact systeme - backlog final"
+          incoming: "KPI systeme + courbe delta vs baseline",
+          outgoing: "KPI systeme + courbe delta vs baseline"
         }};
       }}
       if (currentPanelMode === "structural") {{
-        if (nodeType === "factory") {{
-          return {{
-            incoming: "Structurel - stock intrants",
-            outgoing: "Structurel - production cumulee"
-          }};
-        }}
-        if (nodeType === "supplier_dc") {{
-          return {{
-            incoming: "Structurel - expeditions",
-            outgoing: "Structurel - stock disponible"
-          }};
-        }}
         return {{
-          incoming: "Structurel - backlog client",
-          outgoing: "Structurel - servi cumule"
+          incoming: "Structurel - KPI + courbe delta vs baseline",
+          outgoing: "Structurel - KPI + courbe delta vs baseline"
         }};
       }}
       if (nodeType === "supplier_dc") {{

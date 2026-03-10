@@ -1355,7 +1355,7 @@
           {
             "item_id": "item:333362",
             "state_id": "I_333362",
-            "initial": 216.0,
+            "initial": 324.0,
             "uom": "UN",
             "holding_cost": {
               "value": 0.04,

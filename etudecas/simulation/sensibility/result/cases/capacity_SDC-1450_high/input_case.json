@@ -2822,7 +2822,7 @@
             "is_default": true
           },
           "capacity": {
-            "max_rate": 600000.0,
+            "max_rate": 900000.0,
             "uom": "G/day",
             "is_default": false,
             "source": "case_data_upstream_bom_assumption"

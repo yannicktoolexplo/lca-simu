@@ -41,13 +41,13 @@
 - Ending backlog: 1314.7607
 - Total produced: 4285.8956
 - Total shipped: 11222.3372
-- Avg inventory: 510751.5691
-- Ending inventory: 498201.5866
+- Avg inventory: 510754.0563
+- Ending inventory: 498203.3555
 - Transport cost: 9871.1161
-- Holding cost: 1221082.8087
+- Holding cost: 1221088.778
 - Purchase cost (from order_terms sell_price): 10125.4323
-- Logistics cost (transport + holding): 1230953.9248
-- Total cost: 1241079.3571
+- Logistics cost (transport + holding): 1230959.8941
+- Total cost: 1241085.3264
 - Total external procured ordered qty: 0.0
 - Total external procured arrived qty: 0.0
 - Total external procured rejected qty (cap-limited): 0.0

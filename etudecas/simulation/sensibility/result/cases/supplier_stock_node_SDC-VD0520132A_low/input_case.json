@@ -1173,7 +1173,7 @@
           {
             "item_id": "item:038005",
             "state_id": "I_038005",
-            "initial": 144.0,
+            "initial": 36.0,
             "uom": "KG",
             "holding_cost": {
               "value": 0.04,
@@ -1187,7 +1187,7 @@
           {
             "item_id": "item:049371",
             "state_id": "I_049371",
-            "initial": 144.0,
+            "initial": 36.0,
             "uom": "KG",
             "holding_cost": {
               "value": 0.04,

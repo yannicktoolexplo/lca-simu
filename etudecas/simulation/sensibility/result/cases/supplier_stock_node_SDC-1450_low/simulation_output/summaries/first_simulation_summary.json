@@ -625,7 +625,7 @@
         "lead_days": 120,
         "cover_days": 220,
         "daily_req_at_cap": 4470.0,
-        "added_opening_qty": 983256.0,
+        "added_opening_qty": 983364.0,
         "target_opening_stock": 983400.0
       }
     ],
@@ -638,29 +638,29 @@
   },
   "kpis": {
     "total_demand": 1487.5,
-    "total_served": 1111.6422,
-    "ending_backlog": 375.8578,
-    "fill_rate": 0.747323,
-    "total_shipped": 44049.7086,
-    "total_arrived": 15635.0167,
-    "total_produced": 2326.5407,
-    "avg_inventory": 1045609.5323,
-    "ending_inventory": 1038417.6112,
-    "total_transport_cost": 21304.4116,
-    "total_holding_cost": 1249035.2558,
-    "total_purchase_cost": 2671.5395,
-    "total_logistics_cost": 1270339.6674,
-    "total_cost": 1273011.2069,
-    "total_external_procured_ordered_qty": 42814.7448,
-    "total_external_procured_arrived_qty": 42465.6549,
-    "total_external_procured_rejected_qty": 18087.1558,
-    "total_external_procured_qty": 42814.7448,
-    "total_external_procurement_cost": 3297.6351,
-    "total_opening_stock_bootstrap_qty": 1060065.4897,
+    "total_served": 1134.1944,
+    "ending_backlog": 353.3056,
+    "fill_rate": 0.762484,
+    "total_shipped": 39219.5799,
+    "total_arrived": 14407.3267,
+    "total_produced": 1489.4655,
+    "avg_inventory": 1045770.028,
+    "ending_inventory": 1044496.6443,
+    "total_transport_cost": 19052.5832,
+    "total_holding_cost": 1250843.0839,
+    "total_purchase_cost": 2451.87,
+    "total_logistics_cost": 1269895.6671,
+    "total_cost": 1272347.5371,
+    "total_external_procured_ordered_qty": 44238.2085,
+    "total_external_procured_arrived_qty": 43416.795,
+    "total_external_procured_rejected_qty": 19055.7781,
+    "total_external_procured_qty": 44238.2085,
+    "total_external_procurement_cost": 3289.8989,
+    "total_opening_stock_bootstrap_qty": 1060173.4897,
     "total_unreliable_loss_qty": 0.0,
-    "cost_share_holding": 0.981166,
-    "cost_share_transport": 0.016735,
-    "cost_share_purchase": 0.002099
+    "cost_share_holding": 0.983099,
+    "cost_share_transport": 0.014974,
+    "cost_share_purchase": 0.001927
   },
   "economic_consistency": {
     "status": "warn",
@@ -675,13 +675,13 @@
   "top_backlog_pairs": [
     {
       "node_id": "C-XXXXX",
-      "item_id": "item:268091",
-      "backlog": 198.2942
+      "item_id": "item:268967",
+      "backlog": 228.1359
     },
     {
       "node_id": "C-XXXXX",
-      "item_id": "item:268967",
-      "backlog": 177.5635
+      "item_id": "item:268091",
+      "backlog": 125.1697
     }
   ]
 }

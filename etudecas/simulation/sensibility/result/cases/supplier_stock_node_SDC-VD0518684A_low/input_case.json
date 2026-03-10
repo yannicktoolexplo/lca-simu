@@ -1810,7 +1810,7 @@
           {
             "item_id": "item:001893",
             "state_id": "I_001893",
-            "initial": 144.0,
+            "initial": 36.0,
             "uom": "KG",
             "holding_cost": {
               "value": 0.04,

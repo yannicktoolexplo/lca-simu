@@ -1055,7 +1055,7 @@
             "is_default": true
           },
           "capacity": {
-            "max_rate": 30.0,
+            "max_rate": 45.0,
             "uom": "unit/day",
             "is_default": false,
             "source": "simulation_prep_assumption"

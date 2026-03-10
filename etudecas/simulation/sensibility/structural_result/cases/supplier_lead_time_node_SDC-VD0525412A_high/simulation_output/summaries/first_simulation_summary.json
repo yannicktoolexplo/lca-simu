@@ -442,7 +442,7 @@
       {
         "node_id": "M-1430",
         "item_id": "item:333362",
-        "lead_days": 72,
+        "lead_days": 108,
         "cover_days": 121,
         "daily_req_at_cap": 25.0,
         "added_opening_qty": 1512.5,

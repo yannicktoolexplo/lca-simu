@@ -2204,7 +2204,7 @@
           {
             "item_id": "item:039668",
             "state_id": "I_039668",
-            "initial": 144.0,
+            "initial": 36.0,
             "uom": "KG",
             "holding_cost": {
               "value": 0.04,

@@ -424,11 +424,11 @@
       {
         "node_id": "M-1430",
         "item_id": "item:038005",
-        "lead_days": 123,
-        "cover_days": 226,
+        "lead_days": 77,
+        "cover_days": 142,
         "daily_req_at_cap": 0.437479,
-        "added_opening_qty": 49.435172,
-        "target_opening_stock": 49.435172
+        "added_opening_qty": 31.061037,
+        "target_opening_stock": 31.061037
       },
       {
         "node_id": "M-1430",
@@ -559,11 +559,11 @@
       {
         "node_id": "M-1810",
         "item_id": "item:049371",
-        "lead_days": 118,
-        "cover_days": 216,
+        "lead_days": 74,
+        "cover_days": 136,
         "daily_req_at_cap": 0.037555,
-        "added_opening_qty": 4.05594,
-        "target_opening_stock": 4.05594
+        "added_opening_qty": 2.55374,
+        "target_opening_stock": 2.55374
       },
       {
         "node_id": "M-1810",
@@ -641,26 +641,26 @@
     "total_served": 1597.7393,
     "ending_backlog": 1314.7607,
     "fill_rate": 0.54858,
-    "total_shipped": 11208.8551,
-    "total_arrived": 9821.0003,
+    "total_shipped": 11188.9787,
+    "total_arrived": 9822.8073,
     "total_produced": 4285.8956,
-    "avg_inventory": 510750.4675,
-    "ending_inventory": 498198.9002,
-    "total_transport_cost": 9867.9366,
-    "total_holding_cost": 1221080.1647,
-    "total_purchase_cost": 10053.5979,
-    "total_logistics_cost": 1230948.1013,
-    "total_cost": 1241001.6992,
+    "avg_inventory": 510750.7883,
+    "ending_inventory": 498200.7072,
+    "total_transport_cost": 9863.2457,
+    "total_holding_cost": 1221080.9348,
+    "total_purchase_cost": 9947.6209,
+    "total_logistics_cost": 1230944.1805,
+    "total_cost": 1240891.8014,
     "total_external_procured_ordered_qty": 0.0,
     "total_external_procured_arrived_qty": 0.0,
     "total_external_procured_rejected_qty": 0.0,
     "total_external_procured_qty": 0.0,
     "total_external_procurement_cost": 0.0,
-    "total_opening_stock_bootstrap_qty": 529911.2627,
+    "total_opening_stock_bootstrap_qty": 529891.3864,
     "total_unreliable_loss_qty": 0.0,
-    "cost_share_holding": 0.983947,
-    "cost_share_transport": 0.007952,
-    "cost_share_purchase": 0.008101
+    "cost_share_holding": 0.984035,
+    "cost_share_transport": 0.007949,
+    "cost_share_purchase": 0.008017
   },
   "economic_consistency": {
     "status": "warn",

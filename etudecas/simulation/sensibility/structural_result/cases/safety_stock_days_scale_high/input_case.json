@@ -5283,7 +5283,7 @@
         "external_procurement_lead_days": 4,
         "external_procurement_cost_multiplier": 2.0
       },
-      "safety_stock_days": 8.4,
+      "safety_stock_days": 14.0,
       "review_period_days": 1,
       "fg_target_days": 0.0,
       "production_gap_gain": 0.25,

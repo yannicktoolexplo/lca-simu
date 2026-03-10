@@ -12,8 +12,8 @@
     "stochastic_lead_times": true,
     "seed": 42,
     "economic_policy": {
-      "transport_cost_floor_per_unit": 0.016,
-      "transport_cost_per_km_per_unit": 6.4e-05,
+      "transport_cost_floor_per_unit": 0.004,
+      "transport_cost_per_km_per_unit": 1.6e-05,
       "purchase_cost_floor_per_unit": 0.01,
       "holding_cost_scale": 1.0,
       "external_procurement_enabled": true,
@@ -22,7 +22,7 @@
       "external_procurement_min_daily_cap_qty": 0.0,
       "external_procurement_unit_cost": 0.0,
       "external_procurement_cost_multiplier": 2.0,
-      "external_procurement_transport_cost_per_unit": 0.032
+      "external_procurement_transport_cost_per_unit": 0.008
     }
   },
   "counts": {
@@ -646,21 +646,21 @@
     "total_produced": 2610.2267,
     "avg_inventory": 1045717.0788,
     "ending_inventory": 1035949.2243,
-    "total_transport_cost": 17791.9729,
+    "total_transport_cost": 4447.9932,
     "total_holding_cost": 1248373.7888,
     "total_purchase_cost": 2746.5618,
-    "total_logistics_cost": 1266165.7617,
-    "total_cost": 1268912.3235,
+    "total_logistics_cost": 1252821.782,
+    "total_cost": 1255568.3438,
     "total_external_procured_ordered_qty": 42871.1216,
     "total_external_procured_arrived_qty": 42489.9504,
     "total_external_procured_rejected_qty": 18148.2001,
     "total_external_procured_qty": 42871.1216,
-    "total_external_procurement_cost": 2975.243,
+    "total_external_procurement_cost": 1946.336,
     "total_opening_stock_bootstrap_qty": 1060029.4897,
     "total_unreliable_loss_qty": 0.0,
-    "cost_share_holding": 0.983814,
-    "cost_share_transport": 0.014021,
-    "cost_share_purchase": 0.002165
+    "cost_share_holding": 0.99427,
+    "cost_share_transport": 0.003543,
+    "cost_share_purchase": 0.002188
   },
   "economic_consistency": {
     "status": "warn",

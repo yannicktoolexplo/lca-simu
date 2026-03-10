@@ -2570,7 +2570,7 @@
           {
             "item_id": "item:426331",
             "state_id": "I_426331",
-            "initial": 144.0,
+            "initial": 36.0,
             "uom": "UN",
             "holding_cost": {
               "value": 0.04,

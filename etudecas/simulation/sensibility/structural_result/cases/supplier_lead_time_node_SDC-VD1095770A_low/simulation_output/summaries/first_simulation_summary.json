@@ -478,11 +478,11 @@
       {
         "node_id": "M-1430",
         "item_id": "item:734545",
-        "lead_days": 17,
-        "cover_days": 32,
+        "lead_days": 10,
+        "cover_days": 21,
         "daily_req_at_cap": 0.2,
-        "added_opening_qty": 3.2,
-        "target_opening_stock": 3.2
+        "added_opening_qty": 2.1,
+        "target_opening_stock": 2.1
       },
       {
         "node_id": "M-1430",
@@ -638,29 +638,29 @@
   },
   "kpis": {
     "total_demand": 2912.5,
-    "total_served": 1597.7393,
-    "ending_backlog": 1314.7607,
-    "fill_rate": 0.54858,
-    "total_shipped": 11221.5372,
-    "total_arrived": 9820.0611,
-    "total_produced": 4285.8956,
-    "avg_inventory": 510750.4543,
-    "ending_inventory": 498197.961,
-    "total_transport_cost": 9870.8859,
-    "total_holding_cost": 1221080.1332,
-    "total_purchase_cost": 10125.0911,
-    "total_logistics_cost": 1230951.019,
-    "total_cost": 1241076.1102,
+    "total_served": 1602.4003,
+    "ending_backlog": 1310.0997,
+    "fill_rate": 0.55018,
+    "total_shipped": 11208.4196,
+    "total_arrived": 9729.8295,
+    "total_produced": 4278.7768,
+    "avg_inventory": 510984.782,
+    "ending_inventory": 498622.2409,
+    "total_transport_cost": 9863.2719,
+    "total_holding_cost": 1221632.4985,
+    "total_purchase_cost": 10123.708,
+    "total_logistics_cost": 1231495.7704,
+    "total_cost": 1241619.4784,
     "total_external_procured_ordered_qty": 0.0,
     "total_external_procured_arrived_qty": 0.0,
     "total_external_procured_rejected_qty": 0.0,
     "total_external_procured_qty": 0.0,
     "total_external_procurement_cost": 0.0,
-    "total_opening_stock_bootstrap_qty": 529923.9449,
+    "total_opening_stock_bootstrap_qty": 529922.8449,
     "total_unreliable_loss_qty": 0.0,
-    "cost_share_holding": 0.983888,
-    "cost_share_transport": 0.007953,
-    "cost_share_purchase": 0.008158
+    "cost_share_holding": 0.983902,
+    "cost_share_transport": 0.007944,
+    "cost_share_purchase": 0.008154
   },
   "economic_consistency": {
     "status": "warn",
@@ -676,7 +676,7 @@
     {
       "node_id": "C-XXXXX",
       "item_id": "item:268967",
-      "backlog": 997.6732
+      "backlog": 993.0123
     },
     {
       "node_id": "C-XXXXX",

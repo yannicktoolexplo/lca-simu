@@ -5271,7 +5271,7 @@
       "defaults": {
         "demand": true
       },
-      "safety_stock_days": 5.6,
+      "safety_stock_days": 1.4,
       "review_period_days": 1,
       "fg_target_days": 0.0,
       "production_gap_gain": 0.25,

@@ -3134,7 +3134,7 @@
       "distance_km": 154.2,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 184.8,
+        "mean": 277.2,
         "stages": 4,
         "time_unit": "day",
         "is_default": false,
@@ -4184,7 +4184,7 @@
       "distance_km": 592.1,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 176.4,
+        "mean": 264.6,
         "stages": 4,
         "time_unit": "day",
         "is_default": false,

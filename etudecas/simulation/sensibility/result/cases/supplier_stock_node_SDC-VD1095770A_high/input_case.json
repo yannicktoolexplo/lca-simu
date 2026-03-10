@@ -1599,7 +1599,7 @@
           {
             "item_id": "item:734545",
             "state_id": "I_734545",
-            "initial": 216.0,
+            "initial": 324.0,
             "uom": "UN",
             "holding_cost": {
               "value": 0.04,

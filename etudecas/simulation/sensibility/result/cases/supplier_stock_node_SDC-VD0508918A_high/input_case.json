@@ -1538,7 +1538,7 @@
           {
             "item_id": "item:730384",
             "state_id": "I_730384",
-            "initial": 216.0,
+            "initial": 324.0,
             "uom": "M",
             "holding_cost": {
               "value": 0.04,

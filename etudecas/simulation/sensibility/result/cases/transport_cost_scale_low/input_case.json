@@ -3148,7 +3148,7 @@
         "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.15968,
+        "value": 0.03992,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -3198,7 +3198,7 @@
         "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.37208,
+        "value": 0.09302,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -3248,7 +3248,7 @@
         "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.27768,
+        "value": 0.06942,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -3298,7 +3298,7 @@
         "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.26,
+        "value": 0.065,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -3348,7 +3348,7 @@
         "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.4536,
+        "value": 0.1134,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -3398,7 +3398,7 @@
         "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.16128,
+        "value": 0.04032,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -3448,7 +3448,7 @@
         "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.23024,
+        "value": 0.05756,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -3498,7 +3498,7 @@
         "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.39904,
+        "value": 0.09976,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -3548,7 +3548,7 @@
         "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.5256,
+        "value": 0.1314,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -3598,7 +3598,7 @@
         "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.12376,
+        "value": 0.03094,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -3648,7 +3648,7 @@
         "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.5256,
+        "value": 0.1314,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -3698,7 +3698,7 @@
         "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 1.07992,
+        "value": 0.26998,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -3748,7 +3748,7 @@
         "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.25392,
+        "value": 0.06348,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -3798,7 +3798,7 @@
         "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.57816,
+        "value": 0.14454,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -3848,7 +3848,7 @@
         "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.84136,
+        "value": 0.21034,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -3898,7 +3898,7 @@
         "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.25392,
+        "value": 0.06348,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -3948,7 +3948,7 @@
         "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.46712,
+        "value": 0.11678,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -3998,7 +3998,7 @@
         "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.57816,
+        "value": 0.14454,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -4048,7 +4048,7 @@
         "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 1.49248,
+        "value": 0.37312,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -4098,7 +4098,7 @@
         "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.12376,
+        "value": 0.03094,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -4148,7 +4148,7 @@
         "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.52432,
+        "value": 0.13108,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -4198,7 +4198,7 @@
         "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.54504,
+        "value": 0.13626,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -4248,7 +4248,7 @@
         "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.20344,
+        "value": 0.05086,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -4298,7 +4298,7 @@
         "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.52432,
+        "value": 0.13108,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -4348,7 +4348,7 @@
         "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.68984,
+        "value": 0.17246,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -4398,7 +4398,7 @@
         "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.55976,
+        "value": 0.13994,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -4448,7 +4448,7 @@
         "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.28912,
+        "value": 0.07228,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -4498,7 +4498,7 @@
         "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.29184,
+        "value": 0.07296,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -4548,7 +4548,7 @@
         "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 0.11008,
+        "value": 0.02752,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -4598,7 +4598,7 @@
         "source": "data_poc_relations_acteurs"
       },
       "transport_cost": {
-        "value": 0.44744,
+        "value": 0.11186,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -4641,7 +4641,7 @@
         "source": "data_poc_relations_acteurs"
       },
       "transport_cost": {
-        "value": 0.1512,
+        "value": 0.0378,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -4684,7 +4684,7 @@
         "source": "data_poc_relations_acteurs"
       },
       "transport_cost": {
-        "value": 0.55656,
+        "value": 0.13914,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -4727,7 +4727,7 @@
         "source": "data_poc_relations_acteurs"
       },
       "transport_cost": {
-        "value": 0.55656,
+        "value": 0.13914,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -4770,7 +4770,7 @@
         "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 6.86464,
+        "value": 1.71616,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -4819,7 +4819,7 @@
         "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 6.86464,
+        "value": 1.71616,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -4868,7 +4868,7 @@
         "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 6.86464,
+        "value": 1.71616,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -4917,7 +4917,7 @@
         "source": "case_data_fia"
       },
       "transport_cost": {
-        "value": 6.86464,
+        "value": 1.71616,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_assumption"
@@ -4970,7 +4970,7 @@
       },
       "distance_km": 0.0,
       "transport_cost": {
-        "value": 0.04,
+        "value": 0.01,
         "per": "unit",
         "is_default": false,
         "source": "simulation_prep_gaillac_question_mark_assumption"
@@ -5277,9 +5277,9 @@
       "production_gap_gain": 0.25,
       "production_smoothing": 0.2,
       "economic_policy": {
-        "transport_cost_floor_per_unit": 0.016,
-        "transport_cost_per_km_per_unit": 6.4e-05,
-        "external_procurement_transport_cost_per_unit": 0.032,
+        "transport_cost_floor_per_unit": 0.004,
+        "transport_cost_per_km_per_unit": 1.6e-05,
+        "external_procurement_transport_cost_per_unit": 0.008,
         "holding_cost_scale": 1.0,
         "purchase_cost_floor_per_unit": 0.01,
         "external_procurement_daily_cap_days": 2.0,

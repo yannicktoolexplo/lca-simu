@@ -1248,7 +1248,7 @@
           {
             "item_id": "item:042342",
             "state_id": "I_042342",
-            "initial": 216.0,
+            "initial": 324.0,
             "uom": "UN",
             "holding_cost": {
               "value": 0.04,

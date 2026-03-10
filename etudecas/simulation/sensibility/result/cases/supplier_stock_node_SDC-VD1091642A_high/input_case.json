@@ -1946,7 +1946,7 @@
           {
             "item_id": "item:001893",
             "state_id": "I_001893",
-            "initial": 216.0,
+            "initial": 324.0,
             "uom": "KG",
             "holding_cost": {
               "value": 0.04,
@@ -1960,7 +1960,7 @@
           {
             "item_id": "item:002612",
             "state_id": "I_002612",
-            "initial": 216.0,
+            "initial": 324.0,
             "uom": "KG",
             "holding_cost": {
               "value": 0.04,

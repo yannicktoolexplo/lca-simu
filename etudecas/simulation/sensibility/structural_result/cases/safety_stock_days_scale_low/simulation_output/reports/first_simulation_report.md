@@ -4,7 +4,7 @@
 - Input: etudecas/simulation/sensibility/structural_result/cases/safety_stock_days_scale_low/input_case.json
 - Scenario: scn:BASE
 - Horizon (days): 60
-- Safety stock policy (days): 5.6
+- Safety stock policy (days): 1.4
 - Replenishment review period (days): 1
 - Finished-goods target cover (days): 0.0
 - Production stock-gap gain: 0.25

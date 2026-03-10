@@ -3134,7 +3134,7 @@
       "distance_km": 154.2,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 184.8,
+        "mean": 277.2,
         "stages": 4,
         "time_unit": "day",
         "is_default": false,
@@ -3184,7 +3184,7 @@
       "distance_km": 395.5,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 25.2,
+        "mean": 37.8,
         "stages": 4,
         "time_unit": "day",
         "is_default": false,
@@ -3234,7 +3234,7 @@
       "distance_km": 288.3,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 72.0,
+        "mean": 108.0,
         "stages": 4,
         "time_unit": "day",
         "is_default": false,
@@ -3284,7 +3284,7 @@
       "distance_km": 268.2,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 42.0,
+        "mean": 63.0,
         "stages": 4,
         "time_unit": "day",
         "is_default": false,
@@ -3334,7 +3334,7 @@
       "distance_km": 488.2,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 33.6,
+        "mean": 50.4,
         "stages": 4,
         "time_unit": "day",
         "is_default": false,
@@ -3384,7 +3384,7 @@
       "distance_km": 156.0,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 67.2,
+        "mean": 100.8,
         "stages": 4,
         "time_unit": "day",
         "is_default": false,
@@ -3434,7 +3434,7 @@
       "distance_km": 234.4,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 25.2,
+        "mean": 37.8,
         "stages": 4,
         "time_unit": "day",
         "is_default": false,
@@ -3484,7 +3484,7 @@
       "distance_km": 426.2,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 12.0,
+        "mean": 18.0,
         "stages": 4,
         "time_unit": "day",
         "is_default": false,
@@ -3534,7 +3534,7 @@
       "distance_km": 570.0,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 100.8,
+        "mean": 151.2,
         "stages": 4,
         "time_unit": "day",
         "is_default": false,
@@ -3584,7 +3584,7 @@
       "distance_km": 113.4,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 25.2,
+        "mean": 37.8,
         "stages": 4,
         "time_unit": "day",
         "is_default": false,
@@ -3634,7 +3634,7 @@
       "distance_km": 570.0,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 67.2,
+        "mean": 100.8,
         "stages": 4,
         "time_unit": "day",
         "is_default": false,
@@ -3684,7 +3684,7 @@
       "distance_km": 1199.9,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 67.2,
+        "mean": 100.8,
         "stages": 4,
         "time_unit": "day",
         "is_default": false,
@@ -3734,7 +3734,7 @@
       "distance_km": 261.3,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 33.6,
+        "mean": 50.4,
         "stages": 4,
         "time_unit": "day",
         "is_default": false,
@@ -3784,7 +3784,7 @@
       "distance_km": 629.7,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 50.4,
+        "mean": 75.6,
         "stages": 4,
         "time_unit": "day",
         "is_default": false,
@@ -3834,7 +3834,7 @@
       "distance_km": 928.8,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 33.6,
+        "mean": 50.4,
         "stages": 4,
         "time_unit": "day",
         "is_default": false,
@@ -3884,7 +3884,7 @@
       "distance_km": 261.3,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 42.0,
+        "mean": 63.0,
         "stages": 4,
         "time_unit": "day",
         "is_default": false,
@@ -3934,7 +3934,7 @@
       "distance_km": 503.5,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 42.0,
+        "mean": 63.0,
         "stages": 4,
         "time_unit": "day",
         "is_default": false,
@@ -3984,7 +3984,7 @@
       "distance_km": 629.7,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 42.0,
+        "mean": 63.0,
         "stages": 4,
         "time_unit": "day",
         "is_default": false,
@@ -4034,7 +4034,7 @@
       "distance_km": 1668.7,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 58.8,
+        "mean": 88.2,
         "stages": 4,
         "time_unit": "day",
         "is_default": false,
@@ -4084,7 +4084,7 @@
       "distance_km": 113.4,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 67.2,
+        "mean": 100.8,
         "stages": 4,
         "time_unit": "day",
         "is_default": false,
@@ -4134,7 +4134,7 @@
       "distance_km": 568.5,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 42.0,
+        "mean": 63.0,
         "stages": 4,
         "time_unit": "day",
         "is_default": false,
@@ -4184,7 +4184,7 @@
       "distance_km": 592.1,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 176.4,
+        "mean": 264.6,
         "stages": 4,
         "time_unit": "day",
         "is_default": false,
@@ -4234,7 +4234,7 @@
       "distance_km": 203.9,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 25.2,
+        "mean": 37.8,
         "stages": 4,
         "time_unit": "day",
         "is_default": false,
@@ -4284,7 +4284,7 @@
       "distance_km": 568.5,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 50.4,
+        "mean": 75.6,
         "stages": 4,
         "time_unit": "day",
         "is_default": false,
@@ -4334,7 +4334,7 @@
       "distance_km": 756.6,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 42.0,
+        "mean": 63.0,
         "stages": 4,
         "time_unit": "day",
         "is_default": false,
@@ -4384,7 +4384,7 @@
       "distance_km": 608.8,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 84.0,
+        "mean": 126.0,
         "stages": 4,
         "time_unit": "day",
         "is_default": false,
@@ -4434,7 +4434,7 @@
       "distance_km": 301.3,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 50.4,
+        "mean": 75.6,
         "stages": 4,
         "time_unit": "day",
         "is_default": false,
@@ -4484,7 +4484,7 @@
       "distance_km": 304.4,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 33.6,
+        "mean": 50.4,
         "stages": 4,
         "time_unit": "day",
         "is_default": false,
@@ -4534,7 +4534,7 @@
       "distance_km": 97.8,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 84.0,
+        "mean": 126.0,
         "stages": 4,
         "time_unit": "day",
         "is_default": false,
@@ -4584,7 +4584,7 @@
       "distance_km": 481.2,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 3.0,
+        "mean": 4.5,
         "stages": 4,
         "time_unit": "day",
         "is_default": false,
@@ -4627,7 +4627,7 @@
       "distance_km": 144.5,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 3.0,
+        "mean": 4.5,
         "stages": 4,
         "time_unit": "day",
         "is_default": false,
@@ -4670,7 +4670,7 @@
       "distance_km": 605.2,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 2.4,
+        "mean": 3.6,
         "stages": 4,
         "time_unit": "day",
         "is_default": false,
@@ -4713,7 +4713,7 @@
       "distance_km": 605.2,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 2.4,
+        "mean": 3.6,
         "stages": 4,
         "time_unit": "day",
         "is_default": false,
@@ -4756,7 +4756,7 @@
       "distance_km": 7773.5,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 144.0,
+        "mean": 216.0,
         "stages": 4,
         "time_unit": "day",
         "is_default": false,
@@ -4805,7 +4805,7 @@
       "distance_km": 7773.5,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 144.0,
+        "mean": 216.0,
         "stages": 4,
         "time_unit": "day",
         "is_default": false,
@@ -4854,7 +4854,7 @@
       "distance_km": 7773.5,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 144.0,
+        "mean": 216.0,
         "stages": 4,
         "time_unit": "day",
         "is_default": false,
@@ -4903,7 +4903,7 @@
       "distance_km": 7773.5,
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 144.0,
+        "mean": 216.0,
         "stages": 4,
         "time_unit": "day",
         "is_default": false,
@@ -4962,7 +4962,7 @@
       },
       "lead_time": {
         "type": "erlang_pipeline",
-        "mean": 1.2,
+        "mean": 1.8,
         "stages": 4,
         "time_unit": "day",
         "is_default": false,
