@@ -1043,6 +1043,17 @@ def main() -> None:
         for out in (p.get("outputs") or [])
         if (out or {}).get("item_id") is not None
     }
+    process_tau_days_by_pair: dict[tuple[str, str], float] = {}
+    for n in nodes:
+        nid = str(n.get("id"))
+        for p in (n.get("processes") or []):
+            tau_days = max(0.0, to_float(((p.get("wip") or {}).get("tau_process")), 0.0))
+            for out in (p.get("outputs") or []):
+                item_id = str((out or {}).get("item_id"))
+                if not item_id:
+                    continue
+                key = (nid, item_id)
+                process_tau_days_by_pair[key] = max(process_tau_days_by_pair.get(key, 0.0), tau_days)
     # If a (node,item) can ship downstream but has no modeled inbound/production source,
     # treat missing upstream as external procurement to avoid artificial source depletion.
     externally_sourced_pairs = sorted(outbound_pairs - inbound_pairs - produced_pairs)
@@ -1205,6 +1216,48 @@ def main() -> None:
                     "daily_req_at_cap": round(daily_req, 6),
                     "added_opening_qty": round(add_qty, 6),
                     "target_opening_stock": round(target, 6),
+                }
+            )
+
+    # Supplier/process nodes shipping an internally manufactured intermediate also need a finished-goods buffer.
+    # Otherwise the simulation falls into pure JIT after a few days and the supplier stock chart suggests a false rupture.
+    output_daily_signal_by_pair: dict[tuple[str, str], float] = defaultdict(float)
+    for pair in sorted(produced_pairs & outbound_pairs):
+        for lane in lanes_by_src_item.get(pair, []):
+            dst_pair = (str(lane.get("dst")), pair[1])
+            output_daily_signal_by_pair[pair] += required_daily_input_by_pair.get(dst_pair, 0.0)
+
+    for pair, daily_signal in sorted(output_daily_signal_by_pair.items()):
+        node_id, item_id = pair
+        if node_id not in supplier_node_ids or daily_signal <= 0:
+            continue
+        downstream_cover_days = max(
+            [lead_time_cover_days(l, args.stochastic_lead_times) for l in lanes_by_src_item.get(pair, [])] or [1]
+        )
+        process_tau_days = process_tau_days_by_pair.get(pair, 0.0)
+        cover_days = max(
+            downstream_cover_days + review_period_days,
+            int(math.ceil(process_tau_days)) + review_period_days,
+            int(math.ceil(safety_stock_days)),
+        )
+        target = max(base_stock.get(pair, 0.0), daily_signal * float(cover_days))
+        target *= opening_stock_bootstrap_scale
+        current = stock.get(pair, 0.0)
+        if target > current + 1e-9:
+            add_qty = target - current
+            stock[pair] = current + add_qty
+            base_stock[pair] = target
+            total_opening_stock_bootstrap += add_qty
+            opening_stock_bootstrap_rows.append(
+                {
+                    "node_id": node_id,
+                    "item_id": item_id,
+                    "lead_days": downstream_cover_days,
+                    "cover_days": cover_days,
+                    "daily_req_at_cap": round(daily_signal, 6),
+                    "added_opening_qty": round(add_qty, 6),
+                    "target_opening_stock": round(target, 6),
+                    "bootstrap_kind": "process_output_fg",
                 }
             )
     opening_stock_bootstrap_rows.sort(key=lambda r: (r["node_id"], r["item_id"]))

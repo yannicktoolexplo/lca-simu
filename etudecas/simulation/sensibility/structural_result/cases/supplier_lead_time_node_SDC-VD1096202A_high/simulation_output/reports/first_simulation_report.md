@@ -3,7 +3,7 @@
 ## Run setup
 - Input: etudecas/simulation/sensibility/structural_result/cases/supplier_lead_time_node_SDC-VD1096202A_high/input_case.json
 - Scenario: scn:BASE
-- Horizon (days): 60
+- Horizon (days): 365
 - Safety stock policy (days): 7.0
 - Replenishment review period (days): 1
 - Finished-goods target cover (days): 0.0
@@ -16,8 +16,8 @@
 - Economic policy purchase floor: 0.01
 - Holding cost scale: 1.0
 - External procurement enabled: False
-- External procurement lead days: 4
-- External procurement daily cap days: 2.0
+- External procurement lead days: 5
+- External procurement daily cap days: 1.6
 - External procurement min daily cap qty: 0.0
 - External procurement unit cost / multiplier / transport unit: 0.0 / 2.0 / 0.04
 - Nodes: 32
@@ -32,30 +32,30 @@
 - Assumed supplier nodes (explicitly tagged, includes '?'): 1 (SDC-1450)
 - Assumed supply edges (explicitly tagged, includes '?'): 1 (edge:SDC-1450_TO_M-1810_007923_Q)
 - External upstream sourcing for unmodeled source pairs: 33
-- Opening stock bootstrap pairs (lead-time coverage at max capacity): 23
+- Opening stock bootstrap pairs (lead-time coverage at max capacity): 24
 
 ## KPIs
-- Total demand: 2912.5
-- Total served: 1544.0084
-- Fill rate: 0.530132
-- Ending backlog: 1368.4916
-- Total produced: 4274.1159
-- Total shipped: 11180.0057
-- Avg inventory: 510960.0524
-- Ending inventory: 498843.1569
-- Transport cost: 9847.7986
-- Holding cost: 1221245.6157
-- Purchase cost (from order_terms sell_price): 10124.7411
-- Logistics cost (transport + holding): 1231093.4142
-- Total cost: 1241218.1553
+- Total demand: 17400.0
+- Total served: 1479.1102
+- Fill rate: 0.085006
+- Ending backlog: 15920.8898
+- Total produced: 9175.0457
+- Total shipped: 15131.2591
+- Avg inventory: 506719.5712
+- Ending inventory: 506117.0695
+- Transport cost: 11374.0386
+- Holding cost: 7287659.2915
+- Purchase cost (from order_terms sell_price): 9339.0832
+- Logistics cost (transport + holding): 7299033.3302
+- Total cost: 7308372.4133
 - Total external procured ordered qty: 0.0
 - Total external procured arrived qty: 0.0
 - Total external procured rejected qty (cap-limited): 0.0
 - Total external procurement cost premium: 0.0
-- Cost share holding / transport / purchase: 0.983909 / 0.007934 / 0.008157
-- Total opening stock bootstrap qty: 529924.7479
-- Total unreliable supplier loss qty: 0.0
-- Total supplier capacity binding qty: 2401.7599
+- Cost share holding / transport / purchase: 0.997166 / 0.001556 / 0.001278
+- Total opening stock bootstrap qty: 532158.4274
+- Total unreliable supplier loss qty: 630.4691
+- Total supplier capacity binding qty: 2242.3537
 - Economic consistency status: warn
 - Economic consistency warnings: ['holding_cost_share_above_90pct', 'transport_cost_share_below_2pct', 'purchase_cost_share_below_2pct']
 
@@ -64,12 +64,12 @@
   {
     "node_id": "C-XXXXX",
     "item_id": "item:268967",
-    "backlog": 988.3514
+    "backlog": 8236.6928
   },
   {
     "node_id": "C-XXXXX",
     "item_id": "item:268091",
-    "backlog": 380.1403
+    "backlog": 7684.197
   }
 ]
 
