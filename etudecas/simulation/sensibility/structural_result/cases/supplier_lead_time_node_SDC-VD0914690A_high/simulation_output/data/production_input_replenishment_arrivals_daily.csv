@@ -432,7 +432,7 @@ day,node_id,item_id,arrived_qty,uom
 17,M-1810,item:693055,0.0,G
 17,SDC-1450,item:021081,0.0,KG
 18,M-1430,item:038005,0.0,KG
-18,M-1430,item:042342,180.0,UN
+18,M-1430,item:042342,0.0,UN
 18,M-1430,item:333362,0.0,UN
 18,M-1430,item:344135,0.0,UN
 18,M-1430,item:708073,5.412225,KG
@@ -648,7 +648,7 @@ day,node_id,item_id,arrived_qty,uom
 26,M-1810,item:693055,0.0,G
 26,SDC-1450,item:021081,0.0,KG
 27,M-1430,item:038005,0.0,KG
-27,M-1430,item:042342,0.0,UN
+27,M-1430,item:042342,180.0,UN
 27,M-1430,item:333362,0.0,UN
 27,M-1430,item:344135,0.0,UN
 27,M-1430,item:708073,0.0,KG

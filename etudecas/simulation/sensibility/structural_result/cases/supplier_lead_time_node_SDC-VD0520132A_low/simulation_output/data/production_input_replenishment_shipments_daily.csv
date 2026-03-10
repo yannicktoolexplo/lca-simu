@@ -1,5 +1,5 @@
 day,node_id,item_id,shipped_to_node_qty,uom
-0,M-1430,item:038005,49.785156,KG
+0,M-1430,item:038005,31.411021,KG
 0,M-1430,item:042342,180.0,UN
 0,M-1430,item:333362,180.0,UN
 0,M-1430,item:344135,180.0,UN
@@ -15,7 +15,7 @@ day,node_id,item_id,shipped_to_node_qty,uom
 0,M-1810,item:016332,0.563934,KG
 0,M-1810,item:029313,0.053592,KG
 0,M-1810,item:039668,0.0338,KG
-0,M-1810,item:049371,4.085984,KG
+0,M-1810,item:049371,2.583784,KG
 0,M-1810,item:055703,0.080794,KG
 0,M-1810,item:099439,1.689975,KG
 0,M-1810,item:338928,180.0,UN

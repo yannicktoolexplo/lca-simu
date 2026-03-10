@@ -718,4 +718,4 @@ day,node_id,item_id,arrived_qty,uom
 29,M-1810,item:338929,0.0,UN
 29,M-1810,item:426331,0.0,UN
 29,M-1810,item:693055,0.0,G
-29,SDC-1450,item:021081,0.0,KG
+29,SDC-1450,item:021081,0.4023,KG

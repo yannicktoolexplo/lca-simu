@@ -12,14 +12,14 @@
 - Opening stock bootstrap scale: 1.0
 - Stochastic lead times: True
 - Random seed: 42
-- Economic policy transport floor /km: 0.016 / 6.4e-05
+- Economic policy transport floor /km: 0.004 / 1.6e-05
 - Economic policy purchase floor: 0.01
 - Holding cost scale: 1.0
 - External procurement enabled: True
 - External procurement lead days: 4
 - External procurement daily cap days: 2.0
 - External procurement min daily cap qty: 0.0
-- External procurement unit cost / multiplier / transport unit: 0.0 / 2.0 / 0.032
+- External procurement unit cost / multiplier / transport unit: 0.0 / 2.0 / 0.008
 - Nodes: 32
 - Edges: 38
 - Lanes (edge x item): 38
@@ -43,16 +43,16 @@
 - Total shipped: 45988.6462
 - Avg inventory: 1045717.0788
 - Ending inventory: 1035949.2243
-- Transport cost: 17791.9729
+- Transport cost: 4447.9932
 - Holding cost: 1248373.7888
 - Purchase cost (from order_terms sell_price): 2746.5618
-- Logistics cost (transport + holding): 1266165.7617
-- Total cost: 1268912.3235
+- Logistics cost (transport + holding): 1252821.782
+- Total cost: 1255568.3438
 - Total external procured ordered qty: 42871.1216
 - Total external procured arrived qty: 42489.9504
 - Total external procured rejected qty (cap-limited): 18148.2001
-- Total external procurement cost premium: 2975.243
-- Cost share holding / transport / purchase: 0.983814 / 0.014021 / 0.002165
+- Total external procurement cost premium: 1946.336
+- Cost share holding / transport / purchase: 0.99427 / 0.003543 / 0.002188
 - Total opening stock bootstrap qty: 1060029.4897
 - Total unreliable supplier loss qty: 0.0
 - Economic consistency status: warn

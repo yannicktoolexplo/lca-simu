@@ -622,7 +622,7 @@
       {
         "node_id": "SDC-1450",
         "item_id": "item:021081",
-        "lead_days": 144,
+        "lead_days": 216,
         "cover_days": 241,
         "daily_req_at_cap": 4470.0,
         "added_opening_qty": 538455.0,

@@ -4,7 +4,7 @@
 - Input: etudecas/simulation/sensibility/structural_result/cases/safety_stock_days_scale_high/input_case.json
 - Scenario: scn:BASE
 - Horizon (days): 60
-- Safety stock policy (days): 8.4
+- Safety stock policy (days): 14.0
 - Replenishment review period (days): 1
 - Finished-goods target cover (days): 0.0
 - Production stock-gap gain: 0.25
@@ -36,23 +36,23 @@
 
 ## KPIs
 - Total demand: 2912.5
-- Total served: 1597.7393
-- Fill rate: 0.54858
-- Ending backlog: 1314.7607
+- Total served: 1625.7049
+- Fill rate: 0.558182
+- Ending backlog: 1286.7951
 - Total produced: 4285.8956
 - Total shipped: 11222.3372
-- Avg inventory: 510750.3908
-- Ending inventory: 498198.4627
+- Avg inventory: 510533.4573
+- Ending inventory: 498243.2009
 - Transport cost: 9871.1161
-- Holding cost: 1221079.9807
+- Holding cost: 1220554.5101
 - Purchase cost (from order_terms sell_price): 10125.4323
-- Logistics cost (transport + holding): 1230951.0968
-- Total cost: 1241076.5291
+- Logistics cost (transport + holding): 1230425.6262
+- Total cost: 1240551.0585
 - Total external procured ordered qty: 0.0
 - Total external procured arrived qty: 0.0
 - Total external procured rejected qty (cap-limited): 0.0
 - Total external procurement cost premium: 0.0
-- Cost share holding / transport / purchase: 0.983888 / 0.007954 / 0.008159
+- Cost share holding / transport / purchase: 0.983881 / 0.007957 / 0.008162
 - Total opening stock bootstrap qty: 529924.7449
 - Total unreliable supplier loss qty: 0.0
 - Economic consistency status: warn
@@ -63,7 +63,7 @@
   {
     "node_id": "C-XXXXX",
     "item_id": "item:268967",
-    "backlog": 997.6732
+    "backlog": 969.7076
   },
   {
     "node_id": "C-XXXXX",

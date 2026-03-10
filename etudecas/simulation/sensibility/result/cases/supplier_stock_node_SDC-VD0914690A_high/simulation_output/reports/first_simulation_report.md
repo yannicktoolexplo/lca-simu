@@ -42,7 +42,7 @@
 - Total produced: 2610.2267
 - Total shipped: 45988.6462
 - Avg inventory: 1045720.2353
-- Ending inventory: 1035985.2243
+- Ending inventory: 1036093.2243
 - Transport cost: 22239.5873
 - Holding cost: 1248377.5767
 - Purchase cost (from order_terms sell_price): 2746.3724

@@ -496,7 +496,7 @@
       {
         "node_id": "M-1810",
         "item_id": "item:001757",
-        "lead_days": 101,
+        "lead_days": 151,
         "cover_days": 169,
         "daily_req_at_cap": 0.0406,
         "added_opening_qty": 6.8614,
@@ -505,7 +505,7 @@
       {
         "node_id": "M-1810",
         "item_id": "item:001848",
-        "lead_days": 67,
+        "lead_days": 101,
         "cover_days": 113,
         "daily_req_at_cap": 0.03045,
         "added_opening_qty": 3.44085,

@@ -175,6 +175,6 @@ day,node_id,output_item_id,desired_qty,actual_qty,cap_qty,max_from_inputs_qty,bi
 58,M-1430,item:268967,23.75,4.660934,25.0,4.660934,input_shortage,item:773474,19.089066
 58,M-1810,item:268091,23.75,0.0,25.0,0.0,input_shortage,item:007923,23.75
 58,SDC-1450,item:773474,45.0,45.0,500000.0,54997446.25,none,,0.0
-59,M-1430,item:268967,23.75,12.37628,25.0,12.37628,input_shortage,item:042342,11.37372
+59,M-1430,item:268967,23.75,13.982801,25.0,13.982801,input_shortage,item:773474,9.767199
 59,M-1810,item:268091,23.75,0.0,25.0,0.0,input_shortage,item:007923,23.75
 59,SDC-1450,item:773474,45.0,45.0,500000.0,54997401.25,none,,0.0

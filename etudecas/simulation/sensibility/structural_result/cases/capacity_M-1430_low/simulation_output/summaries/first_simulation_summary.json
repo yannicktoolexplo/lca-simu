@@ -426,72 +426,72 @@
         "item_id": "item:038005",
         "lead_days": 154,
         "cover_days": 283,
-        "daily_req_at_cap": 0.349984,
-        "added_opening_qty": 49.522668,
-        "target_opening_stock": 49.522668
+        "daily_req_at_cap": 0.087496,
+        "added_opening_qty": 12.380667,
+        "target_opening_stock": 12.380667
       },
       {
         "node_id": "M-1430",
         "item_id": "item:042342",
         "lead_days": 21,
         "cover_days": 40,
-        "daily_req_at_cap": 1206.84,
-        "added_opening_qty": 24136.8,
-        "target_opening_stock": 24136.8
+        "daily_req_at_cap": 301.71,
+        "added_opening_qty": 6034.2,
+        "target_opening_stock": 6034.2
       },
       {
         "node_id": "M-1430",
         "item_id": "item:333362",
         "lead_days": 60,
         "cover_days": 111,
-        "daily_req_at_cap": 20.0,
-        "added_opening_qty": 1110.0,
-        "target_opening_stock": 1110.0
+        "daily_req_at_cap": 5.0,
+        "added_opening_qty": 277.5,
+        "target_opening_stock": 277.5
       },
       {
         "node_id": "M-1430",
         "item_id": "item:344135",
         "lead_days": 35,
         "cover_days": 65,
-        "daily_req_at_cap": 20.0,
-        "added_opening_qty": 650.0,
-        "target_opening_stock": 650.0
+        "daily_req_at_cap": 5.0,
+        "added_opening_qty": 162.5,
+        "target_opening_stock": 162.5
       },
       {
         "node_id": "M-1430",
         "item_id": "item:708073",
         "lead_days": 28,
         "cover_days": 53,
-        "daily_req_at_cap": 0.1586,
-        "added_opening_qty": 4.2029,
-        "target_opening_stock": 4.2029
+        "daily_req_at_cap": 0.03965,
+        "added_opening_qty": 1.050725,
+        "target_opening_stock": 1.050725
       },
       {
         "node_id": "M-1430",
         "item_id": "item:730384",
         "lead_days": 56,
         "cover_days": 104,
-        "daily_req_at_cap": 4.24,
-        "added_opening_qty": 220.48,
-        "target_opening_stock": 220.48
+        "daily_req_at_cap": 1.06,
+        "added_opening_qty": 55.12,
+        "target_opening_stock": 55.12
       },
       {
         "node_id": "M-1430",
         "item_id": "item:734545",
         "lead_days": 21,
         "cover_days": 40,
-        "daily_req_at_cap": 0.16,
-        "added_opening_qty": 3.2,
-        "target_opening_stock": 3.2
+        "daily_req_at_cap": 0.04,
+        "added_opening_qty": 0.8,
+        "target_opening_stock": 0.8
       },
       {
         "node_id": "M-1430",
         "item_id": "item:773474",
         "lead_days": 10,
         "cover_days": 20,
-        "daily_req_at_cap": 193.09436,
-        "added_opening_qty": 1930.9436,
-        "target_opening_stock": 1930.9436
+        "daily_req_at_cap": 48.27359,
+        "added_opening_qty": 482.7359,
+        "target_opening_stock": 482.7359
       },
       {
         "node_id": "M-1810",
@@ -638,29 +638,29 @@
   },
   "kpis": {
     "total_demand": 2912.5,
-    "total_served": 1542.1456,
-    "ending_backlog": 1370.3544,
-    "fill_rate": 0.529492,
-    "total_shipped": 11021.2035,
-    "total_arrived": 9633.6317,
-    "total_produced": 4185.8956,
-    "avg_inventory": 507254.5774,
-    "ending_inventory": 498366.1865,
-    "total_transport_cost": 9752.7275,
-    "total_holding_cost": 1212691.3641,
-    "total_purchase_cost": 10051.7186,
-    "total_logistics_cost": 1222444.0916,
-    "total_cost": 1232495.8102,
+    "total_served": 1242.1456,
+    "ending_backlog": 1670.3544,
+    "fill_rate": 0.426488,
+    "total_shipped": 8918.6907,
+    "total_arrived": 7971.0846,
+    "total_produced": 2719.1413,
+    "avg_inventory": 500795.5823,
+    "ending_inventory": 498243.6111,
+    "total_transport_cost": 8670.719,
+    "total_holding_cost": 1196157.2327,
+    "total_purchase_cost": 9815.5866,
+    "total_logistics_cost": 1204827.9517,
+    "total_cost": 1214643.5383,
     "total_external_procured_ordered_qty": 0.0,
     "total_external_procured_arrived_qty": 0.0,
     "total_external_procured_rejected_qty": 0.0,
     "total_external_procured_qty": 0.0,
     "total_external_procurement_cost": 0.0,
-    "total_opening_stock_bootstrap_qty": 522898.4576,
+    "total_opening_stock_bootstrap_qty": 501819.5957,
     "total_unreliable_loss_qty": 0.0,
-    "cost_share_holding": 0.983931,
-    "cost_share_transport": 0.007913,
-    "cost_share_purchase": 0.008156
+    "cost_share_holding": 0.98478,
+    "cost_share_transport": 0.007138,
+    "cost_share_purchase": 0.008081
   },
   "economic_consistency": {
     "status": "warn",
@@ -676,7 +676,7 @@
     {
       "node_id": "C-XXXXX",
       "item_id": "item:268967",
-      "backlog": 1053.267
+      "backlog": 1353.267
     },
     {
       "node_id": "C-XXXXX",

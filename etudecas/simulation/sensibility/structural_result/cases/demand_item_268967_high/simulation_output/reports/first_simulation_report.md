@@ -35,24 +35,24 @@
 - Opening stock bootstrap pairs (lead-time coverage at max capacity): 23
 
 ## KPIs
-- Total demand: 3203.75
+- Total demand: 4077.5
 - Total served: 1635.0268
-- Fill rate: 0.510348
-- Ending backlog: 1568.7232
+- Fill rate: 0.400988
+- Ending backlog: 2442.4732
 - Total produced: 4285.8956
 - Total shipped: 11236.32
-- Avg inventory: 510565.6256
+- Avg inventory: 510551.1579
 - Ending inventory: 498198.3347
 - Transport cost: 9880.8439
-- Holding cost: 1220644.4945
+- Holding cost: 1220614.4061
 - Purchase cost (from order_terms sell_price): 10125.5721
-- Logistics cost (transport + holding): 1230525.3384
-- Total cost: 1240650.9105
+- Logistics cost (transport + holding): 1230495.25
+- Total cost: 1240620.8221
 - Total external procured ordered qty: 0.0
 - Total external procured arrived qty: 0.0
 - Total external procured rejected qty (cap-limited): 0.0
 - Total external procurement cost premium: 0.0
-- Cost share holding / transport / purchase: 0.983874 / 0.007964 / 0.008161
+- Cost share holding / transport / purchase: 0.983874 / 0.007964 / 0.008162
 - Total opening stock bootstrap qty: 529924.7449
 - Total unreliable supplier loss qty: 0.0
 - Economic consistency status: warn
@@ -63,7 +63,7 @@
   {
     "node_id": "C-XXXXX",
     "item_id": "item:268967",
-    "backlog": 1251.6358
+    "backlog": 2125.3858
   },
   {
     "node_id": "C-XXXXX",

@@ -424,11 +424,11 @@
       {
         "node_id": "M-1430",
         "item_id": "item:038005",
-        "lead_days": 123,
-        "cover_days": 226,
+        "lead_days": 77,
+        "cover_days": 142,
         "daily_req_at_cap": 0.437479,
-        "added_opening_qty": 98.870344,
-        "target_opening_stock": 98.870344
+        "added_opening_qty": 62.122075,
+        "target_opening_stock": 62.122075
       },
       {
         "node_id": "M-1430",
@@ -559,11 +559,11 @@
       {
         "node_id": "M-1810",
         "item_id": "item:049371",
-        "lead_days": 118,
-        "cover_days": 216,
+        "lead_days": 74,
+        "cover_days": 136,
         "daily_req_at_cap": 0.037555,
-        "added_opening_qty": 8.11188,
-        "target_opening_stock": 8.11188
+        "added_opening_qty": 5.10748,
+        "target_opening_stock": 5.10748
       },
       {
         "node_id": "M-1810",
@@ -642,24 +642,24 @@
     "ending_backlog": 315.8476,
     "fill_rate": 0.787666,
     "total_shipped": 45988.6462,
-    "total_arrived": 15989.339,
+    "total_arrived": 15989.7765,
     "total_produced": 2610.2267,
-    "avg_inventory": 1045690.1214,
-    "ending_inventory": 1035922.26,
+    "avg_inventory": 1045650.5238,
+    "ending_inventory": 1035882.9448,
     "total_transport_cost": 22239.9661,
-    "total_holding_cost": 1248341.44,
+    "total_holding_cost": 1248293.9228,
     "total_purchase_cost": 2746.5618,
-    "total_logistics_cost": 1270581.4061,
-    "total_cost": 1273327.9678,
+    "total_logistics_cost": 1270533.8889,
+    "total_cost": 1273280.4507,
     "total_external_procured_ordered_qty": 42871.1216,
     "total_external_procured_arrived_qty": 42489.9504,
     "total_external_procured_rejected_qty": 18148.2001,
     "total_external_procured_qty": 42871.1216,
     "total_external_procurement_cost": 3318.2119,
-    "total_opening_stock_bootstrap_qty": 1060002.5254,
+    "total_opening_stock_bootstrap_qty": 1059962.7728,
     "total_unreliable_loss_qty": 0.0,
-    "cost_share_holding": 0.980377,
-    "cost_share_transport": 0.017466,
+    "cost_share_holding": 0.980376,
+    "cost_share_transport": 0.017467,
     "cost_share_purchase": 0.002157
   },
   "economic_consistency": {

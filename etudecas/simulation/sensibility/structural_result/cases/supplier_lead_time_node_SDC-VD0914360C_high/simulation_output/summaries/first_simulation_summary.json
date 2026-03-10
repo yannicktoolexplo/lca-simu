@@ -595,7 +595,7 @@
       {
         "node_id": "M-1810",
         "item_id": "item:338929",
-        "lead_days": 50,
+        "lead_days": 76,
         "cover_days": 85,
         "daily_req_at_cap": 25.0,
         "added_opening_qty": 1062.5,
@@ -644,13 +644,13 @@
     "total_shipped": 11222.3372,
     "total_arrived": 9820.5628,
     "total_produced": 4285.8956,
-    "avg_inventory": 510825.8908,
+    "avg_inventory": 510792.8908,
     "ending_inventory": 498285.9627,
     "total_transport_cost": 9871.1161,
-    "total_holding_cost": 1221261.1807,
+    "total_holding_cost": 1221181.9807,
     "total_purchase_cost": 10125.4323,
-    "total_logistics_cost": 1231132.2968,
-    "total_cost": 1241257.7291,
+    "total_logistics_cost": 1231053.0968,
+    "total_cost": 1241178.5291,
     "total_external_procured_ordered_qty": 0.0,
     "total_external_procured_arrived_qty": 0.0,
     "total_external_procured_rejected_qty": 0.0,
@@ -658,9 +658,9 @@
     "total_external_procurement_cost": 0.0,
     "total_opening_stock_bootstrap_qty": 530012.2449,
     "total_unreliable_loss_qty": 0.0,
-    "cost_share_holding": 0.98389,
+    "cost_share_holding": 0.983889,
     "cost_share_transport": 0.007953,
-    "cost_share_purchase": 0.008157
+    "cost_share_purchase": 0.008158
   },
   "economic_consistency": {
     "status": "warn",

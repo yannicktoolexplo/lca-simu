@@ -638,29 +638,29 @@
   },
   "kpis": {
     "total_demand": 1487.5,
-    "total_served": 1171.6524,
-    "ending_backlog": 315.8476,
-    "fill_rate": 0.787666,
-    "total_shipped": 45988.6462,
-    "total_arrived": 15989.339,
-    "total_produced": 2610.2267,
-    "avg_inventory": 1045681.0788,
-    "ending_inventory": 1035913.2243,
-    "total_transport_cost": 22239.9661,
-    "total_holding_cost": 1248330.5888,
-    "total_purchase_cost": 2746.5618,
-    "total_logistics_cost": 1270570.5549,
-    "total_cost": 1273317.1167,
-    "total_external_procured_ordered_qty": 42871.1216,
-    "total_external_procured_arrived_qty": 42489.9504,
-    "total_external_procured_rejected_qty": 18148.2001,
-    "total_external_procured_qty": 42871.1216,
-    "total_external_procurement_cost": 3318.2119,
+    "total_served": 1089.0361,
+    "ending_backlog": 398.4639,
+    "fill_rate": 0.732125,
+    "total_shipped": 46264.6839,
+    "total_arrived": 15875.0324,
+    "total_produced": 2614.8876,
+    "avg_inventory": 1045493.4405,
+    "ending_inventory": 1035280.0547,
+    "total_transport_cost": 22367.962,
+    "total_holding_cost": 1248099.2866,
+    "total_purchase_cost": 2756.7549,
+    "total_logistics_cost": 1270467.2486,
+    "total_cost": 1273224.0035,
+    "total_external_procured_ordered_qty": 43004.8658,
+    "total_external_procured_arrived_qty": 42604.5638,
+    "total_external_procured_rejected_qty": 18231.6038,
+    "total_external_procured_qty": 43004.8658,
+    "total_external_procurement_cost": 3329.2479,
     "total_opening_stock_bootstrap_qty": 1060029.4897,
     "total_unreliable_loss_qty": 0.0,
-    "cost_share_holding": 0.980377,
-    "cost_share_transport": 0.017466,
-    "cost_share_purchase": 0.002157
+    "cost_share_holding": 0.980267,
+    "cost_share_transport": 0.017568,
+    "cost_share_purchase": 0.002165
   },
   "economic_consistency": {
     "status": "warn",
@@ -676,12 +676,12 @@
     {
       "node_id": "C-XXXXX",
       "item_id": "item:268967",
-      "backlog": 165.6779
+      "backlog": 200.1697
     },
     {
       "node_id": "C-XXXXX",
       "item_id": "item:268091",
-      "backlog": 150.1697
+      "backlog": 198.2942
     }
   ]
 }

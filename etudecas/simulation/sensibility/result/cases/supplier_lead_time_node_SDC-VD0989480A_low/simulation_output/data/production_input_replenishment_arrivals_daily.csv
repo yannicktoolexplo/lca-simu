@@ -260,7 +260,7 @@ day,node_id,item_id,arrived_qty,uom
 10,M-1810,item:099439,0.0,KG
 10,M-1810,item:338928,0.0,UN
 10,M-1810,item:338929,0.0,UN
-10,M-1810,item:426331,0.0,UN
+10,M-1810,item:426331,0.275,UN
 10,M-1810,item:693055,0.0,G
 10,SDC-1450,item:021081,0.0,KG
 11,M-1430,item:038005,0.0,KG
@@ -284,7 +284,7 @@ day,node_id,item_id,arrived_qty,uom
 11,M-1810,item:099439,0.0,KG
 11,M-1810,item:338928,0.0,UN
 11,M-1810,item:338929,0.0,UN
-11,M-1810,item:426331,0.0,UN
+11,M-1810,item:426331,0.275,UN
 11,M-1810,item:693055,0.0,G
 11,SDC-1450,item:021081,0.0,KG
 12,M-1430,item:038005,0.0,KG
@@ -308,7 +308,7 @@ day,node_id,item_id,arrived_qty,uom
 12,M-1810,item:099439,0.0,KG
 12,M-1810,item:338928,25.0,UN
 12,M-1810,item:338929,0.0,UN
-12,M-1810,item:426331,0.0,UN
+12,M-1810,item:426331,0.275,UN
 12,M-1810,item:693055,0.0,G
 12,SDC-1450,item:021081,0.0,KG
 13,M-1430,item:038005,0.0,KG
@@ -332,7 +332,7 @@ day,node_id,item_id,arrived_qty,uom
 13,M-1810,item:099439,0.0,KG
 13,M-1810,item:338928,0.0,UN
 13,M-1810,item:338929,0.0,UN
-13,M-1810,item:426331,0.55,UN
+13,M-1810,item:426331,0.0,UN
 13,M-1810,item:693055,0.0,G
 13,SDC-1450,item:021081,0.0,KG
 14,M-1430,item:038005,0.0,KG
@@ -404,7 +404,7 @@ day,node_id,item_id,arrived_qty,uom
 16,M-1810,item:099439,0.05075,KG
 16,M-1810,item:338928,0.0,UN
 16,M-1810,item:338929,0.0,UN
-16,M-1810,item:426331,0.275,UN
+16,M-1810,item:426331,0.507243,UN
 16,M-1810,item:693055,0.0,G
 16,SDC-1450,item:021081,0.0,KG
 17,M-1430,item:038005,0.0,KG
@@ -428,7 +428,7 @@ day,node_id,item_id,arrived_qty,uom
 17,M-1810,item:099439,0.05075,KG
 17,M-1810,item:338928,0.0,UN
 17,M-1810,item:338929,0.0,UN
-17,M-1810,item:426331,0.0,UN
+17,M-1810,item:426331,0.275,UN
 17,M-1810,item:693055,0.0,G
 17,SDC-1450,item:021081,0.0,KG
 18,M-1430,item:038005,0.0,KG
@@ -452,7 +452,7 @@ day,node_id,item_id,arrived_qty,uom
 18,M-1810,item:099439,0.0,KG
 18,M-1810,item:338928,0.0,UN
 18,M-1810,item:338929,0.0,UN
-18,M-1810,item:426331,0.0,UN
+18,M-1810,item:426331,0.22,UN
 18,M-1810,item:693055,0.0,G
 18,SDC-1450,item:021081,0.0,KG
 19,M-1430,item:038005,0.0,KG
@@ -500,7 +500,7 @@ day,node_id,item_id,arrived_qty,uom
 20,M-1810,item:099439,0.0,KG
 20,M-1810,item:338928,0.0,UN
 20,M-1810,item:338929,0.0,UN
-20,M-1810,item:426331,0.0,UN
+20,M-1810,item:426331,0.501849,UN
 20,M-1810,item:693055,0.0,G
 20,SDC-1450,item:021081,0.0,KG
 21,M-1430,item:038005,0.0,KG
@@ -524,7 +524,7 @@ day,node_id,item_id,arrived_qty,uom
 21,M-1810,item:099439,0.0,KG
 21,M-1810,item:338928,0.0,UN
 21,M-1810,item:338929,0.0,UN
-21,M-1810,item:426331,0.529243,UN
+21,M-1810,item:426331,0.0,UN
 21,M-1810,item:693055,0.0,G
 21,SDC-1450,item:021081,0.0,KG
 22,M-1430,item:038005,0.0,KG
@@ -596,7 +596,7 @@ day,node_id,item_id,arrived_qty,uom
 24,M-1810,item:099439,0.0,KG
 24,M-1810,item:338928,0.0,UN
 24,M-1810,item:338929,0.0,UN
-24,M-1810,item:426331,0.253,UN
+24,M-1810,item:426331,0.0,UN
 24,M-1810,item:693055,0.0,G
 24,SDC-1450,item:021081,0.0,KG
 25,M-1430,item:038005,0.0,KG
@@ -620,7 +620,7 @@ day,node_id,item_id,arrived_qty,uom
 25,M-1810,item:099439,0.04669,KG
 25,M-1810,item:338928,0.0,UN
 25,M-1810,item:338929,0.0,UN
-25,M-1810,item:426331,0.0,UN
+25,M-1810,item:426331,0.275,UN
 25,M-1810,item:693055,0.0,G
 25,SDC-1450,item:021081,0.0,KG
 26,M-1430,item:038005,0.0,KG
@@ -644,7 +644,7 @@ day,node_id,item_id,arrived_qty,uom
 26,M-1810,item:099439,0.0,KG
 26,M-1810,item:338928,0.0,UN
 26,M-1810,item:338929,0.0,UN
-26,M-1810,item:426331,0.0,UN
+26,M-1810,item:426331,0.275,UN
 26,M-1810,item:693055,0.0,G
 26,SDC-1450,item:021081,0.0,KG
 27,M-1430,item:038005,0.0,KG
@@ -692,7 +692,7 @@ day,node_id,item_id,arrived_qty,uom
 28,M-1810,item:099439,0.0,KG
 28,M-1810,item:338928,20.0,UN
 28,M-1810,item:338929,0.0,UN
-28,M-1810,item:426331,0.446849,UN
+28,M-1810,item:426331,0.52937,UN
 28,M-1810,item:693055,0.0,G
 28,SDC-1450,item:021081,0.0,KG
 29,M-1430,item:038005,0.0,KG
@@ -716,6 +716,6 @@ day,node_id,item_id,arrived_qty,uom
 29,M-1810,item:099439,0.05075,KG
 29,M-1810,item:338928,0.0,UN
 29,M-1810,item:338929,0.0,UN
-29,M-1810,item:426331,0.275,UN
+29,M-1810,item:426331,0.0,UN
 29,M-1810,item:693055,0.0,G
 29,SDC-1450,item:021081,0.0,KG

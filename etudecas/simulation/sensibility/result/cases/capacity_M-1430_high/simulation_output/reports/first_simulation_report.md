@@ -39,21 +39,21 @@
 - Total served: 1187.1741
 - Fill rate: 0.7981
 - Ending backlog: 300.3259
-- Total produced: 2714.8876
-- Total shipped: 52746.2733
-- Avg inventory: 1057513.3715
-- Ending inventory: 1039500.2901
-- Transport cost: 25537.0692
-- Holding cost: 1261682.8803
-- Purchase cost (from order_terms sell_price): 3006.1743
-- Logistics cost (transport + holding): 1287219.9495
-- Total cost: 1290226.1238
-- Total external procured ordered qty: 46722.201
-- Total external procured arrived qty: 46123.052
-- Total external procured rejected qty (cap-limited): 16176.2111
-- Total external procurement cost premium: 3625.0721
-- Cost share holding / transport / purchase: 0.977877 / 0.019793 / 0.00233
-- Total opening stock bootstrap qty: 1074082.0643
+- Total produced: 2747.1593
+- Total shipped: 54595.4912
+- Avg inventory: 1101440.4309
+- Ending inventory: 1086393.2269
+- Transport cost: 26727.0878
+- Holding cost: 1310917.6766
+- Purchase cost (from order_terms sell_price): 3217.488
+- Logistics cost (transport + holding): 1337644.7643
+- Total cost: 1340862.2523
+- Total external procured ordered qty: 54722.7432
+- Total external procured arrived qty: 53793.4169
+- Total external procured rejected qty (cap-limited): 2394.9511
+- Total external procurement cost premium: 4149.229
+- Cost share holding / transport / purchase: 0.977668 / 0.019933 / 0.0024
+- Total opening stock bootstrap qty: 1116239.7881
 - Total unreliable supplier loss qty: 0.0
 - Economic consistency status: warn
 - Economic consistency warnings: ['holding_cost_share_above_90pct', 'transport_cost_share_below_2pct', 'purchase_cost_share_below_2pct']

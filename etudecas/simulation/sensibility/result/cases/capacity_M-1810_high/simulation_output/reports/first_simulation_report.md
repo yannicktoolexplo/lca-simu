@@ -32,28 +32,28 @@
 - Assumed supplier nodes (explicitly tagged, includes '?'): 1 (SDC-1450)
 - Assumed supply edges (explicitly tagged, includes '?'): 1 (edge:SDC-1450_TO_M-1810_007923_Q)
 - External upstream sourcing for unmodeled source pairs: 33
-- Opening stock bootstrap pairs (lead-time coverage at max capacity): 23
+- Opening stock bootstrap pairs (lead-time coverage at max capacity): 24
 
 ## KPIs
 - Total demand: 1487.5
-- Total served: 1167.005
-- Fill rate: 0.784541
-- Ending backlog: 320.495
+- Total served: 1141.3801
+- Fill rate: 0.767314
+- Ending backlog: 346.1199
 - Total produced: 2647.416
-- Total shipped: 46530.5094
-- Avg inventory: 1046845.6109
-- Ending inventory: 1036484.1558
-- Transport cost: 22449.2942
-- Holding cost: 1249503.4542
-- Purchase cost (from order_terms sell_price): 2815.5197
-- Logistics cost (transport + holding): 1271952.7485
-- Total cost: 1274768.2681
-- Total external procured ordered qty: 43011.4461
-- Total external procured arrived qty: 42572.1428
-- Total external procured rejected qty (cap-limited): 18052.4258
-- Total external procurement cost premium: 3370.1444
-- Cost share holding / transport / purchase: 0.980181 / 0.01761 / 0.002209
-- Total opening stock bootstrap qty: 1061338.8131
+- Total shipped: 46377.2918
+- Avg inventory: 1051149.1854
+- Ending inventory: 1040758.8167
+- Transport cost: 22375.4749
+- Holding cost: 1253326.2297
+- Purchase cost (from order_terms sell_price): 2831.5978
+- Logistics cost (transport + holding): 1275701.7046
+- Total cost: 1278533.3024
+- Total external procured ordered qty: 43159.7217
+- Total external procured arrived qty: 42433.1756
+- Total external procured rejected qty (cap-limited): 17581.8274
+- Total external procurement cost premium: 3421.0864
+- Cost share holding / transport / purchase: 0.980284 / 0.017501 / 0.002215
+- Total opening stock bootstrap qty: 1065589.9032
 - Total unreliable supplier loss qty: 0.0
 - Economic consistency status: warn
 - Economic consistency warnings: ['holding_cost_share_above_90pct', 'transport_cost_share_below_2pct', 'purchase_cost_share_below_2pct']
@@ -62,13 +62,13 @@
 [
   {
     "node_id": "C-XXXXX",
-    "item_id": "item:268967",
-    "backlog": 170.3388
+    "item_id": "item:268091",
+    "backlog": 175.7811
   },
   {
     "node_id": "C-XXXXX",
-    "item_id": "item:268091",
-    "backlog": 150.1562
+    "item_id": "item:268967",
+    "backlog": 170.3388
   }
 ]
 

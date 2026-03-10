@@ -36,24 +36,24 @@
 
 ## KPIs
 - Total demand: 1487.5
-- Total served: 1092.6661
-- Fill rate: 0.734565
-- Ending backlog: 394.8339
-- Total produced: 2679.8183
-- Total shipped: 50120.2551
-- Avg inventory: 1144745.477
-- Ending inventory: 1126503.457
-- Transport cost: 24175.4746
-- Holding cost: 1366447.9364
-- Purchase cost (from order_terms sell_price): 2867.1499
-- Logistics cost (transport + holding): 1390623.411
-- Total cost: 1393490.5609
-- Total external procured ordered qty: 43462.0897
-- Total external procured arrived qty: 42488.1516
-- Total external procured rejected qty (cap-limited): 18352.2706
-- Total external procurement cost premium: 3395.1013
-- Cost share holding / transport / purchase: 0.980594 / 0.017349 / 0.002058
-- Total opening stock bootstrap qty: 1160211.8639
+- Total served: 1068.4135
+- Fill rate: 0.718261
+- Ending backlog: 419.0865
+- Total produced: 2697.9392
+- Total shipped: 50086.7589
+- Avg inventory: 1142657.8499
+- Ending inventory: 1118691.4316
+- Transport cost: 24213.7909
+- Holding cost: 1363529.3368
+- Purchase cost (from order_terms sell_price): 2922.8281
+- Logistics cost (transport + holding): 1387743.1277
+- Total cost: 1390665.9558
+- Total external procured ordered qty: 45484.5657
+- Total external procured arrived qty: 42489.9504
+- Total external procured rejected qty (cap-limited): 18360.8728
+- Total external procurement cost premium: 3525.1666
+- Cost share holding / transport / purchase: 0.980487 / 0.017412 / 0.002102
+- Total opening stock bootstrap qty: 1160694.5998
 - Total unreliable supplier loss qty: 0.0
 - Economic consistency status: warn
 - Economic consistency warnings: ['holding_cost_share_above_90pct', 'transport_cost_share_below_2pct', 'purchase_cost_share_below_2pct']
@@ -62,13 +62,13 @@
 [
   {
     "node_id": "C-XXXXX",
-    "item_id": "item:268967",
-    "backlog": 220.7923
+    "item_id": "item:268091",
+    "backlog": 243.9168
   },
   {
     "node_id": "C-XXXXX",
-    "item_id": "item:268091",
-    "backlog": 174.0416
+    "item_id": "item:268967",
+    "backlog": 175.1697
   }
 ]
 

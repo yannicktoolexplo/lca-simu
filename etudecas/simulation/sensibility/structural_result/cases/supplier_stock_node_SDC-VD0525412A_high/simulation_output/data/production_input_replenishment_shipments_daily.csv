@@ -1,7 +1,7 @@
 day,node_id,item_id,shipped_to_node_qty,uom
 0,M-1430,item:038005,62.253319,KG
 0,M-1430,item:042342,180.0,UN
-0,M-1430,item:333362,216.0,UN
+0,M-1430,item:333362,324.0,UN
 0,M-1430,item:344135,180.0,UN
 0,M-1430,item:708073,5.412225,KG
 0,M-1430,item:730384,180.0,M

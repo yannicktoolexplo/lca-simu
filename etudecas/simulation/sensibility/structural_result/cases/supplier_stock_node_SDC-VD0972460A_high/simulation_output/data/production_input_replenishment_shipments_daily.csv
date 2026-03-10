@@ -22,7 +22,7 @@ day,node_id,item_id,shipped_to_node_qty,uom
 0,M-1810,item:338929,180.0,UN
 0,M-1810,item:426331,7.5075,UN
 0,M-1810,item:693055,180.0,G
-0,SDC-1450,item:021081,756.0,KG
+0,SDC-1450,item:021081,864.0,KG
 1,M-1430,item:038005,0.402481,KG
 1,M-1430,item:042342,0.0,UN
 1,M-1430,item:333362,0.0,UN

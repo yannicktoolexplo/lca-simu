@@ -32,28 +32,28 @@
 - Assumed supplier nodes (explicitly tagged, includes '?'): 1 (SDC-1450)
 - Assumed supply edges (explicitly tagged, includes '?'): 1 (edge:SDC-1450_TO_M-1810_007923_Q)
 - External upstream sourcing for unmodeled source pairs: 33
-- Opening stock bootstrap pairs (lead-time coverage at max capacity): 23
+- Opening stock bootstrap pairs (lead-time coverage at max capacity): 24
 
 ## KPIs
 - Total demand: 2912.5
-- Total served: 1320.734
-- Fill rate: 0.453471
-- Ending backlog: 1591.766
-- Total produced: 3476.7502
-- Total shipped: 9443.0523
-- Avg inventory: 511877.8516
-- Ending inventory: 501996.8448
-- Transport cost: 9276.9174
-- Holding cost: 1224954.8547
-- Purchase cost (from order_terms sell_price): 10076.04
-- Logistics cost (transport + holding): 1234231.7721
-- Total cost: 1244307.8121
+- Total served: 565.8088
+- Fill rate: 0.194269
+- Ending backlog: 2346.6912
+- Total produced: 1099.2197
+- Total shipped: 4259.6446
+- Avg inventory: 515902.4189
+- Ending inventory: 512994.0544
+- Transport cost: 7578.1308
+- Holding cost: 1236193.9193
+- Purchase cost (from order_terms sell_price): 9935.0373
+- Logistics cost (transport + holding): 1243772.0501
+- Total cost: 1253707.0874
 - Total external procured ordered qty: 0.0
 - Total external procured arrived qty: 0.0
 - Total external procured rejected qty (cap-limited): 0.0
 - Total external procurement cost premium: 0.0
-- Cost share holding / transport / purchase: 0.984447 / 0.007455 / 0.008098
-- Total opening stock bootstrap qty: 529960.7449
+- Cost share holding / transport / purchase: 0.986031 / 0.006045 / 0.007925
+- Total opening stock bootstrap qty: 530212.9449
 - Total unreliable supplier loss qty: 0.0
 - Economic consistency status: warn
 - Economic consistency warnings: ['holding_cost_share_above_90pct', 'transport_cost_share_below_2pct', 'purchase_cost_share_below_2pct']
@@ -62,13 +62,13 @@
 [
   {
     "node_id": "C-XXXXX",
-    "item_id": "item:268967",
-    "backlog": 1046.8461
+    "item_id": "item:268091",
+    "backlog": 1184.0209
   },
   {
     "node_id": "C-XXXXX",
-    "item_id": "item:268091",
-    "backlog": 544.92
+    "item_id": "item:268967",
+    "backlog": 1162.6703
   }
 ]
 
