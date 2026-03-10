@@ -1322,44 +1322,54 @@ for ax, prefix, title in [
     ax.grid(axis="y", alpha=0.2)
 
 axes[0, 0].legend(loc="upper left", fontsize=8)
+axes[0, 0].cla()
+classical_component_labels = [label for _, label, _ in component_panels]
+classical_component_values = [float(classical[key]) for key, _, _ in component_panels]
+axes[0, 0].bar(
+    classical_component_labels,
+    classical_component_values,
+    color=[color for _, _, color in component_panels],
+)
+axes[0, 0].set_ylabel("Impact total (kgCO2e)")
+axes[0, 0].set_title("LCA classique : decomposition agrégée")
+axes[0, 0].tick_params(axis="x", rotation=20)
+axes[0, 0].grid(axis="y", alpha=0.2)
 
-for week in baseline_gap_drivers.loc[baseline_gap_drivers["air_shipments_units"] > 0, "week"]:
-    axes[1, 0].axvspan(week - 0.45, week + 0.45, color="#fdd0a2", alpha=0.12)
-axes[1, 0].bar(
+axes[1, 0].plot(
     baseline_gap_drivers["week"],
-    baseline_gap_drivers["good_output_units"],
-    color="#9ecae1",
-    alpha=0.8,
-    label="Production utile",
+    [float(baseline_gap_drivers["good_output_units"].mean())] * len(baseline_gap_drivers),
+    color="#3182bd",
+    linewidth=2,
+    label="Production utile moyenne",
 )
 axes[1, 0].set_xlabel("Semaine")
-axes[1, 0].set_ylabel("Production utile (unites)", color="#3182bd")
+axes[1, 0].set_ylabel("Production utile moyenne (unites)", color="#3182bd")
 axes[1, 0].tick_params(axis="y", labelcolor="#3182bd")
-axes[1, 0].set_title("Ce que voit la LCA classique")
+axes[1, 0].set_title("Ce que voit la LCA classique : des moyennes")
 axes[1, 0].grid(axis="y", alpha=0.2)
 
 classical_trigger_axis = axes[1, 0].twinx()
 classical_trigger_axis.plot(
     baseline_gap_drivers["week"],
-    baseline_gap_drivers["outbound_shipments"],
+    [float(baseline_gap_drivers["outbound_shipments"].mean())] * len(baseline_gap_drivers),
     color="black",
-    marker="o",
+    linewidth=2,
     label="Expeditions client",
 )
 classical_trigger_axis.plot(
     baseline_gap_drivers["week"],
     100 * baseline_gap_drivers["average_grid_factor"],
     color="#31a354",
-    marker="s",
     linestyle="--",
+    linewidth=2,
     label="Reseau moyen x100",
 )
 classical_trigger_axis.plot(
     baseline_gap_drivers["week"],
-    baseline_gap_drivers["total_stock_units"],
+    [float(baseline_gap_drivers["total_stock_units"].mean())] * len(baseline_gap_drivers),
     color="#756bb1",
-    marker="^",
     linestyle=":",
+    linewidth=2,
     label="Stock total",
 )
 classical_trigger_axis.set_ylabel("Expeditions / reseau moyen x100 / stock")
