@@ -1,4 +1,5 @@
 import json
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -68,10 +69,21 @@ FG_STORAGE_COST = 0.55
 BACKLOG_PENALTY_COST = 18.0
 
 # Inventory policy
-raw_target = 24
-raw_reorder_threshold = 14
 main_lead = 2
 backup_lead = 1
+
+DECISION_REVERSAL_COLUMNS = [
+    "service_floor_pct",
+    "policy_a",
+    "policy_b",
+    "dynamic_diff_a_minus_b",
+    "sddlca_diff_a_minus_b",
+    "service_a_pct",
+    "service_b_pct",
+    "dynamic_prefers",
+    "sddlca_prefers",
+    "reversal_magnitude",
+]
 
 
 @dataclass(frozen=True)
@@ -90,26 +102,26 @@ class DecisionPolicy:
 
 BASELINE_POLICY = DecisionPolicy(
     name="baseline",
-    label="Baseline",
+    label="Reference",
 )
 
 COUNTERFACTUAL_POLICIES = [
     BASELINE_POLICY,
     DecisionPolicy(
         name="backup_early",
-        label="Backup early",
+        label="Backup anticipe",
         raw_reorder_threshold=18.0,
         backup_order_qty=14.0,
     ),
     DecisionPolicy(
         name="inventory_buffer",
-        label="Inventory buffer",
+        label="Stock tampon",
         raw_target=32.0,
         raw_reorder_threshold=18.0,
     ),
     DecisionPolicy(
         name="low_carbon",
-        label="Low-carbon discipline",
+        label="Discipline carbone",
         air_backlog_start_threshold=12.0,
         air_backlog_end_threshold=18.0,
         carbon_aware_grid_threshold=0.50,
@@ -118,7 +130,7 @@ COUNTERFACTUAL_POLICIES = [
     ),
     DecisionPolicy(
         name="service_first",
-        label="Service first",
+        label="Service prioritaire",
         raw_target=32.0,
         raw_reorder_threshold=18.0,
         backup_order_qty=14.0,
@@ -186,6 +198,14 @@ def safe_ratio(numerator: float, denominator: float) -> float:
     if denominator <= 0:
         return 0.0
     return numerator / denominator
+
+
+def validate_series_lengths(*series: Sequence[float]) -> None:
+    lengths = {len(values) for values in series}
+    if len(lengths) != 1:
+        raise ValueError(f"All time series must have the same length, got lengths={sorted(lengths)}")
+    if not lengths or next(iter(lengths)) == 0:
+        raise ValueError("Time series must be non-empty")
 
 
 def clone_inventory(inventory: list[dict]) -> list[dict]:
@@ -396,21 +416,30 @@ def state_transition(
     return next_state, transition_row
 
 
-def simulate_policy(policy: DecisionPolicy) -> tuple[pd.DataFrame, pd.DataFrame]:
+def simulate_policy(
+    policy: DecisionPolicy,
+    demand_series: Sequence[float] | None = None,
+    capacity_series: Sequence[float] | None = None,
+    grid_series: Sequence[float] | None = None,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    effective_demand = demand if demand_series is None else demand_series
+    effective_capacity = capacity if capacity_series is None else capacity_series
+    effective_grid = grid_factor if grid_series is None else grid_series
+    validate_series_lengths(effective_demand, effective_capacity, effective_grid)
     rows = []
     state_trajectory_rows = []
     current_state = initial_state()
 
-    for t in range(len(weeks)):
+    for t in range(len(effective_demand)):
         week = t + 1
         start_state = current_state.copy()
         next_state, transition_row = state_transition(
             state=current_state,
             policy=policy,
             week=week,
-            demand_t=demand[t],
-            capacity_t=capacity[t],
-            grid_factor_t=grid_factor[t],
+            demand_t=effective_demand[t],
+            capacity_t=effective_capacity[t],
+            grid_factor_t=effective_grid[t],
         )
 
         rows.append(transition_row)
@@ -418,9 +447,9 @@ def simulate_policy(policy: DecisionPolicy) -> tuple[pd.DataFrame, pd.DataFrame]
             "policy_name": policy.name,
             "policy_label": policy.label,
             "week": week,
-            "demand": demand[t],
-            "capacity": capacity[t],
-            "grid_factor": grid_factor[t],
+            "demand": effective_demand[t],
+            "capacity": effective_capacity[t],
+            "grid_factor": effective_grid[t],
             **state_snapshot(start_state, "state_start"),
             **state_snapshot(next_state, "state_end"),
         })
@@ -441,7 +470,13 @@ def simulate_policy(policy: DecisionPolicy) -> tuple[pd.DataFrame, pd.DataFrame]
     return states, state_trajectory
 
 
-def compute_method_outputs(states: pd.DataFrame) -> dict:
+def compute_method_outputs(
+    states: pd.DataFrame,
+    backup_material_ef: float = BACKUP_MATERIAL_EF,
+    inbound_backup_transport_ef: float = INBOUND_BACKUP_TRANSPORT_EF,
+    truck_outbound_ef: float = TRUCK_OUTBOUND_EF,
+    air_outbound_ef: float = AIR_OUTBOUND_EF,
+) -> dict:
     states = states.copy()
 
     avg_grid = states["grid_factor"].mean()
@@ -454,7 +489,7 @@ def compute_method_outputs(states: pd.DataFrame) -> dict:
         "material": total_good_output * MAIN_MATERIAL_EF,
         "inbound_transport": total_good_output * INBOUND_MAIN_TRANSPORT_EF,
         "production_energy": total_good_output * NOMINAL_KWH_PER_UNIT * avg_grid,
-        "outbound_transport": total_shipments * TRUCK_OUTBOUND_EF,
+        "outbound_transport": total_shipments * truck_outbound_ef,
         "storage": (avg_raw_stock * RAW_STORAGE_EF + avg_fg_stock * FG_STORAGE_EF) * len(states),
         "scrap": 0.0,
     }
@@ -464,7 +499,7 @@ def compute_method_outputs(states: pd.DataFrame) -> dict:
         states["good_output_units"] * MAIN_MATERIAL_EF
         + states["good_output_units"] * INBOUND_MAIN_TRANSPORT_EF
         + states["good_output_units"] * NOMINAL_KWH_PER_UNIT * avg_grid
-        + states["outbound_shipments"] * TRUCK_OUTBOUND_EF
+        + states["outbound_shipments"] * truck_outbound_ef
         + states["raw_stock_end"] * RAW_STORAGE_EF
         + states["fg_stock_end"] * FG_STORAGE_EF
     )
@@ -478,7 +513,7 @@ def compute_method_outputs(states: pd.DataFrame) -> dict:
             "material": r["good_output_units"] * MAIN_MATERIAL_EF,
             "inbound_transport": r["good_output_units"] * INBOUND_MAIN_TRANSPORT_EF,
             "production_energy": r["good_output_units"] * NOMINAL_KWH_PER_UNIT * r["grid_factor"],
-            "outbound_transport": r["outbound_shipments"] * TRUCK_OUTBOUND_EF,
+            "outbound_transport": r["outbound_shipments"] * truck_outbound_ef,
             "storage": r["raw_stock_end"] * RAW_STORAGE_EF + r["fg_stock_end"] * FG_STORAGE_EF,
             "scrap": 0.0,
         })
@@ -491,20 +526,20 @@ def compute_method_outputs(states: pd.DataFrame) -> dict:
     sddlca_rows = []
     for _, r in states.iterrows():
         material_main = r["good_output_main_units"] * MAIN_MATERIAL_EF
-        material_backup = r["good_output_backup_units"] * BACKUP_MATERIAL_EF
+        material_backup = r["good_output_backup_units"] * backup_material_ef
 
         inbound_main = r["good_output_main_units"] * INBOUND_MAIN_TRANSPORT_EF
-        inbound_backup = r["good_output_backup_units"] * INBOUND_BACKUP_TRANSPORT_EF
+        inbound_backup = r["good_output_backup_units"] * inbound_backup_transport_ef
 
         kwh_per_good = prod_kwh_per_good_unit(r["capacity_utilization"])
         prod_energy = r["good_output_units"] * kwh_per_good * r["grid_factor"]
 
         scrap_burden = (
             r["scrap_main_units"] * (MAIN_MATERIAL_EF + INBOUND_MAIN_TRANSPORT_EF + kwh_per_good * r["grid_factor"])
-            + r["scrap_backup_units"] * (BACKUP_MATERIAL_EF + INBOUND_BACKUP_TRANSPORT_EF + kwh_per_good * r["grid_factor"])
+            + r["scrap_backup_units"] * (backup_material_ef + inbound_backup_transport_ef + kwh_per_good * r["grid_factor"])
         )
 
-        outbound_factor = AIR_OUTBOUND_EF if r["outbound_mode"] == "air" else TRUCK_OUTBOUND_EF
+        outbound_factor = air_outbound_ef if r["outbound_mode"] == "air" else truck_outbound_ef
         outbound = r["outbound_shipments"] * outbound_factor
 
         storage = r["raw_stock_end"] * RAW_STORAGE_EF + r["fg_stock_end"] * FG_STORAGE_EF
@@ -637,9 +672,29 @@ def build_diagnostic_tables(states: pd.DataFrame) -> tuple[pd.DataFrame, pd.Data
     return events, traceability, metrics
 
 
-def evaluate_policy(policy: DecisionPolicy) -> dict:
-    states, state_trajectory = simulate_policy(policy)
-    method_outputs = compute_method_outputs(states)
+def evaluate_policy(
+    policy: DecisionPolicy,
+    demand_series: Sequence[float] | None = None,
+    capacity_series: Sequence[float] | None = None,
+    grid_series: Sequence[float] | None = None,
+    backup_material_ef: float = BACKUP_MATERIAL_EF,
+    inbound_backup_transport_ef: float = INBOUND_BACKUP_TRANSPORT_EF,
+    truck_outbound_ef: float = TRUCK_OUTBOUND_EF,
+    air_outbound_ef: float = AIR_OUTBOUND_EF,
+) -> dict:
+    states, state_trajectory = simulate_policy(
+        policy,
+        demand_series=demand_series,
+        capacity_series=capacity_series,
+        grid_series=grid_series,
+    )
+    method_outputs = compute_method_outputs(
+        states,
+        backup_material_ef=backup_material_ef,
+        inbound_backup_transport_ef=inbound_backup_transport_ef,
+        truck_outbound_ef=truck_outbound_ef,
+        air_outbound_ef=air_outbound_ef,
+    )
     cost_outputs = compute_cost_outputs(method_outputs["states"])
     events, traceability, metrics = build_diagnostic_tables(method_outputs["states"])
 
@@ -669,6 +724,248 @@ def evaluate_policy(policy: DecisionPolicy) -> dict:
     }
 
 
+def compute_causal_delta_table(results: list[dict]) -> pd.DataFrame:
+    rows = []
+    for result in results:
+        sdd = result["sddlca_breakdown"]
+        dyn = result["dynamic_breakdown"]
+        rows.append({
+            "policy_name": result["summary"]["policy_name"],
+            "policy_label": result["summary"]["policy_label"],
+            "delta_material": sdd["material"] - dyn["material"],
+            "delta_inbound_transport": sdd["inbound_transport"] - dyn["inbound_transport"],
+            "delta_production_energy": sdd["production_energy"] - dyn["production_energy"],
+            "delta_outbound_transport": sdd["outbound_transport"] - dyn["outbound_transport"],
+            "delta_storage": sdd["storage"] - dyn["storage"],
+            "delta_scrap": sdd["scrap"] - dyn["scrap"],
+            "hidden_carbon_total": sdd["total"] - dyn["total"],
+        })
+    return pd.DataFrame(rows)
+
+
+def compute_pareto_front(summary_df: pd.DataFrame, carbon_metric_col: str, output_flag_col: str) -> pd.DataFrame:
+    rows = []
+    for _, candidate in summary_df.iterrows():
+        dominated = False
+        for _, other in summary_df.iterrows():
+            if other["policy_name"] == candidate["policy_name"]:
+                continue
+            if (
+                other["same_week_service_pct"] >= candidate["same_week_service_pct"]
+                and other[carbon_metric_col] <= candidate[carbon_metric_col]
+                and other["total_cost"] <= candidate["total_cost"]
+                and (
+                    other["same_week_service_pct"] > candidate["same_week_service_pct"]
+                    or other[carbon_metric_col] < candidate[carbon_metric_col]
+                    or other["total_cost"] < candidate["total_cost"]
+                )
+            ):
+                dominated = True
+                break
+        row = candidate.to_dict()
+        row[output_flag_col] = not dominated
+        rows.append(row)
+    return pd.DataFrame(rows)
+
+
+def build_search_policies() -> list[DecisionPolicy]:
+    policies = []
+    seen = set()
+    for raw_target_value in [24.0, 28.0, 32.0]:
+        for reorder_value in [14.0, 18.0]:
+            for backup_qty_value in [12.0, 14.0]:
+                for air_start, air_end in [(1.0, 3.0), (4.0, 6.0), (8.0, 12.0), (12.0, 18.0)]:
+                    for carbon_mode in [False, True]:
+                        name = (
+                            f"rt{int(raw_target_value)}_rr{int(reorder_value)}_"
+                            f"bq{int(backup_qty_value)}_air{int(air_start)}_{int(air_end)}_"
+                            f"{'ca' if carbon_mode else 'std'}"
+                        )
+                        if name in seen:
+                            continue
+                        seen.add(name)
+                        policies.append(
+                            DecisionPolicy(
+                                name=name,
+                                label=(
+                                    f"RT{int(raw_target_value)} RR{int(reorder_value)} "
+                                    f"BQ{int(backup_qty_value)} Air{int(air_start)}/{int(air_end)} "
+                                    f"{'CA' if carbon_mode else 'STD'}"
+                                ),
+                                raw_target=raw_target_value,
+                                raw_reorder_threshold=reorder_value,
+                                backup_order_qty=backup_qty_value,
+                                air_backlog_start_threshold=air_start,
+                                air_backlog_end_threshold=air_end,
+                                carbon_aware_grid_threshold=0.50 if carbon_mode else None,
+                                carbon_aware_backlog_guard=4.0 if carbon_mode else 0.0,
+                                carbon_aware_capacity_cap=0.6 if carbon_mode else 1.0,
+                            )
+                        )
+    return policies
+
+
+def find_decision_reversal(search_results: list[dict]) -> tuple[pd.DataFrame, float | None]:
+    summaries = pd.DataFrame([result["summary"] for result in search_results])
+    for service_floor in [75.0, 72.0, 70.0, 68.0, 66.0]:
+        feasible = summaries.loc[summaries["same_week_service_pct"] >= service_floor].copy()
+        if len(feasible) < 2:
+            continue
+        pair_rows = []
+        feasible_rows = feasible.to_dict(orient="records")
+        for i, left in enumerate(feasible_rows):
+            for j, right in enumerate(feasible_rows):
+                if j <= i:
+                    continue
+                dynamic_diff = float(left["dynamic_total_kgCO2e"]) - float(right["dynamic_total_kgCO2e"])
+                sdd_diff = float(left["sddlca_total_kgCO2e"]) - float(right["sddlca_total_kgCO2e"])
+                if dynamic_diff * sdd_diff < 0:
+                    pair_rows.append({
+                        "service_floor_pct": service_floor,
+                        "policy_a": str(left["policy_label"]),
+                        "policy_b": str(right["policy_label"]),
+                        "dynamic_diff_a_minus_b": dynamic_diff,
+                        "sddlca_diff_a_minus_b": sdd_diff,
+                        "service_a_pct": float(left["same_week_service_pct"]),
+                        "service_b_pct": float(right["same_week_service_pct"]),
+                        "dynamic_prefers": str(left["policy_label"]) if dynamic_diff < 0 else str(right["policy_label"]),
+                        "sddlca_prefers": str(left["policy_label"]) if sdd_diff < 0 else str(right["policy_label"]),
+                        "reversal_magnitude": abs(dynamic_diff) + abs(sdd_diff),
+                    })
+        if pair_rows:
+            pair_df = (
+                pd.DataFrame(pair_rows)
+                .sort_values("reversal_magnitude", ascending=False)
+                .head(20)
+                .reset_index(drop=True)
+            )
+            return pair_df, service_floor
+    return pd.DataFrame(columns=DECISION_REVERSAL_COLUMNS), None
+
+
+def build_capacity_variant(severity: float) -> list[float]:
+    variant = []
+    for base_cap_value, original_cap in zip([base_capacity] * len(capacity), capacity):
+        reduction = base_cap_value - original_cap
+        adjusted = base_cap_value - severity * reduction
+        variant.append(max(3.0, round(adjusted, 2)))
+    return variant
+
+
+def run_hidden_carbon_sensitivity(policy: DecisionPolicy) -> pd.DataFrame:
+    rows = []
+    severity_cases = [
+        ("none", 0.0),
+        ("mild", 0.6),
+        ("baseline", 1.0),
+        ("severe", 1.4),
+    ]
+    air_cases = [
+        ("0.8x", 0.8),
+        ("1.0x", 1.0),
+        ("1.2x", 1.2),
+        ("1.5x", 1.5),
+    ]
+    for severity_label, severity_value in severity_cases:
+        capacity_variant = build_capacity_variant(severity_value)
+        for air_label, air_multiplier in air_cases:
+            result = evaluate_policy(
+                policy,
+                capacity_series=capacity_variant,
+                air_outbound_ef=AIR_OUTBOUND_EF * air_multiplier,
+            )
+            total_shipments = float(result["states"]["outbound_shipments"].sum())
+            total_good_output = float(result["states"]["good_output_units"].sum())
+            rows.append({
+                "severity_label": severity_label,
+                "severity_value": severity_value,
+                "air_label": air_label,
+                "air_multiplier": air_multiplier,
+                "classical_total_kgCO2e": result["summary"]["classical_total_kgCO2e"],
+                "dynamic_total_kgCO2e": result["summary"]["dynamic_total_kgCO2e"],
+                "sddlca_total_kgCO2e": result["summary"]["sddlca_total_kgCO2e"],
+                "hidden_carbon_vs_dynamic": result["summary"]["hidden_carbon_vs_dynamic"],
+                "hidden_carbon_vs_classical": result["summary"]["hidden_carbon_vs_classical"],
+                "total_shipments": total_shipments,
+                "total_good_output": total_good_output,
+                "classical_kg_per_shipped_unit": safe_ratio(result["summary"]["classical_total_kgCO2e"], total_shipments),
+                "dynamic_kg_per_shipped_unit": safe_ratio(result["summary"]["dynamic_total_kgCO2e"], total_shipments),
+                "sddlca_kg_per_shipped_unit": safe_ratio(result["summary"]["sddlca_total_kgCO2e"], total_shipments),
+                "sddlca_to_classical_ratio": safe_ratio(
+                    result["summary"]["sddlca_total_kgCO2e"],
+                    result["summary"]["classical_total_kgCO2e"],
+                ),
+                "sddlca_to_dynamic_ratio": safe_ratio(
+                    result["summary"]["sddlca_total_kgCO2e"],
+                    result["summary"]["dynamic_total_kgCO2e"],
+                ),
+                "same_week_service_pct": result["summary"]["same_week_service_pct"],
+                "final_backlog_units": result["summary"]["final_backlog_units"],
+            })
+    return pd.DataFrame(rows)
+
+
+def build_two_customer_network(states: pd.DataFrame) -> pd.DataFrame:
+    core_backlog = 0.0
+    remote_backlog = 0.0
+    rows = []
+    for _, r in states.iterrows():
+        core_demand = round(r["demand"] * 0.6, 2)
+        remote_demand = round(r["demand"] - core_demand, 2)
+        available = r["outbound_shipments"]
+        total_pressure = core_demand + core_backlog + remote_demand + remote_backlog
+
+        if total_pressure <= 0:
+            core_ship = 0.0
+            remote_ship = 0.0
+        else:
+            core_target_share = (core_demand + core_backlog) / total_pressure
+            core_ship = min(available * core_target_share, core_demand + core_backlog)
+            remote_ship = min(available - core_ship, remote_demand + remote_backlog)
+
+        remaining_after_remote = max(0.0, available - core_ship - remote_ship)
+        if remaining_after_remote > 0:
+            extra_core = min(remaining_after_remote, max(0.0, core_demand + core_backlog - core_ship))
+            core_ship += extra_core
+            remote_ship += min(
+                max(0.0, available - core_ship - remote_ship),
+                max(0.0, remote_demand + remote_backlog - remote_ship),
+            )
+
+        core_backlog_end = max(0.0, core_backlog + core_demand - core_ship)
+        remote_backlog_end = max(0.0, remote_backlog + remote_demand - remote_ship)
+
+        core_mode = "air" if (core_backlog > 5 or core_backlog_end > 7) else "truck"
+        remote_mode = "air" if (remote_backlog > 2 or remote_backlog_end > 4) else "truck"
+
+        core_dynamic_outbound = core_ship * 1.6
+        remote_dynamic_outbound = remote_ship * 2.2
+        core_sdd_outbound = core_ship * (9.0 if core_mode == "air" else 1.6)
+        remote_sdd_outbound = remote_ship * (11.0 if remote_mode == "air" else 2.2)
+
+        rows.append({
+            "week": int(r["week"]),
+            "core_demand": core_demand,
+            "remote_demand": remote_demand,
+            "core_shipments": core_ship,
+            "remote_shipments": remote_ship,
+            "core_backlog_end": core_backlog_end,
+            "remote_backlog_end": remote_backlog_end,
+            "core_mode": core_mode,
+            "remote_mode": remote_mode,
+            "dynamic_outbound_core": core_dynamic_outbound,
+            "dynamic_outbound_remote": remote_dynamic_outbound,
+            "sddlca_outbound_core": core_sdd_outbound,
+            "sddlca_outbound_remote": remote_sdd_outbound,
+            "hidden_network_outbound": (core_sdd_outbound + remote_sdd_outbound) - (core_dynamic_outbound + remote_dynamic_outbound),
+        })
+
+        core_backlog = core_backlog_end
+        remote_backlog = remote_backlog_end
+
+    return pd.DataFrame(rows)
+
+
 # -----------------------------
 # Natural supply chain dynamics
 # -----------------------------
@@ -687,7 +984,69 @@ events = baseline_result["events"]
 traceability = baseline_result["traceability"]
 metrics = baseline_result["metrics"]
 weekly_costs = baseline_result["weekly_costs"]
-cost_breakdown = baseline_result["cost_breakdown"]
+method_cumulative = pd.DataFrame({
+    "week": states["week"],
+    "classical_weekly_kgCO2e": states["classical_weekly_total"],
+    "dynamic_weekly_kgCO2e": dynamic["total"],
+    "sdd_weekly_kgCO2e": sddlca["total"],
+})
+method_cumulative["classical_cumulative_kgCO2e"] = method_cumulative["classical_weekly_kgCO2e"].cumsum()
+method_cumulative["dynamic_cumulative_kgCO2e"] = method_cumulative["dynamic_weekly_kgCO2e"].cumsum()
+method_cumulative["sdd_cumulative_kgCO2e"] = method_cumulative["sdd_weekly_kgCO2e"].cumsum()
+method_cumulative["sdd_minus_dynamic_cumulative"] = (
+    method_cumulative["sdd_cumulative_kgCO2e"] - method_cumulative["dynamic_cumulative_kgCO2e"]
+)
+method_cumulative["sdd_minus_lca_cumulative"] = (
+    method_cumulative["sdd_cumulative_kgCO2e"] - method_cumulative["classical_cumulative_kgCO2e"]
+)
+baseline_gap_drivers = pd.DataFrame({
+    "week": states["week"],
+    "classical_material": states["good_output_units"] * MAIN_MATERIAL_EF,
+    "classical_inbound_transport": states["good_output_units"] * INBOUND_MAIN_TRANSPORT_EF,
+    "classical_production_energy": states["good_output_units"] * NOMINAL_KWH_PER_UNIT * states["grid_factor"].mean(),
+    "classical_outbound_transport": states["outbound_shipments"] * TRUCK_OUTBOUND_EF,
+    "classical_storage": states["raw_stock_end"] * RAW_STORAGE_EF + states["fg_stock_end"] * FG_STORAGE_EF,
+    "classical_scrap": 0.0,
+    "classical_total": states["classical_weekly_total"],
+    "dynamic_material": dynamic["material"],
+    "dynamic_inbound_transport": dynamic["inbound_transport"],
+    "dynamic_production_energy": dynamic["production_energy"],
+    "dynamic_outbound_transport": dynamic["outbound_transport"],
+    "dynamic_storage": dynamic["storage"],
+    "dynamic_scrap": dynamic["scrap"],
+    "dynamic_total": dynamic["total"],
+    "sdd_material": sddlca["material"],
+    "sdd_inbound_transport": sddlca["inbound_transport"],
+    "sdd_production_energy": sddlca["production_energy"],
+    "sdd_outbound_transport": sddlca["outbound_transport"],
+    "sdd_storage": sddlca["storage"],
+    "sdd_scrap": sddlca["scrap"],
+    "sdd_total": sddlca["total"],
+    "backup_sourcing_premium": (
+        (sddlca["material"] - dynamic["material"])
+        + (sddlca["inbound_transport"] - dynamic["inbound_transport"])
+    ),
+    "energy_premium": sddlca["production_energy"] - dynamic["production_energy"],
+    "air_premium": sddlca["outbound_transport"] - dynamic["outbound_transport"],
+    "scrap_premium": sddlca["scrap"] - dynamic["scrap"],
+    "total_premium_vs_dynamic": sddlca["total"] - dynamic["total"],
+    "backlog_end": states["backlog_end"],
+    "good_output_units": states["good_output_units"],
+    "outbound_shipments": states["outbound_shipments"],
+    "grid_factor": states["grid_factor"],
+    "average_grid_factor": states["grid_factor"].mean(),
+    "total_stock_units": states["raw_stock_end"] + states["fg_stock_end"],
+    "backup_output_units": states["good_output_backup_units"],
+    "capacity_utilization_pct": 100 * states["capacity_utilization"],
+    "air_shipments_units": states["outbound_shipments"].where(states["outbound_mode"] == "air", 0.0),
+})
+baseline_gap_drivers["other_premium"] = (
+    baseline_gap_drivers["total_premium_vs_dynamic"]
+    - baseline_gap_drivers["backup_sourcing_premium"]
+    - baseline_gap_drivers["energy_premium"]
+    - baseline_gap_drivers["air_premium"]
+    - baseline_gap_drivers["scrap_premium"]
+)
 
 state_definition = pd.DataFrame([
     {
@@ -698,12 +1057,12 @@ state_definition = pd.DataFrame([
     {
         "component": "main_pipeline_eta_i",
         "location": "state_*_main_pipeline_eta_0..n",
-        "description": "Main-supplier replenishment pipeline by time-to-arrival bucket.",
+        "description": "Main-supplier materials in transit by time-to-arrival bucket.",
     },
     {
         "component": "backup_pipeline_eta_i",
         "location": "state_*_backup_pipeline_eta_0..n",
-        "description": "Backup-supplier replenishment pipeline by time-to-arrival bucket.",
+        "description": "Backup-supplier materials in transit by time-to-arrival bucket.",
     },
     {
         "component": "raw_inventory_layers",
@@ -717,7 +1076,11 @@ state_definition = pd.DataFrame([
     },
 ])
 
-counterfactual_results = [evaluate_policy(policy) for policy in COUNTERFACTUAL_POLICIES]
+counterfactual_results = [baseline_result] + [
+    evaluate_policy(policy)
+    for policy in COUNTERFACTUAL_POLICIES
+    if policy.name != BASELINE_POLICY.name
+]
 policy_definition = pd.DataFrame([
     {
         "policy_name": policy.name,
@@ -756,6 +1119,42 @@ policy_hidden_carbon = policy_decision_summary[[
     "hidden_carbon_vs_dynamic",
     "hidden_carbon_vs_classical",
 ]].copy()
+policy_component_breakdown = pd.concat([
+    pd.DataFrame([
+        {
+            "policy_name": result["summary"]["policy_name"],
+            "policy_label": result["summary"]["policy_label"],
+            "method_label": "Classical LCA",
+            **{key: value for key, value in result["classical"].items() if key != "total"},
+            "total": result["classical"]["total"],
+        },
+        {
+            "policy_name": result["summary"]["policy_name"],
+            "policy_label": result["summary"]["policy_label"],
+            "method_label": "SDD",
+            **{key: value for key, value in result["sddlca_breakdown"].items() if key != "total"},
+            "total": result["sddlca_breakdown"]["total"],
+        },
+    ])
+    for result in counterfactual_results
+], ignore_index=True)
+policy_causal_attribution = compute_causal_delta_table(counterfactual_results)
+policy_pareto_lca = compute_pareto_front(
+    policy_decision_summary,
+    carbon_metric_col="classical_total_kgCO2e",
+    output_flag_col="pareto_efficient_lca",
+)
+policy_pareto = compute_pareto_front(
+    policy_pareto_lca,
+    carbon_metric_col="sddlca_total_kgCO2e",
+    output_flag_col="pareto_efficient_sdd",
+)
+search_policies = build_search_policies()
+search_results = [evaluate_policy(policy) for policy in search_policies]
+search_summary = pd.DataFrame([result["summary"] for result in search_results])
+decision_reversal_pairs, decision_reversal_service_floor = find_decision_reversal(search_results)
+sensitivity_hidden_carbon = run_hidden_carbon_sensitivity(BASELINE_POLICY)
+network_lane_states = build_two_customer_network(states)
 
 # -----------------------------
 # Export CSV files
@@ -771,32 +1170,346 @@ traceability.to_csv(CSV_DIR / "poc_source_traceability.csv", index=False)
 state_definition.to_csv(CSV_DIR / "poc_state_space_definition.csv", index=False)
 metrics.to_csv(CSV_DIR / "poc_key_metrics.csv", index=False)
 weekly_costs.to_csv(CSV_DIR / "poc_weekly_costs.csv", index=False)
+method_cumulative.to_csv(CSV_DIR / "poc_method_cumulative_comparison.csv", index=False)
+baseline_gap_drivers.to_csv(CSV_DIR / "poc_sdd_gap_drivers.csv", index=False)
 policy_definition.to_csv(CSV_DIR / "poc_policy_definition.csv", index=False)
 policy_decision_summary.to_csv(CSV_DIR / "poc_policy_decision_summary.csv", index=False)
 policy_method_comparison.to_csv(CSV_DIR / "poc_policy_method_comparison.csv", index=False)
 policy_cost_breakdown.to_csv(CSV_DIR / "poc_policy_cost_breakdown.csv", index=False)
 policy_weekly_costs.to_csv(CSV_DIR / "poc_policy_weekly_costs.csv", index=False)
 policy_hidden_carbon.to_csv(CSV_DIR / "poc_policy_hidden_carbon.csv", index=False)
+policy_component_breakdown.to_csv(CSV_DIR / "poc_policy_component_breakdown.csv", index=False)
+policy_causal_attribution.to_csv(CSV_DIR / "poc_policy_causal_attribution.csv", index=False)
+policy_pareto.to_csv(CSV_DIR / "poc_policy_pareto.csv", index=False)
+network_lane_states.to_csv(CSV_DIR / "poc_network_lane_states.csv", index=False)
+sensitivity_hidden_carbon.to_csv(CSV_DIR / "poc_sensitivity_hidden_carbon.csv", index=False)
+search_summary.to_csv(CSV_DIR / "poc_search_policy_summary.csv", index=False)
+decision_reversal_pairs.to_csv(CSV_DIR / "poc_decision_reversal_pairs.csv", index=False)
 
 # -----------------------------
 # Charts
 # -----------------------------
 plt.figure(figsize=(10, 4.8))
-plt.plot(states["week"], states["classical_weekly_total"], marker="o", label="Classical LCA")
-plt.plot(dynamic["week"], dynamic["total"], marker="o", label="Dynamic LCA")
-plt.plot(sddlca["week"], sddlca["total"], marker="o", label="State-Dependent Dynamic LCA")
-plt.xlabel("Week")
-plt.ylabel("Weekly impact (kgCO2e)")
-plt.title("Weekly environmental impact by method")
+plt.plot(states["week"], states["classical_weekly_total"], marker="o", label="LCA classique")
+plt.plot(dynamic["week"], dynamic["total"], marker="o", label="LCA dynamique")
+plt.plot(sddlca["week"], sddlca["total"], marker="o", label="SDD")
+plt.xlabel("Semaine")
+plt.ylabel("Impact hebdomadaire (kgCO2e)")
+plt.title("Impact environnemental hebdomadaire par methode")
 plt.legend()
 plt.tight_layout()
 plt.savefig(IMG_DIR / "poc_weekly_impact_comparison.png", dpi=160)
 plt.close()
 
+fig, axes = plt.subplots(1, 2, figsize=(13.4, 4.8), sharex=True)
+axes[0].plot(
+    method_cumulative["week"],
+    method_cumulative["classical_cumulative_kgCO2e"],
+    marker="o",
+    color="#9ecae1",
+    label="LCA classique",
+)
+axes[0].plot(
+    method_cumulative["week"],
+    method_cumulative["dynamic_cumulative_kgCO2e"],
+    marker="o",
+    color="#3182bd",
+    label="LCA dynamique",
+)
+axes[0].plot(
+    method_cumulative["week"],
+    method_cumulative["sdd_cumulative_kgCO2e"],
+    marker="o",
+    color="#e6550d",
+    linewidth=2.2,
+    label="SDD",
+)
+axes[0].set_xlabel("Semaine")
+axes[0].set_ylabel("Impact cumule (kgCO2e)")
+axes[0].set_title("Impact cumule : LCA classique vs LCA dynamique vs SDD")
+axes[0].grid(alpha=0.2)
+axes[0].legend()
+
+axes[1].plot(
+    method_cumulative["week"],
+    method_cumulative["sdd_minus_lca_cumulative"],
+    marker="o",
+    color="#756bb1",
+    label="SDD - LCA classique",
+)
+axes[1].plot(
+    method_cumulative["week"],
+    method_cumulative["sdd_minus_dynamic_cumulative"],
+    marker="o",
+    color="#dd1c77",
+    label="SDD - LCA dynamique",
+)
+axes[1].axhline(0, color="black", linewidth=0.8)
+axes[1].set_xlabel("Semaine")
+axes[1].set_ylabel("Sur-impact revele par le SDD (kgCO2e)")
+axes[1].set_title("Sur-impact cumule capte par le SDD")
+axes[1].grid(alpha=0.2)
+axes[1].legend()
+
+last_row = method_cumulative.iloc[-1]
+axes[1].text(
+    float(last_row["week"]) + 0.1,
+    float(last_row["sdd_minus_lca_cumulative"]),
+    f'+{float(last_row["sdd_minus_lca_cumulative"]):.0f}',
+    color="#756bb1",
+    va="center",
+    fontsize=8,
+)
+axes[1].text(
+    float(last_row["week"]) + 0.1,
+    float(last_row["sdd_minus_dynamic_cumulative"]),
+    f'+{float(last_row["sdd_minus_dynamic_cumulative"]):.0f}',
+    color="#dd1c77",
+    va="center",
+    fontsize=8,
+)
+plt.tight_layout()
+plt.savefig(IMG_DIR / "poc_method_cumulative_comparison.png", dpi=160)
+plt.close()
+
+component_panels = [
+    ("material", "Matiere", "#9ecae1"),
+    ("inbound_transport", "Transport amont", "#6baed6"),
+    ("production_energy", "Energie", "#3182bd"),
+    ("outbound_transport", "Transport aval", "#fd8d3c"),
+    ("storage", "Stockage", "#bdbdbd"),
+    ("scrap", "Scrap", "#756bb1"),
+]
+
+fig, axes = plt.subplots(
+    2,
+    3,
+    figsize=(22.0, 8.4),
+    sharex="col",
+    gridspec_kw={"height_ratios": [1.15, 0.95]},
+)
+
+for ax, prefix, title in [
+    (axes[0, 0], "classical", "LCA classique"),
+    (axes[0, 1], "dynamic", "LCA dynamique"),
+    (axes[0, 2], "sdd", "SDD"),
+]:
+    bottom_values = [0.0] * len(baseline_gap_drivers.index)
+    for component, label, color in component_panels:
+        column = f"{prefix}_{component}"
+        values = baseline_gap_drivers[column]
+        ax.bar(
+            baseline_gap_drivers["week"],
+            values,
+            bottom=bottom_values,
+            color=color,
+            label=label if prefix == "classical" else None,
+        )
+        bottom_values = [bottom + value for bottom, value in zip(bottom_values, values)]
+    ax.plot(
+        baseline_gap_drivers["week"],
+        baseline_gap_drivers[f"{prefix}_total"],
+        color="black",
+        marker="o",
+        linewidth=1.7,
+        label="Total" if prefix == "classical" else None,
+    )
+    for week in baseline_gap_drivers.loc[baseline_gap_drivers["air_shipments_units"] > 0, "week"]:
+        ax.axvspan(week - 0.45, week + 0.45, color="#fdd0a2", alpha=0.18)
+    ax.set_xlabel("Semaine")
+    ax.set_ylabel("Impact hebdomadaire (kgCO2e)")
+    ax.set_title(title)
+    ax.grid(axis="y", alpha=0.2)
+
+axes[0, 0].legend(loc="upper left", fontsize=8)
+
+for week in baseline_gap_drivers.loc[baseline_gap_drivers["air_shipments_units"] > 0, "week"]:
+    axes[1, 0].axvspan(week - 0.45, week + 0.45, color="#fdd0a2", alpha=0.12)
+axes[1, 0].bar(
+    baseline_gap_drivers["week"],
+    baseline_gap_drivers["good_output_units"],
+    color="#9ecae1",
+    alpha=0.8,
+    label="Production utile",
+)
+axes[1, 0].set_xlabel("Semaine")
+axes[1, 0].set_ylabel("Production utile (unites)", color="#3182bd")
+axes[1, 0].tick_params(axis="y", labelcolor="#3182bd")
+axes[1, 0].set_title("Ce que voit la LCA classique")
+axes[1, 0].grid(axis="y", alpha=0.2)
+
+classical_trigger_axis = axes[1, 0].twinx()
+classical_trigger_axis.plot(
+    baseline_gap_drivers["week"],
+    baseline_gap_drivers["outbound_shipments"],
+    color="black",
+    marker="o",
+    label="Expeditions client",
+)
+classical_trigger_axis.plot(
+    baseline_gap_drivers["week"],
+    100 * baseline_gap_drivers["average_grid_factor"],
+    color="#31a354",
+    marker="s",
+    linestyle="--",
+    label="Reseau moyen x100",
+)
+classical_trigger_axis.plot(
+    baseline_gap_drivers["week"],
+    baseline_gap_drivers["total_stock_units"],
+    color="#756bb1",
+    marker="^",
+    linestyle=":",
+    label="Stock total",
+)
+classical_trigger_axis.set_ylabel("Expeditions / reseau moyen x100 / stock")
+
+handles_left, labels_left = axes[1, 0].get_legend_handles_labels()
+handles_right, labels_right = classical_trigger_axis.get_legend_handles_labels()
+axes[1, 0].legend(
+    handles_left + handles_right,
+    labels_left + labels_right,
+    loc="upper left",
+    fontsize=8,
+)
+
+for week in baseline_gap_drivers.loc[baseline_gap_drivers["air_shipments_units"] > 0, "week"]:
+    axes[1, 1].axvspan(week - 0.45, week + 0.45, color="#fdd0a2", alpha=0.12)
+axes[1, 1].bar(
+    baseline_gap_drivers["week"],
+    baseline_gap_drivers["good_output_units"],
+    color="#9ecae1",
+    alpha=0.8,
+    label="Production utile",
+)
+axes[1, 1].set_xlabel("Semaine")
+axes[1, 1].set_ylabel("Production utile (unites)", color="#3182bd")
+axes[1, 1].tick_params(axis="y", labelcolor="#3182bd")
+axes[1, 1].set_title("Ce que voit la LCA dynamique")
+axes[1, 1].grid(axis="y", alpha=0.2)
+
+dynamic_trigger_axis = axes[1, 1].twinx()
+dynamic_trigger_axis.plot(
+    baseline_gap_drivers["week"],
+    baseline_gap_drivers["outbound_shipments"],
+    color="black",
+    marker="o",
+    label="Expeditions client",
+)
+dynamic_trigger_axis.plot(
+    baseline_gap_drivers["week"],
+    100 * baseline_gap_drivers["grid_factor"],
+    color="#31a354",
+    marker="s",
+    linestyle="--",
+    label="Facteur reseau x100",
+)
+dynamic_trigger_axis.plot(
+    baseline_gap_drivers["week"],
+    baseline_gap_drivers["total_stock_units"],
+    color="#756bb1",
+    marker="^",
+    linestyle=":",
+    label="Stock total",
+)
+dynamic_trigger_axis.set_ylabel("Expeditions / facteur reseau x100 / stock")
+
+handles_left, labels_left = axes[1, 1].get_legend_handles_labels()
+handles_right, labels_right = dynamic_trigger_axis.get_legend_handles_labels()
+axes[1, 1].legend(
+    handles_left + handles_right,
+    labels_left + labels_right,
+    loc="upper left",
+    fontsize=8,
+)
+
+for week in baseline_gap_drivers.loc[baseline_gap_drivers["air_shipments_units"] > 0, "week"]:
+    axes[1, 2].axvspan(week - 0.45, week + 0.45, color="#fdd0a2", alpha=0.2)
+axes[1, 2].bar(
+    baseline_gap_drivers["week"],
+    baseline_gap_drivers["good_output_units"],
+    color="#9ecae1",
+    alpha=0.35,
+    label="Production utile",
+)
+axes[1, 2].bar(
+    baseline_gap_drivers["week"],
+    baseline_gap_drivers["backup_output_units"],
+    color="#fdae6b",
+    alpha=0.8,
+    label="Production issue du backup",
+)
+axes[1, 2].set_xlabel("Semaine")
+axes[1, 2].set_ylabel("Signaux de production (unites)", color="#f16913")
+axes[1, 2].tick_params(axis="y", labelcolor="#f16913")
+axes[1, 2].set_title("Ce que voit le SDD")
+axes[1, 2].grid(axis="y", alpha=0.2)
+
+trigger_axis = axes[1, 2].twinx()
+trigger_axis.plot(
+    baseline_gap_drivers["week"],
+    baseline_gap_drivers["outbound_shipments"],
+    color="#636363",
+    marker="o",
+    linewidth=1.2,
+    alpha=0.8,
+    label="Expeditions client",
+)
+trigger_axis.plot(
+    baseline_gap_drivers["week"],
+    100 * baseline_gap_drivers["grid_factor"],
+    color="#31a354",
+    marker="s",
+    linestyle="--",
+    linewidth=1.2,
+    alpha=0.8,
+    label="Facteur reseau x100",
+)
+trigger_axis.plot(
+    baseline_gap_drivers["week"],
+    baseline_gap_drivers["total_stock_units"],
+    color="#756bb1",
+    marker="^",
+    linestyle=":",
+    linewidth=1.2,
+    alpha=0.8,
+    label="Stock total",
+)
+trigger_axis.plot(
+    baseline_gap_drivers["week"],
+    baseline_gap_drivers["backlog_end"],
+    color="black",
+    marker="o",
+    label="Backlog",
+)
+trigger_axis.plot(
+    baseline_gap_drivers["week"],
+    baseline_gap_drivers["capacity_utilization_pct"],
+    color="#3182bd",
+    marker="s",
+    linestyle="--",
+    label="Utilisation de capacite (%)",
+)
+trigger_axis.set_ylabel("Backlog / utilisation (%) / autres signaux")
+
+handles_left, labels_left = axes[1, 2].get_legend_handles_labels()
+handles_right, labels_right = trigger_axis.get_legend_handles_labels()
+air_patch = plt.Rectangle((0, 0), 1, 1, color="#fdd0a2", alpha=0.2)
+axes[1, 2].legend(
+    handles_left + handles_right + [air_patch],
+    labels_left + labels_right + ["Semaines en aerien"],
+    loc="upper left",
+    fontsize=8,
+)
+fig.suptitle("Pourquoi le SDD trouve plus d'impact que la LCA dynamique", y=1.02)
+plt.tight_layout()
+plt.savefig(IMG_DIR / "poc_sdd_gap_drivers.png", dpi=160, bbox_inches="tight")
+plt.close()
+
 plt.figure(figsize=(10, 4.8))
 plt.plot(states["week"], states["backlog_end"], marker="o", label="Backlog")
-plt.xlabel("Week")
-plt.ylabel("Backlog (units)")
+plt.xlabel("Semaine")
+plt.ylabel("Backlog (unites)")
 plt.title("Operational state: backlog over time")
 plt.legend()
 plt.tight_layout()
@@ -828,7 +1541,12 @@ colorbar.set_label("Semaine")
 axes[1].plot(state_trajectory["week"], state_trajectory["state_end_backlog"], marker="o", label="Backlog")
 axes[1].plot(state_trajectory["week"], state_trajectory["state_end_raw_stock_total"], marker="o", label="Stock MP")
 axes[1].plot(state_trajectory["week"], state_trajectory["state_end_fg_stock_total"], marker="o", label="Stock PF")
-axes[1].plot(state_trajectory["week"], state_trajectory["state_end_total_pipeline"], marker="o", label="Pipeline total")
+axes[1].plot(
+    state_trajectory["week"],
+    state_trajectory["state_end_total_pipeline"],
+    marker="o",
+    label="Matieres en transit",
+)
 axes[1].set_xlabel("Semaine")
 axes[1].set_ylabel("Valeur de composante d'etat")
 axes[1].set_title("Composantes de l'etat dans le temps")
@@ -837,6 +1555,204 @@ axes[1].grid(alpha=0.2)
 
 plt.tight_layout()
 plt.savefig(IMG_DIR / "poc_state_space_projection.png", dpi=160)
+plt.close()
+
+total_stock_units = states["raw_stock_end"] + states["fg_stock_end"]
+avg_grid_factor = float(states["grid_factor"].mean())
+fig, axes = plt.subplots(2, 3, figsize=(18.5, 8.8))
+classical_components_fr = {
+    "material": "Matiere",
+    "inbound_transport": "Transport amont",
+    "production_energy": "Energie",
+    "outbound_transport": "Transport aval",
+    "storage": "Stockage",
+    "scrap": "Scrap",
+}
+classical_row = breakdown.loc[breakdown["method"] == "Classical LCA"].iloc[0]
+axes[0, 0].bar(
+    list(classical_components_fr.values()),
+    [float(classical_row[key]) for key in classical_components_fr],
+    color=["#9ecae1", "#6baed6", "#3182bd", "#fd8d3c", "#bdbdbd", "#756bb1"],
+)
+axes[0, 0].set_ylabel("Impact total (kgCO2e)")
+axes[0, 0].set_title("LCA classique : decomposition agregée")
+axes[0, 0].tick_params(axis="x", rotation=20)
+axes[0, 0].grid(axis="y", alpha=0.2)
+
+axes[0, 1].plot(dynamic["week"], dynamic["total"], marker="o", color="#3182bd", label="Impact dynamique total")
+axes[0, 1].plot(
+    dynamic["week"],
+    dynamic["production_energy"],
+    marker="o",
+    linestyle="--",
+    color="#31a354",
+    label="Energie",
+)
+axes[0, 1].plot(
+    dynamic["week"],
+    dynamic["outbound_transport"],
+    marker="o",
+    linestyle=":",
+    color="#fd8d3c",
+    label="Transport aval",
+)
+axes[0, 1].set_xlim(1, len(states))
+axes[0, 1].set_xlabel("Semaine")
+axes[0, 1].set_ylabel("Impact hebdomadaire (kgCO2e)")
+axes[0, 1].set_title("LCA dynamique : serie temporelle")
+axes[0, 1].legend(fontsize=8)
+axes[0, 1].grid(alpha=0.2)
+
+for week in states.loc[states["outbound_mode"] == "air", "week"]:
+    axes[0, 2].axvspan(week - 0.45, week + 0.45, color="#fdd0a2", alpha=0.18)
+axes[0, 2].plot(
+    sddlca["week"],
+    sddlca["total"],
+    marker="o",
+    color="#e6550d",
+    label="Impact SDD total",
+)
+axes[0, 2].plot(
+    sddlca["week"],
+    sddlca["production_energy"],
+    marker="o",
+    linestyle="--",
+    color="#31a354",
+    label="Energie",
+)
+axes[0, 2].plot(
+    sddlca["week"],
+    sddlca["outbound_transport"],
+    marker="o",
+    linestyle=":",
+    color="#fd8d3c",
+    label="Transport aval",
+)
+axes[0, 2].set_xlim(1, len(states))
+axes[0, 2].set_xlabel("Semaine")
+axes[0, 2].set_ylabel("Impact hebdomadaire (kgCO2e)")
+axes[0, 2].set_title("SDD : serie temporelle enrichie par les etats")
+axes[0, 2].grid(alpha=0.2)
+
+sdd_state_axis = axes[0, 2].twinx()
+sdd_state_axis.plot(
+    state_trajectory["week"],
+    state_trajectory["state_end_backlog"],
+    marker="o",
+    color="black",
+    alpha=0.85,
+    label="Backlog",
+)
+sdd_state_axis.plot(
+    state_trajectory["week"],
+    state_trajectory["state_end_raw_stock_total"],
+    marker="o",
+    color="#3182bd",
+    alpha=0.8,
+    label="Stock MP",
+)
+sdd_state_axis.plot(
+    state_trajectory["week"],
+    state_trajectory["state_end_fg_stock_total"],
+    marker="o",
+    color="#9ecae1",
+    alpha=0.8,
+    label="Stock PF",
+)
+sdd_state_axis.plot(
+    state_trajectory["week"],
+    state_trajectory["state_end_total_pipeline"],
+    marker="o",
+    color="#756bb1",
+    alpha=0.8,
+    label="Matieres en transit",
+)
+sdd_state_axis.set_ylabel("Valeurs d'etat")
+
+handles_left, labels_left = axes[0, 2].get_legend_handles_labels()
+handles_right, labels_right = sdd_state_axis.get_legend_handles_labels()
+air_patch = plt.Rectangle((0, 0), 1, 1, color="#fdd0a2", alpha=0.18)
+axes[0, 2].legend(
+    handles_left + handles_right + [air_patch],
+    labels_left + labels_right + ["Semaines en aerien"],
+    fontsize=8,
+    loc="upper left",
+)
+
+axes[1, 0].plot(
+    states["week"],
+    [float(states["good_output_units"].mean())] * len(states),
+    linestyle="-",
+    color="#3182bd",
+    label="Production utile moyenne",
+)
+axes[1, 0].plot(
+    states["week"],
+    [float(states["outbound_shipments"].mean())] * len(states),
+    linestyle="-",
+    color="black",
+    label="Expeditions client moyennes",
+)
+axes[1, 0].plot(
+    states["week"],
+    [float(total_stock_units.mean())] * len(states),
+    linestyle="-",
+    color="#756bb1",
+    label="Stock total moyen",
+)
+axes[1, 0].plot(
+    states["week"],
+    [100 * avg_grid_factor] * len(states),
+    linestyle="--",
+    color="#31a354",
+    label="Reseau moyen x100",
+)
+axes[1, 0].set_xlabel("Semaine")
+axes[1, 0].set_ylabel("Valeur observee")
+axes[1, 0].set_title("Ce que voit la LCA classique : des moyennes")
+axes[1, 0].legend(fontsize=8)
+axes[1, 0].grid(alpha=0.2)
+axes[1, 0].set_xlim(1, len(states))
+
+axes[1, 1].plot(states["week"], states["good_output_units"], marker="o", label="Production utile")
+axes[1, 1].plot(states["week"], states["outbound_shipments"], marker="o", label="Expeditions client")
+axes[1, 1].plot(states["week"], total_stock_units, marker="o", label="Stock total")
+axes[1, 1].plot(states["week"], 100 * states["grid_factor"], marker="o", label="Facteur reseau x100")
+axes[1, 1].set_xlabel("Semaine")
+axes[1, 1].set_ylabel("Valeur observee")
+axes[1, 1].set_title("Ce que voit la LCA dynamique dans le temps")
+axes[1, 1].legend(fontsize=8)
+axes[1, 1].grid(alpha=0.2)
+axes[1, 1].set_xlim(1, len(states))
+
+for week in states.loc[states["outbound_mode"] == "air", "week"]:
+    axes[1, 2].axvspan(week - 0.45, week + 0.45, color="#fdd0a2", alpha=0.18)
+axes[1, 2].bar(
+    states["week"],
+    states["good_output_backup_units"],
+    color="#fdae6b",
+    alpha=0.65,
+    label="Production issue du backup",
+)
+axes[1, 2].plot(state_trajectory["week"], state_trajectory["state_end_backlog"], marker="o", label="Backlog")
+axes[1, 2].plot(state_trajectory["week"], state_trajectory["state_end_raw_stock_total"], marker="o", label="Stock MP")
+axes[1, 2].plot(state_trajectory["week"], state_trajectory["state_end_fg_stock_total"], marker="o", label="Stock PF")
+axes[1, 2].plot(
+    state_trajectory["week"],
+    state_trajectory["state_end_total_pipeline"],
+    marker="o",
+    label="Matieres en transit",
+)
+axes[1, 2].set_xlabel("Semaine")
+axes[1, 2].set_ylabel("Valeur d'etat")
+axes[1, 2].set_title("Ce que le SDD ajoute a la LCA dynamique")
+axes[1, 2].legend(fontsize=8)
+axes[1, 2].grid(alpha=0.2)
+axes[1, 2].set_xlim(1, len(states))
+
+fig.suptitle("Comment chaque methode represente l'etat de la supply chain", y=1.01)
+plt.tight_layout()
+plt.savefig(IMG_DIR / "poc_state_space_method_comparison.png", dpi=160, bbox_inches="tight")
 plt.close()
 
 fig, ax1 = plt.subplots(figsize=(10, 4.8))
@@ -863,9 +1779,14 @@ plt.savefig(IMG_DIR / "poc_source_traceability.png", dpi=160)
 plt.close()
 
 plt.figure(figsize=(10, 4.8))
-plt.bar(comparison["method"], comparison["total_kgCO2e"])
-plt.ylabel("Total impact (kgCO2e)")
-plt.title("Total impact comparison")
+comparison_plot_labels = {
+    "Classical LCA": "LCA classique",
+    "Dynamic LCA": "LCA dynamique",
+    "State-Dependent Dynamic LCA": "SDD",
+}
+plt.bar(comparison["method"].map(comparison_plot_labels), comparison["total_kgCO2e"])
+plt.ylabel("Impact total (kgCO2e)")
+plt.title("Comparaison des impacts totaux")
 plt.xticks(rotation=15, ha="right")
 plt.tight_layout()
 plt.savefig(IMG_DIR / "poc_total_impact_comparison.png", dpi=160)
@@ -882,65 +1803,288 @@ bar_width = 0.24
 plt.figure(figsize=(12, 5.2))
 for idx, method in enumerate(policy_method_pivot.columns):
     x_positions = [x + (idx - 1) * bar_width for x in policy_x]
-    plt.bar(x_positions, policy_method_pivot[method], width=bar_width, label=method)
+    plt.bar(x_positions, policy_method_pivot[method], width=bar_width, label=comparison_plot_labels.get(method, method))
 plt.xticks(policy_x, policy_method_pivot.index, rotation=15, ha="right")
-plt.ylabel("Total impact (kgCO2e)")
-plt.title("Counterfactual policies: carbon result by method")
+plt.ylabel("Impact total (kgCO2e)")
+plt.title("Politiques contrefactuelles : resultat carbone par methode")
 plt.legend()
 plt.tight_layout()
 plt.savefig(IMG_DIR / "poc_policy_method_comparison.png", dpi=160)
 plt.close()
 
-plt.figure(figsize=(10.5, 5.2))
+fig, axes = plt.subplots(1, 2, figsize=(13, 5.2), sharex=True)
 bubble_sizes = 40 + 0.015 * policy_decision_summary["total_cost"]
-plt.scatter(
-    policy_decision_summary["same_week_service_pct"],
-    policy_decision_summary["sddlca_total_kgCO2e"],
-    s=bubble_sizes,
-    c=range(len(policy_decision_summary)),
-    cmap="tab10",
-    alpha=0.85,
-)
-for _, r in policy_decision_summary.iterrows():
-    plt.text(
-        r["same_week_service_pct"] + 0.15,
-        r["sddlca_total_kgCO2e"] + 10,
-        r["policy_label"],
-        fontsize=8,
+for ax, carbon_col, title in [
+    (axes[0], "classical_total_kgCO2e", "Frontiere de decision - LCA classique"),
+    (axes[1], "sddlca_total_kgCO2e", "Frontiere de decision - SDD"),
+]:
+    ax.scatter(
+        policy_decision_summary["same_week_service_pct"],
+        policy_decision_summary[carbon_col],
+        s=bubble_sizes,
+        c=range(len(policy_decision_summary)),
+        cmap="tab10",
+        alpha=0.85,
     )
-plt.xlabel("Same-week service level (%)")
-plt.ylabel("State-Dependent total impact (kgCO2e)")
-plt.title("Decision frontier: service vs state-dependent carbon")
+    for _, r in policy_decision_summary.iterrows():
+        ax.text(
+            r["same_week_service_pct"] + 0.15,
+            r[carbon_col] + 10,
+            r["policy_label"],
+            fontsize=8,
+        )
+    ax.set_xlabel("Service la meme semaine (%)")
+    ax.set_ylabel("Impact total (kgCO2e)")
+    ax.set_title(title)
+    ax.grid(alpha=0.2)
 plt.tight_layout()
 plt.savefig(IMG_DIR / "poc_policy_decision_frontier.png", dpi=160)
 plt.close()
 
-policy_hidden_pivot = (
-    policy_hidden_carbon
-    .set_index("policy_label")[["hidden_carbon_vs_dynamic", "hidden_carbon_vs_classical"]]
-    .reindex(policy_order)
-)
-policy_x = list(range(len(policy_hidden_pivot.index)))
-plt.figure(figsize=(12, 5.2))
-plt.bar(
-    [x - 0.18 for x in policy_x],
-    policy_hidden_pivot["hidden_carbon_vs_dynamic"],
-    width=0.36,
-    label="SDD-LCA minus Dynamic",
-)
-plt.bar(
-    [x + 0.18 for x in policy_x],
-    policy_hidden_pivot["hidden_carbon_vs_classical"],
-    width=0.36,
-    label="SDD-LCA minus Classical",
-)
-plt.axhline(0, color="black", linewidth=0.8)
-plt.xticks(policy_x, policy_hidden_pivot.index, rotation=15, ha="right")
-plt.ylabel("Hidden carbon premium (kgCO2e)")
-plt.title("Carbon overlooked by simpler methods")
-plt.legend()
+plt.figure(figsize=(12, 5.6))
+for idx, policy_label in enumerate(policy_order):
+    row = policy_method_pivot.loc[policy_label]
+    plt.plot(
+        [row["Dynamic LCA"], row["State-Dependent Dynamic LCA"]],
+        [idx, idx],
+        color="0.6",
+        linewidth=2,
+    )
+    plt.scatter(row["Classical LCA"], idx, color="#9ecae1", s=50, label="LCA classique" if idx == 0 else None)
+    plt.scatter(row["Dynamic LCA"], idx, color="#3182bd", s=60, label="LCA dynamique" if idx == 0 else None)
+    plt.scatter(
+        row["State-Dependent Dynamic LCA"],
+        idx,
+        color="#e6550d",
+        s=65,
+        label="SDD" if idx == 0 else None,
+    )
+    gap_value = row["State-Dependent Dynamic LCA"] - row["Dynamic LCA"]
+    plt.text(row["State-Dependent Dynamic LCA"] + 18, idx, f"+{gap_value:.0f}", va="center", fontsize=8)
+plt.yticks(range(len(policy_order)), policy_order)
+plt.xlabel("Impact total (kgCO2e)")
+plt.ylabel("Politique")
+plt.title("Comparaison des politiques avec ecart carbone explicite")
+plt.legend(loc="lower right")
 plt.tight_layout()
-plt.savefig(IMG_DIR / "poc_policy_hidden_carbon.png", dpi=160)
+plt.savefig(IMG_DIR / "poc_policy_method_gap.png", dpi=160)
+plt.close()
+
+component_order = [
+    "material",
+    "inbound_transport",
+    "production_energy",
+    "outbound_transport",
+    "storage",
+    "scrap",
+]
+component_colors = {
+    "material": "#9ecae1",
+    "inbound_transport": "#6baed6",
+    "production_energy": "#3182bd",
+    "outbound_transport": "#fd8d3c",
+    "storage": "#bdbdbd",
+    "scrap": "#e6550d",
+}
+fig, axes = plt.subplots(1, 2, figsize=(14, 5.6), sharey=True)
+for ax, method_label in zip(axes, ["Classical LCA", "SDD"]):
+    method_df = (
+        policy_component_breakdown
+        .loc[policy_component_breakdown["method_label"] == method_label]
+        .set_index("policy_label")
+        .reindex(policy_order)
+    )
+    bottom_values = [0.0] * len(method_df.index)
+    for component in component_order:
+        values = method_df[component]
+        ax.bar(
+            method_df.index,
+            values,
+            bottom=bottom_values,
+            label=component if method_label == "Classical LCA" else None,
+            color=component_colors[component],
+        )
+        bottom_values = [bottom + value for bottom, value in zip(bottom_values, values)]
+    ax.set_title("LCA classique" if method_label == "Classical LCA" else "SDD")
+    ax.tick_params(axis="x", rotation=15)
+    ax.grid(axis="y", alpha=0.2)
+
+axes[0].set_ylabel("Decomposition de l'impact total (kgCO2e)")
+fig.suptitle("Decomposition des impacts : LCA classique vs SDD", y=1.02)
+handles, labels = axes[0].get_legend_handles_labels()
+fig.legend(handles, labels, loc="upper center", ncol=3)
+plt.tight_layout()
+plt.savefig(IMG_DIR / "poc_policy_causal_attribution.png", dpi=160, bbox_inches="tight")
+plt.close()
+
+fig, axes = plt.subplots(1, 2, figsize=(13, 5.2), sharex=True)
+for ax, carbon_col, flag_col, title in [
+    (axes[0], "classical_total_kgCO2e", "pareto_efficient_lca", "Frontiere de Pareto - LCA classique"),
+    (axes[1], "sddlca_total_kgCO2e", "pareto_efficient_sdd", "Frontiere de Pareto - SDD"),
+]:
+    for _, r in policy_pareto.iterrows():
+        marker_size = 40 + 0.015 * r["total_cost"]
+        color = "#2ca25f" if r[flag_col] else "#bdbdbd"
+        ax.scatter(r["same_week_service_pct"], r[carbon_col], s=marker_size, color=color, alpha=0.85)
+        ax.text(r["same_week_service_pct"] + 0.12, r[carbon_col] + 12, r["policy_label"], fontsize=8)
+    ax.set_xlabel("Service la meme semaine (%)")
+    ax.set_ylabel("Impact total (kgCO2e)")
+    ax.set_title(title)
+    ax.grid(alpha=0.2)
+plt.tight_layout()
+plt.savefig(IMG_DIR / "poc_policy_pareto_frontier.png", dpi=160)
+plt.close()
+
+if not decision_reversal_pairs.empty:
+    reversal = decision_reversal_pairs.iloc[0]
+    reversal_subset = search_summary.loc[
+        search_summary["policy_label"].isin([reversal["policy_a"], reversal["policy_b"]]),
+        ["policy_label", "dynamic_total_kgCO2e", "sddlca_total_kgCO2e", "same_week_service_pct"],
+    ].set_index("policy_label")
+    policy_a = str(reversal["policy_a"])
+    policy_b = str(reversal["policy_b"])
+    dynamic_a = float(reversal_subset.loc[policy_a, "dynamic_total_kgCO2e"])
+    dynamic_b = float(reversal_subset.loc[policy_b, "dynamic_total_kgCO2e"])
+    sdd_a = float(reversal_subset.loc[policy_a, "sddlca_total_kgCO2e"])
+    sdd_b = float(reversal_subset.loc[policy_b, "sddlca_total_kgCO2e"])
+    fig, ax = plt.subplots(figsize=(10.4, 5.8))
+    y_positions = {"LCA dynamique": 1.0, "SDD": 0.0}
+    palette = {policy_a: "#3182bd", policy_b: "#e6550d"}
+
+    for method_label, value_a, value_b in [
+        ("LCA dynamique", dynamic_a, dynamic_b),
+        ("SDD", sdd_a, sdd_b),
+    ]:
+        y = y_positions[method_label]
+        ax.plot([value_a, value_b], [y, y], color="0.7", linewidth=2)
+        ax.scatter(value_a, y, s=90, color=palette[policy_a], zorder=3)
+        ax.scatter(value_b, y, s=90, color=palette[policy_b], zorder=3)
+        preferred_policy = policy_a if value_a < value_b else policy_b
+        ax.text(
+            min(value_a, value_b) - 115,
+            y + 0.08,
+            f"{method_label} prefere {'A' if preferred_policy == policy_a else 'B'}",
+            fontsize=9,
+        )
+
+    ax.set_yticks([y_positions["LCA dynamique"], y_positions["SDD"]])
+    ax.set_yticklabels(["LCA dynamique", "SDD"])
+    ax.set_xlabel("Impact total (kgCO2e)")
+    ax.set_title(f"Inversion de decision au-dessus de {decision_reversal_service_floor:.0f}% de service")
+    ax.grid(axis="x", alpha=0.2)
+
+    service_a = float(reversal_subset.loc[policy_a, "same_week_service_pct"])
+    service_b = float(reversal_subset.loc[policy_b, "same_week_service_pct"])
+    ax.text(
+        0.02,
+        -0.18,
+        f"A = {policy_a}  | service {service_a:.1f}%",
+        transform=ax.transAxes,
+        fontsize=8,
+        color=palette[policy_a],
+    )
+    ax.text(
+        0.02,
+        -0.28,
+        f"B = {policy_b}  | service {service_b:.1f}%",
+        transform=ax.transAxes,
+        fontsize=8,
+        color=palette[policy_b],
+    )
+    plt.tight_layout()
+    plt.savefig(IMG_DIR / "poc_decision_reversal.png", dpi=160)
+    plt.close()
+else:
+    plt.figure(figsize=(8.2, 4.6))
+    plt.axis("off")
+    plt.text(
+        0.5,
+        0.5,
+        "Aucune inversion de decision\ntrouvee pour l'ensemble de politiques explore.",
+        ha="center",
+        va="center",
+        fontsize=12,
+    )
+    plt.tight_layout()
+    plt.savefig(IMG_DIR / "poc_decision_reversal.png", dpi=160)
+    plt.close()
+
+fig, axes = plt.subplots(1, 2, figsize=(12, 4.8))
+axes[0].plot(network_lane_states["week"], network_lane_states["core_backlog_end"], marker="o", label="Backlog coeur")
+axes[0].plot(network_lane_states["week"], network_lane_states["remote_backlog_end"], marker="o", label="Backlog distant")
+axes[0].set_xlabel("Semaine")
+axes[0].set_ylabel("Backlog par voie (unites)")
+axes[0].set_title("Backlogs du mini-reseau a deux clients")
+axes[0].legend()
+axes[0].grid(alpha=0.2)
+
+axes[1].bar(network_lane_states["week"], network_lane_states["hidden_network_outbound"], color="#e6550d")
+axes[1].set_xlabel("Semaine")
+axes[1].set_ylabel("Sur-impact aval cache (kgCO2e)")
+axes[1].set_title("Carbone cache du mini-reseau a deux clients")
+axes[1].grid(alpha=0.2)
+plt.tight_layout()
+plt.savefig(IMG_DIR / "poc_network_lane_comparison.png", dpi=160)
+plt.close()
+
+sensitivity_order = ["none", "mild", "baseline", "severe"]
+air_order = ["0.8x", "1.0x", "1.2x", "1.5x"]
+shipments_pivot = (
+    sensitivity_hidden_carbon
+    .pivot(index="severity_label", columns="air_label", values="total_shipments")
+    .reindex(index=sensitivity_order, columns=air_order)
+)
+classical_intensity_pivot = (
+    sensitivity_hidden_carbon
+    .pivot(index="severity_label", columns="air_label", values="classical_kg_per_shipped_unit")
+    .reindex(index=sensitivity_order, columns=air_order)
+)
+intensity_pivot = (
+    sensitivity_hidden_carbon
+    .pivot(index="severity_label", columns="air_label", values="sddlca_kg_per_shipped_unit")
+    .reindex(index=sensitivity_order, columns=air_order)
+)
+fig, axes = plt.subplots(1, 3, figsize=(15.0, 5.0))
+shipments_map = axes[0].imshow(shipments_pivot.values, cmap="Blues", aspect="auto")
+axes[0].set_xticks(range(len(air_order)))
+axes[0].set_xticklabels(air_order)
+axes[0].set_yticks(range(len(sensitivity_order)))
+axes[0].set_yticklabels(sensitivity_order)
+axes[0].set_xlabel("Multiplicateur d'emission de l'aerien")
+axes[0].set_ylabel("Severite de la disruption")
+axes[0].set_title("Expeditions client totales")
+for row_idx, row_values in enumerate(shipments_pivot.values):
+    for col_idx, value in enumerate(row_values):
+        axes[0].text(col_idx, row_idx, f"{value:.0f}", ha="center", va="center", fontsize=8)
+fig.colorbar(shipments_map, ax=axes[0], label="Unites expediees")
+
+classical_map = axes[1].imshow(classical_intensity_pivot.values, cmap="Greens", aspect="auto")
+axes[1].set_xticks(range(len(air_order)))
+axes[1].set_xticklabels(air_order)
+axes[1].set_yticks(range(len(sensitivity_order)))
+axes[1].set_yticklabels(sensitivity_order)
+axes[1].set_xlabel("Multiplicateur d'emission de l'aerien")
+axes[1].set_ylabel("Severite de la disruption")
+axes[1].set_title("Intensite de la LCA classique par unite expediee")
+for row_idx, row_values in enumerate(classical_intensity_pivot.values):
+    for col_idx, value in enumerate(row_values):
+        axes[1].text(col_idx, row_idx, f"{value:.1f}", ha="center", va="center", fontsize=8)
+fig.colorbar(classical_map, ax=axes[1], label="kgCO2e par unite expediee")
+
+sdd_map = axes[2].imshow(intensity_pivot.values, cmap="PuRd", aspect="auto")
+axes[2].set_xticks(range(len(air_order)))
+axes[2].set_xticklabels(air_order)
+axes[2].set_yticks(range(len(sensitivity_order)))
+axes[2].set_yticklabels(sensitivity_order)
+axes[2].set_xlabel("Multiplicateur d'emission de l'aerien")
+axes[2].set_ylabel("Severite de la disruption")
+axes[2].set_title("Intensite du SDD par unite expediee")
+for row_idx, row_values in enumerate(intensity_pivot.values):
+    for col_idx, value in enumerate(row_values):
+        axes[2].text(col_idx, row_idx, f"{value:.1f}", ha="center", va="center", fontsize=8)
+fig.colorbar(sdd_map, ax=axes[2], label="kgCO2e par unite expediee")
+plt.tight_layout()
+plt.savefig(IMG_DIR / "poc_sensitivity_volume_intensity.png", dpi=160)
 plt.close()
 
 # -----------------------------
@@ -950,11 +2094,11 @@ timeline_events = []
 for _, r in states.iterrows():
     week = int(r["week"])
     if r["backup_inbound"] > 0:
-        timeline_events.append((week, 1, "backup receipt"))
+        timeline_events.append((week, 1, "reception backup"))
     if r["backup_consumed_raw_units"] > 0:
-        timeline_events.append((week, 2, "backup use"))
+        timeline_events.append((week, 2, "usage backup"))
     if r["outbound_mode"] == "air":
-        timeline_events.append((week, 3, "air transport"))
+        timeline_events.append((week, 3, "transport aerien"))
     if r["scrap_units"] > 0:
         timeline_events.append((week, 4, "scrap"))
 
@@ -962,10 +2106,10 @@ plt.figure(figsize=(10, 4))
 for e in timeline_events:
     plt.scatter(e[0], e[1])
     plt.text(e[0], e[1] + 0.05, e[2], rotation=90, fontsize=8, ha="center")
-plt.yticks([1, 2, 3, 4], ["backup receipt", "backup use", "air transport", "scrap"])
-plt.xlabel("Week")
-plt.ylabel("Operational event")
-plt.title("Timeline of operational events triggering environmental impact")
+plt.yticks([1, 2, 3, 4], ["reception backup", "usage backup", "transport aerien", "scrap"])
+plt.xlabel("Semaine")
+plt.ylabel("Evenement operationnel")
+plt.title("Chronologie des evenements operationnels declenchant l'impact")
 plt.tight_layout()
 plt.savefig(IMG_DIR / "poc_event_timeline.png", dpi=160)
 plt.close()
@@ -974,17 +2118,17 @@ plt.close()
 # Supply chain schematic
 # -----------------------------
 nodes = {
-    "Main Supplier": (0, 2),
-    "Backup Supplier": (0, 0),
-    "Factory": (3, 1),
-    "Warehouse": (6, 1),
-    "Customer": (9, 1)
+    "Fournisseur principal": (0, 2),
+    "Fournisseur backup": (0, 0),
+    "Usine": (3, 1),
+    "Entrepot": (6, 1),
+    "Client": (9, 1)
 }
 edges = [
-    ("Main Supplier", "Factory"),
-    ("Backup Supplier", "Factory"),
-    ("Factory", "Warehouse"),
-    ("Warehouse", "Customer")
+    ("Fournisseur principal", "Usine"),
+    ("Fournisseur backup", "Usine"),
+    ("Usine", "Entrepot"),
+    ("Entrepot", "Client")
 ]
 
 plt.figure(figsize=(10, 3))
@@ -996,7 +2140,7 @@ for e in edges:
     x2, y2 = nodes[e[1]]
     plt.plot([x1, x2], [y1, y2])
 plt.axis("off")
-plt.title("Supply chain structure used in the State-Dependent LCA proof-of-concept")
+plt.title("Structure de supply chain utilisee dans le proof of concept state-dependent")
 plt.tight_layout()
 plt.savefig(IMG_DIR / "poc_supply_chain_schematic.png", dpi=160)
 plt.close()
