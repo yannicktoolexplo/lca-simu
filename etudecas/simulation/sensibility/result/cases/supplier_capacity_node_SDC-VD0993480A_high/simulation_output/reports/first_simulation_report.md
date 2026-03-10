@@ -36,26 +36,26 @@
 
 ## KPIs
 - Total demand: 1487.5
-- Total served: 1146.6524
-- Fill rate: 0.770859
-- Ending backlog: 340.8476
-- Total produced: 2614.8876
-- Total shipped: 46247.225
-- Avg inventory: 1046126.125
-- Ending inventory: 1034047.4117
-- Transport cost: 22350.3259
-- Holding cost: 1248851.1666
-- Purchase cost (from order_terms sell_price): 2744.108
-- Logistics cost (transport + holding): 1271201.4924
-- Total cost: 1273945.6005
-- Total external procured ordered qty: 42873.2405
+- Total served: 1187.1606
+- Fill rate: 0.798091
+- Ending backlog: 300.3394
+- Total produced: 2596.2439
+- Total shipped: 45029.283
+- Avg inventory: 1045179.4613
+- Ending inventory: 1032581.6915
+- Transport cost: 21781.0527
+- Holding cost: 1247711.9333
+- Purchase cost (from order_terms sell_price): 2721.1691
+- Logistics cost (transport + holding): 1269492.986
+- Total cost: 1272214.1551
+- Total external procured ordered qty: 42852.4779
 - Total external procured arrived qty: 42489.9504
-- Total external procured rejected qty (cap-limited): 18138.8782
-- Total external procurement cost premium: 3318.8968
-- Cost share holding / transport / purchase: 0.980302 / 0.017544 / 0.002154
+- Total external procured rejected qty (cap-limited): 18110.9066
+- Total external procurement cost premium: 3312.1861
+- Cost share holding / transport / purchase: 0.98074 / 0.017121 / 0.002139
 - Total opening stock bootstrap qty: 1060029.4897
 - Total unreliable supplier loss qty: 0.0
-- Total supplier capacity binding qty: 38759.8325
+- Total supplier capacity binding qty: 37911.3571
 - Economic consistency status: warn
 - Economic consistency warnings: ['holding_cost_share_above_90pct', 'transport_cost_share_below_2pct', 'purchase_cost_share_below_2pct']
 
@@ -63,13 +63,13 @@
 [
   {
     "node_id": "C-XXXXX",
-    "item_id": "item:268091",
+    "item_id": "item:268967",
     "backlog": 175.1697
   },
   {
     "node_id": "C-XXXXX",
-    "item_id": "item:268967",
-    "backlog": 165.6779
+    "item_id": "item:268091",
+    "backlog": 125.1697
   }
 ]
 

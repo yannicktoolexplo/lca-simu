@@ -1116,30 +1116,30 @@
   },
   "kpis": {
     "total_demand": 1487.5,
-    "total_served": 1082.8498,
-    "ending_backlog": 404.6502,
-    "fill_rate": 0.727966,
-    "total_shipped": 45873.0758,
-    "total_arrived": 14450.0333,
+    "total_served": 1091.538,
+    "ending_backlog": 395.962,
+    "fill_rate": 0.733807,
+    "total_shipped": 45927.7352,
+    "total_arrived": 18507.3273,
     "total_produced": 2610.2267,
-    "avg_inventory": 1046118.3954,
-    "ending_inventory": 1034584.9049,
-    "total_transport_cost": 22164.1914,
-    "total_holding_cost": 1248841.5413,
-    "total_purchase_cost": 2740.4462,
-    "total_logistics_cost": 1271005.7327,
-    "total_cost": 1273746.1789,
+    "avg_inventory": 1046372.4435,
+    "ending_inventory": 1038578.8513,
+    "total_transport_cost": 22203.5244,
+    "total_holding_cost": 1249155.0528,
+    "total_purchase_cost": 2743.0998,
+    "total_logistics_cost": 1271358.5772,
+    "total_cost": 1274101.677,
     "total_external_procured_ordered_qty": 42992.437,
     "total_external_procured_arrived_qty": 42604.5638,
-    "total_external_procured_rejected_qty": 18210.9838,
+    "total_external_procured_rejected_qty": 18190.3573,
     "total_external_procured_qty": 42992.437,
     "total_external_procurement_cost": 3325.4909,
     "total_opening_stock_bootstrap_qty": 1060029.4897,
     "total_unreliable_loss_qty": 0.0,
-    "total_supplier_capacity_binding_qty": 40065.3395,
-    "cost_share_holding": 0.980448,
-    "cost_share_transport": 0.017401,
-    "cost_share_purchase": 0.002151
+    "total_supplier_capacity_binding_qty": 39496.0663,
+    "cost_share_holding": 0.98042,
+    "cost_share_transport": 0.017427,
+    "cost_share_purchase": 0.002153
   },
   "economic_consistency": {
     "status": "warn",
@@ -1155,12 +1155,12 @@
     {
       "node_id": "C-XXXXX",
       "item_id": "item:268091",
-      "backlog": 223.2942
+      "backlog": 200.1697
     },
     {
       "node_id": "C-XXXXX",
       "item_id": "item:268967",
-      "backlog": 181.356
+      "backlog": 195.7923
     }
   ]
 }

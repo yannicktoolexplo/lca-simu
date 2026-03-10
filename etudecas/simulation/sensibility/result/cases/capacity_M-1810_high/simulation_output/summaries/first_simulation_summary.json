@@ -1125,30 +1125,30 @@
   },
   "kpis": {
     "total_demand": 1487.5,
-    "total_served": 1162.1741,
-    "ending_backlog": 325.3259,
-    "fill_rate": 0.781294,
-    "total_shipped": 46351.6757,
-    "total_arrived": 14739.5217,
-    "total_produced": 2647.416,
-    "avg_inventory": 1051497.5998,
-    "ending_inventory": 1039365.1488,
-    "total_transport_cost": 22358.6877,
-    "total_holding_cost": 1253740.0744,
-    "total_purchase_cost": 2838.6617,
-    "total_logistics_cost": 1276098.7621,
-    "total_cost": 1278937.4238,
-    "total_external_procured_ordered_qty": 43185.5684,
+    "total_served": 1165.6742,
+    "ending_backlog": 321.8258,
+    "fill_rate": 0.783646,
+    "total_shipped": 46076.2541,
+    "total_arrived": 10958.6336,
+    "total_produced": 2642.7551,
+    "avg_inventory": 1050489.0286,
+    "ending_inventory": 1036188.2372,
+    "total_transport_cost": 22236.3449,
+    "total_holding_cost": 1252521.9979,
+    "total_purchase_cost": 2825.7261,
+    "total_logistics_cost": 1274758.3428,
+    "total_cost": 1277584.0689,
+    "total_external_procured_ordered_qty": 43148.2809,
     "total_external_procured_arrived_qty": 42433.1756,
-    "total_external_procured_rejected_qty": 17611.9118,
-    "total_external_procured_qty": 43185.5684,
-    "total_external_procurement_cost": 3429.4403,
+    "total_external_procured_rejected_qty": 17572.4995,
+    "total_external_procured_qty": 43148.2809,
+    "total_external_procurement_cost": 3417.3886,
     "total_opening_stock_bootstrap_qty": 1065589.9032,
     "total_unreliable_loss_qty": 0.0,
-    "total_supplier_capacity_binding_qty": 39525.4547,
-    "cost_share_holding": 0.980298,
-    "cost_share_transport": 0.017482,
-    "cost_share_purchase": 0.00222
+    "total_supplier_capacity_binding_qty": 38387.4669,
+    "cost_share_holding": 0.980383,
+    "cost_share_transport": 0.017405,
+    "cost_share_purchase": 0.002212
   },
   "economic_consistency": {
     "status": "warn",
@@ -1169,7 +1169,7 @@
     {
       "node_id": "C-XXXXX",
       "item_id": "item:268091",
-      "backlog": 150.1562
+      "backlog": 146.6561
     }
   ]
 }

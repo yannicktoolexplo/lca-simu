@@ -36,26 +36,26 @@
 
 ## KPIs
 - Total demand: 1487.5
-- Total served: 41.1982
-- Fill rate: 0.027696
-- Ending backlog: 1446.3018
-- Total produced: 2368.3654
-- Total shipped: 12476.4901
-- Avg inventory: 1052617.3113
-- Ending inventory: 1048430.9216
-- Transport cost: 8402.7258
-- Holding cost: 1258998.4449
-- Purchase cost (from order_terms sell_price): 3601.5456
-- Logistics cost (transport + holding): 1267401.1707
-- Total cost: 1271002.7163
-- Total external procured ordered qty: 77308.6115
-- Total external procured arrived qty: 75559.8926
-- Total external procured rejected qty (cap-limited): 59819.6479
-- Total external procurement cost premium: 6167.8282
-- Cost share holding / transport / purchase: 0.990555 / 0.006611 / 0.002834
+- Total served: 40.8728
+- Fill rate: 0.027477
+- Ending backlog: 1446.6272
+- Total produced: 2370.2298
+- Total shipped: 12477.0371
+- Avg inventory: 1052619.0264
+- Ending inventory: 1048328.9645
+- Transport cost: 8408.8406
+- Holding cost: 1259011.5535
+- Purchase cost (from order_terms sell_price): 3608.7987
+- Logistics cost (transport + holding): 1267420.3941
+- Total cost: 1271029.1928
+- Total external procured ordered qty: 77428.3149
+- Total external procured arrived qty: 75444.506
+- Total external procured rejected qty (cap-limited): 59891.0936
+- Total external procurement cost premium: 6177.6366
+- Cost share holding / transport / purchase: 0.990545 / 0.006616 / 0.002839
 - Total opening stock bootstrap qty: 1060029.4897
-- Total unreliable supplier loss qty: 49905.9603
-- Total supplier capacity binding qty: 351445.4544
+- Total unreliable supplier loss qty: 49908.1486
+- Total supplier capacity binding qty: 351102.9334
 - Economic consistency status: warn
 - Economic consistency warnings: ['holding_cost_share_above_90pct', 'transport_cost_share_below_2pct', 'purchase_cost_share_below_2pct']
 
@@ -63,13 +63,13 @@
 [
   {
     "node_id": "C-XXXXX",
-    "item_id": "item:268967",
-    "backlog": 723.1627
+    "item_id": "item:268091",
+    "backlog": 723.5391
   },
   {
     "node_id": "C-XXXXX",
-    "item_id": "item:268091",
-    "backlog": 723.1391
+    "item_id": "item:268967",
+    "backlog": 723.0881
   }
 ]
 

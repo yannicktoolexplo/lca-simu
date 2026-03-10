@@ -1125,19 +1125,19 @@
   },
   "kpis": {
     "total_demand": 2912.5,
-    "total_served": 567.6732,
-    "ending_backlog": 2344.8268,
-    "fill_rate": 0.194909,
-    "total_shipped": 4262.5658,
-    "total_arrived": 3138.1359,
-    "total_produced": 1102.9485,
-    "avg_inventory": 515741.0371,
-    "ending_inventory": 512685.4024,
-    "total_transport_cost": 7579.6061,
-    "total_holding_cost": 1235813.108,
-    "total_purchase_cost": 9935.4824,
-    "total_logistics_cost": 1243392.7142,
-    "total_cost": 1253328.1965,
+    "total_served": 565.8088,
+    "ending_backlog": 2346.6912,
+    "fill_rate": 0.194269,
+    "total_shipped": 4257.749,
+    "total_arrived": 3085.5347,
+    "total_produced": 1098.2875,
+    "avg_inventory": 515755.7123,
+    "ending_inventory": 512971.5372,
+    "total_transport_cost": 7579.7303,
+    "total_holding_cost": 1235830.5044,
+    "total_purchase_cost": 9935.4337,
+    "total_logistics_cost": 1243410.2346,
+    "total_cost": 1253345.6683,
     "total_external_procured_ordered_qty": 0.0,
     "total_external_procured_arrived_qty": 0.0,
     "total_external_procured_rejected_qty": 0.0,
@@ -1169,7 +1169,7 @@
     {
       "node_id": "C-XXXXX",
       "item_id": "item:268967",
-      "backlog": 1160.8059
+      "backlog": 1162.6703
     }
   ]
 }

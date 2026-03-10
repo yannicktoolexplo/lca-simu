@@ -36,26 +36,26 @@
 
 ## KPIs
 - Total demand: 1487.5
-- Total served: 1176.3134
-- Fill rate: 0.790799
-- Ending backlog: 311.1866
-- Total produced: 2610.2267
-- Total shipped: 19032.7643
-- Avg inventory: 1053622.7246
-- Ending inventory: 1051651.4168
-- Transport cost: 11181.4166
-- Holding cost: 1257856.8592
-- Purchase cost (from order_terms sell_price): 3218.5416
-- Logistics cost (transport + holding): 1269038.2758
-- Total cost: 1272256.8174
-- Total external procured ordered qty: 80166.7991
-- Total external procured arrived qty: 77946.8577
-- Total external procured rejected qty (cap-limited): 47011.9422
-- Total external procurement cost premium: 5558.9639
-- Cost share holding / transport / purchase: 0.988682 / 0.008789 / 0.00253
+- Total served: 1146.651
+- Fill rate: 0.770858
+- Ending backlog: 340.849
+- Total produced: 2614.8876
+- Total shipped: 19029.2459
+- Avg inventory: 1053349.5697
+- Ending inventory: 1049329.1754
+- Transport cost: 11130.3618
+- Holding cost: 1257504.5308
+- Purchase cost (from order_terms sell_price): 3197.2182
+- Logistics cost (transport + holding): 1268634.8926
+- Total cost: 1271832.1108
+- Total external procured ordered qty: 79032.3875
+- Total external procured arrived qty: 77103.0177
+- Total external procured rejected qty (cap-limited): 46693.3088
+- Total external procurement cost premium: 5488.4456
+- Cost share holding / transport / purchase: 0.988735 / 0.008751 / 0.002514
 - Total opening stock bootstrap qty: 1060029.4897
 - Total unreliable supplier loss qty: 38679.222
-- Total supplier capacity binding qty: 356882.4126
+- Total supplier capacity binding qty: 356038.5726
 - Economic consistency status: warn
 - Economic consistency warnings: ['holding_cost_share_above_90pct', 'transport_cost_share_below_2pct', 'purchase_cost_share_below_2pct']
 
@@ -63,13 +63,13 @@
 [
   {
     "node_id": "C-XXXXX",
-    "item_id": "item:268967",
-    "backlog": 186.0169
+    "item_id": "item:268091",
+    "backlog": 175.1697
   },
   {
     "node_id": "C-XXXXX",
-    "item_id": "item:268091",
-    "backlog": 125.1697
+    "item_id": "item:268967",
+    "backlog": 165.6794
   }
 ]
 
