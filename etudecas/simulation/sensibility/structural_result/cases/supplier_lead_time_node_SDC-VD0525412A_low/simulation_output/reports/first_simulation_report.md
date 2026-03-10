@@ -36,25 +36,26 @@
 
 ## KPIs
 - Total demand: 2912.5
-- Total served: 1597.7393
-- Fill rate: 0.54858
-- Ending backlog: 1314.7607
+- Total served: 1610.1245
+- Fill rate: 0.552832
+- Ending backlog: 1302.3755
 - Total produced: 4285.8956
-- Total shipped: 11222.3372
-- Avg inventory: 510107.8908
-- Ending inventory: 497690.9627
-- Transport cost: 9871.1161
-- Holding cost: 1219537.9807
-- Purchase cost (from order_terms sell_price): 10125.4323
-- Logistics cost (transport + holding): 1229409.0968
-- Total cost: 1239534.5291
+- Total shipped: 11217.6763
+- Avg inventory: 509829.6719
+- Ending inventory: 497398.5027
+- Transport cost: 9867.8735
+- Holding cost: 1218830.9587
+- Purchase cost (from order_terms sell_price): 10125.3857
+- Logistics cost (transport + holding): 1228698.8322
+- Total cost: 1238824.2179
 - Total external procured ordered qty: 0.0
 - Total external procured arrived qty: 0.0
 - Total external procured rejected qty (cap-limited): 0.0
 - Total external procurement cost premium: 0.0
-- Cost share holding / transport / purchase: 0.983868 / 0.007964 / 0.008169
+- Cost share holding / transport / purchase: 0.983861 / 0.007966 / 0.008173
 - Total opening stock bootstrap qty: 529237.2449
 - Total unreliable supplier loss qty: 0.0
+- Total supplier capacity binding qty: 2223.578
 - Economic consistency status: warn
 - Economic consistency warnings: ['holding_cost_share_above_90pct', 'transport_cost_share_below_2pct', 'purchase_cost_share_below_2pct']
 
@@ -63,12 +64,12 @@
   {
     "node_id": "C-XXXXX",
     "item_id": "item:268967",
-    "backlog": 997.6732
+    "backlog": 983.6904
   },
   {
     "node_id": "C-XXXXX",
     "item_id": "item:268091",
-    "backlog": 317.0874
+    "backlog": 318.6851
   }
 ]
 
@@ -85,6 +86,7 @@
 - data/production_constraint_daily.csv
 - data/production_supplier_shipments_daily.csv
 - data/production_supplier_stocks_daily.csv
+- data/production_supplier_capacity_daily.csv
 - data/production_dc_stocks_daily.csv
 - production_input_stocks_by_material_*.png (not generated)
 - production_output_products.png (not generated)

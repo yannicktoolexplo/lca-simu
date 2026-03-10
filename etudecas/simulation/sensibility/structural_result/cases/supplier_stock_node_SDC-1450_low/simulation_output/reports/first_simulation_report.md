@@ -36,25 +36,26 @@
 
 ## KPIs
 - Total demand: 2912.5
-- Total served: 694.7582
-- Fill rate: 0.238544
-- Ending backlog: 2217.7418
-- Total produced: 1226.3048
-- Total shipped: 4518.2705
-- Avg inventory: 515749.824
-- Ending inventory: 512740.1359
-- Transport cost: 7692.4054
-- Holding cost: 1235699.5762
-- Purchase cost (from order_terms sell_price): 9951.9815
-- Logistics cost (transport + holding): 1243391.9816
-- Total cost: 1253343.9631
+- Total served: 695.6904
+- Fill rate: 0.238864
+- Ending backlog: 2216.8096
+- Total produced: 1227.237
+- Total shipped: 4521.0982
+- Avg inventory: 515569.9459
+- Ending inventory: 512605.9673
+- Transport cost: 7694.2334
+- Holding cost: 1235273.3386
+- Purchase cost (from order_terms sell_price): 9952.1137
+- Logistics cost (transport + holding): 1242967.572
+- Total cost: 1252919.6857
 - Total external procured ordered qty: 0.0
 - Total external procured arrived qty: 0.0
 - Total external procured rejected qty (cap-limited): 0.0
 - Total external procurement cost premium: 0.0
-- Cost share holding / transport / purchase: 0.985922 / 0.006138 / 0.00794
+- Cost share holding / transport / purchase: 0.985916 / 0.006141 / 0.007943
 - Total opening stock bootstrap qty: 530068.7449
 - Total unreliable supplier loss qty: 0.0
+- Total supplier capacity binding qty: 1895.6974
 - Economic consistency status: warn
 - Economic consistency warnings: ['holding_cost_share_above_90pct', 'transport_cost_share_below_2pct', 'purchase_cost_share_below_2pct']
 
@@ -63,7 +64,7 @@
   {
     "node_id": "C-XXXXX",
     "item_id": "item:268967",
-    "backlog": 1161.7381
+    "backlog": 1160.8059
   },
   {
     "node_id": "C-XXXXX",
@@ -85,6 +86,7 @@
 - data/production_constraint_daily.csv
 - data/production_supplier_shipments_daily.csv
 - data/production_supplier_stocks_daily.csv
+- data/production_supplier_capacity_daily.csv
 - data/production_dc_stocks_daily.csv
 - production_input_stocks_by_material_*.png (not generated)
 - production_output_products.png (not generated)

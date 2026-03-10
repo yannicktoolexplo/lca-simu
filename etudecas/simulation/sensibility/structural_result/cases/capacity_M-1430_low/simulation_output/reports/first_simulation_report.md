@@ -36,25 +36,26 @@
 
 ## KPIs
 - Total demand: 2912.5
-- Total served: 1242.1456
-- Fill rate: 0.426488
-- Ending backlog: 1670.3544
+- Total served: 1218.3956
+- Fill rate: 0.418333
+- Ending backlog: 1694.1044
 - Total produced: 2719.1413
 - Total shipped: 8918.6907
-- Avg inventory: 500795.5823
-- Ending inventory: 498243.6111
+- Avg inventory: 500758.6403
+- Ending inventory: 498038.0035
 - Transport cost: 8670.719
-- Holding cost: 1196157.2327
+- Holding cost: 1195974.3156
 - Purchase cost (from order_terms sell_price): 9815.5866
-- Logistics cost (transport + holding): 1204827.9517
-- Total cost: 1214643.5383
+- Logistics cost (transport + holding): 1204645.0346
+- Total cost: 1214460.6212
 - Total external procured ordered qty: 0.0
 - Total external procured arrived qty: 0.0
 - Total external procured rejected qty (cap-limited): 0.0
 - Total external procurement cost premium: 0.0
-- Cost share holding / transport / purchase: 0.98478 / 0.007138 / 0.008081
+- Cost share holding / transport / purchase: 0.984778 / 0.00714 / 0.008082
 - Total opening stock bootstrap qty: 501819.5957
 - Total unreliable supplier loss qty: 0.0
+- Total supplier capacity binding qty: 1957.4947
 - Economic consistency status: warn
 - Economic consistency warnings: ['holding_cost_share_above_90pct', 'transport_cost_share_below_2pct', 'purchase_cost_share_below_2pct']
 
@@ -68,7 +69,7 @@
   {
     "node_id": "C-XXXXX",
     "item_id": "item:268091",
-    "backlog": 317.0874
+    "backlog": 340.8374
   }
 ]
 
@@ -85,6 +86,7 @@
 - data/production_constraint_daily.csv
 - data/production_supplier_shipments_daily.csv
 - data/production_supplier_stocks_daily.csv
+- data/production_supplier_capacity_daily.csv
 - data/production_dc_stocks_daily.csv
 - production_input_stocks_by_material_*.png (not generated)
 - production_output_products.png (not generated)

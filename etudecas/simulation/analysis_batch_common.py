@@ -85,6 +85,7 @@ def apply_scales(
     demand_item_scale: dict[str, float] | None = None,
     capacity_node_scale: dict[str, float] | None = None,
     supplier_node_scale: dict[str, float] | None = None,
+    supplier_capacity_node_scale: dict[str, float] | None = None,
     edge_src_lead_time_scale: dict[str, float] | None = None,
     edge_src_reliability_scale: dict[str, float] | None = None,
 ) -> dict[str, Any]:
@@ -92,6 +93,7 @@ def apply_scales(
     demand_item_scale = demand_item_scale or {}
     capacity_node_scale = capacity_node_scale or {}
     supplier_node_scale = supplier_node_scale or {}
+    supplier_capacity_node_scale = supplier_capacity_node_scale or {}
     edge_src_lead_time_scale = edge_src_lead_time_scale or {}
     edge_src_reliability_scale = edge_src_reliability_scale or {}
     production_nodes = set(detect_production_nodes(data))
@@ -102,6 +104,7 @@ def apply_scales(
     supplier_stock_scale = to_float(factors.get("supplier_stock_scale", 1.0), 1.0)
     production_stock_scale = to_float(factors.get("production_stock_scale", 1.0), 1.0)
     capacity_global_scale = to_float(factors.get("capacity_scale", 1.0), 1.0)
+    supplier_capacity_global_scale = to_float(factors.get("supplier_capacity_scale", 1.0), 1.0)
     safety_stock_days_scale = to_float(factors.get("safety_stock_days_scale", 1.0), 1.0)
     review_period_scale = to_float(factors.get("review_period_scale", 1.0), 1.0)
     supplier_reliability_scale = to_float(factors.get("supplier_reliability_scale", 1.0), 1.0)
@@ -136,6 +139,7 @@ def apply_scales(
             supplier_stock_scale,
             production_stock_scale,
             capacity_global_scale,
+            supplier_capacity_global_scale,
             safety_stock_days_scale,
             review_period_scale,
             supplier_reliability_scale,
@@ -153,6 +157,8 @@ def apply_scales(
         raise ValueError("All factors must be strictly positive.")
     if any(v <= 0 for v in supplier_node_scale.values()):
         raise ValueError("All supplier_node_scale values must be strictly positive.")
+    if any(v <= 0 for v in supplier_capacity_node_scale.values()):
+        raise ValueError("All supplier_capacity_node_scale values must be strictly positive.")
     if any(v <= 0 for v in edge_src_lead_time_scale.values()):
         raise ValueError("All edge_src_lead_time_scale values must be strictly positive.")
     if any(v <= 0 for v in edge_src_reliability_scale.values()):
@@ -248,6 +254,17 @@ def apply_scales(
         inv_factor = production_stock_scale if node_id in production_nodes else supplier_stock_scale
         if node_type == "supplier_dc":
             inv_factor *= to_float(supplier_node_scale.get(node_id, 1.0), 1.0)
+            sim_constraints = n.get("simulation_constraints") or {}
+            sim_constraints["supplier_capacity_scale"] = round(
+                max(
+                    0.01,
+                    to_float(sim_constraints.get("supplier_capacity_scale"), 1.0)
+                    * supplier_capacity_global_scale
+                    * to_float(supplier_capacity_node_scale.get(node_id, 1.0), 1.0),
+                ),
+                6,
+            )
+            n["simulation_constraints"] = sim_constraints
         for st in states:
             if "initial" in st:
                 st["initial"] = round(max(0.0, to_float(st.get("initial"), 0.0) * inv_factor), 6)

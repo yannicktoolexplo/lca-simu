@@ -36,25 +36,26 @@
 
 ## KPIs
 - Total demand: 2912.5
-- Total served: 1597.7393
-- Fill rate: 0.54858
-- Ending backlog: 1314.7607
-- Total produced: 4285.8956
-- Total shipped: 11222.3372
-- Avg inventory: 510723.6093
-- Ending inventory: 498166.3673
-- Transport cost: 9871.1161
-- Holding cost: 1221015.7052
-- Purchase cost (from order_terms sell_price): 10125.4323
-- Logistics cost (transport + holding): 1230886.8213
-- Total cost: 1241012.2536
+- Total served: 1611.7221
+- Fill rate: 0.553381
+- Ending backlog: 1300.7779
+- Total produced: 4274.1159
+- Total shipped: 11200.8419
+- Avg inventory: 510739.3317
+- Ending inventory: 498678.2109
+- Transport cost: 9857.9213
+- Holding cost: 1221003.8198
+- Purchase cost (from order_terms sell_price): 10123.9037
+- Logistics cost (transport + holding): 1230861.7411
+- Total cost: 1240985.6448
 - Total external procured ordered qty: 0.0
 - Total external procured arrived qty: 0.0
 - Total external procured rejected qty (cap-limited): 0.0
 - Total external procurement cost premium: 0.0
-- Cost share holding / transport / purchase: 0.983887 / 0.007954 / 0.008159
+- Cost share holding / transport / purchase: 0.983898 / 0.007944 / 0.008158
 - Total opening stock bootstrap qty: 529924.7449
-- Total unreliable supplier loss qty: 32.0955
+- Total unreliable supplier loss qty: 31.7185
+- Total supplier capacity binding qty: 2401.7599
 - Economic consistency status: warn
 - Economic consistency warnings: ['holding_cost_share_above_90pct', 'transport_cost_share_below_2pct', 'purchase_cost_share_below_2pct']
 
@@ -63,7 +64,7 @@
   {
     "node_id": "C-XXXXX",
     "item_id": "item:268967",
-    "backlog": 997.6732
+    "backlog": 983.6904
   },
   {
     "node_id": "C-XXXXX",
@@ -85,6 +86,7 @@
 - data/production_constraint_daily.csv
 - data/production_supplier_shipments_daily.csv
 - data/production_supplier_stocks_daily.csv
+- data/production_supplier_capacity_daily.csv
 - data/production_dc_stocks_daily.csv
 - production_input_stocks_by_material_*.png (not generated)
 - production_output_products.png (not generated)

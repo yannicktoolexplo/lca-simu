@@ -36,25 +36,26 @@
 
 ## KPIs
 - Total demand: 2082.5
-- Total served: 1173.4112
-- Fill rate: 0.563463
-- Ending backlog: 909.0888
-- Total produced: 2649.7862
-- Total shipped: 46285.3225
-- Avg inventory: 1045585.3445
-- Ending inventory: 1035716.4723
-- Transport cost: 22322.2139
-- Holding cost: 1248320.5199
-- Purchase cost (from order_terms sell_price): 2792.4533
-- Logistics cost (transport + holding): 1270642.7338
-- Total cost: 1273435.1871
-- Total external procured ordered qty: 42942.8503
+- Total served: 1202.9022
+- Fill rate: 0.577624
+- Ending backlog: 879.5978
+- Total produced: 2659.1081
+- Total shipped: 46831.3792
+- Avg inventory: 1045857.7359
+- Ending inventory: 1033225.8728
+- Transport cost: 22564.5305
+- Holding cost: 1248643.1577
+- Purchase cost (from order_terms sell_price): 2802.7755
+- Logistics cost (transport + holding): 1271207.6882
+- Total cost: 1274010.4637
+- Total external procured ordered qty: 42980.1377
 - Total external procured arrived qty: 42589.3751
-- Total external procured rejected qty (cap-limited): 18182.1558
-- Total external procurement cost premium: 3344.4712
-- Cost share holding / transport / purchase: 0.980278 / 0.017529 / 0.002193
+- Total external procured rejected qty (cap-limited): 18212.2403
+- Total external procurement cost premium: 3356.5229
+- Cost share holding / transport / purchase: 0.980089 / 0.017711 / 0.0022
 - Total opening stock bootstrap qty: 1060029.4897
 - Total unreliable supplier loss qty: 0.0
+- Total supplier capacity binding qty: 40143.5827
 - Economic consistency status: warn
 - Economic consistency warnings: ['holding_cost_share_above_90pct', 'transport_cost_share_below_2pct', 'purchase_cost_share_below_2pct']
 
@@ -63,12 +64,12 @@
   {
     "node_id": "C-XXXXX",
     "item_id": "item:268091",
-    "backlog": 738.75
+    "backlog": 713.75
   },
   {
     "node_id": "C-XXXXX",
     "item_id": "item:268967",
-    "backlog": 170.3388
+    "backlog": 165.8478
   }
 ]
 
@@ -85,6 +86,7 @@
 - data/production_constraint_daily.csv
 - data/production_supplier_shipments_daily.csv
 - data/production_supplier_stocks_daily.csv
+- data/production_supplier_capacity_daily.csv
 - data/production_dc_stocks_daily.csv
 - production_input_stocks_by_material_*.png (not generated)
 - production_output_products.png (not generated)
