@@ -30,30 +30,30 @@ IMG_DIR.mkdir(parents=True, exist_ok=True)
 # -----------------------------
 weeks = list(range(1, 21))
 
-# Demand signal
-demand = [10, 11, 12, 10, 11, 12, 13, 14, 15, 13, 12, 11, 10, 11, 12, 13, 12, 11, 10, 9]
+# Demand signal for the main POC:
+# low demand first, then a late surge that is served partly from prebuilt stock.
+demand = [3, 3, 3, 3, 3, 3, 3, 3, 20, 20, 20, 20, 20, 20, 20, 20, 6, 6, 6, 6]
 
-# Time-varying electricity carbon intensity (kgCO2e/kWh)
-grid_factor = [0.42, 0.38, 0.35, 0.40, 0.45, 0.48, 0.52, 0.56, 0.60, 0.58,
-               0.50, 0.44, 0.36, 0.30, 0.28, 0.32, 0.34, 0.36, 0.40, 0.38]
-
-# Capacity disruption
-base_capacity = 12
-capacity = [base_capacity] * 20
-for i in [7, 8, 9]:   # weeks 8-10
-    capacity[i] = 7
-for i in [10, 11]:    # weeks 11-12
-    capacity[i] = 10
-
-# Dedicated scenario to make Dynamic LCA visibly differ from Classical LCA:
-# production is front-loaded during carbon-intensive weeks, while demand peaks later.
-dynamic_shift_demand = [3, 3, 3, 3, 3, 3, 3, 3, 20, 20, 20, 20, 20, 20, 20, 20, 6, 6, 6, 6]
-dynamic_shift_grid_factor = [
-    0.95, 0.92, 0.90, 0.88, 0.86, 0.84, 0.82, 0.80,
+# Time-varying electricity carbon intensity (kgCO2e/kWh):
+# carbon-intensive early weeks, then much cleaner weeks later.
+grid_factor = [
+    1.10, 1.05, 1.00, 0.95, 0.90, 0.85, 0.80, 0.75,
     0.12, 0.10, 0.10, 0.12, 0.14, 0.16, 0.18, 0.20,
     0.22, 0.24, 0.26, 0.28,
 ]
-dynamic_shift_capacity = [48] * 8 + [6] * 12
+
+# Capacity profile for the main POC:
+# high early capacity to build stock, then a degraded regime.
+capacity = [52] * 8 + [4] * 8 + [8] * 4
+nominal_capacity = max(capacity)
+
+# Dedicated scenario to make Dynamic LCA visibly differ from Classical LCA,
+# then let SDD add state-dependent effects on top of that:
+# production is front-loaded during carbon-intensive weeks, demand peaks later,
+# and a degraded-capacity phase then triggers backlog, backup sourcing and air shipments.
+dynamic_shift_demand = demand.copy()
+dynamic_shift_grid_factor = grid_factor.copy()
+dynamic_shift_capacity = capacity.copy()
 
 # Environmental factors
 MAIN_MATERIAL_EF = 20.0
@@ -114,17 +114,23 @@ class DecisionPolicy:
 BASELINE_POLICY = DecisionPolicy(
     name="baseline",
     label="Reference",
+    raw_target=170.0,
+    raw_reorder_threshold=85.0,
+    fg_target=72.0,
+    backup_order_qty=10.0,
+    air_backlog_start_threshold=4.0,
+    air_backlog_end_threshold=7.0,
 )
 
 DYNAMIC_SHIFT_POLICY = DecisionPolicy(
     name="dynamic_shift",
-    label="Decalage production-demande",
-    raw_target=140.0,
-    raw_reorder_threshold=70.0,
-    fg_target=48.0,
-    backup_order_qty=0.0,
-    air_backlog_start_threshold=100.0,
-    air_backlog_end_threshold=120.0,
+    label="Decalage temporel + regime degrade",
+    raw_target=170.0,
+    raw_reorder_threshold=85.0,
+    fg_target=72.0,
+    backup_order_qty=10.0,
+    air_backlog_start_threshold=4.0,
+    air_backlog_end_threshold=7.0,
 )
 
 COUNTERFACTUAL_POLICIES = [
@@ -869,7 +875,7 @@ def find_decision_reversal(search_results: list[dict]) -> tuple[pd.DataFrame, fl
 
 def build_capacity_variant(severity: float) -> list[float]:
     variant = []
-    for base_cap_value, original_cap in zip([base_capacity] * len(capacity), capacity):
+    for base_cap_value, original_cap in zip([nominal_capacity] * len(capacity), capacity):
         reduction = base_cap_value - original_cap
         adjusted = base_cap_value - severity * reduction
         variant.append(max(3.0, round(adjusted, 2)))
@@ -1196,7 +1202,7 @@ policy_pareto = compute_pareto_front(
 search_policies = build_search_policies()
 search_results = [evaluate_policy(policy) for policy in search_policies]
 search_summary = pd.DataFrame([result["summary"] for result in search_results])
-decision_reversal_pairs, decision_reversal_service_floor = find_decision_reversal(search_results)
+decision_reversal_pairs, _decision_reversal_service_floor = find_decision_reversal(search_results)
 sensitivity_hidden_carbon = run_hidden_carbon_sensitivity(BASELINE_POLICY)
 network_lane_states = build_two_customer_network(states)
 
@@ -2089,80 +2095,6 @@ for ax, carbon_col, flag_col, title in [
 plt.tight_layout()
 plt.savefig(IMG_DIR / "poc_policy_pareto_frontier.png", dpi=160)
 plt.close()
-
-if not decision_reversal_pairs.empty:
-    reversal = decision_reversal_pairs.iloc[0]
-    reversal_subset = search_summary.loc[
-        search_summary["policy_label"].isin([reversal["policy_a"], reversal["policy_b"]]),
-        ["policy_label", "dynamic_total_kgCO2e", "sddlca_total_kgCO2e", "same_week_service_pct"],
-    ].set_index("policy_label")
-    policy_a = str(reversal["policy_a"])
-    policy_b = str(reversal["policy_b"])
-    dynamic_a = float(reversal_subset.loc[policy_a, "dynamic_total_kgCO2e"])
-    dynamic_b = float(reversal_subset.loc[policy_b, "dynamic_total_kgCO2e"])
-    sdd_a = float(reversal_subset.loc[policy_a, "sddlca_total_kgCO2e"])
-    sdd_b = float(reversal_subset.loc[policy_b, "sddlca_total_kgCO2e"])
-    fig, ax = plt.subplots(figsize=(10.4, 5.8))
-    y_positions = {"LCA dynamique": 1.0, "SDD": 0.0}
-    palette = {policy_a: "#3182bd", policy_b: "#e6550d"}
-
-    for method_label, value_a, value_b in [
-        ("LCA dynamique", dynamic_a, dynamic_b),
-        ("SDD", sdd_a, sdd_b),
-    ]:
-        y = y_positions[method_label]
-        ax.plot([value_a, value_b], [y, y], color="0.7", linewidth=2)
-        ax.scatter(value_a, y, s=90, color=palette[policy_a], zorder=3)
-        ax.scatter(value_b, y, s=90, color=palette[policy_b], zorder=3)
-        preferred_policy = policy_a if value_a < value_b else policy_b
-        ax.text(
-            min(value_a, value_b) - 115,
-            y + 0.08,
-            f"{method_label} prefere {'A' if preferred_policy == policy_a else 'B'}",
-            fontsize=9,
-        )
-
-    ax.set_yticks([y_positions["LCA dynamique"], y_positions["SDD"]])
-    ax.set_yticklabels(["LCA dynamique", "SDD"])
-    ax.set_xlabel("Impact total (kgCO2e)")
-    ax.set_title(f"Inversion de decision au-dessus de {decision_reversal_service_floor:.0f}% de service")
-    ax.grid(axis="x", alpha=0.2)
-
-    service_a = float(reversal_subset.loc[policy_a, "same_week_service_pct"])
-    service_b = float(reversal_subset.loc[policy_b, "same_week_service_pct"])
-    ax.text(
-        0.02,
-        -0.18,
-        f"A = {policy_a}  | service {service_a:.1f}%",
-        transform=ax.transAxes,
-        fontsize=8,
-        color=palette[policy_a],
-    )
-    ax.text(
-        0.02,
-        -0.28,
-        f"B = {policy_b}  | service {service_b:.1f}%",
-        transform=ax.transAxes,
-        fontsize=8,
-        color=palette[policy_b],
-    )
-    plt.tight_layout()
-    plt.savefig(IMG_DIR / "poc_decision_reversal.png", dpi=160)
-    plt.close()
-else:
-    plt.figure(figsize=(8.2, 4.6))
-    plt.axis("off")
-    plt.text(
-        0.5,
-        0.5,
-        "Aucune inversion de decision\ntrouvee pour l'ensemble de politiques explore.",
-        ha="center",
-        va="center",
-        fontsize=12,
-    )
-    plt.tight_layout()
-    plt.savefig(IMG_DIR / "poc_decision_reversal.png", dpi=160)
-    plt.close()
 
 fig, axes = plt.subplots(1, 2, figsize=(12, 4.8))
 axes[0].plot(network_lane_states["week"], network_lane_states["core_backlog_end"], marker="o", label="Backlog coeur")

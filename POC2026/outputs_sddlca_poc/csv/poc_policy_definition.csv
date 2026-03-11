@@ -1,5 +1,5 @@
 policy_name,policy_label,raw_target,raw_reorder_threshold,fg_target,backup_order_qty,air_backlog_start_threshold,air_backlog_end_threshold,carbon_aware_grid_threshold,carbon_aware_backlog_guard,carbon_aware_capacity_cap
-baseline,Reference,24.0,14.0,0.0,12.0,4.0,6.0,,0.0,1.0
+baseline,Reference,170.0,85.0,72.0,10.0,4.0,7.0,,0.0,1.0
 backup_early,Backup anticipe,24.0,18.0,0.0,14.0,4.0,6.0,,0.0,1.0
 inventory_buffer,Stock tampon,32.0,18.0,0.0,12.0,4.0,6.0,,0.0,1.0
 low_carbon,Discipline carbone,24.0,14.0,0.0,12.0,12.0,18.0,0.5,4.0,0.6
