@@ -1,6 +1,6 @@
 policy_name,policy_label,same_week_service_pct,fill_rate_pct,final_backlog_units,peak_backlog_units,total_cost,classical_total_kgCO2e,dynamic_total_kgCO2e,sddlca_total_kgCO2e,hidden_carbon_vs_dynamic,hidden_carbon_vs_classical
-baseline,Reference,66.42,66.85,76.9,77.9,22519.55,3693.54,3696.37,4903.68,1207.3,1210.14
-backup_early,Backup anticipe,74.7,75.82,56.1,58.7,22805.28,4234.3,4226.06,6112.89,1886.83,1878.59
-inventory_buffer,Stock tampon,73.49,73.49,61.5,61.5,21404.28,4093.05,4084.45,5086.71,1002.27,993.66
-low_carbon,Discipline carbone,66.16,66.16,78.5,78.5,22313.34,3651.96,3655.57,4729.26,1073.68,1077.3
-service_first,Service prioritaire,73.49,73.49,61.5,61.5,21566.28,4093.05,4084.45,5160.51,1076.07,1067.46
+baseline,Reference,71.54,73.85,54.4,59.2,17253.61,3822.76,4032.22,4713.96,681.74,891.2
+backup_early,Backup anticipe,42.69,44.42,115.6,117.2,22840.78,2109.06,2071.31,2687.07,615.76,578.01
+inventory_buffer,Stock tampon,43.65,45.96,112.4,117.2,22923.15,2196.71,2153.44,2789.26,635.82,592.55
+low_carbon,Discipline carbone,41.73,42.88,118.8,118.8,22554.07,2024.25,1991.52,2520.85,529.33,496.6
+service_first,Service prioritaire,43.65,45.96,112.4,117.2,22923.15,2196.71,2153.44,2789.26,635.82,592.55
