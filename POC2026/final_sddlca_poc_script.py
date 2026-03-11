@@ -45,6 +45,16 @@ for i in [7, 8, 9]:   # weeks 8-10
 for i in [10, 11]:    # weeks 11-12
     capacity[i] = 10
 
+# Dedicated scenario to make Dynamic LCA visibly differ from Classical LCA:
+# production is front-loaded during carbon-intensive weeks, while demand peaks later.
+dynamic_shift_demand = [3, 3, 3, 3, 3, 3, 3, 3, 20, 20, 20, 20, 20, 20, 20, 20, 6, 6, 6, 6]
+dynamic_shift_grid_factor = [
+    0.95, 0.92, 0.90, 0.88, 0.86, 0.84, 0.82, 0.80,
+    0.12, 0.10, 0.10, 0.12, 0.14, 0.16, 0.18, 0.20,
+    0.22, 0.24, 0.26, 0.28,
+]
+dynamic_shift_capacity = [48] * 8 + [6] * 12
+
 # Environmental factors
 MAIN_MATERIAL_EF = 20.0
 BACKUP_MATERIAL_EF = 24.0
@@ -92,6 +102,7 @@ class DecisionPolicy:
     label: str
     raw_target: float = 24.0
     raw_reorder_threshold: float = 14.0
+    fg_target: float = 0.0
     backup_order_qty: float = 12.0
     air_backlog_start_threshold: float = 4.0
     air_backlog_end_threshold: float = 6.0
@@ -103,6 +114,17 @@ class DecisionPolicy:
 BASELINE_POLICY = DecisionPolicy(
     name="baseline",
     label="Reference",
+)
+
+DYNAMIC_SHIFT_POLICY = DecisionPolicy(
+    name="dynamic_shift",
+    label="Decalage production-demande",
+    raw_target=140.0,
+    raw_reorder_threshold=70.0,
+    fg_target=48.0,
+    backup_order_qty=0.0,
+    air_backlog_start_threshold=100.0,
+    air_backlog_end_threshold=120.0,
 )
 
 COUNTERFACTUAL_POLICIES = [
@@ -312,7 +334,9 @@ def state_transition(
 
     backlog_start = next_state.backlog
     service_pressure = demand_t + backlog_start
-    planned_input = min(capacity_t, raw_stock_start, service_pressure)
+    fg_stock_start = inventory_total(next_state.fg_inventory)
+    fg_replenishment_need = max(0.0, policy.fg_target - fg_stock_start)
+    planned_input = min(capacity_t, raw_stock_start, service_pressure + fg_replenishment_need)
     carbon_aware_active = False
     if (
         policy.carbon_aware_grid_threshold is not None
@@ -970,6 +994,12 @@ def build_two_customer_network(states: pd.DataFrame) -> pd.DataFrame:
 # Natural supply chain dynamics
 # -----------------------------
 baseline_result = evaluate_policy(BASELINE_POLICY)
+dynamic_shift_result = evaluate_policy(
+    DYNAMIC_SHIFT_POLICY,
+    demand_series=dynamic_shift_demand,
+    capacity_series=dynamic_shift_capacity,
+    grid_series=dynamic_shift_grid_factor,
+)
 
 states = baseline_result["states"]
 state_trajectory = baseline_result["state_trajectory"]
@@ -984,6 +1014,19 @@ events = baseline_result["events"]
 traceability = baseline_result["traceability"]
 metrics = baseline_result["metrics"]
 weekly_costs = baseline_result["weekly_costs"]
+dynamic_shift_states = dynamic_shift_result["states"]
+dynamic_shift_comparison = dynamic_shift_result["comparison"]
+dynamic_shift_metrics = dynamic_shift_result["metrics"]
+dynamic_shift_summary = pd.DataFrame([dynamic_shift_result["summary"]])
+dynamic_shift_cumulative = pd.DataFrame({
+    "week": dynamic_shift_states["week"],
+    "classical_weekly_kgCO2e": dynamic_shift_states["classical_weekly_total"],
+    "dynamic_weekly_kgCO2e": dynamic_shift_result["dynamic"]["total"],
+    "sdd_weekly_kgCO2e": dynamic_shift_result["sddlca"]["total"],
+})
+dynamic_shift_cumulative["classical_cumulative_kgCO2e"] = dynamic_shift_cumulative["classical_weekly_kgCO2e"].cumsum()
+dynamic_shift_cumulative["dynamic_cumulative_kgCO2e"] = dynamic_shift_cumulative["dynamic_weekly_kgCO2e"].cumsum()
+dynamic_shift_cumulative["sdd_cumulative_kgCO2e"] = dynamic_shift_cumulative["sdd_weekly_kgCO2e"].cumsum()
 method_cumulative = pd.DataFrame({
     "week": states["week"],
     "classical_weekly_kgCO2e": states["classical_weekly_total"],
@@ -1087,6 +1130,7 @@ policy_definition = pd.DataFrame([
         "policy_label": policy.label,
         "raw_target": policy.raw_target,
         "raw_reorder_threshold": policy.raw_reorder_threshold,
+        "fg_target": policy.fg_target,
         "backup_order_qty": policy.backup_order_qty,
         "air_backlog_start_threshold": policy.air_backlog_start_threshold,
         "air_backlog_end_threshold": policy.air_backlog_end_threshold,
@@ -1172,6 +1216,11 @@ metrics.to_csv(CSV_DIR / "poc_key_metrics.csv", index=False)
 weekly_costs.to_csv(CSV_DIR / "poc_weekly_costs.csv", index=False)
 method_cumulative.to_csv(CSV_DIR / "poc_method_cumulative_comparison.csv", index=False)
 baseline_gap_drivers.to_csv(CSV_DIR / "poc_sdd_gap_drivers.csv", index=False)
+dynamic_shift_states.to_csv(CSV_DIR / "poc_dynamic_shift_states.csv", index=False)
+dynamic_shift_comparison.to_csv(CSV_DIR / "poc_dynamic_shift_method_comparison.csv", index=False)
+dynamic_shift_metrics.to_csv(CSV_DIR / "poc_dynamic_shift_metrics.csv", index=False)
+dynamic_shift_summary.to_csv(CSV_DIR / "poc_dynamic_shift_summary.csv", index=False)
+dynamic_shift_cumulative.to_csv(CSV_DIR / "poc_dynamic_shift_cumulative.csv", index=False)
 policy_definition.to_csv(CSV_DIR / "poc_policy_definition.csv", index=False)
 policy_decision_summary.to_csv(CSV_DIR / "poc_policy_decision_summary.csv", index=False)
 policy_method_comparison.to_csv(CSV_DIR / "poc_policy_method_comparison.csv", index=False)
@@ -1199,6 +1248,102 @@ plt.title("Impact environnemental hebdomadaire par methode")
 plt.legend()
 plt.tight_layout()
 plt.savefig(IMG_DIR / "poc_weekly_impact_comparison.png", dpi=160)
+plt.close()
+
+fig, axes = plt.subplots(1, 2, figsize=(13.8, 4.8), sharex=False)
+axes[0].plot(
+    dynamic_shift_states["week"],
+    dynamic_shift_states["demand"],
+    marker="o",
+    color="#636363",
+    label="Demande",
+)
+axes[0].plot(
+    dynamic_shift_states["week"],
+    dynamic_shift_states["good_output_units"],
+    marker="o",
+    color="#3182bd",
+    label="Production utile",
+)
+axes[0].plot(
+    dynamic_shift_states["week"],
+    dynamic_shift_states["outbound_shipments"],
+    marker="o",
+    color="#e6550d",
+    label="Expeditions client",
+)
+axes[0].plot(
+    dynamic_shift_states["week"],
+    dynamic_shift_states["fg_stock_end"],
+    marker="o",
+    linestyle="--",
+    color="#756bb1",
+    label="Stock PF",
+)
+axes[0].plot(
+    dynamic_shift_states["week"],
+    dynamic_shift_states["capacity"],
+    marker="o",
+    linestyle=":",
+    color="#31a354",
+    label="Capacite",
+)
+axes[0].set_xlabel("Semaine")
+axes[0].set_ylabel("Flux et stock PF (unites)")
+axes[0].set_title("Scenario dedie a la LCA dynamique")
+axes[0].set_xlim(1, len(dynamic_shift_states))
+axes[0].grid(alpha=0.2)
+
+dynamic_shift_grid_axis = axes[0].twinx()
+dynamic_shift_grid_axis.plot(
+    dynamic_shift_states["week"],
+    100 * dynamic_shift_states["grid_factor"],
+    color="#2ca25f",
+    linewidth=1.8,
+    alpha=0.85,
+    label="Facteur reseau x100",
+)
+dynamic_shift_grid_axis.set_ylabel("Facteur reseau x100")
+
+handles_left, labels_left = axes[0].get_legend_handles_labels()
+handles_right, labels_right = dynamic_shift_grid_axis.get_legend_handles_labels()
+axes[0].legend(handles_left + handles_right, labels_left + labels_right, loc="upper left", fontsize=8)
+
+comparison_plot_labels = {
+    "Classical LCA": "LCA classique",
+    "Dynamic LCA": "LCA dynamique",
+    "State-Dependent Dynamic LCA": "SDD",
+}
+bar_colors = {"LCA classique": "#9ecae1", "LCA dynamique": "#3182bd", "SDD": "#e6550d"}
+dynamic_shift_plot = dynamic_shift_comparison.copy()
+dynamic_shift_plot["method_fr"] = dynamic_shift_plot["method"].map(comparison_plot_labels)
+axes[1].bar(
+    dynamic_shift_plot["method_fr"],
+    dynamic_shift_plot["total_kgCO2e"],
+    color=[bar_colors[label] for label in dynamic_shift_plot["method_fr"]],
+)
+axes[1].set_ylabel("Impact total (kgCO2e)")
+axes[1].set_title("Comparaison des methodes sur ce scenario")
+axes[1].grid(axis="y", alpha=0.2)
+
+dynamic_value = float(dynamic_shift_plot.loc[dynamic_shift_plot["method_fr"] == "LCA dynamique", "total_kgCO2e"].iloc[0])
+classical_value = float(dynamic_shift_plot.loc[dynamic_shift_plot["method_fr"] == "LCA classique", "total_kgCO2e"].iloc[0])
+sdd_value = float(dynamic_shift_plot.loc[dynamic_shift_plot["method_fr"] == "SDD", "total_kgCO2e"].iloc[0])
+axes[1].text(
+    0.02,
+    0.96,
+    f"Ecart LCA dynamique - LCA classique : +{dynamic_value - classical_value:.1f} kgCO2e\n"
+    f"Ecart SDD - LCA dynamique : +{sdd_value - dynamic_value:.1f} kgCO2e",
+    transform=axes[1].transAxes,
+    va="top",
+    ha="left",
+    fontsize=9,
+    bbox={"facecolor": "white", "edgecolor": "#bdbdbd", "boxstyle": "round,pad=0.3"},
+)
+
+fig.suptitle("Comment faire ressortir la LCA dynamique : decalage production-demande", y=1.02)
+plt.tight_layout()
+plt.savefig(IMG_DIR / "poc_dynamic_shift_showcase.png", dpi=160, bbox_inches="tight")
 plt.close()
 
 fig, axes = plt.subplots(1, 2, figsize=(13.4, 4.8), sharex=True)

@@ -1,0 +1,4 @@
+method,total_kgCO2e,delta_vs_classical,delta_vs_classical_pct
+Classical LCA,3331.1848000000005,0.0,0.0
+Dynamic LCA,3396.5879999999997,65.40319999999929,1.9633615042911843
+State-Dependent Dynamic LCA,3607.4040000000005,276.2192,8.291920640367954
