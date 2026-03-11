@@ -1,0 +1,5 @@
+check_name,status,details,observed_value
+baseline_td_dlca_differs_from_classical,True,"On the main scenario, Time-Dependent DLCA should differ from Classical LCA when temporal distributions matter.",-215.66
+baseline_rank_td_dlca_vs_sdd,True,"On the main scenario, SDD should be at least as high as Time-Dependent DLCA.",3711.98
+constant_grid_reduces_td_gap,True,"With a constant grid factor, the gap between Time-Dependent DLCA and Classical LCA should shrink in this POC.",-98.529999999999
+classical_weekly_profile_is_reconstructed,True,"The weekly Classical LCA profile is a reconstructed visualization under stationary assumptions, not a fully time-resolved Classical LCA.",

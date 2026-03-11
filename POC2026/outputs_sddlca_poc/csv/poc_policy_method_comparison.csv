@@ -1,16 +1,16 @@
 method,total_kgCO2e,delta_vs_classical,delta_vs_classical_pct,policy_name,policy_label
-Classical LCA,3822.7567999999997,0.0,0.0,baseline,Reference
-Dynamic LCA,4032.2159999999994,209.45919999999978,5.479270875929115,baseline,Reference
-State-Dependent Dynamic LCA,4713.96,891.2032000000004,23.31310220937938,baseline,Reference
-Classical LCA,2109.0571999999997,0.0,0.0,backup_early,Backup anticipe
-Dynamic LCA,2071.31,-37.74719999999979,-1.7897665364410125,backup_early,Backup anticipe
-State-Dependent Dynamic LCA,2687.07,578.0128000000004,27.40621733730126,backup_early,Backup anticipe
-Classical LCA,2196.7128000000002,0.0,0.0,inventory_buffer,Stock tampon
-Dynamic LCA,2153.436,-43.276800000000094,-1.9700709168717954,inventory_buffer,Stock tampon
-State-Dependent Dynamic LCA,2789.26,592.5472,26.974268097313402,inventory_buffer,Stock tampon
-Classical LCA,2024.2516,0.0,0.0,low_carbon,Discipline carbone
-Dynamic LCA,1991.522,-32.72960000000012,-1.6168741079419238,low_carbon,Discipline carbone
-State-Dependent Dynamic LCA,2520.85,496.59839999999986,24.532444484667806,low_carbon,Discipline carbone
-Classical LCA,2196.7128000000002,0.0,0.0,service_first,Service prioritaire
-Dynamic LCA,2153.436,-43.276800000000094,-1.9700709168717954,service_first,Service prioritaire
-State-Dependent Dynamic LCA,2789.26,592.5472,26.974268097313402,service_first,Service prioritaire
+Classical LCA,19673.47901049056,0.0,0.0,baseline,Reference
+Time-Dependent DLCA,19457.823437717343,-215.65557277321568,-1.0961740557337158,baseline,Reference
+State-Dependent Dynamic LCA,23169.804397093667,3496.325386603108,17.771769724809477,baseline,Reference
+Classical LCA,19673.47901049056,0.0,0.0,backup_early,Backup anticipe
+Time-Dependent DLCA,19457.823437717343,-215.65557277321568,-1.0961740557337158,backup_early,Backup anticipe
+State-Dependent Dynamic LCA,23169.804397093667,3496.325386603108,17.771769724809477,backup_early,Backup anticipe
+Classical LCA,20118.311282537812,0.0,0.0,inventory_buffer,Stock tampon
+Time-Dependent DLCA,20022.795359219435,-95.51592331837674,-0.47477107783535566,inventory_buffer,Stock tampon
+State-Dependent Dynamic LCA,21968.632275294327,1850.320992756515,9.197198347172145,inventory_buffer,Stock tampon
+Classical LCA,19324.07673377879,0.0,0.0,low_carbon,Discipline carbone
+Time-Dependent DLCA,19079.280871318355,-244.79586246043618,-1.266792022371393,low_carbon,Discipline carbone
+State-Dependent Dynamic LCA,22802.937126912675,3478.860393133884,18.002724999807008,low_carbon,Discipline carbone
+Classical LCA,20075.52287293975,0.0,0.0,service_first,Service prioritaire
+Time-Dependent DLCA,19944.44741978742,-131.07545315233074,-0.6529117771025048,service_first,Service prioritaire
+State-Dependent Dynamic LCA,22514.273709475154,2438.7508365354042,12.147882035105802,service_first,Service prioritaire
