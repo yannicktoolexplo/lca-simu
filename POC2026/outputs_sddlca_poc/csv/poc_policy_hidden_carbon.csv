@@ -1,6 +1,6 @@
-policy_name,policy_label,hidden_carbon_vs_dynamic,hidden_carbon_vs_classical
-baseline,Reference,681.74,891.2
-backup_early,Backup anticipe,615.76,578.01
-inventory_buffer,Stock tampon,635.82,592.55
-low_carbon,Discipline carbone,529.33,496.6
-service_first,Service prioritaire,635.82,592.55
+policy_name,policy_label,hidden_carbon_vs_td_dlca,hidden_carbon_vs_dynamic,hidden_carbon_vs_classical
+baseline,Reference,3711.98,3711.98,3496.33
+backup_early,Backup anticipe,3711.98,3711.98,3496.33
+inventory_buffer,Stock tampon,1945.84,1945.84,1850.32
+low_carbon,Discipline carbone,3723.66,3723.66,3478.86
+service_first,Service prioritaire,2569.83,2569.83,2438.75

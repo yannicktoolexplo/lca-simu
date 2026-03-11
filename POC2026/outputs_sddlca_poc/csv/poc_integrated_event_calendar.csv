@@ -1,0 +1,53 @@
+week,climate_event,operational_feedback_event,combined_event_context,event_types,backlog_end,capacity_utilization,outbound_mode,backup_consumed_raw_units,scrap_units
+1,aucun,aucun,aucun,aucun,0.0,0.42857142857142855,truck,0.0,0.0
+2,aucun,aucun,aucun,aucun,0.0,0.35714285714285715,truck,0.0,0.0
+3,aucun,aucun,aucun,aucun,0.0,0.2857142857142857,truck,0.0,0.0
+4,aucun,aucun,aucun,aucun,0.0,0.42857142857142855,truck,0.0,0.0
+5,aucun,aucun,aucun,aucun,0.0,0.35714285714285715,truck,0.0,0.0
+6,aucun,aucun,aucun,aucun,0.0,0.35714285714285715,truck,0.0,0.0
+7,canicule et tension reseau,aucun,canicule et tension reseau,climatique,0.0,0.39285714285714285,truck,0.0,0.0
+8,canicule et tension reseau,aucun,canicule et tension reseau,climatique,0.0,0.55,truck,0.0,0.0
+9,canicule et tension reseau,aucun,canicule et tension reseau,climatique,0.0,0.55,truck,0.0,0.0
+10,aucun,aucun,aucun,aucun,0.0,0.55,truck,0.0,0.0
+11,aucun,aucun,aucun,aucun,0.0,0.42857142857142855,truck,0.0,0.0
+12,aucun,aucun,aucun,aucun,0.0,0.42857142857142855,truck,0.0,0.0
+13,secheresse et penurie matieres,aucun,secheresse et penurie matieres,climatique,0.0,0.7058823529411765,truck,0.0,0.0
+14,secheresse et penurie matieres,aucun,secheresse et penurie matieres,climatique,0.0,0.7058823529411765,truck,0.0,0.0
+15,secheresse et penurie matieres,aucun,secheresse et penurie matieres,climatique,0.0,0.8235294117647058,truck,0.0,0.0
+16,secheresse et penurie matieres,aucun,secheresse et penurie matieres,climatique,0.0,0.8235294117647058,truck,0.0,0.0
+17,aucun,aucun,aucun,aucun,0.0,0.5127748416,truck,0.0,0.0
+18,aucun,aucun,aucun,aucun,0.0,0.475679598208,truck,0.0,0.0
+19,aucun,aucun,aucun,aucun,0.0,0.5279582473190402,truck,0.0,0.0
+20,aucun,aucun,aucun,aucun,0.0,0.72358731287296,truck,0.0,0.0
+21,aucun,aucun,aucun,aucun,0.0,0.64,truck,0.0,0.0
+22,aucun,aucun,aucun,aucun,0.0,0.5084544398079999,truck,0.0,0.0
+23,aucun,aucun,aucun,aucun,0.0,0.5279582473190402,truck,0.0,0.0
+24,tempete logistique et congestion portuaire,aucun,tempete logistique et congestion portuaire,"climatique, rebut",0.0,1.0,truck,0.0,1.4000000000000001
+25,tempete logistique et congestion portuaire,maintenance corrective + recalage qualite,tempete logistique et congestion portuaire / maintenance corrective + recalage qualite,"climatique, retroaction operationnelle, rebut",0.0,1.0,truck,0.0,1.18272
+26,tempete logistique et congestion portuaire,maintenance corrective + recalage qualite,tempete logistique et congestion portuaire / maintenance corrective + recalage qualite,"climatique, retroaction operationnelle, rebut",4.200722821824,1.0,truck,0.0,1.18272
+27,tempete logistique et congestion portuaire,maintenance corrective + recalage qualite,tempete logistique et congestion portuaire / maintenance corrective + recalage qualite,"climatique, retroaction operationnelle, expedition aerienne, rebut",10.556242821824002,1.0,air,0.0,1.18272
+28,aucun,maintenance corrective + recalage qualite + congestion logistique,maintenance corrective + recalage qualite + congestion logistique,"retroaction operationnelle, expedition aerienne",13.886840573700713,0.6472254852331102,air,0.0,0.0
+29,aucun,congestion logistique,congestion logistique,"retroaction operationnelle, expedition aerienne",20.002265652799892,0.43538299683603293,air,0.0,0.0
+30,aucun,congestion logistique + overtime et energie d'urgence,congestion logistique + overtime et energie d'urgence,"retroaction operationnelle, expedition aerienne",25.665230693931466,0.4876144068330506,air,0.0,0.0
+31,retard de remise en route fournisseurs,congestion logistique + overtime et energie d'urgence,retard de remise en route fournisseurs / congestion logistique + overtime et energie d'urgence,"climatique, retroaction operationnelle, expedition aerienne",29.555809082464343,0.7466009147491343,air,0.0,0.0
+32,retard de remise en route fournisseurs,congestion logistique + overtime et energie d'urgence,retard de remise en route fournisseurs / congestion logistique + overtime et energie d'urgence,"climatique, retroaction operationnelle, expedition aerienne",32.26674839362606,0.8258777344649383,air,0.0,0.0
+33,retard de remise en route fournisseurs,congestion logistique + overtime et energie d'urgence,retard de remise en route fournisseurs / congestion logistique + overtime et energie d'urgence,"climatique, retroaction operationnelle, expedition aerienne",35.62487474665336,0.7823839816513912,air,0.0,0.0
+34,aucun,congestion logistique + overtime et energie d'urgence,congestion logistique + overtime et energie d'urgence,"retroaction operationnelle, expedition aerienne, rebut",29.69987474665336,1.0,air,0.0,2.325
+35,aucun,maintenance corrective + recalage qualite + congestion logistique + overtime et energie d'urgence,maintenance corrective + recalage qualite + congestion logistique + overtime et energie d'urgence,"retroaction operationnelle, expedition aerienne",32.36512137740739,0.6279912720575704,air,0.0,0.0
+36,aucun,congestion logistique + overtime et energie d'urgence,congestion logistique + overtime et energie d'urgence,"retroaction operationnelle, expedition aerienne",35.10268331297732,0.5274166909432291,air,0.0,0.0
+37,aucun,congestion logistique + overtime et energie d'urgence,congestion logistique + overtime et energie d'urgence,"retroaction operationnelle, expedition aerienne",36.43598708930632,0.501793385964344,air,0.0,0.0
+38,aucun,congestion logistique + overtime et energie d'urgence,congestion logistique + overtime et energie d'urgence,"retroaction operationnelle, expedition aerienne, rebut",28.92798602525417,0.9800717354385735,air,0.0,2.2786667848946833
+39,aucun,maintenance corrective + recalage qualite + congestion logistique + overtime et energie d'urgence,maintenance corrective + recalage qualite + congestion logistique + overtime et energie d'urgence,"retroaction operationnelle, expedition aerienne",29.17515607682016,0.6492765328911094,air,0.0,0.0
+40,inondation fournisseur et reseau degrade,congestion logistique + overtime et energie d'urgence,inondation fournisseur et reseau degrade / congestion logistique + overtime et energie d'urgence,"climatique, retroaction operationnelle, expedition aerienne",29.89310233702993,0.8804339598415934,air,0.0,0.0
+41,inondation fournisseur et reseau degrade,congestion logistique + overtime et energie d'urgence,inondation fournisseur et reseau degrade / congestion logistique + overtime et energie d'urgence,"climatique, retroaction operationnelle, expedition aerienne",31.201791812714163,0.8380867759366141,air,0.0,0.0
+42,inondation fournisseur et reseau degrade,congestion logistique + overtime et energie d'urgence,inondation fournisseur et reseau degrade / congestion logistique + overtime et energie d'urgence,"climatique, retroaction operationnelle, expedition aerienne, rebut",31.646791812714163,1.0,air,0.0,1.3950000000000002
+43,inondation fournisseur et reseau degrade,maintenance corrective + recalage qualite + congestion logistique + overtime et energie d'urgence,inondation fournisseur et reseau degrade / maintenance corrective + recalage qualite + congestion logistique + overtime et energie d'urgence,"climatique, retroaction operationnelle, expedition aerienne, rebut",32.04032781271417,1.0,air,0.0,1.178496
+44,aucun,maintenance corrective + recalage qualite + congestion logistique + overtime et energie d'urgence,maintenance corrective + recalage qualite + congestion logistique + overtime et energie d'urgence,"retroaction operationnelle, expedition aerienne",25.564146970073132,0.8897534234808282,air,0.0,0.0
+45,aucun,congestion logistique + overtime et energie d'urgence,congestion logistique + overtime et energie d'urgence,"retroaction operationnelle, expedition aerienne",24.95968752050662,0.4991165354652264,air,0.0,0.0
+46,aucun,congestion logistique + overtime et energie d'urgence,congestion logistique + overtime et energie d'urgence,"retroaction operationnelle, expedition aerienne",22.733990442480476,0.5688471861516621,air,0.0,0.0
+47,pic de demande hivernal,congestion logistique + overtime et energie d'urgence,pic de demande hivernal / congestion logistique + overtime et energie d'urgence,"climatique, retroaction operationnelle, expedition aerienne",21.504130832786004,0.5260154670836331,air,0.0,0.0
+48,pic de demande hivernal,congestion logistique + overtime et energie d'urgence,pic de demande hivernal / congestion logistique + overtime et energie d'urgence,"climatique, retroaction operationnelle, expedition aerienne",16.64801398687887,0.6819835202540703,air,0.0,0.0
+49,aucun,congestion logistique + overtime et energie d'urgence,congestion logistique + overtime et energie d'urgence,"retroaction operationnelle, expedition aerienne",13.73064273332237,0.5555858603680215,air,0.0,0.0
+50,aucun,congestion logistique,congestion logistique,"retroaction operationnelle, expedition aerienne",5.493856534114151,0.7294714479683287,air,0.0,0.0
+51,aucun,congestion logistique,congestion logistique,"retroaction operationnelle, expedition aerienne",3.0237198608391296,0.49880546693100086,air,0.0,0.0
+52,aucun,congestion logistique,congestion logistique,"retroaction operationnelle, expedition aerienne",0.0,0.6288271055600738,air,0.0,0.0
