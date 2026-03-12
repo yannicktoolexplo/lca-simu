@@ -132,6 +132,8 @@ POLICIES = [
     ),
 ]
 
+TIMELINE_POLICY_NAME = "lean_exposed"
+
 
 def build_exogenous_context() -> pd.DataFrame:
     rows = []
@@ -140,26 +142,36 @@ def build_exogenous_context() -> pd.DataFrame:
         month = ((t - 1) % 12) + 1
         season_angle = 2 * math.pi * (month - 1) / 12
         warming = 2.0 * (t - 1) / (len(MONTHS) - 1)
+        transition_progress = (t - 1) / (len(MONTHS) - 1)
         seasonal_temperature = 13.0 * math.sin(season_angle - math.pi / 2)
 
         heatwave = 0.0
         storm = 0.0
         drought = 0.0
-        if month in [7, 8] and year in [2029, 2032, 2036, 2039, 2043]:
-            heatwave = 1.0
-        if month in [10, 11] and year in [2030, 2035, 2040, 2044]:
-            storm = 1.0
-        if month in [5, 6, 7] and year in [2031, 2037, 2042]:
-            drought = 1.0
-        if month in [1, 2] and year in [2034, 2041]:
-            storm = max(storm, 0.7)
 
-        heat_stress = max(0.0, warming + max(0.0, seasonal_temperature - 4.0) / 10.0 + 0.9 * heatwave)
+        # Climate shocks become more frequent and more severe over time.
+        if month in [7, 8] and (year >= 2029 and ((year - 2029) % 3 == 0 or year >= 2038)):
+            heatwave = 0.65 + 0.70 * transition_progress
+        if month in [6, 7, 8] and year >= 2040:
+            heatwave = max(heatwave, 0.85 + 0.55 * transition_progress)
+
+        if month in [5, 6, 7] and (year >= 2031 and ((year - 2031) % 5 in [0, 1] or year >= 2041)):
+            drought = 0.55 + 0.60 * transition_progress
+        if month in [4, 5, 6, 7] and year >= 2042:
+            drought = max(drought, 0.75 + 0.45 * transition_progress)
+
+        if month in [10, 11] and (year >= 2030 and ((year - 2030) % 4 == 0 or year >= 2038)):
+            storm = 0.60 + 0.70 * transition_progress
+        if month in [1, 2] and year >= 2036 and ((year - 2036) % 5 in [0, 1] or year >= 2043):
+            storm = max(storm, 0.45 + 0.55 * transition_progress)
+
+        chronic_heat = 0.22 * warming + max(0.0, seasonal_temperature - 7.0) / 18.0
+        heat_stress = max(0.0, chronic_heat + 1.05 * heatwave)
         cold_stress = max(0.0, -seasonal_temperature / 12.0)
         storm_stress = storm
-        scarcity = min(1.35, 0.18 + 0.34 * warming + 0.38 * drought + 0.12 * storm_stress)
+        scarcity = min(1.25, 0.10 + 0.14 * warming + 0.55 * drought + 0.18 * storm_stress)
 
-        grid_factor = max(0.08, 0.52 - 0.28 * (t - 1) / (len(MONTHS) - 1) + 0.05 * heat_stress + 0.03 * cold_stress)
+        grid_factor = max(0.08, 0.52 - 0.28 * transition_progress + 0.06 * heatwave + 0.04 * storm_stress + 0.02 * cold_stress)
         grid_price = 0.14 + 0.035 * heat_stress + 0.02 * scarcity + 0.015 * cold_stress
         main_material_ef = 18.0 + 2.8 * scarcity - 0.8 * (t - 1) / (len(MONTHS) - 1)
         main_material_cost = 44.0 + 18.0 * scarcity + 6.0 * warming
@@ -170,14 +182,22 @@ def build_exogenous_context() -> pd.DataFrame:
         air_ef = max(6.4, 9.6 - 1.1 * (t - 1) / (len(MONTHS) - 1) + 0.4 * storm_stress)
         air_cost = 24.0 + 7.0 * storm_stress + 1.2 * scarcity
 
-        solar_factor = max(0.06, 0.65 + 0.30 * math.sin(season_angle - math.pi / 2) - 0.06 * heat_stress)
-        biomass_factor = max(0.0, 0.85 - 0.25 * drought)
+        solar_factor = max(0.06, 0.65 + 0.30 * math.sin(season_angle - math.pi / 2) - 0.08 * heatwave - 0.04 * storm_stress)
+        biomass_factor = max(0.0, 0.85 - 0.32 * drought)
 
-        demand = 18.0 + 0.032 * t + 1.8 * math.sin(season_angle) + 1.1 * heat_stress + 0.45 * cold_stress
-        main_supply_availability = min(1.0, max(0.35, 1.0 - 0.18 * scarcity - 0.16 * storm_stress))
-        backup_supply_availability = min(1.0, max(0.55, 0.96 - 0.08 * scarcity - 0.08 * storm_stress))
+        demand = 18.0 + 0.028 * t + 1.6 * math.sin(season_angle) + 0.32 * heat_stress + 0.28 * cold_stress
+        main_supply_availability = min(1.0, max(0.35, 0.985 - 0.08 * warming - 0.28 * drought - 0.34 * storm_stress))
+        backup_supply_availability = min(1.0, max(0.55, 0.965 - 0.04 * warming - 0.14 * drought - 0.18 * storm_stress))
         tech_progress = 4.5 * (t - 1) / (len(MONTHS) - 1)
-        base_capacity = max(12.0, 34.0 + tech_progress - 4.2 * heat_stress - 1.8 * storm_stress)
+        base_capacity = max(
+            12.0,
+            34.5
+            + tech_progress
+            - 0.90 * warming
+            - 3.10 * heatwave
+            - 1.20 * drought
+            - 2.50 * storm_stress,
+        )
 
         climate_event = "aucun"
         if heatwave > 0 and drought > 0:
@@ -316,27 +336,31 @@ def simulate_policy(policy: AdaptationPolicy) -> pd.DataFrame:
         climate_grid_bonus = 0.0
         climate_hvac_bonus = 0.0
         climate_quality_penalty = 0.0
+        climate_outbound_multiplier = 1.0
         climate_labels = []
 
         if "canicule" in climate_event:
-            climate_capacity_multiplier *= 0.90
-            climate_grid_bonus += 0.03
-            climate_hvac_bonus += 0.20 + 0.06 * row["heat_stress"]
-            climate_quality_penalty += 0.010
+            climate_capacity_multiplier *= 0.86
+            climate_grid_bonus += 0.04
+            climate_hvac_bonus += 0.24 + 0.08 * row["heat_stress"]
+            climate_quality_penalty += 0.014
+            climate_outbound_multiplier *= 0.94
             climate_labels.append("site en surchauffe")
         if "secheresse" in climate_event:
-            climate_capacity_multiplier *= 0.94
-            climate_main_supply_multiplier *= 0.84
-            climate_backup_supply_multiplier *= 0.92
-            climate_grid_bonus += 0.015
-            climate_quality_penalty += 0.006
+            climate_capacity_multiplier *= 0.90
+            climate_main_supply_multiplier *= 0.78
+            climate_backup_supply_multiplier *= 0.88
+            climate_grid_bonus += 0.02
+            climate_quality_penalty += 0.010
+            climate_outbound_multiplier *= 0.92
             climate_labels.append("stress matiere / eau")
         if "tempete" in climate_event:
-            climate_capacity_multiplier *= 0.88
-            climate_main_supply_multiplier *= 0.72
-            climate_backup_supply_multiplier *= 0.84
-            climate_grid_bonus += 0.04
-            climate_hvac_bonus += 0.08
+            climate_capacity_multiplier *= 0.82
+            climate_main_supply_multiplier *= 0.58
+            climate_backup_supply_multiplier *= 0.76
+            climate_grid_bonus += 0.05
+            climate_hvac_bonus += 0.10
+            climate_outbound_multiplier *= 0.68
             climate_labels.append("desorganisation logistique")
 
         demand_t = row["demand"]
@@ -402,7 +426,9 @@ def simulate_policy(policy: AdaptationPolicy) -> pd.DataFrame:
         add_batch(fg_inventory, good_output_main, "main")
         add_batch(fg_inventory, good_output_backup, "backup")
 
-        shipments = min(inventory_total(fg_inventory), demand_t + backlog)
+        shipment_request = demand_t + backlog
+        shipment_capacity = shipment_request * climate_outbound_multiplier
+        shipments = min(inventory_total(fg_inventory), shipment_capacity)
         shipped = consume_fifo(fg_inventory, shipments)
         backlog_end = max(0.0, backlog + demand_t - shipments)
 
@@ -459,8 +485,18 @@ def simulate_policy(policy: AdaptationPolicy) -> pd.DataFrame:
             + 0.16 * max(0.0, row["grid_price"] - 0.17)
             + 0.12 * row["scarcity"],
         )
+        biomass_transition_cap = min(
+            0.65,
+            max(
+                0.18,
+                0.18
+                + 0.038 * policy.biomass_capacity
+                + 0.06 * max(0.0, 1.0 - row["scarcity"])
+                - 0.05 * row["storm_stress"],
+            ),
+        )
         biomass_transition_level = min(
-            1.0,
+            biomass_transition_cap,
             max(
                 0.0,
                 0.92 * biomass_transition_level
@@ -503,12 +539,12 @@ def simulate_policy(policy: AdaptationPolicy) -> pd.DataFrame:
         next_hvac_bonus = 0.0
 
         if climate_labels:
-            next_capacity_multiplier *= max(0.82, climate_capacity_multiplier + 0.04)
-            next_main_supply_multiplier *= max(0.72, climate_main_supply_multiplier + 0.06)
-            next_backup_supply_multiplier *= max(0.82, climate_backup_supply_multiplier + 0.04)
-            next_grid_bonus += 0.55 * climate_grid_bonus
-            next_quality_penalty += 0.45 * climate_quality_penalty
-            next_hvac_bonus += 0.35 * climate_hvac_bonus
+            next_capacity_multiplier *= max(0.74, climate_capacity_multiplier + 0.02)
+            next_main_supply_multiplier *= max(0.56, climate_main_supply_multiplier + 0.03)
+            next_backup_supply_multiplier *= max(0.70, climate_backup_supply_multiplier + 0.03)
+            next_grid_bonus += 0.70 * climate_grid_bonus
+            next_quality_penalty += 0.60 * climate_quality_penalty
+            next_hvac_bonus += 0.50 * climate_hvac_bonus
             operational_labels.extend(climate_labels)
 
         if utilization > 0.94:
@@ -579,6 +615,7 @@ def simulate_policy(policy: AdaptationPolicy) -> pd.DataFrame:
             "biomass_used_kwh": biomass_used,
             "biomass_share": biomass_share,
             "biomass_transition_level": biomass_transition_level,
+            "biomass_transition_cap": biomass_transition_cap,
             "battery_discharge_kwh": battery_discharge,
             "battery_charge_kwh": battery_charge,
             "grid_energy_kwh": grid_energy,
@@ -770,8 +807,29 @@ def build_event_timeline(states: pd.DataFrame) -> pd.DataFrame:
     return timeline
 
 
+def build_event_impact_breakdown(td: pd.DataFrame, sdd: pd.DataFrame) -> pd.DataFrame:
+    event_impact = pd.DataFrame({
+        "month_index": td["month_index"],
+        "surimpact_matiere": sdd["material"] - td["material"],
+        "surimpact_inbound": sdd["inbound_transport"] - td["inbound_transport"],
+        "surimpact_transport_aval": sdd["outbound_transport"] - td["outbound_transport"],
+        "surimpact_rebut": sdd["scrap"] - td["scrap"],
+    })
+    event_impact["surimpact_total"] = event_impact[
+        [
+            "surimpact_matiere",
+            "surimpact_inbound",
+            "surimpact_transport_aval",
+            "surimpact_rebut",
+        ]
+    ].sum(axis=1)
+    event_impact["surimpact_cumule"] = event_impact["surimpact_total"].cumsum()
+    return event_impact
+
+
 def build_outputs() -> None:
     results = [evaluate_policy(policy) for policy in POLICIES]
+    results_by_name = {result["summary"]["policy_name"]: result for result in results}
     summary = pd.DataFrame([result["summary"] for result in results])
     method_comparison = pd.concat([
         pd.DataFrame([
@@ -799,11 +857,13 @@ def build_outputs() -> None:
     costs_all.to_csv(CSV_DIR / "ha_monthly_costs.csv", index=False)
     exogenous.to_csv(CSV_DIR / "ha_exogenous_context.csv", index=False)
 
-    reference = results[0]
+    reference = results_by_name.get(TIMELINE_POLICY_NAME, results[0])
     ref_states = reference["states"]
     ref_td = reference["time_dependent_dlca"]
     ref_sdd = reference["sdd"]
+    reference_label = reference["summary"]["policy_label"]
     event_timeline = build_event_timeline(ref_states)
+    event_impact = build_event_impact_breakdown(ref_td, ref_sdd)
     cumulative = pd.DataFrame({
         "month_index": ref_states["month_index"],
         "classical_weekly_total": (
@@ -821,6 +881,7 @@ def build_outputs() -> None:
     cumulative["sdd_cumulative"] = cumulative["sdd_total"].cumsum()
     cumulative.to_csv(CSV_DIR / "ha_reference_cumulative.csv", index=False)
     event_timeline.to_csv(CSV_DIR / "ha_event_timeline.csv", index=False)
+    event_impact.to_csv(CSV_DIR / "ha_event_impact_breakdown.csv", index=False)
 
     fig, axes = plt.subplots(3, 1, figsize=(15, 11), sharex=True)
     axes[0].plot(exogenous["month_index"], exogenous["warming"], color="#d7301f", label="Rechauffement cumule")
@@ -845,7 +906,7 @@ def build_outputs() -> None:
     axes[2].plot(cumulative["month_index"], cumulative["sdd_cumulative"], color="#e6550d", label="SDD")
     axes[2].set_xlabel("Mois")
     axes[2].set_ylabel("Impact cumule (kgCO2e)")
-    axes[2].set_title("Impacts cumules sur la strategie de reference")
+    axes[2].set_title(f"Impacts cumules sur la strategie {reference_label}")
     axes[2].legend(loc="upper left")
     axes[2].grid(alpha=0.2)
     plt.tight_layout()
@@ -903,10 +964,11 @@ def build_outputs() -> None:
     axes[1].plot(ref_states["month_index"], ref_states["battery_soh"], color="#756bb1", label="SOH batterie")
     axes[1].plot(ref_states["month_index"], ref_states["battery_soc_kwh"], color="#3182bd", label="SOC batterie (kWh)")
     axes[1].plot(ref_states["month_index"], ref_states["hvac_kwh"], color="#d7301f", label="Charge HVAC")
-    axes[1].plot(ref_states["month_index"], 100 * ref_states["biomass_transition_level"], color="#31a354", label="Transition biomasse (%)")
+    axes[1].plot(ref_states["month_index"], 100 * ref_states["biomass_transition_level"], color="#31a354", label="Activation biomasse (%)")
+    axes[1].plot(ref_states["month_index"], 100 * ref_states["biomass_transition_cap"], color="#74c476", linestyle="--", label="Plafond biomasse (%)")
     axes[1].set_xlabel("Mois")
     axes[1].set_ylabel("Etat / kWh / %")
-    axes[1].set_title("Degradation batterie, cout thermique et transition biomasse")
+    axes[1].set_title("Degradation batterie, cout thermique et activation biomasse")
     axes[1].legend(loc="upper right")
     axes[1].grid(alpha=0.2)
     plt.tight_layout()
@@ -943,7 +1005,7 @@ def build_outputs() -> None:
     plt.savefig(IMG_DIR / "ha_strategy_frontier.png", dpi=160)
     plt.close()
 
-    fig, axes = plt.subplots(3, 1, figsize=(15, 8.8), sharex=True, gridspec_kw={"height_ratios": [1.2, 1.6, 0.8]})
+    fig, axes = plt.subplots(5, 1, figsize=(15, 12.6), sharex=True, gridspec_kw={"height_ratios": [1.0, 1.4, 0.7, 1.0, 1.15]})
     climate_rows = [
         ("evt_canicule", "Canicule", "#d7301f"),
         ("evt_secheresse", "Secheresse", "#e6550d"),
@@ -953,7 +1015,7 @@ def build_outputs() -> None:
         months = event_timeline.loc[event_timeline[col] == 1, "month_index"]
         axes[0].scatter(months, [ypos] * len(months), marker="s", s=48, color=color, label=label)
     axes[0].set_yticks([1, 2, 3], [item[1] for item in climate_rows])
-    axes[0].set_title("Calendrier des evenements climatiques, operationnels et des regimes")
+    axes[0].set_title(f"Calendrier des evenements climatiques, operationnels et des regimes - {reference_label}")
     axes[0].set_ylabel("Climat")
     axes[0].grid(axis="x", alpha=0.2)
     axes[0].legend(loc="upper right", ncol=3, fontsize=8)
@@ -980,9 +1042,50 @@ def build_outputs() -> None:
     axes[2].set_ylim(0, 1.2)
     axes[2].set_yticks([])
     axes[2].set_ylabel("Regime")
-    axes[2].set_xlabel("Mois")
     axes[2].grid(axis="x", alpha=0.2)
     axes[2].legend(loc="upper right", ncol=3, fontsize=8)
+
+    axes[3].plot(cumulative["month_index"], cumulative["classical_weekly_total"], color="#9ecae1", linewidth=1.4, label="LCA classique")
+    axes[3].plot(cumulative["month_index"], cumulative["td_total"], color="#3182bd", linewidth=1.4, label="TD-DLCA")
+    axes[3].plot(cumulative["month_index"], cumulative["sdd_total"], color="#e6550d", linewidth=1.5, label="SDD")
+    axes[3].set_ylabel("Impact mensuel")
+    axes[3].set_title("Courbes temporelles des methodes LCA")
+    axes[3].grid(axis="x", alpha=0.2)
+    axes[3].legend(loc="upper left", ncol=3, fontsize=8)
+
+    impact_components = [
+        ("surimpact_matiere", "Backup matiere", "#9ecae1"),
+        ("surimpact_inbound", "Inbound premium", "#6baed6"),
+        ("surimpact_transport_aval", "Transport aval air", "#fd8d3c"),
+        ("surimpact_rebut", "Rebut / recalage", "#756bb1"),
+    ]
+    bottom = np.zeros(len(event_impact))
+    for col, label, color in impact_components:
+        axes[4].bar(
+            event_impact["month_index"],
+            event_impact[col],
+            bottom=bottom,
+            width=0.9,
+            color=color,
+            label=label,
+        )
+        bottom += event_impact[col].to_numpy()
+    ax4_line = axes[4].twinx()
+    ax4_line.plot(
+        event_impact["month_index"],
+        event_impact["surimpact_cumule"],
+        color="#d7301f",
+        linewidth=2.0,
+        label="Surimpact cumule",
+    )
+    axes[4].set_ylabel("Surimpact mensuel")
+    ax4_line.set_ylabel("Surimpact cumule")
+    axes[4].set_xlabel("Mois")
+    axes[4].set_title("Impact attribue aux evenements (surimpact SDD vs TD-DLCA)")
+    axes[4].grid(axis="x", alpha=0.2)
+    handles_left, labels_left = axes[4].get_legend_handles_labels()
+    handles_right, labels_right = ax4_line.get_legend_handles_labels()
+    axes[4].legend(handles_left + handles_right, labels_left + labels_right, loc="upper left", ncol=3, fontsize=8)
     plt.tight_layout()
     plt.savefig(IMG_DIR / "ha_event_timeline.png", dpi=160)
     plt.close()
