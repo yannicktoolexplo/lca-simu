@@ -1,3 +1,0 @@
-policy_name,policy_label,service_pct,same_period_service_pct,final_backlog,peak_backlog,battery_soh_final,grid_energy_total_kwh,solar_energy_total_kwh,biomass_energy_total_kwh,avg_energy_mix_ef,td_energy_impact_kgCO2e,classical_total_kgCO2e,time_dependent_dlca_total_kgCO2e,sdd_total_kgCO2e,hidden_carbon_vs_td_dlca,hidden_carbon_vs_classical,total_cost
-baseline_degraded,Baseline degradee,99.92,96.14,4.24,13.02,0.979,37309.27,1519.51,0.0,0.3944,15139.67,123588.39,152104.79,170345.52,18240.73,46757.13,433443.26
-baseline_plus_biomass,Baseline + biomasse,100.0,96.19,0.0,10.75,0.979,33734.46,1519.51,4182.5,0.3638,14372.25,123705.88,152383.54,170037.64,17654.1,46331.76,439830.33
