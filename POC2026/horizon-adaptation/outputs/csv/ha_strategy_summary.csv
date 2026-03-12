@@ -1,6 +1,6 @@
-policy_name,policy_label,service_pct,same_period_service_pct,final_backlog,peak_backlog,battery_soh_final,classical_total_kgCO2e,time_dependent_dlca_total_kgCO2e,sdd_total_kgCO2e,hidden_carbon_vs_td_dlca,hidden_carbon_vs_classical,total_cost
-reference_2045,Reference 2045,100.0,96.19,0.0,10.75,0.979,123729.41,152311.31,170232.09,17920.78,46502.68,435700.0
-resilience_inventory,Stock de resilience,100.0,96.19,0.0,10.75,0.979,124778.25,153356.26,173796.78,20440.52,49018.53,444611.0
-energy_autonomy,Autonomie energetique,100.0,96.19,0.0,10.75,0.976,124548.87,153275.85,170422.71,17146.86,45873.83,463019.39
-integrated_adaptation,Adaptation integree,100.0,96.19,0.0,10.75,0.975,126881.63,155656.71,177096.41,21439.7,50214.78,485902.0
-lean_exposed,Lean expose,99.34,95.75,34.42,47.5,0.98,123478.4,152040.54,177459.68,25419.14,53981.28,467480.44
+policy_name,policy_label,service_pct,same_period_service_pct,final_backlog,peak_backlog,battery_soh_final,grid_energy_total_kwh,solar_energy_total_kwh,biomass_energy_total_kwh,avg_energy_mix_ef,td_energy_impact_kgCO2e,classical_total_kgCO2e,time_dependent_dlca_total_kgCO2e,sdd_total_kgCO2e,hidden_carbon_vs_td_dlca,hidden_carbon_vs_classical,total_cost
+reference_2045,Reference 2045,100.0,96.19,0.0,10.75,0.979,36135.89,1519.51,1337.15,0.3845,14887.75,123729.41,152311.31,170232.09,17920.78,46502.68,435700.0
+resilience_inventory,Stock de resilience,100.0,96.19,0.0,10.75,0.979,37243.08,1519.51,1337.15,0.385,15417.78,124778.25,153356.26,173796.78,20440.52,49018.53,444611.0
+energy_autonomy,Autonomie energetique,100.0,96.19,0.0,10.75,0.976,32595.77,2735.13,3636.29,0.3537,13911.04,124548.87,153275.85,170422.71,17146.86,45873.83,463019.39
+integrated_adaptation,Adaptation integree,100.0,96.19,0.0,10.75,0.975,33488.37,3039.03,4174.43,0.3478,14433.4,126881.63,155656.71,177096.41,21439.7,50214.78,485902.0
+lean_exposed,Lean expose,99.34,95.75,34.42,47.5,0.98,38101.71,911.71,0.0,0.409,15690.93,123478.4,152040.54,177459.68,25419.14,53981.28,467480.44

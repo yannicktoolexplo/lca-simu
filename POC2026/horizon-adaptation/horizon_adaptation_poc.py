@@ -1,5 +1,5 @@
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -133,6 +133,22 @@ POLICIES = [
 ]
 
 TIMELINE_POLICY_NAME = "lean_exposed"
+
+REFERENCE_2045_POLICY = next(policy for policy in POLICIES if policy.name == "reference_2045")
+NO_BIOMASS_BASELINE_POLICY = replace(
+    REFERENCE_2045_POLICY,
+    name="baseline_degraded",
+    label="Baseline degradee",
+    biomass_capacity=0.0,
+)
+BIOMASS_FIX_POLICY = replace(
+    NO_BIOMASS_BASELINE_POLICY,
+    name="baseline_plus_biomass",
+    label="Baseline + biomasse",
+    biomass_capacity=10.0,
+)
+BASELINE_SCENARIO_POLICIES = [NO_BIOMASS_BASELINE_POLICY]
+BIOMASS_FIX_SCENARIO_POLICIES = [NO_BIOMASS_BASELINE_POLICY, BIOMASS_FIX_POLICY]
 
 
 def build_exogenous_context() -> pd.DataFrame:
@@ -741,6 +757,11 @@ def evaluate_policy(policy: AdaptationPolicy) -> dict:
         "final_backlog": round(float(states["backlog_end"].iloc[-1]), 2),
         "peak_backlog": round(float(states["backlog_end"].max()), 2),
         "battery_soh_final": round(float(states["battery_soh"].iloc[-1]), 3),
+        "grid_energy_total_kwh": round(float(states["grid_energy_kwh"].sum()), 2),
+        "solar_energy_total_kwh": round(float(states["solar_used_kwh"].sum()), 2),
+        "biomass_energy_total_kwh": round(float(states["biomass_used_kwh"].sum()), 2),
+        "avg_energy_mix_ef": round(float(states["energy_mix_ef"].mean()), 4),
+        "td_energy_impact_kgCO2e": round(float(td_breakdown["production_energy"] + td_breakdown["storage"]), 2),
         "classical_total_kgCO2e": round(classical["total"], 2),
         "time_dependent_dlca_total_kgCO2e": round(td_breakdown["total"], 2),
         "sdd_total_kgCO2e": round(sdd_breakdown["total"], 2),
@@ -827,8 +848,18 @@ def build_event_impact_breakdown(td: pd.DataFrame, sdd: pd.DataFrame) -> pd.Data
     return event_impact
 
 
-def build_outputs() -> None:
-    results = [evaluate_policy(policy) for policy in POLICIES]
+def build_outputs_package(
+    output_dir: Path,
+    policies: list[AdaptationPolicy],
+    timeline_policy_name: str,
+    summary_title: str,
+) -> pd.DataFrame:
+    csv_dir = output_dir / "csv"
+    img_dir = output_dir / "images"
+    csv_dir.mkdir(parents=True, exist_ok=True)
+    img_dir.mkdir(parents=True, exist_ok=True)
+
+    results = [evaluate_policy(policy) for policy in policies]
     results_by_name = {result["summary"]["policy_name"]: result for result in results}
     summary = pd.DataFrame([result["summary"] for result in results])
     method_comparison = pd.concat([
@@ -850,14 +881,14 @@ def build_outputs() -> None:
     ], ignore_index=True)
     exogenous = EXOGENOUS.copy()
 
-    summary.to_csv(CSV_DIR / "ha_strategy_summary.csv", index=False)
-    method_comparison.to_csv(CSV_DIR / "ha_method_comparison.csv", index=False)
-    cost_breakdown.to_csv(CSV_DIR / "ha_cost_breakdown.csv", index=False)
-    states_all.to_csv(CSV_DIR / "ha_monthly_states.csv", index=False)
-    costs_all.to_csv(CSV_DIR / "ha_monthly_costs.csv", index=False)
-    exogenous.to_csv(CSV_DIR / "ha_exogenous_context.csv", index=False)
+    summary.to_csv(csv_dir / "ha_strategy_summary.csv", index=False)
+    method_comparison.to_csv(csv_dir / "ha_method_comparison.csv", index=False)
+    cost_breakdown.to_csv(csv_dir / "ha_cost_breakdown.csv", index=False)
+    states_all.to_csv(csv_dir / "ha_monthly_states.csv", index=False)
+    costs_all.to_csv(csv_dir / "ha_monthly_costs.csv", index=False)
+    exogenous.to_csv(csv_dir / "ha_exogenous_context.csv", index=False)
 
-    reference = results_by_name.get(TIMELINE_POLICY_NAME, results[0])
+    reference = results_by_name.get(timeline_policy_name, results[0])
     ref_states = reference["states"]
     ref_td = reference["time_dependent_dlca"]
     ref_sdd = reference["sdd"]
@@ -879,9 +910,9 @@ def build_outputs() -> None:
     cumulative["classical_cumulative"] = cumulative["classical_weekly_total"].cumsum()
     cumulative["td_cumulative"] = cumulative["td_total"].cumsum()
     cumulative["sdd_cumulative"] = cumulative["sdd_total"].cumsum()
-    cumulative.to_csv(CSV_DIR / "ha_reference_cumulative.csv", index=False)
-    event_timeline.to_csv(CSV_DIR / "ha_event_timeline.csv", index=False)
-    event_impact.to_csv(CSV_DIR / "ha_event_impact_breakdown.csv", index=False)
+    cumulative.to_csv(csv_dir / "ha_reference_cumulative.csv", index=False)
+    event_timeline.to_csv(csv_dir / "ha_event_timeline.csv", index=False)
+    event_impact.to_csv(csv_dir / "ha_event_impact_breakdown.csv", index=False)
 
     fig, axes = plt.subplots(3, 1, figsize=(15, 11), sharex=True)
     axes[0].plot(exogenous["month_index"], exogenous["warming"], color="#d7301f", label="Rechauffement cumule")
@@ -910,10 +941,10 @@ def build_outputs() -> None:
     axes[2].legend(loc="upper left")
     axes[2].grid(alpha=0.2)
     plt.tight_layout()
-    plt.savefig(IMG_DIR / "ha_system_overview.png", dpi=160, bbox_inches="tight")
+    plt.savefig(img_dir / "ha_system_overview.png", dpi=160, bbox_inches="tight")
     plt.close()
 
-    method_pivot = method_comparison.pivot(index="policy_label", columns="method", values="total_kgCO2e").loc[[p.label for p in POLICIES]]
+    method_pivot = method_comparison.pivot(index="policy_label", columns="method", values="total_kgCO2e").loc[[p.label for p in policies]]
     x = np.arange(len(method_pivot.index))
     width = 0.24
     plt.figure(figsize=(13, 5.6))
@@ -924,7 +955,7 @@ def build_outputs() -> None:
     plt.title("Strategies d'adaptation : comparaison des methodes")
     plt.legend()
     plt.tight_layout()
-    plt.savefig(IMG_DIR / "ha_strategy_method_comparison.png", dpi=160)
+    plt.savefig(img_dir / "ha_strategy_method_comparison.png", dpi=160)
     plt.close()
 
     cost_components = ["material", "inbound_transport", "energy", "storage", "outbound_transport", "backlog_penalty", "adaptation_capex"]
@@ -948,7 +979,7 @@ def build_outputs() -> None:
     ax.legend(ncol=4, fontsize=8)
     ax.grid(axis="y", alpha=0.2)
     plt.tight_layout()
-    plt.savefig(IMG_DIR / "ha_cost_breakdown.png", dpi=160)
+    plt.savefig(img_dir / "ha_cost_breakdown.png", dpi=160)
     plt.close()
 
     fig, axes = plt.subplots(2, 1, figsize=(14, 8.5), sharex=True)
@@ -972,7 +1003,7 @@ def build_outputs() -> None:
     axes[1].legend(loc="upper right")
     axes[1].grid(alpha=0.2)
     plt.tight_layout()
-    plt.savefig(IMG_DIR / "ha_energy_adaptation.png", dpi=160)
+    plt.savefig(img_dir / "ha_energy_adaptation.png", dpi=160)
     plt.close()
 
     frontier = summary.copy()
@@ -1002,7 +1033,7 @@ def build_outputs() -> None:
     plt.title("Frontiere adaptation : service, carbone et cout")
     plt.grid(alpha=0.2)
     plt.tight_layout()
-    plt.savefig(IMG_DIR / "ha_strategy_frontier.png", dpi=160)
+    plt.savefig(img_dir / "ha_strategy_frontier.png", dpi=160)
     plt.close()
 
     fig, axes = plt.subplots(5, 1, figsize=(15, 12.6), sharex=True, gridspec_kw={"height_ratios": [1.0, 1.4, 0.7, 1.0, 1.15]})
@@ -1087,14 +1118,36 @@ def build_outputs() -> None:
     handles_right, labels_right = ax4_line.get_legend_handles_labels()
     axes[4].legend(handles_left + handles_right, labels_left + labels_right, loc="upper left", ncol=3, fontsize=8)
     plt.tight_layout()
-    plt.savefig(IMG_DIR / "ha_event_timeline.png", dpi=160)
+    plt.savefig(img_dir / "ha_event_timeline.png", dpi=160)
     plt.close()
 
     print("Horizon adaptation outputs written to:")
-    print("  CSV:", CSV_DIR.resolve())
-    print("  Images:", IMG_DIR.resolve())
-    print("\nStrategy summary:")
+    print("  CSV:", csv_dir.resolve())
+    print("  Images:", img_dir.resolve())
+    print(f"\n{summary_title}:")
     print(summary.to_string(index=False))
+    return summary
+
+
+def build_outputs() -> None:
+    build_outputs_package(
+        OUT_DIR,
+        POLICIES,
+        TIMELINE_POLICY_NAME,
+        "Strategy summary",
+    )
+    build_outputs_package(
+        BASE_DIR / "baseline",
+        BASELINE_SCENARIO_POLICIES,
+        NO_BIOMASS_BASELINE_POLICY.name,
+        "Baseline summary",
+    )
+    build_outputs_package(
+        BASE_DIR / "biomass-fix",
+        BIOMASS_FIX_SCENARIO_POLICIES,
+        BIOMASS_FIX_POLICY.name,
+        "Biomass-fix summary",
+    )
 
 
 if __name__ == "__main__":
