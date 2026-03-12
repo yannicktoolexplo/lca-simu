@@ -18,6 +18,7 @@ START_YEAR = 2026
 
 MAIN_LEAD = 3
 BACKUP_LEAD = 1
+BIOSOURCED_LEAD = 1
 RAW_STORAGE_EF = 0.012
 FG_STORAGE_EF = 0.018
 SOLAR_EF = 0.035
@@ -52,6 +53,22 @@ class AdaptationPolicy:
     biomass_capacity: float
     insulation_factor: float
     cooling_upgrade: float
+    biomass_local_resource: bool = False
+    biomass_local_stock_cap_kwh: float = 0.0
+    biomass_local_regen_kwh: float = 0.0
+    biomass_local_stress_sensitivity: float = 0.0
+    biomass_local_stress_recovery: float = 0.0
+    biomass_local_ef_premium: float = 0.0
+    biomass_local_cost_premium: float = 0.0
+    biosourced_materials: bool = False
+    biosourced_material_ef_discount: float = 0.0
+    biosourced_inbound_ef_discount: float = 0.0
+    biosourced_local_stress_sensitivity: float = 0.0
+    biosourced_local_stress_recovery: float = 0.0
+    biosourced_cost_premium: float = 0.0
+    biosourced_water_penalty: float = 0.0
+    biosourced_transition_target: float = 0.0
+    biosourced_transition_ramp: float = 0.0
 
 
 POLICIES = [
@@ -132,23 +149,51 @@ POLICIES = [
     ),
 ]
 
-TIMELINE_POLICY_NAME = "lean_exposed"
+TIMELINE_POLICY_NAME = "reference_2045"
 
 REFERENCE_2045_POLICY = next(policy for policy in POLICIES if policy.name == "reference_2045")
 NO_BIOMASS_BASELINE_POLICY = replace(
     REFERENCE_2045_POLICY,
     name="baseline_degraded",
     label="Baseline degradee",
+    raw_target=46.0,
+    reorder_threshold=18.0,
+    fg_target=10.0,
+    air_start_threshold=8.0,
+    air_end_threshold=14.0,
     biomass_capacity=0.0,
 )
-BIOMASS_FIX_POLICY = replace(
+BIOMASS_POLICY = replace(
     NO_BIOMASS_BASELINE_POLICY,
     name="baseline_plus_biomass",
     label="Baseline + biomasse",
     biomass_capacity=10.0,
+    biomass_local_resource=True,
+    biomass_local_stock_cap_kwh=620.0,
+    biomass_local_regen_kwh=26.0,
+    biomass_local_stress_sensitivity=0.38,
+    biomass_local_stress_recovery=0.18,
+    biomass_local_ef_premium=0.04,
+    biomass_local_cost_premium=0.08,
 )
 BASELINE_SCENARIO_POLICIES = [NO_BIOMASS_BASELINE_POLICY]
-BIOMASS_FIX_SCENARIO_POLICIES = [NO_BIOMASS_BASELINE_POLICY, BIOMASS_FIX_POLICY]
+BIOMASS_SCENARIO_POLICIES = [NO_BIOMASS_BASELINE_POLICY, BIOMASS_POLICY]
+BIOSOURCED_MATERIAL_POLICY = replace(
+    NO_BIOMASS_BASELINE_POLICY,
+    name="baseline_biosourced_materials",
+    label="Baseline + materiaux biosources",
+    backup_order_qty=6.0,
+    biosourced_materials=True,
+    biosourced_material_ef_discount=0.30,
+    biosourced_inbound_ef_discount=0.52,
+    biosourced_local_stress_sensitivity=0.34,
+    biosourced_local_stress_recovery=0.16,
+    biosourced_cost_premium=0.10,
+    biosourced_water_penalty=0.08,
+    biosourced_transition_target=0.78,
+    biosourced_transition_ramp=0.055,
+)
+BIOSOURCED_MATERIAL_SCENARIO_POLICIES = [NO_BIOMASS_BASELINE_POLICY, BIOSOURCED_MATERIAL_POLICY]
 
 
 def build_exogenous_context() -> pd.DataFrame:
@@ -230,6 +275,8 @@ def build_exogenous_context() -> pd.DataFrame:
             "year": year,
             "month": month,
             "warming": warming,
+            "heatwave": heatwave,
+            "drought": drought,
             "heat_stress": heat_stress,
             "cold_stress": cold_stress,
             "storm_stress": storm_stress,
@@ -260,7 +307,7 @@ EXOGENOUS = build_exogenous_context()
 
 def consume_fifo(inventory: list[dict], qty: float) -> dict[str, float]:
     remaining = float(qty)
-    consumed = {"main": 0.0, "backup": 0.0}
+    consumed = {"main": 0.0, "biosourced": 0.0, "backup": 0.0}
     while remaining > 1e-9 and inventory:
         batch = inventory[0]
         take = min(batch["qty"], remaining)
@@ -281,6 +328,10 @@ def add_batch(inventory: list[dict], qty: float, source: str) -> None:
 
 def inventory_total(inventory: list[dict]) -> float:
     return sum(batch["qty"] for batch in inventory)
+
+
+def inventory_total_by_source(inventory: list[dict], source: str) -> float:
+    return sum(batch["qty"] for batch in inventory if batch["source"] == source)
 
 
 def safe_ratio(a: float, b: float) -> float:
@@ -311,16 +362,137 @@ def hvac_kwh(raw_stock: float, fg_stock: float, heat_stress: float, cold_stress:
     return base_load * thermal_multiplier * insulation_factor
 
 
+def compute_local_biomass_regen(policy: AdaptationPolicy, row: dict, biomass_resource_stress: float) -> float:
+    if not policy.biomass_local_resource or policy.biomass_local_regen_kwh <= 0:
+        return 0.0
+    climate_multiplier = max(
+        0.18,
+        row["biomass_factor"]
+        * (
+            1.04
+            - 0.28 * row["scarcity"]
+            - 0.14 * row["storm_stress"]
+            - 0.10 * row["heat_stress"]
+        ),
+    )
+    stress_multiplier = max(0.22, 1.0 - 0.58 * biomass_resource_stress)
+    return policy.biomass_local_regen_kwh * climate_multiplier * stress_multiplier
+
+
+def compute_biosourced_material_adjustments(
+    policy: AdaptationPolicy,
+    row: dict,
+    biosourced_local_stress: float,
+) -> dict[str, float]:
+    conventional_availability = row["main_supply_availability"]
+    conventional_material_ef = row["main_material_ef"]
+    conventional_material_cost = row["main_material_cost"]
+    conventional_inbound_ef = row["inbound_main_ef"]
+    conventional_inbound_cost = row["inbound_main_cost"]
+    if not policy.biosourced_materials:
+        return {
+            "conventional_availability": conventional_availability,
+            "biosourced_availability": 0.0,
+            "conventional_material_ef": conventional_material_ef,
+            "biosourced_material_ef": conventional_material_ef,
+            "conventional_material_cost": conventional_material_cost,
+            "biosourced_material_cost": conventional_material_cost,
+            "conventional_inbound_ef": conventional_inbound_ef,
+            "biosourced_inbound_ef": conventional_inbound_ef,
+            "conventional_inbound_cost": conventional_inbound_cost,
+            "biosourced_inbound_cost": conventional_inbound_cost,
+            "biosourced_local_stress": 0.0,
+            "biosourced_local_water_signal": 0.0,
+            "biosourced_supply_shift": 0.0,
+        }
+
+    local_water_signal = min(
+        1.0,
+        0.55 * row["drought"] + 0.16 * row["heat_stress"] + 0.06 * row["scarcity"],
+    )
+    biosourced_availability = min(
+        1.0,
+        max(
+            0.42,
+            0.95
+            - policy.biosourced_water_penalty * row["drought"]
+            - 0.07 * row["heat_stress"]
+            - 0.10 * biosourced_local_stress
+            - 0.03 * row["storm_stress"],
+        ),
+    )
+    biosourced_material_ef = conventional_material_ef * (
+        1.0
+        - policy.biosourced_material_ef_discount
+        + 0.05 * local_water_signal
+        + 0.06 * biosourced_local_stress
+    )
+    biosourced_material_cost = conventional_material_cost * (
+        1.0
+        + policy.biosourced_cost_premium
+        + 0.04 * local_water_signal
+        + 0.08 * biosourced_local_stress
+    )
+    local_inbound_ef = (
+        0.22
+        + 0.08 * row["storm_stress"]
+        + 0.03 * row["scarcity"]
+        + 0.04 * biosourced_local_stress
+    )
+    local_inbound_cost = (
+        0.95
+        + 0.55 * row["storm_stress"]
+        + 0.22 * row["scarcity"]
+        + 0.12 * biosourced_local_stress
+    )
+    biosourced_inbound_ef = min(
+        conventional_inbound_ef * (
+            1.0
+            - policy.biosourced_inbound_ef_discount
+            + 0.03 * biosourced_local_stress
+        ),
+        local_inbound_ef,
+    )
+    biosourced_inbound_cost = min(
+        conventional_inbound_cost * (
+            0.78
+            + 0.12 * policy.biosourced_cost_premium
+            + 0.08 * biosourced_local_stress
+        ),
+        local_inbound_cost,
+    )
+    return {
+        "conventional_availability": conventional_availability,
+        "biosourced_availability": biosourced_availability,
+        "conventional_material_ef": conventional_material_ef,
+        "biosourced_material_ef": biosourced_material_ef,
+        "conventional_material_cost": conventional_material_cost,
+        "biosourced_material_cost": biosourced_material_cost,
+        "conventional_inbound_ef": conventional_inbound_ef,
+        "biosourced_inbound_ef": biosourced_inbound_ef,
+        "conventional_inbound_cost": conventional_inbound_cost,
+        "biosourced_inbound_cost": biosourced_inbound_cost,
+        "biosourced_local_stress": biosourced_local_stress,
+        "biosourced_local_water_signal": local_water_signal,
+        "biosourced_supply_shift": biosourced_availability - conventional_availability,
+    }
+
+
 def simulate_policy(policy: AdaptationPolicy) -> pd.DataFrame:
     raw_inventory = [{"source": "main", "qty": 72.0}]
     fg_inventory = [{"source": "main", "qty": 24.0}]
     # A pipeline of length L means an order placed now arrives after L periods.
     main_pipeline = [0.0] * MAIN_LEAD
+    biosourced_pipeline = [0.0] * BIOSOURCED_LEAD
     backup_pipeline = [0.0] * BACKUP_LEAD
     backlog = 0.0
     battery_soc = 0.45 * policy.battery_capacity
     battery_soh = 1.0
     biomass_transition_level = 0.0
+    biomass_resource_stock = policy.biomass_local_stock_cap_kwh
+    biomass_resource_stress = 0.0
+    biosourced_local_stress = 0.0
+    biosourced_transition_level = 0.0
     next_capacity_multiplier = 1.0
     next_grid_bonus = 0.0
     next_main_supply_multiplier = 1.0
@@ -334,16 +506,23 @@ def simulate_policy(policy: AdaptationPolicy) -> pd.DataFrame:
         month_index = int(row["month_index"])
 
         main_inbound = main_pipeline.pop(0)
+        biosourced_inbound = biosourced_pipeline.pop(0)
         backup_inbound = backup_pipeline.pop(0)
         main_pipeline.append(0.0)
+        biosourced_pipeline.append(0.0)
         backup_pipeline.append(0.0)
         add_batch(raw_inventory, main_inbound, "main")
+        add_batch(raw_inventory, biosourced_inbound, "biosourced")
         add_batch(raw_inventory, backup_inbound, "backup")
 
         raw_stock_start = inventory_total(raw_inventory)
         fg_stock_start = inventory_total(fg_inventory)
-        main_supply_position = raw_stock_start + sum(main_pipeline)
-        backup_supply_position = raw_stock_start + sum(main_pipeline) + sum(backup_pipeline)
+        conventional_stock_start = inventory_total_by_source(raw_inventory, "main")
+        biosourced_stock_start = inventory_total_by_source(raw_inventory, "biosourced")
+        conventional_supply_position = conventional_stock_start + sum(main_pipeline)
+        biosourced_supply_position = biosourced_stock_start + sum(biosourced_pipeline)
+        primary_supply_position = conventional_supply_position + biosourced_supply_position
+        backup_supply_position = raw_stock_start + sum(main_pipeline) + sum(biosourced_pipeline) + sum(backup_pipeline)
         climate_event = row["climate_event"]
 
         climate_capacity_multiplier = 1.0
@@ -382,31 +561,74 @@ def simulate_policy(policy: AdaptationPolicy) -> pd.DataFrame:
         demand_t = row["demand"]
         lead_cover_target = demand_t * (MAIN_LEAD + 0.75) + 0.55 * backlog + 0.60 * policy.fg_target
         adaptive_raw_target = max(policy.raw_target, lead_cover_target)
-        requested_main = max(0.0, adaptive_raw_target - main_supply_position)
+        requested_primary = max(0.0, adaptive_raw_target - primary_supply_position)
+        requested_main = 0.0
+        requested_biosourced = 0.0
         requested_backup = 0.0
+        material_adjustments = compute_biosourced_material_adjustments(policy, row, biosourced_local_stress)
+        conventional_material_ef = material_adjustments["conventional_material_ef"]
+        biosourced_material_ef = material_adjustments["biosourced_material_ef"]
+        conventional_material_cost = material_adjustments["conventional_material_cost"]
+        biosourced_material_cost = material_adjustments["biosourced_material_cost"]
+        conventional_inbound_ef = material_adjustments["conventional_inbound_ef"]
+        biosourced_inbound_ef = material_adjustments["biosourced_inbound_ef"]
+        conventional_inbound_cost = material_adjustments["conventional_inbound_cost"]
+        biosourced_inbound_cost = material_adjustments["biosourced_inbound_cost"]
         main_availability = min(
             1.0,
-            row["main_supply_availability"] * climate_main_supply_multiplier * next_main_supply_multiplier,
+            material_adjustments["conventional_availability"] * climate_main_supply_multiplier * next_main_supply_multiplier,
+        )
+        biosourced_availability = min(
+            1.0,
+            material_adjustments["biosourced_availability"] * climate_main_supply_multiplier * next_main_supply_multiplier,
         )
         backup_availability = min(
             1.0,
             row["backup_supply_availability"] * climate_backup_supply_multiplier * next_backup_supply_multiplier,
         )
+        if policy.biosourced_materials:
+            transition_target = min(
+                policy.biosourced_transition_target,
+                max(0.30, policy.biosourced_transition_target - 0.18 * biosourced_local_stress),
+            )
+            biosourced_transition_level = min(
+                transition_target,
+                max(
+                    0.0,
+                    0.90 * biosourced_transition_level
+                    + policy.biosourced_transition_ramp * (1.0 - 0.45 * biosourced_local_stress)
+                    + 0.03 * max(0.0, 1.0 - row["storm_stress"])
+                    - 0.02 * row["drought"],
+                ),
+            )
+            requested_biosourced = requested_primary * biosourced_transition_level
+            requested_main = max(0.0, requested_primary - requested_biosourced)
+            requested_main += 0.65 * max(0.0, requested_biosourced * (1.0 - biosourced_availability))
+        else:
+            requested_main = requested_primary
+        backup_trigger_availability = 0.88
+        backup_request_multiplier = 1.0
+        if policy.biosourced_materials:
+            backup_trigger_availability = 0.72
+            backup_request_multiplier = 0.55
+        main_order = requested_main * main_availability
+        biosourced_order = requested_biosourced * biosourced_availability
+        primary_fill_ratio = safe_ratio(main_order + biosourced_order, requested_primary)
         if (
             raw_stock_start < policy.reorder_threshold
             or backup_supply_position < policy.reorder_threshold
             or backlog > policy.air_start_threshold
-            or main_availability < 0.88
+            or primary_fill_ratio < backup_trigger_availability
         ):
             requested_backup = (
                 policy.backup_order_qty
                 + 0.22 * backlog
                 + 0.35 * max(0.0, policy.reorder_threshold - raw_stock_start)
-                + 18.0 * max(0.0, 0.90 - main_availability)
-            )
-        main_order = requested_main * main_availability
+                + 18.0 * max(0.0, backup_trigger_availability + 0.02 - primary_fill_ratio)
+            ) * backup_request_multiplier
         backup_order = requested_backup * backup_availability
         main_pipeline[-1] += main_order
+        biosourced_pipeline[-1] += biosourced_order
         backup_pipeline[-1] += backup_order
 
         capacity_bonus = (
@@ -435,11 +657,14 @@ def simulate_policy(policy: AdaptationPolicy) -> pd.DataFrame:
         consumed = consume_fifo(raw_inventory, planned_input)
         sr = min(0.22, scrap_rate(utilization, row["heat_stress"]) + climate_quality_penalty + next_quality_penalty)
         scrap_main = consumed["main"] * sr
+        scrap_biosourced = consumed["biosourced"] * sr
         scrap_backup = consumed["backup"] * sr
         good_output_main = consumed["main"] - scrap_main
+        good_output_biosourced = consumed["biosourced"] - scrap_biosourced
         good_output_backup = consumed["backup"] - scrap_backup
-        good_output = good_output_main + good_output_backup
+        good_output = good_output_main + good_output_biosourced + good_output_backup
         add_batch(fg_inventory, good_output_main, "main")
+        add_batch(fg_inventory, good_output_biosourced, "biosourced")
         add_batch(fg_inventory, good_output_backup, "backup")
 
         shipment_request = demand_t + backlog
@@ -485,7 +710,13 @@ def simulate_policy(policy: AdaptationPolicy) -> pd.DataFrame:
 
         solar_generation = policy.solar_scale * row["solar_factor"]
         base_biomass_generation = policy.biomass_capacity * row["biomass_factor"]
-
+        biomass_resource_regen = compute_local_biomass_regen(policy, row, biomass_resource_stress)
+        biomass_stock_start = biomass_resource_stock
+        if policy.biomass_local_resource:
+            biomass_resource_stock = min(
+                policy.biomass_local_stock_cap_kwh,
+                biomass_resource_stock + biomass_resource_regen,
+            )
         solar_used = min(total_energy_demand, solar_generation)
         residual_after_solar = max(0.0, total_energy_demand - solar_used)
 
@@ -521,7 +752,15 @@ def simulate_policy(policy: AdaptationPolicy) -> pd.DataFrame:
             ),
         )
         biomass_multiplier = 1.0 + 2.0 * biomass_transition_level
-        biomass_generation = base_biomass_generation * biomass_multiplier
+        biomass_generation_technical = base_biomass_generation * biomass_multiplier
+        if policy.biomass_local_resource:
+            biomass_availability_penalty = max(0.28, 1.0 - 0.52 * biomass_resource_stress)
+            biomass_generation = min(
+                biomass_generation_technical * biomass_availability_penalty,
+                biomass_resource_stock,
+            )
+        else:
+            biomass_generation = biomass_generation_technical
 
         direct_clean_supply = min(total_energy_demand, solar_generation + biomass_generation)
         residual_demand = max(0.0, total_energy_demand - direct_clean_supply)
@@ -542,6 +781,53 @@ def simulate_policy(policy: AdaptationPolicy) -> pd.DataFrame:
         battery_soh = max(0.58, battery_soh - 0.00028 * battery_throughput - 0.00018 * row["heat_stress"])
 
         biomass_used = min(max(0.0, total_energy_demand - solar_used), biomass_generation)
+        biomass_overuse_kwh = 0.0
+        biomass_resource_stock_ratio = 0.0
+        biomass_effective_ef = BIOMASS_EF
+        biomass_effective_cost = BIOMASS_LCOE
+        if policy.biomass_local_resource:
+            biomass_resource_stock = max(0.0, biomass_resource_stock - biomass_used)
+            stock_cap = max(policy.biomass_local_stock_cap_kwh, 1e-9)
+            sustainable_draw = biomass_resource_regen + 0.012 * stock_cap * (0.4 + 0.6 * biomass_resource_stock_ratio)
+            biomass_overuse_kwh = max(0.0, biomass_used - sustainable_draw)
+            biomass_resource_stock_ratio = biomass_resource_stock / stock_cap
+            biomass_resource_stress = min(
+                1.0,
+                max(
+                    0.0,
+                    (1.0 - policy.biomass_local_stress_recovery) * biomass_resource_stress
+                    + policy.biomass_local_stress_sensitivity * biomass_overuse_kwh / stock_cap
+                    + 0.06 * max(0.0, 0.72 - biomass_resource_stock_ratio)
+                    + 0.03 * max(0.0, row["scarcity"] - 0.82),
+                ),
+            )
+            biomass_effective_ef *= 1.0 + policy.biomass_local_ef_premium * biomass_resource_stress
+            biomass_effective_cost *= 1.0 + policy.biomass_local_cost_premium * biomass_resource_stress
+
+        biosourced_local_draw = 0.0
+        biosourced_water_overuse = 0.0
+        if policy.biosourced_materials:
+            biosourced_local_draw = consumed["biosourced"]
+            sustainable_local_draw = max(
+                12.0,
+                0.68 * adaptive_raw_target + 10.0 * max(0.0, 1.0 - row["drought"]),
+            )
+            biosourced_water_overuse = max(0.0, biosourced_local_draw - sustainable_local_draw)
+            biosourced_local_stress = min(
+                1.0,
+                max(
+                    0.0,
+                    (1.0 - policy.biosourced_local_stress_recovery) * biosourced_local_stress
+                    + policy.biosourced_local_stress_sensitivity
+                    * (
+                        0.18 * row["drought"]
+                        + 0.07 * row["heat_stress"]
+                        + 0.08 * safe_ratio(biosourced_local_draw, max(policy.raw_target, 1.0))
+                        + 0.16 * safe_ratio(biosourced_water_overuse, max(sustainable_local_draw, 1.0))
+                    )
+                    - 0.05 * row["cold_stress"],
+                ),
+            )
         solar_share = safe_ratio(solar_used, total_energy_demand)
         biomass_share = safe_ratio(biomass_used, total_energy_demand)
         grid_share = safe_ratio(grid_energy, total_energy_demand)
@@ -577,18 +863,39 @@ def simulate_policy(policy: AdaptationPolicy) -> pd.DataFrame:
             operational_labels.append("overtime energetique")
         elif backlog_relief_capacity > 0:
             operational_labels.append("capacite d'appoint")
-        if scrap_main + scrap_backup > 1.0:
+        if scrap_main + scrap_biosourced + scrap_backup > 1.0:
             next_capacity_multiplier *= 0.96
             operational_labels.append("recalage qualite")
+        if policy.biomass_local_resource and biomass_resource_stress > 0.38:
+            operational_labels.append("stress ressource biomasse")
+        if policy.biosourced_materials and biosourced_local_stress > 0.34:
+            operational_labels.append("stress hydrique matiere locale")
         next_operational_event = " + ".join(operational_labels) if operational_labels else "aucun"
 
         effective_grid_factor = row["grid_factor"] + next_grid_bonus
         energy_mix_ef = (
             grid_energy * effective_grid_factor
             + min(total_energy_demand, solar_generation) * SOLAR_EF
-            + min(max(0.0, total_energy_demand - solar_generation), biomass_generation) * BIOMASS_EF
+            + biomass_used * biomass_effective_ef
             + battery_discharge * BATTERY_USE_EF
         ) / max(total_energy_demand, 1e-9)
+        primary_good_output = good_output_main + good_output_biosourced
+        primary_material_ef_blended = safe_ratio(
+            good_output_main * conventional_material_ef + good_output_biosourced * biosourced_material_ef,
+            primary_good_output,
+        )
+        primary_material_cost_blended = safe_ratio(
+            good_output_main * conventional_material_cost + good_output_biosourced * biosourced_material_cost,
+            primary_good_output,
+        )
+        primary_inbound_ef_blended = safe_ratio(
+            good_output_main * conventional_inbound_ef + good_output_biosourced * biosourced_inbound_ef,
+            primary_good_output,
+        )
+        primary_inbound_cost_blended = safe_ratio(
+            good_output_main * conventional_inbound_cost + good_output_biosourced * biosourced_inbound_cost,
+            primary_good_output,
+        )
 
         rows.append({
             "policy_name": policy.name,
@@ -597,12 +904,29 @@ def simulate_policy(policy: AdaptationPolicy) -> pd.DataFrame:
             "capacity_applied": capacity_applied,
             "backlog_relief_capacity": backlog_relief_capacity,
             "main_supply_availability_applied": main_availability,
+            "biosourced_supply_availability_applied": biosourced_availability,
+            "primary_supply_availability_applied": primary_fill_ratio,
             "backup_supply_availability_applied": backup_availability,
+            "main_material_ef": conventional_material_ef,
+            "biosourced_material_ef": biosourced_material_ef,
+            "primary_material_ef_blended": primary_material_ef_blended,
+            "main_material_cost": conventional_material_cost,
+            "biosourced_material_cost": biosourced_material_cost,
+            "primary_material_cost_blended": primary_material_cost_blended,
+            "inbound_main_ef": conventional_inbound_ef,
+            "biosourced_inbound_ef": biosourced_inbound_ef,
+            "primary_inbound_ef_blended": primary_inbound_ef_blended,
+            "inbound_main_cost": conventional_inbound_cost,
+            "biosourced_inbound_cost": biosourced_inbound_cost,
+            "primary_inbound_cost_blended": primary_inbound_cost_blended,
             "main_inbound": main_inbound,
+            "biosourced_inbound": biosourced_inbound,
             "backup_inbound": backup_inbound,
             "main_order_requested": requested_main,
+            "biosourced_order_requested": requested_biosourced,
             "backup_order_requested": requested_backup,
             "main_order": main_order,
+            "biosourced_order": biosourced_order,
             "backup_order": backup_order,
             "raw_stock_end": inventory_total(raw_inventory),
             "fg_stock_end": inventory_total(fg_inventory),
@@ -611,13 +935,16 @@ def simulate_policy(policy: AdaptationPolicy) -> pd.DataFrame:
             "planned_input_units": planned_input,
             "capacity_utilization": utilization,
             "good_output_main_units": good_output_main,
+            "good_output_biosourced_units": good_output_biosourced,
             "good_output_backup_units": good_output_backup,
             "good_output_units": good_output,
             "scrap_main_units": scrap_main,
+            "scrap_biosourced_units": scrap_biosourced,
             "scrap_backup_units": scrap_backup,
-            "scrap_units": scrap_main + scrap_backup,
+            "scrap_units": scrap_main + scrap_biosourced + scrap_backup,
             "outbound_shipments": shipments,
             "shipped_main_units": shipped["main"],
+            "shipped_biosourced_units": shipped["biosourced"],
             "shipped_backup_units": shipped["backup"],
             "outbound_mode": outbound_mode,
             "process_kwh": process_kwh,
@@ -627,11 +954,27 @@ def simulate_policy(policy: AdaptationPolicy) -> pd.DataFrame:
             "solar_used_kwh": solar_used,
             "solar_share": solar_share,
             "biomass_generation_base_kwh": base_biomass_generation,
+            "biomass_generation_technical_kwh": biomass_generation_technical,
             "biomass_generation_kwh": biomass_generation,
             "biomass_used_kwh": biomass_used,
             "biomass_share": biomass_share,
             "biomass_transition_level": biomass_transition_level,
             "biomass_transition_cap": biomass_transition_cap,
+            "biomass_resource_regen_kwh": biomass_resource_regen,
+            "biomass_resource_stock_start_kwh": biomass_stock_start,
+            "biomass_resource_stock_end_kwh": biomass_resource_stock,
+            "biomass_resource_stock_ratio": biomass_resource_stock_ratio,
+            "biomass_resource_stress": biomass_resource_stress,
+            "biomass_resource_overuse_kwh": biomass_overuse_kwh,
+            "biomass_effective_ef": biomass_effective_ef,
+            "biomass_effective_cost": biomass_effective_cost,
+            "biosourced_materials": int(policy.biosourced_materials),
+            "biosourced_local_stress": biosourced_local_stress,
+            "biosourced_transition_level": biosourced_transition_level,
+            "biosourced_local_draw_units": biosourced_local_draw,
+            "biosourced_water_overuse_units": biosourced_water_overuse,
+            "biosourced_local_water_signal": material_adjustments["biosourced_local_water_signal"],
+            "biosourced_supply_shift": material_adjustments["biosourced_supply_shift"],
             "battery_discharge_kwh": battery_discharge,
             "battery_charge_kwh": battery_charge,
             "grid_energy_kwh": grid_energy,
@@ -640,6 +983,7 @@ def simulate_policy(policy: AdaptationPolicy) -> pd.DataFrame:
             "battery_soh": battery_soh,
             "effective_grid_factor": effective_grid_factor,
             "energy_mix_ef": energy_mix_ef,
+            "biomass_local_resource": int(policy.biomass_local_resource),
             "climate_operational_impact": " + ".join(climate_labels) if climate_labels else "aucun",
             "operational_feedback_event": next_operational_event,
         })
@@ -649,8 +993,8 @@ def simulate_policy(policy: AdaptationPolicy) -> pd.DataFrame:
 
 
 def compute_classical_lca(states: pd.DataFrame) -> dict:
-    avg_material_ef = float(states["main_material_ef"].mean())
-    avg_inbound_ef = float(states["inbound_main_ef"].mean())
+    avg_material_ef = float(states["primary_material_ef_blended"].replace(0, np.nan).fillna(states["main_material_ef"]).mean())
+    avg_inbound_ef = float(states["primary_inbound_ef_blended"].replace(0, np.nan).fillna(states["inbound_main_ef"]).mean())
     avg_truck_ef = float(states["truck_ef"].mean())
     avg_energy_mix_ef = float(states["energy_mix_ef"].mean())
     total_good = float(states["good_output_units"].sum())
@@ -672,37 +1016,53 @@ def compute_classical_lca(states: pd.DataFrame) -> dict:
 def compute_time_dependent_dlca(states: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
     rows = []
     for _, r in states.iterrows():
+        primary_material_ef = r["primary_material_ef_blended"] or r["main_material_ef"]
+        primary_inbound_ef = r["primary_inbound_ef_blended"] or r["inbound_main_ef"]
         rows.append({
             "month_index": int(r["month_index"]),
-            "material": r["good_output_units"] * r["main_material_ef"],
-            "inbound_transport": r["good_output_units"] * r["inbound_main_ef"],
+            "material": (
+                r["good_output_main_units"] * r["main_material_ef"]
+                + r["good_output_biosourced_units"] * r["biosourced_material_ef"]
+                + r["good_output_backup_units"] * primary_material_ef
+            ),
+            "inbound_transport": (
+                r["good_output_main_units"] * r["inbound_main_ef"]
+                + r["good_output_biosourced_units"] * r["biosourced_inbound_ef"]
+                + r["good_output_backup_units"] * primary_inbound_ef
+            ),
             "production_energy": r["process_kwh"] * r["energy_mix_ef"],
             "outbound_transport": r["outbound_shipments"] * r["truck_ef"],
             "storage": r["hvac_kwh"] * r["energy_mix_ef"] + r["raw_stock_end"] * RAW_STORAGE_EF + r["fg_stock_end"] * FG_STORAGE_EF,
             "scrap": 0.0,
         })
     df = pd.DataFrame(rows)
-    df["total"] = df.sum(axis=1, numeric_only=True)
+    components = ["material", "inbound_transport", "production_energy", "outbound_transport", "storage", "scrap"]
+    df["total"] = df[components].sum(axis=1)
     return df, df[["material", "inbound_transport", "production_energy", "outbound_transport", "storage", "scrap", "total"]].sum().to_dict()
 
 
 def compute_sdd(states: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
     rows = []
     for _, r in states.iterrows():
-        backup_material_ef = r["main_material_ef"] + BACKUP_MATERIAL_PREMIUM_EF
+        primary_material_ef = r["primary_material_ef_blended"] or r["main_material_ef"]
+        primary_inbound_ef = r["primary_inbound_ef_blended"] or r["inbound_main_ef"]
+        backup_material_ef = primary_material_ef + BACKUP_MATERIAL_PREMIUM_EF
         material = (
             r["good_output_main_units"] * r["main_material_ef"]
+            + r["good_output_biosourced_units"] * r["biosourced_material_ef"]
             + r["good_output_backup_units"] * backup_material_ef
         )
         inbound = (
             r["good_output_main_units"] * r["inbound_main_ef"]
-            + r["good_output_backup_units"] * (r["inbound_main_ef"] + BACKUP_INBOUND_PREMIUM_EF)
+            + r["good_output_biosourced_units"] * r["biosourced_inbound_ef"]
+            + r["good_output_backup_units"] * (primary_inbound_ef + BACKUP_INBOUND_PREMIUM_EF)
         )
         outbound_factor = r["air_ef"] if r["outbound_mode"] == "air" else r["truck_ef"]
         outbound = r["outbound_shipments"] * outbound_factor
         scrap = (
             r["scrap_main_units"] * (r["main_material_ef"] + r["inbound_main_ef"] + r["energy_mix_ef"] * process_kwh_per_unit(r["capacity_utilization"], r["heat_stress"], 1.0))
-            + r["scrap_backup_units"] * (backup_material_ef + r["inbound_main_ef"] + BACKUP_INBOUND_PREMIUM_EF + r["energy_mix_ef"] * process_kwh_per_unit(r["capacity_utilization"], r["heat_stress"], 1.0))
+            + r["scrap_biosourced_units"] * (r["biosourced_material_ef"] + r["biosourced_inbound_ef"] + r["energy_mix_ef"] * process_kwh_per_unit(r["capacity_utilization"], r["heat_stress"], 1.0))
+            + r["scrap_backup_units"] * (backup_material_ef + primary_inbound_ef + BACKUP_INBOUND_PREMIUM_EF + r["energy_mix_ef"] * process_kwh_per_unit(r["capacity_utilization"], r["heat_stress"], 1.0))
         )
         rows.append({
             "month_index": int(r["month_index"]),
@@ -714,23 +1074,71 @@ def compute_sdd(states: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
             "scrap": scrap,
         })
     df = pd.DataFrame(rows)
-    df["total"] = df.sum(axis=1, numeric_only=True)
+    components = ["material", "inbound_transport", "production_energy", "outbound_transport", "storage", "scrap"]
+    df["total"] = df[components].sum(axis=1)
     return df, df[["material", "inbound_transport", "production_energy", "outbound_transport", "storage", "scrap", "total"]].sum().to_dict()
+
+
+def compute_sdd_source_breakdown(states: pd.DataFrame) -> dict:
+    breakdown = {
+        "material_main": 0.0,
+        "material_biosourced": 0.0,
+        "material_backup": 0.0,
+        "inbound_main": 0.0,
+        "inbound_biosourced": 0.0,
+        "inbound_backup": 0.0,
+        "production_energy": 0.0,
+        "outbound_transport": 0.0,
+        "storage": 0.0,
+        "scrap": 0.0,
+    }
+    for _, r in states.iterrows():
+        primary_material_ef = r["primary_material_ef_blended"] or r["main_material_ef"]
+        primary_inbound_ef = r["primary_inbound_ef_blended"] or r["inbound_main_ef"]
+        backup_material_ef = primary_material_ef + BACKUP_MATERIAL_PREMIUM_EF
+        backup_inbound_ef = primary_inbound_ef + BACKUP_INBOUND_PREMIUM_EF
+        breakdown["material_main"] += r["good_output_main_units"] * r["main_material_ef"]
+        breakdown["material_biosourced"] += r["good_output_biosourced_units"] * r["biosourced_material_ef"]
+        breakdown["material_backup"] += r["good_output_backup_units"] * backup_material_ef
+        breakdown["inbound_main"] += r["good_output_main_units"] * r["inbound_main_ef"]
+        breakdown["inbound_biosourced"] += r["good_output_biosourced_units"] * r["biosourced_inbound_ef"]
+        breakdown["inbound_backup"] += r["good_output_backup_units"] * backup_inbound_ef
+        breakdown["production_energy"] += r["process_kwh"] * r["energy_mix_ef"]
+        outbound_factor = r["air_ef"] if r["outbound_mode"] == "air" else r["truck_ef"]
+        breakdown["outbound_transport"] += r["outbound_shipments"] * outbound_factor
+        breakdown["storage"] += r["hvac_kwh"] * r["energy_mix_ef"] + r["raw_stock_end"] * RAW_STORAGE_EF + r["fg_stock_end"] * FG_STORAGE_EF
+        breakdown["scrap"] += (
+            r["scrap_main_units"] * (r["main_material_ef"] + r["inbound_main_ef"] + r["energy_mix_ef"] * process_kwh_per_unit(r["capacity_utilization"], r["heat_stress"], 1.0))
+            + r["scrap_biosourced_units"] * (r["biosourced_material_ef"] + r["biosourced_inbound_ef"] + r["energy_mix_ef"] * process_kwh_per_unit(r["capacity_utilization"], r["heat_stress"], 1.0))
+            + r["scrap_backup_units"] * (backup_material_ef + backup_inbound_ef + r["energy_mix_ef"] * process_kwh_per_unit(r["capacity_utilization"], r["heat_stress"], 1.0))
+        )
+    breakdown["total"] = sum(value for key, value in breakdown.items() if key != "total")
+    return breakdown
 
 
 def compute_costs(states: pd.DataFrame, policy: AdaptationPolicy) -> tuple[pd.DataFrame, dict]:
     rows = []
     for _, r in states.iterrows():
         outbound_cost = r["air_cost"] if r["outbound_mode"] == "air" else r["truck_cost"]
-        backup_material_cost = r["main_material_cost"] * 1.28
+        primary_material_cost = r["primary_material_cost_blended"] or r["main_material_cost"]
+        primary_inbound_cost = r["primary_inbound_cost_blended"] or r["inbound_main_cost"]
+        backup_material_cost = primary_material_cost * 1.28
         grid_cost = r["grid_energy_kwh"] * r["grid_price"]
         solar_cost = r["solar_used_kwh"] * SOLAR_LCOE
-        biomass_cost = r["biomass_used_kwh"] * BIOMASS_LCOE
+        biomass_cost = r["biomass_used_kwh"] * r.get("biomass_effective_cost", BIOMASS_LCOE)
         battery_cost = r["battery_discharge_kwh"] * BATTERY_CYCLE_COST
         rows.append({
             "month_index": int(r["month_index"]),
-            "material": r["good_output_main_units"] * r["main_material_cost"] + r["good_output_backup_units"] * backup_material_cost,
-            "inbound_transport": r["good_output_main_units"] * r["inbound_main_cost"] + r["good_output_backup_units"] * (r["inbound_main_cost"] + 1.5),
+            "material": (
+                r["good_output_main_units"] * r["main_material_cost"]
+                + r["good_output_biosourced_units"] * r["biosourced_material_cost"]
+                + r["good_output_backup_units"] * backup_material_cost
+            ),
+            "inbound_transport": (
+                r["good_output_main_units"] * r["inbound_main_cost"]
+                + r["good_output_biosourced_units"] * r["biosourced_inbound_cost"]
+                + r["good_output_backup_units"] * (primary_inbound_cost + 1.5)
+            ),
             "energy": grid_cost + solar_cost + biomass_cost + battery_cost,
             "storage": r["hvac_kwh"] * (r["grid_price"] * 0.55 + SOLAR_LCOE * 0.15) + STORAGE_FIXED_COST * (r["raw_stock_end"] + r["fg_stock_end"]),
             "outbound_transport": r["outbound_shipments"] * outbound_cost,
@@ -738,7 +1146,8 @@ def compute_costs(states: pd.DataFrame, policy: AdaptationPolicy) -> tuple[pd.Da
             "adaptation_capex": policy.solar_scale * SOLAR_CAPEX_MONTHLY + policy.battery_capacity * BATTERY_CAPEX_MONTHLY + policy.biomass_capacity * BIOMASS_CAPEX_MONTHLY,
         })
     df = pd.DataFrame(rows)
-    df["total"] = df.sum(axis=1, numeric_only=True)
+    components = ["material", "inbound_transport", "energy", "storage", "outbound_transport", "backlog_penalty", "adaptation_capex"]
+    df["total"] = df[components].sum(axis=1)
     return df, df[["material", "inbound_transport", "energy", "storage", "outbound_transport", "backlog_penalty", "adaptation_capex", "total"]].sum().to_dict()
 
 
@@ -747,6 +1156,7 @@ def evaluate_policy(policy: AdaptationPolicy) -> dict:
     classical = compute_classical_lca(states)
     time_dependent, td_breakdown = compute_time_dependent_dlca(states)
     sdd, sdd_breakdown = compute_sdd(states)
+    impact_breakdown = compute_sdd_source_breakdown(states)
     cost_df, cost_breakdown = compute_costs(states, policy)
     classical["total"] = sum(value for key, value in classical.items() if key != "total")
     summary = {
@@ -757,11 +1167,21 @@ def evaluate_policy(policy: AdaptationPolicy) -> dict:
         "final_backlog": round(float(states["backlog_end"].iloc[-1]), 2),
         "peak_backlog": round(float(states["backlog_end"].max()), 2),
         "battery_soh_final": round(float(states["battery_soh"].iloc[-1]), 3),
+        "avg_main_supply_availability_pct": round(float(100 * states["main_supply_availability_applied"].mean()), 2),
+        "avg_primary_supply_availability_pct": round(float(100 * states["primary_supply_availability_applied"].mean()), 2),
+        "biosourced_output_share_pct": round(float(100 * safe_ratio(states["good_output_biosourced_units"].sum(), states["good_output_units"].sum())), 2),
+        "backup_output_share_pct": round(float(100 * safe_ratio(states["good_output_backup_units"].sum(), states["good_output_units"].sum())), 2),
         "grid_energy_total_kwh": round(float(states["grid_energy_kwh"].sum()), 2),
         "solar_energy_total_kwh": round(float(states["solar_used_kwh"].sum()), 2),
         "biomass_energy_total_kwh": round(float(states["biomass_used_kwh"].sum()), 2),
         "avg_energy_mix_ef": round(float(states["energy_mix_ef"].mean()), 4),
         "td_energy_impact_kgCO2e": round(float(td_breakdown["production_energy"] + td_breakdown["storage"]), 2),
+        "biomass_resource_stress_peak": round(float(states["biomass_resource_stress"].max()), 3),
+        "biomass_resource_stock_final_kwh": round(float(states["biomass_resource_stock_end_kwh"].iloc[-1]), 2),
+        "biomass_resource_overuse_total_kwh": round(float(states["biomass_resource_overuse_kwh"].sum()), 2),
+        "biosourced_local_stress_peak": round(float(states["biosourced_local_stress"].max()), 3),
+        "biosourced_local_draw_total_units": round(float(states["biosourced_local_draw_units"].sum()), 2),
+        "biosourced_water_overuse_total_units": round(float(states["biosourced_water_overuse_units"].sum()), 2),
         "classical_total_kgCO2e": round(classical["total"], 2),
         "time_dependent_dlca_total_kgCO2e": round(td_breakdown["total"], 2),
         "sdd_total_kgCO2e": round(sdd_breakdown["total"], 2),
@@ -776,6 +1196,7 @@ def evaluate_policy(policy: AdaptationPolicy) -> dict:
         "time_dependent_breakdown": td_breakdown,
         "sdd": sdd,
         "sdd_breakdown": sdd_breakdown,
+        "impact_breakdown": impact_breakdown,
         "costs": cost_df,
         "cost_breakdown": cost_breakdown,
         "summary": summary,
@@ -784,12 +1205,20 @@ def evaluate_policy(policy: AdaptationPolicy) -> dict:
 
 def classify_environmental_regime(row: pd.Series) -> str:
     climate_shock = row["climate_event"] != "aucun"
-    operational_stress = row["backlog_end"] > 10.0 or row["capacity_utilization"] > 0.93 or row["outbound_mode"] == "air"
+    operational_stress = (
+        row["backlog_end"] > 10.0
+        or row["capacity_utilization"] > 0.93
+        or row["outbound_mode"] == "air"
+        or row.get("biomass_resource_stress", 0.0) > 0.42
+        or row.get("biosourced_local_stress", 0.0) > 0.40
+    )
     if (
         row["backlog_end"] > 24.0
         or (row["outbound_mode"] == "air" and row["backlog_end"] > 10.0)
         or (climate_shock and operational_stress)
         or (row["capacity_utilization"] > 0.97 and row["scrap_units"] > 0.8)
+        or row.get("biomass_resource_stress", 0.0) > 0.72
+        or row.get("biosourced_local_stress", 0.0) > 0.68
     ):
         return "crise"
     if (
@@ -798,6 +1227,8 @@ def classify_environmental_regime(row: pd.Series) -> str:
         or row["capacity_utilization"] > 0.82
         or (row["grid_share"] > 0.90 and row["heat_stress"] > 0.75)
         or row["scarcity"] > 0.78
+        or row.get("biomass_resource_stress", 0.0) > 0.35
+        or row.get("biosourced_local_stress", 0.0) > 0.30
     ):
         return "tendu"
     return "nominal"
@@ -825,6 +1256,8 @@ def build_event_timeline(states: pd.DataFrame) -> pd.DataFrame:
     timeline["evt_overtime_energetique"] = timeline["operational_feedback_event"].str.contains("overtime energetique").astype(int)
     timeline["evt_capacite_appoint"] = timeline["operational_feedback_event"].str.contains("capacite d'appoint").astype(int)
     timeline["evt_recalage_qualite"] = timeline["operational_feedback_event"].str.contains("recalage qualite").astype(int)
+    timeline["evt_stress_biomasse_locale"] = timeline["operational_feedback_event"].str.contains("stress ressource biomasse").astype(int)
+    timeline["evt_stress_hydrique_matiere_locale"] = timeline["operational_feedback_event"].str.contains("stress hydrique matiere locale").astype(int)
     return timeline
 
 
@@ -853,6 +1286,7 @@ def build_outputs_package(
     policies: list[AdaptationPolicy],
     timeline_policy_name: str,
     summary_title: str,
+    display_policy_name: str | None = None,
 ) -> pd.DataFrame:
     csv_dir = output_dir / "csv"
     img_dir = output_dir / "images"
@@ -874,6 +1308,10 @@ def build_outputs_package(
         {"policy_label": result["summary"]["policy_label"], **result["cost_breakdown"]}
         for result in results
     ])
+    impact_breakdown = pd.DataFrame([
+        {"policy_label": result["summary"]["policy_label"], **result["impact_breakdown"]}
+        for result in results
+    ])
     states_all = pd.concat([result["states"] for result in results], ignore_index=True)
     costs_all = pd.concat([
         result["costs"].assign(policy_label=result["summary"]["policy_label"])
@@ -884,15 +1322,19 @@ def build_outputs_package(
     summary.to_csv(csv_dir / "ha_strategy_summary.csv", index=False)
     method_comparison.to_csv(csv_dir / "ha_method_comparison.csv", index=False)
     cost_breakdown.to_csv(csv_dir / "ha_cost_breakdown.csv", index=False)
+    impact_breakdown.to_csv(csv_dir / "ha_impact_breakdown.csv", index=False)
     states_all.to_csv(csv_dir / "ha_monthly_states.csv", index=False)
     costs_all.to_csv(csv_dir / "ha_monthly_costs.csv", index=False)
     exogenous.to_csv(csv_dir / "ha_exogenous_context.csv", index=False)
 
     reference = results_by_name.get(timeline_policy_name, results[0])
+    display_reference = results_by_name.get(display_policy_name or timeline_policy_name, reference)
     ref_states = reference["states"]
     ref_td = reference["time_dependent_dlca"]
     ref_sdd = reference["sdd"]
     reference_label = reference["summary"]["policy_label"]
+    display_states = display_reference["states"]
+    display_label = display_reference["summary"]["policy_label"]
     event_timeline = build_event_timeline(ref_states)
     event_impact = build_event_impact_breakdown(ref_td, ref_sdd)
     cumulative = pd.DataFrame({
@@ -982,24 +1424,86 @@ def build_outputs_package(
     plt.savefig(img_dir / "ha_cost_breakdown.png", dpi=160)
     plt.close()
 
+    impact_components = [
+        "material_main",
+        "material_biosourced",
+        "material_backup",
+        "inbound_main",
+        "inbound_biosourced",
+        "inbound_backup",
+        "production_energy",
+        "storage",
+        "outbound_transport",
+        "scrap",
+    ]
+    fig, ax = plt.subplots(figsize=(13.6, 6.1))
+    bottom = np.zeros(len(impact_breakdown))
+    colors = {
+        "material_main": "#9ecae1",
+        "material_biosourced": "#31a354",
+        "material_backup": "#756bb1",
+        "inbound_main": "#6baed6",
+        "inbound_biosourced": "#74c476",
+        "inbound_backup": "#9e9ac8",
+        "production_energy": "#3182bd",
+        "storage": "#fd8d3c",
+        "outbound_transport": "#f16913",
+        "scrap": "#636363",
+    }
+    labels = {
+        "material_main": "Matiere principale",
+        "material_biosourced": "Matiere biosourcee",
+        "material_backup": "Matiere backup",
+        "inbound_main": "Inbound principal",
+        "inbound_biosourced": "Inbound biosource",
+        "inbound_backup": "Inbound backup",
+        "production_energy": "Energie de production",
+        "storage": "Stockage",
+        "outbound_transport": "Transport aval",
+        "scrap": "Rebut",
+    }
+    for component in impact_components:
+        ax.bar(
+            impact_breakdown["policy_label"],
+            impact_breakdown[component],
+            bottom=bottom,
+            label=labels[component],
+            color=colors[component],
+        )
+        bottom += impact_breakdown[component].to_numpy()
+    ax.set_ylabel("Impact SDD total (kgCO2e)")
+    ax.set_title("Decomposition environnementale des strategies d'adaptation")
+    ax.tick_params(axis="x", rotation=15)
+    ax.legend(ncol=5, fontsize=8)
+    ax.grid(axis="y", alpha=0.2)
+    plt.tight_layout()
+    plt.savefig(img_dir / "ha_impact_breakdown.png", dpi=160)
+    plt.close()
+
     fig, axes = plt.subplots(2, 1, figsize=(14, 8.5), sharex=True)
-    axes[0].plot(ref_states["month_index"], ref_states["solar_used_kwh"], label="Solaire utilise")
-    axes[0].plot(ref_states["month_index"], ref_states["biomass_used_kwh"], label="Biomasse utilisee")
-    axes[0].plot(ref_states["month_index"], ref_states["battery_discharge_kwh"], label="Decharge batterie")
-    axes[0].plot(ref_states["month_index"], ref_states["grid_energy_kwh"], label="Energie reseau")
+    axes[0].plot(display_states["month_index"], display_states["solar_used_kwh"], label="Solaire utilise")
+    axes[0].plot(display_states["month_index"], display_states["biomass_used_kwh"], label="Biomasse utilisee")
+    axes[0].plot(display_states["month_index"], display_states["battery_discharge_kwh"], label="Decharge batterie")
+    axes[0].plot(display_states["month_index"], display_states["grid_energy_kwh"], label="Energie reseau")
     axes[0].set_ylabel("kWh")
-    axes[0].set_title("Systeme energetique adapte : production et usage")
+    axes[0].set_title(f"Systeme energetique adapte : production et usage - {display_label}")
     axes[0].legend(loc="upper right")
     axes[0].grid(alpha=0.2)
 
-    axes[1].plot(ref_states["month_index"], ref_states["battery_soh"], color="#756bb1", label="SOH batterie")
-    axes[1].plot(ref_states["month_index"], ref_states["battery_soc_kwh"], color="#3182bd", label="SOC batterie (kWh)")
-    axes[1].plot(ref_states["month_index"], ref_states["hvac_kwh"], color="#d7301f", label="Charge HVAC")
-    axes[1].plot(ref_states["month_index"], 100 * ref_states["biomass_transition_level"], color="#31a354", label="Activation biomasse (%)")
-    axes[1].plot(ref_states["month_index"], 100 * ref_states["biomass_transition_cap"], color="#74c476", linestyle="--", label="Plafond biomasse (%)")
+    axes[1].plot(display_states["month_index"], display_states["battery_soh"], color="#756bb1", label="SOH batterie")
+    axes[1].plot(display_states["month_index"], display_states["battery_soc_kwh"], color="#3182bd", label="SOC batterie (kWh)")
+    axes[1].plot(display_states["month_index"], display_states["hvac_kwh"], color="#d7301f", label="Charge HVAC")
+    axes[1].plot(display_states["month_index"], 100 * display_states["biomass_transition_level"], color="#31a354", label="Activation biomasse (%)")
+    axes[1].plot(display_states["month_index"], 100 * display_states["biomass_transition_cap"], color="#74c476", linestyle="--", label="Plafond biomasse (%)")
+    if display_states["biomass_local_resource"].max() > 0:
+        axes[1].plot(display_states["month_index"], 100 * display_states["biomass_resource_stress"], color="#e6550d", linestyle=":", label="Stress ressource biomasse (%)")
+        axes[1].plot(display_states["month_index"], 100 * display_states["biomass_resource_stock_ratio"], color="#636363", linestyle="-.", label="Stock biomasse locale (%)")
+    if display_states["biosourced_materials"].max() > 0:
+        axes[1].plot(display_states["month_index"], 100 * display_states["biosourced_local_stress"], color="#8c6d31", linestyle=":", label="Stress hydrique matiere (%)")
+        axes[1].plot(display_states["month_index"], display_states["primary_supply_availability_applied"] * 100, color="#1b9e77", linestyle="-.", label="Disponibilite matiere (%)")
     axes[1].set_xlabel("Mois")
     axes[1].set_ylabel("Etat / kWh / %")
-    axes[1].set_title("Degradation batterie, cout thermique et activation biomasse")
+    axes[1].set_title(f"Degradation batterie, cout thermique et activation biomasse - {display_label}")
     axes[1].legend(loc="upper right")
     axes[1].grid(alpha=0.2)
     plt.tight_layout()
@@ -1016,6 +1520,10 @@ def build_outputs_package(
         "Autonomie energetique": (0.05, 180),
         "Adaptation integree": (0.05, -220),
         "Lean expose": (0.06, 220),
+        "Baseline degradee": (0.06, 180),
+        "Baseline + biomasse": (0.06, -180),
+        "Baseline + biomasse locale": (0.06, -180),
+        "Baseline + materiaux biosources": (0.06, -180),
     }
     for _, r in frontier.iterrows():
         dx, dy = offsets.get(r["policy_label"], (0.05, 180))
@@ -1032,7 +1540,7 @@ def build_outputs_package(
     plt.ylabel("Impact SDD total (kgCO2e)")
     plt.title("Frontiere adaptation : service, carbone et cout")
     plt.grid(alpha=0.2)
-    plt.tight_layout()
+    plt.subplots_adjust(left=0.08, right=0.98, top=0.90, bottom=0.14)
     plt.savefig(img_dir / "ha_strategy_frontier.png", dpi=160)
     plt.close()
 
@@ -1057,11 +1565,15 @@ def build_outputs_package(
         ("evt_maintenance_corrective", "Maintenance corrective", "#31a354"),
         ("evt_recalage_qualite", "Recalage qualite", "#636363"),
         ("evt_capacite_appoint", "Capacite d'appoint", "#e377c2"),
+        ("evt_stress_biomasse_locale", "Stress biomasse locale", "#8c6d31"),
+        ("evt_stress_hydrique_matiere_locale", "Stress hydrique matiere", "#1b9e77"),
     ]
-    for ypos, (col, label, color) in enumerate(operational_rows, start=1):
+    conditional_rows = {"evt_stress_biomasse_locale", "evt_stress_hydrique_matiere_locale"}
+    active_operational_rows = [item for item in operational_rows if event_timeline[item[0]].sum() > 0 or item[0] not in conditional_rows]
+    for ypos, (col, label, color) in enumerate(active_operational_rows, start=1):
         months = event_timeline.loc[event_timeline[col] == 1, "month_index"]
         axes[1].scatter(months, [ypos] * len(months), marker="o", s=28, color=color, label=label)
-    axes[1].set_yticks([1, 2, 3, 4, 5], [item[1] for item in operational_rows])
+    axes[1].set_yticks(list(range(1, len(active_operational_rows) + 1)), [item[1] for item in active_operational_rows])
     axes[1].set_ylabel("Operations")
     axes[1].grid(axis="x", alpha=0.2)
     axes[1].legend(loc="upper right", ncol=2, fontsize=8)
@@ -1141,12 +1653,21 @@ def build_outputs() -> None:
         BASELINE_SCENARIO_POLICIES,
         NO_BIOMASS_BASELINE_POLICY.name,
         "Baseline summary",
+        display_policy_name=NO_BIOMASS_BASELINE_POLICY.name,
     )
     build_outputs_package(
-        BASE_DIR / "biomass-fix",
-        BIOMASS_FIX_SCENARIO_POLICIES,
-        BIOMASS_FIX_POLICY.name,
-        "Biomass-fix summary",
+        BASE_DIR / "biomass",
+        BIOMASS_SCENARIO_POLICIES,
+        BIOMASS_POLICY.name,
+        "Biomass summary",
+        display_policy_name=BIOMASS_POLICY.name,
+    )
+    build_outputs_package(
+        BASE_DIR / "biosourced_material",
+        BIOSOURCED_MATERIAL_SCENARIO_POLICIES,
+        BIOSOURCED_MATERIAL_POLICY.name,
+        "Biosourced-material summary",
+        display_policy_name=BIOSOURCED_MATERIAL_POLICY.name,
     )
 
 
