@@ -30,6 +30,7 @@ from etudecas.simulation.analysis_batch_common import (  # noqa: E402
     detect_production_nodes,
     load_json,
     numeric_kpis,
+    prune_simulation_output,
     run_simulation,
     safe_name,
     to_float,
@@ -90,6 +91,18 @@ def parse_args() -> argparse.Namespace:
         type=float,
         default=0.10,
         help="Relative cost increase threshold vs baseline (0.10 -> +10%%).",
+    )
+    parser.add_argument(
+        "--artifact-mode",
+        choices=["compact", "full"],
+        default="compact",
+        help="Artifact retention mode. 'compact' prunes per-case detailed CSV/plot/map outputs.",
+    )
+    parser.add_argument(
+        "--keep-detailed-case",
+        action="append",
+        default=["baseline"],
+        help="Case id to retain with full detailed outputs even in compact mode. Can be repeated.",
     )
     return parser.parse_args()
 
@@ -398,6 +411,8 @@ def run_case(
     scenario_id: str,
     days: int,
     cases_root: Path,
+    artifact_mode: str,
+    retain_detail: bool,
 ) -> dict[str, Any]:
     case_dir = cases_root / case_id
     case_input = case_dir / "input_case.json"
@@ -442,6 +457,8 @@ def run_case(
             skip_map=True,
             skip_plots=True,
         )
+    if artifact_mode == "compact" and not retain_detail:
+        prune_simulation_output(case_output)
     row: dict[str, Any] = {
         "case_id": case_id,
         "parameter_key": parameter_key,
@@ -676,6 +693,7 @@ def main() -> None:
     cases_root = output_dir / "cases"
     output_dir.mkdir(parents=True, exist_ok=True)
     cases_root.mkdir(parents=True, exist_ok=True)
+    keep_detailed_cases = {str(case_id) for case_id in (args.keep_detailed_case or [])}
 
     base_data = load_json(input_path)
     demand_items = detect_demand_items(base_data, args.scenario_id)
@@ -700,6 +718,8 @@ def main() -> None:
         scenario_id=args.scenario_id,
         days=args.days,
         cases_root=cases_root,
+        artifact_mode=args.artifact_mode,
+        retain_detail=True,
     )
     print("[RUN] baseline repeat", flush=True)
     baseline_repeat_row = run_case(
@@ -715,6 +735,8 @@ def main() -> None:
         scenario_id=args.scenario_id,
         days=args.days,
         cases_root=cases_root,
+        artifact_mode=args.artifact_mode,
+        retain_detail="baseline_repeat" in keep_detailed_cases,
     )
 
     baseline_shipments_csv = (
@@ -725,6 +747,8 @@ def main() -> None:
         allowed_suppliers=set(supplier_nodes_all),
         top_n=args.top_suppliers,
     )
+    if args.artifact_mode == "compact" and "baseline" not in keep_detailed_cases:
+        prune_simulation_output(cases_root / "baseline" / "simulation_output")
     specs = parameter_specs(demand_items, production_nodes, selected_suppliers)
 
     all_rows: list[dict[str, Any]] = [baseline_row, baseline_repeat_row]
@@ -752,6 +776,8 @@ def main() -> None:
                 scenario_id=args.scenario_id,
                 days=args.days,
                 cases_root=cases_root,
+                artifact_mode=args.artifact_mode,
+                retain_detail=case_id in keep_detailed_cases,
             )
             all_rows.append(row)
 
@@ -841,6 +867,8 @@ def main() -> None:
         "backlog_increase_pct": args.backlog_increase_pct,
         "cost_increase_pct": args.cost_increase_pct,
         "selected_suppliers": selected_suppliers,
+        "artifact_mode": args.artifact_mode,
+        "kept_detailed_cases": sorted(keep_detailed_cases),
         "baseline": baseline_row,
         "deterministic_check": {
             "status": "pass" if max_abs_diff <= 1e-9 else "warn",
@@ -863,6 +891,8 @@ def main() -> None:
         f"- Horizon: {args.days} days",
         f"- Scenario: {args.scenario_id}",
         "- Design: deterministic one-factor-at-a-time, multi-level sweeps",
+        f"- Artifact mode: {args.artifact_mode}",
+        f"- Kept detailed cases: {', '.join(sorted(keep_detailed_cases)) if keep_detailed_cases else '(none)'}",
         f"- Service threshold: {args.service_threshold:.3f}",
         f"- Soft service threshold: {args.service_soft_threshold:.3f}",
         f"- Backlog alert threshold: +{args.backlog_increase_pct * 100:.1f}% vs baseline",
@@ -909,6 +939,8 @@ def main() -> None:
             "- threshold_sweep_cases.csv",
             "- parameter_threshold_summary.csv",
             "- threshold_sensitivity_summary.json",
+            "- cases/*/input_case.json",
+            "- cases/*/simulation_output/(summaries,reports) in compact mode",
         ]
     )
     report_md = output_dir / "threshold_sensitivity_report.md"

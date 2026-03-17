@@ -18,6 +18,7 @@ from collections import Counter, defaultdict
 from copy import deepcopy
 from datetime import datetime, timezone
 from pathlib import Path
+from statistics import median
 from typing import Any
 
 
@@ -66,6 +67,12 @@ def parse_args() -> argparse.Namespace:
         default=30,
         help="Target simulation horizon in days injected into scenario.horizon.steps_to_run (default: 30).",
     )
+    parser.add_argument(
+        "--annual-carry-rate",
+        type=float,
+        default=0.20,
+        help="Annual inventory carrying rate applied to item value to derive daily holding cost (default: 0.20).",
+    )
     return parser.parse_args()
 
 
@@ -86,13 +93,80 @@ def normalize_unit(unit: Any) -> str:
     return aliases.get(s, s)
 
 
-def default_holding_cost_for_unit(unit: Any) -> float:
-    u = normalize_unit(unit)
-    # Keep a consistent carrying-cost basis across mass units.
-    # 0.04 per KG/day => 0.00004 per G/day.
-    if u == "G":
-        return 0.00004
-    return 0.04
+def convert_unit_value(value: float, from_unit: Any, to_unit: Any) -> float:
+    source = normalize_unit(from_unit)
+    target = normalize_unit(to_unit)
+    if not source or not target or source == target:
+        return value
+    if source == "KG" and target == "G":
+        return value / 1000.0
+    if source == "G" and target == "KG":
+        return value * 1000.0
+    return value
+
+
+def derive_item_unit_value_map(
+    edges: list[dict[str, Any]],
+    item_unit_map: dict[str, str],
+    price_map: dict[tuple[str, str, str], dict[str, Any]],
+) -> tuple[dict[str, float], dict[str, Any]]:
+    candidates_by_item: dict[str, list[float]] = defaultdict(list)
+    global_candidates: list[float] = []
+    priced_edge_item_pairs = 0
+
+    for edge in edges:
+        src = str(edge.get("from") or "")
+        dst = str(edge.get("to") or "")
+        ot = edge.get("order_terms") or {}
+        for raw_item_id in (edge.get("items") or []):
+            item_id = str(raw_item_id)
+            rec = price_map.get((src, dst, item_id)) or ot
+            sell_price = to_float(rec.get("sell_price"))
+            price_base = to_float(rec.get("price_base")) or 1.0
+            quantity_unit = normalize_unit(rec.get("quantity_unit"))
+            if sell_price is None or sell_price <= 0 or price_base <= 0 or not quantity_unit:
+                continue
+            target_unit = item_unit_map.get(item_id, quantity_unit)
+            unit_value = convert_unit_value(sell_price / price_base, quantity_unit, target_unit)
+            if unit_value <= 0:
+                continue
+            candidates_by_item[item_id].append(unit_value)
+            global_candidates.append(unit_value)
+            priced_edge_item_pairs += 1
+
+    item_unit_value_map = {
+        item_id: float(median(values))
+        for item_id, values in candidates_by_item.items()
+        if values
+    }
+    fallback_global_unit_value = float(median(global_candidates)) if global_candidates else 1.0
+    stats = {
+        "priced_edge_item_pairs": priced_edge_item_pairs,
+        "priced_items": len(item_unit_value_map),
+        "fallback_global_unit_value_per_item_unit": fallback_global_unit_value,
+    }
+    return item_unit_value_map, stats
+
+
+def holding_cost_per_unit_day_from_value(
+    *,
+    item_id: str,
+    unit: Any,
+    item_unit_map: dict[str, str],
+    item_unit_value_map: dict[str, float],
+    fallback_global_unit_value: float,
+    annual_carry_rate: float,
+) -> tuple[float, str, float]:
+    target_unit = normalize_unit(unit) or item_unit_map.get(item_id, "")
+    value_unit = item_unit_map.get(item_id, target_unit)
+    unit_value = item_unit_value_map.get(item_id)
+    source = "item_value_median_from_priced_edges"
+    if unit_value is None or unit_value <= 0:
+        unit_value = fallback_global_unit_value
+        source = "global_value_median_fallback"
+    unit_value = convert_unit_value(unit_value, value_unit, target_unit)
+    holding_cost = max(0.0, unit_value * max(0.0, annual_carry_rate) / 365.0)
+    return holding_cost, source, unit_value
 
 
 def infer_item_unit_map(nodes: list[dict[str, Any]], edges: list[dict[str, Any]]) -> dict[str, str]:
@@ -372,6 +446,7 @@ def prepare_graph(
     customer_warm_start_days: float = 0.0,
     upstream_dc_warm_start_days: float = 0.0,
     simulation_days: int = 30,
+    annual_carry_rate: float = 0.20,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     g = deepcopy(graph)
     ensure_sim_meta(g)
@@ -528,10 +603,10 @@ def prepare_graph(
                     "initial": initial_qty,
                     "uom": unit,
                     "holding_cost": {
-                        "value": default_holding_cost_for_unit(unit),
+                        "value": 0.0,
                         "per": "unit*day",
-                        "is_default": False,
-                        "source": invented_source_tag,
+                        "is_default": True,
+                        "source": "simulation_prep_assumption_pending_value_based",
                     },
                     "is_default_initial": False,
                     "initial_source": invented_source_tag,
@@ -614,10 +689,10 @@ def prepare_graph(
                     "initial": 700.0,
                     "uom": unit,
                     "holding_cost": {
-                        "value": default_holding_cost_for_unit(unit),
+                        "value": 0.0,
                         "per": "unit*day",
-                        "is_default": False,
-                        "source": invented_source_tag,
+                        "is_default": True,
+                        "source": "simulation_prep_assumption_pending_value_based",
                     },
                     "is_default_initial": False,
                     "initial_source": invented_source_tag,
@@ -693,6 +768,11 @@ def prepare_graph(
             change_counts["edge_order_terms_pricing_aligned_from_data_poc"] += 1
             if eid not in changed_edge_ids:
                 changed_edge_ids.append(eid)
+
+    item_unit_value_map, holding_cost_value_stats = derive_item_unit_value_map(edges, item_unit_map, price_map)
+    fallback_global_unit_value = float(
+        holding_cost_value_stats.get("fallback_global_unit_value_per_item_unit") or 1.0
+    )
 
     # Normalize scenario horizons to a consistent simulation window.
     target_sim_days = max(1, int(simulation_days))
@@ -815,7 +895,15 @@ def prepare_graph(
                 hc_val = to_float(hc.get("value"))
                 source = str(hc.get("source") or "")
                 unit_for_cost = target_uom or current_uom
-                target_hc = default_holding_cost_for_unit(unit_for_cost)
+                item_id = str(st.get("item_id") or "")
+                target_hc, target_hc_source, unit_value_used = holding_cost_per_unit_day_from_value(
+                    item_id=item_id,
+                    unit=unit_for_cost,
+                    item_unit_map=item_unit_map,
+                    item_unit_value_map=item_unit_value_map,
+                    fallback_global_unit_value=fallback_global_unit_value,
+                    annual_carry_rate=annual_carry_rate,
+                )
                 should_fill = hc.get("is_default") is True or hc_val is None or hc_val == 0
                 should_rescale_assumed = source.startswith("simulation_prep_") and (
                     hc_val is None or abs(hc_val - target_hc) > 1e-12
@@ -824,9 +912,12 @@ def prepare_graph(
                     hc["value"] = target_hc
                     hc["per"] = "unit*day"
                     hc["is_default"] = False
-                    hc["source"] = "simulation_prep_assumption_unit_scaled"
+                    hc["source"] = f"simulation_prep_{target_hc_source}"
+                    hc["annual_carry_rate"] = round(max(0.0, annual_carry_rate), 6)
+                    hc["unit_value_basis"] = round(max(0.0, unit_value_used), 6)
                     st["holding_cost"] = hc
                     change_counts["inventory_holding_cost_updated"] += 1
+                    change_counts[f"inventory_holding_cost_source::{target_hc_source}"] += 1
                     node_changed = True
 
         policies = n.get("policies")
@@ -1032,10 +1123,10 @@ def prepare_graph(
                 "initial": target_initial,
                 "uom": unit,
                 "holding_cost": {
-                    "value": default_holding_cost_for_unit(unit),
+                    "value": 0.0,
                     "per": "unit*day",
-                    "is_default": False,
-                    "source": "simulation_prep_assumption",
+                    "is_default": True,
+                    "source": "simulation_prep_assumption_pending_value_based",
                 },
                 "is_default_initial": False,
                 "initial_source": initial_source,
@@ -1148,9 +1239,14 @@ def prepare_graph(
         "assumptions": {
             "inventory_base_stock_by_node_type": node_base_stock,
             "delay_step_limit_assumed": 21,
-            "holding_cost_per_unit_day_assumed": {
-                "default": 0.04,
-                "G": 0.00004,
+            "holding_cost_model_assumed": {
+                "formula": "item_unit_value * annual_carry_rate / 365",
+                "annual_carry_rate": round(max(0.0, annual_carry_rate), 6),
+                "item_unit_value_basis": "median(sell_price / price_base) per item after Data_poc pricing alignment",
+                "fallback_unit_value_basis": "global median priced item-unit value",
+                "priced_items": holding_cost_value_stats.get("priced_items", 0),
+                "priced_edge_item_pairs": holding_cost_value_stats.get("priced_edge_item_pairs", 0),
+                "fallback_global_unit_value_per_item_unit": round(fallback_global_unit_value, 6),
             },
             "process_cost_per_unit_assumed": 0.35,
             "demand_default_customer_rule": "weekly_fluctuating_profile(base=max(10, 1.0 * total_production_capacity_of_item))",
@@ -1189,6 +1285,8 @@ def report_markdown(report: dict[str, Any], input_path: str, output_graph_path: 
 - Edge pricing aligned from Data_poc Relations_acteurs: {c.get('edge_order_terms_pricing_aligned_from_data_poc', 0)}
 - Inventory initials updated: {c.get('inventory_initial_updated', 0)}
 - Inventory holding costs updated: {c.get('inventory_holding_cost_updated', 0)}
+- Holding-cost source item-value median: {c.get('inventory_holding_cost_source::item_value_median_from_priced_edges', 0)}
+- Holding-cost source global fallback: {c.get('inventory_holding_cost_source::global_value_median_fallback', 0)}
 - Inventory UOM harmonized: {c.get('inventory_uom_harmonized', 0)}
 - Node policies added: {c.get('node_policy_added', 0)}
 - Process capacities updated: {c.get('process_capacity_updated', 0)}
@@ -1223,6 +1321,15 @@ def report_markdown(report: dict[str, Any], input_path: str, output_graph_path: 
 - Rows mapped: {report.get('data_poc_price_integration', {}).get('rows_mapped', 0)}
 - Error: {report.get('data_poc_price_integration', {}).get('error', 'none')}
 
+## Holding cost model
+- Formula: {report.get('assumptions', {}).get('holding_cost_model_assumed', {}).get('formula', 'n/a')}
+- Annual carry rate: {report.get('assumptions', {}).get('holding_cost_model_assumed', {}).get('annual_carry_rate', 'n/a')}
+- Item value basis: {report.get('assumptions', {}).get('holding_cost_model_assumed', {}).get('item_unit_value_basis', 'n/a')}
+- Fallback unit value basis: {report.get('assumptions', {}).get('holding_cost_model_assumed', {}).get('fallback_unit_value_basis', 'n/a')}
+- Priced items used: {report.get('assumptions', {}).get('holding_cost_model_assumed', {}).get('priced_items', 0)}
+- Priced edge-item pairs used: {report.get('assumptions', {}).get('holding_cost_model_assumed', {}).get('priced_edge_item_pairs', 0)}
+- Fallback global unit value: {report.get('assumptions', {}).get('holding_cost_model_assumed', {}).get('fallback_global_unit_value_per_item_unit', 'n/a')}
+
 ## Review reminder
 This graph is assumption-based and intended for pre-simulation validation.
 Review the assumptions in simulation_prep_report.json before scenario studies.
@@ -1246,6 +1353,7 @@ def main() -> None:
         customer_warm_start_days=args.customer_warm_start_days,
         upstream_dc_warm_start_days=args.upstream_dc_warm_start_days,
         simulation_days=args.simulation_days,
+        annual_carry_rate=args.annual_carry_rate,
     )
 
     out_graph.write_text(json.dumps(prepared, indent=2, ensure_ascii=False), encoding="utf-8")

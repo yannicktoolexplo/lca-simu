@@ -9,6 +9,7 @@ import copy
 import json
 import math
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -376,3 +377,24 @@ def pearson_corr(xs: list[float], ys: list[float]) -> float:
     if denx <= 0 or deny <= 0:
         return float("nan")
     return num / (denx * deny)
+
+
+def prune_simulation_output(
+    output_dir: Path,
+    *,
+    keep_reports: bool = True,
+    keep_summaries: bool = True,
+) -> None:
+    if not output_dir.exists():
+        return
+
+    for child in output_dir.iterdir():
+        if child.name == "reports" and keep_reports:
+            continue
+        if child.name == "summaries" and keep_summaries:
+            continue
+        if child.is_dir() and child.name in {"data", "plots", "maps"}:
+            shutil.rmtree(child, ignore_errors=True)
+            continue
+        if child.is_file() and child.suffix.lower() in {".csv", ".png", ".html"}:
+            child.unlink(missing_ok=True)
