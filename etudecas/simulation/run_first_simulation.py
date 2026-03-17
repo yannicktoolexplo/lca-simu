@@ -462,6 +462,8 @@ def derive_supplier_daily_capacity_by_pair(
         review_days = node_review_period_days(node, default_review_period_days)
         sim_constraints = node.get("simulation_constraints") or {}
         node_capacity_scale = max(0.01, to_float(sim_constraints.get("supplier_capacity_scale"), 1.0))
+        explicit_capacity_map = sim_constraints.get("supplier_item_capacity_qty_per_day") or {}
+        explicit_capacity = max(0.0, to_float(explicit_capacity_map.get(item_id), 0.0))
         initial_stock = max(0.0, stock.get(src_pair, 0.0))
         inventory_fallback = initial_stock / max(1.0, float(review_days))
         process_capacity = process_output_capacity_by_item(node, item_unit_map).get(item_id, 0.0)
@@ -484,7 +486,10 @@ def derive_supplier_daily_capacity_by_pair(
                 standard_hints.append(standard_qty / hint_days)
 
         demand_anchor = max(downstream_requirement, downstream_signal)
-        if process_capacity > 0:
+        if explicit_capacity > 0:
+            nominal_capacity = explicit_capacity
+            basis = "explicit_capacity"
+        elif process_capacity > 0:
             nominal_capacity = process_capacity
             basis = "process_capacity"
         elif demand_anchor > 0:
@@ -515,6 +520,7 @@ def derive_supplier_daily_capacity_by_pair(
                 "inventory_fallback_qty_per_day": round(inventory_fallback, 6),
                 "downstream_requirement_qty_per_day": round(downstream_requirement, 6),
                 "downstream_signal_qty_per_day": round(downstream_signal, 6),
+                "explicit_capacity_qty_per_day": round(explicit_capacity, 6),
                 "process_capacity_qty_per_day": round(process_capacity, 6),
                 "nominal_capacity_qty_per_day": round(nominal_capacity, 6),
                 "applied_capacity_scale": round(node_capacity_scale, 6),
@@ -524,6 +530,79 @@ def derive_supplier_daily_capacity_by_pair(
         )
 
     return capacity_by_pair, metadata_rows
+
+
+def derive_unmodeled_supplier_source_policies(
+    *,
+    externally_sourced_pairs: list[tuple[str, str]],
+    nodes: list[dict[str, Any]],
+    lanes_by_src_item: dict[tuple[str, str], list[dict[str, Any]]],
+    supplier_daily_capacity_by_pair: dict[tuple[str, str], float],
+    base_stock: dict[tuple[str, str], float],
+    propagated_demand_today: dict[tuple[str, str], float],
+    default_review_period_days: int,
+    safety_stock_days: float,
+    stochastic_lead_times: bool,
+) -> tuple[dict[tuple[str, str], dict[str, Any]], list[dict[str, Any]]]:
+    node_by_id = {str(n.get("id")): n for n in nodes}
+    policies: dict[tuple[str, str], dict[str, Any]] = {}
+    metadata_rows: list[dict[str, Any]] = []
+
+    for src_pair in externally_sourced_pairs:
+        lane_list = lanes_by_src_item.get(src_pair, [])
+        if not lane_list or src_pair not in supplier_daily_capacity_by_pair:
+            continue
+        src, item_id = src_pair
+        node = node_by_id.get(src, {})
+        review_days = node_review_period_days(node, default_review_period_days)
+        lead_cover_days = max([lead_time_cover_days(lane, stochastic_lead_times) for lane in lane_list] or [1])
+        order_frequency_days = max(
+            [int(round(max(1.0, to_float(lane.get("order_frequency_days"), 1.0)))) for lane in lane_list] or [1]
+        )
+        raw_replenishment_lead_days = max(
+            float(review_days),
+            float(order_frequency_days),
+            0.5 * float(lead_cover_days),
+        )
+        replenishment_lead_days = int(min(21.0, max(2.0, math.ceil(raw_replenishment_lead_days))))
+        target_cover_days = max(
+            int(math.ceil(safety_stock_days)),
+            replenishment_lead_days + review_days,
+            order_frequency_days,
+        )
+        downstream_signal = sum(
+            max(0.0, propagated_demand_today.get((str(lane.get("dst")), item_id), 0.0))
+            for lane in lane_list
+        )
+        target_stock_qty = max(base_stock.get(src_pair, 0.0), downstream_signal * float(target_cover_days))
+        reorder_point_qty = max(base_stock.get(src_pair, 0.0), downstream_signal * float(replenishment_lead_days))
+        daily_capacity = max(0.0, supplier_daily_capacity_by_pair.get(src_pair, 0.0))
+        policies[src_pair] = {
+            "replenishment_lead_days": replenishment_lead_days,
+            "raw_replenishment_lead_days": raw_replenishment_lead_days,
+            "target_cover_days": target_cover_days,
+            "review_period_days": review_days,
+            "order_frequency_days": order_frequency_days,
+            "target_stock_qty_day0": target_stock_qty,
+            "reorder_point_qty_day0": reorder_point_qty,
+            "daily_capacity_qty": daily_capacity,
+        }
+        metadata_rows.append(
+            {
+                "node_id": src,
+                "item_id": item_id,
+                "replenishment_lead_days": replenishment_lead_days,
+                "raw_replenishment_lead_days": round(raw_replenishment_lead_days, 6),
+                "target_cover_days": target_cover_days,
+                "review_period_days": review_days,
+                "order_frequency_days": order_frequency_days,
+                "downstream_signal_qty_per_day": round(downstream_signal, 6),
+                "reorder_point_qty_day0": round(reorder_point_qty, 6),
+                "target_stock_qty_day0": round(target_stock_qty, 6),
+                "daily_capacity_qty": round(daily_capacity, 6),
+            }
+        )
+    return policies, metadata_rows
 
 
 def try_generate_plots(
@@ -929,6 +1008,13 @@ def main() -> None:
     production_gap_gain = max(0.0, scenario_policy_value(scenario, "production_gap_gain", 0.25))
     production_smoothing = min(0.95, max(0.0, scenario_policy_value(scenario, "production_smoothing", 0.20)))
     economic_policy_cfg = scenario_policy_dict(scenario, "economic_policy")
+    unmodeled_supplier_source_mode = str(scenario.get("unmodeled_supplier_source_mode", "external_procurement")).strip().lower()
+    if unmodeled_supplier_source_mode not in {
+        "external_procurement",
+        "estimated_capacity",
+        "estimated_replenishment",
+    }:
+        unmodeled_supplier_source_mode = "external_procurement"
     economic_policy = {
         "transport_cost_floor_per_unit": max(
             0.0,
@@ -1080,8 +1166,10 @@ def main() -> None:
     backlog: dict[tuple[str, str], float] = defaultdict(float)
     pipeline: dict[int, list[tuple[str, str, float, str]]] = defaultdict(list)
     external_pipeline: dict[int, list[tuple[str, str, float]]] = defaultdict(list)
+    estimated_source_pipeline: dict[int, list[tuple[str, str, float]]] = defaultdict(list)
     in_transit: dict[tuple[str, str], float] = defaultdict(float)
     external_in_transit: dict[tuple[str, str], float] = defaultdict(float)
+    estimated_source_in_transit: dict[tuple[str, str], float] = defaultdict(float)
 
     total_demand = 0.0
     total_served = 0.0
@@ -1096,6 +1184,9 @@ def main() -> None:
     total_unreliable_loss_qty = 0.0
     total_purchase_cost = 0.0
     total_external_procurement_cost = 0.0
+    total_estimated_source_replenished = 0.0
+    total_estimated_source_ordered = 0.0
+    total_estimated_source_rejected = 0.0
 
     daily_rows: list[dict[str, Any]] = []
     input_stock_rows: list[dict[str, Any]] = []
@@ -1273,6 +1364,17 @@ def main() -> None:
         default_review_period_days=review_period_days,
         stochastic_lead_times=args.stochastic_lead_times,
     )
+    estimated_source_policies, estimated_source_policy_rows = derive_unmodeled_supplier_source_policies(
+        externally_sourced_pairs=externally_sourced_pairs,
+        nodes=nodes,
+        lanes_by_src_item=lanes_by_src_item,
+        supplier_daily_capacity_by_pair=supplier_daily_capacity_by_pair,
+        base_stock=base_stock,
+        propagated_demand_today=propagated_demand_daily,
+        default_review_period_days=review_period_days,
+        safety_stock_days=safety_stock_days,
+        stochastic_lead_times=args.stochastic_lead_times,
+    )
     supplier_capacity_daily_rows: list[dict[str, Any]] = []
     total_supplier_capacity_binding_qty = 0.0
 
@@ -1285,8 +1387,10 @@ def main() -> None:
 
         arrivals_today = pipeline.pop(day, [])
         external_arrivals_today = external_pipeline.pop(day, [])
+        estimated_source_arrivals_today = estimated_source_pipeline.pop(day, [])
         arrivals_qty = 0.0
         external_arrivals_qty = 0.0
+        estimated_source_arrivals_qty = 0.0
         arrivals_today_by_pair: dict[tuple[str, str], float] = defaultdict(float)
         for dst, item_id, qty, _lane_id in arrivals_today:
             stock[(dst, item_id)] += qty
@@ -1297,8 +1401,51 @@ def main() -> None:
             stock[(src, item_id)] += qty
             external_in_transit[(src, item_id)] -= qty
             external_arrivals_qty += qty
+        for src, item_id, qty in estimated_source_arrivals_today:
+            stock[(src, item_id)] += qty
+            estimated_source_in_transit[(src, item_id)] -= qty
+            estimated_source_arrivals_qty += qty
         total_arrived += arrivals_qty
         total_external_procured_arrived += external_arrivals_qty
+        total_estimated_source_replenished += estimated_source_arrivals_qty
+
+        estimated_source_ordered_today = 0.0
+        estimated_source_rejected_today = 0.0
+        if unmodeled_supplier_source_mode == "estimated_replenishment":
+            for src_pair, policy in estimated_source_policies.items():
+                downstream_signal = sum(
+                    max(
+                        0.0,
+                        propagated_demand_today.get((str(lane.get("dst")), src_pair[1]), 0.0),
+                    )
+                    for lane in lanes_by_src_item.get(src_pair, [])
+                )
+                target_stock_qty = max(
+                    base_stock.get(src_pair, 0.0),
+                    downstream_signal * float(policy["target_cover_days"]),
+                )
+                inventory_position = stock.get(src_pair, 0.0) + estimated_source_in_transit.get(src_pair, 0.0)
+                desired_order_qty = max(0.0, target_stock_qty - inventory_position)
+                daily_capacity = max(0.0, to_float(policy.get("daily_capacity_qty"), 0.0))
+                order_qty = min(desired_order_qty, daily_capacity)
+                if order_qty > 1e-9:
+                    arrival_day = day + int(policy["replenishment_lead_days"])
+                    estimated_source_pipeline[arrival_day].append((src_pair[0], src_pair[1], order_qty))
+                    estimated_source_in_transit[src_pair] += order_qty
+                    estimated_source_ordered_today += order_qty
+                estimated_source_rejected_today += max(0.0, desired_order_qty - order_qty)
+        elif unmodeled_supplier_source_mode == "estimated_capacity":
+            for src_pair in externally_sourced_pairs:
+                if src_pair not in supplier_daily_capacity_by_pair:
+                    continue
+                replenished_qty = max(0.0, supplier_daily_capacity_by_pair.get(src_pair, 0.0))
+                if replenished_qty <= 1e-9:
+                    continue
+                stock[src_pair] += replenished_qty
+                estimated_source_arrivals_qty += replenished_qty
+                total_estimated_source_replenished += replenished_qty
+        total_estimated_source_ordered += estimated_source_ordered_today
+        total_estimated_source_rejected += estimated_source_rejected_today
 
         # Snapshot: raw material stocks at production input before production starts.
         day_input_rows_by_pair: dict[tuple[str, str], dict[str, Any]] = {}
@@ -1564,7 +1711,10 @@ def main() -> None:
                 src_pair = (lane["src"], item_id)
                 available = stock[src_pair] * availability_mult
                 if src_pair in externally_sourced_pairs_set and available < remaining_need_qty:
-                    if economic_policy["external_procurement_enabled"]:
+                    if (
+                        unmodeled_supplier_source_mode == "external_procurement"
+                        and economic_policy["external_procurement_enabled"]
+                    ):
                         ext_gap = remaining_need_qty - available
                         ext_daily_signal = max(
                             propagated_demand_today.get(src_pair, 0.0),
@@ -1749,6 +1899,9 @@ def main() -> None:
                 "external_procured_ordered_qty": round(external_procured_today, 4),
                 "external_procured_arrived_qty": round(external_arrivals_qty, 4),
                 "external_procured_rejected_qty": round(external_procured_rejected_today, 4),
+                "estimated_source_ordered_qty": round(estimated_source_ordered_today, 4),
+                "estimated_source_arrived_qty": round(estimated_source_arrivals_qty, 4),
+                "estimated_source_rejected_qty": round(estimated_source_rejected_today, 4),
                 "supplier_capacity_binding_qty": round(supplier_capacity_binding_qty_today, 4),
             }
         )
@@ -1791,6 +1944,7 @@ def main() -> None:
             "production_gap_gain": production_gap_gain,
             "production_smoothing": production_smoothing,
             "opening_stock_bootstrap_scale": opening_stock_bootstrap_scale,
+            "unmodeled_supplier_source_mode": unmodeled_supplier_source_mode,
             "stochastic_lead_times": bool(args.stochastic_lead_times),
             "seed": int(args.seed),
             "economic_policy": {
@@ -1852,6 +2006,7 @@ def main() -> None:
             ],
             "opening_stock_bootstrap_pairs": opening_stock_bootstrap_rows,
             "supplier_daily_capacity_pairs": supplier_capacity_metadata_rows,
+            "unmodeled_supplier_source_policies": estimated_source_policy_rows,
             "lane_purchase_cost_stats": {
                 "lanes_with_positive_purchase_cost": sum(1 for l in lanes if to_float(l.get("unit_purchase_cost"), 0.0) > 0),
                 "lanes_with_zero_purchase_cost": sum(1 for l in lanes if to_float(l.get("unit_purchase_cost"), 0.0) <= 0),
@@ -1879,6 +2034,9 @@ def main() -> None:
             "total_external_procured_rejected_qty": round(total_external_procured_rejected, 4),
             "total_external_procured_qty": round(total_external_procured, 4),
             "total_external_procurement_cost": round(total_external_procurement_cost, 4),
+            "total_estimated_source_ordered_qty": round(total_estimated_source_ordered, 4),
+            "total_estimated_source_replenished_qty": round(total_estimated_source_replenished, 4),
+            "total_estimated_source_rejected_qty": round(total_estimated_source_rejected, 4),
             "total_opening_stock_bootstrap_qty": round(total_opening_stock_bootstrap, 4),
             "total_unreliable_loss_qty": round(total_unreliable_loss_qty, 4),
             "total_supplier_capacity_binding_qty": round(total_supplier_capacity_binding_qty, 4),
@@ -2141,6 +2299,7 @@ def main() -> None:
 - Production stock-gap gain: {summary['policy']['production_gap_gain']}
 - Production smoothing factor: {summary['policy']['production_smoothing']}
 - Opening stock bootstrap scale: {summary['policy']['opening_stock_bootstrap_scale']}
+- Unmodeled supplier source mode: {summary['policy']['unmodeled_supplier_source_mode']}
 - Stochastic lead times: {summary['policy']['stochastic_lead_times']}
 - Random seed: {summary['policy']['seed']}
 - Economic policy transport floor /km: {summary['policy']['economic_policy']['transport_cost_floor_per_unit']} / {summary['policy']['economic_policy']['transport_cost_per_km_per_unit']}
@@ -2183,6 +2342,9 @@ def main() -> None:
 - Total external procured arrived qty: {summary['kpis']['total_external_procured_arrived_qty']}
 - Total external procured rejected qty (cap-limited): {summary['kpis']['total_external_procured_rejected_qty']}
 - Total external procurement cost premium: {summary['kpis']['total_external_procurement_cost']}
+- Total estimated source ordered qty: {summary['kpis']['total_estimated_source_ordered_qty']}
+- Total estimated source replenished qty: {summary['kpis']['total_estimated_source_replenished_qty']}
+- Total estimated source rejected qty: {summary['kpis']['total_estimated_source_rejected_qty']}
 - Cost share holding / transport / purchase: {summary['kpis']['cost_share_holding']} / {summary['kpis']['cost_share_transport']} / {summary['kpis']['cost_share_purchase']}
 - Total opening stock bootstrap qty: {summary['kpis']['total_opening_stock_bootstrap_qty']}
 - Total unreliable supplier loss qty: {summary['kpis']['total_unreliable_loss_qty']}
