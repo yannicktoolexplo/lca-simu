@@ -24,6 +24,7 @@ from etudecas.simulation.analysis_batch_common import (
     detect_production_nodes,
     load_json,
     numeric_kpis,
+    prune_simulation_output,
     run_simulation,
     safe_name,
     to_float,
@@ -78,6 +79,18 @@ def parse_args() -> argparse.Namespace:
         choices=["balanced", "aggressive"],
         default="balanced",
         help="Sensitivity amplitude profile. 'aggressive' uses stronger parameter swings.",
+    )
+    parser.add_argument(
+        "--artifact-mode",
+        choices=["compact", "full"],
+        default="compact",
+        help="Artifact retention mode. 'compact' prunes per-case detailed CSV/plot/map outputs.",
+    )
+    parser.add_argument(
+        "--keep-detailed-case",
+        action="append",
+        default=["baseline", "baseline_repeat"],
+        help="Case id to retain with full detailed outputs even in compact mode. Can be repeated.",
     )
     return parser.parse_args()
 
@@ -373,6 +386,7 @@ def main() -> None:
     )
     design = build_design(base_data, args.scenario_id, args.delta, args.severity_profile)
     print(f"[INFO] Sensitivity design cases: {len(design)}")
+    keep_detailed_cases = {str(case_id) for case_id in (args.keep_detailed_case or [])}
 
     rows: list[dict[str, Any]] = []
     for i, case in enumerate(design, start=1):
@@ -427,6 +441,8 @@ def main() -> None:
             )
             for k, v in numeric_kpis(summary).items():
                 row[f"kpi::{k}"] = v
+            if args.artifact_mode == "compact" and case_id not in keep_detailed_cases:
+                prune_simulation_output(case_output)
         except Exception as exc:
             row["status"] = "failed"
             row["error"] = str(exc)
@@ -469,6 +485,8 @@ def main() -> None:
         writer.writeheader()
         writer.writerows(delta_rows)
 
+    parameter_summary_rows: list[dict[str, Any]] = []
+
     grouped: dict[str, dict[str, dict[str, float]]] = {}
     by_case_id = {str(r["case_id"]): r for r in ok_rows}
     for c in design:
@@ -505,6 +523,27 @@ def main() -> None:
                 "normalized_sensitivity": normalized,
             }
         grouped[param] = metrics
+        summary_row: dict[str, Any] = {"parameter": param}
+        for metric_key in ["kpi::fill_rate", "kpi::ending_backlog", "kpi::total_cost"]:
+            metric = metrics.get(metric_key, {})
+            metric_label = metric_key.replace("kpi::", "")
+            summary_row[f"{metric_label}__baseline"] = metric.get("baseline")
+            summary_row[f"{metric_label}__low"] = metric.get("low")
+            summary_row[f"{metric_label}__high"] = metric.get("high")
+            summary_row[f"{metric_label}__slope_dy_dx"] = metric.get("slope_dy_dx")
+            summary_row[f"{metric_label}__normalized_sensitivity"] = metric.get("normalized_sensitivity")
+        parameter_summary_rows.append(summary_row)
+
+    parameter_summary_rows.sort(
+        key=lambda row: abs(to_float(row.get("fill_rate__normalized_sensitivity"), 0.0)),
+        reverse=True,
+    )
+    parameter_summary_csv = output_dir / "parameter_sensitivity_summary.csv"
+    parameter_summary_cols = sorted({k for r in parameter_summary_rows for k in r.keys()}) if parameter_summary_rows else ["parameter"]
+    with parameter_summary_csv.open("w", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=parameter_summary_cols)
+        writer.writeheader()
+        writer.writerows(parameter_summary_rows)
 
     deterministic_check: dict[str, Any] = {"status": "unknown"}
     if baseline_repeat:
@@ -566,6 +605,8 @@ def main() -> None:
             "opening_stock_bootstrap_scale": args.opening_stock_bootstrap_scale,
             "external_procurement_enabled": batch_external_procurement_enabled,
         },
+        "artifact_mode": args.artifact_mode,
+        "kept_detailed_cases": sorted(keep_detailed_cases),
         "case_count": len(design),
         "successful_cases": len(ok_rows),
         "failed_cases": len(design) - len(ok_rows),
@@ -591,6 +632,8 @@ def main() -> None:
 - Days override: {args.days}
 - OAT delta: +/-{args.delta * 100:.1f}%
 - Severity profile: {args.severity_profile}
+- Artifact mode: {args.artifact_mode}
+- Kept detailed cases: {', '.join(sorted(keep_detailed_cases)) if keep_detailed_cases else '(none)'}
 - Parameter levels: {json.dumps(summary['parameter_levels'], ensure_ascii=False)}
 - Cases total: {len(design)}
 - Cases success: {len(ok_rows)}
@@ -605,8 +648,10 @@ def main() -> None:
 ## Files
 - sensitivity_cases.csv
 - sensitivity_delta_vs_baseline.csv
+- parameter_sensitivity_summary.csv
 - sensitivity_summary.json
-- cases/*/simulation_output/first_simulation_summary.json
+- cases/*/input_case.json
+- cases/*/simulation_output/(summaries,reports) in compact mode
 """
     if failed:
         report += "\n## Failed Cases\n"
@@ -616,6 +661,7 @@ def main() -> None:
 
     print(f"[OK] Cases CSV: {cases_csv.resolve()}")
     print(f"[OK] Delta CSV: {delta_csv.resolve()}")
+    print(f"[OK] Parameter summary CSV: {parameter_summary_csv.resolve()}")
     print(f"[OK] Summary JSON: {summary_json.resolve()}")
     print(f"[OK] Report MD: {report_md.resolve()}")
 

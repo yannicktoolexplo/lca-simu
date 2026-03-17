@@ -1,0 +1,1654 @@
+{
+  "input_file": "/workspaces/lca-simu/etudecas/simulation/result/calibration_search_value_based_targets_compact/o4p0_c2p5_l0p7_s1p5/input.json",
+  "scenario_id": "scn:BASE",
+  "sim_days": 365,
+  "policy": {
+    "safety_stock_days": 7.0,
+    "review_period_days": 1,
+    "fg_target_days": 0.0,
+    "production_gap_gain": 0.25,
+    "production_smoothing": 0.2,
+    "opening_stock_bootstrap_scale": 4.0,
+    "unmodeled_supplier_source_mode": "estimated_replenishment",
+    "stochastic_lead_times": true,
+    "seed": 42,
+    "economic_policy": {
+      "transport_cost_floor_per_unit": 0.02,
+      "transport_cost_per_km_per_unit": 8e-05,
+      "purchase_cost_floor_per_unit": 0.01,
+      "holding_cost_scale": 1.0,
+      "external_procurement_enabled": false,
+      "external_procurement_lead_days": 4,
+      "external_procurement_daily_cap_days": 2.0,
+      "external_procurement_min_daily_cap_qty": 0.0,
+      "external_procurement_unit_cost": 0.0,
+      "external_procurement_cost_multiplier": 2.0,
+      "external_procurement_transport_cost_per_unit": 0.04
+    }
+  },
+  "counts": {
+    "nodes": 32,
+    "edges": 38,
+    "lanes": 38,
+    "demand_rows": 2
+  },
+  "production_tracking": {
+    "input_material_pairs": [
+      {
+        "node_id": "M-1430",
+        "item_id": "item:038005"
+      },
+      {
+        "node_id": "M-1430",
+        "item_id": "item:042342"
+      },
+      {
+        "node_id": "M-1430",
+        "item_id": "item:333362"
+      },
+      {
+        "node_id": "M-1430",
+        "item_id": "item:344135"
+      },
+      {
+        "node_id": "M-1430",
+        "item_id": "item:708073"
+      },
+      {
+        "node_id": "M-1430",
+        "item_id": "item:730384"
+      },
+      {
+        "node_id": "M-1430",
+        "item_id": "item:734545"
+      },
+      {
+        "node_id": "M-1430",
+        "item_id": "item:773474"
+      },
+      {
+        "node_id": "M-1810",
+        "item_id": "item:001757"
+      },
+      {
+        "node_id": "M-1810",
+        "item_id": "item:001848"
+      },
+      {
+        "node_id": "M-1810",
+        "item_id": "item:001893"
+      },
+      {
+        "node_id": "M-1810",
+        "item_id": "item:002612"
+      },
+      {
+        "node_id": "M-1810",
+        "item_id": "item:007923"
+      },
+      {
+        "node_id": "M-1810",
+        "item_id": "item:016332"
+      },
+      {
+        "node_id": "M-1810",
+        "item_id": "item:029313"
+      },
+      {
+        "node_id": "M-1810",
+        "item_id": "item:039668"
+      },
+      {
+        "node_id": "M-1810",
+        "item_id": "item:049371"
+      },
+      {
+        "node_id": "M-1810",
+        "item_id": "item:055703"
+      },
+      {
+        "node_id": "M-1810",
+        "item_id": "item:099439"
+      },
+      {
+        "node_id": "M-1810",
+        "item_id": "item:338928"
+      },
+      {
+        "node_id": "M-1810",
+        "item_id": "item:338929"
+      },
+      {
+        "node_id": "M-1810",
+        "item_id": "item:426331"
+      },
+      {
+        "node_id": "M-1810",
+        "item_id": "item:693055"
+      },
+      {
+        "node_id": "SDC-1450",
+        "item_id": "item:021081"
+      }
+    ],
+    "output_product_pairs": [
+      {
+        "node_id": "M-1430",
+        "item_id": "item:268967"
+      },
+      {
+        "node_id": "M-1810",
+        "item_id": "item:268091"
+      },
+      {
+        "node_id": "SDC-1450",
+        "item_id": "item:773474"
+      }
+    ],
+    "unconstrained_process_inputs_not_in_relations": [],
+    "item_unit_map": {
+      "item:001757": "KG",
+      "item:001848": "KG",
+      "item:001893": "KG",
+      "item:002612": "KG",
+      "item:007923": "G",
+      "item:016332": "KG",
+      "item:021081": "KG",
+      "item:029313": "KG",
+      "item:038005": "KG",
+      "item:039668": "KG",
+      "item:042342": "UN",
+      "item:049371": "KG",
+      "item:055703": "KG",
+      "item:099439": "KG",
+      "item:268091": "UN",
+      "item:268967": "UN",
+      "item:333362": "UN",
+      "item:338928": "UN",
+      "item:338929": "UN",
+      "item:344135": "UN",
+      "item:426331": "UN",
+      "item:693055": "G",
+      "item:708073": "KG",
+      "item:730384": "M",
+      "item:734545": "UN",
+      "item:773474": "G"
+    },
+    "input_unit_conversions_applied": [
+      {
+        "node_id": "M-1430",
+        "item_id": "item:038005",
+        "from_unit": "G",
+        "to_unit": "KG"
+      },
+      {
+        "node_id": "M-1430",
+        "item_id": "item:708073",
+        "from_unit": "G",
+        "to_unit": "KG"
+      },
+      {
+        "node_id": "M-1810",
+        "item_id": "item:001757",
+        "from_unit": "G",
+        "to_unit": "KG"
+      },
+      {
+        "node_id": "M-1810",
+        "item_id": "item:001848",
+        "from_unit": "G",
+        "to_unit": "KG"
+      },
+      {
+        "node_id": "M-1810",
+        "item_id": "item:016332",
+        "from_unit": "G",
+        "to_unit": "KG"
+      },
+      {
+        "node_id": "M-1810",
+        "item_id": "item:029313",
+        "from_unit": "G",
+        "to_unit": "KG"
+      },
+      {
+        "node_id": "M-1810",
+        "item_id": "item:039668",
+        "from_unit": "G",
+        "to_unit": "KG"
+      },
+      {
+        "node_id": "M-1810",
+        "item_id": "item:049371",
+        "from_unit": "G",
+        "to_unit": "KG"
+      },
+      {
+        "node_id": "M-1810",
+        "item_id": "item:055703",
+        "from_unit": "G",
+        "to_unit": "KG"
+      },
+      {
+        "node_id": "M-1810",
+        "item_id": "item:099439",
+        "from_unit": "G",
+        "to_unit": "KG"
+      }
+    ],
+    "input_unit_mismatch_not_converted": [],
+    "customer_demand_daily_signal": [
+      {
+        "node_id": "C-XXXXX",
+        "item_id": "item:268091",
+        "demand_per_day": 20.0
+      },
+      {
+        "node_id": "C-XXXXX",
+        "item_id": "item:268967",
+        "demand_per_day": 20.0
+      }
+    ],
+    "propagated_demand_daily_signal": [
+      {
+        "node_id": "C-XXXXX",
+        "item_id": "item:268091",
+        "demand_per_day": 20.0
+      },
+      {
+        "node_id": "C-XXXXX",
+        "item_id": "item:268967",
+        "demand_per_day": 20.0
+      },
+      {
+        "node_id": "DC-1920",
+        "item_id": "item:268091",
+        "demand_per_day": 20.0
+      },
+      {
+        "node_id": "DC-1920",
+        "item_id": "item:268967",
+        "demand_per_day": 20.0
+      },
+      {
+        "node_id": "M-1430",
+        "item_id": "item:268967",
+        "demand_per_day": 20.0
+      },
+      {
+        "node_id": "M-1810",
+        "item_id": "item:268091",
+        "demand_per_day": 20.0
+      }
+    ],
+    "assumed_supplier_nodes": [
+      "SDC-1450"
+    ],
+    "assumed_supply_edges": [
+      "edge:SDC-1450_TO_M-1810_007923_Q"
+    ],
+    "externally_sourced_unmodeled_pairs": [
+      {
+        "node_id": "SDC-1450",
+        "item_id": "item:007923"
+      },
+      {
+        "node_id": "SDC-1450",
+        "item_id": "item:693055"
+      },
+      {
+        "node_id": "SDC-VD0500655A",
+        "item_id": "item:002612"
+      },
+      {
+        "node_id": "SDC-VD0505677A",
+        "item_id": "item:099439"
+      },
+      {
+        "node_id": "SDC-VD0508918A",
+        "item_id": "item:730384"
+      },
+      {
+        "node_id": "SDC-VD0514881A",
+        "item_id": "item:016332"
+      },
+      {
+        "node_id": "SDC-VD0518684A",
+        "item_id": "item:001893"
+      },
+      {
+        "node_id": "SDC-VD0519670A",
+        "item_id": "item:001848"
+      },
+      {
+        "node_id": "SDC-VD0519670A",
+        "item_id": "item:029313"
+      },
+      {
+        "node_id": "SDC-VD0520115A",
+        "item_id": "item:708073"
+      },
+      {
+        "node_id": "SDC-VD0520132A",
+        "item_id": "item:038005"
+      },
+      {
+        "node_id": "SDC-VD0520132A",
+        "item_id": "item:049371"
+      },
+      {
+        "node_id": "SDC-VD0525412A",
+        "item_id": "item:333362"
+      },
+      {
+        "node_id": "SDC-VD0901566A",
+        "item_id": "item:338928"
+      },
+      {
+        "node_id": "SDC-VD0910216A",
+        "item_id": "item:001893"
+      },
+      {
+        "node_id": "SDC-VD0910216A",
+        "item_id": "item:002612"
+      },
+      {
+        "node_id": "SDC-VD0914320A",
+        "item_id": "item:055703"
+      },
+      {
+        "node_id": "SDC-VD0914360C",
+        "item_id": "item:338929"
+      },
+      {
+        "node_id": "SDC-VD0914690A",
+        "item_id": "item:042342"
+      },
+      {
+        "node_id": "SDC-VD0949099A",
+        "item_id": "item:021081"
+      },
+      {
+        "node_id": "SDC-VD0951020A",
+        "item_id": "item:001757"
+      },
+      {
+        "node_id": "SDC-VD0951020A",
+        "item_id": "item:001848"
+      },
+      {
+        "node_id": "SDC-VD0960508A",
+        "item_id": "item:021081"
+      },
+      {
+        "node_id": "SDC-VD0964290A",
+        "item_id": "item:055703"
+      },
+      {
+        "node_id": "SDC-VD0972460A",
+        "item_id": "item:021081"
+      },
+      {
+        "node_id": "SDC-VD0975221A",
+        "item_id": "item:021081"
+      },
+      {
+        "node_id": "SDC-VD0989480A",
+        "item_id": "item:426331"
+      },
+      {
+        "node_id": "SDC-VD0990780A",
+        "item_id": "item:002612"
+      },
+      {
+        "node_id": "SDC-VD0993480A",
+        "item_id": "item:344135"
+      },
+      {
+        "node_id": "SDC-VD1091642A",
+        "item_id": "item:001893"
+      },
+      {
+        "node_id": "SDC-VD1091642A",
+        "item_id": "item:002612"
+      },
+      {
+        "node_id": "SDC-VD1095770A",
+        "item_id": "item:734545"
+      },
+      {
+        "node_id": "SDC-VD1096202A",
+        "item_id": "item:039668"
+      }
+    ],
+    "opening_stock_bootstrap_pairs": [
+      {
+        "node_id": "M-1430",
+        "item_id": "item:038005",
+        "lead_days": 108,
+        "cover_days": 198,
+        "daily_req_at_cap": 1.093698,
+        "added_opening_qty": 866.209212,
+        "target_opening_stock": 866.209212
+      },
+      {
+        "node_id": "M-1430",
+        "item_id": "item:042342",
+        "lead_days": 15,
+        "cover_days": 28,
+        "daily_req_at_cap": 3771.375,
+        "added_opening_qty": 422394.0,
+        "target_opening_stock": 422394.0
+      },
+      {
+        "node_id": "M-1430",
+        "item_id": "item:333362",
+        "lead_days": 42,
+        "cover_days": 78,
+        "daily_req_at_cap": 62.5,
+        "added_opening_qty": 19500.0,
+        "target_opening_stock": 19500.0
+      },
+      {
+        "node_id": "M-1430",
+        "item_id": "item:344135",
+        "lead_days": 24,
+        "cover_days": 46,
+        "daily_req_at_cap": 62.5,
+        "added_opening_qty": 11500.0,
+        "target_opening_stock": 11500.0
+      },
+      {
+        "node_id": "M-1430",
+        "item_id": "item:708073",
+        "lead_days": 20,
+        "cover_days": 37,
+        "daily_req_at_cap": 0.495625,
+        "added_opening_qty": 73.3525,
+        "target_opening_stock": 73.3525
+      },
+      {
+        "node_id": "M-1430",
+        "item_id": "item:730384",
+        "lead_days": 39,
+        "cover_days": 73,
+        "daily_req_at_cap": 13.25,
+        "added_opening_qty": 3869.0,
+        "target_opening_stock": 3869.0
+      },
+      {
+        "node_id": "M-1430",
+        "item_id": "item:734545",
+        "lead_days": 15,
+        "cover_days": 28,
+        "daily_req_at_cap": 0.5,
+        "added_opening_qty": 56.0,
+        "target_opening_stock": 56.0
+      },
+      {
+        "node_id": "M-1430",
+        "item_id": "item:773474",
+        "lead_days": 7,
+        "cover_days": 14,
+        "daily_req_at_cap": 603.419875,
+        "added_opening_qty": 33791.513,
+        "target_opening_stock": 33791.513
+      },
+      {
+        "node_id": "M-1810",
+        "item_id": "item:001757",
+        "lead_days": 59,
+        "cover_days": 109,
+        "daily_req_at_cap": 0.1015,
+        "added_opening_qty": 44.254,
+        "target_opening_stock": 44.254
+      },
+      {
+        "node_id": "M-1810",
+        "item_id": "item:001848",
+        "lead_days": 39,
+        "cover_days": 73,
+        "daily_req_at_cap": 0.076125,
+        "added_opening_qty": 22.2285,
+        "target_opening_stock": 22.2285
+      },
+      {
+        "node_id": "M-1810",
+        "item_id": "item:001893",
+        "lead_days": 39,
+        "cover_days": 73,
+        "daily_req_at_cap": 0.482125,
+        "added_opening_qty": 140.7805,
+        "target_opening_stock": 140.7805
+      },
+      {
+        "node_id": "M-1810",
+        "item_id": "item:002612",
+        "lead_days": 24,
+        "cover_days": 46,
+        "daily_req_at_cap": 0.126875,
+        "added_opening_qty": 23.345,
+        "target_opening_stock": 23.345
+      },
+      {
+        "node_id": "M-1810",
+        "item_id": "item:007923",
+        "lead_days": 1,
+        "cover_days": 3,
+        "daily_req_at_cap": 203.0,
+        "added_opening_qty": 4984.0,
+        "target_opening_stock": 5684.0
+      },
+      {
+        "node_id": "M-1810",
+        "item_id": "item:016332",
+        "lead_days": 34,
+        "cover_days": 64,
+        "daily_req_at_cap": 0.03045,
+        "added_opening_qty": 7.7952,
+        "target_opening_stock": 7.7952
+      },
+      {
+        "node_id": "M-1810",
+        "item_id": "item:029313",
+        "lead_days": 39,
+        "cover_days": 73,
+        "daily_req_at_cap": 0.002538,
+        "added_opening_qty": 0.74095,
+        "target_opening_stock": 0.74095
+      },
+      {
+        "node_id": "M-1810",
+        "item_id": "item:039668",
+        "lead_days": 24,
+        "cover_days": 46,
+        "daily_req_at_cap": 0.002538,
+        "added_opening_qty": 0.4669,
+        "target_opening_stock": 0.4669
+      },
+      {
+        "node_id": "M-1810",
+        "item_id": "item:049371",
+        "lead_days": 103,
+        "cover_days": 189,
+        "daily_req_at_cap": 0.093887,
+        "added_opening_qty": 70.97895,
+        "target_opening_stock": 70.97895
+      },
+      {
+        "node_id": "M-1810",
+        "item_id": "item:055703",
+        "lead_days": 29,
+        "cover_days": 55,
+        "daily_req_at_cap": 0.005075,
+        "added_opening_qty": 1.1165,
+        "target_opening_stock": 1.1165
+      },
+      {
+        "node_id": "M-1810",
+        "item_id": "item:099439",
+        "lead_days": 24,
+        "cover_days": 46,
+        "daily_req_at_cap": 0.126875,
+        "added_opening_qty": 23.345,
+        "target_opening_stock": 23.345
+      },
+      {
+        "node_id": "M-1810",
+        "item_id": "item:338928",
+        "lead_days": 49,
+        "cover_days": 91,
+        "daily_req_at_cap": 62.5,
+        "added_opening_qty": 22750.0,
+        "target_opening_stock": 22750.0
+      },
+      {
+        "node_id": "M-1810",
+        "item_id": "item:338929",
+        "lead_days": 29,
+        "cover_days": 55,
+        "daily_req_at_cap": 62.5,
+        "added_opening_qty": 13750.0,
+        "target_opening_stock": 13750.0
+      },
+      {
+        "node_id": "M-1810",
+        "item_id": "item:426331",
+        "lead_days": 20,
+        "cover_days": 37,
+        "daily_req_at_cap": 0.6875,
+        "added_opening_qty": 101.75,
+        "target_opening_stock": 101.75
+      },
+      {
+        "node_id": "M-1810",
+        "item_id": "item:693055",
+        "lead_days": 49,
+        "cover_days": 91,
+        "daily_req_at_cap": 25.375,
+        "added_opening_qty": 9236.5,
+        "target_opening_stock": 9236.5
+      },
+      {
+        "node_id": "SDC-1450",
+        "item_id": "item:021081",
+        "lead_days": 84,
+        "cover_days": 155,
+        "daily_req_at_cap": 11175.0,
+        "added_opening_qty": 6928320.0,
+        "target_opening_stock": 6928500.0
+      },
+      {
+        "node_id": "SDC-1450",
+        "item_id": "item:773474",
+        "lead_days": 13,
+        "cover_days": 14,
+        "daily_req_at_cap": 603.419875,
+        "added_opening_qty": 33611.513,
+        "target_opening_stock": 33791.513,
+        "bootstrap_kind": "process_output_fg"
+      }
+    ],
+    "supplier_daily_capacity_pairs": [
+      {
+        "node_id": "SDC-1450",
+        "item_id": "item:007923",
+        "review_period_days": 7,
+        "initial_stock_qty": 3000.0,
+        "inventory_fallback_qty_per_day": 428.571429,
+        "downstream_requirement_qty_per_day": 203.0,
+        "downstream_signal_qty_per_day": 0.0,
+        "explicit_capacity_qty_per_day": 428.571429,
+        "process_capacity_qty_per_day": 0.0,
+        "nominal_capacity_qty_per_day": 428.571429,
+        "applied_capacity_scale": 1.5,
+        "effective_capacity_qty_per_day": 642.857144,
+        "basis": "explicit_capacity"
+      },
+      {
+        "node_id": "SDC-1450",
+        "item_id": "item:693055",
+        "review_period_days": 7,
+        "initial_stock_qty": 180.0,
+        "inventory_fallback_qty_per_day": 25.714286,
+        "downstream_requirement_qty_per_day": 25.375,
+        "downstream_signal_qty_per_day": 0.0,
+        "explicit_capacity_qty_per_day": 25.714286,
+        "process_capacity_qty_per_day": 0.0,
+        "nominal_capacity_qty_per_day": 25.714286,
+        "applied_capacity_scale": 1.5,
+        "effective_capacity_qty_per_day": 38.571429,
+        "basis": "explicit_capacity"
+      },
+      {
+        "node_id": "SDC-1450",
+        "item_id": "item:773474",
+        "review_period_days": 7,
+        "initial_stock_qty": 33791.513,
+        "inventory_fallback_qty_per_day": 4827.359,
+        "downstream_requirement_qty_per_day": 603.419875,
+        "downstream_signal_qty_per_day": 0.0,
+        "explicit_capacity_qty_per_day": 500000.0,
+        "process_capacity_qty_per_day": 1250000.0,
+        "nominal_capacity_qty_per_day": 500000.0,
+        "applied_capacity_scale": 1.5,
+        "effective_capacity_qty_per_day": 750000.0,
+        "basis": "explicit_capacity"
+      },
+      {
+        "node_id": "SDC-VD0500655A",
+        "item_id": "item:002612",
+        "review_period_days": 7,
+        "initial_stock_qty": 180.0,
+        "inventory_fallback_qty_per_day": 25.714286,
+        "downstream_requirement_qty_per_day": 0.126875,
+        "downstream_signal_qty_per_day": 0.0,
+        "explicit_capacity_qty_per_day": 24.428571,
+        "process_capacity_qty_per_day": 0.0,
+        "nominal_capacity_qty_per_day": 24.428571,
+        "applied_capacity_scale": 1.5,
+        "effective_capacity_qty_per_day": 36.642857,
+        "basis": "explicit_capacity"
+      },
+      {
+        "node_id": "SDC-VD0505677A",
+        "item_id": "item:099439",
+        "review_period_days": 7,
+        "initial_stock_qty": 180.0,
+        "inventory_fallback_qty_per_day": 25.714286,
+        "downstream_requirement_qty_per_day": 0.126875,
+        "downstream_signal_qty_per_day": 0.0,
+        "explicit_capacity_qty_per_day": 65.625,
+        "process_capacity_qty_per_day": 0.0,
+        "nominal_capacity_qty_per_day": 93.333333,
+        "applied_capacity_scale": 1.5,
+        "effective_capacity_qty_per_day": 140.0,
+        "basis": "explicit_capacity+fia_hint"
+      },
+      {
+        "node_id": "SDC-VD0508918A",
+        "item_id": "item:730384",
+        "review_period_days": 7,
+        "initial_stock_qty": 180.0,
+        "inventory_fallback_qty_per_day": 25.714286,
+        "downstream_requirement_qty_per_day": 13.25,
+        "downstream_signal_qty_per_day": 0.0,
+        "explicit_capacity_qty_per_day": 24.428571,
+        "process_capacity_qty_per_day": 0.0,
+        "nominal_capacity_qty_per_day": 24.428571,
+        "applied_capacity_scale": 1.5,
+        "effective_capacity_qty_per_day": 36.642857,
+        "basis": "explicit_capacity"
+      },
+      {
+        "node_id": "SDC-VD0514881A",
+        "item_id": "item:016332",
+        "review_period_days": 7,
+        "initial_stock_qty": 180.0,
+        "inventory_fallback_qty_per_day": 25.714286,
+        "downstream_requirement_qty_per_day": 0.03045,
+        "downstream_signal_qty_per_day": 0.0,
+        "explicit_capacity_qty_per_day": 24.428571,
+        "process_capacity_qty_per_day": 0.0,
+        "nominal_capacity_qty_per_day": 24.428571,
+        "applied_capacity_scale": 1.5,
+        "effective_capacity_qty_per_day": 36.642857,
+        "basis": "explicit_capacity+fia_hint"
+      },
+      {
+        "node_id": "SDC-VD0518684A",
+        "item_id": "item:001893",
+        "review_period_days": 7,
+        "initial_stock_qty": 180.0,
+        "inventory_fallback_qty_per_day": 25.714286,
+        "downstream_requirement_qty_per_day": 0.482125,
+        "downstream_signal_qty_per_day": 0.0,
+        "explicit_capacity_qty_per_day": 24.428571,
+        "process_capacity_qty_per_day": 0.0,
+        "nominal_capacity_qty_per_day": 24.428571,
+        "applied_capacity_scale": 1.5,
+        "effective_capacity_qty_per_day": 36.642857,
+        "basis": "explicit_capacity"
+      },
+      {
+        "node_id": "SDC-VD0519670A",
+        "item_id": "item:001848",
+        "review_period_days": 7,
+        "initial_stock_qty": 180.0,
+        "inventory_fallback_qty_per_day": 25.714286,
+        "downstream_requirement_qty_per_day": 0.076125,
+        "downstream_signal_qty_per_day": 0.0,
+        "explicit_capacity_qty_per_day": 24.428571,
+        "process_capacity_qty_per_day": 0.0,
+        "nominal_capacity_qty_per_day": 24.428571,
+        "applied_capacity_scale": 1.5,
+        "effective_capacity_qty_per_day": 36.642857,
+        "basis": "explicit_capacity"
+      },
+      {
+        "node_id": "SDC-VD0519670A",
+        "item_id": "item:029313",
+        "review_period_days": 7,
+        "initial_stock_qty": 180.0,
+        "inventory_fallback_qty_per_day": 25.714286,
+        "downstream_requirement_qty_per_day": 0.002538,
+        "downstream_signal_qty_per_day": 0.0,
+        "explicit_capacity_qty_per_day": 24.428571,
+        "process_capacity_qty_per_day": 0.0,
+        "nominal_capacity_qty_per_day": 24.428571,
+        "applied_capacity_scale": 1.5,
+        "effective_capacity_qty_per_day": 36.642857,
+        "basis": "explicit_capacity"
+      },
+      {
+        "node_id": "SDC-VD0520115A",
+        "item_id": "item:708073",
+        "review_period_days": 7,
+        "initial_stock_qty": 180.0,
+        "inventory_fallback_qty_per_day": 25.714286,
+        "downstream_requirement_qty_per_day": 0.495625,
+        "downstream_signal_qty_per_day": 0.0,
+        "explicit_capacity_qty_per_day": 24.428571,
+        "process_capacity_qty_per_day": 0.0,
+        "nominal_capacity_qty_per_day": 24.428571,
+        "applied_capacity_scale": 1.5,
+        "effective_capacity_qty_per_day": 36.642857,
+        "basis": "explicit_capacity"
+      },
+      {
+        "node_id": "SDC-VD0520132A",
+        "item_id": "item:038005",
+        "review_period_days": 7,
+        "initial_stock_qty": 180.0,
+        "inventory_fallback_qty_per_day": 25.714286,
+        "downstream_requirement_qty_per_day": 1.093698,
+        "downstream_signal_qty_per_day": 0.0,
+        "explicit_capacity_qty_per_day": 35.460993,
+        "process_capacity_qty_per_day": 0.0,
+        "nominal_capacity_qty_per_day": 50.761421,
+        "applied_capacity_scale": 1.5,
+        "effective_capacity_qty_per_day": 76.142132,
+        "basis": "explicit_capacity+fia_hint"
+      },
+      {
+        "node_id": "SDC-VD0520132A",
+        "item_id": "item:049371",
+        "review_period_days": 7,
+        "initial_stock_qty": 180.0,
+        "inventory_fallback_qty_per_day": 25.714286,
+        "downstream_requirement_qty_per_day": 0.093887,
+        "downstream_signal_qty_per_day": 0.0,
+        "explicit_capacity_qty_per_day": 24.428571,
+        "process_capacity_qty_per_day": 0.0,
+        "nominal_capacity_qty_per_day": 24.428571,
+        "applied_capacity_scale": 1.5,
+        "effective_capacity_qty_per_day": 36.642857,
+        "basis": "explicit_capacity+fia_hint"
+      },
+      {
+        "node_id": "SDC-VD0525412A",
+        "item_id": "item:333362",
+        "review_period_days": 7,
+        "initial_stock_qty": 180.0,
+        "inventory_fallback_qty_per_day": 25.714286,
+        "downstream_requirement_qty_per_day": 62.5,
+        "downstream_signal_qty_per_day": 0.0,
+        "explicit_capacity_qty_per_day": 45.454545,
+        "process_capacity_qty_per_day": 0.0,
+        "nominal_capacity_qty_per_day": 64.935065,
+        "applied_capacity_scale": 1.5,
+        "effective_capacity_qty_per_day": 97.402597,
+        "basis": "explicit_capacity+fia_hint"
+      },
+      {
+        "node_id": "SDC-VD0901566A",
+        "item_id": "item:338928",
+        "review_period_days": 7,
+        "initial_stock_qty": 180.0,
+        "inventory_fallback_qty_per_day": 25.714286,
+        "downstream_requirement_qty_per_day": 62.5,
+        "downstream_signal_qty_per_day": 0.0,
+        "explicit_capacity_qty_per_day": 31.25,
+        "process_capacity_qty_per_day": 0.0,
+        "nominal_capacity_qty_per_day": 31.25,
+        "applied_capacity_scale": 1.5,
+        "effective_capacity_qty_per_day": 46.875,
+        "basis": "explicit_capacity"
+      },
+      {
+        "node_id": "SDC-VD0910216A",
+        "item_id": "item:001893",
+        "review_period_days": 7,
+        "initial_stock_qty": 180.0,
+        "inventory_fallback_qty_per_day": 25.714286,
+        "downstream_requirement_qty_per_day": 0.482125,
+        "downstream_signal_qty_per_day": 0.0,
+        "explicit_capacity_qty_per_day": 24.428571,
+        "process_capacity_qty_per_day": 0.0,
+        "nominal_capacity_qty_per_day": 24.428571,
+        "applied_capacity_scale": 1.5,
+        "effective_capacity_qty_per_day": 36.642857,
+        "basis": "explicit_capacity"
+      },
+      {
+        "node_id": "SDC-VD0910216A",
+        "item_id": "item:002612",
+        "review_period_days": 7,
+        "initial_stock_qty": 180.0,
+        "inventory_fallback_qty_per_day": 25.714286,
+        "downstream_requirement_qty_per_day": 0.126875,
+        "downstream_signal_qty_per_day": 0.0,
+        "explicit_capacity_qty_per_day": 24.428571,
+        "process_capacity_qty_per_day": 0.0,
+        "nominal_capacity_qty_per_day": 24.428571,
+        "applied_capacity_scale": 1.5,
+        "effective_capacity_qty_per_day": 36.642857,
+        "basis": "explicit_capacity"
+      },
+      {
+        "node_id": "SDC-VD0914320A",
+        "item_id": "item:055703",
+        "review_period_days": 7,
+        "initial_stock_qty": 180.0,
+        "inventory_fallback_qty_per_day": 25.714286,
+        "downstream_requirement_qty_per_day": 0.005075,
+        "downstream_signal_qty_per_day": 0.0,
+        "explicit_capacity_qty_per_day": 24.428571,
+        "process_capacity_qty_per_day": 0.0,
+        "nominal_capacity_qty_per_day": 24.428571,
+        "applied_capacity_scale": 1.5,
+        "effective_capacity_qty_per_day": 36.642857,
+        "basis": "explicit_capacity+fia_hint"
+      },
+      {
+        "node_id": "SDC-VD0914360C",
+        "item_id": "item:338929",
+        "review_period_days": 7,
+        "initial_stock_qty": 180.0,
+        "inventory_fallback_qty_per_day": 25.714286,
+        "downstream_requirement_qty_per_day": 62.5,
+        "downstream_signal_qty_per_day": 0.0,
+        "explicit_capacity_qty_per_day": 64.935065,
+        "process_capacity_qty_per_day": 0.0,
+        "nominal_capacity_qty_per_day": 92.592593,
+        "applied_capacity_scale": 1.5,
+        "effective_capacity_qty_per_day": 138.888889,
+        "basis": "explicit_capacity+fia_hint"
+      },
+      {
+        "node_id": "SDC-VD0914690A",
+        "item_id": "item:042342",
+        "review_period_days": 7,
+        "initial_stock_qty": 180.0,
+        "inventory_fallback_qty_per_day": 25.714286,
+        "downstream_requirement_qty_per_day": 3771.375,
+        "downstream_signal_qty_per_day": 0.0,
+        "explicit_capacity_qty_per_day": 1885.6875,
+        "process_capacity_qty_per_day": 0.0,
+        "nominal_capacity_qty_per_day": 1885.6875,
+        "applied_capacity_scale": 1.5,
+        "effective_capacity_qty_per_day": 2828.53125,
+        "basis": "explicit_capacity"
+      },
+      {
+        "node_id": "SDC-VD0949099A",
+        "item_id": "item:021081",
+        "review_period_days": 7,
+        "initial_stock_qty": 180.0,
+        "inventory_fallback_qty_per_day": 25.714286,
+        "downstream_requirement_qty_per_day": 11175.0,
+        "downstream_signal_qty_per_day": 0.0,
+        "explicit_capacity_qty_per_day": 5587.5,
+        "process_capacity_qty_per_day": 0.0,
+        "nominal_capacity_qty_per_day": 5587.5,
+        "applied_capacity_scale": 1.5,
+        "effective_capacity_qty_per_day": 8381.25,
+        "basis": "explicit_capacity"
+      },
+      {
+        "node_id": "SDC-VD0951020A",
+        "item_id": "item:001757",
+        "review_period_days": 7,
+        "initial_stock_qty": 180.0,
+        "inventory_fallback_qty_per_day": 25.714286,
+        "downstream_requirement_qty_per_day": 0.1015,
+        "downstream_signal_qty_per_day": 0.0,
+        "explicit_capacity_qty_per_day": 24.428571,
+        "process_capacity_qty_per_day": 0.0,
+        "nominal_capacity_qty_per_day": 24.428571,
+        "applied_capacity_scale": 1.5,
+        "effective_capacity_qty_per_day": 36.642857,
+        "basis": "explicit_capacity"
+      },
+      {
+        "node_id": "SDC-VD0951020A",
+        "item_id": "item:001848",
+        "review_period_days": 7,
+        "initial_stock_qty": 180.0,
+        "inventory_fallback_qty_per_day": 25.714286,
+        "downstream_requirement_qty_per_day": 0.076125,
+        "downstream_signal_qty_per_day": 0.0,
+        "explicit_capacity_qty_per_day": 58.252427,
+        "process_capacity_qty_per_day": 0.0,
+        "nominal_capacity_qty_per_day": 83.333333,
+        "applied_capacity_scale": 1.5,
+        "effective_capacity_qty_per_day": 125.0,
+        "basis": "explicit_capacity+fia_hint"
+      },
+      {
+        "node_id": "SDC-VD0960508A",
+        "item_id": "item:021081",
+        "review_period_days": 7,
+        "initial_stock_qty": 180.0,
+        "inventory_fallback_qty_per_day": 25.714286,
+        "downstream_requirement_qty_per_day": 11175.0,
+        "downstream_signal_qty_per_day": 0.0,
+        "explicit_capacity_qty_per_day": 5587.5,
+        "process_capacity_qty_per_day": 0.0,
+        "nominal_capacity_qty_per_day": 5587.5,
+        "applied_capacity_scale": 1.5,
+        "effective_capacity_qty_per_day": 8381.25,
+        "basis": "explicit_capacity"
+      },
+      {
+        "node_id": "SDC-VD0964290A",
+        "item_id": "item:055703",
+        "review_period_days": 7,
+        "initial_stock_qty": 180.0,
+        "inventory_fallback_qty_per_day": 25.714286,
+        "downstream_requirement_qty_per_day": 0.005075,
+        "downstream_signal_qty_per_day": 0.0,
+        "explicit_capacity_qty_per_day": 24.428571,
+        "process_capacity_qty_per_day": 0.0,
+        "nominal_capacity_qty_per_day": 24.428571,
+        "applied_capacity_scale": 1.5,
+        "effective_capacity_qty_per_day": 36.642857,
+        "basis": "explicit_capacity"
+      },
+      {
+        "node_id": "SDC-VD0972460A",
+        "item_id": "item:021081",
+        "review_period_days": 7,
+        "initial_stock_qty": 180.0,
+        "inventory_fallback_qty_per_day": 25.714286,
+        "downstream_requirement_qty_per_day": 11175.0,
+        "downstream_signal_qty_per_day": 0.0,
+        "explicit_capacity_qty_per_day": 5587.5,
+        "process_capacity_qty_per_day": 0.0,
+        "nominal_capacity_qty_per_day": 5587.5,
+        "applied_capacity_scale": 1.5,
+        "effective_capacity_qty_per_day": 8381.25,
+        "basis": "explicit_capacity"
+      },
+      {
+        "node_id": "SDC-VD0975221A",
+        "item_id": "item:021081",
+        "review_period_days": 7,
+        "initial_stock_qty": 180.0,
+        "inventory_fallback_qty_per_day": 25.714286,
+        "downstream_requirement_qty_per_day": 11175.0,
+        "downstream_signal_qty_per_day": 0.0,
+        "explicit_capacity_qty_per_day": 5587.5,
+        "process_capacity_qty_per_day": 0.0,
+        "nominal_capacity_qty_per_day": 5587.5,
+        "applied_capacity_scale": 1.5,
+        "effective_capacity_qty_per_day": 8381.25,
+        "basis": "explicit_capacity"
+      },
+      {
+        "node_id": "SDC-VD0989480A",
+        "item_id": "item:426331",
+        "review_period_days": 7,
+        "initial_stock_qty": 180.0,
+        "inventory_fallback_qty_per_day": 25.714286,
+        "downstream_requirement_qty_per_day": 0.6875,
+        "downstream_signal_qty_per_day": 0.0,
+        "explicit_capacity_qty_per_day": 24.428571,
+        "process_capacity_qty_per_day": 0.0,
+        "nominal_capacity_qty_per_day": 24.428571,
+        "applied_capacity_scale": 1.5,
+        "effective_capacity_qty_per_day": 36.642857,
+        "basis": "explicit_capacity"
+      },
+      {
+        "node_id": "SDC-VD0990780A",
+        "item_id": "item:002612",
+        "review_period_days": 7,
+        "initial_stock_qty": 180.0,
+        "inventory_fallback_qty_per_day": 25.714286,
+        "downstream_requirement_qty_per_day": 0.126875,
+        "downstream_signal_qty_per_day": 0.0,
+        "explicit_capacity_qty_per_day": 24.428571,
+        "process_capacity_qty_per_day": 0.0,
+        "nominal_capacity_qty_per_day": 24.428571,
+        "applied_capacity_scale": 1.5,
+        "effective_capacity_qty_per_day": 36.642857,
+        "basis": "explicit_capacity"
+      },
+      {
+        "node_id": "SDC-VD0993480A",
+        "item_id": "item:344135",
+        "review_period_days": 7,
+        "initial_stock_qty": 180.0,
+        "inventory_fallback_qty_per_day": 25.714286,
+        "downstream_requirement_qty_per_day": 62.5,
+        "downstream_signal_qty_per_day": 0.0,
+        "explicit_capacity_qty_per_day": 31.25,
+        "process_capacity_qty_per_day": 0.0,
+        "nominal_capacity_qty_per_day": 31.25,
+        "applied_capacity_scale": 1.5,
+        "effective_capacity_qty_per_day": 46.875,
+        "basis": "explicit_capacity"
+      },
+      {
+        "node_id": "SDC-VD1091642A",
+        "item_id": "item:001893",
+        "review_period_days": 7,
+        "initial_stock_qty": 180.0,
+        "inventory_fallback_qty_per_day": 25.714286,
+        "downstream_requirement_qty_per_day": 0.482125,
+        "downstream_signal_qty_per_day": 0.0,
+        "explicit_capacity_qty_per_day": 24.428571,
+        "process_capacity_qty_per_day": 0.0,
+        "nominal_capacity_qty_per_day": 24.428571,
+        "applied_capacity_scale": 1.5,
+        "effective_capacity_qty_per_day": 36.642857,
+        "basis": "explicit_capacity"
+      },
+      {
+        "node_id": "SDC-VD1091642A",
+        "item_id": "item:002612",
+        "review_period_days": 7,
+        "initial_stock_qty": 180.0,
+        "inventory_fallback_qty_per_day": 25.714286,
+        "downstream_requirement_qty_per_day": 0.126875,
+        "downstream_signal_qty_per_day": 0.0,
+        "explicit_capacity_qty_per_day": 24.428571,
+        "process_capacity_qty_per_day": 0.0,
+        "nominal_capacity_qty_per_day": 24.428571,
+        "applied_capacity_scale": 1.5,
+        "effective_capacity_qty_per_day": 36.642857,
+        "basis": "explicit_capacity"
+      },
+      {
+        "node_id": "SDC-VD1095770A",
+        "item_id": "item:734545",
+        "review_period_days": 7,
+        "initial_stock_qty": 180.0,
+        "inventory_fallback_qty_per_day": 25.714286,
+        "downstream_requirement_qty_per_day": 0.5,
+        "downstream_signal_qty_per_day": 0.0,
+        "explicit_capacity_qty_per_day": 24.428571,
+        "process_capacity_qty_per_day": 0.0,
+        "nominal_capacity_qty_per_day": 24.428571,
+        "applied_capacity_scale": 1.5,
+        "effective_capacity_qty_per_day": 36.642857,
+        "basis": "explicit_capacity"
+      },
+      {
+        "node_id": "SDC-VD1096202A",
+        "item_id": "item:039668",
+        "review_period_days": 7,
+        "initial_stock_qty": 180.0,
+        "inventory_fallback_qty_per_day": 25.714286,
+        "downstream_requirement_qty_per_day": 0.002538,
+        "downstream_signal_qty_per_day": 0.0,
+        "explicit_capacity_qty_per_day": 24.428571,
+        "process_capacity_qty_per_day": 0.0,
+        "nominal_capacity_qty_per_day": 24.428571,
+        "applied_capacity_scale": 1.5,
+        "effective_capacity_qty_per_day": 36.642857,
+        "basis": "explicit_capacity+fia_hint"
+      }
+    ],
+    "unmodeled_supplier_source_policies": [
+      {
+        "node_id": "SDC-1450",
+        "item_id": "item:007923",
+        "replenishment_lead_days": 7,
+        "raw_replenishment_lead_days": 7.0,
+        "target_cover_days": 14,
+        "review_period_days": 7,
+        "order_frequency_days": 1,
+        "downstream_signal_qty_per_day": 0.0,
+        "reorder_point_qty_day0": 3000.0,
+        "target_stock_qty_day0": 3000.0,
+        "daily_capacity_qty": 642.857144
+      },
+      {
+        "node_id": "SDC-1450",
+        "item_id": "item:693055",
+        "replenishment_lead_days": 21,
+        "raw_replenishment_lead_days": 45.0,
+        "target_cover_days": 28,
+        "review_period_days": 7,
+        "order_frequency_days": 1,
+        "downstream_signal_qty_per_day": 0.0,
+        "reorder_point_qty_day0": 180.0,
+        "target_stock_qty_day0": 180.0,
+        "daily_capacity_qty": 38.571429
+      },
+      {
+        "node_id": "SDC-VD0500655A",
+        "item_id": "item:002612",
+        "replenishment_lead_days": 18,
+        "raw_replenishment_lead_days": 18.0,
+        "target_cover_days": 25,
+        "review_period_days": 7,
+        "order_frequency_days": 1,
+        "downstream_signal_qty_per_day": 0.0,
+        "reorder_point_qty_day0": 180.0,
+        "target_stock_qty_day0": 180.0,
+        "daily_capacity_qty": 36.642857
+      },
+      {
+        "node_id": "SDC-VD0505677A",
+        "item_id": "item:099439",
+        "replenishment_lead_days": 21,
+        "raw_replenishment_lead_days": 22.5,
+        "target_cover_days": 28,
+        "review_period_days": 7,
+        "order_frequency_days": 1,
+        "downstream_signal_qty_per_day": 0.0,
+        "reorder_point_qty_day0": 180.0,
+        "target_stock_qty_day0": 180.0,
+        "daily_capacity_qty": 140.0
+      },
+      {
+        "node_id": "SDC-VD0508918A",
+        "item_id": "item:730384",
+        "replenishment_lead_days": 21,
+        "raw_replenishment_lead_days": 36.0,
+        "target_cover_days": 28,
+        "review_period_days": 7,
+        "order_frequency_days": 1,
+        "downstream_signal_qty_per_day": 0.0,
+        "reorder_point_qty_day0": 180.0,
+        "target_stock_qty_day0": 180.0,
+        "daily_capacity_qty": 36.642857
+      },
+      {
+        "node_id": "SDC-VD0514881A",
+        "item_id": "item:016332",
+        "replenishment_lead_days": 21,
+        "raw_replenishment_lead_days": 31.5,
+        "target_cover_days": 28,
+        "review_period_days": 7,
+        "order_frequency_days": 1,
+        "downstream_signal_qty_per_day": 0.0,
+        "reorder_point_qty_day0": 180.0,
+        "target_stock_qty_day0": 180.0,
+        "daily_capacity_qty": 36.642857
+      },
+      {
+        "node_id": "SDC-VD0518684A",
+        "item_id": "item:001893",
+        "replenishment_lead_days": 21,
+        "raw_replenishment_lead_days": 36.0,
+        "target_cover_days": 28,
+        "review_period_days": 7,
+        "order_frequency_days": 1,
+        "downstream_signal_qty_per_day": 0.0,
+        "reorder_point_qty_day0": 180.0,
+        "target_stock_qty_day0": 180.0,
+        "daily_capacity_qty": 36.642857
+      },
+      {
+        "node_id": "SDC-VD0519670A",
+        "item_id": "item:001848",
+        "replenishment_lead_days": 14,
+        "raw_replenishment_lead_days": 13.5,
+        "target_cover_days": 21,
+        "review_period_days": 7,
+        "order_frequency_days": 1,
+        "downstream_signal_qty_per_day": 0.0,
+        "reorder_point_qty_day0": 180.0,
+        "target_stock_qty_day0": 180.0,
+        "daily_capacity_qty": 36.642857
+      },
+      {
+        "node_id": "SDC-VD0519670A",
+        "item_id": "item:029313",
+        "replenishment_lead_days": 21,
+        "raw_replenishment_lead_days": 36.0,
+        "target_cover_days": 28,
+        "review_period_days": 7,
+        "order_frequency_days": 1,
+        "downstream_signal_qty_per_day": 0.0,
+        "reorder_point_qty_day0": 180.0,
+        "target_stock_qty_day0": 180.0,
+        "daily_capacity_qty": 36.642857
+      },
+      {
+        "node_id": "SDC-VD0520115A",
+        "item_id": "item:708073",
+        "replenishment_lead_days": 18,
+        "raw_replenishment_lead_days": 18.0,
+        "target_cover_days": 25,
+        "review_period_days": 7,
+        "order_frequency_days": 1,
+        "downstream_signal_qty_per_day": 0.0,
+        "reorder_point_qty_day0": 180.0,
+        "target_stock_qty_day0": 180.0,
+        "daily_capacity_qty": 36.642857
+      },
+      {
+        "node_id": "SDC-VD0520132A",
+        "item_id": "item:038005",
+        "replenishment_lead_days": 21,
+        "raw_replenishment_lead_days": 98.5,
+        "target_cover_days": 28,
+        "review_period_days": 7,
+        "order_frequency_days": 1,
+        "downstream_signal_qty_per_day": 0.0,
+        "reorder_point_qty_day0": 180.0,
+        "target_stock_qty_day0": 180.0,
+        "daily_capacity_qty": 76.142132
+      },
+      {
+        "node_id": "SDC-VD0520132A",
+        "item_id": "item:049371",
+        "replenishment_lead_days": 21,
+        "raw_replenishment_lead_days": 94.0,
+        "target_cover_days": 28,
+        "review_period_days": 7,
+        "order_frequency_days": 1,
+        "downstream_signal_qty_per_day": 0.0,
+        "reorder_point_qty_day0": 180.0,
+        "target_stock_qty_day0": 180.0,
+        "daily_capacity_qty": 36.642857
+      },
+      {
+        "node_id": "SDC-VD0525412A",
+        "item_id": "item:333362",
+        "replenishment_lead_days": 21,
+        "raw_replenishment_lead_days": 38.5,
+        "target_cover_days": 28,
+        "review_period_days": 7,
+        "order_frequency_days": 1,
+        "downstream_signal_qty_per_day": 0.0,
+        "reorder_point_qty_day0": 180.0,
+        "target_stock_qty_day0": 180.0,
+        "daily_capacity_qty": 97.402597
+      },
+      {
+        "node_id": "SDC-VD0901566A",
+        "item_id": "item:338928",
+        "replenishment_lead_days": 21,
+        "raw_replenishment_lead_days": 45.0,
+        "target_cover_days": 28,
+        "review_period_days": 7,
+        "order_frequency_days": 1,
+        "downstream_signal_qty_per_day": 0.0,
+        "reorder_point_qty_day0": 180.0,
+        "target_stock_qty_day0": 180.0,
+        "daily_capacity_qty": 46.875
+      },
+      {
+        "node_id": "SDC-VD0910216A",
+        "item_id": "item:001893",
+        "replenishment_lead_days": 18,
+        "raw_replenishment_lead_days": 18.0,
+        "target_cover_days": 25,
+        "review_period_days": 7,
+        "order_frequency_days": 1,
+        "downstream_signal_qty_per_day": 0.0,
+        "reorder_point_qty_day0": 180.0,
+        "target_stock_qty_day0": 180.0,
+        "daily_capacity_qty": 36.642857
+      },
+      {
+        "node_id": "SDC-VD0910216A",
+        "item_id": "item:002612",
+        "replenishment_lead_days": 21,
+        "raw_replenishment_lead_days": 22.5,
+        "target_cover_days": 28,
+        "review_period_days": 7,
+        "order_frequency_days": 1,
+        "downstream_signal_qty_per_day": 0.0,
+        "reorder_point_qty_day0": 180.0,
+        "target_stock_qty_day0": 180.0,
+        "daily_capacity_qty": 36.642857
+      },
+      {
+        "node_id": "SDC-VD0914320A",
+        "item_id": "item:055703",
+        "replenishment_lead_days": 14,
+        "raw_replenishment_lead_days": 13.5,
+        "target_cover_days": 21,
+        "review_period_days": 7,
+        "order_frequency_days": 1,
+        "downstream_signal_qty_per_day": 0.0,
+        "reorder_point_qty_day0": 180.0,
+        "target_stock_qty_day0": 180.0,
+        "daily_capacity_qty": 36.642857
+      },
+      {
+        "node_id": "SDC-VD0914360C",
+        "item_id": "item:338929",
+        "replenishment_lead_days": 21,
+        "raw_replenishment_lead_days": 27.0,
+        "target_cover_days": 28,
+        "review_period_days": 7,
+        "order_frequency_days": 1,
+        "downstream_signal_qty_per_day": 0.0,
+        "reorder_point_qty_day0": 180.0,
+        "target_stock_qty_day0": 180.0,
+        "daily_capacity_qty": 138.888889
+      },
+      {
+        "node_id": "SDC-VD0914690A",
+        "item_id": "item:042342",
+        "replenishment_lead_days": 14,
+        "raw_replenishment_lead_days": 13.5,
+        "target_cover_days": 21,
+        "review_period_days": 7,
+        "order_frequency_days": 1,
+        "downstream_signal_qty_per_day": 0.0,
+        "reorder_point_qty_day0": 180.0,
+        "target_stock_qty_day0": 180.0,
+        "daily_capacity_qty": 2828.53125
+      },
+      {
+        "node_id": "SDC-VD0949099A",
+        "item_id": "item:021081",
+        "replenishment_lead_days": 21,
+        "raw_replenishment_lead_days": 77.0,
+        "target_cover_days": 28,
+        "review_period_days": 7,
+        "order_frequency_days": 1,
+        "downstream_signal_qty_per_day": 0.0,
+        "reorder_point_qty_day0": 180.0,
+        "target_stock_qty_day0": 180.0,
+        "daily_capacity_qty": 8381.25
+      },
+      {
+        "node_id": "SDC-VD0951020A",
+        "item_id": "item:001757",
+        "replenishment_lead_days": 21,
+        "raw_replenishment_lead_days": 54.0,
+        "target_cover_days": 28,
+        "review_period_days": 7,
+        "order_frequency_days": 1,
+        "downstream_signal_qty_per_day": 0.0,
+        "reorder_point_qty_day0": 180.0,
+        "target_stock_qty_day0": 180.0,
+        "daily_capacity_qty": 36.642857
+      },
+      {
+        "node_id": "SDC-VD0951020A",
+        "item_id": "item:001848",
+        "replenishment_lead_days": 21,
+        "raw_replenishment_lead_days": 36.0,
+        "target_cover_days": 28,
+        "review_period_days": 7,
+        "order_frequency_days": 1,
+        "downstream_signal_qty_per_day": 0.0,
+        "reorder_point_qty_day0": 180.0,
+        "target_stock_qty_day0": 180.0,
+        "daily_capacity_qty": 125.0
+      },
+      {
+        "node_id": "SDC-VD0960508A",
+        "item_id": "item:021081",
+        "replenishment_lead_days": 21,
+        "raw_replenishment_lead_days": 77.0,
+        "target_cover_days": 28,
+        "review_period_days": 7,
+        "order_frequency_days": 1,
+        "downstream_signal_qty_per_day": 0.0,
+        "reorder_point_qty_day0": 180.0,
+        "target_stock_qty_day0": 180.0,
+        "daily_capacity_qty": 8381.25
+      },
+      {
+        "node_id": "SDC-VD0964290A",
+        "item_id": "item:055703",
+        "replenishment_lead_days": 21,
+        "raw_replenishment_lead_days": 27.0,
+        "target_cover_days": 28,
+        "review_period_days": 7,
+        "order_frequency_days": 1,
+        "downstream_signal_qty_per_day": 0.0,
+        "reorder_point_qty_day0": 180.0,
+        "target_stock_qty_day0": 180.0,
+        "daily_capacity_qty": 36.642857
+      },
+      {
+        "node_id": "SDC-VD0972460A",
+        "item_id": "item:021081",
+        "replenishment_lead_days": 21,
+        "raw_replenishment_lead_days": 77.0,
+        "target_cover_days": 28,
+        "review_period_days": 7,
+        "order_frequency_days": 1,
+        "downstream_signal_qty_per_day": 0.0,
+        "reorder_point_qty_day0": 180.0,
+        "target_stock_qty_day0": 180.0,
+        "daily_capacity_qty": 8381.25
+      },
+      {
+        "node_id": "SDC-VD0975221A",
+        "item_id": "item:021081",
+        "replenishment_lead_days": 21,
+        "raw_replenishment_lead_days": 77.0,
+        "target_cover_days": 28,
+        "review_period_days": 7,
+        "order_frequency_days": 1,
+        "downstream_signal_qty_per_day": 0.0,
+        "reorder_point_qty_day0": 180.0,
+        "target_stock_qty_day0": 180.0,
+        "daily_capacity_qty": 8381.25
+      },
+      {
+        "node_id": "SDC-VD0989480A",
+        "item_id": "item:426331",
+        "replenishment_lead_days": 18,
+        "raw_replenishment_lead_days": 18.0,
+        "target_cover_days": 25,
+        "review_period_days": 7,
+        "order_frequency_days": 1,
+        "downstream_signal_qty_per_day": 0.0,
+        "reorder_point_qty_day0": 180.0,
+        "target_stock_qty_day0": 180.0,
+        "daily_capacity_qty": 36.642857
+      },
+      {
+        "node_id": "SDC-VD0990780A",
+        "item_id": "item:002612",
+        "replenishment_lead_days": 21,
+        "raw_replenishment_lead_days": 22.5,
+        "target_cover_days": 28,
+        "review_period_days": 7,
+        "order_frequency_days": 1,
+        "downstream_signal_qty_per_day": 0.0,
+        "reorder_point_qty_day0": 180.0,
+        "target_stock_qty_day0": 180.0,
+        "daily_capacity_qty": 36.642857
+      },
+      {
+        "node_id": "SDC-VD0993480A",
+        "item_id": "item:344135",
+        "replenishment_lead_days": 21,
+        "raw_replenishment_lead_days": 22.5,
+        "target_cover_days": 28,
+        "review_period_days": 7,
+        "order_frequency_days": 1,
+        "downstream_signal_qty_per_day": 0.0,
+        "reorder_point_qty_day0": 180.0,
+        "target_stock_qty_day0": 180.0,
+        "daily_capacity_qty": 46.875
+      },
+      {
+        "node_id": "SDC-VD1091642A",
+        "item_id": "item:001893",
+        "replenishment_lead_days": 21,
+        "raw_replenishment_lead_days": 27.0,
+        "target_cover_days": 28,
+        "review_period_days": 7,
+        "order_frequency_days": 1,
+        "downstream_signal_qty_per_day": 0.0,
+        "reorder_point_qty_day0": 180.0,
+        "target_stock_qty_day0": 180.0,
+        "daily_capacity_qty": 36.642857
+      },
+      {
+        "node_id": "SDC-VD1091642A",
+        "item_id": "item:002612",
+        "replenishment_lead_days": 21,
+        "raw_replenishment_lead_days": 22.5,
+        "target_cover_days": 28,
+        "review_period_days": 7,
+        "order_frequency_days": 1,
+        "downstream_signal_qty_per_day": 0.0,
+        "reorder_point_qty_day0": 180.0,
+        "target_stock_qty_day0": 180.0,
+        "daily_capacity_qty": 36.642857
+      },
+      {
+        "node_id": "SDC-VD1095770A",
+        "item_id": "item:734545",
+        "replenishment_lead_days": 14,
+        "raw_replenishment_lead_days": 13.5,
+        "target_cover_days": 21,
+        "review_period_days": 7,
+        "order_frequency_days": 1,
+        "downstream_signal_qty_per_day": 0.0,
+        "reorder_point_qty_day0": 180.0,
+        "target_stock_qty_day0": 180.0,
+        "daily_capacity_qty": 36.642857
+      },
+      {
+        "node_id": "SDC-VD1096202A",
+        "item_id": "item:039668",
+        "replenishment_lead_days": 21,
+        "raw_replenishment_lead_days": 22.5,
+        "target_cover_days": 28,
+        "review_period_days": 7,
+        "order_frequency_days": 1,
+        "downstream_signal_qty_per_day": 0.0,
+        "reorder_point_qty_day0": 180.0,
+        "target_stock_qty_day0": 180.0,
+        "daily_capacity_qty": 36.642857
+      }
+    ],
+    "lane_purchase_cost_stats": {
+      "lanes_with_positive_purchase_cost": 38,
+      "lanes_with_zero_purchase_cost": 0,
+      "lanes_with_explicit_transport_cost": 38,
+      "lanes_with_fallback_transport_cost": 0
+    }
+  },
+  "kpis": {
+    "total_demand": 17400.0,
+    "total_served": 15651.9044,
+    "ending_backlog": 1748.0956,
+    "fill_rate": 0.899535,
+    "total_shipped": 150362.4141,
+    "total_arrived": 148201.9511,
+    "total_produced": 84036.3636,
+    "avg_inventory": 7245389.9374,
+    "ending_inventory": 7069161.7148,
+    "total_transport_cost": 65549.8899,
+    "total_holding_cost": 16886356.9587,
+    "total_purchase_cost": 12585.4766,
+    "total_logistics_cost": 16951906.8486,
+    "total_cost": 16964492.3252,
+    "total_external_procured_ordered_qty": 0.0,
+    "total_external_procured_arrived_qty": 0.0,
+    "total_external_procured_rejected_qty": 0.0,
+    "total_external_procured_qty": 0.0,
+    "total_external_procurement_cost": 0.0,
+    "total_estimated_source_ordered_qty": 50506.1716,
+    "total_estimated_source_replenished_qty": 48882.1627,
+    "total_estimated_source_rejected_qty": 0.0,
+    "total_opening_stock_bootstrap_qty": 7505138.8892,
+    "total_unreliable_loss_qty": 0.0,
+    "total_supplier_capacity_binding_qty": 0.0,
+    "cost_share_holding": 0.995394,
+    "cost_share_transport": 0.003864,
+    "cost_share_purchase": 0.000742
+  },
+  "economic_consistency": {
+    "status": "warn",
+    "warnings": [
+      "holding_cost_share_above_90pct",
+      "transport_cost_share_below_2pct",
+      "purchase_cost_share_below_2pct"
+    ],
+    "transport_cost_share_target_min": 0.02,
+    "holding_cost_share_target_max": 0.9
+  },
+  "top_backlog_pairs": [
+    {
+      "node_id": "C-XXXXX",
+      "item_id": "item:268967",
+      "backlog": 1628.4081
+    },
+    {
+      "node_id": "C-XXXXX",
+      "item_id": "item:268091",
+      "backlog": 119.6875
+    }
+  ]
+}

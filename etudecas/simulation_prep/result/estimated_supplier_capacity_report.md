@@ -1,9 +1,9 @@
 # Estimated Supplier Capacity Injection
 
 ## Summary
-- Input graph: etudecas/simulation_prep/result/supply_graph_poc_simulation_ready.json
+- Input graph: /workspaces/lca-simu/etudecas/simulation_prep/result/supply_graph_poc_simulation_ready.json
 - Summary source: /workspaces/lca-simu/etudecas/simulation/result/estimated_capacity_seed_run/summaries/first_simulation_summary.json
-- Output graph: etudecas/simulation_prep/result/supply_graph_poc_simulation_ready_estimated_supplier_capacity.json
+- Output graph: /workspaces/lca-simu/etudecas/simulation_prep/result/supply_graph_poc_simulation_ready_estimated_supplier_capacity.json
 - Scenario updated: scn:BASE
 - Estimated source mode activated: True
 - External procurement disabled: True

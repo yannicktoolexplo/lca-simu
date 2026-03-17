@@ -1,5 +1,5 @@
 {
-  "generated_at_utc": "2026-03-06T15:47:37.351407+00:00",
+  "generated_at_utc": "2026-03-17T14:33:29.974606+00:00",
   "changes": {
     "assumed_gaillac_destination_inventory_state_added": 1,
     "assumed_gaillac_supplier_edge_added": 1,
@@ -14,7 +14,9 @@
     "edge_lead_time_updated": 4,
     "edge_order_terms_pricing_aligned_from_data_poc": 4,
     "edge_transport_cost_updated": 37,
-    "inventory_holding_cost_updated": 60,
+    "inventory_holding_cost_source::global_value_median_fallback": 12,
+    "inventory_holding_cost_source::item_value_median_from_priced_edges": 50,
+    "inventory_holding_cost_updated": 62,
     "inventory_initial_updated": 60,
     "inventory_uom_harmonized": 10,
     "node_alias_merged_dc1910_into_dc1920": 1,
@@ -91,7 +93,7 @@
   },
   "data_poc_price_integration": {
     "enabled": true,
-    "xlsx_path": "etudecas/donnees/Data_poc.xlsx",
+    "xlsx_path": "/workspaces/lca-simu/etudecas/donnees/Data_poc.xlsx",
     "sheet_found": true,
     "rows_read": 33,
     "rows_mapped": 33
@@ -104,9 +106,14 @@
       "customer": 0.0
     },
     "delay_step_limit_assumed": 21,
-    "holding_cost_per_unit_day_assumed": {
-      "default": 0.04,
-      "G": 4e-05
+    "holding_cost_model_assumed": {
+      "formula": "item_unit_value * annual_carry_rate / 365",
+      "annual_carry_rate": 0.2,
+      "item_unit_value_basis": "median(sell_price / price_base) per item after Data_poc pricing alignment",
+      "fallback_unit_value_basis": "global median priced item-unit value",
+      "priced_items": 20,
+      "priced_edge_item_pairs": 30,
+      "fallback_global_unit_value_per_item_unit": 4.3
     },
     "process_cost_per_unit_assumed": 0.35,
     "demand_default_customer_rule": "weekly_fluctuating_profile(base=max(10, 1.0 * total_production_capacity_of_item))",

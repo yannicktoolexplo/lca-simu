@@ -1,9 +1,9 @@
 # Simulation prep report
 
 ## Inputs / outputs
-- Input graph: etudecas/result_geocodage/supply_graph_poc_geocoded.json
-- Output graph: etudecas/simulation_prep/result/supply_graph_poc_simulation_ready.json
-- Generated at (UTC): 2026-03-06T15:47:37.351407+00:00
+- Input graph: /workspaces/lca-simu/etudecas/result_geocodage/supply_graph_poc_geocoded.json
+- Output graph: /workspaces/lca-simu/etudecas/simulation_prep/result/supply_graph_poc_simulation_ready.json
+- Generated at (UTC): 2026-03-17T14:33:29.974606+00:00
 
 ## What was enriched
 - Edge distances filled: 37
@@ -12,7 +12,9 @@
 - Edge delay limits updated: 4
 - Edge pricing aligned from Data_poc Relations_acteurs: 4
 - Inventory initials updated: 60
-- Inventory holding costs updated: 60
+- Inventory holding costs updated: 62
+- Holding-cost source item-value median: 50
+- Holding-cost source global fallback: 12
 - Inventory UOM harmonized: 10
 - Node policies added: 32
 - Process capacities updated: 2
@@ -42,10 +44,19 @@
 
 ## Data_poc pricing import
 - Enabled: True
-- XLSX path: etudecas/donnees/Data_poc.xlsx
+- XLSX path: /workspaces/lca-simu/etudecas/donnees/Data_poc.xlsx
 - Rows read: 33
 - Rows mapped: 33
 - Error: none
+
+## Holding cost model
+- Formula: item_unit_value * annual_carry_rate / 365
+- Annual carry rate: 0.2
+- Item value basis: median(sell_price / price_base) per item after Data_poc pricing alignment
+- Fallback unit value basis: global median priced item-unit value
+- Priced items used: 20
+- Priced edge-item pairs used: 30
+- Fallback global unit value: 4.3
 
 ## Review reminder
 This graph is assumption-based and intended for pre-simulation validation.

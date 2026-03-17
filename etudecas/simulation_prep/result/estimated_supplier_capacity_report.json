@@ -1,8 +1,8 @@
 {
-  "generated_at_utc": "2026-03-17T13:25:50.726321+00:00",
-  "input_graph": "etudecas/simulation_prep/result/supply_graph_poc_simulation_ready.json",
+  "generated_at_utc": "2026-03-17T14:33:41.956679+00:00",
+  "input_graph": "/workspaces/lca-simu/etudecas/simulation_prep/result/supply_graph_poc_simulation_ready.json",
   "summary_json": "/workspaces/lca-simu/etudecas/simulation/result/estimated_capacity_seed_run/summaries/first_simulation_summary.json",
-  "output_graph": "etudecas/simulation_prep/result/supply_graph_poc_simulation_ready_estimated_supplier_capacity.json",
+  "output_graph": "/workspaces/lca-simu/etudecas/simulation_prep/result/supply_graph_poc_simulation_ready_estimated_supplier_capacity.json",
   "scenario_id": "scn:BASE",
   "activate_estimated_source_mode": true,
   "disable_external_procurement": true,
