@@ -19,6 +19,10 @@
   - `targeted_experiment_insights.md`
 
 - `etudecas/simulation/result/` (resultats generaux):
+  - `reference_baseline/`
+    - `reference_baseline_manifest.md`
+    - `reference_baseline_report.md`
+    - `reference_baseline_summary.json`
   - `data/`
     - `first_simulation_daily.csv`
     - `production_*.csv`
