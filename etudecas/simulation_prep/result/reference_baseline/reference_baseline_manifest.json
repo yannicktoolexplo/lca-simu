@@ -1,0 +1,44 @@
+{
+  "baseline_id": "baseline_value_based_ge095_structural_2026-03-17",
+  "status": "frozen_working_reference",
+  "frozen_on_utc": "2026-03-17T00:00:00+00:00",
+  "scope": "etudecas reference baseline after value-based inventory holding cost recalibration",
+  "graph_files": {
+    "current": "/workspaces/lca-simu/etudecas/simulation_prep/result/reference_baseline/supply_graph_reference_baseline_current.json",
+    "versioned": "/workspaces/lca-simu/etudecas/simulation_prep/result/reference_baseline/supply_graph_reference_baseline_value_based_ge095_structural.json",
+    "source_variant": "/workspaces/lca-simu/etudecas/simulation_prep/result/calibrated_variants/supply_graph_estimated_replenishment_value_based_ge095_structural.json"
+  },
+  "result_files": {
+    "report": "/workspaces/lca-simu/etudecas/simulation/result/reference_baseline/reference_baseline_report.md",
+    "summary": "/workspaces/lca-simu/etudecas/simulation/result/reference_baseline/reference_baseline_summary.json",
+    "selection_rationale": "/workspaces/lca-simu/etudecas/simulation/result/value_based_baseline_recalibration_summary.md"
+  },
+  "scenario": {
+    "scenario_id": "scn:BASE",
+    "days": 365,
+    "seed": 42,
+    "source_mode": "estimated_replenishment",
+    "external_procurement_enabled": false,
+    "opening_stock_bootstrap_scale": 2.0,
+    "capacity_scale": 4.0,
+    "lead_time_scale": 1.0,
+    "supplier_capacity_scale": 1.0
+  },
+  "holding_cost_model": {
+    "formula": "item_unit_value * annual_carry_rate / 365",
+    "annual_carry_rate": 0.2,
+    "priced_items": 20,
+    "priced_edge_item_pairs": 30,
+    "fallback_global_unit_value_per_item_unit": 4.3
+  },
+  "kpis": {
+    "fill_rate": 0.95154,
+    "ending_backlog": 843.2095,
+    "total_cost": 19256325.8659,
+    "avg_inventory": 8253511.0415,
+    "total_estimated_source_ordered_qty": 49570.1,
+    "total_estimated_source_replenished_qty": 47944.2243,
+    "total_opening_stock_bootstrap_qty": 8523781.9898
+  },
+  "selection_reason": "Chosen as the current working reference because it reaches a pharma-style service baseline around 95% while keeping lead times unchanged, making it easier to defend than lower-cost alternatives that relied on shortened lead times."
+}

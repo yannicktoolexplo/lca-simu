@@ -1,0 +1,16 @@
+policy_label,method,total_kgCO2e
+Reference 2045,Classical LCA,124177.84916456076
+Reference 2045,Time-Dependent DLCA,123837.33237306656
+Reference 2045,State-Dependent Dynamic LCA,140893.05496578722
+Stock de resilience,Classical LCA,125177.89437957467
+Stock de resilience,Time-Dependent DLCA,124810.47027118337
+Stock de resilience,State-Dependent Dynamic LCA,143187.60968024994
+Autonomie energetique,Classical LCA,125827.71907292538
+Autonomie energetique,Time-Dependent DLCA,125636.01104288624
+Autonomie energetique,State-Dependent Dynamic LCA,142451.71089289215
+Adaptation integree,Classical LCA,127196.01778575519
+Adaptation integree,Time-Dependent DLCA,127045.30371936073
+Adaptation integree,State-Dependent Dynamic LCA,146140.4237510097
+Lean expose,Classical LCA,123663.1684715638
+Lean expose,Time-Dependent DLCA,123273.63256088013
+Lean expose,State-Dependent Dynamic LCA,145797.01563703496

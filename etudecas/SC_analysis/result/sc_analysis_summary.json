@@ -1,0 +1,98 @@
+{
+  "run_context": {
+    "scenario_id": "scn:BASE",
+    "sim_days": 30,
+    "input_file": "etudecas/simulation_prep/result/supply_graph_poc_simulation_ready.json",
+    "counts": {
+      "nodes": 32,
+      "edges": 38,
+      "lanes": 38,
+      "demand_rows": 2
+    }
+  },
+  "service_level": {
+    "total_demand": 1487.5,
+    "total_served": 1171.6524,
+    "fill_rate": 0.787666,
+    "ending_backlog": 315.8476,
+    "backlog_days_count": 30,
+    "stockout_days_count": 20,
+    "stockout_days": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      9,
+      10,
+      12,
+      13,
+      15,
+      16,
+      19,
+      23,
+      24,
+      25,
+      27,
+      29
+    ],
+    "max_backlog": 365.887,
+    "max_backlog_day": 13,
+    "backlog_clear_day": null
+  },
+  "flow_dynamics": {
+    "total_shipped": 45988.6462,
+    "total_arrived": 15989.339,
+    "total_produced": 2610.2267,
+    "shipped_spike_days": [],
+    "demand_volatility_std": 6.19419531138271,
+    "shipped_volatility_std": 1101.084232201501,
+    "bullwhip_proxy": 177.76065765606435,
+    "arrivals_vs_shipped_ratio": 0.3476801440345077,
+    "produced_vs_served_ratio": 2.227816628890958
+  },
+  "inventory_costs": {
+    "avg_inventory": 1045717.07878,
+    "inventory_p10": 1034246.59577,
+    "inventory_p90": 1061923.10329,
+    "ending_inventory": 1035949.2243,
+    "total_cost": 1273360.3167,
+    "holding_cost": 1248373.7888,
+    "transport_cost": 22239.9661,
+    "holding_cost_share_pct": 98.0377488152957,
+    "transport_cost_share_pct": 1.7465571848223125,
+    "avg_daily_cost": 42445.343890000004,
+    "cost_per_served_unit": 1086.8072447937632
+  },
+  "model_inputs_signal": {
+    "demand_unique_values": [
+      40.0,
+      45.0,
+      47.5,
+      50.0,
+      52.5,
+      55.0,
+      60.0
+    ],
+    "days_simulated": 30
+  },
+  "prep_context": {
+    "prep_changed_edges": 38,
+    "prep_changed_nodes": 33,
+    "prep_zero_demand_after_prep": 0,
+    "prep_missing_geo_after_prep": 0
+  },
+  "warnings": [
+    "Ruptures observées sur 20 jour(s): [0, 1, 2, 3, 4, 5, 6, 7, 9, 10, 12, 13, 15, 16, 19, 23, 24, 25, 27, 29].",
+    "Le coût de stockage domine le coût total.",
+    "Signal bullwhip potentiel (proxy=177.76)."
+  ],
+  "recommendations": [
+    "Augmenter le stock de sécurité sur les couples critiques pour absorber le démarrage.",
+    "Réduire les stocks initiaux et calibrer les politiques de réapprovisionnement.",
+    "Limiter la variabilité des expéditions via politique de lissage."
+  ]
+}
