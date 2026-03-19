@@ -1,0 +1,53 @@
+week,demand,capacity,base_capacity,grid_factor,base_grid_factor,main_supply_availability,base_main_supply_availability,backup_supply_availability,base_backup_supply_availability,backlog_end,capacity_utilization,backup_consumed_raw_units,scrap_units,outbound_mode,climate_event,operational_feedback_event,combined_event_context,environmental_regime
+1,10,28.0,28.0,1.12,1.12,1.0,1.0,1.0,1.0,0.0,0.42857142857142855,0.0,0.0,truck,aucun,aucun,aucun,nominal
+2,10,28.0,28.0,1.132,1.132,1.0,1.0,1.0,1.0,0.0,0.35714285714285715,0.0,0.0,truck,aucun,aucun,aucun,nominal
+3,10,28.0,28.0,1.14,1.14,1.0,1.0,1.0,1.0,0.0,0.2857142857142857,0.0,0.0,truck,aucun,aucun,aucun,nominal
+4,10,28.0,28.0,1.143,1.143,1.0,1.0,1.0,1.0,0.0,0.42857142857142855,0.0,0.0,truck,aucun,aucun,aucun,nominal
+5,10,28.0,28.0,1.136,1.136,1.0,1.0,1.0,1.0,0.0,0.35714285714285715,0.0,0.0,truck,aucun,aucun,aucun,nominal
+6,10,28.0,28.0,1.121,1.121,1.0,1.0,1.0,1.0,0.0,0.35714285714285715,0.0,0.0,truck,aucun,aucun,aucun,nominal
+7,11,28.0,28.0,1.196,1.196,1.0,1.0,1.0,1.0,0.0,0.39285714285714285,0.0,0.0,truck,canicule et tension reseau,aucun,canicule et tension reseau,nominal
+8,11,20.0,20.0,1.164,1.164,1.0,1.0,1.0,1.0,0.0,0.55,0.0,0.0,truck,canicule et tension reseau,aucun,canicule et tension reseau,nominal
+9,11,20.0,20.0,1.126,1.126,1.0,1.0,1.0,1.0,0.0,0.55,0.0,0.0,truck,canicule et tension reseau,aucun,canicule et tension reseau,nominal
+10,11,20.0,20.0,0.987,0.987,1.0,1.0,1.0,1.0,0.0,0.55,0.0,0.0,truck,aucun,aucun,aucun,nominal
+11,12,28.0,28.0,0.95,0.95,0.62,0.62,1.0,1.0,0.0,0.42857142857142855,0.0,0.0,truck,aucun,aucun,aucun,tendu
+12,12,28.0,28.0,0.917,0.917,0.62,0.62,1.0,1.0,0.0,0.42857142857142855,0.0,0.0,truck,aucun,aucun,aucun,tendu
+13,12,17.0,17.0,0.793,0.793,0.62,0.62,1.0,1.0,0.0,0.7058823529411765,0.0,0.0,truck,secheresse et penurie matieres,aucun,secheresse et penurie matieres,tendu
+14,12,17.0,17.0,0.777,0.777,0.62,0.62,1.0,1.0,0.0,0.7058823529411765,0.0,0.0,truck,secheresse et penurie matieres,aucun,secheresse et penurie matieres,tendu
+15,14,17.0,17.0,0.771,0.771,0.62,0.62,1.0,1.0,0.0,0.8235294117647058,0.0,0.0,truck,secheresse et penurie matieres,aucun,secheresse et penurie matieres,tendu
+16,14,17.0,17.0,0.773,0.773,0.62,0.62,1.0,1.0,0.0,0.8235294117647058,0.0,0.0,truck,secheresse et penurie matieres,aucun,secheresse et penurie matieres,tendu
+17,14,25.0,25.0,0.781,0.781,1.0,1.0,1.0,1.0,0.0,0.5127748416,0.0,0.0,truck,aucun,aucun,aucun,nominal
+18,14,25.0,25.0,0.793,0.793,1.0,1.0,1.0,1.0,0.0,0.475679598208,0.0,0.0,truck,aucun,aucun,aucun,nominal
+19,14,25.0,25.0,0.805,0.805,1.0,1.0,1.0,1.0,0.0,0.5279582473190402,0.0,0.0,truck,aucun,aucun,aucun,nominal
+20,14,25.0,25.0,0.814,0.814,1.0,1.0,1.0,1.0,0.0,0.72358731287296,0.0,0.0,truck,aucun,aucun,aucun,nominal
+21,16,25.0,25.0,0.816,0.816,1.0,1.0,1.0,1.0,0.0,0.64,0.0,0.0,truck,aucun,aucun,aucun,nominal
+22,16,25.0,25.0,0.81,0.81,1.0,1.0,1.0,1.0,0.0,0.5084544398079999,0.0,0.0,truck,aucun,aucun,aucun,nominal
+23,16,25.0,25.0,0.794,0.794,1.0,1.0,1.0,1.0,0.0,0.5279582473190402,0.0,0.0,truck,aucun,aucun,aucun,nominal
+24,16,14.0,14.0,0.849,0.849,0.48,0.48,0.84,0.84,0.0,1.0,0.0,1.4000000000000001,truck,tempete logistique et congestion portuaire,aucun,tempete logistique et congestion portuaire,crise
+25,16,11.8272,14.0,0.837,0.817,0.48,0.48,0.84,0.84,0.0,1.0,0.0,1.18272,truck,tempete logistique et congestion portuaire,maintenance corrective + recalage qualite,tempete logistique et congestion portuaire / maintenance corrective + recalage qualite,crise
+26,16,11.8272,14.0,0.8,0.78,0.48,0.48,0.84,0.84,4.200722821824,1.0,0.0,1.18272,truck,tempete logistique et congestion portuaire,maintenance corrective + recalage qualite,tempete logistique et congestion portuaire / maintenance corrective + recalage qualite,crise
+27,17,11.8272,14.0,0.76,0.74,0.48,0.48,0.84,0.84,10.556242821824002,1.0,0.0,1.18272,air,tempete logistique et congestion portuaire,maintenance corrective + recalage qualite,tempete logistique et congestion portuaire / maintenance corrective + recalage qualite,crise
+28,17,21.12,25.0,0.683,0.623,0.4608,0.48,0.8148,0.84,13.886840573700713,0.6472254852331102,0.0,0.0,air,aucun,maintenance corrective + recalage qualite + congestion logistique,maintenance corrective + recalage qualite + congestion logistique,crise
+29,17,25.0,25.0,0.631,0.591,0.4608,0.48,0.8148,0.84,20.002265652799892,0.43538299683603293,0.0,0.0,air,aucun,congestion logistique,congestion logistique,crise
+30,17,23.25,25.0,0.6359999999999999,0.566,0.4608,0.48,0.8148,0.84,25.665230693931466,0.4876144068330506,0.0,0.0,air,aucun,congestion logistique + overtime et energie d'urgence,congestion logistique + overtime et energie d'urgence,crise
+31,15,14.88,16.0,0.6200000000000001,0.55,0.96,1.0,0.97,1.0,29.555809082464343,0.7466009147491343,0.0,0.0,air,retard de remise en route fournisseurs,congestion logistique + overtime et energie d'urgence,retard de remise en route fournisseurs / congestion logistique + overtime et energie d'urgence,crise
+32,15,14.88,16.0,0.6140000000000001,0.544,0.96,1.0,0.97,1.0,32.26674839362606,0.8258777344649383,0.0,0.0,air,retard de remise en route fournisseurs,congestion logistique + overtime et energie d'urgence,retard de remise en route fournisseurs / congestion logistique + overtime et energie d'urgence,crise
+33,15,14.88,16.0,0.6160000000000001,0.546,0.96,1.0,0.97,1.0,35.62487474665336,0.7823839816513912,0.0,0.0,air,retard de remise en route fournisseurs,congestion logistique + overtime et energie d'urgence,retard de remise en route fournisseurs / congestion logistique + overtime et energie d'urgence,crise
+34,15,23.25,25.0,0.625,0.555,0.96,1.0,0.97,1.0,29.69987474665336,1.0,0.0,2.325,air,aucun,congestion logistique + overtime et energie d'urgence,congestion logistique + overtime et energie d'urgence,crise
+35,15,19.6416,25.0,0.6569999999999999,0.567,0.96,1.0,0.97,1.0,32.36512137740739,0.6279912720575704,0.0,0.0,air,aucun,maintenance corrective + recalage qualite + congestion logistique + overtime et energie d'urgence,maintenance corrective + recalage qualite + congestion logistique + overtime et energie d'urgence,crise
+36,15,23.25,25.0,0.649,0.579,0.96,1.0,0.97,1.0,35.10268331297732,0.5274166909432291,0.0,0.0,air,aucun,congestion logistique + overtime et energie d'urgence,congestion logistique + overtime et energie d'urgence,crise
+37,13,23.25,25.0,0.657,0.587,0.96,1.0,0.97,1.0,36.43598708930632,0.501793385964344,0.0,0.0,air,aucun,congestion logistique + overtime et energie d'urgence,congestion logistique + overtime et energie d'urgence,crise
+38,13,23.25,25.0,0.659,0.589,0.96,1.0,0.97,1.0,28.92798602525417,0.9800717354385735,0.0,2.2786667848946833,air,aucun,congestion logistique + overtime et energie d'urgence,congestion logistique + overtime et energie d'urgence,crise
+39,13,19.6416,25.0,0.6729999999999999,0.583,0.96,1.0,0.97,1.0,29.17515607682016,0.6492765328911094,0.0,0.0,air,aucun,maintenance corrective + recalage qualite + congestion logistique + overtime et energie d'urgence,maintenance corrective + recalage qualite + congestion logistique + overtime et energie d'urgence,crise
+40,13,13.950000000000001,15.0,0.637,0.567,0.6911999999999999,0.72,0.873,0.9,29.89310233702993,0.8804339598415934,0.0,0.0,air,inondation fournisseur et reseau degrade,congestion logistique + overtime et energie d'urgence,inondation fournisseur et reseau degrade / congestion logistique + overtime et energie d'urgence,crise
+41,13,13.950000000000001,15.0,0.673,0.603,0.6911999999999999,0.72,0.873,0.9,31.201791812714163,0.8380867759366141,0.0,0.0,air,inondation fournisseur et reseau degrade,congestion logistique + overtime et energie d'urgence,inondation fournisseur et reseau degrade / congestion logistique + overtime et energie d'urgence,crise
+42,13,13.950000000000001,15.0,0.6399999999999999,0.57,0.6911999999999999,0.72,0.873,0.9,31.646791812714163,1.0,0.0,1.3950000000000002,air,inondation fournisseur et reseau degrade,congestion logistique + overtime et energie d'urgence,inondation fournisseur et reseau degrade / congestion logistique + overtime et energie d'urgence,crise
+43,11,11.78496,15.0,0.623,0.533,0.6911999999999999,0.72,0.873,0.9,32.04032781271417,1.0,0.0,1.178496,air,inondation fournisseur et reseau degrade,maintenance corrective + recalage qualite + congestion logistique + overtime et energie d'urgence,inondation fournisseur et reseau degrade / maintenance corrective + recalage qualite + congestion logistique + overtime et energie d'urgence,crise
+44,11,19.6416,25.0,0.524,0.434,0.6911999999999999,0.72,0.97,1.0,25.564146970073132,0.8897534234808282,0.0,0.0,air,aucun,maintenance corrective + recalage qualite + congestion logistique + overtime et energie d'urgence,maintenance corrective + recalage qualite + congestion logistique + overtime et energie d'urgence,crise
+45,11,23.25,25.0,0.466,0.396,0.6911999999999999,0.72,0.97,1.0,24.95968752050662,0.4991165354652264,0.0,0.0,air,aucun,congestion logistique + overtime et energie d'urgence,congestion logistique + overtime et energie d'urgence,crise
+46,11,23.25,25.0,0.434,0.364,0.6911999999999999,0.72,0.97,1.0,22.733990442480476,0.5688471861516621,0.0,0.0,air,aucun,congestion logistique + overtime et energie d'urgence,congestion logistique + overtime et energie d'urgence,crise
+47,11,23.25,25.0,0.40900000000000003,0.339,0.96,1.0,0.97,1.0,21.504130832786004,0.5260154670836331,0.0,0.0,air,pic de demande hivernal,congestion logistique + overtime et energie d'urgence,pic de demande hivernal / congestion logistique + overtime et energie d'urgence,crise
+48,11,23.25,25.0,0.394,0.324,0.96,1.0,0.97,1.0,16.64801398687887,0.6819835202540703,0.0,0.0,air,pic de demande hivernal,congestion logistique + overtime et energie d'urgence,pic de demande hivernal / congestion logistique + overtime et energie d'urgence,crise
+49,10,23.25,25.0,0.387,0.317,0.96,1.0,0.97,1.0,13.73064273332237,0.5555858603680215,0.0,0.0,air,aucun,congestion logistique + overtime et energie d'urgence,congestion logistique + overtime et energie d'urgence,crise
+50,10,25.0,25.0,0.36,0.32,0.96,1.0,0.97,1.0,5.493856534114151,0.7294714479683287,0.0,0.0,air,aucun,congestion logistique,congestion logistique,crise
+51,10,25.0,25.0,0.368,0.328,0.96,1.0,0.97,1.0,3.0237198608391296,0.49880546693100086,0.0,0.0,air,aucun,congestion logistique,congestion logistique,crise
+52,10,25.0,25.0,0.38,0.34,0.96,1.0,0.97,1.0,0.0,0.6288271055600738,0.0,0.0,air,aucun,congestion logistique,congestion logistique,crise

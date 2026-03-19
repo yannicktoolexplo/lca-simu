@@ -1,0 +1,7 @@
+policy_label,method,total_kgCO2e
+Baseline degradee,Classical LCA,123306.89916225299
+Baseline degradee,Time-Dependent DLCA,122896.22501289348
+Baseline degradee,State-Dependent Dynamic LCA,141718.25956265716
+Baseline + materiaux biosources,Classical LCA,103947.19611410233
+Baseline + materiaux biosources,Time-Dependent DLCA,103517.64581427944
+Baseline + materiaux biosources,State-Dependent Dynamic LCA,109304.2318857236
