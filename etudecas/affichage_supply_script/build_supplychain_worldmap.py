@@ -750,6 +750,10 @@ def build_distribution_center_hover_images(raw: dict[str, Any], png_dir: Path) -
 
 def read_csv_rows(csv_path: Path) -> list[dict[str, str]]:
     if not csv_path.exists():
+        nested_data_path = csv_path.parent / "data" / csv_path.name
+        if nested_data_path.exists():
+            csv_path = nested_data_path
+    if not csv_path.exists():
         return []
     with csv_path.open("r", encoding="utf-8", newline="") as f:
         return list(csv.DictReader(f))
@@ -2280,11 +2284,53 @@ def html_template(title: str, data_json: str) -> str:
     #factoryHoverPanel.visible {{
       display: block;
     }}
+    .panelHeader {{
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 8px;
+    }}
     #factoryHoverTitle {{
       font-size: 13px;
       font-weight: 700;
-      margin: 0 0 8px 0;
+      margin: 0;
       color: #0f172a;
+      min-width: 0;
+    }}
+    .panelHeaderRight {{
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }}
+    .panelStatePill {{
+      display: none;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      background: #e2e8f0;
+      color: #0f172a;
+    }}
+    .panelStatePill.visible {{
+      display: inline-flex;
+    }}
+    .panelClearBtn {{
+      display: none;
+      border: 1px solid #cbd5e1;
+      background: #ffffff;
+      color: #334155;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 5px 8px;
+      border-radius: 8px;
+      cursor: pointer;
+    }}
+    .panelClearBtn.visible {{
+      display: inline-flex;
     }}
     .factoryHoverGrid {{
       display: grid;
@@ -2372,7 +2418,13 @@ def html_template(title: str, data_json: str) -> str:
   <div id="chart"></div>
 
   <div id="factoryHoverPanel">
-    <div id="factoryHoverTitle"></div>
+    <div class="panelHeader">
+      <div id="factoryHoverTitle"></div>
+      <div class="panelHeaderRight">
+        <div id="factoryHoverState" class="panelStatePill"></div>
+        <button id="factoryHoverClearSelection" class="panelClearBtn" type="button">Effacer</button>
+      </div>
+    </div>
     <div class="factoryHoverGrid">
       <div id="panelMeta" class="panelMeta" style="display:none;">
         <div id="panelMetaTitle" class="panelMetaTitle">Criticite locale</div>
@@ -2407,6 +2459,10 @@ def html_template(title: str, data_json: str) -> str:
     const defaultPalette = ["#1f77b4", "#d62728", "#ff7f0e", "#2ca02c", "#9467bd", "#8c564b"];
     let currentFactoryHoverId = null;
     let currentFactoryHoverType = null;
+    let currentHoveredPanelId = null;
+    let currentHoveredPanelType = null;
+    let selectedPanelNodeId = null;
+    let selectedPanelNodeType = null;
     let currentPanelMode = "ops";
     let hoverHandlersBound = false;
 
@@ -2566,6 +2622,8 @@ def html_template(title: str, data_json: str) -> str:
       const incomingImg = document.getElementById("factoryIncomingImage");
       const outgoingImg = document.getElementById("factoryOutgoingImage");
       const noImg = document.getElementById("factoryHoverNoImage");
+      const statePill = document.getElementById("factoryHoverState");
+      const clearBtn = document.getElementById("factoryHoverClearSelection");
       incomingBlock.style.display = "block";
       outgoingBlock.style.display = "block";
       incomingLabel.textContent = "Stock matieres premieres (entree)";
@@ -2577,9 +2635,61 @@ def html_template(title: str, data_json: str) -> str:
       metaGrid.innerHTML = "";
       metaBlock.style.display = "none";
       noImg.style.display = "none";
+      statePill.textContent = "";
+      statePill.classList.remove("visible");
+      clearBtn.classList.remove("visible");
       panel.classList.remove("visible");
       currentFactoryHoverId = null;
       currentFactoryHoverType = null;
+    }}
+
+    function isPanelSelectableType(nodeType) {{
+      return nodeType === "factory" || nodeType === "supplier_dc" || nodeType === "distribution_center";
+    }}
+
+    function currentPanelTarget() {{
+      if (currentHoveredPanelId && currentHoveredPanelType) {{
+        return {{
+          nodeId: currentHoveredPanelId,
+          nodeType: currentHoveredPanelType,
+          state: selectedPanelNodeId ? "Apercu" : "Survol",
+        }};
+      }}
+      if (selectedPanelNodeId && selectedPanelNodeType) {{
+        return {{
+          nodeId: selectedPanelNodeId,
+          nodeType: selectedPanelNodeType,
+          state: "Selection",
+        }};
+      }}
+      return null;
+    }}
+
+    function refreshFactoryPanel() {{
+      const target = currentPanelTarget();
+      if (!target) {{
+        hideFactoryPanel();
+        return;
+      }}
+      showFactoryPanel(target.nodeId, target.nodeType, target.state);
+    }}
+
+    function clearPanelSelection() {{
+      selectedPanelNodeId = null;
+      selectedPanelNodeType = null;
+      refreshFactoryPanel();
+    }}
+
+    function syncPanelStateWithVisibleNodes(visibleNodes) {{
+      const visibleNodeIds = new Set((visibleNodes || []).map(n => n.id));
+      if (selectedPanelNodeId && !visibleNodeIds.has(selectedPanelNodeId)) {{
+        selectedPanelNodeId = null;
+        selectedPanelNodeType = null;
+      }}
+      if (currentHoveredPanelId && !visibleNodeIds.has(currentHoveredPanelId)) {{
+        currentHoveredPanelId = null;
+        currentHoveredPanelType = null;
+      }}
     }}
 
     function renderPanelMeta(nodeId, nodeType) {{
@@ -2672,12 +2782,10 @@ def html_template(title: str, data_json: str) -> str:
     function setPanelMode(mode) {{
       currentPanelMode = mode;
       applyModeUi();
-      if (currentFactoryHoverId && currentFactoryHoverType) {{
-        showFactoryPanel(currentFactoryHoverId, currentFactoryHoverType);
-      }}
+      refreshFactoryPanel();
     }}
 
-    function showFactoryPanel(nodeId, nodeType) {{
+    function showFactoryPanel(nodeId, nodeType, panelState) {{
       const images = panelImages(nodeId, nodeType);
       if (!images) {{
         hideFactoryPanel();
@@ -2693,13 +2801,23 @@ def html_template(title: str, data_json: str) -> str:
       const incomingImg = document.getElementById("factoryIncomingImage");
       const outgoingImg = document.getElementById("factoryOutgoingImage");
       const noImg = document.getElementById("factoryHoverNoImage");
+      const statePill = document.getElementById("factoryHoverState");
+      const clearBtn = document.getElementById("factoryHoverClearSelection");
       const nodeInfo = nodeById[nodeId] || {{}};
       const nodeName = nodeInfo.name || nodeId;
       const nodeTitle = nodeType === "factory" ? "Factory" :
         (nodeType === "supplier_dc" ? "Supplier" : "Distribution Center");
       const modeTitle = currentPanelMode === "sensitivity" ? "Sensibilite" :
         (currentPanelMode === "structural" ? "Structurel" : "Simulation");
-      title.textContent = `${{nodeTitle}}: ${{nodeName}} (${{nodeId}}) · ${{modeTitle}}`;
+      title.textContent = `${{nodeTitle}}: ${{nodeName}} (${{nodeId}}) | ${{modeTitle}}`;
+      if (panelState) {{
+        statePill.textContent = panelState;
+        statePill.classList.add("visible");
+      }} else {{
+        statePill.textContent = "";
+        statePill.classList.remove("visible");
+      }}
+      clearBtn.classList.toggle("visible", !!selectedPanelNodeId);
 
       const labels = panelLabels(nodeType);
       incomingLabel.textContent = labels.incoming;
@@ -2743,25 +2861,53 @@ def html_template(title: str, data_json: str) -> str:
       gd.on("plotly_hover", (ev) => {{
         const p = ev && ev.points && ev.points.length ? ev.points[0] : null;
         if (!p || !Array.isArray(p.customdata)) {{
-          hideFactoryPanel();
+          currentHoveredPanelId = null;
+          currentHoveredPanelType = null;
+          refreshFactoryPanel();
           return;
         }}
         const nodeId = p.customdata[0];
         const nodeType = p.customdata[1];
-        if (nodeType !== "factory" && nodeType !== "supplier_dc" && nodeType !== "distribution_center") {{
-          hideFactoryPanel();
+        if (!isPanelSelectableType(nodeType)) {{
+          currentHoveredPanelId = null;
+          currentHoveredPanelType = null;
+          refreshFactoryPanel();
           return;
         }}
-        showFactoryPanel(nodeId, nodeType);
+        currentHoveredPanelId = nodeId;
+        currentHoveredPanelType = nodeType;
+        refreshFactoryPanel();
       }});
       gd.on("plotly_unhover", () => {{
-        hideFactoryPanel();
+        currentHoveredPanelId = null;
+        currentHoveredPanelType = null;
+        refreshFactoryPanel();
+      }});
+      gd.on("plotly_click", (ev) => {{
+        const p = ev && ev.points && ev.points.length ? ev.points[0] : null;
+        if (!p || !Array.isArray(p.customdata)) {{
+          return;
+        }}
+        const nodeId = p.customdata[0];
+        const nodeType = p.customdata[1];
+        if (!isPanelSelectableType(nodeType)) {{
+          return;
+        }}
+        if (selectedPanelNodeId === nodeId && selectedPanelNodeType === nodeType) {{
+          selectedPanelNodeId = null;
+          selectedPanelNodeType = null;
+        }} else {{
+          selectedPanelNodeId = nodeId;
+          selectedPanelNodeType = nodeType;
+        }}
+        refreshFactoryPanel();
       }});
       hoverHandlersBound = true;
     }}
 
     function draw() {{
       const {{ traces, visibleNodes }} = buildTraces();
+      syncPanelStateWithVisibleNodes(visibleNodes);
       const geoView = computeGeoView(visibleNodes);
       const geoLayout = {{
         scope: "world",
@@ -2784,9 +2930,9 @@ def html_template(title: str, data_json: str) -> str:
         geo: geoLayout
       }};
 
-      hideFactoryPanel();
       Plotly.newPlot("chart", traces, layout, {{displayModeBar: true, responsive: true}});
       bindHoverHandlers();
+      refreshFactoryPanel();
     }}
 
     function init() {{
@@ -2796,6 +2942,7 @@ def html_template(title: str, data_json: str) -> str:
       document.getElementById("modeOps").addEventListener("click", () => setPanelMode("ops"));
       document.getElementById("modeSensitivity").addEventListener("click", () => setPanelMode("sensitivity"));
       document.getElementById("modeStructural").addEventListener("click", () => setPanelMode("structural"));
+      document.getElementById("factoryHoverClearSelection").addEventListener("click", clearPanelSelection);
       for (const chk of document.querySelectorAll(".typeChk")) {{
         chk.addEventListener("change", draw);
       }}
