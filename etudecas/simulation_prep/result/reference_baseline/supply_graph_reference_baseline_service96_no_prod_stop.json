@@ -5557,18 +5557,18 @@
       "economic_policy": {
         "external_procurement_enabled": false
       },
-      "warmup_days": 30,
+      "warmup_days": 260,
       "opening_stock_bootstrap_scale": 2.0,
       "initialization_policy": {
         "mode": "explicit_state",
-        "state_scale": 1.0,
+        "state_scale": 0.25,
         "factory_input_on_hand_days": 0.0,
         "supplier_output_on_hand_days": 3.0,
         "distribution_center_on_hand_days": 6.0,
         "customer_on_hand_days": 0.0,
         "seed_in_transit": true,
-        "in_transit_fill_ratio": 0.5,
-        "seed_estimated_source_pipeline": false
+        "in_transit_fill_ratio": 0.18,
+        "seed_estimated_source_pipeline": true
       }
     }
   ]

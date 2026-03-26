@@ -4,7 +4,7 @@
     "project": "Data_poc.xlsx -> supply graph",
     "source_file": "Data_poc.xlsx",
     "time_unit": "Day",
-    "money_unit": "€",
+    "money_unit": "\u20ac",
     "carbon_unit": "Kilogram",
     "notes": [
       "Fields with is_default=true were filled with standard placeholder values because Data_poc.xlsx did not provide them.",
@@ -2359,7 +2359,7 @@
       "type": "supplier_dc",
       "name": "Supplier of Raw Materials - VD0514881A",
       "role_raw": "Supplier Distribution Center",
-      "location_ID": "Suède - GÖTEBORG - 402 58",
+      "location_ID": "Su\u00e8de - G\u00d6TEBORG - 402 58",
       "geo": {
         "lat": 57.7072,
         "lon": 11.9668,
@@ -2367,7 +2367,7 @@
         "raw": {
           "method": "legacy_id_map",
           "legacy_key": "SDC - VD0514881A",
-          "location_ID": "Suède - GÖTEBORG - 402 58"
+          "location_ID": "Su\u00e8de - G\u00d6TEBORG - 402 58"
         }
       },
       "defaults": {
@@ -5274,7 +5274,7 @@
     {
       "id": "scn:BASE",
       "horizon": {
-        "steps_to_run": 30,
+        "steps_to_run": 365,
         "time_unit": "Day"
       },
       "demand": [
@@ -5557,7 +5557,19 @@
       "economic_policy": {
         "external_procurement_enabled": false
       },
-      "opening_stock_bootstrap_scale": 2.0
+      "warmup_days": 260,
+      "opening_stock_bootstrap_scale": 2.0,
+      "initialization_policy": {
+        "mode": "explicit_state",
+        "state_scale": 0.25,
+        "factory_input_on_hand_days": 0.0,
+        "supplier_output_on_hand_days": 3.0,
+        "distribution_center_on_hand_days": 6.0,
+        "customer_on_hand_days": 0.0,
+        "seed_in_transit": true,
+        "in_transit_fill_ratio": 0.18,
+        "seed_estimated_source_pipeline": true
+      }
     }
   ]
 }

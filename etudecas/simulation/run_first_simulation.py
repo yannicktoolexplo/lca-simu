@@ -145,6 +145,12 @@ def parse_args() -> argparse.Namespace:
         help="Skip PNG plot generation.",
     )
     parser.add_argument(
+        "--output-profile",
+        choices=["full", "compact"],
+        default="compact",
+        help="Result output volume: compact keeps only files needed for baseline review and maps.",
+    )
+    parser.add_argument(
         "--seed",
         type=int,
         default=42,
@@ -627,6 +633,41 @@ def derive_supplier_daily_capacity_by_pair(
     return capacity_by_pair, metadata_rows
 
 
+def allocate_shared_downstream_pull(
+    *,
+    src_pair: tuple[str, str],
+    lanes_by_src_item: dict[tuple[str, str], list[dict[str, Any]]],
+    externally_sourced_pairs: list[tuple[str, str]],
+    supplier_daily_capacity_by_pair: dict[tuple[str, str], float],
+    downstream_values_by_pair: dict[tuple[str, str], float],
+) -> float:
+    """Allocate downstream pull across alternative upstream sources for the same dst/item."""
+    allocated = 0.0
+    for lane in lanes_by_src_item.get(src_pair, []):
+        dst_pair = (str(lane.get("dst")), src_pair[1])
+        downstream_value = max(0.0, downstream_values_by_pair.get(dst_pair, 0.0))
+        if downstream_value <= 0.0:
+            continue
+        candidate_pairs: list[tuple[str, str]] = []
+        for candidate_src_pair in externally_sourced_pairs:
+            if candidate_src_pair[1] != src_pair[1]:
+                continue
+            for candidate_lane in lanes_by_src_item.get(candidate_src_pair, []):
+                if str(candidate_lane.get("dst")) == dst_pair[0]:
+                    candidate_pairs.append(candidate_src_pair)
+                    break
+        if not candidate_pairs:
+            allocated += downstream_value
+            continue
+        total_capacity = sum(max(0.0, supplier_daily_capacity_by_pair.get(pair, 0.0)) for pair in candidate_pairs)
+        if total_capacity > 1e-9:
+            share = max(0.0, supplier_daily_capacity_by_pair.get(src_pair, 0.0)) / total_capacity
+        else:
+            share = 1.0 / float(len(candidate_pairs))
+        allocated += downstream_value * share
+    return allocated
+
+
 def derive_unmodeled_supplier_source_policies(
     *,
     externally_sourced_pairs: list[tuple[str, str]],
@@ -666,13 +707,19 @@ def derive_unmodeled_supplier_source_policies(
             replenishment_lead_days + review_days,
             order_frequency_days,
         )
-        downstream_requirement = sum(
-            max(0.0, required_daily_input_by_pair.get((str(lane.get("dst")), item_id), 0.0))
-            for lane in lane_list
+        downstream_requirement = allocate_shared_downstream_pull(
+            src_pair=src_pair,
+            lanes_by_src_item=lanes_by_src_item,
+            externally_sourced_pairs=externally_sourced_pairs,
+            supplier_daily_capacity_by_pair=supplier_daily_capacity_by_pair,
+            downstream_values_by_pair=required_daily_input_by_pair,
         )
-        downstream_signal = sum(
-            max(0.0, propagated_demand_today.get((str(lane.get("dst")), item_id), 0.0))
-            for lane in lane_list
+        downstream_signal = allocate_shared_downstream_pull(
+            src_pair=src_pair,
+            lanes_by_src_item=lanes_by_src_item,
+            externally_sourced_pairs=externally_sourced_pairs,
+            supplier_daily_capacity_by_pair=supplier_daily_capacity_by_pair,
+            downstream_values_by_pair=propagated_demand_today,
         )
         demand_anchor = max(downstream_requirement, downstream_signal)
         target_stock_qty = max(base_stock.get(src_pair, 0.0), demand_anchor * float(target_cover_days))
@@ -1758,19 +1805,19 @@ def main() -> None:
         estimated_source_rejected_today = 0.0
         if unmodeled_supplier_source_mode == "estimated_replenishment":
             for src_pair, policy in estimated_source_policies.items():
-                downstream_requirement = sum(
-                    max(
-                        0.0,
-                        required_daily_input_by_pair.get((str(lane.get("dst")), src_pair[1]), 0.0),
-                    )
-                    for lane in lanes_by_src_item.get(src_pair, [])
+                downstream_requirement = allocate_shared_downstream_pull(
+                    src_pair=src_pair,
+                    lanes_by_src_item=lanes_by_src_item,
+                    externally_sourced_pairs=externally_sourced_pairs,
+                    supplier_daily_capacity_by_pair=supplier_daily_capacity_by_pair,
+                    downstream_values_by_pair=required_daily_input_by_pair,
                 )
-                downstream_signal = sum(
-                    max(
-                        0.0,
-                        propagated_demand_today.get((str(lane.get("dst")), src_pair[1]), 0.0),
-                    )
-                    for lane in lanes_by_src_item.get(src_pair, [])
+                downstream_signal = allocate_shared_downstream_pull(
+                    src_pair=src_pair,
+                    lanes_by_src_item=lanes_by_src_item,
+                    externally_sourced_pairs=externally_sourced_pairs,
+                    supplier_daily_capacity_by_pair=supplier_daily_capacity_by_pair,
+                    downstream_values_by_pair=propagated_demand_today,
                 )
                 demand_anchor = max(downstream_requirement, downstream_signal)
                 target_stock_qty = max(
@@ -2341,6 +2388,7 @@ def main() -> None:
             "production_gap_gain": production_gap_gain,
             "production_smoothing": production_smoothing,
             "warmup_days": warmup_days,
+            "output_profile": args.output_profile,
             "opening_stock_bootstrap_scale": opening_stock_bootstrap_scale,
             "unmodeled_supplier_source_mode": unmodeled_supplier_source_mode,
             "stochastic_lead_times": bool(args.stochastic_lead_times),
@@ -2503,13 +2551,16 @@ def main() -> None:
     dc_stock_path = data_path(output_dir, "production_dc_stocks_daily.csv")
     demand_pair_path = data_path(output_dir, "production_demand_service_daily.csv")
     production_constraint_path = data_path(output_dir, "production_constraint_daily.csv")
+    input_pivot_path = data_path(output_dir, "production_input_stocks_pivot.csv")
+    compact_output = args.output_profile == "compact"
 
     summary_output_path.write_text(json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")
-    with daily_path.open("w", encoding="utf-8", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=list(daily_rows[0].keys()) if daily_rows else [])
-        if daily_rows:
-            writer.writeheader()
-            writer.writerows(daily_rows)
+    if not compact_output:
+        with daily_path.open("w", encoding="utf-8", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=list(daily_rows[0].keys()) if daily_rows else [])
+            if daily_rows:
+                writer.writeheader()
+                writer.writerows(daily_rows)
 
     with input_stock_path.open("w", encoding="utf-8", newline="") as f:
         writer = csv.DictWriter(
@@ -2519,20 +2570,23 @@ def main() -> None:
         writer.writeheader()
         writer.writerows(input_stock_rows)
 
-    with input_consumption_path.open("w", encoding="utf-8", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=["day", "node_id", "item_id", "consumed_qty", "uom"])
-        writer.writeheader()
-        writer.writerows(input_consumption_rows)
+    if not compact_output:
+        with input_consumption_path.open("w", encoding="utf-8", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=["day", "node_id", "item_id", "consumed_qty", "uom"])
+            writer.writeheader()
+            writer.writerows(input_consumption_rows)
 
-    with input_arrival_path.open("w", encoding="utf-8", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=["day", "node_id", "item_id", "arrived_qty", "uom"])
-        writer.writeheader()
-        writer.writerows(input_arrival_rows)
+    if not compact_output:
+        with input_arrival_path.open("w", encoding="utf-8", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=["day", "node_id", "item_id", "arrived_qty", "uom"])
+            writer.writeheader()
+            writer.writerows(input_arrival_rows)
 
-    with input_shipment_path.open("w", encoding="utf-8", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=["day", "node_id", "item_id", "shipped_to_node_qty", "uom"])
-        writer.writeheader()
-        writer.writerows(input_shipment_rows)
+    if not compact_output:
+        with input_shipment_path.open("w", encoding="utf-8", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=["day", "node_id", "item_id", "shipped_to_node_qty", "uom"])
+            writer.writeheader()
+            writer.writerows(input_shipment_rows)
 
     with output_prod_path.open("w", encoding="utf-8", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=["day", "node_id", "item_id", "produced_qty", "cum_produced_qty"])
@@ -2615,28 +2669,29 @@ def main() -> None:
         writer.writeheader()
         writer.writerows(supplier_capacity_daily_rows)
 
-    with dc_stock_path.open("w", encoding="utf-8", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=["day", "node_id", "item_id", "stock_end_of_day"])
-        writer.writeheader()
-        writer.writerows(dc_stock_rows)
+    if not compact_output:
+        with dc_stock_path.open("w", encoding="utf-8", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=["day", "node_id", "item_id", "stock_end_of_day"])
+            writer.writeheader()
+            writer.writerows(dc_stock_rows)
 
-    # Pivot file for easier read: one column per (factory,item) input stock.
-    input_pairs = sorted({(str(r["node_id"]), str(r["item_id"])) for r in input_stock_rows})
-    input_pivot_path = data_path(output_dir, "production_input_stocks_pivot.csv")
-    per_day_values: dict[int, dict[tuple[str, str], float]] = defaultdict(dict)
-    for r in input_stock_rows:
-        day = int(r["day"])
-        key = (str(r["node_id"]), str(r["item_id"]))
-        per_day_values[day][key] = to_float(r.get("stock_end_of_day", r.get("stock_before_production")), 0.0)
-    with input_pivot_path.open("w", encoding="utf-8", newline="") as f:
-        fieldnames = ["day"] + [pair_label(n, i) for n, i in input_pairs]
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
-        writer.writeheader()
-        for day in sorted(per_day_values.keys()):
-            row = {"day": day}
-            for n, i in input_pairs:
-                row[pair_label(n, i)] = round(per_day_values[day].get((n, i), 0.0), 6)
-            writer.writerow(row)
+    if not compact_output:
+        # Pivot file for easier read: one column per (factory,item) input stock.
+        input_pairs = sorted({(str(r["node_id"]), str(r["item_id"])) for r in input_stock_rows})
+        per_day_values: dict[int, dict[tuple[str, str], float]] = defaultdict(dict)
+        for r in input_stock_rows:
+            day = int(r["day"])
+            key = (str(r["node_id"]), str(r["item_id"]))
+            per_day_values[day][key] = to_float(r.get("stock_end_of_day", r.get("stock_before_production")), 0.0)
+        with input_pivot_path.open("w", encoding="utf-8", newline="") as f:
+            fieldnames = ["day"] + [pair_label(n, i) for n, i in input_pairs]
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            for day in sorted(per_day_values.keys()):
+                row = {"day": day}
+                for n, i in input_pairs:
+                    row[pair_label(n, i)] = round(per_day_values[day].get((n, i), 0.0), 6)
+                writer.writerow(row)
 
     generated_plots: dict[str, str] = {}
     if not args.skip_plots:
@@ -2731,6 +2786,7 @@ def main() -> None:
 - Measured horizon (days): {summary['sim_days']}
 - Warm-up (days): {summary['warmup_days']}
 - Total simulated timeline (days): {summary['timeline_days']}
+- Output profile: {summary['policy']['output_profile']}
 - Safety stock policy (days): {summary['policy']['safety_stock_days']}
 - Replenishment review period (days): {summary['policy']['review_period_days']}
 - Finished-goods target cover (days): {summary['policy']['fg_target_days']}
@@ -2805,19 +2861,14 @@ def main() -> None:
 
 ## Files
 - summaries/first_simulation_summary.json
-- data/first_simulation_daily.csv
 - data/production_input_stocks_daily.csv
-- data/production_input_consumption_daily.csv
-- data/production_input_replenishment_arrivals_daily.csv
-- data/production_input_replenishment_shipments_daily.csv
-- data/production_input_stocks_pivot.csv
 - data/production_output_products_daily.csv
 - data/production_demand_service_daily.csv
 - data/production_constraint_daily.csv
 - data/production_supplier_shipments_daily.csv
 - data/production_supplier_stocks_daily.csv
 - data/production_supplier_capacity_daily.csv
-- data/production_dc_stocks_daily.csv
+- Additional detailed CSVs: {'generated' if summary['policy']['output_profile'] == 'full' else 'skipped in compact mode'}
 - production_input_stocks_by_material_*.png ({', '.join(detailed_input_plot_paths) if detailed_input_plot_paths else 'not generated'})
 - production_output_products.png ({generated_plots.get('production_output_products_png', 'not generated')})
 - production_output_products_by_factory_*.png ({', '.join(detailed_output_plot_paths) if detailed_output_plot_paths else 'not generated'})
@@ -2828,20 +2879,23 @@ def main() -> None:
     report_output_path.write_text(report, encoding="utf-8")
 
     print(f"[OK] Simulation summary: {summary_output_path.resolve()}")
-    print(f"[OK] Simulation daily CSV: {daily_path.resolve()}")
     print(f"[OK] Simulation report: {report_output_path.resolve()}")
     print(f"[OK] Production input stocks CSV: {input_stock_path.resolve()}")
-    print(f"[OK] Production input consumption CSV: {input_consumption_path.resolve()}")
-    print(f"[OK] Production input replenishment arrivals CSV: {input_arrival_path.resolve()}")
-    print(f"[OK] Production input replenishment shipments CSV: {input_shipment_path.resolve()}")
-    print(f"[OK] Production input stocks pivot CSV: {input_pivot_path.resolve()}")
     print(f"[OK] Production output products CSV: {output_prod_path.resolve()}")
     print(f"[OK] Production demand service CSV: {demand_pair_path.resolve()}")
     print(f"[OK] Production constraint CSV: {production_constraint_path.resolve()}")
     print(f"[OK] Production supplier shipments CSV: {supplier_shipment_path.resolve()}")
     print(f"[OK] Production supplier stocks CSV: {supplier_stock_path.resolve()}")
     print(f"[OK] Production supplier capacity CSV: {supplier_capacity_path.resolve()}")
-    print(f"[OK] Production distribution center stocks CSV: {dc_stock_path.resolve()}")
+    if compact_output:
+        print("[INFO] Compact output profile: detailed daily/input/DC CSVs skipped.")
+    else:
+        print(f"[OK] Simulation daily CSV: {daily_path.resolve()}")
+        print(f"[OK] Production input consumption CSV: {input_consumption_path.resolve()}")
+        print(f"[OK] Production input replenishment arrivals CSV: {input_arrival_path.resolve()}")
+        print(f"[OK] Production input replenishment shipments CSV: {input_shipment_path.resolve()}")
+        print(f"[OK] Production input stocks pivot CSV: {input_pivot_path.resolve()}")
+        print(f"[OK] Production distribution center stocks CSV: {dc_stock_path.resolve()}")
     if generated_plots:
         for _, path in sorted(generated_plots.items()):
             print(f"[OK] Plot generated: {Path(path).resolve()}")
