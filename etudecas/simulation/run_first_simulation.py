@@ -115,8 +115,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--days",
         type=int,
-        default=30,
-        help="Simulation horizon in days (default: 30). Set 0 to use scenario horizon.",
+        default=0,
+        help="Simulation horizon in days (default: scenario horizon). Set 0 to use scenario horizon.",
+    )
+    parser.add_argument(
+        "--warmup-days",
+        type=int,
+        default=None,
+        help="Warm-up days run before the measured horizon. Defaults to scenario policy warmup_days or 0.",
     )
     parser.add_argument(
         "--map-script",
@@ -1100,6 +1106,12 @@ def main() -> None:
     scenario = choose_scenario(data, args.scenario_id)
     default_days = int(to_float(((scenario.get("horizon") or {}).get("steps_to_run")), 30))
     sim_days = args.days if args.days > 0 else (default_days if default_days > 0 else 30)
+    warmup_days = (
+        max(0, int(args.warmup_days))
+        if args.warmup_days is not None
+        else max(0, int(round(scenario_policy_value(scenario, "warmup_days", 0.0))))
+    )
+    total_timeline_days = warmup_days + sim_days
     safety_stock_days = max(0.0, scenario_policy_value(scenario, "safety_stock_days", 7.0))
     review_period_days = max(1, int(round(scenario_policy_value(scenario, "review_period_days", 1.0))))
     fg_target_days = max(0.0, scenario_policy_value(scenario, "fg_target_days", 0.0))
@@ -1312,6 +1324,7 @@ def main() -> None:
 
     total_demand = 0.0
     total_served = 0.0
+    measurement_starting_backlog = 0.0
     total_shipped = 0.0
     total_arrived = 0.0
     total_produced = 0.0
@@ -1706,9 +1719,12 @@ def main() -> None:
     supplier_capacity_daily_rows: list[dict[str, Any]] = []
     total_supplier_capacity_binding_qty = 0.0
 
-    for day in range(sim_days):
+    for day in range(total_timeline_days):
+        record_day = day >= warmup_days
+        output_day = day - warmup_days
+        profile_day = day if day < warmup_days else output_day
         demand_target_today = {
-            pair: max(0.0, profile_value(profile, day))
+            pair: max(0.0, profile_value(profile, profile_day))
             for pair, profile in demand_profiles.items()
         }
         propagated_demand_today = propagate_demand_rates(demand_target_today, lanes)
@@ -1733,9 +1749,10 @@ def main() -> None:
             stock[(src, item_id)] += qty
             estimated_source_in_transit[(src, item_id)] -= qty
             estimated_source_arrivals_qty += qty
-        total_arrived += arrivals_qty
-        total_external_procured_arrived += external_arrivals_qty
-        total_estimated_source_replenished += estimated_source_arrivals_qty
+        if record_day:
+            total_arrived += arrivals_qty
+            total_external_procured_arrived += external_arrivals_qty
+            total_estimated_source_replenished += estimated_source_arrivals_qty
 
         estimated_source_ordered_today = 0.0
         estimated_source_rejected_today = 0.0
@@ -1780,30 +1797,32 @@ def main() -> None:
                 stock[src_pair] += replenished_qty
                 estimated_source_arrivals_qty += replenished_qty
                 total_estimated_source_replenished += replenished_qty
-        total_estimated_source_ordered += estimated_source_ordered_today
-        total_estimated_source_rejected += estimated_source_rejected_today
+        if record_day:
+            total_estimated_source_ordered += estimated_source_ordered_today
+            total_estimated_source_rejected += estimated_source_rejected_today
 
         # Snapshot: raw material stocks at production input before production starts.
         day_input_rows_by_pair: dict[tuple[str, str], dict[str, Any]] = {}
-        for node_id, item_id in production_input_pairs:
-            row = {
-                "day": day,
-                "node_id": node_id,
-                "item_id": item_id,
-                "stock_before_production": round(stock[(node_id, item_id)], 6),
-                "stock_end_of_day": 0.0,
-            }
-            input_stock_rows.append(row)
-            day_input_rows_by_pair[(node_id, item_id)] = row
-            input_arrival_rows.append(
-                {
-                    "day": day,
+        if record_day:
+            for node_id, item_id in production_input_pairs:
+                row = {
+                    "day": output_day,
                     "node_id": node_id,
                     "item_id": item_id,
-                    "arrived_qty": round(arrivals_today_by_pair[(node_id, item_id)], 6),
-                    "uom": item_unit_map.get(item_id, ""),
+                    "stock_before_production": round(stock[(node_id, item_id)], 6),
+                    "stock_end_of_day": 0.0,
                 }
-            )
+                input_stock_rows.append(row)
+                day_input_rows_by_pair[(node_id, item_id)] = row
+                input_arrival_rows.append(
+                    {
+                        "day": output_day,
+                        "node_id": node_id,
+                        "item_id": item_id,
+                        "arrived_qty": round(arrivals_today_by_pair[(node_id, item_id)], 6),
+                        "uom": item_unit_map.get(item_id, ""),
+                    }
+                )
 
         # Production/transformation
         produced_today = 0.0
@@ -1893,20 +1912,21 @@ def main() -> None:
                             binding_cause = "capacity"
                         else:
                             binding_cause = "policy_command"
-                    production_constraint_rows.append(
-                        {
-                            "day": day,
-                            "node_id": nid,
-                            "output_item_id": out_item,
-                            "desired_qty": round(desired_qty, 6),
-                            "actual_qty": round(qty, 6),
-                            "cap_qty": round(cap, 6),
-                            "max_from_inputs_qty": round(max_from_inputs, 6),
-                            "binding_cause": binding_cause,
-                            "binding_input_item_id": binding_item,
-                            "shortfall_vs_desired_qty": round(max(0.0, desired_qty - qty), 6),
-                        }
-                    )
+                    if record_day:
+                        production_constraint_rows.append(
+                            {
+                                "day": output_day,
+                                "node_id": nid,
+                                "output_item_id": out_item,
+                                "desired_qty": round(desired_qty, 6),
+                                "actual_qty": round(qty, 6),
+                                "cap_qty": round(cap, 6),
+                                "max_from_inputs_qty": round(max_from_inputs, 6),
+                                "binding_cause": binding_cause,
+                                "binding_input_item_id": binding_item,
+                                "shortfall_vs_desired_qty": round(max(0.0, desired_qty - qty), 6),
+                            }
+                        )
                 if qty <= 0:
                     continue
 
@@ -1930,29 +1950,33 @@ def main() -> None:
                 produced_today += qty
                 produced_today_by_pair[(nid, out_item)] += qty
 
-        total_produced += produced_today
-        for node_id, item_id in production_output_pairs:
-            q = produced_today_by_pair[(node_id, item_id)]
-            cum_output_by_pair[(node_id, item_id)] += q
-            output_prod_rows.append(
-                {
-                    "day": day,
-                    "node_id": node_id,
-                    "item_id": item_id,
-                    "produced_qty": round(q, 6),
-                    "cum_produced_qty": round(cum_output_by_pair[(node_id, item_id)], 6),
-                }
-            )
-        for node_id, item_id in production_input_pairs:
-            input_consumption_rows.append(
-                {
-                    "day": day,
-                    "node_id": node_id,
-                    "item_id": item_id,
-                    "consumed_qty": round(consumed_today_by_pair[(node_id, item_id)], 6),
-                    "uom": item_unit_map.get(item_id, ""),
-                }
-            )
+        if record_day:
+            total_produced += produced_today
+            for node_id, item_id in production_output_pairs:
+                q = produced_today_by_pair[(node_id, item_id)]
+                cum_output_by_pair[(node_id, item_id)] += q
+                output_prod_rows.append(
+                    {
+                        "day": output_day,
+                        "node_id": node_id,
+                        "item_id": item_id,
+                        "produced_qty": round(q, 6),
+                        "cum_produced_qty": round(cum_output_by_pair[(node_id, item_id)], 6),
+                    }
+                )
+            for node_id, item_id in production_input_pairs:
+                input_consumption_rows.append(
+                    {
+                        "day": output_day,
+                        "node_id": node_id,
+                        "item_id": item_id,
+                        "consumed_qty": round(consumed_today_by_pair[(node_id, item_id)], 6),
+                        "uom": item_unit_map.get(item_id, ""),
+                    }
+                )
+
+        if record_day and day == warmup_days:
+            measurement_starting_backlog = sum(max(0.0, val) for val in backlog.values())
 
         # Demand satisfaction
         demand_today = 0.0
@@ -1966,21 +1990,23 @@ def main() -> None:
             backlog[pair] = required - served
             demand_today += dval
             served_today += served
-            demand_pair_rows.append(
-                {
-                    "day": day,
-                    "node_id": pair[0],
-                    "item_id": pair[1],
-                    "demand_qty": round(dval, 6),
-                    "required_with_backlog_qty": round(required, 6),
-                    "served_qty": round(served, 6),
-                    "backlog_end_qty": round(backlog[pair], 6),
-                    "available_before_service_qty": round(available, 6),
-                }
-            )
+            if record_day:
+                demand_pair_rows.append(
+                    {
+                        "day": output_day,
+                        "node_id": pair[0],
+                        "item_id": pair[1],
+                        "demand_qty": round(dval, 6),
+                        "required_with_backlog_qty": round(required, 6),
+                        "served_qty": round(served, 6),
+                        "backlog_end_qty": round(backlog[pair], 6),
+                        "available_before_service_qty": round(available, 6),
+                    }
+                )
 
-        total_demand += demand_today
-        total_served += served_today
+        if record_day:
+            total_demand += demand_today
+            total_served += served_today
 
         # Replenishment and shipments
         shipped_today = 0.0
@@ -2067,7 +2093,8 @@ def main() -> None:
                             ext_arrival_day = day + ext_lead_days
                             external_pipeline[ext_arrival_day].append((src_pair[0], src_pair[1], ext_order_qty))
                             external_in_transit[src_pair] += ext_order_qty
-                            external_procured_today += ext_order_qty
+                            if record_day:
+                                external_procured_today += ext_order_qty
                             external_ordered_today_by_src_pair[src_pair] += ext_order_qty
                             ref_purchase = max(
                                 economic_policy["purchase_cost_floor_per_unit"],
@@ -2079,11 +2106,13 @@ def main() -> None:
                             )
                             ext_unit_transport = economic_policy["external_procurement_transport_cost_per_unit"]
                             ext_order_cost = ext_order_qty * (ext_unit_purchase + ext_unit_transport)
-                            purchase_cost_today += ext_order_qty * ext_unit_purchase
-                            transport_cost_today += ext_order_qty * ext_unit_transport
-                            total_external_procurement_cost += ext_order_cost
+                            if record_day:
+                                purchase_cost_today += ext_order_qty * ext_unit_purchase
+                                transport_cost_today += ext_order_qty * ext_unit_transport
+                                total_external_procurement_cost += ext_order_cost
                         ext_rejected = max(0.0, ext_gap - ext_order_qty)
-                        external_procured_rejected_today += ext_rejected
+                        if record_day:
+                            external_procured_rejected_today += ext_rejected
                     available = stock[src_pair]
                 if available <= 1e-9:
                     return 0.0
@@ -2110,25 +2139,26 @@ def main() -> None:
                 arrival_day = day + lead_days
                 pipeline[arrival_day].append((dst, item_id, delivered_qty, lane["edge_id"]))
                 in_transit[pair] += delivered_qty
-                shipped_today += delivered_qty
-                shipped_today_to_pair[(dst, item_id)] += delivered_qty
-                transport_cost_today += delivered_qty * lane["unit_transport_cost"]
-                purchase_cost_today += delivered_qty * lane["unit_purchase_cost"]
-                total_unreliable_loss_qty += max(0.0, pull_qty - delivered_qty)
-                supplier_shipment_rows.append(
-                    {
-                        "day": day,
-                        "src_node_id": str(lane["src"]),
-                        "dst_node_id": str(dst),
-                        "item_id": str(item_id),
-                        "shipped_qty": round(delivered_qty, 6),
-                        "pulled_qty": round(pull_qty, 6),
-                        "lead_days": int(lead_days),
-                        "arrival_day": int(arrival_day),
-                        "reliability": round(rel, 6),
-                        "uom": item_unit_map.get(item_id, ""),
-                    }
-                )
+                if record_day:
+                    shipped_today += delivered_qty
+                    shipped_today_to_pair[(dst, item_id)] += delivered_qty
+                    transport_cost_today += delivered_qty * lane["unit_transport_cost"]
+                    purchase_cost_today += delivered_qty * lane["unit_purchase_cost"]
+                    total_unreliable_loss_qty += max(0.0, pull_qty - delivered_qty)
+                    supplier_shipment_rows.append(
+                        {
+                            "day": output_day,
+                            "src_node_id": str(lane["src"]),
+                            "dst_node_id": str(dst),
+                            "item_id": str(item_id),
+                            "shipped_qty": round(delivered_qty, 6),
+                            "pulled_qty": round(pull_qty, 6),
+                            "lead_days": int(lead_days),
+                            "arrival_day": int(arrival_day - warmup_days),
+                            "reliability": round(rel, 6),
+                            "uom": item_unit_map.get(item_id, ""),
+                        }
+                    )
                 return delivered_qty
 
             if active_share_total > 1e-9 and len(active_lanes) > 1:
@@ -2154,36 +2184,37 @@ def main() -> None:
                     remaining_need_qty=remaining,
                 )
 
-        total_shipped += shipped_today
-        total_transport_cost += transport_cost_today
-        total_purchase_cost += purchase_cost_today
-        total_external_procured += external_procured_today
-        total_external_procured_rejected += external_procured_rejected_today
-        total_supplier_capacity_binding_qty += supplier_capacity_binding_qty_today
-        for node_id, item_id in production_input_pairs:
-            input_shipment_rows.append(
-                {
-                    "day": day,
-                    "node_id": node_id,
-                    "item_id": item_id,
-                    "shipped_to_node_qty": round(shipped_today_to_pair[(node_id, item_id)], 6),
-                    "uom": item_unit_map.get(item_id, ""),
-                }
-            )
-        for src_pair, nominal_cap in supplier_daily_capacity_by_pair.items():
-            src, item_id = src_pair
-            used_qty = supplier_capacity_used_today_by_src_pair.get(src_pair, 0.0)
-            supplier_capacity_daily_rows.append(
-                {
-                    "day": day,
-                    "node_id": src,
-                    "item_id": item_id,
-                    "capacity_qty_per_day": round(nominal_cap, 6),
-                    "used_qty": round(used_qty, 6),
-                    "remaining_capacity_qty": round(max(0.0, nominal_cap - used_qty), 6),
-                    "utilization": round(used_qty / nominal_cap, 6) if nominal_cap > 1e-9 else 0.0,
-                }
-            )
+        if record_day:
+            total_shipped += shipped_today
+            total_transport_cost += transport_cost_today
+            total_purchase_cost += purchase_cost_today
+            total_external_procured += external_procured_today
+            total_external_procured_rejected += external_procured_rejected_today
+            total_supplier_capacity_binding_qty += supplier_capacity_binding_qty_today
+            for node_id, item_id in production_input_pairs:
+                input_shipment_rows.append(
+                    {
+                        "day": output_day,
+                        "node_id": node_id,
+                        "item_id": item_id,
+                        "shipped_to_node_qty": round(shipped_today_to_pair[(node_id, item_id)], 6),
+                        "uom": item_unit_map.get(item_id, ""),
+                    }
+                )
+            for src_pair, nominal_cap in supplier_daily_capacity_by_pair.items():
+                src, item_id = src_pair
+                used_qty = supplier_capacity_used_today_by_src_pair.get(src_pair, 0.0)
+                supplier_capacity_daily_rows.append(
+                    {
+                        "day": output_day,
+                        "node_id": src,
+                        "item_id": item_id,
+                        "capacity_qty_per_day": round(nominal_cap, 6),
+                        "used_qty": round(used_qty, 6),
+                        "remaining_capacity_qty": round(max(0.0, nominal_cap - used_qty), 6),
+                        "utilization": round(used_qty / nominal_cap, 6) if nominal_cap > 1e-9 else 0.0,
+                    }
+                )
 
         # End-of-day holding costs
         inv_total_today = 0.0
@@ -2202,64 +2233,67 @@ def main() -> None:
         inventory_risk_cost_today = (
             raw_holding_cost_today * economic_policy["inventory_risk_cost_share_of_raw_holding"]
         )
-        total_holding_cost += holding_cost_today
-        total_warehouse_operating_cost += warehouse_operating_cost_today
-        total_inventory_risk_cost += inventory_risk_cost_today
-        total_legacy_raw_holding_cost += raw_holding_cost_today
+        if record_day:
+            total_holding_cost += holding_cost_today
+            total_warehouse_operating_cost += warehouse_operating_cost_today
+            total_inventory_risk_cost += inventory_risk_cost_today
+            total_legacy_raw_holding_cost += raw_holding_cost_today
 
         for node_id, item_id in production_input_pairs:
             row = day_input_rows_by_pair.get((node_id, item_id))
             if row is not None:
                 row["stock_end_of_day"] = round(stock[(node_id, item_id)], 6)
 
-        for node_id, item_id in supplier_stock_pairs:
-            supplier_stock_rows.append(
-                {
-                    "day": day,
-                    "node_id": node_id,
-                    "item_id": item_id,
-                    "stock_end_of_day": round(stock[(node_id, item_id)], 6),
-                }
-            )
-        for node_id, item_id in dc_stock_pairs:
-            dc_stock_rows.append(
-                {
-                    "day": day,
-                    "node_id": node_id,
-                    "item_id": item_id,
-                    "stock_end_of_day": round(stock[(node_id, item_id)], 6),
-                }
-            )
+        if record_day:
+            for node_id, item_id in supplier_stock_pairs:
+                supplier_stock_rows.append(
+                    {
+                        "day": output_day,
+                        "node_id": node_id,
+                        "item_id": item_id,
+                        "stock_end_of_day": round(stock[(node_id, item_id)], 6),
+                    }
+                )
+            for node_id, item_id in dc_stock_pairs:
+                dc_stock_rows.append(
+                    {
+                        "day": output_day,
+                        "node_id": node_id,
+                        "item_id": item_id,
+                        "stock_end_of_day": round(stock[(node_id, item_id)], 6),
+                    }
+                )
 
-        daily_rows.append(
-            {
-                "day": day,
-                "demand": round(demand_today, 4),
-                "served": round(served_today, 4),
-                "backlog_end": round(sum(backlog.values()), 4),
-                "arrivals_qty": round(arrivals_qty, 4),
-                "produced_qty": round(produced_today, 4),
-                "shipped_qty": round(shipped_today, 4),
-                "inventory_total": round(inv_total_today, 4),
-                "holding_cost_day": round(holding_cost_today, 4),
-                "warehouse_operating_cost_day": round(warehouse_operating_cost_today, 4),
-                "inventory_risk_cost_day": round(inventory_risk_cost_today, 4),
-                "legacy_raw_holding_cost_day": round(raw_holding_cost_today, 4),
-                "transport_cost_day": round(transport_cost_today, 4),
-                "purchase_cost_day": round(purchase_cost_today, 4),
-                "external_procured_ordered_qty": round(external_procured_today, 4),
-                "external_procured_arrived_qty": round(external_arrivals_qty, 4),
-                "external_procured_rejected_qty": round(external_procured_rejected_today, 4),
-                "estimated_source_ordered_qty": round(estimated_source_ordered_today, 4),
-                "estimated_source_arrived_qty": round(estimated_source_arrivals_qty, 4),
-                "estimated_source_rejected_qty": round(estimated_source_rejected_today, 4),
-                "supplier_capacity_binding_qty": round(supplier_capacity_binding_qty_today, 4),
-            }
-        )
+            daily_rows.append(
+                {
+                    "day": output_day,
+                    "demand": round(demand_today, 4),
+                    "served": round(served_today, 4),
+                    "backlog_end": round(sum(backlog.values()), 4),
+                    "arrivals_qty": round(arrivals_qty, 4),
+                    "produced_qty": round(produced_today, 4),
+                    "shipped_qty": round(shipped_today, 4),
+                    "inventory_total": round(inv_total_today, 4),
+                    "holding_cost_day": round(holding_cost_today, 4),
+                    "warehouse_operating_cost_day": round(warehouse_operating_cost_today, 4),
+                    "inventory_risk_cost_day": round(inventory_risk_cost_today, 4),
+                    "legacy_raw_holding_cost_day": round(raw_holding_cost_today, 4),
+                    "transport_cost_day": round(transport_cost_today, 4),
+                    "purchase_cost_day": round(purchase_cost_today, 4),
+                    "external_procured_ordered_qty": round(external_procured_today, 4),
+                    "external_procured_arrived_qty": round(external_arrivals_qty, 4),
+                    "external_procured_rejected_qty": round(external_procured_rejected_today, 4),
+                    "estimated_source_ordered_qty": round(estimated_source_ordered_today, 4),
+                    "estimated_source_arrived_qty": round(estimated_source_arrivals_qty, 4),
+                    "estimated_source_rejected_qty": round(estimated_source_rejected_today, 4),
+                    "supplier_capacity_binding_qty": round(supplier_capacity_binding_qty_today, 4),
+                }
+            )
 
     ending_inventory = sum(v for v in stock.values() if v > 0)
     ending_backlog = sum(v for v in backlog.values() if v > 0)
-    fill_rate = (total_served / total_demand) if total_demand > 0 else 1.0
+    measured_required_total = total_demand + measurement_starting_backlog
+    fill_rate = (total_served / measured_required_total) if measured_required_total > 0 else 1.0
     avg_inventory = sum(r["inventory_total"] for r in daily_rows) / len(daily_rows) if daily_rows else 0.0
 
     top_backlog = sorted(
@@ -2298,12 +2332,15 @@ def main() -> None:
         "input_file": str(input_path),
         "scenario_id": str(scenario.get("id")),
         "sim_days": sim_days,
+        "warmup_days": warmup_days,
+        "timeline_days": total_timeline_days,
         "policy": {
             "safety_stock_days": safety_stock_days,
             "review_period_days": review_period_days,
             "fg_target_days": fg_target_days,
             "production_gap_gain": production_gap_gain,
             "production_smoothing": production_smoothing,
+            "warmup_days": warmup_days,
             "opening_stock_bootstrap_scale": opening_stock_bootstrap_scale,
             "unmodeled_supplier_source_mode": unmodeled_supplier_source_mode,
             "stochastic_lead_times": bool(args.stochastic_lead_times),
@@ -2404,6 +2441,8 @@ def main() -> None:
         },
         "kpis": {
             "total_demand": round(total_demand, 4),
+            "measurement_starting_backlog": round(measurement_starting_backlog, 4),
+            "measured_required_total": round(measured_required_total, 4),
             "total_served": round(total_served, 4),
             "ending_backlog": round(ending_backlog, 4),
             "fill_rate": round(fill_rate, 6),
@@ -2689,7 +2728,9 @@ def main() -> None:
 ## Run setup
 - Input: {summary['input_file']}
 - Scenario: {summary['scenario_id']}
-- Horizon (days): {summary['sim_days']}
+- Measured horizon (days): {summary['sim_days']}
+- Warm-up (days): {summary['warmup_days']}
+- Total simulated timeline (days): {summary['timeline_days']}
 - Safety stock policy (days): {summary['policy']['safety_stock_days']}
 - Replenishment review period (days): {summary['policy']['review_period_days']}
 - Finished-goods target cover (days): {summary['policy']['fg_target_days']}
