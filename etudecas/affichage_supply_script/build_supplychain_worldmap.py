@@ -2256,7 +2256,7 @@ def html_template(title: str, data_json: str) -> str:
             line: {{ width, color: "#475569" }},
             opacity: 0.65,
             text: edgeText(e),
-            hovertemplate: "%{{text}}<extra></extra>",
+            hoverinfo: "skip",
           }});
           drawnEdges += 1;
         }}
@@ -2305,19 +2305,30 @@ def html_template(title: str, data_json: str) -> str:
     }}
 
     function currentPanelTarget() {{
-      if (currentHoveredPanelId && currentHoveredPanelType) {{
-        return {{
-          nodeId: currentHoveredPanelId,
-          nodeType: currentHoveredPanelType,
-          state: selectedPanelNodeId ? "Apercu" : "Survol",
-        }};
-      }}
       if (selectedPanelNodeId && selectedPanelNodeType) {{
         return {{
           nodeId: selectedPanelNodeId,
           nodeType: selectedPanelNodeType,
           state: "Selection",
         }};
+      }}
+      if (currentHoveredPanelId && currentHoveredPanelType) {{
+        return {{
+          nodeId: currentHoveredPanelId,
+          nodeType: currentHoveredPanelType,
+          state: "Survol",
+        }};
+      }}
+      return null;
+    }}
+
+    function selectablePointFromEvent(ev) {{
+      const points = ev && Array.isArray(ev.points) ? ev.points : [];
+      for (const point of points) {{
+        if (!Array.isArray(point.customdata)) continue;
+        const nodeType = point.customdata[1];
+        if (!isPanelSelectableType(nodeType)) continue;
+        return point;
       }}
       return null;
     }}
@@ -2516,8 +2527,8 @@ def html_template(title: str, data_json: str) -> str:
       if (hoverHandlersBound) return;
       const gd = document.getElementById("chart");
       gd.on("plotly_hover", (ev) => {{
-        const p = ev && ev.points && ev.points.length ? ev.points[0] : null;
-        if (!p || !Array.isArray(p.customdata)) {{
+        const p = selectablePointFromEvent(ev);
+        if (!p) {{
           currentHoveredPanelId = null;
           currentHoveredPanelType = null;
           refreshFactoryPanel();
@@ -2541,8 +2552,8 @@ def html_template(title: str, data_json: str) -> str:
         refreshFactoryPanel();
       }});
       gd.on("plotly_click", (ev) => {{
-        const p = ev && ev.points && ev.points.length ? ev.points[0] : null;
-        if (!p || !Array.isArray(p.customdata)) {{
+        const p = selectablePointFromEvent(ev);
+        if (!p) {{
           return;
         }}
         const nodeId = p.customdata[0];
