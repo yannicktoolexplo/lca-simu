@@ -121,3 +121,10 @@ analysis/sim_report/arrivals_hist.png
 analysis/sim_report/slow_components_boxplot.png
 analysis/sim_report/summary.txt
 analysis/sim_flows.html
+
+# Simulation scratch artifacts
+etudecas/simulation/result/_*/
+etudecas/simulation/result/data/
+etudecas/simulation/result/maps/
+etudecas/simulation/result/summaries/
+etudecas/simulation/sensibility/_*/
