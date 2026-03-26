@@ -18,9 +18,9 @@ from pathlib import Path
 from typing import Any
 
 try:
-    from .result_paths import data_path, ensure_standard_dirs, plots_path, report_path, summary_path
+    from .result_paths import data_path, ensure_standard_dirs, map_path, plots_path, report_path, summary_path
 except ImportError:
-    from result_paths import data_path, ensure_standard_dirs, plots_path, report_path, summary_path
+    from result_paths import data_path, ensure_standard_dirs, map_path, plots_path, report_path, summary_path
 
 
 def to_float(x: Any, default: float = 0.0) -> float:
@@ -131,8 +131,8 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--map-output",
-        default="etudecas/simulation/result/maps/supply_graph_poc_geocoded_map_with_factory_hover.html",
-        help="Path to generated hover-map HTML.",
+        default="",
+        help="Optional path to generated hover-map HTML. Defaults inside <output-dir>/maps/.",
     )
     parser.add_argument(
         "--skip-map",
@@ -2709,7 +2709,11 @@ def main() -> None:
         if legacy_agg_input_plot.exists():
             legacy_agg_input_plot.unlink()
     plot_root = plots_path(output_dir)
-    map_output_path = Path(args.map_output)
+    if args.map_output:
+        map_output_path = Path(args.map_output)
+    else:
+        default_map_name = f"supply_graph_{output_dir.name}.html"
+        map_output_path = map_path(output_dir, default_map_name)
     generated_map_path: str | None = None
     if not args.skip_map:
         map_script_path = Path(args.map_script)
