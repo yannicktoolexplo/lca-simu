@@ -5274,7 +5274,7 @@
     {
       "id": "scn:BASE",
       "horizon": {
-        "steps_to_run": 30,
+        "steps_to_run": 365,
         "time_unit": "Day"
       },
       "demand": [
@@ -5557,6 +5557,7 @@
       "economic_policy": {
         "external_procurement_enabled": false
       },
+      "warmup_days": 30,
       "opening_stock_bootstrap_scale": 2.0,
       "initialization_policy": {
         "mode": "explicit_state",
