@@ -109,6 +109,21 @@ def parse_args() -> argparse.Namespace:
         default="etudecas/simulation/result/summaries/supplier_local_criticality_summary.json",
         help="Output JSON summary for supplier local criticality.",
     )
+    parser.add_argument(
+        "--realistic-sensitivity-summary-json",
+        default="",
+        help="Optional realistic annual sensitivity summary JSON.",
+    )
+    parser.add_argument(
+        "--realistic-local-elasticities-csv",
+        default="",
+        help="Optional realistic annual local elasticities CSV.",
+    )
+    parser.add_argument(
+        "--realistic-stress-impacts-csv",
+        default="",
+        help="Optional realistic annual stress impacts CSV.",
+    )
     return parser.parse_args()
 
 
@@ -507,6 +522,31 @@ def case_rows_by_id(case_rows: list[dict[str, str]]) -> dict[str, dict[str, str]
     }
 
 
+def first_case_row(
+    by_case_id: dict[str, dict[str, str]],
+    *case_ids: str,
+) -> dict[str, str] | None:
+    for case_id in case_ids:
+        row = by_case_id.get(case_id)
+        if row is not None:
+            return row
+    return None
+
+
+def baseline_sensitivity_row(by_case_id: dict[str, dict[str, str]]) -> dict[str, str] | None:
+    return first_case_row(
+        by_case_id,
+        "baseline",
+        "baseline_baseline_base",
+    )
+
+
+def case_multiplier_value(case_row: dict[str, str] | None) -> float | None:
+    if not case_row:
+        return None
+    return to_float(case_row.get("value")) or to_float(case_row.get("factor_value"))
+
+
 def case_output_dir(case_row: dict[str, str] | None) -> Path | None:
     if not case_row:
         return None
@@ -766,32 +806,37 @@ def select_best_supplier_case_pair(
         (
             "stock fournisseur local",
             "Stock four.",
-            by_case_id.get(f"supplier_stock_node_{safe_node}_low"),
-            by_case_id.get(f"supplier_stock_node_{safe_node}_high"),
+            first_case_row(by_case_id, f"supplier_stock_node_{safe_node}_low", f"local_supplier_stock_node_{safe_node}_low"),
+            first_case_row(by_case_id, f"supplier_stock_node_{safe_node}_high", f"local_supplier_stock_node_{safe_node}_high"),
         ),
         (
             "lead time sortant local",
             "Lead time",
-            by_case_id.get(f"supplier_lead_time_node_{safe_node}_low"),
-            by_case_id.get(f"supplier_lead_time_node_{safe_node}_high"),
+            first_case_row(by_case_id, f"supplier_lead_time_node_{safe_node}_low", f"local_supplier_lead_time_node_{safe_node}_low"),
+            first_case_row(by_case_id, f"supplier_lead_time_node_{safe_node}_high", f"local_supplier_lead_time_node_{safe_node}_high"),
         ),
         (
             "fiabilite locale",
             "OTIF",
-            by_case_id.get(f"supplier_reliability_node_{safe_node}_low"),
-            by_case_id.get(f"supplier_reliability_node_{safe_node}_high"),
+            first_case_row(
+                by_case_id,
+                f"supplier_reliability_node_{safe_node}_low",
+                f"local_supplier_reliability_node_{safe_node}_low",
+                f"local_supplier_reliability_node_{safe_node}_adverse",
+            ),
+            first_case_row(by_case_id, f"supplier_reliability_node_{safe_node}_high", f"local_supplier_reliability_node_{safe_node}_high"),
         ),
         (
             "capacite fournisseur locale",
             "Cap. four.",
-            by_case_id.get(f"supplier_capacity_node_{safe_node}_low"),
-            by_case_id.get(f"supplier_capacity_node_{safe_node}_high"),
+            first_case_row(by_case_id, f"supplier_capacity_node_{safe_node}_low", f"local_supplier_capacity_node_{safe_node}_low"),
+            first_case_row(by_case_id, f"supplier_capacity_node_{safe_node}_high", f"local_supplier_capacity_node_{safe_node}_high"),
         ),
         (
             "capacite process locale",
             "Cap. proc.",
-            by_case_id.get(f"capacity_{safe_node}_low"),
-            by_case_id.get(f"capacity_{safe_node}_high"),
+            first_case_row(by_case_id, f"capacity_{safe_node}_low", f"local_capacity_node_{safe_node}_low"),
+            first_case_row(by_case_id, f"capacity_{safe_node}_high", f"local_capacity_node_{safe_node}_high"),
         ),
     ]
     best_label = ""
@@ -823,7 +868,7 @@ def build_factory_sensitivity_hover_images(
     csv_cache: dict[Path, list[dict[str, str]]],
 ) -> dict[str, Any]:
     by_case_id = case_rows_by_id(case_rows)
-    baseline_row = by_case_id.get("baseline")
+    baseline_row = baseline_sensitivity_row(by_case_id)
     baseline_dir = case_output_dir(baseline_row)
     if baseline_row is None or baseline_dir is None:
         return {}
@@ -835,12 +880,12 @@ def build_factory_sensitivity_hover_images(
             continue
 
         safe_node = safe_case_token(node_id)
-        low_row = by_case_id.get(f"capacity_{safe_node}_low")
-        high_row = by_case_id.get(f"capacity_{safe_node}_high")
+        low_row = first_case_row(by_case_id, f"capacity_{safe_node}_low", f"local_capacity_node_{safe_node}_low")
+        high_row = first_case_row(by_case_id, f"capacity_{safe_node}_high", f"local_capacity_node_{safe_node}_high")
         if low_row is None and high_row is None:
             continue
-        low_label = multiplier_label(to_float(low_row.get("value")) if low_row else None, "Low")
-        high_label = multiplier_label(to_float(high_row.get("value")) if high_row else None, "High")
+        low_label = multiplier_label(case_multiplier_value(low_row), "Low")
+        high_label = multiplier_label(case_multiplier_value(high_row), "High")
         low_dir = case_output_dir(low_row)
         high_dir = case_output_dir(high_row)
 
@@ -929,7 +974,7 @@ def build_supplier_sensitivity_hover_images(
     csv_cache: dict[Path, list[dict[str, str]]],
 ) -> dict[str, Any]:
     by_case_id = case_rows_by_id(case_rows)
-    baseline_row = by_case_id.get("baseline")
+    baseline_row = baseline_sensitivity_row(by_case_id)
     baseline_dir = case_output_dir(baseline_row)
     if baseline_row is None or baseline_dir is None:
         return {}
@@ -945,8 +990,8 @@ def build_supplier_sensitivity_hover_images(
         )
         if best_low is None and best_high is None:
             continue
-        low_label = multiplier_label(to_float(best_low.get("value")) if best_low else None, "Low")
-        high_label = multiplier_label(to_float(best_high.get("value")) if best_high else None, "High")
+        low_label = multiplier_label(case_multiplier_value(best_low), "Low")
+        high_label = multiplier_label(case_multiplier_value(best_high), "High")
         low_dir = case_output_dir(best_low)
         high_dir = case_output_dir(best_high)
         base_ship_csv = baseline_dir / "production_supplier_shipments_daily.csv"
@@ -1040,7 +1085,7 @@ def build_distribution_center_sensitivity_hover_images(
     nodes = raw.get("nodes", []) or []
     incoming_items, outgoing_items = build_edge_item_sets(raw)
     by_case_id = case_rows_by_id(case_rows)
-    baseline_row = by_case_id.get("baseline")
+    baseline_row = baseline_sensitivity_row(by_case_id)
     baseline_dir = case_output_dir(baseline_row)
     if baseline_row is None or baseline_dir is None:
         return {}
@@ -1073,10 +1118,10 @@ def build_distribution_center_sensitivity_hover_images(
                     item_ids={item_id},
                 )
             )
-            low_row = by_case_id.get(f"demand_item_{code}_low")
-            high_row = by_case_id.get(f"demand_item_{code}_high")
-            low_label = multiplier_label(to_float(low_row.get("value")) if low_row else None, f"{code} low")
-            high_label = multiplier_label(to_float(high_row.get("value")) if high_row else None, f"{code} high")
+            low_row = first_case_row(by_case_id, f"demand_item_{code}_low", f"local_demand_item_item_{code}_low")
+            high_row = first_case_row(by_case_id, f"demand_item_{code}_high", f"local_demand_item_item_{code}_high")
+            low_label = multiplier_label(case_multiplier_value(low_row), f"{code} low")
+            high_label = multiplier_label(case_multiplier_value(high_row), f"{code} high")
             fill_values[f"{code} {low_label}"] = kpi_from_case(low_row, "fill_rate")
             fill_values[f"{code} {high_label}"] = kpi_from_case(high_row, "fill_rate")
             backlog_values[f"{code} {low_label}"] = kpi_from_case(low_row, "ending_backlog")
@@ -1479,6 +1524,231 @@ def build_structural_sensitivity_hover_payloads(
 
 def metric_label_value(label: str, value: Any) -> dict[str, str]:
     return {"label": label, "value": str(value)}
+
+
+def build_realistic_sensitivity_panel_metrics(
+    raw: dict[str, Any],
+    summary_json: Path,
+    local_elasticities_csv: Path,
+    stress_impacts_csv: Path,
+) -> dict[str, Any]:
+    local_rows = read_csv_rows(local_elasticities_csv)
+    stress_rows = read_csv_rows(stress_impacts_csv)
+    if not local_rows and not stress_rows and not summary_json.exists():
+        return {"nodes": {}, "global": {}}
+
+    try:
+        summary = json.loads(summary_json.read_text(encoding="utf-8")) if summary_json.exists() else {}
+    except Exception:
+        summary = {}
+
+    nodes = raw.get("nodes", []) or []
+    incoming_items, outgoing_items = build_edge_item_sets(raw)
+    node_item_ids: dict[str, set[str]] = defaultdict(set)
+    for node in nodes:
+        node_id = str(node.get("id") or "")
+        if not node_id:
+            continue
+        node_item_ids[node_id].update(incoming_items.get(node_id, set()))
+        node_item_ids[node_id].update(outgoing_items.get(node_id, set()))
+        inventory = node.get("inventory") or {}
+        for state in (inventory.get("states") or []):
+            item_id = str((state or {}).get("item_id") or "")
+            if item_id:
+                node_item_ids[node_id].add(item_id)
+        for process in (node.get("processes") or []):
+            for inp in (process.get("inputs") or []):
+                item_id = str((inp or {}).get("item_id") or "")
+                if item_id:
+                    node_item_ids[node_id].add(item_id)
+            for out in (process.get("outputs") or []):
+                item_id = str((out or {}).get("item_id") or "")
+                if item_id:
+                    node_item_ids[node_id].add(item_id)
+
+    def is_global_parameter(parameter_key: str) -> bool:
+        return "::" not in parameter_key
+
+    def row_scope(parameter_key: str, node_id: str) -> str | None:
+        if parameter_key.endswith(f"::{node_id}"):
+            return "direct"
+        if parameter_key.startswith("demand_item::") and parameter_key.split("::", 1)[1] in node_item_ids.get(node_id, set()):
+            return "item"
+        return None
+
+    def safe_abs(value: Any) -> float:
+        num = to_float(value)
+        if num is None or math.isnan(num):
+            return 0.0
+        return abs(num)
+
+    def choose_local_global(kpi: str) -> dict[str, str] | None:
+        candidates = [
+            row
+            for row in local_rows
+            if str(row.get("kpi") or "") == kpi and is_global_parameter(str(row.get("parameter_key") or ""))
+        ]
+        if not candidates:
+            return None
+        return max(candidates, key=lambda row: safe_abs(row.get("abs_elasticity")))
+
+    def choose_stress_global(kpi: str) -> dict[str, str] | None:
+        delta_field = f"delta::{kpi}"
+        candidates = [
+            row
+            for row in stress_rows
+            if is_global_parameter(str(row.get("parameter_key") or ""))
+        ]
+        if not candidates:
+            return None
+        return max(candidates, key=lambda row: safe_abs(row.get(delta_field)))
+
+    def choose_node_local(node_id: str, kpi: str) -> dict[str, str] | None:
+        candidates = []
+        for row in local_rows:
+            if str(row.get("kpi") or "") != kpi:
+                continue
+            scope = row_scope(str(row.get("parameter_key") or ""), node_id)
+            if not scope:
+                continue
+            candidates.append((0 if scope == "direct" else 1, safe_abs(row.get("abs_elasticity")), row))
+        if not candidates:
+            return None
+        candidates.sort(key=lambda item: (item[0], -item[1]))
+        return candidates[0][2]
+
+    def choose_node_stress(node_id: str, kpi: str) -> dict[str, str] | None:
+        delta_field = f"delta::{kpi}"
+        candidates = []
+        for row in stress_rows:
+            scope = row_scope(str(row.get("parameter_key") or ""), node_id)
+            if not scope:
+                continue
+            candidates.append((0 if scope == "direct" else 1, safe_abs(row.get(delta_field)), row))
+        if not candidates:
+            return None
+        candidates.sort(key=lambda item: (item[0], -item[1]))
+        return candidates[0][2]
+
+    baseline = summary.get("baseline", {}) if isinstance(summary, dict) else {}
+    baseline_fill = to_float((baseline or {}).get("fill_rate"))
+    baseline_backlog = to_float((baseline or {}).get("ending_backlog"))
+    baseline_cost = to_float((baseline or {}).get("total_cost"))
+
+    def fmt_fill(value: float | None) -> str:
+        if value is None:
+            return "n/a"
+        return f"{value * 100:.1f}%"
+
+    def fmt_backlog(value: float | None) -> str:
+        if value is None:
+            return "n/a"
+        return f"{value:,.0f}".replace(",", " ")
+
+    def fmt_money(value: float | None) -> str:
+        if value is None:
+            return "n/a"
+        abs_value = abs(value)
+        if abs_value >= 1_000_000:
+            return f"{value / 1_000_000:.2f} M"
+        if abs_value >= 1_000:
+            return f"{value / 1_000:.1f} k"
+        return f"{value:.0f}"
+
+    def describe_local(row: dict[str, str] | None, *, kpi: str) -> str:
+        if not row:
+            return "n/a"
+        label = str(row.get("parameter_label") or row.get("parameter_key") or "").strip()
+        elasticity = to_float(row.get("abs_elasticity"))
+        if elasticity is None or math.isnan(elasticity):
+            return label or "n/a"
+        suffix = ""
+        if str(row.get("parameter_key") or "").startswith("demand_item::"):
+            suffix = " (via produit)"
+        return f"{label}{suffix} | e={elasticity:.3f}"
+
+    def describe_stress(row: dict[str, str] | None, *, kpi: str) -> str:
+        if not row:
+            return "n/a"
+        label = str(row.get("parameter_label") or row.get("parameter_key") or "").strip()
+        delta = to_float(row.get(f"delta::{kpi}"))
+        if delta is None or math.isnan(delta):
+            return label or "n/a"
+        if kpi == "fill_rate":
+            value = f"{delta * 100:+.1f} pts"
+        elif kpi == "ending_backlog":
+            value = f"{delta:+,.0f}".replace(",", " ")
+        else:
+            value = f"{fmt_money(delta)}"
+            if not value.startswith("-") and not value.startswith("+"):
+                value = f"+{value}"
+        suffix = ""
+        if str(row.get("parameter_key") or "").startswith("demand_item::"):
+            suffix = " (via produit)"
+        return f"{label}{suffix} | {value}"
+
+    global_fill_local = choose_local_global("fill_rate")
+    global_fill_stress = choose_stress_global("fill_rate")
+    global_cost_local = choose_local_global("total_cost")
+    global_cost_stress = choose_stress_global("total_cost")
+
+    def classify_node(node_id: str) -> str:
+        service_stress = safe_abs((choose_node_stress(node_id, "fill_rate") or {}).get("delta::fill_rate"))
+        backlog_stress = safe_abs((choose_node_stress(node_id, "ending_backlog") or {}).get("delta::ending_backlog"))
+        cost_stress = safe_abs((choose_node_stress(node_id, "total_cost") or {}).get("delta::total_cost"))
+        service_elasticity = safe_abs((choose_node_local(node_id, "fill_rate") or {}).get("abs_elasticity"))
+        cost_elasticity = safe_abs((choose_node_local(node_id, "total_cost") or {}).get("abs_elasticity"))
+        if service_stress >= 0.05 or backlog_stress >= 1000 or service_elasticity >= 0.05:
+            return "Critique service"
+        if cost_stress >= 250_000 or cost_elasticity >= 0.20:
+            return "Critique cout"
+        if service_stress >= 0.01 or backlog_stress >= 250 or cost_stress >= 25_000:
+            return "Surveiller"
+        return "Impact local faible"
+
+    nodes_payload: dict[str, Any] = {}
+    for node in nodes:
+        node_id = str(node.get("id") or "")
+        if not node_id:
+            continue
+        local_fill = choose_node_local(node_id, "fill_rate")
+        stress_fill = choose_node_stress(node_id, "fill_rate")
+        local_backlog = choose_node_local(node_id, "ending_backlog")
+        stress_backlog = choose_node_stress(node_id, "ending_backlog")
+        local_cost = choose_node_local(node_id, "total_cost")
+        stress_cost = choose_node_stress(node_id, "total_cost")
+        nodes_payload[node_id] = {
+            "title": "Sensibilite realiste annuelle",
+            "summary_lines": [
+                metric_label_value(
+                    "Baseline",
+                    f"FR {fmt_fill(baseline_fill)} | backlog {fmt_backlog(baseline_backlog)} | cout {fmt_money(baseline_cost)}",
+                ),
+                metric_label_value("Service global", describe_stress(global_fill_stress, kpi="fill_rate")),
+                metric_label_value("Service lie", describe_stress(stress_fill, kpi="fill_rate")),
+                metric_label_value("Elasticite service", describe_local(local_fill, kpi="fill_rate")),
+                metric_label_value("Backlog lie", describe_stress(stress_backlog, kpi="ending_backlog")),
+                metric_label_value("Cout global", describe_stress(global_cost_stress, kpi="total_cost")),
+                metric_label_value("Cout lie", describe_stress(stress_cost, kpi="total_cost")),
+                metric_label_value("Elasticite cout", describe_local(local_cost, kpi="total_cost")),
+                metric_label_value("Statut", classify_node(node_id)),
+            ],
+        }
+
+    global_payload = {
+        "title": "Sensibilite realiste annuelle",
+        "summary_lines": [
+            metric_label_value(
+                "Baseline",
+                f"FR {fmt_fill(baseline_fill)} | backlog {fmt_backlog(baseline_backlog)} | cout {fmt_money(baseline_cost)}",
+            ),
+            metric_label_value("Service global", describe_stress(global_fill_stress, kpi="fill_rate")),
+            metric_label_value("Elasticite service", describe_local(global_fill_local, kpi="fill_rate")),
+            metric_label_value("Cout global", describe_stress(global_cost_stress, kpi="total_cost")),
+            metric_label_value("Elasticite cout", describe_local(global_cost_local, kpi="total_cost")),
+        ],
+    }
+    return {"nodes": nodes_payload, "global": global_payload}
 
 
 def build_supplier_local_criticality(
@@ -2112,6 +2382,7 @@ def html_template(title: str, data_json: str) -> str:
     const SUPPLIER_STRUCTURAL_HOVER_IMAGES = DATA.supplier_structural_hover_images || {{}};
     const DC_STRUCTURAL_HOVER_IMAGES = DATA.distribution_center_structural_hover_images || {{}};
     const SUPPLIER_LOCAL_METRICS = DATA.supplier_local_metrics || {{}};
+    const REALISTIC_SENSITIVITY = DATA.realistic_sensitivity || {{ nodes: {{}}, global: {{}} }};
     const nodeById = Object.fromEntries((DATA.nodes || []).map(n => [n.id, n]));
     const defaultPalette = ["#1f77b4", "#d62728", "#ff7f0e", "#2ca02c", "#9467bd", "#8c564b"];
     let currentFactoryHoverId = null;
@@ -2365,14 +2636,38 @@ def html_template(title: str, data_json: str) -> str:
       const metaTitle = document.getElementById("panelMetaTitle");
       const metaGrid = document.getElementById("panelMetaGrid");
       metaGrid.innerHTML = "";
+      if (currentPanelMode === "sensitivity") {{
+        const nodeMetrics = (REALISTIC_SENSITIVITY.nodes || {{}})[nodeId] || null;
+        const metrics = nodeMetrics || REALISTIC_SENSITIVITY.global || null;
+        if (!metrics || !Array.isArray(metrics.summary_lines) || !metrics.summary_lines.length) {{
+          metaBlock.style.display = "none";
+          return false;
+        }}
+        metaTitle.textContent = metrics.title || "Sensibilite realiste";
+        metrics.summary_lines.forEach((entry) => {{
+          const row = document.createElement("div");
+          row.className = "panelMetaRow";
+          const label = document.createElement("div");
+          label.className = "panelMetaLabel";
+          label.textContent = entry.label || "";
+          const value = document.createElement("div");
+          value.className = "panelMetaValue";
+          value.textContent = entry.value || "";
+          row.appendChild(label);
+          row.appendChild(value);
+          metaGrid.appendChild(row);
+        }});
+        metaBlock.style.display = "block";
+        return true;
+      }}
       if (nodeType !== "supplier_dc") {{
         metaBlock.style.display = "none";
-        return;
+        return false;
       }}
       const metrics = SUPPLIER_LOCAL_METRICS[nodeId] || null;
       if (!metrics || !Array.isArray(metrics.summary_lines) || !metrics.summary_lines.length) {{
         metaBlock.style.display = "none";
-        return;
+        return false;
       }}
       metaTitle.textContent = "Criticite locale fournisseur";
       metrics.summary_lines.forEach((entry) => {{
@@ -2389,6 +2684,7 @@ def html_template(title: str, data_json: str) -> str:
         metaGrid.appendChild(row);
       }});
       metaBlock.style.display = "block";
+      return true;
     }}
 
     function panelLabels(nodeType) {{
@@ -2454,11 +2750,7 @@ def html_template(title: str, data_json: str) -> str:
     }}
 
     function showFactoryPanel(nodeId, nodeType, panelState) {{
-      const images = panelImages(nodeId, nodeType);
-      if (!images) {{
-        hideFactoryPanel();
-        return;
-      }}
+      const images = panelImages(nodeId, nodeType) || {{}};
 
       const panel = document.getElementById("factoryHoverPanel");
       const title = document.getElementById("factoryHoverTitle");
@@ -2490,7 +2782,7 @@ def html_template(title: str, data_json: str) -> str:
       const labels = panelLabels(nodeType);
       incomingLabel.textContent = labels.incoming;
       outgoingLabel.textContent = labels.outgoing;
-      renderPanelMeta(nodeId, nodeType);
+      const hasMeta = renderPanelMeta(nodeId, nodeType);
 
       const incomingImageInfo = images.incoming || null;
       const outgoingImageInfo = images.outgoing || null;
@@ -2517,6 +2809,10 @@ def html_template(title: str, data_json: str) -> str:
         outgoingImg.style.display = "none";
       }}
 
+      if (!visibleCount && !hasMeta) {{
+        hideFactoryPanel();
+        return;
+      }}
       noImg.style.display = visibleCount ? "none" : "block";
       currentFactoryHoverId = nodeId;
       currentFactoryHoverType = nodeType;
@@ -2639,6 +2935,21 @@ def main() -> None:
     structural_sensitivity_cases_csv = Path(args.structural_sensitivity_cases_csv)
     supplier_local_criticality_csv = Path(args.supplier_local_criticality_csv)
     supplier_local_criticality_json = Path(args.supplier_local_criticality_json)
+    realistic_sensitivity_summary_json = (
+        Path(args.realistic_sensitivity_summary_json)
+        if args.realistic_sensitivity_summary_json
+        else Path("__missing_realistic_sensitivity_summary__.json")
+    )
+    realistic_local_elasticities_csv = (
+        Path(args.realistic_local_elasticities_csv)
+        if args.realistic_local_elasticities_csv
+        else Path("__missing_realistic_local_elasticities__.csv")
+    )
+    realistic_stress_impacts_csv = (
+        Path(args.realistic_stress_impacts_csv)
+        if args.realistic_stress_impacts_csv
+        else Path("__missing_realistic_stress_impacts__.csv")
+    )
     out_path.parent.mkdir(parents=True, exist_ok=True)
     supplier_local_criticality_csv.parent.mkdir(parents=True, exist_ok=True)
     supplier_local_criticality_json.parent.mkdir(parents=True, exist_ok=True)
@@ -2672,6 +2983,12 @@ def main() -> None:
             production_constraint_csv,
             sensitivity_cases_csv,
             structural_sensitivity_cases_csv,
+        )
+        payload["realistic_sensitivity"] = build_realistic_sensitivity_panel_metrics(
+            raw,
+            realistic_sensitivity_summary_json,
+            realistic_local_elasticities_csv,
+            realistic_stress_impacts_csv,
         )
     except Exception as exc:
         print(f"[ERROR] Unable to read/parse input JSON: {exc}", file=sys.stderr)
