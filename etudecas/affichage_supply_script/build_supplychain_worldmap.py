@@ -124,6 +124,21 @@ def parse_args() -> argparse.Namespace:
         default="",
         help="Optional realistic annual stress impacts CSV.",
     )
+    parser.add_argument(
+        "--threshold-sensitivity-summary-json",
+        default="",
+        help="Optional threshold-oriented annual sensitivity summary JSON.",
+    )
+    parser.add_argument(
+        "--threshold-parameter-summary-csv",
+        default="",
+        help="Optional threshold-oriented annual parameter summary CSV.",
+    )
+    parser.add_argument(
+        "--threshold-sweep-cases-csv",
+        default="",
+        help="Optional threshold-oriented annual sweep cases CSV.",
+    )
     return parser.parse_args()
 
 
@@ -1752,6 +1767,480 @@ def build_realistic_sensitivity_panel_metrics(
     return {"nodes": nodes_payload, "global": global_payload, "selected_suppliers": selected_suppliers}
 
 
+def build_threshold_sensitivity_panel_metrics(
+    raw: dict[str, Any],
+    summary_json: Path,
+    parameter_summary_csv: Path,
+) -> dict[str, Any]:
+    rows = read_csv_rows(parameter_summary_csv)
+    if not rows and not summary_json.exists():
+        return {"nodes": {}, "global": {}, "selected_suppliers": []}
+
+    try:
+        summary = json.loads(summary_json.read_text(encoding="utf-8")) if summary_json.exists() else {}
+    except Exception:
+        summary = {}
+
+    nodes = raw.get("nodes", []) or []
+    incoming_items, outgoing_items = build_edge_item_sets(raw)
+    node_item_ids: dict[str, set[str]] = defaultdict(set)
+    for node in nodes:
+        node_id = str(node.get("id") or "")
+        if not node_id:
+            continue
+        node_item_ids[node_id].update(incoming_items.get(node_id, set()))
+        node_item_ids[node_id].update(outgoing_items.get(node_id, set()))
+        inventory = node.get("inventory") or {}
+        for state in (inventory.get("states") or []):
+            item_id = str((state or {}).get("item_id") or "")
+            if item_id:
+                node_item_ids[node_id].add(item_id)
+        for process in (node.get("processes") or []):
+            for inp in (process.get("inputs") or []):
+                item_id = str((inp or {}).get("item_id") or "")
+                if item_id:
+                    node_item_ids[node_id].add(item_id)
+            for out in (process.get("outputs") or []):
+                item_id = str((out or {}).get("item_id") or "")
+                if item_id:
+                    node_item_ids[node_id].add(item_id)
+
+    def metric(label: str, value: Any, *, section: bool = False) -> dict[str, Any]:
+        return {"label": label, "value": str(value), "section": section}
+
+    def safe_float(value: Any) -> float | None:
+        num = to_float(value)
+        if num is None or math.isnan(num):
+            return None
+        return float(num)
+
+    def fmt_fill(value: float | None) -> str:
+        if value is None:
+            return "n/a"
+        return f"{value * 100:.1f}%"
+
+    def fmt_backlog(value: float | None) -> str:
+        if value is None:
+            return "n/a"
+        return f"{value:,.0f}".replace(",", " ")
+
+    def fmt_money(value: float | None) -> str:
+        if value is None:
+            return "n/a"
+        abs_value = abs(value)
+        if abs_value >= 1_000_000:
+            return f"{value / 1_000_000:.2f} M"
+        if abs_value >= 1_000:
+            return f"{value / 1_000:.1f} k"
+        return f"{value:.0f}"
+
+    def fmt_level(value: float | None) -> str:
+        if value is None:
+            return "n/a"
+        return f"x{value:.2f}"
+
+    def side_label(row: dict[str, str]) -> str:
+        mono = str(row.get("fill_rate_monotonicity") or "").strip().lower()
+        cross = safe_float(row.get("fill_rate_cross_service_threshold_at"))
+        if cross is None:
+            return "pas de rupture dans le sweep"
+        if mono == "increasing":
+            return f"rupture si < {fmt_level(cross)}"
+        if mono == "decreasing":
+            return f"rupture si > {fmt_level(cross)}"
+        return f"rupture autour de {fmt_level(cross)}"
+
+    def safe_band_label(row: dict[str, str]) -> str:
+        low = safe_float(row.get("safe_band_low"))
+        high = safe_float(row.get("safe_band_high"))
+        if low is None and high is None:
+            return "aucune bande sure identifiee"
+        if low is None:
+            return f"<= {fmt_level(high)}"
+        if high is None:
+            return f">= {fmt_level(low)}"
+        return f"{fmt_level(low)} a {fmt_level(high)}"
+
+    def max_fill_drop_pts(row: dict[str, str]) -> str:
+        value = safe_float(row.get("max_fill_rate_drop"))
+        if value is None:
+            return "n/a"
+        return f"{value * 100:.1f} pts"
+
+    def steepest_segment_label(row: dict[str, str]) -> str:
+        raw_segment = str(row.get("steepest_fill_segment") or "").strip()
+        if not raw_segment:
+            return "n/a"
+        try:
+            values = json.loads(raw_segment)
+            if isinstance(values, list) and len(values) == 2:
+                return f"{fmt_level(safe_float(values[0]))} -> {fmt_level(safe_float(values[1]))}"
+        except Exception:
+            pass
+        return raw_segment
+
+    def is_global_parameter(parameter_key: str) -> bool:
+        return "::" not in parameter_key
+
+    def row_scope(row: dict[str, str], node_id: str) -> str | None:
+        parameter_key = str(row.get("parameter_key") or "")
+        if parameter_key.endswith(f"::{node_id}"):
+            return "direct"
+        if (
+            parameter_key.startswith("demand_item::")
+            and parameter_key.split("::", 1)[1] in node_item_ids.get(node_id, set())
+        ):
+            return "item"
+        return None
+
+    def row_rank(row: dict[str, str], node_id: str) -> tuple[float, int, float]:
+        cross = safe_float(row.get("fill_rate_cross_service_threshold_at"))
+        max_drop = safe_float(row.get("max_fill_rate_drop")) or 0.0
+        scope = row_scope(row, node_id)
+        scope_rank = 0 if scope == "direct" else 1
+        if cross is None:
+            return (999.0, scope_rank, -max_drop)
+        return (abs(cross - 1.0), scope_rank, -max_drop)
+
+    def choose_global_best() -> dict[str, str] | None:
+        candidates = [row for row in rows if is_global_parameter(str(row.get("parameter_key") or ""))]
+        if not candidates:
+            return None
+        candidates.sort(
+            key=lambda row: (
+                999.0 if safe_float(row.get("fill_rate_cross_service_threshold_at")) is None else abs(
+                    (safe_float(row.get("fill_rate_cross_service_threshold_at")) or 1.0) - 1.0
+                ),
+                -(safe_float(row.get("max_fill_rate_drop")) or 0.0),
+                str(row.get("parameter_label") or ""),
+            )
+        )
+        return candidates[0]
+
+    def choose_node_best(node_id: str) -> dict[str, str] | None:
+        candidates = [row for row in rows if row_scope(row, node_id)]
+        if not candidates:
+            return None
+        candidates.sort(key=lambda row: row_rank(row, node_id))
+        return candidates[0]
+
+    def classify(row: dict[str, str] | None) -> str:
+        if not row:
+            return "Pas de signal seuil"
+        cross = safe_float(row.get("fill_rate_cross_service_threshold_at"))
+        max_drop = safe_float(row.get("max_fill_rate_drop")) or 0.0
+        if cross is not None and abs(cross - 1.0) <= 0.10:
+            return "Critique"
+        if cross is not None and abs(cross - 1.0) <= 0.25:
+            return "Sensible"
+        if max_drop >= 0.05:
+            return "A surveiller"
+        return "Robuste localement"
+
+    baseline = summary.get("baseline", {}) if isinstance(summary, dict) else {}
+    baseline_fill = safe_float((baseline or {}).get("kpi::fill_rate"))
+    baseline_backlog = safe_float((baseline or {}).get("kpi::ending_backlog"))
+    baseline_cost = safe_float((baseline or {}).get("kpi::total_cost"))
+    service_threshold = safe_float(summary.get("service_threshold")) or 0.95
+    selected_suppliers = summary.get("selected_suppliers", []) if isinstance(summary, dict) else []
+
+    global_best = choose_global_best()
+    global_payload = {
+        "title": "Seuils annuels",
+        "summary_lines": [
+            metric(
+                "Baseline",
+                f"FR {fmt_fill(baseline_fill)} | backlog {fmt_backlog(baseline_backlog)} | cout {fmt_money(baseline_cost)}",
+            ),
+            metric("Service cible", fmt_fill(service_threshold)),
+            metric("Levier global critique", str((global_best or {}).get("parameter_label") or "n/a")),
+            metric("Point de bascule", side_label(global_best or {})),
+            metric("Bande sure", safe_band_label(global_best or {})),
+            metric("Max fill drop", max_fill_drop_pts(global_best or {})),
+            metric("Segment le plus raide", steepest_segment_label(global_best or {})),
+            metric("Statut", classify(global_best)),
+        ],
+    }
+
+    nodes_payload: dict[str, Any] = {}
+    for node in nodes:
+        node_id = str(node.get("id") or "")
+        if not node_id:
+            continue
+        best_row = choose_node_best(node_id)
+        if best_row is None:
+            continue
+        nodes_payload[node_id] = {
+            "title": "Seuils annuels",
+            "summary_lines": [
+                metric(
+                    "Baseline",
+                    f"FR {fmt_fill(baseline_fill)} | backlog {fmt_backlog(baseline_backlog)} | cout {fmt_money(baseline_cost)}",
+                ),
+                metric("Service cible", fmt_fill(service_threshold)),
+                metric("Driver critique", str(best_row.get("parameter_label") or "n/a")),
+                metric("Point de bascule", side_label(best_row)),
+                metric("Bande sure", safe_band_label(best_row)),
+                metric("Max fill drop", max_fill_drop_pts(best_row)),
+                metric("Segment le plus raide", steepest_segment_label(best_row)),
+                metric("Statut", classify(best_row)),
+            ],
+        }
+
+    return {"nodes": nodes_payload, "global": global_payload, "selected_suppliers": selected_suppliers}
+
+
+def build_node_item_ids(raw: dict[str, Any]) -> dict[str, set[str]]:
+    nodes = raw.get("nodes", []) or []
+    incoming_items, outgoing_items = build_edge_item_sets(raw)
+    node_item_ids: dict[str, set[str]] = defaultdict(set)
+    for node in nodes:
+        node_id = str(node.get("id") or "")
+        if not node_id:
+            continue
+        node_item_ids[node_id].update(incoming_items.get(node_id, set()))
+        node_item_ids[node_id].update(outgoing_items.get(node_id, set()))
+        inventory = node.get("inventory") or {}
+        for state in (inventory.get("states") or []):
+            item_id = str((state or {}).get("item_id") or "")
+            if item_id:
+                node_item_ids[node_id].add(item_id)
+        for process in (node.get("processes") or []):
+            for inp in (process.get("inputs") or []):
+                item_id = str((inp or {}).get("item_id") or "")
+                if item_id:
+                    node_item_ids[node_id].add(item_id)
+            for out in (process.get("outputs") or []):
+                item_id = str((out or {}).get("item_id") or "")
+                if item_id:
+                    node_item_ids[node_id].add(item_id)
+    return node_item_ids
+
+
+def threshold_row_scope(
+    row: dict[str, str],
+    node_id: str,
+    node_item_ids: dict[str, set[str]],
+) -> str | None:
+    parameter_key = str(row.get("parameter_key") or "")
+    if parameter_key.endswith(f"::{node_id}"):
+        return "direct"
+    if parameter_key.startswith("demand_item::"):
+        item_id = parameter_key.split("::", 1)[1]
+        if item_id in node_item_ids.get(node_id, set()):
+            return "item"
+    return None
+
+
+def select_best_threshold_parameter_row(
+    summary_rows: list[dict[str, str]],
+    node_id: str,
+    node_item_ids: dict[str, set[str]],
+) -> dict[str, str] | None:
+    candidates = []
+    for row in summary_rows:
+        scope = threshold_row_scope(row, node_id, node_item_ids)
+        if not scope:
+            continue
+        cross = to_float(row.get("fill_rate_cross_service_threshold_at"))
+        max_drop = to_float(row.get("max_fill_rate_drop")) or 0.0
+        scope_rank = 0 if scope == "direct" else 1
+        cross_rank = 999.0 if cross is None or math.isnan(cross) else abs(cross - 1.0)
+        candidates.append((cross_rank, scope_rank, -max_drop, str(row.get("parameter_label") or ""), row))
+    if not candidates:
+        return None
+    candidates.sort(key=lambda item: (item[0], item[1], item[2], item[3]))
+    return candidates[0][4]
+
+
+def build_threshold_metric_curve_payload(
+    parameter_rows: list[dict[str, str]],
+    *,
+    parameter_label: str,
+    filename: str,
+    service_threshold: float | None,
+) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
+    usable_rows = []
+    for row in parameter_rows:
+        level = to_float(row.get("level"))
+        if level is None or math.isnan(level):
+            continue
+        usable_rows.append((float(level), row))
+    usable_rows.sort(key=lambda item: item[0])
+    if len(usable_rows) < 2:
+        return None, None
+
+    try:
+        import matplotlib
+
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt  # type: ignore
+    except Exception:
+        return None, None
+
+    x = [level for level, _ in usable_rows]
+    fill = [float(to_float(row.get("kpi::fill_rate")) or 0.0) for _, row in usable_rows]
+    backlog = [float(to_float(row.get("kpi::ending_backlog")) or 0.0) for _, row in usable_rows]
+    total_cost = [float(to_float(row.get("kpi::total_cost")) or 0.0) for _, row in usable_rows]
+    avg_inventory = [float(to_float(row.get("kpi::avg_inventory")) or 0.0) for _, row in usable_rows]
+
+    base_fill = None
+    base_backlog = None
+    base_cost = None
+    base_inventory = None
+    for level, row in usable_rows:
+        if abs(level - 1.0) <= 1e-9:
+            base_fill = float(to_float(row.get("kpi::fill_rate")) or 0.0)
+            base_backlog = float(to_float(row.get("kpi::ending_backlog")) or 0.0)
+            base_cost = float(to_float(row.get("kpi::total_cost")) or 0.0)
+            base_inventory = float(to_float(row.get("kpi::avg_inventory")) or 0.0)
+            break
+
+    def format_level(value: float) -> str:
+        return f"x{value:.2f}"
+
+    incoming_fig, incoming_axes = plt.subplots(2, 1, figsize=(9.2, 7.0), sharex=True)
+    incoming_fig.patch.set_facecolor("#ffffff")
+    ax_fill = incoming_axes[0]
+    ax_fill.plot(x, fill, color="#2563eb", marker="o", linewidth=2.2)
+    if service_threshold is not None and not math.isnan(service_threshold):
+        ax_fill.axhline(service_threshold, color="#dc2626", linestyle="--", linewidth=1.2)
+    ax_fill.axvline(1.0, color="#64748b", linestyle=":", linewidth=1.1)
+    if base_fill is not None:
+        ax_fill.axhline(base_fill, color="#0f766e", linestyle=":", linewidth=1.0)
+    ax_fill.set_ylabel("Fill rate")
+    ax_fill.set_title(f"{parameter_label} - service", fontsize=12, pad=10)
+    ax_fill.grid(True, color="#e2e8f0", linewidth=0.9)
+    ax_fill.set_facecolor("#ffffff")
+
+    ax_backlog = incoming_axes[1]
+    ax_backlog.plot(x, backlog, color="#d97706", marker="o", linewidth=2.2)
+    ax_backlog.axvline(1.0, color="#64748b", linestyle=":", linewidth=1.1)
+    if base_backlog is not None:
+        ax_backlog.axhline(base_backlog, color="#0f766e", linestyle=":", linewidth=1.0)
+    ax_backlog.set_ylabel("Backlog")
+    ax_backlog.set_xlabel("Niveau du parametre")
+    ax_backlog.set_xticks(x)
+    ax_backlog.set_xticklabels([format_level(v) for v in x], rotation=0)
+    ax_backlog.set_title(f"{parameter_label} - backlog final", fontsize=11, pad=8)
+    ax_backlog.grid(True, color="#e2e8f0", linewidth=0.9)
+    ax_backlog.set_facecolor("#ffffff")
+    incoming_fig.tight_layout()
+    incoming_buf = io.BytesIO()
+    incoming_fig.savefig(incoming_buf, format="png", dpi=150, bbox_inches="tight")
+    plt.close(incoming_fig)
+    incoming_payload = png_payload_from_bytes(incoming_buf.getvalue(), filename.replace(".png", "_service.png"))
+
+    outgoing_fig, outgoing_axes = plt.subplots(2, 1, figsize=(9.2, 7.0), sharex=True)
+    outgoing_fig.patch.set_facecolor("#ffffff")
+    ax_cost = outgoing_axes[0]
+    ax_cost.plot(x, total_cost, color="#7c3aed", marker="o", linewidth=2.2)
+    ax_cost.axvline(1.0, color="#64748b", linestyle=":", linewidth=1.1)
+    if base_cost is not None:
+        ax_cost.axhline(base_cost, color="#0f766e", linestyle=":", linewidth=1.0)
+    ax_cost.set_ylabel("Cout total")
+    ax_cost.set_title(f"{parameter_label} - cout", fontsize=12, pad=10)
+    ax_cost.grid(True, color="#e2e8f0", linewidth=0.9)
+    ax_cost.set_facecolor("#ffffff")
+
+    ax_inv = outgoing_axes[1]
+    ax_inv.plot(x, avg_inventory, color="#0f766e", marker="o", linewidth=2.2)
+    ax_inv.axvline(1.0, color="#64748b", linestyle=":", linewidth=1.1)
+    if base_inventory is not None:
+        ax_inv.axhline(base_inventory, color="#2563eb", linestyle=":", linewidth=1.0)
+    ax_inv.set_ylabel("Inventaire moyen")
+    ax_inv.set_xlabel("Niveau du parametre")
+    ax_inv.set_xticks(x)
+    ax_inv.set_xticklabels([format_level(v) for v in x], rotation=0)
+    ax_inv.set_title(f"{parameter_label} - inventaire", fontsize=11, pad=8)
+    ax_inv.grid(True, color="#e2e8f0", linewidth=0.9)
+    ax_inv.set_facecolor("#ffffff")
+    outgoing_fig.tight_layout()
+    outgoing_buf = io.BytesIO()
+    outgoing_fig.savefig(outgoing_buf, format="png", dpi=150, bbox_inches="tight")
+    plt.close(outgoing_fig)
+    outgoing_payload = png_payload_from_bytes(outgoing_buf.getvalue(), filename.replace(".png", "_economic.png"))
+
+    return incoming_payload, outgoing_payload
+
+
+def build_threshold_hover_payloads(
+    raw: dict[str, Any],
+    threshold_parameter_summary_csv: Path,
+    threshold_sweep_cases_csv: Path,
+    threshold_summary_json: Path,
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+    summary_rows = read_csv_rows(threshold_parameter_summary_csv)
+    case_rows = read_csv_rows(threshold_sweep_cases_csv)
+    if not summary_rows or not case_rows:
+        return {}, {}, {}
+
+    try:
+        summary = json.loads(threshold_summary_json.read_text(encoding="utf-8")) if threshold_summary_json.exists() else {}
+    except Exception:
+        summary = {}
+    service_threshold = to_float(summary.get("service_threshold"))
+
+    node_item_ids = build_node_item_ids(raw)
+    case_rows_by_param: dict[str, list[dict[str, str]]] = defaultdict(list)
+    for row in case_rows:
+        if str(row.get("status") or "").lower() != "ok":
+            continue
+        parameter_key = str(row.get("parameter_key") or "")
+        if not parameter_key or parameter_key == "baseline":
+            continue
+        case_rows_by_param[parameter_key].append(row)
+
+    factory_out: dict[str, Any] = {}
+    supplier_out: dict[str, Any] = {}
+    dc_out: dict[str, Any] = {}
+
+    for node in raw.get("nodes", []) or []:
+        node_id = str(node.get("id") or "")
+        node_type = str(node.get("type") or "")
+        if node_type not in {"factory", "supplier_dc", "distribution_center"}:
+            continue
+        best_row = select_best_threshold_parameter_row(summary_rows, node_id, node_item_ids)
+        if best_row is None:
+            continue
+        parameter_key = str(best_row.get("parameter_key") or "")
+        parameter_label = str(best_row.get("parameter_label") or parameter_key)
+        parameter_cases = case_rows_by_param.get(parameter_key, [])
+        incoming, outgoing = build_threshold_metric_curve_payload(
+            parameter_cases,
+            parameter_label=parameter_label,
+            filename=f"{safe_case_token(node_id)}_threshold.png",
+            service_threshold=service_threshold,
+        )
+        if not incoming and not outgoing:
+            continue
+        payload = {"incoming": incoming, "outgoing": outgoing}
+        if node_type == "factory":
+            factory_out[node_id] = payload
+        elif node_type == "supplier_dc":
+            supplier_out[node_id] = payload
+        else:
+            dc_out[node_id] = payload
+
+    return factory_out, supplier_out, dc_out
+
+
+def merge_hover_payload_maps(
+    primary: dict[str, Any],
+    fallback: dict[str, Any],
+) -> dict[str, Any]:
+    merged: dict[str, Any] = {}
+    node_ids = set(primary) | set(fallback)
+    for node_id in node_ids:
+        primary_payload = primary.get(node_id) or {}
+        fallback_payload = fallback.get(node_id) or {}
+        incoming = primary_payload.get("incoming") or fallback_payload.get("incoming")
+        outgoing = primary_payload.get("outgoing") or fallback_payload.get("outgoing")
+        if incoming or outgoing:
+            merged[node_id] = {"incoming": incoming, "outgoing": outgoing}
+    return merged
+
+
 def build_supplier_local_criticality(
     raw: dict[str, Any],
     supplier_shipments_csv: Path,
@@ -2384,6 +2873,7 @@ def html_template(title: str, data_json: str) -> str:
     const DC_STRUCTURAL_HOVER_IMAGES = DATA.distribution_center_structural_hover_images || {{}};
     const SUPPLIER_LOCAL_METRICS = DATA.supplier_local_metrics || {{}};
     const REALISTIC_SENSITIVITY = DATA.realistic_sensitivity || {{ nodes: {{}}, global: {{}}, selected_suppliers: [] }};
+    const THRESHOLD_SENSITIVITY = DATA.threshold_sensitivity || {{ nodes: {{}}, global: {{}}, selected_suppliers: [] }};
     const nodeById = Object.fromEntries((DATA.nodes || []).map(n => [n.id, n]));
     const defaultPalette = ["#1f77b4", "#d62728", "#ff7f0e", "#2ca02c", "#9467bd", "#8c564b"];
     let currentFactoryHoverId = null;
@@ -2638,14 +3128,30 @@ def html_template(title: str, data_json: str) -> str:
       const metaGrid = document.getElementById("panelMetaGrid");
       metaGrid.innerHTML = "";
       if (currentPanelMode === "sensitivity") {{
-        const nodeMetrics = (REALISTIC_SENSITIVITY.nodes || {{}})[nodeId] || null;
-        const metrics = nodeMetrics || REALISTIC_SENSITIVITY.global || null;
-        if (!metrics || !Array.isArray(metrics.summary_lines) || !metrics.summary_lines.length) {{
+        const thresholdNodeMetrics = (THRESHOLD_SENSITIVITY.nodes || {{}})[nodeId] || null;
+        const thresholdMetrics = thresholdNodeMetrics || THRESHOLD_SENSITIVITY.global || null;
+        const realisticNodeMetrics = (REALISTIC_SENSITIVITY.nodes || {{}})[nodeId] || null;
+        const realisticMetrics = realisticNodeMetrics || REALISTIC_SENSITIVITY.global || null;
+        const thresholdLines = (thresholdMetrics && Array.isArray(thresholdMetrics.summary_lines)) ? thresholdMetrics.summary_lines : [];
+        const realisticLines = (realisticMetrics && Array.isArray(realisticMetrics.summary_lines)) ? realisticMetrics.summary_lines : [];
+        if (!thresholdLines.length && !realisticLines.length) {{
           metaBlock.style.display = "none";
           return false;
         }}
-        metaTitle.textContent = metrics.title || "Sensibilite realiste";
-        metrics.summary_lines.forEach((entry) => {{
+        metaTitle.textContent =
+          (thresholdMetrics && thresholdMetrics.title) ||
+          (realisticMetrics && realisticMetrics.title) ||
+          "Sensibilite";
+        const entries = [];
+        if (thresholdLines.length) {{
+          entries.push({{ label: "Analyse seuil", value: "" }});
+          thresholdLines.forEach((entry) => entries.push(entry));
+        }}
+        if (realisticLines.length) {{
+          entries.push({{ label: "Analyse locale", value: "" }});
+          realisticLines.forEach((entry) => entries.push(entry));
+        }}
+        entries.forEach((entry) => {{
           const row = document.createElement("div");
           row.className = "panelMetaRow";
           const label = document.createElement("div");
@@ -2654,6 +3160,12 @@ def html_template(title: str, data_json: str) -> str:
           const value = document.createElement("div");
           value.className = "panelMetaValue";
           value.textContent = entry.value || "";
+          if (!entry.value) {{
+            row.style.gridColumn = "1 / span 2";
+            label.style.fontWeight = "700";
+            label.style.color = "#0f172a";
+            value.style.display = "none";
+          }}
           row.appendChild(label);
           row.appendChild(value);
           metaGrid.appendChild(row);
@@ -2691,8 +3203,8 @@ def html_template(title: str, data_json: str) -> str:
     function panelLabels(nodeType) {{
       if (currentPanelMode === "sensitivity") {{
         return {{
-          incoming: "KPI systeme + courbe delta vs baseline",
-          outgoing: "KPI systeme + courbe delta vs baseline"
+          incoming: "Courbe de seuil - service et backlog",
+          outgoing: "Courbe de seuil - cout et inventaire"
         }};
       }}
       if (currentPanelMode === "structural") {{
@@ -2963,6 +3475,21 @@ def main() -> None:
         if args.realistic_stress_impacts_csv
         else Path("__missing_realistic_stress_impacts__.csv")
     )
+    threshold_sensitivity_summary_json = (
+        Path(args.threshold_sensitivity_summary_json)
+        if args.threshold_sensitivity_summary_json
+        else Path("__missing_threshold_sensitivity_summary__.json")
+    )
+    threshold_parameter_summary_csv = (
+        Path(args.threshold_parameter_summary_csv)
+        if args.threshold_parameter_summary_csv
+        else Path("__missing_threshold_parameter_summary__.csv")
+    )
+    threshold_sweep_cases_csv = (
+        Path(args.threshold_sweep_cases_csv)
+        if args.threshold_sweep_cases_csv
+        else Path("__missing_threshold_sweep_cases__.csv")
+    )
     out_path.parent.mkdir(parents=True, exist_ok=True)
     supplier_local_criticality_csv.parent.mkdir(parents=True, exist_ok=True)
     supplier_local_criticality_json.parent.mkdir(parents=True, exist_ok=True)
@@ -2979,6 +3506,28 @@ def main() -> None:
             payload["supplier_sensitivity_hover_images"],
             payload["distribution_center_sensitivity_hover_images"],
         ) = build_sensitivity_hover_payloads(raw, sensitivity_cases_csv)
+        (
+            factory_threshold_hover_images,
+            supplier_threshold_hover_images,
+            dc_threshold_hover_images,
+        ) = build_threshold_hover_payloads(
+            raw,
+            threshold_parameter_summary_csv,
+            threshold_sweep_cases_csv,
+            threshold_sensitivity_summary_json,
+        )
+        payload["factory_sensitivity_hover_images"] = merge_hover_payload_maps(
+            factory_threshold_hover_images,
+            payload["factory_sensitivity_hover_images"],
+        )
+        payload["supplier_sensitivity_hover_images"] = merge_hover_payload_maps(
+            supplier_threshold_hover_images,
+            payload["supplier_sensitivity_hover_images"],
+        )
+        payload["distribution_center_sensitivity_hover_images"] = merge_hover_payload_maps(
+            dc_threshold_hover_images,
+            payload["distribution_center_sensitivity_hover_images"],
+        )
         (
             payload["factory_structural_hover_images"],
             payload["supplier_structural_hover_images"],
@@ -3002,6 +3551,11 @@ def main() -> None:
             realistic_sensitivity_summary_json,
             realistic_local_elasticities_csv,
             realistic_stress_impacts_csv,
+        )
+        payload["threshold_sensitivity"] = build_threshold_sensitivity_panel_metrics(
+            raw,
+            threshold_sensitivity_summary_json,
+            threshold_parameter_summary_csv,
         )
     except Exception as exc:
         print(f"[ERROR] Unable to read/parse input JSON: {exc}", file=sys.stderr)
