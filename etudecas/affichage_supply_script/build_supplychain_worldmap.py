@@ -1748,7 +1748,8 @@ def build_realistic_sensitivity_panel_metrics(
             metric_label_value("Elasticite cout", describe_local(global_cost_local, kpi="total_cost")),
         ],
     }
-    return {"nodes": nodes_payload, "global": global_payload}
+    selected_suppliers = summary.get("selected_suppliers", []) if isinstance(summary, dict) else []
+    return {"nodes": nodes_payload, "global": global_payload, "selected_suppliers": selected_suppliers}
 
 
 def build_supplier_local_criticality(
@@ -2382,7 +2383,7 @@ def html_template(title: str, data_json: str) -> str:
     const SUPPLIER_STRUCTURAL_HOVER_IMAGES = DATA.supplier_structural_hover_images || {{}};
     const DC_STRUCTURAL_HOVER_IMAGES = DATA.distribution_center_structural_hover_images || {{}};
     const SUPPLIER_LOCAL_METRICS = DATA.supplier_local_metrics || {{}};
-    const REALISTIC_SENSITIVITY = DATA.realistic_sensitivity || {{ nodes: {{}}, global: {{}} }};
+    const REALISTIC_SENSITIVITY = DATA.realistic_sensitivity || {{ nodes: {{}}, global: {{}}, selected_suppliers: [] }};
     const nodeById = Object.fromEntries((DATA.nodes || []).map(n => [n.id, n]));
     const defaultPalette = ["#1f77b4", "#d62728", "#ff7f0e", "#2ca02c", "#9467bd", "#8c564b"];
     let currentFactoryHoverId = null;
@@ -2812,6 +2813,18 @@ def html_template(title: str, data_json: str) -> str:
       if (!visibleCount && !hasMeta) {{
         hideFactoryPanel();
         return;
+      }}
+      if (!visibleCount) {{
+        if (
+          currentPanelMode === "sensitivity" &&
+          nodeType === "supplier_dc" &&
+          Array.isArray(REALISTIC_SENSITIVITY.selected_suppliers) &&
+          !REALISTIC_SENSITIVITY.selected_suppliers.includes(nodeId)
+        ) {{
+          noImg.textContent = "Pas de courbe locale: fournisseur hors perimetre top actifs de l'etude.";
+        }} else {{
+          noImg.textContent = "Aucun PNG disponible pour ce noeud.";
+        }}
       }}
       noImg.style.display = visibleCount ? "none" : "block";
       currentFactoryHoverId = nodeId;
