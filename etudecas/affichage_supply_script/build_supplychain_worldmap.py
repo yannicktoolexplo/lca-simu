@@ -60,6 +60,11 @@ def parse_args() -> argparse.Namespace:
         help="Simulation CSV for output products production.",
     )
     parser.add_argument(
+        "--demand-service-csv",
+        default="etudecas/simulation/result/data/production_demand_service_daily.csv",
+        help="Simulation CSV for customer demand / served / backlog time series.",
+    )
+    parser.add_argument(
         "--sim-input-stocks-png-dir",
         default="etudecas/simulation/result/plots",
         help="Directory containing input/supplier/DC PNG files.",
@@ -354,8 +359,12 @@ def build_factory_hover_images(
     raw: dict[str, Any],
     input_png_dir: Path,
     output_png_dir: Path,
+    demand_service_csv: Path,
 ) -> dict[str, Any]:
     nodes = raw.get("nodes", []) or []
+    incoming_items, outgoing_items = build_edge_item_sets(raw)
+    node_types = build_node_type_lookup(raw)
+    demand_rows = read_csv_rows(demand_service_csv)
     factory_ids = sorted(
         str(n.get("id"))
         for n in nodes
@@ -380,9 +389,32 @@ def build_factory_hover_images(
                 Path("factories") / "output_products" / "production_output_products.png",
                 "production_output_products.png",
             )
-        if not incoming and not outgoing:
+        produced_items = outgoing_items.get(factory_id, set())
+        backlog_series = aggregate_daily_series(
+            [
+                row
+                for row in demand_rows
+                if str(row.get("item_id") or "") in produced_items
+                and node_types.get(str(row.get("node_id") or "")) == "customer"
+            ],
+            value_field="backlog_end_qty",
+        )
+        inbound_lead_days = {}
+        for edge in raw.get("edges", []) or []:
+            if str(edge.get("to") or "") != factory_id:
+                continue
+            supplier_id = str(edge.get("from") or "")
+            lead_days = max(1.0, to_float(((edge.get("lead_time") or {}).get("mean"))) or 1.0)
+            prev = inbound_lead_days.get(supplier_id)
+            inbound_lead_days[supplier_id] = min(prev, lead_days) if prev is not None else lead_days
+        auxiliary = build_factory_backlog_leadtime_payload(
+            backlog_series,
+            inbound_lead_days,
+            factory_id=factory_id,
+        )
+        if not incoming and not outgoing and not auxiliary:
             continue
-        out[factory_id] = {"incoming": incoming, "outgoing": outgoing}
+        out[factory_id] = {"incoming": incoming, "outgoing": outgoing, "third": auxiliary}
     return out
 
 
@@ -435,6 +467,79 @@ def build_distribution_center_hover_images(raw: dict[str, Any], png_dir: Path) -
     return out
 
 
+def build_customer_hover_images(
+    raw: dict[str, Any],
+    demand_service_csv: Path,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    rows = read_csv_rows(demand_service_csv)
+    if not rows:
+        return {}, {}
+
+    customer_ids = sorted(
+        str(n.get("id"))
+        for n in (raw.get("nodes", []) or [])
+        if str(n.get("type") or "") == "customer"
+    )
+    customer_hover: dict[str, Any] = {}
+    customer_metrics: dict[str, Any] = {}
+    for customer_id in customer_ids:
+        customer_rows = [row for row in rows if str(row.get("node_id") or "") == customer_id]
+        if not customer_rows:
+            continue
+        demand_series = aggregate_daily_series(customer_rows, value_field="demand_qty")
+        served_series = aggregate_daily_series(customer_rows, value_field="served_qty")
+        backlog_series = aggregate_daily_series(customer_rows, value_field="backlog_end_qty")
+        incoming = build_line_chart_payload(
+            {
+                "Demande": demand_series,
+                "Servi": served_series,
+                "Backlog": backlog_series,
+            },
+            title=f"{customer_id} - demande / service / backlog",
+            y_label="Quantite",
+            filename=f"{safe_case_token(customer_id)}_customer_demand.png",
+        )
+
+        latest_day = max((int(to_float(row.get("day")) or 0) for row in customer_rows), default=0)
+        latest_rows = [row for row in customer_rows if int(to_float(row.get("day")) or 0) == latest_day]
+        latest_demand_by_item: dict[str, float] = defaultdict(float)
+        latest_backlog_total = 0.0
+        latest_served_total = 0.0
+        latest_demand_total = 0.0
+        for row in latest_rows:
+            item_id = str(row.get("item_id") or "")
+            demand_value = float(to_float(row.get("demand_qty")) or 0.0)
+            latest_demand_by_item[item_id] += demand_value
+            latest_demand_total += demand_value
+            latest_served_total += float(to_float(row.get("served_qty")) or 0.0)
+            latest_backlog_total += float(to_float(row.get("backlog_end_qty")) or 0.0)
+        outgoing = build_bar_chart_payload(
+            {compact_item_label(item_id): value for item_id, value in latest_demand_by_item.items()},
+            title=f"{customer_id} - demande du dernier jour par produit",
+            y_label="Demande jour courant",
+            filename=f"{safe_case_token(customer_id)}_customer_latest_demand.png",
+        )
+        if incoming or outgoing:
+            customer_hover[customer_id] = {"incoming": incoming, "outgoing": outgoing}
+        customer_metrics[customer_id] = {
+            "summary_lines": [
+                metric_label_value("Jour courant", str(latest_day)),
+                metric_label_value("Demande jour courant", f"{latest_demand_total:,.1f}".replace(",", " ")),
+                metric_label_value("Servi jour courant", f"{latest_served_total:,.1f}".replace(",", " ")),
+                metric_label_value("Backlog courant", f"{latest_backlog_total:,.1f}".replace(",", " ")),
+                metric_label_value(
+                    "Produits demandes",
+                    ", ".join(
+                        f"{compact_item_label(item_id)}={value:.1f}"
+                        for item_id, value in sorted(latest_demand_by_item.items())
+                    )
+                    or "n/a",
+                ),
+            ]
+        }
+    return customer_hover, customer_metrics
+
+
 def read_csv_rows(csv_path: Path) -> list[dict[str, str]]:
     if not csv_path.exists():
         nested_data_path = csv_path.parent / "data" / csv_path.name
@@ -459,6 +564,77 @@ def build_edge_item_sets(raw: dict[str, Any]) -> tuple[dict[str, set[str]], dict
             if dst:
                 incoming_items[dst].add(item)
     return incoming_items, outgoing_items
+
+
+def build_node_type_lookup(raw: dict[str, Any]) -> dict[str, str]:
+    out: dict[str, str] = {}
+    for node in raw.get("nodes", []) or []:
+        node_id = str(node.get("id") or "")
+        if not node_id:
+            continue
+        out[node_id] = str(node.get("type") or "")
+    return out
+
+
+def build_node_relationships(raw: dict[str, Any]) -> tuple[dict[str, set[str]], dict[str, set[str]]]:
+    incoming_sources: dict[str, set[str]] = defaultdict(set)
+    outgoing_targets: dict[str, set[str]] = defaultdict(set)
+    for edge in raw.get("edges", []) or []:
+        src = str(edge.get("from") or "")
+        dst = str(edge.get("to") or "")
+        if not src or not dst:
+            continue
+        incoming_sources[dst].add(src)
+        outgoing_targets[src].add(dst)
+    return incoming_sources, outgoing_targets
+
+
+def sensitivity_row_scope(
+    parameter_key: str,
+    node_id: str,
+    node_item_ids: dict[str, set[str]],
+    node_types: dict[str, str],
+    incoming_sources: dict[str, set[str]],
+    outgoing_targets: dict[str, set[str]],
+) -> str | None:
+    if parameter_key.endswith(f"::{node_id}"):
+        return "direct"
+    if parameter_key.startswith("demand_item::"):
+        item_id = parameter_key.split("::", 1)[1]
+        if item_id in node_item_ids.get(node_id, set()):
+            return "item"
+        return None
+
+    if "::" not in parameter_key:
+        return None
+    _, target = parameter_key.split("::", 1)
+    node_type = node_types.get(node_id, "")
+
+    if node_type == "factory" and target in incoming_sources.get(node_id, set()):
+        if parameter_key.startswith("edge_src_lead_time_scale::") or parameter_key.startswith("supplier_lead_time_node::"):
+            return "upstream_lead_time"
+        if parameter_key.startswith("edge_src_reliability_scale::") or parameter_key.startswith(
+            "supplier_reliability_node::"
+        ):
+            return "upstream_reliability"
+        if parameter_key.startswith("supplier_capacity_node::"):
+            return "upstream_supplier_capacity"
+        if parameter_key.startswith("supplier_node_scale::"):
+            return "upstream_supplier_stock"
+
+    if node_type == "distribution_center" and target in incoming_sources.get(node_id, set()):
+        if parameter_key.startswith("capacity_node::"):
+            return "upstream_factory_capacity"
+        if parameter_key.startswith("edge_src_lead_time_scale::"):
+            return "upstream_factory_lead_time"
+        if parameter_key.startswith("edge_src_reliability_scale::"):
+            return "upstream_factory_reliability"
+
+    if node_type == "supplier_dc" and target in outgoing_targets.get(node_id, set()):
+        if parameter_key.startswith("demand_item::"):
+            return "downstream_demand"
+
+    return None
 
 
 def aggregate_daily_series(
@@ -573,6 +749,13 @@ def safe_case_token(value: str) -> str:
     return re.sub(r"[^A-Za-z0-9_-]+", "_", str(value))
 
 
+def compact_item_label(item_id: str) -> str:
+    raw = str(item_id or "").strip()
+    if raw.startswith("item:"):
+        return raw.split(":", 1)[1]
+    return raw or "n/a"
+
+
 def kpi_from_case(case_row: dict[str, str] | None, kpi_name: str) -> float | None:
     if not case_row:
         return None
@@ -644,6 +827,54 @@ def build_bar_chart_payload(
     fig.savefig(buf, format="png", dpi=150, bbox_inches="tight")
     plt.close(fig)
     return png_payload_from_bytes(buf.getvalue(), filename)
+
+
+def build_factory_backlog_leadtime_payload(
+    backlog_series: list[tuple[int, float]],
+    inbound_lead_days: dict[str, float],
+    *,
+    factory_id: str,
+) -> dict[str, Any] | None:
+    if not backlog_series and not inbound_lead_days:
+        return None
+
+    try:
+        import matplotlib
+
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt  # type: ignore
+    except Exception:
+        return None
+
+    fig, axes = plt.subplots(2, 1, figsize=(9.2, 7.0))
+    fig.patch.set_facecolor("#ffffff")
+
+    ax_backlog = axes[0]
+    if backlog_series:
+        days = [day for day, _ in backlog_series]
+        values = [value for _, value in backlog_series]
+        ax_backlog.plot(days, values, color="#dc2626", linewidth=2.2)
+    ax_backlog.set_title(f"{factory_id} - backlog client lie", fontsize=12, pad=10)
+    ax_backlog.set_ylabel("Backlog")
+    ax_backlog.grid(True, color="#e2e8f0", linewidth=0.9)
+    ax_backlog.set_facecolor("#ffffff")
+
+    ax_lead = axes[1]
+    if inbound_lead_days:
+        labels = list(inbound_lead_days.keys())
+        values = [inbound_lead_days[label] for label in labels]
+        ax_lead.bar(labels, values, color="#2563eb", width=0.65)
+        ax_lead.tick_params(axis="x", rotation=35, labelsize=8)
+    ax_lead.set_title(f"{factory_id} - lead time moyen des approvisionnements", fontsize=11, pad=8)
+    ax_lead.set_ylabel("Jours")
+    ax_lead.grid(True, axis="y", color="#e2e8f0", linewidth=0.9)
+    ax_lead.set_facecolor("#ffffff")
+
+    fig.tight_layout()
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    return png_payload_from_bytes(buf.getvalue(), f"{safe_case_token(factory_id)}_backlog_leadtime.png")
 
 
 def multiplier_label(value: float | None, fallback: str) -> str:
@@ -1558,38 +1789,22 @@ def build_realistic_sensitivity_panel_metrics(
         summary = {}
 
     nodes = raw.get("nodes", []) or []
-    incoming_items, outgoing_items = build_edge_item_sets(raw)
-    node_item_ids: dict[str, set[str]] = defaultdict(set)
-    for node in nodes:
-        node_id = str(node.get("id") or "")
-        if not node_id:
-            continue
-        node_item_ids[node_id].update(incoming_items.get(node_id, set()))
-        node_item_ids[node_id].update(outgoing_items.get(node_id, set()))
-        inventory = node.get("inventory") or {}
-        for state in (inventory.get("states") or []):
-            item_id = str((state or {}).get("item_id") or "")
-            if item_id:
-                node_item_ids[node_id].add(item_id)
-        for process in (node.get("processes") or []):
-            for inp in (process.get("inputs") or []):
-                item_id = str((inp or {}).get("item_id") or "")
-                if item_id:
-                    node_item_ids[node_id].add(item_id)
-            for out in (process.get("outputs") or []):
-                item_id = str((out or {}).get("item_id") or "")
-                if item_id:
-                    node_item_ids[node_id].add(item_id)
+    node_item_ids = build_node_item_ids(raw)
+    node_types = build_node_type_lookup(raw)
+    incoming_sources, outgoing_targets = build_node_relationships(raw)
 
     def is_global_parameter(parameter_key: str) -> bool:
         return "::" not in parameter_key
 
     def row_scope(parameter_key: str, node_id: str) -> str | None:
-        if parameter_key.endswith(f"::{node_id}"):
-            return "direct"
-        if parameter_key.startswith("demand_item::") and parameter_key.split("::", 1)[1] in node_item_ids.get(node_id, set()):
-            return "item"
-        return None
+        return sensitivity_row_scope(
+            parameter_key,
+            node_id,
+            node_item_ids,
+            node_types,
+            incoming_sources,
+            outgoing_targets,
+        )
 
     def safe_abs(value: Any) -> float:
         num = to_float(value)
@@ -1618,31 +1833,64 @@ def build_realistic_sensitivity_panel_metrics(
             return None
         return max(candidates, key=lambda row: safe_abs(row.get(delta_field)))
 
-    def choose_node_local(node_id: str, kpi: str) -> dict[str, str] | None:
+    scope_order = {
+        "direct": 0,
+        "upstream_supplier_capacity": 1,
+        "upstream_factory_capacity": 1,
+        "upstream_reliability": 2,
+        "upstream_factory_reliability": 2,
+        "upstream_lead_time": 3,
+        "upstream_factory_lead_time": 3,
+        "upstream_supplier_stock": 4,
+        "item": 5,
+        "downstream_demand": 6,
+    }
+
+    def choose_node_local(
+        node_id: str,
+        kpi: str,
+        *,
+        allowed_scopes: tuple[str, ...] | None = None,
+        parameter_groups: tuple[str, ...] | None = None,
+    ) -> dict[str, str] | None:
         candidates = []
         for row in local_rows:
             if str(row.get("kpi") or "") != kpi:
                 continue
+            if parameter_groups and str(row.get("parameter_group") or "") not in parameter_groups:
+                continue
             scope = row_scope(str(row.get("parameter_key") or ""), node_id)
             if not scope:
                 continue
-            candidates.append((0 if scope == "direct" else 1, safe_abs(row.get("abs_elasticity")), row))
+            if allowed_scopes and scope not in allowed_scopes:
+                continue
+            candidates.append((scope_order.get(scope, 9), safe_abs(row.get("abs_elasticity")), row))
         if not candidates:
             return None
-        candidates.sort(key=lambda item: (item[0], -item[1]))
+        candidates.sort(key=lambda item: (item[0], -item[1], str(item[2].get("parameter_label") or "")))
         return candidates[0][2]
 
-    def choose_node_stress(node_id: str, kpi: str) -> dict[str, str] | None:
+    def choose_node_stress(
+        node_id: str,
+        kpi: str,
+        *,
+        allowed_scopes: tuple[str, ...] | None = None,
+        parameter_groups: tuple[str, ...] | None = None,
+    ) -> dict[str, str] | None:
         delta_field = f"delta::{kpi}"
         candidates = []
         for row in stress_rows:
+            if parameter_groups and str(row.get("parameter_group") or "") not in parameter_groups:
+                continue
             scope = row_scope(str(row.get("parameter_key") or ""), node_id)
             if not scope:
                 continue
-            candidates.append((0 if scope == "direct" else 1, safe_abs(row.get(delta_field)), row))
+            if allowed_scopes and scope not in allowed_scopes:
+                continue
+            candidates.append((scope_order.get(scope, 9), safe_abs(row.get(delta_field)), row))
         if not candidates:
             return None
-        candidates.sort(key=lambda item: (item[0], -item[1]))
+        candidates.sort(key=lambda item: (item[0], -item[1], str(item[2].get("parameter_label") or "")))
         return candidates[0][2]
 
     baseline = summary.get("baseline", {}) if isinstance(summary, dict) else {}
@@ -1749,46 +1997,231 @@ def build_realistic_sensitivity_panel_metrics(
     global_cost_stress = choose_stress_global("total_cost")
 
     def classify_node(node_id: str) -> str:
+        node_type = node_types.get(node_id, "")
         service_stress = safe_abs((choose_node_stress(node_id, "fill_rate") or {}).get("delta::fill_rate"))
         backlog_stress = safe_abs((choose_node_stress(node_id, "ending_backlog") or {}).get("delta::ending_backlog"))
         cost_stress = safe_abs((choose_node_stress(node_id, "total_cost") or {}).get("delta::total_cost"))
         service_elasticity = safe_abs((choose_node_local(node_id, "fill_rate") or {}).get("abs_elasticity"))
-        cost_elasticity = safe_abs((choose_node_local(node_id, "total_cost") or {}).get("abs_elasticity"))
+        if node_type == "factory":
+            upstream_rel = safe_abs(
+                (
+                    choose_node_stress(
+                        node_id,
+                        "fill_rate",
+                        allowed_scopes=("upstream_reliability",),
+                    )
+                    or {}
+                ).get("delta::fill_rate")
+            )
+            upstream_lt = safe_abs(
+                (
+                    choose_node_stress(
+                        node_id,
+                        "fill_rate",
+                        allowed_scopes=("upstream_lead_time",),
+                    )
+                    or {}
+                ).get("delta::fill_rate")
+            )
+            if service_stress >= 0.05 or backlog_stress >= 200_000 or upstream_rel >= 0.03:
+                return "Usine critique pour le service"
+            if upstream_lt >= 0.01 or service_elasticity >= 0.03:
+                return "Usine sensible aux flux amont"
+            return "Usine robuste localement"
+        if node_type == "supplier_dc":
+            if service_stress >= 0.03 or backlog_stress >= 100_000:
+                return "Fournisseur critique"
+            if cost_stress >= 250_000:
+                return "Fournisseur critique cout"
+            return "Impact fournisseur limite"
+        if node_type == "distribution_center":
+            if service_stress >= 0.02 or backlog_stress >= 100_000:
+                return "DC sensible a la demande"
+            return "DC plutot robuste"
         if service_stress >= 0.05 or backlog_stress >= 1000 or service_elasticity >= 0.05:
             return "Critique service"
-        if cost_stress >= 250_000 or cost_elasticity >= 0.20:
+        if cost_stress >= 250_000:
             return "Critique cout"
         if service_stress >= 0.01 or backlog_stress >= 250 or cost_stress >= 25_000:
             return "Surveiller"
         return "Impact local faible"
+
+    def node_summary_lines(node_id: str) -> list[dict[str, str]]:
+        node_type = node_types.get(node_id, "")
+        service_line = metric_label_value(
+            "Service lie",
+            describe_stress(choose_node_stress(node_id, "fill_rate"), kpi="fill_rate"),
+        )
+        backlog_line = metric_label_value(
+            "Backlog lie",
+            describe_stress(choose_node_stress(node_id, "ending_backlog"), kpi="ending_backlog"),
+        )
+        cost_line = metric_label_value(
+            "Cout lie",
+            describe_stress(choose_node_stress(node_id, "total_cost"), kpi="total_cost"),
+        )
+        baseline_line = metric_label_value(
+            "Baseline",
+            f"FR {fmt_fill(baseline_fill)} | backlog {fmt_backlog(baseline_backlog)} | cout {fmt_money(baseline_cost)}",
+        )
+        if node_type == "factory":
+            return [
+                baseline_line,
+                service_line,
+                backlog_line,
+                metric_label_value(
+                    "Capacite usine",
+                    describe_local(
+                        choose_node_local(
+                            node_id,
+                            "fill_rate",
+                            allowed_scopes=("direct",),
+                            parameter_groups=("capacity_node",),
+                        ),
+                        kpi="fill_rate",
+                    ),
+                ),
+                metric_label_value(
+                    "Backlog usine",
+                    describe_stress(
+                        choose_node_stress(
+                            node_id,
+                            "ending_backlog",
+                            allowed_scopes=("direct",),
+                            parameter_groups=("capacity_node",),
+                        ),
+                        kpi="ending_backlog",
+                    ),
+                ),
+                metric_label_value(
+                    "Fiabilite amont",
+                    describe_stress(
+                        choose_node_stress(
+                            node_id,
+                            "fill_rate",
+                            allowed_scopes=("upstream_reliability",),
+                            parameter_groups=("supplier_reliability_node",),
+                        ),
+                        kpi="fill_rate",
+                    ),
+                ),
+                metric_label_value(
+                    "Lead time amont",
+                    describe_stress(
+                        choose_node_stress(
+                            node_id,
+                            "fill_rate",
+                            allowed_scopes=("upstream_lead_time",),
+                            parameter_groups=("supplier_lead_time_node",),
+                        ),
+                        kpi="fill_rate",
+                    ),
+                ),
+                cost_line,
+                metric_label_value("Statut", classify_node(node_id)),
+            ]
+        if node_type == "supplier_dc":
+            return [
+                baseline_line,
+                service_line,
+                backlog_line,
+                metric_label_value(
+                    "Fiabilite locale",
+                    describe_stress(
+                        choose_node_stress(
+                            node_id,
+                            "fill_rate",
+                            allowed_scopes=("direct",),
+                            parameter_groups=("supplier_reliability_node",),
+                        ),
+                        kpi="fill_rate",
+                    ),
+                ),
+                metric_label_value(
+                    "Lead time local",
+                    describe_stress(
+                        choose_node_stress(
+                            node_id,
+                            "fill_rate",
+                            allowed_scopes=("direct",),
+                            parameter_groups=("supplier_lead_time_node",),
+                        ),
+                        kpi="fill_rate",
+                    ),
+                ),
+                metric_label_value(
+                    "Debit local",
+                    describe_local(
+                        choose_node_local(
+                            node_id,
+                            "fill_rate",
+                            allowed_scopes=("direct",),
+                            parameter_groups=("supplier_capacity_node",),
+                        ),
+                        kpi="fill_rate",
+                    ),
+                ),
+                cost_line,
+                metric_label_value("Statut", classify_node(node_id)),
+            ]
+        if node_type == "distribution_center":
+            return [
+                baseline_line,
+                service_line,
+                backlog_line,
+                metric_label_value(
+                    "Demande liee",
+                    describe_stress(
+                        choose_node_stress(
+                            node_id,
+                            "fill_rate",
+                            allowed_scopes=("item",),
+                            parameter_groups=("demand_item",),
+                        ),
+                        kpi="fill_rate",
+                    ),
+                ),
+                metric_label_value(
+                    "Usine amont",
+                    describe_stress(
+                        choose_node_stress(
+                            node_id,
+                            "fill_rate",
+                            allowed_scopes=("upstream_factory_capacity",),
+                            parameter_groups=("capacity_node",),
+                        ),
+                        kpi="fill_rate",
+                    ),
+                ),
+                cost_line,
+                metric_label_value("Statut", classify_node(node_id)),
+            ]
+        return [
+            baseline_line,
+            metric_label_value("Service global", describe_stress(global_fill_stress, kpi="fill_rate")),
+            service_line,
+            metric_label_value(
+                "Elasticite service",
+                describe_local(choose_node_local(node_id, "fill_rate"), kpi="fill_rate"),
+            ),
+            backlog_line,
+            metric_label_value("Cout global", describe_stress(global_cost_stress, kpi="total_cost")),
+            cost_line,
+            metric_label_value(
+                "Elasticite cout",
+                describe_local(choose_node_local(node_id, "total_cost"), kpi="total_cost"),
+            ),
+            metric_label_value("Statut", classify_node(node_id)),
+        ]
 
     nodes_payload: dict[str, Any] = {}
     for node in nodes:
         node_id = str(node.get("id") or "")
         if not node_id:
             continue
-        local_fill = choose_node_local(node_id, "fill_rate")
-        stress_fill = choose_node_stress(node_id, "fill_rate")
-        local_backlog = choose_node_local(node_id, "ending_backlog")
-        stress_backlog = choose_node_stress(node_id, "ending_backlog")
-        local_cost = choose_node_local(node_id, "total_cost")
-        stress_cost = choose_node_stress(node_id, "total_cost")
         nodes_payload[node_id] = {
             "title": "Sensibilite realiste annuelle",
-            "summary_lines": [
-                metric_label_value(
-                    "Baseline",
-                    f"FR {fmt_fill(baseline_fill)} | backlog {fmt_backlog(baseline_backlog)} | cout {fmt_money(baseline_cost)}",
-                ),
-                metric_label_value("Service global", describe_stress(global_fill_stress, kpi="fill_rate")),
-                metric_label_value("Service lie", describe_stress(stress_fill, kpi="fill_rate")),
-                metric_label_value("Elasticite service", describe_local(local_fill, kpi="fill_rate")),
-                metric_label_value("Backlog lie", describe_stress(stress_backlog, kpi="ending_backlog")),
-                metric_label_value("Cout global", describe_stress(global_cost_stress, kpi="total_cost")),
-                metric_label_value("Cout lie", describe_stress(stress_cost, kpi="total_cost")),
-                metric_label_value("Elasticite cout", describe_local(local_cost, kpi="total_cost")),
-                metric_label_value("Statut", classify_node(node_id)),
-            ],
+            "summary_lines": node_summary_lines(node_id),
         }
 
     global_payload = {
@@ -1823,28 +2256,9 @@ def build_threshold_sensitivity_panel_metrics(
         summary = {}
 
     nodes = raw.get("nodes", []) or []
-    incoming_items, outgoing_items = build_edge_item_sets(raw)
-    node_item_ids: dict[str, set[str]] = defaultdict(set)
-    for node in nodes:
-        node_id = str(node.get("id") or "")
-        if not node_id:
-            continue
-        node_item_ids[node_id].update(incoming_items.get(node_id, set()))
-        node_item_ids[node_id].update(outgoing_items.get(node_id, set()))
-        inventory = node.get("inventory") or {}
-        for state in (inventory.get("states") or []):
-            item_id = str((state or {}).get("item_id") or "")
-            if item_id:
-                node_item_ids[node_id].add(item_id)
-        for process in (node.get("processes") or []):
-            for inp in (process.get("inputs") or []):
-                item_id = str((inp or {}).get("item_id") or "")
-                if item_id:
-                    node_item_ids[node_id].add(item_id)
-            for out in (process.get("outputs") or []):
-                item_id = str((out or {}).get("item_id") or "")
-                if item_id:
-                    node_item_ids[node_id].add(item_id)
+    node_item_ids = build_node_item_ids(raw)
+    node_types = build_node_type_lookup(raw)
+    incoming_sources, outgoing_targets = build_node_relationships(raw)
 
     def metric(label: str, value: Any, *, section: bool = False) -> dict[str, Any]:
         return {"label": label, "value": str(value), "section": section}
@@ -1923,22 +2337,34 @@ def build_threshold_sensitivity_panel_metrics(
     def is_global_parameter(parameter_key: str) -> bool:
         return "::" not in parameter_key
 
+    scope_order = {
+        "direct": 0,
+        "upstream_supplier_capacity": 1,
+        "upstream_factory_capacity": 1,
+        "upstream_reliability": 2,
+        "upstream_factory_reliability": 2,
+        "upstream_lead_time": 3,
+        "upstream_factory_lead_time": 3,
+        "upstream_supplier_stock": 4,
+        "item": 5,
+        "downstream_demand": 6,
+    }
+
     def row_scope(row: dict[str, str], node_id: str) -> str | None:
-        parameter_key = str(row.get("parameter_key") or "")
-        if parameter_key.endswith(f"::{node_id}"):
-            return "direct"
-        if (
-            parameter_key.startswith("demand_item::")
-            and parameter_key.split("::", 1)[1] in node_item_ids.get(node_id, set())
-        ):
-            return "item"
-        return None
+        return sensitivity_row_scope(
+            str(row.get("parameter_key") or ""),
+            node_id,
+            node_item_ids,
+            node_types,
+            incoming_sources,
+            outgoing_targets,
+        )
 
     def row_rank(row: dict[str, str], node_id: str) -> tuple[float, int, float]:
         cross = safe_float(row.get("fill_rate_cross_service_threshold_at"))
         max_drop = safe_float(row.get("max_fill_rate_drop")) or 0.0
         scope = row_scope(row, node_id)
-        scope_rank = 0 if scope == "direct" else 1
+        scope_rank = scope_order.get(scope, 9)
         if cross is None:
             return (999.0, scope_rank, -max_drop)
         return (abs(cross - 1.0), scope_rank, -max_drop)
@@ -2062,30 +2488,55 @@ def threshold_row_scope(
     row: dict[str, str],
     node_id: str,
     node_item_ids: dict[str, set[str]],
+    node_types: dict[str, str],
+    incoming_sources: dict[str, set[str]],
+    outgoing_targets: dict[str, set[str]],
 ) -> str | None:
-    parameter_key = str(row.get("parameter_key") or "")
-    if parameter_key.endswith(f"::{node_id}"):
-        return "direct"
-    if parameter_key.startswith("demand_item::"):
-        item_id = parameter_key.split("::", 1)[1]
-        if item_id in node_item_ids.get(node_id, set()):
-            return "item"
-    return None
+    return sensitivity_row_scope(
+        str(row.get("parameter_key") or ""),
+        node_id,
+        node_item_ids,
+        node_types,
+        incoming_sources,
+        outgoing_targets,
+    )
 
 
 def select_best_threshold_parameter_row(
     summary_rows: list[dict[str, str]],
     node_id: str,
     node_item_ids: dict[str, set[str]],
+    node_types: dict[str, str],
+    incoming_sources: dict[str, set[str]],
+    outgoing_targets: dict[str, set[str]],
 ) -> dict[str, str] | None:
+    scope_order = {
+        "direct": 0,
+        "upstream_supplier_capacity": 1,
+        "upstream_factory_capacity": 1,
+        "upstream_reliability": 2,
+        "upstream_factory_reliability": 2,
+        "upstream_lead_time": 3,
+        "upstream_factory_lead_time": 3,
+        "upstream_supplier_stock": 4,
+        "item": 5,
+        "downstream_demand": 6,
+    }
     candidates = []
     for row in summary_rows:
-        scope = threshold_row_scope(row, node_id, node_item_ids)
+        scope = threshold_row_scope(
+            row,
+            node_id,
+            node_item_ids,
+            node_types,
+            incoming_sources,
+            outgoing_targets,
+        )
         if not scope:
             continue
         cross = to_float(row.get("fill_rate_cross_service_threshold_at"))
         max_drop = to_float(row.get("max_fill_rate_drop")) or 0.0
-        scope_rank = 0 if scope == "direct" else 1
+        scope_rank = scope_order.get(scope, 9)
         cross_rank = 999.0 if cross is None or math.isnan(cross) else abs(cross - 1.0)
         candidates.append((cross_rank, scope_rank, -max_drop, str(row.get("parameter_label") or ""), row))
     if not candidates:
@@ -2383,6 +2834,8 @@ def build_threshold_hover_payloads(
     service_threshold = to_float(summary.get("service_threshold"))
 
     node_item_ids = build_node_item_ids(raw)
+    node_types = build_node_type_lookup(raw)
+    incoming_sources, outgoing_targets = build_node_relationships(raw)
     case_rows_by_param: dict[str, list[dict[str, str]]] = defaultdict(list)
     for row in case_rows:
         if str(row.get("status") or "").lower() != "ok":
@@ -2402,7 +2855,14 @@ def build_threshold_hover_payloads(
         node_type = str(node.get("type") or "")
         if node_type not in {"factory", "supplier_dc", "distribution_center"}:
             continue
-        best_row = select_best_threshold_parameter_row(summary_rows, node_id, node_item_ids)
+        best_row = select_best_threshold_parameter_row(
+            summary_rows,
+            node_id,
+            node_item_ids,
+            node_types,
+            incoming_sources,
+            outgoing_targets,
+        )
         if best_row is None:
             continue
         parameter_key = str(best_row.get("parameter_key") or "")
@@ -2447,8 +2907,9 @@ def merge_hover_payload_maps(
         fallback_payload = fallback.get(node_id) or {}
         incoming = primary_payload.get("incoming") or fallback_payload.get("incoming")
         outgoing = primary_payload.get("outgoing") or fallback_payload.get("outgoing")
-        if incoming or outgoing:
-            merged[node_id] = {"incoming": incoming, "outgoing": outgoing}
+        third = primary_payload.get("third") or fallback_payload.get("third")
+        if incoming or outgoing or third:
+            merged[node_id] = {"incoming": incoming, "outgoing": outgoing, "third": third}
     return merged
 
 
@@ -2537,6 +2998,13 @@ def build_supplier_local_criticality(
         shares = mrp_split_shares(len(sorted_edges))
         for edge, share in zip(sorted_edges, shares):
             target_share_by_supplier_pair[(str(edge.get("from") or ""), pair)] = share
+
+    avg_procurement_lead_days_by_supplier: dict[str, float] = {}
+    for supplier_id, supplier_edges in edges_by_src.items():
+        lead_values = [edge_lead_days(edge) for edge in supplier_edges if str(edge.get("from") or "") == supplier_id]
+        avg_procurement_lead_days_by_supplier[supplier_id] = (
+            sum(lead_values) / len(lead_values) if lead_values else 0.0
+        )
 
     shipment_rows = read_csv_rows(supplier_shipments_csv)
     stock_rows = read_csv_rows(supplier_stocks_csv)
@@ -2739,6 +3207,7 @@ def build_supplier_local_criticality(
             "max_capacity_utilization": round(max_capacity_utilization_by_supplier.get(supplier_id, 0.0), 6),
             "observed_sourcing_share": round(observed_sourcing_share, 6),
             "target_sourcing_share": round(target_sourcing_share, 6),
+            "avg_procurement_lead_days": round(avg_procurement_lead_days_by_supplier.get(supplier_id, 0.0), 4),
             "capacity_metric_mode": "explicit_capacity" if supplier_has_explicit_capacity.get(supplier_id, False) else "sourcing_share",
             "shortage_supported_qty": round(raw_metrics[supplier_id]["shortage_supported_qty"], 4),
             "shortage_supported_events": int(raw_metrics[supplier_id]["shortage_supported_events"]),
@@ -2760,6 +3229,7 @@ def build_supplier_local_criticality(
                 metric_label_value("Rang local/systeme", ""),
                 metric_label_value("Flux expedie total", f"{row['total_shipped_qty']:.2f}"),
                 metric_label_value("Jours actifs", str(row["active_days"])),
+                metric_label_value("Lead time moyen", f"{row['avg_procurement_lead_days']:.1f} j"),
                 metric_label_value("Paires mono-source", str(row["sole_source_pairs"])),
                 metric_label_value("Exposition shortage", f"{row['shortage_supported_qty']:.2f}"),
                 metric_label_value("Driver standard", std_label or "n/a"),
@@ -3020,6 +3490,9 @@ def html_template(title: str, data_json: str) -> str:
     .factoryPlotOutgoing {{
       height: clamp(237.5px, 33.75vh, 337.5px);
     }}
+    .factoryPlotThird {{
+      height: clamp(237.5px, 33.75vh, 337.5px);
+    }}
     #factoryHoverNoImage {{
       font-size: 12px;
       color: #475569;
@@ -3066,6 +3539,10 @@ def html_template(title: str, data_json: str) -> str:
         <div id="outgoingLabel" class="factoryPlotLabel">Production produits finis (sortie)</div>
         <img id="factoryOutgoingImage" class="factoryPlot factoryPlotOutgoing" alt="Node outgoing chart"/>
       </div>
+      <div id="thirdBlock" class="factoryPlotBlock">
+        <div id="thirdLabel" class="factoryPlotLabel">Analyse complementaire</div>
+        <img id="factoryThirdImage" class="factoryPlot factoryPlotThird" alt="Node additional chart"/>
+      </div>
       <div id="factoryHoverNoImage" style="display:none;">Aucun PNG disponible pour ce noeud.</div>
     </div>
   </div>
@@ -3076,6 +3553,7 @@ def html_template(title: str, data_json: str) -> str:
     const FACTORY_HOVER_IMAGES = DATA.factory_hover_images || {{}};
     const SUPPLIER_HOVER_IMAGES = DATA.supplier_hover_images || {{}};
     const DC_HOVER_IMAGES = DATA.distribution_center_hover_images || {{}};
+    const CUSTOMER_HOVER_IMAGES = DATA.customer_hover_images || {{}};
     const FACTORY_SENSITIVITY_HOVER_IMAGES = DATA.factory_sensitivity_hover_images || {{}};
     const SUPPLIER_SENSITIVITY_HOVER_IMAGES = DATA.supplier_sensitivity_hover_images || {{}};
     const DC_SENSITIVITY_HOVER_IMAGES = DATA.distribution_center_sensitivity_hover_images || {{}};
@@ -3083,6 +3561,7 @@ def html_template(title: str, data_json: str) -> str:
     const SUPPLIER_STRUCTURAL_HOVER_IMAGES = DATA.supplier_structural_hover_images || {{}};
     const DC_STRUCTURAL_HOVER_IMAGES = DATA.distribution_center_structural_hover_images || {{}};
     const SUPPLIER_LOCAL_METRICS = DATA.supplier_local_metrics || {{}};
+    const CUSTOMER_CURRENT_METRICS = DATA.customer_current_metrics || {{}};
     const REALISTIC_SENSITIVITY = DATA.realistic_sensitivity || {{ nodes: {{}}, global: {{}}, selected_suppliers: [] }};
     const THRESHOLD_SENSITIVITY = DATA.threshold_sensitivity || {{ nodes: {{}}, global: {{}}, selected_suppliers: [] }};
     const nodeById = Object.fromEntries((DATA.nodes || []).map(n => [n.id, n]));
@@ -3125,7 +3604,15 @@ def html_template(title: str, data_json: str) -> str:
     function nodeText(n) {{
       const loc = n.location_ID ? n.location_ID : "n/a";
       const country = n.country ? n.country : "n/a";
-      return `${{n.name || n.id}}<br>ID: ${{n.id}}<br>Type: ${{n.type}}<br>Country: ${{country}}<br>Location: ${{loc}}`;
+      const customerMetrics = CUSTOMER_CURRENT_METRICS[n.id] || null;
+      const extra = [];
+      if (customerMetrics && Array.isArray(customerMetrics.summary_lines)) {{
+        customerMetrics.summary_lines.slice(0, 3).forEach((entry) => {{
+          extra.push(`${{entry.label}}: ${{entry.value}}`);
+        }});
+      }}
+      const extraHtml = extra.length ? `<br>${{extra.join("<br>")}}` : "";
+      return `${{n.name || n.id}}<br>ID: ${{n.id}}<br>Type: ${{n.type}}<br>Country: ${{country}}<br>Location: ${{loc}}${{extraHtml}}`;
     }}
 
     function edgeText(e) {{
@@ -3245,23 +3732,30 @@ def html_template(title: str, data_json: str) -> str:
       const panel = document.getElementById("factoryHoverPanel");
       const incomingBlock = document.getElementById("incomingBlock");
       const outgoingBlock = document.getElementById("outgoingBlock");
+      const thirdBlock = document.getElementById("thirdBlock");
       const metaBlock = document.getElementById("panelMeta");
       const metaGrid = document.getElementById("panelMetaGrid");
       const incomingLabel = document.getElementById("incomingLabel");
       const outgoingLabel = document.getElementById("outgoingLabel");
+      const thirdLabel = document.getElementById("thirdLabel");
       const incomingImg = document.getElementById("factoryIncomingImage");
       const outgoingImg = document.getElementById("factoryOutgoingImage");
+      const thirdImg = document.getElementById("factoryThirdImage");
       const noImg = document.getElementById("factoryHoverNoImage");
       const statePill = document.getElementById("factoryHoverState");
       const clearBtn = document.getElementById("factoryHoverClearSelection");
       incomingBlock.style.display = "block";
       outgoingBlock.style.display = "block";
+      thirdBlock.style.display = "none";
       incomingLabel.textContent = "Stock matieres premieres (entree)";
       outgoingLabel.textContent = "Production produits finis (sortie)";
+      thirdLabel.textContent = "Analyse complementaire";
       incomingImg.removeAttribute("src");
       incomingImg.style.display = "none";
       outgoingImg.removeAttribute("src");
       outgoingImg.style.display = "none";
+      thirdImg.removeAttribute("src");
+      thirdImg.style.display = "none";
       metaGrid.innerHTML = "";
       metaBlock.style.display = "none";
       noImg.style.display = "none";
@@ -3274,7 +3768,7 @@ def html_template(title: str, data_json: str) -> str:
     }}
 
     function isPanelSelectableType(nodeType) {{
-      return nodeType === "factory" || nodeType === "supplier_dc" || nodeType === "distribution_center";
+      return nodeType === "factory" || nodeType === "supplier_dc" || nodeType === "distribution_center" || nodeType === "customer";
     }}
 
     function currentPanelTarget() {{
@@ -3384,16 +3878,14 @@ def html_template(title: str, data_json: str) -> str:
         metaBlock.style.display = "block";
         return true;
       }}
-      if (nodeType !== "supplier_dc") {{
-        metaBlock.style.display = "none";
-        return false;
-      }}
-      const metrics = SUPPLIER_LOCAL_METRICS[nodeId] || null;
+      const metrics = nodeType === "supplier_dc"
+        ? (SUPPLIER_LOCAL_METRICS[nodeId] || null)
+        : (nodeType === "customer" ? (CUSTOMER_CURRENT_METRICS[nodeId] || null) : null);
       if (!metrics || !Array.isArray(metrics.summary_lines) || !metrics.summary_lines.length) {{
         metaBlock.style.display = "none";
         return false;
       }}
-      metaTitle.textContent = "Criticite locale fournisseur";
+      metaTitle.textContent = nodeType === "customer" ? "Demande client courante" : "Criticite locale fournisseur";
       metrics.summary_lines.forEach((entry) => {{
         const row = document.createElement("div");
         row.className = "panelMetaRow";
@@ -3419,6 +3911,24 @@ def html_template(title: str, data_json: str) -> str:
             outgoing: "Courbe fournisseur - utilisation et stock final"
           }};
         }}
+        if (nodeType === "factory") {{
+          return {{
+            incoming: "Usine - capacite vs fill rate et stock intrants",
+            outgoing: "Usine - capacite vs backlog et delta production"
+          }};
+        }}
+        if (nodeType === "distribution_center") {{
+          return {{
+            incoming: "DC - driver critique vs service et backlog",
+            outgoing: "DC - driver critique vs cout et inventaire"
+          }};
+        }}
+        if (nodeType === "customer") {{
+          return {{
+            incoming: "Client - synthese sensibilite",
+            outgoing: "Client - demande courante"
+          }};
+        }}
         return {{
           incoming: "Courbe de seuil - service et backlog",
           outgoing: "Courbe de seuil - cout et inventaire"
@@ -3442,9 +3952,17 @@ def html_template(title: str, data_json: str) -> str:
           outgoing: "Sorties distribution center"
         }};
       }}
+      if (nodeType === "customer") {{
+        return {{
+          incoming: "Client - demande / servi / backlog",
+          outgoing: "Client - demande du jour par produit",
+          third: "Client - analyse complementaire"
+        }};
+      }}
       return {{
         incoming: "Stock matieres premieres (entree)",
-        outgoing: "Production produits finis (sortie)"
+        outgoing: "Production produits finis (sortie)",
+        third: "Usine - backlog client et lead times fournisseurs"
       }};
     }}
 
@@ -3464,6 +3982,7 @@ def html_template(title: str, data_json: str) -> str:
       if (nodeType === "factory") return FACTORY_HOVER_IMAGES[nodeId] || null;
       if (nodeType === "supplier_dc") return SUPPLIER_HOVER_IMAGES[nodeId] || null;
       if (nodeType === "distribution_center") return DC_HOVER_IMAGES[nodeId] || null;
+      if (nodeType === "customer") return CUSTOMER_HOVER_IMAGES[nodeId] || null;
       return null;
     }}
 
@@ -3486,17 +4005,20 @@ def html_template(title: str, data_json: str) -> str:
       const title = document.getElementById("factoryHoverTitle");
       const incomingBlock = document.getElementById("incomingBlock");
       const outgoingBlock = document.getElementById("outgoingBlock");
+      const thirdBlock = document.getElementById("thirdBlock");
       const incomingLabel = document.getElementById("incomingLabel");
       const outgoingLabel = document.getElementById("outgoingLabel");
+      const thirdLabel = document.getElementById("thirdLabel");
       const incomingImg = document.getElementById("factoryIncomingImage");
       const outgoingImg = document.getElementById("factoryOutgoingImage");
+      const thirdImg = document.getElementById("factoryThirdImage");
       const noImg = document.getElementById("factoryHoverNoImage");
       const statePill = document.getElementById("factoryHoverState");
       const clearBtn = document.getElementById("factoryHoverClearSelection");
       const nodeInfo = nodeById[nodeId] || {{}};
       const nodeName = nodeInfo.name || nodeId;
       const nodeTitle = nodeType === "factory" ? "Factory" :
-        (nodeType === "supplier_dc" ? "Supplier" : "Distribution Center");
+        (nodeType === "supplier_dc" ? "Supplier" : (nodeType === "distribution_center" ? "Distribution Center" : "Customer"));
       const modeTitle = currentPanelMode === "sensitivity" ? "Sensibilite" :
         (currentPanelMode === "structural" ? "Structurel" : "Simulation");
       title.textContent = `${{nodeTitle}}: ${{nodeName}} (${{nodeId}}) | ${{modeTitle}}`;
@@ -3512,13 +4034,16 @@ def html_template(title: str, data_json: str) -> str:
       const labels = panelLabels(nodeType);
       incomingLabel.textContent = labels.incoming;
       outgoingLabel.textContent = labels.outgoing;
+      thirdLabel.textContent = labels.third || "Analyse complementaire";
       const hasMeta = renderPanelMeta(nodeId, nodeType);
 
       const incomingImageInfo = images.incoming || null;
       const outgoingImageInfo = images.outgoing || null;
+      const thirdImageInfo = images.third || null;
 
       incomingBlock.style.display = incomingImageInfo ? "block" : "none";
       outgoingBlock.style.display = outgoingImageInfo ? "block" : "none";
+      thirdBlock.style.display = thirdImageInfo ? "block" : "none";
 
       let visibleCount = 0;
       if (incomingImageInfo && incomingImageInfo.data_b64) {{
@@ -3537,6 +4062,15 @@ def html_template(title: str, data_json: str) -> str:
       }} else {{
         outgoingImg.removeAttribute("src");
         outgoingImg.style.display = "none";
+      }}
+
+      if (thirdImageInfo && thirdImageInfo.data_b64) {{
+        thirdImg.src = `data:${{thirdImageInfo.mime || "image/png"}};base64,${{thirdImageInfo.data_b64}}`;
+        thirdImg.style.display = "block";
+        visibleCount += 1;
+      }} else {{
+        thirdImg.removeAttribute("src");
+        thirdImg.style.display = "none";
       }}
 
       if (!visibleCount && !hasMeta) {{
@@ -3667,6 +4201,7 @@ def main() -> None:
     out_path = Path(args.output)
     sim_input = Path(args.sim_input_stocks_csv)
     sim_output = Path(args.sim_output_products_csv)
+    demand_service_csv = Path(args.demand_service_csv)
     sim_input_png_dir = Path(args.sim_input_stocks_png_dir)
     sim_output_png_dir = Path(args.sim_output_products_png_dir)
     sensitivity_cases_csv = Path(args.sensitivity_cases_csv)
@@ -3715,9 +4250,18 @@ def main() -> None:
         raw = json.loads(in_path.read_text(encoding="utf-8"))
         payload = compact_graph_payload(raw)
         payload["factory_hover_series"] = build_factory_hover_series(raw, sim_input, sim_output)
-        payload["factory_hover_images"] = build_factory_hover_images(raw, sim_input_png_dir, sim_output_png_dir)
+        payload["factory_hover_images"] = build_factory_hover_images(
+            raw,
+            sim_input_png_dir,
+            sim_output_png_dir,
+            demand_service_csv,
+        )
         payload["supplier_hover_images"] = build_supplier_hover_images(raw, sim_input_png_dir)
         payload["distribution_center_hover_images"] = build_distribution_center_hover_images(raw, sim_input_png_dir)
+        payload["customer_hover_images"], payload["customer_current_metrics"] = build_customer_hover_images(
+            raw,
+            demand_service_csv,
+        )
         (
             payload["factory_sensitivity_hover_images"],
             payload["supplier_sensitivity_hover_images"],
