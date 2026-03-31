@@ -31,6 +31,7 @@ from etudecas.simulation.analysis_batch_common import (  # noqa: E402
     to_float,
     write_json,
 )
+from etudecas.simulation.sensibility.case_naming import realistic_case_id  # noqa: E402
 
 
 def parse_args() -> argparse.Namespace:
@@ -164,7 +165,7 @@ def make_case(
     config: dict[str, Any],
     notes: str = "",
 ) -> dict[str, Any]:
-    case_id = f"{study}_{safe_name(parameter_key)}_{direction}"
+    case_id = realistic_case_id(study=study, parameter_key=parameter_key, direction=direction)
     return {
         "study": study,
         "case_id": case_id,
