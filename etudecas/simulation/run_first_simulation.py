@@ -1158,6 +1158,7 @@ def main() -> None:
         if args.warmup_days is not None
         else max(0, int(round(scenario_policy_value(scenario, "warmup_days", 0.0))))
     )
+    reset_backlog_after_warmup = scenario_policy_bool(scenario, "reset_backlog_after_warmup", False)
     total_timeline_days = warmup_days + sim_days
     safety_stock_days = max(0.0, scenario_policy_value(scenario, "safety_stock_days", 7.0))
     review_period_days = max(1, int(round(scenario_policy_value(scenario, "review_period_days", 1.0))))
@@ -1372,6 +1373,7 @@ def main() -> None:
     total_demand = 0.0
     total_served = 0.0
     measurement_starting_backlog = 0.0
+    warmup_backlog_cleared_qty = 0.0
     total_shipped = 0.0
     total_arrived = 0.0
     total_produced = 0.0
@@ -1770,6 +1772,10 @@ def main() -> None:
         record_day = day >= warmup_days
         output_day = day - warmup_days
         profile_day = day if day < warmup_days else output_day
+        if day == warmup_days and reset_backlog_after_warmup:
+            warmup_backlog_cleared_qty = sum(max(0.0, val) for val in backlog.values())
+            for pair in list(backlog.keys()):
+                backlog[pair] = 0.0
         demand_target_today = {
             pair: max(0.0, profile_value(profile, profile_day))
             for pair, profile in demand_profiles.items()
@@ -1913,7 +1919,13 @@ def main() -> None:
 
                 max_from_inputs = min(input_limits) if input_limits else cap
                 out_pair = (nid, out_item)
-                out_signal = max(0.0, propagated_demand_today.get(out_pair, 0.0))
+                # For internally manufactured intermediates, rely on downstream
+                # process requirements as well as customer-demand propagation.
+                out_signal = max(
+                    0.0,
+                    propagated_demand_today.get(out_pair, 0.0),
+                    output_daily_signal_by_pair.get(out_pair, 0.0),
+                )
                 out_stock = max(0.0, stock[out_pair])
                 out_target = max(base_stock.get(out_pair, 0.0), fg_target_days * out_signal)
                 out_gap = out_target - out_stock
@@ -2022,7 +2034,7 @@ def main() -> None:
                     }
                 )
 
-        if record_day and day == warmup_days:
+        if record_day and day == warmup_days and not reset_backlog_after_warmup:
             measurement_starting_backlog = sum(max(0.0, val) for val in backlog.values())
 
         # Demand satisfaction
@@ -2388,6 +2400,7 @@ def main() -> None:
             "production_gap_gain": production_gap_gain,
             "production_smoothing": production_smoothing,
             "warmup_days": warmup_days,
+            "reset_backlog_after_warmup": reset_backlog_after_warmup,
             "output_profile": args.output_profile,
             "opening_stock_bootstrap_scale": opening_stock_bootstrap_scale,
             "unmodeled_supplier_source_mode": unmodeled_supplier_source_mode,
@@ -2490,6 +2503,7 @@ def main() -> None:
         "kpis": {
             "total_demand": round(total_demand, 4),
             "measurement_starting_backlog": round(measurement_starting_backlog, 4),
+            "warmup_backlog_cleared_qty": round(warmup_backlog_cleared_qty, 4),
             "measured_required_total": round(measured_required_total, 4),
             "total_served": round(total_served, 4),
             "ending_backlog": round(ending_backlog, 4),

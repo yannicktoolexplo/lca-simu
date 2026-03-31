@@ -1670,6 +1670,47 @@ def build_realistic_sensitivity_panel_metrics(
             return f"{value / 1_000:.1f} k"
         return f"{value:.0f}"
 
+    local_test_ranges: dict[str, tuple[float, float] | float] = {
+        "lead_time": (0.9, 1.1),
+        "transport_cost": (0.9, 1.1),
+        "supplier_stock": (0.9, 1.1),
+        "production_stock": (0.9, 1.1),
+        "capacity_global": (0.95, 1.05),
+        "supplier_capacity_global": (0.95, 1.05),
+        "safety_stock": (0.9, 1.1),
+        "supplier_reliability_global": 0.95,
+        "demand_item": (0.9, 1.1),
+        "capacity_node": (0.95, 1.05),
+        "supplier_stock_node": (0.9, 1.1),
+        "supplier_capacity_node": (0.9, 1.1),
+        "supplier_lead_time_node": (0.9, 1.1),
+        "supplier_reliability_node": 0.95,
+    }
+
+    def fmt_factor(value: float | None) -> str:
+        if value is None or math.isnan(value):
+            return "n/a"
+        return f"x{value:.2f}"
+
+    def local_test_label(row: dict[str, str] | None) -> str:
+        if not row:
+            return "amplitude n/a"
+        group = str(row.get("parameter_group") or "")
+        spec = local_test_ranges.get(group)
+        if isinstance(spec, tuple):
+            return f"test {fmt_factor(spec[0])} / {fmt_factor(spec[1])}"
+        if isinstance(spec, float):
+            return f"test {fmt_factor(spec)}"
+        return "test n/a"
+
+    def stress_test_label(row: dict[str, str] | None) -> str:
+        if not row:
+            return "choc n/a"
+        factor_value = to_float(row.get("factor_value"))
+        if factor_value is None or math.isnan(factor_value):
+            return "choc n/a"
+        return f"choc x1.00 -> {fmt_factor(factor_value)}"
+
     def describe_local(row: dict[str, str] | None, *, kpi: str) -> str:
         if not row:
             return "n/a"
@@ -1680,7 +1721,7 @@ def build_realistic_sensitivity_panel_metrics(
         suffix = ""
         if str(row.get("parameter_key") or "").startswith("demand_item::"):
             suffix = " (via produit)"
-        return f"{label}{suffix} | e={elasticity:.3f}"
+        return f"{label}{suffix} | {local_test_label(row)} | e={elasticity:.3f}"
 
     def describe_stress(row: dict[str, str] | None, *, kpi: str) -> str:
         if not row:
@@ -1700,7 +1741,7 @@ def build_realistic_sensitivity_panel_metrics(
         suffix = ""
         if str(row.get("parameter_key") or "").startswith("demand_item::"):
             suffix = " (via produit)"
-        return f"{label}{suffix} | {value}"
+        return f"{label}{suffix} | {stress_test_label(row)} | {value}"
 
     global_fill_local = choose_local_global("fill_rate")
     global_fill_stress = choose_stress_global("fill_rate")
@@ -2164,6 +2205,166 @@ def build_threshold_metric_curve_payload(
     return incoming_payload, outgoing_payload
 
 
+def read_supplier_case_metrics(
+    case_output_dir: Path,
+    node_id: str,
+    cache: dict[tuple[str, str], dict[str, float]],
+) -> dict[str, float]:
+    cache_key = (str(case_output_dir), node_id)
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    data_dir = case_output_dir / "data"
+    shipped_total = 0.0
+    stock_values: list[float] = []
+    util_values: list[float] = []
+
+    shipments_csv = data_dir / "production_supplier_shipments_daily.csv"
+    if shipments_csv.exists():
+        try:
+            for row in read_csv_rows(shipments_csv):
+                if str(row.get("src_node_id") or "") != node_id:
+                    continue
+                shipped_total += float(to_float(row.get("shipped_qty")) or 0.0)
+        except Exception:
+            shipped_total = 0.0
+
+    stocks_csv = data_dir / "production_supplier_stocks_daily.csv"
+    if stocks_csv.exists():
+        try:
+            for row in read_csv_rows(stocks_csv):
+                if str(row.get("node_id") or "") != node_id:
+                    continue
+                stock_values.append(float(to_float(row.get("stock_end_of_day")) or 0.0))
+        except Exception:
+            stock_values = []
+
+    capacity_csv = data_dir / "production_supplier_capacity_daily.csv"
+    if capacity_csv.exists():
+        try:
+            for row in read_csv_rows(capacity_csv):
+                if str(row.get("node_id") or "") != node_id:
+                    continue
+                util_values.append(float(to_float(row.get("utilization")) or 0.0))
+        except Exception:
+            util_values = []
+
+    metrics = {
+        "total_shipped": shipped_total,
+        "avg_stock": (sum(stock_values) / len(stock_values)) if stock_values else 0.0,
+        "ending_stock": stock_values[-1] if stock_values else 0.0,
+        "avg_utilization": (sum(util_values) / len(util_values)) if util_values else 0.0,
+    }
+    cache[cache_key] = metrics
+    return metrics
+
+
+def build_supplier_threshold_metric_curve_payload(
+    parameter_rows: list[dict[str, str]],
+    *,
+    node_id: str,
+    parameter_label: str,
+    filename: str,
+    metrics_cache: dict[tuple[str, str], dict[str, float]],
+) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
+    usable_rows = []
+    for row in parameter_rows:
+        level = to_float(row.get("level"))
+        case_output_dir = str(row.get("case_output_dir") or "").strip()
+        if level is None or math.isnan(level) or not case_output_dir:
+            continue
+        usable_rows.append((float(level), row, Path(case_output_dir)))
+    usable_rows.sort(key=lambda item: item[0])
+    if len(usable_rows) < 2:
+        return None, None
+
+    try:
+        import matplotlib
+
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt  # type: ignore
+    except Exception:
+        return None, None
+
+    x = [level for level, _, _ in usable_rows]
+    shipped = []
+    avg_stock = []
+    ending_stock = []
+    avg_utilization = []
+    for _, _, case_output_dir in usable_rows:
+        metrics = read_supplier_case_metrics(case_output_dir, node_id, metrics_cache)
+        shipped.append(float(metrics.get("total_shipped") or 0.0))
+        avg_stock.append(float(metrics.get("avg_stock") or 0.0))
+        ending_stock.append(float(metrics.get("ending_stock") or 0.0))
+        avg_utilization.append(float(metrics.get("avg_utilization") or 0.0))
+
+    def format_level(value: float) -> str:
+        return f"x{value:.2f}"
+
+    incoming_fig, incoming_axes = plt.subplots(2, 1, figsize=(9.2, 7.0), sharex=True)
+    incoming_fig.patch.set_facecolor("#ffffff")
+
+    ax_ship = incoming_axes[0]
+    ax_ship.plot(x, shipped, color="#2563eb", marker="o", linewidth=2.2)
+    ax_ship.axvline(1.0, color="#64748b", linestyle=":", linewidth=1.1)
+    ax_ship.set_ylabel("Expedie total")
+    ax_ship.set_title(f"{parameter_label} - flux fournisseur", fontsize=12, pad=10)
+    ax_ship.grid(True, color="#e2e8f0", linewidth=0.9)
+    ax_ship.set_facecolor("#ffffff")
+
+    ax_avg_stock = incoming_axes[1]
+    ax_avg_stock.plot(x, avg_stock, color="#0f766e", marker="o", linewidth=2.2)
+    ax_avg_stock.axvline(1.0, color="#64748b", linestyle=":", linewidth=1.1)
+    ax_avg_stock.set_ylabel("Stock moyen")
+    ax_avg_stock.set_xlabel("Niveau du parametre")
+    ax_avg_stock.set_xticks(x)
+    ax_avg_stock.set_xticklabels([format_level(v) for v in x], rotation=0)
+    ax_avg_stock.set_title(f"{parameter_label} - stock moyen fournisseur", fontsize=11, pad=8)
+    ax_avg_stock.grid(True, color="#e2e8f0", linewidth=0.9)
+    ax_avg_stock.set_facecolor("#ffffff")
+    incoming_fig.tight_layout()
+    incoming_buf = io.BytesIO()
+    incoming_fig.savefig(incoming_buf, format="png", dpi=150, bbox_inches="tight")
+    plt.close(incoming_fig)
+    incoming_payload = png_payload_from_bytes(
+        incoming_buf.getvalue(),
+        filename.replace(".png", "_supplier_local_flow.png"),
+    )
+
+    outgoing_fig, outgoing_axes = plt.subplots(2, 1, figsize=(9.2, 7.0), sharex=True)
+    outgoing_fig.patch.set_facecolor("#ffffff")
+
+    ax_util = outgoing_axes[0]
+    ax_util.plot(x, avg_utilization, color="#7c3aed", marker="o", linewidth=2.2)
+    ax_util.axvline(1.0, color="#64748b", linestyle=":", linewidth=1.1)
+    ax_util.set_ylabel("Utilisation moy.")
+    ax_util.set_title(f"{parameter_label} - utilisation capacite", fontsize=12, pad=10)
+    ax_util.grid(True, color="#e2e8f0", linewidth=0.9)
+    ax_util.set_facecolor("#ffffff")
+
+    ax_end_stock = outgoing_axes[1]
+    ax_end_stock.plot(x, ending_stock, color="#d97706", marker="o", linewidth=2.2)
+    ax_end_stock.axvline(1.0, color="#64748b", linestyle=":", linewidth=1.1)
+    ax_end_stock.set_ylabel("Stock final")
+    ax_end_stock.set_xlabel("Niveau du parametre")
+    ax_end_stock.set_xticks(x)
+    ax_end_stock.set_xticklabels([format_level(v) for v in x], rotation=0)
+    ax_end_stock.set_title(f"{parameter_label} - stock final fournisseur", fontsize=11, pad=8)
+    ax_end_stock.grid(True, color="#e2e8f0", linewidth=0.9)
+    ax_end_stock.set_facecolor("#ffffff")
+    outgoing_fig.tight_layout()
+    outgoing_buf = io.BytesIO()
+    outgoing_fig.savefig(outgoing_buf, format="png", dpi=150, bbox_inches="tight")
+    plt.close(outgoing_fig)
+    outgoing_payload = png_payload_from_bytes(
+        outgoing_buf.getvalue(),
+        filename.replace(".png", "_supplier_local_state.png"),
+    )
+
+    return incoming_payload, outgoing_payload
+
+
 def build_threshold_hover_payloads(
     raw: dict[str, Any],
     threshold_parameter_summary_csv: Path,
@@ -2194,6 +2395,7 @@ def build_threshold_hover_payloads(
     factory_out: dict[str, Any] = {}
     supplier_out: dict[str, Any] = {}
     dc_out: dict[str, Any] = {}
+    supplier_metrics_cache: dict[tuple[str, str], dict[str, float]] = {}
 
     for node in raw.get("nodes", []) or []:
         node_id = str(node.get("id") or "")
@@ -2206,12 +2408,21 @@ def build_threshold_hover_payloads(
         parameter_key = str(best_row.get("parameter_key") or "")
         parameter_label = str(best_row.get("parameter_label") or parameter_key)
         parameter_cases = case_rows_by_param.get(parameter_key, [])
-        incoming, outgoing = build_threshold_metric_curve_payload(
-            parameter_cases,
-            parameter_label=parameter_label,
-            filename=f"{safe_case_token(node_id)}_threshold.png",
-            service_threshold=service_threshold,
-        )
+        if node_type == "supplier_dc" and parameter_key.endswith(f"::{node_id}"):
+            incoming, outgoing = build_supplier_threshold_metric_curve_payload(
+                parameter_cases,
+                node_id=node_id,
+                parameter_label=parameter_label,
+                filename=f"{safe_case_token(node_id)}_threshold.png",
+                metrics_cache=supplier_metrics_cache,
+            )
+        else:
+            incoming, outgoing = build_threshold_metric_curve_payload(
+                parameter_cases,
+                parameter_label=parameter_label,
+                filename=f"{safe_case_token(node_id)}_threshold.png",
+                service_threshold=service_threshold,
+            )
         if not incoming and not outgoing:
             continue
         payload = {"incoming": incoming, "outgoing": outgoing}
@@ -3202,6 +3413,12 @@ def html_template(title: str, data_json: str) -> str:
 
     function panelLabels(nodeType) {{
       if (currentPanelMode === "sensitivity") {{
+        if (nodeType === "supplier_dc") {{
+          return {{
+            incoming: "Courbe fournisseur - flux et stock moyen",
+            outgoing: "Courbe fournisseur - utilisation et stock final"
+          }};
+        }}
         return {{
           incoming: "Courbe de seuil - service et backlog",
           outgoing: "Courbe de seuil - cout et inventaire"

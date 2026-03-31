@@ -1,44 +1,185 @@
 {
-  "baseline_id": "baseline_value_based_ge095_structural_2026-03-17",
-  "status": "frozen_working_reference",
-  "frozen_on_utc": "2026-03-17T00:00:00+00:00",
-  "scope": "etudecas reference baseline after value-based inventory holding cost recalibration",
+  "baseline_id": "reference_baseline_real_demand_target_calibrated_2026-03-30",
+  "status": "official_working_reference",
+  "decision": {
+    "selected_on_utc": "2026-03-30T08:01:11.159186+00:00",
+    "reference_date": "2026-03-30",
+    "selection_rule": "Keep only the calibrated 2026-03-30 reference baseline as the working baseline.",
+    "target_fill_rate_by_item": {
+      "item:268091": 0.93,
+      "item:268967": 0.8
+    },
+    "superseded_runs": [
+      {
+        "run_id": "reference_baseline_real_demand_service_targets",
+        "run_date": "2026-03-27",
+        "status": "superseded_intermediate_step"
+      }
+    ]
+  },
   "graph_files": {
-    "current": "/workspaces/lca-simu/etudecas/simulation_prep/result/reference_baseline/supply_graph_reference_baseline_current.json",
-    "versioned": "/workspaces/lca-simu/etudecas/simulation_prep/result/reference_baseline/supply_graph_reference_baseline_value_based_ge095_structural.json",
-    "source_variant": "/workspaces/lca-simu/etudecas/simulation_prep/result/calibrated_variants/supply_graph_estimated_replenishment_value_based_ge095_structural.json"
+    "prep_source": "C:\\dev\\lca-simu\\etudecas\\simulation_prep\\result\\reference_baseline\\supply_graph_reference_baseline_service96_no_prod_stop.json",
+    "current": "C:\\dev\\lca-simu\\etudecas\\simulation_prep\\result\\reference_baseline\\supply_graph_reference_baseline_current.json",
+    "named_calibrated": "C:\\dev\\lca-simu\\etudecas\\simulation_prep\\result\\reference_baseline\\supply_graph_reference_baseline_real_demand_target_calibrated.json"
   },
-  "result_files": {
-    "report": "/workspaces/lca-simu/etudecas/simulation/result/reference_baseline/reference_baseline_report.md",
-    "summary": "/workspaces/lca-simu/etudecas/simulation/result/reference_baseline/reference_baseline_summary.json",
-    "selection_rationale": "/workspaces/lca-simu/etudecas/simulation/result/value_based_baseline_recalibration_summary.md"
+  "simulation_reference": {
+    "result_dir": "C:\\dev\\lca-simu\\etudecas\\simulation\\result\\reference_baseline_real_demand_target_calibrated",
+    "report_file": "C:\\dev\\lca-simu\\etudecas\\simulation\\result\\reference_baseline_real_demand_target_calibrated\\reports\\first_simulation_report.md",
+    "rebuild_report_file": "C:\\dev\\lca-simu\\etudecas\\simulation\\result\\reference_baseline_real_demand_target_calibrated\\reports\\baseline_rebuild_report.md",
+    "summary_file": "C:\\dev\\lca-simu\\etudecas\\simulation\\result\\reference_baseline_real_demand_target_calibrated\\summaries\\first_simulation_summary.json",
+    "rebuild_summary_file": "C:\\dev\\lca-simu\\etudecas\\simulation\\result\\reference_baseline_real_demand_target_calibrated\\summaries\\baseline_rebuild_summary.json"
   },
-  "scenario": {
+  "generated_at_utc": "2026-03-30T08:00:55.358370+00:00",
+  "calibrated_run": {
+    "generated_at_utc": "2026-03-30T08:01:11.159186+00:00",
     "scenario_id": "scn:BASE",
     "days": 365,
-    "seed": 42,
-    "source_mode": "estimated_replenishment",
-    "external_procurement_enabled": false,
-    "opening_stock_bootstrap_scale": 2.0,
-    "capacity_scale": 4.0,
-    "lead_time_scale": 1.0,
-    "supplier_capacity_scale": 1.0
+    "warmup_days": 260,
+    "reset_backlog_after_warmup": true,
+    "factory_capacity_node_scale": {
+      "M-1430": 52.0,
+      "M-1810": 119.0
+    },
+    "supplier_capacity_scale": 320.0,
+    "transport_cost_realism_multiplier": 0.2,
+    "global_kpis": {
+      "fill_rate": 0.888075,
+      "ending_backlog": 593478.1966,
+      "total_cost": 27920896.5609,
+      "warmup_backlog_cleared_qty": 2131254.1763
+    },
+    "service_by_item": {
+      "item:268091": {
+        "target_fill_rate": 0.93,
+        "achieved_fill_rate": 0.9301795700474397,
+        "ending_backlog": 250886.329469
+      },
+      "item:268967": {
+        "target_fill_rate": 0.8,
+        "achieved_fill_rate": 0.7995535886578962,
+        "ending_backlog": 342591.867167
+      }
+    }
   },
-  "holding_cost_model": {
-    "formula": "item_unit_value * annual_carry_rate / 365",
-    "annual_carry_rate": 0.2,
-    "priced_items": 20,
-    "priced_edge_item_pairs": 30,
-    "fallback_global_unit_value_per_item_unit": 4.3
+  "changes": {
+    "customer_service_target_by_item_updated": 1,
+    "demand_profile_loaded_from_demand_pf": 2,
+    "inventory_initial_updated": 26
   },
-  "kpis": {
-    "fill_rate": 0.95154,
-    "ending_backlog": 843.2095,
-    "total_cost": 19256325.8659,
-    "avg_inventory": 8253511.0415,
-    "total_estimated_source_ordered_qty": 49570.1,
-    "total_estimated_source_replenished_qty": 47944.2243,
-    "total_opening_stock_bootstrap_qty": 8523781.9898
+  "invented_entities": [],
+  "item_unit_map_sample": {
+    "item:001757": "KG",
+    "item:001848": "KG",
+    "item:001893": "KG",
+    "item:002612": "KG",
+    "item:007923": "G",
+    "item:016332": "KG",
+    "item:021081": "KG",
+    "item:029313": "KG",
+    "item:038005": "KG",
+    "item:039668": "KG",
+    "item:042342": "UN",
+    "item:049371": "KG",
+    "item:055703": "KG",
+    "item:099439": "KG",
+    "item:268091": "UN",
+    "item:268967": "UN",
+    "item:333362": "UN",
+    "item:338928": "UN",
+    "item:338929": "UN",
+    "item:344135": "UN"
   },
-  "selection_reason": "Chosen as the current working reference because it reaches a pharma-style service baseline around 95% while keeping lead times unchanged, making it easier to defend than lower-cost alternatives that relied on shortened lead times."
+  "changed_entities": {
+    "edge_count": 0,
+    "node_count": 3,
+    "demand_rows_count": 2,
+    "demand_rows": [
+      {
+        "scenario_id": "scn:BASE",
+        "node_id": "C-XXXXX",
+        "item_id": "item:268967",
+        "action": "loaded_from_demand_pf_weekly_real_demand"
+      },
+      {
+        "scenario_id": "scn:BASE",
+        "node_id": "C-XXXXX",
+        "item_id": "item:268091",
+        "action": "loaded_from_demand_pf_weekly_real_demand"
+      }
+    ]
+  },
+  "validation_after_prep": {
+    "missing_geo_nodes_count": 0,
+    "missing_geo_nodes": [],
+    "edges_missing_distance_count": 0,
+    "edges_zero_transport_cost_count": 0,
+    "edges_factory_input_missing_sell_price_count": 1,
+    "edges_factory_input_missing_sell_price": [
+      "edge:SDC-1450_TO_M-1810_007923_Q"
+    ],
+    "zero_demand_rows_count": 0,
+    "zero_demand_rows": []
+  },
+  "data_poc_price_integration": {
+    "enabled": true,
+    "xlsx_path": "C:\\dev\\lca-simu\\etudecas\\donnees\\Data_poc.xlsx",
+    "sheet_found": true,
+    "rows_read": 33,
+    "rows_mapped": 33
+  },
+  "demand_pf_integration": {
+    "enabled": true,
+    "xlsx_path": "C:\\dev\\lca-simu\\etudecas\\donnees\\demand_PF.xlsx",
+    "sheet_found": true,
+    "rows_read": 104,
+    "rows_mapped": 104,
+    "pairs_loaded": 2,
+    "periods_per_pair": {
+      "C-XXXXX::item:268091": 52,
+      "C-XXXXX::item:268967": 52
+    }
+  },
+  "assumptions": {
+    "inventory_base_stock_by_node_type": {
+      "supplier_dc": 180.0,
+      "factory": 0.0,
+      "distribution_center": 120.0,
+      "customer": 0.0
+    },
+    "delay_step_limit_assumed": 21,
+    "holding_cost_model_assumed": {
+      "formula": "item_unit_value * annual_carry_rate / 365",
+      "annual_carry_rate": 0.2,
+      "item_unit_value_basis": "median(sell_price / price_base) per item after Data_poc pricing alignment",
+      "fallback_unit_value_basis": "global median priced item-unit value",
+      "priced_items": 20,
+      "priced_edge_item_pairs": 30,
+      "fallback_global_unit_value_per_item_unit": 4.3
+    },
+    "process_cost_per_unit_assumed": 0.35,
+    "demand_default_customer_rule": "weekly_fluctuating_profile(base=max(10, 1.0 * total_production_capacity_of_item))",
+    "demand_default_customer_weekly_pattern": [
+      0.8,
+      0.95,
+      1.05,
+      1.2,
+      1.1,
+      1.0,
+      0.9
+    ],
+    "demand_constant_assumed_customer_fallback": 25.0,
+    "demand_constant_assumed_other": 40.0,
+    "service_warm_start_customer_buffer_days": 0.0,
+    "service_warm_start_upstream_dc_buffer_days": 0.0,
+    "dc_alias_reconciliation": "DC-1910 merged into DC-1920",
+    "customer_location_recovery": "C-XXXXX location_ID set to Paris",
+    "assumed_supplier_label_for_unsourced_m1810_item": null,
+    "simulation_horizon_days_default": 365,
+    "product_service_targets": {
+      "item:268967": 0.8,
+      "item:268091": 0.93
+    },
+    "demand_pf_mapping_rule": "weekly demand values from demand_PF.xlsx converted to daily rates via uniform division by 7",
+    "demand_pf_tail_rule": "week 52 daily rate is held for the final day beyond 52 full weeks"
+  }
 }
