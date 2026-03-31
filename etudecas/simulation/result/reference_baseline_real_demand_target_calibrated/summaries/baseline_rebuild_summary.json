@@ -1,0 +1,93 @@
+{
+  "graph_output": "C:\\dev\\lca-simu\\etudecas\\simulation_prep\\result\\reference_baseline\\supply_graph_reference_baseline_current.json",
+  "named_graph_output": "C:\\dev\\lca-simu\\etudecas\\simulation_prep\\result\\reference_baseline\\supply_graph_reference_baseline_real_demand_target_calibrated.json",
+  "scenario_id": "scn:BASE",
+  "days": 365,
+  "factory_capacity_node_scale": {
+    "M-1430": 52.0,
+    "M-1810": 119.0
+  },
+  "supplier_capacity_scale": 320.0,
+  "scenario_settings": {
+    "warmup_days": 260,
+    "reset_backlog_after_warmup": true,
+    "initialization_policy": {
+      "mode": "explicit_state",
+      "state_scale": 0.02,
+      "factory_input_on_hand_days": 0.0,
+      "supplier_output_on_hand_days": 1.0,
+      "distribution_center_on_hand_days": 3.0,
+      "customer_on_hand_days": 0.0,
+      "seed_in_transit": true,
+      "in_transit_fill_ratio": 0.0,
+      "seed_estimated_source_pipeline": false
+    },
+    "economic_policy": {
+      "transport_cost_realism_multiplier": 0.2
+    }
+  },
+  "target_service_by_item": {
+    "item:268967": 0.8,
+    "item:268091": 0.93
+  },
+  "simulation_summary_file": "C:\\dev\\lca-simu\\etudecas\\simulation\\result\\reference_baseline_real_demand_target_calibrated\\summaries\\first_simulation_summary.json",
+  "simulation_report_file": "C:\\dev\\lca-simu\\etudecas\\simulation\\result\\reference_baseline_real_demand_target_calibrated\\reports\\first_simulation_report.md",
+  "global_kpis": {
+    "total_demand": 5302452.7143,
+    "measurement_starting_backlog": 0.0,
+    "warmup_backlog_cleared_qty": 2131254.1763,
+    "measured_required_total": 5302452.7143,
+    "total_served": 4708974.5176,
+    "ending_backlog": 593478.1966,
+    "fill_rate": 0.888075,
+    "total_shipped": 127074616.6123,
+    "total_arrived": 125812449.8774,
+    "total_produced": 17869743.232,
+    "avg_inventory": 19766465.3509,
+    "ending_inventory": 18941957.7433,
+    "total_transport_cost": 11167921.4643,
+    "total_holding_cost": 4186854.545,
+    "total_warehouse_operating_cost": 5383098.7007,
+    "total_inventory_risk_cost": 2392488.3114,
+    "total_inventory_cost_legacy_raw_holding": 11962441.5571,
+    "total_purchase_cost": 4790533.5394,
+    "total_logistics_cost": 23130363.0215,
+    "total_cost": 27920896.5609,
+    "total_external_procured_ordered_qty": 0.0,
+    "total_external_procured_arrived_qty": 0.0,
+    "total_external_procured_rejected_qty": 0.0,
+    "total_external_procured_qty": 0.0,
+    "total_external_procurement_cost": 0.0,
+    "total_estimated_source_ordered_qty": 104693283.3055,
+    "total_estimated_source_replenished_qty": 103072199.171,
+    "total_estimated_source_rejected_qty": 28206355.8413,
+    "total_opening_stock_bootstrap_qty": 0.0,
+    "total_explicit_initialization_stock_qty": 35076.3627,
+    "total_explicit_initialization_pipeline_qty": 0.0,
+    "total_unreliable_loss_qty": 0.0,
+    "total_supplier_capacity_binding_qty": 1580070.6283,
+    "cost_share_holding": 0.149954,
+    "cost_share_warehouse_operating": 0.192798,
+    "cost_share_inventory_risk": 0.085688,
+    "cost_share_transport": 0.399984,
+    "cost_share_purchase": 0.171575
+  },
+  "item_service": {
+    "item:268967": {
+      "demand": 1709144.4285539999,
+      "served": 1366552.561385,
+      "ending_backlog": 342591.867167,
+      "fill_rate": 0.7995535886578962,
+      "target_fill_rate": 0.8,
+      "target_gap": -0.00044641134210388067
+    },
+    "item:268091": {
+      "demand": 3593308.285718998,
+      "served": 3342421.956258,
+      "ending_backlog": 250886.329469,
+      "fill_rate": 0.9301795700474397,
+      "target_fill_rate": 0.93,
+      "target_gap": 0.00017957004743962557
+    }
+  }
+}
