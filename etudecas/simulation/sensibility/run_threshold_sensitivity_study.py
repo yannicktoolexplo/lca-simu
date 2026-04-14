@@ -36,6 +36,7 @@ from etudecas.simulation.analysis_batch_common import (  # noqa: E402
     to_float,
     write_json,
 )
+from etudecas.simulation.sensibility.case_naming import threshold_case_id  # noqa: E402
 
 
 def parse_args() -> argparse.Namespace:
@@ -756,7 +757,7 @@ def main() -> None:
         levels = list(spec["levels"])
         total_levels = len(levels)
         for level_index, level in enumerate(levels, start=1):
-            case_id = f"{safe_name(spec['parameter_key'])}_{safe_name(level)}"
+            case_id = threshold_case_id(parameter_key=str(spec["parameter_key"]), level=level)
             print(
                 f"[RUN] {spec_index:02d}/{len(specs):02d} {spec['parameter_key']} "
                 f"{level_index:02d}/{total_levels:02d} level={level}",

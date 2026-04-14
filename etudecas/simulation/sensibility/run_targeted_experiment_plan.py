@@ -78,39 +78,91 @@ def infer_profile_base_value(profile: list[dict[str, Any]]) -> float:
     return 0.0
 
 
+def scenario_horizon_days(data: dict[str, Any], scenario_id: str) -> int:
+    scn = choose_scenario(data, scenario_id)
+    days = int(round(to_float(scn.get("days"), 0.0)))
+    if days > 0:
+        return days
+    return 365
+
+
+def expand_profile_daily_values(profile: list[dict[str, Any]], horizon_days: int) -> list[float]:
+    if horizon_days <= 0:
+        return []
+    if not profile:
+        return [0.0] * horizon_days
+    first = next((p for p in profile if isinstance(p, dict)), None)
+    if not isinstance(first, dict):
+        return [0.0] * horizon_days
+
+    ptype = str(first.get("type", "constant")).lower()
+    if ptype in {"constant", "step"}:
+        value = round(max(0.0, to_float(first.get("value"), 0.0)), 6)
+        return [value] * horizon_days
+
+    if ptype == "piecewise":
+        raw_points = sorted(
+            [pt for pt in (first.get("points") or []) if isinstance(pt, dict)],
+            key=lambda x: int(to_float(x.get("t"), 0.0)),
+        )
+        if not raw_points:
+            return [0.0] * horizon_days
+        values: list[float] = []
+        current_idx = 0
+        current_value = max(0.0, to_float(raw_points[0].get("value"), 0.0))
+        for day in range(horizon_days):
+            while current_idx + 1 < len(raw_points) and int(to_float(raw_points[current_idx + 1].get("t"), 0.0)) <= day:
+                current_idx += 1
+                current_value = max(0.0, to_float(raw_points[current_idx].get("value"), 0.0))
+            values.append(round(current_value, 6))
+        return values
+
+    return [round(max(0.0, infer_profile_base_value(profile)), 6)] * horizon_days
+
+
+def daily_piecewise_profile(values: list[float], *, source: str) -> list[dict[str, Any]]:
+    points = [{"t": day, "value": round(max(0.0, value), 6)} for day, value in enumerate(values)]
+    if not points:
+        points = [{"t": 0, "value": 0.0}]
+    return [
+        {
+            "type": "piecewise",
+            "points": points,
+            "uom": "unit/day",
+            "source": source,
+        }
+    ]
+
+
 def mutate_demand_spike(data: dict[str, Any], scenario_id: str) -> None:
     scn = choose_scenario(data, scenario_id)
+    horizon_days = scenario_horizon_days(data, scenario_id)
     for d in (scn.get("demand") or []):
-        base = infer_profile_base_value(d.get("profile") or [])
-        d["profile"] = [
-            {
-                "type": "piecewise",
-                "points": [
-                    {"t": 0, "value": round(base, 6)},
-                    {"t": 3, "value": round(base * 1.3, 6)},
-                    {"t": 7, "value": round(base, 6)},
-                ],
-                "uom": "unit/day",
-                "source": "targeted_experiment_demand_spike",
-            }
+        base_values = expand_profile_daily_values(d.get("profile") or [], horizon_days)
+        spiked_values = [
+            round(value * (1.3 if 3 <= (day % 7) <= 5 else 1.0), 6)
+            for day, value in enumerate(base_values)
         ]
+        d["profile"] = daily_piecewise_profile(
+            spiked_values,
+            source="targeted_experiment_demand_spike_sync_weekly",
+        )
 
 
 def mutate_demand_volatility(data: dict[str, Any], scenario_id: str) -> None:
     scn = choose_scenario(data, scenario_id)
+    horizon_days = scenario_horizon_days(data, scenario_id)
     factors = [0.8, 1.25, 0.9, 1.3, 0.85, 1.2]
-    times = [0, 2, 4, 6, 8, 10]
     for d in (scn.get("demand") or []):
-        base = infer_profile_base_value(d.get("profile") or [])
-        points = [{"t": t, "value": round(base * f, 6)} for t, f in zip(times, factors)]
-        d["profile"] = [
-            {
-                "type": "piecewise",
-                "points": points,
-                "uom": "unit/day",
-                "source": "targeted_experiment_demand_volatility",
-            }
+        base_values = expand_profile_daily_values(d.get("profile") or [], horizon_days)
+        volatile_values = [
+            round(value * factors[(day // 7) % len(factors)], 6)
+            for day, value in enumerate(base_values)
         ]
+        d["profile"] = daily_piecewise_profile(
+            volatile_values,
+            source="targeted_experiment_demand_volatility_weekly_cycle",
+        )
 
 
 Mutator = Callable[[dict[str, Any], str], None]

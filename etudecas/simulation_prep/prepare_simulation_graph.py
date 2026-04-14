@@ -21,6 +21,11 @@ from pathlib import Path
 from statistics import median
 from typing import Any
 
+PRODUCT_SERVICE_TARGETS = {
+    "item:268967": 0.80,
+    "item:268091": 0.93,
+}
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Prepare simulation-ready supply graph.")
@@ -48,6 +53,11 @@ def parse_args() -> argparse.Namespace:
         "--data-poc-xlsx",
         default="etudecas/donnees/Data_poc.xlsx",
         help="Optional Data_poc.xlsx path used to align material prices from Relations_acteurs.",
+    )
+    parser.add_argument(
+        "--demand-pf-xlsx",
+        default="etudecas/donnees/demand_PF.xlsx",
+        help="Optional demand_PF.xlsx path used to load weekly customer demand.",
     )
     parser.add_argument(
         "--customer-warm-start-days",
@@ -358,6 +368,112 @@ def weekly_fluctuating_profile(base: float, horizon_days: int) -> list[dict[str,
     ]
 
 
+def weekly_demand_piecewise_profile(
+    weekly_values: list[float],
+    horizon_days: int,
+    *,
+    source: str,
+) -> list[dict[str, Any]]:
+    points: list[dict[str, Any]] = []
+    for idx, weekly_value in enumerate(weekly_values):
+        day = idx * 7
+        if day >= horizon_days:
+            break
+        points.append(
+            {
+                "t": day,
+                "value": round(max(0.0, weekly_value) / 7.0, 6),
+            }
+        )
+    if not points:
+        points = [{"t": 0, "value": 0.0}]
+    return [
+        {
+            "type": "piecewise",
+            "points": points,
+            "uom": "unit/day",
+            "is_default": False,
+            "source": source,
+            "source_period_unit": "week",
+            "daily_distribution": "uniform_over_7_days",
+        }
+    ]
+
+
+def load_weekly_demand_from_pf_xlsx(
+    xlsx_path: Path,
+) -> tuple[dict[tuple[str, str], list[float]], dict[str, Any]]:
+    demand_map: dict[tuple[str, str], list[float]] = {}
+    stats: dict[str, Any] = {
+        "enabled": False,
+        "xlsx_path": str(xlsx_path),
+        "sheet_found": False,
+        "rows_read": 0,
+        "rows_mapped": 0,
+        "pairs_loaded": 0,
+    }
+    if not xlsx_path.exists():
+        stats["error"] = "xlsx_not_found"
+        return demand_map, stats
+
+    try:
+        import openpyxl  # type: ignore
+    except Exception:
+        stats["error"] = "openpyxl_not_available"
+        return demand_map, stats
+
+    wb = openpyxl.load_workbook(xlsx_path, data_only=True, read_only=True)
+    if "Demande" not in wb.sheetnames:
+        stats["error"] = "demande_sheet_not_found"
+        return demand_map, stats
+    stats["enabled"] = True
+    stats["sheet_found"] = True
+
+    ws = wb["Demande"]
+    rows = ws.iter_rows(values_only=True)
+    try:
+        header = [str(v).strip() if v is not None else "" for v in next(rows)]
+    except StopIteration:
+        stats["error"] = "empty_sheet"
+        return demand_map, stats
+    idx = {name: i for i, name in enumerate(header)}
+    required = {"product", "customer_id", "step"}
+    if not required.issubset(idx):
+        stats["error"] = "missing_required_columns"
+        stats["columns"] = header
+        return demand_map, stats
+
+    raw_rows: dict[tuple[str, str], list[tuple[int, float]]] = defaultdict(list)
+    for rec in rows:
+        stats["rows_read"] += 1
+        if not rec:
+            continue
+        item_id = canonical_item_id(rec[idx["product"]])
+        customer_id = canonical_actor_id(rec[idx["customer_id"]])
+        step_num = int(to_float(rec[idx["step"]]) or 0)
+        real_idx = idx.get("real demand")
+        forecast_idx = idx.get("forecast_demand")
+        demand_value = None
+        if real_idx is not None:
+            demand_value = to_float(rec[real_idx])
+        if demand_value is None and forecast_idx is not None:
+            demand_value = to_float(rec[forecast_idx])
+        if not item_id or not customer_id or step_num <= 0 or demand_value is None:
+            continue
+        raw_rows[(customer_id, item_id)].append((step_num, max(0.0, demand_value)))
+        stats["rows_mapped"] += 1
+
+    for pair, values in raw_rows.items():
+        values.sort(key=lambda x: x[0])
+        demand_map[pair] = [float(v) for _, v in values]
+    stats["pairs_loaded"] = len(demand_map)
+    stats["periods_per_pair"] = {
+        f"{pair[0]}::{pair[1]}": len(values)
+        for pair, values in sorted(demand_map.items())
+    }
+    return demand_map, stats
+
+
 def load_prices_from_data_poc(xlsx_path: Path) -> tuple[dict[tuple[str, str, str], dict[str, Any]], dict[str, Any]]:
     price_map: dict[tuple[str, str, str], dict[str, Any]] = {}
     stats: dict[str, Any] = {
@@ -443,6 +559,7 @@ def ensure_sim_meta(graph: dict[str, Any]) -> None:
 def prepare_graph(
     graph: dict[str, Any],
     data_poc_xlsx: Path | None = None,
+    demand_pf_xlsx: Path | None = None,
     customer_warm_start_days: float = 0.0,
     upstream_dc_warm_start_days: float = 0.0,
     simulation_days: int = 30,
@@ -506,6 +623,10 @@ def prepare_graph(
     price_import_stats: dict[str, Any] = {"enabled": False}
     if data_poc_xlsx is not None:
         price_map, price_import_stats = load_prices_from_data_poc(data_poc_xlsx)
+    demand_pf_map: dict[tuple[str, str], list[float]] = {}
+    demand_pf_stats: dict[str, Any] = {"enabled": False}
+    if demand_pf_xlsx is not None:
+        demand_pf_map, demand_pf_stats = load_weekly_demand_from_pf_xlsx(demand_pf_xlsx)
 
     # Assumed supplier mapping for the currently modeled but unsourced M-1810 input.
     invented_dst_node = "M-1810"
@@ -1038,10 +1159,35 @@ def prepare_graph(
             if not isinstance(d, dict):
                 continue
             node_id = str(d.get("node_id") or "")
+            item_id = canonical_item_id(d.get("item_id"))
             profile = d.get("profile") or []
             if not isinstance(profile, list) or not profile:
                 profile = [{"type": "constant", "value": 0.0, "uom": "unit/day", "is_default": True}]
                 d["profile"] = profile
+
+            if item_id in PRODUCT_SERVICE_TARGETS:
+                d["service_level_target"] = PRODUCT_SERVICE_TARGETS[item_id]
+                d["service_level_target_source"] = "simulation_prep_business_rule_by_product"
+
+            demand_pair = (node_id, item_id)
+            if demand_pair in demand_pf_map:
+                d["profile"] = weekly_demand_piecewise_profile(
+                    demand_pf_map[demand_pair],
+                    target_sim_days,
+                    source="demand_pf_real_demand_weekly_uniform_daily",
+                )
+                d.setdefault("defaults", {})
+                d["defaults"]["demand"] = False
+                change_counts["demand_profile_loaded_from_demand_pf"] += 1
+                changed_demand_rows.append(
+                    {
+                        "scenario_id": sid,
+                        "node_id": node_id,
+                        "item_id": item_id,
+                        "action": "loaded_from_demand_pf_weekly_real_demand",
+                    }
+                )
+                continue
 
             is_all_zero = True
             for p in profile:
@@ -1053,7 +1199,6 @@ def prepare_graph(
             if is_all_zero:
                 if str((node_by_id.get(node_id) or {}).get("type")) == "customer":
                     # Realistic default: align demand to nominal producible envelope when not provided.
-                    item_id = str(d.get("item_id"))
                     cap = to_float(item_production_capacity.get(item_id)) or 0.0
                     base = round(max(10.0, 1.0 * cap), 2) if cap > 0 else 25.0
                     d["profile"] = weekly_fluctuating_profile(base, target_sim_days)
@@ -1075,6 +1220,31 @@ def prepare_graph(
                         "action": "filled_zero_or_missing_profile",
                     }
                 )
+
+    for n in nodes:
+        if str(n.get("type") or "") != "customer":
+            continue
+        nid = str(n.get("id") or "")
+        item_targets = {
+            item_id: PRODUCT_SERVICE_TARGETS[item_id]
+            for customer_id, item_id in sorted(customer_item_pairs)
+            if customer_id == nid and item_id in PRODUCT_SERVICE_TARGETS
+        }
+        if not item_targets:
+            continue
+        policies = n.get("policies")
+        if not isinstance(policies, dict):
+            policies = {}
+            n["policies"] = policies
+        sim_policy = policies.get("simulation_policy")
+        if not isinstance(sim_policy, dict):
+            sim_policy = {}
+            policies["simulation_policy"] = sim_policy
+        if sim_policy.get("service_level_target_by_item") != item_targets:
+            sim_policy["service_level_target_by_item"] = item_targets
+            sim_policy["service_level_target_source"] = "simulation_prep_business_rule_by_product"
+            change_counts["customer_service_target_by_item_updated"] += 1
+            changed_node_ids.append(nid)
 
     # Warm-start service buffers on demand-serving lanes to avoid cold-start bias:
     # - customer buffer: 1 day of demand
@@ -1236,6 +1406,7 @@ def prepare_graph(
             "zero_demand_rows": zero_demand_rows,
         },
         "data_poc_price_integration": price_import_stats,
+        "demand_pf_integration": demand_pf_stats,
         "assumptions": {
             "inventory_base_stock_by_node_type": node_base_stock,
             "delay_step_limit_assumed": 21,
@@ -1261,6 +1432,9 @@ def prepare_graph(
                 f"{invented_item_id}: GAILLAC?" if invented_item_id else None
             ),
             "simulation_horizon_days_default": target_sim_days,
+            "product_service_targets": PRODUCT_SERVICE_TARGETS,
+            "demand_pf_mapping_rule": "weekly demand values from demand_PF.xlsx converted to daily rates via uniform division by 7",
+            "demand_pf_tail_rule": "week 52 daily rate is held for the final day beyond 52 full weeks",
         },
     }
     return g, report
@@ -1300,6 +1474,7 @@ def report_markdown(report: dict[str, Any], input_path: str, output_graph_path: 
 - Assumed destination inventory states added (M-1810 unsourced input): {c.get('assumed_gaillac_destination_inventory_state_added', 0)}
 - Demand rows added: {c.get('demand_rows_added', 0)}
 - Demand rows updated: {c.get('demand_profile_updated', 0)}
+- Demand rows loaded from demand_PF.xlsx: {c.get('demand_profile_loaded_from_demand_pf', 0)}
 - Scenario horizons updated to default simulation days: {c.get('scenario_horizon_updated', 0)}
 
 ## Changed entities
@@ -1320,6 +1495,15 @@ def report_markdown(report: dict[str, Any], input_path: str, output_graph_path: 
 - Rows read: {report.get('data_poc_price_integration', {}).get('rows_read', 0)}
 - Rows mapped: {report.get('data_poc_price_integration', {}).get('rows_mapped', 0)}
 - Error: {report.get('data_poc_price_integration', {}).get('error', 'none')}
+
+## demand_PF import
+- Enabled: {report.get('demand_pf_integration', {}).get('enabled', False)}
+- XLSX path: {report.get('demand_pf_integration', {}).get('xlsx_path', '')}
+- Sheet found: {report.get('demand_pf_integration', {}).get('sheet_found', False)}
+- Rows read: {report.get('demand_pf_integration', {}).get('rows_read', 0)}
+- Rows mapped: {report.get('demand_pf_integration', {}).get('rows_mapped', 0)}
+- Pairs loaded: {report.get('demand_pf_integration', {}).get('pairs_loaded', 0)}
+- Error: {report.get('demand_pf_integration', {}).get('error', 'none')}
 
 ## Holding cost model
 - Formula: {report.get('assumptions', {}).get('holding_cost_model_assumed', {}).get('formula', 'n/a')}
@@ -1343,6 +1527,7 @@ def main() -> None:
     out_report_json = Path(args.output_report_json)
     out_report_md = Path(args.output_report_md)
     data_poc_xlsx = Path(args.data_poc_xlsx) if str(args.data_poc_xlsx).strip() else None
+    demand_pf_xlsx = Path(args.demand_pf_xlsx) if str(args.demand_pf_xlsx).strip() else None
 
     out_graph.parent.mkdir(parents=True, exist_ok=True)
 
@@ -1350,6 +1535,7 @@ def main() -> None:
     prepared, report = prepare_graph(
         raw,
         data_poc_xlsx,
+        demand_pf_xlsx,
         customer_warm_start_days=args.customer_warm_start_days,
         upstream_dc_warm_start_days=args.upstream_dc_warm_start_days,
         simulation_days=args.simulation_days,
