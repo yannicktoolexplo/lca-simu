@@ -69,6 +69,130 @@ def convert_quantity(value: float, from_unit: str, to_unit: str) -> float:
     return value
 
 
+def normalize_lot_value(value: Any, from_unit: str, to_unit: str) -> float:
+    qty = max(0.0, to_float(value, 0.0))
+    if qty <= 0:
+        return 0.0
+    return max(0.0, convert_quantity(qty, from_unit, to_unit))
+
+
+def process_lot_policy(
+    proc: dict[str, Any],
+    *,
+    out_item: str,
+    item_unit_map: dict[str, str],
+) -> dict[str, Any]:
+    raw = proc.get("lot_sizing") or {}
+    if not isinstance(raw, dict):
+        raw = {}
+    item_uom = normalize_unit(item_unit_map.get(out_item, ""))
+    policy_uom = normalize_unit(raw.get("uom") or item_uom)
+    fixed_lot_qty = normalize_lot_value(raw.get("fixed_lot_qty"), policy_uom, item_uom)
+    min_lot_qty = normalize_lot_value(raw.get("min_lot_qty"), policy_uom, item_uom)
+    max_lot_qty = normalize_lot_value(raw.get("max_lot_qty"), policy_uom, item_uom)
+    lot_multiple_qty = normalize_lot_value(raw.get("lot_multiple_qty"), policy_uom, item_uom)
+    normalization_rule = str(raw.get("normalization_rule") or "")
+    if fixed_lot_qty <= 1e-9 and min_lot_qty > 1e-9 and abs(min_lot_qty - max_lot_qty) <= 1e-9:
+        fixed_lot_qty = min_lot_qty
+        normalization_rule = normalization_rule or "min_equals_max_as_fixed"
+    enabled = fixed_lot_qty > 1e-9 or min_lot_qty > 1e-9 or max_lot_qty > 1e-9
+    execution_raw = proc.get("lot_execution") or {}
+    if not isinstance(execution_raw, dict):
+        execution_raw = {}
+    max_lots_per_week = max(0.0, to_float(execution_raw.get("max_lots_per_week"), 0.0))
+    return {
+        "enabled": enabled,
+        "fixed_lot_qty": fixed_lot_qty,
+        "min_lot_qty": min_lot_qty,
+        "max_lot_qty": max_lot_qty,
+        "lot_multiple_qty": lot_multiple_qty,
+        "uom": item_uom,
+        "source": str(raw.get("source") or ""),
+        "normalization_rule": normalization_rule,
+        "max_lots_per_week": max_lots_per_week,
+        "execution_source": str(execution_raw.get("source") or ""),
+    }
+
+
+def launch_campaign_qty(net_requirement_qty: float, lot_policy: dict[str, Any]) -> float:
+    requirement = max(0.0, net_requirement_qty)
+    if requirement <= 1e-9 or not lot_policy.get("enabled"):
+        return requirement
+    fixed_lot_qty = max(0.0, to_float(lot_policy.get("fixed_lot_qty"), 0.0))
+    min_lot_qty = max(0.0, to_float(lot_policy.get("min_lot_qty"), 0.0))
+    max_lot_qty = max(0.0, to_float(lot_policy.get("max_lot_qty"), 0.0))
+    lot_multiple_qty = max(0.0, to_float(lot_policy.get("lot_multiple_qty"), 0.0))
+    if fixed_lot_qty > 1e-9:
+        return math.ceil(requirement / fixed_lot_qty) * fixed_lot_qty
+    campaign_qty = requirement
+    if min_lot_qty > 1e-9:
+        campaign_qty = max(campaign_qty, min_lot_qty)
+    if lot_multiple_qty > 1e-9:
+        campaign_qty = math.ceil(campaign_qty / lot_multiple_qty) * lot_multiple_qty
+    if max_lot_qty > 1e-9:
+        effective_max = max_lot_qty
+        if lot_multiple_qty > 1e-9:
+            effective_max = math.floor(max_lot_qty / lot_multiple_qty) * lot_multiple_qty
+            if effective_max <= 1e-9:
+                effective_max = max_lot_qty
+        campaign_qty = min(campaign_qty, effective_max)
+    return max(0.0, campaign_qty)
+
+
+def lot_reference_qty(lot_policy: dict[str, Any]) -> float:
+    fixed_lot_qty = max(0.0, to_float(lot_policy.get("fixed_lot_qty"), 0.0))
+    if fixed_lot_qty > 1e-9:
+        return fixed_lot_qty
+    max_lot_qty = max(0.0, to_float(lot_policy.get("max_lot_qty"), 0.0))
+    if max_lot_qty > 1e-9:
+        return max_lot_qty
+    min_lot_qty = max(0.0, to_float(lot_policy.get("min_lot_qty"), 0.0))
+    if min_lot_qty > 1e-9:
+        return min_lot_qty
+    lot_multiple_qty = max(0.0, to_float(lot_policy.get("lot_multiple_qty"), 0.0))
+    if lot_multiple_qty > 1e-9:
+        return lot_multiple_qty
+    return 0.0
+
+
+def campaign_lot_count(campaign_qty: float, lot_policy: dict[str, Any]) -> int:
+    qty = max(0.0, to_float(campaign_qty, 0.0))
+    if qty <= 1e-9:
+        return 0
+    ref_qty = lot_reference_qty(lot_policy)
+    if ref_qty <= 1e-9:
+        return 0
+    return max(0, int(math.ceil((qty / ref_qty) - 1e-9)))
+
+
+def limit_campaign_qty_by_weekly_lots(
+    campaign_qty: float,
+    lot_policy: dict[str, Any],
+    available_lot_starts: int,
+) -> float:
+    qty = max(0.0, to_float(campaign_qty, 0.0))
+    if qty <= 1e-9:
+        return 0.0
+    allowed_lots = max(0, int(available_lot_starts))
+    if allowed_lots <= 0:
+        return 0.0
+    ref_qty = lot_reference_qty(lot_policy)
+    if ref_qty <= 1e-9:
+        return qty
+    fixed_lot_qty = max(0.0, to_float(lot_policy.get("fixed_lot_qty"), 0.0))
+    min_lot_qty = max(0.0, to_float(lot_policy.get("min_lot_qty"), 0.0))
+    max_lot_qty = max(0.0, to_float(lot_policy.get("max_lot_qty"), 0.0))
+    capped_qty = min(qty, allowed_lots * ref_qty)
+    if fixed_lot_qty > 1e-9:
+        fixed_lots = max(0, int(math.floor((capped_qty / fixed_lot_qty) + 1e-9)))
+        return fixed_lots * fixed_lot_qty
+    if max_lot_qty > 1e-9:
+        capped_qty = min(capped_qty, max_lot_qty)
+    if min_lot_qty > 1e-9 and capped_qty + 1e-9 < min_lot_qty:
+        return 0.0
+    return max(0.0, capped_qty)
+
+
 def infer_item_unit_map(nodes: list[dict[str, Any]], edges: list[dict[str, Any]]) -> dict[str, str]:
     votes: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
 
@@ -1126,6 +1250,12 @@ def main() -> None:
     nodes = data.get("nodes", []) or []
     edges = data.get("edges", []) or []
     node_by_id = {str(n.get("id")): n for n in nodes}
+    mrp_snapshot_pairs = {
+        (str(n.get("id")), str(state.get("item_id")))
+        for n in nodes
+        for state in (((n.get("inventory") or {}).get("states") or []))
+        if str(state.get("initial_source") or "").strip().lower() == "mrp_snapshot"
+    }
     item_unit_map = infer_item_unit_map(nodes, edges)
     assumed_supplier_nodes_set = {
         str(n.get("id"))
@@ -1163,6 +1293,7 @@ def main() -> None:
     safety_stock_days = max(0.0, scenario_policy_value(scenario, "safety_stock_days", 7.0))
     review_period_days = max(1, int(round(scenario_policy_value(scenario, "review_period_days", 1.0))))
     fg_target_days = max(0.0, scenario_policy_value(scenario, "fg_target_days", 0.0))
+    demand_stock_target_days = max(0.0, scenario_policy_value(scenario, "demand_stock_target_days", 0.0))
     production_gap_gain = max(0.0, scenario_policy_value(scenario, "production_gap_gain", 0.25))
     production_smoothing = min(0.95, max(0.0, scenario_policy_value(scenario, "production_smoothing", 0.20)))
     initialization_policy = scenario_initialization_policy(
@@ -1272,6 +1403,8 @@ def main() -> None:
     stock: dict[tuple[str, str], float] = defaultdict(float)
     holding_cost: dict[tuple[str, str], float] = defaultdict(float)
     base_stock: dict[tuple[str, str], float] = defaultdict(float)
+    pair_mrp_safety_time_days: dict[tuple[str, str], float] = defaultdict(float)
+    pair_mrp_safety_stock_qty: dict[tuple[str, str], float] = defaultdict(float)
     for n in nodes:
         nid = str(n.get("id"))
         inv = n.get("inventory") or {}
@@ -1279,9 +1412,20 @@ def main() -> None:
             key = (nid, str(st.get("item_id")))
             initial = to_float(st.get("initial"), 0.0)
             stock[key] = initial
-            base_stock[key] = initial
+            # An MRP snapshot is an opening position, not a standing reorder target.
+            # Keeping the opening stock as perpetual base stock forces some seeded
+            # supplier pairs into daily capped replenishment even when downstream
+            # demand is variable and current stock is already ample.
+            if key in mrp_snapshot_pairs:
+                base_stock[key] = 0.0
+            else:
+                base_stock[key] = initial
             hc = st.get("holding_cost") or {}
             holding_cost[key] = to_float((hc or {}).get("value"), 0.0) * economic_policy["holding_cost_scale"]
+            mrp_policy = st.get("mrp_policy") or {}
+            if isinstance(mrp_policy, dict):
+                pair_mrp_safety_time_days[key] = max(0.0, to_float(mrp_policy.get("safety_time_days"), 0.0))
+                pair_mrp_safety_stock_qty[key] = max(0.0, to_float(mrp_policy.get("safety_stock_qty"), 0.0))
 
     lanes, lanes_by_dest_item = lane_records(edges, economic_policy=economic_policy)
     lanes_with_fallback_transport_cost = sum(1 for l in lanes if bool(l.get("transport_cost_is_fallback")))
@@ -1449,12 +1593,16 @@ def main() -> None:
     production_output_pairs = sorted(production_output_pairs)
     cum_output_by_pair: dict[tuple[str, str], float] = defaultdict(float)
     prev_production_command_by_pair: dict[tuple[str, str], float] = {}
+    open_production_campaign_qty_by_pair: dict[tuple[str, str], float] = defaultdict(float)
+    started_production_lots_by_week_pair: dict[tuple[int, tuple[str, str]], int] = defaultdict(int)
     pair_max_lead_days: dict[tuple[str, str], int] = {}
     pair_stock_cover_days: dict[tuple[str, str], int] = {}
     for pair, lane_list in lanes_by_dest_item.items():
         pair_max_lead_days[pair] = max(int(to_float(l.get("lead_days"), 1.0)) for l in lane_list) if lane_list else 1
         max_cover = max(lead_time_cover_days(l, args.stochastic_lead_times) for l in lane_list) if lane_list else 1
-        pair_stock_cover_days[pair] = max_cover + review_period_days
+        pair_stock_cover_days[pair] = (
+            max_cover + review_period_days + int(math.ceil(pair_mrp_safety_time_days.get(pair, 0.0)))
+        )
 
     # Legacy bootstrap or explicit initial state preparation.
     opening_stock_bootstrap_rows: list[dict[str, Any]] = []
@@ -1597,7 +1745,14 @@ def main() -> None:
             cover_days: float,
         ) -> None:
             nonlocal total_initialization_stock_added
-            target = max(base_stock.get(pair, 0.0), max(0.0, target) * state_scale)
+            raw_target = max(0.0, target)
+            # Estimated upstream supplier sources need their opening buffer at full scale.
+            # If we also shrink them with state_scale, the supplier can remain artificially
+            # pinned at zero stock while shipping at full daily capacity.
+            if category == "estimated_source_on_hand":
+                target = max(base_stock.get(pair, 0.0), raw_target)
+            else:
+                target = max(base_stock.get(pair, 0.0), raw_target * state_scale)
             current = stock.get(pair, 0.0)
             if target <= current + 1e-9:
                 base_stock[pair] = max(base_stock.get(pair, 0.0), target)
@@ -1664,10 +1819,13 @@ def main() -> None:
             if pair[0] not in process_node_ids or daily_req <= 1e-9:
                 continue
             category_prefix = "factory" if node_type_by_id.get(pair[0]) == "factory" else "process_node"
-            cover_days = initialization_policy["factory_input_on_hand_days"]
+            cover_days = (
+                initialization_policy["factory_input_on_hand_days"]
+                + pair_mrp_safety_time_days.get(pair, 0.0)
+            )
             ensure_stock_target(
                 pair,
-                daily_req * cover_days,
+                max(daily_req * cover_days, pair_mrp_safety_stock_qty.get(pair, 0.0)),
                 category=f"{category_prefix}_input_on_hand",
                 daily_signal=daily_req,
                 cover_days=cover_days,
@@ -1685,11 +1843,11 @@ def main() -> None:
                 continue
             cover_days = max(
                 initialization_policy["supplier_output_on_hand_days"],
-                float(review_period_days) + process_tau_days_by_pair.get(pair, 0.0),
+                float(review_period_days) + process_tau_days_by_pair.get(pair, 0.0) + pair_mrp_safety_time_days.get(pair, 0.0),
             )
             ensure_stock_target(
                 pair,
-                daily_signal * cover_days,
+                max(daily_signal * cover_days, pair_mrp_safety_stock_qty.get(pair, 0.0)),
                 category="supplier_output_on_hand",
                 daily_signal=daily_signal,
                 cover_days=cover_days,
@@ -1700,10 +1858,13 @@ def main() -> None:
             daily_signal = max(0.0, propagated_demand_daily.get(pair, 0.0))
             if daily_signal <= 1e-9:
                 continue
-            cover_days = initialization_policy["distribution_center_on_hand_days"]
+            cover_days = (
+                initialization_policy["distribution_center_on_hand_days"]
+                + pair_mrp_safety_time_days.get(pair, 0.0)
+            )
             ensure_stock_target(
                 pair,
-                daily_signal * cover_days,
+                max(daily_signal * cover_days, pair_mrp_safety_stock_qty.get(pair, 0.0)),
                 category="distribution_center_on_hand",
                 daily_signal=daily_signal,
                 cover_days=cover_days,
@@ -1729,15 +1890,16 @@ def main() -> None:
                     cover_days=customer_days,
                 )
 
+        for src_pair, policy in sorted(estimated_source_policies.items()):
+            ensure_stock_target(
+                src_pair,
+                to_float(policy.get("target_stock_qty_day0"), 0.0),
+                category="estimated_source_on_hand",
+                daily_signal=to_float(policy.get("daily_capacity_qty"), 0.0),
+                cover_days=to_float(policy.get("target_cover_days"), 0.0),
+            )
         if initialization_policy["seed_estimated_source_pipeline"]:
             for src_pair, policy in sorted(estimated_source_policies.items()):
-                ensure_stock_target(
-                    src_pair,
-                    to_float(policy.get("target_stock_qty_day0"), 0.0),
-                    category="estimated_source_on_hand",
-                    daily_signal=to_float(policy.get("daily_capacity_qty"), 0.0),
-                    cover_days=to_float(policy.get("target_cover_days"), 0.0),
-                )
                 daily_capacity = max(0.0, to_float(policy.get("daily_capacity_qty"), 0.0))
                 lead_days = max(1, int(to_float(policy.get("replenishment_lead_days"), 1.0)))
                 transit_qty = daily_capacity * float(lead_days) * initialization_policy["in_transit_fill_ratio"] * state_scale
@@ -1919,6 +2081,7 @@ def main() -> None:
 
                 max_from_inputs = min(input_limits) if input_limits else cap
                 out_pair = (nid, out_item)
+                lot_policy = process_lot_policy(p, out_item=out_item, item_unit_map=item_unit_map)
                 # For internally manufactured intermediates, rely on downstream
                 # process requirements as well as customer-demand propagation.
                 out_signal = max(
@@ -1939,11 +2102,44 @@ def main() -> None:
                 desired_qty = production_smoothing * prev_cmd + (1.0 - production_smoothing) * raw_command
                 desired_qty = max(0.0, desired_qty)
                 prev_production_command_by_pair[out_pair] = desired_qty
+                campaign_remaining_start_qty = max(0.0, open_production_campaign_qty_by_pair.get(out_pair, 0.0))
+                campaign_started_qty = 0.0
+                campaign_requested_qty = 0.0
+                lot_planned_qty = desired_qty
+                week_index = int(day // 7)
+                week_key = (week_index, out_pair)
+                started_lots_this_week = int(started_production_lots_by_week_pair.get(week_key, 0))
+                requested_lot_starts = 0
+                actual_lot_starts = 0
+                weekly_lot_limit = max(0, int(math.floor(to_float(lot_policy.get("max_lots_per_week"), 0.0))))
+                lot_weekly_limit_blocked = False
+                if lot_policy["enabled"]:
+                    if campaign_remaining_start_qty <= 1e-9 and desired_qty > 1e-9:
+                        campaign_requested_qty = launch_campaign_qty(desired_qty, lot_policy)
+                        requested_lot_starts = campaign_lot_count(campaign_requested_qty, lot_policy)
+                        campaign_started_qty = campaign_requested_qty
+                        if weekly_lot_limit > 0:
+                            available_lot_starts = max(0, weekly_lot_limit - started_lots_this_week)
+                            campaign_started_qty = limit_campaign_qty_by_weekly_lots(
+                                campaign_requested_qty,
+                                lot_policy,
+                                available_lot_starts,
+                            )
+                            actual_lot_starts = campaign_lot_count(campaign_started_qty, lot_policy)
+                            lot_weekly_limit_blocked = actual_lot_starts < requested_lot_starts
+                        else:
+                            actual_lot_starts = requested_lot_starts
+                        campaign_remaining_start_qty = campaign_started_qty
+                        open_production_campaign_qty_by_pair[out_pair] = campaign_started_qty
+                        if actual_lot_starts > 0:
+                            started_production_lots_by_week_pair[week_key] = started_lots_this_week + actual_lot_starts
+                            started_lots_this_week = int(started_production_lots_by_week_pair[week_key])
+                    lot_planned_qty = campaign_remaining_start_qty
 
-                qty = max(0.0, min(cap, max_from_inputs, desired_qty))
+                qty = max(0.0, min(cap, max_from_inputs, lot_planned_qty))
                 binding_cause = "none"
                 binding_item = ""
-                if desired_qty > 1e-9:
+                if desired_qty > 1e-9 or campaign_remaining_start_qty > 1e-9:
                     input_binding_item = ""
                     input_binding_value = float("inf")
                     for inp in (p.get("inputs") or []):
@@ -1963,11 +2159,16 @@ def main() -> None:
                         if item_limit < input_binding_value:
                             input_binding_value = item_limit
                             input_binding_item = in_item
-                    if qty + 1e-9 < desired_qty:
-                        if max_from_inputs <= cap + 1e-9 and max_from_inputs <= desired_qty + 1e-9:
+                    binding_reference_qty = lot_planned_qty if lot_policy["enabled"] else desired_qty
+                    if lot_weekly_limit_blocked and campaign_remaining_start_qty <= 1e-9 and desired_qty > 1e-9:
+                        binding_cause = "weekly_lot_limit"
+                    elif lot_policy["enabled"] and campaign_remaining_start_qty > 1e-9 and qty <= 1e-9:
+                        binding_cause = "lot_campaign_blocked"
+                    elif qty + 1e-9 < binding_reference_qty:
+                        if max_from_inputs <= cap + 1e-9 and max_from_inputs <= binding_reference_qty + 1e-9:
                             binding_cause = "input_shortage"
                             binding_item = input_binding_item
-                        elif cap <= max_from_inputs + 1e-9 and cap <= desired_qty + 1e-9:
+                        elif cap <= max_from_inputs + 1e-9 and cap <= binding_reference_qty + 1e-9:
                             binding_cause = "capacity"
                         else:
                             binding_cause = "policy_command"
@@ -1978,12 +2179,33 @@ def main() -> None:
                                 "node_id": nid,
                                 "output_item_id": out_item,
                                 "desired_qty": round(desired_qty, 6),
+                                "planned_qty_after_lot_rule": round(lot_planned_qty, 6),
                                 "actual_qty": round(qty, 6),
                                 "cap_qty": round(cap, 6),
                                 "max_from_inputs_qty": round(max_from_inputs, 6),
                                 "binding_cause": binding_cause,
                                 "binding_input_item_id": binding_item,
                                 "shortfall_vs_desired_qty": round(max(0.0, desired_qty - qty), 6),
+                                "shortfall_vs_lot_plan_qty": round(max(0.0, lot_planned_qty - qty), 6),
+                                "lot_policy_mode": (
+                                    "fixed"
+                                    if lot_policy.get("fixed_lot_qty", 0.0) > 1e-9
+                                    else "min_max"
+                                    if lot_policy["enabled"]
+                                    else "none"
+                                ),
+                                "lot_fixed_qty": round(to_float(lot_policy.get("fixed_lot_qty"), 0.0), 6),
+                                "lot_min_qty": round(to_float(lot_policy.get("min_lot_qty"), 0.0), 6),
+                                "lot_max_qty": round(to_float(lot_policy.get("max_lot_qty"), 0.0), 6),
+                                "lot_multiple_qty": round(to_float(lot_policy.get("lot_multiple_qty"), 0.0), 6),
+                                "max_lots_per_week": weekly_lot_limit,
+                                "started_lots_this_week": started_lots_this_week,
+                                "requested_lot_starts": requested_lot_starts,
+                                "actual_lot_starts": actual_lot_starts,
+                                "campaign_requested_qty": round(campaign_requested_qty, 6),
+                                "campaign_started_qty": round(campaign_started_qty, 6),
+                                "campaign_remaining_start_qty": round(campaign_remaining_start_qty, 6),
+                                "campaign_remaining_end_qty": round(max(0.0, campaign_remaining_start_qty - qty), 6),
                             }
                         )
                 if qty <= 0:
@@ -2008,6 +2230,8 @@ def main() -> None:
                 stock[(nid, out_item)] += qty
                 produced_today += qty
                 produced_today_by_pair[(nid, out_item)] += qty
+                if lot_policy["enabled"]:
+                    open_production_campaign_qty_by_pair[out_pair] = max(0.0, campaign_remaining_start_qty - qty)
 
         if record_day:
             total_produced += produced_today
@@ -2021,6 +2245,7 @@ def main() -> None:
                         "item_id": item_id,
                         "produced_qty": round(q, 6),
                         "cum_produced_qty": round(cum_output_by_pair[(node_id, item_id)], 6),
+                        "stock_end_of_day": round(stock[(node_id, item_id)], 6),
                     }
                 )
             for node_id, item_id in production_input_pairs:
@@ -2079,14 +2304,29 @@ def main() -> None:
         supplier_capacity_used_today_by_src_pair: dict[tuple[str, str], float] = defaultdict(float)
         for pair, lane_list in lanes_by_dest_item.items():
             dst, item_id = pair
-            target = base_stock.get(pair, 0.0)
-            item_daily_req = required_daily_input_by_pair.get(pair, propagated_demand_today.get(pair, 0.0))
+            target = max(base_stock.get(pair, 0.0), pair_mrp_safety_stock_qty.get(pair, 0.0))
+            static_daily_req = max(0.0, required_daily_input_by_pair.get(pair, 0.0))
+            dynamic_daily_req = max(0.0, propagated_demand_today.get(pair, 0.0))
+            if dynamic_daily_req > 1e-9:
+                # Use the propagated downstream demand signal for day-to-day supplier
+                # replenishment targets. The static engineering requirement remains a
+                # fallback for items that currently have no propagated demand, but it
+                # should not force long-lead suppliers into a flat, capped shipment
+                # profile when downstream demand and production actually vary.
+                item_daily_req = dynamic_daily_req
+            else:
+                item_daily_req = static_daily_req
             if item_daily_req > 0:
-                target = max(
-                    target,
-                    safety_stock_days * item_daily_req,
-                    item_daily_req * float(pair_stock_cover_days.get(pair, review_period_days + 1)),
-                )
+                target = max(target, safety_stock_days * item_daily_req)
+                if pair in demand_pairs and demand_stock_target_days > 0.0:
+                    target = max(target, demand_stock_target_days * item_daily_req)
+                if pair not in mrp_snapshot_pairs:
+                    target = max(
+                        target,
+                        item_daily_req * float(pair_stock_cover_days.get(pair, review_period_days + 1)),
+                    )
+            else:
+                target = max(target, pair_mrp_safety_stock_qty.get(pair, 0.0))
             target += backlog[pair]
 
             if day % review_period_days != 0:
@@ -2177,6 +2417,12 @@ def main() -> None:
                     return 0.0
                 rel = max(0.01, min(1.0, to_float(lane.get("reliability"), 1.0)))
                 unconstrained_pull_qty = min(available, desired_delivered_qty / rel)
+                standard_order_qty = max(0.0, to_float(lane.get("standard_order_qty"), 0.0))
+                if standard_order_qty > 1e-9:
+                    # Treat standard order qty as a target ordering multiple, but never
+                    # let the physical shipment exceed the stock actually on hand.
+                    unconstrained_pull_qty = math.ceil(unconstrained_pull_qty / standard_order_qty) * standard_order_qty
+                    unconstrained_pull_qty = min(unconstrained_pull_qty, available)
                 supplier_capacity_left = supplier_daily_capacity_by_pair.get(src_pair)
                 if supplier_capacity_left is not None:
                     supplier_capacity_left = max(
@@ -2397,6 +2643,7 @@ def main() -> None:
             "safety_stock_days": safety_stock_days,
             "review_period_days": review_period_days,
             "fg_target_days": fg_target_days,
+            "demand_stock_target_days": demand_stock_target_days,
             "production_gap_gain": production_gap_gain,
             "production_smoothing": production_smoothing,
             "warmup_days": warmup_days,
@@ -2491,6 +2738,43 @@ def main() -> None:
             "opening_stock_bootstrap_pairs": opening_stock_bootstrap_rows,
             "explicit_initialization_stock_rows": initialization_state_rows,
             "explicit_initialization_pipeline_rows": initialization_pipeline_rows,
+            "pair_mrp_safety_policies": [
+                {
+                    "node_id": n,
+                    "item_id": i,
+                    "safety_time_days": round(pair_mrp_safety_time_days.get((n, i), 0.0), 6),
+                    "safety_stock_qty": round(pair_mrp_safety_stock_qty.get((n, i), 0.0), 6),
+                }
+                for (n, i) in sorted(
+                    {
+                        pair
+                        for pair in set(pair_mrp_safety_time_days) | set(pair_mrp_safety_stock_qty)
+                        if pair_mrp_safety_time_days.get(pair, 0.0) > 0.0
+                        or pair_mrp_safety_stock_qty.get(pair, 0.0) > 0.0
+                    }
+                )
+            ],
+            "process_lot_execution_policies": [
+                {
+                    "node_id": str(node.get("id")),
+                    "item_id": str(((proc.get("outputs") or [{}])[0] or {}).get("item_id") or ""),
+                    "max_lots_per_week": round(
+                        max(0.0, to_float(((proc.get("lot_execution") or {}).get("max_lots_per_week")), 0.0)),
+                        6,
+                    ),
+                    "lot_multiple_qty": round(
+                        max(0.0, to_float(((proc.get("lot_sizing") or {}).get("lot_multiple_qty")), 0.0)),
+                        6,
+                    ),
+                    "source": str(((proc.get("lot_execution") or {}).get("source")) or ""),
+                }
+                for node in (nodes or [])
+                for proc in (node.get("processes") or [])
+                if (proc.get("outputs") or []) and max(
+                    0.0,
+                    to_float(((proc.get("lot_execution") or {}).get("max_lots_per_week")), 0.0),
+                ) > 0.0
+            ],
             "supplier_daily_capacity_pairs": supplier_capacity_metadata_rows,
             "unmodeled_supplier_source_policies": estimated_source_policy_rows,
             "lane_purchase_cost_stats": {
@@ -2603,7 +2887,10 @@ def main() -> None:
             writer.writerows(input_shipment_rows)
 
     with output_prod_path.open("w", encoding="utf-8", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=["day", "node_id", "item_id", "produced_qty", "cum_produced_qty"])
+        writer = csv.DictWriter(
+            f,
+            fieldnames=["day", "node_id", "item_id", "produced_qty", "cum_produced_qty", "stock_end_of_day"],
+        )
         writer.writeheader()
         writer.writerows(output_prod_rows)
 
@@ -2632,12 +2919,27 @@ def main() -> None:
                 "node_id",
                 "output_item_id",
                 "desired_qty",
+                "planned_qty_after_lot_rule",
                 "actual_qty",
                 "cap_qty",
                 "max_from_inputs_qty",
                 "binding_cause",
                 "binding_input_item_id",
                 "shortfall_vs_desired_qty",
+                "shortfall_vs_lot_plan_qty",
+                "lot_policy_mode",
+                "lot_fixed_qty",
+                "lot_min_qty",
+                "lot_max_qty",
+                "lot_multiple_qty",
+                "max_lots_per_week",
+                "started_lots_this_week",
+                "requested_lot_starts",
+                "actual_lot_starts",
+                "campaign_requested_qty",
+                "campaign_started_qty",
+                "campaign_remaining_start_qty",
+                "campaign_remaining_end_qty",
             ],
         )
         writer.writeheader()
@@ -2683,11 +2985,10 @@ def main() -> None:
         writer.writeheader()
         writer.writerows(supplier_capacity_daily_rows)
 
-    if not compact_output:
-        with dc_stock_path.open("w", encoding="utf-8", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=["day", "node_id", "item_id", "stock_end_of_day"])
-            writer.writeheader()
-            writer.writerows(dc_stock_rows)
+    with dc_stock_path.open("w", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=["day", "node_id", "item_id", "stock_end_of_day"])
+        writer.writeheader()
+        writer.writerows(dc_stock_rows)
 
     if not compact_output:
         # Pivot file for easier read: one column per (factory,item) input stock.
@@ -2754,6 +3055,8 @@ def main() -> None:
                 str(supplier_stock_path),
                 "--supplier-capacity-csv",
                 str(supplier_capacity_path),
+                "--dc-stocks-csv",
+                str(dc_stock_path),
                 "--production-constraint-csv",
                 str(production_constraint_path),
             ]

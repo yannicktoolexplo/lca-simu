@@ -1,7 +1,7 @@
 # First simulation report
 
 ## Run setup
-- Input: C:\dev\lca-simu\etudecas\simulation_prep\result\reference_baseline\supply_graph_reference_baseline_current.json
+- Input: etudecas\simulation_prep\result\reference_baseline\supply_graph_reference_baseline_real_demand_target_calibrated.json
 - Scenario: scn:BASE
 - Measured horizon (days): 365
 - Warm-up (days): 260
@@ -45,34 +45,34 @@
 
 ## KPIs
 - Total demand: 5302452.7143
-- Total served: 4708974.5176
-- Fill rate: 0.888075
-- Ending backlog: 593478.1966
-- Total produced: 17869743.232
-- Total shipped: 127074616.6123
-- Avg inventory: 19766465.3509
-- Ending inventory: 18941957.7433
-- Transport cost: 11167921.4643
-- Holding cost (capital tied-up): 4186854.545
-- Warehouse operating cost: 5383098.7007
-- Inventory risk cost (obsolescence/compliance proxy): 2392488.3114
-- Legacy raw holding cost before split: 11962441.5571
-- Purchase cost (from order_terms sell_price): 4790533.5394
-- Logistics cost (transport + inventory capital + warehouse + inventory risk): 23130363.0215
-- Total cost: 27920896.5609
+- Total served: 4705437.7947
+- Fill rate: 0.887408
+- Ending backlog: 597014.9196
+- Total produced: 17867441.7474
+- Total shipped: 126938610.3737
+- Avg inventory: 20184527.0272
+- Ending inventory: 19451806.5714
+- Transport cost: 11150617.571
+- Holding cost (capital tied-up): 4214772.1251
+- Warehouse operating cost: 5418992.7323
+- Inventory risk cost (obsolescence/compliance proxy): 2408441.2144
+- Legacy raw holding cost before split: 12042206.0718
+- Purchase cost (from order_terms sell_price): 4750465.4941
+- Logistics cost (transport + inventory capital + warehouse + inventory risk): 23192823.6428
+- Total cost: 27943289.1368
 - Total external procured ordered qty: 0.0
 - Total external procured arrived qty: 0.0
 - Total external procured rejected qty (cap-limited): 0.0
 - Total external procurement cost premium: 0.0
-- Total estimated source ordered qty: 104693283.3055
-- Total estimated source replenished qty: 103072199.171
-- Total estimated source rejected qty: 28206355.8413
-- Cost share capital holding / warehouse / inventory risk / transport / purchase: 0.149954 / 0.192798 / 0.085688 / 0.399984 / 0.171575
+- Total estimated source ordered qty: 104434360.5306
+- Total estimated source replenished qty: 102858460.6727
+- Total estimated source rejected qty: 0.0
+- Cost share capital holding / warehouse / inventory risk / transport / purchase: 0.150833 / 0.193928 / 0.08619 / 0.399045 / 0.170004
 - Total opening stock bootstrap qty: 0.0
-- Total explicit initialization stock qty: 35076.3627
+- Total explicit initialization stock qty: 10678701.5319
 - Total explicit initialization pipeline qty: 0.0
 - Total unreliable supplier loss qty: 0.0
-- Total supplier capacity binding qty: 1580070.6283
+- Total supplier capacity binding qty: 5538863.4271
 - Economic consistency status: ok
 - Economic consistency warnings: []
 
@@ -81,12 +81,12 @@
   {
     "node_id": "C-XXXXX",
     "item_id": "item:268967",
-    "backlog": 342591.8672
+    "backlog": 348948.5372
   },
   {
     "node_id": "C-XXXXX",
     "item_id": "item:268091",
-    "backlog": 250886.3295
+    "backlog": 248066.3824
   }
 ]
 
@@ -100,9 +100,9 @@
 - data/production_supplier_stocks_daily.csv
 - data/production_supplier_capacity_daily.csv
 - Additional detailed CSVs: skipped in compact mode
-- production_input_stocks_by_material_*.png (C:\dev\lca-simu\etudecas\simulation\result\reference_baseline_real_demand_target_calibrated\plots\factories\input_stocks\production_input_stocks_by_material_M-1430.png, C:\dev\lca-simu\etudecas\simulation\result\reference_baseline_real_demand_target_calibrated\plots\factories\input_stocks\production_input_stocks_by_material_M-1810.png, C:\dev\lca-simu\etudecas\simulation\result\reference_baseline_real_demand_target_calibrated\plots\factories\input_stocks\production_input_stocks_by_material_SDC-1450.png)
-- production_output_products.png (C:\dev\lca-simu\etudecas\simulation\result\reference_baseline_real_demand_target_calibrated\plots\factories\output_products\production_output_products.png)
-- production_output_products_by_factory_*.png (C:\dev\lca-simu\etudecas\simulation\result\reference_baseline_real_demand_target_calibrated\plots\factories\output_products\production_output_products_by_factory_M-1430.png, C:\dev\lca-simu\etudecas\simulation\result\reference_baseline_real_demand_target_calibrated\plots\factories\output_products\production_output_products_by_factory_M-1810.png, C:\dev\lca-simu\etudecas\simulation\result\reference_baseline_real_demand_target_calibrated\plots\factories\output_products\production_output_products_by_factory_SDC-1450.png)
-- production_supplier_input_stocks_by_material_*.png (C:\dev\lca-simu\etudecas\simulation\result\reference_baseline_real_demand_target_calibrated\plots\suppliers\input_stocks\production_supplier_input_stocks_by_material_SDC-1450.png, C:\dev\lca-simu\etudecas\simulation\result\reference_baseline_real_demand_target_calibrated\plots\suppliers\input_stocks\production_supplier_input_stocks_by_material_SDC-VD0500655A.png, C:\dev\lca-simu\etudecas\simulation\result\reference_baseline_real_demand_target_calibrated\plots\suppliers\input_stocks\production_supplier_input_stocks_by_material_SDC-VD0505677A.png, C:\dev\lca-simu\etudecas\simulation\result\reference_baseline_real_demand_target_calibrated\plots\suppliers\input_stocks\production_supplier_input_stocks_by_material_SDC-VD0508918A.png, C:\dev\lca-simu\etudecas\simulation\result\reference_baseline_real_demand_target_calibrated\plots\suppliers\input_stocks\production_supplier_input_stocks_by_material_SDC-VD0514881A.png, C:\dev\lca-simu\etudecas\simulation\result\reference_baseline_real_demand_target_calibrated\plots\suppliers\input_stocks\production_supplier_input_stocks_by_material_SDC-VD0518684A.png, C:\dev\lca-simu\etudecas\simulation\result\reference_baseline_real_demand_target_calibrated\plots\suppliers\input_stocks\production_supplier_input_stocks_by_material_SDC-VD0519670A.png, C:\dev\lca-simu\etudecas\simulation\result\reference_baseline_real_demand_target_calibrated\plots\suppliers\input_stocks\production_supplier_input_stocks_by_material_SDC-VD0520115A.png, C:\dev\lca-simu\etudecas\simulation\result\reference_baseline_real_demand_target_calibrated\plots\suppliers\input_stocks\production_supplier_input_stocks_by_material_SDC-VD0520132A.png, C:\dev\lca-simu\etudecas\simulation\result\reference_baseline_real_demand_target_calibrated\plots\suppliers\input_stocks\production_supplier_input_stocks_by_material_SDC-VD0525412A.png, C:\dev\lca-simu\etudecas\simulation\result\reference_baseline_real_demand_target_calibrated\plots\suppliers\input_stocks\production_supplier_input_stocks_by_material_SDC-VD0901566A.png, C:\dev\lca-simu\etudecas\simulation\result\reference_baseline_real_demand_target_calibrated\plots\suppliers\input_stocks\production_supplier_input_stocks_by_material_SDC-VD0910216A.png, C:\dev\lca-simu\etudecas\simulation\result\reference_baseline_real_demand_target_calibrated\plots\suppliers\input_stocks\production_supplier_input_stocks_by_material_SDC-VD0914320A.png, C:\dev\lca-simu\etudecas\simulation\result\reference_baseline_real_demand_target_calibrated\plots\suppliers\input_stocks\production_supplier_input_stocks_by_material_SDC-VD0914360C.png, C:\dev\lca-simu\etudecas\simulation\result\reference_baseline_real_demand_target_calibrated\plots\suppliers\input_stocks\production_supplier_input_stocks_by_material_SDC-VD0914690A.png, C:\dev\lca-simu\etudecas\simulation\result\reference_baseline_real_demand_target_calibrated\plots\suppliers\input_stocks\production_supplier_input_stocks_by_material_SDC-VD0949099A.png, C:\dev\lca-simu\etudecas\simulation\result\reference_baseline_real_demand_target_calibrated\plots\suppliers\input_stocks\production_supplier_input_stocks_by_material_SDC-VD0951020A.png, C:\dev\lca-simu\etudecas\simulation\result\reference_baseline_real_demand_target_calibrated\plots\suppliers\input_stocks\production_supplier_input_stocks_by_material_SDC-VD0960508A.png, C:\dev\lca-simu\etudecas\simulation\result\reference_baseline_real_demand_target_calibrated\plots\suppliers\input_stocks\production_supplier_input_stocks_by_material_SDC-VD0964290A.png, C:\dev\lca-simu\etudecas\simulation\result\reference_baseline_real_demand_target_calibrated\plots\suppliers\input_stocks\production_supplier_input_stocks_by_material_SDC-VD0972460A.png, C:\dev\lca-simu\etudecas\simulation\result\reference_baseline_real_demand_target_calibrated\plots\suppliers\input_stocks\production_supplier_input_stocks_by_material_SDC-VD0975221A.png, C:\dev\lca-simu\etudecas\simulation\result\reference_baseline_real_demand_target_calibrated\plots\suppliers\input_stocks\production_supplier_input_stocks_by_material_SDC-VD0989480A.png, C:\dev\lca-simu\etudecas\simulation\result\reference_baseline_real_demand_target_calibrated\plots\suppliers\input_stocks\production_supplier_input_stocks_by_material_SDC-VD0990780A.png, C:\dev\lca-simu\etudecas\simulation\result\reference_baseline_real_demand_target_calibrated\plots\suppliers\input_stocks\production_supplier_input_stocks_by_material_SDC-VD0993480A.png, C:\dev\lca-simu\etudecas\simulation\result\reference_baseline_real_demand_target_calibrated\plots\suppliers\input_stocks\production_supplier_input_stocks_by_material_SDC-VD1091642A.png, C:\dev\lca-simu\etudecas\simulation\result\reference_baseline_real_demand_target_calibrated\plots\suppliers\input_stocks\production_supplier_input_stocks_by_material_SDC-VD1095770A.png, C:\dev\lca-simu\etudecas\simulation\result\reference_baseline_real_demand_target_calibrated\plots\suppliers\input_stocks\production_supplier_input_stocks_by_material_SDC-VD1096202A.png)
-- production_dc_factory_outputs_by_material_*.png (C:\dev\lca-simu\etudecas\simulation\result\reference_baseline_real_demand_target_calibrated\plots\distribution_centers\factory_outputs\production_dc_factory_outputs_by_material_DC-1920.png)
-- maps/supply_graph_poc_geocoded_map_with_factory_hover.html (C:\dev\lca-simu\etudecas\simulation\result\reference_baseline_real_demand_target_calibrated\maps\supply_graph_reference_baseline_real_demand_target_calibrated.html)
+- production_input_stocks_by_material_*.png (not generated)
+- production_output_products.png (not generated)
+- production_output_products_by_factory_*.png (not generated)
+- production_supplier_input_stocks_by_material_*.png (not generated)
+- production_dc_factory_outputs_by_material_*.png (not generated)
+- maps/supply_graph_poc_geocoded_map_with_factory_hover.html (etudecas\simulation\result\reference_baseline_real_demand_target_calibrated\maps\supply_graph_reference_baseline_real_demand_target_calibrated.html)
