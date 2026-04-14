@@ -1,0 +1,226 @@
+abs_elasticity,adverse_kpi,baseline_kpi,elasticity,high_kpi,kpi,low_kpi,method,parameter_group,parameter_key,parameter_label
+0.20918278298567183,nan,0.888075,0.20918278298567183,0.896904,fill_rate,0.878327,central,capacity_node,capacity_node::M-1430,Capacite M-1430
+1.6597893480220218,nan,593478.1966,-1.6597893480220218,546659.4682,ending_backlog,645164.3471,central,capacity_node,capacity_node::M-1430,Capacite M-1430
+0.35884663836443104,nan,27920896.5609,0.35884663836443104,28231683.0442,total_cost,27229751.0571,central,capacity_node,capacity_node::M-1430,Capacite M-1430
+nan,nan,0.0,nan,0.0,total_external_procured_ordered_qty,0.0,,capacity_node,capacity_node::M-1430,Capacite M-1430
+0.8918249583351695,nan,19766465.3509,0.8918249583351695,20701905.8844,avg_inventory,18939083.1706,central,capacity_node,capacity_node::M-1430,Capacite M-1430
+0.21815725023224372,nan,0.888075,0.21815725023224372,0.90024,fill_rate,0.880866,central,capacity_node,capacity_node::M-1810,Capacite M-1810
+1.7309804974897707,nan,593478.1966,-1.7309804974897707,528974.563,ending_backlog,631704.4814,central,capacity_node,capacity_node::M-1810,Capacite M-1810
+0.0613710864284934,nan,27920896.5609,0.0613710864284934,27852166.3238,total_cost,27680812.7482,central,capacity_node,capacity_node::M-1810,Capacite M-1810
+nan,nan,0.0,nan,0.0,total_external_procured_ordered_qty,0.0,,capacity_node,capacity_node::M-1810,Capacite M-1810
+0.20817484754868615,nan,19766465.3509,0.20817484754868615,20292342.1511,avg_inventory,19880854.06,central,capacity_node,capacity_node::M-1810,Capacite M-1810
+0.0,nan,0.888075,0.0,0.888075,fill_rate,0.888075,central,capacity_node,capacity_node::SDC-1450,Capacite SDC-1450
+0.0,nan,593478.1966,0.0,593478.1966,ending_backlog,593478.1966,central,capacity_node,capacity_node::SDC-1450,Capacite SDC-1450
+0.374679880181569,nan,27920896.5609,0.374679880181569,28443966.4698,total_cost,27397826.652,central,capacity_node,capacity_node::SDC-1450,Capacite SDC-1450
+nan,nan,0.0,nan,0.0,total_external_procured_ordered_qty,0.0,,capacity_node,capacity_node::SDC-1450,Capacite SDC-1450
+0.218247347384422,nan,19766465.3509,0.218247347384422,19982164.2824,avg_inventory,19550766.4194,central,capacity_node,capacity_node::SDC-1450,Capacite SDC-1450
+0.35239140838330146,nan,0.888075,0.35239140838330146,0.900637,fill_rate,0.869342,central,capacity_global,capacity_scale,Capacite globale
+2.7960664646260383,nan,593478.1966,-2.7960664646260383,526865.7146,ending_backlog,692806.1629,central,capacity_global,capacity_scale,Capacite globale
+0.7307327832936292,nan,27920896.5609,0.7307327832936292,28912305.698,total_cost,26872034.2524,central,capacity_global,capacity_scale,Capacite globale
+nan,nan,0.0,nan,0.0,total_external_procured_ordered_qty,0.0,,capacity_global,capacity_scale,Capacite globale
+1.5510590035564455,nan,19766465.3509,1.5510590035564455,21599917.502,avg_inventory,18534022.0969,central,capacity_global,capacity_scale,Capacite globale
+0.09472172958364972,nan,0.888075,-0.09472172958364972,0.878259,fill_rate,0.895083,central,demand_item,demand_item::item:268091,Demande 268091
+1.4377542231346734,nan,593478.1966,1.4377542231346734,689273.0901,ending_backlog,518617.9334,central,demand_item,demand_item::item:268091,Demande 268091
+0.09044634134479934,nan,27920896.5609,0.09044634134479934,28018674.389,total_cost,27513605.8008,central,demand_item,demand_item::item:268091,Demande 268091
+nan,nan,0.0,nan,0.0,total_external_procured_ordered_qty,0.0,,demand_item,demand_item::item:268091,Demande 268091
+0.1724686795277127,nan,19766465.3509,-0.1724686795277127,19564212.9718,avg_inventory,20246032.2074,central,demand_item,demand_item::item:268091,Demande 268091
+0.1348872561439063,nan,0.888075,-0.1348872561439063,0.878739,fill_rate,0.902697,central,demand_item,demand_item::item:268967,Demande 268967
+1.3849719083344665,nan,593478.1966,1.3849719083344665,663703.797,ending_backlog,499313.6709,central,demand_item,demand_item::item:268967,Demande 268967
+0.2069975869289815,nan,27920896.5609,0.2069975869289815,28468050.7012,total_cost,27312139.0586,central,demand_item,demand_item::item:268967,Demande 268967
+nan,nan,0.0,nan,0.0,total_external_procured_ordered_qty,0.0,,demand_item,demand_item::item:268967,Demande 268967
+0.3338273903482476,nan,19766465.3509,-0.3338273903482476,19260738.7519,avg_inventory,20580456.2608,central,demand_item,demand_item::item:268967,Demande 268967
+0.013636235678292506,nan,0.888075,0.013636235678292506,0.891017,fill_rate,0.888595,central,lead_time,lead_time_scale,Lead time global
+0.10818105427935751,nan,593478.1966,-0.10818105427935751,577878.1369,ending_backlog,590718.7563,central,lead_time,lead_time_scale,Lead time global
+0.2877241019276585,nan,27920896.5609,0.2877241019276585,28558471.4698,total_cost,26951768.4922,central,lead_time,lead_time_scale,Lead time global
+nan,nan,0.0,nan,0.0,total_external_procured_ordered_qty,0.0,,lead_time,lead_time_scale,Lead time global
+0.6488073340040064,nan,19766465.3509,0.6488073340040064,20975883.7987,avg_inventory,18410958.2613,central,lead_time,lead_time_scale,Lead time global
+0.0,nan,0.888075,0.0,0.888075,fill_rate,0.888075,central,production_stock,production_stock_scale,Stock production global
+0.0,nan,593478.1966,0.0,593478.1966,ending_backlog,593478.1966,central,production_stock,production_stock_scale,Stock production global
+1.5169283663040728e-06,nan,27920896.5609,1.5169283663040728e-06,27920900.7963,total_cost,27920892.3255,central,production_stock,production_stock_scale,Stock production global
+nan,nan,0.0,nan,0.0,total_external_procured_ordered_qty,0.0,,production_stock,production_stock_scale,Stock production global
+8.835924725721609e-07,nan,19766465.3509,8.835924725721609e-07,19766467.0975,avg_inventory,19766463.6044,central,production_stock,production_stock_scale,Stock production global
+0.040114855164260034,nan,0.888075,0.040114855164260034,0.892347,fill_rate,0.885222,central,safety_stock,safety_stock_days_scale,Safety stock global
+0.3182678480559362,nan,593478.1966,-0.3182678480559362,570825.4286,ending_backlog,608602.4343,central,safety_stock,safety_stock_days_scale,Safety stock global
+0.024854685252901368,nan,27920896.5609,-0.024854685252901368,27733780.3038,total_cost,27872573.323,central,safety_stock,safety_stock_days_scale,Safety stock global
+nan,nan,0.0,nan,0.0,total_external_procured_ordered_qty,0.0,,safety_stock,safety_stock_days_scale,Safety stock global
+0.10520949978066332,nan,19766465.3509,0.10520949978066332,20207887.8249,avg_inventory,19791963.8385,central,safety_stock,safety_stock_days_scale,Safety stock global
+0.001632744982123702,nan,0.888075,0.001632744982123702,0.891044,fill_rate,0.890754,central,supplier_capacity_node,supplier_capacity_node::SDC-1450,Debit fournisseur SDC-1450
+0.012949371255805975,nan,593478.1966,-0.012949371255805975,577736.5572,ending_backlog,579273.5911,central,supplier_capacity_node,supplier_capacity_node::SDC-1450,Debit fournisseur SDC-1450
+0.006316767125128,nan,27920896.5609,0.006316767125128,27914799.4267,total_cost,27879525.4664,central,supplier_capacity_node,supplier_capacity_node::SDC-1450,Debit fournisseur SDC-1450
+nan,nan,0.0,nan,0.0,total_external_procured_ordered_qty,0.0,,supplier_capacity_node,supplier_capacity_node::SDC-1450,Debit fournisseur SDC-1450
+0.11693207027501017,nan,19766465.3509,-0.11693207027501017,19680972.7703,avg_inventory,20143239.5134,central,supplier_capacity_node,supplier_capacity_node::SDC-1450,Debit fournisseur SDC-1450
+0.14822509360132863,nan,0.888075,0.14822509360132863,0.888075,fill_rate,0.861748,central,supplier_capacity_node,supplier_capacity_node::SDC-VD0508918A,Debit fournisseur SDC-VD0508918A
+1.176075790144705,nan,593478.1966,-1.176075790144705,593478.1966,ending_backlog,733073.2644,central,supplier_capacity_node,supplier_capacity_node::SDC-VD0508918A,Debit fournisseur SDC-VD0508918A
+0.2830769792710851,nan,27920896.5609,0.2830769792710851,27920896.5609,total_cost,26340143.9495,central,supplier_capacity_node,supplier_capacity_node::SDC-VD0508918A,Debit fournisseur SDC-VD0508918A
+nan,nan,0.0,nan,0.0,total_external_procured_ordered_qty,0.0,,supplier_capacity_node,supplier_capacity_node::SDC-VD0508918A,Debit fournisseur SDC-VD0508918A
+0.32495798421580335,nan,19766465.3509,-0.32495798421580335,19766465.3509,avg_inventory,21051119.498,central,supplier_capacity_node,supplier_capacity_node::SDC-VD0508918A,Debit fournisseur SDC-VD0508918A
+0.0192607606339555,nan,0.888075,-0.0192607606339555,0.889111,fill_rate,0.892532,central,supplier_capacity_node,supplier_capacity_node::SDC-VD0525412A,Debit fournisseur SDC-VD0525412A
+0.15282070178751367,nan,593478.1966,0.15282070178751367,587982.3817,ending_backlog,569843.2308,central,supplier_capacity_node,supplier_capacity_node::SDC-VD0525412A,Debit fournisseur SDC-VD0525412A
+0.03138752572248188,nan,27920896.5609,-0.03138752572248188,27753339.2247,total_cost,27928612.7965,central,supplier_capacity_node,supplier_capacity_node::SDC-VD0525412A,Debit fournisseur SDC-VD0525412A
+nan,nan,0.0,nan,0.0,total_external_procured_ordered_qty,0.0,,supplier_capacity_node,supplier_capacity_node::SDC-VD0525412A,Debit fournisseur SDC-VD0525412A
+0.05348419382182891,nan,19766465.3509,0.05348419382182891,19997233.1523,avg_inventory,19785794.4595,central,supplier_capacity_node,supplier_capacity_node::SDC-VD0525412A,Debit fournisseur SDC-VD0525412A
+0.026698195535287125,nan,0.888075,0.026698195535287125,0.890761,fill_rate,0.886019,central,supplier_capacity_node,supplier_capacity_node::SDC-VD0901566A,Debit fournisseur SDC-VD0901566A
+0.21182517777435655,nan,593478.1966,-0.21182517777435655,579233.616,ending_backlog,604376.3409,central,supplier_capacity_node,supplier_capacity_node::SDC-VD0901566A,Debit fournisseur SDC-VD0901566A
+0.010818978013156297,nan,27920896.5609,-0.010818978013156297,27647582.3469,total_cost,27707997.4601,central,supplier_capacity_node,supplier_capacity_node::SDC-VD0901566A,Debit fournisseur SDC-VD0901566A
+nan,nan,0.0,nan,0.0,total_external_procured_ordered_qty,0.0,,supplier_capacity_node,supplier_capacity_node::SDC-VD0901566A,Debit fournisseur SDC-VD0901566A
+0.13335045329083056,nan,19766465.3509,0.13335045329083056,19858802.2842,avg_inventory,19331628.8613,central,supplier_capacity_node,supplier_capacity_node::SDC-VD0901566A,Debit fournisseur SDC-VD0901566A
+0.04028375981758309,nan,0.888075,0.04028375981758309,0.892143,fill_rate,0.884988,central,supplier_capacity_node,supplier_capacity_node::SDC-VD0914360C,Debit fournisseur SDC-VD0914360C
+0.319611980838859,nan,593478.1966,-0.319611980838859,571906.855,ending_backlog,609843.4034,central,supplier_capacity_node,supplier_capacity_node::SDC-VD0914360C,Debit fournisseur SDC-VD0914360C
+0.034379604050546284,nan,27920896.5609,-0.034379604050546284,27703788.7123,total_cost,27895770.586,central,supplier_capacity_node,supplier_capacity_node::SDC-VD0914360C,Debit fournisseur SDC-VD0914360C
+nan,nan,0.0,nan,0.0,total_external_procured_ordered_qty,0.0,,supplier_capacity_node,supplier_capacity_node::SDC-VD0914360C,Debit fournisseur SDC-VD0914360C
+0.03207863701190953,nan,19766465.3509,0.03207863701190953,19825434.0892,avg_inventory,19698617.8358,central,supplier_capacity_node,supplier_capacity_node::SDC-VD0914360C,Debit fournisseur SDC-VD0914360C
+0.026444838555301917,nan,0.888075,-0.026444838555301917,0.885606,fill_rate,0.890303,central,supplier_capacity_node,supplier_capacity_node::SDC-VD0914690A,Debit fournisseur SDC-VD0914690A
+0.20983540543433707,nan,593478.1966,0.20983540543433707,606568.0664,ending_backlog,581661.5188,central,supplier_capacity_node,supplier_capacity_node::SDC-VD0914690A,Debit fournisseur SDC-VD0914690A
+0.017578305586623207,nan,27920896.5609,0.017578305586623207,27909670.4639,total_cost,27811510.0535,central,supplier_capacity_node,supplier_capacity_node::SDC-VD0914690A,Debit fournisseur SDC-VD0914690A
+nan,nan,0.0,nan,0.0,total_external_procured_ordered_qty,0.0,,supplier_capacity_node,supplier_capacity_node::SDC-VD0914690A,Debit fournisseur SDC-VD0914690A
+0.08210093373755922,nan,19766465.3509,0.08210093373755922,19946540.1224,avg_inventory,19621971.07,central,supplier_capacity_node,supplier_capacity_node::SDC-VD0914690A,Debit fournisseur SDC-VD0914690A
+0.0,nan,0.888075,0.0,0.888075,fill_rate,0.888075,central,supplier_capacity_node,supplier_capacity_node::SDC-VD0949099A,Debit fournisseur SDC-VD0949099A
+0.0,nan,593478.1966,0.0,593478.1966,ending_backlog,593478.1966,central,supplier_capacity_node,supplier_capacity_node::SDC-VD0949099A,Debit fournisseur SDC-VD0949099A
+0.0012516297757051058,nan,27920896.5609,-0.0012516297757051058,27917489.2649,total_cost,27924478.59,central,supplier_capacity_node,supplier_capacity_node::SDC-VD0949099A,Debit fournisseur SDC-VD0949099A
+nan,nan,0.0,nan,0.0,total_external_procured_ordered_qty,0.0,,supplier_capacity_node,supplier_capacity_node::SDC-VD0949099A,Debit fournisseur SDC-VD0949099A
+0.0007290620373534309,nan,19766465.3509,-0.0007290620373534309,19765060.2804,avg_inventory,19767942.4763,central,supplier_capacity_node,supplier_capacity_node::SDC-VD0949099A,Debit fournisseur SDC-VD0949099A
+0.003693381752667228,nan,0.888075,-0.003693381752667228,0.887081,fill_rate,0.887737,central,supplier_capacity_node,supplier_capacity_node::SDC-VD0993480A,Debit fournisseur SDC-VD0993480A
+0.029306251012490726,nan,593478.1966,0.029306251012490726,598749.4013,ending_backlog,595270.8771,central,supplier_capacity_node,supplier_capacity_node::SDC-VD0993480A,Debit fournisseur SDC-VD0993480A
+0.04585037297092913,nan,27920896.5609,-0.04585037297092913,27757019.686,total_cost,28013056.3902,central,supplier_capacity_node,supplier_capacity_node::SDC-VD0993480A,Debit fournisseur SDC-VD0993480A
+nan,nan,0.0,nan,0.0,total_external_procured_ordered_qty,0.0,,supplier_capacity_node,supplier_capacity_node::SDC-VD0993480A,Debit fournisseur SDC-VD0993480A
+0.09880097305364131,nan,19766465.3509,0.09880097305364131,19842393.271,avg_inventory,19451804.0689,central,supplier_capacity_node,supplier_capacity_node::SDC-VD0993480A,Debit fournisseur SDC-VD0993480A
+0.0017678687047823956,nan,0.888075,0.0017678687047823956,0.887872,fill_rate,0.887715,central,supplier_capacity_global,supplier_capacity_scale,Debit fournisseur global
+0.013955796602890543,nan,593478.1966,-0.013955796602890543,594555.6572,ending_backlog,595383.9033,central,supplier_capacity_global,supplier_capacity_scale,Debit fournisseur global
+0.05689961815999835,nan,27920896.5609,-0.05689961815999835,27822882.5932,total_cost,27981751.4285,central,supplier_capacity_global,supplier_capacity_scale,Debit fournisseur global
+nan,nan,0.0,nan,0.0,total_external_procured_ordered_qty,0.0,,supplier_capacity_global,supplier_capacity_scale,Debit fournisseur global
+0.16291754452969895,nan,19766465.3509,-0.16291754452969895,19865358.1117,avg_inventory,20187388.5116,central,supplier_capacity_global,supplier_capacity_scale,Debit fournisseur global
+0.009790839737635029,nan,0.888075,0.009790839737635029,0.890745,fill_rate,0.889006,central,supplier_lead_time_node,supplier_lead_time_node::SDC-1450,Lead time fournisseur SDC-1450
+0.07768703343128026,nan,593478.1966,-0.07768703343128026,579319.8603,ending_backlog,588540.9724,central,supplier_lead_time_node,supplier_lead_time_node::SDC-1450,Lead time fournisseur SDC-1450
+0.021293907600824613,nan,27920896.5609,0.021293907600824613,27808976.6577,total_cost,27690067.6594,central,supplier_lead_time_node,supplier_lead_time_node::SDC-1450,Lead time fournisseur SDC-1450
+nan,nan,0.0,nan,0.0,total_external_procured_ordered_qty,0.0,,supplier_lead_time_node,supplier_lead_time_node::SDC-1450,Lead time fournisseur SDC-1450
+0.005239199581795268,nan,19766465.3509,0.005239199581795268,19732180.8988,avg_inventory,19711468.8074,central,supplier_lead_time_node,supplier_lead_time_node::SDC-1450,Lead time fournisseur SDC-1450
+0.014897390423106362,nan,0.888075,-0.014897390423106362,0.89208,fill_rate,0.894726,central,supplier_lead_time_node,supplier_lead_time_node::SDC-VD0508918A,Lead time fournisseur SDC-VD0508918A
+0.11819114569305099,nan,593478.1966,0.11819114569305099,572238.1118,ending_backlog,558209.3382,central,supplier_lead_time_node,supplier_lead_time_node::SDC-VD0508918A,Lead time fournisseur SDC-VD0508918A
+0.029950656981089497,nan,27920896.5609,-0.029950656981089497,27633403.7605,total_cost,27800653.5996,central,supplier_lead_time_node,supplier_lead_time_node::SDC-VD0508918A,Lead time fournisseur SDC-VD0508918A
+nan,nan,0.0,nan,0.0,total_external_procured_ordered_qty,0.0,,supplier_lead_time_node,supplier_lead_time_node::SDC-VD0508918A,Lead time fournisseur SDC-VD0508918A
+0.0421080208183052,nan,19766465.3509,0.0421080208183052,19967067.57,avg_inventory,19800602.2231,central,supplier_lead_time_node,supplier_lead_time_node::SDC-VD0508918A,Lead time fournisseur SDC-VD0508918A
+0.05093038313205527,nan,0.888075,0.05093038313205527,0.888075,fill_rate,0.879029,central,supplier_lead_time_node,supplier_lead_time_node::SDC-VD0525412A,Lead time fournisseur SDC-VD0525412A
+0.40411336064911113,nan,593478.1966,-0.40411336064911113,593478.1966,ending_backlog,641444.6903,central,supplier_lead_time_node,supplier_lead_time_node::SDC-VD0525412A,Lead time fournisseur SDC-VD0525412A
+0.012748500114371753,nan,27920896.5609,0.012748500114371753,27922658.5046,total_cost,27851468.594,central,supplier_lead_time_node,supplier_lead_time_node::SDC-VD0525412A,Lead time fournisseur SDC-VD0525412A
+nan,nan,0.0,nan,0.0,total_external_procured_ordered_qty,0.0,,supplier_lead_time_node,supplier_lead_time_node::SDC-VD0525412A,Lead time fournisseur SDC-VD0525412A
+0.025339583233943717,nan,19766465.3509,-0.025339583233943717,19798710.5777,avg_inventory,19898885.3765,central,supplier_lead_time_node,supplier_lead_time_node::SDC-VD0525412A,Lead time fournisseur SDC-VD0525412A
+0.014756636545336732,nan,0.888075,0.014756636545336732,0.888199,fill_rate,0.885578,central,supplier_lead_time_node,supplier_lead_time_node::SDC-VD0901566A,Lead time fournisseur SDC-VD0901566A
+0.11712062110825598,nan,593478.1966,-0.11712062110825598,592817.5918,ending_backlog,606719.2988,central,supplier_lead_time_node,supplier_lead_time_node::SDC-VD0901566A,Lead time fournisseur SDC-VD0901566A
+0.04130352841588049,nan,27920896.5609,-0.04130352841588049,27608414.6906,total_cost,27839060.9995,central,supplier_lead_time_node,supplier_lead_time_node::SDC-VD0901566A,Lead time fournisseur SDC-VD0901566A
+nan,nan,0.0,nan,0.0,total_external_procured_ordered_qty,0.0,,supplier_lead_time_node,supplier_lead_time_node::SDC-VD0901566A,Lead time fournisseur SDC-VD0901566A
+0.025742574859335333,nan,19766465.3509,0.025742574859335333,19984552.4566,avg_inventory,19882784.5138,central,supplier_lead_time_node,supplier_lead_time_node::SDC-VD0901566A,Lead time fournisseur SDC-VD0901566A
+0.012425752329476444,nan,0.888075,-0.012425752329476444,0.889668,fill_rate,0.891875,central,supplier_lead_time_node,supplier_lead_time_node::SDC-VD0914360C,Lead time fournisseur SDC-VD0914360C
+0.09859616129998888,nan,593478.1966,0.09859616129998888,585029.9397,ending_backlog,573327.0053,central,supplier_lead_time_node,supplier_lead_time_node::SDC-VD0914360C,Lead time fournisseur SDC-VD0914360C
+0.0019063376916966216,nan,27920896.5609,-0.0019063376916966216,27759402.7159,total_cost,27770048.0474,central,supplier_lead_time_node,supplier_lead_time_node::SDC-VD0914360C,Lead time fournisseur SDC-VD0914360C
+nan,nan,0.0,nan,0.0,total_external_procured_ordered_qty,0.0,,supplier_lead_time_node,supplier_lead_time_node::SDC-VD0914360C,Lead time fournisseur SDC-VD0914360C
+6.695407987681272e-05,nan,19766465.3509,-6.695407987681272e-05,19817235.1801,avg_inventory,19817499.8692,central,supplier_lead_time_node,supplier_lead_time_node::SDC-VD0914360C,Lead time fournisseur SDC-VD0914360C
+0.039546209498071826,nan,0.888075,-0.039546209498071826,0.881734,fill_rate,0.888758,central,supplier_lead_time_node,supplier_lead_time_node::SDC-VD0914690A,Lead time fournisseur SDC-VD0914690A
+0.3138014716748229,nan,593478.1966,0.3138014716748229,627099.7334,ending_backlog,589852.8671,central,supplier_lead_time_node,supplier_lead_time_node::SDC-VD0914690A,Lead time fournisseur SDC-VD0914690A
+0.01512931759116745,nan,27920896.5609,-0.01512931759116745,27858455.7005,total_cost,27942940.5228,central,supplier_lead_time_node,supplier_lead_time_node::SDC-VD0914690A,Lead time fournisseur SDC-VD0914690A
+nan,nan,0.0,nan,0.0,total_external_procured_ordered_qty,0.0,,supplier_lead_time_node,supplier_lead_time_node::SDC-VD0914690A,Lead time fournisseur SDC-VD0914690A
+0.37289139214585987,nan,19766465.3509,0.37289139214585987,20389278.4201,avg_inventory,18915129.4636,central,supplier_lead_time_node,supplier_lead_time_node::SDC-VD0914690A,Lead time fournisseur SDC-VD0914690A
+0.0025504602651805117,nan,0.888075,0.0025504602651805117,0.888528,fill_rate,0.888075,central,supplier_lead_time_node,supplier_lead_time_node::SDC-VD0949099A,Lead time fournisseur SDC-VD0949099A
+0.02025220483053561,nan,593478.1966,-0.02025220483053561,591074.3482,ending_backlog,593478.1966,central,supplier_lead_time_node,supplier_lead_time_node::SDC-VD0949099A,Lead time fournisseur SDC-VD0949099A
+0.06908213236609025,nan,27920896.5609,0.06908213236609025,28334510.1231,total_cost,27948743.1087,central,supplier_lead_time_node,supplier_lead_time_node::SDC-VD0949099A,Lead time fournisseur SDC-VD0949099A
+nan,nan,0.0,nan,0.0,total_external_procured_ordered_qty,0.0,,supplier_lead_time_node,supplier_lead_time_node::SDC-VD0949099A,Lead time fournisseur SDC-VD0949099A
+0.05605504903533815,nan,19766465.3509,0.05605504903533815,19999550.5003,avg_inventory,19777948.4634,central,supplier_lead_time_node,supplier_lead_time_node::SDC-VD0949099A,Lead time fournisseur SDC-VD0949099A
+0.007595079244433433,nan,0.888075,0.007595079244433433,0.884183,fill_rate,0.882834,central,supplier_lead_time_node,supplier_lead_time_node::SDC-VD0993480A,Lead time fournisseur SDC-VD0993480A
+0.060229574068231234,nan,593478.1966,-0.060229574068231234,614116.7141,ending_backlog,621265.7019,central,supplier_lead_time_node,supplier_lead_time_node::SDC-VD0993480A,Lead time fournisseur SDC-VD0993480A
+0.03974636296436426,nan,27920896.5609,-0.03974636296436426,27710806.1996,total_cost,27932757.0174,central,supplier_lead_time_node,supplier_lead_time_node::SDC-VD0993480A,Lead time fournisseur SDC-VD0993480A
+nan,nan,0.0,nan,0.0,total_external_procured_ordered_qty,0.0,,supplier_lead_time_node,supplier_lead_time_node::SDC-VD0993480A,Lead time fournisseur SDC-VD0993480A
+0.007706378520176878,nan,19766465.3509,-0.007706378520176878,19971951.1427,avg_inventory,20002416.7155,central,supplier_lead_time_node,supplier_lead_time_node::SDC-VD0993480A,Lead time fournisseur SDC-VD0993480A
+0.07893477465304369,0.89158,0.888075,-0.07893477465304369,nan,fill_rate,nan,one_sided_adverse,supplier_reliability_node,supplier_reliability_node::SDC-1450,Fiabilite fournisseur SDC-1450
+0.6263520380859784,574891.8827,593478.1966,0.6263520380859784,nan,ending_backlog,nan,one_sided_adverse,supplier_reliability_node,supplier_reliability_node::SDC-1450,Fiabilite fournisseur SDC-1450
+0.05981988631192492,28004407.8038,27920896.5609,-0.05981988631192492,nan,total_cost,nan,one_sided_adverse,supplier_reliability_node,supplier_reliability_node::SDC-1450,Fiabilite fournisseur SDC-1450
+nan,0.0,0.0,nan,nan,total_external_procured_ordered_qty,nan,,supplier_reliability_node,supplier_reliability_node::SDC-1450,Fiabilite fournisseur SDC-1450
+0.21967896712510826,19983579.1855,19766465.3509,-0.21967896712510826,nan,avg_inventory,nan,one_sided_adverse,supplier_reliability_node,supplier_reliability_node::SDC-1450,Fiabilite fournisseur SDC-1450
+0.0848126565886875,0.884309,0.888075,0.0848126565886875,nan,fill_rate,nan,one_sided_adverse,supplier_reliability_node,supplier_reliability_node::SDC-VD0508918A,Fiabilite fournisseur SDC-VD0508918A
+0.6729463530219235,613447.146,593478.1966,-0.6729463530219235,nan,ending_backlog,nan,one_sided_adverse,supplier_reliability_node,supplier_reliability_node::SDC-VD0508918A,Fiabilite fournisseur SDC-VD0508918A
+0.11193873023321092,27764625.0755,27920896.5609,0.11193873023321092,nan,total_cost,nan,one_sided_adverse,supplier_reliability_node,supplier_reliability_node::SDC-VD0508918A,Fiabilite fournisseur SDC-VD0508918A
+nan,0.0,0.0,nan,nan,total_external_procured_ordered_qty,nan,,supplier_reliability_node,supplier_reliability_node::SDC-VD0508918A,Fiabilite fournisseur SDC-VD0508918A
+0.6569252693126904,20415719.8796,19766465.3509,-0.6569252693126904,nan,avg_inventory,nan,one_sided_adverse,supplier_reliability_node,supplier_reliability_node::SDC-VD0508918A,Fiabilite fournisseur SDC-VD0508918A
+0.0,0.888075,0.888075,-0.0,nan,fill_rate,nan,one_sided_adverse,supplier_reliability_node,supplier_reliability_node::SDC-VD0525412A,Fiabilite fournisseur SDC-VD0525412A
+0.0,593478.1966,593478.1966,-0.0,nan,ending_backlog,nan,one_sided_adverse,supplier_reliability_node,supplier_reliability_node::SDC-VD0525412A,Fiabilite fournisseur SDC-VD0525412A
+0.00016763931594197394,27920662.5289,27920896.5609,0.00016763931594197394,nan,total_cost,nan,one_sided_adverse,supplier_reliability_node,supplier_reliability_node::SDC-VD0525412A,Fiabilite fournisseur SDC-VD0525412A
+nan,0.0,0.0,nan,nan,total_external_procured_ordered_qty,nan,,supplier_reliability_node,supplier_reliability_node::SDC-VD0525412A,Fiabilite fournisseur SDC-VD0525412A
+0.004333607677414407,19762182.3456,19766465.3509,0.004333607677414407,nan,avg_inventory,nan,one_sided_adverse,supplier_reliability_node,supplier_reliability_node::SDC-VD0525412A,Fiabilite fournisseur SDC-VD0525412A
+0.09332545111617649,0.883931,0.888075,0.09332545111617649,nan,fill_rate,nan,one_sided_adverse,supplier_reliability_node,supplier_reliability_node::SDC-VD0901566A,Fiabilite fournisseur SDC-VD0901566A
+0.7403748790052828,615448.014,593478.1966,-0.7403748790052828,nan,ending_backlog,nan,one_sided_adverse,supplier_reliability_node,supplier_reliability_node::SDC-VD0901566A,Fiabilite fournisseur SDC-VD0901566A
+0.07696385040189933,27813451.5756,27920896.5609,0.07696385040189933,nan,total_cost,nan,one_sided_adverse,supplier_reliability_node,supplier_reliability_node::SDC-VD0901566A,Fiabilite fournisseur SDC-VD0901566A
+nan,0.0,0.0,nan,nan,total_external_procured_ordered_qty,nan,,supplier_reliability_node,supplier_reliability_node::SDC-VD0901566A,Fiabilite fournisseur SDC-VD0901566A
+0.13514782276834367,19632895.6131,19766465.3509,0.13514782276834367,nan,avg_inventory,nan,one_sided_adverse,supplier_reliability_node,supplier_reliability_node::SDC-VD0901566A,Fiabilite fournisseur SDC-VD0901566A
+0.03587534836584895,0.889668,0.888075,-0.03587534836584895,nan,fill_rate,nan,one_sided_adverse,supplier_reliability_node,supplier_reliability_node::SDC-VD0914360C,Fiabilite fournisseur SDC-VD0914360C
+0.28470319376177833,585029.9397,593478.1966,0.28470319376177833,nan,ending_backlog,nan,one_sided_adverse,supplier_reliability_node,supplier_reliability_node::SDC-VD0914360C,Fiabilite fournisseur SDC-VD0914360C
+0.11763045870809724,27756679.1674,27920896.5609,0.11763045870809724,nan,total_cost,nan,one_sided_adverse,supplier_reliability_node,supplier_reliability_node::SDC-VD0914360C,Fiabilite fournisseur SDC-VD0914360C
+nan,0.0,0.0,nan,nan,total_external_procured_ordered_qty,nan,,supplier_reliability_node,supplier_reliability_node::SDC-VD0914360C,Fiabilite fournisseur SDC-VD0914360C
+0.012464633490419827,19754146.2636,19766465.3509,0.012464633490419827,nan,avg_inventory,nan,one_sided_adverse,supplier_reliability_node,supplier_reliability_node::SDC-VD0914360C,Fiabilite fournisseur SDC-VD0914360C
+0.16039185879571133,0.895197,0.888075,-0.16039185879571133,nan,fill_rate,nan,one_sided_adverse,supplier_reliability_node,supplier_reliability_node::SDC-VD0914690A,Fiabilite fournisseur SDC-VD0914690A
+1.2727270526992773,555711.4088,593478.1966,1.2727270526992773,nan,ending_backlog,nan,one_sided_adverse,supplier_reliability_node,supplier_reliability_node::SDC-VD0914690A,Fiabilite fournisseur SDC-VD0914690A
+0.040445196934735,27864433.2529,27920896.5609,0.040445196934735,nan,total_cost,nan,one_sided_adverse,supplier_reliability_node,supplier_reliability_node::SDC-VD0914690A,Fiabilite fournisseur SDC-VD0914690A
+nan,0.0,0.0,nan,nan,total_external_procured_ordered_qty,nan,,supplier_reliability_node,supplier_reliability_node::SDC-VD0914690A,Fiabilite fournisseur SDC-VD0914690A
+0.08646238898358281,19681012.5601,19766465.3509,0.08646238898358281,nan,avg_inventory,nan,one_sided_adverse,supplier_reliability_node,supplier_reliability_node::SDC-VD0914690A,Fiabilite fournisseur SDC-VD0914690A
+0.10314444162936494,0.883495,0.888075,0.10314444162936494,nan,fill_rate,nan,one_sided_adverse,supplier_reliability_node,supplier_reliability_node::SDC-VD0949099A,Fiabilite fournisseur SDC-VD0949099A
+0.8182996119861164,617760.3455,593478.1966,-0.8182996119861164,nan,ending_backlog,nan,one_sided_adverse,supplier_reliability_node,supplier_reliability_node::SDC-VD0949099A,Fiabilite fournisseur SDC-VD0949099A
+0.0163635103551717,27898052.3669,27920896.5609,0.0163635103551717,nan,total_cost,nan,one_sided_adverse,supplier_reliability_node,supplier_reliability_node::SDC-VD0949099A,Fiabilite fournisseur SDC-VD0949099A
+nan,0.0,0.0,nan,nan,total_external_procured_ordered_qty,nan,,supplier_reliability_node,supplier_reliability_node::SDC-VD0949099A,Fiabilite fournisseur SDC-VD0949099A
+0.16788597025764276,19932390.9616,19766465.3509,-0.16788597025764276,nan,avg_inventory,nan,one_sided_adverse,supplier_reliability_node,supplier_reliability_node::SDC-VD0949099A,Fiabilite fournisseur SDC-VD0949099A
+0.08479013596824377,0.88431,0.888075,0.08479013596824377,nan,fill_rate,nan,one_sided_adverse,supplier_reliability_node,supplier_reliability_node::SDC-VD0993480A,Fiabilite fournisseur SDC-VD0993480A
+0.672778913003794,613442.1774,593478.1966,-0.672778913003794,nan,ending_backlog,nan,one_sided_adverse,supplier_reliability_node,supplier_reliability_node::SDC-VD0993480A,Fiabilite fournisseur SDC-VD0993480A
+0.025377576055068983,27885468.3271,27920896.5609,0.025377576055068983,nan,total_cost,nan,one_sided_adverse,supplier_reliability_node,supplier_reliability_node::SDC-VD0993480A,Fiabilite fournisseur SDC-VD0993480A
+nan,0.0,0.0,nan,nan,total_external_procured_ordered_qty,nan,,supplier_reliability_node,supplier_reliability_node::SDC-VD0993480A,Fiabilite fournisseur SDC-VD0993480A
+0.21244806643231032,19976432.7181,19766465.3509,-0.21244806643231032,nan,avg_inventory,nan,one_sided_adverse,supplier_reliability_node,supplier_reliability_node::SDC-VD0993480A,Fiabilite fournisseur SDC-VD0993480A
+2.1026377276693937,0.79471,0.888075,2.1026377276693937,nan,fill_rate,nan,one_sided_adverse,supplier_reliability_global,supplier_reliability_scale,Fiabilite fournisseur globale
+16.683402993949166,1088539.9927,593478.1966,-16.683402993949166,nan,ending_backlog,nan,one_sided_adverse,supplier_reliability_global,supplier_reliability_scale,Fiabilite fournisseur globale
+0.155999420738499,27703114.3764,27920896.5609,0.155999420738499,nan,total_cost,nan,one_sided_adverse,supplier_reliability_global,supplier_reliability_scale,Fiabilite fournisseur globale
+nan,0.0,0.0,nan,nan,total_external_procured_ordered_qty,nan,,supplier_reliability_global,supplier_reliability_scale,Fiabilite fournisseur globale
+0.30134442512903786,19468639.644,19766465.3509,0.30134442512903786,nan,avg_inventory,nan,one_sided_adverse,supplier_reliability_global,supplier_reliability_scale,Fiabilite fournisseur globale
+0.0,nan,0.888075,0.0,0.888075,fill_rate,0.888075,central,supplier_stock_node,supplier_stock_node::SDC-1450,Stock fournisseur SDC-1450
+0.0,nan,593478.1966,0.0,593478.1966,ending_backlog,593478.1966,central,supplier_stock_node,supplier_stock_node::SDC-1450,Stock fournisseur SDC-1450
+1.5169283663040728e-06,nan,27920896.5609,1.5169283663040728e-06,27920900.7963,total_cost,27920892.3255,central,supplier_stock_node,supplier_stock_node::SDC-1450,Stock fournisseur SDC-1450
+nan,nan,0.0,nan,0.0,total_external_procured_ordered_qty,0.0,,supplier_stock_node,supplier_stock_node::SDC-1450,Stock fournisseur SDC-1450
+8.835924725721609e-07,nan,19766465.3509,8.835924725721609e-07,19766467.0975,avg_inventory,19766463.6044,central,supplier_stock_node,supplier_stock_node::SDC-1450,Stock fournisseur SDC-1450
+0.0,nan,0.888075,0.0,0.888075,fill_rate,0.888075,central,supplier_stock_node,supplier_stock_node::SDC-VD0508918A,Stock fournisseur SDC-VD0508918A
+0.0,nan,593478.1966,0.0,593478.1966,ending_backlog,593478.1966,central,supplier_stock_node,supplier_stock_node::SDC-VD0508918A,Stock fournisseur SDC-VD0508918A
+0.0,nan,27920896.5609,0.0,27920896.5609,total_cost,27920896.5609,central,supplier_stock_node,supplier_stock_node::SDC-VD0508918A,Stock fournisseur SDC-VD0508918A
+nan,nan,0.0,nan,0.0,total_external_procured_ordered_qty,0.0,,supplier_stock_node,supplier_stock_node::SDC-VD0508918A,Stock fournisseur SDC-VD0508918A
+0.0,nan,19766465.3509,0.0,19766465.3509,avg_inventory,19766465.3509,central,supplier_stock_node,supplier_stock_node::SDC-VD0508918A,Stock fournisseur SDC-VD0508918A
+0.0,nan,0.888075,0.0,0.888075,fill_rate,0.888075,central,supplier_stock_node,supplier_stock_node::SDC-VD0525412A,Stock fournisseur SDC-VD0525412A
+0.0,nan,593478.1966,0.0,593478.1966,ending_backlog,593478.1966,central,supplier_stock_node,supplier_stock_node::SDC-VD0525412A,Stock fournisseur SDC-VD0525412A
+0.0,nan,27920896.5609,0.0,27920896.5609,total_cost,27920896.5609,central,supplier_stock_node,supplier_stock_node::SDC-VD0525412A,Stock fournisseur SDC-VD0525412A
+nan,nan,0.0,nan,0.0,total_external_procured_ordered_qty,0.0,,supplier_stock_node,supplier_stock_node::SDC-VD0525412A,Stock fournisseur SDC-VD0525412A
+0.0,nan,19766465.3509,0.0,19766465.3509,avg_inventory,19766465.3509,central,supplier_stock_node,supplier_stock_node::SDC-VD0525412A,Stock fournisseur SDC-VD0525412A
+0.0,nan,0.888075,0.0,0.888075,fill_rate,0.888075,central,supplier_stock_node,supplier_stock_node::SDC-VD0901566A,Stock fournisseur SDC-VD0901566A
+0.0,nan,593478.1966,0.0,593478.1966,ending_backlog,593478.1966,central,supplier_stock_node,supplier_stock_node::SDC-VD0901566A,Stock fournisseur SDC-VD0901566A
+1.603995770516003e-06,nan,27920896.5609,-1.603995770516003e-06,27920892.0824,total_cost,27920901.0394,central,supplier_stock_node,supplier_stock_node::SDC-VD0901566A,Stock fournisseur SDC-VD0901566A
+nan,nan,0.0,nan,0.0,total_external_procured_ordered_qty,0.0,,supplier_stock_node,supplier_stock_node::SDC-VD0901566A,Stock fournisseur SDC-VD0901566A
+1.0453563464091935e-05,nan,19766465.3509,1.0453563464091935e-05,19766486.0139,avg_inventory,19766444.6879,central,supplier_stock_node,supplier_stock_node::SDC-VD0901566A,Stock fournisseur SDC-VD0901566A
+0.0,nan,0.888075,0.0,0.888075,fill_rate,0.888075,central,supplier_stock_node,supplier_stock_node::SDC-VD0914360C,Stock fournisseur SDC-VD0914360C
+0.0,nan,593478.1966,0.0,593478.1966,ending_backlog,593478.1966,central,supplier_stock_node,supplier_stock_node::SDC-VD0914360C,Stock fournisseur SDC-VD0914360C
+0.0,nan,27920896.5609,0.0,27920896.5609,total_cost,27920896.5609,central,supplier_stock_node,supplier_stock_node::SDC-VD0914360C,Stock fournisseur SDC-VD0914360C
+nan,nan,0.0,nan,0.0,total_external_procured_ordered_qty,0.0,,supplier_stock_node,supplier_stock_node::SDC-VD0914360C,Stock fournisseur SDC-VD0914360C
+0.0,nan,19766465.3509,0.0,19766465.3509,avg_inventory,19766465.3509,central,supplier_stock_node,supplier_stock_node::SDC-VD0914360C,Stock fournisseur SDC-VD0914360C
+0.0,nan,0.888075,0.0,0.888075,fill_rate,0.888075,central,supplier_stock_node,supplier_stock_node::SDC-VD0914690A,Stock fournisseur SDC-VD0914690A
+0.0,nan,593478.1966,0.0,593478.1966,ending_backlog,593478.1966,central,supplier_stock_node,supplier_stock_node::SDC-VD0914690A,Stock fournisseur SDC-VD0914690A
+0.0,nan,27920896.5609,0.0,27920896.5609,total_cost,27920896.5609,central,supplier_stock_node,supplier_stock_node::SDC-VD0914690A,Stock fournisseur SDC-VD0914690A
+nan,nan,0.0,nan,0.0,total_external_procured_ordered_qty,0.0,,supplier_stock_node,supplier_stock_node::SDC-VD0914690A,Stock fournisseur SDC-VD0914690A
+0.0,nan,19766465.3509,0.0,19766465.3509,avg_inventory,19766465.3509,central,supplier_stock_node,supplier_stock_node::SDC-VD0914690A,Stock fournisseur SDC-VD0914690A
+0.013270275596092345,nan,0.888075,-0.013270275596092345,0.885718,fill_rate,0.888075,central,supplier_stock_node,supplier_stock_node::SDC-VD0949099A,Stock fournisseur SDC-VD0949099A
+0.10528006902014615,nan,593478.1966,0.10528006902014615,605974.4817,ending_backlog,593478.1966,central,supplier_stock_node,supplier_stock_node::SDC-VD0949099A,Stock fournisseur SDC-VD0949099A
+0.005239396832438015,nan,27920896.5609,-0.005239396832438015,27891769.3573,total_cost,27921027.0887,central,supplier_stock_node,supplier_stock_node::SDC-VD0949099A,Stock fournisseur SDC-VD0949099A
+nan,nan,0.0,nan,0.0,total_external_procured_ordered_qty,0.0,,supplier_stock_node,supplier_stock_node::SDC-VD0949099A,Stock fournisseur SDC-VD0949099A
+0.028322364497733545,nan,19766465.3509,0.028322364497733545,19876845.55,avg_inventory,19764878.9427,central,supplier_stock_node,supplier_stock_node::SDC-VD0949099A,Stock fournisseur SDC-VD0949099A
+0.0,nan,0.888075,0.0,0.888075,fill_rate,0.888075,central,supplier_stock_node,supplier_stock_node::SDC-VD0993480A,Stock fournisseur SDC-VD0993480A
+0.0,nan,593478.1966,0.0,593478.1966,ending_backlog,593478.1966,central,supplier_stock_node,supplier_stock_node::SDC-VD0993480A,Stock fournisseur SDC-VD0993480A
+0.0,nan,27920896.5609,0.0,27920896.5609,total_cost,27920896.5609,central,supplier_stock_node,supplier_stock_node::SDC-VD0993480A,Stock fournisseur SDC-VD0993480A
+nan,nan,0.0,nan,0.0,total_external_procured_ordered_qty,0.0,,supplier_stock_node,supplier_stock_node::SDC-VD0993480A,Stock fournisseur SDC-VD0993480A
+0.0,nan,19766465.3509,0.0,19766465.3509,avg_inventory,19766465.3509,central,supplier_stock_node,supplier_stock_node::SDC-VD0993480A,Stock fournisseur SDC-VD0993480A
+0.01897362272330593,nan,0.888075,0.01897362272330593,0.890276,fill_rate,0.886906,central,supplier_stock,supplier_stock_scale,Stock fournisseur global
+0.15054911538767052,nan,593478.1966,-0.15054911538767052,581806.8755,ending_backlog,599676.399,central,supplier_stock,supplier_stock_scale,Stock fournisseur global
+0.05149541784462144,nan,27920896.5609,0.05149541784462144,28047894.0972,total_cost,27760334.4502,central,supplier_stock,supplier_stock_scale,Stock fournisseur global
+nan,nan,0.0,nan,0.0,total_external_procured_ordered_qty,0.0,,supplier_stock,supplier_stock_scale,Stock fournisseur global
+0.00129748407440172,nan,19766465.3509,0.00129748407440172,19863651.8674,avg_inventory,19858522.5326,central,supplier_stock,supplier_stock_scale,Stock fournisseur global
+0.0,nan,0.888075,0.0,0.888075,fill_rate,0.888075,central,transport_cost,transport_cost_scale,Cout transport global
+0.0,nan,593478.1966,0.0,593478.1966,ending_backlog,593478.1966,central,transport_cost,transport_cost_scale,Cout transport global
+0.39998434289675977,nan,27920896.5609,0.39998434289675977,29037688.7073,total_cost,26804104.4145,central,transport_cost,transport_cost_scale,Cout transport global
+nan,nan,0.0,nan,0.0,total_external_procured_ordered_qty,0.0,,transport_cost,transport_cost_scale,Cout transport global
+0.0,nan,19766465.3509,0.0,19766465.3509,avg_inventory,19766465.3509,central,transport_cost,transport_cost_scale,Cout transport global

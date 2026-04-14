@@ -25,11 +25,13 @@ from etudecas.simulation.analysis_batch_common import (  # noqa: E402
     detect_production_nodes,
     load_json,
     numeric_kpis,
+    prune_simulation_output,
     run_simulation,
     safe_name,
     to_float,
     write_json,
 )
+from etudecas.simulation.sensibility.case_naming import realistic_case_id  # noqa: E402
 
 
 def parse_args() -> argparse.Namespace:
@@ -61,6 +63,18 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=8,
         help="Number of active suppliers kept for node-level sensitivity.",
+    )
+    parser.add_argument(
+        "--artifact-mode",
+        choices=["compact", "full"],
+        default="compact",
+        help="Artifact retention mode. 'compact' prunes per-case simulation data/maps/plots after KPI extraction.",
+    )
+    parser.add_argument(
+        "--keep-detailed-case",
+        action="append",
+        default=["baseline", "baseline_repeat"],
+        help="Case id to retain with full detailed outputs even in compact mode. Can be repeated.",
     )
     return parser.parse_args()
 
@@ -151,7 +165,7 @@ def make_case(
     config: dict[str, Any],
     notes: str = "",
 ) -> dict[str, Any]:
-    case_id = f"{study}_{safe_name(parameter_key)}_{direction}"
+    case_id = realistic_case_id(study=study, parameter_key=parameter_key, direction=direction)
     return {
         "study": study,
         "case_id": case_id,
@@ -533,6 +547,7 @@ def main() -> None:
     run_script = Path(args.run_script)
     output_dir = Path(args.output_dir)
     cases_root = output_dir / "cases"
+    keep_detailed_cases = set(args.keep_detailed_case or [])
     output_dir.mkdir(parents=True, exist_ok=True)
     cases_root.mkdir(parents=True, exist_ok=True)
 
@@ -593,32 +608,34 @@ def main() -> None:
     local_rows: list[dict[str, Any]] = []
     for idx, case in enumerate(local_cases, start=1):
         print(f"[RUN] local {idx:02d}/{len(local_cases):02d} {case['case_id']}")
-        local_rows.append(
-            run_case(
-                case=case,
-                base_data=base_data,
-                input_root=output_dir,
-                output_root=cases_root,
-                run_script=run_script,
-                scenario_id=args.scenario_id,
-                days=args.days,
-            )
+        row = run_case(
+            case=case,
+            base_data=base_data,
+            input_root=output_dir,
+            output_root=cases_root,
+            run_script=run_script,
+            scenario_id=args.scenario_id,
+            days=args.days,
         )
+        local_rows.append(row)
+        if args.artifact_mode == "compact" and case["case_id"] not in keep_detailed_cases:
+            prune_simulation_output(cases_root / case["study"] / case["case_id"] / "simulation_output")
 
     stress_rows: list[dict[str, Any]] = []
     for idx, case in enumerate(stress_cases, start=1):
         print(f"[RUN] stress {idx:02d}/{len(stress_cases):02d} {case['case_id']}")
-        stress_rows.append(
-            run_case(
-                case=case,
-                base_data=base_data,
-                input_root=output_dir,
-                output_root=cases_root,
-                run_script=run_script,
-                scenario_id=args.scenario_id,
-                days=args.days,
-            )
+        row = run_case(
+            case=case,
+            base_data=base_data,
+            input_root=output_dir,
+            output_root=cases_root,
+            run_script=run_script,
+            scenario_id=args.scenario_id,
+            days=args.days,
         )
+        stress_rows.append(row)
+        if args.artifact_mode == "compact" and case["case_id"] not in keep_detailed_cases:
+            prune_simulation_output(cases_root / case["study"] / case["case_id"] / "simulation_output")
 
     kpi_keys = [
         "fill_rate",
@@ -654,6 +671,7 @@ def main() -> None:
         "run_script": str(run_script),
         "scenario_id": args.scenario_id,
         "days": args.days,
+        "artifact_mode": args.artifact_mode,
         "selected_suppliers": selected_suppliers,
         "baseline": {key: to_float(baseline_row.get(f"kpi::{key}"), math.nan) for key in kpi_keys},
         "deterministic_check": {
@@ -684,6 +702,7 @@ def main() -> None:
 - Local sensitivity: calibrated perturbations around baseline
 - Stress tests: adverse scenarios separated from local elasticities
 - Supplier scope: {len(selected_suppliers)} active suppliers -> {", ".join(selected_suppliers) if selected_suppliers else "none"}
+- Artifact mode: {args.artifact_mode}
 
 ## Baseline
 - Fill rate: {summary['baseline']['fill_rate']}
