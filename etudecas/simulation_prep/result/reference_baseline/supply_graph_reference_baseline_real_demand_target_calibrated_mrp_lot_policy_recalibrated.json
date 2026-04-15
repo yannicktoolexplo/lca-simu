@@ -103,7 +103,7 @@
     },
     "mrp_lot_policy_rebuild": {
       "type": "mrp_lot_policy_lot_execution_rebuild",
-      "generated_at_utc": "2026-04-13T13:46:43.605850+00:00",
+      "generated_at_utc": "2026-04-15T08:39:09.429855+00:00",
       "source_graph": "etudecas\\simulation_prep\\result\\reference_baseline\\supply_graph_reference_baseline_real_demand_target_calibrated_mrp_lot_policy.json",
       "scenario_id": "scn:BASE",
       "days": 365,
