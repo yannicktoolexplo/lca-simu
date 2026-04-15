@@ -1897,6 +1897,16 @@
         "daily_capacity_qty": 7817.14272
       }
     ],
+    "mrp_trace": {
+      "enabled": true,
+      "tracked_pairs": 64,
+      "trace_rows": 23360,
+      "order_rows": 6989,
+      "trace_outputs": [
+        "mrp_trace_daily.csv",
+        "mrp_orders_daily.csv"
+      ]
+    },
     "lane_purchase_cost_stats": {
       "lanes_with_positive_purchase_cost": 38,
       "lanes_with_zero_purchase_cost": 0,
