@@ -42,6 +42,7 @@
 - Assumed supply edges (explicitly tagged, includes '?'): 1 (edge:SDC-1450_TO_M-1810_007923_Q)
 - External upstream sourcing for unmodeled source pairs: 33
 - Opening stock bootstrap pairs (lead-time coverage at max capacity): 0
+- MRP trace tracked pairs / rows / orders: 64 / 23360 / 6989
 
 ## KPIs
 - Total demand: 5302452.7143
@@ -85,6 +86,9 @@
 - data/production_output_products_daily.csv
 - data/production_demand_service_daily.csv
 - data/production_constraint_daily.csv
+- data/mrp_trace_daily.csv
+- data/mrp_orders_daily.csv
+- data/assumptions_ledger.csv
 - data/production_supplier_shipments_daily.csv
 - data/production_supplier_stocks_daily.csv
 - data/production_supplier_capacity_daily.csv
