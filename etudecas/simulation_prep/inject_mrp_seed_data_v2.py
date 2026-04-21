@@ -49,8 +49,8 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Inject MRP seed data into a simulation graph.")
     parser.add_argument(
         "--input-graph",
-        default="etudecas/simulation_prep/result/reference_baseline/supply_graph_reference_baseline_current.json",
-        help="Source simulation-ready graph JSON.",
+        default="etudecas/simulation_prep/result/reference_baseline/supply_graph_reference_baseline_real_demand_target_calibrated.json",
+        help="Source graph JSON after the real-demand calibration step.",
     )
     parser.add_argument(
         "--stocks-mrp-xlsx",
@@ -59,17 +59,17 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--output-graph",
-        default="etudecas/simulation_prep/result/reference_baseline/supply_graph_reference_baseline_real_demand_target_calibrated_mrp_seeded.json",
-        help="Output graph JSON.",
+        default="etudecas/simulation_prep/result/reference_baseline/supply_graph_reference_baseline_real_demand_target_calibrated_mrp_lot_policy.json",
+        help="Output graph JSON with MRP snapshot and lot-policy data injected.",
     )
     parser.add_argument(
         "--output-report-json",
-        default="etudecas/simulation_prep/result/reference_baseline/mrp_seed_report.json",
+        default="etudecas/simulation_prep/result/reference_baseline/mrp_lot_policy_report.json",
         help="Output report JSON.",
     )
     parser.add_argument(
         "--output-report-md",
-        default="etudecas/simulation_prep/result/reference_baseline/mrp_seed_report.md",
+        default="etudecas/simulation_prep/result/reference_baseline/mrp_lot_policy_report.md",
         help="Output report Markdown.",
     )
     parser.add_argument(

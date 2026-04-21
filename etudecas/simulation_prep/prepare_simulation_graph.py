@@ -14,6 +14,7 @@ import argparse
 import json
 import math
 import re
+import subprocess
 from collections import Counter, defaultdict
 from copy import deepcopy
 from datetime import datetime, timezone
@@ -36,17 +37,17 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--output-graph",
-        default="etudecas/simulation_prep/result/supply_graph_poc_simulation_ready.json",
+        default="etudecas/simulation_prep/result/reference_baseline/supply_graph_reference_baseline_simulation_ready.json",
         help="Output simulation-ready graph JSON.",
     )
     parser.add_argument(
         "--output-report-json",
-        default="etudecas/simulation_prep/result/simulation_prep_report.json",
+        default="etudecas/simulation_prep/result/reference_baseline/simulation_prep_report.json",
         help="Output prep report JSON.",
     )
     parser.add_argument(
         "--output-report-md",
-        default="etudecas/simulation_prep/result/simulation_prep_report.md",
+        default="etudecas/simulation_prep/result/reference_baseline/simulation_prep_report.md",
         help="Output prep report Markdown.",
     )
     parser.add_argument(
@@ -385,6 +386,11 @@ def weekly_demand_piecewise_profile(
                 "value": round(max(0.0, weekly_value) / 7.0, 6),
             }
         )
+    covered_days = len(points) * 7
+    if points and covered_days < horizon_days:
+        # Keep XLSX weekly totals exact: do not extend the last weekly daily rate
+        # beyond the provided source periods.
+        points.append({"t": covered_days, "value": 0.0})
     if not points:
         points = [{"t": 0, "value": 0.0}]
     return [
@@ -396,8 +402,186 @@ def weekly_demand_piecewise_profile(
             "source": source,
             "source_period_unit": "week",
             "daily_distribution": "uniform_over_7_days",
+            "repeat_period_days": 365,
+            "repeat_mode": "annual_cycle",
         }
     ]
+
+
+def load_xlsx_sheet_rows_via_powershell(
+    xlsx_path: Path,
+    sheet_name: str,
+) -> tuple[list[dict[str, Any]], str | None]:
+    script = r"""
+param(
+    [string]$WorkbookPath,
+    [string]$SheetName
+)
+$excel = $null
+$workbook = $null
+$worksheet = $null
+try {
+    $resolved = (Resolve-Path -LiteralPath $WorkbookPath).Path
+    $excel = New-Object -ComObject Excel.Application
+    $excel.Visible = $false
+    $excel.DisplayAlerts = $false
+    $workbook = $excel.Workbooks.Open($resolved)
+    try {
+        $worksheet = $workbook.Worksheets.Item($SheetName)
+    } catch {
+        Write-Output '{"error":"sheet_not_found"}'
+        exit 0
+    }
+    $used = $worksheet.UsedRange.Value2
+    if ($null -eq $used) {
+        Write-Output '[]'
+        exit 0
+    }
+    $rowCount = $used.GetLength(0)
+    $colCount = $used.GetLength(1)
+    if ($rowCount -lt 1 -or $colCount -lt 1) {
+        Write-Output '[]'
+        exit 0
+    }
+    $headers = @()
+    for ($c = 1; $c -le $colCount; $c++) {
+        $headers += [string]($used[1, $c])
+    }
+    $rows = New-Object System.Collections.Generic.List[object]
+    for ($r = 2; $r -le $rowCount; $r++) {
+        $obj = [ordered]@{}
+        for ($c = 1; $c -le $colCount; $c++) {
+            $header = $headers[$c - 1]
+            if ([string]::IsNullOrWhiteSpace($header)) {
+                continue
+            }
+            $obj[$header.Trim()] = $used[$r, $c]
+        }
+        $rows.Add([pscustomobject]$obj)
+    }
+    $rows | ConvertTo-Json -Depth 4 -Compress
+} finally {
+    if ($workbook) { $workbook.Close($false) }
+    if ($excel) { $excel.Quit() }
+    foreach ($obj in @($worksheet, $workbook, $excel)) {
+        if ($null -ne $obj) {
+            try { [void][System.Runtime.InteropServices.Marshal]::ReleaseComObject($obj) } catch {}
+        }
+    }
+    [GC]::Collect()
+    [GC]::WaitForPendingFinalizers()
+}
+"""
+    wrapped_script = f"& {{ {script} }}"
+    cmd = [
+        "powershell",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        wrapped_script,
+        str(xlsx_path),
+        sheet_name,
+    ]
+    try:
+        completed = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except Exception as exc:
+        return [], f"powershell_excel_com_failed:{exc}"
+    if completed.returncode != 0:
+        err = (completed.stderr or completed.stdout or "").strip()
+        return [], f"powershell_excel_com_failed:{err or 'unknown_error'}"
+    payload = (completed.stdout or "").strip()
+    if not payload:
+        return [], None
+    try:
+        parsed = json.loads(payload)
+    except Exception as exc:
+        return [], f"powershell_excel_json_parse_failed:{exc}"
+    if isinstance(parsed, dict) and parsed.get("error") == "sheet_not_found":
+        return [], "sheet_not_found"
+    if isinstance(parsed, dict):
+        return [parsed], None
+    if isinstance(parsed, list):
+        return parsed, None
+    return [], None
+
+
+def rebalance_weekly_demand_rows(
+    weekly_rows: list[tuple[int, float]],
+) -> tuple[list[tuple[int, float]], dict[str, Any]]:
+    """Keep a non-negative weekly demand profile while preserving the workbook annual total.
+
+    The source workbook can contain negative weekly demand corrections. The simulator only
+    supports non-negative customer withdrawals, so we net negative weeks against subsequent
+    positive weeks, and as a last resort against previous positive weeks, while keeping the
+    total yearly demand equal to the workbook total whenever that total stays non-negative.
+    """
+
+    ordered_rows = sorted((int(step), float(value)) for step, value in weekly_rows)
+    adjusted_rows: list[tuple[int, float]] = []
+    carry_qty = 0.0
+    negative_steps: list[dict[str, float]] = []
+    forward_adjustments: list[dict[str, float]] = []
+    backward_adjustments: list[dict[str, float]] = []
+
+    for step_num, raw_qty in ordered_rows:
+        if raw_qty < 0.0:
+            negative_steps.append({"step": int(step_num), "raw_qty": round(raw_qty, 6)})
+        carry_in_qty = carry_qty
+        net_qty = raw_qty + carry_qty
+        if net_qty <= 0.0:
+            adjusted_qty = 0.0
+            carry_qty = net_qty
+        else:
+            adjusted_qty = net_qty
+            carry_qty = 0.0
+        adjusted_rows.append((step_num, adjusted_qty))
+        if raw_qty < 0.0 or abs(carry_in_qty) > 1e-9:
+            forward_adjustments.append(
+                {
+                    "step": int(step_num),
+                    "raw_qty": round(raw_qty, 6),
+                    "carry_in_qty": round(carry_in_qty, 6),
+                    "adjusted_qty": round(adjusted_qty, 6),
+                    "carry_out_qty": round(carry_qty, 6),
+                }
+            )
+
+    if carry_qty < -1e-9:
+        debt_qty = -carry_qty
+        for idx in range(len(adjusted_rows) - 1, -1, -1):
+            step_num, adjusted_qty = adjusted_rows[idx]
+            if adjusted_qty <= 1e-9:
+                continue
+            reduction_qty = min(adjusted_qty, debt_qty)
+            adjusted_rows[idx] = (step_num, adjusted_qty - reduction_qty)
+            debt_qty -= reduction_qty
+            backward_adjustments.append(
+                {
+                    "step": int(step_num),
+                    "reduction_qty": round(reduction_qty, 6),
+                    "adjusted_qty_after_reduction": round(adjusted_rows[idx][1], 6),
+                }
+            )
+            if debt_qty <= 1e-9:
+                break
+        carry_qty = -debt_qty
+
+    raw_total_qty = sum(value for _step, value in ordered_rows)
+    adjusted_total_qty = sum(value for _step, value in adjusted_rows)
+    return adjusted_rows, {
+        "raw_total_qty": round(raw_total_qty, 6),
+        "adjusted_total_qty": round(adjusted_total_qty, 6),
+        "negative_steps": negative_steps,
+        "forward_adjustments": forward_adjustments,
+        "backward_adjustments": list(reversed(backward_adjustments)),
+        "unresolved_negative_balance_qty": round(max(0.0, -carry_qty), 6),
+    }
 
 
 def load_weekly_demand_from_pf_xlsx(
@@ -411,6 +595,9 @@ def load_weekly_demand_from_pf_xlsx(
         "rows_read": 0,
         "rows_mapped": 0,
         "pairs_loaded": 0,
+        "annual_total_per_pair": {},
+        "simulation_profile_total_per_pair": {},
+        "negative_demand_adjustments": {},
     }
     if not xlsx_path.exists():
         stats["error"] = "xlsx_not_found"
@@ -419,56 +606,92 @@ def load_weekly_demand_from_pf_xlsx(
     try:
         import openpyxl  # type: ignore
     except Exception:
-        stats["error"] = "openpyxl_not_available"
-        return demand_map, stats
-
-    wb = openpyxl.load_workbook(xlsx_path, data_only=True, read_only=True)
-    if "Demande" not in wb.sheetnames:
-        stats["error"] = "demande_sheet_not_found"
-        return demand_map, stats
-    stats["enabled"] = True
-    stats["sheet_found"] = True
-
-    ws = wb["Demande"]
-    rows = ws.iter_rows(values_only=True)
-    try:
-        header = [str(v).strip() if v is not None else "" for v in next(rows)]
-    except StopIteration:
-        stats["error"] = "empty_sheet"
-        return demand_map, stats
-    idx = {name: i for i, name in enumerate(header)}
-    required = {"product", "customer_id", "step"}
-    if not required.issubset(idx):
-        stats["error"] = "missing_required_columns"
-        stats["columns"] = header
-        return demand_map, stats
+        openpyxl = None  # type: ignore
 
     raw_rows: dict[tuple[str, str], list[tuple[int, float]]] = defaultdict(list)
-    for rec in rows:
-        stats["rows_read"] += 1
-        if not rec:
-            continue
-        item_id = canonical_item_id(rec[idx["product"]])
-        customer_id = canonical_actor_id(rec[idx["customer_id"]])
-        step_num = int(to_float(rec[idx["step"]]) or 0)
-        real_idx = idx.get("real demand")
-        forecast_idx = idx.get("forecast_demand")
-        demand_value = None
-        if real_idx is not None:
-            demand_value = to_float(rec[real_idx])
-        if demand_value is None and forecast_idx is not None:
-            demand_value = to_float(rec[forecast_idx])
-        if not item_id or not customer_id or step_num <= 0 or demand_value is None:
-            continue
-        raw_rows[(customer_id, item_id)].append((step_num, max(0.0, demand_value)))
-        stats["rows_mapped"] += 1
+    if openpyxl is not None:
+        wb = openpyxl.load_workbook(xlsx_path, data_only=True, read_only=True)
+        if "Demande" not in wb.sheetnames:
+            stats["error"] = "demande_sheet_not_found"
+            return demand_map, stats
+        stats["enabled"] = True
+        stats["sheet_found"] = True
+
+        ws = wb["Demande"]
+        rows = ws.iter_rows(values_only=True)
+        try:
+            header = [str(v).strip() if v is not None else "" for v in next(rows)]
+        except StopIteration:
+            stats["error"] = "empty_sheet"
+            return demand_map, stats
+        idx = {name: i for i, name in enumerate(header)}
+        required = {"product", "customer_id", "step"}
+        if not required.issubset(idx):
+            stats["error"] = "missing_required_columns"
+            stats["columns"] = header
+            return demand_map, stats
+
+        for rec in rows:
+            stats["rows_read"] += 1
+            if not rec:
+                continue
+            item_id = canonical_item_id(rec[idx["product"]])
+            customer_id = canonical_actor_id(rec[idx["customer_id"]])
+            step_num = int(to_float(rec[idx["step"]]) or 0)
+            real_idx = idx.get("real demand")
+            forecast_idx = idx.get("forecast_demand")
+            demand_value = None
+            if real_idx is not None:
+                demand_value = to_float(rec[real_idx])
+            if demand_value is None and forecast_idx is not None:
+                demand_value = to_float(rec[forecast_idx])
+            if not item_id or not customer_id or step_num <= 0 or demand_value is None:
+                continue
+            raw_rows[(customer_id, item_id)].append((step_num, demand_value))
+            stats["rows_mapped"] += 1
+    else:
+        stats["excel_reader"] = "powershell_excel_com"
+        rows, err = load_xlsx_sheet_rows_via_powershell(xlsx_path, "Demande")
+        if err == "sheet_not_found":
+            stats["error"] = "demande_sheet_not_found"
+            return demand_map, stats
+        if err:
+            stats["error"] = err
+            return demand_map, stats
+        stats["enabled"] = True
+        stats["sheet_found"] = True
+        for rec in rows:
+            stats["rows_read"] += 1
+            if not isinstance(rec, dict):
+                continue
+            item_id = canonical_item_id(rec.get("product"))
+            customer_id = canonical_actor_id(rec.get("customer_id"))
+            step_num = int(to_float(rec.get("step")) or 0)
+            demand_value = to_float(rec.get("real demand"))
+            if demand_value is None:
+                demand_value = to_float(rec.get("forecast_demand"))
+            if not item_id or not customer_id or step_num <= 0 or demand_value is None:
+                continue
+            raw_rows[(customer_id, item_id)].append((step_num, demand_value))
+            stats["rows_mapped"] += 1
 
     for pair, values in raw_rows.items():
-        values.sort(key=lambda x: x[0])
-        demand_map[pair] = [float(v) for _, v in values]
+        adjusted_rows, adjustment_info = rebalance_weekly_demand_rows(values)
+        demand_map[pair] = [float(v) for _, v in adjusted_rows]
+        pair_key = f"{pair[0]}::{pair[1]}"
+        if adjustment_info["negative_steps"]:
+            stats["negative_demand_adjustments"][pair_key] = adjustment_info
     stats["pairs_loaded"] = len(demand_map)
     stats["periods_per_pair"] = {
         f"{pair[0]}::{pair[1]}": len(values)
+        for pair, values in sorted(demand_map.items())
+    }
+    stats["annual_total_per_pair"] = {
+        f"{pair[0]}::{pair[1]}": round(sum(value for _step, value in raw_rows[pair]), 6)
+        for pair in sorted(demand_map)
+    }
+    stats["simulation_profile_total_per_pair"] = {
+        f"{pair[0]}::{pair[1]}": round(sum(values), 6)
         for pair, values in sorted(demand_map.items())
     }
     return demand_map, stats
@@ -490,60 +713,326 @@ def load_prices_from_data_poc(xlsx_path: Path) -> tuple[dict[tuple[str, str, str
     try:
         import openpyxl  # type: ignore
     except Exception:
-        stats["error"] = "openpyxl_not_available"
-        return price_map, stats
+        openpyxl = None  # type: ignore
 
-    wb = openpyxl.load_workbook(xlsx_path, data_only=True, read_only=True)
-    if "Relations_acteurs" not in wb.sheetnames:
-        stats["error"] = "relations_acteurs_sheet_missing"
-        return price_map, stats
+    if openpyxl is not None:
+        wb = openpyxl.load_workbook(xlsx_path, data_only=True, read_only=True)
+        if "Relations_acteurs" not in wb.sheetnames:
+            stats["error"] = "relations_acteurs_sheet_missing"
+            return price_map, stats
 
-    stats["enabled"] = True
-    stats["sheet_found"] = True
-    ws = wb["Relations_acteurs"]
-    rows = list(ws.iter_rows(values_only=True))
-    if not rows:
-        return price_map, stats
-    headers = [str(h or "").strip() for h in rows[0]]
-    idx = {h: i for i, h in enumerate(headers)}
-    required = {"customer", "supplier", "product", "sell_price", "price_base", "quantity_unit"}
-    if not required.issubset(set(idx.keys())):
-        stats["error"] = "missing_required_columns"
-        stats["columns"] = headers
-        return price_map, stats
+        stats["enabled"] = True
+        stats["sheet_found"] = True
+        ws = wb["Relations_acteurs"]
+        rows = list(ws.iter_rows(values_only=True))
+        if not rows:
+            return price_map, stats
+        headers = [str(h or "").strip() for h in rows[0]]
+        idx = {h: i for i, h in enumerate(headers)}
+        required = {"customer", "supplier", "product", "sell_price", "price_base", "quantity_unit"}
+        if not required.issubset(set(idx.keys())):
+            stats["error"] = "missing_required_columns"
+            stats["columns"] = headers
+            return price_map, stats
 
-    for r in rows[1:]:
-        stats["rows_read"] += 1
-        customer = canonical_actor_id(r[idx["customer"]])
-        supplier = canonical_actor_id(r[idx["supplier"]])
-        item_id = canonical_item_id(r[idx["product"]])
-        if not customer or not supplier or not item_id:
-            continue
-        sell_price = to_float(r[idx["sell_price"]])
-        price_base = to_float(r[idx["price_base"]])
-        unit = normalize_unit(r[idx["quantity_unit"]])
-        key = (supplier, customer, item_id)
-        rec = {
-            "sell_price": sell_price,
-            "price_base": price_base if price_base and price_base > 0 else 1.0,
-            "quantity_unit": unit,
-            "source": "data_poc_relations_acteurs",
-        }
-        # Keep latest non-null pricing if duplicates appear.
-        existing = price_map.get(key)
-        if existing is None:
-            price_map[key] = rec
-        else:
-            ex_sp = to_float(existing.get("sell_price"))
-            if ex_sp is None and sell_price is not None:
+        for r in rows[1:]:
+            stats["rows_read"] += 1
+            customer = canonical_actor_id(r[idx["customer"]])
+            supplier = canonical_actor_id(r[idx["supplier"]])
+            item_id = canonical_item_id(r[idx["product"]])
+            if not customer or not supplier or not item_id:
+                continue
+            sell_price = to_float(r[idx["sell_price"]])
+            price_base = to_float(r[idx["price_base"]])
+            unit = normalize_unit(r[idx["quantity_unit"]])
+            key = (supplier, customer, item_id)
+            rec = {
+                "sell_price": sell_price,
+                "price_base": price_base if price_base and price_base > 0 else 1.0,
+                "quantity_unit": unit,
+                "source": "data_poc_relations_acteurs",
+            }
+            existing = price_map.get(key)
+            if existing is None:
                 price_map[key] = rec
+            else:
+                ex_sp = to_float(existing.get("sell_price"))
+                if ex_sp is None and sell_price is not None:
+                    price_map[key] = rec
+    else:
+        stats["excel_reader"] = "powershell_excel_com"
+        rows, err = load_xlsx_sheet_rows_via_powershell(xlsx_path, "Relations_acteurs")
+        if err == "sheet_not_found":
+            stats["error"] = "relations_acteurs_sheet_missing"
+            return price_map, stats
+        if err:
+            stats["error"] = err
+            return price_map, stats
+        stats["enabled"] = True
+        stats["sheet_found"] = True
+        for rec in rows:
+            stats["rows_read"] += 1
+            if not isinstance(rec, dict):
+                continue
+            customer = canonical_actor_id(rec.get("customer"))
+            supplier = canonical_actor_id(rec.get("supplier"))
+            item_id = canonical_item_id(rec.get("product"))
+            if not customer or not supplier or not item_id:
+                continue
+            sell_price = to_float(rec.get("sell_price"))
+            price_base = to_float(rec.get("price_base"))
+            unit = normalize_unit(rec.get("quantity_unit"))
+            key = (supplier, customer, item_id)
+            row = {
+                "sell_price": sell_price,
+                "price_base": price_base if price_base and price_base > 0 else 1.0,
+                "quantity_unit": unit,
+                "source": "data_poc_relations_acteurs",
+            }
+            existing = price_map.get(key)
+            if existing is None:
+                price_map[key] = row
+            else:
+                ex_sp = to_float(existing.get("sell_price"))
+                if ex_sp is None and sell_price is not None:
+                    price_map[key] = row
 
     stats["rows_mapped"] = len(price_map)
     return price_map, stats
 
 
+def actor_type_from_role(role: Any, actor_id: str) -> str:
+    role_s = str(role or "").strip().lower()
+    if "supplier distribution center" in role_s:
+        return "supplier_dc"
+    if role_s == "manufacturer" or "manufacturer" in role_s:
+        return "factory"
+    if role_s == "distribution center" or "distribution center" in role_s:
+        return "distribution_center"
+    if role_s == "customer" or "customer" in role_s:
+        return "customer"
+    if actor_id.startswith("SDC-"):
+        return "supplier_dc"
+    if actor_id.startswith("M-"):
+        return "factory"
+    if actor_id.startswith("DC-"):
+        return "distribution_center"
+    if actor_id.startswith("C-"):
+        return "customer"
+    return "unknown"
+
+
+def actor_id_from_acteurs_row(rec: dict[str, Any]) -> str:
+    role = str(rec.get("role") or "").strip()
+    description = str(rec.get("description") or "").strip()
+    match = re.search(r"([A-Z]{1,3}[0-9A-Z]+)\s*$", description)
+    code = match.group(1) if match else ""
+    role_s = role.lower()
+    if not code:
+        if "customer" in role_s:
+            return "C-XXXXX"
+        return ""
+    if "supplier distribution center" in role_s:
+        return canonical_actor_id(f"SDC - {code}")
+    if role_s == "manufacturer" or "manufacturer" in role_s:
+        return canonical_actor_id(f"M - {code}")
+    if role_s == "distribution center" or "distribution center" in role_s:
+        return canonical_actor_id(f"DC - {code}")
+    if "customer" in role_s:
+        return canonical_actor_id(f"C - {code}")
+    return canonical_actor_id(code)
+
+
+def load_actor_context_from_demand_pf_xlsx(
+    xlsx_path: Path,
+) -> tuple[dict[str, dict[str, Any]], dict[str, Any]]:
+    actor_map: dict[str, dict[str, Any]] = {}
+    stats: dict[str, Any] = {
+        "enabled": False,
+        "xlsx_path": str(xlsx_path),
+        "sheet_found": False,
+        "rows_read": 0,
+        "rows_mapped": 0,
+    }
+    if not xlsx_path.exists():
+        stats["error"] = "xlsx_not_found"
+        return actor_map, stats
+
+    try:
+        import openpyxl  # type: ignore
+    except Exception:
+        openpyxl = None  # type: ignore
+
+    if openpyxl is not None:
+        wb = openpyxl.load_workbook(xlsx_path, data_only=True, read_only=True)
+        if "Acteurs" not in wb.sheetnames:
+            stats["error"] = "acteurs_sheet_not_found"
+            return actor_map, stats
+        stats["enabled"] = True
+        stats["sheet_found"] = True
+        ws = wb["Acteurs"]
+        rows = ws.iter_rows(values_only=True)
+        try:
+            header = [str(v).strip() if v is not None else "" for v in next(rows)]
+        except StopIteration:
+            stats["error"] = "empty_sheet"
+            return actor_map, stats
+        for rec_values in rows:
+            stats["rows_read"] += 1
+            rec = {
+                header[i]: rec_values[i] if i < len(rec_values) else None
+                for i in range(len(header))
+                if header[i]
+            }
+            actor_id = actor_id_from_acteurs_row(rec)
+            if not actor_id:
+                continue
+            actor_map[actor_id] = {
+                "actor_id": actor_id,
+                "role": str(rec.get("role") or "").strip(),
+                "description": str(rec.get("description") or "").strip(),
+                "location_ID": str(rec.get("location_ID") or "").strip(),
+                "manufactured_products": str(rec.get("manufactured_products") or "").strip(),
+                "procured_product": str(rec.get("procured_product") or "").strip(),
+            }
+            stats["rows_mapped"] += 1
+    else:
+        stats["excel_reader"] = "powershell_excel_com"
+        rows, err = load_xlsx_sheet_rows_via_powershell(xlsx_path, "Acteurs")
+        if err == "sheet_not_found":
+            stats["error"] = "acteurs_sheet_not_found"
+            return actor_map, stats
+        if err:
+            stats["error"] = err
+            return actor_map, stats
+        stats["enabled"] = True
+        stats["sheet_found"] = True
+        for rec in rows:
+            stats["rows_read"] += 1
+            if not isinstance(rec, dict):
+                continue
+            actor_id = actor_id_from_acteurs_row(rec)
+            if not actor_id:
+                continue
+            actor_map[actor_id] = {
+                "actor_id": actor_id,
+                "role": str(rec.get("role") or "").strip(),
+                "description": str(rec.get("description") or "").strip(),
+                "location_ID": str(rec.get("location_ID") or "").strip(),
+                "manufactured_products": str(rec.get("manufactured_products") or "").strip(),
+                "procured_product": str(rec.get("procured_product") or "").strip(),
+            }
+            stats["rows_mapped"] += 1
+    return actor_map, stats
+
+
+def load_relations_from_demand_pf_xlsx(
+    xlsx_path: Path,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    relation_rows: list[dict[str, Any]] = []
+    stats: dict[str, Any] = {
+        "enabled": False,
+        "xlsx_path": str(xlsx_path),
+        "sheet_found": False,
+        "rows_read": 0,
+        "rows_mapped": 0,
+    }
+    if not xlsx_path.exists():
+        stats["error"] = "xlsx_not_found"
+        return relation_rows, stats
+
+    try:
+        import openpyxl  # type: ignore
+    except Exception:
+        openpyxl = None  # type: ignore
+
+    if openpyxl is not None:
+        wb = openpyxl.load_workbook(xlsx_path, data_only=True, read_only=True)
+        if "Relations_acteurs" not in wb.sheetnames:
+            stats["error"] = "relations_acteurs_sheet_missing"
+            return relation_rows, stats
+        stats["enabled"] = True
+        stats["sheet_found"] = True
+        ws = wb["Relations_acteurs"]
+        rows = ws.iter_rows(values_only=True)
+        try:
+            header = [str(v).strip() if v is not None else "" for v in next(rows)]
+        except StopIteration:
+            stats["error"] = "empty_sheet"
+            return relation_rows, stats
+        for rec_values in rows:
+            stats["rows_read"] += 1
+            rec = {
+                header[i]: rec_values[i] if i < len(rec_values) else None
+                for i in range(len(header))
+                if header[i]
+            }
+            supplier = canonical_actor_id(rec.get("supplier"))
+            customer = canonical_actor_id(rec.get("customer"))
+            item_id = canonical_item_id(rec.get("product"))
+            if not supplier or not customer or not item_id:
+                continue
+            relation_rows.append(
+                {
+                    "supplier": supplier,
+                    "customer": customer,
+                    "item_id": item_id,
+                    "sell_price": to_float(rec.get("sell_price")),
+                    "price_base": to_float(rec.get("price_base")) or 1.0,
+                    "quantity_unit": normalize_unit(rec.get("quantity_unit")),
+                    "supply_order_frequency": to_float(rec.get("supply_order_frequency")),
+                    "customer_priority_rank": to_float(rec.get("customer_priority_rank")),
+                    "supplier_priority_rank": to_float(rec.get("supplier_priority_rank")),
+                    "delay_step_limit": to_float(rec.get("delay_step_limit")),
+                    "transport_cost": to_float(rec.get("transport_cost")),
+                    "source": "demand_pf_relations_acteurs",
+                }
+            )
+            stats["rows_mapped"] += 1
+    else:
+        stats["excel_reader"] = "powershell_excel_com"
+        rows, err = load_xlsx_sheet_rows_via_powershell(xlsx_path, "Relations_acteurs")
+        if err == "sheet_not_found":
+            stats["error"] = "relations_acteurs_sheet_missing"
+            return relation_rows, stats
+        if err:
+            stats["error"] = err
+            return relation_rows, stats
+        stats["enabled"] = True
+        stats["sheet_found"] = True
+        for rec in rows:
+            stats["rows_read"] += 1
+            if not isinstance(rec, dict):
+                continue
+            supplier = canonical_actor_id(rec.get("supplier"))
+            customer = canonical_actor_id(rec.get("customer"))
+            item_id = canonical_item_id(rec.get("product"))
+            if not supplier or not customer or not item_id:
+                continue
+            relation_rows.append(
+                {
+                    "supplier": supplier,
+                    "customer": customer,
+                    "item_id": item_id,
+                    "sell_price": to_float(rec.get("sell_price")),
+                    "price_base": to_float(rec.get("price_base")) or 1.0,
+                    "quantity_unit": normalize_unit(rec.get("quantity_unit")),
+                    "supply_order_frequency": to_float(rec.get("supply_order_frequency")),
+                    "customer_priority_rank": to_float(rec.get("customer_priority_rank")),
+                    "supplier_priority_rank": to_float(rec.get("supplier_priority_rank")),
+                    "delay_step_limit": to_float(rec.get("delay_step_limit")),
+                    "transport_cost": to_float(rec.get("transport_cost")),
+                    "source": "demand_pf_relations_acteurs",
+                }
+            )
+            stats["rows_mapped"] += 1
+
+    return relation_rows, stats
+
+
 def ensure_sim_meta(graph: dict[str, Any]) -> None:
     meta = graph.setdefault("meta", {})
+    meta.pop("baseline_rebuild", None)
     prep = {
         "prepared_for_simulation": True,
         "prepared_at_utc": datetime.now(timezone.utc).isoformat(),
@@ -625,11 +1114,303 @@ def prepare_graph(
         price_map, price_import_stats = load_prices_from_data_poc(data_poc_xlsx)
     demand_pf_map: dict[tuple[str, str], list[float]] = {}
     demand_pf_stats: dict[str, Any] = {"enabled": False}
+    demand_pf_actor_map: dict[str, dict[str, Any]] = {}
+    demand_pf_actor_stats: dict[str, Any] = {"enabled": False}
+    demand_pf_relation_rows: list[dict[str, Any]] = []
+    demand_pf_relation_stats: dict[str, Any] = {"enabled": False}
     if demand_pf_xlsx is not None:
         demand_pf_map, demand_pf_stats = load_weekly_demand_from_pf_xlsx(demand_pf_xlsx)
+        demand_pf_actor_map, demand_pf_actor_stats = load_actor_context_from_demand_pf_xlsx(demand_pf_xlsx)
+        demand_pf_relation_rows, demand_pf_relation_stats = load_relations_from_demand_pf_xlsx(demand_pf_xlsx)
+
+    invented_dst_node = "M-1810"
+
+    for rel in demand_pf_relation_rows:
+        key = (str(rel.get("supplier") or ""), str(rel.get("customer") or ""), str(rel.get("item_id") or ""))
+        if not all(key):
+            continue
+        if key not in price_map:
+            price_map[key] = {
+                "sell_price": rel.get("sell_price"),
+                "price_base": rel.get("price_base"),
+                "quantity_unit": rel.get("quantity_unit"),
+                "source": "demand_pf_relations_acteurs",
+            }
+
+    def ensure_actor_node(actor_id: str) -> dict[str, Any] | None:
+        nonlocal node_by_id, coords
+        actor = demand_pf_actor_map.get(actor_id) or {}
+        node = node_by_id.get(actor_id)
+        role = str(actor.get("role") or "")
+        description = str(actor.get("description") or actor_id)
+        location_id = str(actor.get("location_ID") or "")
+        ntype = actor_type_from_role(role, actor_id)
+        legacy_prefix = actor_id.split("-", 1)[0] if "-" in actor_id else actor_id
+        legacy_code = actor_id.split("-", 1)[1] if "-" in actor_id else actor_id
+        legacy_key = f"{legacy_prefix} - {legacy_code}"
+
+        if not isinstance(node, dict):
+            node = {
+                "id": actor_id,
+                "type": ntype,
+                "name": description or actor_id,
+                "role_raw": role,
+                "location_ID": location_id,
+                "geo": {
+                    "lat": None,
+                    "lon": None,
+                    "country": "",
+                    "raw": {
+                        "location_ID": location_id,
+                        "source": "demand_pf_acteurs",
+                    },
+                },
+                "attrs": {
+                    "legacy_key": legacy_key,
+                    "location_ID": location_id,
+                },
+                "metadata": {
+                    "description": description,
+                    "source_sheet": "Acteurs",
+                },
+                "inventory": {
+                    "states": [],
+                    "backlogs": [],
+                    "wip": [],
+                },
+                "processes": [],
+                "policies": {},
+            }
+            nodes.append(node)
+            change_counts["node_added_from_demand_pf_acteurs"] += 1
+            changed_node_ids.append(actor_id)
+            node_by_id, coords = build_node_maps(nodes)
+            node = node_by_id.get(actor_id)
+        if not isinstance(node, dict):
+            return None
+
+        if location_id and not str(node.get("location_ID") or "").strip():
+            node["location_ID"] = location_id
+            change_counts["node_location_filled_from_demand_pf_acteurs"] += 1
+            changed_node_ids.append(actor_id)
+        attrs = node.get("attrs")
+        if not isinstance(attrs, dict):
+            attrs = {}
+            node["attrs"] = attrs
+        if location_id and not str(attrs.get("location_ID") or "").strip():
+            attrs["location_ID"] = location_id
+        if not str(attrs.get("legacy_key") or "").strip():
+            attrs["legacy_key"] = legacy_key
+        if description and not str(node.get("name") or "").strip():
+            node["name"] = description
+        if role and not str(node.get("role_raw") or "").strip():
+            node["role_raw"] = role
+        metadata = node.get("metadata")
+        if not isinstance(metadata, dict):
+            metadata = {}
+            node["metadata"] = metadata
+        if description and not str(metadata.get("description") or "").strip():
+            metadata["description"] = description
+            metadata["source_sheet"] = "Acteurs"
+        return node
+
+    def ensure_node_inventory_state(node_id: str, item_id: str, uom: str, initial_source: str) -> None:
+        nonlocal change_counts, changed_node_ids
+        n = node_by_id.get(node_id)
+        if not isinstance(n, dict):
+            return
+        inv = n.get("inventory")
+        if not isinstance(inv, dict):
+            inv = {"states": [], "backlogs": [], "wip": []}
+            n["inventory"] = inv
+        states = inv.get("states")
+        if not isinstance(states, list):
+            states = []
+            inv["states"] = states
+        state = next((s for s in states if str(s.get("item_id")) == item_id), None)
+        if isinstance(state, dict):
+            return
+        states.append(
+            {
+                "item_id": item_id,
+                "state_id": f"I_{item_id.replace('item:', '')}_{node_id.replace('-', '_')}",
+                "initial": 0.0,
+                "uom": uom or item_unit_map.get(item_id, "UN"),
+                "holding_cost": {
+                    "value": 0.0,
+                    "per": "unit*day",
+                    "is_default": True,
+                    "source": "simulation_prep_assumption_pending_value_based",
+                },
+                "is_default_initial": False,
+                "initial_source": initial_source,
+                "uom_source": "simulation_prep_inferred_from_relations_bom",
+            }
+        )
+        change_counts["inventory_state_added_from_demand_pf_relations"] += 1
+        changed_node_ids.append(node_id)
+
+    def ensure_relation_edge(rel: dict[str, Any]) -> None:
+        nonlocal node_by_id, coords
+        supplier = str(rel.get("supplier") or "")
+        customer = str(rel.get("customer") or "")
+        item_id = str(rel.get("item_id") or "")
+        if not supplier or not customer or not item_id:
+            return
+        ensure_actor_node(supplier)
+        ensure_actor_node(customer)
+        supplier_node = node_by_id.get(supplier)
+        customer_node = node_by_id.get(customer)
+        if not isinstance(supplier_node, dict) or not isinstance(customer_node, dict):
+            return
+        item_code = item_id.split(":", 1)[1]
+        existing = next(
+            (
+                e
+                for e in edges
+                if str(e.get("from")) == supplier and str(e.get("to")) == customer and item_id in (e.get("items") or [])
+            ),
+            None,
+        )
+        if not isinstance(existing, dict):
+            edge_id = f"edge:{supplier}_TO_{customer}_{item_code}"
+            existing = {
+                "id": edge_id,
+                "type": "transport",
+                "from": supplier,
+                "to": customer,
+                "items": [item_id],
+                "order_terms": {},
+                "lead_time": {"is_default": True},
+                "transport_cost": {"is_default": True},
+                "delay_step_limit": {"is_default": True},
+                "source": "demand_pf_relations_acteurs",
+            }
+            edges.append(existing)
+            change_counts["edge_added_from_demand_pf_relations"] += 1
+            changed_edge_ids.append(edge_id)
+            node_by_id, coords = build_node_maps(nodes)
+            item_unit_map[item_id] = rel.get("quantity_unit") or item_unit_map.get(item_id, "UN")
+
+        ot = existing.get("order_terms")
+        if not isinstance(ot, dict):
+            ot = {}
+        rel_sell_price = rel.get("sell_price")
+        rel_price_base = rel.get("price_base")
+        rel_quantity_unit = rel.get("quantity_unit")
+        if rel_sell_price is not None:
+            ot["sell_price"] = rel_sell_price
+        if rel_price_base is not None:
+            ot["price_base"] = rel_price_base
+        if rel_quantity_unit:
+            ot["quantity_unit"] = rel_quantity_unit
+        sof = rel.get("supply_order_frequency")
+        if sof is not None and sof > 0:
+            ot["supply_order_frequency"] = {"value": sof, "time_unit": "day", "is_default": False}
+        cpr = rel.get("customer_priority_rank")
+        if cpr is not None:
+            ot["customer_priority_rank"] = cpr
+        spr = rel.get("supplier_priority_rank")
+        if spr is not None:
+            ot["supplier_priority_rank"] = spr
+        ot["source"] = "demand_pf_relations_acteurs"
+        existing["order_terms"] = ot
+
+        dsl = existing.get("delay_step_limit")
+        if not isinstance(dsl, dict):
+            dsl = {}
+        if rel.get("delay_step_limit") is not None and rel.get("delay_step_limit") > 0:
+            dsl["value"] = int(rel["delay_step_limit"])
+            dsl["is_default"] = False
+            dsl["source"] = "demand_pf_relations_acteurs"
+            existing["delay_step_limit"] = dsl
+
+        tc = existing.get("transport_cost")
+        if not isinstance(tc, dict):
+            tc = {}
+        if rel.get("transport_cost") is not None and rel.get("transport_cost") > 0:
+            tc["value"] = rel["transport_cost"]
+            tc["per"] = "unit"
+            tc["is_default"] = False
+            tc["source"] = "demand_pf_relations_acteurs"
+            existing["transport_cost"] = tc
+
+        ensure_node_inventory_state(supplier, item_id, str(rel.get("quantity_unit") or ""), "demand_pf_relations_acteurs")
+        ensure_node_inventory_state(customer, item_id, str(rel.get("quantity_unit") or ""), "demand_pf_relations_acteurs")
+        change_counts["edge_order_terms_aligned_from_demand_pf_relations"] += 1
+        if str(existing.get("id")) not in changed_edge_ids:
+            changed_edge_ids.append(str(existing.get("id")))
+
+    for rel in demand_pf_relation_rows:
+        ensure_relation_edge(rel)
+
+    actual_inbound_relations: dict[tuple[str, str], int] = defaultdict(int)
+    for e in edges:
+        if str(e.get("source") or "") == "simulation_prep_gaillac_question_mark_assumption":
+            continue
+        if bool(e.get("is_assumed")):
+            continue
+        dst = str(e.get("to"))
+        for item_id in (e.get("items") or []):
+            actual_inbound_relations[(dst, str(item_id))] += 1
+
+    obsolete_assumed_edges = []
+    for e in edges:
+        if str(e.get("source") or "") != "simulation_prep_gaillac_question_mark_assumption" and not bool(e.get("is_assumed")):
+            continue
+        dst = str(e.get("to"))
+        items = [str(item_id) for item_id in (e.get("items") or [])]
+        if any(actual_inbound_relations.get((dst, item_id), 0) > 0 for item_id in items):
+            obsolete_assumed_edges.append(str(e.get("id")))
+    if obsolete_assumed_edges:
+        edges[:] = [e for e in edges if str(e.get("id")) not in set(obsolete_assumed_edges)]
+        change_counts["assumed_gaillac_supplier_edge_removed_due_to_real_relation"] += len(obsolete_assumed_edges)
+        changed_edge_ids.extend(obsolete_assumed_edges)
+        node_by_id, coords = build_node_maps(nodes)
+        item_unit_map = infer_item_unit_map(nodes, edges)
+
+    for node_id, node in list(node_by_id.items()):
+        assumptions = node.get("assumptions")
+        if not isinstance(assumptions, dict):
+            continue
+        remove_keys = []
+        for key in list(assumptions.keys()):
+            if not key.startswith("item_") or not key.endswith("_supplier_mapping"):
+                continue
+            item_code = key[len("item_") : -len("_supplier_mapping")]
+            item_id = canonical_item_id(item_code)
+            if actual_inbound_relations.get((invented_dst_node, item_id), 0) > 0:
+                remove_keys.append(key)
+        for key in remove_keys:
+            assumptions.pop(key, None)
+            change_counts["assumed_gaillac_supplier_mapping_removed_due_to_real_relation"] += 1
+            changed_node_ids.append(node_id)
+
+        inv = node.get("inventory")
+        if not isinstance(inv, dict):
+            continue
+        states = inv.get("states")
+        if not isinstance(states, list):
+            continue
+        kept_states = []
+        removed_any = False
+        for state in states:
+            item_id = str(state.get("item_id") or "")
+            initial_source = str(state.get("initial_source") or "")
+            assumption_label = str(state.get("assumption_label") or "")
+            has_real_relation = actual_inbound_relations.get((invented_dst_node, item_id), 0) > 0
+            if node_id != invented_dst_node and has_real_relation and (
+                initial_source == "simulation_prep_gaillac_question_mark_assumption" or assumption_label == "GAILLAC?"
+            ):
+                removed_any = True
+                continue
+            kept_states.append(state)
+        if removed_any:
+            inv["states"] = kept_states
+            change_counts["assumed_gaillac_inventory_state_removed_due_to_real_relation"] += 1
+            changed_node_ids.append(node_id)
 
     # Assumed supplier mapping for the currently modeled but unsourced M-1810 input.
-    invented_dst_node = "M-1810"
     invented_item_id = None
     invented_item_code = ""
     invented_unit = "G"
@@ -1171,6 +1952,7 @@ def prepare_graph(
 
             demand_pair = (node_id, item_id)
             if demand_pair in demand_pf_map:
+                annual_total = round(sum(demand_pf_map[demand_pair]), 6)
                 d["profile"] = weekly_demand_piecewise_profile(
                     demand_pf_map[demand_pair],
                     target_sim_days,
@@ -1178,6 +1960,13 @@ def prepare_graph(
                 )
                 d.setdefault("defaults", {})
                 d["defaults"]["demand"] = False
+                d["source_truth"] = {
+                    "type": "demand_pf_weekly_real_demand",
+                    "xlsx_path": str(demand_pf_xlsx) if demand_pf_xlsx is not None else "",
+                    "sheet": "Demande",
+                    "annual_total_qty": annual_total,
+                    "period_count_weeks": len(demand_pf_map[demand_pair]),
+                }
                 change_counts["demand_profile_loaded_from_demand_pf"] += 1
                 changed_demand_rows.append(
                     {
@@ -1185,6 +1974,7 @@ def prepare_graph(
                         "node_id": node_id,
                         "item_id": item_id,
                         "action": "loaded_from_demand_pf_weekly_real_demand",
+                        "annual_total_qty": annual_total,
                     }
                 )
                 continue
@@ -1407,6 +2197,8 @@ def prepare_graph(
         },
         "data_poc_price_integration": price_import_stats,
         "demand_pf_integration": demand_pf_stats,
+        "demand_pf_actor_integration": demand_pf_actor_stats,
+        "demand_pf_relation_integration": demand_pf_relation_stats,
         "assumptions": {
             "inventory_base_stock_by_node_type": node_base_stock,
             "delay_step_limit_assumed": 21,
@@ -1434,7 +2226,7 @@ def prepare_graph(
             "simulation_horizon_days_default": target_sim_days,
             "product_service_targets": PRODUCT_SERVICE_TARGETS,
             "demand_pf_mapping_rule": "weekly demand values from demand_PF.xlsx converted to daily rates via uniform division by 7",
-            "demand_pf_tail_rule": "week 52 daily rate is held for the final day beyond 52 full weeks",
+            "demand_pf_tail_rule": "no artificial tail extension beyond the provided weekly source periods",
         },
     }
     return g, report
@@ -1457,6 +2249,11 @@ def report_markdown(report: dict[str, Any], input_path: str, output_graph_path: 
 - Edge transport costs updated: {c.get('edge_transport_cost_updated', 0)}
 - Edge delay limits updated: {c.get('edge_delay_limit_updated', 0)}
 - Edge pricing aligned from Data_poc Relations_acteurs: {c.get('edge_order_terms_pricing_aligned_from_data_poc', 0)}
+- Edge pricing aligned from demand_PF Relations_acteurs: {c.get('edge_order_terms_aligned_from_demand_pf_relations', 0)}
+- Nodes added from demand_PF Acteurs: {c.get('node_added_from_demand_pf_acteurs', 0)}
+- Node locations filled from demand_PF Acteurs: {c.get('node_location_filled_from_demand_pf_acteurs', 0)}
+- Edges added from demand_PF Relations_acteurs: {c.get('edge_added_from_demand_pf_relations', 0)}
+- Inventory states added from demand_PF Relations_acteurs: {c.get('inventory_state_added_from_demand_pf_relations', 0)}
 - Inventory initials updated: {c.get('inventory_initial_updated', 0)}
 - Inventory holding costs updated: {c.get('inventory_holding_cost_updated', 0)}
 - Holding-cost source item-value median: {c.get('inventory_holding_cost_source::item_value_median_from_priced_edges', 0)}
@@ -1503,7 +2300,20 @@ def report_markdown(report: dict[str, Any], input_path: str, output_graph_path: 
 - Rows read: {report.get('demand_pf_integration', {}).get('rows_read', 0)}
 - Rows mapped: {report.get('demand_pf_integration', {}).get('rows_mapped', 0)}
 - Pairs loaded: {report.get('demand_pf_integration', {}).get('pairs_loaded', 0)}
+- Annual totals by pair: `{report.get('demand_pf_integration', {}).get('annual_total_per_pair', {})}`
 - Error: {report.get('demand_pf_integration', {}).get('error', 'none')}
+
+## demand_PF Acteurs import
+- Enabled: {report.get('demand_pf_actor_integration', {}).get('enabled', False)}
+- Rows read: {report.get('demand_pf_actor_integration', {}).get('rows_read', 0)}
+- Rows mapped: {report.get('demand_pf_actor_integration', {}).get('rows_mapped', 0)}
+- Error: {report.get('demand_pf_actor_integration', {}).get('error', 'none')}
+
+## demand_PF Relations_acteurs import
+- Enabled: {report.get('demand_pf_relation_integration', {}).get('enabled', False)}
+- Rows read: {report.get('demand_pf_relation_integration', {}).get('rows_read', 0)}
+- Rows mapped: {report.get('demand_pf_relation_integration', {}).get('rows_mapped', 0)}
+- Error: {report.get('demand_pf_relation_integration', {}).get('error', 'none')}
 
 ## Holding cost model
 - Formula: {report.get('assumptions', {}).get('holding_cost_model_assumed', {}).get('formula', 'n/a')}

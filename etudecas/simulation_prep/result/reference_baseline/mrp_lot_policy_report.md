@@ -1,20 +1,20 @@
 # MRP Seed Injection Report
 
-- Source graph: `etudecas\simulation_prep\result\reference_baseline\supply_graph_reference_baseline_current.json`
+- Source graph: `etudecas\simulation_prep\result\reference_baseline\supply_graph_reference_baseline_real_demand_target_calibrated.json`
 - Output graph: `etudecas\simulation_prep\result\reference_baseline\supply_graph_reference_baseline_real_demand_target_calibrated_mrp_lot_policy.json`
 - Workbook: `etudecas\donnees\Stocks_MRP.xlsx`
 - Snapshot UTC: `2025-01-01T03:03:48+00:00`
 - Stock rows injected: `28` / `32`
-- Inventory states created: `2`
-- Inventory states updated: `26`
+- Inventory states created: `0`
+- Inventory states updated: `28`
 - MRP policy rows applied: `25`
 - MRP policy overrides applied: `2`
 - MRP lot policies applied: `3`
 - Legacy batch-size updates: `0`
 
 ## Injected stock rows
-- DC-1920 / item:268091: `none` -> `430538.0` `UN` (source `430538.0` `UN`)
-- DC-1920 / item:268967: `none` -> `1101534.0` `UN` (source `1101534.0` `UN`)
+- DC-1920 / item:268091: `120.0` -> `430538.0` `UN` (source `430538.0` `UN`)
+- DC-1920 / item:268967: `120.0` -> `1101534.0` `UN` (source `1101534.0` `UN`)
 - M-1430 / item:038005: `0.0` -> `37598.5325` `KG` (source `37598532.5` `G`)
 - M-1430 / item:042342: `0.0` -> `78749996.0` `UN` (source `78749996.0` `UN`)
 - M-1430 / item:333362: `0.0` -> `142250.0` `UN` (source `142250.0` `UN`)
@@ -27,7 +27,7 @@
 - M-1810 / item:001848: `0.0` -> `10262.646` `KG` (source `10262646.0` `G`)
 - M-1810 / item:001893: `0.0` -> `9783.5` `KG` (source `9783.5` `KG`)
 - M-1810 / item:002612: `0.0` -> `153521.63671875` `KG` (source `153521.63671875` `KG`)
-- M-1810 / item:007923: `700.0` -> `55018980.0` `G` (source `55018980.0` `G`)
+- M-1810 / item:007923: `0.0` -> `55018.98` `KG` (source `55018980.0` `G`)
 - M-1810 / item:016332: `0.0` -> `883.02` `KG` (source `883020.0` `G`)
 - M-1810 / item:029313: `0.0` -> `226.83` `KG` (source `226830.0` `G`)
 - M-1810 / item:039668: `0.0` -> `459.695` `KG` (source `459695.0` `G`)
@@ -57,7 +57,7 @@
 - M-1810 / item:001848: safety time `20.0` d, safety stock `0.0` `KG` (source `mrp_policy_sheet`)
 - M-1810 / item:001893: safety time `15.0` d, safety stock `0.0` `KG` (source `mrp_policy_sheet`)
 - M-1810 / item:002612: safety time `20.0` d, safety stock `0.0` `KG` (source `mrp_policy_sheet`)
-- M-1810 / item:007923: safety time `15.0` d, safety stock `0.0` `G` (source `mrp_policy_sheet`)
+- M-1810 / item:007923: safety time `15.0` d, safety stock `0.0` `KG` (source `mrp_policy_sheet`)
 - M-1810 / item:016332: safety time `7.0` d, safety stock `0.0` `KG` (source `mrp_policy_sheet`)
 - M-1810 / item:029313: safety time `7.0` d, safety stock `0.0` `KG` (source `mrp_policy_sheet`)
 - M-1810 / item:039668: safety time `7.0` d, safety stock `0.0` `KG` (source `mrp_policy_sheet`)
