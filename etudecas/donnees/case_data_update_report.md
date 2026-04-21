@@ -2,21 +2,21 @@
 
 ## Summary
 
-- Updated graph: `etudecas/donnees/supply_graph_poc.json`
+- Updated graph: `etudecas\donnees\supply_graph_poc.json`
 - Created items: 0
-- Removed orphan items: 1
+- Removed orphan items: 0
 - Created nodes: 0
 - Created edges: 0
 - Created processes: 0
-- Synced processes: 3
-- Updated edges from FIA: 33
+- Synced processes: 0
+- Updated edges from FIA: 0
 - Updated node locations: 0
 
 ## Workbook findings
 
-- `021081.xlsx` -> output `773474` (BOM rows=1, FIA rows=4, file/product mismatch=True)
-- `268191.xlsx` -> output `268091` (BOM rows=15, FIA rows=21, file/product mismatch=False)
-- `268967.xlsx` -> output `268967` (BOM rows=8, FIA rows=8, file/product mismatch=False)
+- `021081.xlsx` -> output `773474` (BOM rows=0, FIA rows=8, file/product mismatch=True)
+- `268191.xlsx` -> output `268091` (BOM rows=0, FIA rows=23, file/product mismatch=False)
+- `268967.xlsx` -> output `268967` (BOM rows=0, FIA rows=8, file/product mismatch=False)
 
 ## Important assumptions
 
@@ -28,4 +28,4 @@
 
 ## Unresolved points
 
-- Removed orphan inventory state M-1810/item:007923 because no inbound lane is provided.
+- None.

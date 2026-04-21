@@ -2412,7 +2412,7 @@
             "item_id": "item:773474",
             "state_id": "I_773474",
             "initial": 0.0,
-            "uom": "G",
+            "uom": "UN",
             "holding_cost": {
               "value": 0.0,
               "per": "unit*day",
