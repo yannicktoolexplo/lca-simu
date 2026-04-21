@@ -1,402 +1,41 @@
 {
   "paths": {
-    "input_json": "etudecas/donnees/supply_graph_poc.json",
-    "output_json": "etudecas/donnees/supply_graph_poc.json",
-    "report_json": "etudecas/donnees/case_data_update_report.json",
-    "report_md": "etudecas/donnees/case_data_update_report.md"
+    "input_json": "etudecas\\donnees\\supply_graph_poc.json",
+    "output_json": "etudecas\\donnees\\supply_graph_poc.json",
+    "report_json": "etudecas\\donnees\\case_data_update_report.json",
+    "report_md": "etudecas\\donnees\\case_data_update_report.md"
   },
   "created_items": [],
-  "removed_items": [
-    "item:693710"
-  ],
+  "removed_items": [],
   "created_nodes": [],
   "created_edges": [],
   "created_processes": [],
-  "synced_processes": [
-    {
-      "node_id": "SDC-1450",
-      "process_id": "proc:MAKE_773474",
-      "output_item_id": "item:773474",
-      "input_count": 1
-    },
-    {
-      "node_id": "M-1810",
-      "process_id": "proc:MAKE_268091",
-      "output_item_id": "item:268091",
-      "input_count": 15
-    },
-    {
-      "node_id": "M-1430",
-      "process_id": "proc:MAKE_268967",
-      "output_item_id": "item:268967",
-      "input_count": 8
-    }
-  ],
-  "updated_edges": [
-    {
-      "edge_id": "edge:SDC-VD0949099A_TO_SDC-1450_021081",
-      "workbook": "021081.xlsx",
-      "product_code": "773474",
-      "lead_time_days": 120.0,
-      "sell_price": 12.1,
-      "price_base": 1.0,
-      "quantity_unit": "KG",
-      "standard_order_qty": 20000.0
-    },
-    {
-      "edge_id": "edge:SDC-VD0960508A_TO_SDC-1450_021081",
-      "workbook": "021081.xlsx",
-      "product_code": "773474",
-      "lead_time_days": 120.0,
-      "sell_price": 12.1,
-      "price_base": 1.0,
-      "quantity_unit": "KG",
-      "standard_order_qty": 1.0
-    },
-    {
-      "edge_id": "edge:SDC-VD0972460A_TO_SDC-1450_021081",
-      "workbook": "021081.xlsx",
-      "product_code": "773474",
-      "lead_time_days": 120.0,
-      "sell_price": 12.15,
-      "price_base": 1.0,
-      "quantity_unit": "KG",
-      "standard_order_qty": 1.0
-    },
-    {
-      "edge_id": "edge:SDC-VD0975221A_TO_SDC-1450_021081",
-      "workbook": "021081.xlsx",
-      "product_code": "773474",
-      "lead_time_days": 120.0,
-      "sell_price": 15.0,
-      "price_base": 1.0,
-      "quantity_unit": "KG",
-      "standard_order_qty": 20000.0
-    },
-    {
-      "edge_id": "edge:SDC-VD0951020A_TO_M-1810_001757",
-      "workbook": "268191.xlsx",
-      "product_code": "268091",
-      "lead_time_days": 84.0,
-      "sell_price": 5.43,
-      "price_base": 1.0,
-      "quantity_unit": "KG",
-      "standard_order_qty": 100.0
-    },
-    {
-      "edge_id": "edge:SDC-VD0519670A_TO_M-1810_001848",
-      "workbook": "268191.xlsx",
-      "product_code": "268091",
-      "lead_time_days": 21.0,
-      "sell_price": 4.2,
-      "price_base": 1.0,
-      "quantity_unit": "KG",
-      "standard_order_qty": 4000.0
-    },
-    {
-      "edge_id": "edge:SDC-VD0951020A_TO_M-1810_001848",
-      "workbook": "268191.xlsx",
-      "product_code": "268091",
-      "lead_time_days": 56.0,
-      "sell_price": 1.58,
-      "price_base": 1.0,
-      "quantity_unit": "KG",
-      "standard_order_qty": 6000.0
-    },
-    {
-      "edge_id": "edge:SDC-VD0518684A_TO_M-1810_001893",
-      "workbook": "268191.xlsx",
-      "product_code": "268091",
-      "lead_time_days": 56.0,
-      "sell_price": 4.4,
-      "price_base": 1.0,
-      "quantity_unit": "KG",
-      "standard_order_qty": 22800.0
-    },
-    {
-      "edge_id": "edge:SDC-VD0910216A_TO_M-1810_001893",
-      "workbook": "268191.xlsx",
-      "product_code": "268091",
-      "lead_time_days": 28.0,
-      "sell_price": 4.64,
-      "price_base": 1.0,
-      "quantity_unit": "KG",
-      "standard_order_qty": 23920.0
-    },
-    {
-      "edge_id": "edge:SDC-VD1091642A_TO_M-1810_001893",
-      "workbook": "268191.xlsx",
-      "product_code": "268091",
-      "lead_time_days": 42.0,
-      "sell_price": 5105.0,
-      "price_base": 1000.0,
-      "quantity_unit": "KG",
-      "standard_order_qty": 20900.0
-    },
-    {
-      "edge_id": "edge:SDC-VD0500655A_TO_M-1810_002612",
-      "workbook": "268191.xlsx",
-      "product_code": "268091",
-      "lead_time_days": 28.0,
-      "sell_price": 1340.0,
-      "price_base": 1000.0,
-      "quantity_unit": "KG",
-      "standard_order_qty": 21600.0
-    },
-    {
-      "edge_id": "edge:SDC-VD0910216A_TO_M-1810_002612",
-      "workbook": "268191.xlsx",
-      "product_code": "268091",
-      "lead_time_days": 35.0,
-      "sell_price": 820.0,
-      "price_base": 1000.0,
-      "quantity_unit": "KG",
-      "standard_order_qty": 22500.0
-    },
-    {
-      "edge_id": "edge:SDC-VD0990780A_TO_M-1810_002612",
-      "workbook": "268191.xlsx",
-      "product_code": "268091",
-      "lead_time_days": 35.0,
-      "sell_price": 1295.0,
-      "price_base": 1000.0,
-      "quantity_unit": "KG",
-      "standard_order_qty": 23750.0
-    },
-    {
-      "edge_id": "edge:SDC-VD1091642A_TO_M-1810_002612",
-      "workbook": "268191.xlsx",
-      "product_code": "268091",
-      "lead_time_days": 35.0,
-      "sell_price": 1225.0,
-      "price_base": 1000.0,
-      "quantity_unit": "KG",
-      "standard_order_qty": 22500.0
-    },
-    {
-      "edge_id": "edge:SDC-VD0514881A_TO_M-1810_016332",
-      "workbook": "268191.xlsx",
-      "product_code": "268091",
-      "lead_time_days": 49.0,
-      "sell_price": 27.62,
-      "price_base": 1.0,
-      "quantity_unit": "KG",
-      "standard_order_qty": 1100.0
-    },
-    {
-      "edge_id": "edge:SDC-VD0519670A_TO_M-1810_029313",
-      "workbook": "268191.xlsx",
-      "product_code": "268091",
-      "lead_time_days": 56.0,
-      "sell_price": 2.07,
-      "price_base": 1.0,
-      "quantity_unit": "KG",
-      "standard_order_qty": 300.0
-    },
-    {
-      "edge_id": "edge:SDC-VD1096202A_TO_M-1810_039668",
-      "workbook": "268191.xlsx",
-      "product_code": "268091",
-      "lead_time_days": 35.0,
-      "sell_price": 12.21,
-      "price_base": 1.0,
-      "quantity_unit": "KG",
-      "standard_order_qty": 450.0
-    },
-    {
-      "edge_id": "edge:SDC-VD0520132A_TO_M-1810_049371",
-      "workbook": "268191.xlsx",
-      "product_code": "268091",
-      "lead_time_days": 147.0,
-      "sell_price": 14.65,
-      "price_base": 1.0,
-      "quantity_unit": "KG",
-      "standard_order_qty": 1600.0
-    },
-    {
-      "edge_id": "edge:SDC-VD0914320A_TO_M-1810_055703",
-      "workbook": "268191.xlsx",
-      "product_code": "268091",
-      "lead_time_days": 21.0,
-      "sell_price": 20.35,
-      "price_base": 1.0,
-      "quantity_unit": "KG",
-      "standard_order_qty": 300.0
-    },
-    {
-      "edge_id": "edge:SDC-VD0964290A_TO_M-1810_055703",
-      "workbook": "268191.xlsx",
-      "product_code": "268091",
-      "lead_time_days": 42.0,
-      "sell_price": 49.2,
-      "price_base": 1.0,
-      "quantity_unit": "KG",
-      "standard_order_qty": 300.0
-    },
-    {
-      "edge_id": "edge:SDC-VD0505677A_TO_M-1810_099439",
-      "workbook": "268191.xlsx",
-      "product_code": "268091",
-      "lead_time_days": 35.0,
-      "sell_price": 9.17,
-      "price_base": 1.0,
-      "quantity_unit": "KG",
-      "standard_order_qty": 4200.0
-    },
-    {
-      "edge_id": "edge:SDC-VD0901566A_TO_M-1810_338928",
-      "workbook": "268191.xlsx",
-      "product_code": "268091",
-      "lead_time_days": 70.0,
-      "sell_price": 141.31,
-      "price_base": 1000.0,
-      "quantity_unit": "UN",
-      "standard_order_qty": 25000.0
-    },
-    {
-      "edge_id": "edge:SDC-VD0914360C_TO_M-1810_338929",
-      "workbook": "268191.xlsx",
-      "product_code": "268091",
-      "lead_time_days": 42.0,
-      "sell_price": 215.85,
-      "price_base": 1000.0,
-      "quantity_unit": "UN",
-      "standard_order_qty": 5000.0
-    },
-    {
-      "edge_id": "edge:SDC-VD0989480A_TO_M-1810_426331",
-      "workbook": "268191.xlsx",
-      "product_code": "268091",
-      "lead_time_days": 28.0,
-      "sell_price": 503.93,
-      "price_base": 1000.0,
-      "quantity_unit": "UN",
-      "standard_order_qty": 19200.0
-    },
-    {
-      "edge_id": "edge:SDC-1450_TO_M-1810_693055",
-      "workbook": "268191.xlsx",
-      "product_code": "268091",
-      "lead_time_days": 70.0,
-      "sell_price": 0.0,
-      "price_base": 1000.0,
-      "quantity_unit": "G",
-      "standard_order_qty": 1.0
-    },
-    {
-      "edge_id": "edge:SDC-VD0520132A_TO_M-1430_038005",
-      "workbook": "268967.xlsx",
-      "product_code": "268967",
-      "lead_time_days": 154.0,
-      "sell_price": 4.57,
-      "price_base": 1.0,
-      "quantity_unit": "KG",
-      "standard_order_qty": 10000.0
-    },
-    {
-      "edge_id": "edge:SDC-VD0914690A_TO_M-1430_042342",
-      "workbook": "268967.xlsx",
-      "product_code": "268967",
-      "lead_time_days": 21.0,
-      "sell_price": 2.21,
-      "price_base": 1000.0,
-      "quantity_unit": "UN",
-      "standard_order_qty": 30000000.0
-    },
-    {
-      "edge_id": "edge:SDC-VD0525412A_TO_M-1430_333362",
-      "workbook": "268967.xlsx",
-      "product_code": "268967",
-      "lead_time_days": 60.0,
-      "sell_price": 273.21,
-      "price_base": 1000.0,
-      "quantity_unit": "UN",
-      "standard_order_qty": 5000.0
-    },
-    {
-      "edge_id": "edge:SDC-VD0993480A_TO_M-1430_344135",
-      "workbook": "268967.xlsx",
-      "product_code": "268967",
-      "lead_time_days": 35.0,
-      "sell_price": 4.03,
-      "price_base": 1000.0,
-      "quantity_unit": "UN",
-      "standard_order_qty": 120000.0
-    },
-    {
-      "edge_id": "edge:SDC-VD0520115A_TO_M-1430_708073",
-      "workbook": "268967.xlsx",
-      "product_code": "268967",
-      "lead_time_days": 28.0,
-      "sell_price": 3.59,
-      "price_base": 1.0,
-      "quantity_unit": "KG",
-      "standard_order_qty": 5000000.0
-    },
-    {
-      "edge_id": "edge:SDC-VD0508918A_TO_M-1430_730384",
-      "workbook": "268967.xlsx",
-      "product_code": "268967",
-      "lead_time_days": 56.0,
-      "sell_price": 0.0,
-      "price_base": 1000.0,
-      "quantity_unit": "M",
-      "standard_order_qty": 370000.0
-    },
-    {
-      "edge_id": "edge:SDC-VD1095770A_TO_M-1430_734545",
-      "workbook": "268967.xlsx",
-      "product_code": "268967",
-      "lead_time_days": 21.0,
-      "sell_price": 426.44,
-      "price_base": 1000.0,
-      "quantity_unit": "UN",
-      "standard_order_qty": 6300.0
-    },
-    {
-      "edge_id": "edge:SDC-1450_TO_M-1430_773474",
-      "workbook": "268967.xlsx",
-      "product_code": "268967",
-      "lead_time_days": 10.0,
-      "sell_price": 0.0,
-      "price_base": 1000.0,
-      "quantity_unit": "G",
-      "standard_order_qty": 1.0
-    }
-  ],
+  "synced_processes": [],
+  "updated_edges": [],
   "updated_node_locations": [],
-  "updated_inventory_states": [
-    {
-      "node_id": "M-1810",
-      "item_id": "item:007923",
-      "action": "created",
-      "uom": "G"
-    }
-  ],
+  "updated_inventory_states": [],
   "workbook_findings": [
     {
       "file_name": "021081.xlsx",
       "output_product_code": "773474",
-      "bom_rows": 1,
-      "fia_rows": 4,
+      "bom_rows": 0,
+      "fia_rows": 8,
       "file_product_mismatch": true
     },
     {
       "file_name": "268191.xlsx",
       "output_product_code": "268091",
-      "bom_rows": 15,
-      "fia_rows": 21,
+      "bom_rows": 0,
+      "fia_rows": 23,
       "file_product_mismatch": false
     },
     {
       "file_name": "268967.xlsx",
       "output_product_code": "268967",
-      "bom_rows": 8,
+      "bom_rows": 0,
       "fia_rows": 8,
       "file_product_mismatch": false
     }
   ],
-  "unresolved": [
-    "Removed orphan inventory state M-1810/item:007923 because no inbound lane is provided."
-  ]
+  "unresolved": []
 }

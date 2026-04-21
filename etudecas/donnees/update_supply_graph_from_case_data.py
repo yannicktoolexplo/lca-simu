@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import subprocess
 from collections import defaultdict
 from pathlib import Path
 from typing import Any
@@ -59,21 +60,119 @@ def parse_args() -> argparse.Namespace:
 
 
 def load_workbook_rows(path: Path, sheet_name: str) -> tuple[list[str], list[dict[str, Any]]]:
-    import openpyxl  # type: ignore
+    try:
+        import openpyxl  # type: ignore
+    except Exception:
+        openpyxl = None  # type: ignore
 
-    wb = openpyxl.load_workbook(path, data_only=True, read_only=True)
-    if sheet_name not in wb.sheetnames:
+    if openpyxl is not None:
+        wb = openpyxl.load_workbook(path, data_only=True, read_only=True)
+        if sheet_name not in wb.sheetnames:
+            return [], []
+        ws = wb[sheet_name]
+        raw_rows = list(ws.iter_rows(values_only=True))
+        if not raw_rows:
+            return [], []
+        headers = [str(value).strip() if value is not None else "" for value in raw_rows[0]]
+        rows: list[dict[str, Any]] = []
+        for raw in raw_rows[1:]:
+            if not any(value not in (None, "") for value in raw):
+                continue
+            rows.append({headers[idx]: raw[idx] for idx in range(min(len(headers), len(raw)))})
+        return headers, rows
+
+    script = r"""
+param(
+    [string]$WorkbookPath,
+    [string]$SheetName
+)
+$excel = $null
+$workbook = $null
+$worksheet = $null
+try {
+    $resolved = (Resolve-Path -LiteralPath $WorkbookPath).Path
+    $excel = New-Object -ComObject Excel.Application
+    $excel.Visible = $false
+    $excel.DisplayAlerts = $false
+    $workbook = $excel.Workbooks.Open($resolved)
+    try {
+        $worksheet = $workbook.Worksheets.Item($SheetName)
+    } catch {
+        Write-Output '{"error":"sheet_not_found"}'
+        exit 0
+    }
+    $used = $worksheet.UsedRange.Value2
+    if ($null -eq $used) {
+        Write-Output '[]'
+        exit 0
+    }
+    $rowCount = $used.GetLength(0)
+    $colCount = $used.GetLength(1)
+    if ($rowCount -lt 1 -or $colCount -lt 1) {
+        Write-Output '[]'
+        exit 0
+    }
+    $headers = @()
+    for ($c = 1; $c -le $colCount; $c++) {
+        $headers += [string]($used[1, $c])
+    }
+    $rows = New-Object System.Collections.Generic.List[object]
+    for ($r = 2; $r -le $rowCount; $r++) {
+        $obj = [ordered]@{}
+        for ($c = 1; $c -le $colCount; $c++) {
+            $header = $headers[$c - 1]
+            if ([string]::IsNullOrWhiteSpace($header)) {
+                continue
+            }
+            $obj[$header.Trim()] = $used[$r, $c]
+        }
+        $rows.Add([pscustomobject]$obj)
+    }
+    $rows | ConvertTo-Json -Depth 4 -Compress
+} finally {
+    if ($workbook) { $workbook.Close($false) }
+    if ($excel) { $excel.Quit() }
+    foreach ($obj in @($worksheet, $workbook, $excel)) {
+        if ($null -ne $obj) {
+            try { [void][System.Runtime.InteropServices.Marshal]::ReleaseComObject($obj) } catch {}
+        }
+    }
+    [GC]::Collect()
+    [GC]::WaitForPendingFinalizers()
+}
+"""
+    cmd = [
+        "powershell",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        f"& {{ {script} }}",
+        str(path),
+        sheet_name,
+    ]
+    completed = subprocess.run(cmd, capture_output=True, text=True, check=False)
+    if completed.returncode != 0:
+        raise RuntimeError((completed.stderr or completed.stdout or "").strip() or "Excel COM fallback failed")
+    payload = (completed.stdout or "").strip()
+    if not payload:
         return [], []
-    ws = wb[sheet_name]
-    raw_rows = list(ws.iter_rows(values_only=True))
-    if not raw_rows:
+    parsed = json.loads(payload)
+    if isinstance(parsed, dict) and parsed.get("error") == "sheet_not_found":
         return [], []
-    headers = [str(value).strip() if value is not None else "" for value in raw_rows[0]]
-    rows: list[dict[str, Any]] = []
-    for raw in raw_rows[1:]:
-        if not any(value not in (None, "") for value in raw):
-            continue
-        rows.append({headers[idx]: raw[idx] for idx in range(min(len(headers), len(raw)))})
+    if isinstance(parsed, dict):
+        parsed_rows = [parsed]
+    elif isinstance(parsed, list):
+        parsed_rows = [row for row in parsed if isinstance(row, dict)]
+    else:
+        parsed_rows = []
+    headers: list[str] = []
+    for row in parsed_rows:
+        for key in row.keys():
+            key_text = str(key).strip()
+            if key_text and key_text not in headers:
+                headers.append(key_text)
+    rows = [{header: row.get(header) for header in headers} for row in parsed_rows]
     return headers, rows
 
 
