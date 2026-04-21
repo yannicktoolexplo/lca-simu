@@ -1,6 +1,6 @@
 {
-  "generated_at_utc": "2026-04-10T14:59:53.016348+00:00",
-  "input_graph": "etudecas\\simulation_prep\\result\\reference_baseline\\supply_graph_reference_baseline_current.json",
+  "generated_at_utc": "2026-04-21T09:08:36.655477+00:00",
+  "input_graph": "etudecas\\simulation_prep\\result\\reference_baseline\\supply_graph_reference_baseline_real_demand_target_calibrated.json",
   "output_graph": "etudecas\\simulation_prep\\result\\reference_baseline\\supply_graph_reference_baseline_real_demand_target_calibrated_mrp_lot_policy.json",
   "stocks_mrp_xlsx": "etudecas\\donnees\\Stocks_MRP.xlsx",
   "snapshot_at_utc": "2025-01-01T03:03:48+00:00",
@@ -9,13 +9,13 @@
   "lot_rows_total": 3,
   "stock_rows_injected": 28,
   "stock_rows_skipped": 4,
-  "inventory_states_created": 2,
-  "inventory_states_updated": 26,
+  "inventory_states_created": 0,
+  "inventory_states_updated": 28,
   "qty_by_node_item": [
     {
       "node_id": "DC-1920",
       "item_id": "item:268091",
-      "initial_before": null,
+      "initial_before": 120.0,
       "initial_after": 430538.0,
       "uom": "UN",
       "source_qty": 430538.0,
@@ -24,7 +24,7 @@
     {
       "node_id": "DC-1920",
       "item_id": "item:268967",
-      "initial_before": null,
+      "initial_before": 120.0,
       "initial_after": 1101534.0,
       "uom": "UN",
       "source_qty": 1101534.0,
@@ -141,9 +141,9 @@
     {
       "node_id": "M-1810",
       "item_id": "item:007923",
-      "initial_before": 700.0,
-      "initial_after": 55018980.0,
-      "uom": "G",
+      "initial_before": 0.0,
+      "initial_after": 55018.98,
+      "uom": "KG",
       "source_qty": 55018980.0,
       "source_unit": "G"
     },
@@ -452,7 +452,7 @@
       "item_id": "item:007923",
       "safety_time_days": 15.0,
       "safety_stock_qty": 0.0,
-      "uom": "G",
+      "uom": "KG",
       "source": "mrp_policy_sheet"
     },
     {
