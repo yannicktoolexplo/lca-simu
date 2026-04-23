@@ -27,8 +27,9 @@
 - Simulation report file: `etudecas\simulation\result\reference_baseline_real_demand_target_calibrated_mrp_lot_policy_recalibrated\reports\first_simulation_report.md`
 
 ## Delta Vs Previous Run
-- item:268091: days >= objective `+29.9 pts`, ending coverage `+20.7 j`
-- item:268967: days >= objective `-1.1 pts`, ending coverage `+0.0 j`
-- M-1430: executable-plan adherence `+56.1 pts`, lot uplift vs desired `+1156.8 pts`, input-shortage days `-5.2 pts`
-- M-1810: executable-plan adherence `+51.1 pts`, lot uplift vs desired `+104.8 pts`, input-shortage days `-20.5 pts`
-- Costs: inventory `-1418111818.8`, transport `+15325148.7`, total `-1397111990.1`
+- item:268091: days >= objective `+0.0 pts`, ending coverage `+0.0 j`
+- item:268967: days >= objective `+0.0 pts`, ending coverage `+0.0 j`
+- M-1430: executable-plan adherence `+0.0 pts`, lot uplift vs desired `+0.0 pts`, input-shortage days `+0.0 pts`
+- M-1810: executable-plan adherence `+0.0 pts`, lot uplift vs desired `+0.0 pts`, input-shortage days `+0.0 pts`
+- SDC-1450: executable-plan adherence `+0.0 pts`, lot uplift vs desired `+0.0 pts`, input-shortage days `+0.0 pts`
+- Costs: inventory `+0.0`, transport `+0.0`, total `+0.0`
