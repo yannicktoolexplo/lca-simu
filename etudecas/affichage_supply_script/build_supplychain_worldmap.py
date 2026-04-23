@@ -517,6 +517,7 @@ def build_factory_hover_images(
     sim_input_stocks_csv: Path,
     sim_output_products_csv: Path,
     input_arrivals_csv: Path,
+    supplier_shipments_csv: Path,
     supplier_stocks_csv: Path,
     input_png_dir: Path,
     output_png_dir: Path,
@@ -528,6 +529,7 @@ def build_factory_hover_images(
     _ = demand_service_csv
     constraint_rows = read_csv_rows(production_constraint_csv)
     input_arrival_rows = read_csv_rows(input_arrivals_csv)
+    supplier_shipment_rows = read_csv_rows(supplier_shipments_csv)
     factory_ids = sorted(factory_like_node_ids(raw))
     node_by_id = {str(n.get("id")): n for n in nodes}
     item_labels = item_label_lookup(raw)
@@ -600,19 +602,53 @@ def build_factory_hover_images(
                 if arrival_pts:
                     item_label = item_labels.get(item_id, compact_item_label(item_id))
                     incoming_arrival_series[f"{item_label} - reception"] = arrival_pts
-        combined_incoming_series = dict(incoming_stock_series)
-        combined_incoming_series.update(incoming_arrival_series)
-        if combined_incoming_series:
-            incoming_title = f"{factory_id} - stocks / receptions intrants"
-            if is_upstream_internal_site(factory_id):
-                incoming_title = f"{factory_id} - stocks / arrivages intrants"
-            figure = build_line_chart_figure(
-                combined_incoming_series,
+        incoming_title = f"{factory_id} - stocks et receptions intrants"
+        bottom_title = f"{factory_id} - receptions intrants"
+        if is_upstream_internal_site(factory_id):
+            incoming_title = f"{factory_id} - stocks et arrivages intrants"
+            bottom_title = f"{factory_id} - arrivages intrants"
+        if incoming_stock_series or incoming_arrival_series:
+            figure = build_dual_line_multi_panel_figure(
                 title=incoming_title,
-                y_label="Quantite",
+                top_title=f"{factory_id} - stock intrants",
+                top_y_label="Stock",
+                top_series_map=incoming_stock_series,
+                bottom_title=bottom_title,
+                bottom_y_label="Receptions",
+                bottom_series_map=incoming_arrival_series,
+                bottom_step_like=True,
             )
             if figure is not None:
                 incoming = {"figure": figure}
+        if is_upstream_internal_site(factory_id) and supplier_shipment_rows:
+            outbound_series: dict[str, list[tuple[int, float]]] = {}
+            outbound_item_ids = sorted(
+                {
+                    str(row.get("item_id") or "")
+                    for row in supplier_shipment_rows
+                    if str(row.get("src_node_id") or "") == factory_id
+                }
+            )
+            for item_id in outbound_item_ids:
+                shipped_pts = aggregate_daily_series(
+                    supplier_shipment_rows,
+                    value_field="shipped_qty",
+                    node_field="src_node_id",
+                    node_id=factory_id,
+                    item_ids={item_id},
+                )
+                if shipped_pts:
+                    item_label = item_labels.get(item_id, compact_item_label(item_id))
+                    outbound_series[item_label] = shipped_pts
+            if outbound_series:
+                figure = build_line_chart_figure(
+                    outbound_series,
+                    title=f"{factory_id} - expeditions semi-finis par item",
+                    y_label="Quantite",
+                    step_like=True,
+                )
+                if figure is not None:
+                    outgoing = {"figure": figure}
         factory_rows = [row for row in constraint_rows if str(row.get("node_id") or "") == factory_id]
         desired_series = aggregate_daily_series(factory_rows, value_field="desired_qty")
         actual_series = aggregate_daily_series(factory_rows, value_field="actual_qty")
@@ -1606,6 +1642,34 @@ def build_line_chart_figure(
     }
 
 
+def build_dual_line_multi_panel_figure(
+    *,
+    title: str,
+    top_title: str,
+    top_y_label: str,
+    top_series_map: dict[str, list[tuple[int, float]]],
+    bottom_title: str,
+    bottom_y_label: str,
+    bottom_series_map: dict[str, list[tuple[int, float]]],
+    bottom_step_like: bool = False,
+) -> dict[str, Any] | None:
+    top_figure = build_line_chart_figure(top_series_map, title=top_title, y_label=top_y_label)
+    bottom_figure = build_line_chart_figure(
+        bottom_series_map,
+        title=bottom_title,
+        y_label=bottom_y_label,
+        step_like=bottom_step_like,
+    )
+    if top_figure is None and bottom_figure is None:
+        return None
+    return {
+        "kind": "dual_panel_multi",
+        "title": title,
+        "top": top_figure,
+        "bottom": bottom_figure,
+    }
+
+
 def build_bar_chart_figure(
     value_map: dict[str, float | None],
     *,
@@ -1842,6 +1906,21 @@ def build_factory_current_metrics(
         factory_rows = [row for row in rows if str(row.get("node_id") or "") == factory_id]
         if not factory_rows:
             continue
+        by_day: dict[int, dict[str, float]] = defaultdict(
+            lambda: {
+                "desired_qty": 0.0,
+                "actual_qty": 0.0,
+                "shortfall_qty": 0.0,
+                "capacity_binding": 0.0,
+            }
+        )
+        for row in factory_rows:
+            day = int(to_float(row.get("day")) or 0)
+            by_day[day]["desired_qty"] += max(0.0, to_float(row.get("desired_qty")) or 0.0)
+            by_day[day]["actual_qty"] += max(0.0, to_float(row.get("actual_qty")) or 0.0)
+            by_day[day]["shortfall_qty"] += max(0.0, to_float(row.get("shortfall_vs_desired_qty")) or 0.0)
+            if str(row.get("binding_cause") or "") == "capacity":
+                by_day[day]["capacity_binding"] = 1.0
         total_desired = sum(max(0.0, to_float(row.get("desired_qty")) or 0.0) for row in factory_rows)
         total_actual = sum(max(0.0, to_float(row.get("actual_qty")) or 0.0) for row in factory_rows)
         total_shortfall = sum(max(0.0, to_float(row.get("shortfall_vs_desired_qty")) or 0.0) for row in factory_rows)
@@ -1853,6 +1932,17 @@ def build_factory_current_metrics(
             else 0.0
         )
         out[factory_id] = {
+            "avg_inbound_lead_days": round(avg_inbound_lead, 4),
+            "daily_metrics": [
+                {
+                    "day": day,
+                    "desired_qty": round(values["desired_qty"], 6),
+                    "actual_qty": round(values["actual_qty"], 6),
+                    "shortfall_qty": round(values["shortfall_qty"], 6),
+                    "capacity_binding": int(values["capacity_binding"] > 0),
+                }
+                for day, values in sorted(by_day.items())
+            ],
             "summary_lines": [
                 metric_label_value("Production demandee cumulee", f"{total_desired:,.1f}".replace(",", " ")),
                 metric_label_value("Production reelle cumulee", f"{total_actual:,.1f}".replace(",", " ")),
@@ -5561,6 +5651,33 @@ def html_template(title: str, data_json: str, material_table_html: str, material
       font-size: 12px;
       white-space: nowrap;
     }}
+    .timelineWindowBox {{
+      display: none;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }}
+    .timelineWindowBox.visible {{
+      display: flex;
+    }}
+    .timelineWindowBox label {{
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: #334155;
+      white-space: nowrap;
+    }}
+    .timelineWindowBox input[type="range"] {{
+      width: 108px;
+      accent-color: #2563eb;
+    }}
+    .timelineWindowValue {{
+      font-size: 12px;
+      font-weight: 700;
+      color: #0f172a;
+      white-space: nowrap;
+    }}
     #chart {{
       width: 100%;
       height: calc(100vh - 64px);
@@ -5842,6 +5959,23 @@ def html_template(title: str, data_json: str, material_table_html: str, material
     .factoryPlotFigure.factoryHtmlPanel {{
       overflow: hidden;
     }}
+    .factoryPlotFigure.factoryFigureStackContainer {{
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      height: auto;
+      border: 0;
+      background: transparent;
+      overflow: visible;
+    }}
+    .factoryFigureStackItem {{
+      width: 100%;
+      height: clamp(220px, 30vh, 300px);
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      background: #ffffff;
+      overflow: hidden;
+    }}
     .factoryHtmlPanelContent {{
       display: flex;
       flex-direction: column;
@@ -5960,6 +6094,15 @@ def html_template(title: str, data_json: str, material_table_html: str, material
     <div class="box">
       <button id="materialTableBtn" class="tableBtn" type="button">Tableau demande / stock / livré</button>
     </div>
+    <div class="box timelineWindowBox" id="timelineWindowBox">
+      <label>Debut
+        <input type="range" id="yearStart" min="1" max="1" value="1" step="1">
+      </label>
+      <label>Fin
+        <input type="range" id="yearEnd" min="1" max="1" value="1" step="1">
+      </label>
+      <div class="meta timelineWindowValue" id="yearWindowValue">annee 1 -> 1</div>
+    </div>
     <div class="box" id="typeFilters"></div>
   </div>
   <div id="chart"></div>
@@ -6066,6 +6209,194 @@ def html_template(title: str, data_json: str, material_table_html: str, material
     let currentPanelMode = "ops";
     let hoverHandlersBound = false;
     const panelBundleSelection = {{}};
+    let selectedYearStart = 1;
+    let selectedYearEnd = 1;
+
+    function visitTimelineFigures(payload, visitor) {{
+      if (!payload || typeof payload !== "object") return;
+      Object.values(payload).forEach((panel) => {{
+        if (!panel || typeof panel !== "object") return;
+        Object.values(panel).forEach((asset) => {{
+          if (!asset || typeof asset !== "object") return;
+          const figure = asset.figure || null;
+          if (!figure || typeof figure !== "object") return;
+          visitor(figure);
+          if (figure.tabs && typeof figure.tabs === "object") {{
+            Object.values(figure.tabs).forEach((tabFigure) => {{
+              if (tabFigure && typeof tabFigure === "object") visitor(tabFigure);
+            }});
+          }}
+        }});
+      }});
+    }}
+
+    function extractFigureMaxDay(figure) {{
+      if (!figure || typeof figure !== "object") return 0;
+      let maxDay = 0;
+      if (figure.kind === "line_multi") {{
+        (figure.series || []).forEach((series) => {{
+          (series.days || []).forEach((day) => {{
+            const value = Number(day);
+            if (Number.isFinite(value)) maxDay = Math.max(maxDay, value);
+          }});
+        }});
+      }} else if (figure.kind === "dual_panel_multi") {{
+        [figure.top, figure.bottom].forEach((panel) => {{
+          if (!panel || panel.kind !== "line_multi") return;
+          (panel.series || []).forEach((series) => {{
+            (series.days || []).forEach((day) => {{
+              const value = Number(day);
+              if (Number.isFinite(value)) maxDay = Math.max(maxDay, value);
+            }});
+          }});
+        }});
+      }} else if (figure.kind === "dual_panel") {{
+        [figure.top, figure.bottom].forEach((panel) => {{
+          if (!panel) return;
+          (panel.x || []).forEach((day) => {{
+            const value = Number(day);
+            if (Number.isFinite(value)) maxDay = Math.max(maxDay, value);
+          }});
+        }});
+      }}
+      return maxDay;
+    }}
+
+    function computeTimelineMaxYear() {{
+      let maxDay = 0;
+      [FACTORY_HOVER_IMAGES, SUPPLIER_HOVER_IMAGES, DC_HOVER_IMAGES, CUSTOMER_HOVER_IMAGES].forEach((payload) => {{
+        visitTimelineFigures(payload, (figure) => {{
+          maxDay = Math.max(maxDay, extractFigureMaxDay(figure));
+        }});
+      }});
+      return Math.max(1, Math.ceil((maxDay + 1) / 365));
+    }}
+
+    const timelineMaxYear = computeTimelineMaxYear();
+    selectedYearEnd = timelineMaxYear;
+
+    function syncYearInputs() {{
+      const yearStartInput = document.getElementById("yearStart");
+      const yearEndInput = document.getElementById("yearEnd");
+      if (!yearStartInput || !yearEndInput) return;
+      yearStartInput.max = String(timelineMaxYear);
+      yearEndInput.max = String(timelineMaxYear);
+      selectedYearStart = Math.min(Math.max(1, selectedYearStart), timelineMaxYear);
+      selectedYearEnd = Math.min(Math.max(1, selectedYearEnd), timelineMaxYear);
+      if (selectedYearStart > selectedYearEnd) {{
+        selectedYearEnd = selectedYearStart;
+      }}
+      yearStartInput.value = String(selectedYearStart);
+      yearEndInput.value = String(selectedYearEnd);
+    }}
+
+    function updateTimelineWindowLabel() {{
+      const valueEl = document.getElementById("yearWindowValue");
+      if (!valueEl) return;
+      valueEl.textContent = `annee ${{selectedYearStart}} -> ${{selectedYearEnd}}`;
+    }}
+
+    function applyTimelineWindowUi() {{
+      const box = document.getElementById("timelineWindowBox");
+      if (!box) return;
+      const visible = currentPanelMode === "ops" && timelineMaxYear > 1;
+      box.classList.toggle("visible", visible);
+    }}
+
+    function currentTimelineDayRange() {{
+      return {{
+        startDay: (selectedYearStart - 1) * 365,
+        endDay: (selectedYearEnd * 365) - 1,
+      }};
+    }}
+
+    function filterSeriesByTimeline(days, values) {{
+      if (currentPanelMode !== "ops" || timelineMaxYear <= 1) {{
+        return {{
+          days: (days || []).slice(),
+          values: (values || []).slice(),
+        }};
+      }}
+      const {{ startDay, endDay }} = currentTimelineDayRange();
+      const filteredDays = [];
+      const filteredValues = [];
+      const inputDays = days || [];
+      const inputValues = values || [];
+      for (let idx = 0; idx < inputDays.length; idx += 1) {{
+        const day = Number(inputDays[idx]);
+        if (!Number.isFinite(day)) continue;
+        if (day < startDay || day > endDay) continue;
+        filteredDays.push(day);
+        filteredValues.push(inputValues[idx]);
+      }}
+      return {{ days: filteredDays, values: filteredValues }};
+    }}
+
+    function filterXYByTimeline(x, y) {{
+      if (currentPanelMode !== "ops" || timelineMaxYear <= 1) {{
+        return {{
+          x: (x || []).slice(),
+          y: (y || []).slice(),
+        }};
+      }}
+      const {{ startDay, endDay }} = currentTimelineDayRange();
+      const filteredX = [];
+      const filteredY = [];
+      const inputX = x || [];
+      const inputY = y || [];
+      for (let idx = 0; idx < inputX.length; idx += 1) {{
+        const value = Number(inputX[idx]);
+        if (!Number.isFinite(value)) {{
+          filteredX.push(inputX[idx]);
+          filteredY.push(inputY[idx]);
+          continue;
+        }}
+        if (value < startDay || value > endDay) continue;
+        filteredX.push(inputX[idx]);
+        filteredY.push(inputY[idx]);
+      }}
+      return {{ x: filteredX, y: filteredY }};
+    }}
+
+    function fmtPanelQty(value, digits = 1) {{
+      const numeric = Number(value);
+      if (!Number.isFinite(numeric)) return "n/a";
+      return numeric.toLocaleString("fr-FR", {{
+        minimumFractionDigits: digits,
+        maximumFractionDigits: digits,
+      }});
+    }}
+
+    function buildFactoryWindowSummaryLines(metrics) {{
+      if (!metrics || !Array.isArray(metrics.daily_metrics) || !metrics.daily_metrics.length) {{
+        return (metrics && Array.isArray(metrics.summary_lines)) ? metrics.summary_lines : [];
+      }}
+      const range = currentTimelineDayRange();
+      const rows = (currentPanelMode === "ops")
+        ? metrics.daily_metrics.filter((row) => Number(row.day) >= range.startDay && Number(row.day) <= range.endDay)
+        : metrics.daily_metrics.slice();
+      if (!rows.length) {{
+        return (metrics && Array.isArray(metrics.summary_lines)) ? metrics.summary_lines : [];
+      }}
+      const totalDesired = rows.reduce((sum, row) => sum + (Number(row.desired_qty) || 0), 0);
+      const totalActual = rows.reduce((sum, row) => sum + (Number(row.actual_qty) || 0), 0);
+      const totalShortfall = rows.reduce((sum, row) => sum + (Number(row.shortfall_qty) || 0), 0);
+      const peakShortfall = rows.reduce((peak, row) => Math.max(peak, Number(row.shortfall_qty) || 0), 0);
+      const capacityDays = rows.reduce((count, row) => count + ((Number(row.capacity_binding) || 0) > 0 ? 1 : 0), 0);
+      const leadDays = Number(metrics.avg_inbound_lead_days);
+      const windowLabel = timelineMaxYear > 1
+        ? `annee ${{selectedYearStart}} -> ${{selectedYearEnd}}`
+        : `jours ${{rows[0].day}} -> ${{rows[rows.length - 1].day}}`;
+      return [
+        {{ label: "Fenetre analysee", value: windowLabel }},
+        {{ label: "Production demandee cumulee", value: fmtPanelQty(totalDesired, 1) }},
+        {{ label: "Production reelle cumulee", value: fmtPanelQty(totalActual, 1) }},
+        {{ label: "Manque de production cumule", value: fmtPanelQty(totalShortfall, 1) }},
+        {{ label: "Pic de manque de production", value: fmtPanelQty(peakShortfall, 1) }},
+        {{ label: "Jours contraints capacite", value: String(capacityDays) }},
+        {{ label: "Lead time entrant moyen", value: Number.isFinite(leadDays) ? `${{leadDays.toFixed(1)}} j` : "n/a" }},
+      ];
+    }}
 
     function styleForType(nodeType, idx) {{
       const s = STYLES[nodeType] || {{}};
@@ -6318,6 +6649,15 @@ def html_template(title: str, data_json: str, material_table_html: str, material
     }}
 
     function hideFactoryPanel() {{
+      function purgePlotlyNode(node) {{
+        if (!window.Plotly || !node) return;
+        const plots = node.matches && node.matches(".js-plotly-plot")
+          ? [node, ...Array.from(node.querySelectorAll(".js-plotly-plot"))]
+          : Array.from(node.querySelectorAll(".js-plotly-plot"));
+        plots.forEach((plotNode) => {{
+          try {{ Plotly.purge(plotNode); }} catch (e) {{}}
+        }});
+      }}
       const panel = document.getElementById("factoryHoverPanel");
       const incomingBlock = document.getElementById("incomingBlock");
       const outgoingBlock = document.getElementById("outgoingBlock");
@@ -6349,18 +6689,19 @@ def html_template(title: str, data_json: str, material_table_html: str, material
       outgoingImg.style.display = "none";
       thirdImg.removeAttribute("src");
       thirdImg.style.display = "none";
+      purgePlotlyNode(incomingFigure);
+      purgePlotlyNode(outgoingFigure);
+      purgePlotlyNode(thirdFigure);
       incomingFigure.innerHTML = "";
       outgoingFigure.innerHTML = "";
       thirdFigure.innerHTML = "";
       incomingFigure.style.display = "none";
       outgoingFigure.style.display = "none";
       thirdFigure.style.display = "none";
+      incomingFigure.classList.remove("factoryFigureStackContainer");
+      outgoingFigure.classList.remove("factoryFigureStackContainer");
+      thirdFigure.classList.remove("factoryFigureStackContainer");
       fourthHelp.style.display = "block";
-      if (window.Plotly) {{
-        try {{ Plotly.purge(incomingFigure); }} catch (e) {{}}
-        try {{ Plotly.purge(outgoingFigure); }} catch (e) {{}}
-        try {{ Plotly.purge(thirdFigure); }} catch (e) {{}}
-      }}
       metaGrid.innerHTML = "";
       metaBlock.style.display = "none";
       noImg.style.display = "none";
@@ -6563,14 +6904,17 @@ def html_template(title: str, data_json: str, material_table_html: str, material
         metaBlock.style.display = "block";
         return true;
       }}
-      if (!metrics || !Array.isArray(metrics.summary_lines) || !metrics.summary_lines.length) {{
+      const summaryLines = (isFactoryLikeNode(nodeId, nodeType) && currentPanelMode === "ops")
+        ? buildFactoryWindowSummaryLines(metrics)
+        : ((metrics && Array.isArray(metrics.summary_lines)) ? metrics.summary_lines : []);
+      if (!summaryLines.length) {{
         metaBlock.style.display = "none";
         return false;
       }}
       metaTitle.textContent = nodeType === "customer"
         ? "Demande client courante"
         : (isFactoryLikeNode(nodeId, nodeType) ? "Performance industrielle courante" : "Criticite locale fournisseur");
-      metrics.summary_lines.forEach((entry) => {{
+      summaryLines.forEach((entry) => {{
         const row = document.createElement("div");
         row.className = "panelMetaRow";
         const label = document.createElement("div");
@@ -6651,7 +6995,7 @@ def html_template(title: str, data_json: str, material_table_html: str, material
       if (nodeId === "SDC-1450" && isFactoryLikeNode(nodeId, nodeType)) {{
         return {{
           incoming: "Stock intrants / semi-fini",
-          outgoing: "Stock semi-fini",
+          outgoing: "Expeditions semi-finis",
           third: "Production / capacite",
           fourth: "Pilotage MRP"
         }};
@@ -6748,6 +7092,7 @@ def html_template(title: str, data_json: str, material_table_html: str, material
       document.getElementById("modeModel").classList.toggle("active", currentPanelMode === "model");
       document.getElementById("modeSensitivity").classList.toggle("active", currentPanelMode === "sensitivity");
       document.getElementById("modeStructural").classList.toggle("active", currentPanelMode === "structural");
+      applyTimelineWindowUi();
     }}
 
     function setPanelMode(mode) {{
@@ -6825,18 +7170,21 @@ def html_template(title: str, data_json: str, material_table_html: str, material
         if (figure.kind === "line_multi") {{
           const palette = ["#0f766e", "#2563eb", "#dc2626", "#d97706", "#7c3aed", "#475569"];
           return {{
-            data: (figure.series || []).map((series, idx) => ({{
-              type: "scatter",
-              mode: "lines",
-              name: series.label || `Serie ${{idx + 1}}`,
-              x: series.days || [],
-              y: series.values || [],
-              line: {{
-                width: 2.2,
-                color: palette[idx % palette.length],
-                shape: figure.step_like ? "hv" : "linear",
-              }},
-            }})),
+            data: (figure.series || []).map((series, idx) => {{
+              const filtered = filterSeriesByTimeline(series.days || [], series.values || []);
+              return {{
+                type: "scatter",
+                mode: "lines",
+                name: series.label || `Serie ${{idx + 1}}`,
+                x: filtered.days,
+                y: filtered.values,
+                line: {{
+                  width: 2.2,
+                  color: palette[idx % palette.length],
+                  shape: figure.step_like ? "hv" : "linear",
+                }},
+              }};
+            }}),
             layout: {{
               title: {{ text: figure.title || "", font: {{ size: 12 }} }},
               margin: {{ l: 56, r: 18, t: 44, b: 42 }},
@@ -6869,6 +7217,8 @@ def html_template(title: str, data_json: str, material_table_html: str, material
         if (figure.kind === "dual_panel") {{
           const top = figure.top || {{}};
           const bottom = figure.bottom || {{}};
+          const topFiltered = top.kind === "line" ? filterXYByTimeline(top.x || [], top.y || []) : {{ x: top.x || [], y: top.y || [] }};
+          const bottomFiltered = bottom.kind === "line" ? filterXYByTimeline(bottom.x || [], bottom.y || []) : {{ x: bottom.x || [], y: bottom.y || [] }};
           const traces = [];
           traces.push(top.kind === "bar"
             ? {{
@@ -6883,8 +7233,8 @@ def html_template(title: str, data_json: str, material_table_html: str, material
             : {{
                 type: "scatter",
                 mode: "lines",
-                x: top.x || [],
-                y: top.y || [],
+                x: topFiltered.x,
+                y: topFiltered.y,
                 line: {{ width: 2.2, color: "#dc2626" }},
                 xaxis: "x",
                 yaxis: "y",
@@ -6894,8 +7244,8 @@ def html_template(title: str, data_json: str, material_table_html: str, material
             ? {{
                 type: "scatter",
                 mode: "lines",
-                x: bottom.x || [],
-                y: bottom.y || [],
+                x: bottomFiltered.x,
+                y: bottomFiltered.y,
                 line: {{ width: 2.2, color: "#2563eb" }},
                 xaxis: "x2",
                 yaxis: "y2",
@@ -6954,18 +7304,27 @@ def html_template(title: str, data_json: str, material_table_html: str, material
       }}
 
       function renderAsset(asset, imgEl, figureEl, tabsEl, bundleKey) {{
+        function purgePlotlyNode(node) {{
+          if (!window.Plotly || !node) return;
+          const plots = node.matches && node.matches(".js-plotly-plot")
+            ? [node, ...Array.from(node.querySelectorAll(".js-plotly-plot"))]
+            : Array.from(node.querySelectorAll(".js-plotly-plot"));
+          plots.forEach((plotNode) => {{
+            try {{ Plotly.purge(plotNode); }} catch (e) {{}}
+          }});
+        }}
+
         imgEl.removeAttribute("src");
         imgEl.style.display = "none";
         figureEl.innerHTML = "";
         figureEl.style.display = "none";
         figureEl.classList.remove("factoryHtmlPanel");
+        figureEl.classList.remove("factoryFigureStackContainer");
         if (tabsEl) {{
           tabsEl.innerHTML = "";
           tabsEl.style.display = "none";
         }}
-        if (window.Plotly) {{
-          try {{ Plotly.purge(figureEl); }} catch (e) {{}}
-        }}
+        purgePlotlyNode(figureEl);
         if (!asset) return false;
         if (Array.isArray(asset.bundle) && asset.bundle.length) {{
           const entries = asset.bundle.filter(entry => entry && entry.asset);
@@ -7006,6 +7365,22 @@ def html_template(title: str, data_json: str, material_table_html: str, material
           figureEl.style.display = "block";
           figureEl.classList.add("factoryHtmlPanel");
           figureEl.innerHTML = asset.html;
+          return true;
+        }}
+        if (asset.figure && asset.figure.kind === "dual_panel_multi" && window.Plotly) {{
+          const panels = [asset.figure.top || null, asset.figure.bottom || null].filter(Boolean);
+          if (!panels.length) return false;
+          figureEl.style.display = "flex";
+          figureEl.classList.add("factoryFigureStackContainer");
+          panels.forEach((panelFigure) => {{
+            const child = document.createElement("div");
+            child.className = "factoryFigureStackItem";
+            figureEl.appendChild(child);
+            const plotlyFigure = buildPlotlyFigure(panelFigure);
+            if (plotlyFigure) {{
+              Plotly.react(child, plotlyFigure.data, plotlyFigure.layout, {{ displayModeBar: false, responsive: true }});
+            }}
+          }});
           return true;
         }}
         const plotlyFigure = buildPlotlyFigure(asset.figure || null);
@@ -7127,6 +7502,8 @@ def html_template(title: str, data_json: str, material_table_html: str, material
 
     function init() {{
       initFilters();
+      syncYearInputs();
+      updateTimelineWindowLabel();
       applyModeUi();
       const materialTableModal = document.getElementById("materialTableModal");
       document.getElementById("materialTableBtn").addEventListener("click", () => {{
@@ -7145,6 +7522,24 @@ def html_template(title: str, data_json: str, material_table_html: str, material
       document.getElementById("modeModel").addEventListener("click", () => setPanelMode("model"));
       document.getElementById("modeSensitivity").addEventListener("click", () => setPanelMode("sensitivity"));
       document.getElementById("modeStructural").addEventListener("click", () => setPanelMode("structural"));
+      document.getElementById("yearStart").addEventListener("input", (ev) => {{
+        selectedYearStart = Number(ev.target.value || 1);
+        if (selectedYearStart > selectedYearEnd) {{
+          selectedYearEnd = selectedYearStart;
+        }}
+        syncYearInputs();
+        updateTimelineWindowLabel();
+        refreshFactoryPanel();
+      }});
+      document.getElementById("yearEnd").addEventListener("input", (ev) => {{
+        selectedYearEnd = Number(ev.target.value || 1);
+        if (selectedYearEnd < selectedYearStart) {{
+          selectedYearStart = selectedYearEnd;
+        }}
+        syncYearInputs();
+        updateTimelineWindowLabel();
+        refreshFactoryPanel();
+      }});
       document.getElementById("factoryHoverClearSelection").addEventListener("click", clearPanelSelection);
       for (const chk of document.querySelectorAll(".typeChk")) {{
         chk.addEventListener("change", draw);
@@ -7220,6 +7615,7 @@ def main() -> None:
             sim_input,
             sim_output,
             input_arrivals_csv,
+            supplier_shipments_csv,
             supplier_stocks_csv,
             sim_input_png_dir,
             sim_output_png_dir,
