@@ -1,5 +1,5 @@
 {
-  "generated_at_utc": "2026-04-22T12:10:03.215348+00:00",
+  "generated_at_utc": "2026-04-23T09:22:36.171016+00:00",
   "input_graph": "etudecas\\simulation_prep\\result\\reference_baseline\\supply_graph_reference_baseline_real_demand_target_calibrated.json",
   "output_graph": "etudecas\\simulation_prep\\result\\reference_baseline\\supply_graph_reference_baseline_real_demand_target_calibrated_mrp_lot_policy.json",
   "stocks_mrp_xlsx": "etudecas\\donnees\\Stocks_MRP.xlsx",
@@ -240,7 +240,7 @@
     {
       "node_id": "SDC-1450",
       "item_id": "item:021081",
-      "initial_before": 180.0,
+      "initial_before": 0.0,
       "initial_after": 1142100.0,
       "uom": "KG",
       "source_qty": 1142100.0,
@@ -249,7 +249,7 @@
     {
       "node_id": "SDC-1450",
       "item_id": "item:693055",
-      "initial_before": 180.0,
+      "initial_before": 0.0,
       "initial_after": 1800000.0,
       "uom": "G",
       "source_qty": 1800000.0,
@@ -258,7 +258,7 @@
     {
       "node_id": "SDC-1450",
       "item_id": "item:773474",
-      "initial_before": 180.0,
+      "initial_before": 0.0,
       "initial_after": 9600000.0,
       "uom": "G",
       "source_qty": 9600000.0,

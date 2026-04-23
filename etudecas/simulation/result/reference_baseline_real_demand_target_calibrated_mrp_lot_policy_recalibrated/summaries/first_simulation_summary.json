@@ -49,9 +49,9 @@
     }
   },
   "counts": {
-    "nodes": 34,
-    "edges": 44,
-    "lanes": 44,
+    "nodes": 33,
+    "edges": 39,
+    "lanes": 39,
     "demand_rows": 2
   },
   "production_tracking": {
@@ -313,10 +313,6 @@
     "assumed_supply_edges": [],
     "externally_sourced_unmodeled_pairs": [
       {
-        "node_id": "M-1450",
-        "item_id": "item:773474"
-      },
-      {
         "node_id": "SDC-1450",
         "item_id": "item:693055"
       },
@@ -463,15 +459,6 @@
         "cover_days": 10.0,
         "added_opening_qty": 30800.0,
         "target_opening_stock": 30800.0
-      },
-      {
-        "node_id": "SDC-1450",
-        "item_id": "item:693055",
-        "category": "estimated_source_on_hand",
-        "daily_signal": 82285714.285714,
-        "cover_days": 28.0,
-        "added_opening_qty": 513956.4,
-        "target_opening_stock": 2313956.4
       },
       {
         "node_id": "SDC-VD0500655A",
@@ -848,17 +835,9 @@
         "node_id": "M-1430",
         "item_id": "item:773474",
         "category": "factory_input_in_transit",
-        "seeded_pipeline_qty": 19774793.4076,
+        "seeded_pipeline_qty": 28249704.868,
         "lead_days": 19,
         "lane_src": "SDC-1450"
-      },
-      {
-        "node_id": "M-1430",
-        "item_id": "item:773474",
-        "category": "factory_input_in_transit",
-        "seeded_pipeline_qty": 1784191.8864,
-        "lead_days": 4,
-        "lane_src": "M-1450"
       },
       {
         "node_id": "M-1810",
@@ -1047,7 +1026,7 @@
       {
         "node_id": "SDC-1450",
         "item_id": "item:021081",
-        "category": "process_node_input_in_transit",
+        "category": "factory_input_in_transit",
         "seeded_pipeline_qty": 685251.0,
         "lead_days": 219,
         "lane_src": "SDC-VD0949099A"
@@ -1055,7 +1034,7 @@
       {
         "node_id": "SDC-1450",
         "item_id": "item:021081",
-        "category": "process_node_input_in_transit",
+        "category": "factory_input_in_transit",
         "seeded_pipeline_qty": 195786.0,
         "lead_days": 219,
         "lane_src": "SDC-VD0960508A"
@@ -1063,7 +1042,7 @@
       {
         "node_id": "SDC-1450",
         "item_id": "item:021081",
-        "category": "process_node_input_in_transit",
+        "category": "factory_input_in_transit",
         "seeded_pipeline_qty": 48946.5,
         "lead_days": 219,
         "lane_src": "SDC-VD0972460A"
@@ -1071,18 +1050,10 @@
       {
         "node_id": "SDC-1450",
         "item_id": "item:021081",
-        "category": "process_node_input_in_transit",
+        "category": "factory_input_in_transit",
         "seeded_pipeline_qty": 48946.5,
         "lead_days": 219,
         "lane_src": "SDC-VD0975221A"
-      },
-      {
-        "node_id": "SDC-1450",
-        "item_id": "item:693055",
-        "category": "estimated_source_in_transit",
-        "seeded_pipeline_qty": 34560000.0,
-        "lead_days": 21,
-        "lane_src": "unmodeled_source"
       },
       {
         "node_id": "SDC-VD0500655A",
@@ -1518,36 +1489,6 @@
       }
     ],
     "supplier_daily_capacity_pairs": [
-      {
-        "node_id": "SDC-1450",
-        "item_id": "item:693055",
-        "review_period_days": 7,
-        "initial_stock_qty": 1800000.0,
-        "inventory_fallback_qty_per_day": 257142.857143,
-        "downstream_requirement_qty_per_day": 82641.3,
-        "downstream_signal_qty_per_day": 0.0,
-        "explicit_capacity_qty_per_day": 0.0,
-        "process_capacity_qty_per_day": 0.0,
-        "nominal_capacity_qty_per_day": 257142.857143,
-        "applied_capacity_scale": 320.0,
-        "effective_capacity_qty_per_day": 82285714.285714,
-        "basis": "downstream_requirement"
-      },
-      {
-        "node_id": "SDC-1450",
-        "item_id": "item:773474",
-        "review_period_days": 7,
-        "initial_stock_qty": 9600000.0,
-        "inventory_fallback_qty_per_day": 1371428.571429,
-        "downstream_requirement_qty_per_day": 1486826.572,
-        "downstream_signal_qty_per_day": 0.0,
-        "explicit_capacity_qty_per_day": 0.0,
-        "process_capacity_qty_per_day": 500000.0,
-        "nominal_capacity_qty_per_day": 500000.0,
-        "applied_capacity_scale": 320.0,
-        "effective_capacity_qty_per_day": 160000000.0,
-        "basis": "process_capacity"
-      },
       {
         "node_id": "SDC-VD0500655A",
         "item_id": "item:002612",
@@ -2046,20 +1987,6 @@
     ],
     "unmodeled_supplier_source_policies": [
       {
-        "node_id": "SDC-1450",
-        "item_id": "item:693055",
-        "replenishment_lead_days": 21,
-        "raw_replenishment_lead_days": 64.0,
-        "target_cover_days": 28,
-        "review_period_days": 7,
-        "order_frequency_days": 1,
-        "downstream_requirement_qty_per_day": 82641.3,
-        "downstream_signal_qty_per_day": 0.0,
-        "reorder_point_qty_day0": 1800000.0,
-        "target_stock_qty_day0": 2313956.4,
-        "daily_capacity_qty": 82285714.285714
-      },
-      {
         "node_id": "SDC-VD0500655A",
         "item_id": "item:002612",
         "replenishment_lead_days": 21,
@@ -2524,18 +2451,18 @@
     ],
     "mrp_trace": {
       "enabled": true,
-      "tracked_pairs": 67,
-      "trace_rows": 24455,
-      "order_rows": 2009,
+      "tracked_pairs": 65,
+      "trace_rows": 23725,
+      "order_rows": 1992,
       "trace_outputs": [
         "mrp_trace_daily.csv",
         "mrp_orders_daily.csv"
       ]
     },
     "lane_purchase_cost_stats": {
-      "lanes_with_positive_purchase_cost": 44,
+      "lanes_with_positive_purchase_cost": 39,
       "lanes_with_zero_purchase_cost": 0,
-      "lanes_with_explicit_transport_cost": 44,
+      "lanes_with_explicit_transport_cost": 39,
       "lanes_with_fallback_transport_cost": 0
     }
   },
@@ -2547,37 +2474,37 @@
     "total_served": 5152428.0,
     "ending_backlog": 0,
     "fill_rate": 1.0,
-    "total_shipped": 162397069.7063,
-    "total_arrived": 628807464.6827,
-    "total_produced": 37540800.0,
-    "avg_inventory": 2361211426.6413,
-    "ending_inventory": 2386476870.2641,
-    "total_transport_cost": 16325408.9557,
-    "total_holding_cost": 49959157.7102,
-    "total_warehouse_operating_cost": 64233202.7703,
-    "total_inventory_risk_cost": 28548090.1201,
-    "total_inventory_cost_legacy_raw_holding": 142740450.6006,
-    "total_purchase_cost": 6387310.4286,
-    "total_logistics_cost": 159065859.5563,
-    "total_cost": 165453169.9849,
-    "total_external_procured_ordered_qty": 20825488.964,
-    "total_external_procured_arrived_qty": 20825488.964,
-    "total_external_procured_rejected_qty": 122850621.0163,
-    "total_external_procured_qty": 20825488.964,
-    "total_external_procurement_cost": 1342337.1706,
+    "total_shipped": 155706349.4139,
+    "total_arrived": 627341651.8016,
+    "total_produced": 47140800.0,
+    "avg_inventory": 2318540368.6513,
+    "ending_inventory": 2345888884.5674,
+    "total_transport_cost": 14593049.2163,
+    "total_holding_cost": 32773813.7092,
+    "total_warehouse_operating_cost": 42137760.4833,
+    "total_inventory_risk_cost": 18727893.5481,
+    "total_inventory_cost_legacy_raw_holding": 93639467.7407,
+    "total_purchase_cost": 5915808.6835,
+    "total_logistics_cost": 108232516.957,
+    "total_cost": 114148325.6405,
+    "total_external_procured_ordered_qty": 595761.856,
+    "total_external_procured_arrived_qty": 572376.256,
+    "total_external_procured_rejected_qty": 84044.1427,
+    "total_external_procured_qty": 595761.856,
+    "total_external_procurement_cost": 128553.5441,
     "total_estimated_source_ordered_qty": 0.0,
-    "total_estimated_source_replenished_qty": 1618504474.9346,
+    "total_estimated_source_replenished_qty": 1583944474.9346,
     "total_estimated_source_rejected_qty": 0.0,
     "total_opening_stock_bootstrap_qty": 0.0,
-    "total_explicit_initialization_stock_qty": 272813254.4058,
-    "total_explicit_initialization_pipeline_qty": 2087244118.4221,
+    "total_explicit_initialization_stock_qty": 272299298.0058,
+    "total_explicit_initialization_pipeline_qty": 2059374837.9961,
     "total_unreliable_loss_qty": 0.0,
     "total_supplier_capacity_binding_qty": 31925000.0,
-    "cost_share_holding": 0.301953,
-    "cost_share_warehouse_operating": 0.388226,
-    "cost_share_inventory_risk": 0.172545,
-    "cost_share_transport": 0.098671,
-    "cost_share_purchase": 0.038605
+    "cost_share_holding": 0.287116,
+    "cost_share_warehouse_operating": 0.369149,
+    "cost_share_inventory_risk": 0.164066,
+    "cost_share_transport": 0.127843,
+    "cost_share_purchase": 0.051826
   },
   "economic_consistency": {
     "status": "ok",

@@ -3210,11 +3210,10 @@ def main() -> None:
             writer.writeheader()
             writer.writerows(input_consumption_rows)
 
-    if not compact_output:
-        with input_arrival_path.open("w", encoding="utf-8", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=["day", "node_id", "item_id", "arrived_qty", "uom"])
-            writer.writeheader()
-            writer.writerows(input_arrival_rows)
+    with input_arrival_path.open("w", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=["day", "node_id", "item_id", "arrived_qty", "uom"])
+        writer.writeheader()
+        writer.writerows(input_arrival_rows)
 
     if not compact_output:
         with input_shipment_path.open("w", encoding="utf-8", newline="") as f:
@@ -3476,6 +3475,8 @@ def main() -> None:
                 str(supplier_stock_path),
                 "--supplier-capacity-csv",
                 str(supplier_capacity_path),
+                "--input-arrivals-csv",
+                str(input_arrival_path),
                 "--dc-stocks-csv",
                 str(dc_stock_path),
                 "--production-constraint-csv",

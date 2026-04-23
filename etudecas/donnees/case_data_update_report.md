@@ -21,8 +21,8 @@
 ## Important assumptions
 
 - `268191.xlsx` is interpreted as product `268091` because the BOM sheet explicitly points to `268091`.
-- `021081.xlsx` is modeled as an upstream component feeding supplier `SDC-1450`, which now transforms `021081` into `773474` before delivery to `M-1430`.
-- The new `SDC-1450` transformation capacity is set to 500000 G/day to avoid creating an artificial bottleneck.
+- `021081.xlsx` is modeled as an upstream component feeding internal site `SDC-1450`, which transforms `021081` into `773474` before delivery to downstream factories.
+- `SDC-1450` is typed as an internal semi-finished site (`factory`) and its transformation capacity is set to 500000 G/day to avoid creating an artificial bottleneck.
 - FIA lead times are applied directly to lanes, and delay limits are set to `max(lead + 14, 2 * lead)` as a simulation cap assumption.
 - Component `007923` is kept in the 268091 BOM but left unconstrained because no supplier lane is provided in the new FIA data.
 
