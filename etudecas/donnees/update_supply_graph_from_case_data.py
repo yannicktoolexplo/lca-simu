@@ -319,14 +319,20 @@ def make_supplier_name(actor_code: str) -> str:
     return f"Supplier of Raw Materials - {actor_code}"
 
 
+def make_upstream_site_name(actor_code: str) -> str:
+    return f"Internal Semi-finished Site - {actor_code}"
+
+
 def make_supplier_node(actor_code: str, supplier_id: str, location_id: str | None) -> dict[str, Any]:
     attrs: dict[str, Any] = {"source_sheet": "FIA"}
     if location_id:
         attrs["location_source"] = LOCATION_WORKBOOK
+    if supplier_id == UPSTREAM_PRODUCER_ID:
+        attrs["site_role"] = "internal_upstream_semi_finished"
     return {
         "id": supplier_id,
-        "type": "supplier_dc",
-        "name": make_supplier_name(actor_code),
+        "type": "factory" if supplier_id == UPSTREAM_PRODUCER_ID else "supplier_dc",
+        "name": make_upstream_site_name(actor_code) if supplier_id == UPSTREAM_PRODUCER_ID else make_supplier_name(actor_code),
         "location_ID": location_id,
         "geo": {"lat": None, "lon": None, "country": None, "raw": None},
         "inventory": {"states": [], "backlogs": [], "wip": []},
@@ -336,7 +342,7 @@ def make_supplier_node(actor_code: str, supplier_id: str, location_id: str | Non
         "lca": {"defaults_used": True},
         "attrs": attrs,
         "defaults": {"geo": True},
-        "role_raw": "Supplier Distribution Center",
+        "role_raw": "Internal Upstream Semi-finished Site" if supplier_id == UPSTREAM_PRODUCER_ID else "Supplier Distribution Center",
     }
 
 
@@ -354,7 +360,12 @@ def ensure_supplier_node(
         nodes.append(node)
         node_by_id[supplier_id] = node
         report["created_nodes"].append(supplier_id)
-    if not str(node.get("name") or "").strip() or str(node.get("name")) == supplier_id:
+    if supplier_id == UPSTREAM_PRODUCER_ID:
+        node["type"] = "factory"
+        node["name"] = make_upstream_site_name(actor_code)
+        node["role_raw"] = "Internal Upstream Semi-finished Site"
+        node.setdefault("attrs", {})["site_role"] = "internal_upstream_semi_finished"
+    elif not str(node.get("name") or "").strip() or str(node.get("name")) == supplier_id:
         node["name"] = make_supplier_name(actor_code)
     if location_id and not str(node.get("location_ID") or "").strip():
         node["location_ID"] = location_id
@@ -644,8 +655,8 @@ def markdown_report(report: dict[str, Any]) -> str:
             "## Important assumptions",
             "",
             "- `268191.xlsx` is interpreted as product `268091` because the BOM sheet explicitly points to `268091`.",
-            "- `021081.xlsx` is modeled as an upstream component feeding supplier `SDC-1450`, which now transforms `021081` into `773474` before delivery to `M-1430`.",
-            f"- The new `SDC-1450` transformation capacity is set to {UPSTREAM_CAPACITY_G_PER_DAY:.0f} G/day to avoid creating an artificial bottleneck.",
+            "- `021081.xlsx` is modeled as an upstream component feeding internal site `SDC-1450`, which transforms `021081` into `773474` before delivery to downstream factories.",
+            f"- `SDC-1450` is typed as an internal semi-finished site (`factory`) and its transformation capacity is set to {UPSTREAM_CAPACITY_G_PER_DAY:.0f} G/day to avoid creating an artificial bottleneck.",
             "- FIA lead times are applied directly to lanes, and delay limits are set to `max(lead + 14, 2 * lead)` as a simulation cap assumption.",
             "- Component `007923` is kept in the 268091 BOM but left unconstrained because no supplier lane is provided in the new FIA data.",
             "",
@@ -716,9 +727,11 @@ def main() -> None:
                 {"node_id": node_id, "location_ID": location_id, "action": "filled_missing"}
             )
         if node_id == UPSTREAM_PRODUCER_ID and location_id:
+            node["type"] = "factory"
+            node["role_raw"] = "Internal Upstream Semi-finished Site"
+            node.setdefault("attrs", {})["site_role"] = "internal_upstream_semi_finished"
             node["location_ID"] = location_id
-            if str(node.get("name") or "").strip() == node_id:
-                node["name"] = make_supplier_name(actor_code)
+            node["name"] = make_upstream_site_name(actor_code)
 
     workbooks = [parse_product_workbook(data_dir / name) for name in PRODUCT_WORKBOOKS]
     for workbook in workbooks:
@@ -879,6 +892,13 @@ def main() -> None:
             continue
         report["removed_items"].append(item_id)
     items[:] = kept_items
+
+    upstream_node = node_by_id.get(UPSTREAM_PRODUCER_ID)
+    if isinstance(upstream_node, dict):
+        upstream_node["type"] = "factory"
+        upstream_node["name"] = make_upstream_site_name(actor_code_from_node_id(UPSTREAM_PRODUCER_ID))
+        upstream_node["role_raw"] = "Internal Upstream Semi-finished Site"
+        upstream_node.setdefault("attrs", {})["site_role"] = "internal_upstream_semi_finished"
 
     meta["source_file"] = BASE_WORKBOOK
     meta["source_files"] = [BASE_WORKBOOK, LOCATION_WORKBOOK, *PRODUCT_WORKBOOKS]

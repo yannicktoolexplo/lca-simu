@@ -33,7 +33,7 @@
     },
     "simulation_prep": {
       "prepared_for_simulation": true,
-      "prepared_at_utc": "2026-04-22T12:09:28.288754+00:00",
+      "prepared_at_utc": "2026-04-23T09:22:02.177421+00:00",
       "assumption_version": "v1",
       "notes": [
         "Missing/default values were replaced with explicit assumptions for first-pass simulation.",
@@ -42,7 +42,7 @@
     },
     "baseline_rebuild": {
       "type": "real_demand_target_service_rebuild",
-      "generated_at_utc": "2026-04-22T12:10:02.696359+00:00",
+      "generated_at_utc": "2026-04-23T09:22:35.822019+00:00",
       "source_graph": "etudecas\\simulation_prep\\result\\reference_baseline\\supply_graph_reference_baseline_simulation_ready.json",
       "scenario_id": "scn:BASE",
       "days": 365,
@@ -447,12 +447,12 @@
             "initial": 0.0,
             "uom": "UN",
             "holding_cost": {
-              "value": 0.002457534246575343,
+              "value": 0.0021342465753424657,
               "per": "unit*day",
               "is_default": false,
               "source": "simulation_prep_global_value_median_fallback",
               "annual_carry_rate": 0.2,
-              "unit_value_basis": 4.485
+              "unit_value_basis": 3.895
             },
             "is_default_initial": false,
             "initial_source": "simulation_prep_assumption_factory_output_zero"
@@ -512,12 +512,12 @@
             "initial": 0.0,
             "uom": "M",
             "holding_cost": {
-              "value": 0.002457534246575343,
+              "value": 0.0021342465753424657,
               "per": "unit*day",
               "is_default": false,
               "source": "simulation_prep_global_value_median_fallback",
               "annual_carry_rate": 0.2,
-              "unit_value_basis": 4.485
+              "unit_value_basis": 3.895
             },
             "is_default_initial": false,
             "initial_source": "simulation_prep_assumption"
@@ -544,12 +544,12 @@
             "initial": 0.0,
             "uom": "G",
             "holding_cost": {
-              "value": 0.002457534246575343,
+              "value": 0.0021342465753424657,
               "per": "unit*day",
               "is_default": false,
               "source": "simulation_prep_global_value_median_fallback",
               "annual_carry_rate": 0.2,
-              "unit_value_basis": 4.485
+              "unit_value_basis": 3.895
             },
             "is_default_initial": false,
             "initial_source": "simulation_prep_assumption"
@@ -901,12 +901,12 @@
             "initial": 0.0,
             "uom": "UN",
             "holding_cost": {
-              "value": 0.002457534246575343,
+              "value": 0.0021342465753424657,
               "per": "unit*day",
               "is_default": false,
               "source": "simulation_prep_global_value_median_fallback",
               "annual_carry_rate": 0.2,
-              "unit_value_basis": 4.485
+              "unit_value_basis": 3.895
             },
             "is_default_initial": false,
             "initial_source": "simulation_prep_assumption_factory_output_zero"
@@ -965,12 +965,12 @@
             "initial": 0.0,
             "uom": "G",
             "holding_cost": {
-              "value": 0.002457534246575343,
+              "value": 0.0021342465753424657,
               "per": "unit*day",
               "is_default": false,
               "source": "simulation_prep_global_value_median_fallback",
               "annual_carry_rate": 0.2,
-              "unit_value_basis": 4.485
+              "unit_value_basis": 3.895
             },
             "is_default_initial": false,
             "initial_source": "simulation_prep_assumption"
@@ -1227,12 +1227,12 @@
             "initial": 120.0,
             "uom": "UN",
             "holding_cost": {
-              "value": 0.002457534246575343,
+              "value": 0.0021342465753424657,
               "per": "unit*day",
               "is_default": false,
               "source": "simulation_prep_global_value_median_fallback",
               "annual_carry_rate": 0.2,
-              "unit_value_basis": 4.485
+              "unit_value_basis": 3.895
             },
             "is_default_initial": false,
             "initial_source": "simulation_prep_assumption",
@@ -1244,12 +1244,12 @@
             "initial": 120.0,
             "uom": "UN",
             "holding_cost": {
-              "value": 0.002457534246575343,
+              "value": 0.0021342465753424657,
               "per": "unit*day",
               "is_default": false,
               "source": "simulation_prep_global_value_median_fallback",
               "annual_carry_rate": 0.2,
-              "unit_value_basis": 4.485
+              "unit_value_basis": 3.895
             },
             "is_default_initial": false,
             "initial_source": "simulation_prep_assumption",
@@ -1736,12 +1736,12 @@
             "initial": 180.0,
             "uom": "M",
             "holding_cost": {
-              "value": 0.002457534246575343,
+              "value": 0.0021342465753424657,
               "per": "unit*day",
               "is_default": false,
               "source": "simulation_prep_global_value_median_fallback",
               "annual_carry_rate": 0.2,
-              "unit_value_basis": 4.485
+              "unit_value_basis": 3.895
             },
             "is_default_initial": false,
             "initial_source": "simulation_prep_assumption"
@@ -3041,12 +3041,12 @@
             "initial": 0.0,
             "uom": "UN",
             "holding_cost": {
-              "value": 0.002457534246575343,
+              "value": 0.0021342465753424657,
               "per": "unit*day",
               "is_default": false,
               "source": "simulation_prep_global_value_median_fallback",
               "annual_carry_rate": 0.2,
-              "unit_value_basis": 4.485
+              "unit_value_basis": 3.895
             },
             "is_default_initial": false,
             "initial_source": "simulation_prep_assumption"
@@ -3057,12 +3057,12 @@
             "initial": 0.0,
             "uom": "UN",
             "holding_cost": {
-              "value": 0.002457534246575343,
+              "value": 0.0021342465753424657,
               "per": "unit*day",
               "is_default": false,
               "source": "simulation_prep_global_value_median_fallback",
               "annual_carry_rate": 0.2,
-              "unit_value_basis": 4.485
+              "unit_value_basis": 3.895
             },
             "is_default_initial": false,
             "initial_source": "simulation_prep_assumption"
@@ -3125,9 +3125,9 @@
     },
     {
       "id": "SDC-1450",
-      "type": "supplier_dc",
-      "name": "Supplier of Raw Materials - D1450",
-      "role_raw": null,
+      "type": "factory",
+      "name": "Internal Semi-finished Site - D1450",
+      "role_raw": "Internal Upstream Semi-finished Site",
       "location_ID": "France - GAILLAC - 81600",
       "geo": {
         "lat": 43.901816,
@@ -3146,6 +3146,7 @@
       "attrs": {
         "source_sheet": "Relations_acteurs",
         "location_source": "Fournisseur.xlsx",
+        "site_role": "internal_upstream_semi_finished",
         "legacy_key": "SDC - 1450"
       },
       "inventory": {
@@ -3153,15 +3154,15 @@
           {
             "item_id": "item:693055",
             "state_id": "I_693055",
-            "initial": 180.0,
+            "initial": 0.0,
             "uom": "G",
             "holding_cost": {
-              "value": 0.002457534246575343,
+              "value": 0.0021342465753424657,
               "per": "unit*day",
               "is_default": false,
               "source": "simulation_prep_global_value_median_fallback",
               "annual_carry_rate": 0.2,
-              "unit_value_basis": 4.485
+              "unit_value_basis": 3.895
             },
             "is_default_initial": false,
             "initial_source": "simulation_prep_assumption"
@@ -3169,24 +3170,24 @@
           {
             "item_id": "item:773474",
             "state_id": "I_773474",
-            "initial": 180.0,
+            "initial": 0.0,
             "uom": "G",
             "holding_cost": {
-              "value": 0.002457534246575343,
+              "value": 0.0021342465753424657,
               "per": "unit*day",
               "is_default": false,
               "source": "simulation_prep_global_value_median_fallback",
               "annual_carry_rate": 0.2,
-              "unit_value_basis": 4.485
+              "unit_value_basis": 3.895
             },
             "is_default_initial": false,
             "uom_source": "simulation_prep_inferred_from_relations_bom",
-            "initial_source": "simulation_prep_assumption"
+            "initial_source": "simulation_prep_assumption_factory_output_zero"
           },
           {
             "item_id": "item:021081",
             "state_id": "I_021081",
-            "initial": 180.0,
+            "initial": 0.0,
             "uom": "KG",
             "holding_cost": {
               "value": 0.006643835616438357,
@@ -3279,9 +3280,6 @@
       "metadata": {
         "description": "SDC-1450",
         "source_sheet": "Acteurs"
-      },
-      "simulation_constraints": {
-        "supplier_capacity_scale": 320.0
       }
     },
     {
@@ -3570,79 +3568,6 @@
       },
       "simulation_constraints": {
         "supplier_capacity_scale": 320.0
-      }
-    },
-    {
-      "id": "M-1450",
-      "type": "factory",
-      "name": "Manufacturer of Raw Materials - D1450",
-      "role_raw": "Manufacturer",
-      "location_ID": "France - GAILLAC - 81600",
-      "geo": {
-        "lat": null,
-        "lon": null,
-        "country": "",
-        "raw": {
-          "location_ID": "France - GAILLAC - 81600",
-          "source": "demand_pf_acteurs"
-        }
-      },
-      "attrs": {
-        "legacy_key": "M - 1450",
-        "location_ID": "France - GAILLAC - 81600"
-      },
-      "metadata": {
-        "description": "Manufacturer of Raw Materials - D1450",
-        "source_sheet": "Acteurs"
-      },
-      "inventory": {
-        "states": [
-          {
-            "item_id": "item:773474",
-            "state_id": "I_773474_M_1450",
-            "initial": 0.0,
-            "uom": "G",
-            "holding_cost": {
-              "value": 0.002457534246575343,
-              "per": "unit*day",
-              "is_default": false,
-              "source": "simulation_prep_global_value_median_fallback",
-              "annual_carry_rate": 0.2,
-              "unit_value_basis": 4.485
-            },
-            "is_default_initial": false,
-            "initial_source": "simulation_prep_assumption",
-            "uom_source": "simulation_prep_inferred_from_relations_bom"
-          },
-          {
-            "item_id": "item:021081",
-            "state_id": "I_021081_M_1450",
-            "initial": 0.0,
-            "uom": "KG",
-            "holding_cost": {
-              "value": 0.006643835616438357,
-              "per": "unit*day",
-              "is_default": false,
-              "source": "simulation_prep_item_value_median_from_priced_edges",
-              "annual_carry_rate": 0.2,
-              "unit_value_basis": 12.125
-            },
-            "is_default_initial": false,
-            "initial_source": "simulation_prep_assumption",
-            "uom_source": "simulation_prep_inferred_from_relations_bom"
-          }
-        ],
-        "backlogs": [],
-        "wip": []
-      },
-      "processes": [],
-      "policies": {
-        "simulation_policy": {
-          "service_level_target": 0.95,
-          "review_period_days": 7,
-          "reorder_mode": "base_stock",
-          "source": "simulation_prep_assumption"
-        }
       }
     },
     {
@@ -5520,196 +5445,6 @@
         "standard_order_uom": "KG",
         "pricing_currency": "USD"
       },
-      "service_level": {
-        "otif": 1.0
-      }
-    },
-    {
-      "id": "edge:M-1450_TO_M-1430_773474",
-      "type": "transport",
-      "from": "M-1450",
-      "to": "M-1430",
-      "items": [
-        "item:773474"
-      ],
-      "order_terms": {
-        "sell_price": 0.0,
-        "price_base": 1000.0,
-        "quantity_unit": "G",
-        "source": "demand_pf_relations_acteurs"
-      },
-      "lead_time": {
-        "is_default": false,
-        "type": "erlang_pipeline",
-        "mean": 2.0,
-        "stages": 4,
-        "time_unit": "day",
-        "source": "simulation_prep_assumption"
-      },
-      "transport_cost": {
-        "is_default": false,
-        "value": 0.58,
-        "per": "unit",
-        "source": "simulation_prep_assumption"
-      },
-      "delay_step_limit": {
-        "is_default": false,
-        "value": 21,
-        "source": "simulation_prep_assumption"
-      },
-      "source": "demand_pf_relations_acteurs",
-      "service_level": {
-        "otif": 1.0
-      }
-    },
-    {
-      "id": "edge:SDC-VD0949099A_TO_M-1450_021081",
-      "type": "transport",
-      "from": "SDC-VD0949099A",
-      "to": "M-1450",
-      "items": [
-        "item:021081"
-      ],
-      "order_terms": {
-        "sell_price": 12.1,
-        "price_base": 1.0,
-        "quantity_unit": "KG",
-        "source": "demand_pf_relations_acteurs"
-      },
-      "lead_time": {
-        "is_default": false,
-        "type": "erlang_pipeline",
-        "mean": 3.0,
-        "stages": 4,
-        "time_unit": "day",
-        "source": "simulation_prep_assumption"
-      },
-      "transport_cost": {
-        "is_default": false,
-        "value": 0.58,
-        "per": "unit",
-        "source": "simulation_prep_assumption"
-      },
-      "delay_step_limit": {
-        "is_default": false,
-        "value": 21,
-        "source": "simulation_prep_assumption"
-      },
-      "source": "demand_pf_relations_acteurs",
-      "service_level": {
-        "otif": 1.0
-      }
-    },
-    {
-      "id": "edge:SDC-VD0960508A_TO_M-1450_021081",
-      "type": "transport",
-      "from": "SDC-VD0960508A",
-      "to": "M-1450",
-      "items": [
-        "item:021081"
-      ],
-      "order_terms": {
-        "sell_price": 12.1,
-        "price_base": 1.0,
-        "quantity_unit": "KG",
-        "source": "demand_pf_relations_acteurs"
-      },
-      "lead_time": {
-        "is_default": false,
-        "type": "erlang_pipeline",
-        "mean": 3.0,
-        "stages": 4,
-        "time_unit": "day",
-        "source": "simulation_prep_assumption"
-      },
-      "transport_cost": {
-        "is_default": false,
-        "value": 0.58,
-        "per": "unit",
-        "source": "simulation_prep_assumption"
-      },
-      "delay_step_limit": {
-        "is_default": false,
-        "value": 21,
-        "source": "simulation_prep_assumption"
-      },
-      "source": "demand_pf_relations_acteurs",
-      "service_level": {
-        "otif": 1.0
-      }
-    },
-    {
-      "id": "edge:SDC-VD0972460A_TO_M-1450_021081",
-      "type": "transport",
-      "from": "SDC-VD0972460A",
-      "to": "M-1450",
-      "items": [
-        "item:021081"
-      ],
-      "order_terms": {
-        "sell_price": 12.15,
-        "price_base": 1.0,
-        "quantity_unit": "KG",
-        "source": "demand_pf_relations_acteurs"
-      },
-      "lead_time": {
-        "is_default": false,
-        "type": "erlang_pipeline",
-        "mean": 3.0,
-        "stages": 4,
-        "time_unit": "day",
-        "source": "simulation_prep_assumption"
-      },
-      "transport_cost": {
-        "is_default": false,
-        "value": 0.58,
-        "per": "unit",
-        "source": "simulation_prep_assumption"
-      },
-      "delay_step_limit": {
-        "is_default": false,
-        "value": 21,
-        "source": "simulation_prep_assumption"
-      },
-      "source": "demand_pf_relations_acteurs",
-      "service_level": {
-        "otif": 1.0
-      }
-    },
-    {
-      "id": "edge:SDC-VD0975221A_TO_M-1450_021081",
-      "type": "transport",
-      "from": "SDC-VD0975221A",
-      "to": "M-1450",
-      "items": [
-        "item:021081"
-      ],
-      "order_terms": {
-        "sell_price": 15.0,
-        "price_base": 1.0,
-        "quantity_unit": "KG",
-        "source": "demand_pf_relations_acteurs"
-      },
-      "lead_time": {
-        "is_default": false,
-        "type": "erlang_pipeline",
-        "mean": 3.0,
-        "stages": 4,
-        "time_unit": "day",
-        "source": "simulation_prep_assumption"
-      },
-      "transport_cost": {
-        "is_default": false,
-        "value": 0.58,
-        "per": "unit",
-        "source": "simulation_prep_assumption"
-      },
-      "delay_step_limit": {
-        "is_default": false,
-        "value": 21,
-        "source": "simulation_prep_assumption"
-      },
-      "source": "demand_pf_relations_acteurs",
       "service_level": {
         "otif": 1.0
       }

@@ -29,9 +29,9 @@
 - External procurement daily cap days: 2.0
 - External procurement min daily cap qty: 0.0
 - External procurement unit cost / multiplier / transport unit: 0.0 / 2.0 / 0.04
-- Nodes: 34
-- Edges: 44
-- Lanes (edge x item): 44
+- Nodes: 33
+- Edges: 39
+- Lanes (edge x item): 39
 - Demand rows: 2
 - Input material pairs tracked: 24
 - Output product pairs tracked: 3 (M-1430 | item:268967, M-1810 | item:268091, SDC-1450 | item:773474)
@@ -40,38 +40,38 @@
 - Mismatch d'unites non convertis: 0
 - Assumed supplier nodes (explicitly tagged, includes '?'): 0 (none)
 - Assumed supply edges (explicitly tagged, includes '?'): 0 (none)
-- External upstream sourcing for unmodeled source pairs: 35
+- External upstream sourcing for unmodeled source pairs: 34
 - Opening stock bootstrap pairs (lead-time coverage at max capacity): 0
-- MRP trace tracked pairs / rows / orders: 67 / 122275 / 10323
+- MRP trace tracked pairs / rows / orders: 65 / 118625 / 10412
 
 ## KPIs
 - Total demand: 25762139.9999
 - Total served: 25762139.9999
 - Fill rate: 1.0
 - Ending backlog: 0
-- Total produced: 106106800.0
-- Total shipped: 703161873.7017
-- Avg inventory: 2208254617.605
-- Ending inventory: 1968377208.8254
-- Transport cost: 67931558.9812
-- Holding cost (capital tied-up): 243734501.5957
-- Warehouse operating cost: 313372930.623
-- Inventory risk cost (obsolescence/compliance proxy): 139276858.0547
-- Legacy raw holding cost before split: 696384290.2734
-- Purchase cost (from order_terms sell_price): 25368980.3854
-- Logistics cost (transport + inventory capital + warehouse + inventory risk): 764315849.2547
-- Total cost: 789684829.64
-- Total external procured ordered qty: 41880518.9716
-- Total external procured arrived qty: 41880518.9716
-- Total external procured rejected qty (cap-limited): 122850621.0163
-- Total external procurement cost premium: 6413139.1847
+- Total produced: 128506800.0
+- Total shipped: 696471154.7868
+- Avg inventory: 2172905028.8277
+- Ending inventory: 1941217980.7973
+- Transport cost: 65981528.0724
+- Holding cost (capital tied-up): 168731155.7505
+- Warehouse operating cost: 216940057.3935
+- Inventory risk cost (obsolescence/compliance proxy): 96417803.286
+- Legacy raw holding cost before split: 482089016.43
+- Purchase cost (from order_terms sell_price): 24882450.2579
+- Logistics cost (transport + inventory capital + warehouse + inventory risk): 548070544.5024
+- Total cost: 572952994.7603
+- Total external procured ordered qty: 20899372.0557
+- Total external procured arrived qty: 20899372.0557
+- Total external procured rejected qty (cap-limited): 84044.1427
+- Total external procurement cost premium: 5154270.3698
 - Total estimated source ordered qty: 0.0
-- Total estimated source replenished qty: 1618504474.9346
+- Total estimated source replenished qty: 1583944474.9346
 - Total estimated source rejected qty: 0.0
-- Cost share capital holding / warehouse / inventory risk / transport / purchase: 0.308648 / 0.396833 / 0.17637 / 0.086024 / 0.032125
+- Cost share capital holding / warehouse / inventory risk / transport / purchase: 0.294494 / 0.378635 / 0.168282 / 0.11516 / 0.043428
 - Total opening stock bootstrap qty: 0.0
-- Total explicit initialization stock qty: 272813254.4058
-- Total explicit initialization pipeline qty: 2087244118.4221
+- Total explicit initialization stock qty: 272299298.0058
+- Total explicit initialization pipeline qty: 2059374837.9961
 - Total unreliable supplier loss qty: 0.0
 - Total supplier capacity binding qty: 32214300.0
 - Economic consistency status: ok

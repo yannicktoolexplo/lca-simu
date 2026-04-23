@@ -3,25 +3,25 @@
 ## Inputs / outputs
 - Input graph: etudecas\result_geocodage\supply_graph_poc_geocoded.json
 - Output graph: etudecas\simulation_prep\result\reference_baseline\supply_graph_reference_baseline_simulation_ready.json
-- Generated at (UTC): 2026-04-22T12:10:02.336101+00:00
+- Generated at (UTC): 2026-04-23T09:22:35.512884+00:00
 
 ## What was enriched
 - Edge distances filled: 38
-- Edge lead times updated: 11
-- Edge transport costs updated: 44
-- Edge delay limits updated: 11
+- Edge lead times updated: 6
+- Edge transport costs updated: 39
+- Edge delay limits updated: 6
 - Edge pricing aligned from Data_poc Relations_acteurs: 0
 - Edge pricing aligned from demand_PF Relations_acteurs: 39
 - Nodes added from demand_PF Acteurs: 2
 - Node locations filled from demand_PF Acteurs: 0
 - Edges added from demand_PF Relations_acteurs: 7
 - Inventory states added from demand_PF Relations_acteurs: 7
-- Inventory initials updated: 67
-- Inventory holding costs updated: 67
-- Holding-cost source item-value median: 54
-- Holding-cost source global fallback: 13
+- Inventory initials updated: 65
+- Inventory holding costs updated: 65
+- Holding-cost source item-value median: 53
+- Holding-cost source global fallback: 12
 - Inventory UOM harmonized: 11
-- Node policies added: 34
+- Node policies added: 33
 - Process capacities updated: 2
 - Process costs updated: 3
 - DC alias reconciliations (1910->1920): 1
@@ -42,8 +42,8 @@
 - Changed demand rows: 3
 
 ## Validation after prep
-- Missing geo nodes: 2
-- Edges still missing distance: 6
+- Missing geo nodes: 1
+- Edges still missing distance: 1
 - Edges still zero transport cost: 0
 - Factory inbound edges missing sell_price: 0
 - Zero-demand rows remaining: 0
@@ -83,8 +83,8 @@
 - Item value basis: median(sell_price / price_base) per item after Data_poc pricing alignment
 - Fallback unit value basis: global median priced item-unit value
 - Priced items used: 21
-- Priced edge-item pairs used: 36
-- Fallback global unit value: 4.485
+- Priced edge-item pairs used: 32
+- Fallback global unit value: 3.895
 
 ## Review reminder
 This graph is assumption-based and intended for pre-simulation validation.

@@ -30,6 +30,9 @@ NODE_TYPE_STYLES = {
     "customer": {"name": "Customer", "color": "#2ca02c", "symbol": "star"},
 }
 
+PILOTAGE_HIDDEN_NODE_IDS = {"M-1450"}
+UPSTREAM_INTERNAL_SITE_IDS = {"SDC-1450"}
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
@@ -96,6 +99,11 @@ def parse_args() -> argparse.Namespace:
         help="Baseline supplier capacity utilization CSV.",
     )
     parser.add_argument(
+        "--input-arrivals-csv",
+        default="etudecas/simulation/result/data/production_input_replenishment_arrivals_daily.csv",
+        help="Baseline input replenishment arrivals CSV.",
+    )
+    parser.add_argument(
         "--dc-stocks-csv",
         default="etudecas/simulation/result/data/production_dc_stocks_daily.csv",
         help="Baseline distribution center stocks CSV.",
@@ -160,6 +168,18 @@ def to_float(x: Any) -> float | None:
         return None
 
 
+def is_pilotage_hidden_node(node_id: str) -> bool:
+    return bool(node_id) and node_id in PILOTAGE_HIDDEN_NODE_IDS
+
+
+def is_pilotage_hidden_edge(src: str, dst: str) -> bool:
+    return is_pilotage_hidden_node(src) or is_pilotage_hidden_node(dst)
+
+
+def is_upstream_internal_site(node_id: str) -> bool:
+    return bool(node_id) and node_id in UPSTREAM_INTERNAL_SITE_IDS
+
+
 def compact_graph_payload(raw: dict[str, Any]) -> dict[str, Any]:
     nodes_in = raw.get("nodes", [])
     edges_in = raw.get("edges", [])
@@ -172,6 +192,8 @@ def compact_graph_payload(raw: dict[str, Any]) -> dict[str, Any]:
             continue
         src = str(edge.get("from") or "")
         dst = str(edge.get("to") or "")
+        if is_pilotage_hidden_edge(src, dst):
+            continue
         if src:
             connected_node_ids.add(src)
         if dst:
@@ -182,6 +204,8 @@ def compact_graph_payload(raw: dict[str, Any]) -> dict[str, Any]:
         if not isinstance(node, dict):
             continue
         node_id = str(node.get("id") or "")
+        if is_pilotage_hidden_node(node_id):
+            continue
         inventory_states = (((node.get("inventory") or {}).get("states")) or [])
         processes = node.get("processes") or []
         if (
@@ -217,6 +241,10 @@ def compact_graph_payload(raw: dict[str, Any]) -> dict[str, Any]:
     for edge in edges_in:
         if not isinstance(edge, dict):
             continue
+        src = str(edge.get("from") or "")
+        dst = str(edge.get("to") or "")
+        if is_pilotage_hidden_edge(src, dst):
+            continue
         items = edge.get("items", [])
         if not isinstance(items, list):
             items = []
@@ -224,8 +252,8 @@ def compact_graph_payload(raw: dict[str, Any]) -> dict[str, Any]:
             {
                 "id": edge.get("id"),
                 "type": edge.get("type", "unknown"),
-                "from": edge.get("from"),
-                "to": edge.get("to"),
+                "from": src,
+                "to": dst,
                 "items": items,
                 "planned_lead_days": max(1.0, to_float(((edge.get("lead_time") or {}).get("mean"))) or 1.0),
                 "distance_km": max(0.0, to_float(edge.get("distance_km")) or 0.0),
@@ -336,6 +364,8 @@ def factory_like_node_ids(raw: dict[str, Any]) -> set[str]:
         node_id = str(node.get("id") or "")
         node_type = str(node.get("type") or "")
         if not node_id:
+            continue
+        if is_pilotage_hidden_node(node_id):
             continue
         if node_type == "factory" or (node_type == "supplier_dc" and (node.get("processes") or [])):
             ids.add(node_id)
@@ -486,6 +516,7 @@ def build_factory_hover_images(
     raw: dict[str, Any],
     sim_input_stocks_csv: Path,
     sim_output_products_csv: Path,
+    input_arrivals_csv: Path,
     supplier_stocks_csv: Path,
     input_png_dir: Path,
     output_png_dir: Path,
@@ -496,8 +527,10 @@ def build_factory_hover_images(
     incoming_items, outgoing_items = build_edge_item_sets(raw)
     _ = demand_service_csv
     constraint_rows = read_csv_rows(production_constraint_csv)
+    input_arrival_rows = read_csv_rows(input_arrivals_csv)
     factory_ids = sorted(factory_like_node_ids(raw))
     node_by_id = {str(n.get("id")): n for n in nodes}
+    item_labels = item_label_lookup(raw)
     out: dict[str, Any] = {}
     for factory_id in factory_ids:
         node_type = str((node_by_id.get(factory_id) or {}).get("type") or "")
@@ -538,6 +571,48 @@ def build_factory_hover_images(
                 title=f"{factory_id} - stocks intrants",
                 y_label="Quantite",
             )
+        incoming_descriptors = detail.get("incoming") or []
+        incoming_stock_series = {
+            f"{str(descriptor.get('item_label') or descriptor.get('item_id') or '').strip()} - stock": list(
+                zip(descriptor.get("days") or [], descriptor.get("values") or [])
+            )
+            for descriptor in incoming_descriptors
+            if str(descriptor.get("item_label") or descriptor.get("item_id") or "").strip()
+        }
+        incoming_stock_series = {label: pts for label, pts in incoming_stock_series.items() if pts}
+        incoming_arrival_series: dict[str, list[tuple[int, float]]] = {}
+        if input_arrival_rows:
+            item_ids = sorted(
+                {
+                    str(row.get("item_id") or "")
+                    for row in input_arrival_rows
+                    if str(row.get("node_id") or "") == factory_id
+                }
+            )
+            for item_id in item_ids:
+                arrival_pts = aggregate_daily_series(
+                    input_arrival_rows,
+                    value_field="arrived_qty",
+                    node_field="node_id",
+                    node_id=factory_id,
+                    item_ids={item_id},
+                )
+                if arrival_pts:
+                    item_label = item_labels.get(item_id, compact_item_label(item_id))
+                    incoming_arrival_series[f"{item_label} - reception"] = arrival_pts
+        combined_incoming_series = dict(incoming_stock_series)
+        combined_incoming_series.update(incoming_arrival_series)
+        if combined_incoming_series:
+            incoming_title = f"{factory_id} - stocks / receptions intrants"
+            if is_upstream_internal_site(factory_id):
+                incoming_title = f"{factory_id} - stocks / arrivages intrants"
+            figure = build_line_chart_figure(
+                combined_incoming_series,
+                title=incoming_title,
+                y_label="Quantite",
+            )
+            if figure is not None:
+                incoming = {"figure": figure}
         factory_rows = [row for row in constraint_rows if str(row.get("node_id") or "") == factory_id]
         desired_series = aggregate_daily_series(factory_rows, value_field="desired_qty")
         actual_series = aggregate_daily_series(factory_rows, value_field="actual_qty")
@@ -627,7 +702,7 @@ def build_supplier_hover_images(
     supplier_ids = sorted(
         str(n.get("id"))
         for n in nodes
-        if str(n.get("type") or "") == "supplier_dc"
+        if str(n.get("type") or "") == "supplier_dc" and not is_pilotage_hidden_node(str(n.get("id") or ""))
     )
     out: dict[str, Any] = {}
     item_labels = item_label_lookup(raw)
@@ -653,11 +728,7 @@ def build_supplier_hover_images(
         if incoming is None:
             incoming = load_png_payload(png_dir / f"production_supplier_stocks_by_material_{safe_supplier}.png")
         outgoing = load_png_payload(png_dir / f"production_supplier_shipments_by_material_{safe_supplier}.png")
-        third = resolve_plot_payload(
-            png_dir,
-            Path("suppliers") / "capacity" / f"production_supplier_capacity_by_material_{safe_supplier}.png",
-            f"production_supplier_capacity_by_material_{safe_supplier}.png",
-        )
+        third = None
         shipped_series: list[tuple[int, float]] = []
         shipment_rows = read_csv_rows(supplier_shipments_csv)
         capacity_rows = read_csv_rows(supplier_capacity_csv)
@@ -694,66 +765,47 @@ def build_supplier_hover_images(
             if figure is not None:
                 incoming = {"figure": figure}
         if outgoing is None and shipment_rows:
-            per_item_shipments: dict[str, list[tuple[int, float]]] = {}
-            item_ids = sorted({str(row.get("item_id") or "") for row in shipment_rows if str(row.get("src_node_id") or "") == supplier_id})
+            combined_flow: dict[str, list[tuple[int, float]]] = {}
+            item_ids = sorted(
+                {
+                    str(row.get("item_id") or "")
+                    for row in shipment_rows
+                    if str(row.get("src_node_id") or "") == supplier_id
+                }
+            )
             for item_id in item_ids:
-                pts = aggregate_daily_series(
+                item_label = item_labels.get(item_id, compact_item_label(item_id))
+                ship_pts = aggregate_daily_series(
                     shipment_rows,
                     value_field="shipped_qty",
                     node_field="src_node_id",
                     node_id=supplier_id,
                     item_ids={item_id},
                 )
-                if pts:
-                    per_item_shipments[item_labels.get(item_id, compact_item_label(item_id))] = pts
-            shipment_title = f"{supplier_id} - expeditions journalieres par item"
-            if len(per_item_shipments) == 1:
-                shipment_title = f"{shipment_title} - {next(iter(per_item_shipments.keys()))}"
+                receipt_pts = aggregate_daily_series(
+                    shipment_rows,
+                    value_field="shipped_qty",
+                    day_field="arrival_day",
+                    node_field="src_node_id",
+                    node_id=supplier_id,
+                    item_ids={item_id},
+                )
+                if ship_pts:
+                    combined_flow[f"{item_label} - expedition"] = ship_pts
+                if receipt_pts:
+                    combined_flow[f"{item_label} - reception"] = receipt_pts
+            shipment_title = f"{supplier_id} - expeditions vs receptions associees"
+            if len(item_ids) == 1 and item_ids:
+                single_label = item_labels.get(item_ids[0], compact_item_label(item_ids[0]))
+                shipment_title = f"{shipment_title} - {single_label}"
             figure = build_line_chart_figure(
-                per_item_shipments,
+                combined_flow,
                 title=shipment_title,
                 y_label="Quantite",
                 step_like=True,
             )
             if figure is not None:
                 outgoing = {"figure": figure}
-        if third is None and capacity_rows:
-            per_item_capacity: dict[str, list[tuple[int, float]]] = {}
-            item_ids = sorted(
-                {
-                    str(row.get("item_id") or "")
-                    for row in capacity_rows
-                    if str(row.get("node_id") or "") == supplier_id
-                }
-            )
-            for item_id in item_ids:
-                pts = aggregate_daily_series(
-                    capacity_rows,
-                    value_field="utilization",
-                    node_field="node_id",
-                    node_id=supplier_id,
-                    item_ids={item_id},
-                )
-                if pts:
-                    per_item_capacity[item_labels.get(item_id, compact_item_label(item_id))] = pts
-            if per_item_capacity:
-                capacity_title = f"{supplier_id} - utilisation capacite par item"
-                if len(per_item_capacity) == 1:
-                    capacity_title = f"{capacity_title} - {next(iter(per_item_capacity.keys()))}"
-                figure = build_line_chart_figure(
-                    per_item_capacity,
-                    title=capacity_title,
-                    y_label="Utilisation",
-                    step_like=True,
-                )
-                if figure is not None:
-                    third = {"figure": figure}
-        if third is None:
-            third = build_supplier_site_detail_payload(
-                supplier_id,
-                shipped_series,
-                inbound_lead_days_by_supplier.get(supplier_id, {}),
-            )
         if incoming or outgoing or third:
             out[supplier_id] = {"incoming": incoming, "outgoing": outgoing, "third": third}
     return out
@@ -769,7 +821,7 @@ def build_distribution_center_hover_images(
     dc_ids = sorted(
         str(n.get("id"))
         for n in nodes
-        if str(n.get("type") or "") == "distribution_center"
+        if str(n.get("type") or "") == "distribution_center" and not is_pilotage_hidden_node(str(n.get("id") or ""))
     )
     out: dict[str, Any] = {}
     item_labels = item_label_lookup(raw)
@@ -815,6 +867,7 @@ def build_distribution_center_hover_images(
                 pts = aggregate_daily_series(
                     shipment_rows,
                     value_field="shipped_qty",
+                    day_field="arrival_day",
                     node_field="dst_node_id",
                     node_id=dc_id,
                     item_ids={item_id},
@@ -897,10 +950,12 @@ def build_site_stock_payload(
 def build_customer_hover_images(
     raw: dict[str, Any],
     demand_service_csv: Path,
+    shipments_csv: Path,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     rows = read_csv_rows(demand_service_csv)
     if not rows:
         return {}, {}
+    shipment_rows = read_csv_rows(shipments_csv)
 
     customer_ids = sorted(
         str(n.get("id"))
@@ -972,12 +1027,48 @@ def build_customer_hover_images(
             latest_demand_total += demand_value
             latest_served_total += float(to_float(row.get("served_qty")) or 0.0)
             latest_backlog_total += float(to_float(row.get("backlog_end_qty")) or 0.0)
-        third = build_bar_chart_payload(
-            {compact_item_label(item_id): value for item_id, value in latest_demand_by_item.items()},
-            title=f"{customer_id} - demande du dernier jour par produit",
-            y_label="Demande jour courant",
-            filename=f"{safe_case_token(customer_id)}_customer_latest_demand.png",
-        )
+        inbound_by_item: dict[str, list[tuple[int, float]]] = {}
+        if shipment_rows:
+            inbound_item_ids = sorted(
+                {str(row.get("item_id") or "") for row in shipment_rows if str(row.get("dst_node_id") or "") == customer_id}
+            )
+            for item_id in inbound_item_ids:
+                scoped_rows = [
+                    row
+                    for row in shipment_rows
+                    if str(row.get("dst_node_id") or "") == customer_id and str(row.get("item_id") or "") == item_id
+                ]
+                pts = aggregate_daily_series(
+                    scoped_rows,
+                    value_field="shipped_qty",
+                    day_field="arrival_day",
+                )
+                if pts:
+                    inbound_by_item[compact_item_label(item_id)] = pts
+        third = None
+        if inbound_by_item:
+            third = build_line_chart_payload(
+                inbound_by_item,
+                title=f"{customer_id} - receptions client par item",
+                y_label="Quantite",
+                filename=f"{safe_case_token(customer_id)}_customer_receipts.png",
+            )
+            if third is None:
+                figure = build_line_chart_figure(
+                    inbound_by_item,
+                    title=f"{customer_id} - receptions client par item",
+                    y_label="Quantite",
+                    step_like=True,
+                )
+                if figure is not None:
+                    third = {"figure": figure}
+        if third is None:
+            third = build_bar_chart_payload(
+                {compact_item_label(item_id): value for item_id, value in latest_demand_by_item.items()},
+                title=f"{customer_id} - demande du dernier jour par produit",
+                y_label="Demande jour courant",
+                filename=f"{safe_case_token(customer_id)}_customer_latest_demand.png",
+            )
         if third is None:
             figure = build_bar_chart_figure(
                 {compact_item_label(item_id): value for item_id, value in latest_demand_by_item.items()},
@@ -1253,7 +1344,13 @@ def render_order_ledger_html(
     )
     status_counts: dict[str, int] = defaultdict(int)
     for row in sorted_orders:
-        status_counts[str(row.get("order_status_end_of_run") or "n/a")] += 1
+        status_parts = [
+            f"plan={str(row.get('planning_status') or 'n/a')}",
+            f"release={str(row.get('release_status') or 'n/a')}",
+            f"receipt={str(row.get('receipt_status') or 'n/a')}",
+            f"run={str(row.get('order_status_end_of_run') or 'n/a')}",
+        ]
+        status_counts[" | ".join(status_parts)] += 1
 
     recent_lines: list[str] = []
     for row in sorted_orders[:120]:
@@ -1261,6 +1358,16 @@ def render_order_ledger_html(
         item_id = str(row.get("item_id") or "")
         item_label = item_labels.get(item_id, compact_item_label(item_id))
         mode_label = str(row.get("source_mode") or row.get("order_type") or "n/a")
+        exception_flags = [
+            flag
+            for flag in [
+                str(row.get("planning_status") or ""),
+                str(row.get("release_status") or ""),
+                str(row.get("receipt_status") or ""),
+                str(row.get("order_status_end_of_run") or ""),
+            ]
+            if flag and flag not in {"planned_and_released", "released", "firm_receipt", "received"}
+        ]
         recent_lines.append(
             " | ".join(
                 [
@@ -1271,6 +1378,7 @@ def render_order_ledger_html(
                     f"receipt={fmt_qty(row.get('planned_receipt_qty'), 1)}",
                     f"arrival={row.get('arrival_day') or 'n/a'}",
                     f"status={row.get('order_status_end_of_run') or 'n/a'}",
+                    f"exceptions={','.join(exception_flags) if exception_flags else 'none'}",
                 ]
             )
         )
@@ -1394,6 +1502,7 @@ def aggregate_daily_series(
     rows: list[dict[str, str]],
     *,
     value_field: str,
+    day_field: str = "day",
     node_field: str | None = None,
     node_id: str | None = None,
     item_ids: set[str] | None = None,
@@ -1405,7 +1514,7 @@ def aggregate_daily_series(
         item_id = str(row.get("item_id") or "")
         if item_ids is not None and item_id not in item_ids:
             continue
-        day = int(to_float(row.get("day")) or 0)
+        day = int(to_float(row.get(day_field)) or 0)
         value = float(to_float(row.get(value_field)) or 0.0)
         by_day[day] += value
     return sorted(by_day.items(), key=lambda it: it[0])
@@ -2855,6 +2964,7 @@ def build_model_panel_metrics(
     *,
     sim_input_stocks_csv: Path,
     sim_output_products_csv: Path,
+    input_arrivals_csv: Path,
     demand_service_csv: Path,
     supplier_shipments_csv: Path,
     supplier_stocks_csv: Path,
@@ -2869,7 +2979,7 @@ def build_model_panel_metrics(
     node_by_id = {
         str(node.get("id") or ""): node
         for node in (raw.get("nodes") or [])
-        if isinstance(node, dict) and node.get("id") is not None
+        if isinstance(node, dict) and node.get("id") is not None and not is_pilotage_hidden_node(str(node.get("id") or ""))
     }
     summary_file = output_root_from_csv(demand_service_csv) / "summaries" / "first_simulation_summary.json"
     data_root = output_root_from_csv(demand_service_csv) / "data"
@@ -2882,6 +2992,7 @@ def build_model_panel_metrics(
 
     input_rows = read_csv_rows(sim_input_stocks_csv)
     output_rows = read_csv_rows(sim_output_products_csv)
+    input_arrival_rows = read_csv_rows(input_arrivals_csv)
     demand_rows = read_csv_rows(demand_service_csv)
     supplier_ship_rows = read_csv_rows(supplier_shipments_csv)
     supplier_stock_rows = read_csv_rows(supplier_stocks_csv)
@@ -2896,6 +3007,7 @@ def build_model_panel_metrics(
     latest_output_rows = latest_rows_by_pair(output_rows, node_field="node_id")
     latest_dc_rows = latest_rows_by_pair(dc_stock_rows, node_field="node_id")
     latest_supplier_rows = latest_rows_by_pair(supplier_stock_rows, node_field="node_id")
+    latest_input_arrival_rows = latest_rows_by_pair(input_arrival_rows, node_field="node_id")
 
     constraint_by_node: dict[str, list[dict[str, str]]] = defaultdict(list)
     for row in constraint_rows:
@@ -2922,6 +3034,12 @@ def build_model_panel_metrics(
         supplier_cap_by_node[node_id].append(row)
         supplier_cap_by_pair[(node_id, item_id)].append(row)
 
+    input_arrivals_by_node: dict[str, list[dict[str, str]]] = defaultdict(list)
+    for row in input_arrival_rows:
+        node_id = str(row.get("node_id") or "")
+        if node_id:
+            input_arrivals_by_node[node_id].append(row)
+
     latest_mrp_trace_by_pair: dict[tuple[str, str], dict[str, str]] = {}
     mrp_trace_by_node: dict[str, list[dict[str, str]]] = defaultdict(list)
     for row in mrp_trace_rows:
@@ -2946,6 +3064,8 @@ def build_model_panel_metrics(
     for edge in raw.get("edges", []) or []:
         src = str(edge.get("from") or "")
         dst = str(edge.get("to") or "")
+        if is_pilotage_hidden_edge(src, dst):
+            continue
         if src:
             outgoing_edges_by_node[src].append(edge)
         if dst:
@@ -3035,6 +3155,8 @@ def build_model_panel_metrics(
     edges_payload: dict[str, Any] = {}
 
     for node_id, node in sorted(node_by_id.items()):
+        if is_pilotage_hidden_node(node_id):
+            continue
         node_type = str(node.get("type") or "")
         role_raw = str(node.get("role_raw") or "")
         location = str(node.get("location_ID") or "n/a")
@@ -3215,6 +3337,7 @@ def build_model_panel_metrics(
         elif node_type == "supplier_dc" and node_id not in factory_like_ids:
             ship_rows = supplier_ship_by_node.get(node_id, [])
             cap_rows = supplier_cap_by_node.get(node_id, [])
+            node_orders_preview = mrp_orders_by_node.get(node_id, [])
             final_stock_total = sum(
                 max(0.0, latest_supplier_stock.get((node_id, str(state.get("item_id") or "")), 0.0))
                 for state in inv_states
@@ -3239,6 +3362,19 @@ def build_model_panel_metrics(
                     latest_supplier_lines.append(
                         f"{item_labels.get(item_id, compact_item_label(item_id))}: stock_fin={fmt_qty(latest_row.get('stock_end_of_day'))}"
                     )
+            has_estimated_replenishment = any(
+                str(row.get("category") or "") == "unmodeled_supplier_source_policy"
+                and str(row.get("source") or "") == "estimated_replenishment"
+                for row in assumptions_by_node.get(node_id, [])
+            )
+            is_dormant_supplier = not ship_rows and not cap_rows and not node_orders_preview
+            supplier_diagnostic_lines = []
+            if is_dormant_supplier:
+                supplier_diagnostic_lines.append("Dormant: aucun flux observe sur l'horizon.")
+            if has_estimated_replenishment:
+                supplier_diagnostic_lines.append("Stock synthetique / estimated replenishment actif sur ce noeud.")
+            if not supplier_diagnostic_lines:
+                supplier_diagnostic_lines.append("Source active sur le run courant.")
             state_var_lines.extend(
                 [
                     "Stock_source(t): stock source expediable",
@@ -3276,6 +3412,7 @@ def build_model_panel_metrics(
                     metric_label_value("Clients aval", ", ".join(sorted(outgoing_targets.get(node_id, set()))[:6]) or "n/a"),
                     metric_label_value("Review period", f"{review_period} j" if review_period is not None else "n/a"),
                     metric_label_value("Capacites nominales", " | ".join(cap_preview) or "n/a"),
+                    metric_multiline_value("Diagnostic source", supplier_diagnostic_lines, limit=4),
                     metric_multiline_value("Stocks suivis", latest_supplier_lines, limit=8),
                     metric_multiline_value("Etats stock initiaux", inventory_lines, limit=8),
                     metric_multiline_value("Interactions", interaction_lines, limit=6),
@@ -3316,18 +3453,62 @@ def build_model_panel_metrics(
                 if cap is not None:
                     cap_values.append(str(cap))
             latest_output_lines = []
+            latest_input_arrival_lines = []
             latest_constraint_rows: dict[str, dict[str, str]] = {}
             for row in factory_rows:
                 item_id = str(row.get("output_item_id") or "")
                 if not item_id:
                     continue
                 latest_constraint_rows[item_id] = row
+            latest_arrival_rows: dict[str, dict[str, str]] = {}
+            for row in input_arrivals_by_node.get(node_id, []):
+                item_id = str(row.get("item_id") or "")
+                if not item_id:
+                    continue
+                latest_arrival_rows[item_id] = row
+            for item_id in sorted(latest_arrival_rows):
+                row = latest_arrival_rows[item_id]
+                latest_input_arrival_lines.append(
+                    f"{item_labels.get(item_id, compact_item_label(item_id))}: arrivage_jour={fmt_qty(row.get('arrived_qty'))} ; jour={int(to_float(row.get('day')) or 0)}"
+                )
             for item_id in sorted(latest_constraint_rows):
                 row = latest_constraint_rows[item_id]
                 latest_out = latest_output_rows.get((node_id, item_id))
                 latest_output_lines.append(
                     f"{item_labels.get(item_id, compact_item_label(item_id))}: desire={fmt_qty(row.get('desired_qty'))} ; plan_lot={fmt_qty(row.get('planned_qty_after_lot_rule'))} ; reel={fmt_qty(row.get('actual_qty'))} ; stock_fin={fmt_qty((latest_out or {}).get('stock_end_of_day'))}"
                 )
+            special_flow_lines: list[str] = []
+            if is_upstream_internal_site(node_id):
+                actual_output_qty_by_item: dict[str, float] = defaultdict(float)
+                for row in factory_rows:
+                    item_id = str(row.get("output_item_id") or "")
+                    if item_id:
+                        actual_output_qty_by_item[item_id] += max(0.0, to_float(row.get("actual_qty")) or 0.0)
+                external_procurement_qty_by_item: dict[str, float] = defaultdict(float)
+                for row in mrp_orders_by_node.get(node_id, []):
+                    if str(row.get("order_type") or "") != "external_procurement":
+                        continue
+                    item_id = str(row.get("item_id") or "")
+                    if item_id:
+                        external_procurement_qty_by_item[item_id] += max(0.0, to_float(row.get("planned_receipt_qty")) or 0.0)
+                if aggregate_daily_series(
+                    input_arrivals_by_node.get(node_id, []),
+                    value_field="arrived_qty",
+                    node_field="node_id",
+                    node_id=node_id,
+                    item_ids={"item:021081"},
+                ):
+                    special_flow_lines.append(
+                        "021081: arrivages intrants observes dans production_input_replenishment_arrivals_daily.csv."
+                    )
+                if actual_output_qty_by_item.get("item:773474", 0.0) > 0:
+                    special_flow_lines.append(
+                        f"773474: production interne explicite observee, cumul reel={fmt_qty(actual_output_qty_by_item.get('item:773474', 0.0))}."
+                    )
+                if external_procurement_qty_by_item.get("item:693055", 0.0) > 0 and actual_output_qty_by_item.get("item:693055", 0.0) <= 0:
+                    special_flow_lines.append(
+                        f"693055: flux aval source confirme, mais pas de production interne explicite observee ; reappro courant via external_procurement={fmt_qty(external_procurement_qty_by_item.get('item:693055', 0.0))}."
+                    )
             state_var_lines.extend(
                 [
                     "besoin brut produit fini BB_pf(t): signal aval dynamique du produit fini",
@@ -3374,7 +3555,9 @@ def build_model_panel_metrics(
                     metric_multiline_value("Regles de lot", process_lot_rules, limit=6),
                     metric_label_value("Review period", f"{review_period} j" if review_period is not None else "n/a"),
                     metric_multiline_value("Etats stock initiaux", inventory_lines, limit=10),
+                    metric_multiline_value("Arrivages intrants observes", latest_input_arrival_lines, limit=8),
                     metric_multiline_value("Sorties observees", latest_output_lines, limit=8),
+                    metric_multiline_value("Diagnostic semi-fini", special_flow_lines, limit=6),
                     metric_multiline_value("Interactions", interaction_lines, limit=6),
                     metric_section("Hypotheses"),
                     *[metric_label_value(f"H {idx+1}", line) for idx, line in enumerate(assumption_lines)],
@@ -3423,7 +3606,15 @@ def build_model_panel_metrics(
         node_orders = mrp_orders_by_node.get(node_id, [])
         order_status_counts: dict[str, int] = defaultdict(int)
         for row in node_orders:
-            order_status_counts[str(row.get("order_status_end_of_run") or "n/a")] += 1
+            status_key = " | ".join(
+                [
+                    f"plan={str(row.get('planning_status') or 'n/a')}",
+                    f"release={str(row.get('release_status') or 'n/a')}",
+                    f"receipt={str(row.get('receipt_status') or 'n/a')}",
+                    f"run={str(row.get('order_status_end_of_run') or 'n/a')}",
+                ]
+            )
+            order_status_counts[status_key] += 1
         order_lines = []
         for row in sorted(
             node_orders,
@@ -3480,6 +3671,12 @@ def build_model_panel_metrics(
                         "Diagnostic: source dormante dans ce baseline. "
                         "Aucune expedition observee sur les lanes source et aucun tirage simule."
                     )
+                    if any(
+                        str(row.get("category") or "") == "unmodeled_supplier_source_policy"
+                        and str(row.get("source") or "") == "estimated_replenishment"
+                        for row in assumptions_by_node.get(node_id, [])
+                    ):
+                        dormant_reason += " Stock synthetique / estimated replenishment actif."
                     if scoped_dests or scoped_items:
                         dormant_reason += " "
                         dormant_reason += (
@@ -3509,6 +3706,14 @@ def build_model_panel_metrics(
             "Planned receipt": aggregate_trace_series(node_trace_rows, "planned_receipt_qty"),
             "Target stock": aggregate_trace_series(node_trace_rows, "target_stock_qty"),
         }
+        actual_input_arrival_series = aggregate_daily_series(
+            input_arrivals_by_node.get(node_id, []),
+            value_field="arrived_qty",
+            node_field="node_id",
+            node_id=node_id,
+        )
+        if actual_input_arrival_series:
+            flow_series["Actual input arrivals"] = actual_input_arrival_series
         flow_figure = build_line_chart_figure(
             flow_series,
             title=f"{node_id} - releases / receipts / target",
@@ -3580,6 +3785,8 @@ def build_model_panel_metrics(
             continue
         src = str(edge.get("from") or "")
         dst = str(edge.get("to") or "")
+        if is_pilotage_hidden_edge(src, dst):
+            continue
         items = [str(item_id) for item_id in (edge.get("items") or []) if str(item_id or "")]
         attrs = edge.get("attrs") or {}
         planned_lead = max(1.0, to_float(((edge.get("lead_time") or {}).get("mean"))) or 1.0)
@@ -6436,25 +6643,33 @@ def html_template(title: str, data_json: str, material_table_html: str, material
       if (nodeType === "supplier_dc") {{
         return {{
           incoming: "Stock fournisseur",
-          outgoing: "Flux aval",
+          outgoing: "Expeditions vs receptions",
           third: "Capacite",
-          fourth: "MRP / risque"
+          fourth: "Pilotage MRP"
+        }};
+      }}
+      if (nodeId === "SDC-1450" && isFactoryLikeNode(nodeId, nodeType)) {{
+        return {{
+          incoming: "Stock intrants / semi-fini",
+          outgoing: "Stock semi-fini",
+          third: "Production / capacite",
+          fourth: "Pilotage MRP"
         }};
       }}
       if (nodeType === "distribution_center") {{
         return {{
-          incoming: "Stocks du distribution center",
-          outgoing: "Receptions du distribution center",
-          third: "Expeditions du distribution center",
-          fourth: "MRP / risque"
+          incoming: "Stock DC",
+          outgoing: "Receptions DC",
+          third: "Expeditions DC",
+          fourth: "Pilotage MRP"
         }};
       }}
       if (nodeType === "customer") {{
         return {{
-          incoming: "Client - demande dans le temps",
-          outgoing: "Client - servi et backlog",
-          third: "Client - demande du jour par produit",
-          fourth: "MRP / risque"
+          incoming: "Demande client",
+          outgoing: "Servi et backlog",
+          third: "Receptions client",
+          fourth: "Pilotage MRP"
         }};
       }}
       if (nodeType === "edge") {{
@@ -6492,13 +6707,16 @@ def html_template(title: str, data_json: str, material_table_html: str, material
       const modelDetails = nodeType === "edge"
         ? (((MODEL_PANEL.edges || {{}})[nodeId]) || null)
         : (((MODEL_PANEL.nodes || {{}})[nodeId]) || null);
+      const modelBundleEntries = modelDetails ? [
+        {{ label: "Carnet", asset: modelDetails.third || null }},
+        {{ label: "Flux MRP", asset: modelDetails.outgoing || null }},
+        {{ label: "Exceptions / risque", asset: modelDetails.incoming || null }},
+      ] : [];
+      if (nodeType !== "supplier_dc" && nodeType !== "customer") {{
+        modelBundleEntries.unshift({{ label: "Reappro amont", asset: modelDetails ? (modelDetails.fourth || null) : null }});
+      }}
       const modelBundle = modelDetails ? {{
-        bundle: [
-          {{ label: "Reappro amont", asset: modelDetails.fourth || null }},
-          {{ label: "Carnet", asset: modelDetails.third || null }},
-          {{ label: "Risque", asset: modelDetails.incoming || null }},
-          {{ label: "MRP detaille", asset: modelDetails.outgoing || null }},
-        ].filter(entry => !!entry.asset)
+        bundle: modelBundleEntries.filter(entry => !!entry.asset)
       }} : null;
       const modelFourth = modelBundle && modelBundle.bundle.length ? modelBundle : null;
       if (nodeType === "supplier_dc") {{
@@ -6568,9 +6786,10 @@ def html_template(title: str, data_json: str, material_table_html: str, material
       const nodeName = nodeType === "edge"
         ? `${{nodeInfo.from || "n/a"}} -> ${{nodeInfo.to || "n/a"}}`
         : (nodeInfo.name || nodeId);
-      const nodeTitle = nodeType === "supplier_dc" ? "Supplier" :
+      const nodeTitle = nodeId === "SDC-1450" ? "Upstream Semi-finished Site" :
+        (nodeType === "supplier_dc" ? "Supplier" :
         (isFactoryLikeNode(nodeId, nodeType) ? "Industrial Site" :
-        (nodeType === "distribution_center" ? "Distribution Center" : (nodeType === "factory" ? "Factory" : (nodeType === "customer" ? "Customer" : "Edge"))));
+        (nodeType === "distribution_center" ? "Distribution Center" : (nodeType === "factory" ? "Factory" : (nodeType === "customer" ? "Customer" : "Edge")))));
       const modeTitle = currentPanelMode === "sensitivity" ? "Sensibilite" :
         (currentPanelMode === "structural" ? "Structurel" : (currentPanelMode === "model" ? "Modele" : "Simulation"));
       title.textContent = `${{nodeTitle}}: ${{nodeName}} (${{nodeId}}) | ${{modeTitle}}`;
@@ -6952,6 +7171,7 @@ def main() -> None:
     supplier_shipments_csv = Path(args.supplier_shipments_csv)
     supplier_stocks_csv = Path(args.supplier_stocks_csv)
     supplier_capacity_csv = Path(args.supplier_capacity_csv)
+    input_arrivals_csv = Path(args.input_arrivals_csv)
     production_constraint_csv = Path(args.production_constraint_csv)
     structural_sensitivity_cases_csv = Path(args.structural_sensitivity_cases_csv)
     supplier_local_criticality_csv = Path(args.supplier_local_criticality_csv)
@@ -6999,6 +7219,7 @@ def main() -> None:
             raw,
             sim_input,
             sim_output,
+            input_arrivals_csv,
             supplier_stocks_csv,
             sim_input_png_dir,
             sim_output_png_dir,
@@ -7031,6 +7252,7 @@ def main() -> None:
             raw,
             sim_input_stocks_csv=sim_input,
             sim_output_products_csv=sim_output,
+            input_arrivals_csv=input_arrivals_csv,
             demand_service_csv=demand_service_csv,
             supplier_shipments_csv=supplier_shipments_csv,
             supplier_stocks_csv=supplier_stocks_csv,
@@ -7041,6 +7263,7 @@ def main() -> None:
         payload["customer_hover_images"], payload["customer_current_metrics"] = build_customer_hover_images(
             raw,
             demand_service_csv,
+            supplier_shipments_csv,
         )
         (
             payload["factory_sensitivity_hover_images"],

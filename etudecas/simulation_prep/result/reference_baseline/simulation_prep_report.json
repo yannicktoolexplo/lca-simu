@@ -1,26 +1,28 @@
 {
-  "generated_at_utc": "2026-04-22T12:10:02.336101+00:00",
+  "generated_at_utc": "2026-04-23T09:22:35.512884+00:00",
   "changes": {
     "customer_location_recovered_from_acteurs": 1,
     "customer_service_target_by_item_updated": 1,
     "demand_profile_loaded_from_demand_pf": 2,
     "demand_rows_added": 1,
+    "duplicate_gaillac_factory_edges_removed": 5,
+    "duplicate_gaillac_factory_removed": 1,
     "edge_added_from_demand_pf_relations": 7,
-    "edge_delay_limit_updated": 11,
+    "edge_delay_limit_updated": 6,
     "edge_distance_filled": 38,
     "edge_endpoint_reconciled_dc1910_to_dc1920": 4,
-    "edge_lead_time_updated": 11,
+    "edge_lead_time_updated": 6,
     "edge_order_terms_aligned_from_demand_pf_relations": 39,
-    "edge_transport_cost_updated": 44,
-    "inventory_holding_cost_source::global_value_median_fallback": 13,
-    "inventory_holding_cost_source::item_value_median_from_priced_edges": 54,
-    "inventory_holding_cost_updated": 67,
-    "inventory_initial_updated": 67,
+    "edge_transport_cost_updated": 39,
+    "inventory_holding_cost_source::global_value_median_fallback": 12,
+    "inventory_holding_cost_source::item_value_median_from_priced_edges": 53,
+    "inventory_holding_cost_updated": 65,
+    "inventory_initial_updated": 65,
     "inventory_state_added_from_demand_pf_relations": 7,
     "inventory_uom_harmonized": 11,
     "node_added_from_demand_pf_acteurs": 2,
     "node_alias_merged_dc1910_into_dc1920": 1,
-    "node_policy_added": 34,
+    "node_policy_added": 33,
     "process_capacity_updated": 2,
     "process_cost_updated": 3,
     "scenario_horizon_updated": 1
@@ -76,12 +78,11 @@
     ]
   },
   "validation_after_prep": {
-    "missing_geo_nodes_count": 2,
+    "missing_geo_nodes_count": 1,
     "missing_geo_nodes": [
-      "M-1450",
       "SDC-VD0956464A"
     ],
-    "edges_missing_distance_count": 6,
+    "edges_missing_distance_count": 1,
     "edges_zero_transport_cost_count": 0,
     "edges_factory_input_missing_sell_price_count": 0,
     "edges_factory_input_missing_sell_price": [],
@@ -231,8 +232,8 @@
       "item_unit_value_basis": "median(sell_price / price_base) per item after Data_poc pricing alignment",
       "fallback_unit_value_basis": "global median priced item-unit value",
       "priced_items": 21,
-      "priced_edge_item_pairs": 36,
-      "fallback_global_unit_value_per_item_unit": 4.485
+      "priced_edge_item_pairs": 32,
+      "fallback_global_unit_value_per_item_unit": 3.895
     },
     "process_cost_per_unit_assumed": 0.35,
     "demand_default_customer_rule": "weekly_fluctuating_profile(base=max(10, 1.0 * total_production_capacity_of_item))",
