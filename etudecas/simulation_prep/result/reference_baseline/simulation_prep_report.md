@@ -3,7 +3,7 @@
 ## Inputs / outputs
 - Input graph: etudecas\result_geocodage\supply_graph_poc_geocoded.json
 - Output graph: etudecas\simulation_prep\result\reference_baseline\supply_graph_reference_baseline_simulation_ready.json
-- Generated at (UTC): 2026-04-21T09:08:35.756827+00:00
+- Generated at (UTC): 2026-04-22T12:10:02.336101+00:00
 
 ## What was enriched
 - Edge distances filled: 38

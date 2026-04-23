@@ -1,0 +1,101 @@
+# First simulation report
+
+## Run setup
+- Input: etudecas\simulation_prep\result\reference_baseline\supply_graph_reference_baseline_real_demand_target_calibrated_mrp_lot_policy_recalibrated_5y.json
+- Scenario: scn:BASE
+- Measured horizon (days): 1825
+- Warm-up (days): 0
+- Total simulated timeline (days): 1825
+- Output profile: compact
+- Safety stock policy (days): 7.0
+- Replenishment review period (days): 1
+- Finished-goods target cover (days): 0.0
+- Production stock-gap gain: 0.25
+- Production smoothing factor: 0.2
+- Opening stock bootstrap scale: 1.0
+- Initialization mode: explicit_state
+- Initialization stock days factory / supplier FG / DC / customer: 0.0 / 1.0 / 3.0 / 0.0
+- Initialization seed in-transit / fill ratio / estimated-source pipeline: True / 1.0 / True
+- Unmodeled supplier source mode: external_procurement
+- Stochastic lead times: True
+- Random seed: 42
+- Economic policy transport floor /km: 0.02 / 8e-05
+- Economic policy purchase floor: 0.01
+- Holding cost scale: 1.0
+- Inventory cost split capital / warehouse / risk: 0.35 / 0.45 / 0.2
+- Transport / purchase realism multipliers: 0.2 / 1.0
+- External procurement enabled: True
+- External procurement lead days: 4
+- External procurement daily cap days: 2.0
+- External procurement min daily cap qty: 0.0
+- External procurement unit cost / multiplier / transport unit: 0.0 / 2.0 / 0.04
+- Nodes: 34
+- Edges: 44
+- Lanes (edge x item): 44
+- Demand rows: 2
+- Input material pairs tracked: 24
+- Output product pairs tracked: 3 (M-1430 | item:268967, M-1810 | item:268091, SDC-1450 | item:773474)
+- Inputs non modelises par Relations_acteurs (non bloquants): 0 (none)
+- Conversions d'unites BOM appliquees: 11
+- Mismatch d'unites non convertis: 0
+- Assumed supplier nodes (explicitly tagged, includes '?'): 0 (none)
+- Assumed supply edges (explicitly tagged, includes '?'): 0 (none)
+- External upstream sourcing for unmodeled source pairs: 35
+- Opening stock bootstrap pairs (lead-time coverage at max capacity): 0
+- MRP trace tracked pairs / rows / orders: 67 / 122275 / 2009
+
+## KPIs
+- Total demand: 5152428.0
+- Total served: 5152428.0
+- Fill rate: 1.0
+- Ending backlog: 0
+- Total produced: 37540800.0
+- Total shipped: 162397069.7063
+- Avg inventory: 2383243560.4547
+- Ending inventory: 2388806118.7751
+- Transport cost: 16325408.9557
+- Holding cost (capital tied-up): 256909040.4426
+- Warehouse operating cost: 330311623.4262
+- Inventory risk cost (obsolescence/compliance proxy): 146805165.9672
+- Legacy raw holding cost before split: 734025829.836
+- Purchase cost (from order_terms sell_price): 6387310.4286
+- Logistics cost (transport + inventory capital + warehouse + inventory risk): 750351238.7917
+- Total cost: 756738549.2203
+- Total external procured ordered qty: 20825488.964
+- Total external procured arrived qty: 20825488.964
+- Total external procured rejected qty (cap-limited): 122850621.0163
+- Total external procurement cost premium: 1342337.1706
+- Total estimated source ordered qty: 0.0
+- Total estimated source replenished qty: 1618504474.9346
+- Total estimated source rejected qty: 0.0
+- Cost share capital holding / warehouse / inventory risk / transport / purchase: 0.339495 / 0.436494 / 0.193997 / 0.021573 / 0.008441
+- Total opening stock bootstrap qty: 0.0
+- Total explicit initialization stock qty: 272813254.4058
+- Total explicit initialization pipeline qty: 2087244118.4221
+- Total unreliable supplier loss qty: 0.0
+- Total supplier capacity binding qty: 31925000.0
+- Economic consistency status: ok
+- Economic consistency warnings: []
+
+## Top backlog pairs
+[]
+
+## Files
+- summaries/first_simulation_summary.json
+- data/production_input_stocks_daily.csv
+- data/production_output_products_daily.csv
+- data/production_demand_service_daily.csv
+- data/production_constraint_daily.csv
+- data/mrp_trace_daily.csv
+- data/mrp_orders_daily.csv
+- data/assumptions_ledger.csv
+- data/production_supplier_shipments_daily.csv
+- data/production_supplier_stocks_daily.csv
+- data/production_supplier_capacity_daily.csv
+- Additional detailed CSVs: skipped in compact mode
+- production_input_stocks_by_material_*.png (not generated)
+- production_output_products.png (not generated)
+- production_output_products_by_factory_*.png (not generated)
+- production_supplier_input_stocks_by_material_*.png (not generated)
+- production_dc_factory_outputs_by_material_*.png (not generated)
+- maps/supply_graph_poc_geocoded_map_with_factory_hover.html (not generated)

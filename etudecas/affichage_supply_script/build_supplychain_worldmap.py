@@ -166,9 +166,31 @@ def compact_graph_payload(raw: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(nodes_in, list) or not isinstance(edges_in, list):
         raise ValueError("Expected JSON with list fields: nodes and edges.")
 
+    connected_node_ids: set[str] = set()
+    for edge in edges_in:
+        if not isinstance(edge, dict):
+            continue
+        src = str(edge.get("from") or "")
+        dst = str(edge.get("to") or "")
+        if src:
+            connected_node_ids.add(src)
+        if dst:
+            connected_node_ids.add(dst)
+
     nodes: list[dict[str, Any]] = []
     for node in nodes_in:
         if not isinstance(node, dict):
+            continue
+        node_id = str(node.get("id") or "")
+        inventory_states = (((node.get("inventory") or {}).get("states")) or [])
+        processes = node.get("processes") or []
+        if (
+            node_id
+            and node_id not in connected_node_ids
+            and not inventory_states
+            and not processes
+        ):
+            # Skip pure orphans in the exported map payload.
             continue
         geo = node.get("geo", {}) or {}
         lat = node.get("lat", geo.get("lat"))
@@ -599,6 +621,7 @@ def build_supplier_hover_images(
     png_dir: Path,
     supplier_shipments_csv: Path,
     supplier_stocks_csv: Path,
+    supplier_capacity_csv: Path,
 ) -> dict[str, Any]:
     nodes = raw.get("nodes", []) or []
     supplier_ids = sorted(
@@ -630,8 +653,14 @@ def build_supplier_hover_images(
         if incoming is None:
             incoming = load_png_payload(png_dir / f"production_supplier_stocks_by_material_{safe_supplier}.png")
         outgoing = load_png_payload(png_dir / f"production_supplier_shipments_by_material_{safe_supplier}.png")
+        third = resolve_plot_payload(
+            png_dir,
+            Path("suppliers") / "capacity" / f"production_supplier_capacity_by_material_{safe_supplier}.png",
+            f"production_supplier_capacity_by_material_{safe_supplier}.png",
+        )
         shipped_series: list[tuple[int, float]] = []
         shipment_rows = read_csv_rows(supplier_shipments_csv)
+        capacity_rows = read_csv_rows(supplier_capacity_csv)
         if shipment_rows:
             shipped_series = aggregate_daily_series(
                 shipment_rows,
@@ -653,10 +682,14 @@ def build_supplier_hover_images(
                 )
                 if pts:
                     per_item_stock[item_labels.get(item_id, compact_item_label(item_id))] = pts
+            stock_title = f"{supplier_id} - stock fournisseur par item"
+            if len(per_item_stock) == 1:
+                stock_title = f"{stock_title} - {next(iter(per_item_stock.keys()))}"
             figure = build_line_chart_figure(
                 per_item_stock,
-                title=f"{supplier_id} - stock fournisseur par item",
+                title=stock_title,
                 y_label="Quantite",
+                step_like=True,
             )
             if figure is not None:
                 incoming = {"figure": figure}
@@ -673,18 +706,54 @@ def build_supplier_hover_images(
                 )
                 if pts:
                     per_item_shipments[item_labels.get(item_id, compact_item_label(item_id))] = pts
+            shipment_title = f"{supplier_id} - expeditions journalieres par item"
+            if len(per_item_shipments) == 1:
+                shipment_title = f"{shipment_title} - {next(iter(per_item_shipments.keys()))}"
             figure = build_line_chart_figure(
                 per_item_shipments,
-                title=f"{supplier_id} - expeditions journalieres par item",
+                title=shipment_title,
                 y_label="Quantite",
+                step_like=True,
             )
             if figure is not None:
                 outgoing = {"figure": figure}
-        third = build_supplier_site_detail_payload(
-            supplier_id,
-            shipped_series,
-            inbound_lead_days_by_supplier.get(supplier_id, {}),
-        )
+        if third is None and capacity_rows:
+            per_item_capacity: dict[str, list[tuple[int, float]]] = {}
+            item_ids = sorted(
+                {
+                    str(row.get("item_id") or "")
+                    for row in capacity_rows
+                    if str(row.get("node_id") or "") == supplier_id
+                }
+            )
+            for item_id in item_ids:
+                pts = aggregate_daily_series(
+                    capacity_rows,
+                    value_field="utilization",
+                    node_field="node_id",
+                    node_id=supplier_id,
+                    item_ids={item_id},
+                )
+                if pts:
+                    per_item_capacity[item_labels.get(item_id, compact_item_label(item_id))] = pts
+            if per_item_capacity:
+                capacity_title = f"{supplier_id} - utilisation capacite par item"
+                if len(per_item_capacity) == 1:
+                    capacity_title = f"{capacity_title} - {next(iter(per_item_capacity.keys()))}"
+                figure = build_line_chart_figure(
+                    per_item_capacity,
+                    title=capacity_title,
+                    y_label="Utilisation",
+                    step_like=True,
+                )
+                if figure is not None:
+                    third = {"figure": figure}
+        if third is None:
+            third = build_supplier_site_detail_payload(
+                supplier_id,
+                shipped_series,
+                inbound_lead_days_by_supplier.get(supplier_id, {}),
+            )
         if incoming or outgoing or third:
             out[supplier_id] = {"incoming": incoming, "outgoing": outgoing, "third": third}
     return out
@@ -757,6 +826,7 @@ def build_distribution_center_hover_images(
                     inbound_by_item,
                     title=f"{dc_id} - receptions journalieres par item",
                     y_label="Quantite",
+                    step_like=True,
                 )
                 if figure is not None:
                     outgoing = {"figure": figure}
@@ -780,6 +850,7 @@ def build_distribution_center_hover_images(
                     outbound_by_item,
                     title=f"{dc_id} - expeditions journalieres par item",
                     y_label="Quantite",
+                    step_like=True,
                 )
                 if figure is not None:
                     third = {"figure": figure}
@@ -936,6 +1007,292 @@ def build_customer_hover_images(
     return customer_hover, customer_metrics
 
 
+def normalize_unit_label(unit: Any) -> str:
+    value = str(unit or "").strip().upper()
+    aliases = {
+        "UNIT": "UN",
+        "UNITE": "UN",
+        "UNITS": "UN",
+    }
+    return aliases.get(value, value)
+
+
+def convert_unit_quantity(value: float, from_unit: str, to_unit: str) -> float:
+    src = normalize_unit_label(from_unit)
+    dst = normalize_unit_label(to_unit)
+    if not src or not dst or src == dst:
+        return value
+    if src == "G" and dst == "KG":
+        return value / 1000.0
+    if src == "KG" and dst == "G":
+        return value * 1000.0
+    return value
+
+
+def build_material_balance_table_rows(
+    raw: dict[str, Any],
+    *,
+    demand_service_csv: Path,
+    sim_input_stocks_csv: Path,
+    sim_output_products_csv: Path,
+    supplier_shipments_csv: Path,
+) -> list[dict[str, Any]]:
+    item_labels = build_item_label_lookup(raw)
+    node_type_by_id = build_node_type_lookup(raw)
+    demand_rows = read_csv_rows(demand_service_csv)
+    input_rows = read_csv_rows(sim_input_stocks_csv)
+    output_rows = read_csv_rows(sim_output_products_csv)
+    shipment_rows = read_csv_rows(supplier_shipments_csv)
+
+    demand_total_by_item: dict[str, float] = defaultdict(float)
+    served_total_by_item: dict[str, float] = defaultdict(float)
+    for row in demand_rows:
+        if str(row.get("node_id") or "") not in {
+            node_id for node_id, node_type in node_type_by_id.items() if node_type == "customer"
+        }:
+            continue
+        item_id = str(row.get("item_id") or "")
+        if not item_id:
+            continue
+        demand_total_by_item[item_id] += max(0.0, to_float(row.get("demand_qty")) or 0.0)
+        served_total_by_item[item_id] += max(0.0, to_float(row.get("served_qty")) or 0.0)
+
+    produced_total_by_pair: dict[tuple[str, str], float] = defaultdict(float)
+    for row in output_rows:
+        node_id = str(row.get("node_id") or "")
+        item_id = str(row.get("item_id") or "")
+        if not node_id or not item_id:
+            continue
+        produced_total_by_pair[(node_id, item_id)] += max(0.0, to_float(row.get("produced_qty")) or 0.0)
+
+    latest_input_stock_by_pair: dict[tuple[str, str], tuple[int, float]] = {}
+    for row in input_rows:
+        node_id = str(row.get("node_id") or "")
+        item_id = str(row.get("item_id") or "")
+        if not node_id or not item_id:
+            continue
+        day = int(to_float(row.get("day")) or 0)
+        stock_value = max(0.0, to_float(row.get("stock_end_of_day")) or 0.0)
+        key = (node_id, item_id)
+        prev = latest_input_stock_by_pair.get(key)
+        if prev is None or day >= prev[0]:
+            latest_input_stock_by_pair[key] = (day, stock_value)
+
+    shipped_total_to_pair: dict[tuple[str, str], float] = defaultdict(float)
+    for row in shipment_rows:
+        node_id = str(row.get("dst_node_id") or "")
+        item_id = str(row.get("item_id") or "")
+        if not node_id or not item_id:
+            continue
+        shipped_total_to_pair[(node_id, item_id)] += max(0.0, to_float(row.get("shipped_qty")) or 0.0)
+
+    initial_stock_by_pair: dict[tuple[str, str], float] = defaultdict(float)
+    unit_by_pair: dict[tuple[str, str], str] = {}
+    pf_initial_by_item: dict[str, float] = defaultdict(float)
+    pf_unit_by_item: dict[str, str] = {}
+    for node in raw.get("nodes", []) or []:
+        node_id = str(node.get("id") or "")
+        node_type = str(node.get("type") or "")
+        for state in (((node.get("inventory") or {}).get("states") or [])):
+            item_id = str(state.get("item_id") or "")
+            if not item_id:
+                continue
+            initial_qty = max(0.0, to_float(state.get("initial")) or 0.0)
+            key = (node_id, item_id)
+            initial_stock_by_pair[key] += initial_qty
+            unit = normalize_unit_label(state.get("uom"))
+            if unit and key not in unit_by_pair:
+                unit_by_pair[key] = unit
+            if node_type in {"distribution_center", "customer"}:
+                pf_initial_by_item[item_id] += initial_qty
+                if unit and item_id not in pf_unit_by_item:
+                    pf_unit_by_item[item_id] = unit
+
+    material_rows_by_pair: dict[tuple[str, str], dict[str, Any]] = {}
+    for node in raw.get("nodes", []) or []:
+        node_id = str(node.get("id") or "")
+        for proc in (node.get("processes") or []):
+            batch_size = max(1.0, to_float(proc.get("batch_size")) or 1.0)
+            outputs = [out for out in (proc.get("outputs") or []) if str(out.get("item_id") or "")]
+            inputs = [inp for inp in (proc.get("inputs") or []) if str(inp.get("item_id") or "")]
+            if not outputs or not inputs:
+                continue
+            for out in outputs:
+                out_item = str(out.get("item_id") or "")
+                full_demand_qty = demand_total_by_item.get(out_item, 0.0)
+                actual_prod_qty = produced_total_by_pair.get((node_id, out_item), 0.0)
+                if full_demand_qty <= 0.0 and actual_prod_qty <= 0.0:
+                    continue
+                for inp in inputs:
+                    input_item = str(inp.get("item_id") or "")
+                    ratio_qty = max(0.0, to_float(inp.get("ratio_per_batch")) or 0.0)
+                    ratio_unit = normalize_unit_label(inp.get("ratio_unit"))
+                    pair_key = (node_id, input_item)
+                    unit = unit_by_pair.get(pair_key) or ratio_unit or ""
+                    need_qty = convert_unit_quantity((ratio_qty / batch_size) * full_demand_qty, ratio_unit, unit)
+                    consumed_qty = convert_unit_quantity((ratio_qty / batch_size) * actual_prod_qty, ratio_unit, unit)
+                    bucket = material_rows_by_pair.setdefault(
+                        pair_key,
+                        {
+                            "scope": "material",
+                            "scope_label": "Matiere",
+                            "item_id": input_item,
+                            "item_label": item_labels.get(input_item, compact_item_label(input_item)),
+                            "node_label": node_id,
+                            "planned_qty": 0.0,
+                            "initial_qty": initial_stock_by_pair.get(pair_key, 0.0),
+                            "delivered_qty": shipped_total_to_pair.get(pair_key, 0.0),
+                            "consumed_qty": 0.0,
+                            "final_stock_qty": (latest_input_stock_by_pair.get(pair_key) or (0, 0.0))[1],
+                            "unit": unit or ratio_unit or "",
+                        },
+                    )
+                    bucket["planned_qty"] += need_qty
+                    bucket["consumed_qty"] += consumed_qty
+
+    rows: list[dict[str, Any]] = []
+    for item_id in sorted(demand_total_by_item):
+        rows.append(
+            {
+                "scope": "pf",
+                "scope_label": "PF",
+                "item_id": item_id,
+                "item_label": item_labels.get(item_id, compact_item_label(item_id)),
+                "node_label": "DC / client final",
+                "planned_qty": demand_total_by_item.get(item_id, 0.0),
+                "initial_qty": pf_initial_by_item.get(item_id, 0.0),
+                "delivered_qty": served_total_by_item.get(item_id, 0.0),
+                "consumed_qty": served_total_by_item.get(item_id, 0.0),
+                "unit": pf_unit_by_item.get(item_id, ""),
+                "gap_vs_need_qty": served_total_by_item.get(item_id, 0.0) - demand_total_by_item.get(item_id, 0.0),
+                "diagnostic": "demande finale issue du scenario courant",
+            }
+        )
+
+    for pair_key, row in sorted(material_rows_by_pair.items(), key=lambda item: (item[0][0], item[0][1])):
+        initial_qty = max(0.0, row.get("initial_qty") or 0.0)
+        delivered_qty = max(0.0, row.get("delivered_qty") or 0.0)
+        consumed_qty = max(0.0, row.get("consumed_qty") or 0.0)
+        final_stock_qty = max(0.0, row.get("final_stock_qty") or 0.0)
+        planned_qty = max(0.0, row.get("planned_qty") or 0.0)
+        gap_vs_need_qty = consumed_qty - planned_qty
+        balance_gap = (initial_qty + delivered_qty) - consumed_qty - final_stock_qty
+        tol = max(1.0, abs(consumed_qty) * 0.02)
+        if consumed_qty <= 1e-9 and delivered_qty <= 1e-9 and initial_qty > 0:
+            diagnostic = "coherent dormant: stock initial couvre le run"
+        elif abs(balance_gap) > tol:
+            diagnostic = "stock balance mismatch vs BOM consumption"
+        elif delivered_qty > 0.0 or consumed_qty > 0.0:
+            diagnostic = "active on current run"
+        else:
+            diagnostic = "inactive on current run"
+        rows.append(
+            {
+                **row,
+                "gap_vs_need_qty": gap_vs_need_qty,
+                "diagnostic": diagnostic,
+            }
+        )
+    return rows
+
+
+def render_material_balance_table_html(rows: list[dict[str, Any]]) -> str:
+    if not rows:
+        return "<tr><td colspan='10'>Aucune ligne de bilan disponible.</td></tr>"
+    html_rows: list[str] = []
+    for row in rows:
+        scope = str(row.get("scope") or "")
+        badge_class = "scopeBadge scopeFinal" if scope == "pf" else "scopeBadge"
+        html_rows.append(
+            "".join(
+                [
+                    "<tr>",
+                    f"<td><span class=\"{badge_class}\">{html.escape(str(row.get('scope_label') or ''))}</span></td>",
+                    f"<td>{html.escape(compact_item_label(str(row.get('item_id') or '')))}</td>",
+                    f"<td>{html.escape(str(row.get('node_label') or ''))}</td>",
+                    f"<td class=\"num\">{html.escape(fmt_qty(row.get('planned_qty'), 3))}</td>",
+                    f"<td class=\"num\">{html.escape(fmt_qty(row.get('initial_qty'), 3))}</td>",
+                    f"<td class=\"num\">{html.escape(fmt_qty(row.get('delivered_qty'), 3))}</td>",
+                    f"<td class=\"num\">{html.escape(fmt_qty(row.get('consumed_qty'), 3))}</td>",
+                    f"<td class=\"num\">{html.escape(fmt_qty(row.get('gap_vs_need_qty'), 3))}</td>",
+                    f"<td>{html.escape(str(row.get('unit') or ''))}</td>",
+                    f"<td>{html.escape(str(row.get('diagnostic') or ''))}</td>",
+                    "</tr>",
+                ]
+            )
+        )
+    return "".join(html_rows)
+
+
+def render_order_ledger_html(
+    node_id: str,
+    node_orders: list[dict[str, str]],
+    item_labels: dict[str, str],
+    empty_reason: str | None = None,
+) -> str:
+    if not node_orders:
+        reason_html = (
+            f"<div class=\"orderLedgerStatus\">{html.escape(empty_reason)}</div>"
+            if empty_reason else ""
+        )
+        return (
+            "<div class=\"factoryHtmlPanelContent\">"
+            f"{reason_html}"
+            "<div class=\"panelEmptyState\">Aucun ordre MRP journalise pour ce noeud.</div>"
+            "</div>"
+        )
+
+    sorted_orders = sorted(
+        node_orders,
+        key=lambda r: (
+            int(to_float(r.get("day")) or 0),
+            str(r.get("item_id") or ""),
+            str(r.get("edge_id") or ""),
+        ),
+        reverse=True,
+    )
+    status_counts: dict[str, int] = defaultdict(int)
+    for row in sorted_orders:
+        status_counts[str(row.get("order_status_end_of_run") or "n/a")] += 1
+
+    recent_lines: list[str] = []
+    for row in sorted_orders[:120]:
+        day = int(to_float(row.get("day")) or 0)
+        item_id = str(row.get("item_id") or "")
+        item_label = item_labels.get(item_id, compact_item_label(item_id))
+        mode_label = str(row.get("source_mode") or row.get("order_type") or "n/a")
+        recent_lines.append(
+            " | ".join(
+                [
+                    f"j{day}",
+                    item_label,
+                    mode_label,
+                    f"release={fmt_qty(row.get('release_qty'), 1)}",
+                    f"receipt={fmt_qty(row.get('planned_receipt_qty'), 1)}",
+                    f"arrival={row.get('arrival_day') or 'n/a'}",
+                    f"status={row.get('order_status_end_of_run') or 'n/a'}",
+                ]
+            )
+        )
+
+    title_suffix = "carnet d'ordres fournisseur" if node_id.startswith("SDC-") else "carnet d'ordres"
+    statuses_text = ", ".join(f"{status}={count}" for status, count in sorted(status_counts.items())) or "aucun"
+    recent_orders_html = html.escape("\n".join(recent_lines) if recent_lines else "aucun ordre journalise")
+
+    return "".join(
+        [
+            "<div class=\"factoryHtmlPanelContent\">",
+            f"<div class=\"orderLedgerTextHeader\">{html.escape(node_id)} - {html.escape(title_suffix)}</div>",
+            f"<div class=\"orderLedgerStatus\">Statuses: {html.escape(statuses_text)}</div>",
+            "<div class=\"orderLedgerSectionTitle\">Derniers ordres:</div>",
+            "<div class=\"orderLedgerTextWrap\">",
+            f"<pre class=\"orderLedgerLines\">{recent_orders_html}</pre>",
+            "</div>",
+            "</div>",
+        ]
+    )
+
+
 def read_csv_rows(csv_path: Path) -> list[dict[str, str]]:
     if not csv_path.exists():
         nested_data_path = csv_path.parent / "data" / csv_path.name
@@ -1054,6 +1411,15 @@ def aggregate_daily_series(
     return sorted(by_day.items(), key=lambda it: it[0])
 
 
+def densify_daily_series(points: list[tuple[int, float]]) -> list[tuple[int, float]]:
+    if not points:
+        return []
+    by_day = {int(day): float(value) for day, value in points}
+    start_day = min(by_day)
+    end_day = max(by_day)
+    return [(day, by_day.get(day, 0.0)) for day in range(start_day, end_day + 1)]
+
+
 def build_line_chart_payload(
     series_map: dict[str, list[tuple[int, float]]],
     *,
@@ -1106,14 +1472,20 @@ def build_line_chart_figure(
     *,
     title: str,
     y_label: str,
+    step_like: bool = False,
 ) -> dict[str, Any] | None:
-    usable = {label: pts for label, pts in series_map.items() if pts}
+    usable = {
+        label: (densify_daily_series(pts) if step_like else pts)
+        for label, pts in series_map.items()
+        if pts
+    }
     if not usable:
         return None
     return {
         "kind": "line_multi",
         "title": title,
         "y_label": y_label,
+        "step_like": step_like,
         "series": [
             {
                 "label": label,
@@ -2564,13 +2936,39 @@ def build_model_panel_metrics(
         if prev is None or day >= int(to_float(prev.get("day")) or 0):
             latest_mrp_trace_by_pair[key] = row
 
+    supplier_ids = {
+        str(node.get("id") or "")
+        for node in raw.get("nodes", []) or []
+        if str(node.get("type") or "") == "supplier_dc"
+    }
+    outgoing_edges_by_node: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    incoming_edges_by_node: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for edge in raw.get("edges", []) or []:
+        src = str(edge.get("from") or "")
+        dst = str(edge.get("to") or "")
+        if src:
+            outgoing_edges_by_node[src].append(edge)
+        if dst:
+            incoming_edges_by_node[dst].append(edge)
+
     mrp_orders_by_node: dict[str, list[dict[str, str]]] = defaultdict(list)
     mrp_orders_by_edge: dict[str, list[dict[str, str]]] = defaultdict(list)
     for row in mrp_order_rows:
         node_id = str(row.get("node_id") or "")
+        src_node_id = str(row.get("src_node_id") or "")
+        dst_node_id = str(row.get("dst_node_id") or "")
         edge_id = str(row.get("edge_id") or "")
+
+        linked_node_ids: list[str] = []
         if node_id:
-            mrp_orders_by_node[node_id].append(row)
+            linked_node_ids.append(node_id)
+        if src_node_id in supplier_ids:
+            linked_node_ids.append(src_node_id)
+        if dst_node_id in supplier_ids:
+            linked_node_ids.append(dst_node_id)
+
+        for linked_node_id in dict.fromkeys(linked_node_ids):
+            mrp_orders_by_node[linked_node_id].append(row)
         if edge_id:
             mrp_orders_by_edge[edge_id].append(row)
 
@@ -3056,7 +3454,43 @@ def build_model_panel_metrics(
         node_trace_rows = mrp_trace_by_node.get(node_id, [])
         node_trace_asset = None
         node_flow_asset = None
-        node_status_asset = None
+        node_order_asset = None
+        node_ledger_asset = None
+        dormant_reason: str | None = None
+        if not node_orders:
+            if node_type == "supplier_dc":
+                outgoing_edges = outgoing_edges_by_node.get(node_id, [])
+                observed_shipment_rows = sum(
+                    int(to_float(((edge.get("edge_metrics") or {}).get("shipment_rows"))) or 0)
+                    for edge in outgoing_edges
+                )
+                scoped_items = sorted(
+                    {
+                        compact_item_label(str(item_id))
+                        for edge in outgoing_edges
+                        for item_id in (edge.get("items") or [])
+                        if str(item_id or "")
+                    }
+                )
+                scoped_dests = sorted(
+                    {str(edge.get("to") or "") for edge in outgoing_edges if str(edge.get("to") or "")}
+                )
+                if outgoing_edges and observed_shipment_rows == 0 and not supplier_ship_by_node.get(node_id):
+                    dormant_reason = (
+                        "Diagnostic: source dormante dans ce baseline. "
+                        "Aucune expedition observee sur les lanes source et aucun tirage simule."
+                    )
+                    if scoped_dests or scoped_items:
+                        dormant_reason += " "
+                        dormant_reason += (
+                            f"Aval={', '.join(scoped_dests) or 'n/a'} ; "
+                            f"items={', '.join(scoped_items) or 'n/a'}."
+                        )
+                elif not outgoing_edges and not inv_states and not processes:
+                    dormant_reason = "Diagnostic: noeud fournisseur orphelin, sans flux, sans stock et sans process dans le graphe actif."
+            elif node_type == "distribution_center":
+                if not outgoing_edges_by_node.get(node_id) and not incoming_edges_by_node.get(node_id) and not inv_states and not processes:
+                    dormant_reason = "Diagnostic: noeud DC orphelin, sans flux, sans stock et sans process dans le graphe actif."
         trace_series = {
             "Besoin brut": aggregate_trace_series(node_trace_rows, "bb_qty"),
             "Besoin net": aggregate_trace_series(node_trace_rows, "bn_qty"),
@@ -3082,13 +3516,17 @@ def build_model_panel_metrics(
         )
         if flow_figure is not None:
             node_flow_asset = {"figure": flow_figure}
-        node_status_figure = status_bar_figure(
-            node_orders,
-            field="order_status_end_of_run",
-            title=f"{node_id} - statuts du carnet d'ordres",
+        node_orders_figure = build_line_chart_figure(
+            {
+                "Ordres amont": aggregate_order_series(node_orders, "release_qty"),
+                "Receptions matieres": aggregate_order_series(node_orders, "planned_receipt_qty"),
+            },
+            title=f"{node_id} - reappro amont",
+            y_label="Quantite",
         )
-        if node_status_figure is not None:
-            node_status_asset = {"figure": node_status_figure}
+        if node_orders_figure is not None:
+            node_order_asset = {"figure": node_orders_figure}
+        node_ledger_asset = {"html": render_order_ledger_html(node_id, node_orders, item_labels, dormant_reason)}
 
         summary_lines.extend(
             [
@@ -3109,6 +3547,10 @@ def build_model_panel_metrics(
                     order_lines if order_lines else ["aucun ordre journalise sur ce noeud"],
                     limit=8,
                 ),
+                metric_label_value(
+                    "Diagnostic carnet",
+                    dormant_reason or ("actif" if node_orders else "aucun ordre sur le run courant"),
+                ),
                 metric_section("Ledger hypotheses / derives"),
                 metric_multiline_value(
                     "Elements traces",
@@ -3128,7 +3570,8 @@ def build_model_panel_metrics(
             "summary_lines": summary_lines,
             "incoming": node_trace_asset,
             "outgoing": node_flow_asset,
-            "third": node_status_asset,
+            "third": node_ledger_asset,
+            "fourth": node_order_asset,
         }
 
     for edge in raw.get("edges", []) or []:
@@ -4845,7 +5288,7 @@ def build_supplier_local_criticality(
     return metrics_by_supplier, ranking_rows, summary
 
 
-def html_template(title: str, data_json: str) -> str:
+def html_template(title: str, data_json: str, material_table_html: str, material_table_count: int) -> str:
     return f"""<!doctype html>
 <html>
 <head>
@@ -5051,6 +5494,108 @@ def html_template(title: str, data_json: str) -> str:
       border-color: #93c5fd;
       color: #1d4ed8;
     }}
+    .factoryPlotHelp {{
+      display: none;
+      font-size: 11px;
+      color: #475569;
+      margin: 0 0 8px 2px;
+      line-height: 1.45;
+    }}
+    .tableBtn {{
+      border: 1px solid #cbd5e1;
+      background: #ffffff;
+      color: #0f172a;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 7px 10px;
+      border-radius: 999px;
+      cursor: pointer;
+    }}
+    .tableModal {{
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.45);
+      z-index: 30;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }}
+    .tableModal.visible {{
+      display: flex;
+    }}
+    .tableModalCard {{
+      width: min(1280px, calc(100vw - 48px));
+      max-height: calc(100vh - 48px);
+      overflow: hidden;
+      background: #ffffff;
+      border-radius: 14px;
+      box-shadow: 0 20px 50px rgba(15, 23, 42, 0.28);
+      border: 1px solid #cbd5e1;
+      display: flex;
+      flex-direction: column;
+    }}
+    .tableModalHeader {{
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 16px;
+      border-bottom: 1px solid #e2e8f0;
+      background: #f8fafc;
+    }}
+    .tableModalTitle {{
+      font-size: 14px;
+      font-weight: 700;
+      color: #0f172a;
+    }}
+    .tableModalMeta {{
+      font-size: 12px;
+      color: #64748b;
+      margin-top: 2px;
+    }}
+    .tableModalBody {{
+      overflow: auto;
+      padding: 0;
+    }}
+    .materialTable {{
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }}
+    .materialTable th,
+    .materialTable td {{
+      border-bottom: 1px solid #e2e8f0;
+      padding: 8px 10px;
+      text-align: left;
+      vertical-align: top;
+    }}
+    .materialTable thead th {{
+      position: sticky;
+      top: 0;
+      background: #f8fafc;
+      z-index: 1;
+      color: #334155;
+    }}
+    .materialTable .num {{
+      text-align: right;
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+    }}
+    .scopeBadge {{
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 3px 8px;
+      background: #e2e8f0;
+      color: #0f172a;
+      font-size: 11px;
+      font-weight: 700;
+    }}
+    .scopeBadge.scopeFinal {{
+      background: #dbeafe;
+      color: #1d4ed8;
+    }}
     .factoryPlot {{
       width: 100%;
       height: clamp(300px, 42.5vh, 425px);
@@ -5087,6 +5632,102 @@ def html_template(title: str, data_json: str) -> str:
     .factoryPlotFigure.factoryPlotFourth {{
       height: clamp(237.5px, 33.75vh, 337.5px);
     }}
+    .factoryPlotFigure.factoryHtmlPanel {{
+      overflow: hidden;
+    }}
+    .factoryHtmlPanelContent {{
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      min-height: 0;
+      background: #ffffff;
+    }}
+    .panelEmptyState {{
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      padding: 16px;
+      color: #475569;
+      font-size: 12px;
+      text-align: center;
+    }}
+    .orderLedgerMetaBar {{
+      padding: 10px 12px 8px;
+      border-bottom: 1px solid #e2e8f0;
+      background: #f8fafc;
+      color: #475569;
+      font-size: 11px;
+      font-weight: 600;
+      flex: 0 0 auto;
+    }}
+    .orderLedgerTableWrap {{
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: auto;
+      scrollbar-gutter: stable;
+    }}
+    .orderLedgerTable {{
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+    }}
+    .orderLedgerTable th,
+    .orderLedgerTable td {{
+      padding: 7px 10px;
+      border-bottom: 1px solid #e2e8f0;
+      text-align: left;
+      vertical-align: top;
+      white-space: nowrap;
+    }}
+    .orderLedgerTable thead th {{
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: #f8fafc;
+      color: #475569;
+    }}
+    .orderLedgerTable .num {{
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }}
+    .orderLedgerTextHeader {{
+      padding: 16px 16px 8px;
+      color: #1e293b;
+      font-size: 14px;
+      font-weight: 700;
+      flex: 0 0 auto;
+    }}
+    .orderLedgerStatus {{
+      padding: 0 16px 8px;
+      color: #475569;
+      font-size: 12px;
+      flex: 0 0 auto;
+    }}
+    .orderLedgerSectionTitle {{
+      padding: 10px 16px 4px;
+      color: #475569;
+      font-size: 12px;
+      font-weight: 600;
+      flex: 0 0 auto;
+    }}
+    .orderLedgerTextWrap {{
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: scroll;
+      overflow-x: auto;
+      padding: 0 16px 16px;
+      scrollbar-gutter: stable both-edges;
+    }}
+    .orderLedgerLines {{
+      margin: 0;
+      color: #475569;
+      font-size: 11px;
+      line-height: 1.55;
+      white-space: pre;
+      font-family: Consolas, "Courier New", monospace;
+    }}
     #factoryHoverNoImage {{
       font-size: 12px;
       color: #475569;
@@ -5109,9 +5750,43 @@ def html_template(title: str, data_json: str) -> str:
     <div class="box">
       <label><input type="checkbox" id="showEdges" checked> Afficher flux</label>
     </div>
+    <div class="box">
+      <button id="materialTableBtn" class="tableBtn" type="button">Tableau demande / stock / livré</button>
+    </div>
     <div class="box" id="typeFilters"></div>
   </div>
   <div id="chart"></div>
+
+  <div id="materialTableModal" class="tableModal">
+    <div class="tableModalCard">
+      <div class="tableModalHeader">
+        <div>
+          <div class="tableModalTitle">Tableau demande / stock / livré</div>
+          <div id="materialTableMeta" class="tableModalMeta">{material_table_count} lignes</div>
+        </div>
+        <button id="materialTableCloseBtn" class="tableBtn" type="button">Fermer</button>
+      </div>
+      <div class="tableModalBody">
+        <table class="materialTable">
+          <thead>
+            <tr>
+              <th>Type</th>
+              <th>Item</th>
+              <th>Noeud</th>
+              <th>Demande / besoin prévu</th>
+              <th>Stock initial</th>
+              <th>Livré / servi</th>
+              <th>Consommé simulé</th>
+              <th>Ecart vs besoin</th>
+              <th>Unité</th>
+              <th>Diagnostic</th>
+            </tr>
+          </thead>
+          <tbody>{material_table_html}</tbody>
+        </table>
+      </div>
+    </div>
+  </div>
 
   <div id="factoryHoverPanel">
     <div class="panelHeader">
@@ -5123,7 +5798,7 @@ def html_template(title: str, data_json: str) -> str:
     </div>
     <div class="factoryHoverGrid">
       <div id="panelMeta" class="panelMeta" style="display:none;">
-        <div id="panelMetaTitle" class="panelMetaTitle">Criticite locale</div>
+        <div id="panelMetaTitle" class="panelMetaTitle">Synthese site</div>
         <div id="panelMetaGrid" class="panelMetaGrid"></div>
       </div>
       <div id="incomingBlock" class="factoryPlotBlock">
@@ -5142,7 +5817,8 @@ def html_template(title: str, data_json: str) -> str:
         <div id="factoryThirdFigure" class="factoryPlotFigure factoryPlotThird"></div>
       </div>
       <div id="fourthBlock" class="factoryPlotBlock">
-        <div id="fourthLabel" class="factoryPlotLabel">Analyse MRP</div>
+        <div id="fourthLabel" class="factoryPlotLabel">MRP / risque</div>
+        <div id="fourthHelp" class="factoryPlotHelp">Synthese en haut. Puis lis : stock, flux aval, capacite. Le 4e bloc sert a l'analyse : reappro amont, carnet, risque, details MRP.</div>
         <div id="fourthTabs" class="panelSubTabs"></div>
         <img id="factoryFourthImage" class="factoryPlot factoryPlotFourth" alt="Node fourth chart"/>
         <div id="factoryFourthFigure" class="factoryPlotFigure factoryPlotFourth"></div>
@@ -5450,6 +6126,7 @@ def html_template(title: str, data_json: str) -> str:
       const incomingFigure = document.getElementById("factoryIncomingFigure");
       const outgoingFigure = document.getElementById("factoryOutgoingFigure");
       const thirdFigure = document.getElementById("factoryThirdFigure");
+      const fourthHelp = document.getElementById("fourthHelp");
       const noImg = document.getElementById("factoryHoverNoImage");
       const statePill = document.getElementById("factoryHoverState");
       const clearBtn = document.getElementById("factoryHoverClearSelection");
@@ -5471,6 +6148,7 @@ def html_template(title: str, data_json: str) -> str:
       incomingFigure.style.display = "none";
       outgoingFigure.style.display = "none";
       thirdFigure.style.display = "none";
+      fourthHelp.style.display = "block";
       if (window.Plotly) {{
         try {{ Plotly.purge(incomingFigure); }} catch (e) {{}}
         try {{ Plotly.purge(outgoingFigure); }} catch (e) {{}}
@@ -5709,14 +6387,14 @@ def html_template(title: str, data_json: str) -> str:
             incoming: "Modele du flux",
             outgoing: "Caracteristiques du flux",
             third: "KPI du flux",
-            fourth: "Trace MRP / carnet"
+            fourth: "MRP / risque"
           }};
         }}
         return {{
           incoming: "Modele du noeud",
           outgoing: "Caracteristiques du noeud",
           third: "KPI du noeud",
-          fourth: "Trace MRP / carnet"
+          fourth: "MRP / risque"
         }};
       }}
       if (currentPanelMode === "sensitivity") {{
@@ -5755,20 +6433,12 @@ def html_template(title: str, data_json: str) -> str:
           outgoing: "Structurel - KPI + courbe delta vs baseline"
         }};
       }}
-      if (nodeType === "supplier_dc" && !FACTORY_LIKE_NODE_IDS.has(nodeId)) {{
+      if (nodeType === "supplier_dc") {{
         return {{
-          incoming: "Stocks d'entree usine lies au fournisseur",
-          outgoing: "Expeditions du fournisseur",
-          third: "Site fournisseur - expeditions et lead times entrants",
-          fourth: "Simulation MRP / carnet"
-        }};
-      }}
-      if (nodeType === "supplier_dc" && FACTORY_LIKE_NODE_IDS.has(nodeId)) {{
-        return {{
-          incoming: "Stocks intrants du process",
-          outgoing: "Stock produit du process",
-          third: "Stocks complets du site",
-          fourth: "Simulation MRP / carnet"
+          incoming: "Stock fournisseur",
+          outgoing: "Flux aval",
+          third: "Capacite",
+          fourth: "MRP / risque"
         }};
       }}
       if (nodeType === "distribution_center") {{
@@ -5776,7 +6446,7 @@ def html_template(title: str, data_json: str) -> str:
           incoming: "Stocks du distribution center",
           outgoing: "Receptions du distribution center",
           third: "Expeditions du distribution center",
-          fourth: "Simulation MRP / carnet"
+          fourth: "MRP / risque"
         }};
       }}
       if (nodeType === "customer") {{
@@ -5784,7 +6454,7 @@ def html_template(title: str, data_json: str) -> str:
           incoming: "Client - demande dans le temps",
           outgoing: "Client - servi et backlog",
           third: "Client - demande du jour par produit",
-          fourth: "Simulation MRP / carnet"
+          fourth: "MRP / risque"
         }};
       }}
       if (nodeType === "edge") {{
@@ -5796,10 +6466,10 @@ def html_template(title: str, data_json: str) -> str:
         }};
       }}
       return {{
-        incoming: "Stock matieres premieres (entree)",
-        outgoing: "Stock produits finis (sortie)",
-        third: "Usine - production desiree / reelle / capacite / manque de production",
-        fourth: "Simulation MRP / carnet"
+        incoming: "Stock matieres",
+        outgoing: "Flux aval",
+        third: "Capacite",
+        fourth: "MRP / risque"
       }};
     }}
 
@@ -5824,17 +6494,18 @@ def html_template(title: str, data_json: str) -> str:
         : (((MODEL_PANEL.nodes || {{}})[nodeId]) || null);
       const modelBundle = modelDetails ? {{
         bundle: [
-          {{ label: "Trace MRP", asset: modelDetails.incoming || null }},
-          {{ label: "Flux et receptions", asset: modelDetails.outgoing || null }},
-          {{ label: "Statuts ordres", asset: modelDetails.third || null }},
+          {{ label: "Reappro amont", asset: modelDetails.fourth || null }},
+          {{ label: "Carnet", asset: modelDetails.third || null }},
+          {{ label: "Risque", asset: modelDetails.incoming || null }},
+          {{ label: "MRP detaille", asset: modelDetails.outgoing || null }},
         ].filter(entry => !!entry.asset)
       }} : null;
       const modelFourth = modelBundle && modelBundle.bundle.length ? modelBundle : null;
-      if (isFactoryLikeNode(nodeId, nodeType)) {{
-        return {{ ...(FACTORY_HOVER_IMAGES[nodeId] || {{}}), fourth: modelFourth }};
-      }}
       if (nodeType === "supplier_dc") {{
         return {{ ...(SUPPLIER_HOVER_IMAGES[nodeId] || {{}}), fourth: modelFourth }};
+      }}
+      if (isFactoryLikeNode(nodeId, nodeType)) {{
+        return {{ ...(FACTORY_HOVER_IMAGES[nodeId] || {{}}), fourth: modelFourth }};
       }}
       if (nodeType === "distribution_center") {{
         return {{ ...(DC_HOVER_IMAGES[nodeId] || {{}}), fourth: modelFourth }};
@@ -5880,6 +6551,7 @@ def html_template(title: str, data_json: str) -> str:
       const outgoingLabel = document.getElementById("outgoingLabel");
       const thirdLabel = document.getElementById("thirdLabel");
       const fourthLabel = document.getElementById("fourthLabel");
+      const fourthHelp = document.getElementById("fourthHelp");
       const incomingImg = document.getElementById("factoryIncomingImage");
       const outgoingImg = document.getElementById("factoryOutgoingImage");
       const thirdImg = document.getElementById("factoryThirdImage");
@@ -5896,8 +6568,9 @@ def html_template(title: str, data_json: str) -> str:
       const nodeName = nodeType === "edge"
         ? `${{nodeInfo.from || "n/a"}} -> ${{nodeInfo.to || "n/a"}}`
         : (nodeInfo.name || nodeId);
-      const nodeTitle = isFactoryLikeNode(nodeId, nodeType) ? "Industrial Site" :
-        (nodeType === "supplier_dc" ? "Supplier" : (nodeType === "distribution_center" ? "Distribution Center" : (nodeType === "factory" ? "Factory" : (nodeType === "customer" ? "Customer" : "Edge"))));
+      const nodeTitle = nodeType === "supplier_dc" ? "Supplier" :
+        (isFactoryLikeNode(nodeId, nodeType) ? "Industrial Site" :
+        (nodeType === "distribution_center" ? "Distribution Center" : (nodeType === "factory" ? "Factory" : (nodeType === "customer" ? "Customer" : "Edge"))));
       const modeTitle = currentPanelMode === "sensitivity" ? "Sensibilite" :
         (currentPanelMode === "structural" ? "Structurel" : (currentPanelMode === "model" ? "Modele" : "Simulation"));
       title.textContent = `${{nodeTitle}}: ${{nodeName}} (${{nodeId}}) | ${{modeTitle}}`;
@@ -5921,6 +6594,7 @@ def html_template(title: str, data_json: str) -> str:
       const outgoingImageInfo = images.outgoing || null;
       const thirdImageInfo = images.third || null;
       const fourthImageInfo = images.fourth || null;
+      fourthHelp.style.display = fourthImageInfo ? "block" : "none";
 
       incomingBlock.style.display = incomingImageInfo ? "block" : "none";
       outgoingBlock.style.display = outgoingImageInfo ? "block" : "none";
@@ -5938,7 +6612,11 @@ def html_template(title: str, data_json: str) -> str:
               name: series.label || `Serie ${{idx + 1}}`,
               x: series.days || [],
               y: series.values || [],
-              line: {{ width: 2.2, color: palette[idx % palette.length] }},
+              line: {{
+                width: 2.2,
+                color: palette[idx % palette.length],
+                shape: figure.step_like ? "hv" : "linear",
+              }},
             }})),
             layout: {{
               title: {{ text: figure.title || "", font: {{ size: 12 }} }},
@@ -6061,6 +6739,7 @@ def html_template(title: str, data_json: str) -> str:
         imgEl.style.display = "none";
         figureEl.innerHTML = "";
         figureEl.style.display = "none";
+        figureEl.classList.remove("factoryHtmlPanel");
         if (tabsEl) {{
           tabsEl.innerHTML = "";
           tabsEl.style.display = "none";
@@ -6073,7 +6752,15 @@ def html_template(title: str, data_json: str) -> str:
           const entries = asset.bundle.filter(entry => entry && entry.asset);
           if (!entries.length) return false;
           const selectionKey = bundleKey || "bundle";
+          const hasSavedSelection = Object.prototype.hasOwnProperty.call(panelBundleSelection, selectionKey);
           let selectedIdx = panelBundleSelection[selectionKey] ?? 0;
+          if (!hasSavedSelection && selectionKey.includes(":supplier_dc:")) {{
+            const carnetIdx = entries.findIndex(entry => (entry.label || "").toLowerCase() === "carnet");
+            if (carnetIdx >= 0) {{
+              selectedIdx = carnetIdx;
+              panelBundleSelection[selectionKey] = carnetIdx;
+            }}
+          }}
           if (selectedIdx >= entries.length) selectedIdx = 0;
           if (tabsEl && entries.length > 1) {{
             tabsEl.style.display = "flex";
@@ -6094,6 +6781,12 @@ def html_template(title: str, data_json: str) -> str:
         if (asset.data_b64) {{
           imgEl.src = `data:${{asset.mime || "image/png"}};base64,${{asset.data_b64}}`;
           imgEl.style.display = "block";
+          return true;
+        }}
+        if (asset.html) {{
+          figureEl.style.display = "block";
+          figureEl.classList.add("factoryHtmlPanel");
+          figureEl.innerHTML = asset.html;
           return true;
         }}
         const plotlyFigure = buildPlotlyFigure(asset.figure || null);
@@ -6216,6 +6909,18 @@ def html_template(title: str, data_json: str) -> str:
     function init() {{
       initFilters();
       applyModeUi();
+      const materialTableModal = document.getElementById("materialTableModal");
+      document.getElementById("materialTableBtn").addEventListener("click", () => {{
+        materialTableModal.classList.add("visible");
+      }});
+      document.getElementById("materialTableCloseBtn").addEventListener("click", () => {{
+        materialTableModal.classList.remove("visible");
+      }});
+      materialTableModal.addEventListener("click", (ev) => {{
+        if (ev.target === materialTableModal) {{
+          materialTableModal.classList.remove("visible");
+        }}
+      }});
       document.getElementById("showEdges").addEventListener("change", draw);
       document.getElementById("modeOps").addEventListener("click", () => setPanelMode("ops"));
       document.getElementById("modeModel").addEventListener("click", () => setPanelMode("model"));
@@ -6309,6 +7014,7 @@ def main() -> None:
             sim_input_png_dir,
             supplier_shipments_csv,
             supplier_stocks_csv,
+            supplier_capacity_csv,
         )
         payload["distribution_center_hover_images"] = build_distribution_center_hover_images(
             raw,
@@ -6392,6 +7098,13 @@ def main() -> None:
             threshold_sensitivity_summary_json,
             threshold_parameter_summary_csv,
         )
+        material_table_rows = build_material_balance_table_rows(
+            raw,
+            demand_service_csv=demand_service_csv,
+            sim_input_stocks_csv=sim_input,
+            sim_output_products_csv=sim_output,
+            supplier_shipments_csv=supplier_shipments_csv,
+        )
     except Exception as exc:
         print(f"[ERROR] Unable to read/parse input JSON: {exc}", file=sys.stderr)
         sys.exit(1)
@@ -6413,7 +7126,12 @@ def main() -> None:
         encoding="utf-8",
     )
 
-    html_str = html_template(args.title, json.dumps(payload, ensure_ascii=False))
+    html_str = html_template(
+        args.title,
+        json.dumps(payload, ensure_ascii=False),
+        render_material_balance_table_html(material_table_rows),
+        len(material_table_rows),
+    )
     out_path.write_text(html_str, encoding="utf-8")
     print(f"[OK] HTML generated: {out_path.resolve()}")
 

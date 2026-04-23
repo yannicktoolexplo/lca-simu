@@ -42,38 +42,38 @@
 - Assumed supply edges (explicitly tagged, includes '?'): 0 (none)
 - External upstream sourcing for unmodeled source pairs: 35
 - Opening stock bootstrap pairs (lead-time coverage at max capacity): 0
-- MRP trace tracked pairs / rows / orders: 67 / 122275 / 2009
+- MRP trace tracked pairs / rows / orders: 67 / 122275 / 10323
 
 ## KPIs
-- Total demand: 5152428.0
-- Total served: 5152428.0
+- Total demand: 25762139.9999
+- Total served: 25762139.9999
 - Fill rate: 1.0
 - Ending backlog: 0
-- Total produced: 37540800.0
-- Total shipped: 162397069.7063
-- Avg inventory: 2383243560.4547
-- Ending inventory: 2388806118.7751
-- Transport cost: 16325408.9557
-- Holding cost (capital tied-up): 256909040.4426
-- Warehouse operating cost: 330311623.4262
-- Inventory risk cost (obsolescence/compliance proxy): 146805165.9672
-- Legacy raw holding cost before split: 734025829.836
-- Purchase cost (from order_terms sell_price): 6387310.4286
-- Logistics cost (transport + inventory capital + warehouse + inventory risk): 750351238.7917
-- Total cost: 756738549.2203
-- Total external procured ordered qty: 20825488.964
-- Total external procured arrived qty: 20825488.964
+- Total produced: 106106800.0
+- Total shipped: 703161873.7017
+- Avg inventory: 2208254617.605
+- Ending inventory: 1968377208.8254
+- Transport cost: 67931558.9812
+- Holding cost (capital tied-up): 243734501.5957
+- Warehouse operating cost: 313372930.623
+- Inventory risk cost (obsolescence/compliance proxy): 139276858.0547
+- Legacy raw holding cost before split: 696384290.2734
+- Purchase cost (from order_terms sell_price): 25368980.3854
+- Logistics cost (transport + inventory capital + warehouse + inventory risk): 764315849.2547
+- Total cost: 789684829.64
+- Total external procured ordered qty: 41880518.9716
+- Total external procured arrived qty: 41880518.9716
 - Total external procured rejected qty (cap-limited): 122850621.0163
-- Total external procurement cost premium: 1342337.1706
+- Total external procurement cost premium: 6413139.1847
 - Total estimated source ordered qty: 0.0
 - Total estimated source replenished qty: 1618504474.9346
 - Total estimated source rejected qty: 0.0
-- Cost share capital holding / warehouse / inventory risk / transport / purchase: 0.339495 / 0.436494 / 0.193997 / 0.021573 / 0.008441
+- Cost share capital holding / warehouse / inventory risk / transport / purchase: 0.308648 / 0.396833 / 0.17637 / 0.086024 / 0.032125
 - Total opening stock bootstrap qty: 0.0
 - Total explicit initialization stock qty: 272813254.4058
 - Total explicit initialization pipeline qty: 2087244118.4221
 - Total unreliable supplier loss qty: 0.0
-- Total supplier capacity binding qty: 31925000.0
+- Total supplier capacity binding qty: 32214300.0
 - Economic consistency status: ok
 - Economic consistency warnings: []
 

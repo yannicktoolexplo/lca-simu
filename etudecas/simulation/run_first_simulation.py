@@ -297,12 +297,16 @@ def profile_value(profile: list[dict[str, Any]], day: int) -> float:
         if not isinstance(p, dict):
             continue
         ptype = str(p.get("type", "constant"))
+        repeat_period_days = int(to_float(p.get("repeat_period_days"), 0.0))
+        eval_day = day
+        if repeat_period_days > 0:
+            eval_day = day % repeat_period_days
         if ptype == "constant":
             return to_float(p.get("value"), 0.0)
         if ptype == "step":
             start = int(to_float(p.get("start_day"), 0.0))
             val = to_float(p.get("value"), 0.0)
-            if day >= start:
+            if eval_day >= start:
                 step_candidates.append((start, val))
         if ptype == "piecewise":
             points = p.get("points") or []
@@ -311,7 +315,7 @@ def profile_value(profile: list[dict[str, Any]], day: int) -> float:
                     continue
                 t = int(to_float(pt.get("t"), -1))
                 v = to_float(pt.get("value"), 0.0)
-                if day >= t >= 0:
+                if eval_day >= t >= 0:
                     step_candidates.append((t, v))
     if step_candidates:
         step_candidates.sort(key=lambda x: x[0])
@@ -3460,6 +3464,8 @@ def main() -> None:
                 str(input_stock_path),
                 "--sim-output-products-csv",
                 str(output_prod_path),
+                "--demand-service-csv",
+                str(demand_pair_path),
                 "--sim-input-stocks-png-dir",
                 str(plot_root),
                 "--sim-output-products-png-dir",
