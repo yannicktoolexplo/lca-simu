@@ -6,7 +6,7 @@
 - Measured horizon (days): 1825
 - Warm-up (days): 0
 - Total simulated timeline (days): 1825
-- Output profile: compact
+- Output profile: full
 - Safety stock policy (days): 7.0
 - Replenishment review period (days): 1
 - Finished-goods target cover (days): 0.0
@@ -17,6 +17,8 @@
 - Initialization stock days factory / supplier FG / DC / customer: 0.0 / 0.0 / 0.0 / 0.0
 - Initialization seed in-transit / fill ratio / estimated-source pipeline: False / 1.0 / False
 - Opening open-orders reconstruction enabled / horizon days: True / 0
+- Opening open-orders demand multiplier / BOM signal for MRP: 10.0 / False
+- Soft safety-time physical stock target factor: 0.75
 - Unmodeled supplier source mode: external_procurement
 - Stochastic lead times: True
 - Random seed: 42
@@ -43,40 +45,40 @@
 - Assumed supply edges (explicitly tagged, includes '?'): 0 (none)
 - External upstream sourcing for unmodeled source pairs: 34
 - Opening stock bootstrap pairs (lead-time coverage at max capacity): 0
-- Opening open-order rows reconstructed from January snapshot: 590
-- MRP trace tracked pairs / rows / orders: 65 / 118625 / 15215
+- Opening open-order rows reconstructed from January snapshot: 545
+- MRP trace tracked pairs / rows / orders: 65 / 118625 / 233839
 
 ## KPIs
 - Total demand: 25762139.9999
 - Total served: 25762139.9999
 - Fill rate: 1.0
 - Ending backlog: 0
-- Total produced: 80492400.0
-- Total shipped: 565261439.6957
-- Avg inventory: 384921109.8804
-- Ending inventory: 275283366.578
-- Transport cost: 61511348.9897
-- Holding cost (capital tied-up): 78014932.5124
-- Warehouse operating cost: 100304913.2302
-- Inventory risk cost (obsolescence/compliance proxy): 44579961.4356
-- Legacy raw holding cost before split: 222899807.1782
-- Purchase cost (from order_terms sell_price): 43513366.5862
-- Logistics cost (transport + inventory capital + warehouse + inventory risk): 284411156.1679
-- Total cost: 327924522.7541
-- Total external procured ordered qty: 193652901.6048
-- Total external procured arrived qty: 193582077.8298
-- Total external procured rejected qty (cap-limited): 12643312.2983
-- Total external procurement cost premium: 31649582.6544
+- Total produced: 102186800.0
+- Total shipped: 767390385.4978
+- Avg inventory: 289108572.0583
+- Ending inventory: 275600418.8802
+- Transport cost: 88820457.1483
+- Holding cost (capital tied-up): 71515068.8902
+- Warehouse operating cost: 91947945.716
+- Inventory risk cost (obsolescence/compliance proxy): 40865753.6515
+- Legacy raw holding cost before split: 204328768.2577
+- Purchase cost (from order_terms sell_price): 74270073.715
+- Logistics cost (transport + inventory capital + warehouse + inventory risk): 293149225.4059
+- Total cost: 367419299.121
+- Total external procured ordered qty: 403291279.7978
+- Total external procured arrived qty: 403151730.8608
+- Total external procured rejected qty (cap-limited): 5160962.4692
+- Total external procurement cost premium: 59942193.309
 - Total estimated source ordered qty: 0.0
 - Total estimated source replenished qty: 0.0
 - Total estimated source rejected qty: 0.0
-- Cost share capital holding / warehouse / inventory risk / transport / purchase: 0.237905 / 0.305878 / 0.135946 / 0.187578 / 0.132693
+- Cost share capital holding / warehouse / inventory risk / transport / purchase: 0.194642 / 0.250253 / 0.111224 / 0.241741 / 0.20214
 - Total opening stock bootstrap qty: 0.0
-- Total explicit initialization stock qty: 272268498.0058
-- Total explicit initialization pipeline qty: 268239680.7143
-- Total opening open-order qty: 268239680.7143
+- Total explicit initialization stock qty: 272374547.8265
+- Total explicit initialization pipeline qty: 37076443.0256
+- Total opening open-order qty: 37076443.0256
 - Total unreliable supplier loss qty: 0.0
-- Total supplier capacity binding qty: 3339005.0
+- Total supplier capacity binding qty: 222127425.0
 - Economic consistency status: ok
 - Economic consistency warnings: []
 
@@ -95,7 +97,7 @@
 - data/production_supplier_shipments_daily.csv
 - data/production_supplier_stocks_daily.csv
 - data/production_supplier_capacity_daily.csv
-- Additional detailed CSVs: skipped in compact mode
+- Additional detailed CSVs: generated
 - production_input_stocks_by_material_*.png (not generated)
 - production_output_products.png (not generated)
 - production_output_products_by_factory_*.png (not generated)
