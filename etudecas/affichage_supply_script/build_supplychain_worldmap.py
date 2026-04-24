@@ -37,6 +37,33 @@ SIMULATION_HIDDEN_ITEM_IDS: set[str] = set()
 ITEM_DISPLAY_REFERENCE_NOTES = {
     "item:007923": "007923 (ancienne ref 693710)",
 }
+MANUAL_GEO_OVERRIDES = {
+    # Fournisseurs 021081: le geocodage automatique retombait au centroide USA.
+    "SDC-VD0949099A": {
+        "lat": 36.2168,
+        "lon": -81.6746,
+        "location_ID": "USA - BOONE NC - 28607",
+        "country": "United States",
+    },
+    "SDC-VD0960508A": {
+        "lat": 36.0307,
+        "lon": -78.9000,
+        "location_ID": "USA - DURHAM NC - 27704",
+        "country": "United States",
+    },
+    "SDC-VD0972460A": {
+        "lat": 26.5387,
+        "lon": -81.4356,
+        "location_ID": "USA - FELDA FL - 33930",
+        "country": "United States",
+    },
+    "SDC-VD0975221A": {
+        "lat": 27.4467,
+        "lon": -80.3256,
+        "location_ID": "USA - FORT PIERCE FL - 34947",
+        "country": "United States",
+    },
+}
 
 
 def parse_args() -> argparse.Namespace:
@@ -234,6 +261,14 @@ def compact_graph_payload(raw: dict[str, Any]) -> dict[str, Any]:
         geo = node.get("geo", {}) or {}
         lat = node.get("lat", geo.get("lat"))
         lon = node.get("lon", geo.get("lon"))
+        location_id = node.get("location_ID")
+        country = geo.get("country")
+        geo_override = MANUAL_GEO_OVERRIDES.get(node_id)
+        if geo_override:
+            lat = geo_override["lat"]
+            lon = geo_override["lon"]
+            location_id = geo_override["location_ID"]
+            country = geo_override["country"]
         try:
             lat = float(lat) if lat is not None else None
             lon = float(lon) if lon is not None else None
@@ -245,8 +280,8 @@ def compact_graph_payload(raw: dict[str, Any]) -> dict[str, Any]:
                 "id": node.get("id"),
                 "type": node.get("type", "unknown"),
                 "name": node.get("name", ""),
-                "location_ID": node.get("location_ID"),
-                "country": geo.get("country"),
+                "location_ID": location_id,
+                "country": country,
                 "lat": lat,
                 "lon": lon,
             }
@@ -881,6 +916,7 @@ def build_distribution_center_hover_images(
     png_dir: Path,
     dc_stocks_csv: Path,
     shipments_csv: Path,
+    mrp_trace_csv: Path | None = None,
 ) -> dict[str, Any]:
     nodes = raw.get("nodes", []) or []
     dc_ids = sorted(
@@ -892,6 +928,7 @@ def build_distribution_center_hover_images(
     item_labels = item_label_lookup(raw)
     dc_stock_rows = read_csv_rows(dc_stocks_csv)
     shipment_rows = read_csv_rows(shipments_csv)
+    mrp_trace_rows = read_csv_rows(mrp_trace_csv) if mrp_trace_csv is not None else []
     for dc_id in dc_ids:
         safe_dc = re.sub(r"[^A-Za-z0-9_-]+", "_", dc_id)
         incoming = resolve_plot_payload(
@@ -917,10 +954,20 @@ def build_distribution_center_hover_images(
                     item_ids={item_id},
                 )
                 if pts:
-                    per_item_stock[item_labels.get(item_id, compact_item_label(item_id))] = pts
+                    label = item_labels.get(item_id, compact_item_label(item_id))
+                    per_item_stock[f"{label} - stock"] = pts
+                    target_pts = aggregate_daily_series(
+                        mrp_trace_rows,
+                        value_field="target_stock_qty",
+                        node_field="node_id",
+                        node_id=dc_id,
+                        item_ids={item_id},
+                    )
+                    if target_pts:
+                        per_item_stock[f"{label} - cible MRP / delai securite"] = target_pts
             figure = build_line_chart_figure(
                 per_item_stock,
-                title=f"{dc_id} - stock DC par item",
+                title=f"{dc_id} - stock DC vs cible MRP",
                 y_label="Quantite",
             )
             if figure is not None:
@@ -3028,6 +3075,11 @@ def write_mrp_safety_arrival_reports(
     reports_dir.mkdir(parents=True, exist_ok=True)
 
     factory_ids = factory_like_node_ids(raw)
+    analysis_node_ids = set(factory_ids)
+    for node in raw.get("nodes", []) or []:
+        node_id = str(node.get("id") or "")
+        if str(node.get("type") or "").strip().lower() == "distribution_center":
+            analysis_node_ids.add(node_id)
     item_labels = build_item_label_lookup(raw)
 
     initial_stock_by_pair: dict[tuple[str, str], float] = defaultdict(float)
@@ -3041,13 +3093,19 @@ def write_mrp_safety_arrival_reports(
     relevant_input_pairs: set[tuple[str, str]] = set()
     for node in raw.get("nodes", []) or []:
         node_id = str(node.get("id") or "")
-        if node_id not in factory_ids:
-            continue
-        for process in (node.get("processes") or []):
-            for raw_input in (process.get("inputs") or []):
-                item_id = str(raw_input.get("item_id") or "")
+        if node_id in factory_ids:
+            for process in (node.get("processes") or []):
+                for raw_input in (process.get("inputs") or []):
+                    item_id = str(raw_input.get("item_id") or "")
+                    if node_id and item_id:
+                        relevant_input_pairs.add((node_id, item_id))
+        elif node_id in analysis_node_ids:
+            for state in (((node.get("inventory") or {}).get("states")) or []):
+                item_id = str(state.get("item_id") or "")
+                mrp_policy = state.get("mrp_policy") or {}
                 if node_id and item_id:
-                    relevant_input_pairs.add((node_id, item_id))
+                    if max(0.0, to_float(mrp_policy.get("safety_time_days")) or 0.0) > 0.0:
+                        relevant_input_pairs.add((node_id, item_id))
 
     day0_stock_before_by_pair: dict[tuple[str, str], float] = defaultdict(float)
     for row in input_rows:
@@ -3080,14 +3138,14 @@ def write_mrp_safety_arrival_reports(
     for row in mrp_trace_rows:
         node_id = str(row.get("node_id") or "")
         item_id = str(row.get("item_id") or "")
-        if node_id in factory_ids and item_id:
+        if node_id in analysis_node_ids and item_id:
             trace_rows_by_pair[(node_id, item_id)].append(row)
 
     order_rows_by_pair: dict[tuple[str, str], list[dict[str, str]]] = defaultdict(list)
     for row in mrp_order_rows:
         node_id = str(row.get("node_id") or "")
         item_id = str(row.get("item_id") or "")
-        if node_id in factory_ids and item_id and max(0.0, to_float(row.get("planned_receipt_qty")) or 0.0) > 0.0:
+        if node_id in analysis_node_ids and item_id and max(0.0, to_float(row.get("planned_receipt_qty")) or 0.0) > 0.0:
             order_rows_by_pair[(node_id, item_id)].append(row)
 
     report_rows: list[dict[str, Any]] = []
@@ -3212,7 +3270,7 @@ def write_mrp_safety_arrival_reports(
         "# MRP Safety Arrival Compliance",
         "",
         f"- Rows analysed: `{len(report_rows)}`",
-        f"- Factory-like nodes analysed: `{len(summary_by_node)}`",
+        f"- Factory/DC nodes analysed: `{len(summary_by_node)}`",
         "",
         "## Summary by node",
     ]
@@ -4247,6 +4305,7 @@ def build_model_panel_metrics(
             "Besoin net a couvrir": aggregate_trace_series(node_trace_rows, "bn_qty"),
             "Ordres planifies (release)": aggregate_trace_series(node_trace_rows, "planned_release_qty"),
             "Receptions planifiees": aggregate_trace_series(node_trace_rows, "planned_receipt_qty"),
+            "Objectif securite souple": aggregate_trace_series(node_trace_rows, "soft_safety_target_qty"),
             "Plancher securite source": aggregate_trace_series(node_trace_rows, "safety_floor_qty"),
         }
         actual_input_arrival_series = aggregate_daily_series(
@@ -4271,6 +4330,7 @@ def build_model_panel_metrics(
                 "Ordres planifies (release)": {"color": "#0f766e", "width": 2.2},
                 "Receptions planifiees": {"color": "#2563eb", "width": 2.2},
                 "Arrivages reels intrants": {"color": "#0891b2", "width": 2.0, "dash": "dot"},
+                "Objectif securite souple": {"color": "#f59e0b", "width": 1.9, "dash": "dash"},
                 "Plancher securite source": {"color": "#7c3aed", "width": 1.8, "dash": "dot"},
             },
         )
@@ -8170,6 +8230,7 @@ def main() -> None:
             sim_input_png_dir,
             Path(args.dc_stocks_csv),
             supplier_shipments_csv,
+            Path(args.dc_stocks_csv).parent / "mrp_trace_daily.csv",
         )
         edge_metrics = build_edge_metrics(raw, supplier_shipments_csv)
         for edge_payload in payload.get("edges", []) or []:
