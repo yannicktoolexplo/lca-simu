@@ -1,0 +1,25 @@
+node_id,item_id,item_label,safety_time_days,review_period_days,first_arrival_day,first_need_day,first_planned_receipt_day,first_actual_arrival_day,min_delta_need_minus_arrival_days,is_safety_respected,order_count,initial_stock_source_qty,day0_stock_before_production_qty,day0_arrivals_qty,max_bn_qty,max_target_stock_qty,max_target_with_backlog_qty,comment
+M-1430,item:038005,038005,20.0,1,192,212,192,0,20.0,1,14,37598.5325,40293.405604,2694.873104,0.0,816546.550512,816546.550512,conforme: reception planifiee avant le jour de besoin de couverture
+M-1430,item:042342,042342,5.0,1,55,60,55,0,5.0,1,16,78749996.0,88042664.0,9292668.0,0.0,418170060.0,418170060.0,conforme: reception planifiee avant le jour de besoin de couverture
+M-1430,item:333362,333362,10.0,1,42,52,42,0,10.0,1,74,142250.0,296250.0,154000.0,0.0,18634000.0,18634000.0,conforme: reception planifiee avant le jour de besoin de couverture
+M-1430,item:344135,344135,10.0,1,33,43,33,0,10.0,1,67,0.0,184800.0,154000.0,0.0,11550000.0,11550000.0,conforme: reception planifiee avant le jour de besoin de couverture
+M-1430,item:708073,708073,10.0,1,25,35,25,0,10.0,1,2,10326.88,11548.1,1221.22,0.0,76936.86,76936.86,conforme: reception planifiee avant le jour de besoin de couverture
+M-1430,item:730384,730384,10.0,1,35,45,35,0,10.0,1,6,68387.0,101035.0,32648.0,0.0,3721872.0,3721872.0,conforme: reception planifiee avant le jour de besoin de couverture
+M-1430,item:734545,734545,10.0,1,6,16,6,0,10.0,1,11,1641.0,2873.0,1232.0,0.0,61600.0,61600.0,conforme: reception planifiee avant le jour de besoin de couverture
+M-1430,item:773474,773474,20.0,1,8,28,8,0,20.0,1,91,14593000.0,16079826.572,1486826.572,7571136.6124,59473062.88,59473062.88,conforme: reception planifiee avant le jour de besoin de couverture
+M-1810,item:001757,001757,20.0,1,119,139,119,0,20.0,1,279,8499.654,8830.2192,330.5652,0.0,57848.91,57848.91,conforme: reception planifiee avant le jour de besoin de couverture
+M-1810,item:001848,001848,20.0,1,14,34,14,0,20.0,1,7,10262.646,10510.5699,247.9239,0.0,30742.5636,30742.5636,conforme: reception planifiee avant le jour de besoin de couverture
+M-1810,item:001893,001893,15.0,1,18,33,18,0,15.0,1,11,9783.5,11353.6847,1570.1847,0.0,186851.9793,186851.9793,conforme: reception planifiee avant le jour de besoin de couverture
+M-1810,item:002612,002612,20.0,1,1322,1342,1322,0,20.0,1,1,153521.636719,153934.843219,413.2065,0.0,153521.636719,153521.636719,conforme: reception planifiee avant le jour de besoin de couverture
+M-1810,item:007923,007923,15.0,1,116,131,116,0,15.0,1,2186,55018.98,55680.1104,661.1304,0.0,55018.98,55018.98,conforme: reception planifiee avant le jour de besoin de couverture
+M-1810,item:016332,016332,7.0,1,80,87,80,0,7.0,1,8,883.02,982.18956,99.16956,0.0,9718.61688,9718.61688,conforme: reception planifiee avant le jour de besoin de couverture
+M-1810,item:029313,029313,7.0,1,423,430,423,0,7.0,1,2,226.83,235.09413,8.26413,0.0,917.31843,917.31843,conforme: reception planifiee avant le jour de besoin de couverture
+M-1810,item:039668,039668,7.0,1,1034,1041,1034,0,7.0,1,1,459.695,467.95913,8.26413,0.0,595.01736,595.01736,conforme: reception planifiee avant le jour de besoin de couverture
+M-1810,item:049371,049371,40.0,1,122,162,122,0,40.0,1,18,4138.93,4444.70281,305.77281,0.0,94789.5711,94789.5711,conforme: reception planifiee avant le jour de besoin de couverture
+M-1810,item:055703,055703,30.0,1,39,69,39,0,30.0,1,7,569.805001,586.333261,16.52826,0.0,1785.05208,1785.05208,conforme: reception planifiee avant le jour de besoin de couverture
+M-1810,item:099439,099439,7.0,1,130,137,130,0,7.0,1,9,4972.616,5385.8225,413.2065,0.0,29750.868,29750.868,conforme: reception planifiee avant le jour de besoin de couverture
+M-1810,item:338928,338928,10.0,1,26,36,26,0,10.0,1,694,404065.0,607615.0,203550.0,1786885.0,28293450.0,28293450.0,conforme: reception planifiee avant le jour de besoin de couverture
+M-1810,item:338929,338929,10.0,1,17,27,17,0,10.0,1,1177,354000.0,557550.0,203550.0,0.0,17912400.0,17912400.0,conforme: reception planifiee avant le jour de besoin de couverture
+M-1810,item:426331,426331,7.0,1,97,104,97,0,7.0,1,11,24159.0,26398.05,2239.05,0.0,134343.0,134343.0,conforme: reception planifiee avant le jour de besoin de couverture
+M-1810,item:693055,693055,20.0,1,16,36,16,0,20.0,1,1014,1010000.0,1092641.3,82641.3,46771.2,12313553.7,12313553.7,conforme: reception planifiee avant le jour de besoin de couverture
+SDC-1450,item:021081,021081,0.0,1,,,,0,,0,0,1142100.0,1146570.0,4470.0,0.0,1142100.0,1142100.0,pas d'ordre: pas de besoin net observe

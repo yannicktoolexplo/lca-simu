@@ -595,7 +595,7 @@ def scenario_initialization_policy(
         mode = "legacy_bootstrap"
     return {
         "mode": mode,
-        "state_scale": max(0.01, to_float(raw.get("state_scale"), 1.0)),
+        "state_scale": max(0.0, to_float(raw.get("state_scale"), 1.0)),
         "factory_input_on_hand_days": max(
             0.0,
             to_float(raw.get("factory_input_on_hand_days"), float(max(review_days + safety_days, 10))),
@@ -625,6 +625,22 @@ def scenario_initialization_policy(
             raw.get("seed_estimated_source_pipeline")
             if isinstance(raw.get("seed_estimated_source_pipeline"), bool)
             else str(raw.get("seed_estimated_source_pipeline", "true")).strip().lower() in {"1", "true", "yes", "y", "on"}
+        ),
+        "restore_opening_stock_after_warmup": (
+            raw.get("restore_opening_stock_after_warmup")
+            if isinstance(raw.get("restore_opening_stock_after_warmup"), bool)
+            else str(raw.get("restore_opening_stock_after_warmup", "false")).strip().lower()
+            in {"1", "true", "yes", "y", "on"}
+        ),
+        "seed_open_orders_from_january_snapshot": (
+            raw.get("seed_open_orders_from_january_snapshot")
+            if isinstance(raw.get("seed_open_orders_from_january_snapshot"), bool)
+            else str(raw.get("seed_open_orders_from_january_snapshot", "false")).strip().lower()
+            in {"1", "true", "yes", "y", "on"}
+        ),
+        "opening_open_orders_horizon_days": max(
+            0,
+            int(round(max(0.0, to_float(raw.get("opening_open_orders_horizon_days"), 0.0)))),
         ),
     }
 
@@ -664,6 +680,152 @@ def seed_external_pipeline_uniform(
     for offset in range(lead_days):
         pipeline[offset].append((node_id, item_id, per_day))
     in_transit[(node_id, item_id)] += qty
+
+
+def seed_open_orders_from_opening_snapshot(
+    pipeline: dict[int, list[tuple[str, str, float, str]]],
+    in_transit: dict[tuple[str, str], float],
+    *,
+    lanes: list[dict[str, Any]],
+    lanes_by_dest_item: dict[tuple[str, str], list[dict[str, Any]]],
+    opening_stock_source_snapshot: dict[tuple[str, str], float],
+    pair_mrp_safety_time_days: dict[tuple[str, str], float],
+    pair_mrp_safety_stock_qty: dict[tuple[str, str], float],
+    demand_profiles: dict[tuple[str, str], list[dict[str, Any]]],
+    required_daily_input_by_pair: dict[tuple[str, str], float],
+    demand_pairs: list[tuple[str, str]],
+    stochastic_lead_times: bool,
+    horizon_cap_days: int,
+    initialization_pipeline_rows: list[dict[str, Any]],
+    assumptions_ledger_rows: list[dict[str, Any]],
+) -> tuple[float, list[dict[str, Any]], dict[tuple[str, str], int]]:
+    if horizon_cap_days <= 0:
+        return 0.0, [], {}
+
+    inbound_pairs = sorted(lanes_by_dest_item.keys())
+    if not inbound_pairs:
+        return 0.0, [], {}
+
+    daily_signals_by_pair: dict[tuple[str, str], list[float]] = {
+        pair: [0.0] * horizon_cap_days for pair in inbound_pairs
+    }
+    for day in range(horizon_cap_days):
+        demand_target_today = {
+            pair: max(0.0, profile_value(profile, day))
+            for pair, profile in demand_profiles.items()
+        }
+        propagated_demand_today = propagate_demand_rates(demand_target_today, lanes)
+        for pair in inbound_pairs:
+            dynamic_req = max(0.0, propagated_demand_today.get(pair, 0.0))
+            static_req = max(0.0, required_daily_input_by_pair.get(pair, 0.0))
+            daily_signals_by_pair[pair][day] = dynamic_req if dynamic_req > 1e-9 else static_req
+
+    seeded_total_qty = 0.0
+    open_order_rows: list[dict[str, Any]] = []
+    bridge_days_by_pair: dict[tuple[str, str], int] = {}
+
+    for pair in inbound_pairs:
+        lane_list = list(lanes_by_dest_item.get(pair, []))
+        if not lane_list:
+            continue
+        opening_qty = max(0.0, opening_stock_source_snapshot.get(pair, 0.0))
+        safety_qty = max(0.0, pair_mrp_safety_stock_qty.get(pair, 0.0))
+        safety_days = int(math.ceil(max(0.0, pair_mrp_safety_time_days.get(pair, 0.0))))
+        min_lead_days = min(max(1, int(to_float(lane.get("lead_days"), 1.0))) for lane in lane_list)
+        bridge_horizon_days = max(1, min(horizon_cap_days, min_lead_days + safety_days))
+        bridge_days_by_pair[pair] = bridge_horizon_days
+        daily_signals = daily_signals_by_pair.get(pair, [])
+        bridge_need_qty = sum(max(0.0, daily_signals[day]) for day in range(bridge_horizon_days))
+        gap_qty = max(0.0, safety_qty + bridge_need_qty - opening_qty)
+        if gap_qty <= 1e-9:
+            continue
+
+        positive_shares = [max(0.0, to_float(lane.get("mrp_share"), 0.0)) for lane in lane_list]
+        share_total = sum(positive_shares)
+        if share_total <= 1e-9:
+            positive_shares = [1.0] * len(lane_list)
+            share_total = float(len(lane_list))
+
+        for lane, share in zip(lane_list, positive_shares):
+            lane_gap_qty = gap_qty * (share / share_total)
+            if lane_gap_qty <= 1e-9:
+                continue
+            lead_days = max(1, int(to_float(lane.get("lead_days"), 1.0)))
+            order_frequency_days = max(1, int(round(max(1.0, to_float(lane.get("order_frequency_days"), 1.0)))))
+            standard_order_qty = max(0.0, to_float(lane.get("standard_order_qty"), 0.0))
+            lane_horizon_days = max(1, min(bridge_horizon_days, lead_days + safety_days))
+            cadence_order_count = max(1, int(math.ceil(lane_horizon_days / float(order_frequency_days))))
+            order_count = cadence_order_count
+            if standard_order_qty > 1e-9:
+                min_orders_for_standard = max(1, int(math.ceil((lane_gap_qty / standard_order_qty) - 1e-9)))
+                order_count = min(cadence_order_count, min_orders_for_standard)
+            qty_per_order = lane_gap_qty / float(order_count)
+            qty_by_order = [qty_per_order] * order_count
+
+            if order_count == 1:
+                arrival_days = [max(1, lane_horizon_days - 1)]
+            else:
+                latest_arrival_day = max(1, lane_horizon_days - 1)
+                arrival_days = []
+                cursor = latest_arrival_day
+                for _ in range(order_count):
+                    arrival_days.append(max(1, cursor))
+                    cursor -= order_frequency_days
+                if len(set(arrival_days)) < len(arrival_days):
+                    arrival_days = [
+                        max(1, int(round(idx * latest_arrival_day / float(order_count - 1))))
+                        for idx in range(order_count)
+                    ]
+                arrival_days = sorted(arrival_days)
+
+            for arrival_day, receipt_qty in zip(arrival_days, qty_by_order):
+                if receipt_qty <= 1e-9:
+                    continue
+                pipeline[arrival_day].append((pair[0], pair[1], receipt_qty, str(lane.get("edge_id", ""))))
+                in_transit[pair] += receipt_qty
+                seeded_total_qty += receipt_qty
+                release_day_imt = arrival_day - lead_days
+                initialization_pipeline_rows.append(
+                    {
+                        "node_id": pair[0],
+                        "item_id": pair[1],
+                        "category": "opening_open_order_book",
+                        "seeded_pipeline_qty": round(receipt_qty, 6),
+                        "lead_days": int(lead_days),
+                        "lane_src": str(lane.get("src", "")),
+                    }
+                )
+                row = {
+                    "node_id": pair[0],
+                    "item_id": pair[1],
+                    "src_node_id": str(lane.get("src", "")),
+                    "edge_id": str(lane.get("edge_id", "")),
+                    "arrival_day": int(arrival_day),
+                    "release_day_imt": int(release_day_imt),
+                    "receipt_qty": round(receipt_qty, 6),
+                    "lead_days": int(lead_days),
+                    "order_frequency_days": int(order_frequency_days),
+                    "standard_order_qty": round(standard_order_qty, 6),
+                    "safety_time_days": round(float(safety_days), 6),
+                    "bridge_horizon_days": int(bridge_horizon_days),
+                    "opening_stock_qty": round(opening_qty, 6),
+                    "bridge_need_qty": round(bridge_need_qty, 6),
+                    "gap_qty": round(gap_qty, 6),
+                }
+                open_order_rows.append(row)
+                assumptions_ledger_rows.append(
+                    {
+                        "category": "opening_open_order_book",
+                        "node_id": pair[0],
+                        "item_id": pair[1],
+                        "edge_id": str(lane.get("edge_id", "")),
+                        "source": "mrp_open_orders_reconstruction",
+                        "payload_json": json.dumps(row, ensure_ascii=False, sort_keys=True),
+                    }
+                )
+
+    open_order_rows.sort(key=lambda row: (row["node_id"], row["item_id"], row["arrival_day"], row["src_node_id"]))
+    return seeded_total_qty, open_order_rows, bridge_days_by_pair
 
 
 def derive_supplier_daily_capacity_by_pair(
@@ -1430,6 +1592,7 @@ def main() -> None:
             if isinstance(mrp_policy, dict):
                 pair_mrp_safety_time_days[key] = max(0.0, to_float(mrp_policy.get("safety_time_days"), 0.0))
                 pair_mrp_safety_stock_qty[key] = max(0.0, to_float(mrp_policy.get("safety_stock_qty"), 0.0))
+    opening_stock_source_snapshot = dict(stock)
 
     lanes, lanes_by_dest_item = lane_records(edges, economic_policy=economic_policy)
     lanes_with_fallback_transport_cost = sum(1 for l in lanes if bool(l.get("transport_cost_is_fallback")))
@@ -1627,6 +1790,10 @@ def main() -> None:
     initialization_pipeline_rows: list[dict[str, Any]] = []
     total_initialization_stock_added = 0.0
     total_initialization_pipeline_seeded = 0.0
+    opening_open_order_rows: list[dict[str, Any]] = []
+    total_opening_open_order_qty = 0.0
+    opening_open_order_bridge_days_by_pair: dict[tuple[str, str], int] = {}
+    assumptions_ledger_rows: list[dict[str, Any]] = []
     opening_stock_bootstrap_scale = max(
         0.0,
         to_float(scenario.get("opening_stock_bootstrap_scale", 1.0), 1.0),
@@ -1943,6 +2110,40 @@ def main() -> None:
 
         initialization_state_rows.sort(key=lambda r: (r["node_id"], r["item_id"], r["category"]))
         initialization_pipeline_rows.sort(key=lambda r: (r["node_id"], r["item_id"], r["category"]))
+    if initialization_policy["seed_open_orders_from_january_snapshot"]:
+        horizon_cap_days = initialization_policy["opening_open_orders_horizon_days"]
+        if horizon_cap_days <= 0:
+            inferred_horizon_candidates = [
+                max(
+                    1,
+                    int(to_float(lane.get("lead_days"), 1.0))
+                    + int(math.ceil(max(0.0, pair_mrp_safety_time_days.get((str(lane["dst"]), str(lane["item_id"])), 0.0)))),
+                )
+                for lane in lanes
+            ]
+            horizon_cap_days = max(inferred_horizon_candidates or [30])
+        (
+            total_opening_open_order_qty,
+            opening_open_order_rows,
+            opening_open_order_bridge_days_by_pair,
+        ) = seed_open_orders_from_opening_snapshot(
+            pipeline,
+            in_transit,
+            lanes=lanes,
+            lanes_by_dest_item=lanes_by_dest_item,
+            opening_stock_source_snapshot=opening_stock_source_snapshot,
+            pair_mrp_safety_time_days=pair_mrp_safety_time_days,
+            pair_mrp_safety_stock_qty=pair_mrp_safety_stock_qty,
+            demand_profiles=demand_profiles,
+            required_daily_input_by_pair=required_daily_input_by_pair,
+            demand_pairs=demand_pairs,
+            stochastic_lead_times=args.stochastic_lead_times,
+            horizon_cap_days=horizon_cap_days,
+            initialization_pipeline_rows=initialization_pipeline_rows,
+            assumptions_ledger_rows=assumptions_ledger_rows,
+        )
+        total_initialization_pipeline_seeded += total_opening_open_order_qty
+        initialization_pipeline_rows.sort(key=lambda r: (r["node_id"], r["item_id"], r["category"], r.get("lane_src", "")))
     supplier_capacity_daily_rows: list[dict[str, Any]] = []
     total_supplier_capacity_binding_qty = 0.0
 
@@ -1950,6 +2151,13 @@ def main() -> None:
         record_day = day >= warmup_days
         output_day = day - warmup_days
         profile_day = day if day < warmup_days else output_day
+        if (
+            day == warmup_days
+            and warmup_days > 0
+            and initialization_policy.get("restore_opening_stock_after_warmup")
+        ):
+            for pair in list(set(stock.keys()) | set(opening_stock_source_snapshot.keys())):
+                stock[pair] = max(0.0, opening_stock_source_snapshot.get(pair, 0.0))
         if day == warmup_days and reset_backlog_after_warmup:
             warmup_backlog_cleared_qty = sum(max(0.0, val) for val in backlog.values())
             for pair in list(backlog.keys()):
@@ -2429,9 +2637,15 @@ def main() -> None:
                 if pair in demand_pairs and demand_stock_target_days > 0.0:
                     target = max(target, demand_stock_target_days * item_daily_req)
                 if pair not in mrp_snapshot_pairs:
+                    effective_cover_days = float(pair_stock_cover_days.get(pair, review_period_days + 1))
+                    if initialization_policy["seed_open_orders_from_january_snapshot"]:
+                        effective_cover_days = max(
+                            0.0,
+                            effective_cover_days - float(opening_open_order_bridge_days_by_pair.get(pair, 0)),
+                        )
                     target = max(
                         target,
-                        item_daily_req * float(pair_stock_cover_days.get(pair, review_period_days + 1)),
+                        item_daily_req * effective_cover_days,
                     )
             else:
                 target = max(target, pair_mrp_safety_stock_qty.get(pair, 0.0))
@@ -2675,9 +2889,15 @@ def main() -> None:
                     if pair in demand_pairs and demand_stock_target_days > 0.0:
                         coverage_target_qty = max(coverage_target_qty, demand_stock_target_days * item_daily_req)
                     if pair not in mrp_snapshot_pairs:
+                        effective_cover_days = float(pair_stock_cover_days.get(pair, review_period_days + 1))
+                        if initialization_policy["seed_open_orders_from_january_snapshot"]:
+                            effective_cover_days = max(
+                                0.0,
+                                effective_cover_days - float(opening_open_order_bridge_days_by_pair.get(pair, 0)),
+                            )
                         coverage_target_qty = max(
                             coverage_target_qty,
-                            item_daily_req * float(pair_stock_cover_days.get(pair, review_period_days + 1)),
+                            item_daily_req * effective_cover_days,
                         )
                 target_stock_qty = max(safety_floor_qty, coverage_target_qty)
                 backlog_target_qty = max(0.0, backlog.get(pair, 0.0))
@@ -2851,7 +3071,8 @@ def main() -> None:
         "scenario_id": str(scenario.get("id")),
         "sim_days": sim_days,
         "warmup_days": warmup_days,
-        "timeline_days": total_timeline_days,
+        "timeline_days": sim_days,
+        "total_simulated_timeline_days": total_timeline_days,
         "policy": {
             "safety_stock_days": safety_stock_days,
             "review_period_days": review_period_days,
@@ -2876,6 +3097,9 @@ def main() -> None:
                 "seed_in_transit": initialization_policy["seed_in_transit"],
                 "in_transit_fill_ratio": initialization_policy["in_transit_fill_ratio"],
                 "seed_estimated_source_pipeline": initialization_policy["seed_estimated_source_pipeline"],
+                "restore_opening_stock_after_warmup": initialization_policy["restore_opening_stock_after_warmup"],
+                "seed_open_orders_from_january_snapshot": initialization_policy["seed_open_orders_from_january_snapshot"],
+                "opening_open_orders_horizon_days": initialization_policy["opening_open_orders_horizon_days"],
             },
             "economic_policy": {
                 "transport_cost_floor_per_unit": economic_policy["transport_cost_floor_per_unit"],
@@ -2951,6 +3175,7 @@ def main() -> None:
             "opening_stock_bootstrap_pairs": opening_stock_bootstrap_rows,
             "explicit_initialization_stock_rows": initialization_state_rows,
             "explicit_initialization_pipeline_rows": initialization_pipeline_rows,
+            "opening_open_order_rows": opening_open_order_rows,
             "pair_mrp_safety_policies": [
                 {
                     "node_id": n,
@@ -3039,6 +3264,7 @@ def main() -> None:
             "total_opening_stock_bootstrap_qty": round(total_opening_stock_bootstrap, 4),
             "total_explicit_initialization_stock_qty": round(total_initialization_stock_added, 4),
             "total_explicit_initialization_pipeline_qty": round(total_initialization_pipeline_seeded, 4),
+            "total_opening_open_order_qty": round(total_opening_open_order_qty, 4),
             "total_unreliable_loss_qty": round(total_unreliable_loss_qty, 4),
             "total_supplier_capacity_binding_qty": round(total_supplier_capacity_binding_qty, 4),
             "cost_share_holding": round(holding_share, 6),
@@ -3058,7 +3284,6 @@ def main() -> None:
         "top_backlog_pairs": top_backlog,
     }
 
-    assumptions_ledger_rows: list[dict[str, Any]] = []
     for node_id in assumed_supplier_nodes:
         assumptions_ledger_rows.append(
             {
@@ -3539,6 +3764,7 @@ def main() -> None:
 - Initialization mode: {summary['policy']['initialization_policy']['mode']}
 - Initialization stock days factory / supplier FG / DC / customer: {summary['policy']['initialization_policy']['factory_input_on_hand_days']} / {summary['policy']['initialization_policy']['supplier_output_on_hand_days']} / {summary['policy']['initialization_policy']['distribution_center_on_hand_days']} / {summary['policy']['initialization_policy']['customer_on_hand_days']}
 - Initialization seed in-transit / fill ratio / estimated-source pipeline: {summary['policy']['initialization_policy']['seed_in_transit']} / {summary['policy']['initialization_policy']['in_transit_fill_ratio']} / {summary['policy']['initialization_policy']['seed_estimated_source_pipeline']}
+- Opening open-orders reconstruction enabled / horizon days: {summary['policy']['initialization_policy']['seed_open_orders_from_january_snapshot']} / {summary['policy']['initialization_policy']['opening_open_orders_horizon_days']}
 - Unmodeled supplier source mode: {summary['policy']['unmodeled_supplier_source_mode']}
 - Stochastic lead times: {summary['policy']['stochastic_lead_times']}
 - Random seed: {summary['policy']['seed']}
@@ -3565,6 +3791,7 @@ def main() -> None:
 - Assumed supply edges (explicitly tagged, includes '?'): {len(assumed_supply_edges)} ({assumed_edges_txt})
 - External upstream sourcing for unmodeled source pairs: {len(externally_sourced_pairs)}
 - Opening stock bootstrap pairs (lead-time coverage at max capacity): {len(opening_stock_bootstrap_rows)}
+- Opening open-order rows reconstructed from January snapshot: {len(opening_open_order_rows)}
 - MRP trace tracked pairs / rows / orders: {summary['production_tracking']['mrp_trace']['tracked_pairs']} / {summary['production_tracking']['mrp_trace']['trace_rows']} / {summary['production_tracking']['mrp_trace']['order_rows']}
 
 ## KPIs
@@ -3595,6 +3822,7 @@ def main() -> None:
 - Total opening stock bootstrap qty: {summary['kpis']['total_opening_stock_bootstrap_qty']}
 - Total explicit initialization stock qty: {summary['kpis']['total_explicit_initialization_stock_qty']}
 - Total explicit initialization pipeline qty: {summary['kpis']['total_explicit_initialization_pipeline_qty']}
+- Total opening open-order qty: {summary['kpis']['total_opening_open_order_qty']}
 - Total unreliable supplier loss qty: {summary['kpis']['total_unreliable_loss_qty']}
 - Total supplier capacity binding qty: {summary['kpis']['total_supplier_capacity_binding_qty']}
 - Economic consistency status: {summary['economic_consistency']['status']}
