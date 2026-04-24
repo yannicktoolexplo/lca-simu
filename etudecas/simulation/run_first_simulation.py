@@ -391,13 +391,12 @@ def lane_records(
                 and standard_order_qty >= 1_000_000.0
                 and (order_unit or standard_order_uom) == "KG"
             ):
-                # The source FIA row carries 5,000,000 KG for a component whose
-                # five-year simulated need is only about 63 t. Interpreting the
-                # row as 5,000 KG avoids a non-physical one-lot receipt while
-                # keeping a hard-lot policy on the lane.
+                # The source FIA row carries 5,000,000 in a context where the
+                # quantity is understood as grams. Convert it to 5,000 KG so the
+                # hard-lot policy remains realistic for the BOM demand scale.
                 standard_order_qty_note = (
-                    f"overridden from {standard_order_qty:g} KG to 5000 KG "
-                    "because the source lot is inconsistent with the BOM demand scale"
+                    f"overridden from {standard_order_qty:g} g-equivalent to 5000 KG "
+                    "because this source lot is interpreted as grams, not kilograms"
                 )
                 standard_order_qty = 5000.0
             lane = {
@@ -757,7 +756,7 @@ def scenario_initialization_policy(
         ),
         "opening_open_orders_demand_multiplier": max(
             0.0,
-            to_float(raw.get("opening_open_orders_demand_multiplier"), 10.0),
+            to_float(raw.get("opening_open_orders_demand_multiplier"), 1.0),
         ),
         "use_bom_demand_signal_for_mrp": (
             raw.get("use_bom_demand_signal_for_mrp")
@@ -861,7 +860,7 @@ def seed_open_orders_from_opening_snapshot(
             )
             safety_daily_signals_by_pair[pair][day] = max(
                 static_req,
-                dynamic_req * opening_open_orders_demand_multiplier if dynamic_req > 1e-9 else 0.0,
+                dynamic_req if dynamic_req > 1e-9 else 0.0,
             )
 
     seeded_total_qty = 0.0
@@ -873,7 +872,7 @@ def seed_open_orders_from_opening_snapshot(
         if not lane_list:
             continue
         opening_qty = max(0.0, opening_stock_source_snapshot.get(pair, 0.0))
-        safety_qty = max(0.0, pair_mrp_safety_stock_qty.get(pair, 0.0))
+        safety_qty = 0.0
         safety_days = int(math.ceil(max(0.0, pair_mrp_safety_time_days.get(pair, 0.0))))
         min_lead_days = min(max(1, int(to_float(lane.get("lead_days"), 1.0))) for lane in lane_list)
         bridge_horizon_days = max(1, min(horizon_cap_days, min_lead_days + safety_days))
@@ -1801,7 +1800,9 @@ def main() -> None:
             mrp_policy = st.get("mrp_policy") or {}
             if isinstance(mrp_policy, dict):
                 pair_mrp_safety_time_days[key] = max(0.0, to_float(mrp_policy.get("safety_time_days"), 0.0))
-                pair_mrp_safety_stock_qty[key] = max(0.0, to_float(mrp_policy.get("safety_stock_qty"), 0.0))
+                # Business rule: only safety delays are actionable for stock policy.
+                # Source safety-stock quantities are ignored in this simulation.
+                pair_mrp_safety_stock_qty[key] = 0.0
     opening_stock_source_snapshot = dict(stock)
 
     lanes, lanes_by_dest_item = lane_records(edges, economic_policy=economic_policy)
@@ -2251,7 +2252,7 @@ def main() -> None:
             )
             ensure_stock_target(
                 pair,
-                max(daily_req * cover_days, pair_mrp_safety_stock_qty.get(pair, 0.0)),
+                daily_req * cover_days,
                 category=f"{category_prefix}_input_on_hand",
                 daily_signal=daily_req,
                 cover_days=cover_days,
@@ -2273,7 +2274,7 @@ def main() -> None:
             )
             ensure_stock_target(
                 pair,
-                max(daily_signal * cover_days, pair_mrp_safety_stock_qty.get(pair, 0.0)),
+                daily_signal * cover_days,
                 category="supplier_output_on_hand",
                 daily_signal=daily_signal,
                 cover_days=cover_days,
@@ -2290,7 +2291,7 @@ def main() -> None:
             )
             ensure_stock_target(
                 pair,
-                max(daily_signal * cover_days, pair_mrp_safety_stock_qty.get(pair, 0.0)),
+                daily_signal * cover_days,
                 category="distribution_center_on_hand",
                 daily_signal=daily_signal,
                 cover_days=cover_days,
@@ -2822,6 +2823,7 @@ def main() -> None:
             reliability: float = 1.0,
             standard_order_qty: float = 0.0,
             mrp_share: float = 0.0,
+            physical_release_day: int | None = None,
         ) -> None:
             planned_release_today_by_pair[trace_pair] += max(0.0, release_qty)
             planned_receipt_today_by_pair[trace_pair] += max(0.0, receipt_qty)
@@ -2840,6 +2842,9 @@ def main() -> None:
             cover_need_day = arrival_day + safety_days_int
             effective_lead_cover_days = int(max(1, lead_cover_days if lead_cover_days is not None else lead_days))
             order_date_imt = cover_need_day - safety_days_int - effective_lead_cover_days
+            release_day_for_output = (
+                int(physical_release_day) if physical_release_day is not None else output_day
+            )
             order_status_end_of_run = "received" if arrival_day < total_timeline_days else "released_in_transit"
             actual_receipt_day = int(arrival_day - warmup_days) if arrival_day >= warmup_days and arrival_day < total_timeline_days else ""
             mrp_order_rows.append(
@@ -2857,7 +2862,7 @@ def main() -> None:
                     "order_status_end_of_run": order_status_end_of_run,
                     "release_qty": round(release_qty, 6),
                     "planned_receipt_qty": round(receipt_qty, 6),
-                    "release_day": output_day,
+                    "release_day": int(release_day_for_output - warmup_days),
                     "order_date_imt": int(order_date_imt - warmup_days),
                     "arrival_day": int(arrival_day - warmup_days),
                     "actual_receipt_day": actual_receipt_day,
@@ -2872,7 +2877,7 @@ def main() -> None:
             )
         for pair, lane_list in lanes_by_dest_item.items():
             dst, item_id = pair
-            target = max(base_stock.get(pair, 0.0), pair_mrp_safety_stock_qty.get(pair, 0.0))
+            target = max(base_stock.get(pair, 0.0), 0.0)
             static_daily_req = max(0.0, required_daily_input_by_pair.get(pair, 0.0))
             dynamic_daily_req = max(0.0, propagated_demand_today.get(pair, 0.0))
             if dynamic_daily_req > 1e-9:
@@ -2907,7 +2912,7 @@ def main() -> None:
                         item_daily_req * effective_cover_days,
                     )
             else:
-                target = max(target, pair_mrp_safety_stock_qty.get(pair, 0.0))
+                target = max(target, 0.0)
             target += backlog[pair]
 
             if day % review_period_days != 0:
@@ -3046,16 +3051,24 @@ def main() -> None:
                     delivery_count = min(total_units, max_delivery_count)
                     base_units = max(1, total_units // delivery_count)
                     remainder_units = total_units % delivery_count
+                    latest_offset = max(0, int(lead_cover) - 1)
                     for idx in range(delivery_count):
                         units = base_units + (1 if idx < remainder_units else 0)
                         chunk_pull_qty = units * standard_order_qty
                         chunk_delivered_qty = chunk_pull_qty * rel
-                        arrival_day = day + lead_days + idx * order_frequency_days
+                        if delivery_count > 1:
+                            even_offset = int(round(idx * latest_offset / float(delivery_count - 1)))
+                            cadence_offset = idx * order_frequency_days
+                            delivery_offset = min(latest_offset, max(cadence_offset, even_offset))
+                        else:
+                            delivery_offset = 0
+                        arrival_day = day + lead_days + delivery_offset
                         delivery_schedule.append((arrival_day, chunk_pull_qty, chunk_delivered_qty))
                 else:
                     delivery_schedule.append((day + lead_days, pull_qty, delivered_qty))
 
                 for arrival_day, chunk_pull_qty, chunk_delivered_qty in delivery_schedule:
+                    physical_release_day = int(arrival_day - lead_days)
                     pipeline[arrival_day].append((dst, item_id, chunk_delivered_qty, lane["edge_id"]))
                     register_mrp_order(
                         pair,
@@ -3073,6 +3086,7 @@ def main() -> None:
                         reliability=rel,
                         standard_order_qty=standard_order_qty,
                         mrp_share=to_float(lane.get("mrp_share"), 0.0),
+                        physical_release_day=physical_release_day,
                     )
                 in_transit[pair] += delivered_qty
                 if record_day:
@@ -3082,9 +3096,10 @@ def main() -> None:
                     purchase_cost_today += delivered_qty * lane["unit_purchase_cost"]
                     total_unreliable_loss_qty += max(0.0, pull_qty - delivered_qty)
                     for arrival_day, chunk_pull_qty, chunk_delivered_qty in delivery_schedule:
+                        physical_release_day = int(arrival_day - lead_days)
                         supplier_shipment_rows.append(
                             {
-                                "day": output_day,
+                                "day": int(physical_release_day - warmup_days),
                                 "src_node_id": str(lane["src"]),
                                 "dst_node_id": str(dst),
                                 "item_id": str(item_id),
@@ -3162,7 +3177,7 @@ def main() -> None:
                 else:
                     item_daily_req = item_daily_req_static
                     gross_requirement_basis = "static_requirement" if item_daily_req_static > 1e-9 else "none"
-                safety_floor_qty = max(base_stock.get(pair, 0.0), pair_mrp_safety_stock_qty.get(pair, 0.0))
+                safety_floor_qty = max(base_stock.get(pair, 0.0), 0.0)
                 soft_safety_target_qty = safety_floor_qty
                 coverage_target_qty = 0.0
                 if item_daily_req > 0.0:
@@ -3356,6 +3371,95 @@ def main() -> None:
     if total_external_procured > 0 and total_external_procured_arrived <= 1e-9:
         economic_warnings.append("external_procurement_ordered_but_not_arrived_in_horizon")
 
+    actual_input_consumption_avg_by_pair: dict[tuple[str, str], float] = defaultdict(float)
+    for row in input_consumption_rows:
+        actual_input_consumption_avg_by_pair[(str(row["node_id"]), str(row["item_id"]))] += max(
+            0.0,
+            to_float(row.get("consumed_qty"), 0.0),
+        )
+    actual_output_production_avg_by_pair: dict[tuple[str, str], float] = defaultdict(float)
+    for row in output_prod_rows:
+        actual_output_production_avg_by_pair[(str(row["node_id"]), str(row["item_id"]))] += max(
+            0.0,
+            to_float(row.get("produced_qty"), 0.0),
+        )
+    actual_demand_avg_by_pair: dict[tuple[str, str], float] = defaultdict(float)
+    served_avg_by_pair: dict[tuple[str, str], float] = defaultdict(float)
+    for row in demand_pair_rows:
+        pair = (str(row["node_id"]), str(row["item_id"]))
+        actual_demand_avg_by_pair[pair] += max(0.0, to_float(row.get("demand_qty"), 0.0))
+        served_avg_by_pair[pair] += max(0.0, to_float(row.get("served_qty"), 0.0))
+    avg_divisor = max(1.0, float(sim_days))
+    for bucket in (
+        actual_input_consumption_avg_by_pair,
+        actual_output_production_avg_by_pair,
+        actual_demand_avg_by_pair,
+        served_avg_by_pair,
+    ):
+        for pair in list(bucket.keys()):
+            bucket[pair] = bucket[pair] / avg_divisor
+
+    safety_reference_pairs = sorted(
+        set(production_input_pairs)
+        | set(production_output_pairs)
+        | set(demand_pairs)
+        | set(propagated_demand_daily)
+        | set(pair_mrp_safety_time_days)
+        | set(pair_mrp_safety_stock_qty)
+    )
+    safety_reference_rows: list[dict[str, Any]] = []
+    soft_safety_factor = initialization_policy["soft_safety_time_stock_target_factor"]
+    for pair in safety_reference_pairs:
+        node_id, item_id = pair
+        if item_id == "item:__process_time__":
+            continue
+        safety_days = max(0.0, pair_mrp_safety_time_days.get(pair, 0.0))
+        explicit_safety_stock_qty = 0.0
+        planned_avg_daily_demand_qty = max(
+            0.0,
+            demand_target_daily.get(pair, 0.0),
+            propagated_demand_daily.get(pair, 0.0),
+            required_daily_input_by_pair.get(pair, 0.0),
+        )
+        observed_avg_daily_flow_qty = max(
+            0.0,
+            actual_input_consumption_avg_by_pair.get(pair, 0.0),
+            actual_output_production_avg_by_pair.get(pair, 0.0),
+            actual_demand_avg_by_pair.get(pair, 0.0),
+        )
+        stock_equiv_safety_time_qty = planned_avg_daily_demand_qty * safety_days
+        effective_reference_stock_qty = max(explicit_safety_stock_qty, stock_equiv_safety_time_qty)
+        soft_simulated_target_qty = max(
+            explicit_safety_stock_qty,
+            stock_equiv_safety_time_qty * soft_safety_factor,
+        )
+        node_type = node_type_by_id.get(node_id, "")
+        if pair in demand_pairs or node_type in {"distribution_center", "customer"}:
+            scope = "finished_good"
+        elif pair in production_output_pairs:
+            scope = "semi_finished_or_output"
+        elif pair in production_input_pairs:
+            scope = "input_material"
+        else:
+            scope = "supply_pair"
+        safety_reference_rows.append(
+            {
+                "scope": scope,
+                "node_id": node_id,
+                "item_id": item_id,
+                "uom": item_unit_map.get(item_id, ""),
+                "safety_time_days": round(safety_days, 6),
+                "planned_avg_daily_demand_qty": round(planned_avg_daily_demand_qty, 6),
+                "observed_avg_daily_flow_qty": round(observed_avg_daily_flow_qty, 6),
+                "stock_equiv_safety_time_qty": round(stock_equiv_safety_time_qty, 6),
+                "explicit_safety_stock_qty": round(explicit_safety_stock_qty, 6),
+                "effective_reference_stock_qty": round(effective_reference_stock_qty, 6),
+                "soft_simulated_target_qty": round(soft_simulated_target_qty, 6),
+                "soft_safety_factor": round(soft_safety_factor, 6),
+                "served_avg_daily_qty": round(served_avg_by_pair.get(pair, 0.0), 6),
+            }
+        )
+
     summary = {
         "input_file": str(input_path),
         "scenario_id": str(scenario.get("id")),
@@ -3489,6 +3593,7 @@ def main() -> None:
                     }
                 )
             ],
+            "safety_stock_reference": safety_reference_rows,
             "process_lot_execution_policies": [
                 {
                     "node_id": str(node.get("id")),
@@ -3693,6 +3798,7 @@ def main() -> None:
     summary_output_path = summary_path(output_dir, "first_simulation_summary.json")
     daily_path = data_path(output_dir, "first_simulation_daily.csv")
     report_output_path = report_path(output_dir, "first_simulation_report.md")
+    safety_reference_path = report_path(output_dir, "mrp_safety_stock_reference.csv")
     input_stock_path = data_path(output_dir, "production_input_stocks_daily.csv")
     input_consumption_path = data_path(output_dir, "production_input_consumption_daily.csv")
     input_arrival_path = data_path(output_dir, "production_input_replenishment_arrivals_daily.csv")
@@ -3711,6 +3817,27 @@ def main() -> None:
     compact_output = args.output_profile == "compact"
 
     summary_output_path.write_text(json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")
+    with safety_reference_path.open("w", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(
+            f,
+            fieldnames=[
+                "scope",
+                "node_id",
+                "item_id",
+                "uom",
+                "safety_time_days",
+                "planned_avg_daily_demand_qty",
+                "observed_avg_daily_flow_qty",
+                "stock_equiv_safety_time_qty",
+                "explicit_safety_stock_qty",
+                "effective_reference_stock_qty",
+                "soft_simulated_target_qty",
+                "soft_safety_factor",
+                "served_avg_daily_qty",
+            ],
+        )
+        writer.writeheader()
+        writer.writerows(safety_reference_rows)
     if not compact_output:
         with daily_path.open("w", encoding="utf-8", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=list(daily_rows[0].keys()) if daily_rows else [])
@@ -4004,6 +4131,8 @@ def main() -> None:
                 str(dc_stock_path),
                 "--production-constraint-csv",
                 str(production_constraint_path),
+                "--safety-reference-csv",
+                str(safety_reference_path),
             ]
             try:
                 subprocess.run(map_cmd, check=True, capture_output=True, text=True)
@@ -4044,6 +4173,121 @@ def main() -> None:
     mismatch_count = len(input_unit_mismatch_not_converted)
     assumed_nodes_txt = ", ".join(assumed_supplier_nodes) if assumed_supplier_nodes else "none"
     assumed_edges_txt = ", ".join(assumed_supply_edges) if assumed_supply_edges else "none"
+    safety_reference_preview_rows = [
+        row
+        for row in safety_reference_rows
+        if row["safety_time_days"] > 0.0 or row["explicit_safety_stock_qty"] > 0.0
+    ][:40]
+    if safety_reference_preview_rows:
+        safety_reference_preview_md = "\n".join(
+            [
+                "| Scope | Noeud | Item | Delai secu j | Demande moy/j | Stock equiv delai | Cible souple sim | Unite |",
+                "|---|---:|---:|---:|---:|---:|---:|---|",
+            ]
+            + [
+                "| {scope} | {node_id} | {item_id} | {safety_time_days} | {planned_avg_daily_demand_qty} | {stock_equiv_safety_time_qty} | {soft_simulated_target_qty} | {uom} |".format(
+                    **row
+                )
+                for row in safety_reference_preview_rows
+            ]
+        )
+    else:
+        safety_reference_preview_md = "Aucune politique de delai/stock de securite detectee."
+
+    mrp_validation_by_pair: dict[tuple[str, str], dict[str, Any]] = {}
+    release_by_pair_day: dict[tuple[str, str], dict[int, float]] = defaultdict(lambda: defaultdict(float))
+    old_release_by_pair_day: dict[tuple[str, str], dict[int, float]] = defaultdict(lambda: defaultdict(float))
+    for row in mrp_order_rows:
+        if str(row.get("order_type") or "") != "lane_release":
+            continue
+        node_id = str(row.get("dst_node_id") or row.get("node_id") or "")
+        item_id = str(row.get("item_id") or "")
+        if not node_id or not item_id or not (
+            node_id.startswith("M-") or node_id.startswith("DC-") or node_id == "SDC-1450"
+        ):
+            continue
+        pair = (node_id, item_id)
+        qty = max(0.0, to_float(row.get("release_qty"), 0.0))
+        imt_day = int(to_float(row.get("order_date_imt"), 0.0))
+        sim_day = int(to_float(row.get("day"), 0.0))
+        release_by_pair_day[pair][imt_day] += qty
+        old_release_by_pair_day[pair][sim_day] += qty
+        rec = mrp_validation_by_pair.setdefault(
+            pair,
+            {
+                "node_id": node_id,
+                "item_id": item_id,
+                "standard_order_qty": 0.0,
+                "total_release_qty": 0.0,
+                "pre_jan_release_qty": 0.0,
+            },
+        )
+        rec["standard_order_qty"] = max(
+            rec["standard_order_qty"],
+            max(0.0, to_float(row.get("standard_order_qty"), 0.0)),
+        )
+        rec["total_release_qty"] += qty
+        if imt_day < 0:
+            rec["pre_jan_release_qty"] += qty
+
+    industrial_validation_rows: list[dict[str, Any]] = []
+    for pair, rec in mrp_validation_by_pair.items():
+        imt_series = release_by_pair_day.get(pair, {})
+        old_series = old_release_by_pair_day.get(pair, {})
+        if not imt_series:
+            continue
+        peak_imt_day, peak_imt_qty = max(imt_series.items(), key=lambda it: it[1])
+        old_peak_day, old_peak_qty = max(old_series.items(), key=lambda it: it[1]) if old_series else (0, 0.0)
+        old_day0_qty = old_series.get(0, 0.0)
+        std_qty = max(0.0, to_float(rec.get("standard_order_qty"), 0.0))
+        lots_at_peak = peak_imt_qty / std_qty if std_qty > 1e-9 else 0.0
+        remark = ""
+        if std_qty >= 1_000_000.0:
+            remark = "Lot FIA tres eleve a valider avec l'industriel."
+        elif 0.0 < std_qty <= 1.0 and rec["total_release_qty"] >= 100_000.0:
+            remark = "Quantite standard=1 non interpretable comme lot industriel; lot/campagne interne a renseigner."
+        elif std_qty > 1.0 and lots_at_peak > 10.0:
+            remark = "Concentration MRP a valider; plusieurs lots commandes le meme jour IMT."
+        elif old_day0_qty > 0.0 and old_day0_qty > max(peak_imt_qty * 2.0, std_qty * 2.0):
+            remark = "Pic initial redate avant le 1er janvier via order_date_IMT; affichage MRP corrige."
+        if remark:
+            industrial_validation_rows.append(
+                {
+                    "node_id": rec["node_id"],
+                    "item_id": rec["item_id"].replace("item:", ""),
+                    "standard_order_qty": round(std_qty, 6),
+                    "old_day0_qty": round(old_day0_qty, 6),
+                    "old_peak_qty": round(old_peak_qty, 6),
+                    "old_peak_day": old_peak_day,
+                    "imt_peak_qty": round(peak_imt_qty, 6),
+                    "imt_peak_day": peak_imt_day,
+                    "pre_jan_release_qty": round(max(0.0, rec["pre_jan_release_qty"]), 6),
+                    "lots_at_peak": round(lots_at_peak, 3) if std_qty > 1e-9 else "",
+                    "remark": remark,
+                }
+            )
+    industrial_validation_rows = sorted(
+        industrial_validation_rows,
+        key=lambda r: (
+            0 if "Concentration" in str(r["remark"]) else 1,
+            -max(0.0, to_float(r.get("imt_peak_qty"), 0.0)),
+        ),
+    )
+    if industrial_validation_rows:
+        industrial_validation_md = "\n".join(
+            [
+                "| Noeud | Item | Lot std | Ancien pic J0 | Pic IMT | Jour IMT | Avant J0 | Lots au pic | Remarque |",
+                "|---|---:|---:|---:|---:|---:|---:|---:|---|",
+            ]
+            + [
+                "| {node_id} | {item_id} | {standard_order_qty} | {old_day0_qty} | {imt_peak_qty} | {imt_peak_day} | {pre_jan_release_qty} | {lots_at_peak} | {remark} |".format(
+                    **row
+                )
+                for row in industrial_validation_rows[:30]
+            ]
+        )
+    else:
+        industrial_validation_md = "Aucune concentration MRP ou lot atypique detecte."
     report = f"""# First simulation report
 
 ## Run setup
@@ -4131,8 +4375,19 @@ def main() -> None:
 ## Top backlog pairs
 {json.dumps(summary['top_backlog_pairs'], indent=2, ensure_ascii=False)}
 
+## Safety stock reference
+Calcul: `stock equiv delai = demande moyenne journaliere planifiee x delai de securite`. Les `safety_stock_qty` explicites sont ignores dans cette variante: seules les durees de securite pilotent la cible. La cible souple simulee applique le facteur `{summary['policy']['initialization_policy']['soft_safety_time_stock_target_factor']}` sur cette couverture.
+
+{safety_reference_preview_md}
+
+## Remarques validation industrielle
+Le graphe `Reappro amont` utilise maintenant `order_date_IMT` pour dater les ordres MRP. Les commandes du carnet initial peuvent donc apparaitre avant J0 au lieu d'etre empilees artificiellement au 1er janvier.
+
+{industrial_validation_md}
+
 ## Files
 - summaries/first_simulation_summary.json
+- reports/mrp_safety_stock_reference.csv
 - data/production_input_stocks_daily.csv
 - data/production_output_products_daily.csv
 - data/production_demand_service_daily.csv
@@ -4155,6 +4410,7 @@ def main() -> None:
 
     print(f"[OK] Simulation summary: {summary_output_path.resolve()}")
     print(f"[OK] Simulation report: {report_output_path.resolve()}")
+    print(f"[OK] MRP safety stock reference CSV: {safety_reference_path.resolve()}")
     print(f"[OK] Production input stocks CSV: {input_stock_path.resolve()}")
     print(f"[OK] Production output products CSV: {output_prod_path.resolve()}")
     print(f"[OK] Production demand service CSV: {demand_pair_path.resolve()}")
