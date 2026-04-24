@@ -422,9 +422,17 @@ def build_factory_hover_series(
                     continue
                 item_id = str(row.get("item_id") or "")
                 day = int(to_float(row.get("day")) or 0)
-                val = to_float(row.get("stock_end_of_day"))
-                if val is None:
-                    val = to_float(row.get("stock_before_production")) or 0.0
+                if day == 0:
+                    # Day 0 should reflect the seeded source snapshot before any
+                    # same-day consumption, so the graph starts from the true
+                    # initial stock photo rather than the post-day state.
+                    val = to_float(row.get("stock_before_production"))
+                    if val is None:
+                        val = to_float(row.get("stock_end_of_day")) or 0.0
+                else:
+                    val = to_float(row.get("stock_end_of_day"))
+                    if val is None:
+                        val = to_float(row.get("stock_before_production")) or 0.0
                 incoming_raw[node_id][item_id].append((day, val))
 
     outgoing_raw: dict[str, dict[str, list[tuple[int, float, float, float | None]]]] = defaultdict(lambda: defaultdict(list))
@@ -662,13 +670,7 @@ def build_factory_hover_images(
             lead_days = max(1.0, to_float(((edge.get("lead_time") or {}).get("mean"))) or 1.0)
             prev = inbound_lead_days.get(supplier_id)
             inbound_lead_days[supplier_id] = min(prev, lead_days) if prev is not None else lead_days
-        auxiliary = build_factory_industrial_payload(
-            desired_series,
-            actual_series,
-            capacity_series,
-            shortfall_series,
-            factory_id=factory_id,
-        )
+        auxiliary = None
         if node_type == "supplier_dc":
             site_stock_payload = build_site_stock_payload(
                 raw,
@@ -1618,6 +1620,8 @@ def build_line_chart_figure(
     title: str,
     y_label: str,
     step_like: bool = False,
+    note: str | None = None,
+    series_styles: dict[str, dict[str, Any]] | None = None,
 ) -> dict[str, Any] | None:
     usable = {
         label: (densify_daily_series(pts) if step_like else pts)
@@ -1631,11 +1635,13 @@ def build_line_chart_figure(
         "title": title,
         "y_label": y_label,
         "step_like": step_like,
+        "note": note or "",
         "series": [
             {
                 "label": label,
                 "days": [int(day) for day, _ in points],
                 "values": [float(value) for _, value in points],
+                **(series_styles.get(label, {}) if isinstance(series_styles, dict) else {}),
             }
             for label, points in usable.items()
         ],
@@ -2907,6 +2913,225 @@ def output_root_from_csv(csv_path: Path) -> Path:
     return csv_path.parent
 
 
+def write_mrp_safety_arrival_reports(
+    raw: dict[str, Any],
+    *,
+    output_root: Path,
+    mrp_trace_rows: list[dict[str, str]],
+    mrp_order_rows: list[dict[str, str]],
+    input_rows: list[dict[str, str]],
+    input_arrival_rows: list[dict[str, str]],
+) -> dict[str, dict[str, Any]]:
+    reports_dir = output_root / "reports"
+    reports_dir.mkdir(parents=True, exist_ok=True)
+
+    factory_ids = factory_like_node_ids(raw)
+    item_labels = build_item_label_lookup(raw)
+
+    initial_stock_by_pair: dict[tuple[str, str], float] = defaultdict(float)
+    for node in raw.get("nodes", []) or []:
+        node_id = str(node.get("id") or "")
+        for state in (((node.get("inventory") or {}).get("states")) or []):
+            item_id = str(state.get("item_id") or "")
+            if node_id and item_id:
+                initial_stock_by_pair[(node_id, item_id)] += max(0.0, to_float(state.get("initial")) or 0.0)
+
+    relevant_input_pairs: set[tuple[str, str]] = set()
+    for node in raw.get("nodes", []) or []:
+        node_id = str(node.get("id") or "")
+        if node_id not in factory_ids:
+            continue
+        for process in (node.get("processes") or []):
+            for raw_input in (process.get("inputs") or []):
+                item_id = str(raw_input.get("item_id") or "")
+                if node_id and item_id:
+                    relevant_input_pairs.add((node_id, item_id))
+
+    day0_stock_before_by_pair: dict[tuple[str, str], float] = defaultdict(float)
+    for row in input_rows:
+        node_id = str(row.get("node_id") or "")
+        item_id = str(row.get("item_id") or "")
+        if int(to_float(row.get("day")) or 0) != 0:
+            continue
+        if node_id and item_id:
+            day0_stock_before_by_pair[(node_id, item_id)] += max(0.0, to_float(row.get("stock_before_production")) or 0.0)
+
+    day0_arrivals_by_pair: dict[tuple[str, str], float] = defaultdict(float)
+    first_actual_arrival_day_by_pair: dict[tuple[str, str], int] = {}
+    for row in input_arrival_rows:
+        node_id = str(row.get("node_id") or "")
+        item_id = str(row.get("item_id") or "")
+        if not node_id or not item_id:
+            continue
+        qty = max(0.0, to_float(row.get("arrived_qty")) or 0.0)
+        if qty <= 0.0:
+            continue
+        day = int(to_float(row.get("day")) or 0)
+        key = (node_id, item_id)
+        if day == 0:
+            day0_arrivals_by_pair[key] += qty
+        prev = first_actual_arrival_day_by_pair.get(key)
+        if prev is None or day < prev:
+            first_actual_arrival_day_by_pair[key] = day
+
+    trace_rows_by_pair: dict[tuple[str, str], list[dict[str, str]]] = defaultdict(list)
+    for row in mrp_trace_rows:
+        node_id = str(row.get("node_id") or "")
+        item_id = str(row.get("item_id") or "")
+        if node_id in factory_ids and item_id:
+            trace_rows_by_pair[(node_id, item_id)].append(row)
+
+    order_rows_by_pair: dict[tuple[str, str], list[dict[str, str]]] = defaultdict(list)
+    for row in mrp_order_rows:
+        node_id = str(row.get("node_id") or "")
+        item_id = str(row.get("item_id") or "")
+        if node_id in factory_ids and item_id and max(0.0, to_float(row.get("planned_receipt_qty")) or 0.0) > 0.0:
+            order_rows_by_pair[(node_id, item_id)].append(row)
+
+    report_rows: list[dict[str, Any]] = []
+    summary_by_node: dict[str, dict[str, Any]] = {}
+    for pair in sorted((set(trace_rows_by_pair) | set(order_rows_by_pair)) & relevant_input_pairs):
+        node_id, item_id = pair
+        trace_rows = sorted(trace_rows_by_pair.get(pair, []), key=lambda row: int(to_float(row.get("day")) or 0))
+        order_rows = sorted(order_rows_by_pair.get(pair, []), key=lambda row: int(to_float(row.get("release_day")) or 0))
+
+        safety_time_days = max(
+            [max(0.0, to_float(row.get("safety_time_days")) or 0.0) for row in order_rows + trace_rows] or [0.0]
+        )
+        review_period_days = max([int(to_float(row.get("review_period_days")) or 0) for row in trace_rows] or [0])
+        first_arrival_day = min([int(to_float(row.get("arrival_day")) or 0) for row in order_rows], default=None)
+        first_need_day = min([int(to_float(row.get("implied_cover_need_day")) or 0) for row in order_rows], default=None)
+        first_planned_receipt_day = min(
+            [
+                int(to_float(row.get("planned_receipt_min_day")) or 0)
+                for row in trace_rows
+                if str(row.get("planned_receipt_min_day") or "").strip() != ""
+            ],
+            default=None,
+        )
+        deltas = []
+        for row in order_rows:
+            arrival = to_float(row.get("arrival_day"))
+            need = to_float(row.get("implied_cover_need_day"))
+            if arrival is None or need is None:
+                continue
+            deltas.append(float(need) - float(arrival))
+        min_delta = min(deltas) if deltas else None
+        is_safety_respected = bool(deltas and all(delta + 1e-9 >= safety_time_days for delta in deltas))
+
+        max_bn_qty = max([max(0.0, to_float(row.get("bn_qty")) or 0.0) for row in trace_rows] or [0.0])
+        max_target_stock_qty = max([max(0.0, to_float(row.get("target_stock_qty")) or 0.0) for row in trace_rows] or [0.0])
+        max_target_with_backlog_qty = max(
+            [max(0.0, to_float(row.get("target_with_backlog_qty")) or 0.0) for row in trace_rows] or [0.0]
+        )
+
+        if order_rows and is_safety_respected:
+            comment = "conforme: reception planifiee avant le jour de besoin de couverture"
+        elif order_rows and not is_safety_respected:
+            comment = "non conforme: reception planifiee trop tard vs safety time"
+        elif max_bn_qty <= 1e-9:
+            comment = "pas d'ordre: pas de besoin net observe"
+        elif day0_stock_before_by_pair.get(pair, 0.0) + day0_arrivals_by_pair.get(pair, 0.0) >= max_target_with_backlog_qty - 1e-9:
+            comment = "pas d'ordre: couverture initiale suffisante via stock seed + arrivages jour 0"
+        else:
+            comment = "attention: besoin net observe sans ordre planifie visible"
+
+        report_rows.append(
+            {
+                "node_id": node_id,
+                "item_id": item_id,
+                "item_label": item_labels.get(item_id, compact_item_label(item_id)),
+                "safety_time_days": round(safety_time_days, 6),
+                "review_period_days": review_period_days,
+                "first_arrival_day": "" if first_arrival_day is None else first_arrival_day,
+                "first_need_day": "" if first_need_day is None else first_need_day,
+                "first_planned_receipt_day": "" if first_planned_receipt_day is None else first_planned_receipt_day,
+                "first_actual_arrival_day": "" if pair not in first_actual_arrival_day_by_pair else first_actual_arrival_day_by_pair[pair],
+                "min_delta_need_minus_arrival_days": "" if min_delta is None else round(min_delta, 6),
+                "is_safety_respected": int(is_safety_respected),
+                "order_count": len(order_rows),
+                "initial_stock_source_qty": round(initial_stock_by_pair.get(pair, 0.0), 6),
+                "day0_stock_before_production_qty": round(day0_stock_before_by_pair.get(pair, 0.0), 6),
+                "day0_arrivals_qty": round(day0_arrivals_by_pair.get(pair, 0.0), 6),
+                "max_bn_qty": round(max_bn_qty, 6),
+                "max_target_stock_qty": round(max_target_stock_qty, 6),
+                "max_target_with_backlog_qty": round(max_target_with_backlog_qty, 6),
+                "comment": comment,
+            }
+        )
+
+        bucket = summary_by_node.setdefault(
+            node_id,
+            {"total": 0, "conform": 0, "non_conform": 0, "no_orders": 0, "worst_delta_days": None},
+        )
+        bucket["total"] += 1
+        if order_rows:
+            if is_safety_respected:
+                bucket["conform"] += 1
+            else:
+                bucket["non_conform"] += 1
+        else:
+            bucket["no_orders"] += 1
+        if min_delta is not None:
+            prev = bucket.get("worst_delta_days")
+            bucket["worst_delta_days"] = min_delta if prev is None else min(prev, min_delta)
+
+    csv_path = reports_dir / "mrp_safety_arrival_compliance.csv"
+    with csv_path.open("w", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(
+            f,
+            fieldnames=[
+                "node_id",
+                "item_id",
+                "item_label",
+                "safety_time_days",
+                "review_period_days",
+                "first_arrival_day",
+                "first_need_day",
+                "first_planned_receipt_day",
+                "first_actual_arrival_day",
+                "min_delta_need_minus_arrival_days",
+                "is_safety_respected",
+                "order_count",
+                "initial_stock_source_qty",
+                "day0_stock_before_production_qty",
+                "day0_arrivals_qty",
+                "max_bn_qty",
+                "max_target_stock_qty",
+                "max_target_with_backlog_qty",
+                "comment",
+            ],
+        )
+        writer.writeheader()
+        writer.writerows(report_rows)
+
+    md_path = reports_dir / "mrp_safety_arrival_compliance.md"
+    lines = [
+        "# MRP Safety Arrival Compliance",
+        "",
+        f"- Rows analysed: `{len(report_rows)}`",
+        f"- Factory-like nodes analysed: `{len(summary_by_node)}`",
+        "",
+        "## Summary by node",
+    ]
+    for node_id in sorted(summary_by_node):
+        bucket = summary_by_node[node_id]
+        lines.append(
+            f"- {node_id}: total=`{bucket['total']}` ; conformes=`{bucket['conform']}` ; non conformes=`{bucket['non_conform']}` ; sans ordres=`{bucket['no_orders']}` ; pire delta=`{bucket['worst_delta_days'] if bucket['worst_delta_days'] is not None else 'n/a'}`"
+        )
+    lines.extend(["", "## Attention points"])
+    flagged = [row for row in report_rows if row["order_count"] == 0 or not row["is_safety_respected"]]
+    if flagged:
+        for row in flagged:
+            lines.append(
+                f"- {row['node_id']} / {row['item_id']}: safety=`{row['safety_time_days']}` ; arrival=`{row['first_arrival_day'] or 'n/a'}` ; need=`{row['first_need_day'] or 'n/a'}` ; delta=`{row['min_delta_need_minus_arrival_days'] or 'n/a'}` ; comment=`{row['comment']}`"
+            )
+    else:
+        lines.append("- Aucun point non conforme detecte sur les ordres MRP traces.")
+    md_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return summary_by_node
+
+
 def build_item_label_lookup(raw: dict[str, Any]) -> dict[str, str]:
     out: dict[str, str] = {}
     for item in raw.get("items", []) or []:
@@ -3071,8 +3296,9 @@ def build_model_panel_metrics(
         for node in (raw.get("nodes") or [])
         if isinstance(node, dict) and node.get("id") is not None and not is_pilotage_hidden_node(str(node.get("id") or ""))
     }
-    summary_file = output_root_from_csv(demand_service_csv) / "summaries" / "first_simulation_summary.json"
-    data_root = output_root_from_csv(demand_service_csv) / "data"
+    output_root = output_root_from_csv(demand_service_csv)
+    summary_file = output_root / "summaries" / "first_simulation_summary.json"
+    data_root = output_root / "data"
     summary = json.loads(summary_file.read_text(encoding="utf-8")) if summary_file.exists() else {}
     policy = (summary.get("policy") or {}) if isinstance(summary, dict) else {}
     init_policy = (policy.get("initialization_policy") or {}) if isinstance(policy, dict) else {}
@@ -3089,6 +3315,14 @@ def build_model_panel_metrics(
     supplier_capacity_rows = read_csv_rows(supplier_capacity_csv)
     dc_stock_rows = read_csv_rows(dc_stocks_csv)
     constraint_rows = read_csv_rows(production_constraint_csv)
+    mrp_safety_summary_by_node = write_mrp_safety_arrival_reports(
+        raw,
+        output_root=output_root,
+        mrp_trace_rows=mrp_trace_rows,
+        mrp_order_rows=mrp_order_rows,
+        input_rows=input_rows,
+        input_arrival_rows=input_arrival_rows,
+    )
 
     latest_input_stock = latest_value_map(input_rows, node_field="node_id", value_field="stock_end_of_day")
     latest_output_stock = latest_value_map(output_rows, node_field="node_id", value_field="stock_end_of_day")
@@ -3199,10 +3433,15 @@ def build_model_panel_metrics(
             by_day[day] += max(0.0, to_float(row.get(field)) or 0.0)
         return sorted(by_day.items())
 
-    def aggregate_order_series(rows: list[dict[str, str]], field: str) -> list[tuple[int, float]]:
+    def aggregate_order_series(
+        rows: list[dict[str, str]],
+        field: str,
+        *,
+        day_field: str = "day",
+    ) -> list[tuple[int, float]]:
         by_day: dict[int, float] = defaultdict(float)
         for row in rows:
-            day = int(to_float(row.get("day")) or 0)
+            day = int(to_float(row.get(day_field)) or 0)
             by_day[day] += max(0.0, to_float(row.get(field)) or 0.0)
         return sorted(by_day.items())
 
@@ -3791,10 +4030,12 @@ def build_model_panel_metrics(
         )
         if trace_figure is not None:
             node_trace_asset = {"figure": trace_figure}
+        safety_summary = mrp_safety_summary_by_node.get(node_id, {})
         flow_series = {
-            "Planned release": aggregate_trace_series(node_trace_rows, "planned_release_qty"),
-            "Planned receipt": aggregate_trace_series(node_trace_rows, "planned_receipt_qty"),
-            "Target stock": aggregate_trace_series(node_trace_rows, "target_stock_qty"),
+            "Besoin net a couvrir": aggregate_trace_series(node_trace_rows, "bn_qty"),
+            "Ordres planifies (release)": aggregate_trace_series(node_trace_rows, "planned_release_qty"),
+            "Receptions planifiees": aggregate_trace_series(node_trace_rows, "planned_receipt_qty"),
+            "Plancher securite source": aggregate_trace_series(node_trace_rows, "safety_floor_qty"),
         }
         actual_input_arrival_series = aggregate_daily_series(
             input_arrivals_by_node.get(node_id, []),
@@ -3803,21 +4044,63 @@ def build_model_panel_metrics(
             node_id=node_id,
         )
         if actual_input_arrival_series:
-            flow_series["Actual input arrivals"] = actual_input_arrival_series
+            flow_series["Arrivages reels intrants"] = actual_input_arrival_series
         flow_figure = build_line_chart_figure(
             flow_series,
-            title=f"{node_id} - releases / receipts / target",
+            title=f"{node_id} - disponibilite matiere vs delai de securite",
             y_label="Quantite",
+            note=(
+                "Pilotage retenu: disponibilite a temps. "
+                "Le point de controle est l'arrivee avant le jour de besoin couvert moins le delai de securite source. "
+                "Les cibles stock MRP restent calculees en interne mais ne sont plus le signal principal de cette vue."
+            ),
+            series_styles={
+                "Besoin net a couvrir": {"color": "#dc2626", "width": 2.0},
+                "Ordres planifies (release)": {"color": "#0f766e", "width": 2.2},
+                "Receptions planifiees": {"color": "#2563eb", "width": 2.2},
+                "Arrivages reels intrants": {"color": "#0891b2", "width": 2.0, "dash": "dot"},
+                "Plancher securite source": {"color": "#7c3aed", "width": 1.8, "dash": "dot"},
+            },
         )
         if flow_figure is not None:
             node_flow_asset = {"figure": flow_figure}
+        node_order_series: dict[str, list[tuple[int, float]]] = {}
+        node_order_styles: dict[str, dict[str, Any]] = {}
+        item_palette = [
+            "#0f766e",
+            "#2563eb",
+            "#dc2626",
+            "#d97706",
+            "#7c3aed",
+            "#475569",
+            "#0891b2",
+            "#be123c",
+            "#65a30d",
+            "#b45309",
+        ]
+        node_order_item_ids = sorted({str(row.get("item_id") or "") for row in node_orders if str(row.get("item_id") or "")})
+        for idx, item_id in enumerate(node_order_item_ids):
+            item_rows = [row for row in node_orders if str(row.get("item_id") or "") == item_id]
+            if not item_rows:
+                continue
+            item_label = item_labels.get(item_id, compact_item_label(item_id))
+            color = item_palette[idx % len(item_palette)]
+            release_label = f"{item_label} - ordre"
+            receipt_label = f"{item_label} - reception"
+            release_series = aggregate_order_series(item_rows, "release_qty", day_field="day")
+            receipt_series = aggregate_order_series(item_rows, "planned_receipt_qty", day_field="arrival_day")
+            if release_series:
+                node_order_series[release_label] = release_series
+                node_order_styles[release_label] = {"color": color, "width": 2.0}
+            if receipt_series:
+                node_order_series[receipt_label] = receipt_series
+                node_order_styles[receipt_label] = {"color": color, "width": 2.0, "dash": "dash"}
         node_orders_figure = build_line_chart_figure(
-            {
-                "Ordres amont": aggregate_order_series(node_orders, "release_qty"),
-                "Receptions matieres": aggregate_order_series(node_orders, "planned_receipt_qty"),
-            },
-            title=f"{node_id} - reappro amont",
+            node_order_series,
+            title=f"{node_id} - reappro amont par item",
             y_label="Quantite",
+            note="Meme couleur par item. Trait plein = ordre passe ; pointille = reception attendue a l'arrivee.",
+            series_styles=node_order_styles,
         )
         if node_orders_figure is not None:
             node_order_asset = {"figure": node_orders_figure}
@@ -3830,6 +4113,15 @@ def build_model_panel_metrics(
                     "Besoin brut / besoin net / StockProj / RecvPrev / OA",
                     mrp_trace_lines if mrp_trace_lines else ["aucune trace MRP explicite disponible pour ce noeud"],
                     limit=10,
+                ),
+                metric_label_value(
+                    "Conformite arrivee vs delai securite source",
+                    (
+                        f"conformes={safety_summary.get('conform', 0)} ; "
+                        f"non conformes={safety_summary.get('non_conform', 0)} ; "
+                        f"sans ordres={safety_summary.get('no_orders', 0)} ; "
+                        f"pire delta={fmt_days(safety_summary.get('worst_delta_days'), 1) if safety_summary.get('worst_delta_days') is not None else 'n/a'}"
+                    ),
                 ),
                 metric_section("Carnet d'ordres"),
                 metric_label_value(
@@ -6168,7 +6460,7 @@ def html_template(title: str, data_json: str, material_table_html: str, material
       </div>
       <div id="fourthBlock" class="factoryPlotBlock">
         <div id="fourthLabel" class="factoryPlotLabel">MRP / risque</div>
-        <div id="fourthHelp" class="factoryPlotHelp">Synthese en haut. Puis lis : stock, flux aval, capacite. Le 4e bloc sert a l'analyse : reappro amont, carnet, risque, details MRP.</div>
+        <div id="fourthHelp" class="factoryPlotHelp">Synthese en haut. Puis lis : stock, flux aval. Le bloc pilotage sert a l'analyse : reappro amont, carnet, risque, details MRP.</div>
         <div id="fourthTabs" class="panelSubTabs"></div>
         <img id="factoryFourthImage" class="factoryPlot factoryPlotFourth" alt="Node fourth chart"/>
         <div id="factoryFourthFigure" class="factoryPlotFigure factoryPlotFourth"></div>
@@ -6996,7 +7288,15 @@ def html_template(title: str, data_json: str, material_table_html: str, material
         return {{
           incoming: "Stock intrants / semi-fini",
           outgoing: "Expeditions semi-finis",
-          third: "Production / capacite",
+          third: "",
+          fourth: "Pilotage MRP"
+        }};
+      }}
+      if (isFactoryLikeNode(nodeId, nodeType)) {{
+        return {{
+          incoming: "Stock matieres",
+          outgoing: "Flux aval",
+          third: "",
           fourth: "Pilotage MRP"
         }};
       }}
@@ -7179,8 +7479,9 @@ def html_template(title: str, data_json: str, material_table_html: str, material
                 x: filtered.days,
                 y: filtered.values,
                 line: {{
-                  width: 2.2,
-                  color: palette[idx % palette.length],
+                  width: Number(series.width || 2.2),
+                  color: series.color || palette[idx % palette.length],
+                  dash: series.dash || "solid",
                   shape: figure.step_like ? "hv" : "linear",
                 }},
               }};
@@ -7193,6 +7494,18 @@ def html_template(title: str, data_json: str, material_table_html: str, material
               xaxis: {{ title: figure.x_label || "Jour", gridcolor: "#e2e8f0" }},
               yaxis: {{ title: figure.y_label || "", gridcolor: "#e2e8f0" }},
               legend: {{ orientation: "h", y: -0.22 }},
+              annotations: figure.note ? [{{
+                text: figure.note,
+                xref: "paper",
+                yref: "paper",
+                x: 0,
+                y: 1.12,
+                xanchor: "left",
+                yanchor: "bottom",
+                showarrow: false,
+                font: {{ size: 10, color: "#475569" }},
+                align: "left",
+              }}] : [],
             }},
           }};
         }}
