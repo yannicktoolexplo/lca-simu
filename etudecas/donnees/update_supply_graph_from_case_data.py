@@ -26,6 +26,7 @@ BASE_WORKBOOK = "Data_poc.xlsx"
 UPSTREAM_OUTPUT_ITEM = "item:773474"
 UPSTREAM_INPUT_ITEM = "item:021081"
 UPSTREAM_PRODUCER_ID = "SDC-1450"
+UPSTREAM_DISPLAY_CODE = "D-1450"
 UPSTREAM_CAPACITY_G_PER_DAY = 500000.0
 
 
@@ -320,7 +321,7 @@ def make_supplier_name(actor_code: str) -> str:
 
 
 def make_upstream_site_name(actor_code: str) -> str:
-    return f"Internal Semi-finished Site - {actor_code}"
+    return f"Internal PFI Site - {UPSTREAM_DISPLAY_CODE}"
 
 
 def make_supplier_node(actor_code: str, supplier_id: str, location_id: str | None) -> dict[str, Any]:
@@ -342,7 +343,7 @@ def make_supplier_node(actor_code: str, supplier_id: str, location_id: str | Non
         "lca": {"defaults_used": True},
         "attrs": attrs,
         "defaults": {"geo": True},
-        "role_raw": "Internal Upstream Semi-finished Site" if supplier_id == UPSTREAM_PRODUCER_ID else "Supplier Distribution Center",
+        "role_raw": "Internal PFI Site" if supplier_id == UPSTREAM_PRODUCER_ID else "Supplier Distribution Center",
     }
 
 
@@ -363,7 +364,7 @@ def ensure_supplier_node(
     if supplier_id == UPSTREAM_PRODUCER_ID:
         node["type"] = "factory"
         node["name"] = make_upstream_site_name(actor_code)
-        node["role_raw"] = "Internal Upstream Semi-finished Site"
+        node["role_raw"] = "Internal PFI Site"
         node.setdefault("attrs", {})["site_role"] = "internal_upstream_semi_finished"
     elif not str(node.get("name") or "").strip() or str(node.get("name")) == supplier_id:
         node["name"] = make_supplier_name(actor_code)
@@ -655,10 +656,11 @@ def markdown_report(report: dict[str, Any]) -> str:
             "## Important assumptions",
             "",
             "- `268191.xlsx` is interpreted as product `268091` because the BOM sheet explicitly points to `268091`.",
-            "- `021081.xlsx` is modeled as an upstream component feeding internal site `SDC-1450`, which transforms `021081` into `773474` before delivery to downstream factories.",
-            f"- `SDC-1450` is typed as an internal semi-finished site (`factory`) and its transformation capacity is set to {UPSTREAM_CAPACITY_G_PER_DAY:.0f} G/day to avoid creating an artificial bottleneck.",
+            f"- `021081.xlsx` is modeled as an upstream component feeding internal site `{UPSTREAM_DISPLAY_CODE}` (technical id `SDC-1450`), which transforms `021081` into `773474` before delivery to downstream factories.",
+            f"- `{UPSTREAM_DISPLAY_CODE}` is typed as an internal PFI site (`factory`) and its transformation capacity is set to {UPSTREAM_CAPACITY_G_PER_DAY:.0f} G/day to avoid creating an artificial bottleneck.",
             "- FIA lead times are applied directly to lanes, and delay limits are set to `max(lead + 14, 2 * lead)` as a simulation cap assumption.",
-            "- Component `007923` is kept in the 268091 BOM but left unconstrained because no supplier lane is provided in the new FIA data.",
+            "- Component `007923` is the active BOM component kept for `268091`; `Data_poc.xlsx` still shows the former reference `693710`, but the product workbook `268191.xlsx` is treated as the operational source of truth.",
+            "- Component `007923` remains unconstrained because no supplier lane is provided in the new FIA data.",
             "",
             "## Unresolved points",
             "",
@@ -728,7 +730,7 @@ def main() -> None:
             )
         if node_id == UPSTREAM_PRODUCER_ID and location_id:
             node["type"] = "factory"
-            node["role_raw"] = "Internal Upstream Semi-finished Site"
+            node["role_raw"] = "Internal PFI Site"
             node.setdefault("attrs", {})["site_role"] = "internal_upstream_semi_finished"
             node["location_ID"] = location_id
             node["name"] = make_upstream_site_name(actor_code)
@@ -897,7 +899,7 @@ def main() -> None:
     if isinstance(upstream_node, dict):
         upstream_node["type"] = "factory"
         upstream_node["name"] = make_upstream_site_name(actor_code_from_node_id(UPSTREAM_PRODUCER_ID))
-        upstream_node["role_raw"] = "Internal Upstream Semi-finished Site"
+        upstream_node["role_raw"] = "Internal PFI Site"
         upstream_node.setdefault("attrs", {})["site_role"] = "internal_upstream_semi_finished"
 
     meta["source_file"] = BASE_WORKBOOK
@@ -909,6 +911,12 @@ def main() -> None:
     )
     if case_note not in notes:
         notes.append(case_note)
+    bom_note = (
+        "For product 268091, workbook 268191.xlsx is treated as the BOM source of truth: "
+        "active component 007923, former Data_poc.xlsx reference 693710."
+    )
+    if bom_note not in notes:
+        notes.append(bom_note)
     meta["case_data_refresh"] = {
         "enabled": True,
         "source_files": [LOCATION_WORKBOOK, *PRODUCT_WORKBOOKS],
