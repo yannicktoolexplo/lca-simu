@@ -757,10 +757,17 @@ def seed_open_orders_from_opening_snapshot(
             cadence_order_count = max(1, int(math.ceil(lane_horizon_days / float(order_frequency_days))))
             order_count = cadence_order_count
             if standard_order_qty > 1e-9:
-                min_orders_for_standard = max(1, int(math.ceil((lane_gap_qty / standard_order_qty) - 1e-9)))
-                order_count = min(cadence_order_count, min_orders_for_standard)
-            qty_per_order = lane_gap_qty / float(order_count)
-            qty_by_order = [qty_per_order] * order_count
+                order_units = max(1, int(math.ceil((lane_gap_qty / standard_order_qty) - 1e-9)))
+                order_count = min(cadence_order_count, order_units)
+                base_units = max(1, order_units // order_count)
+                remainder_units = order_units % order_count
+                qty_by_order = []
+                for idx in range(order_count):
+                    units = base_units + (1 if idx < remainder_units else 0)
+                    qty_by_order.append(units * standard_order_qty)
+            else:
+                qty_per_order = lane_gap_qty / float(order_count)
+                qty_by_order = [qty_per_order] * order_count
 
             if order_count == 1:
                 arrival_days = [max(1, lane_horizon_days - 1)]
@@ -2751,24 +2758,26 @@ def main() -> None:
                 if available <= 1e-9:
                     return 0.0
                 rel = max(0.01, min(1.0, to_float(lane.get("reliability"), 1.0)))
-                unconstrained_pull_qty = min(available, desired_delivered_qty / rel)
+                unconstrained_pull_qty = desired_delivered_qty / rel
                 standard_order_qty = max(0.0, to_float(lane.get("standard_order_qty"), 0.0))
-                if standard_order_qty > 1e-9:
-                    # Treat standard order qty as a target ordering multiple, but never
-                    # let the physical shipment exceed the stock actually on hand.
-                    unconstrained_pull_qty = math.ceil(unconstrained_pull_qty / standard_order_qty) * standard_order_qty
-                    unconstrained_pull_qty = min(unconstrained_pull_qty, available)
+                max_feasible_qty = available
                 supplier_capacity_left = supplier_daily_capacity_by_pair.get(src_pair)
                 if supplier_capacity_left is not None:
                     supplier_capacity_left = max(
                         0.0,
                         supplier_capacity_left * availability_mult - supplier_capacity_used_today_by_src_pair[src_pair],
                     )
+                    max_feasible_qty = min(max_feasible_qty, supplier_capacity_left)
                     if supplier_capacity_left + 1e-9 < unconstrained_pull_qty:
                         supplier_capacity_binding_qty_today += unconstrained_pull_qty - max(0.0, supplier_capacity_left)
-                    pull_qty = min(unconstrained_pull_qty, supplier_capacity_left)
+                if standard_order_qty > 1e-9:
+                    target_units = max(1, int(math.ceil((unconstrained_pull_qty / standard_order_qty) - 1e-9)))
+                    feasible_units = int(math.floor((max_feasible_qty / standard_order_qty) + 1e-9))
+                    if feasible_units <= 0:
+                        return 0.0
+                    pull_qty = min(target_units, feasible_units) * standard_order_qty
                 else:
-                    pull_qty = unconstrained_pull_qty
+                    pull_qty = min(unconstrained_pull_qty, max_feasible_qty)
                 delivered_qty = pull_qty * rel
                 if pull_qty <= 1e-9 or delivered_qty <= 1e-9:
                     return 0.0

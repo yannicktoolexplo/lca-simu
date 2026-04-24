@@ -32,6 +32,11 @@ NODE_TYPE_STYLES = {
 
 PILOTAGE_HIDDEN_NODE_IDS = {"M-1450"}
 UPSTREAM_INTERNAL_SITE_IDS = {"SDC-1450"}
+UPSTREAM_INTERNAL_SITE_DISPLAY_LABEL = "D-1450"
+SIMULATION_HIDDEN_ITEM_IDS: set[str] = set()
+ITEM_DISPLAY_REFERENCE_NOTES = {
+    "item:007923": "007923 (ancienne ref 693710)",
+}
 
 
 def parse_args() -> argparse.Namespace:
@@ -178,6 +183,16 @@ def is_pilotage_hidden_edge(src: str, dst: str) -> bool:
 
 def is_upstream_internal_site(node_id: str) -> bool:
     return bool(node_id) and node_id in UPSTREAM_INTERNAL_SITE_IDS
+
+
+def display_node_label(node_id: str) -> str:
+    if is_upstream_internal_site(node_id):
+        return UPSTREAM_INTERNAL_SITE_DISPLAY_LABEL
+    return node_id
+
+
+def is_simulation_hidden_item(item_id: str) -> bool:
+    return bool(item_id) and item_id in SIMULATION_HIDDEN_ITEM_IDS
 
 
 def compact_graph_payload(raw: dict[str, Any]) -> dict[str, Any]:
@@ -600,6 +615,8 @@ def build_factory_hover_images(
                 }
             )
             for item_id in item_ids:
+                if is_simulation_hidden_item(item_id):
+                    continue
                 arrival_pts = aggregate_daily_series(
                     input_arrival_rows,
                     value_field="arrived_qty",
@@ -610,15 +627,16 @@ def build_factory_hover_images(
                 if arrival_pts:
                     item_label = item_labels.get(item_id, compact_item_label(item_id))
                     incoming_arrival_series[f"{item_label} - reception"] = arrival_pts
-        incoming_title = f"{factory_id} - stocks et receptions intrants"
-        bottom_title = f"{factory_id} - receptions intrants"
+        display_factory_id = display_node_label(factory_id)
+        incoming_title = f"{display_factory_id} - stocks et receptions intrants"
+        bottom_title = f"{display_factory_id} - receptions intrants"
         if is_upstream_internal_site(factory_id):
-            incoming_title = f"{factory_id} - stocks et arrivages intrants"
-            bottom_title = f"{factory_id} - arrivages intrants"
+            incoming_title = f"{display_factory_id} - stocks et arrivages intrants"
+            bottom_title = f"{display_factory_id} - arrivages intrants"
         if incoming_stock_series or incoming_arrival_series:
             figure = build_dual_line_multi_panel_figure(
                 title=incoming_title,
-                top_title=f"{factory_id} - stock intrants",
+                top_title=f"{display_factory_id} - stock intrants",
                 top_y_label="Stock",
                 top_series_map=incoming_stock_series,
                 bottom_title=bottom_title,
@@ -638,6 +656,8 @@ def build_factory_hover_images(
                 }
             )
             for item_id in outbound_item_ids:
+                if is_simulation_hidden_item(item_id):
+                    continue
                 shipped_pts = aggregate_daily_series(
                     supplier_shipment_rows,
                     value_field="shipped_qty",
@@ -651,7 +671,7 @@ def build_factory_hover_images(
             if outbound_series:
                 figure = build_line_chart_figure(
                     outbound_series,
-                    title=f"{factory_id} - expeditions semi-finis par item",
+                    title=f"{display_factory_id} - expeditions PFI par item",
                     y_label="Quantite",
                     step_like=True,
                 )
@@ -699,6 +719,8 @@ def descriptor_series_to_figure(
     series_map: dict[str, list[tuple[int, float]]] = {}
     for descriptor in descriptors:
         label = str(descriptor.get("item_label") or descriptor.get("item_id") or "").strip()
+        if is_simulation_hidden_item(str(descriptor.get("item_id") or "")):
+            continue
         days = descriptor.get("days") or []
         values = descriptor.get(value_key) or []
         if not label or not days or not values:
@@ -725,7 +747,8 @@ def item_label_lookup(raw: dict[str, Any]) -> dict[str, str]:
         item_id = str(item.get("id") or "")
         code = str(item.get("code") or "").strip()
         name = str(item.get("name") or "").strip()
-        lookup[item_id] = code if code else (name if name else item_id)
+        base_label = code if code else (name if name else item_id)
+        lookup[item_id] = ITEM_DISPLAY_REFERENCE_NOTES.get(item_id, base_label)
     return lookup
 
 
@@ -782,6 +805,8 @@ def build_supplier_hover_images(
             per_item_stock: dict[str, list[tuple[int, float]]] = {}
             item_ids = sorted({str(row.get("item_id") or "") for row in stock_rows if str(row.get("node_id") or "") == supplier_id})
             for item_id in item_ids:
+                if is_simulation_hidden_item(item_id):
+                    continue
                 pts = aggregate_daily_series(
                     stock_rows,
                     value_field="stock_end_of_day",
@@ -812,6 +837,8 @@ def build_supplier_hover_images(
                 }
             )
             for item_id in item_ids:
+                if is_simulation_hidden_item(item_id):
+                    continue
                 item_label = item_labels.get(item_id, compact_item_label(item_id))
                 ship_pts = aggregate_daily_series(
                     shipment_rows,
@@ -880,6 +907,8 @@ def build_distribution_center_hover_images(
                 {str(row.get("item_id") or "") for row in dc_stock_rows if str(row.get("node_id") or "") == dc_id}
             )
             for item_id in item_ids:
+                if is_simulation_hidden_item(item_id):
+                    continue
                 pts = aggregate_daily_series(
                     dc_stock_rows,
                     value_field="stock_end_of_day",
@@ -902,6 +931,8 @@ def build_distribution_center_hover_images(
                 {str(row.get("item_id") or "") for row in shipment_rows if str(row.get("dst_node_id") or "") == dc_id}
             )
             for item_id in inbound_item_ids:
+                if is_simulation_hidden_item(item_id):
+                    continue
                 pts = aggregate_daily_series(
                     shipment_rows,
                     value_field="shipped_qty",
@@ -927,6 +958,8 @@ def build_distribution_center_hover_images(
                 {str(row.get("item_id") or "") for row in shipment_rows if str(row.get("src_node_id") or "") == dc_id}
             )
             for item_id in outbound_item_ids:
+                if is_simulation_hidden_item(item_id):
+                    continue
                 pts = aggregate_daily_series(
                     shipment_rows,
                     value_field="shipped_qty",
@@ -964,6 +997,8 @@ def build_site_stock_payload(
     per_item_stock: dict[str, list[tuple[int, float]]] = {}
     item_ids = sorted({str(row.get("item_id") or "") for row in rows if str(row.get("node_id") or "") == node_id})
     for item_id in item_ids:
+        if is_simulation_hidden_item(item_id):
+            continue
         pts = aggregate_daily_series(
             rows,
             value_field="stock_end_of_day",
@@ -1009,6 +1044,8 @@ def build_customer_hover_images(
         demand_series = aggregate_daily_series(customer_rows, value_field="demand_qty")
         demand_series_by_item: dict[str, dict[int, float]] = {}
         for item_id in sorted({str(row.get("item_id") or "") for row in customer_rows if str(row.get("item_id") or "")}):
+            if is_simulation_hidden_item(item_id):
+                continue
             scoped_rows = [row for row in customer_rows if str(row.get("item_id") or "") == item_id]
             scoped_series = aggregate_daily_series(scoped_rows, value_field="demand_qty")
             if scoped_series:
@@ -1071,6 +1108,8 @@ def build_customer_hover_images(
                 {str(row.get("item_id") or "") for row in shipment_rows if str(row.get("dst_node_id") or "") == customer_id}
             )
             for item_id in inbound_item_ids:
+                if is_simulation_hidden_item(item_id):
+                    continue
                 scoped_rows = [
                     row
                     for row in shipment_rows
@@ -1187,12 +1226,19 @@ def build_material_balance_table_rows(
         served_total_by_item[item_id] += max(0.0, to_float(row.get("served_qty")) or 0.0)
 
     produced_total_by_pair: dict[tuple[str, str], float] = defaultdict(float)
+    latest_output_stock_by_pair: dict[tuple[str, str], tuple[int, float]] = {}
     for row in output_rows:
         node_id = str(row.get("node_id") or "")
         item_id = str(row.get("item_id") or "")
         if not node_id or not item_id:
             continue
         produced_total_by_pair[(node_id, item_id)] += max(0.0, to_float(row.get("produced_qty")) or 0.0)
+        day = int(to_float(row.get("day")) or 0)
+        stock_value = max(0.0, to_float(row.get("stock_end_of_day")) or 0.0)
+        key = (node_id, item_id)
+        prev = latest_output_stock_by_pair.get(key)
+        if prev is None or day >= prev[0]:
+            latest_output_stock_by_pair[key] = (day, stock_value)
 
     latest_input_stock_by_pair: dict[tuple[str, str], tuple[int, float]] = {}
     for row in input_rows:
@@ -1208,12 +1254,17 @@ def build_material_balance_table_rows(
             latest_input_stock_by_pair[key] = (day, stock_value)
 
     shipped_total_to_pair: dict[tuple[str, str], float] = defaultdict(float)
+    shipped_total_from_pair: dict[tuple[str, str], float] = defaultdict(float)
     for row in shipment_rows:
+        src_node_id = str(row.get("src_node_id") or "")
         node_id = str(row.get("dst_node_id") or "")
         item_id = str(row.get("item_id") or "")
         if not node_id or not item_id:
             continue
-        shipped_total_to_pair[(node_id, item_id)] += max(0.0, to_float(row.get("shipped_qty")) or 0.0)
+        shipped_qty = max(0.0, to_float(row.get("shipped_qty")) or 0.0)
+        shipped_total_to_pair[(node_id, item_id)] += shipped_qty
+        if src_node_id:
+            shipped_total_from_pair[(src_node_id, item_id)] += shipped_qty
 
     initial_stock_by_pair: dict[tuple[str, str], float] = defaultdict(float)
     unit_by_pair: dict[tuple[str, str], str] = {}
@@ -1254,6 +1305,8 @@ def build_material_balance_table_rows(
                     continue
                 for inp in inputs:
                     input_item = str(inp.get("item_id") or "")
+                    if is_simulation_hidden_item(input_item):
+                        continue
                     ratio_qty = max(0.0, to_float(inp.get("ratio_per_batch")) or 0.0)
                     ratio_unit = normalize_unit_label(inp.get("ratio_unit"))
                     pair_key = (node_id, input_item)
@@ -1267,7 +1320,7 @@ def build_material_balance_table_rows(
                             "scope_label": "Matiere",
                             "item_id": input_item,
                             "item_label": item_labels.get(input_item, compact_item_label(input_item)),
-                            "node_label": node_id,
+                            "node_label": display_node_label(node_id),
                             "planned_qty": 0.0,
                             "initial_qty": initial_stock_by_pair.get(pair_key, 0.0),
                             "delivered_qty": shipped_total_to_pair.get(pair_key, 0.0),
@@ -1298,7 +1351,51 @@ def build_material_balance_table_rows(
             }
         )
 
+    upstream_pfi_rows_by_pair: dict[tuple[str, str], dict[str, Any]] = {}
+    for node in raw.get("nodes", []) or []:
+        node_id = str(node.get("id") or "")
+        if not is_upstream_internal_site(node_id):
+            continue
+        output_item_ids: set[str] = set()
+        for proc in (node.get("processes") or []):
+            for out in (proc.get("outputs") or []):
+                item_id = str(out.get("item_id") or "")
+                if item_id:
+                    output_item_ids.add(item_id)
+        for pair_key in list(shipped_total_from_pair.keys()):
+            pair_node_id, item_id = pair_key
+            if pair_node_id == node_id and item_id:
+                output_item_ids.add(item_id)
+        for item_id in sorted(output_item_ids):
+            pair_key = (node_id, item_id)
+            produced_qty = produced_total_by_pair.get(pair_key, 0.0)
+            shipped_qty = shipped_total_from_pair.get(pair_key, 0.0)
+            initial_qty = initial_stock_by_pair.get(pair_key, 0.0)
+            final_stock_qty = (latest_output_stock_by_pair.get(pair_key) or (0, 0.0))[1]
+            if produced_qty <= 0.0 and shipped_qty <= 0.0 and initial_qty <= 0.0 and final_stock_qty <= 0.0:
+                continue
+            upstream_pfi_rows_by_pair[pair_key] = {
+                "scope": "pfi",
+                "scope_label": "PFI",
+                "item_id": item_id,
+                "item_label": item_labels.get(item_id, compact_item_label(item_id)),
+                "node_label": display_node_label(node_id),
+                "planned_qty": max(produced_qty, shipped_qty),
+                "initial_qty": initial_qty,
+                "delivered_qty": shipped_qty,
+                "consumed_qty": produced_qty,
+                "final_stock_qty": final_stock_qty,
+                "unit": unit_by_pair.get(pair_key, ""),
+                "gap_vs_need_qty": shipped_qty - max(produced_qty, shipped_qty),
+                "diagnostic": "sortie PFI du centre interne D-1450 vers les usines aval",
+            }
+    rows.extend(
+        row for _, row in sorted(upstream_pfi_rows_by_pair.items(), key=lambda item: (item[0][0], item[0][1]))
+    )
+
     for pair_key, row in sorted(material_rows_by_pair.items(), key=lambda item: (item[0][0], item[0][1])):
+        if is_simulation_hidden_item(str(row.get("item_id") or "")):
+            continue
         initial_qty = max(0.0, row.get("initial_qty") or 0.0)
         delivered_qty = max(0.0, row.get("delivered_qty") or 0.0)
         consumed_qty = max(0.0, row.get("consumed_qty") or 0.0)
@@ -1331,7 +1428,12 @@ def render_material_balance_table_html(rows: list[dict[str, Any]]) -> str:
     html_rows: list[str] = []
     for row in rows:
         scope = str(row.get("scope") or "")
-        badge_class = "scopeBadge scopeFinal" if scope == "pf" else "scopeBadge"
+        if scope == "pf":
+            badge_class = "scopeBadge scopeFinal"
+        elif scope == "pfi":
+            badge_class = "scopeBadge scopeIntermediate"
+        else:
+            badge_class = "scopeBadge"
         html_rows.append(
             "".join(
                 [
@@ -3140,7 +3242,8 @@ def build_item_label_lookup(raw: dict[str, Any]) -> dict[str, str]:
             continue
         code = str(item.get("code") or "").strip()
         name = str(item.get("name") or "").strip()
-        out[item_id] = code or name or compact_item_label(item_id)
+        base_label = code or name or compact_item_label(item_id)
+        out[item_id] = ITEM_DISPLAY_REFERENCE_NOTES.get(item_id, base_label)
     return out
 
 
@@ -3510,6 +3613,8 @@ def build_model_panel_metrics(
             item_id = str(state.get("item_id") or "")
             if not item_id:
                 continue
+            if is_simulation_hidden_item(item_id):
+                continue
             label = item_labels.get(item_id, compact_item_label(item_id))
             initial = fmt_qty(state.get("initial"), 1)
             uom = str(state.get("uom") or "").strip()
@@ -3532,14 +3637,22 @@ def build_model_panel_metrics(
         if incoming_items.get(node_id):
             interaction_lines.append(
                 "items amont: " + preview_join(
-                    [item_labels.get(i, compact_item_label(i)) for i in sorted(incoming_items.get(node_id, set()))],
+                    [
+                        item_labels.get(i, compact_item_label(i))
+                        for i in sorted(incoming_items.get(node_id, set()))
+                        if not is_simulation_hidden_item(i)
+                    ],
                     limit=10,
                 )
             )
         if outgoing_items.get(node_id):
             interaction_lines.append(
                 "items aval: " + preview_join(
-                    [item_labels.get(i, compact_item_label(i)) for i in sorted(outgoing_items.get(node_id, set()))],
+                    [
+                        item_labels.get(i, compact_item_label(i))
+                        for i in sorted(outgoing_items.get(node_id, set()))
+                        if not is_simulation_hidden_item(i)
+                    ],
                     limit=10,
                 )
             )
@@ -3556,7 +3669,13 @@ def build_model_panel_metrics(
             total_demand = sum(max(0.0, to_float(r.get("demand_qty")) or 0.0) for r in rows)
             total_served = sum(max(0.0, to_float(r.get("served_qty")) or 0.0) for r in rows)
             ending_backlog = 0.0
-            by_item = sorted({str(r.get("item_id") or "") for r in rows if str(r.get("item_id") or "")})
+            by_item = sorted(
+                {
+                    str(r.get("item_id") or "")
+                    for r in rows
+                    if str(r.get("item_id") or "") and not is_simulation_hidden_item(str(r.get("item_id") or ""))
+                }
+            )
             if rows:
                 latest_day = max(int(to_float(r.get("day")) or 0) for r in rows)
                 ending_backlog = sum(
@@ -3606,12 +3725,18 @@ def build_model_panel_metrics(
                 ]
             )
         elif node_type == "distribution_center":
-            state_pairs = [(node_id, str(state.get("item_id") or "")) for state in inv_states if str(state.get("item_id") or "")]
+            state_pairs = [
+                (node_id, str(state.get("item_id") or ""))
+                for state in inv_states
+                if str(state.get("item_id") or "") and not is_simulation_hidden_item(str(state.get("item_id") or ""))
+            ]
             final_stock_total = sum(max(0.0, latest_dc_stock.get(pair, 0.0)) for pair in state_pairs)
             latest_dc_lines = []
             safety_items = []
             for state in inv_states:
                 item_id = str(state.get("item_id") or "")
+                if is_simulation_hidden_item(item_id):
+                    continue
                 mrp_policy = state.get("mrp_policy") or {}
                 safety_days = max(0.0, to_float(mrp_policy.get("safety_time_days")) or 0.0)
                 if item_id and safety_days > 0:
@@ -3648,8 +3773,8 @@ def build_model_panel_metrics(
                     metric_label_value("IMT", "la slide raisonne en StockProj et RecvPrev explicites"),
                     metric_label_value("Simulateur", "le simulateur tient StockProj via stock + in_transit et prend BN_dc jour par jour"),
                     metric_section("Donnees et interactions"),
-                    metric_label_value("Items entrants", str(len(incoming_items.get(node_id, set())))),
-                    metric_label_value("Items sortants", str(len(outgoing_items.get(node_id, set())))),
+                    metric_label_value("Items entrants", str(len([i for i in incoming_items.get(node_id, set()) if not is_simulation_hidden_item(i)]))),
+                    metric_label_value("Items sortants", str(len([i for i in outgoing_items.get(node_id, set()) if not is_simulation_hidden_item(i)]))),
                     metric_label_value("Review period", f"{review_period} j" if review_period is not None else "n/a"),
                     metric_label_value("Safety times MRP", ", ".join(safety_items[:6]) or "n/a"),
                     metric_multiline_value("Stocks suivis", latest_dc_lines, limit=8),
@@ -3681,11 +3806,15 @@ def build_model_panel_metrics(
             basis_map = sim_constraints.get("supplier_item_capacity_basis") or {}
             cap_preview = []
             for item_id, cap_qty in list(sorted(cap_map.items()))[:5]:
+                if is_simulation_hidden_item(str(item_id)):
+                    continue
                 basis = str(basis_map.get(item_id) or "")
                 cap_preview.append(f"{item_labels.get(item_id, compact_item_label(item_id))}={to_float(cap_qty) or 0.0:.2f}/j ({basis or 'n/a'})")
             latest_supplier_lines = []
             for state in inv_states:
                 item_id = str(state.get("item_id") or "")
+                if is_simulation_hidden_item(item_id):
+                    continue
                 latest_row = latest_supplier_rows.get((node_id, item_id))
                 if item_id and latest_row is not None:
                     latest_supplier_lines.append(
@@ -3737,7 +3866,14 @@ def build_model_panel_metrics(
                     metric_label_value("IMT", "OA_mp est calcule en reculant la date de commande avec lead time et delai de securite"),
                     metric_label_value("Simulateur", "le simulateur reste forward: il detecte le besoin net matiere au jour t, tire OA_mp, puis pose une arrivee future a t + lead_time"),
                     metric_section("Donnees et interactions"),
-                    metric_label_value("Items sortants", ", ".join(item_labels.get(i, compact_item_label(i)) for i in sorted(outgoing_items.get(node_id, set()))[:8]) or "n/a"),
+                    metric_label_value(
+                        "Items sortants",
+                        ", ".join(
+                            item_labels.get(i, compact_item_label(i))
+                            for i in sorted(outgoing_items.get(node_id, set()))
+                            if not is_simulation_hidden_item(i)
+                        ) or "n/a"
+                    ),
                     metric_label_value("Clients aval", ", ".join(sorted(outgoing_targets.get(node_id, set()))[:6]) or "n/a"),
                     metric_label_value("Review period", f"{review_period} j" if review_period is not None else "n/a"),
                     metric_label_value("Capacites nominales", " | ".join(cap_preview) or "n/a"),
@@ -3751,7 +3887,19 @@ def build_model_panel_metrics(
                     metric_label_value("Expedie cumule", fmt_qty(total_shipped)),
                     metric_label_value("Stock final total", fmt_qty(final_stock_total)),
                     metric_label_value("Utilisation moyenne", fmt_pct(avg_util * 100.0)),
-                    metric_label_value("Items actifs expedies", str(len({str(r.get('item_id') or '') for r in ship_rows if max(0.0, to_float(r.get('shipped_qty')) or 0.0) > 0}))),
+                    metric_label_value(
+                        "Items actifs expedies",
+                        str(
+                            len(
+                                {
+                                    str(r.get('item_id') or '')
+                                    for r in ship_rows
+                                    if max(0.0, to_float(r.get('shipped_qty')) or 0.0) > 0
+                                    and not is_simulation_hidden_item(str(r.get('item_id') or ''))
+                                }
+                            )
+                        ),
+                    ),
                 ]
             )
         else:
@@ -3760,15 +3908,27 @@ def build_model_panel_metrics(
             for proc in processes:
                 outputs = proc.get("outputs") or []
                 if outputs:
-                    output_labels.extend(item_labels.get(str(out.get("item_id") or ""), compact_item_label(str(out.get("item_id") or ""))) for out in outputs)
-                input_count += len(proc.get("inputs") or [])
+                    output_labels.extend(
+                        item_labels.get(str(out.get("item_id") or ""), compact_item_label(str(out.get("item_id") or "")))
+                        for out in outputs
+                        if not is_simulation_hidden_item(str(out.get("item_id") or ""))
+                    )
+                input_count += len(
+                    [
+                        inp
+                        for inp in (proc.get("inputs") or [])
+                        if not is_simulation_hidden_item(str(inp.get("item_id") or ""))
+                    ]
+                )
             final_input_total = sum(
                 max(0.0, latest_input_stock.get((node_id, str(state.get("item_id") or "")), 0.0))
                 for state in inv_states
+                if not is_simulation_hidden_item(str(state.get("item_id") or ""))
             )
             final_output_total = sum(
                 max(0.0, latest_output_stock.get((node_id, str((proc.get("outputs") or [{}])[0].get("item_id") or "")), 0.0))
-                for proc in processes if (proc.get("outputs") or [])
+                for proc in processes
+                if (proc.get("outputs") or []) and not is_simulation_hidden_item(str((proc.get("outputs") or [{}])[0].get("item_id") or ""))
             )
             factory_rows = constraint_by_node.get(node_id, [])
             desired_total = sum(max(0.0, to_float(r.get("desired_qty")) or 0.0) for r in factory_rows)
@@ -3788,11 +3948,15 @@ def build_model_panel_metrics(
                 item_id = str(row.get("output_item_id") or "")
                 if not item_id:
                     continue
+                if is_simulation_hidden_item(item_id):
+                    continue
                 latest_constraint_rows[item_id] = row
             latest_arrival_rows: dict[str, dict[str, str]] = {}
             for row in input_arrivals_by_node.get(node_id, []):
                 item_id = str(row.get("item_id") or "")
                 if not item_id:
+                    continue
+                if is_simulation_hidden_item(item_id):
                     continue
                 latest_arrival_rows[item_id] = row
             for item_id in sorted(latest_arrival_rows):
@@ -3807,19 +3971,48 @@ def build_model_panel_metrics(
                     f"{item_labels.get(item_id, compact_item_label(item_id))}: desire={fmt_qty(row.get('desired_qty'))} ; plan_lot={fmt_qty(row.get('planned_qty_after_lot_rule'))} ; reel={fmt_qty(row.get('actual_qty'))} ; stock_fin={fmt_qty((latest_out or {}).get('stock_end_of_day'))}"
                 )
             special_flow_lines: list[str] = []
+            component_reference_lines: list[str] = []
+            output_item_ids = {
+                str(out.get("item_id") or "")
+                for proc in processes
+                for out in (proc.get("outputs") or [])
+                if str(out.get("item_id") or "")
+            }
+            input_item_ids = {
+                str(inp.get("item_id") or "")
+                for proc in processes
+                for inp in (proc.get("inputs") or [])
+                if str(inp.get("item_id") or "")
+            }
+            if "item:268091" in output_item_ids and "item:007923" in input_item_ids:
+                component_reference_lines.append(
+                    "268091: composant actif BOM = 007923 ; ancienne ref encore visible dans Data_poc.xlsx = 693710."
+                )
+                component_reference_lines.append(
+                    "007923: reference active retenue dans la simulation ; pas de lane FIA active fournie dans les donnees source."
+                )
             if is_upstream_internal_site(node_id):
                 actual_output_qty_by_item: dict[str, float] = defaultdict(float)
                 for row in factory_rows:
                     item_id = str(row.get("output_item_id") or "")
-                    if item_id:
+                    if item_id and not is_simulation_hidden_item(item_id):
                         actual_output_qty_by_item[item_id] += max(0.0, to_float(row.get("actual_qty")) or 0.0)
                 external_procurement_qty_by_item: dict[str, float] = defaultdict(float)
                 for row in mrp_orders_by_node.get(node_id, []):
                     if str(row.get("order_type") or "") != "external_procurement":
                         continue
                     item_id = str(row.get("item_id") or "")
-                    if item_id:
+                    if item_id and not is_simulation_hidden_item(item_id):
                         external_procurement_qty_by_item[item_id] += max(0.0, to_float(row.get("planned_receipt_qty")) or 0.0)
+                upstream_output_labels = [
+                    item_labels.get(item_id, compact_item_label(item_id))
+                    for item_id in sorted(outgoing_items.get(node_id, set()))
+                    if not is_simulation_hidden_item(item_id)
+                ]
+                if upstream_output_labels:
+                    special_flow_lines.append(
+                        f"Sorties PFI modelisees: {', '.join(upstream_output_labels)}."
+                    )
                 if aggregate_daily_series(
                     input_arrivals_by_node.get(node_id, []),
                     value_field="arrived_qty",
@@ -3832,11 +4025,11 @@ def build_model_panel_metrics(
                     )
                 if actual_output_qty_by_item.get("item:773474", 0.0) > 0:
                     special_flow_lines.append(
-                        f"773474: production interne explicite observee, cumul reel={fmt_qty(actual_output_qty_by_item.get('item:773474', 0.0))}."
+                        f"773474: PFI produit en interne, cumul reel={fmt_qty(actual_output_qty_by_item.get('item:773474', 0.0))}."
                     )
                 if external_procurement_qty_by_item.get("item:693055", 0.0) > 0 and actual_output_qty_by_item.get("item:693055", 0.0) <= 0:
                     special_flow_lines.append(
-                        f"693055: flux aval source confirme, mais pas de production interne explicite observee ; reappro courant via external_procurement={fmt_qty(external_procurement_qty_by_item.get('item:693055', 0.0))}."
+                        f"693055: PFI aval confirme, mais pas de production interne explicite observee ; reappro courant via external_procurement={fmt_qty(external_procurement_qty_by_item.get('item:693055', 0.0))}."
                     )
             state_var_lines.extend(
                 [
@@ -3877,16 +4070,25 @@ def build_model_panel_metrics(
                     metric_label_value("Simulateur", "le simulateur calcule le besoin net produit fini et le plan lance dynamiquement avec lissage, campagnes et contraintes de lot, sans boucle de retroplanification explicite"),
                     metric_section("Donnees et interactions"),
                     metric_label_value("Sorties process", ", ".join(sorted(set(output_labels))) or "n/a"),
+                    metric_label_value(
+                        "Sorties PFI",
+                        ", ".join(
+                            item_labels.get(item_id, compact_item_label(item_id))
+                            for item_id in sorted(outgoing_items.get(node_id, set()))
+                            if not is_simulation_hidden_item(item_id)
+                        ) or "n/a",
+                    ),
                     metric_label_value("Nb intrants modelises", str(input_count)),
                     metric_label_value("Capacite max_rate", " | ".join(cap_values) or "n/a"),
                     metric_multiline_value("Process modelises", process_labels, limit=6),
                     metric_multiline_value("Consommations BOM", io_rules, limit=10),
+                    metric_multiline_value("Refs composants", component_reference_lines, limit=4),
                     metric_multiline_value("Regles de lot", process_lot_rules, limit=6),
                     metric_label_value("Review period", f"{review_period} j" if review_period is not None else "n/a"),
                     metric_multiline_value("Etats stock initiaux", inventory_lines, limit=10),
                     metric_multiline_value("Arrivages intrants observes", latest_input_arrival_lines, limit=8),
                     metric_multiline_value("Sorties observees", latest_output_lines, limit=8),
-                    metric_multiline_value("Diagnostic semi-fini", special_flow_lines, limit=6),
+                    metric_multiline_value("Diagnostic PFI", special_flow_lines, limit=6),
                     metric_multiline_value("Interactions", interaction_lines, limit=6),
                     metric_section("Hypotheses"),
                     *[metric_label_value(f"H {idx+1}", line) for idx, line in enumerate(assumption_lines)],
@@ -3904,18 +4106,22 @@ def build_model_panel_metrics(
         node_item_candidates = {
             str(state.get("item_id") or "")
             for state in inv_states
-            if str(state.get("item_id") or "")
+            if str(state.get("item_id") or "") and not is_simulation_hidden_item(str(state.get("item_id") or ""))
         }
         for proc in processes:
             for inp in (proc.get("inputs") or []):
                 item_id = str(inp.get("item_id") or "")
-                if item_id:
+                if item_id and not is_simulation_hidden_item(item_id):
                     node_item_candidates.add(item_id)
             for out in (proc.get("outputs") or []):
                 item_id = str(out.get("item_id") or "")
-                if item_id:
+                if item_id and not is_simulation_hidden_item(item_id):
                     node_item_candidates.add(item_id)
-        node_item_candidates |= set(incoming_items.get(node_id, set())) | set(outgoing_items.get(node_id, set()))
+        node_item_candidates |= {
+            item_id
+            for item_id in set(incoming_items.get(node_id, set())) | set(outgoing_items.get(node_id, set()))
+            if not is_simulation_hidden_item(item_id)
+        }
 
         mrp_trace_lines = []
         for item_id in sorted(node_item_candidates):
@@ -3953,7 +4159,9 @@ def build_model_panel_metrics(
                 str(r.get("edge_id") or ""),
             ),
             reverse=True,
-        )[:8]:
+        ):
+            if is_simulation_hidden_item(str(row.get("item_id") or "")):
+                continue
             order_lines.append(
                 f"{item_labels.get(str(row.get('item_id') or ''), compact_item_label(str(row.get('item_id') or '')))}: "
                 f"{row.get('order_type') or 'n/a'} ; "
@@ -3962,12 +4170,16 @@ def build_model_panel_metrics(
                 f"arrival={row.get('arrival_day') or 'n/a'} ; "
                 f"status={row.get('order_status_end_of_run') or 'n/a'}"
             )
+            if len(order_lines) >= 8:
+                break
 
         assumption_lines_node = []
         for row in assumptions_by_node.get(node_id, [])[:8]:
             category = str(row.get("category") or "n/a")
             source = str(row.get("source") or "n/a")
             item_id = str(row.get("item_id") or "")
+            if is_simulation_hidden_item(item_id):
+                continue
             item_prefix = f"{item_labels.get(item_id, compact_item_label(item_id))}: " if item_id else ""
             assumption_lines_node.append(f"{item_prefix}{category} [{source}]")
 
@@ -3989,7 +4201,7 @@ def build_model_panel_metrics(
                         compact_item_label(str(item_id))
                         for edge in outgoing_edges
                         for item_id in (edge.get("items") or [])
-                        if str(item_id or "")
+                        if str(item_id or "") and not is_simulation_hidden_item(str(item_id))
                     }
                 )
                 scoped_dests = sorted(
@@ -6212,6 +6424,10 @@ def html_template(title: str, data_json: str, material_table_html: str, material
       background: #dbeafe;
       color: #1d4ed8;
     }}
+    .scopeBadge.scopeIntermediate {{
+      background: #dcfce7;
+      color: #166534;
+    }}
     .factoryPlot {{
       width: 100%;
       height: clamp(300px, 42.5vh, 425px);
@@ -7286,8 +7502,8 @@ def html_template(title: str, data_json: str, material_table_html: str, material
       }}
       if (nodeId === "SDC-1450" && isFactoryLikeNode(nodeId, nodeType)) {{
         return {{
-          incoming: "Stock intrants / semi-fini",
-          outgoing: "Expeditions semi-finis",
+          incoming: "Stock intrants / PFI",
+          outgoing: "Expeditions PFI",
           third: "",
           fourth: "Pilotage MRP"
         }};
@@ -7428,16 +7644,19 @@ def html_template(title: str, data_json: str, material_table_html: str, material
       const statePill = document.getElementById("factoryHoverState");
       const clearBtn = document.getElementById("factoryHoverClearSelection");
       const nodeInfo = nodeType === "edge" ? (EDGE_BY_ID[nodeId] || {{}}) : (nodeById[nodeId] || {{}});
-      const nodeName = nodeType === "edge"
+      const displayNodeId = nodeId === "SDC-1450" ? "D-1450" : nodeId;
+      const nodeName = nodeId === "SDC-1450"
+        ? "D-1450"
+        : (nodeType === "edge"
         ? `${{nodeInfo.from || "n/a"}} -> ${{nodeInfo.to || "n/a"}}`
-        : (nodeInfo.name || nodeId);
-      const nodeTitle = nodeId === "SDC-1450" ? "Upstream Semi-finished Site" :
+        : (nodeInfo.name || nodeId));
+      const nodeTitle = nodeId === "SDC-1450" ? "Internal PFI Site" :
         (nodeType === "supplier_dc" ? "Supplier" :
         (isFactoryLikeNode(nodeId, nodeType) ? "Industrial Site" :
         (nodeType === "distribution_center" ? "Distribution Center" : (nodeType === "factory" ? "Factory" : (nodeType === "customer" ? "Customer" : "Edge")))));
       const modeTitle = currentPanelMode === "sensitivity" ? "Sensibilite" :
         (currentPanelMode === "structural" ? "Structurel" : (currentPanelMode === "model" ? "Modele" : "Simulation"));
-      title.textContent = `${{nodeTitle}}: ${{nodeName}} (${{nodeId}}) | ${{modeTitle}}`;
+      title.textContent = `${{nodeTitle}}: ${{nodeName}} (${{displayNodeId}}) | ${{modeTitle}}`;
       if (panelState) {{
         statePill.textContent = panelState;
         statePill.classList.add("visible");

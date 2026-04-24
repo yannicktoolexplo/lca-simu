@@ -8,7 +8,8 @@
     "carbon_unit": "Kilogram",
     "notes": [
       "Fields with is_default=true were filled with standard placeholder values because Data_poc.xlsx did not provide them.",
-      "Graph enriched with auxiliary case-study Excel workbooks (021081.xlsx, 268191.xlsx, 268967.xlsx, Fournisseur.xlsx)."
+      "Graph enriched with auxiliary case-study Excel workbooks (021081.xlsx, 268191.xlsx, 268967.xlsx, Fournisseur.xlsx).",
+      "For product 268091, workbook 268191.xlsx is treated as the BOM source of truth: active component 007923, former Data_poc.xlsx reference 693710."
     ],
     "source_files": [
       "Data_poc.xlsx",
@@ -2377,8 +2378,8 @@
     {
       "id": "SDC-1450",
       "type": "factory",
-      "name": "Internal Semi-finished Site - D1450",
-      "role_raw": "Internal Upstream Semi-finished Site",
+      "name": "Internal PFI Site - D-1450",
+      "role_raw": "Internal PFI Site",
       "location_ID": "France - GAILLAC - 81600",
       "geo": {
         "lat": null,
