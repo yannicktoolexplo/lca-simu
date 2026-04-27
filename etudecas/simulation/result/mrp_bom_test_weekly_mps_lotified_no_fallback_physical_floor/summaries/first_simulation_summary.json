@@ -14,7 +14,7 @@
     "production_smoothing": 0.2,
     "warmup_days": 0,
     "reset_backlog_after_warmup": false,
-    "output_profile": "compact",
+    "output_profile": "full",
     "opening_stock_bootstrap_scale": 1.0,
     "unmodeled_supplier_source_mode": "external_procurement",
     "stochastic_lead_times": true,
