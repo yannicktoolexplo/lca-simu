@@ -362,7 +362,13 @@ def lane_records(
         price_base = to_float((ot or {}).get("price_base"), 1.0)
         if price_base <= 0:
             price_base = 1.0
-        unit_purchase_cost = max(purchase_floor, max(0.0, sell_price / price_base)) * purchase_realism_multiplier
+        priced_unit_purchase_cost = max(0.0, sell_price / price_base)
+        if priced_unit_purchase_cost > 0.0 and not bool((ot or {}).get("is_default")):
+            unit_purchase_cost = priced_unit_purchase_cost * purchase_realism_multiplier
+            purchase_cost_is_fallback = False
+        else:
+            unit_purchase_cost = max(purchase_floor, priced_unit_purchase_cost) * purchase_realism_multiplier
+            purchase_cost_is_fallback = True
         order_unit = normalize_unit((ot or {}).get("quantity_unit"))
         attrs = e.get("attrs") or {}
         standard_order_qty_raw = max(0.0, to_float(attrs.get("standard_order_qty"), 0.0))
@@ -412,6 +418,8 @@ def lane_records(
                 "delay_step_limit": delay_step_limit,
                 "unit_transport_cost": cost,
                 "unit_purchase_cost": unit_purchase_cost,
+                "raw_purchase_cost": priced_unit_purchase_cost,
+                "purchase_cost_is_fallback": purchase_cost_is_fallback,
                 "raw_transport_cost": explicit_transport_cost,
                 "transport_cost_is_fallback": explicit_transport_cost <= 0,
                 "reliability": reliability,
@@ -1822,6 +1830,14 @@ def main() -> None:
         for node_id, node_type in node_type_by_id.items()
         if node_type == "distribution_center"
     }
+    for lane in lanes:
+        if not bool(lane.get("purchase_cost_is_fallback")):
+            continue
+        src_type = node_type_by_id.get(str(lane.get("src")), "")
+        dst_type = node_type_by_id.get(str(lane.get("dst")), "")
+        if src_type in {"factory", "distribution_center"} or dst_type in {"distribution_center", "customer"}:
+            lane["unit_purchase_cost"] = 0.0
+            lane["purchase_cost_suppressed_reason"] = "internal_or_finished_goods_lane_without_purchase_price"
     supplier_factory_items: dict[str, set[tuple[str, str]]] = defaultdict(set)
     process_node_ids = {
         str(n.get("id"))
@@ -1862,12 +1878,28 @@ def main() -> None:
                 key = (nid, item_id)
                 process_tau_days_by_pair[key] = max(process_tau_days_by_pair.get(key, 0.0), tau_days)
     process_input_requirements_by_output_pair = build_process_input_requirements_by_output_pair(nodes, item_unit_map)
+    production_lot_reference_qty_by_pair: dict[tuple[str, str], float] = {}
+    for node in nodes:
+        node_id = str(node.get("id"))
+        for proc in node.get("processes") or []:
+            for out in proc.get("outputs") or []:
+                out_item = str((out or {}).get("item_id") or "")
+                if not out_item:
+                    continue
+                lot_policy = process_lot_policy(proc, out_item=out_item, item_unit_map=item_unit_map)
+                ref_qty = lot_reference_qty(lot_policy)
+                if ref_qty > 1e-9:
+                    production_lot_reference_qty_by_pair[(node_id, out_item)] = max(
+                        production_lot_reference_qty_by_pair.get((node_id, out_item), 0.0),
+                        ref_qty,
+                    )
     # If a (node,item) can ship downstream but has no modeled inbound/production source,
     # treat missing upstream as external procurement to avoid artificial source depletion.
     externally_sourced_pairs = sorted(outbound_pairs - inbound_pairs - produced_pairs)
     externally_sourced_pairs_set = set(externally_sourced_pairs)
     demand_rows = scenario.get("demand", []) or []
     demand_pairs = [(str(d.get("node_id")), str(d.get("item_id"))) for d in demand_rows]
+    finished_good_item_ids = {item_id for _, item_id in demand_pairs}
     demand_profiles = {
         (str(d.get("node_id")), str(d.get("item_id"))): (d.get("profile") or [])
         for d in demand_rows
@@ -2392,6 +2424,26 @@ def main() -> None:
         initialization_pipeline_rows.sort(key=lambda r: (r["node_id"], r["item_id"], r["category"], r.get("lane_src", "")))
     supplier_capacity_daily_rows: list[dict[str, Any]] = []
     total_supplier_capacity_binding_qty = 0.0
+    scheduled_lane_release_metrics: dict[int, list[tuple[tuple[str, str], float, float, float, float, bool]]] = defaultdict(list)
+
+    def lane_transport_cost_for_chunk(
+        lane: dict[str, Any],
+        item_id: str,
+        pull_qty: float,
+        delivered_qty: float,
+    ) -> tuple[float, str, float]:
+        unit_transport_cost = max(0.0, to_float(lane.get("unit_transport_cost"), 0.0))
+        standard_order_qty = max(0.0, to_float(lane.get("standard_order_qty"), 0.0))
+        if item_id not in finished_good_item_ids and standard_order_qty > 1e-9:
+            effective_lot_qty = standard_order_qty
+            if effective_lot_qty <= 1.0 + 1e-9:
+                effective_lot_qty = max(
+                    effective_lot_qty,
+                    production_lot_reference_qty_by_pair.get((str(lane.get("src")), item_id), 0.0),
+                )
+            lot_units = max(0.0, pull_qty) / effective_lot_qty
+            return lot_units * unit_transport_cost, "lot", lot_units
+        return max(0.0, delivered_qty) * unit_transport_cost, "unit", max(0.0, delivered_qty)
 
     for day in range(total_timeline_days):
         record_day = day >= warmup_days
@@ -2548,9 +2600,11 @@ def main() -> None:
                 if not outputs:
                     continue
                 out_item = str((outputs[0] or {}).get("item_id"))
-                cap = to_float(((p.get("capacity") or {}).get("max_rate")), 0.0)
-                if cap <= 0:
-                    continue
+                cap_raw = to_float(((p.get("capacity") or {}).get("max_rate")), 0.0)
+                has_capacity_limit = cap_raw > 0.0
+                # Missing capacity data means "capacity not modeled", not "zero capacity".
+                # Lot rules, input availability and demand signal still constrain execution.
+                cap = cap_raw if has_capacity_limit else float("inf")
 
                 batch_size = to_float(p.get("batch_size"), 1000.0)
                 if batch_size <= 0:
@@ -2594,7 +2648,7 @@ def main() -> None:
 
                 if out_signal <= 1e-9 and out_pair not in lanes_by_src_item:
                     # Preserve previous behavior for isolated processes not linked to demand flow.
-                    raw_command = cap
+                    raw_command = cap if has_capacity_limit else 0.0
 
                 prev_cmd = prev_production_command_by_pair.get(out_pair, raw_command)
                 desired_qty = production_smoothing * prev_cmd + (1.0 - production_smoothing) * raw_command
@@ -2666,11 +2720,13 @@ def main() -> None:
                         if max_from_inputs <= cap + 1e-9 and max_from_inputs <= binding_reference_qty + 1e-9:
                             binding_cause = "input_shortage"
                             binding_item = input_binding_item
-                        elif cap <= max_from_inputs + 1e-9 and cap <= binding_reference_qty + 1e-9:
+                        elif has_capacity_limit and cap <= max_from_inputs + 1e-9 and cap <= binding_reference_qty + 1e-9:
                             binding_cause = "capacity"
                         else:
                             binding_cause = "policy_command"
                     if record_day:
+                        cap_qty_for_record = cap if has_capacity_limit else 0.0
+                        input_qty_for_record = max_from_inputs if math.isfinite(max_from_inputs) else 0.0
                         production_constraint_rows.append(
                             {
                                 "day": output_day,
@@ -2679,8 +2735,9 @@ def main() -> None:
                                 "desired_qty": round(desired_qty, 6),
                                 "planned_qty_after_lot_rule": round(lot_planned_qty, 6),
                                 "actual_qty": round(qty, 6),
-                                "cap_qty": round(cap, 6),
-                                "max_from_inputs_qty": round(max_from_inputs, 6),
+                                "cap_qty": round(cap_qty_for_record, 6),
+                                "capacity_limit_mode": "finite" if has_capacity_limit else "unmodeled",
+                                "max_from_inputs_qty": round(input_qty_for_record, 6),
                                 "binding_cause": binding_cause,
                                 "binding_input_item_id": binding_item,
                                 "shortfall_vs_desired_qty": round(max(0.0, desired_qty - qty), 6),
@@ -2793,7 +2850,11 @@ def main() -> None:
         # Replenishment and shipments
         shipped_today = 0.0
         transport_cost_today = 0.0
+        opening_transport_cost_today = 0.0
         purchase_cost_today = 0.0
+        opening_purchase_cost_today = 0.0
+        external_procurement_transport_cost_today = 0.0
+        external_procurement_purchase_cost_today = 0.0
         external_procured_today = 0.0
         external_procured_rejected_today = 0.0
         supplier_capacity_binding_qty_today = 0.0
@@ -2805,6 +2866,15 @@ def main() -> None:
         planned_order_count_by_pair: dict[tuple[str, str], int] = defaultdict(int)
         planned_receipt_min_day_by_pair: dict[tuple[str, str], int] = {}
         planned_receipt_max_day_by_pair: dict[tuple[str, str], int] = {}
+        for metric_pair, metric_shipped, metric_transport, metric_purchase, metric_loss, metric_is_opening in scheduled_lane_release_metrics.pop(day, []):
+            shipped_today += metric_shipped
+            shipped_today_to_pair[metric_pair] += metric_shipped
+            transport_cost_today += metric_transport
+            purchase_cost_today += metric_purchase
+            total_unreliable_loss_qty += metric_loss
+            if metric_is_opening:
+                opening_transport_cost_today += metric_transport
+                opening_purchase_cost_today += metric_purchase
 
         def register_mrp_order(
             trace_pair: tuple[str, str],
@@ -2946,7 +3016,11 @@ def main() -> None:
             ) -> float:
                 nonlocal shipped_today
                 nonlocal transport_cost_today
+                nonlocal opening_transport_cost_today
                 nonlocal purchase_cost_today
+                nonlocal opening_purchase_cost_today
+                nonlocal external_procurement_transport_cost_today
+                nonlocal external_procurement_purchase_cost_today
                 nonlocal external_procured_today
                 nonlocal external_procured_rejected_today
                 nonlocal supplier_capacity_binding_qty_today
@@ -3005,8 +3079,12 @@ def main() -> None:
                             ext_unit_transport = economic_policy["external_procurement_transport_cost_per_unit"]
                             ext_order_cost = ext_order_qty * (ext_unit_purchase + ext_unit_transport)
                             if record_day:
-                                purchase_cost_today += ext_order_qty * ext_unit_purchase
-                                transport_cost_today += ext_order_qty * ext_unit_transport
+                                ext_purchase_cost = ext_order_qty * ext_unit_purchase
+                                ext_transport_cost = ext_order_qty * ext_unit_transport
+                                purchase_cost_today += ext_purchase_cost
+                                transport_cost_today += ext_transport_cost
+                                external_procurement_purchase_cost_today += ext_purchase_cost
+                                external_procurement_transport_cost_today += ext_transport_cost
                                 total_external_procurement_cost += ext_order_cost
                         ext_rejected = max(0.0, ext_gap - ext_order_qty)
                         if record_day:
@@ -3090,13 +3168,39 @@ def main() -> None:
                     )
                 in_transit[pair] += delivered_qty
                 if record_day:
-                    shipped_today += delivered_qty
-                    shipped_today_to_pair[(dst, item_id)] += delivered_qty
-                    transport_cost_today += delivered_qty * lane["unit_transport_cost"]
-                    purchase_cost_today += delivered_qty * lane["unit_purchase_cost"]
-                    total_unreliable_loss_qty += max(0.0, pull_qty - delivered_qty)
                     for arrival_day, chunk_pull_qty, chunk_delivered_qty in delivery_schedule:
                         physical_release_day = int(arrival_day - lead_days)
+                        chunk_lead_cover_days = int(max(1, lead_cover))
+                        chunk_order_date_imt = int(arrival_day - chunk_lead_cover_days - warmup_days)
+                        is_opening_open_order_cost = chunk_order_date_imt < 0
+                        chunk_transport_cost, transport_cost_basis, transport_cost_units = lane_transport_cost_for_chunk(
+                            lane,
+                            str(item_id),
+                            chunk_pull_qty,
+                            chunk_delivered_qty,
+                        )
+                        chunk_purchase_cost = chunk_delivered_qty * lane["unit_purchase_cost"]
+                        chunk_loss = max(0.0, chunk_pull_qty - chunk_delivered_qty)
+                        if physical_release_day <= day:
+                            shipped_today += chunk_delivered_qty
+                            shipped_today_to_pair[(dst, item_id)] += chunk_delivered_qty
+                            transport_cost_today += chunk_transport_cost
+                            purchase_cost_today += chunk_purchase_cost
+                            total_unreliable_loss_qty += chunk_loss
+                            if is_opening_open_order_cost:
+                                opening_transport_cost_today += chunk_transport_cost
+                                opening_purchase_cost_today += chunk_purchase_cost
+                        else:
+                            scheduled_lane_release_metrics[physical_release_day].append(
+                                (
+                                    (dst, item_id),
+                                    chunk_delivered_qty,
+                                    chunk_transport_cost,
+                                    chunk_purchase_cost,
+                                    chunk_loss,
+                                    is_opening_open_order_cost,
+                                )
+                            )
                         supplier_shipment_rows.append(
                             {
                                 "day": int(physical_release_day - warmup_days),
@@ -3109,6 +3213,9 @@ def main() -> None:
                                 "arrival_day": int(arrival_day - warmup_days),
                                 "reliability": round(rel, 6),
                                 "uom": item_unit_map.get(item_id, ""),
+                                "transport_cost_basis": transport_cost_basis,
+                                "transport_cost_units": round(transport_cost_units, 6),
+                                "transport_cost": round(chunk_transport_cost, 6),
                             }
                         )
                 return delivered_qty
@@ -3322,7 +3429,13 @@ def main() -> None:
                     "inventory_risk_cost_day": round(inventory_risk_cost_today, 4),
                     "legacy_raw_holding_cost_day": round(raw_holding_cost_today, 4),
                     "transport_cost_day": round(transport_cost_today, 4),
+                    "opening_open_order_transport_cost_day": round(opening_transport_cost_today, 4),
+                    "external_procurement_transport_cost_day": round(external_procurement_transport_cost_today, 4),
+                    "operational_transport_cost_day": round(max(0.0, transport_cost_today - opening_transport_cost_today), 4),
                     "purchase_cost_day": round(purchase_cost_today, 4),
+                    "opening_open_order_purchase_cost_day": round(opening_purchase_cost_today, 4),
+                    "external_procurement_purchase_cost_day": round(external_procurement_purchase_cost_today, 4),
+                    "operational_purchase_cost_day": round(max(0.0, purchase_cost_today - opening_purchase_cost_today), 4),
                     "external_procured_ordered_qty": round(external_procured_today, 4),
                     "external_procured_arrived_qty": round(external_arrivals_qty, 4),
                     "external_procured_rejected_qty": round(external_procured_rejected_today, 4),
@@ -3906,6 +4019,7 @@ def main() -> None:
                 "planned_qty_after_lot_rule",
                 "actual_qty",
                 "cap_qty",
+                "capacity_limit_mode",
                 "max_from_inputs_qty",
                 "binding_cause",
                 "binding_input_item_id",
@@ -4027,6 +4141,9 @@ def main() -> None:
                 "arrival_day",
                 "reliability",
                 "uom",
+                "transport_cost_basis",
+                "transport_cost_units",
+                "transport_cost",
             ],
         )
         writer.writeheader()
@@ -4288,6 +4405,35 @@ def main() -> None:
         )
     else:
         industrial_validation_md = "Aucune concentration MRP ou lot atypique detecte."
+    unmodeled_process_capacity_rows: list[tuple[str, str, str]] = []
+    for node in nodes:
+        node_id = str(node.get("id") or "")
+        for proc in node.get("processes") or []:
+            if not (proc.get("inputs") or []):
+                continue
+            cap = to_float(((proc.get("capacity") or {}).get("max_rate")), 0.0)
+            if cap > 0.0:
+                continue
+            output_ids = [
+                str((out or {}).get("item_id") or "").replace("item:", "")
+                for out in (proc.get("outputs") or [])
+                if str((out or {}).get("item_id") or "")
+            ]
+            unmodeled_process_capacity_rows.append(
+                (node_id, str(proc.get("id") or "n/a"), ", ".join(output_ids) or "n/a")
+            )
+    if unmodeled_process_capacity_rows:
+        capacity_note_lines = [
+            "",
+            "Process internes sans capacite source: la simulation ne les bloque pas par capacite, mais conserve les contraintes de lots, d'intrants et de besoin.",
+            "| Noeud | Process | Sortie |",
+            "|---|---|---:|",
+        ]
+        capacity_note_lines.extend(
+            f"| {node_id} | {proc_id} | {outputs} |"
+            for node_id, proc_id, outputs in unmodeled_process_capacity_rows[:10]
+        )
+        industrial_validation_md = f"{industrial_validation_md}\n" + "\n".join(capacity_note_lines)
     report = f"""# First simulation report
 
 ## Run setup

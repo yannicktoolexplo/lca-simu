@@ -46,7 +46,7 @@
 - External upstream sourcing for unmodeled source pairs: 34
 - Opening stock bootstrap pairs (lead-time coverage at max capacity): 0
 - Opening open-order rows reconstructed from January snapshot: 106
-- MRP trace tracked pairs / rows / orders: 65 / 118625 / 241493
+- MRP trace tracked pairs / rows / orders: 65 / 118625 / 150817
 
 ## KPIs
 - Total demand: 25762139.9999
@@ -54,27 +54,27 @@
 - Fill rate: 1.0
 - Ending backlog: 0
 - Total produced: 102892400.0
-- Total shipped: 781227112.5979
-- Avg inventory: 283665237.4475
-- Ending inventory: 263461611.1457
-- Transport cost: 90126966.0149
-- Holding cost (capital tied-up): 70949246.238
-- Warehouse operating cost: 91220459.4489
-- Inventory risk cost (obsolescence/compliance proxy): 40542426.4217
-- Legacy raw holding cost before split: 202712132.1086
-- Purchase cost (from order_terms sell_price): 83574062.4287
-- Logistics cost (transport + inventory capital + warehouse + inventory risk): 292839098.1236
-- Total cost: 376413160.5523
-- Total external procured ordered qty: 404220650.3891
-- Total external procured arrived qty: 404008649.066
-- Total external procured rejected qty (cap-limited): 57938153.6661
-- Total external procurement cost premium: 66445141.9094
+- Total shipped: 779127059.5979
+- Avg inventory: 284333211.9923
+- Ending inventory: 262866151.7271
+- Transport cost: 21634596.9355
+- Holding cost (capital tied-up): 70301651.0651
+- Warehouse operating cost: 90387837.0837
+- Inventory risk cost (obsolescence/compliance proxy): 40172372.0372
+- Legacy raw holding cost before split: 200861860.1861
+- Purchase cost (from order_terms sell_price): 54069027.0076
+- Logistics cost (transport + inventory capital + warehouse + inventory risk): 222496457.1216
+- Total cost: 276565484.1292
+- Total external procured ordered qty: 403575110.4501
+- Total external procured arrived qty: 403363109.127
+- Total external procured rejected qty (cap-limited): 4517883480.6661
+- Total external procurement cost premium: 50786520.8149
 - Total estimated source ordered qty: 0.0
 - Total estimated source replenished qty: 0.0
 - Total estimated source rejected qty: 0.0
-- Cost share capital holding / warehouse / inventory risk / transport / purchase: 0.188488 / 0.242341 / 0.107707 / 0.239436 / 0.222027
+- Cost share capital holding / warehouse / inventory risk / transport / purchase: 0.254195 / 0.326823 / 0.145254 / 0.078226 / 0.195502
 - Total opening stock bootstrap qty: 0.0
-- Total explicit initialization stock qty: 272374547.8265
+- Total explicit initialization stock qty: 272289747.8265
 - Total explicit initialization pipeline qty: 25012341.2857
 - Total opening open-order qty: 25012341.2857
 - Total unreliable supplier loss qty: 0.0
@@ -121,16 +121,22 @@ Le graphe `Reappro amont` utilise maintenant `order_date_IMT` pour dater les ord
 
 | Noeud | Item | Lot std | Ancien pic J0 | Pic IMT | Jour IMT | Avant J0 | Lots au pic | Remarque |
 |---|---:|---:|---:|---:|---:|---:|---:|---|
-| M-1810 | 338929 | 5000.0 | 5100000.0 | 85000.0 | 25 | 2935000.0 | 17.0 | Concentration MRP a valider; plusieurs lots commandes le meme jour IMT. |
-| M-1430 | 333362 | 5000.0 | 4310000.0 | 75000.0 | 14 | 1840000.0 | 15.0 | Concentration MRP a valider; plusieurs lots commandes le meme jour IMT. |
+| M-1810 | 338929 | 5000.0 | 5100000.0 | 90000.0 | 17 | 2970000.0 | 18.0 | Concentration MRP a valider; plusieurs lots commandes le meme jour IMT. |
+| M-1430 | 333362 | 5000.0 | 4310000.0 | 75000.0 | -17 | 1915000.0 | 15.0 | Concentration MRP a valider; plusieurs lots commandes le meme jour IMT. |
 | M-1430 | 042342 | 30000000.0 | 120000000.0 | 30000000.0 | -24 | 60000000.0 | 1.0 | Lot FIA tres eleve a valider avec l'industriel. |
-| M-1430 | 773474 | 1.0 | 0.0 | 273890.0 | 895 | 0.0 | 273890.0 | Quantite standard=1 non interpretable comme lot industriel; lot/campagne interne a renseigner. |
-| M-1430 | 344135 | 120000.0 | 3000000.0 | 240000.0 | 5 | 1440000.0 | 2.0 | Pic initial redate avant le 1er janvier via order_date_IMT; affichage MRP corrige. |
-| M-1810 | 693055 | 1.0 | 1800000.0 | 27560.0 | 29 | 1305100.0 | 27560.0 | Quantite standard=1 non interpretable comme lot industriel; lot/campagne interne a renseigner. |
-| M-1430 | 038005 | 10000.0 | 70000.0 | 10000.0 | -90 | 150000.0 | 1.0 | Pic initial redate avant le 1er janvier via order_date_IMT; affichage MRP corrige. |
+| M-1430 | 773474 | 1.0 | 0.0 | 273890.0 | 899 | 0.0 | 273890.0 | Quantite standard=1 non interpretable comme lot industriel; lot/campagne interne a renseigner. |
+| M-1430 | 344135 | 120000.0 | 3000000.0 | 240000.0 | 10 | 1440000.0 | 2.0 | Pic initial redate avant le 1er janvier via order_date_IMT; affichage MRP corrige. |
+| M-1810 | 693055 | 1.0 | 1800000.0 | 27516.0 | 31 | 1343523.0 | 27516.0 | Quantite standard=1 non interpretable comme lot industriel; lot/campagne interne a renseigner. |
+| SDC-1450 | 021081 | 20000.0 | 40360.0 | 20001.0 | -88 | 40118.0 | 1.0 | Pic initial redate avant le 1er janvier via order_date_IMT; affichage MRP corrige. |
+| M-1430 | 038005 | 10000.0 | 70000.0 | 10000.0 | -90 | 160000.0 | 1.0 | Pic initial redate avant le 1er janvier via order_date_IMT; affichage MRP corrige. |
 | M-1430 | 708073 | 5000.0 | 20000.0 | 5000.0 | -34 | 10000.0 | 1.0 | Pic initial redate avant le 1er janvier via order_date_IMT; affichage MRP corrige. |
 | M-1810 | 049371 | 1600.0 | 8000.0 | 1600.0 | 25 | 17600.0 | 1.0 | Pic initial redate avant le 1er janvier via order_date_IMT; affichage MRP corrige. |
-| M-1810 | 001757 | 100.0 | 9200.0 | 400.0 | 13 | 9300.0 | 4.0 | Pic initial redate avant le 1er janvier via order_date_IMT; affichage MRP corrige. |
+| M-1810 | 001757 | 100.0 | 9200.0 | 500.0 | 13 | 9500.0 | 5.0 | Pic initial redate avant le 1er janvier via order_date_IMT; affichage MRP corrige. |
+
+Process internes sans capacite source: la simulation ne les bloque pas par capacite, mais conserve les contraintes de lots, d'intrants et de besoin.
+| Noeud | Process | Sortie |
+|---|---|---:|
+| SDC-1450 | proc:MAKE_773474 | 773474 |
 
 ## Files
 - summaries/first_simulation_summary.json
