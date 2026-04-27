@@ -22,7 +22,7 @@
 
 - `268191.xlsx` is interpreted as product `268091` because the BOM sheet explicitly points to `268091`.
 - `021081.xlsx` is modeled as an upstream component feeding internal site `D-1450` (technical id `SDC-1450`), which transforms `021081` into `773474` before delivery to downstream factories.
-- `D-1450` is typed as an internal PFI site (`factory`) and its transformation capacity is set to 500000 G/day to avoid creating an artificial bottleneck.
+- `D-1450` is typed as an internal PFI site (`factory`). No process capacity is provided in the source data, so no artificial daily capacity is injected.
 - FIA lead times are applied directly to lanes, and delay limits are set to `max(lead + 14, 2 * lead)` as a simulation cap assumption.
 - Component `007923` is the active BOM component kept for `268091`; `Data_poc.xlsx` still shows the former reference `693710`, but the product workbook `268191.xlsx` is treated as the operational source of truth.
 - Component `007923` remains unconstrained because no supplier lane is provided in the new FIA data.

@@ -128,6 +128,13 @@
             "max_lots_per_week": 10,
             "source": "industrial_confirmation_2026-04-13"
           }
+        },
+        "SDC-1450": {
+          "item:773474": {
+            "max_lots_per_week": 10,
+            "source": "working_assumption_align_factory_lot_execution",
+            "inject_capacity_from_lot_week": false
+          }
         }
       },
       "applied_factory_lot_execution_rows": [
@@ -146,6 +153,14 @@
           "nominal_lot_qty": 142485.0,
           "capacity_qty_per_day": 203550.0,
           "source": "industrial_confirmation_2026-04-13"
+        },
+        {
+          "node_id": "SDC-1450",
+          "item_id": "item:773474",
+          "max_lots_per_week": 10.0,
+          "nominal_lot_qty": 3200000.0,
+          "capacity_qty_per_day": 0.0,
+          "source": "working_assumption_align_factory_lot_execution"
         }
       ],
       "factory_lot_sizing_overrides": {
@@ -3519,12 +3534,6 @@
             "time_unit": "day",
             "is_default": true
           },
-          "capacity": {
-            "max_rate": 500000.0,
-            "uom": "G/day",
-            "is_default": false,
-            "source": "case_data_upstream_bom_assumption"
-          },
           "cost": {
             "value": 0.35,
             "per": "unit",
@@ -3552,6 +3561,10 @@
             "uom": "G",
             "source": "mrp_lot_sheet",
             "normalization_rule": ""
+          },
+          "lot_execution": {
+            "max_lots_per_week": 10.0,
+            "source": "working_assumption_align_factory_lot_execution"
           }
         }
       ],

@@ -2582,12 +2582,6 @@
             "time_unit": "day",
             "is_default": true
           },
-          "capacity": {
-            "max_rate": 500000.0,
-            "uom": "G/day",
-            "is_default": false,
-            "source": "case_data_upstream_bom_assumption"
-          },
           "cost": {
             "value": 0.0,
             "per": "unit",

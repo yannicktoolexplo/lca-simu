@@ -1259,12 +1259,26 @@ def build_global_kpi_tree_payload(
     daily_kpi_csv: Path,
     demand_service_csv: Path,
     production_constraint_csv: Path,
+    mrp_orders_csv: Path | None = None,
+    raw: dict[str, Any] | None = None,
 ) -> dict[str, Any] | None:
     daily_rows = read_csv_rows(daily_kpi_csv)
     demand_rows = read_csv_rows(demand_service_csv)
     constraint_rows = read_csv_rows(production_constraint_csv)
+    mrp_order_rows = read_csv_rows(mrp_orders_csv) if mrp_orders_csv else []
+    input_consumption_csv = production_constraint_csv.parent / "production_input_consumption_daily.csv"
+    input_consumption_rows = read_csv_rows(input_consumption_csv) if input_consumption_csv.exists() else []
     if not daily_rows and not demand_rows and not constraint_rows:
         return None
+
+    finished_good_item_ids: set[str] = set()
+    if raw:
+        node_type_by_id = {str(node.get("id") or ""): str(node.get("type") or "") for node in raw.get("nodes", []) or []}
+        for edge in raw.get("edges", []) or []:
+            if node_type_by_id.get(str(edge.get("to") or "")) != "customer":
+                continue
+            for edge_item_id in edge.get("items") or []:
+                finished_good_item_ids.add(str(edge_item_id))
 
     daily_by_day: dict[int, dict[str, float]] = defaultdict(lambda: defaultdict(float))
     for row in daily_rows:
@@ -1278,29 +1292,87 @@ def build_global_kpi_tree_payload(
             "warehouse_operating_cost_day",
             "inventory_risk_cost_day",
             "transport_cost_day",
+            "opening_open_order_transport_cost_day",
+            "external_procurement_transport_cost_day",
+            "operational_transport_cost_day",
             "purchase_cost_day",
+            "opening_open_order_purchase_cost_day",
+            "external_procurement_purchase_cost_day",
+            "operational_purchase_cost_day",
             "external_procured_ordered_qty",
             "supplier_capacity_binding_qty",
         ]:
             daily_by_day[day][field] += max(0.0, to_float(row.get(field)) or 0.0)
 
     production_by_day: dict[int, dict[str, float]] = defaultdict(lambda: defaultdict(float))
+    production_line_by_day: dict[tuple[str, str], dict[int, dict[str, float]]] = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
     for row in constraint_rows:
         day = int(to_float(row.get("day")) or 0)
-        production_by_day[day]["desired_qty"] += max(0.0, to_float(row.get("desired_qty")) or 0.0)
-        production_by_day[day]["actual_qty"] += max(0.0, to_float(row.get("actual_qty")) or 0.0)
-        production_by_day[day]["shortfall_qty"] += max(0.0, to_float(row.get("shortfall_vs_desired_qty")) or 0.0)
+        node_id = str(row.get("node_id") or "")
+        output_item_id = str(row.get("output_item_id") or "")
+        line_key = (node_id, output_item_id)
+        desired = max(0.0, to_float(row.get("desired_qty")) or 0.0)
+        planned = max(0.0, to_float(row.get("planned_qty_after_lot_rule")) or 0.0)
+        actual = max(0.0, to_float(row.get("actual_qty")) or 0.0)
+        shortfall = max(0.0, to_float(row.get("shortfall_vs_desired_qty")) or 0.0)
+        overproduction = max(0.0, actual - desired)
+        production_by_day[day]["desired_qty"] += desired
+        production_by_day[day]["planned_qty"] += planned
+        production_by_day[day]["actual_qty"] += actual
+        production_by_day[day]["shortfall_qty"] += shortfall
+        production_by_day[day]["overproduction_qty"] += overproduction
+        production_by_day[day]["requested_lot_starts"] += max(0.0, to_float(row.get("requested_lot_starts")) or 0.0)
+        production_by_day[day]["actual_lot_starts"] += max(0.0, to_float(row.get("actual_lot_starts")) or 0.0)
+        production_line_by_day[line_key][day]["desired_qty"] += desired
+        production_line_by_day[line_key][day]["planned_qty"] += planned
+        production_line_by_day[line_key][day]["actual_qty"] += actual
+        production_line_by_day[line_key][day]["shortfall_qty"] += shortfall
+        production_line_by_day[line_key][day]["lot_starts"] += max(0.0, to_float(row.get("actual_lot_starts")) or 0.0)
+        if desired > 1e-9:
+            production_by_day[day]["active_line_count"] += 1.0
+            production_by_day[day]["execution_score_sum"] += min(100.0, 100.0 * actual / desired)
+            production_by_day[day]["shortfall_rate_sum"] += min(100.0, 100.0 * shortfall / desired)
+            production_by_day[day]["plan_gap_rate_sum"] += min(100.0, 100.0 * abs(actual - desired) / desired)
+            production_by_day[day]["overproduction_rate_sum"] += 100.0 * overproduction / desired
+            if shortfall > 1e-9:
+                production_by_day[day]["shortfall_line_count"] += 1.0
+            if actual + 1e-9 < desired:
+                production_by_day[day]["under_plan_line_count"] += 1.0
+            if actual > desired * 1.05 + 1e-9:
+                production_by_day[day]["over_plan_line_count"] += 1.0
+        production_by_day[day]["plan_gap_qty"] += abs(
+            actual
+            - planned
+        )
         if str(row.get("binding_cause") or "") == "input_shortage":
             production_by_day[day]["input_shortage_day"] = 1.0
+            production_by_day[day]["input_shortage_line_count"] += 1.0
         if str(row.get("binding_cause") or "") == "capacity":
             production_by_day[day]["capacity_day"] = 1.0
+            production_by_day[day]["capacity_line_count"] += 1.0
+        if str(row.get("binding_cause") or "") == "weekly_lot_limit":
+            production_by_day[day]["weekly_lot_limit_day"] = 1.0
+            production_by_day[day]["weekly_lot_limit_line_count"] += 1.0
 
     demand_by_day: dict[int, dict[str, float]] = defaultdict(lambda: defaultdict(float))
+    demand_by_item_day: dict[str, dict[int, float]] = defaultdict(lambda: defaultdict(float))
     for row in demand_rows:
         day = int(to_float(row.get("day")) or 0)
-        demand_by_day[day]["demand_qty"] += max(0.0, to_float(row.get("demand_qty")) or 0.0)
+        item_id = str(row.get("item_id") or "")
+        demand_qty_row = max(0.0, to_float(row.get("demand_qty")) or 0.0)
+        demand_by_day[day]["demand_qty"] += demand_qty_row
+        demand_by_day[day]["required_qty"] += max(0.0, to_float(row.get("required_with_backlog_qty")) or 0.0)
         demand_by_day[day]["served_qty"] += max(0.0, to_float(row.get("served_qty")) or 0.0)
         demand_by_day[day]["backlog_end_qty"] += max(0.0, to_float(row.get("backlog_end_qty")) or 0.0)
+        if item_id:
+            demand_by_item_day[item_id][day] += demand_qty_row
+
+    consumption_by_item_day: dict[str, dict[int, float]] = defaultdict(lambda: defaultdict(float))
+    for row in input_consumption_rows:
+        day = int(to_float(row.get("day")) or 0)
+        item_id = str(row.get("item_id") or "")
+        if item_id:
+            consumption_by_item_day[item_id][day] += max(0.0, to_float(row.get("consumed_qty")) or 0.0)
 
     days = sorted(set(daily_by_day) | set(production_by_day) | set(demand_by_day))
     if not days:
@@ -1313,20 +1385,140 @@ def build_global_kpi_tree_payload(
         }
 
     demand_qty = {day: demand_by_day[day].get("demand_qty", daily_by_day[day].get("demand", 0.0)) for day in days}
+    required_qty = {day: demand_by_day[day].get("required_qty", demand_qty[day]) for day in days}
     served_qty = {day: demand_by_day[day].get("served_qty", daily_by_day[day].get("served", 0.0)) for day in days}
     backlog_qty = {day: demand_by_day[day].get("backlog_end_qty", daily_by_day[day].get("backlog_end", 0.0)) for day in days}
     service_score = {
-        day: (100.0 * served_qty[day] / demand_qty[day] if demand_qty[day] > 0 else 100.0)
+        day: min(100.0, 100.0 * served_qty[day] / required_qty[day]) if required_qty[day] > 0 else 100.0
         for day in days
     }
 
     desired_qty = {day: production_by_day[day].get("desired_qty", 0.0) for day in days}
     actual_qty = {day: production_by_day[day].get("actual_qty", 0.0) for day in days}
     shortfall_qty = {day: production_by_day[day].get("shortfall_qty", 0.0) for day in days}
-    adherence_score = {
-        day: (100.0 * actual_qty[day] / desired_qty[day] if desired_qty[day] > 0 else 100.0)
+    planned_qty = {day: production_by_day[day].get("planned_qty", 0.0) for day in days}
+    active_line_count = {day: production_by_day[day].get("active_line_count", 0.0) for day in days}
+    execution_score_avg = {
+        day: (
+            production_by_day[day].get("execution_score_sum", 0.0) / active_line_count[day]
+            if active_line_count[day] > 0
+            else 100.0
+        )
         for day in days
     }
+    shortfall_rate_avg = {
+        day: (
+            production_by_day[day].get("shortfall_rate_sum", 0.0) / active_line_count[day]
+            if active_line_count[day] > 0
+            else 0.0
+        )
+        for day in days
+    }
+    plan_gap_rate_avg = {
+        day: (
+            production_by_day[day].get("plan_gap_rate_sum", 0.0) / active_line_count[day]
+            if active_line_count[day] > 0
+            else 0.0
+        )
+        for day in days
+    }
+    overproduction_rate_avg = {
+        day: (
+            production_by_day[day].get("overproduction_rate_sum", 0.0) / active_line_count[day]
+            if active_line_count[day] > 0
+            else 0.0
+        )
+        for day in days
+    }
+    overproduction_rate_capped = {day: min(500.0, overproduction_rate_avg[day]) for day in days}
+    strict_adherence_score = {
+        day: max(0.0, 100.0 - plan_gap_rate_avg[day])
+        for day in days
+    }
+    def rolling_strict_adherence(window_days: int) -> dict[int, float]:
+        out: dict[int, float] = {}
+        for idx, day in enumerate(days):
+            window = days[max(0, idx - window_days + 1) : idx + 1]
+            window_desired = sum(desired_qty.get(wday, 0.0) for wday in window)
+            window_actual = sum(actual_qty.get(wday, 0.0) for wday in window)
+            if window_desired <= 1e-9:
+                out[day] = 100.0
+            else:
+                out[day] = max(0.0, 100.0 - 100.0 * abs(window_actual - window_desired) / window_desired)
+        return out
+
+    def production_line_reference_qty(line_key: tuple[str, str], day: int) -> float:
+        _node_id, item_id = line_key
+        if item_id in finished_good_item_ids:
+            return demand_by_item_day[item_id].get(day, 0.0)
+        consumed = consumption_by_item_day[item_id].get(day, 0.0)
+        if consumed > 1e-9:
+            return consumed
+        return production_line_by_day[line_key][day].get("desired_qty", 0.0)
+
+    def rolling_line_adherence(window_days: int) -> dict[int, float]:
+        out: dict[int, float] = {}
+        line_keys = sorted(production_line_by_day)
+        for idx, day in enumerate(days):
+            window = days[max(0, idx - window_days + 1) : idx + 1]
+            scores = []
+            for line_key in line_keys:
+                window_reference = sum(production_line_reference_qty(line_key, wday) for wday in window)
+                window_actual = sum(production_line_by_day[line_key][wday].get("actual_qty", 0.0) for wday in window)
+                if window_reference > 1e-9:
+                    scores.append(max(0.0, 100.0 - 100.0 * abs(window_actual - window_reference) / window_reference))
+                elif window_actual > 1e-9:
+                    scores.append(0.0)
+            out[day] = sum(scores) / len(scores) if scores else 100.0
+        return out
+
+    weekly_adherence_score = rolling_strict_adherence(7)
+    monthly_adherence_score = rolling_strict_adherence(30)
+    weekly_line_adherence_score = rolling_line_adherence(7)
+    monthly_line_adherence_score = rolling_line_adherence(30)
+    shortfall_line_count = {day: production_by_day[day].get("shortfall_line_count", 0.0) for day in days}
+    under_plan_line_count = {day: production_by_day[day].get("under_plan_line_count", 0.0) for day in days}
+    over_plan_line_count = {day: production_by_day[day].get("over_plan_line_count", 0.0) for day in days}
+    capacity_line_count = {day: production_by_day[day].get("capacity_line_count", 0.0) for day in days}
+    input_shortage_line_count = {day: production_by_day[day].get("input_shortage_line_count", 0.0) for day in days}
+    weekly_lot_limit_line_count = {day: production_by_day[day].get("weekly_lot_limit_line_count", 0.0) for day in days}
+    requested_lot_starts = {day: production_by_day[day].get("requested_lot_starts", 0.0) for day in days}
+    actual_lot_starts = {day: production_by_day[day].get("actual_lot_starts", 0.0) for day in days}
+    overproduction_qty = {day: production_by_day[day].get("overproduction_qty", 0.0) for day in days}
+    shortfall_line_share = {
+        day: (100.0 * shortfall_line_count[day] / active_line_count[day] if active_line_count[day] > 0 else 0.0)
+        for day in days
+    }
+    under_plan_line_share = {
+        day: (100.0 * under_plan_line_count[day] / active_line_count[day] if active_line_count[day] > 0 else 0.0)
+        for day in days
+    }
+    over_plan_line_share = {
+        day: (100.0 * over_plan_line_count[day] / active_line_count[day] if active_line_count[day] > 0 else 0.0)
+        for day in days
+    }
+    capacity_line_share = {
+        day: (100.0 * capacity_line_count[day] / active_line_count[day] if active_line_count[day] > 0 else 0.0)
+        for day in days
+    }
+    input_shortage_line_share = {
+        day: (100.0 * input_shortage_line_count[day] / active_line_count[day] if active_line_count[day] > 0 else 0.0)
+        for day in days
+    }
+    weekly_lot_limit_line_share = {
+        day: (100.0 * weekly_lot_limit_line_count[day] / active_line_count[day] if active_line_count[day] > 0 else 0.0)
+        for day in days
+    }
+    startup_cutoff_days = 30
+    startup_shortfall_qty = {
+        day: shortfall_qty[day] if day < startup_cutoff_days else 0.0
+        for day in days
+    }
+    operational_shortfall_qty = {
+        day: 0.0 if day < startup_cutoff_days else shortfall_qty[day]
+        for day in days
+    }
+    production_execution_score = monthly_line_adherence_score
 
     inventory_cost = {
         day: daily_by_day[day].get("holding_cost_day", 0.0)
@@ -1334,33 +1526,371 @@ def build_global_kpi_tree_payload(
         + daily_by_day[day].get("inventory_risk_cost_day", 0.0)
         for day in days
     }
-    transport_cost = {day: daily_by_day[day].get("transport_cost_day", 0.0) for day in days}
-    purchase_cost = {day: daily_by_day[day].get("purchase_cost_day", 0.0) for day in days}
+    transport_cost_raw = {
+        day: max(
+            0.0,
+            daily_by_day[day].get("operational_transport_cost_day", daily_by_day[day].get("transport_cost_day", 0.0))
+            - daily_by_day[day].get("external_procurement_transport_cost_day", 0.0),
+        )
+        for day in days
+    }
+    transport_cost = transport_cost_raw
+    opening_transport_cost = {day: daily_by_day[day].get("opening_open_order_transport_cost_day", 0.0) for day in days}
+    gross_transport_cost = {day: daily_by_day[day].get("transport_cost_day", 0.0) for day in days}
+    purchase_cost = {
+        day: max(
+            0.0,
+            daily_by_day[day].get("operational_purchase_cost_day", daily_by_day[day].get("purchase_cost_day", 0.0))
+            - daily_by_day[day].get("external_procurement_purchase_cost_day", 0.0),
+        )
+        for day in days
+    }
+    opening_purchase_cost = {day: daily_by_day[day].get("opening_open_order_purchase_cost_day", 0.0) for day in days}
     logistics_cost = {day: inventory_cost[day] + transport_cost[day] for day in days}
     positive_costs = [value for value in logistics_cost.values() if value > 0]
     avg_logistics_cost = sum(positive_costs) / len(positive_costs) if positive_costs else 1.0
     cost_index = {day: 100.0 * logistics_cost[day] / avg_logistics_cost for day in days}
+    inventory_cost_index = {day: 100.0 * inventory_cost[day] / avg_logistics_cost for day in days}
+    transport_cost_index = {day: 100.0 * transport_cost[day] / avg_logistics_cost for day in days}
 
     total_demand = sum(demand_qty.values())
+    total_required = sum(required_qty.values())
     total_served = sum(served_qty.values())
     total_desired = sum(desired_qty.values())
     total_actual = sum(actual_qty.values())
     total_shortfall = sum(shortfall_qty.values())
+    total_overproduction = sum(overproduction_qty.values())
+    total_startup_shortfall = sum(startup_shortfall_qty.values())
+    total_operational_shortfall = sum(operational_shortfall_qty.values())
+    active_production_days = sum(1 for value in active_line_count.values() if value > 0)
+    avg_execution_score = (
+        sum(execution_score_avg[day] for day in days if active_line_count[day] > 0) / active_production_days
+        if active_production_days
+        else 100.0
+    )
+    all_active_lines = sum(active_line_count[day] for day in days if active_line_count[day] > 0)
+    all_score_sum = sum(production_by_day[day].get("execution_score_sum", 0.0) for day in days)
+    all_gap_score_sum = sum(production_by_day[day].get("plan_gap_rate_sum", 0.0) for day in days)
+    all_under_lines = sum(under_plan_line_count[day] for day in days)
+    all_over_lines = sum(over_plan_line_count[day] for day in days)
+    avg_gap_score_all = all_gap_score_sum / all_active_lines if all_active_lines > 0 else 0.0
+    strict_adherence_score_all = max(0.0, 100.0 - avg_gap_score_all)
+    coverage_score_all = min(100.0, 100.0 * total_actual / total_desired) if total_desired > 1e-9 else 100.0
+    overproduction_share_all = 100.0 * total_overproduction / total_desired if total_desired > 1e-9 else 0.0
+    avg_weekly_adherence = (
+        sum(weekly_line_adherence_score[day] for day in days if active_line_count[day] > 0) / active_production_days
+        if active_production_days
+        else 100.0
+    )
+    avg_monthly_adherence = (
+        sum(monthly_line_adherence_score[day] for day in days if active_line_count[day] > 0) / active_production_days
+        if active_production_days
+        else 100.0
+    )
+    under_plan_share_all = 100.0 * all_under_lines / all_active_lines if all_active_lines > 0 else 0.0
+    over_plan_share_all = 100.0 * all_over_lines / all_active_lines if all_active_lines > 0 else 0.0
+    post_startup_days = [day for day in days if day >= startup_cutoff_days and active_line_count[day] > 0]
+    post_startup_active_lines = sum(active_line_count[day] for day in post_startup_days)
+    post_startup_score_sum = sum(
+        production_by_day[day].get("execution_score_sum", 0.0)
+        for day in post_startup_days
+    )
+    post_startup_gap_score_sum = sum(
+        production_by_day[day].get("plan_gap_rate_sum", 0.0)
+        for day in post_startup_days
+    )
+    post_startup_under_lines = sum(under_plan_line_count[day] for day in post_startup_days)
+    post_startup_over_lines = sum(over_plan_line_count[day] for day in post_startup_days)
+    avg_execution_score_post_startup = (
+        post_startup_score_sum / post_startup_active_lines
+        if post_startup_active_lines > 0
+        else avg_execution_score
+    )
+    avg_gap_score_post_startup = (
+        post_startup_gap_score_sum / post_startup_active_lines
+        if post_startup_active_lines > 0
+        else 0.0
+    )
+    strict_adherence_score_post_startup = max(0.0, 100.0 - avg_gap_score_post_startup)
+    under_plan_share_post_startup = (
+        100.0 * post_startup_under_lines / post_startup_active_lines
+        if post_startup_active_lines > 0
+        else 0.0
+    )
+    over_plan_share_post_startup = (
+        100.0 * post_startup_over_lines / post_startup_active_lines
+        if post_startup_active_lines > 0
+        else 0.0
+    )
     backlog_days = sum(1 for value in backlog_qty.values() if value > 1e-9)
+    shortfall_days = sum(1 for value in shortfall_qty.values() if value > 1e-9)
+    operational_shortfall_days = sum(1 for value in operational_shortfall_qty.values() if value > 1e-9)
     input_shortage_days = sum(1 for day in days if production_by_day[day].get("input_shortage_day", 0.0) > 0)
     capacity_days = sum(1 for day in days if production_by_day[day].get("capacity_day", 0.0) > 0)
+    weekly_lot_limit_days = sum(1 for day in days if production_by_day[day].get("weekly_lot_limit_day", 0.0) > 0)
+    total_requested_lot_starts = sum(requested_lot_starts.values())
+    total_actual_lot_starts = sum(actual_lot_starts.values())
     total_logistics_cost = sum(logistics_cost.values())
     total_inventory_cost = sum(inventory_cost.values())
     total_transport_cost = sum(transport_cost.values())
+    total_opening_transport_cost = sum(opening_transport_cost.values())
     total_purchase_cost = sum(purchase_cost.values())
+    total_opening_purchase_cost = sum(opening_purchase_cost.values())
+    top_transport_day = max(days, key=lambda day: transport_cost.get(day, 0.0)) if days else None
+    transport_spike_driver = "n/a"
+    if top_transport_day is not None and mrp_order_rows and raw:
+        node_type_by_id = {str(node.get("id") or ""): str(node.get("type") or "") for node in raw.get("nodes", []) or []}
+        edge_by_id = {str(edge.get("id") or ""): edge for edge in raw.get("edges", []) or []}
+        finished_good_item_ids: set[str] = set()
+        for edge in raw.get("edges", []) or []:
+            if node_type_by_id.get(str(edge.get("to") or "")) != "customer":
+                continue
+            for edge_item_id in edge.get("items") or []:
+                finished_good_item_ids.add(str(edge_item_id))
+        production_lot_reference_qty_by_pair: dict[tuple[str, str], float] = {}
+        for node in raw.get("nodes", []) or []:
+            node_id = str(node.get("id") or "")
+            for proc in node.get("processes") or []:
+                lot_sizing = proc.get("lot_sizing") or {}
+                ref_qty = 0.0
+                for key in ("fixed_lot_qty", "max_lot_qty", "min_lot_qty", "lot_multiple_qty"):
+                    ref_qty = max(0.0, to_float(lot_sizing.get(key)) or 0.0)
+                    if ref_qty > 1e-9:
+                        break
+                if ref_qty <= 1e-9:
+                    continue
+                for out in proc.get("outputs") or []:
+                    out_item_id = str((out or {}).get("item_id") or "")
+                    if out_item_id:
+                        production_lot_reference_qty_by_pair[(node_id, out_item_id)] = max(
+                            production_lot_reference_qty_by_pair.get((node_id, out_item_id), 0.0),
+                            ref_qty,
+                        )
+        driver_rows: list[tuple[float, dict[str, str], dict[str, Any]]] = []
+        for row in mrp_order_rows:
+            if str(row.get("order_type") or "") != "lane_release":
+                continue
+            release_day = int(to_float(row.get("release_day")) or 0)
+            if release_day != top_transport_day:
+                continue
+            edge = edge_by_id.get(str(row.get("edge_id") or "")) or {}
+            explicit_transport = max(0.0, to_float(((edge.get("transport_cost") or {}).get("value"))) or 0.0)
+            distance_km = max(0.0, to_float(edge.get("distance_km")) or 0.0)
+            unit_transport = explicit_transport if explicit_transport > 0 else max(0.02, distance_km * 0.00008)
+            item_id = str(row.get("item_id") or "")
+            release_qty = max(0.0, to_float(row.get("release_qty")) or 0.0)
+            receipt_qty = max(0.0, to_float(row.get("planned_receipt_qty")) or 0.0)
+            standard_order_qty = max(0.0, to_float(row.get("standard_order_qty")) or display_standard_order_qty(edge))
+            if item_id not in finished_good_item_ids and standard_order_qty > 1e-9:
+                effective_lot_qty = standard_order_qty
+                if effective_lot_qty <= 1.0 + 1e-9:
+                    effective_lot_qty = max(
+                        effective_lot_qty,
+                        production_lot_reference_qty_by_pair.get((str(row.get("src_node_id") or ""), item_id), 0.0),
+                    )
+                cost_qty = release_qty / effective_lot_qty
+            else:
+                cost_qty = receipt_qty
+            driver_rows.append((cost_qty * unit_transport, row, edge))
+        if driver_rows:
+            raw_cost, row, edge = max(driver_rows, key=lambda item: item[0])
+            attrs = edge.get("attrs") or {}
+            item_id = str(row.get("item_id") or "")
+            standard_order_qty = max(0.0, to_float(row.get("standard_order_qty")) or display_standard_order_qty(edge))
+            display_lot_qty = standard_order_qty
+            if item_id not in finished_good_item_ids and display_lot_qty <= 1.0 + 1e-9:
+                display_lot_qty = max(
+                    display_lot_qty,
+                    production_lot_reference_qty_by_pair.get((str(row.get("src_node_id") or ""), item_id), 0.0),
+                )
+            cost_basis = "lot" if item_id not in finished_good_item_ids and display_lot_qty > 1e-9 else "unite"
+            transport_spike_driver = (
+                f"J{top_transport_day}: {compact_item_label(item_id)} "
+                f"{fmt_qty(row.get('planned_receipt_qty'), 0)} via {row.get('src_node_id') or 'n/a'} -> "
+                f"{row.get('dst_node_id') or 'n/a'} ; cout par {cost_basis} ; "
+                f"lot std {fmt_qty(display_lot_qty, 0)} ; "
+                f"source {attrs.get('source_workbook') or 'n/a'}"
+            )
 
     def summary(label: str, value: str) -> dict[str, str]:
         return {"label": label, "value": value}
+
+    kpi_definitions = [
+        {
+            "family": "Disponibilite produit",
+            "level": "KPI principal",
+            "name": "Disponibilite produit",
+            "formula": "100 x Servi(t) / Besoin_avec_backlog(t), plafonne a 100",
+            "terms": "Servi(t)=served_qty client. Besoin_avec_backlog(t)=required_with_backlog_qty=demande du jour + backlog entrant.",
+            "interpretation": "Mesure la capacite a servir le besoin patient. Objectif: 100% et backlog nul.",
+        },
+        {
+            "family": "Disponibilite produit",
+            "level": "KPI secondaire",
+            "name": "Demande",
+            "formula": "Somme des demandes client du jour",
+            "terms": "Demande=Σ demand_qty sur les clients et produits finis.",
+            "interpretation": "Besoin brut client, sans rattrapage du retard passe.",
+        },
+        {
+            "family": "Disponibilite produit",
+            "level": "KPI secondaire",
+            "name": "Besoin avec backlog",
+            "formula": "Demande du jour + backlog restant a servir",
+            "terms": "Besoin_avec_backlog=Σ required_with_backlog_qty. Backlog entrant=retard non servi des jours precedents.",
+            "interpretation": "Charge totale a satisfaire pour revenir au service complet.",
+        },
+        {
+            "family": "Disponibilite produit",
+            "level": "KPI secondaire",
+            "name": "Servi",
+            "formula": "Quantite effectivement livree au client",
+            "terms": "Servi=Σ served_qty, limite par le stock disponible au point client.",
+            "interpretation": "Flux client reellement couvert par les stocks disponibles.",
+        },
+        {
+            "family": "Disponibilite produit",
+            "level": "KPI secondaire",
+            "name": "Backlog fin de jour",
+            "formula": "max(0, Besoin_avec_backlog(t) - Servi(t))",
+            "terms": "Backlog fin de jour=Σ backlog_end_qty apres service client.",
+            "interpretation": "Reste a servir en fin de jour. C'est le signal de rupture patient.",
+        },
+        {
+            "family": "Production",
+            "level": "KPI principal",
+            "name": "Alignement production",
+            "formula": "Moyenne lignes de max(0, 100 - |Production_30j - Reference_30j| / Reference_30j x 100)",
+            "terms": "Ligne=couple site/produit. Production_30j=Σ actual_qty sur 30 jours. Reference_jour: PF=demande client du produit; semi-fini/intermediaire=quantite consommee par les sites aval dans production_input_consumption_daily.csv; sinon fallback=desired_qty, c.-a-d. besoin de production demande par le simulateur. Reference_30j=Σ Reference_jour sur 30 jours.",
+            "interpretation": "Adherence mensuelle par site/produit, calculee ligne par ligne pour ne pas melanger UN et G.",
+        },
+        {
+            "family": "Production",
+            "level": "KPI secondaire",
+            "name": "Adherence lignes mensuelle",
+            "formula": "Meme formule que le KPI principal, fenetre glissante 30 jours",
+            "terms": "Reference_30j et Production_30j sont calculees par ligne site/produit avant moyenne. Reference_jour=demande client pour PF; consommation aval observee pour semi-finis/intermediaires; desired_qty si aucune consommation aval directe n'est disponible.",
+            "interpretation": "Mesure la coherence avec une production par lots/campagnes.",
+        },
+        {
+            "family": "Production",
+            "level": "KPI secondaire",
+            "name": "Adherence lignes hebdo",
+            "formula": "Moyenne lignes de max(0, 100 - |Production_7j - Reference_7j| / Reference_7j x 100)",
+            "terms": "Production_7j=Σ actual_qty sur 7 jours. Reference_7j=Σ Reference_jour sur 7 jours, avec PF=demande client, semi-fini/intermediaire=consommation aval observee, fallback=desired_qty si l'aval direct n'est pas observable.",
+            "interpretation": "Vision plus nerveuse que le mensuel, utile pour detecter des decalages court terme.",
+        },
+        {
+            "family": "Production",
+            "level": "KPI secondaire",
+            "name": "Alignement quotidien strict lots vs besoin",
+            "formula": "100 - moyenne lignes min(100, |Production_jour - Besoin_jour| / Besoin_jour x 100)",
+            "terms": "Production_jour=actual_qty de la ligne. Besoin_jour=desired_qty demande a la ligne par le simulateur ce jour-la. Lignes sans besoin actif exclues de la moyenne.",
+            "interpretation": "Tres strict; penalise fortement les lots. A lire comme nervosite journaliere, pas comme performance seule.",
+        },
+        {
+            "family": "Production",
+            "level": "KPI secondaire",
+            "name": "Couverture du besoin",
+            "formula": "Moyenne lignes min(100, Production_jour / Besoin_jour x 100)",
+            "terms": "Production_jour=actual_qty. Besoin_jour=desired_qty. Ce KPI ne regarde pas la surproduction, seulement si le besoin du jour est couvert.",
+            "interpretation": "Ne penalise que la sous-production. Si 100%, le besoin est couvert.",
+        },
+        {
+            "family": "Production",
+            "level": "KPI secondaire",
+            "name": "Effet lots / campagnes",
+            "formula": "Moyenne lignes max(0, Production_jour - Besoin_jour) / Besoin_jour x 100, affichage plafonne a 500%",
+            "terms": "Production_jour=actual_qty. Besoin_jour=desired_qty. Surplus_jour=max(0, actual_qty - desired_qty).",
+            "interpretation": "Mesure la surproduction apparente due aux tailles de lots. Les pics sont normaux si le besoin journalier est faible.",
+        },
+        {
+            "family": "Production",
+            "level": "KPI secondaire",
+            "name": "Ecart moyen au besoin journalier",
+            "formula": "Moyenne lignes min(100, |Production_jour - Besoin_jour| / Besoin_jour x 100)",
+            "terms": "Production_jour=actual_qty. Besoin_jour=desired_qty. Ecart plafonne a 100% par ligne avant moyenne.",
+            "interpretation": "Ecart strict au jour. Complement de l'alignement quotidien.",
+        },
+        {
+            "family": "Production",
+            "level": "KPI secondaire",
+            "name": "Part lignes sous-plan",
+            "formula": "100 x nombre de lignes avec Production_jour < Besoin_jour / lignes actives",
+            "terms": "Ligne active=ligne site/produit avec desired_qty > 0. Sous-plan=actual_qty < desired_qty.",
+            "interpretation": "Detecte les lignes qui ne couvrent pas le besoin du jour.",
+        },
+        {
+            "family": "Production",
+            "level": "KPI secondaire",
+            "name": "Part lignes sur-plan >5%",
+            "formula": "100 x nombre de lignes avec Production_jour > 105% du besoin / lignes actives",
+            "terms": "Ligne active=desired_qty > 0. Sur-plan >5%=actual_qty > 1.05 x desired_qty.",
+            "interpretation": "Detecte les jours ou la production depasse fortement le besoin journalier, souvent a cause des lots.",
+        },
+        {
+            "family": "Production",
+            "level": "KPI secondaire",
+            "name": "Part lignes contraintes capacite",
+            "formula": "100 x lignes dont binding_cause = capacity / lignes actives",
+            "terms": "binding_cause vient de production_constraint_daily.csv. capacity signifie limite par une capacite modelisee.",
+            "interpretation": "Part de production limitee par une capacite modelisee.",
+        },
+        {
+            "family": "Production",
+            "level": "KPI secondaire",
+            "name": "Part lignes input shortage",
+            "formula": "100 x lignes dont binding_cause = input_shortage / lignes actives",
+            "terms": "input_shortage signifie que la production demandee n'a pas pu etre executee faute de composant disponible.",
+            "interpretation": "Part de production limitee par manque de composant.",
+        },
+        {
+            "family": "Production",
+            "level": "KPI secondaire",
+            "name": "Part lignes bloquees lots/semaine",
+            "formula": "100 x lignes dont binding_cause = weekly_lot_limit / lignes actives",
+            "terms": "weekly_lot_limit signifie que la ligne est limitee par la regle max lots/semaine.",
+            "interpretation": "Part de production limitee par la regle max lots/semaine.",
+        },
+        {
+            "family": "Couts stock / transport",
+            "level": "KPI principal",
+            "name": "Pression cout supply",
+            "formula": "100 x (Cout_stock(t) + Cout_transport_pilotable(t)) / moyenne_run(Cout_stock + Cout_transport_pilotable)",
+            "terms": "Cout_stock=holding_cost + warehouse_operating_cost + inventory_risk_cost. Cout_transport_pilotable=transport operationnel hors carnet initial et hors external procurement. moyenne_run=moyenne des jours avec cout positif.",
+            "interpretation": "Indice base 100. Au-dessus de 100, la journee coute plus cher que la moyenne du scenario.",
+        },
+        {
+            "family": "Couts stock / transport",
+            "level": "KPI secondaire",
+            "name": "Contribution stock - indice",
+            "formula": "100 x Cout_stock(t) / moyenne_run(Cout_stock + Cout_transport_pilotable)",
+            "terms": "Cout_stock=holding_cost_day + warehouse_operating_cost_day + inventory_risk_cost_day.",
+            "interpretation": "Part de la pression cout due au stock: immobilisation, stockage, risque inventaire.",
+        },
+        {
+            "family": "Couts stock / transport",
+            "level": "KPI secondaire",
+            "name": "Contribution transport pilotable - indice",
+            "formula": "100 x Cout_transport_pilotable(t) / moyenne_run(Cout_stock + Cout_transport_pilotable)",
+            "terms": "Cout_transport_pilotable exclut le transport du carnet initial deja engage et l'external procurement de secours.",
+            "interpretation": "Part de la pression cout due aux flux transport decidables par la politique simulee.",
+        },
+        {
+            "family": "Couts stock / transport",
+            "level": "Definition",
+            "name": "Pilotable",
+            "formula": "Flux/cout genere par les decisions de reapprovisionnement du scenario, hors carnet initial et hors approvisionnement externe de secours",
+            "terms": "Exemple pilotable: une commande MRP lancee pendant la simulation. Exemple non pilotable: open order deja en transit au 01/01, ou achat externe de secours active faute d'amont modelise.",
+            "interpretation": "Pilotable signifie que le KPI peut changer si on change la politique supply. Le carnet initial est affiche a part car il est deja engage au demarrage.",
+        },
+    ]
 
     return {
         "kind": "kpi_tree",
         "title": "Arborescence KPI management supply",
         "subtitle": "Clique une courbe KPI principale pour afficher ses KPI secondaires.",
+        "definitions": kpi_definitions,
         "main": {
             "days": days,
             "series": [
@@ -1369,21 +1899,21 @@ def build_global_kpi_tree_payload(
                     "label": "Disponibilite produit",
                     "values": [round(service_score[day], 6) for day in days],
                     "color": "#0f766e",
-                    "note": "Score service journalier: servi / demande. Objectif: 100% et backlog quotidien nul.",
+                    "note": "Score service journalier plafonne: servi / besoin avec backlog. Objectif: 100% et backlog quotidien nul.",
                 },
                 {
                     "id": "production",
-                    "label": "Adherence production",
-                    "values": [round(adherence_score[day], 6) for day in days],
+                    "label": "Alignement production",
+                    "values": [round(production_execution_score[day], 6) for day in days],
                     "color": "#2563eb",
-                    "note": "Score adherence: production reelle / production demandee.",
+                    "note": "Adherence mensuelle par ligne produit/site, calculee avant aggregation pour eviter de melanger UN et G. Les KPI secondaires isolent couverture, effet lots et contraintes.",
                 },
                 {
                     "id": "cost",
                     "label": "Pression cout supply",
                     "values": [round(cost_index[day], 6) for day in days],
                     "color": "#d97706",
-                    "note": "Indice cout logistique journalier, base 100 = moyenne du run. Plus bas est meilleur.",
+                    "note": "Indice journalier: (cout stock + transport pilotable) / moyenne du run x 100. Plus bas est meilleur.",
                 },
             ],
             "y_label": "Score / indice",
@@ -1395,12 +1925,14 @@ def build_global_kpi_tree_payload(
                 "objective": "Suppression des ruptures pour les patients.",
                 "summary": [
                     summary("Fill rate cumule", fmt_pct(100.0 * total_served / total_demand if total_demand else 100.0)),
+                    summary("Service besoin+backlog", fmt_pct(100.0 * total_served / total_required if total_required else 100.0)),
                     summary("Jours avec backlog", str(backlog_days)),
                     summary("Backlog max", fmt_qty(max(backlog_qty.values()) if backlog_qty else 0.0)),
-                    summary("Demande cumulee", fmt_qty(total_demand)),
+                    summary("Besoin cumule", fmt_qty(total_required)),
                 ],
                 "secondary": [
                     {"label": "Demande", **series_from_map(demand_qty), "color": "#475569"},
+                    {"label": "Besoin avec backlog", **series_from_map(required_qty), "color": "#64748b"},
                     {"label": "Servi", **series_from_map(served_qty), "color": "#0f766e"},
                     {"label": "Backlog fin de jour", **series_from_map(backlog_qty), "color": "#dc2626"},
                 ],
@@ -1408,37 +1940,59 @@ def build_global_kpi_tree_payload(
             },
             {
                 "id": "production",
-                "label": "Adherence production usine",
+                "label": "Alignement production usine",
                 "objective": "Reduire la nervosite usine et les replanifications dues aux ruptures composants.",
                 "summary": [
-                    summary("Adherence cumulee", fmt_pct(100.0 * total_actual / total_desired if total_desired else 100.0)),
-                    summary("Manque production", fmt_qty(total_shortfall)),
+                    summary("Adherence mensuelle lignes", fmt_pct(avg_monthly_adherence)),
+                    summary("Adherence hebdo lignes", fmt_pct(avg_weekly_adherence)),
+                    summary("Alignement quotidien strict", fmt_pct(strict_adherence_score_all)),
+                    summary("Couverture du besoin", fmt_pct(coverage_score_all)),
+                    summary("Effet lots / campagnes", fmt_pct(overproduction_share_all)),
+                    summary("Ecart moyen quotidien", fmt_pct(avg_gap_score_all)),
+                    summary("Lignes sous-plan tout horizon", fmt_pct(under_plan_share_all)),
+                    summary("Lignes sur-plan >5% tout horizon", fmt_pct(over_plan_share_all)),
+                    summary("Manque production total", fmt_qty(total_shortfall)),
+                    summary("Surproduction relative totale", fmt_qty(total_overproduction)),
+                    summary("Jours avec manque", str(shortfall_days)),
                     summary("Jours input shortage", str(input_shortage_days)),
-                    summary("Jours capacite", str(capacity_days)),
+                    summary("Jours capacite bloquante", str(capacity_days)),
+                    summary("Jours limite lots/semaine", str(weekly_lot_limit_days)),
+                    summary("Lots demandes / lances", f"{fmt_qty(total_requested_lot_starts, 0)} / {fmt_qty(total_actual_lot_starts, 0)}"),
                 ],
                 "secondary": [
-                    {"label": "Production demandee", **series_from_map(desired_qty), "color": "#475569"},
-                    {"label": "Production reelle", **series_from_map(actual_qty), "color": "#2563eb"},
-                    {"label": "Manque production", **series_from_map(shortfall_qty), "color": "#dc2626"},
+                    {"label": "Adherence lignes mensuelle (%)", **series_from_map(monthly_line_adherence_score), "color": "#2563eb"},
+                    {"label": "Adherence lignes hebdo (%)", **series_from_map(weekly_line_adherence_score), "color": "#6366f1"},
+                    {"label": "Alignement quotidien strict lots vs besoin (%)", **series_from_map(strict_adherence_score), "color": "#94a3b8"},
+                    {"label": "Couverture du besoin - sous-production uniquement (%)", **series_from_map(execution_score_avg), "color": "#0f766e"},
+                    {"label": "Effet lots / campagnes - surproduction journaliere plafonnee 500% (%)", **series_from_map(overproduction_rate_capped), "color": "#0891b2"},
+                    {"label": "Ecart moyen au besoin journalier (%)", **series_from_map(plan_gap_rate_avg), "color": "#dc2626"},
+                    {"label": "Part lignes sous-plan (%)", **series_from_map(under_plan_line_share), "color": "#f97316"},
+                    {"label": "Part lignes sur-plan >5% (%)", **series_from_map(over_plan_line_share), "color": "#a855f7"},
+                    {"label": "Part lignes contraintes capacite (%)", **series_from_map(capacity_line_share), "color": "#7c3aed"},
+                    {"label": "Part lignes input shortage (%)", **series_from_map(input_shortage_line_share), "color": "#0f766e"},
+                    {"label": "Part lignes bloquees lots/semaine (%)", **series_from_map(weekly_lot_limit_line_share), "color": "#475569"},
                 ],
-                "secondary_y_label": "Quantite",
+                "secondary_y_label": "%",
             },
             {
                 "id": "cost",
                 "label": "Couts stock / transport",
                 "objective": "Eviter les stocks excessifs et les transports d'urgence pour compenser les risques.",
                 "summary": [
+                    summary("Formule pression cout", "(stock + transport pilotable) / moyenne run x100"),
                     summary("Cout logistique", fmt_qty(total_logistics_cost)),
                     summary("Cout stock", fmt_qty(total_inventory_cost)),
-                    summary("Cout transport", fmt_qty(total_transport_cost)),
-                    summary("Cout achat", fmt_qty(total_purchase_cost)),
+                    summary("Cout transport pilotable", fmt_qty(total_transport_cost)),
+                    summary("Transport carnet initial", fmt_qty(total_opening_transport_cost)),
+                    summary("Cout achat pilotable", fmt_qty(total_purchase_cost)),
+                    summary("Principal pic transport", transport_spike_driver),
                 ],
                 "secondary": [
-                    {"label": "Cout stock", **series_from_map(inventory_cost), "color": "#7c3aed"},
-                    {"label": "Cout transport", **series_from_map(transport_cost), "color": "#d97706"},
-                    {"label": "Cout achat", **series_from_map(purchase_cost), "color": "#475569"},
+                    {"label": "Pression cout supply - indice", **series_from_map(cost_index), "color": "#d97706"},
+                    {"label": "Contribution stock - indice", **series_from_map(inventory_cost_index), "color": "#7c3aed"},
+                    {"label": "Contribution transport pilotable - indice", **series_from_map(transport_cost_index), "color": "#f97316"},
                 ],
-                "secondary_y_label": "Cout / quantite",
+                "secondary_y_label": "Indice base 100",
             },
         ],
     }
@@ -1472,6 +2026,7 @@ def build_material_balance_table_rows(
     demand_service_csv: Path,
     sim_input_stocks_csv: Path,
     sim_output_products_csv: Path,
+    sim_dc_stocks_csv: Path | None = None,
     supplier_shipments_csv: Path,
     safety_reference_csv: Path | None = None,
 ) -> list[dict[str, Any]]:
@@ -1480,6 +2035,7 @@ def build_material_balance_table_rows(
     demand_rows = read_csv_rows(demand_service_csv)
     input_rows = read_csv_rows(sim_input_stocks_csv)
     output_rows = read_csv_rows(sim_output_products_csv)
+    dc_stock_rows = read_csv_rows(sim_dc_stocks_csv) if sim_dc_stocks_csv else []
     shipment_rows = read_csv_rows(supplier_shipments_csv)
     safety_reference_rows = read_csv_rows(safety_reference_csv) if safety_reference_csv else []
     safety_reference_by_pair: dict[tuple[str, str], dict[str, Any]] = {
@@ -1490,15 +2046,52 @@ def build_material_balance_table_rows(
     max_day = max(
         [
             int(to_float(row.get("day")) or 0)
-            for dataset in (demand_rows, input_rows, output_rows, shipment_rows)
+            for dataset in (demand_rows, input_rows, output_rows, dc_stock_rows, shipment_rows)
             for row in dataset
         ]
         or [0]
     )
     sim_days = max(1, max_day + 1)
+    year_count = max(1, int(math.ceil(sim_days / 365.0)))
+
+    def year_for_day(day: int) -> int:
+        return max(1, min(year_count, int(day // 365) + 1))
+
+    def year_days(year: int) -> int:
+        start_day = (year - 1) * 365
+        if start_day >= sim_days:
+            return 0
+        return max(0, min(365, sim_days - start_day))
+
+    def new_yearly_payload() -> dict[str, dict[str, float]]:
+        return {
+            str(year): {
+                "days": float(year_days(year)),
+                "planned_qty": 0.0,
+                "delivered_qty": 0.0,
+                "consumed_qty": 0.0,
+                "initial_qty": 0.0,
+                "final_stock_qty": 0.0,
+            }
+            for year in range(1, year_count + 1)
+        }
+
+    def ensure_yearly(row: dict[str, Any]) -> dict[str, dict[str, float]]:
+        yearly = row.get("yearly")
+        if not isinstance(yearly, dict):
+            yearly = new_yearly_payload()
+            row["yearly"] = yearly
+        return yearly
+
+    def add_yearly(row: dict[str, Any], year: int, field: str, value: float) -> None:
+        yearly = ensure_yearly(row)
+        bucket = yearly.setdefault(str(year), {"days": float(year_days(year))})
+        bucket[field] = max(0.0, float(bucket.get(field, 0.0) or 0.0) + max(0.0, value))
 
     demand_total_by_item: dict[str, float] = defaultdict(float)
     served_total_by_item: dict[str, float] = defaultdict(float)
+    demand_by_item_year: dict[str, dict[int, float]] = defaultdict(lambda: defaultdict(float))
+    served_by_item_year: dict[str, dict[int, float]] = defaultdict(lambda: defaultdict(float))
     for row in demand_rows:
         if str(row.get("node_id") or "") not in {
             node_id for node_id, node_type in node_type_by_id.items() if node_type == "customer"
@@ -1507,49 +2100,81 @@ def build_material_balance_table_rows(
         item_id = str(row.get("item_id") or "")
         if not item_id:
             continue
+        day = int(to_float(row.get("day")) or 0)
+        year = year_for_day(day)
+        demand_qty = max(0.0, to_float(row.get("demand_qty")) or 0.0)
+        served_qty = max(0.0, to_float(row.get("served_qty")) or 0.0)
         demand_total_by_item[item_id] += max(0.0, to_float(row.get("demand_qty")) or 0.0)
         served_total_by_item[item_id] += max(0.0, to_float(row.get("served_qty")) or 0.0)
+        demand_by_item_year[item_id][year] += demand_qty
+        served_by_item_year[item_id][year] += served_qty
 
     produced_total_by_pair: dict[tuple[str, str], float] = defaultdict(float)
+    produced_by_pair_year: dict[tuple[str, str], dict[int, float]] = defaultdict(lambda: defaultdict(float))
     latest_output_stock_by_pair: dict[tuple[str, str], tuple[int, float]] = {}
+    output_stock_end_by_pair_day: dict[tuple[str, str], dict[int, float]] = defaultdict(dict)
     for row in output_rows:
         node_id = str(row.get("node_id") or "")
         item_id = str(row.get("item_id") or "")
         if not node_id or not item_id:
             continue
-        produced_total_by_pair[(node_id, item_id)] += max(0.0, to_float(row.get("produced_qty")) or 0.0)
         day = int(to_float(row.get("day")) or 0)
+        year = year_for_day(day)
+        produced_qty = max(0.0, to_float(row.get("produced_qty")) or 0.0)
+        produced_total_by_pair[(node_id, item_id)] += produced_qty
+        produced_by_pair_year[(node_id, item_id)][year] += produced_qty
         stock_value = max(0.0, to_float(row.get("stock_end_of_day")) or 0.0)
         key = (node_id, item_id)
+        output_stock_end_by_pair_day[key][day] = stock_value
         prev = latest_output_stock_by_pair.get(key)
         if prev is None or day >= prev[0]:
             latest_output_stock_by_pair[key] = (day, stock_value)
 
     latest_input_stock_by_pair: dict[tuple[str, str], tuple[int, float]] = {}
+    input_stock_before_by_pair_day: dict[tuple[str, str], dict[int, float]] = defaultdict(dict)
+    input_stock_end_by_pair_day: dict[tuple[str, str], dict[int, float]] = defaultdict(dict)
     for row in input_rows:
         node_id = str(row.get("node_id") or "")
         item_id = str(row.get("item_id") or "")
         if not node_id or not item_id:
             continue
         day = int(to_float(row.get("day")) or 0)
+        before_value = max(0.0, to_float(row.get("stock_before_production")) or 0.0)
         stock_value = max(0.0, to_float(row.get("stock_end_of_day")) or 0.0)
         key = (node_id, item_id)
+        input_stock_before_by_pair_day[key][day] = before_value
+        input_stock_end_by_pair_day[key][day] = stock_value
         prev = latest_input_stock_by_pair.get(key)
         if prev is None or day >= prev[0]:
             latest_input_stock_by_pair[key] = (day, stock_value)
 
+    dc_stock_end_by_pair_day: dict[tuple[str, str], dict[int, float]] = defaultdict(dict)
+    for row in dc_stock_rows:
+        node_id = str(row.get("node_id") or "")
+        item_id = str(row.get("item_id") or "")
+        if not node_id or not item_id:
+            continue
+        day = int(to_float(row.get("day")) or 0)
+        dc_stock_end_by_pair_day[(node_id, item_id)][day] = max(0.0, to_float(row.get("stock_end_of_day")) or 0.0)
+
     shipped_total_to_pair: dict[tuple[str, str], float] = defaultdict(float)
     shipped_total_from_pair: dict[tuple[str, str], float] = defaultdict(float)
+    shipped_to_pair_year: dict[tuple[str, str], dict[int, float]] = defaultdict(lambda: defaultdict(float))
+    shipped_from_pair_year: dict[tuple[str, str], dict[int, float]] = defaultdict(lambda: defaultdict(float))
     for row in shipment_rows:
         src_node_id = str(row.get("src_node_id") or "")
         node_id = str(row.get("dst_node_id") or "")
         item_id = str(row.get("item_id") or "")
         if not node_id or not item_id:
             continue
+        day = int(to_float(row.get("day")) or 0)
+        year = year_for_day(day)
         shipped_qty = max(0.0, to_float(row.get("shipped_qty")) or 0.0)
         shipped_total_to_pair[(node_id, item_id)] += shipped_qty
+        shipped_to_pair_year[(node_id, item_id)][year] += shipped_qty
         if src_node_id:
             shipped_total_from_pair[(src_node_id, item_id)] += shipped_qty
+            shipped_from_pair_year[(src_node_id, item_id)][year] += shipped_qty
 
     initial_stock_by_pair: dict[tuple[str, str], float] = defaultdict(float)
     unit_by_pair: dict[tuple[str, str], str] = {}
@@ -1581,6 +2206,45 @@ def build_material_balance_table_rows(
                     "safety_time_days": safety_time_days,
                     "safety_stock_qty": safety_stock_qty,
                 }
+
+    def start_stock_for_year(
+        pair: tuple[str, str],
+        year: int,
+        *,
+        initial_qty: float,
+        before_by_pair_day: dict[tuple[str, str], dict[int, float]] | None = None,
+        end_by_pair_day: dict[tuple[str, str], dict[int, float]] | None = None,
+    ) -> float:
+        start_day = (year - 1) * 365
+        if before_by_pair_day:
+            before_by_day = before_by_pair_day.get(pair, {})
+            if start_day in before_by_day:
+                return max(0.0, before_by_day[start_day])
+        if start_day <= 0:
+            return max(0.0, initial_qty)
+        end_by_day = (end_by_pair_day or {}).get(pair, {})
+        if (start_day - 1) in end_by_day:
+            return max(0.0, end_by_day[start_day - 1])
+        previous_days = [day for day in end_by_day if day < start_day]
+        if previous_days:
+            return max(0.0, end_by_day[max(previous_days)])
+        return max(0.0, initial_qty)
+
+    def end_stock_for_year(
+        pair: tuple[str, str],
+        year: int,
+        *,
+        fallback_qty: float,
+        end_by_pair_day: dict[tuple[str, str], dict[int, float]] | None = None,
+    ) -> float:
+        end_day = min(sim_days - 1, year * 365 - 1)
+        end_by_day = (end_by_pair_day or {}).get(pair, {})
+        if end_day in end_by_day:
+            return max(0.0, end_by_day[end_day])
+        previous_days = [day for day in end_by_day if day <= end_day]
+        if previous_days:
+            return max(0.0, end_by_day[max(previous_days)])
+        return max(0.0, fallback_qty)
 
     material_rows_by_pair: dict[tuple[str, str], dict[str, Any]] = {}
     for node in raw.get("nodes", []) or []:
@@ -1622,10 +2286,26 @@ def build_material_balance_table_rows(
                             "consumed_qty": 0.0,
                             "final_stock_qty": (latest_input_stock_by_pair.get(pair_key) or (0, 0.0))[1],
                             "unit": unit or ratio_unit or "",
+                            "yearly": new_yearly_payload(),
                         },
                     )
                     bucket["planned_qty"] += need_qty
                     bucket["consumed_qty"] += consumed_qty
+                    for year in range(1, year_count + 1):
+                        year_demand_qty = demand_by_item_year[out_item].get(year, 0.0)
+                        year_produced_qty = produced_by_pair_year[(node_id, out_item)].get(year, 0.0)
+                        add_yearly(
+                            bucket,
+                            year,
+                            "planned_qty",
+                            convert_unit_quantity((ratio_qty / batch_size) * year_demand_qty, ratio_unit, unit),
+                        )
+                        add_yearly(
+                            bucket,
+                            year,
+                            "consumed_qty",
+                            convert_unit_quantity((ratio_qty / batch_size) * year_produced_qty, ratio_unit, unit),
+                        )
 
     rows: list[dict[str, Any]] = []
     for item_id in sorted(demand_total_by_item):
@@ -1637,6 +2317,37 @@ def build_material_balance_table_rows(
             ),
             ("DC / client final", item_id),
         )
+        pf_yearly = new_yearly_payload()
+        for year in range(1, year_count + 1):
+            year_planned = demand_by_item_year[item_id].get(year, 0.0)
+            year_served = served_by_item_year[item_id].get(year, 0.0)
+            pf_yearly[str(year)]["planned_qty"] = year_planned
+            pf_yearly[str(year)]["delivered_qty"] = year_served
+            pf_yearly[str(year)]["consumed_qty"] = year_served
+            initial_total = 0.0
+            final_total = 0.0
+            for pair, initial_qty in initial_stock_by_pair.items():
+                node_id, pair_item_id = pair
+                if pair_item_id != item_id or node_type_by_id.get(node_id) not in {"distribution_center", "customer"}:
+                    continue
+                if node_type_by_id.get(node_id) == "distribution_center":
+                    initial_total += start_stock_for_year(
+                        pair,
+                        year,
+                        initial_qty=initial_qty,
+                        end_by_pair_day=dc_stock_end_by_pair_day,
+                    )
+                    final_total += end_stock_for_year(
+                        pair,
+                        year,
+                        fallback_qty=initial_qty,
+                        end_by_pair_day=dc_stock_end_by_pair_day,
+                    )
+                elif year == 1:
+                    initial_total += max(0.0, initial_qty)
+                    final_total += max(0.0, initial_qty)
+            pf_yearly[str(year)]["initial_qty"] = initial_total
+            pf_yearly[str(year)]["final_stock_qty"] = final_total
         rows.append(
             {
                 "scope": "pf",
@@ -1652,6 +2363,7 @@ def build_material_balance_table_rows(
                 "unit": pf_unit_by_item.get(item_id, ""),
                 "gap_vs_need_qty": served_total_by_item.get(item_id, 0.0) - demand_total_by_item.get(item_id, 0.0),
                 "diagnostic": "demande finale issue du scenario courant",
+                "yearly": pf_yearly,
             }
         )
 
@@ -1678,6 +2390,25 @@ def build_material_balance_table_rows(
             final_stock_qty = (latest_output_stock_by_pair.get(pair_key) or (0, 0.0))[1]
             if produced_qty <= 0.0 and shipped_qty <= 0.0 and initial_qty <= 0.0 and final_stock_qty <= 0.0:
                 continue
+            pfi_yearly = new_yearly_payload()
+            for year in range(1, year_count + 1):
+                year_produced = produced_by_pair_year[pair_key].get(year, 0.0)
+                year_shipped = shipped_from_pair_year[pair_key].get(year, 0.0)
+                pfi_yearly[str(year)]["planned_qty"] = max(year_produced, year_shipped)
+                pfi_yearly[str(year)]["delivered_qty"] = year_shipped
+                pfi_yearly[str(year)]["consumed_qty"] = year_produced
+                pfi_yearly[str(year)]["initial_qty"] = start_stock_for_year(
+                    pair_key,
+                    year,
+                    initial_qty=initial_qty,
+                    end_by_pair_day=output_stock_end_by_pair_day,
+                )
+                pfi_yearly[str(year)]["final_stock_qty"] = end_stock_for_year(
+                    pair_key,
+                    year,
+                    fallback_qty=initial_qty,
+                    end_by_pair_day=output_stock_end_by_pair_day,
+                )
             upstream_pfi_rows_by_pair[pair_key] = {
                 "scope": "pfi",
                 "scope_label": "PFI",
@@ -1693,6 +2424,7 @@ def build_material_balance_table_rows(
                 "unit": unit_by_pair.get(pair_key, ""),
                 "gap_vs_need_qty": shipped_qty - max(produced_qty, shipped_qty),
                 "diagnostic": "sortie PFI du centre interne D-1450 vers les usines aval",
+                "yearly": pfi_yearly,
             }
     rows.extend(
         row for _, row in sorted(upstream_pfi_rows_by_pair.items(), key=lambda item: (item[0][0], item[0][1]))
@@ -1717,6 +2449,23 @@ def build_material_balance_table_rows(
             diagnostic = "active on current run"
         else:
             diagnostic = "inactive on current run"
+        yearly = ensure_yearly(row)
+        for year in range(1, year_count + 1):
+            bucket = yearly[str(year)]
+            bucket["delivered_qty"] = shipped_to_pair_year[pair_key].get(year, 0.0)
+            bucket["initial_qty"] = start_stock_for_year(
+                pair_key,
+                year,
+                initial_qty=initial_qty,
+                before_by_pair_day=input_stock_before_by_pair_day,
+                end_by_pair_day=input_stock_end_by_pair_day,
+            )
+            bucket["final_stock_qty"] = end_stock_for_year(
+                pair_key,
+                year,
+                fallback_qty=initial_qty,
+                end_by_pair_day=input_stock_end_by_pair_day,
+            )
         rows.append(
             {
                 **row,
@@ -3836,6 +4585,12 @@ def build_model_panel_metrics(
         if node_id:
             input_arrivals_by_node[node_id].append(row)
 
+    input_stocks_by_node: dict[str, list[dict[str, str]]] = defaultdict(list)
+    for row in input_rows:
+        node_id = str(row.get("node_id") or "")
+        if node_id:
+            input_stocks_by_node[node_id].append(row)
+
     latest_mrp_trace_by_pair: dict[tuple[str, str], dict[str, str]] = {}
     mrp_trace_by_node: dict[str, list[dict[str, str]]] = defaultdict(list)
     for row in mrp_trace_rows:
@@ -4645,12 +5400,11 @@ def build_model_panel_metrics(
         if trace_figure is not None:
             node_trace_asset = {"figure": trace_figure}
         safety_summary = mrp_safety_summary_by_node.get(node_id, {})
+        order_release_series = aggregate_order_series(node_orders, "release_qty", day_field="order_date_imt")
+        order_receipt_series = aggregate_order_series(node_orders, "planned_receipt_qty", day_field="arrival_day")
         flow_series = {
-            "Besoin net a couvrir": aggregate_trace_series(node_trace_rows, "bn_qty"),
-            "Ordres planifies (release)": aggregate_trace_series(node_trace_rows, "planned_release_qty"),
-            "Receptions planifiees": aggregate_trace_series(node_trace_rows, "planned_receipt_qty"),
-            "Objectif securite souple": aggregate_trace_series(node_trace_rows, "soft_safety_target_qty"),
-            "Plancher securite source": aggregate_trace_series(node_trace_rows, "safety_floor_qty"),
+            "Ordres MRP dates IMT": order_release_series,
+            "Receptions planifiees": order_receipt_series,
         }
         actual_input_arrival_series = aggregate_daily_series(
             input_arrivals_by_node.get(node_id, []),
@@ -4660,28 +5414,67 @@ def build_model_panel_metrics(
         )
         if actual_input_arrival_series:
             flow_series["Arrivages reels intrants"] = actual_input_arrival_series
-        flow_figure = build_line_chart_figure(
+        flow_top_figure = build_line_chart_figure(
             flow_series,
-            title=f"{node_id} - disponibilite matiere vs delai de securite",
-            y_label="Quantite",
+            title=f"{node_id} - flux MRP intrants",
+            y_label="Quantite / jour",
             note=(
-                "Pilotage retenu: disponibilite a temps. "
-                "Le point de controle est l'arrivee avant le jour de besoin couvert moins le delai de securite source. "
-                "Les cibles stock MRP restent calculees en interne mais ne sont plus le signal principal de cette vue."
+                "Flux entrants comparables: ordres dates IMT, receptions planifiees et arrivages reels. "
+                "Le besoin net MRP n'est pas affiche ici car c'est un ecart de stock a cible, pas un flux journalier. "
+                "Les ordres sont dates en IMT pour eviter de faire apparaitre le carnet initial comme un ordre massif au 1er janvier."
             ),
             series_styles={
-                "Besoin net a couvrir": {"color": "#dc2626", "width": 2.0},
-                "Ordres planifies (release)": {"color": "#0f766e", "width": 2.2},
+                "Ordres MRP dates IMT": {"color": "#0f766e", "width": 2.2},
                 "Receptions planifiees": {"color": "#2563eb", "width": 2.2},
                 "Arrivages reels intrants": {"color": "#0891b2", "width": 2.0, "dash": "dot"},
-                "Objectif securite souple": {"color": "#f59e0b", "width": 1.9, "dash": "dash"},
-                "Plancher securite source": {"color": "#7c3aed", "width": 1.8, "dash": "dot"},
             },
         )
-        if flow_figure is not None:
-            node_flow_asset = {"figure": flow_figure}
+        actual_input_stock_series = aggregate_daily_series(
+            input_stocks_by_node.get(node_id, []),
+            value_field="stock_end_of_day",
+            node_field="node_id",
+            node_id=node_id,
+        )
+        stock_target_series = {
+            "Stock reel simule": actual_input_stock_series,
+            "Stock projete MRP": aggregate_trace_series(node_trace_rows, "stock_proj_qty"),
+            "Position inventaire MRP": aggregate_trace_series(node_trace_rows, "inventory_position_qty"),
+            "Besoin net MRP": aggregate_trace_series(node_trace_rows, "bn_qty"),
+            "Stock equiv. delai securite": aggregate_trace_series(node_trace_rows, "safety_floor_qty"),
+            "Cible securite souple": aggregate_trace_series(node_trace_rows, "soft_safety_target_qty"),
+            "Cible MRP totale": aggregate_trace_series(node_trace_rows, "target_stock_qty"),
+        }
+        flow_bottom_figure = build_line_chart_figure(
+            stock_target_series,
+            title=f"{node_id} - stock reel / position MRP vs cibles",
+            y_label="Stock / cible",
+            note=(
+                "Niveaux comparables: stock reel simule, stock projete MRP, position inventaire MRP et cibles exprimees en quantite de stock. "
+                "Position inventaire MRP = stock projete + receptions futures deja prevues; le besoin net MRP vient de l'ecart entre cette position et la cible totale."
+            ),
+            series_styles={
+                "Stock reel simule": {"color": "#0f172a", "width": 2.4},
+                "Stock projete MRP": {"color": "#2563eb", "width": 2.0, "dash": "dot"},
+                "Position inventaire MRP": {"color": "#0f766e", "width": 2.1},
+                "Besoin net MRP": {"color": "#dc2626", "width": 1.8, "dash": "dash"},
+                "Stock equiv. delai securite": {"color": "#7c3aed", "width": 1.8, "dash": "dot"},
+                "Cible securite souple": {"color": "#f59e0b", "width": 1.9, "dash": "dash"},
+                "Cible MRP totale": {"color": "#64748b", "width": 1.4, "dash": "longdash"},
+            },
+        )
+        if flow_top_figure is not None or flow_bottom_figure is not None:
+            node_flow_asset = {
+                "figure": {
+                    "kind": "dual_panel_multi",
+                    "title": f"{node_id} - pilotage MRP intrants",
+                    "top": flow_top_figure,
+                    "bottom": flow_bottom_figure,
+                }
+            }
         node_order_series: dict[str, list[tuple[int, float]]] = {}
         node_order_styles: dict[str, dict[str, Any]] = {}
+        node_order_labels_by_item: dict[str, list[str]] = defaultdict(list)
+        node_order_peak_by_item: dict[str, float] = defaultdict(float)
         item_palette = [
             "#0f766e",
             "#2563eb",
@@ -4708,16 +5501,60 @@ def build_model_panel_metrics(
             if release_series:
                 node_order_series[release_label] = release_series
                 node_order_styles[release_label] = {"color": color, "width": 2.0}
+                node_order_labels_by_item[item_id].append(release_label)
+                node_order_peak_by_item[item_id] = max(node_order_peak_by_item[item_id], max(v for _d, v in release_series))
             if receipt_series:
                 node_order_series[receipt_label] = receipt_series
                 node_order_styles[receipt_label] = {"color": color, "width": 2.0, "dash": "dash"}
-        node_orders_figure = build_line_chart_figure(
-            node_order_series,
-            title=f"{node_id} - reappro amont par item",
-            y_label="Quantite",
-            note="Meme couleur par item. Trait plein = date de commande MRP/IMT ; pointille = reception attendue a l'arrivee.",
-            series_styles=node_order_styles,
-        )
+                node_order_labels_by_item[item_id].append(receipt_label)
+                node_order_peak_by_item[item_id] = max(node_order_peak_by_item[item_id], max(v for _d, v in receipt_series))
+        dominant_order_labels: set[str] = set()
+        if node_order_peak_by_item:
+            global_peak = max(node_order_peak_by_item.values())
+            if global_peak > 0:
+                dominant_item_ids = {
+                    item_id
+                    for item_id, peak in node_order_peak_by_item.items()
+                    if peak >= global_peak * 0.20
+                }
+                if 0 < len(dominant_item_ids) < len(node_order_peak_by_item):
+                    for item_id in dominant_item_ids:
+                        dominant_order_labels.update(node_order_labels_by_item.get(item_id, []))
+        if dominant_order_labels:
+            dominant_order_series = {
+                label: pts for label, pts in node_order_series.items() if label in dominant_order_labels
+            }
+            other_order_series = {
+                label: pts for label, pts in node_order_series.items() if label not in dominant_order_labels
+            }
+            dominant_order_figure = build_line_chart_figure(
+                dominant_order_series,
+                title=f"{node_id} - reappro amont volumes dominants",
+                y_label="Quantite",
+                note="Items separes automatiquement car ils ecrasent l'echelle du graphe global.",
+                series_styles={label: node_order_styles.get(label, {}) for label in dominant_order_series},
+            )
+            other_order_figure = build_line_chart_figure(
+                other_order_series,
+                title=f"{node_id} - reappro amont autres items",
+                y_label="Quantite",
+                note="Meme couleur par item. Trait plein = date de commande MRP/IMT ; pointille = reception attendue a l'arrivee.",
+                series_styles={label: node_order_styles.get(label, {}) for label in other_order_series},
+            )
+            node_orders_figure = {
+                "kind": "dual_panel_multi",
+                "title": f"{node_id} - reappro amont par item",
+                "top": dominant_order_figure,
+                "bottom": other_order_figure,
+            }
+        else:
+            node_orders_figure = build_line_chart_figure(
+                node_order_series,
+                title=f"{node_id} - reappro amont par item",
+                y_label="Quantite",
+                note="Meme couleur par item. Trait plein = date de commande MRP/IMT ; pointille = reception attendue a l'arrivee.",
+                series_styles=node_order_styles,
+            )
         if node_orders_figure is not None:
             node_order_asset = {"figure": node_orders_figure}
         node_ledger_asset = {"html": render_order_ledger_html(node_id, node_orders, item_labels, dormant_reason)}
@@ -6947,6 +7784,37 @@ def html_template(title: str, data_json: str, material_table_html: str, material
       gap: 5px;
       margin-left: 8px;
     }}
+    .kpiTreeViewTabs {{
+      display: inline-flex;
+      align-self: flex-start;
+      gap: 6px;
+      padding: 3px;
+      border: 1px solid #dbe4ef;
+      border-radius: 999px;
+      background: #f8fafc;
+    }}
+    .kpiTreeViewBtn {{
+      border: 0;
+      border-radius: 999px;
+      background: transparent;
+      color: #334155;
+      font-size: 11px;
+      font-weight: 800;
+      padding: 6px 12px;
+      cursor: pointer;
+    }}
+    .kpiTreeViewBtn.active {{
+      background: #0f172a;
+      color: #ffffff;
+    }}
+    .kpiTreeView {{
+      display: none;
+    }}
+    .kpiTreeView.active {{
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }}
     .kpiTreeCards {{
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -7015,6 +7883,69 @@ def html_template(title: str, data_json: str, material_table_html: str, material
       color: #0f172a;
       font-weight: 800;
       text-align: right;
+    }}
+    .kpiFormulaIntro {{
+      color: #475569;
+      font-size: 12px;
+      line-height: 1.45;
+      padding: 2px 4px;
+    }}
+    .kpiFormulaTableWrap {{
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      overflow: auto;
+      background: #ffffff;
+      max-height: 560px;
+    }}
+    .kpiFormulaTable {{
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+    }}
+    .kpiFormulaTable th,
+    .kpiFormulaTable td {{
+      padding: 8px 10px;
+      border-bottom: 1px solid #e2e8f0;
+      text-align: left;
+      vertical-align: top;
+    }}
+    .kpiFormulaTable thead th {{
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: #f8fafc;
+      color: #334155;
+      font-weight: 800;
+    }}
+    .kpiFormulaTable td:nth-child(4) {{
+      font-family: Consolas, "Courier New", monospace;
+      color: #0f172a;
+    }}
+    .kpiFormulaTerms {{
+      margin-top: 6px;
+      padding-top: 6px;
+      border-top: 1px dashed #cbd5e1;
+      color: #475569;
+      font-family: inherit;
+      line-height: 1.35;
+    }}
+    .kpiFormulaTermsLabel {{
+      color: #0f172a;
+      font-weight: 800;
+    }}
+    .kpiFormulaFamily {{
+      font-weight: 800;
+      color: #0f172a;
+      white-space: nowrap;
+    }}
+    .kpiFormulaLevel {{
+      display: inline-flex;
+      border-radius: 999px;
+      padding: 3px 7px;
+      background: #e2e8f0;
+      color: #334155;
+      font-weight: 800;
+      white-space: nowrap;
     }}
     .factoryPlotFigure.factoryFigureStackContainer {{
       display: flex;
@@ -7272,6 +8203,7 @@ def html_template(title: str, data_json: str, material_table_html: str, material
     const SUPPLIER_LOCAL_METRICS = DATA.supplier_local_metrics || {{}};
     const CUSTOMER_CURRENT_METRICS = DATA.customer_current_metrics || {{}};
     const GLOBAL_KPI_TREE = DATA.global_kpi_tree || null;
+    const MATERIAL_BALANCE_ROWS = DATA.material_balance_rows || [];
     const MODEL_PANEL = DATA.model_panel || {{ nodes: {{}}, edges: {{}} }};
     const EDGE_BY_ID = Object.fromEntries((DATA.edges || []).map(e => [e.id, e]));
     const FACTORY_LIKE_NODE_IDS = new Set(DATA.factory_like_node_ids || []);
@@ -7444,6 +8376,136 @@ def html_template(title: str, data_json: str, material_table_html: str, material
         minimumFractionDigits: digits,
         maximumFractionDigits: digits,
       }});
+    }}
+
+    function escapeTableHtml(value) {{
+      return String(value ?? "").replace(/[&<>"']/g, (ch) => ({{
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;",
+      }}[ch]));
+    }}
+
+    function scopeBadgeClass(scope) {{
+      if (scope === "pf") return "scopeBadge scopeFinal";
+      if (scope === "pfi") return "scopeBadge scopeIntermediate";
+      return "scopeBadge";
+    }}
+
+    function selectedMaterialYears() {{
+      const start = Math.max(1, Math.min(selectedYearStart, selectedYearEnd));
+      const end = Math.max(start, Math.max(selectedYearStart, selectedYearEnd));
+      const years = [];
+      for (let year = start; year <= end; year += 1) {{
+        years.push(year);
+      }}
+      return years;
+    }}
+
+    function aggregateMaterialRow(row) {{
+      const years = selectedMaterialYears();
+      const yearly = row.yearly || {{}};
+      let days = 0;
+      let planned = 0;
+      let delivered = 0;
+      let consumed = 0;
+      let initial = null;
+      let finalStock = 0;
+      let foundYear = false;
+      years.forEach((year) => {{
+        const bucket = yearly[String(year)];
+        if (!bucket) return;
+        foundYear = true;
+        days += Number(bucket.days) || 0;
+        planned += Number(bucket.planned_qty) || 0;
+        delivered += Number(bucket.delivered_qty) || 0;
+        consumed += Number(bucket.consumed_qty) || 0;
+        const bucketInitial = Number(bucket.initial_qty);
+        if (initial === null && Number.isFinite(bucketInitial)) {{
+          initial = bucketInitial;
+        }}
+        const bucketFinal = Number(bucket.final_stock_qty);
+        if (Number.isFinite(bucketFinal)) {{
+          finalStock = bucketFinal;
+        }}
+      }});
+      if (!foundYear) {{
+        days = Math.max(1, Number(row.days) || 0);
+        planned = Number(row.planned_qty) || 0;
+        delivered = Number(row.delivered_qty) || 0;
+        consumed = Number(row.consumed_qty) || 0;
+        initial = Number(row.initial_qty) || 0;
+        finalStock = Number(row.final_stock_qty) || 0;
+      }}
+      if (row.scope === "pfi") {{
+        planned = Math.max(consumed, delivered);
+      }}
+      const safetyDays = Math.max(0, Number(row.safety_time_days) || 0);
+      const avgDaily = days > 0 ? planned / days : Math.max(0, Number(row.avg_daily_need_qty) || 0);
+      const stockEquivSafety = avgDaily * safetyDays;
+      let gap = consumed - planned;
+      if (row.scope === "pf") {{
+        gap = delivered - planned;
+      }} else if (row.scope === "pfi") {{
+        gap = delivered - Math.max(consumed, delivered);
+      }}
+      let diagnostic = row.diagnostic || "";
+      const tol = Math.max(1, Math.abs(planned) * 0.01);
+      if (row.scope === "pf") {{
+        diagnostic = Math.abs(gap) <= tol ? "demande servie sur la fenetre" : "ecart service sur la fenetre";
+      }} else if (row.scope === "material") {{
+        if (consumed <= 1e-9 && delivered <= 1e-9 && (initial || 0) > 0) {{
+          diagnostic = "coherent dormant sur la fenetre";
+        }} else if (delivered > 0 || consumed > 0) {{
+          diagnostic = "actif sur la fenetre";
+        }} else {{
+          diagnostic = "inactif sur la fenetre";
+        }}
+      }} else if (row.scope === "pfi") {{
+        diagnostic = (delivered > 0 || consumed > 0) ? "PFI actif sur la fenetre" : "PFI inactif sur la fenetre";
+      }}
+      return {{
+        ...row,
+        planned_qty: planned,
+        avg_daily_need_qty: avgDaily,
+        stock_equiv_safety_time_qty: stockEquivSafety,
+        initial_qty: initial === null ? 0 : initial,
+        delivered_qty: delivered,
+        consumed_qty: consumed,
+        final_stock_qty: finalStock,
+        gap_vs_need_qty: gap,
+        diagnostic,
+        selected_days: days,
+      }};
+    }}
+
+    function renderMaterialTable() {{
+      const tbody = document.querySelector("#materialTableModal .materialTable tbody");
+      const meta = document.getElementById("materialTableMeta");
+      if (!tbody || !meta || !Array.isArray(MATERIAL_BALANCE_ROWS) || !MATERIAL_BALANCE_ROWS.length) return;
+      const rows = MATERIAL_BALANCE_ROWS.map(aggregateMaterialRow);
+      tbody.innerHTML = rows.map((row) => `
+        <tr>
+          <td><span class="${{scopeBadgeClass(row.scope)}}">${{escapeTableHtml(row.scope_label || "")}}</span></td>
+          <td>${{escapeTableHtml(String(row.item_id || "").replace(/^item:/, ""))}}</td>
+          <td>${{escapeTableHtml(row.node_label || "")}}</td>
+          <td class="num">${{fmtPanelQty(row.planned_qty, 3)}}</td>
+          <td class="num">${{fmtPanelQty(row.avg_daily_need_qty, 3)}}</td>
+          <td class="num">${{fmtPanelQty(row.safety_time_days, 1)}}</td>
+          <td class="num">${{fmtPanelQty(row.stock_equiv_safety_time_qty, 3)}}</td>
+          <td class="num">${{fmtPanelQty(row.initial_qty, 3)}}</td>
+          <td class="num">${{fmtPanelQty(row.delivered_qty, 3)}}</td>
+          <td class="num">${{fmtPanelQty(row.consumed_qty, 3)}}</td>
+          <td class="num">${{fmtPanelQty(row.gap_vs_need_qty, 3)}}</td>
+          <td>${{escapeTableHtml(row.unit || "")}}</td>
+          <td>${{escapeTableHtml(row.diagnostic || "")}}</td>
+        </tr>
+      `).join("");
+      const years = selectedMaterialYears();
+      const totalDays = rows.reduce((maxDays, row) => Math.max(maxDays, Number(row.selected_days) || 0), 0);
+      meta.textContent = `${{rows.length}} lignes - annee ${{years[0]}} -> ${{years[years.length - 1]}} - ${{totalDays}} j`;
     }}
 
     function buildFactoryWindowSummaryLines(metrics) {{
@@ -8755,22 +9817,48 @@ def html_template(title: str, data_json: str, material_table_html: str, material
               <span class="kpiTreeControlGroup">
                 <span>Lissage</span>
                 <button type="button" class="kpiTreeSmoothBtn" data-smooth="none">Sans</button>
-                <button type="button" class="kpiTreeSmoothBtn active" data-smooth="week">7 j</button>
-                <button type="button" class="kpiTreeSmoothBtn" data-smooth="month">30 j</button>
+                <button type="button" class="kpiTreeSmoothBtn" data-smooth="week">7 j</button>
+                <button type="button" class="kpiTreeSmoothBtn active" data-smooth="month">30 j</button>
               </span>
               <span class="kpiTreeControlGroup">
                 <span>Demarrage</span>
-                <button type="button" class="kpiTreeSmoothBtn active" data-start="all">Tout</button>
+                <button type="button" class="kpiTreeSmoothBtn" data-start="all">Tout</button>
                 <button type="button" class="kpiTreeSmoothBtn" data-start="no_j0">Sans J0</button>
-                <button type="button" class="kpiTreeSmoothBtn" data-start="no_30">Sans 30 j</button>
+                <button type="button" class="kpiTreeSmoothBtn active" data-start="no_30">Sans 30 j</button>
               </span>
             </div>
           </div>
-          <div class="kpiTreeCards"></div>
-          <div class="kpiTreeChart kpiTreeMainChart"></div>
-          <div class="kpiTreeDetail">
-            <div class="kpiTreeSummary"></div>
-            <div class="kpiTreeChart kpiTreeSecondaryChart"></div>
+          <div class="kpiTreeViewTabs">
+            <button type="button" class="kpiTreeViewBtn active" data-kpi-view="graphs">Graphes</button>
+            <button type="button" class="kpiTreeViewBtn" data-kpi-view="formulas">Formules</button>
+          </div>
+          <div class="kpiTreeView kpiTreeGraphView active">
+            <div class="kpiTreeCards"></div>
+            <div class="kpiTreeChart kpiTreeMainChart"></div>
+            <div class="kpiTreeDetail">
+              <div class="kpiTreeSummary"></div>
+              <div class="kpiTreeChart kpiTreeSecondaryChart"></div>
+            </div>
+          </div>
+          <div class="kpiTreeView kpiTreeFormulaView">
+            <div class="kpiFormulaIntro">
+              Tableau de reference des KPI. Le terme <b>pilotable</b> designe la partie generee par les decisions de reapprovisionnement du scenario; le carnet initial deja engage est affiche separement.
+              Pour l'alignement production, la <b>Reference</b> est reconstruite par ligne site/produit: produit fini = demande client; semi-fini/intermediaire = consommation aval observee; si cette consommation aval n'est pas disponible, fallback = <code>desired_qty</code>, c'est-a-dire le besoin de production demande par le simulateur.
+            </div>
+            <div class="kpiFormulaTableWrap">
+              <table class="kpiFormulaTable">
+                <thead>
+                  <tr>
+                    <th>Famille</th>
+                    <th>Niveau</th>
+                    <th>KPI</th>
+                    <th>Formule</th>
+                    <th>Definition / lecture</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
           </div>
         </div>
       `;
@@ -8778,14 +9866,54 @@ def html_template(title: str, data_json: str, material_table_html: str, material
       const mainChartEl = figureEl.querySelector(".kpiTreeMainChart");
       const summaryEl = figureEl.querySelector(".kpiTreeSummary");
       const secondaryChartEl = figureEl.querySelector(".kpiTreeSecondaryChart");
+      const graphViewEl = figureEl.querySelector(".kpiTreeGraphView");
+      const formulaViewEl = figureEl.querySelector(".kpiTreeFormulaView");
+      const formulaBodyEl = figureEl.querySelector(".kpiFormulaTable tbody");
+      const viewButtons = Array.from(figureEl.querySelectorAll("[data-kpi-view]"));
       const smoothButtons = Array.from(figureEl.querySelectorAll(".kpiTreeSmoothBtn"));
       const startButtons = Array.from(figureEl.querySelectorAll("[data-start]"));
       let selectedId = groups[0].id;
-      let smoothingMode = "week";
-      let startupMode = "all";
+      let smoothingMode = "month";
+      let startupMode = "no_30";
+      let viewMode = "graphs";
 
       function groupById(groupId) {{
         return groups.find(group => group.id === groupId) || groups[0];
+      }}
+      function escapeKpiHtml(value) {{
+        return String(value ?? "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+      }}
+      function renderFormulaTable() {{
+        if (!formulaBodyEl) return;
+        const definitions = asset.definitions || [];
+        formulaBodyEl.innerHTML = definitions.map(row => `
+          <tr>
+            <td><span class="kpiFormulaFamily">${{escapeKpiHtml(row.family || "")}}</span></td>
+            <td><span class="kpiFormulaLevel">${{escapeKpiHtml(row.level || "")}}</span></td>
+            <td>${{escapeKpiHtml(row.name || "")}}</td>
+            <td>
+              <div>${{escapeKpiHtml(row.formula || "")}}</div>
+              ${{row.terms ? `<div class="kpiFormulaTerms"><span class="kpiFormulaTermsLabel">Termes:</span> ${{escapeKpiHtml(row.terms)}}</div>` : ""}}
+            </td>
+            <td>${{escapeKpiHtml(row.interpretation || "")}}</td>
+          </tr>
+        `).join("") || '<tr><td colspan="5">Definitions KPI non disponibles.</td></tr>';
+      }}
+      function renderKpiView() {{
+        viewButtons.forEach(btn => btn.classList.toggle("active", (btn.dataset.kpiView || "graphs") === viewMode));
+        if (graphViewEl) graphViewEl.classList.toggle("active", viewMode === "graphs");
+        if (formulaViewEl) formulaViewEl.classList.toggle("active", viewMode === "formulas");
+        if (viewMode === "graphs") {{
+          renderMain();
+          renderSecondary();
+        }} else {{
+          renderFormulaTable();
+        }}
       }}
       function smoothingWindow() {{
         if (smoothingMode === "week") return 7;
@@ -8834,6 +9962,12 @@ def html_template(title: str, data_json: str, material_table_html: str, material
         return filterSeriesByTimeline(filteredDays, filteredValues);
       }}
       function bindSmoothingControls() {{
+        viewButtons.forEach(btn => {{
+          btn.onclick = () => {{
+            viewMode = btn.dataset.kpiView || "graphs";
+            renderKpiView();
+          }};
+        }});
         smoothButtons.filter(btn => btn.dataset.smooth).forEach(btn => {{
           btn.onclick = () => {{
             smoothingMode = btn.dataset.smooth || "none";
@@ -8939,8 +10073,8 @@ def html_template(title: str, data_json: str, material_table_html: str, material
       }}
       bindSmoothingControls();
       renderCards();
-      renderMain();
-      renderSecondary();
+      renderFormulaTable();
+      renderKpiView();
       return true;
     }}
 
@@ -8951,6 +10085,7 @@ def html_template(title: str, data_json: str, material_table_html: str, material
       applyModeUi();
       const materialTableModal = document.getElementById("materialTableModal");
       document.getElementById("materialTableBtn").addEventListener("click", () => {{
+        renderMaterialTable();
         materialTableModal.classList.add("visible");
       }});
       document.getElementById("materialTableCloseBtn").addEventListener("click", () => {{
@@ -8986,6 +10121,7 @@ def html_template(title: str, data_json: str, material_table_html: str, material
         }}
         syncYearInputs();
         updateTimelineWindowLabel();
+        renderMaterialTable();
         refreshFactoryPanel();
       }});
       document.getElementById("yearEnd").addEventListener("input", (ev) => {{
@@ -8995,6 +10131,7 @@ def html_template(title: str, data_json: str, material_table_html: str, material
         }}
         syncYearInputs();
         updateTimelineWindowLabel();
+        renderMaterialTable();
         refreshFactoryPanel();
       }});
       document.getElementById("factoryHoverClearSelection").addEventListener("click", clearPanelSelection);
@@ -9124,6 +10261,8 @@ def main() -> None:
             daily_kpi_csv,
             demand_service_csv,
             production_constraint_csv,
+            Path(args.dc_stocks_csv).parent / "mrp_orders_daily.csv",
+            raw,
         )
         (
             payload["factory_sensitivity_hover_images"],
@@ -9186,9 +10325,11 @@ def main() -> None:
             demand_service_csv=demand_service_csv,
             sim_input_stocks_csv=sim_input,
             sim_output_products_csv=sim_output,
+            sim_dc_stocks_csv=Path(args.dc_stocks_csv),
             supplier_shipments_csv=supplier_shipments_csv,
             safety_reference_csv=Path(args.safety_reference_csv) if args.safety_reference_csv else None,
         )
+        payload["material_balance_rows"] = material_table_rows
     except Exception as exc:
         print(f"[ERROR] Unable to read/parse input JSON: {exc}", file=sys.stderr)
         sys.exit(1)

@@ -27,7 +27,6 @@ UPSTREAM_OUTPUT_ITEM = "item:773474"
 UPSTREAM_INPUT_ITEM = "item:021081"
 UPSTREAM_PRODUCER_ID = "SDC-1450"
 UPSTREAM_DISPLAY_CODE = "D-1450"
-UPSTREAM_CAPACITY_G_PER_DAY = 500000.0
 
 
 def parse_args() -> argparse.Namespace:
@@ -587,12 +586,6 @@ def sync_process_inputs(
                 "time_unit": "day",
                 "is_default": True,
             },
-            "capacity": {
-                "max_rate": UPSTREAM_CAPACITY_G_PER_DAY,
-                "uom": "G/day",
-                "is_default": False,
-                "source": "case_data_upstream_bom_assumption",
-            },
             "cost": {"value": 0.0, "per": "unit", "is_default": True},
             "lca": {
                 "factors": [{"impact": "GWP100", "value": 0.0, "per": "unit", "is_default": True}]
@@ -657,7 +650,7 @@ def markdown_report(report: dict[str, Any]) -> str:
             "",
             "- `268191.xlsx` is interpreted as product `268091` because the BOM sheet explicitly points to `268091`.",
             f"- `021081.xlsx` is modeled as an upstream component feeding internal site `{UPSTREAM_DISPLAY_CODE}` (technical id `SDC-1450`), which transforms `021081` into `773474` before delivery to downstream factories.",
-            f"- `{UPSTREAM_DISPLAY_CODE}` is typed as an internal PFI site (`factory`) and its transformation capacity is set to {UPSTREAM_CAPACITY_G_PER_DAY:.0f} G/day to avoid creating an artificial bottleneck.",
+            f"- `{UPSTREAM_DISPLAY_CODE}` is typed as an internal PFI site (`factory`). No process capacity is provided in the source data, so no artificial daily capacity is injected.",
             "- FIA lead times are applied directly to lanes, and delay limits are set to `max(lead + 14, 2 * lead)` as a simulation cap assumption.",
             "- Component `007923` is the active BOM component kept for `268091`; `Data_poc.xlsx` still shows the former reference `693710`, but the product workbook `268191.xlsx` is treated as the operational source of truth.",
             "- Component `007923` remains unconstrained because no supplier lane is provided in the new FIA data.",
