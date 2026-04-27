@@ -5255,6 +5255,9 @@ def build_model_panel_metrics(
             mrp_trace_lines.append(
                 f"{item_labels.get(item_id, compact_item_label(item_id))}: "
                 f"besoin brut={fmt_qty(latest_trace.get('bb_qty'))} ; "
+                f"signal brut={fmt_qty(latest_trace.get('bb_demand_signal_raw_qty'))} ; "
+                f"signal MRP={fmt_qty(latest_trace.get('bb_demand_signal_qty'))} ; "
+                f"base={latest_trace.get('gross_requirement_basis') or 'n/a'} ; "
                 f"besoin net={fmt_qty(latest_trace.get('bn_qty'))} ; "
                 f"StockProj={fmt_qty(latest_trace.get('stock_proj_qty'))} ; "
                 f"RecvPrev={fmt_qty(latest_trace.get('recv_prev_future_qty'))} ; "
@@ -5388,6 +5391,8 @@ def build_model_panel_metrics(
                     dormant_reason = "Diagnostic: noeud DC orphelin, sans flux, sans stock et sans process dans le graphe actif."
         trace_series = {
             "Besoin brut": aggregate_trace_series(node_trace_rows, "bb_qty"),
+            "Besoin propagé brut": aggregate_trace_series(node_trace_rows, "bb_demand_signal_raw_qty"),
+            "Besoin MRP lissé": aggregate_trace_series(node_trace_rows, "bb_demand_signal_qty"),
             "Besoin net": aggregate_trace_series(node_trace_rows, "bn_qty"),
             "StockProj": aggregate_trace_series(node_trace_rows, "stock_proj_qty"),
             "RecvPrev": aggregate_trace_series(node_trace_rows, "recv_prev_future_qty"),
