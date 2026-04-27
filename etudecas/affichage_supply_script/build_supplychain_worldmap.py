@@ -1980,7 +1980,7 @@ def build_global_kpi_tree_payload(
                 "objective": "Eviter les stocks excessifs et les transports d'urgence pour compenser les risques.",
                 "summary": [
                     summary("Formule pression cout", "(stock + transport pilotable) / moyenne run x100"),
-                    summary("Cout logistique", fmt_qty(total_logistics_cost)),
+                    summary("Cout logistique pilotable", fmt_qty(total_logistics_cost)),
                     summary("Cout stock", fmt_qty(total_inventory_cost)),
                     summary("Cout transport pilotable", fmt_qty(total_transport_cost)),
                     summary("Transport carnet initial", fmt_qty(total_opening_transport_cost)),

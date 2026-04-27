@@ -4636,6 +4636,12 @@ def main() -> None:
                 str(production_constraint_path),
                 "--safety-reference-csv",
                 str(safety_reference_path),
+                "--daily-kpi-csv",
+                str(daily_path),
+                "--supplier-local-criticality-csv",
+                str(data_path(output_dir, "supplier_local_criticality_ranking.csv")),
+                "--supplier-local-criticality-json",
+                str(summary_path(output_dir, "supplier_local_criticality_summary.json")),
             ]
             try:
                 subprocess.run(map_cmd, check=True, capture_output=True, text=True)

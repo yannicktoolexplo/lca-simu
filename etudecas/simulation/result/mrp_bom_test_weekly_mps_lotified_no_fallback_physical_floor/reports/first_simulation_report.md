@@ -6,7 +6,7 @@
 - Measured horizon (days): 1825
 - Warm-up (days): 0
 - Total simulated timeline (days): 1825
-- Output profile: compact
+- Output profile: full
 - Safety stock policy (days): 7.0
 - Replenishment review period (days): 1
 - Finished-goods target cover (days): 0.0
@@ -151,7 +151,7 @@ Process internes sans capacite source: la simulation ne les bloque pas par capac
 - data/production_supplier_shipments_daily.csv
 - data/production_supplier_stocks_daily.csv
 - data/production_supplier_capacity_daily.csv
-- Additional detailed CSVs: skipped in compact mode
+- Additional detailed CSVs: generated
 - production_input_stocks_by_material_*.png (not generated)
 - production_output_products.png (not generated)
 - production_output_products_by_factory_*.png (not generated)
