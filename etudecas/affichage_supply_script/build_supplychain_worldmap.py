@@ -936,6 +936,7 @@ def build_supplier_hover_images(
                 title=shipment_title,
                 y_label="Quantite",
                 step_like=True,
+                event_like=True,
             )
             if figure is not None:
                 outgoing = {"figure": figure}
@@ -1527,31 +1528,26 @@ def build_global_kpi_tree_payload(
         for day in days
     }
     transport_cost_raw = {
-        day: max(
-            0.0,
-            daily_by_day[day].get("operational_transport_cost_day", daily_by_day[day].get("transport_cost_day", 0.0))
-            - daily_by_day[day].get("external_procurement_transport_cost_day", 0.0),
-        )
+        day: max(0.0, daily_by_day[day].get("operational_transport_cost_day", daily_by_day[day].get("transport_cost_day", 0.0)))
         for day in days
     }
     transport_cost = transport_cost_raw
     opening_transport_cost = {day: daily_by_day[day].get("opening_open_order_transport_cost_day", 0.0) for day in days}
     gross_transport_cost = {day: daily_by_day[day].get("transport_cost_day", 0.0) for day in days}
     purchase_cost = {
-        day: max(
-            0.0,
-            daily_by_day[day].get("operational_purchase_cost_day", daily_by_day[day].get("purchase_cost_day", 0.0))
-            - daily_by_day[day].get("external_procurement_purchase_cost_day", 0.0),
-        )
+        day: max(0.0, daily_by_day[day].get("operational_purchase_cost_day", daily_by_day[day].get("purchase_cost_day", 0.0)))
         for day in days
     }
     opening_purchase_cost = {day: daily_by_day[day].get("opening_open_order_purchase_cost_day", 0.0) for day in days}
     logistics_cost = {day: inventory_cost[day] + transport_cost[day] for day in days}
-    positive_costs = [value for value in logistics_cost.values() if value > 0]
-    avg_logistics_cost = sum(positive_costs) / len(positive_costs) if positive_costs else 1.0
-    cost_index = {day: 100.0 * logistics_cost[day] / avg_logistics_cost for day in days}
-    inventory_cost_index = {day: 100.0 * inventory_cost[day] / avg_logistics_cost for day in days}
-    transport_cost_index = {day: 100.0 * transport_cost[day] / avg_logistics_cost for day in days}
+    total_supply_cost = {day: logistics_cost[day] + purchase_cost[day] for day in days}
+    positive_costs = [value for value in total_supply_cost.values() if value > 0]
+    avg_total_supply_cost = sum(positive_costs) / len(positive_costs) if positive_costs else 1.0
+    cost_index = {day: 100.0 * total_supply_cost[day] / avg_total_supply_cost for day in days}
+    logistics_cost_index = {day: 100.0 * logistics_cost[day] / avg_total_supply_cost for day in days}
+    inventory_cost_index = {day: 100.0 * inventory_cost[day] / avg_total_supply_cost for day in days}
+    transport_cost_index = {day: 100.0 * transport_cost[day] / avg_total_supply_cost for day in days}
+    purchase_cost_index = {day: 100.0 * purchase_cost[day] / avg_total_supply_cost for day in days}
 
     total_demand = sum(demand_qty.values())
     total_required = sum(required_qty.values())
@@ -1631,11 +1627,15 @@ def build_global_kpi_tree_payload(
     total_requested_lot_starts = sum(requested_lot_starts.values())
     total_actual_lot_starts = sum(actual_lot_starts.values())
     total_logistics_cost = sum(logistics_cost.values())
+    total_supply_cost_value = sum(total_supply_cost.values())
     total_inventory_cost = sum(inventory_cost.values())
     total_transport_cost = sum(transport_cost.values())
     total_opening_transport_cost = sum(opening_transport_cost.values())
     total_purchase_cost = sum(purchase_cost.values())
     total_opening_purchase_cost = sum(opening_purchase_cost.values())
+    total_scenario_cost_excluding_external = (
+        total_supply_cost_value + total_opening_transport_cost + total_opening_purchase_cost
+    )
     top_transport_day = max(days, key=lambda day: transport_cost.get(day, 0.0)) if days else None
     transport_spike_driver = "n/a"
     if top_transport_day is not None and mrp_order_rows and raw:
@@ -1856,15 +1856,23 @@ def build_global_kpi_tree_payload(
             "family": "Couts stock / transport",
             "level": "KPI principal",
             "name": "Pression cout supply",
-            "formula": "100 x (Cout_stock(t) + Cout_transport_pilotable(t)) / moyenne_run(Cout_stock + Cout_transport_pilotable)",
-            "terms": "Cout_stock=holding_cost + warehouse_operating_cost + inventory_risk_cost. Cout_transport_pilotable=transport operationnel hors carnet initial et hors external procurement. moyenne_run=moyenne des jours avec cout positif.",
+            "formula": "100 x (Cout_stock(t) + Cout_transport_pilotable(t) + Cout_achat_pilotable(t)) / moyenne_run(Cout_total_pilotable)",
+            "terms": "Cout_stock=holding_cost + warehouse_operating_cost + inventory_risk_cost. Cout_transport_pilotable=transport operationnel des commandes du scenario, hors carnet initial. Cout_achat_pilotable=achat matiere/fournisseur declenche par les commandes du scenario, hors carnet initial. moyenne_run=moyenne des jours avec cout total pilotable positif.",
             "interpretation": "Indice base 100. Au-dessus de 100, la journee coute plus cher que la moyenne du scenario.",
         },
         {
             "family": "Couts stock / transport",
             "level": "KPI secondaire",
+            "name": "Contribution achat pilotable - indice",
+            "formula": "100 x Cout_achat_pilotable(t) / moyenne_run(Cout_total_pilotable)",
+            "terms": "Cout_achat_pilotable=operational_purchase_cost_day, c.-a-d. achats payes sur les flux commandes par la politique simulee, hors carnet initial deja engage.",
+            "interpretation": "Part de la pression cout due au prix des matieres/fournisseurs.",
+        },
+        {
+            "family": "Couts stock / transport",
+            "level": "KPI secondaire",
             "name": "Contribution stock - indice",
-            "formula": "100 x Cout_stock(t) / moyenne_run(Cout_stock + Cout_transport_pilotable)",
+            "formula": "100 x Cout_stock(t) / moyenne_run(Cout_total_pilotable)",
             "terms": "Cout_stock=holding_cost_day + warehouse_operating_cost_day + inventory_risk_cost_day.",
             "interpretation": "Part de la pression cout due au stock: immobilisation, stockage, risque inventaire.",
         },
@@ -1872,16 +1880,16 @@ def build_global_kpi_tree_payload(
             "family": "Couts stock / transport",
             "level": "KPI secondaire",
             "name": "Contribution transport pilotable - indice",
-            "formula": "100 x Cout_transport_pilotable(t) / moyenne_run(Cout_stock + Cout_transport_pilotable)",
-            "terms": "Cout_transport_pilotable exclut le transport du carnet initial deja engage et l'external procurement de secours.",
+            "formula": "100 x Cout_transport_pilotable(t) / moyenne_run(Cout_total_pilotable)",
+            "terms": "Cout_transport_pilotable exclut le transport du carnet initial deja engage.",
             "interpretation": "Part de la pression cout due aux flux transport decidables par la politique simulee.",
         },
         {
             "family": "Couts stock / transport",
             "level": "Definition",
             "name": "Pilotable",
-            "formula": "Flux/cout genere par les decisions de reapprovisionnement du scenario, hors carnet initial et hors approvisionnement externe de secours",
-            "terms": "Exemple pilotable: une commande MRP lancee pendant la simulation. Exemple non pilotable: open order deja en transit au 01/01, ou achat externe de secours active faute d'amont modelise.",
+            "formula": "Flux/cout genere par les decisions de reapprovisionnement du scenario, hors carnet initial",
+            "terms": "Exemple pilotable: une commande MRP lancee pendant la simulation. Exemple non pilotable: open order deja en transit au 01/01.",
             "interpretation": "Pilotable signifie que le KPI peut changer si on change la politique supply. Le carnet initial est affiche a part car il est deja engage au demarrage.",
         },
     ]
@@ -1913,7 +1921,7 @@ def build_global_kpi_tree_payload(
                     "label": "Pression cout supply",
                     "values": [round(cost_index[day], 6) for day in days],
                     "color": "#d97706",
-                    "note": "Indice journalier: (cout stock + transport pilotable) / moyenne du run x 100. Plus bas est meilleur.",
+                    "note": "Indice journalier: (cout stock + transport pilotable + achat pilotable) / moyenne du run x 100. Plus bas est meilleur.",
                 },
             ],
             "y_label": "Score / indice",
@@ -1976,19 +1984,24 @@ def build_global_kpi_tree_payload(
             },
             {
                 "id": "cost",
-                "label": "Couts stock / transport",
+                "label": "Couts supply",
                 "objective": "Eviter les stocks excessifs et les transports d'urgence pour compenser les risques.",
                 "summary": [
-                    summary("Formule pression cout", "(stock + transport pilotable) / moyenne run x100"),
+                    summary("Formule pression cout", "(stock + transport pilotable + achat pilotable) / moyenne run x100"),
+                    summary("Cout total pilotable", fmt_qty(total_supply_cost_value)),
+                    summary("Cout total scenario", fmt_qty(total_scenario_cost_excluding_external)),
                     summary("Cout logistique pilotable", fmt_qty(total_logistics_cost)),
                     summary("Cout stock", fmt_qty(total_inventory_cost)),
                     summary("Cout transport pilotable", fmt_qty(total_transport_cost)),
                     summary("Transport carnet initial", fmt_qty(total_opening_transport_cost)),
                     summary("Cout achat pilotable", fmt_qty(total_purchase_cost)),
+                    summary("Achat carnet initial", fmt_qty(total_opening_purchase_cost)),
                     summary("Principal pic transport", transport_spike_driver),
                 ],
                 "secondary": [
-                    {"label": "Pression cout supply - indice", **series_from_map(cost_index), "color": "#d97706"},
+                    {"label": "Pression cout total supply - indice", **series_from_map(cost_index), "color": "#d97706"},
+                    {"label": "Pression logistique hors achat - indice", **series_from_map(logistics_cost_index), "color": "#64748b"},
+                    {"label": "Contribution achat pilotable - indice", **series_from_map(purchase_cost_index), "color": "#0f766e"},
                     {"label": "Contribution stock - indice", **series_from_map(inventory_cost_index), "color": "#7c3aed"},
                     {"label": "Contribution transport pilotable - indice", **series_from_map(transport_cost_index), "color": "#f97316"},
                 ],
@@ -2562,12 +2575,27 @@ def render_material_balance_table_html(rows: list[dict[str, Any]]) -> str:
     return "".join(html_rows)
 
 
+def is_display_order_row(row: dict[str, str]) -> bool:
+    order_type = str(row.get("order_type") or "").strip()
+    source_mode = str(row.get("source_mode") or "").strip()
+    return not order_type.startswith("external_procurement") and not source_mode.startswith("external_procurement")
+
+
+def fmt_order_day(value: Any) -> str:
+    numeric = to_float(value)
+    if numeric is None or math.isnan(numeric):
+        return "n/a"
+    day = int(round(numeric))
+    return f"J{day:+d}".replace("+0", "0").replace("+", "")
+
+
 def render_order_ledger_html(
     node_id: str,
     node_orders: list[dict[str, str]],
     item_labels: dict[str, str],
     empty_reason: str | None = None,
 ) -> str:
+    node_orders = [row for row in node_orders if is_display_order_row(row)]
     if not node_orders:
         reason_html = (
             f"<div class=\"orderLedgerStatus\">{html.escape(empty_reason)}</div>"
@@ -2583,7 +2611,9 @@ def render_order_ledger_html(
     sorted_orders = sorted(
         node_orders,
         key=lambda r: (
-            int(to_float(r.get("day")) or 0),
+            int(to_float(r.get("order_date_imt")) or to_float(r.get("day")) or 0),
+            int(to_float(r.get("release_day")) or 0),
+            int(to_float(r.get("arrival_day")) or 0),
             str(r.get("item_id") or ""),
             str(r.get("edge_id") or ""),
         ),
@@ -2605,6 +2635,22 @@ def render_order_ledger_html(
         item_id = str(row.get("item_id") or "")
         item_label = item_labels.get(item_id, compact_item_label(item_id))
         mode_label = str(row.get("source_mode") or row.get("order_type") or "n/a")
+        order_day_value = to_float(row.get("order_date_imt"))
+        release_day_value = to_float(row.get("release_day"))
+        lead_reference_days_value = to_float(row.get("lead_reference_days"))
+        if lead_reference_days_value is None or math.isnan(lead_reference_days_value):
+            lead_reference_days_value = to_float(row.get("lead_cover_days"))
+        order_day = fmt_order_day(order_day_value)
+        release_day = fmt_order_day(release_day_value)
+        planned_arrival_day = fmt_order_day(
+            release_day_value + lead_reference_days_value
+            if release_day_value is not None
+            and lead_reference_days_value is not None
+            and not math.isnan(release_day_value)
+            and not math.isnan(lead_reference_days_value)
+            else None
+        )
+        effective_arrival_day = fmt_order_day(row.get("actual_receipt_day"))
         exception_flags = [
             flag
             for flag in [
@@ -2618,12 +2664,15 @@ def render_order_ledger_html(
         recent_lines.append(
             " | ".join(
                 [
-                    f"j{day}",
                     item_label,
                     mode_label,
-                    f"release={fmt_qty(row.get('release_qty'), 1)}",
-                    f"receipt={fmt_qty(row.get('planned_receipt_qty'), 1)}",
-                    f"arrival={row.get('arrival_day') or 'n/a'}",
+                    f"ordre_passe={order_day}",
+                    f"envoi={release_day}",
+                    f"delai_previsionnel_mrp={fmt_qty(lead_reference_days_value, 0)}j",
+                    f"arrivee_previsionnelle={planned_arrival_day}",
+                    f"arrivee_effective={effective_arrival_day}",
+                    f"qte_envoyee={fmt_qty(row.get('release_qty'), 1)}",
+                    f"qte_recue={fmt_qty(row.get('planned_receipt_qty'), 1)}",
                     f"status={row.get('order_status_end_of_run') or 'n/a'}",
                     f"exceptions={','.join(exception_flags) if exception_flags else 'none'}",
                 ]
@@ -2639,6 +2688,7 @@ def render_order_ledger_html(
             "<div class=\"factoryHtmlPanelContent\">",
             f"<div class=\"orderLedgerTextHeader\">{html.escape(node_id)} - {html.escape(title_suffix)}</div>",
             f"<div class=\"orderLedgerStatus\">Statuses: {html.escape(statuses_text)}</div>",
+            "<div class=\"orderLedgerStatus\">Jalons: ordre_passe=order_date_IMT | envoi=release_day | delai_previsionnel_mrp=lead_reference_days | arrivee_previsionnelle=envoi+delai_previsionnel_mrp | arrivee_effective=actual_receipt_day</div>",
             "<div class=\"orderLedgerSectionTitle\">Derniers ordres:</div>",
             "<div class=\"orderLedgerTextWrap\">",
             f"<pre class=\"orderLedgerLines\">{recent_orders_html}</pre>",
@@ -2776,6 +2826,18 @@ def densify_daily_series(points: list[tuple[int, float]]) -> list[tuple[int, flo
     return [(day, by_day.get(day, 0.0)) for day in range(start_day, end_day + 1)]
 
 
+def densify_event_spike_series(points: list[tuple[int, float]]) -> list[tuple[int, float]]:
+    if not points:
+        return []
+    by_day: dict[int, float] = defaultdict(float)
+    for day, value in points:
+        by_day[int(day)] += float(value)
+    spike_points: list[tuple[int, float]] = []
+    for day, value in sorted(by_day.items()):
+        spike_points.extend([(day, 0.0), (day, value), (day, 0.0)])
+    return spike_points
+
+
 def build_line_chart_payload(
     series_map: dict[str, list[tuple[int, float]]],
     *,
@@ -2829,31 +2891,37 @@ def build_line_chart_figure(
     title: str,
     y_label: str,
     step_like: bool = False,
+    event_like: bool = False,
     note: str | None = None,
     series_styles: dict[str, dict[str, Any]] | None = None,
 ) -> dict[str, Any] | None:
     usable = {
-        label: (densify_daily_series(pts) if step_like else pts)
+        label: (densify_event_spike_series(pts) if event_like else densify_daily_series(pts) if step_like else pts)
         for label, pts in series_map.items()
         if pts
     }
     if not usable:
         return None
-    return {
-        "kind": "line_multi",
-        "title": title,
-        "y_label": y_label,
-        "step_like": step_like,
-        "note": note or "",
-        "series": [
+    series_payload = []
+    for label, points in usable.items():
+        style = series_styles.get(label, {}) if isinstance(series_styles, dict) else {}
+        show_markers = bool(style.get("show_markers")) or len(points) <= 2
+        series_payload.append(
             {
                 "label": label,
                 "days": [int(day) for day, _ in points],
                 "values": [float(value) for _, value in points],
-                **(series_styles.get(label, {}) if isinstance(series_styles, dict) else {}),
+                "show_markers": show_markers,
+                **style,
             }
-            for label, points in usable.items()
-        ],
+        )
+    return {
+        "kind": "line_multi",
+        "title": title,
+        "y_label": y_label,
+        "step_like": step_like and not event_like,
+        "note": note or "",
+        "series": series_payload,
     }
 
 
@@ -4122,6 +4190,23 @@ def output_root_from_csv(csv_path: Path) -> Path:
     return csv_path.parent
 
 
+def read_timeline_horizon_days(output_root: Path) -> int | None:
+    summary_file = output_root / "summaries" / "first_simulation_summary.json"
+    if not summary_file.exists():
+        return None
+    try:
+        summary = json.loads(summary_file.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    if not isinstance(summary, dict):
+        return None
+    for key in ("timeline_days", "sim_days", "total_simulated_timeline_days"):
+        value = to_float(summary.get(key))
+        if value is not None and value > 0:
+            return int(math.ceil(value))
+    return None
+
+
 def write_mrp_safety_arrival_reports(
     raw: dict[str, Any],
     *,
@@ -4625,6 +4710,8 @@ def build_model_panel_metrics(
     mrp_orders_by_node: dict[str, list[dict[str, str]]] = defaultdict(list)
     mrp_orders_by_edge: dict[str, list[dict[str, str]]] = defaultdict(list)
     for row in mrp_order_rows:
+        if not is_display_order_row(row):
+            continue
         node_id = str(row.get("node_id") or "")
         src_node_id = str(row.get("src_node_id") or "")
         dst_node_id = str(row.get("dst_node_id") or "")
@@ -4666,9 +4753,25 @@ def build_model_panel_metrics(
         *,
         day_field: str = "day",
     ) -> list[tuple[int, float]]:
+        def resolve_order_day(row: dict[str, str]) -> int:
+            if day_field == "planned_arrival_day":
+                release_day = to_float(row.get("release_day"))
+                lead_reference_days = to_float(row.get("lead_reference_days"))
+                if lead_reference_days is None or math.isnan(lead_reference_days):
+                    lead_reference_days = to_float(row.get("lead_cover_days"))
+                if (
+                    release_day is not None
+                    and lead_reference_days is not None
+                    and not math.isnan(release_day)
+                    and not math.isnan(lead_reference_days)
+                ):
+                    return int(round(release_day + lead_reference_days))
+                return int(to_float(row.get("arrival_day")) or 0)
+            return int(to_float(row.get(day_field)) or 0)
+
         by_day: dict[int, float] = defaultdict(float)
         for row in rows:
-            day = int(to_float(row.get(day_field)) or 0)
+            day = resolve_order_day(row)
             by_day[day] += max(0.0, to_float(row.get(field)) or 0.0)
         return sorted(by_day.items())
 
@@ -5153,7 +5256,7 @@ def build_model_panel_metrics(
                     )
                 if external_procurement_qty_by_item.get("item:693055", 0.0) > 0 and actual_output_qty_by_item.get("item:693055", 0.0) <= 0:
                     special_flow_lines.append(
-                        f"693055: PFI aval confirme, mais pas de production interne explicite observee ; reappro courant via external_procurement={fmt_qty(external_procurement_qty_by_item.get('item:693055', 0.0))}."
+                        f"693055: PFI aval confirme, mais pas de production interne explicite observee ; flux amont simule non detaille={fmt_qty(external_procurement_qty_by_item.get('item:693055', 0.0))}."
                     )
             state_var_lines.extend(
                 [
@@ -5289,12 +5392,25 @@ def build_model_panel_metrics(
         ):
             if is_simulation_hidden_item(str(row.get("item_id") or "")):
                 continue
+            release_day_value = to_float(row.get("release_day"))
+            lead_reference_days_value = to_float(row.get("lead_reference_days"))
+            if lead_reference_days_value is None or math.isnan(lead_reference_days_value):
+                lead_reference_days_value = to_float(row.get("lead_cover_days"))
+            planned_arrival_day = fmt_order_day(
+                release_day_value + lead_reference_days_value
+                if release_day_value is not None
+                and lead_reference_days_value is not None
+                and not math.isnan(release_day_value)
+                and not math.isnan(lead_reference_days_value)
+                else None
+            )
             order_lines.append(
                 f"{item_labels.get(str(row.get('item_id') or ''), compact_item_label(str(row.get('item_id') or '')))}: "
                 f"{row.get('order_type') or 'n/a'} ; "
                 f"release={row.get('release_day') or 'n/a'} ; "
                 f"order_date_IMT={row.get('order_date_imt') or 'n/a'} ; "
-                f"arrival={row.get('arrival_day') or 'n/a'} ; "
+                f"arrival_previsionnelle={planned_arrival_day} ; "
+                f"arrival_effective={fmt_order_day(row.get('actual_receipt_day'))} ; "
                 f"status={row.get('order_status_end_of_run') or 'n/a'}"
             )
             if len(order_lines) >= 8:
@@ -5406,10 +5522,10 @@ def build_model_panel_metrics(
             node_trace_asset = {"figure": trace_figure}
         safety_summary = mrp_safety_summary_by_node.get(node_id, {})
         order_release_series = aggregate_order_series(node_orders, "release_qty", day_field="order_date_imt")
-        order_receipt_series = aggregate_order_series(node_orders, "planned_receipt_qty", day_field="arrival_day")
+        order_receipt_series = aggregate_order_series(node_orders, "planned_receipt_qty", day_field="planned_arrival_day")
         flow_series = {
             "Ordres MRP dates IMT": order_release_series,
-            "Receptions planifiees": order_receipt_series,
+            "Receptions previsionnelles": order_receipt_series,
         }
         actual_input_arrival_series = aggregate_daily_series(
             input_arrivals_by_node.get(node_id, []),
@@ -5423,14 +5539,15 @@ def build_model_panel_metrics(
             flow_series,
             title=f"{node_id} - flux MRP intrants",
             y_label="Quantite / jour",
+            event_like=True,
             note=(
-                "Flux entrants comparables: ordres dates IMT, receptions planifiees et arrivages reels. "
+                "Flux entrants comparables: ordres dates IMT, receptions previsionnelles et arrivages reels. "
                 "Le besoin net MRP n'est pas affiche ici car c'est un ecart de stock a cible, pas un flux journalier. "
                 "Les ordres sont dates en IMT pour eviter de faire apparaitre le carnet initial comme un ordre massif au 1er janvier."
             ),
             series_styles={
                 "Ordres MRP dates IMT": {"color": "#0f766e", "width": 2.2},
-                "Receptions planifiees": {"color": "#2563eb", "width": 2.2},
+                "Receptions previsionnelles": {"color": "#2563eb", "width": 2.2},
                 "Arrivages reels intrants": {"color": "#0891b2", "width": 2.0, "dash": "dot"},
             },
         )
@@ -5500,9 +5617,9 @@ def build_model_panel_metrics(
             item_label = item_labels.get(item_id, compact_item_label(item_id))
             color = item_palette[idx % len(item_palette)]
             release_label = f"{item_label} - ordre"
-            receipt_label = f"{item_label} - reception"
+            receipt_label = f"{item_label} - reception prev."
             release_series = aggregate_order_series(item_rows, "release_qty", day_field="order_date_imt")
-            receipt_series = aggregate_order_series(item_rows, "planned_receipt_qty", day_field="arrival_day")
+            receipt_series = aggregate_order_series(item_rows, "planned_receipt_qty", day_field="planned_arrival_day")
             if release_series:
                 node_order_series[release_label] = release_series
                 node_order_styles[release_label] = {"color": color, "width": 2.0}
@@ -5536,6 +5653,7 @@ def build_model_panel_metrics(
                 dominant_order_series,
                 title=f"{node_id} - reappro amont volumes dominants",
                 y_label="Quantite",
+                event_like=True,
                 note="Items separes automatiquement car ils ecrasent l'echelle du graphe global.",
                 series_styles={label: node_order_styles.get(label, {}) for label in dominant_order_series},
             )
@@ -5543,7 +5661,8 @@ def build_model_panel_metrics(
                 other_order_series,
                 title=f"{node_id} - reappro amont autres items",
                 y_label="Quantite",
-                note="Meme couleur par item. Trait plein = date de commande MRP/IMT ; pointille = reception attendue a l'arrivee.",
+                event_like=True,
+                note="Meme couleur par item. Trait plein = date de commande MRP/IMT ; pointille = reception previsionnelle (envoi + delai previsionnel MRP).",
                 series_styles={label: node_order_styles.get(label, {}) for label in other_order_series},
             )
             node_orders_figure = {
@@ -5557,7 +5676,8 @@ def build_model_panel_metrics(
                 node_order_series,
                 title=f"{node_id} - reappro amont par item",
                 y_label="Quantite",
-                note="Meme couleur par item. Trait plein = date de commande MRP/IMT ; pointille = reception attendue a l'arrivee.",
+                event_like=True,
+                note="Meme couleur par item. Trait plein = date de commande MRP/IMT ; pointille = reception previsionnelle (envoi + delai previsionnel MRP).",
                 series_styles=node_order_styles,
             )
         if node_orders_figure is not None:
@@ -5675,13 +5795,25 @@ def build_model_panel_metrics(
             key=lambda r: (int(to_float(r.get("day")) or 0), str(r.get("item_id") or "")),
             reverse=True,
         )[:8]:
+            release_day_value = to_float(row.get("release_day"))
+            lead_reference_days_value = to_float(row.get("lead_reference_days"))
+            if lead_reference_days_value is None or math.isnan(lead_reference_days_value):
+                lead_reference_days_value = to_float(row.get("lead_cover_days"))
+            planned_arrival_day = fmt_order_day(
+                release_day_value + lead_reference_days_value
+                if release_day_value is not None
+                and lead_reference_days_value is not None
+                and not math.isnan(release_day_value)
+                and not math.isnan(lead_reference_days_value)
+                else None
+            )
             edge_order_lines.append(
                 f"{item_labels.get(str(row.get('item_id') or ''), compact_item_label(str(row.get('item_id') or '')))}: "
                 f"release={row.get('release_day') or 'n/a'} ; "
                 f"order_date_IMT={row.get('order_date_imt') or 'n/a'} ; "
-                f"arrival={row.get('arrival_day') or 'n/a'} ; "
-                f"lead={row.get('lead_days') or 'n/a'} ; "
-                f"lead_cover={row.get('lead_cover_days') or 'n/a'} ; "
+                f"arrival_previsionnelle={planned_arrival_day} ; "
+                f"arrival_effective={fmt_order_day(row.get('actual_receipt_day'))} ; "
+                f"lead_ref={row.get('lead_reference_days') or row.get('lead_cover_days') or 'n/a'} ; "
                 f"status={row.get('order_status_end_of_run') or 'n/a'}"
             )
         edge_assumption_lines = []
@@ -5694,11 +5826,12 @@ def build_model_panel_metrics(
         edge_status_asset = None
         edge_flow_figure = build_line_chart_figure(
             {
-                "Release": aggregate_order_series(edge_order_rows, "release_qty", day_field="order_date_imt"),
-                "Planned receipt": aggregate_order_series(edge_order_rows, "planned_receipt_qty", day_field="arrival_day"),
+                "Ordre IMT": aggregate_order_series(edge_order_rows, "release_qty", day_field="order_date_imt"),
+                "Reception previsionnelle": aggregate_order_series(edge_order_rows, "planned_receipt_qty", day_field="planned_arrival_day"),
             },
-            title=f"{edge_id} - releases / receipts",
+            title=f"{edge_id} - ordres / receptions previsionnelles",
             y_label="Quantite",
+            event_like=True,
         )
         if edge_flow_figure is not None:
             edge_order_asset = {"figure": edge_flow_figure}
@@ -8210,6 +8343,7 @@ def html_template(title: str, data_json: str, material_table_html: str, material
     const GLOBAL_KPI_TREE = DATA.global_kpi_tree || null;
     const MATERIAL_BALANCE_ROWS = DATA.material_balance_rows || [];
     const MODEL_PANEL = DATA.model_panel || {{ nodes: {{}}, edges: {{}} }};
+    const TIMELINE_HORIZON_DAYS = Number(DATA.timeline_horizon_days || 0);
     const EDGE_BY_ID = Object.fromEntries((DATA.edges || []).map(e => [e.id, e]));
     const FACTORY_LIKE_NODE_IDS = new Set(DATA.factory_like_node_ids || []);
     const REALISTIC_SENSITIVITY = DATA.realistic_sensitivity || {{ nodes: {{}}, global: {{}}, selected_suppliers: [] }};
@@ -8279,6 +8413,9 @@ def html_template(title: str, data_json: str, material_table_html: str, material
     }}
 
     function computeTimelineMaxYear() {{
+      if (Number.isFinite(TIMELINE_HORIZON_DAYS) && TIMELINE_HORIZON_DAYS > 0) {{
+        return Math.max(1, Math.ceil(TIMELINE_HORIZON_DAYS / 365));
+      }}
       let maxDay = 0;
       [FACTORY_HOVER_IMAGES, SUPPLIER_HOVER_IMAGES, DC_HOVER_IMAGES, CUSTOMER_HOVER_IMAGES].forEach((payload) => {{
         visitTimelineFigures(payload, (figure) => {{
@@ -8320,9 +8457,56 @@ def html_template(title: str, data_json: str, material_table_html: str, material
     }}
 
     function currentTimelineDayRange() {{
+      const startDay = (selectedYearStart - 1) * 365;
+      let endDay = (selectedYearEnd * 365) - 1;
+      if (Number.isFinite(TIMELINE_HORIZON_DAYS) && TIMELINE_HORIZON_DAYS > 0) {{
+        endDay = Math.min(endDay, Math.max(0, TIMELINE_HORIZON_DAYS - 1));
+      }}
       return {{
-        startDay: (selectedYearStart - 1) * 365,
-        endDay: (selectedYearEnd * 365) - 1,
+        startDay: Math.min(startDay, endDay),
+        endDay,
+      }};
+    }}
+
+    function dayAxisTickStep(spanDays) {{
+      const span = Math.max(1, Number(spanDays) || 1);
+      if (span <= 31) return 5;
+      if (span <= 90) return 10;
+      if (span <= 200) return 25;
+      if (span <= 450) return 50;
+      if (span <= 900) return 100;
+      if (span <= 2200) return 200;
+      return 500;
+    }}
+
+    function dayAxisLayout(title = "Jour", extra = {{}}) {{
+      const range = currentTimelineDayRange();
+      const startDay = Math.max(0, Number(range.startDay) || 0);
+      const endDay = Math.max(startDay, Number(range.endDay) || 0);
+      const visualPaddingDays = Math.max(5, (endDay - startDay) * 0.02);
+      const axisStart = startDay - visualPaddingDays;
+      const axisEnd = endDay + visualPaddingDays;
+      const step = dayAxisTickStep(endDay - startDay);
+      const firstTick = Math.max(0, Math.ceil(startDay / step) * step);
+      const tickvals = [axisStart];
+      const ticktext = [String(startDay)];
+      for (let day = firstTick; day <= endDay; day += step) {{
+        if (Math.abs(day - startDay) < 1e-9) continue;
+        tickvals.push(day);
+        ticktext.push(String(day));
+      }}
+      if (!tickvals.length) {{
+        tickvals.push(axisStart);
+        ticktext.push(String(startDay));
+      }}
+      return {{
+        title,
+        gridcolor: "#e2e8f0",
+        range: [axisStart, axisEnd],
+        tickmode: "array",
+        tickvals,
+        ticktext,
+        ...extra,
       }};
     }}
 
@@ -9329,9 +9513,10 @@ def html_template(title: str, data_json: str, material_table_html: str, material
           return {{
             data: (figure.series || []).map((series, idx) => {{
               const filtered = filterSeriesByTimeline(series.days || [], series.values || []);
-              return {{
+              const showMarkers = Boolean(series.show_markers) || (filtered.days || []).length <= 2;
+              const trace = {{
                 type: "scatter",
-                mode: "lines",
+                mode: showMarkers ? "lines+markers" : "lines",
                 name: series.label || `Serie ${{idx + 1}}`,
                 x: filtered.days,
                 y: filtered.values,
@@ -9342,13 +9527,20 @@ def html_template(title: str, data_json: str, material_table_html: str, material
                   shape: figure.step_like ? "hv" : "linear",
                 }},
               }};
+              if (showMarkers) {{
+                trace.marker = {{
+                  size: Number(series.marker_size || 7),
+                  color: series.color || palette[idx % palette.length],
+                }};
+              }}
+              return trace;
             }}),
             layout: {{
               title: {{ text: figure.title || "", font: {{ size: 12 }} }},
               margin: {{ l: 56, r: 18, t: 44, b: 42 }},
               paper_bgcolor: "#ffffff",
               plot_bgcolor: "#ffffff",
-              xaxis: {{ title: figure.x_label || "Jour", gridcolor: "#e2e8f0" }},
+              xaxis: dayAxisLayout(figure.x_label || "Jour"),
               yaxis: {{ title: figure.y_label || "", gridcolor: "#e2e8f0" }},
               legend: {{ orientation: "h", y: -0.22 }},
               annotations: figure.note ? [{{
@@ -9389,6 +9581,12 @@ def html_template(title: str, data_json: str, material_table_html: str, material
           const bottom = figure.bottom || {{}};
           const topFiltered = top.kind === "line" ? filterXYByTimeline(top.x || [], top.y || []) : {{ x: top.x || [], y: top.y || [] }};
           const bottomFiltered = bottom.kind === "line" ? filterXYByTimeline(bottom.x || [], bottom.y || []) : {{ x: bottom.x || [], y: bottom.y || [] }};
+          const topXAxis = top.kind === "line"
+            ? dayAxisLayout(top.x_label || "")
+            : {{ title: top.x_label || "", gridcolor: "#e2e8f0" }};
+          const bottomXAxis = bottom.kind === "line"
+            ? dayAxisLayout(bottom.x_label || "")
+            : {{ title: bottom.x_label || "", tickangle: -20, gridcolor: "#e2e8f0" }};
           const traces = [];
           traces.push(top.kind === "bar"
             ? {{
@@ -9438,9 +9636,9 @@ def html_template(title: str, data_json: str, material_table_html: str, material
               paper_bgcolor: "#ffffff",
               plot_bgcolor: "#ffffff",
               grid: {{ rows: 2, columns: 1, pattern: "independent", roworder: "top to bottom" }},
-              xaxis: {{ title: top.x_label || "", gridcolor: "#e2e8f0" }},
+              xaxis: topXAxis,
               yaxis: {{ title: top.y_label || "", gridcolor: "#e2e8f0" }},
-              xaxis2: {{ title: bottom.x_label || "", tickangle: -20, gridcolor: "#e2e8f0" }},
+              xaxis2: bottomXAxis,
               yaxis2: {{ title: bottom.y_label || "", gridcolor: "#e2e8f0" }},
               annotations: [
                 {{
@@ -9543,7 +9741,7 @@ def html_template(title: str, data_json: str, material_table_html: str, material
             margin: {{ l: 54, r: 18, t: 42, b: 42 }},
             paper_bgcolor: "#ffffff",
             plot_bgcolor: "#ffffff",
-            xaxis: {{ title: "Jour", gridcolor: "#e2e8f0" }},
+            xaxis: dayAxisLayout("Jour"),
             yaxis: {{ title: main.y_label || "Score / indice", gridcolor: "#e2e8f0" }},
             legend: {{ orientation: "h", y: -0.22 }},
           }}, {{ displayModeBar: false, responsive: true }});
@@ -9582,7 +9780,7 @@ def html_template(title: str, data_json: str, material_table_html: str, material
             margin: {{ l: 58, r: 18, t: 42, b: 42 }},
             paper_bgcolor: "#ffffff",
             plot_bgcolor: "#ffffff",
-            xaxis: {{ title: "Jour", gridcolor: "#e2e8f0" }},
+            xaxis: dayAxisLayout("Jour"),
             yaxis: {{ title: group.secondary_y_label || "Valeur", gridcolor: "#e2e8f0" }},
             legend: {{ orientation: "h", y: -0.24 }},
           }}, {{ displayModeBar: false, responsive: true }});
@@ -9825,12 +10023,6 @@ def html_template(title: str, data_json: str, material_table_html: str, material
                 <button type="button" class="kpiTreeSmoothBtn" data-smooth="week">7 j</button>
                 <button type="button" class="kpiTreeSmoothBtn active" data-smooth="month">30 j</button>
               </span>
-              <span class="kpiTreeControlGroup">
-                <span>Demarrage</span>
-                <button type="button" class="kpiTreeSmoothBtn" data-start="all">Tout</button>
-                <button type="button" class="kpiTreeSmoothBtn" data-start="no_j0">Sans J0</button>
-                <button type="button" class="kpiTreeSmoothBtn active" data-start="no_30">Sans 30 j</button>
-              </span>
             </div>
           </div>
           <div class="kpiTreeViewTabs">
@@ -9876,10 +10068,8 @@ def html_template(title: str, data_json: str, material_table_html: str, material
       const formulaBodyEl = figureEl.querySelector(".kpiFormulaTable tbody");
       const viewButtons = Array.from(figureEl.querySelectorAll("[data-kpi-view]"));
       const smoothButtons = Array.from(figureEl.querySelectorAll(".kpiTreeSmoothBtn"));
-      const startButtons = Array.from(figureEl.querySelectorAll("[data-start]"));
       let selectedId = groups[0].id;
       let smoothingMode = "month";
-      let startupMode = "no_30";
       let viewMode = "graphs";
 
       function groupById(groupId) {{
@@ -9931,13 +10121,9 @@ def html_template(title: str, data_json: str, material_table_html: str, material
         return "";
       }}
       function startupCutoffDay() {{
-        if (startupMode === "no_j0") return 1;
-        if (startupMode === "no_30") return 30;
         return null;
       }}
       function startupSuffix() {{
-        if (startupMode === "no_j0") return " - hors J0";
-        if (startupMode === "no_30") return " - hors 30 premiers jours";
         return "";
       }}
       function smoothValues(values) {{
@@ -9977,14 +10163,6 @@ def html_template(title: str, data_json: str, material_table_html: str, material
           btn.onclick = () => {{
             smoothingMode = btn.dataset.smooth || "none";
             smoothButtons.filter(other => other.dataset.smooth).forEach(other => other.classList.toggle("active", other === btn));
-            renderMain();
-            renderSecondary();
-          }};
-        }});
-        startButtons.forEach(btn => {{
-          btn.onclick = () => {{
-            startupMode = btn.dataset.start || "all";
-            startButtons.forEach(other => other.classList.toggle("active", other === btn));
             renderMain();
             renderSecondary();
           }};
@@ -10030,7 +10208,7 @@ def html_template(title: str, data_json: str, material_table_html: str, material
           margin: {{ l: 54, r: 18, t: 42, b: 42 }},
           paper_bgcolor: "#ffffff",
           plot_bgcolor: "#ffffff",
-          xaxis: {{ title: "Jour", gridcolor: "#e2e8f0" }},
+          xaxis: dayAxisLayout("Jour"),
           yaxis: {{ title: main.y_label || "Score / indice", gridcolor: "#e2e8f0" }},
           legend: {{ orientation: "h", y: -0.22 }},
         }}, {{ displayModeBar: false, responsive: true }});
@@ -10071,7 +10249,7 @@ def html_template(title: str, data_json: str, material_table_html: str, material
           margin: {{ l: 58, r: 18, t: 42, b: 42 }},
           paper_bgcolor: "#ffffff",
           plot_bgcolor: "#ffffff",
-          xaxis: {{ title: "Jour", gridcolor: "#e2e8f0" }},
+          xaxis: dayAxisLayout("Jour"),
           yaxis: {{ title: group.secondary_y_label || "Valeur", gridcolor: "#e2e8f0" }},
           legend: {{ orientation: "h", y: -0.24 }},
         }}, {{ displayModeBar: false, responsive: true }});
@@ -10208,6 +10386,7 @@ def main() -> None:
     try:
         raw = json.loads(in_path.read_text(encoding="utf-8"))
         payload = compact_graph_payload(raw)
+        payload["timeline_horizon_days"] = read_timeline_horizon_days(output_root_from_csv(demand_service_csv))
         payload["factory_like_node_ids"] = sorted(factory_like_node_ids(raw))
         payload["factory_hover_series"] = build_factory_hover_series(raw, sim_input, sim_output)
         payload["factory_hover_images"] = build_factory_hover_images(

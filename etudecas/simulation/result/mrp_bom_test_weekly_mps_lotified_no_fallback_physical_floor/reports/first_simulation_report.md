@@ -24,17 +24,18 @@
 - Soft safety-time physical stock target factor: 1.0
 - Unmodeled supplier source mode: external_procurement
 - Stochastic lead times: True
+- Lead-time distribution mode: industrial
 - Random seed: 42
 - Economic policy transport floor /km: 0.02 / 8e-05
 - Economic policy purchase floor: 0.01
-- Holding cost scale: 1.0
+- Holding cost scale: 0.09
 - Inventory cost split capital / warehouse / risk: 0.35 / 0.45 / 0.2
 - Transport / purchase realism multipliers: 0.2 / 1.0
 - External procurement enabled: True
 - External procurement proactive supplier replenishment: True
 - External procurement lead days: 4
-- External procurement daily cap days: 2.0
-- External procurement min daily cap qty: 0.0
+- External procurement daily cap days: 999.0
+- External procurement min daily cap qty: 1000000000.0
 - External procurement unit cost / multiplier / transport unit: 0.0 / 2.0 / 0.04
 - Nodes: 33
 - Edges: 39
@@ -50,39 +51,39 @@
 - External upstream sourcing for unmodeled source pairs: 34
 - Opening stock bootstrap pairs (lead-time coverage at max capacity): 0
 - Opening open-order rows reconstructed from January snapshot: 106
-- MRP trace tracked pairs / rows / orders: 65 / 118625 / 97168
+- MRP trace tracked pairs / rows / orders: 65 / 118625 / 97846
 
 ## KPIs
 - Total demand: 25762139.9999
 - Total served: 25762139.9999
 - Fill rate: 1.0
 - Ending backlog: 0
-- Total produced: 103029000.0
-- Total shipped: 728940301.2606
-- Avg inventory: 258704560.1921
-- Ending inventory: 228293087.925
-- Transport cost: 22056055.3241
-- Holding cost (capital tied-up): 82103228.816
-- Warehouse operating cost: 105561294.192
-- Inventory risk cost (obsolescence/compliance proxy): 46916130.752
-- Legacy raw holding cost before split: 234580653.76
-- Purchase cost (from order_terms sell_price): 161110148.1802
-- Logistics cost (transport + inventory capital + warehouse + inventory risk): 256636709.0841
-- Total cost: 417746857.2643
-- Total external procured ordered qty: 377795178.6807
-- Total external procured arrived qty: 377120178.6807
-- Total external procured rejected qty (cap-limited): 424011540.1309
-- Total external procurement cost premium: 133602868.1106
+- Total produced: 106106800.0
+- Total shipped: 767495884.1926
+- Avg inventory: 294681695.1598
+- Ending inventory: 277381903.2307
+- Transport cost: 10155760.3924
+- Holding cost (capital tied-up): 8136923.5432
+- Warehouse operating cost: 10461758.8413
+- Inventory risk cost (obsolescence/compliance proxy): 4649670.5961
+- Legacy raw holding cost before split: 23248352.9807
+- Purchase cost (from order_terms sell_price): 50304420.8736
+- Logistics cost (transport + inventory capital + warehouse + inventory risk): 33404113.373
+- Total cost: 83708534.2466
+- Total external procured ordered qty: 475860386.3481
+- Total external procured arrived qty: 475860277.0688
+- Total external procured rejected qty (cap-limited): 0.0
+- Total external procurement cost premium: 154600476.3549
 - Total estimated source ordered qty: 0.0
 - Total estimated source replenished qty: 0.0
 - Total estimated source rejected qty: 0.0
-- Cost share capital holding / warehouse / inventory risk / transport / purchase: 0.196538 / 0.252692 / 0.112308 / 0.052798 / 0.385665
+- Cost share capital holding / warehouse / inventory risk / transport / purchase: 0.097205 / 0.124978 / 0.055546 / 0.121323 / 0.600947
 - Total opening stock bootstrap qty: 0.0
-- Total explicit initialization stock qty: 273044347.8265
+- Total explicit initialization stock qty: 207973206.7465
 - Total explicit initialization pipeline qty: 25012341.2857
 - Total opening open-order qty: 25012341.2857
 - Total unreliable supplier loss qty: 0.0
-- Total supplier capacity binding qty: 104794978.1855
+- Total supplier capacity binding qty: 91776881.7429
 - Economic consistency status: ok
 - Economic consistency warnings: []
 
@@ -125,13 +126,13 @@ Le graphe `Reappro amont` utilise maintenant `order_date_IMT` pour dater les ord
 
 | Noeud | Item | Lot std | Ancien pic J0 | Pic IMT | Jour IMT | Avant J0 | Lots au pic | Remarque |
 |---|---:|---:|---:|---:|---:|---:|---:|---|
-| M-1810 | 338929 | 5000.0 | 0.0 | 125000.0 | 210 | 0.0 | 25.0 | Concentration MRP a valider; plusieurs lots commandes le meme jour IMT. |
-| M-1430 | 042342 | 30000000.0 | 60000000.0 | 30000000.0 | -24 | 180000000.0 | 1.0 | Lot FIA tres eleve a valider avec l'industriel. |
-| M-1430 | 773474 | 1.0 | 6431833.0 | 1115738.0 | 528 | 6026365.0 | 1115738.0 | Quantite standard=1 non interpretable comme lot industriel; lot/campagne interne a renseigner. |
-| M-1430 | 344135 | 120000.0 | 840000.0 | 240000.0 | -22 | 600000.0 | 2.0 | Pic initial redate avant le 1er janvier via order_date_IMT; affichage MRP corrige. |
-| M-1430 | 333362 | 5000.0 | 3910000.0 | 50000.0 | 45 | 975000.0 | 10.0 | Pic initial redate avant le 1er janvier via order_date_IMT; affichage MRP corrige. |
-| M-1810 | 693055 | 1.0 | 0.0 | 17451.0 | 210 | 0.0 | 17451.0 | Quantite standard=1 non interpretable comme lot industriel; lot/campagne interne a renseigner. |
-| M-1430 | 038005 | 10000.0 | 70000.0 | 10000.0 | -90 | 60000.0 | 1.0 | Pic initial redate avant le 1er janvier via order_date_IMT; affichage MRP corrige. |
+| M-1810 | 338928 | 25000.0 | 0.0 | 350000.0 | 237 | 0.0 | 14.0 | Concentration MRP a valider; plusieurs lots commandes le meme jour IMT. |
+| M-1810 | 338929 | 5000.0 | 0.0 | 245000.0 | 1310 | 0.0 | 49.0 | Concentration MRP a valider; plusieurs lots commandes le meme jour IMT. |
+| M-1430 | 042342 | 30000000.0 | 30000000.0 | 60000000.0 | -3 | 150000000.0 | 2.0 | Lot FIA tres eleve a valider avec l'industriel. |
+| M-1430 | 773474 | 1.0 | 6431833.0 | 1300973.0 | 898 | 1607959.0 | 1300973.0 | Quantite standard=1 non interpretable comme lot industriel; lot/campagne interne a renseigner. |
+| M-1810 | 693055 | 1.0 | 0.0 | 88573.0 | 259 | 0.0 | 88573.0 | Quantite standard=1 non interpretable comme lot industriel; lot/campagne interne a renseigner. |
+| M-1430 | 333362 | 5000.0 | 885000.0 | 20000.0 | 1074 | 180000.0 | 4.0 | Pic initial redate avant le 1er janvier via order_date_IMT; affichage MRP corrige. |
+| SDC-1450 | 021081 | 1.0 | 360.0 | 16635.0 | 134 | 22392.0 | 16635.0 | Quantite standard=1 non interpretable comme lot industriel; lot/campagne interne a renseigner. |
 
 Process internes sans capacite source: la simulation ne les bloque pas par capacite, mais conserve les contraintes de lots, d'intrants et de besoin.
 | Noeud | Process | Sortie |

@@ -182,8 +182,8 @@
       "supplier_capacity_overrides": {
         "SDC-VD0901566A": {
           "item:338928": {
-            "capacity_qty_per_day": 64.935065,
-            "basis": "peer_packaging_alignment"
+            "capacity_qty_per_day": 1000000.0,
+            "basis": "unlimited_supplier_assumption_338928"
           }
         }
       }
@@ -3158,10 +3158,10 @@
       "simulation_constraints": {
         "supplier_capacity_scale": 320.0,
         "supplier_item_capacity_qty_per_day": {
-          "item:338928": 64.935065
+          "item:338928": 1000000.0
         },
         "supplier_item_capacity_basis": {
-          "item:338928": "peer_packaging_alignment"
+          "item:338928": "unlimited_supplier_assumption_338928"
         }
       }
     },
@@ -6340,12 +6340,16 @@
         "transport_cost_floor_per_unit": 0.02,
         "transport_cost_per_km_per_unit": 8e-05,
         "external_procurement_transport_cost_per_unit": 0.04,
-        "holding_cost_scale": 1.0,
+        "holding_cost_scale": 0.09,
         "purchase_cost_floor_per_unit": 0.01,
-        "external_procurement_daily_cap_days": 2.0,
+        "external_procurement_daily_cap_days": 999.0,
+        "external_procurement_min_daily_cap_qty": 1000000000.0,
         "external_procurement_lead_days": 4,
         "external_procurement_cost_multiplier": 2.0,
         "transport_cost_realism_multiplier": 0.2
+      },
+      "lead_time_policy": {
+        "distribution_mode": "industrial"
       },
       "warmup_days": 0,
       "reset_backlog_after_warmup": false,

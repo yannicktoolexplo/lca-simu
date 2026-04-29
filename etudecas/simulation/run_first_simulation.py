@@ -286,6 +286,12 @@ def parse_args() -> argparse.Namespace:
         default=True,
         help="Enable stochastic lead times sampled from lane metadata (default: enabled).",
     )
+    parser.add_argument(
+        "--lead-time-distribution-mode",
+        choices=["erlang", "industrial"],
+        default="",
+        help="Stochastic lead-time model. Empty uses scenario lead_time_policy.distribution_mode or erlang.",
+    )
     return parser.parse_args()
 
 
@@ -512,7 +518,50 @@ def lane_availability_multiplier(lane: dict[str, Any], day: int) -> float:
     return max(0.0, mult)
 
 
-def sample_lead_days(lane: dict[str, Any], rng: random.Random, stochastic: bool) -> int:
+def normalize_lead_time_distribution_mode(value: Any) -> str:
+    mode = str(value or "erlang").strip().lower().replace("-", "_")
+    if mode in {"industrial", "industrial_right_tail", "industrial_realistic"}:
+        return "industrial"
+    return "erlang"
+
+
+def industrial_lead_cover_days(mean: float) -> int:
+    # Industrial approximation: nominal lead time plus a moderate planning buffer.
+    # Safety time/stock is modelled separately, so this should not be an extreme p95.
+    fixed_buffer = 1.0 if mean <= 5.0 else 2.0
+    return int(math.ceil(mean + max(fixed_buffer, 0.20 * mean)))
+
+
+def sample_industrial_lead_days(mean: float, rng: random.Random) -> float:
+    """
+    Industrial lead-time approximation without historical PO data.
+    Most orders arrive on the supplier reference lead time. A small portion is
+    early or late, and a very small right tail models supplier/logistics delays.
+    """
+    reference = int(round(max(1.0, mean)))
+    early_window = max(1, int(round(min(7.0, max(1.0, 0.08 * reference)))))
+    late_window = max(1, int(round(min(10.0, max(2.0, 0.10 * reference)))))
+    draw = rng.random()
+    if draw < 0.72:
+        return float(reference)
+    if draw < 0.85:
+        early_delta = max(1, int(round(rng.triangular(1, early_window, 1))))
+        return float(max(1, reference - early_delta))
+    if draw < 0.97:
+        late_delta = max(1, int(round(rng.triangular(1, late_window, 1))))
+        return float(reference + late_delta)
+
+    tail_cap = max(late_window + 1, int(round(min(21.0, max(4.0, 0.18 * reference)))))
+    late_tail = max(late_window + 1, int(round(rng.triangular(late_window + 1, tail_cap, late_window + 1))))
+    return float(reference + late_tail)
+
+
+def sample_lead_days(
+    lane: dict[str, Any],
+    rng: random.Random,
+    stochastic: bool,
+    distribution_mode: str = "erlang",
+) -> int:
     deterministic = int(round(max(1.0, to_float(lane.get("lead_days"), 1.0))))
     if not stochastic:
         return deterministic
@@ -520,9 +569,12 @@ def sample_lead_days(lane: dict[str, Any], rng: random.Random, stochastic: bool)
     mean = max(1.0, to_float(lane.get("lead_days_mean"), deterministic))
     stages = int(round(max(1.0, to_float(lane.get("lead_stages"), 1.0))))
     lt_type = str(lane.get("lead_time_type", "constant")).lower()
+    distribution_mode = normalize_lead_time_distribution_mode(distribution_mode)
 
     sampled = mean
-    if "erlang" in lt_type:
+    if distribution_mode == "industrial" and "constant" not in lt_type:
+        sampled = sample_industrial_lead_days(mean, rng)
+    elif "erlang" in lt_type:
         sampled = rng.gammavariate(stages, mean / stages)
     elif "constant" not in lt_type:
         sigma = max(0.25, 0.30 * mean)
@@ -533,7 +585,15 @@ def sample_lead_days(lane: dict[str, Any], rng: random.Random, stochastic: bool)
     return min(sampled_days, delay_limit)
 
 
-def lead_time_cover_days(lane: dict[str, Any], stochastic: bool) -> int:
+def lead_time_reference_days(lane: dict[str, Any]) -> int:
+    return int(round(max(1.0, to_float(lane.get("lead_days_mean"), lane.get("lead_days", 1.0)))))
+
+
+def lead_time_cover_days(
+    lane: dict[str, Any],
+    stochastic: bool,
+    distribution_mode: str = "erlang",
+) -> int:
     """
     Return conservative lead-time coverage in days for stock sizing.
     With stochastic lead-times, use an approximate p95.
@@ -544,15 +604,20 @@ def lead_time_cover_days(lane: dict[str, Any], stochastic: bool) -> int:
     else:
         stages = max(1.0, to_float(lane.get("lead_stages"), 1.0))
         lt_type = str(lane.get("lead_time_type", "constant")).lower()
-        if "erlang" in lt_type:
+        distribution_mode = normalize_lead_time_distribution_mode(distribution_mode)
+        if distribution_mode == "industrial" and "constant" not in lt_type:
+            cover = industrial_lead_cover_days(mean)
+        elif "erlang" in lt_type:
             # Erlang(k, theta): sd = mean / sqrt(k)
             sd = mean / math.sqrt(stages)
+            cover = int(math.ceil(mean + 1.65 * sd))
         elif "constant" in lt_type:
             sd = 0.0
+            cover = int(math.ceil(mean + 1.65 * sd))
         else:
             # Fallback dispersion used in sampling branch.
             sd = max(0.25, 0.30 * mean)
-        cover = int(math.ceil(mean + 1.65 * sd))
+            cover = int(math.ceil(mean + 1.65 * sd))
     delay_limit = int(round(max(1.0, to_float(lane.get("delay_step_limit"), 999.0))))
     return max(1, min(cover, delay_limit))
 
@@ -1177,6 +1242,7 @@ def derive_supplier_daily_capacity_by_pair(
     stock: dict[tuple[str, str], float],
     default_review_period_days: int,
     stochastic_lead_times: bool,
+    lead_time_distribution_mode: str,
 ) -> tuple[dict[tuple[str, str], float], list[dict[str, Any]]]:
     node_by_id = {str(n.get("id")): n for n in nodes}
     capacity_by_pair: dict[tuple[str, str], float] = {}
@@ -1210,7 +1276,7 @@ def derive_supplier_daily_capacity_by_pair(
                     1.0,
                     float(review_days),
                     float(lane.get("order_frequency_days", 1)),
-                    float(lead_time_cover_days(lane, stochastic_lead_times)),
+                    float(lead_time_cover_days(lane, stochastic_lead_times, lead_time_distribution_mode)),
                 )
                 standard_hints.append(standard_qty / hint_days)
 
@@ -1308,6 +1374,7 @@ def derive_unmodeled_supplier_source_policies(
     default_review_period_days: int,
     safety_stock_days: float,
     stochastic_lead_times: bool,
+    lead_time_distribution_mode: str,
 ) -> tuple[dict[tuple[str, str], dict[str, Any]], list[dict[str, Any]]]:
     node_by_id = {str(n.get("id")): n for n in nodes}
     policies: dict[tuple[str, str], dict[str, Any]] = {}
@@ -1320,7 +1387,10 @@ def derive_unmodeled_supplier_source_policies(
         src, item_id = src_pair
         node = node_by_id.get(src, {})
         review_days = node_review_period_days(node, default_review_period_days)
-        lead_cover_days = max([lead_time_cover_days(lane, stochastic_lead_times) for lane in lane_list] or [1])
+        lead_cover_days = max(
+            [lead_time_cover_days(lane, stochastic_lead_times, lead_time_distribution_mode) for lane in lane_list]
+            or [1]
+        )
         order_frequency_days = max(
             [int(round(max(1.0, to_float(lane.get("order_frequency_days"), 1.0)))) for lane in lane_list] or [1]
         )
@@ -1818,6 +1888,12 @@ def main() -> None:
         review_period_days=review_period_days,
         safety_stock_days=safety_stock_days,
     )
+    lead_time_policy_cfg = scenario_policy_dict(scenario, "lead_time_policy")
+    lead_time_distribution_mode = normalize_lead_time_distribution_mode(
+        args.lead_time_distribution_mode
+        or lead_time_policy_cfg.get("distribution_mode")
+        or "erlang"
+    )
     economic_policy_cfg = scenario_policy_dict(scenario, "economic_policy")
     unmodeled_supplier_source_mode = str(scenario.get("unmodeled_supplier_source_mode", "external_procurement")).strip().lower()
     if unmodeled_supplier_source_mode not in {
@@ -2225,7 +2301,11 @@ def main() -> None:
     pair_stock_cover_days: dict[tuple[str, str], int] = {}
     for pair, lane_list in lanes_by_dest_item.items():
         pair_max_lead_days[pair] = max(int(to_float(l.get("lead_days"), 1.0)) for l in lane_list) if lane_list else 1
-        max_cover = max(lead_time_cover_days(l, args.stochastic_lead_times) for l in lane_list) if lane_list else 1
+        max_cover = (
+            max(lead_time_cover_days(l, args.stochastic_lead_times, lead_time_distribution_mode) for l in lane_list)
+            if lane_list
+            else 1
+        )
         pair_stock_cover_days[pair] = (
             max_cover + review_period_days + int(math.ceil(pair_mrp_safety_time_days.get(pair, 0.0)))
         )
@@ -2335,7 +2415,11 @@ def main() -> None:
             if node_id not in supplier_node_ids or daily_signal <= 0:
                 continue
             downstream_cover_days = max(
-                [lead_time_cover_days(l, args.stochastic_lead_times) for l in lanes_by_src_item.get(pair, [])] or [1]
+                [
+                    lead_time_cover_days(l, args.stochastic_lead_times, lead_time_distribution_mode)
+                    for l in lanes_by_src_item.get(pair, [])
+                ]
+                or [1]
             )
             process_tau_days = process_tau_days_by_pair.get(pair, 0.0)
             cover_days = max(
@@ -2375,6 +2459,7 @@ def main() -> None:
         stock=stock,
         default_review_period_days=review_period_days,
         stochastic_lead_times=args.stochastic_lead_times,
+        lead_time_distribution_mode=lead_time_distribution_mode,
     )
     estimated_source_policies, estimated_source_policy_rows = derive_unmodeled_supplier_source_policies(
         externally_sourced_pairs=externally_sourced_pairs,
@@ -2387,6 +2472,7 @@ def main() -> None:
         default_review_period_days=review_period_days,
         safety_stock_days=safety_stock_days,
         stochastic_lead_times=args.stochastic_lead_times,
+        lead_time_distribution_mode=lead_time_distribution_mode,
     )
     if initialization_policy["mode"] == "explicit_state":
         state_scale = initialization_policy["state_scale"]
@@ -2440,7 +2526,7 @@ def main() -> None:
                 return
             fill_ratio = initialization_policy["in_transit_fill_ratio"]
             for lane in lane_list:
-                lead_days = lead_time_cover_days(lane, args.stochastic_lead_times)
+                lead_days = lead_time_cover_days(lane, args.stochastic_lead_times, lead_time_distribution_mode)
                 if lead_days <= 0:
                     continue
                 share = max(0.0, to_float(lane.get("mrp_share"), 0.0))
@@ -2797,6 +2883,7 @@ def main() -> None:
                         safety_time_days=pair_mrp_safety_time_days.get(src_pair, 0.0),
                         lead_days=int(policy["replenishment_lead_days"]),
                         lead_cover_days=int(policy["replenishment_lead_days"]),
+                        lead_reference_days=int(policy["replenishment_lead_days"]),
                     )
                     estimated_source_ordered_today += order_qty
                 estimated_source_rejected_today += max(0.0, desired_order_qty - order_qty)
@@ -3137,6 +3224,7 @@ def main() -> None:
             safety_time_days: float,
             lead_days: int,
             lead_cover_days: int | None = None,
+            lead_reference_days: int | None = None,
             edge_id: str = "",
             reliability: float = 1.0,
             standard_order_qty: float = 0.0,
@@ -3159,6 +3247,7 @@ def main() -> None:
             safety_days_int = int(math.ceil(max(0.0, safety_time_days)))
             cover_need_day = arrival_day + safety_days_int
             effective_lead_cover_days = int(max(1, lead_cover_days if lead_cover_days is not None else lead_days))
+            effective_lead_reference_days = int(max(1, lead_reference_days if lead_reference_days is not None else lead_days))
             order_date_imt = cover_need_day - safety_days_int - effective_lead_cover_days
             release_day_for_output = (
                 int(physical_release_day) if physical_release_day is not None else output_day
@@ -3186,6 +3275,7 @@ def main() -> None:
                     "actual_receipt_day": actual_receipt_day,
                     "implied_cover_need_day": int(cover_need_day - warmup_days),
                     "lead_days": int(lead_days),
+                    "lead_reference_days": int(effective_lead_reference_days),
                     "lead_cover_days": int(effective_lead_cover_days),
                     "safety_time_days": round(max(0.0, safety_time_days), 6),
                     "reliability": round(reliability, 6),
@@ -3261,6 +3351,7 @@ def main() -> None:
                     safety_time_days=pair_mrp_safety_time_days.get(src_pair, 0.0),
                     lead_days=ext_lead_days,
                     lead_cover_days=ext_lead_days,
+                    lead_reference_days=ext_lead_days,
                 )
                 ref_lane_purchase = max(
                     [max(0.0, to_float(lane.get("unit_purchase_cost"), 0.0)) for lane in lanes_by_src_item.get(src_pair, [])]
@@ -3276,8 +3367,6 @@ def main() -> None:
                 ext_transport_cost = ext_order_qty * ext_unit_transport
                 if record_day:
                     external_procured_today += ext_order_qty
-                    purchase_cost_today += ext_purchase_cost
-                    transport_cost_today += ext_transport_cost
                     external_procurement_purchase_cost_today += ext_purchase_cost
                     external_procurement_transport_cost_today += ext_transport_cost
                     total_external_procurement_cost += ext_order_qty * (ext_unit_purchase + ext_unit_transport)
@@ -3410,6 +3499,7 @@ def main() -> None:
                                 safety_time_days=pair_mrp_safety_time_days.get(src_pair, 0.0),
                                 lead_days=ext_lead_days,
                                 lead_cover_days=ext_lead_days,
+                                lead_reference_days=ext_lead_days,
                             )
                             if record_day:
                                 external_procured_today += ext_order_qty
@@ -3427,8 +3517,6 @@ def main() -> None:
                             if record_day:
                                 ext_purchase_cost = ext_order_qty * ext_unit_purchase
                                 ext_transport_cost = ext_order_qty * ext_unit_transport
-                                purchase_cost_today += ext_purchase_cost
-                                transport_cost_today += ext_transport_cost
                                 external_procurement_purchase_cost_today += ext_purchase_cost
                                 external_procurement_transport_cost_today += ext_transport_cost
                                 total_external_procurement_cost += ext_order_cost
@@ -3465,8 +3553,9 @@ def main() -> None:
 
                 stock[src_pair] -= pull_qty
                 supplier_capacity_used_today_by_src_pair[src_pair] += pull_qty
-                lead_days = sample_lead_days(lane, rng, args.stochastic_lead_times)
-                lead_cover = lead_time_cover_days(lane, args.stochastic_lead_times)
+                lead_days = sample_lead_days(lane, rng, args.stochastic_lead_times, lead_time_distribution_mode)
+                lead_cover = lead_time_cover_days(lane, args.stochastic_lead_times, lead_time_distribution_mode)
+                lead_reference = lead_time_reference_days(lane)
                 order_frequency_days = max(1, int(round(max(1.0, to_float(lane.get("order_frequency_days"), 1.0)))))
                 delivery_schedule: list[tuple[int, float, float]] = []
                 if standard_order_qty > 1e-9 and pull_qty > standard_order_qty + 1e-9:
@@ -3506,6 +3595,7 @@ def main() -> None:
                         safety_time_days=pair_mrp_safety_time_days.get(pair, 0.0),
                         lead_days=lead_days,
                         lead_cover_days=lead_cover,
+                        lead_reference_days=lead_reference,
                         edge_id=str(lane["edge_id"]),
                         reliability=rel,
                         standard_order_qty=standard_order_qty,
@@ -3963,6 +4053,7 @@ def main() -> None:
             "opening_stock_bootstrap_scale": opening_stock_bootstrap_scale,
             "unmodeled_supplier_source_mode": unmodeled_supplier_source_mode,
             "stochastic_lead_times": bool(args.stochastic_lead_times),
+            "lead_time_distribution_mode": lead_time_distribution_mode,
             "seed": int(args.seed),
             "initialization_policy": {
                 "mode": initialization_policy["mode"],
@@ -4488,6 +4579,7 @@ def main() -> None:
                 "actual_receipt_day",
                 "implied_cover_need_day",
                 "lead_days",
+                "lead_reference_days",
                 "lead_cover_days",
                 "safety_time_days",
                 "reliability",
@@ -4852,6 +4944,7 @@ def main() -> None:
 - Soft safety-time physical stock target factor: {summary['policy']['initialization_policy']['soft_safety_time_stock_target_factor']}
 - Unmodeled supplier source mode: {summary['policy']['unmodeled_supplier_source_mode']}
 - Stochastic lead times: {summary['policy']['stochastic_lead_times']}
+- Lead-time distribution mode: {summary['policy']['lead_time_distribution_mode']}
 - Random seed: {summary['policy']['seed']}
 - Economic policy transport floor /km: {summary['policy']['economic_policy']['transport_cost_floor_per_unit']} / {summary['policy']['economic_policy']['transport_cost_per_km_per_unit']}
 - Economic policy purchase floor: {summary['policy']['economic_policy']['purchase_cost_floor_per_unit']}
