@@ -4,6 +4,7 @@
   "sim_days": 1825,
   "warmup_days": 0,
   "timeline_days": 1825,
+  "total_simulated_timeline_days": 1825,
   "policy": {
     "safety_stock_days": 7.0,
     "review_period_days": 1,
@@ -13,10 +14,11 @@
     "production_smoothing": 0.2,
     "warmup_days": 0,
     "reset_backlog_after_warmup": false,
-    "output_profile": "compact",
+    "output_profile": "full",
     "opening_stock_bootstrap_scale": 1.0,
     "unmodeled_supplier_source_mode": "external_procurement",
     "stochastic_lead_times": true,
+    "lead_time_distribution_mode": "erlang",
     "seed": 42,
     "initialization_policy": {
       "mode": "explicit_state",
@@ -27,7 +29,17 @@
       "customer_on_hand_days": 0.0,
       "seed_in_transit": true,
       "in_transit_fill_ratio": 1.0,
-      "seed_estimated_source_pipeline": true
+      "seed_estimated_source_pipeline": true,
+      "restore_opening_stock_after_warmup": false,
+      "seed_open_orders_from_january_snapshot": false,
+      "opening_open_orders_horizon_days": 0,
+      "opening_open_orders_demand_multiplier": 1.0,
+      "use_bom_demand_signal_for_mrp": false,
+      "mrp_demand_signal_source": "demand",
+      "mrp_demand_signal_smoothing_days": 1,
+      "mrp_static_fallback_for_propagated_pairs": true,
+      "mrp_enforce_physical_safety_floor": false,
+      "soft_safety_time_stock_target_factor": 0.75
     },
     "economic_policy": {
       "transport_cost_floor_per_unit": 0.02,
@@ -40,6 +52,7 @@
       "transport_cost_realism_multiplier": 0.2,
       "purchase_cost_realism_multiplier": 1.0,
       "external_procurement_enabled": true,
+      "external_procurement_proactive_replenishment": true,
       "external_procurement_lead_days": 4,
       "external_procurement_daily_cap_days": 2.0,
       "external_procurement_min_daily_cap_qty": 0.0,
@@ -49,9 +62,9 @@
     }
   },
   "counts": {
-    "nodes": 34,
-    "edges": 44,
-    "lanes": 44,
+    "nodes": 33,
+    "edges": 39,
+    "lanes": 39,
     "demand_rows": 2
   },
   "production_tracking": {
@@ -313,10 +326,6 @@
     "assumed_supply_edges": [],
     "externally_sourced_unmodeled_pairs": [
       {
-        "node_id": "M-1450",
-        "item_id": "item:773474"
-      },
-      {
         "node_id": "SDC-1450",
         "item_id": "item:693055"
       },
@@ -465,22 +474,13 @@
         "target_opening_stock": 30800.0
       },
       {
-        "node_id": "SDC-1450",
-        "item_id": "item:693055",
-        "category": "estimated_source_on_hand",
-        "daily_signal": 82285714.285714,
-        "cover_days": 28.0,
-        "added_opening_qty": 513956.4,
-        "target_opening_stock": 2313956.4
-      },
-      {
         "node_id": "SDC-VD0500655A",
         "item_id": "item:002612",
         "category": "estimated_source_on_hand",
         "daily_signal": 165282.6,
         "cover_days": 28.0,
-        "added_opening_qty": 2712.4455,
-        "target_opening_stock": 2892.4455
+        "added_opening_qty": 21420.0,
+        "target_opening_stock": 21600.0
       },
       {
         "node_id": "SDC-VD0505677A",
@@ -515,8 +515,8 @@
         "category": "estimated_source_on_hand",
         "daily_signal": 628073.88,
         "cover_days": 28.0,
-        "added_opening_qty": 14475.0572,
-        "target_opening_stock": 14655.0572
+        "added_opening_qty": 22620.0,
+        "target_opening_stock": 22800.0
       },
       {
         "node_id": "SDC-VD0519670A",
@@ -524,8 +524,8 @@
         "category": "estimated_source_on_hand",
         "daily_signal": 99169.56,
         "cover_days": 27.0,
-        "added_opening_qty": 3166.97265,
-        "target_opening_stock": 3346.97265
+        "added_opening_qty": 3820.0,
+        "target_opening_stock": 4000.0
       },
       {
         "node_id": "SDC-VD0519670A",
@@ -533,8 +533,8 @@
         "category": "estimated_source_on_hand",
         "daily_signal": 8228.571429,
         "cover_days": 28.0,
-        "added_opening_qty": 51.39564,
-        "target_opening_stock": 231.39564
+        "added_opening_qty": 120.0,
+        "target_opening_stock": 300.0
       },
       {
         "node_id": "SDC-VD0520115A",
@@ -587,8 +587,8 @@
         "category": "estimated_source_on_hand",
         "daily_signal": 628073.88,
         "cover_days": 28.0,
-        "added_opening_qty": 14475.0572,
-        "target_opening_stock": 14655.0572
+        "added_opening_qty": 23740.0,
+        "target_opening_stock": 23920.0
       },
       {
         "node_id": "SDC-VD0910216A",
@@ -596,8 +596,8 @@
         "category": "estimated_source_on_hand",
         "daily_signal": 165282.6,
         "cover_days": 28.0,
-        "added_opening_qty": 2712.4455,
-        "target_opening_stock": 2892.4455
+        "added_opening_qty": 22320.0,
+        "target_opening_stock": 22500.0
       },
       {
         "node_id": "SDC-VD0914320A",
@@ -605,8 +605,8 @@
         "category": "estimated_source_on_hand",
         "daily_signal": 8228.571429,
         "cover_days": 27.0,
-        "added_opening_qty": 43.13151,
-        "target_opening_stock": 223.13151
+        "added_opening_qty": 120.0,
+        "target_opening_stock": 300.0
       },
       {
         "node_id": "SDC-VD0914360C",
@@ -650,8 +650,8 @@
         "category": "estimated_source_on_hand",
         "daily_signal": 99169.56,
         "cover_days": 28.0,
-        "added_opening_qty": 3290.9346,
-        "target_opening_stock": 3470.9346
+        "added_opening_qty": 5820.0,
+        "target_opening_stock": 6000.0
       },
       {
         "node_id": "SDC-VD0951020A",
@@ -686,8 +686,8 @@
         "category": "estimated_source_on_hand",
         "daily_signal": 8228.571429,
         "cover_days": 28.0,
-        "added_opening_qty": 51.39564,
-        "target_opening_stock": 231.39564
+        "added_opening_qty": 120.0,
+        "target_opening_stock": 300.0
       },
       {
         "node_id": "SDC-VD0972460A",
@@ -722,8 +722,8 @@
         "category": "estimated_source_on_hand",
         "daily_signal": 165282.6,
         "cover_days": 28.0,
-        "added_opening_qty": 2712.4455,
-        "target_opening_stock": 2892.4455
+        "added_opening_qty": 23570.0,
+        "target_opening_stock": 23750.0
       },
       {
         "node_id": "SDC-VD0993480A",
@@ -740,8 +740,8 @@
         "category": "estimated_source_on_hand",
         "daily_signal": 628073.88,
         "cover_days": 28.0,
-        "added_opening_qty": 14475.0572,
-        "target_opening_stock": 14655.0572
+        "added_opening_qty": 20720.0,
+        "target_opening_stock": 20900.0
       },
       {
         "node_id": "SDC-VD1091642A",
@@ -749,8 +749,8 @@
         "category": "estimated_source_on_hand",
         "daily_signal": 165282.6,
         "cover_days": 28.0,
-        "added_opening_qty": 2712.4455,
-        "target_opening_stock": 2892.4455
+        "added_opening_qty": 22320.0,
+        "target_opening_stock": 22500.0
       },
       {
         "node_id": "SDC-VD1095770A",
@@ -767,8 +767,8 @@
         "category": "estimated_source_on_hand",
         "daily_signal": 8228.571429,
         "cover_days": 28.0,
-        "added_opening_qty": 51.39564,
-        "target_opening_stock": 231.39564
+        "added_opening_qty": 270.0,
+        "target_opening_stock": 450.0
       }
     ],
     "explicit_initialization_pipeline_rows": [
@@ -848,17 +848,9 @@
         "node_id": "M-1430",
         "item_id": "item:773474",
         "category": "factory_input_in_transit",
-        "seeded_pipeline_qty": 19774793.4076,
+        "seeded_pipeline_qty": 28249704.868,
         "lead_days": 19,
         "lane_src": "SDC-1450"
-      },
-      {
-        "node_id": "M-1430",
-        "item_id": "item:773474",
-        "category": "factory_input_in_transit",
-        "seeded_pipeline_qty": 1784191.8864,
-        "lead_days": 4,
-        "lane_src": "M-1450"
       },
       {
         "node_id": "M-1810",
@@ -1047,7 +1039,7 @@
       {
         "node_id": "SDC-1450",
         "item_id": "item:021081",
-        "category": "process_node_input_in_transit",
+        "category": "factory_input_in_transit",
         "seeded_pipeline_qty": 685251.0,
         "lead_days": 219,
         "lane_src": "SDC-VD0949099A"
@@ -1055,7 +1047,7 @@
       {
         "node_id": "SDC-1450",
         "item_id": "item:021081",
-        "category": "process_node_input_in_transit",
+        "category": "factory_input_in_transit",
         "seeded_pipeline_qty": 195786.0,
         "lead_days": 219,
         "lane_src": "SDC-VD0960508A"
@@ -1063,7 +1055,7 @@
       {
         "node_id": "SDC-1450",
         "item_id": "item:021081",
-        "category": "process_node_input_in_transit",
+        "category": "factory_input_in_transit",
         "seeded_pipeline_qty": 48946.5,
         "lead_days": 219,
         "lane_src": "SDC-VD0972460A"
@@ -1071,18 +1063,10 @@
       {
         "node_id": "SDC-1450",
         "item_id": "item:021081",
-        "category": "process_node_input_in_transit",
+        "category": "factory_input_in_transit",
         "seeded_pipeline_qty": 48946.5,
         "lead_days": 219,
         "lane_src": "SDC-VD0975221A"
-      },
-      {
-        "node_id": "SDC-1450",
-        "item_id": "item:693055",
-        "category": "estimated_source_in_transit",
-        "seeded_pipeline_qty": 34560000.0,
-        "lead_days": 21,
-        "lane_src": "unmodeled_source"
       },
       {
         "node_id": "SDC-VD0500655A",
@@ -1349,6 +1333,7 @@
         "lane_src": "unmodeled_source"
       }
     ],
+    "opening_open_order_rows": [],
     "pair_mrp_safety_policies": [
       {
         "node_id": "DC-1920",
@@ -1378,7 +1363,7 @@
         "node_id": "M-1430",
         "item_id": "item:333362",
         "safety_time_days": 10.0,
-        "safety_stock_qty": 110000.0
+        "safety_stock_qty": 0.0
       },
       {
         "node_id": "M-1430",
@@ -1390,13 +1375,13 @@
         "node_id": "M-1430",
         "item_id": "item:708073",
         "safety_time_days": 10.0,
-        "safety_stock_qty": 2000.0
+        "safety_stock_qty": 0.0
       },
       {
         "node_id": "M-1430",
         "item_id": "item:730384",
         "safety_time_days": 10.0,
-        "safety_stock_qty": 23500.0
+        "safety_stock_qty": 0.0
       },
       {
         "node_id": "M-1430",
@@ -1462,7 +1447,7 @@
         "node_id": "M-1810",
         "item_id": "item:049371",
         "safety_time_days": 40.0,
-        "safety_stock_qty": 888.0
+        "safety_stock_qty": 0.0
       },
       {
         "node_id": "M-1810",
@@ -1501,6 +1486,983 @@
         "safety_stock_qty": 0.0
       }
     ],
+    "safety_stock_reference": [
+      {
+        "scope": "finished_good",
+        "node_id": "C-XXXXX",
+        "item_id": "item:268091",
+        "uom": "UN",
+        "safety_time_days": 0.0,
+        "planned_avg_daily_demand_qty": 1900.0,
+        "observed_avg_daily_flow_qty": 9798.471233,
+        "stock_equiv_safety_time_qty": 0.0,
+        "explicit_safety_stock_qty": 0.0,
+        "effective_reference_stock_qty": 0.0,
+        "soft_simulated_target_qty": 0.0,
+        "soft_safety_factor": 0.75,
+        "served_avg_daily_qty": 9798.471233
+      },
+      {
+        "scope": "finished_good",
+        "node_id": "C-XXXXX",
+        "item_id": "item:268967",
+        "uom": "UN",
+        "safety_time_days": 0.0,
+        "planned_avg_daily_demand_qty": 2562.857143,
+        "observed_avg_daily_flow_qty": 4317.769863,
+        "stock_equiv_safety_time_qty": 0.0,
+        "explicit_safety_stock_qty": 0.0,
+        "effective_reference_stock_qty": 0.0,
+        "soft_simulated_target_qty": 0.0,
+        "soft_safety_factor": 0.75,
+        "served_avg_daily_qty": 4317.769863
+      },
+      {
+        "scope": "finished_good",
+        "node_id": "DC-1920",
+        "item_id": "item:268091",
+        "uom": "UN",
+        "safety_time_days": 20.0,
+        "planned_avg_daily_demand_qty": 1900.0,
+        "observed_avg_daily_flow_qty": 0.0,
+        "stock_equiv_safety_time_qty": 38000.0,
+        "explicit_safety_stock_qty": 0.0,
+        "effective_reference_stock_qty": 38000.0,
+        "soft_simulated_target_qty": 28500.0,
+        "soft_safety_factor": 0.75,
+        "served_avg_daily_qty": 0.0
+      },
+      {
+        "scope": "finished_good",
+        "node_id": "DC-1920",
+        "item_id": "item:268967",
+        "uom": "UN",
+        "safety_time_days": 25.0,
+        "planned_avg_daily_demand_qty": 2562.857143,
+        "observed_avg_daily_flow_qty": 0.0,
+        "stock_equiv_safety_time_qty": 64071.428575,
+        "explicit_safety_stock_qty": 0.0,
+        "effective_reference_stock_qty": 64071.428575,
+        "soft_simulated_target_qty": 48053.571431,
+        "soft_safety_factor": 0.75,
+        "served_avg_daily_qty": 0.0
+      },
+      {
+        "scope": "input_material",
+        "node_id": "M-1430",
+        "item_id": "item:038005",
+        "uom": "KG",
+        "safety_time_days": 20.0,
+        "planned_avg_daily_demand_qty": 2694.873104,
+        "observed_avg_daily_flow_qty": 76.490097,
+        "stock_equiv_safety_time_qty": 53897.46208,
+        "explicit_safety_stock_qty": 0.0,
+        "effective_reference_stock_qty": 53897.46208,
+        "soft_simulated_target_qty": 40423.09656,
+        "soft_safety_factor": 0.75,
+        "served_avg_daily_qty": 0.0
+      },
+      {
+        "scope": "input_material",
+        "node_id": "M-1430",
+        "item_id": "item:042342",
+        "uom": "UN",
+        "safety_time_days": 5.0,
+        "planned_avg_daily_demand_qty": 9292668.0,
+        "observed_avg_daily_flow_qty": 263759.015014,
+        "stock_equiv_safety_time_qty": 46463340.0,
+        "explicit_safety_stock_qty": 0.0,
+        "effective_reference_stock_qty": 46463340.0,
+        "soft_simulated_target_qty": 34847505.0,
+        "soft_safety_factor": 0.75,
+        "served_avg_daily_qty": 0.0
+      },
+      {
+        "scope": "semi_finished_or_output",
+        "node_id": "M-1430",
+        "item_id": "item:268967",
+        "uom": "UN",
+        "safety_time_days": 0.0,
+        "planned_avg_daily_demand_qty": 2562.857143,
+        "observed_avg_daily_flow_qty": 4371.068493,
+        "stock_equiv_safety_time_qty": 0.0,
+        "explicit_safety_stock_qty": 0.0,
+        "effective_reference_stock_qty": 0.0,
+        "soft_simulated_target_qty": 0.0,
+        "soft_safety_factor": 0.75,
+        "served_avg_daily_qty": 0.0
+      },
+      {
+        "scope": "input_material",
+        "node_id": "M-1430",
+        "item_id": "item:333362",
+        "uom": "UN",
+        "safety_time_days": 10.0,
+        "planned_avg_daily_demand_qty": 154000.0,
+        "observed_avg_daily_flow_qty": 4371.068493,
+        "stock_equiv_safety_time_qty": 1540000.0,
+        "explicit_safety_stock_qty": 0.0,
+        "effective_reference_stock_qty": 1540000.0,
+        "soft_simulated_target_qty": 1155000.0,
+        "soft_safety_factor": 0.75,
+        "served_avg_daily_qty": 0.0
+      },
+      {
+        "scope": "input_material",
+        "node_id": "M-1430",
+        "item_id": "item:344135",
+        "uom": "UN",
+        "safety_time_days": 10.0,
+        "planned_avg_daily_demand_qty": 154000.0,
+        "observed_avg_daily_flow_qty": 4371.068493,
+        "stock_equiv_safety_time_qty": 1540000.0,
+        "explicit_safety_stock_qty": 0.0,
+        "effective_reference_stock_qty": 1540000.0,
+        "soft_simulated_target_qty": 1155000.0,
+        "soft_safety_factor": 0.75,
+        "served_avg_daily_qty": 0.0
+      },
+      {
+        "scope": "input_material",
+        "node_id": "M-1430",
+        "item_id": "item:708073",
+        "uom": "KG",
+        "safety_time_days": 10.0,
+        "planned_avg_daily_demand_qty": 1221.22,
+        "observed_avg_daily_flow_qty": 34.662573,
+        "stock_equiv_safety_time_qty": 12212.2,
+        "explicit_safety_stock_qty": 0.0,
+        "effective_reference_stock_qty": 12212.2,
+        "soft_simulated_target_qty": 9159.15,
+        "soft_safety_factor": 0.75,
+        "served_avg_daily_qty": 0.0
+      },
+      {
+        "scope": "input_material",
+        "node_id": "M-1430",
+        "item_id": "item:730384",
+        "uom": "M",
+        "safety_time_days": 10.0,
+        "planned_avg_daily_demand_qty": 32648.0,
+        "observed_avg_daily_flow_qty": 926.666521,
+        "stock_equiv_safety_time_qty": 326480.0,
+        "explicit_safety_stock_qty": 0.0,
+        "effective_reference_stock_qty": 326480.0,
+        "soft_simulated_target_qty": 244860.0,
+        "soft_safety_factor": 0.75,
+        "served_avg_daily_qty": 0.0
+      },
+      {
+        "scope": "input_material",
+        "node_id": "M-1430",
+        "item_id": "item:734545",
+        "uom": "UN",
+        "safety_time_days": 10.0,
+        "planned_avg_daily_demand_qty": 1232.0,
+        "observed_avg_daily_flow_qty": 34.968548,
+        "stock_equiv_safety_time_qty": 12320.0,
+        "explicit_safety_stock_qty": 0.0,
+        "effective_reference_stock_qty": 12320.0,
+        "soft_simulated_target_qty": 9240.0,
+        "soft_safety_factor": 0.75,
+        "served_avg_daily_qty": 0.0
+      },
+      {
+        "scope": "input_material",
+        "node_id": "M-1430",
+        "item_id": "item:773474",
+        "uom": "G",
+        "safety_time_days": 20.0,
+        "planned_avg_daily_demand_qty": 1486826.572,
+        "observed_avg_daily_flow_qty": 42201.43366,
+        "stock_equiv_safety_time_qty": 29736531.44,
+        "explicit_safety_stock_qty": 0.0,
+        "effective_reference_stock_qty": 29736531.44,
+        "soft_simulated_target_qty": 22302398.58,
+        "soft_safety_factor": 0.75,
+        "served_avg_daily_qty": 0.0
+      },
+      {
+        "scope": "input_material",
+        "node_id": "M-1810",
+        "item_id": "item:001757",
+        "uom": "KG",
+        "safety_time_days": 20.0,
+        "planned_avg_daily_demand_qty": 330.5652,
+        "observed_avg_daily_flow_qty": 16.13286,
+        "stock_equiv_safety_time_qty": 6611.304,
+        "explicit_safety_stock_qty": 0.0,
+        "effective_reference_stock_qty": 6611.304,
+        "soft_simulated_target_qty": 4958.478,
+        "soft_safety_factor": 0.75,
+        "served_avg_daily_qty": 0.0
+      },
+      {
+        "scope": "input_material",
+        "node_id": "M-1810",
+        "item_id": "item:001848",
+        "uom": "KG",
+        "safety_time_days": 20.0,
+        "planned_avg_daily_demand_qty": 247.9239,
+        "observed_avg_daily_flow_qty": 12.099645,
+        "stock_equiv_safety_time_qty": 4958.478,
+        "explicit_safety_stock_qty": 0.0,
+        "effective_reference_stock_qty": 4958.478,
+        "soft_simulated_target_qty": 3718.8585,
+        "soft_safety_factor": 0.75,
+        "served_avg_daily_qty": 0.0
+      },
+      {
+        "scope": "input_material",
+        "node_id": "M-1810",
+        "item_id": "item:001893",
+        "uom": "KG",
+        "safety_time_days": 15.0,
+        "planned_avg_daily_demand_qty": 1570.1847,
+        "observed_avg_daily_flow_qty": 76.631087,
+        "stock_equiv_safety_time_qty": 23552.7705,
+        "explicit_safety_stock_qty": 0.0,
+        "effective_reference_stock_qty": 23552.7705,
+        "soft_simulated_target_qty": 17664.577875,
+        "soft_safety_factor": 0.75,
+        "served_avg_daily_qty": 0.0
+      },
+      {
+        "scope": "input_material",
+        "node_id": "M-1810",
+        "item_id": "item:002612",
+        "uom": "KG",
+        "safety_time_days": 20.0,
+        "planned_avg_daily_demand_qty": 413.2065,
+        "observed_avg_daily_flow_qty": 20.166076,
+        "stock_equiv_safety_time_qty": 8264.13,
+        "explicit_safety_stock_qty": 0.0,
+        "effective_reference_stock_qty": 8264.13,
+        "soft_simulated_target_qty": 6198.0975,
+        "soft_safety_factor": 0.75,
+        "served_avg_daily_qty": 0.0
+      },
+      {
+        "scope": "input_material",
+        "node_id": "M-1810",
+        "item_id": "item:007923",
+        "uom": "KG",
+        "safety_time_days": 15.0,
+        "planned_avg_daily_demand_qty": 661.1304,
+        "observed_avg_daily_flow_qty": 32.265721,
+        "stock_equiv_safety_time_qty": 9916.956,
+        "explicit_safety_stock_qty": 0.0,
+        "effective_reference_stock_qty": 9916.956,
+        "soft_simulated_target_qty": 7437.717,
+        "soft_safety_factor": 0.75,
+        "served_avg_daily_qty": 0.0
+      },
+      {
+        "scope": "input_material",
+        "node_id": "M-1810",
+        "item_id": "item:016332",
+        "uom": "KG",
+        "safety_time_days": 7.0,
+        "planned_avg_daily_demand_qty": 99.16956,
+        "observed_avg_daily_flow_qty": 4.839858,
+        "stock_equiv_safety_time_qty": 694.18692,
+        "explicit_safety_stock_qty": 0.0,
+        "effective_reference_stock_qty": 694.18692,
+        "soft_simulated_target_qty": 520.64019,
+        "soft_safety_factor": 0.75,
+        "served_avg_daily_qty": 0.0
+      },
+      {
+        "scope": "input_material",
+        "node_id": "M-1810",
+        "item_id": "item:029313",
+        "uom": "KG",
+        "safety_time_days": 7.0,
+        "planned_avg_daily_demand_qty": 8.26413,
+        "observed_avg_daily_flow_qty": 0.403322,
+        "stock_equiv_safety_time_qty": 57.84891,
+        "explicit_safety_stock_qty": 0.0,
+        "effective_reference_stock_qty": 57.84891,
+        "soft_simulated_target_qty": 43.386683,
+        "soft_safety_factor": 0.75,
+        "served_avg_daily_qty": 0.0
+      },
+      {
+        "scope": "input_material",
+        "node_id": "M-1810",
+        "item_id": "item:039668",
+        "uom": "KG",
+        "safety_time_days": 7.0,
+        "planned_avg_daily_demand_qty": 8.26413,
+        "observed_avg_daily_flow_qty": 0.403322,
+        "stock_equiv_safety_time_qty": 57.84891,
+        "explicit_safety_stock_qty": 0.0,
+        "effective_reference_stock_qty": 57.84891,
+        "soft_simulated_target_qty": 43.386683,
+        "soft_safety_factor": 0.75,
+        "served_avg_daily_qty": 0.0
+      },
+      {
+        "scope": "input_material",
+        "node_id": "M-1810",
+        "item_id": "item:049371",
+        "uom": "KG",
+        "safety_time_days": 40.0,
+        "planned_avg_daily_demand_qty": 305.77281,
+        "observed_avg_daily_flow_qty": 14.922896,
+        "stock_equiv_safety_time_qty": 12230.9124,
+        "explicit_safety_stock_qty": 0.0,
+        "effective_reference_stock_qty": 12230.9124,
+        "soft_simulated_target_qty": 9173.1843,
+        "soft_safety_factor": 0.75,
+        "served_avg_daily_qty": 0.0
+      },
+      {
+        "scope": "input_material",
+        "node_id": "M-1810",
+        "item_id": "item:055703",
+        "uom": "KG",
+        "safety_time_days": 30.0,
+        "planned_avg_daily_demand_qty": 16.52826,
+        "observed_avg_daily_flow_qty": 0.806643,
+        "stock_equiv_safety_time_qty": 495.8478,
+        "explicit_safety_stock_qty": 0.0,
+        "effective_reference_stock_qty": 495.8478,
+        "soft_simulated_target_qty": 371.88585,
+        "soft_safety_factor": 0.75,
+        "served_avg_daily_qty": 0.0
+      },
+      {
+        "scope": "input_material",
+        "node_id": "M-1810",
+        "item_id": "item:099439",
+        "uom": "KG",
+        "safety_time_days": 7.0,
+        "planned_avg_daily_demand_qty": 413.2065,
+        "observed_avg_daily_flow_qty": 20.166076,
+        "stock_equiv_safety_time_qty": 2892.4455,
+        "explicit_safety_stock_qty": 0.0,
+        "effective_reference_stock_qty": 2892.4455,
+        "soft_simulated_target_qty": 2169.334125,
+        "soft_safety_factor": 0.75,
+        "served_avg_daily_qty": 0.0
+      },
+      {
+        "scope": "semi_finished_or_output",
+        "node_id": "M-1810",
+        "item_id": "item:268091",
+        "uom": "UN",
+        "safety_time_days": 0.0,
+        "planned_avg_daily_demand_qty": 1900.0,
+        "observed_avg_daily_flow_qty": 9934.027397,
+        "stock_equiv_safety_time_qty": 0.0,
+        "explicit_safety_stock_qty": 0.0,
+        "effective_reference_stock_qty": 0.0,
+        "soft_simulated_target_qty": 0.0,
+        "soft_safety_factor": 0.75,
+        "served_avg_daily_qty": 0.0
+      },
+      {
+        "scope": "input_material",
+        "node_id": "M-1810",
+        "item_id": "item:338928",
+        "uom": "UN",
+        "safety_time_days": 10.0,
+        "planned_avg_daily_demand_qty": 203550.0,
+        "observed_avg_daily_flow_qty": 9934.027397,
+        "stock_equiv_safety_time_qty": 2035500.0,
+        "explicit_safety_stock_qty": 0.0,
+        "effective_reference_stock_qty": 2035500.0,
+        "soft_simulated_target_qty": 1526625.0,
+        "soft_safety_factor": 0.75,
+        "served_avg_daily_qty": 0.0
+      },
+      {
+        "scope": "input_material",
+        "node_id": "M-1810",
+        "item_id": "item:338929",
+        "uom": "UN",
+        "safety_time_days": 10.0,
+        "planned_avg_daily_demand_qty": 203550.0,
+        "observed_avg_daily_flow_qty": 9934.027397,
+        "stock_equiv_safety_time_qty": 2035500.0,
+        "explicit_safety_stock_qty": 0.0,
+        "effective_reference_stock_qty": 2035500.0,
+        "soft_simulated_target_qty": 1526625.0,
+        "soft_safety_factor": 0.75,
+        "served_avg_daily_qty": 0.0
+      },
+      {
+        "scope": "input_material",
+        "node_id": "M-1810",
+        "item_id": "item:426331",
+        "uom": "UN",
+        "safety_time_days": 7.0,
+        "planned_avg_daily_demand_qty": 2239.05,
+        "observed_avg_daily_flow_qty": 109.274301,
+        "stock_equiv_safety_time_qty": 15673.35,
+        "explicit_safety_stock_qty": 0.0,
+        "effective_reference_stock_qty": 15673.35,
+        "soft_simulated_target_qty": 11755.0125,
+        "soft_safety_factor": 0.75,
+        "served_avg_daily_qty": 0.0
+      },
+      {
+        "scope": "input_material",
+        "node_id": "M-1810",
+        "item_id": "item:693055",
+        "uom": "G",
+        "safety_time_days": 20.0,
+        "planned_avg_daily_demand_qty": 82641.3,
+        "observed_avg_daily_flow_qty": 4033.215123,
+        "stock_equiv_safety_time_qty": 1652826.0,
+        "explicit_safety_stock_qty": 0.0,
+        "effective_reference_stock_qty": 1652826.0,
+        "soft_simulated_target_qty": 1239619.5,
+        "soft_safety_factor": 0.75,
+        "served_avg_daily_qty": 0.0
+      },
+      {
+        "scope": "input_material",
+        "node_id": "SDC-1450",
+        "item_id": "item:021081",
+        "uom": "KG",
+        "safety_time_days": 0.0,
+        "planned_avg_daily_demand_qty": 4470.0,
+        "observed_avg_daily_flow_qty": 501.619726,
+        "stock_equiv_safety_time_qty": 0.0,
+        "explicit_safety_stock_qty": 0.0,
+        "effective_reference_stock_qty": 0.0,
+        "soft_simulated_target_qty": 0.0,
+        "soft_safety_factor": 0.75,
+        "served_avg_daily_qty": 0.0
+      },
+      {
+        "scope": "supply_pair",
+        "node_id": "SDC-1450",
+        "item_id": "item:693055",
+        "uom": "G",
+        "safety_time_days": 0.0,
+        "planned_avg_daily_demand_qty": 0.0,
+        "observed_avg_daily_flow_qty": 0.0,
+        "stock_equiv_safety_time_qty": 0.0,
+        "explicit_safety_stock_qty": 0.0,
+        "effective_reference_stock_qty": 0.0,
+        "soft_simulated_target_qty": 0.0,
+        "soft_safety_factor": 0.75,
+        "served_avg_daily_qty": 0.0
+      },
+      {
+        "scope": "semi_finished_or_output",
+        "node_id": "SDC-1450",
+        "item_id": "item:773474",
+        "uom": "G",
+        "safety_time_days": 0.0,
+        "planned_avg_daily_demand_qty": 0.0,
+        "observed_avg_daily_flow_qty": 56109.589041,
+        "stock_equiv_safety_time_qty": 0.0,
+        "explicit_safety_stock_qty": 0.0,
+        "effective_reference_stock_qty": 0.0,
+        "soft_simulated_target_qty": 0.0,
+        "soft_safety_factor": 0.75,
+        "served_avg_daily_qty": 0.0
+      },
+      {
+        "scope": "supply_pair",
+        "node_id": "SDC-VD0500655A",
+        "item_id": "item:002612",
+        "uom": "KG",
+        "safety_time_days": 0.0,
+        "planned_avg_daily_demand_qty": 0.0,
+        "observed_avg_daily_flow_qty": 0.0,
+        "stock_equiv_safety_time_qty": 0.0,
+        "explicit_safety_stock_qty": 0.0,
+        "effective_reference_stock_qty": 0.0,
+        "soft_simulated_target_qty": 0.0,
+        "soft_safety_factor": 0.75,
+        "served_avg_daily_qty": 0.0
+      },
+      {
+        "scope": "supply_pair",
+        "node_id": "SDC-VD0505677A",
+        "item_id": "item:099439",
+        "uom": "KG",
+        "safety_time_days": 0.0,
+        "planned_avg_daily_demand_qty": 0.0,
+        "observed_avg_daily_flow_qty": 0.0,
+        "stock_equiv_safety_time_qty": 0.0,
+        "explicit_safety_stock_qty": 0.0,
+        "effective_reference_stock_qty": 0.0,
+        "soft_simulated_target_qty": 0.0,
+        "soft_safety_factor": 0.75,
+        "served_avg_daily_qty": 0.0
+      },
+      {
+        "scope": "supply_pair",
+        "node_id": "SDC-VD0508918A",
+        "item_id": "item:730384",
+        "uom": "M",
+        "safety_time_days": 0.0,
+        "planned_avg_daily_demand_qty": 0.0,
+        "observed_avg_daily_flow_qty": 0.0,
+        "stock_equiv_safety_time_qty": 0.0,
+        "explicit_safety_stock_qty": 0.0,
+        "effective_reference_stock_qty": 0.0,
+        "soft_simulated_target_qty": 0.0,
+        "soft_safety_factor": 0.75,
+        "served_avg_daily_qty": 0.0
+      },
+      {
+        "scope": "supply_pair",
+        "node_id": "SDC-VD0514881A",
+        "item_id": "item:016332",
+        "uom": "KG",
+        "safety_time_days": 0.0,
+        "planned_avg_daily_demand_qty": 0.0,
+        "observed_avg_daily_flow_qty": 0.0,
+        "stock_equiv_safety_time_qty": 0.0,
+        "explicit_safety_stock_qty": 0.0,
+        "effective_reference_stock_qty": 0.0,
+        "soft_simulated_target_qty": 0.0,
+        "soft_safety_factor": 0.75,
+        "served_avg_daily_qty": 0.0
+      },
+      {
+        "scope": "supply_pair",
+        "node_id": "SDC-VD0518684A",
+        "item_id": "item:001893",
+        "uom": "KG",
+        "safety_time_days": 0.0,
+        "planned_avg_daily_demand_qty": 0.0,
+        "observed_avg_daily_flow_qty": 0.0,
+        "stock_equiv_safety_time_qty": 0.0,
+        "explicit_safety_stock_qty": 0.0,
+        "effective_reference_stock_qty": 0.0,
+        "soft_simulated_target_qty": 0.0,
+        "soft_safety_factor": 0.75,
+        "served_avg_daily_qty": 0.0
+      },
+      {
+        "scope": "supply_pair",
+        "node_id": "SDC-VD0519670A",
+        "item_id": "item:001848",
+        "uom": "KG",
+        "safety_time_days": 0.0,
+        "planned_avg_daily_demand_qty": 0.0,
+        "observed_avg_daily_flow_qty": 0.0,
+        "stock_equiv_safety_time_qty": 0.0,
+        "explicit_safety_stock_qty": 0.0,
+        "effective_reference_stock_qty": 0.0,
+        "soft_simulated_target_qty": 0.0,
+        "soft_safety_factor": 0.75,
+        "served_avg_daily_qty": 0.0
+      },
+      {
+        "scope": "supply_pair",
+        "node_id": "SDC-VD0519670A",
+        "item_id": "item:029313",
+        "uom": "KG",
+        "safety_time_days": 0.0,
+        "planned_avg_daily_demand_qty": 0.0,
+        "observed_avg_daily_flow_qty": 0.0,
+        "stock_equiv_safety_time_qty": 0.0,
+        "explicit_safety_stock_qty": 0.0,
+        "effective_reference_stock_qty": 0.0,
+        "soft_simulated_target_qty": 0.0,
+        "soft_safety_factor": 0.75,
+        "served_avg_daily_qty": 0.0
+      },
+      {
+        "scope": "supply_pair",
+        "node_id": "SDC-VD0520115A",
+        "item_id": "item:708073",
+        "uom": "KG",
+        "safety_time_days": 0.0,
+        "planned_avg_daily_demand_qty": 0.0,
+        "observed_avg_daily_flow_qty": 0.0,
+        "stock_equiv_safety_time_qty": 0.0,
+        "explicit_safety_stock_qty": 0.0,
+        "effective_reference_stock_qty": 0.0,
+        "soft_simulated_target_qty": 0.0,
+        "soft_safety_factor": 0.75,
+        "served_avg_daily_qty": 0.0
+      },
+      {
+        "scope": "supply_pair",
+        "node_id": "SDC-VD0520132A",
+        "item_id": "item:038005",
+        "uom": "KG",
+        "safety_time_days": 0.0,
+        "planned_avg_daily_demand_qty": 0.0,
+        "observed_avg_daily_flow_qty": 0.0,
+        "stock_equiv_safety_time_qty": 0.0,
+        "explicit_safety_stock_qty": 0.0,
+        "effective_reference_stock_qty": 0.0,
+        "soft_simulated_target_qty": 0.0,
+        "soft_safety_factor": 0.75,
+        "served_avg_daily_qty": 0.0
+      },
+      {
+        "scope": "supply_pair",
+        "node_id": "SDC-VD0520132A",
+        "item_id": "item:049371",
+        "uom": "KG",
+        "safety_time_days": 0.0,
+        "planned_avg_daily_demand_qty": 0.0,
+        "observed_avg_daily_flow_qty": 0.0,
+        "stock_equiv_safety_time_qty": 0.0,
+        "explicit_safety_stock_qty": 0.0,
+        "effective_reference_stock_qty": 0.0,
+        "soft_simulated_target_qty": 0.0,
+        "soft_safety_factor": 0.75,
+        "served_avg_daily_qty": 0.0
+      },
+      {
+        "scope": "supply_pair",
+        "node_id": "SDC-VD0525412A",
+        "item_id": "item:333362",
+        "uom": "UN",
+        "safety_time_days": 0.0,
+        "planned_avg_daily_demand_qty": 0.0,
+        "observed_avg_daily_flow_qty": 0.0,
+        "stock_equiv_safety_time_qty": 0.0,
+        "explicit_safety_stock_qty": 0.0,
+        "effective_reference_stock_qty": 0.0,
+        "soft_simulated_target_qty": 0.0,
+        "soft_safety_factor": 0.75,
+        "served_avg_daily_qty": 0.0
+      },
+      {
+        "scope": "supply_pair",
+        "node_id": "SDC-VD0901566A",
+        "item_id": "item:338928",
+        "uom": "UN",
+        "safety_time_days": 0.0,
+        "planned_avg_daily_demand_qty": 0.0,
+        "observed_avg_daily_flow_qty": 0.0,
+        "stock_equiv_safety_time_qty": 0.0,
+        "explicit_safety_stock_qty": 0.0,
+        "effective_reference_stock_qty": 0.0,
+        "soft_simulated_target_qty": 0.0,
+        "soft_safety_factor": 0.75,
+        "served_avg_daily_qty": 0.0
+      },
+      {
+        "scope": "supply_pair",
+        "node_id": "SDC-VD0910216A",
+        "item_id": "item:001893",
+        "uom": "KG",
+        "safety_time_days": 0.0,
+        "planned_avg_daily_demand_qty": 0.0,
+        "observed_avg_daily_flow_qty": 0.0,
+        "stock_equiv_safety_time_qty": 0.0,
+        "explicit_safety_stock_qty": 0.0,
+        "effective_reference_stock_qty": 0.0,
+        "soft_simulated_target_qty": 0.0,
+        "soft_safety_factor": 0.75,
+        "served_avg_daily_qty": 0.0
+      },
+      {
+        "scope": "supply_pair",
+        "node_id": "SDC-VD0910216A",
+        "item_id": "item:002612",
+        "uom": "KG",
+        "safety_time_days": 0.0,
+        "planned_avg_daily_demand_qty": 0.0,
+        "observed_avg_daily_flow_qty": 0.0,
+        "stock_equiv_safety_time_qty": 0.0,
+        "explicit_safety_stock_qty": 0.0,
+        "effective_reference_stock_qty": 0.0,
+        "soft_simulated_target_qty": 0.0,
+        "soft_safety_factor": 0.75,
+        "served_avg_daily_qty": 0.0
+      },
+      {
+        "scope": "supply_pair",
+        "node_id": "SDC-VD0914320A",
+        "item_id": "item:055703",
+        "uom": "KG",
+        "safety_time_days": 0.0,
+        "planned_avg_daily_demand_qty": 0.0,
+        "observed_avg_daily_flow_qty": 0.0,
+        "stock_equiv_safety_time_qty": 0.0,
+        "explicit_safety_stock_qty": 0.0,
+        "effective_reference_stock_qty": 0.0,
+        "soft_simulated_target_qty": 0.0,
+        "soft_safety_factor": 0.75,
+        "served_avg_daily_qty": 0.0
+      },
+      {
+        "scope": "supply_pair",
+        "node_id": "SDC-VD0914360C",
+        "item_id": "item:338929",
+        "uom": "UN",
+        "safety_time_days": 0.0,
+        "planned_avg_daily_demand_qty": 0.0,
+        "observed_avg_daily_flow_qty": 0.0,
+        "stock_equiv_safety_time_qty": 0.0,
+        "explicit_safety_stock_qty": 0.0,
+        "effective_reference_stock_qty": 0.0,
+        "soft_simulated_target_qty": 0.0,
+        "soft_safety_factor": 0.75,
+        "served_avg_daily_qty": 0.0
+      },
+      {
+        "scope": "supply_pair",
+        "node_id": "SDC-VD0914690A",
+        "item_id": "item:042342",
+        "uom": "UN",
+        "safety_time_days": 0.0,
+        "planned_avg_daily_demand_qty": 0.0,
+        "observed_avg_daily_flow_qty": 0.0,
+        "stock_equiv_safety_time_qty": 0.0,
+        "explicit_safety_stock_qty": 0.0,
+        "effective_reference_stock_qty": 0.0,
+        "soft_simulated_target_qty": 0.0,
+        "soft_safety_factor": 0.75,
+        "served_avg_daily_qty": 0.0
+      },
+      {
+        "scope": "supply_pair",
+        "node_id": "SDC-VD0949099A",
+        "item_id": "item:021081",
+        "uom": "KG",
+        "safety_time_days": 0.0,
+        "planned_avg_daily_demand_qty": 0.0,
+        "observed_avg_daily_flow_qty": 0.0,
+        "stock_equiv_safety_time_qty": 0.0,
+        "explicit_safety_stock_qty": 0.0,
+        "effective_reference_stock_qty": 0.0,
+        "soft_simulated_target_qty": 0.0,
+        "soft_safety_factor": 0.75,
+        "served_avg_daily_qty": 0.0
+      },
+      {
+        "scope": "supply_pair",
+        "node_id": "SDC-VD0951020A",
+        "item_id": "item:001757",
+        "uom": "KG",
+        "safety_time_days": 0.0,
+        "planned_avg_daily_demand_qty": 0.0,
+        "observed_avg_daily_flow_qty": 0.0,
+        "stock_equiv_safety_time_qty": 0.0,
+        "explicit_safety_stock_qty": 0.0,
+        "effective_reference_stock_qty": 0.0,
+        "soft_simulated_target_qty": 0.0,
+        "soft_safety_factor": 0.75,
+        "served_avg_daily_qty": 0.0
+      },
+      {
+        "scope": "supply_pair",
+        "node_id": "SDC-VD0951020A",
+        "item_id": "item:001848",
+        "uom": "KG",
+        "safety_time_days": 0.0,
+        "planned_avg_daily_demand_qty": 0.0,
+        "observed_avg_daily_flow_qty": 0.0,
+        "stock_equiv_safety_time_qty": 0.0,
+        "explicit_safety_stock_qty": 0.0,
+        "effective_reference_stock_qty": 0.0,
+        "soft_simulated_target_qty": 0.0,
+        "soft_safety_factor": 0.75,
+        "served_avg_daily_qty": 0.0
+      },
+      {
+        "scope": "supply_pair",
+        "node_id": "SDC-VD0951020A",
+        "item_id": "item:007923",
+        "uom": "KG",
+        "safety_time_days": 0.0,
+        "planned_avg_daily_demand_qty": 0.0,
+        "observed_avg_daily_flow_qty": 0.0,
+        "stock_equiv_safety_time_qty": 0.0,
+        "explicit_safety_stock_qty": 0.0,
+        "effective_reference_stock_qty": 0.0,
+        "soft_simulated_target_qty": 0.0,
+        "soft_safety_factor": 0.75,
+        "served_avg_daily_qty": 0.0
+      },
+      {
+        "scope": "supply_pair",
+        "node_id": "SDC-VD0956464A",
+        "item_id": "item:007923",
+        "uom": "KG",
+        "safety_time_days": 0.0,
+        "planned_avg_daily_demand_qty": 0.0,
+        "observed_avg_daily_flow_qty": 0.0,
+        "stock_equiv_safety_time_qty": 0.0,
+        "explicit_safety_stock_qty": 0.0,
+        "effective_reference_stock_qty": 0.0,
+        "soft_simulated_target_qty": 0.0,
+        "soft_safety_factor": 0.75,
+        "served_avg_daily_qty": 0.0
+      },
+      {
+        "scope": "supply_pair",
+        "node_id": "SDC-VD0960508A",
+        "item_id": "item:021081",
+        "uom": "KG",
+        "safety_time_days": 0.0,
+        "planned_avg_daily_demand_qty": 0.0,
+        "observed_avg_daily_flow_qty": 0.0,
+        "stock_equiv_safety_time_qty": 0.0,
+        "explicit_safety_stock_qty": 0.0,
+        "effective_reference_stock_qty": 0.0,
+        "soft_simulated_target_qty": 0.0,
+        "soft_safety_factor": 0.75,
+        "served_avg_daily_qty": 0.0
+      },
+      {
+        "scope": "supply_pair",
+        "node_id": "SDC-VD0964290A",
+        "item_id": "item:055703",
+        "uom": "KG",
+        "safety_time_days": 0.0,
+        "planned_avg_daily_demand_qty": 0.0,
+        "observed_avg_daily_flow_qty": 0.0,
+        "stock_equiv_safety_time_qty": 0.0,
+        "explicit_safety_stock_qty": 0.0,
+        "effective_reference_stock_qty": 0.0,
+        "soft_simulated_target_qty": 0.0,
+        "soft_safety_factor": 0.75,
+        "served_avg_daily_qty": 0.0
+      },
+      {
+        "scope": "supply_pair",
+        "node_id": "SDC-VD0972460A",
+        "item_id": "item:021081",
+        "uom": "KG",
+        "safety_time_days": 0.0,
+        "planned_avg_daily_demand_qty": 0.0,
+        "observed_avg_daily_flow_qty": 0.0,
+        "stock_equiv_safety_time_qty": 0.0,
+        "explicit_safety_stock_qty": 0.0,
+        "effective_reference_stock_qty": 0.0,
+        "soft_simulated_target_qty": 0.0,
+        "soft_safety_factor": 0.75,
+        "served_avg_daily_qty": 0.0
+      },
+      {
+        "scope": "supply_pair",
+        "node_id": "SDC-VD0975221A",
+        "item_id": "item:021081",
+        "uom": "KG",
+        "safety_time_days": 0.0,
+        "planned_avg_daily_demand_qty": 0.0,
+        "observed_avg_daily_flow_qty": 0.0,
+        "stock_equiv_safety_time_qty": 0.0,
+        "explicit_safety_stock_qty": 0.0,
+        "effective_reference_stock_qty": 0.0,
+        "soft_simulated_target_qty": 0.0,
+        "soft_safety_factor": 0.75,
+        "served_avg_daily_qty": 0.0
+      },
+      {
+        "scope": "supply_pair",
+        "node_id": "SDC-VD0989480A",
+        "item_id": "item:426331",
+        "uom": "UN",
+        "safety_time_days": 0.0,
+        "planned_avg_daily_demand_qty": 0.0,
+        "observed_avg_daily_flow_qty": 0.0,
+        "stock_equiv_safety_time_qty": 0.0,
+        "explicit_safety_stock_qty": 0.0,
+        "effective_reference_stock_qty": 0.0,
+        "soft_simulated_target_qty": 0.0,
+        "soft_safety_factor": 0.75,
+        "served_avg_daily_qty": 0.0
+      },
+      {
+        "scope": "supply_pair",
+        "node_id": "SDC-VD0990780A",
+        "item_id": "item:002612",
+        "uom": "KG",
+        "safety_time_days": 0.0,
+        "planned_avg_daily_demand_qty": 0.0,
+        "observed_avg_daily_flow_qty": 0.0,
+        "stock_equiv_safety_time_qty": 0.0,
+        "explicit_safety_stock_qty": 0.0,
+        "effective_reference_stock_qty": 0.0,
+        "soft_simulated_target_qty": 0.0,
+        "soft_safety_factor": 0.75,
+        "served_avg_daily_qty": 0.0
+      },
+      {
+        "scope": "supply_pair",
+        "node_id": "SDC-VD0993480A",
+        "item_id": "item:344135",
+        "uom": "UN",
+        "safety_time_days": 0.0,
+        "planned_avg_daily_demand_qty": 0.0,
+        "observed_avg_daily_flow_qty": 0.0,
+        "stock_equiv_safety_time_qty": 0.0,
+        "explicit_safety_stock_qty": 0.0,
+        "effective_reference_stock_qty": 0.0,
+        "soft_simulated_target_qty": 0.0,
+        "soft_safety_factor": 0.75,
+        "served_avg_daily_qty": 0.0
+      },
+      {
+        "scope": "supply_pair",
+        "node_id": "SDC-VD1091642A",
+        "item_id": "item:001893",
+        "uom": "KG",
+        "safety_time_days": 0.0,
+        "planned_avg_daily_demand_qty": 0.0,
+        "observed_avg_daily_flow_qty": 0.0,
+        "stock_equiv_safety_time_qty": 0.0,
+        "explicit_safety_stock_qty": 0.0,
+        "effective_reference_stock_qty": 0.0,
+        "soft_simulated_target_qty": 0.0,
+        "soft_safety_factor": 0.75,
+        "served_avg_daily_qty": 0.0
+      },
+      {
+        "scope": "supply_pair",
+        "node_id": "SDC-VD1091642A",
+        "item_id": "item:002612",
+        "uom": "KG",
+        "safety_time_days": 0.0,
+        "planned_avg_daily_demand_qty": 0.0,
+        "observed_avg_daily_flow_qty": 0.0,
+        "stock_equiv_safety_time_qty": 0.0,
+        "explicit_safety_stock_qty": 0.0,
+        "effective_reference_stock_qty": 0.0,
+        "soft_simulated_target_qty": 0.0,
+        "soft_safety_factor": 0.75,
+        "served_avg_daily_qty": 0.0
+      },
+      {
+        "scope": "supply_pair",
+        "node_id": "SDC-VD1095770A",
+        "item_id": "item:734545",
+        "uom": "UN",
+        "safety_time_days": 0.0,
+        "planned_avg_daily_demand_qty": 0.0,
+        "observed_avg_daily_flow_qty": 0.0,
+        "stock_equiv_safety_time_qty": 0.0,
+        "explicit_safety_stock_qty": 0.0,
+        "effective_reference_stock_qty": 0.0,
+        "soft_simulated_target_qty": 0.0,
+        "soft_safety_factor": 0.75,
+        "served_avg_daily_qty": 0.0
+      },
+      {
+        "scope": "supply_pair",
+        "node_id": "SDC-VD1096202A",
+        "item_id": "item:039668",
+        "uom": "KG",
+        "safety_time_days": 0.0,
+        "planned_avg_daily_demand_qty": 0.0,
+        "observed_avg_daily_flow_qty": 0.0,
+        "stock_equiv_safety_time_qty": 0.0,
+        "explicit_safety_stock_qty": 0.0,
+        "effective_reference_stock_qty": 0.0,
+        "soft_simulated_target_qty": 0.0,
+        "soft_safety_factor": 0.75,
+        "served_avg_daily_qty": 0.0
+      }
+    ],
     "process_lot_execution_policies": [
       {
         "node_id": "M-1430",
@@ -1518,36 +2480,6 @@
       }
     ],
     "supplier_daily_capacity_pairs": [
-      {
-        "node_id": "SDC-1450",
-        "item_id": "item:693055",
-        "review_period_days": 7,
-        "initial_stock_qty": 1800000.0,
-        "inventory_fallback_qty_per_day": 257142.857143,
-        "downstream_requirement_qty_per_day": 82641.3,
-        "downstream_signal_qty_per_day": 0.0,
-        "explicit_capacity_qty_per_day": 0.0,
-        "process_capacity_qty_per_day": 0.0,
-        "nominal_capacity_qty_per_day": 257142.857143,
-        "applied_capacity_scale": 320.0,
-        "effective_capacity_qty_per_day": 82285714.285714,
-        "basis": "downstream_requirement"
-      },
-      {
-        "node_id": "SDC-1450",
-        "item_id": "item:773474",
-        "review_period_days": 7,
-        "initial_stock_qty": 9600000.0,
-        "inventory_fallback_qty_per_day": 1371428.571429,
-        "downstream_requirement_qty_per_day": 1486826.572,
-        "downstream_signal_qty_per_day": 0.0,
-        "explicit_capacity_qty_per_day": 0.0,
-        "process_capacity_qty_per_day": 500000.0,
-        "nominal_capacity_qty_per_day": 500000.0,
-        "applied_capacity_scale": 320.0,
-        "effective_capacity_qty_per_day": 160000000.0,
-        "basis": "process_capacity"
-      },
       {
         "node_id": "SDC-VD0500655A",
         "item_id": "item:002612",
@@ -2046,20 +2978,6 @@
     ],
     "unmodeled_supplier_source_policies": [
       {
-        "node_id": "SDC-1450",
-        "item_id": "item:693055",
-        "replenishment_lead_days": 21,
-        "raw_replenishment_lead_days": 64.0,
-        "target_cover_days": 28,
-        "review_period_days": 7,
-        "order_frequency_days": 1,
-        "downstream_requirement_qty_per_day": 82641.3,
-        "downstream_signal_qty_per_day": 0.0,
-        "reorder_point_qty_day0": 1800000.0,
-        "target_stock_qty_day0": 2313956.4,
-        "daily_capacity_qty": 82285714.285714
-      },
-      {
         "node_id": "SDC-VD0500655A",
         "item_id": "item:002612",
         "replenishment_lead_days": 21,
@@ -2069,8 +2987,9 @@
         "order_frequency_days": 1,
         "downstream_requirement_qty_per_day": 103.301625,
         "downstream_signal_qty_per_day": 0.0,
-        "reorder_point_qty_day0": 2169.334125,
-        "target_stock_qty_day0": 2892.4455,
+        "downstream_lot_floor_qty": 21600.0,
+        "reorder_point_qty_day0": 21600.0,
+        "target_stock_qty_day0": 21600.0,
         "daily_capacity_qty": 165282.6
       },
       {
@@ -2083,6 +3002,7 @@
         "order_frequency_days": 1,
         "downstream_requirement_qty_per_day": 413.2065,
         "downstream_signal_qty_per_day": 0.0,
+        "downstream_lot_floor_qty": 4200.0,
         "reorder_point_qty_day0": 8677.3365,
         "target_stock_qty_day0": 11569.782,
         "daily_capacity_qty": 165282.6
@@ -2097,6 +3017,7 @@
         "order_frequency_days": 1,
         "downstream_requirement_qty_per_day": 32648.0,
         "downstream_signal_qty_per_day": 0.0,
+        "downstream_lot_floor_qty": 370000.0,
         "reorder_point_qty_day0": 685608.0,
         "target_stock_qty_day0": 914144.0,
         "daily_capacity_qty": 13059200.0
@@ -2111,6 +3032,7 @@
         "order_frequency_days": 1,
         "downstream_requirement_qty_per_day": 99.16956,
         "downstream_signal_qty_per_day": 0.0,
+        "downstream_lot_floor_qty": 1100.0,
         "reorder_point_qty_day0": 2082.56076,
         "target_stock_qty_day0": 2776.74768,
         "daily_capacity_qty": 39667.824
@@ -2125,8 +3047,9 @@
         "order_frequency_days": 1,
         "downstream_requirement_qty_per_day": 523.3949,
         "downstream_signal_qty_per_day": 0.0,
-        "reorder_point_qty_day0": 10991.2929,
-        "target_stock_qty_day0": 14655.0572,
+        "downstream_lot_floor_qty": 22800.0,
+        "reorder_point_qty_day0": 22800.0,
+        "target_stock_qty_day0": 22800.0,
         "daily_capacity_qty": 628073.88
       },
       {
@@ -2139,8 +3062,9 @@
         "order_frequency_days": 1,
         "downstream_requirement_qty_per_day": 123.96195,
         "downstream_signal_qty_per_day": 0.0,
-        "reorder_point_qty_day0": 2479.239,
-        "target_stock_qty_day0": 3346.97265,
+        "downstream_lot_floor_qty": 4000.0,
+        "reorder_point_qty_day0": 4000.0,
+        "target_stock_qty_day0": 4000.0,
         "daily_capacity_qty": 99169.56
       },
       {
@@ -2153,8 +3077,9 @@
         "order_frequency_days": 1,
         "downstream_requirement_qty_per_day": 8.26413,
         "downstream_signal_qty_per_day": 0.0,
-        "reorder_point_qty_day0": 180.0,
-        "target_stock_qty_day0": 231.39564,
+        "downstream_lot_floor_qty": 300.0,
+        "reorder_point_qty_day0": 300.0,
+        "target_stock_qty_day0": 300.0,
         "daily_capacity_qty": 8228.571429
       },
       {
@@ -2167,6 +3092,7 @@
         "order_frequency_days": 1,
         "downstream_requirement_qty_per_day": 1221.22,
         "downstream_signal_qty_per_day": 0.0,
+        "downstream_lot_floor_qty": 5000.0,
         "reorder_point_qty_day0": 25645.62,
         "target_stock_qty_day0": 34194.16,
         "daily_capacity_qty": 488488.0
@@ -2181,6 +3107,7 @@
         "order_frequency_days": 1,
         "downstream_requirement_qty_per_day": 2694.873104,
         "downstream_signal_qty_per_day": 0.0,
+        "downstream_lot_floor_qty": 10000.0,
         "reorder_point_qty_day0": 56592.335184,
         "target_stock_qty_day0": 75456.446912,
         "daily_capacity_qty": 1077949.2416
@@ -2195,6 +3122,7 @@
         "order_frequency_days": 1,
         "downstream_requirement_qty_per_day": 305.77281,
         "downstream_signal_qty_per_day": 0.0,
+        "downstream_lot_floor_qty": 1600.0,
         "reorder_point_qty_day0": 6421.22901,
         "target_stock_qty_day0": 8561.63868,
         "daily_capacity_qty": 122309.124
@@ -2209,6 +3137,7 @@
         "order_frequency_days": 1,
         "downstream_requirement_qty_per_day": 154000.0,
         "downstream_signal_qty_per_day": 0.0,
+        "downstream_lot_floor_qty": 5000.0,
         "reorder_point_qty_day0": 3234000.0,
         "target_stock_qty_day0": 4312000.0,
         "daily_capacity_qty": 61600000.0
@@ -2223,6 +3152,7 @@
         "order_frequency_days": 1,
         "downstream_requirement_qty_per_day": 203550.0,
         "downstream_signal_qty_per_day": 0.0,
+        "downstream_lot_floor_qty": 25000.0,
         "reorder_point_qty_day0": 4274550.0,
         "target_stock_qty_day0": 5699400.0,
         "daily_capacity_qty": 62500.0
@@ -2237,8 +3167,9 @@
         "order_frequency_days": 1,
         "downstream_requirement_qty_per_day": 523.3949,
         "downstream_signal_qty_per_day": 0.0,
-        "reorder_point_qty_day0": 10991.2929,
-        "target_stock_qty_day0": 14655.0572,
+        "downstream_lot_floor_qty": 23920.0,
+        "reorder_point_qty_day0": 23920.0,
+        "target_stock_qty_day0": 23920.0,
         "daily_capacity_qty": 628073.88
       },
       {
@@ -2251,8 +3182,9 @@
         "order_frequency_days": 1,
         "downstream_requirement_qty_per_day": 103.301625,
         "downstream_signal_qty_per_day": 0.0,
-        "reorder_point_qty_day0": 2169.334125,
-        "target_stock_qty_day0": 2892.4455,
+        "downstream_lot_floor_qty": 22500.0,
+        "reorder_point_qty_day0": 22500.0,
+        "target_stock_qty_day0": 22500.0,
         "daily_capacity_qty": 165282.6
       },
       {
@@ -2265,8 +3197,9 @@
         "order_frequency_days": 1,
         "downstream_requirement_qty_per_day": 8.26413,
         "downstream_signal_qty_per_day": 0.0,
-        "reorder_point_qty_day0": 180.0,
-        "target_stock_qty_day0": 223.13151,
+        "downstream_lot_floor_qty": 300.0,
+        "reorder_point_qty_day0": 300.0,
+        "target_stock_qty_day0": 300.0,
         "daily_capacity_qty": 8228.571429
       },
       {
@@ -2279,6 +3212,7 @@
         "order_frequency_days": 1,
         "downstream_requirement_qty_per_day": 203550.0,
         "downstream_signal_qty_per_day": 0.0,
+        "downstream_lot_floor_qty": 5000.0,
         "reorder_point_qty_day0": 4274550.0,
         "target_stock_qty_day0": 5699400.0,
         "daily_capacity_qty": 81420000.0
@@ -2293,6 +3227,7 @@
         "order_frequency_days": 1,
         "downstream_requirement_qty_per_day": 9292668.0,
         "downstream_signal_qty_per_day": 0.0,
+        "downstream_lot_floor_qty": 30000000.0,
         "reorder_point_qty_day0": 185853360.0,
         "target_stock_qty_day0": 250902036.0,
         "daily_capacity_qty": 3717067200.0
@@ -2307,6 +3242,7 @@
         "order_frequency_days": 1,
         "downstream_requirement_qty_per_day": 1117.5,
         "downstream_signal_qty_per_day": 0.0,
+        "downstream_lot_floor_qty": 20000.0,
         "reorder_point_qty_day0": 23467.5,
         "target_stock_qty_day0": 31290.0,
         "daily_capacity_qty": 1788000.0
@@ -2321,6 +3257,7 @@
         "order_frequency_days": 1,
         "downstream_requirement_qty_per_day": 330.5652,
         "downstream_signal_qty_per_day": 0.0,
+        "downstream_lot_floor_qty": 100.0,
         "reorder_point_qty_day0": 6941.8692,
         "target_stock_qty_day0": 9255.8256,
         "daily_capacity_qty": 132226.08
@@ -2335,8 +3272,9 @@
         "order_frequency_days": 1,
         "downstream_requirement_qty_per_day": 123.96195,
         "downstream_signal_qty_per_day": 0.0,
-        "reorder_point_qty_day0": 2603.20095,
-        "target_stock_qty_day0": 3470.9346,
+        "downstream_lot_floor_qty": 6000.0,
+        "reorder_point_qty_day0": 6000.0,
+        "target_stock_qty_day0": 6000.0,
         "daily_capacity_qty": 99169.56
       },
       {
@@ -2349,6 +3287,7 @@
         "order_frequency_days": 1,
         "downstream_requirement_qty_per_day": 330.5652,
         "downstream_signal_qty_per_day": 0.0,
+        "downstream_lot_floor_qty": 0.0,
         "reorder_point_qty_day0": 2313.9564,
         "target_stock_qty_day0": 4627.9128,
         "daily_capacity_qty": 264452.16
@@ -2363,6 +3302,7 @@
         "order_frequency_days": 1,
         "downstream_requirement_qty_per_day": 330.5652,
         "downstream_signal_qty_per_day": 0.0,
+        "downstream_lot_floor_qty": 0.0,
         "reorder_point_qty_day0": 2313.9564,
         "target_stock_qty_day0": 4627.9128,
         "daily_capacity_qty": 264452.16
@@ -2377,6 +3317,7 @@
         "order_frequency_days": 1,
         "downstream_requirement_qty_per_day": 1117.5,
         "downstream_signal_qty_per_day": 0.0,
+        "downstream_lot_floor_qty": 1.0,
         "reorder_point_qty_day0": 23467.5,
         "target_stock_qty_day0": 31290.0,
         "daily_capacity_qty": 1788000.0
@@ -2391,8 +3332,9 @@
         "order_frequency_days": 1,
         "downstream_requirement_qty_per_day": 8.26413,
         "downstream_signal_qty_per_day": 0.0,
-        "reorder_point_qty_day0": 180.0,
-        "target_stock_qty_day0": 231.39564,
+        "downstream_lot_floor_qty": 300.0,
+        "reorder_point_qty_day0": 300.0,
+        "target_stock_qty_day0": 300.0,
         "daily_capacity_qty": 8228.571429
       },
       {
@@ -2405,6 +3347,7 @@
         "order_frequency_days": 1,
         "downstream_requirement_qty_per_day": 1117.5,
         "downstream_signal_qty_per_day": 0.0,
+        "downstream_lot_floor_qty": 1.0,
         "reorder_point_qty_day0": 23467.5,
         "target_stock_qty_day0": 31290.0,
         "daily_capacity_qty": 1788000.0
@@ -2419,6 +3362,7 @@
         "order_frequency_days": 1,
         "downstream_requirement_qty_per_day": 1117.5,
         "downstream_signal_qty_per_day": 0.0,
+        "downstream_lot_floor_qty": 20000.0,
         "reorder_point_qty_day0": 23467.5,
         "target_stock_qty_day0": 31290.0,
         "daily_capacity_qty": 1788000.0
@@ -2433,6 +3377,7 @@
         "order_frequency_days": 1,
         "downstream_requirement_qty_per_day": 2239.05,
         "downstream_signal_qty_per_day": 0.0,
+        "downstream_lot_floor_qty": 19200.0,
         "reorder_point_qty_day0": 47020.05,
         "target_stock_qty_day0": 62693.4,
         "daily_capacity_qty": 895620.0
@@ -2447,8 +3392,9 @@
         "order_frequency_days": 1,
         "downstream_requirement_qty_per_day": 103.301625,
         "downstream_signal_qty_per_day": 0.0,
-        "reorder_point_qty_day0": 2169.334125,
-        "target_stock_qty_day0": 2892.4455,
+        "downstream_lot_floor_qty": 23750.0,
+        "reorder_point_qty_day0": 23750.0,
+        "target_stock_qty_day0": 23750.0,
         "daily_capacity_qty": 165282.6
       },
       {
@@ -2461,6 +3407,7 @@
         "order_frequency_days": 1,
         "downstream_requirement_qty_per_day": 154000.0,
         "downstream_signal_qty_per_day": 0.0,
+        "downstream_lot_floor_qty": 120000.0,
         "reorder_point_qty_day0": 3234000.0,
         "target_stock_qty_day0": 4312000.0,
         "daily_capacity_qty": 61600000.0
@@ -2475,8 +3422,9 @@
         "order_frequency_days": 1,
         "downstream_requirement_qty_per_day": 523.3949,
         "downstream_signal_qty_per_day": 0.0,
-        "reorder_point_qty_day0": 10991.2929,
-        "target_stock_qty_day0": 14655.0572,
+        "downstream_lot_floor_qty": 20900.0,
+        "reorder_point_qty_day0": 20900.0,
+        "target_stock_qty_day0": 20900.0,
         "daily_capacity_qty": 628073.88
       },
       {
@@ -2489,8 +3437,9 @@
         "order_frequency_days": 1,
         "downstream_requirement_qty_per_day": 103.301625,
         "downstream_signal_qty_per_day": 0.0,
-        "reorder_point_qty_day0": 2169.334125,
-        "target_stock_qty_day0": 2892.4455,
+        "downstream_lot_floor_qty": 22500.0,
+        "reorder_point_qty_day0": 22500.0,
+        "target_stock_qty_day0": 22500.0,
         "daily_capacity_qty": 165282.6
       },
       {
@@ -2503,6 +3452,7 @@
         "order_frequency_days": 1,
         "downstream_requirement_qty_per_day": 1232.0,
         "downstream_signal_qty_per_day": 0.0,
+        "downstream_lot_floor_qty": 6300.0,
         "reorder_point_qty_day0": 24640.0,
         "target_stock_qty_day0": 33264.0,
         "daily_capacity_qty": 492800.0
@@ -2517,71 +3467,75 @@
         "order_frequency_days": 1,
         "downstream_requirement_qty_per_day": 8.26413,
         "downstream_signal_qty_per_day": 0.0,
-        "reorder_point_qty_day0": 180.0,
-        "target_stock_qty_day0": 231.39564,
+        "downstream_lot_floor_qty": 450.0,
+        "reorder_point_qty_day0": 450.0,
+        "target_stock_qty_day0": 450.0,
         "daily_capacity_qty": 8228.571429
       }
     ],
     "mrp_trace": {
       "enabled": true,
-      "tracked_pairs": 67,
-      "trace_rows": 122275,
-      "order_rows": 2009,
+      "tracked_pairs": 65,
+      "trace_rows": 118625,
+      "order_rows": 143505,
       "trace_outputs": [
         "mrp_trace_daily.csv",
         "mrp_orders_daily.csv"
       ]
     },
     "lane_purchase_cost_stats": {
-      "lanes_with_positive_purchase_cost": 44,
-      "lanes_with_zero_purchase_cost": 0,
-      "lanes_with_explicit_transport_cost": 44,
+      "lanes_with_positive_purchase_cost": 33,
+      "lanes_with_zero_purchase_cost": 6,
+      "lanes_with_explicit_transport_cost": 39,
       "lanes_with_fallback_transport_cost": 0
     }
   },
   "kpis": {
-    "total_demand": 5152428.0,
+    "total_demand": 25762139.9999,
     "measurement_starting_backlog": 0,
     "warmup_backlog_cleared_qty": 0.0,
-    "measured_required_total": 5152428.0,
-    "total_served": 5152428.0,
+    "measured_required_total": 25762139.9999,
+    "total_served": 25762139.9999,
     "ending_backlog": 0,
     "fill_rate": 1.0,
-    "total_shipped": 162397069.7063,
-    "total_arrived": 631136713.1938,
-    "total_produced": 37540800.0,
-    "avg_inventory": 2383243560.4547,
-    "ending_inventory": 2388806118.7751,
-    "total_transport_cost": 16325408.9557,
-    "total_holding_cost": 256909040.4426,
-    "total_warehouse_operating_cost": 330311623.4262,
-    "total_inventory_risk_cost": 146805165.9672,
-    "total_inventory_cost_legacy_raw_holding": 734025829.836,
-    "total_purchase_cost": 6387310.4286,
-    "total_logistics_cost": 750351238.7917,
-    "total_cost": 756738549.2203,
-    "total_external_procured_ordered_qty": 20825488.964,
-    "total_external_procured_arrived_qty": 20825488.964,
-    "total_external_procured_rejected_qty": 122850621.0163,
-    "total_external_procured_qty": 20825488.964,
-    "total_external_procurement_cost": 1342337.1706,
+    "total_shipped": 694962045.8724,
+    "total_arrived": 1167883644.3915,
+    "total_produced": 128506800.0,
+    "avg_inventory": 2171123523.4567,
+    "ending_inventory": 1940406485.6388,
+    "total_transport_cost": 5423398.129,
+    "total_holding_cost": 167817366.1697,
+    "total_warehouse_operating_cost": 215765185.0753,
+    "total_inventory_risk_cost": 95895637.8112,
+    "total_inventory_cost_legacy_raw_holding": 479478189.0562,
+    "total_purchase_cost": 14459224.3114,
+    "total_logistics_cost": 484901587.1852,
+    "total_cost": 499360811.4966,
+    "total_external_procured_ordered_qty": 21461235.7334,
+    "total_external_procured_arrived_qty": 21411235.7334,
+    "total_external_procured_rejected_qty": 59198.4881,
+    "total_external_procured_qty": 21461235.7334,
+    "total_external_procurement_cost": 5305455.2468,
     "total_estimated_source_ordered_qty": 0.0,
-    "total_estimated_source_replenished_qty": 1618504474.9346,
+    "total_estimated_source_replenished_qty": 1583944474.9346,
     "total_estimated_source_rejected_qty": 0.0,
     "total_opening_stock_bootstrap_qty": 0.0,
-    "total_explicit_initialization_stock_qty": 272813254.4058,
-    "total_explicit_initialization_pipeline_qty": 2087244118.4221,
+    "total_explicit_initialization_stock_qty": 272405347.8265,
+    "total_explicit_initialization_pipeline_qty": 2059374837.9961,
+    "total_opening_open_order_qty": 0.0,
     "total_unreliable_loss_qty": 0.0,
-    "total_supplier_capacity_binding_qty": 31925000.0,
-    "cost_share_holding": 0.339495,
-    "cost_share_warehouse_operating": 0.436494,
-    "cost_share_inventory_risk": 0.193997,
-    "cost_share_transport": 0.021573,
-    "cost_share_purchase": 0.008441
+    "total_supplier_capacity_binding_qty": 41421825.0,
+    "cost_share_holding": 0.336064,
+    "cost_share_warehouse_operating": 0.432083,
+    "cost_share_inventory_risk": 0.192037,
+    "cost_share_transport": 0.010861,
+    "cost_share_purchase": 0.028955
   },
   "economic_consistency": {
-    "status": "ok",
-    "warnings": [],
+    "status": "warn",
+    "warnings": [
+      "transport_cost_share_below_2pct"
+    ],
     "transport_cost_share_target_min": 0.02,
     "capital_holding_cost_share_target_max": 0.6,
     "warehouse_operating_cost_share_target_min": 0.1,

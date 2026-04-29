@@ -1369,6 +1369,34 @@ def prepare_graph(
         node_by_id, coords = build_node_maps(nodes)
         item_unit_map = infer_item_unit_map(nodes, edges)
 
+    # Remove the duplicate Gaillac factory branch when the upstream transformation
+    # is already modeled on SDC-1450 from source case data (021081.xlsx + Data_poc).
+    canonical_upstream_node_id = "SDC-1450"
+    duplicate_upstream_factory_id = "M-1450"
+    canonical_upstream_node = node_by_id.get(canonical_upstream_node_id)
+    duplicate_upstream_factory = node_by_id.get(duplicate_upstream_factory_id)
+    canonical_has_transform = any(
+        any(str(out.get("item_id") or "") == "item:773474" for out in (proc.get("outputs") or []))
+        for proc in ((canonical_upstream_node or {}).get("processes") or [])
+    )
+    if canonical_upstream_node and duplicate_upstream_factory and canonical_has_transform:
+        duplicate_edge_ids = [
+            str(e.get("id") or "")
+            for e in edges
+            if str(e.get("from") or "") == duplicate_upstream_factory_id
+            or str(e.get("to") or "") == duplicate_upstream_factory_id
+        ]
+        if duplicate_edge_ids:
+            duplicate_edge_id_set = set(duplicate_edge_ids)
+            edges[:] = [e for e in edges if str(e.get("id") or "") not in duplicate_edge_id_set]
+            change_counts["duplicate_gaillac_factory_edges_removed"] += len(duplicate_edge_ids)
+            changed_edge_ids.extend(duplicate_edge_ids)
+        nodes[:] = [n for n in nodes if str(n.get("id") or "") != duplicate_upstream_factory_id]
+        change_counts["duplicate_gaillac_factory_removed"] += 1
+        changed_node_ids.append(duplicate_upstream_factory_id)
+        node_by_id, coords = build_node_maps(nodes)
+        item_unit_map = infer_item_unit_map(nodes, edges)
+
     for node_id, node in list(node_by_id.items()):
         assumptions = node.get("assumptions")
         if not isinstance(assumptions, dict):

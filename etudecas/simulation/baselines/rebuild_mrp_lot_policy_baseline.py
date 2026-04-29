@@ -56,6 +56,13 @@ FACTORY_LOT_EXECUTION_POLICY = {
             "source": "industrial_confirmation_2026-04-13",
         }
     },
+    "SDC-1450": {
+        "item:773474": {
+            "max_lots_per_week": 10,
+            "source": "working_assumption_align_factory_lot_execution",
+            "inject_capacity_from_lot_week": False,
+        }
+    },
 }
 
 FACTORY_LOT_SIZING_OVERRIDES = {
@@ -136,7 +143,7 @@ def infer_nominal_lot_qty(proc: dict) -> float:
 
 def apply_factory_lot_execution_policy(
     data: dict,
-    overrides: dict[str, dict[str, dict[str, float | str]]],
+    overrides: dict[str, dict[str, dict[str, float | str | bool]]],
 ) -> list[dict[str, float | str]]:
     rows: list[dict[str, float | str]] = []
     nodes_by_id = {
@@ -169,7 +176,8 @@ def apply_factory_lot_execution_policy(
                 capacity = {}
             current_cap = max(0.0, to_float(capacity.get("max_rate"), 0.0))
             nominal_lot_qty = infer_nominal_lot_qty(proc)
-            if nominal_lot_qty > 1e-9 and max_lots_per_week > 0:
+            inject_capacity = bool(payload.get("inject_capacity_from_lot_week", True))
+            if inject_capacity and nominal_lot_qty > 1e-9 and max_lots_per_week > 0:
                 weekly_equivalent_daily_cap = (nominal_lot_qty * max_lots_per_week) / 7.0
                 capacity["max_rate"] = round(max(current_cap, weekly_equivalent_daily_cap), 6)
                 capacity["source"] = f"lot_week_equivalent_from_{lot_execution['source']}"

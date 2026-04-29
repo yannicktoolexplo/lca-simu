@@ -17,10 +17,10 @@
   "workbook_findings": [
     {
       "file_name": "021081.xlsx",
-      "output_product_code": "773474",
+      "output_product_code": "",
       "bom_rows": 0,
-      "fia_rows": 8,
-      "file_product_mismatch": true
+      "fia_rows": 0,
+      "file_product_mismatch": false
     },
     {
       "file_name": "268191.xlsx",
@@ -31,11 +31,14 @@
     },
     {
       "file_name": "268967.xlsx",
-      "output_product_code": "268967",
+      "output_product_code": "",
       "bom_rows": 0,
-      "fia_rows": 8,
+      "fia_rows": 0,
       "file_product_mismatch": false
     }
   ],
-  "unresolved": []
+  "unresolved": [
+    "No destination node found for workbook 021081.xlsx / output .",
+    "No destination node found for workbook 268967.xlsx / output ."
+  ]
 }
