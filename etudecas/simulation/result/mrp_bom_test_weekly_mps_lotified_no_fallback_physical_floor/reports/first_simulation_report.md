@@ -91,35 +91,35 @@
 []
 
 ## Safety stock reference
-Calcul: `stock equiv delai = demande moyenne journaliere planifiee x delai de securite`. Les `safety_stock_qty` explicites sont ignores dans cette variante: seules les durees de securite pilotent la cible. La cible souple simulee applique le facteur `1.0` sur cette couverture.
+Calcul: `stock equiv delai = demande moyenne journaliere MRP x delai de securite`. Quand une trace MRP existe, la demande moyenne vient du signal reel utilise par le MRP (`bb_demand_signal_qty`), pas d'une capacite ou d'un besoin statique gonfle. Les `safety_stock_qty` explicites sont ignores dans cette variante: seules les durees de securite pilotent la cible. La cible physique simulee applique le facteur `1.0` sur cette couverture.
 
-| Scope | Noeud | Item | Delai secu j | Demande moy/j | Stock equiv delai | Cible souple sim | Unite |
-|---|---:|---:|---:|---:|---:|---:|---|
-| finished_good | DC-1920 | item:268091 | 20.0 | 1900.0 | 38000.0 | 38000.0 | UN |
-| finished_good | DC-1920 | item:268967 | 25.0 | 2562.857143 | 64071.428575 | 64071.428575 | UN |
-| input_material | M-1430 | item:038005 | 20.0 | 2694.873104 | 53897.46208 | 53897.46208 | KG |
-| input_material | M-1430 | item:042342 | 5.0 | 9292668.0 | 46463340.0 | 46463340.0 | UN |
-| input_material | M-1430 | item:333362 | 10.0 | 154000.0 | 1540000.0 | 1540000.0 | UN |
-| input_material | M-1430 | item:344135 | 10.0 | 154000.0 | 1540000.0 | 1540000.0 | UN |
-| input_material | M-1430 | item:708073 | 10.0 | 1221.22 | 12212.2 | 12212.2 | KG |
-| input_material | M-1430 | item:730384 | 10.0 | 32648.0 | 326480.0 | 326480.0 | M |
-| input_material | M-1430 | item:734545 | 10.0 | 1232.0 | 12320.0 | 12320.0 | UN |
-| input_material | M-1430 | item:773474 | 20.0 | 1486826.572 | 29736531.44 | 29736531.44 | G |
-| input_material | M-1810 | item:001757 | 20.0 | 330.5652 | 6611.304 | 6611.304 | KG |
-| input_material | M-1810 | item:001848 | 20.0 | 247.9239 | 4958.478 | 4958.478 | KG |
-| input_material | M-1810 | item:001893 | 15.0 | 1570.1847 | 23552.7705 | 23552.7705 | KG |
-| input_material | M-1810 | item:002612 | 20.0 | 413.2065 | 8264.13 | 8264.13 | KG |
-| input_material | M-1810 | item:007923 | 15.0 | 661.1304 | 9916.956 | 9916.956 | KG |
-| input_material | M-1810 | item:016332 | 7.0 | 99.16956 | 694.18692 | 694.18692 | KG |
-| input_material | M-1810 | item:029313 | 7.0 | 8.26413 | 57.84891 | 57.84891 | KG |
-| input_material | M-1810 | item:039668 | 7.0 | 8.26413 | 57.84891 | 57.84891 | KG |
-| input_material | M-1810 | item:049371 | 40.0 | 305.77281 | 12230.9124 | 12230.9124 | KG |
-| input_material | M-1810 | item:055703 | 30.0 | 16.52826 | 495.8478 | 495.8478 | KG |
-| input_material | M-1810 | item:099439 | 7.0 | 413.2065 | 2892.4455 | 2892.4455 | KG |
-| input_material | M-1810 | item:338928 | 10.0 | 203550.0 | 2035500.0 | 2035500.0 | UN |
-| input_material | M-1810 | item:338929 | 10.0 | 203550.0 | 2035500.0 | 2035500.0 | UN |
-| input_material | M-1810 | item:426331 | 7.0 | 2239.05 | 15673.35 | 15673.35 | UN |
-| input_material | M-1810 | item:693055 | 20.0 | 82641.3 | 1652826.0 | 1652826.0 | G |
+| Scope | Noeud | Item | Delai secu j | Demande MRP moy/j | Stock equiv delai moy | Cible physique moy | Max cible physique | Base | Unite |
+|---|---:|---:|---:|---:|---:|---:|---:|---|---|
+| finished_good | DC-1920 | item:268091 | 20.0 | 9798.471233 | 195969.424658 | 430538.0 | 430538.0 | mrp_trace_demand_signal | UN |
+| finished_good | DC-1920 | item:268967 | 25.0 | 4317.769863 | 107944.246573 | 1101534.0 | 1101534.0 | mrp_trace_demand_signal | UN |
+| input_material | M-1430 | item:038005 | 20.0 | 76.490097 | 1529.801938 | 37603.791202 | 37728.223456 | mrp_trace_demand_signal | KG |
+| input_material | M-1430 | item:042342 | 5.0 | 263759.015014 | 1318795.075068 | 78749996.0 | 78749996.0 | mrp_trace_demand_signal | UN |
+| input_material | M-1430 | item:333362 | 10.0 | 4371.068493 | 43710.684932 | 180192.739726 | 1078000.0 | mrp_trace_demand_signal | UN |
+| input_material | M-1430 | item:344135 | 10.0 | 4371.068493 | 43710.684932 | 767713.205479 | 1078000.0 | mrp_trace_demand_signal | UN |
+| input_material | M-1430 | item:708073 | 10.0 | 34.662573 | 346.625732 | 10326.88 | 10326.88 | mrp_trace_demand_signal | KG |
+| input_material | M-1430 | item:730384 | 10.0 | 926.666521 | 9266.665205 | 74880.712877 | 228536.0 | mrp_trace_demand_signal | M |
+| input_material | M-1430 | item:734545 | 10.0 | 34.968548 | 349.685479 | 1924.146301 | 8624.0 | mrp_trace_demand_signal | UN |
+| input_material | M-1430 | item:773474 | 20.0 | 42201.43366 | 844028.673201 | 14845312.508818 | 20815572.008 | mrp_trace_demand_signal | G |
+| input_material | M-1810 | item:001757 | 20.0 | 16.491653 | 329.833065 | 8499.654 | 8499.654 | mrp_trace_demand_signal | KG |
+| input_material | M-1810 | item:001848 | 20.0 | 12.36874 | 247.374799 | 10262.646 | 10262.646 | mrp_trace_demand_signal | KG |
+| input_material | M-1810 | item:001893 | 15.0 | 78.335353 | 1175.030295 | 9783.5 | 9783.5 | mrp_trace_demand_signal | KG |
+| input_material | M-1810 | item:002612 | 20.0 | 20.614567 | 412.291332 | 153521.636719 | 153521.636719 | mrp_trace_demand_signal | KG |
+| input_material | M-1810 | item:007923 | 15.0 | 32.983307 | 494.749598 | 55018.98 | 55018.98 | mrp_trace_demand_signal | KG |
+| input_material | M-1810 | item:016332 | 7.0 | 4.947496 | 34.632472 | 883.02 | 883.02 | mrp_trace_demand_signal | KG |
+| input_material | M-1810 | item:029313 | 7.0 | 0.412291 | 2.886039 | 226.83 | 226.83 | mrp_trace_demand_signal | KG |
+| input_material | M-1810 | item:039668 | 7.0 | 0.412291 | 2.886039 | 459.695 | 459.695 | mrp_trace_demand_signal | KG |
+| input_material | M-1810 | item:049371 | 40.0 | 15.254779 | 610.191171 | 4138.93 | 4138.93 | mrp_trace_demand_signal | KG |
+| input_material | M-1810 | item:055703 | 30.0 | 0.824583 | 24.73748 | 569.805001 | 569.805001 | mrp_trace_demand_signal | KG |
+| input_material | M-1810 | item:099439 | 7.0 | 20.614567 | 144.301966 | 4972.616 | 4972.616 | mrp_trace_demand_signal | KG |
+| input_material | M-1810 | item:338928 | 10.0 | 10154.958904 | 101549.589041 | 404065.0 | 404065.0 | mrp_trace_demand_signal | UN |
+| input_material | M-1810 | item:338929 | 10.0 | 10154.958904 | 101549.589041 | 354000.0 | 354000.0 | mrp_trace_demand_signal | UN |
+| input_material | M-1810 | item:426331 | 7.0 | 111.704548 | 781.931836 | 24159.0 | 24159.0 | mrp_trace_demand_signal | UN |
+| input_material | M-1810 | item:693055 | 20.0 | 4122.913315 | 82458.266301 | 1010000.0 | 1010000.0 | mrp_trace_demand_signal | G |
 
 ## Remarques validation industrielle
 Le graphe `Reappro amont` utilise maintenant `order_date_IMT` pour dater les ordres MRP. Les commandes du carnet initial peuvent donc apparaitre avant J0 au lieu d'etre empilees artificiellement au 1er janvier.

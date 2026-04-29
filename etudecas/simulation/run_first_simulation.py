@@ -3972,6 +3972,23 @@ def main() -> None:
         for pair in list(bucket.keys()):
             bucket[pair] = bucket[pair] / avg_divisor
 
+    mrp_trace_stats_by_pair: dict[tuple[str, str], dict[str, float]] = defaultdict(lambda: defaultdict(float))
+    for row in mrp_trace_rows:
+        pair = (str(row.get("node_id") or ""), str(row.get("item_id") or ""))
+        if not pair[0] or not pair[1]:
+            continue
+        rec = mrp_trace_stats_by_pair[pair]
+        rec["count"] += 1.0
+        demand_signal_qty = max(0.0, to_float(row.get("bb_demand_signal_qty"), 0.0))
+        safety_floor_qty = max(0.0, to_float(row.get("safety_floor_qty"), 0.0))
+        soft_target_qty = max(0.0, to_float(row.get("soft_safety_target_qty"), 0.0))
+        rec["demand_signal_sum"] += demand_signal_qty
+        rec["safety_floor_sum"] += safety_floor_qty
+        rec["soft_target_sum"] += soft_target_qty
+        rec["demand_signal_max"] = max(rec.get("demand_signal_max", 0.0), demand_signal_qty)
+        rec["safety_floor_max"] = max(rec.get("safety_floor_max", 0.0), safety_floor_qty)
+        rec["soft_target_max"] = max(rec.get("soft_target_max", 0.0), soft_target_qty)
+
     safety_reference_pairs = sorted(
         set(production_input_pairs)
         | set(production_output_pairs)
@@ -3988,23 +4005,45 @@ def main() -> None:
             continue
         safety_days = max(0.0, pair_mrp_safety_time_days.get(pair, 0.0))
         explicit_safety_stock_qty = 0.0
-        planned_avg_daily_demand_qty = max(
-            0.0,
-            demand_target_daily.get(pair, 0.0),
-            propagated_demand_daily.get(pair, 0.0),
-            required_daily_input_by_pair.get(pair, 0.0),
-        )
+        trace_stats = mrp_trace_stats_by_pair.get(pair)
+        if trace_stats and trace_stats.get("count", 0.0) > 0:
+            trace_count = max(1.0, trace_stats["count"])
+            planned_avg_daily_demand_qty = trace_stats["demand_signal_sum"] / trace_count
+            stock_equiv_safety_time_qty = planned_avg_daily_demand_qty * safety_days
+            effective_reference_stock_qty = max(
+                explicit_safety_stock_qty,
+                trace_stats["safety_floor_sum"] / trace_count,
+            )
+            soft_simulated_target_qty = max(
+                explicit_safety_stock_qty,
+                trace_stats["soft_target_sum"] / trace_count,
+            )
+            max_mrp_demand_signal_qty = trace_stats.get("demand_signal_max", 0.0)
+            max_mrp_safety_floor_qty = trace_stats.get("safety_floor_max", 0.0)
+            max_soft_simulated_target_qty = trace_stats.get("soft_target_max", 0.0)
+            safety_reference_basis = "mrp_trace_demand_signal"
+        else:
+            planned_avg_daily_demand_qty = max(
+                0.0,
+                demand_target_daily.get(pair, 0.0),
+                propagated_demand_daily.get(pair, 0.0),
+                required_daily_input_by_pair.get(pair, 0.0),
+            )
+            stock_equiv_safety_time_qty = planned_avg_daily_demand_qty * safety_days
+            effective_reference_stock_qty = max(explicit_safety_stock_qty, stock_equiv_safety_time_qty)
+            soft_simulated_target_qty = max(
+                explicit_safety_stock_qty,
+                stock_equiv_safety_time_qty * soft_safety_factor,
+            )
+            max_mrp_demand_signal_qty = planned_avg_daily_demand_qty
+            max_mrp_safety_floor_qty = effective_reference_stock_qty
+            max_soft_simulated_target_qty = soft_simulated_target_qty
+            safety_reference_basis = "static_or_propagated_daily_requirement"
         observed_avg_daily_flow_qty = max(
             0.0,
             actual_input_consumption_avg_by_pair.get(pair, 0.0),
             actual_output_production_avg_by_pair.get(pair, 0.0),
             actual_demand_avg_by_pair.get(pair, 0.0),
-        )
-        stock_equiv_safety_time_qty = planned_avg_daily_demand_qty * safety_days
-        effective_reference_stock_qty = max(explicit_safety_stock_qty, stock_equiv_safety_time_qty)
-        soft_simulated_target_qty = max(
-            explicit_safety_stock_qty,
-            stock_equiv_safety_time_qty * soft_safety_factor,
         )
         node_type = node_type_by_id.get(node_id, "")
         if pair in demand_pairs or node_type in {"distribution_center", "customer"}:
@@ -4028,6 +4067,10 @@ def main() -> None:
                 "explicit_safety_stock_qty": round(explicit_safety_stock_qty, 6),
                 "effective_reference_stock_qty": round(effective_reference_stock_qty, 6),
                 "soft_simulated_target_qty": round(soft_simulated_target_qty, 6),
+                "max_mrp_demand_signal_qty": round(max_mrp_demand_signal_qty, 6),
+                "max_mrp_safety_floor_qty": round(max_mrp_safety_floor_qty, 6),
+                "max_soft_simulated_target_qty": round(max_soft_simulated_target_qty, 6),
+                "safety_reference_basis": safety_reference_basis,
                 "soft_safety_factor": round(soft_safety_factor, 6),
                 "served_avg_daily_qty": round(served_avg_by_pair.get(pair, 0.0), 6),
             }
@@ -4419,6 +4462,10 @@ def main() -> None:
                 "explicit_safety_stock_qty",
                 "effective_reference_stock_qty",
                 "soft_simulated_target_qty",
+                "max_mrp_demand_signal_qty",
+                "max_mrp_safety_floor_qty",
+                "max_soft_simulated_target_qty",
+                "safety_reference_basis",
                 "soft_safety_factor",
                 "served_avg_daily_qty",
             ],
@@ -4782,11 +4829,11 @@ def main() -> None:
     if safety_reference_preview_rows:
         safety_reference_preview_md = "\n".join(
             [
-                "| Scope | Noeud | Item | Delai secu j | Demande moy/j | Stock equiv delai | Cible souple sim | Unite |",
-                "|---|---:|---:|---:|---:|---:|---:|---|",
+                "| Scope | Noeud | Item | Delai secu j | Demande MRP moy/j | Stock equiv delai moy | Cible physique moy | Max cible physique | Base | Unite |",
+                "|---|---:|---:|---:|---:|---:|---:|---:|---|---|",
             ]
             + [
-                "| {scope} | {node_id} | {item_id} | {safety_time_days} | {planned_avg_daily_demand_qty} | {stock_equiv_safety_time_qty} | {soft_simulated_target_qty} | {uom} |".format(
+                "| {scope} | {node_id} | {item_id} | {safety_time_days} | {planned_avg_daily_demand_qty} | {stock_equiv_safety_time_qty} | {soft_simulated_target_qty} | {max_soft_simulated_target_qty} | {safety_reference_basis} | {uom} |".format(
                     **row
                 )
                 for row in safety_reference_preview_rows
@@ -5011,7 +5058,7 @@ def main() -> None:
 {json.dumps(summary['top_backlog_pairs'], indent=2, ensure_ascii=False)}
 
 ## Safety stock reference
-Calcul: `stock equiv delai = demande moyenne journaliere planifiee x delai de securite`. Les `safety_stock_qty` explicites sont ignores dans cette variante: seules les durees de securite pilotent la cible. La cible souple simulee applique le facteur `{summary['policy']['initialization_policy']['soft_safety_time_stock_target_factor']}` sur cette couverture.
+Calcul: `stock equiv delai = demande moyenne journaliere MRP x delai de securite`. Quand une trace MRP existe, la demande moyenne vient du signal reel utilise par le MRP (`bb_demand_signal_qty`), pas d'une capacite ou d'un besoin statique gonfle. Les `safety_stock_qty` explicites sont ignores dans cette variante: seules les durees de securite pilotent la cible. La cible physique simulee applique le facteur `{summary['policy']['initialization_policy']['soft_safety_time_stock_target_factor']}` sur cette couverture.
 
 {safety_reference_preview_md}
 

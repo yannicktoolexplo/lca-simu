@@ -1457,9 +1457,38 @@ def build_global_kpi_tree_payload(
             return consumed
         return production_line_by_day[line_key][day].get("desired_qty", 0.0)
 
+    line_keys = sorted(production_line_by_day)
+    reference_qty = {day: 0.0 for day in days}
+    reference_covered_qty = {day: 0.0 for day in days}
+    reference_gap_rate_sum = {day: 0.0 for day in days}
+    reference_coverage_rate_sum = {day: 0.0 for day in days}
+    reference_overproduction_rate_sum = {day: 0.0 for day in days}
+    reference_active_line_count = {day: 0.0 for day in days}
+    reference_under_line_count = {day: 0.0 for day in days}
+    reference_over_line_count = {day: 0.0 for day in days}
+    reference_overproduction_qty = {day: 0.0 for day in days}
+    reference_shortfall_qty = {day: 0.0 for day in days}
+    for day in days:
+        for line_key in line_keys:
+            ref_qty = max(0.0, production_line_reference_qty(line_key, day))
+            actual_line_qty = max(0.0, production_line_by_day[line_key][day].get("actual_qty", 0.0))
+            if ref_qty <= 1e-9:
+                continue
+            reference_qty[day] += ref_qty
+            reference_covered_qty[day] += min(actual_line_qty, ref_qty)
+            reference_shortfall_qty[day] += max(0.0, ref_qty - actual_line_qty)
+            reference_overproduction_qty[day] += max(0.0, actual_line_qty - ref_qty)
+            reference_active_line_count[day] += 1.0
+            reference_gap_rate_sum[day] += min(100.0, 100.0 * abs(actual_line_qty - ref_qty) / ref_qty)
+            reference_coverage_rate_sum[day] += min(100.0, 100.0 * actual_line_qty / ref_qty)
+            reference_overproduction_rate_sum[day] += 100.0 * max(0.0, actual_line_qty - ref_qty) / ref_qty
+            if actual_line_qty + 1e-9 < ref_qty:
+                reference_under_line_count[day] += 1.0
+            if actual_line_qty > ref_qty * 1.05 + 1e-9:
+                reference_over_line_count[day] += 1.0
+
     def rolling_line_adherence(window_days: int) -> dict[int, float]:
         out: dict[int, float] = {}
-        line_keys = sorted(production_line_by_day)
         for idx, day in enumerate(days):
             window = days[max(0, idx - window_days + 1) : idx + 1]
             scores = []
@@ -1477,6 +1506,35 @@ def build_global_kpi_tree_payload(
     monthly_adherence_score = rolling_strict_adherence(30)
     weekly_line_adherence_score = rolling_line_adherence(7)
     monthly_line_adherence_score = rolling_line_adherence(30)
+    reference_gap_rate_avg = {
+        day: (
+            reference_gap_rate_sum[day] / reference_active_line_count[day]
+            if reference_active_line_count[day] > 0
+            else 0.0
+        )
+        for day in days
+    }
+    reference_coverage_rate_avg = {
+        day: (
+            reference_coverage_rate_sum[day] / reference_active_line_count[day]
+            if reference_active_line_count[day] > 0
+            else 100.0
+        )
+        for day in days
+    }
+    reference_overproduction_rate_avg = {
+        day: (
+            reference_overproduction_rate_sum[day] / reference_active_line_count[day]
+            if reference_active_line_count[day] > 0
+            else 0.0
+        )
+        for day in days
+    }
+    reference_overproduction_rate_capped = {day: min(500.0, reference_overproduction_rate_avg[day]) for day in days}
+    reference_strict_adherence_score = {
+        day: max(0.0, 100.0 - reference_gap_rate_avg[day])
+        for day in days
+    }
     shortfall_line_count = {day: production_by_day[day].get("shortfall_line_count", 0.0) for day in days}
     under_plan_line_count = {day: production_by_day[day].get("under_plan_line_count", 0.0) for day in days}
     over_plan_line_count = {day: production_by_day[day].get("over_plan_line_count", 0.0) for day in days}
@@ -1508,6 +1566,22 @@ def build_global_kpi_tree_payload(
     }
     weekly_lot_limit_line_share = {
         day: (100.0 * weekly_lot_limit_line_count[day] / active_line_count[day] if active_line_count[day] > 0 else 0.0)
+        for day in days
+    }
+    reference_under_line_share = {
+        day: (
+            100.0 * reference_under_line_count[day] / reference_active_line_count[day]
+            if reference_active_line_count[day] > 0
+            else 0.0
+        )
+        for day in days
+    }
+    reference_over_line_share = {
+        day: (
+            100.0 * reference_over_line_count[day] / reference_active_line_count[day]
+            if reference_active_line_count[day] > 0
+            else 0.0
+        )
         for day in days
     }
     startup_cutoff_days = 30
@@ -1553,9 +1627,13 @@ def build_global_kpi_tree_payload(
     total_required = sum(required_qty.values())
     total_served = sum(served_qty.values())
     total_desired = sum(desired_qty.values())
+    total_reference = sum(reference_qty.values())
+    total_reference_covered = sum(reference_covered_qty.values())
     total_actual = sum(actual_qty.values())
     total_shortfall = sum(shortfall_qty.values())
     total_overproduction = sum(overproduction_qty.values())
+    total_reference_shortfall = sum(reference_shortfall_qty.values())
+    total_reference_overproduction = sum(reference_overproduction_qty.values())
     total_startup_shortfall = sum(startup_shortfall_qty.values())
     total_operational_shortfall = sum(operational_shortfall_qty.values())
     active_production_days = sum(1 for value in active_line_count.values() if value > 0)
@@ -1565,14 +1643,19 @@ def build_global_kpi_tree_payload(
         else 100.0
     )
     all_active_lines = sum(active_line_count[day] for day in days if active_line_count[day] > 0)
+    all_reference_active_lines = sum(reference_active_line_count[day] for day in days if reference_active_line_count[day] > 0)
     all_score_sum = sum(production_by_day[day].get("execution_score_sum", 0.0) for day in days)
     all_gap_score_sum = sum(production_by_day[day].get("plan_gap_rate_sum", 0.0) for day in days)
     all_under_lines = sum(under_plan_line_count[day] for day in days)
     all_over_lines = sum(over_plan_line_count[day] for day in days)
-    avg_gap_score_all = all_gap_score_sum / all_active_lines if all_active_lines > 0 else 0.0
+    avg_gap_score_all = (
+        sum(reference_gap_rate_sum[day] for day in days) / all_reference_active_lines
+        if all_reference_active_lines > 0
+        else 0.0
+    )
     strict_adherence_score_all = max(0.0, 100.0 - avg_gap_score_all)
-    coverage_score_all = min(100.0, 100.0 * total_actual / total_desired) if total_desired > 1e-9 else 100.0
-    overproduction_share_all = 100.0 * total_overproduction / total_desired if total_desired > 1e-9 else 0.0
+    coverage_score_all = min(100.0, 100.0 * total_reference_covered / total_reference) if total_reference > 1e-9 else 100.0
+    overproduction_share_all = 100.0 * total_reference_overproduction / total_reference if total_reference > 1e-9 else 0.0
     avg_weekly_adherence = (
         sum(weekly_line_adherence_score[day] for day in days if active_line_count[day] > 0) / active_production_days
         if active_production_days
@@ -1583,8 +1666,16 @@ def build_global_kpi_tree_payload(
         if active_production_days
         else 100.0
     )
-    under_plan_share_all = 100.0 * all_under_lines / all_active_lines if all_active_lines > 0 else 0.0
-    over_plan_share_all = 100.0 * all_over_lines / all_active_lines if all_active_lines > 0 else 0.0
+    under_plan_share_all = (
+        100.0 * sum(reference_under_line_count[day] for day in days) / all_reference_active_lines
+        if all_reference_active_lines > 0
+        else 0.0
+    )
+    over_plan_share_all = (
+        100.0 * sum(reference_over_line_count[day] for day in days) / all_reference_active_lines
+        if all_reference_active_lines > 0
+        else 0.0
+    )
     post_startup_days = [day for day in days if day >= startup_cutoff_days and active_line_count[day] > 0]
     post_startup_active_lines = sum(active_line_count[day] for day in post_startup_days)
     post_startup_score_sum = sum(
@@ -1783,50 +1874,50 @@ def build_global_kpi_tree_payload(
         {
             "family": "Production",
             "level": "KPI secondaire",
-            "name": "Alignement quotidien strict lots vs besoin",
-            "formula": "100 - moyenne lignes min(100, |Production_jour - Besoin_jour| / Besoin_jour x 100)",
-            "terms": "Production_jour=actual_qty de la ligne. Besoin_jour=desired_qty demande a la ligne par le simulateur ce jour-la. Lignes sans besoin actif exclues de la moyenne.",
-            "interpretation": "Tres strict; penalise fortement les lots. A lire comme nervosite journaliere, pas comme performance seule.",
+            "name": "Alignement quotidien strict lots vs reference aval",
+            "formula": "100 - moyenne lignes min(100, |Production_jour - Reference_jour| / Reference_jour x 100)",
+            "terms": "Production_jour=actual_qty. Reference_jour=demande client pour PF, consommation aval observee pour semi-finis/intermediaires, puis fallback desired_qty si l'aval n'est pas observable. Lignes sans reference active exclues.",
+            "interpretation": "Tres strict; penalise fortement les lots. A lire comme nervosite journaliere face a la reference aval, pas comme performance seule.",
         },
         {
             "family": "Production",
             "level": "KPI secondaire",
-            "name": "Couverture du besoin",
-            "formula": "Moyenne lignes min(100, Production_jour / Besoin_jour x 100)",
-            "terms": "Production_jour=actual_qty. Besoin_jour=desired_qty. Ce KPI ne regarde pas la surproduction, seulement si le besoin du jour est couvert.",
-            "interpretation": "Ne penalise que la sous-production. Si 100%, le besoin est couvert.",
+            "name": "Couverture de la reference aval",
+            "formula": "Moyenne lignes min(100, Production_jour / Reference_jour x 100)",
+            "terms": "Reference_jour=demande client ou consommation aval observee selon la ligne. Ce KPI ne regarde pas la surproduction, seulement si la reference aval du jour est couverte.",
+            "interpretation": "Ne penalise que la sous-production par rapport a l'aval. Si 100%, la reference aval est couverte.",
         },
         {
             "family": "Production",
             "level": "KPI secondaire",
             "name": "Effet lots / campagnes",
-            "formula": "Moyenne lignes max(0, Production_jour - Besoin_jour) / Besoin_jour x 100, affichage plafonne a 500%",
-            "terms": "Production_jour=actual_qty. Besoin_jour=desired_qty. Surplus_jour=max(0, actual_qty - desired_qty).",
-            "interpretation": "Mesure la surproduction apparente due aux tailles de lots. Les pics sont normaux si le besoin journalier est faible.",
+            "formula": "Moyenne lignes max(0, Production_jour - Reference_jour) / Reference_jour x 100, affichage plafonne a 500%",
+            "terms": "Production_jour=actual_qty. Reference_jour=demande aval pertinente. Surplus_jour=max(0, actual_qty - Reference_jour).",
+            "interpretation": "Mesure l'avance de production creee par les tailles de lots/campagnes par rapport a l'aval, pas une erreur automatique.",
         },
         {
             "family": "Production",
             "level": "KPI secondaire",
-            "name": "Ecart moyen au besoin journalier",
-            "formula": "Moyenne lignes min(100, |Production_jour - Besoin_jour| / Besoin_jour x 100)",
-            "terms": "Production_jour=actual_qty. Besoin_jour=desired_qty. Ecart plafonne a 100% par ligne avant moyenne.",
+            "name": "Ecart moyen a la reference journaliere",
+            "formula": "Moyenne lignes min(100, |Production_jour - Reference_jour| / Reference_jour x 100)",
+            "terms": "Production_jour=actual_qty. Reference_jour=demande aval pertinente. Ecart plafonne a 100% par ligne avant moyenne.",
             "interpretation": "Ecart strict au jour. Complement de l'alignement quotidien.",
         },
         {
             "family": "Production",
             "level": "KPI secondaire",
             "name": "Part lignes sous-plan",
-            "formula": "100 x nombre de lignes avec Production_jour < Besoin_jour / lignes actives",
-            "terms": "Ligne active=ligne site/produit avec desired_qty > 0. Sous-plan=actual_qty < desired_qty.",
-            "interpretation": "Detecte les lignes qui ne couvrent pas le besoin du jour.",
+            "formula": "100 x nombre de lignes avec Production_jour < Reference_jour / lignes avec reference active",
+            "terms": "Reference_jour=demande client, consommation aval observee ou fallback desired_qty. Sous-plan=actual_qty < Reference_jour.",
+            "interpretation": "Detecte les lignes qui ne couvrent pas la reference aval du jour.",
         },
         {
             "family": "Production",
             "level": "KPI secondaire",
             "name": "Part lignes sur-plan >5%",
-            "formula": "100 x nombre de lignes avec Production_jour > 105% du besoin / lignes actives",
-            "terms": "Ligne active=desired_qty > 0. Sur-plan >5%=actual_qty > 1.05 x desired_qty.",
-            "interpretation": "Detecte les jours ou la production depasse fortement le besoin journalier, souvent a cause des lots.",
+            "formula": "100 x nombre de lignes avec Production_jour > 105% de Reference_jour / lignes avec reference active",
+            "terms": "Sur-plan >5%=actual_qty > 1.05 x Reference_jour.",
+            "interpretation": "Detecte les jours ou la production depasse fortement la reference aval, souvent a cause des lots.",
         },
         {
             "family": "Production",
@@ -1954,13 +2045,15 @@ def build_global_kpi_tree_payload(
                     summary("Adherence mensuelle lignes", fmt_pct(avg_monthly_adherence)),
                     summary("Adherence hebdo lignes", fmt_pct(avg_weekly_adherence)),
                     summary("Alignement quotidien strict", fmt_pct(strict_adherence_score_all)),
-                    summary("Couverture du besoin", fmt_pct(coverage_score_all)),
+                    summary("Couverture reference aval", fmt_pct(coverage_score_all)),
                     summary("Effet lots / campagnes", fmt_pct(overproduction_share_all)),
                     summary("Ecart moyen quotidien", fmt_pct(avg_gap_score_all)),
                     summary("Lignes sous-plan tout horizon", fmt_pct(under_plan_share_all)),
                     summary("Lignes sur-plan >5% tout horizon", fmt_pct(over_plan_share_all)),
-                    summary("Manque production total", fmt_qty(total_shortfall)),
-                    summary("Surproduction relative totale", fmt_qty(total_overproduction)),
+                    summary("Reference aval cumulee", fmt_qty(total_reference)),
+                    summary("Manque vs reference aval", fmt_qty(total_reference_shortfall)),
+                    summary("Surproduction vs reference aval", fmt_qty(total_reference_overproduction)),
+                    summary("Besoin simulateur brut", fmt_qty(total_desired)),
                     summary("Jours avec manque", str(shortfall_days)),
                     summary("Jours input shortage", str(input_shortage_days)),
                     summary("Jours capacite bloquante", str(capacity_days)),
@@ -1970,12 +2063,12 @@ def build_global_kpi_tree_payload(
                 "secondary": [
                     {"label": "Adherence lignes mensuelle (%)", **series_from_map(monthly_line_adherence_score), "color": "#2563eb"},
                     {"label": "Adherence lignes hebdo (%)", **series_from_map(weekly_line_adherence_score), "color": "#6366f1"},
-                    {"label": "Alignement quotidien strict lots vs besoin (%)", **series_from_map(strict_adherence_score), "color": "#94a3b8"},
-                    {"label": "Couverture du besoin - sous-production uniquement (%)", **series_from_map(execution_score_avg), "color": "#0f766e"},
-                    {"label": "Effet lots / campagnes - surproduction journaliere plafonnee 500% (%)", **series_from_map(overproduction_rate_capped), "color": "#0891b2"},
-                    {"label": "Ecart moyen au besoin journalier (%)", **series_from_map(plan_gap_rate_avg), "color": "#dc2626"},
-                    {"label": "Part lignes sous-plan (%)", **series_from_map(under_plan_line_share), "color": "#f97316"},
-                    {"label": "Part lignes sur-plan >5% (%)", **series_from_map(over_plan_line_share), "color": "#a855f7"},
+                    {"label": "Alignement quotidien strict lots vs reference aval (%)", **series_from_map(reference_strict_adherence_score), "color": "#94a3b8"},
+                    {"label": "Couverture reference aval - sous-production uniquement (%)", **series_from_map(reference_coverage_rate_avg), "color": "#0f766e"},
+                    {"label": "Effet lots / campagnes vs reference aval - plafonne 500% (%)", **series_from_map(reference_overproduction_rate_capped), "color": "#0891b2"},
+                    {"label": "Ecart moyen a la reference journaliere (%)", **series_from_map(reference_gap_rate_avg), "color": "#dc2626"},
+                    {"label": "Part lignes sous reference aval (%)", **series_from_map(reference_under_line_share), "color": "#f97316"},
+                    {"label": "Part lignes sur reference aval >5% (%)", **series_from_map(reference_over_line_share), "color": "#a855f7"},
                     {"label": "Part lignes contraintes capacite (%)", **series_from_map(capacity_line_share), "color": "#7c3aed"},
                     {"label": "Part lignes input shortage (%)", **series_from_map(input_shortage_line_share), "color": "#0f766e"},
                     {"label": "Part lignes bloquees lots/semaine (%)", **series_from_map(weekly_lot_limit_line_share), "color": "#475569"},

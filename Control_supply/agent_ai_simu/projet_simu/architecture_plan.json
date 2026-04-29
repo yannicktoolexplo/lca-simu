@@ -1,0 +1,36 @@
+{
+  "fichiers": [
+    {
+      "nom": "data_processor.py",
+      "fonctions": [
+        "load_data",
+        "clean_data",
+        "process_data"
+      ],
+      "agent_responsable": "DataScientist"
+    },
+    {
+      "nom": "model_trainer.py",
+      "fonctions": [
+        "train_model",
+        "save_model"
+      ],
+      "agent_responsable": "MachineLearningEngineer"
+    },
+    {
+      "nom": "model_evaluator.py",
+      "fonctions": [
+        "load_model",
+        "evaluate_model"
+      ],
+      "agent_responsable": "DataAnalyst"
+    },
+    {
+      "nom": "main_script.py",
+      "fonctions": [
+        "run_pipeline"
+      ],
+      "agent_responsable": "ProjectManager"
+    }
+  ]
+}
