@@ -15,9 +15,11 @@ import argparse
 import json
 import re
 import subprocess
+import zipfile
 from collections import defaultdict
 from pathlib import Path
 from typing import Any
+from xml.etree import ElementTree as ET
 
 
 PRODUCT_WORKBOOKS = ("021081.xlsx", "268191.xlsx", "268967.xlsx")
@@ -27,6 +29,10 @@ UPSTREAM_OUTPUT_ITEM = "item:773474"
 UPSTREAM_INPUT_ITEM = "item:021081"
 UPSTREAM_PRODUCER_ID = "SDC-1450"
 UPSTREAM_DISPLAY_CODE = "D-1450"
+XLSX_MAIN_NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+XLSX_REL_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+XLSX_PACKAGE_REL_NS = "http://schemas.openxmlformats.org/package/2006/relationships"
+XLSX_NS = {"a": XLSX_MAIN_NS, "r": XLSX_REL_NS, "rel": XLSX_PACKAGE_REL_NS}
 
 
 def parse_args() -> argparse.Namespace:
@@ -59,6 +65,96 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def xlsx_col_index(cell_ref: str) -> int:
+    letters = "".join(ch for ch in cell_ref if ch.isalpha()).upper()
+    index = 0
+    for ch in letters:
+        index = index * 26 + (ord(ch) - ord("A") + 1)
+    return max(index - 1, 0)
+
+
+def xlsx_cell_value(cell: ET.Element, shared_strings: list[str]) -> Any:
+    cell_type = cell.attrib.get("t")
+    if cell_type == "inlineStr":
+        return "".join(text.text or "" for text in cell.findall(".//a:t", XLSX_NS))
+    value_node = cell.find("a:v", XLSX_NS)
+    if value_node is None or value_node.text is None:
+        return ""
+    raw = value_node.text
+    if cell_type == "s":
+        try:
+            return shared_strings[int(float(raw))]
+        except (ValueError, IndexError):
+            return raw
+    if cell_type in {"str", "b"}:
+        return raw
+    try:
+        number = float(raw)
+    except ValueError:
+        return raw
+    if number.is_integer():
+        return int(number)
+    return number
+
+
+def load_workbook_rows_from_zip(path: Path, sheet_name: str) -> tuple[list[str], list[dict[str, Any]]]:
+    """Read simple xlsx sheets without Excel/openpyxl.
+
+    This keeps the data refresh deterministic in environments where Excel COM
+    silently drops accented headers or formula-heavy sheets.
+    """
+    try:
+        with zipfile.ZipFile(path) as zf:
+            shared_strings: list[str] = []
+            if "xl/sharedStrings.xml" in zf.namelist():
+                shared_root = ET.fromstring(zf.read("xl/sharedStrings.xml"))
+                for item in shared_root.findall("a:si", XLSX_NS):
+                    shared_strings.append("".join(text.text or "" for text in item.findall(".//a:t", XLSX_NS)))
+
+            workbook_root = ET.fromstring(zf.read("xl/workbook.xml"))
+            rel_root = ET.fromstring(zf.read("xl/_rels/workbook.xml.rels"))
+            rel_targets = {
+                rel.attrib.get("Id"): rel.attrib.get("Target", "")
+                for rel in rel_root.findall("rel:Relationship", XLSX_NS)
+            }
+
+            sheet_target = ""
+            for sheet in workbook_root.findall(".//a:sheet", XLSX_NS):
+                if sheet.attrib.get("name") == sheet_name:
+                    rel_id = sheet.attrib.get(f"{{{XLSX_REL_NS}}}id")
+                    sheet_target = rel_targets.get(rel_id, "")
+                    break
+            if not sheet_target:
+                return [], []
+            if not sheet_target.startswith("xl/"):
+                sheet_target = "xl/" + sheet_target.lstrip("/")
+            sheet_target = sheet_target.replace("\\", "/")
+
+            sheet_root = ET.fromstring(zf.read(sheet_target))
+    except (KeyError, zipfile.BadZipFile, ET.ParseError):
+        return [], []
+
+    raw_rows: list[list[Any]] = []
+    for row in sheet_root.findall(".//a:sheetData/a:row", XLSX_NS):
+        values: list[Any] = []
+        for cell in row.findall("a:c", XLSX_NS):
+            idx = xlsx_col_index(cell.attrib.get("r", "A1"))
+            while len(values) <= idx:
+                values.append("")
+            values[idx] = xlsx_cell_value(cell, shared_strings)
+        raw_rows.append(values)
+
+    if not raw_rows:
+        return [], []
+    headers = [str(value).strip() if value not in (None, "") else "" for value in raw_rows[0]]
+    rows: list[dict[str, Any]] = []
+    for raw in raw_rows[1:]:
+        if not any(value not in (None, "") for value in raw):
+            continue
+        rows.append({headers[idx]: raw[idx] if idx < len(raw) else "" for idx in range(len(headers)) if headers[idx]})
+    return headers, rows
+
+
 def load_workbook_rows(path: Path, sheet_name: str) -> tuple[list[str], list[dict[str, Any]]]:
     try:
         import openpyxl  # type: ignore
@@ -79,6 +175,10 @@ def load_workbook_rows(path: Path, sheet_name: str) -> tuple[list[str], list[dic
             if not any(value not in (None, "") for value in raw):
                 continue
             rows.append({headers[idx]: raw[idx] for idx in range(min(len(headers), len(raw)))})
+        return headers, rows
+
+    headers, rows = load_workbook_rows_from_zip(path, sheet_name)
+    if headers or rows:
         return headers, rows
 
     script = r"""

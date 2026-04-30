@@ -1451,6 +1451,7 @@ def build_global_kpi_tree_payload(
         item_id = str(row.get("item_id") or "")
         if item_id:
             consumption_by_item_day[item_id][day] += max(0.0, to_float(row.get("consumed_qty")) or 0.0)
+    items_with_consumption_signal = set(consumption_by_item_day)
 
     days = sorted(set(daily_by_day) | set(production_by_day) | set(demand_by_day))
     if not days:
@@ -1529,9 +1530,8 @@ def build_global_kpi_tree_payload(
         _node_id, item_id = line_key
         if item_id in finished_good_item_ids:
             return demand_by_item_day[item_id].get(day, 0.0)
-        consumed = consumption_by_item_day[item_id].get(day, 0.0)
-        if consumed > 1e-9:
-            return consumed
+        if item_id in items_with_consumption_signal:
+            return consumption_by_item_day[item_id].get(day, 0.0)
         return production_line_by_day[line_key][day].get("desired_qty", 0.0)
 
     line_keys = sorted(production_line_by_day)
@@ -1599,6 +1599,37 @@ def build_global_kpi_tree_payload(
             avg_over_by_day[day] = sum(over_scores) / len(over_scores) if over_scores else 0.0
         return avg_coverage_by_day, avg_over_by_day, under_by_line, over_by_line
 
+    def net_delay_catchup_rate(window_days: int) -> tuple[dict[int, float], dict[int, float]]:
+        net_delay_by_line_day: dict[tuple[str, str], dict[int, float]] = {line_key: {} for line_key in line_keys}
+        for line_key in line_keys:
+            cumulative_balance = 0.0
+            for day in days:
+                reference = max(0.0, production_line_reference_qty(line_key, day))
+                actual = max(0.0, production_line_by_day[line_key][day].get("actual_qty", 0.0))
+                cumulative_balance += actual - reference
+                net_delay_by_line_day[line_key][day] = max(0.0, -cumulative_balance)
+
+        rate_by_day: dict[int, float] = {}
+        net_delay_qty_by_day: dict[int, float] = {}
+        for idx, day in enumerate(days):
+            future_days = days[idx + 1 : min(len(days), idx + 1 + window_days)]
+            total_net_delay = 0.0
+            total_caught_up = 0.0
+            for line_key in line_keys:
+                current_delay = net_delay_by_line_day[line_key].get(day, 0.0)
+                if current_delay <= 1e-9:
+                    continue
+                min_future_delay = (
+                    min(net_delay_by_line_day[line_key].get(future_day, current_delay) for future_day in future_days)
+                    if future_days
+                    else current_delay
+                )
+                total_net_delay += current_delay
+                total_caught_up += max(0.0, current_delay - min_future_delay)
+            net_delay_qty_by_day[day] = total_net_delay
+            rate_by_day[day] = 100.0 * total_caught_up / total_net_delay if total_net_delay > 1e-9 else 100.0
+        return rate_by_day, net_delay_qty_by_day
+
     def rolling_line_adherence(window_days: int) -> dict[int, float]:
         out: dict[int, float] = {}
         for idx, day in enumerate(days):
@@ -1624,6 +1655,7 @@ def build_global_kpi_tree_payload(
         forward_30d_underproduction_by_line,
         forward_30d_overproduction_by_line,
     ) = forward_line_variance_rates(30)
+    net_delay_catchup_30d_rate, net_delay_catchup_30d_qty = net_delay_catchup_rate(30)
     reference_gap_rate_avg = {
         day: (
             reference_gap_rate_sum[day] / reference_active_line_count[day]
@@ -1807,6 +1839,12 @@ def build_global_kpi_tree_payload(
         sum(forward_30d_overproduction_rate[day] for day in days if active_line_count[day] > 0) / active_production_days
         if active_production_days
         else 0.0
+    )
+    catchup_deficit_days = [day for day in days if net_delay_catchup_30d_qty.get(day, 0.0) > 1e-9]
+    avg_net_delay_catchup_30d_rate = (
+        sum(net_delay_catchup_30d_rate[day] for day in catchup_deficit_days) / len(catchup_deficit_days)
+        if catchup_deficit_days
+        else 100.0
     )
     avg_weekly_adherence = (
         sum(weekly_line_adherence_score[day] for day in days if active_line_count[day] > 0) / active_production_days
@@ -2071,6 +2109,14 @@ def build_global_kpi_tree_payload(
         {
             "family": "Production",
             "level": "KPI secondaire",
+            "name": "Taux de rattrapage retard net 30j",
+            "formula": "Si Retard_net_J > 0: 100 x (Retard_net_J - min(Retard_net_J+1..J+30)) / Retard_net_J",
+            "terms": "Retard_net=max(0, cumul Reference - cumul Production) par ligne site/produit. L'avance de production cumulee est consommee avant de compter un retard. Les lignes sans retard net sont exclues du denominateur.",
+            "interpretation": "Indique si un vrai retard cumule est reduit dans les 30 jours suivants. Plus robuste qu'un deficit journalier brut pour une production par lots.",
+        },
+        {
+            "family": "Production",
+            "level": "KPI secondaire",
             "name": "Avance/exces de production par ligne",
             "formula": "Moyenne lignes max(0, Production_30j_prospectif - Reference_30j_prospectif) / Reference_30j_prospectif x 100, affichage plafonne a 500%",
             "terms": "Production_30j_prospectif=production de la ligne sur J..J+29. Reference_30j_prospectif=demande aval correspondante sur J..J+29.",
@@ -2218,6 +2264,7 @@ def build_global_kpi_tree_payload(
         "Adherence lignes mensuelle",
         "Couverture demande horizon 30j",
         "Retard/deficit de production par ligne",
+        "Taux de rattrapage retard net 30j",
         "Avance/exces de production par ligne",
         "Contraintes sur ligne",
         "Cout supply operationnel",
@@ -2291,6 +2338,7 @@ def build_global_kpi_tree_payload(
                     summary("Adherence lignes mensuelle", fmt_pct(avg_monthly_adherence)),
                     summary("Couverture demande horizon 30j", fmt_pct(avg_forward_30d_coverage)),
                     summary("Retard/deficit horizon 30j", fmt_pct(avg_forward_30d_underproduction)),
+                    summary("Rattrapage retard net 30j", fmt_pct(avg_net_delay_catchup_30d_rate)),
                     summary("Avance/exces horizon 30j", fmt_pct(avg_forward_30d_overproduction)),
                     summary("Reference aval cumulee", fmt_qty(total_reference)),
                     summary("Manque vs demande", fmt_qty(total_reference_shortfall)),
@@ -2304,6 +2352,7 @@ def build_global_kpi_tree_payload(
                 "secondary": [
                     {"label": "Adherence lignes mensuelle (%)", **series_from_map(monthly_line_adherence_score), "color": "#2563eb"},
                     {"label": "Couverture demande horizon 30j (%)", **series_from_map(forward_30d_coverage_rate), "color": "#0f766e"},
+                    {"label": "Taux de rattrapage retard net 30j (%)", **series_from_map(net_delay_catchup_30d_rate), "color": "#0891b2"},
                     *delay_deficit_line_series,
                     *overproduction_line_series,
                     {"label": "Contraintes sur ligne capacite / input / lots semaine (%)", **series_from_map(constrained_line_share), "color": "#dc2626"},
@@ -2913,6 +2962,123 @@ def fmt_order_day(value: Any) -> str:
     return f"J{day:+d}".replace("+0", "0").replace("+", "")
 
 
+def fmt_order_day_range(min_value: Any, max_value: Any) -> str:
+    min_day = fmt_order_day(min_value)
+    max_day = fmt_order_day(max_value)
+    if min_day == max_day:
+        return min_day
+    return f"{min_day}..{max_day}"
+
+
+def order_week_start(day: int) -> int:
+    return (day // 7) * 7
+
+
+def resolved_order_day(row: dict[str, str], day_field: str = "day") -> int:
+    if day_field == "planned_arrival_day":
+        release_day = to_float(row.get("release_day"))
+        lead_reference_days = to_float(row.get("lead_reference_days"))
+        if lead_reference_days is None or math.isnan(lead_reference_days):
+            lead_reference_days = to_float(row.get("lead_cover_days"))
+        if (
+            release_day is not None
+            and lead_reference_days is not None
+            and not math.isnan(release_day)
+            and not math.isnan(lead_reference_days)
+        ):
+            return int(round(release_day + lead_reference_days))
+        return int(to_float(row.get("arrival_day")) or 0)
+    return int(to_float(row.get(day_field)) or 0)
+
+
+def consolidate_order_rows_weekly(rows: list[dict[str, str]]) -> list[dict[str, Any]]:
+    groups: dict[tuple[Any, ...], dict[str, Any]] = {}
+    for row in rows:
+        order_day = int(to_float(row.get("order_date_imt")) or to_float(row.get("day")) or 0)
+        release_day = int(to_float(row.get("release_day")) or 0)
+        lead_reference_days = to_float(row.get("lead_reference_days"))
+        if lead_reference_days is None or math.isnan(lead_reference_days):
+            lead_reference_days = to_float(row.get("lead_cover_days"))
+        planned_arrival_day = (
+            int(round(release_day + lead_reference_days))
+            if lead_reference_days is not None and not math.isnan(lead_reference_days)
+            else int(to_float(row.get("arrival_day")) or 0)
+        )
+        effective_arrival = to_float(row.get("actual_receipt_day"))
+        effective_arrival_day = (
+            int(round(effective_arrival))
+            if effective_arrival is not None and not math.isnan(effective_arrival)
+            else planned_arrival_day
+        )
+        item_id = str(row.get("item_id") or "")
+        key = (
+            order_week_start(order_day),
+            str(row.get("src_node_id") or ""),
+            str(row.get("dst_node_id") or ""),
+            item_id,
+            str(row.get("order_type") or ""),
+        )
+        group = groups.get(key)
+        if group is None:
+            group = {
+                "week_start": key[0],
+                "src_node_id": key[1],
+                "dst_node_id": key[2],
+                "item_id": item_id,
+                "order_type": key[4],
+                "line_count": 0,
+                "release_qty": 0.0,
+                "receipt_qty": 0.0,
+                "order_min": order_day,
+                "order_max": order_day,
+                "release_min": release_day,
+                "release_max": release_day,
+                "planned_arrival_min": planned_arrival_day,
+                "planned_arrival_max": planned_arrival_day,
+                "effective_arrival_min": effective_arrival_day,
+                "effective_arrival_max": effective_arrival_day,
+                "lead_reference_sum": 0.0,
+                "lead_reference_count": 0,
+                "statuses": defaultdict(int),
+                "exceptions": set(),
+            }
+            groups[key] = group
+        group["line_count"] += 1
+        group["release_qty"] += max(0.0, to_float(row.get("release_qty")) or 0.0)
+        group["receipt_qty"] += max(0.0, to_float(row.get("planned_receipt_qty")) or 0.0)
+        group["order_min"] = min(group["order_min"], order_day)
+        group["order_max"] = max(group["order_max"], order_day)
+        group["release_min"] = min(group["release_min"], release_day)
+        group["release_max"] = max(group["release_max"], release_day)
+        group["planned_arrival_min"] = min(group["planned_arrival_min"], planned_arrival_day)
+        group["planned_arrival_max"] = max(group["planned_arrival_max"], planned_arrival_day)
+        group["effective_arrival_min"] = min(group["effective_arrival_min"], effective_arrival_day)
+        group["effective_arrival_max"] = max(group["effective_arrival_max"], effective_arrival_day)
+        if lead_reference_days is not None and not math.isnan(lead_reference_days):
+            group["lead_reference_sum"] += float(lead_reference_days)
+            group["lead_reference_count"] += 1
+        status_key = str(row.get("order_status_end_of_run") or "n/a")
+        group["statuses"][status_key] += 1
+        for flag in [
+            str(row.get("planning_status") or ""),
+            str(row.get("release_status") or ""),
+            str(row.get("receipt_status") or ""),
+            str(row.get("order_status_end_of_run") or ""),
+        ]:
+            if flag and flag not in {"planned_and_released", "released", "firm_receipt", "received"}:
+                group["exceptions"].add(flag)
+    return sorted(
+        groups.values(),
+        key=lambda group: (
+            int(group["week_start"]),
+            str(group["item_id"]),
+            str(group["src_node_id"]),
+            str(group["dst_node_id"]),
+        ),
+        reverse=True,
+    )
+
+
 def render_order_ledger_html(
     node_id: str,
     node_orders: list[dict[str, str]],
@@ -2953,52 +3119,38 @@ def render_order_ledger_html(
         ]
         status_counts[" | ".join(status_parts)] += 1
 
+    consolidated_orders = consolidate_order_rows_weekly(sorted_orders)
     recent_lines: list[str] = []
-    for row in sorted_orders[:120]:
-        day = int(to_float(row.get("day")) or 0)
-        item_id = str(row.get("item_id") or "")
+    for group in consolidated_orders[:120]:
+        item_id = str(group.get("item_id") or "")
         item_label = item_labels.get(item_id, compact_item_label(item_id))
-        mode_label = str(row.get("source_mode") or row.get("order_type") or "n/a")
-        order_day_value = to_float(row.get("order_date_imt"))
-        release_day_value = to_float(row.get("release_day"))
-        lead_reference_days_value = to_float(row.get("lead_reference_days"))
-        if lead_reference_days_value is None or math.isnan(lead_reference_days_value):
-            lead_reference_days_value = to_float(row.get("lead_cover_days"))
-        order_day = fmt_order_day(order_day_value)
-        release_day = fmt_order_day(release_day_value)
-        planned_arrival_day = fmt_order_day(
-            release_day_value + lead_reference_days_value
-            if release_day_value is not None
-            and lead_reference_days_value is not None
-            and not math.isnan(release_day_value)
-            and not math.isnan(lead_reference_days_value)
+        mode_label = str(group.get("order_type") or "n/a")
+        status_text = ", ".join(
+            f"{status}={count}" for status, count in sorted(group["statuses"].items())
+        )
+        lead_avg = (
+            group["lead_reference_sum"] / group["lead_reference_count"]
+            if group["lead_reference_count"] > 0
             else None
         )
-        effective_arrival_day = fmt_order_day(row.get("actual_receipt_day"))
-        exception_flags = [
-            flag
-            for flag in [
-                str(row.get("planning_status") or ""),
-                str(row.get("release_status") or ""),
-                str(row.get("receipt_status") or ""),
-                str(row.get("order_status_end_of_run") or ""),
-            ]
-            if flag and flag not in {"planned_and_released", "released", "firm_receipt", "received"}
-        ]
+        week_text = fmt_order_day_range(group["week_start"], group["week_start"] + 6)
         recent_lines.append(
             " | ".join(
                 [
+                    f"semaine={week_text}",
                     item_label,
                     mode_label,
-                    f"ordre_passe={order_day}",
-                    f"envoi={release_day}",
-                    f"delai_previsionnel_mrp={fmt_qty(lead_reference_days_value, 0)}j",
-                    f"arrivee_previsionnelle={planned_arrival_day}",
-                    f"arrivee_effective={effective_arrival_day}",
-                    f"qte_envoyee={fmt_qty(row.get('release_qty'), 1)}",
-                    f"qte_recue={fmt_qty(row.get('planned_receipt_qty'), 1)}",
-                    f"status={row.get('order_status_end_of_run') or 'n/a'}",
-                    f"exceptions={','.join(exception_flags) if exception_flags else 'none'}",
+                    f"lane={group['src_node_id']}->{group['dst_node_id']}",
+                    f"lignes_mrp={group['line_count']}",
+                    f"ordre_passe={fmt_order_day_range(group['order_min'], group['order_max'])}",
+                    f"envoi={fmt_order_day_range(group['release_min'], group['release_max'])}",
+                    f"delai_previsionnel_mrp_moy={fmt_qty(lead_avg, 1)}j",
+                    f"arrivee_previsionnelle={fmt_order_day_range(group['planned_arrival_min'], group['planned_arrival_max'])}",
+                    f"arrivee_effective={fmt_order_day_range(group['effective_arrival_min'], group['effective_arrival_max'])}",
+                    f"qte_envoyee={fmt_qty(group['release_qty'], 1)}",
+                    f"qte_recue={fmt_qty(group['receipt_qty'], 1)}",
+                    f"status={status_text or 'n/a'}",
+                    f"exceptions={','.join(sorted(group['exceptions'])) if group['exceptions'] else 'none'}",
                 ]
             )
         )
@@ -3011,9 +3163,10 @@ def render_order_ledger_html(
         [
             "<div class=\"factoryHtmlPanelContent\">",
             f"<div class=\"orderLedgerTextHeader\">{html.escape(node_id)} - {html.escape(title_suffix)}</div>",
-            f"<div class=\"orderLedgerStatus\">Statuses: {html.escape(statuses_text)}</div>",
+            f"<div class=\"orderLedgerStatus\">Lignes MRP brutes: {len(sorted_orders)} ; commandes consolidees semaine/lane/item: {len(consolidated_orders)}</div>",
+            f"<div class=\"orderLedgerStatus\">Statuses lignes brutes: {html.escape(statuses_text)}</div>",
             "<div class=\"orderLedgerStatus\">Jalons: ordre_passe=order_date_IMT | envoi=release_day | delai_previsionnel_mrp=lead_reference_days | arrivee_previsionnelle=envoi+delai_previsionnel_mrp | arrivee_effective=actual_receipt_day</div>",
-            "<div class=\"orderLedgerSectionTitle\">Derniers ordres:</div>",
+            "<div class=\"orderLedgerSectionTitle\">Dernieres commandes consolidees:</div>",
             "<div class=\"orderLedgerTextWrap\">",
             f"<pre class=\"orderLedgerLines\">{recent_orders_html}</pre>",
             "</div>",
@@ -5000,6 +5153,18 @@ def build_model_panel_metrics(
         if node_id:
             input_stocks_by_node[node_id].append(row)
 
+    dc_stocks_by_node: dict[str, list[dict[str, str]]] = defaultdict(list)
+    for row in dc_stock_rows:
+        node_id = str(row.get("node_id") or "")
+        if node_id:
+            dc_stocks_by_node[node_id].append(row)
+
+    supplier_stocks_by_node: dict[str, list[dict[str, str]]] = defaultdict(list)
+    for row in supplier_stock_rows:
+        node_id = str(row.get("node_id") or "")
+        if node_id:
+            supplier_stocks_by_node[node_id].append(row)
+
     latest_mrp_trace_by_pair: dict[tuple[str, str], dict[str, str]] = {}
     mrp_trace_by_node: dict[str, list[dict[str, str]]] = defaultdict(list)
     for row in mrp_trace_rows:
@@ -5076,26 +5241,13 @@ def build_model_panel_metrics(
         field: str,
         *,
         day_field: str = "day",
+        bucket_days: int = 1,
     ) -> list[tuple[int, float]]:
-        def resolve_order_day(row: dict[str, str]) -> int:
-            if day_field == "planned_arrival_day":
-                release_day = to_float(row.get("release_day"))
-                lead_reference_days = to_float(row.get("lead_reference_days"))
-                if lead_reference_days is None or math.isnan(lead_reference_days):
-                    lead_reference_days = to_float(row.get("lead_cover_days"))
-                if (
-                    release_day is not None
-                    and lead_reference_days is not None
-                    and not math.isnan(release_day)
-                    and not math.isnan(lead_reference_days)
-                ):
-                    return int(round(release_day + lead_reference_days))
-                return int(to_float(row.get("arrival_day")) or 0)
-            return int(to_float(row.get(day_field)) or 0)
-
         by_day: dict[int, float] = defaultdict(float)
         for row in rows:
-            day = resolve_order_day(row)
+            day = resolved_order_day(row, day_field)
+            if bucket_days > 1:
+                day = (day // bucket_days) * bucket_days
             by_day[day] += max(0.0, to_float(row.get(field)) or 0.0)
         return sorted(by_day.items())
 
@@ -5119,6 +5271,202 @@ def build_model_panel_metrics(
         if not counts:
             return None
         return build_bar_chart_figure(counts, title=title, y_label="Nombre d'ordres")
+
+    def render_mrp_risk_summary_html(
+        node_id: str,
+        node_type: str,
+        *,
+        safety_summary: dict[str, Any],
+        node_trace_rows: list[dict[str, str]],
+        node_orders: list[dict[str, str]],
+        stock_rows: list[dict[str, str]],
+        supplier_stock_rows_node: list[dict[str, str]],
+        supplier_capacity_rows_node: list[dict[str, str]],
+        dormant_reason: str | None,
+    ) -> str:
+        risk_rows: list[tuple[str, str, str, str]] = []
+
+        def add(severity: str, topic: str, signal: str, interpretation: str) -> None:
+            risk_rows.append((severity, topic, signal, interpretation))
+
+        total_safety = int(to_float(safety_summary.get("total")) or 0)
+        non_conform = int(to_float(safety_summary.get("non_conform")) or 0)
+        no_orders = int(to_float(safety_summary.get("no_orders")) or 0)
+        conform = int(to_float(safety_summary.get("conform")) or 0)
+        if total_safety > 0:
+            if non_conform > 0:
+                add(
+                    "RISQUE",
+                    "Arrivees vs delai securite",
+                    f"{non_conform}/{total_safety} non conformes",
+                    "Des receptions planifiees arrivent trop tard par rapport au delai de securite.",
+                )
+            elif no_orders > 0:
+                add(
+                    "ATTENTION",
+                    "Arrivees vs delai securite",
+                    f"{no_orders}/{total_safety} sans ordre",
+                    "Un besoin couvert par safety time n'a pas d'ordre MRP trace.",
+                )
+            else:
+                add(
+                    "OK",
+                    "Arrivees vs delai securite",
+                    f"{conform}/{total_safety} conformes",
+                    "Les premieres receptions planifiees respectent le delai de securite.",
+                )
+
+        trace_by_item: dict[str, dict[str, float]] = defaultdict(lambda: defaultdict(float))
+        trace_days_by_item: dict[str, set[int]] = defaultdict(set)
+        for row in node_trace_rows:
+            item_id = str(row.get("item_id") or "")
+            if not item_id:
+                continue
+            day = int(to_float(row.get("day")) or 0)
+            bn_qty = max(0.0, to_float(row.get("bn_qty")) or 0.0)
+            safety_floor = max(0.0, to_float(row.get("safety_floor_qty")) or 0.0)
+            target_stock = max(0.0, to_float(row.get("target_stock_qty")) or 0.0)
+            inventory_position = max(0.0, to_float(row.get("inventory_position_qty")) or 0.0)
+            trace_by_item[item_id]["max_bn_qty"] = max(trace_by_item[item_id]["max_bn_qty"], bn_qty)
+            trace_by_item[item_id]["max_safety_floor_qty"] = max(
+                trace_by_item[item_id]["max_safety_floor_qty"],
+                safety_floor,
+            )
+            trace_by_item[item_id]["max_target_stock_qty"] = max(
+                trace_by_item[item_id]["max_target_stock_qty"],
+                target_stock,
+            )
+            trace_by_item[item_id]["worst_inventory_gap_qty"] = min(
+                trace_by_item[item_id].get("worst_inventory_gap_qty", 0.0),
+                inventory_position - target_stock,
+            )
+            if bn_qty > 1e-9:
+                trace_days_by_item[item_id].add(day)
+
+        bn_items = [
+            (item_id, stats.get("max_bn_qty", 0.0), len(trace_days_by_item.get(item_id, set())))
+            for item_id, stats in trace_by_item.items()
+            if stats.get("max_bn_qty", 0.0) > 1e-9
+        ]
+        if bn_items:
+            item_id, max_bn, bn_days = max(bn_items, key=lambda row: (row[1], row[2]))
+            severity = "ATTENTION" if bn_days >= 30 else "INFO"
+            add(
+                severity,
+                "Besoin net MRP",
+                f"{item_labels.get(item_id, compact_item_label(item_id))}: max={fmt_qty(max_bn, 0)} ; jours={bn_days}",
+                "La position inventaire passe sous la cible MRP; c'est un signal de commande, pas forcement une rupture.",
+            )
+        elif node_trace_rows:
+            add("OK", "Besoin net MRP", "aucun besoin net positif", "La position inventaire couvre les cibles MRP tracees.")
+
+        stock_min_by_item: dict[str, float] = {}
+        for row in stock_rows:
+            item_id = str(row.get("item_id") or "")
+            if not item_id:
+                continue
+            value = max(0.0, to_float(row.get("stock_end_of_day")) or 0.0)
+            stock_min_by_item[item_id] = min(stock_min_by_item.get(item_id, value), value)
+        below_safety: list[tuple[float, str, float, float]] = []
+        for item_id, min_stock in stock_min_by_item.items():
+            safety_floor = trace_by_item.get(item_id, {}).get("max_safety_floor_qty", 0.0)
+            if safety_floor <= 1e-9:
+                continue
+            ratio = min_stock / safety_floor
+            if ratio < 1.0:
+                below_safety.append((ratio, item_id, min_stock, safety_floor))
+        if below_safety:
+            ratio, item_id, min_stock, safety_floor = min(below_safety, key=lambda row: row[0])
+            add(
+                "RISQUE",
+                "Stock physique vs securite",
+                f"{item_labels.get(item_id, compact_item_label(item_id))}: min={fmt_qty(min_stock, 0)} / cible={fmt_qty(safety_floor, 0)} ({ratio:.2f}x)",
+                "Le stock reel simule passe sous le stock equivalent au delai de securite.",
+            )
+        elif stock_min_by_item and any(stats.get("max_safety_floor_qty", 0.0) > 1e-9 for stats in trace_by_item.values()):
+            add("OK", "Stock physique vs securite", "pas de passage sous plancher detecte", "Le stock reel reste au-dessus des planchers de securite traces.")
+
+        non_received = [row for row in node_orders if str(row.get("order_status_end_of_run") or "") != "received"]
+        if non_received:
+            add(
+                "ATTENTION",
+                "Carnet fin d'horizon",
+                f"{len(non_received)} ordre(s) non recus en fin de run",
+                "Souvent normal pres de la fin d'horizon, mais a controler si cela concerne un item critique.",
+            )
+        elif node_orders:
+            add("OK", "Carnet fin d'horizon", "tous les ordres traces sont recus", "Pas d'ordre ouvert restant sur le run courant.")
+
+        if node_type == "supplier_dc":
+            supplier_min_by_item: dict[str, float] = {}
+            for row in supplier_stock_rows_node:
+                item_id = str(row.get("item_id") or "")
+                if not item_id:
+                    continue
+                value = max(0.0, to_float(row.get("stock_end_of_day")) or 0.0)
+                supplier_min_by_item[item_id] = min(supplier_min_by_item.get(item_id, value), value)
+            if supplier_min_by_item:
+                item_id, min_stock = min(supplier_min_by_item.items(), key=lambda row: row[1])
+                severity = "RISQUE" if min_stock <= 1e-9 else "ATTENTION" if min_stock < 1000.0 else "INFO"
+                add(
+                    severity,
+                    "Stock fournisseur",
+                    f"{item_labels.get(item_id, compact_item_label(item_id))}: stock mini={fmt_qty(min_stock, 0)}",
+                    "Stock source bas: le risque depend de l'hypothese fournisseur illimite / external procurement.",
+                )
+            max_util = 0.0
+            util_item = ""
+            active_days = 0
+            for row in supplier_capacity_rows_node:
+                util = max(0.0, to_float(row.get("utilization")) or 0.0)
+                if util > 1e-9:
+                    active_days += 1
+                if util > max_util:
+                    max_util = util
+                    util_item = str(row.get("item_id") or "")
+            if supplier_capacity_rows_node:
+                severity = "RISQUE" if max_util >= 0.95 else "ATTENTION" if max_util >= 0.80 else "OK"
+                add(
+                    severity,
+                    "Capacite fournisseur",
+                    f"utilisation max={max_util * 100:.1f}% ; jours actifs={active_days}",
+                    (
+                        f"Item le plus charge: {item_labels.get(util_item, compact_item_label(util_item))}. "
+                        "Si la capacite est une hypothese illimitee, ce point est indicatif."
+                    ),
+                )
+
+        if dormant_reason:
+            add("INFO", "Diagnostic noeud", dormant_reason, "Point de modelisation a valider si le noeud devrait etre actif.")
+
+        if not risk_rows:
+            add("INFO", "Risque MRP", "aucun signal disponible", "Aucune trace MRP ou donnee stock/carnet exploitable pour ce noeud.")
+
+        severity_rank = {"RISQUE": 0, "ATTENTION": 1, "INFO": 2, "OK": 3}
+        risk_rows.sort(key=lambda row: (severity_rank.get(row[0], 9), row[1]))
+        rows_html = []
+        for severity, topic, signal, interpretation in risk_rows:
+            rows_html.append(
+                "<tr>"
+                f"<td>{html.escape(severity)}</td>"
+                f"<td>{html.escape(topic)}</td>"
+                f"<td>{html.escape(signal)}</td>"
+                f"<td>{html.escape(interpretation)}</td>"
+                "</tr>"
+            )
+        return "".join(
+            [
+                "<div class=\"factoryHtmlPanelContent\">",
+                f"<div class=\"orderLedgerTextHeader\">{html.escape(node_id)} - risques MRP explicites</div>",
+                "<div class=\"orderLedgerStatus\">Un risque ici est un signal actionnable: non-respect safety time, stock sous plancher, besoin net durable, ordre ouvert ou fournisseur fragile. Une trace MRP normale n'est pas une exception.</div>",
+                "<div class=\"kpiFormulaTableWrap\"><table class=\"kpiFormulaTable\">",
+                "<thead><tr><th>Niveau</th><th>Sujet</th><th>Signal</th><th>Lecture</th></tr></thead>",
+                "<tbody>",
+                "".join(rows_html),
+                "</tbody></table></div>",
+                "</div>",
+            ]
+        )
 
     customer_latest_by_pair: dict[tuple[str, str], dict[str, str]] = {}
     for row in demand_rows:
@@ -5785,6 +6133,7 @@ def build_model_panel_metrics(
 
         node_trace_rows = mrp_trace_by_node.get(node_id, [])
         node_trace_asset = None
+        node_risk_asset = None
         node_flow_asset = None
         node_order_asset = None
         node_ledger_asset = None
@@ -5845,11 +6194,35 @@ def build_model_panel_metrics(
         if trace_figure is not None:
             node_trace_asset = {"figure": trace_figure}
         safety_summary = mrp_safety_summary_by_node.get(node_id, {})
-        order_release_series = aggregate_order_series(node_orders, "release_qty", day_field="order_date_imt")
-        order_receipt_series = aggregate_order_series(node_orders, "planned_receipt_qty", day_field="planned_arrival_day")
+        node_stock_rows_for_risk = dc_stocks_by_node.get(node_id, []) if node_type == "distribution_center" else input_stocks_by_node.get(node_id, [])
+        node_risk_asset = {
+            "html": render_mrp_risk_summary_html(
+                node_id,
+                node_type,
+                safety_summary=safety_summary,
+                node_trace_rows=node_trace_rows,
+                node_orders=node_orders,
+                stock_rows=node_stock_rows_for_risk,
+                supplier_stock_rows_node=supplier_stocks_by_node.get(node_id, []),
+                supplier_capacity_rows_node=supplier_cap_by_node.get(node_id, []),
+                dormant_reason=dormant_reason,
+            )
+        }
+        order_release_series = aggregate_order_series(
+            node_orders,
+            "release_qty",
+            day_field="order_date_imt",
+            bucket_days=7,
+        )
+        order_receipt_series = aggregate_order_series(
+            node_orders,
+            "planned_receipt_qty",
+            day_field="planned_arrival_day",
+            bucket_days=7,
+        )
         flow_series = {
-            "Ordres MRP dates IMT": order_release_series,
-            "Receptions previsionnelles": order_receipt_series,
+            "Ordres MRP hebdo dates IMT": order_release_series,
+            "Receptions previsionnelles hebdo": order_receipt_series,
         }
         actual_input_arrival_series = aggregate_daily_series(
             input_arrivals_by_node.get(node_id, []),
@@ -5940,10 +6313,20 @@ def build_model_panel_metrics(
                 continue
             item_label = item_labels.get(item_id, compact_item_label(item_id))
             color = item_palette[idx % len(item_palette)]
-            release_label = f"{item_label} - ordre"
-            receipt_label = f"{item_label} - reception prev."
-            release_series = aggregate_order_series(item_rows, "release_qty", day_field="order_date_imt")
-            receipt_series = aggregate_order_series(item_rows, "planned_receipt_qty", day_field="planned_arrival_day")
+            release_label = f"{item_label} - ordre hebdo"
+            receipt_label = f"{item_label} - reception prev. hebdo"
+            release_series = aggregate_order_series(
+                item_rows,
+                "release_qty",
+                day_field="order_date_imt",
+                bucket_days=7,
+            )
+            receipt_series = aggregate_order_series(
+                item_rows,
+                "planned_receipt_qty",
+                day_field="planned_arrival_day",
+                bucket_days=7,
+            )
             if release_series:
                 node_order_series[release_label] = release_series
                 node_order_styles[release_label] = {"color": color, "width": 2.0}
@@ -5978,7 +6361,7 @@ def build_model_panel_metrics(
                 title=f"{node_id} - reappro amont volumes dominants",
                 y_label="Quantite",
                 event_like=True,
-                note="Items separes automatiquement car ils ecrasent l'echelle du graphe global.",
+                note="Commandes MRP consolidees par semaine/lane/item pour eviter de lire les lignes MRP comme des PO unitaires.",
                 series_styles={label: node_order_styles.get(label, {}) for label in dominant_order_series},
             )
             other_order_figure = build_line_chart_figure(
@@ -5986,7 +6369,7 @@ def build_model_panel_metrics(
                 title=f"{node_id} - reappro amont autres items",
                 y_label="Quantite",
                 event_like=True,
-                note="Meme couleur par item. Trait plein = date de commande MRP/IMT ; pointille = reception previsionnelle (envoi + delai previsionnel MRP).",
+                note="Agregation hebdo. Meme couleur par item. Trait plein = ordre MRP/IMT ; pointille = reception previsionnelle.",
                 series_styles={label: node_order_styles.get(label, {}) for label in other_order_series},
             )
             node_orders_figure = {
@@ -6001,7 +6384,7 @@ def build_model_panel_metrics(
                 title=f"{node_id} - reappro amont par item",
                 y_label="Quantite",
                 event_like=True,
-                note="Meme couleur par item. Trait plein = date de commande MRP/IMT ; pointille = reception previsionnelle (envoi + delai previsionnel MRP).",
+                note="Commandes MRP consolidees par semaine/lane/item. Trait plein = ordre MRP/IMT ; pointille = reception previsionnelle.",
                 series_styles=node_order_styles,
             )
         if node_orders_figure is not None:
@@ -6065,6 +6448,7 @@ def build_model_panel_metrics(
             "title": "Modele du noeud",
             "summary_lines": summary_lines,
             "incoming": node_trace_asset,
+            "risk": node_risk_asset,
             "outgoing": node_flow_asset,
             "third": node_ledger_asset,
             "fourth": node_order_asset,
@@ -6150,12 +6534,23 @@ def build_model_panel_metrics(
         edge_status_asset = None
         edge_flow_figure = build_line_chart_figure(
             {
-                "Ordre IMT": aggregate_order_series(edge_order_rows, "release_qty", day_field="order_date_imt"),
-                "Reception previsionnelle": aggregate_order_series(edge_order_rows, "planned_receipt_qty", day_field="planned_arrival_day"),
+                "Ordre IMT hebdo": aggregate_order_series(
+                    edge_order_rows,
+                    "release_qty",
+                    day_field="order_date_imt",
+                    bucket_days=7,
+                ),
+                "Reception previsionnelle hebdo": aggregate_order_series(
+                    edge_order_rows,
+                    "planned_receipt_qty",
+                    day_field="planned_arrival_day",
+                    bucket_days=7,
+                ),
             },
             title=f"{edge_id} - ordres / receptions previsionnelles",
             y_label="Quantite",
             event_like=True,
+            note="Commandes MRP consolidees par semaine sur ce flux.",
         )
         if edge_flow_figure is not None:
             edge_order_asset = {"figure": edge_flow_figure}
@@ -9721,7 +10116,8 @@ def html_template(title: str, data_json: str, material_table_html: str, material
       const modelBundleEntries = modelDetails ? [
         {{ label: "Carnet", asset: modelDetails.third || null }},
         {{ label: "Flux MRP", asset: modelDetails.outgoing || null }},
-        {{ label: "Exceptions / risque", asset: modelDetails.incoming || null }},
+        {{ label: "Risques MRP", asset: modelDetails.risk || null }},
+        {{ label: "Trace MRP", asset: modelDetails.incoming || null }},
       ] : [];
       if (nodeType !== "supplier_dc" && nodeType !== "customer") {{
         modelBundleEntries.unshift({{ label: "Reappro amont", asset: modelDetails ? (modelDetails.fourth || null) : null }});

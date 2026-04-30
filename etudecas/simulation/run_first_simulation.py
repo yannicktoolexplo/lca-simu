@@ -346,6 +346,25 @@ def parse_args() -> argparse.Namespace:
             "M-1810,item:338929,1.5. Can be repeated."
         ),
     )
+    parser.add_argument(
+        "--mrp-base-stock-floor-factor-pair",
+        action="append",
+        default=[],
+        metavar="NODE,ITEM,FACTOR",
+        help=(
+            "Pair-specific multiplier for using opening/base stock as an MRP floor. "
+            "Use 0 to keep opening stock but avoid replenishing back to it as a target."
+        ),
+    )
+    parser.add_argument(
+        "--mrp-base-stock-floor-factor",
+        type=float,
+        default=None,
+        help=(
+            "Global multiplier for using opening/base stock as an MRP floor. "
+            "Default keeps scenario value; 0 tests the cleaner rule where opening stock is state only."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -1102,6 +1121,13 @@ def scenario_initialization_policy(
         "soft_safety_time_stock_target_factor_by_pair": parse_pair_factor_map(
             raw.get("soft_safety_time_stock_target_factor_by_pair")
         ),
+        "mrp_base_stock_floor_factor": max(
+            0.0,
+            min(10.0, to_float(raw.get("mrp_base_stock_floor_factor"), 1.0)),
+        ),
+        "mrp_base_stock_floor_factor_by_pair": parse_pair_factor_map(
+            raw.get("mrp_base_stock_floor_factor_by_pair")
+        ),
     }
 
 
@@ -1393,12 +1419,14 @@ def derive_supplier_daily_capacity_by_pair(
         downstream_requirement = 0.0
         downstream_signal = 0.0
         standard_hints: list[float] = []
+        standard_lot_floor = 0.0
         for lane in lane_list:
             dst_pair = (str(lane["dst"]), item_id)
             downstream_requirement += max(0.0, required_daily_input_by_pair.get(dst_pair, 0.0))
             downstream_signal += max(0.0, propagated_demand_today.get(dst_pair, 0.0))
             standard_qty = max(0.0, to_float(lane.get("standard_order_qty"), 0.0))
             if standard_qty > 0:
+                standard_lot_floor = max(standard_lot_floor, standard_qty)
                 hint_days = max(
                     1.0,
                     float(review_days),
@@ -1432,6 +1460,11 @@ def derive_supplier_daily_capacity_by_pair(
                 basis += "+fia_hint"
 
         scaled_capacity = max(0.01, nominal_capacity * node_capacity_scale)
+        if explicit_capacity <= 0.0 and standard_lot_floor > 0.0 and scaled_capacity < standard_lot_floor:
+            # Inferred supplier capacity is a planning heuristic; it must not
+            # make a standard order lot physically impossible to ship.
+            scaled_capacity = standard_lot_floor
+            basis += "+standard_lot_floor"
         capacity_by_pair[src_pair] = scaled_capacity
         metadata_rows.append(
             {
@@ -2029,6 +2062,16 @@ def main() -> None:
         merged_pair_factors = dict(initialization_policy["soft_safety_time_stock_target_factor_by_pair"])
         merged_pair_factors.update(cli_pair_factors)
         initialization_policy["soft_safety_time_stock_target_factor_by_pair"] = merged_pair_factors
+    cli_base_floor_factors = parse_pair_factor_specs(args.mrp_base_stock_floor_factor_pair)
+    if cli_base_floor_factors:
+        merged_base_floor_factors = dict(initialization_policy["mrp_base_stock_floor_factor_by_pair"])
+        merged_base_floor_factors.update(cli_base_floor_factors)
+        initialization_policy["mrp_base_stock_floor_factor_by_pair"] = merged_base_floor_factors
+    if args.mrp_base_stock_floor_factor is not None:
+        initialization_policy["mrp_base_stock_floor_factor"] = max(
+            0.0,
+            min(10.0, to_float(args.mrp_base_stock_floor_factor, 1.0)),
+        )
 
     def soft_safety_factor_for_pair(pair: tuple[str, str]) -> float:
         pair_factors = initialization_policy["soft_safety_time_stock_target_factor_by_pair"]
@@ -2037,6 +2080,16 @@ def main() -> None:
             to_float(
                 pair_factors.get(policy_pair_key(pair[0], pair[1])),
                 initialization_policy["soft_safety_time_stock_target_factor"],
+            ),
+        )
+
+    def base_stock_floor_factor_for_pair(pair: tuple[str, str]) -> float:
+        pair_factors = initialization_policy["mrp_base_stock_floor_factor_by_pair"]
+        return max(
+            0.0,
+            to_float(
+                pair_factors.get(policy_pair_key(pair[0], pair[1])),
+                initialization_policy["mrp_base_stock_floor_factor"],
             ),
         )
 
@@ -2181,9 +2234,7 @@ def main() -> None:
             mrp_policy = st.get("mrp_policy") or {}
             if isinstance(mrp_policy, dict):
                 pair_mrp_safety_time_days[key] = max(0.0, to_float(mrp_policy.get("safety_time_days"), 0.0))
-                # Business rule: only safety delays are actionable for stock policy.
-                # Source safety-stock quantities are ignored in this simulation.
-                pair_mrp_safety_stock_qty[key] = 0.0
+                pair_mrp_safety_stock_qty[key] = max(0.0, to_float(mrp_policy.get("safety_stock_qty"), 0.0))
     opening_stock_source_snapshot = dict(stock)
 
     lanes, lanes_by_dest_item = lane_records(edges, economic_policy=economic_policy)
@@ -3562,7 +3613,11 @@ def main() -> None:
         for pair, lane_list in lanes_by_dest_item.items():
             dst, item_id = pair
             strict_safety_floor = initialization_policy["mrp_strict_safety_floor_from_safety_time"]
-            target = 0.0 if strict_safety_floor else max(base_stock.get(pair, 0.0), 0.0)
+            target = (
+                0.0
+                if strict_safety_floor
+                else max(base_stock.get(pair, 0.0), 0.0) * base_stock_floor_factor_for_pair(pair)
+            )
             static_daily_req = max(0.0, required_daily_input_by_pair.get(pair, 0.0))
             dynamic_daily_req = max(0.0, propagated_demand_today.get(pair, 0.0))
             if dynamic_daily_req > 1e-9:
@@ -3580,17 +3635,20 @@ def main() -> None:
                 item_daily_req = 0.0
             else:
                 item_daily_req = static_daily_req
-            soft_safety_target_qty = 0.0 if strict_safety_floor else target
+            explicit_safety_stock_qty = max(0.0, pair_mrp_safety_stock_qty.get(pair, 0.0))
+            soft_safety_target_qty = explicit_safety_stock_qty if strict_safety_floor else max(target, explicit_safety_stock_qty)
+            target = max(target, explicit_safety_stock_qty)
             if item_daily_req > 0:
                 safety_time_target_qty = (
                     item_daily_req
                     * max(0.0, pair_mrp_safety_time_days.get(pair, 0.0))
                     * soft_safety_factor_for_pair(pair)
                 )
+                safety_target_qty = max(explicit_safety_stock_qty, safety_time_target_qty)
                 if strict_safety_floor:
-                    soft_safety_target_qty = safety_time_target_qty
+                    soft_safety_target_qty = safety_target_qty
                 else:
-                    soft_safety_target_qty = max(target, safety_time_target_qty)
+                    soft_safety_target_qty = max(target, safety_target_qty)
                 target = max(target, soft_safety_target_qty)
                 target = max(target, safety_stock_days * item_daily_req)
                 if pair in demand_pairs and demand_stock_target_days > 0.0:
@@ -3615,7 +3673,12 @@ def main() -> None:
 
             needed = target - stock[pair] - in_transit[pair]
             if initialization_policy["mrp_enforce_physical_safety_floor"]:
-                needed = max(needed, soft_safety_target_qty - stock[pair])
+                if explicit_safety_stock_qty > 0.0 and pair_mrp_safety_time_days.get(pair, 0.0) <= 0.0:
+                    # For explicit stock-only targets, avoid stacking duplicate
+                    # long-lead lots when already-released orders cover the target.
+                    needed = max(needed, soft_safety_target_qty - stock[pair] - in_transit[pair])
+                else:
+                    needed = max(needed, soft_safety_target_qty - stock[pair])
             if needed <= 1e-9:
                 continue
 
@@ -3933,18 +3996,24 @@ def main() -> None:
                     gross_requirement_basis = "static_requirement" if item_daily_req_static > 1e-9 else "none"
                 strict_safety_floor = initialization_policy["mrp_strict_safety_floor_from_safety_time"]
                 operational_base_floor_qty = (
-                    0.0 if strict_safety_floor else max(base_stock.get(pair, 0.0), 0.0)
+                    0.0
+                    if strict_safety_floor
+                    else max(base_stock.get(pair, 0.0), 0.0) * base_stock_floor_factor_for_pair(pair)
                 )
-                safety_floor_qty = 0.0
-                soft_safety_target_qty = 0.0
+                explicit_safety_stock_qty = max(0.0, pair_mrp_safety_stock_qty.get(pair, 0.0))
+                safety_floor_qty = explicit_safety_stock_qty
+                soft_safety_target_qty = explicit_safety_stock_qty
                 coverage_target_qty = 0.0
                 if item_daily_req > 0.0:
                     safety_time_floor_qty = item_daily_req * max(
                         0.0,
                         pair_mrp_safety_time_days.get(pair, 0.0),
                     )
-                    safety_floor_qty = safety_time_floor_qty
-                    soft_safety_target_qty = safety_time_floor_qty * soft_safety_factor_for_pair(pair)
+                    safety_floor_qty = max(explicit_safety_stock_qty, safety_time_floor_qty)
+                    soft_safety_target_qty = max(
+                        explicit_safety_stock_qty,
+                        safety_time_floor_qty * soft_safety_factor_for_pair(pair),
+                    )
                     coverage_target_qty = max(coverage_target_qty, safety_stock_days * item_daily_req)
                     if pair in demand_pairs and demand_stock_target_days > 0.0:
                         coverage_target_qty = max(coverage_target_qty, demand_stock_target_days * item_daily_req)
@@ -3982,7 +4051,10 @@ def main() -> None:
                 bb_qty = item_daily_req + bb_backlog_qty
                 bn_qty = max(0.0, target_with_backlog_qty - inventory_position_qty)
                 if initialization_policy["mrp_enforce_physical_safety_floor"]:
-                    bn_qty = max(0.0, bn_qty, soft_safety_target_qty - stock_proj_qty)
+                    if explicit_safety_stock_qty > 0.0 and pair_mrp_safety_time_days.get(pair, 0.0) <= 0.0:
+                        bn_qty = max(0.0, bn_qty, soft_safety_target_qty - inventory_position_qty)
+                    else:
+                        bn_qty = max(0.0, bn_qty, soft_safety_target_qty - stock_proj_qty)
                 arrival_min_day = planned_receipt_min_day_by_pair.get(pair)
                 arrival_max_day = planned_receipt_max_day_by_pair.get(pair)
                 mrp_trace_rows.append(
@@ -4203,7 +4275,7 @@ def main() -> None:
             continue
         pair_soft_safety_factor = soft_safety_factor_for_pair(pair)
         safety_days = max(0.0, pair_mrp_safety_time_days.get(pair, 0.0))
-        explicit_safety_stock_qty = 0.0
+        explicit_safety_stock_qty = max(0.0, pair_mrp_safety_stock_qty.get(pair, 0.0))
         trace_stats = mrp_trace_stats_by_pair.get(pair)
         if trace_stats and trace_stats.get("count", 0.0) > 0:
             trace_count = max(1.0, trace_stats["count"])
@@ -4332,6 +4404,10 @@ def main() -> None:
                 ],
                 "soft_safety_time_stock_target_factor_by_pair": initialization_policy[
                     "soft_safety_time_stock_target_factor_by_pair"
+                ],
+                "mrp_base_stock_floor_factor": initialization_policy["mrp_base_stock_floor_factor"],
+                "mrp_base_stock_floor_factor_by_pair": initialization_policy[
+                    "mrp_base_stock_floor_factor_by_pair"
                 ],
             },
             "economic_policy": {
@@ -5196,6 +5272,8 @@ def main() -> None:
 - MRP strict safety floor from safety time only: {summary['policy']['initialization_policy']['mrp_strict_safety_floor_from_safety_time']}
 - Soft safety-time physical stock target factor: {summary['policy']['initialization_policy']['soft_safety_time_stock_target_factor']}
 - Soft safety-time pair factors: {summary['policy']['initialization_policy']['soft_safety_time_stock_target_factor_by_pair']}
+- Base stock floor factor: {summary['policy']['initialization_policy']['mrp_base_stock_floor_factor']}
+- Base stock floor pair factors: {summary['policy']['initialization_policy']['mrp_base_stock_floor_factor_by_pair']}
 - Unmodeled supplier source mode: {summary['policy']['unmodeled_supplier_source_mode']}
 - Stochastic lead times: {summary['policy']['stochastic_lead_times']}
 - Lead-time distribution mode: {summary['policy']['lead_time_distribution_mode']}

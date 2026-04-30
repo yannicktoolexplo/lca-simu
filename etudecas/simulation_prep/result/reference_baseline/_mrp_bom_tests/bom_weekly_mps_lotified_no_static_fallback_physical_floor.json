@@ -3499,7 +3499,12 @@
               "unit_value_basis": 12.125
             },
             "is_default_initial": false,
-            "initial_source": "mrp_snapshot_2025-01-01T03:03:48+00:00"
+            "initial_source": "mrp_snapshot_2025-01-01T03:03:48+00:00",
+            "mrp_policy": {
+              "safety_stock_qty": 900000.0,
+              "safety_stock_uom": "KG",
+              "source": "mrp_policy_sheet"
+            }
           }
         ],
         "backlogs": [],
@@ -5650,7 +5655,7 @@
         "source_workbook": "021081.xlsx",
         "product_code": "773474",
         "supplier_account": "VD0960508A",
-        "standard_order_qty": 1.0,
+        "standard_order_qty": 20000.0,
         "standard_order_uom": "KG",
         "pricing_currency": "USD"
       },
@@ -5699,7 +5704,7 @@
         "source_workbook": "021081.xlsx",
         "product_code": "773474",
         "supplier_account": "VD0972460A",
-        "standard_order_qty": 1.0,
+        "standard_order_qty": 20000.0,
         "standard_order_uom": "KG",
         "pricing_currency": "USD"
       },
