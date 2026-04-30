@@ -746,6 +746,8 @@ def build_factory_hover_images(
                 if figure is not None:
                     outgoing = {"figure": figure}
         factory_rows = [row for row in constraint_rows if str(row.get("node_id") or "") == factory_id]
+        production_gantt_figure = build_factory_production_gantt_figure(raw, factory_id, factory_rows, item_labels)
+        production_gantt = {"figure": production_gantt_figure} if production_gantt_figure is not None else None
         desired_series = aggregate_daily_series(factory_rows, value_field="desired_qty")
         actual_series = aggregate_daily_series(factory_rows, value_field="actual_qty")
         capacity_series = aggregate_daily_series(factory_rows, value_field="cap_qty")
@@ -766,11 +768,15 @@ def build_factory_hover_images(
                 factory_id,
                 title=f"{factory_id} - stocks complets du site",
             )
-            if site_stock_payload is not None:
+            if production_gantt is not None:
+                auxiliary = production_gantt
+            elif site_stock_payload is not None:
                 if incoming is None:
                     incoming = site_stock_payload
                 else:
                     auxiliary = site_stock_payload
+        elif production_gantt is not None:
+            auxiliary = production_gantt
         if not incoming and not outgoing and not auxiliary:
             continue
         out[factory_id] = {"incoming": incoming, "outgoing": outgoing, "third": auxiliary}
@@ -807,6 +813,74 @@ def descriptor_series_to_figure(
     if figure is None:
         return None
     return {"figure": figure}
+
+
+def build_factory_production_gantt_figure(
+    raw: dict[str, Any],
+    factory_id: str,
+    factory_rows: list[dict[str, str]],
+    item_labels: dict[str, str],
+) -> dict[str, Any] | None:
+    process_tau_by_item: dict[str, float] = {}
+    node = next((n for n in (raw.get("nodes") or []) if str(n.get("id") or "") == factory_id), None)
+    for proc in (node or {}).get("processes") or []:
+        tau_process = max(0.0, to_float(((proc.get("wip") or {}).get("tau_process"))) or 0.0)
+        for out in proc.get("outputs") or []:
+            item_id = str(out.get("item_id") or "")
+            if item_id:
+                process_tau_by_item[item_id] = tau_process
+
+    rows: list[dict[str, Any]] = []
+    for row in sorted(factory_rows, key=lambda r: (int(to_float(r.get("day")) or 0), str(r.get("output_item_id") or ""))):
+        item_id = str(row.get("output_item_id") or "")
+        if not item_id or is_simulation_hidden_item(item_id):
+            continue
+        lot_starts = max(0.0, to_float(row.get("actual_lot_starts")) or 0.0)
+        if lot_starts <= 1e-9:
+            continue
+        started_qty = max(0.0, to_float(row.get("campaign_started_qty")) or 0.0)
+        if started_qty <= 1e-9:
+            started_qty = max(0.0, to_float(row.get("actual_qty")) or 0.0)
+        if started_qty <= 1e-9:
+            continue
+        day = int(to_float(row.get("day")) or 0)
+        cap_qty = max(0.0, to_float(row.get("cap_qty")) or 0.0)
+        capacity_mode = str(row.get("capacity_limit_mode") or "")
+        if cap_qty > 1e-9:
+            duration = max(1.0, float(math.ceil(started_qty / cap_qty)))
+            duration_basis = "quantite / capacite journaliere"
+        else:
+            duration = 0.6
+            duration_basis = "jalon de lancement (capacite non modelisee)"
+        label = item_labels.get(item_id, compact_item_label(item_id))
+        rows.append(
+            {
+                "lane": label,
+                "item_id": item_id,
+                "item_label": label,
+                "start": day,
+                "end": day + duration,
+                "duration": duration,
+                "duration_basis": duration_basis,
+                "capacity_mode": capacity_mode,
+                "cap_qty": round(cap_qty, 6),
+                "tau_process": round(process_tau_by_item.get(item_id, 0.0), 6),
+                "qty": round(started_qty, 6),
+                "lots": round(lot_starts, 6),
+                "lot_policy": str(row.get("lot_policy_mode") or ""),
+                "binding_cause": str(row.get("binding_cause") or "none"),
+            }
+        )
+    if not rows:
+        return None
+    return {
+        "kind": "gantt",
+        "title": f"{display_node_label(factory_id)} - planning production lots",
+        "x_label": "Jour",
+        "y_label": "Produit",
+        "note": "Barres = lots lances. Duree = quantite/capacite si capacite modelisee; sinon jalon court. Ce n'est pas une charge usine complete.",
+        "rows": rows,
+    }
 
 
 def item_label_lookup(raw: dict[str, Any]) -> dict[str, str]:
@@ -1274,12 +1348,15 @@ def build_global_kpi_tree_payload(
 
     finished_good_item_ids: set[str] = set()
     if raw:
+        item_labels = item_label_lookup(raw)
         node_type_by_id = {str(node.get("id") or ""): str(node.get("type") or "") for node in raw.get("nodes", []) or []}
         for edge in raw.get("edges", []) or []:
             if node_type_by_id.get(str(edge.get("to") or "")) != "customer":
                 continue
             for edge_item_id in edge.get("items") or []:
                 finished_good_item_ids.add(str(edge_item_id))
+    else:
+        item_labels = {}
 
     daily_by_day: dict[int, dict[str, float]] = defaultdict(lambda: defaultdict(float))
     for row in daily_rows:
@@ -1487,6 +1564,41 @@ def build_global_kpi_tree_payload(
             if actual_line_qty > ref_qty * 1.05 + 1e-9:
                 reference_over_line_count[day] += 1.0
 
+    def production_line_display_label(line_key: tuple[str, str]) -> str:
+        node_id, item_id = line_key
+        return f"{display_node_label(node_id)} / {item_labels.get(item_id, compact_item_label(item_id))}"
+
+    def forward_line_variance_rates(window_days: int) -> tuple[dict[int, float], dict[int, float], dict[tuple[str, str], dict[int, float]], dict[tuple[str, str], dict[int, float]]]:
+        avg_coverage_by_day: dict[int, float] = {}
+        avg_over_by_day: dict[int, float] = {}
+        under_by_line: dict[tuple[str, str], dict[int, float]] = {line_key: {} for line_key in line_keys}
+        over_by_line: dict[tuple[str, str], dict[int, float]] = {line_key: {} for line_key in line_keys}
+        for idx, day in enumerate(days):
+            window = days[idx : min(len(days), idx + window_days)]
+            coverage_scores: list[float] = []
+            over_scores: list[float] = []
+            for line_key in line_keys:
+                window_reference = sum(production_line_reference_qty(line_key, wday) for wday in window)
+                window_actual = sum(production_line_by_day[line_key][wday].get("actual_qty", 0.0) for wday in window)
+                if window_reference <= 1e-9 and window_actual <= 1e-9:
+                    under_by_line[line_key][day] = 0.0
+                    over_by_line[line_key][day] = 0.0
+                    continue
+                if window_reference <= 1e-9:
+                    under_by_line[line_key][day] = 0.0
+                    over_by_line[line_key][day] = 500.0
+                    over_scores.append(500.0)
+                else:
+                    coverage_scores.append(min(100.0, 100.0 * window_actual / window_reference))
+                    under_rate = min(500.0, 100.0 * max(0.0, window_reference - window_actual) / window_reference)
+                    over_rate = min(500.0, 100.0 * max(0.0, window_actual - window_reference) / window_reference)
+                    under_by_line[line_key][day] = under_rate
+                    over_by_line[line_key][day] = over_rate
+                    over_scores.append(over_rate)
+            avg_coverage_by_day[day] = sum(coverage_scores) / len(coverage_scores) if coverage_scores else 100.0
+            avg_over_by_day[day] = sum(over_scores) / len(over_scores) if over_scores else 0.0
+        return avg_coverage_by_day, avg_over_by_day, under_by_line, over_by_line
+
     def rolling_line_adherence(window_days: int) -> dict[int, float]:
         out: dict[int, float] = {}
         for idx, day in enumerate(days):
@@ -1506,6 +1618,12 @@ def build_global_kpi_tree_payload(
     monthly_adherence_score = rolling_strict_adherence(30)
     weekly_line_adherence_score = rolling_line_adherence(7)
     monthly_line_adherence_score = rolling_line_adherence(30)
+    (
+        forward_30d_coverage_rate,
+        forward_30d_overproduction_rate,
+        forward_30d_underproduction_by_line,
+        forward_30d_overproduction_by_line,
+    ) = forward_line_variance_rates(30)
     reference_gap_rate_avg = {
         day: (
             reference_gap_rate_sum[day] / reference_active_line_count[day]
@@ -1566,6 +1684,13 @@ def build_global_kpi_tree_payload(
     }
     weekly_lot_limit_line_share = {
         day: (100.0 * weekly_lot_limit_line_count[day] / active_line_count[day] if active_line_count[day] > 0 else 0.0)
+        for day in days
+    }
+    constrained_line_share = {
+        day: min(
+            100.0,
+            capacity_line_share[day] + input_shortage_line_share[day] + weekly_lot_limit_line_share[day],
+        )
         for day in days
     }
     reference_under_line_share = {
@@ -1656,6 +1781,33 @@ def build_global_kpi_tree_payload(
     strict_adherence_score_all = max(0.0, 100.0 - avg_gap_score_all)
     coverage_score_all = min(100.0, 100.0 * total_reference_covered / total_reference) if total_reference > 1e-9 else 100.0
     overproduction_share_all = 100.0 * total_reference_overproduction / total_reference if total_reference > 1e-9 else 0.0
+    avg_forward_30d_underproduction = (
+        sum(
+            value
+            for line_map in forward_30d_underproduction_by_line.values()
+            for day, value in line_map.items()
+            if active_line_count.get(day, 0.0) > 0
+        )
+        / max(
+            1,
+            sum(
+                1
+                for line_map in forward_30d_underproduction_by_line.values()
+                for day in line_map
+                if active_line_count.get(day, 0.0) > 0
+            ),
+        )
+    )
+    avg_forward_30d_coverage = (
+        sum(forward_30d_coverage_rate[day] for day in days if active_line_count[day] > 0) / active_production_days
+        if active_production_days
+        else 100.0
+    )
+    avg_forward_30d_overproduction = (
+        sum(forward_30d_overproduction_rate[day] for day in days if active_line_count[day] > 0) / active_production_days
+        if active_production_days
+        else 0.0
+    )
     avg_weekly_adherence = (
         sum(weekly_line_adherence_score[day] for day in days if active_line_count[day] > 0) / active_production_days
         if active_production_days
@@ -1724,8 +1876,9 @@ def build_global_kpi_tree_payload(
     total_opening_transport_cost = sum(opening_transport_cost.values())
     total_purchase_cost = sum(purchase_cost.values())
     total_opening_purchase_cost = sum(opening_purchase_cost.values())
+    total_opening_cost = total_opening_transport_cost + total_opening_purchase_cost
     total_scenario_cost_excluding_external = (
-        total_supply_cost_value + total_opening_transport_cost + total_opening_purchase_cost
+        total_supply_cost_value + total_opening_cost
     )
     top_transport_day = max(days, key=lambda day: transport_cost.get(day, 0.0)) if days else None
     transport_spike_driver = "n/a"
@@ -1806,6 +1959,34 @@ def build_global_kpi_tree_payload(
     def summary(label: str, value: str) -> dict[str, str]:
         return {"label": label, "value": value}
 
+    def cost_share(value: float, total: float = total_supply_cost_value) -> str:
+        if total <= 1e-9:
+            return "0.0%"
+        return fmt_pct(100.0 * value / total)
+
+    line_palette = ["#0f766e", "#2563eb", "#d97706", "#7c3aed", "#0891b2", "#be123c"]
+    delay_deficit_line_series = []
+    overproduction_line_series = []
+    for idx, line_key in enumerate(line_keys):
+        line_label = production_line_display_label(line_key)
+        color = line_palette[idx % len(line_palette)]
+        delay_deficit_line_series.append(
+            {
+                "label": f"Retard/deficit production {line_label}",
+                **series_from_map(forward_30d_underproduction_by_line.get(line_key, {})),
+                "color": color,
+                "dash": "dot",
+            }
+        )
+        overproduction_line_series.append(
+            {
+                "label": f"Avance/exces production {line_label}",
+                **series_from_map(forward_30d_overproduction_by_line.get(line_key, {})),
+                "color": color,
+                "dash": "solid",
+            }
+        )
+
     kpi_definitions = [
         {
             "family": "Disponibilite produit",
@@ -1850,18 +2031,10 @@ def build_global_kpi_tree_payload(
         {
             "family": "Production",
             "level": "KPI principal",
-            "name": "Alignement production",
+            "name": "Adherence lignes mensuelle",
             "formula": "Moyenne lignes de max(0, 100 - |Production_30j - Reference_30j| / Reference_30j x 100)",
             "terms": "Ligne=couple site/produit. Production_30j=Σ actual_qty sur 30 jours. Reference_jour: PF=demande client du produit; semi-fini/intermediaire=quantite consommee par les sites aval dans production_input_consumption_daily.csv; sinon fallback=desired_qty, c.-a-d. besoin de production demande par le simulateur. Reference_30j=Σ Reference_jour sur 30 jours.",
             "interpretation": "Adherence mensuelle par site/produit, calculee ligne par ligne pour ne pas melanger UN et G.",
-        },
-        {
-            "family": "Production",
-            "level": "KPI secondaire",
-            "name": "Adherence lignes mensuelle",
-            "formula": "Meme formule que le KPI principal, fenetre glissante 30 jours",
-            "terms": "Reference_30j et Production_30j sont calculees par ligne site/produit avant moyenne. Reference_jour=demande client pour PF; consommation aval observee pour semi-finis/intermediaires; desired_qty si aucune consommation aval directe n'est disponible.",
-            "interpretation": "Mesure la coherence avec une production par lots/campagnes.",
         },
         {
             "family": "Production",
@@ -1882,18 +2055,26 @@ def build_global_kpi_tree_payload(
         {
             "family": "Production",
             "level": "KPI secondaire",
-            "name": "Couverture de la reference aval",
-            "formula": "Moyenne lignes min(100, Production_jour / Reference_jour x 100)",
-            "terms": "Reference_jour=demande client ou consommation aval observee selon la ligne. Ce KPI ne regarde pas la surproduction, seulement si la reference aval du jour est couverte.",
-            "interpretation": "Ne penalise que la sous-production par rapport a l'aval. Si 100%, la reference aval est couverte.",
+            "name": "Couverture demande horizon 30j",
+            "formula": "Moyenne lignes min(100, Production_30j_prospectif / Reference_30j_prospectif x 100)",
+            "terms": "Calculee par ligne site/produit sur J..J+29, puis moyennee. Reference=demande client pour PF, consommation aval pour semi-finis/intermediaires, fallback desired_qty.",
+            "interpretation": "Lecture simple: 100% signifie que la demande de l'horizon est couverte; sous 100%, il y a un retard/deficit sur l'horizon.",
         },
         {
             "family": "Production",
             "level": "KPI secondaire",
-            "name": "Effet lots / campagnes",
-            "formula": "Moyenne lignes max(0, Production_jour - Reference_jour) / Reference_jour x 100, affichage plafonne a 500%",
-            "terms": "Production_jour=actual_qty. Reference_jour=demande aval pertinente. Surplus_jour=max(0, actual_qty - Reference_jour).",
-            "interpretation": "Mesure l'avance de production creee par les tailles de lots/campagnes par rapport a l'aval, pas une erreur automatique.",
+            "name": "Retard/deficit de production par ligne",
+            "formula": "max(0, Reference_30j_prospectif - Production_30j_prospectif) / Reference_30j_prospectif x 100",
+            "terms": "Calcule par ligne site/produit sur J..J+29. Reference=demande client pour PF, consommation aval pour semi-finis/intermediaires, fallback desired_qty.",
+            "interpretation": "Montre les lignes qui ne couvrent pas encore leur demande sur l'horizon de campagne. Si c'est rattrape ensuite, c'est un retard; sinon c'est un deficit definitif.",
+        },
+        {
+            "family": "Production",
+            "level": "KPI secondaire",
+            "name": "Avance/exces de production par ligne",
+            "formula": "Moyenne lignes max(0, Production_30j_prospectif - Reference_30j_prospectif) / Reference_30j_prospectif x 100, affichage plafonne a 500%",
+            "terms": "Production_30j_prospectif=production de la ligne sur J..J+29. Reference_30j_prospectif=demande aval correspondante sur J..J+29.",
+            "interpretation": "Mesure l'avance ou l'exces de production sur l'horizon couvert par une campagne. Evite de comparer un lot complet a la seule demande du jour.",
         },
         {
             "family": "Production",
@@ -1984,12 +2165,77 @@ def build_global_kpi_tree_payload(
             "interpretation": "Pilotable signifie que le KPI peut changer si on change la politique supply. Le carnet initial est affiche a part car il est deja engage au demarrage.",
         },
     ]
+    kpi_definitions.extend(
+        [
+            {
+                "family": "Production",
+                "level": "KPI secondaire",
+                "name": "Contraintes sur ligne",
+                "formula": "Part des lignes avec binding_cause capacity, input_shortage ou weekly_lot_limit",
+                "terms": "Calcule sur les lignes actives du jour et plafonne a 100%.",
+                "interpretation": "Si ce signal est nul, les ecarts de production viennent surtout des tailles de lots/campagnes, pas d'un blocage operationnel.",
+            },
+            {
+                "family": "Couts supply",
+                "level": "KPI principal",
+                "name": "Cout supply operationnel",
+                "formula": "Indice base 100 du cout operationnel journalier total",
+                "terms": "Cout operationnel = achat pilotable + cout stock + cout de transport pilotable. Les montants reels sont affiches dans les KPI secondaires.",
+                "interpretation": "Permet de voir les jours plus chers que la moyenne du scenario, tout en gardant le detail en euros/quantite dans les secondaires.",
+            },
+            {
+                "family": "Couts supply",
+                "level": "KPI secondaire",
+                "name": "Achat matiere pilotable",
+                "formula": "operational_purchase_cost_day",
+                "terms": "Achats matiere/fournisseur declenches par les commandes du scenario, hors carnet initial deja engage.",
+                "interpretation": "Driver economique principal quand les prix matiere dominent.",
+            },
+            {
+                "family": "Couts supply",
+                "level": "KPI secondaire",
+                "name": "Cout stock",
+                "formula": "holding_cost_day + warehouse_operating_cost_day + inventory_risk_cost_day",
+                "terms": "Immobilisation, stockage operationnel et risque inventaire.",
+                "interpretation": "Montre le prix paye pour maintenir plus de couverture et securiser la production.",
+            },
+            {
+                "family": "Couts supply",
+                "level": "KPI secondaire",
+                "name": "Cout de transport pilotable",
+                "formula": "operational_transport_cost_day",
+                "terms": "Transport des commandes simulees, hors carnet initial deja engage.",
+                "interpretation": "Montre si la politique cree des expeditions couteuses ou concentrees.",
+            },
+        ]
+    )
+    visible_definition_names = {
+        "Disponibilite produit",
+        "Demande",
+        "Besoin avec backlog",
+        "Servi",
+        "Backlog fin de jour",
+        "Adherence lignes mensuelle",
+        "Couverture demande horizon 30j",
+        "Retard/deficit de production par ligne",
+        "Avance/exces de production par ligne",
+        "Contraintes sur ligne",
+        "Cout supply operationnel",
+        "Achat matiere pilotable",
+        "Cout stock",
+        "Cout de transport pilotable",
+        "Pilotable",
+    }
 
     return {
         "kind": "kpi_tree",
         "title": "Arborescence KPI management supply",
         "subtitle": "Clique une courbe KPI principale pour afficher ses KPI secondaires.",
-        "definitions": kpi_definitions,
+        "definitions": [
+            definition
+            for definition in kpi_definitions
+            if str(definition.get("name") or "") in visible_definition_names
+        ],
         "main": {
             "days": days,
             "series": [
@@ -2002,17 +2248,17 @@ def build_global_kpi_tree_payload(
                 },
                 {
                     "id": "production",
-                    "label": "Alignement production",
+                    "label": "Adherence lignes mensuelle",
                     "values": [round(production_execution_score[day], 6) for day in days],
                     "color": "#2563eb",
-                    "note": "Adherence mensuelle par ligne produit/site, calculee avant aggregation pour eviter de melanger UN et G. Les KPI secondaires isolent couverture, effet lots et contraintes.",
+                    "note": "Adherence mensuelle par ligne produit/site. Les secondaires affichent couverture, retard/deficit, avance/exces et contraintes sur ligne.",
                 },
                 {
                     "id": "cost",
-                    "label": "Pression cout supply",
+                    "label": "Cout supply operationnel",
                     "values": [round(cost_index[day], 6) for day in days],
                     "color": "#d97706",
-                    "note": "Indice journalier: (cout stock + transport pilotable + achat pilotable) / moyenne du run x 100. Plus bas est meilleur.",
+                    "note": "Indice journalier base 100 du cout operationnel. Les secondaires affichent les montants achat, stock et transport par jour.",
                 },
             ],
             "y_label": "Score / indice",
@@ -2039,21 +2285,16 @@ def build_global_kpi_tree_payload(
             },
             {
                 "id": "production",
-                "label": "Alignement production usine",
+                "label": "Adherence lignes mensuelle usine",
                 "objective": "Reduire la nervosite usine et les replanifications dues aux ruptures composants.",
                 "summary": [
-                    summary("Adherence mensuelle lignes", fmt_pct(avg_monthly_adherence)),
-                    summary("Adherence hebdo lignes", fmt_pct(avg_weekly_adherence)),
-                    summary("Alignement quotidien strict", fmt_pct(strict_adherence_score_all)),
-                    summary("Couverture reference aval", fmt_pct(coverage_score_all)),
-                    summary("Effet lots / campagnes", fmt_pct(overproduction_share_all)),
-                    summary("Ecart moyen quotidien", fmt_pct(avg_gap_score_all)),
-                    summary("Lignes sous-plan tout horizon", fmt_pct(under_plan_share_all)),
-                    summary("Lignes sur-plan >5% tout horizon", fmt_pct(over_plan_share_all)),
+                    summary("Adherence lignes mensuelle", fmt_pct(avg_monthly_adherence)),
+                    summary("Couverture demande horizon 30j", fmt_pct(avg_forward_30d_coverage)),
+                    summary("Retard/deficit horizon 30j", fmt_pct(avg_forward_30d_underproduction)),
+                    summary("Avance/exces horizon 30j", fmt_pct(avg_forward_30d_overproduction)),
                     summary("Reference aval cumulee", fmt_qty(total_reference)),
-                    summary("Manque vs reference aval", fmt_qty(total_reference_shortfall)),
-                    summary("Surproduction vs reference aval", fmt_qty(total_reference_overproduction)),
-                    summary("Besoin simulateur brut", fmt_qty(total_desired)),
+                    summary("Manque vs demande", fmt_qty(total_reference_shortfall)),
+                    summary("Avance/exces journalier brut", fmt_qty(total_reference_overproduction)),
                     summary("Jours avec manque", str(shortfall_days)),
                     summary("Jours input shortage", str(input_shortage_days)),
                     summary("Jours capacite bloquante", str(capacity_days)),
@@ -2062,43 +2303,33 @@ def build_global_kpi_tree_payload(
                 ],
                 "secondary": [
                     {"label": "Adherence lignes mensuelle (%)", **series_from_map(monthly_line_adherence_score), "color": "#2563eb"},
-                    {"label": "Adherence lignes hebdo (%)", **series_from_map(weekly_line_adherence_score), "color": "#6366f1"},
-                    {"label": "Alignement quotidien strict lots vs reference aval (%)", **series_from_map(reference_strict_adherence_score), "color": "#94a3b8"},
-                    {"label": "Couverture reference aval - sous-production uniquement (%)", **series_from_map(reference_coverage_rate_avg), "color": "#0f766e"},
-                    {"label": "Effet lots / campagnes vs reference aval - plafonne 500% (%)", **series_from_map(reference_overproduction_rate_capped), "color": "#0891b2"},
-                    {"label": "Ecart moyen a la reference journaliere (%)", **series_from_map(reference_gap_rate_avg), "color": "#dc2626"},
-                    {"label": "Part lignes sous reference aval (%)", **series_from_map(reference_under_line_share), "color": "#f97316"},
-                    {"label": "Part lignes sur reference aval >5% (%)", **series_from_map(reference_over_line_share), "color": "#a855f7"},
-                    {"label": "Part lignes contraintes capacite (%)", **series_from_map(capacity_line_share), "color": "#7c3aed"},
-                    {"label": "Part lignes input shortage (%)", **series_from_map(input_shortage_line_share), "color": "#0f766e"},
-                    {"label": "Part lignes bloquees lots/semaine (%)", **series_from_map(weekly_lot_limit_line_share), "color": "#475569"},
+                    {"label": "Couverture demande horizon 30j (%)", **series_from_map(forward_30d_coverage_rate), "color": "#0f766e"},
+                    *delay_deficit_line_series,
+                    *overproduction_line_series,
+                    {"label": "Contraintes sur ligne capacite / input / lots semaine (%)", **series_from_map(constrained_line_share), "color": "#dc2626"},
                 ],
                 "secondary_y_label": "%",
             },
             {
                 "id": "cost",
                 "label": "Couts supply",
-                "objective": "Eviter les stocks excessifs et les transports d'urgence pour compenser les risques.",
+                "objective": "Comprendre le cout operationnel: achat matiere, stock et transport.",
                 "summary": [
-                    summary("Formule pression cout", "(stock + transport pilotable + achat pilotable) / moyenne run x100"),
-                    summary("Cout total pilotable", fmt_qty(total_supply_cost_value)),
+                    summary("Cout operationnel total", fmt_qty(total_supply_cost_value)),
+                    summary("Achat matiere pilotable", f"{fmt_qty(total_purchase_cost)} ({cost_share(total_purchase_cost)})"),
+                    summary("Cout stock", f"{fmt_qty(total_inventory_cost)} ({cost_share(total_inventory_cost)})"),
+                    summary("Cout de transport pilotable", f"{fmt_qty(total_transport_cost)} ({cost_share(total_transport_cost)})"),
+                    summary("Carnet initial deja engage", fmt_qty(total_opening_cost)),
                     summary("Cout total scenario", fmt_qty(total_scenario_cost_excluding_external)),
-                    summary("Cout logistique pilotable", fmt_qty(total_logistics_cost)),
-                    summary("Cout stock", fmt_qty(total_inventory_cost)),
-                    summary("Cout transport pilotable", fmt_qty(total_transport_cost)),
-                    summary("Transport carnet initial", fmt_qty(total_opening_transport_cost)),
-                    summary("Cout achat pilotable", fmt_qty(total_purchase_cost)),
-                    summary("Achat carnet initial", fmt_qty(total_opening_purchase_cost)),
                     summary("Principal pic transport", transport_spike_driver),
                 ],
                 "secondary": [
-                    {"label": "Pression cout total supply - indice", **series_from_map(cost_index), "color": "#d97706"},
-                    {"label": "Pression logistique hors achat - indice", **series_from_map(logistics_cost_index), "color": "#64748b"},
-                    {"label": "Contribution achat pilotable - indice", **series_from_map(purchase_cost_index), "color": "#0f766e"},
-                    {"label": "Contribution stock - indice", **series_from_map(inventory_cost_index), "color": "#7c3aed"},
-                    {"label": "Contribution transport pilotable - indice", **series_from_map(transport_cost_index), "color": "#f97316"},
+                    {"label": "Cout operationnel total", **series_from_map(total_supply_cost), "color": "#d97706"},
+                    {"label": "Achat matiere pilotable", **series_from_map(purchase_cost), "color": "#0f766e"},
+                    {"label": "Cout stock", **series_from_map(inventory_cost), "color": "#7c3aed"},
+                    {"label": "Cout de transport pilotable", **series_from_map(transport_cost), "color": "#f97316"},
                 ],
-                "secondary_y_label": "Indice base 100",
+                "secondary_y_label": "Cout / jour",
             },
         ],
     }
@@ -8501,6 +8732,11 @@ def html_template(title: str, data_json: str, material_table_html: str, material
             if (Number.isFinite(value)) maxDay = Math.max(maxDay, value);
           }});
         }});
+      }} else if (figure.kind === "gantt") {{
+        (figure.rows || []).forEach((row) => {{
+          const value = Number(row.end || row.start || 0);
+          if (Number.isFinite(value)) maxDay = Math.max(maxDay, value);
+        }});
       }}
       return maxDay;
     }}
@@ -9411,7 +9647,7 @@ def html_template(title: str, data_json: str, material_table_html: str, material
         return {{
           incoming: "Stock fournisseur",
           outgoing: "Expeditions vs receptions",
-          third: "Capacite",
+          third: "Planning lots production",
           fourth: "Pilotage MRP"
         }};
       }}
@@ -9419,7 +9655,7 @@ def html_template(title: str, data_json: str, material_table_html: str, material
         return {{
           incoming: "Stock intrants / PFI",
           outgoing: "Expeditions PFI",
-          third: "",
+          third: "Planning lots production",
           fourth: "Pilotage MRP"
         }};
       }}
@@ -9427,7 +9663,7 @@ def html_template(title: str, data_json: str, material_table_html: str, material
         return {{
           incoming: "Stock matieres",
           outgoing: "Flux aval",
-          third: "",
+          third: "Planning lots production",
           fourth: "Pilotage MRP"
         }};
       }}
@@ -9669,6 +9905,79 @@ def html_template(title: str, data_json: str, material_table_html: str, material
             }},
           }};
         }}
+        if (figure.kind === "gantt") {{
+          const palette = ["#0f766e", "#2563eb", "#d97706", "#7c3aed", "#0891b2", "#be123c"];
+          const range = currentTimelineDayRange();
+          const rows = (figure.rows || []).filter((row) => {{
+            const start = Number(row.start) || 0;
+            const end = Number(row.end) || start + Math.max(1, Number(row.duration) || 1);
+            if (currentPanelMode !== "ops" || timelineMaxYear <= 1) return true;
+            return end >= range.startDay && start <= range.endDay;
+          }});
+          const grouped = new Map();
+          rows.forEach((row) => {{
+            const lane = row.lane || row.item_label || row.item_id || "Lot";
+            if (!grouped.has(lane)) grouped.set(lane, []);
+            grouped.get(lane).push(row);
+          }});
+          const laneLabels = Array.from(grouped.keys()).reverse();
+          const traces = Array.from(grouped.entries()).map(([lane, laneRows], idx) => {{
+            return {{
+              type: "bar",
+              orientation: "h",
+              name: lane,
+              y: laneRows.map(() => lane),
+              x: laneRows.map(row => Math.max(0.2, Number(row.duration) || Math.max(1, (Number(row.end) || 0) - (Number(row.start) || 0)))),
+              base: laneRows.map(row => Number(row.start) || 0),
+              marker: {{ color: palette[idx % palette.length], opacity: 0.82 }},
+              customdata: laneRows.map(row => [
+                Number(row.start) || 0,
+                Number(row.duration) || 0,
+                Number(row.qty) || 0,
+                Number(row.lots) || 0,
+                row.lot_policy || "",
+                row.binding_cause || "none",
+                row.duration_basis || "",
+                row.capacity_mode || "",
+                Number(row.cap_qty) || 0,
+                Number(row.tau_process) || 0,
+              ]),
+              hovertemplate: `${{lane}}<br>lancement=J%{{customdata[0]}}<br>duree visuelle=%{{customdata[1]:.1f}} j<br>quantite=%{{customdata[2]:,.0f}}<br>lots=%{{customdata[3]:.2f}}<br>base duree=%{{customdata[6]}}<br>mode capacite=%{{customdata[7]}}<br>capacite/j=%{{customdata[8]:,.0f}}<br>tau_process info=%{{customdata[9]:.1f}} j<br>politique=%{{customdata[4]}}<br>contrainte=%{{customdata[5]}}<extra></extra>`,
+            }};
+          }});
+          return {{
+            data: traces,
+            layout: {{
+              title: {{ text: figure.title || "", font: {{ size: 12 }} }},
+              margin: {{ l: 120, r: 18, t: 52, b: 44 }},
+              paper_bgcolor: "#ffffff",
+              plot_bgcolor: "#ffffff",
+              barmode: "overlay",
+              bargap: 0.32,
+              xaxis: dayAxisLayout(figure.x_label || "Jour"),
+              yaxis: {{
+                title: figure.y_label || "",
+                automargin: true,
+                categoryorder: "array",
+                categoryarray: laneLabels,
+                gridcolor: "#f1f5f9",
+              }},
+              legend: {{ orientation: "h", y: -0.22 }},
+              annotations: figure.note ? [{{
+                text: figure.note,
+                xref: "paper",
+                yref: "paper",
+                x: 0,
+                y: 1.12,
+                xanchor: "left",
+                yanchor: "bottom",
+                showarrow: false,
+                font: {{ size: 10, color: "#475569" }},
+                align: "left",
+              }}] : [],
+            }},
+          }};
+        }}
         if (figure.kind === "dual_panel") {{
           const top = figure.top || {{}};
           const bottom = figure.bottom || {{}};
@@ -9865,7 +10174,7 @@ def html_template(title: str, data_json: str, material_table_html: str, material
               name: series.label || "KPI secondaire",
               x: filtered.days,
               y: filtered.values,
-              line: {{ width: 2.2, color: series.color || "#2563eb" }},
+              line: {{ width: 2.2, color: series.color || "#2563eb", dash: series.dash || "solid" }},
             }};
           }});
           Plotly.react(secondaryChartEl, traces, {{
@@ -10133,7 +10442,7 @@ def html_template(title: str, data_json: str, material_table_html: str, material
           <div class="kpiTreeView kpiTreeFormulaView">
             <div class="kpiFormulaIntro">
               Tableau de reference des KPI. Le terme <b>pilotable</b> designe la partie generee par les decisions de reapprovisionnement du scenario; le carnet initial deja engage est affiche separement.
-              Pour l'alignement production, la <b>Reference</b> est reconstruite par ligne site/produit: produit fini = demande client; semi-fini/intermediaire = consommation aval observee; si cette consommation aval n'est pas disponible, fallback = <code>desired_qty</code>, c'est-a-dire le besoin de production demande par le simulateur.
+              Pour l'adherence lignes mensuelle, la <b>Reference</b> est reconstruite par ligne site/produit: produit fini = demande client; semi-fini/intermediaire = consommation aval observee; si cette consommation aval n'est pas disponible, fallback = <code>desired_qty</code>, c'est-a-dire le besoin de production demande par le simulateur.
             </div>
             <div class="kpiFormulaTableWrap">
               <table class="kpiFormulaTable">
@@ -10334,7 +10643,7 @@ def html_template(title: str, data_json: str, material_table_html: str, material
             name: label,
             x: filtered.days,
             y: filtered.values,
-            line: {{ width: 2.2, color: series.color || "#2563eb" }},
+            line: {{ width: 2.2, color: series.color || "#2563eb", dash: series.dash || "solid" }},
           }};
         }});
         Plotly.react(secondaryChartEl, traces, {{
