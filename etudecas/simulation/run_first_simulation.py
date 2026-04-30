@@ -155,6 +155,34 @@ def lot_reference_qty(lot_policy: dict[str, Any]) -> float:
     return 0.0
 
 
+def should_defer_new_lot_for_stock_position(
+    *,
+    desired_qty: float,
+    lot_policy: dict[str, Any],
+    stock_qty: float,
+    target_qty: float,
+) -> bool:
+    """Avoid launching a full lot when output stock is still inside the lot band.
+
+    With fixed lots, a tiny daily requirement should not start a complete
+    campaign if the current stock is still above target minus one lot. This is a
+    production-order hysteresis: refill when the stock has actually consumed
+    enough room for the next lot.
+    """
+    if not lot_policy.get("enabled"):
+        return False
+    desired = max(0.0, desired_qty)
+    if desired <= 1e-9:
+        return False
+    lot_ref_qty = lot_reference_qty(lot_policy)
+    if lot_ref_qty <= 1e-9:
+        return False
+    if desired >= lot_ref_qty - 1e-9:
+        return False
+    reorder_floor_qty = max(0.0, max(0.0, target_qty) - lot_ref_qty)
+    return max(0.0, stock_qty) > reorder_floor_qty + 1e-9
+
+
 def campaign_lot_count(campaign_qty: float, lot_policy: dict[str, Any]) -> int:
     qty = max(0.0, to_float(campaign_qty, 0.0))
     if qty <= 1e-9:
@@ -291,6 +319,32 @@ def parse_args() -> argparse.Namespace:
         choices=["erlang", "industrial"],
         default="",
         help="Stochastic lead-time model. Empty uses scenario lead_time_policy.distribution_mode or erlang.",
+    )
+    parser.add_argument(
+        "--mrp-strict-safety-floor-from-safety-time",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help=(
+            "When set, the physical MRP safety floor is only "
+            "safety_time_days x MRP demand signal, instead of also using "
+            "opening/base stock as a floor."
+        ),
+    )
+    parser.add_argument(
+        "--soft-safety-time-stock-target-factor",
+        type=float,
+        default=None,
+        help="Global multiplier applied to the safety-time physical stock target.",
+    )
+    parser.add_argument(
+        "--soft-safety-time-stock-target-factor-pair",
+        action="append",
+        default=[],
+        metavar="NODE,ITEM,FACTOR",
+        help=(
+            "Pair-specific safety-time multiplier, e.g. "
+            "M-1810,item:338929,1.5. Can be repeated."
+        ),
     )
     return parser.parse_args()
 
@@ -876,6 +930,70 @@ def scenario_policy_dict(scenario: dict[str, Any], key: str) -> dict[str, Any]:
     return raw if isinstance(raw, dict) else {}
 
 
+def normalize_policy_item_id(item_id: str) -> str:
+    item_id = str(item_id).strip()
+    return item_id if item_id.startswith("item:") else f"item:{item_id}"
+
+
+def policy_pair_key(node_id: str, item_id: str) -> str:
+    return f"{str(node_id).strip()}|{normalize_policy_item_id(item_id)}"
+
+
+def parse_pair_factor_map(raw: Any) -> dict[str, float]:
+    if not isinstance(raw, dict):
+        return {}
+    parsed: dict[str, float] = {}
+    for raw_key, raw_value in raw.items():
+        factor = to_float(raw_value, float("nan"))
+        if not math.isfinite(factor):
+            continue
+        factor = max(0.0, min(10.0, factor))
+        key = str(raw_key).strip()
+        parts: list[str]
+        if "|" in key:
+            parts = [part.strip() for part in key.split("|", 1)]
+        elif "/" in key:
+            parts = [part.strip() for part in key.split("/", 1)]
+        elif "," in key:
+            parts = [part.strip() for part in key.split(",", 1)]
+        else:
+            continue
+        if len(parts) != 2 or not parts[0] or not parts[1]:
+            continue
+        parsed[policy_pair_key(parts[0], parts[1])] = factor
+    return parsed
+
+
+def parse_pair_factor_specs(specs: list[str]) -> dict[str, float]:
+    parsed: dict[str, float] = {}
+    for spec in specs or []:
+        text = str(spec).strip()
+        if not text:
+            continue
+        if "=" in text:
+            pair_text, factor_text = text.rsplit("=", 1)
+            if "|" in pair_text:
+                node_id, item_id = [part.strip() for part in pair_text.split("|", 1)]
+            elif "/" in pair_text:
+                node_id, item_id = [part.strip() for part in pair_text.split("/", 1)]
+            elif "," in pair_text:
+                node_id, item_id = [part.strip() for part in pair_text.split(",", 1)]
+            else:
+                continue
+        else:
+            parts = [part.strip() for part in text.split(",")]
+            if len(parts) != 3:
+                continue
+            node_id, item_id, factor_text = parts
+        if not node_id or not item_id:
+            continue
+        factor = to_float(factor_text, float("nan"))
+        if not math.isfinite(factor):
+            continue
+        parsed[policy_pair_key(node_id, item_id)] = max(0.0, min(10.0, factor))
+    return parsed
+
+
 def scenario_initialization_policy(
     scenario: dict[str, Any],
     *,
@@ -971,9 +1089,18 @@ def scenario_initialization_policy(
             else str(raw.get("mrp_enforce_physical_safety_floor", "false")).strip().lower()
             in {"1", "true", "yes", "y", "on"}
         ),
+        "mrp_strict_safety_floor_from_safety_time": (
+            raw.get("mrp_strict_safety_floor_from_safety_time")
+            if isinstance(raw.get("mrp_strict_safety_floor_from_safety_time"), bool)
+            else str(raw.get("mrp_strict_safety_floor_from_safety_time", "false")).strip().lower()
+            in {"1", "true", "yes", "y", "on"}
+        ),
         "soft_safety_time_stock_target_factor": max(
             0.0,
-            min(1.0, to_float(raw.get("soft_safety_time_stock_target_factor"), 0.75)),
+            min(10.0, to_float(raw.get("soft_safety_time_stock_target_factor"), 0.75)),
+        ),
+        "soft_safety_time_stock_target_factor_by_pair": parse_pair_factor_map(
+            raw.get("soft_safety_time_stock_target_factor_by_pair")
         ),
     }
 
@@ -1888,6 +2015,31 @@ def main() -> None:
         review_period_days=review_period_days,
         safety_stock_days=safety_stock_days,
     )
+    if args.mrp_strict_safety_floor_from_safety_time is not None:
+        initialization_policy["mrp_strict_safety_floor_from_safety_time"] = bool(
+            args.mrp_strict_safety_floor_from_safety_time
+        )
+    if args.soft_safety_time_stock_target_factor is not None:
+        initialization_policy["soft_safety_time_stock_target_factor"] = max(
+            0.0,
+            min(10.0, float(args.soft_safety_time_stock_target_factor)),
+        )
+    cli_pair_factors = parse_pair_factor_specs(args.soft_safety_time_stock_target_factor_pair)
+    if cli_pair_factors:
+        merged_pair_factors = dict(initialization_policy["soft_safety_time_stock_target_factor_by_pair"])
+        merged_pair_factors.update(cli_pair_factors)
+        initialization_policy["soft_safety_time_stock_target_factor_by_pair"] = merged_pair_factors
+
+    def soft_safety_factor_for_pair(pair: tuple[str, str]) -> float:
+        pair_factors = initialization_policy["soft_safety_time_stock_target_factor_by_pair"]
+        return max(
+            0.0,
+            to_float(
+                pair_factors.get(policy_pair_key(pair[0], pair[1])),
+                initialization_policy["soft_safety_time_stock_target_factor"],
+            ),
+        )
+
     lead_time_policy_cfg = scenario_policy_dict(scenario, "lead_time_policy")
     lead_time_distribution_mode = normalize_lead_time_distribution_mode(
         args.lead_time_distribution_mode
@@ -2781,6 +2933,25 @@ def main() -> None:
                 prev_cmd = mps_prev_production_command_by_pair.get(out_pair, raw_command)
                 desired_qty = production_smoothing * prev_cmd + (1.0 - production_smoothing) * raw_command
                 desired_qty = max(0.0, desired_qty)
+                lot_policy = production_lot_policy_by_pair.get(out_pair, {"enabled": False})
+                mps_campaign_remaining_qty = max(0.0, mps_open_campaign_qty_by_pair.get(out_pair, 0.0))
+                if (
+                    lot_policy.get("enabled")
+                    and mps_campaign_remaining_qty <= 1e-9
+                    and (
+                        raw_command <= 1e-9
+                        or should_defer_new_lot_for_stock_position(
+                            desired_qty=desired_qty,
+                            lot_policy=lot_policy,
+                            stock_qty=out_stock,
+                            target_qty=out_target,
+                        )
+                    )
+                ):
+                    # A residual smoothed command must not launch a fresh fixed lot
+                    # when the current inventory position already covers the target
+                    # band for the next lot.
+                    desired_qty = 0.0
                 mps_prev_production_command_by_pair[out_pair] = desired_qty
                 if desired_qty > 1e-9:
                     mps_output_command_today[out_pair] = desired_qty
@@ -2988,8 +3159,25 @@ def main() -> None:
                 prev_cmd = prev_production_command_by_pair.get(out_pair, raw_command)
                 desired_qty = production_smoothing * prev_cmd + (1.0 - production_smoothing) * raw_command
                 desired_qty = max(0.0, desired_qty)
-                prev_production_command_by_pair[out_pair] = desired_qty
                 campaign_remaining_start_qty = max(0.0, open_production_campaign_qty_by_pair.get(out_pair, 0.0))
+                if (
+                    lot_policy["enabled"]
+                    and campaign_remaining_start_qty <= 1e-9
+                    and (
+                        raw_command <= 1e-9
+                        or should_defer_new_lot_for_stock_position(
+                            desired_qty=desired_qty,
+                            lot_policy=lot_policy,
+                            stock_qty=out_stock,
+                            target_qty=out_target,
+                        )
+                    )
+                ):
+                    # Do not convert smoothing inertia into a new full lot. If the
+                    # current stock is still inside the lot band, wait until there
+                    # is enough room to consume the next campaign realistically.
+                    desired_qty = 0.0
+                prev_production_command_by_pair[out_pair] = desired_qty
                 campaign_started_qty = 0.0
                 campaign_requested_qty = 0.0
                 lot_planned_qty = desired_qty
@@ -3373,7 +3561,8 @@ def main() -> None:
                     external_procured_rejected_today += max(0.0, desired_order_qty - ext_order_qty)
         for pair, lane_list in lanes_by_dest_item.items():
             dst, item_id = pair
-            target = max(base_stock.get(pair, 0.0), 0.0)
+            strict_safety_floor = initialization_policy["mrp_strict_safety_floor_from_safety_time"]
+            target = 0.0 if strict_safety_floor else max(base_stock.get(pair, 0.0), 0.0)
             static_daily_req = max(0.0, required_daily_input_by_pair.get(pair, 0.0))
             dynamic_daily_req = max(0.0, propagated_demand_today.get(pair, 0.0))
             if dynamic_daily_req > 1e-9:
@@ -3391,14 +3580,17 @@ def main() -> None:
                 item_daily_req = 0.0
             else:
                 item_daily_req = static_daily_req
-            soft_safety_target_qty = target
+            soft_safety_target_qty = 0.0 if strict_safety_floor else target
             if item_daily_req > 0:
-                soft_safety_target_qty = max(
-                    target,
+                safety_time_target_qty = (
                     item_daily_req
                     * max(0.0, pair_mrp_safety_time_days.get(pair, 0.0))
-                    * initialization_policy["soft_safety_time_stock_target_factor"],
+                    * soft_safety_factor_for_pair(pair)
                 )
+                if strict_safety_floor:
+                    soft_safety_target_qty = safety_time_target_qty
+                else:
+                    soft_safety_target_qty = max(target, safety_time_target_qty)
                 target = max(target, soft_safety_target_qty)
                 target = max(target, safety_stock_days * item_daily_req)
                 if pair in demand_pairs and demand_stock_target_days > 0.0:
@@ -3739,18 +3931,20 @@ def main() -> None:
                 else:
                     item_daily_req = item_daily_req_static
                     gross_requirement_basis = "static_requirement" if item_daily_req_static > 1e-9 else "none"
-                safety_floor_qty = max(base_stock.get(pair, 0.0), 0.0)
-                soft_safety_target_qty = safety_floor_qty
+                strict_safety_floor = initialization_policy["mrp_strict_safety_floor_from_safety_time"]
+                operational_base_floor_qty = (
+                    0.0 if strict_safety_floor else max(base_stock.get(pair, 0.0), 0.0)
+                )
+                safety_floor_qty = 0.0
+                soft_safety_target_qty = 0.0
                 coverage_target_qty = 0.0
                 if item_daily_req > 0.0:
-                    safety_floor_qty = max(
-                        safety_floor_qty,
-                        item_daily_req * max(0.0, pair_mrp_safety_time_days.get(pair, 0.0)),
+                    safety_time_floor_qty = item_daily_req * max(
+                        0.0,
+                        pair_mrp_safety_time_days.get(pair, 0.0),
                     )
-                    soft_safety_target_qty = max(
-                        soft_safety_target_qty,
-                        safety_floor_qty * initialization_policy["soft_safety_time_stock_target_factor"],
-                    )
+                    safety_floor_qty = safety_time_floor_qty
+                    soft_safety_target_qty = safety_time_floor_qty * soft_safety_factor_for_pair(pair)
                     coverage_target_qty = max(coverage_target_qty, safety_stock_days * item_daily_req)
                     if pair in demand_pairs and demand_stock_target_days > 0.0:
                         coverage_target_qty = max(coverage_target_qty, demand_stock_target_days * item_daily_req)
@@ -3765,7 +3959,11 @@ def main() -> None:
                             coverage_target_qty,
                             item_daily_req * effective_cover_days,
                         )
-                target_stock_qty = max(soft_safety_target_qty, coverage_target_qty)
+                target_stock_qty = max(
+                    operational_base_floor_qty,
+                    soft_safety_target_qty,
+                    coverage_target_qty,
+                )
                 backlog_target_qty = max(0.0, backlog.get(pair, 0.0))
                 target_with_backlog_qty = target_stock_qty + backlog_target_qty
                 recv_prev_today_qty = (
@@ -4003,6 +4201,7 @@ def main() -> None:
         node_id, item_id = pair
         if item_id == "item:__process_time__":
             continue
+        pair_soft_safety_factor = soft_safety_factor_for_pair(pair)
         safety_days = max(0.0, pair_mrp_safety_time_days.get(pair, 0.0))
         explicit_safety_stock_qty = 0.0
         trace_stats = mrp_trace_stats_by_pair.get(pair)
@@ -4033,7 +4232,7 @@ def main() -> None:
             effective_reference_stock_qty = max(explicit_safety_stock_qty, stock_equiv_safety_time_qty)
             soft_simulated_target_qty = max(
                 explicit_safety_stock_qty,
-                stock_equiv_safety_time_qty * soft_safety_factor,
+                stock_equiv_safety_time_qty * pair_soft_safety_factor,
             )
             max_mrp_demand_signal_qty = planned_avg_daily_demand_qty
             max_mrp_safety_floor_qty = effective_reference_stock_qty
@@ -4071,7 +4270,7 @@ def main() -> None:
                 "max_mrp_safety_floor_qty": round(max_mrp_safety_floor_qty, 6),
                 "max_soft_simulated_target_qty": round(max_soft_simulated_target_qty, 6),
                 "safety_reference_basis": safety_reference_basis,
-                "soft_safety_factor": round(soft_safety_factor, 6),
+                "soft_safety_factor": round(pair_soft_safety_factor, 6),
                 "served_avg_daily_qty": round(served_avg_by_pair.get(pair, 0.0), 6),
             }
         )
@@ -4125,8 +4324,14 @@ def main() -> None:
                 "mrp_enforce_physical_safety_floor": initialization_policy[
                     "mrp_enforce_physical_safety_floor"
                 ],
+                "mrp_strict_safety_floor_from_safety_time": initialization_policy[
+                    "mrp_strict_safety_floor_from_safety_time"
+                ],
                 "soft_safety_time_stock_target_factor": initialization_policy[
                     "soft_safety_time_stock_target_factor"
+                ],
+                "soft_safety_time_stock_target_factor_by_pair": initialization_policy[
+                    "soft_safety_time_stock_target_factor_by_pair"
                 ],
             },
             "economic_policy": {
@@ -4988,7 +5193,9 @@ def main() -> None:
 - MRP demand signal source: {summary['policy']['initialization_policy']['mrp_demand_signal_source']}
 - MRP demand signal smoothing / static fallback on propagated pairs: {summary['policy']['initialization_policy']['mrp_demand_signal_smoothing_days']} j / {summary['policy']['initialization_policy']['mrp_static_fallback_for_propagated_pairs']}
 - MRP physical safety floor enforced: {summary['policy']['initialization_policy']['mrp_enforce_physical_safety_floor']}
+- MRP strict safety floor from safety time only: {summary['policy']['initialization_policy']['mrp_strict_safety_floor_from_safety_time']}
 - Soft safety-time physical stock target factor: {summary['policy']['initialization_policy']['soft_safety_time_stock_target_factor']}
+- Soft safety-time pair factors: {summary['policy']['initialization_policy']['soft_safety_time_stock_target_factor_by_pair']}
 - Unmodeled supplier source mode: {summary['policy']['unmodeled_supplier_source_mode']}
 - Stochastic lead times: {summary['policy']['stochastic_lead_times']}
 - Lead-time distribution mode: {summary['policy']['lead_time_distribution_mode']}
@@ -5058,7 +5265,7 @@ def main() -> None:
 {json.dumps(summary['top_backlog_pairs'], indent=2, ensure_ascii=False)}
 
 ## Safety stock reference
-Calcul: `stock equiv delai = demande moyenne journaliere MRP x delai de securite`. Quand une trace MRP existe, la demande moyenne vient du signal reel utilise par le MRP (`bb_demand_signal_qty`), pas d'une capacite ou d'un besoin statique gonfle. Les `safety_stock_qty` explicites sont ignores dans cette variante: seules les durees de securite pilotent la cible. La cible physique simulee applique le facteur `{summary['policy']['initialization_policy']['soft_safety_time_stock_target_factor']}` sur cette couverture.
+Calcul: `stock equiv delai = demande moyenne journaliere MRP x delai de securite`. Quand une trace MRP existe, la demande moyenne vient du signal reel utilise par le MRP (`bb_demand_signal_qty`), pas d'une capacite ou d'un besoin statique gonfle. Si le mode strict est actif, le plancher physique MRP vient uniquement de cette couverture de delai de securite. La cible physique simulee applique le facteur global `{summary['policy']['initialization_policy']['soft_safety_time_stock_target_factor']}` ou un facteur specifique par couple si renseigne.
 
 {safety_reference_preview_md}
 
