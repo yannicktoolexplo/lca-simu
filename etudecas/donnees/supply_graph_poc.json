@@ -2414,7 +2414,7 @@
             "item_id": "item:773474",
             "state_id": "I_773474",
             "initial": 0.0,
-            "uom": "UN",
+            "uom": "G",
             "holding_cost": {
               "value": 0.0,
               "per": "unit*day",
@@ -4260,7 +4260,7 @@
         "source_workbook": "021081.xlsx",
         "product_code": "773474",
         "supplier_account": "VD0960508A",
-        "standard_order_qty": 1.0,
+        "standard_order_qty": 20000.0,
         "standard_order_uom": "KG",
         "pricing_currency": "USD"
       }
@@ -4305,7 +4305,7 @@
         "source_workbook": "021081.xlsx",
         "product_code": "773474",
         "supplier_account": "VD0972460A",
-        "standard_order_qty": 1.0,
+        "standard_order_qty": 20000.0,
         "standard_order_uom": "KG",
         "pricing_currency": "USD"
       }
