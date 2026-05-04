@@ -2869,17 +2869,17 @@ def build_global_kpi_tree_payload(
             "family": "Couts stock / transport",
             "level": "KPI principal",
             "name": "Pression cout supply",
-            "formula": "100 x (Cout_stock(t) + Cout_transport_pilotable(t) + Cout_achat_pilotable(t)) / moyenne_run(Cout_total_pilotable)",
-            "terms": "Cout_stock=holding_cost + warehouse_operating_cost + inventory_risk_cost. Cout_transport_pilotable=transport operationnel des commandes du scenario, hors carnet initial. Cout_achat_pilotable=achat matiere/fournisseur declenche par les commandes du scenario, hors carnet initial. moyenne_run=moyenne des jours avec cout total pilotable positif.",
+            "formula": "100 x (Cout_stock(t) + Cout_transport(t) + Cout_achat(t)) / moyenne_run(Cout_total_operationnel)",
+            "terms": "Cout_stock=holding_cost + warehouse_operating_cost + inventory_risk_cost. Cout_transport=transport operationnel des commandes du scenario, hors carnet initial. Cout_achat=cout d'achat matiere/fournisseur declenche par les commandes du scenario, hors carnet initial. moyenne_run=moyenne des jours avec cout total operationnel positif.",
             "interpretation": "Indice base 100. Au-dessus de 100, la journee coute plus cher que la moyenne du scenario.",
         },
         {
             "family": "Couts stock / transport",
             "level": "KPI secondaire",
-            "name": "Contribution achat pilotable - indice",
-            "formula": "100 x Cout_achat_pilotable(t) / moyenne_run(Cout_total_pilotable)",
-            "terms": "Cout_achat_pilotable=operational_purchase_cost_day, c.-a-d. achats payes sur les flux commandes par la politique simulee, hors carnet initial deja engage.",
-            "interpretation": "Part de la pression cout due au prix des matieres/fournisseurs.",
+            "name": "Contribution cout d'achat matiere - indice",
+            "formula": "100 x Cout_achat(t) / moyenne_run(Cout_total_operationnel)",
+            "terms": "Cout_achat=operational_purchase_cost_day, c.-a-d. cout d'achat des matieres/fournisseurs sur les flux commandes par la politique simulee, hors carnet initial deja engage.",
+            "interpretation": "Part de la pression cout due au cout d'achat des matieres/fournisseurs.",
         },
         {
             "family": "Couts stock / transport",
@@ -2921,15 +2921,15 @@ def build_global_kpi_tree_payload(
                 "level": "KPI principal",
                 "name": "Cout supply operationnel",
                 "formula": "Indice base 100 du cout operationnel journalier total",
-                "terms": "Cout operationnel = achat pilotable + cout stock + cout de transport pilotable. Les montants reels sont affiches dans les KPI secondaires.",
+                "terms": "Cout operationnel = cout d'achat matiere + cout stock + cout de transport. Les montants reels sont affiches dans les KPI secondaires.",
                 "interpretation": "Permet de voir les jours plus chers que la moyenne du scenario, tout en gardant le detail en euros/quantite dans les secondaires.",
             },
             {
                 "family": "Couts supply",
                 "level": "KPI secondaire",
-                "name": "Achat matiere pilotable",
+                "name": "Cout d'achat matiere",
                 "formula": "operational_purchase_cost_day",
-                "terms": "Achats matiere/fournisseur declenches par les commandes du scenario, hors carnet initial deja engage.",
+                "terms": "Cout d'achat matiere/fournisseur declenche par les commandes du scenario, hors carnet initial deja engage.",
                 "interpretation": "Driver economique principal quand les prix matiere dominent.",
             },
             {
@@ -2963,7 +2963,7 @@ def build_global_kpi_tree_payload(
         "Avance/exces de production par ligne",
         "Contraintes sur ligne",
         "Cout supply operationnel",
-        "Achat matiere pilotable",
+        "Cout d'achat matiere",
         "Cout stock",
         "Cout de transport pilotable",
         "Pilotable",
@@ -3060,7 +3060,7 @@ def build_global_kpi_tree_payload(
                 "objective": "Comprendre le cout operationnel: achat matiere, stock et transport.",
                 "summary": [
                     summary("Cout operationnel total", fmt_qty(total_supply_cost_value)),
-                    summary("Achat matiere pilotable", f"{fmt_qty(total_purchase_cost)} ({cost_share(total_purchase_cost)})"),
+                    summary("Cout d'achat matiere", f"{fmt_qty(total_purchase_cost)} ({cost_share(total_purchase_cost)})"),
                     summary("Cout stock", f"{fmt_qty(total_inventory_cost)} ({cost_share(total_inventory_cost)})"),
                     summary("Cout de transport pilotable", f"{fmt_qty(total_transport_cost)} ({cost_share(total_transport_cost)})"),
                     summary("Carnet initial deja engage", fmt_qty(total_opening_cost)),
@@ -3069,7 +3069,7 @@ def build_global_kpi_tree_payload(
                 ],
                 "secondary": [
                     {"label": "Cout operationnel total", **series_from_map(total_supply_cost), "color": "#d97706"},
-                    {"label": "Achat matiere pilotable", **series_from_map(purchase_cost), "color": "#0f766e"},
+                    {"label": "Cout d'achat matiere", **series_from_map(purchase_cost), "color": "#0f766e"},
                     {"label": "Cout stock", **series_from_map(inventory_cost), "color": "#7c3aed"},
                     {"label": "Cout de transport pilotable", **series_from_map(transport_cost), "color": "#f97316"},
                 ],
@@ -10323,6 +10323,9 @@ def html_template(title: str, data_json: str, material_table_html: str, material
     const STANDARD_PLOT_MARGIN = {{ l: 64, r: 24, t: 48, b: 92 }};
     const GANTT_PLOT_MARGIN = {{ l: 128, r: 24, t: 54, b: 92 }};
     const STANDARD_LEGEND = {{ orientation: "h", y: -0.34 }};
+    const PLOTLY_PANEL_CONFIG = {{ displayModeBar: false, responsive: false, scrollZoom: true }};
+    const PLOTLY_RESPONSIVE_CONFIG = {{ displayModeBar: false, responsive: true, scrollZoom: true }};
+    const PLOTLY_MAP_CONFIG = {{ displayModeBar: true, responsive: true, scrollZoom: true }};
     let currentFactoryHoverId = null;
     let currentFactoryHoverType = null;
     let currentHoveredPanelId = null;
@@ -10338,6 +10341,15 @@ def html_template(title: str, data_json: str, material_table_html: str, material
     const panelBundleSelection = {{}};
     let selectedYearStart = 1;
     let selectedYearEnd = 1;
+
+    function installCtrlScrollZoomGate(plotNode) {{
+      if (!plotNode || plotNode.__ctrlScrollZoomGateInstalled) return;
+      plotNode.__ctrlScrollZoomGateInstalled = true;
+      plotNode.addEventListener("wheel", (ev) => {{
+        if (ev.ctrlKey) return;
+        ev.stopImmediatePropagation();
+      }}, true);
+    }}
 
     function visitTimelineFigures(payload, visitor) {{
       if (!payload || typeof payload !== "object") return;
@@ -12063,6 +12075,7 @@ def html_template(title: str, data_json: str, material_table_html: str, material
               hovertemplate: `${{series.label || series.id}}<br>Jour=%{{x}}<br>Valeur=%{{y:.2f}}<extra></extra>`,
             }};
           }});
+          installCtrlScrollZoomGate(mainChartEl);
           Plotly.react(mainChartEl, traces, {{
             title: {{ text: "KPI principaux - vue management", font: {{ size: 12 }} }},
             margin: {{ l: 54, r: 18, t: 42, b: 42 }},
@@ -12071,7 +12084,7 @@ def html_template(title: str, data_json: str, material_table_html: str, material
             xaxis: dayAxisLayout("Jour"),
             yaxis: {{ title: main.y_label || "Score / indice", gridcolor: "#e2e8f0" }},
             legend: {{ orientation: "h", y: -0.22 }},
-          }}, {{ displayModeBar: false, responsive: true }});
+          }}, PLOTLY_RESPONSIVE_CONFIG);
           mainChartEl.on("plotly_click", (ev) => {{
             const point = ev && ev.points && ev.points[0];
             const groupId = point && point.customdata;
@@ -12102,6 +12115,7 @@ def html_template(title: str, data_json: str, material_table_html: str, material
               line: {{ width: 2.2, color: series.color || "#2563eb", dash: series.dash || "solid" }},
             }};
           }});
+          installCtrlScrollZoomGate(secondaryChartEl);
           Plotly.react(secondaryChartEl, traces, {{
             title: {{ text: `KPI secondaires - ${{group.label || selectedId}}`, font: {{ size: 12 }} }},
             margin: {{ l: 58, r: 18, t: 42, b: 42 }},
@@ -12110,7 +12124,7 @@ def html_template(title: str, data_json: str, material_table_html: str, material
             xaxis: dayAxisLayout("Jour"),
             yaxis: {{ title: group.secondary_y_label || "Valeur", gridcolor: "#e2e8f0" }},
             legend: {{ orientation: "h", y: -0.24 }},
-          }}, {{ displayModeBar: false, responsive: true }});
+          }}, PLOTLY_RESPONSIVE_CONFIG);
         }}
         renderCards();
         renderMain();
@@ -12223,7 +12237,8 @@ def html_template(title: str, data_json: str, material_table_html: str, material
             const plotlyFigure = buildPlotlyFigure(panelFigure);
             if (plotlyFigure) {{
               plotRenderJobs.push(() => {{
-                Plotly.react(child, plotlyFigure.data, sizedPlotlyLayout(plotlyFigure.layout, child), {{ displayModeBar: false, responsive: false }});
+                installCtrlScrollZoomGate(child);
+                Plotly.react(child, plotlyFigure.data, sizedPlotlyLayout(plotlyFigure.layout, child), PLOTLY_PANEL_CONFIG);
               }});
             }}
           }});
@@ -12236,7 +12251,8 @@ def html_template(title: str, data_json: str, material_table_html: str, material
           plotHost.className = "factoryPlotInner";
           figureEl.appendChild(plotHost);
           plotRenderJobs.push(() => {{
-            Plotly.react(plotHost, plotlyFigure.data, sizedPlotlyLayout(plotlyFigure.layout, plotHost), {{ displayModeBar: false, responsive: false }});
+            installCtrlScrollZoomGate(plotHost);
+            Plotly.react(plotHost, plotlyFigure.data, sizedPlotlyLayout(plotlyFigure.layout, plotHost), PLOTLY_PANEL_CONFIG);
           }});
           return true;
         }}
@@ -12365,7 +12381,9 @@ def html_template(title: str, data_json: str, material_table_html: str, material
         geo: geoLayout
       }};
 
-      Plotly.newPlot("chart", traces, layout, {{displayModeBar: true, responsive: true}});
+      const chartEl = document.getElementById("chart");
+      installCtrlScrollZoomGate(chartEl);
+      Plotly.newPlot(chartEl, traces, layout, PLOTLY_MAP_CONFIG);
       bindHoverHandlers();
       refreshFactoryPanel();
     }}
@@ -12581,6 +12599,7 @@ def html_template(title: str, data_json: str, material_table_html: str, material
             hovertemplate: `${{label}}<br>Jour=%{{x}}<br>Valeur=%{{y:.2f}}<extra></extra>`,
           }};
         }});
+        installCtrlScrollZoomGate(mainChartEl);
         Plotly.react(mainChartEl, traces, {{
           title: {{ text: "KPI principaux - vue management", font: {{ size: 12 }} }},
           margin: {{ l: 54, r: 18, t: 42, b: 42 }},
@@ -12589,7 +12608,7 @@ def html_template(title: str, data_json: str, material_table_html: str, material
           xaxis: dayAxisLayout("Jour"),
           yaxis: {{ title: main.y_label || "Score / indice", gridcolor: "#e2e8f0" }},
           legend: {{ orientation: "h", y: -0.22 }},
-        }}, {{ displayModeBar: false, responsive: true }});
+        }}, PLOTLY_RESPONSIVE_CONFIG);
         mainChartEl.on("plotly_click", (ev) => {{
           const point = ev && ev.points && ev.points[0];
           const groupId = point && point.customdata;
@@ -12622,6 +12641,7 @@ def html_template(title: str, data_json: str, material_table_html: str, material
             line: {{ width: 2.2, color: series.color || "#2563eb", dash: series.dash || "solid" }},
           }};
         }});
+        installCtrlScrollZoomGate(secondaryChartEl);
         Plotly.react(secondaryChartEl, traces, {{
           title: {{ text: `KPI secondaires - ${{group.label || selectedId}}`, font: {{ size: 12 }} }},
           margin: {{ l: 58, r: 18, t: 42, b: 42 }},
@@ -12630,7 +12650,7 @@ def html_template(title: str, data_json: str, material_table_html: str, material
           xaxis: dayAxisLayout("Jour"),
           yaxis: {{ title: group.secondary_y_label || "Valeur", gridcolor: "#e2e8f0" }},
           legend: {{ orientation: "h", y: -0.24 }},
-        }}, {{ displayModeBar: false, responsive: true }});
+        }}, PLOTLY_RESPONSIVE_CONFIG);
       }}
       bindSmoothingControls();
       renderCards();
