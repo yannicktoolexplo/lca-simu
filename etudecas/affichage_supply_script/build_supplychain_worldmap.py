@@ -370,8 +370,20 @@ def percentile(values: list[float], q: float) -> float:
     return ordered[lo] * (1.0 - frac) + ordered[hi] * frac
 
 
-def build_edge_metrics(raw: dict[str, Any], supplier_shipments_csv: Path) -> dict[str, dict[str, Any]]:
+def build_edge_metrics(
+    raw: dict[str, Any],
+    supplier_shipments_csv: Path,
+    *,
+    horizon_days: int | None = None,
+) -> dict[str, dict[str, Any]]:
     rows = read_csv_rows(supplier_shipments_csv)
+    if horizon_days and horizon_days > 0:
+        horizon_end = horizon_days - 1
+        rows = [
+            row
+            for row in rows
+            if 0 <= int(to_float(row.get("day")) or 0) <= horizon_end
+        ]
     shipment_rows_by_triplet: dict[tuple[str, str, str], list[dict[str, str]]] = defaultdict(list)
     for row in rows:
         shipment_rows_by_triplet[
@@ -674,6 +686,11 @@ def build_factory_hover_images(
         }
         incoming_stock_series = {label: pts for label, pts in incoming_stock_series.items() if pts}
         incoming_arrival_series: dict[str, list[tuple[int, float]]] = {}
+        incoming_item_labels: set[str] = set()
+        for descriptor in incoming_descriptors:
+            item_label = str(descriptor.get("item_label") or descriptor.get("item_id") or "").strip()
+            if item_label:
+                incoming_item_labels.add(item_label)
         if input_arrival_rows:
             item_ids = sorted(
                 {
@@ -694,17 +711,26 @@ def build_factory_hover_images(
                 )
                 if arrival_pts:
                     item_label = item_labels.get(item_id, compact_item_label(item_id))
+                    incoming_item_labels.add(item_label)
                     incoming_arrival_series[f"{item_label} - reception"] = arrival_pts
         display_factory_id = display_node_label(factory_id)
         incoming_title = f"{display_factory_id} - stocks et receptions intrants"
+        top_title = f"{display_factory_id} - stock intrants"
         bottom_title = f"{display_factory_id} - receptions intrants"
         if is_upstream_internal_site(factory_id):
-            incoming_title = f"{display_factory_id} - stocks et arrivages intrants"
-            bottom_title = f"{display_factory_id} - arrivages intrants"
+            sorted_incoming_items = sorted(incoming_item_labels)
+            if len(sorted_incoming_items) == 1:
+                incoming_item_label = sorted_incoming_items[0]
+                incoming_title = f"{display_factory_id} - intrant {incoming_item_label}: stock et arrivages"
+                top_title = f"{display_factory_id} - stock intrant {incoming_item_label}"
+                bottom_title = f"{display_factory_id} - arrivages intrant {incoming_item_label}"
+            else:
+                incoming_title = f"{display_factory_id} - stocks et arrivages intrants"
+                bottom_title = f"{display_factory_id} - arrivages intrants"
         if incoming_stock_series or incoming_arrival_series:
             figure = build_dual_line_multi_panel_figure(
                 title=incoming_title,
-                top_title=f"{display_factory_id} - stock intrants",
+                top_title=top_title,
                 top_y_label="Stock",
                 top_series_map=incoming_stock_series,
                 bottom_title=bottom_title,
@@ -714,6 +740,15 @@ def build_factory_hover_images(
             )
             if figure is not None:
                 incoming = {"figure": figure}
+        outgoing_descriptors = detail.get("outgoing") or []
+        outgoing_stock_series = {
+            f"{str(descriptor.get('item_label') or descriptor.get('item_id') or '').strip()} - stock": list(
+                zip(descriptor.get("days") or [], descriptor.get("stock_values") or [])
+            )
+            for descriptor in outgoing_descriptors
+            if str(descriptor.get("item_label") or descriptor.get("item_id") or "").strip()
+        }
+        outgoing_stock_series = {label: pts for label, pts in outgoing_stock_series.items() if pts}
         if is_upstream_internal_site(factory_id) and supplier_shipment_rows:
             outbound_series: dict[str, list[tuple[int, float]]] = {}
             outbound_item_ids = sorted(
@@ -737,12 +772,24 @@ def build_factory_hover_images(
                     item_label = item_labels.get(item_id, compact_item_label(item_id))
                     outbound_series[item_label] = shipped_pts
             if outbound_series:
-                figure = build_line_chart_figure(
-                    outbound_series,
-                    title=f"{display_factory_id} - expeditions PFI par item",
-                    y_label="Quantite",
-                    step_like=True,
-                )
+                if outgoing_stock_series:
+                    figure = build_dual_line_multi_panel_figure(
+                        title=f"{display_factory_id} - stock et expeditions PFI",
+                        top_title=f"{display_factory_id} - stock PFI produits",
+                        top_y_label="Stock",
+                        top_series_map=outgoing_stock_series,
+                        bottom_title=f"{display_factory_id} - expeditions PFI par item",
+                        bottom_y_label="Expeditions",
+                        bottom_series_map=outbound_series,
+                        bottom_step_like=True,
+                    )
+                else:
+                    figure = build_line_chart_figure(
+                        outbound_series,
+                        title=f"{display_factory_id} - expeditions PFI par item",
+                        y_label="Quantite",
+                        step_like=True,
+                    )
                 if figure is not None:
                     outgoing = {"figure": figure}
         factory_rows = [row for row in constraint_rows if str(row.get("node_id") or "") == factory_id]
@@ -3140,7 +3187,7 @@ def render_order_ledger_html(
                     f"semaine={week_text}",
                     item_label,
                     mode_label,
-                    f"lane={group['src_node_id']}->{group['dst_node_id']}",
+                    f"flux={group['src_node_id']}->{group['dst_node_id']}",
                     f"lignes_mrp={group['line_count']}",
                     f"ordre_passe={fmt_order_day_range(group['order_min'], group['order_max'])}",
                     f"envoi={fmt_order_day_range(group['release_min'], group['release_max'])}",
@@ -3163,9 +3210,9 @@ def render_order_ledger_html(
         [
             "<div class=\"factoryHtmlPanelContent\">",
             f"<div class=\"orderLedgerTextHeader\">{html.escape(node_id)} - {html.escape(title_suffix)}</div>",
-            f"<div class=\"orderLedgerStatus\">Lignes MRP brutes: {len(sorted_orders)} ; commandes consolidees semaine/lane/item: {len(consolidated_orders)}</div>",
+            f"<div class=\"orderLedgerStatus\">Lignes MRP brutes: {len(sorted_orders)} ; commandes consolidees semaine/flux/item: {len(consolidated_orders)}</div>",
             f"<div class=\"orderLedgerStatus\">Statuses lignes brutes: {html.escape(statuses_text)}</div>",
-            "<div class=\"orderLedgerStatus\">Jalons: ordre_passe=order_date_IMT | envoi=release_day | delai_previsionnel_mrp=lead_reference_days | arrivee_previsionnelle=envoi+delai_previsionnel_mrp | arrivee_effective=actual_receipt_day</div>",
+            "<div class=\"orderLedgerStatus\">Jalons: ordre_passe=date d'ordre calculee | envoi=release_day | delai_previsionnel_mrp=lead_reference_days | arrivee_previsionnelle=envoi+delai_previsionnel_mrp | arrivee_effective=actual_receipt_day</div>",
             "<div class=\"orderLedgerSectionTitle\">Dernieres commandes consolidees:</div>",
             "<div class=\"orderLedgerTextWrap\">",
             f"<pre class=\"orderLedgerLines\">{recent_orders_html}</pre>",
@@ -3463,6 +3510,9 @@ def build_dual_panel_figure(
     bottom_kind: str,
     bottom_x: list[Any],
     bottom_y: list[float],
+    top_extra_traces: list[dict[str, Any]] | None = None,
+    bottom_extra_traces: list[dict[str, Any]] | None = None,
+    show_legend: bool = False,
 ) -> dict[str, Any] | None:
     if not top_x and not bottom_x:
         return None
@@ -3476,6 +3526,7 @@ def build_dual_panel_figure(
             "kind": top_kind,
             "x": top_x,
             "y": top_y,
+            "extra_traces": top_extra_traces or [],
         },
         "bottom": {
             "title": bottom_title,
@@ -3484,7 +3535,9 @@ def build_dual_panel_figure(
             "kind": bottom_kind,
             "x": bottom_x,
             "y": bottom_y,
+            "extra_traces": bottom_extra_traces or [],
         },
+        "show_legend": show_legend,
     }
 
 
@@ -5085,6 +5138,24 @@ def build_model_panel_metrics(
     summary = json.loads(summary_file.read_text(encoding="utf-8")) if summary_file.exists() else {}
     policy = (summary.get("policy") or {}) if isinstance(summary, dict) else {}
     init_policy = (policy.get("initialization_policy") or {}) if isinstance(policy, dict) else {}
+    horizon_days = int(
+        to_float(
+            summary.get("timeline_days")
+            or summary.get("sim_days")
+            or summary.get("total_simulated_timeline_days")
+            or read_timeline_horizon_days(output_root)
+            or 0
+        )
+        or 0
+    )
+    horizon_end_day = horizon_days - 1 if horizon_days > 0 else None
+
+    def in_run_horizon(row: dict[str, str], day_field: str = "day") -> bool:
+        if horizon_end_day is None:
+            return True
+        day = int(to_float(row.get(day_field)) or 0)
+        return 0 <= day <= horizon_end_day
+
     mrp_trace_rows = read_csv_rows(data_root / "mrp_trace_daily.csv")
     mrp_order_rows = read_csv_rows(data_root / "mrp_orders_daily.csv")
     assumptions_ledger_rows = read_csv_rows(data_root / "assumptions_ledger.csv")
@@ -5093,7 +5164,7 @@ def build_model_panel_metrics(
     output_rows = read_csv_rows(sim_output_products_csv)
     input_arrival_rows = read_csv_rows(input_arrivals_csv)
     demand_rows = read_csv_rows(demand_service_csv)
-    supplier_ship_rows = read_csv_rows(supplier_shipments_csv)
+    supplier_ship_rows = [row for row in read_csv_rows(supplier_shipments_csv) if in_run_horizon(row)]
     supplier_stock_rows = read_csv_rows(supplier_stocks_csv)
     supplier_capacity_rows = read_csv_rows(supplier_capacity_csv)
     dc_stock_rows = read_csv_rows(dc_stocks_csv)
@@ -5165,7 +5236,23 @@ def build_model_panel_metrics(
         if node_id:
             supplier_stocks_by_node[node_id].append(row)
 
+    def rows_by_node_item(rows: list[dict[str, str]], *, node_field: str = "node_id") -> dict[tuple[str, str], list[dict[str, str]]]:
+        out: dict[tuple[str, str], list[dict[str, str]]] = defaultdict(list)
+        for row in rows:
+            node_id = str(row.get(node_field) or "")
+            item_id = str(row.get("item_id") or "")
+            if node_id and item_id:
+                out[(node_id, item_id)].append(row)
+        return out
+
+    input_rows_by_pair = rows_by_node_item(input_rows)
+    output_rows_by_pair = rows_by_node_item(output_rows)
+    input_arrivals_by_pair = rows_by_node_item(input_arrival_rows)
+    supplier_stock_rows_by_pair = rows_by_node_item(supplier_stock_rows)
+    dc_stock_rows_by_pair = rows_by_node_item(dc_stock_rows)
+
     latest_mrp_trace_by_pair: dict[tuple[str, str], dict[str, str]] = {}
+    mrp_trace_rows_by_pair: dict[tuple[str, str], list[dict[str, str]]] = defaultdict(list)
     mrp_trace_by_node: dict[str, list[dict[str, str]]] = defaultdict(list)
     for row in mrp_trace_rows:
         node_id = str(row.get("node_id") or "")
@@ -5173,6 +5260,7 @@ def build_model_panel_metrics(
         if not node_id or not item_id:
             continue
         mrp_trace_by_node[node_id].append(row)
+        mrp_trace_rows_by_pair[(node_id, item_id)].append(row)
         key = (node_id, item_id)
         day = int(to_float(row.get("day")) or 0)
         prev = latest_mrp_trace_by_pair.get(key)
@@ -5271,6 +5359,91 @@ def build_model_panel_metrics(
         if not counts:
             return None
         return build_bar_chart_figure(counts, title=title, y_label="Nombre d'ordres")
+
+    def lead_distribution_figure(
+        rows: list[dict[str, str]],
+        *,
+        title: str,
+        planned_lead_days: float | None,
+    ) -> dict[str, Any] | None:
+        lead_qty_rows: list[tuple[float, float]] = []
+        for row in rows:
+            lead = to_float(row.get("lead_days"))
+            if lead is None or math.isnan(lead):
+                continue
+            lead_qty_rows.append((max(0.0, lead), max(0.0, to_float(row.get("shipped_qty")) or 0.0)))
+        if not lead_qty_rows:
+            return None
+        lead_values = [lead for lead, _ in lead_qty_rows]
+        min_lead = min(lead_values)
+        max_lead = max(lead_values)
+        distinct_leads = sorted({round(lead, 1) for lead in lead_values})
+        bucket_width = 1.0
+        if len(distinct_leads) > 18:
+            bucket_width = max(1.0, math.ceil((max_lead - min_lead + 1.0) / 14.0))
+
+        def bucket_key(lead: float) -> float:
+            if bucket_width <= 1.0:
+                return float(round(lead))
+            bucket_start = math.floor(lead / bucket_width) * bucket_width
+            return float(bucket_start + (bucket_width / 2.0))
+
+        counts: dict[float, float] = defaultdict(float)
+        qty_by_bucket: dict[float, float] = defaultdict(float)
+        for lead, qty in lead_qty_rows:
+            key = bucket_key(lead)
+            counts[key] += 1.0
+            qty_by_bucket[key] += qty
+        ordered_keys = sorted(counts)
+        x_values = [float(key) for key in ordered_keys]
+        top_y = [counts[key] for key in ordered_keys]
+        bottom_y = [qty_by_bucket[key] for key in ordered_keys]
+        planned_lead = planned_lead_days
+        has_planned_lead = planned_lead is not None and not math.isnan(planned_lead) and planned_lead >= 0.0
+        top_extra_traces: list[dict[str, Any]] = []
+        bottom_extra_traces: list[dict[str, Any]] = []
+        if has_planned_lead:
+            planned_label = f"Delai previsionnel ({planned_lead:g} j)"
+            top_extra_traces.append(
+                {
+                    "type": "scatter",
+                    "mode": "lines",
+                    "name": planned_label,
+                    "x": [planned_lead, planned_lead],
+                    "y": [0.0, max(top_y) if top_y else 1.0],
+                    "line": {"color": "#111827", "dash": "dot", "width": 2.6},
+                    "showlegend": True,
+                }
+            )
+            bottom_extra_traces.append(
+                {
+                    "type": "scatter",
+                    "mode": "lines",
+                    "name": planned_label,
+                    "x": [planned_lead, planned_lead],
+                    "y": [0.0, max(bottom_y) if bottom_y else 1.0],
+                    "line": {"color": "#111827", "dash": "dot", "width": 2.6},
+                    "showlegend": False,
+                }
+            )
+        return build_dual_panel_figure(
+            title=title,
+            top_title="Nombre d'expeditions par delai simule",
+            top_x_label="Delai simule (jours)",
+            top_y_label="Expeditions",
+            top_kind="bar",
+            top_x=x_values,
+            top_y=top_y,
+            bottom_title="Quantite expediee par delai simule",
+            bottom_x_label="Delai simule (jours)",
+            bottom_y_label="Quantite",
+            bottom_kind="bar",
+            bottom_x=x_values,
+            bottom_y=bottom_y,
+            top_extra_traces=top_extra_traces,
+            bottom_extra_traces=bottom_extra_traces,
+            show_legend=has_planned_lead,
+        )
 
     def render_mrp_risk_summary_html(
         node_id: str,
@@ -5480,7 +5653,7 @@ def build_model_panel_metrics(
         if prev is None or day >= int(to_float(prev.get("day")) or 0):
             customer_latest_by_pair[key] = row
 
-    edge_metrics = build_edge_metrics(raw, supplier_shipments_csv)
+    edge_metrics = build_edge_metrics(raw, supplier_shipments_csv, horizon_days=horizon_days or None)
     factory_like_ids = factory_like_node_ids(raw)
     nodes_payload: dict[str, Any] = {}
     edges_payload: dict[str, Any] = {}
@@ -5561,6 +5734,31 @@ def build_model_panel_metrics(
             metric_label_value("Role", role_raw or "n/a"),
             metric_label_value("Localisation", location),
             metric_label_value("Id", node_id),
+            metric_section("Vue metier"),
+            metric_label_value("Principe", "Le simulateur cherche a maintenir les stocks autour d'une cible MRP, sans commander ce qui est deja couvert par le stock ou les receptions futures."),
+            metric_label_value("Decision", "A chaque revue, il calcule l'ecart a couvrir. Si cet ecart est positif, il cree un besoin net ; sinon il ne commande rien."),
+            metric_label_value("Execution", "Le besoin net devient un ordre lotifie ou normalise par flux d'approvisionnement, puis il arrive selon les delais et les stocks/capacites disponibles."),
+            metric_section("Chaine globale simulateur"),
+            metric_label_value("Etape 1", "D_pf(t): demande client lue jour par jour."),
+            metric_label_value("Etape 2", "MPS_pf(t): plan de production lotifie calcule a partir du signal aval, du stock et des regles de lots."),
+            metric_label_value("Etape 3", "Req_i(t): demande composant propagee par la BOM depuis le MPS / les consommations aval."),
+            metric_label_value("Etape 4", "T_i(t): cible MRP = plus haute valeur entre stock securite explicite, delai securite * signal MRP, couverture appro * signal MRP et cible stock active si definie."),
+            metric_label_value("Etape 5", "IP_i(t): position inventaire = stock projete + receptions futures deja planifiees."),
+            metric_label_value("Etape 6", "Gap_i(t): ecart a couvrir = cible MRP + backlog - position inventaire. Si le plancher physique est actif, le stock physique est aussi compare au plancher securite."),
+            metric_label_value("Etape 7", "BN_i(t): besoin net = Gap_i(t) si l'ecart est positif ; sinon aucune commande supplementaire."),
+            metric_label_value("Etape 8", "Q_i(t): ordre fournisseur = besoin net arrondi/normalise par flux d'approvisionnement, lot ou quantite standard, puis reception apres delai."),
+            metric_section("Glossaire commun"),
+            metric_label_value("Req_i(t)", "Signal MRP journalier utilise pour dimensionner la cible. Il vient de la demande aval, du MPS lotifie ou de la propagation BOM."),
+            metric_label_value("T_i(t)", "Cible stock active: stock securite explicite, couverture par delai de securite, couverture appro ou cible metier selon le couple noeud/item."),
+            metric_label_value("IP_i(t)", "Position inventaire: stock projete + receptions futures deja planifiees."),
+            metric_label_value("Gap_i(t)", "Ecart restant a couvrir apres deduction du stock et des receptions futures."),
+            metric_label_value("BN_i(t)", "Besoin net commandable. Il est nul si l'ecart est nul ou negatif."),
+            metric_label_value("Q_i(t) / OA_i(t)", "Ordre lance vers l'amont apres arrondi au lot, quantite standard, repartition entre flux d'approvisionnement ou contrainte de capacite."),
+            metric_section("Limites du modele"),
+            metric_label_value("Optimisation", "Ce n'est pas un solveur APS global: les decisions sont calculees par regles MRP et execution forward."),
+            metric_label_value("Calendrier industriel", "Les campagnes et lots sont modelises, mais pas encore un calendrier atelier complet avec equipes, changements de format et disponibilites machines fines."),
+            metric_label_value("Fournisseurs", "Les fournisseurs sont modelises comme stocks/capacites/delais; les contrats, MOQ reels, allocations et arbitrages fournisseurs restent a valider."),
+            metric_label_value("Couts", "Les achats viennent des prix matieres; transport, stockage et urgence restent des hypotheses tant que les couts industriels reels ne sont pas fournis."),
         ]
 
         if node_type == "customer":
@@ -5605,11 +5803,10 @@ def build_model_panel_metrics(
                     metric_label_value("Eq sim 1", "besoin brut client BB_pf(t): demande_jour + backlog_precedent"),
                     metric_label_value("Eq sim 2", "Servi_pf(t): quantite servie au client = min(stock_disponible_pf, besoin_brut_client)"),
                     metric_label_value("Eq sim 3", "Backlog_pf(t): retard client fin de journee = besoin_brut_client - Servi_pf(t)"),
-                    metric_section("Equations IMT (slide)"),
-                    metric_label_value("Eq IMT 1", "besoin brut BB(t) = forecast(t) si t = t_deb ; sinon backlog[product]"),
-                    metric_section("Comparaison IMT vs simulateur"),
-                    metric_label_value("IMT", "la slide exprime le besoin brut et le backlog comme objets de planification explicites"),
-                    metric_label_value("Simulateur", "le simulateur recalcule le besoin brut client et le backlog dynamiquement chaque jour a partir du stock et de la demande"),
+                    metric_section("Lecture simulateur"),
+                    metric_label_value("Demande", "D_pf(t) est une entree exogene du scenario."),
+                    metric_label_value("Backlog", "Le backlog n'est pas une entree: il est recalcule chaque jour si le stock aval ne couvre pas le besoin client."),
+                    metric_label_value("Signal aval", "La demande servie/non servie alimente ensuite la propagation de besoin vers les usines et composants."),
                     metric_section("Donnees et interactions"),
                     metric_label_value("Produits demandes", ", ".join(item_labels.get(i, compact_item_label(i)) for i in by_item) or "n/a"),
                     metric_label_value("Horizon demande", f"{len({int(to_float(r.get('day')) or 0) for r in rows})} jours" if rows else "n/a"),
@@ -5649,12 +5846,14 @@ def build_model_panel_metrics(
                 [
                     "StockProj_dc(t): stock fin de journee au DC",
                     "RecvPrev_dc(t): receptions futures implicites via in_transit",
-                    "BN_dc(t): besoin net du DC = cible - stock - in_transit",
+                    "T_dc(t): cible MRP du DC pour l'item suivi",
+                    "Gap_dc(t): ecart a couvrir = T_dc(t) - StockProj_dc(t) - RecvPrev_dc(t)",
+                    "BN_dc(t): besoin net du DC = Gap_dc(t) si l'ecart est positif ; sinon 0",
                 ]
             )
             assumption_lines.extend(
                 [
-                    "le DC est pilote en base_stock / couverture et non en plan de production",
+                    "le DC est pilote par cible stock / couverture et non par plan de production",
                     "les safety times MRP des PF sont portes sur les etats de stock du DC",
                 ]
             )
@@ -5664,13 +5863,13 @@ def build_model_panel_metrics(
                     *[metric_label_value(f"Var {idx+1}", line) for idx, line in enumerate(state_var_lines)],
                     metric_section("Equations simulateur"),
                     metric_label_value("Eq sim 1", "StockProj_dc(t): stock projete DC = stock_debut + receptions - expeditions"),
-                    metric_label_value("Eq sim 2", "SS_dc: stock de securite / cible DC = max(base_stock, safety_stock, couverture * signal)"),
-                    metric_label_value("Eq sim 3", "BN_dc(t): besoin net DC = max(0, SS_dc - stock_dc - in_transit_dc)"),
-                    metric_section("Equations IMT (slide)"),
-                    metric_label_value("Eq IMT 1", "StockProj[t] += receptions_prevues(t) - BB(t)"),
-                    metric_section("Comparaison IMT vs simulateur"),
-                    metric_label_value("IMT", "la slide raisonne en StockProj et RecvPrev explicites"),
-                    metric_label_value("Simulateur", "le simulateur tient StockProj via stock + in_transit et prend BN_dc jour par jour"),
+                    metric_label_value("Eq sim 2", "T_dc(t): cible DC = plus haute valeur entre stock_securite explicite, delai_securite * signal MRP, couverture * signal MRP et cible stock active si definie"),
+                    metric_label_value("Eq sim 3", "Gap_dc(t) = T_dc(t) - StockProj_dc(t) - RecvPrev_dc(t)"),
+                    metric_label_value("Eq sim 4", "BN_dc(t) = Gap_dc(t) si Gap_dc(t) > 0 ; sinon 0"),
+                    metric_section("Lecture simulateur"),
+                    metric_label_value("Stock projete", "StockProj_dc(t) est le stock DC simule apres receptions, expeditions et service aval."),
+                    metric_label_value("Receptions prevues", "RecvPrev_dc(t) est porte par les quantites deja en transit vers le DC."),
+                    metric_label_value("Besoin net", "On calcule d'abord l'ecart a couvrir. Si cet ecart est negatif, le stock et les receptions futures couvrent deja la cible: il n'y a donc pas de nouvelle commande."),
                     metric_section("Donnees et interactions"),
                     metric_label_value("Items entrants", str(len([i for i in incoming_items.get(node_id, set()) if not is_simulation_hidden_item(i)]))),
                     metric_label_value("Items sortants", str(len([i for i in outgoing_items.get(node_id, set()) if not is_simulation_hidden_item(i)]))),
@@ -5735,7 +5934,12 @@ def build_model_panel_metrics(
             state_var_lines.extend(
                 [
                     "Stock_source(t): stock source expediable",
-                    "besoin net matiere BN_mp(t): besoin net destination porte par la lane",
+                    "Req_dest(t): signal MRP journalier de la destination pour cette matiere",
+                    "T_dest(t): cible MRP de la destination pour cette matiere",
+                    "Stock_dest(t): stock matiere projete chez la destination, donc chez l'usine ou le DC receveur",
+                    "RecvPrev_dest(t): receptions futures deja planifiees vers cette destination",
+                    "Gap_mp(t): ecart matiere a couvrir = T_dest(t) - Stock_dest(t) - RecvPrev_dest(t)",
+                    "BN_mp(t): besoin net matiere = Gap_mp(t) si l'ecart est positif ; sinon 0",
                     "OA_mp(t): quantite demandee a la source apres normalisation lot standard",
                     "Pull_mp(t): quantite physiquement prelevee sur source",
                     "RecvPrev_mp(t): quantite livree a destination a t + lead_time",
@@ -5744,7 +5948,7 @@ def build_model_panel_metrics(
             assumption_lines.extend(
                 [
                     "le fournisseur est simule comme source de stock + capacite ; pas comme atelier detaille",
-                    "standard_order_qty agit comme multiple cible de commande sur la lane",
+                    "standard_order_qty agit comme multiple cible de commande sur le flux d'approvisionnement",
                     "la commande reste forward ; il n'y a pas encore de backward scheduling explicite order_date",
                 ]
             )
@@ -5753,17 +5957,17 @@ def build_model_panel_metrics(
                     metric_section("Variables d'etat"),
                     *[metric_label_value(f"Var {idx+1}", line) for idx, line in enumerate(state_var_lines)],
                     metric_section("Equations simulateur"),
-                    metric_label_value("Eq sim 1", "besoin net matiere BN_mp(t): max(0, cible_dest - stock_dest - in_transit_dest)"),
-                    metric_label_value("Eq sim 2", "OA_mp(t): ordre amont source = quantite tiree, normalisee par quantite standard si applicable"),
-                    metric_label_value("Eq sim 3", "Pull_mp(t): prelevement source = min(stock_source, capacite_source, besoin_net_matiere / fiabilite)"),
-                    metric_label_value("Eq sim 4", "RecvPrev_mp: reception planifiee = Pull_mp(t) * fiabilite a t + lead_time"),
-                    metric_section("Equations IMT (slide)"),
-                    metric_label_value("Eq IMT 1", "besoin net matiere BN_mp(t) = max(0, besoin_brut_matiere BB_mp(t) + SS_mp - StockProj_mp(t-1) - RecvPrev_mp(t))"),
-                    metric_label_value("Eq IMT 2", "OA_mp(t) = CEIL(besoin_net_matiere / lot_size) * lot_size"),
-                    metric_label_value("Eq IMT 3", "order_date = t - lt_fournisseur[mp] - delai_securite_mp"),
-                    metric_section("Comparaison IMT vs simulateur"),
-                    metric_label_value("IMT", "OA_mp est calcule en reculant la date de commande avec lead time et delai de securite"),
-                    metric_label_value("Simulateur", "le simulateur reste forward: il detecte le besoin net matiere au jour t, tire OA_mp, puis pose une arrivee future a t + lead_time"),
+                    metric_label_value("Eq sim 1", "T_dest(t): plus haute valeur entre stock securite, delai securite * Req_dest(t), couverture appro * Req_dest(t) et cible stock active"),
+                    metric_label_value("Eq sim 2", "Gap_mp(t) = T_dest(t) - Stock_dest(t) - RecvPrev_dest(t)"),
+                    metric_label_value("Eq sim 3", "BN_mp(t) = Gap_mp(t) si Gap_mp(t) > 0 ; sinon 0"),
+                    metric_label_value("Eq sim 4", "OA_mp(t): ordre amont source = quantite tiree, normalisee par quantite standard si applicable"),
+                    metric_label_value("Eq sim 5", "Pull_mp(t): prelevement source = min(stock_source, capacite_source, besoin_net_matiere / fiabilite)"),
+                    metric_label_value("Eq sim 6", "RecvPrev_mp: reception planifiee = Pull_mp(t) * fiabilite a t + lead_time"),
+                    metric_section("Lecture simulateur"),
+                    metric_label_value("Besoin matiere", "On lit d'abord l'ecart a couvrir. Si l'ecart est negatif ou nul, BN_mp(t)=0 et aucun ordre supplementaire n'est cree."),
+                    metric_label_value("Destination", "La destination est le noeud receveur du flux d'approvisionnement: son stock et ses receptions futures sont deduits avant de commander au fournisseur."),
+                    metric_label_value("Ordre fournisseur", "OA_mp(t) est la quantite commandee apres normalisation par quantite standard, lot ou capacite source."),
+                    metric_label_value("Reception", "La reception planifiee est posee a release_day + delai_previsionnel_mrp; la reception effective suit le delai simule."),
                     metric_section("Donnees et interactions"),
                     metric_label_value(
                         "Items sortants",
@@ -5888,7 +6092,7 @@ def build_model_panel_metrics(
                     "268091: composant actif BOM = 007923 ; ancienne ref encore visible dans Data_poc.xlsx = 693710."
                 )
                 component_reference_lines.append(
-                    "007923: reference active retenue dans la simulation ; pas de lane FIA active fournie dans les donnees source."
+                    "007923: reference active retenue dans la simulation ; pas de flux FIA actif fourni dans les donnees source."
                 )
             if is_upstream_internal_site(node_id):
                 actual_output_qty_by_item: dict[str, float] = defaultdict(float)
@@ -5933,8 +6137,9 @@ def build_model_panel_metrics(
             state_var_lines.extend(
                 [
                     "besoin brut produit fini BB_pf(t): signal aval dynamique du produit fini",
-                    "SS_pf(t): cible PF / couverture dynamique",
+                    "T_pf(t): cible stock produit fini/intermediaire active dans la boucle",
                     "SP_pf(t): stock PF courant observe dans la boucle",
+                    "Gap_pf(t): ecart stock cible = T_pf(t) - SP_pf(t)",
                     "besoin net produit fini BN_pf(t): commande dynamique avant regles de lot",
                     "LP_pf(t): plan lance apres lot fixe/min/max/multiple",
                     "Prod_pf(t): production reelle bornee par capacite et intrants",
@@ -5948,29 +6153,28 @@ def build_model_panel_metrics(
                     "les causes de binding observees viennent des contraintes reelles du run",
                 ]
             )
+            outgoing_flow_label = "Sorties PFI" if is_upstream_internal_site(node_id) else "Sorties aval"
             summary_lines.extend(
                 [
                     metric_section("Variables d'etat"),
                     *[metric_label_value(f"Var {idx+1}", line) for idx, line in enumerate(state_var_lines)],
                     metric_section("Equations simulateur"),
                     metric_label_value("Eq sim 1", "besoin brut produit fini BB_pf(t): signal aval dynamique = max(demande propagee, besoin process aval)"),
-                    metric_label_value("Eq sim 2", "SS_pf(t): cible PF = fg_target_days * besoin_brut_produit_fini ; ici surtout logique dynamique de couverture"),
+                    metric_label_value("Eq sim 2", "T_pf(t): cible PF = plus haute valeur entre cible stock active et fg_target_days * signal aval"),
                     metric_label_value("Eq sim 3", "SP_pf(t): stock projete PF observe dans la boucle = stock PF courant"),
-                    metric_label_value("Eq sim 4", "besoin net produit fini BN_pf(t): commande dynamique = besoin_brut_produit_fini + gain * (SS_pf(t) - SP_pf(t))"),
-                    metric_label_value("Eq sim 5", "LP_pf(t): plan lance = normalisation_lot(besoin_net_produit_fini) avec lot fixe/min/max/multiple + max lots / semaine"),
-                    metric_label_value("Eq sim 6", "Prod_pf(t): production reelle = min(capacite, limite_intrants, LP_pf(t))"),
-                    metric_label_value("Eq sim 7", "StockProj_site(t): stock fin de site = stock debut + arrivages + production - consommations - expeditions"),
-                    metric_section("Equations IMT (slide)"),
-                    metric_label_value("Eq IMT 1", "besoin net BN(t+tl) = max(0, besoin_brut BB(t+tl) + SS - StockProj(t+tl-1) - RecPrev(t+tl))"),
-                    metric_label_value("Eq IMT 2", "LP_fp(t) = CEIL(besoin_net / batch_size) * batch_size"),
-                    metric_label_value("Eq IMT 3", "StockProj[t+lead_time][product] += LP(t) ; StockProj[t][product] -= besoin_brut"),
-                    metric_section("Comparaison IMT vs simulateur"),
-                    metric_label_value("IMT", "la slide ecrit LP_pf a partir du besoin brut, du stock de securite, du stock projete et des receptions prevues sur un horizon planifie"),
-                    metric_label_value("Simulateur", "le simulateur calcule le besoin net produit fini et le plan lance dynamiquement avec lissage, campagnes et contraintes de lot, sans boucle de retroplanification explicite"),
+                    metric_label_value("Eq sim 4", "Gap_pf(t) = T_pf(t) - SP_pf(t)"),
+                    metric_label_value("Eq sim 5", "BN_pf(t): commande dynamique = besoin_brut_produit_fini + gain * Gap_pf(t), bornee a 0 si le calcul devient negatif"),
+                    metric_label_value("Eq sim 6", "LP_pf(t): plan lance = normalisation_lot(BN_pf(t)) avec lot fixe/min/max/multiple + max lots / semaine"),
+                    metric_label_value("Eq sim 7", "Prod_pf(t): production reelle = min(capacite, limite_intrants, LP_pf(t))"),
+                    metric_label_value("Eq sim 8", "StockProj_site(t): stock fin de site = stock debut + arrivages + production - consommations - expeditions"),
+                    metric_section("Lecture simulateur"),
+                    metric_label_value("Signal production", "Le besoin usine vient du signal aval: demande finale, consommation aval observee ou MPS lotifie propage."),
+                    metric_label_value("Plan lotifie", "LP_pf(t) est le besoin usine transforme par les regles de lot: fixe, min/max, multiple et limite lots/semaine."),
+                    metric_label_value("Execution", "Prod_pf(t) est le plan lotifie borne par la capacite modelisee et les intrants disponibles."),
                     metric_section("Donnees et interactions"),
                     metric_label_value("Sorties process", ", ".join(sorted(set(output_labels))) or "n/a"),
                     metric_label_value(
-                        "Sorties PFI",
+                        outgoing_flow_label,
                         ", ".join(
                             item_labels.get(item_id, compact_item_label(item_id))
                             for item_id in sorted(outgoing_items.get(node_id, set()))
@@ -6080,7 +6284,7 @@ def build_model_panel_metrics(
                 f"{item_labels.get(str(row.get('item_id') or ''), compact_item_label(str(row.get('item_id') or '')))}: "
                 f"{row.get('order_type') or 'n/a'} ; "
                 f"release={row.get('release_day') or 'n/a'} ; "
-                f"order_date_IMT={row.get('order_date_imt') or 'n/a'} ; "
+                f"ordre_passe={fmt_order_day(row.get('order_date_imt'))} ; "
                 f"arrival_previsionnelle={planned_arrival_day} ; "
                 f"arrival_effective={fmt_order_day(row.get('actual_receipt_day'))} ; "
                 f"status={row.get('order_status_end_of_run') or 'n/a'}"
@@ -6093,7 +6297,7 @@ def build_model_panel_metrics(
             item_rows = [row for row in node_orders if str(row.get("item_id") or "") == item_id]
             if not item_rows or is_simulation_hidden_item(item_id):
                 continue
-            release_by_imt: dict[int, float] = defaultdict(float)
+            release_by_order_day: dict[int, float] = defaultdict(float)
             total_qty = 0.0
             standard_qty = 0.0
             for row in item_rows:
@@ -6101,12 +6305,12 @@ def build_model_panel_metrics(
                     continue
                 day = int(to_float(row.get("order_date_imt")) or 0)
                 qty = max(0.0, to_float(row.get("release_qty")) or 0.0)
-                release_by_imt[day] += qty
+                release_by_order_day[day] += qty
                 total_qty += qty
                 standard_qty = max(standard_qty, max(0.0, to_float(row.get("standard_order_qty")) or 0.0))
-            if not release_by_imt:
+            if not release_by_order_day:
                 continue
-            peak_day, peak_qty = max(release_by_imt.items(), key=lambda it: it[1])
+            peak_day, peak_qty = max(release_by_order_day.items(), key=lambda it: it[1])
             label = item_labels.get(item_id, compact_item_label(item_id))
             if standard_qty >= 1_000_000.0:
                 mrp_industrial_validation_lines.append(
@@ -6159,7 +6363,7 @@ def build_model_panel_metrics(
                 if outgoing_edges and observed_shipment_rows == 0 and not supplier_ship_by_node.get(node_id):
                     dormant_reason = (
                         "Diagnostic: source dormante dans ce baseline. "
-                        "Aucune expedition observee sur les lanes source et aucun tirage simule."
+                        "Aucune expedition observee sur les flux source et aucun tirage simule."
                     )
                     if any(
                         str(row.get("category") or "") == "unmodeled_supplier_source_policy"
@@ -6180,8 +6384,8 @@ def build_model_panel_metrics(
                     dormant_reason = "Diagnostic: noeud DC orphelin, sans flux, sans stock et sans process dans le graphe actif."
         trace_series = {
             "Besoin brut": aggregate_trace_series(node_trace_rows, "bb_qty"),
-            "Besoin propagé brut": aggregate_trace_series(node_trace_rows, "bb_demand_signal_raw_qty"),
-            "Besoin MRP lissé": aggregate_trace_series(node_trace_rows, "bb_demand_signal_qty"),
+            "Besoin propage brut": aggregate_trace_series(node_trace_rows, "bb_demand_signal_raw_qty"),
+            "Besoin MRP lisse": aggregate_trace_series(node_trace_rows, "bb_demand_signal_qty"),
             "Besoin net": aggregate_trace_series(node_trace_rows, "bn_qty"),
             "StockProj": aggregate_trace_series(node_trace_rows, "stock_proj_qty"),
             "RecvPrev": aggregate_trace_series(node_trace_rows, "recv_prev_future_qty"),
@@ -6221,7 +6425,7 @@ def build_model_panel_metrics(
             bucket_days=7,
         )
         flow_series = {
-            "Ordres MRP hebdo dates IMT": order_release_series,
+            "Ordres MRP hebdo": order_release_series,
             "Receptions previsionnelles hebdo": order_receipt_series,
         }
         actual_input_arrival_series = aggregate_daily_series(
@@ -6238,12 +6442,12 @@ def build_model_panel_metrics(
             y_label="Quantite / jour",
             event_like=True,
             note=(
-                "Flux entrants comparables: ordres dates IMT, receptions previsionnelles et arrivages reels. "
+                "Flux entrants comparables: ordres MRP, receptions previsionnelles et arrivages reels. "
                 "Le besoin net MRP n'est pas affiche ici car c'est un ecart de stock a cible, pas un flux journalier. "
-                "Les ordres sont dates en IMT pour eviter de faire apparaitre le carnet initial comme un ordre massif au 1er janvier."
+                "Les ordres sont affiches a leur date d'ordre calculee pour eviter de faire apparaitre le carnet initial comme un ordre massif au 1er janvier."
             ),
             series_styles={
-                "Ordres MRP dates IMT": {"color": "#0f766e", "width": 2.2},
+                "Ordres MRP hebdo": {"color": "#0f766e", "width": 2.2},
                 "Receptions previsionnelles": {"color": "#2563eb", "width": 2.2},
                 "Arrivages reels intrants": {"color": "#0891b2", "width": 2.0, "dash": "dot"},
             },
@@ -6361,7 +6565,7 @@ def build_model_panel_metrics(
                 title=f"{node_id} - reappro amont volumes dominants",
                 y_label="Quantite",
                 event_like=True,
-                note="Commandes MRP consolidees par semaine/lane/item pour eviter de lire les lignes MRP comme des PO unitaires.",
+                note="Commandes MRP consolidees par semaine/flux/item pour eviter de lire les lignes MRP comme des PO unitaires.",
                 series_styles={label: node_order_styles.get(label, {}) for label in dominant_order_series},
             )
             other_order_figure = build_line_chart_figure(
@@ -6369,7 +6573,7 @@ def build_model_panel_metrics(
                 title=f"{node_id} - reappro amont autres items",
                 y_label="Quantite",
                 event_like=True,
-                note="Agregation hebdo. Meme couleur par item. Trait plein = ordre MRP/IMT ; pointille = reception previsionnelle.",
+                note="Agregation hebdo. Meme couleur par item. Trait plein = ordre MRP ; pointille = reception previsionnelle.",
                 series_styles={label: node_order_styles.get(label, {}) for label in other_order_series},
             )
             node_orders_figure = {
@@ -6384,7 +6588,7 @@ def build_model_panel_metrics(
                 title=f"{node_id} - reappro amont par item",
                 y_label="Quantite",
                 event_like=True,
-                note="Commandes MRP consolidees par semaine/lane/item. Trait plein = ordre MRP/IMT ; pointille = reception previsionnelle.",
+                note="Commandes MRP consolidees par semaine/flux/item. Trait plein = ordre MRP ; pointille = reception previsionnelle.",
                 series_styles=node_order_styles,
             )
         if node_orders_figure is not None:
@@ -6454,6 +6658,107 @@ def build_model_panel_metrics(
             "fourth": node_order_asset,
         }
 
+    def node_role_label(node_id: str) -> str:
+        node = node_by_id.get(node_id) or {}
+        node_type = str(node_types.get(node_id) or node.get("type") or "n/a")
+        role_raw = str(node.get("role_raw") or (node.get("attrs") or {}).get("description") or "")
+        type_label = {
+            "supplier_dc": "fournisseur",
+            "factory": "producteur/usine",
+            "distribution_center": "centre de distribution",
+            "customer": "client",
+        }.get(node_type, node_type or "n/a")
+        return f"{type_label}" + (f" - {role_raw}" if role_raw else "")
+
+    def stock_rows_for_source(node_id: str, item_id: str) -> tuple[str, list[dict[str, str]]]:
+        node_type = str(node_types.get(node_id) or "")
+        if node_type == "supplier_dc":
+            return "stock fournisseur", supplier_stock_rows_by_pair.get((node_id, item_id), [])
+        if node_type == "distribution_center":
+            return "stock DC source", dc_stock_rows_by_pair.get((node_id, item_id), [])
+        rows = output_rows_by_pair.get((node_id, item_id), [])
+        if rows:
+            return "stock produit source", rows
+        return "stock source", input_rows_by_pair.get((node_id, item_id), [])
+
+    def stock_rows_for_destination(node_id: str, item_id: str) -> tuple[str, list[dict[str, str]]]:
+        node_type = str(node_types.get(node_id) or "")
+        if node_type == "distribution_center":
+            rows = dc_stock_rows_by_pair.get((node_id, item_id), [])
+            if rows:
+                return "stock DC destination", rows
+        rows = input_rows_by_pair.get((node_id, item_id), [])
+        if rows:
+            return "stock matiere destination", rows
+        rows = output_rows_by_pair.get((node_id, item_id), [])
+        if rows:
+            return "stock produit destination", rows
+        return "stock destination", []
+
+    def stock_stats(rows: list[dict[str, str]]) -> dict[str, float | int | None]:
+        if not rows:
+            return {"latest": None, "min": None, "max": None, "zero_days": 0}
+        sorted_rows = sorted(rows, key=lambda r: int(to_float(r.get("day")) or 0))
+        values = [max(0.0, to_float(row.get("stock_end_of_day")) or 0.0) for row in sorted_rows]
+        return {
+            "latest": values[-1],
+            "min": min(values),
+            "max": max(values),
+            "zero_days": sum(1 for value in values if value <= 1e-9),
+        }
+
+    def capacity_stats(rows: list[dict[str, str]]) -> dict[str, float | int | None]:
+        if not rows:
+            return {"max_util": None, "avg_active_util": None, "active_days": 0, "max_capacity": None}
+        utilizations = [max(0.0, to_float(row.get("utilization")) or 0.0) for row in rows]
+        active_utils = [value for value in utilizations if value > 1e-9]
+        capacities = [max(0.0, to_float(row.get("capacity_qty_per_day")) or 0.0) for row in rows]
+        return {
+            "max_util": max(utilizations) if utilizations else None,
+            "avg_active_util": statistics.mean(active_utils) if active_utils else 0.0,
+            "active_days": len(active_utils),
+            "max_capacity": max(capacities) if capacities else None,
+        }
+
+    def fmt_optional_qty_value(value: float | int | None, digits: int = 0) -> str:
+        return "n/a" if value is None else fmt_qty(float(value), digits)
+
+    def fmt_optional_pct_value(value: float | int | None) -> str:
+        return "n/a" if value is None else fmt_pct(float(value) * 100.0)
+
+    def render_edge_context_html(
+        edge_id: str,
+        src: str,
+        dst: str,
+        context_rows: list[dict[str, str]],
+    ) -> str:
+        table_rows: list[str] = []
+        for row in context_rows:
+            table_rows.append(
+                "<tr>"
+                f"<td>{html.escape(row.get('item') or '')}</td>"
+                f"<td>{html.escape(row.get('source') or '')}</td>"
+                f"<td>{html.escape(row.get('destination') or '')}</td>"
+                f"<td>{html.escape(row.get('mrp') or '')}</td>"
+                f"<td>{html.escape(row.get('flow') or '')}</td>"
+                "</tr>"
+            )
+        if not table_rows:
+            table_rows.append("<tr><td colspan=\"5\">Aucune donnee contexte exploitable pour ce flux.</td></tr>")
+        return "".join(
+            [
+                "<div class=\"factoryHtmlPanelContent\">",
+                f"<div class=\"orderLedgerTextHeader\">{html.escape(edge_id)} - contexte source / destination</div>",
+                f"<div class=\"orderLedgerStatus\">Lecture du flux {html.escape(src)} -> {html.escape(dst)}: ce tableau relie ce que commande la destination a ce que peut expedier la source.</div>",
+                "<div class=\"kpiFormulaTableWrap\"><table class=\"kpiFormulaTable\">",
+                "<thead><tr><th>Item</th><th>Source</th><th>Destination</th><th>MRP destination</th><th>Flux</th></tr></thead>",
+                "<tbody>",
+                "".join(table_rows),
+                "</tbody></table></div>",
+                "</div>",
+            ]
+        )
+
     for edge in raw.get("edges", []) or []:
         edge_id = str(edge.get("id") or "")
         if not edge_id:
@@ -6470,20 +6775,30 @@ def build_model_panel_metrics(
         metric = edge_metrics.get(edge_id, {})
         total_shipped = 0.0
         avg_util = None
+        edge_shipment_rows: list[dict[str, str]] = []
         state_var_lines = [
-            "BN_dst(t): besoin net porte par la destination sur cette lane",
-            "OA_src(t): quantite demandee a la source apres normalisation lane",
+            "Req_dst(t): signal MRP journalier de la destination pour cet item",
+            "T_dst(t): cible MRP de la destination pour l'item transporte",
+            "Stock_dst(t): stock projete a destination",
+            "RecvPrev_dst(t): receptions futures deja planifiees sur cette destination",
+            "Gap_dst(t): ecart a couvrir a destination = T_dst(t) - Stock_dst(t) - RecvPrev_dst(t)",
+            "BN_dst(t): besoin net porte par la destination sur ce flux = Gap_dst(t) si l'ecart est positif ; sinon 0",
+            "OA_src(t): quantite demandee a la source apres normalisation du flux",
             "Pull_src(t): quantite physiquement prelevee a la source",
             "RecvPrev_dst(t): quantite qui arrivera a destination a t + lead_time",
-            "lead_effectif(t): lead observe + safety time destination",
+            "Lead_ref: delai previsionnel MRP du flux",
+            "Lead_sim: delai simule pour la reception effective",
+            "Lead_cover: delai conservateur utilise pour calculer ordre_passe",
         ]
         assumption_lines = [
-            "la lane est simulee forward ; la date de commande reste implicite",
+            "le flux est simule forward au jour d'envoi ; ordre_passe est un jalon calcule pour lire le carnet",
             "standard_order_qty joue comme multiple cible de commande quand disponible",
             "le lead time observe peut varier d'une expedition a l'autre",
         ]
         for item_id in items:
-            total_shipped += sum(max(0.0, to_float(r.get("shipped_qty")) or 0.0) for r in supplier_ship_by_edge.get((src, dst, item_id), []))
+            item_shipment_rows = supplier_ship_by_edge.get((src, dst, item_id), [])
+            edge_shipment_rows.extend(item_shipment_rows)
+            total_shipped += sum(max(0.0, to_float(r.get("shipped_qty")) or 0.0) for r in item_shipment_rows)
             pair_cap_rows = supplier_cap_by_pair.get((src, item_id), [])
             if pair_cap_rows:
                 util = sum(max(0.0, to_float(r.get("utilization")) or 0.0) for r in pair_cap_rows) / len(pair_cap_rows)
@@ -6518,11 +6833,93 @@ def build_model_panel_metrics(
             edge_order_lines.append(
                 f"{item_labels.get(str(row.get('item_id') or ''), compact_item_label(str(row.get('item_id') or '')))}: "
                 f"release={row.get('release_day') or 'n/a'} ; "
-                f"order_date_IMT={row.get('order_date_imt') or 'n/a'} ; "
+                f"ordre_passe={fmt_order_day(row.get('order_date_imt'))} ; "
                 f"arrival_previsionnelle={planned_arrival_day} ; "
                 f"arrival_effective={fmt_order_day(row.get('actual_receipt_day'))} ; "
                 f"lead_ref={row.get('lead_reference_days') or row.get('lead_cover_days') or 'n/a'} ; "
                 f"status={row.get('order_status_end_of_run') or 'n/a'}"
+            )
+        source_role = node_role_label(src)
+        destination_role = node_role_label(dst)
+        edge_context_rows: list[dict[str, str]] = []
+        edge_context_summary_lines: list[str] = []
+        for item_id in items:
+            item_label = item_labels.get(item_id, compact_item_label(item_id))
+            source_stock_label, source_stock_rows = stock_rows_for_source(src, item_id)
+            destination_stock_label, destination_stock_rows = stock_rows_for_destination(dst, item_id)
+            src_stock = stock_stats(source_stock_rows)
+            dst_stock = stock_stats(destination_stock_rows)
+            cap = capacity_stats(supplier_cap_by_pair.get((src, item_id), []))
+            trace_latest = latest_mrp_trace_by_pair.get((dst, item_id), {})
+            trace_rows = mrp_trace_rows_by_pair.get((dst, item_id), [])
+            max_bn = max((max(0.0, to_float(row.get("bn_qty")) or 0.0) for row in trace_rows), default=0.0)
+            bn_days = sum(1 for row in trace_rows if (to_float(row.get("bn_qty")) or 0.0) > 1e-9)
+            shipped_rows = supplier_ship_by_edge.get((src, dst, item_id), [])
+            shipped_qty = sum(max(0.0, to_float(row.get("shipped_qty")) or 0.0) for row in shipped_rows)
+            arrival_qty = sum(
+                max(0.0, to_float(row.get("arrived_qty")) or 0.0)
+                for row in input_arrivals_by_pair.get((dst, item_id), [])
+            )
+            item_order_rows = [row for row in edge_order_rows if str(row.get("item_id") or "") == item_id]
+            received_orders = sum(1 for row in item_order_rows if str(row.get("order_status_end_of_run") or "") == "received")
+            open_orders = len(item_order_rows) - received_orders
+            produced_source_qty = sum(
+                max(0.0, to_float(row.get("produced_qty")) or 0.0)
+                for row in output_rows_by_pair.get((src, item_id), [])
+            )
+            source_parts = [
+                f"{source_stock_label}: fin={fmt_optional_qty_value(src_stock.get('latest'))}",
+                f"min={fmt_optional_qty_value(src_stock.get('min'))}",
+            ]
+            if (src_stock.get("zero_days") or 0) > 0:
+                source_parts.append(f"jours a zero={src_stock.get('zero_days')}")
+            if cap.get("max_util") is not None:
+                source_parts.append(
+                    f"util max={fmt_optional_pct_value(cap.get('max_util'))}"
+                )
+                source_parts.append(f"jours actifs capacite={cap.get('active_days')}")
+            if produced_source_qty > 1e-9:
+                source_parts.append(f"produit source cumule={fmt_qty(produced_source_qty, 0)}")
+
+            target_qty = to_float(trace_latest.get("target_stock_qty"))
+            inventory_position_qty = to_float(trace_latest.get("inventory_position_qty"))
+            safety_floor_qty = to_float(trace_latest.get("safety_floor_qty"))
+            destination_parts = [
+                f"{destination_stock_label}: fin={fmt_optional_qty_value(dst_stock.get('latest'))}",
+                f"min={fmt_optional_qty_value(dst_stock.get('min'))}",
+            ]
+            if target_qty is not None and not math.isnan(target_qty):
+                destination_parts.append(f"cible MRP fin={fmt_qty(target_qty, 0)}")
+            if inventory_position_qty is not None and not math.isnan(inventory_position_qty):
+                destination_parts.append(f"position inv fin={fmt_qty(inventory_position_qty, 0)}")
+            if safety_floor_qty is not None and not math.isnan(safety_floor_qty):
+                destination_parts.append(f"plancher secu={fmt_qty(safety_floor_qty, 0)}")
+
+            mrp_parts = [
+                f"BN max={fmt_qty(max_bn, 0)}",
+                f"jours BN>0={bn_days}",
+            ]
+            flow_parts = [
+                f"expedie={fmt_qty(shipped_qty, 0)}",
+                f"arrive destination={fmt_qty(arrival_qty, 0)}",
+                f"ordres={len(item_order_rows)}",
+                f"recus={received_orders}",
+                f"ouverts={open_orders}",
+            ]
+            edge_context_rows.append(
+                {
+                    "item": item_label,
+                    "source": " ; ".join(source_parts),
+                    "destination": " ; ".join(destination_parts),
+                    "mrp": " ; ".join(mrp_parts),
+                    "flow": " ; ".join(flow_parts),
+                }
+            )
+            edge_context_summary_lines.append(
+                f"{item_label}: src fin={fmt_optional_qty_value(src_stock.get('latest'))} ; "
+                f"dst fin={fmt_optional_qty_value(dst_stock.get('latest'))} ; "
+                f"cible={fmt_qty(target_qty, 0) if target_qty is not None and not math.isnan(target_qty) else 'n/a'} ; "
+                f"BN max={fmt_qty(max_bn, 0)} ; ordres={len(item_order_rows)}"
             )
         edge_assumption_lines = []
         for row in assumptions_by_edge.get(edge_id, [])[:6]:
@@ -6534,7 +6931,7 @@ def build_model_panel_metrics(
         edge_status_asset = None
         edge_flow_figure = build_line_chart_figure(
             {
-                "Ordre IMT hebdo": aggregate_order_series(
+                "Ordre MRP hebdo": aggregate_order_series(
                     edge_order_rows,
                     "release_qty",
                     day_field="order_date_imt",
@@ -6556,12 +6953,12 @@ def build_model_panel_metrics(
             edge_order_asset = {"figure": edge_flow_figure}
         edge_lead_figure = build_line_chart_figure(
             {
-                "Lead observe": average_order_series(edge_order_rows, "lead_days"),
-                "Lead cover": average_order_series(edge_order_rows, "lead_cover_days"),
-                "Order date IMT": average_order_series(edge_order_rows, "order_date_imt"),
+                "Lead simule observe": average_order_series(edge_order_rows, "lead_days"),
+                "Lead conservateur utilise": average_order_series(edge_order_rows, "lead_cover_days"),
             },
-            title=f"{edge_id} - lead / lead cover / order_date IMT",
+            title=f"{edge_id} - delais du flux",
             y_label="Jours",
+            note="La date d'ordre calculee reste dans le carnet; ce graphe ne compare que des durees.",
         )
         if edge_lead_figure is not None:
             edge_lead_asset = {"figure": edge_lead_figure}
@@ -6572,6 +6969,22 @@ def build_model_panel_metrics(
         )
         if edge_status_figure is not None:
             edge_status_asset = {"figure": edge_status_figure}
+        edge_lead_distribution_figure = lead_distribution_figure(
+            edge_shipment_rows,
+            title=f"{edge_id} - distribution des delais simules",
+            planned_lead_days=planned_lead,
+        )
+        edge_context_html_asset = {
+            "html": render_edge_context_html(edge_id, src, dst, edge_context_rows)
+        }
+        edge_context_bundle = [
+            {"label": "Source / destination", "asset": edge_context_html_asset},
+        ]
+        if edge_lead_distribution_figure is not None:
+            edge_context_bundle.append(
+                {"label": "Distribution delais", "asset": {"figure": edge_lead_distribution_figure}}
+            )
+        edge_context_asset = {"bundle": edge_context_bundle}
         source_refs = [
             " / ".join(part for part in [str(attrs.get("source_workbook") or ""), str(attrs.get("source_sheet") or "")] if part)
         ]
@@ -6579,21 +6992,48 @@ def build_model_panel_metrics(
             metric_section("Element"),
             metric_label_value("Flux", f"{src} -> {dst}"),
             metric_label_value("Items", ", ".join(item_labels.get(i, compact_item_label(i)) for i in items) or "n/a"),
-            metric_label_value("Id lane", edge_id),
+            metric_label_value("Id flux", edge_id),
+            metric_section("Contexte source / destination"),
+            metric_label_value("Source", f"{src} ({source_role})"),
+            metric_label_value("Destination", f"{dst} ({destination_role})"),
+            metric_label_value(
+                "Topologie",
+                f"source aval={len(outgoing_edges_by_node.get(src, []))} flux ; destination amont={len(incoming_edges_by_node.get(dst, []))} flux",
+            ),
+            metric_multiline_value("Synthese item", edge_context_summary_lines, limit=4),
+            metric_section("Vue metier du flux"),
+            metric_label_value("Role", "Ce flux transporte un besoin MRP depuis une source amont vers une destination aval."),
+            metric_label_value("Decision", "La destination commande seulement l'ecart que son stock et ses receptions futures ne couvrent pas deja."),
+            metric_label_value("Execution", "La source expedie selon son stock, sa capacite, la quantite standard du flux et le delai simule."),
+            metric_section("Chaine globale simulateur"),
+            metric_label_value("Etape 1", "La demande client cree un signal aval sur les produits finis."),
+            metric_label_value("Etape 2", "Le MPS lotifie transforme ce signal en production planifiee par usine."),
+            metric_label_value("Etape 3", "La BOM convertit le plan de production en besoin composant sur ce flux."),
+            metric_label_value("Etape 4", "T_dst(t) est la cible MRP destination; le stock et les receptions futures deja prevues sont deduits."),
+            metric_label_value("Etape 5", "BN_dst(t): besoin net = Gap_dst(t) si l'ecart est positif ; sinon pas de commande."),
+            metric_label_value("Etape 6", "L'ordre sur le flux est normalise par lot / quantite standard puis expedie et recu apres delai."),
+            metric_section("Glossaire flux"),
+            metric_label_value("T_dst(t)", "Cible MRP du noeud receveur pour l'item transporte."),
+            metric_label_value("Stock_dst(t)", "Stock projete de l'item chez le receveur."),
+            metric_label_value("RecvPrev_dst(t)", "Receptions futures deja planifiees vers le receveur."),
+            metric_label_value("OA_src(t)", "Ordre amont demande a la source sur ce flux."),
+            metric_label_value("Lead_ref / Lead_sim", "Lead_ref est le delai previsionnel MRP; Lead_sim est le delai reel simule pour la reception effective."),
             metric_section("Variables d'etat"),
             *[metric_label_value(f"Var {idx+1}", line) for idx, line in enumerate(state_var_lines)],
             metric_section("Equations simulateur"),
-            metric_label_value("Eq sim 1", "BN_dst(t): besoin net destination porte par ce flux = max(0, cible_dst - stock_dst - in_transit_dst)"),
-            metric_label_value("Eq sim 2", "OA_src(t): ordre amont sur la lane = quantite demandee a la source, normalisee si quantite standard"),
-            metric_label_value("Eq sim 3", "RecvPrev_dst: reception planifiee destination = OA_src(t) * fiabilite"),
-            metric_label_value("Eq sim 4", "arrival_date: date d'arrivee = t + lead_time echantillonne"),
-            metric_label_value("Eq sim 5", "lead_effectif: lead observe + delai de securite destination"),
-            metric_section("Equations IMT (slide)"),
-            metric_label_value("Eq IMT 1", "order_date = t - lt_fournisseur - delai_securite"),
-            metric_label_value("Eq IMT 2", "arrival_date = t"),
-            metric_section("Comparaison IMT vs simulateur"),
-            metric_label_value("IMT", "le flux est pilote par lt_fournisseur et delai_securite avec une order_date explicite"),
-            metric_label_value("Simulateur", "le flux est pilote par une lane forward avec date d'arrivee explicite; la logique de date de commande reste implicite dans la boucle de simulation"),
+            metric_label_value("Eq sim 1", "T_dst(t): plus haute valeur entre stock securite, delai securite * Req_dst(t), couverture appro * Req_dst(t) et cible stock active"),
+            metric_label_value("Eq sim 2", "Gap_dst(t) = T_dst(t) - Stock_dst(t) - RecvPrev_dst(t)"),
+            metric_label_value("Eq sim 3", "BN_dst(t) = Gap_dst(t) si Gap_dst(t) > 0 ; sinon 0"),
+            metric_label_value("Eq sim 4", "OA_src(t): ordre amont sur le flux = quantite demandee a la source, normalisee si quantite standard"),
+            metric_label_value("Eq sim 5", "Reception_prevue = envoi + Lead_ref ; Reception_effective = envoi + Lead_sim"),
+            metric_label_value("Eq sim 6", "ordre_passe = besoin_a_couvrir - delai_securite - Lead_cover"),
+            metric_section("Lecture simulateur"),
+            metric_label_value("Date d'ordre", "ordre_passe est une date calculee pour lire le carnet: besoin a couvrir - delai securite - delai d'appro."),
+            metric_label_value("Date d'envoi", "release_day est le jour ou la quantite est envoyee sur le flux."),
+            metric_label_value("Date reception", "arrivee_previsionnelle = release_day + delai_previsionnel_mrp ; arrivee_effective = reception simulee."),
+            metric_section("Limites lecture flux"),
+            metric_label_value("Granularite", "Les ordres sont consolides pour la lecture, mais la simulation reste journaliere et peut generer plusieurs evenements par item/flux."),
+            metric_label_value("Capacite source", "Si la capacite fournisseur n'est pas connue, elle est une hypothese ou n'est pas limitante selon le parametrage du scenario."),
             metric_section("Donnees et interactions"),
             metric_label_value("Lead time planifie", fmt_days(planned_lead, 1)),
             metric_label_value("Distance", f"{to_float(edge.get('distance_km')) or 0.0:.0f} km"),
@@ -6602,13 +7042,13 @@ def build_model_panel_metrics(
             metric_label_value("Product code source", str(attrs.get("product_code") or "n/a")),
             metric_label_value("Compte fournisseur", str(attrs.get("supplier_account") or "n/a")),
             metric_multiline_value(
-                "Donnees observees lane",
-                lane_data_lines if lane_data_lines else ["aucune expedition observee sur cette lane"],
+                "Donnees observees flux",
+                lane_data_lines if lane_data_lines else ["aucune expedition observee sur ce flux"],
                 limit=8,
             ),
             metric_section("Trace MRP explicite"),
             metric_multiline_value(
-                "Carnet d'ordres lane",
+                "Carnet d'ordres flux",
                 edge_order_lines if edge_order_lines else ["aucun ordre MRP direct sur ce flux ; flux probablement aval ou non pilote par appro"],
                 limit=8,
             ),
@@ -6616,7 +7056,7 @@ def build_model_panel_metrics(
             *[metric_label_value(f"H {idx+1}", line) for idx, line in enumerate(assumption_lines)],
             metric_multiline_value(
                 "Ledger hypotheses",
-                edge_assumption_lines if edge_assumption_lines else ["aucune hypothese lane specifique journalisee"],
+                edge_assumption_lines if edge_assumption_lines else ["aucune hypothese specifique au flux journalisee"],
                 limit=6,
             ),
             metric_section("KPI run courant"),
@@ -6625,10 +7065,11 @@ def build_model_panel_metrics(
             metric_label_value("Lead observe moyen", fmt_days(metric.get("avg_lead_days"), 1)),
             metric_label_value("Lead observe p50/p90", f"{metric.get('lead_p50_days', 'n/a')} / {metric.get('lead_p90_days', 'n/a')} j"),
             metric_label_value("Lead observe min-max", f"{metric.get('min_lead_days', 'n/a')} - {metric.get('max_lead_days', 'n/a')} j"),
+            metric_label_value("Delais distincts observes", str(metric.get("distinct_lead_days", "n/a"))),
             metric_label_value("Quantites distinctes", str(metric.get("distinct_shipped_qty", 0))),
             metric_label_value("Utilisation source max", fmt_pct((avg_util or 0.0) * 100.0) if avg_util is not None else "n/a"),
             metric_section("Sources et parametres"),
-            metric_multiline_value("Sources lane", unique_preserve(source_refs), limit=4),
+            metric_multiline_value("Sources flux", unique_preserve(source_refs), limit=4),
         ]
         edges_payload[edge_id] = {
             "title": "Modele du flux",
@@ -6636,6 +7077,7 @@ def build_model_panel_metrics(
             "incoming": edge_order_asset,
             "outgoing": edge_lead_asset,
             "third": edge_status_asset,
+            "fourth": edge_context_asset,
         }
 
     return {"nodes": nodes_payload, "edges": edges_payload}
@@ -9992,7 +10434,7 @@ def html_template(title: str, data_json: str, material_table_html: str, material
             incoming: "Modele du flux",
             outgoing: "Caracteristiques du flux",
             third: "KPI du flux",
-            fourth: "MRP / risque"
+            fourth: "Source / destination"
           }};
         }}
         return {{
@@ -10049,7 +10491,7 @@ def html_template(title: str, data_json: str, material_table_html: str, material
       if (nodeId === "SDC-1450" && isFactoryLikeNode(nodeId, nodeType)) {{
         return {{
           incoming: "Stock intrants / PFI",
-          outgoing: "Expeditions PFI",
+          outgoing: "Stock et expeditions PFI",
           third: "Planning lots production",
           fourth: "Pilotage MRP"
         }};
@@ -10144,7 +10586,7 @@ def html_template(title: str, data_json: str, material_table_html: str, material
           incoming: modelDetails.incoming || null,
           outgoing: modelDetails.outgoing || null,
           third: modelDetails.third || null,
-          fourth: null,
+          fourth: modelDetails.fourth || null,
         }};
       }}
       return modelFourth ? {{ fourth: modelFourth }} : null;
@@ -10395,6 +10837,7 @@ def html_template(title: str, data_json: str, material_table_html: str, material
                 xaxis: "x",
                 yaxis: "y",
                 name: top.title || "Panel 1",
+                showlegend: false,
               }}
             : {{
                 type: "scatter",
@@ -10405,6 +10848,7 @@ def html_template(title: str, data_json: str, material_table_html: str, material
                 xaxis: "x",
                 yaxis: "y",
                 name: top.title || "Panel 1",
+                showlegend: false,
               }});
           traces.push(bottom.kind === "line"
             ? {{
@@ -10416,6 +10860,7 @@ def html_template(title: str, data_json: str, material_table_html: str, material
                 xaxis: "x2",
                 yaxis: "y2",
                 name: bottom.title || "Panel 2",
+                showlegend: false,
               }}
             : {{
                 type: "bar",
@@ -10425,7 +10870,22 @@ def html_template(title: str, data_json: str, material_table_html: str, material
                 xaxis: "x2",
                 yaxis: "y2",
                 name: bottom.title || "Panel 2",
+                showlegend: false,
               }});
+          (top.extra_traces || []).forEach((trace) => {{
+            traces.push({{
+              ...trace,
+              xaxis: "x",
+              yaxis: "y",
+            }});
+          }});
+          (bottom.extra_traces || []).forEach((trace) => {{
+            traces.push({{
+              ...trace,
+              xaxis: "x2",
+              yaxis: "y2",
+            }});
+          }});
           return {{
             data: traces,
             layout: {{
@@ -10462,7 +10922,8 @@ def html_template(title: str, data_json: str, material_table_html: str, material
                   font: {{ size: 11, color: "#0f172a" }},
                 }},
               ],
-              showlegend: false,
+              showlegend: Boolean(figure.show_legend),
+              legend: {{ orientation: "h", y: -0.18 }},
             }},
           }};
         }}
@@ -11217,7 +11678,11 @@ def main() -> None:
             supplier_shipments_csv,
             Path(args.dc_stocks_csv).parent / "mrp_trace_daily.csv",
         )
-        edge_metrics = build_edge_metrics(raw, supplier_shipments_csv)
+        edge_metrics = build_edge_metrics(
+            raw,
+            supplier_shipments_csv,
+            horizon_days=read_timeline_horizon_days(output_root_from_csv(demand_service_csv)),
+        )
         for edge_payload in payload.get("edges", []) or []:
             edge_id = str(edge_payload.get("id") or "")
             if edge_id in edge_metrics:
