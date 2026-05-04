@@ -5700,6 +5700,376 @@ def metric_multiline_value(label: str, values: list[str], *, limit: int = 8) -> 
     return metric_label_value(label, value)
 
 
+def model_node_dynamic_equation_lines() -> list[dict[str, str]]:
+    return [
+        metric_section("Indices des equations dynamiques"),
+        metric_label_value("n", "noeud du graphe: fournisseur, usine, centre de distribution ou client."),
+        metric_label_value("i", "item suivi: matiere premiere, semi-fini, produit fini."),
+        metric_label_value("t", "jour courant de simulation ; t+1 est l'etat apres execution du jour t."),
+        metric_label_value("f", "flux source -> destination pour un item donne."),
+        metric_label_value("s", "site industriel ou usine."),
+        metric_label_value("p", "produit/process de production."),
+        metric_section("Variables d'etat"),
+        metric_label_value(
+            "S[n,i](t)",
+            "stock disponible de l'item i au noeud n au debut du jour t.",
+        ),
+        metric_label_value(
+            "IT[f,i](t)",
+            "quantite de l'item i deja expediee sur le flux f mais pas encore disponible a destination.",
+        ),
+        metric_label_value(
+            "B[n,i](t)",
+            "backlog ou besoin non servi porte par le noeud n pour l'item i.",
+        ),
+        metric_label_value(
+            "OO[f,i](t)",
+            "carnet ouvert sur le flux f pour l'item i: ordres crees mais pas encore completement recus.",
+        ),
+        metric_section("Equations d'etat"),
+        metric_label_value(
+            "Stock",
+            "S[n,i](t+1) = S[n,i](t) + receptions[n,i](t) + production[n,i](t) - consommations[n,i](t) - expeditions[n,i](t).",
+        ),
+        metric_label_value(
+            "Correspondance flux",
+            "receptions=Recv ; production=Prod ; consommations=Cons ; expeditions=Ship.",
+        ),
+        metric_label_value(
+            "Transit",
+            "IT[f,i](t+1) = IT[f,i](t) + Ship[f,i](t) - Recv[f,i](t).",
+        ),
+        metric_label_value(
+            "Carnet ouvert",
+            "OO[f,i](t+1) = OO[f,i](t) + Q[f,i](t) - Recv[f,i](t), a la granularite item/flux.",
+        ),
+        metric_label_value(
+            "Backlog client",
+            "B[n,i](t+1) = B[n,i](t) + D[n,i](t) - Served[n,i](t), avec Served limite par le stock disponible.",
+        ),
+        metric_label_value(
+            "Consommation BOM",
+            "Cons[s,i](t) = somme_p BOM[i,p] * Prod[p,s](t).",
+        ),
+        metric_label_value(
+            "Production executable",
+            "Prod[p,s](t) = min(PlanLot[p,s](t), Capacite[p,s](t), IntrantsDisponibles[p,s](t)).",
+        ),
+        metric_section("Variables auxiliaires recalculees au jour t"),
+        metric_label_value(
+            "IP[n,i](t)",
+            "IP[n,i](t) = S[n,i](t) + RecvPrev[n,i](t).",
+        ),
+        metric_label_value(
+            "T[n,i](t)",
+            "T[n,i](t) = max(SS_qty[n,i], ST_days[n,i] * Req[n,i](t), Cover_days[n,i] * Req[n,i](t), Target_business[n,i]).",
+        ),
+        metric_label_value(
+            "Gap[n,i](t)",
+            "Gap[n,i](t) = T[n,i](t) + B[n,i](t) - IP[n,i](t).",
+        ),
+        metric_section("Regles de decision"),
+        metric_label_value(
+            "Besoin net",
+            "si Gap[n,i](t) > 0 alors BN[n,i](t) = Gap[n,i](t) ; sinon BN[n,i](t) = 0.",
+        ),
+        metric_label_value(
+            "Ordre amont",
+            "Q[f,i](t) = LotRule(SourcingShare[f,i] * BN[dst(f),i](t)).",
+        ),
+        metric_label_value(
+            "Reception transport",
+            "Ship[f,i](t) devient Recv[f,i](t + LT_sim[f,t]) ; la date previsionnelle utilise LT_ref[f].",
+        ),
+        metric_label_value(
+            "Lecture",
+            "Le simulateur avance chronologiquement: calcul des variables en t, decisions MRP/production/transport, puis mise a jour des etats en t+1.",
+        ),
+    ]
+
+
+def model_edge_dynamic_equation_lines() -> list[dict[str, str]]:
+    return [
+        metric_section("Indices du flux"),
+        metric_label_value("f", "flux source -> destination selectionne."),
+        metric_label_value("src(f)", "noeud source du flux."),
+        metric_label_value("dst(f)", "noeud destination du flux."),
+        metric_label_value("i", "item transporte par le flux."),
+        metric_label_value("t", "jour courant de simulation."),
+        metric_section("Equations d'etat du flux"),
+        metric_label_value(
+            "Transit",
+            "IT[f,i](t+1) = IT[f,i](t) + Ship[f,i](t) - Recv[f,i](t).",
+        ),
+        metric_label_value(
+            "Stock source",
+            "S[src(f),i](t+1) = S[src(f),i](t) + production_source[f,i](t) - Ship[f,i](t).",
+        ),
+        metric_label_value(
+            "Stock destination",
+            "S[dst(f),i](t+1) = S[dst(f),i](t) + Recv[f,i](t) - consommation_destination[f,i](t).",
+        ),
+        metric_label_value(
+            "Carnet ouvert",
+            "OO[f,i](t+1) = OO[f,i](t) + Q[f,i](t) - Recv[f,i](t).",
+        ),
+        metric_section("Variables auxiliaires du flux"),
+        metric_label_value(
+            "IP destination",
+            "IP[dst(f),i](t) = S[dst(f),i](t) + RecvPrev[dst(f),i](t).",
+        ),
+        metric_label_value(
+            "Gap destination",
+            "Gap[dst(f),i](t) = T[dst(f),i](t) + B[dst(f),i](t) - IP[dst(f),i](t).",
+        ),
+        metric_section("Regles de decision du flux"),
+        metric_label_value(
+            "Besoin affecte au flux",
+            "si Gap[dst(f),i](t) > 0 alors BN[dst(f),i](t) est reparti sur les flux actifs selon le sourcing ; sinon Q[f,i](t)=0.",
+        ),
+        metric_label_value(
+            "Quantite commandee",
+            "Q[f,i](t) = LotRule(SourcingShare[f,i] * BN[dst(f),i](t)).",
+        ),
+        metric_label_value(
+            "Expedition",
+            "Ship[f,i](t) = min(Q[f,i](t), S[src(f),i](t), Capacite[src(f),i](t)).",
+        ),
+        metric_label_value(
+            "Reception",
+            "Recv[f,i](t + LT_sim[f,t]) = Ship[f,i](t). La date previsionnelle du carnet est t + LT_ref[f].",
+        ),
+    ]
+
+
+def render_global_model_equations_html() -> str:
+    def table(rows: list[tuple[str, str, str]]) -> str:
+        body = "".join(
+            "<tr>"
+            f"<td>{html.escape(label)}</td>"
+            f"<td><code>{html.escape(equation)}</code></td>"
+            f"<td>{html.escape(reading)}</td>"
+            "</tr>"
+            for label, equation, reading in rows
+        )
+        return (
+            "<div class=\"modelEquationTableWrap\">"
+            "<table class=\"modelEquationTable\">"
+            "<thead><tr><th>Objet</th><th>Equation / definition</th><th>Lecture</th></tr></thead>"
+            f"<tbody>{body}</tbody>"
+            "</table>"
+            "</div>"
+        )
+
+    sections = [
+        (
+            "1. Lecture du modele",
+            table(
+                [
+                    ("1. Demande client", "D[c,i](t)", "Le simulateur lit chaque jour la demande client par produit fini."),
+                    ("2. Service aval", "Served[c,i](t)", "Le stock disponible sert la demande ; ce qui n'est pas servi devient backlog."),
+                    ("3. Signal production", "ReqProd[p,s](t)", "La demande aval et les besoins des process aval creent un signal de production par site et produit."),
+                    ("4. Plan de production", "MPS[p,s](t) puis PlanLot[p,s](t)", "Le signal est transforme en commande de production, lissee, puis arrondie par regles de lot/campagne."),
+                    ("5. Besoin composant", "Req_BOM[s,i](t)", "La BOM transforme le plan de production en besoin de matieres ou semi-finis."),
+                    ("6. Decision MRP", "T[n,i](t), IP[n,i](t), Gap[n,i](t), BN[n,i](t)", "Le MRP compare cible, stock et receptions futures pour savoir s'il faut commander."),
+                    ("7. Ordre fournisseur", "Q[f,i](t)", "Le besoin net est reparti sur les flux d'approvisionnement puis normalise par lot ou quantite standard."),
+                    ("8. Transport et reception", "Ship[f,i](t), Recv[f,i](t)", "La source expedie ce qu'elle peut ; la destination recoit apres le delai simule."),
+                    ("9. Etat suivant", "Etat(t+1)", "Stocks, transit, carnet ouvert et backlog sont mis a jour ; le jour suivant repart de ce nouvel etat."),
+                ]
+            ),
+        ),
+        (
+            "2. Indices",
+            table(
+                [
+                    ("t", "jour courant ; t+1 = etat apres execution du jour t", "Le simulateur avance au pas journalier."),
+                    ("c", "client", "Noeud aval qui porte la demande exogene."),
+                    ("n", "noeud", "Fournisseur, usine, centre de distribution ou client."),
+                    ("s", "site industriel", "Usine ou site de production."),
+                    ("i", "item", "Matiere premiere, semi-fini ou produit fini."),
+                    ("p", "produit/process", "Produit fabrique par un process."),
+                    ("f", "flux source -> destination", "Arc logistique qui transporte un item."),
+                ]
+            ),
+        ),
+        (
+            "3. Parametres et constantes du scenario",
+            table(
+                [
+                    ("alpha", "production_smoothing", "Coefficient de lissage de la commande de production. Plus alpha est haut, plus la production reagit lentement."),
+                    ("production_gap_gain", "gain applique a GapProd[p,s](t)", "Part de l'ecart de stock que l'on cherche a rattraper dans la commande brute."),
+                    ("fg_target_days", "jours de couverture produits finis", "Transforme le signal de production en cible de stock sortie usine."),
+                    ("SS_qty[n,i]", "stock securite explicite", "Quantite de securite issue des donnees MRP quand elle existe."),
+                    ("ST_days[n,i]", "delai de securite MRP", "Nombre de jours de signal MRP a couvrir en securite."),
+                    ("Cover_days[n,i]", "couverture appro", "Nombre de jours de signal MRP a maintenir en stock cible pour couvrir le delai previsionnel d'approvisionnement."),
+                    ("LotPolicy[p,s]", "lot fixe, min, max, multiple, max lots/semaine", "Regles industrielles qui transforment une commande continue en campagne lotifiee."),
+                    ("SourcingShare[f,i]", "part de sourcing du flux", "Part du besoin net affectee a chaque source amont active."),
+                    ("LT_ref[f]", "delai previsionnel MRP", "Delai utilise pour lire les dates previsionnelles du carnet."),
+                    ("LT_sim[f,t]", "delai simule", "Delai effectivement applique a l'expedition pour calculer la reception reelle."),
+                    ("Capacite", "capacite fournisseur ou usine", "Borne physique appliquee a l'expedition ou a la production si elle est modelisee."),
+                ]
+            ),
+        ),
+        (
+            "4. Variables d'etat portees d'un jour a l'autre",
+            table(
+                [
+                    ("S[n,i](t)", "stock disponible au noeud n pour l'item i", "Variable d'etat principale: elle est recalculee en t+1."),
+                    ("B[n,i](t)", "backlog ou besoin non servi au noeud n", "Retard reporte d'un jour au suivant."),
+                    ("IT[f,i](t)", "quantite en transit sur le flux f", "Quantite deja expediee mais pas encore disponible a destination."),
+                    ("OO[f,i](t)", "carnet ouvert sur le flux f", "Ordres crees mais pas encore completement recus."),
+                    ("OC[p,s](t)", "reste de campagne ouverte pour le produit p sur le site s", "Quantite deja lancee en campagne mais pas encore executee."),
+                ]
+            ),
+        ),
+        (
+            "5. Demande et service client",
+            table(
+                [
+                    ("Demande", "D[c,i](t)", "Demande client exogene de l'item i au client c le jour t."),
+                    ("Besoin client", "Need[c,i](t) = D[c,i](t) + B[c,i](t)", "Demande du jour plus backlog entrant."),
+                    ("Service", "Served[c,i](t) = min(S[c,i](t), Need[c,i](t))", "Quantite livree au client selon le stock disponible."),
+                    ("Backlog", "B[c,i](t+1) = Need[c,i](t) - Served[c,i](t)", "Retard client reporte au jour suivant."),
+                    ("Signal aval", "Req[c,i](t) = Need[c,i](t)", "Point de depart de la propagation du besoin vers l'amont."),
+                ]
+            ),
+        ),
+        (
+            "6. Variables auxiliaires de production",
+            table(
+                [
+                    ("ReqProd[p,s](t)", "signal aval retenu pour produire p sur le site s", "Maximum entre demande propagee et besoin des process aval."),
+                    ("TProd[p,s](t)", "cible stock du produit fabrique", "Stock que le site cherche a maintenir pour le produit p."),
+                    ("GapProd[p,s](t)", "ecart sortie = cible - stock", "Positif: manque a rattraper ; negatif: avance de stock."),
+                    ("RawProd[p,s](t)", "commande brute avant lissage", "Besoin courant corrige par l'ecart de stock."),
+                    ("MPS[p,s](t)", "commande de production simulee lissee", "Signal de production apres lissage temporel."),
+                    ("LotRef[p,s]", "taille de lot de reference", "Lot fixe si present, sinon max/min/multiple selon la politique."),
+                    ("OC[p,s](t)", "reste de campagne ouverte", "Quantite deja lancee en campagne mais pas encore fabriquee."),
+                    ("IntrantsDisponibles[p,s](t)", "maximum produisible avec les stocks entrants", "Limite calculee a partir des stocks intrants et des coefficients BOM."),
+                ]
+            ),
+        ),
+        (
+            "7. Equations de production et propagation BOM",
+            table(
+                [
+                    ("Signal production", "ReqProd[p,s](t) = max(Req_aval[p,s](t), Req_process_aval[p,s](t))", "Signal aval retenu pour produire: demande client propagee ou besoin d'un process aval."),
+                    ("Cible sortie", "TProd[p,s](t) = max(BaseStock[s,p], fg_target_days * ReqProd[p,s](t))", "Stock cible du produit fabrique par le site."),
+                    ("Ecart sortie", "GapProd[p,s](t) = TProd[p,s](t) - S[s,p](t)", "Manque ou avance de stock sur le produit fabrique."),
+                    ("Commande brute", "RawProd[p,s](t) = ReqProd[p,s](t) + production_gap_gain * GapProd[p,s](t)", "Production demandee avant lissage: besoin courant plus correction de stock."),
+                    ("Commande lissee", "MPS[p,s](t) = max(0, alpha * MPS[p,s](t-1) + (1-alpha) * RawProd[p,s](t))", "alpha est production_smoothing ; cela evite des a-coups trop forts."),
+                    ("Declenchement lot", "si S[s,p](t) > TProd[p,s](t) - LotRef[p,s] alors nouveau lot differe", "On evite de lancer un lot complet si le stock est encore dans la bande cible."),
+                    ("Plan lotifie", "PlanLot[p,s](t) = CampaignRule(MPS[p,s](t), LotPolicy[p,s], OC[p,s](t), LotsWeek[p,s])", "Application des lots fixes, minimums, multiples, campagnes ouvertes et limite de lots/semaine."),
+                    ("Intrants disponibles", "IntrantsDisponibles[p,s](t) = min_i S[s,i](t) / BOM[i,p]", "Maximum produisible compte tenu des intrants modelises et des ratios BOM."),
+                    ("Production executable", "Prod[p,s](t) = min(PlanLot[p,s](t), Capacite[p,s](t), IntrantsDisponibles[p,s](t))", "Production reellement faite selon capacite et intrants disponibles."),
+                    ("Besoin composant MRP", "Req_BOM[s,i](t) = somme_p BOM[i,p] * PlanLot[p,s](t)", "Signal composant utilise pour commander l'amont."),
+                    ("Consommation physique", "Cons[s,i](t) = somme_p BOM[i,p] * Prod[p,s](t)", "Consommation qui decremente vraiment le stock intrant."),
+                ]
+            ),
+        ),
+        (
+            "8. Variables auxiliaires et decision MRP",
+            table(
+                [
+                    ("Signal MRP", "Req[n,i](t)", "Signal journalier utilise pour dimensionner la cible: demande client, MPS/BOM ou demande propagee."),
+                    ("Receptions futures", "RecvPrev[n,i](t) = somme_tau>t Recv[n,i](tau)", "Quantites deja commandees ou en transit vers le noeud."),
+                    ("Position inventaire", "IP[n,i](t) = S[n,i](t) + RecvPrev[n,i](t)", "Stock disponible plus receptions futures deja planifiees."),
+                    ("Cible MRP", "T[n,i](t) = max(SS_qty[n,i], ST_days[n,i] * Req[n,i](t), Cover_days[n,i] * Req[n,i](t), Target_business[n,i])", "On retient la cible active la plus contraignante."),
+                    ("Ecart", "Gap[n,i](t) = T[n,i](t) + B[n,i](t) - IP[n,i](t)", "Quantite restant a couvrir apres stock et commandes deja prevues."),
+                    ("Besoin net", "BN[n,i](t) = Gap[n,i](t) si Gap[n,i](t) > 0 ; sinon 0", "Le MRP ne commande que si la position inventaire ne couvre pas la cible."),
+                ]
+            ),
+        ),
+        (
+            "9. Sourcing, ordre et transport",
+            table(
+                [
+                    ("Ordre flux", "Q[f,i](t) = LotRule(SourcingShare[f,i] * BN[dst(f),i](t))", "Besoin net affecte au flux puis normalise par lot ou quantite standard."),
+                    ("Expedition", "Ship[f,i](t) = min(Q[f,i](t), S[src(f),i](t), Capacite[src(f),i](t))", "Quantite sortie du stock source et envoyee vers la destination."),
+                    ("Transit", "IT[f,i](t+1) = IT[f,i](t) + Ship[f,i](t) - Recv[f,i](t)", "Quantite en route entre source et destination."),
+                    ("Reception", "Recv[f,i](t + LT_sim[f,t]) = Ship[f,i](t)", "Reception effective apres delai simule; le carnet affiche aussi t + LT_ref[f]."),
+                    ("Carnet ouvert", "OO[f,i](t+1) = OO[f,i](t) + Q[f,i](t) - Recv[f,i](t)", "Ordres encore non recus en fin de jour."),
+                ]
+            ),
+        ),
+        (
+            "10. Exemple numerique MRP simple",
+            table(
+                [
+                    ("Hypothese", "T[n,i](t)=180 ; S[n,i](t)=100 ; RecvPrev[n,i](t)=30 ; B[n,i](t)=0", "La cible est 180, mais 100 sont deja en stock et 30 sont deja prevus en reception."),
+                    ("Position inventaire", "IP[n,i](t)=100+30=130", "Stock + receptions futures deja planifiees."),
+                    ("Ecart", "Gap[n,i](t)=180+0-130=50", "Il manque 50 pour couvrir la cible."),
+                    ("Besoin net", "BN[n,i](t)=50", "Comme l'ecart est positif, le MRP peut creer une commande de 50 avant regles de lot/sourcing."),
+                    ("Cas inverse", "si IP[n,i](t)=190 alors Gap=-10 et BN=0", "Le simulateur ne commande pas si le stock et les receptions futures couvrent deja la cible."),
+                ]
+            ),
+        ),
+        (
+            "11. Flux journaliers qui modifient les stocks",
+            table(
+                [
+                    ("Recv[n,i](t)", "receptions[n,i](t)", "Quantite de l'item i qui devient disponible au noeud n le jour t apres transport ou ordre ouvert."),
+                    ("Prod[n,i](t)", "production[n,i](t)", "Quantite de l'item i fabriquee par le noeud n le jour t. C'est la production reelle executee, pas le signal MPS."),
+                    ("Cons[n,i](t)", "consommations[n,i](t)", "Quantite de l'item i consommee comme intrant BOM par la production reelle du jour."),
+                    ("Ship[n,i](t)", "expeditions[n,i](t)", "Quantite de l'item i sortie du stock du noeud n et envoyee vers un autre noeud ou le client."),
+                    ("Served[c,i](t)", "service client", "Cas particulier de sortie aval: quantite livree au client depuis le stock disponible."),
+                    ("Req_BOM[s,i](t)", "besoin composant MRP", "Signal de commande amont calcule sur le plan lotifie ; ce n'est pas une consommation physique tant que la production n'est pas executee."),
+                ]
+            ),
+        ),
+        (
+            "12. Equations de la dynamique et mise a jour",
+            table(
+                [
+                    ("Stock general", "S[n,i](t+1) = S[n,i](t) + receptions[n,i](t) + production[n,i](t) - consommations[n,i](t) - expeditions[n,i](t)", "Les termes sont definis juste avant: receptions=Recv, production=Prod, consommations=Cons, expeditions=Ship."),
+                    ("Campagne ouverte", "OC[p,s](t+1) = OC[p,s](t) + CampaignStart[p,s](t) - Prod[p,s](t)", "Reste de campagne a executer apres production du jour."),
+                    ("Simulation chronologique", "Etat(t) -> decisions(t) -> Etat(t+1)", "Pas de solveur global: les regles locales sont appliquees jour apres jour dans le sens du temps."),
+                ]
+            ),
+        ),
+        (
+            "13. Sorties CSV utiles pour verifier le modele",
+            table(
+                [
+                    ("data/mrp_trace_daily.csv", "T, IP, Gap, BN, RecvPrev, basis", "Permet de verifier les calculs MRP par noeud/item/jour."),
+                    ("data/mrp_orders_daily.csv", "Q, source, destination, release_day, arrival_day", "Permet de verifier les ordres lances et leurs dates."),
+                    ("data/production_constraint_daily.csv", "desired_qty, planned_qty_after_lot_rule, actual_qty, binding_cause", "Permet de verifier MPS, lotification, contraintes et production reelle."),
+                    ("data/production_input_consumption_daily.csv", "Cons[s,i](t)", "Permet de verifier les consommations physiques issues de la BOM."),
+                    ("data/production_supplier_shipments_daily.csv", "Ship[f,i](t)", "Permet de verifier les expeditions fournisseurs/source."),
+                    ("data/production_input_replenishment_arrivals_daily.csv", "Recv[n,i](t)", "Permet de verifier les receptions d'intrants chez les usines."),
+                    ("data/production_demand_service_daily.csv", "D, Served, Backlog", "Permet de verifier demande client, service et retard."),
+                ]
+            ),
+        ),
+        (
+            "14. Limites du modele global",
+            table(
+                [
+                    ("Optimisation", "pas de solveur APS global", "Les decisions viennent de regles MRP/production locales appliquees chronologiquement."),
+                    ("Calendrier atelier", "pas de planning machine detaille", "Les lots et campagnes existent, mais pas encore les equipes, changements de format et indisponibilites fines."),
+                    ("Fournisseurs", "stock/capacite/delai modelises", "Les contrats, MOQ reels, allocations et arbitrages fournisseurs restent a valider."),
+                    ("Couts", "achats reels + couts logistiques hypotheses", "Transport, stockage et urgence restent parametrables tant que les couts industriels reels ne sont pas fournis."),
+                ]
+            ),
+        ),
+    ]
+    section_html = "".join(
+        "<section class=\"modelEquationSection\">"
+        f"<h3>{html.escape(title)}</h3>"
+        f"{content}"
+        "</section>"
+        for title, content in sections
+    )
+    return (
+        "<div class=\"modelEquationPanel\">"
+        "<p class=\"modelEquationIntro\">"
+        "Cette vue decrit le modele complet, pas seulement le noeud selectionne. Elle part de la demande client, transforme cette demande en production, propage les besoins par la BOM, lance les ordres MRP vers l'amont, puis met a jour les stocks, le transit, le carnet ouvert et le backlog."
+        "</p>"
+        f"{section_html}"
+        "</div>"
+    )
+
+
 def latest_rows_by_pair(rows: list[dict[str, str]], *, node_field: str) -> dict[tuple[str, str], dict[str, str]]:
     latest: dict[tuple[str, str], tuple[int, dict[str, str]]] = {}
     for row in rows:
@@ -6406,27 +6776,7 @@ def build_model_panel_metrics(
             metric_label_value("Principe", "Le simulateur cherche a maintenir les stocks autour d'une cible MRP, sans commander ce qui est deja couvert par le stock ou les receptions futures."),
             metric_label_value("Decision", "A chaque revue, il calcule l'ecart a couvrir. Si cet ecart est positif, il cree un besoin net ; sinon il ne commande rien."),
             metric_label_value("Execution", "Le besoin net devient un ordre lotifie ou normalise par flux d'approvisionnement, puis il arrive selon les delais et les stocks/capacites disponibles."),
-            metric_section("Chaine globale simulateur"),
-            metric_label_value("Etape 1", "D_pf(t): demande client lue jour par jour."),
-            metric_label_value("Etape 2", "MPS_pf(t): plan de production lotifie calcule a partir du signal aval, du stock et des regles de lots."),
-            metric_label_value("Etape 3", "Req_i(t): demande composant propagee par la BOM depuis le MPS / les consommations aval."),
-            metric_label_value("Etape 4", "T_i(t): cible MRP = plus haute valeur entre stock securite explicite, delai securite * signal MRP, couverture appro * signal MRP et cible stock active si definie."),
-            metric_label_value("Etape 5", "IP_i(t): position inventaire = stock projete + receptions futures deja planifiees."),
-            metric_label_value("Etape 6", "Gap_i(t): ecart a couvrir = cible MRP + backlog - position inventaire. Si le plancher physique est actif, le stock physique est aussi compare au plancher securite."),
-            metric_label_value("Etape 7", "BN_i(t): besoin net = Gap_i(t) si l'ecart est positif ; sinon aucune commande supplementaire."),
-            metric_label_value("Etape 8", "Q_i(t): ordre fournisseur = besoin net arrondi/normalise par flux d'approvisionnement, lot ou quantite standard, puis reception apres delai."),
-            metric_section("Glossaire commun"),
-            metric_label_value("Req_i(t)", "Signal MRP journalier utilise pour dimensionner la cible. Il vient de la demande aval, du MPS lotifie ou de la propagation BOM."),
-            metric_label_value("T_i(t)", "Cible stock active: stock securite explicite, couverture par delai de securite, couverture appro ou cible metier selon le couple noeud/item."),
-            metric_label_value("IP_i(t)", "Position inventaire: stock projete + receptions futures deja planifiees."),
-            metric_label_value("Gap_i(t)", "Ecart restant a couvrir apres deduction du stock et des receptions futures."),
-            metric_label_value("BN_i(t)", "Besoin net commandable. Il est nul si l'ecart est nul ou negatif."),
-            metric_label_value("Q_i(t) / OA_i(t)", "Ordre lance vers l'amont apres arrondi au lot, quantite standard, repartition entre flux d'approvisionnement ou contrainte de capacite."),
-            metric_section("Limites du modele"),
-            metric_label_value("Optimisation", "Ce n'est pas un solveur APS global: les decisions sont calculees par regles MRP et execution forward."),
-            metric_label_value("Calendrier industriel", "Les campagnes et lots sont modelises, mais pas encore un calendrier atelier complet avec equipes, changements de format et disponibilites machines fines."),
-            metric_label_value("Fournisseurs", "Les fournisseurs sont modelises comme stocks/capacites/delais; les contrats, MOQ reels, allocations et arbitrages fournisseurs restent a valider."),
-            metric_label_value("Couts", "Les achats viennent des prix matieres; transport, stockage et urgence restent des hypotheses tant que les couts industriels reels ne sont pas fournis."),
+            metric_label_value("Modele complet", "Le bouton Equations du modele complet detaille les indices, les variables d'etat et les equations dynamiques globales."),
         ]
 
         if node_type == "customer":
@@ -6465,12 +6815,21 @@ def build_model_panel_metrics(
             )
             summary_lines.extend(
                 [
-                    metric_section("Variables d'etat"),
+                    metric_section("Application client - lecture metier"),
+                    metric_label_value("1. Demande", "Le client porte une demande exogene lue dans le scenario, par jour et par produit."),
+                    metric_label_value("2. Service", "Le stock aval disponible sert cette demande dans la limite des quantites disponibles."),
+                    metric_label_value("3. Backlog", "La part non servie devient un retard client reporte au jour suivant."),
+                    metric_label_value("4. Signal aval", "La demande et le backlog alimentent ensuite le besoin propage vers les DC, usines et composants."),
+                    metric_section("Application client - variables locales"),
                     *[metric_label_value(f"Var {idx+1}", line) for idx, line in enumerate(state_var_lines)],
-                    metric_section("Equations simulateur"),
+                    metric_section("Application client - regles locales"),
                     metric_label_value("Eq sim 1", "besoin brut client BB_pf(t): demande_jour + backlog_precedent"),
                     metric_label_value("Eq sim 2", "Servi_pf(t): quantite servie au client = min(stock_disponible_pf, besoin_brut_client)"),
                     metric_label_value("Eq sim 3", "Backlog_pf(t): retard client fin de journee = besoin_brut_client - Servi_pf(t)"),
+                    metric_section("Application client - correspondance modele global"),
+                    metric_label_value("D[c,i](t)", "Demande_pf(t): demande client exogene du jour."),
+                    metric_label_value("Served[c,i](t)", "Servi_pf(t): quantite livree depuis le stock disponible."),
+                    metric_label_value("B[c,i](t+1)", "Backlog_pf(t): besoin non servi reporte au jour suivant."),
                     metric_section("Lecture simulateur"),
                     metric_label_value("Demande", "D_pf(t) est une entree exogene du scenario."),
                     metric_label_value("Backlog", "Le backlog n'est pas une entree: il est recalcule chaque jour si le stock aval ne couvre pas le besoin client."),
@@ -6527,13 +6886,23 @@ def build_model_panel_metrics(
             )
             summary_lines.extend(
                 [
-                    metric_section("Variables d'etat"),
+                    metric_section("Application DC - lecture metier"),
+                    metric_label_value("1. Stock disponible", "Le DC observe son stock par item apres receptions et sorties aval."),
+                    metric_label_value("2. Cible MRP", "La cible est calculee avec stock securite, delai securite, couverture appro ou cible active."),
+                    metric_label_value("3. Receptions futures", "Les quantites deja en transit vers le DC sont deduites avant de commander."),
+                    metric_label_value("4. Besoin net", "Si la cible reste non couverte, le DC cree un besoin net vers ses sources amont."),
+                    metric_section("Application DC - variables locales"),
                     *[metric_label_value(f"Var {idx+1}", line) for idx, line in enumerate(state_var_lines)],
-                    metric_section("Equations simulateur"),
-                    metric_label_value("Eq sim 1", "StockProj_dc(t): stock projete DC = stock_debut + receptions - expeditions"),
+                    metric_section("Application DC - regles locales"),
+                    metric_label_value("Eq sim 1", "StockProj_dc(t+1) = StockProj_dc(t) + Recv_dc(t) - Ship_dc(t) - Served_dc(t)"),
                     metric_label_value("Eq sim 2", "T_dc(t): cible DC = plus haute valeur entre stock_securite explicite, delai_securite * signal MRP, couverture * signal MRP et cible stock active si definie"),
                     metric_label_value("Eq sim 3", "Gap_dc(t) = T_dc(t) - StockProj_dc(t) - RecvPrev_dc(t)"),
                     metric_label_value("Eq sim 4", "BN_dc(t) = Gap_dc(t) si Gap_dc(t) > 0 ; sinon 0"),
+                    metric_section("Application DC - correspondance modele global"),
+                    metric_label_value("S[n,i](t)", "StockProj_dc(t): stock disponible/projete au DC pour l'item."),
+                    metric_label_value("T[n,i](t)", "T_dc(t): cible MRP du DC."),
+                    metric_label_value("IP[n,i](t)", "StockProj_dc(t) + RecvPrev_dc(t): position inventaire du DC."),
+                    metric_label_value("BN[n,i](t)", "BN_dc(t): besoin net commandable vers l'amont."),
                     metric_section("Lecture simulateur"),
                     metric_label_value("Stock projete", "StockProj_dc(t) est le stock DC simule apres receptions, expeditions et service aval."),
                     metric_label_value("Receptions prevues", "RecvPrev_dc(t) est porte par les quantites deja en transit vers le DC."),
@@ -6599,6 +6968,18 @@ def build_model_panel_metrics(
                 supplier_diagnostic_lines.append("Stock synthetique / estimated replenishment actif sur ce noeud.")
             if not supplier_diagnostic_lines:
                 supplier_diagnostic_lines.append("Source active sur le run courant.")
+            supplier_equation_mapping_lines = [
+                "Stock_source(t) = S[src(f),i](t): stock disponible chez le fournisseur source.",
+                "Stock_dest(t) = S[dst(f),i](t): stock disponible chez le noeud receveur.",
+                "Req_dest(t) = Req[dst(f),i](t): signal MRP qui dimensionne la cible destination.",
+                "T_dest(t) = T[dst(f),i](t): cible MRP destination.",
+                "RecvPrev_dest(t) = RecvPrev[dst(f),i](t): receptions futures deja planifiees vers la destination.",
+                "Gap_mp(t) = Gap[dst(f),i](t): ecart a couvrir chez la destination.",
+                "BN_mp(t) = BN[dst(f),i](t): besoin net commandable si l'ecart est positif.",
+                "OA_mp(t) = Q[f,i](t): quantite commandee sur le flux apres regles de lot/sourcing.",
+                "Ship_mp(t) = Ship[f,i](t): quantite sortie du stock source et expediee vers la destination.",
+                "RecvPrev_mp(t) = reception planifiee issue de Ship_mp(t) a t + lead_time.",
+            ]
             state_var_lines.extend(
                 [
                     "Stock_source(t): stock source expediable",
@@ -6609,32 +6990,46 @@ def build_model_panel_metrics(
                     "Gap_mp(t): ecart matiere a couvrir = T_dest(t) - Stock_dest(t) - RecvPrev_dest(t)",
                     "BN_mp(t): besoin net matiere = Gap_mp(t) si l'ecart est positif ; sinon 0",
                     "OA_mp(t): quantite demandee a la source apres normalisation lot standard",
-                    "Pull_mp(t): quantite physiquement prelevee sur source",
-                    "RecvPrev_mp(t): quantite livree a destination a t + lead_time",
+                    "Ship_mp(t): quantite sortie du stock source et expediee vers la destination",
+                    "RecvPrev_mp(t): quantite planifiee en reception destination a t + lead_time",
                 ]
             )
             assumption_lines.extend(
                 [
                     "le fournisseur est simule comme source de stock + capacite ; pas comme atelier detaille",
                     "standard_order_qty agit comme multiple cible de commande sur le flux d'approvisionnement",
-                    "la commande reste forward ; il n'y a pas encore de backward scheduling explicite order_date",
+                    "la commande est simulee dans le sens du temps ; il n'y a pas encore de retroplanning explicite de la date d'ordre",
                 ]
             )
             summary_lines.extend(
                 [
-                    metric_section("Variables d'etat"),
+                    metric_section("Application fournisseur - lecture metier"),
+                    metric_label_value("1. Besoin destination", "Le noeud receveur du flux, par exemple une usine ou un DC, calcule son besoin MRP pour l'item."),
+                    metric_label_value("2. Stock deja couvert", "Son stock disponible et ses receptions futures deja planifiees sont deduits avant toute nouvelle commande."),
+                    metric_label_value("3. Ecart a couvrir", "Si la cible MRP reste superieure a la position inventaire, l'ecart devient un besoin net commandable."),
+                    metric_label_value("4. Ordre fournisseur", "Le besoin net est affecte au flux source -> destination puis normalise par lot, quantite standard ou regle de sourcing."),
+                    metric_label_value("5. Expedition source", "Le fournisseur source reduit son stock de la quantite expediee, sous reserve de stock et capacite."),
+                    metric_label_value("6. Reception destination", "La quantite expediee devient une reception future, puis augmente le stock destination apres le delai simule."),
+                    metric_section("Application fournisseur - variables locales"),
                     *[metric_label_value(f"Var {idx+1}", line) for idx, line in enumerate(state_var_lines)],
-                    metric_section("Equations simulateur"),
+                    metric_section("Application fournisseur - regles locales"),
                     metric_label_value("Eq sim 1", "T_dest(t): plus haute valeur entre stock securite, delai securite * Req_dest(t), couverture appro * Req_dest(t) et cible stock active"),
                     metric_label_value("Eq sim 2", "Gap_mp(t) = T_dest(t) - Stock_dest(t) - RecvPrev_dest(t)"),
                     metric_label_value("Eq sim 3", "BN_mp(t) = Gap_mp(t) si Gap_mp(t) > 0 ; sinon 0"),
-                    metric_label_value("Eq sim 4", "OA_mp(t): ordre amont source = quantite tiree, normalisee par quantite standard si applicable"),
-                    metric_label_value("Eq sim 5", "Pull_mp(t): prelevement source = min(stock_source, capacite_source, besoin_net_matiere / fiabilite)"),
-                    metric_label_value("Eq sim 6", "RecvPrev_mp: reception planifiee = Pull_mp(t) * fiabilite a t + lead_time"),
-                    metric_section("Lecture simulateur"),
+                    metric_label_value("Eq sim 4", "OA_mp(t): ordre amont source = quantite commandee, normalisee par quantite standard si applicable"),
+                    metric_label_value("Eq sim 5", "Ship_mp(t) = min(Stock_source(t), Capacite_source(t), OA_mp(t)): quantite vraiment expediee"),
+                    metric_label_value("Eq sim 6", "RecvPrev_mp(t + lead_time) = Ship_mp(t): reception future creee par l'expedition"),
+                    metric_section("Application fournisseur - correspondance modele global"),
+                    metric_multiline_value(
+                        "Mapping",
+                        supplier_equation_mapping_lines,
+                        limit=10,
+                    ),
+                    metric_section("Lecture metier fournisseur"),
                     metric_label_value("Besoin matiere", "On lit d'abord l'ecart a couvrir. Si l'ecart est negatif ou nul, BN_mp(t)=0 et aucun ordre supplementaire n'est cree."),
                     metric_label_value("Destination", "La destination est le noeud receveur du flux d'approvisionnement: son stock et ses receptions futures sont deduits avant de commander au fournisseur."),
                     metric_label_value("Ordre fournisseur", "OA_mp(t) est la quantite commandee apres normalisation par quantite standard, lot ou capacite source."),
+                    metric_label_value("Expedition fournisseur", "Ship_mp(t) est une sortie du stock source envoyee vers la destination ; ce n'est pas une consommation BOM."),
                     metric_label_value("Reception", "La reception planifiee est posee a release_day + delai_previsionnel_mrp; la reception effective suit le delai simule."),
                     metric_section("Donnees et interactions"),
                     metric_label_value(
@@ -6816,7 +7211,7 @@ def build_model_panel_metrics(
             )
             assumption_lines.extend(
                 [
-                    "la production est pilotee forward jour par jour et non par retroplanification explicite",
+                    "la production est pilotee chronologiquement jour par jour et non par retroplanification explicite",
                     "les campagnes et regles de lot industrialisent le besoin net produit fini avant execution",
                     "les causes de binding observees viennent des contraintes reelles du run",
                 ]
@@ -6824,9 +7219,16 @@ def build_model_panel_metrics(
             outgoing_flow_label = "Sorties PFI" if is_upstream_internal_site(node_id) else "Sorties aval"
             summary_lines.extend(
                 [
-                    metric_section("Variables d'etat"),
+                    metric_section("Application usine - lecture metier"),
+                    metric_label_value("1. Signal aval", "L'usine recoit un signal de besoin depuis la demande finale, les DC ou les process aval."),
+                    metric_label_value("2. Cible sortie", "Elle compare son stock de produit fabrique a une cible de couverture ou cible metier."),
+                    metric_label_value("3. Commande de production", "Le signal aval et l'ecart de stock produisent une commande de production simulee, lissee dans le temps."),
+                    metric_label_value("4. Lotification", "La commande est transformee en campagne selon les lots fixes/min/max/multiples et le maximum de lots par semaine."),
+                    metric_label_value("5. Execution", "La production reelle est bornee par la capacite et les intrants disponibles."),
+                    metric_label_value("6. Propagation BOM", "Le plan lotifie cree un besoin MRP amont ; la production reelle consomme physiquement les intrants."),
+                    metric_section("Application usine - variables locales"),
                     *[metric_label_value(f"Var {idx+1}", line) for idx, line in enumerate(state_var_lines)],
-                    metric_section("Equations simulateur"),
+                    metric_section("Application usine - regles locales"),
                     metric_label_value("Eq sim 1", "besoin brut produit fini BB_pf(t): signal aval dynamique = max(demande propagee, besoin process aval)"),
                     metric_label_value("Eq sim 2", "T_pf(t): cible PF = plus haute valeur entre cible stock active et fg_target_days * signal aval"),
                     metric_label_value("Eq sim 3", "SP_pf(t): stock projete PF observe dans la boucle = stock PF courant"),
@@ -6834,11 +7236,21 @@ def build_model_panel_metrics(
                     metric_label_value("Eq sim 5", "BN_pf(t): commande dynamique = besoin_brut_produit_fini + gain * Gap_pf(t), bornee a 0 si le calcul devient negatif"),
                     metric_label_value("Eq sim 6", "LP_pf(t): plan lance = normalisation_lot(BN_pf(t)) avec lot fixe/min/max/multiple + max lots / semaine"),
                     metric_label_value("Eq sim 7", "Prod_pf(t): production reelle = min(capacite, limite_intrants, LP_pf(t))"),
-                    metric_label_value("Eq sim 8", "StockProj_site(t): stock fin de site = stock debut + arrivages + production - consommations - expeditions"),
+                    metric_label_value("Eq sim 8", "StockProj_site(t+1) = StockProj_site(t) + Recv_site(t) + Prod_site(t) - Cons_site(t) - Ship_site(t)"),
+                    metric_section("Application usine - correspondance modele global"),
+                    metric_label_value("ReqProd[p,s](t)", "besoin brut produit fini BB_pf(t): signal aval retenu pour la production."),
+                    metric_label_value("TProd[p,s](t)", "T_pf(t): cible du produit fabrique par l'usine."),
+                    metric_label_value("MPS[p,s](t)", "BN_pf(t): commande de production simulee avant lotification."),
+                    metric_label_value("PlanLot[p,s](t)", "LP_pf(t): plan lance apres regles de lot et campagne."),
+                    metric_label_value("Prod[p,s](t)", "Prod_pf(t): production reelle executee."),
+                    metric_label_value("Cons[s,i](t)", "Consommations BOM: intrants physiquement decrementes par la production reelle."),
+                    metric_label_value("Recv[s,i](t)", "Arrivages intrants observes: quantites devenues disponibles sur le site."),
+                    metric_label_value("Ship[s,i](t)", "Sorties aval: quantites expediees ou servies depuis le site."),
                     metric_section("Lecture simulateur"),
                     metric_label_value("Signal production", "Le besoin usine vient du signal aval: demande finale, consommation aval observee ou MPS lotifie propage."),
                     metric_label_value("Plan lotifie", "LP_pf(t) est le besoin usine transforme par les regles de lot: fixe, min/max, multiple et limite lots/semaine."),
                     metric_label_value("Execution", "Prod_pf(t) est le plan lotifie borne par la capacite modelisee et les intrants disponibles."),
+                    metric_label_value("Req_BOM vs Cons", "Req_BOM sert a commander l'amont a partir du plan lotifie ; Cons decremente reellement les stocks intrants selon la production executee."),
                     metric_section("Donnees et interactions"),
                     metric_label_value("Sorties process", ", ".join(sorted(set(output_labels))) or "n/a"),
                     metric_label_value(
@@ -7265,6 +7677,11 @@ def build_model_panel_metrics(
 
         summary_lines.extend(
             [
+                metric_section("Limites du modele"),
+                metric_label_value("Optimisation", "Ce n'est pas un solveur APS global: les decisions sont calculees par regles MRP et simulation chronologique jour apres jour."),
+                metric_label_value("Calendrier industriel", "Les campagnes et lots sont modelises, mais pas encore un calendrier atelier complet avec equipes, changements de format et disponibilites machines fines."),
+                metric_label_value("Fournisseurs", "Les fournisseurs sont modelises comme stocks/capacites/delais; les contrats, MOQ reels, allocations et arbitrages fournisseurs restent a valider."),
+                metric_label_value("Couts", "Les achats viennent des prix matieres; transport, stockage et urgence restent des hypotheses tant que les couts industriels reels ne sont pas fournis."),
                 metric_section("Trace MRP explicite"),
                 metric_multiline_value(
                     "Besoin brut / besoin net / StockProj / RecvPrev / OA",
@@ -7452,14 +7869,14 @@ def build_model_panel_metrics(
             "Gap_dst(t): ecart a couvrir a destination = T_dst(t) - Stock_dst(t) - RecvPrev_dst(t)",
             "BN_dst(t): besoin net porte par la destination sur ce flux = Gap_dst(t) si l'ecart est positif ; sinon 0",
             "OA_src(t): quantite demandee a la source apres normalisation du flux",
-            "Pull_src(t): quantite physiquement prelevee a la source",
+            "Ship_src(t): quantite sortie du stock source et expediee sur le flux",
             "RecvPrev_dst(t): quantite qui arrivera a destination a t + lead_time",
             "Lead_ref: delai previsionnel MRP du flux",
             "Lead_sim: delai simule pour la reception effective",
             "Lead_cover: delai conservateur utilise pour calculer ordre_passe",
         ]
         assumption_lines = [
-            "le flux est simule forward au jour d'envoi ; ordre_passe est un jalon calcule pour lire le carnet",
+            "le flux est simule chronologiquement au jour d'envoi ; ordre_passe est un jalon calcule pour lire le carnet",
             "standard_order_qty joue comme multiple cible de commande quand disponible",
             "le lead time observe peut varier d'une expedition a l'autre",
         ]
@@ -7674,28 +8091,34 @@ def build_model_panel_metrics(
             metric_label_value("Role", "Ce flux transporte un besoin MRP depuis une source amont vers une destination aval."),
             metric_label_value("Decision", "La destination commande seulement l'ecart que son stock et ses receptions futures ne couvrent pas deja."),
             metric_label_value("Execution", "La source expedie selon son stock, sa capacite, la quantite standard du flux et le delai simule."),
-            metric_section("Chaine globale simulateur"),
-            metric_label_value("Etape 1", "La demande client cree un signal aval sur les produits finis."),
-            metric_label_value("Etape 2", "Le MPS lotifie transforme ce signal en production planifiee par usine."),
-            metric_label_value("Etape 3", "La BOM convertit le plan de production en besoin composant sur ce flux."),
-            metric_label_value("Etape 4", "T_dst(t) est la cible MRP destination; le stock et les receptions futures deja prevues sont deduits."),
-            metric_label_value("Etape 5", "BN_dst(t): besoin net = Gap_dst(t) si l'ecart est positif ; sinon pas de commande."),
-            metric_label_value("Etape 6", "L'ordre sur le flux est normalise par lot / quantite standard puis expedie et recu apres delai."),
+            metric_section("Application flux - lecture metier"),
+            metric_label_value("1. Destination", "Le noeud receveur calcule son besoin net pour l'item transporte."),
+            metric_label_value("2. Affectation sourcing", "Le besoin net est affecte a ce flux selon sa part de sourcing MRP."),
+            metric_label_value("3. Normalisation", "La quantite demandee est arrondie ou normalisee par quantite standard/lot si applicable."),
+            metric_label_value("4. Expedition", "La source envoie la quantite possible selon son stock et sa capacite."),
+            metric_label_value("5. Transit", "La quantite expediee reste en transit pendant le delai simule."),
+            metric_label_value("6. Reception", "A l'arrivee, le stock destination augmente et le carnet ouvert diminue."),
             metric_section("Glossaire flux"),
             metric_label_value("T_dst(t)", "Cible MRP du noeud receveur pour l'item transporte."),
             metric_label_value("Stock_dst(t)", "Stock projete de l'item chez le receveur."),
             metric_label_value("RecvPrev_dst(t)", "Receptions futures deja planifiees vers le receveur."),
             metric_label_value("OA_src(t)", "Ordre amont demande a la source sur ce flux."),
             metric_label_value("Lead_ref / Lead_sim", "Lead_ref est le delai previsionnel MRP; Lead_sim est le delai reel simule pour la reception effective."),
-            metric_section("Variables d'etat"),
+            metric_section("Application flux - variables locales"),
             *[metric_label_value(f"Var {idx+1}", line) for idx, line in enumerate(state_var_lines)],
-            metric_section("Equations simulateur"),
+            metric_section("Application flux - regles locales"),
             metric_label_value("Eq sim 1", "T_dst(t): plus haute valeur entre stock securite, delai securite * Req_dst(t), couverture appro * Req_dst(t) et cible stock active"),
             metric_label_value("Eq sim 2", "Gap_dst(t) = T_dst(t) - Stock_dst(t) - RecvPrev_dst(t)"),
             metric_label_value("Eq sim 3", "BN_dst(t) = Gap_dst(t) si Gap_dst(t) > 0 ; sinon 0"),
             metric_label_value("Eq sim 4", "OA_src(t): ordre amont sur le flux = quantite demandee a la source, normalisee si quantite standard"),
             metric_label_value("Eq sim 5", "Reception_prevue = envoi + Lead_ref ; Reception_effective = envoi + Lead_sim"),
             metric_label_value("Eq sim 6", "ordre_passe = besoin_a_couvrir - delai_securite - Lead_cover"),
+            metric_section("Application flux - correspondance modele global"),
+            metric_label_value("Q[f,i](t)", "OA_src(t): quantite commandee sur ce flux apres sourcing et normalisation."),
+            metric_label_value("Ship[f,i](t)", "release_day / expedition: quantite sortie de la source et mise en transit."),
+            metric_label_value("Recv[f,i](t)", "arrivee_effective: quantite disponible chez la destination apres delai simule."),
+            metric_label_value("IT[f,i](t)", "quantite en transit entre release_day et arrivee_effective."),
+            metric_label_value("OO[f,i](t)", "carnet ouvert du flux jusqu'a reception."),
             metric_section("Lecture simulateur"),
             metric_label_value("Date d'ordre", "ordre_passe est une date calculee pour lire le carnet: besoin a couvrir - delai securite - delai d'appro."),
             metric_label_value("Date d'envoi", "release_day est le jour ou la quantite est envoyee sur le flux."),
@@ -9318,7 +9741,13 @@ def build_supplier_local_criticality(
     return metrics_by_supplier, ranking_rows, summary
 
 
-def html_template(title: str, data_json: str, material_table_html: str, material_table_count: int) -> str:
+def html_template(
+    title: str,
+    data_json: str,
+    material_table_html: str,
+    material_table_count: int,
+    global_model_equations_html: str,
+) -> str:
     return f"""<!doctype html>
 <html>
 <head>
@@ -9649,6 +10078,67 @@ def html_template(title: str, data_json: str, material_table_html: str, material
       text-align: right;
       white-space: nowrap;
       font-variant-numeric: tabular-nums;
+    }}
+    .modelEquationPanel {{
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      background: #ffffff;
+    }}
+    .modelEquationIntro {{
+      margin: 0;
+      padding: 12px 14px;
+      border: 1px solid #dbeafe;
+      border-radius: 12px;
+      background: #eff6ff;
+      color: #1e3a8a;
+      font-size: 13px;
+      line-height: 1.45;
+    }}
+    .modelEquationSection {{
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      overflow: hidden;
+      background: #ffffff;
+    }}
+    .modelEquationSection h3 {{
+      margin: 0;
+      padding: 10px 12px;
+      background: #f8fafc;
+      border-bottom: 1px solid #e2e8f0;
+      color: #0f172a;
+      font-size: 13px;
+    }}
+    .modelEquationTableWrap {{
+      overflow-x: auto;
+    }}
+    .modelEquationTable {{
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }}
+    .modelEquationTable th,
+    .modelEquationTable td {{
+      padding: 8px 10px;
+      border-bottom: 1px solid #e2e8f0;
+      text-align: left;
+      vertical-align: top;
+    }}
+    .modelEquationTable th {{
+      background: #f8fafc;
+      color: #334155;
+      font-weight: 800;
+    }}
+    .modelEquationTable td:first-child {{
+      width: 160px;
+      color: #0f172a;
+      font-weight: 700;
+    }}
+    .modelEquationTable code {{
+      color: #0f172a;
+      font-family: Consolas, "Courier New", monospace;
+      white-space: nowrap;
     }}
     .scopeBadge {{
       display: inline-flex;
@@ -10191,6 +10681,9 @@ def html_template(title: str, data_json: str, material_table_html: str, material
     <div class="box">
       <button id="kpiTreeBtn" class="tableBtn" type="button">Arbres KPI</button>
     </div>
+    <div class="box">
+      <button id="modelEquationsBtn" class="tableBtn" type="button">Equations modele</button>
+    </div>
     <div class="box timelineWindowBox" id="timelineWindowBox">
       <label>Debut
         <input type="range" id="yearStart" min="1" max="1" value="1" step="1">
@@ -10249,6 +10742,21 @@ def html_template(title: str, data_json: str, material_table_html: str, material
       </div>
       <div class="tableModalBody">
         <div id="globalKpiTreeFigure"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="modelEquationsModal" class="tableModal">
+    <div class="tableModalCard">
+      <div class="tableModalHeader">
+        <div>
+          <div class="tableModalTitle">Equations du modele complet</div>
+          <div class="tableModalMeta">Vue globale: demande -> production -> BOM -> MRP -> fournisseur -> stock</div>
+        </div>
+        <button id="modelEquationsCloseBtn" class="tableBtn" type="button">Fermer</button>
+      </div>
+      <div class="tableModalBody">
+        {global_model_equations_html}
       </div>
     </div>
   </div>
@@ -12690,6 +13198,18 @@ def html_template(title: str, data_json: str, material_table_html: str, material
           kpiTreeModal.classList.remove("visible");
         }}
       }});
+      const modelEquationsModal = document.getElementById("modelEquationsModal");
+      document.getElementById("modelEquationsBtn").addEventListener("click", () => {{
+        modelEquationsModal.classList.add("visible");
+      }});
+      document.getElementById("modelEquationsCloseBtn").addEventListener("click", () => {{
+        modelEquationsModal.classList.remove("visible");
+      }});
+      modelEquationsModal.addEventListener("click", (ev) => {{
+        if (ev.target === modelEquationsModal) {{
+          modelEquationsModal.classList.remove("visible");
+        }}
+      }});
       document.getElementById("showEdges").addEventListener("change", draw);
       document.getElementById("modeOps").addEventListener("click", () => setPanelMode("ops"));
       document.getElementById("modeData").addEventListener("click", () => setPanelMode("data"));
@@ -12947,6 +13467,7 @@ def main() -> None:
         json.dumps(payload, ensure_ascii=False),
         render_material_balance_table_html(material_table_rows),
         len(material_table_rows),
+        render_global_model_equations_html(),
     )
     out_path.write_text(html_str, encoding="utf-8")
     print(f"[OK] HTML generated: {out_path.resolve()}")
