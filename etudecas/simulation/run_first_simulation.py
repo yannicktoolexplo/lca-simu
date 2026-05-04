@@ -313,7 +313,7 @@ def parse_args() -> argparse.Namespace:
         "--stochastic-lead-times",
         action=argparse.BooleanOptionalAction,
         default=True,
-        help="Enable stochastic lead times sampled from lane metadata (default: enabled).",
+        help="Enable stochastic lead times sampled from transport-flow metadata (default: enabled).",
     )
     parser.add_argument(
         "--lead-time-distribution-mode",
@@ -473,7 +473,7 @@ def lane_records(
         tc = e.get("transport_cost") or {}
         explicit_transport_cost = max(0.0, to_float((tc or {}).get("value"), 0.0))
         fallback_transport_cost = max(transport_floor, distance_km * transport_per_km)
-        # Most lanes in this model have a default 0 transport_cost, so force a realistic floor by distance.
+        # Most transport flows have a default 0 transport_cost, so force a realistic floor by distance.
         cost = (explicit_transport_cost if explicit_transport_cost > 0 else fallback_transport_cost) * transport_realism_multiplier
         ot = e.get("order_terms") or {}
         sell_price = to_float((ot or {}).get("sell_price"), 0.0)
@@ -720,7 +720,7 @@ def propagate_demand_rates(
     lanes: list[dict[str, Any]],
 ) -> dict[tuple[str, str], float]:
     """
-    Propagate customer demand signal upstream on same item lanes.
+    Propagate customer demand signal upstream on same-item transport flows.
     """
     upstream: dict[tuple[str, str], list[tuple[str, str]]] = defaultdict(list)
     for lane in lanes:
@@ -793,11 +793,11 @@ def propagate_supply_demand_rates(
     process_input_requirements_by_output_pair: dict[tuple[str, str], list[tuple[tuple[str, str], float]]],
 ) -> dict[tuple[str, str], float]:
     """
-    Propagate demand upstream through same-item lanes and through production BOMs.
+    Propagate demand upstream through same-item transport flows and through production BOMs.
 
     This is used for MRP sizing: a finished-good demand signal creates component
     requirements at the producing site, then those component requirements propagate
-    to upstream suppliers on the corresponding item lanes.
+    to upstream suppliers on the corresponding item transport flows.
     """
     adjacency: dict[tuple[str, str], list[tuple[tuple[str, str], float]]] = defaultdict(list)
     for lane in lanes:
@@ -5563,7 +5563,7 @@ def main() -> None:
 - External procurement unit cost / multiplier / transport unit: {summary['policy']['economic_policy']['external_procurement_unit_cost']} / {summary['policy']['economic_policy']['external_procurement_cost_multiplier']} / {summary['policy']['economic_policy']['external_procurement_transport_cost_per_unit']}
 - Nodes: {summary['counts']['nodes']}
 - Edges: {summary['counts']['edges']}
-- Lanes (edge x item): {summary['counts']['lanes']}
+- Flux transport (edge x item): {summary['counts']['lanes']}
 - Demand rows: {summary['counts']['demand_rows']}
 - Input material pairs tracked: {len(production_input_pairs)}
 - Output product pairs tracked: {len(production_output_pairs)} ({output_pairs_txt})

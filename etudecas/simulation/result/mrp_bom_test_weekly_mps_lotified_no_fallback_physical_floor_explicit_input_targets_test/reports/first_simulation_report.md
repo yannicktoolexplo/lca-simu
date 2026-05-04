@@ -44,7 +44,7 @@
 - External procurement unit cost / multiplier / transport unit: 0.0 / 2.0 / 0.04
 - Nodes: 35
 - Edges: 39
-- Lanes (edge x item): 39
+- Flux transport (edge x item): 39
 - Demand rows: 2
 - Input material pairs tracked: 24
 - Output product pairs tracked: 3 (M-1430 | item:268967, M-1810 | item:268091, SDC-1450 | item:773474)
