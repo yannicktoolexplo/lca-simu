@@ -12,6 +12,7 @@ This script enriches the base graph with:
 from __future__ import annotations
 
 import argparse
+import datetime as dt
 import json
 import re
 import subprocess
@@ -25,6 +26,9 @@ from xml.etree import ElementTree as ET
 PRODUCT_WORKBOOKS = ("021081.xlsx", "268191.xlsx", "268967.xlsx")
 LOCATION_WORKBOOK = "Fournisseur.xlsx"
 BASE_WORKBOOK = "Data_poc.xlsx"
+OPEN_ORDERS_WORKBOOK = "Extract_En_cours.xlsx"
+OPEN_ORDERS_SNAPSHOT_DATE = dt.date(2025, 1, 1)
+OPEN_ORDERS_SNAPSHOT_EXCEL_SERIAL = 45658
 UPSTREAM_OUTPUT_ITEM = "item:773474"
 UPSTREAM_INPUT_ITEM = "item:021081"
 UPSTREAM_PRODUCER_ID = "SDC-1450"
@@ -341,6 +345,38 @@ def actor_code_from_node_id(node_id: str) -> str:
     if prefix in {"M", "DC", "SDC"} and code.isdigit():
         return f"D{code}"
     return code
+
+
+def canonical_division_node(value: Any) -> str:
+    text = str(value or "").strip()
+    if re.fullmatch(r"[0-9]+(?:\.0+)?", text):
+        text = f"{int(float(text)):04d}"
+    aliases = {
+        "1430": "M-1430",
+        "1810": "M-1810",
+        # In this dataset D1450 is the internal upstream/PFI site, represented
+        # by SDC-1450 in the graph to distinguish it from the finished-goods DC.
+        "1450": UPSTREAM_PRODUCER_ID,
+    }
+    return aliases.get(text, canonical_actor_id(text) if text else "")
+
+
+def excel_serial_to_date(value: Any) -> dt.date | None:
+    if isinstance(value, dt.datetime):
+        return value.date()
+    if isinstance(value, dt.date):
+        return value
+    serial = to_float(value)
+    if serial is None:
+        return None
+    return dt.date(1899, 12, 30) + dt.timedelta(days=int(round(serial)))
+
+
+def excel_serial_to_sim_day(value: Any) -> int | None:
+    date_value = excel_serial_to_date(value)
+    if date_value is None:
+        return None
+    return (date_value - OPEN_ORDERS_SNAPSHOT_DATE).days
 
 
 def item_code_from_item_id(item_id: str) -> str:
@@ -718,6 +754,155 @@ def sync_process_inputs(
     )
 
 
+def parse_open_orders_workbook(
+    path: Path,
+    *,
+    node_by_id: dict[str, dict[str, Any]],
+    location_map: dict[str, str],
+    nodes: list[dict[str, Any]],
+    items: list[dict[str, Any]],
+    report: dict[str, Any],
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "source_file": path.name,
+        "snapshot_date": OPEN_ORDERS_SNAPSHOT_DATE.isoformat(),
+        "snapshot_excel_serial": OPEN_ORDERS_SNAPSHOT_EXCEL_SERIAL,
+        "physical_delivery_day_basis": "Date de livraison",
+        "usable_day_basis": "Date entrée",
+        "rows": [],
+        "unresolved_rows": [],
+        "counts": {
+            "raw_rows": 0,
+            "resolved_rows": 0,
+            "unresolved_rows": 0,
+            "purchase_rows": 0,
+            "production_rows": 0,
+        },
+    }
+    if not path.exists():
+        report["unresolved"].append(f"Opening open-order workbook `{path.name}` is missing.")
+        return payload
+
+    headers, rows = load_workbook_rows(path, "Sheet1")
+    payload["counts"]["raw_rows"] = len(rows)
+    if not headers and not rows:
+        report["unresolved"].append(f"Opening open-order workbook `{path.name}` has no readable Sheet1.")
+        return payload
+
+    purchase_elements = {"AVICDE", "ECHCDE"}
+    production_elements = {"O.PROC"}
+    for raw_idx, row in enumerate(rows, start=2):
+        planning_element = str(row.get("Elément de planification") or "").strip()
+        planning_key = planning_element.upper().replace(" ", "")
+        item_id = canonical_item_id(row.get("Numéro d'article"))
+        dst_node_id = canonical_division_node(row.get("Division"))
+        qty = to_float(row.get("Quantité"))
+        uom = normalize_unit(row.get("Unité de quantité de base"))
+        physical_day = excel_serial_to_sim_day(row.get("Date de livraison"))
+        usable_day = excel_serial_to_sim_day(row.get("Date entrée"))
+        receipt_release_days = max(0, int(round(to_float(row.get("Temps de réception en jours")) or 0.0)))
+
+        if planning_key in purchase_elements:
+            order_type = "purchase_open_order"
+            payload["counts"]["purchase_rows"] += 1
+        elif planning_key in production_elements:
+            order_type = "production_open_order"
+            payload["counts"]["production_rows"] += 1
+        else:
+            order_type = "unsupported_open_order"
+
+        supplier_account = str(row.get("Numéro de compte fournisseur") or "").strip().upper()
+        src_node_id = canonical_actor_id(f"SDC - {supplier_account}") if supplier_account else ""
+        unresolved_reasons: list[str] = []
+        if not item_id:
+            unresolved_reasons.append("missing_item")
+        if not dst_node_id or dst_node_id not in node_by_id:
+            unresolved_reasons.append(f"unmapped_or_missing_division:{row.get('Division')}")
+        if qty is None or qty <= 0:
+            unresolved_reasons.append("missing_or_non_positive_quantity")
+        if physical_day is None:
+            unresolved_reasons.append("missing_physical_delivery_date")
+        if usable_day is None:
+            unresolved_reasons.append("missing_usable_date")
+        if order_type == "unsupported_open_order":
+            unresolved_reasons.append(f"unsupported_planning_element:{planning_element}")
+        if order_type == "purchase_open_order" and not src_node_id:
+            unresolved_reasons.append("missing_supplier_account")
+
+        if unresolved_reasons:
+            payload["unresolved_rows"].append(
+                {
+                    "source_row": raw_idx,
+                    "item_id": item_id,
+                    "planning_element": planning_element,
+                    "division": row.get("Division"),
+                    "supplier_account": supplier_account,
+                    "quantity": qty,
+                    "uom": uom,
+                    "reasons": unresolved_reasons,
+                }
+            )
+            continue
+
+        assert qty is not None
+        assert physical_day is not None
+        assert usable_day is not None
+        ensure_item(items, item_id, uom, report)
+        dst_node = node_by_id[dst_node_id]
+        ensure_inventory_state(dst_node, item_id, uom, report)
+        if order_type == "purchase_open_order":
+            supplier_node = ensure_supplier_node(
+                nodes,
+                node_by_id,
+                src_node_id,
+                location_map.get(supplier_account),
+                report,
+            )
+            ensure_inventory_state(supplier_node, item_id, uom, report)
+
+        payload["rows"].append(
+            {
+                "source_row": raw_idx,
+                "order_type": order_type,
+                "planning_element": planning_element,
+                "item_id": item_id,
+                "dst_node_id": dst_node_id,
+                "src_node_id": src_node_id,
+                "quantity": round(max(0.0, qty), 6),
+                "uom": uom,
+                "physical_delivery_day": int(max(0, physical_day)),
+                "usable_day": int(max(0, usable_day)),
+                "receipt_release_days": receipt_release_days,
+                "physical_delivery_date": (
+                    OPEN_ORDERS_SNAPSHOT_DATE + dt.timedelta(days=int(physical_day))
+                ).isoformat(),
+                "usable_date": (OPEN_ORDERS_SNAPSHOT_DATE + dt.timedelta(days=int(usable_day))).isoformat(),
+            }
+        )
+
+    payload["rows"].sort(
+        key=lambda r: (
+            str(r.get("dst_node_id")),
+            str(r.get("item_id")),
+            int(r.get("usable_day", 0)),
+            str(r.get("src_node_id")),
+        )
+    )
+    payload["counts"]["resolved_rows"] = len(payload["rows"])
+    payload["counts"]["unresolved_rows"] = len(payload["unresolved_rows"])
+    report["opening_open_orders"] = payload["counts"]
+    for unresolved in payload["unresolved_rows"][:20]:
+        report["unresolved"].append(
+            "Opening open-order row "
+            f"{unresolved['source_row']} skipped ({', '.join(unresolved['reasons'])})."
+        )
+    if len(payload["unresolved_rows"]) > 20:
+        report["unresolved"].append(
+            f"Opening open-order workbook has {len(payload['unresolved_rows']) - 20} additional skipped rows."
+        )
+    return payload
+
+
 def markdown_report(report: dict[str, Any]) -> str:
     lines = [
         "# Case data update report",
@@ -733,6 +918,8 @@ def markdown_report(report: dict[str, Any]) -> str:
         f"- Synced processes: {len(report['synced_processes'])}",
         f"- Updated edges from FIA: {len(report['updated_edges'])}",
         f"- Updated node locations: {len(report['updated_node_locations'])}",
+        f"- Opening open orders resolved: {report.get('opening_open_orders', {}).get('resolved_rows', 0)}",
+        f"- Opening open orders skipped: {report.get('opening_open_orders', {}).get('unresolved_rows', 0)}",
         "",
         "## Workbook findings",
         "",
@@ -801,6 +988,7 @@ def main() -> None:
         "updated_node_locations": [],
         "updated_inventory_states": [],
         "workbook_findings": [],
+        "opening_open_orders": {},
         "unresolved": [],
     }
 
@@ -902,6 +1090,15 @@ def main() -> None:
             edge = ensure_edge(edges, supplier_id, destination_id, item_id, report)
             update_edge_from_fia(edge, row, workbook["file_name"], workbook["output_product_code"], report)
 
+    opening_open_orders = parse_open_orders_workbook(
+        data_dir / OPEN_ORDERS_WORKBOOK,
+        node_by_id=node_by_id,
+        location_map=location_map,
+        nodes=nodes,
+        items=items,
+        report=report,
+    )
+
     inbound_pairs = {
         (str(edge.get("to")), str(item_id))
         for edge in edges
@@ -996,11 +1193,12 @@ def main() -> None:
         upstream_node.setdefault("attrs", {})["site_role"] = "internal_upstream_semi_finished"
 
     meta["source_file"] = BASE_WORKBOOK
-    meta["source_files"] = [BASE_WORKBOOK, LOCATION_WORKBOOK, *PRODUCT_WORKBOOKS]
+    meta["source_files"] = [BASE_WORKBOOK, LOCATION_WORKBOOK, *PRODUCT_WORKBOOKS, OPEN_ORDERS_WORKBOOK]
+    meta["opening_open_orders"] = opening_open_orders
     notes = meta.setdefault("notes", [])
     case_note = (
         "Graph enriched with auxiliary case-study Excel workbooks "
-        "(021081.xlsx, 268191.xlsx, 268967.xlsx, Fournisseur.xlsx)."
+        "(021081.xlsx, 268191.xlsx, 268967.xlsx, Fournisseur.xlsx, Extract_En_cours.xlsx)."
     )
     if case_note not in notes:
         notes.append(case_note)
@@ -1012,12 +1210,13 @@ def main() -> None:
         notes.append(bom_note)
     meta["case_data_refresh"] = {
         "enabled": True,
-        "source_files": [LOCATION_WORKBOOK, *PRODUCT_WORKBOOKS],
+        "source_files": [LOCATION_WORKBOOK, *PRODUCT_WORKBOOKS, OPEN_ORDERS_WORKBOOK],
         "upstream_extension": {
             "input_item": UPSTREAM_INPUT_ITEM,
             "producer_node_id": UPSTREAM_PRODUCER_ID,
             "output_item": UPSTREAM_OUTPUT_ITEM,
         },
+        "opening_open_orders": opening_open_orders.get("counts", {}),
     }
 
     output_json.write_text(json.dumps(graph, indent=2, ensure_ascii=False), encoding="utf-8")

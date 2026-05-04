@@ -7,7 +7,11 @@
   },
   "created_items": [],
   "removed_items": [],
-  "created_nodes": [],
+  "created_nodes": [
+    "SDC-VD0956464A",
+    "SDC-VD0518550B",
+    "SDC-VD0525906A"
+  ],
   "created_edges": [],
   "created_processes": [],
   "synced_processes": [
@@ -369,6 +373,54 @@
       "item_id": "item:007923",
       "action": "created",
       "uom": "G"
+    },
+    {
+      "node_id": "SDC-VD0951020A",
+      "item_id": "item:001757",
+      "action": "uom_updated",
+      "uom": "G"
+    },
+    {
+      "node_id": "M-1430",
+      "item_id": "item:001848",
+      "action": "created",
+      "uom": "G"
+    },
+    {
+      "node_id": "SDC-VD0951020A",
+      "item_id": "item:001848",
+      "action": "uom_updated",
+      "uom": "G"
+    },
+    {
+      "node_id": "SDC-VD0956464A",
+      "item_id": "item:007923",
+      "action": "created",
+      "uom": "G"
+    },
+    {
+      "node_id": "SDC-VD0520132A",
+      "item_id": "item:038005",
+      "action": "uom_updated",
+      "uom": "G"
+    },
+    {
+      "node_id": "SDC-VD0518550B",
+      "item_id": "item:049371",
+      "action": "created",
+      "uom": "G"
+    },
+    {
+      "node_id": "SDC-VD0914320A",
+      "item_id": "item:055703",
+      "action": "uom_updated",
+      "uom": "G"
+    },
+    {
+      "node_id": "SDC-VD0525906A",
+      "item_id": "item:734545",
+      "action": "created",
+      "uom": "UN"
     }
   ],
   "workbook_findings": [
@@ -394,7 +446,34 @@
       "file_product_mismatch": false
     }
   ],
+  "opening_open_orders": {
+    "raw_rows": 104,
+    "resolved_rows": 88,
+    "unresolved_rows": 16,
+    "purchase_rows": 82,
+    "production_rows": 22
+  },
   "unresolved": [
-    "Removed orphan inventory state M-1810/item:007923 because no inbound lane is provided."
+    "Opening open-order row 5 skipped (unmapped_or_missing_division:1820).",
+    "Opening open-order row 6 skipped (unmapped_or_missing_division:1820).",
+    "Opening open-order row 9 skipped (unmapped_or_missing_division:1820).",
+    "Opening open-order row 10 skipped (unmapped_or_missing_division:1820).",
+    "Opening open-order row 11 skipped (unmapped_or_missing_division:1820).",
+    "Opening open-order row 12 skipped (unmapped_or_missing_division:1820).",
+    "Opening open-order row 13 skipped (unmapped_or_missing_division:1820).",
+    "Opening open-order row 16 skipped (unmapped_or_missing_division:1820).",
+    "Opening open-order row 17 skipped (unmapped_or_missing_division:1820).",
+    "Opening open-order row 18 skipped (unmapped_or_missing_division:1820).",
+    "Opening open-order row 20 skipped (unmapped_or_missing_division:1820).",
+    "Opening open-order row 21 skipped (unmapped_or_missing_division:1820).",
+    "Opening open-order row 45 skipped (unmapped_or_missing_division:1820).",
+    "Opening open-order row 46 skipped (unmapped_or_missing_division:1820).",
+    "Opening open-order row 70 skipped (unmapped_or_missing_division:1820).",
+    "Opening open-order row 71 skipped (unmapped_or_missing_division:1820).",
+    "Removed orphan inventory state M-1430/item:001848 because no inbound lane is provided.",
+    "Removed orphan inventory state M-1810/item:007923 because no inbound lane is provided.",
+    "Removed orphan inventory state SDC-VD0956464A/item:007923 because no inbound lane is provided.",
+    "Removed orphan inventory state SDC-VD0518550B/item:049371 because no inbound lane is provided.",
+    "Removed orphan inventory state SDC-VD0525906A/item:734545 because no inbound lane is provided."
   ]
 }

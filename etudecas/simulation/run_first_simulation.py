@@ -36,6 +36,7 @@ def normalize_unit(unit: Any) -> str:
         "UNIT": "UN",
         "UNITE": "UN",
         "UNITS": "UN",
+        "ZUN": "UN",
     }
     return aliases.get(s, s)
 
@@ -363,6 +364,25 @@ def parse_args() -> argparse.Namespace:
         help=(
             "Global multiplier for using opening/base stock as an MRP floor. "
             "Default keeps scenario value; 0 tests the cleaner rule where opening stock is state only."
+        ),
+    )
+    parser.add_argument(
+        "--mrp-review-period-days",
+        type=int,
+        default=0,
+        help=(
+            "Optional cadence for upstream factory MRP replenishment decisions. "
+            "0 keeps the scenario review period. Customer/DC flows stay on the scenario cadence."
+        ),
+    )
+    parser.add_argument(
+        "--mrp-target-bucket-days",
+        type=int,
+        default=0,
+        help=(
+            "Optional bucket size for the MRP target signal. "
+            "For example 7 freezes the propagated MRP target on calendar weeks "
+            "while keeping daily execution and daily customer service."
         ),
     )
     return parser.parse_args()
@@ -1384,6 +1404,189 @@ def seed_open_orders_from_opening_snapshot(
     return seeded_total_qty, open_order_rows, bridge_days_by_pair
 
 
+def seed_open_orders_from_metadata(
+    pipeline: dict[int, list[tuple[str, str, float, str]]],
+    in_transit: dict[tuple[str, str], float],
+    *,
+    opening_open_orders_payload: dict[str, Any],
+    lanes_by_dest_item: dict[tuple[str, str], list[dict[str, Any]]],
+    item_unit_map: dict[str, str],
+    pair_mrp_safety_time_days: dict[tuple[str, str], float],
+    total_timeline_days: int,
+    warmup_days: int,
+    mrp_order_rows: list[dict[str, Any]],
+    supplier_shipment_rows: list[dict[str, Any]],
+    initialization_pipeline_rows: list[dict[str, Any]],
+    assumptions_ledger_rows: list[dict[str, Any]],
+) -> tuple[float, list[dict[str, Any]], dict[tuple[str, str], int]]:
+    rows = opening_open_orders_payload.get("rows") if isinstance(opening_open_orders_payload, dict) else []
+    if not isinstance(rows, list) or not rows:
+        return 0.0, [], {}
+
+    seeded_total_qty = 0.0
+    open_order_rows: list[dict[str, Any]] = []
+    bridge_days_by_pair: dict[tuple[str, str], int] = {}
+
+    for raw in rows:
+        if not isinstance(raw, dict):
+            continue
+        dst = str(raw.get("dst_node_id") or "")
+        item_id = str(raw.get("item_id") or "")
+        src = str(raw.get("src_node_id") or "")
+        if not dst or not item_id:
+            continue
+        pair = (dst, item_id)
+        qty = max(0.0, to_float(raw.get("quantity"), 0.0))
+        if qty <= 1e-9:
+            continue
+        raw_uom = normalize_unit(raw.get("uom"))
+        item_uom = normalize_unit(item_unit_map.get(item_id, raw_uom))
+        if raw_uom and item_uom and can_convert_units(raw_uom, item_uom):
+            qty = convert_quantity(qty, raw_uom, item_uom)
+
+        usable_day = max(0, int(round(to_float(raw.get("usable_day"), 0.0))))
+        physical_delivery_day = max(0, int(round(to_float(raw.get("physical_delivery_day"), usable_day))))
+        receipt_release_days = max(0, int(round(to_float(raw.get("receipt_release_days"), 0.0))))
+        arrival_day = warmup_days + usable_day
+        if arrival_day >= total_timeline_days:
+            receipt_status = "firm_receipt_outside_horizon"
+            actual_receipt_day: int | str = ""
+        else:
+            receipt_status = "firm_receipt"
+            actual_receipt_day = usable_day
+            pipeline[arrival_day].append((dst, item_id, qty, ""))
+            in_transit[pair] += qty
+            seeded_total_qty += qty
+
+        lane_list = lanes_by_dest_item.get(pair, [])
+        selected_lane = None
+        if src:
+            for lane in lane_list:
+                if str(lane.get("src")) == src:
+                    selected_lane = lane
+                    break
+        if selected_lane is None and lane_list:
+            selected_lane = lane_list[0]
+
+        edge_id = str(selected_lane.get("edge_id", "")) if selected_lane else ""
+        lead_reference_days = (
+            max(0, int(round(to_float(selected_lane.get("lead_days"), 0.0))))
+            if selected_lane
+            else 0
+        )
+        if lead_reference_days > 0:
+            release_day = physical_delivery_day - lead_reference_days
+        else:
+            release_day = physical_delivery_day
+        lead_days = max(0, usable_day - release_day)
+        lead_cover_days = max(lead_days, lead_reference_days + receipt_release_days)
+        safety_time_days = max(0.0, pair_mrp_safety_time_days.get(pair, 0.0))
+        standard_order_qty = max(0.0, to_float(selected_lane.get("standard_order_qty"), 0.0)) if selected_lane else 0.0
+        mrp_share = max(0.0, to_float(selected_lane.get("mrp_share"), 0.0)) if selected_lane else 0.0
+        order_type = str(raw.get("order_type") or "opening_open_order")
+        source_mode = (
+            "opening_purchase_order"
+            if order_type == "purchase_open_order"
+            else "opening_production_order"
+            if order_type == "production_open_order"
+            else "opening_open_order"
+        )
+        row = {
+            "day": 0,
+            "node_id": dst,
+            "item_id": item_id,
+            "order_type": source_mode,
+            "src_node_id": src if src else dst,
+            "dst_node_id": dst,
+            "edge_id": edge_id,
+            "planning_status": "opening_firm_order",
+            "release_status": "released_before_or_at_j0" if release_day <= 0 else "released",
+            "receipt_status": receipt_status,
+            "order_status_end_of_run": "received" if actual_receipt_day != "" else "released_in_transit",
+            "release_qty": round(qty, 6),
+            "planned_receipt_qty": round(qty, 6),
+            "release_day": int(release_day),
+            "order_date_imt": int(release_day),
+            "arrival_day": int(usable_day),
+            "actual_receipt_day": actual_receipt_day,
+            "implied_cover_need_day": int(usable_day + math.ceil(safety_time_days)),
+            "lead_days": int(lead_days),
+            "lead_reference_days": int(lead_reference_days),
+            "lead_cover_days": int(lead_cover_days),
+            "safety_time_days": round(safety_time_days, 6),
+            "reliability": 1.0,
+            "standard_order_qty": round(standard_order_qty, 6),
+            "mrp_share": round(mrp_share, 6),
+        }
+        mrp_order_rows.append(row)
+
+        if source_mode == "opening_purchase_order" and src:
+            supplier_shipment_rows.append(
+                {
+                    "day": int(release_day),
+                    "src_node_id": src,
+                    "dst_node_id": dst,
+                    "item_id": item_id,
+                    "shipped_qty": round(qty, 6),
+                    "pulled_qty": round(qty, 6),
+                    "lead_days": int(lead_days),
+                    "arrival_day": int(usable_day),
+                    "reliability": 1.0,
+                    "uom": item_unit_map.get(item_id, raw_uom),
+                    "transport_cost_basis": "opening_order_book",
+                    "transport_cost_units": 0.0,
+                    "transport_cost": 0.0,
+                }
+            )
+
+        init_row = {
+            "node_id": dst,
+            "item_id": item_id,
+            "category": "opening_open_order_book_real",
+            "seeded_pipeline_qty": round(qty, 6) if actual_receipt_day != "" else 0.0,
+            "lead_days": int(lead_days),
+            "lane_src": src,
+            "source_file": str(opening_open_orders_payload.get("source_file") or ""),
+            "planning_element": str(raw.get("planning_element") or ""),
+            "physical_delivery_day": int(physical_delivery_day),
+            "usable_day": int(usable_day),
+            "receipt_release_days": int(receipt_release_days),
+        }
+        initialization_pipeline_rows.append(init_row)
+        open_order_rows.append(
+            {
+                "node_id": dst,
+                "item_id": item_id,
+                "src_node_id": src,
+                "edge_id": edge_id,
+                "arrival_day": int(usable_day),
+                "physical_delivery_day": int(physical_delivery_day),
+                "receipt_qty": round(qty, 6),
+                "lead_reference_days": int(lead_reference_days),
+                "receipt_release_days": int(receipt_release_days),
+                "source_row": raw.get("source_row", ""),
+                "source_file": str(opening_open_orders_payload.get("source_file") or ""),
+                "order_type": source_mode,
+            }
+        )
+        assumptions_ledger_rows.append(
+            {
+                "category": "opening_open_order_book_real",
+                "node_id": dst,
+                "item_id": item_id,
+                "edge_id": edge_id,
+                "source": str(opening_open_orders_payload.get("source_file") or "opening_open_orders_metadata"),
+                "payload_json": json.dumps(init_row, ensure_ascii=False, sort_keys=True),
+            }
+        )
+
+        bridge_days = max(1, min(usable_day, max(lead_cover_days, lead_reference_days)))
+        bridge_days_by_pair[pair] = max(bridge_days_by_pair.get(pair, 0), bridge_days)
+
+    open_order_rows.sort(key=lambda row: (row["node_id"], row["item_id"], row["arrival_day"], row["src_node_id"]))
+    return seeded_total_qty, open_order_rows, bridge_days_by_pair
+
+
 def derive_supplier_daily_capacity_by_pair(
     *,
     nodes: list[dict[str, Any]],
@@ -1996,6 +2199,12 @@ def main() -> None:
     data = json.loads(input_path.read_text(encoding="utf-8"))
     nodes = data.get("nodes", []) or []
     edges = data.get("edges", []) or []
+    graph_meta = data.get("meta") if isinstance(data.get("meta"), dict) else {}
+    opening_open_orders_payload = (
+        graph_meta.get("opening_open_orders")
+        if isinstance(graph_meta.get("opening_open_orders"), dict)
+        else {}
+    )
     node_by_id = {str(n.get("id")): n for n in nodes}
     mrp_snapshot_pairs = {
         (str(n.get("id")), str(state.get("item_id")))
@@ -2039,6 +2248,16 @@ def main() -> None:
     total_timeline_days = warmup_days + sim_days
     safety_stock_days = max(0.0, scenario_policy_value(scenario, "safety_stock_days", 7.0))
     review_period_days = max(1, int(round(scenario_policy_value(scenario, "review_period_days", 1.0))))
+    mrp_review_period_days = (
+        max(1, int(args.mrp_review_period_days))
+        if args.mrp_review_period_days and args.mrp_review_period_days > 0
+        else review_period_days
+    )
+    mrp_target_bucket_days = (
+        max(1, int(args.mrp_target_bucket_days))
+        if args.mrp_target_bucket_days and args.mrp_target_bucket_days > 0
+        else 1
+    )
     fg_target_days = max(0.0, scenario_policy_value(scenario, "fg_target_days", 0.0))
     demand_stock_target_days = max(0.0, scenario_policy_value(scenario, "demand_stock_target_days", 0.0))
     production_gap_gain = max(0.0, scenario_policy_value(scenario, "production_gap_gain", 0.25))
@@ -2523,6 +2742,7 @@ def main() -> None:
     opening_open_order_rows: list[dict[str, Any]] = []
     total_opening_open_order_qty = 0.0
     opening_open_order_bridge_days_by_pair: dict[tuple[str, str], int] = {}
+    opening_open_order_source = "none"
     assumptions_ledger_rows: list[dict[str, Any]] = []
     for lane in lanes:
         note = str(lane.get("standard_order_qty_note") or "")
@@ -2883,28 +3103,51 @@ def main() -> None:
                 for lane in lanes
             ]
             horizon_cap_days = max(inferred_horizon_candidates or [30])
-        (
-            total_opening_open_order_qty,
-            opening_open_order_rows,
-            opening_open_order_bridge_days_by_pair,
-        ) = seed_open_orders_from_opening_snapshot(
-            pipeline,
-            in_transit,
-            lanes=lanes,
-            lanes_by_dest_item=lanes_by_dest_item,
-            opening_stock_source_snapshot=opening_stock_source_snapshot,
-            pair_mrp_safety_time_days=pair_mrp_safety_time_days,
-            pair_mrp_safety_stock_qty=pair_mrp_safety_stock_qty,
-            demand_profiles=demand_profiles,
-            required_daily_input_by_pair=required_daily_input_by_pair,
-            process_input_requirements_by_output_pair=process_input_requirements_by_output_pair,
-            opening_open_orders_demand_multiplier=initialization_policy["opening_open_orders_demand_multiplier"],
-            demand_pairs=demand_pairs,
-            stochastic_lead_times=args.stochastic_lead_times,
-            horizon_cap_days=horizon_cap_days,
-            initialization_pipeline_rows=initialization_pipeline_rows,
-            assumptions_ledger_rows=assumptions_ledger_rows,
-        )
+        real_open_order_rows = opening_open_orders_payload.get("rows") if isinstance(opening_open_orders_payload, dict) else []
+        if isinstance(real_open_order_rows, list) and real_open_order_rows:
+            (
+                total_opening_open_order_qty,
+                opening_open_order_rows,
+                opening_open_order_bridge_days_by_pair,
+            ) = seed_open_orders_from_metadata(
+                pipeline,
+                in_transit,
+                opening_open_orders_payload=opening_open_orders_payload,
+                lanes_by_dest_item=lanes_by_dest_item,
+                item_unit_map=item_unit_map,
+                pair_mrp_safety_time_days=pair_mrp_safety_time_days,
+                total_timeline_days=total_timeline_days,
+                warmup_days=warmup_days,
+                mrp_order_rows=mrp_order_rows,
+                supplier_shipment_rows=supplier_shipment_rows,
+                initialization_pipeline_rows=initialization_pipeline_rows,
+                assumptions_ledger_rows=assumptions_ledger_rows,
+            )
+            opening_open_order_source = str(opening_open_orders_payload.get("source_file") or "metadata")
+        else:
+            (
+                total_opening_open_order_qty,
+                opening_open_order_rows,
+                opening_open_order_bridge_days_by_pair,
+            ) = seed_open_orders_from_opening_snapshot(
+                pipeline,
+                in_transit,
+                lanes=lanes,
+                lanes_by_dest_item=lanes_by_dest_item,
+                opening_stock_source_snapshot=opening_stock_source_snapshot,
+                pair_mrp_safety_time_days=pair_mrp_safety_time_days,
+                pair_mrp_safety_stock_qty=pair_mrp_safety_stock_qty,
+                demand_profiles=demand_profiles,
+                required_daily_input_by_pair=required_daily_input_by_pair,
+                process_input_requirements_by_output_pair=process_input_requirements_by_output_pair,
+                opening_open_orders_demand_multiplier=initialization_policy["opening_open_orders_demand_multiplier"],
+                demand_pairs=demand_pairs,
+                stochastic_lead_times=args.stochastic_lead_times,
+                horizon_cap_days=horizon_cap_days,
+                initialization_pipeline_rows=initialization_pipeline_rows,
+                assumptions_ledger_rows=assumptions_ledger_rows,
+            )
+            opening_open_order_source = "reconstructed_january_snapshot"
         total_initialization_pipeline_seeded += total_opening_open_order_qty
         initialization_pipeline_rows.sort(key=lambda r: (r["node_id"], r["item_id"], r["category"], r.get("lane_src", "")))
     supplier_capacity_daily_rows: list[dict[str, Any]] = []
@@ -2959,16 +3202,35 @@ def main() -> None:
             profile_day,
             window_days=mrp_signal_smoothing_days,
         )
+        mrp_target_profile_day = (
+            (profile_day // mrp_target_bucket_days) * mrp_target_bucket_days
+            if mrp_target_bucket_days > 1
+            else profile_day
+        )
+        mrp_raw_demand_target_today = (
+            demand_targets_for_day(demand_profiles, mrp_target_profile_day, window_days=1)
+            if mrp_target_bucket_days > 1
+            else raw_demand_target_today
+        )
+        mrp_demand_target_today = (
+            demand_targets_for_day(
+                demand_profiles,
+                mrp_target_profile_day,
+                window_days=mrp_signal_smoothing_days,
+            )
+            if mrp_target_bucket_days > 1
+            else demand_target_today
+        )
         if (
             initialization_policy["use_bom_demand_signal_for_mrp"]
             and mrp_demand_signal_source == "mps_lotified"
         ):
             raw_propagated_demand_today = propagate_supply_demand_rates(
-                raw_demand_target_today,
+                mrp_raw_demand_target_today,
                 lanes,
                 process_input_requirements_by_output_pair,
             )
-            same_item_demand_today = propagate_demand_rates(demand_target_today, lanes)
+            same_item_demand_today = propagate_demand_rates(mrp_demand_target_today, lanes)
             mps_output_command_today: dict[tuple[str, str], float] = {}
             for out_pair in process_input_requirements_by_output_pair:
                 out_signal = max(
@@ -3020,18 +3282,18 @@ def main() -> None:
                 propagated_demand_today[pair] = propagated_demand_today.get(pair, 0.0) + qty
         elif initialization_policy["use_bom_demand_signal_for_mrp"]:
             raw_propagated_demand_today = propagate_supply_demand_rates(
-                raw_demand_target_today,
+                mrp_raw_demand_target_today,
                 lanes,
                 process_input_requirements_by_output_pair,
             )
             propagated_demand_today = propagate_supply_demand_rates(
-                demand_target_today,
+                mrp_demand_target_today,
                 lanes,
                 process_input_requirements_by_output_pair,
             )
         else:
-            raw_propagated_demand_today = propagate_demand_rates(raw_demand_target_today, lanes)
-            propagated_demand_today = propagate_demand_rates(demand_target_today, lanes)
+            raw_propagated_demand_today = propagate_demand_rates(mrp_raw_demand_target_today, lanes)
+            propagated_demand_today = propagate_demand_rates(mrp_demand_target_today, lanes)
 
         arrivals_today = pipeline.pop(day, [])
         external_arrivals_today = external_pipeline.pop(day, [])
@@ -3612,6 +3874,8 @@ def main() -> None:
                     external_procured_rejected_today += max(0.0, desired_order_qty - ext_order_qty)
         for pair, lane_list in lanes_by_dest_item.items():
             dst, item_id = pair
+            pair_is_upstream_factory_mrp = dst in process_node_ids and pair not in demand_pairs
+            pair_review_period_days = mrp_review_period_days if pair_is_upstream_factory_mrp else review_period_days
             strict_safety_floor = initialization_policy["mrp_strict_safety_floor_from_safety_time"]
             target = (
                 0.0
@@ -3654,7 +3918,7 @@ def main() -> None:
                 if pair in demand_pairs and demand_stock_target_days > 0.0:
                     target = max(target, demand_stock_target_days * item_daily_req)
                 if pair not in mrp_snapshot_pairs:
-                    effective_cover_days = float(pair_stock_cover_days.get(pair, review_period_days + 1))
+                    effective_cover_days = float(pair_stock_cover_days.get(pair, pair_review_period_days + 1))
                     if initialization_policy["seed_open_orders_from_january_snapshot"]:
                         effective_cover_days = max(
                             0.0,
@@ -3668,7 +3932,7 @@ def main() -> None:
                 target = max(target, 0.0)
             target += backlog[pair]
 
-            if day % review_period_days != 0:
+            if day % pair_review_period_days != 0:
                 continue
 
             needed = target - stock[pair] - in_transit[pair]
@@ -3967,6 +4231,8 @@ def main() -> None:
                 )
 
             for pair in mrp_trace_pairs:
+                pair_is_upstream_factory_mrp = pair[0] in process_node_ids and pair not in demand_pairs
+                pair_review_period_days = mrp_review_period_days if pair_is_upstream_factory_mrp else review_period_days
                 item_daily_req_static = max(0.0, required_daily_input_by_pair.get(pair, 0.0))
                 item_daily_req_dynamic = max(0.0, propagated_demand_today.get(pair, 0.0))
                 item_daily_req_raw_dynamic = max(0.0, raw_propagated_demand_today.get(pair, 0.0))
@@ -4018,7 +4284,7 @@ def main() -> None:
                     if pair in demand_pairs and demand_stock_target_days > 0.0:
                         coverage_target_qty = max(coverage_target_qty, demand_stock_target_days * item_daily_req)
                     if pair not in mrp_snapshot_pairs:
-                        effective_cover_days = float(pair_stock_cover_days.get(pair, review_period_days + 1))
+                        effective_cover_days = float(pair_stock_cover_days.get(pair, pair_review_period_days + 1))
                         if initialization_policy["seed_open_orders_from_january_snapshot"]:
                             effective_cover_days = max(
                                 0.0,
@@ -4089,7 +4355,7 @@ def main() -> None:
                         "planned_receipt_max_day": (
                             int(arrival_max_day - warmup_days) if arrival_max_day is not None else ""
                         ),
-                        "review_period_days": int(review_period_days),
+                        "review_period_days": int(pair_review_period_days),
                         "safety_time_days": round(pair_mrp_safety_time_days.get(pair, 0.0), 6),
                         "safety_stock_qty": round(pair_mrp_safety_stock_qty.get(pair, 0.0), 6),
                         "has_mrp_snapshot_policy": int(pair in mrp_snapshot_pairs),
@@ -4357,6 +4623,8 @@ def main() -> None:
         "policy": {
             "safety_stock_days": safety_stock_days,
             "review_period_days": review_period_days,
+            "mrp_review_period_days": mrp_review_period_days,
+            "mrp_target_bucket_days": mrp_target_bucket_days,
             "fg_target_days": fg_target_days,
             "demand_stock_target_days": demand_stock_target_days,
             "production_gap_gain": production_gap_gain,
@@ -4381,6 +4649,7 @@ def main() -> None:
                 "seed_estimated_source_pipeline": initialization_policy["seed_estimated_source_pipeline"],
                 "restore_opening_stock_after_warmup": initialization_policy["restore_opening_stock_after_warmup"],
                 "seed_open_orders_from_january_snapshot": initialization_policy["seed_open_orders_from_january_snapshot"],
+                "opening_open_order_source": opening_open_order_source,
                 "opening_open_orders_horizon_days": initialization_policy["opening_open_orders_horizon_days"],
                 "opening_open_orders_demand_multiplier": initialization_policy[
                     "opening_open_orders_demand_multiplier"
@@ -5256,7 +5525,9 @@ def main() -> None:
 - Total simulated timeline (days): {summary['timeline_days']}
 - Output profile: {summary['policy']['output_profile']}
 - Safety stock policy (days): {summary['policy']['safety_stock_days']}
-- Replenishment review period (days): {summary['policy']['review_period_days']}
+- Replenishment review period (customer/DC, days): {summary['policy']['review_period_days']}
+- Upstream factory MRP review period (days): {summary['policy']['mrp_review_period_days']}
+- MRP target bucket (days): {summary['policy']['mrp_target_bucket_days']}
 - Finished-goods target cover (days): {summary['policy']['fg_target_days']}
 - Production stock-gap gain: {summary['policy']['production_gap_gain']}
 - Production smoothing factor: {summary['policy']['production_smoothing']}
@@ -5265,6 +5536,7 @@ def main() -> None:
 - Initialization stock days factory / supplier FG / DC / customer: {summary['policy']['initialization_policy']['factory_input_on_hand_days']} / {summary['policy']['initialization_policy']['supplier_output_on_hand_days']} / {summary['policy']['initialization_policy']['distribution_center_on_hand_days']} / {summary['policy']['initialization_policy']['customer_on_hand_days']}
 - Initialization seed in-transit / fill ratio / estimated-source pipeline: {summary['policy']['initialization_policy']['seed_in_transit']} / {summary['policy']['initialization_policy']['in_transit_fill_ratio']} / {summary['policy']['initialization_policy']['seed_estimated_source_pipeline']}
 - Opening open-orders reconstruction enabled / horizon days: {summary['policy']['initialization_policy']['seed_open_orders_from_january_snapshot']} / {summary['policy']['initialization_policy']['opening_open_orders_horizon_days']}
+- Opening open-orders source: {summary['policy']['initialization_policy'].get('opening_open_order_source', 'none')}
 - Opening open-orders demand multiplier / BOM signal for MRP: {summary['policy']['initialization_policy']['opening_open_orders_demand_multiplier']} / {summary['policy']['initialization_policy']['use_bom_demand_signal_for_mrp']}
 - MRP demand signal source: {summary['policy']['initialization_policy']['mrp_demand_signal_source']}
 - MRP demand signal smoothing / static fallback on propagated pairs: {summary['policy']['initialization_policy']['mrp_demand_signal_smoothing_days']} j / {summary['policy']['initialization_policy']['mrp_static_fallback_for_propagated_pairs']}
@@ -5302,7 +5574,7 @@ def main() -> None:
 - Assumed supply edges (explicitly tagged, includes '?'): {len(assumed_supply_edges)} ({assumed_edges_txt})
 - External upstream sourcing for unmodeled source pairs: {len(externally_sourced_pairs)}
 - Opening stock bootstrap pairs (lead-time coverage at max capacity): {len(opening_stock_bootstrap_rows)}
-- Opening open-order rows reconstructed from January snapshot: {len(opening_open_order_rows)}
+- Opening open-order rows seeded: {len(opening_open_order_rows)}
 - MRP trace tracked pairs / rows / orders: {summary['production_tracking']['mrp_trace']['tracked_pairs']} / {summary['production_tracking']['mrp_trace']['trace_rows']} / {summary['production_tracking']['mrp_trace']['order_rows']}
 
 ## KPIs
