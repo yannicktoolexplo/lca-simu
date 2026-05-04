@@ -5699,149 +5699,6 @@ def metric_multiline_value(label: str, values: list[str], *, limit: int = 8) -> 
         value += f"\n... (+{len(usable) - limit})"
     return metric_label_value(label, value)
 
-
-def model_node_dynamic_equation_lines() -> list[dict[str, str]]:
-    return [
-        metric_section("Indices des equations dynamiques"),
-        metric_label_value("n", "noeud du graphe: fournisseur, usine, centre de distribution ou client."),
-        metric_label_value("i", "item suivi: matiere premiere, semi-fini, produit fini."),
-        metric_label_value("t", "jour courant de simulation ; t+1 est l'etat apres execution du jour t."),
-        metric_label_value("f", "flux source -> destination pour un item donne."),
-        metric_label_value("s", "site industriel ou usine."),
-        metric_label_value("p", "produit/process de production."),
-        metric_section("Variables d'etat"),
-        metric_label_value(
-            "S[n,i](t)",
-            "stock disponible de l'item i au noeud n au debut du jour t.",
-        ),
-        metric_label_value(
-            "IT[f,i](t)",
-            "quantite de l'item i deja expediee sur le flux f mais pas encore disponible a destination.",
-        ),
-        metric_label_value(
-            "B[n,i](t)",
-            "backlog ou besoin non servi porte par le noeud n pour l'item i.",
-        ),
-        metric_label_value(
-            "OO[f,i](t)",
-            "carnet ouvert sur le flux f pour l'item i: ordres crees mais pas encore completement recus.",
-        ),
-        metric_section("Equations d'etat"),
-        metric_label_value(
-            "Stock",
-            "S[n,i](t+1) = S[n,i](t) + receptions[n,i](t) + production[n,i](t) - consommations[n,i](t) - expeditions[n,i](t).",
-        ),
-        metric_label_value(
-            "Correspondance flux",
-            "receptions=Recv ; production=Prod ; consommations=Cons ; expeditions=Ship.",
-        ),
-        metric_label_value(
-            "Transit",
-            "IT[f,i](t+1) = IT[f,i](t) + Ship[f,i](t) - Recv[f,i](t).",
-        ),
-        metric_label_value(
-            "Carnet ouvert",
-            "OO[f,i](t+1) = OO[f,i](t) + Q[f,i](t) - Recv[f,i](t), a la granularite item/flux.",
-        ),
-        metric_label_value(
-            "Backlog client",
-            "B[n,i](t+1) = B[n,i](t) + D[n,i](t) - Served[n,i](t), avec Served limite par le stock disponible.",
-        ),
-        metric_label_value(
-            "Consommation BOM",
-            "Cons[s,i](t) = somme_p BOM[i,p] * Prod[p,s](t).",
-        ),
-        metric_label_value(
-            "Production executable",
-            "Prod[p,s](t) = min(PlanLot[p,s](t), Capacite[p,s](t), IntrantsDisponibles[p,s](t)).",
-        ),
-        metric_section("Variables auxiliaires recalculees au jour t"),
-        metric_label_value(
-            "IP[n,i](t)",
-            "IP[n,i](t) = S[n,i](t) + RecvPrev[n,i](t).",
-        ),
-        metric_label_value(
-            "T[n,i](t)",
-            "T[n,i](t) = max(SS_qty[n,i], ST_days[n,i] * Req[n,i](t), Cover_days[n,i] * Req[n,i](t), Target_business[n,i]).",
-        ),
-        metric_label_value(
-            "Gap[n,i](t)",
-            "Gap[n,i](t) = T[n,i](t) + B[n,i](t) - IP[n,i](t).",
-        ),
-        metric_section("Regles de decision"),
-        metric_label_value(
-            "Besoin net",
-            "si Gap[n,i](t) > 0 alors BN[n,i](t) = Gap[n,i](t) ; sinon BN[n,i](t) = 0.",
-        ),
-        metric_label_value(
-            "Ordre amont",
-            "Q[f,i](t) = LotRule(SourcingShare[f,i] * BN[dst(f),i](t)).",
-        ),
-        metric_label_value(
-            "Reception transport",
-            "Ship[f,i](t) devient Recv[f,i](t + LT_sim[f,t]) ; la date previsionnelle utilise LT_ref[f].",
-        ),
-        metric_label_value(
-            "Lecture",
-            "Le simulateur avance chronologiquement: calcul des variables en t, decisions MRP/production/transport, puis mise a jour des etats en t+1.",
-        ),
-    ]
-
-
-def model_edge_dynamic_equation_lines() -> list[dict[str, str]]:
-    return [
-        metric_section("Indices du flux"),
-        metric_label_value("f", "flux source -> destination selectionne."),
-        metric_label_value("src(f)", "noeud source du flux."),
-        metric_label_value("dst(f)", "noeud destination du flux."),
-        metric_label_value("i", "item transporte par le flux."),
-        metric_label_value("t", "jour courant de simulation."),
-        metric_section("Equations d'etat du flux"),
-        metric_label_value(
-            "Transit",
-            "IT[f,i](t+1) = IT[f,i](t) + Ship[f,i](t) - Recv[f,i](t).",
-        ),
-        metric_label_value(
-            "Stock source",
-            "S[src(f),i](t+1) = S[src(f),i](t) + production_source[f,i](t) - Ship[f,i](t).",
-        ),
-        metric_label_value(
-            "Stock destination",
-            "S[dst(f),i](t+1) = S[dst(f),i](t) + Recv[f,i](t) - consommation_destination[f,i](t).",
-        ),
-        metric_label_value(
-            "Carnet ouvert",
-            "OO[f,i](t+1) = OO[f,i](t) + Q[f,i](t) - Recv[f,i](t).",
-        ),
-        metric_section("Variables auxiliaires du flux"),
-        metric_label_value(
-            "IP destination",
-            "IP[dst(f),i](t) = S[dst(f),i](t) + RecvPrev[dst(f),i](t).",
-        ),
-        metric_label_value(
-            "Gap destination",
-            "Gap[dst(f),i](t) = T[dst(f),i](t) + B[dst(f),i](t) - IP[dst(f),i](t).",
-        ),
-        metric_section("Regles de decision du flux"),
-        metric_label_value(
-            "Besoin affecte au flux",
-            "si Gap[dst(f),i](t) > 0 alors BN[dst(f),i](t) est reparti sur les flux actifs selon le sourcing ; sinon Q[f,i](t)=0.",
-        ),
-        metric_label_value(
-            "Quantite commandee",
-            "Q[f,i](t) = LotRule(SourcingShare[f,i] * BN[dst(f),i](t)).",
-        ),
-        metric_label_value(
-            "Expedition",
-            "Ship[f,i](t) = min(Q[f,i](t), S[src(f),i](t), Capacite[src(f),i](t)).",
-        ),
-        metric_label_value(
-            "Reception",
-            "Recv[f,i](t + LT_sim[f,t]) = Ship[f,i](t). La date previsionnelle du carnet est t + LT_ref[f].",
-        ),
-    ]
-
-
 def render_global_model_equations_html() -> str:
     def table(rows: list[tuple[str, str, str]]) -> str:
         body = "".join(
@@ -6874,7 +6731,7 @@ def build_model_panel_metrics(
                     "StockProj_dc(t): stock fin de journee au DC",
                     "RecvPrev_dc(t): receptions futures implicites via in_transit",
                     "T_dc(t): cible MRP du DC pour l'item suivi",
-                    "Gap_dc(t): ecart a couvrir = T_dc(t) - StockProj_dc(t) - RecvPrev_dc(t)",
+                    "Gap_dc(t): ecart a couvrir = T_dc(t) + Backlog_dc(t) - StockProj_dc(t) - RecvPrev_dc(t)",
                     "BN_dc(t): besoin net du DC = Gap_dc(t) si l'ecart est positif ; sinon 0",
                 ]
             )
@@ -6896,7 +6753,7 @@ def build_model_panel_metrics(
                     metric_section("Application DC - regles locales"),
                     metric_label_value("Eq sim 1", "StockProj_dc(t+1) = StockProj_dc(t) + Recv_dc(t) - Ship_dc(t) - Served_dc(t)"),
                     metric_label_value("Eq sim 2", "T_dc(t): cible DC = plus haute valeur entre stock_securite explicite, delai_securite * signal MRP, couverture * signal MRP et cible stock active si definie"),
-                    metric_label_value("Eq sim 3", "Gap_dc(t) = T_dc(t) - StockProj_dc(t) - RecvPrev_dc(t)"),
+                    metric_label_value("Eq sim 3", "Gap_dc(t) = T_dc(t) + Backlog_dc(t) - StockProj_dc(t) - RecvPrev_dc(t)"),
                     metric_label_value("Eq sim 4", "BN_dc(t) = Gap_dc(t) si Gap_dc(t) > 0 ; sinon 0"),
                     metric_section("Application DC - correspondance modele global"),
                     metric_label_value("S[n,i](t)", "StockProj_dc(t): stock disponible/projete au DC pour l'item."),
@@ -6987,7 +6844,7 @@ def build_model_panel_metrics(
                     "T_dest(t): cible MRP de la destination pour cette matiere",
                     "Stock_dest(t): stock matiere projete chez la destination, donc chez l'usine ou le DC receveur",
                     "RecvPrev_dest(t): receptions futures deja planifiees vers cette destination",
-                    "Gap_mp(t): ecart matiere a couvrir = T_dest(t) - Stock_dest(t) - RecvPrev_dest(t)",
+                "Gap_mp(t): ecart matiere a couvrir = T_dest(t) + Backlog_dest(t) - Stock_dest(t) - RecvPrev_dest(t)",
                     "BN_mp(t): besoin net matiere = Gap_mp(t) si l'ecart est positif ; sinon 0",
                     "OA_mp(t): quantite demandee a la source apres normalisation lot standard",
                     "Ship_mp(t): quantite sortie du stock source et expediee vers la destination",
@@ -7014,7 +6871,7 @@ def build_model_panel_metrics(
                     *[metric_label_value(f"Var {idx+1}", line) for idx, line in enumerate(state_var_lines)],
                     metric_section("Application fournisseur - regles locales"),
                     metric_label_value("Eq sim 1", "T_dest(t): plus haute valeur entre stock securite, delai securite * Req_dest(t), couverture appro * Req_dest(t) et cible stock active"),
-                    metric_label_value("Eq sim 2", "Gap_mp(t) = T_dest(t) - Stock_dest(t) - RecvPrev_dest(t)"),
+                    metric_label_value("Eq sim 2", "Gap_mp(t) = T_dest(t) + Backlog_dest(t) - Stock_dest(t) - RecvPrev_dest(t)"),
                     metric_label_value("Eq sim 3", "BN_mp(t) = Gap_mp(t) si Gap_mp(t) > 0 ; sinon 0"),
                     metric_label_value("Eq sim 4", "OA_mp(t): ordre amont source = quantite commandee, normalisee par quantite standard si applicable"),
                     metric_label_value("Eq sim 5", "Ship_mp(t) = min(Stock_source(t), Capacite_source(t), OA_mp(t)): quantite vraiment expediee"),
@@ -7725,12 +7582,12 @@ def build_model_panel_metrics(
                     assumption_lines_node if assumption_lines_node else ["aucun element derive/assume journalise pour ce noeud"],
                     limit=8,
                 ),
-                metric_section("Sources et parametres globaux"),
-                metric_multiline_value("Sources structure / MRP", unique_preserve(source_refs), limit=10),
-                metric_label_value("Warm-up", f"{summary.get('warmup_days', 'n/a')} j"),
-                metric_label_value("Mode init", str(init_policy.get("mode") or "n/a")),
-                metric_label_value("Demand stock target", fmt_days(policy.get("demand_stock_target_days"), 1)),
-                metric_label_value("Safety stock global", fmt_days(policy.get("safety_stock_days"), 1)),
+                metric_section("Sources locales"),
+                metric_multiline_value(
+                    "Sources structure / MRP du noeud",
+                    unique_preserve(source_refs) or ["source structure locale non renseignee dans le JSON enrichi"],
+                    limit=10,
+                ),
             ]
         )
         nodes_payload[node_id] = {
@@ -7866,17 +7723,17 @@ def build_model_panel_metrics(
             "T_dst(t): cible MRP de la destination pour l'item transporte",
             "Stock_dst(t): stock projete a destination",
             "RecvPrev_dst(t): receptions futures deja planifiees sur cette destination",
-            "Gap_dst(t): ecart a couvrir a destination = T_dst(t) - Stock_dst(t) - RecvPrev_dst(t)",
+            "Gap_dst(t): ecart a couvrir a destination = T_dst(t) + Backlog_dst(t) - Stock_dst(t) - RecvPrev_dst(t)",
             "BN_dst(t): besoin net porte par la destination sur ce flux = Gap_dst(t) si l'ecart est positif ; sinon 0",
             "OA_src(t): quantite demandee a la source apres normalisation du flux",
             "Ship_src(t): quantite sortie du stock source et expediee sur le flux",
             "RecvPrev_dst(t): quantite qui arrivera a destination a t + lead_time",
             "Lead_ref: delai previsionnel MRP du flux",
             "Lead_sim: delai simule pour la reception effective",
-            "Lead_cover: delai conservateur utilise pour calculer ordre_passe",
+            "Delai_retroplanning: delai total utilise pour positionner la date d'ordre previsionnelle",
         ]
         assumption_lines = [
-            "le flux est simule chronologiquement au jour d'envoi ; ordre_passe est un jalon calcule pour lire le carnet",
+            "le flux est simule chronologiquement au jour d'envoi ; la date d'ordre previsionnelle est un jalon calcule pour lire le carnet",
             "standard_order_qty joue comme multiple cible de commande quand disponible",
             "le lead time observe peut varier d'une expedition a l'autre",
         ]
@@ -8108,11 +7965,11 @@ def build_model_panel_metrics(
             *[metric_label_value(f"Var {idx+1}", line) for idx, line in enumerate(state_var_lines)],
             metric_section("Application flux - regles locales"),
             metric_label_value("Eq sim 1", "T_dst(t): plus haute valeur entre stock securite, delai securite * Req_dst(t), couverture appro * Req_dst(t) et cible stock active"),
-            metric_label_value("Eq sim 2", "Gap_dst(t) = T_dst(t) - Stock_dst(t) - RecvPrev_dst(t)"),
+            metric_label_value("Eq sim 2", "Gap_dst(t) = T_dst(t) + Backlog_dst(t) - Stock_dst(t) - RecvPrev_dst(t)"),
             metric_label_value("Eq sim 3", "BN_dst(t) = Gap_dst(t) si Gap_dst(t) > 0 ; sinon 0"),
             metric_label_value("Eq sim 4", "OA_src(t): ordre amont sur le flux = quantite demandee a la source, normalisee si quantite standard"),
             metric_label_value("Eq sim 5", "Reception_prevue = envoi + Lead_ref ; Reception_effective = envoi + Lead_sim"),
-            metric_label_value("Eq sim 6", "ordre_passe = besoin_a_couvrir - delai_securite - Lead_cover"),
+            metric_label_value("Eq sim 6", "date_ordre_prevue = date_besoin - delai_securite - LT_ref"),
             metric_section("Application flux - correspondance modele global"),
             metric_label_value("Q[f,i](t)", "OA_src(t): quantite commandee sur ce flux apres sourcing et normalisation."),
             metric_label_value("Ship[f,i](t)", "release_day / expedition: quantite sortie de la source et mise en transit."),
@@ -8129,10 +7986,10 @@ def build_model_panel_metrics(
             metric_section("Donnees et interactions"),
             metric_label_value("Lead time planifie", fmt_days(planned_lead, 1)),
             metric_label_value("Distance", f"{to_float(edge.get('distance_km')) or 0.0:.0f} km"),
-            metric_label_value("Quantite standard", fmt_qty(standard_order_qty, 0) if standard_order_qty > 0 else "n/a"),
-            metric_label_value("Correction quantite", str((standard_order_override or {}).get("note") or "n/a")),
-            metric_label_value("Product code source", str(attrs.get("product_code") or "n/a")),
-            metric_label_value("Compte fournisseur", str(attrs.get("supplier_account") or "n/a")),
+            metric_label_value("Quantite standard", fmt_qty(standard_order_qty, 0) if standard_order_qty > 0 else "non renseignee"),
+            metric_label_value("Correction quantite", str((standard_order_override or {}).get("note") or "aucune correction appliquee")),
+            metric_label_value("Product code source", str(attrs.get("product_code") or "non renseigne")),
+            metric_label_value("Compte fournisseur", str(attrs.get("supplier_account") or "non renseigne")),
             metric_multiline_value(
                 "Donnees observees flux",
                 lane_data_lines if lane_data_lines else ["aucune expedition observee sur ce flux"],
@@ -8159,9 +8016,13 @@ def build_model_panel_metrics(
             metric_label_value("Lead observe min-max", f"{metric.get('min_lead_days', 'n/a')} - {metric.get('max_lead_days', 'n/a')} j"),
             metric_label_value("Delais distincts observes", str(metric.get("distinct_lead_days", "n/a"))),
             metric_label_value("Quantites distinctes", str(metric.get("distinct_shipped_qty", 0))),
-            metric_label_value("Utilisation source max", fmt_pct((avg_util or 0.0) * 100.0) if avg_util is not None else "n/a"),
+            metric_label_value("Utilisation source max", fmt_pct((avg_util or 0.0) * 100.0) if avg_util is not None else "non calculee"),
             metric_section("Sources et parametres"),
-            metric_multiline_value("Sources flux", unique_preserve(source_refs), limit=4),
+            metric_multiline_value(
+                "Sources flux",
+                unique_preserve(source_refs) or ["source flux non renseignee dans le JSON enrichi"],
+                limit=4,
+            ),
         ]
         edges_payload[edge_id] = {
             "title": "Modele du flux",
