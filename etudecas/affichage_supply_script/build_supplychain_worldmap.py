@@ -2072,6 +2072,8 @@ def build_global_kpi_tree_payload(
             "opening_open_order_purchase_cost_day",
             "external_procurement_purchase_cost_day",
             "operational_purchase_cost_day",
+            "production_cost_day",
+            "total_supply_cost_day",
             "external_procured_ordered_qty",
             "supplier_capacity_binding_qty",
         ]:
@@ -2464,9 +2466,20 @@ def build_global_kpi_tree_payload(
         day: max(0.0, daily_by_day[day].get("operational_purchase_cost_day", daily_by_day[day].get("purchase_cost_day", 0.0)))
         for day in days
     }
+    production_cost = {
+        day: max(0.0, daily_by_day[day].get("production_cost_day", 0.0))
+        for day in days
+    }
     opening_purchase_cost = {day: daily_by_day[day].get("opening_open_order_purchase_cost_day", 0.0) for day in days}
     logistics_cost = {day: inventory_cost[day] + transport_cost[day] for day in days}
-    total_supply_cost = {day: logistics_cost[day] + purchase_cost[day] for day in days}
+    total_supply_cost = {
+        day: (
+            daily_by_day[day].get("total_supply_cost_day", 0.0)
+            if daily_by_day[day].get("total_supply_cost_day", 0.0) > 1e-9
+            else logistics_cost[day] + purchase_cost[day] + production_cost[day]
+        )
+        for day in days
+    }
     positive_costs = [value for value in total_supply_cost.values() if value > 0]
     avg_total_supply_cost = sum(positive_costs) / len(positive_costs) if positive_costs else 1.0
     cost_index = {day: 100.0 * total_supply_cost[day] / avg_total_supply_cost for day in days}
@@ -2608,6 +2621,7 @@ def build_global_kpi_tree_payload(
     total_transport_cost = sum(transport_cost.values())
     total_opening_transport_cost = sum(opening_transport_cost.values())
     total_purchase_cost = sum(purchase_cost.values())
+    total_production_cost = sum(production_cost.values())
     total_opening_purchase_cost = sum(opening_purchase_cost.values())
     total_opening_cost = total_opening_transport_cost + total_opening_purchase_cost
     total_scenario_cost_excluding_external = (
@@ -2869,8 +2883,8 @@ def build_global_kpi_tree_payload(
             "family": "Couts stock / transport",
             "level": "KPI principal",
             "name": "Pression cout supply",
-            "formula": "100 x (Cout_stock(t) + Cout_transport(t) + Cout_achat(t)) / moyenne_run(Cout_total_operationnel)",
-            "terms": "Cout_stock=holding_cost + warehouse_operating_cost + inventory_risk_cost. Cout_transport=transport operationnel des commandes du scenario, hors carnet initial. Cout_achat=cout d'achat matiere/fournisseur declenche par les commandes du scenario, hors carnet initial. moyenne_run=moyenne des jours avec cout total operationnel positif.",
+            "formula": "100 x (Cout_stock(t) + Cout_transport(t) + Cout_achat(t) + Cout_production(t)) / moyenne_run(Cout_total_operationnel)",
+            "terms": "Cout_stock=holding_cost + warehouse_operating_cost + inventory_risk_cost. Cout_transport=transport operationnel des commandes du scenario, hors carnet initial. Cout_achat=cout d'achat matiere/fournisseur. Cout_production=cout de conversion alloue sur la production reelle. moyenne_run=moyenne des jours avec cout total operationnel positif.",
             "interpretation": "Indice base 100. Au-dessus de 100, la journee coute plus cher que la moyenne du scenario.",
         },
         {
@@ -2880,6 +2894,14 @@ def build_global_kpi_tree_payload(
             "formula": "100 x Cout_achat(t) / moyenne_run(Cout_total_operationnel)",
             "terms": "Cout_achat=operational_purchase_cost_day, c.-a-d. cout d'achat des matieres/fournisseurs sur les flux commandes par la politique simulee, hors carnet initial deja engage.",
             "interpretation": "Part de la pression cout due au cout d'achat des matieres/fournisseurs.",
+        },
+        {
+            "family": "Couts stock / transport",
+            "level": "KPI secondaire",
+            "name": "Contribution cout de production - indice",
+            "formula": "100 x Cout_production(t) / moyenne_run(Cout_total_operationnel)",
+            "terms": "Cout_production=production_cost_day, proxy de cout de conversion pharma: fabrication, main-d'oeuvre, utilites, qualite, nettoyage, maintenance et depreciation.",
+            "interpretation": "Part de la pression cout due aux operations de fabrication, separee des achats matieres.",
         },
         {
             "family": "Couts stock / transport",
@@ -2921,7 +2943,7 @@ def build_global_kpi_tree_payload(
                 "level": "KPI principal",
                 "name": "Cout supply operationnel",
                 "formula": "Indice base 100 du cout operationnel journalier total",
-                "terms": "Cout operationnel = cout d'achat matiere + cout stock + cout de transport. Les montants reels sont affiches dans les KPI secondaires.",
+                "terms": "Cout operationnel = cout d'achat matiere + cout de production + cout stock + cout de transport. Les montants reels sont affiches dans les KPI secondaires.",
                 "interpretation": "Permet de voir les jours plus chers que la moyenne du scenario, tout en gardant le detail en euros/quantite dans les secondaires.",
             },
             {
@@ -2931,6 +2953,14 @@ def build_global_kpi_tree_payload(
                 "formula": "operational_purchase_cost_day",
                 "terms": "Cout d'achat matiere/fournisseur declenche par les commandes du scenario, hors carnet initial deja engage.",
                 "interpretation": "Driver economique principal quand les prix matiere dominent.",
+            },
+            {
+                "family": "Couts supply",
+                "level": "KPI secondaire",
+                "name": "Cout de production",
+                "formula": "production_cost_day",
+                "terms": "Proxy de cout de conversion pharma alloue aux quantites reellement produites. La repartition standard est parametrable par ligne: medicament gelule, creme dermato, semi-fini/extraction.",
+                "interpretation": "Isole le cout industriel de fabrication, distinct des achats matieres.",
             },
             {
                 "family": "Couts supply",
@@ -2964,6 +2994,7 @@ def build_global_kpi_tree_payload(
         "Contraintes sur ligne",
         "Cout supply operationnel",
         "Cout d'achat matiere",
+        "Cout de production",
         "Cout stock",
         "Cout de transport pilotable",
         "Pilotable",
@@ -3000,7 +3031,7 @@ def build_global_kpi_tree_payload(
                     "label": "Cout supply operationnel",
                     "values": [round(cost_index[day], 6) for day in days],
                     "color": "#d97706",
-                    "note": "Indice journalier base 100 du cout operationnel. Les secondaires affichent les montants achat, stock et transport par jour.",
+                    "note": "Indice journalier base 100 du cout operationnel. Les secondaires affichent les montants achat, production, stock et transport par jour.",
                 },
             ],
             "y_label": "Score / indice",
@@ -3057,10 +3088,11 @@ def build_global_kpi_tree_payload(
             {
                 "id": "cost",
                 "label": "Couts supply",
-                "objective": "Comprendre le cout operationnel: achat matiere, stock et transport.",
+                "objective": "Comprendre le cout operationnel: achat matiere, production, stock et transport.",
                 "summary": [
                     summary("Cout operationnel total", fmt_qty(total_supply_cost_value)),
                     summary("Cout d'achat matiere", f"{fmt_qty(total_purchase_cost)} ({cost_share(total_purchase_cost)})"),
+                    summary("Cout de production", f"{fmt_qty(total_production_cost)} ({cost_share(total_production_cost)})"),
                     summary("Cout stock", f"{fmt_qty(total_inventory_cost)} ({cost_share(total_inventory_cost)})"),
                     summary("Cout de transport pilotable", f"{fmt_qty(total_transport_cost)} ({cost_share(total_transport_cost)})"),
                     summary("Carnet initial deja engage", fmt_qty(total_opening_cost)),
@@ -3070,6 +3102,7 @@ def build_global_kpi_tree_payload(
                 "secondary": [
                     {"label": "Cout operationnel total", **series_from_map(total_supply_cost), "color": "#d97706"},
                     {"label": "Cout d'achat matiere", **series_from_map(purchase_cost), "color": "#0f766e"},
+                    {"label": "Cout de production", **series_from_map(production_cost), "color": "#be123c"},
                     {"label": "Cout stock", **series_from_map(inventory_cost), "color": "#7c3aed"},
                     {"label": "Cout de transport pilotable", **series_from_map(transport_cost), "color": "#f97316"},
                 ],
@@ -3659,6 +3692,20 @@ def display_order_type(order_type: Any) -> str:
     return labels.get(raw, raw or "n/a")
 
 
+def compact_order_status(value: Any) -> str:
+    raw = str(value or "").strip()
+    labels = {
+        "planned_and_released": "planifie",
+        "opening_firm_order": "ouvert",
+        "released_before_or_at_j0": "rel<=J0",
+        "released": "lance",
+        "firm_receipt": "recu ferme",
+        "received": "recu",
+        "n/a": "n/a",
+    }
+    return labels.get(raw, raw or "n/a")
+
+
 def fmt_order_day(value: Any) -> str:
     numeric = to_float(value)
     if numeric is None or math.isnan(numeric):
@@ -3797,7 +3844,7 @@ def render_order_ledger_html(
             if empty_reason else ""
         )
         return (
-            "<div class=\"factoryHtmlPanelContent\">"
+            "<div class=\"factoryHtmlPanelContent orderLedgerPanelContent\">"
             f"{reason_html}"
             "<div class=\"panelEmptyState\">Aucun ordre MRP journalise pour ce noeud.</div>"
             "</div>"
@@ -3824,57 +3871,156 @@ def render_order_ledger_html(
         ]
         status_counts[" | ".join(status_parts)] += 1
 
-    consolidated_orders = consolidate_order_rows_weekly(sorted_orders)
-    recent_lines: list[str] = []
-    for group in consolidated_orders[:120]:
-        item_id = str(group.get("item_id") or "")
+    edge_window_size = 500
+    if len(sorted_orders) > edge_window_size * 2:
+        display_orders = sorted_orders[:edge_window_size] + sorted_orders[-edge_window_size:]
+        display_note = f"{edge_window_size} plus recents + {edge_window_size} plus anciens"
+        separator_after = edge_window_size
+    else:
+        display_orders = sorted_orders
+        display_note = "tous les ordres"
+        separator_after = None
+
+    recent_rows: list[str] = []
+    for row_idx, row in enumerate(display_orders):
+        if separator_after is not None and row_idx == separator_after:
+            recent_rows.append(
+                '<tr class="orderLedgerSliceSeparator">'
+                '<td colspan="13">500 premiers ordres chronologiques affiches ci-dessous</td>'
+                '</tr>'
+            )
+        item_id = str(row.get("item_id") or "")
         item_label = item_labels.get(item_id, compact_item_label(item_id))
-        mode_label = display_order_type(group.get("order_type"))
-        status_text = ", ".join(
-            f"{status}={count}" for status, count in sorted(group["statuses"].items())
-        )
-        lead_avg = (
-            group["lead_reference_sum"] / group["lead_reference_count"]
-            if group["lead_reference_count"] > 0
+        mode_label = display_order_type(row.get("order_type"))
+        release_day_value = to_float(row.get("release_day"))
+        lead_reference_days_value = to_float(row.get("lead_reference_days"))
+        if lead_reference_days_value is None or math.isnan(lead_reference_days_value):
+            lead_reference_days_value = to_float(row.get("lead_cover_days"))
+        planned_arrival_day = (
+            release_day_value + lead_reference_days_value
+            if release_day_value is not None
+            and lead_reference_days_value is not None
+            and not math.isnan(release_day_value)
+            and not math.isnan(lead_reference_days_value)
             else None
         )
-        week_text = fmt_order_day_range(group["week_start"], group["week_start"] + 6)
-        recent_lines.append(
-            " | ".join(
-                [
-                    f"semaine={week_text}",
-                    item_label,
-                    mode_label,
-                    f"flux={group['src_node_id']}->{group['dst_node_id']}",
-                    f"lignes_mrp={group['line_count']}",
-                    f"ordre_passe={fmt_order_day_range(group['order_min'], group['order_max'])}",
-                    f"envoi={fmt_order_day_range(group['release_min'], group['release_max'])}",
-                    f"delai_previsionnel_mrp_moy={fmt_qty(lead_avg, 1)}j",
-                    f"arrivee_previsionnelle={fmt_order_day_range(group['planned_arrival_min'], group['planned_arrival_max'])}",
-                    f"arrivee_effective={fmt_order_day_range(group['effective_arrival_min'], group['effective_arrival_max'])}",
-                    f"qte_envoyee={fmt_qty(group['release_qty'], 1)}",
-                    f"qte_recue={fmt_qty(group['receipt_qty'], 1)}",
-                    f"status={status_text or 'n/a'}",
-                    f"exceptions={','.join(sorted(group['exceptions'])) if group['exceptions'] else 'none'}",
-                ]
-            )
+        actual_arrival_day_value = to_float(row.get("actual_receipt_day"))
+        if actual_arrival_day_value is None or math.isnan(actual_arrival_day_value):
+            actual_arrival_day_value = to_float(row.get("arrival_day"))
+        effective_lead_days_value = to_float(row.get("lead_days"))
+        if (
+            effective_lead_days_value is None
+            or math.isnan(effective_lead_days_value)
+        ) and (
+            release_day_value is not None
+            and actual_arrival_day_value is not None
+            and not math.isnan(release_day_value)
+            and not math.isnan(actual_arrival_day_value)
+        ):
+            effective_lead_days_value = actual_arrival_day_value - release_day_value
+        exceptions = [
+            str(row.get(field) or "").strip()
+            for field in ["exception_reason", "exception_type", "exception_code"]
+            if str(row.get(field) or "").strip()
+        ]
+        status_text = " | ".join(
+            part
+            for part in [
+                f"plan={str(row.get('planning_status') or 'n/a')}",
+                f"release={str(row.get('release_status') or 'n/a')}",
+                f"receipt={str(row.get('receipt_status') or 'n/a')}",
+                f"run={str(row.get('order_status_end_of_run') or 'n/a')}",
+            ]
+            if part
         )
+        status_short = " / ".join(
+            [
+                compact_order_status(row.get("planning_status")),
+                compact_order_status(row.get("release_status")),
+                compact_order_status(row.get("receipt_status")),
+                compact_order_status(row.get("order_status_end_of_run")),
+            ]
+        )
+        release_qty = to_float(row.get("release_qty"))
+        receipt_qty = to_float(row.get("receipt_qty"))
+        if receipt_qty is None or math.isnan(receipt_qty):
+            receipt_qty = to_float(row.get("planned_receipt_qty"))
+        src_node_id = str(row.get("src_node_id") or "n/a")
+        dst_node_id = str(row.get("dst_node_id") or "n/a")
+        edge_id = str(row.get("edge_id") or "n/a")
+        flux_text = f"{src_node_id} -> {dst_node_id}"
+        exceptions_text = ", ".join(exceptions) if exceptions else "none"
+        row_cells = [
+            (fmt_order_day(row.get("order_date_imt") or row.get("day")), ""),
+            (item_label, f"Item complet: {item_label}"),
+            (mode_label, mode_label),
+            (flux_text, f"{flux_text} | edge={edge_id}"),
+            (fmt_order_day(row.get("release_day")), ""),
+            (f"{fmt_qty(lead_reference_days_value, 1)} j", ""),
+            (fmt_order_day(planned_arrival_day), ""),
+            (fmt_order_day(actual_arrival_day_value), ""),
+            (f"{fmt_qty(effective_lead_days_value, 1)} j", "Delai reel simule: lead_days"),
+            (fmt_qty(release_qty, 1), ""),
+            (fmt_qty(receipt_qty, 1), ""),
+            (status_short, status_text or "n/a"),
+            (exceptions_text, exceptions_text),
+        ]
+        numeric_columns = {5, 8, 9, 10}
+        row_tds: list[str] = []
+        for idx, (value, title) in enumerate(row_cells):
+            cell_class = "num" if idx in numeric_columns else ""
+            title_attr = f' title="{html.escape(str(title), quote=True)}"' if title else ""
+            row_tds.append(
+                f'<td class="{cell_class}"{title_attr}>{html.escape(str(value))}</td>'
+            )
+        recent_rows.append("<tr>" + "".join(row_tds) + "</tr>")
 
     title_suffix = "carnet d'ordres fournisseur" if node_id.startswith("SDC-") else "carnet d'ordres"
     statuses_text = ", ".join(f"{status}={count}" for status, count in sorted(status_counts.items())) or "aucun"
-    recent_orders_html = html.escape("\n".join(recent_lines) if recent_lines else "aucun ordre journalise")
+    table_header = "".join(
+        f"<th>{html.escape(label)}</th>"
+        for label in [
+            "Ordre passe",
+            "Item",
+            "Type",
+            "Flux",
+            "Envoi",
+            "Delai prev.",
+            "Arrivee prev.",
+            "Arrivee effective",
+            "Delai effectif",
+            "Qte envoyee",
+            "Qte recue",
+            "Statut",
+            "Exceptions",
+        ]
+    )
+    table_cols = "".join(
+        f"<col style=\"width:{width}px\">"
+        for width in [90, 90, 130, 270, 80, 95, 115, 125, 105, 115, 115, 330, 145]
+    )
+    recent_rows_body = "".join(recent_rows) if recent_rows else "<tr><td colspan=\"13\">Aucun ordre journalise</td></tr>"
+    recent_orders_html = (
+        "<div class=\"orderLedgerFrame\">"
+        "<div class=\"orderLedgerTableWrap\" tabindex=\"0\" aria-label=\"Tableau du carnet MRP avec barre de defilement horizontale native en bas.\">"
+        "<table class=\"orderLedgerTable orderLedgerWideTable\">"
+        f"<colgroup>{table_cols}</colgroup>"
+        f"<thead><tr>{table_header}</tr></thead>"
+        f"<tbody>{recent_rows_body}</tbody>"
+        "</table>"
+        "</div>"
+        "</div>"
+    )
 
     return "".join(
         [
-            "<div class=\"factoryHtmlPanelContent\">",
+            "<div class=\"factoryHtmlPanelContent orderLedgerPanelContent\">",
             f"<div class=\"orderLedgerTextHeader\">{html.escape(node_id)} - {html.escape(title_suffix)}</div>",
-            f"<div class=\"orderLedgerStatus\">Lignes MRP brutes: {len(sorted_orders)} ; commandes consolidees semaine/flux/item: {len(consolidated_orders)}</div>",
+            f"<div class=\"orderLedgerStatus\">Ordres MRP journalises: {len(sorted_orders)} ; lignes affichees: {len(display_orders)} ({html.escape(display_note)})</div>",
             f"<div class=\"orderLedgerStatus\">Statuses lignes brutes: {html.escape(statuses_text)}</div>",
-            "<div class=\"orderLedgerStatus\">Jalons: ordre_passe=date d'ordre calculee | envoi=release_day | delai_previsionnel_mrp=lead_reference_days | arrivee_previsionnelle=envoi+delai_previsionnel_mrp | arrivee_effective=actual_receipt_day</div>",
-            "<div class=\"orderLedgerSectionTitle\">Dernieres commandes consolidees:</div>",
-            "<div class=\"orderLedgerTextWrap\">",
-            f"<pre class=\"orderLedgerLines\">{recent_orders_html}</pre>",
-            "</div>",
+            "<div class=\"orderLedgerStatus\">Jalons: ordre_passe=date d'ordre calculee | envoi=release_day | delai_previsionnel_mrp=lead_reference_days | arrivee_previsionnelle=envoi+delai_previsionnel_mrp | arrivee_effective=actual_receipt_day/arrival_day | delai_effectif=lead_days</div>",
+            "<div class=\"orderLedgerSectionTitle\">Ordres passes affiches: 500 derniers puis 500 premiers si le carnet depasse 1000 lignes.</div>",
+            recent_orders_html,
             "</div>",
         ]
     )
@@ -5905,7 +6051,7 @@ def render_global_model_equations_html() -> str:
                     ("Optimisation", "pas de solveur APS global", "Les decisions viennent de regles MRP/production locales appliquees chronologiquement."),
                     ("Calendrier atelier", "pas de planning machine detaille", "Les lots et campagnes existent, mais pas encore les equipes, changements de format et indisponibilites fines."),
                     ("Fournisseurs", "stock/capacite/delai modelises", "Les contrats, MOQ reels, allocations et arbitrages fournisseurs restent a valider."),
-                    ("Couts", "achats reels + couts logistiques hypotheses", "Transport, stockage et urgence restent parametrables tant que les couts industriels reels ne sont pas fournis."),
+                    ("Couts", "achats reels + production proxy + couts logistiques hypotheses", "La production est un proxy de cout de conversion pharma alloue sur volumes reels; transport, stockage et urgence restent parametrables tant que les couts industriels reels ne sont pas fournis."),
                 ]
             ),
         ),
@@ -7538,7 +7684,7 @@ def build_model_panel_metrics(
                 metric_label_value("Optimisation", "Ce n'est pas un solveur APS global: les decisions sont calculees par regles MRP et simulation chronologique jour apres jour."),
                 metric_label_value("Calendrier industriel", "Les campagnes et lots sont modelises, mais pas encore un calendrier atelier complet avec equipes, changements de format et disponibilites machines fines."),
                 metric_label_value("Fournisseurs", "Les fournisseurs sont modelises comme stocks/capacites/delais; les contrats, MOQ reels, allocations et arbitrages fournisseurs restent a valider."),
-                metric_label_value("Couts", "Les achats viennent des prix matieres; transport, stockage et urgence restent des hypotheses tant que les couts industriels reels ne sont pas fournis."),
+                metric_label_value("Couts", "Les achats viennent des prix matieres; la production est un proxy de cout de conversion pharma; transport, stockage et urgence restent parametrables tant que les couts industriels reels ne sont pas fournis."),
                 metric_section("Trace MRP explicite"),
                 metric_multiline_value(
                     "Besoin brut / besoin net / StockProj / RecvPrev / OA",
@@ -9726,7 +9872,7 @@ def html_template(
       display: block;
     }}
     #factoryHoverPanel.hoverPreview {{
-      pointer-events: none;
+      pointer-events: auto;
     }}
     .panelHeader {{
       display: flex;
@@ -9779,8 +9925,10 @@ def html_template(
     }}
     .factoryHoverGrid {{
       display: grid;
-      grid-template-columns: 1fr;
+      grid-template-columns: minmax(0, 1fr);
       gap: 10px;
+      min-width: 0;
+      max-width: 100%;
     }}
     .panelMeta {{
       border: 1px solid #e2e8f0;
@@ -9822,8 +9970,33 @@ def html_template(
       overflow-wrap: anywhere;
       min-width: 0;
     }}
+    .panelMetaRow.multiline {{
+      grid-column: 1 / span 2;
+      display: block;
+      min-width: 0;
+    }}
+    .panelMetaRow.multiline .panelMetaLabel {{
+      margin-bottom: 4px;
+      color: #0f172a;
+      font-weight: 700;
+    }}
+    .panelMetaRow.multiline .panelMetaValue {{
+      display: block;
+      max-width: 100%;
+      overflow-x: scroll;
+      overflow-y: hidden;
+      padding-bottom: 4px;
+      text-align: left;
+      white-space: pre;
+      overflow-wrap: normal;
+      scrollbar-gutter: stable both-edges;
+      font-family: Consolas, "Courier New", monospace;
+      font-weight: 500;
+    }}
     .factoryPlotBlock {{
       display: block;
+      min-width: 0;
+      max-width: 100%;
     }}
     .factoryPlotLabel {{
       font-size: 11px;
@@ -10040,11 +10213,14 @@ def html_template(
     .factoryPlotFigure {{
       display: none;
       width: 100%;
+      max-width: 100%;
       height: 380px;
       border: 1px solid #e2e8f0;
       border-radius: 8px;
       background: #fff;
       overflow: hidden;
+      box-sizing: border-box;
+      min-width: 0;
     }}
     .factoryPlotFigure .plot-container,
     .factoryPlotFigure .svg-container {{
@@ -10066,6 +10242,16 @@ def html_template(
     }}
     .factoryPlotFigure.factoryHtmlPanel {{
       overflow: hidden;
+    }}
+    .factoryPlotFigure.factoryOrderLedgerPanel {{
+      height: auto;
+      min-height: 320px;
+      overflow: hidden;
+    }}
+    .factoryPlotFigure.factoryOrderLedgerPanel .factoryHtmlPanelContent {{
+      height: auto;
+      min-height: 320px;
+      max-width: 100%;
     }}
     .jsonPanelContent {{
       min-height: 100%;
@@ -10423,7 +10609,9 @@ def html_template(
       display: flex;
       flex-direction: column;
       height: 100%;
+      width: 100%;
       min-height: 0;
+      min-width: 0;
       background: #ffffff;
     }}
     .panelEmptyState {{
@@ -10445,17 +10633,38 @@ def html_template(
       font-weight: 600;
       flex: 0 0 auto;
     }}
+    .orderLedgerFrame {{
+      flex: 0 0 auto;
+      min-width: 0;
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
+      border-top: 1px solid #e2e8f0;
+      background: #ffffff;
+      overflow: hidden;
+    }}
     .orderLedgerTableWrap {{
-      flex: 1 1 auto;
-      min-height: 0;
+      min-height: 128px;
+      max-height: 260px;
+      min-width: 0;
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
       overflow-y: auto;
       overflow-x: auto;
-      scrollbar-gutter: stable;
+      overscroll-behavior: contain;
+      scrollbar-gutter: stable both-edges;
     }}
     .orderLedgerTable {{
-      width: 100%;
+      width: 1805px;
+      min-width: 1805px;
       border-collapse: collapse;
       font-size: 11px;
+      table-layout: fixed;
+    }}
+    .orderLedgerWideTable {{
+      min-width: 1805px;
+      max-width: none;
     }}
     .orderLedgerTable th,
     .orderLedgerTable td {{
@@ -10464,6 +10673,8 @@ def html_template(
       text-align: left;
       vertical-align: top;
       white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }}
     .orderLedgerTable thead th {{
       position: sticky;
@@ -10475,6 +10686,13 @@ def html_template(
     .orderLedgerTable .num {{
       text-align: right;
       font-variant-numeric: tabular-nums;
+    }}
+    .orderLedgerSliceSeparator td {{
+      background: #f1f5f9;
+      color: #334155;
+      font-weight: 800;
+      text-align: center;
+      white-space: normal;
     }}
     .orderLedgerTextHeader {{
       padding: 16px 16px 8px;
@@ -10488,6 +10706,13 @@ def html_template(
       color: #475569;
       font-size: 12px;
       flex: 0 0 auto;
+      min-width: 0;
+      max-width: 100%;
+      box-sizing: border-box;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+      white-space: normal;
+      line-height: 1.35;
     }}
     .orderLedgerSectionTitle {{
       padding: 10px 16px 4px;
@@ -10499,6 +10724,10 @@ def html_template(
     .orderLedgerTextWrap {{
       flex: 1 1 auto;
       min-height: 0;
+      min-width: 0;
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
       overflow-y: scroll;
       overflow-x: auto;
       padding: 0 16px 16px;
@@ -10506,6 +10735,9 @@ def html_template(
     }}
     .orderLedgerLines {{
       margin: 0;
+      display: block;
+      width: max-content;
+      min-width: 100%;
       color: #475569;
       font-size: 11px;
       line-height: 1.55;
@@ -10707,6 +10939,8 @@ def html_template(
     let pendingPanelPlotRenderToken = 0;
     let lastFactoryPanelRenderKey = "";
     let hoverHandlersBound = false;
+    let panelPointerInside = false;
+    let hoverClearTimeout = null;
     const panelBundleSelection = {{}};
     let selectedYearStart = 1;
     let selectedYearEnd = 1;
@@ -11596,6 +11830,31 @@ def html_template(
       }}
     }}
 
+    function appendPanelMetaEntry(metaGrid, entry) {{
+      const row = document.createElement("div");
+      row.className = "panelMetaRow";
+      const label = document.createElement("div");
+      label.className = "panelMetaLabel";
+      label.textContent = (entry && entry.label) || "";
+      const value = document.createElement("div");
+      value.className = "panelMetaValue";
+      const rawValue = (entry && entry.value !== undefined && entry.value !== null)
+        ? String(entry.value)
+        : "";
+      value.textContent = rawValue;
+      if (!rawValue) {{
+        row.style.gridColumn = "1 / span 2";
+        label.style.fontWeight = "700";
+        label.style.color = "#0f172a";
+        value.style.display = "none";
+      }} else if (rawValue.includes("\\n") || rawValue.length > 120) {{
+        row.classList.add("multiline");
+      }}
+      row.appendChild(label);
+      row.appendChild(value);
+      metaGrid.appendChild(row);
+    }}
+
     function renderPanelMeta(nodeId, nodeType) {{
       const metaBlock = document.getElementById("panelMeta");
       const metaTitle = document.getElementById("panelMetaTitle");
@@ -11611,25 +11870,7 @@ def html_template(
           return false;
         }}
         metaTitle.textContent = (details && details.title) || "Donnees";
-        lines.forEach((entry) => {{
-          const row = document.createElement("div");
-          row.className = "panelMetaRow";
-          const label = document.createElement("div");
-          label.className = "panelMetaLabel";
-          label.textContent = entry.label || "";
-          const value = document.createElement("div");
-          value.className = "panelMetaValue";
-          value.textContent = entry.value || "";
-          if (!entry.value) {{
-            row.style.gridColumn = "1 / span 2";
-            label.style.fontWeight = "700";
-            label.style.color = "#0f172a";
-            value.style.display = "none";
-          }}
-          row.appendChild(label);
-          row.appendChild(value);
-          metaGrid.appendChild(row);
-        }});
+        lines.forEach((entry) => appendPanelMetaEntry(metaGrid, entry));
         metaBlock.style.display = "block";
         return true;
       }}
@@ -11643,25 +11884,7 @@ def html_template(
           return false;
         }}
         metaTitle.textContent = (details && details.title) || "JSON";
-        lines.forEach((entry) => {{
-          const row = document.createElement("div");
-          row.className = "panelMetaRow";
-          const label = document.createElement("div");
-          label.className = "panelMetaLabel";
-          label.textContent = entry.label || "";
-          const value = document.createElement("div");
-          value.className = "panelMetaValue";
-          value.textContent = entry.value || "";
-          if (!entry.value) {{
-            row.style.gridColumn = "1 / span 2";
-            label.style.fontWeight = "700";
-            label.style.color = "#0f172a";
-            value.style.display = "none";
-          }}
-          row.appendChild(label);
-          row.appendChild(value);
-          metaGrid.appendChild(row);
-        }});
+        lines.forEach((entry) => appendPanelMetaEntry(metaGrid, entry));
         metaBlock.style.display = "block";
         return true;
       }}
@@ -11675,25 +11898,7 @@ def html_template(
           return false;
         }}
         metaTitle.textContent = (details && details.title) || "Modele";
-        lines.forEach((entry) => {{
-          const row = document.createElement("div");
-          row.className = "panelMetaRow";
-          const label = document.createElement("div");
-          label.className = "panelMetaLabel";
-          label.textContent = entry.label || "";
-          const value = document.createElement("div");
-          value.className = "panelMetaValue";
-          value.textContent = entry.value || "";
-          if (!entry.value) {{
-            row.style.gridColumn = "1 / span 2";
-            label.style.fontWeight = "700";
-            label.style.color = "#0f172a";
-            value.style.display = "none";
-          }}
-          row.appendChild(label);
-          row.appendChild(value);
-          metaGrid.appendChild(row);
-        }});
+        lines.forEach((entry) => appendPanelMetaEntry(metaGrid, entry));
         metaBlock.style.display = "block";
         return true;
       }}
@@ -11721,25 +11926,7 @@ def html_template(
           entries.push({{ label: "Analyse locale", value: "" }});
           realisticLines.forEach((entry) => entries.push(entry));
         }}
-        entries.forEach((entry) => {{
-          const row = document.createElement("div");
-          row.className = "panelMetaRow";
-          const label = document.createElement("div");
-          label.className = "panelMetaLabel";
-          label.textContent = entry.label || "";
-          const value = document.createElement("div");
-          value.className = "panelMetaValue";
-          value.textContent = entry.value || "";
-          if (!entry.value) {{
-            row.style.gridColumn = "1 / span 2";
-            label.style.fontWeight = "700";
-            label.style.color = "#0f172a";
-            value.style.display = "none";
-          }}
-          row.appendChild(label);
-          row.appendChild(value);
-          metaGrid.appendChild(row);
-        }});
+        entries.forEach((entry) => appendPanelMetaEntry(metaGrid, entry));
         metaBlock.style.display = "block";
         return true;
       }}
@@ -11771,19 +11958,7 @@ def html_template(
           {{ label: "Lignes d'expedition", value: `${{edgeMetrics.shipment_rows}}` }},
           {{ label: "Quantites distinctes", value: `${{edgeMetrics.distinct_shipped_qty}}` }},
         ];
-        edgeSummary.forEach((entry) => {{
-          const row = document.createElement("div");
-          row.className = "panelMetaRow";
-          const label = document.createElement("div");
-          label.className = "panelMetaLabel";
-          label.textContent = entry.label || "";
-          const value = document.createElement("div");
-          value.className = "panelMetaValue";
-          value.textContent = entry.value || "";
-          row.appendChild(label);
-          row.appendChild(value);
-          metaGrid.appendChild(row);
-        }});
+        edgeSummary.forEach((entry) => appendPanelMetaEntry(metaGrid, entry));
         metaBlock.style.display = "block";
         return true;
       }}
@@ -11797,19 +11972,7 @@ def html_template(
       metaTitle.textContent = nodeType === "customer"
         ? "Demande client courante"
         : (isFactoryLikeNode(nodeId, nodeType) ? "Performance industrielle courante" : "Synthese fournisseur");
-      summaryLines.forEach((entry) => {{
-        const row = document.createElement("div");
-        row.className = "panelMetaRow";
-        const label = document.createElement("div");
-        label.className = "panelMetaLabel";
-        label.textContent = entry.label || "";
-        const value = document.createElement("div");
-        value.className = "panelMetaValue";
-        value.textContent = entry.value || "";
-        row.appendChild(label);
-        row.appendChild(value);
-        metaGrid.appendChild(row);
-      }});
+      summaryLines.forEach((entry) => appendPanelMetaEntry(metaGrid, entry));
       metaBlock.style.display = "block";
       return true;
     }}
@@ -12517,6 +12680,13 @@ def html_template(
 
       const plotRenderJobs = [];
 
+      function runQueuedPanelPlotRenderJobs() {{
+        const jobs = plotRenderJobs.splice(0, plotRenderJobs.length);
+        jobs.forEach((renderJob) => {{
+          try {{ renderJob(); }} catch (e) {{}}
+        }});
+      }}
+
       function renderAsset(asset, imgEl, figureEl, tabsEl, bundleKey) {{
         function purgePlotlyNode(node) {{
           if (!window.Plotly || !node) return;
@@ -12556,6 +12726,7 @@ def html_template(
         figureEl.innerHTML = "";
         figureEl.style.display = "none";
         figureEl.classList.remove("factoryHtmlPanel");
+        figureEl.classList.remove("factoryOrderLedgerPanel");
         figureEl.classList.remove("factoryKpiTreePanel");
         figureEl.classList.remove("factoryFigureStackContainer");
         if (tabsEl) {{
@@ -12588,6 +12759,10 @@ def html_template(
               btn.onclick = () => {{
                 panelBundleSelection[selectionKey] = idx;
                 renderAsset(asset, imgEl, figureEl, tabsEl, selectionKey);
+                requestAnimationFrame(() => {{
+                  placeAndResizeFactoryPanel();
+                  requestAnimationFrame(runQueuedPanelPlotRenderJobs);
+                }});
               }};
               tabsEl.appendChild(btn);
             }});
@@ -12603,6 +12778,9 @@ def html_template(
           figureEl.style.display = "block";
           figureEl.classList.add("factoryHtmlPanel");
           figureEl.innerHTML = asset.html;
+          if (figureEl.querySelector(".orderLedgerPanelContent")) {{
+            figureEl.classList.add("factoryOrderLedgerPanel");
+          }}
           return true;
         }}
         if (asset.kind === "kpi_tree") {{
@@ -12678,9 +12856,7 @@ def html_template(
         requestAnimationFrame(() => {{
           if (panelRenderToken !== pendingPanelPlotRenderToken) return;
           if (!panel.classList.contains("visible")) return;
-          plotRenderJobs.forEach((renderJob) => {{
-            try {{ renderJob(); }} catch (e) {{}}
-          }});
+          runQueuedPanelPlotRenderJobs();
         }});
       }});
     }}
@@ -12689,6 +12865,10 @@ def html_template(
       if (hoverHandlersBound) return;
       const gd = document.getElementById("chart");
       gd.on("plotly_hover", (ev) => {{
+        if (hoverClearTimeout) {{
+          clearTimeout(hoverClearTimeout);
+          hoverClearTimeout = null;
+        }}
         const p = selectablePointFromEvent(ev);
         if (!p) {{
           currentHoveredPanelId = null;
@@ -12712,9 +12892,14 @@ def html_template(
         refreshFactoryPanel();
       }});
       gd.on("plotly_unhover", () => {{
-        currentHoveredPanelId = null;
-        currentHoveredPanelType = null;
-        refreshFactoryPanel();
+        if (hoverClearTimeout) clearTimeout(hoverClearTimeout);
+        hoverClearTimeout = setTimeout(() => {{
+          hoverClearTimeout = null;
+          if (panelPointerInside || selectedPanelNodeId) return;
+          currentHoveredPanelId = null;
+          currentHoveredPanelType = null;
+          refreshFactoryPanel();
+        }}, 180);
       }});
       gd.on("plotly_click", (ev) => {{
         const p = selectablePointFromEvent(ev);
@@ -13093,6 +13278,22 @@ def html_template(
       document.getElementById("modeJson").addEventListener("click", () => setPanelMode("json"));
       document.getElementById("modeSensitivity").addEventListener("click", () => setPanelMode("sensitivity"));
       document.getElementById("modeStructural").addEventListener("click", () => setPanelMode("structural"));
+      const hoverPanel = document.getElementById("factoryHoverPanel");
+      hoverPanel.addEventListener("mouseenter", () => {{
+        panelPointerInside = true;
+        if (hoverClearTimeout) {{
+          clearTimeout(hoverClearTimeout);
+          hoverClearTimeout = null;
+        }}
+      }});
+      hoverPanel.addEventListener("mouseleave", () => {{
+        panelPointerInside = false;
+        if (!selectedPanelNodeId) {{
+          currentHoveredPanelId = null;
+          currentHoveredPanelType = null;
+          refreshFactoryPanel();
+        }}
+      }});
       document.getElementById("yearStart").addEventListener("input", (ev) => {{
         selectedYearStart = Number(ev.target.value || 1);
         if (selectedYearStart > selectedYearEnd) {{
