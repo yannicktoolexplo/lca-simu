@@ -8,6 +8,8 @@
   "policy": {
     "safety_stock_days": 7.0,
     "review_period_days": 1,
+    "mrp_review_period_days": 1,
+    "mrp_target_bucket_days": 1,
     "fg_target_days": 0.0,
     "demand_stock_target_days": 14.0,
     "production_gap_gain": 0.25,
@@ -80,6 +82,19 @@
       "inventory_risk_cost_share_of_raw_holding": 0.2,
       "transport_cost_realism_multiplier": 0.2,
       "purchase_cost_realism_multiplier": 1.0,
+      "production_cost_enabled": true,
+      "production_cost_target_share_of_total": 0.3,
+      "production_cost_basis": "pharma_standard_target_share_allocated_on_actual_production",
+      "production_cost_line_shares": {
+        "M-1430|item:268967": 0.4,
+        "M-1810|item:268091": 0.45,
+        "SDC-1450|item:773474": 0.15
+      },
+      "production_cost_line_profiles": {
+        "M-1430|item:268967": "medicament_gelule",
+        "M-1810|item:268091": "creme_dermato",
+        "SDC-1450|item:773474": "semi_fini_extraction"
+      },
       "external_procurement_enabled": true,
       "external_procurement_proactive_replenishment": true,
       "external_procurement_lead_days": 4,
@@ -5877,7 +5892,36 @@
       "lanes_with_zero_purchase_cost": 6,
       "lanes_with_explicit_transport_cost": 39,
       "lanes_with_fallback_transport_cost": 0
-    }
+    },
+    "production_cost_allocation": [
+      {
+        "node_id": "M-1430",
+        "item_id": "item:268967",
+        "profile": "medicament_gelule",
+        "produced_qty": 7114800.0,
+        "cost_share_of_production": 0.4,
+        "production_cost": 7369938.497,
+        "allocation_basis": "pharma_standard_target_share_allocated_on_actual_production"
+      },
+      {
+        "node_id": "M-1810",
+        "item_id": "item:268091",
+        "profile": "creme_dermato",
+        "produced_qty": 16012800.0,
+        "cost_share_of_production": 0.45,
+        "production_cost": 8291180.8091,
+        "allocation_basis": "pharma_standard_target_share_allocated_on_actual_production"
+      },
+      {
+        "node_id": "SDC-1450",
+        "item_id": "item:773474",
+        "profile": "semi_fini_extraction",
+        "produced_qty": 83200000.0,
+        "cost_share_of_production": 0.15,
+        "production_cost": 2763726.9364,
+        "allocation_basis": "pharma_standard_target_share_allocated_on_actual_production"
+      }
+    ]
   },
   "kpis": {
     "total_demand": 25762139.9999,
@@ -5898,8 +5942,9 @@
     "total_inventory_risk_cost": 4358774.4297,
     "total_inventory_cost_legacy_raw_holding": 21793872.1485,
     "total_purchase_cost": 15658602.9973,
+    "total_production_cost": 18424846.2425,
     "total_logistics_cost": 27332704.9018,
-    "total_cost": 42991307.8991,
+    "total_cost": 61416154.1416,
     "total_external_procured_ordered_qty": 338885789.8898,
     "total_external_procured_arrived_qty": 338178005.3397,
     "total_external_procured_rejected_qty": 0.0,
@@ -5914,11 +5959,12 @@
     "total_opening_open_order_qty": 68338188.0,
     "total_unreliable_loss_qty": 0.0,
     "total_supplier_capacity_binding_qty": 0.0,
-    "cost_share_holding": 0.177428,
-    "cost_share_warehouse_operating": 0.228122,
-    "cost_share_inventory_risk": 0.101387,
-    "cost_share_transport": 0.128836,
-    "cost_share_purchase": 0.364227
+    "cost_share_holding": 0.124199,
+    "cost_share_warehouse_operating": 0.159685,
+    "cost_share_inventory_risk": 0.070971,
+    "cost_share_transport": 0.090185,
+    "cost_share_purchase": 0.254959,
+    "cost_share_production": 0.3
   },
   "economic_consistency": {
     "status": "ok",

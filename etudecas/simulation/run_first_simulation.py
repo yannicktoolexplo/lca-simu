@@ -2319,6 +2319,38 @@ def main() -> None:
         or "erlang"
     )
     economic_policy_cfg = scenario_policy_dict(scenario, "economic_policy")
+    production_cost_target_share = to_float(
+        economic_policy_cfg.get("production_cost_target_share_of_total"),
+        0.30,
+    )
+    if production_cost_target_share > 1.0:
+        production_cost_target_share /= 100.0
+    production_cost_target_share = max(0.0, min(0.80, production_cost_target_share))
+    default_production_cost_line_shares = {
+        policy_pair_key("M-1430", "item:268967"): 0.40,  # medicament gelule
+        policy_pair_key("M-1810", "item:268091"): 0.45,  # creme dermato
+        policy_pair_key("SDC-1450", "item:773474"): 0.15,  # semi-fini / extraction
+    }
+    default_production_cost_line_profiles = {
+        policy_pair_key("M-1430", "item:268967"): "medicament_gelule",
+        policy_pair_key("M-1810", "item:268091"): "creme_dermato",
+        policy_pair_key("SDC-1450", "item:773474"): "semi_fini_extraction",
+    }
+    raw_production_cost_line_shares = economic_policy_cfg.get("production_cost_line_shares")
+    production_cost_line_shares = dict(default_production_cost_line_shares)
+    if isinstance(raw_production_cost_line_shares, dict):
+        for raw_key, raw_value in raw_production_cost_line_shares.items():
+            share = to_float(raw_value, float("nan"))
+            if not math.isfinite(share):
+                continue
+            if share > 1.0:
+                share /= 100.0
+            production_cost_line_shares[str(raw_key).strip()] = max(0.0, share)
+    raw_production_cost_line_profiles = economic_policy_cfg.get("production_cost_line_profiles")
+    production_cost_line_profiles = dict(default_production_cost_line_profiles)
+    if isinstance(raw_production_cost_line_profiles, dict):
+        for raw_key, raw_value in raw_production_cost_line_profiles.items():
+            production_cost_line_profiles[str(raw_key).strip()] = str(raw_value or "").strip() or "production"
     unmodeled_supplier_source_mode = str(scenario.get("unmodeled_supplier_source_mode", "external_procurement")).strip().lower()
     if unmodeled_supplier_source_mode not in {
         "external_procurement",
@@ -2366,6 +2398,19 @@ def main() -> None:
             0.1,
             to_float(economic_policy_cfg.get("purchase_cost_realism_multiplier"), 1.0),
         ),
+        "production_cost_enabled": (
+            economic_policy_cfg.get("production_cost_enabled")
+            if isinstance(economic_policy_cfg.get("production_cost_enabled"), bool)
+            else str(economic_policy_cfg.get("production_cost_enabled", True)).strip().lower()
+            in {"1", "true", "yes", "y", "on"}
+        ),
+        "production_cost_target_share_of_total": production_cost_target_share,
+        "production_cost_basis": str(
+            economic_policy_cfg.get("production_cost_basis")
+            or "pharma_standard_target_share_allocated_on_actual_production"
+        ),
+        "production_cost_line_shares": production_cost_line_shares,
+        "production_cost_line_profiles": production_cost_line_profiles,
         "external_procurement_enabled": (
             economic_policy_cfg.get("external_procurement_enabled")
             if isinstance(economic_policy_cfg.get("external_procurement_enabled"), bool)
@@ -2640,6 +2685,7 @@ def main() -> None:
     total_external_procured_rejected = 0.0
     total_unreliable_loss_qty = 0.0
     total_purchase_cost = 0.0
+    total_production_cost = 0.0
     total_external_procurement_cost = 0.0
     total_estimated_source_replenished = 0.0
     total_estimated_source_ordered = 0.0
@@ -2658,6 +2704,7 @@ def main() -> None:
     production_constraint_rows: list[dict[str, Any]] = []
     mrp_trace_rows: list[dict[str, Any]] = []
     mrp_order_rows: list[dict[str, Any]] = []
+    production_cost_qty_by_day_pair: dict[tuple[int, str, str], float] = defaultdict(float)
 
     production_input_pairs: list[tuple[str, str]] = []
     production_output_pairs: list[tuple[str, str]] = []
@@ -3629,6 +3676,8 @@ def main() -> None:
             for node_id, item_id in production_output_pairs:
                 q = produced_today_by_pair[(node_id, item_id)]
                 cum_output_by_pair[(node_id, item_id)] += q
+                if q > 1e-9:
+                    production_cost_qty_by_day_pair[(output_day, node_id, item_id)] += q
                 output_prod_rows.append(
                     {
                         "day": output_day,
@@ -4448,6 +4497,119 @@ def main() -> None:
     fill_rate = (total_served / measured_required_total) if measured_required_total > 0 else 1.0
     avg_inventory = sum(r["inventory_total"] for r in daily_rows) / len(daily_rows) if daily_rows else 0.0
 
+    production_qty_by_pair: dict[tuple[str, str], float] = defaultdict(float)
+    production_qty_by_pair_day: dict[tuple[str, str], dict[int, float]] = defaultdict(lambda: defaultdict(float))
+    for (day_idx, node_id, item_id), qty in production_cost_qty_by_day_pair.items():
+        if qty <= 1e-9:
+            continue
+        pair = (node_id, item_id)
+        production_qty_by_pair[pair] += qty
+        production_qty_by_pair_day[pair][int(day_idx)] += qty
+
+    production_cost_by_day: dict[int, float] = defaultdict(float)
+    production_cost_line_rows: list[dict[str, Any]] = []
+    cost_without_production = (
+        total_transport_cost
+        + total_holding_cost
+        + total_warehouse_operating_cost
+        + total_inventory_risk_cost
+        + total_purchase_cost
+    )
+    if (
+        economic_policy["production_cost_enabled"]
+        and economic_policy["production_cost_target_share_of_total"] > 1e-9
+        and cost_without_production > 1e-9
+        and production_qty_by_pair
+    ):
+        target_share = economic_policy["production_cost_target_share_of_total"]
+        target_production_cost = cost_without_production * target_share / max(1e-12, 1.0 - target_share)
+        active_pairs = sorted(production_qty_by_pair)
+        raw_line_shares = {
+            pair: max(0.0, to_float(economic_policy["production_cost_line_shares"].get(policy_pair_key(pair[0], pair[1])), 0.0))
+            for pair in active_pairs
+        }
+        configured_share_total = sum(raw_line_shares.values())
+        unconfigured_pairs = [pair for pair in active_pairs if raw_line_shares.get(pair, 0.0) <= 1e-9]
+        line_share_by_pair: dict[tuple[str, str], float] = {}
+        if configured_share_total > 1e-9:
+            if unconfigured_pairs and configured_share_total < 1.0:
+                remaining_share = max(0.0, 1.0 - configured_share_total)
+
+                def production_volume_weight(pair: tuple[str, str]) -> float:
+                    qty = production_qty_by_pair.get(pair, 0.0)
+                    uom = normalize_unit(item_unit_map.get(pair[1], ""))
+                    return qty / 1000.0 if uom == "G" else qty
+
+                unconfigured_weight_total = sum(production_volume_weight(pair) for pair in unconfigured_pairs)
+                for pair in active_pairs:
+                    if raw_line_shares.get(pair, 0.0) > 1e-9:
+                        line_share_by_pair[pair] = raw_line_shares[pair]
+                    elif unconfigured_weight_total > 1e-9:
+                        line_share_by_pair[pair] = remaining_share * production_volume_weight(pair) / unconfigured_weight_total
+                    else:
+                        line_share_by_pair[pair] = remaining_share / float(len(unconfigured_pairs))
+            else:
+                line_share_by_pair = {
+                    pair: raw_line_shares[pair] / configured_share_total
+                    for pair in active_pairs
+                    if raw_line_shares[pair] > 1e-9
+                }
+        else:
+            weighted_qty_by_pair: dict[tuple[str, str], float] = {}
+            for pair in active_pairs:
+                qty = production_qty_by_pair.get(pair, 0.0)
+                uom = normalize_unit(item_unit_map.get(pair[1], ""))
+                weighted_qty_by_pair[pair] = qty / 1000.0 if uom == "G" else qty
+            weighted_total = sum(weighted_qty_by_pair.values())
+            line_share_by_pair = {
+                pair: (weighted_qty_by_pair[pair] / weighted_total if weighted_total > 1e-9 else 1.0 / float(len(active_pairs)))
+                for pair in active_pairs
+            }
+
+        normalized_share_total = sum(line_share_by_pair.values())
+        if normalized_share_total > 1e-9:
+            line_share_by_pair = {pair: share / normalized_share_total for pair, share in line_share_by_pair.items()}
+
+        for pair in active_pairs:
+            pair_qty_total = production_qty_by_pair.get(pair, 0.0)
+            pair_share = max(0.0, line_share_by_pair.get(pair, 0.0))
+            pair_cost = target_production_cost * pair_share
+            if pair_qty_total > 1e-9 and pair_cost > 1e-9:
+                for day_idx, qty in production_qty_by_pair_day[pair].items():
+                    production_cost_by_day[int(day_idx)] += pair_cost * qty / pair_qty_total
+            profile = str(
+                economic_policy["production_cost_line_profiles"].get(policy_pair_key(pair[0], pair[1]))
+                or "production"
+            )
+            production_cost_line_rows.append(
+                {
+                    "node_id": pair[0],
+                    "item_id": pair[1],
+                    "profile": profile,
+                    "produced_qty": round(pair_qty_total, 6),
+                    "cost_share_of_production": round(pair_share, 6),
+                    "production_cost": round(pair_cost, 4),
+                    "allocation_basis": economic_policy["production_cost_basis"],
+                }
+            )
+
+    total_production_cost = sum(production_cost_by_day.values())
+    for row in daily_rows:
+        day_idx = int(to_float(row.get("day"), 0.0))
+        production_cost_day = max(0.0, production_cost_by_day.get(day_idx, 0.0))
+        operational_purchase = max(0.0, to_float(row.get("operational_purchase_cost_day"), row.get("purchase_cost_day", 0.0)))
+        operational_transport = max(0.0, to_float(row.get("operational_transport_cost_day"), row.get("transport_cost_day", 0.0)))
+        inventory_cost_day = (
+            max(0.0, to_float(row.get("holding_cost_day"), 0.0))
+            + max(0.0, to_float(row.get("warehouse_operating_cost_day"), 0.0))
+            + max(0.0, to_float(row.get("inventory_risk_cost_day"), 0.0))
+        )
+        row["production_cost_day"] = round(production_cost_day, 4)
+        row["total_supply_cost_day"] = round(
+            operational_purchase + operational_transport + inventory_cost_day + production_cost_day,
+            4,
+        )
+
     top_backlog = sorted(
         [
             {"node_id": pair[0], "item_id": pair[1], "backlog": round(val, 4)}
@@ -4462,12 +4624,13 @@ def main() -> None:
         + total_warehouse_operating_cost
         + total_inventory_risk_cost
     )
-    total_cost = total_logistics_cost + total_purchase_cost
+    total_cost = total_logistics_cost + total_purchase_cost + total_production_cost
     holding_share = total_holding_cost / max(1e-12, total_cost)
     warehouse_share = total_warehouse_operating_cost / max(1e-12, total_cost)
     inventory_risk_share = total_inventory_risk_cost / max(1e-12, total_cost)
     transport_share = total_transport_cost / max(1e-12, total_cost)
     purchase_share = total_purchase_cost / max(1e-12, total_cost)
+    production_share = total_production_cost / max(1e-12, total_cost)
     economic_warnings: list[str] = []
     if holding_share > 0.60:
         economic_warnings.append("capital_holding_cost_share_above_60pct")
@@ -4698,6 +4861,19 @@ def main() -> None:
                 ),
                 "transport_cost_realism_multiplier": economic_policy["transport_cost_realism_multiplier"],
                 "purchase_cost_realism_multiplier": economic_policy["purchase_cost_realism_multiplier"],
+                "production_cost_enabled": economic_policy["production_cost_enabled"],
+                "production_cost_target_share_of_total": round(
+                    economic_policy["production_cost_target_share_of_total"],
+                    6,
+                ),
+                "production_cost_basis": economic_policy["production_cost_basis"],
+                "production_cost_line_shares": {
+                    key: round(max(0.0, to_float(value, 0.0)), 6)
+                    for key, value in sorted(economic_policy["production_cost_line_shares"].items())
+                },
+                "production_cost_line_profiles": dict(
+                    sorted(economic_policy["production_cost_line_profiles"].items())
+                ),
                 "external_procurement_enabled": economic_policy["external_procurement_enabled"],
                 "external_procurement_proactive_replenishment": economic_policy[
                     "external_procurement_proactive_replenishment"
@@ -4813,6 +4989,7 @@ def main() -> None:
                 "lanes_with_explicit_transport_cost": lanes_with_explicit_transport_cost,
                 "lanes_with_fallback_transport_cost": lanes_with_fallback_transport_cost,
             },
+            "production_cost_allocation": production_cost_line_rows,
         },
         "kpis": {
             "total_demand": round(total_demand, 4),
@@ -4833,6 +5010,7 @@ def main() -> None:
             "total_inventory_risk_cost": round(total_inventory_risk_cost, 4),
             "total_inventory_cost_legacy_raw_holding": round(total_legacy_raw_holding_cost, 4),
             "total_purchase_cost": round(total_purchase_cost, 4),
+            "total_production_cost": round(total_production_cost, 4),
             "total_logistics_cost": round(total_logistics_cost, 4),
             "total_cost": round(total_cost, 4),
             "total_external_procured_ordered_qty": round(total_external_procured, 4),
@@ -4854,6 +5032,7 @@ def main() -> None:
             "cost_share_inventory_risk": round(inventory_risk_share, 6),
             "cost_share_transport": round(transport_share, 6),
             "cost_share_purchase": round(purchase_share, 6),
+            "cost_share_production": round(production_share, 6),
         },
         "economic_consistency": {
             "status": "warn" if economic_warnings else "ok",
@@ -5555,6 +5734,9 @@ def main() -> None:
 - Holding cost scale: {summary['policy']['economic_policy']['holding_cost_scale']}
 - Inventory cost split capital / warehouse / risk: {summary['policy']['economic_policy']['inventory_capital_cost_share_of_raw_holding']} / {summary['policy']['economic_policy']['warehouse_operating_cost_share_of_raw_holding']} / {summary['policy']['economic_policy']['inventory_risk_cost_share_of_raw_holding']}
 - Transport / purchase realism multipliers: {summary['policy']['economic_policy']['transport_cost_realism_multiplier']} / {summary['policy']['economic_policy']['purchase_cost_realism_multiplier']}
+- Production cost enabled / target share: {summary['policy']['economic_policy']['production_cost_enabled']} / {summary['policy']['economic_policy']['production_cost_target_share_of_total']}
+- Production cost basis: {summary['policy']['economic_policy']['production_cost_basis']}
+- Production cost line shares: {summary['policy']['economic_policy']['production_cost_line_shares']}
 - External procurement enabled: {summary['policy']['economic_policy']['external_procurement_enabled']}
 - External procurement proactive supplier replenishment: {summary['policy']['economic_policy']['external_procurement_proactive_replenishment']}
 - External procurement lead days: {summary['policy']['economic_policy']['external_procurement_lead_days']}
@@ -5592,6 +5774,7 @@ def main() -> None:
 - Inventory risk cost (obsolescence/compliance proxy): {summary['kpis']['total_inventory_risk_cost']}
 - Legacy raw holding cost before split: {summary['kpis']['total_inventory_cost_legacy_raw_holding']}
 - Purchase cost (from order_terms sell_price): {summary['kpis']['total_purchase_cost']}
+- Production cost (pharma conversion proxy): {summary['kpis']['total_production_cost']}
 - Logistics cost (transport + inventory capital + warehouse + inventory risk): {summary['kpis']['total_logistics_cost']}
 - Total cost: {summary['kpis']['total_cost']}
 - Total external procured ordered qty: {summary['kpis']['total_external_procured_ordered_qty']}
@@ -5601,7 +5784,7 @@ def main() -> None:
 - Total estimated source ordered qty: {summary['kpis']['total_estimated_source_ordered_qty']}
 - Total estimated source replenished qty: {summary['kpis']['total_estimated_source_replenished_qty']}
 - Total estimated source rejected qty: {summary['kpis']['total_estimated_source_rejected_qty']}
-- Cost share capital holding / warehouse / inventory risk / transport / purchase: {summary['kpis']['cost_share_holding']} / {summary['kpis']['cost_share_warehouse_operating']} / {summary['kpis']['cost_share_inventory_risk']} / {summary['kpis']['cost_share_transport']} / {summary['kpis']['cost_share_purchase']}
+- Cost share capital holding / warehouse / inventory risk / transport / purchase / production: {summary['kpis']['cost_share_holding']} / {summary['kpis']['cost_share_warehouse_operating']} / {summary['kpis']['cost_share_inventory_risk']} / {summary['kpis']['cost_share_transport']} / {summary['kpis']['cost_share_purchase']} / {summary['kpis']['cost_share_production']}
 - Total opening stock bootstrap qty: {summary['kpis']['total_opening_stock_bootstrap_qty']}
 - Total explicit initialization stock qty: {summary['kpis']['total_explicit_initialization_stock_qty']}
 - Total explicit initialization pipeline qty: {summary['kpis']['total_explicit_initialization_pipeline_qty']}

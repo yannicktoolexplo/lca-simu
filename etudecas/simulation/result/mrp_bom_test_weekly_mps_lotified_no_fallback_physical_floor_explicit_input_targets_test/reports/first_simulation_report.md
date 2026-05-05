@@ -8,7 +8,9 @@
 - Total simulated timeline (days): 1825
 - Output profile: full
 - Safety stock policy (days): 7.0
-- Replenishment review period (days): 1
+- Replenishment review period (customer/DC, days): 1
+- Upstream factory MRP review period (days): 1
+- MRP target bucket (days): 1
 - Finished-goods target cover (days): 0.0
 - Production stock-gap gain: 0.25
 - Production smoothing factor: 0.2
@@ -36,6 +38,9 @@
 - Holding cost scale: 0.09
 - Inventory cost split capital / warehouse / risk: 0.35 / 0.45 / 0.2
 - Transport / purchase realism multipliers: 0.2 / 1.0
+- Production cost enabled / target share: True / 0.3
+- Production cost basis: pharma_standard_target_share_allocated_on_actual_production
+- Production cost line shares: {'M-1430|item:268967': 0.4, 'M-1810|item:268091': 0.45, 'SDC-1450|item:773474': 0.15}
 - External procurement enabled: True
 - External procurement proactive supplier replenishment: True
 - External procurement lead days: 4
@@ -73,8 +78,9 @@
 - Inventory risk cost (obsolescence/compliance proxy): 4358774.4297
 - Legacy raw holding cost before split: 21793872.1485
 - Purchase cost (from order_terms sell_price): 15658602.9973
+- Production cost (pharma conversion proxy): 18424846.2425
 - Logistics cost (transport + inventory capital + warehouse + inventory risk): 27332704.9018
-- Total cost: 42991307.8991
+- Total cost: 61416154.1416
 - Total external procured ordered qty: 338885789.8898
 - Total external procured arrived qty: 338178005.3397
 - Total external procured rejected qty (cap-limited): 0.0
@@ -82,7 +88,7 @@
 - Total estimated source ordered qty: 0.0
 - Total estimated source replenished qty: 0.0
 - Total estimated source rejected qty: 0.0
-- Cost share capital holding / warehouse / inventory risk / transport / purchase: 0.177428 / 0.228122 / 0.101387 / 0.128836 / 0.364227
+- Cost share capital holding / warehouse / inventory risk / transport / purchase / production: 0.124199 / 0.159685 / 0.070971 / 0.090185 / 0.254959 / 0.3
 - Total opening stock bootstrap qty: 0.0
 - Total explicit initialization stock qty: 208012846.7465
 - Total explicit initialization pipeline qty: 68338188.0
