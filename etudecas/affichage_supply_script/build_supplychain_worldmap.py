@@ -10944,6 +10944,7 @@ def html_template(
     const panelBundleSelection = {{}};
     let selectedYearStart = 1;
     let selectedYearEnd = 1;
+    let globalKpiTreeState = {{ selectedId: null, smoothingMode: "month", viewMode: "graphs" }};
 
     function installCtrlScrollZoomGate(plotNode) {{
       if (!plotNode || plotNode.__ctrlScrollZoomGateInstalled) return;
@@ -11085,7 +11086,13 @@ def html_template(
     function updateTimelineWindowLabel() {{
       const valueEl = document.getElementById("yearWindowValue");
       if (!valueEl) return;
-      valueEl.textContent = `annee ${{selectedYearStart}} -> ${{selectedYearEnd}}`;
+      valueEl.textContent = selectedTimelineWindowLabel();
+    }}
+
+    function selectedTimelineWindowLabel() {{
+      return timelineMaxYear > 1
+        ? `annee ${{selectedYearStart}} -> ${{selectedYearEnd}}`
+        : "run complet";
     }}
 
     function applyTimelineWindowUi() {{
@@ -11154,8 +11161,8 @@ def html_template(
       }};
     }}
 
-    function filterSeriesByTimeline(days, values) {{
-      if (currentPanelMode !== "ops" || timelineMaxYear <= 1) {{
+    function filterSeriesByTimeline(days, values, forceWindow = false) {{
+      if ((!forceWindow && currentPanelMode !== "ops") || timelineMaxYear <= 1) {{
         return {{
           days: (days || []).slice(),
           values: (values || []).slice(),
@@ -12980,6 +12987,7 @@ def html_template(
             <div>
               <div class="kpiTreeTitle">${{asset.title || "Arborescence KPI"}}</div>
               <div class="kpiTreeSubtitle">${{asset.subtitle || "Clique un KPI principal pour afficher les KPI secondaires."}}</div>
+              <div class="kpiTreeSubtitle">Fenetre: ${{selectedTimelineWindowLabel()}}</div>
             </div>
             <div class="kpiTreeControls">
               <span class="kpiTreeControlGroup">
@@ -13033,9 +13041,11 @@ def html_template(
       const formulaBodyEl = figureEl.querySelector(".kpiFormulaTable tbody");
       const viewButtons = Array.from(figureEl.querySelectorAll("[data-kpi-view]"));
       const smoothButtons = Array.from(figureEl.querySelectorAll(".kpiTreeSmoothBtn"));
-      let selectedId = groups[0].id;
-      let smoothingMode = "month";
-      let viewMode = "graphs";
+      let selectedId = globalKpiTreeState.selectedId && groups.some(group => group.id === globalKpiTreeState.selectedId)
+        ? globalKpiTreeState.selectedId
+        : groups[0].id;
+      let smoothingMode = globalKpiTreeState.smoothingMode || "month";
+      let viewMode = globalKpiTreeState.viewMode || "graphs";
 
       function groupById(groupId) {{
         return groups.find(group => group.id === groupId) || groups[0];
@@ -13115,23 +13125,122 @@ def html_template(
           filteredDays.push(day);
           filteredValues.push((values || [])[idx] ?? 0);
         }});
-        return filterSeriesByTimeline(filteredDays, filteredValues);
+        return filterSeriesByTimeline(filteredDays, filteredValues, true);
+      }}
+      function finiteValues(values) {{
+        return (values || [])
+          .map(value => Number(value))
+          .filter(value => Number.isFinite(value));
+      }}
+      function sumValues(values) {{
+        return finiteValues(values).reduce((acc, value) => acc + value, 0);
+      }}
+      function averageValues(values) {{
+        const numeric = finiteValues(values);
+        return numeric.length ? numeric.reduce((acc, value) => acc + value, 0) / numeric.length : 0;
+      }}
+      function maxValue(values) {{
+        const numeric = finiteValues(values);
+        return numeric.length ? Math.max(...numeric) : 0;
+      }}
+      function countPositive(values) {{
+        return finiteValues(values).filter(value => value > 1e-9).length;
+      }}
+      function pctText(value) {{
+        return `${{fmtPanelQty(value, 1)}}%`;
+      }}
+      function qtyText(value, digits = 1) {{
+        return fmtPanelQty(value, digits);
+      }}
+      function findSeries(seriesList, expectedLabel) {{
+        const expected = String(expectedLabel || "").toLowerCase();
+        return (seriesList || []).find(series => String(series.label || "").toLowerCase() === expected) || null;
+      }}
+      function seriesWindowValues(series, smooth = false) {{
+        if (!series) return [];
+        const values = smooth ? smoothValues(series.values || []) : (series.values || []);
+        return filterStartupAndTimeline(series.days || [], values).values;
+      }}
+      function seriesWindowValuesByPrefix(seriesList, prefix, smooth = false) {{
+        const expected = String(prefix || "").toLowerCase();
+        return (seriesList || [])
+          .filter(series => String(series.label || "").toLowerCase().startsWith(expected))
+          .flatMap(series => seriesWindowValues(series, smooth));
+      }}
+      function summaryEntry(label, value) {{
+        return {{ label, value }};
+      }}
+      function buildWindowSummary(group) {{
+        const secondary = group.secondary || [];
+        if (group.id === "availability") {{
+          const demand = seriesWindowValues(findSeries(secondary, "Demande"));
+          const required = seriesWindowValues(findSeries(secondary, "Besoin avec backlog"));
+          const served = seriesWindowValues(findSeries(secondary, "Servi"));
+          const backlog = seriesWindowValues(findSeries(secondary, "Backlog fin de jour"));
+          const totalDemand = sumValues(demand);
+          const totalRequired = sumValues(required);
+          const totalServed = sumValues(served);
+          return [
+            summaryEntry("Fenetre", selectedTimelineWindowLabel()),
+            summaryEntry("Fill rate cumule", pctText(totalDemand ? 100 * totalServed / totalDemand : 100)),
+            summaryEntry("Service besoin+backlog", pctText(totalRequired ? 100 * totalServed / totalRequired : 100)),
+            summaryEntry("Jours avec backlog", String(countPositive(backlog))),
+            summaryEntry("Backlog max", qtyText(maxValue(backlog), 1)),
+            summaryEntry("Besoin cumule", qtyText(totalRequired, 1)),
+          ];
+        }}
+        if (group.id === "production") {{
+          return [
+            summaryEntry("Fenetre", selectedTimelineWindowLabel()),
+            summaryEntry("Adherence lignes mensuelle", pctText(averageValues(seriesWindowValues(findSeries(secondary, "Adherence lignes mensuelle (%)"), true)))),
+            summaryEntry("Couverture demande horizon 30j", pctText(averageValues(seriesWindowValues(findSeries(secondary, "Couverture demande horizon 30j (%)"), true)))),
+            summaryEntry("Rattrapage retard net 30j", pctText(averageValues(seriesWindowValues(findSeries(secondary, "Taux de rattrapage retard net 30j (%)"), true)))),
+            summaryEntry("Retard/deficit moyen lignes", pctText(averageValues(seriesWindowValuesByPrefix(secondary, "Retard/deficit production", true)))),
+            summaryEntry("Avance/exces moyen lignes", pctText(averageValues(seriesWindowValuesByPrefix(secondary, "Avance/exces production", true)))),
+            summaryEntry("Contraintes sur ligne", pctText(averageValues(seriesWindowValues(findSeries(secondary, "Contraintes sur ligne capacite / input / lots semaine (%)"), true)))),
+          ];
+        }}
+        if (group.id === "cost") {{
+          const total = sumValues(seriesWindowValues(findSeries(secondary, "Cout operationnel total")));
+          const purchase = sumValues(seriesWindowValues(findSeries(secondary, "Cout d'achat matiere")));
+          const production = sumValues(seriesWindowValues(findSeries(secondary, "Cout de production")));
+          const inventory = sumValues(seriesWindowValues(findSeries(secondary, "Cout stock")));
+          const transport = sumValues(seriesWindowValues(findSeries(secondary, "Cout de transport pilotable")));
+          const share = (value) => total > 1e-9 ? pctText(100 * value / total) : "0,0%";
+          return [
+            summaryEntry("Fenetre", selectedTimelineWindowLabel()),
+            summaryEntry("Cout operationnel total", qtyText(total, 1)),
+            summaryEntry("Cout d'achat matiere", `${{qtyText(purchase, 1)}} (${{share(purchase)}})`),
+            summaryEntry("Cout de production", `${{qtyText(production, 1)}} (${{share(production)}})`),
+            summaryEntry("Cout stock", `${{qtyText(inventory, 1)}} (${{share(inventory)}})`),
+            summaryEntry("Cout de transport pilotable", `${{qtyText(transport, 1)}} (${{share(transport)}})`),
+          ];
+        }}
+        return group.summary || [];
+      }}
+      function syncSmoothingButtons() {{
+        smoothButtons.filter(btn => btn.dataset.smooth).forEach(btn => {{
+          btn.classList.toggle("active", (btn.dataset.smooth || "none") === smoothingMode);
+        }});
       }}
       function bindSmoothingControls() {{
         viewButtons.forEach(btn => {{
           btn.onclick = () => {{
             viewMode = btn.dataset.kpiView || "graphs";
+            globalKpiTreeState.viewMode = viewMode;
             renderKpiView();
           }};
         }});
         smoothButtons.filter(btn => btn.dataset.smooth).forEach(btn => {{
           btn.onclick = () => {{
             smoothingMode = btn.dataset.smooth || "none";
-            smoothButtons.filter(other => other.dataset.smooth).forEach(other => other.classList.toggle("active", other === btn));
+            globalKpiTreeState.smoothingMode = smoothingMode;
+            syncSmoothingButtons();
             renderMain();
             renderSecondary();
           }};
         }});
+        syncSmoothingButtons();
       }}
       function renderCards() {{
         cardsEl.innerHTML = "";
@@ -13145,6 +13254,7 @@ def html_template(
           `;
           btn.onclick = () => {{
             selectedId = group.id;
+            globalKpiTreeState.selectedId = selectedId;
             renderCards();
             renderSecondary();
           }};
@@ -13170,7 +13280,7 @@ def html_template(
         }});
         installCtrlScrollZoomGate(mainChartEl);
         Plotly.react(mainChartEl, traces, {{
-          title: {{ text: "KPI principaux - vue management", font: {{ size: 12 }} }},
+            title: {{ text: `KPI principaux - vue management (${{selectedTimelineWindowLabel()}})`, font: {{ size: 12 }} }},
           margin: {{ l: 54, r: 18, t: 42, b: 42 }},
           paper_bgcolor: "#ffffff",
           plot_bgcolor: "#ffffff",
@@ -13183,6 +13293,7 @@ def html_template(
           const groupId = point && point.customdata;
           if (groupId) {{
             selectedId = groupId;
+            globalKpiTreeState.selectedId = selectedId;
             renderCards();
             renderSecondary();
           }}
@@ -13191,7 +13302,7 @@ def html_template(
       function renderSecondary() {{
         const group = groupById(selectedId);
         summaryEl.innerHTML = "";
-        (group.summary || []).forEach(row => {{
+        buildWindowSummary(group).forEach(row => {{
           const div = document.createElement("div");
           div.className = "kpiTreeSummaryRow";
           div.innerHTML = `<span class="kpiTreeSummaryLabel">${{row.label || ""}}</span><span class="kpiTreeSummaryValue">${{row.value || ""}}</span>`;
@@ -13212,7 +13323,7 @@ def html_template(
         }});
         installCtrlScrollZoomGate(secondaryChartEl);
         Plotly.react(secondaryChartEl, traces, {{
-          title: {{ text: `KPI secondaires - ${{group.label || selectedId}}`, font: {{ size: 12 }} }},
+          title: {{ text: `KPI secondaires - ${{group.label || selectedId}} (${{selectedTimelineWindowLabel()}})`, font: {{ size: 12 }} }},
           margin: {{ l: 58, r: 18, t: 42, b: 42 }},
           paper_bgcolor: "#ffffff",
           plot_bgcolor: "#ffffff",
@@ -13226,6 +13337,13 @@ def html_template(
       renderFormulaTable();
       renderKpiView();
       return true;
+    }}
+
+    function renderGlobalKpiTreeIfVisible() {{
+      const modal = document.getElementById("kpiTreeModal");
+      if (modal && modal.classList.contains("visible")) {{
+        renderGlobalKpiTree();
+      }}
     }}
 
     function init() {{
@@ -13303,6 +13421,7 @@ def html_template(
         updateTimelineWindowLabel();
         renderMaterialTable();
         refreshFactoryPanel();
+        renderGlobalKpiTreeIfVisible();
       }});
       document.getElementById("yearEnd").addEventListener("input", (ev) => {{
         selectedYearEnd = Number(ev.target.value || 1);
@@ -13313,6 +13432,7 @@ def html_template(
         updateTimelineWindowLabel();
         renderMaterialTable();
         refreshFactoryPanel();
+        renderGlobalKpiTreeIfVisible();
       }});
       document.getElementById("factoryHoverClearSelection").addEventListener("click", clearPanelSelection);
       window.addEventListener("resize", placeAndResizeFactoryPanel);
