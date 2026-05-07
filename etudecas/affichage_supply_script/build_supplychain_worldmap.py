@@ -4103,23 +4103,46 @@ def order_placed_day(row: dict[str, str]) -> float | None:
     return float(value)
 
 
+def is_opening_order_row(row: dict[str, str]) -> bool:
+    return str(row.get("order_type") or "").startswith("opening_")
+
+
 def reference_transport_lead_days(row: dict[str, str]) -> float | None:
     value = to_float(row.get("lead_reference_days"))
-    if value is None or math.isnan(value):
+    if value is None or math.isnan(value) or value <= 0:
         value = to_float(row.get("lead_cover_days"))
-    if value is None or math.isnan(value):
+    if value is None or math.isnan(value) or value <= 0:
         return None
     return float(value)
 
 
+def source_planned_material_lead_days(row: dict[str, str]) -> float | None:
+    value = to_float(row.get("lead_reference_days"))
+    if value is not None and not math.isnan(value) and value > 0:
+        return float(value)
+    if is_opening_order_row(row):
+        value = to_float(row.get("lead_days"))
+        if value is not None and not math.isnan(value) and value >= 0:
+            return float(value)
+    return None
+
+
 def planned_order_receipt_day(row: dict[str, str]) -> float | None:
+    if is_opening_order_row(row):
+        source_arrival_day = to_float(row.get("arrival_day"))
+        if source_arrival_day is not None and not math.isnan(source_arrival_day):
+            return float(source_arrival_day)
+
     release_day = to_float(row.get("release_day"))
-    transport_lead_days = reference_transport_lead_days(row)
+    transport_lead_days = to_float(row.get("lead_reference_days"))
+    if transport_lead_days is None or math.isnan(transport_lead_days) or transport_lead_days <= 0:
+        transport_lead_days = to_float(row.get("lead_cover_days"))
     if (
         release_day is not None
         and transport_lead_days is not None
         and not math.isnan(release_day)
         and not math.isnan(transport_lead_days)
+        and transport_lead_days > 0
     ):
         return float(release_day + transport_lead_days)
     arrival_day = to_float(row.get("arrival_day"))
@@ -4141,6 +4164,10 @@ def effective_order_receipt_day(row: dict[str, str]) -> float | None:
 
 
 def planned_procurement_lead_days(row: dict[str, str]) -> float | None:
+    return source_planned_material_lead_days(row)
+
+
+def planned_order_to_receipt_days(row: dict[str, str]) -> float | None:
     order_day = order_placed_day(row)
     receipt_day = planned_order_receipt_day(row)
     if order_day is None or receipt_day is None:
@@ -4149,8 +4176,21 @@ def planned_procurement_lead_days(row: dict[str, str]) -> float | None:
 
 
 def effective_procurement_lead_days(row: dict[str, str]) -> float | None:
-    order_day = order_placed_day(row)
+    value = to_float(row.get("lead_days"))
+    if value is not None and not math.isnan(value) and value >= 0:
+        return float(value)
+
+    release_day = to_float(row.get("release_day"))
     receipt_day = effective_order_receipt_day(row)
+    if (
+        release_day is not None
+        and receipt_day is not None
+        and not math.isnan(release_day)
+        and not math.isnan(receipt_day)
+    ):
+        return max(0.0, float(receipt_day - release_day))
+
+    order_day = order_placed_day(row)
     if order_day is None or receipt_day is None:
         return None
     return max(0.0, float(receipt_day - order_day))
@@ -4346,10 +4386,10 @@ def render_order_ledger_html(
             (mode_label, mode_label),
             (flux_text, f"{flux_text} | edge={edge_id}"),
             (fmt_order_day(row.get("release_day")), ""),
-            (f"{fmt_qty(planned_lead_days_value, 1)} j", "Delai previsionnel matiere: ordre_passe -> arrivee_previsionnelle"),
+            (f"{fmt_qty(planned_lead_days_value, 1)} j", "Delai previsionnel matiere source: champ FIA 'Delai previsionnel de livraison en jours' quand disponible; sinon delai derive du carnet d'ouverture."),
             (fmt_order_day(planned_arrival_day), ""),
             (fmt_order_day(actual_arrival_day_value), ""),
-            (f"{fmt_qty(effective_lead_days_value, 1)} j", "Delai effectif matiere: ordre_passe -> arrivee_effective"),
+            (f"{fmt_qty(effective_lead_days_value, 1)} j", "Delai effectif matiere: lead_days simule, soit envoi physique -> arrivee effective"),
             (fmt_qty(release_qty, 1), ""),
             (fmt_qty(receipt_qty, 1), ""),
             (status_short, status_text or "n/a"),
@@ -4408,7 +4448,7 @@ def render_order_ledger_html(
             f"<div class=\"orderLedgerTextHeader\">{html.escape(node_id)} - {html.escape(title_suffix)}</div>",
             f"<div class=\"orderLedgerStatus\">Ordres MRP journalises: {len(sorted_orders)} ; lignes affichees: {len(display_orders)} ({html.escape(display_note)})</div>",
             f"<div class=\"orderLedgerStatus\">Statuses lignes brutes: {html.escape(statuses_text)}</div>",
-            "<div class=\"orderLedgerStatus\">Jalons: ordre_passe=date d'ordre calculee | envoi=release_day | arrivee_previsionnelle=envoi+delai_transport_prevu | arrivee_effective=actual_receipt_day/arrival_day | delai_previsionnel_matiere=arrivee_previsionnelle-ordre_passe | delai_effectif_matiere=arrivee_effective-ordre_passe</div>",
+            "<div class=\"orderLedgerStatus\">Jalons: ordre_passe=order_date_imt | envoi=release_day | arrivee_previsionnelle=arrival_day source pour ordres d'ouverture, sinon release_day+lead_reference_days | arrivee_effective=actual_receipt_day/arrival_day | delai_previsionnel_matiere=delai source donnees FIA/Extract | delai_effectif_matiere=lead_days simule, soit arrivee_effective-envoi</div>",
             "<div class=\"orderLedgerSectionTitle\">Ordres passes affiches: 500 derniers puis 500 premiers si le carnet depasse 1000 lignes.</div>",
             recent_orders_html,
             "</div>",
@@ -4420,6 +4460,7 @@ def render_supplier_stock_flows_html(
     node_id: str,
     flow_rows: list[dict[str, str]],
     shipment_rows: list[dict[str, str]],
+    order_rows: list[dict[str, str]],
     item_labels: dict[str, str],
 ) -> str:
     visible_flow_rows = [
@@ -4430,11 +4471,16 @@ def render_supplier_stock_flows_html(
         row for row in shipment_rows
         if not is_simulation_hidden_item(str(row.get("item_id") or ""))
     ]
-    if not visible_flow_rows and not visible_shipment_rows:
+    visible_order_rows = [
+        row for row in order_rows
+        if str(row.get("src_node_id") or "") == node_id
+        and not is_simulation_hidden_item(str(row.get("item_id") or ""))
+    ]
+    if not visible_flow_rows and not visible_shipment_rows and not visible_order_rows:
         return (
             "<div class=\"factoryHtmlPanelContent orderLedgerPanelContent\">"
             f"<div class=\"orderLedgerTextHeader\">{html.escape(node_id)} - flux stock fournisseur</div>"
-            "<div class=\"panelEmptyState\">Aucun flux stock fournisseur ou envoi physique disponible pour ce noeud.</div>"
+            "<div class=\"panelEmptyState\">Aucun flux stock fournisseur, envoi physique ou ordre previsionnel disponible pour ce noeud.</div>"
             "</div>"
         )
 
@@ -4459,12 +4505,12 @@ def render_supplier_stock_flows_html(
                 "outgoing_pulled": 0.0,
                 "outgoing_shipped": 0.0,
                 "physical_shipped": 0.0,
-                "physical_received": 0.0,
+                "planned_received": 0.0,
                 "loss": 0.0,
                 "incoming_days": 0,
                 "outgoing_days": 0,
                 "physical_send_days": set(),
-                "physical_receipt_days": set(),
+                "planned_receipt_days": set(),
                 "max_balance_gap": 0.0,
             }
             stats_by_item[item_id] = stats
@@ -4516,13 +4562,22 @@ def render_supplier_stock_flows_html(
         if shipped <= 1e-9:
             continue
         stats["physical_shipped"] += shipped
-        stats["physical_received"] += shipped
         send_day = to_float(row.get("day"))
-        receipt_day = to_float(row.get("arrival_day"))
         if send_day is not None and not math.isnan(send_day):
             stats["physical_send_days"].add(int(round(send_day)))
-        if receipt_day is not None and not math.isnan(receipt_day):
-            stats["physical_receipt_days"].add(int(round(receipt_day)))
+
+    for row in visible_order_rows:
+        item_id = str(row.get("item_id") or "")
+        if not item_id:
+            continue
+        stats = stats_for(item_id, str(row.get("uom") or ""))
+        planned_received = max(0.0, to_float(row.get("planned_receipt_qty")) or 0.0)
+        if planned_received <= 1e-9:
+            continue
+        stats["planned_received"] += planned_received
+        planned_receipt_day = planned_order_receipt_day(row)
+        if planned_receipt_day is not None and not math.isnan(planned_receipt_day):
+            stats["planned_receipt_days"].add(int(round(planned_receipt_day)))
 
     rows_html: list[str] = []
     for item_id, stats in sorted(stats_by_item.items(), key=lambda kv: item_labels.get(kv[0], kv[0])):
@@ -4540,7 +4595,7 @@ def render_supplier_stock_flows_html(
             (fmt_qty(stats.get("outgoing_pulled"), 1), "sorties reelles du stock fournisseur"),
             (fmt_qty(stats.get("outgoing_shipped"), 1), "quantite utile expediee aval apres fiabilite"),
             (fmt_qty(stats.get("physical_shipped"), 1), "envois physiques issus de production_supplier_shipments_daily.day"),
-            (fmt_qty(stats.get("physical_received"), 1), "receptions aval issues de production_supplier_shipments_daily.arrival_day"),
+            (fmt_qty(stats.get("planned_received"), 1), "receptions aval previsionnelles issues du carnet MRP, datees a arrival_day source pour ordres d'ouverture, sinon release_day + delai previsionnel source"),
             (
                 fmt_qty((stats.get("physical_shipped") or 0.0) - (stats.get("outgoing_shipped") or 0.0), 1),
                 "ecart entre envois physiques et expedie aval du bilan stock; les commandes d'ouverture/historiques peuvent etre hors bilan stock quotidien",
@@ -4552,7 +4607,7 @@ def render_supplier_stock_flows_html(
             (str(stats.get("incoming_days") or 0), "jours avec entree fournisseur"),
             (str(stats.get("outgoing_days") or 0), "jours avec sortie fournisseur"),
             (str(len(stats.get("physical_send_days") or [])), "jours avec envoi physique"),
-            (str(len(stats.get("physical_receipt_days") or [])), "jours avec reception aval"),
+            (str(len(stats.get("planned_receipt_days") or [])), "jours avec reception aval previsionnelle"),
             (fmt_qty(stats.get("max_balance_gap"), 6), "ecart max du bilan stock quotidien"),
         ]
         numeric_columns = set(range(2, len(cells)))
@@ -4573,7 +4628,7 @@ def render_supplier_stock_flows_html(
         "Sorties stock",
         "Expedie aval",
         "Envois phys.",
-        "Receptions aval",
+        "Receptions prev.",
         "Ecart phys/stock",
         "Ecart fiabilite",
         "Stock fin",
@@ -4582,7 +4637,7 @@ def render_supplier_stock_flows_html(
         "Jours entree",
         "Jours sortie",
         "Jours envoi phys.",
-        "Jours reception",
+        "Jours recept. prev.",
         "Ecart bilan",
     ]
     table_cols = "".join(
@@ -4595,7 +4650,7 @@ def render_supplier_stock_flows_html(
             f"<div class=\"orderLedgerTextHeader\">{html.escape(node_id)} - flux stock fournisseur</div>",
             "<div class=\"orderLedgerStatus\">Bilan quotidien consolide par item: stock debut + entrees fournisseur - pertes stock - sorties stock = stock fin.</div>",
             "<div class=\"orderLedgerStatus\">Entrees = arrivees dans le stock fournisseur; sorties stock = quantite prelevee chez le fournisseur; expedie aval tient compte de la fiabilite.</div>",
-            "<div class=\"orderLedgerStatus\">Envois phys. et receptions aval viennent du journal production_supplier_shipments_daily. L'ecart phys/stock isole les flux physiques non portes par le bilan stock quotidien, typiquement les commandes d'ouverture/historiques.</div>",
+            "<div class=\"orderLedgerStatus\">Envois phys. = production_supplier_shipments_daily.day. Receptions prev. = carnet MRP date a arrival_day source pour ordres d'ouverture, sinon release_day + delai previsionnel source; pas arrival_day simule.</div>",
             "<div class=\"orderLedgerFrame\">",
             "<div class=\"orderLedgerTableWrap\" tabindex=\"0\" aria-label=\"Tableau des flux de stock fournisseur avec defilement horizontal natif en bas.\">",
             "<table class=\"orderLedgerTable orderLedgerWideTable\">",
@@ -8286,7 +8341,7 @@ def build_model_panel_metrics(
                     metric_label_value("Destination", "La destination est le noeud receveur du flux d'approvisionnement: son stock et ses receptions futures sont deduits avant de commander au fournisseur."),
                     metric_label_value("Ordre fournisseur", "OA_mp(t) est la quantite commandee apres normalisation par quantite standard, lot ou capacite source."),
                     metric_label_value("Expedition fournisseur", "Ship_mp(t) est une sortie du stock source envoyee vers la destination ; ce n'est pas une consommation BOM."),
-                    metric_label_value("Reception", "La reception planifiee reste datee a envoi + delai transport prevu; les delais matiere affiches dans le carnet sont mesures de ordre_passe a reception."),
+                    metric_label_value("Reception", "La reception planifiee est datee a arrival_day source pour les ordres d'ouverture, sinon envoi + delai previsionnel source; le delai matiere previsionnel affiche reste la valeur source."),
                     metric_section("Donnees et interactions"),
                     metric_label_value(
                         "Items sortants",
@@ -8754,6 +8809,7 @@ def build_model_panel_metrics(
                     node_id,
                     supplier_stock_flows_by_node.get(node_id, []),
                     supplier_ship_by_node.get(node_id, []),
+                    node_orders,
                     item_labels,
                 )
             }
@@ -8773,29 +8829,32 @@ def build_model_panel_metrics(
                 )
             }
             supplier_ship_rows_node = supplier_ship_by_node.get(node_id, [])
+            supplier_source_orders = [
+                row for row in node_orders
+                if str(row.get("src_node_id") or "") == node_id
+            ]
             supplier_order_received_series = aggregate_order_series(
-                node_orders,
+                supplier_source_orders,
                 "release_qty",
                 day_field="order_date_imt",
                 bucket_days=7,
             )
             supplier_order_send_plan_series = aggregate_order_series(
-                node_orders,
+                supplier_source_orders,
                 "release_qty",
                 day_field="release_day",
+                bucket_days=7,
+            )
+            supplier_planned_receipt_series = aggregate_order_series(
+                supplier_source_orders,
+                "planned_receipt_qty",
+                day_field="planned_arrival_day",
                 bucket_days=7,
             )
             supplier_actual_send_series = aggregate_daily_series(
                 supplier_ship_rows_node,
                 value_field="shipped_qty",
                 day_field="day",
-                node_field="src_node_id",
-                node_id=node_id,
-            )
-            supplier_actual_receipt_series = aggregate_daily_series(
-                supplier_ship_rows_node,
-                value_field="shipped_qty",
-                day_field="arrival_day",
                 node_field="src_node_id",
                 node_id=node_id,
             )
@@ -8820,18 +8879,18 @@ def build_model_panel_metrics(
             supplier_order_send_bottom = build_line_chart_figure(
                 {
                     "Envois physiques simules": bucket_series_points(supplier_actual_send_series, 7),
-                    "Receptions aval simulees": bucket_series_points(supplier_actual_receipt_series, 7),
+                    "Receptions aval previsionnelles": supplier_planned_receipt_series,
                 },
-                title=f"{node_id} - envois physiques et receptions aval",
+                title=f"{node_id} - envois physiques et receptions previsionnelles aval",
                 y_label="Quantite / semaine",
                 event_like=True,
                 note=(
                     "Envois physiques = production_supplier_shipments_daily.day. "
-                    "Receptions aval = memes envois dates a arrival_day."
+                    "Receptions aval previsionnelles = carnet MRP date a arrival_day source pour ordres d'ouverture, sinon release_day + delai previsionnel source; pas arrival_day simule."
                 ),
                 series_styles={
                     "Envois physiques simules": {"color": "#dc2626", "width": 2.2},
-                    "Receptions aval simulees": {"color": "#7c3aed", "width": 2.2, "dash": "dot"},
+                    "Receptions aval previsionnelles": {"color": "#7c3aed", "width": 2.2, "dash": "dot"},
                 },
             )
             if supplier_order_send_top is not None or supplier_order_send_bottom is not None:
@@ -9279,7 +9338,7 @@ def build_model_panel_metrics(
         assumption_lines = [
             "le flux est simule chronologiquement au jour d'envoi ; la date d'ordre previsionnelle est un jalon calcule pour lire le carnet",
             "standard_order_qty joue comme multiple cible de commande quand disponible",
-            "le delai transport observe peut varier d'une expedition a l'autre ; le delai matiere part de ordre_passe",
+            "le delai previsionnel matiere vient des donnees source; le delai effectif est le lead_days simule entre envoi physique et reception effective",
         ]
         for item_id in items:
             item_shipment_rows = supplier_ship_by_edge.get((src, dst, item_id), [])
@@ -9439,8 +9498,8 @@ def build_model_panel_metrics(
             edge_order_asset = {"figure": edge_flow_figure}
         edge_lead_figure = build_line_chart_figure(
             {
-                "Delai prev. ordre->reception": average_derived_order_series(edge_order_rows, planned_procurement_lead_days),
-                "Delai effectif ordre->reception": average_derived_order_series(edge_order_rows, effective_procurement_lead_days),
+                "Delai prev. source donnees": average_derived_order_series(edge_order_rows, planned_procurement_lead_days),
+                "Delai effectif simule": average_derived_order_series(edge_order_rows, effective_procurement_lead_days),
             },
             title=f"{edge_id} - delais matiere du flux",
             y_label="Jours",
@@ -9514,7 +9573,7 @@ def build_model_panel_metrics(
             metric_label_value("Eq sim 2", "Gap_dst(t) = T_dst(t) + Backlog_dst(t) - Stock_dst(t) - RecvPrev_dst(t)"),
             metric_label_value("Eq sim 3", "BN_dst(t) = Gap_dst(t) si Gap_dst(t) > 0 ; sinon 0"),
             metric_label_value("Eq sim 4", "OA_src(t): ordre amont sur le flux = quantite demandee a la source, normalisee si quantite standard"),
-            metric_label_value("Eq sim 5", "Reception_prevue = envoi + Lead_ref ; Reception_effective = envoi + Lead_sim ; Delai_matiere = reception - ordre_passe"),
+            metric_label_value("Eq sim 5", "Reception_prevue = envoi + Lead_ref ; Reception_effective = envoi + Lead_sim ; Delai_effectif = Lead_sim"),
             metric_label_value("Eq sim 6", "date_ordre_prevue = date_besoin - delai_securite - LT_ref"),
             metric_section("Application flux - correspondance modele global"),
             metric_label_value("Q[f,i](t)", "OA_src(t): quantite commandee sur ce flux apres sourcing et normalisation."),
@@ -9525,7 +9584,7 @@ def build_model_panel_metrics(
             metric_section("Lecture simulateur"),
             metric_label_value("Date d'ordre", "ordre_passe est une date calculee pour lire le carnet: besoin a couvrir - delai securite - delai d'appro."),
             metric_label_value("Date d'envoi", "release_day est le jour ou la quantite est envoyee sur le flux."),
-            metric_label_value("Date reception", "arrivee_previsionnelle = release_day + delai transport prevu ; arrivee_effective = reception simulee ; delai matiere = reception - ordre_passe."),
+            metric_label_value("Date reception", "arrivee_previsionnelle = arrival_day source pour ordres d'ouverture, sinon release_day + delai previsionnel source ; arrivee_effective = reception simulee ; delai matiere effectif = lead_days simule, donc reception effective - envoi physique."),
             metric_section("Limites lecture flux"),
             metric_label_value("Granularite", "Les ordres sont consolides pour la lecture, mais la simulation reste journaliere et peut generer plusieurs evenements par item/flux."),
             metric_label_value("Capacite source", "Si la capacite fournisseur n'est pas connue, elle est une hypothese ou n'est pas limitante selon le parametrage du scenario."),
