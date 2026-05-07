@@ -22,6 +22,27 @@
     "stochastic_lead_times": true,
     "lead_time_distribution_mode": "industrial",
     "seed": 42,
+    "supplier_risk": {
+      "enabled": false,
+      "events_csv": "",
+      "event_count": 0,
+      "warnings": [],
+      "neutral_without_events": true
+    },
+    "supplier_neutral_floor_test": {
+      "enabled": false,
+      "floors_csv": "",
+      "capacity_override_pairs": 0,
+      "stock_override_pairs": 0,
+      "warnings": []
+    },
+    "factory_nominal_capacity_test": {
+      "enabled": false,
+      "capacities_csv": "",
+      "override_pairs": 0,
+      "applied_processes": 0,
+      "warnings": []
+    },
     "initialization_policy": {
       "mode": "explicit_state",
       "state_scale": 0.0,
@@ -5380,6 +5401,11 @@
         "basis": "downstream_requirement+fia_hint"
       }
     ],
+    "supplier_nominal_parameter_rows": 33,
+    "factory_nominal_capacity_rows": 3,
+    "supplier_stock_flow_rows": 60225,
+    "supplier_risk_events": [],
+    "supplier_risk_event_application_rows": 0,
     "unmodeled_supplier_source_policies": [
       {
         "node_id": "SDC-VD0500655A",
