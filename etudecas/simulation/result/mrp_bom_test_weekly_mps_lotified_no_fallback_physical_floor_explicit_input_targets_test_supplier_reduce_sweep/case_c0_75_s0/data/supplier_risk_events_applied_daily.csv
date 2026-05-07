@@ -1,0 +1,1 @@
+day,supplier_id,dst_node_id,item_id,edge_id,event_ids,stock_multiplier,capacity_multiplier,lead_time_multiplier,reliability_multiplier,availability_multiplier

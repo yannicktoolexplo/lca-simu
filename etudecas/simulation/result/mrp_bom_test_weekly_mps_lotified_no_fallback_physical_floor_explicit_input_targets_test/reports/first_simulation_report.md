@@ -33,6 +33,10 @@
 - Stochastic lead times: True
 - Lead-time distribution mode: industrial
 - Random seed: 42
+- Supplier risk events enabled / count: False / 0
+- Supplier risk warnings: []
+- Supplier neutral floor test enabled / capacity pairs / stock pairs: False / 0 / 0
+- Factory nominal capacity test enabled / applied processes: False / 0
 - Economic policy transport floor /km: 0.02 / 8e-05
 - Economic policy purchase floor: 0.01
 - Holding cost scale: 0.09
@@ -164,7 +168,12 @@ Process internes sans capacite source: la simulation ne les bloque pas par capac
 - data/assumptions_ledger.csv
 - data/production_supplier_shipments_daily.csv
 - data/production_supplier_stocks_daily.csv
+- data/production_supplier_stock_flows_daily.csv
 - data/production_supplier_capacity_daily.csv
+- data/supplier_nominal_parameters.csv
+- data/production_capacity_nominal_parameters.csv
+- data/supplier_risk_events_applied_daily.csv
+- reports/supplier_nominal_audit.md
 - Additional detailed CSVs: generated
 - production_input_stocks_by_material_*.png (not generated)
 - production_output_products.png (not generated)
