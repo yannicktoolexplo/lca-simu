@@ -35,12 +35,12 @@ Seuil analytique calcule depuis le run courant: max journalier de capacite fourn
 
 | supplier_id | item_id | dst_node_id | effective_capacity_qty_per_day | neutral_capacity_floor_qty_per_day | tested_capacity_floor_qty_per_day | current_capacity_headroom_vs_tested_floor | capacity_floor_basis |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| SDC-VD0951020A | item:007923 | M-1810 | 264452.16 | 96.159427 | 240.398567 | 1100.057137 | max_daily_pulled_qty_observed_x2.5_tested |
-| SDC-VD0956464A | item:007923 | M-1810 | 264452.16 | 224.371996 | 560.92999 | 471.45306 | max_daily_pulled_qty_observed_x2.5_tested |
+| SDC-VD0951020A | item:007923 | M-1810 | 264452.16 | 98.213447 | 245.533617 | 1077.050722 | max_daily_pulled_qty_observed_x2.5_tested |
+| SDC-VD0956464A | item:007923 | M-1810 | 264452.16 | 229.16471 | 572.911775 | 461.593166 | max_daily_pulled_qty_observed_x2.5_tested |
 | SDC-VD0901566A | item:338928 | M-1810 | 320000000.0 | 1150000.0 | 2875000.0 | 111.304348 | max_daily_pulled_qty_observed_x2.5_tested |
 | SDC-VD0914360C | item:338929 | M-1810 | 81420000.0 | 490000.0 | 1225000.0 | 66.465306 | max_daily_pulled_qty_observed_x2.5_tested |
 | SDC-VD0914690A | item:042342 | M-1430 | 3717067200.0 | 30000000.0 | 75000000.0 | 49.560896 | max_daily_pulled_qty_observed_x2.5_tested |
-| SDC-VD0951020A | item:001757 | M-1810 | 132226.08 | 1200.0 | 3000.0 | 44.07536 | max_daily_pulled_qty_observed_x2.5_tested |
+| SDC-VD0951020A | item:001757 | M-1810 | 132226.08 | 1100.0 | 2750.0 | 48.082211 | max_daily_pulled_qty_observed_x2.5_tested |
 | SDC-VD0520132A | item:038005 | M-1430 | 1077949.2416 | 10000.0 | 25000.0 | 43.11797 | max_daily_pulled_qty_observed_x2.5_tested |
 | SDC-VD0520132A | item:049371 | M-1810 | 122309.124 | 1600.0 | 4000.0 | 30.577281 | max_daily_pulled_qty_observed_x2.5_tested |
 | SDC-VD0525412A | item:333362 | M-1430 | 61600000.0 | 1170000.0 | 2925000.0 | 21.059829 | max_daily_pulled_qty_observed_x2.5_tested |
@@ -52,15 +52,15 @@ Seuil calcule depuis le run courant: stock d'ouverture simule moins le stock min
 | supplier_id | item_id | dst_node_id | simulated_opening_stock_qty | neutral_opening_stock_floor_qty | neutral_opening_stock_reducible_qty | neutral_opening_stock_scale |
 | --- | --- | --- | --- | --- | --- | --- |
 | SDC-VD0914690A | item:042342 | M-1430 | 185853360.0 | 180000000.0 | 5853360.0 | 0.968505 |
-| SDC-VD0525412A | item:333362 | M-1430 | 4312000.0 | 4246000.0 | 66000.0 | 0.984694 |
+| SDC-VD0901566A | item:338928 | M-1810 | 5699400.0 | 775000.0 | 4924400.0 | 0.135979 |
+| SDC-VD0508918A | item:730384 | M-1430 | 914144.0 | 740000.0 | 174144.0 | 0.8095 |
+| SDC-VD0993480A | item:344135 | M-1430 | 4312000.0 | 4200000.0 | 112000.0 | 0.974026 |
 | SDC-VD0949099A | item:021081 | SDC-1450 | 20000.0 | 0.0 | 20000.0 | 0.0 |
 | SDC-VD0960508A | item:021081 | SDC-1450 | 20000.0 | 0.0 | 20000.0 | 0.0 |
 | SDC-VD0972460A | item:021081 | SDC-1450 | 20000.0 | 0.0 | 20000.0 | 0.0 |
 | SDC-VD0975221A | item:021081 | SDC-1450 | 20000.0 | 0.0 | 20000.0 | 0.0 |
-| SDC-VD0993480A | item:344135 | M-1430 | 4312000.0 | 4296000.0 | 16000.0 | 0.996289 |
-| SDC-VD0951020A | item:007923 | M-1810 | 4627.9128 | 3594.13028 | 1033.78252 | 0.77662 |
-| SDC-VD0520132A | item:038005 | M-1430 | 75456.446912 | 74676.954496 | 779.492416 | 0.98967 |
-| SDC-VD0901566A | item:338928 | M-1810 | 5699400.0 | 5698633.0 | 767.0 | 0.999865 |
+| SDC-VD1095770A | item:734545 | M-1430 | 24640.0 | 18900.0 | 5740.0 | 0.767045 |
+| SDC-VD0520132A | item:038005 | M-1430 | 75456.446912 | 70000.0 | 5456.446912 | 0.927687 |
 
 ## High lead time preview
 | supplier_id | item_id | dst_node_id | planned_lead_time_days | lead_time_type |
