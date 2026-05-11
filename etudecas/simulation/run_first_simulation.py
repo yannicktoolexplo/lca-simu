@@ -494,6 +494,15 @@ def parse_args() -> argparse.Namespace:
         help="Override EXTERNAL_MARKET lead time in days. 0 keeps scenario policy.",
     )
     parser.add_argument(
+        "--external-procurement-lead-mode",
+        choices=["supplier_material", "policy_fixed"],
+        default="",
+        help=(
+            "EXTERNAL_MARKET lead mode. supplier_material derives a supplier/item lead "
+            "from source material data; policy_fixed uses external_procurement_lead_days."
+        ),
+    )
+    parser.add_argument(
         "--external-procurement-daily-cap-days",
         type=float,
         default=None,
@@ -2428,6 +2437,7 @@ def derive_unmodeled_supplier_source_policies(
             [lead_time_cover_days(lane, stochastic_lead_times, lead_time_distribution_mode) for lane in lane_list]
             or [1]
         )
+        planned_material_lead_days = max([lead_time_reference_days(lane) for lane in lane_list] or [1])
         order_frequency_days = max(
             [int(round(max(1.0, to_float(lane.get("order_frequency_days"), 1.0)))) for lane in lane_list] or [1]
         )
@@ -2440,6 +2450,11 @@ def derive_unmodeled_supplier_source_policies(
         target_cover_days = max(
             int(math.ceil(safety_stock_days)),
             replenishment_lead_days + review_days,
+            order_frequency_days,
+        )
+        external_procurement_target_cover_days = max(
+            int(math.ceil(safety_stock_days)),
+            int(math.ceil(planned_material_lead_days)) + review_days,
             order_frequency_days,
         )
         downstream_requirement = allocate_shared_downstream_pull(
@@ -2474,6 +2489,11 @@ def derive_unmodeled_supplier_source_policies(
         policies[src_pair] = {
             "replenishment_lead_days": replenishment_lead_days,
             "raw_replenishment_lead_days": raw_replenishment_lead_days,
+            "planned_material_lead_days": planned_material_lead_days,
+            "source_material_lead_cover_days": lead_cover_days,
+            "external_procurement_lead_days": planned_material_lead_days,
+            "external_procurement_lead_basis": "source_material_lead_reference_days",
+            "external_procurement_target_cover_days": external_procurement_target_cover_days,
             "target_cover_days": target_cover_days,
             "review_period_days": review_days,
             "order_frequency_days": order_frequency_days,
@@ -2490,6 +2510,11 @@ def derive_unmodeled_supplier_source_policies(
                 "item_id": item_id,
                 "replenishment_lead_days": replenishment_lead_days,
                 "raw_replenishment_lead_days": round(raw_replenishment_lead_days, 6),
+                "planned_material_lead_days": planned_material_lead_days,
+                "source_material_lead_cover_days": lead_cover_days,
+                "external_procurement_lead_days": planned_material_lead_days,
+                "external_procurement_lead_basis": "source_material_lead_reference_days",
+                "external_procurement_target_cover_days": external_procurement_target_cover_days,
                 "target_cover_days": target_cover_days,
                 "review_period_days": review_days,
                 "order_frequency_days": order_frequency_days,
@@ -3640,6 +3665,13 @@ def main() -> None:
             0,
             int(round(to_float(economic_policy_cfg.get("external_procurement_lead_days"), 4.0))),
         ),
+        "external_procurement_lead_mode": str(
+            economic_policy_cfg.get("external_procurement_lead_mode") or "supplier_material"
+        ).strip().lower().replace("-", "_"),
+        "external_procurement_lead_time_scale": max(
+            0.01,
+            to_float(economic_policy_cfg.get("external_procurement_lead_time_scale"), 1.0),
+        ),
         "external_procurement_daily_cap_days": max(
             0.0,
             to_float(economic_policy_cfg.get("external_procurement_daily_cap_days"), 2.0),
@@ -3667,8 +3699,15 @@ def main() -> None:
         economic_policy["external_procurement_proactive_replenishment"] = bool(
             args.external_procurement_proactive_replenishment
         )
+    if economic_policy["external_procurement_lead_mode"] not in {"supplier_material", "policy_fixed"}:
+        economic_policy["external_procurement_lead_mode"] = "supplier_material"
+    if args.external_procurement_lead_mode:
+        economic_policy["external_procurement_lead_mode"] = args.external_procurement_lead_mode
     if args.external_procurement_lead_days and args.external_procurement_lead_days > 0:
-        economic_policy["external_procurement_lead_days"] = max(0, int(args.external_procurement_lead_days))
+        economic_policy["external_procurement_lead_days"] = max(1, int(args.external_procurement_lead_days))
+        if not args.external_procurement_lead_mode:
+            economic_policy["external_procurement_lead_mode"] = "policy_fixed"
+            economic_policy["external_procurement_lead_time_scale"] = 1.0
     if args.external_procurement_daily_cap_days is not None:
         economic_policy["external_procurement_daily_cap_days"] = max(
             0.0,
@@ -5133,12 +5172,53 @@ def main() -> None:
                     }
                 )
 
+        def external_procurement_leads(
+            policy: dict[str, Any],
+            risk_mult: dict[str, Any],
+        ) -> tuple[int, int, str]:
+            mode = str(economic_policy.get("external_procurement_lead_mode") or "supplier_material").strip().lower()
+            scale = max(0.01, to_float(economic_policy.get("external_procurement_lead_time_scale"), 1.0))
+            lead_basis = "economic_policy.external_procurement_lead_days"
+            if mode == "supplier_material":
+                policy_lead = to_float(policy.get("external_procurement_lead_days"), math.nan)
+                if policy_lead is None or math.isnan(policy_lead) or policy_lead <= 0:
+                    policy_lead = to_float(policy.get("planned_material_lead_days"), math.nan)
+                    lead_basis = "estimated_source_policy.planned_material_lead_days"
+                else:
+                    lead_basis = str(
+                        policy.get("external_procurement_lead_basis")
+                        or "source_material_lead_reference_days"
+                    )
+                if policy_lead is None or math.isnan(policy_lead) or policy_lead <= 0:
+                    policy_lead = to_float(economic_policy.get("external_procurement_lead_days"), 4.0)
+                    lead_basis = "economic_policy.external_procurement_lead_days_fallback"
+                base_lead_days = max(1, int(math.ceil(policy_lead * scale)))
+            else:
+                base_lead_days = max(
+                    1,
+                    int(
+                        math.ceil(
+                            to_float(economic_policy.get("external_procurement_lead_days"), 4.0) * scale
+                        )
+                    ),
+                )
+            effective_lead_days = max(
+                1,
+                int(
+                    math.ceil(
+                        float(base_lead_days)
+                        * max(0.05, to_float(risk_mult.get("external_lead_time"), 1.0))
+                        + max(0.0, to_float(risk_mult.get("external_lead_time_extra_days"), 0.0))
+                    )
+                ),
+            )
+            return base_lead_days, effective_lead_days, lead_basis
+
         if (
             unmodeled_supplier_source_mode == "external_procurement"
             and economic_policy["external_procurement_enabled"]
             and economic_policy["external_procurement_proactive_replenishment"]
         ):
-            base_ext_lead_days = int(economic_policy["external_procurement_lead_days"])
             for src_pair, policy in estimated_source_policies.items():
                 external_risk = supplier_risk_effects_for_pair(
                     supplier_risk_events,
@@ -5146,15 +5226,8 @@ def main() -> None:
                     src_pair[1],
                     output_day,
                 )
-                effective_ext_lead_days = max(
-                    0,
-                    int(
-                        math.ceil(
-                            float(base_ext_lead_days)
-                            * max(0.05, to_float(external_risk.get("external_lead_time"), 1.0))
-                            + max(0.0, to_float(external_risk.get("external_lead_time_extra_days"), 0.0))
-                        )
-                    ),
+                base_ext_lead_days, effective_ext_lead_days, _external_lead_basis = (
+                    external_procurement_leads(policy, external_risk)
                 )
                 downstream_requirement = allocate_shared_downstream_pull(
                     src_pair=src_pair,
@@ -5177,7 +5250,11 @@ def main() -> None:
                 # full downstream factory MRP target. Keeping it close to the
                 # external lead time avoids overfilling high-volume suppliers
                 # while still preventing reactive "order only at zero" behavior.
-                target_cover_days = max(1.0, float(effective_ext_lead_days))
+                target_cover_days = max(
+                    1.0,
+                    float(effective_ext_lead_days + int(to_float(policy.get("review_period_days"), 0.0))),
+                    to_float(policy.get("external_procurement_target_cover_days"), 0.0),
+                )
                 target_stock_qty = max(
                     max(0.0, to_float(policy.get("downstream_lot_floor_qty"), 0.0)),
                     demand_anchor * target_cover_days,
@@ -5232,8 +5309,9 @@ def main() -> None:
                     arrival_day=ext_arrival_day,
                     safety_time_days=pair_mrp_safety_time_days.get(src_pair, 0.0),
                     lead_days=effective_ext_lead_days,
-                    lead_cover_days=base_ext_lead_days,
+                    lead_cover_days=effective_ext_lead_days,
                     lead_reference_days=base_ext_lead_days,
+                    edge_id="EXTERNAL_MARKET_PROACTIVE",
                     reliability=max(0.01, to_float(external_risk.get("external_quality_yield"), 1.0)),
                 )
                 ref_lane_purchase = max(
@@ -5408,16 +5486,11 @@ def main() -> None:
                         ext_cap_left = max(0.0, ext_cap_today - external_ordered_today_by_src_pair[src_pair])
                         ext_order_qty = min(ext_gap, ext_cap_left)
                         if ext_order_qty > 1e-9:
-                            base_ext_lead_days = int(economic_policy["external_procurement_lead_days"])
-                            ext_lead_days = max(
-                                0,
-                                int(
-                                    math.ceil(
-                                        float(base_ext_lead_days)
-                                        * max(0.05, to_float(risk_mult.get("external_lead_time"), 1.0))
-                                        + max(0.0, to_float(risk_mult.get("external_lead_time_extra_days"), 0.0))
-                                    )
-                                ),
+                            base_ext_lead_days, ext_lead_days, _external_lead_basis = (
+                                external_procurement_leads(
+                                    estimated_source_policies.get(src_pair, {}),
+                                    risk_mult,
+                                )
                             )
                             ext_receipt_qty = ext_order_qty * max(
                                 0.01,
@@ -5437,8 +5510,9 @@ def main() -> None:
                                 arrival_day=ext_arrival_day,
                                 safety_time_days=pair_mrp_safety_time_days.get(src_pair, 0.0),
                                 lead_days=ext_lead_days,
-                                lead_cover_days=base_ext_lead_days,
+                                lead_cover_days=ext_lead_days,
                                 lead_reference_days=base_ext_lead_days,
+                                edge_id="EXTERNAL_MARKET_REACTIVE",
                                 reliability=max(0.01, to_float(risk_mult.get("external_quality_yield"), 1.0)),
                             )
                             if record_day:
@@ -6373,6 +6447,8 @@ def main() -> None:
                     "external_procurement_proactive_replenishment"
                 ],
                 "external_procurement_lead_days": economic_policy["external_procurement_lead_days"],
+                "external_procurement_lead_mode": economic_policy["external_procurement_lead_mode"],
+                "external_procurement_lead_time_scale": economic_policy["external_procurement_lead_time_scale"],
                 "external_procurement_daily_cap_days": economic_policy["external_procurement_daily_cap_days"],
                 "external_procurement_min_daily_cap_qty": economic_policy["external_procurement_min_daily_cap_qty"],
                 "external_procurement_unit_cost": economic_policy["external_procurement_unit_cost"],
@@ -7294,6 +7370,7 @@ def main() -> None:
 - External procurement enabled: {summary['policy']['economic_policy']['external_procurement_enabled']}
 - External procurement proactive supplier replenishment: {summary['policy']['economic_policy']['external_procurement_proactive_replenishment']}
 - External procurement lead days: {summary['policy']['economic_policy']['external_procurement_lead_days']}
+- External procurement lead mode / scale: {summary['policy']['economic_policy'].get('external_procurement_lead_mode', 'policy_fixed')} / {summary['policy']['economic_policy'].get('external_procurement_lead_time_scale', 1.0)}
 - External procurement daily cap days: {summary['policy']['economic_policy']['external_procurement_daily_cap_days']}
 - External procurement min daily cap qty: {summary['policy']['economic_policy']['external_procurement_min_daily_cap_qty']}
 - External procurement unit cost / multiplier / transport unit: {summary['policy']['economic_policy']['external_procurement_unit_cost']} / {summary['policy']['economic_policy']['external_procurement_cost_multiplier']} / {summary['policy']['economic_policy']['external_procurement_transport_cost_per_unit']}

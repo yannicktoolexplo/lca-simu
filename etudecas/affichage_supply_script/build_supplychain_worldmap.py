@@ -21,7 +21,7 @@ import sys
 import statistics
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Iterable
 
 try:
     from etudecas.simulation.kpi_engine import (
@@ -4128,10 +4128,16 @@ def source_planned_material_lead_days(row: dict[str, str]) -> float | None:
 
 
 def planned_order_receipt_day(row: dict[str, str]) -> float | None:
-    if is_opening_order_row(row):
-        source_arrival_day = to_float(row.get("arrival_day"))
-        if source_arrival_day is not None and not math.isnan(source_arrival_day):
-            return float(source_arrival_day)
+    order_day = order_placed_day(row)
+    planned_lead_days = planned_procurement_lead_days(row)
+    if (
+        order_day is not None
+        and planned_lead_days is not None
+        and not math.isnan(order_day)
+        and not math.isnan(planned_lead_days)
+        and planned_lead_days >= 0
+    ):
+        return float(order_day + planned_lead_days)
 
     release_day = to_float(row.get("release_day"))
     transport_lead_days = to_float(row.get("lead_reference_days"))
@@ -4176,12 +4182,17 @@ def planned_order_to_receipt_days(row: dict[str, str]) -> float | None:
 
 
 def effective_procurement_lead_days(row: dict[str, str]) -> float | None:
-    value = to_float(row.get("lead_days"))
-    if value is not None and not math.isnan(value) and value >= 0:
-        return float(value)
+    order_day = order_placed_day(row)
+    receipt_day = effective_order_receipt_day(row)
+    if (
+        order_day is not None
+        and receipt_day is not None
+        and not math.isnan(order_day)
+        and not math.isnan(receipt_day)
+    ):
+        return max(0.0, float(receipt_day - order_day))
 
     release_day = to_float(row.get("release_day"))
-    receipt_day = effective_order_receipt_day(row)
     if (
         release_day is not None
         and receipt_day is not None
@@ -4190,10 +4201,10 @@ def effective_procurement_lead_days(row: dict[str, str]) -> float | None:
     ):
         return max(0.0, float(receipt_day - release_day))
 
-    order_day = order_placed_day(row)
-    if order_day is None or receipt_day is None:
-        return None
-    return max(0.0, float(receipt_day - order_day))
+    value = to_float(row.get("lead_days"))
+    if value is not None and not math.isnan(value) and value >= 0:
+        return float(value)
+    return None
 
 
 def resolved_order_day(row: dict[str, str], day_field: str = "day") -> int:
@@ -4389,7 +4400,7 @@ def render_order_ledger_html(
             (f"{fmt_qty(planned_lead_days_value, 1)} j", "Delai previsionnel matiere source: champ FIA 'Delai previsionnel de livraison en jours' quand disponible; sinon delai derive du carnet d'ouverture."),
             (fmt_order_day(planned_arrival_day), ""),
             (fmt_order_day(actual_arrival_day_value), ""),
-            (f"{fmt_qty(effective_lead_days_value, 1)} j", "Delai effectif matiere: lead_days simule, soit envoi physique -> arrivee effective"),
+            (f"{fmt_qty(effective_lead_days_value, 1)} j", "Delai effectif matiere metier: arrivee effective - ordre passe fournisseur."),
             (fmt_qty(release_qty, 1), ""),
             (fmt_qty(receipt_qty, 1), ""),
             (status_short, status_text or "n/a"),
@@ -4448,7 +4459,7 @@ def render_order_ledger_html(
             f"<div class=\"orderLedgerTextHeader\">{html.escape(node_id)} - {html.escape(title_suffix)}</div>",
             f"<div class=\"orderLedgerStatus\">Ordres MRP journalises: {len(sorted_orders)} ; lignes affichees: {len(display_orders)} ({html.escape(display_note)})</div>",
             f"<div class=\"orderLedgerStatus\">Statuses lignes brutes: {html.escape(statuses_text)}</div>",
-            "<div class=\"orderLedgerStatus\">Jalons: ordre_passe=order_date_imt | envoi=release_day | arrivee_previsionnelle=arrival_day source pour ordres d'ouverture, sinon release_day+lead_reference_days | arrivee_effective=actual_receipt_day/arrival_day | delai_previsionnel_matiere=delai source donnees FIA/Extract | delai_effectif_matiere=lead_days simule, soit arrivee_effective-envoi</div>",
+            "<div class=\"orderLedgerStatus\">Jalons: ordre_passe=order_date_imt | envoi=release_day | arrivee_previsionnelle=ordre_passe+delai_previsionnel_source | arrivee_effective=actual_receipt_day/arrival_day | delai_previsionnel_matiere=delai source donnees FIA/Extract | delai_effectif_matiere=arrivee_effective-ordre_passe</div>",
             "<div class=\"orderLedgerSectionTitle\">Ordres passes affiches: 500 derniers puis 500 premiers si le carnet depasse 1000 lignes.</div>",
             recent_orders_html,
             "</div>",
@@ -4595,7 +4606,7 @@ def render_supplier_stock_flows_html(
             (fmt_qty(stats.get("outgoing_pulled"), 1), "sorties reelles du stock fournisseur"),
             (fmt_qty(stats.get("outgoing_shipped"), 1), "quantite utile expediee aval apres fiabilite"),
             (fmt_qty(stats.get("physical_shipped"), 1), "envois physiques issus de production_supplier_shipments_daily.day"),
-            (fmt_qty(stats.get("planned_received"), 1), "receptions aval previsionnelles issues du carnet MRP, datees a arrival_day source pour ordres d'ouverture, sinon release_day + delai previsionnel source"),
+            (fmt_qty(stats.get("planned_received"), 1), "receptions aval previsionnelles issues du carnet MRP, datees a ordre_passe + delai previsionnel source"),
             (
                 fmt_qty((stats.get("physical_shipped") or 0.0) - (stats.get("outgoing_shipped") or 0.0), 1),
                 "ecart entre envois physiques et expedie aval du bilan stock; les commandes d'ouverture/historiques peuvent etre hors bilan stock quotidien",
@@ -4650,7 +4661,7 @@ def render_supplier_stock_flows_html(
             f"<div class=\"orderLedgerTextHeader\">{html.escape(node_id)} - flux stock fournisseur</div>",
             "<div class=\"orderLedgerStatus\">Bilan quotidien consolide par item: stock debut + entrees fournisseur - pertes stock - sorties stock = stock fin.</div>",
             "<div class=\"orderLedgerStatus\">Entrees = arrivees dans le stock fournisseur; sorties stock = quantite prelevee chez le fournisseur; expedie aval tient compte de la fiabilite.</div>",
-            "<div class=\"orderLedgerStatus\">Envois phys. = production_supplier_shipments_daily.day. Receptions prev. = carnet MRP date a arrival_day source pour ordres d'ouverture, sinon release_day + delai previsionnel source; pas arrival_day simule.</div>",
+            "<div class=\"orderLedgerStatus\">Envois phys. = production_supplier_shipments_daily.day. Receptions prev. = carnet MRP date a ordre_passe + delai previsionnel source; pas arrival_day simule.</div>",
             "<div class=\"orderLedgerFrame\">",
             "<div class=\"orderLedgerTableWrap\" tabindex=\"0\" aria-label=\"Tableau des flux de stock fournisseur avec defilement horizontal natif en bas.\">",
             "<table class=\"orderLedgerTable orderLedgerWideTable\">",
@@ -4955,10 +4966,19 @@ def render_supplier_risk_catalog_html(
 
     external_enabled = bool(economic_policy.get("external_procurement_enabled"))
     external_proactive = bool(economic_policy.get("external_procurement_proactive_replenishment"))
+    external_lead_mode = str(economic_policy.get("external_procurement_lead_mode") or "policy_fixed")
+    if external_lead_mode == "supplier_material":
+        external_lead_label = (
+            "lead=delai matiere fournisseur "
+            f"(fallback {fmt_days(economic_policy.get('external_procurement_lead_days'), 0)})"
+        )
+    else:
+        external_lead_label = f"lead fixe={fmt_days(economic_policy.get('external_procurement_lead_days'), 0)}"
     external_policy_text = (
         f"EXTERNAL_MARKET: {'actif' if external_enabled else 'inactif'} ; "
         f"proactif={'oui' if external_proactive else 'non'} ; "
-        f"lead={fmt_days(economic_policy.get('external_procurement_lead_days'), 0)} ; "
+        f"{external_lead_label} ; "
+        f"scale={fmt_qty(economic_policy.get('external_procurement_lead_time_scale', 1.0), 2)} ; "
         f"cap/j=max({fmt_qty(economic_policy.get('external_procurement_min_daily_cap_qty'), 0)}, "
         f"{fmt_qty(economic_policy.get('external_procurement_daily_cap_days'), 1)} jours de demande) ; "
         f"cout={fmt_qty(economic_policy.get('external_procurement_cost_multiplier'), 1)}x"
@@ -4974,6 +4994,563 @@ def render_supplier_risk_catalog_html(
             "<thead><tr><th>Statut</th><th>Categorie</th><th>Intensite appliquee</th><th>Evenements</th><th>Lecture</th><th>Configuration</th></tr></thead>",
             f"<tbody>{''.join(rows_html)}</tbody>",
             "</table></div>",
+            "</div>",
+        ]
+    )
+
+
+def finite_numeric_values(values: Iterable[Any], *, positive_only: bool = False) -> list[float]:
+    out: list[float] = []
+    for value in values:
+        numeric = to_float(value)
+        if numeric is None or math.isnan(numeric):
+            continue
+        if positive_only and numeric <= 0:
+            continue
+        out.append(float(numeric))
+    return out
+
+
+def coefficient_of_variation(values: list[float]) -> float | None:
+    if len(values) < 2:
+        return None
+    mean_value = statistics.mean(values)
+    if abs(mean_value) <= 1e-12:
+        return None
+    return statistics.pstdev(values) / abs(mean_value)
+
+
+def uncertainty_level(cv: float | None) -> str:
+    if cv is None:
+        return "non estimee"
+    if cv < 0.05:
+        return "faible"
+    if cv < 0.20:
+        return "moderee"
+    return "elevee"
+
+
+def fmt_uncertainty_band(values: list[float], *, kind: str = "qty", digits: int = 1) -> str:
+    if not values:
+        return "n/a"
+    p10 = percentile(values, 0.10)
+    p50 = percentile(values, 0.50)
+    p90 = percentile(values, 0.90)
+
+    def fmt_value(value: float) -> str:
+        if kind == "days":
+            return fmt_days(value, digits)
+        if kind == "pct":
+            return fmt_pct(value * 100.0, digits)
+        return fmt_qty(value, digits)
+
+    return f"P10={fmt_value(p10)} ; P50={fmt_value(p50)} ; P90={fmt_value(p90)}"
+
+
+def render_passive_uncertainty_html(
+    scope_id: str,
+    *,
+    scope_label: str,
+    order_rows: list[dict[str, str]],
+    stock_rows: list[dict[str, str]],
+    capacity_rows: list[dict[str, str]],
+    shipment_rows: list[dict[str, str]],
+    nominal_rows: list[dict[str, str]],
+    item_labels: dict[str, str],
+) -> str:
+    visible_order_rows = [
+        row for row in order_rows
+        if not is_simulation_hidden_item(str(row.get("item_id") or ""))
+    ]
+    visible_stock_rows = [
+        row for row in stock_rows
+        if not is_simulation_hidden_item(str(row.get("item_id") or ""))
+    ]
+    visible_capacity_rows = [
+        row for row in capacity_rows
+        if not is_simulation_hidden_item(str(row.get("item_id") or ""))
+    ]
+    visible_shipment_rows = [
+        row for row in shipment_rows
+        if not is_simulation_hidden_item(str(row.get("item_id") or ""))
+    ]
+    visible_nominal_rows = [
+        row for row in nominal_rows
+        if not is_simulation_hidden_item(str(row.get("item_id") or ""))
+    ]
+
+    planned_leads = finite_numeric_values(
+        (planned_procurement_lead_days(row) for row in visible_order_rows),
+        positive_only=True,
+    )
+    if not planned_leads:
+        planned_leads = finite_numeric_values(
+            (row.get("planned_lead_time_days") for row in visible_nominal_rows),
+            positive_only=True,
+        )
+    effective_leads = finite_numeric_values(
+        (effective_procurement_lead_days(row) for row in visible_order_rows),
+        positive_only=True,
+    )
+    if not effective_leads:
+        effective_leads = finite_numeric_values(
+            (row.get("lead_days") for row in visible_shipment_rows),
+            positive_only=True,
+        )
+    comparable_lead_pairs: list[tuple[float, float]] = []
+    for row in visible_order_rows:
+        planned = planned_procurement_lead_days(row)
+        effective = effective_procurement_lead_days(row)
+        if planned is None or effective is None or planned <= 0 or effective < 0:
+            continue
+        comparable_lead_pairs.append((float(planned), float(effective)))
+    late_pairs = [
+        (planned, effective)
+        for planned, effective in comparable_lead_pairs
+        if effective > planned + 1e-9
+    ]
+    delay_probability = len(late_pairs) / len(comparable_lead_pairs) if comparable_lead_pairs else None
+    avg_delay = (
+        statistics.mean(max(0.0, effective - planned) for planned, effective in comparable_lead_pairs)
+        if comparable_lead_pairs
+        else None
+    )
+    lead_cv = coefficient_of_variation(effective_leads)
+    lead_cv_suggested = max(0.05, min(0.35, lead_cv if lead_cv is not None else 0.10))
+
+    capacity_values = finite_numeric_values(
+        (row.get("capacity_qty_per_day") for row in visible_capacity_rows),
+        positive_only=True,
+    )
+    utilization_values = finite_numeric_values((row.get("utilization") for row in visible_capacity_rows))
+    nominal_capacity_values = finite_numeric_values(
+        (
+            row.get("industrial_nominal_capacity_qty_per_day")
+            or row.get("effective_capacity_qty_per_day")
+            or row.get("nominal_capacity_qty_per_day")
+            for row in visible_nominal_rows
+        ),
+        positive_only=True,
+    )
+    capacity_cv = coefficient_of_variation(capacity_values)
+    capacity_cv_suggested = max(0.05, min(0.30, capacity_cv if capacity_cv is not None else 0.10))
+    max_utilization = max(utilization_values) if utilization_values else None
+    avg_active_utilization_values = [value for value in utilization_values if value > 1e-9]
+    avg_active_utilization = statistics.mean(avg_active_utilization_values) if avg_active_utilization_values else None
+
+    stock_values = finite_numeric_values((row.get("stock_end_of_day") for row in visible_stock_rows))
+    stock_cv = coefficient_of_variation(stock_values)
+    stock_cv_suggested = max(0.05, min(0.40, stock_cv if stock_cv is not None else 0.15))
+    stock_zero_days = sum(1 for value in stock_values if value <= 1e-9)
+    stock_zero_probability = stock_zero_days / len(stock_values) if stock_values else None
+
+    reliability_values = finite_numeric_values((row.get("reliability") for row in visible_shipment_rows))
+    loss_ratios: list[float] = []
+    for row in visible_shipment_rows:
+        pulled = to_float(row.get("pulled_qty"))
+        shipped = to_float(row.get("shipped_qty"))
+        if pulled is None or shipped is None or math.isnan(pulled) or math.isnan(shipped) or pulled <= 0:
+            continue
+        loss_ratios.append(max(0.0, min(1.0, (pulled - shipped) / pulled)))
+    reliability_cv = coefficient_of_variation(reliability_values)
+    reliability_mean = statistics.mean(reliability_values) if reliability_values else None
+    loss_mean = statistics.mean(loss_ratios) if loss_ratios else None
+    reliability_cv_suggested = max(0.002, min(0.05, reliability_cv if reliability_cv is not None else 0.005))
+
+    item_ids = sorted(
+        {
+            str(row.get("item_id") or "")
+            for row in visible_order_rows
+            + visible_stock_rows
+            + visible_capacity_rows
+            + visible_shipment_rows
+            + visible_nominal_rows
+            if str(row.get("item_id") or "")
+        }
+    )
+    item_text = ", ".join(item_labels.get(item_id, compact_item_label(item_id)) for item_id in item_ids[:8])
+    if len(item_ids) > 8:
+        item_text += f" +{len(item_ids) - 8}"
+    if not item_text:
+        item_text = "n/a"
+
+    def fmt_optional_mean(values: list[float], *, kind: str = "qty", digits: int = 1) -> str:
+        if not values:
+            return "n/a"
+        value = statistics.mean(values)
+        if kind == "days":
+            return fmt_days(value, digits)
+        if kind == "pct":
+            return fmt_pct(value * 100.0, digits)
+        return fmt_qty(value, digits)
+
+    def fmt_optional_pct_fraction(value: float | None, digits: int = 1) -> str:
+        return "n/a" if value is None else fmt_pct(value * 100.0, digits)
+
+    table_rows = [
+        (
+            "Lead time",
+            "mrp_orders_daily: order_date_imt, actual_receipt_day, lead_reference_days",
+            fmt_optional_mean(planned_leads, kind="days"),
+            f"{uncertainty_level(lead_cv)} ; CV={lead_cv:.3f}" if lead_cv is not None else "non estimee",
+            fmt_uncertainty_band(effective_leads, kind="days"),
+            f"P(retard)={fmt_optional_pct_fraction(delay_probability)} ; retard moyen={fmt_days(avg_delay, 1)}",
+            f"lead_time_cv={lead_cv_suggested:.3f} (inactif)",
+        ),
+        (
+            "Capacite",
+            "production_supplier_capacity_daily.csv",
+            fmt_optional_mean(nominal_capacity_values or capacity_values),
+            f"{uncertainty_level(capacity_cv)} ; CV cap={capacity_cv:.3f}" if capacity_cv is not None else "non estimee",
+            fmt_uncertainty_band(capacity_values),
+            f"util active={fmt_optional_pct_fraction(avg_active_utilization)} ; util max={fmt_optional_pct_fraction(max_utilization)}",
+            f"capacity_cv={capacity_cv_suggested:.3f} (inactif)",
+        ),
+        (
+            "Stock fournisseur",
+            "production_supplier_stocks_daily.csv",
+            fmt_optional_mean(stock_values),
+            f"{uncertainty_level(stock_cv)} ; CV={stock_cv:.3f}" if stock_cv is not None else "non estimee",
+            fmt_uncertainty_band(stock_values),
+            f"P(stock=0)={fmt_optional_pct_fraction(stock_zero_probability)} ; jours zero={stock_zero_days}",
+            f"stock_availability_cv={stock_cv_suggested:.3f} (inactif)",
+        ),
+        (
+            "Fiabilite / qualite",
+            "production_supplier_shipments_daily.csv",
+            fmt_optional_pct_fraction(reliability_mean),
+            f"{uncertainty_level(reliability_cv)} ; CV={reliability_cv:.3f}" if reliability_cv is not None else "non estimee",
+            fmt_uncertainty_band(reliability_values, kind="pct", digits=2),
+            f"perte moyenne={fmt_optional_pct_fraction(loss_mean, 2)} ; lignes={len(visible_shipment_rows)}",
+            f"reliability_cv={reliability_cv_suggested:.3f} (inactif)",
+        ),
+    ]
+    rows_html = []
+    for dim, source, nominal, uncertainty, band, risk, inactive_param in table_rows:
+        rows_html.append(
+            "<tr>"
+            f"<td>{html.escape(dim)}</td>"
+            f"<td>{html.escape(source)}</td>"
+            f"<td>{html.escape(nominal)}</td>"
+            f"<td>{html.escape(uncertainty)}</td>"
+            f"<td>{html.escape(band)}</td>"
+            f"<td>{html.escape(risk)}</td>"
+            f"<td>{html.escape(inactive_param)}</td>"
+            "</tr>"
+        )
+
+    config_preview = {
+        "uncertainty_enabled": False,
+        "mode": "passive_calibration_only",
+        "scope": scope_id,
+        "lead_time_cv": round(lead_cv_suggested, 4),
+        "capacity_cv": round(capacity_cv_suggested, 4),
+        "stock_availability_cv": round(stock_cv_suggested, 4),
+        "reliability_cv": round(reliability_cv_suggested, 4),
+    }
+
+    return "".join(
+        [
+            "<div class=\"factoryHtmlPanelContent orderLedgerPanelContent\">",
+            f"<div class=\"orderLedgerTextHeader\">{html.escape(scope_id)} - incertitude passive {html.escape(scope_label)}</div>",
+            "<div class=\"orderLedgerStatus\">Lecture seule: aucune valeur aleatoire n'est injectee dans la simulation courante et aucun KPI du run n'est recalcule.</div>",
+            "<div class=\"orderLedgerStatus\">Objectif: preparer une future couche Monte Carlo en estimant des dispersions a partir des delais, stocks, capacites et expeditions deja produits.</div>",
+            f"<div class=\"orderLedgerStatus\">Items couverts: {html.escape(item_text)}</div>",
+            "<div class=\"orderLedgerFrame\">",
+            "<div class=\"orderLedgerTableWrap\" tabindex=\"0\" aria-label=\"Tableau incertitude passive avec defilement horizontal natif en bas.\">",
+            "<table class=\"orderLedgerTable orderLedgerWideTable\">",
+            "<colgroup>"
+            "<col style=\"width:135px\"><col style=\"width:245px\"><col style=\"width:130px\"><col style=\"width:145px\">"
+            "<col style=\"width:235px\"><col style=\"width:235px\"><col style=\"width:185px\">"
+            "</colgroup>",
+            "<thead><tr><th>Dimension</th><th>Source</th><th>Nominal</th><th>Dispersion</th><th>Bande observee</th><th>Signal risque</th><th>Parametre futur</th></tr></thead>",
+            f"<tbody>{''.join(rows_html)}</tbody>",
+            "</table>",
+            "</div>",
+            "</div>",
+            "<div class=\"orderLedgerSectionTitle\">Configuration Monte Carlo proposee mais inactive</div>",
+            f"<pre class=\"jsonPanelPre\">{html.escape(json.dumps(config_preview, indent=2, ensure_ascii=False))}</pre>",
+            "</div>",
+        ]
+    )
+
+
+def clamp01(value: float | None) -> float:
+    if value is None or math.isnan(value):
+        return 0.0
+    return max(0.0, min(1.0, float(value)))
+
+
+def risk_level(score: float) -> str:
+    if score >= 0.50:
+        return "fort"
+    if score >= 0.25:
+        return "modere"
+    return "faible"
+
+
+def render_supplier_risk_prediction_html(
+    node_id: str,
+    *,
+    order_rows: list[dict[str, str]],
+    stock_rows: list[dict[str, str]],
+    capacity_rows: list[dict[str, str]],
+    shipment_rows: list[dict[str, str]],
+    nominal_rows: list[dict[str, str]],
+    criticality_row: dict[str, str] | None,
+    economic_policy: dict[str, Any],
+    item_labels: dict[str, str],
+) -> str:
+    visible_order_rows = [
+        row for row in order_rows
+        if not is_simulation_hidden_item(str(row.get("item_id") or ""))
+    ]
+    visible_stock_rows = [
+        row for row in stock_rows
+        if not is_simulation_hidden_item(str(row.get("item_id") or ""))
+    ]
+    visible_capacity_rows = [
+        row for row in capacity_rows
+        if not is_simulation_hidden_item(str(row.get("item_id") or ""))
+    ]
+    visible_shipment_rows = [
+        row for row in shipment_rows
+        if not is_simulation_hidden_item(str(row.get("item_id") or ""))
+    ]
+    visible_nominal_rows = [
+        row for row in nominal_rows
+        if not is_simulation_hidden_item(str(row.get("item_id") or ""))
+    ]
+
+    comparable_lead_pairs: list[tuple[float, float]] = []
+    for row in visible_order_rows:
+        planned = planned_procurement_lead_days(row)
+        effective = effective_procurement_lead_days(row)
+        if planned is None or effective is None or planned <= 0 or effective < 0:
+            continue
+        comparable_lead_pairs.append((float(planned), float(effective)))
+    effective_leads = [effective for _, effective in comparable_lead_pairs]
+    lead_cv = coefficient_of_variation(effective_leads)
+    late_pairs = [(planned, effective) for planned, effective in comparable_lead_pairs if effective > planned + 1e-9]
+    delay_probability = len(late_pairs) / len(comparable_lead_pairs) if comparable_lead_pairs else None
+    avg_delay_days = (
+        statistics.mean(max(0.0, effective - planned) for planned, effective in comparable_lead_pairs)
+        if comparable_lead_pairs
+        else None
+    )
+
+    capacity_utils = finite_numeric_values((row.get("utilization") for row in visible_capacity_rows))
+    max_util = max(capacity_utils) if capacity_utils else None
+    avg_active_util_values = [value for value in capacity_utils if value > 1e-9]
+    avg_active_util = statistics.mean(avg_active_util_values) if avg_active_util_values else None
+    util_cv = coefficient_of_variation(capacity_utils)
+
+    stock_values = finite_numeric_values((row.get("stock_end_of_day") for row in visible_stock_rows))
+    stock_cv = coefficient_of_variation(stock_values)
+    stock_zero_probability = (
+        sum(1 for value in stock_values if value <= 1e-9) / len(stock_values)
+        if stock_values
+        else None
+    )
+    stock_p10 = percentile(stock_values, 0.10) if stock_values else None
+
+    reliability_values = finite_numeric_values((row.get("reliability") for row in visible_shipment_rows))
+    reliability_mean = statistics.mean(reliability_values) if reliability_values else None
+    reliability_cv = coefficient_of_variation(reliability_values)
+    loss_ratios: list[float] = []
+    for row in visible_shipment_rows:
+        pulled = to_float(row.get("pulled_qty"))
+        shipped = to_float(row.get("shipped_qty"))
+        if pulled is None or shipped is None or math.isnan(pulled) or math.isnan(shipped) or pulled <= 0:
+            continue
+        loss_ratios.append(max(0.0, min(1.0, (pulled - shipped) / pulled)))
+    loss_mean = statistics.mean(loss_ratios) if loss_ratios else None
+
+    local_criticality = clamp01(to_float((criticality_row or {}).get("local_criticality_score")))
+    overall_criticality = clamp01(to_float((criticality_row or {}).get("overall_criticality_score")))
+    observed_share = clamp01(to_float((criticality_row or {}).get("observed_sourcing_share")))
+    sole_source_pairs = int(to_float((criticality_row or {}).get("sole_source_pairs")) or 0)
+    shortage_events = int(to_float((criticality_row or {}).get("shortage_supported_events")) or 0)
+    impact_score = max(
+        overall_criticality,
+        0.75 * local_criticality,
+        0.60 * observed_share if sole_source_pairs > 0 else 0.35 * observed_share,
+        0.25 if shortage_events > 0 else 0.0,
+    )
+    if impact_score <= 1e-9 and visible_nominal_rows:
+        impact_score = max(0.25, max((to_float(row.get("mrp_share")) or 0.0) for row in visible_nominal_rows))
+    impact_score = clamp01(impact_score)
+
+    def confidence(row_count: int, *, has_criticality: bool = True) -> float:
+        value = 0.25 + math.log1p(max(0, row_count)) / 8.0
+        if not has_criticality:
+            value -= 0.08
+        return clamp01(min(0.95, value))
+
+    lead_occurrence = clamp01(
+        0.04
+        + 0.55 * (delay_probability or 0.0)
+        + 0.25 * min(1.0, (avg_delay_days or 0.0) / 30.0)
+        + 0.20 * min(1.0, (lead_cv or 0.0) / 0.30)
+    )
+    capacity_occurrence = clamp01(
+        0.03
+        + 0.70 * (max_util or 0.0)
+        + 0.20 * (avg_active_util or 0.0)
+        + 0.10 * min(1.0, (util_cv or 0.0) / 0.30)
+    )
+    stock_occurrence = clamp01(
+        0.03
+        + 0.65 * (stock_zero_probability or 0.0)
+        + (0.15 if stock_p10 is not None and stock_p10 <= 1e-9 else 0.0)
+        + 0.20 * min(1.0, (stock_cv or 0.0) / 1.0)
+    )
+    reliability_occurrence = clamp01(
+        0.02
+        + 1.50 * max(0.0, 1.0 - (reliability_mean if reliability_mean is not None else 1.0))
+        + 3.00 * (loss_mean or 0.0)
+        + 0.20 * min(1.0, (reliability_cv or 0.0) / 0.05)
+    )
+    dependency_occurrence = clamp01(0.04 + 0.20 * local_criticality + (0.08 if sole_source_pairs > 0 else 0.0))
+    external_enabled = bool(economic_policy.get("external_procurement_enabled"))
+    external_occurrence = clamp01((0.08 + 0.20 * impact_score) if external_enabled else 0.0)
+
+    categories = [
+        {
+            "category": "Derive lead time",
+            "occurrence": lead_occurrence,
+            "impact": impact_score,
+            "confidence": confidence(len(comparable_lead_pairs), has_criticality=criticality_row is not None),
+            "evidence": (
+                f"retards={len(late_pairs)}/{len(comparable_lead_pairs)} ; "
+                f"P(retard)={fmt_pct((delay_probability or 0.0) * 100.0)} ; "
+                f"retard moyen={fmt_days(avg_delay_days, 1)} ; CV={lead_cv:.3f}" if lead_cv is not None
+                else f"retards={len(late_pairs)}/{len(comparable_lead_pairs)} ; donnees lead insuffisantes"
+            ),
+            "sensitivity": "lead_time x1.0/x1.1/x1.25/x1.5",
+        },
+        {
+            "category": "Stress capacite",
+            "occurrence": capacity_occurrence,
+            "impact": impact_score,
+            "confidence": confidence(len(visible_capacity_rows), has_criticality=criticality_row is not None),
+            "evidence": (
+                f"util max={fmt_pct((max_util or 0.0) * 100.0)} ; "
+                f"util active={fmt_pct((avg_active_util or 0.0) * 100.0)} ; "
+                f"CV util={util_cv:.3f}" if util_cv is not None
+                else f"util max={fmt_pct((max_util or 0.0) * 100.0)} ; donnees capacite limitees"
+            ),
+            "sensitivity": "capacity x1.0/x0.9/x0.8/x0.7/x0.5",
+        },
+        {
+            "category": "Fragilite stock fournisseur",
+            "occurrence": stock_occurrence,
+            "impact": impact_score,
+            "confidence": confidence(len(visible_stock_rows), has_criticality=criticality_row is not None),
+            "evidence": (
+                f"P(stock=0)={fmt_pct((stock_zero_probability or 0.0) * 100.0)} ; "
+                f"P10 stock={fmt_qty(stock_p10, 1)} ; CV={stock_cv:.3f}" if stock_cv is not None
+                else f"P(stock=0)={fmt_pct((stock_zero_probability or 0.0) * 100.0)} ; donnees stock limitees"
+            ),
+            "sensitivity": "stock x1.0/x0.75/x0.5/x0.25/x0",
+        },
+        {
+            "category": "Fiabilite / qualite",
+            "occurrence": reliability_occurrence,
+            "impact": impact_score,
+            "confidence": confidence(len(visible_shipment_rows), has_criticality=criticality_row is not None),
+            "evidence": (
+                f"reliability moyenne={fmt_pct((reliability_mean or 0.0) * 100.0)} ; "
+                f"perte moyenne={fmt_pct((loss_mean or 0.0) * 100.0, 2)} ; "
+                f"CV={reliability_cv:.3f}" if reliability_cv is not None
+                else f"reliability moyenne={fmt_pct((reliability_mean or 0.0) * 100.0)} ; donnees qualite limitees"
+            ),
+            "sensitivity": "reliability x1.0/x0.99/x0.97/x0.95",
+        },
+        {
+            "category": "Dependance / criticite locale",
+            "occurrence": dependency_occurrence,
+            "impact": max(impact_score, local_criticality),
+            "confidence": confidence(1 if criticality_row else 0, has_criticality=criticality_row is not None),
+            "evidence": (
+                f"local={local_criticality:.3f} ; overall={overall_criticality:.3f} ; "
+                f"sourcing={fmt_pct(observed_share * 100.0)} ; sole_source={sole_source_pairs}"
+            ),
+            "sensitivity": "desactiver fournisseur / doubler source / share alternative",
+        },
+        {
+            "category": "Contrainte external market",
+            "occurrence": external_occurrence,
+            "impact": impact_score,
+            "confidence": confidence(len(visible_nominal_rows), has_criticality=criticality_row is not None),
+            "evidence": (
+                "external procurement actif dans la politique" if external_enabled
+                else "external procurement non actif pour ce diagnostic passif"
+            ),
+            "sensitivity": "external cap x1/x0.75/x0.5 ; external lead x1/x1.5",
+        },
+    ]
+    for row in categories:
+        row["expected"] = clamp01(float(row["occurrence"]) * float(row["impact"]) * float(row["confidence"]))
+    categories.sort(key=lambda row: float(row["expected"]), reverse=True)
+
+    rows_html = []
+    for row in categories:
+        expected = float(row["expected"])
+        rows_html.append(
+            "<tr>"
+            f"<td>{html.escape(str(row['category']))}</td>"
+            f"<td>{fmt_pct(float(row['occurrence']) * 100.0)}</td>"
+            f"<td>{fmt_pct(float(row['impact']) * 100.0)}</td>"
+            f"<td>{fmt_pct(float(row['confidence']) * 100.0)}</td>"
+            f"<td>{fmt_pct(expected * 100.0)}</td>"
+            f"<td>{html.escape(risk_level(expected))}</td>"
+            f"<td>{html.escape(str(row['evidence']))}</td>"
+            f"<td>{html.escape(str(row['sensitivity']))}</td>"
+            "</tr>"
+        )
+
+    sensitivity_rows = [
+        ("1", "Capacite fournisseur", "x1.0, x0.9, x0.8, x0.7, x0.5", "tester le seuil de saturation sans changer le nominal"),
+        ("2", "Stock fournisseur", "x1.0, x0.75, x0.5, x0.25, x0", "identifier le stock minimum qui preserve service, backlog et cibles"),
+        ("3", "Lead time", "x1.0, x1.1, x1.25, x1.5", "mesurer la sensibilite aux retards et derive de delai"),
+        ("4", "Fiabilite / qualite", "x1.0, x0.99, x0.97, x0.95", "simuler pertes, retours, release qualite et quantite utile"),
+        ("5", "External market", "cap x1/x0.75/x0.5 ; lead x1/x1.5", "contraindre la source externe avant activation productive"),
+    ]
+    sensitivity_html = "".join(
+        "<tr>"
+        f"<td>{html.escape(priority)}</td>"
+        f"<td>{html.escape(parameter)}</td>"
+        f"<td>{html.escape(grid)}</td>"
+        f"<td>{html.escape(reason)}</td>"
+        "</tr>"
+        for priority, parameter, grid, reason in sensitivity_rows
+    )
+
+    return "".join(
+        [
+            "<div class=\"factoryHtmlPanelContent orderLedgerPanelContent\">",
+            f"<div class=\"orderLedgerTextHeader\">{html.escape(node_id)} - prediction passive des risques fournisseur</div>",
+            "<div class=\"orderLedgerStatus\">Lecture seule: les probabilites ci-dessous ne pilotent pas la simulation courante.</div>",
+            "<div class=\"orderLedgerStatus\">Principe: occurrence estimee x impact local x confiance donne un score attendu, puis la grille de sensibilite propose les premiers stress tests a lancer.</div>",
+            "<div class=\"orderLedgerSectionTitle\">Introduction - etude de sensibilite recommandee</div>",
+            "<div class=\"kpiFormulaTableWrap\"><table class=\"kpiFormulaTable\">",
+            "<thead><tr><th>Priorite</th><th>Parametre</th><th>Grille proposee</th><th>Objectif</th></tr></thead>",
+            f"<tbody>{sensitivity_html}</tbody>",
+            "</table></div>",
+            "<div class=\"orderLedgerSectionTitle\">Prediction passive par categorie</div>",
+            "<div class=\"orderLedgerFrame\">",
+            "<div class=\"orderLedgerTableWrap\" tabindex=\"0\" aria-label=\"Tableau de prediction passive des risques fournisseur avec defilement horizontal natif en bas.\">",
+            "<table class=\"orderLedgerTable orderLedgerWideTable\">",
+            "<colgroup>"
+            "<col style=\"width:175px\"><col style=\"width:105px\"><col style=\"width:95px\"><col style=\"width:105px\">"
+            "<col style=\"width:105px\"><col style=\"width:85px\"><col style=\"width:320px\"><col style=\"width:260px\">"
+            "</colgroup>",
+            "<thead><tr><th>Categorie</th><th>Occurrence</th><th>Impact</th><th>Confiance</th><th>Score attendu</th><th>Niveau</th><th>Preuves / signaux</th><th>Sensibilite a lancer</th></tr></thead>",
+            f"<tbody>{''.join(rows_html)}</tbody>",
+            "</table>",
+            "</div>",
+            "</div>",
             "</div>",
         ]
     )
@@ -7452,6 +8029,11 @@ def build_model_panel_metrics(
         if supplier_stock_flows_csv is not None and supplier_stock_flows_csv.exists()
         else []
     )
+    supplier_local_criticality_rows = (
+        read_csv_rows(data_root / "supplier_local_criticality_ranking.csv")
+        if (data_root / "supplier_local_criticality_ranking.csv").exists()
+        else []
+    )
     supplier_capacity_rows = read_csv_rows(supplier_capacity_csv)
     supplier_nominal_rows = (
         read_csv_rows(supplier_nominal_parameters_csv)
@@ -7572,6 +8154,12 @@ def build_model_panel_metrics(
         node_id = str(payload.get("supplier_id") or row.get("node_id") or "")
         if node_id:
             supplier_risk_config_by_node[node_id].append(payload)
+
+    supplier_local_criticality_by_node: dict[str, dict[str, str]] = {}
+    for row in supplier_local_criticality_rows:
+        node_id = str(row.get("supplier_id") or "")
+        if node_id and node_id not in supplier_local_criticality_by_node:
+            supplier_local_criticality_by_node[node_id] = row
 
     def rows_by_node_item(rows: list[dict[str, str]], *, node_field: str = "node_id") -> dict[tuple[str, str], list[dict[str, str]]]:
         out: dict[tuple[str, str], list[dict[str, str]]] = defaultdict(list)
@@ -8730,6 +9318,8 @@ def build_model_panel_metrics(
         node_supplier_stock_flow_asset = None
         node_supplier_order_send_asset = None
         node_supplier_risk_catalog_asset = None
+        node_uncertainty_asset = None
+        node_supplier_risk_prediction_asset = None
         node_capacity_nominal_asset = None
         dormant_reason: str | None = None
         if not node_orders:
@@ -8833,6 +9423,31 @@ def build_model_panel_metrics(
                 row for row in node_orders
                 if str(row.get("src_node_id") or "") == node_id
             ]
+            node_uncertainty_asset = {
+                "html": render_passive_uncertainty_html(
+                    node_id,
+                    scope_label="fournisseur",
+                    order_rows=supplier_source_orders,
+                    stock_rows=supplier_stocks_by_node.get(node_id, []),
+                    capacity_rows=supplier_cap_by_node.get(node_id, []),
+                    shipment_rows=supplier_ship_rows_node,
+                    nominal_rows=supplier_nominal_by_node.get(node_id, []),
+                    item_labels=item_labels,
+                )
+            }
+            node_supplier_risk_prediction_asset = {
+                "html": render_supplier_risk_prediction_html(
+                    node_id,
+                    order_rows=supplier_source_orders,
+                    stock_rows=supplier_stocks_by_node.get(node_id, []),
+                    capacity_rows=supplier_cap_by_node.get(node_id, []),
+                    shipment_rows=supplier_ship_rows_node,
+                    nominal_rows=supplier_nominal_by_node.get(node_id, []),
+                    criticality_row=supplier_local_criticality_by_node.get(node_id),
+                    economic_policy=(policy.get("economic_policy") or {}) if isinstance(policy, dict) else {},
+                    item_labels=item_labels,
+                )
+            }
             supplier_order_received_series = aggregate_order_series(
                 supplier_source_orders,
                 "release_qty",
@@ -8886,7 +9501,7 @@ def build_model_panel_metrics(
                 event_like=True,
                 note=(
                     "Envois physiques = production_supplier_shipments_daily.day. "
-                    "Receptions aval previsionnelles = carnet MRP date a arrival_day source pour ordres d'ouverture, sinon release_day + delai previsionnel source; pas arrival_day simule."
+                    "Receptions aval previsionnelles = carnet MRP date a ordre_passe + delai previsionnel source; pas arrival_day simule."
                 ),
                 series_styles={
                     "Envois physiques simules": {"color": "#dc2626", "width": 2.2},
@@ -9200,6 +9815,8 @@ def build_model_panel_metrics(
             "supplier_order_send": node_supplier_order_send_asset,
             "nominal": node_nominal_asset,
             "supplier_risk_catalog": node_supplier_risk_catalog_asset,
+            "uncertainty": node_uncertainty_asset,
+            "risk_prediction": node_supplier_risk_prediction_asset,
             "capacity_nominal": node_capacity_nominal_asset,
         }
 
@@ -9332,13 +9949,13 @@ def build_model_panel_metrics(
             "Ship_src(t): quantite sortie du stock source et expediee sur le flux",
             "RecvPrev_dst(t): quantite qui arrivera a destination a t + lead_time",
             "Lead_ref: delai previsionnel MRP du flux",
-            "Lead_sim: delai simule pour la reception effective",
+            "LT_effectif: delai metier entre ordre passe fournisseur et reception effective",
             "Delai_retroplanning: delai total utilise pour positionner la date d'ordre previsionnelle",
         ]
         assumption_lines = [
             "le flux est simule chronologiquement au jour d'envoi ; la date d'ordre previsionnelle est un jalon calcule pour lire le carnet",
             "standard_order_qty joue comme multiple cible de commande quand disponible",
-            "le delai previsionnel matiere vient des donnees source; le delai effectif est le lead_days simule entre envoi physique et reception effective",
+            "le delai previsionnel matiere vient des donnees source; le delai effectif metier est mesure entre ordre passe fournisseur et reception effective",
         ]
         for item_id in items:
             item_shipment_rows = supplier_ship_by_edge.get((src, dst, item_id), [])
@@ -9499,13 +10116,13 @@ def build_model_panel_metrics(
         edge_lead_figure = build_line_chart_figure(
             {
                 "Delai prev. source donnees": average_derived_order_series(edge_order_rows, planned_procurement_lead_days),
-                "Delai effectif simule": average_derived_order_series(edge_order_rows, effective_procurement_lead_days),
+                "Delai effectif metier": average_derived_order_series(edge_order_rows, effective_procurement_lead_days),
             },
             title=f"{edge_id} - delais matiere du flux",
             y_label="Jours",
             note=(
-                "Delais matiere mesures depuis ordre_passe. "
-                "Le delai transport envoi->reception reste visible dans les donnees d'expedition."
+                "Delai prev. = reference source donnees. "
+                "Delai effectif = reception effective - ordre passe fournisseur."
             ),
         )
         if edge_lead_figure is not None:
@@ -9522,11 +10139,40 @@ def build_model_panel_metrics(
             title=f"{edge_id} - distribution des delais transport envoi-reception",
             planned_lead_days=planned_lead,
         )
+        edge_capacity_rows = [
+            row
+            for item_id in items
+            for row in supplier_cap_by_pair.get((src, item_id), [])
+        ]
+        edge_stock_rows = [
+            row
+            for item_id in items
+            for row in supplier_stock_rows_by_pair.get((src, item_id), [])
+        ]
+        edge_nominal_rows = [
+            row
+            for row in supplier_nominal_by_node.get(src, [])
+            if str(row.get("item_id") or "") in set(items)
+            and (not str(row.get("dst_node_id") or "") or str(row.get("dst_node_id") or "") == dst)
+        ]
         edge_context_html_asset = {
             "html": render_edge_context_html(edge_id, src, dst, edge_context_rows)
         }
+        edge_uncertainty_html_asset = {
+            "html": render_passive_uncertainty_html(
+                edge_id,
+                scope_label="flux",
+                order_rows=edge_order_rows,
+                stock_rows=edge_stock_rows,
+                capacity_rows=edge_capacity_rows,
+                shipment_rows=edge_shipment_rows,
+                nominal_rows=edge_nominal_rows,
+                item_labels=item_labels,
+            )
+        }
         edge_context_bundle = [
             {"label": "Source / destination", "asset": edge_context_html_asset},
+            {"label": "Incertitude flux", "asset": edge_uncertainty_html_asset},
         ]
         if edge_lead_distribution_figure is not None:
             edge_context_bundle.append(
@@ -9565,7 +10211,7 @@ def build_model_panel_metrics(
             metric_label_value("Stock_dst(t)", "Stock projete de l'item chez le receveur."),
             metric_label_value("RecvPrev_dst(t)", "Receptions futures deja planifiees vers le receveur."),
             metric_label_value("OA_src(t)", "Ordre amont demande a la source sur ce flux."),
-            metric_label_value("Lead_ref / Lead_sim", "Lead_ref et Lead_sim sont les delais transport envoi-reception; les delais matiere du carnet sont calcules de ordre_passe a reception."),
+            metric_label_value("LT prev. / LT effectif", "LT prev. est le delai previsionnel source; LT effectif est le delai metier entre ordre passe fournisseur et reception effective."),
             metric_section("Application flux - variables locales"),
             *[metric_label_value(f"Var {idx+1}", line) for idx, line in enumerate(state_var_lines)],
             metric_section("Application flux - regles locales"),
@@ -9573,7 +10219,7 @@ def build_model_panel_metrics(
             metric_label_value("Eq sim 2", "Gap_dst(t) = T_dst(t) + Backlog_dst(t) - Stock_dst(t) - RecvPrev_dst(t)"),
             metric_label_value("Eq sim 3", "BN_dst(t) = Gap_dst(t) si Gap_dst(t) > 0 ; sinon 0"),
             metric_label_value("Eq sim 4", "OA_src(t): ordre amont sur le flux = quantite demandee a la source, normalisee si quantite standard"),
-            metric_label_value("Eq sim 5", "Reception_prevue = envoi + Lead_ref ; Reception_effective = envoi + Lead_sim ; Delai_effectif = Lead_sim"),
+            metric_label_value("Eq sim 5", "Reception_prevue = ordre_passe + LT_prev ; Delai_effectif = reception_effective - ordre_passe"),
             metric_label_value("Eq sim 6", "date_ordre_prevue = date_besoin - delai_securite - LT_ref"),
             metric_section("Application flux - correspondance modele global"),
             metric_label_value("Q[f,i](t)", "OA_src(t): quantite commandee sur ce flux apres sourcing et normalisation."),
@@ -9584,7 +10230,7 @@ def build_model_panel_metrics(
             metric_section("Lecture simulateur"),
             metric_label_value("Date d'ordre", "ordre_passe est une date calculee pour lire le carnet: besoin a couvrir - delai securite - delai d'appro."),
             metric_label_value("Date d'envoi", "release_day est le jour ou la quantite est envoyee sur le flux."),
-            metric_label_value("Date reception", "arrivee_previsionnelle = arrival_day source pour ordres d'ouverture, sinon release_day + delai previsionnel source ; arrivee_effective = reception simulee ; delai matiere effectif = lead_days simule, donc reception effective - envoi physique."),
+            metric_label_value("Date reception", "arrivee_previsionnelle = ordre_passe + delai previsionnel source ; arrivee_effective = reception simulee ; delai matiere effectif = arrivee_effective - ordre_passe."),
             metric_section("Limites lecture flux"),
             metric_label_value("Granularite", "Les ordres sont consolides pour la lecture, mais la simulation reste journaliere et peut generer plusieurs evenements par item/flux."),
             metric_label_value("Capacite source", "Si la capacite fournisseur n'est pas connue, elle est une hypothese ou n'est pas limitante selon le parametrage du scenario."),
@@ -13560,7 +14206,7 @@ def html_template(
       }}
       if (nodeType === "supplier_dc") {{
         return {{
-          incoming: "Fournisseur - flux physiques, stock, capacite, risques",
+          incoming: "Fournisseur - flux physiques, stock, capacite, risques, incertitude, prediction",
           outgoing: "Expeditions fournisseur",
           third: "Planning lots production",
           fourth: "Pilotage MRP"
@@ -13658,6 +14304,8 @@ def html_template(
           {{ label: "Nominal fournisseur", asset: modelDetails.nominal || null }},
           {{ label: "Nominal capacite", asset: modelDetails.capacity_nominal || null }},
           {{ label: "Risques fournisseur", asset: modelDetails.supplier_risk_catalog || null }},
+          {{ label: "Incertitude", asset: modelDetails.uncertainty || null }},
+          {{ label: "Prediction risque", asset: modelDetails.risk_prediction || null }},
         ] : [
           {{ label: "Graph stock fournisseur", asset: supplierBase.incoming || null }},
         ];
