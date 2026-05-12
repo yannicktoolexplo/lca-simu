@@ -813,15 +813,6 @@
         "cover_days": 10.0,
         "added_opening_qty": 754600.0,
         "target_opening_stock": 754600.0
-      },
-      {
-        "node_id": "SDC-VD0956464A",
-        "item_id": "item:007923",
-        "category": "estimated_source_on_hand",
-        "daily_signal": 324.925654,
-        "cover_days": 14.0,
-        "added_opening_qty": 1851.16513,
-        "target_opening_stock": 6479.07793
       }
     ],
     "explicit_initialization_pipeline_rows": [
@@ -1975,7 +1966,7 @@
         "category": "external_procurement_in_transit",
         "seeded_pipeline_qty": 17788.235294,
         "lead_days": 28,
-        "lane_src": "EXTERNAL_MARKET"
+        "lane_src": "SUPPLIER_UPSTREAM_SUPPLY"
       },
       {
         "node_id": "SDC-VD0505677A",
@@ -1983,7 +1974,7 @@
         "category": "external_procurement_in_transit",
         "seeded_pipeline_qty": 14462.2275,
         "lead_days": 35,
-        "lane_src": "EXTERNAL_MARKET"
+        "lane_src": "SUPPLIER_UPSTREAM_SUPPLY"
       },
       {
         "node_id": "SDC-VD0508918A",
@@ -1991,7 +1982,7 @@
         "category": "external_procurement_in_transit",
         "seeded_pipeline_qty": 1828288.0,
         "lead_days": 56,
-        "lane_src": "EXTERNAL_MARKET"
+        "lane_src": "SUPPLIER_UPSTREAM_SUPPLY"
       },
       {
         "node_id": "SDC-VD0514881A",
@@ -1999,7 +1990,7 @@
         "category": "external_procurement_in_transit",
         "seeded_pipeline_qty": 4859.30844,
         "lead_days": 49,
-        "lane_src": "EXTERNAL_MARKET"
+        "lane_src": "SUPPLIER_UPSTREAM_SUPPLY"
       },
       {
         "node_id": "SDC-VD0518684A",
@@ -2007,7 +1998,7 @@
         "category": "external_procurement_in_transit",
         "seeded_pipeline_qty": 29648.208,
         "lead_days": 56,
-        "lane_src": "EXTERNAL_MARKET"
+        "lane_src": "SUPPLIER_UPSTREAM_SUPPLY"
       },
       {
         "node_id": "SDC-VD0519670A",
@@ -2015,7 +2006,7 @@
         "category": "external_procurement_in_transit",
         "seeded_pipeline_qty": 3230.769231,
         "lead_days": 21,
-        "lane_src": "EXTERNAL_MARKET"
+        "lane_src": "SUPPLIER_UPSTREAM_SUPPLY"
       },
       {
         "node_id": "SDC-VD0519670A",
@@ -2023,7 +2014,7 @@
         "category": "external_procurement_in_transit",
         "seeded_pipeline_qty": 462.79128,
         "lead_days": 56,
-        "lane_src": "EXTERNAL_MARKET"
+        "lane_src": "SUPPLIER_UPSTREAM_SUPPLY"
       },
       {
         "node_id": "SDC-VD0520115A",
@@ -2031,7 +2022,7 @@
         "category": "external_procurement_in_transit",
         "seeded_pipeline_qty": 34194.16,
         "lead_days": 28,
-        "lane_src": "EXTERNAL_MARKET"
+        "lane_src": "SUPPLIER_UPSTREAM_SUPPLY"
       },
       {
         "node_id": "SDC-VD0520132A",
@@ -2039,7 +2030,7 @@
         "category": "external_procurement_in_transit",
         "seeded_pipeline_qty": 415010.458016,
         "lead_days": 154,
-        "lane_src": "EXTERNAL_MARKET"
+        "lane_src": "SUPPLIER_UPSTREAM_SUPPLY"
       },
       {
         "node_id": "SDC-VD0520132A",
@@ -2047,7 +2038,7 @@
         "category": "external_procurement_in_transit",
         "seeded_pipeline_qty": 44948.60307,
         "lead_days": 147,
-        "lane_src": "EXTERNAL_MARKET"
+        "lane_src": "SUPPLIER_UPSTREAM_SUPPLY"
       },
       {
         "node_id": "SDC-VD0525412A",
@@ -2055,7 +2046,7 @@
         "category": "external_procurement_in_transit",
         "seeded_pipeline_qty": 9240000.0,
         "lead_days": 60,
-        "lane_src": "EXTERNAL_MARKET"
+        "lane_src": "SUPPLIER_UPSTREAM_SUPPLY"
       },
       {
         "node_id": "SDC-VD0901566A",
@@ -2063,7 +2054,7 @@
         "category": "external_procurement_in_transit",
         "seeded_pipeline_qty": 14248500.0,
         "lead_days": 70,
-        "lane_src": "EXTERNAL_MARKET"
+        "lane_src": "SUPPLIER_UPSTREAM_SUPPLY"
       },
       {
         "node_id": "SDC-VD0910216A",
@@ -2071,7 +2062,7 @@
         "category": "external_procurement_in_transit",
         "seeded_pipeline_qty": 19698.823529,
         "lead_days": 28,
-        "lane_src": "EXTERNAL_MARKET"
+        "lane_src": "SUPPLIER_UPSTREAM_SUPPLY"
       },
       {
         "node_id": "SDC-VD0910216A",
@@ -2079,7 +2070,7 @@
         "category": "external_procurement_in_transit",
         "seeded_pipeline_qty": 18750.0,
         "lead_days": 35,
-        "lane_src": "EXTERNAL_MARKET"
+        "lane_src": "SUPPLIER_UPSTREAM_SUPPLY"
       },
       {
         "node_id": "SDC-VD0914320A",
@@ -2087,7 +2078,7 @@
         "category": "external_procurement_in_transit",
         "seeded_pipeline_qty": 242.307692,
         "lead_days": 21,
-        "lane_src": "EXTERNAL_MARKET"
+        "lane_src": "SUPPLIER_UPSTREAM_SUPPLY"
       },
       {
         "node_id": "SDC-VD0914360C",
@@ -2095,7 +2086,7 @@
         "category": "external_procurement_in_transit",
         "seeded_pipeline_qty": 8549100.0,
         "lead_days": 42,
-        "lane_src": "EXTERNAL_MARKET"
+        "lane_src": "SUPPLIER_UPSTREAM_SUPPLY"
       },
       {
         "node_id": "SDC-VD0914690A",
@@ -2103,7 +2094,7 @@
         "category": "external_procurement_in_transit",
         "seeded_pipeline_qty": 195146028.0,
         "lead_days": 21,
-        "lane_src": "EXTERNAL_MARKET"
+        "lane_src": "SUPPLIER_UPSTREAM_SUPPLY"
       },
       {
         "node_id": "SDC-VD0949099A",
@@ -2111,7 +2102,7 @@
         "category": "external_procurement_in_transit",
         "seeded_pipeline_qty": 16666.666667,
         "lead_days": 120,
-        "lane_src": "EXTERNAL_MARKET"
+        "lane_src": "SUPPLIER_UPSTREAM_SUPPLY"
       },
       {
         "node_id": "SDC-VD0951020A",
@@ -2119,7 +2110,7 @@
         "category": "external_procurement_in_transit",
         "seeded_pipeline_qty": 27767.4768,
         "lead_days": 84,
-        "lane_src": "EXTERNAL_MARKET"
+        "lane_src": "SUPPLIER_UPSTREAM_SUPPLY"
       },
       {
         "node_id": "SDC-VD0951020A",
@@ -2127,7 +2118,7 @@
         "category": "external_procurement_in_transit",
         "seeded_pipeline_qty": 8330.24304,
         "lead_days": 56,
-        "lane_src": "EXTERNAL_MARKET"
+        "lane_src": "SUPPLIER_UPSTREAM_SUPPLY"
       },
       {
         "node_id": "SDC-VD0951020A",
@@ -2135,7 +2126,7 @@
         "category": "external_procurement_in_transit",
         "seeded_pipeline_qty": 595.017358,
         "lead_days": 3,
-        "lane_src": "EXTERNAL_MARKET"
+        "lane_src": "SUPPLIER_UPSTREAM_SUPPLY"
       },
       {
         "node_id": "SDC-VD0956464A",
@@ -2143,7 +2134,7 @@
         "category": "external_procurement_in_transit",
         "seeded_pipeline_qty": 1388.373842,
         "lead_days": 3,
-        "lane_src": "EXTERNAL_MARKET"
+        "lane_src": "SUPPLIER_UPSTREAM_SUPPLY"
       },
       {
         "node_id": "SDC-VD0960508A",
@@ -2151,7 +2142,7 @@
         "category": "external_procurement_in_transit",
         "seeded_pipeline_qty": 16666.666667,
         "lead_days": 120,
-        "lane_src": "EXTERNAL_MARKET"
+        "lane_src": "SUPPLIER_UPSTREAM_SUPPLY"
       },
       {
         "node_id": "SDC-VD0964290A",
@@ -2159,7 +2150,7 @@
         "category": "external_procurement_in_transit",
         "seeded_pipeline_qty": 347.09346,
         "lead_days": 42,
-        "lane_src": "EXTERNAL_MARKET"
+        "lane_src": "SUPPLIER_UPSTREAM_SUPPLY"
       },
       {
         "node_id": "SDC-VD0972460A",
@@ -2167,7 +2158,7 @@
         "category": "external_procurement_in_transit",
         "seeded_pipeline_qty": 16666.666667,
         "lead_days": 120,
-        "lane_src": "EXTERNAL_MARKET"
+        "lane_src": "SUPPLIER_UPSTREAM_SUPPLY"
       },
       {
         "node_id": "SDC-VD0975221A",
@@ -2175,7 +2166,7 @@
         "category": "external_procurement_in_transit",
         "seeded_pipeline_qty": 16666.666667,
         "lead_days": 120,
-        "lane_src": "EXTERNAL_MARKET"
+        "lane_src": "SUPPLIER_UPSTREAM_SUPPLY"
       },
       {
         "node_id": "SDC-VD0989480A",
@@ -2183,7 +2174,7 @@
         "category": "external_procurement_in_transit",
         "seeded_pipeline_qty": 62693.4,
         "lead_days": 28,
-        "lane_src": "EXTERNAL_MARKET"
+        "lane_src": "SUPPLIER_UPSTREAM_SUPPLY"
       },
       {
         "node_id": "SDC-VD0990780A",
@@ -2191,7 +2182,7 @@
         "category": "external_procurement_in_transit",
         "seeded_pipeline_qty": 19791.666667,
         "lead_days": 35,
-        "lane_src": "EXTERNAL_MARKET"
+        "lane_src": "SUPPLIER_UPSTREAM_SUPPLY"
       },
       {
         "node_id": "SDC-VD0993480A",
@@ -2199,7 +2190,7 @@
         "category": "external_procurement_in_transit",
         "seeded_pipeline_qty": 5390000.0,
         "lead_days": 35,
-        "lane_src": "EXTERNAL_MARKET"
+        "lane_src": "SUPPLIER_UPSTREAM_SUPPLY"
       },
       {
         "node_id": "SDC-VD1091642A",
@@ -2207,7 +2198,7 @@
         "category": "external_procurement_in_transit",
         "seeded_pipeline_qty": 20383.143,
         "lead_days": 42,
-        "lane_src": "EXTERNAL_MARKET"
+        "lane_src": "SUPPLIER_UPSTREAM_SUPPLY"
       },
       {
         "node_id": "SDC-VD1091642A",
@@ -2215,7 +2206,7 @@
         "category": "external_procurement_in_transit",
         "seeded_pipeline_qty": 18750.0,
         "lead_days": 35,
-        "lane_src": "EXTERNAL_MARKET"
+        "lane_src": "SUPPLIER_UPSTREAM_SUPPLY"
       },
       {
         "node_id": "SDC-VD1095770A",
@@ -2223,7 +2214,7 @@
         "category": "external_procurement_in_transit",
         "seeded_pipeline_qty": 25872.0,
         "lead_days": 21,
-        "lane_src": "EXTERNAL_MARKET"
+        "lane_src": "SUPPLIER_UPSTREAM_SUPPLY"
       },
       {
         "node_id": "SDC-VD1096202A",
@@ -2231,7 +2222,7 @@
         "category": "external_procurement_in_transit",
         "seeded_pipeline_qty": 375.0,
         "lead_days": 35,
-        "lane_src": "EXTERNAL_MARKET"
+        "lane_src": "SUPPLIER_UPSTREAM_SUPPLY"
       }
     ],
     "opening_open_order_rows": [
@@ -6358,7 +6349,7 @@
     "total_estimated_source_replenished_qty": 0.0,
     "total_estimated_source_rejected_qty": 0.0,
     "total_opening_stock_bootstrap_qty": 0.0,
-    "total_explicit_initialization_stock_qty": 756451.1651,
+    "total_explicit_initialization_stock_qty": 754600.0,
     "total_explicit_initialization_pipeline_qty": 303596359.9729,
     "total_opening_open_order_qty": 68338188.0,
     "total_unreliable_loss_qty": 0.0,

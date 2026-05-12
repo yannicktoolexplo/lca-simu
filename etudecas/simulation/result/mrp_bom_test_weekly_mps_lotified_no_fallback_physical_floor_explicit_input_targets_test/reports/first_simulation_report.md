@@ -45,15 +45,15 @@
 - Production cost enabled / target share: True / 0.3
 - Production cost basis: pharma_standard_target_share_allocated_on_actual_production
 - Production cost line shares: {'M-1430|item:268967': 0.4, 'M-1810|item:268091': 0.45, 'SDC-1450|item:773474': 0.15}
-- External procurement enabled: True
-- External procurement proactive supplier replenishment: True
-- External procurement lead days: 4
-- External procurement lead mode / scale: supplier_material / 1.0
-- External procurement capacity mode / nominal scale: supplier_nominal / 1.0
-- External procurement upstream pipeline seed / fill ratio: True / 1.0
-- External procurement daily cap days: 999.0
-- External procurement min daily cap qty: 1000000000.0
-- External procurement unit cost / multiplier / transport unit: 0.0 / 2.0 / 0.04
+- Supplier upstream supply enabled: True
+- Supplier upstream proactive replenishment: True
+- Supplier upstream lead days: 4
+- Supplier upstream lead mode / scale: supplier_material / 1.0
+- Supplier upstream capacity mode / nominal scale: supplier_nominal / 1.0
+- Supplier upstream pipeline seed / fill ratio: True / 1.0
+- Supplier upstream daily cap days: 999.0
+- Supplier upstream min daily cap qty: 1000000000.0
+- Supplier upstream unit cost / multiplier / transport unit: 0.0 / 2.0 / 0.04
 - Nodes: 35
 - Edges: 39
 - Flux transport (edge x item): 39
@@ -65,7 +65,7 @@
 - Mismatch d'unites non convertis: 0
 - Assumed supplier nodes (explicitly tagged, includes '?'): 0 (none)
 - Assumed supply edges (explicitly tagged, includes '?'): 0 (none)
-- External upstream sourcing for unmodeled source pairs: 34
+- Supplier upstream sourcing for unmodeled source pairs: 34
 - Opening stock bootstrap pairs (lead-time coverage at max capacity): 0
 - Opening open-order rows seeded: 88
 - MRP trace tracked pairs / rows / orders: 65 / 118625 / 32698
@@ -88,17 +88,17 @@
 - Production cost (pharma conversion proxy): 18344602.8365
 - Logistics cost (transport + inventory capital + warehouse + inventory risk): 27750410.9045
 - Total cost: 61148676.1216
-- Total external procured ordered qty: 546130544.8797
-- Total external procured arrived qty: 711625982.1517
-- External procured arrived includes opening upstream pipeline receipts when the upstream pipeline seed is enabled.
-- Total external procured rejected qty (cap-limited): 2083710077.7581
-- Total external procurement cost premium: 53327515.4047
+- Total supplier upstream ordered qty: 546130544.8797
+- Total supplier upstream arrived qty: 711625982.1517
+- Supplier upstream arrived includes opening upstream pipeline receipts when the upstream pipeline seed is enabled.
+- Total supplier upstream rejected qty (cap-limited): 2083710077.7581
+- Total supplier upstream cost premium: 53327515.4047
 - Total estimated source ordered qty: 0.0
 - Total estimated source replenished qty: 0.0
 - Total estimated source rejected qty: 0.0
 - Cost share capital holding / warehouse / inventory risk / transport / purchase / production: 0.127112 / 0.163429 / 0.072635 / 0.090643 / 0.246181 / 0.3
 - Total opening stock bootstrap qty: 0.0
-- Total explicit initialization stock qty: 756451.1651
+- Total explicit initialization stock qty: 754600.0
 - Total explicit initialization pipeline qty: 303596359.9729
 - Total opening open-order qty: 68338188.0
 - Total unreliable supplier loss qty: 0.0

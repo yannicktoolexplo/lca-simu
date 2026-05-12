@@ -4601,7 +4601,7 @@ def render_supplier_stock_flows_html(
             (stats.get("uom") or "n/a", ""),
             (fmt_qty(stats.get("stock_start"), 1), title),
             (fmt_qty(stats.get("incoming"), 1), "entrees reelles dans le stock fournisseur"),
-            (fmt_qty(stats.get("incoming_external"), 1), "dont arrivees EXTERNAL_MARKET"),
+            (fmt_qty(stats.get("incoming_external"), 1), "dont arrivees appro amont fournisseur"),
             (fmt_qty(stats.get("stock_writeoff"), 1), "pertes de stock fournisseur appliquees par evenement de risque"),
             (fmt_qty(stats.get("outgoing_pulled"), 1), "sorties reelles du stock fournisseur"),
             (fmt_qty(stats.get("outgoing_shipped"), 1), "quantite utile expediee aval apres fiabilite"),
@@ -4634,7 +4634,7 @@ def render_supplier_stock_flows_html(
         "UOM",
         "Stock debut",
         "Entrees total",
-        "Dont marche ext.",
+        "Dont appro amont",
         "Pertes stock",
         "Sorties stock",
         "Expedie aval",
@@ -4894,40 +4894,40 @@ def render_supplier_risk_catalog_html(
             "reading": "Inflation fret, urgence, changement de mode transport.",
         },
         {
-            "category": "EXTERNAL_MARKET - capacite",
+            "category": "Appro amont fournisseur - capacite",
             "types": {"external_capacity", "external_availability"},
             "factor_fields": ["external_capacity_multiplier", "external_availability_multiplier"],
             "day_fields": [],
             "pct_fields": [],
             "mode": "min",
-            "reading": "Plafond et disponibilite du marche externe quand il sert de source amont.",
+            "reading": "Plafond et disponibilite de l'approvisionnement amont qui reconstitue le stock fournisseur.",
         },
         {
-            "category": "EXTERNAL_MARKET - delai",
+            "category": "Appro amont fournisseur - delai",
             "types": {"external_lead_time", "external_lead_time_extra_days"},
             "factor_fields": ["external_lead_time_multiplier"],
             "day_fields": ["external_lead_time_extra_days"],
             "pct_fields": [],
             "mode": "max",
-            "reading": "Allongement du delai marche externe.",
+            "reading": "Allongement du delai d'approvisionnement amont fournisseur.",
         },
         {
-            "category": "EXTERNAL_MARKET - qualite",
+            "category": "Appro amont fournisseur - qualite",
             "types": {"external_quality_yield"},
             "factor_fields": ["external_quality_yield_multiplier"],
             "day_fields": [],
             "pct_fields": [],
             "mode": "min",
-            "reading": "Rendement utile du marche externe apres rejet.",
+            "reading": "Rendement utile de l'approvisionnement amont apres rejet.",
         },
         {
-            "category": "EXTERNAL_MARKET - cout",
+            "category": "Appro amont fournisseur - cout",
             "types": {"external_cost"},
             "factor_fields": ["external_cost_multiplier"],
             "day_fields": [],
             "pct_fields": [],
             "mode": "max",
-            "reading": "Surcout du marche externe, achat et transport d'urgence.",
+            "reading": "Surcout de l'approvisionnement amont, achat et transport d'urgence.",
         },
     ]
 
@@ -4988,7 +4988,7 @@ def render_supplier_risk_catalog_html(
             f"{fmt_qty(economic_policy.get('external_procurement_daily_cap_days'), 1)} jours de demande)"
         )
     external_policy_text = (
-        f"EXTERNAL_MARKET: {'actif' if external_enabled else 'inactif'} ; "
+        f"Appro amont fournisseur: {'actif' if external_enabled else 'inactif'} ; "
         f"proactif={'oui' if external_proactive else 'non'} ; "
         f"{external_lead_label} ; "
         f"scale={fmt_qty(economic_policy.get('external_procurement_lead_time_scale', 1.0), 2)} ; "
@@ -5491,15 +5491,15 @@ def render_supplier_risk_prediction_html(
             "sensitivity": "desactiver fournisseur / doubler source / share alternative",
         },
         {
-            "category": "Contrainte external market",
+            "category": "Contrainte appro amont fournisseur",
             "occurrence": external_occurrence,
             "impact": impact_score,
             "confidence": confidence(len(visible_nominal_rows), has_criticality=criticality_row is not None),
             "evidence": (
-                "external procurement actif dans la politique" if external_enabled
-                else "external procurement non actif pour ce diagnostic passif"
+                "appro amont fournisseur actif dans la politique" if external_enabled
+                else "appro amont fournisseur non actif pour ce diagnostic passif"
             ),
-            "sensitivity": "external cap x1/x0.75/x0.5 ; external lead x1/x1.5",
+            "sensitivity": "cap appro amont x1/x0.75/x0.5/x0.25 ; delai appro amont x1/x1.25/x1.5/x2",
         },
     ]
     for row in categories:
@@ -5524,10 +5524,10 @@ def render_supplier_risk_prediction_html(
 
     sensitivity_rows = [
         ("1", "Capacite fournisseur", "x1.0, x0.9, x0.8, x0.7, x0.5", "tester le seuil de saturation sans changer le nominal"),
-        ("2", "Stock fournisseur", "x1.0, x0.75, x0.5, x0.25, x0", "identifier le stock minimum qui preserve service, backlog et cibles"),
-        ("3", "Lead time", "x1.0, x1.1, x1.25, x1.5", "mesurer la sensibilite aux retards et derive de delai"),
+        ("2", "Stock fournisseur", "x1.0, x0.75, x0.5, x0.25", "identifier le stock minimum qui preserve service, backlog et cibles"),
+        ("3", "Lead time", "x1.0, x1.25, x1.5, x2.0", "mesurer la sensibilite aux retards et derive de delai"),
         ("4", "Fiabilite / qualite", "x1.0, x0.99, x0.97, x0.95", "simuler pertes, retours, release qualite et quantite utile"),
-        ("5", "External market", "cap x1/x0.75/x0.5 ; lead x1/x1.5", "contraindre la source externe avant activation productive"),
+        ("5", "Appro amont fournisseur", "cap x1/x0.75/x0.5/x0.25 ; delai x1/x1.25/x1.5/x2", "contraindre l'appro amont qui reconstitue le stock fournisseur"),
     ]
     sensitivity_html = "".join(
         "<tr>"
@@ -5674,7 +5674,7 @@ def render_supplier_nominal_parameters_html(
             f"capacite actuelle={fmt_qty(row.get('effective_capacity_qty_per_day'), 1)}"
         )
         upstream_capacity_title = (
-            "Contrainte amont EXTERNAL_MARKET: besoin journalier baseline / taux cible; "
+            "Contrainte appro amont fournisseur: besoin journalier baseline / taux cible; "
             f"besoin={fmt_qty(upstream_need, 1)}/j | "
             f"profil={row.get('external_procurement_capacity_profile') or 'n/a'} | "
             f"base={row.get('external_procurement_capacity_basis') or 'n/a'} | "
@@ -5757,7 +5757,7 @@ def render_supplier_nominal_parameters_html(
             "<div class=\"factoryHtmlPanelContent orderLedgerPanelContent\">",
             f"<div class=\"orderLedgerTextHeader\">{html.escape(node_id)} - parametres nominaux fournisseur</div>",
             f"<div class=\"orderLedgerStatus\">Lignes fournisseur affichees: {len(sorted_rows)}. Cap actuelle/j = limite utilisee par le run actif; Cap nominale cible/j = pic observe / taux cible; Cap validee baseline/j = plus petite capacite testee qui conserve la baseline sans binding.</div>",
-            "<div class=\"orderLedgerStatus\">Profils cible: raw material qualifie ~= 70%, high lead ~= 65%, packaging qualifie ~= 75%. Cap amont/j contraint EXTERNAL_MARKET avec le meme taux cible, et le pipeline amont ouvre les commandes deja en route au demarrage.</div>",
+            "<div class=\"orderLedgerStatus\">Profils cible: raw material qualifie ~= 70%, high lead ~= 65%, packaging qualifie ~= 75%. Cap amont/j contraint l'appro amont fournisseur avec le meme taux cible, et le pipeline amont ouvre les commandes deja en route au demarrage.</div>",
             "<div class=\"orderLedgerFrame\">",
             "<div class=\"orderLedgerTableWrap\" tabindex=\"0\" aria-label=\"Tableau des parametres nominaux fournisseur avec defilement horizontal natif en bas.\">",
             "<table class=\"orderLedgerTable orderLedgerWideTable\">",

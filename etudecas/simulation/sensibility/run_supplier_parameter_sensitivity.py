@@ -79,33 +79,33 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--stock-levels",
-        default="0.01,0.25,0.5,0.75,0.9,1.0",
+        default="0.25,0.5,0.75,1.0",
         help="Supplier opening stock scale levels.",
     )
     parser.add_argument(
         "--capacity-levels",
-        default="0.01,0.05,0.1,0.25,0.5,0.75,1.0",
+        default="0.5,0.6,0.75,0.9,1.0",
         help="Supplier capacity scale levels.",
     )
     parser.add_argument(
         "--lead-time-levels",
-        default="1.0,1.1,1.25,1.5",
+        default="1.0,1.25,1.5,2.0",
         help="Supplier planned lead-time scale levels.",
     )
     parser.add_argument(
         "--reliability-levels",
-        default="0.85,0.9,0.95,1.0",
+        default="0.95,0.97,0.99,1.0",
         help="Supplier reliability scale levels.",
     )
     parser.add_argument(
         "--external-capacity-levels",
         default="0.25,0.5,0.75,1.0",
-        help="External market daily-capacity scale levels.",
+        help="Supplier upstream supply daily-capacity scale levels.",
     )
     parser.add_argument(
         "--external-lead-levels",
-        default="1.0,1.5,2.0",
-        help="External market lead-time scale levels.",
+        default="1.0,1.25,1.5,2.0",
+        help="Supplier upstream supply lead-time scale levels.",
     )
     parser.add_argument(
         "--service-threshold",
@@ -123,6 +123,11 @@ def parse_args() -> argparse.Namespace:
         "--keep-case-data",
         action="store_true",
         help="Keep detailed case data. By default only summaries and inputs are retained.",
+    )
+    parser.add_argument(
+        "--summarize-existing",
+        action="store_true",
+        help="Rebuild summary/report files from an existing supplier_parameter_sensitivity_cases.csv without rerunning cases.",
     )
     return parser.parse_args()
 
@@ -249,6 +254,87 @@ def extract_manifest_extra_args(manifest_path: Path) -> list[str]:
         extra.append(token)
         i += 1
     return extra
+
+
+def split_supplier_floor_arg(extra_args: list[str]) -> tuple[list[str], Path | None]:
+    cleaned: list[str] = []
+    supplier_floors_csv: Path | None = None
+    i = 0
+    while i < len(extra_args):
+        token = str(extra_args[i])
+        if token == "--supplier-neutral-floors-csv":
+            if i + 1 < len(extra_args):
+                supplier_floors_csv = Path(str(extra_args[i + 1]))
+            i += 2
+            continue
+        cleaned.append(token)
+        i += 1
+    return cleaned, supplier_floors_csv
+
+
+def scale_csv_number(row: dict[str, str], field: str, scale: float) -> None:
+    if field not in row:
+        return
+    raw = str(row.get(field) or "").strip()
+    if not raw:
+        return
+    row[field] = f"{max(0.0, to_float(raw, 0.0) * scale):.6f}"
+
+
+def write_case_supplier_floor_csv(
+    *,
+    baseline_csv: Path | None,
+    output_csv: Path,
+    config: dict[str, Any],
+) -> Path | None:
+    if baseline_csv is None or not baseline_csv.exists():
+        return None
+    with baseline_csv.open("r", encoding="utf-8-sig", newline="") as f:
+        reader = csv.DictReader(f)
+        fieldnames = list(reader.fieldnames or [])
+        rows = list(reader)
+    if not rows or not fieldnames:
+        return None
+
+    global_capacity_scale = to_float(config["factors"].get("supplier_capacity_scale"), 1.0)
+    global_stock_scale = to_float(config["factors"].get("supplier_stock_scale"), 1.0)
+    capacity_by_supplier = {
+        str(supplier): to_float(scale, 1.0)
+        for supplier, scale in config.get("supplier_capacity_node_scale", {}).items()
+    }
+    stock_by_supplier = {
+        str(supplier): to_float(scale, 1.0)
+        for supplier, scale in config.get("supplier_node_scale", {}).items()
+    }
+
+    for row in rows:
+        supplier_id = str(row.get("supplier_id") or "")
+        capacity_scale = global_capacity_scale * capacity_by_supplier.get(supplier_id, 1.0)
+        stock_scale = global_stock_scale * stock_by_supplier.get(supplier_id, 1.0)
+        for field in [
+            "tested_capacity_floor_qty_per_day",
+            "neutral_capacity_floor_qty_per_day",
+            "industrial_nominal_capacity_qty_per_day",
+            "effective_capacity_qty_per_day",
+            "nominal_capacity_qty_per_day",
+        ]:
+            scale_csv_number(row, field, capacity_scale)
+        for field in [
+            "neutral_opening_stock_floor_qty",
+            "simulated_opening_stock_qty",
+            "input_initial_stock_qty",
+            "base_stock_qty",
+        ]:
+            scale_csv_number(row, field, stock_scale)
+        if "capacity_floor_basis" in row:
+            row["capacity_floor_basis"] = "sensitivity_scaled_from_60_75_calibration"
+
+    output_csv.parent.mkdir(parents=True, exist_ok=True)
+    with output_csv.open("w", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+    return output_csv
 
 
 def apply_scenario_flags(mutated: dict[str, Any], scenario_id: str, flags: dict[str, bool]) -> None:
@@ -461,8 +547,8 @@ def build_specs(
             [
                 {
                     "parameter_key": "external_procurement_enabled",
-                    "parameter_group": "external_market",
-                    "parameter_label": "External market active",
+                    "parameter_group": "supplier_upstream_supply",
+                    "parameter_label": "Appro amont fournisseur active",
                     "levels": [0.01, 1.0],
                     "config_kind": "scenario_flag",
                     "target": "external_procurement_enabled",
@@ -470,8 +556,8 @@ def build_specs(
                 },
                 {
                     "parameter_key": "external_procurement_daily_cap_days_scale",
-                    "parameter_group": "external_market",
-                    "parameter_label": "Capacite external market",
+                    "parameter_group": "supplier_upstream_supply",
+                    "parameter_label": "Capacite appro amont fournisseur",
                     "levels": levels["external_capacity"],
                     "config_kind": "factor",
                     "target": "external_procurement_daily_cap_days_scale",
@@ -479,8 +565,8 @@ def build_specs(
                 },
                 {
                     "parameter_key": "external_procurement_lead_days_scale",
-                    "parameter_group": "external_market",
-                    "parameter_label": "Delai external market",
+                    "parameter_group": "supplier_upstream_supply",
+                    "parameter_label": "Delai appro amont fournisseur",
                     "levels": levels["external_lead"],
                     "config_kind": "factor",
                     "target": "external_procurement_lead_days_scale",
@@ -582,6 +668,7 @@ def run_case(
     days: int,
     cases_root: Path,
     extra_args: list[str],
+    supplier_floor_csv: Path | None,
     keep_case_data: bool,
 ) -> dict[str, Any]:
     case_dir = cases_root / case_id
@@ -609,13 +696,21 @@ def run_case(
         apply_scenario_flags(mutated, scenario_id, config["scenario_flags"])
         case_dir.mkdir(parents=True, exist_ok=True)
         write_json(case_input, mutated)
+        case_extra_args = list(extra_args)
+        case_supplier_floor_csv = write_case_supplier_floor_csv(
+            baseline_csv=supplier_floor_csv,
+            output_csv=case_dir / "supplier_neutral_floors_case.csv",
+            config=config,
+        )
+        if case_supplier_floor_csv is not None:
+            case_extra_args.extend(["--supplier-neutral-floors-csv", str(case_supplier_floor_csv)])
         summary = run_simulation_case(
             run_script=run_script,
             input_json=case_input,
             output_dir=case_output,
             scenario_id=scenario_id,
             days=days,
-            extra_args=extra_args,
+            extra_args=case_extra_args,
         )
     op = operational_metrics(case_output)
     if not keep_case_data:
@@ -648,6 +743,11 @@ def write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
         writer.writerows(rows)
 
 
+def read_csv(path: Path) -> list[dict[str, Any]]:
+    with path.open("r", encoding="utf-8", newline="") as f:
+        return list(csv.DictReader(f))
+
+
 def is_case_acceptable(row: dict[str, Any], baseline: dict[str, Any], service_threshold: float) -> bool:
     fill = to_float(row.get("kpi::fill_rate"), math.nan)
     ending_backlog = to_float(row.get("kpi::ending_backlog"), math.nan)
@@ -661,12 +761,49 @@ def is_case_acceptable(row: dict[str, Any], baseline: dict[str, Any], service_th
         "guard::backlog_days",
         "guard::raw_material_safety_floor_breach_days",
         "guard::raw_material_safety_floor_breach_pairs",
+        "guard::raw_material_max_safety_floor_gap_qty",
+        "guard::raw_material_max_target_gap_qty",
     ]:
         value = to_float(row.get(key), math.nan)
         base = to_float(baseline.get(key), math.nan)
         if math.isnan(value) or math.isnan(base) or value > base + 1e-6:
             return False
     return True
+
+
+def contiguous_acceptable_ranges(levels: list[float], acceptable_levels: list[float]) -> list[list[float]]:
+    acceptable_set = {round(level, 12) for level in acceptable_levels if not math.isnan(level)}
+    ranges: list[list[float]] = []
+    current: list[float] = []
+    for level in levels:
+        if math.isnan(level):
+            continue
+        if round(level, 12) in acceptable_set:
+            current.append(level)
+            continue
+        if current:
+            ranges.append([current[0], current[-1]])
+            current = []
+    if current:
+        ranges.append([current[0], current[-1]])
+    return ranges
+
+
+def baseline_safe_range(ranges: list[list[float]], baseline_level: float = 1.0) -> tuple[float | None, float | None]:
+    for low, high in ranges:
+        if low - 1e-9 <= baseline_level <= high + 1e-9:
+            return low, high
+    return None, None
+
+
+def safe_range_label(row: dict[str, Any]) -> str:
+    ranges = str(row.get("acceptable_ranges") or "[]")
+    contiguous = str(row.get("acceptable_is_contiguous") or "").lower() == "true"
+    low = row.get("baseline_contiguous_safe_low")
+    high = row.get("baseline_contiguous_safe_high")
+    if contiguous:
+        return f"plage continue baseline [{low}, {high}]"
+    return f"niveaux acceptables non contigus {row.get('acceptable_levels')}; plage continue baseline [{low}, {high}]"
 
 
 def summarize_parameter(
@@ -690,10 +827,19 @@ def summarize_parameter(
 
     safe_low = min(safe_levels) if safe_levels else None
     safe_high = max(safe_levels) if safe_levels else None
+    acceptable_ranges = contiguous_acceptable_ranges(levels, safe_levels)
+    baseline_safe_low, baseline_safe_high = baseline_safe_range(acceptable_ranges)
+    acceptable_is_contiguous = len(acceptable_ranges) <= 1
     first_bad = None
     for row in rows:
         if not is_case_acceptable(row, baseline, service_threshold):
             first_bad = to_float(row.get("level"), math.nan)
+            break
+    fill_cross_level = None
+    for row in rows:
+        fill = to_float(row.get("kpi::fill_rate"), math.nan)
+        if math.isnan(fill) or fill + 1e-9 < service_threshold:
+            fill_cross_level = to_float(row.get("level"), math.nan)
             break
 
     max_fill_drop = max(
@@ -706,6 +852,18 @@ def summarize_parameter(
     )
     max_external_delta = max(
         (value - baseline_external for value in external_values if not math.isnan(value)),
+        default=math.nan,
+    )
+    target_gap_values = [to_float(row.get("guard::raw_material_max_target_gap_qty"), math.nan) for row in rows]
+    safety_gap_values = [to_float(row.get("guard::raw_material_max_safety_floor_gap_qty"), math.nan) for row in rows]
+    baseline_target_gap = to_float(baseline.get("guard::raw_material_max_target_gap_qty"), math.nan)
+    baseline_safety_gap = to_float(baseline.get("guard::raw_material_max_safety_floor_gap_qty"), math.nan)
+    max_target_gap_increase = max(
+        (value - baseline_target_gap for value in target_gap_values if not math.isnan(value) and not math.isnan(baseline_target_gap)),
+        default=math.nan,
+    )
+    max_safety_gap_increase = max(
+        (value - baseline_safety_gap for value in safety_gap_values if not math.isnan(value) and not math.isnan(baseline_safety_gap)),
         default=math.nan,
     )
 
@@ -733,10 +891,14 @@ def summarize_parameter(
         "safe_direction": spec["safe_direction"],
         "levels": json.dumps(levels),
         "acceptable_levels": json.dumps(safe_levels),
+        "acceptable_ranges": json.dumps(acceptable_ranges),
+        "acceptable_is_contiguous": acceptable_is_contiguous,
         "safe_band_low": safe_low,
         "safe_band_high": safe_high,
+        "baseline_contiguous_safe_low": baseline_safe_low,
+        "baseline_contiguous_safe_high": baseline_safe_high,
         "first_unacceptable_level": first_bad,
-        "fill_rate_cross_service_threshold_at": first_bad,
+        "fill_rate_cross_service_threshold_at": fill_cross_level,
         "ending_backlog_cross_threshold_at": backlog_cross_level,
         "total_cost_cross_threshold_at": cost_warn_level,
         "fill_rate_monotonicity": fill_mono,
@@ -747,6 +909,9 @@ def summarize_parameter(
         "max_fill_rate_drop": max_fill_drop,
         "max_total_cost_increase": max_cost_increase,
         "max_external_procured_qty_delta": max_external_delta,
+        "max_supplier_upstream_ordered_qty_delta": max_external_delta,
+        "max_raw_material_target_gap_increase": max_target_gap_increase,
+        "max_raw_material_safety_floor_gap_increase": max_safety_gap_increase,
         "cost_warning_level": cost_warn_level,
         "baseline_fill_rate": baseline_fill,
         "baseline_total_cost": baseline_cost,
@@ -795,13 +960,18 @@ def recommendation_rows(summary_rows: list[dict[str, Any]]) -> list[dict[str, An
             {
                 "supplier_id": supplier_id,
                 "parameter": parameter,
-                "tested_min_acceptable_scale": row.get("safe_band_low"),
-                "tested_max_acceptable_scale": row.get("safe_band_high"),
+                "tested_min_acceptable_scale": row.get("baseline_contiguous_safe_low"),
+                "tested_max_acceptable_scale": row.get("baseline_contiguous_safe_high"),
                 "first_unacceptable_level": row.get("first_unacceptable_level"),
                 "tested_levels": row.get("levels"),
                 "acceptable_levels": row.get("acceptable_levels"),
+                "acceptable_ranges": row.get("acceptable_ranges"),
+                "acceptable_is_contiguous": row.get("acceptable_is_contiguous"),
                 "max_fill_rate_drop": row.get("max_fill_rate_drop"),
                 "max_external_procured_qty_delta": row.get("max_external_procured_qty_delta"),
+                "max_supplier_upstream_ordered_qty_delta": row.get("max_supplier_upstream_ordered_qty_delta"),
+                "max_raw_material_target_gap_increase": row.get("max_raw_material_target_gap_increase"),
+                "max_raw_material_safety_floor_gap_increase": row.get("max_raw_material_safety_floor_gap_increase"),
             }
         )
     out.sort(key=lambda r: (str(r["supplier_id"]), str(r["parameter"])))
@@ -832,58 +1002,70 @@ def main() -> None:
     supplier_nodes_all = detect_supplier_nodes(base_data)
     ranked_suppliers = rank_suppliers(baseline_result_dir, set(supplier_nodes_all))
     selected_suppliers = ranked_suppliers if args.top_suppliers <= 0 else ranked_suppliers[: args.top_suppliers]
-    extra_args = extract_manifest_extra_args(Path(args.baseline_manifest))
+    extra_args, supplier_floor_csv = split_supplier_floor_arg(extract_manifest_extra_args(Path(args.baseline_manifest)))
 
     specs = build_specs(groups, selected_suppliers, levels)
-    all_rows: list[dict[str, Any]] = []
-
-    print("[RUN] baseline", flush=True)
-    baseline_spec = {
-        "parameter_key": "baseline",
-        "parameter_group": "baseline",
-        "parameter_label": "Baseline",
-        "safe_direction": "baseline",
-    }
-    baseline_row = run_case(
-        case_id="baseline",
-        spec=baseline_spec,
-        level=1.0,
-        config=base_case(),
-        base_data=base_data,
-        run_script=run_script,
-        scenario_id=args.scenario_id,
-        days=args.days,
-        cases_root=cases_root,
-        extra_args=extra_args,
-        keep_case_data=True,
-    )
-    all_rows.append(baseline_row)
-
-    for spec_index, spec in enumerate(specs, start=1):
-        for level_index, level in enumerate(spec["levels"], start=1):
-            case_id = case_id_for(str(spec["parameter_key"]), float(level))
-            print(
-                f"[RUN] {spec_index:03d}/{len(specs):03d} {spec['parameter_key']} "
-                f"{level_index:02d}/{len(spec['levels']):02d} level={level}",
-                flush=True,
-            )
-            row = run_case(
-                case_id=case_id,
-                spec=spec,
-                level=float(level),
-                config=config_for_spec(spec, float(level), selected_suppliers),
-                base_data=base_data,
-                run_script=run_script,
-                scenario_id=args.scenario_id,
-                days=args.days,
-                cases_root=cases_root,
-                extra_args=extra_args,
-                keep_case_data=args.keep_case_data,
-            )
-            all_rows.append(row)
-
     cases_csv = output_dir / "supplier_parameter_sensitivity_cases.csv"
-    write_csv(cases_csv, all_rows)
+    if args.summarize_existing:
+        if not cases_csv.exists():
+            raise FileNotFoundError(f"Cannot summarize existing study: {cases_csv} does not exist")
+        print(f"[SUMMARY] Reading existing cases: {cases_csv}", flush=True)
+        all_rows = read_csv(cases_csv)
+        baseline_matches = [row for row in all_rows if str(row.get("parameter_key") or "") == "baseline"]
+        if not baseline_matches:
+            raise ValueError(f"Cannot summarize existing study: no baseline row in {cases_csv}")
+        baseline_row = baseline_matches[0]
+    else:
+        all_rows: list[dict[str, Any]] = []
+
+        print("[RUN] baseline", flush=True)
+        baseline_spec = {
+            "parameter_key": "baseline",
+            "parameter_group": "baseline",
+            "parameter_label": "Baseline",
+            "safe_direction": "baseline",
+        }
+        baseline_row = run_case(
+            case_id="baseline",
+            spec=baseline_spec,
+            level=1.0,
+            config=base_case(),
+            base_data=base_data,
+            run_script=run_script,
+            scenario_id=args.scenario_id,
+            days=args.days,
+            cases_root=cases_root,
+            extra_args=extra_args,
+            supplier_floor_csv=supplier_floor_csv,
+            keep_case_data=True,
+        )
+        all_rows.append(baseline_row)
+
+        for spec_index, spec in enumerate(specs, start=1):
+            for level_index, level in enumerate(spec["levels"], start=1):
+                case_id = case_id_for(str(spec["parameter_key"]), float(level))
+                print(
+                    f"[RUN] {spec_index:03d}/{len(specs):03d} {spec['parameter_key']} "
+                    f"{level_index:02d}/{len(spec['levels']):02d} level={level}",
+                    flush=True,
+                )
+                row = run_case(
+                    case_id=case_id,
+                    spec=spec,
+                    level=float(level),
+                    config=config_for_spec(spec, float(level), selected_suppliers),
+                    base_data=base_data,
+                    run_script=run_script,
+                    scenario_id=args.scenario_id,
+                    days=args.days,
+                    cases_root=cases_root,
+                    extra_args=extra_args,
+                    supplier_floor_csv=supplier_floor_csv,
+                    keep_case_data=args.keep_case_data,
+                )
+                all_rows.append(row)
+
+        write_csv(cases_csv, all_rows)
 
     by_parameter: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for row in all_rows:
@@ -935,11 +1117,13 @@ def main() -> None:
         "service_threshold": args.service_threshold,
         "cost_increase_pct": args.cost_increase_pct,
         "manifest_extra_args": extra_args,
+        "supplier_floor_csv": "" if supplier_floor_csv is None else str(supplier_floor_csv),
         "baseline": baseline_row,
         "parameter_count": len(specs),
         "simulation_count": len(all_rows),
         "critical_parameters": critical,
         "strongest_fill_effects": strongest_fill,
+        "strongest_supplier_upstream_supply_effects": strongest_external,
         "strongest_external_market_effects": strongest_external,
         "recommendations_csv": str(recommendations_csv),
     }
@@ -954,8 +1138,9 @@ def main() -> None:
         f"- Scenario: {args.scenario_id}",
         f"- Groups: {', '.join(sorted(groups))}",
         f"- Suppliers swept: {', '.join(selected_suppliers) if selected_suppliers else '(none)'}",
+        f"- Supplier floor calibration CSV: {supplier_floor_csv if supplier_floor_csv else '(none)'}",
         "- Baseline guardrails are not warmup-adjusted: startup behavior remains included.",
-        "- Accepted case: fill rate target met, ending backlog no worse than baseline, daily backlog no worse than baseline, raw-material safety-floor breaches no worse than baseline.",
+        "- Accepted case: fill rate target met, ending backlog no worse than baseline, daily backlog no worse than baseline, raw-material safety-floor and target-stock gaps no worse than baseline.",
         "",
         "## Baseline",
         f"- Fill rate: {to_float(baseline_row.get('kpi::fill_rate'), math.nan):.6f}",
@@ -963,8 +1148,9 @@ def main() -> None:
         f"- Max daily backlog: {to_float(baseline_row.get('guard::max_daily_backlog_qty'), math.nan):.4f}",
         f"- Backlog days: {to_float(baseline_row.get('guard::backlog_days'), math.nan):.0f}",
         f"- Raw material safety-floor breach days: {to_float(baseline_row.get('guard::raw_material_safety_floor_breach_days'), math.nan):.0f}",
+        f"- Raw material max target gap qty: {to_float(baseline_row.get('guard::raw_material_max_target_gap_qty'), math.nan):.4f}",
         f"- Total cost: {to_float(baseline_row.get('kpi::total_cost'), math.nan):.4f}",
-        f"- External procured ordered qty: {to_float(baseline_row.get('kpi::total_external_procured_ordered_qty'), math.nan):.4f}",
+        f"- Supplier upstream ordered qty: {to_float(baseline_row.get('kpi::total_external_procured_ordered_qty'), math.nan):.4f}",
         "",
         "## Critical Parameters",
     ]
@@ -972,8 +1158,9 @@ def main() -> None:
         for row in critical[:10]:
             report_lines.append(
                 f"- {row['parameter_label']}: first unacceptable level {row['first_unacceptable_level']}, "
-                f"safe band [{row['safe_band_low']}, {row['safe_band_high']}], "
-                f"max fill drop {to_float(row['max_fill_rate_drop'], 0.0):.6f}"
+                f"{safe_range_label(row)}, "
+                f"max fill drop {to_float(row['max_fill_rate_drop'], 0.0):.6f}, "
+                f"max target gap increase {to_float(row.get('max_raw_material_target_gap_increase'), 0.0):.4f}"
             )
     else:
         report_lines.append("- No unacceptable supplier parameter level in the tested grid.")
@@ -985,12 +1172,12 @@ def main() -> None:
             f"acceptable {row['acceptable_levels']}"
         )
 
-    report_lines.extend(["", "## Strongest External Market Effects"])
+    report_lines.extend(["", "## Strongest Supplier Upstream Supply Effects"])
     for row in strongest_external[:10]:
         report_lines.append(
-            f"- {row['parameter_label']}: max external qty delta "
-            f"{to_float(row['max_external_procured_qty_delta'], 0.0):.4f}, "
-            f"safe band [{row['safe_band_low']}, {row['safe_band_high']}]"
+            f"- {row['parameter_label']}: max supplier upstream qty delta "
+            f"{to_float(row['max_supplier_upstream_ordered_qty_delta'], 0.0):.4f}, "
+            f"{safe_range_label(row)}"
         )
 
     report_lines.extend(["", "## Minimum Tested Supplier Settings"])
@@ -1004,7 +1191,7 @@ def main() -> None:
         for row in critical_recommendations[:20]:
             report_lines.append(
                 f"- {row['supplier_id']} / {row['parameter']}: "
-                f"minimum acceptable tested scale {row['tested_min_acceptable_scale']} "
+                f"minimum acceptable scale in the continuous baseline range {row['tested_min_acceptable_scale']} "
                 f"(first unacceptable {row['first_unacceptable_level'] or 'none'})"
             )
     else:
