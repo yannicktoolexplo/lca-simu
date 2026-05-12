@@ -25,6 +25,8 @@ except ImportError:
 
 SUPPLIER_FUNCTIONAL_CAPACITY_HEADROOM_FACTOR = 2.5
 FACTORY_NOMINAL_TARGET_UTILIZATION = 0.70
+SUPPLIER_UPSTREAM_SUPPLY_NODE_ID = "SUPPLIER_UPSTREAM_SUPPLY"
+SUPPLIER_UPSTREAM_SUPPLY_EDGE_PREFIX = "SUPPLIER_UPSTREAM_SUPPLY"
 
 SUPPLIER_NOMINAL_PARAMETER_FIELDS = [
     "supplier_id",
@@ -487,26 +489,26 @@ def parse_args() -> argparse.Namespace:
         "--external-procurement-enabled",
         action=argparse.BooleanOptionalAction,
         default=None,
-        help="Override external market procurement availability for stress tests.",
+        help="Override supplier upstream supply availability for stress tests.",
     )
     parser.add_argument(
         "--external-procurement-proactive-replenishment",
         action=argparse.BooleanOptionalAction,
         default=None,
-        help="Override proactive external market replenishment for supplier stocks.",
+        help="Override proactive supplier upstream replenishment for supplier stocks.",
     )
     parser.add_argument(
         "--external-procurement-lead-days",
         type=int,
         default=0,
-        help="Override EXTERNAL_MARKET lead time in days. 0 keeps scenario policy.",
+        help="Override supplier upstream supply lead time in days. 0 keeps scenario policy.",
     )
     parser.add_argument(
         "--external-procurement-lead-mode",
         choices=["supplier_material", "policy_fixed"],
         default="",
         help=(
-            "EXTERNAL_MARKET lead mode. supplier_material derives a supplier/item lead "
+            "Supplier upstream supply lead mode. supplier_material derives a supplier/item lead "
             "from source material data; policy_fixed uses external_procurement_lead_days."
         ),
     )
@@ -515,7 +517,7 @@ def parse_args() -> argparse.Namespace:
         choices=["supplier_nominal", "policy_cap"],
         default="",
         help=(
-            "EXTERNAL_MARKET capacity mode. supplier_nominal derives a supplier/item "
+            "Supplier upstream supply capacity mode. supplier_nominal derives a supplier/item "
             "upstream nominal cap from baseline demand and target utilization; "
             "policy_cap keeps the legacy global cap policy."
         ),
@@ -524,31 +526,31 @@ def parse_args() -> argparse.Namespace:
         "--external-procurement-upstream-pipeline-fill-ratio",
         type=float,
         default=None,
-        help="Opening upstream pipeline fill ratio for supplier_nominal external procurement.",
+        help="Opening upstream pipeline fill ratio for supplier_nominal upstream supply.",
     )
     parser.add_argument(
         "--external-procurement-nominal-capacity-scale",
         type=float,
         default=None,
-        help="Scale supplier_nominal EXTERNAL_MARKET upstream capacity without changing nominal references.",
+        help="Scale supplier_nominal upstream supply capacity without changing nominal references.",
     )
     parser.add_argument(
         "--external-procurement-daily-cap-days",
         type=float,
         default=None,
-        help="Override EXTERNAL_MARKET daily cap expressed as days of demand signal.",
+        help="Override supplier upstream supply daily cap expressed as days of demand signal.",
     )
     parser.add_argument(
         "--external-procurement-min-daily-cap-qty",
         type=float,
         default=None,
-        help="Override EXTERNAL_MARKET minimum daily capacity quantity.",
+        help="Override supplier upstream supply minimum daily capacity quantity.",
     )
     parser.add_argument(
         "--external-procurement-cost-multiplier",
         type=float,
         default=None,
-        help="Override EXTERNAL_MARKET purchase cost multiplier.",
+        help="Override supplier upstream supply purchase cost multiplier.",
     )
     parser.add_argument(
         "--supplier-neutral-floors-csv",
@@ -1346,26 +1348,44 @@ def normalize_supplier_risk_type(value: Any) -> str:
         "freight_cost_multiplier": "transport_cost",
         "external_capacity": "external_capacity",
         "external_market_capacity": "external_capacity",
+        "supplier_upstream_supply_capacity": "external_capacity",
+        "upstream_supply_capacity": "external_capacity",
+        "appro_amont_fournisseur_capacity": "external_capacity",
         "external_capacity_multiplier": "external_capacity",
         "market_capacity": "external_capacity",
         "spot_capacity": "external_capacity",
         "external_availability": "external_availability",
         "external_market_availability": "external_availability",
+        "supplier_upstream_supply_availability": "external_availability",
+        "upstream_supply_availability": "external_availability",
+        "appro_amont_fournisseur_availability": "external_availability",
         "external_availability_multiplier": "external_availability",
         "market_availability": "external_availability",
         "external_lead_time": "external_lead_time",
         "external_market_lead_time": "external_lead_time",
+        "supplier_upstream_supply_lead_time": "external_lead_time",
+        "upstream_supply_lead_time": "external_lead_time",
+        "appro_amont_fournisseur_lead_time": "external_lead_time",
         "external_lead_time_multiplier": "external_lead_time",
         "market_lead_time": "external_lead_time",
         "external_lead_extra": "external_lead_time_extra_days",
         "external_lead_time_extra": "external_lead_time_extra_days",
         "external_lead_time_extra_days": "external_lead_time_extra_days",
+        "supplier_upstream_supply_lead_time_extra_days": "external_lead_time_extra_days",
+        "upstream_supply_lead_time_extra_days": "external_lead_time_extra_days",
+        "appro_amont_fournisseur_lead_time_extra_days": "external_lead_time_extra_days",
         "external_quality": "external_quality_yield",
         "external_quality_yield": "external_quality_yield",
         "external_market_quality_yield": "external_quality_yield",
+        "supplier_upstream_supply_quality_yield": "external_quality_yield",
+        "upstream_supply_quality_yield": "external_quality_yield",
+        "appro_amont_fournisseur_quality_yield": "external_quality_yield",
         "external_rejection": "external_quality_yield",
         "external_cost": "external_cost",
         "external_market_cost": "external_cost",
+        "supplier_upstream_supply_cost": "external_cost",
+        "upstream_supply_cost": "external_cost",
+        "appro_amont_fournisseur_cost": "external_cost",
         "external_cost_multiplier": "external_cost",
         "spot_cost": "external_cost",
         "stock_writeoff": "stock_writeoff",
@@ -4020,7 +4040,7 @@ def main() -> None:
                         ref_qty,
                     )
     # If a (node,item) can ship downstream but has no modeled inbound/production source,
-    # treat missing upstream as external procurement to avoid artificial source depletion.
+    # treat missing upstream as supplier upstream supply to avoid artificial source depletion.
     externally_sourced_pairs = sorted(outbound_pairs - inbound_pairs - produced_pairs)
     externally_sourced_pairs_set = set(externally_sourced_pairs)
     demand_rows = scenario.get("demand", []) or []
@@ -4567,6 +4587,8 @@ def main() -> None:
                 )
 
         for src_pair, policy in sorted(estimated_source_policies.items()):
+            if src_pair in supplier_stock_floor_overrides:
+                continue
             ensure_stock_target(
                 src_pair,
                 to_float(policy.get("target_stock_qty_day0"), 0.0),
@@ -4633,7 +4655,7 @@ def main() -> None:
                         "category": "external_procurement_in_transit",
                         "seeded_pipeline_qty": round(transit_qty, 6),
                         "lead_days": int(lead_days),
-                        "lane_src": "EXTERNAL_MARKET",
+                        "lane_src": SUPPLIER_UPSTREAM_SUPPLY_NODE_ID,
                     }
                 )
 
@@ -5477,9 +5499,9 @@ def main() -> None:
                 demand_anchor = max(downstream_requirement, downstream_signal)
                 if demand_anchor <= 1e-9:
                     continue
-                # External procurement is a source replenishment buffer, not the
+                # Supplier upstream supply is a source replenishment buffer, not the
                 # full downstream factory MRP target. Keeping it close to the
-                # external lead time avoids overfilling high-volume suppliers
+                # upstream lead time avoids overfilling high-volume suppliers
                 # while still preventing reactive "order only at zero" behavior.
                 target_cover_days = max(
                     1.0,
@@ -5505,7 +5527,7 @@ def main() -> None:
                             supplier_id=src_pair[0],
                             dst_node_id=src_pair[0],
                             item_id=src_pair[1],
-                            edge_id="EXTERNAL_MARKET_PROACTIVE",
+                            edge_id=f"{SUPPLIER_UPSTREAM_SUPPLY_EDGE_PREFIX}_PROACTIVE",
                             effects=external_risk,
                         )
                     )
@@ -5531,7 +5553,7 @@ def main() -> None:
                 register_mrp_order(
                     src_pair,
                     source_mode="external_procurement_proactive",
-                    src_node_id="EXTERNAL_MARKET",
+                    src_node_id=SUPPLIER_UPSTREAM_SUPPLY_NODE_ID,
                     dst_node_id=src_pair[0],
                     item_id=src_pair[1],
                     release_qty=ext_order_qty,
@@ -5541,7 +5563,7 @@ def main() -> None:
                     lead_days=effective_ext_lead_days,
                     lead_cover_days=effective_ext_lead_days,
                     lead_reference_days=base_ext_lead_days,
-                    edge_id="EXTERNAL_MARKET_PROACTIVE",
+                    edge_id=f"{SUPPLIER_UPSTREAM_SUPPLY_EDGE_PREFIX}_PROACTIVE",
                     reliability=max(0.01, to_float(external_risk.get("external_quality_yield"), 1.0)),
                 )
                 ref_lane_purchase = max(
@@ -5732,7 +5754,7 @@ def main() -> None:
                             register_mrp_order(
                                 src_pair,
                                 source_mode="external_procurement",
-                                src_node_id="EXTERNAL_MARKET",
+                                src_node_id=SUPPLIER_UPSTREAM_SUPPLY_NODE_ID,
                                 dst_node_id=src_pair[0],
                                 item_id=src_pair[1],
                                 release_qty=ext_order_qty,
@@ -5742,7 +5764,7 @@ def main() -> None:
                                 lead_days=ext_lead_days,
                                 lead_cover_days=ext_lead_days,
                                 lead_reference_days=base_ext_lead_days,
-                                edge_id="EXTERNAL_MARKET_REACTIVE",
+                                edge_id=f"{SUPPLIER_UPSTREAM_SUPPLY_EDGE_PREFIX}_REACTIVE",
                                 reliability=max(0.01, to_float(risk_mult.get("external_quality_yield"), 1.0)),
                             )
                             if record_day:
@@ -7608,15 +7630,15 @@ def main() -> None:
 - Production cost enabled / target share: {summary['policy']['economic_policy']['production_cost_enabled']} / {summary['policy']['economic_policy']['production_cost_target_share_of_total']}
 - Production cost basis: {summary['policy']['economic_policy']['production_cost_basis']}
 - Production cost line shares: {summary['policy']['economic_policy']['production_cost_line_shares']}
-- External procurement enabled: {summary['policy']['economic_policy']['external_procurement_enabled']}
-- External procurement proactive supplier replenishment: {summary['policy']['economic_policy']['external_procurement_proactive_replenishment']}
-- External procurement lead days: {summary['policy']['economic_policy']['external_procurement_lead_days']}
-- External procurement lead mode / scale: {summary['policy']['economic_policy'].get('external_procurement_lead_mode', 'policy_fixed')} / {summary['policy']['economic_policy'].get('external_procurement_lead_time_scale', 1.0)}
-- External procurement capacity mode / nominal scale: {summary['policy']['economic_policy'].get('external_procurement_capacity_mode', 'policy_cap')} / {summary['policy']['economic_policy'].get('external_procurement_nominal_capacity_scale', 1.0)}
-- External procurement upstream pipeline seed / fill ratio: {summary['policy']['economic_policy'].get('external_procurement_seed_upstream_pipeline', False)} / {summary['policy']['economic_policy'].get('external_procurement_upstream_pipeline_fill_ratio', 0.0)}
-- External procurement daily cap days: {summary['policy']['economic_policy']['external_procurement_daily_cap_days']}
-- External procurement min daily cap qty: {summary['policy']['economic_policy']['external_procurement_min_daily_cap_qty']}
-- External procurement unit cost / multiplier / transport unit: {summary['policy']['economic_policy']['external_procurement_unit_cost']} / {summary['policy']['economic_policy']['external_procurement_cost_multiplier']} / {summary['policy']['economic_policy']['external_procurement_transport_cost_per_unit']}
+- Supplier upstream supply enabled: {summary['policy']['economic_policy']['external_procurement_enabled']}
+- Supplier upstream proactive replenishment: {summary['policy']['economic_policy']['external_procurement_proactive_replenishment']}
+- Supplier upstream lead days: {summary['policy']['economic_policy']['external_procurement_lead_days']}
+- Supplier upstream lead mode / scale: {summary['policy']['economic_policy'].get('external_procurement_lead_mode', 'policy_fixed')} / {summary['policy']['economic_policy'].get('external_procurement_lead_time_scale', 1.0)}
+- Supplier upstream capacity mode / nominal scale: {summary['policy']['economic_policy'].get('external_procurement_capacity_mode', 'policy_cap')} / {summary['policy']['economic_policy'].get('external_procurement_nominal_capacity_scale', 1.0)}
+- Supplier upstream pipeline seed / fill ratio: {summary['policy']['economic_policy'].get('external_procurement_seed_upstream_pipeline', False)} / {summary['policy']['economic_policy'].get('external_procurement_upstream_pipeline_fill_ratio', 0.0)}
+- Supplier upstream daily cap days: {summary['policy']['economic_policy']['external_procurement_daily_cap_days']}
+- Supplier upstream min daily cap qty: {summary['policy']['economic_policy']['external_procurement_min_daily_cap_qty']}
+- Supplier upstream unit cost / multiplier / transport unit: {summary['policy']['economic_policy']['external_procurement_unit_cost']} / {summary['policy']['economic_policy']['external_procurement_cost_multiplier']} / {summary['policy']['economic_policy']['external_procurement_transport_cost_per_unit']}
 - Nodes: {summary['counts']['nodes']}
 - Edges: {summary['counts']['edges']}
 - Flux transport (edge x item): {summary['counts']['lanes']}
@@ -7628,7 +7650,7 @@ def main() -> None:
 - Mismatch d'unites non convertis: {mismatch_count}
 - Assumed supplier nodes (explicitly tagged, includes '?'): {len(assumed_supplier_nodes)} ({assumed_nodes_txt})
 - Assumed supply edges (explicitly tagged, includes '?'): {len(assumed_supply_edges)} ({assumed_edges_txt})
-- External upstream sourcing for unmodeled source pairs: {len(externally_sourced_pairs)}
+- Supplier upstream sourcing for unmodeled source pairs: {len(externally_sourced_pairs)}
 - Opening stock bootstrap pairs (lead-time coverage at max capacity): {len(opening_stock_bootstrap_rows)}
 - Opening open-order rows seeded: {len(opening_open_order_rows)}
 - MRP trace tracked pairs / rows / orders: {summary['production_tracking']['mrp_trace']['tracked_pairs']} / {summary['production_tracking']['mrp_trace']['trace_rows']} / {summary['production_tracking']['mrp_trace']['order_rows']}
@@ -7651,11 +7673,11 @@ def main() -> None:
 - Production cost (pharma conversion proxy): {summary['kpis']['total_production_cost']}
 - Logistics cost (transport + inventory capital + warehouse + inventory risk): {summary['kpis']['total_logistics_cost']}
 - Total cost: {summary['kpis']['total_cost']}
-- Total external procured ordered qty: {summary['kpis']['total_external_procured_ordered_qty']}
-- Total external procured arrived qty: {summary['kpis']['total_external_procured_arrived_qty']}
-- External procured arrived includes opening upstream pipeline receipts when the upstream pipeline seed is enabled.
-- Total external procured rejected qty (cap-limited): {summary['kpis']['total_external_procured_rejected_qty']}
-- Total external procurement cost premium: {summary['kpis']['total_external_procurement_cost']}
+- Total supplier upstream ordered qty: {summary['kpis']['total_external_procured_ordered_qty']}
+- Total supplier upstream arrived qty: {summary['kpis']['total_external_procured_arrived_qty']}
+- Supplier upstream arrived includes opening upstream pipeline receipts when the upstream pipeline seed is enabled.
+- Total supplier upstream rejected qty (cap-limited): {summary['kpis']['total_external_procured_rejected_qty']}
+- Total supplier upstream cost premium: {summary['kpis']['total_external_procurement_cost']}
 - Total estimated source ordered qty: {summary['kpis']['total_estimated_source_ordered_qty']}
 - Total estimated source replenished qty: {summary['kpis']['total_estimated_source_replenished_qty']}
 - Total estimated source rejected qty: {summary['kpis']['total_estimated_source_rejected_qty']}
