@@ -219,6 +219,14 @@ def apply_scales(
         ),
         6,
     )
+    econ["external_procurement_nominal_capacity_scale"] = round(
+        max(
+            0.0,
+            to_float(econ.get("external_procurement_nominal_capacity_scale"), 1.0)
+            * external_procurement_daily_cap_days_scale,
+        ),
+        6,
+    )
     econ["external_procurement_lead_days"] = int(
         round(max(0.0, to_float(econ.get("external_procurement_lead_days"), 4.0)))
     )

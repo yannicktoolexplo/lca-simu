@@ -4974,13 +4974,25 @@ def render_supplier_risk_catalog_html(
         )
     else:
         external_lead_label = f"lead fixe={fmt_days(economic_policy.get('external_procurement_lead_days'), 0)}"
+    external_capacity_mode = str(economic_policy.get("external_procurement_capacity_mode") or "policy_cap")
+    if external_capacity_mode == "supplier_nominal":
+        external_capacity_label = (
+            "cap=fournisseur nominal par item "
+            f"(scale={fmt_qty(economic_policy.get('external_procurement_nominal_capacity_scale', 1.0), 2)} ; "
+            f"pipeline init={'oui' if economic_policy.get('external_procurement_seed_upstream_pipeline') else 'non'}, "
+            f"fill={fmt_qty(economic_policy.get('external_procurement_upstream_pipeline_fill_ratio', 0.0), 2)})"
+        )
+    else:
+        external_capacity_label = (
+            f"cap/j=max({fmt_qty(economic_policy.get('external_procurement_min_daily_cap_qty'), 0)}, "
+            f"{fmt_qty(economic_policy.get('external_procurement_daily_cap_days'), 1)} jours de demande)"
+        )
     external_policy_text = (
         f"EXTERNAL_MARKET: {'actif' if external_enabled else 'inactif'} ; "
         f"proactif={'oui' if external_proactive else 'non'} ; "
         f"{external_lead_label} ; "
         f"scale={fmt_qty(economic_policy.get('external_procurement_lead_time_scale', 1.0), 2)} ; "
-        f"cap/j=max({fmt_qty(economic_policy.get('external_procurement_min_daily_cap_qty'), 0)}, "
-        f"{fmt_qty(economic_policy.get('external_procurement_daily_cap_days'), 1)} jours de demande) ; "
+        f"{external_capacity_label} ; "
         f"cout={fmt_qty(economic_policy.get('external_procurement_cost_multiplier'), 1)}x"
     )
 
@@ -5620,6 +5632,15 @@ def render_supplier_nominal_parameters_html(
             if industrial_headroom is not None and not math.isnan(industrial_headroom)
             else "n/a"
         )
+        upstream_cap = to_float(row.get("external_procurement_nominal_capacity_qty_per_day"))
+        upstream_need = to_float(row.get("external_procurement_daily_need_qty"))
+        upstream_target = to_float(row.get("external_procurement_target_utilization"))
+        upstream_seed = to_float(row.get("external_procurement_initial_pipeline_seed_qty"))
+        upstream_target_text = (
+            fmt_pct(upstream_target * 100.0)
+            if upstream_target is not None and not math.isnan(upstream_target) and upstream_target > 0.0
+            else "n/a"
+        )
         stock_scale = to_float(row.get("neutral_opening_stock_scale"))
         stock_scale_text = (
             f"x{fmt_qty(stock_scale, 2)}"
@@ -5652,6 +5673,13 @@ def render_supplier_nominal_parameters_html(
             f"scale actuel={cap_scale_text} | "
             f"capacite actuelle={fmt_qty(row.get('effective_capacity_qty_per_day'), 1)}"
         )
+        upstream_capacity_title = (
+            "Contrainte amont EXTERNAL_MARKET: besoin journalier baseline / taux cible; "
+            f"besoin={fmt_qty(upstream_need, 1)}/j | "
+            f"profil={row.get('external_procurement_capacity_profile') or 'n/a'} | "
+            f"base={row.get('external_procurement_capacity_basis') or 'n/a'} | "
+            f"pipeline ouvert={fmt_qty(upstream_seed, 1)}"
+        )
         neutral_stock_title = (
             "Stock initial minimal analytique pour garder les expeditions observees faisables; "
             f"reductible={fmt_qty(row.get('neutral_opening_stock_reducible_qty'), 1)}"
@@ -5666,6 +5694,10 @@ def render_supplier_nominal_parameters_html(
             (fmt_qty(row.get("effective_capacity_qty_per_day"), 1), capacity_title),
             (fmt_qty(industrial_cap, 1), neutral_capacity_title),
             (industrial_target_text, neutral_capacity_title),
+            (fmt_qty(upstream_cap, 1), upstream_capacity_title),
+            (upstream_target_text, upstream_capacity_title),
+            (fmt_days(row.get("external_procurement_lead_days"), 1), upstream_capacity_title),
+            (fmt_qty(upstream_seed, 1), upstream_capacity_title),
             (fmt_pct((industrial_util or 0.0) * 100.0) if industrial_util is not None and not math.isnan(industrial_util) else "n/a", neutral_capacity_title),
             (industrial_headroom_text, neutral_capacity_title),
             (fmt_qty(displayed_cap_floor, 1), neutral_capacity_title),
@@ -5678,7 +5710,7 @@ def render_supplier_nominal_parameters_html(
             (fmt_pct((mrp_share or 0.0) * 100.0) if mrp_share is not None and not math.isnan(mrp_share) else "n/a", "part de sourcing MRP nominale"),
             (fmt_qty(row.get("total_shipped_qty"), 1), "quantite totale expediee sur le run"),
         ]
-        numeric_columns = {3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 15, 16, 17, 18, 19}
+        numeric_columns = set(range(3, 18)) | {19, 20, 21, 22, 23}
         row_tds: list[str] = []
         for idx, (value, title) in enumerate(cells):
             cell_class = "num" if idx in numeric_columns else ""
@@ -5696,6 +5728,10 @@ def render_supplier_nominal_parameters_html(
         "Cap actuelle/j",
         "Cap nominale cible/j",
         "Taux cible",
+        "Cap amont/j",
+        "Util amont",
+        "Delai amont",
+        "Pipeline amont ouv.",
         "Util pic cible",
         "Marge cible",
         "Cap validee baseline/j",
@@ -5711,14 +5747,17 @@ def render_supplier_nominal_parameters_html(
     table_header = "".join(f"<th>{html.escape(label)}</th>" for label in headers)
     table_cols = "".join(
         f"<col style=\"width:{width}px\">"
-        for width in [95, 110, 70, 115, 125, 95, 130, 125, 90, 105, 115, 135, 95, 120, 175, 95, 105, 90, 95, 130]
+        for width in [
+            95, 110, 70, 115, 125, 95, 130, 125, 90, 125, 95, 105,
+            135, 105, 115, 135, 95, 120, 175, 95, 105, 90, 95, 130,
+        ]
     )
     return "".join(
         [
             "<div class=\"factoryHtmlPanelContent orderLedgerPanelContent\">",
             f"<div class=\"orderLedgerTextHeader\">{html.escape(node_id)} - parametres nominaux fournisseur</div>",
             f"<div class=\"orderLedgerStatus\">Lignes fournisseur affichees: {len(sorted_rows)}. Cap actuelle/j = limite utilisee par le run actif; Cap nominale cible/j = pic observe / taux cible; Cap validee baseline/j = plus petite capacite testee qui conserve la baseline sans binding.</div>",
-            "<div class=\"orderLedgerStatus\">Profils cible: raw material qualifie ~= 70%, high lead ~= 65%, packaging qualifie ~= 75%. La capacite validee baseline reste le repere de simulation; la capacite nominale cible est une lecture industrielle.</div>",
+            "<div class=\"orderLedgerStatus\">Profils cible: raw material qualifie ~= 70%, high lead ~= 65%, packaging qualifie ~= 75%. Cap amont/j contraint EXTERNAL_MARKET avec le meme taux cible, et le pipeline amont ouvre les commandes deja en route au demarrage.</div>",
             "<div class=\"orderLedgerFrame\">",
             "<div class=\"orderLedgerTableWrap\" tabindex=\"0\" aria-label=\"Tableau des parametres nominaux fournisseur avec defilement horizontal natif en bas.\">",
             "<table class=\"orderLedgerTable orderLedgerWideTable\">",

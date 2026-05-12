@@ -50,6 +50,14 @@ SUPPLIER_NOMINAL_PARAMETER_FIELDS = [
     "process_capacity_qty_per_day",
     "downstream_requirement_qty_per_day",
     "downstream_signal_qty_per_day",
+    "external_procurement_daily_need_qty",
+    "external_procurement_nominal_capacity_qty_per_day",
+    "external_procurement_target_utilization",
+    "external_procurement_capacity_profile",
+    "external_procurement_capacity_basis",
+    "external_procurement_lead_days",
+    "external_procurement_pipeline_target_qty",
+    "external_procurement_initial_pipeline_seed_qty",
     "avg_capacity_utilization",
     "max_capacity_utilization",
     "capacity_active_days",
@@ -501,6 +509,28 @@ def parse_args() -> argparse.Namespace:
             "EXTERNAL_MARKET lead mode. supplier_material derives a supplier/item lead "
             "from source material data; policy_fixed uses external_procurement_lead_days."
         ),
+    )
+    parser.add_argument(
+        "--external-procurement-capacity-mode",
+        choices=["supplier_nominal", "policy_cap"],
+        default="",
+        help=(
+            "EXTERNAL_MARKET capacity mode. supplier_nominal derives a supplier/item "
+            "upstream nominal cap from baseline demand and target utilization; "
+            "policy_cap keeps the legacy global cap policy."
+        ),
+    )
+    parser.add_argument(
+        "--external-procurement-upstream-pipeline-fill-ratio",
+        type=float,
+        default=None,
+        help="Opening upstream pipeline fill ratio for supplier_nominal external procurement.",
+    )
+    parser.add_argument(
+        "--external-procurement-nominal-capacity-scale",
+        type=float,
+        default=None,
+        help="Scale supplier_nominal EXTERNAL_MARKET upstream capacity without changing nominal references.",
     )
     parser.add_argument(
         "--external-procurement-daily-cap-days",
@@ -2417,6 +2447,7 @@ def derive_unmodeled_supplier_source_policies(
     base_stock: dict[tuple[str, str], float],
     required_daily_input_by_pair: dict[tuple[str, str], float],
     propagated_demand_today: dict[tuple[str, str], float],
+    item_unit_map: dict[str, str],
     default_review_period_days: int,
     safety_stock_days: float,
     stochastic_lead_times: bool,
@@ -2475,6 +2506,38 @@ def derive_unmodeled_supplier_source_policies(
         downstream_lot_floor = max(
             [max(0.0, to_float(lane.get("standard_order_qty"), 0.0)) for lane in lane_list] or [0.0]
         )
+        supplier_name = str(node.get("name") or src)
+        lane_uom = next(
+            (str(lane.get("standard_order_uom") or "") for lane in lane_list if str(lane.get("standard_order_uom") or "")),
+            "",
+        )
+        item_uom = item_unit_map.get(item_id, lane_uom)
+        upstream_capacity_target_utilization, upstream_capacity_profile = supplier_industrial_capacity_target(
+            supplier_name=supplier_name,
+            uom=item_uom,
+            planned_lead_time_days=planned_material_lead_days,
+        )
+        lot_daily_denominator_days = max(
+            1.0,
+            float(review_days),
+            float(order_frequency_days),
+            float(lead_cover_days),
+        )
+        lot_daily_need = (
+            downstream_lot_floor / lot_daily_denominator_days
+            if downstream_lot_floor > 0.0
+            else 0.0
+        )
+        external_procurement_daily_need_qty = max(demand_anchor, lot_daily_need)
+        external_procurement_nominal_capacity_qty = (
+            external_procurement_daily_need_qty / upstream_capacity_target_utilization
+            if external_procurement_daily_need_qty > 1e-9 and upstream_capacity_target_utilization > 1e-9
+            else 0.0
+        )
+        external_procurement_pipeline_target_qty = (
+            external_procurement_daily_need_qty * max(1.0, float(planned_material_lead_days))
+        )
+        external_procurement_capacity_basis = "max_downstream_pull_or_lot_over_logistic_cover_div_target_utilization"
         target_stock_qty = max(
             base_stock.get(src_pair, 0.0),
             downstream_lot_floor,
@@ -2500,6 +2563,13 @@ def derive_unmodeled_supplier_source_policies(
             "downstream_requirement_qty_per_day": downstream_requirement,
             "downstream_signal_qty_per_day": downstream_signal,
             "downstream_lot_floor_qty": downstream_lot_floor,
+            "external_procurement_daily_need_qty": external_procurement_daily_need_qty,
+            "external_procurement_nominal_capacity_qty_per_day": external_procurement_nominal_capacity_qty,
+            "external_procurement_target_utilization": upstream_capacity_target_utilization,
+            "external_procurement_capacity_profile": upstream_capacity_profile,
+            "external_procurement_capacity_basis": external_procurement_capacity_basis,
+            "external_procurement_pipeline_target_qty": external_procurement_pipeline_target_qty,
+            "external_procurement_initial_pipeline_seed_qty": 0.0,
             "target_stock_qty_day0": target_stock_qty,
             "reorder_point_qty_day0": reorder_point_qty,
             "daily_capacity_qty": daily_capacity,
@@ -2521,6 +2591,16 @@ def derive_unmodeled_supplier_source_policies(
                 "downstream_requirement_qty_per_day": round(downstream_requirement, 6),
                 "downstream_signal_qty_per_day": round(downstream_signal, 6),
                 "downstream_lot_floor_qty": round(downstream_lot_floor, 6),
+                "external_procurement_daily_need_qty": round(external_procurement_daily_need_qty, 6),
+                "external_procurement_nominal_capacity_qty_per_day": round(
+                    external_procurement_nominal_capacity_qty,
+                    6,
+                ),
+                "external_procurement_target_utilization": round(upstream_capacity_target_utilization, 6),
+                "external_procurement_capacity_profile": upstream_capacity_profile,
+                "external_procurement_capacity_basis": external_procurement_capacity_basis,
+                "external_procurement_pipeline_target_qty": round(external_procurement_pipeline_target_qty, 6),
+                "external_procurement_initial_pipeline_seed_qty": 0.0,
                 "reorder_point_qty_day0": round(reorder_point_qty, 6),
                 "target_stock_qty_day0": round(target_stock_qty, 6),
                 "daily_capacity_qty": round(daily_capacity, 6),
@@ -2564,6 +2644,7 @@ def build_supplier_nominal_parameter_rows(
     supplier_node_ids: set[str],
     lanes: list[dict[str, Any]],
     supplier_capacity_metadata_rows: list[dict[str, Any]],
+    estimated_source_policies: dict[tuple[str, str], dict[str, Any]],
     item_unit_map: dict[str, str],
     opening_stock_source_snapshot: dict[tuple[str, str], float],
     stock: dict[tuple[str, str], float],
@@ -2657,6 +2738,7 @@ def build_supplier_nominal_parameter_rows(
         src_pair = (supplier_id, item_id)
         lane_key = (supplier_id, dst_node_id, item_id)
         cap_meta = capacity_meta_by_pair.get(src_pair, {})
+        source_policy = estimated_source_policies.get(src_pair, {})
         ship = shipment_stats.get(lane_key, {})
         stock_stat = stock_stats.get(src_pair, {})
         cap_stat = capacity_stats.get(src_pair, {})
@@ -2725,6 +2807,24 @@ def build_supplier_nominal_parameter_rows(
             if neutral_capacity_floor_qty_per_day > 1e-9
             else "no_observed_supplier_pull"
         )
+        tested_capacity_floor_factor = (
+            SUPPLIER_FUNCTIONAL_CAPACITY_HEADROOM_FACTOR
+            if neutral_capacity_floor_qty_per_day > 1e-9
+            else 0.0
+        )
+        if str(cap_meta.get("basis") or "") == "supplier_capacity_override_from_csv":
+            tested_capacity_floor_qty_per_day = effective_capacity_qty_per_day
+            tested_capacity_floor_factor = (
+                effective_capacity_qty_per_day / neutral_capacity_floor_qty_per_day
+                if neutral_capacity_floor_qty_per_day > 1e-9
+                else 0.0
+            )
+            current_capacity_headroom_vs_tested_floor = (
+                effective_capacity_qty_per_day / tested_capacity_floor_qty_per_day
+                if tested_capacity_floor_qty_per_day > 1e-9
+                else ""
+            )
+            capacity_floor_basis = "supplier_capacity_override_from_csv"
         rows.append(
             {
                 "supplier_id": supplier_id,
@@ -2750,6 +2850,36 @@ def build_supplier_nominal_parameter_rows(
                 "process_capacity_qty_per_day": round(to_float(cap_meta.get("process_capacity_qty_per_day"), 0.0), 6),
                 "downstream_requirement_qty_per_day": round(to_float(cap_meta.get("downstream_requirement_qty_per_day"), 0.0), 6),
                 "downstream_signal_qty_per_day": round(to_float(cap_meta.get("downstream_signal_qty_per_day"), 0.0), 6),
+                "external_procurement_daily_need_qty": round(
+                    to_float(source_policy.get("external_procurement_daily_need_qty"), 0.0),
+                    6,
+                ),
+                "external_procurement_nominal_capacity_qty_per_day": round(
+                    to_float(source_policy.get("external_procurement_nominal_capacity_qty_per_day"), 0.0),
+                    6,
+                ),
+                "external_procurement_target_utilization": round(
+                    to_float(source_policy.get("external_procurement_target_utilization"), 0.0),
+                    6,
+                ),
+                "external_procurement_capacity_profile": str(
+                    source_policy.get("external_procurement_capacity_profile") or ""
+                ),
+                "external_procurement_capacity_basis": str(
+                    source_policy.get("external_procurement_capacity_basis") or ""
+                ),
+                "external_procurement_lead_days": round(
+                    to_float(source_policy.get("external_procurement_lead_days"), 0.0),
+                    6,
+                ),
+                "external_procurement_pipeline_target_qty": round(
+                    to_float(source_policy.get("external_procurement_pipeline_target_qty"), 0.0),
+                    6,
+                ),
+                "external_procurement_initial_pipeline_seed_qty": round(
+                    to_float(source_policy.get("external_procurement_initial_pipeline_seed_qty"), 0.0),
+                    6,
+                ),
                 "avg_capacity_utilization": round(to_float(cap_stat.get("sum_util"), 0.0) / cap_count, 6) if cap_count else "",
                 "max_capacity_utilization": round(to_float(cap_stat.get("max_util"), 0.0), 6) if cap_count else "",
                 "capacity_active_days": int(cap_stat.get("active_days") or 0),
@@ -2766,7 +2896,7 @@ def build_supplier_nominal_parameter_rows(
                 ),
                 "tested_capacity_floor_qty_per_day": round(tested_capacity_floor_qty_per_day, 6),
                 "tested_capacity_floor_factor": (
-                    SUPPLIER_FUNCTIONAL_CAPACITY_HEADROOM_FACTOR
+                    round(tested_capacity_floor_factor, 6)
                     if neutral_capacity_floor_qty_per_day > 1e-9
                     else 0.0
                 ),
@@ -3023,7 +3153,7 @@ def build_supplier_nominal_audit_report(
 - Max capacity utilization >= 80% rows: {len(high_util)}
 
 ## Neutral capacity floor preview
-Seuil analytique calcule depuis le run courant: max journalier de capacite fournisseur reellement consommee (`used_qty`). Le seuil teste ajoute un facteur {SUPPLIER_FUNCTIONAL_CAPACITY_HEADROOM_FACTOR:g} pour absorber la premiere passe de sourcing MRP tout en gardant une capacite nominale a `x1`.
+Seuil analytique calcule depuis le run courant: max journalier de capacite fournisseur reellement consommee (`used_qty`). Si un fichier d'overrides est actif, `tested_capacity_floor_qty_per_day` reprend la capacite appliquee; sinon le seuil teste ajoute un facteur {SUPPLIER_FUNCTIONAL_CAPACITY_HEADROOM_FACTOR:g} pour absorber la premiere passe de sourcing MRP.
 
 {preview_table(neutral_capacity_rows, ["supplier_id", "item_id", "dst_node_id", "effective_capacity_qty_per_day", "neutral_capacity_floor_qty_per_day", "tested_capacity_floor_qty_per_day", "current_capacity_headroom_vs_tested_floor", "capacity_floor_basis"])}
 
@@ -3672,6 +3802,25 @@ def main() -> None:
             0.01,
             to_float(economic_policy_cfg.get("external_procurement_lead_time_scale"), 1.0),
         ),
+        "external_procurement_capacity_mode": str(
+            economic_policy_cfg.get("external_procurement_capacity_mode") or "supplier_nominal"
+        ).strip().lower().replace("-", "_"),
+        "external_procurement_nominal_capacity_scale": max(
+            0.0,
+            to_float(economic_policy_cfg.get("external_procurement_nominal_capacity_scale"), 1.0),
+        ),
+        "external_procurement_upstream_pipeline_fill_ratio": max(
+            0.0,
+            to_float(economic_policy_cfg.get("external_procurement_upstream_pipeline_fill_ratio"), 1.0),
+        ),
+        "external_procurement_seed_upstream_pipeline": (
+            economic_policy_cfg.get("external_procurement_seed_upstream_pipeline")
+            if isinstance(economic_policy_cfg.get("external_procurement_seed_upstream_pipeline"), bool)
+            else str(
+                economic_policy_cfg.get("external_procurement_seed_upstream_pipeline", "true")
+            ).strip().lower()
+            in {"1", "true", "yes", "y", "on"}
+        ),
         "external_procurement_daily_cap_days": max(
             0.0,
             to_float(economic_policy_cfg.get("external_procurement_daily_cap_days"), 2.0),
@@ -3703,6 +3852,20 @@ def main() -> None:
         economic_policy["external_procurement_lead_mode"] = "supplier_material"
     if args.external_procurement_lead_mode:
         economic_policy["external_procurement_lead_mode"] = args.external_procurement_lead_mode
+    if economic_policy["external_procurement_capacity_mode"] not in {"supplier_nominal", "policy_cap"}:
+        economic_policy["external_procurement_capacity_mode"] = "supplier_nominal"
+    if args.external_procurement_capacity_mode:
+        economic_policy["external_procurement_capacity_mode"] = args.external_procurement_capacity_mode
+    if args.external_procurement_nominal_capacity_scale is not None:
+        economic_policy["external_procurement_nominal_capacity_scale"] = max(
+            0.0,
+            float(args.external_procurement_nominal_capacity_scale),
+        )
+    if args.external_procurement_upstream_pipeline_fill_ratio is not None:
+        economic_policy["external_procurement_upstream_pipeline_fill_ratio"] = max(
+            0.0,
+            float(args.external_procurement_upstream_pipeline_fill_ratio),
+        )
     if args.external_procurement_lead_days and args.external_procurement_lead_days > 0:
         economic_policy["external_procurement_lead_days"] = max(1, int(args.external_procurement_lead_days))
         if not args.external_procurement_lead_mode:
@@ -4213,7 +4376,7 @@ def main() -> None:
                 meta["nominal_capacity_qty_per_day"] = round(max(0.0, capacity_floor), 6)
                 meta["applied_capacity_scale"] = 1.0 if capacity_floor > 1e-9 else 0.0
                 meta["effective_capacity_qty_per_day"] = round(max(0.0, capacity_floor), 6)
-                meta["basis"] = "neutral_capacity_floor_override"
+                meta["basis"] = "supplier_capacity_override_from_csv"
 
     def apply_supplier_stock_floor_overrides() -> None:
         if not supplier_stock_floor_overrides:
@@ -4236,11 +4399,16 @@ def main() -> None:
         base_stock=base_stock,
         required_daily_input_by_pair=required_daily_input_by_pair,
         propagated_demand_today=propagated_demand_daily,
+        item_unit_map=item_unit_map,
         default_review_period_days=review_period_days,
         safety_stock_days=safety_stock_days,
         stochastic_lead_times=args.stochastic_lead_times,
         lead_time_distribution_mode=lead_time_distribution_mode,
     )
+    estimated_source_policy_rows_by_pair = {
+        (str(row.get("node_id") or ""), str(row.get("item_id") or "")): row
+        for row in estimated_source_policy_rows
+    }
     if initialization_policy["mode"] == "explicit_state":
         state_scale = initialization_policy["state_scale"]
 
@@ -4430,6 +4598,42 @@ def main() -> None:
                         "seeded_pipeline_qty": round(transit_qty, 6),
                         "lead_days": int(lead_days),
                         "lane_src": "unmodeled_source",
+                    }
+                )
+        if (
+            unmodeled_supplier_source_mode == "external_procurement"
+            and economic_policy["external_procurement_enabled"]
+            and economic_policy["external_procurement_seed_upstream_pipeline"]
+            and economic_policy["external_procurement_capacity_mode"] == "supplier_nominal"
+        ):
+            fill_ratio = max(0.0, to_float(economic_policy.get("external_procurement_upstream_pipeline_fill_ratio"), 1.0))
+            for src_pair, policy in sorted(estimated_source_policies.items()):
+                daily_need = max(0.0, to_float(policy.get("external_procurement_daily_need_qty"), 0.0))
+                lead_days = max(1, int(math.ceil(to_float(policy.get("external_procurement_lead_days"), 1.0))))
+                transit_qty = daily_need * float(lead_days) * fill_ratio
+                policy["external_procurement_initial_pipeline_seed_qty"] = transit_qty
+                policy_row = estimated_source_policy_rows_by_pair.get(src_pair)
+                if policy_row is not None:
+                    policy_row["external_procurement_initial_pipeline_seed_qty"] = round(transit_qty, 6)
+                if transit_qty <= 1e-9:
+                    continue
+                seed_external_pipeline_uniform(
+                    external_pipeline,
+                    external_in_transit,
+                    node_id=src_pair[0],
+                    item_id=src_pair[1],
+                    qty=transit_qty,
+                    lead_days=lead_days,
+                )
+                total_initialization_pipeline_seeded += transit_qty
+                initialization_pipeline_rows.append(
+                    {
+                        "node_id": src_pair[0],
+                        "item_id": src_pair[1],
+                        "category": "external_procurement_in_transit",
+                        "seeded_pipeline_qty": round(transit_qty, 6),
+                        "lead_days": int(lead_days),
+                        "lane_src": "EXTERNAL_MARKET",
                     }
                 )
 
@@ -5214,6 +5418,33 @@ def main() -> None:
             )
             return base_lead_days, effective_lead_days, lead_basis
 
+        def external_procurement_daily_capacity(
+            policy: dict[str, Any],
+            risk_mult: dict[str, Any],
+            demand_signal_qty_per_day: float,
+        ) -> float:
+            mode = str(
+                economic_policy.get("external_procurement_capacity_mode") or "supplier_nominal"
+            ).strip().lower()
+            policy_cap = max(
+                0.0,
+                to_float(policy.get("external_procurement_nominal_capacity_qty_per_day"), 0.0),
+            )
+            if mode == "supplier_nominal" and policy_cap > 1e-9:
+                cap_today = policy_cap * max(
+                    0.0,
+                    to_float(economic_policy.get("external_procurement_nominal_capacity_scale"), 1.0),
+                )
+            else:
+                cap_today = max(
+                    economic_policy["external_procurement_min_daily_cap_qty"],
+                    economic_policy["external_procurement_daily_cap_days"]
+                    * max(0.0, demand_signal_qty_per_day),
+                )
+            cap_today *= max(0.0, to_float(risk_mult.get("external_capacity"), 1.0))
+            cap_today *= max(0.0, to_float(risk_mult.get("external_availability"), 1.0))
+            return max(0.0, cap_today)
+
         if (
             unmodeled_supplier_source_mode == "external_procurement"
             and economic_policy["external_procurement_enabled"]
@@ -5278,12 +5509,11 @@ def main() -> None:
                             effects=external_risk,
                         )
                     )
-                ext_cap_today = max(
-                    economic_policy["external_procurement_min_daily_cap_qty"],
-                    economic_policy["external_procurement_daily_cap_days"] * demand_anchor,
+                ext_cap_today = external_procurement_daily_capacity(
+                    policy,
+                    external_risk,
+                    demand_anchor,
                 )
-                ext_cap_today *= max(0.0, to_float(external_risk.get("external_capacity"), 1.0))
-                ext_cap_today *= max(0.0, to_float(external_risk.get("external_availability"), 1.0))
                 ext_cap_left = max(0.0, ext_cap_today - external_ordered_today_by_src_pair[src_pair])
                 ext_order_qty = min(desired_order_qty, ext_cap_left)
                 if ext_order_qty <= 1e-9:
@@ -5477,18 +5707,18 @@ def main() -> None:
                             propagated_demand_today.get(src_pair, 0.0),
                             item_daily_req,
                         )
-                        ext_cap_today = max(
-                            economic_policy["external_procurement_min_daily_cap_qty"],
-                            economic_policy["external_procurement_daily_cap_days"] * ext_daily_signal,
+                        ext_policy = estimated_source_policies.get(src_pair, {})
+                        ext_cap_today = external_procurement_daily_capacity(
+                            ext_policy,
+                            risk_mult,
+                            ext_daily_signal,
                         )
-                        ext_cap_today *= max(0.0, to_float(risk_mult.get("external_capacity"), 1.0))
-                        ext_cap_today *= max(0.0, to_float(risk_mult.get("external_availability"), 1.0))
                         ext_cap_left = max(0.0, ext_cap_today - external_ordered_today_by_src_pair[src_pair])
                         ext_order_qty = min(ext_gap, ext_cap_left)
                         if ext_order_qty > 1e-9:
                             base_ext_lead_days, ext_lead_days, _external_lead_basis = (
                                 external_procurement_leads(
-                                    estimated_source_policies.get(src_pair, {}),
+                                    ext_policy,
                                     risk_mult,
                                 )
                             )
@@ -6022,6 +6252,7 @@ def main() -> None:
         supplier_node_ids=supplier_node_ids,
         lanes=lanes,
         supplier_capacity_metadata_rows=supplier_capacity_metadata_rows,
+        estimated_source_policies=estimated_source_policies,
         item_unit_map=item_unit_map,
         opening_stock_source_snapshot=opening_stock_source_snapshot,
         stock=simulated_opening_stock_snapshot,
@@ -6449,6 +6680,16 @@ def main() -> None:
                 "external_procurement_lead_days": economic_policy["external_procurement_lead_days"],
                 "external_procurement_lead_mode": economic_policy["external_procurement_lead_mode"],
                 "external_procurement_lead_time_scale": economic_policy["external_procurement_lead_time_scale"],
+                "external_procurement_capacity_mode": economic_policy["external_procurement_capacity_mode"],
+                "external_procurement_nominal_capacity_scale": economic_policy[
+                    "external_procurement_nominal_capacity_scale"
+                ],
+                "external_procurement_seed_upstream_pipeline": economic_policy[
+                    "external_procurement_seed_upstream_pipeline"
+                ],
+                "external_procurement_upstream_pipeline_fill_ratio": economic_policy[
+                    "external_procurement_upstream_pipeline_fill_ratio"
+                ],
                 "external_procurement_daily_cap_days": economic_policy["external_procurement_daily_cap_days"],
                 "external_procurement_min_daily_cap_qty": economic_policy["external_procurement_min_daily_cap_qty"],
                 "external_procurement_unit_cost": economic_policy["external_procurement_unit_cost"],
@@ -7371,6 +7612,8 @@ def main() -> None:
 - External procurement proactive supplier replenishment: {summary['policy']['economic_policy']['external_procurement_proactive_replenishment']}
 - External procurement lead days: {summary['policy']['economic_policy']['external_procurement_lead_days']}
 - External procurement lead mode / scale: {summary['policy']['economic_policy'].get('external_procurement_lead_mode', 'policy_fixed')} / {summary['policy']['economic_policy'].get('external_procurement_lead_time_scale', 1.0)}
+- External procurement capacity mode / nominal scale: {summary['policy']['economic_policy'].get('external_procurement_capacity_mode', 'policy_cap')} / {summary['policy']['economic_policy'].get('external_procurement_nominal_capacity_scale', 1.0)}
+- External procurement upstream pipeline seed / fill ratio: {summary['policy']['economic_policy'].get('external_procurement_seed_upstream_pipeline', False)} / {summary['policy']['economic_policy'].get('external_procurement_upstream_pipeline_fill_ratio', 0.0)}
 - External procurement daily cap days: {summary['policy']['economic_policy']['external_procurement_daily_cap_days']}
 - External procurement min daily cap qty: {summary['policy']['economic_policy']['external_procurement_min_daily_cap_qty']}
 - External procurement unit cost / multiplier / transport unit: {summary['policy']['economic_policy']['external_procurement_unit_cost']} / {summary['policy']['economic_policy']['external_procurement_cost_multiplier']} / {summary['policy']['economic_policy']['external_procurement_transport_cost_per_unit']}
@@ -7410,6 +7653,7 @@ def main() -> None:
 - Total cost: {summary['kpis']['total_cost']}
 - Total external procured ordered qty: {summary['kpis']['total_external_procured_ordered_qty']}
 - Total external procured arrived qty: {summary['kpis']['total_external_procured_arrived_qty']}
+- External procured arrived includes opening upstream pipeline receipts when the upstream pipeline seed is enabled.
 - Total external procured rejected qty (cap-limited): {summary['kpis']['total_external_procured_rejected_qty']}
 - Total external procurement cost premium: {summary['kpis']['total_external_procurement_cost']}
 - Total estimated source ordered qty: {summary['kpis']['total_estimated_source_ordered_qty']}
