@@ -5,6 +5,7 @@ Build an interactive HTML world map from a geocoded supply graph.
 Includes two hover-panel modes:
 - Simulation: current operational stock / production PNGs
 - Sensitivity: low/base/high comparisons built from sensitivity case outputs
+- Risk: supplier risk, uncertainty, resilience and robust decision KPI panels
 """
 
 from __future__ import annotations
@@ -50,6 +51,10 @@ PILOTAGE_HIDDEN_NODE_IDS = {"M-1450"}
 UPSTREAM_INTERNAL_SITE_IDS = {"SDC-1450"}
 UPSTREAM_INTERNAL_SITE_DISPLAY_LABEL = "D-1450"
 SIMULATION_HIDDEN_ITEM_IDS: set[str] = set()
+DEFAULT_SUPPLIER_PARAMETER_SENSITIVITY_DIR = Path(
+    "etudecas/simulation/sensibility/active_supplier_parameter_result_60_75_guarded"
+)
+DEFAULT_SUPPLIER_RISK_KPI_DIR = Path("etudecas/supplier_risk_kpi/result")
 ITEM_DISPLAY_REFERENCE_NOTES = {
     "item:007923": "007923 (ancienne ref 693710)",
 }
@@ -238,6 +243,41 @@ def parse_args() -> argparse.Namespace:
         "--threshold-sweep-cases-csv",
         default="",
         help="Optional threshold-oriented annual sweep cases CSV.",
+    )
+    parser.add_argument(
+        "--supplier-parameter-sensitivity-summary-json",
+        default=str(DEFAULT_SUPPLIER_PARAMETER_SENSITIVITY_DIR / "supplier_parameter_sensitivity_summary.json"),
+        help="Optional supplier parameter sensitivity summary JSON.",
+    )
+    parser.add_argument(
+        "--supplier-parameter-summary-csv",
+        default=str(DEFAULT_SUPPLIER_PARAMETER_SENSITIVITY_DIR / "supplier_parameter_threshold_summary.csv"),
+        help="Optional supplier parameter sensitivity threshold summary CSV.",
+    )
+    parser.add_argument(
+        "--supplier-parameter-cases-csv",
+        default=str(DEFAULT_SUPPLIER_PARAMETER_SENSITIVITY_DIR / "supplier_parameter_sensitivity_cases.csv"),
+        help="Optional supplier parameter sensitivity case-level CSV.",
+    )
+    parser.add_argument(
+        "--supplier-risk-kpi-summary-json",
+        default=str(DEFAULT_SUPPLIER_RISK_KPI_DIR / "summaries" / "supplier_risk_kpi_summary.json"),
+        help="Optional supplier risk KPI summary JSON.",
+    )
+    parser.add_argument(
+        "--supplier-risk-kpi-supplier-csv",
+        default=str(DEFAULT_SUPPLIER_RISK_KPI_DIR / "data" / "supplier_risk_kpi.csv"),
+        help="Optional supplier-level risk KPI CSV.",
+    )
+    parser.add_argument(
+        "--supplier-risk-kpi-pair-csv",
+        default=str(DEFAULT_SUPPLIER_RISK_KPI_DIR / "data" / "supplier_item_risk_kpi.csv"),
+        help="Optional latest supplier-item-site risk KPI CSV.",
+    )
+    parser.add_argument(
+        "--supplier-risk-kpi-panel-csv",
+        default=str(DEFAULT_SUPPLIER_RISK_KPI_DIR / "data" / "supplier_item_week_panel.csv"),
+        help="Optional supplier-item-site weekly risk KPI panel CSV.",
     )
     return parser.parse_args()
 
@@ -3480,6 +3520,590 @@ def build_global_kpi_tree_payload(
     }
 
 
+def load_json_dict(json_path: Path) -> dict[str, Any]:
+    try:
+        data = json.loads(json_path.read_text(encoding="utf-8")) if json_path.exists() else {}
+    except Exception:
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def risk_ratio(value: Any) -> float:
+    numeric = to_float(value)
+    if numeric is None or math.isnan(numeric):
+        return 0.0
+    return max(0.0, min(1.0, float(numeric)))
+
+
+def risk_pct(value: Any, digits: int = 1) -> str:
+    return fmt_pct(100.0 * risk_ratio(value), digits)
+
+
+def supplier_risk_zone_rank(zone: Any) -> int:
+    value = str(zone or "").strip().lower()
+    return {
+        "vert": 0,
+        "green": 0,
+        "jaune": 1,
+        "amber": 1,
+        "orange": 2,
+        "rouge": 3,
+        "red": 3,
+        "critique": 4,
+        "critical": 4,
+    }.get(value, -1)
+
+
+def supplier_risk_zone_color(zone: Any) -> str:
+    rank = supplier_risk_zone_rank(zone)
+    if rank >= 3:
+        return "#dc2626"
+    if rank == 2:
+        return "#d97706"
+    if rank == 1:
+        return "#f59e0b"
+    return "#0f766e"
+
+
+def supplier_risk_worst_zone(rows: list[dict[str, str]], field: str = "decision_zone") -> str:
+    if not rows:
+        return "n/a"
+    return max((str(row.get(field) or "n/a") for row in rows), key=supplier_risk_zone_rank)
+
+
+def supplier_risk_zone_counts_text(counts: dict[str, Any] | None) -> str:
+    if not counts:
+        return "n/a"
+    ordered = ["rouge", "orange", "jaune", "vert", "red", "amber", "green"]
+    seen: set[str] = set()
+    parts: list[str] = []
+    for zone in ordered:
+        if zone in counts:
+            parts.append(f"{zone}={counts.get(zone)}")
+            seen.add(zone)
+    for zone, count in sorted(counts.items()):
+        if zone not in seen:
+            parts.append(f"{zone}={count}")
+    return ", ".join(parts) or "n/a"
+
+
+def extend_global_kpi_tree_with_supplier_risk(
+    kpi_tree: dict[str, Any] | None,
+    *,
+    supplier_risk_panel_csv: Path,
+    supplier_risk_supplier_csv: Path,
+    supplier_risk_pair_csv: Path,
+    supplier_risk_summary_json: Path,
+) -> dict[str, Any] | None:
+    if not kpi_tree:
+        return kpi_tree
+    panel_rows = read_csv_rows(supplier_risk_panel_csv)
+    if not panel_rows:
+        return kpi_tree
+    supplier_rows = read_csv_rows(supplier_risk_supplier_csv)
+    pair_rows = read_csv_rows(supplier_risk_pair_csv)
+    summary_json = load_json_dict(supplier_risk_summary_json)
+    days = [int(to_float(day) or 0) for day in (((kpi_tree.get("main") or {}).get("days")) or [])]
+    if not days:
+        weeks = sorted({int(to_float(row.get("week_index")) or 0) for row in panel_rows})
+        days = [week * 7 for week in weeks]
+        kpi_tree.setdefault("main", {})["days"] = days
+    if not days:
+        return kpi_tree
+
+    weekly: dict[int, dict[str, Any]] = defaultdict(
+        lambda: {
+            "risk_max": 0.0,
+            "risk_high_max": 0.0,
+            "action_max": 0.0,
+            "resilience_min": 1.0,
+            "early_warning_max": 0.0,
+            "change_point_max": 0.0,
+            "watch_count": 0.0,
+            "orange_red_count": 0.0,
+        }
+    )
+    for row in panel_rows:
+        week = int(to_float(row.get("week_index")) or 0)
+        bucket = weekly[week]
+        bucket["risk_max"] = max(bucket["risk_max"], risk_ratio(row.get("risk_probability_proxy_4w")))
+        bucket["risk_high_max"] = max(bucket["risk_high_max"], risk_ratio(row.get("risk_probability_high_proxy_4w")))
+        bucket["action_max"] = max(bucket["action_max"], risk_ratio(row.get("action_priority_score")))
+        resilience_value = to_float(row.get("resilience_score"))
+        if resilience_value is not None and not math.isnan(resilience_value):
+            bucket["resilience_min"] = min(bucket["resilience_min"], max(0.0, min(1.0, resilience_value)))
+        bucket["early_warning_max"] = max(bucket["early_warning_max"], risk_ratio(row.get("early_warning_score")))
+        bucket["change_point_max"] = max(bucket["change_point_max"], risk_ratio(row.get("change_point_score")))
+        zone_rank = supplier_risk_zone_rank(row.get("decision_zone"))
+        if zone_rank >= 1:
+            bucket["watch_count"] += 1.0
+        if zone_rank >= 2:
+            bucket["orange_red_count"] += 1.0
+
+    def day_values(field: str, *, scale: float = 1.0) -> list[float]:
+        values: list[float] = []
+        for day in days:
+            week = max(0, int(day // 7))
+            values.append(round(float(weekly.get(week, {}).get(field, 0.0)) * scale, 6))
+        return values
+
+    top_supplier = None
+    if supplier_rows:
+        top_supplier = max(supplier_rows, key=lambda row: risk_ratio(row.get("max_action_priority_score")))
+    latest_zone_counts = summary_json.get("decision_zone_counts_latest")
+    latest_action_counts = summary_json.get("action_counts_latest")
+    max_high_supplier = max(
+        (risk_ratio(row.get("max_risk_probability_high_proxy_4w")) for row in supplier_rows),
+        default=0.0,
+    )
+    max_action_supplier = max(
+        (risk_ratio(row.get("max_action_priority_score")) for row in supplier_rows),
+        default=0.0,
+    )
+
+    def summary(label: str, value: Any) -> dict[str, str]:
+        return {"label": label, "value": str(value)}
+
+    kpi_tree.setdefault("main", {}).setdefault("series", []).append(
+        {
+            "id": "supplier_risk",
+            "label": "Risques fournisseurs",
+            "values": day_values("action_max", scale=100.0),
+            "color": "#be123c",
+            "note": "Priorite d'action maximale: criticite x borne haute probabiliste x exposition x resilience.",
+        }
+    )
+    kpi_tree.setdefault("groups", []).append(
+        {
+            "id": "supplier_risk",
+            "label": "Risques fournisseurs",
+            "objective": "Piloter performance fournisseur, risque probabiliste, incertitude, resilience et decision robuste.",
+            "summary": [
+                summary("Fournisseurs couverts", summary_json.get("supplier_count", len(supplier_rows))),
+                summary("Couples fournisseur-article-site", summary_json.get("pair_count", len(pair_rows))),
+                summary("Zones dernieres", supplier_risk_zone_counts_text(latest_zone_counts if isinstance(latest_zone_counts, dict) else None)),
+                summary("Actions dernieres", supplier_risk_zone_counts_text(latest_action_counts if isinstance(latest_action_counts, dict) else None)),
+                summary("Borne haute risque max", fmt_pct(100.0 * max_high_supplier)),
+                summary("Priorite action max", fmt_pct(100.0 * max_action_supplier)),
+                summary(
+                    "Top fournisseur",
+                    (
+                        f"{top_supplier.get('supplier_id')} ({risk_pct(top_supplier.get('max_action_priority_score'))})"
+                        if top_supplier
+                        else "n/a"
+                    ),
+                ),
+            ],
+            "secondary": [
+                {"label": "Probabilite risque max (%)", "days": days, "values": day_values("risk_max", scale=100.0), "color": "#be123c"},
+                {"label": "Borne haute risque max (%)", "days": days, "values": day_values("risk_high_max", scale=100.0), "color": "#dc2626", "dash": "dash"},
+                {"label": "Priorite action max (%)", "days": days, "values": day_values("action_max", scale=100.0), "color": "#7c3aed"},
+                {"label": "Resilience minimale (%)", "days": days, "values": day_values("resilience_min", scale=100.0), "color": "#0f766e"},
+                {"label": "Early-warning max (%)", "days": days, "values": day_values("early_warning_max", scale=100.0), "color": "#d97706"},
+                {"label": "Change-point max (%)", "days": days, "values": day_values("change_point_max", scale=100.0), "color": "#0891b2"},
+                {"label": "Couples sous surveillance", "days": days, "values": day_values("watch_count"), "color": "#475569"},
+                {"label": "Couples orange/rouge", "days": days, "values": day_values("orange_red_count"), "color": "#dc2626"},
+            ],
+            "secondary_y_label": "% / nombre",
+        }
+    )
+    kpi_tree.setdefault("definitions", []).extend(
+        [
+            {
+                "family": "Risques fournisseurs",
+                "level": "KPI principal",
+                "name": "Priorite action fournisseur",
+                "formula": "criticite x UCB95(P incident 4 semaines) x exposition x penalite resilience",
+                "terms": "UCB95 approxime par la borne haute probabiliste/conforme; exposition par les volumes attendus; resilience par TTR, chute et marge de recuperation.",
+                "interpretation": "Score de pilotage: plus il est haut, plus une action robuste est justifiee avant incident visible.",
+            },
+            {
+                "family": "Risques fournisseurs",
+                "level": "KPI secondaire",
+                "name": "Probabilite risque fournisseur",
+                "formula": "proxy probabiliste 4 semaines issu performance, dynamique, sensibilite, criticite et incertitude",
+                "terms": "Combine lead time, variabilite, capacite, stock, warning/change-point et sensibilite locale.",
+                "interpretation": "Risque futur, distinct de la performance observee du moment.",
+            },
+            {
+                "family": "Risques fournisseurs",
+                "level": "KPI secondaire",
+                "name": "Resilience fournisseur",
+                "formula": "1 - pression de chute et de TTR, ajustee par buffers et stabilite",
+                "terms": "TTR=temps de retour proxy; drop=chute de performance; buffers=stock/couverture/capacite.",
+                "interpretation": "Capacite a absorber, continuer, recuperer et stabiliser.",
+            },
+            {
+                "family": "Risques fournisseurs",
+                "level": "KPI secondaire",
+                "name": "Zone decisionnelle fournisseur",
+                "formula": "regles par quantiles, incertitude, criticite et resilience",
+                "terms": "vert=surveillance; jaune=donnees/confirmation; orange=action preventive; rouge=decision robuste immediate.",
+                "interpretation": "Transforme les KPI en action fournisseur explicable.",
+            },
+        ]
+    )
+    subtitle = str(kpi_tree.get("subtitle") or "")
+    if "Risques fournisseurs" not in subtitle:
+        kpi_tree["subtitle"] = (
+            subtitle.rstrip(".")
+            + ". L'onglet Risques fournisseurs ajoute la boucle KPI -> risque probabiliste -> incertitude -> resilience -> decision robuste."
+        )
+    return kpi_tree
+
+
+def supplier_risk_summary_lines(
+    node_id: str,
+    rows: list[dict[str, str]],
+    *,
+    supplier_row: dict[str, str] | None = None,
+    destination_view: bool = False,
+) -> list[dict[str, str]]:
+    if not rows and not supplier_row:
+        return []
+    max_risk = max((risk_ratio(row.get("risk_probability_proxy_4w")) for row in rows), default=0.0)
+    max_high = max((risk_ratio(row.get("risk_probability_high_proxy_4w")) for row in rows), default=0.0)
+    max_action = max((risk_ratio(row.get("action_priority_score")) for row in rows), default=0.0)
+    min_resilience = min((risk_ratio(row.get("resilience_score")) for row in rows), default=0.0)
+    early_count = sum(1 for row in rows if int(to_float(row.get("early_warning_flag")) or 0) > 0)
+    change_count = sum(1 for row in rows if int(to_float(row.get("change_point_flag")) or 0) > 0)
+    zone = supplier_risk_worst_zone(rows)
+    robust_decision = ""
+    if supplier_row:
+        max_risk = max(max_risk, risk_ratio(supplier_row.get("max_risk_probability_proxy_4w")))
+        max_high = max(max_high, risk_ratio(supplier_row.get("max_risk_probability_high_proxy_4w")))
+        max_action = max(max_action, risk_ratio(supplier_row.get("max_action_priority_score")))
+        min_resilience = risk_ratio(supplier_row.get("min_resilience_score")) or min_resilience
+        zone = str(supplier_row.get("worst_decision_zone") or zone)
+        robust_decision = str(supplier_row.get("robust_decision") or "")
+    if not robust_decision and rows:
+        robust_decision = str(max(rows, key=lambda row: risk_ratio(row.get("action_priority_score"))).get("robust_decision") or "")
+    return [
+        {"label": "Noeud analyse", "value": display_node_label(node_id)},
+        {"label": "Vue", "value": "risques fournisseurs entrants" if destination_view else "risque fournisseur"},
+        {"label": "Zone decisionnelle", "value": zone},
+        {"label": "Probabilite risque max", "value": fmt_pct(100.0 * max_risk)},
+        {"label": "Borne haute risque", "value": fmt_pct(100.0 * max_high)},
+        {"label": "Priorite action", "value": fmt_pct(100.0 * max_action)},
+        {"label": "Resilience minimale", "value": fmt_pct(100.0 * min_resilience)},
+        {"label": "Couples analyses", "value": str(len(rows))},
+        {"label": "Early-warning actifs", "value": str(early_count)},
+        {"label": "Change-point actifs", "value": str(change_count)},
+        {"label": "Decision robuste", "value": robust_decision or "n/a"},
+    ]
+
+
+def supplier_risk_node_metric(
+    node_id: str,
+    rows: list[dict[str, str]],
+    *,
+    supplier_row: dict[str, str] | None = None,
+    destination_view: bool = False,
+) -> dict[str, Any] | None:
+    summary_lines = supplier_risk_summary_lines(
+        node_id,
+        rows,
+        supplier_row=supplier_row,
+        destination_view=destination_view,
+    )
+    if not summary_lines:
+        return None
+    zone = next((entry["value"] for entry in summary_lines if entry.get("label") == "Zone decisionnelle"), "n/a")
+    action = max(
+        [risk_ratio(row.get("action_priority_score")) for row in rows]
+        + ([risk_ratio(supplier_row.get("max_action_priority_score"))] if supplier_row else [])
+    )
+    return {
+        "title": f"Risques fournisseurs - {display_node_label(node_id)}",
+        "summary_lines": summary_lines,
+        "decision_zone": zone,
+        "zone_color": supplier_risk_zone_color(zone),
+        "zone_rank": supplier_risk_zone_rank(zone),
+        "action_priority_score": round(action, 6),
+    }
+
+
+def supplier_risk_trajectory_asset(
+    node_id: str,
+    rows: list[dict[str, str]],
+    *,
+    title_suffix: str,
+) -> dict[str, Any] | None:
+    if not rows:
+        return None
+    weekly: dict[int, dict[str, float]] = defaultdict(
+        lambda: {
+            "risk": 0.0,
+            "high": 0.0,
+            "action": 0.0,
+            "resilience": 1.0,
+            "warning": 0.0,
+        }
+    )
+    for row in rows:
+        week = int(to_float(row.get("week_index")) or 0)
+        bucket = weekly[week]
+        bucket["risk"] = max(bucket["risk"], risk_ratio(row.get("risk_probability_proxy_4w")))
+        bucket["high"] = max(bucket["high"], risk_ratio(row.get("risk_probability_high_proxy_4w")))
+        bucket["action"] = max(bucket["action"], risk_ratio(row.get("action_priority_score")))
+        resilience_value = to_float(row.get("resilience_score"))
+        if resilience_value is not None and not math.isnan(resilience_value):
+            bucket["resilience"] = min(bucket["resilience"], max(0.0, min(1.0, resilience_value)))
+        bucket["warning"] = max(bucket["warning"], risk_ratio(row.get("early_warning_score")))
+    points = sorted(weekly.items())
+    if not points:
+        return None
+    series_map = {
+        "P risque max (%)": [(week * 7, data["risk"] * 100.0) for week, data in points],
+        "Borne haute (%)": [(week * 7, data["high"] * 100.0) for week, data in points],
+        "Priorite action (%)": [(week * 7, data["action"] * 100.0) for week, data in points],
+        "Resilience min (%)": [(week * 7, data["resilience"] * 100.0) for week, data in points],
+        "Early-warning max (%)": [(week * 7, data["warning"] * 100.0) for week, data in points],
+    }
+    figure = build_line_chart_figure(
+        series_map,
+        title=f"{display_node_label(node_id)} - {title_suffix}",
+        y_label="% / score",
+        note="Points hebdomadaires projetes sur l'axe jour de la simulation.",
+        series_styles={
+            "P risque max (%)": {"color": "#be123c"},
+            "Borne haute (%)": {"color": "#dc2626", "dash": "dash"},
+            "Priorite action (%)": {"color": "#7c3aed"},
+            "Resilience min (%)": {"color": "#0f766e"},
+            "Early-warning max (%)": {"color": "#d97706"},
+        },
+    )
+    return {"figure": figure} if figure else None
+
+
+def supplier_risk_pair_table_asset(
+    node_id: str,
+    rows: list[dict[str, str]],
+    *,
+    item_labels: dict[str, str],
+    title: str,
+) -> dict[str, str] | None:
+    if not rows:
+        return None
+    top_rows = sorted(rows, key=lambda row: risk_ratio(row.get("action_priority_score")), reverse=True)[:10]
+    table_rows = []
+    for row in top_rows:
+        item_id = str(row.get("item_id") or "")
+        table_rows.append(
+            [
+                item_labels.get(item_id, compact_item_label(item_id)),
+                display_node_label(str(row.get("supplier_id") or "")),
+                display_node_label(str(row.get("dst_node_id") or "")),
+                str(row.get("decision_zone") or "n/a"),
+                risk_pct(row.get("risk_probability_proxy_4w")),
+                risk_pct(row.get("risk_probability_high_proxy_4w")),
+                risk_pct(row.get("action_priority_score")),
+                risk_pct(row.get("resilience_score")),
+            ]
+        )
+    return data_html_asset(
+        title,
+        f"{display_node_label(node_id)} - top couples par priorite action",
+        [
+            (
+                "Couples fournisseur / article / site",
+                render_data_table(
+                    ["Item", "Fournisseur", "Site", "Zone", "P risque", "Borne haute", "Priorite", "Resilience"],
+                    table_rows,
+                ),
+            )
+        ],
+    )
+
+
+def supplier_risk_decision_asset(node_id: str, rows: list[dict[str, str]]) -> dict[str, str] | None:
+    if not rows:
+        return None
+    top = max(rows, key=lambda row: risk_ratio(row.get("action_priority_score")))
+    decision_rows = [
+        ["Vert", "performance correcte, risque faible, incertitude maitrisee", "routine"],
+        ["Jaune", "signaux faibles ou incertitude visible", "surveillance, donnees, confirmation fournisseur"],
+        ["Orange", "borne haute de risque ou resilience degradee", "action preventive: stock, capacite, audit, allocation"],
+        ["Rouge", "risque eleve + criticite + faible resilience", "decision robuste immediate: dual source, expedite, replanning"],
+    ]
+    return data_html_asset(
+        f"{display_node_label(node_id)} - decision robuste",
+        "La sortie n'est pas seulement un score: elle relie probabilite, incertitude, resilience et action.",
+        [
+            (
+                "Decision proposee",
+                render_data_kv(
+                    [
+                        ("Zone du couple principal", top.get("decision_zone") or "n/a"),
+                        ("Action recommandee", top.get("recommended_action") or "n/a"),
+                        ("Decision robuste", top.get("robust_decision") or "n/a"),
+                        ("TTR proxy", f"{fmt_qty(top.get('time_to_recover_weeks_proxy'), 1)} semaines"),
+                        ("Chute performance proxy", risk_pct(top.get("performance_drop_proxy"))),
+                        ("Incertitude", risk_pct(top.get("uncertainty_pressure"))),
+                    ]
+                ),
+            ),
+            ("Regles", render_data_table(["Zone", "Situation", "Decision"], decision_rows)),
+        ],
+    )
+
+
+def supplier_risk_summary_asset(
+    node_id: str,
+    rows: list[dict[str, str]],
+    *,
+    supplier_row: dict[str, str] | None = None,
+    destination_view: bool = False,
+) -> dict[str, str] | None:
+    summary_lines = supplier_risk_summary_lines(
+        node_id,
+        rows,
+        supplier_row=supplier_row,
+        destination_view=destination_view,
+    )
+    if not summary_lines:
+        return None
+    return data_html_asset(
+        f"{display_node_label(node_id)} - risques fournisseurs",
+        "Boucle KPI -> risque probabiliste -> incertitude -> resilience -> decision robuste.",
+        [
+            ("Synthese", render_data_kv([(entry["label"], entry["value"]) for entry in summary_lines])),
+            (
+                "Lecture operationnelle",
+                render_data_table(
+                    ["Bloc", "Question metier"],
+                    [
+                        ["Performance", "Le fournisseur est-il actuellement proche de sa cible ?"],
+                        ["Risque", "Quelle probabilite d'incident sur l'horizon 4 semaines ?"],
+                        ["Incertitude", "Le modele est-il suffisamment confiant pour agir finement ?"],
+                        ["Resilience", "Le fournisseur peut-il absorber puis recuperer ?"],
+                        ["Decision", "Quelle action reste acceptable si le futur est pire que prevu ?"],
+                    ],
+                ),
+            ),
+        ],
+    )
+
+
+def build_supplier_risk_hover_payloads(
+    raw: dict[str, Any],
+    *,
+    supplier_risk_panel_csv: Path,
+    supplier_risk_supplier_csv: Path,
+    supplier_risk_pair_csv: Path,
+    supplier_risk_summary_json: Path,
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any]]:
+    panel_rows = read_csv_rows(supplier_risk_panel_csv)
+    pair_rows = read_csv_rows(supplier_risk_pair_csv)
+    supplier_rows = read_csv_rows(supplier_risk_supplier_csv)
+    if not panel_rows and not pair_rows and not supplier_rows:
+        return {}, {}, {}, {"nodes": {}, "global": {}}
+
+    item_labels = item_label_lookup(raw)
+    node_types = build_node_type_lookup(raw)
+    supplier_by_id = {str(row.get("supplier_id") or ""): row for row in supplier_rows}
+    latest_by_supplier: dict[str, list[dict[str, str]]] = defaultdict(list)
+    latest_by_dst: dict[str, list[dict[str, str]]] = defaultdict(list)
+    panel_by_supplier: dict[str, list[dict[str, str]]] = defaultdict(list)
+    panel_by_dst: dict[str, list[dict[str, str]]] = defaultdict(list)
+    for row in pair_rows:
+        supplier_id = str(row.get("supplier_id") or "")
+        dst_id = str(row.get("dst_node_id") or "")
+        if supplier_id:
+            latest_by_supplier[supplier_id].append(row)
+        if dst_id:
+            latest_by_dst[dst_id].append(row)
+    for row in panel_rows:
+        supplier_id = str(row.get("supplier_id") or "")
+        dst_id = str(row.get("dst_node_id") or "")
+        if supplier_id:
+            panel_by_supplier[supplier_id].append(row)
+        if dst_id:
+            panel_by_dst[dst_id].append(row)
+
+    supplier_hover: dict[str, Any] = {}
+    factory_hover: dict[str, Any] = {}
+    dc_hover: dict[str, Any] = {}
+    metrics_nodes: dict[str, Any] = {}
+
+    for supplier_id, rows in sorted(latest_by_supplier.items()):
+        supplier_row = supplier_by_id.get(supplier_id)
+        title_name = str((supplier_row or {}).get("supplier_name") or supplier_id)
+        incoming = supplier_risk_summary_asset(supplier_id, rows, supplier_row=supplier_row)
+        outgoing = supplier_risk_trajectory_asset(
+            supplier_id,
+            panel_by_supplier.get(supplier_id, []),
+            title_suffix="trajectoire risque / resilience fournisseur",
+        )
+        third = supplier_risk_pair_table_asset(
+            supplier_id,
+            rows,
+            item_labels=item_labels,
+            title=f"{display_node_label(supplier_id)} - couples risques",
+        )
+        fourth = supplier_risk_decision_asset(supplier_id, rows)
+        supplier_hover[supplier_id] = {
+            "incoming": incoming,
+            "outgoing": outgoing,
+            "third": third,
+            "fourth": fourth,
+        }
+        metric = supplier_risk_node_metric(supplier_id, rows, supplier_row=supplier_row)
+        if metric:
+            metric["title"] = f"Risques fournisseur - {title_name}"
+            metrics_nodes[supplier_id] = metric
+
+    for dst_id, rows in sorted(latest_by_dst.items()):
+        incoming = supplier_risk_summary_asset(dst_id, rows, destination_view=True)
+        outgoing = supplier_risk_trajectory_asset(
+            dst_id,
+            panel_by_dst.get(dst_id, []),
+            title_suffix="risque fournisseurs entrants",
+        )
+        third = supplier_risk_pair_table_asset(
+            dst_id,
+            rows,
+            item_labels=item_labels,
+            title=f"{display_node_label(dst_id)} - fournisseurs entrants",
+        )
+        fourth = supplier_risk_decision_asset(dst_id, rows)
+        payload = {
+            "incoming": incoming,
+            "outgoing": outgoing,
+            "third": third,
+            "fourth": fourth,
+        }
+        node_type = node_types.get(dst_id, "")
+        if node_type == "distribution_center":
+            dc_hover[dst_id] = payload
+        else:
+            factory_hover[dst_id] = payload
+        metric = supplier_risk_node_metric(dst_id, rows, destination_view=True)
+        if metric:
+            metrics_nodes[dst_id] = metric
+
+    summary_json = load_json_dict(supplier_risk_summary_json)
+    metrics = {
+        "nodes": metrics_nodes,
+        "global": {
+            "title": "Risques fournisseurs",
+            "summary_lines": [
+                {"label": "Fournisseurs", "value": str(summary_json.get("supplier_count", len(supplier_rows)))},
+                {"label": "Couples", "value": str(summary_json.get("pair_count", len(pair_rows)))},
+                {
+                    "label": "Zones dernieres",
+                    "value": supplier_risk_zone_counts_text(
+                        summary_json.get("decision_zone_counts_latest")
+                        if isinstance(summary_json.get("decision_zone_counts_latest"), dict)
+                        else None
+                    ),
+                },
+            ],
+        },
+    }
+    return factory_hover, supplier_hover, dc_hover, metrics
+
+
 def normalize_unit_label(unit: Any) -> str:
     value = str(unit or "").strip().upper()
     aliases = {
@@ -5957,8 +6581,12 @@ def sensitivity_row_scope(
             return "upstream_reliability"
         if parameter_key.startswith("supplier_capacity_node::"):
             return "upstream_supplier_capacity"
-        if parameter_key.startswith("supplier_node_scale::"):
+        if parameter_key.startswith("supplier_node_scale::") or parameter_key.startswith("supplier_stock_node::"):
             return "upstream_supplier_stock"
+        if parameter_key.startswith("combined_capacity_delay::"):
+            return "upstream_combined_capacity_delay"
+        if parameter_key.startswith("combined_stock_reliability::"):
+            return "upstream_combined_stock_reliability"
 
     if node_type == "distribution_center" and target in incoming_sources.get(node_id, set()):
         if parameter_key.startswith("capacity_node::"):
@@ -11116,6 +11744,130 @@ def build_threshold_metric_curve_payload(
     if len(usable_rows) < 2:
         return None, None
 
+    def format_parameter_level(value: float) -> str:
+        raw = f"x{value:.2f}".rstrip("0").rstrip(".")
+        return f"{raw} ref." if abs(value - 1.0) <= 1e-9 else raw
+
+    x = [format_parameter_level(level) for level, _ in usable_rows]
+    fill = [float(to_float(row.get("kpi::fill_rate")) or 0.0) for _, row in usable_rows]
+    availability = [
+        float(to_float(row.get("kpi::product_availability")) or to_float(row.get("kpi::fill_rate")) or 0.0)
+        for _, row in usable_rows
+    ]
+    adherence = [float(to_float(row.get("kpi::line_adherence")) or 0.0) for _, row in usable_rows]
+    backlog = [float(to_float(row.get("kpi::ending_backlog")) or 0.0) for _, row in usable_rows]
+    inventory_cost = [
+        float(to_float(row.get("kpi::inventory_cost")) or to_float(row.get("kpi::total_holding_cost")) or 0.0)
+        for _, row in usable_rows
+    ]
+    target_gap = [float(to_float(row.get("guard::raw_material_max_target_gap_qty")) or 0.0) for _, row in usable_rows]
+    stockout_days = [float(to_float(row.get("kpi::raw_material_stockout_days")) or 0.0) for _, row in usable_rows]
+    material_delay = [float(to_float(row.get("kpi::material_delay_days")) or 0.0) for _, row in usable_rows]
+
+    service_extra = [
+        {
+            "type": "scatter",
+            "mode": "lines+markers",
+            "name": "Fill rate",
+            "x": x,
+            "y": fill,
+            "line": {"width": 2.0, "color": "#2563eb", "dash": "dot"},
+            "marker": {"size": 6, "color": "#2563eb"},
+        },
+        {
+            "type": "scatter",
+            "mode": "lines+markers",
+            "name": "Adherence ligne",
+            "x": x,
+            "y": adherence,
+            "line": {"width": 2.0, "color": "#d97706"},
+            "marker": {"size": 6, "color": "#d97706"},
+        },
+    ]
+    if service_threshold is not None and not math.isnan(service_threshold):
+        service_extra.append(
+            {
+                "type": "scatter",
+                "mode": "lines",
+                "name": "Seuil service",
+                "x": x,
+                "y": [float(service_threshold) for _ in x],
+                "line": {"width": 1.4, "color": "#dc2626", "dash": "dash"},
+            }
+        )
+    incoming_payload = {
+        "figure": {
+            "kind": "dual_panel",
+            "x_axis_kind": "parameter_sweep",
+            "title": f"{parameter_label} - sensibilite par niveau teste",
+                "show_legend": True,
+                "top": {
+                    "kind": "line",
+                    "title": "Disponibilite produit",
+                    "x_label": "Niveau teste du parametre (x1 = reference active, pas un jour)",
+                    "y_label": "Ratio",
+                "x": x,
+                "y": availability,
+                "extra_traces": service_extra,
+            },
+                "bottom": {
+                    "kind": "line",
+                    "title": "Backlog final (0 = aucun backlog)",
+                    "x_label": "Niveau teste du parametre (x1 = reference active, pas un jour)",
+                    "y_label": "Quantite",
+                "x": x,
+                "y": backlog,
+            },
+        }
+    }
+    outgoing_payload = {
+        "figure": {
+            "kind": "dual_panel",
+            "x_axis_kind": "parameter_sweep",
+            "title": f"{parameter_label} - stock et cout par niveau teste",
+                "show_legend": True,
+                "top": {
+                    "kind": "line",
+                    "title": "Cout de stock",
+                    "x_label": "Niveau teste du parametre (x1 = reference active, pas un jour)",
+                    "y_label": "Cout",
+                "x": x,
+                "y": inventory_cost,
+                "extra_traces": [
+                    {
+                        "type": "scatter",
+                        "mode": "lines+markers",
+                        "name": "Gap cible stock",
+                        "x": x,
+                        "y": target_gap,
+                        "line": {"width": 2.0, "color": "#be123c"},
+                        "marker": {"size": 6, "color": "#be123c"},
+                    }
+                ],
+            },
+                "bottom": {
+                    "kind": "line",
+                    "title": "Rupture et retard matiere",
+                    "x_label": "Niveau teste du parametre (x1 = reference active, pas un jour)",
+                    "y_label": "Jours",
+                "x": x,
+                "y": stockout_days,
+                "extra_traces": [
+                    {
+                        "type": "scatter",
+                        "mode": "lines+markers",
+                        "name": "Retard matiere max",
+                        "x": x,
+                        "y": material_delay,
+                        "line": {"width": 2.0, "color": "#7c3aed"},
+                        "marker": {"size": 6, "color": "#7c3aed"},
+                    }
+                ],
+            },
+        }
+    }
+    return incoming_payload, outgoing_payload
+
     try:
         import matplotlib
 
@@ -11284,6 +12036,126 @@ def build_supplier_threshold_metric_curve_payload(
     if len(usable_rows) < 2:
         return None, None
 
+    def format_parameter_level(value: float) -> str:
+        raw = f"x{value:.2f}".rstrip("0").rstrip(".")
+        return f"{raw} ref." if abs(value - 1.0) <= 1e-9 else raw
+
+    x = [format_parameter_level(level) for level, _, _ in usable_rows]
+    shipped = []
+    avg_stock = []
+    ending_stock = []
+    avg_utilization = []
+    availability = []
+    adherence = []
+    inventory_cost = []
+    stockout_days = []
+    for _, row, case_output_dir in usable_rows:
+        metrics = read_supplier_case_metrics(case_output_dir, node_id, metrics_cache)
+        shipped.append(float(metrics.get("total_shipped") or 0.0))
+        avg_stock.append(float(metrics.get("avg_stock") or 0.0))
+        ending_stock.append(float(metrics.get("ending_stock") or 0.0))
+        avg_utilization.append(float(metrics.get("avg_utilization") or 0.0))
+        availability.append(
+            float(to_float(row.get("kpi::product_availability")) or to_float(row.get("kpi::fill_rate")) or 0.0)
+        )
+        adherence.append(float(to_float(row.get("kpi::line_adherence")) or 0.0))
+        inventory_cost.append(
+            float(to_float(row.get("kpi::inventory_cost")) or to_float(row.get("kpi::total_holding_cost")) or 0.0)
+        )
+        stockout_days.append(float(to_float(row.get("kpi::raw_material_stockout_days")) or 0.0))
+
+    incoming_payload = {
+        "figure": {
+            "kind": "dual_panel",
+            "x_axis_kind": "parameter_sweep",
+            "title": f"{parameter_label} - flux et service par niveau teste",
+                "show_legend": True,
+                "top": {
+                    "kind": "line",
+                    "title": "Expedie total fournisseur",
+                    "x_label": "Niveau teste du parametre (x1 = reference active, pas un jour)",
+                    "y_label": "Quantite",
+                "x": x,
+                "y": shipped,
+            },
+                "bottom": {
+                    "kind": "line",
+                    "title": "Disponibilite et adherence supply",
+                    "x_label": "Niveau teste du parametre (x1 = reference active, pas un jour)",
+                    "y_label": "Ratio",
+                "x": x,
+                "y": availability,
+                "extra_traces": [
+                    {
+                        "type": "scatter",
+                        "mode": "lines+markers",
+                        "name": "Adherence ligne",
+                        "x": x,
+                        "y": adherence,
+                        "line": {"width": 2.0, "color": "#d97706"},
+                        "marker": {"size": 6, "color": "#d97706"},
+                    }
+                ],
+            },
+        }
+    }
+    outgoing_payload = {
+        "figure": {
+            "kind": "dual_panel",
+            "x_axis_kind": "parameter_sweep",
+            "title": f"{parameter_label} - stock et capacite par niveau teste",
+                "show_legend": True,
+                "top": {
+                    "kind": "line",
+                    "title": "Stock moyen fournisseur",
+                    "x_label": "Niveau teste du parametre (x1 = reference active, pas un jour)",
+                    "y_label": "Quantite",
+                "x": x,
+                "y": avg_stock,
+                "extra_traces": [
+                    {
+                        "type": "scatter",
+                        "mode": "lines+markers",
+                        "name": "Stock final fournisseur",
+                        "x": x,
+                        "y": ending_stock,
+                        "line": {"width": 2.0, "color": "#d97706"},
+                        "marker": {"size": 6, "color": "#d97706"},
+                    }
+                ],
+            },
+                "bottom": {
+                    "kind": "line",
+                    "title": "Utilisation capacite et cout stock",
+                    "x_label": "Niveau teste du parametre (x1 = reference active, pas un jour)",
+                    "y_label": "Ratio / cout",
+                "x": x,
+                "y": avg_utilization,
+                "extra_traces": [
+                    {
+                        "type": "scatter",
+                        "mode": "lines+markers",
+                        "name": "Cout de stock",
+                        "x": x,
+                        "y": inventory_cost,
+                        "line": {"width": 2.0, "color": "#7c3aed"},
+                        "marker": {"size": 6, "color": "#7c3aed"},
+                    },
+                    {
+                        "type": "scatter",
+                        "mode": "lines+markers",
+                        "name": "Jours rupture matiere",
+                        "x": x,
+                        "y": stockout_days,
+                        "line": {"width": 2.0, "color": "#be123c"},
+                        "marker": {"size": 6, "color": "#be123c"},
+                    },
+                ],
+            },
+        }
+    }
+    return incoming_payload, outgoing_payload
+
     try:
         import matplotlib
 
@@ -11450,6 +12322,1046 @@ def build_threshold_hover_payloads(
     return factory_out, supplier_out, dc_out
 
 
+def build_supplier_parameter_sensitivity_hover_payloads(
+    raw: dict[str, Any],
+    supplier_summary_json: Path,
+    supplier_parameter_summary_csv: Path,
+    supplier_parameter_cases_csv: Path,
+    supplier_nominal_parameters_csv: Path | None = None,
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any]]:
+    summary_rows = read_csv_rows(supplier_parameter_summary_csv)
+    case_rows = read_csv_rows(supplier_parameter_cases_csv)
+    if not summary_rows:
+        return {}, {}, {}, {}
+
+    try:
+        summary = json.loads(supplier_summary_json.read_text(encoding="utf-8")) if supplier_summary_json.exists() else {}
+    except Exception:
+        summary = {}
+
+    node_item_ids = build_node_item_ids(raw)
+    node_types = build_node_type_lookup(raw)
+    incoming_sources, outgoing_targets = build_node_relationships(raw)
+    service_threshold = to_float(summary.get("service_threshold"))
+    selected_suppliers = [str(value) for value in (summary.get("selected_suppliers") or [])]
+    baseline = summary.get("baseline") if isinstance(summary.get("baseline"), dict) else {}
+    baseline_fill = to_float(baseline.get("kpi::fill_rate") or baseline.get("fill_rate"))
+    baseline_backlog = to_float(baseline.get("kpi::ending_backlog") or baseline.get("ending_backlog"))
+    baseline_cost = to_float(baseline.get("kpi::total_cost") or baseline.get("total_cost"))
+    if baseline_fill is None:
+        for row in case_rows:
+            if str(row.get("case_id") or "") == "baseline":
+                baseline_fill = to_float(row.get("kpi::fill_rate"))
+                baseline_backlog = to_float(row.get("kpi::ending_backlog"))
+                baseline_cost = to_float(row.get("kpi::total_cost"))
+                break
+    baseline_case_row = next((row for row in case_rows if str(row.get("case_id") or "") == "baseline"), {})
+    baseline_holding_cost = (
+        to_float(baseline_case_row.get("kpi::inventory_cost"))
+        or to_float(baseline_case_row.get("kpi::total_holding_cost"))
+        or to_float(baseline_case_row.get("kpi::inventory_holding_cost_proxy_total"))
+    )
+
+    case_rows_by_param: dict[str, list[dict[str, str]]] = defaultdict(list)
+    for row in case_rows:
+        if str(row.get("status") or "").lower() != "ok":
+            continue
+        parameter_key = str(row.get("parameter_key") or "")
+        if not parameter_key or parameter_key == "baseline":
+            continue
+        case_rows_by_param[parameter_key].append(row)
+
+    supplier_global_groups = {
+        "supplier_capacity_global",
+        "supplier_stock_global",
+        "supplier_lead_time_global",
+        "supplier_reliability_global",
+        "supplier_upstream_supply",
+        "supplier_combined_upstream_supply",
+    }
+    scope_order = {
+        "direct": 0,
+        "upstream_supplier_capacity": 1,
+        "upstream_reliability": 2,
+        "upstream_lead_time": 3,
+        "upstream_supplier_stock": 4,
+        "upstream_combined_capacity_delay": 5,
+        "upstream_combined_stock_reliability": 6,
+        "supplier_global": 7,
+    }
+    scope_labels = {
+        "direct": "direct noeud",
+        "upstream_supplier_capacity": "fournisseur amont - capacite",
+        "upstream_reliability": "fournisseur amont - fiabilite",
+        "upstream_lead_time": "fournisseur amont - delai",
+        "upstream_supplier_stock": "fournisseur amont - stock",
+        "upstream_combined_capacity_delay": "fournisseur amont - combine capacite/delai",
+        "upstream_combined_stock_reliability": "fournisseur amont - combine stock/fiabilite",
+        "supplier_global": "global fournisseurs",
+    }
+
+    def safe_float(value: Any) -> float | None:
+        num = to_float(value)
+        if num is None or math.isnan(num):
+            return None
+        return float(num)
+
+    def fmt_factor(value: float | None, *, row: dict[str, str] | None = None) -> str:
+        if value is None:
+            return "n/a"
+        raw = f"x{value:.2f}".rstrip("0").rstrip(".")
+        if abs(value - 1.0) <= 1e-9:
+            raw = f"{raw} ref."
+        return raw
+
+    def fmt_fill_value(value: float | None) -> str:
+        if value is None:
+            return "n/a"
+        return f"{value * 100:.1f}%"
+
+    def fmt_money_short(value: float | None) -> str:
+        if value is None:
+            return "n/a"
+        abs_value = abs(value)
+        if abs_value >= 1_000_000:
+            return f"{value / 1_000_000:.2f} M"
+        if abs_value >= 1_000:
+            return f"{value / 1_000:.1f} k"
+        return f"{value:.0f}"
+
+    def jsonish(value: Any) -> Any:
+        raw_value = str(value or "").strip()
+        if not raw_value:
+            return None
+        try:
+            return json.loads(raw_value)
+        except Exception:
+            return raw_value
+
+    def fmt_levels(value: Any, row: dict[str, str] | None = None) -> str:
+        parsed = jsonish(value)
+        if isinstance(parsed, list):
+            values: list[str] = []
+            for item in parsed:
+                if isinstance(item, list) and len(item) == 2:
+                    low = safe_float(item[0])
+                    high = safe_float(item[1])
+                    values.append(f"{fmt_factor(low, row=row)} -> {fmt_factor(high, row=row)}")
+                else:
+                    values.append(fmt_factor(safe_float(item), row=row))
+            return ", ".join(values) if values else "n/a"
+        return str(parsed or "n/a")
+
+    def baseline_contiguous_band(row: dict[str, str]) -> str:
+        low = safe_float(row.get("baseline_contiguous_safe_low"))
+        high = safe_float(row.get("baseline_contiguous_safe_high"))
+        if low is None and high is None:
+            low = safe_float(row.get("safe_band_low"))
+            high = safe_float(row.get("safe_band_high"))
+        if low is None and high is None:
+            return "aucune plage continue"
+        if low is None:
+            return f"<= {fmt_factor(high, row=row)}"
+        if high is None:
+            return f">= {fmt_factor(low, row=row)}"
+        return f"{fmt_factor(low, row=row)} a {fmt_factor(high, row=row)}"
+
+    def first_unacceptable(row: dict[str, str]) -> str:
+        value = safe_float(row.get("first_unacceptable_level"))
+        return fmt_factor(value, row=row) if value is not None else "aucun dans la grille"
+
+    def bool_text(value: Any) -> bool:
+        return str(value).strip().lower() in {"1", "true", "yes", "y"}
+
+    def driver_text(row: dict[str, str]) -> str:
+        fill_drop = safe_float(row.get("max_fill_rate_drop")) or 0.0
+        availability_drop = safe_float(row.get("max_product_availability_drop")) or 0.0
+        adherence_drop = safe_float(row.get("max_line_adherence_drop")) or 0.0
+        stockout_days = safe_float(row.get("max_raw_material_stockout_days_increase")) or 0.0
+        material_delay = safe_float(row.get("max_material_delay_days_increase")) or 0.0
+        target_gap = safe_float(row.get("max_raw_material_target_gap_increase")) or 0.0
+        safety_gap = safe_float(row.get("max_raw_material_safety_floor_gap_increase")) or 0.0
+        upstream_delta = safe_float(row.get("max_supplier_upstream_ordered_qty_delta"))
+        if upstream_delta is None:
+            upstream_delta = safe_float(row.get("max_external_procured_qty_delta")) or 0.0
+        inventory_delta = safe_float(row.get("max_inventory_cost_increase")) or 0.0
+        cost_delta = safe_float(row.get("max_total_cost_increase")) or 0.0
+        parts: list[str] = []
+        if fill_drop > 1e-9:
+            parts.append(f"service -{fill_drop * 100:.1f} pts max")
+        if availability_drop > 1e-9:
+            parts.append(f"dispo -{availability_drop * 100:.1f} pts max")
+        if adherence_drop > 1e-9:
+            parts.append(f"adherence -{adherence_drop * 100:.1f} pts max")
+        if stockout_days > 1e-9:
+            parts.append(f"rupture matiere +{stockout_days:.0f} j")
+        if material_delay > 1e-9:
+            parts.append(f"retard matiere +{material_delay:.0f} j")
+        if target_gap > 1e-6:
+            parts.append(f"gap cible stock +{fmt_qty(target_gap, 0)}")
+        if safety_gap > 1e-6:
+            parts.append(f"gap safety +{fmt_qty(safety_gap, 0)}")
+        if upstream_delta > 1e-6:
+            parts.append(f"appro amont +{fmt_qty(upstream_delta, 0)}")
+        if inventory_delta > 1e-6:
+            parts.append(f"stockage +{fmt_money_short(inventory_delta)}")
+        if cost_delta > 1e-6:
+            parts.append(f"cout +{fmt_money_short(cost_delta)}")
+        if not parts:
+            parts.append("pas de degradation forte dans la grille")
+        if not bool_text(row.get("acceptable_is_contiguous")):
+            parts.append("acceptabilite non monotone")
+        return " ; ".join(parts)
+
+    def metric_values_for_row(row: dict[str, str], metric_name: str) -> list[float]:
+        values: list[float] = []
+        for case_row in case_rows_by_param.get(str(row.get("parameter_key") or ""), []):
+            value = safe_float(case_row.get(metric_name))
+            if value is not None:
+                values.append(value)
+        return values
+
+    def metric_min_label(row: dict[str, str], metric_name: str, *, kind: str = "qty") -> str:
+        values = metric_values_for_row(row, metric_name)
+        if not values:
+            return "n/a"
+        value = min(values)
+        if kind == "pct_fraction":
+            return fmt_fill_value(value)
+        if kind == "money":
+            return fmt_money_short(value)
+        return fmt_qty(value, 0)
+
+    def metric_min_label_any(row: dict[str, str], metric_names: list[str], *, kind: str = "qty") -> str:
+        for metric_name in metric_names:
+            label = metric_min_label(row, metric_name, kind=kind)
+            if label != "n/a":
+                return label
+        return "n/a"
+
+    def metric_max_label(row: dict[str, str], metric_name: str, *, kind: str = "qty") -> str:
+        values = metric_values_for_row(row, metric_name)
+        if not values:
+            return "n/a"
+        value = max(values)
+        if kind == "pct_fraction":
+            return fmt_fill_value(value)
+        if kind == "money":
+            return fmt_money_short(value)
+        return fmt_qty(value, 0)
+
+    def holding_cost_delta_label(row: dict[str, str]) -> str:
+        values = metric_values_for_row(row, "kpi::inventory_cost")
+        if not values:
+            values = metric_values_for_row(row, "kpi::total_holding_cost")
+        if not values:
+            values = metric_values_for_row(row, "kpi::inventory_holding_cost_proxy_total")
+        if not values:
+            return "n/a"
+        max_value = max(values)
+        if baseline_holding_cost is None:
+            return fmt_money_short(max_value)
+        return f"{fmt_money_short(max_value)} ({fmt_money_short(max_value - baseline_holding_cost)} vs baseline)"
+
+    def line_adherence_label(row: dict[str, str]) -> str:
+        return metric_min_label(row, "kpi::line_adherence", kind="pct_fraction")
+
+    def driver_family(row: dict[str, str]) -> str:
+        group = str(row.get("parameter_group") or "")
+        if "combined" in group:
+            return "combined"
+        if "capacity" in group:
+            return "capacity"
+        if "stock" in group:
+            return "stock"
+        if "lead" in group:
+            return "lead_time"
+        if "reliability" in group:
+            return "reliability"
+        if "upstream" in group:
+            return "upstream_supply"
+        return "other"
+
+    driver_family_labels = {
+        "capacity": "Capacite",
+        "stock": "Stock",
+        "lead_time": "Delai",
+        "reliability": "Fiabilite",
+        "upstream_supply": "Appro amont",
+        "combined": "Scenario combine",
+        "other": "Autre",
+    }
+    driver_family_colors = {
+        "capacity": "#d97706",
+        "stock": "#0f766e",
+        "lead_time": "#7c3aed",
+        "reliability": "#2563eb",
+        "upstream_supply": "#be123c",
+        "combined": "#475569",
+        "other": "#64748b",
+    }
+
+    def status_for_row(row: dict[str, str], *, locally_tested: bool) -> tuple[str, str]:
+        if not locally_tested:
+            return "not_local", "Non teste localement"
+        fill_drop = safe_float(row.get("max_fill_rate_drop")) or 0.0
+        availability_drop = safe_float(row.get("max_product_availability_drop")) or 0.0
+        adherence_drop = safe_float(row.get("max_line_adherence_drop")) or 0.0
+        target_gap = safe_float(row.get("max_raw_material_target_gap_increase")) or 0.0
+        upstream_delta = safe_float(row.get("max_supplier_upstream_ordered_qty_delta"))
+        if upstream_delta is None:
+            upstream_delta = safe_float(row.get("max_external_procured_qty_delta")) or 0.0
+        stockout_days = safe_float(row.get("max_raw_material_stockout_days_increase")) or 0.0
+        material_delay = safe_float(row.get("max_material_delay_days_increase")) or 0.0
+        inventory_delta = safe_float(row.get("max_inventory_cost_increase")) or 0.0
+        cost_delta = safe_float(row.get("max_total_cost_increase")) or 0.0
+        first_bad = safe_float(row.get("first_unacceptable_level"))
+        contiguous = bool_text(row.get("acceptable_is_contiguous"))
+        low = safe_float(row.get("baseline_contiguous_safe_low"))
+        high = safe_float(row.get("baseline_contiguous_safe_high"))
+        only_nominal = (
+            low is not None
+            and high is not None
+            and abs(low - 1.0) <= 1e-9
+            and abs(high - 1.0) <= 1e-9
+        )
+        if fill_drop >= 0.02 or availability_drop >= 0.02 or adherence_drop >= 0.02:
+            return "sensitive", "Sensible"
+        if (
+            only_nominal
+            or not contiguous
+            or (first_bad is not None and abs(first_bad - 1.0) <= 0.25)
+            or target_gap > 1e-6
+            or stockout_days > 0.0
+            or material_delay > 0.0
+            or upstream_delta > 5_000_000
+            or inventory_delta > 500_000
+            or cost_delta > 500_000
+        ):
+            return "watch", "A surveiller"
+        return "robust", "Robuste"
+
+    status_colors = {
+        "robust": "#16a34a",
+        "watch": "#d97706",
+        "sensitive": "#dc2626",
+        "not_local": "#64748b",
+    }
+
+    def matrix_status_for_row(row: dict[str, str] | None) -> tuple[str, str]:
+        if row is None:
+            return "not_local", "Non teste"
+        key, label = status_for_row(row, locally_tested=True)
+        return key, label
+
+    def recommendation_text(row: dict[str, str]) -> str:
+        direction = str(row.get("safe_direction") or "").strip()
+        band = baseline_contiguous_band(row)
+        parameter_group = str(row.get("parameter_group") or "")
+        if "capacity" in parameter_group:
+            base = f"Capacite: garder au moins {band} tant que les autres hypotheses restent identiques."
+        elif "stock" in parameter_group:
+            base = f"Stock: utiliser {band} comme limite conservative, puis raffiner par item si besoin."
+        elif "lead" in parameter_group:
+            base = f"Delai: eviter de sortir de {band}; au-dela, les garde-fous amont/cout se degradent."
+        elif "reliability" in parameter_group:
+            base = f"Fiabilite: rester dans {band}; une baisse peut creer du stress amont meme sans rupture service."
+        elif "upstream" in parameter_group:
+            base = f"Appro amont fournisseur: garder {band} comme zone de reference testee."
+        elif "combined" in parameter_group:
+            base = f"Scenario combine: lire ce test comme un stress simultane; acceptable seulement si {band} reste valide."
+        elif direction == "higher_is_riskier":
+            base = f"Ne pas depasser {band} sans retest."
+        else:
+            base = f"Ne pas descendre sous {band} sans retest."
+        if not bool_text(row.get("acceptable_is_contiguous")):
+            base += " La reponse est non monotone: ne pas interpreter les ilots acceptables comme une vraie marge robuste."
+        return base
+
+    def supplier_global_scope(row: dict[str, str]) -> str | None:
+        parameter_group = str(row.get("parameter_group") or "")
+        parameter_key = str(row.get("parameter_key") or "")
+        if parameter_group in supplier_global_groups and "::" not in parameter_key:
+            return "supplier_global"
+        return None
+
+    def node_row_scope(row: dict[str, str], node_id: str, node_type: str) -> str | None:
+        scope = sensitivity_row_scope(
+            str(row.get("parameter_key") or ""),
+            node_id,
+            node_item_ids,
+            node_types,
+            incoming_sources,
+            outgoing_targets,
+        )
+        if scope:
+            return scope
+        if node_type in {"supplier_dc", "factory", "distribution_center"}:
+            return supplier_global_scope(row)
+        return None
+
+    def row_severity(row: dict[str, str]) -> float:
+        fill_drop = safe_float(row.get("max_fill_rate_drop")) or 0.0
+        availability_drop = safe_float(row.get("max_product_availability_drop")) or 0.0
+        adherence_drop = safe_float(row.get("max_line_adherence_drop")) or 0.0
+        target_gap = safe_float(row.get("max_raw_material_target_gap_increase")) or 0.0
+        safety_gap = safe_float(row.get("max_raw_material_safety_floor_gap_increase")) or 0.0
+        upstream_delta = safe_float(row.get("max_supplier_upstream_ordered_qty_delta"))
+        if upstream_delta is None:
+            upstream_delta = safe_float(row.get("max_external_procured_qty_delta")) or 0.0
+        stockout_days = safe_float(row.get("max_raw_material_stockout_days_increase")) or 0.0
+        material_delay = safe_float(row.get("max_material_delay_days_increase")) or 0.0
+        inventory_delta = safe_float(row.get("max_inventory_cost_increase")) or 0.0
+        cost_delta = safe_float(row.get("max_total_cost_increase")) or 0.0
+        first_bad = safe_float(row.get("first_unacceptable_level"))
+        proximity = 0.0 if first_bad is None else max(0.0, 1.0 - abs(first_bad - 1.0))
+        non_contiguous = 0.5 if not bool_text(row.get("acceptable_is_contiguous")) else 0.0
+        return (
+            fill_drop * 100.0
+            + availability_drop * 120.0
+            + adherence_drop * 100.0
+            + min(target_gap / 1_000_000.0, 80.0)
+            + min(safety_gap / 1_000_000.0, 40.0)
+            + min(upstream_delta / 10_000_000.0, 40.0)
+            + min(stockout_days * 2.0, 40.0)
+            + min(material_delay * 3.0, 40.0)
+            + min(inventory_delta / 250_000.0, 20.0)
+            + min(cost_delta / 250_000.0, 20.0)
+            + proximity
+            + non_contiguous
+        )
+
+    def sorted_relevant_rows(node_id: str, node_type: str) -> list[tuple[str, dict[str, str]]]:
+        scoped: list[tuple[str, dict[str, str]]] = []
+        for row in summary_rows:
+            scope = node_row_scope(row, node_id, node_type)
+            if scope:
+                scoped.append((scope, row))
+        scoped.sort(
+            key=lambda item: (
+                -row_severity(item[1]),
+                scope_order.get(item[0], 9),
+                str(item[1].get("parameter_label") or ""),
+            )
+        )
+        return scoped
+
+    def summary_table(scoped_rows: list[tuple[str, dict[str, str]]], limit: int = 8) -> str:
+        rows = []
+        for scope, row in scoped_rows[:limit]:
+            rows.append(
+                [
+                    str(row.get("parameter_label") or row.get("parameter_key") or "n/a"),
+                    scope_labels.get(scope, scope),
+                    baseline_contiguous_band(row),
+                    first_unacceptable(row),
+                    fmt_fill_value(safe_float(row.get("fill_rate_min"))),
+                    metric_min_label_any(row, ["kpi::product_availability", "kpi::fill_rate"], kind="pct_fraction"),
+                    line_adherence_label(row),
+                    holding_cost_delta_label(row),
+                    driver_text(row),
+                ]
+            )
+        return render_data_table(
+            [
+                "Parametre",
+                "Portee",
+                "Plage continue baseline",
+                "Premier refus",
+                "Fill min",
+                "Disponibilite min",
+                "Adherence ligne",
+                "Cout stockage max",
+                "Driver",
+            ],
+            rows,
+        )
+
+    def detail_table(scoped_rows: list[tuple[str, dict[str, str]]]) -> str:
+        rows = []
+        for scope, row in scoped_rows:
+            rows.append(
+                [
+                    str(row.get("parameter_label") or row.get("parameter_key") or "n/a"),
+                    scope_labels.get(scope, scope),
+                    fmt_levels(row.get("levels"), row),
+                    fmt_levels(row.get("acceptable_ranges"), row),
+                    baseline_contiguous_band(row),
+                    first_unacceptable(row),
+                    fmt_fill_value(safe_float(row.get("fill_rate_min"))),
+                    metric_min_label_any(row, ["kpi::product_availability", "kpi::fill_rate"], kind="pct_fraction"),
+                    line_adherence_label(row),
+                    holding_cost_delta_label(row),
+                    fmt_pct((safe_float(row.get("max_fill_rate_drop")) or 0.0) * 100.0, 1),
+                    fmt_qty(
+                        safe_float(row.get("max_supplier_upstream_ordered_qty_delta"))
+                        if safe_float(row.get("max_supplier_upstream_ordered_qty_delta")) is not None
+                        else safe_float(row.get("max_external_procured_qty_delta")),
+                        0,
+                    ),
+                    fmt_qty(safe_float(row.get("max_raw_material_target_gap_increase")), 0),
+                    "oui" if bool_text(row.get("acceptable_is_contiguous")) else "non",
+                ]
+            )
+        return render_data_table(
+            [
+                "Parametre",
+                "Portee",
+                "Niveaux testes",
+                "Plages acceptables",
+                "Plage continue baseline",
+                "Premier refus",
+                "Fill min",
+                "Disponibilite min",
+                "Adherence ligne",
+                "Cout stockage max",
+                "Drop fill max",
+                "Delta appro amont",
+                "Delta gap cible",
+                "Monotone",
+            ],
+            rows,
+        )
+
+    def margin_pct_label(row: dict[str, str], key: str) -> str:
+        value = safe_float(row.get(key))
+        if value is None:
+            return "-"
+        return f"{value:.0f}%"
+
+    def margin_table(scoped_rows: list[tuple[str, dict[str, str]]], limit: int = 8) -> str:
+        rows = []
+        for scope, row in scoped_rows[:limit]:
+            rows.append(
+                [
+                    str(row.get("parameter_label") or row.get("parameter_key") or "n/a"),
+                    scope_labels.get(scope, scope),
+                    margin_pct_label(row, "capacity_reduction_margin_pct"),
+                    margin_pct_label(row, "stock_reduction_margin_pct"),
+                    margin_pct_label(row, "delay_increase_margin_pct"),
+                    margin_pct_label(row, "reliability_reduction_margin_pct"),
+                    margin_pct_label(row, "upstream_capacity_reduction_margin_pct"),
+                    margin_pct_label(row, "upstream_delay_increase_margin_pct"),
+                    metric_min_label_any(row, ["kpi::product_availability", "kpi::fill_rate"], kind="pct_fraction"),
+                    line_adherence_label(row),
+                    holding_cost_delta_label(row),
+                ]
+            )
+        return render_data_table(
+            [
+                "Parametre",
+                "Portee",
+                "Capacite - marge baisse",
+                "Stock - marge baisse",
+                "Delai - marge hausse",
+                "Fiabilite - marge baisse",
+                "Appro amont cap - marge baisse",
+                "Appro amont delai - marge hausse",
+                "Disponibilite min",
+                "Adherence min",
+                "Cout stockage max",
+            ],
+            rows,
+        )
+
+    def sensitivity_card_status(row: dict[str, str], metric: str) -> str:
+        if metric == "service":
+            if (safe_float(row.get("max_fill_rate_drop")) or 0.0) >= 0.02:
+                return "sensitive"
+            if (safe_float(row.get("max_fill_rate_drop")) or 0.0) > 1e-9:
+                return "watch"
+            return "robust"
+        if metric == "availability":
+            if (safe_float(row.get("max_product_availability_drop")) or 0.0) >= 0.02:
+                return "sensitive"
+            if (safe_float(row.get("max_product_availability_drop")) or 0.0) > 1e-9:
+                return "watch"
+            return "robust"
+        if metric == "adherence":
+            if (safe_float(row.get("max_line_adherence_drop")) or 0.0) >= 0.02:
+                return "sensitive"
+            if (safe_float(row.get("max_line_adherence_drop")) or 0.0) > 1e-9:
+                return "watch"
+            return "robust"
+        if metric == "stock":
+            gap = safe_float(row.get("max_raw_material_target_gap_increase")) or 0.0
+            stockout = safe_float(row.get("max_raw_material_stockout_days_increase")) or 0.0
+            if stockout > 0.0 or gap > 1e-6:
+                return "watch"
+            return "robust"
+        if metric == "cost":
+            delta = safe_float(row.get("max_inventory_cost_increase")) or 0.0
+            if delta > 500_000:
+                return "watch"
+            return "robust"
+        if metric == "upstream":
+            delta = safe_float(row.get("max_supplier_upstream_ordered_qty_delta"))
+            if delta is None:
+                delta = safe_float(row.get("max_external_procured_qty_delta")) or 0.0
+            if delta > 5_000_000:
+                return "watch"
+            return "robust"
+        return "robust"
+
+    def sensitivity_metric_card(title: str, value: str, note: str, status_key: str) -> str:
+        return "".join(
+            [
+                f"<div class=\"sensitivityMetricCard sensitivityStatus-{html.escape(status_key)}\">",
+                f"<div class=\"sensitivityMetricLabel\">{html.escape(title)}</div>",
+                f"<div class=\"sensitivityMetricValue\">{html.escape(value)}</div>",
+                f"<div class=\"sensitivityMetricNote\">{html.escape(note)}</div>",
+                "</div>",
+            ]
+        )
+
+    def card_value_from_row(row: dict[str, str], row_key: str, fallback: str, *, kind: str = "pct_fraction") -> str:
+        value = safe_float(row.get(row_key))
+        if value is not None:
+            if kind == "pct_fraction":
+                return fmt_fill_value(value)
+            if kind == "money":
+                return fmt_money_short(value)
+            return fmt_qty(value, 0)
+        return fallback
+
+    def sensitivity_dashboard_html(
+        *,
+        node_id: str,
+        status_label: str,
+        status_key: str,
+        best_row: dict[str, str],
+        best_scope: str,
+        locally_tested: bool,
+    ) -> str:
+        family = driver_family(best_row)
+        family_label = driver_family_labels.get(family, family)
+        driver_label = str(best_row.get("parameter_label") or best_row.get("parameter_key") or "n/a")
+        break_label = first_unacceptable(best_row)
+        band = baseline_contiguous_band(best_row)
+        scope_note = "test local" if locally_tested else "lecture globale/amont"
+        monotonicity = "reponse monotone" if bool_text(best_row.get("acceptable_is_contiguous")) else "non monotone"
+        kpi_cards = [
+            sensitivity_metric_card(
+                "Fill rate min",
+                card_value_from_row(best_row, "fill_rate_min", fmt_fill_value(safe_float(best_row.get("baseline_fill_rate")))),
+                f"drop max {fmt_fill_value(safe_float(best_row.get('max_fill_rate_drop')))}",
+                sensitivity_card_status(best_row, "service"),
+            ),
+            sensitivity_metric_card(
+                "Disponibilite min",
+                card_value_from_row(
+                    best_row,
+                    "product_availability_min",
+                    metric_min_label_any(best_row, ["kpi::product_availability", "kpi::fill_rate"], kind="pct_fraction"),
+                ),
+                f"drop max {fmt_fill_value(safe_float(best_row.get('max_product_availability_drop')))}",
+                sensitivity_card_status(best_row, "availability"),
+            ),
+            sensitivity_metric_card(
+                "Adherence min",
+                card_value_from_row(best_row, "line_adherence_min", line_adherence_label(best_row)),
+                f"drop max {fmt_fill_value(safe_float(best_row.get('max_line_adherence_drop')))}",
+                sensitivity_card_status(best_row, "adherence"),
+            ),
+            sensitivity_metric_card(
+                "Stock matiere",
+                fmt_qty(safe_float(best_row.get("raw_material_stockout_days_max")), 0) + " j rupture",
+                f"gap cible max {fmt_qty(safe_float(best_row.get('max_raw_material_target_gap_increase')), 0)}",
+                sensitivity_card_status(best_row, "stock"),
+            ),
+            sensitivity_metric_card(
+                "Cout stockage",
+                card_value_from_row(best_row, "inventory_cost_max", holding_cost_delta_label(best_row), kind="money"),
+                f"delta max {fmt_money_short(safe_float(best_row.get('max_inventory_cost_increase')) or 0.0)}",
+                sensitivity_card_status(best_row, "cost"),
+            ),
+            sensitivity_metric_card(
+                "Appro amont",
+                fmt_qty(
+                    safe_float(best_row.get("max_supplier_upstream_ordered_qty_delta"))
+                    if safe_float(best_row.get("max_supplier_upstream_ordered_qty_delta")) is not None
+                    else safe_float(best_row.get("max_external_procured_qty_delta")),
+                    0,
+                ),
+                "delta max commandes amont",
+                sensitivity_card_status(best_row, "upstream"),
+            ),
+        ]
+        return "".join(
+            [
+                f"<div class=\"sensitivityDashboard sensitivityStatus-{html.escape(status_key)}\">",
+                "<div class=\"sensitivityHero\">",
+                "<div class=\"sensitivityHeroMain\">",
+                f"<div class=\"sensitivityStatusPill\">{html.escape(status_label)}</div>",
+                f"<div class=\"sensitivityHeroTitle\">{html.escape(display_node_label(node_id))}</div>",
+                f"<div class=\"sensitivityHeroText\">Casse d'abord sur <b>{html.escape(driver_label)}</b> a <b>{html.escape(break_label)}</b>. Driver: <b>{html.escape(family_label)}</b>.</div>",
+                "</div>",
+                "<div class=\"sensitivityHeroFacts\">",
+                f"<div><span>Plage ref.</span><b>{html.escape(band)}</b></div>",
+                f"<div><span>Portee</span><b>{html.escape(scope_labels.get(best_scope, best_scope))}</b></div>",
+                f"<div><span>Confiance</span><b>{html.escape(scope_note)}</b></div>",
+                f"<div><span>Forme</span><b>{html.escape(monotonicity)}</b></div>",
+                "</div>",
+                "</div>",
+                "<div class=\"sensitivityMetricGrid\">",
+                "".join(kpi_cards),
+                "</div>",
+                f"<div class=\"sensitivityRecommendation\"><b>Reco.</b> {html.escape(recommendation_text(best_row))}</div>",
+                "</div>",
+            ]
+        )
+
+    def sensitivity_tornado_html(scoped_rows: list[tuple[str, dict[str, str]]], limit: int = 7) -> str:
+        candidates = [(scope, row, row_severity(row)) for scope, row in scoped_rows[:limit]]
+        if not candidates:
+            return "<div class=\"panelEmptyState dataEmptyState\">Aucun driver disponible.</div>"
+        max_score = max((score for _scope, _row, score in candidates), default=0.0) or 1.0
+        parts = ["<div class=\"sensitivityTornado\">"]
+        for scope, row, score in candidates:
+            family = driver_family(row)
+            color = driver_family_colors.get(family, driver_family_colors["other"])
+            width = max(5.0, min(100.0, score / max_score * 100.0))
+            status_key, status_label = status_for_row(row, locally_tested=True)
+            label = str(row.get("parameter_label") or row.get("parameter_key") or "n/a")
+            parts.append(
+                "".join(
+                    [
+                        "<div class=\"sensitivityTornadoRow\">",
+                        "<div class=\"sensitivityTornadoHead\">",
+                        f"<span class=\"sensitivityTornadoLabel\">{html.escape(label)}</span>",
+                        f"<span class=\"sensitivityTornadoMeta sensitivityStatus-{html.escape(status_key)}\">{html.escape(status_label)} · {html.escape(driver_family_labels.get(family, family))}</span>",
+                        "</div>",
+                        "<div class=\"sensitivityTornadoTrack\">",
+                        f"<div class=\"sensitivityTornadoBar\" style=\"width:{width:.1f}%; background:{html.escape(color)}\"></div>",
+                        "</div>",
+                        "<div class=\"sensitivityTornadoFoot\">",
+                        f"<span>{html.escape(scope_labels.get(scope, scope))}</span>",
+                        f"<span>refus: {html.escape(first_unacceptable(row))}</span>",
+                        f"<span>{html.escape(driver_text(row))}</span>",
+                        "</div>",
+                        "</div>",
+                    ]
+                )
+            )
+        parts.append("</div>")
+        return "".join(parts)
+
+    def collapsible_panel_html(label: str, content: str, *, open_by_default: bool = False) -> str:
+        open_attr = " open" if open_by_default else ""
+        return "".join(
+            [
+                f"<details class=\"sensitivityDetails\"{open_attr}>",
+                f"<summary>{html.escape(label)}</summary>",
+                content,
+                "</details>",
+            ]
+        )
+
+    def supplier_direct_row(node_id: str, group: str) -> dict[str, str] | None:
+        expected_prefix = {
+            "capacity": "supplier_capacity_node::",
+            "stock": "supplier_stock_node::",
+            "lead_time": "supplier_lead_time_node::",
+            "reliability": "supplier_reliability_node::",
+        }.get(group)
+        if not expected_prefix:
+            return None
+        expected_key = f"{expected_prefix}{node_id}"
+        return next((row for row in summary_rows if str(row.get("parameter_key") or "") == expected_key), None)
+
+    def global_upstream_row() -> dict[str, str] | None:
+        candidates = [
+            row
+            for row in summary_rows
+            if str(row.get("parameter_group") or "") == "supplier_upstream_supply"
+        ]
+        if not candidates:
+            return None
+        candidates.sort(key=lambda row: -row_severity(row))
+        return candidates[0]
+
+    def supplier_matrix_html(node_id: str) -> str:
+        cells = [
+            ("Capacite", supplier_direct_row(node_id, "capacity")),
+            ("Stock", supplier_direct_row(node_id, "stock")),
+            ("Delai", supplier_direct_row(node_id, "lead_time")),
+            ("Fiabilite", supplier_direct_row(node_id, "reliability")),
+            ("Appro amont", global_upstream_row()),
+        ]
+        parts = ["<div class=\"sensitivityMatrix\">"]
+        for label, row in cells:
+            status_key, status_label = matrix_status_for_row(row)
+            if row is None:
+                detail = "pas de sweep local"
+                band = "n/a"
+            else:
+                band = baseline_contiguous_band(row)
+                detail = f"refus: {first_unacceptable(row)}"
+            parts.append(
+                "".join(
+                    [
+                        f"<div class=\"sensitivityMatrixCell sensitivityStatus-{html.escape(status_key)}\">",
+                        f"<div class=\"sensitivityMatrixLabel\">{html.escape(label)}</div>",
+                        f"<div class=\"sensitivityMatrixStatus\">{html.escape(status_label)}</div>",
+                        f"<div class=\"sensitivityMatrixBand\">{html.escape(band)}</div>",
+                        f"<div class=\"sensitivityMatrixDetail\">{html.escape(detail)}</div>",
+                        "</div>",
+                    ]
+                )
+            )
+        parts.append("</div>")
+        return "".join(parts)
+
+    def method_asset(node_id: str, scoped_rows: list[tuple[str, dict[str, str]]]) -> dict[str, str]:
+        method_rows = [
+            ("Objet", "Sensibilite des parametres fournisseur: capacite, stock, delai, fiabilite et appro amont."),
+            (
+                "Lecture",
+                "La plage continue baseline est la zone acceptable contigue qui contient x1. C'est la reference a utiliser en premier.",
+            ),
+            (
+                "Garde-fous",
+                "Acceptable signifie: fill rate conserve, backlog final nul ou controle, cout dans le seuil et gaps de stock matiere non degrades vs baseline.",
+            ),
+            (
+                "Non monotone",
+                "Si les plages acceptables sont disjointes, on n'en deduit pas une marge robuste; il faut garder la plage continue autour de x1.",
+            ),
+            (
+                "Perimetre",
+                f"{len(summary_rows)} parametres resumes, {len(case_rows)} simulations, {len(selected_suppliers)} fournisseurs selectionnes.",
+            ),
+            ("Fournisseurs testes", ", ".join(selected_suppliers[:12]) or "n/a"),
+        ]
+        return data_html_asset(
+            f"{display_node_label(node_id)} - methode sensibilite fournisseur",
+            "Regles de lecture de l'etude et limites d'interpretation.",
+            [
+                ("Methode", render_data_kv(method_rows)),
+                (
+                    "Parametres vus par ce noeud",
+                    collapsible_panel_html(
+                        "Afficher les 12 premiers parametres",
+                        detail_table(scoped_rows[:12]),
+                        open_by_default=False,
+                    ),
+                ),
+            ],
+        )
+
+    def build_payload_for_node(node_id: str, node_type: str) -> dict[str, Any] | None:
+        scoped_rows = sorted_relevant_rows(node_id, node_type)
+        if not scoped_rows:
+            return None
+        direct_rows = [(scope, row) for scope, row in scoped_rows if scope == "direct"]
+        if node_type == "supplier_dc" and direct_rows:
+            direct_rows.sort(key=lambda item: (-row_severity(item[1]), str(item[1].get("parameter_label") or "")))
+            best_scope, best_row = direct_rows[0]
+        else:
+            non_global_rows = [(scope, row) for scope, row in scoped_rows if scope != "supplier_global"]
+            if non_global_rows:
+                non_global_rows.sort(
+                    key=lambda item: (-row_severity(item[1]), scope_order.get(item[0], 9), str(item[1].get("parameter_label") or ""))
+                )
+                best_scope, best_row = non_global_rows[0]
+            else:
+                best_scope, best_row = scoped_rows[0]
+        parameter_key = str(best_row.get("parameter_key") or "")
+        parameter_label = str(best_row.get("parameter_label") or parameter_key)
+        direct_count = sum(1 for scope, _row in scoped_rows if scope == "direct")
+        locally_tested = node_type != "supplier_dc" or direct_count > 0
+        status_key, status_label = status_for_row(best_row, locally_tested=locally_tested)
+        family = driver_family(best_row)
+        local_scope_note = (
+            "fournisseur teste localement"
+            if node_type == "supplier_dc" and direct_count
+            else (
+                "hors perimetre local: affichage des contraintes fournisseur globales"
+                if node_type == "supplier_dc"
+                else "vue amont: fournisseurs relies au noeud + contraintes globales"
+            )
+        )
+        baseline_line = (
+            f"FR {fmt_fill_value(baseline_fill)} | backlog {fmt_qty(baseline_backlog, 0)} | cout {fmt_money_short(baseline_cost)}"
+        )
+        summary_rows_html = render_data_kv(
+            [
+                ("Noeud", display_node_label(node_id)),
+                ("Perimetre", local_scope_note),
+                ("Statut", status_label),
+                ("Baseline", baseline_line),
+                (
+                    "Lecture niveaux",
+                    "x1 ref. = valeur du scenario actif; x0.75 = 75% de cette reference. Les taux capacite cible sont gardes dans les onglets nominaux.",
+                ),
+                ("Service cible", fmt_fill_value(service_threshold)),
+                ("Driver principal", parameter_label),
+                ("Famille driver", driver_family_labels.get(family, family)),
+                ("Portee driver", scope_labels.get(best_scope, best_scope)),
+                ("Plage continue baseline", baseline_contiguous_band(best_row)),
+                ("Premier refus", first_unacceptable(best_row)),
+                ("Fill rate min", fmt_fill_value(safe_float(best_row.get("fill_rate_min")))),
+                (
+                    "Disponibilite produit",
+                    metric_min_label_any(best_row, ["kpi::product_availability", "kpi::fill_rate"], kind="pct_fraction"),
+                ),
+                ("Adherence ligne", line_adherence_label(best_row)),
+                ("Cout stockage max", holding_cost_delta_label(best_row)),
+                ("Cause principale", driver_text(best_row)),
+                ("Recommandation", recommendation_text(best_row)),
+            ]
+        )
+        dashboard_html = sensitivity_dashboard_html(
+            node_id=node_id,
+            status_label=status_label,
+            status_key=status_key,
+            best_row=best_row,
+            best_scope=best_scope,
+            locally_tested=locally_tested,
+        )
+        overview_sections = [
+            (
+                "Vue instantanee",
+                dashboard_html,
+            ),
+            ("Drivers principaux", sensitivity_tornado_html(scoped_rows, limit=7)),
+        ]
+        if node_type == "supplier_dc":
+            overview_sections.append(("Matrice fournisseur", supplier_matrix_html(node_id)))
+        overview_sections.append(
+            (
+                "Details chiffres",
+                "".join(
+                    [
+                        collapsible_panel_html("Decision et recommandation", summary_rows_html, open_by_default=False),
+                        collapsible_panel_html("Marges testees", margin_table(scoped_rows, limit=8), open_by_default=False),
+                        collapsible_panel_html("Top drivers en tableau", summary_table(scoped_rows, limit=8), open_by_default=False),
+                    ]
+                ),
+            )
+        )
+        incoming = data_html_asset(
+            f"{display_node_label(node_id)} - synthese sensibilite fournisseur",
+            "Vue locale: parametres directs du noeud, fournisseurs amont pertinents, puis contraintes globales fournisseur.",
+            overview_sections,
+        )
+
+        curve_candidates = [
+            (scope, row)
+            for scope, row in scoped_rows
+            if len(case_rows_by_param.get(str(row.get("parameter_key") or ""), [])) >= 2
+        ]
+        if node_type == "supplier_dc":
+            direct_curve_candidates = [
+                (scope, row)
+                for scope, row in curve_candidates
+                if scope == "direct"
+            ]
+            if direct_curve_candidates:
+                curve_candidates = direct_curve_candidates
+        curve_scope, curve_row = curve_candidates[0] if curve_candidates else (best_scope, best_row)
+        curve_parameter_key = str(curve_row.get("parameter_key") or "")
+        curve_parameter_label = str(curve_row.get("parameter_label") or curve_parameter_key)
+        parameter_cases = case_rows_by_param.get(curve_parameter_key, [])
+        if node_type == "supplier_dc" and curve_parameter_key.endswith(f"::{node_id}"):
+            curve_primary, curve_secondary = build_supplier_threshold_metric_curve_payload(
+                parameter_cases,
+                node_id=node_id,
+                parameter_label=curve_parameter_label,
+                filename=f"{safe_case_token(node_id)}_supplier_parameter_sensitivity.png",
+                metrics_cache={},
+            )
+        else:
+            curve_primary, curve_secondary = build_threshold_metric_curve_payload(
+                parameter_cases,
+                parameter_label=curve_parameter_label,
+                filename=f"{safe_case_token(node_id)}_supplier_parameter_sensitivity.png",
+                service_threshold=service_threshold,
+            )
+        curve_entries = [
+            {"label": "Service / pilotage", "asset": curve_primary},
+            {"label": "Stock / cout", "asset": curve_secondary},
+        ]
+        curve_bundle = [entry for entry in curve_entries if entry.get("asset")]
+        outgoing = {"bundle": curve_bundle} if len(curve_bundle) > 1 else (curve_bundle[0]["asset"] if curve_bundle else None)
+        if outgoing is None:
+            outgoing = data_html_asset(
+                f"{display_node_label(node_id)} - courbes sensibilite",
+                "Aucune courbe multi-niveaux exploitable; le detail tabulaire reste disponible.",
+                [
+                    (
+                        "Lecture",
+                        render_data_kv(
+                            [
+                                ("Driver principal", parameter_label),
+                                ("Niveaux testes", fmt_levels(best_row.get("levels"), best_row)),
+                                ("Courbe candidate", curve_parameter_label),
+                                ("Note", "Les courbes de sensibilite utilisent le niveau du parametre en abscisse, pas le temps."),
+                            ]
+                        ),
+                    )
+                ],
+            )
+        third = data_html_asset(
+            f"{display_node_label(node_id)} - details seuils fournisseur",
+            "Tous les parametres de sensibilite pertinents pour ce noeud.",
+            [
+                ("Lecture rapide", dashboard_html),
+                ("Top drivers", sensitivity_tornado_html(scoped_rows, limit=7)),
+                (
+                    "Seuils et garde-fous",
+                    collapsible_panel_html(
+                        "Afficher le tableau complet des seuils",
+                        detail_table(scoped_rows),
+                        open_by_default=False,
+                    ),
+                ),
+            ],
+        )
+        fourth = method_asset(node_id, scoped_rows)
+        return {
+            "incoming": incoming,
+            "outgoing": outgoing,
+            "third": third,
+            "fourth": fourth,
+            "_meta": {
+                "status": status_key,
+                "status_label": status_label,
+                "driver_family": family,
+                "driver_family_label": driver_family_labels.get(family, family),
+                "driver_color": driver_family_colors.get(family, driver_family_colors["other"]),
+                "driver_label": parameter_label,
+                "first_unacceptable": first_unacceptable(best_row),
+                "reason": driver_text(best_row),
+                "locally_tested": locally_tested,
+                "scope": scope_labels.get(best_scope, best_scope),
+            },
+        }
+
+    factory_out: dict[str, Any] = {}
+    supplier_out: dict[str, Any] = {}
+    dc_out: dict[str, Any] = {}
+    node_meta: dict[str, Any] = {}
+    for node in raw.get("nodes", []) or []:
+        node_id = str(node.get("id") or "")
+        node_type = str(node.get("type") or "")
+        if node_type not in {"factory", "supplier_dc", "distribution_center"} or not node_id:
+            continue
+        payload = build_payload_for_node(node_id, node_type)
+        if not payload:
+            continue
+        meta = payload.pop("_meta", None)
+        if meta:
+            node_meta[node_id] = meta
+        if node_type == "factory":
+            factory_out[node_id] = payload
+        elif node_type == "supplier_dc":
+            supplier_out[node_id] = payload
+        else:
+            dc_out[node_id] = payload
+    return factory_out, supplier_out, dc_out, node_meta
+
+
 def merge_hover_payload_maps(
     primary: dict[str, Any],
     fallback: dict[str, Any],
@@ -11462,8 +13374,9 @@ def merge_hover_payload_maps(
         incoming = primary_payload.get("incoming") or fallback_payload.get("incoming")
         outgoing = primary_payload.get("outgoing") or fallback_payload.get("outgoing")
         third = primary_payload.get("third") or fallback_payload.get("third")
-        if incoming or outgoing or third:
-            merged[node_id] = {"incoming": incoming, "outgoing": outgoing, "third": third}
+        fourth = primary_payload.get("fourth") or fallback_payload.get("fourth")
+        if incoming or outgoing or third or fourth:
+            merged[node_id] = {"incoming": incoming, "outgoing": outgoing, "third": third, "fourth": fourth}
     return merged
 
 
@@ -11995,6 +13908,50 @@ def html_template(
       width: 100%;
       height: calc(100vh - 64px);
     }}
+    #sensitivityLegend,
+    #riskLegend {{
+      position: fixed;
+      left: 16px;
+      bottom: 16px;
+      z-index: 9;
+      display: none;
+      max-width: min(520px, calc(100vw - 32px));
+      padding: 10px 12px;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.94);
+      box-shadow: 0 8px 22px rgba(15, 23, 42, 0.12);
+      font-size: 11px;
+      color: #334155;
+    }}
+    #sensitivityLegend.visible,
+    #riskLegend.visible {{
+      display: block;
+    }}
+    .sensitivityLegendTitle {{
+      font-weight: 800;
+      color: #0f172a;
+      margin-bottom: 6px;
+    }}
+    .sensitivityLegendRows {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 10px;
+      align-items: center;
+    }}
+    .sensitivityLegendItem {{
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      white-space: nowrap;
+    }}
+    .sensitivityLegendDot {{
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      display: inline-block;
+      border: 1px solid rgba(15, 23, 42, 0.18);
+    }}
     #factoryHoverPanel {{
       position: fixed;
       right: 16px;
@@ -12467,15 +14424,20 @@ def html_template(
       border-bottom: 0;
     }}
     .dataSummaryTableWrap {{
-      overflow: auto;
+      max-width: 100%;
+      overflow-x: auto;
+      overflow-y: auto;
       border: 1px solid #e2e8f0;
       border-radius: 10px;
       background: #ffffff;
+      scrollbar-gutter: stable both-edges;
     }}
     .dataSummaryTable {{
-      width: 100%;
+      width: max-content;
+      min-width: 1420px;
       border-collapse: collapse;
       font-size: 11px;
+      table-layout: auto;
     }}
     .dataSummaryTable th,
     .dataSummaryTable td {{
@@ -12483,7 +14445,9 @@ def html_template(
       border-bottom: 1px solid #e2e8f0;
       text-align: left;
       vertical-align: top;
-      overflow-wrap: anywhere;
+      white-space: nowrap;
+      overflow-wrap: normal;
+      word-break: normal;
     }}
     .dataSummaryTable th {{
       position: sticky;
@@ -12493,6 +14457,29 @@ def html_template(
       font-weight: 800;
       z-index: 1;
     }}
+    .dataSummaryTable th:first-child,
+    .dataSummaryTable td:first-child {{
+      position: sticky;
+      left: 0;
+      min-width: 150px;
+      max-width: 220px;
+      white-space: normal;
+      background: #ffffff;
+      z-index: 2;
+      box-shadow: 1px 0 0 #e2e8f0;
+    }}
+    .dataSummaryTable th:first-child {{
+      background: #f8fafc;
+      z-index: 3;
+    }}
+    .dataSummaryTable td:nth-child(3),
+    .dataSummaryTable td:nth-child(4),
+    .dataSummaryTable td:nth-child(5) {{
+      min-width: 170px;
+      max-width: 260px;
+      white-space: normal;
+      overflow-wrap: break-word;
+    }}
     .dataSummaryTable tbody tr:last-child td {{
       border-bottom: 0;
     }}
@@ -12501,6 +14488,281 @@ def html_template(
       border: 1px dashed #cbd5e1;
       border-radius: 10px;
       background: #f8fafc;
+    }}
+    .sensitivityDashboard {{
+      border: 1px solid #e2e8f0;
+      border-left-width: 6px;
+      border-radius: 12px;
+      background: #ffffff;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }}
+    .sensitivityHero {{
+      display: grid;
+      grid-template-columns: minmax(0, 1.15fr) minmax(240px, 0.85fr);
+      gap: 10px;
+      align-items: stretch;
+    }}
+    .sensitivityHeroMain {{
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 5px;
+    }}
+    .sensitivityHeroTitle {{
+      color: #0f172a;
+      font-size: 16px;
+      font-weight: 900;
+      line-height: 1.15;
+      overflow-wrap: anywhere;
+    }}
+    .sensitivityHeroText {{
+      color: #334155;
+      font-size: 12px;
+      line-height: 1.35;
+      overflow-wrap: anywhere;
+    }}
+    .sensitivityHeroFacts {{
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 7px;
+    }}
+    .sensitivityHeroFacts div {{
+      min-width: 0;
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      border-radius: 9px;
+      background: rgba(255, 255, 255, 0.7);
+      padding: 7px 8px;
+    }}
+    .sensitivityHeroFacts span {{
+      display: block;
+      color: #64748b;
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+      margin-bottom: 2px;
+    }}
+    .sensitivityHeroFacts b {{
+      display: block;
+      color: #0f172a;
+      font-size: 11px;
+      line-height: 1.25;
+      overflow-wrap: anywhere;
+    }}
+    .sensitivityMetricGrid {{
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }}
+    .sensitivityMetricCard {{
+      min-width: 0;
+      border: 1px solid #e2e8f0;
+      border-left-width: 5px;
+      border-radius: 10px;
+      background: #ffffff;
+      padding: 8px;
+    }}
+    .sensitivityMetricLabel {{
+      color: #64748b;
+      font-size: 10px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+      margin-bottom: 3px;
+    }}
+    .sensitivityMetricValue {{
+      color: #0f172a;
+      font-size: 15px;
+      font-weight: 900;
+      line-height: 1.15;
+      overflow-wrap: anywhere;
+    }}
+    .sensitivityMetricNote {{
+      color: #475569;
+      font-size: 10px;
+      line-height: 1.25;
+      margin-top: 3px;
+      overflow-wrap: anywhere;
+    }}
+    .sensitivityRecommendation {{
+      border: 1px solid #dbeafe;
+      border-radius: 10px;
+      background: #eff6ff;
+      color: #1e3a8a;
+      padding: 8px 10px;
+      font-size: 12px;
+      line-height: 1.35;
+      overflow-wrap: anywhere;
+    }}
+    .sensitivityStatusBanner {{
+      border: 1px solid #e2e8f0;
+      border-left-width: 6px;
+      border-radius: 10px;
+      background: #ffffff;
+      padding: 10px 12px;
+      line-height: 1.35;
+    }}
+    .sensitivityStatus-robust {{
+      border-left-color: #16a34a;
+      background: #f0fdf4;
+    }}
+    .sensitivityStatus-watch {{
+      border-left-color: #d97706;
+      background: #fffbeb;
+    }}
+    .sensitivityStatus-sensitive {{
+      border-left-color: #dc2626;
+      background: #fef2f2;
+    }}
+    .sensitivityStatus-not_local {{
+      border-left-color: #64748b;
+      background: #f8fafc;
+    }}
+    .sensitivityStatusPill {{
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 3px 8px;
+      background: rgba(15, 23, 42, 0.08);
+      color: #0f172a;
+      font-size: 11px;
+      font-weight: 800;
+      margin-bottom: 5px;
+    }}
+    .sensitivityStatusTitle {{
+      color: #0f172a;
+      font-size: 13px;
+      font-weight: 800;
+      margin-bottom: 3px;
+    }}
+    .sensitivityStatusText {{
+      color: #334155;
+      font-size: 12px;
+      overflow-wrap: anywhere;
+    }}
+    .sensitivityMatrix {{
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 8px;
+    }}
+    .sensitivityMatrixCell {{
+      min-width: 0;
+      border: 1px solid #e2e8f0;
+      border-left-width: 5px;
+      border-radius: 10px;
+      padding: 8px;
+      background: #ffffff;
+    }}
+    .sensitivityMatrixLabel {{
+      color: #0f172a;
+      font-size: 11px;
+      font-weight: 800;
+      margin-bottom: 4px;
+    }}
+    .sensitivityMatrixStatus {{
+      color: #334155;
+      font-size: 11px;
+      font-weight: 800;
+      margin-bottom: 4px;
+    }}
+    .sensitivityMatrixBand,
+    .sensitivityMatrixDetail {{
+      color: #475569;
+      font-size: 10px;
+      line-height: 1.3;
+      overflow-wrap: anywhere;
+    }}
+    .sensitivityTornado {{
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+    }}
+    .sensitivityTornadoRow {{
+      min-width: 0;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      background: #ffffff;
+      padding: 8px;
+    }}
+    .sensitivityTornadoHead {{
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: flex-start;
+      margin-bottom: 6px;
+    }}
+    .sensitivityTornadoLabel {{
+      min-width: 0;
+      color: #0f172a;
+      font-size: 11px;
+      font-weight: 900;
+      overflow-wrap: anywhere;
+    }}
+    .sensitivityTornadoMeta {{
+      flex: 0 0 auto;
+      border: 1px solid rgba(15, 23, 42, 0.08);
+      border-radius: 999px;
+      padding: 2px 7px;
+      color: #334155;
+      font-size: 10px;
+      font-weight: 800;
+      white-space: nowrap;
+    }}
+    .sensitivityTornadoTrack {{
+      width: 100%;
+      height: 9px;
+      border-radius: 999px;
+      background: #e2e8f0;
+      overflow: hidden;
+    }}
+    .sensitivityTornadoBar {{
+      height: 100%;
+      border-radius: 999px;
+    }}
+    .sensitivityTornadoFoot {{
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 5px;
+      color: #475569;
+      font-size: 10px;
+      line-height: 1.25;
+    }}
+    .sensitivityDetails {{
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      background: #ffffff;
+      margin-bottom: 8px;
+      overflow: hidden;
+    }}
+    .sensitivityDetails summary {{
+      cursor: pointer;
+      padding: 9px 10px;
+      background: #f8fafc;
+      color: #0f172a;
+      font-size: 12px;
+      font-weight: 900;
+      user-select: none;
+    }}
+    .sensitivityDetails > .dataSummaryTableWrap,
+    .sensitivityDetails > .dataKvGrid {{
+      border: 0;
+      border-radius: 0;
+    }}
+    @media (max-width: 820px) {{
+      .sensitivityHero {{
+        grid-template-columns: minmax(0, 1fr);
+      }}
+      .sensitivityMetricGrid {{
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }}
+      .sensitivityMatrix {{
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }}
     }}
     .factoryPlotFigure.factoryKpiTreePanel {{
       height: auto;
@@ -12916,6 +15178,7 @@ def html_template(
         <button id="modeModel" class="modeBtn" type="button">Modele</button>
         <button id="modeJson" class="modeBtn" type="button"{'' if DEBUG_PANEL_ENABLED else ' style="display:none;"'}>DEBUG</button>
         <button id="modeSensitivity" class="modeBtn" type="button">Sensibilite</button>
+        <button id="modeRisk" class="modeBtn" type="button">Risques</button>
         <button id="modeStructural" class="modeBtn" type="button">Structurel</button>
       </div>
     </div>
@@ -12943,6 +15206,28 @@ def html_template(
     <div class="box" id="typeFilters"></div>
   </div>
   <div id="chart"></div>
+  <div id="sensitivityLegend">
+    <div class="sensitivityLegendTitle">Mode Sensibilite</div>
+    <div class="sensitivityLegendRows">
+      <span class="sensitivityLegendItem"><span class="sensitivityLegendDot" style="background:#d97706"></span>Capacite</span>
+      <span class="sensitivityLegendItem"><span class="sensitivityLegendDot" style="background:#0f766e"></span>Stock</span>
+      <span class="sensitivityLegendItem"><span class="sensitivityLegendDot" style="background:#7c3aed"></span>Delai</span>
+      <span class="sensitivityLegendItem"><span class="sensitivityLegendDot" style="background:#2563eb"></span>Fiabilite</span>
+      <span class="sensitivityLegendItem"><span class="sensitivityLegendDot" style="background:#be123c"></span>Appro amont</span>
+      <span class="sensitivityLegendItem"><span class="sensitivityLegendDot" style="background:#475569"></span>Scenario combine</span>
+      <span class="sensitivityLegendItem">Taille/intensite: Sensible &gt; A surveiller &gt; Robuste &gt; Non teste localement</span>
+    </div>
+  </div>
+  <div id="riskLegend">
+    <div class="sensitivityLegendTitle">Mode Risques fournisseurs</div>
+    <div class="sensitivityLegendRows">
+      <span class="sensitivityLegendItem"><span class="sensitivityLegendDot" style="background:#0f766e"></span>Vert</span>
+      <span class="sensitivityLegendItem"><span class="sensitivityLegendDot" style="background:#f59e0b"></span>Jaune</span>
+      <span class="sensitivityLegendItem"><span class="sensitivityLegendDot" style="background:#d97706"></span>Orange</span>
+      <span class="sensitivityLegendItem"><span class="sensitivityLegendDot" style="background:#dc2626"></span>Rouge</span>
+      <span class="sensitivityLegendItem">Taille: priorite action fournisseur ; panneaux: risque, incertitude, resilience, decision.</span>
+    </div>
+  </div>
 
   <div id="materialTableModal" class="tableModal">
     <div class="tableModalCard">
@@ -13060,6 +15345,9 @@ def html_template(
     const FACTORY_SENSITIVITY_HOVER_IMAGES = DATA.factory_sensitivity_hover_images || {{}};
     const SUPPLIER_SENSITIVITY_HOVER_IMAGES = DATA.supplier_sensitivity_hover_images || {{}};
     const DC_SENSITIVITY_HOVER_IMAGES = DATA.distribution_center_sensitivity_hover_images || {{}};
+    const FACTORY_RISK_HOVER_IMAGES = DATA.factory_supplier_risk_hover_images || {{}};
+    const SUPPLIER_RISK_HOVER_IMAGES = DATA.supplier_risk_hover_images || {{}};
+    const DC_RISK_HOVER_IMAGES = DATA.distribution_center_supplier_risk_hover_images || {{}};
     const FACTORY_STRUCTURAL_HOVER_IMAGES = DATA.factory_structural_hover_images || {{}};
     const SUPPLIER_STRUCTURAL_HOVER_IMAGES = DATA.supplier_structural_hover_images || {{}};
     const DC_STRUCTURAL_HOVER_IMAGES = DATA.distribution_center_structural_hover_images || {{}};
@@ -13076,6 +15364,8 @@ def html_template(
     const FACTORY_LIKE_NODE_IDS = new Set(DATA.factory_like_node_ids || []);
     const REALISTIC_SENSITIVITY = DATA.realistic_sensitivity || {{ nodes: {{}}, global: {{}}, selected_suppliers: [] }};
     const THRESHOLD_SENSITIVITY = DATA.threshold_sensitivity || {{ nodes: {{}}, global: {{}}, selected_suppliers: [] }};
+    const SUPPLIER_PARAMETER_SENSITIVITY_NODES = DATA.supplier_parameter_sensitivity_nodes || {{}};
+    const SUPPLIER_RISK_METRICS = DATA.supplier_risk_metrics || {{ nodes: {{}}, global: {{}} }};
     const nodeById = Object.fromEntries((DATA.nodes || []).map(n => [n.id, n]));
     const defaultPalette = ["#1f77b4", "#d62728", "#ff7f0e", "#2ca02c", "#9467bd", "#8c564b"];
     const STANDARD_PLOT_MARGIN = {{ l: 64, r: 24, t: 48, b: 92 }};
@@ -13545,6 +15835,69 @@ def html_template(
       }};
     }}
 
+    function nodeSensitivityMeta(nodeId) {{
+      return SUPPLIER_PARAMETER_SENSITIVITY_NODES[nodeId] || null;
+    }}
+
+    function nodeRiskMeta(nodeId) {{
+      return (SUPPLIER_RISK_METRICS.nodes || {{}})[nodeId] || null;
+    }}
+
+    function nodeMarkerColor(n, style) {{
+      if (currentPanelMode === "risk") {{
+        const riskMeta = nodeRiskMeta(n.id);
+        return (riskMeta && riskMeta.zone_color) ? riskMeta.zone_color : style.color;
+      }}
+      const meta = currentPanelMode === "sensitivity" ? nodeSensitivityMeta(n.id) : null;
+      return (meta && meta.driver_color) ? meta.driver_color : style.color;
+    }}
+
+    function nodeMarkerSize(n) {{
+      if (currentPanelMode === "risk") {{
+        const riskMeta = nodeRiskMeta(n.id);
+        if (!riskMeta) return 8;
+        const score = Number(riskMeta.action_priority_score) || 0;
+        const rank = Number(riskMeta.zone_rank) || 0;
+        return Math.max(9, Math.min(16, 9 + rank * 1.6 + score * 5));
+      }}
+      const meta = currentPanelMode === "sensitivity" ? nodeSensitivityMeta(n.id) : null;
+      if (!meta) return 9;
+      if (meta.status === "sensitive") return 13;
+      if (meta.status === "watch") return 11;
+      if (meta.status === "not_local") return 8;
+      return 9;
+    }}
+
+    function nodeMarkerOpacity(n) {{
+      if (currentPanelMode === "risk") {{
+        return nodeRiskMeta(n.id) ? 0.96 : 0.48;
+      }}
+      const meta = currentPanelMode === "sensitivity" ? nodeSensitivityMeta(n.id) : null;
+      if (!meta) return 0.92;
+      if (meta.status === "not_local") return 0.62;
+      return 0.95;
+    }}
+
+    function nodeSensitivityText(n) {{
+      const meta = nodeSensitivityMeta(n.id);
+      if (!meta || currentPanelMode !== "sensitivity") return "";
+      return [
+        `Statut sensibilite: ${{meta.status_label || "n/a"}}`,
+        `Driver principal: ${{meta.driver_family_label || "n/a"}} - ${{meta.driver_label || "n/a"}}`,
+        `Premier refus: ${{meta.first_unacceptable || "n/a"}}`,
+        `Pourquoi: ${{meta.reason || "n/a"}}`,
+      ].join("<br>");
+    }}
+
+    function nodeRiskText(n) {{
+      const meta = nodeRiskMeta(n.id);
+      if (!meta || currentPanelMode !== "risk") return "";
+      const lines = Array.isArray(meta.summary_lines) ? meta.summary_lines : [];
+      const selected = lines.filter(entry => ["Zone decisionnelle", "Probabilite risque max", "Borne haute risque", "Priorite action", "Resilience minimale", "Decision robuste"].includes(entry.label));
+      if (!selected.length) return "";
+      return selected.map(entry => `${{entry.label}}: ${{entry.value || "n/a"}}`).join("<br>");
+    }}
+
     function initFilters() {{
       const container = document.getElementById("typeFilters");
       container.innerHTML = "<strong style='font-size:12px;'>Types:</strong>";
@@ -13573,7 +15926,9 @@ def html_template(
         }});
       }}
       const extraHtml = extra.length ? `<br>${{extra.join("<br>")}}` : "";
-      return `${{n.name || n.id}}<br>ID: ${{n.id}}<br>Type: ${{n.type}}<br>Country: ${{country}}<br>Location: ${{loc}}${{extraHtml}}`;
+      const sensitivityHtml = nodeSensitivityText(n);
+      const riskHtml = nodeRiskText(n);
+      return `${{n.name || n.id}}<br>ID: ${{n.id}}<br>Type: ${{n.type}}<br>Country: ${{country}}<br>Location: ${{loc}}${{extraHtml}}${{sensitivityHtml ? `<br>${{sensitivityHtml}}` : ""}}${{riskHtml ? `<br>${{riskHtml}}` : ""}}`;
     }}
 
     function edgeLeadColor(e) {{
@@ -13744,8 +16099,9 @@ def html_template(
           customdata: subset.map(n => [n.id, n.type, n.name || n.id]),
           hovertemplate: "%{{text}}<extra></extra>",
           marker: {{
-            size: 9,
-            color: style.color,
+            size: subset.map(nodeMarkerSize),
+            color: subset.map(n => nodeMarkerColor(n, style)),
+            opacity: subset.map(nodeMarkerOpacity),
             symbol: style.symbol,
             line: {{ width: 0.6, color: "#111827" }}
           }}
@@ -13778,14 +16134,16 @@ def html_template(
           if (!Number.isFinite(dst.lat) || !Number.isFinite(dst.lon)) continue;
           const itemCount = Array.isArray(e.items) ? e.items.length : 0;
           const width = 1 + Math.min(itemCount, 4);
+          const lineColor = (currentPanelMode === "sensitivity" || currentPanelMode === "risk") ? "#94a3b8" : edgeLeadColor(e);
+          const lineOpacity = (currentPanelMode === "sensitivity" || currentPanelMode === "risk") ? 0.24 : 0.65;
           traces.push({{
             type: "scattergeo",
             mode: "lines",
             showlegend: false,
             lon: [src.lon, dst.lon],
             lat: [src.lat, dst.lat],
-            line: {{ width, color: edgeLeadColor(e) }},
-            opacity: 0.65,
+            line: {{ width, color: lineColor }},
+            opacity: lineOpacity,
             hoverinfo: "skip",
           }});
           const selectionPts = edgeSelectionPoints(src, dst);
@@ -14103,6 +16461,19 @@ def html_template(
         metaBlock.style.display = "block";
         return true;
       }}
+      if (currentPanelMode === "risk") {{
+        const nodeMetrics = (SUPPLIER_RISK_METRICS.nodes || {{}})[nodeId] || null;
+        const riskMetrics = nodeMetrics || SUPPLIER_RISK_METRICS.global || null;
+        const lines = (riskMetrics && Array.isArray(riskMetrics.summary_lines)) ? riskMetrics.summary_lines : [];
+        if (!lines.length) {{
+          metaBlock.style.display = "none";
+          return false;
+        }}
+        metaTitle.textContent = (riskMetrics && riskMetrics.title) || "Risques fournisseurs";
+        lines.forEach((entry) => appendPanelMetaEntry(metaGrid, entry));
+        metaBlock.style.display = "block";
+        return true;
+      }}
       const metrics = isFactoryLikeNode(nodeId, nodeType)
         ? (FACTORY_CURRENT_METRICS[nodeId] || null)
         : (nodeType === "supplier_dc"
@@ -14200,22 +16571,36 @@ def html_template(
         }};
       }}
       if (currentPanelMode === "sensitivity") {{
+        if (nodeType === "edge") {{
+          return {{
+            incoming: "Flux - envois / receptions",
+            outgoing: "Flux - delais matiere",
+            third: "Flux - statuts carnet",
+            fourth: "Flux - sensibilite / incertitude"
+          }};
+        }}
         if (nodeType === "supplier_dc") {{
           return {{
-            incoming: "Courbe fournisseur - flux et stock moyen",
-            outgoing: "Courbe fournisseur - utilisation et stock final"
+            incoming: "Fournisseur - synthese sensibilite",
+            outgoing: "Fournisseur - courbes par niveau teste",
+            third: "Fournisseur - details parametres",
+            fourth: "Fournisseur - methode / garde-fous"
           }};
         }}
         if (nodeType === "factory") {{
           return {{
-            incoming: "Usine - capacite vs fill rate et stock intrants",
-            outgoing: "Usine - capacite vs backlog et delta production"
+            incoming: "Usine - synthese sensibilite amont",
+            outgoing: "Usine - courbes par niveau teste",
+            third: "Usine - drivers fournisseurs",
+            fourth: "Usine - methode / garde-fous"
           }};
         }}
         if (nodeType === "distribution_center") {{
           return {{
-            incoming: "DC - driver critique vs service et backlog",
-            outgoing: "DC - driver critique vs cout et inventaire"
+            incoming: "DC - synthese sensibilite amont",
+            outgoing: "DC - courbes par niveau teste",
+            third: "DC - drivers fournisseurs",
+            fourth: "DC - methode / garde-fous"
           }};
         }}
         if (nodeType === "customer") {{
@@ -14227,6 +16612,30 @@ def html_template(
         return {{
           incoming: "Courbe de seuil - service et backlog",
           outgoing: "Courbe de seuil - cout et inventaire"
+        }};
+      }}
+      if (currentPanelMode === "risk") {{
+        if (nodeType === "supplier_dc") {{
+          return {{
+            incoming: "Fournisseur - synthese risques",
+            outgoing: "Fournisseur - trajectoire risque / resilience",
+            third: "Fournisseur - couples article-site",
+            fourth: "Fournisseur - decision robuste"
+          }};
+        }}
+        if (nodeType === "factory" || nodeType === "distribution_center") {{
+          return {{
+            incoming: "Site - risques fournisseurs entrants",
+            outgoing: "Site - trajectoire risque entrants",
+            third: "Site - fournisseurs / articles exposes",
+            fourth: "Site - decision robuste"
+          }};
+        }}
+        return {{
+          incoming: "Risques fournisseurs",
+          outgoing: "Trajectoire risque",
+          third: "Couples exposes",
+          fourth: "Decision robuste"
         }};
       }}
       if (currentPanelMode === "structural") {{
@@ -14323,6 +16732,15 @@ def html_template(
         if (nodeType === "factory") return FACTORY_SENSITIVITY_HOVER_IMAGES[nodeId] || null;
         if (nodeType === "supplier_dc") return SUPPLIER_SENSITIVITY_HOVER_IMAGES[nodeId] || null;
         if (nodeType === "distribution_center") return DC_SENSITIVITY_HOVER_IMAGES[nodeId] || null;
+        if (nodeType === "edge") {{
+          return null;
+        }}
+        return null;
+      }}
+      if (currentPanelMode === "risk") {{
+        if (nodeType === "factory") return FACTORY_RISK_HOVER_IMAGES[nodeId] || null;
+        if (nodeType === "supplier_dc") return SUPPLIER_RISK_HOVER_IMAGES[nodeId] || null;
+        if (nodeType === "distribution_center") return DC_RISK_HOVER_IMAGES[nodeId] || null;
         return null;
       }}
       if (currentPanelMode === "structural") {{
@@ -14405,7 +16823,16 @@ def html_template(
       document.getElementById("modeModel").classList.toggle("active", currentPanelMode === "model");
       document.getElementById("modeJson").classList.toggle("active", currentPanelMode === "json");
       document.getElementById("modeSensitivity").classList.toggle("active", currentPanelMode === "sensitivity");
+      document.getElementById("modeRisk").classList.toggle("active", currentPanelMode === "risk");
       document.getElementById("modeStructural").classList.toggle("active", currentPanelMode === "structural");
+      const sensitivityLegend = document.getElementById("sensitivityLegend");
+      if (sensitivityLegend) {{
+        sensitivityLegend.classList.toggle("visible", currentPanelMode === "sensitivity");
+      }}
+      const riskLegend = document.getElementById("riskLegend");
+      if (riskLegend) {{
+        riskLegend.classList.toggle("visible", currentPanelMode === "risk");
+      }}
       applyTimelineWindowUi();
     }}
 
@@ -14413,7 +16840,7 @@ def html_template(
       currentPanelMode = mode;
       lastFactoryPanelRenderKey = "";
       applyModeUi();
-      refreshFactoryPanel();
+      draw();
     }}
 
     function showFactoryPanel(nodeId, nodeType, panelState) {{
@@ -14470,7 +16897,8 @@ def html_template(
         (nodeType === "supplier_dc" ? "Supplier" :
         (nodeType === "distribution_center" ? "Distribution Center" : (nodeType === "factory" ? "Factory" : (nodeType === "customer" ? "Customer" : "Edge")))));
       const modeTitle = currentPanelMode === "sensitivity" ? "Sensibilite" :
-        (currentPanelMode === "structural" ? "Structurel" : (currentPanelMode === "json" ? "DEBUG" : (currentPanelMode === "data" ? "Donnees" : (currentPanelMode === "model" ? "Modele" : "Simulation"))));
+        (currentPanelMode === "risk" ? "Risques" :
+        (currentPanelMode === "structural" ? "Structurel" : (currentPanelMode === "json" ? "DEBUG" : (currentPanelMode === "data" ? "Donnees" : (currentPanelMode === "model" ? "Modele" : "Simulation")))));
       title.textContent = `${{nodeTitle}}: ${{nodeName}} (${{displayNodeId}}) | ${{modeTitle}}`;
       if (panelState) {{
         statePill.textContent = panelState;
@@ -14496,7 +16924,9 @@ def html_template(
         ? "DEBUG: donnees brutes du scenario, enrichies avec items et flux connectes pour faciliter l'audit."
         : (currentPanelMode === "data"
           ? "Donnees: vue synthetique des champs JSON utiles au noeud ou au flux selectionne."
-          : "Synthese en haut. Puis lis : stock, flux aval. Le bloc pilotage sert a l'analyse : reappro amont, carnet, risque, details MRP.");
+          : (currentPanelMode === "risk"
+            ? "Risques: probabilite, borne haute, incertitude, resilience et decision robuste par fournisseur ou site receveur."
+            : "Synthese en haut. Puis lis : stock, flux aval. Le bloc pilotage sert a l'analyse : reappro amont, carnet, risque, details MRP."));
       fourthHelp.style.display = fourthImageInfo ? "block" : "none";
 
       incomingBlock.style.display = incomingImageInfo ? "block" : "none";
@@ -14649,14 +17079,25 @@ def html_template(
         if (figure.kind === "dual_panel") {{
           const top = figure.top || {{}};
           const bottom = figure.bottom || {{}};
-          const topFiltered = top.kind === "line" ? filterXYByTimeline(top.x || [], top.y || []) : {{ x: top.x || [], y: top.y || [] }};
-          const bottomFiltered = bottom.kind === "line" ? filterXYByTimeline(bottom.x || [], bottom.y || []) : {{ x: bottom.x || [], y: bottom.y || [] }};
+          const isParameterSweep = figure.x_axis_kind === "parameter_sweep";
+          const topFiltered = top.kind === "line" && !isParameterSweep ? filterXYByTimeline(top.x || [], top.y || []) : {{ x: top.x || [], y: top.y || [] }};
+          const bottomFiltered = bottom.kind === "line" && !isParameterSweep ? filterXYByTimeline(bottom.x || [], bottom.y || []) : {{ x: bottom.x || [], y: bottom.y || [] }};
+          const parameterAxisLayout = (label) => ({{
+            title: label || "",
+            type: "category",
+            categoryorder: "array",
+            categoryarray: top.x || bottom.x || [],
+            gridcolor: "#e2e8f0",
+            automargin: true,
+          }});
           const topXAxis = top.kind === "line"
-            ? dayAxisLayout(top.x_label || "")
+            ? (isParameterSweep ? parameterAxisLayout("") : dayAxisLayout(""))
             : {{ title: top.x_label || "", gridcolor: "#e2e8f0" }};
           const bottomXAxis = bottom.kind === "line"
-            ? dayAxisLayout(bottom.x_label || "")
+            ? (isParameterSweep ? parameterAxisLayout(bottom.x_label || "") : dayAxisLayout(bottom.x_label || ""))
             : {{ title: bottom.x_label || "", tickangle: -20, gridcolor: "#e2e8f0" }};
+          const showLegend = Boolean(figure.show_legend);
+          const primaryMode = isParameterSweep ? "lines+markers" : "lines";
           const traces = [];
           traces.push(top.kind === "bar"
             ? {{
@@ -14667,30 +17108,32 @@ def html_template(
                 xaxis: "x",
                 yaxis: "y",
                 name: top.title || "Panel 1",
-                showlegend: false,
+                showlegend: showLegend,
               }}
             : {{
                 type: "scatter",
-                mode: "lines",
+                mode: primaryMode,
                 x: topFiltered.x,
                 y: topFiltered.y,
                 line: {{ width: 2.2, color: "#dc2626" }},
+                marker: {{ size: 7, color: "#dc2626" }},
                 xaxis: "x",
                 yaxis: "y",
                 name: top.title || "Panel 1",
-                showlegend: false,
+                showlegend: showLegend,
               }});
           traces.push(bottom.kind === "line"
             ? {{
                 type: "scatter",
-                mode: "lines",
+                mode: primaryMode,
                 x: bottomFiltered.x,
                 y: bottomFiltered.y,
                 line: {{ width: 2.2, color: "#2563eb" }},
+                marker: {{ size: 7, color: "#2563eb" }},
                 xaxis: "x2",
                 yaxis: "y2",
                 name: bottom.title || "Panel 2",
-                showlegend: false,
+                showlegend: showLegend,
               }}
             : {{
                 type: "bar",
@@ -14700,7 +17143,7 @@ def html_template(
                 xaxis: "x2",
                 yaxis: "y2",
                 name: bottom.title || "Panel 2",
-                showlegend: false,
+                showlegend: showLegend,
               }});
           (top.extra_traces || []).forEach((trace) => {{
             traces.push({{
@@ -14752,8 +17195,8 @@ def html_template(
                   font: {{ size: 11, color: "#0f172a" }},
                 }},
               ],
-              showlegend: Boolean(figure.show_legend),
-              legend: {{ orientation: "h", y: -0.18 }},
+              showlegend: showLegend,
+              legend: {{ orientation: "h", y: -0.24 }},
             }},
           }};
         }}
@@ -15058,6 +17501,8 @@ def html_template(
           !REALISTIC_SENSITIVITY.selected_suppliers.includes(nodeId)
         ) {{
           noImg.textContent = "Pas de courbe locale: fournisseur hors perimetre top actifs de l'etude.";
+        }} else if (currentPanelMode === "risk") {{
+          noImg.textContent = "Aucune fiche risque fournisseur disponible pour ce noeud.";
         }} else {{
           noImg.textContent = "Aucun PNG disponible pour ce noeud.";
         }}
@@ -15164,11 +17609,16 @@ def html_template(
         legend: {{orientation: "h"}},
         hoverdistance: 1,
         spikedistance: -1,
+        uirevision: "supply-map-view",
         geo: geoLayout
       }};
 
       const chartEl = document.getElementById("chart");
-      Plotly.newPlot(chartEl, traces, layout, PLOTLY_MAP_CONFIG);
+      if (chartEl.data) {{
+        Plotly.react(chartEl, traces, layout, PLOTLY_MAP_CONFIG);
+      }} else {{
+        Plotly.newPlot(chartEl, traces, layout, PLOTLY_MAP_CONFIG);
+      }}
       bindHoverHandlers();
       refreshFactoryPanel();
     }}
@@ -15753,6 +18203,7 @@ def html_template(
       document.getElementById("modeModel").addEventListener("click", () => setPanelMode("model"));
       document.getElementById("modeJson").addEventListener("click", () => setPanelMode("json"));
       document.getElementById("modeSensitivity").addEventListener("click", () => setPanelMode("sensitivity"));
+      document.getElementById("modeRisk").addEventListener("click", () => setPanelMode("risk"));
       document.getElementById("modeStructural").addEventListener("click", () => setPanelMode("structural"));
       const hoverPanel = document.getElementById("factoryHoverPanel");
       hoverPanel.addEventListener("mouseenter", () => {{
@@ -15870,6 +18321,25 @@ def main() -> None:
         if args.threshold_sweep_cases_csv
         else Path("__missing_threshold_sweep_cases__.csv")
     )
+    supplier_parameter_sensitivity_summary_json = (
+        Path(args.supplier_parameter_sensitivity_summary_json)
+        if args.supplier_parameter_sensitivity_summary_json
+        else Path("__missing_supplier_parameter_sensitivity_summary__.json")
+    )
+    supplier_parameter_summary_csv = (
+        Path(args.supplier_parameter_summary_csv)
+        if args.supplier_parameter_summary_csv
+        else Path("__missing_supplier_parameter_summary__.csv")
+    )
+    supplier_parameter_cases_csv = (
+        Path(args.supplier_parameter_cases_csv)
+        if args.supplier_parameter_cases_csv
+        else Path("__missing_supplier_parameter_cases__.csv")
+    )
+    supplier_risk_summary_json = Path(args.supplier_risk_kpi_summary_json)
+    supplier_risk_supplier_csv = Path(args.supplier_risk_kpi_supplier_csv)
+    supplier_risk_pair_csv = Path(args.supplier_risk_kpi_pair_csv)
+    supplier_risk_panel_csv = Path(args.supplier_risk_kpi_panel_csv)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     supplier_local_criticality_csv.parent.mkdir(parents=True, exist_ok=True)
     supplier_local_criticality_json.parent.mkdir(parents=True, exist_ok=True)
@@ -15949,6 +18419,25 @@ def main() -> None:
             Path(args.dc_stocks_csv).parent / "mrp_orders_daily.csv",
             raw,
         )
+        payload["global_kpi_tree"] = extend_global_kpi_tree_with_supplier_risk(
+            payload.get("global_kpi_tree"),
+            supplier_risk_panel_csv=supplier_risk_panel_csv,
+            supplier_risk_supplier_csv=supplier_risk_supplier_csv,
+            supplier_risk_pair_csv=supplier_risk_pair_csv,
+            supplier_risk_summary_json=supplier_risk_summary_json,
+        )
+        (
+            payload["factory_supplier_risk_hover_images"],
+            payload["supplier_risk_hover_images"],
+            payload["distribution_center_supplier_risk_hover_images"],
+            payload["supplier_risk_metrics"],
+        ) = build_supplier_risk_hover_payloads(
+            raw,
+            supplier_risk_panel_csv=supplier_risk_panel_csv,
+            supplier_risk_supplier_csv=supplier_risk_supplier_csv,
+            supplier_risk_pair_csv=supplier_risk_pair_csv,
+            supplier_risk_summary_json=supplier_risk_summary_json,
+        )
         (
             payload["factory_sensitivity_hover_images"],
             payload["supplier_sensitivity_hover_images"],
@@ -15974,6 +18463,31 @@ def main() -> None:
         )
         payload["distribution_center_sensitivity_hover_images"] = merge_hover_payload_maps(
             dc_threshold_hover_images,
+            payload["distribution_center_sensitivity_hover_images"],
+        )
+        (
+            factory_supplier_parameter_hover_images,
+            supplier_parameter_hover_images,
+            dc_supplier_parameter_hover_images,
+            supplier_parameter_sensitivity_nodes,
+        ) = build_supplier_parameter_sensitivity_hover_payloads(
+            raw,
+            supplier_parameter_sensitivity_summary_json,
+            supplier_parameter_summary_csv,
+            supplier_parameter_cases_csv,
+            supplier_nominal_parameters_csv,
+        )
+        payload["supplier_parameter_sensitivity_nodes"] = supplier_parameter_sensitivity_nodes
+        payload["factory_sensitivity_hover_images"] = merge_hover_payload_maps(
+            factory_supplier_parameter_hover_images,
+            payload["factory_sensitivity_hover_images"],
+        )
+        payload["supplier_sensitivity_hover_images"] = merge_hover_payload_maps(
+            supplier_parameter_hover_images,
+            payload["supplier_sensitivity_hover_images"],
+        )
+        payload["distribution_center_sensitivity_hover_images"] = merge_hover_payload_maps(
+            dc_supplier_parameter_hover_images,
             payload["distribution_center_sensitivity_hover_images"],
         )
         (

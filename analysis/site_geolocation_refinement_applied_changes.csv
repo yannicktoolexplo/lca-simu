@@ -1,0 +1,379 @@
+record_index,supplier,change_type,old_location,new_location,note
+1,Tata Steel,removed_from_aluminium_chain,"Jamshedpur, India",,Tata Steel kept only for steel records.
+1,Aluminium Corporation of China / Chalco,candidate_site_metadata_refined,"Xining, China","Xining / Qinghai, China",KEEP_AS_ALUMINIUM_PRODUCER_CANDIDATE_CERTIFICATE_REQUIRED
+2,ArcelorMittal,candidate_site_metadata_refined,"Le Creusot / Torcy, France","Le Creusot, France",KEEP_AS_SPECIAL_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+2,China Baowu / Baosteel,candidate_site_metadata_refined,"Shanghai, China","Shanghai / Baoshan, China",KEEP_AS_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+2,Tata Steel,candidate_site_metadata_refined,"Jamshedpur, India","Jamshedpur / Jharkhand, India",KEEP_AS_STEEL_CANDIDATE_REMOVE_FROM_ALUMINIUM
+2,Nucor Corp,candidate_site_metadata_refined,"Huger, United States","Huger / South Carolina, United States",KEEP_AS_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+3,Toray Industries,toray_split_nagoya,Japan,"Nagoya / Aichi, Japan",Ertalon par moulage par injection plastique
+4,XPO Logistic,xpo_lyon_company_node,"Greenwich, United States","Lyon, France","Use for company-level EU logistics node, not lane depot."
+8,Daio Paper Corporation,approx_site_refined,"Shikokuchuo, Japan","Shikokuchuo / Ehime, Japan",REPLACE_CITY_NOTE_WITH_MISHIMA_MILL_SITE
+9,Shin-Etsu Silicones,approx_site_refined,"Annaka, Japan","Annaka / Gunma, Japan",REPLACE_TOKYO_OR_CITY_FALLBACK_WITH_GUNMA_PLANT
+9,Silicone Engineering,approx_site_refined,"Blackburn, United Kingdom","Blackburn, United Kingdom",REPLACE_CITY_POINT_WITH_MANUFACTURING_CENTRE
+11,Toray Industries,toray_generic_unknown_site,Japan,unknown textile mill / supplier-specific site,tissu
+11,Huddersfield Textiles,approx_site_refined,"Huddersfield, United Kingdom","Huddersfield, United Kingdom",REPLACE_TOWN_CENTROID_WITH_COMPANY_SITE
+12,Tata Steel,removed_from_aluminium_chain,"Jamshedpur, India",,Tata Steel kept only for steel records.
+12,Toray Industries,toray_generic_unknown_site,Japan,unknown textile mill / supplier-specific site,FRMC55:EU28 polyuréthane flexible traité UL
+12,Huddersfield Textiles,approx_site_refined,"Huddersfield, United Kingdom","Huddersfield, United Kingdom",REPLACE_TOWN_CENTROID_WITH_COMPANY_SITE
+12,Aluminium Corporation of China / Chalco,candidate_site_metadata_refined,"Xining, China","Xining / Qinghai, China",KEEP_AS_ALUMINIUM_PRODUCER_CANDIDATE_CERTIFICATE_REQUIRED
+13,ArcelorMittal,candidate_site_metadata_refined,"Le Creusot / Torcy, France","Le Creusot, France",KEEP_AS_SPECIAL_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+13,China Baowu / Baosteel,candidate_site_metadata_refined,"Shanghai, China","Shanghai / Baoshan, China",KEEP_AS_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+13,Tata Steel,candidate_site_metadata_refined,"Jamshedpur, India","Jamshedpur / Jharkhand, India",KEEP_AS_STEEL_CANDIDATE_REMOVE_FROM_ALUMINIUM
+13,Nucor Corp,candidate_site_metadata_refined,"Huger, United States","Huger / South Carolina, United States",KEEP_AS_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+15,ArcelorMittal,candidate_site_metadata_refined,"Le Creusot / Torcy, France","Le Creusot, France",KEEP_AS_SPECIAL_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+15,China Baowu / Baosteel,candidate_site_metadata_refined,"Shanghai, China","Shanghai / Baoshan, China",KEEP_AS_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+15,Tata Steel,candidate_site_metadata_refined,"Jamshedpur, India","Jamshedpur / Jharkhand, India",KEEP_AS_STEEL_CANDIDATE_REMOVE_FROM_ALUMINIUM
+15,Nucor Corp,candidate_site_metadata_refined,"Huger, United States","Huger / South Carolina, United States",KEEP_AS_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+17,Tata Steel,removed_from_aluminium_chain,"Jamshedpur, India",,Tata Steel kept only for steel records.
+17,Aluminium Corporation of China / Chalco,candidate_site_metadata_refined,"Xining, China","Xining / Qinghai, China",KEEP_AS_ALUMINIUM_PRODUCER_CANDIDATE_CERTIFICATE_REQUIRED
+17,XPO Logistic,xpo_lyon_company_node,"Greenwich, United States","Lyon, France","Use for company-level EU logistics node, not lane depot."
+18,Tata Steel,removed_from_aluminium_chain,"Jamshedpur, India",,Tata Steel kept only for steel records.
+18,Aluminium Corporation of China / Chalco,candidate_site_metadata_refined,"Xining, China","Xining / Qinghai, China",KEEP_AS_ALUMINIUM_PRODUCER_CANDIDATE_CERTIFICATE_REQUIRED
+18,XPO Logistic,xpo_lyon_company_node,"Greenwich, United States","Lyon, France","Use for company-level EU logistics node, not lane depot."
+19,Tata Steel,removed_from_aluminium_chain,"Jamshedpur, India",,Tata Steel kept only for steel records.
+19,Aluminium Corporation of China / Chalco,candidate_site_metadata_refined,"Xining, China","Xining / Qinghai, China",KEEP_AS_ALUMINIUM_PRODUCER_CANDIDATE_CERTIFICATE_REQUIRED
+19,XPO Logistic,xpo_lyon_company_node,"Greenwich, United States","Lyon, France","Use for company-level EU logistics node, not lane depot."
+20,Tata Steel,removed_from_aluminium_chain,"Jamshedpur, India",,Tata Steel kept only for steel records.
+20,Aluminium Corporation of China / Chalco,candidate_site_metadata_refined,"Xining, China","Xining / Qinghai, China",KEEP_AS_ALUMINIUM_PRODUCER_CANDIDATE_CERTIFICATE_REQUIRED
+20,XPO Logistic,xpo_lyon_company_node,"Greenwich, United States","Lyon, France","Use for company-level EU logistics node, not lane depot."
+21,Tata Steel,removed_from_aluminium_chain,"Jamshedpur, India",,Tata Steel kept only for steel records.
+21,Aluminium Corporation of China / Chalco,candidate_site_metadata_refined,"Xining, China","Xining / Qinghai, China",KEEP_AS_ALUMINIUM_PRODUCER_CANDIDATE_CERTIFICATE_REQUIRED
+21,XPO Logistic,xpo_lyon_company_node,"Greenwich, United States","Lyon, France","Use for company-level EU logistics node, not lane depot."
+22,Tata Steel,removed_from_aluminium_chain,"Jamshedpur, India",,Tata Steel kept only for steel records.
+22,Aluminium Corporation of China / Chalco,candidate_site_metadata_refined,"Xining, China","Xining / Qinghai, China",KEEP_AS_ALUMINIUM_PRODUCER_CANDIDATE_CERTIFICATE_REQUIRED
+22,XPO Logistic,xpo_lyon_company_node,"Greenwich, United States","Lyon, France","Use for company-level EU logistics node, not lane depot."
+23,Tata Steel,removed_from_aluminium_chain,"Jamshedpur, India",,Tata Steel kept only for steel records.
+23,Aluminium Corporation of China / Chalco,candidate_site_metadata_refined,"Xining, China","Xining / Qinghai, China",KEEP_AS_ALUMINIUM_PRODUCER_CANDIDATE_CERTIFICATE_REQUIRED
+23,XPO Logistic,xpo_lyon_company_node,"Greenwich, United States","Lyon, France","Use for company-level EU logistics node, not lane depot."
+24,Tata Steel,removed_from_aluminium_chain,"Jamshedpur, India",,Tata Steel kept only for steel records.
+24,Aluminium Corporation of China / Chalco,candidate_site_metadata_refined,"Xining, China","Xining / Qinghai, China",KEEP_AS_ALUMINIUM_PRODUCER_CANDIDATE_CERTIFICATE_REQUIRED
+24,XPO Logistic,xpo_lyon_company_node,"Greenwich, United States","Lyon, France","Use for company-level EU logistics node, not lane depot."
+25,Tata Steel,removed_from_aluminium_chain,"Jamshedpur, India",,Tata Steel kept only for steel records.
+25,Aluminium Corporation of China / Chalco,candidate_site_metadata_refined,"Xining, China","Xining / Qinghai, China",KEEP_AS_ALUMINIUM_PRODUCER_CANDIDATE_CERTIFICATE_REQUIRED
+25,XPO Logistic,xpo_lyon_company_node,"Greenwich, United States","Lyon, France","Use for company-level EU logistics node, not lane depot."
+26,Tata Steel,removed_from_aluminium_chain,"Jamshedpur, India",,Tata Steel kept only for steel records.
+26,Aluminium Corporation of China / Chalco,candidate_site_metadata_refined,"Xining, China","Xining / Qinghai, China",KEEP_AS_ALUMINIUM_PRODUCER_CANDIDATE_CERTIFICATE_REQUIRED
+26,XPO Logistic,xpo_lyon_company_node,"Greenwich, United States","Lyon, France","Use for company-level EU logistics node, not lane depot."
+27,Tata Steel,removed_from_aluminium_chain,"Jamshedpur, India",,Tata Steel kept only for steel records.
+27,Aluminium Corporation of China / Chalco,candidate_site_metadata_refined,"Xining, China","Xining / Qinghai, China",KEEP_AS_ALUMINIUM_PRODUCER_CANDIDATE_CERTIFICATE_REQUIRED
+27,XPO Logistic,xpo_lyon_company_node,"Greenwich, United States","Lyon, France","Use for company-level EU logistics node, not lane depot."
+28,Tata Steel,removed_from_aluminium_chain,"Jamshedpur, India",,Tata Steel kept only for steel records.
+28,Aluminium Corporation of China / Chalco,candidate_site_metadata_refined,"Xining, China","Xining / Qinghai, China",KEEP_AS_ALUMINIUM_PRODUCER_CANDIDATE_CERTIFICATE_REQUIRED
+28,XPO Logistic,xpo_lyon_company_node,"Greenwich, United States","Lyon, France","Use for company-level EU logistics node, not lane depot."
+29,Tata Steel,removed_from_aluminium_chain,"Jamshedpur, India",,Tata Steel kept only for steel records.
+29,Aluminium Corporation of China / Chalco,candidate_site_metadata_refined,"Xining, China","Xining / Qinghai, China",KEEP_AS_ALUMINIUM_PRODUCER_CANDIDATE_CERTIFICATE_REQUIRED
+30,Tata Steel,removed_from_aluminium_chain,"Jamshedpur, India",,Tata Steel kept only for steel records.
+30,Aluminium Corporation of China / Chalco,candidate_site_metadata_refined,"Xining, China","Xining / Qinghai, China",KEEP_AS_ALUMINIUM_PRODUCER_CANDIDATE_CERTIFICATE_REQUIRED
+31,Tata Steel,removed_from_aluminium_chain,"Jamshedpur, India",,Tata Steel kept only for steel records.
+31,Aluminium Corporation of China / Chalco,candidate_site_metadata_refined,"Xining, China","Xining / Qinghai, China",KEEP_AS_ALUMINIUM_PRODUCER_CANDIDATE_CERTIFICATE_REQUIRED
+32,Toray Industries,toray_generic_unknown_site,Japan,unknown textile mill / supplier-specific site,"velours eu28: polyurethane flexible foam, with flame retardant eu28: pa6.6 fibres"
+33,ArcelorMittal,candidate_site_metadata_refined,"Le Creusot / Torcy, France","Le Creusot, France",KEEP_AS_SPECIAL_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+33,China Baowu / Baosteel,candidate_site_metadata_refined,"Shanghai, China","Shanghai / Baoshan, China",KEEP_AS_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+33,Tata Steel,candidate_site_metadata_refined,"Jamshedpur, India","Jamshedpur / Jharkhand, India",KEEP_AS_STEEL_CANDIDATE_REMOVE_FROM_ALUMINIUM
+34,Tata Steel,removed_from_aluminium_chain,"Jamshedpur, India",,Tata Steel kept only for steel records.
+34,Aluminium Corporation of China / Chalco,candidate_site_metadata_refined,"Xining, China","Xining / Qinghai, China",KEEP_AS_ALUMINIUM_PRODUCER_CANDIDATE_CERTIFICATE_REQUIRED
+35,Tata Steel,removed_from_aluminium_chain,"Jamshedpur, India",,Tata Steel kept only for steel records.
+35,Aluminium Corporation of China / Chalco,candidate_site_metadata_refined,"Xining, China","Xining / Qinghai, China",KEEP_AS_ALUMINIUM_PRODUCER_CANDIDATE_CERTIFICATE_REQUIRED
+36,Tata Steel,removed_from_aluminium_chain,"Jamshedpur, India",,Tata Steel kept only for steel records.
+36,Aluminium Corporation of China / Chalco,candidate_site_metadata_refined,"Xining, China","Xining / Qinghai, China",KEEP_AS_ALUMINIUM_PRODUCER_CANDIDATE_CERTIFICATE_REQUIRED
+37,Tata Steel,removed_from_aluminium_chain,"Jamshedpur, India",,Tata Steel kept only for steel records.
+37,Aluminium Corporation of China / Chalco,candidate_site_metadata_refined,"Xining, China","Xining / Qinghai, China",KEEP_AS_ALUMINIUM_PRODUCER_CANDIDATE_CERTIFICATE_REQUIRED
+38,Tata Steel,removed_from_aluminium_chain,"Jamshedpur, India",,Tata Steel kept only for steel records.
+38,Aluminium Corporation of China / Chalco,candidate_site_metadata_refined,"Xining, China","Xining / Qinghai, China",KEEP_AS_ALUMINIUM_PRODUCER_CANDIDATE_CERTIFICATE_REQUIRED
+39,Tata Steel,removed_from_aluminium_chain,"Jamshedpur, India",,Tata Steel kept only for steel records.
+39,Aluminium Corporation of China / Chalco,candidate_site_metadata_refined,"Xining, China","Xining / Qinghai, China",KEEP_AS_ALUMINIUM_PRODUCER_CANDIDATE_CERTIFICATE_REQUIRED
+40,Tata Steel,removed_from_aluminium_chain,"Jamshedpur, India",,Tata Steel kept only for steel records.
+40,Aluminium Corporation of China / Chalco,candidate_site_metadata_refined,"Xining, China","Xining / Qinghai, China",KEEP_AS_ALUMINIUM_PRODUCER_CANDIDATE_CERTIFICATE_REQUIRED
+41,Tata Steel,removed_from_aluminium_chain,"Jamshedpur, India",,Tata Steel kept only for steel records.
+41,Aluminium Corporation of China / Chalco,candidate_site_metadata_refined,"Xining, China","Xining / Qinghai, China",KEEP_AS_ALUMINIUM_PRODUCER_CANDIDATE_CERTIFICATE_REQUIRED
+42,Tata Steel,removed_from_aluminium_chain,"Jamshedpur, India",,Tata Steel kept only for steel records.
+42,Aluminium Corporation of China / Chalco,candidate_site_metadata_refined,"Xining, China","Xining / Qinghai, China",KEEP_AS_ALUMINIUM_PRODUCER_CANDIDATE_CERTIFICATE_REQUIRED
+43,Tata Steel,removed_from_aluminium_chain,"Jamshedpur, India",,Tata Steel kept only for steel records.
+43,Aluminium Corporation of China / Chalco,candidate_site_metadata_refined,"Xining, China","Xining / Qinghai, China",KEEP_AS_ALUMINIUM_PRODUCER_CANDIDATE_CERTIFICATE_REQUIRED
+44,Tata Steel,removed_from_aluminium_chain,"Jamshedpur, India",,Tata Steel kept only for steel records.
+44,Aluminium Corporation of China / Chalco,candidate_site_metadata_refined,"Xining, China","Xining / Qinghai, China",KEEP_AS_ALUMINIUM_PRODUCER_CANDIDATE_CERTIFICATE_REQUIRED
+45,ArcelorMittal,candidate_site_metadata_refined,"Le Creusot / Torcy, France","Le Creusot, France",KEEP_AS_SPECIAL_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+45,China Baowu / Baosteel,candidate_site_metadata_refined,"Shanghai, China","Shanghai / Baoshan, China",KEEP_AS_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+45,Tata Steel,candidate_site_metadata_refined,"Jamshedpur, India","Jamshedpur / Jharkhand, India",KEEP_AS_STEEL_CANDIDATE_REMOVE_FROM_ALUMINIUM
+45,Nucor Corp,candidate_site_metadata_refined,"Huger, United States","Huger / South Carolina, United States",KEEP_AS_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+46,ArcelorMittal,candidate_site_metadata_refined,"Le Creusot / Torcy, France","Le Creusot, France",KEEP_AS_SPECIAL_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+46,China Baowu / Baosteel,candidate_site_metadata_refined,"Shanghai, China","Shanghai / Baoshan, China",KEEP_AS_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+46,Tata Steel,candidate_site_metadata_refined,"Jamshedpur, India","Jamshedpur / Jharkhand, India",KEEP_AS_STEEL_CANDIDATE_REMOVE_FROM_ALUMINIUM
+46,Nucor Corp,candidate_site_metadata_refined,"Huger, United States","Huger / South Carolina, United States",KEEP_AS_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+47,ArcelorMittal,candidate_site_metadata_refined,"Le Creusot / Torcy, France","Le Creusot, France",KEEP_AS_SPECIAL_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+47,China Baowu / Baosteel,candidate_site_metadata_refined,"Shanghai, China","Shanghai / Baoshan, China",KEEP_AS_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+47,Tata Steel,candidate_site_metadata_refined,"Jamshedpur, India","Jamshedpur / Jharkhand, India",KEEP_AS_STEEL_CANDIDATE_REMOVE_FROM_ALUMINIUM
+47,Nucor Corp,candidate_site_metadata_refined,"Huger, United States","Huger / South Carolina, United States",KEEP_AS_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+48,ArcelorMittal,candidate_site_metadata_refined,"Le Creusot / Torcy, France","Le Creusot, France",KEEP_AS_SPECIAL_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+48,China Baowu / Baosteel,candidate_site_metadata_refined,"Shanghai, China","Shanghai / Baoshan, China",KEEP_AS_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+48,Tata Steel,candidate_site_metadata_refined,"Jamshedpur, India","Jamshedpur / Jharkhand, India",KEEP_AS_STEEL_CANDIDATE_REMOVE_FROM_ALUMINIUM
+48,Nucor Corp,candidate_site_metadata_refined,"Huger, United States","Huger / South Carolina, United States",KEEP_AS_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+49,ArcelorMittal,candidate_site_metadata_refined,"Le Creusot / Torcy, France","Le Creusot, France",KEEP_AS_SPECIAL_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+49,China Baowu / Baosteel,candidate_site_metadata_refined,"Shanghai, China","Shanghai / Baoshan, China",KEEP_AS_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+49,Tata Steel,candidate_site_metadata_refined,"Jamshedpur, India","Jamshedpur / Jharkhand, India",KEEP_AS_STEEL_CANDIDATE_REMOVE_FROM_ALUMINIUM
+49,Nucor Corp,candidate_site_metadata_refined,"Huger, United States","Huger / South Carolina, United States",KEEP_AS_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+52,ArcelorMittal,candidate_site_metadata_refined,"Le Creusot / Torcy, France","Le Creusot, France",KEEP_AS_SPECIAL_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+52,China Baowu / Baosteel,candidate_site_metadata_refined,"Shanghai, China","Shanghai / Baoshan, China",KEEP_AS_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+52,Tata Steel,candidate_site_metadata_refined,"Jamshedpur, India","Jamshedpur / Jharkhand, India",KEEP_AS_STEEL_CANDIDATE_REMOVE_FROM_ALUMINIUM
+52,Nucor Corp,candidate_site_metadata_refined,"Huger, United States","Huger / South Carolina, United States",KEEP_AS_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+53,ArcelorMittal,candidate_site_metadata_refined,"Le Creusot / Torcy, France","Le Creusot, France",KEEP_AS_SPECIAL_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+53,China Baowu / Baosteel,candidate_site_metadata_refined,"Shanghai, China","Shanghai / Baoshan, China",KEEP_AS_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+53,Tata Steel,candidate_site_metadata_refined,"Jamshedpur, India","Jamshedpur / Jharkhand, India",KEEP_AS_STEEL_CANDIDATE_REMOVE_FROM_ALUMINIUM
+53,Nucor Corp,candidate_site_metadata_refined,"Huger, United States","Huger / South Carolina, United States",KEEP_AS_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+54,Tata Steel,removed_from_aluminium_chain,"Jamshedpur, India",,Tata Steel kept only for steel records.
+54,Aluminium Corporation of China / Chalco,candidate_site_metadata_refined,"Xining, China","Xining / Qinghai, China",KEEP_AS_ALUMINIUM_PRODUCER_CANDIDATE_CERTIFICATE_REQUIRED
+54,XPO Logistic,xpo_lyon_company_node,"Greenwich, United States","Lyon, France","Use for company-level EU logistics node, not lane depot."
+55,Tata Steel,removed_from_aluminium_chain,"Jamshedpur, India",,Tata Steel kept only for steel records.
+55,Aluminium Corporation of China / Chalco,candidate_site_metadata_refined,"Xining, China","Xining / Qinghai, China",KEEP_AS_ALUMINIUM_PRODUCER_CANDIDATE_CERTIFICATE_REQUIRED
+55,XPO Logistic,xpo_lyon_company_node,"Greenwich, United States","Lyon, France","Use for company-level EU logistics node, not lane depot."
+56,ArcelorMittal,candidate_site_metadata_refined,"Le Creusot / Torcy, France","Le Creusot, France",KEEP_AS_SPECIAL_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+56,China Baowu / Baosteel,candidate_site_metadata_refined,"Shanghai, China","Shanghai / Baoshan, China",KEEP_AS_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+56,Tata Steel,candidate_site_metadata_refined,"Jamshedpur, India","Jamshedpur / Jharkhand, India",KEEP_AS_STEEL_CANDIDATE_REMOVE_FROM_ALUMINIUM
+56,Nucor Corp,candidate_site_metadata_refined,"Huger, United States","Huger / South Carolina, United States",KEEP_AS_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+57,ArcelorMittal,candidate_site_metadata_refined,"Le Creusot / Torcy, France","Le Creusot, France",KEEP_AS_SPECIAL_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+57,China Baowu / Baosteel,candidate_site_metadata_refined,"Shanghai, China","Shanghai / Baoshan, China",KEEP_AS_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+57,Tata Steel,candidate_site_metadata_refined,"Jamshedpur, India","Jamshedpur / Jharkhand, India",KEEP_AS_STEEL_CANDIDATE_REMOVE_FROM_ALUMINIUM
+57,Nucor Corp,candidate_site_metadata_refined,"Huger, United States","Huger / South Carolina, United States",KEEP_AS_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+58,ArcelorMittal,candidate_site_metadata_refined,"Le Creusot / Torcy, France","Le Creusot, France",KEEP_AS_SPECIAL_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+58,China Baowu / Baosteel,candidate_site_metadata_refined,"Shanghai, China","Shanghai / Baoshan, China",KEEP_AS_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+58,Tata Steel,candidate_site_metadata_refined,"Jamshedpur, India","Jamshedpur / Jharkhand, India",KEEP_AS_STEEL_CANDIDATE_REMOVE_FROM_ALUMINIUM
+58,Nucor Corp,candidate_site_metadata_refined,"Huger, United States","Huger / South Carolina, United States",KEEP_AS_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+59,ArcelorMittal,candidate_site_metadata_refined,"Le Creusot / Torcy, France","Le Creusot, France",KEEP_AS_SPECIAL_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+59,China Baowu / Baosteel,candidate_site_metadata_refined,"Shanghai, China","Shanghai / Baoshan, China",KEEP_AS_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+59,Tata Steel,candidate_site_metadata_refined,"Jamshedpur, India","Jamshedpur / Jharkhand, India",KEEP_AS_STEEL_CANDIDATE_REMOVE_FROM_ALUMINIUM
+59,Nucor Corp,candidate_site_metadata_refined,"Huger, United States","Huger / South Carolina, United States",KEEP_AS_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+60,ArcelorMittal,candidate_site_metadata_refined,"Le Creusot / Torcy, France","Le Creusot, France",KEEP_AS_SPECIAL_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+60,China Baowu / Baosteel,candidate_site_metadata_refined,"Shanghai, China","Shanghai / Baoshan, China",KEEP_AS_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+60,Tata Steel,candidate_site_metadata_refined,"Jamshedpur, India","Jamshedpur / Jharkhand, India",KEEP_AS_STEEL_CANDIDATE_REMOVE_FROM_ALUMINIUM
+60,Nucor Corp,candidate_site_metadata_refined,"Huger, United States","Huger / South Carolina, United States",KEEP_AS_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+61,ArcelorMittal,candidate_site_metadata_refined,"Le Creusot / Torcy, France","Le Creusot, France",KEEP_AS_SPECIAL_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+61,China Baowu / Baosteel,candidate_site_metadata_refined,"Shanghai, China","Shanghai / Baoshan, China",KEEP_AS_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+61,Tata Steel,candidate_site_metadata_refined,"Jamshedpur, India","Jamshedpur / Jharkhand, India",KEEP_AS_STEEL_CANDIDATE_REMOVE_FROM_ALUMINIUM
+61,Nucor Corp,candidate_site_metadata_refined,"Huger, United States","Huger / South Carolina, United States",KEEP_AS_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+62,ArcelorMittal,candidate_site_metadata_refined,"Le Creusot / Torcy, France","Le Creusot, France",KEEP_AS_SPECIAL_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+62,China Baowu / Baosteel,candidate_site_metadata_refined,"Shanghai, China","Shanghai / Baoshan, China",KEEP_AS_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+62,Tata Steel,candidate_site_metadata_refined,"Jamshedpur, India","Jamshedpur / Jharkhand, India",KEEP_AS_STEEL_CANDIDATE_REMOVE_FROM_ALUMINIUM
+62,Nucor Corp,candidate_site_metadata_refined,"Huger, United States","Huger / South Carolina, United States",KEEP_AS_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+63,ArcelorMittal,candidate_site_metadata_refined,"Le Creusot / Torcy, France","Le Creusot, France",KEEP_AS_SPECIAL_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+63,China Baowu / Baosteel,candidate_site_metadata_refined,"Shanghai, China","Shanghai / Baoshan, China",KEEP_AS_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+63,Tata Steel,candidate_site_metadata_refined,"Jamshedpur, India","Jamshedpur / Jharkhand, India",KEEP_AS_STEEL_CANDIDATE_REMOVE_FROM_ALUMINIUM
+63,Nucor Corp,candidate_site_metadata_refined,"Huger, United States","Huger / South Carolina, United States",KEEP_AS_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+64,ArcelorMittal,candidate_site_metadata_refined,"Le Creusot / Torcy, France","Le Creusot, France",KEEP_AS_SPECIAL_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+64,China Baowu / Baosteel,candidate_site_metadata_refined,"Shanghai, China","Shanghai / Baoshan, China",KEEP_AS_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+64,Tata Steel,candidate_site_metadata_refined,"Jamshedpur, India","Jamshedpur / Jharkhand, India",KEEP_AS_STEEL_CANDIDATE_REMOVE_FROM_ALUMINIUM
+64,Nucor Corp,candidate_site_metadata_refined,"Huger, United States","Huger / South Carolina, United States",KEEP_AS_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+65,ArcelorMittal,candidate_site_metadata_refined,"Le Creusot / Torcy, France","Le Creusot, France",KEEP_AS_SPECIAL_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+65,China Baowu / Baosteel,candidate_site_metadata_refined,"Shanghai, China","Shanghai / Baoshan, China",KEEP_AS_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+65,Tata Steel,candidate_site_metadata_refined,"Jamshedpur, India","Jamshedpur / Jharkhand, India",KEEP_AS_STEEL_CANDIDATE_REMOVE_FROM_ALUMINIUM
+65,Nucor Corp,candidate_site_metadata_refined,"Huger, United States","Huger / South Carolina, United States",KEEP_AS_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+66,Tata Steel,removed_from_aluminium_chain,"Jamshedpur, India",,Tata Steel kept only for steel records.
+66,Aluminium Corporation of China / Chalco,candidate_site_metadata_refined,"Xining, China","Xining / Qinghai, China",KEEP_AS_ALUMINIUM_PRODUCER_CANDIDATE_CERTIFICATE_REQUIRED
+67,Tata Steel,removed_from_aluminium_chain,"Jamshedpur, India",,Tata Steel kept only for steel records.
+67,Aluminium Corporation of China / Chalco,candidate_site_metadata_refined,"Xining, China","Xining / Qinghai, China",KEEP_AS_ALUMINIUM_PRODUCER_CANDIDATE_CERTIFICATE_REQUIRED
+68,Tata Steel,removed_from_aluminium_chain,"Jamshedpur, India",,Tata Steel kept only for steel records.
+68,Aluminium Corporation of China / Chalco,candidate_site_metadata_refined,"Xining, China","Xining / Qinghai, China",KEEP_AS_ALUMINIUM_PRODUCER_CANDIDATE_CERTIFICATE_REQUIRED
+69,Tata Steel,removed_from_aluminium_chain,"Jamshedpur, India",,Tata Steel kept only for steel records.
+69,Aluminium Corporation of China / Chalco,candidate_site_metadata_refined,"Xining, China","Xining / Qinghai, China",KEEP_AS_ALUMINIUM_PRODUCER_CANDIDATE_CERTIFICATE_REQUIRED
+70,Tata Steel,removed_from_aluminium_chain,"Jamshedpur, India",,Tata Steel kept only for steel records.
+70,Aluminium Corporation of China / Chalco,candidate_site_metadata_refined,"Xining, China","Xining / Qinghai, China",KEEP_AS_ALUMINIUM_PRODUCER_CANDIDATE_CERTIFICATE_REQUIRED
+71,ArcelorMittal,candidate_site_metadata_refined,"Le Creusot / Torcy, France","Le Creusot, France",KEEP_AS_SPECIAL_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+71,China Baowu / Baosteel,candidate_site_metadata_refined,"Shanghai, China","Shanghai / Baoshan, China",KEEP_AS_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+71,Tata Steel,candidate_site_metadata_refined,"Jamshedpur, India","Jamshedpur / Jharkhand, India",KEEP_AS_STEEL_CANDIDATE_REMOVE_FROM_ALUMINIUM
+71,Nucor Corp,candidate_site_metadata_refined,"Huger, United States","Huger / South Carolina, United States",KEEP_AS_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+71,TE Connectivity,te_evreux_with_toulouse_alternative,"Berwyn, United States","Évreux, France",cables FJKL1-3K1J01-01ATAB_BRACKETS-SET
+72,ArcelorMittal,candidate_site_metadata_refined,"Le Creusot / Torcy, France","Le Creusot, France",KEEP_AS_SPECIAL_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+72,China Baowu / Baosteel,candidate_site_metadata_refined,"Shanghai, China","Shanghai / Baoshan, China",KEEP_AS_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+72,Tata Steel,candidate_site_metadata_refined,"Jamshedpur, India","Jamshedpur / Jharkhand, India",KEEP_AS_STEEL_CANDIDATE_REMOVE_FROM_ALUMINIUM
+72,Nucor Corp,candidate_site_metadata_refined,"Huger, United States","Huger / South Carolina, United States",KEEP_AS_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+74,Tata Steel,removed_steel_candidate_from_non_steel_context,"Jamshedpur, India",,Commande actionnement ECU
+74,China Baowu / Baosteel,removed_steel_candidate_from_non_steel_context,"Shanghai, China",,Commande actionnement ECU
+74,ArcelorMittal,removed_steel_candidate_from_non_steel_context,"Le Creusot / Torcy, France",,Commande actionnement ECU
+74,Nucor Corp,removed_steel_candidate_from_non_steel_context,"Huger, United States",,Commande actionnement ECU
+78,Mitsubishi Chemical,mitsubishi_left_unresolved_non_polymer,Japan,Japan,"Display, liquid crystal, 17 pouces"
+79,Toray Industries,toray_split_nagoya,Japan,"Nagoya / Aichi, Japan",Ertalon
+80,Toray Industries,toray_split_nagoya,Japan,"Nagoya / Aichi, Japan",Ertalon
+81,ArcelorMittal,candidate_site_metadata_refined,"Le Creusot / Torcy, France","Le Creusot, France",KEEP_AS_SPECIAL_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+81,China Baowu / Baosteel,candidate_site_metadata_refined,"Shanghai, China","Shanghai / Baoshan, China",KEEP_AS_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+81,Tata Steel,candidate_site_metadata_refined,"Jamshedpur, India","Jamshedpur / Jharkhand, India",KEEP_AS_STEEL_CANDIDATE_REMOVE_FROM_ALUMINIUM
+81,Nucor Corp,candidate_site_metadata_refined,"Huger, United States","Huger / South Carolina, United States",KEEP_AS_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+82,Toray Industries,toray_split_nagoya,Japan,"Nagoya / Aichi, Japan",Ertalon
+83,Toray Industries,toray_split_nagoya,Japan,"Nagoya / Aichi, Japan",Ertalon
+84,Toray Industries,toray_split_nagoya,Japan,"Nagoya / Aichi, Japan",Ertalon
+85,Toray Industries,toray_split_nagoya,Japan,"Nagoya / Aichi, Japan",Ertalon
+86,Tata Steel,removed_steel_candidate_from_non_steel_context,"Jamshedpur, India",,FRMC55 (C55 = % de carbone) et FMR = ?
+86,China Baowu / Baosteel,removed_steel_candidate_from_non_steel_context,"Shanghai, China",,FRMC55 (C55 = % de carbone) et FMR = ?
+86,ArcelorMittal,removed_steel_candidate_from_non_steel_context,"Le Creusot / Torcy, France",,FRMC55 (C55 = % de carbone) et FMR = ?
+86,Nucor Corp,removed_steel_candidate_from_non_steel_context,"Huger, United States",,FRMC55 (C55 = % de carbone) et FMR = ?
+87,Tata Steel,removed_steel_candidate_from_non_steel_context,"Jamshedpur, India",,FRMC55 (C55 = % de carbone) et FMR = ?
+87,China Baowu / Baosteel,removed_steel_candidate_from_non_steel_context,"Shanghai, China",,FRMC55 (C55 = % de carbone) et FMR = ?
+87,ArcelorMittal,removed_steel_candidate_from_non_steel_context,"Le Creusot / Torcy, France",,FRMC55 (C55 = % de carbone) et FMR = ?
+87,Nucor Corp,removed_steel_candidate_from_non_steel_context,"Huger, United States",,FRMC55 (C55 = % de carbone) et FMR = ?
+88,Tata Steel,removed_steel_candidate_from_non_steel_context,"Jamshedpur, India",,FRMC55 (C55 = % de carbone) et FMR = ?
+88,China Baowu / Baosteel,removed_steel_candidate_from_non_steel_context,"Shanghai, China",,FRMC55 (C55 = % de carbone) et FMR = ?
+88,ArcelorMittal,removed_steel_candidate_from_non_steel_context,"Le Creusot / Torcy, France",,FRMC55 (C55 = % de carbone) et FMR = ?
+88,Nucor Corp,removed_steel_candidate_from_non_steel_context,"Huger, United States",,FRMC55 (C55 = % de carbone) et FMR = ?
+89,Tata Steel,removed_steel_candidate_from_non_steel_context,"Jamshedpur, India",,FRMC55 (C55 = % de carbone) et FMR = ?
+89,China Baowu / Baosteel,removed_steel_candidate_from_non_steel_context,"Shanghai, China",,FRMC55 (C55 = % de carbone) et FMR = ?
+89,ArcelorMittal,removed_steel_candidate_from_non_steel_context,"Le Creusot / Torcy, France",,FRMC55 (C55 = % de carbone) et FMR = ?
+89,Nucor Corp,removed_steel_candidate_from_non_steel_context,"Huger, United States",,FRMC55 (C55 = % de carbone) et FMR = ?
+90,Tata Steel,removed_steel_candidate_from_non_steel_context,"Jamshedpur, India",,FRMC55 (C55 = % de carbone) et FMR = ?
+90,China Baowu / Baosteel,removed_steel_candidate_from_non_steel_context,"Shanghai, China",,FRMC55 (C55 = % de carbone) et FMR = ?
+90,ArcelorMittal,removed_steel_candidate_from_non_steel_context,"Le Creusot / Torcy, France",,FRMC55 (C55 = % de carbone) et FMR = ?
+90,Nucor Corp,removed_steel_candidate_from_non_steel_context,"Huger, United States",,FRMC55 (C55 = % de carbone) et FMR = ?
+91,Tata Steel,removed_steel_candidate_from_non_steel_context,"Jamshedpur, India",,FRMC55 (C55 = % de carbone) et FMR = ?
+91,China Baowu / Baosteel,removed_steel_candidate_from_non_steel_context,"Shanghai, China",,FRMC55 (C55 = % de carbone) et FMR = ?
+91,ArcelorMittal,removed_steel_candidate_from_non_steel_context,"Le Creusot / Torcy, France",,FRMC55 (C55 = % de carbone) et FMR = ?
+91,Nucor Corp,removed_steel_candidate_from_non_steel_context,"Huger, United States",,FRMC55 (C55 = % de carbone) et FMR = ?
+92,Tata Steel,removed_steel_candidate_from_non_steel_context,"Jamshedpur, India",,FRMC55 (C55 = % de carbone) et FMR = ?
+92,China Baowu / Baosteel,removed_steel_candidate_from_non_steel_context,"Shanghai, China",,FRMC55 (C55 = % de carbone) et FMR = ?
+92,ArcelorMittal,removed_steel_candidate_from_non_steel_context,"Le Creusot / Torcy, France",,FRMC55 (C55 = % de carbone) et FMR = ?
+92,Nucor Corp,removed_steel_candidate_from_non_steel_context,"Huger, United States",,FRMC55 (C55 = % de carbone) et FMR = ?
+93,Tata Steel,removed_steel_candidate_from_non_steel_context,"Jamshedpur, India",,FRMC55 (C55 = % de carbone) et FMR = ?
+93,China Baowu / Baosteel,removed_steel_candidate_from_non_steel_context,"Shanghai, China",,FRMC55 (C55 = % de carbone) et FMR = ?
+93,ArcelorMittal,removed_steel_candidate_from_non_steel_context,"Le Creusot / Torcy, France",,FRMC55 (C55 = % de carbone) et FMR = ?
+93,Nucor Corp,removed_steel_candidate_from_non_steel_context,"Huger, United States",,FRMC55 (C55 = % de carbone) et FMR = ?
+94,ArcelorMittal,candidate_site_metadata_refined,"Le Creusot / Torcy, France","Le Creusot, France",KEEP_AS_SPECIAL_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+94,China Baowu / Baosteel,candidate_site_metadata_refined,"Shanghai, China","Shanghai / Baoshan, China",KEEP_AS_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+94,Tata Steel,candidate_site_metadata_refined,"Jamshedpur, India","Jamshedpur / Jharkhand, India",KEEP_AS_STEEL_CANDIDATE_REMOVE_FROM_ALUMINIUM
+94,Nucor Corp,candidate_site_metadata_refined,"Huger, United States","Huger / South Carolina, United States",KEEP_AS_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+95,ArcelorMittal,candidate_site_metadata_refined,"Le Creusot / Torcy, France","Le Creusot, France",KEEP_AS_SPECIAL_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+95,China Baowu / Baosteel,candidate_site_metadata_refined,"Shanghai, China","Shanghai / Baoshan, China",KEEP_AS_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+95,Tata Steel,candidate_site_metadata_refined,"Jamshedpur, India","Jamshedpur / Jharkhand, India",KEEP_AS_STEEL_CANDIDATE_REMOVE_FROM_ALUMINIUM
+95,Nucor Corp,candidate_site_metadata_refined,"Huger, United States","Huger / South Carolina, United States",KEEP_AS_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+96,ArcelorMittal,candidate_site_metadata_refined,"Le Creusot / Torcy, France","Le Creusot, France",KEEP_AS_SPECIAL_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+96,China Baowu / Baosteel,candidate_site_metadata_refined,"Shanghai, China","Shanghai / Baoshan, China",KEEP_AS_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+96,Tata Steel,candidate_site_metadata_refined,"Jamshedpur, India","Jamshedpur / Jharkhand, India",KEEP_AS_STEEL_CANDIDATE_REMOVE_FROM_ALUMINIUM
+96,Nucor Corp,candidate_site_metadata_refined,"Huger, United States","Huger / South Carolina, United States",KEEP_AS_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+97,Toray Industries,toray_split_nagoya,Japan,"Nagoya / Aichi, Japan",GLO: moulage par injection plastique
+98,ArcelorMittal,candidate_site_metadata_refined,"Le Creusot / Torcy, France","Le Creusot, France",KEEP_AS_SPECIAL_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+98,China Baowu / Baosteel,candidate_site_metadata_refined,"Shanghai, China","Shanghai / Baoshan, China",KEEP_AS_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+98,Tata Steel,candidate_site_metadata_refined,"Jamshedpur, India","Jamshedpur / Jharkhand, India",KEEP_AS_STEEL_CANDIDATE_REMOVE_FROM_ALUMINIUM
+98,Nucor Corp,candidate_site_metadata_refined,"Huger, United States","Huger / South Carolina, United States",KEEP_AS_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+99,ArcelorMittal,candidate_site_metadata_refined,"Le Creusot / Torcy, France","Le Creusot, France",KEEP_AS_SPECIAL_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+99,China Baowu / Baosteel,candidate_site_metadata_refined,"Shanghai, China","Shanghai / Baoshan, China",KEEP_AS_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+99,Tata Steel,candidate_site_metadata_refined,"Jamshedpur, India","Jamshedpur / Jharkhand, India",KEEP_AS_STEEL_CANDIDATE_REMOVE_FROM_ALUMINIUM
+99,Nucor Corp,candidate_site_metadata_refined,"Huger, United States","Huger / South Carolina, United States",KEEP_AS_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+100,ArcelorMittal,candidate_site_metadata_refined,"Le Creusot / Torcy, France","Le Creusot, France",KEEP_AS_SPECIAL_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+100,China Baowu / Baosteel,candidate_site_metadata_refined,"Shanghai, China","Shanghai / Baoshan, China",KEEP_AS_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+100,Tata Steel,candidate_site_metadata_refined,"Jamshedpur, India","Jamshedpur / Jharkhand, India",KEEP_AS_STEEL_CANDIDATE_REMOVE_FROM_ALUMINIUM
+100,Nucor Corp,candidate_site_metadata_refined,"Huger, United States","Huger / South Carolina, United States",KEEP_AS_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+101,ArcelorMittal,candidate_site_metadata_refined,"Le Creusot / Torcy, France","Le Creusot, France",KEEP_AS_SPECIAL_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+101,China Baowu / Baosteel,candidate_site_metadata_refined,"Shanghai, China","Shanghai / Baoshan, China",KEEP_AS_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+101,Tata Steel,candidate_site_metadata_refined,"Jamshedpur, India","Jamshedpur / Jharkhand, India",KEEP_AS_STEEL_CANDIDATE_REMOVE_FROM_ALUMINIUM
+101,Nucor Corp,candidate_site_metadata_refined,"Huger, United States","Huger / South Carolina, United States",KEEP_AS_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+102,ArcelorMittal,candidate_site_metadata_refined,"Le Creusot / Torcy, France","Le Creusot, France",KEEP_AS_SPECIAL_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+102,China Baowu / Baosteel,candidate_site_metadata_refined,"Shanghai, China","Shanghai / Baoshan, China",KEEP_AS_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+102,Tata Steel,candidate_site_metadata_refined,"Jamshedpur, India","Jamshedpur / Jharkhand, India",KEEP_AS_STEEL_CANDIDATE_REMOVE_FROM_ALUMINIUM
+102,Nucor Corp,candidate_site_metadata_refined,"Huger, United States","Huger / South Carolina, United States",KEEP_AS_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+103,Toray Industries,toray_split_nagoya,Japan,"Nagoya / Aichi, Japan",kydex
+104,Toray Industries,toray_split_nagoya,Japan,"Nagoya / Aichi, Japan",kydex
+105,Toray Industries,toray_split_nagoya,Japan,"Nagoya / Aichi, Japan",kydex
+106,Toray Industries,toray_split_nagoya,Japan,"Nagoya / Aichi, Japan",kydex
+107,Toray Industries,toray_split_nagoya,Japan,"Nagoya / Aichi, Japan",kydex
+108,Toray Industries,toray_split_nagoya,Japan,"Nagoya / Aichi, Japan",kydex
+109,Toray Industries,toray_split_nagoya,Japan,"Nagoya / Aichi, Japan",kydex
+110,Mitsubishi Chemical,mitsubishi_hiratsuka,Japan,"Hiratsuka / Kanagawa, Japan",NIDA - GLO (moulage par injection plastique)
+110,Toray Industries,toray_split_nagoya,Japan,"Nagoya / Aichi, Japan",NIDA - GLO (moulage par injection plastique)
+111,Mitsubishi Chemical,mitsubishi_hiratsuka,Japan,"Hiratsuka / Kanagawa, Japan",nylon
+112,Mitsubishi Chemical,mitsubishi_hiratsuka,Japan,"Hiratsuka / Kanagawa, Japan",nylon
+113,Mitsubishi Chemical,mitsubishi_hiratsuka,Japan,"Hiratsuka / Kanagawa, Japan",nylon
+114,Mitsubishi Chemical,mitsubishi_hiratsuka,Japan,"Hiratsuka / Kanagawa, Japan",nylon
+115,Mitsubishi Chemical,mitsubishi_hiratsuka,Japan,"Hiratsuka / Kanagawa, Japan",nylon
+117,Mitsubishi Chemical,mitsubishi_hiratsuka,Japan,"Hiratsuka / Kanagawa, Japan",nylon
+118,Mitsubishi Chemical,mitsubishi_hiratsuka,Japan,"Hiratsuka / Kanagawa, Japan",nylon
+119,Mitsubishi Chemical,mitsubishi_hiratsuka,Japan,"Hiratsuka / Kanagawa, Japan",nylon
+120,Mitsubishi Chemical,mitsubishi_hiratsuka,Japan,"Hiratsuka / Kanagawa, Japan",nylon
+121,Mitsubishi Chemical,mitsubishi_left_unresolved_non_polymer,Japan,Japan,"Display, liquid crystal, 17 pouces"
+122,ArcelorMittal,candidate_site_metadata_refined,"Le Creusot / Torcy, France","Le Creusot, France",KEEP_AS_SPECIAL_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+122,China Baowu / Baosteel,candidate_site_metadata_refined,"Shanghai, China","Shanghai / Baoshan, China",KEEP_AS_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+122,Tata Steel,candidate_site_metadata_refined,"Jamshedpur, India","Jamshedpur / Jharkhand, India",KEEP_AS_STEEL_CANDIDATE_REMOVE_FROM_ALUMINIUM
+122,Nucor Corp,candidate_site_metadata_refined,"Huger, United States","Huger / South Carolina, United States",KEEP_AS_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+123,Tata Steel,removed_from_aluminium_chain,"Jamshedpur, India",,Tata Steel kept only for steel records.
+123,Aluminium Corporation of China / Chalco,candidate_site_metadata_refined,"Xining, China","Xining / Qinghai, China",KEEP_AS_ALUMINIUM_PRODUCER_CANDIDATE_CERTIFICATE_REQUIRED
+124,Toray Industries,toray_generic_unknown_site,Japan,unknown textile mill / supplier-specific site,caoutchouc
+125,Mitsubishi Chemical,mitsubishi_hiratsuka,Japan,"Hiratsuka / Kanagawa, Japan",Polychloroprene
+125,Toray Industries,toray_generic_unknown_site,Japan,unknown textile mill / supplier-specific site,Polychloroprene
+126,Mitsubishi Chemical,mitsubishi_left_unresolved_non_polymer,Japan,Japan,powerbox
+128,Toray Industries,toray_generic_unknown_site,Japan,unknown textile mill / supplier-specific site,Résine BR623 - composite
+129,Shin-Etsu Silicones,approx_site_refined,"Annaka, Japan","Annaka / Gunma, Japan",REPLACE_TOKYO_OR_CITY_FALLBACK_WITH_GUNMA_PLANT
+129,Silicone Engineering,approx_site_refined,"Blackburn, United Kingdom","Blackburn, United Kingdom",REPLACE_CITY_POINT_WITH_MANUFACTURING_CENTRE
+130,Mitsubishi Chemical,mitsubishi_left_unresolved_non_polymer,Japan,Japan,télécommande
+130,Toray Industries,toray_generic_unknown_site,Japan,unknown textile mill / supplier-specific site,télécommande
+131,Toray Industries,toray_generic_unknown_site,Japan,unknown textile mill / supplier-specific site,tissu
+131,Huddersfield Textiles,approx_site_refined,"Huddersfield, United Kingdom","Huddersfield, United Kingdom",REPLACE_TOWN_CENTROID_WITH_COMPANY_SITE
+132,Toray Industries,toray_generic_unknown_site,Japan,unknown textile mill / supplier-specific site,tissu
+132,Huddersfield Textiles,approx_site_refined,"Huddersfield, United Kingdom","Huddersfield, United Kingdom",REPLACE_TOWN_CENTROID_WITH_COMPANY_SITE
+133,Toray Industries,toray_generic_unknown_site,Japan,unknown textile mill / supplier-specific site,tissu
+133,Huddersfield Textiles,approx_site_refined,"Huddersfield, United Kingdom","Huddersfield, United Kingdom",REPLACE_TOWN_CENTROID_WITH_COMPANY_SITE
+134,Toray Industries,toray_generic_unknown_site,Japan,unknown textile mill / supplier-specific site,tissu
+134,Huddersfield Textiles,approx_site_refined,"Huddersfield, United Kingdom","Huddersfield, United Kingdom",REPLACE_TOWN_CENTROID_WITH_COMPANY_SITE
+135,Toray Industries,toray_generic_unknown_site,Japan,unknown textile mill / supplier-specific site,tissu
+135,Huddersfield Textiles,approx_site_refined,"Huddersfield, United Kingdom","Huddersfield, United Kingdom",REPLACE_TOWN_CENTROID_WITH_COMPANY_SITE
+136,Toray Industries,toray_generic_unknown_site,Japan,unknown textile mill / supplier-specific site,tissu
+136,Huddersfield Textiles,approx_site_refined,"Huddersfield, United Kingdom","Huddersfield, United Kingdom",REPLACE_TOWN_CENTROID_WITH_COMPANY_SITE
+138,ArcelorMittal,candidate_site_metadata_refined,"Le Creusot / Torcy, France","Le Creusot, France",KEEP_AS_SPECIAL_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+138,China Baowu / Baosteel,candidate_site_metadata_refined,"Shanghai, China","Shanghai / Baoshan, China",KEEP_AS_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+138,Tata Steel,candidate_site_metadata_refined,"Jamshedpur, India","Jamshedpur / Jharkhand, India",KEEP_AS_STEEL_CANDIDATE_REMOVE_FROM_ALUMINIUM
+138,Nucor Corp,candidate_site_metadata_refined,"Huger, United States","Huger / South Carolina, United States",KEEP_AS_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+139,Mitsubishi Chemical,mitsubishi_hiratsuka,Japan,"Hiratsuka / Kanagawa, Japan",nylon
+140,Toray Industries,toray_generic_unknown_site,Japan,unknown textile mill / supplier-specific site,velcro
+140,Huddersfield Textiles,approx_site_refined,"Huddersfield, United Kingdom","Huddersfield, United Kingdom",REPLACE_TOWN_CENTROID_WITH_COMPANY_SITE
+141,Toray Industries,toray_generic_unknown_site,Japan,unknown textile mill / supplier-specific site,velcro
+141,Huddersfield Textiles,approx_site_refined,"Huddersfield, United Kingdom","Huddersfield, United Kingdom",REPLACE_TOWN_CENTROID_WITH_COMPANY_SITE
+142,Toray Industries,toray_generic_unknown_site,Japan,unknown textile mill / supplier-specific site,velcro
+142,Huddersfield Textiles,approx_site_refined,"Huddersfield, United Kingdom","Huddersfield, United Kingdom",REPLACE_TOWN_CENTROID_WITH_COMPANY_SITE
+143,Toray Industries,toray_generic_unknown_site,Japan,unknown textile mill / supplier-specific site,velcro
+143,Huddersfield Textiles,approx_site_refined,"Huddersfield, United Kingdom","Huddersfield, United Kingdom",REPLACE_TOWN_CENTROID_WITH_COMPANY_SITE
+144,Huddersfield Textiles,approx_site_refined,"Huddersfield, United Kingdom","Huddersfield, United Kingdom",REPLACE_TOWN_CENTROID_WITH_COMPANY_SITE
+145,Huddersfield Textiles,approx_site_refined,"Huddersfield, United Kingdom","Huddersfield, United Kingdom",REPLACE_TOWN_CENTROID_WITH_COMPANY_SITE
+146,Huddersfield Textiles,approx_site_refined,"Huddersfield, United Kingdom","Huddersfield, United Kingdom",REPLACE_TOWN_CENTROID_WITH_COMPANY_SITE
+147,Huddersfield Textiles,approx_site_refined,"Huddersfield, United Kingdom","Huddersfield, United Kingdom",REPLACE_TOWN_CENTROID_WITH_COMPANY_SITE
+148,Huddersfield Textiles,approx_site_refined,"Huddersfield, United Kingdom","Huddersfield, United Kingdom",REPLACE_TOWN_CENTROID_WITH_COMPANY_SITE
+149,Toray Industries,toray_generic_unknown_site,Japan,unknown textile mill / supplier-specific site,velcro
+149,Huddersfield Textiles,approx_site_refined,"Huddersfield, United Kingdom","Huddersfield, United Kingdom",REPLACE_TOWN_CENTROID_WITH_COMPANY_SITE
+150,Huddersfield Textiles,approx_site_refined,"Huddersfield, United Kingdom","Huddersfield, United Kingdom",REPLACE_TOWN_CENTROID_WITH_COMPANY_SITE
+151,China Baowu / Baosteel,candidate_site_metadata_refined,"Shanghai, China","Shanghai / Baoshan, China",KEEP_AS_STEEL_CANDIDATE_CERTIFICATE_REQUIRED
+151,Tata Steel,candidate_site_metadata_refined,"Jamshedpur, India","Jamshedpur / Jharkhand, India",KEEP_AS_STEEL_CANDIDATE_REMOVE_FROM_ALUMINIUM
+151,Toray Industries,toray_generic_unknown_site,Japan,unknown textile mill / supplier-specific site,Z10CNT18
+152,Tata Steel,removed_steel_candidate_from_non_steel_context,"Jamshedpur, India",,FRMC55:EU28 polyuréthane flexible traité UL
+152,Toray Industries,toray_generic_unknown_site,Japan,unknown textile mill / supplier-specific site,FRMC55:EU28 polyuréthane flexible traité UL
+152,Huddersfield Textiles,approx_site_refined,"Huddersfield, United Kingdom","Huddersfield, United Kingdom",REPLACE_TOWN_CENTROID_WITH_COMPANY_SITE
+152,Aluminium Corporation of China / Chalco,candidate_site_metadata_refined,"Xining, China","Xining / Qinghai, China",KEEP_AS_ALUMINIUM_PRODUCER_CANDIDATE_CERTIFICATE_REQUIRED
+153,Mitsubishi Chemical,mitsubishi_left_unresolved_non_polymer,Japan,Japan,"Display, liquid crystal, 17 pouces"
+157,Tata Steel,removed_from_aluminium_chain,"Jamshedpur, India",,Tata Steel kept only for steel records.
+157,Aluminium Corporation of China / Chalco,candidate_site_metadata_refined,"Xining, China","Xining / Qinghai, China",KEEP_AS_ALUMINIUM_PRODUCER_CANDIDATE_CERTIFICATE_REQUIRED
+158,Toray Industries,toray_generic_unknown_site,Japan,unknown textile mill / supplier-specific site,"Tissu, mousse, polyéthylène"
+158,Huddersfield Textiles,approx_site_refined,"Huddersfield, United Kingdom","Huddersfield, United Kingdom",REPLACE_TOWN_CENTROID_WITH_COMPANY_SITE
+159,Mitsubishi Chemical,mitsubishi_hiratsuka,Japan,"Hiratsuka / Kanagawa, Japan",Moulage plastique
+159,Toray Industries,toray_split_nagoya,Japan,"Nagoya / Aichi, Japan",Moulage plastique
+160,Toray Industries,toray_generic_unknown_site,Japan,unknown textile mill / supplier-specific site,"autre (silicium, cuirs synthétique)"
+160,Huddersfield Textiles,approx_site_refined,"Huddersfield, United Kingdom","Huddersfield, United Kingdom",REPLACE_TOWN_CENTROID_WITH_COMPANY_SITE
+161,Tata Steel,removed_from_aluminium_chain,"Jamshedpur, India",,Tata Steel kept only for steel records.
+161,Aluminium Corporation of China / Chalco,candidate_site_metadata_refined,"Xining, China","Xining / Qinghai, China",KEEP_AS_ALUMINIUM_PRODUCER_CANDIDATE_CERTIFICATE_REQUIRED
+162,Toray Industries,toray_generic_unknown_site,Japan,unknown textile mill / supplier-specific site,"16 % Tissu, mousse, polyéthylène"
+162,Huddersfield Textiles,approx_site_refined,"Huddersfield, United Kingdom","Huddersfield, United Kingdom",REPLACE_TOWN_CENTROID_WITH_COMPANY_SITE
+163,Mitsubishi Chemical,mitsubishi_hiratsuka,Japan,"Hiratsuka / Kanagawa, Japan",11% Moulage plastique
+163,Toray Industries,toray_split_nagoya,Japan,"Nagoya / Aichi, Japan",11% Moulage plastique
+164,Toray Industries,toray_generic_unknown_site,Japan,unknown textile mill / supplier-specific site,"8% autre (silicium, cuirs synthétique)"
+164,Huddersfield Textiles,approx_site_refined,"Huddersfield, United Kingdom","Huddersfield, United Kingdom",REPLACE_TOWN_CENTROID_WITH_COMPANY_SITE
+165,Toray Industries,toray_generic_unknown_site,Japan,unknown textile mill / supplier-specific site,"16 % Tissu, mousse"
+165,Huddersfield Textiles,approx_site_refined,"Huddersfield, United Kingdom","Huddersfield, United Kingdom",REPLACE_TOWN_CENTROID_WITH_COMPANY_SITE
+167,Tata Steel,removed_from_aluminium_chain,"Jamshedpur, India",,Tata Steel kept only for steel records.
+167,Aluminium Corporation of China / Chalco,candidate_site_metadata_refined,"Xining, China","Xining / Qinghai, China",KEEP_AS_ALUMINIUM_PRODUCER_CANDIDATE_CERTIFICATE_REQUIRED
+167,XPO Logistic,xpo_lyon_company_node,"Greenwich, United States","Lyon, France","Use for company-level EU logistics node, not lane depot."
+168,Toray Industries,toray_generic_unknown_site,Japan,unknown textile mill / supplier-specific site,"Tissu, mousse, polyéthylène"
+168,Huddersfield Textiles,approx_site_refined,"Huddersfield, United Kingdom","Huddersfield, United Kingdom",REPLACE_TOWN_CENTROID_WITH_COMPANY_SITE
+169,Toray Industries,toray_generic_unknown_site,Japan,unknown textile mill / supplier-specific site,"Tissu, mousse, polyéthylène"
+169,Huddersfield Textiles,approx_site_refined,"Huddersfield, United Kingdom","Huddersfield, United Kingdom",REPLACE_TOWN_CENTROID_WITH_COMPANY_SITE
+170,Toray Industries,toray_generic_unknown_site,Japan,unknown textile mill / supplier-specific site,"autre (silicium, cuirs synthétique)"
+170,Huddersfield Textiles,approx_site_refined,"Huddersfield, United Kingdom","Huddersfield, United Kingdom",REPLACE_TOWN_CENTROID_WITH_COMPANY_SITE
+171,Toray Industries,toray_generic_unknown_site,Japan,unknown textile mill / supplier-specific site,"autre (silicium, cuirs synthétique)"
+171,Huddersfield Textiles,approx_site_refined,"Huddersfield, United Kingdom","Huddersfield, United Kingdom",REPLACE_TOWN_CENTROID_WITH_COMPANY_SITE
+172,Mitsubishi Chemical,mitsubishi_hiratsuka,Japan,"Hiratsuka / Kanagawa, Japan",Moulage plastique
+172,Toray Industries,toray_split_nagoya,Japan,"Nagoya / Aichi, Japan",Moulage plastique
+173,Mitsubishi Chemical,mitsubishi_hiratsuka,Japan,"Hiratsuka / Kanagawa, Japan",Moulage plastique
+173,Toray Industries,toray_split_nagoya,Japan,"Nagoya / Aichi, Japan",Moulage plastique
+174,Tata Steel,removed_from_aluminium_chain,"Jamshedpur, India",,Tata Steel kept only for steel records.
+174,Aluminium Corporation of China / Chalco,candidate_site_metadata_refined,"Xining, China","Xining / Qinghai, China",KEEP_AS_ALUMINIUM_PRODUCER_CANDIDATE_CERTIFICATE_REQUIRED
+175,Tata Steel,removed_from_aluminium_chain,"Jamshedpur, India",,Tata Steel kept only for steel records.
+175,Aluminium Corporation of China / Chalco,candidate_site_metadata_refined,"Xining, China","Xining / Qinghai, China",KEEP_AS_ALUMINIUM_PRODUCER_CANDIDATE_CERTIFICATE_REQUIRED

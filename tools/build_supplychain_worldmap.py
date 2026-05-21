@@ -164,6 +164,23 @@ def extract_name_and_country(name_field: str, location_field: str) -> Tuple[str,
 
     return name_clean, country, is_primary
 
+def entry_metadata(entry: Any) -> Dict[str, Any]:
+    if not isinstance(entry, dict):
+        return {
+            "supplier_status": "",
+            "baseline_completion_assumption": False,
+            "baseline_completion_confidence": "",
+            "simulation_node_type": "",
+            "lca_component_trace": {},
+        }
+    return {
+        "supplier_status": entry.get("supplier_status") or "",
+        "baseline_completion_assumption": bool(entry.get("baseline_completion_assumption", False)),
+        "baseline_completion_confidence": entry.get("baseline_completion_confidence") or "",
+        "simulation_node_type": entry.get("simulation_node_type") or "",
+        "lca_component_trace": entry.get("lca_component_trace") or {},
+    }
+
 def load_enriched(path: Path) -> List[Dict[str, Any]]:
     """
     Charge le JSON enrichi (liste d'objets) et fabrique DES 'records' utilisables par la visualisation :
@@ -182,6 +199,8 @@ def load_enriched(path: Path) -> List[Dict[str, Any]]:
     records = []
     for rec in raw:
         if not isinstance(rec, dict):
+            continue
+        if rec.get("simulation_supply_usable") is False:
             continue
         system = (rec.get("system") or "").strip()
         component = (rec.get("component") or "").strip()
@@ -225,7 +244,38 @@ def load_enriched(path: Path) -> List[Dict[str, Any]]:
                     "lon": lon,
                     "role": role_hint,
                     "description": desc,
+                    **entry_metadata(entry),
                 })
+            for extra_entries, extra_tier in (
+                (rec.get("oem_sites") or [], "oem"),
+                (rec.get("logistics_providers") or [], "logistics"),
+            ):
+                for entry in extra_entries:
+                    if not isinstance(entry, dict):
+                        continue
+                    nm = entry.get("name") or entry.get("supplier") or ""
+                    loc = entry.get("location") or entry.get("country") or ""
+                    role_hint = entry.get("role_hint") or entry.get("role") or extra_tier
+                    is_p = bool(entry.get("is_primary", False))
+                    lat = entry.get("lat")
+                    lon = entry.get("lon")
+                    desc = entry.get("description") or entry.get("notes") or ""
+                    supplier, country, is_star = extract_name_and_country(nm, loc)
+                    is_primary = is_p or is_star
+                    lat = float(lat) if isinstance(lat, (int, float, str)) and str(lat).strip() not in ("", "None") else None
+                    lon = float(lon) if isinstance(lon, (int, float, str)) and str(lon).strip() not in ("", "None") else None
+                    if not supplier or country is None:
+                        continue
+                    tiers_out[extra_tier].append({
+                        "supplier": supplier,
+                        "country": country,
+                        "is_primary": is_primary,
+                        "lat": lat,
+                        "lon": lon,
+                        "role": role_hint,
+                        "description": desc,
+                        **entry_metadata(entry),
+                    })
         else:
             # Ancien format : dictionnaire par tier
             suppliers_dict = suppliers_obj if isinstance(suppliers_obj, dict) else {}
@@ -267,9 +317,18 @@ def load_enriched(path: Path) -> List[Dict[str, Any]]:
                         "lon": lon,
                         "role": role_hint,
                         "description": desc,
+                        **entry_metadata(entry if isinstance(entry, dict) else {}),
                     })
 
-        records.append({"system": system, "component": component, "tiers": tiers_out})
+        records.append({
+            "system": system,
+            "component": component,
+            "tiers": tiers_out,
+            "lca": rec.get("lca_traceability") or {},
+            "mass_kg": rec.get("mass_kg"),
+            "mass_confidence": rec.get("mass_confidence") or "",
+            "mass_estimation_method": rec.get("mass_estimation_method") or "",
+        })
     return records
 
 def build_data(records: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -329,6 +388,7 @@ def html_template(title: str, data_json: str) -> str:
   <div>
     <label>Flux</label>
     <label><input type="checkbox" id="showFlows"> Afficher</label>
+    <label><input type="checkbox" id="bridgeGaps" checked> Relier tiers absents</label>
     <label><input type="checkbox" class="flowChk" value="Tier4 → Tier3" checked> T4→T3</label>
     <label><input type="checkbox" class="flowChk" value="Tier3 → Tier2" checked> T3→T2</label>
     <label><input type="checkbox" class="flowChk" value="Tier2 → Tier1" checked> T2→T1</label>
@@ -413,13 +473,40 @@ function currentFilters() {{
   const flowChks = Array.from(document.querySelectorAll(".flowChk")).filter(x => x.checked).map(x => x.value);
   const onlyPrimary = document.getElementById("onlyPrimary").checked;
   const showFlows = document.getElementById("showFlows")?.checked ?? false;
-  return {{ system: sys, component: comp, tiers: tierChks, flows: flowChks, onlyPrimary, showFlows }};
+  const bridgeGaps = document.getElementById("bridgeGaps")?.checked ?? true;
+  return {{ system: sys, component: comp, tiers: tierChks, flows: flowChks, onlyPrimary, showFlows, bridgeGaps }};
 }}
 
 function recordMatches(rec, filters) {{
   if (filters.system !== "All" && rec.system !== filters.system) return false;
   if (filters.component !== "All" && rec.component !== filters.component) return false;
   return true;
+}}
+
+function fmtMass(value) {{
+  if (typeof value !== "number" || !isFinite(value)) return "";
+  if (value >= 10) return value.toFixed(2);
+  if (value >= 1) return value.toFixed(3);
+  return value.toPrecision(3);
+}}
+
+function lcaHover(rec, supplier) {{
+  const lca = rec.lca || supplier.lca_component_trace || {{}};
+  if (!lca || !lca.has_lca_mass) return "ACV: non marquee";
+  const mass = fmtMass(lca.mass_kg);
+  const share = (typeof lca.mass_share_of_non_packaging_bom === "number")
+    ? `, ${{(100 * lca.mass_share_of_non_packaging_bom).toFixed(2)}}% BOM`
+    : "";
+  const equipment = lca.equipment_match ? `\nEquipement ACV: ${{lca.equipment_match}}` : "";
+  const material = lca.material_match ? `\nMatiere ACV: ${{lca.material_match}}` : "";
+  return `ACV: ${{mass}} kg${{share}} | ${{lca.match_level || "match ?"}} | conf=${{lca.confidence || "?"}}${{equipment}}${{material}}`;
+}}
+
+function assumptionHover(supplier) {{
+  if (!supplier.baseline_completion_assumption) return "";
+  const kind = supplier.simulation_node_type ? `, ${{supplier.simulation_node_type}}` : "";
+  const conf = supplier.baseline_completion_confidence ? `, conf=${{supplier.baseline_completion_confidence}}` : "";
+  return `\nHypothese supply baseline${{kind}}${{conf}}`;
 }}
 
 
@@ -431,8 +518,7 @@ function initTierCheckboxes() {{
     const lbl = document.createElement('label');
     const cb = document.createElement('input');
     cb.type = 'checkbox'; cb.className = 'tierChk'; cb.value = t;
-    // cocher par défaut tous sauf peut-être logistics et oem
-    cb.checked = (t !== 'logistics' && t !== 'oem');
+    cb.checked = (t !== 'logistics');
     lbl.appendChild(cb);
     const labelTxt = (DATA.tier_styles[t] && DATA.tier_styles[t].name) ? DATA.tier_styles[t].name : t;
     lbl.appendChild(document.createTextNode(' ' + labelTxt));
@@ -459,7 +545,8 @@ function buildTraces() {{
         const loc = getLatLon(s);
         if (!loc) continue;
         xs.push(loc.lon); ys.push(loc.lat);
-        texts.push(`${{s.supplier || "?"}} — ${{s.country || "?"}}\\n[${{rec.system}}] ${{rec.component}}`);
+        const status = s.supplier_status ? `\\nStatut: ${{s.supplier_status}}` : "";
+        texts.push(`${{s.supplier || "?"}} — ${{s.country || "?"}}\\n[${{rec.system}}] ${{rec.component}}\\n${{lcaHover(rec, s)}}${{status}}${{assumptionHover(s)}}`);
       }}
     }}
 
@@ -479,20 +566,22 @@ function buildTraces() {{
 
   // Lignes/flux avec agrégation par paire de pays
   function addLines(fromTier, toTier, label) {{
-    if (!currentFilters().showFlows) return;
-    if (!currentFilters().flows.includes(label)) return;
+    const filtersNow = currentFilters();
+    if (!filtersNow.showFlows) return;
+    if (!filtersNow.flows.includes(label)) return;
+    if (!filtersNow.tiers.includes(fromTier) || !filtersNow.tiers.includes(toTier)) return;
 
     const style = FLOW_STYLES[label] || {{ color: "#888" }};
     const edgeMap = new Map(); // key: "lat1,lon1->lat2,lon2" ; val: {{from,to,value}}
 
     for (const rec of DATA.records) {{
-      if (!recordMatches(rec, currentFilters())) continue;
+      if (!recordMatches(rec, filtersNow)) continue;
 
       const fromList = (rec.tiers && rec.tiers[fromTier]) ? rec.tiers[fromTier] : [];
       const toList   = (rec.tiers && rec.tiers[toTier]) ? rec.tiers[toTier] : [];
 
       for (const f of fromList) {{
-        if (currentFilters().onlyPrimary && !f.is_primary) continue;
+        if (filtersNow.onlyPrimary && !f.is_primary) continue;
         const fLoc = getLatLon(f);
         if (!fLoc) continue;
 
@@ -500,7 +589,7 @@ function buildTraces() {{
         const fUnits = (typeof f.units === "number" && f.units > 0) ? f.units : 1;
 
         for (const t of toList) {{
-          if (currentFilters().onlyPrimary && !t.is_primary) continue;
+          if (filtersNow.onlyPrimary && !t.is_primary) continue;
           const tLoc = getLatLon(t);
           if (!tLoc) continue;
 
@@ -541,10 +630,79 @@ function buildTraces() {{
     }});
   }}
 
+  function compactTierName(tier) {{
+    if (tier === "tier4_raw_material") return "T4";
+    if (tier === "tier3_first_transformation") return "T3";
+    if (tier === "tier2_second_transformation") return "T2";
+    if (tier === "tier1") return "T1";
+    if (tier === "oem") return "OEM";
+    return tier;
+  }}
+
+  function addGapBridgeLines() {{
+    const filtersNow = currentFilters();
+    if (!filtersNow.showFlows || !filtersNow.bridgeGaps) return;
+
+    const ordered = ["tier4_raw_material", "tier3_first_transformation", "tier2_second_transformation", "tier1", "oem"];
+    const edgeMap = new Map();
+
+    for (const rec of DATA.records) {{
+      if (!recordMatches(rec, filtersNow)) continue;
+      const present = [];
+      for (let idx = 0; idx < ordered.length; idx++) {{
+        const tier = ordered[idx];
+        const list = ((rec.tiers && rec.tiers[tier]) ? rec.tiers[tier] : [])
+          .filter(s => !filtersNow.onlyPrimary || s.is_primary)
+          .filter(s => getLatLon(s));
+        if (list.length) present.push({{ tier, idx, list }});
+      }}
+
+      for (let i = 0; i < present.length - 1; i++) {{
+        const from = present[i];
+        const to = present[i + 1];
+        if (to.idx - from.idx <= 1) continue;
+        if (!filtersNow.tiers.includes(from.tier) || !filtersNow.tiers.includes(to.tier)) continue;
+        const missing = ordered.slice(from.idx + 1, to.idx).map(compactTierName).join(", ");
+        const label = `${{compactTierName(from.tier)}}->${{compactTierName(to.tier)}} (tier absent: ${{missing}})`;
+
+        for (const f of from.list) {{
+          const fLoc = getLatLon(f);
+          if (!fLoc) continue;
+          for (const t of to.list) {{
+            const tLoc = getLatLon(t);
+            if (!tLoc) continue;
+            const dist = haversineKm(fLoc.lat, fLoc.lon, tLoc.lat, tLoc.lon);
+            if (dist < MIN_FLOW_DIST_KM) continue;
+            const key = `${{label}}|${{fLoc.lat.toFixed(3)}},${{fLoc.lon.toFixed(3)}}->${{tLoc.lat.toFixed(3)}},${{tLoc.lon.toFixed(3)}}`;
+            if (!edgeMap.has(key)) {{
+              edgeMap.set(key, {{ from: fLoc, to: tLoc, value: 0, label }});
+            }}
+            edgeMap.get(key).value += 1;
+          }}
+        }}
+      }}
+    }}
+
+    edgeMap.forEach(({{from, to, value, label}}) => {{
+      lines.push({{
+        type: "scattergeo",
+        mode: "lines",
+        lon: [from.lon, to.lon],
+        lat: [from.lat, to.lat],
+        line: {{ width: 1.6, color: "#6B7280", dash: "dot" }},
+        opacity: 0.72,
+        hoverinfo: "text",
+        text: `${{label}} — continuité de chaîne, qty: ${{value}}`,
+        showlegend: false
+      }});
+    }});
+  }}
+
   addLines("tier4_raw_material", "tier3_first_transformation", "Tier4 → Tier3");
   addLines("tier3_first_transformation", "tier2_second_transformation", "Tier3 → Tier2");
   addLines("tier2_second_transformation", "tier1", "Tier2 → Tier1");
   addLines("tier1", "oem", "Tier1 → OEM");
+  addGapBridgeLines();
 
   return traces.concat(lines);
 }}
@@ -590,7 +748,7 @@ function initUI() {{
   fillSelect(document.getElementById("componentSel"), DATA.components || ["All"]);
   document.getElementById("systemSel").addEventListener("change", ()=>{{ refreshDependentSelects(); draw(); }});
   document.getElementById("componentSel").addEventListener("change", ()=>{{ refreshDependentSelects(); draw(); }});
-  for (const el of document.querySelectorAll(".tierChk, .flowChk, #onlyPrimary, #showFlows")) {{ el.addEventListener("change", draw); }}
+  for (const el of document.querySelectorAll(".tierChk, .flowChk, #onlyPrimary, #showFlows, #bridgeGaps")) {{ el.addEventListener("change", draw); }}
   draw();
 }}
 window.addEventListener("load", initUI);
@@ -621,7 +779,7 @@ def main():
     data = build_data(records)
     html_str = html_template(args.title, json.dumps(data, ensure_ascii=False))
     out_path.write_text(html_str, encoding="utf-8")
-    print(f"[OK] HTML généré → {out_path.resolve()}")
+    print(f"[OK] HTML generated -> {out_path.resolve()}")
 
 if __name__ == "__main__":
     main()

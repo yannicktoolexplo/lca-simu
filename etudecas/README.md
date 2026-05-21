@@ -23,6 +23,7 @@ Chaîne principale :
 - [rebuild_mrp_lot_policy_baseline.py](C:/dev/lca-simu/etudecas/simulation/baselines/rebuild_mrp_lot_policy_baseline.py)
 - [run_first_simulation.py](C:/dev/lca-simu/etudecas/simulation/run_first_simulation.py)
 - [build_supplychain_worldmap.py](C:/dev/lca-simu/etudecas/affichage_supply_script/build_supplychain_worldmap.py)
+- [build_supplier_risk_kpi.py](C:/dev/lca-simu/etudecas/supplier_risk_kpi/build_supplier_risk_kpi.py) pour produire le panel KPI risque fournisseur depuis les sorties de simulation
 
 Artefacts de référence actifs :
 
@@ -66,5 +67,6 @@ Ces scripts ne sont plus dans la chaîne principale, mais restent disponibles po
 - [estimate_supplier_capacities.py](C:/dev/lca-simu/etudecas/simulation_prep/estimate_supplier_capacities.py)
 - dossiers `SC_*`, `Prediction`, `worstcase`
 - scripts de sensibilité, Monte Carlo et scénarios spécifiques dans [simulation](C:/dev/lca-simu/etudecas/simulation)
+- [supplier_risk_kpi](C:/dev/lca-simu/etudecas/supplier_risk_kpi) pour le MVP KPI fournisseur probabiliste/actionnable
 
 Le principe est de ne plus considérer ces scripts comme la voie nominale de construction de la baseline.

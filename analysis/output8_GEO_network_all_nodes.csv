@@ -1,0 +1,118 @@
+﻿variant,node_id,supplier,role_hint,country,region,lat,lon,is_primary,supplier_status,source_ids,geocode_status
+all,"alcoa@40.4406,-79.9959",Alcoa,tier4_raw_material,United States,Outside_Europe,40.4406,-79.9959,True,baseline_primary,SRC_ALCOA_001,source_backed_site
+all,"hindalco_industries@19.076,72.8777",Hindalco Industries,tier4_raw_material,India,Outside_Europe,19.076,72.8777,False,alternate,SRC_HINDALCO_001,source_backed_site
+all,"aluminium_corporation_of_china_chalco@39.9042,116.4074",Aluminium Corporation of China / Chalco,tier4_raw_material,China,Outside_Europe,39.9042,116.4074,False,alternate_requires_allocation_source,,fallback_site_needs_source
+all,"tata_steel@22.7854,86.1995",Tata Steel,tier4_raw_material,India,Outside_Europe,22.7853607,86.1994836,False,alternate,SRC_TATA_STEEL_001,source_backed_site
+all,"constellium@45.3094,5.6076",Constellium,tier3_first_transformation,France,France,45.3094248,5.607597,False,alternate,SRC_CONSTELLIUM_001,source_backed_site
+all,"amag_austria_metall@48.2267,13.0357",AMAG Austria Metall,tier3_first_transformation,Austria,Europe_non_FR,48.2266686,13.0356549,True,baseline_primary,SRC_AMAG_001,source_backed_site
+all,"thyssenkrupp_materials_france@48.7585,1.9253",thyssenkrupp Materials France,tier3_first_transformation,France,France,48.758488,1.925304,False,alternate,SRC_THYSSEN_001,source_backed_site
+all,"euralliage_ile_de_france@48.986,2.449",Euralliage Ile de France,tier3_first_transformation,France,France,48.986,2.449,False,alternate_requires_allocation_source,SRC_EURALLIAGE_001,source_backed_site
+all,"aluminium_france@47.995,3.7585",Aluminium France,tier3_first_transformation,France,France,47.9949854,3.7585376,False,alternate,,kept_from_source_json
+all,"espace@44.7776,-0.6475",ESPACE,tier1,France,France,44.7776436,-0.6475364,True,baseline_primary,,kept_from_source_json
+all,"figeac_aero@44.5908,2.0333",Figeac Aero,tier1,France,France,44.590773,2.0333182,False,alternate,SRC_FIGEAC_001,source_backed_site
+all,"ets_gattefin@47.1426,2.2372",ETS Gattefin,tier1,France,France,47.1426393,2.2372016,False,alternate_requires_allocation_source,SRC_GATTEFIN_001,source_backed_site
+all,"sumpar@49.3893,1.2086",SUMPAR,tier1,France,France,49.3892868,1.2085766,False,alternate_requires_allocation_source,SRC_SUMPAR_001,source_backed_site
+all,"groupe_segnere_segnere_ade@43.1576,-0.0191",Groupe Segnere / SEGNERE Ade,tier1,France,France,43.1576,-0.0191,False,alternate_requires_allocation_source,SRC_SEGNERE_001,source_backed_site
+all,"mga_villeneuve_st_lot@44.3975,0.7317",MGA Villeneuve St Lot,tier1,France,France,44.3974711,0.7316929,False,alternate_requires_allocation_source,,kept_from_source_json
+all,"senior_aerospace_thailand@13.0914,101.0108",Senior Aerospace Thailand,tier1,Thailand,Outside_Europe,13.0914,101.0108,False,alternate_requires_allocation_source,SRC_SENIOR_THAILAND_001,source_backed_site
+all,"l_p_aerospace@48.8918,2.177",L&P Aerospace,tier1,France,France,48.8918171,2.176984,False,alternate,,kept_from_source_json
+all,"jv_group@44.8541,-0.4991",JV Group,tier1,France,France,44.854094,-0.4991053,False,alternate_requires_allocation_source,,kept_from_source_json
+all,"groupe_lauak@43.3833,-1.328",Groupe LAUAK,tier1,France,France,43.3833153,-1.3279615,False,alternate,SRC_LAUAK_001,source_backed_site
+all,"safran_seats_safran_internal_group@48.8125,1.9495",Safran Seats / Safran internal group,oem,France,France,48.8125,1.9495,True,baseline_primary,SRC_SAFRAN_SEATS_001,source_backed_site
+all,"saarstahl@49.3594,7.1715",Saarstahl,tier4_raw_material,Germany,Europe_non_FR,49.3593951,7.1714727,True,baseline_primary,,kept_from_source_json
+all,"arcelormittal@49.6116,6.1319",ArcelorMittal,tier4_raw_material,Luxembourg,Europe_non_FR,49.6116,6.1319,False,alternate_requires_allocation_source,SRC_ARCELORMITTAL_001,source_backed_site
+all,"china_baowu_baosteel@31.2304,121.4737",China Baowu / Baosteel,tier4_raw_material,China,Outside_Europe,31.2304,121.4737,False,alternate,SRC_BAOWU_001,source_backed_site
+all,"nucor_corp@35.2271,-80.8431",Nucor Corp,tier4_raw_material,United States,Outside_Europe,35.2271,-80.8431,False,alternate,,fallback_site_needs_source
+all,"krupp@51.335,7.5747",Krupp,tier3_first_transformation,Germany,Europe_non_FR,51.3350109,7.5747349,False,alternate,,kept_from_source_json
+all,"altec_etirage@45.3904,5.3539",Altec Etirage,tier3_first_transformation,France,France,45.390391,5.353941,False,alternate,,kept_from_source_json
+all,"aubert_duval@45.7772,3.087",Aubert & Duval,tier3_first_transformation,France,France,45.7772,3.087,True,baseline_primary,SRC_AUBERT_001,source_backed_site
+all,"mitsubishi_chemical@35.6812,139.7671",Mitsubishi Chemical,tier4_raw_material,Japan,Outside_Europe,35.6812,139.7671,True,baseline_primary,,fallback_site_needs_source
+all,"basf@49.481,8.435",BASF,tier4_raw_material,Germany,Europe_non_FR,49.481,8.435,False,alternate,SRC_BASF_001,source_backed_site
+all,"bayer@50.9431,13.6228",Bayer,tier4_raw_material,Germany,Europe_non_FR,50.9431344,13.6228032,False,alternate,,kept_from_source_json
+all,"toray_industries@35.6866,139.7746",Toray Industries,tier3_first_transformation,Japan,Outside_Europe,35.6866,139.7746,True,baseline_primary,SRC_TORAY_001,source_backed_site
+all,"exsto_baule_exsto_polymere@45.0506,5.0835",EXSTO / Baule-Exsto Polymere,tier3_first_transformation,France,France,45.0506,5.0835,False,alternate,SRC_EXSTO_001,source_backed_site
+all,"krohne@51.1498,13.7978",Krohne,tier2_second_transformation,Germany,Europe_non_FR,51.1498261,13.7978466,False,alternate,,kept_from_source_json
+all,"dupont_de_nemours@39.7391,-75.5398",DuPont de Nemours,tier2_second_transformation,United States,Outside_Europe,39.7391,-75.5398,False,alternate,SRC_DUPONT_001,source_backed_site
+all,"ensinger@48.501,8.8202",Ensinger,tier2_second_transformation,Germany,Europe_non_FR,48.5010122,8.8201999,True,baseline_primary,,kept_from_source_json
+all,"plastitek@49.9371,1.6266",Plastitek,tier2_second_transformation,France,France,49.9370621,1.6266078,False,alternate,,kept_from_source_json
+all,"epodex@48.8456,2.3249",EPODEX,tier3_first_transformation,France,France,48.845562,2.3249361,True,baseline_primary,SRC_FORMICA_001,kept_from_source_json
+all,"henkel@50.9878,13.8463",Henkel,tier3_first_transformation,Germany,Europe_non_FR,50.987772,13.8462669,False,alternate,SRC_HENKEL_001,kept_from_source_json
+all,"combigo@48.8696,2.3222",Combigo,tier2_second_transformation,France,France,48.869635,2.3222214,True,baseline_primary,,kept_from_source_json
+all,"sika@40.6998,-73.9244",Sika,tier2_second_transformation,United States,Outside_Europe,40.6997868,-73.9244291,False,alternate,SRC_SIKA_001,kept_from_source_json
+all,"adhetec@43.2204,0.0423",Adhetec,tier1,France,France,43.2204471,0.0422628,False,alternate,SRC_ADHETEC_001,kept_from_source_json
+all,"kemko_aerospace@38.627,-90.1994",KEMKO Aerospace,tier1,"St. Louis, United States",Outside_Europe,38.627,-90.1994,False,alternate,SRC_KEMKO_001,source_backed_city_or_hq
+all,"zijin_mining_group@25.0661,116.4233",Zijin Mining Group,tier4_raw_material,China,Outside_Europe,25.0661001,116.4232586,False,alternate,,kept_from_source_json
+all,"aurubis@50.7585,6.2343",Aurubis,tier3_first_transformation,Germany,Europe_non_FR,50.7584717,6.234312,True,baseline_primary,,kept_from_source_json
+all,"ampco_metal_france@45.6782,4.9349",Ampco Metal France,tier3_first_transformation,France,France,45.6782426,4.9349071,False,alternate,,kept_from_source_json
+all,"gruppo_mastrotto@45.556,11.341",Gruppo Mastrotto,tier3_first_transformation,Italy,Europe_non_FR,45.556,11.341,True,baseline_primary_inferred_after_review,SRC_MASTROTTO_001,kept_from_source_json
+all,"maison_fichet@48.8706,2.3634",Maison Fichet,tier2_second_transformation,France,France,48.8706283,2.3633735,True,baseline_primary,SRC_MAISON_FICHET_001,kept_from_source_json
+all,"mgr_foamtex_ltd@51.7396,-0.9665",MGR Foamtex Ltd,tier2_second_transformation,United Kingdom,Europe_non_FR,51.739561,-0.966526,False,alternate,SRC_MGR_001,source_backed_site
+all,"ach@46.5802,0.3404",ACH,tier1,France,France,46.5802,0.3404,False,alternate_requires_allocation_source,SRC_ACH_001,source_backed_site
+all,"celso_sas@43.9363,1.3228",Celso SAS,tier1,France,France,43.9363,1.3228,False,alternate,SRC_CELSO_001,source_backed_site
+all,"e2ip_technologies@45.455,-73.735",e2ip technologies,tier2_second_transformation,Canada,Outside_Europe,45.455,-73.735,True,baseline_primary_inferred_after_review,SRC_E2IP_001,source_backed_site
+all,"thales@43.5639,1.3821",Thales,tier1,France,France,43.5638842,1.3821146,True,baseline_primary_inferred_after_review,SRC_THALES_001,kept_from_source_json
+all,"madelec_aero@48.6244,1.8163",Madelec Aero,tier1,France,France,48.6244007,1.8162547,False,alternate,SRC_MADEL_EC_001,kept_from_source_json
+all,"schott_aviation@51.774,7.8699",SCHOTT Aviation,tier1,Germany,Europe_non_FR,51.7740052,7.8698781,False,alternate,SRC_SCHOTT_001,kept_from_source_json
+all,"klabin_s_a@-29.7858,-51.1144",Klabin S.A.,tier4_raw_material,Brazil,Outside_Europe,-29.7858184,-51.1144326,True,baseline_primary,SRC_KLABIN_001,kept_from_source_json
+all,"billerud@59.4787,15.3314",Billerud,tier4_raw_material,Sweden,Europe_non_FR,59.4786752,15.3314174,False,alternate,SRC_BILLERUD_001,kept_from_source_json
+all,"nordic_paper@59.132,12.928",Nordic Paper,tier4_raw_material,Sweden,Europe_non_FR,59.132,12.928,False,alternate,SRC_NORDIC_PAPER_001,source_backed_site
+all,"gascogne_papier@44.209,-1.2548",Gascogne Papier,tier4_raw_material,France,France,44.2090428,-1.2547963,False,alternate,SRC_GASCOGNE_001,kept_from_source_json
+all,"daio_paper_corporation@33.9803,133.5498",Daio Paper Corporation,tier3_first_transformation,"Shikokuchuo, Japan",Outside_Europe,33.9803,133.5498,False,alternate,SRC_DAIO_001,source_backed_city_or_hq
+all,"kronotex_gmbh_co@53.1472,12.3793",Kronotex GmbH & Co,tier3_first_transformation,Germany,Europe_non_FR,53.1471628,12.3793247,True,baseline_primary,SRC_KRONOTEX_001,kept_from_source_json
+all,"formica@42.9058,2.1928",Formica,tier3_first_transformation,France,France,42.9058395,2.1927674,False,alternate,SRC_FORMICA_001,kept_from_source_json
+all,"glatfelter@39.8712,-76.864",Glatfelter,tier2_second_transformation,United States,Outside_Europe,39.871164,-76.8640254,True,baseline_primary_inferred_after_review,SRC_GLATFELTER_001,kept_from_source_json
+all,"saint_gobain@49.5967,3.3759",Saint-Gobain,tier3_first_transformation,France,France,49.5967,3.3759,True,baseline_primary,SRC_SAINTGOBAIN_001,kept_from_source_json
+all,"shin_etsu_silicones@35.6812,139.7671",Shin-Etsu Silicones,tier3_first_transformation,"Tokyo, Japan",Outside_Europe,35.6812,139.7671,False,alternate,SRC_SHINETSU_001,source_backed_city_or_hq
+all,"silicone_engineering@53.7486,-2.4875",Silicone Engineering,tier2_second_transformation,"Blackburn, United Kingdom",Outside_Europe,53.7486,-2.4875,True,baseline_primary_inferred_after_review,SRC_SILICONE_ENGINEERING_001,source_backed_city_or_hq
+all,"plastiservice_charleroi@50.4524,4.4446",Plastiservice Charleroi,tier2_second_transformation,Belgium,Europe_non_FR,50.4524,4.4446,False,alternate,SRC_PLASTISERVICE_001,source_backed_site
+all,"3m@41.9519,-88.7122",3M,tier2_second_transformation,United States,Outside_Europe,41.9519215,-88.7122029,True,baseline_primary_inferred_after_review,SRC_3M_001,kept_from_source_json
+all,"zhejiang_yuxin_textile_co_ltd@30.5278,120.4306","Zhejiang Yuxin Textile Co.,Ltd.",tier3_first_transformation,China,Outside_Europe,30.5278,120.4306,True,baseline_primary,,kept_from_source_json
+all,"huddersfield_textiles@53.6458,-1.785",Huddersfield Textiles,tier3_first_transformation,"Huddersfield, United Kingdom",Outside_Europe,53.6458,-1.785,False,alternate,SRC_HUDDERSFIELD_001,source_backed_city_or_hq
+all,"diatex@45.7716,4.8849",DIATEX,tier3_first_transformation,France,France,45.7716,4.8849,False,alternate_requires_allocation_source,,kept_from_source_json
+all,"groupe_sagaert@50.5073,2.4684",Groupe SAGAERT,tier3_first_transformation,France,France,50.5073,2.4684,False,alternate,,kept_from_source_json
+all,"asd_textiles@48.9901,2.3164",ASD Textiles,tier3_first_transformation,France,France,48.9900561,2.3163805,False,alternate,,kept_from_source_json
+all,"telatex@47.885,6.6588",TELATEX,tier3_first_transformation,France,France,47.885,6.6588,False,alternate,,kept_from_source_json
+all,"latim@48.668,2.5639",LATIM,tier2_second_transformation,France,France,48.668,2.5639,False,alternate,,kept_from_source_json
+all,"franklin@51.8215,20.5269",FRANKLIN,tier2_second_transformation,Poland,Europe_non_FR,51.8215327,20.5268712,False,alternate_requires_allocation_source,,kept_from_source_json
+all,"rio_tinto_alma_works@48.5816,-71.6325",Rio Tinto Alma Works,tier4_raw_material,Canada,Outside_Europe,48.581645,-71.632539,False,alternate,,kept_from_source_json
+all,"rio_tinto_fer_et_titane@46.0401,-73.1342",Rio Tinto Fer et Titane,tier4_raw_material,Canada,Outside_Europe,46.0401234,-73.1341916,False,alternate,,kept_from_source_json
+all,"schroth_safety_products@26.18,-80.19",SCHROTH Safety Products,tier2_second_transformation,United States,Outside_Europe,26.18,-80.19,True,baseline_primary,SRC_SCHROTH_001,source_backed_site
+all,"amsafe@33.456,-112.16",AmSafe,tier1,United States,Outside_Europe,33.456,-112.16,False,alternate_requires_allocation_source,SRC_AMSAFE_001,source_backed_site
+all,"j_c_aero@54.6329,25.2778",J&C Aero,tier1,Lithuania,Europe_non_FR,54.6329,25.2778,False,alternate,SRC_JCAERO_001,source_backed_site
+all,"anjou_aeronautique@48.976,2.032",Anjou Aeronautique,tier1,France,France,48.976,2.032,False,alternate,SRC_ANJOU_001,source_backed_site
+all,"ancra_international@34.123,-117.908",Ancra International,tier1,United States,Outside_Europe,34.123,-117.908,False,alternate,SRC_ANCRA_001,source_backed_site
+all,"ta_aerospace@34.428,-118.561",TA Aerospace,tier1,United States,Outside_Europe,34.428,-118.561,False,alternate,SRC_TA_001,source_backed_site
+all,"jamco_aircraft_interiors_niigata@38.0218,139.4275",JAMCO Aircraft Interiors - Niigata,tier1,Japan,Outside_Europe,38.0218,139.4275,False,alternate,SRC_JAMCO_001,source_backed_site
+all,"jamco_aircraft_interiors_miyazaki@31.8961,131.3429",JAMCO Aircraft Interiors - Miyazaki,tier1,Japan,Outside_Europe,31.8961,131.3429,False,alternate,SRC_JAMCO_001,source_backed_site
+all,"jamco_philippines_inc@15.1858,120.5615",JAMCO Philippines Inc.,tier1,Philippines,Outside_Europe,15.1858,120.5615,False,alternate,SRC_JAMCO_001,source_backed_site
+all,"yamazaki_velvet_co@35.8895,136.1772",Yamazaki Velvet Co.,tier3_first_transformation,Japan,Outside_Europe,35.88946,136.17723,False,alternate,,kept_from_source_json
+all,"lelievre_paris@48.8666,2.3391",Lelièvre Paris,tier2_second_transformation,France,France,48.8666,2.3391,True,baseline_primary,SRC_LELIEVRE_001,kept_from_source_json
+all,"te_connectivity@40.044,-75.4388",TE Connectivity,tier1,"Berwyn, United States",Outside_Europe,40.044,-75.4388,True,baseline_primary_inferred_after_review,SRC_TE_001,source_backed_city_or_hq
+all,"honeywell_aerospace@33.7741,-84.3843",Honeywell Aerospace,tier1,United States,Outside_Europe,33.7741222,-84.3843122,False,alternate,SRC_HONEYWELL_001,kept_from_source_json
+all,"liebherr_aerospace@47.6031,9.8896",Liebherr Aerospace,tier1,"Lindenberg im Allgau, Germany",Outside_Europe,47.6031,9.8896,True,baseline_primary,SRC_LIEBHERR_001,source_backed_city_or_hq
+all,"sabic@24.7136,46.6753",SABIC,tier4_raw_material,Arabie Saoudite,Outside_Europe,24.7136,46.6753,True,baseline_primary,SRC_SABIC_001,kept_from_source_json
+all,"total@49.3791,1.1121",Total,tier4_raw_material,France,France,49.379097,1.1120808,False,alternate,,kept_from_source_json
+all,"auberon_technologies@45.6547,4.8078",Auberon Technologies,tier2_second_transformation,France,France,45.6547,4.8078,False,alternate,SRC_AUBERON_001,kept_from_source_json
+all,"innoptec@48.8238,1.9514",Innoptec,tier2_second_transformation,France,France,48.8238,1.9514,False,alternate,SRC_INNOPTEC_001,kept_from_source_json
+all,"arkema_s_a@45.8436,5.0971",Arkema S.A,tier4_raw_material,France,France,45.8436061,5.0970802,False,alternate,,kept_from_source_json
+all,"shandong_loyal_chemical_co_ltd@36.7059,117.0166","Shandong Loyal Chemical Co., Ltd.",tier4_raw_material,China,Outside_Europe,36.7059,117.0166,True,baseline_primary,SRC_SHANDONG_LOYAL_001,kept_from_source_json
+all,"chemchina@39.9693,116.3233",ChemChina,tier4_raw_material,China,Outside_Europe,39.9693,116.3233,False,alternate,SRC_CHEMCHINA_WEF_001,kept_from_source_json
+all,"orbia_mexichem@19.6144,-99.1819",Orbia / Mexichem,tier4_raw_material,Mexico,Outside_Europe,19.6143677,-99.1819216,False,alternate,SRC_ORBIA_001,kept_from_source_json
+all,"sekisui_kydex@41.0389,-76.4335",SEKISUI KYDEX,tier2_second_transformation,United States,Outside_Europe,41.0389,-76.4335,False,alternate,SRC_SEKISUI_KYDEX_001,kept_from_source_json
+all,"plastiforme@47.2725,6.0637",Plastiforme,tier2_second_transformation,France,France,47.2725163,6.063681,False,alternate,,kept_from_source_json
+all,"plastiform@47.2722,6.0636",Plastiform,tier2_second_transformation,France,France,47.2722365,6.0635759,False,alternate,SRC_PLASTIFORM_001,kept_from_source_json
+all,"vaisala@64.7601,28.3141",Vaisala,tier2_second_transformation,Finland,Europe_non_FR,64.760075,28.314085,False,alternate,,kept_from_source_json
+all,"siemens@49.4807,10.9627",Siemens,tier1,Germany,Europe_non_FR,49.4807306,10.9626833,False,alternate,,kept_from_source_json
+all,"halcyon_hevecam@2.9406,9.9102",Halcyon Hevecam,tier4_raw_material,Cameroun,Outside_Europe,2.9406,9.9102,True,baseline_primary,SRC_HALCYON_001,kept_from_source_json
+all,"socfin_lac_liberia@5.9161,-10.0161",Socfin LAC Liberia,tier4_raw_material,Liberia,Outside_Europe,5.9161,-10.0161,False,alternate,SRC_SOCFIN_001,kept_from_source_json
+all,"halcyon_sdci_a@5.3433,-4.1737",Halcyon SDCI-A,tier4_raw_material,Côte d'Ivoire,Outside_Europe,5.3433,-4.1737,False,alternate,SRC_HALCYON_001,kept_from_source_json
+all,"halcyon_pt_remco_jambi@-1.6243,103.621",Halcyon PT Remco Jambi,tier4_raw_material,Indonésie,Outside_Europe,-1.6243,103.621,False,alternate,SRC_HALCYON_001,kept_from_source_json
+all,"socfin_src_weala@6.451,-10.3282",Socfin SRC Weala,tier4_raw_material,Liberia,Outside_Europe,6.451,-10.3282,False,alternate,SRC_SOCFIN_001,kept_from_source_json
+all,"socfin_okomu@6.6078,5.2863",Socfin Okomu,tier4_raw_material,Nigeria,Outside_Europe,6.6078,5.2863,False,alternate,SRC_SOCFIN_001,kept_from_source_json
+all,"ultrafabrics@36.65,138.18",Ultrafabrics,tier3_first_transformation,Japan,Outside_Europe,36.65,138.18,True,baseline_primary,SRC_ULTRAFABRICS_001,kept_from_source_json
+all,"somani@41.3521,-8.3628",SOMANI,tier3_first_transformation,Portugal,Europe_non_FR,41.3520515,-8.3628041,True,baseline_primary_inferred_after_review,SRC_SOMANI_001,kept_from_source_json
+all,"kvadrat@56.1761,10.6753",Kvadrat,tier2_second_transformation,Denmark,Europe_non_FR,56.1761259,10.6752883,False,alternate,SRC_KVADRAT_001,kept_from_source_json
+all,"sgl_carbon@49.3213,12.2299",SGL Carbon,tier2_second_transformation,Germany,Europe_non_FR,49.3212645,12.2299382,True,baseline_primary,SRC_HEXCEL_001,kept_from_source_json
+all,"hexcel@45.8369,5.0864",Hexcel,tier2_second_transformation,France,France,45.8369,5.0864,False,alternate,SRC_HEXCEL_001,kept_from_source_json
+all,"collins@43.2965,5.3716",COLLINS,tier1,France,France,43.2964623,5.3715778,True,baseline_primary,,kept_from_source_json
+all,"airbus_atlantic_stelia_aerospace@45.936,-0.965",Airbus Atlantic / STELIA Aerospace,tier1,France,France,45.936,-0.965,False,alternate,SRC_STELIA_AIRBUS_001,source_backed_site

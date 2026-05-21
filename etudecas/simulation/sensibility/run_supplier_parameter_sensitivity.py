@@ -25,6 +25,18 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+SERVICE_KPI_TOLERANCE = 0.001
+COUNT_KPI_TOLERANCE = 1.0
+REQUIRED_DERIVED_KPI_COLUMNS = [
+    "kpi::product_availability",
+    "kpi::line_adherence",
+    "kpi::line_nervousness",
+    "kpi::production_replanning_count",
+    "kpi::raw_material_stockout_days",
+    "kpi::material_delay_days",
+    "kpi::inventory_cost",
+]
+
 from etudecas.simulation.analysis_batch_common import (  # noqa: E402
     apply_scales,
     choose_scenario,
@@ -74,8 +86,8 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--groups",
-        default="stock,capacity",
-        help="Comma-separated groups: stock,capacity,lead_time,reliability,external.",
+        default="stock,capacity,lead_time,reliability,external,combined",
+        help="Comma-separated groups: stock,capacity,lead_time,reliability,external,combined.",
     )
     parser.add_argument(
         "--stock-levels",
@@ -128,6 +140,42 @@ def parse_args() -> argparse.Namespace:
         "--summarize-existing",
         action="store_true",
         help="Rebuild summary/report files from an existing supplier_parameter_sensitivity_cases.csv without rerunning cases.",
+    )
+    parser.add_argument(
+        "--combined-capacity-level",
+        type=float,
+        default=0.75,
+        help="Supplier capacity level for combined capacity+delay scenarios.",
+    )
+    parser.add_argument(
+        "--combined-stock-level",
+        type=float,
+        default=0.50,
+        help="Supplier stock level for combined stock+reliability scenarios.",
+    )
+    parser.add_argument(
+        "--combined-lead-time-level",
+        type=float,
+        default=1.25,
+        help="Supplier lead-time level for combined capacity+delay scenarios.",
+    )
+    parser.add_argument(
+        "--combined-reliability-level",
+        type=float,
+        default=0.97,
+        help="Supplier reliability level for combined stock+reliability scenarios.",
+    )
+    parser.add_argument(
+        "--combined-upstream-capacity-level",
+        type=float,
+        default=0.75,
+        help="Supplier upstream supply capacity level for combined upstream scenarios.",
+    )
+    parser.add_argument(
+        "--combined-upstream-lead-level",
+        type=float,
+        default=1.25,
+        help="Supplier upstream supply lead-time level for combined upstream scenarios.",
     )
     return parser.parse_args()
 
@@ -457,6 +505,140 @@ def operational_metrics(output_dir: Path) -> dict[str, float]:
     }
 
 
+def inventory_holding_costs_by_node(data_dir: Path, case_input: Path | None) -> dict[str, float]:
+    if case_input is None or not case_input.exists():
+        return {}
+    try:
+        case_data = load_json(case_input)
+    except Exception:
+        return {}
+
+    holding_by_key: dict[tuple[str, str], float] = {}
+    for node in case_data.get("nodes", []) or []:
+        node_id = str(node.get("id") or "")
+        for state in ((node.get("inventory") or {}).get("states") or []):
+            item_id = str(state.get("item_id") or "")
+            holding = to_float((state.get("holding_cost") or {}).get("value"), math.nan)
+            if node_id and item_id and not math.isnan(holding):
+                holding_by_key[(node_id, item_id)] = max(0.0, holding)
+
+    if not holding_by_key:
+        return {}
+
+    stock_files = [
+        "production_input_stocks_daily.csv",
+        "production_output_products_daily.csv",
+        "production_supplier_stocks_daily.csv",
+        "production_dc_stocks_daily.csv",
+    ]
+    cost_by_node: dict[str, float] = defaultdict(float)
+    for file_name in stock_files:
+        for row in read_csv_rows(data_dir / file_name):
+            node_id = str(row.get("node_id") or "")
+            item_id = str(row.get("item_id") or row.get("output_item_id") or "")
+            stock = max(0.0, to_float(row.get("stock_end_of_day"), 0.0))
+            holding = holding_by_key.get((node_id, item_id), 0.0)
+            if node_id and holding > 0.0 and stock > 0.0:
+                cost_by_node[node_id] += stock * holding
+    return {node_id: round(value, 6) for node_id, value in cost_by_node.items()}
+
+
+def derived_case_kpis(output_dir: Path, case_input: Path | None = None) -> dict[str, float]:
+    data_dir = output_dir / "data"
+    out: dict[str, float] = {}
+
+    demand_rows = read_csv_rows(data_dir / "production_demand_service_daily.csv")
+    demand_line_count = 0
+    available_line_count = 0
+    for row in demand_rows:
+        required = max(0.0, to_float(row.get("required_with_backlog_qty"), 0.0))
+        served = max(0.0, to_float(row.get("served_qty"), 0.0))
+        if required <= 1e-9:
+            continue
+        demand_line_count += 1
+        if served + 1e-6 >= required:
+            available_line_count += 1
+    out["product_availability"] = (
+        round(available_line_count / demand_line_count, 9) if demand_line_count else 1.0
+    )
+
+    planned_qty_total = 0.0
+    adhered_qty_total = 0.0
+    line_changes = 0
+    replanning_count = 0
+    previous_plan_by_line: dict[tuple[str, str], float] = {}
+    for row in read_csv_rows(data_dir / "production_constraint_daily.csv"):
+        node_id = str(row.get("node_id") or "")
+        item_id = str(row.get("output_item_id") or row.get("item_id") or "")
+        planned = max(0.0, to_float(row.get("planned_qty_after_lot_rule"), 0.0))
+        actual = max(0.0, to_float(row.get("actual_qty"), 0.0))
+        planned_qty_total += planned
+        adhered_qty_total += min(actual, planned)
+        key = (node_id, item_id)
+        previous_plan = previous_plan_by_line.get(key)
+        if previous_plan is not None and abs(planned - previous_plan) > 1e-6:
+            line_changes += 1
+        previous_plan_by_line[key] = planned
+        requested_lots = to_float(row.get("requested_lot_starts"), math.nan)
+        actual_lots = to_float(row.get("actual_lot_starts"), math.nan)
+        lot_shortfall = max(0.0, to_float(row.get("shortfall_vs_lot_plan_qty"), 0.0))
+        if (
+            (not math.isnan(requested_lots) and not math.isnan(actual_lots) and actual_lots + 1e-9 < requested_lots)
+            or lot_shortfall > 1e-6
+        ):
+            replanning_count += 1
+    out["line_adherence"] = round(adhered_qty_total / planned_qty_total, 9) if planned_qty_total > 1e-9 else 1.0
+    out["line_nervousness"] = float(line_changes)
+    out["production_replanning_count"] = float(replanning_count)
+
+    stock_by_key: dict[tuple[int, str, str], float] = {}
+    for row in read_csv_rows(data_dir / "production_input_stocks_daily.csv"):
+        key = (
+            int(to_float(row.get("day"), 0.0)),
+            str(row.get("node_id") or ""),
+            str(row.get("item_id") or ""),
+        )
+        stock_by_key[key] = to_float(row.get("stock_end_of_day"), 0.0)
+    stockout_days: set[int] = set()
+    for row in read_csv_rows(data_dir / "mrp_trace_daily.csv"):
+        key = (
+            int(to_float(row.get("day"), 0.0)),
+            str(row.get("node_id") or ""),
+            str(row.get("item_id") or ""),
+        )
+        target_stock = max(0.0, to_float(row.get("target_stock_qty"), 0.0))
+        if target_stock <= 0.0:
+            continue
+        stock = stock_by_key.get(key)
+        if stock is not None and stock <= 1e-6:
+            stockout_days.add(key[0])
+    out["raw_material_stockout_days"] = float(len(stockout_days))
+
+    max_delay = 0.0
+    total_delay = 0.0
+    delayed_orders = 0
+    for row in read_csv_rows(data_dir / "mrp_orders_daily.csv"):
+        planned_arrival = to_float(row.get("arrival_day"), math.nan)
+        actual_arrival = to_float(row.get("actual_receipt_day"), math.nan)
+        if math.isnan(planned_arrival) or math.isnan(actual_arrival):
+            continue
+        delay = max(0.0, actual_arrival - planned_arrival)
+        max_delay = max(max_delay, delay)
+        total_delay += delay
+        if delay > 1e-9:
+            delayed_orders += 1
+    out["material_delay_days"] = round(max_delay, 6)
+    out["material_delay_days_total"] = round(total_delay, 6)
+    out["material_delayed_order_count"] = float(delayed_orders)
+
+    node_costs = inventory_holding_costs_by_node(data_dir, case_input)
+    if node_costs:
+        out["inventory_holding_cost_node_max"] = round(max(node_costs.values()), 6)
+        out["inventory_holding_cost_node_count"] = float(len(node_costs))
+        out["inventory_holding_cost_proxy_total"] = round(sum(node_costs.values()), 6)
+    return out
+
+
 def prune_case_output(output_dir: Path) -> None:
     if not output_dir.exists():
         return
@@ -465,6 +647,11 @@ def prune_case_output(output_dir: Path) -> None:
         output_dir / "reports",
         output_dir / "data" / "production_demand_service_daily.csv",
         output_dir / "data" / "production_input_stocks_daily.csv",
+        output_dir / "data" / "production_constraint_daily.csv",
+        output_dir / "data" / "production_output_products_daily.csv",
+        output_dir / "data" / "production_supplier_stocks_daily.csv",
+        output_dir / "data" / "production_dc_stocks_daily.csv",
+        output_dir / "data" / "mrp_orders_daily.csv",
         output_dir / "data" / "mrp_trace_daily.csv",
         output_dir / "data" / "supplier_nominal_parameters.csv",
     }
@@ -492,8 +679,10 @@ def build_specs(
     groups: set[str],
     suppliers: list[str],
     levels: dict[str, list[float]],
+    combined_levels: dict[str, float] | None = None,
 ) -> list[dict[str, Any]]:
     specs: list[dict[str, Any]] = []
+    combined_levels = combined_levels or {}
     if "stock" in groups:
         specs.append(
             {
@@ -574,6 +763,38 @@ def build_specs(
                 },
             ]
         )
+    if "combined" in groups:
+        combined_capacity = float(combined_levels.get("capacity", 0.75))
+        combined_stock = float(combined_levels.get("stock", 0.50))
+        combined_lead_time = float(combined_levels.get("lead_time", 1.25))
+        combined_reliability = float(combined_levels.get("reliability", 0.97))
+        combined_upstream_capacity = float(combined_levels.get("upstream_capacity", 0.75))
+        combined_upstream_lead = float(combined_levels.get("upstream_lead", 1.25))
+        specs.append(
+            {
+                "parameter_key": "combined_upstream_capacity_delay",
+                "parameter_group": "supplier_combined_upstream_supply",
+                "parameter_label": (
+                    f"Appro amont combinee cap x{combined_upstream_capacity:g} "
+                    f"+ delai x{combined_upstream_lead:g}"
+                ),
+                "levels": [1.0],
+                "config_kind": "multi",
+                "mutations": [
+                    {
+                        "config_kind": "factor",
+                        "target": "external_procurement_daily_cap_days_scale",
+                        "level": combined_upstream_capacity,
+                    },
+                    {
+                        "config_kind": "factor",
+                        "target": "external_procurement_lead_days_scale",
+                        "level": combined_upstream_lead,
+                    },
+                ],
+                "safe_direction": "scenario",
+            }
+        )
 
     for supplier in suppliers:
         if "stock" in groups:
@@ -624,13 +845,68 @@ def build_specs(
                     "safe_direction": "lower_is_riskier",
                 }
             )
+        if "combined" in groups:
+            specs.extend(
+                [
+                    {
+                        "parameter_key": f"combined_capacity_delay::{supplier}",
+                        "parameter_group": "supplier_combined_capacity_delay_node",
+                        "parameter_label": (
+                            f"Combine capacite x{combined_capacity:g} "
+                            f"+ delai x{combined_lead_time:g} fournisseur {supplier}"
+                        ),
+                        "levels": [1.0],
+                        "config_kind": "multi",
+                        "mutations": [
+                            {
+                                "config_kind": "supplier_capacity_node_scale",
+                                "target": supplier,
+                                "level": combined_capacity,
+                            },
+                            {
+                                "config_kind": "edge_src_lead_time_scale",
+                                "target": supplier,
+                                "level": combined_lead_time,
+                            },
+                        ],
+                        "safe_direction": "scenario",
+                    },
+                    {
+                        "parameter_key": f"combined_stock_reliability::{supplier}",
+                        "parameter_group": "supplier_combined_stock_reliability_node",
+                        "parameter_label": (
+                            f"Combine stock x{combined_stock:g} "
+                            f"+ fiabilite x{combined_reliability:g} fournisseur {supplier}"
+                        ),
+                        "levels": [1.0],
+                        "config_kind": "multi",
+                        "mutations": [
+                            {
+                                "config_kind": "supplier_node_scale",
+                                "target": supplier,
+                                "level": combined_stock,
+                            },
+                            {
+                                "config_kind": "edge_src_reliability_scale",
+                                "target": supplier,
+                                "level": combined_reliability,
+                            },
+                        ],
+                        "safe_direction": "scenario",
+                    },
+                ]
+            )
     return specs
 
 
-def config_for_spec(spec: dict[str, Any], level: float, suppliers: list[str]) -> dict[str, Any]:
-    cfg = clone_case_config(base_case())
-    kind = str(spec["config_kind"])
-    target = str(spec["target"])
+def apply_config_mutation(
+    cfg: dict[str, Any],
+    *,
+    kind: str,
+    target: str,
+    level: float,
+    suppliers: list[str],
+) -> None:
     if kind == "factor":
         cfg["factors"][target] = level
     elif kind == "supplier_node_scale":
@@ -649,6 +925,23 @@ def config_for_spec(spec: dict[str, Any], level: float, suppliers: list[str]) ->
         cfg["scenario_flags"][target] = level >= 0.5
     else:
         raise ValueError(f"Unsupported config kind: {kind}")
+
+
+def config_for_spec(spec: dict[str, Any], level: float, suppliers: list[str]) -> dict[str, Any]:
+    cfg = clone_case_config(base_case())
+    kind = str(spec["config_kind"])
+    target = str(spec.get("target") or "")
+    if kind == "multi":
+        for mutation in spec.get("mutations", []) or []:
+            apply_config_mutation(
+                cfg,
+                kind=str(mutation.get("config_kind") or ""),
+                target=str(mutation.get("target") or ""),
+                level=float(mutation.get("level", level)),
+                suppliers=suppliers,
+            )
+    else:
+        apply_config_mutation(cfg, kind=kind, target=target, level=level, suppliers=suppliers)
     return cfg
 
 
@@ -713,6 +1006,7 @@ def run_case(
             extra_args=case_extra_args,
         )
     op = operational_metrics(case_output)
+    derived = derived_case_kpis(case_output, case_input)
     if not keep_case_data:
         prune_case_output(case_output)
 
@@ -727,7 +1021,12 @@ def run_case(
         "case_input": str(case_input),
         "case_output_dir": str(case_output),
     }
-    for key, value in numeric_kpis(summary).items():
+    summary_kpis = numeric_kpis(summary)
+    for key, value in summary_kpis.items():
+        row[f"kpi::{key}"] = value
+    if "total_holding_cost" in summary_kpis:
+        row["kpi::inventory_cost"] = summary_kpis["total_holding_cost"]
+    for key, value in derived.items():
         row[f"kpi::{key}"] = value
     for key, value in op.items():
         row[f"guard::{key}"] = value
@@ -746,6 +1045,17 @@ def write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
 def read_csv(path: Path) -> list[dict[str, Any]]:
     with path.open("r", encoding="utf-8", newline="") as f:
         return list(csv.DictReader(f))
+
+
+def reusable_case_row(row: dict[str, Any]) -> bool:
+    if str(row.get("status") or "").lower() != "ok":
+        return False
+    case_output = Path(str(row.get("case_output_dir") or ""))
+    if not (case_output / "summaries" / "first_simulation_summary.json").exists() and not (
+        case_output / "first_simulation_summary.json"
+    ).exists():
+        return False
+    return all(str(row.get(key) or "").strip() for key in REQUIRED_DERIVED_KPI_COLUMNS)
 
 
 def is_case_acceptable(row: dict[str, Any], baseline: dict[str, Any], service_threshold: float) -> bool:
@@ -767,6 +1077,33 @@ def is_case_acceptable(row: dict[str, Any], baseline: dict[str, Any], service_th
         value = to_float(row.get(key), math.nan)
         base = to_float(baseline.get(key), math.nan)
         if math.isnan(value) or math.isnan(base) or value > base + 1e-6:
+            return False
+    no_worse_higher_is_better = [
+        "kpi::product_availability",
+        "kpi::line_adherence",
+    ]
+    for key in no_worse_higher_is_better:
+        base = to_float(baseline.get(key), math.nan)
+        value = to_float(row.get(key), math.nan)
+        if not math.isnan(base) and (math.isnan(value) or value + SERVICE_KPI_TOLERANCE < base):
+            return False
+    no_worse_lower_is_better_soft = [
+        "kpi::line_nervousness",
+        "kpi::production_replanning_count",
+    ]
+    for key in no_worse_lower_is_better_soft:
+        base = to_float(baseline.get(key), math.nan)
+        value = to_float(row.get(key), math.nan)
+        if not math.isnan(base) and (math.isnan(value) or value > base + COUNT_KPI_TOLERANCE):
+            return False
+    no_worse_lower_is_better_hard = [
+        "kpi::raw_material_stockout_days",
+        "kpi::material_delay_days",
+    ]
+    for key in no_worse_lower_is_better_hard:
+        base = to_float(baseline.get(key), math.nan)
+        value = to_float(row.get(key), math.nan)
+        if not math.isnan(base) and (math.isnan(value) or value > base + 1e-6):
             return False
     return True
 
@@ -806,6 +1143,39 @@ def safe_range_label(row: dict[str, Any]) -> str:
     return f"niveaux acceptables non contigus {row.get('acceptable_levels')}; plage continue baseline [{low}, {high}]"
 
 
+def first_metric_crossing(
+    rows: list[dict[str, Any]],
+    metric_keys: list[str],
+    *,
+    baseline: float,
+    direction: str,
+    tolerance: float = 1e-9,
+) -> float | None:
+    if math.isnan(baseline):
+        return None
+    for row in rows:
+        value = first_available_metric(row, metric_keys)
+        if math.isnan(value):
+            continue
+        if direction == "lower_is_worse" and value + tolerance < baseline:
+            return to_float(row.get("level"), math.nan)
+        if direction == "higher_is_worse" and value > baseline + tolerance:
+            return to_float(row.get("level"), math.nan)
+    return None
+
+
+def first_available_metric(row: dict[str, Any], metric_keys: list[str]) -> float:
+    for key in metric_keys:
+        value = to_float(row.get(key), math.nan)
+        if not math.isnan(value):
+            return value
+    return math.nan
+
+
+def clean_metric_values(rows: list[dict[str, Any]], metric_keys: list[str]) -> list[float]:
+    return [value for row in rows if not math.isnan(value := first_available_metric(row, metric_keys))]
+
+
 def summarize_parameter(
     spec: dict[str, Any],
     rows: list[dict[str, Any]],
@@ -821,9 +1191,29 @@ def summarize_parameter(
     baseline_fill = to_float(baseline.get("kpi::fill_rate"), math.nan)
     baseline_cost = to_float(baseline.get("kpi::total_cost"), math.nan)
     baseline_external = to_float(baseline.get("kpi::total_external_procured_ordered_qty"), math.nan)
+    baseline_availability = first_available_metric(baseline, ["kpi::product_availability", "kpi::fill_rate"])
+    baseline_line_adherence = first_available_metric(baseline, ["kpi::line_adherence"])
+    baseline_line_nervousness = first_available_metric(baseline, ["kpi::line_nervousness"])
+    baseline_replanning = first_available_metric(baseline, ["kpi::production_replanning_count"])
+    baseline_stockout_days = first_available_metric(baseline, ["kpi::raw_material_stockout_days"])
+    baseline_material_delay = first_available_metric(baseline, ["kpi::material_delay_days"])
+    baseline_inventory_cost = first_available_metric(
+        baseline,
+        ["kpi::inventory_cost", "kpi::total_holding_cost", "kpi::inventory_holding_cost_proxy_total"],
+    )
     fill_values = [to_float(row.get("kpi::fill_rate"), math.nan) for row in rows]
     cost_values = [to_float(row.get("kpi::total_cost"), math.nan) for row in rows]
     external_values = [to_float(row.get("kpi::total_external_procured_ordered_qty"), math.nan) for row in rows]
+    availability_values = clean_metric_values(rows, ["kpi::product_availability", "kpi::fill_rate"])
+    line_adherence_values = clean_metric_values(rows, ["kpi::line_adherence"])
+    line_nervousness_values = clean_metric_values(rows, ["kpi::line_nervousness"])
+    replanning_values = clean_metric_values(rows, ["kpi::production_replanning_count"])
+    stockout_day_values = clean_metric_values(rows, ["kpi::raw_material_stockout_days"])
+    material_delay_values = clean_metric_values(rows, ["kpi::material_delay_days"])
+    inventory_cost_values = clean_metric_values(
+        rows,
+        ["kpi::inventory_cost", "kpi::total_holding_cost", "kpi::inventory_holding_cost_proxy_total"],
+    )
 
     safe_low = min(safe_levels) if safe_levels else None
     safe_high = max(safe_levels) if safe_levels else None
@@ -873,6 +1263,19 @@ def summarize_parameter(
         if not math.isnan(cost) and cost > baseline_cost * (1.0 + cost_increase_pct):
             cost_warn_level = to_float(row.get("level"), math.nan)
             break
+    inventory_cost_warn_level = None
+    for row in rows:
+        inventory_cost = first_available_metric(
+            row,
+            ["kpi::inventory_cost", "kpi::total_holding_cost", "kpi::inventory_holding_cost_proxy_total"],
+        )
+        if (
+            not math.isnan(inventory_cost)
+            and not math.isnan(baseline_inventory_cost)
+            and inventory_cost > baseline_inventory_cost * (1.0 + cost_increase_pct)
+        ):
+            inventory_cost_warn_level = to_float(row.get("level"), math.nan)
+            break
 
     fill_mono = monotonicity(fill_values)
     backlog_values = [to_float(row.get("kpi::ending_backlog"), math.nan) for row in rows]
@@ -883,6 +1286,63 @@ def summarize_parameter(
         if not math.isnan(backlog) and backlog > baseline_backlog + 1e-6:
             backlog_cross_level = to_float(row.get("level"), math.nan)
             break
+
+    availability_cross_level = first_metric_crossing(
+        rows,
+        ["kpi::product_availability", "kpi::fill_rate"],
+        baseline=baseline_availability,
+        direction="lower_is_worse",
+    )
+    line_adherence_cross_level = first_metric_crossing(
+        rows,
+        ["kpi::line_adherence"],
+        baseline=baseline_line_adherence,
+        direction="lower_is_worse",
+    )
+    target_gap_cross_level = first_metric_crossing(
+        rows,
+        ["guard::raw_material_max_target_gap_qty"],
+        baseline=baseline_target_gap,
+        direction="higher_is_worse",
+        tolerance=1e-6,
+    )
+
+    max_availability_drop = max(
+        (baseline_availability - value for value in availability_values if not math.isnan(baseline_availability)),
+        default=math.nan,
+    )
+    max_line_adherence_drop = max(
+        (baseline_line_adherence - value for value in line_adherence_values if not math.isnan(baseline_line_adherence)),
+        default=math.nan,
+    )
+    max_line_nervousness_increase = max(
+        (value - baseline_line_nervousness for value in line_nervousness_values if not math.isnan(baseline_line_nervousness)),
+        default=math.nan,
+    )
+    max_replanning_increase = max(
+        (value - baseline_replanning for value in replanning_values if not math.isnan(baseline_replanning)),
+        default=math.nan,
+    )
+    max_stockout_day_increase = max(
+        (value - baseline_stockout_days for value in stockout_day_values if not math.isnan(baseline_stockout_days)),
+        default=math.nan,
+    )
+    max_material_delay_increase = max(
+        (value - baseline_material_delay for value in material_delay_values if not math.isnan(baseline_material_delay)),
+        default=math.nan,
+    )
+    max_inventory_cost_increase = max(
+        (value - baseline_inventory_cost for value in inventory_cost_values if not math.isnan(baseline_inventory_cost)),
+        default=math.nan,
+    )
+
+    baseline_margin_pct = math.nan
+    if spec["safe_direction"] == "lower_is_riskier" and baseline_safe_low is not None:
+        baseline_margin_pct = max(0.0, (1.0 - float(baseline_safe_low)) * 100.0)
+    elif spec["safe_direction"] == "higher_is_riskier" and baseline_safe_high is not None:
+        baseline_margin_pct = max(0.0, (float(baseline_safe_high) - 1.0) * 100.0)
+    parameter_group = str(spec["parameter_group"])
+    parameter_key = str(spec["parameter_key"])
 
     return {
         "parameter_key": spec["parameter_key"],
@@ -901,20 +1361,59 @@ def summarize_parameter(
         "fill_rate_cross_service_threshold_at": fill_cross_level,
         "ending_backlog_cross_threshold_at": backlog_cross_level,
         "total_cost_cross_threshold_at": cost_warn_level,
+        "inventory_cost_cross_threshold_at": inventory_cost_warn_level,
+        "product_availability_cross_baseline_at": availability_cross_level,
+        "line_adherence_cross_baseline_at": line_adherence_cross_level,
+        "target_stock_gap_cross_baseline_at": target_gap_cross_level,
         "fill_rate_monotonicity": fill_mono,
         "ending_backlog_monotonicity": monotonicity(backlog_values),
         "total_cost_monotonicity": monotonicity(cost_values),
+        "product_availability_monotonicity": monotonicity(availability_values),
+        "line_adherence_monotonicity": monotonicity(line_adherence_values),
+        "inventory_cost_monotonicity": monotonicity(inventory_cost_values),
         "fill_rate_min": min((v for v in fill_values if not math.isnan(v)), default=math.nan),
         "fill_rate_max": max((v for v in fill_values if not math.isnan(v)), default=math.nan),
+        "product_availability_min": min(availability_values, default=math.nan),
+        "line_adherence_min": min(line_adherence_values, default=math.nan),
+        "line_nervousness_max": max(line_nervousness_values, default=math.nan),
+        "production_replanning_count_max": max(replanning_values, default=math.nan),
+        "raw_material_stockout_days_max": max(stockout_day_values, default=math.nan),
+        "material_delay_days_max": max(material_delay_values, default=math.nan),
+        "inventory_cost_max": max(inventory_cost_values, default=math.nan),
         "max_fill_rate_drop": max_fill_drop,
+        "max_product_availability_drop": max_availability_drop,
+        "max_line_adherence_drop": max_line_adherence_drop,
+        "max_line_nervousness_increase": max_line_nervousness_increase,
+        "max_production_replanning_count_increase": max_replanning_increase,
+        "max_raw_material_stockout_days_increase": max_stockout_day_increase,
+        "max_material_delay_days_increase": max_material_delay_increase,
+        "max_inventory_cost_increase": max_inventory_cost_increase,
         "max_total_cost_increase": max_cost_increase,
         "max_external_procured_qty_delta": max_external_delta,
         "max_supplier_upstream_ordered_qty_delta": max_external_delta,
         "max_raw_material_target_gap_increase": max_target_gap_increase,
         "max_raw_material_safety_floor_gap_increase": max_safety_gap_increase,
+        "baseline_margin_pct": baseline_margin_pct,
+        "capacity_reduction_margin_pct": (
+            baseline_margin_pct if "capacity" in parameter_group and "upstream" not in parameter_group else math.nan
+        ),
+        "stock_reduction_margin_pct": baseline_margin_pct if "stock" in parameter_group else math.nan,
+        "delay_increase_margin_pct": (
+            baseline_margin_pct if "lead" in parameter_group or "lead" in parameter_key else math.nan
+        ),
+        "reliability_reduction_margin_pct": baseline_margin_pct if "reliability" in parameter_group else math.nan,
+        "upstream_capacity_reduction_margin_pct": (
+            baseline_margin_pct if "upstream" in parameter_group and "cap" in parameter_key else math.nan
+        ),
+        "upstream_delay_increase_margin_pct": (
+            baseline_margin_pct if "upstream" in parameter_group and "lead" in parameter_key else math.nan
+        ),
         "cost_warning_level": cost_warn_level,
         "baseline_fill_rate": baseline_fill,
         "baseline_total_cost": baseline_cost,
+        "baseline_product_availability": baseline_availability,
+        "baseline_line_adherence": baseline_line_adherence,
+        "baseline_inventory_cost": baseline_inventory_cost,
     }
 
 
@@ -938,24 +1437,41 @@ def recommendation_rows(summary_rows: list[dict[str, Any]]) -> list[dict[str, An
     out: list[dict[str, Any]] = []
     for row in summary_rows:
         key = str(row.get("parameter_key") or "")
-        if not (
-            key in {"supplier_stock_scale", "supplier_capacity_scale"}
-            or key.startswith("supplier_stock_node::")
-            or key.startswith("supplier_capacity_node::")
-        ):
-            continue
         if key.startswith("supplier_stock_node::"):
             supplier_id = key.split("::", 1)[1]
             parameter = "stock_fournisseur"
         elif key.startswith("supplier_capacity_node::"):
             supplier_id = key.split("::", 1)[1]
             parameter = "capacite_fournisseur"
+        elif key.startswith("supplier_lead_time_node::"):
+            supplier_id = key.split("::", 1)[1]
+            parameter = "delai_fournisseur"
+        elif key.startswith("supplier_reliability_node::"):
+            supplier_id = key.split("::", 1)[1]
+            parameter = "fiabilite_fournisseur"
+        elif key.startswith("combined_capacity_delay::"):
+            supplier_id = key.split("::", 1)[1]
+            parameter = "scenario_combine_capacite_delai"
+        elif key.startswith("combined_stock_reliability::"):
+            supplier_id = key.split("::", 1)[1]
+            parameter = "scenario_combine_stock_fiabilite"
         elif key == "supplier_stock_scale":
             supplier_id = "GLOBAL"
             parameter = "stock_fournisseur_global"
-        else:
+        elif key == "supplier_capacity_scale":
             supplier_id = "GLOBAL"
             parameter = "capacite_fournisseur_globale"
+        elif key == "supplier_lead_time_scale":
+            supplier_id = "GLOBAL"
+            parameter = "delai_fournisseur_global"
+        elif key == "supplier_reliability_scale":
+            supplier_id = "GLOBAL"
+            parameter = "fiabilite_fournisseur_globale"
+        elif key.startswith("external_procurement") or key.startswith("combined_upstream"):
+            supplier_id = "GLOBAL"
+            parameter = "appro_amont_fournisseur"
+        else:
+            continue
         out.append(
             {
                 "supplier_id": supplier_id,
@@ -968,6 +1484,15 @@ def recommendation_rows(summary_rows: list[dict[str, Any]]) -> list[dict[str, An
                 "acceptable_ranges": row.get("acceptable_ranges"),
                 "acceptable_is_contiguous": row.get("acceptable_is_contiguous"),
                 "max_fill_rate_drop": row.get("max_fill_rate_drop"),
+                "max_product_availability_drop": row.get("max_product_availability_drop"),
+                "max_line_adherence_drop": row.get("max_line_adherence_drop"),
+                "max_inventory_cost_increase": row.get("max_inventory_cost_increase"),
+                "capacity_reduction_margin_pct": row.get("capacity_reduction_margin_pct"),
+                "stock_reduction_margin_pct": row.get("stock_reduction_margin_pct"),
+                "delay_increase_margin_pct": row.get("delay_increase_margin_pct"),
+                "reliability_reduction_margin_pct": row.get("reliability_reduction_margin_pct"),
+                "upstream_capacity_reduction_margin_pct": row.get("upstream_capacity_reduction_margin_pct"),
+                "upstream_delay_increase_margin_pct": row.get("upstream_delay_increase_margin_pct"),
                 "max_external_procured_qty_delta": row.get("max_external_procured_qty_delta"),
                 "max_supplier_upstream_ordered_qty_delta": row.get("max_supplier_upstream_ordered_qty_delta"),
                 "max_raw_material_target_gap_increase": row.get("max_raw_material_target_gap_increase"),
@@ -1004,7 +1529,19 @@ def main() -> None:
     selected_suppliers = ranked_suppliers if args.top_suppliers <= 0 else ranked_suppliers[: args.top_suppliers]
     extra_args, supplier_floor_csv = split_supplier_floor_arg(extract_manifest_extra_args(Path(args.baseline_manifest)))
 
-    specs = build_specs(groups, selected_suppliers, levels)
+    specs = build_specs(
+        groups,
+        selected_suppliers,
+        levels,
+        {
+            "capacity": args.combined_capacity_level,
+            "stock": args.combined_stock_level,
+            "lead_time": args.combined_lead_time_level,
+            "reliability": args.combined_reliability_level,
+            "upstream_capacity": args.combined_upstream_capacity_level,
+            "upstream_lead": args.combined_upstream_lead_level,
+        },
+    )
     cases_csv = output_dir / "supplier_parameter_sensitivity_cases.csv"
     if args.summarize_existing:
         if not cases_csv.exists():
@@ -1017,6 +1554,12 @@ def main() -> None:
         baseline_row = baseline_matches[0]
     else:
         all_rows: list[dict[str, Any]] = []
+        existing_by_case_id: dict[str, dict[str, Any]] = {}
+        if cases_csv.exists():
+            for row in read_csv(cases_csv):
+                case_id = str(row.get("case_id") or "")
+                if case_id and reusable_case_row(row):
+                    existing_by_case_id[case_id] = row
 
         print("[RUN] baseline", flush=True)
         baseline_spec = {
@@ -1025,20 +1568,24 @@ def main() -> None:
             "parameter_label": "Baseline",
             "safe_direction": "baseline",
         }
-        baseline_row = run_case(
-            case_id="baseline",
-            spec=baseline_spec,
-            level=1.0,
-            config=base_case(),
-            base_data=base_data,
-            run_script=run_script,
-            scenario_id=args.scenario_id,
-            days=args.days,
-            cases_root=cases_root,
-            extra_args=extra_args,
-            supplier_floor_csv=supplier_floor_csv,
-            keep_case_data=True,
-        )
+        if "baseline" in existing_by_case_id:
+            print("[REUSE] baseline", flush=True)
+            baseline_row = existing_by_case_id["baseline"]
+        else:
+            baseline_row = run_case(
+                case_id="baseline",
+                spec=baseline_spec,
+                level=1.0,
+                config=base_case(),
+                base_data=base_data,
+                run_script=run_script,
+                scenario_id=args.scenario_id,
+                days=args.days,
+                cases_root=cases_root,
+                extra_args=extra_args,
+                supplier_floor_csv=supplier_floor_csv,
+                keep_case_data=True,
+            )
         all_rows.append(baseline_row)
 
         for spec_index, spec in enumerate(specs, start=1):
@@ -1049,20 +1596,24 @@ def main() -> None:
                     f"{level_index:02d}/{len(spec['levels']):02d} level={level}",
                     flush=True,
                 )
-                row = run_case(
-                    case_id=case_id,
-                    spec=spec,
-                    level=float(level),
-                    config=config_for_spec(spec, float(level), selected_suppliers),
-                    base_data=base_data,
-                    run_script=run_script,
-                    scenario_id=args.scenario_id,
-                    days=args.days,
-                    cases_root=cases_root,
-                    extra_args=extra_args,
-                    supplier_floor_csv=supplier_floor_csv,
-                    keep_case_data=args.keep_case_data,
-                )
+                if case_id in existing_by_case_id:
+                    print(f"[REUSE] {case_id}", flush=True)
+                    row = existing_by_case_id[case_id]
+                else:
+                    row = run_case(
+                        case_id=case_id,
+                        spec=spec,
+                        level=float(level),
+                        config=config_for_spec(spec, float(level), selected_suppliers),
+                        base_data=base_data,
+                        run_script=run_script,
+                        scenario_id=args.scenario_id,
+                        days=args.days,
+                        cases_root=cases_root,
+                        extra_args=extra_args,
+                        supplier_floor_csv=supplier_floor_csv,
+                        keep_case_data=args.keep_case_data,
+                    )
                 all_rows.append(row)
 
         write_csv(cases_csv, all_rows)
@@ -1090,6 +1641,8 @@ def main() -> None:
                 to_float(row.get("first_unacceptable_level"), 1.0) - 1.0
             ),
             -to_float(row.get("max_fill_rate_drop"), 0.0),
+            -to_float(row.get("max_product_availability_drop"), 0.0),
+            -to_float(row.get("max_line_adherence_drop"), 0.0),
             str(row.get("parameter_label") or ""),
         )
     )
@@ -1144,12 +1697,16 @@ def main() -> None:
         "",
         "## Baseline",
         f"- Fill rate: {to_float(baseline_row.get('kpi::fill_rate'), math.nan):.6f}",
+        f"- Product availability: {to_float(baseline_row.get('kpi::product_availability'), math.nan):.6f}",
+        f"- Line adherence: {to_float(baseline_row.get('kpi::line_adherence'), math.nan):.6f}",
+        f"- Line nervousness: {to_float(baseline_row.get('kpi::line_nervousness'), math.nan):.0f}",
         f"- Ending backlog: {to_float(baseline_row.get('kpi::ending_backlog'), math.nan):.4f}",
         f"- Max daily backlog: {to_float(baseline_row.get('guard::max_daily_backlog_qty'), math.nan):.4f}",
         f"- Backlog days: {to_float(baseline_row.get('guard::backlog_days'), math.nan):.0f}",
         f"- Raw material safety-floor breach days: {to_float(baseline_row.get('guard::raw_material_safety_floor_breach_days'), math.nan):.0f}",
         f"- Raw material max target gap qty: {to_float(baseline_row.get('guard::raw_material_max_target_gap_qty'), math.nan):.4f}",
         f"- Total cost: {to_float(baseline_row.get('kpi::total_cost'), math.nan):.4f}",
+        f"- Inventory holding cost: {to_float(baseline_row.get('kpi::inventory_cost'), math.nan):.4f}",
         f"- Supplier upstream ordered qty: {to_float(baseline_row.get('kpi::total_external_procured_ordered_qty'), math.nan):.4f}",
         "",
         "## Critical Parameters",
@@ -1160,6 +1717,8 @@ def main() -> None:
                 f"- {row['parameter_label']}: first unacceptable level {row['first_unacceptable_level']}, "
                 f"{safe_range_label(row)}, "
                 f"max fill drop {to_float(row['max_fill_rate_drop'], 0.0):.6f}, "
+                f"max availability drop {to_float(row.get('max_product_availability_drop'), 0.0):.6f}, "
+                f"max adherence drop {to_float(row.get('max_line_adherence_drop'), 0.0):.6f}, "
                 f"max target gap increase {to_float(row.get('max_raw_material_target_gap_increase'), 0.0):.4f}"
             )
     else:
