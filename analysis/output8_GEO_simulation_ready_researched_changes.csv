@@ -1,0 +1,356 @@
+record_index,action,detail
+17,set_primary_tier1,FRN-72A106312E8F95; demoted=none
+17,set_internal_t2_process,FRN-72A106312E8F95 - internal machining/forming process; demoted=FRN-0A33FC5A2472A2
+18,set_primary_tier1,FRN-2229587D79B6E7; demoted=FRN-72A106312E8F95
+18,set_internal_t2_process,FRN-2229587D79B6E7 - internal machining/forming process; demoted=FRN-0A33FC5A2472A2
+19,set_primary_tier1,FRN-72A106312E8F95; demoted=none
+19,set_internal_t2_process,FRN-72A106312E8F95 - internal machining/forming process; demoted=FRN-0A33FC5A2472A2
+20,set_primary_tier1,FRN-2229587D79B6E7; demoted=FRN-72A106312E8F95
+20,set_internal_t2_process,FRN-2229587D79B6E7 - internal machining/forming process; demoted=FRN-0A33FC5A2472A2
+21,set_primary_tier1,FRN-0B41BF5B9E4B4E; demoted=FRN-72A106312E8F95
+21,set_internal_t2_process,FRN-0B41BF5B9E4B4E - internal machining/forming process; demoted=FRN-0A33FC5A2472A2
+22,set_primary_tier1,FRN-0B41BF5B9E4B4E; demoted=FRN-72A106312E8F95
+22,set_internal_t2_process,FRN-0B41BF5B9E4B4E - internal machining/forming process; demoted=FRN-0A33FC5A2472A2
+23,set_primary_tier1,FRN-0B41BF5B9E4B4E; demoted=FRN-72A106312E8F95
+23,set_internal_t2_process,FRN-0B41BF5B9E4B4E - internal machining/forming process; demoted=FRN-0A33FC5A2472A2
+24,set_primary_tier1,FRN-0B41BF5B9E4B4E; demoted=FRN-72A106312E8F95
+24,set_internal_t2_process,FRN-0B41BF5B9E4B4E - internal machining/forming process; demoted=FRN-0A33FC5A2472A2
+25,set_primary_tier1,FRN-72A106312E8F95; demoted=none
+25,set_internal_t2_process,FRN-72A106312E8F95 - internal machining/forming process; demoted=FRN-0A33FC5A2472A2
+26,set_primary_tier1,FRN-2229587D79B6E7; demoted=FRN-72A106312E8F95
+26,set_internal_t2_process,FRN-2229587D79B6E7 - internal machining/forming process; demoted=FRN-0A33FC5A2472A2
+27,set_primary_tier1,FRN-0B41BF5B9E4B4E; demoted=FRN-72A106312E8F95
+27,set_internal_t2_process,FRN-0B41BF5B9E4B4E - internal machining/forming process; demoted=FRN-0A33FC5A2472A2
+28,set_primary_tier1,FRN-0B41BF5B9E4B4E; demoted=FRN-72A106312E8F95
+28,set_internal_t2_process,FRN-0B41BF5B9E4B4E - internal machining/forming process; demoted=FRN-0A33FC5A2472A2
+54,set_primary_tier1,FRN-98C883F706EF89; demoted=FRN-72A106312E8F95
+54,set_internal_t2_process,FRN-98C883F706EF89 - internal machining/forming process; demoted=FRN-0A33FC5A2472A2
+55,set_primary_tier1,FRN-98C883F706EF89; demoted=FRN-72A106312E8F95
+55,set_internal_t2_process,FRN-98C883F706EF89 - internal machining/forming process; demoted=FRN-0A33FC5A2472A2
+167,set_primary_tier1,FRN-72A106312E8F95; demoted=none
+167,set_internal_t2_process,FRN-72A106312E8F95 - internal machining/forming process; demoted=FRN-0A33FC5A2472A2
+17,exclude_FRN-0A33FC5A2472A2_from_secondary_switches,removed 1 FRN-0A33FC5A2472A2 T2 candidate(s)
+18,exclude_FRN-0A33FC5A2472A2_from_secondary_switches,removed 1 FRN-0A33FC5A2472A2 T2 candidate(s)
+19,exclude_FRN-0A33FC5A2472A2_from_secondary_switches,removed 1 FRN-0A33FC5A2472A2 T2 candidate(s)
+20,exclude_FRN-0A33FC5A2472A2_from_secondary_switches,removed 1 FRN-0A33FC5A2472A2 T2 candidate(s)
+21,exclude_FRN-0A33FC5A2472A2_from_secondary_switches,removed 1 FRN-0A33FC5A2472A2 T2 candidate(s)
+22,exclude_FRN-0A33FC5A2472A2_from_secondary_switches,removed 1 FRN-0A33FC5A2472A2 T2 candidate(s)
+23,exclude_FRN-0A33FC5A2472A2_from_secondary_switches,removed 1 FRN-0A33FC5A2472A2 T2 candidate(s)
+24,exclude_FRN-0A33FC5A2472A2_from_secondary_switches,removed 1 FRN-0A33FC5A2472A2 T2 candidate(s)
+25,exclude_FRN-0A33FC5A2472A2_from_secondary_switches,removed 1 FRN-0A33FC5A2472A2 T2 candidate(s)
+26,exclude_FRN-0A33FC5A2472A2_from_secondary_switches,removed 1 FRN-0A33FC5A2472A2 T2 candidate(s)
+27,exclude_FRN-0A33FC5A2472A2_from_secondary_switches,removed 1 FRN-0A33FC5A2472A2 T2 candidate(s)
+28,exclude_FRN-0A33FC5A2472A2_from_secondary_switches,removed 1 FRN-0A33FC5A2472A2 T2 candidate(s)
+54,exclude_FRN-0A33FC5A2472A2_from_secondary_switches,removed 1 FRN-0A33FC5A2472A2 T2 candidate(s)
+55,exclude_FRN-0A33FC5A2472A2_from_secondary_switches,removed 1 FRN-0A33FC5A2472A2 T2 candidate(s)
+167,exclude_FRN-0A33FC5A2472A2_from_secondary_switches,removed 1 FRN-0A33FC5A2472A2 T2 candidate(s)
+157,exclude_aggregate_from_active_network,Seat-level aluminium aggregate row excluded from active network; use detailed component rows for stress tests.
+174,exclude_aggregate_from_active_network,Seat-level aluminium aggregate row excluded from active network; use detailed component rows for stress tests.
+175,exclude_aggregate_from_active_network,Seat-level aluminium aggregate row excluded from active network; use detailed component rows for stress tests.
+86,set_primary_tier4_raw_material,FRN-301ED6D3E70080 - PU chemistry source candidate; demoted=FRN-19E8A3B02C44AE
+86,set_primary_tier3_first_transformation,FRN-0F389602532562 - FRMC55 certified foam/fabric sourcing package; demoted=FRN-83186B5AEF84D8
+86,set_primary_tier1,FRN-0F389602532562; demoted=FRN-45A091671294B0
+86,set_internal_t2_process,FRN-0F389602532562 - internal cutting/gluing process; demoted=FRN-0F389602532562
+87,set_primary_tier4_raw_material,FRN-301ED6D3E70080 - PU chemistry source candidate; demoted=FRN-19E8A3B02C44AE
+87,set_primary_tier3_first_transformation,FRN-0F389602532562 - FRMC55 certified foam/fabric sourcing package; demoted=FRN-83186B5AEF84D8
+87,set_primary_tier1,FRN-0F389602532562; demoted=FRN-45A091671294B0
+87,set_internal_t2_process,FRN-0F389602532562 - internal cutting/gluing process; demoted=FRN-0F389602532562
+88,set_primary_tier4_raw_material,FRN-301ED6D3E70080 - PU chemistry source candidate; demoted=FRN-19E8A3B02C44AE
+88,set_primary_tier3_first_transformation,FRN-0F389602532562 - FRMC55 certified foam/fabric sourcing package; demoted=FRN-83186B5AEF84D8
+88,set_primary_tier1,FRN-0F389602532562; demoted=FRN-45A091671294B0
+88,set_internal_t2_process,FRN-0F389602532562 - internal cutting/gluing process; demoted=FRN-0F389602532562
+89,set_primary_tier4_raw_material,FRN-301ED6D3E70080 - PU chemistry source candidate; demoted=FRN-19E8A3B02C44AE
+89,set_primary_tier3_first_transformation,FRN-0F389602532562 - FRMC55 certified foam/fabric sourcing package; demoted=FRN-83186B5AEF84D8
+89,set_primary_tier1,FRN-0F389602532562; demoted=FRN-45A091671294B0
+89,set_internal_t2_process,FRN-0F389602532562 - internal cutting/gluing process; demoted=FRN-0F389602532562
+90,set_primary_tier4_raw_material,FRN-301ED6D3E70080 - PU chemistry source candidate; demoted=FRN-19E8A3B02C44AE
+90,set_primary_tier3_first_transformation,FRN-0F389602532562 - FRMC55 certified foam/fabric sourcing package; demoted=FRN-83186B5AEF84D8
+90,set_primary_tier1,FRN-0F389602532562; demoted=FRN-45A091671294B0
+90,set_internal_t2_process,FRN-0F389602532562 - internal cutting/gluing process; demoted=FRN-0F389602532562
+91,set_primary_tier4_raw_material,FRN-301ED6D3E70080 - PU chemistry source candidate; demoted=FRN-19E8A3B02C44AE
+91,set_primary_tier3_first_transformation,FRN-2229587D79B6E7 - FRMC55 certified foam/fabric sourcing package; demoted=FRN-83186B5AEF84D8
+91,set_primary_tier1,FRN-2229587D79B6E7; demoted=FRN-45A091671294B0
+91,set_internal_t2_process,FRN-2229587D79B6E7 - internal FRMC55 integration process; demoted=FRN-0F389602532562
+92,set_primary_tier4_raw_material,FRN-301ED6D3E70080 - PU chemistry source candidate; demoted=FRN-19E8A3B02C44AE
+92,set_primary_tier3_first_transformation,FRN-213AAC10F8FF68 - FRMC55 certified foam/fabric sourcing package; demoted=FRN-83186B5AEF84D8
+92,set_primary_tier1,FRN-213AAC10F8FF68; demoted=FRN-45A091671294B0
+92,set_internal_t2_process,FRN-213AAC10F8FF68 - internal foam/upholstery process; demoted=FRN-0F389602532562
+93,set_primary_tier4_raw_material,FRN-301ED6D3E70080 - PU chemistry source candidate; demoted=FRN-19E8A3B02C44AE
+93,set_primary_tier3_first_transformation,FRN-213AAC10F8FF68 - FRMC55 certified foam/fabric sourcing package; demoted=FRN-83186B5AEF84D8
+93,set_primary_tier1,FRN-213AAC10F8FF68; demoted=FRN-45A091671294B0
+93,set_internal_t2_process,FRN-213AAC10F8FF68 - internal foam/upholstery process; demoted=FRN-0F389602532562
+10,set_primary_tier4_raw_material,FRN-DE6523078882AF - COTS electronics component market basket; demoted=COTS electronics component market basket
+10,set_primary_tier3_first_transformation,FRN-DE6523078882AF - COTS electronics subassembly/PCB package; demoted=FRN-77A20D424743A6
+71,set_primary_tier4_raw_material,FRN-B9C4C86C42C8B4 - COTS electronics component market basket; demoted=FRN-19E8A3B02C44AE
+71,set_primary_tier3_first_transformation,FRN-B9C4C86C42C8B4 - COTS electronics subassembly/PCB package; demoted=FRN-83186B5AEF84D8
+71,set_internal_t2_process,FRN-B9C4C86C42C8B4 - electronics routing/EMS package; demoted=none
+71,set_primary_tier1,FRN-B9C4C86C42C8B4; demoted=none
+73,set_primary_tier4_raw_material,FRN-DE6523078882AF - COTS electronics component market basket; demoted=COTS electronics component market basket
+73,set_primary_tier3_first_transformation,FRN-DE6523078882AF - COTS electronics subassembly/PCB package; demoted=COTS electronics PCB/subassembly package
+74,set_primary_tier4_raw_material,FRN-42EDB7DB79E4B3 - COTS electronics component market basket; demoted=FRN-19E8A3B02C44AE
+74,set_primary_tier3_first_transformation,FRN-42EDB7DB79E4B3 - COTS electronics subassembly/PCB package; demoted=FRN-1FBDAEFBEB869B
+74,set_internal_t2_process,FRN-42EDB7DB79E4B3 - electronics routing/EMS package; demoted=none
+74,set_primary_tier1,FRN-42EDB7DB79E4B3; demoted=none
+78,set_primary_tier4_raw_material,FRN-DE6523078882AF - COTS electronics component market basket; demoted=FRN-6378B78052F4FE
+78,set_primary_tier3_first_transformation,FRN-DE6523078882AF - COTS electronics subassembly/PCB package; demoted=FRN-1FBDAEFBEB869B
+121,set_primary_tier4_raw_material,FRN-DE6523078882AF - COTS electronics component market basket; demoted=FRN-6378B78052F4FE
+121,set_primary_tier3_first_transformation,FRN-DE6523078882AF - COTS electronics subassembly/PCB package; demoted=FRN-1FBDAEFBEB869B
+126,set_primary_tier4_raw_material,FRN-DE6523078882AF - COTS electronics component market basket; demoted=FRN-6378B78052F4FE
+126,set_primary_tier3_first_transformation,FRN-DE6523078882AF - COTS electronics subassembly/PCB package; demoted=FRN-1FBDAEFBEB869B
+153,set_primary_tier4_raw_material,FRN-DE6523078882AF - COTS electronics component market basket; demoted=FRN-6378B78052F4FE
+153,set_primary_tier3_first_transformation,FRN-DE6523078882AF - COTS electronics subassembly/PCB package; demoted=FRN-1FBDAEFBEB869B
+151,set_primary_tier1,FRN-2229587D79B6E7; demoted=none
+151,set_internal_t2_process,FRN-2229587D79B6E7 - internal machining/forming process; demoted=FRN-AEA0242468D6C5
+50,set_primary_tier4_raw_material,FRN-3C5607FC501E5A; demoted=FRN-34B2AC7037114C
+50,set_primary_tier3_first_transformation,FRN-8D94FBDCC3B3B5; demoted=FRN-6EF3EF62BA6339
+50,set_primary_tier1,FRN-72A106312E8F95; demoted=none
+50,set_internal_t2_process,FRN-72A106312E8F95 - internal machining/forming process; demoted=none
+50,split_mixed_metal_to_active_steel_flow,"Mixed process label split analytically: active quantitative material flow follows LCA/BOM material_match=acier; aluminium cast machining remains a process reference, not a separate aluminium mass flow."
+154,set_primary_tier4_raw_material,FRN-3C5607FC501E5A; demoted=FRN-34B2AC7037114C
+154,set_primary_tier3_first_transformation,FRN-8D94FBDCC3B3B5; demoted=FRN-6EF3EF62BA6339
+154,set_primary_tier1,FRN-72A106312E8F95; demoted=none
+154,set_internal_t2_process,FRN-72A106312E8F95 - internal machining/forming process; demoted=none
+154,split_mixed_metal_to_active_steel_flow,"Mixed process label split analytically: active quantitative material flow follows LCA/BOM material_match=acier; aluminium cast machining remains a process reference, not a separate aluminium mass flow."
+155,set_primary_tier4_raw_material,FRN-3C5607FC501E5A; demoted=FRN-34B2AC7037114C
+155,set_primary_tier3_first_transformation,FRN-8D94FBDCC3B3B5; demoted=FRN-6EF3EF62BA6339
+155,set_primary_tier1,FRN-72A106312E8F95; demoted=none
+155,set_internal_t2_process,FRN-72A106312E8F95 - internal machining/forming process; demoted=none
+155,split_mixed_metal_to_active_steel_flow,"Mixed process label split analytically: active quantitative material flow follows LCA/BOM material_match=acier; aluminium cast machining remains a process reference, not a separate aluminium mass flow."
+33,fix_longhaul_transport,FRN-98C883F706EF89 T1->OEM truck-only replaced with air+truck baseline and sea scenario.
+51,fix_longhaul_transport,FRN-98C883F706EF89 T1->OEM truck-only replaced with air+truck baseline and sea scenario.
+81,fix_longhaul_transport,FRN-98C883F706EF89 T1->OEM truck-only replaced with air+truck baseline and sea scenario.
+94,fix_longhaul_transport,FRN-98C883F706EF89 T1->OEM truck-only replaced with air+truck baseline and sea scenario.
+95,fix_longhaul_transport,FRN-98C883F706EF89 T1->OEM truck-only replaced with air+truck baseline and sea scenario.
+96,fix_longhaul_transport,FRN-98C883F706EF89 T1->OEM truck-only replaced with air+truck baseline and sea scenario.
+98,fix_longhaul_transport,FRN-98C883F706EF89 T1->OEM truck-only replaced with air+truck baseline and sea scenario.
+99,fix_longhaul_transport,FRN-98C883F706EF89 T1->OEM truck-only replaced with air+truck baseline and sea scenario.
+100,fix_longhaul_transport,FRN-98C883F706EF89 T1->OEM truck-only replaced with air+truck baseline and sea scenario.
+101,fix_longhaul_transport,FRN-98C883F706EF89 T1->OEM truck-only replaced with air+truck baseline and sea scenario.
+102,fix_longhaul_transport,FRN-98C883F706EF89 T1->OEM truck-only replaced with air+truck baseline and sea scenario.
+138,fix_longhaul_transport,FRN-98C883F706EF89 T1->OEM truck-only replaced with air+truck baseline and sea scenario.
+75,fix_longhaul_transport,JAMCO T1->OEM truck-only replaced with sea+truck baseline and air expedite scenario.
+128,fix_longhaul_transport,JAMCO T1->OEM truck-only replaced with sea+truck baseline and air expedite scenario.
+161,fix_longhaul_transport,JAMCO T1->OEM truck-only replaced with sea+truck baseline and air expedite scenario.
+162,fix_longhaul_transport,JAMCO T1->OEM truck-only replaced with sea+truck baseline and air expedite scenario.
+164,fix_longhaul_transport,JAMCO T1->OEM truck-only replaced with sea+truck baseline and air expedite scenario.
+165,fix_longhaul_transport,JAMCO T1->OEM truck-only replaced with sea+truck baseline and air expedite scenario.
+166,fix_longhaul_transport,JAMCO T1->OEM truck-only replaced with sea+truck baseline and air expedite scenario.
+17,fix_material_longhaul_transport,FRN-34B2AC7037114C US to AMAG Austria cannot be truck-only.
+25,fix_material_longhaul_transport,FRN-34B2AC7037114C US to AMAG Austria cannot be truck-only.
+66,fix_material_longhaul_transport,FRN-7A25E45203FCC9 China to FRN-C3B826345B6812 France cannot be truck-only.
+79,fix_material_longhaul_transport,"FRN-6378B78052F4FE/FRN-9C546CCC918C61/FRN-1DE52367D9D2BE polymer route needs intercontinental sea/air scenario, not truck-only."
+167,fix_material_longhaul_transport,FRN-34B2AC7037114C US to AMAG Austria cannot be truck-only.
+10,exclude_common_sense_incompatible_secondaries,Removed 1 impossible secondary supplier candidate(s) for family electronics_cots using common-sense material/role filter. Examples: tier3_first_transformation:FRN-77A20D424743A6 (COTS/electronics upstream must not use inferred material suppliers without BOM/PN/AVL)
+12,exclude_common_sense_incompatible_secondaries,Removed 5 impossible secondary supplier candidate(s) for family textile_leather using common-sense material/role filter. Examples: tier4_raw_material:FRN-7A25E45203FCC9 (metal/mining supplier cannot be a textile/leather/foam upstream option) | tier4_raw_material:FRN-60C89B8D6563EA (metal/mining supplier cannot be a textile/leather/foam upstream option) | tier3_first_transformation:FRN-6EF3EF62BA6339 (metal/mining supplier cannot be a textile/leather/foam upstream option) | tier3_first_transformation:FRN-D2C24A0C097FC3 (metal/mining supplier cannot be a textile/leather/foam upstream option) | tier3_first_transformation:FRN-8D94FBDCC3B3B5 (metal/mining supplier cannot be a textile/leather/foam upstream option)
+45,exclude_common_sense_incompatible_secondaries,Removed 6 impossible secondary supplier candidate(s) for family textile_leather using common-sense material/role filter. Examples: tier3_first_transformation:FRN-8CF694326AFCE1 (metal/mining supplier cannot be a textile/leather/foam upstream option) | tier4_raw_material:FRN-CF71418802439F (metal/mining supplier cannot be a textile/leather/foam upstream option) | tier3_first_transformation:FRN-8D94FBDCC3B3B5 (metal/mining supplier cannot be a textile/leather/foam upstream option) | tier4_raw_material:FRN-5AA9E59DA0B02F (metal/mining supplier cannot be a textile/leather/foam upstream option) | tier4_raw_material:FRN-B8E884308EA449 (metal/mining supplier cannot be a textile/leather/foam upstream option)
+50,exclude_common_sense_incompatible_secondaries,Removed 1 impossible secondary supplier candidate(s) for family steel using common-sense material/role filter. Examples: tier4_raw_material:FRN-34B2AC7037114C (non-steel raw material supplier cannot be steel T4)
+74,exclude_common_sense_incompatible_secondaries,Removed 5 impossible secondary supplier candidate(s) for family electronics_cots using common-sense material/role filter. Examples: tier4_raw_material:FRN-19E8A3B02C44AE (COTS/electronics upstream must not use inferred material suppliers without BOM/PN/AVL) | tier3_first_transformation:FRN-1FBDAEFBEB869B (COTS/electronics upstream must not use inferred material suppliers without BOM/PN/AVL) | tier4_raw_material:FRN-8F3177205B17E8 (COTS/electronics upstream must not use inferred material suppliers without BOM/PN/AVL) | tier3_first_transformation:FRN-2F86C605D36715 (COTS/electronics upstream must not use inferred material suppliers without BOM/PN/AVL) | tier3_first_transformation:FRN-8D94FBDCC3B3B5 (COTS/electronics upstream must not use inferred material suppliers without BOM/PN/AVL)
+78,exclude_common_sense_incompatible_secondaries,Removed 8 impossible secondary supplier candidate(s) for family electronics_cots using common-sense material/role filter. Examples: tier4_raw_material:FRN-6378B78052F4FE (COTS/electronics upstream must not use inferred material suppliers without BOM/PN/AVL) | tier4_raw_material:Total (COTS/electronics upstream must not use inferred material suppliers without BOM/PN/AVL) | tier3_first_transformation:FRN-1FBDAEFBEB869B (COTS/electronics upstream must not use inferred material suppliers without BOM/PN/AVL) | tier4_raw_material:FRN-8F3177205B17E8 (COTS/electronics upstream must not use inferred material suppliers without BOM/PN/AVL) | tier3_first_transformation:FRN-2F86C605D36715 (COTS/electronics upstream must not use inferred material suppliers without BOM/PN/AVL)
+86,exclude_common_sense_incompatible_secondaries,Removed 5 impossible secondary supplier candidate(s) for family textile_leather using common-sense material/role filter. Examples: tier4_raw_material:FRN-19E8A3B02C44AE (metal/mining supplier cannot be a textile/leather/foam upstream option) | tier3_first_transformation:FRN-8CF694326AFCE1 (metal/mining supplier cannot be a textile/leather/foam upstream option) | tier3_first_transformation:FRN-83186B5AEF84D8 (metal/mining supplier cannot be a textile/leather/foam upstream option) | tier3_first_transformation:FRN-D562155C5EAD74 (metal/mining supplier cannot be a textile/leather/foam upstream option) | tier3_first_transformation:FRN-8D94FBDCC3B3B5 (metal/mining supplier cannot be a textile/leather/foam upstream option)
+87,exclude_common_sense_incompatible_secondaries,Removed 5 impossible secondary supplier candidate(s) for family textile_leather using common-sense material/role filter. Examples: tier4_raw_material:FRN-19E8A3B02C44AE (metal/mining supplier cannot be a textile/leather/foam upstream option) | tier3_first_transformation:FRN-8CF694326AFCE1 (metal/mining supplier cannot be a textile/leather/foam upstream option) | tier3_first_transformation:FRN-83186B5AEF84D8 (metal/mining supplier cannot be a textile/leather/foam upstream option) | tier3_first_transformation:FRN-D562155C5EAD74 (metal/mining supplier cannot be a textile/leather/foam upstream option) | tier3_first_transformation:FRN-8D94FBDCC3B3B5 (metal/mining supplier cannot be a textile/leather/foam upstream option)
+88,exclude_common_sense_incompatible_secondaries,Removed 5 impossible secondary supplier candidate(s) for family textile_leather using common-sense material/role filter. Examples: tier4_raw_material:FRN-19E8A3B02C44AE (metal/mining supplier cannot be a textile/leather/foam upstream option) | tier3_first_transformation:FRN-8CF694326AFCE1 (metal/mining supplier cannot be a textile/leather/foam upstream option) | tier3_first_transformation:FRN-83186B5AEF84D8 (metal/mining supplier cannot be a textile/leather/foam upstream option) | tier3_first_transformation:FRN-D562155C5EAD74 (metal/mining supplier cannot be a textile/leather/foam upstream option) | tier3_first_transformation:FRN-8D94FBDCC3B3B5 (metal/mining supplier cannot be a textile/leather/foam upstream option)
+89,exclude_common_sense_incompatible_secondaries,Removed 5 impossible secondary supplier candidate(s) for family textile_leather using common-sense material/role filter. Examples: tier4_raw_material:FRN-19E8A3B02C44AE (metal/mining supplier cannot be a textile/leather/foam upstream option) | tier3_first_transformation:FRN-8CF694326AFCE1 (metal/mining supplier cannot be a textile/leather/foam upstream option) | tier3_first_transformation:FRN-83186B5AEF84D8 (metal/mining supplier cannot be a textile/leather/foam upstream option) | tier3_first_transformation:FRN-D562155C5EAD74 (metal/mining supplier cannot be a textile/leather/foam upstream option) | tier3_first_transformation:FRN-8D94FBDCC3B3B5 (metal/mining supplier cannot be a textile/leather/foam upstream option)
+90,exclude_common_sense_incompatible_secondaries,Removed 5 impossible secondary supplier candidate(s) for family textile_leather using common-sense material/role filter. Examples: tier4_raw_material:FRN-19E8A3B02C44AE (metal/mining supplier cannot be a textile/leather/foam upstream option) | tier3_first_transformation:FRN-8CF694326AFCE1 (metal/mining supplier cannot be a textile/leather/foam upstream option) | tier3_first_transformation:FRN-83186B5AEF84D8 (metal/mining supplier cannot be a textile/leather/foam upstream option) | tier3_first_transformation:FRN-D562155C5EAD74 (metal/mining supplier cannot be a textile/leather/foam upstream option) | tier3_first_transformation:FRN-8D94FBDCC3B3B5 (metal/mining supplier cannot be a textile/leather/foam upstream option)
+91,exclude_common_sense_incompatible_secondaries,Removed 5 impossible secondary supplier candidate(s) for family textile_leather using common-sense material/role filter. Examples: tier4_raw_material:FRN-19E8A3B02C44AE (metal/mining supplier cannot be a textile/leather/foam upstream option) | tier3_first_transformation:FRN-8CF694326AFCE1 (metal/mining supplier cannot be a textile/leather/foam upstream option) | tier3_first_transformation:FRN-83186B5AEF84D8 (metal/mining supplier cannot be a textile/leather/foam upstream option) | tier3_first_transformation:FRN-D562155C5EAD74 (metal/mining supplier cannot be a textile/leather/foam upstream option) | tier3_first_transformation:FRN-8D94FBDCC3B3B5 (metal/mining supplier cannot be a textile/leather/foam upstream option)
+92,exclude_common_sense_incompatible_secondaries,Removed 5 impossible secondary supplier candidate(s) for family textile_leather using common-sense material/role filter. Examples: tier4_raw_material:FRN-19E8A3B02C44AE (metal/mining supplier cannot be a textile/leather/foam upstream option) | tier3_first_transformation:FRN-8CF694326AFCE1 (metal/mining supplier cannot be a textile/leather/foam upstream option) | tier3_first_transformation:FRN-83186B5AEF84D8 (metal/mining supplier cannot be a textile/leather/foam upstream option) | tier3_first_transformation:FRN-D562155C5EAD74 (metal/mining supplier cannot be a textile/leather/foam upstream option) | tier3_first_transformation:FRN-8D94FBDCC3B3B5 (metal/mining supplier cannot be a textile/leather/foam upstream option)
+93,exclude_common_sense_incompatible_secondaries,Removed 5 impossible secondary supplier candidate(s) for family textile_leather using common-sense material/role filter. Examples: tier4_raw_material:FRN-19E8A3B02C44AE (metal/mining supplier cannot be a textile/leather/foam upstream option) | tier3_first_transformation:FRN-8CF694326AFCE1 (metal/mining supplier cannot be a textile/leather/foam upstream option) | tier3_first_transformation:FRN-83186B5AEF84D8 (metal/mining supplier cannot be a textile/leather/foam upstream option) | tier3_first_transformation:FRN-D562155C5EAD74 (metal/mining supplier cannot be a textile/leather/foam upstream option) | tier3_first_transformation:FRN-8D94FBDCC3B3B5 (metal/mining supplier cannot be a textile/leather/foam upstream option)
+111,exclude_common_sense_incompatible_secondaries,Removed 2 impossible secondary supplier candidate(s) for family textile_leather using common-sense material/role filter. Examples: tier2_second_transformation:FRN-5E8C7A0B3C0183 (electronics/process instrumentation supplier cannot be textile/leather/foam T2) | tier2_second_transformation:FRN-60698C6D4CC207 (electronics/process instrumentation supplier cannot be textile/leather/foam T2)
+112,exclude_common_sense_incompatible_secondaries,Removed 2 impossible secondary supplier candidate(s) for family textile_leather using common-sense material/role filter. Examples: tier2_second_transformation:FRN-5E8C7A0B3C0183 (electronics/process instrumentation supplier cannot be textile/leather/foam T2) | tier2_second_transformation:FRN-60698C6D4CC207 (electronics/process instrumentation supplier cannot be textile/leather/foam T2)
+113,exclude_common_sense_incompatible_secondaries,Removed 2 impossible secondary supplier candidate(s) for family textile_leather using common-sense material/role filter. Examples: tier2_second_transformation:FRN-5E8C7A0B3C0183 (electronics/process instrumentation supplier cannot be textile/leather/foam T2) | tier2_second_transformation:FRN-60698C6D4CC207 (electronics/process instrumentation supplier cannot be textile/leather/foam T2)
+114,exclude_common_sense_incompatible_secondaries,Removed 2 impossible secondary supplier candidate(s) for family textile_leather using common-sense material/role filter. Examples: tier2_second_transformation:FRN-5E8C7A0B3C0183 (electronics/process instrumentation supplier cannot be textile/leather/foam T2) | tier2_second_transformation:FRN-60698C6D4CC207 (electronics/process instrumentation supplier cannot be textile/leather/foam T2)
+115,exclude_common_sense_incompatible_secondaries,Removed 2 impossible secondary supplier candidate(s) for family textile_leather using common-sense material/role filter. Examples: tier2_second_transformation:FRN-5E8C7A0B3C0183 (electronics/process instrumentation supplier cannot be textile/leather/foam T2) | tier2_second_transformation:FRN-60698C6D4CC207 (electronics/process instrumentation supplier cannot be textile/leather/foam T2)
+117,exclude_common_sense_incompatible_secondaries,Removed 2 impossible secondary supplier candidate(s) for family textile_leather using common-sense material/role filter. Examples: tier2_second_transformation:FRN-5E8C7A0B3C0183 (electronics/process instrumentation supplier cannot be textile/leather/foam T2) | tier2_second_transformation:FRN-60698C6D4CC207 (electronics/process instrumentation supplier cannot be textile/leather/foam T2)
+118,exclude_common_sense_incompatible_secondaries,Removed 2 impossible secondary supplier candidate(s) for family textile_leather using common-sense material/role filter. Examples: tier2_second_transformation:FRN-5E8C7A0B3C0183 (electronics/process instrumentation supplier cannot be textile/leather/foam T2) | tier2_second_transformation:FRN-60698C6D4CC207 (electronics/process instrumentation supplier cannot be textile/leather/foam T2)
+119,exclude_common_sense_incompatible_secondaries,Removed 2 impossible secondary supplier candidate(s) for family textile_leather using common-sense material/role filter. Examples: tier2_second_transformation:FRN-5E8C7A0B3C0183 (electronics/process instrumentation supplier cannot be textile/leather/foam T2) | tier2_second_transformation:FRN-60698C6D4CC207 (electronics/process instrumentation supplier cannot be textile/leather/foam T2)
+120,exclude_common_sense_incompatible_secondaries,Removed 2 impossible secondary supplier candidate(s) for family textile_leather using common-sense material/role filter. Examples: tier2_second_transformation:FRN-5E8C7A0B3C0183 (electronics/process instrumentation supplier cannot be textile/leather/foam T2) | tier2_second_transformation:FRN-60698C6D4CC207 (electronics/process instrumentation supplier cannot be textile/leather/foam T2)
+121,exclude_common_sense_incompatible_secondaries,Removed 8 impossible secondary supplier candidate(s) for family electronics_cots using common-sense material/role filter. Examples: tier4_raw_material:FRN-6378B78052F4FE (COTS/electronics upstream must not use inferred material suppliers without BOM/PN/AVL) | tier4_raw_material:Total (COTS/electronics upstream must not use inferred material suppliers without BOM/PN/AVL) | tier3_first_transformation:FRN-1FBDAEFBEB869B (COTS/electronics upstream must not use inferred material suppliers without BOM/PN/AVL) | tier4_raw_material:FRN-8F3177205B17E8 (COTS/electronics upstream must not use inferred material suppliers without BOM/PN/AVL) | tier3_first_transformation:FRN-2F86C605D36715 (COTS/electronics upstream must not use inferred material suppliers without BOM/PN/AVL)
+126,exclude_common_sense_incompatible_secondaries,Removed 6 impossible secondary supplier candidate(s) for family electronics_cots using common-sense material/role filter. Examples: tier4_raw_material:FRN-6378B78052F4FE (COTS/electronics upstream must not use inferred material suppliers without BOM/PN/AVL) | tier4_raw_material:Total (COTS/electronics upstream must not use inferred material suppliers without BOM/PN/AVL) | tier3_first_transformation:FRN-1FBDAEFBEB869B (COTS/electronics upstream must not use inferred material suppliers without BOM/PN/AVL) | tier4_raw_material:FRN-8F3177205B17E8 (COTS/electronics upstream must not use inferred material suppliers without BOM/PN/AVL) | tier3_first_transformation:FRN-2F86C605D36715 (COTS/electronics upstream must not use inferred material suppliers without BOM/PN/AVL)
+130,exclude_common_sense_incompatible_secondaries,Removed 7 impossible secondary supplier candidate(s) for family electronics_cots using common-sense material/role filter. Examples: tier4_raw_material:FRN-2FC748C1ABC9C3 (COTS/electronics upstream must not use inferred material suppliers without BOM/PN/AVL) | tier4_raw_material:FRN-301ED6D3E70080 (COTS/electronics upstream must not use inferred material suppliers without BOM/PN/AVL) | tier3_first_transformation:FRN-0F56088BEA4986 (COTS/electronics upstream must not use inferred material suppliers without BOM/PN/AVL) | tier3_first_transformation:FRN-1FBDAEFBEB869B (COTS/electronics upstream must not use inferred material suppliers without BOM/PN/AVL) | tier4_raw_material:FRN-8F3177205B17E8 (COTS/electronics upstream must not use inferred material suppliers without BOM/PN/AVL)
+137,exclude_common_sense_incompatible_secondaries,Removed 1 impossible secondary supplier candidate(s) for family textile_leather using common-sense material/role filter. Examples: tier2_second_transformation:FRN-5E8C7A0B3C0183 (electronics/process instrumentation supplier cannot be textile/leather/foam T2)
+139,exclude_common_sense_incompatible_secondaries,Removed 2 impossible secondary supplier candidate(s) for family textile_leather using common-sense material/role filter. Examples: tier2_second_transformation:FRN-5E8C7A0B3C0183 (electronics/process instrumentation supplier cannot be textile/leather/foam T2) | tier2_second_transformation:FRN-60698C6D4CC207 (electronics/process instrumentation supplier cannot be textile/leather/foam T2)
+144,exclude_common_sense_incompatible_secondaries,Removed 1 impossible secondary supplier candidate(s) for family textile_leather using common-sense material/role filter. Examples: tier3_first_transformation:FRN-8D94FBDCC3B3B5 (metal/mining supplier cannot be a textile/leather/foam upstream option)
+145,exclude_common_sense_incompatible_secondaries,Removed 1 impossible secondary supplier candidate(s) for family textile_leather using common-sense material/role filter. Examples: tier3_first_transformation:FRN-8D94FBDCC3B3B5 (metal/mining supplier cannot be a textile/leather/foam upstream option)
+146,exclude_common_sense_incompatible_secondaries,Removed 1 impossible secondary supplier candidate(s) for family textile_leather using common-sense material/role filter. Examples: tier3_first_transformation:FRN-8D94FBDCC3B3B5 (metal/mining supplier cannot be a textile/leather/foam upstream option)
+147,exclude_common_sense_incompatible_secondaries,Removed 1 impossible secondary supplier candidate(s) for family textile_leather using common-sense material/role filter. Examples: tier3_first_transformation:FRN-8D94FBDCC3B3B5 (metal/mining supplier cannot be a textile/leather/foam upstream option)
+148,exclude_common_sense_incompatible_secondaries,Removed 1 impossible secondary supplier candidate(s) for family textile_leather using common-sense material/role filter. Examples: tier3_first_transformation:FRN-8D94FBDCC3B3B5 (metal/mining supplier cannot be a textile/leather/foam upstream option)
+150,exclude_common_sense_incompatible_secondaries,Removed 1 impossible secondary supplier candidate(s) for family textile_leather using common-sense material/role filter. Examples: tier3_first_transformation:FRN-8D94FBDCC3B3B5 (metal/mining supplier cannot be a textile/leather/foam upstream option)
+151,exclude_common_sense_incompatible_secondaries,Removed 3 impossible secondary supplier candidate(s) for family steel using common-sense material/role filter. Examples: tier3_first_transformation:FRN-0F56088BEA4986 (textile/polymer supplier cannot be steel T3) | tier2_second_transformation:FRN-AEA0242468D6C5 (carbon/composite/silicone supplier cannot be steel T2) | tier2_second_transformation:FRN-69EC9F91F7F98F (carbon/composite/silicone supplier cannot be steel T2)
+152,exclude_common_sense_incompatible_secondaries,Removed 5 impossible secondary supplier candidate(s) for family textile_leather using common-sense material/role filter. Examples: tier4_raw_material:FRN-7A25E45203FCC9 (metal/mining supplier cannot be a textile/leather/foam upstream option) | tier4_raw_material:FRN-60C89B8D6563EA (metal/mining supplier cannot be a textile/leather/foam upstream option) | tier3_first_transformation:FRN-6EF3EF62BA6339 (metal/mining supplier cannot be a textile/leather/foam upstream option) | tier3_first_transformation:FRN-D2C24A0C097FC3 (metal/mining supplier cannot be a textile/leather/foam upstream option) | tier3_first_transformation:FRN-8D94FBDCC3B3B5 (metal/mining supplier cannot be a textile/leather/foam upstream option)
+153,exclude_common_sense_incompatible_secondaries,Removed 8 impossible secondary supplier candidate(s) for family electronics_cots using common-sense material/role filter. Examples: tier4_raw_material:FRN-6378B78052F4FE (COTS/electronics upstream must not use inferred material suppliers without BOM/PN/AVL) | tier4_raw_material:Total (COTS/electronics upstream must not use inferred material suppliers without BOM/PN/AVL) | tier3_first_transformation:FRN-1FBDAEFBEB869B (COTS/electronics upstream must not use inferred material suppliers without BOM/PN/AVL) | tier4_raw_material:FRN-8F3177205B17E8 (COTS/electronics upstream must not use inferred material suppliers without BOM/PN/AVL) | tier3_first_transformation:FRN-2F86C605D36715 (COTS/electronics upstream must not use inferred material suppliers without BOM/PN/AVL)
+154,exclude_common_sense_incompatible_secondaries,Removed 1 impossible secondary supplier candidate(s) for family steel using common-sense material/role filter. Examples: tier4_raw_material:FRN-34B2AC7037114C (non-steel raw material supplier cannot be steel T4)
+155,exclude_common_sense_incompatible_secondaries,Removed 1 impossible secondary supplier candidate(s) for family steel using common-sense material/role filter. Examples: tier4_raw_material:FRN-34B2AC7037114C (non-steel raw material supplier cannot be steel T4)
+160,exclude_common_sense_incompatible_secondaries,Removed 6 impossible secondary supplier candidate(s) for family textile_leather using common-sense material/role filter. Examples: tier3_first_transformation:FRN-1FBDAEFBEB869B (metal/mining supplier cannot be a textile/leather/foam upstream option) | tier4_raw_material:FRN-8F3177205B17E8 (metal/mining supplier cannot be a textile/leather/foam upstream option) | tier3_first_transformation:FRN-2F86C605D36715 (metal/mining supplier cannot be a textile/leather/foam upstream option) | tier3_first_transformation:FRN-8D94FBDCC3B3B5 (metal/mining supplier cannot be a textile/leather/foam upstream option) | tier2_second_transformation:FRN-BF6DDA7768754E (electronics/process instrumentation supplier cannot be textile/leather/foam T2)
+164,exclude_common_sense_incompatible_secondaries,Removed 6 impossible secondary supplier candidate(s) for family textile_leather using common-sense material/role filter. Examples: tier3_first_transformation:FRN-1FBDAEFBEB869B (metal/mining supplier cannot be a textile/leather/foam upstream option) | tier4_raw_material:FRN-8F3177205B17E8 (metal/mining supplier cannot be a textile/leather/foam upstream option) | tier3_first_transformation:FRN-2F86C605D36715 (metal/mining supplier cannot be a textile/leather/foam upstream option) | tier3_first_transformation:FRN-8D94FBDCC3B3B5 (metal/mining supplier cannot be a textile/leather/foam upstream option) | tier2_second_transformation:FRN-BF6DDA7768754E (electronics/process instrumentation supplier cannot be textile/leather/foam T2)
+165,exclude_common_sense_incompatible_secondaries,Removed 6 impossible secondary supplier candidate(s) for family textile_leather using common-sense material/role filter. Examples: tier3_first_transformation:FRN-1FBDAEFBEB869B (metal/mining supplier cannot be a textile/leather/foam upstream option) | tier4_raw_material:FRN-8F3177205B17E8 (metal/mining supplier cannot be a textile/leather/foam upstream option) | tier3_first_transformation:FRN-2F86C605D36715 (metal/mining supplier cannot be a textile/leather/foam upstream option) | tier3_first_transformation:FRN-8D94FBDCC3B3B5 (metal/mining supplier cannot be a textile/leather/foam upstream option) | tier2_second_transformation:FRN-BF6DDA7768754E (electronics/process instrumentation supplier cannot be textile/leather/foam T2)
+170,exclude_common_sense_incompatible_secondaries,Removed 6 impossible secondary supplier candidate(s) for family textile_leather using common-sense material/role filter. Examples: tier3_first_transformation:FRN-1FBDAEFBEB869B (metal/mining supplier cannot be a textile/leather/foam upstream option) | tier4_raw_material:FRN-8F3177205B17E8 (metal/mining supplier cannot be a textile/leather/foam upstream option) | tier3_first_transformation:FRN-2F86C605D36715 (metal/mining supplier cannot be a textile/leather/foam upstream option) | tier3_first_transformation:FRN-8D94FBDCC3B3B5 (metal/mining supplier cannot be a textile/leather/foam upstream option) | tier2_second_transformation:FRN-BF6DDA7768754E (electronics/process instrumentation supplier cannot be textile/leather/foam T2)
+171,exclude_common_sense_incompatible_secondaries,Removed 6 impossible secondary supplier candidate(s) for family textile_leather using common-sense material/role filter. Examples: tier3_first_transformation:FRN-1FBDAEFBEB869B (metal/mining supplier cannot be a textile/leather/foam upstream option) | tier4_raw_material:FRN-8F3177205B17E8 (metal/mining supplier cannot be a textile/leather/foam upstream option) | tier3_first_transformation:FRN-2F86C605D36715 (metal/mining supplier cannot be a textile/leather/foam upstream option) | tier3_first_transformation:FRN-8D94FBDCC3B3B5 (metal/mining supplier cannot be a textile/leather/foam upstream option) | tier2_second_transformation:FRN-BF6DDA7768754E (electronics/process instrumentation supplier cannot be textile/leather/foam T2)
+1,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+2,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+3,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+4,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+5,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+6,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+7,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+8,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+9,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+10,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+11,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+12,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+13,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+14,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+15,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+16,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+17,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+18,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+19,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+20,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+21,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+22,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+23,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+24,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+25,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+26,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+27,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+28,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+29,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+30,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+31,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+32,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+33,add_primary_lane_transport_scenarios,added 3 primary edge transport scenarios
+34,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+35,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+36,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+37,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+38,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+39,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+40,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+41,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+42,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+43,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+44,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+45,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+46,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+47,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+48,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+49,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+50,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+51,add_primary_lane_transport_scenarios,added 3 primary edge transport scenarios
+52,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+53,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+54,add_primary_lane_transport_scenarios,added 3 primary edge transport scenarios
+55,add_primary_lane_transport_scenarios,added 3 primary edge transport scenarios
+56,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+57,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+58,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+59,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+60,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+61,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+62,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+63,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+64,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+65,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+66,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+67,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+68,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+69,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+70,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+71,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+72,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+73,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+74,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+75,add_primary_lane_transport_scenarios,added 3 primary edge transport scenarios
+76,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+77,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+78,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+79,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+80,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+81,add_primary_lane_transport_scenarios,added 3 primary edge transport scenarios
+82,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+83,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+84,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+85,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+86,add_primary_lane_transport_scenarios,added 3 primary edge transport scenarios
+87,add_primary_lane_transport_scenarios,added 3 primary edge transport scenarios
+88,add_primary_lane_transport_scenarios,added 3 primary edge transport scenarios
+89,add_primary_lane_transport_scenarios,added 3 primary edge transport scenarios
+90,add_primary_lane_transport_scenarios,added 3 primary edge transport scenarios
+91,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+92,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+93,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+94,add_primary_lane_transport_scenarios,added 3 primary edge transport scenarios
+95,add_primary_lane_transport_scenarios,added 3 primary edge transport scenarios
+96,add_primary_lane_transport_scenarios,added 3 primary edge transport scenarios
+97,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+98,add_primary_lane_transport_scenarios,added 3 primary edge transport scenarios
+99,add_primary_lane_transport_scenarios,added 3 primary edge transport scenarios
+100,add_primary_lane_transport_scenarios,added 3 primary edge transport scenarios
+101,add_primary_lane_transport_scenarios,added 3 primary edge transport scenarios
+102,add_primary_lane_transport_scenarios,added 3 primary edge transport scenarios
+103,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+104,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+105,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+106,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+107,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+108,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+109,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+110,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+111,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+112,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+113,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+114,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+115,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+116,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+117,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+118,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+119,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+120,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+121,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+122,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+123,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+124,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+125,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+126,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+128,add_primary_lane_transport_scenarios,added 3 primary edge transport scenarios
+129,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+130,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+131,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+132,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+133,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+134,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+135,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+136,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+137,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+138,add_primary_lane_transport_scenarios,added 3 primary edge transport scenarios
+139,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+140,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+141,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+142,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+143,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+144,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+145,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+146,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+147,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+148,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+149,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+150,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+151,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+152,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+153,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+154,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+155,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+158,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+159,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+160,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+161,add_primary_lane_transport_scenarios,added 3 primary edge transport scenarios
+162,add_primary_lane_transport_scenarios,added 3 primary edge transport scenarios
+163,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+164,add_primary_lane_transport_scenarios,added 3 primary edge transport scenarios
+165,add_primary_lane_transport_scenarios,added 3 primary edge transport scenarios
+166,add_primary_lane_transport_scenarios,added 3 primary edge transport scenarios
+167,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+168,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+169,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+170,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+171,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+172,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
+173,add_primary_lane_transport_scenarios,added 4 primary edge transport scenarios
