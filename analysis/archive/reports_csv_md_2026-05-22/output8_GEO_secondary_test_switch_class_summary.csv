@@ -1,7 +1,0 @@
-switch_class,test_bucket,path_count,component_count,mass_kg_scenario_sum,kg_km_scenario_sum,avg_delta_kg_km_vs_primary,lower_kgkm_than_primary_count
-candidate_requires_allocation_and_qualification,preferred_topology_test,10110,142,3663.1669,72786054.1,1456.2,3846
-candidate_requires_t1_t2_pairing,paired_t1_t2_test,6427,69,9607.9836,169125993.7,7139.7,2606
-candidate_requires_material_certificate,material_certificate_test,5582,75,2431.1501,57330151.3,3765.7,735
-candidate_requires_material_source,source_or_site_review_test,332,4,1.992,30905.1,-92.8,320
-candidate_requires_site_validation,source_or_site_review_test,2,1,0.14,2451.5,466.3,0
-candidate_scenario_only_mass_review,mass_review_only_test,2167,12,0.0,0.0,0.0,0

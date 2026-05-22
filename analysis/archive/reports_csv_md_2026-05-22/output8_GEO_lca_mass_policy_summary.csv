@@ -1,9 +1,0 @@
-metric,value,interpretation
-workbook_non_packaging_total_kg,115.966380887,Reference total from quantity_material.xlsx excluding packaging materials.
-current_primary_nominal_mass_kg,315.765144056,Current primary-path additive sum; overcounts because seat-level aggregate rows are mixed with detailed components.
-exact_component_mass_kg,96.4026254,Strict exact equipment/material BOM matches only.
-exact_plus_baseline_estimates_kg,119.529698167,Recommended conservative component baseline: exact rows plus non-aggregate medium/high family/equipment estimates.
-recommended_additive_with_review_kg,129.949472367,"All non-aggregate component masses, including medium review rows; excludes top-down seat aggregate rows."
-topdown_reference_mass_excluded_from_additive_kg,185.815671689,Seat-level/global reference rows retained for checks but not added to component baseline.
-duplicate_identical_primary_rows_collapsed,2,Identical primary rows removed before mass audit.
-policy_counts,include_exact_component=128;topdown_reference_only=18;include_baseline_estimate=17;include_with_review=7,Record count by recommended mass policy.
