@@ -1,0 +1,80 @@
+name,country,tier,stage,notes
+Safran,France,0,OEM,Intégrateur final (OEM)
+CEVA Logistics,France,1,Logistique,Transport et supply chain
+GEODIS,France,1,Logistique,Transport et entrepôt
+Kuehne-Nagel,Allemagne,1,Logistique,Fret international
+XPO Logistic,USA,1,Logistique,Distribution / supply chain
+Alcoa,USA,4,Matière première,Aluminium primaire (bauxite/alumine)
+Aluminium Corporation of China (CHALCO),Chine,4,Matière première,Aluminium/alumine
+ArcelorMittal,Luxembourg,4,Matière première,Acier primaire
+China Baowu Steel,Chine,4,Matière première,Acier primaire
+Hindalco,Inde,4,Matière première,Aluminium primaire
+Nucor Corp,USA,4,Matière première,Acier recyclé
+Rio Tinto Alma Works,Canada,4,Matière première,Aluminium primaire
+Rio Tinto Fer et Titane,Canada,4,Matière première,Minerai/oxydes de titane
+Saarstahl,Allemagne,4,Matière première,Acier brut
+TATA Steel,Inde,4,Matière première,Acier primaire
+BASF,Allemagne,4,Matière première,Chimie de base / polymères
+Bayer,Allemagne,4,Matière première,Chimie de base / polyuréthane
+ChemChina,Chine,4,Matière première,Chimie lourde / polymères bruts
+Mexichem,Mexique,4,Matière première,PVC / chimie de base
+Mitsubishi Chemical,Japon,4,Matière première,Polymères / plastiques techniques
+SABIC,Arabie Saoudite,4,Matière première,Pétrochimie (PE/PP/Lexan)
+Shandong Loyal Chemical,Chine,4,Matière première,Résines / additifs
+Solvay,Belgique,4,Matière première,Chimie de spécialité
+Total,France,4,Matière première,Pétrochimie de base
+Halcyon Hevecam,Cameroun,4,Matière première,Latex naturel
+Halcyon PT Remco Jambi,Indonésie,4,Matière première,Caoutchouc naturel
+Halcyon SDCI-A,Côte d’Ivoire,4,Matière première,Caoutchouc naturel
+Socfin LAC Liberia,Liberia,4,Matière première,Hévéa / caoutchouc
+Socfin SRC Weala,Liberia,4,Matière première,Caoutchouc
+Socfin Okomu,Nigeria,4,Matière première,Hévéa / huile de palme
+BillerudKorsnäs,Suède,4,Matière première,Pâte à papier / kraft
+Gascogne Papier,France,4,Matière première,Papier kraft
+Klabin S.A.,Brésil,4,Matière première,Pâte à papier
+Zijin Mining Group,Chine,4,Matière première,Extraction cuivre/or/lithium
+Aluminium,France,4,Matière première,Générique aluminium
+Polymère,France,4,Matière première,Générique polymère
+Toray, Japon,3,Première transformation,Fibres / polymères
+Aubert & Duval,France,3,Première transformation,Alliages spéciaux / forge
+Austria Metall (AMAG),Autriche,3,Première transformation,Laminage / extrusion alu
+Constellium,France,3,Première transformation,Aluminium laminé / extrudé
+Saint-Gobain,France,3,Première transformation,Verre / matériaux techniques
+Thyssen Group,France,3,Première transformation,Sidérurgie / produits laminés
+Daio Paper Corporation,Japon,3,Première transformation,Cellulose / textile
+Paragon Textiles,Inde,3,Première transformation,Tissage de base
+Tongxiang Zhuoyi Textile,Chine,3,Première transformation,Textile technique
+Zhejiang Yuxin Textile,Chine,3,Première transformation,Textile industriel
+La Filière Française du Cuir,France,3,Première transformation,Tannerie / cuir
+Gruppo Mastrotto,Italie,3,Première transformation,Tannerie industrielle
+Velours,France,3,Première transformation,Textile générique
+Tissu Huddersfield,Angleterre,3,Première transformation,Laine et tissus
+Tissus:,France,3,Première transformation,Textile non précisé
+Toray Carbon Fibers Europe - Lacq,France,2,Seconde transformation,Fibre carbone / préimprégnés
+Hexcel Corporation,France,2,Seconde transformation,Fibre carbone / composites
+SGL Carbon,Allemagne,2,Seconde transformation,Fibre carbone / graphites
+DuPont de Nemours,USA,2,Seconde transformation,Polymères techniques (Kevlar/Nomex)
+Ensinger,Allemagne,2,Seconde transformation,Polymères techniques extrudés
+Sekisui SPI (Kydex),USA,2,Seconde transformation,Feuilles thermoplastiques
+SIKA,USA,2,Seconde transformation,Polymères composites / colles
+Rhône Poulenc,France,2,Seconde transformation,Chimie industrielle
+3M,USA,2,Seconde transformation,Adhésifs / polymères techniques
+Kvadrat,Danemark,2,Seconde transformation,Textiles d’ameublement
+Lelièvre Paris (velours),France,2,Seconde transformation,Velours haut de gamme
+Ultrafabrics, Japon,2,Seconde transformation,Revêtements synthétiques
+Glatfelter,USA,2,Seconde transformation,Papier technique
+Group Mondi,Autriche,2,Seconde transformation,Papier / emballage
+Smurfit Kappa,Irlande,2,Seconde transformation,Carton / emballage
+Formica,France,2,Seconde transformation,Stratifiés polymères
+LATIM,France,2,Seconde transformation,Composites / polymères techniques
+Intel,USA,2,Seconde transformation,Semi-conducteurs
+NVIDIA,USA,2,Seconde transformation,Processeurs graphiques
+ROHM Co. Ltd,Japon,2,Seconde transformation,Semi-conducteurs
+Infineon Technologies AG,Allemagne,2,Seconde transformation,Semi-conducteurs
+Diodes Incorporated,USA,2,Seconde transformation,Semi-conducteurs
+Vaisala,Finlande,2,Seconde transformation,Instrumentation / capteurs
+Krohne,Allemagne,2,Seconde transformation,Instrumentation process
+CEVA Logistics,France,1,Logistique,Transport (déjà listé)
+GEODIS,France,1,Logistique,Transport (déjà listé)
+Kuehne-Nagel,Allemagne,1,Logistique,Transport (déjà listé)
+XPO Logistic,USA,1,Logistique,Transport (déjà listé)

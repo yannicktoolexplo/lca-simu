@@ -15,9 +15,10 @@ import pandas as pd
 import plotly.express as px
 
 ROOT = Path(__file__).resolve().parent.parent
-EVENTS_CSV = ROOT / "analysis" / "supply_events.csv"
-GEO_JSON = ROOT / "analysis" / "output8_GEO_normalized.json"
-OUT_HTML = ROOT / "analysis" / "sim_animation.html"
+ANALYSIS_DIR = ROOT / "supply_geo" / "analysis"
+EVENTS_CSV = ANALYSIS_DIR / "supply_events.csv"
+GEO_JSON = ANALYSIS_DIR / "output8_GEO_normalized.json"
+OUT_HTML = ANALYSIS_DIR / "sim_animation.html"
 
 # événements retenus (sinon on garde tout)
 EVENT_WHITELIST = {"START_PROC", "END_PROC", "ARRIVE", "DEPART_ROAD", "DEPART_SEA", "DEPART_AIR", "DEPART_TRAIN"}

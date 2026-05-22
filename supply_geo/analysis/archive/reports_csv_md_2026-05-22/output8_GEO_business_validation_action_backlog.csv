@@ -1,0 +1,121 @@
+priority,scope,family,item,occurrences,recommended_action
+P2,path_validation,steel,lead_time_required,8741,Replace family-level lead-time band by supplier/site-specific lead time and recovery time.
+P1,path_validation,steel,allocation_required,8708,Confirm awarded source/allocation share/capacity/MOQ before enabling switch scenario.
+P2,path_validation,steel,switch_candidate_qualification_material_and_process,8708,"Run family qualification gate for steel: specs, process route and program approval."
+P2,path_validation,steel,longhaul_transport_lane_check,8670,"Validate baseline mode, port/airport assumptions and emergency expedite option."
+P1,path_validation,steel,material_certificate_required,7000,"Require grade, mill/site, certificate and material standard before quantitative activation."
+P2,path_validation,textile_leather,lead_time_required,6155,Replace family-level lead-time band by supplier/site-specific lead time and recovery time.
+P1,path_validation,textile_leather,allocation_required,6113,Confirm awarded source/allocation share/capacity/MOQ before enabling switch scenario.
+P2,path_validation,textile_leather,switch_candidate_qualification_cabin_trim,6113,"Run family qualification gate for textile_leather: specs, process route and program approval."
+P2,path_validation,textile_leather,material_source_and_fst_required,5980,Collect exact material datasheet/source and FST evidence.
+P2,path_validation,textile_leather,longhaul_transport_lane_check,5431,"Validate baseline mode, port/airport assumptions and emergency expedite option."
+P2,path_validation,aluminium,lead_time_required,4878,Replace family-level lead-time band by supplier/site-specific lead time and recovery time.
+P2,path_validation,aluminium,longhaul_transport_lane_check,4878,"Validate baseline mode, port/airport assumptions and emergency expedite option."
+P1,path_validation,aluminium,allocation_required,4841,Confirm awarded source/allocation share/capacity/MOQ before enabling switch scenario.
+P2,path_validation,aluminium,switch_candidate_qualification_material_and_process,4841,"Run family qualification gate for aluminium: specs, process route and program approval."
+P2,path_validation,polymer_plastic,grade_and_process_datasheet_required,4801,Review and either promote to active scenario or keep inactive.
+P2,path_validation,polymer_plastic,lead_time_required,4801,Replace family-level lead-time band by supplier/site-specific lead time and recovery time.
+P1,path_validation,polymer_plastic,allocation_required,4778,Confirm awarded source/allocation share/capacity/MOQ before enabling switch scenario.
+P2,path_validation,polymer_plastic,switch_candidate_qualification_polymer_process,4778,"Run family qualification gate for polymer_plastic: specs, process route and program approval."
+P2,path_validation,aluminium,internal_process_t1_pairing_required,4341,"Model the switch as a paired T1/T2 route, or replace the internal process node by a real external processor for independent T2 switching."
+P2,path_validation,polymer_plastic,longhaul_transport_lane_check,4314,"Validate baseline mode, port/airport assumptions and emergency expedite option."
+P2,path_validation,aluminium,material_certificate_check,3286,Review and either promote to active scenario or keep inactive.
+P2,path_validation,steel,internal_process_t1_pairing_required,1981,"Model the switch as a paired T1/T2 route, or replace the internal process node by a real external processor for independent T2 switching."
+P2,path_validation,steel,material_certificate_check,1749,Review and either promote to active scenario or keep inactive.
+P1,path_validation,aluminium,material_certificate_required,1592,"Require grade, mill/site, certificate and material standard before quantitative activation."
+P2,path_validation,textile_leather,soft_goods_fst_required,186,Collect exact material datasheet/source and FST evidence.
+P2,path_validation,general,material_definition_review,99,Review and either promote to active scenario or keep inactive.
+P2,path_validation,general,lead_time_required,98,Replace family-level lead-time band by supplier/site-specific lead time and recovery time.
+P1,path_validation,general,allocation_required,96,Confirm awarded source/allocation share/capacity/MOQ before enabling switch scenario.
+P2,path_validation,general,switch_candidate_qualification_role_review,96,"Run family qualification gate for general: specs, process route and program approval."
+P2,path_validation,general,longhaul_transport_lane_check,69,"Validate baseline mode, port/airport assumptions and emergency expedite option."
+P2,path_validation,textile_leather,baseline_qualification_cabin_trim,53,"Run family qualification gate for textile_leather: specs, process route and program approval."
+P2,path_validation,general,internal_process_t1_pairing_required,48,"Model the switch as a paired T1/T2 route, or replace the internal process node by a real external processor for independent T2 switching."
+P2,path_validation,textile_leather,internal_process_t1_pairing_required,47,"Model the switch as a paired T1/T2 route, or replace the internal process node by a real external processor for independent T2 switching."
+P2,path_validation,steel,baseline_qualification_material_and_process,41,"Run family qualification gate for steel: specs, process route and program approval."
+P2,path_validation,aluminium,baseline_allocation_assumption,37,Review and either promote to active scenario or keep inactive.
+P2,path_validation,aluminium,baseline_qualification_material_and_process,37,"Run family qualification gate for aluminium: specs, process route and program approval."
+P2,path_validation,rubber_silicone,lead_time_required,36,Replace family-level lead-time band by supplier/site-specific lead time and recovery time.
+P2,path_validation,rubber_silicone,longhaul_transport_lane_check,36,"Validate baseline mode, port/airport assumptions and emergency expedite option."
+P1,path_validation,rubber_silicone,allocation_required,34,Confirm awarded source/allocation share/capacity/MOQ before enabling switch scenario.
+P2,path_validation,rubber_silicone,switch_candidate_qualification_cabin_trim,34,"Run family qualification gate for rubber_silicone: specs, process route and program approval."
+P1,transport_lane,textile_leather,T1->OEM JAMCO Aircraft Interiors - Niigata -> Safran Seats / Safran internal group,84,Long-distance lane; ocean + truck is plausible for baseline cost/carbon.
+P1,transport_lane,aluminium,T3->T2 thyssenkrupp Materials France -> JAMCO Aircraft Interiors - Niigata - internal machining/forming process,16,Long-distance lane; ocean + truck is plausible for baseline cost/carbon.
+P1,transport_lane,aluminium,T3->T2 Aluminium France -> JAMCO Aircraft Interiors - Niigata - internal machining/forming process,16,Long-distance lane; ocean + truck is plausible for baseline cost/carbon.
+P1,transport_lane,aluminium,T3->T2 Euralliage Ile de France -> JAMCO Aircraft Interiors - Niigata - internal machining/forming process,16,Long-distance lane; ocean + truck is plausible for baseline cost/carbon.
+P1,transport_lane,aluminium,T1->OEM JAMCO Philippines Inc. -> Safran Seats / Safran internal group,12,Long-distance lane; ocean + truck is plausible for baseline cost/carbon.
+P1,transport_lane,aluminium,T1->OEM JAMCO Aircraft Interiors - Miyazaki -> Safran Seats / Safran internal group,12,Long-distance lane; ocean + truck is plausible for baseline cost/carbon.
+P1,transport_lane,aluminium,T1->OEM JAMCO Aircraft Interiors - Niigata -> Safran Seats / Safran internal group,12,Long-distance lane; ocean + truck is plausible for baseline cost/carbon.
+P1,transport_lane,textile_leather,T1->OEM JAMCO Philippines Inc. -> Safran Seats / Safran internal group,42,Long-distance lane; ocean + truck is plausible for baseline cost/carbon.
+P1,transport_lane,textile_leather,T1->OEM JAMCO Aircraft Interiors - Miyazaki -> Safran Seats / Safran internal group,42,Long-distance lane; ocean + truck is plausible for baseline cost/carbon.
+P1,transport_lane,textile_leather,T1->OEM JAMCO Aircraft Interiors - Niigata -> Safran Seats / Safran internal group,42,Long-distance lane; ocean + truck is plausible for baseline cost/carbon.
+P1,transport_lane,aluminium,T2->T1 JAMCO Aircraft Interiors - Niigata - internal machining/forming process -> J&C Aero,12,Intercontinental lane should normally include ocean shipping plus truck drayage.
+P1,transport_lane,textile_leather,T2->T1 DuPont de Nemours -> JAMCO Aircraft Interiors - Niigata,28,Long-distance lane; ocean + truck is plausible for baseline cost/carbon.
+P1,transport_lane,textile_leather,T2->T1 LATIM -> JAMCO Aircraft Interiors - Niigata,28,Long-distance lane; ocean + truck is plausible for baseline cost/carbon.
+P1,transport_lane,textile_leather,T2->T1 Ensinger -> JAMCO Aircraft Interiors - Niigata,28,Long-distance lane; ocean + truck is plausible for baseline cost/carbon.
+P1,transport_lane,textile_leather,T1->OEM JAMCO Philippines Inc. -> Safran Seats / Safran internal group,56,Long-distance lane; ocean + truck is plausible for baseline cost/carbon.
+P1,transport_lane,textile_leather,T1->OEM JAMCO Philippines Inc. -> Safran Seats / Safran internal group,56,Long-distance lane; ocean + truck is plausible for baseline cost/carbon.
+P1,transport_lane,textile_leather,T1->OEM JAMCO Philippines Inc. -> Safran Seats / Safran internal group,56,Long-distance lane; ocean + truck is plausible for baseline cost/carbon.
+P1,transport_lane,aluminium,T3->T2 thyssenkrupp Materials France -> Senior Aerospace Thailand - internal machining/forming process,30,Long-distance lane; ocean + truck is plausible for baseline cost/carbon.
+P1,transport_lane,aluminium,T3->T2 Constellium -> Senior Aerospace Thailand - internal machining/forming process,30,Long-distance lane; ocean + truck is plausible for baseline cost/carbon.
+P1,transport_lane,aluminium,T3->T2 Euralliage Ile de France -> Senior Aerospace Thailand - internal machining/forming process,30,Long-distance lane; ocean + truck is plausible for baseline cost/carbon.
+P1,transport_lane,aluminium,T3->T2 Aluminium France -> Senior Aerospace Thailand - internal machining/forming process,30,Long-distance lane; ocean + truck is plausible for baseline cost/carbon.
+P1,transport_lane,textile_leather,T2->T1 DuPont de Nemours -> JAMCO Philippines Inc.,14,Long-distance lane; ocean + truck is plausible for baseline cost/carbon.
+P1,transport_lane,textile_leather,T1->OEM JAMCO Aircraft Interiors - Miyazaki -> Safran Seats / Safran internal group,56,Long-distance lane; ocean + truck is plausible for baseline cost/carbon.
+P1,transport_lane,textile_leather,T1->OEM JAMCO Aircraft Interiors - Miyazaki -> Safran Seats / Safran internal group,56,Long-distance lane; ocean + truck is plausible for baseline cost/carbon.
+P1,transport_lane,textile_leather,T1->OEM JAMCO Aircraft Interiors - Miyazaki -> Safran Seats / Safran internal group,56,Long-distance lane; ocean + truck is plausible for baseline cost/carbon.
+P1,transport_lane,textile_leather,T1->OEM JAMCO Aircraft Interiors - Niigata -> Safran Seats / Safran internal group,56,Long-distance lane; ocean + truck is plausible for baseline cost/carbon.
+P1,transport_lane,textile_leather,T1->OEM JAMCO Aircraft Interiors - Niigata -> Safran Seats / Safran internal group,56,Long-distance lane; ocean + truck is plausible for baseline cost/carbon.
+P1,transport_lane,textile_leather,T1->OEM JAMCO Aircraft Interiors - Niigata -> Safran Seats / Safran internal group,56,Long-distance lane; ocean + truck is plausible for baseline cost/carbon.
+P1,transport_lane,aluminium,T3->T2 AMAG Austria Metall -> Senior Aerospace Thailand - internal machining/forming process,30,Long-distance lane; ocean + truck is plausible for baseline cost/carbon.
+P1,transport_lane,textile_leather,T2->T1 DuPont de Nemours -> JAMCO Aircraft Interiors - Miyazaki,14,Long-distance lane; ocean + truck is plausible for baseline cost/carbon.
+P1,transport_lane,aluminium,T2->T1 JAMCO Aircraft Interiors - Niigata - internal machining/forming process -> JAMCO Philippines Inc.,12,Intercontinental lane should normally include ocean shipping plus truck drayage.
+P1,transport_lane,textile_leather,T2->T1 DuPont de Nemours -> JAMCO Aircraft Interiors - Niigata,14,Long-distance lane; ocean + truck is plausible for baseline cost/carbon.
+P1,transport_lane,textile_leather,T2->T1 LATIM -> JAMCO Philippines Inc.,14,Long-distance lane; ocean + truck is plausible for baseline cost/carbon.
+P1,transport_lane,textile_leather,T2->T1 Ensinger -> JAMCO Philippines Inc.,14,Long-distance lane; ocean + truck is plausible for baseline cost/carbon.
+P1,transport_lane,textile_leather,T2->T1 LATIM -> JAMCO Aircraft Interiors - Miyazaki,14,Long-distance lane; ocean + truck is plausible for baseline cost/carbon.
+P1,transport_lane,textile_leather,T2->T1 LATIM -> JAMCO Aircraft Interiors - Niigata,14,Long-distance lane; ocean + truck is plausible for baseline cost/carbon.
+P1,transport_lane,textile_leather,T2->T1 Ensinger -> JAMCO Aircraft Interiors - Miyazaki,14,Long-distance lane; ocean + truck is plausible for baseline cost/carbon.
+P1,transport_lane,textile_leather,T2->T1 Ensinger -> JAMCO Aircraft Interiors - Niigata,14,Long-distance lane; ocean + truck is plausible for baseline cost/carbon.
+P1,transport_lane,aluminium,T4->T3 Aluminium Corporation of China / Chalco -> thyssenkrupp Materials France,4,Long-distance lane; ocean + truck is plausible for baseline cost/carbon.
+P1,transport_lane,aluminium,T4->T3 Aluminium Corporation of China / Chalco -> Euralliage Ile de France,4,Long-distance lane; ocean + truck is plausible for baseline cost/carbon.
+P2,supplier_switch,steel,T2 SCHROTH Safety Products,6474,same_family_only + grade/certificate/site/allocation + keep internal T2 paired with T1
+P2,supplier_switch,aluminium,T2 ESPACE - internal machining/forming process,2235,same_family_only + grade/certificate/site/allocation + keep internal T2 paired with T1
+P2,supplier_switch,textile_leather,T3 Toray Industries,2230,exact material + FST + trim/color approval + process qualification
+P2,supplier_switch,polymer_plastic,T3 EXSTO / Baule-Exsto Polymere,2208,exact grade + process route + drawing/tooling/FST validation
+P2,supplier_switch,polymer_plastic,T3 Toray Industries,2188,exact grade + process route + drawing/tooling/FST validation
+P2,supplier_switch,steel,T3 thyssenkrupp Materials France,2179,same_family_only + grade/certificate/site/allocation + keep internal T2 paired with T1
+P2,supplier_switch,steel,T3 Aubert & Duval,2177,same_family_only + grade/certificate/site/allocation + keep internal T2 paired with T1
+P2,supplier_switch,steel,T3 Altec Etirage,2169,same_family_only + grade/certificate/site/allocation + keep internal T2 paired with T1
+P2,supplier_switch,steel,T3 Krupp,2168,same_family_only + grade/certificate/site/allocation + keep internal T2 paired with T1
+P2,supplier_switch,steel,T2 Senior Aerospace Thailand - internal machining/forming process,2056,same_family_only + grade/certificate/site/allocation + keep internal T2 paired with T1
+P2,supplier_switch,steel,T4 ArcelorMittal,1772,same_family_only + grade/certificate/site/allocation + keep internal T2 paired with T1
+P2,supplier_switch,steel,T4 Tata Steel,1748,same_family_only + grade/certificate/site/allocation + keep internal T2 paired with T1
+P2,supplier_switch,steel,T4 China Baowu / Baosteel,1747,same_family_only + grade/certificate/site/allocation + keep internal T2 paired with T1
+P2,supplier_switch,steel,T4 Saarstahl,1725,same_family_only + grade/certificate/site/allocation + keep internal T2 paired with T1
+P2,supplier_switch,steel,T4 Nucor Corp,1716,same_family_only + grade/certificate/site/allocation + keep internal T2 paired with T1
+P2,supplier_switch,textile_leather,T4 BASF,1683,exact material + FST + trim/color approval + process qualification
+P2,supplier_switch,aluminium,T4 Hindalco Industries,1592,same_family_only + grade/certificate/site/allocation + keep internal T2 paired with T1
+P2,supplier_switch,aluminium,T4 Aluminium Corporation of China / Chalco,1586,same_family_only + grade/certificate/site/allocation + keep internal T2 paired with T1
+P2,supplier_switch,textile_leather,T2 DuPont de Nemours,1492,exact material + FST + trim/color approval + process qualification
+P2,supplier_switch,aluminium,T4 Alcoa,1459,same_family_only + grade/certificate/site/allocation + keep internal T2 paired with T1
+P2,supplier_switch,textile_leather,T4 DuPont de Nemours - fiber/polymer source assumption,1358,exact material + FST + trim/color approval + process qualification
+P2,supplier_switch,polymer_plastic,T4 BASF,1173,exact grade + process route + drawing/tooling/FST validation
+P2,supplier_switch,textile_leather,T2 Ensinger,1168,exact material + FST + trim/color approval + process qualification
+P2,supplier_switch,textile_leather,T4 Bayer,1134,exact material + FST + trim/color approval + process qualification
+P2,supplier_switch,aluminium,T3 Aluminium France,1030,same_family_only + grade/certificate/site/allocation + keep internal T2 paired with T1
+P2,supplier_switch,aluminium,T3 thyssenkrupp Materials France,1030,same_family_only + grade/certificate/site/allocation + keep internal T2 paired with T1
+P2,supplier_switch,aluminium,T3 Euralliage Ile de France,1024,same_family_only + grade/certificate/site/allocation + keep internal T2 paired with T1
+P2,supplier_switch,polymer_plastic,T4 Bayer,1006,exact grade + process route + drawing/tooling/FST validation
+P2,supplier_switch,textile_leather,T2 LATIM,954,exact material + FST + trim/color approval + process qualification
+P2,supplier_switch,polymer_plastic,T2 DuPont de Nemours,932,exact grade + process route + drawing/tooling/FST validation
+P2,supplier_switch,aluminium,T2 SUMPAR - internal machining/forming process,921,same_family_only + grade/certificate/site/allocation + keep internal T2 paired with T1
+P2,supplier_switch,polymer_plastic,T2 Ensinger,910,exact grade + process route + drawing/tooling/FST validation
+P2,supplier_switch,aluminium,T3 Constellium,894,same_family_only + grade/certificate/site/allocation + keep internal T2 paired with T1
+P2,supplier_switch,textile_leather,T1 ACH,886,exact material + FST + trim/color approval + process qualification
+P2,supplier_switch,aluminium,T2 ETS Gattefin - internal machining/forming process,864,same_family_only + grade/certificate/site/allocation + keep internal T2 paired with T1
+P2,supplier_switch,aluminium,T3 AMAG Austria Metall,863,same_family_only + grade/certificate/site/allocation + keep internal T2 paired with T1
+P2,supplier_switch,polymer_plastic,T2 Plastiservice Charleroi,816,exact grade + process route + drawing/tooling/FST validation
+P2,supplier_switch,polymer_plastic,T1 JAMCO Aircraft Interiors - Niigata,769,exact grade + process route + drawing/tooling/FST validation
+P2,supplier_switch,polymer_plastic,T1 JAMCO Aircraft Interiors - Miyazaki,738,exact grade + process route + drawing/tooling/FST validation
+P2,supplier_switch,polymer_plastic,T1 JAMCO Philippines Inc.,738,exact grade + process route + drawing/tooling/FST validation

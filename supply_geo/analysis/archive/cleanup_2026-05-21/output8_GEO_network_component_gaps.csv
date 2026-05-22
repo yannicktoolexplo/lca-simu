@@ -1,0 +1,171 @@
+﻿variant,record_index,system,component,mass_kg,missing_roles,present_roles,tier4_count,tier3_count,tier2_count,tier1_count,oem_count
+primary,1,Ens. Equipements latéraux,A5086 - Aluminium,3.6360048,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,1,1,0,1,1
+primary,2,Ens. Stowage latéral,"15CDV6 (chrome, molibdene, vanadium)",0.022,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,1,1,0,1,1
+primary,4,Ensemble porte,FILM DECOR AERFILM - Ep0.33 714g-m2,0.392,tier4_raw_material,tier3_first_transformation;tier2_second_transformation;tier1;oem,0,1,1,1,1
+primary,5,Bumper version porte,alliage Cu,0.006,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,1,1,0,1,1
+primary,6,Ens. Stowage latéral,cuir,0.112,tier4_raw_material,tier3_first_transformation;tier2_second_transformation;tier1;oem,0,1,1,1,1
+primary,7,lightning,lightning,0.8,tier4_raw_material;tier3_first_transformation,tier2_second_transformation;tier1;oem,0,0,1,1,1
+primary,9,Stowage assemblé avec porte,Silicone,0.0007,tier4_raw_material,tier3_first_transformation;tier2_second_transformation;tier1;oem,0,1,1,1,1
+primary,10,System IFE (In-Flight Entertainment) est un ensemble d'équipements et de logiciels qui permet aux passagers d'occuper leur temps à bord d'un avion.,System IFE boitier ref FJKL1-3K1100-01ATAB,1.5,tier4_raw_material,tier3_first_transformation;tier2_second_transformation;tier1;oem,0,1,1,1,1
+primary,11,Coussin ottoman,tissu,0.339,tier4_raw_material,tier3_first_transformation;tier2_second_transformation;tier1;oem,0,1,1,1,1
+primary,13,Accoudoir allée,30NCD6 (nickel-chrome- molibdene),0.027,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,1,1,0,1,1
+primary,14,Ens. Palette optimisée,35NC6 (nickel-chrome),0.660743,tier4_raw_material;tier2_second_transformation,tier3_first_transformation;tier1;oem,0,1,0,1,1
+primary,16,Stowage assemblé avec porte,35NC6 (nickel-chrome),0.008,tier3_first_transformation;tier2_second_transformation,tier4_raw_material;tier1;oem,1,0,0,1,1
+primary,29,Accoudoir allée,A5086 - Aluminium,0.316,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,1,1,0,1,1
+primary,30,Bumper version porte,A5086 - Aluminium,0.024,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,1,1,0,1,1
+primary,31,Ens. Stowage latéral,A5086 - Aluminium,0.216,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,1,1,0,1,1
+primary,32,ens. equipements lateraux,"velours eu28: polyurethane flexible foam, with flame retardant eu28: pa6.6 fibres",0.008,tier4_raw_material,tier3_first_transformation;tier2_second_transformation;tier1;oem,0,1,1,1,1
+primary,33,Ens. Structure fauteuil,4140 (acier),0.002,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,1,1,0,1,1
+primary,34,Habillage sous fauteuil,A5086 - Aluminium,1.03,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,1,1,0,1,1
+primary,35,Manchette acc. Mobile,A5086 - Aluminium,0.105,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,1,1,0,1,1
+primary,36,Manchette équipée,A5086 - Aluminium,0.17,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,1,1,0,1,1
+primary,37,Renfort tubulaire,A5086 - Aluminium,0.931,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,1,1,0,1,1
+primary,38,Stowage assemblé avec porte,A5086 - Aluminium,2.457,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,1,1,0,1,1
+primary,39,Structure ottoman horizontale,A5086 - Aluminium,1.928,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,1,1,0,1,1
+primary,40,Support écran,A5086 - Aluminium,0.506,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,1,1,0,1,1
+primary,41,Support équipé,A5086 - Aluminium,0.099,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,1,1,0,1,1
+primary,42,Support manchette équipée,A5086 - Aluminium,0.117,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,1,1,0,1,1
+primary,43,Support NFC,A5086 - Aluminium,0.01,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,1,1,0,1,1
+primary,44,Renfort tubulaire,A6060 - Aluminium,0.404,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,1,1,0,1,1
+primary,50,ens. coque,de: aluminium cast part machining + tth compris dans le steel tinplated,0.496,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,1,1,0,1,1
+primary,51,Ens. Structure fauteuil,35NC6 (nickel-chrome),1.417,tier3_first_transformation;tier2_second_transformation,tier4_raw_material;tier1;oem,1,0,0,1,1
+primary,66,Accoudoir allée,Alu,3.0435071,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,1,1,0,1,1
+primary,67,Ens. Palette optimisée,Alu,12.5475707,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,1,1,0,1,1
+primary,68,Ensemble porte,Alu,6.872,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,1,1,0,1,1
+primary,69,Ens. Structure fauteuil,A5086 - Aluminium,0.458,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,1,1,0,1,1
+primary,70,Manchette acc. Mobile,Alu,0.106,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,1,1,0,1,1
+primary,71,Brackets set,cables FJKL1-3K1J01-01ATAB_BRACKETS-SET,3.365,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,1,1,0,1,1
+primary,73,SFCU (Seat Function Control Unit),Clavier,0.2,tier4_raw_material;tier3_first_transformation;tier1,tier2_second_transformation;oem,0,0,1,0,1
+primary,74,Commande actionnement ECU,Commande actionnement ECU,0.75,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,1,1,0,1,1
+primary,75,bumper version porte,copolymere lexan fst simapro: extrusion et thermoformage,0.151,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,1,1,0,1,1
+primary,76,Manchette acc. Mobile,cuir,0.039,tier4_raw_material,tier3_first_transformation;tier2_second_transformation;tier1;oem,0,1,1,1,1
+primary,77,Manchette équipée,cuir,0.06,tier4_raw_material,tier3_first_transformation;tier2_second_transformation;tier1;oem,0,1,1,1,1
+primary,78,Ecran - Screen Display (COTS),"Display, liquid crystal, 17 pouces",1.928,tier1,tier4_raw_material;tier3_first_transformation;tier2_second_transformation;oem,1,1,1,0,1
+primary,81,Ens. Structure fauteuil,inox,0.045,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,1,1,0,1,1
+primary,94,Accoudoir allée,inox,0.018054,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,1,1,0,1,1
+primary,95,Ens. Palette optimisée,inox,0.023743,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,1,1,0,1,1
+primary,96,Ensemble porte,inox,0.0047592,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,1,1,0,1,1
+primary,98,Ens. Tablette cocktail,inox,0.012,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,1,1,0,1,1
+primary,99,Ens. Tablette repas,inox,0.014,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,1,1,0,1,1
+primary,100,Ens. Têtière,inox,0.001,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,1,1,0,1,1
+primary,101,Stowage assemblé avec porte,inox,0.00928,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,1,1,0,1,1
+primary,102,Support écran,inox,0.014,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,1,1,0,1,1
+primary,110,Ens. Coque,NIDA - GLO (moulage par injection plastique),8.439,tier1,tier4_raw_material;tier3_first_transformation;tier2_second_transformation;oem,1,1,1,0,1
+primary,116,Ens. Structure fixe,35NC6 (nickel-chrome),0.029,tier4_raw_material;tier3_first_transformation;tier2_second_transformation,tier1;oem,0,0,0,1,1
+primary,121,Ecran - 00-5136-51 Rev F Seat Power Box 4 (SPB4),"Display, liquid crystal, 17 pouces",2.378,tier1,tier4_raw_material;tier3_first_transformation;tier2_second_transformation;oem,1,1,1,0,1
+primary,123,Ens. Structure fixe,Alu,3.5410117,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,1,1,0,1,1
+primary,126,Powerbox,powerbox,1.5,tier1,tier4_raw_material;tier3_first_transformation;tier2_second_transformation;oem,1,1,1,0,1
+primary,127,Ens. Coque,SIMAPRO : extrusion and thermoforming - traitement par AER Film Schneider,0.392,tier1,tier4_raw_material;tier3_first_transformation;tier2_second_transformation;oem,1,1,1,0,1
+primary,128,Ens. Coque,Résine BR623 - composite,0.488,tier1,tier4_raw_material;tier3_first_transformation;tier2_second_transformation;oem,1,1,1,0,1
+primary,129,Ens. Tablette repas,Silicone50 shore,0.0007,tier4_raw_material,tier3_first_transformation;tier2_second_transformation;tier1;oem,0,1,1,1,1
+primary,131,Coussin têtière,tissu,0.191,tier4_raw_material,tier3_first_transformation;tier2_second_transformation;tier1;oem,0,1,1,1,1
+primary,132,Ens. Coussin assise,tissu,0.42,tier4_raw_material,tier3_first_transformation;tier2_second_transformation;tier1;oem,0,1,1,1,1
+primary,133,Ens.coussin dossier version têtière,tissu,0.748,tier4_raw_material,tier3_first_transformation;tier2_second_transformation;tier1;oem,0,1,1,1,1
+primary,134,Ens. Coussin dossier,tissu,0.743,tier4_raw_material,tier3_first_transformation;tier2_second_transformation;tier1;oem,0,1,1,1,1
+primary,135,Ens. Tablette cocktail,tissu,0.002,tier4_raw_material,tier3_first_transformation;tier2_second_transformation;tier1;oem,0,1,1,1,1
+primary,136,Ens. Têtière,tissu,0.002,tier4_raw_material,tier3_first_transformation;tier2_second_transformation;tier1;oem,0,1,1,1,1
+primary,138,Ens. Structure fixe,inox,0.027,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,1,1,0,1,1
+primary,140,Coussin têtière,velcro,0.007,tier4_raw_material,tier3_first_transformation;tier2_second_transformation;tier1;oem,0,1,1,1,1
+primary,141,Ens.coussin dossier version têtière,velcro,0.005,tier4_raw_material,tier3_first_transformation;tier2_second_transformation;tier1;oem,0,1,1,1,1
+primary,142,Ens. Coussin dossier,velcro,0.006,tier4_raw_material,tier3_first_transformation;tier2_second_transformation;tier1;oem,0,1,1,1,1
+primary,143,Manchette équipée,velcro,0.006,tier4_raw_material,tier3_first_transformation;tier2_second_transformation;tier1;oem,0,1,1,1,1
+primary,144,Coussin ottoman,velours,0.034,tier4_raw_material,tier3_first_transformation;tier2_second_transformation;tier1;oem,0,1,1,1,1
+primary,145,Coussin têtière,velours,0.003,tier4_raw_material,tier3_first_transformation;tier2_second_transformation;tier1;oem,0,1,1,1,1
+primary,146,Ens. Coussin assise,velours,0.025,tier4_raw_material,tier3_first_transformation;tier2_second_transformation;tier1;oem,0,1,1,1,1
+primary,147,Ens.coussin dossier version têtière,velours,0.008,tier4_raw_material,tier3_first_transformation;tier2_second_transformation;tier1;oem,0,1,1,1,1
+primary,148,Ens. Coussin dossier,velours,0.022,tier4_raw_material,tier3_first_transformation;tier2_second_transformation;tier1;oem,0,1,1,1,1
+primary,149,Ens. Structure porte,velcro,0.085,tier4_raw_material,tier3_first_transformation;tier2_second_transformation;tier1;oem,0,1,1,1,1
+primary,150,Habillage sous fauteuil,velours,0.007,tier4_raw_material,tier3_first_transformation;tier2_second_transformation;tier1;oem,0,1,1,1,1
+primary,153,Support écran Screen Display (COTS),"Display, liquid crystal, 17 pouces",0.45,tier1,tier4_raw_material;tier3_first_transformation;tier2_second_transformation;oem,1,1,1,0,1
+primary,154,bumper version porte,de: aluminium cast part machining glo: steel sheet stamping and bending,0.024,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,1,1,0,1,1
+primary,155,accoudoir allee,de: aluminium cast part machining glo: steel sheet stamping and bending,0.7096766,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,1,1,0,1,1
+primary,156,Accoudoir allée,GLO: Steel sheet stamping and bending,0.7096766,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,1,1,0,1,1
+primary,161,Siége,65% aluminium,75.378147576,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,1,1,0,1,1
+primary,163,Siége,11% Moulage plastique,12.756301898,tier1,tier4_raw_material;tier3_first_transformation;tier2_second_transformation;oem,1,1,1,0,1
+primary,165,Siége,"16 % Tissu, mousse",18.554620942,tier1,tier4_raw_material;tier3_first_transformation;tier2_second_transformation;oem,1,1,1,0,2
+primary,166,siege,titane fibre de carbone,8.927,tier4_raw_material;tier1,tier3_first_transformation;tier2_second_transformation;oem,0,1,1,0,2
+all,1,Ens. Equipements latéraux,A5086 - Aluminium,3.6360048,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,4,5,0,10,1
+all,2,Ens. Stowage latéral,"15CDV6 (chrome, molibdene, vanadium)",0.022,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,5,4,0,3,1
+all,4,Ensemble porte,FILM DECOR AERFILM - Ep0.33 714g-m2,0.392,tier4_raw_material,tier3_first_transformation;tier2_second_transformation;tier1;oem,0,2,2,3,1
+all,5,Bumper version porte,alliage Cu,0.006,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,6,3,0,4,1
+all,6,Ens. Stowage latéral,cuir,0.112,tier4_raw_material,tier3_first_transformation;tier2_second_transformation;tier1;oem,0,1,2,3,1
+all,7,lightning,lightning,0.8,tier4_raw_material;tier3_first_transformation,tier2_second_transformation;tier1;oem,0,0,2,3,1
+all,9,Stowage assemblé avec porte,Silicone,0.0007,tier4_raw_material,tier3_first_transformation;tier2_second_transformation;tier1;oem,0,2,2,3,1
+all,10,System IFE (In-Flight Entertainment) est un ensemble d'équipements et de logiciels qui permet aux passagers d'occuper leur temps à bord d'un avion.,System IFE boitier ref FJKL1-3K1100-01ATAB,1.5,tier4_raw_material,tier3_first_transformation;tier2_second_transformation;tier1;oem,0,1,1,1,1
+all,11,Coussin ottoman,tissu,0.339,tier4_raw_material,tier3_first_transformation;tier2_second_transformation;tier1;oem,0,7,3,4,1
+all,13,Accoudoir allée,30NCD6 (nickel-chrome- molibdene),0.027,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,5,4,0,3,1
+all,14,Ens. Palette optimisée,35NC6 (nickel-chrome),0.660743,tier4_raw_material;tier2_second_transformation,tier3_first_transformation;tier1;oem,0,1,0,3,1
+all,16,Stowage assemblé avec porte,35NC6 (nickel-chrome),0.008,tier3_first_transformation;tier2_second_transformation,tier4_raw_material;tier1;oem,1,0,0,3,1
+all,29,Accoudoir allée,A5086 - Aluminium,0.316,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,4,5,0,10,1
+all,30,Bumper version porte,A5086 - Aluminium,0.024,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,4,5,0,10,1
+all,31,Ens. Stowage latéral,A5086 - Aluminium,0.216,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,4,5,0,10,1
+all,32,ens. equipements lateraux,"velours eu28: polyurethane flexible foam, with flame retardant eu28: pa6.6 fibres",0.008,tier4_raw_material,tier3_first_transformation;tier2_second_transformation;tier1;oem,0,2,1,3,1
+all,33,Ens. Structure fauteuil,4140 (acier),0.002,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,4,4,0,4,1
+all,34,Habillage sous fauteuil,A5086 - Aluminium,1.03,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,4,5,0,10,1
+all,35,Manchette acc. Mobile,A5086 - Aluminium,0.105,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,4,5,0,10,1
+all,36,Manchette équipée,A5086 - Aluminium,0.17,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,4,5,0,10,1
+all,37,Renfort tubulaire,A5086 - Aluminium,0.931,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,4,5,0,10,1
+all,38,Stowage assemblé avec porte,A5086 - Aluminium,2.457,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,4,5,0,10,1
+all,39,Structure ottoman horizontale,A5086 - Aluminium,1.928,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,4,5,0,10,1
+all,40,Support écran,A5086 - Aluminium,0.506,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,4,5,0,10,1
+all,41,Support équipé,A5086 - Aluminium,0.099,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,4,5,0,10,1
+all,42,Support manchette équipée,A5086 - Aluminium,0.117,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,4,5,0,10,1
+all,43,Support NFC,A5086 - Aluminium,0.01,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,4,5,0,10,1
+all,44,Renfort tubulaire,A6060 - Aluminium,0.404,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,4,5,0,4,1
+all,50,ens. coque,de: aluminium cast part machining + tth compris dans le steel tinplated,0.496,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,1,1,0,5,1
+all,51,Ens. Structure fauteuil,35NC6 (nickel-chrome),1.417,tier3_first_transformation;tier2_second_transformation,tier4_raw_material;tier1;oem,1,0,0,4,1
+all,66,Accoudoir allée,Alu,3.0435071,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,5,3,0,6,1
+all,67,Ens. Palette optimisée,Alu,12.5475707,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,5,3,0,6,1
+all,68,Ensemble porte,Alu,6.872,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,5,3,0,6,1
+all,69,Ens. Structure fauteuil,A5086 - Aluminium,0.458,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,4,5,0,10,1
+all,70,Manchette acc. Mobile,Alu,0.106,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,5,3,0,6,1
+all,71,Brackets set,cables FJKL1-3K1J01-01ATAB_BRACKETS-SET,3.365,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,5,3,0,3,1
+all,73,SFCU (Seat Function Control Unit),Clavier,0.2,tier4_raw_material;tier3_first_transformation;tier1,tier2_second_transformation;oem,0,0,1,0,1
+all,74,Commande actionnement ECU,Commande actionnement ECU,0.75,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,6,3,0,2,1
+all,75,bumper version porte,copolymere lexan fst simapro: extrusion et thermoformage,0.151,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,1,1,0,4,1
+all,76,Manchette acc. Mobile,cuir,0.039,tier4_raw_material,tier3_first_transformation;tier2_second_transformation;tier1;oem,0,1,2,3,1
+all,77,Manchette équipée,cuir,0.06,tier4_raw_material,tier3_first_transformation;tier2_second_transformation;tier1;oem,0,1,2,3,1
+all,78,Ecran - Screen Display (COTS),"Display, liquid crystal, 17 pouces",1.928,tier1,tier4_raw_material;tier3_first_transformation;tier2_second_transformation;oem,4,4,5,0,1
+all,81,Ens. Structure fauteuil,inox,0.045,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,5,4,0,10,1
+all,94,Accoudoir allée,inox,0.018054,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,5,4,0,10,1
+all,95,Ens. Palette optimisée,inox,0.023743,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,5,4,0,10,1
+all,96,Ensemble porte,inox,0.0047592,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,5,4,0,10,1
+all,98,Ens. Tablette cocktail,inox,0.012,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,5,4,0,10,1
+all,99,Ens. Tablette repas,inox,0.014,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,5,4,0,10,1
+all,100,Ens. Têtière,inox,0.001,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,5,4,0,10,1
+all,101,Stowage assemblé avec porte,inox,0.00928,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,5,4,0,10,1
+all,102,Support écran,inox,0.014,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,5,4,0,10,1
+all,110,Ens. Coque,NIDA - GLO (moulage par injection plastique),8.439,tier1,tier4_raw_material;tier3_first_transformation;tier2_second_transformation;oem,2,2,5,0,1
+all,116,Ens. Structure fixe,35NC6 (nickel-chrome),0.029,tier4_raw_material;tier3_first_transformation;tier2_second_transformation,tier1;oem,0,0,0,3,1
+all,121,Ecran - 00-5136-51 Rev F Seat Power Box 4 (SPB4),"Display, liquid crystal, 17 pouces",2.378,tier1,tier4_raw_material;tier3_first_transformation;tier2_second_transformation;oem,4,4,5,0,1
+all,123,Ens. Structure fixe,Alu,3.5410117,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,5,3,0,6,1
+all,126,Powerbox,powerbox,1.5,tier1,tier4_raw_material;tier3_first_transformation;tier2_second_transformation;oem,3,3,4,0,1
+all,127,Ens. Coque,SIMAPRO : extrusion and thermoforming - traitement par AER Film Schneider,0.392,tier1,tier4_raw_material;tier3_first_transformation;tier2_second_transformation;oem,3,2,5,0,1
+all,128,Ens. Coque,Résine BR623 - composite,0.488,tier1,tier4_raw_material;tier3_first_transformation;tier2_second_transformation;oem,1,2,5,0,1
+all,129,Ens. Tablette repas,Silicone50 shore,0.0007,tier4_raw_material,tier3_first_transformation;tier2_second_transformation;tier1;oem,0,3,2,4,1
+all,131,Coussin têtière,tissu,0.191,tier4_raw_material,tier3_first_transformation;tier2_second_transformation;tier1;oem,0,7,3,4,1
+all,132,Ens. Coussin assise,tissu,0.42,tier4_raw_material,tier3_first_transformation;tier2_second_transformation;tier1;oem,0,7,3,4,1
+all,133,Ens.coussin dossier version têtière,tissu,0.748,tier4_raw_material,tier3_first_transformation;tier2_second_transformation;tier1;oem,0,7,3,4,1
+all,134,Ens. Coussin dossier,tissu,0.743,tier4_raw_material,tier3_first_transformation;tier2_second_transformation;tier1;oem,0,7,3,4,1
+all,135,Ens. Tablette cocktail,tissu,0.002,tier4_raw_material,tier3_first_transformation;tier2_second_transformation;tier1;oem,0,7,3,4,1
+all,136,Ens. Têtière,tissu,0.002,tier4_raw_material,tier3_first_transformation;tier2_second_transformation;tier1;oem,0,7,3,4,1
+all,138,Ens. Structure fixe,inox,0.027,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,5,4,0,10,1
+all,140,Coussin têtière,velcro,0.007,tier4_raw_material,tier3_first_transformation;tier2_second_transformation;tier1;oem,0,7,3,4,1
+all,141,Ens.coussin dossier version têtière,velcro,0.005,tier4_raw_material,tier3_first_transformation;tier2_second_transformation;tier1;oem,0,7,3,4,1
+all,142,Ens. Coussin dossier,velcro,0.006,tier4_raw_material,tier3_first_transformation;tier2_second_transformation;tier1;oem,0,7,3,4,1
+all,143,Manchette équipée,velcro,0.006,tier4_raw_material,tier3_first_transformation;tier2_second_transformation;tier1;oem,0,7,3,4,1
+all,144,Coussin ottoman,velours,0.034,tier4_raw_material,tier3_first_transformation;tier2_second_transformation;tier1;oem,0,6,3,4,1
+all,145,Coussin têtière,velours,0.003,tier4_raw_material,tier3_first_transformation;tier2_second_transformation;tier1;oem,0,6,3,4,1
+all,146,Ens. Coussin assise,velours,0.025,tier4_raw_material,tier3_first_transformation;tier2_second_transformation;tier1;oem,0,6,3,4,1
+all,147,Ens.coussin dossier version têtière,velours,0.008,tier4_raw_material,tier3_first_transformation;tier2_second_transformation;tier1;oem,0,6,3,4,1
+all,148,Ens. Coussin dossier,velours,0.022,tier4_raw_material,tier3_first_transformation;tier2_second_transformation;tier1;oem,0,6,3,4,1
+all,149,Ens. Structure porte,velcro,0.085,tier4_raw_material,tier3_first_transformation;tier2_second_transformation;tier1;oem,0,7,3,4,1
+all,150,Habillage sous fauteuil,velours,0.007,tier4_raw_material,tier3_first_transformation;tier2_second_transformation;tier1;oem,0,6,3,4,1
+all,153,Support écran Screen Display (COTS),"Display, liquid crystal, 17 pouces",0.45,tier1,tier4_raw_material;tier3_first_transformation;tier2_second_transformation;oem,4,4,5,0,1
+all,154,bumper version porte,de: aluminium cast part machining glo: steel sheet stamping and bending,0.024,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,1,1,0,4,1
+all,155,accoudoir allee,de: aluminium cast part machining glo: steel sheet stamping and bending,0.7096766,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,1,1,0,4,1
+all,156,Accoudoir allée,GLO: Steel sheet stamping and bending,0.7096766,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,8,6,0,4,1
+all,161,Siége,65% aluminium,75.378147576,tier2_second_transformation,tier4_raw_material;tier3_first_transformation;tier1;oem,5,3,0,4,1
+all,163,Siége,11% Moulage plastique,12.756301898,tier1,tier4_raw_material;tier3_first_transformation;tier2_second_transformation;oem,2,2,4,0,1
+all,165,Siége,"16 % Tissu, mousse",18.554620942,tier1,tier4_raw_material;tier3_first_transformation;tier2_second_transformation;oem,3,10,5,0,2
+all,166,siege,titane fibre de carbone,8.927,tier4_raw_material;tier1,tier3_first_transformation;tier2_second_transformation;oem,0,1,1,0,2
