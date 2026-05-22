@@ -1,0 +1,5686 @@
+﻿Utilisateur;Type;Système;Composant;Fournisseur composant;Mode de transport du fournisseur direct;Compagnie de transport;1ére transformation avant réalisation;Risque de défaillance Frs 1ére transformation;Matière 1ére;Transport vers la 1ére transformation - Fonderie;Fournisseur matière 1ére;Transport de mine vers Raffinerie
+Safran;Sous-ensemble;Ens. Equipements latéraux;A5086 - Aluminium;"ESPACE (France)*
+Figeac Aero (France) 
+GATTEFIN (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Euralliage ( France)
+Aluminium France (France)
+Thyssen group (France)";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Asie, Australie, Chine, Canada) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Aluminium;Train - Camion - Bateau;"Alcoa (USA)
+Constellium (France/USA)
+Austria metall (Autriche)
+Hindalco (Inde)
+Aluminium Corporation of China (Chine)
+Thyssen group (France)
+TATA Steel (Inde - France)";
+Safran;Sous-ensemble;Ens. Stowage latéral;15CDV6 (chrome, molibdene, vanadium);"MGA (Villeneuve s/ Lot)*
+Lauak Group (France)
+GATTEFIN (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Altec Etirage (France)
+Thyssen group (France)
+Aubert&Duval (France)*
+";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Afrique, Australie, Chine, Europe) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Acier;Train - Camion - Bateau;"Saarstahl (Allemagne)
+Arcelor Mittal (Luxembourg)
+Krupp (Allemagne)
+China Baowu (Chine)
+Thyssen group (France)
+TATA Steel (Inde - France)
+Nucor Corp (USA)
+";
+Safran;Sous-ensemble;Accoudoir allée;30NCD6 (nickel-chrome- molibdene);"SUMPAR (France)*
+segnere aero SAS (France)
+Lauak Group (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Altec Etirage (France)
+Thyssen group (France)
+Aubert&Duval (France)*
+";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Afrique, Australie, Chine, Europe) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Acier;Train - Camion - Bateau;"Saarstahl (Allemagne)
+Arcelor Mittal (Luxembourg)
+Krupp (Allemagne)
+China Baowu (Chine)
+Thyssen group (France)
+TATA Steel (Inde - France)
+Nucor Corp (USA)
+";
+Safran;Sous-ensemble;Ens. Palette optimisée;35NC6  (nickel-chrome);"SUMPAR (France)*
+segnere aero SAS (France)
+Lauak Group (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Altec Etirage (France)
+Thyssen group (France)
+Aubert&Duval (France)*
+";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Afrique, Australie, Chine, Europe) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Acier;Train - Camion - Bateau;"Saarstahl (Allemagne)
+Arcelor Mittal (Luxembourg)
+Krupp (Allemagne)
+China Baowu (Chine)
+Thyssen group (France)
+TATA Steel (Inde - France)
+Nucor Corp (USA)
+";
+Safran;Sous-ensemble;Ens. Equipements latéraux;acier;"ESPACE (France)*
+Lauak Group (France)
+GATTEFIN (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Altec Etirage (France)
+Thyssen group (France)
+Aubert&Duval (France)*
+";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Afrique, Australie, Chine, Europe) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Acier;Train - Camion - Bateau;"Saarstahl (Allemagne)
+Arcelor Mittal (Luxembourg)
+Krupp (Allemagne)
+China Baowu (Chine)
+Thyssen group (France)
+TATA Steel (Inde - France)Nucor Corp (USA)
+Aubert&Duval (France)";
+Safran;Sous-ensemble;Ens. Equipements latéraux;Ertalon par moulage par injection plastique;"ESPACE (France)*
+BAULE - Exsto Polymère (France)
+Plastitek (France)";Camion;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Ensinger (Allemagne)
+BASF (Allemagne)
+DuPont de Nemours (Delaware - USA)
+Toray Industries, Inc. (Japon)
+Bayer (Allemagne)";Multisourcing ;EU28, Polyamide 6;Train - Camion - Bateau;"Mitsubischi chemical (Japon)
+Krohne (Allemagne)
+DuPont de Nemours (Delaware - USA)";Bateau, Pipeline
+Safran;Sous-ensemble;Stowage assemblé avec porte;35NC6  (nickel-chrome);"GATTEFIN (France)*
+SUMPAR (France)
+Lauak Group (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Altec Etirage (France)
+Thyssen group (France)
+Aubert&Duval (France)*
+";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Afrique, Australie, Chine, Europe) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Acier;Train - Camion - Bateau;"Saarstahl (Allemagne)
+Arcelor Mittal (Luxembourg)
+Krupp (Allemagne)
+China Baowu (Chine)
+Thyssen group (France)
+TATA Steel (Inde - France)Nucor Corp (USA)
+Aubert&Duval (France)";
+Safran;Sous-ensemble;Accoudoir allée;A2017 - Aluminium;"SUMPAR (France)*
+segnere aero SAS (France)
+Figeac Aéro (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Euralliage ( France)
+Aluminium France (France)
+Thyssen group (France)";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Asie, Australie, Chine, Canada) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Aluminium;Train - Camion - Bateau;"Alcoa (USA)
+Constellium (France/USA)
+Austria metall (Autriche)
+Hindalco (Inde)
+Aluminium Corporation of China (Chine)
+Thyssen group (France)
+TATA Steel (Inde - France)";
+Safran;Sous-ensemble;Ens. Stowage latéral;A2017 - Aluminium;"MGA (Villeneuve s/ Lot)*
+GATTEFIN (France)
+Figeac Aéro (France)
+";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Euralliage ( France)
+Aluminium France (France)
+Thyssen group (France)";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Asie, Australie, Chine, Canada) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Aluminium;Train - Camion - Bateau;"Alcoa (USA)
+Constellium (France/USA)
+Austria metall (Autriche)
+Hindalco (Inde)
+Aluminium Corporation of China (Chine)
+Thyssen group (France)
+TATA Steel (Inde - France)";
+Safran;Sous-ensemble;Ens. Palette optimisée;A2017 - Aluminium;"SUMPAR (France)*
+segnere aero SAS (France)
+Figeac Aéro (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Euralliage ( France)
+Aluminium France (France)
+Thyssen group (France)";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Asie, Australie, Chine, Canada) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Aluminium;Train - Camion - Bateau;"Alcoa (USA)
+Constellium (France/USA)
+Austria metall (Autriche)
+Hindalco (Inde)
+Aluminium Corporation of China (Chine)
+Thyssen group (France)
+TATA Steel (Inde - France)";
+Safran;Sous-ensemble;Accoudoir allée;packaging;"SUMPAR (France)*
+segnere aero SAS (France)
+MGA (Villeneuve s/ Lot)
+Lauak Group (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"Film célophane
+Mousse polystyrène
+Carton
+Palette";Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+CEVA Logistics (France)
+
+Fabrication matière 1ére célophane et mousse polystyrène
+Ensinger (Allemagne)
+BASF (Allemagne)
+Bayer (Allemagne)";
+Safran;Sous-ensemble;Ens. Tablette cocktail;A2017 - Aluminium;"MGA (Villeneuve s/ Lot)*
+GATTEFIN (France)
+SUMPAR (France)
+Lauak Group (France)
+Figeac Aéro (France)
+Jamco Corp (Japon)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Euralliage ( France)
+Aluminium France (France)
+Thyssen group (France)";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Asie, Australie, Chine, Canada) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Aluminium;Train - Camion - Bateau;"Alcoa (USA)
+Constellium (France/USA)
+Austria metall (Autriche)
+Hindalco (Inde)
+Aluminium Corporation of China (Chine)";
+Safran;Sous-ensemble;Ens. Tablette repas;A2017 - Aluminium;"GATTEFIN (France)*
+SUMPAR (France)
+Figeac Aéro (France)
+Jamco (Japon)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Euralliage ( France)
+Aluminium France (France)
+Thyssen group (France)";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Asie, Australie, Chine, Canada) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Aluminium;Train - Camion - Bateau;"Alcoa (USA)
+Constellium (France/USA)
+Austria metall (Autriche)
+Hindalco (Inde)
+Aluminium Corporation of China (Chine)
+Thyssen group (France)
+TATA Steel (Inde - France)";
+Safran;Sous-ensemble;Ens. Têtière;A2017 - Aluminium;"GATTEFIN (France)*
+SUMPAR (France)
+Lauak Group (France)
+Figeac Aéro (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Euralliage ( France)
+Aluminium France (France)
+Thyssen group (France)";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Asie, Australie, Chine, Canada) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Aluminium;Train - Camion - Bateau;"Alcoa (USA)
+Constellium (France/USA)
+Austria metall (Autriche)
+Hindalco (Inde)
+Aluminium Corporation of China (Chine)
+Thyssen group (France)
+TATA Steel (Inde - France)";
+Safran;Sous-ensemble;Stowage assemblé avec porte;A2017 - Aluminium;"GATTEFIN (France)*
+SUMPAR (France)
+Lauak Group (France)
+Figeac Aéro (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Euralliage ( France)
+Aluminium France (France)
+Thyssen group (France)";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Asie, Australie, Chine, Canada) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Aluminium;Train - Camion - Bateau;"Alcoa (USA)
+Constellium (France/USA)
+Austria metall (Autriche)
+Hindalco (Inde)
+Aluminium Corporation of China (Chine)
+Thyssen group (France)
+TATA Steel (Inde - France)";
+Safran;Sous-ensemble;Support écran;A2017 - Aluminium;"GATTEFIN (France)*
+SUMPAR (France)
+Lauak Group (France)
+Figeac Aéro (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Euralliage ( France)
+Aluminium France (France)
+Thyssen group (France)";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Asie, Australie, Chine, Canada) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Aluminium;Train - Camion - Bateau;"Alcoa (USA)
+Constellium (France/USA)
+Austria metall (Autriche)
+Hindalco (Inde)
+Aluminium Corporation of China (Chine)
+Thyssen group (France)
+TATA Steel (Inde - France)";
+Safran;Sous-ensemble;Accoudoir allée;A2024 - Aluminium;"SUMPAR (France)*
+segnere aero SAS (France)
+Figeac Aéro (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Euralliage ( France)
+Aluminium France (France)
+Thyssen group (France)";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Asie, Australie, Chine, Canada) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Aluminium;Train - Camion - Bateau;"Alcoa (USA)
+Constellium (France/USA)
+Austria metall (Autriche)
+Hindalco (Inde)
+Aluminium Corporation of China (Chine)
+Thyssen group (France)
+TATA Steel (Inde - France)";
+Safran;Sous-ensemble;Accoudoir allée;Transport;"SUMPAR (France)*
+segnere aero SAS (France)
+MGA (Villeneuve s/ Lot)
+Lauak Group (France)";Camion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";Bateau - Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";
+Safran;Sous-ensemble;Ens. Tablette cocktail;A2024 - Aluminium;"MGA (Villeneuve s/ Lot)*
+GATTEFIN (France)
+SUMPAR (France)
+Figeac Aéro (France)
+Jamco Corp (Japon)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Euralliage ( France)
+Aluminium France (France)
+Thyssen group (France)";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Asie, Australie, Chine, Canada) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Aluminium;Train - Camion - Bateau;"Alcoa (USA)
+Constellium (France/USA)
+Austria metall (Autriche)
+Hindalco (Inde)
+Aluminium Corporation of China (Chine)
+Thyssen group (France)
+TATA Steel (Inde - France)";
+Safran;Sous-ensemble;Ens. Tablette repas;A2024 - Aluminium;"GATTEFIN (France)*
+SUMPAR (France)
+Figeac Aéro (France)
+Jamco (Japon)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Euralliage ( France)
+Aluminium France (France)
+Thyssen group (France)";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Asie, Australie, Chine, Canada) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Aluminium;Train - Camion - Bateau;"Alcoa (USA)
+Constellium (France/USA)
+Austria metall (Autriche)
+Hindalco (Inde)
+Aluminium Corporation of China (Chine)
+Thyssen group (France)
+TATA Steel (Inde - France)";
+Safran;Sous-ensemble;Ens. Têtière;A2024 - Aluminium;"GATTEFIN (France)*
+SUMPAR (France)
+Figeac Aéro (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Euralliage ( France)
+Aluminium France (France)
+Thyssen group (France)";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Asie, Australie, Chine, Canada) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Aluminium;Train - Camion - Bateau;"Alcoa (USA)
+Constellium (France/USA)
+Austria metall (Autriche)
+Hindalco (Inde)
+Aluminium Corporation of China (Chine)
+Thyssen group (France)
+TATA Steel (Inde - France)";
+Safran;Sous-ensemble;Ens. Tablette repas;A2024 - Aluminium;"GATTEFIN (France)*
+SUMPAR (France)
+Figeac Aéro (France)
+Jamco (Japon)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Euralliage ( France)
+Aluminium France (France)
+Thyssen group (France)";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Asie, Australie, Chine, Canada) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Aluminium;Train - Camion - Bateau;"Alcoa (USA)
+Constellium (France/USA)
+Austria metall (Autriche)
+Hindalco (Inde)
+Aluminium Corporation of China (Chine)
+Thyssen group (France)
+TATA Steel (Inde - France)";
+Safran;Sous-ensemble;Accoudoir allée;A5086 - Aluminium;"SUMPAR (France)*
+segnere aero SAS (France)
+Figeac Aéro (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Euralliage ( France)
+Aluminium France (France)
+Thyssen group (France)";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Asie, Australie, Chine, Canada) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Aluminium;Train - Camion - Bateau;"Alcoa (USA)
+Constellium (France/USA)
+Austria metall (Autriche)
+Hindalco (Inde)
+Aluminium Corporation of China (Chine)
+Thyssen group (France)
+TATA Steel (Inde - France)";
+Safran;Sous-ensemble;Bumper version porte;A5086 - Aluminium;"SUMPAR (France)*
+segnere aero SAS (France)
+MGA (Villeneuve s/ Lot)
+SENIOR AEROSPACE (Thailand)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Euralliage ( France)
+Aluminium France (France)
+Thyssen group (France)";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Asie, Australie, Chine, Canada) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Aluminium;Train - Camion - Bateau;"Alcoa (USA)
+Constellium (France/USA)
+Austria metall (Autriche)
+Hindalco (Inde)
+Aluminium Corporation of China (Chine)
+Thyssen group (France)
+TATA Steel (Inde - France)";
+Safran;Sous-ensemble;Ens. Stowage latéral;A5086 - Aluminium;"MGA (Villeneuve s/ Lot)*
+GATTEFIN (France)
+Figeac Aéro (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Euralliage ( France)
+Aluminium France (France)
+Thyssen group (France)";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Asie, Australie, Chine, Canada) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Aluminium;Train - Camion - Bateau;"Alcoa (USA)
+Constellium (France/USA)
+Austria metall (Autriche)
+Hindalco (Inde)
+Aluminium Corporation of China (Chine)
+Thyssen group (France)
+TATA Steel (Inde - France)";
+Safran;Sous-ensemble;Ens. Equipements latéraux;"Velours
+EU28: Polyurethane flexible foam, with flame retardant
+EU28: PA6.6 fibres";"ESPACE (France)*
+GATTEFIN (France)
+Celso (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"TELATEX (France)
+TISSEN (France)
+ASD Textiles (France)
+
+Ensinger (Allemagne)
+BASF (Allemagne)
+DuPont de Nemours (Delaware - USA)
+Toray Industries, Inc. (Japon)
+BAULE(France)";Multisourcing ;Velours / Aluminium / Polyamide;Bateau - Camion;"Velours:
+SOMANI (Portugal)
+GLAMOUR VELVET (Japon)
+Tongxiang Zhuoyi Textile (Chine)
+Kvadrat (Danemark)
+Tissu Huddersfield (Royaume-Uni)
+
+
+polyurèthane:
+Mitsubischi chemical (Japon)
+BASF (Allemagne)
+Krohne (Allemagne)
+DuPont de Nemours (Delaware - USA)";Bateau, Pipeline
+Safran;Sous-ensemble;Ens. Structure fauteuil;4140 (acier);"SENIOR AEROSPACE(Thailand)*
+MGA (Villeneuve s/ Lot)
+Lauak Group (France)
+SUMPAR (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Altec Etirage (France)
+Thyssen group (France)
+Aubert&Duval (France)*
+";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Afrique, Australie, Chine, Europe) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Acier;Train - Camion - Bateau;"Saarstahl (Allemagne)
+Arcelor Mittal (Luxembourg)
+Krupp (Allemagne)
+China Baowu (Chine)
+Thyssen group (France)
+TATA Steel (Inde - France)Nucor Corp (USA)
+Aubert&Duval (France)";
+Safran;Sous-ensemble;Habillage sous fauteuil;A5086 - Aluminium;"GATTEFIN (France)
+ESPACE (France)*
+Figeac Aéro (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Euralliage ( France)
+Aluminium France (France)
+Thyssen group (France)";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Asie, Australie, Chine, Canada) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Aluminium;Train - Camion - Bateau;"Alcoa (USA)
+Constellium (France/USA)
+Austria metall (Autriche)
+Hindalco (Inde)
+Aluminium Corporation of China (Chine)
+Thyssen group (France)
+TATA Steel (Inde - France)";
+Safran;Sous-ensemble;Manchette acc. Mobile;A5086 - Aluminium;"FUCH(s) THAILAND* ??
+segnere aero SAS (France)
+GATTEFIN (France)
+Figeac Aéro (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Euralliage ( France)
+Aluminium France (France)
+Thyssen group (France)";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Asie, Australie, Chine, Canada) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Aluminium;Train - Camion - Bateau;"Alcoa (USA)
+Constellium (France/USA)
+Austria metall (Autriche)
+Hindalco (Inde)
+Aluminium Corporation of China (Chine)
+Thyssen group (France)
+TATA Steel (Inde - France)";
+Safran;Sous-ensemble;Manchette équipée;A5086 - Aluminium;"FUCH(s) THAILAND* ??
+segnere aero SAS (France)
+GATTEFIN (France)
+Figeac Aéro (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Euralliage ( France)
+Aluminium France (France)
+Thyssen group (France)";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Asie, Australie, Chine, Canada) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Aluminium;Train - Camion - Bateau;"Alcoa (USA)
+Constellium (France/USA)
+Austria metall (Autriche)
+Hindalco (Inde)
+Aluminium Corporation of China (Chine)
+Thyssen group (France)
+TATA Steel (Inde - France)";
+Safran;Sous-ensemble;Renfort tubulaire;A5086 - Aluminium;"segnere aero SAS (France)*
+L&P Aerospace (France)
+JV Group ( France)
+SENIOR AEROSPACE (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Euralliage ( France)
+Aluminium France (France)
+Thyssen group (France)";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Asie, Australie, Chine, Canada) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Aluminium;Train - Camion - Bateau;"Alcoa (USA)
+Constellium (France/USA)
+Austria metall (Autriche)
+Hindalco (Inde)
+Aluminium Corporation of China (Chine)
+Thyssen group (France)
+TATA Steel (Inde - France)";
+Safran;Sous-ensemble;Stowage assemblé avec porte;A5086 - Aluminium;"GATTEFIN (France)*
+Figeac Aero (France)
+MGA (Villeneuve s/ Lot)
+Senior Aerospace (Thaïlande)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Euralliage ( France)
+Aluminium France (France)
+Thyssen group (France)";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Asie, Australie, Chine, Canada) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Aluminium;Train - Camion - Bateau;"Alcoa (USA)
+Constellium (France/USA)
+Austria metall (Autriche)
+Hindalco (Inde)
+Aluminium Corporation of China (Chine)
+Thyssen group (France)
+TATA Steel (Inde - France)";
+Safran;Sous-ensemble;Structure ottoman horizontale;A5086 - Aluminium;"JV GROUP (France)*
+L&P Aerospace (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Euralliage ( France)
+Aluminium France (France)
+Thyssen group (France)";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Asie, Australie, Chine, Canada) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Aluminium;Train - Camion - Bateau;"Alcoa (USA)
+Constellium (France/USA)
+Austria metall (Autriche)
+Hindalco (Inde)
+Aluminium Corporation of China (Chine)
+Thyssen group (France)
+TATA Steel (Inde - France)";
+Safran;Sous-ensemble;Support écran;A5086 - Aluminium;"SAFRAN*
+GATTEFIN (France)
+Figeac Aéro (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Euralliage ( France)
+Aluminium France (France)
+Thyssen group (France)";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Asie, Australie, Chine, Canada) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Aluminium;Train - Camion - Bateau;"Alcoa (USA)
+Constellium (France/USA)
+Austria metall (Autriche)
+Hindalco (Inde)
+Aluminium Corporation of China (Chine)
+Thyssen group (France)
+TATA Steel (Inde - France)";
+Safran;Sous-ensemble;Support équipé;A5086 - Aluminium;"ESPACE (France)*
+GATTEFIN (France)
+Lauak (France)
+Figeac Aéro (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Euralliage ( France)
+Aluminium France (France)
+Thyssen group (France)";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Asie, Australie, Chine, Canada) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Aluminium;Train - Camion - Bateau;"Alcoa (USA)
+Constellium (France/USA)
+Austria metall (Autriche)
+Hindalco (Inde)
+Aluminium Corporation of China (Chine)
+Thyssen group (France)
+TATA Steel (Inde - France)";
+Safran;Sous-ensemble;Support manchette équipée;A5086 - Aluminium;"ESPACE (France)*
+GATTEFIN (France)
+Lauak (France)
+Figeac Aéro (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Euralliage ( France)
+Aluminium France (France)
+Thyssen group (France)";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Asie, Australie, Chine, Canada) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Aluminium;Train - Camion - Bateau;"Alcoa (USA)
+Constellium (France/USA)
+Austria metall (Autriche)
+Hindalco (Inde)
+Aluminium Corporation of China (Chine)
+Thyssen group (France)
+TATA Steel (Inde - France)";
+Safran;Sous-ensemble;Support NFC;A5086 - Aluminium;"ESPACE (France)*
+GATTEFIN (France)
+Lauak (France)
+Figeac Aéro (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Euralliage ( France)
+Aluminium France (France)
+Thyssen group (France)";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Asie, Australie, Chine, Canada) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Aluminium;Train - Camion - Bateau;"Alcoa (USA)
+Constellium (France/USA)
+Austria metall (Autriche)
+Hindalco (Inde)
+Aluminium Corporation of China (Chine)
+Thyssen group (France)
+TATA Steel (Inde - France)";
+Safran;Sous-ensemble;Renfort tubulaire;A6060 - Aluminium;"segnere aero SAS (France)*
+L&P Aerospace (France)
+JV Group ( France)
+SENIOR AEROSPACE (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Euralliage ( France)
+Aluminium France (France)
+Thyssen group (France)";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Asie, Australie, Chine, Canada) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Aluminium;Train - Camion - Bateau;"Alcoa (USA)
+Constellium (France/USA)
+Austria metall (Autriche)
+Hindalco (Inde)
+Aluminium Corporation of China (Chine)
+Thyssen group (France)
+TATA Steel (Inde - France)";
+Safran;Sous-ensemble;Ceinture de sécurité;acier;"AM SAFE (USA)*
+Schroth (USA-Floride et Allemagne, Distribué par Supraero - France)
+J&C Aero (Lituanie)
+Anjou Aéro (France)
+";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Altec Etirage (France)
+Thyssen group (France)
+Aubert&Duval (France)*
+";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Afrique, Australie, Chine, Europe) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Acier;Train - Camion - Bateau;"Saarstahl (Allemagne)
+Arcelor Mittal (Luxembourg)
+Krupp (Allemagne)
+China Baowu (Chine)
+Thyssen group (France)
+TATA Steel (Inde - France)Nucor Corp (USA)
+Aubert&Duval (France)";
+Safran;Sous-ensemble;Support clamps;acier;"MGA (Villeneuve s/ Lot)*
+Ancra Aircraft (Californie - USA)
+TA Aerospace (Californie - USA)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Altec Etirage (France)
+Thyssen group (France)
+Aubert&Duval (France)*
+";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Afrique, Australie, Chine, Europe) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Acier;Train - Camion - Bateau;"Saarstahl (Allemagne)
+Arcelor Mittal (Luxembourg)
+Krupp (Allemagne)
+China Baowu (Chine)
+Thyssen group (France)
+TATA Steel (Inde - France)Nucor Corp (USA)
+Aubert&Duval (France)";
+Safran;Sous-ensemble;Accoudoir allée;acier;"SUMPAR (France)*
+segnere aero SAS (France)
+MGA (Villeneuve s/ Lot)
+Lauak Group (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Altec Etirage (France)
+Thyssen group (France)
+Aubert&Duval (France)*
+";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Afrique, Australie, Chine, Europe) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Acier;Train - Camion - Bateau;"Saarstahl (Allemagne)
+Arcelor Mittal (Luxembourg)
+Krupp (Allemagne)
+China Baowu (Chine)
+Thyssen group (France)
+TATA Steel (Inde - France)Nucor Corp (USA)
+Aubert&Duval (France)";
+Safran;Sous-ensemble;Bumper version porte;acier;"SUMPAR (France)*
+segnere aero SAS (France)
+MGA (Villeneuve s/ Lot)
+SENIOR AEROSPACE (Thailand)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Altec Etirage (France)
+Thyssen group (France)
+Aubert&Duval (France)*
+";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Afrique, Australie, Chine, Europe) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Acier;Train - Camion - Bateau;"Saarstahl (Allemagne)
+Arcelor Mittal (Luxembourg)
+Krupp (Allemagne)
+China Baowu (Chine)
+Thyssen group (France)
+TATA Steel (Inde - France)Nucor Corp (USA)
+Aubert&Duval (France)";
+Safran;Sous-ensemble;Ens. Stowage latéral;acier;"MGA (Villeneuve s/ Lot)*
+GATTEFIN (France)
+Lauak Group (France)
+";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Altec Etirage (France)
+Thyssen group (France)
+Aubert&Duval (France)*
+";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Afrique, Australie, Chine, Europe) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Acier;Train - Camion - Bateau;"Saarstahl (Allemagne)
+Arcelor Mittal (Luxembourg)
+Krupp (Allemagne)
+China Baowu (Chine)
+Thyssen group (France)
+TATA Steel (Inde - France)Nucor Corp (USA)
+Aubert&Duval (France)";
+Safran;Sous-ensemble;Ens. Coque;"DE: Aluminium cast part machining
++ TTH compris dans le steel tinplated";"SUMPAR (France)*
+segnere aero SAS (France)
+MGA (Villeneuve s/ Lot)
+Figeac Aéro (France)
+SENIOR AEROSPACE (Thailand)*";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Altec Etirage (France)
+Thyssen group (France)
+Aubert&Duval (France)*
+";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Afrique, Australie, Chine, Europe) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Acier;Train - Camion - Bateau;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";
+Safran;Sous-ensemble;Ens. Structure fauteuil;35NC6  (nickel-chrome);"SENIOR AEROSPACE(Thailand)*
+MGA (Villeneuve s/ Lot)
+Lauak Group(France)
+SUMPAR (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Altec Etirage (France)
+Thyssen group (France)
+Aubert&Duval (France)*
+";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Afrique, Australie, Chine, Europe) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Acier;Train - Camion - Bateau;"Saarstahl (Allemagne)
+Arcelor Mittal (Luxembourg)
+Krupp (Allemagne)
+China Baowu (Chine)
+Thyssen group (France)
+TATA Steel (Inde - France)Nucor Corp (USA)
+Aubert&Duval (France)";
+Safran;Sous-ensemble;Ens. Palette optimisée;acier;"SUMPAR (France)*
+segnere aero SAS (France)
+MGA (Villeneuve s/ Lot)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Altec Etirage (France)
+Thyssen group (France)
+Aubert&Duval (France)*
+";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Afrique, Australie, Chine, Europe) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Acier;Train - Camion - Bateau;"Saarstahl (Allemagne)
+Arcelor Mittal (Luxembourg)
+Krupp (Allemagne)
+China Baowu (Chine)
+Thyssen group (France)
+TATA Steel (Inde - France)Nucor Corp (USA)
+Aubert&Duval (France)";
+Safran;Sous-ensemble;Ensemble porte;acier;"MGA (Villeneuve s/ Lot)*
+GATTEFIN (France)
+SUMPAR (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Altec Etirage (France)
+Thyssen group (France)
+Aubert&Duval (France)*
+";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Afrique, Australie, Chine, Europe) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Acier;Train - Camion - Bateau;"Saarstahl (Allemagne)
+Arcelor Mittal (Luxembourg)
+Krupp (Allemagne)
+China Baowu (Chine)
+Thyssen group (France)
+TATA Steel (Inde - France)Nucor Corp (USA)
+Aubert&Duval (France)";
+Safran;Sous-ensemble;Ens. Structure fauteuil;A2017 - Aluminium;"SENIOR AEROSPACE(Thailand)*
+GATTEFIN SAS (France)
+Figeac Aero (France)
+segnere aero SAS (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Euralliage ( France)
+Aluminium France (France)
+Thyssen group (France)";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Asie, Australie, Chine, Canada) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Aluminium;Train - Camion - Bateau;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";
+Safran;Sous-ensemble;Ens. Structure fauteuil;A2024 - Aluminium;"SENIOR AEROSPACE(Thailand)*
+GATTEFIN SAS (France)
+Figeac Aero (France)
+segnere aero SAS (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Euralliage ( France)
+Aluminium France (France)
+Thyssen group (France)";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Asie, Australie, Chine, Canada) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Aluminium;Train - Camion - Bateau;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";
+Safran;Sous-ensemble;Ens. Tablette cocktail;acier;"MGA (Villeneuve s/ Lot)*
+GATTEFIN (France)
+SUMPAR (France)
+Lauak Group (France)
+Jamco Corp (Japon)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Altec Etirage (France)
+Thyssen group (France)
+Aubert&Duval (France)*
+";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Afrique, Australie, Chine, Europe) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Acier;Train - Camion - Bateau;"Saarstahl (Allemagne)
+Arcelor Mittal (Luxembourg)
+Krupp (Allemagne)
+China Baowu (Chine)
+Thyssen group (France)
+TATA Steel (Inde - France)Nucor Corp (USA)
+Aubert&Duval (France)";
+Safran;Sous-ensemble;Ens. Tablette repas;acier;"GATTEFIN (France)*
+Lauak Group (France)
+Senior Aerospace (Thaïlande)
+Jamco (Japon)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Altec Etirage (France)
+Thyssen group (France)
+Aubert&Duval (France)*
+";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Afrique, Australie, Chine, Europe) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Acier;Train - Camion - Bateau;"Saarstahl (Allemagne)
+Arcelor Mittal (Luxembourg)
+Krupp (Allemagne)
+China Baowu (Chine)
+Thyssen group (France)
+TATA Steel (Inde - France)Nucor Corp (USA)
+Aubert&Duval (France)";
+Safran;Sous-ensemble;Habillage sous fauteuil;acier;"GATTEFIN (France)
+ESPACE (France)*";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Altec Etirage (France)
+Thyssen group (France)
+Aubert&Duval (France)*
+";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Afrique, Australie, Chine, Europe) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Acier;Train - Camion - Bateau;"Saarstahl (Allemagne)
+Arcelor Mittal (Luxembourg)
+Krupp (Allemagne)
+China Baowu (Chine)
+Thyssen group (France)
+TATA Steel (Inde - France)Nucor Corp (USA)
+Aubert&Duval (France)";
+Safran;Sous-ensemble;Manchette équipée;acier;"FUCH(s) THAILAND* ??
+segnere aero SAS (France)
+GATTEFIN (France)
+Lauak Group (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Altec Etirage (France)
+Thyssen group (France)
+Aubert&Duval (France)*
+";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Afrique, Australie, Chine, Europe) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Acier;Train - Camion - Bateau;"Saarstahl (Allemagne)
+Arcelor Mittal (Luxembourg)
+Krupp (Allemagne)
+China Baowu (Chine)
+Thyssen group (France)
+TATA Steel (Inde - France)Nucor Corp (USA)
+Aubert&Duval (France)";
+Safran;Sous-ensemble;Renfort tubulaire;acier;"segnere aero SAS (France)*
+L&P Aerospace (France)
+SENIOR AEROSPACE (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Altec Etirage (France)
+Thyssen group (France)
+Aubert&Duval (France)*
+";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Afrique, Australie, Chine, Europe) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Acier;Train - Camion - Bateau;"Saarstahl (Allemagne)
+Arcelor Mittal (Luxembourg)
+Krupp (Allemagne)
+China Baowu (Chine)
+Thyssen group (France)
+TATA Steel (Inde - France)Nucor Corp (USA)
+Aubert&Duval (France)";
+Safran;Sous-ensemble;Stowage assemblé avec porte;acier;"MGA (Villeneuve s/ Lot)*
+GATTEFIN (France)
+Lauak Group (France)
+Senior Aerospace (Thaïlande)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Altec Etirage (France)
+Thyssen group (France)
+Aubert&Duval (France)*
+";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Afrique, Australie, Chine, Europe) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Acier;Train - Camion - Bateau;"Saarstahl (Allemagne)
+Arcelor Mittal (Luxembourg)
+Krupp (Allemagne)
+China Baowu (Chine)
+Thyssen group (France)
+TATA Steel (Inde - France)Nucor Corp (USA)
+Aubert&Duval (France)";
+Safran;Sous-ensemble;Structure ottoman horizontale;acier;"JV GROUP (France)*
+L&P Aerospace (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Altec Etirage (France)
+Thyssen group (France)
+Aubert&Duval (France)*
+";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Afrique, Australie, Chine, Europe) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Acier;Train - Camion - Bateau;"Saarstahl (Allemagne)
+Arcelor Mittal (Luxembourg)
+Krupp (Allemagne)
+China Baowu (Chine)
+Thyssen group (France)
+TATA Steel (Inde - France)Nucor Corp (USA)
+Aubert&Duval (France)";
+Safran;Sous-ensemble;Support écran;acier;"SAFRAN*
+GATTEFIN (France)
+Lauak Group (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Altec Etirage (France)
+Thyssen group (France)
+Aubert&Duval (France)*
+";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Afrique, Australie, Chine, Europe) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Acier;Train - Camion - Bateau;"Saarstahl (Allemagne)
+Arcelor Mittal (Luxembourg)
+Krupp (Allemagne)
+China Baowu (Chine)
+Thyssen group (France)
+TATA Steel (Inde - France)Nucor Corp (USA)
+Aubert&Duval (France)";
+Safran;Sous-ensemble;Support équipé;acier;"ESPACE (France)*
+GATTEFIN (France)
+Lauak Group (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Altec Etirage (France)
+Thyssen group (France)
+Aubert&Duval (France)*
+";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Afrique, Australie, Chine, Europe) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Acier;Train - Camion - Bateau;"Saarstahl (Allemagne)
+Arcelor Mittal (Luxembourg)
+Krupp (Allemagne)
+China Baowu (Chine)
+Thyssen group (France)
+TATA Steel (Inde - France)Nucor Corp (USA)
+Aubert&Duval (France)";
+Safran;Sous-ensemble;Support manchette équipée;acier;"GATTEFIN (France)
+ESPACE (France)*
+Lauak Group (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Altec Etirage (France)
+Thyssen group (France)
+Aubert&Duval (France)*
+";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Afrique, Australie, Chine, Europe) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Acier;Train - Camion - Bateau;"Saarstahl (Allemagne)
+Arcelor Mittal (Luxembourg)
+Krupp (Allemagne)
+China Baowu (Chine)
+Thyssen group (France)
+TATA Steel (Inde - France)Nucor Corp (USA)
+Aubert&Duval (France)";
+Safran;Sous-ensemble;Ensemble porte;FILM DECOR AERFILM - Ep0.33 714g-m2;"MGA (Villeneuve s/ Lot)*
+Adhetec (France)
+KEMKO Aerospace (USA)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"EPODEX (France)
+SIKA (USA)
+HENKEL (Allemagne)";3 continents, 3 modes de transports et font partie des principaux fournisseurs mondiaux --> Faible;Caoutchouc --> PVC, Polypropylène ou polyethylène, noyaux acryliques pour une tenue à long terme, mousse pour l'isolation,;Bilogistik SA;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Caoutchouc naturel --> Bateau
+Caoutchouc synthétique (résine) --> Bateau - Camion"
+Safran;Sous-ensemble;Bumper version porte;alliage Cu;"SUMPAR (France)*
+segnere aero SAS (France)
+MGA (Villeneuve s/ Lot)
+SENIOR AEROSPACE (Thailand)";Camion - Bateau;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Aurubis (Allemagne)
+Zijin Mining Group (Chine)
+Ampco Metal France (France)
+Thyssen group (France)";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Afrique, Australie, Chine, Europe) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);alliage Cu;Train - Camion - Bateau;"Saarstahl (Allemagne)
+Arcelor Mittal (Luxembourg)
+China Baowu (Chine)
+TATA Steel (Inde - France)
+Nucor Corp (USA)
+";
+Safran;Sous-ensemble;Accoudoir allée;Alu;"SUMPAR (France)*
+segnere aero SAS (France)
+Figeac Aéro (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Euralliage ( France)
+Aluminium France (France)
+Thyssen group (France)";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Asie, Australie, Chine, Canada) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Aluminium;Train - Camion - Bateau;"Chalco (Chine avec 39 filiales, dont 18 en propriété exclusive et 21 contrôlées)
+Hindalco (Inde avec 49 sites de production Amérique du Nord, Europe, Asie)
+Rio Tinto (Royaume-Uni avec 24 sites de production Canada, Australie, Nlle Zélande, Islande, Oman
+Euralliage ( France)
+TATA Steel (Inde - Afrique - Amérique du sud)";
+Safran;Sous-ensemble;Ens. Palette optimisée;Alu;"SUMPAR (France)*
+segnere aero SAS (France)
+MGA (Villeneuve s/ Lot)
+Figeac Aéro (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Euralliage ( France)
+Aluminium France (France)
+Thyssen group (France)";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Asie, Australie, Chine, Canada) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Aluminium;Train - Camion - Bateau;"Chalco (Chine avec 39 filiales, dont 18 en propriété exclusive et 21 contrôlées)
+Hindalco (Inde avec 49 sites de production Amérique du Nord, Europe, Asie)
+Rio Tinto (Royaume-Uni avec 24 sites de production Canada, Australie, Nlle Zélande, Islande, Oman
+Euralliage ( France)
+TATA Steel (Inde - Afrique - Amérique du sud)";
+Safran;Sous-ensemble;Ensemble porte;Alu;"MGA (Villeneuve s/ Lot)*
+GATTEFIN (France)
+Figeac Aéro (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Euralliage ( France)
+Aluminium France (France)
+Thyssen group (France)";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Asie, Australie, Chine, Canada) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Aluminium;Train - Camion - Bateau;"Chalco (Chine avec 39 filiales, dont 18 en propriété exclusive et 21 contrôlées)
+Hindalco (Inde avec 49 sites de production Amérique du Nord, Europe, Asie)
+Rio Tinto (Royaume-Uni avec 24 sites de production Canada, Australie, Nlle Zélande, Islande, Oman
+Euralliage ( France)
+TATA Steel (Inde - Afrique - Amérique du sud)";
+Safran;Sous-ensemble;Ens. Structure fauteuil;A5086 - Aluminium;"SENIOR AEROSPACE(Thailand)*
+segnere aero SAS (France)
+GATTEFIN SAS (France)
+Figeac Aero (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Euralliage ( France)
+Aluminium France (France)
+Thyssen group (France)";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Asie, Australie, Chine, Canada) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Aluminium;Train - Camion - Bateau;"Alcoa (USA)
+Constellium (France/USA)
+Austria metall (Autriche)
+Hindalco (Inde)
+Aluminium Corporation of China (Chine)";
+Safran;Sous-ensemble;Manchette acc. Mobile;Alu;"FUCH(s) THAILAND* ??
+segnere aero SAS (France)
+GATTEFIN (France)
+Figeac Aéro (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Euralliage ( France)
+Aluminium France (France)
+Thyssen group (France)";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Asie, Australie, Chine, Canada) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Aluminium;Train - Camion - Bateau;"Chalco (Chine avec 39 filiales, dont 18 en propriété exclusive et 21 contrôlées)
+Hindalco (Inde avec 49 sites de production Amérique du Nord, Europe, Asie)
+Rio Tinto (Royaume-Uni avec 24 sites de production Canada, Australie, Nlle Zélande, Islande, Oman
+Euralliage ( France)
+TATA Steel (Inde - Afrique - Amérique du sud)";
+Safran;Sous-ensemble;Brackets set;cables FJKL1-3K1J01-01ATAB_BRACKETS-SET;"JAMMY Inc (USA)*
+Tyco Electronic (USA - TE Connectivity)
+Racelogic (Angleterre)
+General Electric (USA)
+Honeywell (USA)
+SCHNEIDER (France)
+THALES (France)";Camion - Bateau;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Altec Etirage (France)
+Thyssen group (France)
+Aubert&Duval (France)*
+";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Afrique, Australie, Chine, Europe) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Cuivre;Train - Camion - Bateau;"Saarstahl (Allemagne)
+Arcelor Mittal (Luxembourg)
+China Baowu (Chine)
+TATA Steel (Inde - France)
+Nucor Corp (USA)
+";
+Safran;Sous-ensemble;Ens. Structure fauteuil;acier;"SENIOR AEROSPACE (Thailand)*
+MGA (Villeneuve s/ Lot)
+Lauak Group (France)";Camion - Bateau;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Altec Etirage (France)
+Thyssen group (France)
+Aubert&Duval (France)*
+";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Afrique, Australie, Chine, Europe) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Acier;Train - Camion - Bateau;"Saarstahl (Allemagne)
+Arcelor Mittal (Luxembourg)
+Krupp (Allemagne)
+China Baowu (Chine)
+Tata steel (Inde)
+Nucor Corp (USA)
+Aubert&Duval (France)";
+Safran;Sous-ensemble;SFCU (Seat Function Control Unit);Clavier;"E2IP (Montréal)*
+SAFRAN  (Filiale SeatNet) (France)
+VALEO (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"E2IP --> Apriori monosource --> dangereux
+SAFRAN (France) --> multinationale rang 1 des fabricants aéronautique, presence mondiale
+Auger a démarcher mais orienté auto --> risque de peu d'intérêt pour avion….
+Valeo a démarcher mais orienté auto --> risque de peu d'intérêt pour avion….";Multisourcing ;Keyboard {GLO} Market for APOS U;Train - Camion - Bateau;;Bateau, Pipeline
+Safran;Sous-ensemble;Commande actionnement ECU;Commande actionnement ECU;"SAFRAN (France)*
+LIEBHERR (Allemagne)*
+THALES (France)*";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Aurubis (Allemagne)
+Zijin Mining Group (Chine)
+Ampco Metal France (France)
+Thyssen group (France)";Multisourcing ;Cuivre;Train - Camion - Bateau;"Saarstahl (Allemagne)
+Arcelor Mittal (Luxembourg)
+China Baowu (Chine)
+TATA Steel (Inde - France)
+Nucor Corp (USA)
+";
+Safran;Sous-ensemble;Bumper version porte;"Copolymere Lexan FST
+SIMAPRO: extrusion et thermoformage";"SUMPAR (France)*
+segnere aero SAS (France)
+MGA (Villeneuve s/ Lot)
+SENIOR AEROSPACE (Thailand)
+";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"SIMAPRO (France)*
+PLAQUEPLASTIQUE (France)
+VESTAL (France)
+BFP Cindar (France)
+";3 continents, 3 lignes de transports --> Faible;Polycarbonate (plexiglass);Train - Camion - Bateau;"DuPont de Nemours (Delaware - USA)
+ELF Atochem (France)
+Faberplast (Espagne)
+Bayer (Allemagne)";Bateau, Pipeline
+Safran;Sous-ensemble;Ens. Stowage latéral;cuir;"MGA (Villeneuve s/ Lot)*
+ACH (France)
+Celso (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"La Filière Française du cuir (France)
+Maison Fichet (France)
+EUREKA SARL DERAYGE SERVICE (France)";Multisourcing ;Cuir;Interne entreprise;"La Filière Française du cuir (France)
+Maison Fichet (France)
+EUREKA SARL DERAYGE SERVICE (France)";
+Safran;Sous-ensemble;Manchette acc. Mobile;cuir;"ACH* (France)
+Celso (France)
+MGR FOAMTEX (Angleterre)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"La Filière Française du cuir (France)
+Maison Fichet (France)
+EUREKA SARL DERAYGE SERVICE (France)";Multisourcing ;Cuir;Interne entreprise;"La Filière Française du cuir (France)
+Maison Fichet (France)
+EUREKA SARL DERAYGE SERVICE (France)";
+Safran;Sous-ensemble;Manchette équipée;cuir;"ACH* (France)
+Celso (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"La Filière Française du cuir (France)
+Maison Fichet (France)
+EUREKA SARL DERAYGE SERVICE (France)";Multisourcing ;Cuir;Interne entreprise;"La Filière Française du cuir (France)
+Maison Fichet (France)
+EUREKA SARL DERAYGE SERVICE (France)";
+Safran;IFE;Ecran - Screen Display (COTS);Display, liquid crystal, 17 pouces;"SAFRAN (France)*
+SONY (Japon)
+Continental (Allemagne)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Fourniture Cuivre:
+Aurubis (Allemagne)
+Zijin Mining Group (Chine)
+Ampco Metal France (France)
+Thyssen group (France)
+
+Fourniture Cristaux liquides:
+Auberon technologie (France)
+Innoptec (France)
+A Tech Supply APS (Danemark)";Multisourcing ;"Polyamide
+
+
+Cuivre";Train - Camion - Bateau;"Mitsubischi chemical (Japon)
+Krohne (Allemagne)
+DuPont de Nemours (Delaware - USA)
+Total (France)";Bateau, Pipeline
+Safran;Sous-ensemble;Accoudoir allée;Ertalon;"SUMPAR (France)*
+Plastiservice (Belgique)
+BAULE - Exsto Polymère (France)
+Plastitek (France)";Camion;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Ensinger (Allemagne)
+BASF (Allemagne)
+DuPont de Nemours (Delaware - USA)
+Toray Industries, Inc. (Japon)
+Bayer (Allemagne)";Multisourcing ;Polyamide;Train - Camion - Bateau;"Mitsubischi chemical (Japon)
+Krohne (Allemagne)
+DuPont de Nemours (Delaware - USA)";Bateau, Pipeline
+Safran;Sous-ensemble;Ens. Stowage latéral;Ertalon;"SUMPAR (France)*
+Plastiservice (Belgique)
+BAULE - Exsto Polymère (France)
+Plastitek (France)";Camion;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Ensinger (Allemagne)
+BASF (Allemagne)
+DuPont de Nemours (Delaware - USA)
+Toray Industries, Inc. (Japon)
+Bayer (Allemagne)";Multisourcing ;Polyamide;Train - Camion - Bateau;"Mitsubischi chemical (Japon)
+Krohne (Allemagne)
+DuPont de Nemours (Delaware - USA)";Bateau, Pipeline
+Safran;Sous-ensemble;Ens. Structure fauteuil;inox;"SENIOR AEROSPACE(Thailand)*
+MGA (Villeneuve s/ Lot)
+Lauak Group (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Altec Etirage (France)
+Thyssen group (France)
+Aubert&Duval (France)*
+";Multisourcing ;Inox;Train - Camion - Bateau;"Saarstahl (Allemagne)
+Arcelor Mittal (Luxembourg)
+Krupp (Allemagne)
+China Baowu (Chine)
+Tata steel (Inde)
+Nucor Corp (USA)
+Aubert&Duval (France)";
+Safran;Sous-ensemble;Ensemble porte;Ertalon;"SUMPAR (France)*
+Plastiservice (Belgique)
+BAULE - Exsto Polymère (France)
+Plastitek (France)";Camion;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Ensinger (Allemagne)
+BASF (Allemagne)
+DuPont de Nemours (Delaware - USA)
+Toray Industries, Inc. (Japon)
+Bayer (Allemagne)";Multisourcing ;Polyamide;Train - Camion - Bateau;"Mitsubischi chemical (Japon)
+Krohne (Allemagne)
+DuPont de Nemours (Delaware - USA)";Bateau, Pipeline
+Safran;Sous-ensemble;Ens. Tablette repas;Ertalon;"SUMPAR (France)*
+Plastiservice (Belgique)
+BAULE - Exsto Polymère (France)
+Plastitek (France)
+Jamco (Japon)";Camion;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Ensinger (Allemagne)
+BASF (Allemagne)
+DuPont de Nemours (Delaware - USA)
+Toray Industries, Inc. (Japon)
+Bayer (Allemagne)";Multisourcing ;Polyamide;Train - Camion - Bateau;"Mitsubischi chemical (Japon)
+Krohne (Allemagne)
+DuPont de Nemours (Delaware - USA)";Bateau, Pipeline
+Safran;Sous-ensemble;Stowage assemblé avec porte;Ertalon;"MGA (Villeneuve s/ Lot)*
+Plastiservice (Belgique)
+BAULE - Exsto Polymère (France)
+Plastitek (France)";Camion;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Ensinger (Allemagne)
+BASF (Allemagne)
+DuPont de Nemours (Delaware - USA)
+Toray Industries, Inc. (Japon)
+Bayer (Allemagne)";Multisourcing ;Polyamide;Train - Camion - Bateau;"Mitsubischi chemical (Japon)
+Krohne (Allemagne)
+DuPont de Nemours (Delaware - USA)";Bateau, Pipeline
+Safran;Sous-ensemble;Structure ottoman horizontale;Ertalon;"JV GROUP (France)*
+Plastiservice (Belgique)
+BAULE - Exsto Polymère (France)
+Plastitek (France)";Camion;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Ensinger (Allemagne)
+BASF (Allemagne)
+DuPont de Nemours (Delaware - USA)
+Toray Industries, Inc. (Japon)
+Bayer (Allemagne)";Multisourcing ;Polyamide;Train - Camion - Bateau;"Mitsubischi chemical (Japon)
+Krohne (Allemagne)
+DuPont de Nemours (Delaware - USA)";Bateau, Pipeline
+Safran;Sous-ensemble;Brackets set;packaging;"JAMMY Inc (USA)*
+Tyco Electronic (USA - TE Connectivity)
+General Electric (USA)
+Honeywell (USA)
+SCHNEIDER (France)
+THALES (France)";Camion - Bateau;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"Film célophane
+Mousse polystyrène
+Carton
+Palette";Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+CEVA Logistics (France)
+
+Fabrication matière 1ére célophane et mousse polystyrène
+Ensinger (Allemagne)
+BASF (Allemagne)
+Bayer (Allemagne)";
+Safran;Sous-ensemble;Brackets set;Transport;"JAMMY Inc (USA)*
+Tyco Electronic (USA - TE Connectivity)
+General Electric (USA)
+Honeywell (USA)
+SCHNEIDER (France)
+THALES (France)";Camion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";Bateau - Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";
+Safran;Sous-ensemble;Coussin ottoman;FRMC55 (C55 = % de carbone) et FMR = ?;"FRANKLIN (Pologne)*
+GATTEFIN (France)
+ESPACE (France)
+Celso (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Altec Etirage (France)
+Thyssen group (France)
+Aubert&Duval (France)*
+";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Afrique, Australie, Chine, Europe) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Acier;Train - Camion - Bateau;"Saarstahl (Allemagne)
+Arcelor Mittal (Luxembourg)
+Krupp (Allemagne)
+China Baowu (Chine)
+Tata steel (Inde)
+Nucor Corp (USA)
+Aubert&Duval (France)*";
+Safran;Sous-ensemble;Coussin têtière;FRMC55 (C55 = % de carbone) et FMR = ?;"FRANKLIN (Pologne)*
+GATTEFIN (France)
+ESPACE (France)
+Celso (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Altec Etirage (France)
+Thyssen group (France)
+Aubert&Duval (France)*
+";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Afrique, Australie, Chine, Europe) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Acier;Train - Camion - Bateau;"Saarstahl (Allemagne)
+Arcelor Mittal (Luxembourg)
+Krupp (Allemagne)
+China Baowu (Chine)
+Tata steel (Inde)
+Nucor Corp (USA)
+Aubert&Duval (France)* --> mais n'est pas extracteur du minerai";
+Safran;Sous-ensemble;Ens. Coussin assise;FRMC55 (C55 = % de carbone) et FMR = ?;"FRANKLIN (Pologne)*
+ESPACE (France)*
+GATTEFIN (France)
+Lauak Group (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Altec Etirage (France)
+Thyssen group (France)
+Aubert&Duval (France)*
+";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Afrique, Australie, Chine, Europe) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Acier;Train - Camion - Bateau;"Saarstahl (Allemagne)
+Arcelor Mittal (Luxembourg)
+Krupp (Allemagne)
+China Baowu (Chine)
+Tata steel (Inde)
+Nucor Corp (USA)
+Aubert&Duval (France)*";
+Safran;Sous-ensemble;Ens.coussin dossier version têtière;FRMC55 (C55 = % de carbone) et FMR = ?;"FRANKLIN (Pologne)*
+ESPACE (France)*
+GATTEFIN (France)
+Lauak Group (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Altec Etirage (France)
+Thyssen group (France)
+Aubert&Duval (France)*
+";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Afrique, Australie, Chine, Europe) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Acier;Train - Camion - Bateau;"Saarstahl (Allemagne)
+Arcelor Mittal (Luxembourg)
+Krupp (Allemagne)
+China Baowu (Chine)
+Tata steel (Inde)
+Nucor Corp (USA)
+Aubert&Duval (France)*";
+Safran;Sous-ensemble;Ens. Coussin dossier;FRMC55 (C55 = % de carbone) et FMR = ?;"FRANKLIN (Pologne)*
+ESPACE (France)*
+GATTEFIN (France)
+Lauak Group (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Altec Etirage (France)
+Thyssen group (France)
+Aubert&Duval (France)*
+";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Afrique, Australie, Chine, Europe) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Acier;Train - Camion - Bateau;"Saarstahl (Allemagne)
+Arcelor Mittal (Luxembourg)
+Krupp (Allemagne)
+China Baowu (Chine)
+Tata steel (Inde)
+Nucor Corp (USA)
+Aubert&Duval (France)*";
+Safran;Sous-ensemble;Ens. Stowage latéral;FRMC55 (C55 = % de carbone) et FMR = ?;"MGA (Villeneuve s/ Lot)*
+GATTEFIN (France)
+Lauak Group (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Altec Etirage (France)
+Thyssen group (France)
+Aubert&Duval (France)*
+";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Afrique, Australie, Chine, Europe) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Acier;Train - Camion - Bateau;"Saarstahl (Allemagne)
+Arcelor Mittal (Luxembourg)
+Krupp (Allemagne)
+China Baowu (Chine)
+Tata steel (Inde)
+Nucor Corp (USA)
+Aubert&Duval (France)*";
+Safran;Sous-ensemble;Manchette acc. Mobile;FRMC55 (C55 = % de carbone) et FMR = ?;"ACH* (France)
+Lauak Group (France)
+MGR FOAMTEX (Angleterre)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Altec Etirage (France)
+Thyssen group (France)
+Aubert&Duval (France)*
+";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Afrique, Australie, Chine, Europe) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Acier;Train - Camion - Bateau;"Saarstahl (Allemagne)
+Arcelor Mittal (Luxembourg)
+Krupp (Allemagne)
+China Baowu (Chine)
+Tata steel (Inde)
+Nucor Corp (USA)
+Aubert&Duval (France)*";
+Safran;Sous-ensemble;Manchette équipée;FRMC55 (C55 = % de carbone) et FMR = ?;"ACH* (France)
+Lauak Group (France)
+MGR FOAMTEX (Angleterre)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Altec Etirage (France)
+Thyssen group (France)
+Aubert&Duval (France)*
+";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Afrique, Australie, Chine, Europe) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Acier;Train - Camion - Bateau;"Saarstahl (Allemagne)
+Arcelor Mittal (Luxembourg)
+Krupp (Allemagne)
+China Baowu (Chine)
+Tata steel (Inde)
+Nucor Corp (USA)
+Aubert&Duval (France)*";
+Safran;Sous-ensemble;Accoudoir allée;inox;"SUMPAR (France)*
+segnere aero SAS (France)
+MGA (Villeneuve s/ Lot)
+Lauak Group (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Altec Etirage (France)
+Thyssen group (France)
+Aubert&Duval (France)*
+";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Afrique, Australie, Chine, Europe) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Inox;Train - Camion - Bateau;"Saarstahl (Allemagne)
+Arcelor Mittal (Luxembourg)
+Krupp (Allemagne)
+China Baowu (Chine)
+Tata steel (Inde)
+Nucor Corp (USA)
+Aubert&Duval (France)";
+Safran;Sous-ensemble;Ens. Palette optimisée;inox;"SUMPAR (France)*
+segnere aero SAS (France)
+MGA (Villeneuve s/ Lot)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Altec Etirage (France)
+Thyssen group (France)
+Aubert&Duval (France)*
+";Multisourcing ;Inox;Train - Camion - Bateau;"Saarstahl (Allemagne)
+Arcelor Mittal (Luxembourg)
+Krupp (Allemagne)
+China Baowu (Chine)
+Tata steel (Inde)
+Nucor Corp (USA)
+Aubert&Duval (France)";
+Safran;Sous-ensemble;Ensemble porte;inox;"MGA (Villeneuve s/ Lot)*
+GATTEFIN (France)
+SUMPAR (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Altec Etirage (France)
+Thyssen group (France)
+Aubert&Duval (France)*
+";Multisourcing ;Inox;Train - Camion - Bateau;"Saarstahl (Allemagne)
+Arcelor Mittal (Luxembourg)
+Krupp (Allemagne)
+China Baowu (Chine)
+Tata steel (Inde)
+Nucor Corp (USA)
+Aubert&Duval (France)";
+Safran;Sous-ensemble;Ens. Structure fauteuil;GLO: moulage par injection plastique;"SENIOR AEROSPACE(Thailand)*
+BAULE - Exsto Polymère (France)
+Plastitek (France)
+Jamco corp (Japon)";Camion - Bateau;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Profilage Nylon - 
+Ensinger (Allemagne)
+BASF (Allemagne)
+DuPont de Nemours (Delaware - USA)
+Arkema S.A (France)
+Toray Industries, Inc. (Japon)";3 continents, 3 lignes de transports --> Faible surtout avec plan B associé;Polyamide;Train - Camion - Bateau;"BASF (Allemagne)
+Krohne (Allemagne)
+Valco Group (France)
+BAYER (Allemagne)";Bateau, Pipeline
+Safran;Sous-ensemble;Bumper version porte;packaging;"SUMPAR (France)*
+segnere aero SAS (France)
+MGA (Villeneuve s/ Lot)
+SENIOR AEROSPACE (Thailand)
+Baulé - Exsto polymère (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"Film célophane
+Mousse polystyrène
+Carton
+Palette";Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+CEVA Logistics (France)
+
+Fabrication matière 1ére célophane et mousse polystyrène
+Ensinger (Allemagne)
+BASF (Allemagne)
+Bayer (Allemagne)";
+Safran;Sous-ensemble;Ens. Tablette cocktail;inox;"MGA (Villeneuve s/ Lot)*
+GATTEFIN (France)
+SUMPAR (France)
+Figeac Aéro (France)
+Jamco Corp (Japon)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Altec Etirage (France)
+Thyssen group (France)
+Aubert&Duval (France)*
+";Multisourcing ;Inox;Train - Camion - Bateau;"Saarstahl (Allemagne)
+Arcelor Mittal (Luxembourg)
+Krupp (Allemagne)
+China Baowu (Chine)
+Tata steel (Inde)
+Nucor Corp (USA)
+Aubert&Duval (France)";
+Safran;Sous-ensemble;Ens. Tablette repas;inox;"MGA (Villeneuve s/ Lot)*
+GATTEFIN (France)
+SUMPAR (France)
+Lauak Group (France)
+Jamco (Japon)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Altec Etirage (France)
+Thyssen group (France)
+Aubert&Duval (France)*
+";Multisourcing ;Inox;Train - Camion - Bateau;"Saarstahl (Allemagne)
+Arcelor Mittal (Luxembourg)
+Krupp (Allemagne)
+China Baowu (Chine)
+Tata steel (Inde)
+Nucor Corp (USA)
+Aubert&Duval (France)";
+Safran;Sous-ensemble;Ens. Têtière;inox;"GATTEFIN (France)*
+SUMPAR (France)
+Lauak Group (France)
+Figeac Aéro (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Altec Etirage (France)
+Thyssen group (France)
+Aubert&Duval (France)*
+";Multisourcing ;Inox;Train - Camion - Bateau;"Saarstahl (Allemagne)
+Arcelor Mittal (Luxembourg)
+Krupp (Allemagne)
+China Baowu (Chine)
+Tata steel (Inde)
+Nucor Corp (USA)
+Aubert&Duval (France)";
+Safran;Sous-ensemble;Stowage assemblé avec porte;inox;"MGA (Villeneuve s/ Lot)*
+GATTEFIN (France)
+Lauak Group (France)
+Senior Aerospace (Thaïlande)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Altec Etirage (France)
+Thyssen group (France)
+Aubert&Duval (France)*
+";Multisourcing ;Inox;Train - Camion - Bateau;"Saarstahl (Allemagne)
+Arcelor Mittal (Luxembourg)
+Krupp (Allemagne)
+China Baowu (Chine)
+Tata steel (Inde)
+Nucor Corp (USA)
+Aubert&Duval (France)";
+Safran;Sous-ensemble;Support écran;inox;"SAFRAN*
+GATTEFIN (France)
+Lauak Group (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Altec Etirage (France)
+Thyssen group (France)
+Aubert&Duval (France)*
+";Multisourcing ;Inox;Train - Camion - Bateau;"Saarstahl (Allemagne)
+Arcelor Mittal (Luxembourg)
+Krupp (Allemagne)
+China Baowu (Chine)
+Tata steel (Inde)
+Nucor Corp (USA)
+Aubert&Duval (France)";
+Safran;Sous-ensemble;Capot NFC;kydex;"ESPACE (France)*
+Baulé - Exsto Polymère (France)
+Plastiforme (France)
+Plastiservice (France)";Camion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Ensinger (Allemagne)
+BASF (Allemagne)
+DuPont de Nemours (Delaware - USA)
+Toray Industries, Inc. (Japon)
+BAULE(France)";3 continents, 3 lignes de transports --> Faible surtout avec plan B associé;PVC et Acrylique;Train - Camion - Bateau;"Shandong Loyal Chemical Co., Ltd. (Chine)
+ChimieChine - Chemchina (Chine)
+Fin Projet (Chine)
+Mexichem (Mexique)
+BAYER (Allemagne)";Bateau, Pipeline
+Safran;Sous-ensemble;Coussin ottoman;kydex;"ESPACE (France)*
+Baulé - Exsto Polymère (France)
+Plastiforme (France)
+Plastiservice (Belgique)
+Celso (France)";Camion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Ensinger (Allemagne)
+BASF (Allemagne)
+DuPont de Nemours (Delaware - USA)
+Toray Industries, Inc. (Japon)
+BAULE(France)";3 continents, 3 lignes de transports --> Faible surtout avec plan B associé;PVC et Acrylique;Train - Camion - Bateau;"Shandong Loyal Chemical Co., Ltd. (Chine)
+ChimieChine - Chemchina (Chine)
+Fin Projet (Chine)
+Mexichem (Mexique)
+BAYER (Allemagne)";Bateau, Pipeline
+Safran;Sous-ensemble;Ens. Stowage latéral;kydex;"MGA (Villeneuve s/ Lot)*
+GATTEFIN (France)
+Baulé Polymère (France)
+Plastiforme (France)
+Plastiservice (Belgique)";Camion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Ensinger (Allemagne)
+BASF (Allemagne)
+DuPont de Nemours (Delaware - USA)
+Toray Industries, Inc. (Japon)
+BAULE(France)";3 continents, 3 lignes de transports --> Faible surtout avec plan B associé;PVC et Acrylique;Train - Camion - Bateau;"Shandong Loyal Chemical Co., Ltd. (Chine)
+ChimieChine - Chemchina (Chine)
+Fin Projet (Chine)
+Mexichem (Mexique)
+BAYER (Allemagne)";Bateau, Pipeline
+Safran;Sous-ensemble;Ensemble porte;kydex;"MGA (Villeneuve s/ Lot)*
+GATTEFIN (France)
+Baulé Polymère (France)
+Plastiform (France)
+Plastiservice (Belgique)";Camion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Ensinger (Allemagne)
+BASF (Allemagne)
+DuPont de Nemours (Delaware - USA)
+Toray Industries, Inc. (Japon)
+BAULE(France)";3 continents, 3 lignes de transports --> Faible surtout avec plan B associé;PVC et Acrylique;Train - Camion - Bateau;"Shandong Loyal Chemical Co., Ltd. (Chine)
+ChimieChine - Chemchina (Chine)
+Fin Projet (Chine)
+Mexichem (Mexique)
+BAYER (Allemagne)";Bateau, Pipeline
+Safran;Sous-ensemble;Ens. Tablette cocktail;kydex;"MGA (Villeneuve s/ Lot)*
+GATTEFIN (France)
+Baulé Polymère - Exsto (France)
+Plastiforme (France)
+Plastiservice (Belgique)
+Jamco Corp (Japon)";Camion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Ensinger (Allemagne)
+BASF (Allemagne)
+DuPont de Nemours (Delaware - USA)
+Toray Industries, Inc. (Japon)
+BAULE(France)";3 continents, 3 lignes de transports --> Faible surtout avec plan B associé;PVC et Acrylique;Train - Camion - Bateau;"Shandong Loyal Chemical Co., Ltd. (Chine)
+ChimieChine - Chemchina (Chine)
+Fin Projet (Chine)
+Mexichem (Mexique)
+BAYER (Allemagne)";Bateau, Pipeline
+Safran;Sous-ensemble;Ens. Tablette repas;kydex;"GATTEFIN (France)*
+Baulé - Exsto Polymère  (France)
+Plastiforme (France)
+Plastiservice (Belgique)
+Jamco (Japon)";Camion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Ensinger (Allemagne)
+BASF (Allemagne)
+DuPont de Nemours (Delaware - USA)
+Toray Industries, Inc. (Japon)
+BAULE(France)";3 continents, 3 lignes de transports --> Faible surtout avec plan B associé;PVC et Acrylique;Train - Camion - Bateau;"Shandong Loyal Chemical Co., Ltd. (Chine)
+ChimieChine - Chemchina (Chine)
+Fin Projet (Chine)
+Mexichem (Mexique)
+Bayer (Allemagne)";Bateau, Pipeline
+Safran;Sous-ensemble;Stowage assemblé avec porte;kydex;"MGA (Villeneuve s/ Lot)*
+GATTEFIN (France)
+Baulé - Exsto Polymère (France)
+Plastiforme (France)
+Plastiservice (Belgique)";Camion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Ensinger (Allemagne)
+BASF (Allemagne)
+DuPont de Nemours (Delaware - USA)
+Toray Industries, Inc. (Japon)
+BAULE(France)";3 continents, 3 lignes de transports --> Faible surtout avec plan B associé;PVC et Acrylique;Train - Camion - Bateau;"Shandong Loyal Chemical Co., Ltd. (Chine)
+ChimieChine - Chemchina (Chine)
+Fin Projet (Chine)
+Mexichem (Mexique)
+BAYER (Allemagne)";Bateau, Pipeline
+Safran;Sous-ensemble;lightning;lightning;"S.E.L.A (France)*
+THALES (France)
+Madelec Aero (France)
+MGR FOAMTEX (Angleterre)
+SCHOTT (Allemagne)";Camion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"E2IP --> Apriori monosource --> dangereux
+SAFRAN (France) --> multinationale rang 1 des fabricants aéronautique, presence mondiale
+Auger a démarcher mais orienté auto --> risque de peu d'intérêt pour avion….
+Valeo a démarcher mais orienté auto --> risque de peu d'intérêt pour avion….";Multisourcing ;Diode (COTS);Bateau - Camion;"Diodes Incorporated (USA)
+Infineon Technologies AG (Allemagne)
+ROHM Co. Ltd (Japon)";Bateau
+Safran;Sous-ensemble;Ens. Coque;NIDA - GLO (moulage par injection plastique);"STECO (France)* 
+Baulé - Exsto Polymère (France)
+Plastiform (France)
+Plastitek (France)";Camion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Ensinger (Allemagne)
+BASF (Allemagne)
+DuPont de Nemours (Delaware - USA)
+Toray Industries, Inc. (Japon)
+BAULE(France)";3 continents, 3 lignes de transports --> Faible mais plan B risqué;"Prepreg Cycom 2400 (60%)
+NIDAFIC ECAR (20%)
+Colle + film (20%)";Train - Camion - Bateau;"Mitsubischi chemical (Japon)
+BASF (Allemagne)
+Krohne (Allemagne)
+DuPont de Nemours (Delaware - USA)";Bateau, Pipeline
+Safran;Sous-ensemble;Ceinture de sécurité;nylon;"AM SAFE (USA)*
+Schroth (USA-Floride et Allemagne, Distribué par Supraero - France)
+J&C Aero (Lituanie)
+Anjou Aéro (France)
+";Camion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Profilage Nylon - 
+Ensinger (Allemagne)
+BASF (Allemagne)
+DuPont de Nemours (Delaware - USA)
+Arkema S.A (France)
+Toray Industries, Inc. (Japon)
+Vaisala (Finlande)
+Siemens (Allemagne)
+Ensinger (France)";3 continents, 3 lignes de transports --> Faible;Nylon 6 est un polymère synthétique dérivé de l'acide adipique --> polymère synthétique fabriqué à partir de produits pétrochimiques. Pétrole rafiné pour devenir du caprolactame et ensuite polymérisé pour devenir du nylon;Train - Camion - Bateau;"Mitsubischi chemical (Japon)
+Krohne (Allemagne)
+DuPont de Nemours (Delaware - USA)
+";Bateau, Pipeline
+Safran;Sous-ensemble;Support clamps;nylon;"MGA (Villeneuve s/ Lot)*
+Plastiservice (Belgique)
+Ancra Aircraft (Californie - USA)
+TA Aerospace (Californie - USA)";Camion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Profilage Nylon - 
+Ensinger (Allemagne)
+BASF (Allemagne)
+DuPont de Nemours (Delaware - USA)
+Arkema S.A (France)
+Toray Industries, Inc. (Japon)
+Vaisala (Finlande)
+Siemens (Allemagne)
+Ensinger (France)";3 continents, 3 lignes de transports --> Faible;Nylon 6 est un polymère synthétique dérivé de l'acide adipique --> polymère synthétique fabriqué à partir de produits pétrochimiques. Pétrole rafiné pour devenir du caprolactame et ensuite polymérisé pour devenir du nylon;Train - Camion - Bateau;"Mitsubischi chemical (Japon)
+Krohne (Allemagne)
+DuPont de Nemours (Delaware - USA)
+";Bateau, Pipeline
+Safran;Sous-ensemble;Ens. Stowage latéral;nylon;"MGA (Villeneuve s/ Lot)*
+GATTEFIN (France)
+Plastiservice (Belgique)
+ACH (France)";Camion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Profilage Nylon - 
+Ensinger (Allemagne)
+BASF (Allemagne)
+DuPont de Nemours (Delaware - USA)
+Arkema S.A (France)
+Toray Industries, Inc. (Japon)
+Vaisala (Finlande)
+Siemens (Allemagne)
+Ensinger (France)";3 continents, 3 lignes de transports --> Faible;Nylon 6 est un polymère synthétique dérivé de l'acide adipique --> polymère synthétique fabriqué à partir de produits pétrochimiques. Pétrole rafiné pour devenir du caprolactame et ensuite polymérisé pour devenir du nylon;Train - Camion - Bateau;"Mitsubischi chemical (Japon)
+Krohne (Allemagne)
+DuPont de Nemours (Delaware - USA)
+";Bateau, Pipeline
+Safran;Sous-ensemble;Ens. Palette optimisée;nylon;"SUMPAR (France)*
+Plastiservice (Belgique)
+segnere aero SAS (France)
+MGA (Villeneuve s/ Lot)
+ACH (France)";Camion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Profilage Nylon - 
+Ensinger (Allemagne)
+BASF (Allemagne)
+DuPont de Nemours (Delaware - USA)
+Arkema S.A (France)
+Toray Industries, Inc. (Japon)
+Vaisala (Finlande)
+Siemens (Allemagne)
+Ensinger (France)";3 continents, 3 lignes de transports --> Faible;Nylon 6 est un polymère synthétique dérivé de l'acide adipique --> polymère synthétique fabriqué à partir de produits pétrochimiques. Pétrole rafiné pour devenir du caprolactame et ensuite polymérisé pour devenir du nylon;Train - Camion - Bateau;"Mitsubischi chemical (Japon)
+Krohne (Allemagne)
+DuPont de Nemours (Delaware - USA)";Bateau, Pipeline
+Safran;Sous-ensemble;Ensemble porte;nylon;"MGA (Villeneuve s/ Lot)*
+GATTEFIN (France)
+Plastiservice (Belgique)
+ACH (France)";Camion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Profilage Nylon - 
+Ensinger (Allemagne)
+BASF (Allemagne)
+DuPont de Nemours (Delaware - USA)
+Arkema S.A (France)
+Toray Industries, Inc. (Japon)
+Vaisala (Finlande)
+Siemens (Allemagne)
+Ensinger (France)";3 continents, 3 lignes de transports --> Faible;Nylon 6 est un polymère synthétique dérivé de l'acide adipique --> polymère synthétique fabriqué à partir de produits pétrochimiques. Pétrole rafiné pour devenir du caprolactame et ensuite polymérisé pour devenir du nylon;Train - Camion - Bateau;"Mitsubischi chemical (Japon)
+Krohne (Allemagne)
+DuPont de Nemours (Delaware - USA)";Bateau, Pipeline
+Safran;Sous-ensemble;Bumper version porte;Transport;"SUMPAR (France)*
+segnere aero SAS (France)
+MGA (Villeneuve s/ Lot)
+SENIOR AEROSPACE (Thailand)
+Baulé - Exsto polymère (France)";Camion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";Bateau - Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";
+Safran;Sous-ensemble;Ens. Structure fixe;35NC6  (nickel-chrome);"MGA (Villeneuve s/ Lot)*
+GATTEFIN (France)
+Lauak Group (France)";Camion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Altec Etirage (France)
+Thyssen group (France)
+Aubert&Duval (France)*
+";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Afrique, Australie, Chine, Europe) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Acier;Train - Camion - Bateau;"Saarstahl (Allemagne)
+Arcelor Mittal (Luxembourg)
+Krupp (Allemagne)
+China Baowu (Chine)
+Tata steel (Inde)
+Nucor Corp (USA)
+Aubert&Duval (France)*";
+Safran;Sous-ensemble;Ens. Tablette cocktail;nylon;"MGA (Villeneuve s/ Lot)*
+Plastiservice (Belgique)
+ACH (France)
+Jamco Corp (Japon)";Camion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Profilage Nylon - 
+Ensinger (Allemagne)
+BASF (Allemagne)
+DuPont de Nemours (Delaware - USA)
+Arkema S.A (France)
+Toray Industries, Inc. (Japon)
+Vaisala (Finlande)
+Siemens (Allemagne)
+Ensinger (France)";3 continents, 3 lignes de transports --> Faible;Nylon 6 est un polymère synthétique dérivé de l'acide adipique --> polymère synthétique fabriqué à partir de produits pétrochimiques. Pétrole rafiné pour devenir du caprolactame et ensuite polymérisé pour devenir du nylon;Train - Camion - Bateau;"Mitsubischi chemical (Japon)
+Krohne (Allemagne)
+DuPont de Nemours (Delaware - USA)";Bateau, Pipeline
+Safran;Sous-ensemble;Ens. Tablette repas;nylon;"GATTEFIN (France)*
+Plastiservice (Belgique)
+MGA (Villeneuve s/ Lot)
+ACH (France)
+Jamco (Japon)";Camion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Profilage Nylon - 
+Ensinger (Allemagne)
+BASF (Allemagne)
+DuPont de Nemours (Delaware - USA)
+Arkema S.A (France)
+Toray Industries, Inc. (Japon)
+Vaisala (Finlande)
+Siemens (Allemagne)
+Ensinger (France)";3 continents, 3 lignes de transports --> Faible;Nylon 6 est un polymère synthétique dérivé de l'acide adipique --> polymère synthétique fabriqué à partir de produits pétrochimiques. Pétrole rafiné pour devenir du caprolactame et ensuite polymérisé pour devenir du nylon;Train - Camion - Bateau;"Mitsubischi chemical (Japon)
+Krohne (Allemagne)
+DuPont de Nemours (Delaware - USA)";Bateau, Pipeline
+Safran;Sous-ensemble;Ens. Têtière;nylon;"GATTEFIN (France)*
+Plastiservice (Belgique)
+MGA (Villeneuve s/ Lot)
+ACH (France)";Camion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Profilage Nylon - 
+Ensinger (Allemagne)
+BASF (Allemagne)
+DuPont de Nemours (Delaware - USA)
+Arkema S.A (France)
+Toray Industries, Inc. (Japon)
+Vaisala (Finlande)
+Siemens (Allemagne)
+Ensinger (France)";3 continents, 3 lignes de transports --> Faible;Nylon 6 est un polymère synthétique dérivé de l'acide adipique --> polymère synthétique fabriqué à partir de produits pétrochimiques. Pétrole rafiné pour devenir du caprolactame et ensuite polymérisé pour devenir du nylon;Train - Camion - Bateau;"Mitsubischi chemical (Japon)
+Krohne (Allemagne)
+DuPont de Nemours (Delaware - USA)
+Total (France)";Bateau, Pipeline
+Safran;Sous-ensemble;Stowage assemblé avec porte;nylon;"MGA (Villeneuve s/ Lot)*
+GATTEFIN (France)
+Plastiservice (Belgique)
+ACH (France)";Camion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Profilage Nylon - 
+Ensinger (Allemagne)
+BASF (Allemagne)
+DuPont de Nemours (Delaware - USA)
+Arkema S.A (France)
+Toray Industries, Inc. (Japon)
+Vaisala (Finlande)
+Siemens (Allemagne)
+Ensinger (France)";3 continents, 3 lignes de transports ;Nylon 6 est un polymère synthétique dérivé de l'acide adipique --> polymère synthétique fabriqué à partir de produits pétrochimiques. Pétrole rafiné pour devenir du caprolactame et ensuite polymérisé pour devenir du nylon;Train - Camion - Bateau;"Mitsubischi chemical (Japon)
+Krohne (Allemagne)
+DuPont de Nemours (Delaware - USA)";Bateau, Pipeline
+Safran;Sous-ensemble;Capot NFC;packaging;"ESPACE (France)*
+BAULE -EXSTO
+Plastiform (France)
+Plastiservice (Belgique)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"Film célophane
+Mousse polystyrène
+Carton
+Palette";Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+CEVA Logistics (France)
+
+Fabrication matière 1ére célophane et mousse polystyrène
+Ensinger (Allemagne)
+BASF (Allemagne)
+Bayer (Allemagne)";
+Safran;Sous-ensemble;Capot NFC;Transport;"ESPACE (France)*
+Baulé - Exsto Polymère (France)
+Plastiforme (France)
+Plastiservice (Belgique)";Camion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";Bateau - Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";
+Safran;Sous-ensemble;Ceinture de sécurité;packaging;"AM SAFE (USA)*
+Schroth (USA-Floride et Allemagne, Distribué par Supraero - France)
+J&C Aero (Lituanie)
+Anjou Aéro (France)
+";Camion - Bateau;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"Film célophane
+Mousse polystyrène
+Carton
+Palette";Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+CEVA Logistics (France)
+
+Fabrication matière 1ére célophane et mousse polystyrène
+Ensinger (Allemagne)
+BASF (Allemagne)
+Bayer (Allemagne)";
+Safran;IFE;Ecran - 00-5136-51 Rev F Seat Power Box 4 (SPB4);Display, liquid crystal, 17 pouces;"SAFRAN (France)*
+SONY (Japon)
+Continental (Allemagne)";Camion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Fourniture Cuivre:
+Aurubis (Allemagne)
+Zijin Mining Group (Chine)
+Ampco Metal France (France)
+Thyssen group (France)
+
+Fourniture Cristaux liquides:
+Auberon technologie (France)
+Innoptec (France)
+A Tech Supply APS (Danemark)";Multisourcing ;"Polyamide
+
+
+Cuivre";Train - Camion - Bateau;"Mitsubischi chemical (Japon)
+Krohne (Allemagne)
+DuPont de Nemours (Delaware - USA)
+Total (France)";Bateau, Pipeline
+Safran;Sous-ensemble;Ceinture de sécurité;Transport;"AM SAFE (USA)*
+Schroth (USA-Floride et Allemagne, Distribué par Supraero - France)
+J&C Aero (Lituanie)
+Anjou Aéro (France)
+";Camion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";Bateau - Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";
+Safran;Sous-ensemble;Commande actionnement ECU;packaging;"SAFRAN (France)*
+LIEBHERR (Allemagne)*
+THALES (France)*";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"Film célophane
+Mousse polystyrène
+Carton
+Palette";Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+CEVA Logistics (France)
+
+Fabrication matière 1ére célophane et mousse polystyrène
+Ensinger (Allemagne)
+BASF (Allemagne)
+Bayer (Allemagne)";
+Safran;Sous-ensemble;Commande actionnement ECU;Transport;"SAFRAN (France)*
+LIEBHERR (Allemagne)*
+THALES (France)*";Camion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";Bateau - Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";
+Safran;Sous-ensemble;Coussin ottoman;packaging;"FRANKLIN (Pologne)*
+GATTEFIN (France)
+ESPACE (France)
+Celso (France)
+ACH (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"Film célophane
+Mousse polystyrène
+Carton
+Palette";Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+CEVA Logistics (France)
+
+Fabrication matière 1ére célophane et mousse polystyrène
+Ensinger (Allemagne)
+BASF (Allemagne)
+Bayer (Allemagne)";
+Safran;Sous-ensemble;Coussin ottoman;Transport;"FRANKLIN (Pologne)*
+GATTEFIN (France)
+ESPACE (France)
+Celso (France)
+ACH (France)";Camion - Avion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";Bateau - Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";
+Safran;Sous-ensemble;Coussin têtière;packaging;"FRANKLIN (Pologne)*
+GATTEFIN (France)
+ESPACE (France)
+Celso (France)
+ACH (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"Film célophane
+Mousse polystyrène
+Carton
+Palette";Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+CEVA Logistics (France)
+
+Fabrication matière 1ére célophane et mousse polystyrène
+Ensinger (Allemagne)
+BASF (Allemagne)
+Bayer (Allemagne)";
+Safran;Sous-ensemble;Coussin têtière;Transport;"FRANKLIN (Pologne)*
+GATTEFIN (France)
+ESPACE (France)
+Celso (France)
+ACH (France)";Camion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";Bateau - Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";
+Safran;IFE;Ecran;packaging;"SAFRAN (France)*
+SONY (Japon)
+Continental (Allemagne)";Camion - Bateau;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"Film célophane
+Mousse polystyrène
+Carton
+Palette";Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+CEVA Logistics (France)
+
+Fabrication matière 1ére célophane et mousse polystyrène
+Ensinger (Allemagne)
+BASF (Allemagne)
+Bayer (Allemagne)";
+Safran;IFE;Ecran;Transport;"SAFRAN (France)*
+SONY (Japon)
+Continental (Allemagne)";Camion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";Bateau - Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";
+Safran;Sous-ensemble;Ens. Coque;packaging;"STECO (France)* 
+Baulé - Exsto Polymère (France)
+Plastiforme (France)
+Plastitek (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"Film célophane
+Mousse polystyrène
+Carton
+Palette";Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+CEVA Logistics (France)
+
+Fabrication matière 1ére célophane et mousse polystyrène
+Ensinger (Allemagne)
+BASF (Allemagne)
+Bayer (Allemagne)";
+Safran;Sous-ensemble;Ens. Coque;Transport;"STECO (France)* 
+Baulé - Exsto Polymère (France)
+Plastiforme (France)
+Plastitek (France)";Camion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";Bateau - Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";
+Safran;Sous-ensemble;Ens. Coussin assise;packaging;"FRANKLIN (Pologne)*
+GATTEFIN (France)
+Celso (France)
+ACH (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"Film célophane
+Mousse polystyrène
+Carton
+Palette";Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+CEVA Logistics (France)
+
+Fabrication matière 1ére célophane et mousse polystyrène
+Ensinger (Allemagne)
+BASF (Allemagne)
+Bayer (Allemagne)";
+Safran;Sous-ensemble;Ens. Coussin assise;Transport;"FRANKLIN (Pologne)*
+GATTEFIN (France)
+Celso (France)
+ACH (France)";Camion - Avion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";Bateau - Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";
+Safran;Sous-ensemble;Ens. Coussin dossier;packaging;"FRANKLIN (Pologne)*
+GATTEFIN (France)
+Celso (France)
+ACH (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"Film célophane
+Mousse polystyrène
+Carton
+Palette";Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+CEVA Logistics (France)
+
+Fabrication matière 1ére célophane et mousse polystyrène
+Ensinger (Allemagne)
+BASF (Allemagne)
+Bayer (Allemagne)";
+Safran;Sous-ensemble;Ens. Coussin dossier;Transport;"FRANKLIN (Pologne)*
+GATTEFIN (France)
+Celso (France)
+ACH (France)";Camion - Avion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";Bateau - Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";
+Safran;Sous-ensemble;Ens. Equipements latéraux;packaging;"FUCH(s) THAILAND* ??
+ESPACE (France)
+segnere aero SAS (France)
+GATTEFIN (France)
+Celso (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"Film célophane
+Mousse polystyrène
+Carton
+Palette";Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+CEVA Logistics (France)
+
+Fabrication matière 1ére célophane et mousse polystyrène
+Ensinger (Allemagne)
+BASF (Allemagne)
+Bayer (Allemagne)";
+Safran;Sous-ensemble;Ens. Equipements latéraux;Transport;"FUCH(s) THAILAND* ??
+ESPACE (France)
+segnere aero SAS (France)
+GATTEFIN (France)
+Celso (France)";Camion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";Bateau - Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";
+Safran;Sous-ensemble;Ens. Palette optimisée;packaging;"SUMPAR (France)*
+segnere aero SAS (France)
+MGA (Villeneuve s/ Lot)
+Plastiservice (Belgique)
+ACH (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"Film célophane
+Mousse polystyrène
+Carton
+Palette";Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+CEVA Logistics (France)
+
+Fabrication matière 1ére célophane et mousse polystyrène
+Ensinger (Allemagne)
+BASF (Allemagne)
+Bayer (Allemagne)";
+Safran;Sous-ensemble;Ens. Structure fixe;acier;"MGA (Villeneuve s/ Lot)*
+GATTEFIN (France)
+Lauak Group (France)
+";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Altec Etirage (France)
+Thyssen group (France)
+Aubert&Duval (France)*
+";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Afrique, Australie, Chine, Europe) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Acier;Train - Camion - Bateau;"Saarstahl (Allemagne)
+Arcelor Mittal (Luxembourg)
+Krupp (Allemagne)
+China Baowu (Chine)
+Tata steel (Inde)
+Nucor Corp (USA)
+Aubert&Duval (France)";
+Safran;Sous-ensemble;Ens. Palette optimisée;Transport;"SUMPAR (France)*
+segnere aero SAS (France)
+MGA (Villeneuve s/ Lot)";Camion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";Bateau - Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";
+Safran;Sous-ensemble;Ens. Stowage latéral;packaging;"MGA (Villeneuve s/ Lot)*
+GATTEFIN (France)
+Lauak Group (France)
+";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"Film célophane
+Mousse polystyrène
+Carton
+Palette";Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+CEVA Logistics (France)
+
+Fabrication matière 1ére célophane et mousse polystyrène
+Ensinger (Allemagne)
+BASF (Allemagne)
+Bayer (Allemagne)";
+Safran;Sous-ensemble;Ens. Structure fixe;Alu;"MGA (Villeneuve s/ Lot)*
+GATTEFIN (France)
+Figeac Aero (France)
+SENIOR AEROSPACE(Thailand)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Euralliage ( France)
+Aluminium France (France)
+Thyssen group (France)";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Asie, Australie, Chine, Canada) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Aluminium;Train - Camion - Bateau;"Chalco (Chine avec 39 filiales, dont 18 en propriété exclusive et 21 contrôlées)
+Hindalco (Inde avec 49 sites de production Amérique du Nord, Europe, Asie)
+Rio Tinto (Royaume-Uni avec 24 sites de production Canada, Australie, Nlle Zélande, Islande, Oman
+Euralliage ( France)
+TATA Steel (Inde - Afrique - Amérique du sud)";
+Safran;Sous-ensemble;Ens. Structure fixe;caoutchouc;"MGA (Villeneuve s/ Lot)*
+GATTEFIN (France)
+Plastiservice (Belgique)
+Jamco corp (Japon)";Camion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Ensinger (Allemagne)
+BASF (Allemagne)
+DuPont de Nemours (Delaware - USA)
+Arkema S.A (France)
+Toray Industries, Inc. (Japon)";3 continents, 3 modes de transports et font partie des principaux fournisseurs mondiaux --> Faible;Caoutchouc --> PVC, Polypropylène ou polyethylène, noyaux acryliques pour une tenue à long terme, mousse pour l'isolation,;Train - Camion - Bateau;"Caoutchouc naturel  + acrylique, silicone 
+Halcyon Agri
+Socfin
+Caoutchouc synthétique  + acrylique, silicone:
+Shandong Loyal Chemical Co., Ltd. (Chine)
+ChimieChine - Chemchina (Chine)
+Fin Projet (Chine)
+Mexichem (Mexique)";"Caoutchouc naturel  + acrylique, silicone 
+Halcyon Agri
+Socfin
+Caoutchouc synthétique  + acrylique, silicone:
+Shandong Loyal Chemical Co., Ltd. (Chine)
+ChimieChine - Chemchina (Chine)
+Fin Projet (Chine)
+Mexichem (Mexique)"
+Safran;Sous-ensemble;Ens. Stowage latéral;Transport;"MGA (Villeneuve s/ Lot)*
+GATTEFIN (France)
+Lauak Group (France)
+";Camion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";Bateau - Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";
+Safran;Sous-ensemble;Ens. Structure fauteuil;packaging;"SENIOR AEROSPACE(Thailand)*
+BAULE - Exsto Polymère (France)
+Plastitek (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"Film célophane
+Mousse polystyrène
+Carton
+Palette";Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+CEVA Logistics (France)
+
+Fabrication matière 1ére célophane et mousse polystyrène
+Ensinger (Allemagne)
+BASF (Allemagne)
+Bayer (Allemagne)";
+Safran;Sous-ensemble;Ens. Structure fauteuil;Transport;"SENIOR AEROSPACE(Thailand)*
+BAULE - Exsto Polymère (France)
+Plastitek (France)";Camion - Avion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";Bateau - Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";
+Safran;Sous-ensemble;Ens. Structure fixe;packaging;"MGA (Villeneuve s/ Lot)*
+GATTEFIN (France)
+Plastiservice (Belgique)
+Jamco corp (Japon)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"Film célophane
+Mousse polystyrène
+Carton
+Palette";Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+CEVA Logistics (France)
+
+Fabrication matière 1ére célophane et mousse polystyrène
+Ensinger (Allemagne)
+BASF (Allemagne)
+Bayer (Allemagne)";
+Safran;Sous-ensemble;Ens. Structure fixe;Transport;"MGA (Villeneuve s/ Lot)*
+GATTEFIN (France)
+Plastiservice (Belgique)
+Jamco corp (Japon)";Camion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";Bateau - Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";
+Safran;Sous-ensemble;Ens. Tablette cocktail;packaging;"MGA (Villeneuve s/ Lot)*
+GATTEFIN (France)
+Baulé Polymère - Exsto (France)
+Plastiforme (France)
+Plastiservice (Belgique)
+Jamco Corp (Japon)
+SUMPAR (France)
+Figeac Aéro (France)";Camion - Bateau;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Plusieurs filiaire d'approvisionnement dans une périmètre métropolitain avec, eux-même,  des fournisseurs des industries chimiques reconnus et de présence internationale;"Film célophane
+Mousse polystyrène
+Carton
+Palette";Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+CEVA Logistics (France)
+
+Fabrication matière 1ére célophane et mousse polystyrène
+Ensinger (Allemagne)
+BASF (Allemagne)
+Bayer (Allemagne)";
+Safran;Sous-ensemble;Ens. Tablette cocktail;Transport;"MGA (Villeneuve s/ Lot)*
+GATTEFIN (France)
+Baulé Polymère - Exsto (France)
+Plastiforme (France)
+Plastiservice (Belgique)
+Jamco Corp (Japon)
+SUMPAR (France)
+Figeac Aéro (France)";Camion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";Bateau - Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";
+Safran;Sous-ensemble;Ens. Tablette repas;packaging;"GATTEFIN (France)*
+Baulé Polymère (France)
+Plastiforme (France)
+Plastiservice (Belgique)
+MGA (Villeneuve s/ Lot)
+ACH (France)
+Jamco (Japon)";Camion - Bateau;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Plusieurs filiaire d'approvisionnement dans une périmètre métropolitain avec, eux-même,  des fournisseurs des industries chimiques reconnus et de présence internationale;"Film célophane
+Mousse polystyrène
+Carton
+Palette";Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+CEVA Logistics (France)
+
+Fabrication matière 1ére célophane et mousse polystyrène
+Ensinger (Allemagne)
+BASF (Allemagne)
+Bayer (Allemagne)";
+Safran;Sous-ensemble;Ens. Tablette repas;Transport;"GATTEFIN (France)*
+Baulé Polymère (France)
+Plastiforme (France)
+Plastiservice (Belgique)
+MGA (Villeneuve s/ Lot)
+ACH (France)
+Jamco (Japon)";Camion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";Bateau - Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";
+Safran;Sous-ensemble;Ens. Têtière;packaging;"GATTEFIN (France)*
+Celso (France)
+ACH (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"Film célophane
+Mousse polystyrène
+Carton
+Palette";Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+CEVA Logistics (France)
+
+Fabrication matière 1ére célophane et mousse polystyrène
+Ensinger (Allemagne)
+BASF (Allemagne)
+Bayer (Allemagne)";
+Safran;Sous-ensemble;Ens. Têtière;Transport;"GATTEFIN (France)*
+Celso (France)
+ACH (France)";Camion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";Bateau - Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";
+Safran;Sous-ensemble;Ens.coussin dossier version têtière;packaging;"FRANKLIN (Pologne)*
+GATTEFIN (France)
+Celso (France)
+ACH (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"Film célophane
+Mousse polystyrène
+Carton
+Palette";Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+CEVA Logistics (France)
+
+Fabrication matière 1ére célophane et mousse polystyrène
+Ensinger (Allemagne)
+BASF (Allemagne)
+Bayer (Allemagne)";
+Safran;Sous-ensemble;Ens.coussin dossier version têtière;Transport;"FRANKLIN (Pologne)*
+GATTEFIN (France)
+Celso (France)
+ACH (France)";Camion - Avion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";Bateau - Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";
+Safran;Sous-ensemble;Ensemble porte;packaging;"MGA (Villeneuve s/ Lot)*
+GATTEFIN (France)
+Plastiservice (Belgique)
+Jamco Corp (Japon)";Camion - Bateau;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Plusieurs filiaire d'approvisionnement dans une périmètre métropolitain avec, eux-même,  des fournisseurs des industries chimiques reconnus et de présence internationale;"Film célophane
+Mousse polystyrène
+Carton
+Palette";Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+CEVA Logistics (France)
+
+Fabrication matière 1ére célophane et mousse polystyrène
+Ensinger (Allemagne)
+BASF (Allemagne)
+Bayer (Allemagne)";
+Safran;Sous-ensemble;Padding (rembourrage);AIRVOLT LAMINAT;"MGR FOAMTEX (Angleterre)* 
+Celso (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Kronotex GmbH & Co (Allemagne)
+Pergo (Suède)
+Balterio (Belgique)
+FORMICA (France)
+";Multisourcing ;Papier Kraft;Train - Camion - Bateau;"Group Mondi (Autriche)
+Klabin S.A. (Brésil)
+Billerudkorsnäs (Suède)
+Daio Paper Corporation (Japon)
+Nordic Paper Oyj (Finlande)
+Glatfelter (USA)
+Gascogne Papier (France)
+Smurfit Kappa Group plc (Irlande)";
+Safran;Sous-ensemble;Ens. Palette optimisée;Polychloroprene;"SUMPAR (France)*
+segnere aero SAS (France)
+MGA (Villeneuve s/ Lot)";Camion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Ensinger (Allemagne)
+BASF (Allemagne)
+DuPont de Nemours (Delaware - USA)
+Toray Industries, Inc. (Japon)
+Bayer (Allemagne)";3 continents, 3 lignes de transports --> Faible surtout avec plan B associé;Polyamide;Train - Camion - Bateau;"Mitsubischi chemical (Japon)
+Krohne (Allemagne)
+DuPont de Nemours (Delaware - USA)";Bateau, Pipeline
+Safran;IFE;Powerbox;powerbox;"JAMMY Inc (USA)*
+SAFRAN (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Fourniture Cuivre:
+Aurubis (Allemagne)
+Zijin Mining Group (Chine)
+Ampco Metal France (France)
+Thyssen group (France)
+
+Fourniture Cristaux liquides:
+Auberon technologie (France)
+Innoptec (France)
+A Tech Supply APS (Danemark)";Multisourcing ;"Polyamide
+
+
+Cuivre";Train - Camion - Bateau;"Mitsubischi chemical (Japon)
+Krohne (Allemagne)
+DuPont de Nemours (Delaware - USA)
+Total (France)";Bateau, Pipeline
+Safran;Sous-ensemble;Ens. Coque;SIMAPRO : extrusion and thermoforming - traitement par AER Film Schneider;"STECO (France)* 
+Baulé - Exsto Polymère (France)
+Plastiforme (France)
+Plastitek (France)";Camion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Ensinger (Allemagne)
+BASF (Allemagne)
+DuPont de Nemours (Delaware - USA)
+Toray Industries, Inc. (Japon)
+BAULE(France)";3 continents, 3 lignes de transports ;Polyamide;Train - Camion - Bateau;"Mitsubischi chemical (Japon)
+Krohne (Allemagne)
+DuPont de Nemours (Delaware - USA)
+BAYER (Allemagne)";Bateau, Pipeline
+Safran;Sous-ensemble;Ens. Coque;Résine BR623 - composite;"STECO (France)* 
+Plastiforme (France)
+Plastitek (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Ensinger (Allemagne)
+BASF (Allemagne)
+DuPont de Nemours (Delaware - USA)
+Toray Industries, Inc. (Japon)
+HENKELL (Allemagne)";Multisourcing ;Polyamide;Train - Camion - Bateau;"BASF (Allemagne)
+Krohne (Allemagne)
+Valco Group (France)
+HENKEL (Allemagne)";Bateau, Pipeline
+Safran;Sous-ensemble;Stowage assemblé avec porte;Silicone;"MGA (Villeneuve s/ Lot)*
+GATTEFIN (France)
+Plastiservice (Belgique)
+ACH (France)";Camion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Général Electric (USA)
+Saint Gobain (France)
+Rhône Poulenc (France)
+Toschiba-Shinetsu (Japon)
+Silicon Engineering (Angleterre)";3 continents, 3 lignes de transports;Quartz et silice;Train - Camion - Bateau;"Général Electric (USA)
+Saint Gobain (France)
+Rhône Poulenc (France)
+Toschiba-Shinetsu (Japon)
+Silicon Engineering (Angleterre)";Bateau, Camion, Train
+Safran;Sous-ensemble;Ens. Tablette repas;Silicone50 shore;"GATTEFIN (France)*
+Baulé Polymère (France)
+Plastiforme (France)
+Jamco (Japon)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Général Electric (USA)
+Saint Gobain (France)
+Rhône Poulenc (France)
+Toschiba-Shinetsu (Japon)
+Silicon Engineering (Angleterre)";3 continents, 3 lignes de transports ;Quartz et silice;Train - Camion - Bateau;"Général Electric (USA)
+Saint Gobain (France)
+Rhône Poulenc (France)
+Toschiba-Shinetsu (Japon)
+Silicon Engineering (Angleterre)";Bateau, Camion, Train
+Safran;IFE;System IFE (In-Flight Entertainment) est un ensemble d'équipements et de logiciels qui permet aux passagers d'occuper leur temps à bord d'un avion.;System IFE boitier ref FJKL1-3K1100-01ATAB;"JAMMY Inc (USA)*
+THALES (France)
+PMV (France)";Camion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"NDIVIA (USA) --> conception de processeurs graphiques, de cartes graphiques et de puces graphiques
+Intel (USA) --> fondée en 1968 qui est le deuxième fabricant mondial de semi-conducteurs.
+TSMC (USA) --> recyclage de silicium pour fanrication de nouveaux lingots
+";Multisourcing ;Silicium, polycarbonate, microprocesseur, carte electronique, plastique;Bateau - Camion;"BT Electronics fondée en 2004 - France
+Saint-Gobain (France)
+3M (USA)";Bateau
+Safran;Sous-ensemble;Remote extender unit;télécommande;"JAMMY Inc (USA)*
+THALES (France)
+PMV (France)";Camion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Ensinger (Allemagne)
+BASF (Allemagne)
+DuPont de Nemours (Delaware - USA)
+Toray Industries, Inc. (Japon)
+Bayer (Allemagne)
+
+Aurubis (Allemagne)
+Zijin Mining Group (Chine)
+Ampco Metal France (France)
+Thyssen group (France)
+
+";Multisourcing ;"Polyamide
+
+
+Cuivre";Train - Camion - Bateau;"Mitsubischi chemical (Japon)
+Krohne (Allemagne)
+DuPont de Nemours (Delaware - USA)
+Bayer (Allemagne)";Bateau, Pipeline
+Safran;Sous-ensemble;Coussin ottoman;tissu;"FRANKLIN (Pologne)*
+GATTEFIN (France)
+Celso (France)
+ACH (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"DIATEX (France)
+Groupe SAGAERT (France)
+ASD Textiles (France)
+TELATEX (France)";Multisourcing ;Tissus;Bateau - Camion;"DuPont de Nemours (Delaware - USA)
+Zhejiang Yuxin Textile Co., Ltd. (Chine)
+Paragon Textiles (Inde)
+Toray (Japon)
+LATIM (France)
+Tissu Huddersfield (Royaume-Uni)";
+Safran;Sous-ensemble;Coussin têtière;tissu;"FRANKLIN (Pologne)*
+GATTEFIN (France)
+Celso (France)
+ACH (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"DIATEX (France)
+Groupe SAGAERT (France)
+ASD Textiles (France)
+TELATEX (France)";Multisourcing ;Tissus;Bateau - Camion;"DuPont de Nemours (Delaware - USA)
+Zhejiang Yuxin Textile Co., Ltd. (Chine)
+Paragon Textiles (Inde)
+Toray (Japon)
+LATIM (France)
+Tissu Huddersfield (Royaume-Uni)";
+Safran;Sous-ensemble;Ens. Coussin assise;tissu;"FRANKLIN (Pologne)*
+GATTEFIN (France)
+Celso (France)
+ACH (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"DIATEX (France)
+Groupe SAGAERT (France)
+ASD Textiles (France)
+TELATEX (France)";Multisourcing ;Tissus;Bateau - Camion;"DuPont de Nemours (Delaware - USA)
+Zhejiang Yuxin Textile Co., Ltd. (Chine)
+Paragon Textiles (Inde)
+Toray (Japon)
+LATIM (France)
+Tissu Huddersfield (Royaume-Uni)";
+Safran;Sous-ensemble;Ens.coussin dossier version têtière;tissu;"FRANKLIN (Pologne)*
+GATTEFIN (France)
+Celso (France)
+ACH (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"DIATEX (France)
+Groupe SAGAERT (France)
+ASD Textiles (France)
+TELATEX (France)";Multisourcing ;Tissus;Bateau - Camion;"DuPont de Nemours (Delaware - USA)
+Zhejiang Yuxin Textile Co., Ltd. (Chine)
+Paragon Textiles (Inde)
+Toray (Japon)
+LATIM (France)
+Tissu Huddersfield (Royaume-Uni)";
+Safran;Sous-ensemble;Ens. Coussin dossier;tissu;"FRANKLIN (Pologne)*
+GATTEFIN (France)
+Celso (France)
+ACH (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"DIATEX (France)
+Groupe SAGAERT (France)
+ASD Textiles (France)
+TELATEX (France)";Multisourcing ;Tissus;Bateau - Camion;"DuPont de Nemours (Delaware - USA)
+Zhejiang Yuxin Textile Co., Ltd. (Chine)
+Paragon Textiles (Inde)
+Toray (Japon)
+LATIM (France)
+Tissu Huddersfield (Royaume-Uni)";
+Safran;Sous-ensemble;Ens. Tablette cocktail;tissu;"MGA (Villeneuve s/ Lot)*
+GATTEFIN (France)
+ACH (France)
+Celso (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"DIATEX (France)
+Groupe SAGAERT (France)
+ASD Textiles (France)
+TELATEX (France)";Multisourcing ;Tissus;Bateau - Camion;"DuPont de Nemours (Delaware - USA)
+Zhejiang Yuxin Textile Co., Ltd. (Chine)
+Paragon Textiles (Inde)
+Toray (Japon)
+LATIM (France)
+Tissu Huddersfield (Royaume-Uni)";
+Safran;Sous-ensemble;Ens. Têtière;tissu;"GATTEFIN (France)*
+Celso (France)
+ACH (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"DIATEX (France)
+Groupe SAGAERT (France)
+ASD Textiles (France)
+TELATEX (France)";Multisourcing ;Tissus;Bateau - Camion;"DuPont de Nemours (Delaware - USA)
+Zhejiang Yuxin Textile Co., Ltd. (Chine)
+Paragon Textiles (Inde)
+Toray (Japon)
+LATIM (France)
+Tissu Huddersfield (Royaume-Uni)";
+Safran;Sous-ensemble;Ensemble porte;Transport;"MGA (Villeneuve s/ Lot)*
+GATTEFIN (France)
+Plastiservice (Belgique)
+Jamco Corp (Japon)";Camion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";Bateau - Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";
+Safran;Sous-ensemble;Habillage sous fauteuil;packaging;"Plastiservice (Belgique)
+ESPACE (France)*
+GATTEFIN (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"Film célophane
+Mousse polystyrène
+Carton
+Palette";Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+CEVA Logistics (France)
+
+Fabrication matière 1ére célophane et mousse polystyrène
+Ensinger (Allemagne)
+BASF (Allemagne)
+Bayer (Allemagne)";
+Safran;Sous-ensemble;Habillage sous fauteuil;Transport;"Plastiservice (Belgique)
+ESPACE (France)*
+GATTEFIN (France)";Camion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";Bateau - Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";
+Safran;Sous-ensemble;lightning;packaging;"S.E.L.A (France)*
+THALES (France)
+Madelec Aero (France)
+MGR FOAMTEX (Angleterre)
+PMV (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"Film célophane
+Mousse polystyrène
+Carton
+Palette";Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+CEVA Logistics (France)
+
+Fabrication matière 1ére célophane et mousse polystyrène
+Ensinger (Allemagne)
+BASF (Allemagne)
+Bayer (Allemagne)";
+Safran;Sous-ensemble;lightning - Diode (COTS);Transport;"S.E.L.A (France)*
+THALES (France)
+Madelec Aero (France)
+MGR FOAMTEX (Angleterre)
+PMV (France)";Camion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";Bateau - Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";
+Safran;Sous-ensemble;Padding (rembourrage);ULTRA LEATHER SMOKE;"MGR FOAMTEX (Angleterre)* 
+Celso (France)
+ACH (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";;Multisourcing ;Polyamide;Train - Camion - Bateau;"BASF (Allemagne)
+Krohne (Allemagne)
+Valco Group (France)";Bateau, Pipeline
+Safran;Livraison;Livraison à Hambourg;packaging;"SAFRAN (France)*
+Kuehne-Nagel (Allemagne)
+UPS Supply Chain (USA)
+";Camion - Avion - Bateau;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND
+DAHER Logistique (France)";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Plusieurs filiaire d'approvisionnement dans une périmètre métropolitain avec, eux-même,  des fournisseurs des industries chimiques reconnus et de présence internationale;"Film célophane
+Mousse polystyrène
+Carton
+Palette";Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+CEVA Logistics (France)
+
+Fabrication matière 1ére célophane et mousse polystyrène
+Ensinger (Allemagne)
+BASF (Allemagne)
+Bayer (Allemagne)";
+Safran;Livraison;Livraison à Hambourg;Transport;"SAFRAN (France)*
+Kuehne-Nagel (Allemagne)
+UPS Supply Chain (USA)
+";Camion - Avion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";Bateau - Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";
+Safran;Sous-ensemble;Manchette acc. Mobile;Transport;"FUCH(s) THAILAND* ??
+segnere aero SAS (France)
+GATTEFIN (France)
+Celso (France)
+MGR FOAMTEX (Angleterre)
+ACH (France)
+Lauak Group (France)";Camion - Avion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";Bateau - Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";
+Safran;Sous-ensemble;Manchette acc. Mobile;packaging;"FUCH(s) THAILAND* ??
+segnere aero SAS (France)
+GATTEFIN (France)
+Celso (France)
+MGR FOAMTEX (Angleterre)
+ACH (France)
+Lauak Group (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"Film célophane
+Mousse polystyrène
+Carton
+Palette";Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+CEVA Logistics (France)
+
+Fabrication matière 1ére célophane et mousse polystyrène
+Ensinger (Allemagne)
+BASF (Allemagne)
+Bayer (Allemagne)";
+Safran;Sous-ensemble;Manchette acc. Mobile;Transport;"FUCH(s) THAILAND* ??
+segnere aero SAS (France)
+GATTEFIN (France)
+Celso (France)
+MGR FOAMTEX (Angleterre)
+ACH (France)
+Lauak Group (France)";Camion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";Bateau - Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";
+Safran;Sous-ensemble;Manchette acc. Mobile;Transport;"MGR FOAMTEX (Angleterre)*
+segnere aero SAS (France)
+GATTEFIN (France)
+Celso (France)
+ACH* (France)
+Lauak Group (France)
+Jamco (Japon)";Camion -Train - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";Bateau - Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";
+Safran;Sous-ensemble;Manchette équipée;Transport;"FUCH(s) THAILAND* ??
+segnere aero SAS (France)
+GATTEFIN (France)
+ACH (France)
+MGR FOAMTEX (Angleterre)";Camion - Avion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";Bateau - Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";
+Safran;Sous-ensemble;Manchette équipée;packaging;"ACH* (France)
+Lauak Group (France)
+MGR FOAMTEX (Angleterre)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"Film célophane
+Mousse polystyrène
+Carton
+Palette";Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+CEVA Logistics (France)
+
+Fabrication matière 1ére célophane et mousse polystyrène
+Ensinger (Allemagne)
+BASF (Allemagne)
+Bayer (Allemagne)";
+Safran;Sous-ensemble;Manchette équipée;Transport;"ACH* (France)
+Lauak Group (France)
+MGR FOAMTEX (Angleterre)";Camion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";Bateau - Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";
+Safran;Sous-ensemble;Manchette équipée;Transport;"MGR FOAMTEX (Angleterre)* 
+GATTEFIN (France)
+ACH (France)
+Celso (France)
+Jamco (Japon)";Camion -Train - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";Bateau - Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";
+Safran;Sous-ensemble;Padding (rembourrage);packaging;"MGR FOAMTEX (Angleterre)* 
+Celso (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"Film célophane
+Mousse polystyrène
+Carton
+Palette";Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+CEVA Logistics (France)
+
+Fabrication matière 1ére célophane et mousse polystyrène
+Ensinger (Allemagne)
+BASF (Allemagne)
+Bayer (Allemagne)";
+Safran;Sous-ensemble;Padding (rembourrage);Transport;"MGR FOAMTEX (Angleterre)* 
+Celso (France)";Camion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";Bateau - Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";
+Safran;IFE;Powerbox;packaging;"SAFRAN (France)*
+JAMMY Inc (USA)";Camion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Plusieurs filiaire d'approvisionnement dans une périmètre métropolitain avec, eux-même,  des fournisseurs des industries chimiques reconnus et de présence internationale;"Film célophane
+Mousse polystyrène
+Carton
+Palette";Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+CEVA Logistics (France)
+
+Fabrication matière 1ére célophane et mousse polystyrène
+Ensinger (Allemagne)
+BASF (Allemagne)
+Bayer (Allemagne)";
+Safran;IFE;Powerbox;Transport;"SAFRAN (France)*
+JAMMY Inc (USA)";Camion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";Bateau - Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";
+Safran;Sous-ensemble;Remote extender unit;packaging;"JAMMY Inc (USA)*
+THALES (France)
+PMV (France)";Camion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Plusieurs filiaire d'approvisionnement dans une périmètre métropolitain avec, eux-même,  des fournisseurs des industries chimiques reconnus et de présence internationale;"Film célophane
+Mousse polystyrène
+Carton
+Palette";Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+CEVA Logistics (France)
+
+Fabrication matière 1ére célophane et mousse polystyrène
+Ensinger (Allemagne)
+BASF (Allemagne)
+Bayer (Allemagne)";
+Safran;Sous-ensemble;Ens. Structure fixe;inox;"MGA (Villeneuve s/ Lot)*
+GATTEFIN (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Altec Etirage (France)
+Thyssen group (France)
+Aubert&Duval (France)*
+";Multisourcing ;Inox;Train - Camion - Bateau;"Saarstahl (Allemagne)
+Arcelor Mittal (Luxembourg)
+Krupp (Allemagne)
+China Baowu (Chine)
+Tata steel (Inde)
+Nucor Corp (USA)
+Aubert&Duval (France)";
+Safran;Sous-ensemble;Remote extender unit;Transport;"JAMMY Inc (USA)*
+THALES (France)
+PMV (France)";Camion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";Bateau - Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";
+Safran;Sous-ensemble;Renfort tubulaire;packaging;"segnere aero SAS (France)*
+L&P Aerospace (France)
+SENIOR AEROSPACE (France)
+CREUZET (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"Film célophane
+Mousse polystyrène
+Carton
+Palette";Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+CEVA Logistics (France)
+
+Fabrication matière 1ére célophane et mousse polystyrène
+Ensinger (Allemagne)
+BASF (Allemagne)
+Bayer (Allemagne)";
+Safran;Sous-ensemble;Ens. Structure fixe;nylon;"MGA (Villeneuve s/ Lot)*
+GATTEFIN (France)
+Plastiservice (Belgique)
+ACH (France)";Camion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Profilage Nylon - 
+Ensinger (Allemagne)
+BASF (Allemagne)
+DuPont de Nemours (Delaware - USA)
+Arkema S.A (France)
+Toray Industries, Inc. (Japon)
+Vaisala (Finlande)
+Siemens (Allemagne)
+Ensinger (France)";Multisourcing ;Nylon 6 est un polymère synthétique dérivé de l'acide adipique --> polymère synthétique fabriqué à partir de produits pétrochimiques. Pétrole rafiné pour devenir du caprolactame et ensuite polymérisé pour devenir du nylon;Train - Camion - Bateau;"BASF (Allemagne)
+Krohne (Allemagne)
+DuPont de Nemours (Delaware - USA)";Bateau, Pipeline
+Safran;Sous-ensemble;Renfort tubulaire;Transport;"segnere aero SAS (France)*
+L&P Aerospace (France)
+SENIOR AEROSPACE (France)
+CREUZET (France)";Camion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";Bateau - Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";
+Safran;Sous-ensemble;SFCU (Seat Function Control Unit);packaging;"SAFRAN (France)*
+LIEBHERR (Allemagne)*
+THALES (France)*";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"Film célophane
+Mousse polystyrène
+Carton
+Palette";Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+CEVA Logistics (France)
+
+Fabrication matière 1ére célophane et mousse polystyrène
+Ensinger (Allemagne)
+BASF (Allemagne)
+Bayer (Allemagne)";
+Safran;Sous-ensemble;SFCU (Seat Function Control Unit);Transport;"SAFRAN (France)*
+LIEBHERR (Allemagne)*
+THALES (France)*";Camion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";Bateau - Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";
+Safran;Sous-ensemble;Stowage assemblé avec porte;packaging;"MGA (Villeneuve s/ Lot)*
+GATTEFIN (France)
+Plastiservice (Belgique)
+";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"Film célophane
+Mousse polystyrène
+Carton
+Palette";Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+CEVA Logistics (France)
+
+Fabrication matière 1ére célophane et mousse polystyrène
+Ensinger (Allemagne)
+BASF (Allemagne)
+Bayer (Allemagne)";
+Safran;Sous-ensemble;Stowage assemblé avec porte;Transport;"MGA (Villeneuve s/ Lot)*
+GATTEFIN (France)
+Plastiservice (Belgique)
+Senior Aerospace (Thaïlande)
+Baulé - Exsto Polymère (France)
+ACH (France)";Camion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";Bateau - Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";
+Safran;Sous-ensemble;Structure ottoman horizontale;packaging;"JV GROUP (France)*
+Plastiservice (Belgique)
+BAULE - Exsto Polymère (France)
+Plastitek (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"Film célophane
+Mousse polystyrène
+Carton
+Palette";Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+CEVA Logistics (France)
+
+Fabrication matière 1ére célophane et mousse polystyrène
+Ensinger (Allemagne)
+BASF (Allemagne)
+Bayer (Allemagne)";
+Safran;Sous-ensemble;Structure ottoman horizontale;Transport;"JV GROUP (France)*
+Plastiservice (Belgique)
+BAULE - Exsto Polymère (France)
+Plastitek (France)";Camion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";Bateau - Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";
+Safran;Sous-ensemble;Support clamps;packaging;"MGA (Villeneuve s/ Lot)*
+Plastiservice (Belgique)
+Ancra Aircraft (Californie - USA)
+TA Aerospace (Californie - USA)
+CREUZET (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Plusieurs filiaire d'approvisionnement dans une périmètre métropolitain avec, eux-même,  des fournisseurs des industries chimiques reconnus et de présence internationale;"Film célophane
+Mousse polystyrène
+Carton
+Palette";Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+CEVA Logistics (France)
+
+Fabrication matière 1ére célophane et mousse polystyrène
+Ensinger (Allemagne)
+BASF (Allemagne)
+Bayer (Allemagne)";
+Safran;Sous-ensemble;Support écran;packaging;"SAFRAN* (France)
+BAULE - Exsto Polymère (France)
+Plastiservice (Belgique)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"Film célophane
+Mousse polystyrène
+Carton
+Palette";Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+CEVA Logistics (France)
+
+Fabrication matière 1ére célophane et mousse polystyrène
+Ensinger (Allemagne)
+BASF (Allemagne)
+Bayer (Allemagne)";
+Safran;Sous-ensemble;Support écran;Transport;"SAFRAN (France)*
+GATTEFIN (France)";Camion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";Bateau - Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";
+Safran;Sous-ensemble;Support écran;packaging;"SAFRAN* (France)
+BAULE - Exsto Polymère (France)
+Plastiservice (Belgique)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"Film célophane
+Mousse polystyrène
+Carton
+Palette";Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+CEVA Logistics (France)
+
+Fabrication matière 1ére célophane et mousse polystyrène
+Ensinger (Allemagne)
+BASF (Allemagne)
+Bayer (Allemagne)";
+Safran;Sous-ensemble;Support écran;Transport;"SAFRAN* (France)
+BAULE - Exsto Polymère (France)
+Plastiservice (Belgique)";Camion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";Bateau - Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";
+Safran;Sous-ensemble;Support équipé;packaging;"ESPACE (France)*
+GATTEFIN (France)
+Lauak Group (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"Film célophane
+Mousse polystyrène
+Carton
+Palette";Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+CEVA Logistics (France)
+
+Fabrication matière 1ére célophane et mousse polystyrène
+Ensinger (Allemagne)
+BASF (Allemagne)
+Bayer (Allemagne)";
+Safran;Sous-ensemble;Support équipé;Transport;"ESPACE (France)*
+GATTEFIN (France)
+Lauak Group (France)";Camion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";Bateau - Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";
+Safran;Sous-ensemble;Support manchette équipée;packaging;"ESPACE (France)*
+Plastiservice (Belgique)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"Film célophane
+Mousse polystyrène
+Carton
+Palette";Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+CEVA Logistics (France)
+
+Fabrication matière 1ére célophane et mousse polystyrène
+Ensinger (Allemagne)
+BASF (Allemagne)
+Bayer (Allemagne)";
+Safran;Sous-ensemble;Coussin têtière;velcro;"FRANKLIN (Pologne)*
+ACH (France)
+Celso (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"DIATEX (France)
+Groupe SAGAERT (France)
+ASD Textiles (France)
+TELATEX (France)";Multisourcing ;Tissus;Bateau - Camion;"DuPont de Nemours (Delaware - USA)
+Zhejiang Yuxin Textile Co., Ltd. (Chine)
+Paragon Textiles (Inde)
+Toray (Japon)
+LATIM (France)
+Tissu Huddersfield (Royaume-Uni)";
+Safran;Sous-ensemble;Ens.coussin dossier version têtière;velcro;"FRANKLIN (Pologne)*
+ACH (France)
+Celso (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"DIATEX (France)
+Groupe SAGAERT (France)
+ASD Textiles (France)
+TELATEX (France)";Multisourcing ;Tissus;Bateau - Camion;"DuPont de Nemours (Delaware - USA)
+Zhejiang Yuxin Textile Co., Ltd. (Chine)
+Paragon Textiles (Inde)
+Toray (Japon)
+LATIM (France)
+Tissu Huddersfield (Royaume-Uni)";
+Safran;Sous-ensemble;Ens. Coussin dossier;velcro;"FRANKLIN (Pologne)*
+ACH (France)
+Celso (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"DIATEX (France)
+Groupe SAGAERT (France)
+ASD Textiles (France)
+TELATEX (France)";Multisourcing ;Tissus;Bateau - Camion;"DuPont de Nemours (Delaware - USA)
+Zhejiang Yuxin Textile Co., Ltd. (Chine)
+Paragon Textiles (Inde)
+Toray (Japon)
+LATIM (France)
+Tissu Huddersfield (Royaume-Uni)";
+Safran;Sous-ensemble;Support manchette équipée;Transport;"ESPACE (France)*
+Plastiservice (Belgique)";Camion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";Bateau - Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";
+Safran;Sous-ensemble;Manchette équipée;velcro;"ACH*
+Celso (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"DIATEX (France)
+Groupe SAGAERT (France)
+ASD Textiles (France)
+TELATEX (France)";Multisourcing ;Tissus;Bateau - Camion;"DuPont de Nemours (Delaware - USA)
+Zhejiang Yuxin Textile Co., Ltd. (Chine)
+Paragon Textiles (Inde)
+Toray (Japon)
+LATIM (France)
+Tissu Huddersfield (Royaume-Uni)";
+Safran;Sous-ensemble;Coussin ottoman;velours;"FRANKLIN (Pologne)*
+GATTEFIN (France)*
+Celso (France)
+ACH (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"TELATEX (France)
+TISSEN (France)
+ASD Textiles (France)";Multisourcing ;Velours;Bateau - Camion;"Velours:
+SOMANI (Portugal)
+GLAMOUR VELVET (Japon)
+Tongxiang Zhuoyi Textile (Chine)
+Kvadrat (Danemark)
+Tissu Huddersfield (Royaume-Uni)";
+Safran;Sous-ensemble;Coussin têtière;velours;"FRANKLIN (Pologne)*
+GATTEFIN (France)*
+Celso (France)
+ACH (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"TELATEX (France)
+TISSEN (France)
+ASD Textiles (France)";Multisourcing ;Velours;Bateau - Camion;"Velours:
+SOMANI (Portugal)
+GLAMOUR VELVET (Japon)
+Tongxiang Zhuoyi Textile (Chine)
+Kvadrat (Danemark)
+Tissu Huddersfield (Royaume-Uni)";
+Safran;Sous-ensemble;Ens. Coussin assise;velours;"FRANKLIN (Pologne)*
+GATTEFIN (France)*
+Celso (France)
+ACH (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"TELATEX (France)
+TISSEN (France)
+ASD Textiles (France)";Multisourcing ;Velours;Bateau - Camion;"Velours:
+SOMANI (Portugal)
+GLAMOUR VELVET (Japon)
+Tongxiang Zhuoyi Textile (Chine)
+Kvadrat (Danemark)
+Tissu Huddersfield (Royaume-Uni)";
+Safran;Sous-ensemble;Ens.coussin dossier version têtière;velours;"FRANKLIN (Pologne)*
+GATTEFIN (France)*
+Celso (France)
+ACH (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"TELATEX (France)
+TISSEN (France)
+ASD Textiles (France)";Multisourcing ;Velours;Bateau - Camion;"Velours:
+SOMANI (Portugal)
+GLAMOUR VELVET (Japon)
+Tongxiang Zhuoyi Textile (Chine)
+Kvadrat (Danemark)
+Tissu Huddersfield (Royaume-Uni)";
+Safran;Sous-ensemble;Ens. Coussin dossier;velours;"FRANKLIN (Pologne)*
+GATTEFIN (France)*
+Celso (France)
+ACH (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"TELATEX (France)
+TISSEN (France)
+ASD Textiles (France)";Multisourcing ;Velours;Bateau - Camion;"Velours:
+SOMANI (Portugal)
+GLAMOUR VELVET (Japon)
+Tongxiang Zhuoyi Textile (Chine)
+Kvadrat (Danemark)
+Tissu Huddersfield (Royaume-Uni)";
+Safran;Sous-ensemble;Ens. Structure porte;velcro;"MGA (Villeneuve s/ Lot)*
+GATTEFIN (France)
+Celso (France)
+ACH (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"DIATEX (France)
+Groupe SAGAERT (France)
+ASD Textiles (France)
+TELATEX (France)";Multisourcing ;Tissus;Bateau - Camion;"DuPont de Nemours (Delaware - USA)
+Zhejiang Yuxin Textile Co., Ltd. (Chine)
+Paragon Textiles (Inde)
+Toray (Japon)
+LATIM (France)
+Tissu Huddersfield (Royaume-Uni)";
+Safran;Sous-ensemble;Habillage sous fauteuil;velours;"ESPACE (France)*
+Celso (France)
+ACH (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"TELATEX (France)
+TISSEN (France)
+ASD Textiles (France)";Multisourcing ;Velours;Bateau - Camion;"Velours:
+SOMANI (Portugal)
+GLAMOUR VELVET (Japon)
+Tongxiang Zhuoyi Textile (Chine)
+Kvadrat (Danemark)
+Tissu Huddersfield (Royaume-Uni)";
+Safran;Sous-ensemble;Ens. Structure porte;Z10CNT18;"MGA (Villeneuve s/ Lot)*
+GATTEFIN (France)
+Lauak Group (France)
+ESPACE (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Altec Etirage (France)
+Thyssen group (France)
+Aubert&Duval (France)*
+";Multisourcing ;Acier;Train - Camion - Bateau;"Krupp (Allemagne)
+China Baowu (Chine)
+Tata steel (Inde)
+Aubert&Duval (France)
+
+Toray Carbon Fibers Europe (Japon)
+SGL Carbon (Allemagne)
+Hexcel Corporation (États-Unis)
+Solvay (Belgique)";
+Safran;Sous-ensemble;Manchette acc. Mobile;FRMC55:EU28 polyuréthane flexible traité UL;"MGR FOAMTEX (Angleterre)* 
+ACH (France)
+Celso (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Euralliage ( France)
+Aluminium France (France)
+Thyssen group (France)
+TATA Steel (Inde - France)";Multisourcing ;Tissus / Aluminium / Polyamide;Bateau;"Tissus:
+DuPont de Nemours (Delaware - USA)
+Zhejiang Yuxin Textile Co., Ltd. (Chine)
+Paragon Textiles (Inde)
+Toray (Japon)
+LATIM (France)
+Tissu Huddersfield (Royaume-Uni)
+
+Fabrication matière 1ére mousse polystyrène
+Ensinger (Allemagne)
+BASF (Allemagne)
+Bayer (Allemagne)
+
+Aluminium
+Chalco (Chine avec 39 filiales, dont 18 en propriété exclusive et 21 contrôlées)
+Hindalco (Inde avec 49 sites de production Amérique du Nord, Europe, Asie)
+Rio Tinto (Royaume-Uni avec 24 sites de production Canada, Australie, Nlle Zélande, Islande, Oman
+Euralliage ( France)
+TATA Steel (Inde - Afrique - Amérique du sud)";
+Safran;Sous-ensemble;Manchette équipée;FRMC55:EU28 polyuréthane flexible traité UL;"MGR FOAMTEX (Angleterre)* 
+ACH (France)
+Celso (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Euralliage ( France)
+Aluminium France (France)
+Thyssen group (France)
+TATA Steel (Inde - France)";Multisourcing ;Tissus / Aluminium / Polyamide;Bateau;"Tissus:
+DuPont de Nemours (Delaware - USA)
+Zhejiang Yuxin Textile Co., Ltd. (Chine)
+Paragon Textiles (Inde)
+Toray (Japon)
+LATIM (France)
+Tissu Huddersfield (Royaume-Uni)
+
+Fabrication matière 1ére mousse polystyrène
+Ensinger (Allemagne)
+BASF (Allemagne)
+Bayer (Allemagne)
+
+Aluminium
+Chalco (Chine avec 39 filiales, dont 18 en propriété exclusive et 21 contrôlées)
+Hindalco (Inde avec 49 sites de production Amérique du Nord, Europe, Asie)
+Rio Tinto (Royaume-Uni avec 24 sites de production Canada, Australie, Nlle Zélande, Islande, Oman
+Euralliage ( France)
+TATA Steel (Inde - Afrique - Amérique du sud)";"Combigo (France)
+XPO Logistic (USA)
+CEVA Logistics (France)
+CMA-CGM (France)"
+Safran;Sous-ensemble;Support écran Screen Display (COTS);Display, liquid crystal, 17 pouces;"SAFRAN*
+Baulé - Exsto Polymère (France)
+Plastiservice (Belgique)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Fourniture Cuivre:
+Aurubis (Allemagne)
+Zijin Mining Group (Chine)
+Ampco Metal France (France)
+Thyssen group (France)
+
+Fourniture Cristaux liquides:
+Auberon technologie (France)
+Innoptec (France)
+A Tech Supply APS (Danemark)
+
+Polymère
+BAULE
+KROHNE
+BASF";Multisourcing ;"Polyamide
+
+
+Cuivre";Train - Camion - Bateau;"Mitsubischi chemical (Japon)
+Krohne (Allemagne)
+DuPont de Nemours (Delaware - USA)
+Total (France)";Bateau, Pipeline
+Safran;Sous-ensemble;Support NFC;packaging;"Plastiservice (Belgique)
+ESPACE (France)*
+Lauak (France)
+Figeac Aéro (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"Film célophane
+Mousse polystyrène
+Carton
+Palette";Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+CEVA Logistics (France)
+
+Fabrication matière 1ére célophane et mousse polystyrène
+Ensinger (Allemagne)
+BASF (Allemagne)
+Bayer (Allemagne)";
+Safran;Sous-ensemble;Support NFC;Transport;"Plastiservice (Belgique)
+ESPACE (France)*
+Lauak (France)
+Figeac Aéro (France)";Camion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";Bateau - Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";
+Safran;Sous-ensemble;Bumper version porte;"DE: Aluminium cast part machining
+GLO: Steel sheet stamping and bending";"SUMPAR (France)*
+segnere aero SAS (France)
+MGA (Villeneuve s/ Lot)
+SENIOR AEROSPACE (Thailand)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Altec Etirage (France)
+Thyssen group (France)
+Aubert&Duval (France)*
+Euralliage ( France)
+Aluminium France (France)";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Afrique, Australie, Chine, Europe) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);"Acier
+Aluminium";Train - Camion - Bateau;"Alcoa (USA)
+Constellium (France/USA)
+Austria metall (Autriche)
+Hindalco (Inde)
+Aluminium Corporation of China (Chine)
+Thyssen group (France)
+TATA Steel (Inde - France)
+Saarstahl (Allemagne)
+Arcelor Mittal (Luxembourg)
+Krupp (Allemagne)
+China Baowu (Chine)
+Nucor Corp (USA)";
+Safran;Sous-ensemble;Accoudoir allée;"DE: Aluminium cast part machining
+GLO: Steel sheet stamping and bending";"SUMPAR (France)*
+segnere aero SAS (France)
+MGA (Villeneuve s/ Lot)
+Lauak Group(France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Altec Etirage (France)
+Thyssen group (France)
+Aubert&Duval (France)*
+Euralliage ( France)
+Aluminium France (France)";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Afrique, Australie, Chine, Europe) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);"Acier
+Aluminium";Train - Camion - Bateau;"Alcoa (USA)
+Constellium (France/USA)
+Austria metall (Autriche)
+Hindalco (Inde)
+Aluminium Corporation of China (Chine)
+Thyssen group (France)
+TATA Steel (Inde - France)
+Saarstahl (Allemagne)
+Arcelor Mittal (Luxembourg)
+Krupp (Allemagne)
+China Baowu (Chine)
+Nucor Corp (USA)";
+Safran;Sous-ensemble;Accoudoir allée;GLO: Steel sheet stamping and bending;"SUMPAR (France)*
+segnere aero SAS (France)
+MGA (Villeneuve s/ Lot)
+Lauak Group(France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Altec Etirage (France)
+Thyssen group (France)
+Aubert&Duval (France)*
+";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Afrique, Australie, Chine, Europe) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);"Acier
+Aluminium";Train - Camion - Bateau;"Alcoa (USA)
+Constellium (France/USA)
+Austria metall (Autriche)
+Hindalco (Inde)
+Aluminium Corporation of China (Chine)
+Thyssen group (France)
+TATA Steel (Inde - France)
+Saarstahl (Allemagne)
+Arcelor Mittal (Luxembourg)
+Krupp (Allemagne)
+China Baowu (Chine)
+Nucor Corp (USA)";
+Safran;IFE;System IFE (In-Flight Entertainment) est un ensemble d'équipements et de logiciels qui permet aux passagers d'occuper leur temps à bord d'un avion.;packaging;"JAMMY Inc (USA)*
+THALES (France)
+PMV (France)";Camion - Bateau;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Plusieurs filiaire d'approvisionnement dans une périmètre métropolitain avec, eux-même,  des fournisseurs des industries chimiques reconnus et de présence internationale;"Film célophane
+Mousse polystyrène
+Carton
+Palette";Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+CEVA Logistics (France)
+
+Fabrication matière 1ére célophane et mousse polystyrène
+Ensinger (Allemagne)
+BASF (Allemagne)
+Bayer (Allemagne)";
+Safran;IFE;System IFE (In-Flight Entertainment) est un ensemble d'équipements et de logiciels qui permet aux passagers d'occuper leur temps à bord d'un avion.;Transport;"JAMMY Inc (USA)*
+THALES (France)
+PMV (France)";Camion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Film célophane
+RUBAFILM (France)
+SURFILM PACKAGING (France)
+SORETRAC (France)
+Chips d'emballage
+Storopack (France)
+Butterfly Packaging (France)
+Carton
+Butterfly Packaging (France)
+RAJA (France)
+Transpack Group (France)
+Palette européenne
+Socarbois (France)
+Palette.com (France)";Multisourcing ;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";Bateau - Camion;"CONTENAIRE
+Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";
+Airbus;Sous-ensemble;Siége;aluminium;"COLLINS (France)
+Jamco corp (Japon)
+SENIOR AEROSPACE (Thailand)
+SAFRAN (France)";Camion - Bateau;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND
+DAHER Logistique (France)";"Euralliage ( France)
+Aluminium France (France)
+Thyssen group (France)";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Asie, Australie, Chine, Canada) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Aluminium;Train - Camion - Bateau;"Chalco (Chine avec 39 filiales, dont 18 en propriété exclusive et 21 contrôlées)
+Hindalco (Inde avec 49 sites de production Amérique du Nord, Europe, Asie)
+Rio Tinto (Royaume-Uni avec 24 sites de production Canada, Australie, Nlle Zélande, Islande, Oman
+Euralliage ( France)
+TATA Steel (Inde - Afrique - Amérique du sud)";
+Airbus;Sous-ensemble;Siége;Tissu, mousse, polyéthylène;"COLLINS (France)
+ACH (France)
+Celso (France)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"DIATEX (France)
+Groupe SAGAERT (France)
+ASD Textiles (France)
+TELATEX (France)";Multisourcing ;Tissus - Mousse;Bateau;"DuPont de Nemours (Delaware - USA)
+Zhejiang Yuxin Textile Co., Ltd. (Chine)
+Paragon Textiles (Inde)
+Toray (Japon)
+LATIM (France)
+Tissu Huddersfield (Royaume-Uni)
+
+Fabrication matière 1ére mousse polystyrène
+Ensinger (Allemagne)
+BASF (Allemagne)
+Bayer (Allemagne)";
+Airbus;Sous-ensemble;Siége;Moulage plastique;"COLLINS (France)
+Baulé- Exsto Polymère (France)
+Plastitek (France)";Camion - Bateau;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND
+DAHER Logistique (France)";"Ensinger (Allemagne)
+BASF (Allemagne)
+DuPont de Nemours (Delaware - USA)
+Toray Industries, Inc. (Japon)
+BAULE(France)";Multisourcing ;Polyamide;Bateau - Camion;"Mitsubischi chemical (Japon)
+BASF (Allemagne)
+Krohne (Allemagne)
+DuPont de Nemours (Delaware - USA)";
+Airbus;Sous-ensemble;Siége;autre (silicium, cuirs synthétique);"COLLINS (France)
+ACH (France)
+Celso (France)
+Jamco (Japon)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND
+DAHER Logistique (France)";"Fourniture Cuivre:
+Aurubis (Allemagne)
+Zijin Mining Group (Chine)
+Ampco Metal France (France)
+Thyssen group (France)
+
+Fourniture Cristaux liquides:
+Auberon technologie (France)
+Innoptec (France)
+A Tech Supply APS (Danemark)";Multisourcing ;Tissus - Mousse -Cuivre - Cristaux Liquides;Bateau;"DuPont de Nemours (Delaware - USA)
+Zhejiang Yuxin Textile Co., Ltd. (Chine)
+Paragon Textiles (Inde)
+Toray (Japon)
+LATIM (France)
+Tissu Huddersfield (Royaume-Uni)
+
+Fabrication matière 1ére mousse polystyrène
+Ensinger (Allemagne)
+BASF (Allemagne)
+Bayer (Allemagne)";
+Airbus;Sous-ensemble;Siége;aluminium;"Jamco Corp (Japon)
+ACH (France)
+MGR FOAMTEX (Angleterre)";Camion - Bateau;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND
+DAHER Logistique (France)";"Euralliage ( France)
+Aluminium France (France)
+Thyssen group (France)";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Asie, Australie, Chine, Canada) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Aluminium;Train - Camion - Bateau;"Chalco (Chine avec 39 filiales, dont 18 en propriété exclusive et 21 contrôlées)
+Hindalco (Inde avec 49 sites de production Amérique du Nord, Europe, Asie)
+Rio Tinto (Royaume-Uni avec 24 sites de production Canada, Australie, Nlle Zélande, Islande, Oman
+Euralliage ( France)
+TATA Steel (Inde - Afrique - Amérique du sud)";
+Airbus;Sous-ensemble;Siége;Tissu, mousse, polyéthylène;"Jamco Corp (Japon)
+ACH (France)
+MGR FOAMTEX (Angleterre)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"DIATEX (France)
+Groupe SAGAERT (France)
+ASD Textiles (France)
+TELATEX (France)";Multisourcing ;Tissus - Mousse;Bateau;"DuPont de Nemours (Delaware - USA)
+Zhejiang Yuxin Textile Co., Ltd. (Chine)
+Paragon Textiles (Inde)
+Toray (Japon)
+LATIM (France)
+Tissu Huddersfield (Royaume-Uni)
+
+Fabrication matière 1ére mousse polystyrène
+Ensinger (Allemagne)
+BASF (Allemagne)
+Bayer (Allemagne)";
+Airbus;Sous-ensemble;Siége;Moulage plastique;"Jamco Corp (Japon)*
+Baulé - Exsto Polymère (France)
+Plastitek (France)";Camion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Ensinger (Allemagne)
+BASF (Allemagne)
+DuPont de Nemours (Delaware - USA)
+Toray Industries, Inc. (Japon)
+BAULE(France)";3 continents, 3 lignes de transports --> Faible mais plan B risqué;"Prepreg Cycom 2400 (60%)
+NIDAFIC ECAR (20%)
+Colle + film (20%)";Train - Camion - Bateau;"Mitsubischi chemical (Japon)
+BASF (Allemagne)
+Krohne (Allemagne)
+DuPont de Nemours (Delaware - USA)";Bateau, Pipeline
+Airbus;Sous-ensemble;Siége;autre (silicium, cuirs synthétique);"Jamco Corp (Japon)
+ACH (France)
+Baulé - Exsto Polymère (France)
+Plastitek (France)";Camion - Bateau;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND
+DAHER Logistique (France)";"Fourniture Cuivre:
+Aurubis (Allemagne)
+Zijin Mining Group (Chine)
+Ampco Metal France (France)
+Thyssen group (France)
+
+Fourniture Cristaux liquides:
+Auberon technologie (France)
+Innoptec (France)
+A Tech Supply APS (Danemark)";Multisourcing ;Tissus - Mousse -Cuivre - Cristaux Liquides;Bateau;"DuPont de Nemours (Delaware - USA)
+Zhejiang Yuxin Textile Co., Ltd. (Chine)
+Paragon Textiles (Inde)
+Toray (Japon)
+LATIM (France)
+Tissu Huddersfield (Royaume-Uni)
+
+Fabrication matière 1ére mousse polystyrène
+Ensinger (Allemagne)
+BASF (Allemagne)
+Bayer (Allemagne)";
+Airbus;Sous-ensemble;Siége;65% aluminium;"SAFRAN (France)*
+Jamco corp
+J&C Aero";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND
+DAHER Logistique (France)";"Euralliage ( France)
+Aluminium France (France)
+Thyssen group (France)";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Asie, Australie, Chine, Canada) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Aluminium;Train - Camion - Bateau;"Chalco (Chine avec 39 filiales, dont 18 en propriété exclusive et 21 contrôlées)
+Hindalco (Inde avec 49 sites de production Amérique du Nord, Europe, Asie)
+Rio Tinto (Royaume-Uni avec 24 sites de production Canada, Australie, Nlle Zélande, Islande, Oman
+Euralliage ( France)
+TATA Steel (Inde - Afrique - Amérique du sud)";
+Airbus;Sous-ensemble;Siége;16 % Tissu, mousse, polyéthylène;"SAFRAN (France)*
+Jamco corp
+J&C Aero";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"DIATEX (France)
+Groupe SAGAERT (France)
+ASD Textiles (France)
+TELATEX (France)";Multisourcing ;Tissus - Mousse;Bateau;"DuPont de Nemours (Delaware - USA)
+Zhejiang Yuxin Textile Co., Ltd. (Chine)
+Paragon Textiles (Inde)
+Toray (Japon)
+LATIM (France)
+Tissu Huddersfield (Royaume-Uni)
+
+Fabrication matière 1ére mousse polystyrène
+Ensinger (Allemagne)
+BASF (Allemagne)
+Bayer (Allemagne)";
+Airbus;Sous-ensemble;Siége;11% Moulage plastique;"SAFRAN (France)*
+Baulé - Exsto Polymère (France)
+Plastitek (France)";Camion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Ensinger (Allemagne)
+BASF (Allemagne)
+DuPont de Nemours (Delaware - USA)
+Toray Industries, Inc. (Japon)
+BAULE(France)";3 continents, 3 lignes de transports --> Faible mais plan B risqué;"Prepreg Cycom 2400 (60%)
+NIDAFIC ECAR (20%)
+Colle + film (20%)";Train - Camion - Bateau;"Mitsubischi chemical (Japon)
+BASF (Allemagne)
+Krohne (Allemagne)
+DuPont de Nemours (Delaware - USA)";Bateau, Pipeline
+Airbus;Sous-ensemble;Siége;8% autre (silicium, cuirs synthétique);"SAFRAN (France)*
+Jamco corp
+J&C Aero";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND
+DAHER Logistique (France)";"Fourniture Cuivre:
+Aurubis (Allemagne)
+Zijin Mining Group (Chine)
+Ampco Metal France (France)
+Thyssen group (France)
+
+Fourniture Cristaux liquides:
+Auberon technologie (France)
+Innoptec (France)
+A Tech Supply APS (Danemark)";Multisourcing ;Tissus - Mousse -Cuivre - Cristaux Liquides;Bateau;"DuPont de Nemours (Delaware - USA)
+Zhejiang Yuxin Textile Co., Ltd. (Chine)
+Paragon Textiles (Inde)
+Toray (Japon)
+LATIM (France)
+Tissu Huddersfield (Royaume-Uni)
+
+Fabrication matière 1ére mousse polystyrène
+Ensinger (Allemagne)
+BASF (Allemagne)
+Bayer (Allemagne)";
+Airbus;Sous-ensemble;Siége;aluminium;"STELIA (Airbus Atlantique)
+Jamco corp
+J&C Aero";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND
+DAHER Logistique (France)";"Euralliage ( France)
+Aluminium France (France)
+Thyssen group (France)";3 continents, 3 modes de transport , 2 voies marintimes, 4 continents d'extraction (Asie, Australie, Chine, Canada) --> Faible malgrés certaines tensions d'approvisionnement lié à l'expension de pays demandeurs (Chine / Inde);Aluminium;Train - Camion - Bateau;"Chalco (Chine avec 39 filiales, dont 18 en propriété exclusive et 21 contrôlées)
+Hindalco (Inde avec 49 sites de production Amérique du Nord, Europe, Asie)
+Rio Tinto (Royaume-Uni avec 24 sites de production Canada, Australie, Nlle Zélande, Islande, Oman
+Euralliage ( France)
+TATA Steel (Inde - Afrique - Amérique du sud)";
+Airbus;Sous-ensemble;Siége;Tissu, mousse, polyéthylène;"STELIA (Airbus Atlantique)
+JAMCO (Japon)";Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"DIATEX (France)
+Groupe SAGAERT (France)
+ASD Textiles (France)
+TELATEX (France)";Multisourcing ;Tissus - Mousse;Bateau;"DuPont de Nemours (Delaware - USA)
+Zhejiang Yuxin Textile Co., Ltd. (Chine)
+Paragon Textiles (Inde)
+Toray (Japon)
+LATIM (France)
+Tissu Huddersfield (Royaume-Uni)
+
+Fabrication matière 1ére mousse polystyrène
+Ensinger (Allemagne)
+BASF (Allemagne)
+Bayer (Allemagne)";
+Airbus;Sous-ensemble;Siége;Moulage plastique;"STELIA (Airbus Atlantique)
+Baulé - Exsto Polymère (France)
+Plastitek (France)
+Jamco Corp (Japon)";Camion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Ensinger (Allemagne)
+BASF (Allemagne)
+DuPont de Nemours (Delaware - USA)
+Toray Industries, Inc. (Japon)
+BAULE(France)";Multisourcing ;Polyamide;Train - Camion - Bateau;"Mitsubischi chemical (Japon)
+BASF (Allemagne)
+Krohne (Allemagne)
+DuPont de Nemours (Delaware - USA)";
+Airbus;Sous-ensemble;Siége;autre (silicium, cuirs synthétique);"STELIA (Airbus Atlantique)
+Jamco Corp (Japon)";Camion - Bateau;"Kuehne-Nagel (Allemagne)
+Combigo (France)
+GEODIS (France)
+XPO Logistic (USA)
+CEVA Logistics (France)";"Fourniture Cuivre:
+Aurubis (Allemagne)
+Zijin Mining Group (Chine)
+Ampco Metal France (France)
+Thyssen group (France)
+
+Fourniture Cristaux liquides:
+Auberon technologie (France)
+Innoptec (France)
+A Tech Supply APS (Danemark)";Multisourcing ;Tissus - Mousse -Cuivre - Cristaux Liquides;Bateau;"DuPont de Nemours (Delaware - USA)
+Zhejiang Yuxin Textile Co., Ltd. (Chine)
+Paragon Textiles (Inde)
+Toray (Japon)
+LATIM (France)
+Tissu Huddersfield (Royaume-Uni)
+
+Fabrication matière 1ére mousse polystyrène
+Ensinger (Allemagne)
+BASF (Allemagne)
+Bayer (Allemagne)";
+Airbus;Sous-ensemble;Siége;16 % Tissu, mousse;Expliseat (France);Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";"Fourniture Tissus
+DIATEX (France)
+Groupe SAGAERT (France)
+ASD Textiles (France)
+TELATEX (France)
+
+Fourniture Cuivre:
+Aurubis (Allemagne)
+Zijin Mining Group (Chine)
+Ampco Metal France (France)
+Thyssen group (France)
+
+Fourniture Cristaux liquides:
+Auberon technologie (France)
+Innoptec (France)
+A Tech Supply APS (Danemark)";Multisourcing ;Tissus - Mousse -Cuivre - Cristaux Liquides;Bateau;"DuPont de Nemours (Delaware - USA)
+Zhejiang Yuxin Textile Co., Ltd. (Chine)
+Paragon Textiles (Inde)
+Toray (Japon)
+LATIM (France)
+Tissu Huddersfield (Royaume-Uni)
+
+Fabrication matière 1ére mousse polystyrène
+Ensinger (Allemagne)
+BASF (Allemagne)
+Bayer (Allemagne)";
+Airbus;Sous-ensemble;Siége;"Titane
+Fibre de carbone";Expliseat (France);Camion;"Interne entreprise
+KUEHNE-NAGEL Road
+GEODIS
+DENJEAN Logistique
+GONDRAND";;Multisourcing ;"Titane
+Fibre de carbone";Train - Camion - Bateau;"Krupp (Allemagne)
+China Baowu (Chine)
+Tata steel (Inde)
+Aubert&Duval (France)
+
+Toray Carbon Fibers Europe (Japon)
+SGL Carbon (Allemagne)
+Hexcel Corporation (États-Unis)
+Solvay (Belgique)";
+;;;;;;;;;;;;
+;;;;;;;;;;;;
+;;;;;;;;;;;;
+;;;;;;;;matériaux composites à fibres de carbone pour remplacer l'aluminium;;;;
+;;;;;;;;nylon, des cuirs synthétiques, du silicium, du polyéthylène et du tissu ignifuge.;;;;
+;;;;;;;;Titane pour remplacer l'acier;;;;
+;;;;;;;;Source: https://www.fortunebusinessinsights.com/fr/industry-reports/aircraft-seating-market-101680;;;;
+;;;;;;;;alliages d’aluminium au lithium, cuivre lithium ou magnésium lithium pour remplacer les aciers;;;;
+;;;;;;;;Matériaux composites (thermodure - thermoplastique) --> attention , non recyclable;;;;

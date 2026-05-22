@@ -1,0 +1,44 @@
+﻿record_index,system,component,supplier,role_hint,action,detail
+4,Ensemble porte,FILM DECOR AERFILM - Ep0.33 714g-m2,Combigo,tier2_second_transformation,moved_to_packaging_suppliers,"business_review: Combigo looks like packaging/conditioning, not active material transformation for AERFILM"
+4,Ensemble porte,FILM DECOR AERFILM - Ep0.33 714g-m2,Sika,tier2_second_transformation,infer_primary_after_business_review,selected Sika as primary for tier2_second_transformation
+5,Bumper version porte,alliage Cu,Saarstahl,tier4_raw_material,moved_to_excluded_suppliers,business_review: steel producer is wrong material family for copper alloy
+5,Bumper version porte,alliage Cu,ArcelorMittal,tier4_raw_material,moved_to_excluded_suppliers,business_review: steel producer is wrong material family for copper alloy
+5,Bumper version porte,alliage Cu,China Baowu / Baosteel,tier4_raw_material,moved_to_excluded_suppliers,business_review: steel producer is wrong material family for copper alloy
+5,Bumper version porte,alliage Cu,Tata Steel,tier4_raw_material,moved_to_excluded_suppliers,business_review: steel producer is wrong material family for copper alloy
+5,Bumper version porte,alliage Cu,Nucor Corp,tier4_raw_material,moved_to_excluded_suppliers,business_review: steel producer is wrong material family for copper alloy
+5,Bumper version porte,alliage Cu,Zijin Mining Group,tier4_raw_material,moved_to_unverified_supplier_candidates,"business_review: possible copper upstream actor, but not a validated active material source"
+16,Stowage assemblé avec porte,35NC6 (nickel-chrome),Alcoa,tier4_raw_material,moved_to_excluded_suppliers,"business_review: Alcoa is an aluminium actor, not an active steel source for 35NC6"
+51,Ens. Structure fauteuil,35NC6 (nickel-chrome),Alcoa,tier4_raw_material,moved_to_excluded_suppliers,"business_review: Alcoa is an aluminium actor, not an active steel source for 35NC6"
+75,bumper version porte,copolymere lexan fst simapro: extrusion et thermoformage,Euralliage Ile de France,tier3_first_transformation,moved_to_excluded_suppliers,"business_review: Euralliage is a metals actor, not a polymer Lexan/FST transformation source"
+75,bumper version porte,copolymere lexan fst simapro: extrusion et thermoformage,SUMPAR,tier1,moved_to_unverified_supplier_candidates,business_review: metal T1 candidate not proven as Lexan/polymer thermoforming supplier
+75,bumper version porte,copolymere lexan fst simapro: extrusion et thermoformage,Groupe Segnere / SEGNERE Ade,tier1,moved_to_unverified_supplier_candidates,business_review: metal T1 candidate not proven as Lexan/polymer thermoforming supplier
+75,bumper version porte,copolymere lexan fst simapro: extrusion et thermoformage,MGA Villeneuve St Lot,tier1,moved_to_unverified_supplier_candidates,business_review: metal T1 candidate not proven as Lexan/polymer thermoforming supplier
+75,bumper version porte,copolymere lexan fst simapro: extrusion et thermoformage,Senior Aerospace Thailand,tier1,moved_to_unverified_supplier_candidates,business_review: metal T1 candidate not proven as Lexan/polymer thermoforming supplier
+127,Ens. Coque,SIMAPRO : extrusion and thermoforming - traitement par AER Film Schneider,Mitsubishi Chemical,tier4_raw_material,moved_to_excluded_suppliers,"business_review: LCA process reference, not a supplier-chain item"
+127,Ens. Coque,SIMAPRO : extrusion and thermoforming - traitement par AER Film Schneider,Krohne,tier2_second_transformation,moved_to_excluded_suppliers,"business_review: LCA process reference, not a supplier-chain item"
+127,Ens. Coque,SIMAPRO : extrusion and thermoforming - traitement par AER Film Schneider,DuPont de Nemours,tier2_second_transformation,moved_to_excluded_suppliers,"business_review: LCA process reference, not a supplier-chain item"
+127,Ens. Coque,SIMAPRO : extrusion and thermoforming - traitement par AER Film Schneider,Bayer,tier4_raw_material,moved_to_excluded_suppliers,"business_review: LCA process reference, not a supplier-chain item"
+127,Ens. Coque,SIMAPRO : extrusion and thermoforming - traitement par AER Film Schneider,Ensinger,tier2_second_transformation,moved_to_excluded_suppliers,"business_review: LCA process reference, not a supplier-chain item"
+127,Ens. Coque,SIMAPRO : extrusion and thermoforming - traitement par AER Film Schneider,BASF,tier4_raw_material,moved_to_excluded_suppliers,"business_review: LCA process reference, not a supplier-chain item"
+127,Ens. Coque,SIMAPRO : extrusion and thermoforming - traitement par AER Film Schneider,Toray Industries,tier3_first_transformation,moved_to_excluded_suppliers,"business_review: LCA process reference, not a supplier-chain item"
+127,Ens. Coque,SIMAPRO : extrusion and thermoforming - traitement par AER Film Schneider,EXSTO / Baule-Exsto Polymere,tier3_first_transformation,moved_to_excluded_suppliers,"business_review: LCA process reference, not a supplier-chain item"
+127,Ens. Coque,SIMAPRO : extrusion and thermoforming - traitement par AER Film Schneider,Plastiforme,tier2_second_transformation,moved_to_excluded_suppliers,"business_review: LCA process reference, not a supplier-chain item"
+127,Ens. Coque,SIMAPRO : extrusion and thermoforming - traitement par AER Film Schneider,Plastitek,tier2_second_transformation,moved_to_excluded_suppliers,"business_review: LCA process reference, not a supplier-chain item"
+156,Accoudoir allée,GLO: Steel sheet stamping and bending,Alcoa,tier4_raw_material,moved_to_excluded_suppliers,"business_review: LCA process reference, not a supplier-chain item"
+156,Accoudoir allée,GLO: Steel sheet stamping and bending,Constellium,tier3_first_transformation,moved_to_excluded_suppliers,"business_review: LCA process reference, not a supplier-chain item"
+156,Accoudoir allée,GLO: Steel sheet stamping and bending,AMAG Austria Metall,tier3_first_transformation,moved_to_excluded_suppliers,"business_review: LCA process reference, not a supplier-chain item"
+156,Accoudoir allée,GLO: Steel sheet stamping and bending,Hindalco Industries,tier4_raw_material,moved_to_excluded_suppliers,"business_review: LCA process reference, not a supplier-chain item"
+156,Accoudoir allée,GLO: Steel sheet stamping and bending,Aluminium Corporation of China / Chalco,tier4_raw_material,moved_to_excluded_suppliers,"business_review: LCA process reference, not a supplier-chain item"
+156,Accoudoir allée,GLO: Steel sheet stamping and bending,thyssenkrupp Materials France,tier3_first_transformation,moved_to_excluded_suppliers,"business_review: LCA process reference, not a supplier-chain item"
+156,Accoudoir allée,GLO: Steel sheet stamping and bending,Tata Steel,tier4_raw_material,moved_to_excluded_suppliers,"business_review: LCA process reference, not a supplier-chain item"
+156,Accoudoir allée,GLO: Steel sheet stamping and bending,Saarstahl,tier4_raw_material,moved_to_excluded_suppliers,"business_review: LCA process reference, not a supplier-chain item"
+156,Accoudoir allée,GLO: Steel sheet stamping and bending,ArcelorMittal,tier4_raw_material,moved_to_excluded_suppliers,"business_review: LCA process reference, not a supplier-chain item"
+156,Accoudoir allée,GLO: Steel sheet stamping and bending,Krupp,tier3_first_transformation,moved_to_excluded_suppliers,"business_review: LCA process reference, not a supplier-chain item"
+156,Accoudoir allée,GLO: Steel sheet stamping and bending,China Baowu / Baosteel,tier4_raw_material,moved_to_excluded_suppliers,"business_review: LCA process reference, not a supplier-chain item"
+156,Accoudoir allée,GLO: Steel sheet stamping and bending,Nucor Corp,tier4_raw_material,moved_to_excluded_suppliers,"business_review: LCA process reference, not a supplier-chain item"
+156,Accoudoir allée,GLO: Steel sheet stamping and bending,Altec Etirage,tier3_first_transformation,moved_to_excluded_suppliers,"business_review: LCA process reference, not a supplier-chain item"
+156,Accoudoir allée,GLO: Steel sheet stamping and bending,Aubert & Duval,tier3_first_transformation,moved_to_excluded_suppliers,"business_review: LCA process reference, not a supplier-chain item"
+156,Accoudoir allée,GLO: Steel sheet stamping and bending,SUMPAR,tier1,moved_to_excluded_suppliers,"business_review: LCA process reference, not a supplier-chain item"
+156,Accoudoir allée,GLO: Steel sheet stamping and bending,Groupe Segnere / SEGNERE Ade,tier1,moved_to_excluded_suppliers,"business_review: LCA process reference, not a supplier-chain item"
+156,Accoudoir allée,GLO: Steel sheet stamping and bending,MGA Villeneuve St Lot,tier1,moved_to_excluded_suppliers,"business_review: LCA process reference, not a supplier-chain item"
+156,Accoudoir allée,GLO: Steel sheet stamping and bending,Groupe LAUAK,tier1,moved_to_excluded_suppliers,"business_review: LCA process reference, not a supplier-chain item"

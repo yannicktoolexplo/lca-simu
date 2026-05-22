@@ -490,16 +490,65 @@ function fmtMass(value) {{
   return value.toPrecision(3);
 }}
 
+const HOVER_BREAK = "<br>";
+
+function wrapForHover(value, maxLen = 46) {{
+  const text = String(value ?? "").trim();
+  if (!text) return "";
+  const words = text.split(/\s+/);
+  const lines = [];
+  let line = "";
+  for (const word of words) {{
+    if (line && (line.length + word.length + 1) > maxLen) {{
+      lines.push(line);
+      line = word;
+    }} else {{
+      line = line ? `${{line}} ${{word}}` : word;
+    }}
+  }}
+  if (line) lines.push(line);
+  return lines.join(HOVER_BREAK);
+}}
+
+function hoverFromText(value, maxLen = 56) {{
+  return String(value ?? "")
+    .replaceAll(String.fromCharCode(13), "")
+    .split(String.fromCharCode(10))
+    .map(part => wrapForHover(part, maxLen))
+    .filter(Boolean)
+    .join(HOVER_BREAK);
+}}
+
 function lcaHover(rec, supplier) {{
   const lca = rec.lca || supplier.lca_component_trace || {{}};
-  if (!lca || !lca.has_lca_mass) return "ACV: non marquee";
-  const mass = fmtMass(lca.mass_kg);
+  if (!lca || !lca.has_lca_mass) return "Masse: non renseignee";
+  const additiveMass = (typeof lca.recommended_additive_mass_kg === "number")
+    ? lca.recommended_additive_mass_kg
+    : (typeof lca.lca_recommended_additive_mass_kg === "number" ? lca.lca_recommended_additive_mass_kg : lca.mass_kg);
+  const sourceMass = (typeof lca.current_source_mass_kg === "number")
+    ? lca.current_source_mass_kg
+    : (typeof lca.lca_current_source_mass_kg === "number" ? lca.lca_current_source_mass_kg : lca.mass_kg);
+  const referenceMass = (typeof lca.topdown_reference_mass_kg === "number")
+    ? lca.topdown_reference_mass_kg
+    : (typeof lca.lca_topdown_reference_mass_kg === "number" ? lca.lca_topdown_reference_mass_kg : 0);
+  const source = `Masse de cette ligne: ${{fmtMass(sourceMass)}} kg`;
+  const used = sourceMass !== additiveMass ? `\nComptee dans le total simulation: ${{fmtMass(additiveMass)}} kg` : "";
+  const reference = referenceMass > 0 ? `\nNote: ligne siege/global gardee comme repere, pas additionnee aux pieces detaillees` : "";
+  const rawPolicy = lca.mass_policy || lca.lca_mass_policy || "";
+  const policyLabels = {{
+    include_exact_component: "piece detaillee",
+    include_baseline_estimate: "piece estimee",
+    include_with_review: "piece a verifier",
+    topdown_reference_only: "ligne siege/global",
+    scenario_only_mass: "scenario uniquement"
+  }};
+  const policy = rawPolicy ? `\nType masse: ${{policyLabels[rawPolicy] || rawPolicy}}` : "";
   const share = (typeof lca.mass_share_of_non_packaging_bom === "number")
     ? `, ${{(100 * lca.mass_share_of_non_packaging_bom).toFixed(2)}}% BOM`
     : "";
   const equipment = lca.equipment_match ? `\nEquipement ACV: ${{lca.equipment_match}}` : "";
   const material = lca.material_match ? `\nMatiere ACV: ${{lca.material_match}}` : "";
-  return `ACV: ${{mass}} kg${{share}} | ${{lca.match_level || "match ?"}} | conf=${{lca.confidence || "?"}}${{equipment}}${{material}}`;
+  return `${{source}}${{share}} | ${{lca.match_level || "match ?"}} | conf=${{lca.confidence || "?"}}${{used}}${{reference}}${{policy}}${{equipment}}${{material}}`;
 }}
 
 function assumptionHover(supplier) {{
@@ -507,6 +556,18 @@ function assumptionHover(supplier) {{
   const kind = supplier.simulation_node_type ? `, ${{supplier.simulation_node_type}}` : "";
   const conf = supplier.baseline_completion_confidence ? `, conf=${{supplier.baseline_completion_confidence}}` : "";
   return `\nHypothese supply baseline${{kind}}${{conf}}`;
+}}
+
+function nodeHover(rec, supplier) {{
+  const status = supplier.supplier_status ? `Statut: ${{supplier.supplier_status}}` : "";
+  return [
+    wrapForHover(supplier.supplier || "?", 38),
+    wrapForHover(supplier.country || "?", 38),
+    wrapForHover(`[${{rec.system}}] ${{rec.component}}`, 58),
+    hoverFromText(lcaHover(rec, supplier), 58),
+    hoverFromText(status, 58),
+    hoverFromText(assumptionHover(supplier), 58)
+  ].filter(Boolean).join(HOVER_BREAK);
 }}
 
 
@@ -545,8 +606,7 @@ function buildTraces() {{
         const loc = getLatLon(s);
         if (!loc) continue;
         xs.push(loc.lon); ys.push(loc.lat);
-        const status = s.supplier_status ? `\\nStatut: ${{s.supplier_status}}` : "";
-        texts.push(`${{s.supplier || "?"}} — ${{s.country || "?"}}\\n[${{rec.system}}] ${{rec.component}}\\n${{lcaHover(rec, s)}}${{status}}${{assumptionHover(s)}}`);
+        texts.push(nodeHover(rec, s));
       }}
     }}
 
@@ -554,6 +614,8 @@ function buildTraces() {{
       type: "scattergeo",
       mode: "markers",
       lon: xs, lat: ys, text: texts,
+      hoverinfo: "text",
+      hoverlabel: {{align: "left", namelength: -1}},
       name: style.name || tier,
       marker: {{
         size: 8,
@@ -623,8 +685,7 @@ function buildTraces() {{
         lat: [from.lat, to.lat],
         line: {{ width, color: style.color }},
         opacity: 0.9,
-        hoverinfo: "text",
-        text: `${{label}} — qty: ${{value}}`,
+        hoverinfo: "skip",
         showlegend: false
       }});
     }});
@@ -691,8 +752,7 @@ function buildTraces() {{
         lat: [from.lat, to.lat],
         line: {{ width: 1.6, color: "#6B7280", dash: "dot" }},
         opacity: 0.72,
-        hoverinfo: "text",
-        text: `${{label}} — continuité de chaîne, qty: ${{value}}`,
+        hoverinfo: "skip",
         showlegend: false
       }});
     }});
