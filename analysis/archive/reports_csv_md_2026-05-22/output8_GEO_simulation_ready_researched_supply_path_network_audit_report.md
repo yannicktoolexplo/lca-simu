@@ -1,7 +1,7 @@
 # Supply Path Network Audit
 
 - Input JSON: `analysis/output8_GEO_normalized_simulation_ready_researched.json`
-- Generated at: `2026-05-21T14:17:23+00:00`
+- Generated at: `2026-05-22T06:57:46+00:00`
 - Records audited: **170**
 - Records excluded as non-supply LCA/process references: **5**
 - Primary paths: **172**
@@ -52,6 +52,7 @@ Interpretation: primary baseline paths can now carry lane-specific transport sce
 - `inactive_alternate_requires_allocation`: **24620** path occurrences
 - `baseline_node_is_assumption`: **9180** path occurrences
 - `material_certificate_required`: **8640** path occurrences
+- `internal_process_t1_mismatch`: **6427** path occurrences
 - `lca_mass_low_confidence`: **2181** path occurrences
 - `lca_mass_requires_review`: **1372** path occurrences
 - `raw_material_source_missing`: **422** path occurrences

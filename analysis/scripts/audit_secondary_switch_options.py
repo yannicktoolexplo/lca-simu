@@ -93,6 +93,12 @@ def switch_class(row: dict[str, str]) -> tuple[str, str, str]:
             "blocked",
             "Mixed material line must be split before switching suppliers quantitatively.",
         )
+    if "internal_process_t1_mismatch" in codes:
+        return (
+            "candidate_requires_t1_t2_pairing",
+            "candidate_requires_validation",
+            "Internal T2 process is not independent; switch the paired T1/T2 route or replace it with a real external T2.",
+        )
     if readiness == "not_ready_transport_rework" or "long_distance_mode_implausible" in codes:
         return (
             "blocked_transport_rework",
@@ -382,7 +388,7 @@ def main() -> None:
         lines.append(
             f"- `{row['family']}` / `{row['issue_code']}` / `{row['switch_class']}`: **{row['path_occurrences']}** chemins"
         )
-    lines.extend(["", "## Composants les plus bloques", ""])
+    lines.extend(["", "## Composants les plus contraints", ""])
     blocked_components = sorted(component_rows, key=lambda r: int(r["blocked"]), reverse=True)
     for row in blocked_components[:15]:
         if int(row["blocked"]) == 0:
@@ -391,7 +397,7 @@ def main() -> None:
             f"- record `{row['record_index']}` `{row['component']}` ({row['family']}): "
             f"{row['blocked']} bloques, {row['candidate_requires_validation']} candidats apres validation"
         )
-    lines.extend(["", "## Options fournisseur/tier a exclure en priorite", ""])
+    lines.extend(["", "## Options fournisseur/tier a cadrer en priorite", ""])
     blocked_suppliers = sorted(supplier_rows, key=lambda r: int(r["blocked"]), reverse=True)
     for row in blocked_suppliers[:20]:
         if int(row["blocked"]) == 0:
@@ -406,7 +412,7 @@ def main() -> None:
             "## Regles de switch a appliquer",
             "",
             "- Ne jamais activer le produit cartesien complet des alternates.",
-            "- Les process internalises T2 doivent rester couples a leur T1; ex. `SUMPAR internal process` ne doit pas etre combine avec `MGA`.",
+            "- Les process internalises T2 doivent rester couples a leur T1; ex. `FRN-72A106312E8F95 internal process` ne doit pas etre combine avec `FRN-4461497D8EA815`.",
             "- Pour aluminium/acier/cuivre, un switch T4/T3 exige certificat matiere, nuance, mill/site et allocation.",
             "- Pour textile/mousse/cuir/silicone, il faut les preuves feu/fumee/toxicite et la fiche matiere exacte.",
             "- Pour COTS/electronique, l'amont T3/T4 reste non switchable sans BOM, part number, EMS/ODM et AVL.",

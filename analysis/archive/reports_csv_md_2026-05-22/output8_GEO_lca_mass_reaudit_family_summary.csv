@@ -1,0 +1,11 @@
+family,record_count,current_mass_kg,recommended_additive_mass_kg,topdown_reference_mass_kg,policies
+aluminium,37,160.410222376,85.0320748,75.378147576,include_exact_component=31;include_baseline_estimate=3;include_with_review=2;topdown_reference_only=1
+textile_leather,52,74.705673422,8.404121067,66.301552355,include_exact_component=28;topdown_reference_only=11;include_baseline_estimate=8;include_with_review=5
+polymer_plastic,23,45.210410558,12.3794388,32.830971758,include_exact_component=17;topdown_reference_only=4;include_baseline_estimate=2
+steel,41,11.7334377,11.7334377,0.0,include_exact_component=37;include_baseline_estimate=4
+electronics_cots,8,9.506,7.128,2.378,include_exact_component=7;topdown_reference_only=1
+titanium_carbon,1,8.927,0.0,8.927,topdown_reference_only=1
+general,3,4.385,4.385,0.0,include_exact_component=3
+adhesive_composite,2,0.88,0.88,0.0,include_exact_component=2
+copper,1,0.006,0.006,0.0,include_exact_component=1
+rubber_silicone,2,0.0014,0.0014,0.0,include_exact_component=2

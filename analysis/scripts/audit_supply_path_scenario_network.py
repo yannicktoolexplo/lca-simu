@@ -52,41 +52,41 @@ def configure_output_prefix(prefix: str) -> None:
 
 FAMILY_BAD_KEYWORDS: dict[str, dict[str, list[str]]] = {
     "aluminium": {
-        "T4": ["basf", "bayer", "saarstahl", "tata steel", "nucor", "baowu"],
-        "T3": ["zhejiang", "toray", "huddersfield", "aurubis", "aubert", "krupp"],
-        "T2": ["foam", "dupont", "latim", "ensinger", "combigo"],
+        "T4": ["FRN-301ED6D3E70080", "FRN-2FC748C1ABC9C3", "FRN-19E8A3B02C44AE", "FRN-5AA9E59DA0B02F", "nucor", "baowu"],
+        "T3": ["zhejiang", "FRN-9C546CCC918C61", "huddersfield", "FRN-1FBDAEFBEB869B", "aubert", "FRN-8CF694326AFCE1"],
+        "T2": ["foam", "dupont", "FRN-B97B666EABAA84", "FRN-1DE52367D9D2BE", "FRN-0A33FC5A2472A2"],
     },
     "steel": {
-        "T4": ["alcoa", "chalco", "hindalco", "rio tinto alma", "basf", "bayer"],
-        "T3": ["toray", "zhejiang", "huddersfield"],
-        "T2": ["sgl carbon", "hexcel", "silicone", "plastiservice"],
+        "T4": ["FRN-34B2AC7037114C", "FRN-7A25E45203FCC9", "FRN-191F6AC0669F77", "FRN-2E1F472A49A5AC alma", "FRN-301ED6D3E70080", "FRN-2FC748C1ABC9C3"],
+        "T3": ["FRN-9C546CCC918C61", "zhejiang", "huddersfield"],
+        "T2": ["FRN-AEA0242468D6C5", "FRN-69EC9F91F7F98F", "silicone", "FRN-D16128C2D1AA8B"],
     },
     "copper": {
-        "T4": ["saarstahl", "alcoa", "chalco", "hindalco", "tata steel", "nucor", "baowu"],
-        "T3": ["saarstahl", "aubert", "krupp"],
+        "T4": ["FRN-19E8A3B02C44AE", "FRN-34B2AC7037114C", "FRN-7A25E45203FCC9", "FRN-191F6AC0669F77", "FRN-5AA9E59DA0B02F", "nucor", "baowu"],
+        "T3": ["FRN-19E8A3B02C44AE", "aubert", "FRN-8CF694326AFCE1"],
         "T2": ["foam", "textile", "silicone"],
     },
     "polymer_plastic": {
-        "T4": ["saarstahl", "tata steel", "nucor", "baowu", "chalco", "hindalco", "rio tinto"],
-        "T3": ["krupp", "aubert", "altec", "euralliage", "aluminium france", "zhejiang", "huddersfield"],
-        "T2": ["schroth safety"],
+        "T4": ["FRN-19E8A3B02C44AE", "FRN-5AA9E59DA0B02F", "nucor", "baowu", "FRN-7A25E45203FCC9", "FRN-191F6AC0669F77", "FRN-2E1F472A49A5AC"],
+        "T3": ["FRN-8CF694326AFCE1", "aubert", "altec", "FRN-C3B826345B6812", "FRN-D2C24A0C097FC3", "zhejiang", "huddersfield"],
+        "T2": ["FRN-BDF19DDAD7E188 safety"],
     },
     "textile_leather": {
-        "T4": ["zijin", "aurubis", "saarstahl", "tata steel", "nucor", "baowu", "alcoa", "chalco"],
-        "T3": ["aurubis", "ampco", "thyssenkrupp", "aubert", "krupp", "euralliage"],
-        "T2": ["krohne", "vaisala", "auberon", "innoptec"],
+        "T4": ["zijin", "FRN-1FBDAEFBEB869B", "FRN-19E8A3B02C44AE", "FRN-5AA9E59DA0B02F", "nucor", "baowu", "FRN-34B2AC7037114C", "FRN-7A25E45203FCC9"],
+        "T3": ["FRN-1FBDAEFBEB869B", "ampco", "thyssenkrupp", "aubert", "FRN-8CF694326AFCE1", "FRN-C3B826345B6812"],
+        "T2": ["FRN-5E8C7A0B3C0183", "FRN-60698C6D4CC207", "auberon", "FRN-EAF03ECECB6231"],
     },
     "rubber_silicone": {
-        "T4": ["saarstahl", "alcoa", "chalco", "tata steel", "nucor", "baowu", "aurubis"],
-        "T3": ["aubert", "krupp", "euralliage"],
-        "T2": ["krohne", "vaisala", "auberon", "innoptec"],
+        "T4": ["FRN-19E8A3B02C44AE", "FRN-34B2AC7037114C", "FRN-7A25E45203FCC9", "FRN-5AA9E59DA0B02F", "nucor", "baowu", "FRN-1FBDAEFBEB869B"],
+        "T3": ["aubert", "FRN-8CF694326AFCE1", "FRN-C3B826345B6812"],
+        "T2": ["FRN-5E8C7A0B3C0183", "FRN-60698C6D4CC207", "auberon", "FRN-EAF03ECECB6231"],
     },
     "electronics_cots": {
-        "T4": ["saarstahl"],
+        "T4": ["FRN-19E8A3B02C44AE"],
     },
     "titanium_carbon": {
-        "T4": ["basf", "alcoa", "chalco", "saarstahl", "nucor", "baowu"],
-        "T2": ["krohne", "ensinger", "plastiforme", "plastitek"],
+        "T4": ["FRN-301ED6D3E70080", "FRN-34B2AC7037114C", "FRN-7A25E45203FCC9", "FRN-19E8A3B02C44AE", "nucor", "baowu"],
+        "T2": ["FRN-5E8C7A0B3C0183", "FRN-1DE52367D9D2BE", "FRN-7841573D28AA9A", "FRN-23F69D11DA051D"],
     },
 }
 
@@ -178,7 +178,7 @@ def component_family(record: dict[str, Any]) -> str:
     if any(k in mass_match for k in ["titane", "titanium", "carbone", "carbon"]):
         return "titanium_carbon"
 
-    if any(k in raw_text for k in ["tissus", "textile", "nylon", "polyurethane foam", "polyamide"]):
+    if any(k in raw_text for k in ["FRN-C8F1EAD07EF6EA", "textile", "nylon", "polyurethane foam", "polyamide"]):
         return "textile_leather"
     if any(k in raw_text for k in ["a5086", "a6060", "a2017", "a2024", "aluminium", " alu"]):
         return "aluminium"
@@ -289,10 +289,49 @@ def is_inactive_candidate(entry: dict[str, Any]) -> bool:
     return "alternate" in s or "requires_allocation" in s
 
 
-def is_internalized_t2(t2: dict[str, Any], t1: dict[str, Any]) -> bool:
+def normalized_supplier_name(value: Any) -> str:
+    return "".join(ch for ch in low(value) if ch.isalnum())
+
+
+def is_internal_process_t2(t2: dict[str, Any]) -> bool:
     text = low(t2.get("name")) + " " + low(t2.get("supplier_status")) + " " + low(t2.get("simulation_node_type"))
+    return "internal" in text
+
+
+def internal_t2_owner_name(t2: dict[str, Any]) -> str:
+    name = clean(t2.get("name"))
+    marker = " - internal"
+    if marker in name.lower():
+        return name[: name.lower().find(marker)]
+    return name
+
+
+def internal_t2_matches_t1(t2: dict[str, Any], t1: dict[str, Any]) -> bool:
+    owner = normalized_supplier_name(internal_t2_owner_name(t2))
+    t1_name = normalized_supplier_name(t1.get("name"))
+    if not owner or not t1_name:
+        return False
+    return owner in t1_name or t1_name in owner
+
+
+def is_internalized_t2(t2: dict[str, Any], t1: dict[str, Any]) -> bool:
+    if is_internal_process_t2(t2):
+        return internal_t2_matches_t1(t2, t1)
     t1_name = low(t1.get("name"))
-    return "internal" in text or (t1_name and t1_name in low(t2.get("name")))
+    return bool(t1_name and t1_name in low(t2.get("name")))
+
+
+def path_pairing_issues(t2: dict[str, Any], t1: dict[str, Any]) -> list[dict[str, str]]:
+    if is_internal_process_t2(t2) and not internal_t2_matches_t1(t2, t1):
+        return [
+            {
+                "severity": "MEDIUM",
+                "issue_code": "internal_process_t1_mismatch",
+                "message": f"T2 '{node_label(t2)}' is an internal process and is not an independent external supplier for T1 '{node_label(t1)}'.",
+                "recommended_action": "Activate this as a paired T1/T2 switch, or replace it with a real external process supplier for an independent T2 scenario.",
+            }
+        ]
+    return []
 
 
 def source_quality(entry: dict[str, Any]) -> str:
@@ -311,7 +350,7 @@ def material_node_issues(family: str, code: str, entry: dict[str, Any]) -> list[
     name = low(entry.get("name"))
     issues: list[dict[str, str]] = []
     for bad in FAMILY_BAD_KEYWORDS.get(family, {}).get(code, []):
-        if bad == "krupp" and family in {"aluminium", "copper"} and "thyssenkrupp materials france" in name:
+        if bad == "FRN-8CF694326AFCE1" and family in {"aluminium", "copper"} and "FRN-8D94FBDCC3B3B5" in name:
             continue
         if bad in name:
             issues.append(
@@ -481,7 +520,7 @@ def edge_audit(
         modes = mode_set(record, explicit_segment)
         model_status = "generic_phase_mode"
     elif edge == "T1->OEM":
-        explicit_segment = "from_supplier_to_safran"
+        explicit_segment = "from_supplier_to_FRN-F1F796DB13C8E2"
         modes = mode_set(record, explicit_segment)
         model_status = "generic_phase_mode"
     elif edge == "T2->T1" and t2_internal:
@@ -682,6 +721,7 @@ def main(input_json: Path | None = None, output_prefix: str | None = None) -> No
                     }
 
             t2_internal = is_internalized_t2(t2, t1)
+            issues.extend(path_pairing_issues(t2, t1))
             edge_rows = [
                 edge_audit(record, "T4", "T3", t4, t3, path_primary=path_primary),
                 edge_audit(record, "T3", "T2", t3, t2, path_primary=path_primary),

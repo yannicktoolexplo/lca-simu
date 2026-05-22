@@ -1,7 +1,7 @@
 # Audit des chemins secondaires et switchs fournisseurs
 
 - Source paths: `C:/dev/lca-simu/analysis/output8_GEO_simulation_ready_researched_supply_path_network_full_paths.csv`
-- Generated at: `2026-05-21T14:17:31+00:00`
+- Generated at: `2026-05-22T06:57:41+00:00`
 - Secondary paths audited: **24620**
 
 ## Verdict court
@@ -16,10 +16,11 @@ On ne peut pas switcher librement tous les fournisseurs entre eux. Les chemins s
 
 ## Classes detaillees
 
-- `candidate_requires_allocation_and_qualification`: **13492**
-- `candidate_requires_material_certificate`: **8626**
+- `candidate_requires_allocation_and_qualification`: **10110**
+- `candidate_requires_t1_t2_pairing`: **6427**
+- `candidate_requires_material_certificate`: **5582**
 - `candidate_scenario_only_mass_review`: **2167**
-- `candidate_requires_material_source`: **333**
+- `candidate_requires_material_source`: **332**
 - `candidate_requires_site_validation`: **2**
 
 ## Synthese par composant
@@ -44,31 +45,31 @@ On ne peut pas switcher librement tous les fournisseurs entre eux. Les chemins s
 
 ## Principales validations restantes
 
-- `steel` / `inactive_alternate_requires_allocation` / `candidate_requires_material_certificate`: **6992** chemins
-- `steel` / `material_certificate_required` / `candidate_requires_material_certificate`: **6992** chemins
+- `steel` / `inactive_alternate_requires_allocation` / `candidate_requires_material_certificate`: **5399** chemins
+- `steel` / `material_certificate_required` / `candidate_requires_material_certificate`: **5399** chemins
 - `polymer_plastic` / `inactive_alternate_requires_allocation` / `candidate_requires_allocation_and_qualification`: **4541** chemins
-- `textile_leather` / `inactive_alternate_requires_allocation` / `candidate_requires_allocation_and_qualification`: **3855** chemins
-- `aluminium` / `inactive_alternate_requires_allocation` / `candidate_requires_allocation_and_qualification`: **3255** chemins
-- `aluminium` / `baseline_node_is_assumption` / `candidate_requires_allocation_and_qualification`: **3255** chemins
+- `aluminium` / `inactive_alternate_requires_allocation` / `candidate_requires_t1_t2_pairing`: **4341** chemins
+- `aluminium` / `internal_process_t1_mismatch` / `candidate_requires_t1_t2_pairing`: **4341** chemins
+- `aluminium` / `baseline_node_is_assumption` / `candidate_requires_t1_t2_pairing`: **4341** chemins
+- `textile_leather` / `inactive_alternate_requires_allocation` / `candidate_requires_allocation_and_qualification`: **3808** chemins
+- `steel` / `inactive_alternate_requires_allocation` / `candidate_requires_t1_t2_pairing`: **1981** chemins
+- `steel` / `internal_process_t1_mismatch` / `candidate_requires_t1_t2_pairing`: **1981** chemins
+- `steel` / `baseline_node_is_assumption` / `candidate_requires_t1_t2_pairing`: **1981** chemins
 - `textile_leather` / `inactive_alternate_requires_allocation` / `candidate_scenario_only_mass_review`: **1926** chemins
 - `textile_leather` / `lca_mass_low_confidence` / `candidate_scenario_only_mass_review`: **1926** chemins
-- `steel` / `baseline_node_is_assumption` / `candidate_requires_material_certificate`: **1807** chemins
-- `steel` / `inactive_alternate_requires_allocation` / `candidate_requires_allocation_and_qualification`: **1716** chemins
-- `aluminium` / `inactive_alternate_requires_allocation` / `candidate_requires_material_certificate`: **1586** chemins
-- `aluminium` / `baseline_node_is_assumption` / `candidate_requires_material_certificate`: **1586** chemins
-- `aluminium` / `material_certificate_required` / `candidate_requires_material_certificate`: **1586** chemins
-- `textile_leather` / `baseline_node_is_assumption` / `candidate_requires_allocation_and_qualification`: **1197** chemins
+- `steel` / `material_certificate_required` / `candidate_requires_t1_t2_pairing`: **1593** chemins
+- `aluminium` / `material_certificate_required` / `candidate_requires_t1_t2_pairing`: **1419** chemins
+- `steel` / `inactive_alternate_requires_allocation` / `candidate_requires_allocation_and_qualification`: **1328** chemins
 - `textile_leather` / `lca_mass_requires_review` / `candidate_requires_allocation_and_qualification`: **1155** chemins
-- `steel` / `baseline_node_is_assumption` / `candidate_requires_allocation_and_qualification`: **427** chemins
+- `textile_leather` / `baseline_node_is_assumption` / `candidate_requires_allocation_and_qualification`: **1150** chemins
+- `aluminium` / `inactive_alternate_requires_allocation` / `candidate_requires_allocation_and_qualification`: **333** chemins
+- `aluminium` / `baseline_node_is_assumption` / `candidate_requires_allocation_and_qualification`: **333** chemins
 - `textile_leather` / `inactive_alternate_requires_allocation` / `candidate_requires_material_source`: **332** chemins
-- `textile_leather` / `baseline_node_is_assumption` / `candidate_requires_material_source`: **332** chemins
-- `textile_leather` / `raw_material_source_missing` / `candidate_requires_material_source`: **332** chemins
-- `polymer_plastic` / `inactive_alternate_requires_allocation` / `candidate_scenario_only_mass_review`: **237** chemins
 
-## Composants les plus bloques
+## Composants les plus contraints
 
 
-## Options fournisseur/tier a exclure en priorite
+## Options fournisseur/tier a cadrer en priorite
 
 
 ## Regles de switch a appliquer
