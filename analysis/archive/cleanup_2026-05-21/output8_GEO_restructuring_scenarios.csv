@@ -1,5 +1,0 @@
-﻿scenario,unique_nodes,edges,edges_with_distance,avg_distance_km,median_distance_km,p90_distance_km,total_mass_distance_kg_km,france_nodes,europe_non_fr_nodes,outside_europe_nodes,unknown_region_nodes
-primary_baseline,53,549,549,3931.029,832.132,9470.757,7539676.276,17,14,22,0
-max_france,55,549,549,2435.611,500.42,8650.125,5555541.971,33,7,15,0
-max_europe,51,549,549,2084.056,502.395,7458.945,4129531.349,22,19,10,0
-nearest_downstream,64,549,549,2264.936,320.059,7310.514,3640775.17,33,14,17,0
