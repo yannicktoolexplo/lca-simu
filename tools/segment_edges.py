@@ -21,8 +21,8 @@ from __future__ import annotations
 import csv
 from pathlib import Path
 
-IN_PATH = Path("analysis/component_edges_modes.csv")
-OUT_PATH = Path("analysis/component_edges_segments.csv")
+IN_PATH = Path("supply_geo/analysis/component_edges_modes.csv")
+OUT_PATH = Path("supply_geo/analysis/component_edges_segments.csv")
 
 
 def parse_modes(raw: str) -> list[str]:

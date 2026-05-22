@@ -20,7 +20,7 @@
 - `supply_geo/sim_supply.py` implémente la simulation SimPy au niveau unité (par composant) :
   - capabilité par rôle (`ROLE_CAPACITY`), temps de process (`PROCESSING_TIME_DAYS`), jitter, choix du mode transport (`pick_mode` + distances haversine) puis enchaînement `START_PROC`/`DEPART_x`/`ARRIVE`.
 - `run_supply_sim.py` est le glue-code CLI : charge les données via `supply_geo.data_loader_supply`, initialise `supply_geo.sim_supply.simulate_supply`, exécute l'environnement SimPy et exporte les événements/arrivées CSV + graphiques optionnels.
-- Les CSV de sortie sont désormais dans `analysis/` (`supply_events.csv`, `supply_arrivals.csv`).
+- Les CSV de sortie supply geo sont désormais dans `supply_geo/analysis/` (`supply_events.csv`, `supply_arrivals.csv`).
 
 ## Jeux de chocs et résilience
 - Dossier `shocks/` : scripts et helpers pour comparer des scénarios de chocs (ex. `compare_shocks.py`, `shock_experiments.py`, `shock_suite.py`, `top_shocks.py`, `tornado_shocks.py`, données `chocs.csv`).
