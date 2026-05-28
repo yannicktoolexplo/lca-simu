@@ -55,6 +55,7 @@ DEFAULT_SUPPLIER_PARAMETER_SENSITIVITY_DIR = Path(
     "etudecas/simulation/sensibility/active_supplier_parameter_result_60_75_guarded"
 )
 DEFAULT_SUPPLIER_RISK_KPI_DIR = Path("etudecas/supplier_risk_kpi/result")
+DEFAULT_MONTECARLO_UNCERTAINTY_DIR = Path("etudecas/simulation/montecarlo/active_mrp_physical_uncertainty")
 ITEM_DISPLAY_REFERENCE_NOTES = {
     "item:007923": "007923 (ancienne ref 693710)",
 }
@@ -278,6 +279,11 @@ def parse_args() -> argparse.Namespace:
         "--supplier-risk-kpi-panel-csv",
         default=str(DEFAULT_SUPPLIER_RISK_KPI_DIR / "data" / "supplier_item_week_panel.csv"),
         help="Optional supplier-item-site weekly risk KPI panel CSV.",
+    )
+    parser.add_argument(
+        "--montecarlo-summary-json",
+        default=str(DEFAULT_MONTECARLO_UNCERTAINTY_DIR / "montecarlo_summary.json"),
+        help="Optional Monte Carlo uncertainty summary JSON.",
     )
     return parser.parse_args()
 
@@ -710,6 +716,17 @@ def render_data_kv(rows: list[tuple[str, Any]]) -> str:
             "</div>",
         ]
     )
+
+
+def html_tooltip_attrs(tooltip: str | None) -> str:
+    return f" data-tooltip=\"{html.escape(tooltip, quote=True)}\" tabindex=\"0\"" if tooltip else ""
+
+
+def html_tooltip_class(base_class: str, tooltip: str | None) -> str:
+    base = base_class.strip()
+    if not tooltip:
+        return base
+    return f"{base} riskTooltipHost".strip()
 
 
 def render_data_panel_html(title: str, subtitle: str, sections: list[tuple[str, str]]) -> str:
@@ -2199,6 +2216,7 @@ def build_global_kpi_tree_payload(
         planned = max(0.0, to_float(row.get("planned_qty_after_lot_rule")) or 0.0)
         actual = max(0.0, to_float(row.get("actual_qty")) or 0.0)
         shortfall = max(0.0, to_float(row.get("shortfall_vs_desired_qty")) or 0.0)
+        lot_plan_shortfall = max(0.0, to_float(row.get("shortfall_vs_lot_plan_qty")) or 0.0)
         overproduction = max(0.0, actual - desired)
         production_by_day[day]["desired_qty"] += desired
         production_by_day[day]["planned_qty"] += planned
@@ -2231,6 +2249,9 @@ def build_global_kpi_tree_payload(
         if str(row.get("binding_cause") or "") == "input_shortage":
             production_by_day[day]["input_shortage_day"] = 1.0
             production_by_day[day]["input_shortage_line_count"] += 1.0
+            production_by_day[day]["input_shortage_shortfall_desired_qty"] += shortfall
+            production_by_day[day]["input_shortage_shortfall_lot_plan_qty"] += lot_plan_shortfall
+            production_by_day[day]["input_shortage_plan_gap_qty"] += abs(actual - planned)
         if str(row.get("binding_cause") or "") == "capacity":
             production_by_day[day]["capacity_day"] = 1.0
             production_by_day[day]["capacity_line_count"] += 1.0
@@ -2538,6 +2559,18 @@ def build_global_kpi_tree_payload(
     over_plan_line_count = {day: production_by_day[day].get("over_plan_line_count", 0.0) for day in days}
     capacity_line_count = {day: production_by_day[day].get("capacity_line_count", 0.0) for day in days}
     input_shortage_line_count = {day: production_by_day[day].get("input_shortage_line_count", 0.0) for day in days}
+    input_shortage_shortfall_desired_qty = {
+        day: production_by_day[day].get("input_shortage_shortfall_desired_qty", 0.0)
+        for day in days
+    }
+    input_shortage_shortfall_lot_plan_qty = {
+        day: production_by_day[day].get("input_shortage_shortfall_lot_plan_qty", 0.0)
+        for day in days
+    }
+    input_shortage_plan_gap_qty = {
+        day: production_by_day[day].get("input_shortage_plan_gap_qty", 0.0)
+        for day in days
+    }
     weekly_lot_limit_line_count = {day: production_by_day[day].get("weekly_lot_limit_line_count", 0.0) for day in days}
     requested_lot_starts = {day: production_by_day[day].get("requested_lot_starts", 0.0) for day in days}
     actual_lot_starts = {day: production_by_day[day].get("actual_lot_starts", 0.0) for day in days}
@@ -2560,6 +2593,22 @@ def build_global_kpi_tree_payload(
     }
     input_shortage_line_share = {
         day: (100.0 * input_shortage_line_count[day] / active_line_count[day] if active_line_count[day] > 0 else 0.0)
+        for day in days
+    }
+    input_shortage_lot_plan_loss_share = {
+        day: (
+            100.0 * input_shortage_shortfall_lot_plan_qty[day] / planned_qty[day]
+            if planned_qty[day] > 0
+            else 0.0
+        )
+        for day in days
+    }
+    input_shortage_desired_loss_share = {
+        day: (
+            100.0 * input_shortage_shortfall_desired_qty[day] / desired_qty[day]
+            if desired_qty[day] > 0
+            else 0.0
+        )
         for day in days
     }
     weekly_lot_limit_line_share = {
@@ -2839,6 +2888,14 @@ def build_global_kpi_tree_payload(
     shortfall_days = sum(1 for value in shortfall_qty.values() if value > 1e-9)
     operational_shortfall_days = sum(1 for value in operational_shortfall_qty.values() if value > 1e-9)
     input_shortage_days = sum(1 for day in days if production_by_day[day].get("input_shortage_day", 0.0) > 0)
+    total_input_shortage_shortfall_lot_plan = sum(input_shortage_shortfall_lot_plan_qty.values())
+    total_input_shortage_shortfall_desired = sum(input_shortage_shortfall_desired_qty.values())
+    max_input_shortage_line_share = max(input_shortage_line_share.values(), default=0.0)
+    avg_input_shortage_line_share = (
+        sum(input_shortage_line_share.values()) / len(input_shortage_line_share)
+        if input_shortage_line_share
+        else 0.0
+    )
     capacity_days = sum(1 for day in days if production_by_day[day].get("capacity_day", 0.0) > 0)
     weekly_lot_limit_days = sum(1 for day in days if production_by_day[day].get("weekly_lot_limit_day", 0.0) > 0)
     total_requested_lot_starts = sum(requested_lot_starts.values())
@@ -3102,10 +3159,26 @@ def build_global_kpi_tree_payload(
         {
             "family": "Production",
             "level": "KPI secondaire",
-            "name": "Part lignes input shortage",
+            "name": "Part lignes contraintes matiere",
             "formula": "100 x lignes dont binding_cause = input_shortage / lignes actives",
-            "terms": "input_shortage signifie que la production demandee n'a pas pu etre executee faute de composant disponible.",
+            "terms": "Contrainte matiere signifie que la production demandee n'a pas pu etre executee faute de composant disponible.",
             "interpretation": "Part de production limitee par manque de composant.",
+        },
+        {
+            "family": "Production",
+            "level": "KPI secondaire",
+            "name": "Manque matiere vs plan lotifie",
+            "formula": "100 x somme(shortfall_vs_lot_plan_qty si binding_cause=input_shortage) / somme(planned_qty_after_lot_rule)",
+            "terms": "Mesure la partie du plan lotifie non executee a cause d'une matiere/composant disponible insuffisant.",
+            "interpretation": "C'est le meilleur indicateur pour relier tension MP et instabilite planning: le client peut rester servi, mais l'usine doit modifier son plan.",
+        },
+        {
+            "family": "Production",
+            "level": "KPI secondaire",
+            "name": "Manque matiere vs besoin usine",
+            "formula": "100 x somme(shortfall_vs_desired_qty si binding_cause=input_shortage) / somme(desired_qty)",
+            "terms": "Mesure le manque strict par rapport au besoin industriel du jour, hors surproduction/lotification future.",
+            "interpretation": "Permet de distinguer un ecart au plan lotifie d'un vrai manque par rapport au besoin du jour.",
         },
         {
             "family": "Production",
@@ -3136,7 +3209,7 @@ def build_global_kpi_tree_payload(
             "level": "KPI secondaire",
             "name": "Contribution cout de production - indice",
             "formula": "100 x Cout_production(t) / moyenne_run(Cout_total_operationnel)",
-            "terms": "Cout_production=production_cost_day, proxy de cout de conversion pharma: fabrication, main-d'oeuvre, utilites, qualite, nettoyage, maintenance et depreciation.",
+            "terms": "Cout_production=production_cost_day, estimation de cout de conversion pharma: fabrication, main-d'oeuvre, utilites, qualite, nettoyage, maintenance et depreciation.",
             "interpretation": "Part de la pression cout due aux operations de fabrication, separee des achats matieres.",
         },
         {
@@ -3240,9 +3313,9 @@ def build_global_kpi_tree_payload(
     physics_kpi_display = [
         ("product_availability", "Disponibilite produit", "#0f766e", "served_qty / required_with_backlog_qty"),
         ("line_adherence", "Adherence plan lotifie", "#2563eb", "actual_qty vs planned_qty_after_lot_rule, moyenne glissante 30j"),
-        ("line_nervousness", "Nervosite lignes", "#d97706", "Variation moyenne journaliere du plan par ligne (%)"),
-        ("production_replanning_count", "Replanifications production", "#7c3aed", "Nombre de lignes dont le plan change vs jour precedent"),
-        ("raw_material_stockout_days", "Jours rupture MP 30j", "#dc2626", "Nombre de jours avec rupture MP dans la fenetre glissante 30j"),
+        ("line_nervousness", "Nervosite planning (%)", "#d97706", "Amplitude moyenne journaliere des changements de plan par ligne"),
+        ("production_replanning_count", "Lignes replanifiees", "#7c3aed", "Nombre de lignes dont le plan change vs jour precedent"),
+        ("raw_material_stockout_days", "Signal MP usine zero 30j", "#dc2626", "Diagnostic technique: nombre de jours calendaires, dans la fenetre glissante 30j, ou au moins une MP suivie finit la journee a stock usine nul."),
         ("material_delay_days", "Retard matiere", "#0891b2", "Moyenne des retards reception: delai effectif - delai previsionnel"),
         ("inventory_cost", "Cout stock", "#be123c", "Cout stock journalier; cible=cout stock moyen baseline"),
     ]
@@ -3466,7 +3539,7 @@ def build_global_kpi_tree_payload(
             {
                 "id": "production",
                 "label": "Adherence lignes mensuelle usine",
-                "objective": "Reduire la nervosite usine et les replanifications dues aux ruptures composants.",
+                "objective": "Reduire l'instabilite planning due aux ruptures composants.",
                 "summary": [
                     summary("Adherence lignes mensuelle", fmt_pct(avg_monthly_adherence)),
                     summary("Couverture demande horizon 30j", fmt_pct(avg_forward_30d_coverage)),
@@ -3477,7 +3550,7 @@ def build_global_kpi_tree_payload(
                     summary("Manque vs demande", fmt_qty(total_reference_shortfall)),
                     summary("Avance/exces journalier brut", fmt_qty(total_reference_overproduction)),
                     summary("Jours avec manque", str(shortfall_days)),
-                    summary("Jours input shortage", str(input_shortage_days)),
+                    summary("Jours contrainte matiere", str(input_shortage_days)),
                     summary("Jours capacite bloquante", str(capacity_days)),
                     summary("Jours limite lots/semaine", str(weekly_lot_limit_days)),
                     summary("Lots demandes / lances", f"{fmt_qty(total_requested_lot_starts, 0)} / {fmt_qty(total_actual_lot_starts, 0)}"),
@@ -3492,6 +3565,28 @@ def build_global_kpi_tree_payload(
                     {"label": "Contraintes sur ligne capacite / input / lots semaine (%)", **series_from_map(constrained_line_share), "color": "#dc2626"},
                 ],
                 "secondary_y_label": "%",
+            },
+            {
+                "id": "material_factory_nervousness",
+                "label": "Nervosite matiere usine",
+                "objective": "Mesurer comment les tensions matieres perturbent l'execution usine, meme si le service client reste protege.",
+                "summary": [
+                    summary("Jours avec contrainte matiere", str(input_shortage_days)),
+                    summary("Lignes contraintes matiere max", fmt_pct(max_input_shortage_line_share)),
+                    summary("Lignes contraintes matiere moy.", fmt_pct(avg_input_shortage_line_share)),
+                    summary("Manque vs plan lotifie", fmt_qty(total_input_shortage_shortfall_lot_plan)),
+                    summary("Manque vs besoin usine", fmt_qty(total_input_shortage_shortfall_desired)),
+                    summary("Lecture service client", "absorbe si fill rate reste a 100% et backlog a 0"),
+                ],
+                "secondary": [
+                    {"label": "Lignes contraintes matiere (%)", **series_from_map(input_shortage_line_share), "color": "#be123c"},
+                    {"label": "Manque matiere vs plan lotifie (%)", **series_from_map(input_shortage_lot_plan_loss_share), "color": "#dc2626", "dash": "dash"},
+                    {"label": "Manque matiere vs besoin usine (%)", **series_from_map(input_shortage_desired_loss_share), "color": "#f97316"},
+                    {"label": "Nervosite planning (%)", **series_from_map(line_nervousness), "color": "#7c3aed"},
+                    {"label": "Lignes replanifiees", **series_from_map(production_replanning_count), "color": "#475569", "dash": "dot"},
+                    {"label": "Signal MP usine zero 30j", **series_from_map(raw_material_stockout_days_30d), "color": "#64748b", "dash": "dot"},
+                ],
+                "secondary_y_label": "% / lignes",
             },
             {
                 "id": "cost",
@@ -3563,6 +3658,29 @@ def supplier_risk_zone_color(zone: Any) -> str:
     if rank == 1:
         return "#f59e0b"
     return "#0f766e"
+
+
+def supplier_risk_zone_label(zone: Any) -> str:
+    rank = supplier_risk_zone_rank(zone)
+    if rank >= 3:
+        return "Critique"
+    if rank == 2:
+        return "Eleve"
+    if rank == 1:
+        return "Modere"
+    if rank == 0:
+        return "Faible"
+    return str(zone or "n/a")
+
+
+def supplier_risk_action_label(action: Any) -> str:
+    value = str(action or "").strip()
+    labels = {
+        "routine_monitoring": "surveillance de routine",
+        "standard_monitoring": "surveillance standard",
+        "watch_collect_data_and_confirm_supplier_status": "surveiller, completer les donnees et confirmer le fournisseur",
+    }
+    return labels.get(value, value or "n/a")
 
 
 def supplier_risk_worst_zone(rows: list[dict[str, str]], field: str = "decision_zone") -> str:
@@ -3670,21 +3788,21 @@ def extend_global_kpi_tree_with_supplier_risk(
             "label": "Risques fournisseurs",
             "values": day_values("action_max", scale=100.0),
             "color": "#be123c",
-            "note": "Priorite d'action maximale: criticite x borne haute probabiliste x exposition x resilience.",
+            "note": "Priorite d'action maximale: menace estimee x exposition x marge de recuperation.",
         }
     )
     kpi_tree.setdefault("groups", []).append(
         {
             "id": "supplier_risk",
             "label": "Risques fournisseurs",
-            "objective": "Piloter performance fournisseur, risque probabiliste, incertitude, resilience et decision robuste.",
+            "objective": "Identifier les fournisseurs a surveiller, le niveau de confiance et l'action a engager.",
             "summary": [
                 summary("Fournisseurs couverts", summary_json.get("supplier_count", len(supplier_rows))),
                 summary("Couples fournisseur-article-site", summary_json.get("pair_count", len(pair_rows))),
                 summary("Zones dernieres", supplier_risk_zone_counts_text(latest_zone_counts if isinstance(latest_zone_counts, dict) else None)),
                 summary("Actions dernieres", supplier_risk_zone_counts_text(latest_action_counts if isinstance(latest_action_counts, dict) else None)),
-                summary("Borne haute risque max", fmt_pct(100.0 * max_high_supplier)),
-                summary("Priorite action max", fmt_pct(100.0 * max_action_supplier)),
+                summary("Estimation prudente risque max", fmt_pct(100.0 * max_high_supplier)),
+                summary("Priorite d'action max", fmt_pct(100.0 * max_action_supplier)),
                 summary(
                     "Top fournisseur",
                     (
@@ -3695,12 +3813,12 @@ def extend_global_kpi_tree_with_supplier_risk(
                 ),
             ],
             "secondary": [
-                {"label": "Probabilite risque max (%)", "days": days, "values": day_values("risk_max", scale=100.0), "color": "#be123c"},
-                {"label": "Borne haute risque max (%)", "days": days, "values": day_values("risk_high_max", scale=100.0), "color": "#dc2626", "dash": "dash"},
-                {"label": "Priorite action max (%)", "days": days, "values": day_values("action_max", scale=100.0), "color": "#7c3aed"},
-                {"label": "Resilience minimale (%)", "days": days, "values": day_values("resilience_min", scale=100.0), "color": "#0f766e"},
-                {"label": "Early-warning max (%)", "days": days, "values": day_values("early_warning_max", scale=100.0), "color": "#d97706"},
-                {"label": "Change-point max (%)", "days": days, "values": day_values("change_point_max", scale=100.0), "color": "#0891b2"},
+                {"label": "Risque estime max (%)", "days": days, "values": day_values("risk_max", scale=100.0), "color": "#be123c"},
+                {"label": "Estimation prudente max (%)", "days": days, "values": day_values("risk_high_max", scale=100.0), "color": "#dc2626", "dash": "dash"},
+                {"label": "Priorite d'action max (%)", "days": days, "values": day_values("action_max", scale=100.0), "color": "#7c3aed"},
+                {"label": "Marge de recuperation min (%)", "days": days, "values": day_values("resilience_min", scale=100.0), "color": "#0f766e"},
+                {"label": "Alerte faible max (%)", "days": days, "values": day_values("early_warning_max", scale=100.0), "color": "#d97706"},
+                {"label": "Rupture de tendance max (%)", "days": days, "values": day_values("change_point_max", scale=100.0), "color": "#0891b2"},
                 {"label": "Couples sous surveillance", "days": days, "values": day_values("watch_count"), "color": "#475569"},
                 {"label": "Couples orange/rouge", "days": days, "values": day_values("orange_red_count"), "color": "#dc2626"},
             ],
@@ -3712,33 +3830,33 @@ def extend_global_kpi_tree_with_supplier_risk(
             {
                 "family": "Risques fournisseurs",
                 "level": "KPI principal",
-                "name": "Priorite action fournisseur",
-                "formula": "criticite x UCB95(P incident 4 semaines) x exposition x penalite resilience",
-                "terms": "UCB95 approxime par la borne haute probabiliste/conforme; exposition par les volumes attendus; resilience par TTR, chute et marge de recuperation.",
-                "interpretation": "Score de pilotage: plus il est haut, plus une action robuste est justifiee avant incident visible.",
+                "name": "Priorite d'action fournisseur",
+                "formula": "menace estimee x exposition x penalite de recuperation",
+                "terms": "La menace estimee combine performance, signaux faibles et estimation prudente. L'exposition vient des volumes attendus.",
+                "interpretation": "Score de pilotage: plus il est haut, plus une action fournisseur est justifiee avant incident visible.",
             },
             {
                 "family": "Risques fournisseurs",
                 "level": "KPI secondaire",
-                "name": "Probabilite risque fournisseur",
-                "formula": "proxy probabiliste 4 semaines issu performance, dynamique, sensibilite, criticite et incertitude",
+                "name": "Risque estime fournisseur",
+                "formula": "estimation a 4 semaines issue performance, dynamique, sensibilite, criticite et incertitude",
                 "terms": "Combine lead time, variabilite, capacite, stock, warning/change-point et sensibilite locale.",
                 "interpretation": "Risque futur, distinct de la performance observee du moment.",
             },
             {
                 "family": "Risques fournisseurs",
                 "level": "KPI secondaire",
-                "name": "Resilience fournisseur",
-                "formula": "1 - pression de chute et de TTR, ajustee par buffers et stabilite",
-                "terms": "TTR=temps de retour proxy; drop=chute de performance; buffers=stock/couverture/capacite.",
+                "name": "Marge de recuperation fournisseur",
+                "formula": "capacite a absorber une chute, ajustee par stock, couverture, capacite et stabilite",
+                "terms": "Mesure si le fournisseur peut absorber, continuer, puis revenir a la normale.",
                 "interpretation": "Capacite a absorber, continuer, recuperer et stabiliser.",
             },
             {
                 "family": "Risques fournisseurs",
                 "level": "KPI secondaire",
-                "name": "Zone decisionnelle fournisseur",
+                "name": "Niveau d'action fournisseur",
                 "formula": "regles par quantiles, incertitude, criticite et resilience",
-                "terms": "vert=surveillance; jaune=donnees/confirmation; orange=action preventive; rouge=decision robuste immediate.",
+                "terms": "faible=routine; modere=surveillance; eleve=action preventive; critique=action immediate.",
                 "interpretation": "Transforme les KPI en action fournisseur explicable.",
             },
         ]
@@ -3747,7 +3865,7 @@ def extend_global_kpi_tree_with_supplier_risk(
     if "Risques fournisseurs" not in subtitle:
         kpi_tree["subtitle"] = (
             subtitle.rstrip(".")
-            + ". L'onglet Risques fournisseurs ajoute la boucle KPI -> risque probabiliste -> incertitude -> resilience -> decision robuste."
+            + ". L'onglet Risques fournisseurs transforme les KPI en niveau de menace, confiance de lecture et action recommandee."
         )
     return kpi_tree
 
@@ -3780,16 +3898,16 @@ def supplier_risk_summary_lines(
         robust_decision = str(max(rows, key=lambda row: risk_ratio(row.get("action_priority_score"))).get("robust_decision") or "")
     return [
         {"label": "Noeud analyse", "value": display_node_label(node_id)},
-        {"label": "Vue", "value": "risques fournisseurs entrants" if destination_view else "risque fournisseur"},
-        {"label": "Zone decisionnelle", "value": zone},
-        {"label": "Probabilite risque max", "value": fmt_pct(100.0 * max_risk)},
-        {"label": "Borne haute risque", "value": fmt_pct(100.0 * max_high)},
-        {"label": "Priorite action", "value": fmt_pct(100.0 * max_action)},
-        {"label": "Resilience minimale", "value": fmt_pct(100.0 * min_resilience)},
+        {"label": "Lecture", "value": "risques fournisseurs entrants" if destination_view else "risque fournisseur"},
+        {"label": "Niveau de risque", "value": supplier_risk_zone_label(zone)},
+        {"label": "Risque estime max", "value": fmt_pct(100.0 * max_risk)},
+        {"label": "Estimation prudente", "value": fmt_pct(100.0 * max_high)},
+        {"label": "Priorite d'action", "value": fmt_pct(100.0 * max_action)},
+        {"label": "Marge de recuperation min", "value": fmt_pct(100.0 * min_resilience)},
         {"label": "Couples analyses", "value": str(len(rows))},
-        {"label": "Early-warning actifs", "value": str(early_count)},
-        {"label": "Change-point actifs", "value": str(change_count)},
-        {"label": "Decision robuste", "value": robust_decision or "n/a"},
+        {"label": "Alertes faibles actives", "value": str(early_count)},
+        {"label": "Ruptures de tendance detectees", "value": str(change_count)},
+        {"label": "Action prudente", "value": supplier_risk_action_label(robust_decision)},
     ]
 
 
@@ -3808,10 +3926,24 @@ def supplier_risk_node_metric(
     )
     if not summary_lines:
         return None
-    zone = next((entry["value"] for entry in summary_lines if entry.get("label") == "Zone decisionnelle"), "n/a")
+    zone = supplier_risk_worst_zone(rows)
+    if supplier_row:
+        zone = str(supplier_row.get("worst_decision_zone") or zone)
     action = max(
         [risk_ratio(row.get("action_priority_score")) for row in rows]
         + ([risk_ratio(supplier_row.get("max_action_priority_score"))] if supplier_row else [])
+    )
+    max_risk = max(
+        [risk_ratio(row.get("risk_probability_proxy_4w")) for row in rows]
+        + ([risk_ratio(supplier_row.get("max_risk_probability_proxy_4w"))] if supplier_row else [])
+    )
+    max_high = max(
+        [risk_ratio(row.get("risk_probability_high_proxy_4w")) for row in rows]
+        + ([risk_ratio(supplier_row.get("max_risk_probability_high_proxy_4w"))] if supplier_row else [])
+    )
+    max_uncertainty = max(
+        [risk_ratio(row.get("uncertainty_pressure")) for row in rows]
+        + [max(0.0, max_high - max_risk)]
     )
     return {
         "title": f"Risques fournisseurs - {display_node_label(node_id)}",
@@ -3820,6 +3952,9 @@ def supplier_risk_node_metric(
         "zone_color": supplier_risk_zone_color(zone),
         "zone_rank": supplier_risk_zone_rank(zone),
         "action_priority_score": round(action, 6),
+        "risk_probability": round(max_risk, 6),
+        "risk_probability_high": round(max_high, 6),
+        "prediction_uncertainty": round(max_uncertainty, 6),
     }
 
 
@@ -3854,11 +3989,11 @@ def supplier_risk_trajectory_asset(
     if not points:
         return None
     series_map = {
-        "P risque max (%)": [(week * 7, data["risk"] * 100.0) for week, data in points],
-        "Borne haute (%)": [(week * 7, data["high"] * 100.0) for week, data in points],
-        "Priorite action (%)": [(week * 7, data["action"] * 100.0) for week, data in points],
-        "Resilience min (%)": [(week * 7, data["resilience"] * 100.0) for week, data in points],
-        "Early-warning max (%)": [(week * 7, data["warning"] * 100.0) for week, data in points],
+        "Risque estime (%)": [(week * 7, data["risk"] * 100.0) for week, data in points],
+        "Estimation prudente (%)": [(week * 7, data["high"] * 100.0) for week, data in points],
+        "Priorite d'action (%)": [(week * 7, data["action"] * 100.0) for week, data in points],
+        "Marge recuperation min (%)": [(week * 7, data["resilience"] * 100.0) for week, data in points],
+        "Alerte faible max (%)": [(week * 7, data["warning"] * 100.0) for week, data in points],
     }
     figure = build_line_chart_figure(
         series_map,
@@ -3866,11 +4001,11 @@ def supplier_risk_trajectory_asset(
         y_label="% / score",
         note="Points hebdomadaires projetes sur l'axe jour de la simulation.",
         series_styles={
-            "P risque max (%)": {"color": "#be123c"},
-            "Borne haute (%)": {"color": "#dc2626", "dash": "dash"},
-            "Priorite action (%)": {"color": "#7c3aed"},
-            "Resilience min (%)": {"color": "#0f766e"},
-            "Early-warning max (%)": {"color": "#d97706"},
+            "Risque estime (%)": {"color": "#be123c"},
+            "Estimation prudente (%)": {"color": "#dc2626", "dash": "dash"},
+            "Priorite d'action (%)": {"color": "#7c3aed"},
+            "Marge recuperation min (%)": {"color": "#0f766e"},
+            "Alerte faible max (%)": {"color": "#d97706"},
         },
     )
     return {"figure": figure} if figure else None
@@ -3894,7 +4029,7 @@ def supplier_risk_pair_table_asset(
                 item_labels.get(item_id, compact_item_label(item_id)),
                 display_node_label(str(row.get("supplier_id") or "")),
                 display_node_label(str(row.get("dst_node_id") or "")),
-                str(row.get("decision_zone") or "n/a"),
+                supplier_risk_zone_label(row.get("decision_zone")),
                 risk_pct(row.get("risk_probability_proxy_4w")),
                 risk_pct(row.get("risk_probability_high_proxy_4w")),
                 risk_pct(row.get("action_priority_score")),
@@ -3908,7 +4043,7 @@ def supplier_risk_pair_table_asset(
             (
                 "Couples fournisseur / article / site",
                 render_data_table(
-                    ["Item", "Fournisseur", "Site", "Zone", "P risque", "Borne haute", "Priorite", "Resilience"],
+                    ["Item", "Fournisseur", "Site", "Niveau", "Risque estime", "Estimation prudente", "Priorite", "Recuperation"],
                     table_rows,
                 ),
             )
@@ -3920,30 +4055,108 @@ def supplier_risk_decision_asset(node_id: str, rows: list[dict[str, str]]) -> di
     if not rows:
         return None
     top = max(rows, key=lambda row: risk_ratio(row.get("action_priority_score")))
+    risk_score = max(
+        risk_ratio(top.get("risk_probability_proxy_4w")),
+        risk_ratio(top.get("action_priority_score")),
+        0.45 if supplier_risk_zone_rank(top.get("decision_zone")) >= 2 else 0.0,
+    )
+    prediction_uncertainty = max(
+        risk_ratio(top.get("uncertainty_pressure")),
+        max(
+            0.0,
+            risk_ratio(top.get("risk_probability_high_proxy_4w"))
+            - risk_ratio(top.get("risk_probability_proxy_4w")),
+        ),
+    )
+    risk_is_high = risk_score >= 0.35
+    uncertainty_is_high = prediction_uncertainty >= 0.20
+    if risk_is_high and uncertainty_is_high:
+        current_cell = "Risque fort / incertitude forte"
+        current_action = "Confirmer vite le signal et engager une mitigation prudente."
+    elif risk_is_high:
+        current_cell = "Risque fort / incertitude faible"
+        current_action = "Agir directement: le probleme est suffisamment confirme."
+    elif uncertainty_is_high:
+        current_cell = "Risque faible / incertitude forte"
+        current_action = "Reduire l'angle mort: qualite donnees, monitoring, confirmation fournisseur."
+    else:
+        current_cell = "Risque faible / incertitude faible"
+        current_action = "Surveillance normale."
+
+    def matrix_cell(title: str, text: str, action: str, *, key: str, level: str) -> str:
+        current_class = " current" if key == current_cell else ""
+        return (
+            f"<div class=\"decisionMatrixCell {html.escape(level)}{current_class}\">"
+            f"<div class=\"decisionMatrixCellTitle\">{html.escape(title)}</div>"
+            f"<div class=\"decisionMatrixCellText\">{html.escape(text)}</div>"
+            f"<div class=\"decisionMatrixCellAction\">{html.escape(action)}</div>"
+            "</div>"
+        )
+
+    matrix_html = "".join(
+        [
+            "<div class=\"decisionMatrix\">",
+            matrix_cell(
+                "Risque fort / incertitude faible",
+                "Menace metier elevee et evaluation suffisamment stable.",
+                "Action: mitigation immediate.",
+                key="Risque fort / incertitude faible",
+                level="alert",
+            ),
+            matrix_cell(
+                "Risque fort / incertitude forte",
+                "Menace serieuse, mais largeur de prediction ou donnees fragiles.",
+                "Action: confirmer vite + action prudente.",
+                key="Risque fort / incertitude forte",
+                level="alert",
+            ),
+            matrix_cell(
+                "Risque faible / incertitude faible",
+                "Menace faible et lecture suffisamment robuste.",
+                "Action: routine.",
+                key="Risque faible / incertitude faible",
+                level="ok",
+            ),
+            matrix_cell(
+                "Risque faible / incertitude forte",
+                "Pas de risque confirme, mais angle mort decisionnel.",
+                "Action: renforcer donnees / monitoring.",
+                key="Risque faible / incertitude forte",
+                level="watch",
+            ),
+            "</div>",
+        ]
+    )
     decision_rows = [
-        ["Vert", "performance correcte, risque faible, incertitude maitrisee", "routine"],
-        ["Jaune", "signaux faibles ou incertitude visible", "surveillance, donnees, confirmation fournisseur"],
-        ["Orange", "borne haute de risque ou resilience degradee", "action preventive: stock, capacite, audit, allocation"],
-        ["Rouge", "risque eleve + criticite + faible resilience", "decision robuste immediate: dual source, expedite, replanning"],
+        ["Faible", "performance correcte, risque faible, incertitude maitrisee", "routine"],
+        ["Modere", "signaux faibles ou incertitude visible", "surveillance, donnees, confirmation fournisseur"],
+        ["Eleve", "estimation prudente elevee ou recuperation fragile", "action preventive: stock, capacite, audit, allocation"],
+        ["Critique", "risque eleve + criticite + faible marge de recuperation", "action prudente immediate: dual source, expedite, replanning"],
     ]
     return data_html_asset(
-        f"{display_node_label(node_id)} - decision robuste",
-        "La sortie n'est pas seulement un score: elle relie probabilite, incertitude, resilience et action.",
+        f"{display_node_label(node_id)} - action recommandee",
+        "Lecture metier: le risque decrit la menace fournisseur; l'incertitude decrit la confiance dans cette evaluation. L'action recommandee croise les deux.",
         [
             (
-                "Decision proposee",
+                "Action proposee",
                 render_data_kv(
                     [
-                        ("Zone du couple principal", top.get("decision_zone") or "n/a"),
-                        ("Action recommandee", top.get("recommended_action") or "n/a"),
-                        ("Decision robuste", top.get("robust_decision") or "n/a"),
-                        ("TTR proxy", f"{fmt_qty(top.get('time_to_recover_weeks_proxy'), 1)} semaines"),
-                        ("Chute performance proxy", risk_pct(top.get("performance_drop_proxy"))),
+                        ("Niveau de risque principal", supplier_risk_zone_label(top.get("decision_zone"))),
+                        ("Action recommandee", supplier_risk_action_label(top.get("recommended_action"))),
+                        ("Action prudente", supplier_risk_action_label(top.get("robust_decision"))),
+                        ("Temps de retour estime", f"{fmt_qty(top.get('time_to_recover_weeks_proxy'), 1)} semaines"),
+                        ("Chute de performance estimee", risk_pct(top.get("performance_drop_proxy"))),
                         ("Incertitude", risk_pct(top.get("uncertainty_pressure"))),
+                        ("Case decisionnelle", current_cell),
+                        ("Lecture", current_action),
                     ]
                 ),
             ),
-            ("Regles", render_data_table(["Zone", "Situation", "Decision"], decision_rows)),
+            (
+                "Matrice decisionnelle: niveau de risque x confiance",
+                matrix_html,
+            ),
+            ("Regles de lecture", render_data_table(["Niveau", "Situation", "Action"], decision_rows)),
         ],
     )
 
@@ -3963,24 +4176,873 @@ def supplier_risk_summary_asset(
     )
     if not summary_lines:
         return None
+
+    def numeric_values(field: str) -> list[float]:
+        values: list[float] = []
+        for row in rows:
+            value = to_float(row.get(field))
+            if value is None or math.isnan(value):
+                continue
+            values.append(float(value))
+        return values
+
+    def max_numeric(field: str) -> float | None:
+        values = numeric_values(field)
+        return max(values) if values else None
+
+    def min_numeric(field: str) -> float | None:
+        values = numeric_values(field)
+        return min(values) if values else None
+
+    def pct_field(value: float | None, digits: int = 1) -> str:
+        return "n/a" if value is None else fmt_pct(value * 100.0, digits)
+
+    def points_field(value: float | None, digits: int = 1) -> str:
+        return "n/a" if value is None else f"{fmt_qty(value * 100.0, digits)} pts"
+
+    def tooltip_attrs(tooltip: str | None) -> str:
+        return f" data-tooltip=\"{html.escape(tooltip, quote=True)}\" tabindex=\"0\"" if tooltip else ""
+
+    def tooltip_class(base_class: str, tooltip: str | None) -> str:
+        return f"{base_class} riskTooltipHost" if tooltip else base_class
+
+    top_risk_row = max(rows, key=lambda row: risk_ratio(row.get("risk_probability_proxy_4w"))) if rows else {}
+    risk_component_rows = [
+        ["Criticite supply", "20%", pct_field(to_float(top_risk_row.get("criticality_score"))), "Importance globale du couple fournisseur / article / site.", to_float(top_risk_row.get("criticality_score"))],
+        ["Mono-source", "14%", pct_field(to_float(top_risk_row.get("mono_source_score"))), "Fragilite quand peu ou pas d'alternative fournisseur.", to_float(top_risk_row.get("mono_source_score"))],
+        ["Stock fournisseur", "15%", pct_field(to_float(top_risk_row.get("stock_pressure"))), "Pression si le stock couvre mal le besoin et les delais.", to_float(top_risk_row.get("stock_pressure"))],
+        ["Capacite fournisseur", "11%", pct_field(to_float(top_risk_row.get("capacity_pressure"))), "Pression si l'utilisation capacite est proche de la saturation.", to_float(top_risk_row.get("capacity_pressure"))],
+        ["Delai matiere", "10%", pct_field(to_float(top_risk_row.get("lead_time_pressure"))), "Pression issue des delais observes et de leur prudence.", to_float(top_risk_row.get("lead_time_pressure"))],
+        ["Exposition volumes", "8%", pct_field(to_float(top_risk_row.get("flow_exposure_pressure"))), "Volume expose sur l'horizon court.", to_float(top_risk_row.get("flow_exposure_pressure"))],
+        ["Sensibilite locale", "8%", pct_field(to_float(top_risk_row.get("sensitivity_pressure"))), "Impact observe dans les stress tests fournisseur.", to_float(top_risk_row.get("sensitivity_pressure"))],
+        ["Dynamique / signaux faibles", "8%", pct_field(to_float(top_risk_row.get("dynamic_pressure"))), "Variation de flux, stock, capacite ou tendance.", to_float(top_risk_row.get("dynamic_pressure"))],
+        ["Incertitude", "6%", pct_field(to_float(top_risk_row.get("uncertainty_pressure"))), "Penalite quand les donnees ou la prediction sont moins fiables.", to_float(top_risk_row.get("uncertainty_pressure"))],
+    ]
+
+    def component_status(value_text: str) -> str:
+        value = to_float(str(value_text).replace("%", ""))
+        if value is None:
+            return "not_local"
+        if value >= 50.0:
+            return "sensitive"
+        if value >= 20.0:
+            return "watch"
+        return "robust"
+
+    def component_bar_width(value_text: str) -> float:
+        value = to_float(str(value_text).replace("%", ""))
+        if value is None:
+            return 0.0
+        return max(0.0, min(100.0, value))
+
+    def component_weight_ratio(weight_text: str) -> float | None:
+        weight = to_float(str(weight_text).replace("%", ""))
+        if weight is None:
+            return None
+        return max(0.0, weight / 100.0)
+
+    def component_contribution(row: list[Any]) -> float | None:
+        weight = component_weight_ratio(str(row[1]))
+        raw_value = to_float(row[4] if len(row) > 4 else None)
+        if weight is None or raw_value is None:
+            return None
+        return weight * raw_value
+
+    def top_component_drivers(limit: int = 3) -> list[list[Any]]:
+        ranked = sorted(
+            risk_component_rows,
+            key=lambda row: (component_contribution(row) or 0.0, to_float(row[4] if len(row) > 4 else None) or 0.0),
+            reverse=True,
+        )
+        return ranked[:limit]
+
+    def component_tooltip(row: list[Any]) -> str:
+        label, weight, value, note = row[:4]
+        contribution = component_contribution(row)
+        return "\n".join(
+            [
+                "Formule",
+                "contribution au signal risque = poids du composant x valeur du composant",
+                "",
+                "Calcul ici",
+                f"{weight} x {value} = {points_field(contribution)}",
+                "",
+                "Lecture",
+                str(note),
+                "",
+                "Important",
+                "Cette contribution alimente le signal risque. Elle n'est pas une probabilite observee.",
+            ]
+        )
+
+    def risk_component_cards_html(rows: list[list[Any]]) -> str:
+        cards = ["<div class=\"riskComponentGrid\">"]
+        for label, weight, value, note, raw_value in rows:
+            status_key = component_status(value)
+            width = component_bar_width(value)
+            row = [label, weight, value, note, raw_value]
+            contribution = component_contribution(row)
+            tooltip = component_tooltip(row)
+            cards.append(
+                "".join(
+                    [
+                        f"<div class=\"{tooltip_class(f'riskComponentCard sensitivityStatus-{html.escape(status_key)}', tooltip)}\"{tooltip_attrs(tooltip)}>",
+                        "<div class=\"riskComponentTop\">",
+                        f"<div class=\"riskComponentLabel\">{html.escape(label)}</div>",
+                        f"<div class=\"riskComponentWeight\">poids {html.escape(weight)}</div>",
+                        "</div>",
+                        f"<div class=\"riskComponentValue\">{html.escape(value)}</div>",
+                        "<div class=\"riskComponentBarTrack\">",
+                        f"<div class=\"riskComponentBar\" style=\"width:{width:.1f}%\"></div>",
+                        "</div>",
+                        f"<div class=\"riskComponentContribution\">contribution au signal: {html.escape(pct_field(contribution))}</div>",
+                        f"<div class=\"riskComponentNote\">{html.escape(note)}</div>",
+                        "</div>",
+                    ]
+                )
+            )
+        cards.append("</div>")
+        return "".join(cards)
+
+    def risk_driver_summary_html() -> str:
+        drivers = top_component_drivers(3)
+        if not drivers:
+            return "<div class=\"panelEmptyState dataEmptyState\">Aucun signal risque exploitable pour ce noeud.</div>"
+        cards = ["<div class=\"riskDriverGrid\">"]
+        for rank, row in enumerate(drivers, start=1):
+            label, weight, value, note = row[:4]
+            contribution = component_contribution(row)
+            status_key = component_status(str(value))
+            tooltip = component_tooltip(row)
+            cards.append(
+                "".join(
+                    [
+                        f"<div class=\"{tooltip_class(f'riskDriverCard sensitivityStatus-{html.escape(status_key)}', tooltip)}\"{tooltip_attrs(tooltip)}>",
+                        f"<div class=\"riskDriverRank\">Signal {rank}</div>",
+                        f"<div class=\"riskDriverTitle\">{html.escape(str(label))}</div>",
+                        f"<div class=\"riskDriverValue\">{html.escape(str(value))}</div>",
+                        f"<div class=\"riskDriverMeta\">poids {html.escape(str(weight))} ; contribution {html.escape(points_field(contribution))}</div>",
+                        f"<div class=\"riskDriverNote\">{html.escape(str(note))}</div>",
+                        "</div>",
+                    ]
+                )
+            )
+        cards.append("</div>")
+        return "".join(cards)
+
+    def risk_explanation_card(
+        label: str,
+        value: str,
+        formula: str,
+        note: str,
+        status_key: str = "not_local",
+        breakdown_rows: list[tuple[str, str]] | None = None,
+        extra_class: str = "",
+    ) -> str:
+        breakdown_html = ""
+        if breakdown_rows:
+            breakdown_html = "".join(
+                [
+                    "<div class=\"riskExplanationBreakdown\">",
+                    "".join(
+                        "<div>"
+                        f"<span>{html.escape(str(row_label))}</span>"
+                        f"<b>{html.escape(str(row_value))}</b>"
+                        "</div>"
+                        for row_label, row_value in breakdown_rows
+                    ),
+                    "</div>",
+                ]
+            )
+        class_names = "riskExplanationCard"
+        if extra_class:
+            class_names += f" {extra_class}"
+        class_names += f" sensitivityStatus-{html.escape(status_key)}"
+        return "".join(
+            [
+                f"<div class=\"{class_names}\">",
+                f"<div class=\"riskExplanationLabel\">{html.escape(label)}</div>",
+                f"<div class=\"riskExplanationValue\">{html.escape(value)}</div>",
+                f"<div class=\"riskExplanationFormula\">{html.escape(formula)}</div>",
+                breakdown_html,
+                f"<div class=\"riskExplanationNote\">{html.escape(note)}</div>",
+                "</div>",
+            ]
+        )
+
+    def risk_signal_card_html(*, primary: bool = False) -> str:
+        risk_value = risk_ratio(top_risk_row.get("risk_probability_proxy_4w"))
+        uncertainty_value = risk_ratio(top_risk_row.get("uncertainty_pressure"))
+        risk_signal = risk_ratio(top_risk_row.get("risk_signal"))
+        criticality_value = to_float(top_risk_row.get("criticality_score"))
+        mono_source_value = to_float(top_risk_row.get("mono_source_score"))
+        stock_value = to_float(top_risk_row.get("stock_pressure"))
+        capacity_value = to_float(top_risk_row.get("capacity_pressure"))
+        lead_value = to_float(top_risk_row.get("lead_time_pressure"))
+        exposure_value = to_float(top_risk_row.get("flow_exposure_pressure"))
+        sensitivity_value = to_float(top_risk_row.get("sensitivity_pressure"))
+        dynamic_value = to_float(top_risk_row.get("dynamic_pressure"))
+        return risk_explanation_card(
+            "Risque estime",
+            risk_pct(risk_value),
+            "courbe S du signal risque",
+            "Indicateur principal: menace estimee a 4 semaines. C'est un score de decision, pas une probabilite historique observee.",
+            component_status(risk_pct(risk_value)),
+            [
+                ("Formule signal", "signal risque = somme(poids composant x valeur composant)"),
+                (
+                    "Application signal",
+                    " + ".join(
+                        [
+                            f"20% x criticite {pct_field(criticality_value)}",
+                            f"14% x mono-source {pct_field(mono_source_value)}",
+                            f"15% x stock {pct_field(stock_value)}",
+                            f"11% x capacite {pct_field(capacity_value)}",
+                            f"10% x delai {pct_field(lead_value)}",
+                            f"8% x exposition {pct_field(exposure_value)}",
+                            f"8% x sensibilite {pct_field(sensitivity_value)}",
+                            f"8% x dynamique {pct_field(dynamic_value)}",
+                            f"6% x incertitude {pct_field(uncertainty_value)}",
+                        ]
+                    ),
+                ),
+                ("Resultat signal", pct_field(risk_signal)),
+                ("Formule risque", "risque estime = courbe S(-3 + 5 x signal risque)"),
+                ("Application risque", f"courbe S(-3 + 5 x {pct_field(risk_signal)}) = {risk_pct(risk_value)}"),
+            ],
+            extra_class="riskPrimaryCard" if primary else "",
+        )
+
+    def risk_signal_components_html() -> str:
+        return "".join(
+            [
+                "<div class=\"riskSignalFrame\">",
+                "<div class=\"riskSignalHero\">",
+                risk_signal_card_html(primary=True),
+                "</div>",
+                "<div class=\"riskSignalCompositionHead\">",
+                "<div class=\"riskSignalCompositionTitle\">Composition de l'indicateur principal</div>",
+                "<div class=\"riskSignalCompositionText\">Chaque carte reprend un terme de la formule du signal risque, dans l'ordre exact du calcul.</div>",
+                "</div>",
+                risk_component_cards_html(risk_component_rows),
+                "</div>",
+            ]
+        )
+
+    def risk_indicator_section_html(title: str, note: str, cards: list[str]) -> str:
+        return "".join(
+            [
+                "<div class=\"riskIndicatorSection\">",
+                "<div class=\"riskIndicatorSectionHead\">",
+                f"<div class=\"riskIndicatorSectionTitle\">{html.escape(title)}</div>",
+                f"<div class=\"riskIndicatorSectionNote\">{html.escape(note)}</div>",
+                "</div>",
+                "<div class=\"riskExplanationGrid\">",
+                "".join(cards),
+                "</div>",
+                "</div>",
+            ]
+        )
+
+    def risk_explanation_cards_html() -> str:
+        risk_value = risk_ratio(top_risk_row.get("risk_probability_proxy_4w"))
+        high_value = risk_ratio(top_risk_row.get("risk_probability_high_proxy_4w"))
+        uncertainty_value = risk_ratio(top_risk_row.get("uncertainty_pressure"))
+        criticality_value = to_float(top_risk_row.get("criticality_score"))
+        local_criticality_value = to_float(top_risk_row.get("local_criticality_score"))
+        data_quality = to_float(top_risk_row.get("data_quality_score"))
+        data_gap = None if data_quality is None else max(0.0, min(1.0, 1.0 - data_quality))
+        lead_q50 = to_float(top_risk_row.get("lead_days_q50"))
+        lead_width = to_float(top_risk_row.get("lead_interval_width_days"))
+        lead_uncertainty = to_float(top_risk_row.get("lead_uncertainty_pressure"))
+        if lead_q50 is not None and lead_q50 > 0.0 and lead_width is not None:
+            lead_uncertainty = max(0.0, min(1.0, lead_width / lead_q50))
+        uncertainty_margin = max(0.0, high_value - risk_value)
+        sensitivity_value = to_float(top_risk_row.get("sensitivity_pressure"))
+        sensitivity_external_pressure = to_float(top_risk_row.get("sensitivity_external_qty_delta_pressure"))
+        sensitivity_external_qty = to_float(top_risk_row.get("sensitivity_external_qty_delta"))
+        sensitivity_fill_pressure = to_float(top_risk_row.get("sensitivity_fill_rate_drop_pressure"))
+        sensitivity_fill_drop = to_float(top_risk_row.get("sensitivity_fill_rate_drop"))
+        priority_value = risk_ratio(top_risk_row.get("action_priority_score"))
+        criticality_factor = 0.35 + 0.65 * max(criticality_value or 0.0, local_criticality_value or 0.0)
+        sensitivity_factor = 0.75 + 0.25 * (sensitivity_value or 0.0)
+        lead_observation_count = to_float(top_risk_row.get("lead_observation_count"))
+        capacity_observations = to_float(top_risk_row.get("capacity_observations"))
+        stock_observations = to_float(top_risk_row.get("stock_observations"))
+        active_week_count = to_float(top_risk_row.get("active_week_count"))
+        data_quality_lead = to_float(top_risk_row.get("data_quality_lead_score"))
+        data_quality_capacity = to_float(top_risk_row.get("data_quality_capacity_score"))
+        data_quality_stock = to_float(top_risk_row.get("data_quality_stock_score"))
+        data_quality_criticality = to_float(top_risk_row.get("data_quality_criticality_score"))
+        data_quality_active = to_float(top_risk_row.get("data_quality_active_score"))
+        sensitivity_lowest_scale = to_float(top_risk_row.get("sensitivity_lowest_acceptable_scale"))
+        sensitivity_first_bad = to_float(top_risk_row.get("sensitivity_first_unacceptable_level"))
+        sensitivity_threshold_text = (
+            f"niveau acceptable min {fmt_qty(sensitivity_lowest_scale, 3)} ; premier niveau degrade {fmt_qty(sensitivity_first_bad, 3)}"
+            if sensitivity_first_bad is not None and sensitivity_first_bad > 0.0
+            else f"niveau acceptable min {fmt_qty(sensitivity_lowest_scale, 3)} ; aucun niveau degrade detecte dans la grille"
+        )
+
+        data_quality_card = risk_explanation_card(
+            "Fiabilite des donnees",
+            pct_field(data_quality),
+            "moyenne de 5 controles de disponibilite",
+            "Mesure si les donnees disponibles suffisent a lire le risque avec confiance. Elle ne mesure pas le risque fournisseur; elle mesure la solidite de la lecture.",
+            component_status(pct_field(data_gap)),
+            [
+                ("Role", "sert a augmenter l'incertitude quand la base de lecture est fragile"),
+                ("Echelle", "100% = donnees bien couvertes ; 0% = lecture tres pauvre"),
+                ("Formule", "fiabilite donnees = moyenne(score delai, score capacite, score stock, score criticite, score historique actif)"),
+                ("Observations delai", f"{fmt_qty(lead_observation_count, 0)} obs. -> {pct_field(data_quality_lead)}"),
+                ("Donnees capacite", f"{fmt_qty(capacity_observations, 0)} lignes -> {pct_field(data_quality_capacity)}"),
+                ("Donnees stock", f"{fmt_qty(stock_observations, 0)} lignes -> {pct_field(data_quality_stock)}"),
+                ("Criticite renseignee", pct_field(data_quality_criticality)),
+                ("Historique actif", f"{fmt_qty(active_week_count, 0)} semaines -> {pct_field(data_quality_active)}"),
+                ("Application", f"moyenne({pct_field(data_quality_lead)}, {pct_field(data_quality_capacity)}, {pct_field(data_quality_stock)}, {pct_field(data_quality_criticality)}, {pct_field(data_quality_active)}) = {pct_field(data_quality)}"),
+            ],
+        )
+        uncertainty_card = risk_explanation_card(
+            "Incertitude",
+            pct_field(uncertainty_value),
+            "60% manque qualite donnees + 40% dispersion delai",
+            "Plus cette valeur monte, plus on doit lire le risque avec prudence.",
+            component_status(pct_field(uncertainty_value)),
+            [
+                ("Formule", "incertitude = 60% x manque fiabilite donnees + 40% x dispersion delai"),
+                ("Manque qualite donnees", f"1 - {pct_field(data_quality)} = {pct_field(data_gap)}"),
+                ("Dispersion delai", f"{fmt_days(lead_width, 1)} / {fmt_days(lead_q50, 1)} = {pct_field(lead_uncertainty)}"),
+                ("Application", f"60% x {pct_field(data_gap)} + 40% x {pct_field(lead_uncertainty)} = {pct_field(uncertainty_value)}"),
+            ],
+        )
+        margin_card = risk_explanation_card(
+            "Majoration prudente",
+            points_field(uncertainty_margin),
+            "hypothese de scoring: +4 pts fixes + jusqu'a +26 pts selon incertitude",
+            "Ce n'est pas une donnee observee. C'est un tampon de prudence provisoire pour eviter de sous-lire un risque quand la base d'estimation est moins fiable.",
+            component_status(risk_pct(uncertainty_margin)),
+            [
+                ("Statut", "hypothese de scoring a calibrer avec incidents reels ou Monte Carlo"),
+                ("Formule", "majoration prudente = base prudence + coefficient incertitude x incertitude"),
+                ("Base fixe", "+4.0 pts"),
+                ("Coefficient incertitude", "26.0 pts"),
+                ("Incertitude utilisee", pct_field(uncertainty_value)),
+                ("Part liee a l'incertitude", f"26.0 pts x {pct_field(uncertainty_value)} = {points_field(0.26 * uncertainty_value)}"),
+                ("Application", f"4.0 pts + 26.0 pts x {pct_field(uncertainty_value)} = {points_field(uncertainty_margin)}"),
+            ],
+        )
+        high_card = risk_explanation_card(
+            "Estimation prudente",
+            risk_pct(high_value),
+            "risque estime + majoration prudente",
+            "Valeur conservative a regarder quand la lecture doit rester prudente.",
+            component_status(risk_pct(high_value)),
+            [
+                ("Formule", "estimation prudente = risque estime + majoration prudente"),
+                ("Risque estime", risk_pct(risk_value)),
+                ("Majoration prudente", points_field(uncertainty_margin)),
+                ("Application", f"{risk_pct(risk_value)} + {points_field(uncertainty_margin)} = {risk_pct(high_value)}"),
+            ],
+        )
+        sensitivity_card = risk_explanation_card(
+            "Impact stress tests",
+            pct_field(sensitivity_value),
+            "indice de stress tests: 65% compensation + 35% baisse fill rate",
+            "Ce score resume une campagne de stress tests. Il ne mesure pas la vraie capacite fournisseur; il mesure l'impact observe dans notre modele.",
+            component_status(pct_field(sensitivity_value)),
+            [
+                ("Statut", "indice issu de la campagne de sensibilite, pas une donnee terrain"),
+                ("Role", "utilise dans le signal risque avec un poids de 8%, puis dans le facteur sensibilite"),
+                ("Formule", "impact stress tests = 65% x score compensation matiere + 35% x score baisse service client"),
+                ("Compensation matiere", f"score {pct_field(sensitivity_external_pressure)} ; delta quantite {fmt_qty(sensitivity_external_qty, 1)}"),
+                ("Baisse service client", f"score {pct_field(sensitivity_fill_pressure)} ; baisse fill rate observee {pct_field(sensitivity_fill_drop)}"),
+                ("Seuil de test", sensitivity_threshold_text),
+                ("Point important", "0% = aucun impact observe dans les niveaux testes, pas une garantie fournisseur reelle"),
+                ("Application", f"65% x {pct_field(sensitivity_external_pressure)} + 35% x {pct_field(sensitivity_fill_pressure)} = {pct_field(sensitivity_value)}"),
+            ],
+        )
+        criticality_factor_card = risk_explanation_card(
+            "Facteur criticite",
+            f"x{fmt_qty(criticality_factor, 3)}",
+            "0.35 + 0.65 x max(criticite globale, criticite locale)",
+            "Ce facteur augmente la priorite d'action quand le fournisseur est important pour le reseau ou pour le couple fournisseur / article / site.",
+            component_status(pct_field(max(criticality_value or 0.0, local_criticality_value or 0.0))),
+            [
+                ("Statut", "facteur de priorisation, pas une mesure physique fournisseur"),
+                ("Formule", "facteur criticite = 0.35 + 0.65 x max(criticite globale, criticite locale)"),
+                ("Criticite globale", pct_field(criticality_value)),
+                ("Criticite locale", pct_field(local_criticality_value)),
+                ("Valeur retenue", f"max({pct_field(criticality_value)}, {pct_field(local_criticality_value)}) = {pct_field(max(criticality_value or 0.0, local_criticality_value or 0.0))}"),
+                ("Echelle", "x0.35 minimum ; x1.00 maximum"),
+                ("Pourquoi 0.35 minimum", "un fournisseur peu critique garde une priorite residuelle si le risque estime monte"),
+                ("Application", f"0.35 + 0.65 x {pct_field(max(criticality_value or 0.0, local_criticality_value or 0.0))} = x{fmt_qty(criticality_factor, 3)}"),
+            ],
+        )
+        sensitivity_factor_card = risk_explanation_card(
+            "Facteur sensibilite",
+            f"x{fmt_qty(sensitivity_factor, 3)}",
+            "0.75 + 0.25 x sensibilite locale",
+            "Ce facteur ajuste la priorite d'action avec l'impact observe en stress test, sans effacer le risque quand la sensibilite mesuree vaut 0%.",
+            component_status(pct_field(sensitivity_value)),
+            [
+                ("Statut", "facteur de priorisation derive des stress tests"),
+                ("Formule", "facteur sensibilite = 0.75 + 0.25 x impact stress tests"),
+                ("Sensibilite locale", pct_field(sensitivity_value)),
+                ("Echelle", "x0.75 minimum ; x1.00 maximum"),
+                ("Pourquoi 0.75 minimum", "un stress test neutre ne prouve pas l'absence de risque fournisseur"),
+                ("Application", f"0.75 + 0.25 x {pct_field(sensitivity_value)} = x{fmt_qty(sensitivity_factor, 3)}"),
+            ],
+        )
+        priority_card = risk_explanation_card(
+            "Priorite d'action",
+            risk_pct(priority_value),
+            "risque estime x facteur criticite x facteur sensibilite",
+            "Score d'arbitrage: il combine menace, importance fournisseur et fragilite locale.",
+            component_status(risk_pct(priority_value)),
+            [
+                ("Formule", "priorite action = risque estime x facteur criticite x facteur sensibilite"),
+                ("Risque estime", risk_pct(risk_value)),
+                ("Facteur criticite", f"x{fmt_qty(criticality_factor, 3)}"),
+                ("Facteur sensibilite", f"x{fmt_qty(sensitivity_factor, 3)}"),
+                ("Application", f"{risk_pct(risk_value)} x {fmt_qty(criticality_factor, 3)} x {fmt_qty(sensitivity_factor, 3)} = {risk_pct(priority_value)}"),
+            ],
+        )
+        return "".join(
+            [
+                "<div class=\"riskIndicatorStack\">",
+                risk_indicator_section_html(
+                    "Incertitude et estimation prudente",
+                    "Pourquoi l'estimation prudente peut etre plus haute que le risque estime.",
+                    [data_quality_card, uncertainty_card, margin_card, high_card],
+                ),
+                risk_indicator_section_html(
+                    "Sensibilite fournisseur",
+                    "Ce que montrent les stress tests pour ce fournisseur.",
+                    [sensitivity_card],
+                ),
+                risk_indicator_section_html(
+                    "Priorite d'action",
+                    "Comment le risque devient une priorite de pilotage.",
+                    [criticality_factor_card, sensitivity_factor_card, priority_card],
+                ),
+                "</div>",
+            ]
+        )
+
+    def risk_detail_html() -> str:
+        return "".join(
+            [
+                "<details class=\"sensitivityDetails\">",
+                "<summary>Afficher le calcul detaille</summary>",
+                "<div class=\"riskDetailBlock\">",
+                "<div class=\"riskDetailTitle\">Formule utilisee pour ce noeud</div>",
+                render_data_table(["Etape", "Formule", "Valeur ici"], risk_formula_rows),
+                "<div class=\"riskDetailTitle\">Valeurs en tableau</div>",
+                render_data_table(["Composant", "Poids", "Valeur ici", "Lecture"], [row[:4] for row in risk_component_rows]),
+                "</div>",
+                "</details>",
+            ]
+        )
+
+    def summary_value(label: str) -> str:
+        return str(next((entry.get("value") for entry in summary_lines if entry.get("label") == label), "n/a"))
+
+    def risk_level_status_key(level: str) -> str:
+        normalized = str(level or "").strip().lower()
+        if normalized in {"critique", "eleve", "eleve"}:
+            return "sensitive"
+        if normalized in {"modere", "modere"}:
+            return "watch"
+        if normalized == "faible":
+            return "robust"
+        return "not_local"
+
+    def risk_fact(label: str, value: str, tooltip: str | None = None) -> str:
+        return "".join(
+            [
+                f"<div class=\"{tooltip_class('', tooltip).strip()}\"{tooltip_attrs(tooltip)}>",
+                f"<span>{html.escape(label)}</span>",
+                f"<b>{html.escape(value)}</b>",
+                "</div>",
+            ]
+        )
+
+    def risk_summary_dashboard_html() -> str:
+        node_label = summary_value("Noeud analyse")
+        lecture = summary_value("Lecture")
+        level = summary_value("Niveau de risque")
+        risk_value = summary_value("Risque estime max")
+        high_value = summary_value("Estimation prudente")
+        priority = summary_value("Priorite d'action")
+        recovery = summary_value("Marge de recuperation min")
+        couples = summary_value("Couples analyses")
+        alerts = summary_value("Alertes faibles actives")
+        trends = summary_value("Ruptures de tendance detectees")
+        action = summary_value("Action prudente")
+        top_driver = (top_component_drivers(1) or [["n/a", "n/a", "n/a", "", None]])[0]
+        top_driver_text = f"{top_driver[0]} ({points_field(component_contribution(top_driver))})"
+        data_quality = to_float(top_risk_row.get("data_quality_score"))
+        risk_signal = risk_ratio(top_risk_row.get("risk_signal"))
+        risk_max_numeric = max_numeric("risk_probability_proxy_4w")
+        high_max_numeric = max_numeric("risk_probability_high_proxy_4w")
+        uncertainty_value = risk_ratio(top_risk_row.get("uncertainty_pressure"))
+        uncertainty_margin = max(0.0, risk_ratio(top_risk_row.get("risk_probability_high_proxy_4w")) - risk_ratio(top_risk_row.get("risk_probability_proxy_4w")))
+        top_action_row = max(rows, key=lambda row: risk_ratio(row.get("action_priority_score"))) if rows else top_risk_row
+        action_risk = risk_ratio(top_action_row.get("risk_probability_proxy_4w"))
+        action_criticality = max(
+            to_float(top_action_row.get("criticality_score")) or 0.0,
+            to_float(top_action_row.get("local_criticality_score")) or 0.0,
+        )
+        action_sensitivity = to_float(top_action_row.get("sensitivity_pressure")) or 0.0
+        action_criticality_factor = 0.35 + 0.65 * action_criticality
+        action_sensitivity_factor = 0.75 + 0.25 * action_sensitivity
+        min_resilience_row = min(rows, key=lambda row: risk_ratio(row.get("resilience_score"))) if rows else top_risk_row
+        stock_absorption = 1.0 - (to_float(min_resilience_row.get("stock_pressure")) or 0.0)
+        capacity_headroom = 1.0 - (to_float(min_resilience_row.get("capacity_pressure")) or 0.0)
+        recovery_slope = 1.0 - (to_float(min_resilience_row.get("dynamic_pressure")) or 0.0)
+        source_flexibility = 1.0 - (to_float(min_resilience_row.get("mono_source_score")) or 0.0)
+        sensitivity_resilience = 1.0 - (to_float(min_resilience_row.get("sensitivity_pressure")) or 0.0)
+        resilience_data_quality = to_float(min_resilience_row.get("data_quality_score"))
+        recovery_min_numeric = min_numeric("resilience_score")
+        data_quality_lead = to_float(top_risk_row.get("data_quality_lead_score"))
+        data_quality_capacity = to_float(top_risk_row.get("data_quality_capacity_score"))
+        data_quality_stock = to_float(top_risk_row.get("data_quality_stock_score"))
+        data_quality_criticality = to_float(top_risk_row.get("data_quality_criticality_score"))
+        data_quality_active = to_float(top_risk_row.get("data_quality_active_score"))
+        alert_count = sum(1 for row in rows if int(to_float(row.get("early_warning_flag")) or 0) > 0)
+        alert_score_max = max_numeric("early_warning_score")
+        trend_count = sum(1 for row in rows if int(to_float(row.get("change_point_flag")) or 0) > 0)
+        trend_total = len(rows)
+        trend_score_max = max_numeric("change_point_score")
+        trend_dynamic_max = max_numeric("dynamic_pressure")
+        risk_tooltip = "\n".join(
+            [
+                "Formule",
+                "risque estime = courbe S(-3 + 5 x signal risque)",
+                "",
+                "Calcul ici",
+                f"Signal risque = {pct_field(risk_signal)}",
+                f"courbe S(-3 + 5 x {pct_field(risk_signal)}) = {risk_pct(risk_max_numeric)}",
+                f"Resultat affiche = {risk_value}",
+                "",
+                "Lecture",
+                "Score de decision a 4 semaines. Ce n'est pas une probabilite historique observee.",
+            ]
+        )
+        high_tooltip = "\n".join(
+            [
+                "Formule",
+                "estimation prudente = risque estime + majoration prudente",
+                "",
+                "Calcul ici",
+                f"Risque estime = {risk_pct(top_risk_row.get('risk_probability_proxy_4w'))}",
+                f"Majoration prudente = 4 pts + 26 pts x incertitude {pct_field(uncertainty_value)} = {points_field(uncertainty_margin)}",
+                f"Application = {risk_pct(top_risk_row.get('risk_probability_proxy_4w'))} + {points_field(uncertainty_margin)} = {risk_pct(top_risk_row.get('risk_probability_high_proxy_4w'))}",
+                f"Max affiche = {risk_pct(high_max_numeric)}",
+                "",
+                "Lecture",
+                "Valeur conservative quand les donnees sont moins completes ou les delais plus disperses.",
+            ]
+        )
+        priority_tooltip = "\n".join(
+            [
+                "Formule",
+                "priorite action = risque estime x facteur criticite x facteur sensibilite",
+                "",
+                "Calcul ici",
+                f"Risque estime = {risk_pct(action_risk)}",
+                f"Facteur criticite = 0.35 + 0.65 x {pct_field(action_criticality)} = x{fmt_qty(action_criticality_factor, 3)}",
+                f"Facteur sensibilite = 0.75 + 0.25 x {pct_field(action_sensitivity)} = x{fmt_qty(action_sensitivity_factor, 3)}",
+                f"Application = {risk_pct(action_risk)} x {fmt_qty(action_criticality_factor, 3)} x {fmt_qty(action_sensitivity_factor, 3)} = {priority}",
+                "",
+                "Lecture",
+                "Score d'arbitrage: plus il est haut, plus une action fournisseur devient prioritaire.",
+            ]
+        )
+        recovery_tooltip = "\n".join(
+            [
+                "Formule",
+                "marge recuperation = 25% stock + 20% capacite + 20% stabilite + 15% alternatives + 10% sensibilite + 10% fiabilite donnees",
+                "",
+                "Calcul ici",
+                f"25% x stock {pct_field(stock_absorption)}",
+                f"20% x capacite {pct_field(capacity_headroom)}",
+                f"20% x stabilite {pct_field(recovery_slope)}",
+                f"15% x alternatives {pct_field(source_flexibility)}",
+                f"10% x sensibilite {pct_field(sensitivity_resilience)}",
+                f"10% x fiabilite donnees {pct_field(resilience_data_quality)}",
+                f"Resultat min affiche = {risk_pct(recovery_min_numeric)}",
+                "",
+                "Lecture",
+                "Capacite estimee d'absorption et de retour a la normale dans le modele.",
+            ]
+        )
+        driver_tooltip = component_tooltip(top_driver)
+        data_quality_tooltip = "\n".join(
+            [
+                "Formule",
+                "fiabilite donnees = moyenne(score delai, score capacite, score stock, score criticite, score historique actif)",
+                "",
+                "Calcul ici",
+                f"Delai = {pct_field(data_quality_lead)}",
+                f"Capacite = {pct_field(data_quality_capacity)}",
+                f"Stock = {pct_field(data_quality_stock)}",
+                f"Criticite = {pct_field(data_quality_criticality)}",
+                f"Historique actif = {pct_field(data_quality_active)}",
+                f"Moyenne = {pct_field(data_quality)}",
+                "",
+                "Lecture",
+                "Mesure la solidite de la lecture, pas la performance fournisseur.",
+            ]
+        )
+        couples_tooltip = "\n".join(
+            [
+                "Formule",
+                "couples analyses = nombre de couples fournisseur / article / site disponibles pour ce noeud",
+                "",
+                "Calcul ici",
+                f"Lignes retenues = {trend_total}",
+                f"Resultat affiche = {couples}",
+                "",
+                "Lecture",
+                "Plus le nombre est faible, plus l'analyse locale doit etre lue prudemment.",
+            ]
+        )
+        alert_tooltip = "\n".join(
+            [
+                "Formule",
+                "alertes faibles = nombre de couples avec signal faible actif",
+                "",
+                "Regle de detection",
+                "Alerte active si early_warning_score >= 45%.",
+                "",
+                "Calcul ici",
+                f"Couples en alerte = {alert_count} / {trend_total}",
+                f"Score alerte max = {pct_field(alert_score_max)}",
+                f"Resultat affiche = {alerts}",
+                "",
+                "Lecture",
+                "Signal avance: volatilite, baisse stock, acceleration capacite, incertitude delai.",
+            ]
+        )
+        trend_tooltip = "\n".join(
+            [
+                "Formule",
+                "Ruptures tendance = nombre de couples fournisseur / article / site avec rupture de tendance detectee.",
+                "",
+                "Regle de detection",
+                "Rupture detectee si change_point_score >= 65%.",
+                "",
+                "Calcul ici",
+                f"Couples detectes = {trend_count} / {trend_total}",
+                f"Score rupture max = {pct_field(trend_score_max)}",
+                f"Seuil = 65.0%",
+                f"Resultat affiche = {trends}",
+                "",
+                "Lecture",
+                f"Dynamique / signaux faibles max = {pct_field(trend_dynamic_max)}.",
+            ]
+        )
+        status_key = risk_level_status_key(level)
+        return "".join(
+            [
+                f"<div class=\"riskSummaryDashboard sensitivityStatus-{html.escape(status_key)}\">",
+                "<div class=\"riskSummaryHero\">",
+                "<div class=\"riskSummaryMain\">",
+                f"<div class=\"sensitivityStatusPill\">Risque {html.escape(level)}</div>",
+                f"<div class=\"riskSummaryTitle\">{html.escape(node_label)} - {html.escape(lecture)}</div>",
+                (
+                    "<div class=\"riskSummaryText\">"
+                    f"Risque {html.escape(level)}. Principal signal : {html.escape(str(top_driver[0]))}. "
+                    f"Fiabilite donnees : {html.escape(pct_field(data_quality))}. "
+                    f"Action prudente : {html.escape(action)}."
+                    "</div>"
+                ),
+                "</div>",
+                "<div class=\"riskSummaryFacts\">",
+                risk_fact("Risque estime max", risk_value, risk_tooltip),
+                risk_fact("Estimation prudente", high_value, high_tooltip),
+                risk_fact("Priorite d'action", priority, priority_tooltip),
+                risk_fact("Marge recuperation", recovery, recovery_tooltip),
+                risk_fact("Signal principal", top_driver_text, driver_tooltip),
+                risk_fact("Fiabilite donnees", pct_field(data_quality), data_quality_tooltip),
+                risk_fact("Couples analyses", couples, couples_tooltip),
+                risk_fact("Alertes faibles", alerts, alert_tooltip),
+                risk_fact("Ruptures tendance", trends, trend_tooltip),
+                "</div>",
+                "</div>",
+                "</div>",
+            ]
+        )
+
+    risk_formula_rows = [
+        [
+            "1. Signal risque",
+            "0.20 x criticite + 0.14 x mono-source + 0.15 x stock + 0.11 x capacite + 0.10 x delai + 0.08 x exposition + 0.08 x sensibilite + 0.08 x dynamique + 0.06 x incertitude",
+            pct_field(to_float(top_risk_row.get("risk_signal"))),
+        ],
+        [
+            "2. Risque estime 4 semaines",
+            "courbe S du signal: 1 / (1 + exp(-(-3 + 5 x signal risque)))",
+            risk_pct(top_risk_row.get("risk_probability_proxy_4w")),
+        ],
+        [
+            "3. Estimation prudente",
+            "risque estime + marge de prudence ; marge = 4 pts + 26 pts x incertitude",
+            risk_pct(top_risk_row.get("risk_probability_high_proxy_4w")),
+        ],
+        [
+            "4. Priorite d'action",
+            "risque estime x facteur criticite x facteur sensibilite",
+            risk_pct(top_risk_row.get("action_priority_score")),
+        ],
+    ]
+    explanation_rows = [
+        [
+            "Risque estime max",
+            "courbe S du signal risque",
+            risk_pct(max_numeric("risk_probability_proxy_4w")),
+            "Menace estimee a 4 semaines. Ce n'est pas une probabilite historique observee, c'est un score calibre entre 0 et 95%.",
+        ],
+        [
+            "Estimation prudente",
+            "risque estime + marge liee a l'incertitude",
+            risk_pct(max_numeric("risk_probability_high_proxy_4w")),
+            "Version prudente du risque estime, augmentee quand les donnees ou la prediction sont moins certaines.",
+        ],
+        [
+            "Priorite d'action",
+            "risque estime x criticite x sensibilite",
+            risk_pct(max_numeric("action_priority_score")),
+            "Score d'arbitrage: menace estimee, criticite locale, exposition volumes et marge de recuperation.",
+        ],
+        [
+            "Marge de recuperation",
+            "stock + capacite + dynamique + alternatives + qualite donnees",
+            pct_field(min_numeric("resilience_score")),
+            "Capacite estimee a absorber la perturbation puis revenir a la normale.",
+        ],
+        [
+            "Niveau de risque",
+            "decision_zone",
+            next((entry["value"] for entry in summary_lines if entry.get("label") == "Niveau de risque"), "n/a"),
+            "Classification lisible de la priorite: Faible, Modere, Eleve ou Critique.",
+        ],
+    ]
+    observed_rows = [
+        [
+            "Delai matiere",
+            "lead_days_avg_week / lead_days_q95",
+            f"moy. max {fmt_days(max_numeric('lead_days_avg_week'), 1)} ; p95 max {fmt_days(max_numeric('lead_days_q95'), 1)}",
+            "Delais observes sur les flux fournisseur vers site.",
+        ],
+        [
+            "Fiabilite",
+            "reliability_avg_week",
+            f"min {pct_field(min_numeric('reliability_avg_week'))}",
+            "Ratio moyen expedie / demande tiree fournisseur sur la semaine.",
+        ],
+        [
+            "Stock fournisseur",
+            "stock_min_of_week",
+            f"min {fmt_qty(min_numeric('stock_min_of_week'), 1)}",
+            "Stock minimum observe chez le fournisseur pour les couples couverts.",
+        ],
+        [
+            "Capacite",
+            "capacity_utilization_max_week",
+            f"utilisation max {pct_field(max_numeric('capacity_utilization_max_week'))}",
+            "Utilisation maximale de la capacite fournisseur modelee.",
+        ],
+        [
+            "Criticite locale",
+            "local_criticality_score / mono_source_score",
+            f"criticite max {pct_field(max_numeric('local_criticality_score'))} ; mono-source max {pct_field(max_numeric('mono_source_score'))}",
+            "Importance du fournisseur pour les articles/sites servis.",
+        ],
+        [
+            "Sensibilite",
+            "sensitivity_pressure",
+            pct_field(max_numeric("sensitivity_pressure")),
+            "Pression issue des tests de sensibilite: le systeme se degrade-t-il quand on stresse ce fournisseur ?",
+        ],
+        [
+            "Incertitude",
+            "uncertainty_pressure / data_quality_score",
+            f"incertitude max {pct_field(max_numeric('uncertainty_pressure'))} ; qualite donnees min {pct_field(min_numeric('data_quality_score'))}",
+            "Confiance dans la lecture du risque.",
+        ],
+        [
+            "Exposition volumes",
+            "expected_exposure_qty_4w_proxy",
+            fmt_qty(sum(numeric_values("expected_exposure_qty_4w_proxy")), 1),
+            "Volume attendu expose sur l'horizon de lecture.",
+        ],
+        [
+            "Signaux faibles",
+            "early_warning_flag / change_point_flag",
+            f"alertes {sum(1 for row in rows if int(to_float(row.get('early_warning_flag')) or 0) > 0)} ; ruptures tendance {sum(1 for row in rows if int(to_float(row.get('change_point_flag')) or 0) > 0)}",
+            "Indicateurs de degradation avant incident visible.",
+        ],
+    ]
+    source_rows = [
+        ["Flux / delais / fiabilite", "production_supplier_shipments_daily.csv", "envois, quantites tirees, delais, fiabilite"],
+        ["Stocks fournisseur", "production_supplier_stocks_daily.csv", "stock journalier fournisseur"],
+        ["Capacite fournisseur", "production_supplier_capacity_daily.csv", "capacite, utilisation, reste disponible"],
+        ["Panel risque", "supplier_item_week_panel.csv", "agregation hebdomadaire et scores fournisseur-article-site"],
+        ["Photo risque", "supplier_item_risk_kpi.csv / supplier_risk_kpi.csv", "derniere photo par couple et aggregation fournisseur"],
+    ]
+
+    def details_html(label: str, content: str, *, open_by_default: bool = False) -> str:
+        open_attr = " open" if open_by_default else ""
+        return "".join(
+            [
+                f"<details class=\"sensitivityDetails riskMethodDetails\"{open_attr}>",
+                f"<summary>{html.escape(label)}</summary>",
+                content,
+                "</details>",
+            ]
+        )
+
+    def risk_method_html() -> str:
+        return details_html(
+            "Afficher la methode, les formules et les sources",
+            "".join(
+                [
+                    "<div class=\"riskMethodStack\">",
+                    "<div class=\"riskMethodNote\">Les blocs ci-dessous servent a auditer le score. Ils ne sont pas necessaires pour la lecture operationnelle quotidienne.</div>",
+                    "<div class=\"riskMethodSubTitle\">Calcul complet du signal risque</div>",
+                    risk_signal_components_html(),
+                    "<div class=\"riskMethodSubTitle\">Indicateurs derives et hypotheses de scoring</div>",
+                    risk_explanation_cards_html(),
+                    "<div class=\"riskMethodSubTitle\">Tables d'audit</div>",
+                    risk_detail_html(),
+                    details_html(
+                        "Afficher d'ou viennent les chiffres",
+                        render_data_table(["Chiffre affiche", "Calcul / source", "Valeur ici", "Lecture"], explanation_rows),
+                    ),
+                    details_html(
+                        "Afficher les signaux observes",
+                        render_data_table(["Signal", "Champ utilise", "Valeur ici", "Lecture"], observed_rows),
+                    ),
+                    details_html(
+                        "Afficher les sources de donnees",
+                        render_data_table(["Bloc", "Fichier", "Contenu"], source_rows),
+                    ),
+                    "</div>",
+                ]
+            ),
+        )
+
     return data_html_asset(
         f"{display_node_label(node_id)} - risques fournisseurs",
-        "Boucle KPI -> risque probabiliste -> incertitude -> resilience -> decision robuste.",
+        "Lecture courte: niveau de menace fournisseur, confiance de l'estimation et action recommandee.",
         [
-            ("Synthese", render_data_kv([(entry["label"], entry["value"]) for entry in summary_lines])),
+            ("Synthese", risk_summary_dashboard_html()),
             (
-                "Lecture operationnelle",
-                render_data_table(
-                    ["Bloc", "Question metier"],
-                    [
-                        ["Performance", "Le fournisseur est-il actuellement proche de sa cible ?"],
-                        ["Risque", "Quelle probabilite d'incident sur l'horizon 4 semaines ?"],
-                        ["Incertitude", "Le modele est-il suffisamment confiant pour agir finement ?"],
-                        ["Resilience", "Le fournisseur peut-il absorber puis recuperer ?"],
-                        ["Decision", "Quelle action reste acceptable si le futur est pire que prevu ?"],
-                    ],
-                ),
+                "Raisons principales",
+                risk_driver_summary_html(),
             ),
+            ("Methode de calcul", risk_method_html()),
         ],
     )
 
@@ -5660,10 +6722,10 @@ def uncertainty_level(cv: float | None) -> str:
     if cv is None:
         return "non estimee"
     if cv < 0.05:
-        return "faible"
+        return "stable"
     if cv < 0.20:
-        return "moderee"
-    return "elevee"
+        return "variable"
+    return "tres variable"
 
 
 def fmt_uncertainty_band(values: list[float], *, kind: str = "qty", digits: int = 1) -> str:
@@ -5740,6 +6802,11 @@ def render_passive_uncertainty_html(
         if planned is None or effective is None or planned <= 0 or effective < 0:
             continue
         comparable_lead_pairs.append((float(planned), float(effective)))
+    lead_ratio_values = [
+        effective / planned
+        for planned, effective in comparable_lead_pairs
+        if planned > 0
+    ]
     late_pairs = [
         (planned, effective)
         for planned, effective in comparable_lead_pairs
@@ -5751,7 +6818,7 @@ def render_passive_uncertainty_html(
         if comparable_lead_pairs
         else None
     )
-    lead_cv = coefficient_of_variation(effective_leads)
+    lead_cv = coefficient_of_variation(lead_ratio_values) or coefficient_of_variation(effective_leads)
     lead_cv_suggested = max(0.05, min(0.35, lead_cv if lead_cv is not None else 0.10))
 
     capacity_values = finite_numeric_values(
@@ -5768,11 +6835,11 @@ def render_passive_uncertainty_html(
         ),
         positive_only=True,
     )
-    capacity_cv = coefficient_of_variation(capacity_values)
-    capacity_cv_suggested = max(0.05, min(0.30, capacity_cv if capacity_cv is not None else 0.10))
     max_utilization = max(utilization_values) if utilization_values else None
     avg_active_utilization_values = [value for value in utilization_values if value > 1e-9]
     avg_active_utilization = statistics.mean(avg_active_utilization_values) if avg_active_utilization_values else None
+    capacity_cv = coefficient_of_variation(avg_active_utilization_values or utilization_values)
+    capacity_cv_suggested = max(0.05, min(0.30, capacity_cv if capacity_cv is not None else 0.10))
 
     stock_values = finite_numeric_values((row.get("stock_end_of_day") for row in visible_stock_rows))
     stock_cv = coefficient_of_variation(stock_values)
@@ -5823,21 +6890,300 @@ def render_passive_uncertainty_html(
     def fmt_optional_pct_fraction(value: float | None, digits: int = 1) -> str:
         return "n/a" if value is None else fmt_pct(value * 100.0, digits)
 
+    def data_confidence(row_count: int, *, has_distribution: bool = True) -> float:
+        value = 0.18 + math.log1p(max(0, row_count)) / 7.5
+        if has_distribution:
+            value += 0.08
+        return max(0.0, min(0.95, value))
+
+    def uncertainty_pressure_from_cv(cv: float | None, *, missing_penalty: float, scale: float) -> float:
+        if cv is None:
+            return missing_penalty
+        return max(0.0, min(1.0, cv / scale))
+
+    lead_uncertainty = uncertainty_pressure_from_cv(lead_cv, missing_penalty=0.45, scale=0.35)
+    capacity_uncertainty = uncertainty_pressure_from_cv(capacity_cv, missing_penalty=0.35, scale=0.30)
+    stock_uncertainty = uncertainty_pressure_from_cv(stock_cv, missing_penalty=0.35, scale=0.80)
+    reliability_uncertainty = uncertainty_pressure_from_cv(reliability_cv, missing_penalty=0.30, scale=0.05)
+    delay_risk = max(lead_uncertainty, delay_probability or 0.0)
+    capacity_risk = capacity_uncertainty
+    stock_cycle_pressure = min(0.35, stock_uncertainty)
+    stock_risk = max(stock_cycle_pressure, stock_zero_probability or 0.0)
+    reliability_risk = max(reliability_uncertainty, min(1.0, 4.0 * (loss_mean or 0.0)))
+    global_uncertainty = (
+        0.35 * delay_risk
+        + 0.25 * capacity_risk
+        + 0.20 * stock_risk
+        + 0.20 * reliability_risk
+    )
+    global_confidence = statistics.mean(
+        [
+            data_confidence(len(comparable_lead_pairs), has_distribution=bool(effective_leads)),
+            data_confidence(len(visible_capacity_rows), has_distribution=bool(capacity_values)),
+            data_confidence(len(visible_stock_rows), has_distribution=bool(stock_values)),
+            data_confidence(len(visible_shipment_rows), has_distribution=bool(reliability_values or loss_ratios)),
+        ]
+    )
+
+    def uncertainty_status_key(score: float) -> str:
+        if score >= 0.60:
+            return "sensitive"
+        if score >= 0.30:
+            return "watch"
+        return "robust"
+
+    def uncertainty_status_label(score: float) -> str:
+        if score >= 0.60:
+            return "fragile"
+        if score >= 0.30:
+            return "a qualifier"
+        return "fiable"
+
+    def uncertainty_fact(label: str, value: str, tooltip: str | None = None) -> str:
+        return "".join(
+            [
+                f"<div class=\"{html_tooltip_class('', tooltip)}\"{html_tooltip_attrs(tooltip)}>",
+                f"<span>{html.escape(label)}</span>",
+                f"<b>{html.escape(value)}</b>",
+                "</div>",
+            ]
+        )
+
+    def uncertainty_card(title: str, value: str, note: str, score: float, tooltip: str | None = None) -> str:
+        status_key = uncertainty_status_key(score)
+        return "".join(
+            [
+                f"<div class=\"{html_tooltip_class(f'uncertaintyCard sensitivityStatus-{html.escape(status_key)}', tooltip)}\"{html_tooltip_attrs(tooltip)}>",
+                f"<div class=\"uncertaintyCardLabel\">{html.escape(title)}</div>",
+                f"<div class=\"uncertaintyCardValue\">{html.escape(value)}</div>",
+                f"<div class=\"uncertaintyCardNote\">{html.escape(note)}</div>",
+                "</div>",
+            ]
+        )
+
+    global_uncertainty_tooltip = "\n".join(
+        [
+            "Formule",
+            "incertitude globale = 35% delai + 25% capacite + 20% stock + 20% fiabilite",
+            "",
+            "Calcul ici",
+            f"35% x delai {fmt_pct(delay_risk * 100.0)}",
+            f"25% x capacite {fmt_pct(capacity_risk * 100.0)}",
+            f"20% x stock {fmt_pct(stock_risk * 100.0)}",
+            f"20% x fiabilite {fmt_pct(reliability_risk * 100.0)}",
+            f"Resultat = {fmt_pct(global_uncertainty * 100.0)}",
+            "",
+            "Lecture",
+            "Mesure la qualite de lecture et la dispersion des donnees locales. Ce n'est ni un incident simule, ni une mesure de resilience.",
+        ]
+    )
+    confidence_tooltip = "\n".join(
+        [
+            "Formule",
+            "confiance donnees = moyenne des couvertures delai, capacite, stock et fiabilite",
+            "",
+            "Calcul ici",
+            f"Ordres comparables delai = {len(comparable_lead_pairs)}",
+            f"Lignes capacite = {len(visible_capacity_rows)}",
+            f"Lignes stock = {len(visible_stock_rows)}",
+            f"Lignes flux = {len(visible_shipment_rows)}",
+            f"Confiance moyenne = {fmt_pct(global_confidence * 100.0)}",
+            "",
+            "Lecture",
+            "Plus cette valeur est haute, plus les donnees suffisent a lire la situation.",
+        ]
+    )
+    lead_tooltip = "\n".join(
+        [
+            "Formule",
+            "score delai = max(incertitude delai, taux de retard)",
+            "incertitude delai = CV delai / 35%",
+            "",
+            "Calcul ici",
+            f"CV delai = {fmt_optional_pct_fraction(lead_cv)}",
+            f"Incertitude delai = {fmt_pct(lead_uncertainty * 100.0)}",
+            f"Taux retard = {fmt_optional_pct_fraction(delay_probability)}",
+            f"Retard moyen = {fmt_days(avg_delay, 1)}",
+            f"Score delai = {fmt_pct(delay_risk * 100.0)}",
+            "",
+            "Lecture",
+            "Mesure si les delais observes sont disperses ou souvent au-dessus du delai prevu.",
+        ]
+    )
+    capacity_tooltip = "\n".join(
+        [
+            "Formule",
+            "score capacite = CV utilisation capacite / 30%",
+            "",
+            "Calcul ici",
+            f"CV utilisation = {fmt_optional_pct_fraction(capacity_cv)}",
+            f"Utilisation active moyenne = {fmt_optional_pct_fraction(avg_active_utilization)}",
+            f"Utilisation max = {fmt_optional_pct_fraction(max_utilization)}",
+            f"Score capacite = {fmt_pct(capacity_risk * 100.0)}",
+            "",
+            "Lecture",
+            "Mesure la dispersion de l'utilisation capacite disponible dans les donnees.",
+        ]
+    )
+    stock_tooltip = "\n".join(
+        [
+            "Formule",
+            "score stock = max(pression cycle stock, part jours a stock zero)",
+            "pression cycle stock = min(35%, CV stock / 80%)",
+            "",
+            "Calcul ici",
+            f"CV stock = {fmt_optional_pct_fraction(stock_cv)}",
+            f"Pression cycle stock = {fmt_pct(stock_cycle_pressure * 100.0)}",
+            f"Part jours stock zero = {fmt_optional_pct_fraction(stock_zero_probability)}",
+            f"Jours stock zero = {stock_zero_days}",
+            f"Score stock = {fmt_pct(stock_risk * 100.0)}",
+            "",
+            "Lecture",
+            "Mesure l'incertitude de lecture liee aux cycles de stock et aux passages a zero.",
+        ]
+    )
+    reliability_tooltip = "\n".join(
+        [
+            "Formule",
+            "score fiabilite = max(CV fiabilite / 5%, 4 x perte moyenne)",
+            "",
+            "Calcul ici",
+            f"CV fiabilite = {fmt_optional_pct_fraction(reliability_cv)}",
+            f"Incertitude fiabilite = {fmt_pct(reliability_uncertainty * 100.0)}",
+            f"Perte moyenne = {fmt_optional_pct_fraction(loss_mean, 2)}",
+            f"4 x perte moyenne = {fmt_optional_pct_fraction(4.0 * (loss_mean or 0.0), 2)}",
+            f"Score fiabilite = {fmt_pct(reliability_risk * 100.0)}",
+            "",
+            "Lecture",
+            "Mesure la dispersion de fiabilite et les pertes observees sur les flux fournisseur.",
+        ]
+    )
+
+    dashboard_html = "".join(
+        [
+            f"<div class=\"{html_tooltip_class(f'uncertaintyDashboard sensitivityStatus-{html.escape(uncertainty_status_key(global_uncertainty))}', global_uncertainty_tooltip)}\"{html_tooltip_attrs(global_uncertainty_tooltip)}>",
+            "<div class=\"uncertaintyHero\">",
+            "<div>",
+            f"<div class=\"sensitivityStatusPill\">Lecture {html.escape(uncertainty_status_label(global_uncertainty))}</div>",
+            f"<div class=\"uncertaintyHeroTitle\">{html.escape(scope_id)} - confiance de lecture</div>",
+            f"<div class=\"uncertaintyHeroText\">Ce panneau dit si les donnees locales sont faciles a lire: couverture, dispersion des delais, cycles de stock, capacite et fiabilite. Il ne mesure pas la resilience du systeme. La resilience se lit dans le bouton Monte Carlo. Score lecture {fmt_pct(global_uncertainty * 100.0)} ; confiance donnees {fmt_pct(global_confidence * 100.0)}.</div>",
+            "</div>",
+            "<div class=\"uncertaintyHeroFacts\">",
+            uncertainty_fact("Items", item_text, f"Items couverts par cette lecture: {item_text}"),
+            uncertainty_fact("Lignes ordres", str(len(visible_order_rows)), f"Lignes carnet MRP/ordres utilisees. Couples delai comparables: {len(comparable_lead_pairs)}."),
+            uncertainty_fact("Lignes stock", str(len(visible_stock_rows)), f"Lignes de stock fournisseur utilisees. Jours stock zero detectes: {stock_zero_days}."),
+            uncertainty_fact("Lignes flux", str(len(visible_shipment_rows)), f"Lignes de flux fournisseur utilisees. Confiance donnees globale: {fmt_pct(global_confidence * 100.0)}."),
+            "</div>",
+            "</div>",
+            "<div class=\"uncertaintyCardGrid\">",
+            uncertainty_card(
+                "Delai matiere",
+                uncertainty_level(lead_cv),
+                "dispersion observee des delais" if lead_cv is not None else "donnees de delai limitees",
+                delay_risk,
+                lead_tooltip,
+            ),
+            uncertainty_card(
+                "Capacite",
+                uncertainty_level(capacity_cv),
+                f"utilisation max {fmt_optional_pct_fraction(max_utilization)}",
+                capacity_risk,
+                capacity_tooltip,
+            ),
+            uncertainty_card(
+                "Stock",
+                uncertainty_level(stock_cv),
+                f"jours a stock zero: {stock_zero_days}",
+                stock_risk,
+                stock_tooltip,
+            ),
+            uncertainty_card(
+                "Fiabilite",
+                uncertainty_level(reliability_cv),
+                f"perte moyenne {fmt_optional_pct_fraction(loss_mean, 2)}",
+                reliability_risk,
+                reliability_tooltip,
+            ),
+            "</div>",
+            "</div>",
+        ]
+    )
+
+    def envelope_row(
+        scenario: str,
+        lead_mult: float,
+        cap_mult: float,
+        stock_mult: float,
+        reliability_mult: float,
+        meaning: str,
+    ) -> str:
+        lead_factor = 1.0 + lead_cv_suggested * lead_mult
+        cap_factor = max(0.0, 1.0 - capacity_cv_suggested * cap_mult)
+        stock_factor = max(0.0, 1.0 - stock_cv_suggested * stock_mult)
+        reliability_factor = max(0.0, 1.0 - reliability_cv_suggested * reliability_mult)
+        return (
+            "<tr>"
+            f"<td>{html.escape(scenario)}</td>"
+            f"<td>x{lead_factor:.2f}</td>"
+            f"<td>x{cap_factor:.2f}</td>"
+            f"<td>x{stock_factor:.2f}</td>"
+            f"<td>x{reliability_factor:.3f}</td>"
+            f"<td>{html.escape(meaning)}</td>"
+            "</tr>"
+        )
+
+    envelope_rows = [
+        envelope_row("Reference", 0.0, 0.0, 0.0, 0.0, "run courant, sans alea ajoute"),
+        envelope_row("Prudent", 1.0, 1.0, 1.0, 1.0, "variation plausible a tester en premier"),
+        envelope_row("Pessimiste", 2.0, 2.0, 2.0, 2.0, "stress d'incertitude sans incident explicite"),
+    ]
+    envelope_html = "".join(
+        [
+            "<div class=\"uncertaintyEnvelope\">",
+            "<table class=\"kpiFormulaTable\">",
+            "<thead><tr><th>Enveloppe</th><th>Delai</th><th>Capacite</th><th>Stock</th><th>Fiabilite</th><th>Lecture</th></tr></thead>",
+            f"<tbody>{''.join(envelope_rows)}</tbody>",
+            "</table>",
+            "</div>",
+        ]
+    )
+
+    quality_rows = [
+        ("Lead time", len(comparable_lead_pairs), data_confidence(len(comparable_lead_pairs), has_distribution=bool(effective_leads)), "ordre -> reception prevue/effective"),
+        ("Capacite", len(visible_capacity_rows), data_confidence(len(visible_capacity_rows), has_distribution=bool(capacity_values)), "capacite quotidienne observee"),
+        ("Stock", len(visible_stock_rows), data_confidence(len(visible_stock_rows), has_distribution=bool(stock_values)), "stock fournisseur journalier"),
+        ("Fiabilite", len(visible_shipment_rows), data_confidence(len(visible_shipment_rows), has_distribution=bool(reliability_values or loss_ratios)), "expeditions et pertes"),
+    ]
+    quality_html = "".join(
+        [
+            "<div class=\"uncertaintyQualityGrid\">",
+            *(
+                "<div class=\"uncertaintyQualityCell\">"
+                f"<div class=\"uncertaintyQualityTitle\">{html.escape(name)}</div>"
+                f"<div class=\"uncertaintyQualityValue\">{count} lignes · {fmt_pct(conf * 100.0)}</div>"
+                f"<div class=\"uncertaintyQualityNote\">{html.escape(note)}</div>"
+                "</div>"
+                for name, count, conf, note in quality_rows
+            ),
+            "</div>",
+        ]
+    )
+
     table_rows = [
         (
             "Lead time",
             "mrp_orders_daily: order_date_imt, actual_receipt_day, lead_reference_days",
             fmt_optional_mean(planned_leads, kind="days"),
-            f"{uncertainty_level(lead_cv)} ; CV={lead_cv:.3f}" if lead_cv is not None else "non estimee",
+            f"{uncertainty_level(lead_cv)}" if lead_cv is not None else "non estimee",
             fmt_uncertainty_band(effective_leads, kind="days"),
-            f"P(retard)={fmt_optional_pct_fraction(delay_probability)} ; retard moyen={fmt_days(avg_delay, 1)}",
+            f"taux retard={fmt_optional_pct_fraction(delay_probability)} ; retard moyen={fmt_days(avg_delay, 1)}",
             f"lead_time_cv={lead_cv_suggested:.3f} (inactif)",
         ),
         (
             "Capacite",
             "production_supplier_capacity_daily.csv",
             fmt_optional_mean(nominal_capacity_values or capacity_values),
-            f"{uncertainty_level(capacity_cv)} ; CV cap={capacity_cv:.3f}" if capacity_cv is not None else "non estimee",
+            f"{uncertainty_level(capacity_cv)}" if capacity_cv is not None else "non estimee",
             fmt_uncertainty_band(capacity_values),
             f"util active={fmt_optional_pct_fraction(avg_active_utilization)} ; util max={fmt_optional_pct_fraction(max_utilization)}",
             f"capacity_cv={capacity_cv_suggested:.3f} (inactif)",
@@ -5846,16 +7192,16 @@ def render_passive_uncertainty_html(
             "Stock fournisseur",
             "production_supplier_stocks_daily.csv",
             fmt_optional_mean(stock_values),
-            f"{uncertainty_level(stock_cv)} ; CV={stock_cv:.3f}" if stock_cv is not None else "non estimee",
+            f"{uncertainty_level(stock_cv)}" if stock_cv is not None else "non estimee",
             fmt_uncertainty_band(stock_values),
-            f"P(stock=0)={fmt_optional_pct_fraction(stock_zero_probability)} ; jours zero={stock_zero_days}",
+            f"part jours stock zero={fmt_optional_pct_fraction(stock_zero_probability)} ; jours zero={stock_zero_days}",
             f"stock_availability_cv={stock_cv_suggested:.3f} (inactif)",
         ),
         (
             "Fiabilite / qualite",
             "production_supplier_shipments_daily.csv",
             fmt_optional_pct_fraction(reliability_mean),
-            f"{uncertainty_level(reliability_cv)} ; CV={reliability_cv:.3f}" if reliability_cv is not None else "non estimee",
+            f"{uncertainty_level(reliability_cv)}" if reliability_cv is not None else "non estimee",
             fmt_uncertainty_band(reliability_values, kind="pct", digits=2),
             f"perte moyenne={fmt_optional_pct_fraction(loss_mean, 2)} ; lignes={len(visible_shipment_rows)}",
             f"reliability_cv={reliability_cv_suggested:.3f} (inactif)",
@@ -5888,10 +7234,19 @@ def render_passive_uncertainty_html(
     return "".join(
         [
             "<div class=\"factoryHtmlPanelContent orderLedgerPanelContent\">",
-            f"<div class=\"orderLedgerTextHeader\">{html.escape(scope_id)} - incertitude passive {html.escape(scope_label)}</div>",
-            "<div class=\"orderLedgerStatus\">Lecture seule: aucune valeur aleatoire n'est injectee dans la simulation courante et aucun KPI du run n'est recalcule.</div>",
-            "<div class=\"orderLedgerStatus\">Objectif: preparer une future couche Monte Carlo en estimant des dispersions a partir des delais, stocks, capacites et expeditions deja produits.</div>",
-            f"<div class=\"orderLedgerStatus\">Items couverts: {html.escape(item_text)}</div>",
+            f"<div class=\"orderLedgerTextHeader\">{html.escape(scope_id)} - confiance de lecture {html.escape(scope_label)}</div>",
+            "<div class=\"orderLedgerStatus\">Lecture courte: ce panneau local ne dit pas si la supply resiste. Il dit si les donnees fournisseur sont completes, stables et faciles a interpreter. La resilience se lit dans Monte Carlo.</div>",
+            "<div class=\"orderLedgerSectionTitle\">Synthese confiance de lecture</div>",
+            dashboard_html,
+            "<details class=\"sensitivityDetails riskMethodDetails\">",
+            "<summary>Afficher la methode, les donnees et les scenarios proposes</summary>",
+            "<div class=\"riskMethodStack\">",
+            "<div class=\"riskMethodNote\">Aucun alea n'est injecte dans la baseline. Les scenarios ci-dessous sont des enveloppes de test proposees, pas des incidents actives.</div>",
+            "<div class=\"orderLedgerSectionTitle\">Scenarios proposes non actives</div>",
+            envelope_html,
+            "<div class=\"orderLedgerSectionTitle\">Confiance dans les donnees</div>",
+            quality_html,
+            "<div class=\"orderLedgerSectionTitle\">Sources et calculs techniques</div>",
             "<div class=\"orderLedgerFrame\">",
             "<div class=\"orderLedgerTableWrap\" tabindex=\"0\" aria-label=\"Tableau incertitude passive avec defilement horizontal natif en bas.\">",
             "<table class=\"orderLedgerTable orderLedgerWideTable\">",
@@ -5899,16 +7254,216 @@ def render_passive_uncertainty_html(
             "<col style=\"width:135px\"><col style=\"width:245px\"><col style=\"width:130px\"><col style=\"width:145px\">"
             "<col style=\"width:235px\"><col style=\"width:235px\"><col style=\"width:185px\">"
             "</colgroup>",
-            "<thead><tr><th>Dimension</th><th>Source</th><th>Nominal</th><th>Dispersion</th><th>Bande observee</th><th>Signal risque</th><th>Parametre futur</th></tr></thead>",
+            "<thead><tr><th>Dimension</th><th>Source technique</th><th>Reference</th><th>Variabilite</th><th>Bande observee</th><th>Signal observe</th><th>Parametre technique propose</th></tr></thead>",
             f"<tbody>{''.join(rows_html)}</tbody>",
             "</table>",
             "</div>",
             "</div>",
-            "<div class=\"orderLedgerSectionTitle\">Configuration Monte Carlo proposee mais inactive</div>",
+            "<div class=\"orderLedgerSectionTitle\">Parametres techniques proposes - inactifs dans ce run</div>",
             f"<pre class=\"jsonPanelPre\">{html.escape(json.dumps(config_preview, indent=2, ensure_ascii=False))}</pre>",
+            "</div>",
+            "</details>",
             "</div>",
         ]
     )
+
+
+def build_passive_uncertainty_metric(
+    scope_id: str,
+    *,
+    scope_label: str,
+    order_rows: list[dict[str, str]],
+    stock_rows: list[dict[str, str]],
+    capacity_rows: list[dict[str, str]],
+    shipment_rows: list[dict[str, str]],
+    nominal_rows: list[dict[str, str]],
+    item_labels: dict[str, str],
+) -> dict[str, Any]:
+    visible_order_rows = [
+        row for row in order_rows
+        if not is_simulation_hidden_item(str(row.get("item_id") or ""))
+    ]
+    visible_stock_rows = [
+        row for row in stock_rows
+        if not is_simulation_hidden_item(str(row.get("item_id") or ""))
+    ]
+    visible_capacity_rows = [
+        row for row in capacity_rows
+        if not is_simulation_hidden_item(str(row.get("item_id") or ""))
+    ]
+    visible_shipment_rows = [
+        row for row in shipment_rows
+        if not is_simulation_hidden_item(str(row.get("item_id") or ""))
+    ]
+    visible_nominal_rows = [
+        row for row in nominal_rows
+        if not is_simulation_hidden_item(str(row.get("item_id") or ""))
+    ]
+
+    comparable_lead_pairs: list[tuple[float, float]] = []
+    for row in visible_order_rows:
+        planned = planned_procurement_lead_days(row)
+        effective = effective_procurement_lead_days(row)
+        if planned is None or effective is None or planned <= 0 or effective < 0:
+            continue
+        comparable_lead_pairs.append((float(planned), float(effective)))
+    effective_leads = finite_numeric_values(
+        (effective for _planned, effective in comparable_lead_pairs),
+        positive_only=True,
+    )
+    if not effective_leads:
+        effective_leads = finite_numeric_values(
+            (row.get("lead_days") for row in visible_shipment_rows),
+            positive_only=True,
+        )
+    lead_ratio_values = [
+        effective / planned
+        for planned, effective in comparable_lead_pairs
+        if planned > 0
+    ]
+    late_pairs = [
+        (planned, effective)
+        for planned, effective in comparable_lead_pairs
+        if effective > planned + 1e-9
+    ]
+    delay_probability = len(late_pairs) / len(comparable_lead_pairs) if comparable_lead_pairs else None
+    avg_delay = (
+        statistics.mean(max(0.0, effective - planned) for planned, effective in comparable_lead_pairs)
+        if comparable_lead_pairs
+        else None
+    )
+    lead_cv = coefficient_of_variation(lead_ratio_values) or coefficient_of_variation(effective_leads)
+
+    utilization_values = finite_numeric_values((row.get("utilization") for row in visible_capacity_rows))
+    active_utilization_values = [value for value in utilization_values if value > 1e-9]
+    max_utilization = max(utilization_values) if utilization_values else None
+    capacity_cv = coefficient_of_variation(active_utilization_values or utilization_values)
+
+    stock_values = finite_numeric_values((row.get("stock_end_of_day") for row in visible_stock_rows))
+    stock_cv = coefficient_of_variation(stock_values)
+    stock_zero_days = sum(1 for value in stock_values if value <= 1e-9)
+    stock_zero_probability = stock_zero_days / len(stock_values) if stock_values else None
+
+    reliability_values = finite_numeric_values((row.get("reliability") for row in visible_shipment_rows))
+    reliability_cv = coefficient_of_variation(reliability_values)
+    loss_ratios: list[float] = []
+    for row in visible_shipment_rows:
+        pulled = to_float(row.get("pulled_qty"))
+        shipped = to_float(row.get("shipped_qty"))
+        if pulled is None or shipped is None or math.isnan(pulled) or math.isnan(shipped) or pulled <= 0:
+            continue
+        loss_ratios.append(max(0.0, min(1.0, (pulled - shipped) / pulled)))
+    loss_mean = statistics.mean(loss_ratios) if loss_ratios else None
+
+    def data_confidence(row_count: int, *, has_distribution: bool = True) -> float:
+        value = 0.18 + math.log1p(max(0, row_count)) / 7.5
+        if has_distribution:
+            value += 0.08
+        return max(0.0, min(0.95, value))
+
+    def uncertainty_pressure_from_cv(cv: float | None, *, missing_penalty: float, scale: float) -> float:
+        if cv is None:
+            return missing_penalty
+        return max(0.0, min(1.0, cv / scale))
+
+    lead_uncertainty = uncertainty_pressure_from_cv(lead_cv, missing_penalty=0.45, scale=0.35)
+    capacity_uncertainty = uncertainty_pressure_from_cv(capacity_cv, missing_penalty=0.35, scale=0.30)
+    stock_uncertainty = uncertainty_pressure_from_cv(stock_cv, missing_penalty=0.35, scale=0.80)
+    reliability_uncertainty = uncertainty_pressure_from_cv(reliability_cv, missing_penalty=0.30, scale=0.05)
+    delay_risk = max(lead_uncertainty, delay_probability or 0.0)
+    capacity_risk = capacity_uncertainty
+    stock_risk = max(min(0.35, stock_uncertainty), stock_zero_probability or 0.0)
+    reliability_risk = max(reliability_uncertainty, min(1.0, 4.0 * (loss_mean or 0.0)))
+    dimension_scores = {
+        "Delai": delay_risk,
+        "Capacite": capacity_risk,
+        "Stock": stock_risk,
+        "Fiabilite": reliability_risk,
+    }
+    global_uncertainty = (
+        0.35 * delay_risk
+        + 0.25 * capacity_risk
+        + 0.20 * stock_risk
+        + 0.20 * reliability_risk
+    )
+    global_confidence = statistics.mean(
+        [
+            data_confidence(len(comparable_lead_pairs), has_distribution=bool(effective_leads)),
+            data_confidence(len(visible_capacity_rows), has_distribution=bool(utilization_values)),
+            data_confidence(len(visible_stock_rows), has_distribution=bool(stock_values)),
+            data_confidence(len(visible_shipment_rows), has_distribution=bool(reliability_values or loss_ratios)),
+        ]
+    )
+
+    if global_uncertainty >= 0.60:
+        status = "high"
+        status_label = "Lecture fragile"
+        color = "#dc2626"
+    elif global_uncertainty >= 0.30:
+        status = "moderate"
+        status_label = "Lecture a qualifier"
+        color = "#d97706"
+    else:
+        status = "low"
+        status_label = "Lecture fiable"
+        color = "#16a34a"
+
+    dominant_dimension, dominant_score = max(dimension_scores.items(), key=lambda item: item[1])
+    item_ids = sorted(
+        {
+            str(row.get("item_id") or "")
+            for row in visible_order_rows
+            + visible_stock_rows
+            + visible_capacity_rows
+            + visible_shipment_rows
+            + visible_nominal_rows
+            if str(row.get("item_id") or "")
+        }
+    )
+    item_text = ", ".join(item_labels.get(item_id, compact_item_label(item_id)) for item_id in item_ids[:6])
+    if len(item_ids) > 6:
+        item_text += f" +{len(item_ids) - 6}"
+    if not item_text:
+        item_text = "n/a"
+
+    def fmt_ratio_pct(value: float | None, digits: int = 1) -> str:
+        return "n/a" if value is None else fmt_pct(value * 100.0, digits)
+
+    summary_lines = [
+        metric_label_value("Famille", f"Qualite de lecture {scope_label}"),
+        metric_label_value("Lecture", "Confiance dans les donnees et parametres. Aucun alea n'est injecte dans la baseline."),
+        metric_label_value("Score general", fmt_pct(global_uncertainty * 100.0)),
+        metric_label_value("Statut general", status_label),
+        metric_label_value("Source principale d'incertitude", f"{dominant_dimension} ({fmt_pct(dominant_score * 100.0)})"),
+        metric_label_value("Confiance donnees", fmt_pct(global_confidence * 100.0)),
+        metric_label_value("Retard matiere", f"taux de retard={fmt_ratio_pct(delay_probability)} ; retard moyen={fmt_days(avg_delay, 1)}"),
+        metric_label_value("Capacite", f"utilisation max={fmt_ratio_pct(max_utilization)} ; incertitude={fmt_pct(capacity_risk * 100.0)}"),
+        metric_label_value("Stock", f"jours a stock zero={stock_zero_days} ; part observee={fmt_ratio_pct(stock_zero_probability)}"),
+        metric_label_value("Fiabilite", f"perte moyenne={fmt_ratio_pct(loss_mean, 2)} ; score={fmt_pct(reliability_risk * 100.0)}"),
+        metric_label_value("Items couverts", item_text),
+    ]
+
+    return {
+        "title": f"Qualite de lecture - {scope_id}",
+        "summary_lines": summary_lines,
+        "score": round(global_uncertainty, 6),
+        "confidence": round(global_confidence, 6),
+        "status": status,
+        "status_label": status_label,
+        "color": color,
+        "dominant_dimension": dominant_dimension,
+        "dominant_score": round(dominant_score, 6),
+        "lead_score": round(delay_risk, 6),
+        "capacity_score": round(capacity_risk, 6),
+        "stock_score": round(stock_risk, 6),
+        "reliability_score": round(reliability_risk, 6),
+        "row_counts": {
+            "orders": len(visible_order_rows),
+            "stock": len(visible_stock_rows),
+            "capacity": len(visible_capacity_rows),
+            "shipments": len(visible_shipment_rows),
+        },
+    }
 
 
 def clamp01(value: float | None) -> float:
@@ -6053,30 +7608,30 @@ def render_supplier_risk_prediction_html(
 
     categories = [
         {
-            "category": "Derive lead time",
+            "category": "Delais d'appro allonges",
             "occurrence": lead_occurrence,
             "impact": impact_score,
             "confidence": confidence(len(comparable_lead_pairs), has_criticality=criticality_row is not None),
             "evidence": (
                 f"retards={len(late_pairs)}/{len(comparable_lead_pairs)} ; "
-                f"P(retard)={fmt_pct((delay_probability or 0.0) * 100.0)} ; "
-                f"retard moyen={fmt_days(avg_delay_days, 1)} ; CV={lead_cv:.3f}" if lead_cv is not None
+                f"taux de retard={fmt_pct((delay_probability or 0.0) * 100.0)} ; "
+                f"retard moyen={fmt_days(avg_delay_days, 1)} ; variabilite {uncertainty_level(lead_cv)}" if lead_cv is not None
                 else f"retards={len(late_pairs)}/{len(comparable_lead_pairs)} ; donnees lead insuffisantes"
             ),
-            "sensitivity": "lead_time x1.0/x1.1/x1.25/x1.5",
+            "sensitivity": "delai: reference, +10%, +25%, +50%",
         },
         {
-            "category": "Stress capacite",
+            "category": "Capacite fournisseur sous tension",
             "occurrence": capacity_occurrence,
             "impact": impact_score,
             "confidence": confidence(len(visible_capacity_rows), has_criticality=criticality_row is not None),
             "evidence": (
                 f"util max={fmt_pct((max_util or 0.0) * 100.0)} ; "
                 f"util active={fmt_pct((avg_active_util or 0.0) * 100.0)} ; "
-                f"CV util={util_cv:.3f}" if util_cv is not None
+                f"variabilite {uncertainty_level(util_cv)}" if util_cv is not None
                 else f"util max={fmt_pct((max_util or 0.0) * 100.0)} ; donnees capacite limitees"
             ),
-            "sensitivity": "capacity x1.0/x0.9/x0.8/x0.7/x0.5",
+            "sensitivity": "capacite: reference, -10%, -20%, -30%, -50%",
         },
         {
             "category": "Fragilite stock fournisseur",
@@ -6084,11 +7639,11 @@ def render_supplier_risk_prediction_html(
             "impact": impact_score,
             "confidence": confidence(len(visible_stock_rows), has_criticality=criticality_row is not None),
             "evidence": (
-                f"P(stock=0)={fmt_pct((stock_zero_probability or 0.0) * 100.0)} ; "
-                f"P10 stock={fmt_qty(stock_p10, 1)} ; CV={stock_cv:.3f}" if stock_cv is not None
-                else f"P(stock=0)={fmt_pct((stock_zero_probability or 0.0) * 100.0)} ; donnees stock limitees"
+                f"part jours stock zero={fmt_pct((stock_zero_probability or 0.0) * 100.0)} ; "
+                f"stock bas observe={fmt_qty(stock_p10, 1)} ; variabilite {uncertainty_level(stock_cv)}" if stock_cv is not None
+                else f"part jours stock zero={fmt_pct((stock_zero_probability or 0.0) * 100.0)} ; donnees stock limitees"
             ),
-            "sensitivity": "stock x1.0/x0.75/x0.5/x0.25/x0",
+            "sensitivity": "stock: reference, -25%, -50%, -75%, zero",
         },
         {
             "category": "Fiabilite / qualite",
@@ -6098,13 +7653,13 @@ def render_supplier_risk_prediction_html(
             "evidence": (
                 f"reliability moyenne={fmt_pct((reliability_mean or 0.0) * 100.0)} ; "
                 f"perte moyenne={fmt_pct((loss_mean or 0.0) * 100.0, 2)} ; "
-                f"CV={reliability_cv:.3f}" if reliability_cv is not None
+                f"variabilite {uncertainty_level(reliability_cv)}" if reliability_cv is not None
                 else f"reliability moyenne={fmt_pct((reliability_mean or 0.0) * 100.0)} ; donnees qualite limitees"
             ),
-            "sensitivity": "reliability x1.0/x0.99/x0.97/x0.95",
+            "sensitivity": "fiabilite: reference, -1%, -3%, -5%",
         },
         {
-            "category": "Dependance / criticite locale",
+            "category": "Dependance fournisseur",
             "occurrence": dependency_occurrence,
             "impact": max(impact_score, local_criticality),
             "confidence": confidence(1 if criticality_row else 0, has_criticality=criticality_row is not None),
@@ -6112,7 +7667,7 @@ def render_supplier_risk_prediction_html(
                 f"local={local_criticality:.3f} ; overall={overall_criticality:.3f} ; "
                 f"sourcing={fmt_pct(observed_share * 100.0)} ; sole_source={sole_source_pairs}"
             ),
-            "sensitivity": "desactiver fournisseur / doubler source / share alternative",
+            "sensitivity": "tester perte fournisseur, double source ou baisse de part",
         },
         {
             "category": "Contrainte appro amont fournisseur",
@@ -6123,7 +7678,7 @@ def render_supplier_risk_prediction_html(
                 "appro amont fournisseur actif dans la politique" if external_enabled
                 else "appro amont fournisseur non actif pour ce diagnostic passif"
             ),
-            "sensitivity": "cap appro amont x1/x0.75/x0.5/x0.25 ; delai appro amont x1/x1.25/x1.5/x2",
+            "sensitivity": "appro amont: capacite -25/-50/-75% ; delai +25/+50/+100%",
         },
     ]
     for row in categories:
@@ -6147,11 +7702,11 @@ def render_supplier_risk_prediction_html(
         )
 
     sensitivity_rows = [
-        ("1", "Capacite fournisseur", "x1.0, x0.9, x0.8, x0.7, x0.5", "tester le seuil de saturation sans changer le nominal"),
-        ("2", "Stock fournisseur", "x1.0, x0.75, x0.5, x0.25", "identifier le stock minimum qui preserve service, backlog et cibles"),
-        ("3", "Lead time", "x1.0, x1.25, x1.5, x2.0", "mesurer la sensibilite aux retards et derive de delai"),
-        ("4", "Fiabilite / qualite", "x1.0, x0.99, x0.97, x0.95", "simuler pertes, retours, release qualite et quantite utile"),
-        ("5", "Appro amont fournisseur", "cap x1/x0.75/x0.5/x0.25 ; delai x1/x1.25/x1.5/x2", "contraindre l'appro amont qui reconstitue le stock fournisseur"),
+        ("1", "Capacite fournisseur", "reference, -10%, -20%, -30%, -50%", "tester le seuil de saturation sans changer la reference du run"),
+        ("2", "Stock fournisseur", "reference, -25%, -50%, -75%, zero", "identifier le stock minimum qui preserve service, backlog et cibles"),
+        ("3", "Delai matiere", "reference, +25%, +50%, +100%", "mesurer la sensibilite aux retards et derives de delai"),
+        ("4", "Fiabilite / qualite", "reference, -1%, -3%, -5%", "simuler pertes, retours, release qualite et quantite utile"),
+        ("5", "Appro amont fournisseur", "capacite -25/-50/-75% ; delai +25/+50/+100%", "contraindre l'appro amont qui reconstitue le stock fournisseur"),
     ]
     sensitivity_html = "".join(
         "<tr>"
@@ -6166,9 +7721,10 @@ def render_supplier_risk_prediction_html(
     return "".join(
         [
             "<div class=\"factoryHtmlPanelContent orderLedgerPanelContent\">",
-            f"<div class=\"orderLedgerTextHeader\">{html.escape(node_id)} - prediction passive des risques fournisseur</div>",
-            "<div class=\"orderLedgerStatus\">Lecture seule: les probabilites ci-dessous ne pilotent pas la simulation courante.</div>",
-            "<div class=\"orderLedgerStatus\">Principe: occurrence estimee x impact local x confiance donne un score attendu, puis la grille de sensibilite propose les premiers stress tests a lancer.</div>",
+            f"<div class=\"orderLedgerTextHeader\">{html.escape(node_id)} - lecture predictive des risques fournisseur</div>",
+            "<div class=\"orderLedgerStatus\">Lecture seule: ce bloc estime une menace fournisseur probable, mais ne relance pas la simulation et ne modifie pas la baseline.</div>",
+            "<div class=\"orderLedgerStatus\">Risque = menace metier. Incertitude = confiance dans cette estimation. L'action finale se lit dans la matrice niveau de risque x confiance.</div>",
+            "<div class=\"orderLedgerStatus\">Principe: probabilite estimee x impact local x confiance donne une priorite de surveillance, puis la grille propose les premiers tests a lancer.</div>",
             "<div class=\"orderLedgerSectionTitle\">Introduction - etude de sensibilite recommandee</div>",
             "<div class=\"kpiFormulaTableWrap\"><table class=\"kpiFormulaTable\">",
             "<thead><tr><th>Priorite</th><th>Parametre</th><th>Grille proposee</th><th>Objectif</th></tr></thead>",
@@ -6182,7 +7738,7 @@ def render_supplier_risk_prediction_html(
             "<col style=\"width:175px\"><col style=\"width:105px\"><col style=\"width:95px\"><col style=\"width:105px\">"
             "<col style=\"width:105px\"><col style=\"width:85px\"><col style=\"width:320px\"><col style=\"width:260px\">"
             "</colgroup>",
-            "<thead><tr><th>Categorie</th><th>Occurrence</th><th>Impact</th><th>Confiance</th><th>Score attendu</th><th>Niveau</th><th>Preuves / signaux</th><th>Sensibilite a lancer</th></tr></thead>",
+            "<thead><tr><th>Categorie</th><th>Probabilite estimee</th><th>Impact</th><th>Confiance</th><th>Priorite estimee</th><th>Niveau</th><th>Signaux observes</th><th>Test utile</th></tr></thead>",
             f"<tbody>{''.join(rows_html)}</tbody>",
             "</table>",
             "</div>",
@@ -6204,8 +7760,8 @@ def render_supplier_nominal_parameters_html(
     if not visible_rows:
         return (
             "<div class=\"factoryHtmlPanelContent orderLedgerPanelContent\">"
-            f"<div class=\"orderLedgerTextHeader\">{html.escape(node_id)} - parametres nominaux fournisseur</div>"
-            "<div class=\"panelEmptyState\">Aucun parametre nominal fournisseur disponible pour ce noeud.</div>"
+            f"<div class=\"orderLedgerTextHeader\">{html.escape(node_id)} - references fournisseur</div>"
+            "<div class=\"panelEmptyState\">Aucune reference fournisseur disponible pour ce noeud.</div>"
             "</div>"
         )
 
@@ -6345,27 +7901,27 @@ def render_supplier_nominal_parameters_html(
     headers = [
         "Item",
         "Destination",
-        "UOM",
+        "Unite",
         "Stock ouv.",
-        "Stock min neutre",
-        "Scale stock",
+        "Stock minimum teste",
+        "Facteur stock",
         "Cap actuelle/j",
-        "Cap nominale cible/j",
+        "Cap cible/j",
         "Taux cible",
         "Cap amont/j",
-        "Util amont",
+        "Taux amont cible",
         "Delai amont",
-        "Pipeline amont ouv.",
+        "Appro amont deja lancee",
         "Util pic cible",
         "Marge cible",
-        "Cap validee baseline/j",
-        "Facteur validation",
+        "Cap min sans degradation/j",
+        "Facteur cap min",
         "Marge actuelle",
-        "Base capacite",
+        "Reference capacite",
         "Util max",
         "Delai prev.",
         "OTIF",
-        "Share MRP",
+        "Part MRP",
         "Expedie total",
     ]
     table_header = "".join(f"<th>{html.escape(label)}</th>" for label in headers)
@@ -6379,9 +7935,9 @@ def render_supplier_nominal_parameters_html(
     return "".join(
         [
             "<div class=\"factoryHtmlPanelContent orderLedgerPanelContent\">",
-            f"<div class=\"orderLedgerTextHeader\">{html.escape(node_id)} - parametres nominaux fournisseur</div>",
-            f"<div class=\"orderLedgerStatus\">Lignes fournisseur affichees: {len(sorted_rows)}. Cap actuelle/j = limite utilisee par le run actif; Cap nominale cible/j = pic observe / taux cible; Cap validee baseline/j = plus petite capacite testee qui conserve la baseline sans binding.</div>",
-            "<div class=\"orderLedgerStatus\">Profils cible: raw material qualifie ~= 70%, high lead ~= 65%, packaging qualifie ~= 75%. Cap amont/j contraint l'appro amont fournisseur avec le meme taux cible, et le pipeline amont ouvre les commandes deja en route au demarrage.</div>",
+            f"<div class=\"orderLedgerTextHeader\">{html.escape(node_id)} - references fournisseur</div>",
+            f"<div class=\"orderLedgerStatus\">Lignes fournisseur affichees: {len(sorted_rows)}. Cap actuelle/j = limite utilisee par le run actif; Cap cible/j = pic observe / taux cible; Cap min sans degradation/j = plus petite capacite testee qui conserve le service du run.</div>",
+            "<div class=\"orderLedgerStatus\">Profils cible: matiere qualifiee ~= 70%, delai long ~= 65%, packaging qualifie ~= 75%. Cap amont/j contraint l'appro amont fournisseur avec le meme taux cible; Appro amont deja lancee = commandes en route au demarrage.</div>",
             "<div class=\"orderLedgerFrame\">",
             "<div class=\"orderLedgerTableWrap\" tabindex=\"0\" aria-label=\"Tableau des parametres nominaux fournisseur avec defilement horizontal natif en bas.\">",
             "<table class=\"orderLedgerTable orderLedgerWideTable\">",
@@ -6408,8 +7964,8 @@ def render_factory_nominal_capacities_html(
     if not visible_rows:
         return (
             "<div class=\"factoryHtmlPanelContent orderLedgerPanelContent\">"
-            f"<div class=\"orderLedgerTextHeader\">{html.escape(node_id)} - capacites nominales usine</div>"
-            "<div class=\"panelEmptyState\">Aucune capacite nominale usine disponible pour ce noeud.</div>"
+            f"<div class=\"orderLedgerTextHeader\">{html.escape(node_id)} - references capacite usine</div>"
+            "<div class=\"panelEmptyState\">Aucune reference capacite usine disponible pour ce noeud.</div>"
             "</div>"
         )
 
@@ -6450,7 +8006,7 @@ def render_factory_nominal_capacities_html(
             (fmt_qty(row.get("max_actual_qty_per_day"), 1), "pic journalier produit observe"),
             (fmt_qty(row.get("total_actual_qty"), 1), "production totale observee"),
             (fmt_pct((current_max_util or 0.0) * 100.0) if current_max_util is not None and not math.isnan(current_max_util) else "n/a", "utilisation max de la capacite actuelle"),
-            (str(row.get("capacity_binding_days") or "0"), "jours ou la capacite usine est cause de binding"),
+            (str(row.get("capacity_binding_days") or "0"), "jours ou la capacite usine limite l'execution"),
             (str(row.get("input_shortage_days") or "0"), "jours ou les intrants limitent l'execution"),
             (str(row.get("lot_policy_mode") or "n/a"), "politique de lot observee"),
         ]
@@ -6465,9 +8021,9 @@ def render_factory_nominal_capacities_html(
     headers = [
         "Output",
         "Process",
-        "UOM",
+        "Unite",
         "Cap actuelle/j",
-        "Cap nominale cible/j",
+        "Cap cible/j",
         "Taux cible",
         "Util pic cible",
         "Marge actuelle",
@@ -6485,9 +8041,9 @@ def render_factory_nominal_capacities_html(
     return "".join(
         [
             "<div class=\"factoryHtmlPanelContent orderLedgerPanelContent\">",
-            f"<div class=\"orderLedgerTextHeader\">{html.escape(node_id)} - capacites nominales usine</div>",
-            "<div class=\"orderLedgerStatus\">Cap actuelle/j = limite du JSON actif; Cap nominale cible/j = pic journalier produit / taux cible pharma. Le taux cible par defaut est 70% pour une usine GMP multi-produits ou un site interne semi-fini.</div>",
-            "<div class=\"orderLedgerStatus\">Pour les usines, appliquer directement la capacite nominale cible peut changer le cadencement interne; elle est donc affichee comme lecture de sensibilite, pas comme remplacement automatique de la baseline.</div>",
+            f"<div class=\"orderLedgerTextHeader\">{html.escape(node_id)} - references capacite usine</div>",
+            "<div class=\"orderLedgerStatus\">Cap actuelle/j = limite du JSON actif; Cap cible/j = pic journalier produit / taux cible pharma. Le taux cible par defaut est 70% pour une usine GMP multi-produits ou un site interne semi-fini.</div>",
+            "<div class=\"orderLedgerStatus\">Pour les usines, appliquer directement la capacite cible peut changer le cadencement interne; elle est donc affichee comme lecture de sensibilite, pas comme remplacement automatique de la baseline.</div>",
             "<div class=\"orderLedgerFrame\">",
             "<div class=\"orderLedgerTableWrap\" tabindex=\"0\" aria-label=\"Tableau des capacites nominales usine avec defilement horizontal natif en bas.\">",
             "<table class=\"orderLedgerTable orderLedgerWideTable\">",
@@ -8531,7 +10087,7 @@ def render_global_model_equations_html() -> str:
                     ("Optimisation", "pas de solveur APS global", "Les decisions viennent de regles MRP/production locales appliquees chronologiquement."),
                     ("Calendrier atelier", "pas de planning machine detaille", "Les lots et campagnes existent, mais pas encore les equipes, changements de format et indisponibilites fines."),
                     ("Fournisseurs", "stock/capacite/delai modelises", "Les contrats, MOQ reels, allocations et arbitrages fournisseurs restent a valider."),
-                    ("Couts", "achats reels + production proxy + couts logistiques hypotheses", "La production est un proxy de cout de conversion pharma alloue sur volumes reels; transport, stockage et urgence restent parametrables tant que les couts industriels reels ne sont pas fournis."),
+                    ("Couts", "achats reels + estimation production + couts logistiques hypotheses", "La production est une estimation de cout de conversion pharma allouee sur volumes reels; transport, stockage et urgence restent parametrables tant que les couts industriels reels ne sont pas fournis."),
                 ]
             ),
         ),
@@ -9238,6 +10794,8 @@ def build_model_panel_metrics(
     factory_like_ids = factory_like_node_ids(raw)
     nodes_payload: dict[str, Any] = {}
     edges_payload: dict[str, Any] = {}
+    uncertainty_metric_nodes: dict[str, Any] = {}
+    uncertainty_metric_edges: dict[str, Any] = {}
 
     for node_id, node in sorted(node_by_id.items()):
         if is_pilotage_hidden_node(node_id):
@@ -9669,6 +11227,25 @@ def build_model_panel_metrics(
             shortfall_total = sum(max(0.0, to_float(r.get("shortfall_vs_desired_qty")) or 0.0) for r in factory_rows)
             capacity_days = sum(1 for r in factory_rows if str(r.get("binding_cause") or "") == "capacity")
             input_shortage_days = sum(1 for r in factory_rows if str(r.get("binding_cause") or "") == "input_shortage")
+            input_shortage_lot_shortfall_total = sum(
+                max(0.0, to_float(r.get("shortfall_vs_lot_plan_qty")) or 0.0)
+                for r in factory_rows
+                if str(r.get("binding_cause") or "") == "input_shortage"
+            )
+            input_shortage_desired_shortfall_total = sum(
+                max(0.0, to_float(r.get("shortfall_vs_desired_qty")) or 0.0)
+                for r in factory_rows
+                if str(r.get("binding_cause") or "") == "input_shortage"
+            )
+            input_shortage_items = sorted(
+                {
+                    item_labels.get(str(r.get("binding_input_item_id") or ""), compact_item_label(str(r.get("binding_input_item_id") or "")))
+                    for r in factory_rows
+                    if str(r.get("binding_cause") or "") == "input_shortage"
+                    and str(r.get("binding_input_item_id") or "")
+                    and not is_simulation_hidden_item(str(r.get("binding_input_item_id") or ""))
+                }
+            )
             cap_values = []
             for proc in processes:
                 cap = (proc.get("capacity") or {}).get("max_rate")
@@ -9848,7 +11425,10 @@ def build_model_panel_metrics(
                     metric_label_value("Production demandee", fmt_qty(desired_total)),
                     metric_label_value("Production reelle", fmt_qty(actual_total)),
                     metric_label_value("Manque de production", fmt_qty(shortfall_total)),
-                    metric_label_value("Jours input shortage", str(input_shortage_days)),
+                    metric_label_value("Jours contrainte matiere", str(input_shortage_days)),
+                    metric_label_value("Manque matiere vs plan lotifie", fmt_qty(input_shortage_lot_shortfall_total)),
+                    metric_label_value("Manque matiere vs besoin usine", fmt_qty(input_shortage_desired_shortfall_total)),
+                    metric_multiline_value("Matieres bloquantes", input_shortage_items, limit=6),
                     metric_label_value("Jours capacite", str(capacity_days)),
                 ]
             )
@@ -10102,6 +11682,16 @@ def build_model_panel_metrics(
                     item_labels=item_labels,
                 )
             }
+            uncertainty_metric_nodes[node_id] = build_passive_uncertainty_metric(
+                node_id,
+                scope_label="fournisseur",
+                order_rows=supplier_source_orders,
+                stock_rows=supplier_stocks_by_node.get(node_id, []),
+                capacity_rows=supplier_cap_by_node.get(node_id, []),
+                shipment_rows=supplier_ship_rows_node,
+                nominal_rows=supplier_nominal_by_node.get(node_id, []),
+                item_labels=item_labels,
+            )
             node_supplier_risk_prediction_asset = {
                 "html": render_supplier_risk_prediction_html(
                     node_id,
@@ -10418,8 +12008,8 @@ def build_model_panel_metrics(
                 metric_label_value("Optimisation", "Ce n'est pas un solveur APS global: les decisions sont calculees par regles MRP et simulation chronologique jour apres jour."),
                 metric_label_value("Calendrier industriel", "Les campagnes et lots sont modelises, mais pas encore un calendrier atelier complet avec equipes, changements de format et disponibilites machines fines."),
                 metric_label_value("Fournisseurs", "Les fournisseurs sont modelises comme stocks/capacites/delais; les contrats, MOQ reels, allocations et arbitrages fournisseurs restent a valider."),
-                metric_label_value("Couts", "Les achats viennent des prix matieres; la production est un proxy de cout de conversion pharma; transport, stockage et urgence restent parametrables tant que les couts industriels reels ne sont pas fournis."),
-                metric_section("Trace MRP explicite"),
+                metric_label_value("Couts", "Les achats viennent des prix matieres; la production est une estimation de cout de conversion pharma; transport, stockage et urgence restent parametrables tant que les couts industriels reels ne sont pas fournis."),
+                metric_section("Detail calcul MRP"),
                 metric_multiline_value(
                     "Besoin brut / besoin net / StockProj / RecvPrev / OA",
                     mrp_trace_lines if mrp_trace_lines else ["aucune trace MRP explicite disponible pour ce noeud"],
@@ -10837,6 +12427,16 @@ def build_model_panel_metrics(
                 item_labels=item_labels,
             )
         }
+        uncertainty_metric_edges[edge_id] = build_passive_uncertainty_metric(
+            edge_id,
+            scope_label="flux",
+            order_rows=edge_order_rows,
+            stock_rows=edge_stock_rows,
+            capacity_rows=edge_capacity_rows,
+            shipment_rows=edge_shipment_rows,
+            nominal_rows=edge_nominal_rows,
+            item_labels=item_labels,
+        )
         edge_context_bundle = [
             {"label": "Source / destination", "asset": edge_context_html_asset},
             {"label": "Incertitude flux", "asset": edge_uncertainty_html_asset},
@@ -10913,7 +12513,7 @@ def build_model_panel_metrics(
                 lane_data_lines if lane_data_lines else ["aucune expedition observee sur ce flux"],
                 limit=8,
             ),
-            metric_section("Trace MRP explicite"),
+            metric_section("Detail calcul MRP"),
             metric_multiline_value(
                 "Carnet d'ordres flux",
                 edge_order_lines if edge_order_lines else ["aucun ordre MRP direct sur ce flux ; flux probablement aval ou non pilote par appro"],
@@ -10951,7 +12551,14 @@ def build_model_panel_metrics(
             "fourth": edge_context_asset,
         }
 
-    return {"nodes": nodes_payload, "edges": edges_payload}
+    return {
+        "nodes": nodes_payload,
+        "edges": edges_payload,
+        "uncertainty_metrics": {
+            "nodes": uncertainty_metric_nodes,
+            "edges": uncertainty_metric_edges,
+        },
+    }
 
 
 def build_realistic_sensitivity_panel_metrics(
@@ -11761,7 +13368,6 @@ def build_threshold_metric_curve_payload(
         for _, row in usable_rows
     ]
     target_gap = [float(to_float(row.get("guard::raw_material_max_target_gap_qty")) or 0.0) for _, row in usable_rows]
-    stockout_days = [float(to_float(row.get("kpi::raw_material_stockout_days")) or 0.0) for _, row in usable_rows]
     material_delay = [float(to_float(row.get("kpi::material_delay_days")) or 0.0) for _, row in usable_rows]
 
     service_extra = [
@@ -11833,36 +13439,14 @@ def build_threshold_metric_curve_payload(
                     "y_label": "Cout",
                 "x": x,
                 "y": inventory_cost,
-                "extra_traces": [
-                    {
-                        "type": "scatter",
-                        "mode": "lines+markers",
-                        "name": "Gap cible stock",
-                        "x": x,
-                        "y": target_gap,
-                        "line": {"width": 2.0, "color": "#be123c"},
-                        "marker": {"size": 6, "color": "#be123c"},
-                    }
-                ],
             },
                 "bottom": {
                     "kind": "line",
-                    "title": "Rupture et retard matiere",
+                    "title": "Retard matiere",
                     "x_label": "Niveau teste du parametre (x1 = reference active, pas un jour)",
-                    "y_label": "Jours",
+                    "y_label": "Jours de retard",
                 "x": x,
-                "y": stockout_days,
-                "extra_traces": [
-                    {
-                        "type": "scatter",
-                        "mode": "lines+markers",
-                        "name": "Retard matiere max",
-                        "x": x,
-                        "y": material_delay,
-                        "line": {"width": 2.0, "color": "#7c3aed"},
-                        "marker": {"size": 6, "color": "#7c3aed"},
-                    }
-                ],
+                "y": material_delay,
             },
         }
     }
@@ -12048,7 +13632,6 @@ def build_supplier_threshold_metric_curve_payload(
     availability = []
     adherence = []
     inventory_cost = []
-    stockout_days = []
     for _, row, case_output_dir in usable_rows:
         metrics = read_supplier_case_metrics(case_output_dir, node_id, metrics_cache)
         shipped.append(float(metrics.get("total_shipped") or 0.0))
@@ -12062,7 +13645,6 @@ def build_supplier_threshold_metric_curve_payload(
         inventory_cost.append(
             float(to_float(row.get("kpi::inventory_cost")) or to_float(row.get("kpi::total_holding_cost")) or 0.0)
         )
-        stockout_days.append(float(to_float(row.get("kpi::raw_material_stockout_days")) or 0.0))
 
     incoming_payload = {
         "figure": {
@@ -12123,34 +13705,14 @@ def build_supplier_threshold_metric_curve_payload(
                         "marker": {"size": 6, "color": "#d97706"},
                     }
                 ],
-            },
+                },
                 "bottom": {
                     "kind": "line",
-                    "title": "Utilisation capacite et cout stock",
+                    "title": "Cout de stock",
                     "x_label": "Niveau teste du parametre (x1 = reference active, pas un jour)",
-                    "y_label": "Ratio / cout",
+                    "y_label": "Cout",
                 "x": x,
-                "y": avg_utilization,
-                "extra_traces": [
-                    {
-                        "type": "scatter",
-                        "mode": "lines+markers",
-                        "name": "Cout de stock",
-                        "x": x,
-                        "y": inventory_cost,
-                        "line": {"width": 2.0, "color": "#7c3aed"},
-                        "marker": {"size": 6, "color": "#7c3aed"},
-                    },
-                    {
-                        "type": "scatter",
-                        "mode": "lines+markers",
-                        "name": "Jours rupture matiere",
-                        "x": x,
-                        "y": stockout_days,
-                        "line": {"width": 2.0, "color": "#be123c"},
-                        "marker": {"size": 6, "color": "#be123c"},
-                    },
-                ],
+                "y": inventory_cost,
             },
         }
     }
@@ -12390,14 +13952,14 @@ def build_supplier_parameter_sensitivity_hover_payloads(
         "supplier_global": 7,
     }
     scope_labels = {
-        "direct": "direct noeud",
-        "upstream_supplier_capacity": "fournisseur amont - capacite",
-        "upstream_reliability": "fournisseur amont - fiabilite",
-        "upstream_lead_time": "fournisseur amont - delai",
-        "upstream_supplier_stock": "fournisseur amont - stock",
-        "upstream_combined_capacity_delay": "fournisseur amont - combine capacite/delai",
-        "upstream_combined_stock_reliability": "fournisseur amont - combine stock/fiabilite",
-        "supplier_global": "global fournisseurs",
+        "direct": "test direct sur ce noeud",
+        "upstream_supplier_capacity": "fournisseur amont relie - capacite",
+        "upstream_reliability": "fournisseur amont relie - fiabilite",
+        "upstream_lead_time": "fournisseur amont relie - delai",
+        "upstream_supplier_stock": "fournisseur amont relie - stock",
+        "upstream_combined_capacity_delay": "fournisseur amont relie - capacite + delai",
+        "upstream_combined_stock_reliability": "fournisseur amont relie - stock + fiabilite",
+        "supplier_global": "tous les fournisseurs - test global",
     }
 
     def safe_float(value: Any) -> float | None:
@@ -12477,7 +14039,8 @@ def build_supplier_parameter_sensitivity_hover_payloads(
         fill_drop = safe_float(row.get("max_fill_rate_drop")) or 0.0
         availability_drop = safe_float(row.get("max_product_availability_drop")) or 0.0
         adherence_drop = safe_float(row.get("max_line_adherence_drop")) or 0.0
-        stockout_days = safe_float(row.get("max_raw_material_stockout_days_increase")) or 0.0
+        nervousness_delta = safe_float(row.get("max_line_nervousness_increase")) or 0.0
+        replanning_delta = safe_float(row.get("max_production_replanning_count_increase")) or 0.0
         material_delay = safe_float(row.get("max_material_delay_days_increase")) or 0.0
         target_gap = safe_float(row.get("max_raw_material_target_gap_increase")) or 0.0
         safety_gap = safe_float(row.get("max_raw_material_safety_floor_gap_increase")) or 0.0
@@ -12493,10 +14056,15 @@ def build_supplier_parameter_sensitivity_hover_payloads(
             parts.append(f"dispo -{availability_drop * 100:.1f} pts max")
         if adherence_drop > 1e-9:
             parts.append(f"adherence -{adherence_drop * 100:.1f} pts max")
-        if stockout_days > 1e-9:
-            parts.append(f"rupture matiere +{stockout_days:.0f} j")
+        if nervousness_delta > 1e-9 or replanning_delta > 1e-9:
+            planning_parts: list[str] = []
+            if nervousness_delta > 1e-9:
+                planning_parts.append(f"amplitude +{nervousness_delta:.0f} pts")
+            if replanning_delta > 1e-9:
+                planning_parts.append(f"lignes replanifiees +{replanning_delta:.0f}")
+            parts.append(f"instabilite planning ({' ; '.join(planning_parts)})")
         if material_delay > 1e-9:
-            parts.append(f"retard matiere +{material_delay:.0f} j")
+            parts.append(f"retard matiere max +{material_delay:.0f} j")
         if target_gap > 1e-6:
             parts.append(f"gap cible stock +{fmt_qty(target_gap, 0)}")
         if safety_gap > 1e-6:
@@ -12510,7 +14078,7 @@ def build_supplier_parameter_sensitivity_hover_payloads(
         if not parts:
             parts.append("pas de degradation forte dans la grille")
         if not bool_text(row.get("acceptable_is_contiguous")):
-            parts.append("acceptabilite non monotone")
+            parts.append("lecture irreguliere")
         return " ; ".join(parts)
 
     def metric_values_for_row(row: dict[str, str], metric_name: str) -> list[float]:
@@ -12607,11 +14175,12 @@ def build_supplier_parameter_sensitivity_hover_payloads(
         fill_drop = safe_float(row.get("max_fill_rate_drop")) or 0.0
         availability_drop = safe_float(row.get("max_product_availability_drop")) or 0.0
         adherence_drop = safe_float(row.get("max_line_adherence_drop")) or 0.0
+        nervousness_delta = safe_float(row.get("max_line_nervousness_increase")) or 0.0
+        replanning_delta = safe_float(row.get("max_production_replanning_count_increase")) or 0.0
         target_gap = safe_float(row.get("max_raw_material_target_gap_increase")) or 0.0
         upstream_delta = safe_float(row.get("max_supplier_upstream_ordered_qty_delta"))
         if upstream_delta is None:
             upstream_delta = safe_float(row.get("max_external_procured_qty_delta")) or 0.0
-        stockout_days = safe_float(row.get("max_raw_material_stockout_days_increase")) or 0.0
         material_delay = safe_float(row.get("max_material_delay_days_increase")) or 0.0
         inventory_delta = safe_float(row.get("max_inventory_cost_increase")) or 0.0
         cost_delta = safe_float(row.get("max_total_cost_increase")) or 0.0
@@ -12631,8 +14200,9 @@ def build_supplier_parameter_sensitivity_hover_payloads(
             only_nominal
             or not contiguous
             or (first_bad is not None and abs(first_bad - 1.0) <= 0.25)
+            or nervousness_delta > 0.0
+            or replanning_delta > 0.0
             or target_gap > 1e-6
-            or stockout_days > 0.0
             or material_delay > 0.0
             or upstream_delta > 5_000_000
             or inventory_delta > 500_000
@@ -12675,7 +14245,7 @@ def build_supplier_parameter_sensitivity_hover_payloads(
         else:
             base = f"Ne pas descendre sous {band} sans retest."
         if not bool_text(row.get("acceptable_is_contiguous")):
-            base += " La reponse est non monotone: ne pas interpreter les ilots acceptables comme une vraie marge robuste."
+            base += " La reponse est irreguliere: ne pas interpreter les ilots acceptables comme une vraie marge robuste."
         return base
 
     def supplier_global_scope(row: dict[str, str]) -> str | None:
@@ -12704,12 +14274,13 @@ def build_supplier_parameter_sensitivity_hover_payloads(
         fill_drop = safe_float(row.get("max_fill_rate_drop")) or 0.0
         availability_drop = safe_float(row.get("max_product_availability_drop")) or 0.0
         adherence_drop = safe_float(row.get("max_line_adherence_drop")) or 0.0
+        nervousness_delta = safe_float(row.get("max_line_nervousness_increase")) or 0.0
+        replanning_delta = safe_float(row.get("max_production_replanning_count_increase")) or 0.0
         target_gap = safe_float(row.get("max_raw_material_target_gap_increase")) or 0.0
         safety_gap = safe_float(row.get("max_raw_material_safety_floor_gap_increase")) or 0.0
         upstream_delta = safe_float(row.get("max_supplier_upstream_ordered_qty_delta"))
         if upstream_delta is None:
             upstream_delta = safe_float(row.get("max_external_procured_qty_delta")) or 0.0
-        stockout_days = safe_float(row.get("max_raw_material_stockout_days_increase")) or 0.0
         material_delay = safe_float(row.get("max_material_delay_days_increase")) or 0.0
         inventory_delta = safe_float(row.get("max_inventory_cost_increase")) or 0.0
         cost_delta = safe_float(row.get("max_total_cost_increase")) or 0.0
@@ -12720,15 +14291,64 @@ def build_supplier_parameter_sensitivity_hover_payloads(
             fill_drop * 100.0
             + availability_drop * 120.0
             + adherence_drop * 100.0
+            + min(nervousness_delta / 10.0, 30.0)
+            + min(replanning_delta / 10.0, 30.0)
             + min(target_gap / 1_000_000.0, 80.0)
             + min(safety_gap / 1_000_000.0, 40.0)
             + min(upstream_delta / 10_000_000.0, 40.0)
-            + min(stockout_days * 2.0, 40.0)
             + min(material_delay * 3.0, 40.0)
             + min(inventory_delta / 250_000.0, 20.0)
             + min(cost_delta / 250_000.0, 20.0)
             + proximity
             + non_contiguous
+        )
+
+    def sensitivity_row_tooltip(row: dict[str, str], scope: str | None = None) -> str:
+        label = str(row.get("parameter_label") or row.get("parameter_key") or "n/a")
+        family = driver_family_labels.get(driver_family(row), driver_family(row))
+        scope_text = scope_labels.get(scope or "", scope or "n/a")
+        severity = row_severity(row)
+        fill_drop = safe_float(row.get("max_fill_rate_drop")) or 0.0
+        availability_drop = safe_float(row.get("max_product_availability_drop")) or 0.0
+        adherence_drop = safe_float(row.get("max_line_adherence_drop")) or 0.0
+        nervousness_delta = safe_float(row.get("max_line_nervousness_increase")) or 0.0
+        replanning_delta = safe_float(row.get("max_production_replanning_count_increase")) or 0.0
+        target_gap = safe_float(row.get("max_raw_material_target_gap_increase")) or 0.0
+        material_delay = safe_float(row.get("max_material_delay_days_increase")) or 0.0
+        stockout_days = safe_float(row.get("max_raw_material_stockout_days_increase")) or 0.0
+        inventory_delta = safe_float(row.get("max_inventory_cost_increase")) or 0.0
+        upstream_delta = safe_float(row.get("max_supplier_upstream_ordered_qty_delta"))
+        if upstream_delta is None:
+            upstream_delta = safe_float(row.get("max_external_procured_qty_delta")) or 0.0
+        return "\n".join(
+            [
+                "Formule",
+                "lecture sensibilite = grille de tests du parametre + garde-fous KPI",
+                "",
+                "Parametre",
+                f"{label} ({family})",
+                f"Perimetre = {scope_text}",
+                "",
+                "Calcul ici",
+                f"Zone acceptable autour de x1 = {baseline_contiguous_band(row)}",
+                f"Premier niveau degrade = {first_unacceptable(row)}",
+                f"Fill rate min = {fmt_fill_value(safe_float(row.get('fill_rate_min')))} ; baisse max = {fmt_fill_value(fill_drop)}",
+                f"Disponibilite min = {metric_min_label_any(row, ['kpi::product_availability', 'kpi::fill_rate'], kind='pct_fraction')} ; baisse max = {fmt_fill_value(availability_drop)}",
+                f"Adherence min = {line_adherence_label(row)} ; baisse max = {fmt_fill_value(adherence_drop)}",
+                f"Instabilite planning = amplitude +{fmt_qty(nervousness_delta, 0)} pts ; lignes replanifiees +{fmt_qty(replanning_delta, 0)}",
+                f"Retard matiere = +{fmt_qty(material_delay, 0)} j",
+                f"Gap cible stock = {fmt_qty(target_gap, 0)} ; appro amont delta = {fmt_qty(upstream_delta, 0)}",
+                f"Cout stockage max = {holding_cost_delta_label(row)} ; delta = {fmt_money_short(inventory_delta)}",
+                f"Score de tri interne = {fmt_qty(severity, 1)}",
+                "",
+                "Signal technique non decisionnel",
+                f"Signal MP usine zero = +{fmt_qty(stockout_days, 0)} jours vs baseline",
+                "Compteur de jours ou au moins une MP suivie finit a zero dans les stocks usine. Ce n'est pas une duree de rupture fournisseur/usine et ce score ne pilote plus le statut Sensibilite.",
+                "",
+                "Lecture",
+                driver_text(row),
+                "Ce seuil vient d'une grille de simulation, pas d'une donnee fournisseur reelle.",
+            ]
         )
 
     def sorted_relevant_rows(node_id: str, node_type: str) -> list[tuple[str, dict[str, str]]]:
@@ -12765,14 +14385,14 @@ def build_supplier_parameter_sensitivity_hover_payloads(
         return render_data_table(
             [
                 "Parametre",
-                "Portee",
-                "Plage continue baseline",
-                "Premier refus",
+                "Perimetre du test",
+                "Zone acceptable autour de la reference",
+                "Premier niveau ou ca se degrade",
                 "Fill min",
                 "Disponibilite min",
                 "Adherence ligne",
                 "Cout stockage max",
-                "Driver",
+                "Cause de degradation",
             ],
             rows,
         )
@@ -12806,19 +14426,19 @@ def build_supplier_parameter_sensitivity_hover_payloads(
         return render_data_table(
             [
                 "Parametre",
-                "Portee",
+                "Perimetre du test",
                 "Niveaux testes",
                 "Plages acceptables",
-                "Plage continue baseline",
-                "Premier refus",
+                "Zone acceptable autour de la reference",
+                "Premier niveau ou ca se degrade",
                 "Fill min",
                 "Disponibilite min",
                 "Adherence ligne",
                 "Cout stockage max",
-                "Drop fill max",
-                "Delta appro amont",
-                "Delta gap cible",
-                "Monotone",
+                "Baisse fill max",
+                "Variation appro amont",
+                "Variation ecart cible",
+                "Lecture stable",
             ],
             rows,
         )
@@ -12850,7 +14470,7 @@ def build_supplier_parameter_sensitivity_hover_payloads(
         return render_data_table(
             [
                 "Parametre",
-                "Portee",
+                "Perimetre du test",
                 "Capacite - marge baisse",
                 "Stock - marge baisse",
                 "Delai - marge hausse",
@@ -12883,10 +14503,31 @@ def build_supplier_parameter_sensitivity_hover_payloads(
             if (safe_float(row.get("max_line_adherence_drop")) or 0.0) > 1e-9:
                 return "watch"
             return "robust"
+        if metric == "nervousness":
+            delta = safe_float(row.get("max_line_nervousness_increase")) or 0.0
+            if delta >= 50.0:
+                return "sensitive"
+            if delta > 0.0:
+                return "watch"
+            return "robust"
+        if metric == "replanning":
+            delta = safe_float(row.get("max_production_replanning_count_increase")) or 0.0
+            if delta >= 50.0:
+                return "sensitive"
+            if delta > 0.0:
+                return "watch"
+            return "robust"
+        if metric == "planning":
+            nervousness_status = sensitivity_card_status(row, "nervousness")
+            replanning_status = sensitivity_card_status(row, "replanning")
+            if "sensitive" in {nervousness_status, replanning_status}:
+                return "sensitive"
+            if "watch" in {nervousness_status, replanning_status}:
+                return "watch"
+            return "robust"
         if metric == "stock":
             gap = safe_float(row.get("max_raw_material_target_gap_increase")) or 0.0
-            stockout = safe_float(row.get("max_raw_material_stockout_days_increase")) or 0.0
-            if stockout > 0.0 or gap > 1e-6:
+            if gap > 1e-6:
                 return "watch"
             return "robust"
         if metric == "cost":
@@ -12903,14 +14544,42 @@ def build_supplier_parameter_sensitivity_hover_payloads(
             return "robust"
         return "robust"
 
-    def sensitivity_metric_card(title: str, value: str, note: str, status_key: str) -> str:
+    def sensitivity_metric_card(title: str, value: str, note: str, status_key: str, tooltip: str | None = None) -> str:
         return "".join(
             [
-                f"<div class=\"sensitivityMetricCard sensitivityStatus-{html.escape(status_key)}\">",
+                f"<div class=\"{html_tooltip_class(f'sensitivityMetricCard sensitivityStatus-{html.escape(status_key)}', tooltip)}\"{html_tooltip_attrs(tooltip)}>",
                 f"<div class=\"sensitivityMetricLabel\">{html.escape(title)}</div>",
                 f"<div class=\"sensitivityMetricValue\">{html.escape(value)}</div>",
                 f"<div class=\"sensitivityMetricNote\">{html.escape(note)}</div>",
                 "</div>",
+            ]
+        )
+
+    def sensitivity_fact(label: str, value: str, tooltip: str | None = None) -> str:
+        return "".join(
+            [
+                f"<div class=\"{html_tooltip_class('', tooltip)}\"{html_tooltip_attrs(tooltip)}>",
+                f"<span>{html.escape(label)}</span>",
+                f"<b>{html.escape(value)}</b>",
+                "</div>",
+            ]
+        )
+
+    def sensitivity_metric_tooltip(row: dict[str, str], title: str, formula: str, value: str, source: str) -> str:
+        return "\n".join(
+            [
+                "Formule",
+                formula,
+                "",
+                "Calcul ici",
+                f"Valeur affichee = {value}",
+                f"Source = {source}",
+                f"Parametre teste = {row.get('parameter_label') or row.get('parameter_key') or 'n/a'}",
+                f"Zone acceptable = {baseline_contiguous_band(row)}",
+                f"Premier niveau degrade = {first_unacceptable(row)}",
+                "",
+                "Lecture",
+                f"{title}: {driver_text(row)}",
             ]
         )
 
@@ -12923,6 +14592,45 @@ def build_supplier_parameter_sensitivity_hover_payloads(
                 return fmt_money_short(value)
             return fmt_qty(value, 0)
         return fallback
+
+    def planning_instability_value(row: dict[str, str]) -> str:
+        nervousness = safe_float(row.get("line_nervousness_max"))
+        replanning = safe_float(row.get("production_replanning_count_max"))
+        if nervousness is None and replanning is None:
+            return "n/a"
+        if nervousness is None:
+            return f"{fmt_qty(replanning, 0)} lignes"
+        if replanning is None:
+            return f"{fmt_qty(nervousness, 0)}%"
+        return f"{fmt_qty(nervousness, 0)}% / {fmt_qty(replanning, 0)} lignes"
+
+    def planning_instability_tooltip(row: dict[str, str], value: str) -> str:
+        nervousness = safe_float(row.get("line_nervousness_max")) or 0.0
+        replanning = safe_float(row.get("production_replanning_count_max")) or 0.0
+        nervousness_delta = safe_float(row.get("max_line_nervousness_increase")) or 0.0
+        replanning_delta = safe_float(row.get("max_production_replanning_count_increase")) or 0.0
+        return "\n".join(
+            [
+                "Lecture metier",
+                "La nervosite planning regroupe deux signaux: l'amplitude des changements de plan et le nombre de lignes replanifiees.",
+                "",
+                "Composant 1 - amplitude",
+                "Variation du plan par ligne entre deux jours consecutifs.",
+                f"Maximum observe = {fmt_qty(nervousness, 0)}%",
+                f"Augmentation vs reference = +{fmt_qty(nervousness_delta, 0)} pts",
+                "",
+                "Composant 2 - lignes replanifiees",
+                "Nombre de lignes dont le plan change suffisamment entre deux jours.",
+                f"Maximum observe = {fmt_qty(replanning, 0)} lignes",
+                f"Augmentation vs reference = +{fmt_qty(replanning_delta, 0)} lignes",
+                "",
+                "Valeur affichee",
+                f"{value}",
+                "",
+                "Lecture",
+                "Un retard peut surtout augmenter l'amplitude des changements sans multiplier fortement le nombre de lignes touchees.",
+            ]
+        )
 
     def sensitivity_dashboard_html(
         *,
@@ -12939,68 +14647,69 @@ def build_supplier_parameter_sensitivity_hover_payloads(
         break_label = first_unacceptable(best_row)
         band = baseline_contiguous_band(best_row)
         scope_note = "test local" if locally_tested else "lecture globale/amont"
-        monotonicity = "reponse monotone" if bool_text(best_row.get("acceptable_is_contiguous")) else "non monotone"
+        regularity = "lecture stable" if bool_text(best_row.get("acceptable_is_contiguous")) else "lecture irreguliere"
+        dashboard_tooltip = sensitivity_row_tooltip(best_row, best_scope)
+        fill_value = card_value_from_row(best_row, "fill_rate_min", fmt_fill_value(safe_float(best_row.get("baseline_fill_rate"))))
+        availability_value = card_value_from_row(
+            best_row,
+            "product_availability_min",
+            metric_min_label_any(best_row, ["kpi::product_availability", "kpi::fill_rate"], kind="pct_fraction"),
+        )
+        adherence_value = card_value_from_row(best_row, "line_adherence_min", line_adherence_label(best_row))
+        planning_value = planning_instability_value(best_row)
+        cost_value = card_value_from_row(best_row, "inventory_cost_max", holding_cost_delta_label(best_row), kind="money")
         kpi_cards = [
             sensitivity_metric_card(
                 "Fill rate min",
-                card_value_from_row(best_row, "fill_rate_min", fmt_fill_value(safe_float(best_row.get("baseline_fill_rate")))),
-                f"drop max {fmt_fill_value(safe_float(best_row.get('max_fill_rate_drop')))}",
+                fill_value,
+                f"plus bas observe dans la grille",
                 sensitivity_card_status(best_row, "service"),
+                sensitivity_metric_tooltip(best_row, "Fill rate min", "fill rate min = minimum du fill rate observe dans les scenarios testes", fill_value, "kpi::fill_rate"),
             ),
             sensitivity_metric_card(
                 "Disponibilite min",
-                card_value_from_row(
-                    best_row,
-                    "product_availability_min",
-                    metric_min_label_any(best_row, ["kpi::product_availability", "kpi::fill_rate"], kind="pct_fraction"),
-                ),
-                f"drop max {fmt_fill_value(safe_float(best_row.get('max_product_availability_drop')))}",
+                availability_value,
+                "plus bas observe dans la grille",
                 sensitivity_card_status(best_row, "availability"),
+                sensitivity_metric_tooltip(best_row, "Disponibilite min", "disponibilite min = minimum de disponibilite produit observe dans la grille", availability_value, "kpi::product_availability"),
             ),
             sensitivity_metric_card(
                 "Adherence min",
-                card_value_from_row(best_row, "line_adherence_min", line_adherence_label(best_row)),
-                f"drop max {fmt_fill_value(safe_float(best_row.get('max_line_adherence_drop')))}",
+                adherence_value,
+                "plus bas observe dans la grille",
                 sensitivity_card_status(best_row, "adherence"),
+                sensitivity_metric_tooltip(best_row, "Adherence min", "adherence min = minimum d'adherence de ligne observe dans les scenarios testes", adherence_value, "kpi::line_adherence"),
             ),
             sensitivity_metric_card(
-                "Stock matiere",
-                fmt_qty(safe_float(best_row.get("raw_material_stockout_days_max")), 0) + " j rupture",
-                f"gap cible max {fmt_qty(safe_float(best_row.get('max_raw_material_target_gap_increase')), 0)}",
-                sensitivity_card_status(best_row, "stock"),
+                "Nervosite planning",
+                planning_value,
+                "amplitude max / lignes replanifiees",
+                sensitivity_card_status(best_row, "planning"),
+                planning_instability_tooltip(best_row, planning_value),
             ),
             sensitivity_metric_card(
                 "Cout stockage",
-                card_value_from_row(best_row, "inventory_cost_max", holding_cost_delta_label(best_row), kind="money"),
-                f"delta max {fmt_money_short(safe_float(best_row.get('max_inventory_cost_increase')) or 0.0)}",
+                cost_value,
+                "plus haut observe dans la grille",
                 sensitivity_card_status(best_row, "cost"),
-            ),
-            sensitivity_metric_card(
-                "Appro amont",
-                fmt_qty(
-                    safe_float(best_row.get("max_supplier_upstream_ordered_qty_delta"))
-                    if safe_float(best_row.get("max_supplier_upstream_ordered_qty_delta")) is not None
-                    else safe_float(best_row.get("max_external_procured_qty_delta")),
-                    0,
-                ),
-                "delta max commandes amont",
-                sensitivity_card_status(best_row, "upstream"),
+                sensitivity_metric_tooltip(best_row, "Cout stockage", "cout stockage = maximum du cout de stock observe dans les scenarios testes", cost_value, "kpi::inventory_cost"),
             ),
         ]
         return "".join(
             [
-                f"<div class=\"sensitivityDashboard sensitivityStatus-{html.escape(status_key)}\">",
+                f"<div class=\"{html_tooltip_class(f'sensitivityDashboard sensitivityStatus-{html.escape(status_key)}', dashboard_tooltip)}\"{html_tooltip_attrs(dashboard_tooltip)}>",
                 "<div class=\"sensitivityHero\">",
                 "<div class=\"sensitivityHeroMain\">",
                 f"<div class=\"sensitivityStatusPill\">{html.escape(status_label)}</div>",
                 f"<div class=\"sensitivityHeroTitle\">{html.escape(display_node_label(node_id))}</div>",
-                f"<div class=\"sensitivityHeroText\">Casse d'abord sur <b>{html.escape(driver_label)}</b> a <b>{html.escape(break_label)}</b>. Driver: <b>{html.escape(family_label)}</b>.</div>",
+                f"<div class=\"sensitivityHeroText\">Premier point faible teste: <b>{html.escape(driver_label)}</b>. Premier niveau ou ca se degrade: <b>{html.escape(break_label)}</b>. Type: <b>{html.escape(family_label)}</b>.</div>",
+                "<div class=\"sensitivityHeroText\">Lecture: ce seuil vient d'une grille de simulation. Ce n'est pas une donnee reelle fournisseur ni un seuil exact continu.</div>",
                 "</div>",
                 "<div class=\"sensitivityHeroFacts\">",
-                f"<div><span>Plage ref.</span><b>{html.escape(band)}</b></div>",
-                f"<div><span>Portee</span><b>{html.escape(scope_labels.get(best_scope, best_scope))}</b></div>",
-                f"<div><span>Confiance</span><b>{html.escape(scope_note)}</b></div>",
-                f"<div><span>Forme</span><b>{html.escape(monotonicity)}</b></div>",
+                sensitivity_fact("Zone acceptable", band, f"Formule\nzone acceptable = plage continue de niveaux testes autour de x1 qui respecte les garde-fous KPI.\n\nCalcul ici\nZone = {band}\nPremier niveau degrade = {break_label}"),
+                sensitivity_fact("Perimetre du test", scope_labels.get(best_scope, best_scope), f"Perimetre\n{scope_labels.get(best_scope, best_scope)}\n\nLecture\nIndique si le test agit directement sur ce noeud ou via un parametre fournisseur global/amont."),
+                sensitivity_fact("Type de lecture", scope_note, f"Type de lecture\n{scope_note}\n\nLecture\nUn test local est plus directement interpretable pour ce noeud qu'une lecture globale/amont."),
+                sensitivity_fact("Regularite", regularity, f"Formule\nregularite = plage acceptable continue autour de x1.\n\nCalcul ici\nacceptable_is_contiguous = {best_row.get('acceptable_is_contiguous') or 'n/a'}\nLecture = {regularity}"),
                 "</div>",
                 "</div>",
                 "<div class=\"sensitivityMetricGrid\">",
@@ -13014,7 +14723,7 @@ def build_supplier_parameter_sensitivity_hover_payloads(
     def sensitivity_tornado_html(scoped_rows: list[tuple[str, dict[str, str]]], limit: int = 7) -> str:
         candidates = [(scope, row, row_severity(row)) for scope, row in scoped_rows[:limit]]
         if not candidates:
-            return "<div class=\"panelEmptyState dataEmptyState\">Aucun driver disponible.</div>"
+            return "<div class=\"panelEmptyState dataEmptyState\">Aucun point faible disponible.</div>"
         max_score = max((score for _scope, _row, score in candidates), default=0.0) or 1.0
         parts = ["<div class=\"sensitivityTornado\">"]
         for scope, row, score in candidates:
@@ -13023,20 +14732,21 @@ def build_supplier_parameter_sensitivity_hover_payloads(
             width = max(5.0, min(100.0, score / max_score * 100.0))
             status_key, status_label = status_for_row(row, locally_tested=True)
             label = str(row.get("parameter_label") or row.get("parameter_key") or "n/a")
+            tooltip = sensitivity_row_tooltip(row, scope)
             parts.append(
                 "".join(
                     [
-                        "<div class=\"sensitivityTornadoRow\">",
+                        f"<div class=\"{html_tooltip_class('sensitivityTornadoRow', tooltip)}\"{html_tooltip_attrs(tooltip)}>",
                         "<div class=\"sensitivityTornadoHead\">",
                         f"<span class=\"sensitivityTornadoLabel\">{html.escape(label)}</span>",
-                        f"<span class=\"sensitivityTornadoMeta sensitivityStatus-{html.escape(status_key)}\">{html.escape(status_label)} · {html.escape(driver_family_labels.get(family, family))}</span>",
+                        f"<span class=\"sensitivityTornadoMeta sensitivityStatus-{html.escape(status_key)}\">{html.escape(status_label)} - {html.escape(driver_family_labels.get(family, family))}</span>",
                         "</div>",
                         "<div class=\"sensitivityTornadoTrack\">",
                         f"<div class=\"sensitivityTornadoBar\" style=\"width:{width:.1f}%; background:{html.escape(color)}\"></div>",
                         "</div>",
                         "<div class=\"sensitivityTornadoFoot\">",
                         f"<span>{html.escape(scope_labels.get(scope, scope))}</span>",
-                        f"<span>refus: {html.escape(first_unacceptable(row))}</span>",
+                        f"<span>se degrade a partir de: {html.escape(first_unacceptable(row))}</span>",
                         f"<span>{html.escape(driver_text(row))}</span>",
                         "</div>",
                         "</div>",
@@ -13045,6 +14755,116 @@ def build_supplier_parameter_sensitivity_hover_payloads(
             )
         parts.append("</div>")
         return "".join(parts)
+
+    def top_distinct_sensitivity_rows(scoped_rows: list[tuple[str, dict[str, str]]], limit: int = 3) -> list[tuple[str, dict[str, str]]]:
+        selected: list[tuple[str, dict[str, str]]] = []
+        seen_families: set[str] = set()
+        ranked = sorted(
+            scoped_rows,
+            key=lambda item: (
+                -row_severity(item[1]),
+                scope_order.get(item[0], 9),
+                str(item[1].get("parameter_label") or ""),
+            ),
+        )
+        for scope, row in ranked:
+            family = driver_family(row)
+            if family in seen_families:
+                continue
+            selected.append((scope, row))
+            seen_families.add(family)
+            if len(selected) >= limit:
+                return selected
+        for scope, row in ranked:
+            if any(row is selected_row for _selected_scope, selected_row in selected):
+                continue
+            selected.append((scope, row))
+            if len(selected) >= limit:
+                break
+        return selected
+
+    def sensitivity_comparison_context(row: dict[str, str]) -> str:
+        parameter_key = str(row.get("parameter_key") or "")
+        if "::" in parameter_key:
+            node_id = parameter_key.rsplit("::", 1)[-1]
+            return display_node_label(node_id)
+        return "Tous fournisseurs"
+
+    def sensitivity_comparison_card(scope: str, row: dict[str, str], rank: int, *, include_context: bool = False) -> str:
+        family = driver_family(row)
+        family_label = driver_family_labels.get(family, family)
+        status_key, status_label = status_for_row(row, locally_tested=True)
+        label = str(row.get("parameter_label") or row.get("parameter_key") or "n/a")
+        tooltip = sensitivity_row_tooltip(row, scope)
+        fill_value = card_value_from_row(row, "fill_rate_min", fmt_fill_value(safe_float(row.get("baseline_fill_rate"))))
+        availability_value = card_value_from_row(
+            row,
+            "product_availability_min",
+            metric_min_label_any(row, ["kpi::product_availability", "kpi::fill_rate"], kind="pct_fraction"),
+        )
+        adherence_value = card_value_from_row(row, "line_adherence_min", line_adherence_label(row))
+        planning_value = planning_instability_value(row)
+        cost_value = card_value_from_row(row, "inventory_cost_max", holding_cost_delta_label(row), kind="money")
+        color = driver_family_colors.get(family, driver_family_colors["other"])
+        return "".join(
+            [
+                f"<div class=\"{html_tooltip_class(f'sensitivityCompareCard sensitivityStatus-{html.escape(status_key)}', tooltip)}\"{html_tooltip_attrs(tooltip)}>",
+                f"<div class=\"sensitivityCompareAccent\" style=\"background:{html.escape(color)}\"></div>",
+                "<div class=\"sensitivityCompareTop\">",
+                f"<span class=\"sensitivityCompareRank\">#{rank}</span>",
+                f"<span class=\"sensitivityStatusPill\">{html.escape(status_label)}</span>",
+                "</div>",
+                f"<div class=\"sensitivityCompareFamily\">{html.escape(family_label)}</div>",
+                f"<div class=\"sensitivityCompareContext\">{html.escape(sensitivity_comparison_context(row))}</div>" if include_context else "",
+                f"<div class=\"sensitivityCompareTitle\">{html.escape(label)}</div>",
+                f"<div class=\"sensitivityCompareText\">Se degrade a partir de <b>{html.escape(first_unacceptable(row))}</b>. Zone acceptable autour de x1: <b>{html.escape(baseline_contiguous_band(row))}</b>.</div>",
+                "<div class=\"sensitivityCompareKpis\">",
+                f"<div><span>Fill rate min</span><b>{html.escape(fill_value)}</b></div>",
+                f"<div><span>Disponibilite min</span><b>{html.escape(availability_value)}</b></div>",
+                f"<div><span>Adherence min</span><b>{html.escape(adherence_value)}</b></div>",
+                f"<div><span>Nervosite planning</span><b>{html.escape(planning_value)}</b></div>",
+                f"<div><span>Cout stockage</span><b>{html.escape(cost_value)}</b></div>",
+                "</div>",
+                f"<div class=\"sensitivityCompareReason\">{html.escape(driver_text(row))}</div>",
+                "</div>",
+            ]
+        )
+
+    def sensitivity_comparison_html(
+        node_id: str,
+        scoped_rows: list[tuple[str, dict[str, str]]],
+        *,
+        title: str | None = None,
+        include_context: bool = False,
+    ) -> str:
+        selected = top_distinct_sensitivity_rows(scoped_rows, limit=3)
+        if not selected:
+            return "<div class=\"panelEmptyState dataEmptyState\">Aucune sensibilite exploitable pour ce noeud.</div>"
+        families = {driver_family(row) for _scope, row in selected}
+        note = (
+            "Trois familles differentes retenues."
+            if len(families) >= min(3, len(selected))
+            else "Moins de trois familles distinctes disponibles: la vue complete avec les meilleurs cas restants."
+        )
+        cards = "".join(
+            sensitivity_comparison_card(scope, row, idx + 1, include_context=include_context)
+            for idx, (scope, row) in enumerate(selected)
+        )
+        heading = title or f"{display_node_label(node_id)} - top sensibilites distinctes"
+        return "".join(
+            [
+                "<div class=\"sensitivityCompareDashboard\">",
+                "<div class=\"sensitivityCompareHeader\">",
+                f"<div><div class=\"sensitivityCompareEyebrow\">Vue comparee</div><div class=\"sensitivityCompareHeading\">{html.escape(heading)}</div></div>",
+                f"<div class=\"sensitivityCompareNote\">{html.escape(note)} Chaque carte correspond a un stress test; ce sont des resultats de grille, pas des donnees fournisseur reelles.</div>",
+                "</div>",
+                "<div class=\"sensitivityCompareGrid\">",
+                cards,
+                "</div>",
+                "<div class=\"sensitivityRecommendation\"><b>Lecture.</b> Utiliser cette vue pour comparer ce qui degrade d'abord le noeud: service client, disponibilite, adherence usine, nervosite planning ou cout. Revenir a la vue standard pour les courbes detaillees par niveau teste.</div>",
+                "</div>",
+            ]
+        )
 
     def collapsible_panel_html(label: str, content: str, *, open_by_default: bool = False) -> str:
         open_attr = " open" if open_by_default else ""
@@ -13094,13 +14914,23 @@ def build_supplier_parameter_sensitivity_hover_payloads(
             if row is None:
                 detail = "pas de sweep local"
                 band = "n/a"
+                tooltip = "\n".join(
+                    [
+                        "Lecture",
+                        f"{label}: aucun test local disponible pour ce noeud.",
+                        "",
+                        "Important",
+                        "Non teste ne veut pas dire robuste. Cela veut dire que la grille ne donne pas de seuil local.",
+                    ]
+                )
             else:
                 band = baseline_contiguous_band(row)
-                detail = f"refus: {first_unacceptable(row)}"
+                detail = f"se degrade: {first_unacceptable(row)}"
+                tooltip = sensitivity_row_tooltip(row, "direct")
             parts.append(
                 "".join(
                     [
-                        f"<div class=\"sensitivityMatrixCell sensitivityStatus-{html.escape(status_key)}\">",
+                        f"<div class=\"{html_tooltip_class(f'sensitivityMatrixCell sensitivityStatus-{html.escape(status_key)}', tooltip)}\"{html_tooltip_attrs(tooltip)}>",
                         f"<div class=\"sensitivityMatrixLabel\">{html.escape(label)}</div>",
                         f"<div class=\"sensitivityMatrixStatus\">{html.escape(status_label)}</div>",
                         f"<div class=\"sensitivityMatrixBand\">{html.escape(band)}</div>",
@@ -13111,6 +14941,43 @@ def build_supplier_parameter_sensitivity_hover_payloads(
             )
         parts.append("</div>")
         return "".join(parts)
+
+    def technical_signals_html(row: dict[str, str]) -> str:
+        upstream_delta = safe_float(row.get("max_supplier_upstream_ordered_qty_delta"))
+        if upstream_delta is None:
+            upstream_delta = safe_float(row.get("max_external_procured_qty_delta"))
+        return render_data_kv(
+            [
+                (
+                    "Signal technique MP usine",
+                    f"{fmt_qty(safe_float(row.get('raw_material_stockout_days_max')), 0)} jours max dans la grille ; +{fmt_qty(safe_float(row.get('max_raw_material_stockout_days_increase')), 0)} jours vs baseline",
+                ),
+                (
+                    "Lecture du signal",
+                    "Diagnostic technique: nombre de jours ou au moins une matiere premiere suivie finit la journee a stock usine nul. Le compteur est par jour, pas par article. Ce n'est pas une rupture client, pas une duree de rupture fournisseur, et pas un KPI de decision.",
+                ),
+                (
+                    "Retard matiere",
+                    f"delta max {fmt_qty(safe_float(row.get('max_material_delay_days_increase')), 0)} j",
+                ),
+                (
+                    "Nervosite planning",
+                    f"amplitude +{fmt_qty(safe_float(row.get('max_line_nervousness_increase')), 0)} pts ; lignes replanifiees +{fmt_qty(safe_float(row.get('max_production_replanning_count_increase')), 0)}",
+                ),
+                (
+                    "Ecart cible stock MP",
+                    f"delta max {fmt_qty(safe_float(row.get('max_raw_material_target_gap_increase')), 0)}",
+                ),
+                (
+                    "Appro amont",
+                    f"delta max commandes amont {fmt_qty(upstream_delta, 0)}",
+                ),
+                (
+                    "Usage",
+                    "Ces signaux expliquent le stress interne du modele. La decision metier reste prioritairement: fill rate, disponibilite, adherence, cout.",
+                ),
+            ]
+        )
 
     def method_asset(node_id: str, scoped_rows: list[tuple[str, dict[str, str]]]) -> dict[str, str]:
         method_rows = [
@@ -13124,8 +14991,12 @@ def build_supplier_parameter_sensitivity_hover_payloads(
                 "Acceptable signifie: fill rate conserve, backlog final nul ou controle, cout dans le seuil et gaps de stock matiere non degrades vs baseline.",
             ),
             (
-                "Non monotone",
+                "Lecture irreguliere",
                 "Si les plages acceptables sont disjointes, on n'en deduit pas une marge robuste; il faut garder la plage continue autour de x1.",
+            ),
+            (
+                "Signal technique MP usine",
+                "Diagnostic technique: jours calendaires ou au moins une matiere premiere suivie finit la journee a stock usine nul. Le compteur est par jour, pas par article. Ce n'est pas une duree de rupture fournisseur/usine et ce signal ne pilote pas seul la decision metier.",
             ),
             (
                 "Perimetre",
@@ -13191,15 +15062,15 @@ def build_supplier_parameter_sensitivity_hover_payloads(
                 ("Statut", status_label),
                 ("Baseline", baseline_line),
                 (
-                    "Lecture niveaux",
+                    "Lecture niveaux testes",
                     "x1 ref. = valeur du scenario actif; x0.75 = 75% de cette reference. Les taux capacite cible sont gardes dans les onglets nominaux.",
                 ),
                 ("Service cible", fmt_fill_value(service_threshold)),
-                ("Driver principal", parameter_label),
-                ("Famille driver", driver_family_labels.get(family, family)),
-                ("Portee driver", scope_labels.get(best_scope, best_scope)),
-                ("Plage continue baseline", baseline_contiguous_band(best_row)),
-                ("Premier refus", first_unacceptable(best_row)),
+                ("Point faible principal", parameter_label),
+                ("Type de point faible", driver_family_labels.get(family, family)),
+                ("Ou agit ce point faible", scope_labels.get(best_scope, best_scope)),
+                ("Zone acceptable autour de la reference", baseline_contiguous_band(best_row)),
+                ("Premier niveau ou ca se degrade", first_unacceptable(best_row)),
                 ("Fill rate min", fmt_fill_value(safe_float(best_row.get("fill_rate_min")))),
                 (
                     "Disponibilite produit",
@@ -13221,30 +15092,34 @@ def build_supplier_parameter_sensitivity_hover_payloads(
         )
         overview_sections = [
             (
-                "Vue instantanee",
+                "Lecture immediate",
                 dashboard_html,
             ),
-            ("Drivers principaux", sensitivity_tornado_html(scoped_rows, limit=7)),
+            ("Pourquoi ce statut ?", sensitivity_tornado_html(scoped_rows, limit=3)),
         ]
         if node_type == "supplier_dc":
             overview_sections.append(("Matrice fournisseur", supplier_matrix_html(node_id)))
-        overview_sections.append(
-            (
-                "Details chiffres",
-                "".join(
-                    [
-                        collapsible_panel_html("Decision et recommandation", summary_rows_html, open_by_default=False),
-                        collapsible_panel_html("Marges testees", margin_table(scoped_rows, limit=8), open_by_default=False),
-                        collapsible_panel_html("Top drivers en tableau", summary_table(scoped_rows, limit=8), open_by_default=False),
-                    ]
-                ),
-            )
-        )
-        incoming = data_html_asset(
+        overview = data_html_asset(
             f"{display_node_label(node_id)} - synthese sensibilite fournisseur",
-            "Vue locale: parametres directs du noeud, fournisseurs amont pertinents, puis contraintes globales fournisseur.",
+            "Lecture courte: point faible teste, premier niveau ou ca se degrade et impact sur les KPI metier essentiels.",
             overview_sections,
         )
+        compare = data_html_asset(
+            f"{display_node_label(node_id)} - top 3 sensibilites",
+            "Vue comparee: les pires stress tests, avec familles differentes quand la grille le permet.",
+            [
+                (
+                    "Comparaison top 3",
+                    sensitivity_comparison_html(node_id, scoped_rows),
+                )
+            ],
+        )
+        incoming = {
+            "bundle": [
+                {"label": "Lecture immediate", "asset": overview},
+                {"label": "Top 3 resultats", "asset": compare},
+            ]
+        }
 
         curve_candidates = [
             (scope, row)
@@ -13293,7 +15168,7 @@ def build_supplier_parameter_sensitivity_hover_payloads(
                         "Lecture",
                         render_data_kv(
                             [
-                                ("Driver principal", parameter_label),
+                                ("Point faible principal", parameter_label),
                                 ("Niveaux testes", fmt_levels(best_row.get("levels"), best_row)),
                                 ("Courbe candidate", curve_parameter_label),
                                 ("Note", "Les courbes de sensibilite utilisent le niveau du parametre en abscisse, pas le temps."),
@@ -13303,11 +15178,25 @@ def build_supplier_parameter_sensitivity_hover_payloads(
                 ],
             )
         third = data_html_asset(
-            f"{display_node_label(node_id)} - details seuils fournisseur",
-            "Tous les parametres de sensibilite pertinents pour ce noeud.",
+            f"{display_node_label(node_id)} - details avances sensibilite",
+            "A utiliser pour audit. La lecture operationnelle principale est dans la synthese.",
             [
-                ("Lecture rapide", dashboard_html),
-                ("Top drivers", sensitivity_tornado_html(scoped_rows, limit=7)),
+                (
+                    "Definitions des signaux techniques",
+                    technical_signals_html(best_row),
+                ),
+                (
+                    "Action et recommandation",
+                    collapsible_panel_html("Afficher la lecture detaillee", summary_rows_html, open_by_default=False),
+                ),
+                (
+                    "Marges testees",
+                    collapsible_panel_html("Afficher les marges par parametre", margin_table(scoped_rows, limit=8), open_by_default=False),
+                ),
+                (
+                    "Principaux points faibles en tableau",
+                    collapsible_panel_html("Afficher le tableau des principaux points faibles", summary_table(scoped_rows, limit=8), open_by_default=False),
+                ),
                 (
                     "Seuils et garde-fous",
                     collapsible_panel_html(
@@ -13324,6 +15213,7 @@ def build_supplier_parameter_sensitivity_hover_payloads(
             "outgoing": outgoing,
             "third": third,
             "fourth": fourth,
+            "compare": compare,
             "_meta": {
                 "status": status_key,
                 "status_label": status_label,
@@ -13359,7 +15249,576 @@ def build_supplier_parameter_sensitivity_hover_payloads(
             supplier_out[node_id] = payload
         else:
             dc_out[node_id] = payload
+    global_scoped_rows = [
+        ("global", row)
+        for row in summary_rows
+        if str(row.get("parameter_key") or "") and str(row.get("parameter_key") or "") != "baseline"
+    ]
+    node_meta["_global_top3"] = data_html_asset(
+        "Sensibilite - top 3 resultats globaux",
+        "Vue accessible sans selectionner de noeud: les pires stress tests, avec familles differentes quand la grille le permet.",
+        [
+            (
+                "Top 3 resultats globaux",
+                sensitivity_comparison_html(
+                    "__global__",
+                    global_scoped_rows,
+                    title="Top 3 resultats globaux",
+                    include_context=True,
+                ),
+            )
+        ],
+    )
     return factory_out, supplier_out, dc_out, node_meta
+
+
+def build_montecarlo_uncertainty_payload(summary_json: Path) -> dict[str, Any]:
+    def as_float(value: Any, default: float = 0.0) -> float:
+        numeric = to_float(value)
+        if numeric is None or math.isnan(numeric):
+            return default
+        return numeric
+
+    def pct01(value: Any, digits: int = 1) -> str:
+        numeric = to_float(value)
+        if numeric is None or math.isnan(numeric):
+            return "n/a"
+        return fmt_pct(numeric * 100.0, digits)
+
+    def fmt_money_short(value: Any) -> str:
+        numeric = to_float(value)
+        if numeric is None or math.isnan(numeric):
+            return "n/a"
+        abs_value = abs(numeric)
+        if abs_value >= 1_000_000:
+            return f"{numeric / 1_000_000:.2f} M"
+        if abs_value >= 1_000:
+            return f"{numeric / 1_000:.1f} k"
+        return f"{numeric:.0f}"
+
+    def stat(summary: dict[str, Any], metric: str) -> dict[str, Any]:
+        return (summary.get("metric_statistics") or {}).get(f"kpi::{metric}") or {}
+
+    def stat_value(summary: dict[str, Any], metric: str, key: str) -> float | None:
+        return to_float(stat(summary, metric).get(key))
+
+    def format_stat(summary: dict[str, Any], metric: str, key: str, kind: str = "qty") -> str:
+        value = stat_value(summary, metric, key)
+        if value is None:
+            return "n/a"
+        if kind == "pct01":
+            return pct01(value)
+        if kind == "money":
+            return fmt_money_short(value)
+        if kind == "int":
+            return fmt_qty(value, 0)
+        return fmt_qty(value, 1)
+
+    def factor_label(raw_factor: str) -> str:
+        raw_factor = str(raw_factor or "")
+        labels = {
+            "factor::demand_scale": "Demande globale",
+            "factor::lead_time_scale": "Delais fournisseurs globaux",
+            "factor::transport_cost_scale": "Couts transport",
+            "factor::supplier_stock_scale": "Stocks fournisseurs globaux",
+            "factor::production_stock_scale": "Stocks usines globaux",
+            "factor::capacity_scale": "Capacites usines globales",
+            "factor::supplier_capacity_scale": "Capacites fournisseurs globales",
+            "factor::supplier_reliability_scale": "Fiabilite fournisseurs globale",
+            "factor::external_procurement_daily_cap_days_scale": "Appro amont capacite globale",
+            "factor::external_procurement_lead_days_scale": "Appro amont delai global",
+            "factor::holding_cost_scale": "Cout de stockage",
+        }
+        if raw_factor in labels:
+            return labels[raw_factor]
+        prefix_labels = [
+            ("demand_item::", "Demande article "),
+            ("capacity_node::", "Capacite usine "),
+            ("supplier_stock_node::", "Stock fournisseur "),
+            ("supplier_capacity_node::", "Capacite fournisseur "),
+            ("supplier_lead_node::", "Delai fournisseur "),
+            ("supplier_reliability_node::", "Fiabilite fournisseur "),
+        ]
+        for prefix, label in prefix_labels:
+            if raw_factor.startswith(prefix):
+                return f"{label}{raw_factor.removeprefix(prefix)}"
+        return raw_factor.replace("factor::", "").replace("_", " ")
+
+    def metric_card(title: str, value: str, note: str, tooltip: str | None = None) -> str:
+        return "".join(
+            [
+                f"<div class=\"{html_tooltip_class('uncertaintyCard', tooltip)}\"{html_tooltip_attrs(tooltip)}>",
+                f"<div class=\"uncertaintyCardLabel\">{html.escape(title)}</div>",
+                f"<div class=\"uncertaintyCardValue\">{html.escape(value)}</div>",
+                f"<div class=\"uncertaintyCardNote\">{html.escape(note)}</div>",
+                "</div>",
+            ]
+        )
+
+    def corr_text(value: float | None) -> str:
+        if value is None or math.isnan(value):
+            return "n/a"
+        return f"{value:+.2f}"
+
+    def mc_node_driver_from_factor(raw_factor: str) -> tuple[str, str, str, str, str] | None:
+        prefixes = {
+            "supplier_stock_node::": ("stock", "Stock fournisseur", "low_is_worse", "#0f766e", "moins de stock degrade le service"),
+            "supplier_capacity_node::": ("capacity", "Capacite fournisseur", "low_is_worse", "#d97706", "moins de capacite degrade le service"),
+            "supplier_lead_node::": ("lead", "Delai fournisseur", "high_is_worse", "#7c3aed", "plus de delai degrade le service"),
+            "supplier_reliability_node::": ("reliability", "Fiabilite fournisseur", "low_is_worse", "#2563eb", "moins de fiabilite degrade le service"),
+            "capacity_node::": ("factory_capacity", "Capacite usine", "low_is_worse", "#be123c", "moins de capacite degrade le service"),
+        }
+        for prefix, payload in prefixes.items():
+            if raw_factor.startswith(prefix):
+                family, label, direction, color, meaning = payload
+                return family, raw_factor.removeprefix(prefix), label, direction, color, meaning
+        return None
+
+    def mc_driver_score(corrs: dict[str, Any], direction: str) -> tuple[float, float, float, float, str]:
+        fill_corr = as_float(corrs.get("kpi::fill_rate"), 0.0)
+        backlog_corr = as_float(corrs.get("kpi::ending_backlog"), 0.0)
+        cost_corr = as_float(corrs.get("kpi::total_cost"), 0.0)
+        if direction == "high_is_worse":
+            service_signal = max(0.0, -fill_corr)
+            backlog_signal = max(0.0, backlog_corr)
+            cost_signal = max(0.0, cost_corr)
+            formula = (
+                "55% x max(0, -corr fill rate) + "
+                "35% x max(0, corr backlog) + "
+                "10% x max(0, corr cout)"
+            )
+        else:
+            service_signal = max(0.0, fill_corr)
+            backlog_signal = max(0.0, -backlog_corr)
+            cost_signal = max(0.0, -cost_corr)
+            formula = (
+                "55% x max(0, corr fill rate) + "
+                "35% x max(0, -corr backlog) + "
+                "10% x max(0, -corr cout)"
+            )
+        score = max(0.0, min(1.0, 0.55 * service_signal + 0.35 * backlog_signal + 0.10 * cost_signal))
+        return score, fill_corr, backlog_corr, cost_corr, formula
+
+    def mc_driver_signals(corrs: dict[str, Any], direction: str) -> tuple[float, float, float]:
+        fill_corr = as_float(corrs.get("kpi::fill_rate"), 0.0)
+        backlog_corr = as_float(corrs.get("kpi::ending_backlog"), 0.0)
+        cost_corr = as_float(corrs.get("kpi::total_cost"), 0.0)
+        if direction == "high_is_worse":
+            return max(0.0, -fill_corr), max(0.0, backlog_corr), max(0.0, cost_corr)
+        return max(0.0, fill_corr), max(0.0, -backlog_corr), max(0.0, -cost_corr)
+
+    def mc_status(score: float) -> tuple[str, str, str]:
+        if score >= 0.20:
+            return "sensitive", "Fragile dans Monte Carlo", "businessAlert"
+        if score >= 0.08:
+            return "watch", "A surveiller dans Monte Carlo", "businessWarn"
+        return "robust", "Robuste dans Monte Carlo", "businessOk"
+
+    def build_montecarlo_node_payloads(summary: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+        node_rows: dict[str, list[dict[str, Any]]] = defaultdict(list)
+        correlations = summary.get("factor_kpi_correlations_pearson") or {}
+        if not isinstance(correlations, dict):
+            return {}, {}
+
+        for raw_factor, corrs in correlations.items():
+            parsed = mc_node_driver_from_factor(str(raw_factor or ""))
+            if not parsed or not isinstance(corrs, dict):
+                continue
+            family, node_id, label, direction, color, meaning = parsed
+            score, fill_corr, backlog_corr, cost_corr, formula = mc_driver_score(corrs, direction)
+            service_signal, backlog_signal, cost_signal = mc_driver_signals(corrs, direction)
+            if score <= 0.0 and abs(fill_corr) < 0.03 and abs(backlog_corr) < 0.03 and abs(cost_corr) < 0.03:
+                continue
+            node_rows[node_id].append(
+                {
+                    "factor": str(raw_factor or ""),
+                    "family": family,
+                    "label": label,
+                    "direction": direction,
+                    "color": color,
+                    "meaning": meaning,
+                    "score": round(score, 6),
+                    "service_score": round(service_signal, 6),
+                    "backlog_score": round(backlog_signal, 6),
+                    "cost_score": round(cost_signal, 6),
+                    "fill_corr": round(fill_corr, 6),
+                    "backlog_corr": round(backlog_corr, 6),
+                    "cost_corr": round(cost_corr, 6),
+                    "formula": formula,
+                }
+            )
+
+        nodes: dict[str, Any] = {}
+        node_assets: dict[str, Any] = {}
+        for node_id, rows in node_rows.items():
+            rows = sorted(rows, key=lambda row: (float(row.get("score") or 0.0), abs(float(row.get("fill_corr") or 0.0))), reverse=True)
+            if not rows:
+                continue
+            top = rows[0]
+            score = float(top.get("score") or 0.0)
+            status, status_label, business_class = mc_status(score)
+            color = str(top.get("color") or "#64748b")
+            driver_label = str(top.get("label") or "Parametre")
+            score_label = fmt_pct(score * 100.0, 1)
+
+            def view_payload(view_key: str, score_key: str, title: str) -> dict[str, Any]:
+                selected = max(
+                    rows,
+                    key=lambda row: (float(row.get(score_key) or 0.0), float(row.get("score") or 0.0)),
+                )
+                view_score = float(selected.get(score_key) or 0.0)
+                view_status, view_status_label, view_business_class = mc_status(view_score)
+                return {
+                    "view": view_key,
+                    "title": title,
+                    "score": round(view_score, 6),
+                    "status": view_status,
+                    "status_label": view_status_label,
+                    "business_class": view_business_class,
+                    "color": str(selected.get("color") or "#64748b"),
+                    "dominant_dimension": str(selected.get("label") or "Parametre"),
+                    "driver_family": str(selected.get("family") or ""),
+                    "driver_factor": str(selected.get("factor") or ""),
+                    "fill_rate_correlation": selected.get("fill_corr"),
+                    "backlog_correlation": selected.get("backlog_corr"),
+                    "cost_correlation": selected.get("cost_corr"),
+                }
+
+            views = {
+                "global": view_payload("global", "score", "Impact global Monte Carlo"),
+                "service": view_payload("service", "service_score", "Impact service client"),
+                "backlog": view_payload("backlog", "backlog_score", "Impact backlog"),
+                "cost": view_payload("cost", "cost_score", "Impact cout"),
+            }
+            tooltip = "\n".join(
+                [
+                    "Source",
+                    f"{runs} runs Monte Carlo, horizon {days} jours, profil {profile}",
+                    "",
+                    "Formule impact noeud",
+                    str(top.get("formula") or ""),
+                    "",
+                    "Calcul driver principal",
+                    f"corr fill rate = {corr_text(float(top.get('fill_corr') or 0.0))}",
+                    f"corr backlog = {corr_text(float(top.get('backlog_corr') or 0.0))}",
+                    f"corr cout = {corr_text(float(top.get('cost_corr') or 0.0))}",
+                    f"score impact = {score_label}",
+                    "",
+                    "Lecture",
+                    "Ce score vient des runs Monte Carlo. Il indique quels noeuds expliquent le plus les ecarts entre scenarios.",
+                ]
+            )
+            summary_lines = [
+                {"label": "Lecture", "value": "Monte Carlo"},
+                {"label": "Statut", "value": status_label},
+                {"label": "Impact noeud", "value": score_label},
+                {"label": "Driver principal", "value": driver_label},
+                {"label": "Correlation fill rate", "value": corr_text(float(top.get("fill_corr") or 0.0))},
+                {"label": "Correlation backlog", "value": corr_text(float(top.get("backlog_corr") or 0.0))},
+                {"label": "Correlation cout", "value": corr_text(float(top.get("cost_corr") or 0.0))},
+                {"label": "Runs", "value": str(runs)},
+                {"label": "Horizon", "value": f"{days} j"},
+            ]
+
+            driver_table_rows = []
+            for row in rows[:8]:
+                score_row = float(row.get("score") or 0.0)
+                driver_table_rows.append(
+                    "<tr>"
+                    f"<td>{html.escape(str(row.get('label') or 'n/a'))}</td>"
+                    f"<td>{html.escape(fmt_pct(score_row * 100.0, 1))}</td>"
+                    f"<td>{html.escape(corr_text(float(row.get('fill_corr') or 0.0)))}</td>"
+                    f"<td>{html.escape(corr_text(float(row.get('backlog_corr') or 0.0)))}</td>"
+                    f"<td>{html.escape(corr_text(float(row.get('cost_corr') or 0.0)))}</td>"
+                    f"<td>{html.escape(str(row.get('meaning') or ''))}</td>"
+                    "</tr>"
+                )
+
+            node_dashboard = "".join(
+                [
+                    f"<div class=\"{html_tooltip_class(f'uncertaintyDashboard sensitivityStatus-{status}', tooltip)}\"{html_tooltip_attrs(tooltip)}>",
+                    "<div class=\"uncertaintyHero\">",
+                    "<div>",
+                    f"<div class=\"sensitivityStatusPill\">{html.escape(status_label)}</div>",
+                    f"<div class=\"uncertaintyHeroTitle\">{html.escape(node_id)} - impact Monte Carlo</div>",
+                    f"<div class=\"uncertaintyHeroText\">Ce noeud est lu avec les {runs} runs Monte Carlo. Couleur = driver principal observe. Taille = impact sur service, backlog et cout. Driver principal: {html.escape(driver_label)}.</div>",
+                    "</div>",
+                    "<div class=\"uncertaintyHeroFacts\">",
+                    f"<div><span>Impact noeud</span><b>{html.escape(score_label)}</b></div>",
+                    f"<div><span>Driver</span><b>{html.escape(driver_label)}</b></div>",
+                    f"<div><span>Runs</span><b>{runs}</b></div>",
+                    f"<div><span>Horizon</span><b>{days} j</b></div>",
+                    "</div>",
+                    "</div>",
+                    "<div class=\"uncertaintyCardGrid\">",
+                    metric_card("Fill rate", corr_text(float(top.get("fill_corr") or 0.0)), "correlation avec le service"),
+                    metric_card("Backlog", corr_text(float(top.get("backlog_corr") or 0.0)), "correlation avec le backlog"),
+                    metric_card("Cout total", corr_text(float(top.get("cost_corr") or 0.0)), "correlation avec le cout"),
+                    metric_card("Profil teste", profile, "aleas Monte Carlo actifs"),
+                    "</div>",
+                    "</div>",
+                ]
+            )
+            driver_table = (
+                "<div class=\"orderLedgerTableWrap\" tabindex=\"0\">"
+                "<table class=\"kpiFormulaTable\"><thead><tr>"
+                "<th>Dimension testee</th><th>Impact</th><th>Corr. service</th><th>Corr. backlog</th><th>Corr. cout</th><th>Lecture</th>"
+                "</tr></thead><tbody>"
+                f"{''.join(driver_table_rows)}"
+                "</tbody></table></div>"
+            )
+            limit_note = (
+                "<div class=\"orderLedgerStatus\">"
+                "Lecture importante: ce n'est pas une donnee fournisseur reelle. C'est l'impact observe quand les parametres aleatoires "
+                "de la simulation bougent. Une correlation proche de zero signifie seulement que les 200 runs n'ont pas montre d'effet clair "
+                "pour cette dimension."
+                "</div>"
+            )
+            node_assets[node_id] = data_html_asset(
+                f"{node_id} - impact Monte Carlo",
+                "Lecture principale du mode Incertitude: impact observe dans les runs aleatoires.",
+                [
+                    ("Synthese Monte Carlo", node_dashboard),
+                    ("Drivers observes pour ce noeud", driver_table),
+                    ("Limites", limit_note),
+                ],
+            )
+            nodes[node_id] = {
+                "source": "montecarlo",
+                "title": f"Impact Monte Carlo - {node_id}",
+                "summary_lines": summary_lines,
+                "score": round(score, 6),
+                "confidence": 1.0 if runs >= 100 else min(1.0, runs / 100.0),
+                "status": status,
+                "status_label": status_label,
+                "business_class": business_class,
+                "color": color,
+                "dominant_dimension": driver_label,
+                "dominant_score": round(score, 6),
+                "driver_family": str(top.get("family") or ""),
+                "driver_label": driver_label,
+                "driver_factor": str(top.get("factor") or ""),
+                "fill_rate_correlation": top.get("fill_corr"),
+                "backlog_correlation": top.get("backlog_corr"),
+                "cost_correlation": top.get("cost_corr"),
+                "runs": runs,
+                "days": days,
+                "profile": profile,
+                "views": views,
+                "drivers": rows,
+            }
+        return nodes, node_assets
+
+    if not summary_json.exists():
+        html_body = (
+            "<div class=\"factoryHtmlPanelContent dataSummaryPanelContent\">"
+            "<div class=\"uncertaintyDashboard sensitivityStatus-untested\">"
+            "<div class=\"uncertaintyHero\">"
+            "<div class=\"sensitivityStatusPill\">Monte Carlo non lance</div>"
+            "<div class=\"uncertaintyHeroTitle\">Incertitude dynamique</div>"
+            "<div class=\"uncertaintyHeroText\">Aucun resultat Monte Carlo n'a encore ete trouve pour cette baseline. "
+            "L'onglet Incertitude attend des runs Monte Carlo pour colorer les noeuds par impact observe.</div>"
+            "</div></div></div>"
+        )
+        return {"available": False, "summary_json": str(summary_json), "html": html_body}
+
+    try:
+        summary = json.loads(summary_json.read_text(encoding="utf-8"))
+    except Exception as exc:
+        html_body = (
+            "<div class=\"factoryHtmlPanelContent dataSummaryPanelContent\">"
+            "<div class=\"uncertaintyDashboard sensitivityStatus-sensitive\">"
+            "<div class=\"uncertaintyHero\">"
+            "<div class=\"sensitivityStatusPill\">Lecture impossible</div>"
+            "<div class=\"uncertaintyHeroTitle\">Incertitude dynamique</div>"
+            f"<div class=\"uncertaintyHeroText\">Le fichier Monte Carlo existe mais ne peut pas etre lu: {html.escape(str(exc))}</div>"
+            "</div></div></div>"
+        )
+        return {"available": False, "summary_json": str(summary_json), "html": html_body}
+
+    decision = summary.get("decision_metrics") or {}
+    runs = int(as_float(summary.get("successful_stochastic_runs"), 0.0) or 0)
+    failed = int(as_float(summary.get("failed_runs"), 0.0) or 0)
+    days = int(as_float(summary.get("days_override"), 0.0) or 0)
+    profile = str(summary.get("uncertainty_profile") or "n/a")
+    seed = str(summary.get("seed") or "n/a")
+    service_risk = as_float(decision.get("fill_rate_below_100pct"), 0.0)
+    backlog_risk = as_float(decision.get("backlog_positive"), 0.0)
+    cost_risk = as_float(decision.get("total_cost_above_baseline"), 0.0)
+    status_cls = "robust"
+    status_label = "Resilience observee"
+    if runs < 20 or failed > 0:
+        status_cls = "watch"
+        status_label = "Echantillon a renforcer"
+    if service_risk > 0.0 or backlog_risk > 0.0:
+        status_cls = "watch"
+        status_label = "Fragilite service observee"
+    if service_risk >= 0.20 or backlog_risk >= 0.20:
+        status_cls = "sensitive"
+        status_label = "Risque de service eleve"
+
+    fill_stat = stat(summary, "fill_rate")
+    backlog_stat = stat(summary, "ending_backlog")
+    cost_stat = stat(summary, "total_cost")
+    inv_cost_stat = stat(summary, "total_inventory_cost_legacy_raw_holding")
+    supplier_binding_stat = stat(summary, "total_supplier_capacity_binding_qty")
+    mc_nodes, mc_node_assets = build_montecarlo_node_payloads(summary)
+
+    cards = [
+        metric_card(
+            "Service client",
+            f"P05 {format_stat(summary, 'fill_rate', 'p05', 'pct01')}",
+            f"mediane {format_stat(summary, 'fill_rate', 'p50', 'pct01')} ; baseline {format_stat(summary, 'fill_rate', 'baseline', 'pct01')}",
+            "Distribution du fill rate sur les scenarios aleatoires. P05 signifie que 5% des scenarios sont en dessous.",
+        ),
+        metric_card(
+            "Risque fill rate < 100%",
+            pct01(service_risk),
+            "part des scenarios ou le service n'est plus parfait",
+            "Calcul = nombre de runs Monte Carlo avec fill_rate < 100% / nombre de runs valides.",
+        ),
+        metric_card(
+            "Backlog",
+            f"P95 {format_stat(summary, 'ending_backlog', 'p95', 'qty')}",
+            f"risque backlog > 0: {pct01(backlog_risk)}",
+            "Backlog final observe dans les scenarios. Un backlog positif indique que la demande client n'est pas totalement absorbee.",
+        ),
+        metric_card(
+            "Cout total",
+            f"P50 {format_stat(summary, 'total_cost', 'p50', 'money')}",
+            f"P05-P95 {format_stat(summary, 'total_cost', 'p05', 'money')} - {format_stat(summary, 'total_cost', 'p95', 'money')}",
+            "Distribution du cout total quand les parametres incertains bougent autour du nominal.",
+        ),
+        metric_card(
+            "Cout stock",
+            f"P50 {format_stat(summary, 'total_inventory_cost_legacy_raw_holding', 'p50', 'money')}",
+            f"baseline {format_stat(summary, 'total_inventory_cost_legacy_raw_holding', 'baseline', 'money')}",
+            "Composante stockage observee dans les scenarios Monte Carlo.",
+        ),
+        metric_card(
+            "Capacite fournisseur contrainte",
+            f"P95 {format_stat(summary, 'total_supplier_capacity_binding_qty', 'p95', 'qty')}",
+            f"baseline {format_stat(summary, 'total_supplier_capacity_binding_qty', 'baseline', 'qty')}",
+            "Quantite totale qui rencontre une limite de capacite fournisseur dans la simulation.",
+        ),
+    ]
+
+    distribution_rows = [
+        ("Fill rate", "fill_rate", "pct01"),
+        ("Backlog final", "ending_backlog", "qty"),
+        ("Cout total", "total_cost", "money"),
+        ("Cout stockage", "total_inventory_cost_legacy_raw_holding", "money"),
+        ("Capacite fournisseur contrainte", "total_supplier_capacity_binding_qty", "qty"),
+        ("Appro amont rejetee", "total_external_procured_rejected_qty", "qty"),
+    ]
+    table_rows = []
+    for label, metric, kind in distribution_rows:
+        if not stat(summary, metric):
+            continue
+        table_rows.append(
+            "<tr>"
+            f"<td>{html.escape(label)}</td>"
+            f"<td>{html.escape(format_stat(summary, metric, 'baseline', kind))}</td>"
+            f"<td>{html.escape(format_stat(summary, metric, 'p05', kind))}</td>"
+            f"<td>{html.escape(format_stat(summary, metric, 'p50', kind))}</td>"
+            f"<td>{html.escape(format_stat(summary, metric, 'p95', kind))}</td>"
+            f"<td>{html.escape(format_stat(summary, metric, 'max', kind))}</td>"
+            "</tr>"
+        )
+
+    driver_targets = [
+        ("kpi::fill_rate", "Facteurs qui expliquent le fill rate"),
+        ("kpi::total_cost", "Facteurs qui expliquent le cout total"),
+        ("kpi::ending_backlog", "Facteurs qui expliquent le backlog"),
+    ]
+    driver_sections: list[str] = []
+    rankings = summary.get("driver_rankings") or {}
+    for target, title in driver_targets:
+        rows = rankings.get(target) or []
+        if not rows:
+            continue
+        driver_rows = []
+        for row in rows[:8]:
+            corr = as_float(row.get("correlation"), 0.0)
+            direction = "augmente avec le KPI" if corr >= 0 else "fait baisser le KPI"
+            driver_rows.append(
+                "<tr>"
+                f"<td>{html.escape(factor_label(str(row.get('factor') or '')))}</td>"
+                f"<td>{corr:+.2f}</td>"
+                f"<td>{html.escape(direction)}</td>"
+                "</tr>"
+            )
+        driver_sections.append(
+            "<div class=\"orderLedgerSectionTitle\">"
+            f"{html.escape(title)}"
+            "</div>"
+            "<div class=\"orderLedgerTableWrap\" tabindex=\"0\">"
+            "<table class=\"kpiFormulaTable\"><thead><tr><th>Parametre aleatoire</th><th>Correlation</th><th>Lecture</th></tr></thead><tbody>"
+            f"{''.join(driver_rows)}"
+            "</tbody></table></div>"
+        )
+
+    hero_tooltip = "\n".join(
+        [
+            "Monte Carlo = plusieurs simulations rejouees avec des parametres tires aleatoirement autour du nominal.",
+            "Baseline nominale conservee: elle sert de reference, elle n'est pas modifiee.",
+            f"Runs valides = {runs}. Horizon = {days} jours. Seed = {seed}.",
+        ]
+    )
+    driver_sections_html = (
+        "".join(driver_sections)
+        if driver_sections
+        else '<div class="orderLedgerStatus">Pas assez de runs ou de variance pour classer les drivers.</div>'
+    )
+    html_body = (
+        "<div class=\"factoryHtmlPanelContent dataSummaryPanelContent monteCarloPanelContent\">"
+        f"<div class=\"{html_tooltip_class(f'uncertaintyDashboard sensitivityStatus-{status_cls}', hero_tooltip)}\"{html_tooltip_attrs(hero_tooltip)}>"
+        "<div class=\"uncertaintyHero\">"
+        f"<div class=\"sensitivityStatusPill\">{html.escape(status_label)}</div>"
+        "<div class=\"uncertaintyHeroTitle\">Incertitude dynamique - Monte Carlo</div>"
+        "<div class=\"uncertaintyHeroText\">Cette lecture rejoue la simulation avec des aleas controles sur demande, delais, stocks, capacites fournisseurs, capacites usines et couts. Elle mesure la robustesse de la baseline, pas une probabilite historique fournisseur.</div>"
+        "</div>"
+        "<div class=\"uncertaintyHeroFacts\">"
+        f"<div><span>Runs valides</span><b>{runs}</b></div>"
+        f"<div><span>Horizon teste</span><b>{days} j</b></div>"
+        f"<div><span>Profil</span><b>{html.escape(profile)}</b></div>"
+        f"<div><span>Runs en echec</span><b>{failed}</b></div>"
+        "</div>"
+        "<div class=\"uncertaintyCardGrid\">"
+        f"{''.join(cards)}"
+        "</div>"
+        "</div>"
+        "<section class=\"dataSummarySection\">"
+        "<div class=\"dataSummarySectionTitle\">Distribution des KPI metier</div>"
+        "<div class=\"orderLedgerTableWrap\" tabindex=\"0\">"
+        "<table class=\"kpiFormulaTable\"><thead><tr><th>KPI</th><th>Baseline</th><th>P05</th><th>P50</th><th>P95</th><th>Max</th></tr></thead><tbody>"
+        f"{''.join(table_rows)}"
+        "</tbody></table></div>"
+        "</section>"
+        "<section class=\"dataSummarySection\">"
+        "<div class=\"dataSummarySectionTitle\">Drivers observes dans les runs</div>"
+        "<div class=\"orderLedgerStatus\">La correlation indique quels parametres aleatoires expliquent le plus les ecarts entre scenarios. Ce n'est pas une causalite terrain; c'est une lecture du modele rejoue.</div>"
+        f"{driver_sections_html}"
+        "</section>"
+        "</div>"
+    )
+    return {
+        "available": True,
+        "summary_json": str(summary_json),
+        "html": html_body,
+        "runs": runs,
+        "days": days,
+        "service_risk": round(service_risk, 6),
+        "backlog_risk": round(backlog_risk, 6),
+        "cost_risk": round(cost_risk, 6),
+        "fill_rate_p05": fill_stat.get("p05"),
+        "backlog_p95": backlog_stat.get("p95"),
+        "total_cost_p95": cost_stat.get("p95"),
+        "inventory_cost_p95": inv_cost_stat.get("p95"),
+        "supplier_capacity_binding_p95": supplier_binding_stat.get("p95"),
+        "nodes": mc_nodes,
+        "node_assets": mc_node_assets,
+    }
 
 
 def merge_hover_payload_maps(
@@ -13375,8 +15834,9 @@ def merge_hover_payload_maps(
         outgoing = primary_payload.get("outgoing") or fallback_payload.get("outgoing")
         third = primary_payload.get("third") or fallback_payload.get("third")
         fourth = primary_payload.get("fourth") or fallback_payload.get("fourth")
-        if incoming or outgoing or third or fourth:
-            merged[node_id] = {"incoming": incoming, "outgoing": outgoing, "third": third, "fourth": fourth}
+        compare = primary_payload.get("compare") or fallback_payload.get("compare")
+        if incoming or outgoing or third or fourth or compare:
+            merged[node_id] = {"incoming": incoming, "outgoing": outgoing, "third": third, "fourth": fourth, "compare": compare}
     return merged
 
 
@@ -13736,7 +16196,7 @@ def build_supplier_local_criticality(
         if observed_share_den > 1e-9:
             summary_lines.append(metric_label_value("Part du flux observee", f"{row['observed_sourcing_share']:.1%}"))
             if row["target_sourcing_share"] > 0.0:
-                summary_lines.append(metric_label_value("Split MRP theorique", f"{row['target_sourcing_share']:.1%}"))
+                summary_lines.append(metric_label_value("Part cible MRP", f"{row['target_sourcing_share']:.1%}"))
         else:
             summary_lines.append(metric_label_value("Part du flux observee", "n/a"))
         nominal_capacity = supplier_nominal_capacity_by_supplier.get(supplier_id, 0.0)
@@ -13746,24 +16206,24 @@ def build_supplier_local_criticality(
         if basis_label:
             scale = supplier_capacity_scale_by_supplier.get(supplier_id, 0.0)
             suffix = f" x{scale:.0f}" if scale > 0 else ""
-            summary_lines.append(metric_label_value("Base capacite", f"{basis_label}{suffix}"))
+            summary_lines.append(metric_label_value("Reference capacite", f"{basis_label}{suffix}"))
         summary_lines.append(metric_label_value("Paires mono-source", str(row["sole_source_pairs"])))
         if row["shortage_supported_qty"] > 0 or row["shortage_supported_events"] > 0:
             summary_lines.append(
                 metric_label_value(
-                    "Shortage soutenu",
+                    "Rupture couverte",
                     f"{row['shortage_supported_qty']:.2f} sur {row['shortage_supported_events']} evenements",
                 )
             )
         else:
-            summary_lines.append(metric_label_value("Shortage soutenu", "aucun detecte"))
-        summary_lines.append(metric_label_value("Indice local", f"{local_score:.3f}"))
+            summary_lines.append(metric_label_value("Rupture couverte", "aucune detectee"))
+        summary_lines.append(metric_label_value("Criticite locale", f"{local_score:.3f}"))
         if std_label or struct_label or system_score > 1e-9:
             if std_label:
-                summary_lines.append(metric_label_value("Driver sensibilite", std_label))
+                summary_lines.append(metric_label_value("Point faible sensibilite", std_label))
             if struct_label:
-                summary_lines.append(metric_label_value("Driver structurel", struct_label))
-            summary_lines.append(metric_label_value("Indice systeme", f"{system_score:.3f}"))
+                summary_lines.append(metric_label_value("Point faible reseau", struct_label))
+            summary_lines.append(metric_label_value("Criticite reseau", f"{system_score:.3f}"))
         metrics_by_supplier[supplier_id] = {
             "summary_lines": summary_lines,
             "items": supplied_items,
@@ -13872,6 +16332,66 @@ def html_template(
       background: #0f172a;
       color: #ffffff;
     }}
+    .debugOnly {{
+      display: none !important;
+    }}
+    body.showDebugTools .debugOnly {{
+      display: inline-flex !important;
+    }}
+    body.showDebugTools .debugUnavailable {{
+      display: none !important;
+    }}
+    .debugToggleLabel {{
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #334155;
+      white-space: nowrap;
+    }}
+    .sensitivityTop3Box,
+    .uncertaintyMonteCarloBox,
+    .uncertaintyControlsBox {{
+      display: none;
+    }}
+    .sensitivityTop3Box.visible,
+    .uncertaintyMonteCarloBox.visible,
+    .uncertaintyControlsBox.visible {{
+      display: flex;
+    }}
+    .uncertaintyControlsBox {{
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }}
+    .uncertaintyControlsBox label {{
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: #334155;
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }}
+    .uncertaintyControlsBox select {{
+      border: 1px solid #cbd5e1;
+      border-radius: 999px;
+      background: #ffffff;
+      color: #0f172a;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 5px 8px;
+    }}
+    .uncertaintyControlsBox input[type="range"] {{
+      width: 112px;
+    }}
+    .uncertaintyIntensityValue {{
+      color: #0f172a;
+      font-size: 12px;
+      font-weight: 900;
+      min-width: 34px;
+    }}
     #typeFilters label {{
       margin-right: 8px;
       font-size: 12px;
@@ -13909,7 +16429,8 @@ def html_template(
       height: calc(100vh - 64px);
     }}
     #sensitivityLegend,
-    #riskLegend {{
+    #riskLegend,
+    #uncertaintyLegend {{
       position: fixed;
       left: 16px;
       bottom: 16px;
@@ -13925,7 +16446,8 @@ def html_template(
       color: #334155;
     }}
     #sensitivityLegend.visible,
-    #riskLegend.visible {{
+    #riskLegend.visible,
+    #uncertaintyLegend.visible {{
       display: block;
     }}
     .sensitivityLegendTitle {{
@@ -14030,6 +16552,62 @@ def html_template(
       gap: 10px;
       min-width: 0;
       max-width: 100%;
+    }}
+    .businessSummary {{
+      border: 1px solid #cbd5e1;
+      border-left-width: 6px;
+      border-radius: 10px;
+      background: #ffffff;
+      padding: 10px 12px;
+      box-shadow: 0 1px 0 rgba(15, 23, 42, 0.04);
+    }}
+    .businessSummary.businessOk {{
+      border-left-color: #16a34a;
+      background: #f0fdf4;
+    }}
+    .businessSummary.businessWarn {{
+      border-left-color: #d97706;
+      background: #fffbeb;
+    }}
+    .businessSummary.businessAlert {{
+      border-left-color: #dc2626;
+      background: #fef2f2;
+    }}
+    .businessSummary.businessInfo {{
+      border-left-color: #2563eb;
+      background: #eff6ff;
+    }}
+    .businessSummaryTop {{
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      margin-bottom: 4px;
+    }}
+    .businessSummaryPill {{
+      flex: 0 0 auto;
+      border-radius: 999px;
+      padding: 3px 8px;
+      background: rgba(15, 23, 42, 0.08);
+      color: #0f172a;
+      font-size: 10px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+    }}
+    .businessSummaryTitle {{
+      min-width: 0;
+      color: #0f172a;
+      font-size: 13px;
+      font-weight: 900;
+      line-height: 1.25;
+      overflow-wrap: anywhere;
+    }}
+    .businessSummaryText {{
+      color: #334155;
+      font-size: 12px;
+      line-height: 1.35;
+      overflow-wrap: anywhere;
     }}
     .panelMeta {{
       border: 1px solid #e2e8f0;
@@ -14189,6 +16767,20 @@ def html_template(
     .tableModalBody {{
       overflow: auto;
       padding: 0;
+    }}
+    .sensitivityTop3ModalBody,
+    .monteCarloModalBody {{
+      background: #f8fafc;
+    }}
+    #sensitivityTop3Content .factoryHtmlPanelContent,
+    #monteCarloContent .factoryHtmlPanelContent {{
+      height: auto;
+      min-height: 0;
+      background: transparent;
+    }}
+    #sensitivityTop3Content .dataSummaryScroll,
+    #monteCarloContent .dataSummaryScroll {{
+      overflow: visible;
     }}
     .materialTable {{
       width: 100%;
@@ -14489,6 +17081,52 @@ def html_template(
       border-radius: 10px;
       background: #f8fafc;
     }}
+    .decisionMatrix {{
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }}
+    .decisionMatrixCell {{
+      min-width: 0;
+      border: 1px solid #e2e8f0;
+      border-left-width: 5px;
+      border-radius: 10px;
+      background: #ffffff;
+      padding: 9px 10px;
+    }}
+    .decisionMatrixCell.current {{
+      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.22);
+      border-color: #93c5fd;
+    }}
+    .decisionMatrixCell.ok {{
+      border-left-color: #16a34a;
+    }}
+    .decisionMatrixCell.watch {{
+      border-left-color: #d97706;
+    }}
+    .decisionMatrixCell.alert {{
+      border-left-color: #dc2626;
+    }}
+    .decisionMatrixCellTitle {{
+      color: #0f172a;
+      font-size: 12px;
+      font-weight: 900;
+      line-height: 1.25;
+      margin-bottom: 4px;
+    }}
+    .decisionMatrixCellText {{
+      color: #334155;
+      font-size: 11px;
+      line-height: 1.35;
+      overflow-wrap: anywhere;
+    }}
+    .decisionMatrixCellAction {{
+      margin-top: 5px;
+      color: #0f172a;
+      font-size: 11px;
+      font-weight: 800;
+      line-height: 1.35;
+    }}
     .sensitivityDashboard {{
       border: 1px solid #e2e8f0;
       border-left-width: 6px;
@@ -14555,7 +17193,7 @@ def html_template(
     }}
     .sensitivityMetricGrid {{
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 8px;
     }}
     .sensitivityMetricCard {{
@@ -14598,6 +17236,668 @@ def html_template(
       line-height: 1.35;
       overflow-wrap: anywhere;
     }}
+    .sensitivityCompareDashboard {{
+      border: 1px solid #dbeafe;
+      border-left: 6px solid #2563eb;
+      border-radius: 12px;
+      background: #f8fbff;
+      padding: 12px 14px;
+    }}
+    .sensitivityCompareHeader {{
+      display: grid;
+      grid-template-columns: minmax(0, 1.2fr) minmax(220px, 0.8fr);
+      gap: 12px;
+      align-items: start;
+      margin-bottom: 12px;
+    }}
+    .sensitivityCompareEyebrow {{
+      font-size: 10px;
+      font-weight: 900;
+      text-transform: uppercase;
+      color: #2563eb;
+      letter-spacing: 0.04em;
+      margin-bottom: 4px;
+    }}
+    .sensitivityCompareHeading {{
+      font-size: 15px;
+      font-weight: 900;
+      color: #0f172a;
+      line-height: 1.25;
+      overflow-wrap: anywhere;
+    }}
+    .sensitivityCompareNote {{
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.82);
+      color: #334155;
+      font-size: 12px;
+      line-height: 1.35;
+      padding: 9px 10px;
+    }}
+    .sensitivityCompareGrid {{
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }}
+    .sensitivityCompareCard {{
+      position: relative;
+      overflow: hidden;
+      border: 1px solid #cbd5e1;
+      border-radius: 12px;
+      background: #ffffff;
+      padding: 12px;
+      min-width: 0;
+      box-shadow: 0 1px 0 rgba(15, 23, 42, 0.04);
+    }}
+    .sensitivityCompareAccent {{
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 5px;
+    }}
+    .sensitivityCompareTop {{
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
+      padding-left: 2px;
+    }}
+    .sensitivityCompareRank {{
+      font-size: 11px;
+      font-weight: 900;
+      color: #64748b;
+    }}
+    .sensitivityCompareFamily {{
+      font-size: 11px;
+      font-weight: 900;
+      color: #475569;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+      padding-left: 2px;
+    }}
+    .sensitivityCompareContext {{
+      color: #0f172a;
+      font-size: 12px;
+      font-weight: 800;
+      margin-bottom: 6px;
+      padding-left: 2px;
+      overflow-wrap: anywhere;
+    }}
+    .sensitivityCompareTitle {{
+      font-size: 14px;
+      line-height: 1.25;
+      font-weight: 900;
+      color: #0f172a;
+      overflow-wrap: anywhere;
+      margin-bottom: 8px;
+      padding-left: 2px;
+    }}
+    .sensitivityCompareText {{
+      color: #334155;
+      font-size: 12px;
+      line-height: 1.35;
+      margin-bottom: 10px;
+      padding-left: 2px;
+    }}
+    .sensitivityCompareKpis {{
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 6px;
+    }}
+    .sensitivityCompareKpis div {{
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      background: #f8fafc;
+      padding: 7px 8px;
+      min-width: 0;
+    }}
+    .sensitivityCompareKpis span {{
+      display: block;
+      font-size: 9px;
+      color: #64748b;
+      font-weight: 900;
+      text-transform: uppercase;
+      overflow-wrap: anywhere;
+    }}
+    .sensitivityCompareKpis b {{
+      display: block;
+      margin-top: 2px;
+      font-size: 13px;
+      color: #0f172a;
+      overflow-wrap: anywhere;
+    }}
+    .sensitivityCompareReason {{
+      margin-top: 9px;
+      border-radius: 8px;
+      background: #eff6ff;
+      color: #1e3a8a;
+      font-size: 12px;
+      line-height: 1.35;
+      padding: 8px 9px;
+      overflow-wrap: anywhere;
+    }}
+    .uncertaintyDashboard {{
+      margin: 8px 16px 10px;
+      border: 1px solid #e2e8f0;
+      border-left-width: 6px;
+      border-radius: 12px;
+      background: #ffffff;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }}
+    .uncertaintyHero {{
+      display: grid;
+      grid-template-columns: minmax(0, 1.15fr) minmax(220px, 0.85fr);
+      gap: 10px;
+      align-items: stretch;
+    }}
+    .uncertaintyHeroTitle {{
+      color: #0f172a;
+      font-size: 15px;
+      font-weight: 900;
+      line-height: 1.15;
+      overflow-wrap: anywhere;
+      margin-top: 3px;
+    }}
+    .uncertaintyHeroText {{
+      color: #334155;
+      font-size: 12px;
+      line-height: 1.35;
+      margin-top: 4px;
+      overflow-wrap: anywhere;
+    }}
+    .uncertaintyHeroFacts {{
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 7px;
+    }}
+    .uncertaintyHeroFacts div {{
+      min-width: 0;
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      border-radius: 9px;
+      background: rgba(255, 255, 255, 0.72);
+      padding: 7px 8px;
+    }}
+    .uncertaintyHeroFacts span {{
+      display: block;
+      color: #64748b;
+      font-size: 10px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+      margin-bottom: 2px;
+    }}
+    .uncertaintyHeroFacts b {{
+      display: block;
+      color: #0f172a;
+      font-size: 11px;
+      line-height: 1.25;
+      overflow-wrap: anywhere;
+    }}
+    .uncertaintyCardGrid {{
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+    }}
+    .uncertaintyCard {{
+      min-width: 0;
+      border: 1px solid #e2e8f0;
+      border-left-width: 5px;
+      border-radius: 10px;
+      background: #ffffff;
+      padding: 8px;
+    }}
+    .uncertaintyCardLabel {{
+      color: #64748b;
+      font-size: 10px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+      margin-bottom: 3px;
+    }}
+    .uncertaintyCardValue {{
+      color: #0f172a;
+      font-size: 14px;
+      font-weight: 900;
+      line-height: 1.15;
+      overflow-wrap: anywhere;
+    }}
+    .uncertaintyCardNote {{
+      color: #475569;
+      font-size: 10px;
+      line-height: 1.25;
+      margin-top: 3px;
+      overflow-wrap: anywhere;
+    }}
+    .riskSummaryDashboard {{
+      min-width: 0;
+      border: 1px solid #e2e8f0;
+      border-left-width: 6px;
+      border-radius: 12px;
+      background: #ffffff;
+      padding: 10px;
+    }}
+    .riskSummaryHero {{
+      display: grid;
+      grid-template-columns: minmax(0, 1.05fr) minmax(260px, 0.95fr);
+      gap: 10px;
+      align-items: stretch;
+    }}
+    .riskSummaryMain {{
+      min-width: 0;
+    }}
+    .riskSummaryTitle {{
+      color: #0f172a;
+      font-size: 15px;
+      font-weight: 900;
+      line-height: 1.15;
+      overflow-wrap: anywhere;
+      margin-top: 3px;
+    }}
+    .riskSummaryText {{
+      color: #334155;
+      font-size: 12px;
+      line-height: 1.35;
+      margin-top: 5px;
+      overflow-wrap: anywhere;
+    }}
+    .riskSummaryFacts {{
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 7px;
+    }}
+    .riskSummaryFacts div {{
+      min-width: 0;
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      border-radius: 9px;
+      background: rgba(255, 255, 255, 0.72);
+      padding: 7px 8px;
+    }}
+    .riskSummaryFacts span {{
+      display: block;
+      color: #64748b;
+      font-size: 10px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+      margin-bottom: 2px;
+    }}
+    .riskSummaryFacts b {{
+      display: block;
+      color: #0f172a;
+      font-size: 11px;
+      line-height: 1.25;
+      overflow-wrap: anywhere;
+    }}
+    .riskTooltipHost {{
+      position: relative;
+      cursor: help;
+      outline: none;
+    }}
+    .riskTooltipPortal {{
+      position: fixed;
+      left: 0;
+      top: 0;
+      width: min(420px, calc(100vw - 20px));
+      max-width: calc(100vw - 20px);
+      white-space: pre-line;
+      background: #0f172a;
+      color: #ffffff;
+      border-radius: 10px;
+      padding: 11px 12px;
+      font-size: 11px;
+      line-height: 1.35;
+      font-weight: 650;
+      text-transform: none;
+      letter-spacing: 0;
+      box-shadow: 0 12px 28px rgba(15, 23, 42, 0.22);
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(4px);
+      transition: opacity 120ms ease, transform 120ms ease;
+      z-index: 2147483000;
+    }}
+    .riskTooltipPortal.visible {{
+      opacity: 1;
+      transform: translateY(0);
+    }}
+    .riskIndicatorStack {{
+      display: grid;
+      gap: 8px;
+    }}
+    .riskDriverGrid {{
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }}
+    .riskDriverCard {{
+      min-width: 0;
+      border: 1px solid #e2e8f0;
+      border-left-width: 5px;
+      border-radius: 10px;
+      background: #ffffff;
+      padding: 9px 10px;
+    }}
+    .riskDriverRank {{
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 2px 7px;
+      background: rgba(15, 23, 42, 0.08);
+      color: #334155;
+      font-size: 10px;
+      font-weight: 900;
+      margin-bottom: 5px;
+    }}
+    .riskDriverTitle {{
+      color: #0f172a;
+      font-size: 13px;
+      font-weight: 900;
+      line-height: 1.2;
+      overflow-wrap: anywhere;
+    }}
+    .riskDriverValue {{
+      color: #0f172a;
+      font-size: 20px;
+      font-weight: 900;
+      line-height: 1.05;
+      margin-top: 4px;
+    }}
+    .riskDriverMeta {{
+      color: #334155;
+      font-size: 11px;
+      font-weight: 800;
+      line-height: 1.3;
+      margin-top: 4px;
+      overflow-wrap: anywhere;
+    }}
+    .riskDriverNote {{
+      color: #475569;
+      font-size: 11px;
+      line-height: 1.3;
+      margin-top: 5px;
+      overflow-wrap: anywhere;
+    }}
+    .riskMethodStack {{
+      display: grid;
+      gap: 10px;
+      margin-top: 8px;
+    }}
+    .riskMethodNote {{
+      border: 1px solid #dbeafe;
+      border-radius: 10px;
+      background: #eff6ff;
+      color: #1e3a8a;
+      padding: 8px 10px;
+      font-size: 12px;
+      line-height: 1.35;
+      overflow-wrap: anywhere;
+    }}
+    .riskMethodSubTitle {{
+      color: #0f172a;
+      font-size: 12px;
+      font-weight: 900;
+      line-height: 1.25;
+      margin-top: 2px;
+      overflow-wrap: anywhere;
+    }}
+    .riskMethodDetails > summary {{
+      font-weight: 900;
+    }}
+    .riskSignalFrame {{
+      min-width: 0;
+      border: 1px solid #fed7aa;
+      border-left: 6px solid #d97706;
+      border-radius: 14px;
+      background: #fff7ed;
+      padding: 12px;
+      display: grid;
+      gap: 10px;
+    }}
+    .riskSignalHero {{
+      min-width: 0;
+    }}
+    .riskSignalCompositionHead {{
+      display: grid;
+      gap: 2px;
+      padding-top: 2px;
+    }}
+    .riskSignalCompositionTitle {{
+      color: #7c2d12;
+      font-size: 12px;
+      font-weight: 900;
+      line-height: 1.25;
+      overflow-wrap: anywhere;
+    }}
+    .riskSignalCompositionText {{
+      color: #475569;
+      font-size: 11px;
+      line-height: 1.35;
+      overflow-wrap: anywhere;
+    }}
+    .riskIndicatorSection {{
+      min-width: 0;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      background: rgba(248, 250, 252, 0.72);
+      padding: 9px;
+      display: grid;
+      gap: 8px;
+    }}
+    .riskIndicatorSectionHead {{
+      display: grid;
+      gap: 2px;
+    }}
+    .riskIndicatorSectionTitle {{
+      color: #0f172a;
+      font-size: 12px;
+      font-weight: 900;
+      line-height: 1.25;
+      overflow-wrap: anywhere;
+    }}
+    .riskIndicatorSectionNote {{
+      color: #475569;
+      font-size: 11px;
+      line-height: 1.3;
+      overflow-wrap: anywhere;
+    }}
+    .riskIndicatorSection .riskExplanationGrid {{
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    }}
+    .riskExplanationGrid {{
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }}
+    .riskExplanationCard {{
+      min-width: 0;
+      border: 1px solid #e2e8f0;
+      border-left-width: 5px;
+      border-radius: 10px;
+      background: #ffffff;
+      padding: 9px 10px;
+    }}
+    .riskExplanationLabel {{
+      color: #475569;
+      font-size: 10px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+      line-height: 1.2;
+      overflow-wrap: anywhere;
+    }}
+    .riskExplanationValue {{
+      color: #0f172a;
+      font-size: 17px;
+      font-weight: 900;
+      line-height: 1.1;
+      margin-top: 5px;
+    }}
+    .riskExplanationFormula {{
+      color: #0f172a;
+      font-size: 11px;
+      font-weight: 800;
+      line-height: 1.3;
+      margin-top: 5px;
+      overflow-wrap: anywhere;
+    }}
+    .riskExplanationBreakdown {{
+      display: grid;
+      gap: 4px;
+      margin-top: 7px;
+    }}
+    .riskExplanationBreakdown div {{
+      min-width: 0;
+      border: 1px solid rgba(148, 163, 184, 0.28);
+      border-radius: 7px;
+      background: rgba(255, 255, 255, 0.62);
+      padding: 5px 6px;
+    }}
+    .riskExplanationBreakdown span {{
+      display: block;
+      color: #64748b;
+      font-size: 9px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+      margin-bottom: 2px;
+    }}
+    .riskExplanationBreakdown b {{
+      display: block;
+      color: #0f172a;
+      font-size: 10px;
+      line-height: 1.25;
+      overflow-wrap: anywhere;
+    }}
+    .riskExplanationNote {{
+      color: #475569;
+      font-size: 11px;
+      line-height: 1.3;
+      margin-top: 5px;
+      overflow-wrap: anywhere;
+    }}
+    .riskComponentGrid {{
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }}
+    .riskComponentCard {{
+      min-width: 0;
+      border: 1px solid #e2e8f0;
+      border-left-width: 5px;
+      border-radius: 10px;
+      background: #ffffff;
+      padding: 9px 10px;
+    }}
+    .riskComponentTop {{
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+    }}
+    .riskComponentLabel {{
+      color: #475569;
+      font-size: 10px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+      line-height: 1.2;
+      overflow-wrap: anywhere;
+    }}
+    .riskComponentWeight {{
+      color: #64748b;
+      font-size: 10px;
+      font-weight: 800;
+      white-space: nowrap;
+    }}
+    .riskComponentValue {{
+      color: #0f172a;
+      font-size: 18px;
+      font-weight: 900;
+      line-height: 1.1;
+      margin-top: 5px;
+    }}
+    .riskComponentBarTrack {{
+      height: 5px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.10);
+      margin-top: 6px;
+      overflow: hidden;
+    }}
+    .riskComponentBar {{
+      height: 100%;
+      border-radius: 999px;
+      background: currentColor;
+      opacity: 0.75;
+    }}
+    .riskComponentContribution {{
+      color: #0f172a;
+      font-size: 10px;
+      font-weight: 800;
+      line-height: 1.25;
+      margin-top: 5px;
+      overflow-wrap: anywhere;
+    }}
+    .riskComponentNote {{
+      color: #334155;
+      font-size: 11px;
+      line-height: 1.3;
+      margin-top: 6px;
+      overflow-wrap: anywhere;
+    }}
+    .riskDetailBlock {{
+      display: grid;
+      gap: 8px;
+      margin-top: 8px;
+    }}
+    .riskDetailTitle {{
+      color: #334155;
+      font-size: 11px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+    }}
+    .uncertaintyEnvelope,
+    .uncertaintyQualityGrid {{
+      margin: 0 16px 10px;
+    }}
+    .uncertaintyEnvelope .kpiFormulaTable {{
+      width: 100%;
+    }}
+    .uncertaintyQualityGrid {{
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+    }}
+    .uncertaintyQualityCell {{
+      min-width: 0;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      background: #ffffff;
+      padding: 8px;
+    }}
+    .uncertaintyQualityTitle {{
+      color: #0f172a;
+      font-size: 11px;
+      font-weight: 900;
+      margin-bottom: 3px;
+    }}
+    .uncertaintyQualityValue {{
+      color: #334155;
+      font-size: 11px;
+      font-weight: 800;
+      margin-bottom: 3px;
+    }}
+    .uncertaintyQualityNote {{
+      color: #64748b;
+      font-size: 10px;
+      line-height: 1.25;
+      overflow-wrap: anywhere;
+    }}
     .sensitivityStatusBanner {{
       border: 1px solid #e2e8f0;
       border-left-width: 6px;
@@ -14621,6 +17921,44 @@ def html_template(
     .sensitivityStatus-not_local {{
       border-left-color: #64748b;
       background: #f8fafc;
+    }}
+    .sensitivityStatus-robust .riskComponentBar {{
+      background: #16a34a;
+    }}
+    .sensitivityStatus-watch .riskComponentBar {{
+      background: #d97706;
+    }}
+    .sensitivityStatus-sensitive .riskComponentBar {{
+      background: #dc2626;
+    }}
+    .sensitivityStatus-not_local .riskComponentBar {{
+      background: #64748b;
+    }}
+    .riskPrimaryCard {{
+      border-left-color: #2563eb !important;
+      border-color: #bfdbfe !important;
+      background: rgba(255, 255, 255, 0.82) !important;
+      box-shadow: 0 1px 0 rgba(37, 99, 235, 0.12);
+      padding: 12px 14px;
+    }}
+    .riskPrimaryCard .riskExplanationLabel {{
+      color: #1d4ed8;
+      font-size: 11px;
+    }}
+    .riskPrimaryCard .riskExplanationValue {{
+      font-size: 28px;
+      line-height: 1;
+      margin-top: 7px;
+    }}
+    .riskPrimaryCard .riskExplanationFormula {{
+      color: #64748b;
+      font-size: 11px;
+      font-weight: 800;
+      margin-top: 5px;
+    }}
+    .riskPrimaryCard .riskExplanationBreakdown div {{
+      border-color: rgba(96, 165, 250, 0.38);
+      background: rgba(255, 255, 255, 0.74);
     }}
     .sensitivityStatusPill {{
       display: inline-flex;
@@ -14758,6 +18096,21 @@ def html_template(
         grid-template-columns: minmax(0, 1fr);
       }}
       .sensitivityMetricGrid {{
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }}
+      .sensitivityCompareHeader {{
+        grid-template-columns: minmax(0, 1fr);
+      }}
+      .sensitivityCompareGrid {{
+        grid-template-columns: minmax(0, 1fr);
+      }}
+      .uncertaintyHero,
+      .riskSummaryHero,
+      .uncertaintyCardGrid,
+      .riskDriverGrid,
+      .riskExplanationGrid,
+      .riskComponentGrid,
+      .uncertaintyQualityGrid {{
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }}
       .sensitivityMatrix {{
@@ -15173,25 +18526,56 @@ def html_template(
     <div class="meta" id="stats"></div>
     <div class="box">
       <div class="modeTabs">
-        <button id="modeOps" class="modeBtn active" type="button">Simulation</button>
-        <button id="modeData" class="modeBtn" type="button">Donnees</button>
-        <button id="modeModel" class="modeBtn" type="button">Modele</button>
-        <button id="modeJson" class="modeBtn" type="button"{'' if DEBUG_PANEL_ENABLED else ' style="display:none;"'}>DEBUG</button>
-        <button id="modeSensitivity" class="modeBtn" type="button">Sensibilite</button>
-        <button id="modeRisk" class="modeBtn" type="button">Risques</button>
-        <button id="modeStructural" class="modeBtn" type="button">Structurel</button>
+        <button id="modeOps" class="modeBtn active" type="button" title="Question metier: que s'est-il passe dans le run nominal ?">Simulation</button>
+        <button id="modeSensitivity" class="modeBtn" type="button" title="Question metier: a partir de quel niveau un parametre fournisseur degrade-t-il la performance ?">Sensibilite</button>
+        <button id="modeRisk" class="modeBtn" type="button" title="Question metier: quel fournisseur merite une action ou une surveillance ?">Risques fournisseurs</button>
+        <button id="modeUncertainty" class="modeBtn" type="button" title="Question metier: peut-on faire confiance a cette lecture ?">Incertitude</button>
+        <button id="modeStructural" class="modeBtn" type="button" title="Question metier: ou le reseau est-il fragile par construction ?">Dependances</button>
+        <button id="modeData" class="modeBtn debugOnly" type="button">Audit donnees</button>
+        <button id="modeModel" class="modeBtn debugOnly" type="button">Regles modele</button>
+        <button id="modeJson" class="modeBtn debugOnly{'' if DEBUG_PANEL_ENABLED else ' debugUnavailable'}" type="button">JSON</button>
       </div>
     </div>
     <div class="box">
-      <label><input type="checkbox" id="showEdges" checked> Afficher flux</label>
+      <label class="debugToggleLabel"><input type="checkbox" id="showDebugTools"> Debug</label>
+    </div>
+    <div class="box">
+      <label id="showEdgesLabel"><input type="checkbox" id="showEdges" checked> <span id="showEdgesText">Afficher flux</span></label>
     </div>
     <div class="box">
       <button id="materialTableBtn" class="tableBtn" type="button">Tableau demande / stock / securite</button>
     </div>
     <div class="box">
-      <button id="kpiTreeBtn" class="tableBtn" type="button">Arbres KPI</button>
+      <button id="kpiTreeBtn" class="tableBtn" type="button" title="Question metier: comment les KPI se degradent-ils ensemble dans le temps ?">Arbres KPI</button>
     </div>
-    <div class="box">
+    <div class="box sensitivityTop3Box" id="sensitivityTop3Box">
+      <button id="sensitivityTop3Btn" class="tableBtn" type="button" title="Vue globale sans selectionner de noeud: trois stress tests les plus severes.">Top 3 resultats</button>
+    </div>
+    <div class="box uncertaintyMonteCarloBox" id="uncertaintyMonteCarloBox">
+      <button id="monteCarloBtn" class="tableBtn" type="button" title="Vue globale sans selectionner de noeud: distribution Monte Carlo des KPI metier.">Monte Carlo</button>
+    </div>
+    <div class="box uncertaintyControlsBox" id="uncertaintyControlsBox">
+      <label title="Choisit la lecture generale de la carte Incertitude.">
+        Vue carte
+        <select id="uncertaintyDisplaySelect">
+          <option value="dominant_type">Types dominants</option>
+          <option value="global_impact">Intensite globale</option>
+          <option value="detail_type">Detail par type</option>
+        </select>
+      </label>
+      <label id="uncertaintyDetailModeLabel" title="Disponible en vue Detail par type: colore l'intensite Monte Carlo d'une seule famille d'incertitude.">
+        Type detail
+        <select id="uncertaintyModeSelect">
+          <option value="capacity">Capacite fournisseur</option>
+          <option value="stock">Stock fournisseur</option>
+          <option value="lead">Delai fournisseur</option>
+          <option value="reliability">Fiabilite fournisseur</option>
+          <option value="factory_capacity">Capacite usine</option>
+        </select>
+      </label>
+      <span class="uncertaintyIntensityValue" id="uncertaintyIntensityValue">types dominants</span>
+    </div>
+    <div class="box debugOnly">
       <button id="modelEquationsBtn" class="tableBtn" type="button">Equations modele</button>
     </div>
     <div class="box timelineWindowBox" id="timelineWindowBox">
@@ -15215,17 +18599,31 @@ def html_template(
       <span class="sensitivityLegendItem"><span class="sensitivityLegendDot" style="background:#2563eb"></span>Fiabilite</span>
       <span class="sensitivityLegendItem"><span class="sensitivityLegendDot" style="background:#be123c"></span>Appro amont</span>
       <span class="sensitivityLegendItem"><span class="sensitivityLegendDot" style="background:#475569"></span>Scenario combine</span>
-      <span class="sensitivityLegendItem">Taille/intensite: Sensible &gt; A surveiller &gt; Robuste &gt; Non teste localement</span>
+      <span class="sensitivityLegendItem">Taille du point: plus le noeud est sensible, plus il est grand.</span>
     </div>
   </div>
   <div id="riskLegend">
     <div class="sensitivityLegendTitle">Mode Risques fournisseurs</div>
     <div class="sensitivityLegendRows">
-      <span class="sensitivityLegendItem"><span class="sensitivityLegendDot" style="background:#0f766e"></span>Vert</span>
-      <span class="sensitivityLegendItem"><span class="sensitivityLegendDot" style="background:#f59e0b"></span>Jaune</span>
-      <span class="sensitivityLegendItem"><span class="sensitivityLegendDot" style="background:#d97706"></span>Orange</span>
-      <span class="sensitivityLegendItem"><span class="sensitivityLegendDot" style="background:#dc2626"></span>Rouge</span>
-      <span class="sensitivityLegendItem">Taille: priorite action fournisseur ; panneaux: risque, incertitude, resilience, decision.</span>
+      <span class="sensitivityLegendItem"><span class="sensitivityLegendDot" style="background:#0f766e"></span>Faible</span>
+      <span class="sensitivityLegendItem"><span class="sensitivityLegendDot" style="background:#f59e0b"></span>Modere</span>
+      <span class="sensitivityLegendItem"><span class="sensitivityLegendDot" style="background:#d97706"></span>Eleve</span>
+      <span class="sensitivityLegendItem"><span class="sensitivityLegendDot" style="background:#dc2626"></span>Critique</span>
+      <span class="sensitivityLegendItem">Risque = menace metier ; incertitude = confiance ; action = croisement des deux.</span>
+    </div>
+  </div>
+  <div id="uncertaintyLegend">
+    <div class="sensitivityLegendTitle">Mode Incertitude</div>
+    <div class="sensitivityLegendRows">
+      <span class="sensitivityLegendItem"><span class="sensitivityLegendDot" style="background:#d97706"></span>Capacite fournisseur</span>
+      <span class="sensitivityLegendItem"><span class="sensitivityLegendDot" style="background:#0f766e"></span>Stock fournisseur</span>
+      <span class="sensitivityLegendItem"><span class="sensitivityLegendDot" style="background:#7c3aed"></span>Delai fournisseur</span>
+      <span class="sensitivityLegendItem"><span class="sensitivityLegendDot" style="background:#2563eb"></span>Fiabilite fournisseur</span>
+      <span class="sensitivityLegendItem"><span class="sensitivityLegendDot" style="background:#be123c"></span>Capacite usine</span>
+      <span class="sensitivityLegendItem"><span class="sensitivityLegendDot" style="background:#22c55e"></span>Impact faible</span>
+      <span class="sensitivityLegendItem"><span class="sensitivityLegendDot" style="background:#f59e0b"></span>Impact moyen</span>
+      <span class="sensitivityLegendItem"><span class="sensitivityLegendDot" style="background:#dc2626"></span>Impact fort</span>
+      <span class="sensitivityLegendItem">Types dominants: couleur = famille d'incertitude principale. Intensite globale: couleur = impact moyen du noeud. Detail par type: intensite pour le type choisi.</span>
     </div>
   </div>
 
@@ -15259,6 +18657,36 @@ def html_template(
           </thead>
           <tbody>{material_table_html}</tbody>
         </table>
+      </div>
+    </div>
+  </div>
+
+  <div id="sensitivityTop3Modal" class="tableModal">
+    <div class="tableModalCard">
+      <div class="tableModalHeader">
+        <div>
+          <div class="tableModalTitle">Sensibilite - Top 3 resultats</div>
+          <div class="tableModalMeta">Vue globale sans selectionner de noeud</div>
+        </div>
+        <button id="sensitivityTop3CloseBtn" class="tableBtn" type="button">Fermer</button>
+      </div>
+      <div class="tableModalBody sensitivityTop3ModalBody">
+        <div id="sensitivityTop3Content"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="monteCarloModal" class="tableModal">
+    <div class="tableModalCard">
+      <div class="tableModalHeader">
+        <div>
+          <div class="tableModalTitle">Incertitude - Monte Carlo</div>
+          <div class="tableModalMeta">Vue globale des KPI quand les parametres incertains varient</div>
+        </div>
+        <button id="monteCarloCloseBtn" class="tableBtn" type="button">Fermer</button>
+      </div>
+      <div class="tableModalBody monteCarloModalBody">
+        <div id="monteCarloContent"></div>
       </div>
     </div>
   </div>
@@ -15302,6 +18730,13 @@ def html_template(
       </div>
     </div>
     <div class="factoryHoverGrid">
+      <div id="businessSummary" class="businessSummary" style="display:none;">
+        <div class="businessSummaryTop">
+          <span id="businessSummaryPill" class="businessSummaryPill">Lecture</span>
+          <div id="businessSummaryTitle" class="businessSummaryTitle"></div>
+        </div>
+        <div id="businessSummaryText" class="businessSummaryText"></div>
+      </div>
       <div id="panelMeta" class="panelMeta" style="display:none;">
         <div id="panelMetaTitle" class="panelMetaTitle">Synthese site</div>
         <div id="panelMetaGrid" class="panelMetaGrid"></div>
@@ -15357,6 +18792,7 @@ def html_template(
     const GLOBAL_KPI_TREE = DATA.global_kpi_tree || null;
     const MATERIAL_BALANCE_ROWS = DATA.material_balance_rows || [];
     const MODEL_PANEL = DATA.model_panel || {{ nodes: {{}}, edges: {{}} }};
+    const UNCERTAINTY_METRICS = MODEL_PANEL.uncertainty_metrics || DATA.uncertainty_metrics || {{ nodes: {{}}, edges: {{}} }};
     const DATA_PANEL = DATA.data_panel || {{ nodes: {{}}, edges: {{}} }};
     const JSON_PANEL = DATA.json_panel || {{ nodes: {{}}, edges: {{}} }};
     const TIMELINE_HORIZON_DAYS = Number(DATA.timeline_horizon_days || 0);
@@ -15366,6 +18802,7 @@ def html_template(
     const THRESHOLD_SENSITIVITY = DATA.threshold_sensitivity || {{ nodes: {{}}, global: {{}}, selected_suppliers: [] }};
     const SUPPLIER_PARAMETER_SENSITIVITY_NODES = DATA.supplier_parameter_sensitivity_nodes || {{}};
     const SUPPLIER_RISK_METRICS = DATA.supplier_risk_metrics || {{ nodes: {{}}, global: {{}} }};
+    const MONTECARLO_UNCERTAINTY = DATA.montecarlo_uncertainty || {{ available: false, html: "" }};
     const nodeById = Object.fromEntries((DATA.nodes || []).map(n => [n.id, n]));
     const defaultPalette = ["#1f77b4", "#d62728", "#ff7f0e", "#2ca02c", "#9467bd", "#8c564b"];
     const STANDARD_PLOT_MARGIN = {{ l: 64, r: 24, t: 48, b: 92 }};
@@ -15383,11 +18820,26 @@ def html_template(
     let panelAnchorClientX = null;
     let panelAnchorClientY = null;
     let currentPanelMode = "ops";
+    let debugToolsVisible = false;
     let pendingPanelPlotRenderToken = 0;
     let lastFactoryPanelRenderKey = "";
     let hoverHandlersBound = false;
     let panelPointerInside = false;
     let hoverClearTimeout = null;
+    let uncertaintyMode = "capacity";
+    let uncertaintyDisplayMode = "dominant_type";
+    const UNCERTAINTY_MODE_LABELS = {{
+      capacity: "capacite fournisseur",
+      stock: "stock fournisseur",
+      lead: "delai fournisseur",
+      reliability: "fiabilite fournisseur",
+      factory_capacity: "capacite usine",
+    }};
+    const UNCERTAINTY_VIEW_LABELS = {{
+      dominant_type: "types dominants",
+      global_impact: "intensite globale",
+      detail_type: "detail par type",
+    }};
     const panelBundleSelection = {{}};
     let selectedYearStart = 1;
     let selectedYearEnd = 1;
@@ -15843,7 +19295,150 @@ def html_template(
       return (SUPPLIER_RISK_METRICS.nodes || {{}})[nodeId] || null;
     }}
 
+    function nodeUncertaintyMeta(nodeId, nodeType = "node") {{
+      if (nodeType === "edge") return null;
+      const monteCarloNode = ((MONTECARLO_UNCERTAINTY.nodes || {{}})[nodeId]) || null;
+      return monteCarloNode;
+    }}
+
+    function uncertaintyStatusForScore(score) {{
+      if (score >= 0.20) return {{ status: "sensitive", status_label: "Impact fort dans Monte Carlo", business_class: "businessAlert" }};
+      if (score >= 0.08) return {{ status: "watch", status_label: "Impact a surveiller dans Monte Carlo", business_class: "businessWarn" }};
+      return {{ status: "robust", status_label: "Impact faible dans Monte Carlo", business_class: "businessOk" }};
+    }}
+
+    function bestUncertaintyDriver(rows) {{
+      return rows.reduce((best, row) => {{
+        const rowScore = Number(row && row.score) || 0;
+        const bestScore = best ? (Number(best.score) || 0) : -1;
+        if (rowScore > bestScore) return row;
+        if (rowScore === bestScore && (Math.abs(Number(row && row.fill_corr) || 0) > Math.abs(Number(best && best.fill_corr) || 0))) return row;
+        return best;
+      }}, null);
+    }}
+
+    function buildUncertaintyImpact(selected, score, view, title, extra = {{}}) {{
+      if (!selected) return null;
+      const status = uncertaintyStatusForScore(score);
+      const family = selected.family || "";
+      return {{
+        ...status,
+        ...extra,
+        source: "montecarlo",
+        view,
+        mode: family,
+        title,
+        score,
+        color: selected.color || "#64748b",
+        dominant_dimension: selected.label || UNCERTAINTY_MODE_LABELS[family] || "n/a",
+        driver_family: family,
+        driver_factor: selected.factor || "",
+        fill_rate_correlation: selected.fill_corr,
+        backlog_correlation: selected.backlog_corr,
+        cost_correlation: selected.cost_corr,
+      }};
+    }}
+
+    function selectedUncertaintyImpact(meta) {{
+      if (!meta) return null;
+      const drivers = (Array.isArray(meta.drivers) ? meta.drivers : [])
+        .filter((row) => row && Number.isFinite(Number(row.score)));
+      if (!drivers.length) return null;
+
+      if (uncertaintyDisplayMode === "global_impact") {{
+        const bestByFamily = {{}};
+        drivers.forEach((row) => {{
+          const family = row.family || "other";
+          const current = bestByFamily[family];
+          if (!current || (Number(row.score) || 0) > (Number(current.score) || 0)) {{
+            bestByFamily[family] = row;
+          }}
+        }});
+        const familyRows = Object.values(bestByFamily);
+        const strongest = bestUncertaintyDriver(familyRows);
+        const score = familyRows.reduce((sum, row) => sum + (Number(row.score) || 0), 0) / Math.max(1, familyRows.length);
+        return buildUncertaintyImpact(
+          strongest,
+          score,
+          "global_impact",
+          "Intensite globale Monte Carlo",
+          {{
+            component_count: familyRows.length,
+            dominant_type_label: UNCERTAINTY_MODE_LABELS[strongest && strongest.family] || (strongest && strongest.family) || "n/a",
+          }}
+        );
+      }}
+
+      if (uncertaintyDisplayMode === "detail_type") {{
+        const candidates = drivers.filter((row) => row.family === uncertaintyMode);
+        const selected = bestUncertaintyDriver(candidates);
+        if (!selected) return null;
+        const score = Number(selected.score) || 0;
+        return buildUncertaintyImpact(
+          selected,
+          score,
+          "detail_type",
+          `Detail Monte Carlo - ${{UNCERTAINTY_MODE_LABELS[uncertaintyMode] || uncertaintyMode}}`
+        );
+      }}
+
+      const selected = bestUncertaintyDriver(drivers);
+      const score = Number(selected && selected.score) || 0;
+      const familyLabel = UNCERTAINTY_MODE_LABELS[selected && selected.family] || (selected && selected.family) || "n/a";
+      return buildUncertaintyImpact(
+        selected,
+        score,
+        "dominant_type",
+        `Type dominant - ${{familyLabel}}`,
+        {{ dominant_type_label: familyLabel }}
+      );
+    }}
+
+    function uncertaintyImpactIntensityColor(score) {{
+      const value = Math.max(0, Math.min(1, Number(score) || 0));
+      if (value >= 0.20) return "#dc2626";
+      if (value >= 0.12) return "#f97316";
+      if (value >= 0.06) return "#f59e0b";
+      if (value > 0) return "#22c55e";
+      return "#94a3b8";
+    }}
+
+    function summaryLineValue(meta, label) {{
+      if (!meta || !Array.isArray(meta.summary_lines)) return null;
+      const labels = Array.isArray(label) ? label : [label];
+      const row = meta.summary_lines.find((entry) => entry && labels.includes(entry.label));
+      return row ? row.value : null;
+    }}
+
+    function parsePercentText(value) {{
+      const match = String(value ?? "").replace(",", ".").match(/-?\d+(?:\.\d+)?/);
+      if (!match) return 0;
+      const numeric = Number(match[0]);
+      return Number.isFinite(numeric) ? Math.max(0, Math.min(1, numeric / 100)) : 0;
+    }}
+
+    function riskPredictionUncertainty(meta) {{
+      if (!meta) return 0;
+      const risk = parsePercentText(summaryLineValue(meta, "Risque estime max"));
+      const high = parsePercentText(summaryLineValue(meta, "Estimation prudente"));
+      return Math.max(0, Math.min(1, high - risk));
+    }}
+
+    function riskPredictionUncertaintyColor(meta) {{
+      const spread = riskPredictionUncertainty(meta);
+      if (spread >= 0.20) return "#7c3aed";
+      if (spread >= 0.10) return "#2563eb";
+      return "#38bdf8";
+    }}
+
     function nodeMarkerColor(n, style) {{
+      if (currentPanelMode === "uncertainty") {{
+        const uncertaintyMeta = nodeUncertaintyMeta(n.id, n.type);
+        const uncertaintyImpact = selectedUncertaintyImpact(uncertaintyMeta);
+        if (uncertaintyImpact && uncertaintyDisplayMode !== "dominant_type") return uncertaintyImpactIntensityColor(uncertaintyImpact.score);
+        if (uncertaintyImpact && uncertaintyImpact.color) return uncertaintyImpact.color;
+        return "#94a3b8";
+      }}
       if (currentPanelMode === "risk") {{
         const riskMeta = nodeRiskMeta(n.id);
         return (riskMeta && riskMeta.zone_color) ? riskMeta.zone_color : style.color;
@@ -15853,6 +19448,12 @@ def html_template(
     }}
 
     function nodeMarkerSize(n) {{
+      if (currentPanelMode === "uncertainty") {{
+        const uncertaintyMeta = nodeUncertaintyMeta(n.id, n.type);
+        const uncertaintyImpact = selectedUncertaintyImpact(uncertaintyMeta);
+        const score = uncertaintyImpact ? (Number(uncertaintyImpact.score) || 0) : 0;
+        return Math.max(8, Math.min(16, 9 + score * 7));
+      }}
       if (currentPanelMode === "risk") {{
         const riskMeta = nodeRiskMeta(n.id);
         if (!riskMeta) return 8;
@@ -15869,6 +19470,10 @@ def html_template(
     }}
 
     function nodeMarkerOpacity(n) {{
+      if (currentPanelMode === "uncertainty") {{
+        const meta = nodeUncertaintyMeta(n.id, n.type);
+        return selectedUncertaintyImpact(meta) ? 0.96 : 0.32;
+      }}
       if (currentPanelMode === "risk") {{
         return nodeRiskMeta(n.id) ? 0.96 : 0.48;
       }}
@@ -15883,8 +19488,8 @@ def html_template(
       if (!meta || currentPanelMode !== "sensitivity") return "";
       return [
         `Statut sensibilite: ${{meta.status_label || "n/a"}}`,
-        `Driver principal: ${{meta.driver_family_label || "n/a"}} - ${{meta.driver_label || "n/a"}}`,
-        `Premier refus: ${{meta.first_unacceptable || "n/a"}}`,
+        `Point faible principal: ${{meta.driver_family_label || "n/a"}} - ${{meta.driver_label || "n/a"}}`,
+        `Premier niveau ou ca se degrade: ${{meta.first_unacceptable || "n/a"}}`,
         `Pourquoi: ${{meta.reason || "n/a"}}`,
       ].join("<br>");
     }}
@@ -15893,9 +19498,41 @@ def html_template(
       const meta = nodeRiskMeta(n.id);
       if (!meta || currentPanelMode !== "risk") return "";
       const lines = Array.isArray(meta.summary_lines) ? meta.summary_lines : [];
-      const selected = lines.filter(entry => ["Zone decisionnelle", "Probabilite risque max", "Borne haute risque", "Priorite action", "Resilience minimale", "Decision robuste"].includes(entry.label));
+      const selected = lines.filter(entry => ["Niveau de risque", "Risque estime max", "Estimation prudente", "Priorite d'action", "Marge de recuperation min", "Action prudente"].includes(entry.label));
       if (!selected.length) return "";
       return selected.map(entry => `${{entry.label}}: ${{entry.value || "n/a"}}`).join("<br>");
+    }}
+
+    function nodeUncertaintyText(n) {{
+      if (currentPanelMode !== "uncertainty") return "";
+      const general = nodeUncertaintyMeta(n.id, n.type);
+      const lines = [];
+      if (general) {{
+        const impact = selectedUncertaintyImpact(general);
+        if (general.source === "montecarlo" && impact) {{
+          lines.push(`Monte Carlo: ${{impact.status_label || "n/a"}}`);
+          lines.push(`Vue carte: ${{UNCERTAINTY_VIEW_LABELS[uncertaintyDisplayMode] || uncertaintyDisplayMode}}`);
+          if (uncertaintyDisplayMode === "detail_type") {{
+            lines.push(`Type detail: ${{UNCERTAINTY_MODE_LABELS[uncertaintyMode] || uncertaintyMode}}`);
+          }}
+          lines.push(`${{impact.title || "Impact"}}: ${{fmtPanelQty((Number(impact.score) || 0) * 100, 1)}}%`);
+          lines.push(`Driver principal: ${{impact.dominant_dimension || "n/a"}}`);
+          if (Number.isFinite(Number(impact.fill_rate_correlation))) {{
+            lines.push(`Corr. fill rate: ${{Number(impact.fill_rate_correlation).toFixed(2)}}`);
+          }}
+        }} else if (general.source === "montecarlo") {{
+          lines.push(`Monte Carlo: pas d'impact local pour cette vue`);
+          lines.push(`Vue carte: ${{UNCERTAINTY_VIEW_LABELS[uncertaintyDisplayMode] || uncertaintyDisplayMode}}`);
+          if (uncertaintyDisplayMode === "detail_type") {{
+            lines.push(`Type detail: ${{UNCERTAINTY_MODE_LABELS[uncertaintyMode] || uncertaintyMode}}`);
+          }}
+        }} else {{
+          lines.push(`Confiance lecture: ${{general.status_label || "n/a"}}`);
+          lines.push(`Score dispersion: ${{fmtPanelQty((Number(general.score) || 0) * 100, 1)}}%`);
+          lines.push(`Point le moins lisible: ${{general.dominant_dimension || "n/a"}}`);
+        }}
+      }}
+      return lines.join("<br>");
     }}
 
     function initFilters() {{
@@ -15928,7 +19565,8 @@ def html_template(
       const extraHtml = extra.length ? `<br>${{extra.join("<br>")}}` : "";
       const sensitivityHtml = nodeSensitivityText(n);
       const riskHtml = nodeRiskText(n);
-      return `${{n.name || n.id}}<br>ID: ${{n.id}}<br>Type: ${{n.type}}<br>Country: ${{country}}<br>Location: ${{loc}}${{extraHtml}}${{sensitivityHtml ? `<br>${{sensitivityHtml}}` : ""}}${{riskHtml ? `<br>${{riskHtml}}` : ""}}`;
+      const uncertaintyHtml = nodeUncertaintyText(n);
+      return `${{n.name || n.id}}<br>ID: ${{n.id}}<br>Type: ${{n.type}}<br>Country: ${{country}}<br>Location: ${{loc}}${{extraHtml}}${{sensitivityHtml ? `<br>${{sensitivityHtml}}` : ""}}${{riskHtml ? `<br>${{riskHtml}}` : ""}}${{uncertaintyHtml ? `<br>${{uncertaintyHtml}}` : ""}}`;
     }}
 
     function edgeLeadColor(e) {{
@@ -16072,9 +19710,14 @@ def html_template(
       }};
     }}
 
+    function edgesInteractiveForCurrentMode() {{
+      return currentPanelMode === "ops";
+    }}
+
     function buildTraces() {{
       const traces = [];
       const visibleTypes = selectedTypes();
+      const edgesInteractive = edgesInteractiveForCurrentMode();
       const showEdges = document.getElementById("showEdges").checked;
 
       const visibleNodes = (DATA.nodes || []).filter(n =>
@@ -16134,8 +19777,8 @@ def html_template(
           if (!Number.isFinite(dst.lat) || !Number.isFinite(dst.lon)) continue;
           const itemCount = Array.isArray(e.items) ? e.items.length : 0;
           const width = 1 + Math.min(itemCount, 4);
-          const lineColor = (currentPanelMode === "sensitivity" || currentPanelMode === "risk") ? "#94a3b8" : edgeLeadColor(e);
-          const lineOpacity = (currentPanelMode === "sensitivity" || currentPanelMode === "risk") ? 0.24 : 0.65;
+          const lineColor = (currentPanelMode === "sensitivity" || currentPanelMode === "risk" || currentPanelMode === "uncertainty") ? "#94a3b8" : edgeLeadColor(e);
+          const lineOpacity = (currentPanelMode === "sensitivity" || currentPanelMode === "risk" || currentPanelMode === "uncertainty") ? 0.24 : 0.65;
           traces.push({{
             type: "scattergeo",
             mode: "lines",
@@ -16146,30 +19789,33 @@ def html_template(
             opacity: lineOpacity,
             hoverinfo: "skip",
           }});
-          const selectionPts = edgeSelectionPoints(src, dst);
-          traces.push({{
-            type: "scattergeo",
-            mode: "markers",
-            showlegend: false,
-            lon: selectionPts.map(p => p.lon),
-            lat: selectionPts.map(p => p.lat),
-            text: selectionPts.map(() => edgeText(e)),
-            customdata: selectionPts.map(() => [e.id, "edge", `${{e.from}} -> ${{e.to}}`]),
-            marker: {{
-              size: 1,
-              color: "#111827",
-              opacity: 0.001,
-              line: {{ width: 0 }},
-            }},
-            hovertemplate: "%{{text}}<extra></extra>",
-          }});
+          if (edgesInteractive) {{
+            const selectionPts = edgeSelectionPoints(src, dst);
+            traces.push({{
+              type: "scattergeo",
+              mode: "markers",
+              showlegend: false,
+              lon: selectionPts.map(p => p.lon),
+              lat: selectionPts.map(p => p.lat),
+              text: selectionPts.map(() => edgeText(e)),
+              customdata: selectionPts.map(() => [e.id, "edge", `${{e.from}} -> ${{e.to}}`]),
+              marker: {{
+                size: 1,
+                color: "#111827",
+                opacity: 0.001,
+                line: {{ width: 0 }},
+              }},
+              hovertemplate: "%{{text}}<extra></extra>",
+            }});
+          }}
           drawnEdges += 1;
         }}
       }}
 
       document.getElementById("stats").textContent =
         `${{visibleNodes.length}} nodes visibles / ${{(DATA.nodes || []).length}} | ` +
-        `${{showEdges ? drawnEdges : 0}} flux affiches / ${{(DATA.edges || []).length}}`;
+        `${{showEdges ? drawnEdges : 0}} flux affiches / ${{(DATA.edges || []).length}}` +
+        `${{edgesInteractive ? "" : " (flux non interactifs)"}}`;
       return {{ traces, visibleNodes }};
     }}
 
@@ -16259,6 +19905,7 @@ def html_template(
     }}
 
     function isPanelSelectableType(nodeType) {{
+      if (nodeType === "edge") return edgesInteractiveForCurrentMode();
       return nodeType === "factory" || nodeType === "supplier_dc" || nodeType === "distribution_center" || nodeType === "customer" || nodeType === "edge";
     }}
 
@@ -16386,6 +20033,175 @@ def html_template(
       metaGrid.appendChild(row);
     }}
 
+    function riskZoneBusinessClass(zone) {{
+      const value = String(zone || "").toLowerCase();
+      if (value.includes("rouge") || value.includes("red") || value.includes("critique")) return "businessAlert";
+      if (value.includes("orange")) return "businessAlert";
+      if (value.includes("jaune") || value.includes("amber")) return "businessWarn";
+      if (value.includes("vert") || value.includes("green")) return "businessOk";
+      return "businessInfo";
+    }}
+
+    function businessSummaryPayload(nodeId, nodeType) {{
+      const nodeLabel = nodeType === "edge"
+        ? ((EDGE_BY_ID[nodeId] || {{}}).from || "n/a") + " -> " + ((EDGE_BY_ID[nodeId] || {{}}).to || "n/a")
+        : ((nodeById[nodeId] || {{}}).name || nodeId);
+      if (currentPanelMode === "sensitivity") {{
+        const meta = nodeSensitivityMeta(nodeId);
+        if (meta) {{
+          const cls = meta.status === "sensitive" ? "businessAlert" : (meta.status === "watch" ? "businessWarn" : "businessOk");
+          return {{
+            pill: "Sensibilite",
+            title: `${{meta.status_label || "Statut sensibilite"}} - ${{nodeLabel}}`,
+            text: `Question metier: a partir de quel niveau un parametre fournisseur degrade-t-il la performance ? Premier point faible teste: ${{meta.driver_family_label || "un point faible"}} - ${{meta.driver_label || "n/a"}}. Premier niveau ou ca se degrade dans la grille: ${{meta.first_unacceptable || "n/a"}}. Utiliser l'onglet Top 3 resultats pour comparer les trois stress tests les plus severes.`,
+            cls,
+          }};
+        }}
+        return {{
+          pill: "Sensibilite",
+          title: `${{nodeLabel}} - pas de rupture locale identifiee`,
+          text: "Question metier: a partir de quel niveau un parametre fournisseur degrade-t-il la performance ? Aucun seuil local exploitable dans l'etude courante. Lire les panneaux seulement si le noeud fait partie du perimetre teste.",
+          cls: "businessInfo",
+        }};
+      }}
+      if (currentPanelMode === "risk") {{
+        const meta = nodeRiskMeta(nodeId);
+        if (meta) {{
+          const zone = summaryLineValue(meta, "Niveau de risque") || meta.decision_zone || "n/a";
+          const risk = summaryLineValue(meta, "Risque estime max") || "n/a";
+          const action = summaryLineValue(meta, "Action prudente") || "n/a";
+          const riskScore = Math.max(Number(meta.risk_probability) || 0, Number(meta.action_priority_score) || 0);
+          const uncertaintyScore = Number(meta.prediction_uncertainty) || riskPredictionUncertainty(meta);
+          const matrixCell = riskScore >= 0.35
+            ? (uncertaintyScore >= 0.20 ? "risque fort + incertitude forte" : "risque fort + incertitude faible")
+            : (uncertaintyScore >= 0.20 ? "risque faible + incertitude forte" : "risque faible + incertitude faible");
+          return {{
+            pill: "Risque",
+            title: `Niveau ${{zone}} - ${{nodeLabel}}`,
+            text: `Question metier: quel fournisseur merite une action ou une surveillance ? Risque = menace fournisseur. Incertitude = confiance dans l'estimation. Risque estime max ${{risk}}. Matrice decisionnelle: ${{matrixCell}}. Action metier: ${{action}}.`,
+            cls: riskZoneBusinessClass(zone),
+          }};
+        }}
+        return {{
+          pill: "Risque",
+          title: `${{nodeLabel}} - pas de fiche risque fournisseur`,
+          text: "Question metier: quel fournisseur merite une action ou une surveillance ? Aucun risque fournisseur local n'est disponible pour ce noeud dans le run courant.",
+          cls: "businessInfo",
+        }};
+      }}
+      if (currentPanelMode === "uncertainty") {{
+        const general = nodeUncertaintyMeta(nodeId, nodeType);
+        if (general) {{
+          if (general && general.source === "montecarlo") {{
+            const impactMeta = selectedUncertaintyImpact(general) || general;
+            if (!selectedUncertaintyImpact(general)) {{
+              return {{
+                pill: "Monte Carlo",
+                title: `${{nodeLabel}} - aucun impact pour cette vue`,
+                text: `Question metier: comment ce noeud contribue-t-il aux ecarts observes dans les runs Monte Carlo ? Aucun impact local detecte pour la vue choisie.`,
+                cls: "businessInfo",
+              }};
+            }}
+            const cls = impactMeta.status === "sensitive" ? "businessAlert" : (impactMeta.status === "watch" ? "businessWarn" : "businessOk");
+            const impact = `${{fmtPanelQty((Number(impactMeta.score) || 0) * 100, 1)}}%`;
+            const driver = impactMeta.dominant_dimension || "n/a";
+            const viewLabel = UNCERTAINTY_VIEW_LABELS[uncertaintyDisplayMode] || uncertaintyDisplayMode;
+            const detailLabel = uncertaintyDisplayMode === "detail_type" ? ` Type detail: ${{UNCERTAINTY_MODE_LABELS[uncertaintyMode] || uncertaintyMode}}.` : "";
+            const corr = Number.isFinite(Number(impactMeta.fill_rate_correlation)) ? Number(impactMeta.fill_rate_correlation).toFixed(2) : "n/a";
+            return {{
+              pill: "Monte Carlo",
+              title: `${{impactMeta.status_label || "Lecture Monte Carlo"}} - ${{nodeLabel}}`,
+              text: `Question metier: comment ce noeud contribue-t-il aux ecarts observes quand on rejoue la baseline avec aleas ? Vue carte: ${{viewLabel}}.${{detailLabel}} Lecture: ${{impactMeta.title || "impact Monte Carlo"}}. Impact noeud ${{impact}}. Driver principal: ${{driver}}. Correlation avec fill rate: ${{corr}}.`,
+              cls,
+            }};
+          }}
+        }}
+        return {{
+          pill: "Monte Carlo",
+          title: `${{nodeLabel}} - pas d'impact Monte Carlo local`,
+          text: "Question metier: comment ce noeud contribue-t-il aux ecarts observes dans les runs Monte Carlo ? Aucun driver Monte Carlo local n'est disponible pour ce noeud.",
+          cls: "businessInfo",
+        }};
+      }}
+      if (currentPanelMode === "structural") {{
+        return {{
+          pill: "Dependances",
+          title: `${{nodeLabel}} - dependance reseau`,
+          text: "Question metier: ou le reseau est-il fragile par construction ? Lecture reseau: dependances amont/aval, exposition multi-sites, alternatives et concentration des flux.",
+          cls: "businessInfo",
+        }};
+      }}
+      if (currentPanelMode === "data" || currentPanelMode === "model" || currentPanelMode === "json") {{
+        return {{
+          pill: "Debug",
+          title: `${{nodeLabel}} - audit technique`,
+          text: "Vue reservee a l'audit: sources, champs, JSON, regles et equations. Elle sert a expliquer ou verifier, pas a piloter directement le run.",
+          cls: "businessInfo",
+        }};
+      }}
+      if (nodeType === "edge") {{
+        const edge = EDGE_BY_ID[nodeId] || {{}};
+        const m = edge.edge_metrics || {{}};
+        const planned = Number.isFinite(edge.planned_lead_days) ? `${{edge.planned_lead_days}} j` : "n/a";
+        const observed = Number.isFinite(m.avg_lead_days) ? `${{m.avg_lead_days}} j` : "n/a";
+        return {{
+          pill: "Simulation",
+          title: `${{nodeLabel}} - flux physique simule`,
+          text: `Question metier: que s'est-il passe dans le run nominal ? Lire les envois, receptions et carnet sur ce flux. Delai prevu ${{planned}}, delai observe moyen ${{observed}}.`,
+          cls: "businessInfo",
+        }};
+      }}
+      if (nodeType === "customer") {{
+        return {{
+          pill: "Simulation",
+          title: `${{nodeLabel}} - service client du run`,
+          text: "Question metier: que s'est-il passe dans le run nominal ? Lecture factuelle: demande, quantite servie, backlog et receptions aval. Pas de prediction dans cet onglet.",
+          cls: "businessOk",
+        }};
+      }}
+      if (nodeType === "supplier_dc") {{
+        return {{
+          pill: "Simulation",
+          title: `${{nodeLabel}} - fournisseur dans le run courant`,
+          text: "Question metier: que s'est-il passe dans le run nominal ? Lecture factuelle: commandes recues, envois physiques, stock fournisseur, capacite et carnet MRP. Les risques et incertitudes sont dans leurs onglets dedies.",
+          cls: "businessInfo",
+        }};
+      }}
+      if (isFactoryLikeNode(nodeId, nodeType)) {{
+        return {{
+          pill: "Simulation",
+          title: `${{nodeLabel}} - execution industrielle du run`,
+          text: "Question metier: que s'est-il passe dans le run nominal ? Lecture factuelle: stocks intrants, ordres fournisseurs, receptions entree usine, production et pilotage MRP.",
+          cls: "businessInfo",
+        }};
+      }}
+      return {{
+        pill: "Simulation",
+        title: `${{nodeLabel}} - lecture du run courant`,
+        text: "Question metier: que s'est-il passe dans le run nominal ? Lecture factuelle des flux, stocks, ordres et KPI disponibles pour ce noeud.",
+        cls: "businessInfo",
+      }};
+    }}
+
+    function renderBusinessSummary(nodeId, nodeType) {{
+      const summary = document.getElementById("businessSummary");
+      const pill = document.getElementById("businessSummaryPill");
+      const title = document.getElementById("businessSummaryTitle");
+      const text = document.getElementById("businessSummaryText");
+      if (!summary || !pill || !title || !text) return false;
+      const payload = businessSummaryPayload(nodeId, nodeType);
+      if (!payload || !payload.title) {{
+        summary.style.display = "none";
+        return false;
+      }}
+      summary.className = `businessSummary ${{payload.cls || "businessInfo"}}`;
+      pill.textContent = payload.pill || "Lecture";
+      title.textContent = payload.title;
+      text.textContent = payload.text || "";
+      summary.style.display = "block";
+      return true;
+    }}
+
     function renderPanelMeta(nodeId, nodeType) {{
       const metaBlock = document.getElementById("panelMeta");
       const metaTitle = document.getElementById("panelMetaTitle");
@@ -16462,15 +20278,38 @@ def html_template(
         return true;
       }}
       if (currentPanelMode === "risk") {{
-        const nodeMetrics = (SUPPLIER_RISK_METRICS.nodes || {{}})[nodeId] || null;
-        const riskMetrics = nodeMetrics || SUPPLIER_RISK_METRICS.global || null;
-        const lines = (riskMetrics && Array.isArray(riskMetrics.summary_lines)) ? riskMetrics.summary_lines : [];
-        if (!lines.length) {{
+        metaBlock.style.display = "none";
+        return false;
+      }}
+      if (currentPanelMode === "uncertainty") {{
+        const generalMetrics = nodeUncertaintyMeta(nodeId, nodeType) || null;
+        const riskMetrics = (SUPPLIER_RISK_METRICS.nodes || {{}})[nodeId] || null;
+        const generalLines = (generalMetrics && Array.isArray(generalMetrics.summary_lines)) ? generalMetrics.summary_lines : [];
+        const riskLines = [];
+        if (riskMetrics) {{
+          riskLines.push({{ label: "Famille", value: "Confiance prediction risque fournisseur" }});
+          riskLines.push({{ label: "Lecture", value: "Ecart entre estimation centrale et prudente. Ce n'est pas la resilience Monte Carlo." }});
+          riskLines.push({{ label: "Estimation centrale", value: summaryLineValue(riskMetrics, "Risque estime max") || "n/a" }});
+          riskLines.push({{ label: "Estimation prudente", value: summaryLineValue(riskMetrics, "Estimation prudente") || "n/a" }});
+          riskLines.push({{ label: "Ecart prudent", value: `${{fmtPanelQty(riskPredictionUncertainty(riskMetrics) * 100, 1)}} pts` }});
+          riskLines.push({{ label: "Niveau risque", value: summaryLineValue(riskMetrics, "Niveau de risque") || "n/a" }});
+          riskLines.push({{ label: "Action prudente", value: summaryLineValue(riskMetrics, "Action prudente") || "n/a" }});
+        }}
+        if (!generalLines.length && !riskLines.length) {{
           metaBlock.style.display = "none";
           return false;
         }}
-        metaTitle.textContent = (riskMetrics && riskMetrics.title) || "Risques fournisseurs";
-        lines.forEach((entry) => appendPanelMetaEntry(metaGrid, entry));
+        metaTitle.textContent = "Confiance de lecture";
+        const entries = [];
+        if (generalLines.length) {{
+          entries.push({{ label: "Lecture donnees locales", value: "" }});
+          generalLines.forEach((entry) => entries.push(entry));
+        }}
+        if (riskLines.length) {{
+          entries.push({{ label: "Confiance prediction risque", value: "" }});
+          riskLines.forEach((entry) => entries.push(entry));
+        }}
+        entries.forEach((entry) => appendPanelMetaEntry(metaGrid, entry));
         metaBlock.style.display = "block";
         return true;
       }}
@@ -16581,25 +20420,25 @@ def html_template(
         }}
         if (nodeType === "supplier_dc") {{
           return {{
-            incoming: "Fournisseur - synthese sensibilite",
+            incoming: "Fournisseur - synthese / top 3",
             outgoing: "Fournisseur - courbes par niveau teste",
-            third: "Fournisseur - details parametres",
+            third: "Fournisseur - details avances",
             fourth: "Fournisseur - methode / garde-fous"
           }};
         }}
         if (nodeType === "factory") {{
           return {{
-            incoming: "Usine - synthese sensibilite amont",
+            incoming: "Usine - synthese / top 3",
             outgoing: "Usine - courbes par niveau teste",
-            third: "Usine - drivers fournisseurs",
+            third: "Usine - details avances",
             fourth: "Usine - methode / garde-fous"
           }};
         }}
         if (nodeType === "distribution_center") {{
           return {{
-            incoming: "DC - synthese sensibilite amont",
+            incoming: "DC - synthese / top 3",
             outgoing: "DC - courbes par niveau teste",
-            third: "DC - drivers fournisseurs",
+            third: "DC - details avances",
             fourth: "DC - methode / garde-fous"
           }};
         }}
@@ -16618,30 +20457,62 @@ def html_template(
         if (nodeType === "supplier_dc") {{
           return {{
             incoming: "Fournisseur - synthese risques",
-            outgoing: "Fournisseur - trajectoire risque / resilience",
+            outgoing: "Fournisseur - evolution du risque",
             third: "Fournisseur - couples article-site",
-            fourth: "Fournisseur - decision robuste"
+            fourth: "Fournisseur - action recommandee"
           }};
         }}
         if (nodeType === "factory" || nodeType === "distribution_center") {{
           return {{
             incoming: "Site - risques fournisseurs entrants",
-            outgoing: "Site - trajectoire risque entrants",
+            outgoing: "Site - evolution des risques entrants",
             third: "Site - fournisseurs / articles exposes",
-            fourth: "Site - decision robuste"
+            fourth: "Site - action recommandee"
           }};
         }}
         return {{
           incoming: "Risques fournisseurs",
-          outgoing: "Trajectoire risque",
+          outgoing: "Evolution du risque",
           third: "Couples exposes",
-          fourth: "Decision robuste"
+          fourth: "Action recommandee"
+        }};
+      }}
+      if (currentPanelMode === "uncertainty") {{
+        if (nodeType === "supplier_dc") {{
+          return {{
+            incoming: "Monte Carlo - impact fournisseur",
+            outgoing: "Drivers Monte Carlo",
+            third: "Risque fournisseur",
+            fourth: "Sources / limites"
+          }};
+        }}
+        if (nodeType === "factory" || nodeType === "distribution_center") {{
+          return {{
+            incoming: "Monte Carlo - impact site",
+            outgoing: "Drivers Monte Carlo",
+            third: "Risques entrants",
+            fourth: "Sources / limites"
+          }};
+        }}
+        if (nodeType === "edge") {{
+          return {{
+            incoming: "Incertitude du flux",
+            outgoing: "Donnees flux",
+            third: "Delais / carnet",
+            fourth: "Source / destination"
+          }};
+        }}
+        return {{
+          incoming: "Monte Carlo - impact noeud",
+          outgoing: "Details Monte Carlo",
+          third: "Risque fournisseur",
+          fourth: "Sources / limites"
         }};
       }}
       if (currentPanelMode === "structural") {{
         return {{
-          incoming: "Structurel - KPI + courbe delta vs baseline",
-          outgoing: "Structurel - KPI + courbe delta vs baseline"
+          incoming: "Dependances reseau - impact",
+          outgoing: "Dependances reseau - impact"
         }};
       }}
       if (nodeId === "SDC-1450" && isFactoryLikeNode(nodeId, nodeType)) {{
@@ -16654,7 +20525,7 @@ def html_template(
       }}
       if (nodeType === "supplier_dc") {{
         return {{
-          incoming: "Fournisseur - flux physiques, stock, capacite, risques, incertitude, prediction",
+          incoming: "Fournisseur - flux physiques, stock, capacite",
           outgoing: "Expeditions fournisseur",
           third: "Planning lots production",
           fourth: "Pilotage MRP"
@@ -16729,9 +20600,12 @@ def html_template(
         return null;
       }}
       if (currentPanelMode === "sensitivity") {{
-        if (nodeType === "factory") return FACTORY_SENSITIVITY_HOVER_IMAGES[nodeId] || null;
-        if (nodeType === "supplier_dc") return SUPPLIER_SENSITIVITY_HOVER_IMAGES[nodeId] || null;
-        if (nodeType === "distribution_center") return DC_SENSITIVITY_HOVER_IMAGES[nodeId] || null;
+        const payload = nodeType === "factory"
+          ? (FACTORY_SENSITIVITY_HOVER_IMAGES[nodeId] || null)
+          : (nodeType === "supplier_dc"
+              ? (SUPPLIER_SENSITIVITY_HOVER_IMAGES[nodeId] || null)
+              : (nodeType === "distribution_center" ? (DC_SENSITIVITY_HOVER_IMAGES[nodeId] || null) : null));
+        if (payload) return payload;
         if (nodeType === "edge") {{
           return null;
         }}
@@ -16741,6 +20615,22 @@ def html_template(
         if (nodeType === "factory") return FACTORY_RISK_HOVER_IMAGES[nodeId] || null;
         if (nodeType === "supplier_dc") return SUPPLIER_RISK_HOVER_IMAGES[nodeId] || null;
         if (nodeType === "distribution_center") return DC_RISK_HOVER_IMAGES[nodeId] || null;
+        return null;
+      }}
+      if (currentPanelMode === "uncertainty") {{
+        const modelDetails = nodeType === "edge"
+          ? (((MODEL_PANEL.edges || {{}})[nodeId]) || null)
+          : (((MODEL_PANEL.nodes || {{}})[nodeId]) || null);
+        const monteCarloDetails = ((MONTECARLO_UNCERTAINTY.node_assets || {{}})[nodeId]) || null;
+        if (monteCarloDetails && nodeType !== "edge") {{
+          const riskDetails = SUPPLIER_RISK_HOVER_IMAGES[nodeId] || FACTORY_RISK_HOVER_IMAGES[nodeId] || DC_RISK_HOVER_IMAGES[nodeId] || {{}};
+          return {{
+            incoming: monteCarloDetails,
+            outgoing: null,
+            third: riskDetails.incoming || (modelDetails ? (modelDetails.risk_prediction || modelDetails.supplier_risk_catalog || null) : null),
+            fourth: modelDetails ? (modelDetails.nominal || modelDetails.capacity_nominal || null) : null,
+          }};
+        }}
         return null;
       }}
       if (currentPanelMode === "structural") {{
@@ -16758,11 +20648,8 @@ def html_template(
           {{ label: "Commandes / envois physiques", asset: modelDetails.supplier_order_send || null }},
           {{ label: "Graph stock fournisseur", asset: supplierBase.incoming || null }},
           {{ label: "Bilan stock fournisseur", asset: modelDetails.stock_flow || null }},
-          {{ label: "Nominal fournisseur", asset: modelDetails.nominal || null }},
-          {{ label: "Nominal capacite", asset: modelDetails.capacity_nominal || null }},
-          {{ label: "Risques fournisseur", asset: modelDetails.supplier_risk_catalog || null }},
-          {{ label: "Incertitude", asset: modelDetails.uncertainty || null }},
-          {{ label: "Prediction risque", asset: modelDetails.risk_prediction || null }},
+          {{ label: "References fournisseur", asset: modelDetails.nominal || null }},
+          {{ label: "Reference capacite", asset: modelDetails.capacity_nominal || null }},
         ] : [
           {{ label: "Graph stock fournisseur", asset: supplierBase.incoming || null }},
         ];
@@ -16774,7 +20661,7 @@ def html_template(
           {{ label: "Carnet", asset: modelDetails.third || null }},
           {{ label: "Flux MRP", asset: modelDetails.outgoing || null }},
           {{ label: "Risques MRP", asset: modelDetails.risk || null }},
-          {{ label: "Trace MRP", asset: modelDetails.incoming || null }},
+          {{ label: "Detail calcul MRP", asset: modelDetails.incoming || null }},
         ] : [];
         const supplierMrpBundle = {{
           bundle: supplierMrpEntries.filter(entry => !!entry.asset)
@@ -16783,11 +20670,11 @@ def html_template(
         return {{ ...supplierBase, incoming: supplierDirectTop, fourth: supplierMrpFourth }};
       }}
       const modelBundleEntries = modelDetails ? [
-        {{ label: "Nominal capacite", asset: modelDetails.capacity_nominal || null }},
+        {{ label: "Reference capacite", asset: modelDetails.capacity_nominal || null }},
         {{ label: "Carnet", asset: modelDetails.third || null }},
         {{ label: nodeType === "factory" ? "Ordres fournisseurs / receptions" : "Flux MRP", asset: modelDetails.outgoing || null }},
         {{ label: "Risques MRP", asset: modelDetails.risk || null }},
-        {{ label: "Trace MRP", asset: modelDetails.incoming || null }},
+        {{ label: "Detail calcul MRP", asset: modelDetails.incoming || null }},
       ] : [];
       if (nodeType !== "supplier_dc" && nodeType !== "customer") {{
         modelBundleEntries.unshift({{ label: "Reappro amont", asset: modelDetails ? (modelDetails.fourth || null) : null }});
@@ -16817,13 +20704,38 @@ def html_template(
       return modelFourth ? {{ fourth: modelFourth }} : null;
     }}
 
+    function isDebugPanelMode(mode) {{
+      return mode === "data" || mode === "model" || mode === "json";
+    }}
+
+    function updateUncertaintyControls() {{
+      const modeSelect = document.getElementById("uncertaintyModeSelect");
+      if (modeSelect) modeSelect.value = uncertaintyMode;
+      const displaySelect = document.getElementById("uncertaintyDisplaySelect");
+      if (displaySelect) displaySelect.value = uncertaintyDisplayMode;
+      const detailLabel = document.getElementById("uncertaintyDetailModeLabel");
+      if (detailLabel) detailLabel.style.display = uncertaintyDisplayMode === "detail_type" ? "inline-flex" : "none";
+      const value = document.getElementById("uncertaintyIntensityValue");
+      if (value) {{
+        if (uncertaintyDisplayMode === "detail_type") {{
+          value.textContent = `detail ${{UNCERTAINTY_MODE_LABELS[uncertaintyMode] || uncertaintyMode}}`;
+        }} else {{
+          value.textContent = UNCERTAINTY_VIEW_LABELS[uncertaintyDisplayMode] || "types dominants";
+        }}
+      }}
+    }}
+
     function applyModeUi() {{
+      document.body.classList.toggle("showDebugTools", debugToolsVisible);
+      const debugToggle = document.getElementById("showDebugTools");
+      if (debugToggle) debugToggle.checked = debugToolsVisible;
       document.getElementById("modeOps").classList.toggle("active", currentPanelMode === "ops");
       document.getElementById("modeData").classList.toggle("active", currentPanelMode === "data");
       document.getElementById("modeModel").classList.toggle("active", currentPanelMode === "model");
       document.getElementById("modeJson").classList.toggle("active", currentPanelMode === "json");
       document.getElementById("modeSensitivity").classList.toggle("active", currentPanelMode === "sensitivity");
       document.getElementById("modeRisk").classList.toggle("active", currentPanelMode === "risk");
+      document.getElementById("modeUncertainty").classList.toggle("active", currentPanelMode === "uncertainty");
       document.getElementById("modeStructural").classList.toggle("active", currentPanelMode === "structural");
       const sensitivityLegend = document.getElementById("sensitivityLegend");
       if (sensitivityLegend) {{
@@ -16833,10 +20745,46 @@ def html_template(
       if (riskLegend) {{
         riskLegend.classList.toggle("visible", currentPanelMode === "risk");
       }}
+      const uncertaintyLegend = document.getElementById("uncertaintyLegend");
+      if (uncertaintyLegend) {{
+        uncertaintyLegend.classList.toggle("visible", currentPanelMode === "uncertainty");
+      }}
+      const sensitivityTop3Box = document.getElementById("sensitivityTop3Box");
+      if (sensitivityTop3Box) {{
+        sensitivityTop3Box.classList.toggle("visible", currentPanelMode === "sensitivity");
+      }}
+      const uncertaintyMonteCarloBox = document.getElementById("uncertaintyMonteCarloBox");
+      if (uncertaintyMonteCarloBox) {{
+        uncertaintyMonteCarloBox.classList.toggle("visible", currentPanelMode === "uncertainty");
+      }}
+      const uncertaintyControlsBox = document.getElementById("uncertaintyControlsBox");
+      if (uncertaintyControlsBox) {{
+        uncertaintyControlsBox.classList.toggle("visible", currentPanelMode === "uncertainty");
+      }}
+      updateUncertaintyControls();
+      const showEdgesInput = document.getElementById("showEdges");
+      const showEdgesLabel = document.getElementById("showEdgesLabel");
+      const showEdgesText = document.getElementById("showEdgesText");
+      const edgesInteractive = edgesInteractiveForCurrentMode();
+      if (showEdgesInput) {{
+        showEdgesInput.disabled = false;
+      }}
+      if (showEdgesLabel) {{
+        showEdgesLabel.title = edgesInteractive
+          ? "Afficher ou masquer les flux. En Simulation, les flux peuvent etre survoles et selectionnes."
+          : "Afficher ou masquer les flux. Dans ce mode, les flux sont visibles comme repere mais non cliquables et non survolables.";
+        showEdgesLabel.style.opacity = "1";
+      }}
+      if (showEdgesText) {{
+        showEdgesText.textContent = edgesInteractive ? "Afficher flux" : "Afficher flux non interactifs";
+      }}
       applyTimelineWindowUi();
     }}
 
     function setPanelMode(mode) {{
+      if (isDebugPanelMode(mode) && !debugToolsVisible) {{
+        debugToolsVisible = true;
+      }}
       currentPanelMode = mode;
       lastFactoryPanelRenderKey = "";
       applyModeUi();
@@ -16854,6 +20802,8 @@ def html_template(
         panelState || "",
         selectedYearStart,
         selectedYearEnd,
+        uncertaintyMode,
+        uncertaintyDisplayMode,
       ].join("|");
       if (panel.classList.contains("visible") && lastFactoryPanelRenderKey === renderKey) {{
         positionFactoryPanel();
@@ -16896,9 +20846,17 @@ def html_template(
         (isFactoryLikeNode(nodeId, nodeType) ? "Industrial Site" :
         (nodeType === "supplier_dc" ? "Supplier" :
         (nodeType === "distribution_center" ? "Distribution Center" : (nodeType === "factory" ? "Factory" : (nodeType === "customer" ? "Customer" : "Edge")))));
-      const modeTitle = currentPanelMode === "sensitivity" ? "Sensibilite" :
-        (currentPanelMode === "risk" ? "Risques" :
-        (currentPanelMode === "structural" ? "Structurel" : (currentPanelMode === "json" ? "DEBUG" : (currentPanelMode === "data" ? "Donnees" : (currentPanelMode === "model" ? "Modele" : "Simulation")))));
+      const modeTitles = {{
+        ops: "Simulation",
+        data: "Donnees",
+        model: "Modele",
+        json: "DEBUG",
+        sensitivity: "Sensibilite",
+        risk: "Risques",
+        uncertainty: "Incertitude",
+        structural: "Dependances",
+      }};
+      const modeTitle = modeTitles[currentPanelMode] || "Simulation";
       title.textContent = `${{nodeTitle}}: ${{nodeName}} (${{displayNodeId}}) | ${{modeTitle}}`;
       if (panelState) {{
         statePill.textContent = panelState;
@@ -16914,6 +20872,7 @@ def html_template(
       outgoingLabel.textContent = labels.outgoing;
       thirdLabel.textContent = labels.third || "Analyse complementaire";
       fourthLabel.textContent = labels.fourth || "Analyse MRP";
+      const hasBusinessSummary = renderBusinessSummary(nodeId, nodeType);
       const hasMeta = renderPanelMeta(nodeId, nodeType);
 
       const incomingImageInfo = images.incoming || null;
@@ -16923,10 +20882,12 @@ def html_template(
       fourthHelp.textContent = currentPanelMode === "json"
         ? "DEBUG: donnees brutes du scenario, enrichies avec items et flux connectes pour faciliter l'audit."
         : (currentPanelMode === "data"
-          ? "Donnees: vue synthetique des champs JSON utiles au noeud ou au flux selectionne."
+          ? "Audit donnees: sources, champs et corrections. Cette vue sert a verifier les donnees, pas a piloter la decision."
           : (currentPanelMode === "risk"
-            ? "Risques: probabilite, borne haute, incertitude, resilience et decision robuste par fournisseur ou site receveur."
-            : "Synthese en haut. Puis lis : stock, flux aval. Le bloc pilotage sert a l'analyse : reappro amont, carnet, risque, details MRP."));
+            ? "Risques fournisseurs: le risque est la menace metier. L'incertitude indique la confiance. L'action recommandee croise les deux."
+            : (currentPanelMode === "uncertainty"
+              ? "Incertitude: les cartes locales mesurent la confiance de lecture. Le bouton Monte Carlo mesure la resilience globale sous aleas."
+              : "Simulation: lecture factuelle du run courant. Pas de prediction ni d'incertitude dans cet onglet.")));
       fourthHelp.style.display = fourthImageInfo ? "block" : "none";
 
       incomingBlock.style.display = incomingImageInfo ? "block" : "none";
@@ -17215,7 +21176,7 @@ def html_template(
             <div class="kpiTreeHeader">
               <div>
                 <div class="kpiTreeTitle">${{asset.title || "Arborescence KPI"}}</div>
-                <div class="kpiTreeSubtitle">${{asset.subtitle || "Clique un KPI principal pour afficher les KPI secondaires."}}</div>
+                <div class="kpiTreeSubtitle">Question metier: comment les KPI se degradent-ils ensemble dans le temps ? Lecture: performance globale, contributions et ecarts aux cibles.</div>
               </div>
             </div>
             <div class="kpiTreeCards"></div>
@@ -17489,11 +21450,11 @@ def html_template(
       if (renderAsset(thirdImageInfo, thirdImg, thirdFigure, thirdTabs, `${{currentPanelMode}}:${{nodeType}}:${{nodeId}}:third`)) visibleCount += 1;
       if (renderAsset(fourthImageInfo, fourthImg, fourthFigure, fourthTabs, `${{currentPanelMode}}:${{nodeType}}:${{nodeId}}:fourth`)) visibleCount += 1;
 
-      if (!visibleCount && !hasMeta) {{
+      if (!visibleCount && !hasMeta && !hasBusinessSummary) {{
         hideFactoryPanel();
         return;
       }}
-      if (!visibleCount) {{
+      if (!visibleCount && !hasMeta && !hasBusinessSummary) {{
         if (
           currentPanelMode === "sensitivity" &&
           nodeType === "supplier_dc" &&
@@ -17503,11 +21464,13 @@ def html_template(
           noImg.textContent = "Pas de courbe locale: fournisseur hors perimetre top actifs de l'etude.";
         }} else if (currentPanelMode === "risk") {{
           noImg.textContent = "Aucune fiche risque fournisseur disponible pour ce noeud.";
+        }} else if (currentPanelMode === "uncertainty") {{
+          noImg.textContent = "Aucune fiche incertitude disponible pour ce noeud.";
         }} else {{
           noImg.textContent = "Aucun PNG disponible pour ce noeud.";
         }}
       }}
-      noImg.style.display = visibleCount ? "none" : "block";
+      noImg.style.display = (visibleCount || hasMeta || hasBusinessSummary) ? "none" : "block";
       currentFactoryHoverId = nodeId;
       currentFactoryHoverType = nodeType;
       const panelRenderToken = ++pendingPanelPlotRenderToken;
@@ -17645,7 +21608,7 @@ def html_template(
           <div class="kpiTreeHeader">
             <div>
               <div class="kpiTreeTitle">${{asset.title || "Arborescence KPI"}}</div>
-              <div class="kpiTreeSubtitle">${{asset.subtitle || "Clique un KPI principal pour afficher les KPI secondaires."}}</div>
+              <div class="kpiTreeSubtitle">Question metier: comment les KPI se degradent-ils ensemble dans le temps ? Lecture: performance globale, contributions et ecarts aux cibles.</div>
               <div class="kpiTreeSubtitle">Fenetre: ${{selectedTimelineWindowLabel()}}</div>
             </div>
             <div class="kpiTreeControls">
@@ -17672,9 +21635,17 @@ def html_template(
           </div>
           <div class="kpiTreeView kpiTreeFormulaView">
             <div class="kpiFormulaIntro">
-              Tableau de reference des KPI. Le terme <b>pilotable</b> designe la partie generee par les decisions de reapprovisionnement du scenario; le carnet initial deja engage est affiche separement.
-              Pour l'adherence lignes mensuelle, la <b>Reference</b> est reconstruite par ligne site/produit: produit fini = demande client; semi-fini/intermediaire = consommation aval observee; si cette consommation aval n'est pas disponible, fallback = <code>desired_qty</code>, c'est-a-dire le besoin de production demande par le simulateur.
+              Tableau de reference des KPI. Objectif atelier: valider les definitions, les seuils metier et les donnees manquantes avant de recalibrer le modele.
             </div>
+            <details class="sensitivityDetails">
+              <summary>Glossaire KPI atelier</summary>
+              <div class="kpiFormulaIntro">
+                <b>Fill rate</b>: part de la demande servie, lecture client. <b>Disponibilite produit</b>: capacite a tenir le besoin produit dans le temps. <b>Backlog</b>: demande non servie restante.
+                <b>Adherence ligne</b>: stabilite entre plan et execution industrielle. <b>Cout stock</b>: cout ou estimation de cout d'immobilisation. <b>Signal MP usine zero</b>: diagnostic technique dans nos stocks usine, pas rupture client ni rupture fournisseur.
+                <b>Retard matiere</b>: ecart arrivee effective moins arrivee prevue. <b>Sensibilite</b>: effet observe quand on stresse un parametre. <b>Risque fournisseur</b>: score de decision, pas probabilite historique.
+                <b>Incertitude</b>: confiance dans la lecture, pas danger fournisseur.
+              </div>
+            </details>
             <div class="kpiFormulaTableWrap">
               <table class="kpiFormulaTable">
                 <thead>
@@ -18154,8 +22125,121 @@ def html_template(
       }}
     }}
 
+    function initRiskTooltipPortal() {{
+      let tooltip = document.getElementById("riskTooltipPortal");
+      if (!tooltip) {{
+        tooltip = document.createElement("div");
+        tooltip.id = "riskTooltipPortal";
+        tooltip.className = "riskTooltipPortal";
+        tooltip.setAttribute("role", "tooltip");
+        document.body.appendChild(tooltip);
+      }}
+      let activeHost = null;
+      const margin = 10;
+      const gap = 12;
+
+      function hideTooltip() {{
+        activeHost = null;
+        tooltip.classList.remove("visible");
+        tooltip.textContent = "";
+      }}
+
+      function positionTooltip(host, ev) {{
+        if (!host || !tooltip.textContent) return;
+        const rect = host.getBoundingClientRect();
+        const maxWidth = Math.max(220, Math.min(420, window.innerWidth - margin * 2));
+        tooltip.style.width = `${{maxWidth}}px`;
+        tooltip.style.left = "-9999px";
+        tooltip.style.top = "-9999px";
+        const tooltipRect = tooltip.getBoundingClientRect();
+        const pointerX = ev && Number.isFinite(ev.clientX) ? ev.clientX : rect.left + Math.min(24, rect.width / 2);
+        const pointerY = ev && Number.isFinite(ev.clientY) ? ev.clientY : rect.top;
+        let left = pointerX + gap;
+        let top = pointerY + gap;
+        if (left + tooltipRect.width > window.innerWidth - margin) {{
+          left = pointerX - tooltipRect.width - gap;
+        }}
+        if (top + tooltipRect.height > window.innerHeight - margin) {{
+          top = pointerY - tooltipRect.height - gap;
+        }}
+        if (top < margin) {{
+          top = Math.min(window.innerHeight - tooltipRect.height - margin, rect.bottom + gap);
+        }}
+        left = clamp(left, margin, Math.max(margin, window.innerWidth - tooltipRect.width - margin));
+        top = clamp(top, margin, Math.max(margin, window.innerHeight - tooltipRect.height - margin));
+        tooltip.style.left = `${{left}}px`;
+        tooltip.style.top = `${{top}}px`;
+      }}
+
+      function showTooltip(host, ev) {{
+        const text = host && host.getAttribute("data-tooltip");
+        if (!text) {{
+          hideTooltip();
+          return;
+        }}
+        activeHost = host;
+        tooltip.textContent = text;
+        tooltip.classList.add("visible");
+        positionTooltip(host, ev || null);
+      }}
+
+      document.addEventListener("mouseover", (ev) => {{
+        const host = ev.target && ev.target.closest ? ev.target.closest(".riskTooltipHost[data-tooltip]") : null;
+        if (!host || host === activeHost) return;
+        showTooltip(host, ev);
+      }});
+      document.addEventListener("mousemove", (ev) => {{
+        if (!activeHost) return;
+        positionTooltip(activeHost, ev);
+      }});
+      document.addEventListener("mouseout", (ev) => {{
+        if (!activeHost) return;
+        const related = ev.relatedTarget;
+        if (related && activeHost.contains(related)) return;
+        hideTooltip();
+      }});
+      document.addEventListener("focusin", (ev) => {{
+        const host = ev.target && ev.target.closest ? ev.target.closest(".riskTooltipHost[data-tooltip]") : null;
+        if (host) showTooltip(host, null);
+      }});
+      document.addEventListener("focusout", (ev) => {{
+        if (activeHost && ev.target && activeHost.contains(ev.target)) hideTooltip();
+      }});
+      document.addEventListener("keydown", (ev) => {{
+        if (ev.key === "Escape") hideTooltip();
+      }});
+      window.addEventListener("resize", hideTooltip);
+      window.addEventListener("scroll", () => {{
+        if (activeHost) positionTooltip(activeHost, null);
+      }}, true);
+    }}
+
+    function renderGlobalSensitivityTop3() {{
+      const content = document.getElementById("sensitivityTop3Content");
+      if (!content) return false;
+      const asset = (SUPPLIER_PARAMETER_SENSITIVITY_NODES || {{}})._global_top3 || null;
+      if (asset && asset.html) {{
+        content.innerHTML = asset.html;
+        return true;
+      }}
+      content.innerHTML = '<div class="panelEmptyState">Aucun Top 3 de sensibilite disponible pour ce run.</div>';
+      return false;
+    }}
+
+    function renderMonteCarloUncertainty() {{
+      const content = document.getElementById("monteCarloContent");
+      if (!content) return false;
+      if (MONTECARLO_UNCERTAINTY && MONTECARLO_UNCERTAINTY.html) {{
+        content.innerHTML = MONTECARLO_UNCERTAINTY.html;
+        return true;
+      }}
+      content.innerHTML = '<div class="panelEmptyState">Aucun resultat Monte Carlo disponible pour ce run.</div>';
+      return false;
+    }}
+
     function init() {{
       initFilters();
+      initRiskTooltipPortal();
       syncYearInputs();
       updateTimelineWindowLabel();
       applyModeUi();
@@ -18172,6 +22256,52 @@ def html_template(
           materialTableModal.classList.remove("visible");
         }}
       }});
+      const sensitivityTop3Modal = document.getElementById("sensitivityTop3Modal");
+      document.getElementById("sensitivityTop3Btn").addEventListener("click", () => {{
+        setPanelMode("sensitivity");
+        renderGlobalSensitivityTop3();
+        sensitivityTop3Modal.classList.add("visible");
+      }});
+      document.getElementById("sensitivityTop3CloseBtn").addEventListener("click", () => {{
+        sensitivityTop3Modal.classList.remove("visible");
+      }});
+      sensitivityTop3Modal.addEventListener("click", (ev) => {{
+        if (ev.target === sensitivityTop3Modal) {{
+          sensitivityTop3Modal.classList.remove("visible");
+        }}
+      }});
+      const monteCarloModal = document.getElementById("monteCarloModal");
+      document.getElementById("monteCarloBtn").addEventListener("click", () => {{
+        setPanelMode("uncertainty");
+        renderMonteCarloUncertainty();
+        monteCarloModal.classList.add("visible");
+      }});
+      document.getElementById("monteCarloCloseBtn").addEventListener("click", () => {{
+        monteCarloModal.classList.remove("visible");
+      }});
+      monteCarloModal.addEventListener("click", (ev) => {{
+        if (ev.target === monteCarloModal) {{
+          monteCarloModal.classList.remove("visible");
+        }}
+      }});
+      const uncertaintyModeSelect = document.getElementById("uncertaintyModeSelect");
+      if (uncertaintyModeSelect) {{
+        uncertaintyModeSelect.addEventListener("change", (ev) => {{
+          uncertaintyMode = String(ev.target.value || "capacity");
+          lastFactoryPanelRenderKey = "";
+          updateUncertaintyControls();
+          draw();
+        }});
+      }}
+      const uncertaintyDisplaySelect = document.getElementById("uncertaintyDisplaySelect");
+      if (uncertaintyDisplaySelect) {{
+        uncertaintyDisplaySelect.addEventListener("change", (ev) => {{
+          uncertaintyDisplayMode = String(ev.target.value || "dominant_type");
+          lastFactoryPanelRenderKey = "";
+          updateUncertaintyControls();
+          draw();
+        }});
+      }}
       const kpiTreeModal = document.getElementById("kpiTreeModal");
       document.getElementById("kpiTreeBtn").addEventListener("click", () => {{
         kpiTreeModal.classList.add("visible");
@@ -18197,6 +22327,16 @@ def html_template(
           modelEquationsModal.classList.remove("visible");
         }}
       }});
+      document.getElementById("showDebugTools").addEventListener("change", (ev) => {{
+        debugToolsVisible = Boolean(ev.target.checked);
+        if (!debugToolsVisible && isDebugPanelMode(currentPanelMode)) {{
+          setPanelMode("ops");
+          return;
+        }}
+        lastFactoryPanelRenderKey = "";
+        applyModeUi();
+        draw();
+      }});
       document.getElementById("showEdges").addEventListener("change", draw);
       document.getElementById("modeOps").addEventListener("click", () => setPanelMode("ops"));
       document.getElementById("modeData").addEventListener("click", () => setPanelMode("data"));
@@ -18204,6 +22344,7 @@ def html_template(
       document.getElementById("modeJson").addEventListener("click", () => setPanelMode("json"));
       document.getElementById("modeSensitivity").addEventListener("click", () => setPanelMode("sensitivity"));
       document.getElementById("modeRisk").addEventListener("click", () => setPanelMode("risk"));
+      document.getElementById("modeUncertainty").addEventListener("click", () => setPanelMode("uncertainty"));
       document.getElementById("modeStructural").addEventListener("click", () => setPanelMode("structural"));
       const hoverPanel = document.getElementById("factoryHoverPanel");
       hoverPanel.addEventListener("mouseenter", () => {{
@@ -18340,6 +22481,7 @@ def main() -> None:
     supplier_risk_supplier_csv = Path(args.supplier_risk_kpi_supplier_csv)
     supplier_risk_pair_csv = Path(args.supplier_risk_kpi_pair_csv)
     supplier_risk_panel_csv = Path(args.supplier_risk_kpi_panel_csv)
+    montecarlo_summary_json = Path(args.montecarlo_summary_json)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     supplier_local_criticality_csv.parent.mkdir(parents=True, exist_ok=True)
     supplier_local_criticality_json.parent.mkdir(parents=True, exist_ok=True)
@@ -18519,6 +22661,7 @@ def main() -> None:
             threshold_sensitivity_summary_json,
             threshold_parameter_summary_csv,
         )
+        payload["montecarlo_uncertainty"] = build_montecarlo_uncertainty_payload(montecarlo_summary_json)
         material_table_rows = build_material_balance_table_rows(
             raw,
             demand_service_csv=demand_service_csv,

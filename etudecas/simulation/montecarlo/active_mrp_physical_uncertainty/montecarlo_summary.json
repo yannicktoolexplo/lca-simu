@@ -1,0 +1,2429 @@
+{
+  "generated_at_utc": "2026-05-26T19:51:50.540745+00:00",
+  "input": "etudecas\\simulation_prep\\result\\reference_baseline\\_mrp_bom_tests\\bom_weekly_mps_lotified_no_static_fallback_physical_floor.json",
+  "run_script": "etudecas\\simulation\\run_first_simulation.py",
+  "manifest": {
+    "manifest_path": "etudecas\\simulation\\result\\mrp_bom_test_weekly_mps_lotified_no_fallback_physical_floor_explicit_input_targets_test\\run_manifest.json",
+    "input_path": "etudecas\\simulation_prep\\result\\reference_baseline\\_mrp_bom_tests\\bom_weekly_mps_lotified_no_static_fallback_physical_floor.json",
+    "run_script": "etudecas\\simulation\\run_first_simulation.py",
+    "scenario_id": "scn:BASE",
+    "manifest_days": 1825,
+    "simulator_extra_args": [
+      "--mrp-base-stock-floor-factor",
+      "0",
+      "--mrp-base-stock-floor-factor-pair",
+      "M-1430,item:038005,1",
+      "--mrp-base-stock-floor-factor-pair",
+      "M-1430,item:042342,1",
+      "--mrp-base-stock-floor-factor-pair",
+      "M-1430,item:333362,1",
+      "--mrp-base-stock-floor-factor-pair",
+      "M-1430,item:344135,1",
+      "--mrp-base-stock-floor-factor-pair",
+      "M-1430,item:708073,1",
+      "--mrp-base-stock-floor-factor-pair",
+      "M-1430,item:730384,1",
+      "--mrp-base-stock-floor-factor-pair",
+      "M-1430,item:734545,1",
+      "--mrp-base-stock-floor-factor-pair",
+      "M-1430,item:773474,1",
+      "--mrp-base-stock-floor-factor-pair",
+      "M-1810,item:001757,1",
+      "--mrp-base-stock-floor-factor-pair",
+      "M-1810,item:001848,1",
+      "--mrp-base-stock-floor-factor-pair",
+      "M-1810,item:001893,1",
+      "--mrp-base-stock-floor-factor-pair",
+      "M-1810,item:002612,1",
+      "--mrp-base-stock-floor-factor-pair",
+      "M-1810,item:007923,1",
+      "--mrp-base-stock-floor-factor-pair",
+      "M-1810,item:016332,1",
+      "--mrp-base-stock-floor-factor-pair",
+      "M-1810,item:029313,1",
+      "--mrp-base-stock-floor-factor-pair",
+      "M-1810,item:039668,1",
+      "--mrp-base-stock-floor-factor-pair",
+      "M-1810,item:049371,1",
+      "--mrp-base-stock-floor-factor-pair",
+      "M-1810,item:055703,1",
+      "--mrp-base-stock-floor-factor-pair",
+      "M-1810,item:099439,1",
+      "--mrp-base-stock-floor-factor-pair",
+      "M-1810,item:338928,1",
+      "--mrp-base-stock-floor-factor-pair",
+      "M-1810,item:338929,1",
+      "--mrp-base-stock-floor-factor-pair",
+      "M-1810,item:426331,1",
+      "--mrp-base-stock-floor-factor-pair",
+      "M-1810,item:693055,1",
+      "--supplier-neutral-floors-csv",
+      "etudecas/simulation/result/mrp_bom_test_weekly_mps_lotified_no_fallback_physical_floor_explicit_input_targets_test/data/supplier_nominal_60_75_calibration.csv"
+    ]
+  },
+  "scenario_id": "scn:BASE",
+  "days_override": 365,
+  "seed": 20260526,
+  "uncertainty_profile": "risk_probe",
+  "simulator_extra_args": [
+    "--mrp-base-stock-floor-factor",
+    "0",
+    "--mrp-base-stock-floor-factor-pair",
+    "M-1430,item:038005,1",
+    "--mrp-base-stock-floor-factor-pair",
+    "M-1430,item:042342,1",
+    "--mrp-base-stock-floor-factor-pair",
+    "M-1430,item:333362,1",
+    "--mrp-base-stock-floor-factor-pair",
+    "M-1430,item:344135,1",
+    "--mrp-base-stock-floor-factor-pair",
+    "M-1430,item:708073,1",
+    "--mrp-base-stock-floor-factor-pair",
+    "M-1430,item:730384,1",
+    "--mrp-base-stock-floor-factor-pair",
+    "M-1430,item:734545,1",
+    "--mrp-base-stock-floor-factor-pair",
+    "M-1430,item:773474,1",
+    "--mrp-base-stock-floor-factor-pair",
+    "M-1810,item:001757,1",
+    "--mrp-base-stock-floor-factor-pair",
+    "M-1810,item:001848,1",
+    "--mrp-base-stock-floor-factor-pair",
+    "M-1810,item:001893,1",
+    "--mrp-base-stock-floor-factor-pair",
+    "M-1810,item:002612,1",
+    "--mrp-base-stock-floor-factor-pair",
+    "M-1810,item:007923,1",
+    "--mrp-base-stock-floor-factor-pair",
+    "M-1810,item:016332,1",
+    "--mrp-base-stock-floor-factor-pair",
+    "M-1810,item:029313,1",
+    "--mrp-base-stock-floor-factor-pair",
+    "M-1810,item:039668,1",
+    "--mrp-base-stock-floor-factor-pair",
+    "M-1810,item:049371,1",
+    "--mrp-base-stock-floor-factor-pair",
+    "M-1810,item:055703,1",
+    "--mrp-base-stock-floor-factor-pair",
+    "M-1810,item:099439,1",
+    "--mrp-base-stock-floor-factor-pair",
+    "M-1810,item:338928,1",
+    "--mrp-base-stock-floor-factor-pair",
+    "M-1810,item:338929,1",
+    "--mrp-base-stock-floor-factor-pair",
+    "M-1810,item:426331,1",
+    "--mrp-base-stock-floor-factor-pair",
+    "M-1810,item:693055,1",
+    "--supplier-neutral-floors-csv",
+    "etudecas/simulation/result/mrp_bom_test_weekly_mps_lotified_no_fallback_physical_floor_explicit_input_targets_test/data/supplier_nominal_60_75_calibration.csv"
+  ],
+  "supplier_neutral_floors_adjusted_per_run": true,
+  "supplier_neutral_floors_source_csv": "etudecas/simulation/result/mrp_bom_test_weekly_mps_lotified_no_fallback_physical_floor_explicit_input_targets_test/data/supplier_nominal_60_75_calibration.csv",
+  "runs_requested_excluding_baseline": 200,
+  "runs_total_including_baseline": 201,
+  "successful_runs": 201,
+  "successful_stochastic_runs": 200,
+  "failed_runs": 0,
+  "factor_distributions": {
+    "global": {
+      "demand_scale": [
+        0.9,
+        1.0,
+        1.15
+      ],
+      "lead_time_scale": [
+        0.9,
+        1.0,
+        1.5
+      ],
+      "transport_cost_scale": [
+        0.9,
+        1.0,
+        1.2
+      ],
+      "supplier_stock_scale": [
+        0.6,
+        1.0,
+        1.1
+      ],
+      "production_stock_scale": [
+        0.85,
+        1.0,
+        1.05
+      ],
+      "supplier_capacity_scale": [
+        0.6,
+        1.0,
+        1.05
+      ],
+      "supplier_reliability_scale": [
+        0.9,
+        1.0,
+        1.0
+      ],
+      "external_procurement_daily_cap_days_scale": [
+        0.6,
+        1.0,
+        1.05
+      ],
+      "external_procurement_lead_days_scale": [
+        0.9,
+        1.0,
+        1.6
+      ],
+      "holding_cost_scale": [
+        0.9,
+        1.0,
+        1.12
+      ]
+    },
+    "demand_item_scale": {
+      "item:268091": [
+        0.85,
+        1.0,
+        1.2
+      ],
+      "item:268967": [
+        0.85,
+        1.0,
+        1.2
+      ]
+    },
+    "capacity_node_scale": {
+      "M-1430": [
+        0.85,
+        1.0,
+        1.05
+      ],
+      "M-1810": [
+        0.85,
+        1.0,
+        1.05
+      ],
+      "SDC-1450": [
+        0.85,
+        1.0,
+        1.05
+      ]
+    },
+    "supplier_stock_node_scale": {
+      "SDC-VD0500655A": [
+        0.5,
+        1.0,
+        1.1
+      ],
+      "SDC-VD0505677A": [
+        0.5,
+        1.0,
+        1.1
+      ],
+      "SDC-VD0508918A": [
+        0.5,
+        1.0,
+        1.1
+      ],
+      "SDC-VD0514881A": [
+        0.5,
+        1.0,
+        1.1
+      ],
+      "SDC-VD0518550B": [
+        0.5,
+        1.0,
+        1.1
+      ],
+      "SDC-VD0518684A": [
+        0.5,
+        1.0,
+        1.1
+      ],
+      "SDC-VD0519670A": [
+        0.5,
+        1.0,
+        1.1
+      ],
+      "SDC-VD0520115A": [
+        0.5,
+        1.0,
+        1.1
+      ],
+      "SDC-VD0520132A": [
+        0.5,
+        1.0,
+        1.1
+      ],
+      "SDC-VD0525412A": [
+        0.5,
+        1.0,
+        1.1
+      ],
+      "SDC-VD0525906A": [
+        0.5,
+        1.0,
+        1.1
+      ],
+      "SDC-VD0901566A": [
+        0.5,
+        1.0,
+        1.1
+      ],
+      "SDC-VD0910216A": [
+        0.5,
+        1.0,
+        1.1
+      ],
+      "SDC-VD0914320A": [
+        0.5,
+        1.0,
+        1.1
+      ],
+      "SDC-VD0914360C": [
+        0.5,
+        1.0,
+        1.1
+      ],
+      "SDC-VD0914690A": [
+        0.5,
+        1.0,
+        1.1
+      ],
+      "SDC-VD0949099A": [
+        0.5,
+        1.0,
+        1.1
+      ],
+      "SDC-VD0951020A": [
+        0.5,
+        1.0,
+        1.1
+      ],
+      "SDC-VD0956464A": [
+        0.5,
+        1.0,
+        1.1
+      ],
+      "SDC-VD0960508A": [
+        0.5,
+        1.0,
+        1.1
+      ],
+      "SDC-VD0964290A": [
+        0.5,
+        1.0,
+        1.1
+      ],
+      "SDC-VD0972460A": [
+        0.5,
+        1.0,
+        1.1
+      ],
+      "SDC-VD0975221A": [
+        0.5,
+        1.0,
+        1.1
+      ],
+      "SDC-VD0989480A": [
+        0.5,
+        1.0,
+        1.1
+      ],
+      "SDC-VD0990780A": [
+        0.5,
+        1.0,
+        1.1
+      ],
+      "SDC-VD0993480A": [
+        0.5,
+        1.0,
+        1.1
+      ],
+      "SDC-VD1091642A": [
+        0.5,
+        1.0,
+        1.1
+      ],
+      "SDC-VD1095770A": [
+        0.5,
+        1.0,
+        1.1
+      ],
+      "SDC-VD1096202A": [
+        0.5,
+        1.0,
+        1.1
+      ]
+    },
+    "supplier_capacity_node_scale": {
+      "SDC-VD0500655A": [
+        0.6,
+        1.0,
+        1.05
+      ],
+      "SDC-VD0505677A": [
+        0.6,
+        1.0,
+        1.05
+      ],
+      "SDC-VD0508918A": [
+        0.6,
+        1.0,
+        1.05
+      ],
+      "SDC-VD0514881A": [
+        0.6,
+        1.0,
+        1.05
+      ],
+      "SDC-VD0518550B": [
+        0.6,
+        1.0,
+        1.05
+      ],
+      "SDC-VD0518684A": [
+        0.6,
+        1.0,
+        1.05
+      ],
+      "SDC-VD0519670A": [
+        0.6,
+        1.0,
+        1.05
+      ],
+      "SDC-VD0520115A": [
+        0.6,
+        1.0,
+        1.05
+      ],
+      "SDC-VD0520132A": [
+        0.6,
+        1.0,
+        1.05
+      ],
+      "SDC-VD0525412A": [
+        0.6,
+        1.0,
+        1.05
+      ],
+      "SDC-VD0525906A": [
+        0.6,
+        1.0,
+        1.05
+      ],
+      "SDC-VD0901566A": [
+        0.6,
+        1.0,
+        1.05
+      ],
+      "SDC-VD0910216A": [
+        0.6,
+        1.0,
+        1.05
+      ],
+      "SDC-VD0914320A": [
+        0.6,
+        1.0,
+        1.05
+      ],
+      "SDC-VD0914360C": [
+        0.6,
+        1.0,
+        1.05
+      ],
+      "SDC-VD0914690A": [
+        0.6,
+        1.0,
+        1.05
+      ],
+      "SDC-VD0949099A": [
+        0.6,
+        1.0,
+        1.05
+      ],
+      "SDC-VD0951020A": [
+        0.6,
+        1.0,
+        1.05
+      ],
+      "SDC-VD0956464A": [
+        0.6,
+        1.0,
+        1.05
+      ],
+      "SDC-VD0960508A": [
+        0.6,
+        1.0,
+        1.05
+      ],
+      "SDC-VD0964290A": [
+        0.6,
+        1.0,
+        1.05
+      ],
+      "SDC-VD0972460A": [
+        0.6,
+        1.0,
+        1.05
+      ],
+      "SDC-VD0975221A": [
+        0.6,
+        1.0,
+        1.05
+      ],
+      "SDC-VD0989480A": [
+        0.6,
+        1.0,
+        1.05
+      ],
+      "SDC-VD0990780A": [
+        0.6,
+        1.0,
+        1.05
+      ],
+      "SDC-VD0993480A": [
+        0.6,
+        1.0,
+        1.05
+      ],
+      "SDC-VD1091642A": [
+        0.6,
+        1.0,
+        1.05
+      ],
+      "SDC-VD1095770A": [
+        0.6,
+        1.0,
+        1.05
+      ],
+      "SDC-VD1096202A": [
+        0.6,
+        1.0,
+        1.05
+      ]
+    },
+    "supplier_lead_node_scale": {
+      "SDC-VD0500655A": [
+        0.9,
+        1.0,
+        1.8
+      ],
+      "SDC-VD0505677A": [
+        0.9,
+        1.0,
+        1.8
+      ],
+      "SDC-VD0508918A": [
+        0.9,
+        1.0,
+        1.8
+      ],
+      "SDC-VD0514881A": [
+        0.9,
+        1.0,
+        1.8
+      ],
+      "SDC-VD0518684A": [
+        0.9,
+        1.0,
+        1.8
+      ],
+      "SDC-VD0519670A": [
+        0.9,
+        1.0,
+        1.8
+      ],
+      "SDC-VD0520115A": [
+        0.9,
+        1.0,
+        1.8
+      ],
+      "SDC-VD0520132A": [
+        0.9,
+        1.0,
+        1.8
+      ],
+      "SDC-VD0525412A": [
+        0.9,
+        1.0,
+        1.8
+      ],
+      "SDC-VD0901566A": [
+        0.9,
+        1.0,
+        1.8
+      ],
+      "SDC-VD0910216A": [
+        0.9,
+        1.0,
+        1.8
+      ],
+      "SDC-VD0914320A": [
+        0.9,
+        1.0,
+        1.8
+      ],
+      "SDC-VD0914360C": [
+        0.9,
+        1.0,
+        1.8
+      ],
+      "SDC-VD0914690A": [
+        0.9,
+        1.0,
+        1.8
+      ],
+      "SDC-VD0949099A": [
+        0.9,
+        1.0,
+        1.8
+      ],
+      "SDC-VD0951020A": [
+        0.9,
+        1.0,
+        1.8
+      ],
+      "SDC-VD0956464A": [
+        0.9,
+        1.0,
+        1.8
+      ],
+      "SDC-VD0960508A": [
+        0.9,
+        1.0,
+        1.8
+      ],
+      "SDC-VD0964290A": [
+        0.9,
+        1.0,
+        1.8
+      ],
+      "SDC-VD0972460A": [
+        0.9,
+        1.0,
+        1.8
+      ],
+      "SDC-VD0975221A": [
+        0.9,
+        1.0,
+        1.8
+      ],
+      "SDC-VD0989480A": [
+        0.9,
+        1.0,
+        1.8
+      ],
+      "SDC-VD0990780A": [
+        0.9,
+        1.0,
+        1.8
+      ],
+      "SDC-VD0993480A": [
+        0.9,
+        1.0,
+        1.8
+      ],
+      "SDC-VD1091642A": [
+        0.9,
+        1.0,
+        1.8
+      ],
+      "SDC-VD1095770A": [
+        0.9,
+        1.0,
+        1.8
+      ],
+      "SDC-VD1096202A": [
+        0.9,
+        1.0,
+        1.8
+      ]
+    },
+    "supplier_reliability_node_scale": {
+      "SDC-VD0500655A": [
+        0.9,
+        1.0,
+        1.0
+      ],
+      "SDC-VD0505677A": [
+        0.9,
+        1.0,
+        1.0
+      ],
+      "SDC-VD0508918A": [
+        0.9,
+        1.0,
+        1.0
+      ],
+      "SDC-VD0514881A": [
+        0.9,
+        1.0,
+        1.0
+      ],
+      "SDC-VD0518684A": [
+        0.9,
+        1.0,
+        1.0
+      ],
+      "SDC-VD0519670A": [
+        0.9,
+        1.0,
+        1.0
+      ],
+      "SDC-VD0520115A": [
+        0.9,
+        1.0,
+        1.0
+      ],
+      "SDC-VD0520132A": [
+        0.9,
+        1.0,
+        1.0
+      ],
+      "SDC-VD0525412A": [
+        0.9,
+        1.0,
+        1.0
+      ],
+      "SDC-VD0901566A": [
+        0.9,
+        1.0,
+        1.0
+      ],
+      "SDC-VD0910216A": [
+        0.9,
+        1.0,
+        1.0
+      ],
+      "SDC-VD0914320A": [
+        0.9,
+        1.0,
+        1.0
+      ],
+      "SDC-VD0914360C": [
+        0.9,
+        1.0,
+        1.0
+      ],
+      "SDC-VD0914690A": [
+        0.9,
+        1.0,
+        1.0
+      ],
+      "SDC-VD0949099A": [
+        0.9,
+        1.0,
+        1.0
+      ],
+      "SDC-VD0951020A": [
+        0.9,
+        1.0,
+        1.0
+      ],
+      "SDC-VD0956464A": [
+        0.9,
+        1.0,
+        1.0
+      ],
+      "SDC-VD0960508A": [
+        0.9,
+        1.0,
+        1.0
+      ],
+      "SDC-VD0964290A": [
+        0.9,
+        1.0,
+        1.0
+      ],
+      "SDC-VD0972460A": [
+        0.9,
+        1.0,
+        1.0
+      ],
+      "SDC-VD0975221A": [
+        0.9,
+        1.0,
+        1.0
+      ],
+      "SDC-VD0989480A": [
+        0.9,
+        1.0,
+        1.0
+      ],
+      "SDC-VD0990780A": [
+        0.9,
+        1.0,
+        1.0
+      ],
+      "SDC-VD0993480A": [
+        0.9,
+        1.0,
+        1.0
+      ],
+      "SDC-VD1091642A": [
+        0.9,
+        1.0,
+        1.0
+      ],
+      "SDC-VD1095770A": [
+        0.9,
+        1.0,
+        1.0
+      ],
+      "SDC-VD1096202A": [
+        0.9,
+        1.0,
+        1.0
+      ]
+    }
+  },
+  "metric_statistics": {
+    "kpi::avg_inventory": {
+      "n": 200,
+      "mean": 793050302.8596725,
+      "std": 136378507.31838062,
+      "min": 509130416.0283,
+      "p05": 562564608.5218849,
+      "p50": 809195399.85875,
+      "p95": 1006318031.96857,
+      "max": 1057621079.5089,
+      "baseline": 792769665.058
+    },
+    "kpi::cost_share_holding": {
+      "n": 200,
+      "mean": 0.086665135,
+      "std": 0.011596467281322144,
+      "min": 0.059103,
+      "p05": 0.06971795,
+      "p50": 0.085699,
+      "p95": 0.1074259,
+      "max": 0.120279,
+      "baseline": 0.082313
+    },
+    "kpi::cost_share_inventory_risk": {
+      "n": 200,
+      "mean": 0.04952297,
+      "std": 0.006626571860253234,
+      "min": 0.033773,
+      "p05": 0.0398394,
+      "p50": 0.048971,
+      "p95": 0.0613865,
+      "max": 0.068731,
+      "baseline": 0.047036
+    },
+    "kpi::cost_share_production": {
+      "n": 200,
+      "mean": 0.3,
+      "std": 0.0,
+      "min": 0.3,
+      "p05": 0.3,
+      "p50": 0.3,
+      "p95": 0.3,
+      "max": 0.3,
+      "baseline": 0.3
+    },
+    "kpi::cost_share_purchase": {
+      "n": 200,
+      "mean": 0.383252995,
+      "std": 0.03756554856733727,
+      "min": 0.28158,
+      "p05": 0.31696905,
+      "p50": 0.383765,
+      "p95": 0.4409401,
+      "max": 0.465026,
+      "baseline": 0.405492
+    },
+    "kpi::cost_share_transport": {
+      "n": 200,
+      "mean": 0.069132315,
+      "std": 0.007785950003421227,
+      "min": 0.05187,
+      "p05": 0.057447450000000004,
+      "p50": 0.06839500000000001,
+      "p95": 0.08359099999999997,
+      "max": 0.092768,
+      "baseline": 0.059329
+    },
+    "kpi::cost_share_warehouse_operating": {
+      "n": 200,
+      "mean": 0.111426575,
+      "std": 0.01490970676185065,
+      "min": 0.07599,
+      "p05": 0.08963765,
+      "p50": 0.11018449999999999,
+      "p95": 0.13811915,
+      "max": 0.154644,
+      "baseline": 0.105831
+    },
+    "kpi::ending_backlog": {
+      "n": 200,
+      "mean": 56223.397287,
+      "std": 161303.36011376328,
+      "min": 0.0,
+      "p05": 0.0,
+      "p50": 0.0,
+      "p95": 478317.93875999964,
+      "max": 900165.3941,
+      "baseline": 0.0
+    },
+    "kpi::ending_inventory": {
+      "n": 200,
+      "mean": 854818792.779632,
+      "std": 184618874.25669578,
+      "min": 506174931.9811,
+      "p05": 554486694.4394,
+      "p50": 869390785.43195,
+      "p95": 1146202114.908925,
+      "max": 1222743242.6605,
+      "baseline": 817699006.1844
+    },
+    "kpi::fill_rate": {
+      "n": 200,
+      "mean": 0.989904215,
+      "std": 0.028389298233643872,
+      "min": 0.851492,
+      "p05": 0.9118256000000001,
+      "p50": 1.0,
+      "p95": 1.0,
+      "max": 1.0,
+      "baseline": 1.0
+    },
+    "kpi::measured_required_total": {
+      "n": 200,
+      "mean": 5320824.3497325,
+      "std": 405568.0843074426,
+      "min": 4374187.6632,
+      "p05": 4684666.40465,
+      "p50": 5320397.1712,
+      "p95": 6010447.479959999,
+      "max": 6559111.3761,
+      "baseline": 5152428.0
+    },
+    "kpi::measurement_starting_backlog": {
+      "n": 200,
+      "mean": 0.0,
+      "std": 0.0,
+      "min": 0.0,
+      "p05": 0.0,
+      "p50": 0.0,
+      "p95": 0.0,
+      "max": 0.0,
+      "baseline": 0.0
+    },
+    "kpi::total_arrived": {
+      "n": 200,
+      "mean": 400462490.4157595,
+      "std": 170265585.30329463,
+      "min": 125685402.9852,
+      "p05": 133688023.606465,
+      "p50": 478447149.91585,
+      "p95": 588218068.11436,
+      "max": 610901719.6694,
+      "baseline": 488771958.8388
+    },
+    "kpi::total_cost": {
+      "n": 200,
+      "mean": 17584698.1025295,
+      "std": 2634405.820535884,
+      "min": 12061353.312,
+      "p05": 13543162.28248,
+      "p50": 17458029.402149998,
+      "p95": 22061387.483714998,
+      "max": 24857442.1861,
+      "baseline": 17589815.1881
+    },
+    "kpi::total_demand": {
+      "n": 200,
+      "mean": 5320824.3497325,
+      "std": 405568.0843074426,
+      "min": 4374187.6632,
+      "p05": 4684666.40465,
+      "p50": 5320397.1712,
+      "p95": 6010447.479959999,
+      "max": 6559111.3761,
+      "baseline": 5152428.0
+    },
+    "kpi::total_estimated_source_ordered_qty": {
+      "n": 200,
+      "mean": 0.0,
+      "std": 0.0,
+      "min": 0.0,
+      "p05": 0.0,
+      "p50": 0.0,
+      "p95": 0.0,
+      "max": 0.0,
+      "baseline": 0.0
+    },
+    "kpi::total_estimated_source_rejected_qty": {
+      "n": 200,
+      "mean": 0.0,
+      "std": 0.0,
+      "min": 0.0,
+      "p05": 0.0,
+      "p50": 0.0,
+      "p95": 0.0,
+      "max": 0.0,
+      "baseline": 0.0
+    },
+    "kpi::total_estimated_source_replenished_qty": {
+      "n": 200,
+      "mean": 0.0,
+      "std": 0.0,
+      "min": 0.0,
+      "p05": 0.0,
+      "p50": 0.0,
+      "p95": 0.0,
+      "max": 0.0,
+      "baseline": 0.0
+    },
+    "kpi::total_explicit_initialization_pipeline_qty": {
+      "n": 200,
+      "mean": 382906532.9077105,
+      "std": 56881381.42252634,
+      "min": 280799338.5267,
+      "p05": 303381000.657035,
+      "p50": 374396449.7845,
+      "p95": 484982312.98172504,
+      "max": 566865455.6293,
+      "baseline": 303596359.9729
+    },
+    "kpi::total_explicit_initialization_stock_qty": {
+      "n": 200,
+      "mean": 754600.0,
+      "std": 0.0,
+      "min": 754600.0,
+      "p05": 754600.0,
+      "p50": 754600.0,
+      "p95": 754600.0,
+      "max": 754600.0,
+      "baseline": 754600.0
+    },
+    "kpi::total_external_procured_arrived_qty": {
+      "n": 200,
+      "mean": 602328979.667762,
+      "std": 195425332.62724873,
+      "min": 226512667.1081,
+      "p05": 288601348.732835,
+      "p50": 625648269.2105999,
+      "p95": 889359585.6962099,
+      "max": 1005052889.3232,
+      "baseline": 486715499.818
+    },
+    "kpi::total_external_procured_ordered_qty": {
+      "n": 200,
+      "mean": 290485934.4203155,
+      "std": 170031980.17729598,
+      "min": 15398931.0514,
+      "p05": 21628449.417165,
+      "p50": 342060261.3217,
+      "p95": 496271703.94375,
+      "max": 568886364.3508,
+      "baseline": 259836932.546
+    },
+    "kpi::total_external_procured_qty": {
+      "n": 200,
+      "mean": 290485934.4203155,
+      "std": 170031980.17729598,
+      "min": 15398931.0514,
+      "p05": 21628449.417165,
+      "p50": 342060261.3217,
+      "p95": 496271703.94375,
+      "max": 568886364.3508,
+      "baseline": 259836932.546
+    },
+    "kpi::total_external_procured_rejected_qty": {
+      "n": 200,
+      "mean": 1690484613.9759624,
+      "std": 1531298264.127523,
+      "min": 44919005.1551,
+      "p05": 72134898.98812,
+      "p50": 1346474607.5889,
+      "p95": 4715212185.745534,
+      "max": 7616888037.6027,
+      "baseline": 781238311.2852
+    },
+    "kpi::total_external_procurement_cost": {
+      "n": 200,
+      "mean": 31255145.151244,
+      "std": 13612825.89287564,
+      "min": 5065844.8609,
+      "p05": 8062838.87356,
+      "p50": 32613410.5874,
+      "p95": 53230772.39447,
+      "max": 60143234.968,
+      "baseline": 23691384.1758
+    },
+    "kpi::total_holding_cost": {
+      "n": 200,
+      "mean": 1496432.9374985,
+      "std": 89044.87154842718,
+      "min": 1261254.0106,
+      "p05": 1356376.5993549998,
+      "p50": 1492949.1076500001,
+      "p95": 1639960.452785,
+      "max": 1736310.4681,
+      "baseline": 1447864.7509
+    },
+    "kpi::total_inventory_cost_legacy_raw_holding": {
+      "n": 200,
+      "mean": 4275522.6785695,
+      "std": 254413.91870633297,
+      "min": 3603582.8873,
+      "p05": 3875361.712315,
+      "p50": 4265568.879000001,
+      "p95": 4685601.293579999,
+      "max": 4960887.0517,
+      "baseline": 4136756.431
+    },
+    "kpi::total_inventory_risk_cost": {
+      "n": 200,
+      "mean": 855104.5357115,
+      "std": 50882.78373883578,
+      "min": 720716.5775,
+      "p05": 775072.3425,
+      "p50": 853113.7758,
+      "p95": 937120.2587349999,
+      "max": 992177.4103,
+      "baseline": 827351.2862
+    },
+    "kpi::total_logistics_cost": {
+      "n": 200,
+      "mean": 5479679.971182,
+      "std": 323354.417876752,
+      "min": 4655807.8854,
+      "p05": 4981664.488015,
+      "p50": 5482703.475649999,
+      "p95": 5981404.461679999,
+      "max": 6419345.1319,
+      "baseline": 5180340.6681
+    },
+    "kpi::total_opening_open_order_qty": {
+      "n": 200,
+      "mean": 68338188.0,
+      "std": 0.0,
+      "min": 68338188.0,
+      "p05": 68338188.0,
+      "p50": 68338188.0,
+      "p95": 68338188.0,
+      "max": 68338188.0,
+      "baseline": 68338188.0
+    },
+    "kpi::total_opening_stock_bootstrap_qty": {
+      "n": 200,
+      "mean": 0.0,
+      "std": 0.0,
+      "min": 0.0,
+      "p05": 0.0,
+      "p50": 0.0,
+      "p95": 0.0,
+      "max": 0.0,
+      "baseline": 0.0
+    },
+    "kpi::total_produced": {
+      "n": 200,
+      "mean": 32364828.262521,
+      "std": 3918073.408246825,
+      "min": 21999800.0,
+      "p05": 25427290.0,
+      "p50": 31890100.0,
+      "p95": 39245050.0,
+      "max": 42458000.0,
+      "baseline": 24651200.0
+    },
+    "kpi::total_production_cost": {
+      "n": 200,
+      "mean": 5275409.4307565,
+      "std": 790321.7461586391,
+      "min": 3618405.9936,
+      "p05": 4062948.68479,
+      "p50": 5237408.82065,
+      "p95": 6618416.245074999,
+      "max": 7457232.6558,
+      "baseline": 5276944.5564
+    },
+    "kpi::total_purchase_cost": {
+      "n": 200,
+      "mean": 6829608.700589,
+      "std": 1638937.1661757063,
+      "min": 3428059.5433,
+      "p05": 4321028.7634000005,
+      "p50": 6686076.11035,
+      "p95": 9752722.028685,
+      "max": 11559348.6768,
+      "baseline": 7132529.9636
+    },
+    "kpi::total_served": {
+      "n": 200,
+      "mean": 5264600.9524455,
+      "std": 400344.24206067156,
+      "min": 4374187.6632,
+      "p05": 4671395.65506,
+      "p50": 5227183.8455,
+      "p95": 5956143.952594999,
+      "max": 6559111.3761,
+      "baseline": 5152428.0
+    },
+    "kpi::total_shipped": {
+      "n": 200,
+      "mean": 334525259.074926,
+      "std": 170362190.7751673,
+      "min": 62132190.4356,
+      "p05": 68753406.327135,
+      "p50": 412599283.29345,
+      "p95": 522345220.33278,
+      "max": 544525022.54,
+      "baseline": 429257525.8388
+    },
+    "kpi::total_supplier_capacity_binding_qty": {
+      "n": 200,
+      "mean": 8556228.979769,
+      "std": 17511615.631472178,
+      "min": 1337647.9115,
+      "p05": 2703978.829360001,
+      "p50": 7028561.7785,
+      "p95": 11942490.267515,
+      "max": 224613081.3449,
+      "baseline": 773234.3333
+    },
+    "kpi::total_transport_cost": {
+      "n": 200,
+      "mean": 1204157.2926185,
+      "std": 151939.66841045037,
+      "min": 831022.8663,
+      "p05": 996209.567825,
+      "p50": 1204184.0343,
+      "p95": 1494857.62302,
+      "max": 1643272.0994,
+      "baseline": 1043584.2371
+    },
+    "kpi::total_unreliable_loss_qty": {
+      "n": 200,
+      "mean": 22163994.7960095,
+      "std": 17294395.11597748,
+      "min": 804419.4988,
+      "p05": 1970786.8458899998,
+      "p50": 20749321.2376,
+      "p95": 52927283.40832499,
+      "max": 70691874.6942,
+      "baseline": 0.0
+    },
+    "kpi::total_warehouse_operating_cost": {
+      "n": 200,
+      "mean": 1923985.2053555,
+      "std": 114486.26341725758,
+      "min": 1621612.2993,
+      "p05": 1743912.770555,
+      "p50": 1919505.99555,
+      "p95": 2108520.582155,
+      "max": 2232399.1733,
+      "baseline": 1861540.394
+    },
+    "kpi::warmup_backlog_cleared_qty": {
+      "n": 200,
+      "mean": 0.0,
+      "std": 0.0,
+      "min": 0.0,
+      "p05": 0.0,
+      "p50": 0.0,
+      "p95": 0.0,
+      "max": 0.0,
+      "baseline": 0.0
+    }
+  },
+  "decision_metrics": {
+    "fill_rate_below_100pct": 0.155,
+    "fill_rate_below_99pct": 0.145,
+    "backlog_positive": 0.155,
+    "total_cost_above_baseline": 0.475,
+    "inventory_cost_above_baseline": 0.73,
+    "supplier_capacity_binding_above_baseline": 1.0
+  },
+  "factor_kpi_correlations_pearson": {
+    "capacity_node::M-1430": {
+      "kpi::fill_rate": 0.020147572858991946,
+      "kpi::ending_backlog": -0.018588710914211867,
+      "kpi::total_cost": -0.05722037697474427,
+      "kpi::total_produced": -0.020544138450034163
+    },
+    "capacity_node::M-1810": {
+      "kpi::fill_rate": -0.07951445772193101,
+      "kpi::ending_backlog": 0.08247329148934936,
+      "kpi::total_cost": -0.014754622961781847,
+      "kpi::total_produced": -0.04691032527022127
+    },
+    "capacity_node::SDC-1450": {
+      "kpi::fill_rate": 0.08358516646675525,
+      "kpi::ending_backlog": -0.07845330445464285,
+      "kpi::total_cost": 0.025399877257596907,
+      "kpi::total_produced": 0.10754529300624409
+    },
+    "demand_item::item:268091": {
+      "kpi::fill_rate": -0.2455682201675166,
+      "kpi::ending_backlog": 0.24960472148082344,
+      "kpi::total_cost": 0.4321392416344801,
+      "kpi::total_produced": 0.041069017254129425
+    },
+    "demand_item::item:268967": {
+      "kpi::fill_rate": -0.01753693781637624,
+      "kpi::ending_backlog": 0.0330150720538182,
+      "kpi::total_cost": -0.09534884774596875,
+      "kpi::total_produced": 0.41605972236546573
+    },
+    "factor::capacity_scale": {
+      "kpi::fill_rate": NaN,
+      "kpi::ending_backlog": NaN,
+      "kpi::total_cost": NaN,
+      "kpi::total_produced": NaN
+    },
+    "factor::demand_scale": {
+      "kpi::fill_rate": -0.07406354471173196,
+      "kpi::ending_backlog": 0.08278913833919774,
+      "kpi::total_cost": 0.36134838568447025,
+      "kpi::total_produced": 0.44819471471192623
+    },
+    "factor::external_procurement_daily_cap_days_scale": {
+      "kpi::fill_rate": -0.08280384816011603,
+      "kpi::ending_backlog": 0.08462492924484326,
+      "kpi::total_cost": -0.041608777912088744,
+      "kpi::total_produced": -0.01658073241056568
+    },
+    "factor::external_procurement_lead_days_scale": {
+      "kpi::fill_rate": -0.043281596643213426,
+      "kpi::ending_backlog": 0.04060978212584515,
+      "kpi::total_cost": 0.05145924379880734,
+      "kpi::total_produced": 0.019312671637667495
+    },
+    "factor::holding_cost_scale": {
+      "kpi::fill_rate": 0.02213827985266619,
+      "kpi::ending_backlog": -0.020375040357857154,
+      "kpi::total_cost": 0.14356027975898075,
+      "kpi::total_produced": -0.006918159560249646
+    },
+    "factor::lead_time_scale": {
+      "kpi::fill_rate": 0.049415147567240386,
+      "kpi::ending_backlog": -0.052183717307300606,
+      "kpi::total_cost": 0.5199047809609743,
+      "kpi::total_produced": 0.5232566332462727
+    },
+    "factor::production_stock_scale": {
+      "kpi::fill_rate": 0.21324659662250273,
+      "kpi::ending_backlog": -0.2090172532206145,
+      "kpi::total_cost": 0.07052902446676673,
+      "kpi::total_produced": -0.15358436845145235
+    },
+    "factor::supplier_capacity_scale": {
+      "kpi::fill_rate": 0.5516844307213662,
+      "kpi::ending_backlog": -0.5402998998535502,
+      "kpi::total_cost": 0.45994374992592224,
+      "kpi::total_produced": 0.08480129325416644
+    },
+    "factor::supplier_reliability_scale": {
+      "kpi::fill_rate": 0.0028115140245307075,
+      "kpi::ending_backlog": -0.005040562382578397,
+      "kpi::total_cost": -0.13985909306205876,
+      "kpi::total_produced": -0.4443051153370245
+    },
+    "factor::supplier_stock_scale": {
+      "kpi::fill_rate": -0.02008973980562143,
+      "kpi::ending_backlog": 0.025334110316802955,
+      "kpi::total_cost": -0.24797142192492222,
+      "kpi::total_produced": -0.37310410278652384
+    },
+    "factor::transport_cost_scale": {
+      "kpi::fill_rate": 0.03884828268488388,
+      "kpi::ending_backlog": -0.03380235070232405,
+      "kpi::total_cost": 0.14064841556493465,
+      "kpi::total_produced": 0.035484505937946956
+    },
+    "supplier_capacity_node::SDC-VD0500655A": {
+      "kpi::fill_rate": 0.06469818328939528,
+      "kpi::ending_backlog": -0.06299697453010958,
+      "kpi::total_cost": 0.022705812820830347,
+      "kpi::total_produced": 0.013222388375493398
+    },
+    "supplier_capacity_node::SDC-VD0505677A": {
+      "kpi::fill_rate": 0.060524643033565445,
+      "kpi::ending_backlog": -0.062057792254785624,
+      "kpi::total_cost": -0.05348902424662968,
+      "kpi::total_produced": -0.0489609697454662
+    },
+    "supplier_capacity_node::SDC-VD0508918A": {
+      "kpi::fill_rate": 0.09433639208943784,
+      "kpi::ending_backlog": -0.09099416218000354,
+      "kpi::total_cost": 0.08881743180214845,
+      "kpi::total_produced": 0.09195379138345602
+    },
+    "supplier_capacity_node::SDC-VD0514881A": {
+      "kpi::fill_rate": -0.05276908849848116,
+      "kpi::ending_backlog": 0.05395573103231666,
+      "kpi::total_cost": 0.03162645639228855,
+      "kpi::total_produced": -0.018846298157985313
+    },
+    "supplier_capacity_node::SDC-VD0518550B": {
+      "kpi::fill_rate": -0.029537648604593635,
+      "kpi::ending_backlog": 0.02727090574470062,
+      "kpi::total_cost": 0.09015569756590147,
+      "kpi::total_produced": 0.10068939894276124
+    },
+    "supplier_capacity_node::SDC-VD0518684A": {
+      "kpi::fill_rate": -0.06522421683074772,
+      "kpi::ending_backlog": 0.07103354697629612,
+      "kpi::total_cost": 0.04168091393596033,
+      "kpi::total_produced": 0.032080183002372475
+    },
+    "supplier_capacity_node::SDC-VD0519670A": {
+      "kpi::fill_rate": -0.05399292719575374,
+      "kpi::ending_backlog": 0.04969834243573521,
+      "kpi::total_cost": 0.058993924777250316,
+      "kpi::total_produced": 0.09304159814481983
+    },
+    "supplier_capacity_node::SDC-VD0520115A": {
+      "kpi::fill_rate": 0.1692495988395323,
+      "kpi::ending_backlog": -0.1725254100985938,
+      "kpi::total_cost": 0.11260824366467274,
+      "kpi::total_produced": -0.008268597702573188
+    },
+    "supplier_capacity_node::SDC-VD0520132A": {
+      "kpi::fill_rate": -0.0492057304059701,
+      "kpi::ending_backlog": 0.04184441070014896,
+      "kpi::total_cost": 0.18890161282980747,
+      "kpi::total_produced": 0.007271887250109878
+    },
+    "supplier_capacity_node::SDC-VD0525412A": {
+      "kpi::fill_rate": 0.09165629833467234,
+      "kpi::ending_backlog": -0.09665755770883025,
+      "kpi::total_cost": 0.05330922909147473,
+      "kpi::total_produced": 0.03700272444547657
+    },
+    "supplier_capacity_node::SDC-VD0525906A": {
+      "kpi::fill_rate": 0.05541133347525569,
+      "kpi::ending_backlog": -0.054937725849725935,
+      "kpi::total_cost": -0.04368915916419344,
+      "kpi::total_produced": 0.009447939690189602
+    },
+    "supplier_capacity_node::SDC-VD0901566A": {
+      "kpi::fill_rate": 0.02368890228552055,
+      "kpi::ending_backlog": -0.027284664714131594,
+      "kpi::total_cost": 0.023563593229918644,
+      "kpi::total_produced": -0.05836717563879641
+    },
+    "supplier_capacity_node::SDC-VD0910216A": {
+      "kpi::fill_rate": 0.265047343684982,
+      "kpi::ending_backlog": -0.26053272891497264,
+      "kpi::total_cost": 0.06352877715622834,
+      "kpi::total_produced": -0.06553055365333704
+    },
+    "supplier_capacity_node::SDC-VD0914320A": {
+      "kpi::fill_rate": 0.08315218493350927,
+      "kpi::ending_backlog": -0.07783425200605391,
+      "kpi::total_cost": -0.035812082532006906,
+      "kpi::total_produced": 0.003224299922590186
+    },
+    "supplier_capacity_node::SDC-VD0914360C": {
+      "kpi::fill_rate": -0.05342247695779131,
+      "kpi::ending_backlog": 0.05459844716543824,
+      "kpi::total_cost": 0.04771761414167763,
+      "kpi::total_produced": 0.05150983689707296
+    },
+    "supplier_capacity_node::SDC-VD0914690A": {
+      "kpi::fill_rate": 0.08575975406749922,
+      "kpi::ending_backlog": -0.08110658646088502,
+      "kpi::total_cost": 0.22117071573410513,
+      "kpi::total_produced": 0.09091137024659979
+    },
+    "supplier_capacity_node::SDC-VD0949099A": {
+      "kpi::fill_rate": -0.10710480451730389,
+      "kpi::ending_backlog": 0.10915606462686538,
+      "kpi::total_cost": -0.028569950597031817,
+      "kpi::total_produced": -0.05427449588964942
+    },
+    "supplier_capacity_node::SDC-VD0951020A": {
+      "kpi::fill_rate": 0.07498582828959394,
+      "kpi::ending_backlog": -0.07625343177156349,
+      "kpi::total_cost": 0.09516847725741913,
+      "kpi::total_produced": 0.12611872452267678
+    },
+    "supplier_capacity_node::SDC-VD0956464A": {
+      "kpi::fill_rate": 0.004818899674443503,
+      "kpi::ending_backlog": -0.004147989731152621,
+      "kpi::total_cost": 0.04704901785800491,
+      "kpi::total_produced": -0.03987646862375679
+    },
+    "supplier_capacity_node::SDC-VD0960508A": {
+      "kpi::fill_rate": 0.04906799587297775,
+      "kpi::ending_backlog": -0.05162944889465362,
+      "kpi::total_cost": -0.09973442343720655,
+      "kpi::total_produced": 0.0034039344887263094
+    },
+    "supplier_capacity_node::SDC-VD0964290A": {
+      "kpi::fill_rate": -0.15809707725601999,
+      "kpi::ending_backlog": 0.15597785356921992,
+      "kpi::total_cost": -0.08938979649189188,
+      "kpi::total_produced": -0.14213898289536203
+    },
+    "supplier_capacity_node::SDC-VD0972460A": {
+      "kpi::fill_rate": 0.03278773936169129,
+      "kpi::ending_backlog": -0.039804808988145556,
+      "kpi::total_cost": 0.06080161082432478,
+      "kpi::total_produced": -0.03252620899061788
+    },
+    "supplier_capacity_node::SDC-VD0975221A": {
+      "kpi::fill_rate": -0.08511143239143905,
+      "kpi::ending_backlog": 0.08437834249234293,
+      "kpi::total_cost": 0.13674519014567643,
+      "kpi::total_produced": 0.13330165930186189
+    },
+    "supplier_capacity_node::SDC-VD0989480A": {
+      "kpi::fill_rate": 0.03198058300704752,
+      "kpi::ending_backlog": -0.026052148789564144,
+      "kpi::total_cost": -0.059321091320055926,
+      "kpi::total_produced": -0.06354004157875161
+    },
+    "supplier_capacity_node::SDC-VD0990780A": {
+      "kpi::fill_rate": 0.07476744914219001,
+      "kpi::ending_backlog": -0.07370655195268574,
+      "kpi::total_cost": 0.048622123469310656,
+      "kpi::total_produced": -0.05439766689802943
+    },
+    "supplier_capacity_node::SDC-VD0993480A": {
+      "kpi::fill_rate": -0.021284196935815496,
+      "kpi::ending_backlog": 0.012511155341064874,
+      "kpi::total_cost": -0.03680813039065233,
+      "kpi::total_produced": -0.09841753298844519
+    },
+    "supplier_capacity_node::SDC-VD1091642A": {
+      "kpi::fill_rate": 0.03108138133961395,
+      "kpi::ending_backlog": -0.02348687188760538,
+      "kpi::total_cost": -0.03373373630885863,
+      "kpi::total_produced": -0.03665726481173254
+    },
+    "supplier_capacity_node::SDC-VD1095770A": {
+      "kpi::fill_rate": -0.04125727641709686,
+      "kpi::ending_backlog": 0.04773745299288658,
+      "kpi::total_cost": 0.025543875158661637,
+      "kpi::total_produced": -0.041480219450819755
+    },
+    "supplier_capacity_node::SDC-VD1096202A": {
+      "kpi::fill_rate": -0.02718930311167833,
+      "kpi::ending_backlog": 0.02733602312448145,
+      "kpi::total_cost": -0.1529992882078748,
+      "kpi::total_produced": -0.19176620250476065
+    },
+    "supplier_lead_node::SDC-VD0500655A": {
+      "kpi::fill_rate": 0.018039957051527965,
+      "kpi::ending_backlog": -0.018619190714921324,
+      "kpi::total_cost": 0.017163229540378834,
+      "kpi::total_produced": -0.012058975363339202
+    },
+    "supplier_lead_node::SDC-VD0505677A": {
+      "kpi::fill_rate": 0.03667137649039612,
+      "kpi::ending_backlog": -0.02933767187043389,
+      "kpi::total_cost": 4.049861119714669e-05,
+      "kpi::total_produced": 0.1296740958483236
+    },
+    "supplier_lead_node::SDC-VD0508918A": {
+      "kpi::fill_rate": -0.02159432872835266,
+      "kpi::ending_backlog": 0.017908927650967542,
+      "kpi::total_cost": 0.033704868986347065,
+      "kpi::total_produced": 0.08553933602955223
+    },
+    "supplier_lead_node::SDC-VD0514881A": {
+      "kpi::fill_rate": 0.03311428884870758,
+      "kpi::ending_backlog": -0.030895712851941898,
+      "kpi::total_cost": 0.021010163966053274,
+      "kpi::total_produced": -0.014191313809057613
+    },
+    "supplier_lead_node::SDC-VD0518684A": {
+      "kpi::fill_rate": -0.07372416220819705,
+      "kpi::ending_backlog": 0.0703652889856595,
+      "kpi::total_cost": -0.07223670305419685,
+      "kpi::total_produced": -0.060383702709829554
+    },
+    "supplier_lead_node::SDC-VD0519670A": {
+      "kpi::fill_rate": -0.033778867534105764,
+      "kpi::ending_backlog": 0.033671018088707066,
+      "kpi::total_cost": -0.033113934703795686,
+      "kpi::total_produced": -0.06570460372092525
+    },
+    "supplier_lead_node::SDC-VD0520115A": {
+      "kpi::fill_rate": 0.014673124955975048,
+      "kpi::ending_backlog": -0.016483863608583664,
+      "kpi::total_cost": 0.04646826099184512,
+      "kpi::total_produced": -0.045928261633799254
+    },
+    "supplier_lead_node::SDC-VD0520132A": {
+      "kpi::fill_rate": -0.002253702096845671,
+      "kpi::ending_backlog": -0.006673232570835123,
+      "kpi::total_cost": 0.060880162933661594,
+      "kpi::total_produced": -0.005585034815942552
+    },
+    "supplier_lead_node::SDC-VD0525412A": {
+      "kpi::fill_rate": -0.04866586535092833,
+      "kpi::ending_backlog": 0.041402814537701046,
+      "kpi::total_cost": 0.0965369125158738,
+      "kpi::total_produced": -0.025378339273393752
+    },
+    "supplier_lead_node::SDC-VD0901566A": {
+      "kpi::fill_rate": -0.040717954103137104,
+      "kpi::ending_backlog": 0.04470638220726553,
+      "kpi::total_cost": 0.15355159944310648,
+      "kpi::total_produced": 0.12040760897170681
+    },
+    "supplier_lead_node::SDC-VD0910216A": {
+      "kpi::fill_rate": -0.011598129744508677,
+      "kpi::ending_backlog": 0.020760231173098616,
+      "kpi::total_cost": 0.033109164988316404,
+      "kpi::total_produced": -0.03055464656518257
+    },
+    "supplier_lead_node::SDC-VD0914320A": {
+      "kpi::fill_rate": -0.04118231114588081,
+      "kpi::ending_backlog": 0.04556305772537346,
+      "kpi::total_cost": -0.0427092954316786,
+      "kpi::total_produced": -0.0748674856709357
+    },
+    "supplier_lead_node::SDC-VD0914360C": {
+      "kpi::fill_rate": 0.047508924333664465,
+      "kpi::ending_backlog": -0.05106861981506477,
+      "kpi::total_cost": 0.3141480959534294,
+      "kpi::total_produced": -0.01780503163285349
+    },
+    "supplier_lead_node::SDC-VD0914690A": {
+      "kpi::fill_rate": -0.004083068339441878,
+      "kpi::ending_backlog": 0.0005492136758261756,
+      "kpi::total_cost": 0.10151034893240835,
+      "kpi::total_produced": -0.022440371095688118
+    },
+    "supplier_lead_node::SDC-VD0949099A": {
+      "kpi::fill_rate": 0.041695794177857175,
+      "kpi::ending_backlog": -0.04178868301879392,
+      "kpi::total_cost": -0.05642554737238358,
+      "kpi::total_produced": -0.012743214287527754
+    },
+    "supplier_lead_node::SDC-VD0951020A": {
+      "kpi::fill_rate": -0.04225283059836262,
+      "kpi::ending_backlog": 0.036683957964771516,
+      "kpi::total_cost": -0.013652432148481733,
+      "kpi::total_produced": -0.0290720888252268
+    },
+    "supplier_lead_node::SDC-VD0956464A": {
+      "kpi::fill_rate": -0.062000066084123534,
+      "kpi::ending_backlog": 0.05751474960745702,
+      "kpi::total_cost": -0.05753328602798417,
+      "kpi::total_produced": 0.10662802438555409
+    },
+    "supplier_lead_node::SDC-VD0960508A": {
+      "kpi::fill_rate": -0.19397898769932176,
+      "kpi::ending_backlog": 0.20317121785476716,
+      "kpi::total_cost": -0.17688150497106483,
+      "kpi::total_produced": 0.05045070671899915
+    },
+    "supplier_lead_node::SDC-VD0964290A": {
+      "kpi::fill_rate": 0.031521348691027996,
+      "kpi::ending_backlog": -0.036744593521480906,
+      "kpi::total_cost": 0.07801201660930175,
+      "kpi::total_produced": 0.013951056410184237
+    },
+    "supplier_lead_node::SDC-VD0972460A": {
+      "kpi::fill_rate": -0.061673498605588156,
+      "kpi::ending_backlog": 0.056073183366404586,
+      "kpi::total_cost": 0.0016059060423496822,
+      "kpi::total_produced": -0.06708290757721563
+    },
+    "supplier_lead_node::SDC-VD0975221A": {
+      "kpi::fill_rate": -0.04379841643393059,
+      "kpi::ending_backlog": 0.04770851116213138,
+      "kpi::total_cost": 0.10327394779283998,
+      "kpi::total_produced": 0.056362371139036346
+    },
+    "supplier_lead_node::SDC-VD0989480A": {
+      "kpi::fill_rate": 0.1487020575800291,
+      "kpi::ending_backlog": -0.14929226908973184,
+      "kpi::total_cost": 0.08825380692200482,
+      "kpi::total_produced": 0.10319998180469953
+    },
+    "supplier_lead_node::SDC-VD0990780A": {
+      "kpi::fill_rate": 0.04718235130166042,
+      "kpi::ending_backlog": -0.045863460526927156,
+      "kpi::total_cost": 0.06516275787569148,
+      "kpi::total_produced": 0.045796798755981485
+    },
+    "supplier_lead_node::SDC-VD0993480A": {
+      "kpi::fill_rate": 0.02260972344383972,
+      "kpi::ending_backlog": -0.03434326471871445,
+      "kpi::total_cost": 0.12315345291524088,
+      "kpi::total_produced": 0.14395883640430762
+    },
+    "supplier_lead_node::SDC-VD1091642A": {
+      "kpi::fill_rate": -0.02048885446339949,
+      "kpi::ending_backlog": 0.01990969101188551,
+      "kpi::total_cost": 0.05330947330742406,
+      "kpi::total_produced": 0.049001156139356135
+    },
+    "supplier_lead_node::SDC-VD1095770A": {
+      "kpi::fill_rate": -0.004230993936693519,
+      "kpi::ending_backlog": -2.5843914189260747e-05,
+      "kpi::total_cost": -0.004803090104539689,
+      "kpi::total_produced": 0.0471153859865037
+    },
+    "supplier_lead_node::SDC-VD1096202A": {
+      "kpi::fill_rate": -0.08152913763539689,
+      "kpi::ending_backlog": 0.0795418065069314,
+      "kpi::total_cost": 0.006943199055944502,
+      "kpi::total_produced": -0.005370227910237781
+    },
+    "supplier_reliability_node::SDC-VD0500655A": {
+      "kpi::fill_rate": 0.0021891592125126255,
+      "kpi::ending_backlog": 0.0011249002029536295,
+      "kpi::total_cost": -0.06116525570271877,
+      "kpi::total_produced": -0.05154375219498635
+    },
+    "supplier_reliability_node::SDC-VD0505677A": {
+      "kpi::fill_rate": 0.09396496791312774,
+      "kpi::ending_backlog": -0.1034135372255985,
+      "kpi::total_cost": 0.06268288857924156,
+      "kpi::total_produced": 0.022533573884745375
+    },
+    "supplier_reliability_node::SDC-VD0508918A": {
+      "kpi::fill_rate": 0.030028548528087527,
+      "kpi::ending_backlog": -0.03216671387272225,
+      "kpi::total_cost": -0.023799844303857263,
+      "kpi::total_produced": 0.00996495542251525
+    },
+    "supplier_reliability_node::SDC-VD0514881A": {
+      "kpi::fill_rate": 0.09487810809241608,
+      "kpi::ending_backlog": -0.1004888634415327,
+      "kpi::total_cost": -0.08789956095039735,
+      "kpi::total_produced": -0.1528001714356264
+    },
+    "supplier_reliability_node::SDC-VD0518684A": {
+      "kpi::fill_rate": 0.09134273813606138,
+      "kpi::ending_backlog": -0.09370526566081998,
+      "kpi::total_cost": 0.06273233013766523,
+      "kpi::total_produced": 0.0730359116167434
+    },
+    "supplier_reliability_node::SDC-VD0519670A": {
+      "kpi::fill_rate": 0.0900837449964886,
+      "kpi::ending_backlog": -0.08942916546478484,
+      "kpi::total_cost": -0.06749804491734201,
+      "kpi::total_produced": -0.014682591787420166
+    },
+    "supplier_reliability_node::SDC-VD0520115A": {
+      "kpi::fill_rate": 0.05150288125362327,
+      "kpi::ending_backlog": -0.05105493337933656,
+      "kpi::total_cost": -0.12437032332722738,
+      "kpi::total_produced": -0.09108367769498489
+    },
+    "supplier_reliability_node::SDC-VD0520132A": {
+      "kpi::fill_rate": -0.034953195845485334,
+      "kpi::ending_backlog": 0.03252363318921648,
+      "kpi::total_cost": 0.038378087420609615,
+      "kpi::total_produced": 0.01388852583559236
+    },
+    "supplier_reliability_node::SDC-VD0525412A": {
+      "kpi::fill_rate": -0.004456812535154913,
+      "kpi::ending_backlog": 0.01370054492334783,
+      "kpi::total_cost": 0.04891635771128386,
+      "kpi::total_produced": 0.006700841845019836
+    },
+    "supplier_reliability_node::SDC-VD0901566A": {
+      "kpi::fill_rate": 0.02135626879762717,
+      "kpi::ending_backlog": -0.013420327686081646,
+      "kpi::total_cost": -0.06644908609658529,
+      "kpi::total_produced": -0.12210594899248314
+    },
+    "supplier_reliability_node::SDC-VD0910216A": {
+      "kpi::fill_rate": 0.16024919656816444,
+      "kpi::ending_backlog": -0.15263683829803468,
+      "kpi::total_cost": 0.01793188523352959,
+      "kpi::total_produced": 0.024292516771758952
+    },
+    "supplier_reliability_node::SDC-VD0914320A": {
+      "kpi::fill_rate": -0.10185307479653594,
+      "kpi::ending_backlog": 0.10106309598270957,
+      "kpi::total_cost": -0.04763910318220678,
+      "kpi::total_produced": 0.03213481997255246
+    },
+    "supplier_reliability_node::SDC-VD0914360C": {
+      "kpi::fill_rate": 0.09399833508668685,
+      "kpi::ending_backlog": -0.09939898439765416,
+      "kpi::total_cost": 0.08595286435620267,
+      "kpi::total_produced": 0.02225269434801271
+    },
+    "supplier_reliability_node::SDC-VD0914690A": {
+      "kpi::fill_rate": -0.07491476493696793,
+      "kpi::ending_backlog": 0.07478138518488776,
+      "kpi::total_cost": -0.08263792527658423,
+      "kpi::total_produced": -0.0314247231497566
+    },
+    "supplier_reliability_node::SDC-VD0949099A": {
+      "kpi::fill_rate": -0.006287605975492971,
+      "kpi::ending_backlog": 0.011154215342428145,
+      "kpi::total_cost": -0.12910245779385457,
+      "kpi::total_produced": -0.0032360299743571207
+    },
+    "supplier_reliability_node::SDC-VD0951020A": {
+      "kpi::fill_rate": -0.0356340679732598,
+      "kpi::ending_backlog": 0.03616307375927128,
+      "kpi::total_cost": -0.009940834048132438,
+      "kpi::total_produced": 0.028253309435475993
+    },
+    "supplier_reliability_node::SDC-VD0956464A": {
+      "kpi::fill_rate": -0.019492896297776872,
+      "kpi::ending_backlog": 0.02609810854123912,
+      "kpi::total_cost": -0.07617648995664,
+      "kpi::total_produced": -0.08678314209012854
+    },
+    "supplier_reliability_node::SDC-VD0960508A": {
+      "kpi::fill_rate": -0.016068062620837417,
+      "kpi::ending_backlog": 0.018775633613769358,
+      "kpi::total_cost": -0.07246278361358696,
+      "kpi::total_produced": -0.0020258239703385248
+    },
+    "supplier_reliability_node::SDC-VD0964290A": {
+      "kpi::fill_rate": 0.06600066271723366,
+      "kpi::ending_backlog": -0.06979000701833106,
+      "kpi::total_cost": -0.11241447146132758,
+      "kpi::total_produced": -0.062254554080792696
+    },
+    "supplier_reliability_node::SDC-VD0972460A": {
+      "kpi::fill_rate": 0.03503704201385818,
+      "kpi::ending_backlog": -0.027065154605939782,
+      "kpi::total_cost": 0.10714440301460335,
+      "kpi::total_produced": -0.05844026514011437
+    },
+    "supplier_reliability_node::SDC-VD0975221A": {
+      "kpi::fill_rate": 0.12116137557949133,
+      "kpi::ending_backlog": -0.12057356139923679,
+      "kpi::total_cost": 0.05526346075629992,
+      "kpi::total_produced": 0.028030371888302784
+    },
+    "supplier_reliability_node::SDC-VD0989480A": {
+      "kpi::fill_rate": 0.12217420597323758,
+      "kpi::ending_backlog": -0.11961510651107242,
+      "kpi::total_cost": 0.08038903499622535,
+      "kpi::total_produced": 0.061354823254765864
+    },
+    "supplier_reliability_node::SDC-VD0990780A": {
+      "kpi::fill_rate": 0.06893681369574244,
+      "kpi::ending_backlog": -0.06711241740287345,
+      "kpi::total_cost": -0.057021481520299684,
+      "kpi::total_produced": -0.030110236166291438
+    },
+    "supplier_reliability_node::SDC-VD0993480A": {
+      "kpi::fill_rate": -0.03905709472181646,
+      "kpi::ending_backlog": 0.037503371049064246,
+      "kpi::total_cost": 0.014992263530612041,
+      "kpi::total_produced": 0.11629116173938424
+    },
+    "supplier_reliability_node::SDC-VD1091642A": {
+      "kpi::fill_rate": -0.01718441469942772,
+      "kpi::ending_backlog": 0.014743411938927533,
+      "kpi::total_cost": -0.11097945280037265,
+      "kpi::total_produced": -0.005176446486787823
+    },
+    "supplier_reliability_node::SDC-VD1095770A": {
+      "kpi::fill_rate": 0.05235649814829855,
+      "kpi::ending_backlog": -0.04915425092881872,
+      "kpi::total_cost": -0.0015845390608082727,
+      "kpi::total_produced": -0.035974871023262155
+    },
+    "supplier_reliability_node::SDC-VD1096202A": {
+      "kpi::fill_rate": -0.14093417233025007,
+      "kpi::ending_backlog": 0.13907383057494,
+      "kpi::total_cost": -0.010650845710112357,
+      "kpi::total_produced": -0.04595973652144076
+    },
+    "supplier_stock_node::SDC-VD0500655A": {
+      "kpi::fill_rate": -0.12456623430308339,
+      "kpi::ending_backlog": 0.12702834008513833,
+      "kpi::total_cost": -0.08774409041286854,
+      "kpi::total_produced": 0.04085202300114086
+    },
+    "supplier_stock_node::SDC-VD0505677A": {
+      "kpi::fill_rate": -0.0001673064020703024,
+      "kpi::ending_backlog": -0.0009051346139332001,
+      "kpi::total_cost": 0.07122892385528638,
+      "kpi::total_produced": 0.043965996523333446
+    },
+    "supplier_stock_node::SDC-VD0508918A": {
+      "kpi::fill_rate": 0.013230487495611011,
+      "kpi::ending_backlog": -0.011740954583103905,
+      "kpi::total_cost": 0.023044249508197917,
+      "kpi::total_produced": -0.08116743028989053
+    },
+    "supplier_stock_node::SDC-VD0514881A": {
+      "kpi::fill_rate": 0.08238993772675143,
+      "kpi::ending_backlog": -0.07822139331494504,
+      "kpi::total_cost": -0.006079370951762637,
+      "kpi::total_produced": 0.029385838035724213
+    },
+    "supplier_stock_node::SDC-VD0518550B": {
+      "kpi::fill_rate": 0.06564311039365987,
+      "kpi::ending_backlog": -0.07117369350449852,
+      "kpi::total_cost": -0.014987969979816265,
+      "kpi::total_produced": 0.007226535209955705
+    },
+    "supplier_stock_node::SDC-VD0518684A": {
+      "kpi::fill_rate": 0.03233142080994923,
+      "kpi::ending_backlog": -0.0256216968318592,
+      "kpi::total_cost": -0.1154613318830115,
+      "kpi::total_produced": 0.06432325759820615
+    },
+    "supplier_stock_node::SDC-VD0519670A": {
+      "kpi::fill_rate": -0.04777780012528603,
+      "kpi::ending_backlog": 0.055327226331627906,
+      "kpi::total_cost": -0.19083148356838633,
+      "kpi::total_produced": -0.15301381756998564
+    },
+    "supplier_stock_node::SDC-VD0520115A": {
+      "kpi::fill_rate": -0.04107381000905614,
+      "kpi::ending_backlog": 0.04222124999946265,
+      "kpi::total_cost": -0.0296305396320301,
+      "kpi::total_produced": 0.0369914312428756
+    },
+    "supplier_stock_node::SDC-VD0520132A": {
+      "kpi::fill_rate": -0.10875654956577516,
+      "kpi::ending_backlog": 0.10583600090344641,
+      "kpi::total_cost": -0.009190751494528993,
+      "kpi::total_produced": -0.15993603208661764
+    },
+    "supplier_stock_node::SDC-VD0525412A": {
+      "kpi::fill_rate": -0.02421050607170549,
+      "kpi::ending_backlog": 0.022720775798695386,
+      "kpi::total_cost": 0.023833563677495933,
+      "kpi::total_produced": -0.022552097989388523
+    },
+    "supplier_stock_node::SDC-VD0525906A": {
+      "kpi::fill_rate": -0.05477769994985846,
+      "kpi::ending_backlog": 0.06068872584160785,
+      "kpi::total_cost": -0.0600764474127803,
+      "kpi::total_produced": -0.020533430550246694
+    },
+    "supplier_stock_node::SDC-VD0901566A": {
+      "kpi::fill_rate": -0.013068748697493587,
+      "kpi::ending_backlog": 0.015237743846534334,
+      "kpi::total_cost": -0.05222437286307346,
+      "kpi::total_produced": -0.08755707649614639
+    },
+    "supplier_stock_node::SDC-VD0910216A": {
+      "kpi::fill_rate": 0.0159808751116605,
+      "kpi::ending_backlog": -0.009598108152495075,
+      "kpi::total_cost": -0.014929855197695392,
+      "kpi::total_produced": 0.05725658121581874
+    },
+    "supplier_stock_node::SDC-VD0914320A": {
+      "kpi::fill_rate": 0.0638567114009994,
+      "kpi::ending_backlog": -0.06123547030155919,
+      "kpi::total_cost": 0.08064488120917725,
+      "kpi::total_produced": 0.033492773659499465
+    },
+    "supplier_stock_node::SDC-VD0914360C": {
+      "kpi::fill_rate": -0.02227112169808097,
+      "kpi::ending_backlog": 0.02533761048692792,
+      "kpi::total_cost": 0.07661897257884984,
+      "kpi::total_produced": 0.056982509318571024
+    },
+    "supplier_stock_node::SDC-VD0914690A": {
+      "kpi::fill_rate": 0.1151367002795232,
+      "kpi::ending_backlog": -0.11859076971838559,
+      "kpi::total_cost": 0.05099725129795092,
+      "kpi::total_produced": 0.002631079225664734
+    },
+    "supplier_stock_node::SDC-VD0949099A": {
+      "kpi::fill_rate": -0.08023034592984016,
+      "kpi::ending_backlog": 0.08151021224457662,
+      "kpi::total_cost": -0.06064434572037767,
+      "kpi::total_produced": 0.013673221417086953
+    },
+    "supplier_stock_node::SDC-VD0951020A": {
+      "kpi::fill_rate": -0.033923332646902865,
+      "kpi::ending_backlog": 0.03232361135672125,
+      "kpi::total_cost": -0.028276917722020355,
+      "kpi::total_produced": 0.07916476313374343
+    },
+    "supplier_stock_node::SDC-VD0956464A": {
+      "kpi::fill_rate": -0.07815857400158872,
+      "kpi::ending_backlog": 0.07936759135220683,
+      "kpi::total_cost": 0.02169415873450151,
+      "kpi::total_produced": -0.0497555892420785
+    },
+    "supplier_stock_node::SDC-VD0960508A": {
+      "kpi::fill_rate": 0.03517948417362731,
+      "kpi::ending_backlog": -0.03166527875659604,
+      "kpi::total_cost": -0.03526875397879605,
+      "kpi::total_produced": -0.0378018953192716
+    },
+    "supplier_stock_node::SDC-VD0964290A": {
+      "kpi::fill_rate": 0.07804248090748807,
+      "kpi::ending_backlog": -0.07950312481761361,
+      "kpi::total_cost": 0.0522909787065058,
+      "kpi::total_produced": 0.06786205990370768
+    },
+    "supplier_stock_node::SDC-VD0972460A": {
+      "kpi::fill_rate": 0.032420066629315056,
+      "kpi::ending_backlog": -0.04207584296968209,
+      "kpi::total_cost": 0.00027134551794166084,
+      "kpi::total_produced": -0.1064135985917261
+    },
+    "supplier_stock_node::SDC-VD0975221A": {
+      "kpi::fill_rate": -0.12025980006673208,
+      "kpi::ending_backlog": 0.1238920386863922,
+      "kpi::total_cost": 0.06742563698099348,
+      "kpi::total_produced": -0.030278509305313527
+    },
+    "supplier_stock_node::SDC-VD0989480A": {
+      "kpi::fill_rate": -0.040855170448482206,
+      "kpi::ending_backlog": 0.04008353425970087,
+      "kpi::total_cost": 0.07068416094501229,
+      "kpi::total_produced": -0.07428589862256035
+    },
+    "supplier_stock_node::SDC-VD0990780A": {
+      "kpi::fill_rate": -0.002117462532608131,
+      "kpi::ending_backlog": -0.0044754203499057866,
+      "kpi::total_cost": -0.0726817148610271,
+      "kpi::total_produced": -0.07334900591624462
+    },
+    "supplier_stock_node::SDC-VD0993480A": {
+      "kpi::fill_rate": 0.07851998547602712,
+      "kpi::ending_backlog": -0.07168137952130155,
+      "kpi::total_cost": 0.10506687140256722,
+      "kpi::total_produced": 0.02124511010151274
+    },
+    "supplier_stock_node::SDC-VD1091642A": {
+      "kpi::fill_rate": -0.004327289939273652,
+      "kpi::ending_backlog": 0.0023277549858617386,
+      "kpi::total_cost": -0.011522381736812142,
+      "kpi::total_produced": 0.11372966641856119
+    },
+    "supplier_stock_node::SDC-VD1095770A": {
+      "kpi::fill_rate": 0.09835522801813681,
+      "kpi::ending_backlog": -0.0963342420208095,
+      "kpi::total_cost": -0.03730122810129621,
+      "kpi::total_produced": 0.008322014616202172
+    },
+    "supplier_stock_node::SDC-VD1096202A": {
+      "kpi::fill_rate": -0.021503701932324103,
+      "kpi::ending_backlog": 0.020608098072580835,
+      "kpi::total_cost": -0.014470086732471084,
+      "kpi::total_produced": -0.0719256567576519
+    }
+  },
+  "driver_rankings": {
+    "kpi::fill_rate": [
+      {
+        "factor": "factor::supplier_capacity_scale",
+        "correlation": 0.5516844307213662,
+        "absolute_correlation": 0.5516844307213662
+      },
+      {
+        "factor": "supplier_capacity_node::SDC-VD0910216A",
+        "correlation": 0.265047343684982,
+        "absolute_correlation": 0.265047343684982
+      },
+      {
+        "factor": "demand_item::item:268091",
+        "correlation": -0.2455682201675166,
+        "absolute_correlation": 0.2455682201675166
+      },
+      {
+        "factor": "factor::production_stock_scale",
+        "correlation": 0.21324659662250273,
+        "absolute_correlation": 0.21324659662250273
+      },
+      {
+        "factor": "supplier_lead_node::SDC-VD0960508A",
+        "correlation": -0.19397898769932176,
+        "absolute_correlation": 0.19397898769932176
+      },
+      {
+        "factor": "supplier_capacity_node::SDC-VD0520115A",
+        "correlation": 0.1692495988395323,
+        "absolute_correlation": 0.1692495988395323
+      },
+      {
+        "factor": "supplier_reliability_node::SDC-VD0910216A",
+        "correlation": 0.16024919656816444,
+        "absolute_correlation": 0.16024919656816444
+      },
+      {
+        "factor": "supplier_capacity_node::SDC-VD0964290A",
+        "correlation": -0.15809707725601999,
+        "absolute_correlation": 0.15809707725601999
+      },
+      {
+        "factor": "supplier_lead_node::SDC-VD0989480A",
+        "correlation": 0.1487020575800291,
+        "absolute_correlation": 0.1487020575800291
+      },
+      {
+        "factor": "supplier_reliability_node::SDC-VD1096202A",
+        "correlation": -0.14093417233025007,
+        "absolute_correlation": 0.14093417233025007
+      },
+      {
+        "factor": "supplier_stock_node::SDC-VD0500655A",
+        "correlation": -0.12456623430308339,
+        "absolute_correlation": 0.12456623430308339
+      },
+      {
+        "factor": "supplier_reliability_node::SDC-VD0989480A",
+        "correlation": 0.12217420597323758,
+        "absolute_correlation": 0.12217420597323758
+      }
+    ],
+    "kpi::ending_backlog": [
+      {
+        "factor": "factor::supplier_capacity_scale",
+        "correlation": -0.5402998998535502,
+        "absolute_correlation": 0.5402998998535502
+      },
+      {
+        "factor": "supplier_capacity_node::SDC-VD0910216A",
+        "correlation": -0.26053272891497264,
+        "absolute_correlation": 0.26053272891497264
+      },
+      {
+        "factor": "demand_item::item:268091",
+        "correlation": 0.24960472148082344,
+        "absolute_correlation": 0.24960472148082344
+      },
+      {
+        "factor": "factor::production_stock_scale",
+        "correlation": -0.2090172532206145,
+        "absolute_correlation": 0.2090172532206145
+      },
+      {
+        "factor": "supplier_lead_node::SDC-VD0960508A",
+        "correlation": 0.20317121785476716,
+        "absolute_correlation": 0.20317121785476716
+      },
+      {
+        "factor": "supplier_capacity_node::SDC-VD0520115A",
+        "correlation": -0.1725254100985938,
+        "absolute_correlation": 0.1725254100985938
+      },
+      {
+        "factor": "supplier_capacity_node::SDC-VD0964290A",
+        "correlation": 0.15597785356921992,
+        "absolute_correlation": 0.15597785356921992
+      },
+      {
+        "factor": "supplier_reliability_node::SDC-VD0910216A",
+        "correlation": -0.15263683829803468,
+        "absolute_correlation": 0.15263683829803468
+      },
+      {
+        "factor": "supplier_lead_node::SDC-VD0989480A",
+        "correlation": -0.14929226908973184,
+        "absolute_correlation": 0.14929226908973184
+      },
+      {
+        "factor": "supplier_reliability_node::SDC-VD1096202A",
+        "correlation": 0.13907383057494,
+        "absolute_correlation": 0.13907383057494
+      },
+      {
+        "factor": "supplier_stock_node::SDC-VD0500655A",
+        "correlation": 0.12702834008513833,
+        "absolute_correlation": 0.12702834008513833
+      },
+      {
+        "factor": "supplier_stock_node::SDC-VD0975221A",
+        "correlation": 0.1238920386863922,
+        "absolute_correlation": 0.1238920386863922
+      }
+    ],
+    "kpi::total_cost": [
+      {
+        "factor": "factor::lead_time_scale",
+        "correlation": 0.5199047809609743,
+        "absolute_correlation": 0.5199047809609743
+      },
+      {
+        "factor": "factor::supplier_capacity_scale",
+        "correlation": 0.45994374992592224,
+        "absolute_correlation": 0.45994374992592224
+      },
+      {
+        "factor": "demand_item::item:268091",
+        "correlation": 0.4321392416344801,
+        "absolute_correlation": 0.4321392416344801
+      },
+      {
+        "factor": "factor::demand_scale",
+        "correlation": 0.36134838568447025,
+        "absolute_correlation": 0.36134838568447025
+      },
+      {
+        "factor": "supplier_lead_node::SDC-VD0914360C",
+        "correlation": 0.3141480959534294,
+        "absolute_correlation": 0.3141480959534294
+      },
+      {
+        "factor": "factor::supplier_stock_scale",
+        "correlation": -0.24797142192492222,
+        "absolute_correlation": 0.24797142192492222
+      },
+      {
+        "factor": "supplier_capacity_node::SDC-VD0914690A",
+        "correlation": 0.22117071573410513,
+        "absolute_correlation": 0.22117071573410513
+      },
+      {
+        "factor": "supplier_stock_node::SDC-VD0519670A",
+        "correlation": -0.19083148356838633,
+        "absolute_correlation": 0.19083148356838633
+      },
+      {
+        "factor": "supplier_capacity_node::SDC-VD0520132A",
+        "correlation": 0.18890161282980747,
+        "absolute_correlation": 0.18890161282980747
+      },
+      {
+        "factor": "supplier_lead_node::SDC-VD0960508A",
+        "correlation": -0.17688150497106483,
+        "absolute_correlation": 0.17688150497106483
+      },
+      {
+        "factor": "supplier_lead_node::SDC-VD0901566A",
+        "correlation": 0.15355159944310648,
+        "absolute_correlation": 0.15355159944310648
+      },
+      {
+        "factor": "supplier_capacity_node::SDC-VD1096202A",
+        "correlation": -0.1529992882078748,
+        "absolute_correlation": 0.1529992882078748
+      }
+    ],
+    "kpi::total_produced": [
+      {
+        "factor": "factor::lead_time_scale",
+        "correlation": 0.5232566332462727,
+        "absolute_correlation": 0.5232566332462727
+      },
+      {
+        "factor": "factor::demand_scale",
+        "correlation": 0.44819471471192623,
+        "absolute_correlation": 0.44819471471192623
+      },
+      {
+        "factor": "factor::supplier_reliability_scale",
+        "correlation": -0.4443051153370245,
+        "absolute_correlation": 0.4443051153370245
+      },
+      {
+        "factor": "demand_item::item:268967",
+        "correlation": 0.41605972236546573,
+        "absolute_correlation": 0.41605972236546573
+      },
+      {
+        "factor": "factor::supplier_stock_scale",
+        "correlation": -0.37310410278652384,
+        "absolute_correlation": 0.37310410278652384
+      },
+      {
+        "factor": "supplier_capacity_node::SDC-VD1096202A",
+        "correlation": -0.19176620250476065,
+        "absolute_correlation": 0.19176620250476065
+      },
+      {
+        "factor": "supplier_stock_node::SDC-VD0520132A",
+        "correlation": -0.15993603208661764,
+        "absolute_correlation": 0.15993603208661764
+      },
+      {
+        "factor": "factor::production_stock_scale",
+        "correlation": -0.15358436845145235,
+        "absolute_correlation": 0.15358436845145235
+      },
+      {
+        "factor": "supplier_stock_node::SDC-VD0519670A",
+        "correlation": -0.15301381756998564,
+        "absolute_correlation": 0.15301381756998564
+      },
+      {
+        "factor": "supplier_reliability_node::SDC-VD0514881A",
+        "correlation": -0.1528001714356264,
+        "absolute_correlation": 0.1528001714356264
+      },
+      {
+        "factor": "supplier_lead_node::SDC-VD0993480A",
+        "correlation": 0.14395883640430762,
+        "absolute_correlation": 0.14395883640430762
+      },
+      {
+        "factor": "supplier_capacity_node::SDC-VD0964290A",
+        "correlation": -0.14213898289536203,
+        "absolute_correlation": 0.14213898289536203
+      }
+    ]
+  },
+  "top_runs": {
+    "best_fill_rate": [
+      {
+        "run_id": "run_0001",
+        "kpi::fill_rate": 1.0
+      },
+      {
+        "run_id": "run_0002",
+        "kpi::fill_rate": 1.0
+      },
+      {
+        "run_id": "run_0003",
+        "kpi::fill_rate": 1.0
+      },
+      {
+        "run_id": "run_0004",
+        "kpi::fill_rate": 1.0
+      },
+      {
+        "run_id": "run_0006",
+        "kpi::fill_rate": 1.0
+      },
+      {
+        "run_id": "run_0008",
+        "kpi::fill_rate": 1.0
+      },
+      {
+        "run_id": "run_0010",
+        "kpi::fill_rate": 1.0
+      },
+      {
+        "run_id": "run_0011",
+        "kpi::fill_rate": 1.0
+      },
+      {
+        "run_id": "run_0012",
+        "kpi::fill_rate": 1.0
+      },
+      {
+        "run_id": "run_0014",
+        "kpi::fill_rate": 1.0
+      }
+    ],
+    "worst_fill_rate": [
+      {
+        "run_id": "run_0183",
+        "kpi::fill_rate": 0.851492
+      },
+      {
+        "run_id": "run_0172",
+        "kpi::fill_rate": 0.856741
+      },
+      {
+        "run_id": "run_0101",
+        "kpi::fill_rate": 0.874095
+      },
+      {
+        "run_id": "run_0128",
+        "kpi::fill_rate": 0.886369
+      },
+      {
+        "run_id": "run_0195",
+        "kpi::fill_rate": 0.891093
+      },
+      {
+        "run_id": "run_0103",
+        "kpi::fill_rate": 0.892958
+      },
+      {
+        "run_id": "run_0007",
+        "kpi::fill_rate": 0.900219
+      },
+      {
+        "run_id": "run_0120",
+        "kpi::fill_rate": 0.901569
+      },
+      {
+        "run_id": "run_0013",
+        "kpi::fill_rate": 0.9085
+      },
+      {
+        "run_id": "run_0055",
+        "kpi::fill_rate": 0.908721
+      }
+    ],
+    "lowest_total_cost": [
+      {
+        "run_id": "run_0124",
+        "kpi::total_cost": 12061353.312
+      },
+      {
+        "run_id": "run_0154",
+        "kpi::total_cost": 12182268.616
+      },
+      {
+        "run_id": "run_0133",
+        "kpi::total_cost": 12506640.8693
+      },
+      {
+        "run_id": "run_0071",
+        "kpi::total_cost": 12797734.9745
+      },
+      {
+        "run_id": "run_0005",
+        "kpi::total_cost": 12880866.0725
+      },
+      {
+        "run_id": "run_0041",
+        "kpi::total_cost": 12981209.4113
+      },
+      {
+        "run_id": "run_0063",
+        "kpi::total_cost": 13144140.854
+      },
+      {
+        "run_id": "run_0107",
+        "kpi::total_cost": 13341323.0822
+      },
+      {
+        "run_id": "run_0101",
+        "kpi::total_cost": 13409484.6877
+      },
+      {
+        "run_id": "run_0162",
+        "kpi::total_cost": 13445296.6261
+      }
+    ],
+    "highest_total_cost": [
+      {
+        "run_id": "run_0025",
+        "kpi::total_cost": 24857442.1861
+      },
+      {
+        "run_id": "run_0085",
+        "kpi::total_cost": 23708610.8651
+      },
+      {
+        "run_id": "run_0088",
+        "kpi::total_cost": 23290093.6145
+      },
+      {
+        "run_id": "run_0023",
+        "kpi::total_cost": 23245735.972
+      },
+      {
+        "run_id": "run_0173",
+        "kpi::total_cost": 23110079.7612
+      },
+      {
+        "run_id": "run_0182",
+        "kpi::total_cost": 22749226.9171
+      },
+      {
+        "run_id": "run_0184",
+        "kpi::total_cost": 22734955.8588
+      },
+      {
+        "run_id": "run_0186",
+        "kpi::total_cost": 22716580.0705
+      },
+      {
+        "run_id": "run_0048",
+        "kpi::total_cost": 22526961.7553
+      },
+      {
+        "run_id": "run_0021",
+        "kpi::total_cost": 22281974.6321
+      }
+    ]
+  }
+}
