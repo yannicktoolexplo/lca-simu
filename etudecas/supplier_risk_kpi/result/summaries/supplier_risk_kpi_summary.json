@@ -1,6 +1,6 @@
 {
   "input_sim_result_dir": "etudecas\\simulation\\result\\mrp_bom_test_weekly_mps_lotified_no_fallback_physical_floor_explicit_input_targets_test",
-  "input_sensitivity_file": "C:\\dev\\lca-simu\\etudecas\\simulation\\sensibility\\active_supplier_parameter_result\\supplier_parameter_recommendations.csv",
+  "input_sensitivity_file": "etudecas\\simulation\\sensibility\\active_supplier_parameter_result\\supplier_parameter_recommendations.csv",
   "output_dir": "etudecas\\supplier_risk_kpi\\result",
   "week_count": 272,
   "supplier_count": 30,
@@ -19,17 +19,17 @@
     "green": 40
   },
   "decision_zone_counts_latest": {
-    "jaune": 7,
-    "vert": 33
+    "jaune": 6,
+    "vert": 34
   },
   "action_counts_all_weeks": {
-    "green": 10839,
-    "amber": 41
+    "green": 10849,
+    "amber": 31
   },
   "decision_zone_counts_all_weeks": {
-    "jaune": 2189,
-    "vert": 8673,
-    "orange": 18
+    "jaune": 2008,
+    "vert": 8857,
+    "orange": 15
   },
   "normalizers": {
     "lead_q90_max": 244.2,

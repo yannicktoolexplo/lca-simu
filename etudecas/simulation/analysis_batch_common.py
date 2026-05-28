@@ -316,6 +316,7 @@ def run_simulation(
     days: int = 0,
     skip_map: bool = True,
     skip_plots: bool = True,
+    extra_args: list[str] | None = None,
 ) -> tuple[dict[str, Any], str]:
     output_dir.mkdir(parents=True, exist_ok=True)
     cmd = [
@@ -334,6 +335,8 @@ def run_simulation(
         cmd.append("--skip-map")
     if skip_plots:
         cmd.append("--skip-plots")
+    if extra_args:
+        cmd.extend(str(arg) for arg in extra_args)
 
     proc = subprocess.run(cmd, capture_output=True, text=True)
     if proc.returncode != 0:

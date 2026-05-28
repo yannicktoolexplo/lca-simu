@@ -466,18 +466,29 @@ def compute_key_stats(
     return key_stats
 
 
-def compute_data_quality(stats: dict[str, Any]) -> float:
+def compute_data_quality_components(stats: dict[str, Any]) -> dict[str, float]:
     lead_score = min(parse_float(stats.get("lead_observation_count")) / 10.0, 1.0)
     capacity_score = 1.0 if parse_float(stats.get("capacity_observations")) > 0 else 0.0
     stock_score = 1.0 if parse_float(stats.get("stock_observations")) > 0 else 0.0
     criticality_score = 1.0 if parse_float(stats.get("criticality_score")) > 0 else 0.4
     active_score = min(parse_float(stats.get("active_week_count")) / 26.0, 1.0)
+    return {
+        "lead_score": clamp(lead_score),
+        "capacity_score": clamp(capacity_score),
+        "stock_score": clamp(stock_score),
+        "criticality_score": clamp(criticality_score),
+        "active_score": clamp(active_score),
+    }
+
+
+def compute_data_quality(stats: dict[str, Any]) -> float:
+    components = compute_data_quality_components(stats)
     return clamp(
-        0.20 * lead_score
-        + 0.20 * capacity_score
-        + 0.20 * stock_score
-        + 0.20 * criticality_score
-        + 0.20 * active_score
+        0.20 * components["lead_score"]
+        + 0.20 * components["capacity_score"]
+        + 0.20 * components["stock_score"]
+        + 0.20 * components["criticality_score"]
+        + 0.20 * components["active_score"]
     )
 
 
@@ -578,6 +589,7 @@ def build_week_panel(
             parse_float(stats.get("sensitivity_fill_rate_drop")) / norms["sensitivity_fill_drop_max"]
         )
         sensitivity_norm = clamp(0.65 * sensitivity_delta_norm + 0.35 * sensitivity_fill_norm)
+        data_quality_components = compute_data_quality_components(stats)
         data_quality = compute_data_quality(stats)
         lead_uncertainty = clamp(safe_div(lead_interval_width, max(lead_q50, 1.0)))
 
@@ -807,7 +819,23 @@ def build_week_panel(
                 "resilience_score": fmt_float(resilience_score, 6),
                 "performance_drop_proxy": fmt_float(performance_drop_proxy, 6),
                 "time_to_recover_weeks_proxy": fmt_float(time_to_recover_weeks_proxy, 4),
+                "sensitivity_external_qty_delta": fmt_float(parse_float(stats.get("sensitivity_external_qty_delta")), 4),
+                "sensitivity_external_qty_delta_pressure": fmt_float(sensitivity_delta_norm, 6),
+                "sensitivity_fill_rate_drop": fmt_float(parse_float(stats.get("sensitivity_fill_rate_drop")), 6),
+                "sensitivity_fill_rate_drop_pressure": fmt_float(sensitivity_fill_norm, 6),
+                "sensitivity_lowest_acceptable_scale": fmt_float(parse_float(stats.get("sensitivity_lowest_acceptable_scale")), 6),
+                "sensitivity_first_unacceptable_level": fmt_float(parse_float(stats.get("sensitivity_first_unacceptable_level")), 6),
                 "sensitivity_pressure": fmt_float(sensitivity_norm, 6),
+                "lead_uncertainty_pressure": fmt_float(lead_uncertainty, 6),
+                "lead_observation_count": int(parse_float(stats.get("lead_observation_count"))),
+                "capacity_observations": int(parse_float(stats.get("capacity_observations"))),
+                "stock_observations": int(parse_float(stats.get("stock_observations"))),
+                "active_week_count": int(parse_float(stats.get("active_week_count"))),
+                "data_quality_lead_score": fmt_float(data_quality_components["lead_score"], 6),
+                "data_quality_capacity_score": fmt_float(data_quality_components["capacity_score"], 6),
+                "data_quality_stock_score": fmt_float(data_quality_components["stock_score"], 6),
+                "data_quality_criticality_score": fmt_float(data_quality_components["criticality_score"], 6),
+                "data_quality_active_score": fmt_float(data_quality_components["active_score"], 6),
                 "uncertainty_pressure": fmt_float(uncertainty_pressure, 6),
                 "data_quality_score": fmt_float(data_quality, 6),
                 "risk_signal": fmt_float(risk_signal, 6),
