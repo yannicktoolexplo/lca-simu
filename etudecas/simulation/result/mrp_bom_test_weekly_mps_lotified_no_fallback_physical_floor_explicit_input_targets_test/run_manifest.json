@@ -1,6 +1,6 @@
 {
   "baseline": "active_mrp_physical",
-  "generated_at_utc": "2026-05-05T08:34:34.056089+00:00",
+  "generated_at_utc": "2026-05-28T09:09:07.970872+00:00",
   "input_graph": "etudecas/simulation_prep/result/reference_baseline/_mrp_bom_tests/bom_weekly_mps_lotified_no_static_fallback_physical_floor.json",
   "output_dir": "etudecas/simulation/result/mrp_bom_test_weekly_mps_lotified_no_fallback_physical_floor_explicit_input_targets_test",
   "scenario_id": "scn:BASE",
@@ -8,7 +8,6 @@
   "overwrite": true,
   "skip_map": false,
   "skip_plots": true,
-  "supplier_nominal_calibration_csv": "etudecas/simulation/result/mrp_bom_test_weekly_mps_lotified_no_fallback_physical_floor_explicit_input_targets_test/data/supplier_nominal_60_75_calibration.csv",
   "pipeline_command": [
     "C:\\Users\\yannick.martz\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
     "etudecas/run_etudecas_pipeline.py",
@@ -83,8 +82,6 @@
     "M-1810,item:426331,1",
     "--mrp-base-stock-floor-factor-pair",
     "M-1810,item:693055,1",
-    "--supplier-neutral-floors-csv",
-    "etudecas/simulation/result/mrp_bom_test_weekly_mps_lotified_no_fallback_physical_floor_explicit_input_targets_test/data/supplier_nominal_60_75_calibration.csv",
     "--skip-plots"
   ]
 }

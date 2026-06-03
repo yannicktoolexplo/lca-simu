@@ -56,6 +56,18 @@ DEFAULT_SUPPLIER_PARAMETER_SENSITIVITY_DIR = Path(
 )
 DEFAULT_SUPPLIER_RISK_KPI_DIR = Path("etudecas/supplier_risk_kpi/result")
 DEFAULT_MONTECARLO_UNCERTAINTY_DIR = Path("etudecas/simulation/montecarlo/active_mrp_physical_uncertainty")
+DEFAULT_SUPPLIER_RISK_CAMPAIGN_DIR = Path("etudecas/simulation/sensibility/supplier_risk_campaign_multisource_result")
+SIMULATED_RISK_FAMILY_INFO = {
+    "capacity": {"label": "Capacite", "color": "#d97706"},
+    "stock": {"label": "Stock", "color": "#0f766e"},
+    "lead": {"label": "Delai", "color": "#7c3aed"},
+    "reliability": {"label": "Fiabilite", "color": "#2563eb"},
+    "upstream": {"label": "Appro amont", "color": "#be123c"},
+    "quality": {"label": "Qualite", "color": "#0891b2"},
+    "cost": {"label": "Cout", "color": "#475569"},
+    "availability": {"label": "Disponibilite", "color": "#f59e0b"},
+    "other": {"label": "Autre", "color": "#64748b"},
+}
 ITEM_DISPLAY_REFERENCE_NOTES = {
     "item:007923": "007923 (ancienne ref 693710)",
 }
@@ -284,6 +296,21 @@ def parse_args() -> argparse.Namespace:
         "--montecarlo-summary-json",
         default=str(DEFAULT_MONTECARLO_UNCERTAINTY_DIR / "montecarlo_summary.json"),
         help="Optional Monte Carlo uncertainty summary JSON.",
+    )
+    parser.add_argument(
+        "--supplier-risk-campaign-summary-json",
+        default=str(DEFAULT_SUPPLIER_RISK_CAMPAIGN_DIR / "supplier_risk_campaign_summary.json"),
+        help="Optional supplier risk stress campaign summary JSON.",
+    )
+    parser.add_argument(
+        "--supplier-risk-campaign-summary-csv",
+        default=str(DEFAULT_SUPPLIER_RISK_CAMPAIGN_DIR / "supplier_risk_campaign_summary.csv"),
+        help="Optional supplier risk stress campaign summary CSV.",
+    )
+    parser.add_argument(
+        "--supplier-risk-campaign-cases-csv",
+        default=str(DEFAULT_SUPPLIER_RISK_CAMPAIGN_DIR / "supplier_risk_campaign_cases.csv"),
+        help="Optional supplier risk stress campaign case-level CSV.",
     )
     return parser.parse_args()
 
@@ -1867,6 +1894,7 @@ def build_distribution_center_hover_images(
         third = None
         if incoming is None and dc_stock_rows:
             per_item_stock: dict[str, list[tuple[int, float]]] = {}
+            per_item_styles: dict[str, dict[str, Any]] = {}
             item_ids = sorted(
                 {str(row.get("item_id") or "") for row in dc_stock_rows if str(row.get("node_id") or "") == dc_id}
             )
@@ -1882,20 +1910,49 @@ def build_distribution_center_hover_images(
                 )
                 if pts:
                     label = item_labels.get(item_id, compact_item_label(item_id))
-                    per_item_stock[f"{label} - stock"] = pts
+                    stock_label = f"{label} - stock"
+                    target_label = f"{label} - cible MRP affichee"
+                    position_label = f"{label} - position inventaire MRP"
+                    per_item_stock[stock_label] = pts
+                    per_item_styles[stock_label] = {"color": "#0f766e", "width": 2.3}
                     target_pts = aggregate_daily_series(
                         mrp_trace_rows,
-                        value_field="target_stock_qty",
+                        value_field="target_stock_display_qty",
                         node_field="node_id",
                         node_id=dc_id,
                         item_ids={item_id},
                     )
+                    if not target_pts:
+                        target_pts = aggregate_daily_series(
+                            mrp_trace_rows,
+                            value_field="target_stock_qty",
+                            node_field="node_id",
+                            node_id=dc_id,
+                            item_ids={item_id},
+                        )
                     if target_pts:
-                        per_item_stock[f"{label} - cible MRP / delai securite"] = target_pts
+                        per_item_stock[target_label] = target_pts
+                        per_item_styles[target_label] = {"color": "#2563eb", "width": 2.1, "dash": "solid"}
+                    position_pts = aggregate_daily_series(
+                        mrp_trace_rows,
+                        value_field="inventory_position_qty",
+                        node_field="node_id",
+                        node_id=dc_id,
+                        item_ids={item_id},
+                    )
+                    if position_pts:
+                        per_item_stock[position_label] = position_pts
+                        per_item_styles[position_label] = {"color": "#475569", "width": 1.7, "dash": "dot"}
             figure = build_line_chart_figure(
                 per_item_stock,
-                title=f"{dc_id} - stock DC vs cible MRP",
+                title=f"{dc_id} - stock DC, cible et position MRP",
                 y_label="Quantite",
+                note=(
+                    "Lecture: la cible MRP affichee est le niveau de pilotage avec contexte de cut-over si disponible. "
+                    "Le stock initial peut etre au-dessus: c'est un surstock herite, pas une commande manquante. "
+                    "Le besoin net MRP se lit via la position inventaire."
+                ),
+                series_styles=per_item_styles,
             )
             if figure is not None:
                 incoming = {"figure": figure}
@@ -6368,7 +6425,41 @@ def render_supplier_risk_catalog_html(
     applied_rows: list[dict[str, str]],
     configured_events: list[dict[str, Any]],
     economic_policy: dict[str, Any],
-) -> str:
+    ) -> str:
+    configured_event_ids = {
+        str(event.get("event_id") or "").strip()
+        for event in configured_events
+        if str(event.get("event_id") or "").strip()
+    }
+    applied_event_ids = {
+        event_id.strip()
+        for row in applied_rows
+        for event_id in str(row.get("event_ids") or "").split(",")
+        if event_id.strip()
+    }
+    applied_days = sorted(
+        {
+            int(to_float(row.get("day")) or 0)
+            for row in applied_rows
+            if str(row.get("day") or "").strip() != ""
+        }
+    )
+    event_type_counts: dict[str, int] = defaultdict(int)
+    for event in configured_events:
+        risk_type = str(event.get("risk_type") or "autre").strip() or "autre"
+        event_type_counts[risk_type] += 1
+    dominant_type = max(event_type_counts.items(), key=lambda item: item[1])[0] if event_type_counts else "n/a"
+    period_text = (
+        f"J{min(applied_days)} -> J{max(applied_days)}"
+        if applied_days
+        else "aucune application dans le run"
+    )
+    status_text = (
+        "evenements appliques dans ce run"
+        if applied_event_ids
+        else ("evenements configures mais non appliques" if configured_event_ids else "aucun evenement configure")
+    )
+
     def configured_events_for(types: set[str]) -> list[dict[str, Any]]:
         return [
             event
@@ -6685,8 +6776,24 @@ def render_supplier_risk_catalog_html(
     return "".join(
         [
             "<div class=\"factoryHtmlPanelContent orderLedgerPanelContent\">",
-            f"<div class=\"orderLedgerTextHeader\">{html.escape(node_id)} - risques fournisseur</div>",
-            "<div class=\"orderLedgerStatus\">Catalogue des risques fournisseur: statut, intensite appliquee et evenements configures. Sans evenement, les facteurs restent neutres et la baseline ne bouge pas.</div>",
+            f"<div class=\"orderLedgerTextHeader\">{html.escape(node_id)} - risques simules fournisseur</div>",
+            "<div class=\"orderLedgerStatus\">Question metier: que se passe-t-il si ces evenements fournisseur se produisent ? Lecture: evenement configure, evenement applique, intensite et periode.</div>",
+            "<div class=\"riskSummaryCard riskSummaryCardNeutral\">",
+            "<div class=\"riskSummaryHeader\">",
+            "<div>",
+            "<div class=\"riskSummaryPill\">RISQUES SIMULES</div>",
+            f"<div class=\"riskSummaryTitle\">{html.escape(node_id)} - scenario de risques injectes</div>",
+            f"<div class=\"riskSummaryText\">{html.escape(status_text)}. Cette vue decrit les aleas forces dans le scenario, pas la fragilite structurelle du reseau.</div>",
+            "</div>",
+            "<div class=\"riskSummaryGrid\">",
+            f"<div class=\"riskFactCard\"><div class=\"riskFactLabel\">EVENEMENTS CONFIGURES</div><div class=\"riskFactValue\">{len(configured_event_ids)}</div></div>",
+            f"<div class=\"riskFactCard\"><div class=\"riskFactLabel\">EVENEMENTS APPLIQUES</div><div class=\"riskFactValue\">{len(applied_event_ids)}</div></div>",
+            f"<div class=\"riskFactCard\"><div class=\"riskFactLabel\">JOURS IMPACTES</div><div class=\"riskFactValue\">{len(applied_days)}</div></div>",
+            f"<div class=\"riskFactCard\"><div class=\"riskFactLabel\">PERIODE</div><div class=\"riskFactValue\">{html.escape(period_text)}</div></div>",
+            f"<div class=\"riskFactCard\"><div class=\"riskFactLabel\">TYPE CONFIGURE PRINCIPAL</div><div class=\"riskFactValue\">{html.escape(dominant_type)}</div></div>",
+            "</div>",
+            "</div>",
+            "</div>",
             f"<div class=\"orderLedgerStatus\">{html.escape(external_policy_text)}</div>",
             "<div class=\"kpiFormulaTableWrap\"><table class=\"kpiFormulaTable\">",
             "<thead><tr><th>Statut</th><th>Categorie</th><th>Intensite appliquee</th><th>Evenements</th><th>Lecture</th><th>Configuration</th></tr></thead>",
@@ -6695,6 +6802,484 @@ def render_supplier_risk_catalog_html(
             "</div>",
         ]
     )
+
+
+def supplier_risk_family_for_type(risk_type: str) -> str:
+    value = str(risk_type or "").strip().lower()
+    if value in {"capacity"}:
+        return "capacity"
+    if value in {"stock", "stock_writeoff"}:
+        return "stock"
+    if value in {"lead_time", "lead_time_extra_days"}:
+        return "lead"
+    if value in {"reliability"}:
+        return "reliability"
+    if value in {
+        "external_capacity",
+        "external_availability",
+        "external_lead_time",
+        "external_lead_time_extra_days",
+        "external_quality_yield",
+        "external_cost",
+    }:
+        return "upstream"
+    if value in {"quality_delay", "quality_yield"}:
+        return "quality"
+    if value in {"purchase_cost", "transport_cost"}:
+        return "cost"
+    if value in {"availability"}:
+        return "availability"
+    return "other"
+
+
+def supplier_risk_family_for_event(event: dict[str, Any]) -> str:
+    explicit_family = str(event.get("risk_family") or "").strip().lower()
+    if explicit_family:
+        return explicit_family
+    event_id = str(event.get("event_id") or "").strip().lower()
+    match = re.match(r"state_(stock|capacity|lead|reliability|quality|upstream|cost|availability)_", event_id)
+    if match:
+        return match.group(1)
+    return supplier_risk_family_for_type(str(event.get("risk_type") or ""))
+
+
+def supplier_risk_family_severity(row: dict[str, str], family: str) -> float:
+    def factor_drop(field: str) -> float:
+        value = to_float(row.get(field))
+        if value is None or math.isnan(value):
+            return 0.0
+        return max(0.0, 1.0 - value)
+
+    def factor_increase(field: str, scale: float = 1.0) -> float:
+        value = to_float(row.get(field))
+        if value is None or math.isnan(value):
+            return 0.0
+        return max(0.0, (value - 1.0) / max(scale, 1e-9))
+
+    def positive(field: str, scale: float) -> float:
+        value = to_float(row.get(field))
+        if value is None or math.isnan(value):
+            return 0.0
+        return max(0.0, value / max(scale, 1e-9))
+
+    if family == "capacity":
+        return max(factor_drop("capacity_multiplier"), factor_drop("availability_multiplier"))
+    if family == "stock":
+        return max(
+            factor_drop("stock_multiplier"),
+            factor_drop("availability_multiplier"),
+            positive("stock_writeoff_fraction", 1.0),
+        )
+    if family == "lead":
+        return max(
+            factor_increase("lead_time_multiplier", 2.0),
+            positive("lead_time_extra_days", 60.0),
+            positive("quality_delay_days", 45.0),
+        )
+    if family == "reliability":
+        return max(factor_drop("reliability_multiplier"), factor_drop("quality_yield_multiplier"))
+    if family == "upstream":
+        return max(
+            factor_drop("external_capacity_multiplier"),
+            factor_drop("external_availability_multiplier"),
+            factor_increase("external_lead_time_multiplier", 2.0),
+            positive("external_lead_time_extra_days", 60.0),
+            factor_drop("external_quality_yield_multiplier"),
+            factor_increase("external_cost_multiplier", 2.0),
+        )
+    if family == "quality":
+        return max(positive("quality_delay_days", 45.0), factor_drop("quality_yield_multiplier"))
+    if family == "cost":
+        return max(factor_increase("purchase_cost_multiplier", 2.0), factor_increase("transport_cost_multiplier", 2.0))
+    if family == "availability":
+        return factor_drop("availability_multiplier")
+    return 0.0
+
+
+def build_simulated_supplier_risk_metrics(
+    *,
+    configured_by_node: dict[str, list[dict[str, Any]]],
+    applied_by_node: dict[str, list[dict[str, str]]],
+) -> dict[str, Any]:
+    event_family_by_id: dict[str, str] = {}
+    for events in configured_by_node.values():
+        for event in events:
+            event_id = str(event.get("event_id") or "").strip()
+            if not event_id:
+                continue
+            event_family_by_id[event_id] = supplier_risk_family_for_event(event)
+
+    nodes: dict[str, Any] = {}
+    global_configured_ids: set[str] = set()
+    global_applied_ids: set[str] = set()
+    global_family_counts: dict[str, int] = defaultdict(int)
+
+    for node_id in sorted(set(configured_by_node.keys()) | set(applied_by_node.keys())):
+        configured_events = configured_by_node.get(node_id, [])
+        applied_rows = applied_by_node.get(node_id, [])
+        configured_ids = {
+            str(event.get("event_id") or "").strip()
+            for event in configured_events
+            if str(event.get("event_id") or "").strip()
+        }
+        applied_ids = {
+            event_id.strip()
+            for row in applied_rows
+            for event_id in str(row.get("event_ids") or "").split(",")
+            if event_id.strip()
+        }
+        global_configured_ids.update(configured_ids)
+        global_applied_ids.update(applied_ids)
+
+        family_counts: dict[str, int] = defaultdict(int)
+        family_scores: dict[str, float] = defaultdict(float)
+        for event in configured_events:
+            family = supplier_risk_family_for_event(event)
+            family_counts[family] += 1
+            global_family_counts[family] += 1
+        for row in applied_rows:
+            row_event_ids = [event_id.strip() for event_id in str(row.get("event_ids") or "").split(",") if event_id.strip()]
+            row_families = {event_family_by_id.get(event_id, "other") for event_id in row_event_ids} or {"other"}
+            for family in row_families:
+                family_counts[family] += 1
+                family_scores[family] = max(family_scores[family], supplier_risk_family_severity(row, family))
+
+        configured_days = [
+            int(to_float(event.get(day_field)) or 0)
+            for event in configured_events
+            for day_field in ("start_day", "end_day")
+            if str(event.get(day_field) or "").strip() != ""
+        ]
+        applied_days = {
+            int(to_float(row.get("day")) or 0)
+            for row in applied_rows
+            if str(row.get("day") or "").strip() != ""
+        }
+        dominant_family = "other"
+        if family_counts:
+            dominant_family = max(
+                family_counts,
+                key=lambda family: (family_scores.get(family, 0.0), family_counts.get(family, 0)),
+            )
+        info = SIMULATED_RISK_FAMILY_INFO.get(dominant_family, SIMULATED_RISK_FAMILY_INFO["other"])
+        score = max(family_scores.values()) if family_scores else (0.08 if configured_ids else 0.0)
+        period = (
+            f"J{min(applied_days)} -> J{max(applied_days)}"
+            if applied_days
+            else (
+                f"J{min(configured_days)} -> J{max(configured_days)}"
+                if configured_days
+                else "n/a"
+            )
+        )
+        status_label = (
+            "Evenement applique dans ce run"
+            if applied_ids
+            else ("Configure mais pas applique dans ce run" if configured_ids else "Aucun risque simule")
+        )
+        examples = sorted(applied_ids or configured_ids)[:4]
+        nodes[node_id] = {
+            "source": "supplier_risk_events",
+            "status": "applied" if applied_ids else ("configured" if configured_ids else "none"),
+            "status_label": status_label,
+            "driver_family": dominant_family,
+            "driver_label": info["label"],
+            "driver_color": info["color"],
+            "score": min(1.0, max(0.0, score)),
+            "configured_event_count": len(configured_ids),
+            "applied_event_count": len(applied_ids),
+            "applied_row_count": len(applied_rows),
+            "active_day_count": len(applied_days),
+            "period": period,
+            "event_examples": examples,
+            "summary_lines": [
+                {"label": "Lecture", "value": "risques simules injectes"},
+                {"label": "Statut", "value": status_label},
+                {"label": "Type principal", "value": info["label"]},
+                {"label": "Evenements configures", "value": str(len(configured_ids))},
+                {"label": "Evenements appliques", "value": str(len(applied_ids))},
+                {"label": "Jours impactes", "value": str(len(applied_days))},
+                {"label": "Periode", "value": period},
+                {"label": "Exemples", "value": ", ".join(examples) if examples else "aucun"},
+            ],
+        }
+
+    dominant_global_family = "other"
+    if global_family_counts:
+        dominant_global_family = max(global_family_counts, key=lambda family: global_family_counts[family])
+    return {
+        "nodes": nodes,
+        "global": {
+            "configured_event_count": len(global_configured_ids),
+            "applied_event_count": len(global_applied_ids),
+            "node_count": len(nodes),
+            "dominant_family": dominant_global_family,
+            "dominant_label": SIMULATED_RISK_FAMILY_INFO.get(dominant_global_family, SIMULATED_RISK_FAMILY_INFO["other"])["label"],
+            "family_counts": dict(sorted(global_family_counts.items())),
+        },
+    }
+
+
+def supplier_risk_campaign_status(score: float) -> tuple[str, str, str]:
+    if score >= 0.06:
+        return "sensitive", "Impact fort", "businessAlert"
+    if score >= 0.02:
+        return "watch", "Impact a surveiller", "businessWarn"
+    if score > 1e-9:
+        return "robust", "Impact faible", "businessOk"
+    return "not_local", "Aucun impact visible", "businessInfo"
+
+
+def render_supplier_risk_campaign_html(
+    supplier_id: str,
+    *,
+    summary_row: dict[str, str],
+    case_rows: list[dict[str, str]],
+    metadata: dict[str, Any],
+) -> str:
+    score = max(
+        0.0,
+        to_float(summary_row.get("worst_score_decisionnel_modele"))
+        or to_float(summary_row.get("worst_impact_score"))
+        or 0.0,
+    )
+    observed_score = max(0.0, to_float(summary_row.get("worst_impact_metier_score")) or 0.0)
+    observed_kpi = str(summary_row.get("worst_impact_metier_kpi") or "n/a")
+    observed_delta = str(summary_row.get("worst_impact_metier_delta") or "n/a")
+    observed_reading = str(
+        summary_row.get("worst_impact_metier_lecture")
+        or summary_row.get("worst_impact_explanation")
+        or "aucune degradation KPI visible"
+    )
+    cost_reading = str(summary_row.get("worst_cout_interpretation") or "")
+    status, status_label, _cls = supplier_risk_campaign_status(score)
+    family = str(summary_row.get("worst_risk_family") or "other")
+    family_label = str(summary_row.get("worst_risk_family_label") or SIMULATED_RISK_FAMILY_INFO.get(family, SIMULATED_RISK_FAMILY_INFO["other"])["label"])
+    info = SIMULATED_RISK_FAMILY_INFO.get(family, SIMULATED_RISK_FAMILY_INFO["other"])
+    horizon = metadata.get("days", "n/a")
+    family_count = int(to_float(summary_row.get("tested_family_count")) or len(case_rows))
+    worst = max(
+        case_rows,
+        key=lambda row: (
+            to_float(row.get("score_decisionnel_modele"))
+            or to_float(row.get("impact_score"))
+            or 0.0
+        ),
+    ) if case_rows else {}
+
+    def pct_value(field: str, digits: int = 1, *, delta: bool = False) -> str:
+        value = to_float(worst.get(field))
+        if value is None or math.isnan(value):
+            return "n/a"
+        if delta:
+            sign = "+" if value > 0 else ""
+            return f"{sign}{value:.{digits}f} pts"
+        return fmt_pct(value * 100.0, digits)
+
+    def qty_value(field: str, digits: int = 0, *, signed: bool = False) -> str:
+        value = to_float(worst.get(field))
+        if value is None or math.isnan(value):
+            return "n/a"
+        text = fmt_qty(value, digits)
+        if signed and value > 0:
+            text = f"+{text}"
+        return text
+
+    family_rows = []
+    for row in sorted(
+        case_rows,
+        key=lambda r: -(
+            to_float(r.get("score_decisionnel_modele"))
+            or to_float(r.get("impact_score"))
+            or 0.0
+        ),
+    ):
+        row_score = to_float(row.get("score_decisionnel_modele")) or to_float(row.get("impact_score")) or 0.0
+        row_observed = to_float(row.get("impact_metier_score")) or 0.0
+        family_rows.append(
+            [
+                row.get("risk_family_label") or row.get("risk_family") or "n/a",
+                str(row.get("multiplier") or ""),
+                fmt_pct(row_score * 100.0, 1),
+                str(row.get("impact_metier_kpi") or "n/a"),
+                str(row.get("impact_metier_delta") or "n/a"),
+                fmt_pct(row_observed * 100.0, 1),
+                fmt_pct((to_float(row.get("fill_rate")) or 0.0) * 100.0, 1),
+                fmt_pct((to_float(row.get("product_availability")) or 0.0) * 100.0, 1),
+                fmt_pct((to_float(row.get("line_adherence")) or 0.0) * 100.0, 1),
+                fmt_qty(to_float(row.get("ending_backlog")) or 0.0, 0),
+                fmt_qty(to_float(row.get("production_replanning_delta")) or 0.0, 0),
+                fmt_qty(to_float(row.get("line_nervousness_delta")) or 0.0, 0),
+                fmt_qty(to_float(row.get("material_delay_days_delta")) or 0.0, 1),
+                f"{fmt_pct(to_float(row.get('total_cost_delta_pct')) or 0.0, 1)}",
+                str(row.get("cout_interpretation") or ""),
+                str(row.get("impact_metier_lecture") or row.get("impact_explanation") or "aucune degradation KPI visible"),
+            ]
+        )
+
+    cost_warning_html = (
+        f"<div class=\"sensitivityRecommendation\">Attention cout: {html.escape(cost_reading)}</div>"
+        if cost_reading
+        else ""
+    )
+
+    return "".join(
+        [
+            "<div class=\"factoryHtmlPanelContent sensitivityHtmlPanelContent\">",
+            f"<div class=\"orderLedgerTextHeader\">{html.escape(supplier_id)} - campagne de risques simules</div>",
+            "<div class=\"orderLedgerStatus\">Question metier: si l'on degrade ce fournisseur, quelle famille de risque impacte le plus les KPI ? Chaque ligne est un run separe, compare a une reference sans evenement.</div>",
+            "<div class=\"orderLedgerStatus\">Lecture separee: l'impact metier observe montre les KPI qui bougent vraiment; le score decisionnel est une synthese ponderee provisoire a calibrer. Ce n'est pas une probabilite terrain.</div>",
+            f"<div class=\"sensitivityHero sensitivityStatus-{html.escape(status)}\" style=\"border-left-color:{html.escape(info['color'])}\">",
+            "<div class=\"sensitivityHeroLeft\">",
+            f"<div class=\"sensitivityPill\">{html.escape(status_label)}</div>",
+            f"<div class=\"sensitivityHeroTitle\">{html.escape(supplier_id)} - pire risque teste: {html.escape(family_label)}</div>",
+            f"<div class=\"sensitivityHeroText\">Impact metier principal: {html.escape(observed_kpi)} {html.escape(observed_delta)}. Score decisionnel modele: {fmt_pct(score * 100.0, 1)} sur une campagne de {html.escape(str(horizon))} jours.</div>",
+            f"<div class=\"sensitivityRecommendation\">Lecture metier: {html.escape(observed_reading)}</div>",
+            cost_warning_html,
+            "</div>",
+            "<div class=\"sensitivityHeroMetrics\">",
+            f"<div class=\"sensitivityMetricCard\"><div class=\"sensitivityMetricLabel\">Familles testees</div><div class=\"sensitivityMetricValue\">{family_count}</div><div class=\"sensitivityMetricHint\">une famille par run</div></div>",
+            f"<div class=\"sensitivityMetricCard\"><div class=\"sensitivityMetricLabel\">Impact metier</div><div class=\"sensitivityMetricValue\">{html.escape(observed_kpi)}</div><div class=\"sensitivityMetricHint\">{html.escape(observed_delta)}</div></div>",
+            f"<div class=\"sensitivityMetricCard\"><div class=\"sensitivityMetricLabel\">Intensite metier</div><div class=\"sensitivityMetricValue\">{fmt_pct(observed_score * 100.0, 1)}</div><div class=\"sensitivityMetricHint\">KPI observe normalise</div></div>",
+            f"<div class=\"sensitivityMetricCard\"><div class=\"sensitivityMetricLabel\">Score decisionnel</div><div class=\"sensitivityMetricValue\">{fmt_pct(score * 100.0, 1)}</div><div class=\"sensitivityMetricHint\">synthese ponderee provisoire</div></div>",
+            f"<div class=\"sensitivityMetricCard\"><div class=\"sensitivityMetricLabel\">Fill rate</div><div class=\"sensitivityMetricValue\">{pct_value('fill_rate')}</div><div class=\"sensitivityMetricHint\">cas le plus dur</div></div>",
+            f"<div class=\"sensitivityMetricCard\"><div class=\"sensitivityMetricLabel\">Disponibilite</div><div class=\"sensitivityMetricValue\">{pct_value('product_availability')}</div><div class=\"sensitivityMetricHint\">lignes client servies</div></div>",
+            f"<div class=\"sensitivityMetricCard\"><div class=\"sensitivityMetricLabel\">Adherence</div><div class=\"sensitivityMetricValue\">{pct_value('line_adherence')}</div><div class=\"sensitivityMetricHint\">plan vs reel</div></div>",
+            f"<div class=\"sensitivityMetricCard\"><div class=\"sensitivityMetricLabel\">Delta cout</div><div class=\"sensitivityMetricValue\">{fmt_pct(to_float(worst.get('total_cost_delta_pct')) or 0.0, 1)}</div><div class=\"sensitivityMetricHint\">vs reference</div></div>",
+            "</div>",
+            "</div>",
+            "<div class=\"orderLedgerTextHeader orderLedgerSubHeader\">Tous les risques testes sur ce fournisseur</div>",
+            render_data_table(
+                [
+                    "Risque teste",
+                    "Intensite",
+                    "Score decisionnel",
+                    "KPI metier principal",
+                    "Delta KPI",
+                    "Intensite metier",
+                    "Fill rate",
+                    "Disponibilite",
+                    "Adherence",
+                    "Backlog fin",
+                    "Replanif delta",
+                    "Nervosite delta",
+                    "Retard MP delta",
+                    "Cout delta",
+                    "Lecture cout",
+                    "Lecture",
+                ],
+                family_rows,
+            ),
+            "</div>",
+        ]
+    )
+
+
+def build_supplier_risk_campaign_payload(
+    summary_json: Path,
+    summary_csv: Path,
+    cases_csv: Path,
+) -> dict[str, Any]:
+    summary_rows = read_csv_rows(summary_csv)
+    case_rows = read_csv_rows(cases_csv)
+    metadata: dict[str, Any] = {}
+    if summary_json.exists():
+        try:
+            payload = json.loads(summary_json.read_text(encoding="utf-8"))
+            metadata = payload.get("metadata") or {}
+            if not summary_rows:
+                summary_rows = [dict(row) for row in (payload.get("summary") or []) if isinstance(row, dict)]
+            if not case_rows:
+                case_rows = [dict(row) for row in (payload.get("cases") or []) if isinstance(row, dict)]
+        except Exception:
+            metadata = {}
+
+    case_by_supplier: dict[str, list[dict[str, str]]] = defaultdict(list)
+    for row in case_rows:
+        supplier_id = str(row.get("supplier_id") or "")
+        if not supplier_id or supplier_id == "__all__":
+            continue
+        case_by_supplier[supplier_id].append(row)
+
+    nodes: dict[str, Any] = {}
+    for row in summary_rows:
+        supplier_id = str(row.get("supplier_id") or "")
+        if not supplier_id:
+            continue
+        score = max(
+            0.0,
+            to_float(row.get("worst_score_decisionnel_modele"))
+            or to_float(row.get("worst_impact_score"))
+            or 0.0,
+        )
+        observed_score = max(0.0, to_float(row.get("worst_impact_metier_score")) or 0.0)
+        status, status_label, _business_class = supplier_risk_campaign_status(score)
+        family = str(row.get("worst_risk_family") or "other")
+        info = SIMULATED_RISK_FAMILY_INFO.get(family, SIMULATED_RISK_FAMILY_INFO["other"])
+        family_label = str(row.get("worst_risk_family_label") or info["label"])
+        family_cases = case_by_supplier.get(supplier_id, [])
+        horizon = metadata.get("days", "n/a")
+        nodes[supplier_id] = {
+            "source": "supplier_risk_campaign",
+            "status": status,
+            "status_label": status_label,
+            "driver_family": family,
+            "driver_label": family_label,
+            "driver_color": info["color"],
+            "score": round(score, 9),
+            "score_decisionnel_pct": round(score * 100.0, 4),
+            "impact_metier_pct": round(observed_score * 100.0, 4),
+            "impact_metier_kpi": str(row.get("worst_impact_metier_kpi") or "n/a"),
+            "impact_metier_delta": str(row.get("worst_impact_metier_delta") or "n/a"),
+            "impact_metier_lecture": str(row.get("worst_impact_metier_lecture") or row.get("worst_impact_explanation") or ""),
+            "cout_interpretation": str(row.get("worst_cout_interpretation") or ""),
+            "impact_pct": round(score * 100.0, 4),
+            "tested_family_count": int(to_float(row.get("tested_family_count")) or len(family_cases)),
+            "configured_event_count": int(to_float(row.get("tested_family_count")) or len(family_cases)),
+            "applied_event_count": int(to_float(row.get("tested_family_count")) or len(family_cases)),
+            "period": f"{horizon} jours",
+            "event_examples": [str(case.get("risk_family_label") or case.get("risk_family") or "") for case in family_cases[:4]],
+            "impact_explanation": str(row.get("worst_impact_metier_lecture") or row.get("worst_impact_explanation") or ""),
+            "asset": {
+                "html": render_supplier_risk_campaign_html(
+                    supplier_id,
+                    summary_row=row,
+                    case_rows=family_cases,
+                    metadata=metadata,
+                )
+            },
+            "summary_lines": [
+                {"label": "Lecture", "value": "campagne de stress tests fournisseur"},
+                {"label": "Statut", "value": status_label},
+                {"label": "Pire famille testee", "value": family_label},
+                {"label": "Impact metier principal", "value": str(row.get("worst_impact_metier_kpi") or "n/a")},
+                {"label": "Delta metier principal", "value": str(row.get("worst_impact_metier_delta") or "n/a")},
+                {"label": "Intensite metier", "value": fmt_pct(observed_score * 100.0, 1)},
+                {"label": "Score decisionnel", "value": fmt_pct(score * 100.0, 1)},
+                {"label": "Familles testees", "value": str(int(to_float(row.get("tested_family_count")) or len(family_cases)))},
+                {"label": "Horizon", "value": f"{horizon} jours"},
+                {"label": "Pourquoi", "value": str(row.get("worst_impact_metier_lecture") or row.get("worst_impact_explanation") or "aucune degradation KPI visible")},
+            ],
+        }
+
+    strongest = max(nodes.values(), key=lambda row: to_float(row.get("score")) or 0.0) if nodes else {}
+    return {
+        "available": bool(nodes),
+        "nodes": nodes,
+        "global": {
+            "source": "supplier_risk_campaign",
+            "supplier_count": len(nodes),
+            "case_count": int(to_float(metadata.get("case_count")) or len(case_rows)),
+            "stress_case_count": max(0, len(case_rows) - 1),
+            "horizon_days": metadata.get("days"),
+            "families": metadata.get("families") or [],
+            "dominant_family": strongest.get("driver_family") if strongest else "other",
+            "dominant_label": strongest.get("driver_label") if strongest else "n/a",
+            "max_score_decisionnel_pct": strongest.get("score_decisionnel_pct") if strongest else 0.0,
+            "max_impact_metier_pct": strongest.get("impact_metier_pct") if strongest else 0.0,
+            "max_impact_pct": strongest.get("score_decisionnel_pct") if strongest else 0.0,
+        },
+    }
 
 
 def finite_numeric_values(values: Iterable[Any], *, positive_only: bool = False) -> list[float]:
@@ -10378,6 +10963,11 @@ def build_model_panel_metrics(
         if node_id:
             supplier_risk_config_by_node[node_id].append(payload)
 
+    simulated_risk_metrics = build_simulated_supplier_risk_metrics(
+        configured_by_node=supplier_risk_config_by_node,
+        applied_by_node=supplier_risk_applied_by_node,
+    )
+
     supplier_local_criticality_by_node: dict[str, dict[str, str]] = {}
     for row in supplier_local_criticality_rows:
         node_id = str(row.get("supplier_id") or "")
@@ -11872,7 +12462,10 @@ def build_model_panel_metrics(
             "Besoin net MRP": aggregate_trace_series(node_trace_rows, "bn_qty"),
             "Stock equiv. delai securite": aggregate_trace_series(node_trace_rows, "safety_floor_qty"),
             "Cible securite souple": aggregate_trace_series(node_trace_rows, "soft_safety_target_qty"),
-            "Cible MRP totale": aggregate_trace_series(node_trace_rows, "target_stock_qty"),
+            "Cible MRP affichee": (
+                aggregate_trace_series(node_trace_rows, "target_stock_display_qty")
+                or aggregate_trace_series(node_trace_rows, "target_stock_qty")
+            ),
         }
         flow_bottom_figure = build_line_chart_figure(
             stock_target_series,
@@ -11889,7 +12482,7 @@ def build_model_panel_metrics(
                 "Besoin net MRP": {"color": "#dc2626", "width": 1.8, "dash": "dash"},
                 "Stock equiv. delai securite": {"color": "#7c3aed", "width": 1.8, "dash": "dot"},
                 "Cible securite souple": {"color": "#f59e0b", "width": 1.9, "dash": "dash"},
-                "Cible MRP totale": {"color": "#64748b", "width": 1.4, "dash": "longdash"},
+                "Cible MRP affichee": {"color": "#64748b", "width": 1.4, "dash": "longdash"},
             },
         )
         if flow_top_figure is not None or flow_bottom_figure is not None:
@@ -12072,6 +12665,7 @@ def build_model_panel_metrics(
             "supplier_order_send": node_supplier_order_send_asset,
             "nominal": node_nominal_asset,
             "supplier_risk_catalog": node_supplier_risk_catalog_asset,
+            "simulated_risks": node_supplier_risk_catalog_asset,
             "uncertainty": node_uncertainty_asset,
             "risk_prediction": node_supplier_risk_prediction_asset,
             "capacity_nominal": node_capacity_nominal_asset,
@@ -12558,6 +13152,7 @@ def build_model_panel_metrics(
             "nodes": uncertainty_metric_nodes,
             "edges": uncertainty_metric_edges,
         },
+        "simulated_risk_metrics": simulated_risk_metrics,
     }
 
 
@@ -16351,20 +16946,24 @@ def html_template(
       white-space: nowrap;
     }}
     .sensitivityTop3Box,
+    .simulatedRiskControlsBox,
     .uncertaintyMonteCarloBox,
     .uncertaintyControlsBox {{
       display: none;
     }}
     .sensitivityTop3Box.visible,
+    .simulatedRiskControlsBox.visible,
     .uncertaintyMonteCarloBox.visible,
     .uncertaintyControlsBox.visible {{
       display: flex;
     }}
+    .simulatedRiskControlsBox,
     .uncertaintyControlsBox {{
       align-items: center;
       gap: 8px;
       flex-wrap: wrap;
     }}
+    .simulatedRiskControlsBox label,
     .uncertaintyControlsBox label {{
       display: inline-flex;
       align-items: center;
@@ -16374,6 +16973,7 @@ def html_template(
       font-weight: 700;
       white-space: nowrap;
     }}
+    .simulatedRiskControlsBox select,
     .uncertaintyControlsBox select {{
       border: 1px solid #cbd5e1;
       border-radius: 999px;
@@ -16386,6 +16986,7 @@ def html_template(
     .uncertaintyControlsBox input[type="range"] {{
       width: 112px;
     }}
+    .simulatedRiskViewValue,
     .uncertaintyIntensityValue {{
       color: #0f172a;
       font-size: 12px;
@@ -16429,6 +17030,7 @@ def html_template(
       height: calc(100vh - 64px);
     }}
     #sensitivityLegend,
+    #simulatedRiskLegend,
     #riskLegend,
     #uncertaintyLegend {{
       position: fixed;
@@ -16446,6 +17048,7 @@ def html_template(
       color: #334155;
     }}
     #sensitivityLegend.visible,
+    #simulatedRiskLegend.visible,
     #riskLegend.visible,
     #uncertaintyLegend.visible {{
       display: block;
@@ -16473,6 +17076,77 @@ def html_template(
       border-radius: 999px;
       display: inline-block;
       border: 1px solid rgba(15, 23, 42, 0.18);
+    }}
+    .riskSummaryCard {{
+      border: 1px solid #cbd5e1;
+      border-left: 5px solid #64748b;
+      border-radius: 10px;
+      background: #f8fafc;
+      padding: 12px 14px;
+      margin: 10px 0;
+    }}
+    .riskSummaryHeader {{
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) minmax(260px, 0.9fr);
+      gap: 12px;
+      align-items: start;
+    }}
+    .riskSummaryPill {{
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 4px 10px;
+      background: #e2e8f0;
+      color: #0f172a;
+      font-size: 11px;
+      font-weight: 900;
+      text-transform: uppercase;
+    }}
+    .riskSummaryTitle {{
+      margin-top: 8px;
+      color: #0f172a;
+      font-size: 17px;
+      font-weight: 900;
+    }}
+    .riskSummaryText {{
+      margin-top: 6px;
+      color: #334155;
+      font-size: 13px;
+      line-height: 1.45;
+    }}
+    .riskSummaryGrid {{
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }}
+    .riskFactCard {{
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      background: rgba(255,255,255,0.78);
+      padding: 8px 10px;
+      min-width: 0;
+    }}
+    .riskFactLabel {{
+      color: #64748b;
+      font-size: 10px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }}
+    .riskFactValue {{
+      margin-top: 3px;
+      color: #0f172a;
+      font-size: 13px;
+      font-weight: 900;
+      overflow-wrap: anywhere;
+    }}
+    @media (max-width: 760px) {{
+      .riskSummaryHeader {{
+        grid-template-columns: 1fr;
+      }}
+      .riskSummaryGrid {{
+        grid-template-columns: 1fr;
+      }}
     }}
     #factoryHoverPanel {{
       position: fixed;
@@ -18528,9 +19202,10 @@ def html_template(
       <div class="modeTabs">
         <button id="modeOps" class="modeBtn active" type="button" title="Question metier: que s'est-il passe dans le run nominal ?">Simulation</button>
         <button id="modeSensitivity" class="modeBtn" type="button" title="Question metier: a partir de quel niveau un parametre fournisseur degrade-t-il la performance ?">Sensibilite</button>
+        <button id="modeSimulatedRisk" class="modeBtn" type="button" title="Question metier: que se passe-t-il si ces risques fournisseurs se produisent ?">Risques simules</button>
         <button id="modeRisk" class="modeBtn" type="button" title="Question metier: quel fournisseur merite une action ou une surveillance ?">Risques fournisseurs</button>
         <button id="modeUncertainty" class="modeBtn" type="button" title="Question metier: peut-on faire confiance a cette lecture ?">Incertitude</button>
-        <button id="modeStructural" class="modeBtn" type="button" title="Question metier: ou le reseau est-il fragile par construction ?">Dependances</button>
+        <button id="modeStructural" class="modeBtn" type="button" title="Question metier: ou le reseau est-il fragile par construction ?">Structurel</button>
         <button id="modeData" class="modeBtn debugOnly" type="button">Audit donnees</button>
         <button id="modeModel" class="modeBtn debugOnly" type="button">Regles modele</button>
         <button id="modeJson" class="modeBtn debugOnly{'' if DEBUG_PANEL_ENABLED else ' debugUnavailable'}" type="button">JSON</button>
@@ -18543,6 +19218,11 @@ def html_template(
       <label id="showEdgesLabel"><input type="checkbox" id="showEdges" checked> <span id="showEdgesText">Afficher flux</span></label>
     </div>
     <div class="box">
+      <label id="edgeInteractionLabel" title="Active le survol et le clic sur les flux affiches, dans tous les onglets.">
+        <input type="checkbox" id="edgeInteraction"> <span id="edgeInteractionText">Flux cliquables</span>
+      </label>
+    </div>
+    <div class="box">
       <button id="materialTableBtn" class="tableBtn" type="button">Tableau demande / stock / securite</button>
     </div>
     <div class="box">
@@ -18550,6 +19230,16 @@ def html_template(
     </div>
     <div class="box sensitivityTop3Box" id="sensitivityTop3Box">
       <button id="sensitivityTop3Btn" class="tableBtn" type="button" title="Vue globale sans selectionner de noeud: trois stress tests les plus severes.">Top 3 resultats</button>
+    </div>
+    <div class="box simulatedRiskControlsBox" id="simulatedRiskControlsBox">
+      <label title="Choisit la lecture de l'onglet Risques simules.">
+        Vue risque
+        <select id="simulatedRiskViewSelect">
+          <option value="campaign">Campagne stress tests</option>
+          <option value="state">State-dependent du run</option>
+        </select>
+      </label>
+      <span class="simulatedRiskViewValue" id="simulatedRiskViewValue">campagne</span>
     </div>
     <div class="box uncertaintyMonteCarloBox" id="uncertaintyMonteCarloBox">
       <button id="monteCarloBtn" class="tableBtn" type="button" title="Vue globale sans selectionner de noeud: distribution Monte Carlo des KPI metier.">Monte Carlo</button>
@@ -18600,6 +19290,19 @@ def html_template(
       <span class="sensitivityLegendItem"><span class="sensitivityLegendDot" style="background:#be123c"></span>Appro amont</span>
       <span class="sensitivityLegendItem"><span class="sensitivityLegendDot" style="background:#475569"></span>Scenario combine</span>
       <span class="sensitivityLegendItem">Taille du point: plus le noeud est sensible, plus il est grand.</span>
+    </div>
+  </div>
+  <div id="simulatedRiskLegend">
+    <div class="sensitivityLegendTitle">Mode Risques simules</div>
+    <div class="sensitivityLegendRows">
+      <span class="sensitivityLegendItem"><span class="sensitivityLegendDot" style="background:#d97706"></span>Capacite</span>
+      <span class="sensitivityLegendItem"><span class="sensitivityLegendDot" style="background:#0f766e"></span>Stock</span>
+      <span class="sensitivityLegendItem"><span class="sensitivityLegendDot" style="background:#7c3aed"></span>Delai</span>
+      <span class="sensitivityLegendItem"><span class="sensitivityLegendDot" style="background:#2563eb"></span>Fiabilite</span>
+      <span class="sensitivityLegendItem"><span class="sensitivityLegendDot" style="background:#be123c"></span>Appro amont</span>
+      <span class="sensitivityLegendItem"><span class="sensitivityLegendDot" style="background:#0891b2"></span>Qualite</span>
+      <span class="sensitivityLegendItem"><span class="sensitivityLegendDot" style="background:#475569"></span>Cout</span>
+      <span class="sensitivityLegendItem" id="simulatedRiskLegendHint">Couleur = pire famille testee. Taille = score decisionnel modele. Le panneau separe l'impact metier observe.</span>
     </div>
   </div>
   <div id="riskLegend">
@@ -18792,6 +19495,12 @@ def html_template(
     const GLOBAL_KPI_TREE = DATA.global_kpi_tree || null;
     const MATERIAL_BALANCE_ROWS = DATA.material_balance_rows || [];
     const MODEL_PANEL = DATA.model_panel || {{ nodes: {{}}, edges: {{}} }};
+    const SIMULATED_RISK_CAMPAIGN_METRICS = (
+      DATA.supplier_risk_campaign && DATA.supplier_risk_campaign.available
+        ? DATA.supplier_risk_campaign
+        : {{ available: false, nodes: {{}}, global: {{}} }}
+    );
+    const SIMULATED_RISK_STATE_METRICS = DATA.simulated_risk_metrics || MODEL_PANEL.simulated_risk_metrics || {{ nodes: {{}}, global: {{}} }};
     const UNCERTAINTY_METRICS = MODEL_PANEL.uncertainty_metrics || DATA.uncertainty_metrics || {{ nodes: {{}}, edges: {{}} }};
     const DATA_PANEL = DATA.data_panel || {{ nodes: {{}}, edges: {{}} }};
     const JSON_PANEL = DATA.json_panel || {{ nodes: {{}}, edges: {{}} }};
@@ -18826,8 +19535,17 @@ def html_template(
     let hoverHandlersBound = false;
     let panelPointerInside = false;
     let hoverClearTimeout = null;
+    let simulatedRiskViewMode = (
+      Object.keys((SIMULATED_RISK_STATE_METRICS && SIMULATED_RISK_STATE_METRICS.nodes) || {{}}).length > 0
+        ? "state"
+        : (SIMULATED_RISK_CAMPAIGN_METRICS.available ? "campaign" : "state")
+    );
     let uncertaintyMode = "capacity";
     let uncertaintyDisplayMode = "dominant_type";
+    const SIMULATED_RISK_VIEW_LABELS = {{
+      campaign: "campagne stress tests",
+      state: "state-dependent du run",
+    }};
     const UNCERTAINTY_MODE_LABELS = {{
       capacity: "capacite fournisseur",
       stock: "stock fournisseur",
@@ -19291,6 +20009,33 @@ def html_template(
       return SUPPLIER_PARAMETER_SENSITIVITY_NODES[nodeId] || null;
     }}
 
+    function simulatedRiskStateHasNodes() {{
+      return Object.keys((SIMULATED_RISK_STATE_METRICS && SIMULATED_RISK_STATE_METRICS.nodes) || {{}}).length > 0;
+    }}
+
+    function normalizeSimulatedRiskViewMode() {{
+      const hasCampaign = Boolean(SIMULATED_RISK_CAMPAIGN_METRICS && SIMULATED_RISK_CAMPAIGN_METRICS.available);
+      const hasState = simulatedRiskStateHasNodes();
+      if (simulatedRiskViewMode === "campaign" && !hasCampaign) {{
+        simulatedRiskViewMode = hasState ? "state" : "campaign";
+      }}
+      if (simulatedRiskViewMode === "state" && !hasState && hasCampaign) {{
+        simulatedRiskViewMode = "campaign";
+      }}
+    }}
+
+    function selectedSimulatedRiskMetrics() {{
+      normalizeSimulatedRiskViewMode();
+      if (simulatedRiskViewMode === "campaign" && SIMULATED_RISK_CAMPAIGN_METRICS.available) {{
+        return SIMULATED_RISK_CAMPAIGN_METRICS;
+      }}
+      return SIMULATED_RISK_STATE_METRICS || {{ nodes: {{}}, global: {{}} }};
+    }}
+
+    function nodeSimulatedRiskMeta(nodeId) {{
+      return (selectedSimulatedRiskMetrics().nodes || {{}})[nodeId] || null;
+    }}
+
     function nodeRiskMeta(nodeId) {{
       return (SUPPLIER_RISK_METRICS.nodes || {{}})[nodeId] || null;
     }}
@@ -19443,6 +20188,10 @@ def html_template(
         const riskMeta = nodeRiskMeta(n.id);
         return (riskMeta && riskMeta.zone_color) ? riskMeta.zone_color : style.color;
       }}
+      if (currentPanelMode === "simulated_risk") {{
+        const simulatedMeta = nodeSimulatedRiskMeta(n.id);
+        return (simulatedMeta && simulatedMeta.driver_color) ? simulatedMeta.driver_color : "#94a3b8";
+      }}
       const meta = currentPanelMode === "sensitivity" ? nodeSensitivityMeta(n.id) : null;
       return (meta && meta.driver_color) ? meta.driver_color : style.color;
     }}
@@ -19461,6 +20210,16 @@ def html_template(
         const rank = Number(riskMeta.zone_rank) || 0;
         return Math.max(9, Math.min(16, 9 + rank * 1.6 + score * 5));
       }}
+      if (currentPanelMode === "simulated_risk") {{
+        const simulatedMeta = nodeSimulatedRiskMeta(n.id);
+        if (!simulatedMeta) return 8;
+        const score = Number(simulatedMeta.score) || 0;
+        if (simulatedMeta.source === "supplier_risk_campaign") {{
+          return Math.max(9, Math.min(18, 9 + score * 80));
+        }}
+        const applied = Number(simulatedMeta.applied_event_count) || 0;
+        return Math.max(9, Math.min(17, 9 + score * 6 + Math.min(applied, 4)));
+      }}
       const meta = currentPanelMode === "sensitivity" ? nodeSensitivityMeta(n.id) : null;
       if (!meta) return 9;
       if (meta.status === "sensitive") return 13;
@@ -19476,6 +20235,12 @@ def html_template(
       }}
       if (currentPanelMode === "risk") {{
         return nodeRiskMeta(n.id) ? 0.96 : 0.48;
+      }}
+      if (currentPanelMode === "simulated_risk") {{
+        const simulatedMeta = nodeSimulatedRiskMeta(n.id);
+        if (!simulatedMeta) return 0.34;
+        if (simulatedMeta.source === "supplier_risk_campaign") return 0.96;
+        return simulatedMeta.status === "applied" ? 0.96 : 0.58;
       }}
       const meta = currentPanelMode === "sensitivity" ? nodeSensitivityMeta(n.id) : null;
       if (!meta) return 0.92;
@@ -19501,6 +20266,29 @@ def html_template(
       const selected = lines.filter(entry => ["Niveau de risque", "Risque estime max", "Estimation prudente", "Priorite d'action", "Marge de recuperation min", "Action prudente"].includes(entry.label));
       if (!selected.length) return "";
       return selected.map(entry => `${{entry.label}}: ${{entry.value || "n/a"}}`).join("<br>");
+    }}
+
+    function nodeSimulatedRiskText(n) {{
+      const meta = nodeSimulatedRiskMeta(n.id);
+      if (!meta || currentPanelMode !== "simulated_risk") return "";
+      if (meta.source === "supplier_risk_campaign") {{
+        return [
+          `Statut campagne: ${{meta.status_label || "n/a"}}`,
+          `Pire risque teste: ${{meta.driver_label || "n/a"}}`,
+          `Impact metier: ${{meta.impact_metier_kpi || "n/a"}} ${{meta.impact_metier_delta || ""}}`,
+          `Score decisionnel: ${{fmtPanelQty(Number(meta.score_decisionnel_pct || meta.impact_pct) || 0, 1)}}%`,
+          `Familles testees: ${{meta.tested_family_count || 0}}`,
+          `Horizon: ${{meta.period || "n/a"}}`,
+          `Pourquoi: ${{meta.impact_explanation || "aucune degradation KPI visible"}}`,
+        ].join("<br>");
+      }}
+      return [
+        `Statut risques simules: ${{meta.status_label || "n/a"}}`,
+        `Type principal: ${{meta.driver_label || "n/a"}}`,
+        `Evenements appliques: ${{meta.applied_event_count || 0}} / configures: ${{meta.configured_event_count || 0}}`,
+        `Periode: ${{meta.period || "n/a"}}`,
+        `Exemples: ${{(meta.event_examples || []).join(", ") || "aucun"}}`,
+      ].join("<br>");
     }}
 
     function nodeUncertaintyText(n) {{
@@ -19564,9 +20352,10 @@ def html_template(
       }}
       const extraHtml = extra.length ? `<br>${{extra.join("<br>")}}` : "";
       const sensitivityHtml = nodeSensitivityText(n);
+      const simulatedRiskHtml = nodeSimulatedRiskText(n);
       const riskHtml = nodeRiskText(n);
       const uncertaintyHtml = nodeUncertaintyText(n);
-      return `${{n.name || n.id}}<br>ID: ${{n.id}}<br>Type: ${{n.type}}<br>Country: ${{country}}<br>Location: ${{loc}}${{extraHtml}}${{sensitivityHtml ? `<br>${{sensitivityHtml}}` : ""}}${{riskHtml ? `<br>${{riskHtml}}` : ""}}${{uncertaintyHtml ? `<br>${{uncertaintyHtml}}` : ""}}`;
+      return `${{n.name || n.id}}<br>ID: ${{n.id}}<br>Type: ${{n.type}}<br>Country: ${{country}}<br>Location: ${{loc}}${{extraHtml}}${{sensitivityHtml ? `<br>${{sensitivityHtml}}` : ""}}${{simulatedRiskHtml ? `<br>${{simulatedRiskHtml}}` : ""}}${{riskHtml ? `<br>${{riskHtml}}` : ""}}${{uncertaintyHtml ? `<br>${{uncertaintyHtml}}` : ""}}`;
     }}
 
     function edgeLeadColor(e) {{
@@ -19711,7 +20500,9 @@ def html_template(
     }}
 
     function edgesInteractiveForCurrentMode() {{
-      return currentPanelMode === "ops";
+      const showEdgesInput = document.getElementById("showEdges");
+      const edgeInteractionInput = document.getElementById("edgeInteraction");
+      return Boolean(showEdgesInput && showEdgesInput.checked && edgeInteractionInput && edgeInteractionInput.checked);
     }}
 
     function buildTraces() {{
@@ -19777,8 +20568,9 @@ def html_template(
           if (!Number.isFinite(dst.lat) || !Number.isFinite(dst.lon)) continue;
           const itemCount = Array.isArray(e.items) ? e.items.length : 0;
           const width = 1 + Math.min(itemCount, 4);
-          const lineColor = (currentPanelMode === "sensitivity" || currentPanelMode === "risk" || currentPanelMode === "uncertainty") ? "#94a3b8" : edgeLeadColor(e);
-          const lineOpacity = (currentPanelMode === "sensitivity" || currentPanelMode === "risk" || currentPanelMode === "uncertainty") ? 0.24 : 0.65;
+          const mutedEdgeMode = currentPanelMode === "sensitivity" || currentPanelMode === "simulated_risk" || currentPanelMode === "risk" || currentPanelMode === "uncertainty";
+          const lineColor = mutedEdgeMode ? "#94a3b8" : edgeLeadColor(e);
+          const lineOpacity = mutedEdgeMode ? 0.24 : 0.65;
           traces.push({{
             type: "scattergeo",
             mode: "lines",
@@ -19815,7 +20607,7 @@ def html_template(
       document.getElementById("stats").textContent =
         `${{visibleNodes.length}} nodes visibles / ${{(DATA.nodes || []).length}} | ` +
         `${{showEdges ? drawnEdges : 0}} flux affiches / ${{(DATA.edges || []).length}}` +
-        `${{edgesInteractive ? "" : " (flux non interactifs)"}}`;
+        `${{edgesInteractive ? " (flux interactifs)" : " (flux non interactifs)"}}`;
       return {{ traces, visibleNodes }};
     }}
 
@@ -20064,6 +20856,33 @@ def html_template(
           cls: "businessInfo",
         }};
       }}
+      if (currentPanelMode === "simulated_risk") {{
+        const meta = nodeSimulatedRiskMeta(nodeId);
+        if (meta) {{
+          if (meta.source === "supplier_risk_campaign") {{
+            const cls = meta.status === "sensitive" ? "businessAlert" : (meta.status === "watch" ? "businessWarn" : (meta.status === "robust" ? "businessOk" : "businessInfo"));
+            return {{
+              pill: "Risques simules",
+              title: `${{meta.status_label || "Campagne"}} - ${{nodeLabel}}`,
+              text: `Question metier: si l'on degrade ce fournisseur, quelle famille de risque impacte le plus les KPI ? Pire risque teste: ${{meta.driver_label || "n/a"}}. Impact metier principal: ${{meta.impact_metier_kpi || "n/a"}} ${{meta.impact_metier_delta || ""}}. Score decisionnel modele ${{fmtPanelQty(Number(meta.score_decisionnel_pct || meta.impact_pct) || 0, 1)}}% sur ${{meta.tested_family_count || 0}} familles testees. Horizon: ${{meta.period || "n/a"}}. Ce n'est pas une probabilite terrain.`,
+              cls,
+            }};
+          }}
+          const cls = meta.status === "applied" ? "businessWarn" : (meta.status === "configured" ? "businessInfo" : "businessOk");
+          return {{
+            pill: "Risques simules",
+            title: `${{meta.status_label || "Scenario"}} - ${{nodeLabel}}`,
+            text: `Question metier: que se passe-t-il si ces risques fournisseurs se produisent ? Type principal: ${{meta.driver_label || "n/a"}}. Evenements appliques: ${{meta.applied_event_count || 0}} sur ${{meta.configured_event_count || 0}} configures. Periode: ${{meta.period || "n/a"}}. Cette lecture vient des evenements injectes dans le scenario courant.`,
+            cls,
+          }};
+        }}
+        return {{
+          pill: "Risques simules",
+          title: `${{nodeLabel}} - aucun evenement simule local`,
+          text: "Question metier: que se passe-t-il si ces risques fournisseurs se produisent ? Aucun evenement de risque fournisseur n'est configure ou applique sur ce noeud dans ce run.",
+          cls: "businessInfo",
+        }};
+      }}
       if (currentPanelMode === "risk") {{
         const meta = nodeRiskMeta(nodeId);
         if (meta) {{
@@ -20125,8 +20944,8 @@ def html_template(
       }}
       if (currentPanelMode === "structural") {{
         return {{
-          pill: "Dependances",
-          title: `${{nodeLabel}} - dependance reseau`,
+          pill: "Structurel",
+          title: `${{nodeLabel}} - fragilite structurelle`,
           text: "Question metier: ou le reseau est-il fragile par construction ? Lecture reseau: dependances amont/aval, exposition multi-sites, alternatives et concentration des flux.",
           cls: "businessInfo",
         }};
@@ -20274,6 +21093,18 @@ def html_template(
           realisticLines.forEach((entry) => entries.push(entry));
         }}
         entries.forEach((entry) => appendPanelMetaEntry(metaGrid, entry));
+        metaBlock.style.display = "block";
+        return true;
+      }}
+      if (currentPanelMode === "simulated_risk") {{
+        const simulatedMetrics = nodeSimulatedRiskMeta(nodeId);
+        const lines = (simulatedMetrics && Array.isArray(simulatedMetrics.summary_lines)) ? simulatedMetrics.summary_lines : [];
+        if (!lines.length) {{
+          metaBlock.style.display = "none";
+          return false;
+        }}
+        metaTitle.textContent = "Risques simules du scenario";
+        lines.forEach((entry) => appendPanelMetaEntry(metaGrid, entry));
         metaBlock.style.display = "block";
         return true;
       }}
@@ -20477,6 +21308,22 @@ def html_template(
           fourth: "Action recommandee"
         }};
       }}
+      if (currentPanelMode === "simulated_risk") {{
+        if (nodeType === "supplier_dc") {{
+          return {{
+            incoming: "Campagne risques simules",
+            outgoing: "Effet sur stock fournisseur",
+            third: "Ordres / envois concernes",
+            fourth: "References fournisseur"
+          }};
+        }}
+        return {{
+          incoming: "Campagne risques simules",
+          outgoing: "Effet local",
+          third: "Flux concernes",
+          fourth: "References"
+        }};
+      }}
       if (currentPanelMode === "uncertainty") {{
         if (nodeType === "supplier_dc") {{
           return {{
@@ -20617,6 +21464,34 @@ def html_template(
         if (nodeType === "distribution_center") return DC_RISK_HOVER_IMAGES[nodeId] || null;
         return null;
       }}
+      if (currentPanelMode === "simulated_risk") {{
+        if (nodeType === "edge") return null;
+        const simulatedMeta = nodeSimulatedRiskMeta(nodeId);
+        if (simulatedMeta && simulatedMeta.asset) {{
+          return {{
+            incoming: simulatedMeta.asset,
+            outgoing: null,
+            third: null,
+            fourth: null,
+          }};
+        }}
+        const modelDetails = ((MODEL_PANEL.nodes || {{}})[nodeId]) || null;
+        if (!modelDetails) return null;
+        if (nodeType === "supplier_dc") {{
+          return {{
+            incoming: modelDetails.simulated_risks || modelDetails.supplier_risk_catalog || null,
+            outgoing: modelDetails.stock_flow || null,
+            third: modelDetails.supplier_order_send || null,
+            fourth: modelDetails.nominal || modelDetails.capacity_nominal || null,
+          }};
+        }}
+        return {{
+          incoming: modelDetails.simulated_risks || null,
+          outgoing: null,
+          third: null,
+          fourth: null,
+        }};
+      }}
       if (currentPanelMode === "uncertainty") {{
         const modelDetails = nodeType === "edge"
           ? (((MODEL_PANEL.edges || {{}})[nodeId]) || null)
@@ -20708,6 +21583,43 @@ def html_template(
       return mode === "data" || mode === "model" || mode === "json";
     }}
 
+    function updateSimulatedRiskControls() {{
+      normalizeSimulatedRiskViewMode();
+      const viewSelect = document.getElementById("simulatedRiskViewSelect");
+      const hasCampaign = Boolean(SIMULATED_RISK_CAMPAIGN_METRICS && SIMULATED_RISK_CAMPAIGN_METRICS.available);
+      const hasState = simulatedRiskStateHasNodes();
+      if (viewSelect) {{
+        viewSelect.value = simulatedRiskViewMode;
+        const campaignOption = viewSelect.querySelector('option[value="campaign"]');
+        if (campaignOption) {{
+          campaignOption.disabled = !hasCampaign;
+          campaignOption.textContent = hasCampaign ? "Campagne stress tests" : "Campagne stress tests (non dispo)";
+        }}
+        const stateOption = viewSelect.querySelector('option[value="state"]');
+        if (stateOption) {{
+          stateOption.disabled = !hasState;
+          stateOption.textContent = hasState ? "State-dependent du run" : "State-dependent du run (aucun evenement)";
+        }}
+      }}
+      const value = document.getElementById("simulatedRiskViewValue");
+      if (value) {{
+        value.textContent = SIMULATED_RISK_VIEW_LABELS[simulatedRiskViewMode] || simulatedRiskViewMode;
+      }}
+      const legend = document.getElementById("simulatedRiskLegend");
+      if (legend) {{
+        const hint = simulatedRiskViewMode === "campaign"
+          ? "Couleur = pire famille testee. Taille = impact decisionnel."
+          : "Couleur = famille declenchee dans le run. Taille = intensite / nombre d'evenements.";
+        legend.setAttribute("title", hint);
+      }}
+      const legendHint = document.getElementById("simulatedRiskLegendHint");
+      if (legendHint) {{
+        legendHint.textContent = simulatedRiskViewMode === "campaign"
+          ? "Campagne stress tests: couleur = pire famille testee. Taille = score decisionnel modele."
+          : "State-dependent: couleur = famille declenchee pendant le run. Taille = intensite / nombre d'evenements.";
+      }}
+    }}
+
     function updateUncertaintyControls() {{
       const modeSelect = document.getElementById("uncertaintyModeSelect");
       if (modeSelect) modeSelect.value = uncertaintyMode;
@@ -20734,12 +21646,17 @@ def html_template(
       document.getElementById("modeModel").classList.toggle("active", currentPanelMode === "model");
       document.getElementById("modeJson").classList.toggle("active", currentPanelMode === "json");
       document.getElementById("modeSensitivity").classList.toggle("active", currentPanelMode === "sensitivity");
+      document.getElementById("modeSimulatedRisk").classList.toggle("active", currentPanelMode === "simulated_risk");
       document.getElementById("modeRisk").classList.toggle("active", currentPanelMode === "risk");
       document.getElementById("modeUncertainty").classList.toggle("active", currentPanelMode === "uncertainty");
       document.getElementById("modeStructural").classList.toggle("active", currentPanelMode === "structural");
       const sensitivityLegend = document.getElementById("sensitivityLegend");
       if (sensitivityLegend) {{
         sensitivityLegend.classList.toggle("visible", currentPanelMode === "sensitivity");
+      }}
+      const simulatedRiskLegend = document.getElementById("simulatedRiskLegend");
+      if (simulatedRiskLegend) {{
+        simulatedRiskLegend.classList.toggle("visible", currentPanelMode === "simulated_risk");
       }}
       const riskLegend = document.getElementById("riskLegend");
       if (riskLegend) {{
@@ -20753,6 +21670,10 @@ def html_template(
       if (sensitivityTop3Box) {{
         sensitivityTop3Box.classList.toggle("visible", currentPanelMode === "sensitivity");
       }}
+      const simulatedRiskControlsBox = document.getElementById("simulatedRiskControlsBox");
+      if (simulatedRiskControlsBox) {{
+        simulatedRiskControlsBox.classList.toggle("visible", currentPanelMode === "simulated_risk");
+      }}
       const uncertaintyMonteCarloBox = document.getElementById("uncertaintyMonteCarloBox");
       if (uncertaintyMonteCarloBox) {{
         uncertaintyMonteCarloBox.classList.toggle("visible", currentPanelMode === "uncertainty");
@@ -20761,22 +21682,37 @@ def html_template(
       if (uncertaintyControlsBox) {{
         uncertaintyControlsBox.classList.toggle("visible", currentPanelMode === "uncertainty");
       }}
+      updateSimulatedRiskControls();
       updateUncertaintyControls();
       const showEdgesInput = document.getElementById("showEdges");
       const showEdgesLabel = document.getElementById("showEdgesLabel");
       const showEdgesText = document.getElementById("showEdgesText");
+      const edgeInteractionInput = document.getElementById("edgeInteraction");
+      const edgeInteractionLabel = document.getElementById("edgeInteractionLabel");
+      const edgeInteractionText = document.getElementById("edgeInteractionText");
       const edgesInteractive = edgesInteractiveForCurrentMode();
+      const showEdges = showEdgesInput ? Boolean(showEdgesInput.checked) : true;
       if (showEdgesInput) {{
         showEdgesInput.disabled = false;
       }}
       if (showEdgesLabel) {{
-        showEdgesLabel.title = edgesInteractive
-          ? "Afficher ou masquer les flux. En Simulation, les flux peuvent etre survoles et selectionnes."
-          : "Afficher ou masquer les flux. Dans ce mode, les flux sont visibles comme repere mais non cliquables et non survolables.";
+        showEdgesLabel.title = "Afficher ou masquer les flux.";
         showEdgesLabel.style.opacity = "1";
       }}
       if (showEdgesText) {{
-        showEdgesText.textContent = edgesInteractive ? "Afficher flux" : "Afficher flux non interactifs";
+        showEdgesText.textContent = "Afficher flux";
+      }}
+      if (edgeInteractionInput) {{
+        edgeInteractionInput.disabled = !showEdges;
+      }}
+      if (edgeInteractionLabel) {{
+        edgeInteractionLabel.title = showEdges
+          ? "Active le survol et le clic sur les flux affiches, dans tous les onglets."
+          : "Active d'abord l'affichage des flux pour pouvoir les rendre cliquables.";
+        edgeInteractionLabel.style.opacity = showEdges ? "1" : "0.55";
+      }}
+      if (edgeInteractionText) {{
+        edgeInteractionText.textContent = edgesInteractive ? "Flux cliquables actifs" : "Flux cliquables";
       }}
       applyTimelineWindowUi();
     }}
@@ -20802,6 +21738,7 @@ def html_template(
         panelState || "",
         selectedYearStart,
         selectedYearEnd,
+        simulatedRiskViewMode,
         uncertaintyMode,
         uncertaintyDisplayMode,
       ].join("|");
@@ -20852,9 +21789,10 @@ def html_template(
         model: "Modele",
         json: "DEBUG",
         sensitivity: "Sensibilite",
+        simulated_risk: "Risques simules",
         risk: "Risques",
         uncertainty: "Incertitude",
-        structural: "Dependances",
+        structural: "Structurel",
       }};
       const modeTitle = modeTitles[currentPanelMode] || "Simulation";
       title.textContent = `${{nodeTitle}}: ${{nodeName}} (${{displayNodeId}}) | ${{modeTitle}}`;
@@ -20883,11 +21821,15 @@ def html_template(
         ? "DEBUG: donnees brutes du scenario, enrichies avec items et flux connectes pour faciliter l'audit."
         : (currentPanelMode === "data"
           ? "Audit donnees: sources, champs et corrections. Cette vue sert a verifier les donnees, pas a piloter la decision."
+          : (currentPanelMode === "simulated_risk"
+            ? (simulatedRiskViewMode === "campaign"
+              ? "Risques simules: campagne fournisseur x famille de risque. La carte montre le pire stress test et son impact KPI modele."
+              : "Risques simules: state-dependent du run. La carte montre les evenements declenches par les seuils observes pendant la simulation.")
           : (currentPanelMode === "risk"
             ? "Risques fournisseurs: le risque est la menace metier. L'incertitude indique la confiance. L'action recommandee croise les deux."
             : (currentPanelMode === "uncertainty"
               ? "Incertitude: les cartes locales mesurent la confiance de lecture. Le bouton Monte Carlo mesure la resilience globale sous aleas."
-              : "Simulation: lecture factuelle du run courant. Pas de prediction ni d'incertitude dans cet onglet.")));
+              : "Simulation: lecture factuelle du run courant. Pas de prediction ni d'incertitude dans cet onglet."))));
       fourthHelp.style.display = fourthImageInfo ? "block" : "none";
 
       incomingBlock.style.display = incomingImageInfo ? "block" : "none";
@@ -22302,6 +23244,16 @@ def html_template(
           draw();
         }});
       }}
+      const simulatedRiskViewSelect = document.getElementById("simulatedRiskViewSelect");
+      if (simulatedRiskViewSelect) {{
+        simulatedRiskViewSelect.addEventListener("change", (ev) => {{
+          simulatedRiskViewMode = String(ev.target.value || "campaign");
+          normalizeSimulatedRiskViewMode();
+          lastFactoryPanelRenderKey = "";
+          updateSimulatedRiskControls();
+          draw();
+        }});
+      }}
       const kpiTreeModal = document.getElementById("kpiTreeModal");
       document.getElementById("kpiTreeBtn").addEventListener("click", () => {{
         kpiTreeModal.classList.add("visible");
@@ -22337,12 +23289,20 @@ def html_template(
         applyModeUi();
         draw();
       }});
-      document.getElementById("showEdges").addEventListener("change", draw);
+      document.getElementById("showEdges").addEventListener("change", () => {{
+        applyModeUi();
+        draw();
+      }});
+      document.getElementById("edgeInteraction").addEventListener("change", () => {{
+        applyModeUi();
+        draw();
+      }});
       document.getElementById("modeOps").addEventListener("click", () => setPanelMode("ops"));
       document.getElementById("modeData").addEventListener("click", () => setPanelMode("data"));
       document.getElementById("modeModel").addEventListener("click", () => setPanelMode("model"));
       document.getElementById("modeJson").addEventListener("click", () => setPanelMode("json"));
       document.getElementById("modeSensitivity").addEventListener("click", () => setPanelMode("sensitivity"));
+      document.getElementById("modeSimulatedRisk").addEventListener("click", () => setPanelMode("simulated_risk"));
       document.getElementById("modeRisk").addEventListener("click", () => setPanelMode("risk"));
       document.getElementById("modeUncertainty").addEventListener("click", () => setPanelMode("uncertainty"));
       document.getElementById("modeStructural").addEventListener("click", () => setPanelMode("structural"));
@@ -22482,6 +23442,9 @@ def main() -> None:
     supplier_risk_pair_csv = Path(args.supplier_risk_kpi_pair_csv)
     supplier_risk_panel_csv = Path(args.supplier_risk_kpi_panel_csv)
     montecarlo_summary_json = Path(args.montecarlo_summary_json)
+    supplier_risk_campaign_summary_json = Path(args.supplier_risk_campaign_summary_json)
+    supplier_risk_campaign_summary_csv = Path(args.supplier_risk_campaign_summary_csv)
+    supplier_risk_campaign_cases_csv = Path(args.supplier_risk_campaign_cases_csv)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     supplier_local_criticality_csv.parent.mkdir(parents=True, exist_ok=True)
     supplier_local_criticality_json.parent.mkdir(parents=True, exist_ok=True)
@@ -22548,6 +23511,11 @@ def main() -> None:
             factory_nominal_capacities_csv=factory_nominal_capacities_csv,
             dc_stocks_csv=Path(args.dc_stocks_csv),
             production_constraint_csv=production_constraint_csv,
+        )
+        payload["supplier_risk_campaign"] = build_supplier_risk_campaign_payload(
+            supplier_risk_campaign_summary_json,
+            supplier_risk_campaign_summary_csv,
+            supplier_risk_campaign_cases_csv,
         )
         payload["customer_hover_images"], payload["customer_current_metrics"] = build_customer_hover_images(
             raw,

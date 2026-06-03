@@ -1,0 +1,2 @@
+event_id,risk_type,supplier_id,item_id,dst_node_id,edge_id,start_day,end_day,multiplier,notes
+campaign_lead_SDC-VD0951020A,lead_time_extra_days,SDC-VD0951020A,,,,0,364,30.0,Supplier risk campaign: 30 jours ajoutes au delai reel simule
