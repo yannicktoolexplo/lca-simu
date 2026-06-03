@@ -1,0 +1,37 @@
+event_id,risk_type,supplier_id,item_id,dst_node_id,edge_id,start_day,end_day,multiplier,notes
+pack_capacity_start_042342,capacity,SDC-VD0914690A,item:042342,M-1430,,0,35,0.45,Early packaging supplier throughput restriction
+pack_reliability_start_042342,reliability,SDC-VD0914690A,item:042342,M-1430,,0,35,0.90,Early packaging supplier OTIF degradation
+pack_lead_start_042342,lead_time_extra_days,SDC-VD0914690A,item:042342,M-1430,,0,35,14,Early packaging delivery delay
+logistics_delay_001848_y2,lead_time,SDC-VD0951020A,item:001848,M-1810,,680,720,1.60,Logistics lane delay around annual panel order
+logistics_reliability_001848_y2,reliability,SDC-VD0951020A,item:001848,M-1810,,680,720,0.85,OTIF degradation around annual panel order
+logistics_cost_001848_y2,transport_cost,SDC-VD0951020A,item:001848,M-1810,,680,720,1.50,Freight premium during logistics disruption
+upstream_capacity_0910216_001893_y2,external_capacity,SDC-VD0910216A,item:001893,M-1810,,680,760,0.35,Upstream raw material capacity shortage at supplier
+upstream_delay_0910216_001893_y2,external_lead_time_extra_days,SDC-VD0910216A,item:001893,M-1810,,680,760,35,Upstream replenishment delay at supplier
+upstream_cost_0910216_001893_y2,external_cost,SDC-VD0910216A,item:001893,M-1810,,680,760,1.50,Upstream sourcing cost premium
+upstream_capacity_0910216_002612_y2,external_capacity,SDC-VD0910216A,item:002612,M-1810,,680,760,0.35,Shared upstream shortage on second supplied item
+upstream_delay_0910216_002612_y2,external_lead_time_extra_days,SDC-VD0910216A,item:002612,M-1810,,680,760,35,Shared upstream replenishment delay
+capacity_0518684_y2,capacity,SDC-VD0518684A,item:001893,M-1810,,680,760,0.50,Temporary supplier production capacity reduction
+availability_0518684_y2,availability,SDC-VD0518684A,item:001893,M-1810,,680,760,0.70,Reduced lane availability during capacity event
+quality_yield_0500655_y2,quality_yield,SDC-VD0500655A,item:002612,M-1810,,680,760,0.85,Quality yield loss on received lots
+quality_release_0500655_y2,quality_delay,SDC-VD0500655A,item:002612,M-1810,,680,760,21,Quality release quarantine delay
+stock_loss_0975221_y3,stock_writeoff,SDC-VD0975221A,item:021081,SDC-1450,,1040,1070,0.40,Supplier stock quarantine or write-off
+stock_access_0975221_y3,stock,SDC-VD0975221A,item:021081,SDC-1450,,1040,1100,0.55,Reduced usable stock after stock issue
+intermediate_upstream_0949099_y3,external_capacity,SDC-VD0949099A,item:021081,SDC-1450,,1040,1100,0.45,Upstream pressure for intermediate raw material
+intermediate_lead_0949099_y3,external_lead_time,SDC-VD0949099A,item:021081,SDC-1450,,1040,1100,1.75,Upstream lead time extension for intermediate raw material
+pack_capacity_338929_y3,capacity,SDC-VD0914360C,item:338929,M-1810,,820,920,0.55,High-volume packaging capacity restriction
+pack_quality_338929_y3,quality_yield,SDC-VD0914360C,item:338929,M-1810,,820,920,0.94,High-volume packaging quality yield loss
+pack_release_338929_y3,quality_delay,SDC-VD0914360C,item:338929,M-1810,,820,920,10,High-volume packaging release delay
+fg_supplier_delay_693055_y3,lead_time_extra_days,SDC-1450,item:693055,M-1810,,900,980,21,Internal semi-finished supplier delivery delay
+fg_supplier_availability_693055_y3,availability,SDC-1450,item:693055,M-1810,,900,980,0.70,Internal semi-finished supplier availability restriction
+pack_capacity_338928_y4,capacity,SDC-VD0901566A,item:338928,M-1810,,1000,1120,0.60,Second high-volume packaging capacity restriction
+pack_reliability_338928_y4,reliability,SDC-VD0901566A,item:338928,M-1810,,1000,1120,0.88,Second high-volume packaging OTIF degradation
+capacity_0914320_y4,capacity,SDC-VD0914320A,item:055703,M-1810,,1400,1460,0.55,Capacity pressure on preferred supplier
+purchase_cost_0914320_y4,purchase_cost,SDC-VD0914320A,item:055703,M-1810,,1400,1460,1.35,Raw material spot price increase
+availability_0964290_y4,availability,SDC-VD0964290A,item:055703,M-1810,,1400,1460,0.50,Secondary supplier availability issue
+external_availability_0964290_y4,external_availability,SDC-VD0964290A,item:055703,M-1810,,1400,1460,0.55,Upstream source less available for secondary supplier
+pack_capacity_333362_y5,capacity,SDC-VD0525412A,item:333362,M-1430,,1610,1640,0.55,Packaging supplier throughput reduction near late campaign
+pack_quality_333362_y5,quality_yield,SDC-VD0525412A,item:333362,M-1430,,1610,1640,0.93,Packaging quality yield loss near late campaign
+pack_capacity_344135_y5,capacity,SDC-VD0993480A,item:344135,M-1430,,1610,1640,0.60,Second packaging throughput reduction near late campaign
+pack_lead_344135_y5,lead_time,SDC-VD0993480A,item:344135,M-1430,,1610,1640,1.45,Second packaging lead time extension
+late_upstream_0949099_y5,external_capacity,SDC-VD0949099A,item:021081,SDC-1450,,1760,1810,0.50,Late horizon upstream capacity pressure
+late_upstream_lead_0949099_y5,external_lead_time_extra_days,SDC-VD0949099A,item:021081,SDC-1450,,1760,1810,42,Late horizon upstream delay
