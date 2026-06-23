@@ -59,8 +59,8 @@ Seuil calcule depuis le run courant: stock d'ouverture simule moins le stock min
 | SDC-VD0993480A | item:344135 | M-1430 | 4312000.0 | 4310000.0 | 2000.0 | 0.999536 |
 | SDC-VD0518684A | item:001893 | M-1810 | 22800.0 | 21229.8153 | 1570.1847 | 0.931132 |
 | SDC-VD1091642A | item:001893 | M-1810 | 20900.0 | 19853.2102 | 1046.7898 | 0.949914 |
-| SDC-VD0949099A | item:021081 | SDC-1450 | 20000.0 | 19519.230769 | 480.769231 | 0.975962 |
-| SDC-VD0960508A | item:021081 | SDC-1450 | 20000.0 | 19519.230769 | 480.769231 | 0.975962 |
+| SDC-VD0949099A | item:021081 | SDC-1450 | 20000.0 | 19487.179487 | 512.820513 | 0.974359 |
+| SDC-VD0960508A | item:021081 | SDC-1450 | 20000.0 | 19487.179487 | 512.820513 | 0.974359 |
 
 ## High lead time preview
 | supplier_id | item_id | dst_node_id | planned_lead_time_days | lead_time_type |

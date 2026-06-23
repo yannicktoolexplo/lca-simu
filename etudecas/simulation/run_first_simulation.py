@@ -27,6 +27,7 @@ SUPPLIER_FUNCTIONAL_CAPACITY_HEADROOM_FACTOR = 2.5
 FACTORY_NOMINAL_TARGET_UTILIZATION = 0.70
 SUPPLIER_UPSTREAM_SUPPLY_NODE_ID = "SUPPLIER_UPSTREAM_SUPPLY"
 SUPPLIER_UPSTREAM_SUPPLY_EDGE_PREFIX = "SUPPLIER_UPSTREAM_SUPPLY"
+LOT_TRACE_EPS = 1e-6
 
 SUPPLIER_NOMINAL_PARAMETER_FIELDS = [
     "supplier_id",
@@ -203,12 +204,333 @@ SUPPLIER_STOCK_FLOW_FIELDS = [
     "balance_check_gap_qty",
 ]
 
+PRODUCTION_LOT_EVENT_FIELDS = [
+    "event_id",
+    "day",
+    "event_type",
+    "lot_id",
+    "node_id",
+    "item_id",
+    "qty",
+    "qty_after",
+    "uom",
+    "source_type",
+    "source_id",
+    "related_lot_id",
+    "production_campaign_id",
+    "notes",
+]
+
+PRODUCTION_LOT_GENEALOGY_FIELDS = [
+    "day",
+    "link_type",
+    "parent_lot_id",
+    "parent_node_id",
+    "parent_item_id",
+    "child_lot_id",
+    "child_node_id",
+    "child_item_id",
+    "parent_qty",
+    "child_qty",
+    "allocation_share",
+    "source_id",
+    "production_campaign_id",
+    "notes",
+]
+
+PRODUCTION_PLAN_EVENT_FIELDS = [
+    "day",
+    "campaign_id",
+    "node_id",
+    "output_item_id",
+    "event_type",
+    "reason",
+    "desired_qty",
+    "planned_qty_after_lot_rule",
+    "actual_qty",
+    "shortfall_vs_desired_qty",
+    "shortfall_vs_lot_plan_qty",
+    "binding_input_item_id",
+    "planned_qty_before",
+    "planned_qty_after",
+    "campaign_remaining_start_qty",
+    "campaign_remaining_end_qty",
+    "next_expected_receipt_day",
+    "notes",
+]
+
 
 def to_float(x: Any, default: float = 0.0) -> float:
     try:
         return float(x)
     except (TypeError, ValueError):
         return default
+
+
+class LotLedger:
+    """Optional lot-level trace layered on top of aggregate stock equations."""
+
+    def __init__(self, *, enabled: bool = True) -> None:
+        self.enabled = enabled
+        self._lot_seq = 0
+        self._event_seq = 0
+        self._campaign_seq = 0
+        self.lots_by_pair: dict[tuple[str, str], deque[str]] = defaultdict(deque)
+        self.lots: dict[str, dict[str, Any]] = {}
+        self.event_rows: list[dict[str, Any]] = []
+        self.genealogy_rows: list[dict[str, Any]] = []
+
+    def next_campaign_id(self, *, day: int, node_id: str, item_id: str) -> str:
+        self._campaign_seq += 1
+        return f"CMP-{self._campaign_seq:08d}-{node_id}-{item_id}-D{day}"
+
+    def _next_lot_id(self, *, day: int, node_id: str, item_id: str, source_type: str) -> str:
+        self._lot_seq += 1
+        return f"LOT-{self._lot_seq:08d}"
+
+    def _next_event_id(self) -> str:
+        self._event_seq += 1
+        return f"LEVT-{self._event_seq:08d}"
+
+    def _append_event(
+        self,
+        *,
+        day: int,
+        event_type: str,
+        lot_id: str,
+        node_id: str,
+        item_id: str,
+        qty: float,
+        qty_after: float,
+        uom: str = "",
+        source_type: str = "",
+        source_id: str = "",
+        related_lot_id: str = "",
+        production_campaign_id: str = "",
+        notes: str = "",
+    ) -> None:
+        if not self.enabled:
+            return
+        self.event_rows.append(
+            {
+                "event_id": self._next_event_id(),
+                "day": int(day),
+                "event_type": event_type,
+                "lot_id": lot_id,
+                "node_id": node_id,
+                "item_id": item_id,
+                "qty": round(qty, 6),
+                "qty_after": round(qty_after, 6),
+                "uom": uom,
+                "source_type": source_type,
+                "source_id": source_id,
+                "related_lot_id": related_lot_id,
+                "production_campaign_id": production_campaign_id,
+                "notes": notes,
+            }
+        )
+
+    def create_lot(
+        self,
+        *,
+        day: int,
+        node_id: str,
+        item_id: str,
+        qty: float,
+        source_type: str,
+        source_id: str = "",
+        uom: str = "",
+        event_type: str = "create",
+        related_lot_id: str = "",
+        production_campaign_id: str = "",
+        notes: str = "",
+    ) -> str:
+        qty = max(0.0, to_float(qty, 0.0))
+        if qty <= LOT_TRACE_EPS or not self.enabled:
+            return ""
+        node_id = str(node_id)
+        item_id = str(item_id)
+        lot_id = self._next_lot_id(day=day, node_id=node_id, item_id=item_id, source_type=source_type)
+        self.lots[lot_id] = {
+            "lot_id": lot_id,
+            "node_id": node_id,
+            "item_id": item_id,
+            "created_day": int(day),
+            "source_type": source_type,
+            "source_id": source_id,
+            "initial_qty": qty,
+            "qty_remaining": qty,
+            "uom": uom,
+        }
+        self.lots_by_pair[(node_id, item_id)].append(lot_id)
+        self._append_event(
+            day=day,
+            event_type=event_type,
+            lot_id=lot_id,
+            node_id=node_id,
+            item_id=item_id,
+            qty=qty,
+            qty_after=qty,
+            uom=uom,
+            source_type=source_type,
+            source_id=source_id,
+            related_lot_id=related_lot_id,
+            production_campaign_id=production_campaign_id,
+            notes=notes,
+        )
+        return lot_id
+
+    def seed_opening_stock(
+        self,
+        *,
+        day: int,
+        stock: dict[tuple[str, str], float],
+        item_unit_map: dict[str, str],
+    ) -> None:
+        if not self.enabled:
+            return
+        for node_id, item_id in sorted(stock):
+            qty = max(0.0, to_float(stock[(node_id, item_id)], 0.0))
+            if qty <= LOT_TRACE_EPS:
+                continue
+            self.create_lot(
+                day=day,
+                node_id=node_id,
+                item_id=item_id,
+                qty=qty,
+                source_type="opening_stock",
+                source_id="initial_simulation_state",
+                uom=item_unit_map.get(item_id, ""),
+                event_type="opening_stock",
+            )
+
+    def consume(
+        self,
+        *,
+        day: int,
+        node_id: str,
+        item_id: str,
+        qty: float,
+        event_type: str,
+        source_id: str = "",
+        production_campaign_id: str = "",
+        uom: str = "",
+        notes: str = "",
+    ) -> list[dict[str, Any]]:
+        qty = max(0.0, to_float(qty, 0.0))
+        if qty <= LOT_TRACE_EPS or not self.enabled:
+            return []
+        node_id = str(node_id)
+        item_id = str(item_id)
+        pair = (node_id, item_id)
+        remaining = qty
+        allocations: list[dict[str, Any]] = []
+        queue = self.lots_by_pair[pair]
+        while remaining > LOT_TRACE_EPS:
+            while queue and max(0.0, to_float(self.lots[queue[0]].get("qty_remaining"), 0.0)) <= LOT_TRACE_EPS:
+                queue.popleft()
+            if not queue:
+                self.create_lot(
+                    day=day,
+                    node_id=node_id,
+                    item_id=item_id,
+                    qty=remaining,
+                    source_type="ledger_reconciliation",
+                    source_id=source_id or event_type,
+                    uom=uom,
+                    event_type="stock_reconciliation",
+                    notes="Synthetic lot created because aggregate stock existed without lot detail.",
+                )
+            lot_id = queue[0]
+            lot = self.lots[lot_id]
+            available = max(0.0, to_float(lot.get("qty_remaining"), 0.0))
+            take = min(available, remaining)
+            if take <= LOT_TRACE_EPS:
+                queue.popleft()
+                continue
+            lot["qty_remaining"] = max(0.0, available - take)
+            remaining -= take
+            allocations.append(
+                {
+                    "lot_id": lot_id,
+                    "node_id": node_id,
+                    "item_id": item_id,
+                    "qty": take,
+                    "uom": lot.get("uom") or uom,
+                }
+            )
+            self._append_event(
+                day=day,
+                event_type=event_type,
+                lot_id=lot_id,
+                node_id=node_id,
+                item_id=item_id,
+                qty=take,
+                qty_after=to_float(lot.get("qty_remaining"), 0.0),
+                uom=lot.get("uom") or uom,
+                source_type=str(lot.get("source_type") or ""),
+                source_id=source_id,
+                production_campaign_id=production_campaign_id,
+                notes=notes,
+            )
+            if to_float(lot.get("qty_remaining"), 0.0) <= LOT_TRACE_EPS:
+                queue.popleft()
+        return allocations
+
+    def create_child_lot(
+        self,
+        *,
+        day: int,
+        node_id: str,
+        item_id: str,
+        qty: float,
+        source_type: str,
+        source_id: str,
+        parent_allocations: list[dict[str, Any]],
+        link_type: str,
+        uom: str = "",
+        production_campaign_id: str = "",
+        notes: str = "",
+    ) -> str:
+        child_lot_id = self.create_lot(
+            day=day,
+            node_id=node_id,
+            item_id=item_id,
+            qty=qty,
+            source_type=source_type,
+            source_id=source_id,
+            uom=uom,
+            event_type=source_type,
+            production_campaign_id=production_campaign_id,
+            notes=notes,
+        )
+        if not child_lot_id or not self.enabled:
+            return child_lot_id
+        total_parent_qty = sum(max(0.0, to_float(a.get("qty"), 0.0)) for a in parent_allocations)
+        for alloc in parent_allocations:
+            parent_qty = max(0.0, to_float(alloc.get("qty"), 0.0))
+            if parent_qty <= LOT_TRACE_EPS:
+                continue
+            share = parent_qty / total_parent_qty if total_parent_qty > LOT_TRACE_EPS else 0.0
+            self.genealogy_rows.append(
+                {
+                    "day": int(day),
+                    "link_type": link_type,
+                    "parent_lot_id": str(alloc.get("lot_id") or ""),
+                    "parent_node_id": str(alloc.get("node_id") or ""),
+                    "parent_item_id": str(alloc.get("item_id") or ""),
+                    "child_lot_id": child_lot_id,
+                    "child_node_id": str(node_id),
+                    "child_item_id": str(item_id),
+                    "parent_qty": round(parent_qty, 6),
+                    "child_qty": round(max(0.0, to_float(qty, 0.0)), 6),
+                    "allocation_share": round(share, 9),
+                    "source_id": source_id,
+                    "production_campaign_id": production_campaign_id,
+                    "notes": notes,
+                }
+            )
+        return child_lot_id
 
 
 def normalize_unit(unit: Any) -> str:
@@ -492,6 +814,20 @@ def parse_args() -> argparse.Namespace:
         choices=["full", "compact"],
         default="compact",
         help="Result output volume: compact keeps only files needed for baseline review and maps.",
+    )
+    parser.add_argument(
+        "--lot-trace",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help=(
+            "Export lot-level events and genealogy while keeping aggregate simulation equations unchanged "
+            "(default: enabled)."
+        ),
+    )
+    parser.add_argument(
+        "--skip-lot-audit",
+        action="store_true",
+        help="Skip automatic lot path audit generation after lot trace CSV export.",
     )
     parser.add_argument(
         "--seed",
@@ -1871,9 +2207,12 @@ def supplier_risk_multipliers_for_lane(
     }
     if not events:
         return out
+    state_dependent_applied = False
     for event in events:
         if not supplier_risk_event_applies(event, lane, output_day):
             continue
+        if str(event.get("source") or "") == "state_dependent_supplier_risk":
+            state_dependent_applied = True
         risk_type = str(event.get("risk_type") or "")
         multiplier = to_float(event.get("multiplier"), 1.0)
         if risk_type in {"lead_time_extra_days", "quality_delay", "external_lead_time_extra_days"}:
@@ -1907,6 +2246,24 @@ def supplier_risk_multipliers_for_lane(
         min(3650.0, to_float(out.get("external_lead_time_extra_days"), 0.0)),
     )
     out["stock_writeoff_fraction"] = max(0.0, min(1.0, to_float(out.get("stock_writeoff_fraction"), 0.0)))
+    if state_dependent_applied:
+        out["capacity"] = max(to_float(out.get("capacity"), 1.0), 0.70)
+        out["availability"] = max(to_float(out.get("availability"), 1.0), 0.70)
+        out["reliability"] = max(to_float(out.get("reliability"), 1.0), 0.75)
+        out["quality_yield"] = max(to_float(out.get("quality_yield"), 1.0), 0.75)
+        out["external_capacity"] = max(to_float(out.get("external_capacity"), 1.0), 0.70)
+        out["external_availability"] = max(to_float(out.get("external_availability"), 1.0), 0.70)
+        out["external_quality_yield"] = max(to_float(out.get("external_quality_yield"), 1.0), 0.75)
+        out["lead_time"] = min(to_float(out.get("lead_time"), 1.0), 1.50)
+        out["lead_time_extra_days"] = min(to_float(out.get("lead_time_extra_days"), 0.0), 10.0)
+        out["external_lead_time"] = min(to_float(out.get("external_lead_time"), 1.0), 1.50)
+        out["external_lead_time_extra_days"] = min(
+            to_float(out.get("external_lead_time_extra_days"), 0.0),
+            10.0,
+        )
+        out["external_cost"] = min(to_float(out.get("external_cost"), 1.0), 1.50)
+        out["purchase_cost"] = min(to_float(out.get("purchase_cost"), 1.0), 1.50)
+        out["transport_cost"] = min(to_float(out.get("transport_cost"), 1.0), 1.50)
     return out
 
 
@@ -4465,6 +4822,7 @@ def main() -> None:
     dc_stock_rows: list[dict[str, Any]] = []
     demand_pair_rows: list[dict[str, Any]] = []
     production_constraint_rows: list[dict[str, Any]] = []
+    production_plan_event_rows: list[dict[str, Any]] = []
     mrp_trace_rows: list[dict[str, Any]] = []
     mrp_order_rows: list[dict[str, Any]] = []
     production_cost_qty_by_day_pair: dict[tuple[int, str, str], float] = defaultdict(float)
@@ -4525,6 +4883,7 @@ def main() -> None:
     cum_output_by_pair: dict[tuple[str, str], float] = defaultdict(float)
     prev_production_command_by_pair: dict[tuple[str, str], float] = {}
     open_production_campaign_qty_by_pair: dict[tuple[str, str], float] = defaultdict(float)
+    open_production_campaign_id_by_pair: dict[tuple[str, str], str] = {}
     started_production_lots_by_week_pair: dict[tuple[int, tuple[str, str]], int] = defaultdict(int)
     mps_prev_production_command_by_pair: dict[tuple[str, str], float] = {}
     mps_open_campaign_qty_by_pair: dict[tuple[str, str], float] = defaultdict(float)
@@ -5093,6 +5452,7 @@ def main() -> None:
     supplier_state_risk_events: list[dict[str, Any]] = []
     supplier_state_risk_open_until_by_key: dict[tuple[str, str, str, str], int] = {}
     supplier_state_risk_counters: dict[tuple[str, str, str], int] = defaultdict(int)
+    supplier_state_risk_metric_windows: dict[tuple[str, str, str], deque[float]] = {}
     total_supplier_capacity_binding_qty = 0.0
     scheduled_lane_release_metrics: dict[int, list[tuple[tuple[str, str], float, float, float, float, bool]]] = defaultdict(list)
     mrp_multisource_min_annual_lot_enabled = args.mrp_multisource_policy in {
@@ -5104,6 +5464,13 @@ def main() -> None:
         min(365, int(args.mrp_multisource_min_annual_lot_window_days or 28)),
     )
     mrp_multisource_annual_lane_orders: set[tuple[int, str]] = set()
+    lot_ledger = LotLedger(enabled=bool(args.lot_trace))
+    lot_ledger.seed_opening_stock(
+        day=-warmup_days,
+        stock=stock,
+        item_unit_map=item_unit_map,
+    )
+    lot_arrivals_pipeline: dict[int, list[dict[str, Any]]] = defaultdict(list)
 
     def lane_transport_cost_for_chunk(
         lane: dict[str, Any],
@@ -5123,6 +5490,55 @@ def main() -> None:
             lot_units = max(0.0, pull_qty) / effective_lot_qty
             return lot_units * unit_transport_cost, "lot", lot_units
         return max(0.0, delivered_qty) * unit_transport_cost, "unit", max(0.0, delivered_qty)
+
+    def schedule_lot_arrival(
+        *,
+        arrival_day: int,
+        dst_node_id: str,
+        item_id: str,
+        qty: float,
+        lane_id: str,
+        source_type: str,
+        source_id: str,
+        parent_allocations: list[dict[str, Any]],
+        link_type: str,
+        notes: str = "",
+    ) -> None:
+        if not lot_ledger.enabled or qty <= 1e-9:
+            return
+        lot_arrivals_pipeline[int(arrival_day)].append(
+            {
+                "dst_node_id": str(dst_node_id),
+                "item_id": str(item_id),
+                "qty": max(0.0, qty),
+                "lane_id": str(lane_id),
+                "source_type": source_type,
+                "source_id": source_id,
+                "parent_allocations": parent_allocations,
+                "link_type": link_type,
+                "notes": notes,
+            }
+        )
+
+    def next_receipt_day_for_pair(pair: tuple[str, str], current_day: int) -> str:
+        node_id, item_id = pair
+        candidates: list[int] = []
+        for arrival_day, rows in pipeline.items():
+            if arrival_day < current_day:
+                continue
+            if any(str(dst) == node_id and str(it) == item_id and qty > 1e-9 for dst, it, qty, _lane_id in rows):
+                candidates.append(int(arrival_day - warmup_days))
+        for arrival_day, rows in external_pipeline.items():
+            if arrival_day < current_day:
+                continue
+            if any(str(dst) == node_id and str(it) == item_id and qty > 1e-9 for dst, it, qty in rows):
+                candidates.append(int(arrival_day - warmup_days))
+        for arrival_day, rows in estimated_source_pipeline.items():
+            if arrival_day < current_day:
+                continue
+            if any(str(dst) == node_id and str(it) == item_id and qty > 1e-9 for dst, it, qty in rows):
+                candidates.append(int(arrival_day - warmup_days))
+        return "" if not candidates else str(min(candidates))
 
     def register_state_dependent_supplier_event(
         *,
@@ -5215,6 +5631,20 @@ def main() -> None:
                 cooldown_days=cooldown_days,
             )
 
+    def update_state_risk_metric_window(
+        metric_key: tuple[str, str, str],
+        value: float,
+        window_days: int,
+    ) -> float:
+        window_days = max(1, int(window_days))
+        window = supplier_state_risk_metric_windows.get(metric_key)
+        if window is None or window.maxlen != window_days:
+            previous_values = list(window)[-(window_days - 1) :] if window is not None and window_days > 1 else []
+            window = deque(previous_values, maxlen=window_days)
+            supplier_state_risk_metric_windows[metric_key] = window
+        window.append(float(value))
+        return sum(window) / len(window)
+
     for day in range(total_timeline_days):
         record_day = day >= warmup_days
         output_day = day - warmup_days
@@ -5223,6 +5653,7 @@ def main() -> None:
             output_day,
         )
         supplier_state_lead_observations_today_by_pair: dict[tuple[str, str], list[tuple[float, float]]] = defaultdict(list)
+        supplier_state_stock_cover_today_by_pair: dict[tuple[str, str], float] = {}
         if day < warmup_days and args.warmup_profile_mode == "preperiod":
             profile_day = (day - warmup_days) % demand_profile_cycle_days
         else:
@@ -5377,6 +5808,7 @@ def main() -> None:
         arrivals_today = pipeline.pop(day, [])
         external_arrivals_today = external_pipeline.pop(day, [])
         estimated_source_arrivals_today = estimated_source_pipeline.pop(day, [])
+        lot_arrivals_today = lot_arrivals_pipeline.pop(day, [])
         arrivals_qty = 0.0
         external_arrivals_qty = 0.0
         estimated_source_arrivals_qty = 0.0
@@ -5385,21 +5817,108 @@ def main() -> None:
         estimated_source_arrivals_today_by_pair: dict[tuple[str, str], float] = defaultdict(float)
         estimated_capacity_replenished_today_by_pair: dict[tuple[str, str], float] = defaultdict(float)
         supplier_stock_writeoff_today_by_pair: dict[tuple[str, str], float] = defaultdict(float)
+        lot_arrivals_by_key: dict[tuple[str, str, str], deque[dict[str, Any]]] = defaultdict(deque)
+        for lot_payload in lot_arrivals_today:
+            lot_arrivals_by_key[
+                (
+                    str(lot_payload.get("dst_node_id") or ""),
+                    str(lot_payload.get("item_id") or ""),
+                    str(lot_payload.get("lane_id") or ""),
+                )
+            ].append(dict(lot_payload))
+
+        def scaled_lot_allocations(parent_allocations: list[dict[str, Any]], factor: float) -> list[dict[str, Any]]:
+            factor = max(0.0, min(1.0, factor))
+            return [
+                {
+                    **alloc,
+                    "qty": max(0.0, to_float(alloc.get("qty"), 0.0)) * factor,
+                }
+                for alloc in parent_allocations
+                if max(0.0, to_float(alloc.get("qty"), 0.0)) * factor > 1e-9
+            ]
+
+        def record_lane_lot_receipt(dst_node_id: str, item_id: str, qty: float, lane_id: str) -> None:
+            if not lot_ledger.enabled or qty <= 1e-9:
+                return
+            output_day_for_lot = int(day - warmup_days)
+            remaining = max(0.0, qty)
+            key = (str(dst_node_id), str(item_id), str(lane_id))
+            queue = lot_arrivals_by_key.get(key)
+            while remaining > 1e-9 and queue:
+                payload = queue[0]
+                payload_qty = max(0.0, to_float(payload.get("qty"), 0.0))
+                if payload_qty <= 1e-9:
+                    queue.popleft()
+                    continue
+                take = min(remaining, payload_qty)
+                factor = take / payload_qty if payload_qty > 1e-9 else 0.0
+                parents = scaled_lot_allocations(payload.get("parent_allocations") or [], factor)
+                lot_ledger.create_child_lot(
+                    day=output_day_for_lot,
+                    node_id=dst_node_id,
+                    item_id=item_id,
+                    qty=take,
+                    source_type=str(payload.get("source_type") or "lane_receipt"),
+                    source_id=str(payload.get("source_id") or lane_id),
+                    parent_allocations=parents,
+                    link_type=str(payload.get("link_type") or "transport"),
+                    uom=item_unit_map.get(item_id, ""),
+                    notes=str(payload.get("notes") or ""),
+                )
+                remaining -= take
+                payload["qty"] = payload_qty - take
+                if payload["qty"] <= 1e-9:
+                    queue.popleft()
+            if remaining > 1e-9:
+                lot_ledger.create_lot(
+                    day=output_day_for_lot,
+                    node_id=dst_node_id,
+                    item_id=item_id,
+                    qty=remaining,
+                    source_type="lane_receipt",
+                    source_id=lane_id,
+                    uom=item_unit_map.get(item_id, ""),
+                    event_type="lane_receipt",
+                    notes="Receipt existed in aggregate pipeline without scheduled parent lot detail.",
+                )
+
         for dst, item_id, qty, _lane_id in arrivals_today:
             stock[(dst, item_id)] += qty
             in_transit[(dst, item_id)] -= qty
             arrivals_qty += qty
             arrivals_today_by_pair[(dst, item_id)] += qty
+            record_lane_lot_receipt(dst, item_id, qty, _lane_id)
         for src, item_id, qty in external_arrivals_today:
             stock[(src, item_id)] += qty
             external_in_transit[(src, item_id)] -= qty
             external_arrivals_qty += qty
             external_arrivals_today_by_pair[(src, item_id)] += qty
+            lot_ledger.create_lot(
+                day=int(day - warmup_days),
+                node_id=src,
+                item_id=item_id,
+                qty=qty,
+                source_type="external_procurement_receipt",
+                source_id=SUPPLIER_UPSTREAM_SUPPLY_NODE_ID,
+                uom=item_unit_map.get(item_id, ""),
+                event_type="external_procurement_receipt",
+            )
         for src, item_id, qty in estimated_source_arrivals_today:
             stock[(src, item_id)] += qty
             estimated_source_in_transit[(src, item_id)] -= qty
             estimated_source_arrivals_qty += qty
             estimated_source_arrivals_today_by_pair[(src, item_id)] += qty
+            lot_ledger.create_lot(
+                day=int(day - warmup_days),
+                node_id=src,
+                item_id=item_id,
+                qty=qty,
+                source_type="estimated_source_receipt",
+                source_id="estimated_source",
+                uom=item_unit_map.get(item_id, ""),
+                event_type="estimated_source_receipt",
+            )
         if record_day:
             total_arrived += arrivals_qty
             total_external_procured_arrived += external_arrivals_qty
@@ -5463,6 +5982,16 @@ def main() -> None:
                 estimated_capacity_replenished_today_by_pair[src_pair] += replenished_qty
                 estimated_source_arrivals_qty += replenished_qty
                 total_estimated_source_replenished += replenished_qty
+                lot_ledger.create_lot(
+                    day=int(day - warmup_days),
+                    node_id=src_pair[0],
+                    item_id=src_pair[1],
+                    qty=replenished_qty,
+                    source_type="estimated_capacity_receipt",
+                    source_id="estimated_capacity",
+                    uom=item_unit_map.get(src_pair[1], ""),
+                    event_type="estimated_capacity_receipt",
+                )
         if record_day:
             total_estimated_source_ordered += estimated_source_ordered_today
             total_estimated_source_rejected += estimated_source_rejected_today
@@ -5490,6 +6019,7 @@ def main() -> None:
                     supplier_state_risk_counters[("stock_zero", src_pair[0], src_pair[1])] = 0
                     continue
                 stock_cover_days = max(0.0, stock.get(src_pair, 0.0)) / demand_anchor
+                supplier_state_stock_cover_today_by_pair[src_pair] = stock_cover_days
                 update_state_risk_counter_and_register(
                     trigger_day=output_day,
                     supplier_id=src_pair[0],
@@ -5568,6 +6098,15 @@ def main() -> None:
             if writeoff_qty <= 1e-9:
                 continue
             stock[src_pair] = max(0.0, stock_before_writeoff - writeoff_qty)
+            lot_ledger.consume(
+                day=output_day,
+                node_id=supplier_id,
+                item_id=stocked_item_id,
+                qty=writeoff_qty,
+                event_type="writeoff",
+                source_id="supplier_state_stock_writeoff",
+                uom=item_unit_map.get(stocked_item_id, ""),
+            )
             supplier_stock_writeoff_today_by_pair[src_pair] += writeoff_qty
             if record_day and stock_risk.get("event_ids"):
                 supplier_risk_applied_rows.append(
@@ -5690,6 +6229,7 @@ def main() -> None:
                 campaign_started_qty = 0.0
                 campaign_requested_qty = 0.0
                 lot_planned_qty = desired_qty
+                campaign_id = open_production_campaign_id_by_pair.get(out_pair, "")
                 week_index = int(day // 7)
                 week_key = (week_index, out_pair)
                 started_lots_this_week = int(started_production_lots_by_week_pair.get(week_key, 0))
@@ -5715,12 +6255,34 @@ def main() -> None:
                             actual_lot_starts = requested_lot_starts
                         campaign_remaining_start_qty = campaign_started_qty
                         open_production_campaign_qty_by_pair[out_pair] = campaign_started_qty
+                        if campaign_started_qty > 1e-9:
+                            campaign_id = lot_ledger.next_campaign_id(
+                                day=output_day,
+                                node_id=nid,
+                                item_id=out_item,
+                            )
+                            open_production_campaign_id_by_pair[out_pair] = campaign_id
                         if actual_lot_starts > 0:
                             started_production_lots_by_week_pair[week_key] = started_lots_this_week + actual_lot_starts
                             started_lots_this_week = int(started_production_lots_by_week_pair[week_key])
                     lot_planned_qty = campaign_remaining_start_qty
 
-                qty = max(0.0, min(cap, max_from_inputs, lot_planned_qty))
+                qty_candidate = max(0.0, min(cap, max_from_inputs, lot_planned_qty))
+                fixed_lot_policy = to_float(lot_policy.get("fixed_lot_qty"), 0.0) > 1e-9
+                if (
+                    fixed_lot_policy
+                    and campaign_remaining_start_qty > 1e-9
+                    and qty_candidate + 1e-9 < lot_planned_qty
+                ):
+                    qty = 0.0
+                else:
+                    qty = qty_candidate
+                if not lot_policy["enabled"] and qty > 1e-9:
+                    campaign_id = lot_ledger.next_campaign_id(
+                        day=output_day,
+                        node_id=nid,
+                        item_id=out_item,
+                    )
                 binding_cause = "none"
                 binding_item = ""
                 if desired_qty > 1e-9 or campaign_remaining_start_qty > 1e-9:
@@ -5746,19 +6308,22 @@ def main() -> None:
                     binding_reference_qty = lot_planned_qty if lot_policy["enabled"] else desired_qty
                     if lot_weekly_limit_blocked and campaign_remaining_start_qty <= 1e-9 and desired_qty > 1e-9:
                         binding_cause = "weekly_lot_limit"
-                    elif lot_policy["enabled"] and campaign_remaining_start_qty > 1e-9 and qty <= 1e-9:
-                        binding_cause = "lot_campaign_blocked"
                     elif qty + 1e-9 < binding_reference_qty:
                         if max_from_inputs <= cap + 1e-9 and max_from_inputs <= binding_reference_qty + 1e-9:
                             binding_cause = "input_shortage"
                             binding_item = input_binding_item
                         elif has_capacity_limit and cap <= max_from_inputs + 1e-9 and cap <= binding_reference_qty + 1e-9:
                             binding_cause = "capacity"
+                        elif lot_policy["enabled"] and campaign_remaining_start_qty > 1e-9 and qty <= 1e-9:
+                            binding_cause = "lot_campaign_blocked"
                         else:
                             binding_cause = "policy_command"
+                    elif lot_policy["enabled"] and campaign_remaining_start_qty > 1e-9 and qty <= 1e-9:
+                        binding_cause = "lot_campaign_blocked"
                     if record_day:
                         cap_qty_for_record = cap if has_capacity_limit else 0.0
                         input_qty_for_record = max_from_inputs if math.isfinite(max_from_inputs) else 0.0
+                        campaign_remaining_end_qty = round(max(0.0, campaign_remaining_start_qty - qty), 6)
                         production_constraint_rows.append(
                             {
                                 "day": output_day,
@@ -5792,12 +6357,56 @@ def main() -> None:
                                 "campaign_requested_qty": round(campaign_requested_qty, 6),
                                 "campaign_started_qty": round(campaign_started_qty, 6),
                                 "campaign_remaining_start_qty": round(campaign_remaining_start_qty, 6),
-                                "campaign_remaining_end_qty": round(max(0.0, campaign_remaining_start_qty - qty), 6),
+                                "campaign_remaining_end_qty": campaign_remaining_end_qty,
+                            }
+                        )
+                        shortfall_vs_desired_qty = max(0.0, desired_qty - qty)
+                        shortfall_vs_lot_plan_qty = max(0.0, lot_planned_qty - qty)
+                        if binding_cause == "input_shortage":
+                            event_type = "partial_run_input_shortage" if qty > 1e-9 else "delay_input_shortage"
+                        elif binding_cause == "capacity":
+                            event_type = "partial_run_capacity" if qty > 1e-9 else "delay_capacity"
+                        elif binding_cause == "weekly_lot_limit":
+                            event_type = "delay_weekly_lot_limit"
+                        elif binding_cause == "lot_campaign_blocked":
+                            event_type = "delay_lot_campaign_blocked"
+                        elif actual_lot_starts > 0:
+                            event_type = "start_campaign"
+                        elif qty > 1e-9 and campaign_remaining_end_qty > 1e-9:
+                            event_type = "run_campaign_partial"
+                        elif qty > 1e-9:
+                            event_type = "run_campaign_complete"
+                        else:
+                            event_type = "plan_no_run"
+                        receipt_pair = (nid, binding_item) if binding_item else ("", "")
+                        production_plan_event_rows.append(
+                            {
+                                "day": output_day,
+                                "campaign_id": campaign_id,
+                                "node_id": nid,
+                                "output_item_id": out_item,
+                                "event_type": event_type,
+                                "reason": binding_cause,
+                                "desired_qty": round(desired_qty, 6),
+                                "planned_qty_after_lot_rule": round(lot_planned_qty, 6),
+                                "actual_qty": round(qty, 6),
+                                "shortfall_vs_desired_qty": round(shortfall_vs_desired_qty, 6),
+                                "shortfall_vs_lot_plan_qty": round(shortfall_vs_lot_plan_qty, 6),
+                                "binding_input_item_id": binding_item,
+                                "planned_qty_before": round(campaign_remaining_start_qty, 6),
+                                "planned_qty_after": campaign_remaining_end_qty,
+                                "campaign_remaining_start_qty": round(campaign_remaining_start_qty, 6),
+                                "campaign_remaining_end_qty": campaign_remaining_end_qty,
+                                "next_expected_receipt_day": (
+                                    next_receipt_day_for_pair(receipt_pair, day) if binding_item else ""
+                                ),
+                                "notes": "lot_policy_enabled" if lot_policy["enabled"] else "daily_unlotified_plan",
                             }
                         )
                 if qty <= 0:
                     continue
 
+                production_parent_allocations: list[dict[str, Any]] = []
                 for inp in (p.get("inputs") or []):
                     in_item = str(inp.get("item_id"))
                     key = (nid, in_item)
@@ -5813,12 +6422,38 @@ def main() -> None:
                         consumed = qty * req_per_unit
                         stock[key] -= consumed
                         consumed_today_by_pair[key] += consumed
+                        production_parent_allocations.extend(
+                            lot_ledger.consume(
+                                day=output_day,
+                                node_id=nid,
+                                item_id=in_item,
+                                qty=consumed,
+                                event_type="production_consume",
+                                source_id=f"{nid}|{out_item}",
+                                production_campaign_id=campaign_id,
+                                uom=item_unit_map.get(in_item, ""),
+                            )
+                        )
 
                 stock[(nid, out_item)] += qty
+                lot_ledger.create_child_lot(
+                    day=output_day,
+                    node_id=nid,
+                    item_id=out_item,
+                    qty=qty,
+                    source_type="production_output",
+                    source_id=f"{nid}|{out_item}",
+                    parent_allocations=production_parent_allocations,
+                    link_type="production",
+                    uom=item_unit_map.get(out_item, ""),
+                    production_campaign_id=campaign_id,
+                )
                 produced_today += qty
                 produced_today_by_pair[(nid, out_item)] += qty
                 if lot_policy["enabled"]:
                     open_production_campaign_qty_by_pair[out_pair] = max(0.0, campaign_remaining_start_qty - qty)
+                    if open_production_campaign_qty_by_pair[out_pair] <= 1e-9:
+                        open_production_campaign_id_by_pair.pop(out_pair, None)
 
         if record_day:
             total_produced += produced_today
@@ -5860,6 +6495,15 @@ def main() -> None:
             available = stock[pair]
             served = min(available, required)
             stock[pair] -= served
+            lot_ledger.consume(
+                day=output_day,
+                node_id=pair[0],
+                item_id=pair[1],
+                qty=served,
+                event_type="demand_service",
+                source_id="customer_demand",
+                uom=item_unit_map.get(pair[1], ""),
+            )
             backlog[pair] = required - served
             demand_today += dval
             served_today += served
@@ -6558,6 +7202,29 @@ def main() -> None:
                 for arrival_day, chunk_pull_qty, chunk_delivered_qty in delivery_schedule:
                     physical_release_day = int(arrival_day - transport_lead_days)
                     pipeline[arrival_day].append((dst, item_id, chunk_delivered_qty, lane["edge_id"]))
+                    chunk_parent_allocations: list[dict[str, Any]] = []
+                    if supplier_backorder_extra_lead_days <= 0:
+                        chunk_parent_allocations = lot_ledger.consume(
+                            day=output_day,
+                            node_id=str(lane["src"]),
+                            item_id=str(item_id),
+                            qty=chunk_pull_qty,
+                            event_type="lane_ship",
+                            source_id=str(lane["edge_id"]),
+                            uom=item_unit_map.get(str(item_id), ""),
+                        )
+                    schedule_lot_arrival(
+                        arrival_day=arrival_day,
+                        dst_node_id=str(dst),
+                        item_id=str(item_id),
+                        qty=chunk_delivered_qty,
+                        lane_id=str(lane["edge_id"]),
+                        source_type="lane_receipt",
+                        source_id=str(lane["edge_id"]),
+                        parent_allocations=chunk_parent_allocations,
+                        link_type="transport",
+                        notes="source_stock_backordered" if supplier_backorder_extra_lead_days > 0 else "",
+                    )
                     register_mrp_order(
                         pair,
                         source_mode=source_mode,
@@ -6878,7 +7545,20 @@ def main() -> None:
                 for src_pair in supplier_stock_pairs:
                     desired_upstream = max(0.0, external_desired_today_by_src_pair.get(src_pair, 0.0))
                     rejected_upstream = max(0.0, external_rejected_today_by_src_pair.get(src_pair, 0.0))
-                    upstream_rejection_ratio = rejected_upstream / desired_upstream if desired_upstream > 1e-9 else 0.0
+                    upstream_rejection_ratio_daily = rejected_upstream / desired_upstream if desired_upstream > 1e-9 else 0.0
+                    upstream_rejection_avg_7d = update_state_risk_metric_window(
+                        ("upstream_rejection_7d", src_pair[0], src_pair[1]),
+                        upstream_rejection_ratio_daily,
+                        7,
+                    )
+                    upstream_rejection_avg_14d = update_state_risk_metric_window(
+                        ("upstream_rejection_14d", src_pair[0], src_pair[1]),
+                        upstream_rejection_ratio_daily,
+                        14,
+                    )
+                    stock_cover_for_gate = supplier_state_stock_cover_today_by_pair.get(src_pair, math.inf)
+                    stock_no_long_cover = stock_cover_for_gate < 7.0
+                    stock_critical = stock_cover_for_gate < 3.0
                     update_state_risk_counter_and_register(
                         trigger_day=output_day,
                         supplier_id=src_pair[0],
@@ -6886,16 +7566,16 @@ def main() -> None:
                         counter_family="upstream_rejection_watch",
                         risk_family="upstream",
                         risk_type="external_availability",
-                        multiplier=0.95,
-                        trigger_metric="upstream_rejection_ratio_above_10pct",
-                        trigger_value=upstream_rejection_ratio,
+                        multiplier=0.97,
+                        trigger_metric="upstream_rejection_avg_7d_above_10pct_with_stock_cover_below_7d",
+                        trigger_value=upstream_rejection_avg_7d,
                         threshold=0.10,
-                        triggered=upstream_rejection_ratio > 0.10,
+                        triggered=upstream_rejection_avg_7d > 0.10 and stock_no_long_cover,
                         required_consecutive_days=2,
-                        effect="Appro amont fournisseur disponibilite x0.95 pendant 7 jours",
+                        effect="Appro amont fournisseur disponibilite x0.97 pendant 7 jours",
                         notes=(
-                            "Alerte appro amont: declenche quand plus de 10% de la quantite "
-                            "amont demandee au fournisseur n'est pas servie pendant 2 jours."
+                            "Alerte appro amont persistante: declenche quand le rejet amont moyen "
+                            "7 jours depasse 10% et que le stock fournisseur couvre moins de 7 jours."
                         ),
                         duration_days=7,
                         cooldown_days=21,
@@ -6907,16 +7587,16 @@ def main() -> None:
                         counter_family="upstream_rejection_blocked",
                         risk_family="upstream",
                         risk_type="external_capacity",
-                        multiplier=0.85,
-                        trigger_metric="upstream_rejection_ratio_above_25pct",
-                        trigger_value=upstream_rejection_ratio,
-                        threshold=0.25,
-                        triggered=upstream_rejection_ratio > 0.25,
+                        multiplier=0.90,
+                        trigger_metric="upstream_rejection_avg_14d_above_50pct_with_stock_cover_below_3d",
+                        trigger_value=upstream_rejection_avg_14d,
+                        threshold=0.50,
+                        triggered=upstream_rejection_avg_14d > 0.50 and stock_critical,
                         required_consecutive_days=1,
-                        effect="Appro amont fournisseur capacite x0.85 pendant 14 jours",
+                        effect="Appro amont fournisseur capacite x0.90 pendant 14 jours",
                         notes=(
-                            "Risque appro amont actif: declenche quand plus de 25% de la "
-                            "quantite amont demandee au fournisseur n'est pas servie."
+                            "Risque appro amont severise: declenche quand le rejet amont moyen "
+                            "14 jours depasse 50% et que le stock fournisseur couvre moins de 3 jours."
                         ),
                     )
                     upstream_cost_ratio = max(0.0, external_cost_ratio_today_by_src_pair.get(src_pair, 0.0))
@@ -6928,15 +7608,16 @@ def main() -> None:
                         risk_family="cost",
                         risk_type="external_cost",
                         multiplier=1.10,
-                        trigger_metric="upstream_cost_ratio_above_250pct",
+                        trigger_metric="upstream_recourse_cost_ratio_above_250pct",
                         trigger_value=upstream_cost_ratio,
                         threshold=2.50,
                         triggered=upstream_cost_ratio > 2.50 and desired_upstream > 1e-9,
                         required_consecutive_days=3,
-                        effect="Cout appro amont x1.10 pendant 14 jours",
+                        effect="Cout de recours amont x1.10 pendant 14 jours",
                         notes=(
-                            "Risque cout: declenche quand le cout unitaire amont observe depasse "
-                            "250% du prix fournisseur de reference pendant 3 jours."
+                            "Cout de recours amont: declenche quand le cout unitaire amont observe "
+                            "depasse 250% du prix fournisseur de reference pendant 3 jours. "
+                            "C'est un cout de secours, pas un risque physique fournisseur."
                         ),
                     )
 
@@ -7608,6 +8289,7 @@ def main() -> None:
             "demand_profile_cycle_days": demand_profile_cycle_days,
             "reset_backlog_after_warmup": reset_backlog_after_warmup,
             "output_profile": args.output_profile,
+            "lot_trace_enabled": bool(args.lot_trace),
             "opening_stock_bootstrap_scale": opening_stock_bootstrap_scale,
             "unmodeled_supplier_source_mode": unmodeled_supplier_source_mode,
             "stochastic_lead_times": bool(args.stochastic_lead_times),
@@ -7641,14 +8323,18 @@ def main() -> None:
                     "observed lead ratio > 135% for 2 observed days -> lead time +5 days for 14 days",
                 ],
                 "upstream_rules": [
-                    "upstream rejection ratio > 10% for 2 days -> upstream availability x0.95 for 7 days",
-                    "upstream rejection ratio > 25% -> upstream capacity x0.85 for 14 days",
+                    "upstream rejection avg 7d > 10% for 2 days and stock cover < 7 days -> upstream availability x0.97 for 7 days",
+                    "upstream rejection avg 14d > 50% and stock cover < 3 days -> upstream capacity x0.90 for 14 days",
                 ],
                 "reliability_quality_rules": [
                     "delivery loss rate > 3% for 2 days -> supplier reliability x0.95 for 14 days",
                     "delivery loss rate > 8% -> quality yield x0.90 for 14 days",
                 ],
-                "cost_rule": "upstream cost ratio > 250% for 3 days -> upstream cost x1.10 for 14 days",
+                "cost_rule": "upstream recourse cost ratio > 250% for 3 days -> upstream recourse cost x1.10 for 14 days",
+                "state_effect_caps": (
+                    "state-dependent effects are capped: availability/capacity >=70%, "
+                    "reliability/quality >=75%, lead multiplier <=1.5, extra lead <=10 days, cost <=1.5"
+                ),
             },
             "supplier_neutral_floor_test": {
                 "enabled": bool(args.supplier_neutral_floors_csv),
@@ -7854,6 +8540,22 @@ def main() -> None:
             "supplier_risk_events": supplier_risk_events,
             "supplier_risk_event_application_rows": len(supplier_risk_applied_rows),
             "unmodeled_supplier_source_policies": estimated_source_policy_rows,
+            "lot_trace": {
+                "enabled": bool(args.lot_trace),
+                "lot_count": len(lot_ledger.lots),
+                "event_rows": len(lot_ledger.event_rows),
+                "genealogy_rows": len(lot_ledger.genealogy_rows),
+                "outputs": [
+                    "production_lot_events.csv",
+                    "production_lot_genealogy.csv",
+                ],
+            },
+            "production_plan_events": {
+                "event_rows": len(production_plan_event_rows),
+                "outputs": [
+                    "production_plan_events.csv",
+                ],
+            },
             "mrp_trace": {
                 "enabled": True,
                 "tracked_pairs": len(mrp_trace_pairs),
@@ -8078,8 +8780,13 @@ def main() -> None:
     dc_stock_path = data_path(output_dir, "production_dc_stocks_daily.csv")
     demand_pair_path = data_path(output_dir, "production_demand_service_daily.csv")
     production_constraint_path = data_path(output_dir, "production_constraint_daily.csv")
+    production_plan_event_path = data_path(output_dir, "production_plan_events.csv")
     mrp_trace_path = data_path(output_dir, "mrp_trace_daily.csv")
     mrp_orders_path = data_path(output_dir, "mrp_orders_daily.csv")
+    lot_event_path = data_path(output_dir, "production_lot_events.csv")
+    lot_genealogy_path = data_path(output_dir, "production_lot_genealogy.csv")
+    lot_path_audit_report_path = report_path(output_dir, "lot_path_audit.md")
+    lot_path_audit_issues_path = data_path(output_dir, "lot_path_audit_issues.csv")
     assumptions_ledger_path = data_path(output_dir, "assumptions_ledger.csv")
     input_pivot_path = data_path(output_dir, "production_input_stocks_pivot.csv")
     compact_output = args.output_profile == "compact"
@@ -8201,6 +8908,49 @@ def main() -> None:
         )
         writer.writeheader()
         writer.writerows(production_constraint_rows)
+
+    with production_plan_event_path.open("w", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=PRODUCTION_PLAN_EVENT_FIELDS)
+        writer.writeheader()
+        writer.writerows(production_plan_event_rows)
+
+    with lot_event_path.open("w", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=PRODUCTION_LOT_EVENT_FIELDS)
+        writer.writeheader()
+        writer.writerows(lot_ledger.event_rows)
+
+    with lot_genealogy_path.open("w", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=PRODUCTION_LOT_GENEALOGY_FIELDS)
+        writer.writeheader()
+        writer.writerows(lot_ledger.genealogy_rows)
+
+    generated_lot_audit_report_path: str | None = None
+    if lot_ledger.enabled and not args.skip_lot_audit:
+        lot_audit_script_path = Path(__file__).parent / "analysis" / "audit_lot_paths.py"
+        if lot_audit_script_path.exists():
+            lot_audit_cmd = [
+                sys.executable,
+                str(lot_audit_script_path),
+                "--output-root",
+                str(output_dir),
+                "--input",
+                str(input_path),
+                "--report",
+                str(lot_path_audit_report_path),
+                "--issues-csv",
+                str(lot_path_audit_issues_path),
+            ]
+            try:
+                subprocess.run(lot_audit_cmd, check=True, capture_output=True, text=True)
+                generated_lot_audit_report_path = str(lot_path_audit_report_path)
+            except subprocess.CalledProcessError as exc:
+                print(f"[WARN] Lot path audit failed: {exc}", file=sys.stderr)
+                if exc.stdout:
+                    print(exc.stdout.strip(), file=sys.stderr)
+                if exc.stderr:
+                    print(exc.stderr.strip(), file=sys.stderr)
+        else:
+            print(f"[WARN] Lot path audit script not found: {lot_audit_script_path}", file=sys.stderr)
 
     with mrp_trace_path.open("w", encoding="utf-8", newline="") as f:
         writer = csv.DictWriter(
@@ -8660,6 +9410,7 @@ def main() -> None:
 - Warm-up demand profile mode / cycle: {summary['policy']['warmup_profile_mode']} / {summary['policy']['demand_profile_cycle_days']} days
 - Total simulated timeline (days): {summary['timeline_days']}
 - Output profile: {summary['policy']['output_profile']}
+- Lot trace enabled: {summary['policy']['lot_trace_enabled']}
 - Safety stock policy (days): {summary['policy']['safety_stock_days']}
 - Replenishment review period (customer/DC, days): {summary['policy']['review_period_days']}
 - Upstream factory MRP review period (days): {summary['policy']['mrp_review_period_days']}
@@ -8724,6 +9475,8 @@ def main() -> None:
 - Opening stock bootstrap pairs (lead-time coverage at max capacity): {len(opening_stock_bootstrap_rows)}
 - Opening open-order rows seeded: {len(opening_open_order_rows)}
 - MRP trace tracked pairs / rows / orders: {summary['production_tracking']['mrp_trace']['tracked_pairs']} / {summary['production_tracking']['mrp_trace']['trace_rows']} / {summary['production_tracking']['mrp_trace']['order_rows']}
+- Lot trace lots / events / genealogy rows: {summary['production_tracking']['lot_trace']['lot_count']} / {summary['production_tracking']['lot_trace']['event_rows']} / {summary['production_tracking']['lot_trace']['genealogy_rows']}
+- Production plan event rows: {summary['production_tracking']['production_plan_events']['event_rows']}
 
 ## KPIs
 - Total demand: {summary['kpis']['total_demand']}
@@ -8781,6 +9534,11 @@ Le graphe `Reappro amont` utilise maintenant `order_date_IMT` pour dater les ord
 - data/production_output_products_daily.csv
 - data/production_demand_service_daily.csv
 - data/production_constraint_daily.csv
+- data/production_plan_events.csv
+- data/production_lot_events.csv
+- data/production_lot_genealogy.csv
+- reports/lot_path_audit.md ({generated_lot_audit_report_path or 'not generated'})
+- data/lot_path_audit_issues.csv ({lot_path_audit_issues_path if generated_lot_audit_report_path else 'not generated'})
 - data/mrp_trace_daily.csv
 - data/mrp_orders_daily.csv
 - data/assumptions_ledger.csv
@@ -8810,6 +9568,14 @@ Le graphe `Reappro amont` utilise maintenant `order_date_IMT` pour dater les ord
     print(f"[OK] Production output products CSV: {output_prod_path.resolve()}")
     print(f"[OK] Production demand service CSV: {demand_pair_path.resolve()}")
     print(f"[OK] Production constraint CSV: {production_constraint_path.resolve()}")
+    print(f"[OK] Production plan events CSV: {production_plan_event_path.resolve()}")
+    print(f"[OK] Production lot events CSV: {lot_event_path.resolve()}")
+    print(f"[OK] Production lot genealogy CSV: {lot_genealogy_path.resolve()}")
+    if generated_lot_audit_report_path:
+        print(f"[OK] Lot path audit report: {lot_path_audit_report_path.resolve()}")
+        print(f"[OK] Lot path audit issues CSV: {lot_path_audit_issues_path.resolve()}")
+    elif args.skip_lot_audit:
+        print("[INFO] Lot path audit skipped (--skip-lot-audit).")
     print(f"[OK] MRP trace CSV: {mrp_trace_path.resolve()}")
     print(f"[OK] MRP orders CSV: {mrp_orders_path.resolve()}")
     print(f"[OK] Assumptions ledger CSV: {assumptions_ledger_path.resolve()}")

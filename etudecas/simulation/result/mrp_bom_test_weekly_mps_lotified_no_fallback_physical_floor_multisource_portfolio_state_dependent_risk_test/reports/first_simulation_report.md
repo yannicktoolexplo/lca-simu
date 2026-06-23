@@ -71,7 +71,7 @@
 - Supplier upstream sourcing for unmodeled source pairs: 34
 - Opening stock bootstrap pairs (lead-time coverage at max capacity): 0
 - Opening open-order rows seeded: 88
-- MRP trace tracked pairs / rows / orders: 65 / 118625 / 32203
+- MRP trace tracked pairs / rows / orders: 65 / 118625 / 32114
 
 ## KPIs
 - Total demand: 25762139.9999
@@ -80,26 +80,26 @@
 - Ending backlog: 0
 - Total produced: 116905200.0
 - Total shipped: 833439655.2393
-- Avg inventory: 658761968.8443
-- Ending inventory: 629347171.0783
+- Avg inventory: 659957356.3526
+- Ending inventory: 637922324.0978
 - Transport cost: 5607075.4618
-- Holding cost (capital tied-up): 9598501.0547
-- Warehouse operating cost: 12340929.9275
-- Inventory risk cost (obsolescence/compliance proxy): 5484857.7456
-- Legacy raw holding cost before split: 27424288.7278
+- Holding cost (capital tied-up): 9600572.767
+- Warehouse operating cost: 12343593.5576
+- Inventory risk cost (obsolescence/compliance proxy): 5486041.5811
+- Legacy raw holding cost before split: 27430207.9057
 - Purchase cost (from order_terms sell_price): 21869585.9211
-- Production cost (pharma conversion proxy): 23528978.6189
-- Logistics cost (transport + inventory capital + warehouse + inventory risk): 33031364.1896
-- Total cost: 78429928.7296
-- Total supplier upstream ordered qty: 549867460.6687
-- Total supplier upstream arrived qty: 779456206.8813
+- Production cost (pharma conversion proxy): 23531515.4094
+- Logistics cost (transport + inventory capital + warehouse + inventory risk): 33037283.3675
+- Total cost: 78438384.698
+- Total supplier upstream ordered qty: 558448292.5804
+- Total supplier upstream arrived qty: 788031359.9008
 - Supplier upstream arrived includes opening upstream pipeline receipts when the upstream pipeline seed is enabled.
-- Total supplier upstream rejected qty (cap-limited): 2684847911.1796
-- Total supplier upstream cost premium: 58716775.6653
+- Total supplier upstream rejected qty (cap-limited): 2382458604.81
+- Total supplier upstream cost premium: 59509069.605
 - Total estimated source ordered qty: 0.0
 - Total estimated source replenished qty: 0.0
 - Total estimated source rejected qty: 0.0
-- Cost share capital holding / warehouse / inventory risk / transport / purchase / production: 0.122383 / 0.15735 / 0.069933 / 0.071492 / 0.278842 / 0.3
+- Cost share capital holding / warehouse / inventory risk / transport / purchase / production: 0.122396 / 0.157367 / 0.069941 / 0.071484 / 0.278812 / 0.3
 - Total opening stock bootstrap qty: 0.0
 - Total explicit initialization stock qty: 208012846.7465
 - Total explicit initialization pipeline qty: 303596232.9482

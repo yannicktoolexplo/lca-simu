@@ -36,7 +36,7 @@
     },
     "supplier_state_dependent_risk": {
       "enabled": true,
-      "generated_event_count": 439,
+      "generated_event_count": 309,
       "observation_warmup_days": 30,
       "stock_rules": [
         "stock cover < 5 days for 5 consecutive days -> availability x0.95 for 7 days",
@@ -55,14 +55,15 @@
         "observed lead ratio > 135% for 2 observed days -> lead time +5 days for 14 days"
       ],
       "upstream_rules": [
-        "upstream rejection ratio > 10% for 2 days -> upstream availability x0.95 for 7 days",
-        "upstream rejection ratio > 25% -> upstream capacity x0.85 for 14 days"
+        "upstream rejection avg 7d > 10% for 2 days and stock cover < 7 days -> upstream availability x0.97 for 7 days",
+        "upstream rejection avg 14d > 50% and stock cover < 3 days -> upstream capacity x0.90 for 14 days"
       ],
       "reliability_quality_rules": [
         "delivery loss rate > 3% for 2 days -> supplier reliability x0.95 for 14 days",
         "delivery loss rate > 8% -> quality yield x0.90 for 14 days"
       ],
-      "cost_rule": "upstream cost ratio > 250% for 3 days -> upstream cost x1.10 for 14 days"
+      "cost_rule": "upstream recourse cost ratio > 250% for 3 days -> upstream recourse cost x1.10 for 14 days",
+      "state_effect_caps": "state-dependent effects are capped: availability/capacity >=70%, reliability/quality >=75%, lead multiplier <=1.5, extra lead <=10 days, cost <=1.5"
     },
     "supplier_neutral_floor_test": {
       "enabled": false,
@@ -5686,7 +5687,7 @@
     "factory_nominal_capacity_rows": 3,
     "supplier_stock_flow_rows": 60225,
     "supplier_risk_events": [],
-    "supplier_risk_event_application_rows": 1679,
+    "supplier_risk_event_application_rows": 1163,
     "unmodeled_supplier_source_policies": [
       {
         "node_id": "SDC-VD0500655A",
@@ -6584,7 +6585,7 @@
       "enabled": true,
       "tracked_pairs": 65,
       "trace_rows": 118625,
-      "order_rows": 32203,
+      "order_rows": 32114,
       "trace_outputs": [
         "mrp_trace_daily.csv",
         "mrp_orders_daily.csv"
@@ -6603,7 +6604,7 @@
         "profile": "medicament_gelule",
         "produced_qty": 7977200.0,
         "cost_share_of_production": 0.4,
-        "production_cost": 9411591.4475,
+        "production_cost": 9412606.1638,
         "allocation_basis": "pharma_standard_target_share_allocated_on_actual_production"
       },
       {
@@ -6612,7 +6613,7 @@
         "profile": "creme_dermato",
         "produced_qty": 16128000.0,
         "cost_share_of_production": 0.45,
-        "production_cost": 10588040.3785,
+        "production_cost": 10589181.9342,
         "allocation_basis": "pharma_standard_target_share_allocated_on_actual_production"
       },
       {
@@ -6621,7 +6622,7 @@
         "profile": "semi_fini_extraction",
         "produced_qty": 92800000.0,
         "cost_share_of_production": 0.15,
-        "production_cost": 3529346.7928,
+        "production_cost": 3529727.3114,
         "allocation_basis": "pharma_standard_target_share_allocated_on_actual_production"
       }
     ]
@@ -6637,22 +6638,22 @@
     "total_shipped": 833439655.2393,
     "total_arrived": 894533557.2393,
     "total_produced": 116905200.0,
-    "avg_inventory": 658761968.8443,
-    "ending_inventory": 629347171.0783,
+    "avg_inventory": 659957356.3526,
+    "ending_inventory": 637922324.0978,
     "total_transport_cost": 5607075.4618,
-    "total_holding_cost": 9598501.0547,
-    "total_warehouse_operating_cost": 12340929.9275,
-    "total_inventory_risk_cost": 5484857.7456,
-    "total_inventory_cost_legacy_raw_holding": 27424288.7278,
+    "total_holding_cost": 9600572.767,
+    "total_warehouse_operating_cost": 12343593.5576,
+    "total_inventory_risk_cost": 5486041.5811,
+    "total_inventory_cost_legacy_raw_holding": 27430207.9057,
     "total_purchase_cost": 21869585.9211,
-    "total_production_cost": 23528978.6189,
-    "total_logistics_cost": 33031364.1896,
-    "total_cost": 78429928.7296,
-    "total_external_procured_ordered_qty": 549867460.6687,
-    "total_external_procured_arrived_qty": 779456206.8813,
-    "total_external_procured_rejected_qty": 2684847911.1796,
-    "total_external_procured_qty": 549867460.6687,
-    "total_external_procurement_cost": 58716775.6653,
+    "total_production_cost": 23531515.4094,
+    "total_logistics_cost": 33037283.3675,
+    "total_cost": 78438384.698,
+    "total_external_procured_ordered_qty": 558448292.5804,
+    "total_external_procured_arrived_qty": 788031359.9008,
+    "total_external_procured_rejected_qty": 2382458604.81,
+    "total_external_procured_qty": 558448292.5804,
+    "total_external_procurement_cost": 59509069.605,
     "total_estimated_source_ordered_qty": 0.0,
     "total_estimated_source_replenished_qty": 0.0,
     "total_estimated_source_rejected_qty": 0.0,
@@ -6662,11 +6663,11 @@
     "total_opening_open_order_qty": 68338188.0,
     "total_unreliable_loss_qty": 0.0,
     "total_supplier_capacity_binding_qty": 0.0,
-    "cost_share_holding": 0.122383,
-    "cost_share_warehouse_operating": 0.15735,
-    "cost_share_inventory_risk": 0.069933,
-    "cost_share_transport": 0.071492,
-    "cost_share_purchase": 0.278842,
+    "cost_share_holding": 0.122396,
+    "cost_share_warehouse_operating": 0.157367,
+    "cost_share_inventory_risk": 0.069941,
+    "cost_share_transport": 0.071484,
+    "cost_share_purchase": 0.278812,
     "cost_share_production": 0.3
   },
   "economic_consistency": {
