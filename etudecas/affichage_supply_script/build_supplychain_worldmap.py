@@ -64,7 +64,7 @@ SIMULATED_RISK_FAMILY_INFO = {
     "reliability": {"label": "Fiabilite", "color": "#2563eb"},
     "upstream": {"label": "Appro amont", "color": "#be123c"},
     "quality": {"label": "Qualite", "color": "#0891b2"},
-    "cost": {"label": "Cout de recours amont", "color": "#475569"},
+    "cost": {"label": "Cout appro fournisseur", "color": "#475569"},
     "availability": {"label": "Disponibilite", "color": "#f59e0b"},
     "other": {"label": "Autre", "color": "#64748b"},
 }
@@ -1449,6 +1449,7 @@ def build_factory_hover_images(
     output_png_dir: Path,
     demand_service_csv: Path,
     production_constraint_csv: Path,
+    mrp_trace_csv: Path | None = None,
 ) -> dict[str, Any]:
     nodes = raw.get("nodes", []) or []
     incoming_items, outgoing_items = build_edge_item_sets(raw)
@@ -1456,6 +1457,7 @@ def build_factory_hover_images(
     constraint_rows = read_csv_rows(production_constraint_csv)
     input_arrival_rows = read_csv_rows(input_arrivals_csv)
     supplier_shipment_rows = read_csv_rows(supplier_shipments_csv)
+    mrp_trace_rows = read_csv_rows(mrp_trace_csv) if mrp_trace_csv is not None and mrp_trace_csv.exists() else []
     factory_ids = sorted(factory_like_node_ids(raw))
     node_by_id = {str(n.get("id")): n for n in nodes}
     item_labels = item_label_lookup(raw)
@@ -1508,6 +1510,11 @@ def build_factory_hover_images(
             if str(descriptor.get("item_label") or descriptor.get("item_id") or "").strip()
         }
         incoming_stock_series = {label: pts for label, pts in incoming_stock_series.items() if pts}
+        incoming_item_ids: set[str] = {
+            str(descriptor.get("item_id") or "")
+            for descriptor in incoming_descriptors
+            if str(descriptor.get("item_id") or "")
+        }
         incoming_arrival_series: dict[str, list[tuple[int, float]]] = {}
         incoming_item_labels: set[str] = set()
         for descriptor in incoming_descriptors:
@@ -1535,6 +1542,7 @@ def build_factory_hover_images(
                 if arrival_pts:
                     item_label = item_labels.get(item_id, compact_item_label(item_id))
                     incoming_item_labels.add(item_label)
+                    incoming_item_ids.add(item_id)
                     incoming_arrival_series[f"{item_label} - reception"] = arrival_pts
         display_factory_id = display_node_label(factory_id)
         incoming_title = f"{display_factory_id} - stocks et receptions intrants"
@@ -1551,14 +1559,22 @@ def build_factory_hover_images(
                 incoming_title = f"{display_factory_id} - stocks et arrivages intrants"
                 bottom_title = f"{display_factory_id} - arrivages intrants"
         if incoming_stock_series or incoming_arrival_series:
+            incoming_target_series, incoming_target_styles = stock_target_overlay_series(
+                mrp_trace_rows,
+                node_id=factory_id,
+                item_ids=incoming_item_ids,
+                item_labels=item_labels,
+            )
+            incoming_top_series = {**incoming_stock_series, **incoming_target_series}
             figure = build_dual_line_multi_panel_figure(
                 title=incoming_title,
                 top_title=top_title,
                 top_y_label="Stock",
-                top_series_map=incoming_stock_series,
+                top_series_map=incoming_top_series,
                 bottom_title=bottom_title,
                 bottom_y_label="Receptions",
                 bottom_series_map=incoming_arrival_series,
+                top_series_styles=incoming_target_styles,
                 bottom_step_like=True,
             )
             if figure is not None:
@@ -1572,6 +1588,18 @@ def build_factory_hover_images(
             if str(descriptor.get("item_label") or descriptor.get("item_id") or "").strip()
         }
         outgoing_stock_series = {label: pts for label, pts in outgoing_stock_series.items() if pts}
+        outgoing_item_ids: set[str] = {
+            str(descriptor.get("item_id") or "")
+            for descriptor in outgoing_descriptors
+            if str(descriptor.get("item_id") or "")
+        }
+        outgoing_target_series, outgoing_target_styles = stock_target_overlay_series(
+            mrp_trace_rows,
+            node_id=factory_id,
+            item_ids=outgoing_item_ids,
+            item_labels=item_labels,
+        )
+        outgoing_stock_with_targets = {**outgoing_stock_series, **outgoing_target_series}
         if is_upstream_internal_site(factory_id) and supplier_shipment_rows:
             outbound_series: dict[str, list[tuple[int, float]]] = {}
             outbound_item_ids = sorted(
@@ -1600,10 +1628,11 @@ def build_factory_hover_images(
                         title=f"{display_factory_id} - stock et expeditions PFI",
                         top_title=f"{display_factory_id} - stock PFI produits",
                         top_y_label="Stock",
-                        top_series_map=outgoing_stock_series,
+                        top_series_map=outgoing_stock_with_targets,
                         bottom_title=f"{display_factory_id} - expeditions PFI par item",
                         bottom_y_label="Expeditions",
                         bottom_series_map=outbound_series,
+                        top_series_styles=outgoing_target_styles,
                         bottom_step_like=True,
                     )
                 else:
@@ -1615,13 +1644,56 @@ def build_factory_hover_images(
                     )
                 if figure is not None:
                     outgoing = {"figure": figure}
+        elif outgoing_stock_series:
+            figure = build_line_chart_figure(
+                outgoing_stock_with_targets,
+                title=f"{display_factory_id} - stock produits avec cible",
+                y_label="Quantite",
+                note="Lecture metier: stock physique et cible MRP affichee. Les details de calcul restent dans Audit MRP.",
+                series_styles=outgoing_target_styles,
+            )
+            if figure is not None:
+                outgoing = {"figure": figure}
         factory_rows = [row for row in constraint_rows if str(row.get("node_id") or "") == factory_id]
         production_gantt_figure = build_factory_production_gantt_figure(raw, factory_id, factory_rows, item_labels)
         production_gantt = {"figure": production_gantt_figure} if production_gantt_figure is not None else None
         desired_series = aggregate_daily_series(factory_rows, value_field="desired_qty")
-        actual_series = aggregate_daily_series(factory_rows, value_field="actual_qty")
+        normal_actual_by_day: dict[int, float] = defaultdict(float)
+        recovery_actual_by_day: dict[int, float] = defaultdict(float)
+        for row in factory_rows:
+            day = int(to_float(row.get("day")) or 0)
+            actual_qty = max(0.0, to_float(row.get("actual_qty")) or 0.0)
+            if actual_qty <= 0:
+                continue
+            requested_today_qty = max(0.0, to_float(row.get("campaign_requested_qty")) or 0.0)
+            requested_today_lots = max(0.0, to_float(row.get("requested_lot_starts")) or 0.0)
+            remaining_at_start = max(0.0, to_float(row.get("campaign_remaining_start_qty")) or 0.0)
+            is_recovery = remaining_at_start > 0 and requested_today_qty <= 0 and requested_today_lots <= 0
+            if is_recovery:
+                recovery_actual_by_day[day] += actual_qty
+            else:
+                normal_actual_by_day[day] += actual_qty
+        actual_series = [(day, qty) for day, qty in sorted(normal_actual_by_day.items())]
+        recovery_actual_series = [(day, qty) for day, qty in sorted(recovery_actual_by_day.items())]
         capacity_series = aggregate_daily_series(factory_rows, value_field="cap_qty")
         shortfall_series = aggregate_daily_series(factory_rows, value_field="shortfall_vs_desired_qty")
+        lot_plan_shortfall_series = aggregate_daily_series(factory_rows, value_field="shortfall_vs_lot_plan_qty")
+        production_execution = build_factory_industrial_payload(
+            desired_series,
+            actual_series,
+            recovery_actual_series,
+            capacity_series,
+            shortfall_series,
+            lot_plan_shortfall_series,
+            factory_id=factory_id,
+        )
+        if production_execution is not None:
+            outgoing_entries = [
+                {"label": "Execution production", "asset": production_execution},
+                {"label": "Stock produits / expeditions", "asset": outgoing},
+            ]
+            outgoing_bundle = {"bundle": [entry for entry in outgoing_entries if entry.get("asset")]}
+            outgoing = outgoing_bundle if outgoing_bundle["bundle"] else outgoing
         inbound_lead_days = {}
         for edge in raw.get("edges", []) or []:
             if str(edge.get("to") or "") != factory_id:
@@ -1764,6 +1836,551 @@ def item_label_lookup(raw: dict[str, Any]) -> dict[str, str]:
     return lookup
 
 
+def stock_target_overlay_series(
+    mrp_trace_rows: list[dict[str, str]],
+    *,
+    node_id: str,
+    item_ids: set[str],
+    item_labels: dict[str, str],
+    label_suffix: str = "cible MRP",
+) -> tuple[dict[str, list[tuple[int, float]]], dict[str, dict[str, Any]]]:
+    if not mrp_trace_rows or not node_id or not item_ids:
+        return {}, {}
+    series_map: dict[str, list[tuple[int, float]]] = {}
+    series_styles: dict[str, dict[str, Any]] = {}
+    for item_id in sorted(item_ids):
+        if is_simulation_hidden_item(item_id):
+            continue
+        target_pts: list[tuple[int, float]] = []
+        for field in ("target_stock_display_qty", "target_stock_qty", "safety_floor_qty"):
+            pts = aggregate_daily_series(
+                mrp_trace_rows,
+                value_field=field,
+                node_field="node_id",
+                node_id=node_id,
+                item_ids={item_id},
+            )
+            if any(abs(value) > 1e-9 for _, value in pts):
+                target_pts = pts
+                break
+        if not target_pts:
+            continue
+        label = f"{item_labels.get(item_id, compact_item_label(item_id))} - {label_suffix}"
+        series_map[label] = target_pts
+        series_styles[label] = {"color": "#2563eb", "width": 1.8, "dash": "dash"}
+    return series_map, series_styles
+
+
+def build_simulation_diagnostics_payload(
+    raw: dict[str, Any],
+    *,
+    demand_service_csv: Path,
+    dc_stocks_csv: Path,
+    sim_input_stocks_csv: Path,
+    sim_output_products_csv: Path,
+    production_constraint_csv: Path,
+    production_plan_events_csv: Path,
+    supplier_shipments_csv: Path,
+    supplier_stocks_csv: Path,
+    supplier_stock_flows_csv: Path | None,
+    supplier_local_criticality_csv: Path,
+    mrp_trace_csv: Path | None,
+    edge_metrics: dict[str, dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    item_labels = item_label_lookup(raw)
+    node_by_id = {str(node.get("id") or ""): node for node in raw.get("nodes", []) or []}
+    edge_metrics = edge_metrics or {}
+
+    def item_label(item_id: str) -> str:
+        return item_labels.get(item_id, compact_item_label(item_id))
+
+    def compact_qty(value: float) -> str:
+        value = float(value or 0.0)
+        sign = "-" if value < 0 else ""
+        value = abs(value)
+        if value >= 1_000_000_000:
+            return f"{sign}{value / 1_000_000_000:.2f}Md"
+        if value >= 1_000_000:
+            return f"{sign}{value / 1_000_000:.2f}M"
+        if value >= 1_000:
+            return f"{sign}{value / 1_000:.1f}k"
+        return f"{sign}{value:.1f}"
+
+    def pct(num: float, den: float) -> float:
+        return 100.0 * num / den if den > 1e-9 else 0.0
+
+    def make_diag(
+        *,
+        pill: str,
+        title: str,
+        text: str,
+        cls: str,
+        status: str,
+        cause: str,
+        proof: str,
+        action: str,
+        impact: str = "",
+    ) -> dict[str, Any]:
+        lines = [
+            {"label": "Statut", "value": status},
+            {"label": "Cause principale", "value": cause},
+            {"label": "Preuve", "value": proof},
+            {"label": "Action metier", "value": action},
+        ]
+        if impact:
+            lines.insert(2, {"label": "Impact", "value": impact})
+        return {
+            "pill": pill,
+            "title": title,
+            "text": text,
+            "cls": cls,
+            "summary_lines": lines,
+        }
+
+    nodes: dict[str, Any] = {}
+    edges: dict[str, Any] = {}
+
+    demand_rows = read_csv_rows(demand_service_csv)
+    demand_by_node: dict[str, dict[str, Any]] = defaultdict(
+        lambda: {
+            "demand": 0.0,
+            "served": 0.0,
+            "max_backlog": 0.0,
+            "backlog_days": set(),
+            "items": set(),
+            "worst_item": "",
+            "worst_item_backlog": 0.0,
+        }
+    )
+    for row in demand_rows:
+        node_id = str(row.get("node_id") or "")
+        item_id = str(row.get("item_id") or "")
+        if not node_id or is_simulation_hidden_item(item_id):
+            continue
+        day = int(to_float(row.get("day")) or 0)
+        demand = max(0.0, to_float(row.get("demand_qty")) or 0.0)
+        served = max(0.0, to_float(row.get("served_qty")) or 0.0)
+        backlog = max(0.0, to_float(row.get("backlog_end_qty")) or 0.0)
+        stats = demand_by_node[node_id]
+        stats["demand"] += demand
+        stats["served"] += served
+        stats["items"].add(item_id)
+        if backlog > 1e-9:
+            stats["backlog_days"].add(day)
+        if backlog > stats["max_backlog"]:
+            stats["max_backlog"] = backlog
+        if backlog > stats["worst_item_backlog"]:
+            stats["worst_item_backlog"] = backlog
+            stats["worst_item"] = item_id
+
+    for node_id, stats in demand_by_node.items():
+        service = pct(stats["served"], stats["demand"])
+        backlog_days = len(stats["backlog_days"])
+        worst_item = str(stats["worst_item"] or "")
+        if service < 98.0 or backlog_days > 14:
+            cls = "businessAlert"
+            status = "Critique service"
+            action = "Verifier stock aval et prioriser le reapprovisionnement du produit en retard."
+        elif service < 99.5 or backlog_days > 2:
+            cls = "businessWarn"
+            status = "Service sous surveillance"
+            action = "Surveiller les jours de backlog et verifier le stock DC sur les produits demandes."
+        else:
+            cls = "businessOk"
+            status = "Service client OK"
+            action = "Aucune action immediate; garder la preuve stock/demande pour expliquer le service."
+        proof = (
+            f"demande={compact_qty(stats['demand'])}, servi={compact_qty(stats['served'])}, "
+            f"service={service:.2f}%, backlog max={compact_qty(stats['max_backlog'])}"
+        )
+        if worst_item:
+            proof += f" sur {item_label(worst_item)}"
+        text = (
+            "Question metier: le client est-il servi ? "
+            f"Reponse: {service:.2f}% servi, {backlog_days} jour(s) avec backlog. "
+            "Preuve: courbes demande / servi / backlog."
+        )
+        nodes[node_id] = make_diag(
+            pill="Diagnostic",
+            title=f"{status} - {node_id}",
+            text=text,
+            cls=cls,
+            status=status,
+            cause="Demande aval couverte par les receptions et le stock disponible",
+            impact=f"{backlog_days} jour(s) de backlog ; backlog max {compact_qty(stats['max_backlog'])}",
+            proof=proof,
+            action=action,
+        )
+
+    dc_rows = read_csv_rows(dc_stocks_csv)
+    mrp_rows = read_csv_rows(mrp_trace_csv) if mrp_trace_csv is not None and mrp_trace_csv.exists() else []
+    dc_stock: dict[str, dict[str, Any]] = defaultdict(
+        lambda: {"items": set(), "first": {}, "last": {}, "min": {}, "min_day": {}, "max_target": defaultdict(float)}
+    )
+    for row in dc_rows:
+        node_id = str(row.get("node_id") or "")
+        item_id = str(row.get("item_id") or "")
+        if not node_id or not item_id or is_simulation_hidden_item(item_id):
+            continue
+        day = int(to_float(row.get("day")) or 0)
+        value = max(0.0, to_float(row.get("stock_end_of_day")) or 0.0)
+        stats = dc_stock[node_id]
+        stats["items"].add(item_id)
+        stats["first"].setdefault(item_id, value)
+        stats["last"][item_id] = value
+        if item_id not in stats["min"] or value < stats["min"][item_id]:
+            stats["min"][item_id] = value
+            stats["min_day"][item_id] = day
+    for row in mrp_rows:
+        node_id = str(row.get("node_id") or "")
+        if node_id not in dc_stock:
+            continue
+        item_id = str(row.get("item_id") or "")
+        if item_id not in dc_stock[node_id]["items"]:
+            continue
+        target = 0.0
+        for field in ("target_stock_display_qty", "target_stock_qty", "safety_floor_qty"):
+            target = max(target, max(0.0, to_float(row.get(field)) or 0.0))
+        if target > dc_stock[node_id]["max_target"][item_id]:
+            dc_stock[node_id]["max_target"][item_id] = target
+
+    shipments = read_csv_rows(supplier_shipments_csv)
+    inbound_by_node: dict[str, float] = defaultdict(float)
+    outbound_by_node: dict[str, float] = defaultdict(float)
+    shipment_qty_by_triplet: dict[tuple[str, str, str], float] = defaultdict(float)
+    for row in shipments:
+        src = str(row.get("src_node_id") or "")
+        dst = str(row.get("dst_node_id") or "")
+        item_id = str(row.get("item_id") or "")
+        if is_simulation_hidden_item(item_id):
+            continue
+        qty = max(0.0, to_float(row.get("shipped_qty")) or 0.0)
+        if dst:
+            inbound_by_node[dst] += qty
+        if src:
+            outbound_by_node[src] += qty
+        if src and dst and item_id:
+            shipment_qty_by_triplet[(src, dst, item_id)] += qty
+
+    for node_id, stats in dc_stock.items():
+        worst_item = ""
+        worst_ratio = math.inf
+        worst_min = 0.0
+        worst_target = 0.0
+        biggest_drop_item = ""
+        biggest_drop_ratio = 0.0
+        for item_id in sorted(stats["items"]):
+            first = float(stats["first"].get(item_id, 0.0))
+            minimum = float(stats["min"].get(item_id, 0.0))
+            target = float(stats["max_target"].get(item_id, 0.0))
+            if first > 1e-9:
+                drop_ratio = max(0.0, (first - minimum) / first)
+                if drop_ratio > biggest_drop_ratio:
+                    biggest_drop_ratio = drop_ratio
+                    biggest_drop_item = item_id
+            if target > 1e-9:
+                ratio = minimum / target
+                if ratio < worst_ratio:
+                    worst_ratio = ratio
+                    worst_item = item_id
+                    worst_min = minimum
+                    worst_target = target
+        if worst_item and worst_min <= 1e-9:
+            cls = "businessAlert"
+            status = "Stock DC en rupture"
+            cause = f"{item_label(worst_item)} atteint un stock nul"
+            action = "Verifier les receptions usine->DC et le niveau de couverture client."
+        elif worst_item and worst_ratio < 0.8:
+            cls = "businessWarn"
+            status = "Stock DC sous cible MRP"
+            cause = f"{item_label(worst_item)} descend nettement sous la cible MRP"
+            action = "Verifier si la cible est un seuil de couverture prudent ou si les receptions DC doivent etre avancees."
+        elif worst_item and worst_ratio < 1.0:
+            cls = "businessWarn"
+            status = "Stock DC proche cible"
+            cause = f"{item_label(worst_item)} passe sous la cible MRP"
+            action = "Surveiller la trajectoire stock/cible et les prochains lots en reception."
+        elif biggest_drop_ratio >= 0.25:
+            cls = "businessWarn"
+            status = "Stock DC consomme"
+            cause = f"{item_label(biggest_drop_item)} baisse fortement avant reapprovisionnement"
+            action = "Relier la baisse a la demande client et aux receptions DC."
+        else:
+            cls = "businessOk"
+            status = "Stock DC couvert"
+            cause = "Le stock physique reste au-dessus des seuils visibles ou sans rupture detectee"
+            action = "Pas d'action immediate; garder la courbe stock/cible comme preuve de couverture."
+        if worst_item:
+            proof = (
+                f"{item_label(worst_item)} min={compact_qty(worst_min)} / cible={compact_qty(worst_target)} "
+                f"({worst_ratio:.2f}x)"
+            )
+        elif biggest_drop_item:
+            proof = f"{item_label(biggest_drop_item)} baisse max={biggest_drop_ratio * 100:.1f}%"
+        else:
+            proof = "stocks DC stables sur les items traces"
+        text = (
+            "Question metier: le DC protege-t-il le service client ? "
+            f"Reponse: {status.lower()}. Receptions={compact_qty(inbound_by_node[node_id])}, "
+            f"expeditions={compact_qty(outbound_by_node[node_id])}. Preuve: courbe stock DC / cible MRP."
+        )
+        nodes[node_id] = make_diag(
+            pill="Diagnostic",
+            title=f"{status} - {node_id}",
+            text=text,
+            cls=cls,
+            status=status,
+            cause=cause,
+            impact=f"receptions {compact_qty(inbound_by_node[node_id])}, expeditions {compact_qty(outbound_by_node[node_id])}",
+            proof=proof,
+            action=action,
+        )
+
+    constraint_rows = read_csv_rows(production_constraint_csv)
+    factory_stats: dict[str, dict[str, Any]] = defaultdict(
+        lambda: {
+            "desired": 0.0,
+            "planned": 0.0,
+            "actual": 0.0,
+            "short_desired": 0.0,
+            "short_plan": 0.0,
+            "input_shortage_days": set(),
+            "capacity_days": set(),
+            "weekly_lot_limit_days": set(),
+            "active_days": set(),
+            "items": set(),
+            "binding_shortfall": defaultdict(float),
+            "recovery_days": set(),
+            "normal_days": set(),
+        }
+    )
+    for row in constraint_rows:
+        node_id = str(row.get("node_id") or "")
+        item_id = str(row.get("output_item_id") or "")
+        if not node_id or not item_id or is_simulation_hidden_item(item_id):
+            continue
+        day = int(to_float(row.get("day")) or 0)
+        actual = max(0.0, to_float(row.get("actual_qty")) or 0.0)
+        planned = max(0.0, to_float(row.get("planned_qty_after_lot_rule")) or 0.0)
+        desired = max(0.0, to_float(row.get("desired_qty")) or 0.0)
+        short_plan = max(0.0, to_float(row.get("shortfall_vs_lot_plan_qty")) or 0.0)
+        stats = factory_stats[node_id]
+        stats["items"].add(item_id)
+        stats["desired"] += desired
+        stats["planned"] += planned
+        stats["actual"] += actual
+        stats["short_desired"] += max(0.0, to_float(row.get("shortfall_vs_desired_qty")) or 0.0)
+        stats["short_plan"] += short_plan
+        if actual > 1e-9:
+            stats["active_days"].add(day)
+            remaining_start = max(0.0, to_float(row.get("campaign_remaining_start_qty")) or 0.0)
+            requested_qty = max(0.0, to_float(row.get("campaign_requested_qty")) or 0.0)
+            requested_lots = max(0.0, to_float(row.get("requested_lot_starts")) or 0.0)
+            if remaining_start > 0 and requested_qty <= 1e-9 and requested_lots <= 1e-9:
+                stats["recovery_days"].add(day)
+            else:
+                stats["normal_days"].add(day)
+        cause = str(row.get("binding_cause") or "none")
+        if cause == "input_shortage":
+            stats["input_shortage_days"].add(day)
+            binding_item = str(row.get("binding_input_item_id") or "")
+            if binding_item:
+                stats["binding_shortfall"][binding_item] += short_plan
+        elif cause == "capacity":
+            stats["capacity_days"].add(day)
+        elif cause == "weekly_lot_limit":
+            stats["weekly_lot_limit_days"].add(day)
+
+    for node_id, stats in factory_stats.items():
+        exec_rate = pct(stats["actual"], stats["planned"])
+        top_blocker = ""
+        top_shortfall = 0.0
+        if stats["binding_shortfall"]:
+            top_blocker, top_shortfall = max(stats["binding_shortfall"].items(), key=lambda item: item[1])
+        if stats["input_shortage_days"]:
+            cls = "businessWarn"
+            status = "Production reportee par intrants"
+            cause = f"manque {item_label(top_blocker)}" if top_blocker else "intrants insuffisants"
+            action = "Ouvrir le suivi de lots et les ordres reportes, puis verifier le fournisseur du composant bloquant."
+        elif stats["capacity_days"]:
+            cls = "businessWarn"
+            status = "Production contrainte capacite"
+            cause = "capacite journaliere atteinte"
+            action = "Comparer capacite nominale, lotification et demande lisse avant d'ajouter des intrants."
+        elif stats["weekly_lot_limit_days"]:
+            cls = "businessInfo"
+            status = "Limite hebdomadaire lots"
+            cause = "limite de lots par semaine atteinte"
+            action = "Verifier que la limite hebdomadaire represente bien la cadence industrielle."
+        else:
+            cls = "businessOk"
+            status = "Production executee"
+            cause = "pas de contrainte matiere ou capacite observee"
+            action = "Pas d'action immediate; utiliser le planning lots pour expliquer les lancements."
+        proof = (
+            f"plan lotifie={compact_qty(stats['planned'])}, produit={compact_qty(stats['actual'])}, "
+            f"execution={exec_rate:.1f}%"
+        )
+        if top_blocker:
+            proof += f", bloqueur={item_label(top_blocker)} ({compact_qty(top_shortfall)})"
+        recovery_count = len(stats["recovery_days"])
+        text = (
+            "Question metier: pourquoi produit-on ou reporte-t-on ? "
+            f"Reponse: {status.lower()}. Jours matiere={len(stats['input_shortage_days'])}, "
+            f"jours capacite={len(stats['capacity_days'])}, rattrapages={recovery_count}. "
+            "Preuve: execution production et planning lots."
+        )
+        nodes[node_id] = make_diag(
+            pill="Diagnostic",
+            title=f"{status} - {display_node_label(node_id)}",
+            text=text,
+            cls=cls,
+            status=status,
+            cause=cause,
+            impact=(
+                f"{len(stats['input_shortage_days'])} jour(s) matiere, "
+                f"{len(stats['recovery_days'])} rattrapage(s), manque plan {compact_qty(stats['short_plan'])}"
+            ),
+            proof=proof,
+            action=action,
+        )
+
+    supplier_rows = read_csv_rows(supplier_local_criticality_csv)
+    supplier_criticality: dict[str, dict[str, str]] = {
+        str(row.get("supplier_id") or ""): row
+        for row in supplier_rows
+        if str(row.get("supplier_id") or "")
+    }
+    supplier_stock_rows = read_csv_rows(supplier_stocks_csv)
+    supplier_stock_min: dict[str, float] = defaultdict(lambda: math.inf)
+    supplier_stock_items: dict[str, set[str]] = defaultdict(set)
+    for row in supplier_stock_rows:
+        node_id = str(row.get("node_id") or "")
+        item_id = str(row.get("item_id") or "")
+        if not node_id or is_simulation_hidden_item(item_id):
+            continue
+        supplier_stock_items[node_id].add(item_id)
+        supplier_stock_min[node_id] = min(supplier_stock_min[node_id], max(0.0, to_float(row.get("stock_end_of_day")) or 0.0))
+    supplier_flow_rows = read_csv_rows(supplier_stock_flows_csv) if supplier_stock_flows_csv is not None else []
+    supplier_outgoing_pull: dict[str, float] = defaultdict(float)
+    for row in supplier_flow_rows:
+        node_id = str(row.get("node_id") or "")
+        item_id = str(row.get("item_id") or "")
+        if not node_id or is_simulation_hidden_item(item_id):
+            continue
+        supplier_outgoing_pull[node_id] += max(0.0, to_float(row.get("outgoing_pulled_qty")) or 0.0)
+
+    for node_id, node in sorted(node_by_id.items()):
+        if node_id in nodes:
+            continue
+        if str(node.get("type") or "") != "supplier_dc":
+            continue
+        row = supplier_criticality.get(node_id, {})
+        shortage_events = int(to_float(row.get("shortage_supported_events")) or 0)
+        local_score = max(0.0, to_float(row.get("local_criticality_score")) or 0.0)
+        top_items = str(row.get("top_items_preview") or "")
+        shipped_qty = max(outbound_by_node.get(node_id, 0.0), to_float(row.get("total_shipped_qty")) or 0.0)
+        min_stock = supplier_stock_min.get(node_id, math.inf)
+        if shortage_events > 0:
+            cls = "businessWarn"
+            status = "Fournisseur bloquant observe"
+            cause = f"{shortage_events} evenement(s) de rupture supporte(s)"
+            action = "Verifier commandes recues, envois physiques, delai fournisseur et stock de securite du composant."
+        elif local_score >= 0.5:
+            cls = "businessWarn"
+            status = "Fournisseur critique reseau"
+            cause = f"score local {local_score:.2f}"
+            action = "Surveiller la couverture et valider une alternative si l'item est mono-source."
+        elif shipped_qty > 0:
+            cls = "businessOk"
+            status = "Fournisseur actif sans rupture"
+            cause = "expeditions observees sans support de rupture"
+            action = "Pas d'action immediate; garder stock/seuil MRP comme preuve de couverture."
+        else:
+            cls = "businessInfo"
+            status = "Fournisseur peu actif"
+            cause = "pas d'expedition observee sur le run"
+            action = "Verifier si ce fournisseur est volontairement hors baseline ou source alternative."
+        stock_text = "n/a" if min_stock == math.inf else compact_qty(min_stock)
+        proof = (
+            f"items={top_items or ', '.join(item_label(i) for i in sorted(supplier_stock_items.get(node_id, set()))) or 'n/a'}, "
+            f"expedie={compact_qty(shipped_qty)}, stock min={stock_text}, score={local_score:.2f}"
+        )
+        text = (
+            "Question metier: ce fournisseur menace-t-il l'execution ? "
+            f"Reponse: {status.lower()}. Expeditions={compact_qty(shipped_qty)}, "
+            f"tirages stock={compact_qty(supplier_outgoing_pull[node_id])}. Preuve: commandes/envois et stock fournisseur."
+        )
+        nodes[node_id] = make_diag(
+            pill="Diagnostic",
+            title=f"{status} - {node_id}",
+            text=text,
+            cls=cls,
+            status=status,
+            cause=cause,
+            impact=f"expeditions {compact_qty(shipped_qty)}, ruptures supportees {shortage_events}",
+            proof=proof,
+            action=action,
+        )
+
+    for edge in raw.get("edges", []) or []:
+        edge_id = str(edge.get("id") or "")
+        if not edge_id:
+            continue
+        src = str(edge.get("from") or "")
+        dst = str(edge.get("to") or "")
+        metrics = edge_metrics.get(edge_id) or {}
+        shipped_qty = sum(
+            shipment_qty_by_triplet.get((src, dst, str(item_id or "")), 0.0)
+            for item_id in edge.get("items") or []
+            if not is_simulation_hidden_item(str(item_id or ""))
+        )
+        rows = int(to_float(metrics.get("shipment_rows")) or 0)
+        avg_lead = to_float(metrics.get("avg_lead_days"))
+        planned_lead = to_float(metrics.get("planned_lead_days"))
+        if rows > 0:
+            cls = "businessOk"
+            status = "Flux actif"
+            cause = "expeditions et receptions observees"
+            action = "Comparer quantite transportee, delai observe et hypothese logistique si dimensionnement camion requis."
+        else:
+            cls = "businessInfo"
+            status = "Flux sans expedition observee"
+            cause = "aucun mouvement physique dans le run nominal"
+            action = "Verifier si le flux est alternatif, dormant ou hors horizon."
+        proof = (
+            f"{rows} expedition(s), quantite={compact_qty(shipped_qty)}, "
+            f"delai moyen={avg_lead:.1f}j" if avg_lead is not None else f"{rows} expedition(s), quantite={compact_qty(shipped_qty)}"
+        )
+        text = (
+            "Question metier: le flux a-t-il vraiment bouge ? "
+            f"Reponse: {status.lower()} entre {src} et {dst}. "
+            f"Delai planifie={planned_lead:.1f}j." if planned_lead is not None else
+            f"Question metier: le flux a-t-il vraiment bouge ? Reponse: {status.lower()} entre {src} et {dst}."
+        )
+        edges[edge_id] = make_diag(
+            pill="Diagnostic",
+            title=f"{status} - {src} -> {dst}",
+            text=text,
+            cls=cls,
+            status=status,
+            cause=cause,
+            impact=f"quantite transportee {compact_qty(shipped_qty)}",
+            proof=proof,
+            action=action,
+        )
+
+    return {
+        "available": bool(nodes or edges),
+        "nodes": nodes,
+        "edges": edges,
+        "summary": {
+            "node_count": len(nodes),
+            "edge_count": len(edges),
+        },
+    }
+
+
 def build_supplier_hover_images(
     raw: dict[str, Any],
     png_dir: Path,
@@ -1771,6 +2388,7 @@ def build_supplier_hover_images(
     supplier_stocks_csv: Path,
     supplier_stock_flows_csv: Path | None,
     supplier_capacity_csv: Path,
+    mrp_trace_csv: Path | None = None,
 ) -> dict[str, Any]:
     nodes = raw.get("nodes", []) or []
     supplier_ids = sorted(
@@ -1780,6 +2398,7 @@ def build_supplier_hover_images(
     )
     out: dict[str, Any] = {}
     item_labels = item_label_lookup(raw)
+    mrp_trace_rows = read_csv_rows(mrp_trace_csv) if mrp_trace_csv is not None and mrp_trace_csv.exists() else []
     inbound_lead_days_by_supplier: dict[str, dict[str, float]] = defaultdict(dict)
     for edge in raw.get("edges", []) or []:
         dst = str(edge.get("to") or "")
@@ -1797,6 +2416,7 @@ def build_supplier_hover_images(
         third = None
         shipped_series: list[tuple[int, float]] = []
         per_item_stock: dict[str, list[tuple[int, float]]] = {}
+        supplier_stock_item_ids: set[str] = set()
         combined_flow: dict[str, list[tuple[int, float]]] = {}
         shipment_rows = read_csv_rows(supplier_shipments_csv)
         flow_rows = (
@@ -1826,6 +2446,7 @@ def build_supplier_hover_images(
                     item_ids={item_id},
                 )
                 if pts:
+                    supplier_stock_item_ids.add(item_id)
                     per_item_stock[item_labels.get(item_id, compact_item_label(item_id))] = pts
         if flow_rows:
             item_ids = sorted(
@@ -1902,14 +2523,22 @@ def build_supplier_hover_images(
         if len(shipment_item_ids) == 1 and shipment_item_ids:
             single_label = item_labels.get(shipment_item_ids[0], compact_item_label(shipment_item_ids[0]))
             shipment_title = f"{shipment_title} - {single_label}"
+        supplier_target_series, supplier_target_styles = stock_target_overlay_series(
+            mrp_trace_rows,
+            node_id=supplier_id,
+            item_ids=supplier_stock_item_ids,
+            item_labels=item_labels,
+        )
+        supplier_stock_with_targets = {**per_item_stock, **supplier_target_series}
         figure = build_dual_line_multi_panel_figure(
             title=f"{supplier_id} - stock et flux fournisseur",
             top_title=stock_title,
             top_y_label="Quantite",
-            top_series_map=per_item_stock,
+            top_series_map=supplier_stock_with_targets,
             bottom_title=shipment_title,
             bottom_y_label="Quantite",
             bottom_series_map=combined_flow,
+            top_series_styles=supplier_target_styles,
             top_step_like=True,
             bottom_event_like=True,
         )
@@ -1950,7 +2579,7 @@ def build_distribution_center_hover_images(
     item_labels = item_label_lookup(raw)
     dc_stock_rows = read_csv_rows(dc_stocks_csv)
     shipment_rows = read_csv_rows(shipments_csv)
-    mrp_trace_rows = read_csv_rows(mrp_trace_csv) if mrp_trace_csv is not None else []
+    mrp_trace_rows = read_csv_rows(mrp_trace_csv) if mrp_trace_csv is not None and mrp_trace_csv.exists() else []
     for dc_id in dc_ids:
         safe_dc = re.sub(r"[^A-Za-z0-9_-]+", "_", dc_id)
         incoming = resolve_plot_payload(
@@ -1963,6 +2592,7 @@ def build_distribution_center_hover_images(
         if incoming is None and dc_stock_rows:
             per_item_stock: dict[str, list[tuple[int, float]]] = {}
             per_item_styles: dict[str, dict[str, Any]] = {}
+            dc_stock_item_ids: set[str] = set()
             item_ids = sorted(
                 {str(row.get("item_id") or "") for row in dc_stock_rows if str(row.get("node_id") or "") == dc_id}
             )
@@ -1977,48 +2607,26 @@ def build_distribution_center_hover_images(
                     item_ids={item_id},
                 )
                 if pts:
+                    dc_stock_item_ids.add(item_id)
                     label = item_labels.get(item_id, compact_item_label(item_id))
                     stock_label = f"{label} - stock"
-                    target_label = f"{label} - cible MRP affichee"
-                    position_label = f"{label} - position inventaire MRP"
                     per_item_stock[stock_label] = pts
                     per_item_styles[stock_label] = {"color": "#0f766e", "width": 2.3}
-                    target_pts = aggregate_daily_series(
-                        mrp_trace_rows,
-                        value_field="target_stock_display_qty",
-                        node_field="node_id",
-                        node_id=dc_id,
-                        item_ids={item_id},
-                    )
-                    if not target_pts:
-                        target_pts = aggregate_daily_series(
-                            mrp_trace_rows,
-                            value_field="target_stock_qty",
-                            node_field="node_id",
-                            node_id=dc_id,
-                            item_ids={item_id},
-                        )
-                    if target_pts:
-                        per_item_stock[target_label] = target_pts
-                        per_item_styles[target_label] = {"color": "#2563eb", "width": 2.1, "dash": "solid"}
-                    position_pts = aggregate_daily_series(
-                        mrp_trace_rows,
-                        value_field="inventory_position_qty",
-                        node_field="node_id",
-                        node_id=dc_id,
-                        item_ids={item_id},
-                    )
-                    if position_pts:
-                        per_item_stock[position_label] = position_pts
-                        per_item_styles[position_label] = {"color": "#475569", "width": 1.7, "dash": "dot"}
+            dc_target_series, dc_target_styles = stock_target_overlay_series(
+                mrp_trace_rows,
+                node_id=dc_id,
+                item_ids=dc_stock_item_ids,
+                item_labels=item_labels,
+            )
+            per_item_stock_with_targets = {**per_item_stock, **dc_target_series}
+            per_item_styles.update(dc_target_styles)
             figure = build_line_chart_figure(
-                per_item_stock,
-                title=f"{dc_id} - stock DC, cible et position MRP",
+                per_item_stock_with_targets,
+                title=f"{dc_id} - stock DC par item avec cible",
                 y_label="Quantite",
                 note=(
-                    "Lecture: la cible MRP affichee est le niveau de pilotage avec contexte de cut-over si disponible. "
-                    "Le stock initial peut etre au-dessus: c'est un surstock herite, pas une commande manquante. "
-                    "Le besoin net MRP se lit via la position inventaire."
+                    "Lecture metier: stock physique disponible et cible MRP affichee. "
+                    "Position inventaire, besoin net et stock projete restent dans Audit MRP."
                 ),
                 series_styles=per_item_styles,
             )
@@ -3910,23 +4518,23 @@ def extend_global_kpi_tree_with_supplier_risk(
     kpi_tree.setdefault("main", {}).setdefault("series", []).append(
         {
             "id": "supplier_risk",
-            "label": "Risques fournisseurs",
+            "label": "Criticite fournisseurs",
             "values": day_values("action_max", scale=100.0),
             "color": "#be123c",
-            "note": "Priorite d'action maximale: menace estimee x exposition x marge de recuperation.",
+            "note": "Priorite d'action maximale: menace estimee x criticite x marge de recuperation.",
         }
     )
     kpi_tree.setdefault("groups", []).append(
         {
             "id": "supplier_risk",
-            "label": "Risques fournisseurs",
-            "objective": "Identifier les fournisseurs a surveiller, le niveau de confiance et l'action a engager.",
+            "label": "Criticite fournisseurs",
+            "objective": "Identifier les fournisseurs critiques a surveiller, le niveau de confiance et l'action a engager.",
             "summary": [
                 summary("Fournisseurs couverts", summary_json.get("supplier_count", len(supplier_rows))),
                 summary("Couples fournisseur-article-site", summary_json.get("pair_count", len(pair_rows))),
                 summary("Zones dernieres", supplier_risk_zone_counts_text(latest_zone_counts if isinstance(latest_zone_counts, dict) else None)),
                 summary("Actions dernieres", supplier_risk_zone_counts_text(latest_action_counts if isinstance(latest_action_counts, dict) else None)),
-                summary("Estimation prudente risque max", fmt_pct(100.0 * max_high_supplier)),
+                summary("Borne prudente menace max", fmt_pct(100.0 * max_high_supplier)),
                 summary("Priorite d'action max", fmt_pct(100.0 * max_action_supplier)),
                 summary(
                     "Top fournisseur",
@@ -3938,8 +4546,8 @@ def extend_global_kpi_tree_with_supplier_risk(
                 ),
             ],
             "secondary": [
-                {"label": "Risque estime max (%)", "days": days, "values": day_values("risk_max", scale=100.0), "color": "#be123c"},
-                {"label": "Estimation prudente max (%)", "days": days, "values": day_values("risk_high_max", scale=100.0), "color": "#dc2626", "dash": "dash"},
+                {"label": "Menace estimee max (%)", "days": days, "values": day_values("risk_max", scale=100.0), "color": "#be123c"},
+                {"label": "Borne prudente max (%)", "days": days, "values": day_values("risk_high_max", scale=100.0), "color": "#dc2626", "dash": "dash"},
                 {"label": "Priorite d'action max (%)", "days": days, "values": day_values("action_max", scale=100.0), "color": "#7c3aed"},
                 {"label": "Marge de recuperation min (%)", "days": days, "values": day_values("resilience_min", scale=100.0), "color": "#0f766e"},
                 {"label": "Alerte faible max (%)", "days": days, "values": day_values("early_warning_max", scale=100.0), "color": "#d97706"},
@@ -3953,23 +4561,23 @@ def extend_global_kpi_tree_with_supplier_risk(
     kpi_tree.setdefault("definitions", []).extend(
         [
             {
-                "family": "Risques fournisseurs",
+                "family": "Criticite fournisseurs",
                 "level": "KPI principal",
                 "name": "Priorite d'action fournisseur",
                 "formula": "menace estimee x exposition x penalite de recuperation",
-                "terms": "La menace estimee combine performance, signaux faibles et estimation prudente. L'exposition vient des volumes attendus.",
+                "terms": "La menace estimee combine performance, signaux faibles et borne prudente. L'exposition vient des volumes attendus.",
                 "interpretation": "Score de pilotage: plus il est haut, plus une action fournisseur est justifiee avant incident visible.",
             },
             {
-                "family": "Risques fournisseurs",
+                "family": "Criticite fournisseurs",
                 "level": "KPI secondaire",
-                "name": "Risque estime fournisseur",
+                "name": "Menace estimee fournisseur",
                 "formula": "estimation a 4 semaines issue performance, dynamique, sensibilite, criticite et incertitude",
                 "terms": "Combine lead time, variabilite, capacite, stock, warning/change-point et sensibilite locale.",
-                "interpretation": "Risque futur, distinct de la performance observee du moment.",
+                "interpretation": "Signal de menace future, distinct de la performance observee du moment.",
             },
             {
-                "family": "Risques fournisseurs",
+                "family": "Criticite fournisseurs",
                 "level": "KPI secondaire",
                 "name": "Marge de recuperation fournisseur",
                 "formula": "capacite a absorber une chute, ajustee par stock, couverture, capacite et stabilite",
@@ -3977,7 +4585,7 @@ def extend_global_kpi_tree_with_supplier_risk(
                 "interpretation": "Capacite a absorber, continuer, recuperer et stabiliser.",
             },
             {
-                "family": "Risques fournisseurs",
+                "family": "Criticite fournisseurs",
                 "level": "KPI secondaire",
                 "name": "Niveau d'action fournisseur",
                 "formula": "regles par quantiles, incertitude, criticite et resilience",
@@ -3987,10 +4595,10 @@ def extend_global_kpi_tree_with_supplier_risk(
         ]
     )
     subtitle = str(kpi_tree.get("subtitle") or "")
-    if "Risques fournisseurs" not in subtitle:
+    if "Criticite fournisseurs" not in subtitle:
         kpi_tree["subtitle"] = (
             subtitle.rstrip(".")
-            + ". L'onglet Risques fournisseurs transforme les KPI en niveau de menace, confiance de lecture et action recommandee."
+            + ". L'onglet Criticite fournisseurs transforme les KPI en niveau de criticite, confiance de lecture et action recommandee."
         )
     return kpi_tree
 
@@ -4006,6 +4614,17 @@ def supplier_risk_summary_lines(
         return []
     max_risk = max((risk_ratio(row.get("risk_probability_proxy_4w")) for row in rows), default=0.0)
     max_high = max((risk_ratio(row.get("risk_probability_high_proxy_4w")) for row in rows), default=0.0)
+    max_margin = max(
+        (
+            max(
+                0.0,
+                risk_ratio(row.get("risk_probability_high_proxy_4w"))
+                - risk_ratio(row.get("risk_probability_proxy_4w")),
+            )
+            for row in rows
+        ),
+        default=0.0,
+    )
     max_action = max((risk_ratio(row.get("action_priority_score")) for row in rows), default=0.0)
     min_resilience = min((risk_ratio(row.get("resilience_score")) for row in rows), default=0.0)
     early_count = sum(1 for row in rows if int(to_float(row.get("early_warning_flag")) or 0) > 0)
@@ -4015,6 +4634,14 @@ def supplier_risk_summary_lines(
     if supplier_row:
         max_risk = max(max_risk, risk_ratio(supplier_row.get("max_risk_probability_proxy_4w")))
         max_high = max(max_high, risk_ratio(supplier_row.get("max_risk_probability_high_proxy_4w")))
+        max_margin = max(
+            max_margin,
+            max(
+                0.0,
+                risk_ratio(supplier_row.get("max_risk_probability_high_proxy_4w"))
+                - risk_ratio(supplier_row.get("max_risk_probability_proxy_4w")),
+            ),
+        )
         max_action = max(max_action, risk_ratio(supplier_row.get("max_action_priority_score")))
         min_resilience = risk_ratio(supplier_row.get("min_resilience_score")) or min_resilience
         zone = str(supplier_row.get("worst_decision_zone") or zone)
@@ -4023,10 +4650,12 @@ def supplier_risk_summary_lines(
         robust_decision = str(max(rows, key=lambda row: risk_ratio(row.get("action_priority_score"))).get("robust_decision") or "")
     return [
         {"label": "Noeud analyse", "value": display_node_label(node_id)},
-        {"label": "Lecture", "value": "risques fournisseurs entrants" if destination_view else "risque fournisseur"},
-        {"label": "Niveau de risque", "value": supplier_risk_zone_label(zone)},
-        {"label": "Risque estime max", "value": fmt_pct(100.0 * max_risk)},
-        {"label": "Estimation prudente", "value": fmt_pct(100.0 * max_high)},
+        {"label": "Lecture", "value": "criticite fournisseurs entrants" if destination_view else "criticite fournisseur"},
+        {"label": "Niveau de criticite", "value": supplier_risk_zone_label(zone)},
+        {"label": "Criticite fournisseur", "value": fmt_pct(100.0 * max_action)},
+        {"label": "Score menace max", "value": fmt_pct(100.0 * max_risk)},
+        {"label": "Borne prudente", "value": fmt_pct(100.0 * max_high)},
+        {"label": "Marge incertitude", "value": fmt_pct(100.0 * max_margin)},
         {"label": "Priorite d'action", "value": fmt_pct(100.0 * max_action)},
         {"label": "Marge de recuperation min", "value": fmt_pct(100.0 * min_resilience)},
         {"label": "Couples analyses", "value": str(len(rows))},
@@ -4071,7 +4700,7 @@ def supplier_risk_node_metric(
         + [max(0.0, max_high - max_risk)]
     )
     return {
-        "title": f"Risques fournisseurs - {display_node_label(node_id)}",
+        "title": f"Criticite fournisseurs - {display_node_label(node_id)}",
         "summary_lines": summary_lines,
         "decision_zone": zone,
         "zone_color": supplier_risk_zone_color(zone),
@@ -4114,8 +4743,8 @@ def supplier_risk_trajectory_asset(
     if not points:
         return None
     series_map = {
-        "Risque estime (%)": [(week * 7, data["risk"] * 100.0) for week, data in points],
-        "Estimation prudente (%)": [(week * 7, data["high"] * 100.0) for week, data in points],
+        "Score menace (%)": [(week * 7, data["risk"] * 100.0) for week, data in points],
+        "Borne prudente (%)": [(week * 7, data["high"] * 100.0) for week, data in points],
         "Priorite d'action (%)": [(week * 7, data["action"] * 100.0) for week, data in points],
         "Marge recuperation min (%)": [(week * 7, data["resilience"] * 100.0) for week, data in points],
         "Alerte faible max (%)": [(week * 7, data["warning"] * 100.0) for week, data in points],
@@ -4126,8 +4755,8 @@ def supplier_risk_trajectory_asset(
         y_label="% / score",
         note="Points hebdomadaires projetes sur l'axe jour de la simulation.",
         series_styles={
-            "Risque estime (%)": {"color": "#be123c"},
-            "Estimation prudente (%)": {"color": "#dc2626", "dash": "dash"},
+            "Score menace (%)": {"color": "#be123c"},
+            "Borne prudente (%)": {"color": "#dc2626", "dash": "dash"},
             "Priorite d'action (%)": {"color": "#7c3aed"},
             "Marge recuperation min (%)": {"color": "#0f766e"},
             "Alerte faible max (%)": {"color": "#d97706"},
@@ -4168,7 +4797,7 @@ def supplier_risk_pair_table_asset(
             (
                 "Couples fournisseur / article / site",
                 render_data_table(
-                    ["Item", "Fournisseur", "Site", "Niveau", "Risque estime", "Estimation prudente", "Priorite", "Recuperation"],
+                    ["Item", "Fournisseur", "Site", "Niveau criticite", "Score menace", "Borne prudente", "Priorite", "Recuperation"],
                     table_rows,
                 ),
             )
@@ -4196,16 +4825,16 @@ def supplier_risk_decision_asset(node_id: str, rows: list[dict[str, str]]) -> di
     risk_is_high = risk_score >= 0.35
     uncertainty_is_high = prediction_uncertainty >= 0.20
     if risk_is_high and uncertainty_is_high:
-        current_cell = "Risque fort / incertitude forte"
+        current_cell = "Menace forte / incertitude forte"
         current_action = "Confirmer vite le signal et engager une mitigation prudente."
     elif risk_is_high:
-        current_cell = "Risque fort / incertitude faible"
+        current_cell = "Menace forte / incertitude faible"
         current_action = "Agir directement: le probleme est suffisamment confirme."
     elif uncertainty_is_high:
-        current_cell = "Risque faible / incertitude forte"
+        current_cell = "Menace faible / incertitude forte"
         current_action = "Reduire l'angle mort: qualite donnees, monitoring, confirmation fournisseur."
     else:
-        current_cell = "Risque faible / incertitude faible"
+        current_cell = "Menace faible / incertitude faible"
         current_action = "Surveillance normale."
 
     def matrix_cell(title: str, text: str, action: str, *, key: str, level: str) -> str:
@@ -4222,51 +4851,51 @@ def supplier_risk_decision_asset(node_id: str, rows: list[dict[str, str]]) -> di
         [
             "<div class=\"decisionMatrix\">",
             matrix_cell(
-                "Risque fort / incertitude faible",
+                "Menace forte / incertitude faible",
                 "Menace metier elevee et evaluation suffisamment stable.",
                 "Action: mitigation immediate.",
-                key="Risque fort / incertitude faible",
+                key="Menace forte / incertitude faible",
                 level="alert",
             ),
             matrix_cell(
-                "Risque fort / incertitude forte",
+                "Menace forte / incertitude forte",
                 "Menace serieuse, mais largeur de prediction ou donnees fragiles.",
                 "Action: confirmer vite + action prudente.",
-                key="Risque fort / incertitude forte",
+                key="Menace forte / incertitude forte",
                 level="alert",
             ),
             matrix_cell(
-                "Risque faible / incertitude faible",
+                "Menace faible / incertitude faible",
                 "Menace faible et lecture suffisamment robuste.",
                 "Action: routine.",
-                key="Risque faible / incertitude faible",
+                key="Menace faible / incertitude faible",
                 level="ok",
             ),
             matrix_cell(
-                "Risque faible / incertitude forte",
-                "Pas de risque confirme, mais angle mort decisionnel.",
+                "Menace faible / incertitude forte",
+                "Pas de menace confirmee, mais angle mort decisionnel.",
                 "Action: renforcer donnees / monitoring.",
-                key="Risque faible / incertitude forte",
+                key="Menace faible / incertitude forte",
                 level="watch",
             ),
             "</div>",
         ]
     )
     decision_rows = [
-        ["Faible", "performance correcte, risque faible, incertitude maitrisee", "routine"],
+        ["Faible", "performance correcte, menace faible, incertitude maitrisee", "routine"],
         ["Modere", "signaux faibles ou incertitude visible", "surveillance, donnees, confirmation fournisseur"],
-        ["Eleve", "estimation prudente elevee ou recuperation fragile", "action preventive: stock, capacite, audit, allocation"],
-        ["Critique", "risque eleve + criticite + faible marge de recuperation", "action prudente immediate: dual source, expedite, replanning"],
+        ["Eleve", "borne prudente elevee ou recuperation fragile", "action preventive: stock, capacite, audit, allocation"],
+        ["Critique", "menace elevee + criticite + faible marge de recuperation", "action prudente immediate: dual source, expedite, replanning"],
     ]
     return data_html_asset(
         f"{display_node_label(node_id)} - action recommandee",
-        "Lecture metier: le risque decrit la menace fournisseur; l'incertitude decrit la confiance dans cette evaluation. L'action recommandee croise les deux.",
+        "Lecture metier: le score de menace decrit la tension fournisseur; l'incertitude decrit la confiance dans cette evaluation. L'action recommandee croise les deux.",
         [
             (
                 "Action proposee",
                 render_data_kv(
                     [
-                        ("Niveau de risque principal", supplier_risk_zone_label(top.get("decision_zone"))),
+                        ("Niveau de criticite principal", supplier_risk_zone_label(top.get("decision_zone"))),
                         ("Action recommandee", supplier_risk_action_label(top.get("recommended_action"))),
                         ("Action prudente", supplier_risk_action_label(top.get("robust_decision"))),
                         ("Temps de retour estime", f"{fmt_qty(top.get('time_to_recover_weeks_proxy'), 1)} semaines"),
@@ -4278,7 +4907,7 @@ def supplier_risk_decision_asset(node_id: str, rows: list[dict[str, str]]) -> di
                 ),
             ),
             (
-                "Matrice decisionnelle: niveau de risque x confiance",
+                "Matrice decisionnelle: niveau de menace x confiance",
                 matrix_html,
             ),
             ("Regles de lecture", render_data_table(["Niveau", "Situation", "Action"], decision_rows)),
@@ -4387,7 +5016,7 @@ def supplier_risk_summary_asset(
         return "\n".join(
             [
                 "Formule",
-                "contribution au signal risque = poids du composant x valeur du composant",
+                "contribution au signal de menace = poids du composant x valeur du composant",
                 "",
                 "Calcul ici",
                 f"{weight} x {value} = {points_field(contribution)}",
@@ -4396,7 +5025,7 @@ def supplier_risk_summary_asset(
                 str(note),
                 "",
                 "Important",
-                "Cette contribution alimente le signal risque. Elle n'est pas une probabilite observee.",
+                "Cette contribution alimente le score de menace. Elle n'est pas une probabilite observee.",
             ]
         )
 
@@ -4420,7 +5049,7 @@ def supplier_risk_summary_asset(
                         "<div class=\"riskComponentBarTrack\">",
                         f"<div class=\"riskComponentBar\" style=\"width:{width:.1f}%\"></div>",
                         "</div>",
-                        f"<div class=\"riskComponentContribution\">contribution au signal: {html.escape(pct_field(contribution))}</div>",
+                        f"<div class=\"riskComponentContribution\">contribution au signal de menace: {html.escape(pct_field(contribution))}</div>",
                         f"<div class=\"riskComponentNote\">{html.escape(note)}</div>",
                         "</div>",
                     ]
@@ -4432,7 +5061,7 @@ def supplier_risk_summary_asset(
     def risk_driver_summary_html() -> str:
         drivers = top_component_drivers(3)
         if not drivers:
-            return "<div class=\"panelEmptyState dataEmptyState\">Aucun signal risque exploitable pour ce noeud.</div>"
+            return "<div class=\"panelEmptyState dataEmptyState\">Aucun signal de menace exploitable pour ce noeud.</div>"
         cards = ["<div class=\"riskDriverGrid\">"]
         for rank, row in enumerate(drivers, start=1):
             label, weight, value, note = row[:4]
@@ -4508,13 +5137,13 @@ def supplier_risk_summary_asset(
         sensitivity_value = to_float(top_risk_row.get("sensitivity_pressure"))
         dynamic_value = to_float(top_risk_row.get("dynamic_pressure"))
         return risk_explanation_card(
-            "Risque estime",
+            "Score de menace",
             risk_pct(risk_value),
-            "courbe S du signal risque",
-            "Indicateur principal: menace estimee a 4 semaines. C'est un score de decision, pas une probabilite historique observee.",
+            "courbe S du signal de menace",
+            "Indicateur principal: menace a 4 semaines exprimee en score de decision. Ce n'est pas une probabilite historique observee.",
             component_status(risk_pct(risk_value)),
             [
-                ("Formule signal", "signal risque = somme(poids composant x valeur composant)"),
+                ("Formule signal", "signal de menace = somme(poids composant x valeur composant)"),
                 (
                     "Application signal",
                     " + ".join(
@@ -4532,8 +5161,8 @@ def supplier_risk_summary_asset(
                     ),
                 ),
                 ("Resultat signal", pct_field(risk_signal)),
-                ("Formule risque", "risque estime = courbe S(-3 + 5 x signal risque)"),
-                ("Application risque", f"courbe S(-3 + 5 x {pct_field(risk_signal)}) = {risk_pct(risk_value)}"),
+                ("Formule score", "score menace = courbe S(-3 + 5 x signal menace)"),
+                ("Application score", f"courbe S(-3 + 5 x {pct_field(risk_signal)}) = {risk_pct(risk_value)}"),
             ],
             extra_class="riskPrimaryCard" if primary else "",
         )
@@ -4547,7 +5176,7 @@ def supplier_risk_summary_asset(
                 "</div>",
                 "<div class=\"riskSignalCompositionHead\">",
                 "<div class=\"riskSignalCompositionTitle\">Composition de l'indicateur principal</div>",
-                "<div class=\"riskSignalCompositionText\">Chaque carte reprend un terme de la formule du signal risque, dans l'ordre exact du calcul.</div>",
+                "<div class=\"riskSignalCompositionText\">Chaque carte reprend un terme de la formule du signal de menace, dans l'ordre exact du calcul.</div>",
                 "</div>",
                 risk_component_cards_html(risk_component_rows),
                 "</div>",
@@ -4612,7 +5241,7 @@ def supplier_risk_summary_asset(
             "Fiabilite des donnees",
             pct_field(data_quality),
             "moyenne de 5 controles de disponibilite",
-            "Mesure si les donnees disponibles suffisent a lire le risque avec confiance. Elle ne mesure pas le risque fournisseur; elle mesure la solidite de la lecture.",
+            "Mesure si les donnees disponibles suffisent a lire la criticite avec confiance. Elle ne mesure pas un incident fournisseur; elle mesure la solidite de la lecture.",
             component_status(pct_field(data_gap)),
             [
                 ("Role", "sert a augmenter l'incertitude quand la base de lecture est fragile"),
@@ -4630,7 +5259,7 @@ def supplier_risk_summary_asset(
             "Incertitude",
             pct_field(uncertainty_value),
             "60% manque qualite donnees + 40% dispersion delai",
-            "Plus cette valeur monte, plus on doit lire le risque avec prudence.",
+            "Plus cette valeur monte, plus on doit lire le score de menace avec prudence.",
             component_status(pct_field(uncertainty_value)),
             [
                 ("Formule", "incertitude = 60% x manque fiabilite donnees + 40% x dispersion delai"),
@@ -4643,7 +5272,7 @@ def supplier_risk_summary_asset(
             "Majoration prudente",
             points_field(uncertainty_margin),
             "hypothese de scoring: +4 pts fixes + jusqu'a +26 pts selon incertitude",
-            "Ce n'est pas une donnee observee. C'est un tampon de prudence provisoire pour eviter de sous-lire un risque quand la base d'estimation est moins fiable.",
+            "Ce n'est pas une donnee observee. C'est un tampon de prudence provisoire pour eviter de sous-lire une menace quand la base d'estimation est moins fiable.",
             component_status(risk_pct(uncertainty_margin)),
             [
                 ("Statut", "hypothese de scoring a calibrer avec incidents reels ou Monte Carlo"),
@@ -4656,14 +5285,14 @@ def supplier_risk_summary_asset(
             ],
         )
         high_card = risk_explanation_card(
-            "Estimation prudente",
+            "Borne prudente",
             risk_pct(high_value),
-            "risque estime + majoration prudente",
-            "Valeur conservative a regarder quand la lecture doit rester prudente.",
+            "score menace + majoration prudente",
+            "Borne haute conservative a regarder quand la lecture doit rester prudente. Ce n'est pas une probabilite terrain.",
             component_status(risk_pct(high_value)),
             [
-                ("Formule", "estimation prudente = risque estime + majoration prudente"),
-                ("Risque estime", risk_pct(risk_value)),
+                ("Formule", "borne prudente = score menace + majoration prudente"),
+                ("Score menace", risk_pct(risk_value)),
                 ("Majoration prudente", points_field(uncertainty_margin)),
                 ("Application", f"{risk_pct(risk_value)} + {points_field(uncertainty_margin)} = {risk_pct(high_value)}"),
             ],
@@ -4676,9 +5305,9 @@ def supplier_risk_summary_asset(
             component_status(pct_field(sensitivity_value)),
             [
                 ("Statut", "indice issu de la campagne de sensibilite, pas une donnee terrain"),
-                ("Role", "utilise dans le signal risque avec un poids de 8%, puis dans le facteur sensibilite"),
+                ("Role", "utilise dans le signal de menace avec un poids de 8%, puis dans le facteur sensibilite"),
                 ("Formule", "impact stress tests = 65% x score compensation matiere + 35% x score baisse service client"),
-                ("Compensation matiere", f"score {pct_field(sensitivity_external_pressure)} ; delta quantite {fmt_qty(sensitivity_external_qty, 1)}"),
+                ("Appro fournisseur", f"score {pct_field(sensitivity_external_pressure)} ; delta quantite {fmt_qty(sensitivity_external_qty, 1)}"),
                 ("Baisse service client", f"score {pct_field(sensitivity_fill_pressure)} ; baisse fill rate observee {pct_field(sensitivity_fill_drop)}"),
                 ("Seuil de test", sensitivity_threshold_text),
                 ("Point important", "0% = aucun impact observe dans les niveaux testes, pas une garantie fournisseur reelle"),
@@ -4698,7 +5327,7 @@ def supplier_risk_summary_asset(
                 ("Criticite locale", pct_field(local_criticality_value)),
                 ("Valeur retenue", f"max({pct_field(criticality_value)}, {pct_field(local_criticality_value)}) = {pct_field(max(criticality_value or 0.0, local_criticality_value or 0.0))}"),
                 ("Echelle", "x0.35 minimum ; x1.00 maximum"),
-                ("Pourquoi 0.35 minimum", "un fournisseur peu critique garde une priorite residuelle si le risque estime monte"),
+                ("Pourquoi 0.35 minimum", "un fournisseur peu critique garde une priorite residuelle si le score de menace monte"),
                 ("Application", f"0.35 + 0.65 x {pct_field(max(criticality_value or 0.0, local_criticality_value or 0.0))} = x{fmt_qty(criticality_factor, 3)}"),
             ],
         )
@@ -4706,26 +5335,26 @@ def supplier_risk_summary_asset(
             "Facteur sensibilite",
             f"x{fmt_qty(sensitivity_factor, 3)}",
             "0.75 + 0.25 x sensibilite locale",
-            "Ce facteur ajuste la priorite d'action avec l'impact observe en stress test, sans effacer le risque quand la sensibilite mesuree vaut 0%.",
+            "Ce facteur ajuste la priorite d'action avec l'impact observe en stress test, sans effacer la menace quand la sensibilite mesuree vaut 0%.",
             component_status(pct_field(sensitivity_value)),
             [
                 ("Statut", "facteur de priorisation derive des stress tests"),
                 ("Formule", "facteur sensibilite = 0.75 + 0.25 x impact stress tests"),
                 ("Sensibilite locale", pct_field(sensitivity_value)),
                 ("Echelle", "x0.75 minimum ; x1.00 maximum"),
-                ("Pourquoi 0.75 minimum", "un stress test neutre ne prouve pas l'absence de risque fournisseur"),
+                ("Pourquoi 0.75 minimum", "un stress test neutre ne prouve pas l'absence de criticite fournisseur"),
                 ("Application", f"0.75 + 0.25 x {pct_field(sensitivity_value)} = x{fmt_qty(sensitivity_factor, 3)}"),
             ],
         )
         priority_card = risk_explanation_card(
             "Priorite d'action",
             risk_pct(priority_value),
-            "risque estime x facteur criticite x facteur sensibilite",
+            "score menace x facteur criticite x facteur sensibilite",
             "Score d'arbitrage: il combine menace, importance fournisseur et fragilite locale.",
             component_status(risk_pct(priority_value)),
             [
-                ("Formule", "priorite action = risque estime x facteur criticite x facteur sensibilite"),
-                ("Risque estime", risk_pct(risk_value)),
+                ("Formule", "priorite action = score menace x facteur criticite x facteur sensibilite"),
+                ("Score menace", risk_pct(risk_value)),
                 ("Facteur criticite", f"x{fmt_qty(criticality_factor, 3)}"),
                 ("Facteur sensibilite", f"x{fmt_qty(sensitivity_factor, 3)}"),
                 ("Application", f"{risk_pct(risk_value)} x {fmt_qty(criticality_factor, 3)} x {fmt_qty(sensitivity_factor, 3)} = {risk_pct(priority_value)}"),
@@ -4735,8 +5364,8 @@ def supplier_risk_summary_asset(
             [
                 "<div class=\"riskIndicatorStack\">",
                 risk_indicator_section_html(
-                    "Incertitude et estimation prudente",
-                    "Pourquoi l'estimation prudente peut etre plus haute que le risque estime.",
+                    "Incertitude et borne prudente",
+                    "Pourquoi la borne prudente peut etre plus haute que le score de menace central.",
                     [data_quality_card, uncertainty_card, margin_card, high_card],
                 ),
                 risk_indicator_section_html(
@@ -4746,7 +5375,7 @@ def supplier_risk_summary_asset(
                 ),
                 risk_indicator_section_html(
                     "Priorite d'action",
-                    "Comment le risque devient une priorite de pilotage.",
+                    "Comment le score de menace devient une priorite de pilotage.",
                     [criticality_factor_card, sensitivity_factor_card, priority_card],
                 ),
                 "</div>",
@@ -4794,9 +5423,11 @@ def supplier_risk_summary_asset(
     def risk_summary_dashboard_html() -> str:
         node_label = summary_value("Noeud analyse")
         lecture = summary_value("Lecture")
-        level = summary_value("Niveau de risque")
-        risk_value = summary_value("Risque estime max")
-        high_value = summary_value("Estimation prudente")
+        level = summary_value("Niveau de criticite")
+        criticity = summary_value("Criticite fournisseur")
+        risk_value = summary_value("Score menace max")
+        high_value = summary_value("Borne prudente")
+        uncertainty_gap = summary_value("Marge incertitude")
         priority = summary_value("Priorite d'action")
         recovery = summary_value("Marge de recuperation min")
         couples = summary_value("Couples analyses")
@@ -4842,45 +5473,58 @@ def supplier_risk_summary_asset(
         risk_tooltip = "\n".join(
             [
                 "Formule",
-                "risque estime = courbe S(-3 + 5 x signal risque)",
+                "score menace = courbe S(-3 + 5 x signal menace)",
                 "",
                 "Calcul ici",
-                f"Signal risque = {pct_field(risk_signal)}",
+                f"Signal menace = {pct_field(risk_signal)}",
                 f"courbe S(-3 + 5 x {pct_field(risk_signal)}) = {risk_pct(risk_max_numeric)}",
                 f"Resultat affiche = {risk_value}",
                 "",
                 "Lecture",
-                "Score de decision a 4 semaines. Ce n'est pas une probabilite historique observee.",
+                "Score de decision a 4 semaines sur une echelle 0-100. Ce n'est pas une probabilite historique observee.",
             ]
         )
         high_tooltip = "\n".join(
             [
                 "Formule",
-                "estimation prudente = risque estime + majoration prudente",
+                "borne prudente = score menace + majoration prudente",
                 "",
                 "Calcul ici",
-                f"Risque estime = {risk_pct(top_risk_row.get('risk_probability_proxy_4w'))}",
+                f"Score menace = {risk_pct(top_risk_row.get('risk_probability_proxy_4w'))}",
                 f"Majoration prudente = 4 pts + 26 pts x incertitude {pct_field(uncertainty_value)} = {points_field(uncertainty_margin)}",
                 f"Application = {risk_pct(top_risk_row.get('risk_probability_proxy_4w'))} + {points_field(uncertainty_margin)} = {risk_pct(top_risk_row.get('risk_probability_high_proxy_4w'))}",
                 f"Max affiche = {risk_pct(high_max_numeric)}",
                 "",
                 "Lecture",
-                "Valeur conservative quand les donnees sont moins completes ou les delais plus disperses.",
+                "Borne haute conservative quand les donnees sont moins completes ou les delais plus disperses. Ce n'est pas une probabilite terrain.",
             ]
         )
         priority_tooltip = "\n".join(
             [
                 "Formule",
-                "priorite action = risque estime x facteur criticite x facteur sensibilite",
+                "criticite fournisseur = menace fournisseur x importance supply x sensibilite locale",
                 "",
                 "Calcul ici",
-                f"Risque estime = {risk_pct(action_risk)}",
-                f"Facteur criticite = 0.35 + 0.65 x {pct_field(action_criticality)} = x{fmt_qty(action_criticality_factor, 3)}",
-                f"Facteur sensibilite = 0.75 + 0.25 x {pct_field(action_sensitivity)} = x{fmt_qty(action_sensitivity_factor, 3)}",
+                f"Menace fournisseur = {risk_pct(action_risk)}",
+                f"Importance supply = 0.35 + 0.65 x {pct_field(action_criticality)} = x{fmt_qty(action_criticality_factor, 3)}",
+                f"Sensibilite locale = 0.75 + 0.25 x {pct_field(action_sensitivity)} = x{fmt_qty(action_sensitivity_factor, 3)}",
                 f"Application = {risk_pct(action_risk)} x {fmt_qty(action_criticality_factor, 3)} x {fmt_qty(action_sensitivity_factor, 3)} = {priority}",
                 "",
                 "Lecture",
-                "Score d'arbitrage: plus il est haut, plus une action fournisseur devient prioritaire.",
+                "Score de criticite: plus il est haut, plus le fournisseur merite surveillance ou action.",
+            ]
+        )
+        uncertainty_short_tooltip = "\n".join(
+            [
+                "Lecture",
+                "La marge d'incertitude n'est pas un KPI metier principal.",
+                "",
+                "Calcul",
+                "marge = borne haute detail - menace centrale detail, calculee ligne par ligne",
+                f"Marge affichee = {uncertainty_gap}",
+                "",
+                "Usage",
+                "Elle sert seulement a savoir si la lecture est solide ou s'il faut verifier les donnees.",
             ]
         )
         recovery_tooltip = "\n".join(
@@ -4973,26 +5617,22 @@ def supplier_risk_summary_asset(
                 f"<div class=\"riskSummaryDashboard sensitivityStatus-{html.escape(status_key)}\">",
                 "<div class=\"riskSummaryHero\">",
                 "<div class=\"riskSummaryMain\">",
-                f"<div class=\"sensitivityStatusPill\">Risque {html.escape(level)}</div>",
+                f"<div class=\"sensitivityStatusPill\">Criticite {html.escape(level)}</div>",
                 f"<div class=\"riskSummaryTitle\">{html.escape(node_label)} - {html.escape(lecture)}</div>",
                 (
                     "<div class=\"riskSummaryText\">"
-                    f"Risque {html.escape(level)}. Principal signal : {html.escape(str(top_driver[0]))}. "
+                    f"Criticite {html.escape(level)} ({html.escape(criticity)}). Principal signal : {html.escape(str(top_driver[0]))}. "
                     f"Fiabilite donnees : {html.escape(pct_field(data_quality))}. "
                     f"Action prudente : {html.escape(action)}."
                     "</div>"
                 ),
                 "</div>",
                 "<div class=\"riskSummaryFacts\">",
-                risk_fact("Risque estime max", risk_value, risk_tooltip),
-                risk_fact("Estimation prudente", high_value, high_tooltip),
-                risk_fact("Priorite d'action", priority, priority_tooltip),
-                risk_fact("Marge recuperation", recovery, recovery_tooltip),
+                risk_fact("Criticite fournisseur", criticity, priority_tooltip),
+                risk_fact("Action recommandee", action),
                 risk_fact("Signal principal", top_driver_text, driver_tooltip),
                 risk_fact("Fiabilite donnees", pct_field(data_quality), data_quality_tooltip),
-                risk_fact("Couples analyses", couples, couples_tooltip),
-                risk_fact("Alertes faibles", alerts, alert_tooltip),
-                risk_fact("Ruptures tendance", trends, trend_tooltip),
+                risk_fact("Marge incertitude", uncertainty_gap, uncertainty_short_tooltip),
                 "</div>",
                 "</div>",
                 "</div>",
@@ -5001,42 +5641,42 @@ def supplier_risk_summary_asset(
 
     risk_formula_rows = [
         [
-            "1. Signal risque",
+            "1. Signal de menace",
             "0.20 x criticite + 0.14 x mono-source + 0.15 x stock + 0.11 x capacite + 0.10 x delai + 0.08 x exposition + 0.08 x sensibilite + 0.08 x dynamique + 0.06 x incertitude",
             pct_field(to_float(top_risk_row.get("risk_signal"))),
         ],
         [
-            "2. Risque estime 4 semaines",
-            "courbe S du signal: 1 / (1 + exp(-(-3 + 5 x signal risque)))",
+            "2. Score menace 4 semaines",
+            "courbe S du signal: 1 / (1 + exp(-(-3 + 5 x signal menace)))",
             risk_pct(top_risk_row.get("risk_probability_proxy_4w")),
         ],
         [
-            "3. Estimation prudente",
-            "risque estime + marge de prudence ; marge = 4 pts + 26 pts x incertitude",
+            "3. Borne prudente",
+            "score menace + marge de prudence ; marge = 4 pts + 26 pts x incertitude",
             risk_pct(top_risk_row.get("risk_probability_high_proxy_4w")),
         ],
         [
             "4. Priorite d'action",
-            "risque estime x facteur criticite x facteur sensibilite",
+            "score menace x facteur criticite x facteur sensibilite",
             risk_pct(top_risk_row.get("action_priority_score")),
         ],
     ]
     explanation_rows = [
         [
-            "Risque estime max",
-            "courbe S du signal risque",
+            "Score menace max",
+            "courbe S du signal de menace",
             risk_pct(max_numeric("risk_probability_proxy_4w")),
-            "Menace estimee a 4 semaines. Ce n'est pas une probabilite historique observee, c'est un score calibre entre 0 et 95%.",
+            "Menace a 4 semaines. Ce n'est pas une probabilite historique observee, c'est un score calibre entre 0 et 95%.",
         ],
         [
-            "Estimation prudente",
-            "risque estime + marge liee a l'incertitude",
+            "Borne prudente",
+            "score menace + marge liee a l'incertitude",
             risk_pct(max_numeric("risk_probability_high_proxy_4w")),
-            "Version prudente du risque estime, augmentee quand les donnees ou la prediction sont moins certaines.",
+            "Version haute du score menace, augmentee quand les donnees ou la prediction sont moins certaines.",
         ],
         [
             "Priorite d'action",
-            "risque estime x criticite x sensibilite",
+            "score menace x criticite x sensibilite",
             risk_pct(max_numeric("action_priority_score")),
             "Score d'arbitrage: menace estimee, criticite locale, exposition volumes et marge de recuperation.",
         ],
@@ -5047,9 +5687,9 @@ def supplier_risk_summary_asset(
             "Capacite estimee a absorber la perturbation puis revenir a la normale.",
         ],
         [
-            "Niveau de risque",
+            "Niveau de criticite",
             "decision_zone",
-            next((entry["value"] for entry in summary_lines if entry.get("label") == "Niveau de risque"), "n/a"),
+            next((entry["value"] for entry in summary_lines if entry.get("label") == "Niveau de criticite"), "n/a"),
             "Classification lisible de la priorite: Faible, Modere, Eleve ou Critique.",
         ],
     ]
@@ -5135,7 +5775,7 @@ def supplier_risk_summary_asset(
                 [
                     "<div class=\"riskMethodStack\">",
                     "<div class=\"riskMethodNote\">Les blocs ci-dessous servent a auditer le score. Ils ne sont pas necessaires pour la lecture operationnelle quotidienne.</div>",
-                    "<div class=\"riskMethodSubTitle\">Calcul complet du signal risque</div>",
+                    "<div class=\"riskMethodSubTitle\">Calcul complet du signal de menace</div>",
                     risk_signal_components_html(),
                     "<div class=\"riskMethodSubTitle\">Indicateurs derives et hypotheses de scoring</div>",
                     risk_explanation_cards_html(),
@@ -5159,8 +5799,8 @@ def supplier_risk_summary_asset(
         )
 
     return data_html_asset(
-        f"{display_node_label(node_id)} - risques fournisseurs",
-        "Lecture courte: niveau de menace fournisseur, confiance de l'estimation et action recommandee.",
+        f"{display_node_label(node_id)} - criticite fournisseurs",
+        "Lecture courte: criticite fournisseur, confiance de l'estimation et action recommandee.",
         [
             ("Synthese", risk_summary_dashboard_html()),
             (
@@ -5220,7 +5860,7 @@ def build_supplier_risk_hover_payloads(
         outgoing = supplier_risk_trajectory_asset(
             supplier_id,
             panel_by_supplier.get(supplier_id, []),
-            title_suffix="trajectoire risque / resilience fournisseur",
+            title_suffix="trajectoire criticite / resilience fournisseur",
         )
         third = supplier_risk_pair_table_asset(
             supplier_id,
@@ -5237,7 +5877,7 @@ def build_supplier_risk_hover_payloads(
         }
         metric = supplier_risk_node_metric(supplier_id, rows, supplier_row=supplier_row)
         if metric:
-            metric["title"] = f"Risques fournisseur - {title_name}"
+            metric["title"] = f"Criticite fournisseur - {title_name}"
             metrics_nodes[supplier_id] = metric
 
     for dst_id, rows in sorted(latest_by_dst.items()):
@@ -5245,7 +5885,7 @@ def build_supplier_risk_hover_payloads(
         outgoing = supplier_risk_trajectory_asset(
             dst_id,
             panel_by_dst.get(dst_id, []),
-            title_suffix="risque fournisseurs entrants",
+            title_suffix="criticite fournisseurs entrants",
         )
         third = supplier_risk_pair_table_asset(
             dst_id,
@@ -5273,7 +5913,7 @@ def build_supplier_risk_hover_payloads(
     metrics = {
         "nodes": metrics_nodes,
         "global": {
-            "title": "Risques fournisseurs",
+            "title": "Criticite fournisseurs",
             "summary_lines": [
                 {"label": "Fournisseurs", "value": str(summary_json.get("supplier_count", len(supplier_rows)))},
                 {"label": "Couples", "value": str(summary_json.get("pair_count", len(pair_rows)))},
@@ -6022,6 +6662,9 @@ def resolved_order_day(row: dict[str, str], day_field: str = "day") -> int:
     if day_field == "planned_arrival_day":
         planned_day = planned_order_receipt_day(row)
         return int(round(planned_day)) if planned_day is not None else 0
+    if day_field == "actual_receipt_day":
+        effective_day = effective_order_receipt_day(row)
+        return int(round(effective_day)) if effective_day is not None else 0
     return int(to_float(row.get(day_field)) or 0)
 
 
@@ -6328,11 +6971,13 @@ def render_supplier_stock_flows_html(
                 "outgoing_shipped": 0.0,
                 "physical_shipped": 0.0,
                 "planned_received": 0.0,
+                "confirmed_received": 0.0,
                 "loss": 0.0,
                 "incoming_days": 0,
                 "outgoing_days": 0,
                 "physical_send_days": set(),
                 "planned_receipt_days": set(),
+                "confirmed_receipt_days": set(),
                 "max_balance_gap": 0.0,
             }
             stats_by_item[item_id] = stats
@@ -6387,6 +7032,10 @@ def render_supplier_stock_flows_html(
         send_day = to_float(row.get("day"))
         if send_day is not None and not math.isnan(send_day):
             stats["physical_send_days"].add(int(round(send_day)))
+        receipt_day = to_float(row.get("arrival_day"))
+        if receipt_day is not None and not math.isnan(receipt_day):
+            stats["confirmed_received"] += shipped
+            stats["confirmed_receipt_days"].add(int(round(receipt_day)))
 
     for row in visible_order_rows:
         item_id = str(row.get("item_id") or "")
@@ -6418,6 +7067,7 @@ def render_supplier_stock_flows_html(
             (fmt_qty(stats.get("outgoing_shipped"), 1), "quantite utile expediee aval apres fiabilite"),
             (fmt_qty(stats.get("physical_shipped"), 1), "envois physiques issus de production_supplier_shipments_daily.day"),
             (fmt_qty(stats.get("planned_received"), 1), "receptions aval previsionnelles issues du carnet MRP, datees a ordre_passe + delai previsionnel source"),
+            (fmt_qty(stats.get("confirmed_received"), 1), "receptions aval reelles confirmees, datees par arrival_day des envois physiques fournisseur"),
             (
                 fmt_qty((stats.get("physical_shipped") or 0.0) - (stats.get("outgoing_shipped") or 0.0), 1),
                 "ecart entre envois physiques et expedie aval du bilan stock; les commandes d'ouverture/historiques peuvent etre hors bilan stock quotidien",
@@ -6430,6 +7080,7 @@ def render_supplier_stock_flows_html(
             (str(stats.get("outgoing_days") or 0), "jours avec sortie fournisseur"),
             (str(len(stats.get("physical_send_days") or [])), "jours avec envoi physique"),
             (str(len(stats.get("planned_receipt_days") or [])), "jours avec reception aval previsionnelle"),
+            (str(len(stats.get("confirmed_receipt_days") or [])), "jours avec reception aval reelle confirmee"),
             (fmt_qty(stats.get("max_balance_gap"), 6), "ecart max du bilan stock quotidien"),
         ]
         numeric_columns = set(range(2, len(cells)))
@@ -6451,6 +7102,7 @@ def render_supplier_stock_flows_html(
         "Expedie aval",
         "Envois phys.",
         "Receptions prev.",
+        "Receptions reelles",
         "Ecart phys/stock",
         "Ecart fiabilite",
         "Stock fin",
@@ -6460,11 +7112,12 @@ def render_supplier_stock_flows_html(
         "Jours sortie",
         "Jours envoi phys.",
         "Jours recept. prev.",
+        "Jours recept. reelle",
         "Ecart bilan",
     ]
     table_cols = "".join(
         f"<col style=\"width:{width}px\">"
-        for width in [105, 70, 115, 125, 125, 115, 120, 120, 120, 120, 125, 120, 115, 115, 115, 100, 100, 120, 120, 110]
+        for width in [105, 70, 115, 125, 125, 115, 120, 120, 120, 120, 130, 125, 120, 115, 115, 115, 100, 100, 120, 120, 130, 110]
     )
     return "".join(
         [
@@ -6472,7 +7125,7 @@ def render_supplier_stock_flows_html(
             f"<div class=\"orderLedgerTextHeader\">{html.escape(node_id)} - flux stock fournisseur</div>",
             "<div class=\"orderLedgerStatus\">Bilan quotidien consolide par item: stock debut + entrees fournisseur - pertes stock - sorties stock = stock fin.</div>",
             "<div class=\"orderLedgerStatus\">Entrees = arrivees dans le stock fournisseur; sorties stock = quantite prelevee chez le fournisseur; expedie aval tient compte de la fiabilite.</div>",
-            "<div class=\"orderLedgerStatus\">Envois phys. = production_supplier_shipments_daily.day. Receptions prev. = carnet MRP date a ordre_passe + delai previsionnel source; pas arrival_day simule.</div>",
+            "<div class=\"orderLedgerStatus\">Envois phys. = production_supplier_shipments_daily.day. Receptions prev. = carnet MRP date a ordre_passe + delai previsionnel source. Receptions reelles = arrival_day des envois physiques confirmes.</div>",
             "<div class=\"orderLedgerFrame\">",
             "<div class=\"orderLedgerTableWrap\" tabindex=\"0\" aria-label=\"Tableau des flux de stock fournisseur avec defilement horizontal natif en bas.\">",
             "<table class=\"orderLedgerTable orderLedgerWideTable\">",
@@ -6527,6 +7180,32 @@ def render_supplier_risk_catalog_html(
         if applied_event_ids
         else ("evenements configures mais non appliques" if configured_event_ids else "aucun evenement configure")
     )
+    event_by_id = {
+        str(event.get("event_id") or "").strip(): event
+        for event in configured_events
+        if str(event.get("event_id") or "").strip()
+    }
+    applied_configured_events = [
+        event_by_id[event_id]
+        for event_id in sorted(applied_event_ids)
+        if event_id in event_by_id
+    ]
+    configured_only_events = [
+        event
+        for event in configured_events
+        if str(event.get("event_id") or "").strip() not in applied_event_ids
+    ]
+    scenario_configured = sum(1 for event in configured_events if supplier_risk_event_source_kind(event) == "scenario")
+    state_configured = sum(1 for event in configured_events if supplier_risk_event_source_kind(event) == "state")
+    scenario_applied = sum(1 for event in applied_configured_events if supplier_risk_event_source_kind(event) == "scenario")
+    state_applied = sum(1 for event in applied_configured_events if supplier_risk_event_source_kind(event) == "state")
+    dominant_applied_family = "other"
+    if applied_configured_events:
+        family_counter: dict[str, int] = defaultdict(int)
+        for event in applied_configured_events:
+            family_counter[supplier_risk_family_for_event(event)] += 1
+        dominant_applied_family = max(family_counter.items(), key=lambda item: item[1])[0]
+    dominant_applied_info = SIMULATED_RISK_FAMILY_INFO.get(dominant_applied_family, SIMULATED_RISK_FAMILY_INFO["other"])
 
     def configured_events_for(types: set[str]) -> list[dict[str, Any]]:
         return [
@@ -6581,24 +7260,72 @@ def render_supplier_risk_catalog_html(
                 return True
         return False
 
-    def event_ids_for(types: set[str], applied_field_names: list[str]) -> list[str]:
+    def event_ids_for(types: set[str], applied_field_names: list[str], *, applied_only: bool = False) -> list[str]:
         ids: set[str] = set()
-        for event in configured_events_for(types):
-            event_id = str(event.get("event_id") or "").strip()
-            if event_id:
-                ids.add(event_id)
+        if not applied_only:
+            for event in configured_events_for(types):
+                event_id = str(event.get("event_id") or "").strip()
+                if event_id:
+                    ids.add(event_id)
         if applied_field_names:
             for row in applied_rows:
+                row_event_ids = [event_id.strip() for event_id in str(row.get("event_ids") or "").split(",") if event_id.strip()]
+                if applied_only and not any(
+                    str((event_by_id.get(event_id) or {}).get("risk_type") or "") in types
+                    for event_id in row_event_ids
+                ):
+                    continue
                 factor_fields = [field for field in applied_field_names if "multiplier" in field]
                 positive_fields = [field for field in applied_field_names if "multiplier" not in field]
                 row_has_effect = row_has_factor_effect(row, factor_fields) or row_has_positive_effect(row, positive_fields)
                 if not row_has_effect:
                     continue
-                for event_id in str(row.get("event_ids") or "").split(","):
-                    event_id = event_id.strip()
+                for event_id in row_event_ids:
+                    if applied_only and str((event_by_id.get(event_id) or {}).get("risk_type") or "") not in types:
+                        continue
                     if event_id:
                         ids.add(event_id)
         return sorted(ids)
+
+    def configured_window_text(events: list[dict[str, Any]]) -> str:
+        if not events:
+            return "n/a"
+        days = [
+            int(to_float(event.get(day_field)) or 0)
+            for event in events
+            for day_field in ("start_day", "end_day")
+            if str(event.get(day_field) or "").strip() != ""
+        ]
+        if not days:
+            return "n/a"
+        return f"J{min(days)} -> J{max(days)}"
+
+    def compact_event_list(events: list[dict[str, Any]], max_count: int = 4) -> str:
+        if not events:
+            return "aucun"
+        labels = [str(event.get("event_id") or "event") for event in events[:max_count]]
+        if len(events) > max_count:
+            labels.append(f"+{len(events) - max_count}")
+        return ", ".join(labels)
+
+    def applied_event_ids_for(types: set[str], applied_field_names: list[str]) -> list[str]:
+        return event_ids_for(types, applied_field_names, applied_only=True)
+
+    def configured_only_events_for(types: set[str]) -> list[dict[str, Any]]:
+        return [
+            event
+            for event in configured_events_for(types)
+            if str(event.get("event_id") or "").strip() not in applied_event_ids
+        ]
+
+    def scenario_card_html(title: str, text: str, family: str = "other") -> str:
+        color = SIMULATED_RISK_FAMILY_INFO.get(family, SIMULATED_RISK_FAMILY_INFO["other"])["color"]
+        return (
+            f"<div class=\"riskScenarioCard\" style=\"border-left-color:{html.escape(color)}\">"
+            f"<div class=\"riskScenarioCardTitle\">{html.escape(title)}</div>"
+            f"<div class=\"riskScenarioCardText\">{html.escape(text)}</div>"
+            "</div>"
+        )
 
     def configured_text(events: list[dict[str, Any]]) -> str:
         if not events:
@@ -6614,6 +7341,68 @@ def render_supplier_risk_catalog_html(
         if len(events) > 4:
             parts.append(f"+{len(events) - 4} autre(s)")
         return " ; ".join(parts)
+
+    def numeric_field_values(fields: list[str], default: float = 1.0) -> list[float]:
+        return [
+            value
+            for field in fields
+            for value in field_values(field, default)
+            if value is not None and not math.isnan(value)
+        ]
+
+    def risk_category_business_effect(
+        category: str,
+        *,
+        factor_fields: list[str],
+        day_fields: list[str],
+        pct_fields: list[str],
+        mode: str,
+    ) -> str:
+        category_lower = category.lower()
+        factor_vals = numeric_field_values(factor_fields, 1.0)
+        day_vals = numeric_field_values(day_fields, 0.0)
+        pct_vals = numeric_field_values(pct_fields, 0.0)
+        factor_value = None
+        if factor_vals:
+            factor_value = max(factor_vals) if mode == "max" else min(factor_vals)
+        max_days = max(day_vals) if day_vals else 0.0
+        max_pct = max(pct_vals) if pct_vals else 0.0
+
+        if "write-off" in category_lower or "perte stock" in category_lower:
+            return f"stock perdu ou bloque jusqu'a {fmt_pct(max_pct * 100.0)}"
+        if "stock fournisseur" in category_lower:
+            return f"stock accessible descendu a {fmt_pct((factor_value or 1.0) * 100.0)}"
+        if "capacite fournisseur" in category_lower:
+            return f"capacite fournisseur descendue a {fmt_pct((factor_value or 1.0) * 100.0)}"
+        if "disponibilite fournisseur" in category_lower:
+            return f"disponibilite fournisseur descendue a {fmt_pct((factor_value or 1.0) * 100.0)}"
+        if "lead time fournisseur" in category_lower:
+            parts = []
+            if factor_value is not None and abs(factor_value - 1.0) > 1e-9:
+                parts.append(f"delai multiplie jusqu'a x{factor_value:.2f}")
+            if max_days > 1e-9:
+                parts.append(f"retard ajoute jusqu'a {fmt_days(max_days, 1)}")
+            return " ; ".join(parts) if parts else "aucun allongement de delai applique"
+        if "release" in category_lower:
+            return f"liberation qualite retardee jusqu'a {fmt_days(max_days, 1)}"
+        if "otif" in category_lower or "fiabilite" in category_lower:
+            return f"quantite utile expediee descendue a {fmt_pct((factor_value or 1.0) * 100.0)}"
+        if "rendement qualite" in category_lower or "rejets" in category_lower:
+            return f"rendement utile descendu a {fmt_pct((factor_value or 1.0) * 100.0)}"
+        if "cout" in category_lower:
+            return f"cout multiplie jusqu'a x{(factor_value or 1.0):.2f}"
+        if "appro amont fournisseur - capacite" in category_lower:
+            return f"approvisionnement amont limite a {fmt_pct((factor_value or 1.0) * 100.0)}"
+        if "appro amont fournisseur - delai" in category_lower:
+            parts = []
+            if factor_value is not None and abs(factor_value - 1.0) > 1e-9:
+                parts.append(f"delai amont multiplie jusqu'a x{factor_value:.2f}")
+            if max_days > 1e-9:
+                parts.append(f"retard amont ajoute jusqu'a {fmt_days(max_days, 1)}")
+            return " ; ".join(parts) if parts else "aucun retard amont applique"
+        if "appro amont fournisseur - qualite" in category_lower:
+            return f"rendement amont descendu a {fmt_pct((factor_value or 1.0) * 100.0)}"
+        return "effet applique dans le run"
 
     def factor_intensity(fields: list[str], *, mode: str) -> str:
         vals = [
@@ -6776,13 +7565,14 @@ def render_supplier_risk_catalog_html(
         },
     ]
 
-    rows_html: list[str] = []
+    category_entries: list[dict[str, Any]] = []
     for entry in catalog:
         types = set(entry["types"])
         factor_fields = list(entry["factor_fields"])
         day_fields = list(entry["day_fields"])
         pct_fields = list(entry["pct_fields"])
         configured = configured_events_for(types)
+        configured_only = configured_only_events_for(types)
         applied = (
             has_factor_effect(factor_fields)
             or has_positive_effect(day_fields)
@@ -6797,16 +7587,87 @@ def render_supplier_risk_catalog_html(
         if pct_fields:
             intensity_parts.append(pct_intensity(pct_fields))
         intensity = " ; ".join(intensity_parts) if intensity_parts else "n/a"
-        events_text = ", ".join(event_ids_for(types, factor_fields + day_fields + pct_fields)) or "aucun"
+        effect_text = risk_category_business_effect(
+            str(entry["category"]),
+            factor_fields=factor_fields,
+            day_fields=day_fields,
+            pct_fields=pct_fields,
+            mode=str(entry["mode"]),
+        )
+        applied_ids = applied_event_ids_for(types, factor_fields + day_fields + pct_fields)
+        all_ids = event_ids_for(types, factor_fields + day_fields + pct_fields)
+        category_entries.append(
+            {
+                "status": status,
+                "category": str(entry["category"]),
+                "family": supplier_risk_family_for_type(next(iter(types)) if types else ""),
+                "intensity": intensity,
+                "applied_ids": applied_ids,
+                "all_ids": all_ids,
+                "configured": configured,
+                "configured_only": configured_only,
+                "reading": str(entry["reading"]),
+                "effect_text": effect_text,
+            }
+        )
+
+    applied_entries = [entry for entry in category_entries if entry["status"] == "APPLIQUE"]
+    configured_only_entries = [
+        entry for entry in category_entries
+        if entry["status"] == "CONFIGURE" and entry["configured_only"]
+    ]
+    detail_entries = applied_entries + configured_only_entries
+    rows_html: list[str] = []
+    for entry in detail_entries:
+        applied_ids = entry["applied_ids"]
+        configured_only = entry["configured_only"]
+        if entry["status"] == "APPLIQUE":
+            event_text = ", ".join(applied_ids) or "applique"
+            window_text = configured_window_text([
+                event_by_id[event_id]
+                for event_id in applied_ids
+                if event_id in event_by_id
+            ])
+        else:
+            event_text = compact_event_list(configured_only)
+            window_text = configured_window_text(configured_only)
         rows_html.append(
             "<tr>"
-            f"<td>{html.escape(status)}</td>"
+            f"<td>{html.escape(str(entry['status']))}</td>"
             f"<td>{html.escape(str(entry['category']))}</td>"
-            f"<td>{html.escape(intensity)}</td>"
-            f"<td>{html.escape(events_text)}</td>"
+            f"<td>{html.escape(str(entry['intensity']))}</td>"
+            f"<td>{html.escape(event_text)}</td>"
+            f"<td>{html.escape(window_text)}</td>"
             f"<td>{html.escape(str(entry['reading']))}</td>"
-            f"<td>{html.escape(configured_text(configured))}</td>"
             "</tr>"
+        )
+    if not rows_html:
+        rows_html.append(
+            "<tr><td colspan=\"6\">Aucun evenement fournisseur configure ou applique sur ce noeud.</td></tr>"
+        )
+
+    applied_cards = []
+    for entry in applied_entries[:6]:
+        card_events = [
+            event_by_id[event_id]
+            for event_id in entry["applied_ids"]
+            if event_id in event_by_id
+        ]
+        card_window = configured_window_text(card_events)
+        applied_cards.append(
+            scenario_card_html(
+                str(entry["category"]),
+                f"{entry['effect_text']}. Fenetre: {card_window}.",
+                str(entry["family"]),
+            )
+        )
+    if not applied_cards:
+        applied_cards.append(
+            scenario_card_html(
+                "Aucun effet applique",
+                "Des evenements peuvent etre configures, mais aucun n'a rencontre un ordre ou un flux actif sur ce noeud.",
+                "other",
+            )
         )
 
     external_enabled = bool(economic_policy.get("external_procurement_enabled"))
@@ -6845,28 +7706,33 @@ def render_supplier_risk_catalog_html(
         [
             "<div class=\"factoryHtmlPanelContent orderLedgerPanelContent\">",
             f"<div class=\"orderLedgerTextHeader\">{html.escape(node_id)} - risques simules fournisseur</div>",
-            "<div class=\"orderLedgerStatus\">Question metier: que se passe-t-il si ces evenements fournisseur se produisent ? Lecture: evenement configure, evenement applique, intensite et periode.</div>",
-            "<div class=\"riskSummaryCard riskSummaryCardNeutral\">",
+            "<div class=\"orderLedgerStatus\">Question metier: quels aleas ont vraiment pese sur ce fournisseur dans le run, et lesquels etaient seulement configures ?</div>",
+            f"<div class=\"riskSummaryCard riskSummaryCardNeutral\" style=\"border-left-color:{html.escape(dominant_applied_info['color'])}\">",
             "<div class=\"riskSummaryHeader\">",
             "<div>",
             "<div class=\"riskSummaryPill\">RISQUES SIMULES</div>",
-            f"<div class=\"riskSummaryTitle\">{html.escape(node_id)} - scenario de risques injectes</div>",
-            f"<div class=\"riskSummaryText\">{html.escape(status_text)}. Cette vue decrit les aleas forces dans le scenario, pas la fragilite structurelle du reseau.</div>",
+            f"<div class=\"riskSummaryTitle\">{html.escape(node_id)} - {html.escape(status_text)}</div>",
+            f"<div class=\"riskSummaryText\">Lecture locale du run: on ne garde ici que les effets qui ont vraiment modifie un flux, un stock, un delai ou une quantite utile. Les aleas sans effet local sont replies dans les details.</div>",
             "</div>",
             "<div class=\"riskSummaryGrid\">",
-            f"<div class=\"riskFactCard\"><div class=\"riskFactLabel\">EVENEMENTS CONFIGURES</div><div class=\"riskFactValue\">{len(configured_event_ids)}</div></div>",
-            f"<div class=\"riskFactCard\"><div class=\"riskFactLabel\">EVENEMENTS APPLIQUES</div><div class=\"riskFactValue\">{len(applied_event_ids)}</div></div>",
-            f"<div class=\"riskFactCard\"><div class=\"riskFactLabel\">JOURS IMPACTES</div><div class=\"riskFactValue\">{len(applied_days)}</div></div>",
-            f"<div class=\"riskFactCard\"><div class=\"riskFactLabel\">PERIODE</div><div class=\"riskFactValue\">{html.escape(period_text)}</div></div>",
-            f"<div class=\"riskFactCard\"><div class=\"riskFactLabel\">TYPE CONFIGURE PRINCIPAL</div><div class=\"riskFactValue\">{html.escape(dominant_type)}</div></div>",
+            f"<div class=\"riskFactCard\"><div class=\"riskFactLabel\">EFFET DOMINANT</div><div class=\"riskFactValue\">{html.escape(dominant_applied_info['label']) if applied_event_ids else 'aucun effet local'}</div></div>",
+            f"<div class=\"riskFactCard\"><div class=\"riskFactLabel\">PERIODE TOUCHEE</div><div class=\"riskFactValue\">{html.escape(period_text)}</div></div>",
+            f"<div class=\"riskFactCard\"><div class=\"riskFactLabel\">FAMILLES D'EFFETS</div><div class=\"riskFactValue\">{len(applied_entries)}</div></div>",
+            f"<div class=\"riskFactCard\"><div class=\"riskFactLabel\">A REGARDER ENSUITE</div><div class=\"riskFactValue\">stocks, ordres, receptions</div></div>",
             "</div>",
             "</div>",
             "</div>",
-            f"<div class=\"orderLedgerStatus\">{html.escape(external_policy_text)}</div>",
+            "<div class=\"riskScenarioSection\">Effets reels dans ce run</div>",
+            f"<div class=\"riskScenarioCards\">{''.join(applied_cards)}</div>",
+            "<div class=\"riskScenarioMuted\">Seuls les effets qui ont modifie le run local sont visibles ici. Les evenements sans effet local restent accessibles ci-dessous.</div>",
+            "<details class=\"riskScenarioNativeDetails\">",
+            "<summary>Details evenements et mecanique de calcul</summary>",
+            f"<div class=\"orderLedgerStatus\">Mecanique appro amont: {html.escape(external_policy_text)}</div>",
             "<div class=\"kpiFormulaTableWrap\"><table class=\"kpiFormulaTable\">",
-            "<thead><tr><th>Statut</th><th>Categorie</th><th>Intensite appliquee</th><th>Evenements</th><th>Lecture</th><th>Configuration</th></tr></thead>",
+            "<thead><tr><th>Statut</th><th>Categorie</th><th>Intensite</th><th>Evenements</th><th>Fenetre</th><th>Lecture metier</th></tr></thead>",
             f"<tbody>{''.join(rows_html)}</tbody>",
             "</table></div>",
+            "</details>",
             "</div>",
         ]
     )
@@ -6898,6 +7764,14 @@ def supplier_risk_family_for_type(risk_type: str) -> str:
     if value in {"availability"}:
         return "availability"
     return "other"
+
+
+def supplier_risk_event_source_kind(event: dict[str, Any]) -> str:
+    source = str(event.get("source") or "").strip()
+    event_id = str(event.get("event_id") or "").strip()
+    if source == "state_dependent_supplier_risk" or event_id.startswith("state_"):
+        return "state"
+    return "scenario"
 
 
 def supplier_risk_family_for_event(event: dict[str, Any]) -> str:
@@ -6970,17 +7844,22 @@ def build_simulated_supplier_risk_metrics(
     applied_by_node: dict[str, list[dict[str, str]]],
 ) -> dict[str, Any]:
     event_family_by_id: dict[str, str] = {}
+    event_source_by_id: dict[str, str] = {}
     for events in configured_by_node.values():
         for event in events:
             event_id = str(event.get("event_id") or "").strip()
             if not event_id:
                 continue
             event_family_by_id[event_id] = supplier_risk_family_for_event(event)
+            event_source_by_id[event_id] = supplier_risk_event_source_kind(event)
 
     nodes: dict[str, Any] = {}
     global_configured_ids: set[str] = set()
     global_applied_ids: set[str] = set()
-    global_family_counts: dict[str, int] = defaultdict(int)
+    global_configured_family_counts: dict[str, int] = defaultdict(int)
+    global_applied_family_counts: dict[str, int] = defaultdict(int)
+    global_configured_source_counts: dict[str, int] = defaultdict(int)
+    global_applied_source_counts: dict[str, int] = defaultdict(int)
 
     for node_id in sorted(set(configured_by_node.keys()) | set(applied_by_node.keys())):
         configured_events = configured_by_node.get(node_id, [])
@@ -7000,11 +7879,26 @@ def build_simulated_supplier_risk_metrics(
         global_applied_ids.update(applied_ids)
 
         family_counts: dict[str, int] = defaultdict(int)
+        configured_family_counts: dict[str, int] = defaultdict(int)
+        applied_family_counts: dict[str, int] = defaultdict(int)
+        configured_source_counts: dict[str, int] = defaultdict(int)
+        applied_source_counts: dict[str, int] = defaultdict(int)
         family_scores: dict[str, float] = defaultdict(float)
         for event in configured_events:
             family = supplier_risk_family_for_event(event)
+            source_kind = supplier_risk_event_source_kind(event)
             family_counts[family] += 1
-            global_family_counts[family] += 1
+            configured_family_counts[family] += 1
+            configured_source_counts[source_kind] += 1
+            global_configured_family_counts[family] += 1
+            global_configured_source_counts[source_kind] += 1
+        for event_id in applied_ids:
+            family = event_family_by_id.get(event_id, "other")
+            source_kind = event_source_by_id.get(event_id, "scenario")
+            applied_family_counts[family] += 1
+            applied_source_counts[source_kind] += 1
+            global_applied_family_counts[family] += 1
+            global_applied_source_counts[source_kind] += 1
         for row in applied_rows:
             row_event_ids = [event_id.strip() for event_id in str(row.get("event_ids") or "").split(",") if event_id.strip()]
             row_families = {event_family_by_id.get(event_id, "other") for event_id in row_event_ids} or {"other"}
@@ -7047,6 +7941,10 @@ def build_simulated_supplier_risk_metrics(
             else ("Configure mais pas applique dans ce run" if configured_ids else "Aucun risque simule")
         )
         examples = sorted(applied_ids or configured_ids)[:4]
+        source_text = (
+            f"scenario {applied_source_counts.get('scenario', 0)}/{configured_source_counts.get('scenario', 0)} ; "
+            f"state-dependent {applied_source_counts.get('state', 0)}/{configured_source_counts.get('state', 0)}"
+        )
         nodes[node_id] = {
             "source": "supplier_risk_events",
             "status": "applied" if applied_ids else ("configured" if configured_ids else "none"),
@@ -7057,36 +7955,1216 @@ def build_simulated_supplier_risk_metrics(
             "score": min(1.0, max(0.0, score)),
             "configured_event_count": len(configured_ids),
             "applied_event_count": len(applied_ids),
+            "configured_not_applied_count": max(0, len(configured_ids) - len(applied_ids)),
             "applied_row_count": len(applied_rows),
             "active_day_count": len(applied_days),
             "period": period,
             "event_examples": examples,
+            "configured_family_counts": dict(sorted(configured_family_counts.items())),
+            "applied_family_counts": dict(sorted(applied_family_counts.items())),
+            "configured_source_counts": dict(sorted(configured_source_counts.items())),
+            "applied_source_counts": dict(sorted(applied_source_counts.items())),
             "summary_lines": [
                 {"label": "Lecture", "value": "risques simules injectes"},
                 {"label": "Statut", "value": status_label},
-                {"label": "Type principal", "value": info["label"]},
-                {"label": "Evenements configures", "value": str(len(configured_ids))},
-                {"label": "Evenements appliques", "value": str(len(applied_ids))},
-                {"label": "Jours impactes", "value": str(len(applied_days))},
+                {"label": "Appliques / configures", "value": f"{len(applied_ids)} / {len(configured_ids)}"},
+                {"label": "Non appliques", "value": str(max(0, len(configured_ids) - len(applied_ids)))},
+                {"label": "Famille appliquee dominante", "value": info["label"] if applied_ids else "aucune"},
+                {"label": "Sources", "value": source_text},
                 {"label": "Periode", "value": period},
+                {"label": "Jours impactes", "value": str(len(applied_days))},
                 {"label": "Exemples", "value": ", ".join(examples) if examples else "aucun"},
             ],
         }
 
     dominant_global_family = "other"
-    if global_family_counts:
-        dominant_global_candidates = [family for family in global_family_counts if family != "cost"] or list(global_family_counts)
-        dominant_global_family = max(dominant_global_candidates, key=lambda family: global_family_counts[family])
+    family_basis = global_applied_family_counts or global_configured_family_counts
+    if family_basis:
+        dominant_global_candidates = [family for family in family_basis if family != "cost"] or list(family_basis)
+        dominant_global_family = max(dominant_global_candidates, key=lambda family: family_basis[family])
     return {
         "nodes": nodes,
         "global": {
             "configured_event_count": len(global_configured_ids),
             "applied_event_count": len(global_applied_ids),
             "node_count": len(nodes),
+            "applied_node_count": sum(1 for node in nodes.values() if node.get("status") == "applied"),
+            "configured_node_count": sum(1 for node in nodes.values() if node.get("configured_event_count", 0)),
             "dominant_family": dominant_global_family,
             "dominant_label": SIMULATED_RISK_FAMILY_INFO.get(dominant_global_family, SIMULATED_RISK_FAMILY_INFO["other"])["label"],
-            "family_counts": dict(sorted(global_family_counts.items())),
+            "family_counts": dict(sorted((global_applied_family_counts or global_configured_family_counts).items())),
+            "configured_family_counts": dict(sorted(global_configured_family_counts.items())),
+            "applied_family_counts": dict(sorted(global_applied_family_counts.items())),
+            "configured_source_counts": dict(sorted(global_configured_source_counts.items())),
+            "applied_source_counts": dict(sorted(global_applied_source_counts.items())),
         },
+    }
+
+
+def build_simulated_risk_global_diagnostic_payload(
+    *,
+    raw: dict[str, Any],
+    output_root: Path,
+    simulated_risk_metrics: dict[str, Any],
+) -> dict[str, Any]:
+    data_root = output_root / "data"
+    summary = load_json_dict(output_root / "summaries" / "first_simulation_summary.json")
+    kpis = (summary.get("kpis") or {}) if isinstance(summary, dict) else {}
+    production_tracking = (summary.get("production_tracking") or {}) if isinstance(summary, dict) else {}
+    scenario_events = [
+        dict(event)
+        for event in production_tracking.get("supplier_risk_events", []) or []
+        if isinstance(event, dict)
+    ]
+    state_events = [dict(row) for row in read_csv_rows(data_root / "supplier_state_dependent_risk_events.csv")]
+    configured_events = scenario_events + state_events
+    event_by_id = {
+        str(event.get("event_id") or "").strip(): event
+        for event in configured_events
+        if str(event.get("event_id") or "").strip()
+    }
+    applied_rows = read_csv_rows(data_root / "supplier_risk_events_applied_daily.csv")
+    demand_rows = read_csv_rows(data_root / "production_demand_service_daily.csv")
+    plan_rows = read_csv_rows(data_root / "production_plan_events.csv")
+    constraint_rows = read_csv_rows(data_root / "production_constraint_daily.csv")
+    item_labels = build_item_label_lookup(raw)
+    node_labels = {
+        str(node.get("id") or ""): str(node.get("name") or node.get("label") or node.get("id") or "")
+        for node in raw.get("nodes", []) or []
+        if isinstance(node, dict) and str(node.get("id") or "")
+    }
+
+    def label_node(node_id: str) -> str:
+        node_id = str(node_id or "")
+        label = node_labels.get(node_id, "")
+        return f"{node_id} - {label}" if label and label != node_id else node_id
+
+    def label_item(item_id: str) -> str:
+        item_id = str(item_id or "")
+        return item_labels.get(item_id, compact_item_label(item_id))
+
+    def unique_event_ids_from_rows(rows: list[dict[str, str]]) -> set[str]:
+        return {
+            event_id.strip()
+            for row in rows
+            for event_id in str(row.get("event_ids") or "").split(",")
+            if event_id.strip()
+        }
+
+    applied_ids = unique_event_ids_from_rows(applied_rows)
+    configured_ids = set(event_by_id)
+    applied_days = {
+        int(to_float(row.get("day")) or 0)
+        for row in applied_rows
+        if str(row.get("day") or "").strip() != ""
+    }
+    applied_period = f"J{min(applied_days)} -> J{max(applied_days)}" if applied_days else "aucune application"
+
+    family_counts: dict[str, int] = defaultdict(int)
+    supplier_stats: dict[str, dict[str, Any]] = defaultdict(lambda: {
+        "rows": 0,
+        "days": set(),
+        "items": set(),
+        "families": defaultdict(int),
+        "event_ids": set(),
+        "max_score": 0.0,
+    })
+    item_stats: dict[str, dict[str, Any]] = defaultdict(lambda: {
+        "rows": 0,
+        "suppliers": set(),
+        "families": defaultdict(int),
+        "event_ids": set(),
+        "max_score": 0.0,
+    })
+    for row in applied_rows:
+        supplier_id = str(row.get("supplier_id") or "")
+        item_id = str(row.get("item_id") or "")
+        day = int(to_float(row.get("day")) or 0)
+        row_event_ids = [event_id.strip() for event_id in str(row.get("event_ids") or "").split(",") if event_id.strip()]
+        row_families = {
+            supplier_risk_family_for_event(event_by_id.get(event_id, {"event_id": event_id}))
+            for event_id in row_event_ids
+        } or {"other"}
+        max_score = max((supplier_risk_family_severity(row, family) for family in row_families), default=0.0)
+        for family in row_families:
+            family_counts[family] += 1
+        if supplier_id:
+            stats = supplier_stats[supplier_id]
+            stats["rows"] += 1
+            stats["days"].add(day)
+            if item_id:
+                stats["items"].add(item_id)
+            stats["event_ids"].update(row_event_ids)
+            stats["max_score"] = max(stats["max_score"], max_score)
+            for family in row_families:
+                stats["families"][family] += 1
+        if item_id:
+            stats = item_stats[item_id]
+            stats["rows"] += 1
+            if supplier_id:
+                stats["suppliers"].add(supplier_id)
+            stats["event_ids"].update(row_event_ids)
+            stats["max_score"] = max(stats["max_score"], max_score)
+            for family in row_families:
+                stats["families"][family] += 1
+
+    def family_summary(families: dict[str, int], limit: int = 3) -> str:
+        parts = []
+        for family, count in sorted(families.items(), key=lambda item: (-int(item[1]), item[0]))[:limit]:
+            info = SIMULATED_RISK_FAMILY_INFO.get(family, SIMULATED_RISK_FAMILY_INFO["other"])
+            parts.append(f"{info['label']} ({count})")
+        return ", ".join(parts) if parts else "n/a"
+
+    def top_supplier_rows(limit: int = 6) -> list[dict[str, str]]:
+        out: list[dict[str, str]] = []
+        for supplier_id, stats in sorted(
+            supplier_stats.items(),
+            key=lambda item: (-len(item[1]["days"]), -int(item[1]["rows"]), item[0]),
+        )[:limit]:
+            out.append(
+                {
+                    "Fournisseur": label_node(supplier_id),
+                    "Periode": f"{len(stats['days'])} j",
+                    "Articles touches": ", ".join(label_item(item_id) for item_id in sorted(stats["items"])[:4]) or "n/a",
+                    "Effet dominant": family_summary(stats["families"], 2),
+                    "Intensite max": fmt_pct(float(stats["max_score"]) * 100.0, 0),
+                }
+            )
+        return out
+
+    def top_item_rows(limit: int = 6) -> list[dict[str, str]]:
+        out: list[dict[str, str]] = []
+        for item_id, stats in sorted(
+            item_stats.items(),
+            key=lambda item: (-int(item[1]["rows"]), -len(item[1]["suppliers"]), item[0]),
+        )[:limit]:
+            out.append(
+                {
+                    "Article": label_item(item_id),
+                    "Fournisseurs": str(len(stats["suppliers"])),
+                    "Effet dominant": family_summary(stats["families"], 2),
+                    "Occurrences": str(stats["rows"]),
+                    "Intensite max": fmt_pct(float(stats["max_score"]) * 100.0, 0),
+                }
+            )
+        return out
+
+    delay_rows = [
+        row for row in plan_rows
+        if str(row.get("event_type") or "") in {"delay_input_shortage", "delay_weekly_lot_limit"}
+        or str(row.get("reason") or "") in {"input_shortage", "weekly_lot_limit"}
+    ]
+    input_delay_rows = [
+        row for row in delay_rows
+        if str(row.get("reason") or row.get("event_type") or "") == "input_shortage"
+        or str(row.get("event_type") or "") == "delay_input_shortage"
+    ]
+    delay_by_blocker: dict[tuple[str, str, str], dict[str, Any]] = defaultdict(lambda: {
+        "count": 0,
+        "days": set(),
+        "lot_shortfall": 0.0,
+        "desired_shortfall": 0.0,
+        "next_receipts": [],
+    })
+    for row in input_delay_rows:
+        key = (
+            str(row.get("node_id") or ""),
+            str(row.get("output_item_id") or ""),
+            str(row.get("binding_input_item_id") or ""),
+        )
+        stats = delay_by_blocker[key]
+        stats["count"] += 1
+        stats["days"].add(int(to_float(row.get("day")) or 0))
+        stats["lot_shortfall"] += max(0.0, to_float(row.get("shortfall_vs_lot_plan_qty")) or 0.0)
+        stats["desired_shortfall"] += max(0.0, to_float(row.get("shortfall_vs_desired_qty")) or 0.0)
+        next_day = to_float(row.get("next_expected_receipt_day"))
+        if next_day is not None and not math.isnan(next_day):
+            stats["next_receipts"].append(int(next_day))
+
+    blocker_rows: list[dict[str, str]] = []
+    for (node_id, output_item_id, input_item_id), stats in sorted(
+        delay_by_blocker.items(),
+        key=lambda item: (-int(item[1]["count"]), -float(item[1]["lot_shortfall"]), item[0]),
+    )[:6]:
+        next_receipts = stats["next_receipts"]
+        next_text = (
+            f"J{min(next_receipts)} -> J{max(next_receipts)}"
+            if next_receipts and min(next_receipts) != max(next_receipts)
+            else (f"J{next_receipts[0]}" if next_receipts else "n/a")
+        )
+        days = sorted(stats["days"])
+        day_text = f"J{days[0]} -> J{days[-1]}" if days and days[0] != days[-1] else (f"J{days[0]}" if days else "n/a")
+        blocker_rows.append(
+            {
+                "Site": label_node(node_id),
+                "Produit": label_item(output_item_id),
+                "Intrant bloquant": label_item(input_item_id),
+                "Jours reportes": f"{stats['count']} ({day_text})",
+                "Lots non lances": fmt_qty(stats["lot_shortfall"], 0),
+                "Prochaine reception": next_text,
+            }
+        )
+
+    max_backlog = 0.0
+    backlog_days: set[int] = set()
+    backlog_by_pair: dict[tuple[str, str], dict[str, Any]] = defaultdict(lambda: {"max": 0.0, "days": set()})
+    for row in demand_rows:
+        backlog = max(0.0, to_float(row.get("backlog_end_qty")) or 0.0)
+        if backlog <= 1e-9:
+            continue
+        day = int(to_float(row.get("day")) or 0)
+        node_id = str(row.get("node_id") or "")
+        item_id = str(row.get("item_id") or "")
+        backlog_days.add(day)
+        max_backlog = max(max_backlog, backlog)
+        stats = backlog_by_pair[(node_id, item_id)]
+        stats["max"] = max(stats["max"], backlog)
+        stats["days"].add(day)
+    top_backlog = max(backlog_by_pair.items(), key=lambda item: item[1]["max"], default=None)
+    top_backlog_text = "aucun backlog temporaire"
+    if top_backlog:
+        (node_id, item_id), stats = top_backlog
+        top_backlog_text = f"{label_node(node_id)} / {label_item(item_id)}: pic {fmt_qty(stats['max'], 0)} sur {len(stats['days'])} j"
+
+    actual_produced = sum(max(0.0, to_float(row.get("actual_qty")) or 0.0) for row in constraint_rows)
+    planned_after_lot = sum(max(0.0, to_float(row.get("planned_qty_after_lot_rule")) or 0.0) for row in constraint_rows)
+    lot_shortfall_total = sum(max(0.0, to_float(row.get("shortfall_vs_lot_plan_qty")) or 0.0) for row in constraint_rows)
+    input_shortfall_total = sum(max(0.0, to_float(row.get("shortfall_vs_lot_plan_qty")) or 0.0) for row in input_delay_rows)
+
+    fill_rate = to_float(kpis.get("fill_rate")) or 0.0
+    ending_backlog = max(0.0, to_float(kpis.get("ending_backlog")) or 0.0)
+    total_unreliable_loss = max(0.0, to_float(kpis.get("total_unreliable_loss_qty")) or 0.0)
+    total_external_cost = max(0.0, to_float(kpis.get("total_external_procurement_cost")) or 0.0)
+    total_cost = max(0.0, to_float(kpis.get("total_cost")) or 0.0)
+    family_text = family_summary(family_counts, 5)
+    service_status = (
+        "Service client final absorbe"
+        if fill_rate >= 0.999 and ending_backlog <= 1e-9
+        else "Service client degrade"
+    )
+    production_status = (
+        "Production reportee par intrants"
+        if input_delay_rows
+        else ("Production contrainte par regle de lot" if delay_rows else "Production sans report majeur")
+    )
+    supplier_status = (
+        f"{len(supplier_stats)} fournisseurs touches"
+        if supplier_stats
+        else "Aucun fournisseur touche"
+    )
+
+    def card_html(title: str, value: str, text: str, color: str) -> str:
+        return (
+            f"<div class=\"riskScenarioCard\" style=\"border-left-color:{html.escape(color)}\">"
+            f"<div class=\"riskScenarioCardTitle\">{html.escape(title)}</div>"
+            f"<div class=\"riskScenarioCardText\"><strong>{html.escape(value)}</strong><br>{html.escape(text)}</div>"
+            "</div>"
+        )
+
+    cards_html = "".join(
+        [
+            card_html(
+                "Service client",
+                service_status,
+                f"Fill rate {fmt_pct(fill_rate * 100.0)} ; backlog final {fmt_qty(ending_backlog, 0)}. Backlog temporaire max: {fmt_qty(max_backlog, 0)} sur {len(backlog_days)} jours.",
+                "#16a34a" if service_status.endswith("absorbe") else "#dc2626",
+            ),
+            card_html(
+                "Production",
+                production_status,
+                f"{len(input_delay_rows)} reports par manque d'intrants ; {fmt_qty(input_shortfall_total, 0)} de volume lotifie reporte. Production realisee: {fmt_qty(actual_produced, 0)}.",
+                "#d97706" if input_delay_rows else "#16a34a",
+            ),
+            card_html(
+                "Approvisionnement",
+                supplier_status,
+                f"{len(applied_ids)} aleas ont eu un effet local entre {applied_period}. Familles principales: {family_text}.",
+                "#0f766e" if supplier_stats else "#64748b",
+            ),
+            card_html(
+                "Couts et pertes",
+                "Effet economique a surveiller",
+                f"Cout total {fmt_qty(total_cost, 0)} ; appro fournisseur {fmt_qty(total_external_cost, 0)} ; pertes utiles fournisseur {fmt_qty(total_unreliable_loss, 0)}.",
+                "#475569",
+            ),
+        ]
+    )
+
+    diagnosis_lines: list[str] = []
+    if fill_rate >= 0.999 and ending_backlog <= 1e-9:
+        diagnosis_lines.append("Le risque est absorbe cote client sur l'horizon: le bon indicateur n'est pas seulement le fill rate, mais les reports, le stock consomme et le cout d'appro fournisseur.")
+    else:
+        diagnosis_lines.append("Le risque atteint le client: il faut lire les pics de backlog et les receptions aval associees.")
+    if input_delay_rows and blocker_rows:
+        top = blocker_rows[0]
+        diagnosis_lines.append(
+            f"Le premier axe d'analyse production est {top['Intrant bloquant']} sur {top['Site']}: c'est l'intrant le plus souvent bloquant dans les reports."
+        )
+    if total_unreliable_loss > 1e-9:
+        diagnosis_lines.append("Une partie de la quantite expediee est perdue ou non utile: les courbes de fiabilite/qualite fournisseur doivent etre lues avec les receptions reelles.")
+    if supplier_stats:
+        first_supplier = top_supplier_rows(1)[0]
+        diagnosis_lines.append(
+            f"Le fournisseur a regarder en premier est {first_supplier['Fournisseur']} ({first_supplier['Effet dominant']}, {first_supplier['Periode']})."
+        )
+    if top_backlog:
+        diagnosis_lines.append(f"Le backlog temporaire principal est {top_backlog_text}; il est utile meme si le backlog final revient a zero.")
+
+    recommendations: list[str] = []
+    if blocker_rows:
+        recommendations.append("Tester un stock de protection ou une avance de commande sur les intrants bloquants avant d'augmenter la capacite usine.")
+    if supplier_stats:
+        recommendations.append("Pour les fournisseurs les plus touches, comparer trois mitigations: stock minimum, second source, et expedition acceleree.")
+    if total_unreliable_loss > 1e-9:
+        recommendations.append("Ajouter un scenario qualite/release explicite pour distinguer perte physique, quarantaine et retard de liberation.")
+    if fill_rate >= 0.999 and ending_backlog <= 1e-9:
+        recommendations.append("Garder le service client comme indicateur de validation, mais piloter la robustesse par report de production, couverture stock et cout d'appro fournisseur.")
+    recommendations.append("Prochaine etape scientifique: comparer ce run a un nominal et a deux scenarios de mitigation, avec les memes KPI.")
+
+    horizon_days = int(
+        to_float(summary.get("timeline_days") or summary.get("sim_days") or summary.get("total_simulated_timeline_days"))
+        or 0
+    )
+    max_day = horizon_days - 1 if horizon_days > 0 else max(
+        [0]
+        + [int(to_float(row.get("day")) or 0) for row in applied_rows if str(row.get("day") or "").strip()]
+        + [int(to_float(row.get("day")) or 0) for row in plan_rows if str(row.get("day") or "").strip()]
+        + [int(to_float(row.get("day")) or 0) for row in demand_rows if str(row.get("day") or "").strip()]
+    )
+
+    def valid_day(day: int) -> bool:
+        return 0 <= day <= max_day
+
+    def all_days_points(values: dict[int, float]) -> list[tuple[int, float]]:
+        return [(day, float(values.get(day, 0.0))) for day in range(max_day + 1)]
+
+    def rolling_points(values: dict[int, float], window: int = 28) -> list[tuple[int, float]]:
+        running = 0.0
+        out: list[tuple[int, float]] = []
+        for day in range(max_day + 1):
+            running += float(values.get(day, 0.0))
+            expired_day = day - window
+            if expired_day >= 0:
+                running -= float(values.get(expired_day, 0.0))
+            out.append((day, max(0.0, running)))
+        return out
+
+    risk_daily_by_family: dict[str, dict[int, float]] = defaultdict(lambda: defaultdict(float))
+    supplier_day_sets: dict[int, set[str]] = defaultdict(set)
+    item_day_sets: dict[int, set[str]] = defaultdict(set)
+    edge_day_sets: dict[int, set[str]] = defaultdict(set)
+    applied_row_count_by_day: dict[int, float] = defaultdict(float)
+    for row in applied_rows:
+        day = int(to_float(row.get("day")) or 0)
+        if not valid_day(day):
+            continue
+        supplier_id = str(row.get("supplier_id") or "")
+        item_id = str(row.get("item_id") or "")
+        edge_id = str(row.get("edge_id") or "")
+        row_event_ids = [event_id.strip() for event_id in str(row.get("event_ids") or "").split(",") if event_id.strip()]
+        row_families = {
+            supplier_risk_family_for_event(event_by_id.get(event_id, {"event_id": event_id}))
+            for event_id in row_event_ids
+        } or {"other"}
+        applied_row_count_by_day[day] += 1.0
+        if supplier_id:
+            supplier_day_sets[day].add(supplier_id)
+        if item_id:
+            item_day_sets[day].add(item_id)
+        if edge_id:
+            edge_day_sets[day].add(edge_id)
+        for family in row_families:
+            severity = supplier_risk_family_severity(row, family)
+            risk_daily_by_family[family][day] += max(0.05, severity)
+
+    figures: dict[str, Any] = {}
+    family_totals = {
+        family: sum(day_values.values())
+        for family, day_values in risk_daily_by_family.items()
+    }
+    top_families = [
+        family
+        for family, _total in sorted(family_totals.items(), key=lambda item: (-float(item[1]), item[0]))[:6]
+    ]
+    if top_families:
+        series_map = {
+            SIMULATED_RISK_FAMILY_INFO.get(family, SIMULATED_RISK_FAMILY_INFO["other"])["label"]: rolling_points(risk_daily_by_family[family], 28)
+            for family in top_families
+        }
+        series_styles = {
+            SIMULATED_RISK_FAMILY_INFO.get(family, SIMULATED_RISK_FAMILY_INFO["other"])["label"]: {
+                "color": SIMULATED_RISK_FAMILY_INFO.get(family, SIMULATED_RISK_FAMILY_INFO["other"])["color"],
+                "width": 2.4,
+            }
+            for family in top_families
+        }
+        figure = build_line_chart_figure(
+            series_map,
+            title="Risques appliques - intensite glissante 28 jours",
+            y_label="Score cumule 28 j",
+            note="Montre quand les aleas ont vraiment modifie stock, capacite, delai, qualite ou approvisionnement.",
+            series_styles=series_styles,
+        )
+        if figure is not None:
+            figures["risk_intensity"] = figure
+
+    breadth_figure = build_line_chart_figure(
+        {
+            "Fournisseurs touches": all_days_points({day: float(len(values)) for day, values in supplier_day_sets.items()}),
+            "Articles touches": all_days_points({day: float(len(values)) for day, values in item_day_sets.items()}),
+            "Flux touches": all_days_points({day: float(len(values)) for day, values in edge_day_sets.items()}),
+            "Lignes d'effet": all_days_points(applied_row_count_by_day),
+        },
+        title="Largeur d'impact fournisseur dans le temps",
+        y_label="Nombre / jour",
+        note="Compte les fournisseurs, articles et flux qui subissent un effet local dans le run.",
+        series_styles={
+            "Fournisseurs touches": {"color": "#0f766e", "width": 2.4},
+            "Articles touches": {"color": "#2563eb", "width": 2.2},
+            "Flux touches": {"color": "#7c3aed", "width": 2.2},
+            "Lignes d'effet": {"color": "#64748b", "width": 1.8, "dash": "dot"},
+        },
+    )
+    if breadth_figure is not None:
+        figures["risk_breadth"] = breadth_figure
+
+    production_starts_by_day: dict[int, float] = defaultdict(float)
+    production_delay_input_by_day: dict[int, float] = defaultdict(float)
+    production_delay_lot_by_day: dict[int, float] = defaultdict(float)
+    for row in plan_rows:
+        day = int(to_float(row.get("day")) or 0)
+        if not valid_day(day):
+            continue
+        event_type = str(row.get("event_type") or "")
+        reason = str(row.get("reason") or "")
+        if event_type == "start_campaign":
+            production_starts_by_day[day] += 1.0
+        if event_type == "delay_input_shortage" or reason == "input_shortage":
+            production_delay_input_by_day[day] += 1.0
+        if event_type == "delay_weekly_lot_limit" or reason == "weekly_lot_limit":
+            production_delay_lot_by_day[day] += 1.0
+    production_figure = build_line_chart_figure(
+        {
+            "Lots/campagnes lances": all_days_points(production_starts_by_day),
+            "Reports manque intrants": all_days_points(production_delay_input_by_day),
+            "Reports limite lots": all_days_points(production_delay_lot_by_day),
+        },
+        title="Production - lancements et reports",
+        y_label="Evenements / jour",
+        note="Lecture metier: les reports indiquent quand la production attend des intrants ou une fenetre de lotification.",
+        event_like=True,
+        series_styles={
+            "Lots/campagnes lances": {"color": "#0f766e", "width": 2.2},
+            "Reports manque intrants": {"color": "#dc2626", "width": 2.4},
+            "Reports limite lots": {"color": "#d97706", "width": 2.2},
+        },
+    )
+    if production_figure is not None:
+        figures["production_events"] = production_figure
+
+    demand_by_day: dict[int, float] = defaultdict(float)
+    served_by_day: dict[int, float] = defaultdict(float)
+    backlog_by_day: dict[int, float] = defaultdict(float)
+    for row in demand_rows:
+        day = int(to_float(row.get("day")) or 0)
+        if not valid_day(day):
+            continue
+        demand_by_day[day] += max(0.0, to_float(row.get("demand_qty")) or 0.0)
+        served_by_day[day] += max(0.0, to_float(row.get("served_qty")) or 0.0)
+        backlog_by_day[day] += max(0.0, to_float(row.get("backlog_end_qty")) or 0.0)
+    service_figure = build_line_chart_figure(
+        {
+            "Demande client": all_days_points(demand_by_day),
+            "Servi client": all_days_points(served_by_day),
+            "Backlog fin jour": all_days_points(backlog_by_day),
+        },
+        title="Service client - demande, servi, backlog",
+        y_label="Quantite / jour",
+        note="Permet de voir si les risques restent absorbes par les stocks ou atteignent le client.",
+        series_styles={
+            "Demande client": {"color": "#dc2626", "width": 2.0},
+            "Servi client": {"color": "#0f766e", "width": 2.4},
+            "Backlog fin jour": {"color": "#7c3aed", "width": 2.2, "dash": "dash"},
+        },
+    )
+    if service_figure is not None:
+        figures["customer_service"] = service_figure
+
+    def bullet_list(items: list[str]) -> str:
+        return "<ul class=\"riskDiagnosticList\">" + "".join(f"<li>{html.escape(item)}</li>" for item in items) + "</ul>"
+
+    def table_html(headers: list[str], rows: list[dict[str, str]], empty_text: str) -> str:
+        if not rows:
+            body = f"<tr><td colspan=\"{len(headers)}\">{html.escape(empty_text)}</td></tr>"
+        else:
+            body = "".join(
+                "<tr>" + "".join(f"<td>{html.escape(str(row.get(header, '')))}</td>" for header in headers) + "</tr>"
+                for row in rows
+            )
+        return (
+            "<div class=\"kpiFormulaTableWrap\"><table class=\"kpiFormulaTable\">"
+            "<thead><tr>"
+            + "".join(f"<th>{html.escape(header)}</th>" for header in headers)
+            + "</tr></thead><tbody>"
+            + body
+            + "</tbody></table></div>"
+        )
+
+    detail_rows = [
+        {"Indicateur": "Aleas avec effet local", "Valeur": str(len(applied_ids))},
+        {"Indicateur": "Aleas configures", "Valeur": str(len(configured_ids))},
+        {"Indicateur": "Noeuds fournisseurs touches", "Valeur": str(len(supplier_stats))},
+        {"Indicateur": "Jours avec effet fournisseur", "Valeur": str(len(applied_days))},
+        {"Indicateur": "Lignes d'application fournisseur", "Valeur": str(len(applied_rows))},
+        {"Indicateur": "Reports production par intrants", "Valeur": str(len(input_delay_rows))},
+        {"Indicateur": "Reports production tous motifs", "Valeur": str(len(delay_rows))},
+        {"Indicateur": "Plan lotifie total", "Valeur": fmt_qty(planned_after_lot, 0)},
+        {"Indicateur": "Manque vs plan lotifie", "Valeur": fmt_qty(lot_shortfall_total, 0)},
+    ]
+    global_metrics = (simulated_risk_metrics.get("global") or {}) if isinstance(simulated_risk_metrics, dict) else {}
+    source_counts = global_metrics.get("applied_source_counts") or {}
+    if source_counts:
+        detail_rows.append(
+            {
+                "Indicateur": "Origine des aleas appliques",
+                "Valeur": ", ".join(f"{key}: {value}" for key, value in sorted(source_counts.items())),
+            }
+        )
+
+    html_parts = [
+        "<div class=\"factoryHtmlPanelContent sensitivityHtmlPanelContent riskGlobalDiagnosticContent\">",
+        "<div class=\"orderLedgerTextHeader\">Bilan du scenario risque</div>",
+        "<div class=\"orderLedgerStatus\">Question metier: le scenario injecte a-t-il touche le client, la production, les fournisseurs ou surtout les couts et stocks tampon ?</div>",
+        f"<div class=\"riskScenarioCards\">{cards_html}</div>",
+        "<div class=\"riskScenarioSection\">Courbes du scenario</div>",
+        "<div class=\"riskDiagnosticChartGrid\">",
+        "<div id=\"simRiskChartRisk\" class=\"riskDiagnosticChart\"></div>",
+        "<div id=\"simRiskChartBreadth\" class=\"riskDiagnosticChart\"></div>",
+        "<div id=\"simRiskChartProduction\" class=\"riskDiagnosticChart\"></div>",
+        "<div id=\"simRiskChartService\" class=\"riskDiagnosticChart\"></div>",
+        "</div>",
+        "<div class=\"riskScenarioSection\">Lecture metier</div>",
+        bullet_list(diagnosis_lines),
+        "<div class=\"riskScenarioSection\">A investiguer en premier</div>",
+        table_html(
+            ["Site", "Produit", "Intrant bloquant", "Jours reportes", "Lots non lances", "Prochaine reception"],
+            blocker_rows,
+            "Aucun report de production par manque d'intrants dans ce run.",
+        ),
+        "<div class=\"riskScenarioSection\">Fournisseurs qui pesent vraiment dans ce run</div>",
+        table_html(
+            ["Fournisseur", "Periode", "Articles touches", "Effet dominant", "Intensite max"],
+            top_supplier_rows(),
+            "Aucun evenement fournisseur n'a eu d'effet local dans ce run.",
+        ),
+        "<div class=\"riskScenarioSection\">Articles les plus touches</div>",
+        table_html(
+            ["Article", "Fournisseurs", "Effet dominant", "Occurrences", "Intensite max"],
+            top_item_rows(),
+            "Aucun article touche par un evenement fournisseur applique.",
+        ),
+        "<div class=\"riskScenarioSection\">Actions recommandees</div>",
+        bullet_list(recommendations),
+        "<details class=\"riskScenarioNativeDetails\">",
+        "<summary>Details de comptage</summary>",
+        table_html(["Indicateur", "Valeur"], detail_rows, "Aucun detail disponible."),
+        "</details>",
+        "</div>",
+    ]
+    return {
+        "available": bool(configured_events or applied_rows or delay_rows),
+        "html": "".join(html_parts),
+        "figures": figures,
+        "summary": {
+            "applied_event_count": len(applied_ids),
+            "configured_event_count": len(configured_ids),
+            "supplier_count": len(supplier_stats),
+            "applied_day_count": len(applied_days),
+            "input_delay_count": len(input_delay_rows),
+            "fill_rate": fill_rate,
+            "ending_backlog": ending_backlog,
+        },
+    }
+
+
+def build_scenario_comparison_payload(current_output_root: Path) -> dict[str, Any]:
+    result_root = current_output_root.parent
+    sweep_root = result_root / "risk_amplitude_duration_sweep_5y"
+    sweep_summary_csv = sweep_root / "risk_amplitude_duration_sweep_summary.csv"
+    sweep_rows = read_csv_rows(sweep_summary_csv)
+    sweep_by_id = {str(row.get("case_id") or ""): row for row in sweep_rows if row.get("case_id")}
+    preferred_names = [
+        "_codex_lot_trace_5y_safe",
+        "_codex_lot_trace_5y_state_risks",
+        "mrp_bom_test_weekly_mps_lotified_no_fallback_physical_floor_portfolio_cost_risk_non_state_risks_test",
+        "_codex_lot_trace_5y_risk_portfolio",
+        "mrp_bom_test_weekly_mps_lotified_no_fallback_physical_floor_multisource_portfolio_test",
+        "mrp_bom_test_weekly_mps_lotified_no_fallback_physical_floor_multisource_portfolio_state_dependent_risk_test",
+        "mrp_bom_test_weekly_mps_lotified_no_fallback_physical_floor_multisource_cost_risk_portfolio_test",
+    ]
+    if current_output_root.name not in preferred_names:
+        preferred_names.append(current_output_root.name)
+
+    label_overrides = {
+        "_codex_lot_trace_5y_safe": "Nominal 5 ans",
+        "_codex_lot_trace_5y_state_risks": "Risques state-dependent",
+        "_codex_lot_trace_5y_risk_portfolio": "Portefeuille risques actuel",
+        "mrp_bom_test_weekly_mps_lotified_no_fallback_physical_floor_portfolio_cost_risk_non_state_risks_test": "Risques metier fournisseurs",
+        "mrp_bom_test_weekly_mps_lotified_no_fallback_physical_floor_multisource_portfolio_test": "Multisource nominal",
+        "mrp_bom_test_weekly_mps_lotified_no_fallback_physical_floor_multisource_portfolio_state_dependent_risk_test": "Multisource + state-dependent",
+        "mrp_bom_test_weekly_mps_lotified_no_fallback_physical_floor_multisource_cost_risk_portfolio_test": "Multisource + risques cout",
+    }
+
+    def short_label(name: str) -> str:
+        if name in sweep_by_id and sweep_by_id[name].get("label"):
+            return str(sweep_by_id[name].get("label") or name)
+        if name in label_overrides:
+            return label_overrides[name]
+        cleaned = name.replace("_codex_", "").replace("mrp_bom_test_weekly_mps_lotified_no_fallback_physical_floor_", "")
+        return cleaned.replace("_", " ").strip().title()
+
+    def classify(name: str, summary: dict[str, Any]) -> str:
+        policy = summary.get("policy") or {}
+        supplier_risk_count = int(to_float((policy.get("supplier_risk") or {}).get("event_count")) or 0)
+        state_count = int(to_float((policy.get("supplier_state_dependent_risk") or {}).get("generated_event_count")) or 0)
+        lower = name.lower()
+        if "safe" in lower or (supplier_risk_count == 0 and state_count == 0 and "nominal" in lower):
+            return "nominal"
+        if supplier_risk_count > 0 and state_count > 0:
+            return "risques combines"
+        if supplier_risk_count > 0:
+            return "scenario metier"
+        if state_count > 0:
+            return "state-dependent"
+        if "multisource" in lower:
+            return "mitigation / multisource"
+        return "scenario"
+
+    def load_summary(root: Path) -> dict[str, Any]:
+        return load_json_dict(root / "summaries" / "first_simulation_summary.json")
+
+    def scenario_roots() -> list[Path]:
+        roots: list[Path] = []
+        seen: set[Path] = set()
+        for name in preferred_names:
+            root = result_root / name
+            if root in seen or not (root / "summaries" / "first_simulation_summary.json").exists():
+                continue
+            roots.append(root)
+            seen.add(root)
+        cases_root = sweep_root / "cases"
+        if cases_root.exists():
+            for row in sorted(sweep_rows, key=lambda item: to_float(item.get("impact_score")), reverse=True):
+                case_id = str(row.get("case_id") or "")
+                if not case_id:
+                    continue
+                if case_id == "baseline_nominal" and any(root.name == "_codex_lot_trace_5y_safe" for root in roots):
+                    continue
+                root = cases_root / case_id
+                if root in seen or not (root / "summaries" / "first_simulation_summary.json").exists():
+                    continue
+                roots.append(root)
+                seen.add(root)
+        return roots
+
+    def daily_totals(rows: list[dict[str, str]], field: str) -> dict[int, float]:
+        out: dict[int, float] = defaultdict(float)
+        for row in rows:
+            day = int(to_float(row.get("day")) or 0)
+            out[day] += max(0.0, to_float(row.get(field)) or 0.0)
+        return out
+
+    def dense_points(values: dict[int, float], max_day: int) -> list[tuple[int, float]]:
+        return [(day, float(values.get(day, 0.0))) for day in range(max_day + 1)]
+
+    def cumulative_ratio_points(num_by_day: dict[int, float], den_by_day: dict[int, float], max_day: int) -> list[tuple[int, float]]:
+        points: list[tuple[int, float]] = []
+        cum_num = 0.0
+        cum_den = 0.0
+        last = 100.0
+        for day in range(max_day + 1):
+            cum_num += float(num_by_day.get(day, 0.0))
+            cum_den += float(den_by_day.get(day, 0.0))
+            if cum_den > 1e-9:
+                last = 100.0 * cum_num / cum_den
+            points.append((day, last))
+        return points
+
+    def leading_startup_backlog_days(backlog_by_day: dict[int, float], max_day: int) -> list[int]:
+        days: list[int] = []
+        for day in range(max_day + 1):
+            value = float(backlog_by_day.get(day, 0.0))
+            if value > 1e-9:
+                days.append(day)
+                continue
+            break
+        return days
+
+    scenarios: list[dict[str, Any]] = []
+    for root in scenario_roots():
+        summary = load_summary(root)
+        if not summary:
+            continue
+        sweep_row = sweep_by_id.get(root.name, {})
+        horizon = int(to_float(summary.get("timeline_days") or summary.get("sim_days") or 0) or 0)
+        if horizon < 300:
+            continue
+        kpis = (summary.get("kpis") or {}) if isinstance(summary, dict) else {}
+        data_root = root / "data"
+        demand_rows = read_csv_rows(data_root / "production_demand_service_daily.csv")
+        plan_rows = read_csv_rows(data_root / "production_plan_events.csv")
+        constraint_rows = read_csv_rows(data_root / "production_constraint_daily.csv")
+        risk_rows = read_csv_rows(data_root / "supplier_risk_events_applied_daily.csv")
+
+        max_day = horizon - 1 if horizon > 0 else max([0] + [int(to_float(row.get("day")) or 0) for row in demand_rows + plan_rows + risk_rows])
+        demand_by_day = daily_totals(demand_rows, "demand_qty")
+        served_by_day = daily_totals(demand_rows, "served_qty")
+        backlog_by_day = daily_totals(demand_rows, "backlog_end_qty")
+        startup_backlog_days = leading_startup_backlog_days(backlog_by_day, max_day)
+        startup_day_set = set(startup_backlog_days)
+        startup_backlog_peak = max((backlog_by_day.get(day, 0.0) for day in startup_backlog_days), default=0.0)
+        decision_backlog_by_day = {
+            day: value
+            for day, value in backlog_by_day.items()
+            if day not in startup_day_set
+        }
+        max_backlog = max(decision_backlog_by_day.values(), default=0.0)
+        backlog_days = sum(1 for value in decision_backlog_by_day.values() if value > 1e-9)
+
+        starts_by_day: dict[int, float] = defaultdict(float)
+        input_delay_by_day: dict[int, float] = defaultdict(float)
+        lot_delay_by_day: dict[int, float] = defaultdict(float)
+        input_delay_volume = 0.0
+        for row in plan_rows:
+            day = int(to_float(row.get("day")) or 0)
+            event_type = str(row.get("event_type") or "")
+            reason = str(row.get("reason") or "")
+            if event_type == "start_campaign":
+                starts_by_day[day] += 1.0
+            if event_type == "delay_input_shortage" or reason == "input_shortage":
+                input_delay_by_day[day] += 1.0
+                input_delay_volume += max(0.0, to_float(row.get("shortfall_vs_lot_plan_qty")) or 0.0)
+            if event_type == "delay_weekly_lot_limit" or reason == "weekly_lot_limit":
+                lot_delay_by_day[day] += 1.0
+
+        risk_by_day: dict[int, float] = defaultdict(float)
+        risk_event_ids: set[str] = set()
+        risk_suppliers: set[str] = set()
+        for row in risk_rows:
+            day = int(to_float(row.get("day")) or 0)
+            risk_by_day[day] += 1.0
+            supplier_id = str(row.get("supplier_id") or "")
+            if supplier_id:
+                risk_suppliers.add(supplier_id)
+            for event_id in str(row.get("event_ids") or "").split(","):
+                event_id = event_id.strip()
+                if event_id:
+                    risk_event_ids.add(event_id)
+
+        actual_produced = sum(max(0.0, to_float(row.get("actual_qty")) or 0.0) for row in constraint_rows)
+        is_sweep = bool(sweep_row)
+        scenario_family = str(sweep_row.get("family") or classify(root.name, summary))
+        scenario_severity = str(sweep_row.get("severity") or "")
+        impact_score = max(0.0, to_float(sweep_row.get("impact_score")) or 0.0)
+        fill_rate_value = to_float(sweep_row.get("fill_rate")) if is_sweep else None
+        if fill_rate_value is None:
+            fill_rate_value = to_float(kpis.get("fill_rate")) or 0.0
+        max_backlog_value = to_float(sweep_row.get("backlog_max_ex_startup")) if is_sweep else None
+        if max_backlog_value is None:
+            max_backlog_value = max_backlog
+        input_delay_count_value = to_float(sweep_row.get("input_delay_count")) if is_sweep else None
+        if input_delay_count_value is None:
+            input_delay_count_value = sum(input_delay_by_day.values())
+        input_delay_volume_value = to_float(sweep_row.get("input_delay_volume")) if is_sweep else None
+        if input_delay_volume_value is None:
+            input_delay_volume_value = input_delay_volume
+        total_cost_value = to_float(sweep_row.get("total_cost")) if is_sweep else None
+        if total_cost_value is None:
+            total_cost_value = max(0.0, to_float(kpis.get("total_cost")) or 0.0)
+        scenarios.append(
+            {
+                "id": root.name,
+                "label": short_label(root.name),
+                "kind": "sweep " + scenario_family if is_sweep else classify(root.name, summary),
+                "family": scenario_family,
+                "severity": scenario_severity,
+                "source": "risk_amplitude_duration_sweep" if is_sweep else "run_result",
+                "impact_score": impact_score,
+                "is_current": root.resolve() == current_output_root.resolve(),
+                "horizon_days": max_day + 1,
+                "kpis": {
+                    "fill_rate": fill_rate_value,
+                    "fill_rate_delta_pp": to_float(sweep_row.get("fill_rate_delta_pp")) if is_sweep else 0.0,
+                    "ending_backlog": max(0.0, to_float(kpis.get("ending_backlog")) or 0.0),
+                    "max_backlog": max_backlog_value,
+                    "backlog_days": backlog_days,
+                    "startup_backlog_days": len(startup_backlog_days),
+                    "startup_backlog_peak": startup_backlog_peak,
+                    "startup_backlog_last_day": max(startup_backlog_days) if startup_backlog_days else None,
+                    "total_demand": max(0.0, to_float(kpis.get("total_demand")) or sum(demand_by_day.values())),
+                    "total_served": max(0.0, to_float(kpis.get("total_served")) or sum(served_by_day.values())),
+                    "total_produced": max(0.0, to_float(kpis.get("total_produced")) or actual_produced),
+                    "actual_produced": actual_produced,
+                    "input_delay_count": int(input_delay_count_value),
+                    "lot_delay_count": int(sum(lot_delay_by_day.values())),
+                    "input_delay_volume": input_delay_volume_value,
+                    "input_delay_volume_delta": to_float(sweep_row.get("input_delay_volume_delta")) if is_sweep else 0.0,
+                    "risk_event_count": len(risk_event_ids),
+                    "risk_row_count": len(risk_rows),
+                    "risk_supplier_count": len(risk_suppliers),
+                    "risk_applied_rows": to_float(sweep_row.get("risk_applied_rows")) if is_sweep else len(risk_rows),
+                    "state_events_generated": to_float(sweep_row.get("state_events_generated")) if is_sweep else 0.0,
+                    "total_unreliable_loss_qty": max(
+                        0.0,
+                        (
+                            to_float(sweep_row.get("unreliable_loss_qty"))
+                            if is_sweep
+                            else to_float(kpis.get("total_unreliable_loss_qty"))
+                        )
+                        or 0.0,
+                    ),
+                    "loss_delta": (to_float(sweep_row.get("loss_delta")) if is_sweep else 0.0) or 0.0,
+                    "total_external_procurement_cost": max(
+                        0.0,
+                        (
+                            to_float(sweep_row.get("external_procurement_cost"))
+                            if is_sweep
+                            else to_float(kpis.get("total_external_procurement_cost"))
+                        )
+                        or 0.0,
+                    ),
+                    "external_cost_delta": (to_float(sweep_row.get("external_cost_delta")) if is_sweep else 0.0) or 0.0,
+                    "total_transport_cost": max(0.0, to_float(kpis.get("total_transport_cost")) or 0.0),
+                    "total_purchase_cost": max(0.0, to_float(kpis.get("total_purchase_cost")) or 0.0),
+                    "total_cost": max(0.0, total_cost_value),
+                    "cost_delta": (to_float(sweep_row.get("cost_delta")) if is_sweep else 0.0) or 0.0,
+                    "impact_score": impact_score,
+                },
+                "series": {
+                    "backlog": dense_points(decision_backlog_by_day, max_day),
+                    "service_rate": cumulative_ratio_points(served_by_day, demand_by_day, max_day),
+                    "served": dense_points(served_by_day, max_day),
+                    "demand": dense_points(demand_by_day, max_day),
+                    "input_delays": dense_points(input_delay_by_day, max_day),
+                    "lot_delays": dense_points(lot_delay_by_day, max_day),
+                    "production_starts": dense_points(starts_by_day, max_day),
+                    "risk_rows": dense_points(risk_by_day, max_day),
+                },
+            }
+        )
+
+    if not scenarios:
+        return {"available": False, "html": "", "figures": {}, "scenarios": []}
+
+    nominal = next(
+        (
+            scenario
+            for scenario in scenarios
+            if scenario["id"] in {"_codex_lot_trace_5y_safe", "baseline_nominal"}
+        ),
+        scenarios[0],
+    )
+    nominal_kpis = nominal["kpis"]
+
+    def delta(value: float, base: float, digits: int = 1) -> str:
+        diff = value - base
+        if abs(diff) <= 1e-9:
+            return "0"
+        sign = "+" if diff > 0 else ""
+        return f"{sign}{fmt_qty(diff, digits)}"
+
+    best_cost = min(scenarios, key=lambda item: item["kpis"].get("total_cost", math.inf))
+    best_production = min(scenarios, key=lambda item: (item["kpis"].get("input_delay_count", math.inf), item["kpis"].get("input_delay_volume", math.inf)))
+    worst_backlog = max(scenarios, key=lambda item: item["kpis"].get("max_backlog", 0.0))
+    most_risk = max(scenarios, key=lambda item: item["kpis"].get("impact_score", 0.0) or item["kpis"].get("risk_event_count", 0.0))
+
+    def card(title: str, value: str, text: str, color: str) -> str:
+        return (
+            f"<div class=\"riskScenarioCard\" style=\"border-left-color:{html.escape(color)}\">"
+            f"<div class=\"riskScenarioCardTitle\">{html.escape(title)}</div>"
+            f"<div class=\"riskScenarioCardText\"><strong>{html.escape(value)}</strong><br>{html.escape(text)}</div>"
+            "</div>"
+        )
+
+    cards_html = "".join(
+        [
+            card(
+                "Reference",
+                nominal["label"],
+                (
+                    f"Base de comparaison: fill rate {fmt_pct(nominal_kpis['fill_rate'] * 100.0)} ; "
+                    f"cout total {fmt_qty(nominal_kpis['total_cost'], 0)}. "
+                    f"Amorcage client: {int(nominal_kpis.get('startup_backlog_days') or 0)} j, "
+                    f"pic {fmt_qty(nominal_kpis.get('startup_backlog_peak') or 0, 0)}."
+                ),
+                "#2563eb",
+            ),
+            card(
+                "Cout total le plus bas",
+                best_cost["label"],
+                f"Cout total {fmt_qty(best_cost['kpis']['total_cost'], 0)} ; delta vs reference {delta(best_cost['kpis']['total_cost'], nominal_kpis['total_cost'], 0)}.",
+                "#0f766e",
+            ),
+            card(
+                "Production la moins reportee",
+                best_production["label"],
+                f"{best_production['kpis']['input_delay_count']} reports intrants ; volume reporte {fmt_qty(best_production['kpis']['input_delay_volume'], 0)}.",
+                "#d97706",
+            ),
+            card(
+                "Scenario le plus perturbateur",
+                most_risk["label"],
+                (
+                    f"Score {fmt_qty(most_risk['kpis'].get('impact_score') or 0, 1)} ; "
+                    f"fill rate {fmt_pct((most_risk['kpis'].get('fill_rate') or 0) * 100.0)} ; "
+                    f"backlog max {fmt_qty(most_risk['kpis'].get('max_backlog') or 0, 0)}."
+                ),
+                "#be123c",
+            ),
+        ]
+    )
+
+    headers = [
+        "Scenario",
+        "Type",
+        "Famille",
+        "Amplitude",
+        "Service",
+        "Backlog max hors amorcage",
+        "Amorcage client",
+        "Reports intrants",
+        "Volume reporte",
+        "Delta volume",
+        "Score",
+        "Pertes fournisseur",
+        "Delta pertes",
+        "Cout appro fournisseur",
+        "Cout total",
+        "Delta cout",
+    ]
+    rows_html = []
+    for scenario in scenarios:
+        k = scenario["kpis"]
+        cls = "scenarioCurrentRow" if scenario.get("is_current") else ""
+        startup_cell = f"{int(k.get('startup_backlog_days') or 0)} j ; pic {fmt_qty(k.get('startup_backlog_peak') or 0, 0)}"
+        rows_html.append(
+            f"<tr class=\"{cls}\" data-scenario-id=\"{html.escape(scenario['id'])}\">"
+            f"<td>{html.escape(scenario['label'])}</td>"
+            f"<td>{html.escape(scenario['kind'])}</td>"
+            f"<td>{html.escape(str(scenario.get('family') or 'n/a'))}</td>"
+            f"<td>{html.escape(str(scenario.get('severity') or 'n/a'))}</td>"
+            f"<td>{html.escape(fmt_pct(k['fill_rate'] * 100.0))}</td>"
+            f"<td>{html.escape(fmt_qty(k['max_backlog'], 0))}</td>"
+            f"<td>{html.escape(startup_cell)}</td>"
+            f"<td>{html.escape(str(k['input_delay_count']))}</td>"
+            f"<td>{html.escape(fmt_qty(k['input_delay_volume'], 0))}</td>"
+            f"<td>{html.escape(delta(k.get('input_delay_volume_delta') or 0, 0, 0))}</td>"
+            f"<td>{html.escape(fmt_qty(k.get('impact_score') or 0, 1))}</td>"
+            f"<td>{html.escape(fmt_qty(k['total_unreliable_loss_qty'], 0))}</td>"
+            f"<td>{html.escape(delta(k.get('loss_delta') or 0, 0, 0))}</td>"
+            f"<td>{html.escape(fmt_qty(k['total_external_procurement_cost'], 0))}</td>"
+            f"<td>{html.escape(fmt_qty(k['total_cost'], 0))}</td>"
+            f"<td>{html.escape(delta(k.get('cost_delta') or (k['total_cost'] - nominal_kpis['total_cost']), 0, 0))}</td>"
+            "</tr>"
+        )
+
+    palette = ["#2563eb", "#0f766e", "#d97706", "#be123c", "#7c3aed", "#475569", "#0891b2"]
+    max_impact_id = ""
+    if scenarios:
+        max_impact_id = max(scenarios, key=lambda item: float((item.get("kpis") or {}).get("impact_score") or 0.0))["id"]
+    style_by_label = {
+        scenario["label"]: {
+            "color": palette[idx % len(palette)],
+            "width": 2.8 if scenario.get("is_current") else 2.1,
+            "dash": "solid" if scenario.get("is_current") else "dot" if scenario["kind"] == "nominal" else "solid",
+            "scenario_id": scenario["id"],
+            "is_current": bool(scenario.get("is_current")),
+            "is_nominal": scenario["id"] in {nominal["id"], "baseline_nominal", "_codex_lot_trace_5y_safe"} or scenario["kind"] == "nominal",
+            "is_max_impact": scenario["id"] == max_impact_id,
+            "family": scenario.get("family") or scenario["kind"],
+            "impact_score": float((scenario.get("kpis") or {}).get("impact_score") or 0.0),
+        }
+        for idx, scenario in enumerate(scenarios)
+    }
+
+    def enable_scenario_tube(
+        figure: dict[str, Any] | None,
+        *,
+        reference_value: float | None = None,
+        reference_label: str = "",
+        zero_floor: bool = False,
+        upper_percentile: float = 0.90,
+    ) -> dict[str, Any] | None:
+        if figure is None:
+            return None
+        figure["scenario_tube"] = True
+        figure["tube_label"] = "Enveloppe scenarios selectionnes"
+        figure["trajectory_label"] = "Trajectoires scenarios"
+        figure["tube_zero_floor"] = bool(zero_floor)
+        figure["tube_upper_percentile"] = float(upper_percentile)
+        if reference_value is not None:
+            figure["reference_line_value"] = float(reference_value)
+            figure["reference_line_label"] = reference_label
+        return figure
+
+    figures: dict[str, Any] = {}
+    backlog_figure = build_line_chart_figure(
+        {scenario["label"]: scenario["series"]["backlog"] for scenario in scenarios},
+        title="Backlog client compare hors amorcage",
+        y_label="Backlog fin jour",
+        note="Les jours d'amorcage J0..Jn dus au stock client initial nul sont retires de cette courbe et detailles dans le tableau.",
+        series_styles=style_by_label,
+    )
+    if backlog_figure is not None:
+        figures["backlog"] = enable_scenario_tube(backlog_figure, reference_value=0.0, reference_label="objectif backlog 0")
+
+    service_figure = build_line_chart_figure(
+        {scenario["label"]: scenario["series"]["service_rate"] for scenario in scenarios},
+        title="Service client cumule compare",
+        y_label="Servi / demande cumulee (%)",
+        note="Trajectoire de service cumule. Une baisse durable indique que les stocks et receptions n'absorbent plus le risque.",
+        series_styles=style_by_label,
+    )
+    if service_figure is not None:
+        figures["service_rate"] = enable_scenario_tube(service_figure, reference_value=100.0, reference_label="service 100%")
+
+    production_figure = build_line_chart_figure(
+        {scenario["label"]: scenario["series"]["input_delays"] for scenario in scenarios},
+        title="Reports de production par manque d'intrants",
+        y_label="Reports / jour",
+        note="Compare les jours ou une production attend de la matiere ou du PFI.",
+        event_like=True,
+        series_styles=style_by_label,
+    )
+    if production_figure is not None:
+        figures["production_delays"] = enable_scenario_tube(
+            production_figure,
+            reference_value=0.0,
+            reference_label="objectif report 0",
+            zero_floor=True,
+            upper_percentile=1.0,
+        )
+
+    starts_figure = build_line_chart_figure(
+        {scenario["label"]: scenario["series"]["production_starts"] for scenario in scenarios},
+        title="Lancements de production compares",
+        y_label="Lots / campagnes lancees",
+        note="Permet de voir si le scenario decale ou concentre les lancements de production.",
+        event_like=True,
+        series_styles=style_by_label,
+    )
+    if starts_figure is not None:
+        figures["production_starts"] = enable_scenario_tube(starts_figure)
+
+    risk_figure = build_line_chart_figure(
+        {scenario["label"]: scenario["series"]["risk_rows"] for scenario in scenarios},
+        title="Effets fournisseurs appliques dans chaque scenario",
+        y_label="Effets locaux / jour",
+        note="Mesure la pression risque appliquee dans le run, pas seulement les evenements configures.",
+        series_styles=style_by_label,
+    )
+    if risk_figure is not None:
+        figures["risk_rows"] = enable_scenario_tube(risk_figure)
+
+    figures["cost"] = {
+        "kind": "bar",
+        "title": "Cout total compare",
+        "y_label": "Cout total",
+        "ids": [scenario["id"] for scenario in scenarios],
+        "labels": [scenario["label"] for scenario in scenarios],
+        "values": [float(scenario["kpis"]["total_cost"]) for scenario in scenarios],
+        "colors": [style_by_label[scenario["label"]]["color"] for scenario in scenarios],
+    }
+
+    checks_html = "".join(
+        (
+            "<label class=\"scenarioComparisonCheck\">"
+            f"<input type=\"checkbox\" class=\"scenarioComparisonChk\" value=\"{html.escape(scenario['id'])}\" checked>"
+            f"<span>{html.escape(scenario['label'])}</span>"
+            f"<small>{html.escape(str(scenario.get('family') or scenario['kind']))}</small>"
+            "</label>"
+        )
+        for scenario in scenarios
+    )
+
+    default_selected_ids = []
+    for scenario_id in [
+        nominal["id"],
+        current_output_root.name,
+        "state_only",
+        "pf268967_combined_extreme_180d_no_external",
+        "pf268967_delay_plus_90_60d",
+        "pf268967_combined_severe_120d",
+        "pf268967_quality_yield_50_180d",
+        "dc_customer_pf_delay_plus_45_90d",
+        "pf268967_availability_10_90d",
+        "network_transport_block_120d",
+    ]:
+        if scenario_id and scenario_id not in default_selected_ids and any(scenario["id"] == scenario_id for scenario in scenarios):
+            default_selected_ids.append(scenario_id)
+    if not default_selected_ids:
+        default_selected_ids = [scenario["id"] for scenario in scenarios[: min(8, len(scenarios))]]
+
+    html_parts = [
+        "<div class=\"factoryHtmlPanelContent sensitivityHtmlPanelContent scenarioComparisonContent\">",
+        "<div class=\"orderLedgerTextHeader\">Comparaison de scenarios</div>",
+        "<div class=\"orderLedgerStatus\">Question metier: quel scenario degrade le service, reporte la production, augmente les couts ou consomme la resilience du reseau ? La ligne du scenario courant est surlignee.</div>",
+        "<div class=\"orderLedgerStatus\">Note: le backlog J0/J1 vient du stock client initialise a zero et du delai DC -> client. Il est affiche comme amorcage client, mais exclu du backlog comparatif des scenarios.</div>",
+        "<div class=\"scenarioComparisonControls\">",
+        "<div class=\"scenarioComparisonActions\">",
+        "<button class=\"tableBtn\" type=\"button\" data-scenario-select=\"all\">Tous</button>",
+        "<button class=\"tableBtn\" type=\"button\" data-scenario-select=\"top\">Top perturbateurs</button>",
+        "<button class=\"tableBtn\" type=\"button\" data-scenario-select=\"service\">Service degrade</button>",
+        "<button class=\"tableBtn\" type=\"button\" data-scenario-select=\"lead_time\">Delais</button>",
+        "<button class=\"tableBtn\" type=\"button\" data-scenario-select=\"quality\">Qualite</button>",
+        "<button class=\"tableBtn\" type=\"button\" data-scenario-select=\"transport\">Transport</button>",
+        "<button class=\"tableBtn\" type=\"button\" data-scenario-select=\"combined\">Cascades</button>",
+        "<button class=\"tableBtn\" type=\"button\" data-scenario-select=\"current\">Courant</button>",
+        "<button class=\"tableBtn\" type=\"button\" data-scenario-select=\"nominal_current\">Nominal + courant</button>",
+        "<span id=\"scenarioComparisonSelectionMeta\" class=\"scenarioComparisonSelectionMeta\"></span>",
+        "</div>",
+        f"<div id=\"scenarioComparisonScenarioChecks\" class=\"scenarioComparisonChecks\">{checks_html}</div>",
+        "</div>",
+        f"<div id=\"scenarioComparisonCards\" class=\"riskScenarioCards\">{cards_html}</div>",
+        "<div class=\"riskScenarioSection\">Courbes comparatives</div>",
+        "<div class=\"riskScenarioMuted\">Lecture des courbes: gris = trajectoires selectionnees, bande bleue = enveloppe centrale P10-P90. Pour les reports, la bande part de zero et montre l'amplitude des scenarios selectionnes. Pointille bleu = mediane, noir = nominal, orange = run courant, rouge = scenario le plus perturbateur.</div>",
+        "<div class=\"riskDiagnosticChartGrid\">",
+        "<div id=\"scenarioCmpBacklog\" class=\"riskDiagnosticChart\"></div>",
+        "<div id=\"scenarioCmpService\" class=\"riskDiagnosticChart\"></div>",
+        "<div id=\"scenarioCmpProduction\" class=\"riskDiagnosticChart\"></div>",
+        "<div id=\"scenarioCmpStarts\" class=\"riskDiagnosticChart\"></div>",
+        "<div id=\"scenarioCmpRisk\" class=\"riskDiagnosticChart\"></div>",
+        "<div id=\"scenarioCmpCost\" class=\"riskDiagnosticChart\"></div>",
+        "</div>",
+        "<div class=\"riskScenarioSection\">Tableau decisionnel</div>",
+        "<div class=\"kpiFormulaTableWrap\"><table class=\"kpiFormulaTable scenarioComparisonTable\">",
+        "<thead><tr>",
+        "".join(f"<th>{html.escape(header)}</th>" for header in headers),
+        "</tr></thead>",
+        f"<tbody>{''.join(rows_html)}</tbody>",
+        "</table></div>",
+        "<div class=\"riskScenarioMuted\">Lecture: le fill rate peut rester bon meme si la production est reportee. Dans ce cas, la decision se fait sur les reports, le stock consomme, le cout d'appro fournisseur et les pertes fournisseur.</div>",
+        "</div>",
+    ]
+    return {
+        "available": True,
+        "html": "".join(html_parts),
+        "figures": figures,
+        "scenarios": [
+            {
+                "id": scenario["id"],
+                "label": scenario["label"],
+                "kind": scenario["kind"],
+                "family": scenario.get("family") or "",
+                "severity": scenario.get("severity") or "",
+                "source": scenario.get("source") or "",
+                "impact_score": scenario.get("impact_score") or 0.0,
+                "is_current": bool(scenario.get("is_current")),
+                "kpis": scenario["kpis"],
+            }
+            for scenario in scenarios
+        ],
+        "default_selected_ids": default_selected_ids,
     }
 
 
@@ -7196,8 +9274,8 @@ def render_supplier_risk_campaign_html(
     return "".join(
         [
             "<div class=\"factoryHtmlPanelContent sensitivityHtmlPanelContent\">",
-            f"<div class=\"orderLedgerTextHeader\">{html.escape(supplier_id)} - campagne de risques simules</div>",
-            "<div class=\"orderLedgerStatus\">Question metier: si l'on degrade ce fournisseur, quelle famille de risque impacte le plus les KPI ? Chaque ligne est un run separe, compare a une reference sans evenement.</div>",
+            f"<div class=\"orderLedgerTextHeader\">{html.escape(supplier_id)} - stress tests fournisseurs</div>",
+            "<div class=\"orderLedgerStatus\">Question metier: si l'on degrade ce fournisseur dans un scenario contrefactuel, quelle famille de risque impacte le plus les KPI ? Chaque ligne est un run separe, compare a une reference sans evenement.</div>",
             "<div class=\"orderLedgerStatus\">Lecture separee: l'impact metier observe montre les KPI qui bougent vraiment; le score decisionnel est une synthese ponderee provisoire a calibrer. Ce n'est pas une probabilite terrain.</div>",
             f"<div class=\"sensitivityHero sensitivityStatus-{html.escape(status)}\" style=\"border-left-color:{html.escape(info['color'])}\">",
             "<div class=\"sensitivityHeroLeft\">",
@@ -8376,10 +10454,10 @@ def render_supplier_risk_prediction_html(
     return "".join(
         [
             "<div class=\"factoryHtmlPanelContent orderLedgerPanelContent\">",
-            f"<div class=\"orderLedgerTextHeader\">{html.escape(node_id)} - lecture predictive des risques fournisseur</div>",
+            f"<div class=\"orderLedgerTextHeader\">{html.escape(node_id)} - lecture predictive des tensions fournisseur</div>",
             "<div class=\"orderLedgerStatus\">Lecture seule: ce bloc estime une menace fournisseur probable, mais ne relance pas la simulation et ne modifie pas la baseline.</div>",
-            "<div class=\"orderLedgerStatus\">Risque = menace metier. Incertitude = confiance dans cette estimation. L'action finale se lit dans la matrice niveau de risque x confiance.</div>",
-            "<div class=\"orderLedgerStatus\">Principe: probabilite estimee x impact local x confiance donne une priorite de surveillance, puis la grille propose les premiers tests a lancer.</div>",
+            "<div class=\"orderLedgerStatus\">Score menace = tension metier normalisee. Incertitude = confiance dans cette lecture. L'action finale se lit dans la matrice niveau de menace x confiance.</div>",
+            "<div class=\"orderLedgerStatus\">Principe: score menace x impact local x confiance donne une priorite de surveillance, puis la grille propose les premiers tests a lancer.</div>",
             "<div class=\"orderLedgerSectionTitle\">Introduction - etude de sensibilite recommandee</div>",
             "<div class=\"kpiFormulaTableWrap\"><table class=\"kpiFormulaTable\">",
             "<thead><tr><th>Priorite</th><th>Parametre</th><th>Grille proposee</th><th>Objectif</th></tr></thead>",
@@ -8387,13 +10465,13 @@ def render_supplier_risk_prediction_html(
             "</table></div>",
             "<div class=\"orderLedgerSectionTitle\">Prediction passive par categorie</div>",
             "<div class=\"orderLedgerFrame\">",
-            "<div class=\"orderLedgerTableWrap\" tabindex=\"0\" aria-label=\"Tableau de prediction passive des risques fournisseur avec defilement horizontal natif en bas.\">",
+            "<div class=\"orderLedgerTableWrap\" tabindex=\"0\" aria-label=\"Tableau de prediction passive des tensions fournisseur avec defilement horizontal natif en bas.\">",
             "<table class=\"orderLedgerTable orderLedgerWideTable\">",
             "<colgroup>"
             "<col style=\"width:175px\"><col style=\"width:105px\"><col style=\"width:95px\"><col style=\"width:105px\">"
             "<col style=\"width:105px\"><col style=\"width:85px\"><col style=\"width:320px\"><col style=\"width:260px\">"
             "</colgroup>",
-            "<thead><tr><th>Categorie</th><th>Probabilite estimee</th><th>Impact</th><th>Confiance</th><th>Priorite estimee</th><th>Niveau</th><th>Signaux observes</th><th>Test utile</th></tr></thead>",
+            "<thead><tr><th>Categorie</th><th>Score menace</th><th>Impact</th><th>Confiance</th><th>Priorite estimee</th><th>Niveau</th><th>Signaux observes</th><th>Test utile</th></tr></thead>",
             f"<tbody>{''.join(rows_html)}</tbody>",
             "</table>",
             "</div>",
@@ -8729,6 +10807,11 @@ def build_lot_trace_payload(
     lot_genealogy_csv: Path,
     production_plan_events_csv: Path,
     raw: dict[str, Any] | None = None,
+    input_stocks_csv: Path | None = None,
+    output_products_csv: Path | None = None,
+    dc_stocks_csv: Path | None = None,
+    demand_service_csv: Path | None = None,
+    supplier_stocks_csv: Path | None = None,
 ) -> dict[str, Any]:
     events_raw = read_csv_rows(lot_events_csv)
     genealogy_raw = read_csv_rows(lot_genealogy_csv)
@@ -8743,6 +10826,7 @@ def build_lot_trace_payload(
             "genealogy": [],
             "plan_events": [],
             "deferred_orders": [],
+            "stock_context": {},
             "summary": {
                 "lot_count": 0,
                 "event_count": 0,
@@ -8922,6 +11006,156 @@ def build_lot_trace_payload(
     def row_day(row: dict[str, Any]) -> int:
         numeric = to_float(row.get("day"))
         return int(round(numeric)) if numeric is not None and not math.isnan(numeric) else 0
+
+    def build_lot_trace_stock_context() -> dict[str, dict[str, Any]]:
+        relevant_keys: set[tuple[str, str, int]] = set()
+        for row in events:
+            node_id = str(row.get("node_id") or "")
+            item_id = str(row.get("item_id") or "")
+            if node_id and item_id:
+                relevant_keys.add((node_id, item_id, row_day(row)))
+        for row in genealogy:
+            day = row_day(row)
+            parent_node = str(row.get("parent_node_id") or "")
+            parent_item = str(row.get("parent_item_id") or "")
+            child_node = str(row.get("child_node_id") or "")
+            child_item = str(row.get("child_item_id") or "")
+            if parent_node and parent_item:
+                relevant_keys.add((parent_node, parent_item, day))
+            if child_node and child_item:
+                relevant_keys.add((child_node, child_item, day))
+        if not relevant_keys:
+            return {}
+
+        relevant_by_pair: dict[tuple[str, str], set[int]] = defaultdict(set)
+        for node_id, item_id, day in relevant_keys:
+            relevant_by_pair[(node_id, item_id)].add(day)
+
+        out: dict[str, dict[str, Any]] = {}
+
+        def key(node_id: str, item_id: str, day: int) -> str:
+            return f"{node_id}|{item_id}|{day}"
+
+        def set_context(
+            *,
+            node_id: str,
+            item_id: str,
+            day: int,
+            label: str,
+            before: float | None = None,
+            after: float | None = None,
+            delta: float | None = None,
+            extra: dict[str, Any] | None = None,
+            overwrite: bool = False,
+        ) -> None:
+            if not node_id or not item_id:
+                return
+            if (node_id, item_id, day) not in relevant_keys:
+                return
+            ctx_key = key(node_id, item_id, day)
+            if ctx_key in out and not overwrite:
+                return
+            payload: dict[str, Any] = {
+                "node_id": node_id,
+                "item_id": item_id,
+                "day": day,
+                "label": label,
+            }
+            if before is not None and not math.isnan(before):
+                payload["before_qty"] = round(before, 6)
+            if after is not None and not math.isnan(after):
+                payload["after_qty"] = round(after, 6)
+            if delta is not None and not math.isnan(delta):
+                payload["delta_qty"] = round(delta, 6)
+            elif before is not None and after is not None and not math.isnan(before) and not math.isnan(after):
+                payload["delta_qty"] = round(after - before, 6)
+            if extra:
+                payload.update(extra)
+            out[ctx_key] = payload
+
+        def add_end_of_day_context(csv_path: Path | None, *, stock_field: str, label: str) -> None:
+            if csv_path is None or not csv_path.exists():
+                return
+            rows = read_csv_rows(csv_path)
+            by_pair: dict[tuple[str, str], dict[int, float]] = defaultdict(dict)
+            for row in rows:
+                node_id = str(row.get("node_id") or "")
+                item_id = str(row.get("item_id") or "")
+                if (node_id, item_id) not in relevant_by_pair:
+                    continue
+                day = int(to_float(row.get("day")) or 0)
+                value = to_float(row.get(stock_field))
+                if value is None or math.isnan(value):
+                    continue
+                by_pair[(node_id, item_id)][day] = value
+            for (node_id, item_id), wanted_days in relevant_by_pair.items():
+                series = by_pair.get((node_id, item_id), {})
+                if not series:
+                    continue
+                for day in wanted_days:
+                    if day not in series:
+                        continue
+                    before = series.get(day - 1)
+                    if before is None and day == 0:
+                        before = 0.0
+                    after = series.get(day)
+                    set_context(
+                        node_id=node_id,
+                        item_id=item_id,
+                        day=day,
+                        label=label,
+                        before=before,
+                        after=after,
+                    )
+
+        if input_stocks_csv is not None and input_stocks_csv.exists():
+            for row in read_csv_rows(input_stocks_csv):
+                node_id = str(row.get("node_id") or "")
+                item_id = str(row.get("item_id") or "")
+                day = int(to_float(row.get("day")) or 0)
+                if (node_id, item_id, day) not in relevant_keys:
+                    continue
+                before = to_float(row.get("stock_before_production"))
+                after = to_float(row.get("stock_end_of_day"))
+                set_context(
+                    node_id=node_id,
+                    item_id=item_id,
+                    day=day,
+                    label="stock intrant usine",
+                    before=before,
+                    after=after,
+                    overwrite=True,
+                )
+
+        add_end_of_day_context(output_products_csv, stock_field="stock_end_of_day", label="stock produit usine fin de jour")
+        add_end_of_day_context(dc_stocks_csv, stock_field="stock_end_of_day", label="stock DC fin de jour")
+        add_end_of_day_context(supplier_stocks_csv, stock_field="stock_end_of_day", label="stock fournisseur fin de jour")
+
+        if demand_service_csv is not None and demand_service_csv.exists():
+            for row in read_csv_rows(demand_service_csv):
+                node_id = str(row.get("node_id") or "")
+                item_id = str(row.get("item_id") or "")
+                day = int(to_float(row.get("day")) or 0)
+                if (node_id, item_id, day) not in relevant_keys:
+                    continue
+                available = to_float(row.get("available_before_service_qty"))
+                served = to_float(row.get("served_qty")) or 0.0
+                backlog = to_float(row.get("backlog_end_qty"))
+                after = (available - served) if available is not None and not math.isnan(available) else None
+                set_context(
+                    node_id=node_id,
+                    item_id=item_id,
+                    day=day,
+                    label="stock client avant/apres service",
+                    before=available,
+                    after=after,
+                    extra={"served_qty": round(served, 6), "backlog_end_qty": round(backlog or 0.0, 6)},
+                    overwrite=True,
+                )
+
+        return out
+
+    stock_context = build_lot_trace_stock_context()
 
     def lot_trace_downstream_stats(lot_id: str) -> dict[str, Any]:
         visited: set[str] = set()
@@ -9384,6 +11618,7 @@ def build_lot_trace_payload(
         "genealogy": genealogy,
         "plan_events": plan_events,
         "deferred_orders": deferred_orders,
+        "stock_context": stock_context,
         "summary": {
             "lot_count": len(lots),
             "event_count": len(events),
@@ -9393,6 +11628,7 @@ def build_lot_trace_payload(
             "deferred_order_delay_event_count": sum(int(row.get("delay_event_count") or 0) for row in deferred_orders),
             "traceable_lot_count": len(lot_options),
             "internal_traceable_lot_count": sum(1 for lot in lots.values() if lot.get("traceable")),
+            "stock_context_count": len(stock_context),
             "selectable_filter": "finished_product_268967_production_lots_only",
             "selectable_finished_product_items": sorted(LOT_TRACE_VISIBLE_FINISHED_PRODUCT_ITEMS),
             "factory_stock_only_finished_product_count": sum(
@@ -9637,6 +11873,8 @@ def build_dual_line_multi_panel_figure(
     bottom_title: str,
     bottom_y_label: str,
     bottom_series_map: dict[str, list[tuple[int, float]]],
+    top_series_styles: dict[str, dict[str, Any]] | None = None,
+    bottom_series_styles: dict[str, dict[str, Any]] | None = None,
     top_step_like: bool = False,
     top_event_like: bool = False,
     bottom_step_like: bool = False,
@@ -9648,6 +11886,7 @@ def build_dual_line_multi_panel_figure(
         y_label=top_y_label,
         step_like=top_step_like,
         event_like=top_event_like,
+        series_styles=top_series_styles,
     )
     bottom_figure = build_line_chart_figure(
         bottom_series_map,
@@ -9655,6 +11894,7 @@ def build_dual_line_multi_panel_figure(
         y_label=bottom_y_label,
         step_like=bottom_step_like,
         event_like=bottom_event_like,
+        series_styles=bottom_series_styles,
     )
     if top_figure is None and bottom_figure is None:
         return None
@@ -9857,35 +12097,85 @@ def build_bar_chart_payload(
 def build_factory_industrial_payload(
     desired_series: list[tuple[int, float]],
     actual_series: list[tuple[int, float]],
+    recovery_actual_series: list[tuple[int, float]],
     capacity_series: list[tuple[int, float]],
     shortfall_series: list[tuple[int, float]],
+    lot_plan_shortfall_series: list[tuple[int, float]],
     *,
     factory_id: str,
 ) -> dict[str, Any] | None:
-    series_map = {
-        "Production demandee": desired_series,
-        "Production reelle": actual_series,
-        "Capacite": capacity_series,
-        "Manque de production": shortfall_series,
+    def normalize_points(points: list[tuple[int, float]], *, drop_zero: bool = False) -> list[dict[str, float]]:
+        out: list[dict[str, float]] = []
+        for day, value in sorted(points):
+            qty = float(value)
+            if drop_zero and abs(qty) < 1e-9:
+                continue
+            out.append({"day": int(day), "value": qty})
+        return out
+
+    if not any([desired_series, actual_series, recovery_actual_series, capacity_series, shortfall_series, lot_plan_shortfall_series]):
+        return None
+    return {
+        "figure": {
+            "kind": "production_execution",
+            "title": f"{factory_id} - execution production par lots",
+            "x_label": "Jour",
+            "top_title": "Lots physiques produits ou reportes",
+            "bottom_title": "Besoin quotidien avant lotification",
+            "top_y_label": "Quantite lot",
+            "bottom_y_label": "Quantite / jour",
+            "note": (
+                "Lecture: le haut est a l'echelle des lots physiques. "
+                "Orange = lot produit apres un report precedent. "
+                "Le bas montre le besoin quotidien avant lotification, donc il est naturellement beaucoup plus bas."
+            ),
+            "top_bars": [
+                {
+                    "label": "Lots produits au lancement",
+                    "points": normalize_points(actual_series, drop_zero=True),
+                    "color": "#0f766e",
+                    "opacity": 0.82,
+                },
+                {
+                    "label": "Lots produits en rattrapage",
+                    "points": normalize_points(recovery_actual_series, drop_zero=True),
+                    "color": "#f59e0b",
+                    "opacity": 0.88,
+                },
+                {
+                    "label": "Lots reportes / bloques",
+                    "points": normalize_points(lot_plan_shortfall_series, drop_zero=True),
+                    "color": "#dc2626",
+                    "opacity": 0.42,
+                },
+            ],
+            "top_lines": [
+                {
+                    "label": "Capacite jour",
+                    "points": normalize_points(capacity_series),
+                    "color": "#2563eb",
+                    "width": 1.9,
+                    "dash": "dash",
+                },
+            ],
+            "bottom_lines": [
+                {
+                    "label": "Besoin avant lotification",
+                    "points": normalize_points(desired_series),
+                    "color": "#475569",
+                    "width": 1.8,
+                    "dash": "dot",
+                },
+                {
+                    "label": "Besoin non execute ce jour",
+                    "points": normalize_points(shortfall_series, drop_zero=True),
+                    "color": "#dc2626",
+                    "width": 1.9,
+                    "dash": "solid",
+                },
+            ],
+        }
     }
-    if not any(series_map.values()):
-        return None
-    payload = build_line_chart_payload(
-        series_map,
-        title=f"{factory_id} - production desiree / reelle / capacite / manque de production",
-        y_label="Quantite",
-        filename=f"{safe_case_token(factory_id)}_industrial_constraints.png",
-    )
-    if payload is not None:
-        return payload
-    figure = build_line_chart_figure(
-        series_map,
-        title=f"{factory_id} - production desiree / reelle / capacite / manque de production",
-        y_label="Quantite",
-    )
-    if figure is None:
-        return None
-    return {"figure": figure}
 
 
 def build_factory_current_metrics(
@@ -11579,6 +13869,7 @@ def build_model_panel_metrics(
     mrp_order_rows = read_csv_rows(data_root / "mrp_orders_daily.csv")
     assumptions_ledger_rows = read_csv_rows(data_root / "assumptions_ledger.csv")
     supplier_risk_applied_rows = read_csv_rows(data_root / "supplier_risk_events_applied_daily.csv")
+    supplier_state_risk_event_rows = read_csv_rows(data_root / "supplier_state_dependent_risk_events.csv")
 
     input_rows = read_csv_rows(sim_input_stocks_csv)
     output_rows = read_csv_rows(sim_output_products_csv)
@@ -11701,6 +13992,10 @@ def build_model_panel_metrics(
             supplier_risk_applied_by_node[node_id].append(row)
 
     supplier_risk_config_by_node: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for row in supplier_state_risk_event_rows:
+        node_id = str(row.get("supplier_id") or "")
+        if node_id:
+            supplier_risk_config_by_node[node_id].append(dict(row))
     for row in assumptions_ledger_rows:
         if str(row.get("category") or "") != "supplier_risk_event":
             continue
@@ -11829,6 +14124,26 @@ def build_model_panel_metrics(
             if bucket_days > 1:
                 day = (day // bucket_days) * bucket_days
             by_day[day] += max(0.0, to_float(row.get(field)) or 0.0)
+        return sorted(by_day.items())
+
+    def aggregate_effective_order_receipt_series(
+        rows: list[dict[str, str]],
+        field: str,
+        *,
+        bucket_days: int = 1,
+    ) -> list[tuple[int, float]]:
+        by_day: dict[int, float] = defaultdict(float)
+        for row in rows:
+            day_value = effective_order_receipt_day(row)
+            if day_value is None or math.isnan(day_value):
+                continue
+            day = int(round(day_value))
+            if bucket_days > 1:
+                day = (day // bucket_days) * bucket_days
+            qty = max(0.0, to_float(row.get(field)) or 0.0)
+            if qty <= 1e-9:
+                continue
+            by_day[day] += qty
         return sorted(by_day.items())
 
     def bucket_series_points(points: list[tuple[int, float]], bucket_days: int = 7) -> list[tuple[int, float]]:
@@ -13067,6 +15382,11 @@ def build_model_panel_metrics(
                 day_field="planned_arrival_day",
                 bucket_days=7,
             )
+            supplier_order_actual_receipt_series = aggregate_effective_order_receipt_series(
+                supplier_source_orders,
+                "planned_receipt_qty",
+                bucket_days=7,
+            )
             supplier_actual_send_series = aggregate_daily_series(
                 supplier_ship_rows_node,
                 value_field="shipped_qty",
@@ -13074,46 +15394,58 @@ def build_model_panel_metrics(
                 node_field="src_node_id",
                 node_id=node_id,
             )
+            supplier_actual_receipt_series = aggregate_daily_series(
+                supplier_ship_rows_node,
+                value_field="shipped_qty",
+                day_field="arrival_day",
+                node_field="src_node_id",
+                node_id=node_id,
+            )
 
             supplier_order_send_top = build_line_chart_figure(
                 {
-                    "Commandes recues fournisseur": supplier_order_received_series,
-                    "Envois planifies MRP": supplier_order_send_plan_series,
+                    "Commandes MRP recues": supplier_order_received_series,
+                    "Expeditions prevues fournisseur": supplier_order_send_plan_series,
                 },
-                title=f"{node_id} - commandes recues et envois planifies",
+                title=f"{node_id} - commandes MRP et expeditions prevues",
                 y_label="Quantite / semaine",
                 event_like=True,
                 note=(
-                    "Commande recue = ordre MRP date a order_date_imt. "
-                    "Envoi planifie = release_day, donc date a laquelle le fournisseur doit expedier."
+                    "Commande MRP recue = ordre date a order_date_imt. "
+                    "Expedition prevue = release_day, donc date promise/planifiee pour le depart fournisseur. "
+                    "Ces deux signaux sont du pilotage, pas une preuve de mouvement physique."
                 ),
                 series_styles={
-                    "Commandes recues fournisseur": {"color": "#0f766e", "width": 2.2},
-                    "Envois planifies MRP": {"color": "#2563eb", "width": 2.2, "dash": "dash"},
+                    "Commandes MRP recues": {"color": "#0f766e", "width": 2.2},
+                    "Expeditions prevues fournisseur": {"color": "#2563eb", "width": 2.2, "dash": "dash"},
                 },
             )
+            actual_receipt_series = supplier_order_actual_receipt_series or bucket_series_points(supplier_actual_receipt_series, 7)
             supplier_order_send_bottom = build_line_chart_figure(
                 {
-                    "Envois physiques simules": bucket_series_points(supplier_actual_send_series, 7),
-                    "Receptions aval previsionnelles": supplier_planned_receipt_series,
+                    "Expeditions physiques confirmees": bucket_series_points(supplier_actual_send_series, 7),
+                    "Receptions prevues aval": supplier_planned_receipt_series,
+                    "Receptions reelles confirmees": actual_receipt_series,
                 },
-                title=f"{node_id} - envois physiques et receptions previsionnelles aval",
+                title=f"{node_id} - executions physiques et receptions aval",
                 y_label="Quantite / semaine",
                 event_like=True,
                 note=(
-                    "Envois physiques = production_supplier_shipments_daily.day. "
-                    "Receptions aval previsionnelles = carnet MRP date a ordre_passe + delai previsionnel source; pas arrival_day simule."
+                    "Expedition physique confirmee = production_supplier_shipments_daily.day. "
+                    "Reception prevue aval = carnet MRP date a la date previsionnelle d'arrivee. "
+                    "Reception reelle confirmee = actual_receipt_day du carnet quand disponible, sinon arrival_day des expeditions physiques."
                 ),
                 series_styles={
-                    "Envois physiques simules": {"color": "#dc2626", "width": 2.2},
-                    "Receptions aval previsionnelles": {"color": "#7c3aed", "width": 2.2, "dash": "dot"},
+                    "Expeditions physiques confirmees": {"color": "#ea580c", "width": 2.3},
+                    "Receptions prevues aval": {"color": "#7c3aed", "width": 2.1, "dash": "dot"},
+                    "Receptions reelles confirmees": {"color": "#16a34a", "width": 2.4},
                 },
             )
             if supplier_order_send_top is not None or supplier_order_send_bottom is not None:
                 node_supplier_order_send_asset = {
                     "figure": {
                         "kind": "dual_panel_multi",
-                        "title": f"{node_id} - commandes, envois et receptions",
+                        "title": f"{node_id} - pilotage et execution fournisseur",
                         "top": supplier_order_send_top,
                         "bottom": supplier_order_send_bottom,
                     }
@@ -17681,6 +20013,9 @@ def html_template(
       background: #0f172a;
       color: #ffffff;
     }}
+    .modeBtn.hidden {{
+      display: none;
+    }}
     .debugOnly {{
       display: none !important;
     }}
@@ -17721,6 +20056,7 @@ def html_template(
       flex-wrap: wrap;
     }}
     .simulatedRiskControlsBox label,
+    .simulatedRiskModeLabel,
     .lotTraceControlsBox label,
     .uncertaintyControlsBox label {{
       display: inline-flex;
@@ -18109,6 +20445,9 @@ def html_template(
       stroke-width: 2.4;
       fill: #fff7ed;
     }}
+    .lotTraceGraphNode.mixed rect {{
+      stroke-dasharray: 5 3;
+    }}
     .lotTraceGraphNode.pfStatusStock rect {{
       stroke: #16a34a;
       stroke-width: 2.4;
@@ -18137,6 +20476,10 @@ def html_template(
     .lotTraceGraphNode.operation.transport rect {{
       fill: #fff7ed;
       stroke: #f97316;
+    }}
+    .lotTraceGraphNode.operation.stockState rect {{
+      fill: #f0fdf4;
+      stroke: #16a34a;
     }}
     .lotTraceGraphNode.operation.deferredOrder rect {{
       fill: #f8fafc;
@@ -18246,11 +20589,151 @@ def html_template(
       font-weight: 900;
       overflow-wrap: anywhere;
     }}
+    .riskScenarioSection {{
+      margin: 12px 0 6px;
+      color: #0f172a;
+      font-size: 12px;
+      font-weight: 900;
+    }}
+    .riskScenarioCards {{
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 8px;
+      margin: 8px 0 12px;
+    }}
+    .riskScenarioCard {{
+      border: 1px solid #cbd5e1;
+      border-left: 4px solid #64748b;
+      border-radius: 8px;
+      background: #ffffff;
+      padding: 9px 10px;
+      min-width: 0;
+    }}
+    .riskScenarioCardTitle {{
+      color: #0f172a;
+      font-size: 12px;
+      font-weight: 900;
+      margin-bottom: 4px;
+    }}
+    .riskScenarioCardText {{
+      color: #475569;
+      font-size: 11px;
+      line-height: 1.35;
+      overflow-wrap: anywhere;
+    }}
+    .riskScenarioMuted {{
+      color: #64748b;
+      font-size: 11px;
+      line-height: 1.4;
+      margin: 6px 0 10px;
+    }}
+    .riskDiagnosticList {{
+      margin: 6px 0 12px;
+      padding-left: 18px;
+      color: #334155;
+      font-size: 12px;
+      line-height: 1.45;
+    }}
+    .riskDiagnosticList li {{
+      margin: 4px 0;
+    }}
+    .riskGlobalDiagnosticContent .kpiFormulaTableWrap {{
+      margin-bottom: 12px;
+    }}
+    .scenarioComparisonControls {{
+      border: 1px solid #dbeafe;
+      border-radius: 8px;
+      background: #f8fafc;
+      padding: 9px 10px;
+      margin: 10px 0 12px;
+    }}
+    .scenarioComparisonActions {{
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }}
+    .scenarioComparisonSelectionMeta {{
+      color: #475569;
+      font-size: 12px;
+      font-weight: 800;
+    }}
+    .scenarioComparisonChecks {{
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 6px 10px;
+    }}
+    .scenarioComparisonCheck {{
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      min-width: 0;
+      color: #0f172a;
+      font-size: 12px;
+      font-weight: 800;
+    }}
+    .scenarioComparisonCheck span {{
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }}
+    .scenarioComparisonCheck small {{
+      color: #64748b;
+      font-size: 10px;
+      font-weight: 800;
+      white-space: nowrap;
+    }}
+    .scenarioComparisonTable tr.scenarioCurrentRow td {{
+      background: #fff7ed;
+      color: #0f172a;
+      font-weight: 800;
+    }}
+    .scenarioComparisonTable tr.scenarioComparisonHidden {{
+      display: none;
+    }}
+    .scenarioComparisonContent .riskDiagnosticChart {{
+      min-height: 320px;
+    }}
+    .riskDiagnosticChartGrid {{
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin: 8px 0 12px;
+    }}
+    .riskDiagnosticChart {{
+      min-width: 0;
+      height: 300px;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      background: #ffffff;
+      overflow: hidden;
+    }}
+    .riskScenarioNativeDetails {{
+      margin-top: 10px;
+      border: 1px dashed #cbd5e1;
+      border-radius: 8px;
+      background: #f8fafc;
+      padding: 8px 10px;
+    }}
+    .riskScenarioNativeDetails summary {{
+      cursor: pointer;
+      color: #0f172a;
+      font-size: 12px;
+      font-weight: 900;
+    }}
+    .riskScenarioNativeDetails[open] summary {{
+      margin-bottom: 8px;
+    }}
     @media (max-width: 760px) {{
       .riskSummaryHeader {{
         grid-template-columns: 1fr;
       }}
       .riskSummaryGrid {{
+        grid-template-columns: 1fr;
+      }}
+      .riskDiagnosticChartGrid {{
         grid-template-columns: 1fr;
       }}
     }}
@@ -18451,6 +20934,29 @@ def html_template(
       scrollbar-gutter: stable both-edges;
       font-family: Consolas, "Courier New", monospace;
       font-weight: 500;
+    }}
+    .panelDetailControls {{
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      border: 1px dashed #cbd5e1;
+      border-radius: 10px;
+      background: #f8fafc;
+      padding: 8px 10px;
+      min-width: 0;
+    }}
+    .panelDetailControls.visible {{
+      display: flex;
+    }}
+    .panelDetailHint {{
+      color: #475569;
+      font-size: 11px;
+      line-height: 1.35;
+      overflow-wrap: anywhere;
+    }}
+    .panelAdvancedBlock.isCollapsed {{
+      display: none !important;
     }}
     .factoryPlotBlock {{
       display: block;
@@ -18715,6 +21221,16 @@ def html_template(
     }}
     .factoryPlotFigure.factoryHtmlPanel {{
       overflow: hidden;
+    }}
+    .factoryPlotFigure.factoryTallHtmlPanel {{
+      height: auto;
+      min-height: 320px;
+      overflow: visible;
+    }}
+    .factoryPlotFigure.factoryTallHtmlPanel .factoryHtmlPanelContent {{
+      height: auto;
+      min-height: 320px;
+      max-width: 100%;
     }}
     .factoryPlotFigure.factoryOrderLedgerPanel {{
       height: auto;
@@ -20308,8 +22824,8 @@ def html_template(
       <div class="modeTabs">
         <button id="modeOps" class="modeBtn active" type="button" title="Question metier: que s'est-il passe dans le run nominal ?">Simulation</button>
         <button id="modeSensitivity" class="modeBtn" type="button" title="Question metier: a partir de quel niveau un parametre fournisseur degrade-t-il la performance ?">Sensibilite</button>
-        <button id="modeSimulatedRisk" class="modeBtn" type="button" title="Question metier: que se passe-t-il si ces risques fournisseurs se produisent ?">Risques simules</button>
-        <button id="modeRisk" class="modeBtn" type="button" title="Question metier: quel fournisseur merite une action ou une surveillance ?">Risques fournisseurs</button>
+        <button id="modeSimulatedRisk" class="modeBtn" type="button" title="Question metier: quels evenements de risque ont vraiment ete injectes dans ce run ?">Risques simules</button>
+        <button id="modeRisk" class="modeBtn" type="button" title="Question metier: quel fournisseur est critique et merite une action ou une surveillance ?">Criticite fournisseurs</button>
         <button id="modeUncertainty" class="modeBtn" type="button" title="Question metier: peut-on faire confiance a cette lecture ?">Incertitude</button>
         <button id="modeStructural" class="modeBtn" type="button" title="Question metier: ou le reseau est-il fragile par construction ?">Structurel</button>
         <button id="modeData" class="modeBtn debugOnly" type="button">Audit donnees</button>
@@ -20343,20 +22859,18 @@ def html_template(
       </label>
       <button id="lotTraceFocusBtn" class="tableBtn" type="button">Voir lot</button>
       <button id="lotTraceOpenBtn" class="tableBtn" type="button">Suivi de lots</button>
+      <button id="lotTraceOrdersBtn" class="tableBtn" type="button" title="Affiche les ordres de production reportes par manque d'intrants.">Ordres reportes</button>
       <button id="lotTraceClearBtn" class="tableBtn" type="button">Effacer lot</button>
     </div>
     <div class="box sensitivityTop3Box" id="sensitivityTop3Box">
       <button id="sensitivityTop3Btn" class="tableBtn" type="button" title="Vue globale sans selectionner de noeud: trois stress tests les plus severes.">Top 3 resultats</button>
+      <button id="supplierStressCampaignBtn" class="tableBtn" type="button" title="Vue globale sans selectionner de noeud: stress tests fournisseurs contrefactuels.">Stress tests fournisseurs</button>
     </div>
     <div class="box simulatedRiskControlsBox" id="simulatedRiskControlsBox">
-      <label title="Choisit la lecture de l'onglet Risques simules.">
-        Vue risque
-        <select id="simulatedRiskViewSelect">
-          <option value="campaign">Campagne stress tests</option>
-          <option value="state">State-dependent du run</option>
-        </select>
-      </label>
-      <span class="simulatedRiskViewValue" id="simulatedRiskViewValue">campagne</span>
+      <span class="simulatedRiskModeLabel" title="Cette vue affiche les evenements de risques injectes dans le run courant: scenarios metier explicites et declenchements state-dependent.">Vue run</span>
+      <span class="simulatedRiskViewValue" id="simulatedRiskViewValue">scenario injecte</span>
+      <button id="simulatedRiskGlobalBtn" class="tableBtn" type="button" title="Vue globale: service, production, approvisionnement, couts et actions recommandees.">Bilan scenario</button>
+      <button id="scenarioComparisonBtn" class="tableBtn" type="button" title="Compare les runs disponibles: nominal, risques injectes, state-dependent et mitigations.">Comparer scenarios</button>
     </div>
     <div class="box uncertaintyMonteCarloBox" id="uncertaintyMonteCarloBox">
       <button id="monteCarloBtn" class="tableBtn" type="button" title="Vue globale sans selectionner de noeud: distribution Monte Carlo des KPI metier.">Monte Carlo</button>
@@ -20418,19 +22932,19 @@ def html_template(
       <span class="sensitivityLegendItem"><span class="sensitivityLegendDot" style="background:#2563eb"></span>Fiabilite</span>
       <span class="sensitivityLegendItem"><span class="sensitivityLegendDot" style="background:#be123c"></span>Appro amont</span>
       <span class="sensitivityLegendItem"><span class="sensitivityLegendDot" style="background:#0891b2"></span>Qualite</span>
-      <span class="sensitivityLegendItem"><span class="sensitivityLegendDot" style="background:#475569"></span>Cout de recours amont</span>
-      <span class="sensitivityLegendItem" id="simulatedRiskLegendHint">Couleur = pire famille testee. Taille = score decisionnel modele. Le panneau separe l'impact metier observe.</span>
+      <span class="sensitivityLegendItem"><span class="sensitivityLegendDot" style="background:#475569"></span>Cout appro fournisseur</span>
+      <span class="sensitivityLegendItem" id="simulatedRiskLegendHint">Scenario injecte: couleur = famille dominante appliquee. Taille = intensite / nombre d'evenements.</span>
     </div>
     <div class="simulatedRiskGlobalSummary" id="simulatedRiskGlobalSummary"></div>
   </div>
   <div id="riskLegend">
-    <div class="sensitivityLegendTitle">Mode Risques fournisseurs</div>
+    <div class="sensitivityLegendTitle">Mode Criticite fournisseurs</div>
     <div class="sensitivityLegendRows">
       <span class="sensitivityLegendItem"><span class="sensitivityLegendDot" style="background:#0f766e"></span>Faible</span>
       <span class="sensitivityLegendItem"><span class="sensitivityLegendDot" style="background:#f59e0b"></span>Modere</span>
       <span class="sensitivityLegendItem"><span class="sensitivityLegendDot" style="background:#d97706"></span>Eleve</span>
       <span class="sensitivityLegendItem"><span class="sensitivityLegendDot" style="background:#dc2626"></span>Critique</span>
-      <span class="sensitivityLegendItem">Risque = menace metier ; incertitude = confiance ; action = croisement des deux.</span>
+      <span class="sensitivityLegendItem">Criticite = importance supply x menace estimee ; incertitude = confiance ; action = croisement des deux.</span>
     </div>
   </div>
   <div id="uncertaintyLegend">
@@ -20477,9 +22991,9 @@ def html_template(
             </select>
           </label>
           <div class="lotTraceDirectionTabs">
-            <button class="lotTraceDirectionBtn active" type="button" data-lot-trace-direction="both">Tout</button>
-            <button class="lotTraceDirectionBtn" type="button" data-lot-trace-direction="downstream">Descendants aval</button>
-            <button class="lotTraceDirectionBtn" type="button" data-lot-trace-direction="upstream">Ascendants amont</button>
+            <button class="lotTraceDirectionBtn active" type="button" data-lot-trace-direction="both">Chaine complete</button>
+            <button class="lotTraceDirectionBtn" type="button" data-lot-trace-direction="downstream">Aval</button>
+            <button class="lotTraceDirectionBtn" type="button" data-lot-trace-direction="upstream">Amont</button>
           </div>
           <button id="lotTraceOrderDetailsBtn" class="tableBtn lotTraceOrderDetailsBtn hidden" type="button">Details</button>
         </div>
@@ -20527,13 +23041,43 @@ def html_template(
     <div class="tableModalCard">
       <div class="tableModalHeader">
         <div>
-          <div class="tableModalTitle">Sensibilite - Top 3 resultats</div>
-          <div class="tableModalMeta">Vue globale sans selectionner de noeud</div>
+          <div class="tableModalTitle" id="sensitivityTop3ModalTitle">Sensibilite - Top 3 resultats</div>
+          <div class="tableModalMeta" id="sensitivityTop3ModalMeta">Vue globale sans selectionner de noeud</div>
         </div>
         <button id="sensitivityTop3CloseBtn" class="tableBtn" type="button">Fermer</button>
       </div>
       <div class="tableModalBody sensitivityTop3ModalBody">
         <div id="sensitivityTop3Content"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="simulatedRiskGlobalModal" class="tableModal">
+    <div class="tableModalCard">
+      <div class="tableModalHeader">
+        <div>
+          <div class="tableModalTitle">Risques simules - Bilan scenario</div>
+          <div class="tableModalMeta">Vue globale du run courant</div>
+        </div>
+        <button id="simulatedRiskGlobalCloseBtn" class="tableBtn" type="button">Fermer</button>
+      </div>
+      <div class="tableModalBody sensitivityTop3ModalBody">
+        <div id="simulatedRiskGlobalContent"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="scenarioComparisonModal" class="tableModal">
+    <div class="tableModalCard">
+      <div class="tableModalHeader">
+        <div>
+          <div class="tableModalTitle">Risques simules - Comparaison scenarios</div>
+          <div class="tableModalMeta">Nominal, risques et mitigations disponibles</div>
+        </div>
+        <button id="scenarioComparisonCloseBtn" class="tableBtn" type="button">Fermer</button>
+      </div>
+      <div class="tableModalBody sensitivityTop3ModalBody">
+        <div id="scenarioComparisonContent"></div>
       </div>
     </div>
   </div>
@@ -20603,6 +23147,10 @@ def html_template(
         <div id="panelMetaTitle" class="panelMetaTitle">Synthese site</div>
         <div id="panelMetaGrid" class="panelMetaGrid"></div>
       </div>
+      <div id="panelDetailControls" class="panelDetailControls">
+        <span id="panelDetailHint" class="panelDetailHint">Vue resume: les blocs d'audit sont replies.</span>
+        <button id="panelDetailsToggle" class="tableBtn" type="button">Afficher details</button>
+      </div>
       <div id="incomingBlock" class="factoryPlotBlock">
         <div id="incomingLabel" class="factoryPlotLabel">Stock matieres premieres (entree)</div>
         <div id="incomingTabs" class="panelSubTabs"></div>
@@ -20660,11 +23208,20 @@ def html_template(
         ? DATA.supplier_risk_campaign
         : {{ available: false, nodes: {{}}, global: {{}} }}
     );
-    const SIMULATED_RISK_STATE_METRICS = DATA.simulated_risk_metrics || MODEL_PANEL.simulated_risk_metrics || {{ nodes: {{}}, global: {{}} }};
+    const DATA_SIMULATED_RISK_STATE_METRICS = DATA.simulated_risk_metrics || {{ nodes: {{}}, global: {{}} }};
+    const MODEL_SIMULATED_RISK_STATE_METRICS = MODEL_PANEL.simulated_risk_metrics || {{ nodes: {{}}, global: {{}} }};
+    const SIMULATED_RISK_STATE_METRICS = (
+      Object.keys((DATA_SIMULATED_RISK_STATE_METRICS && DATA_SIMULATED_RISK_STATE_METRICS.nodes) || {{}}).length > 0
+        ? DATA_SIMULATED_RISK_STATE_METRICS
+        : MODEL_SIMULATED_RISK_STATE_METRICS
+    );
+    const SIMULATED_RISK_GLOBAL_DIAGNOSTIC = DATA.simulated_risk_global_diagnostic || {{ available: false, html: "" }};
+    const SCENARIO_COMPARISON = DATA.scenario_comparison || {{ available: false, html: "", figures: {{}}, scenarios: [] }};
     const UNCERTAINTY_METRICS = MODEL_PANEL.uncertainty_metrics || DATA.uncertainty_metrics || {{ nodes: {{}}, edges: {{}} }};
     const DATA_PANEL = DATA.data_panel || {{ nodes: {{}}, edges: {{}} }};
     const JSON_PANEL = DATA.json_panel || {{ nodes: {{}}, edges: {{}} }};
     const TIMELINE_HORIZON_DAYS = Number(DATA.timeline_horizon_days || 0);
+    const SIMULATION_DIAGNOSTICS = DATA.simulation_diagnostics || {{ available: false, nodes: {{}}, edges: {{}} }};
     const EDGE_BY_ID = Object.fromEntries((DATA.edges || []).map(e => [e.id, e]));
     const FACTORY_LIKE_NODE_IDS = new Set(DATA.factory_like_node_ids || []);
     const REALISTIC_SENSITIVITY = DATA.realistic_sensitivity || {{ nodes: {{}}, global: {{}}, selected_suppliers: [] }};
@@ -20672,6 +23229,15 @@ def html_template(
     const SUPPLIER_PARAMETER_SENSITIVITY_NODES = DATA.supplier_parameter_sensitivity_nodes || {{}};
     const SUPPLIER_RISK_METRICS = DATA.supplier_risk_metrics || {{ nodes: {{}}, global: {{}} }};
     const MONTECARLO_UNCERTAINTY = DATA.montecarlo_uncertainty || {{ available: false, html: "" }};
+    let scenarioComparisonSelectedIds = new Set();
+    function objectHasPayload(obj) {{
+      return Boolean(obj && typeof obj === "object" && Object.keys(obj).length);
+    }}
+    function hasStructuralPayload() {{
+      return objectHasPayload(FACTORY_STRUCTURAL_HOVER_IMAGES)
+        || objectHasPayload(SUPPLIER_STRUCTURAL_HOVER_IMAGES)
+        || objectHasPayload(DC_STRUCTURAL_HOVER_IMAGES);
+    }}
     const nodeById = Object.fromEntries((DATA.nodes || []).map(n => [n.id, n]));
     const defaultPalette = ["#1f77b4", "#d62728", "#ff7f0e", "#2ca02c", "#9467bd", "#8c564b"];
     const STANDARD_PLOT_MARGIN = {{ l: 64, r: 24, t: 48, b: 92 }};
@@ -20695,19 +23261,17 @@ def html_template(
     let hoverHandlersBound = false;
     let panelPointerInside = false;
     let hoverClearTimeout = null;
-    let simulatedRiskViewMode = (
-      Object.keys((SIMULATED_RISK_STATE_METRICS && SIMULATED_RISK_STATE_METRICS.nodes) || {{}}).length > 0
-        ? "state"
-        : (SIMULATED_RISK_CAMPAIGN_METRICS.available ? "campaign" : "state")
-    );
+    let simulatedRiskViewMode = "state";
     let uncertaintyMode = "capacity";
     let uncertaintyDisplayMode = "dominant_type";
     let selectedLotId = "";
     let lotTraceDirection = "both";
     let lotTraceShowDetails = false;
+    let panelDetailsExpanded = false;
+    let panelDetailsKey = "";
     const SIMULATED_RISK_VIEW_LABELS = {{
-      campaign: "campagne stress tests",
-      state: "state-dependent du run",
+      campaign: "stress tests fournisseurs",
+      state: "scenario injecte",
     }};
     const SIMULATED_RISK_FAMILY_LABELS = {{
       capacity: "Capacite",
@@ -20716,7 +23280,7 @@ def html_template(
       reliability: "Fiabilite",
       upstream: "Appro amont",
       quality: "Qualite",
-      cost: "Cout de recours amont",
+      cost: "Cout appro fournisseur",
       availability: "Disponibilite",
       other: "Autre",
     }};
@@ -21033,6 +23597,44 @@ def html_template(
       }});
     }}
 
+    function lotTraceStockContextLookup(nodeId, itemId, day) {{
+      const dayNum = Number(day);
+      if (!Number.isFinite(dayNum)) return null;
+      const rawNode = String(nodeId || "");
+      const canonicalNode = rawNode === "DC-1910" ? "DC-1920" : rawNode;
+      const item = String(itemId || "");
+      const contexts = LOT_TRACE.stock_context || {{}};
+      return contexts[`${{canonicalNode}}|${{item}}|${{Math.round(dayNum)}}`]
+        || contexts[`${{rawNode}}|${{item}}|${{Math.round(dayNum)}}`]
+        || null;
+    }}
+
+    function lotTraceStockContextDisplay(context) {{
+      if (!context) return "";
+      const before = Number(context.before_qty);
+      const after = Number(context.after_qty);
+      const delta = Number(context.delta_qty);
+      const hasBeforeAfter = Number.isFinite(before) && Number.isFinite(after);
+      const base = hasBeforeAfter
+        ? `${{lotTraceQtyText(before)}} -> ${{lotTraceQtyText(after)}}`
+        : (Number.isFinite(after) ? `apres ${{lotTraceQtyText(after)}}` : "");
+      if (!base) return "";
+      const deltaText = Number.isFinite(delta) && Math.abs(delta) > 1e-9
+        ? ` (${{delta > 0 ? "+" : ""}}${{lotTraceQtyText(delta)}})`
+        : "";
+      return `${{context.label || "stock"}}: ${{base}}${{deltaText}}`;
+    }}
+
+    function lotTraceEventStockText(row) {{
+      const context = lotTraceStockContextLookup(row.node_id, row.item_id, lotTraceDay(row));
+      const stockText = lotTraceStockContextDisplay(context);
+      if (stockText) return stockText;
+      if (row.qty_after !== undefined && row.qty_after !== "") {{
+        return `stock lot apres evenement: ${{lotTraceQtyText(row.qty_after)}}`;
+      }}
+      return "";
+    }}
+
     const LOT_TRACE_LOGISTICS_ASSUMPTIONS = {{
       "item:268967": {{
         unitsPerCase: 125,
@@ -21109,7 +23711,7 @@ def html_template(
         lane_ship: "Expedie",
         lane_receipt: "Recu stock",
         demand_service: "Servi client",
-        external_procurement_receipt: "Appro externe",
+        external_procurement_receipt: "Appro fournisseur",
         estimated_source_receipt: "Source estimee",
         estimated_capacity_receipt: "Capacite estimee",
         supplier_writeoff: "Ecart fournisseur",
@@ -21453,7 +24055,12 @@ def html_template(
         title.includes("expeditions pfi")
       ) return "factory_output";
       if (title.includes("stock fournisseur") || title.includes("entrees et sorties de stock fournisseur")) return "supplier_stock";
-      if (title.includes("envois physiques et receptions previsionnelles")) return "supplier_send";
+      if (
+        title.includes("executions physiques") ||
+        title.includes("receptions aval") ||
+        title.includes("expeditions prevues") ||
+        title.includes("envois physiques et receptions previsionnelles")
+      ) return "supplier_send";
       if (title.includes("stock dc")) return "dc_stock";
       if (title.includes("receptions journalieres") || title.includes("receptions client")) return "receipt";
       if (title.includes("expeditions journalieres")) return "shipment";
@@ -21463,17 +24070,59 @@ def html_template(
 
     function lotTracePlotCategoryLabel(category) {{
       return {{
-        production: "production / consommation lot",
-        factory_input: "stock intrant du lot",
-        factory_output: "stock produit du lot",
-        supplier_stock: "stock / envoi fournisseur du lot",
-        supplier_send: "envoi fournisseur du lot",
-        dc_stock: "stock DC du lot",
-        receipt: "reception du lot",
-        shipment: "expedition du lot",
+        production: "jalons production / consommation",
+        factory_input: "jalons intrants usine",
+        factory_output: "jalons stock PF usine",
+        supplier_stock: "jalons stock fournisseur",
+        supplier_send: "jalons execution fournisseur",
+        dc_stock: "jalons stock DC",
+        receipt: "jalons reception",
+        shipment: "jalons expedition",
         customer_service: "service client du lot",
-        transport: "transport du lot",
+        transport: "jalons transport",
       }}[category] || "trace lot";
+    }}
+
+    function lotTraceMarkerStyle(kind) {{
+      return {{
+        production: {{ label: "production", color: "#16a34a", dash: "solid", width: 2.4, symbol: "diamond" }},
+        consume: {{ label: "consommation BOM", color: "#2563eb", dash: "solid", width: 2.0, symbol: "circle" }},
+        shipment: {{ label: "expedition", color: "#f97316", dash: "dash", width: 1.6, symbol: "triangle-right" }},
+        receipt: {{ label: "reception", color: "#0ea5e9", dash: "dash", width: 1.6, symbol: "triangle-left" }},
+        transport: {{ label: "transport", color: "#f59e0b", dash: "dash", width: 1.6, symbol: "square" }},
+        service: {{ label: "service client", color: "#a855f7", dash: "dot", width: 1.4, symbol: "triangle-up" }},
+        stock: {{ label: "stock initial", color: "#64748b", dash: "dot", width: 1.3, symbol: "circle-open" }},
+        delay: {{ label: "report", color: "#dc2626", dash: "dashdot", width: 2.2, symbol: "x" }},
+      }}[kind] || {{ label: String(kind || "jalon"), color: "#f97316", dash: "dot", width: 1.3, symbol: "circle" }};
+    }}
+
+    function lotTraceCompactMarkers(markers, maxMarkers = 140) {{
+      if (!Array.isArray(markers) || markers.length <= maxMarkers) return {{ markers: markers || [], hidden: 0 }};
+      const priority = {{ production: 0, delay: 1, consume: 2, shipment: 3, receipt: 4, transport: 5, service: 6, stock: 7 }};
+      const sorted = markers.slice().sort((a, b) => {{
+        const pa = priority[a.kind] ?? 99;
+        const pb = priority[b.kind] ?? 99;
+        return pa - pb || a.day - b.day;
+      }});
+      return {{
+        markers: sorted.slice(0, maxMarkers).sort((a, b) => a.day - b.day),
+        hidden: Math.max(0, markers.length - maxMarkers),
+      }};
+    }}
+
+    function lotTraceMarkerSummaryText(markers, hidden = 0) {{
+      if (!markers || !markers.length) return "";
+      const counts = new Map();
+      markers.forEach((marker) => {{
+        const style = lotTraceMarkerStyle(marker.kind);
+        counts.set(style.label, (counts.get(style.label) || 0) + 1);
+      }});
+      const parts = Array.from(counts.entries())
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+        .slice(0, 5)
+        .map(([label, count]) => `${{label}}: ${{count}}`);
+      if (hidden > 0) parts.push(`${{hidden}} masques`);
+      return parts.join(" | ");
     }}
 
     function selectedLotTraceMarkersForPlot(plotlyFigure, contextNodeId = "", contextNodeType = "") {{
@@ -21486,7 +24135,7 @@ def html_template(
           const range = currentTimelineDayRange();
           return deferredOrderDays(order)
             .filter(day => Number.isFinite(day) && day >= range.startDay && day <= range.endDay)
-            .map(day => ({{ day, label: "ordre reporte", kind: "delay" }}));
+            .map(day => ({{ day, label: "ordre reporte", kind: "delay", category, count: 1, qty: 0, lots: [], eventTypes: ["delay"] }}));
         }}
         return [];
       }}
@@ -21495,21 +24144,37 @@ def html_template(
       const relatedLots = new Set(snapshot.relatedLots || [snapshot.lotId]);
       const contextId = String(contextNodeId || "");
       const range = currentTimelineDayRange();
-      const markersByDay = new Map();
-      function addMarker(day, label, kind) {{
+      const markersByKey = new Map();
+      function addMarker(day, label, kind, qty = null, lotId = "", eventType = "", itemId = "") {{
         if (!Number.isFinite(day) || day < range.startDay || day > range.endDay) return;
-        const key = String(day);
-        if (!markersByDay.has(key)) {{
-          markersByDay.set(key, {{ day, labels: new Set(), kinds: new Set() }});
+        const markerKind = kind || category;
+        const key = `${{day}}|${{markerKind}}`;
+        if (!markersByKey.has(key)) {{
+          markersByKey.set(key, {{
+            day,
+            labels: new Set(),
+            kind: markerKind,
+            category,
+            count: 0,
+            qty: 0,
+            lots: new Set(),
+            eventTypes: new Set(),
+            itemIds: new Set(),
+          }});
         }}
-        const marker = markersByDay.get(key);
+        const marker = markersByKey.get(key);
         marker.labels.add(label);
-        marker.kinds.add(kind || category);
+        marker.count += 1;
+        const numericQty = Number(qty);
+        if (Number.isFinite(numericQty) && numericQty > 0) marker.qty += numericQty;
+        if (lotId) marker.lots.add(String(lotId));
+        if (eventType) marker.eventTypes.add(String(eventType));
+        if (itemId) marker.itemIds.add(String(itemId));
       }}
       function addEvent(row, label, kind) {{
         const day = lotTraceDay(row);
         if (day === null) return;
-        addMarker(day, label, kind);
+        addMarker(day, label, kind, row.qty, row.lot_id, row.event_type, row.item_id);
       }}
       function eventLotIsRelated(row) {{
         return relatedLots.has(String(row.lot_id || ""));
@@ -21629,7 +24294,7 @@ def html_template(
           if (String(row.link_type || "") !== "transport") return;
           if (lotTraceSourceEdgeId(row.source_id) !== contextId) return;
           const day = lotTraceDay(row);
-          if (day !== null) addMarker(day, "reception transport", "transport");
+          if (day !== null) addMarker(day, "reception transport", "receipt", row.child_qty || row.parent_qty, row.child_lot_id, row.link_type, row.child_item_id || row.parent_item_id);
         }});
       }} else if (category === "production") {{
         (snapshot.events || []).forEach((row) => {{
@@ -21694,28 +24359,61 @@ def html_template(
           if (eventType === "lane_receipt" && transportReceiptBelongsToTrace(row)) addEvent(row, "reception client", "receipt");
         }});
       }}
-      const kindPriority = ["production", "consume", "shipment", "receipt", "transport", "service", "stock", "delay"];
-      return Array.from(markersByDay.values())
+      return Array.from(markersByKey.values())
         .map((marker) => {{
-          const kinds = Array.from(marker.kinds);
-          const kind = kindPriority.find(value => kinds.includes(value)) || kinds[0] || category;
           return {{
             day: marker.day,
             label: Array.from(marker.labels).join(" / "),
-            kind,
-            category,
+            kind: marker.kind,
+            category: marker.category,
+            count: marker.count,
+            qty: marker.qty,
+            lots: Array.from(marker.lots),
+            eventTypes: Array.from(marker.eventTypes),
+            itemIds: Array.from(marker.itemIds),
           }};
         }})
-        .sort((a, b) => a.day - b.day);
+        .sort((a, b) => a.day - b.day || String(a.kind).localeCompare(String(b.kind)));
     }}
 
     function selectedLotTraceDownstreamContributionByLot(snapshot) {{
+      const contributions = new Map();
+      const quantities = selectedLotTraceDownstreamContributionQtyByLot(snapshot);
+      quantities.forEach((qty, lotId) => {{
+        const total = lotTraceLotTotalQty(lotId);
+        if (total > 0) {{
+          contributions.set(lotId, Math.max(0, Math.min(1, qty / total)));
+        }}
+      }});
+      return contributions;
+    }}
+
+    function lotTraceNumericValue(value) {{
+      const numeric = Number(value);
+      return Number.isFinite(numeric) ? numeric : 0;
+    }}
+
+    function lotTraceLotTotalQty(lotId) {{
+      const info = lotTraceLotInfo(lotId);
+      const infoQty = lotTraceNumericValue(info && info.qty);
+      if (infoQty > 0) return infoQty;
+      const rows = lotTraceIndexes.eventsByLot.get(String(lotId || "")) || [];
+      const creation = rows.find(row => {{
+        const eventType = String(row.event_type || "");
+        return ["production_output", "lane_receipt", "external_procurement_receipt", "estimated_source_receipt", "estimated_capacity_receipt", "opening_stock"].includes(eventType);
+      }}) || rows[0] || {{}};
+      return lotTraceNumericValue(creation.qty);
+    }}
+
+    function selectedLotTraceDownstreamContributionQtyByLot(snapshot) {{
       const rootLotId = String((snapshot || {{}}).lotId || "");
       const contributions = new Map();
       if (!rootLotId) return contributions;
-      contributions.set(rootLotId, 1);
+      const rootQty = lotTraceLotTotalQty(rootLotId);
+      if (rootQty > 0) contributions.set(rootLotId, rootQty);
       const linksByParent = new Map();
       (snapshot.downstreamLinks || []).forEach((link) => {{
+        if (String(link.link_type || "") !== "transport") return;
         const parent = String(link.parent_lot_id || "");
         const child = String(link.child_lot_id || "");
         if (!parent || !child) return;
@@ -21727,24 +24425,17 @@ def html_template(
       while (queue.length && guard < 10000) {{
         guard += 1;
         const parent = queue.shift();
-        const parentContribution = contributions.get(parent) || 0;
-        if (parentContribution <= 0) continue;
+        if ((contributions.get(parent) || 0) <= 0) continue;
         (linksByParent.get(parent) || []).forEach((link) => {{
           const child = String(link.child_lot_id || "");
           if (!child) return;
-          let share = Number(link.allocation_share);
-          if (!Number.isFinite(share) || share <= 0) {{
-            const parentQty = Number(link.parent_qty);
-            const childQty = Number(link.child_qty);
-            share = Number.isFinite(parentQty) && Number.isFinite(childQty) && childQty > 0
-              ? parentQty / childQty
-              : 1;
-          }}
-          share = Math.max(0, Math.min(1, share));
-          const nextContribution = parentContribution * share;
-          if (nextContribution <= 0) return;
+          const linkQty = lotTraceNumericValue(link.parent_qty) || lotTraceNumericValue(link.child_qty);
+          if (linkQty <= 0) return;
           const oldContribution = contributions.get(child) || 0;
-          const mergedContribution = Math.min(1, oldContribution + nextContribution);
+          const totalQty = lotTraceLotTotalQty(child);
+          const mergedContribution = totalQty > 0
+            ? Math.min(totalQty, oldContribution + linkQty)
+            : oldContribution + linkQty;
           if (mergedContribution > oldContribution + 1e-9) {{
             contributions.set(child, mergedContribution);
             queue.push(child);
@@ -21752,6 +24443,26 @@ def html_template(
         }});
       }}
       return contributions;
+    }}
+
+    function selectedLotTraceContributionInfo(snapshot, lotId) {{
+      const lot = String(lotId || "");
+      const quantities = selectedLotTraceDownstreamContributionQtyByLot(snapshot);
+      const contributionQty = quantities.get(lot) || (lot === String((snapshot || {{}}).lotId || "") ? lotTraceLotTotalQty(lot) : 0);
+      const totalQty = lotTraceLotTotalQty(lot);
+      const otherQty = Math.max(0, totalQty - contributionQty);
+      const share = totalQty > 0 ? Math.max(0, Math.min(1, contributionQty / totalQty)) : 0;
+      const parentLinks = lotTraceIndexes.parentsByChild.get(lot) || [];
+      return {{
+        lotId: lot,
+        contributionQty,
+        totalQty,
+        otherQty,
+        share,
+        parentCount: parentLinks.length,
+        isMixedWithOtherOrigin: otherQty > 1e-6,
+        isMergedFromSeveralSelectedLots: otherQty <= 1e-6 && parentLinks.length > 1,
+      }};
     }}
 
     function selectedLotTraceCustomerDemandOverlay(plotlyFigure, contextNodeId = "", contextNodeType = "") {{
@@ -21848,18 +24559,22 @@ def html_template(
       const overflow = rows.length > limit ? `<div class="lotTracePanelMeta">${{rows.length - limit}} lignes supplementaires masquees.</div>` : "";
       return `
         <table class="lotTraceTable">
-          <thead><tr><th>J</th><th>Type</th><th>Lot</th><th>Noeud</th><th>Item</th><th class="num">Qte</th></tr></thead>
+          <thead><tr><th>J</th><th>Type</th><th>Lot</th><th>Noeud</th><th>Item</th><th class="num">Qte</th><th>Stock contexte</th></tr></thead>
           <tbody>
-            ${{visibleRows.map(row => `
-              <tr>
-                <td>${{escapeTableHtml(lotTraceDay(row) ?? "")}}</td>
-                <td>${{escapeTableHtml(lotTraceEventLabel(row.event_type))}}</td>
-                <td>${{escapeTableHtml(row.lot_id || "")}}</td>
-                <td>${{escapeTableHtml(row.node_id || "")}}</td>
-                <td>${{escapeTableHtml(row.item_id || "")}}</td>
-                <td class="num">${{escapeTableHtml(lotTraceQtyText(row.qty))}}</td>
-              </tr>
-            `).join("")}}
+            ${{visibleRows.map(row => {{
+              const stockText = lotTraceEventStockText(row);
+              return `
+                <tr>
+                  <td>${{escapeTableHtml(lotTraceDay(row) ?? "")}}</td>
+                  <td>${{escapeTableHtml(lotTraceEventLabel(row.event_type))}}</td>
+                  <td>${{escapeTableHtml(row.lot_id || "")}}</td>
+                  <td>${{escapeTableHtml(row.node_id || "")}}</td>
+                  <td>${{escapeTableHtml(row.item_id || "")}}</td>
+                  <td class="num">${{escapeTableHtml(lotTraceQtyText(row.qty))}}</td>
+                  <td>${{escapeTableHtml(stockText)}}</td>
+                </tr>
+              `;
+            }}).join("")}}
           </tbody>
         </table>
         ${{overflow}}
@@ -21887,6 +24602,119 @@ def html_template(
                   <td class="num">${{escapeTableHtml(lotTraceQtyText(row.parent_qty))}}</td>
                   <td class="num">${{escapeTableHtml(lotTraceQtyText(row.child_qty))}}</td>
                   <td>${{escapeTableHtml(logistics)}}</td>
+                </tr>
+              `;
+            }}).join("")}}
+          </tbody>
+        </table>
+        ${{overflow}}
+      `;
+    }}
+
+    function lotTraceOtherTransportParentsText(childLotId, currentParentLotId, uom = "") {{
+      const parentLinks = lotTraceIndexes.parentsByChild.get(String(childLotId || "")) || [];
+      const parts = parentLinks
+        .filter(link =>
+          String(link.link_type || "") === "transport" &&
+          String(link.parent_lot_id || "") !== String(currentParentLotId || "")
+        )
+        .map(link => {{
+          const qty = Number(link.parent_qty || link.child_qty || 0);
+          const parentLot = String(link.parent_lot_id || "");
+          if (!parentLot || !Number.isFinite(qty) || qty <= 0) return "";
+          return `${{lotTraceQtyText(qty)}} ${{uom}} via ${{parentLot}}`.trim();
+        }})
+        .filter(Boolean);
+      return parts.length ? `autre part: ${{parts.join(" + ")}}` : "";
+    }}
+
+    function renderLotTraceTransportLinksTable(rows, limit = 40) {{
+      const transportRows = (rows || []).filter(row => String(row.link_type || "") === "transport");
+      if (!transportRows.length) return '<div class="lotTraceEmpty">Aucun transport visible pour la direction selectionnee.</div>';
+      const visibleRows = transportRows.slice(0, limit);
+      const overflow = transportRows.length > limit ? `<div class="lotTracePanelMeta">${{transportRows.length - limit}} transports supplementaires masques.</div>` : "";
+      return `
+        <table class="lotTraceTable">
+          <thead><tr><th>J</th><th>Route</th><th>Lot source</th><th>Lot recu</th><th class="num">Part tracee</th><th class="num">Total lot recu</th><th>Lecture lot mixte</th></tr></thead>
+          <tbody>
+            ${{visibleRows.map(row => {{
+              const childLot = String(row.child_lot_id || "");
+              const parentLot = String(row.parent_lot_id || "");
+              const childInfo = lotTraceLotInfo(childLot);
+              const parentInfo = lotTraceLotInfo(parentLot);
+              const uom = childInfo.uom || parentInfo.uom || "";
+              const tracedQty = Number(row.parent_qty || row.child_qty || 0);
+              const totalQty = lotTraceLotTotalQty(childLot) || Number(row.child_qty || tracedQty || 0);
+              const otherText = totalQty > tracedQty + 1e-6
+                ? lotTraceOtherTransportParentsText(childLot, parentLot, uom)
+                : "";
+              return `
+                <tr>
+                  <td>${{escapeTableHtml(lotTraceDay(row) ?? "")}}</td>
+                  <td>${{escapeTableHtml(`${{row.parent_node_id || "n/a"}} -> ${{row.child_node_id || "n/a"}} / ${{row.parent_item_id || row.child_item_id || ""}}`)}}</td>
+                  <td>${{escapeTableHtml(parentLot)}}</td>
+                  <td>${{escapeTableHtml(childLot)}}</td>
+                  <td class="num">${{escapeTableHtml(`${{lotTraceQtyText(tracedQty)}} ${{uom}}`)}}</td>
+                  <td class="num">${{escapeTableHtml(`${{lotTraceQtyText(totalQty)}} ${{uom}}`)}}</td>
+                  <td>${{escapeTableHtml(otherText || "lot non mixte sur ce lien")}}</td>
+                </tr>
+              `;
+            }}).join("")}}
+          </tbody>
+        </table>
+        ${{overflow}}
+      `;
+    }}
+
+    function lotTraceMixedLotRows(snapshot, selected) {{
+      if (!snapshot || !selected) return [];
+      const selectedLotSet = new Set(selected.lots || []);
+      return (selected.lots || [])
+        .map((lotId) => {{
+          const info = lotTraceLotInfo(lotId);
+          const contribution = selectedLotTraceContributionInfo(snapshot, lotId);
+          if (!contribution.isMixedWithOtherOrigin) return null;
+          const parentLinks = lotTraceIndexes.parentsByChild.get(String(lotId || "")) || [];
+          const otherParents = parentLinks
+            .map(link => String(link.parent_lot_id || ""))
+            .filter(parentLot => parentLot && !selectedLotSet.has(parentLot));
+          return {{
+            lotId,
+            nodeId: info.node_id || "",
+            itemId: info.item_id || "",
+            uom: info.uom || "",
+            contributionQty: contribution.contributionQty,
+            totalQty: contribution.totalQty,
+            otherQty: contribution.otherQty,
+            share: contribution.share,
+            otherParents,
+          }};
+        }})
+        .filter(Boolean)
+        .sort((a, b) => String(a.lotId).localeCompare(String(b.lotId)));
+    }}
+
+    function renderLotTraceMixedLotsTable(rows, limit = 12) {{
+      if (!rows.length) return '<div class="lotTraceEmpty">Aucun lot mixte dans le chemin visible.</div>';
+      const visibleRows = rows.slice(0, limit);
+      const overflow = rows.length > limit ? `<div class="lotTracePanelMeta">${{rows.length - limit}} lots mixtes masques.</div>` : "";
+      return `
+        <table class="lotTraceTable">
+          <thead><tr><th>Lot aval mixte</th><th>Noeud / item</th><th class="num">Part tracee</th><th class="num">Total lot</th><th class="num">Autre origine</th><th>Origines hors lot selectionne</th></tr></thead>
+          <tbody>
+            ${{visibleRows.map(row => {{
+              const uom = String(row.uom || "");
+              const otherParents = (row.otherParents || []).length
+                ? row.otherParents.join(", ")
+                : "autre lot dans le graphe";
+              return `
+                <tr>
+                  <td>${{escapeTableHtml(row.lotId || "")}}</td>
+                  <td>${{escapeTableHtml(`${{row.nodeId || "n/a"}} / ${{row.itemId || "n/a"}}`)}}</td>
+                  <td class="num">${{escapeTableHtml(`${{lotTraceQtyText(row.contributionQty)}} ${{uom}} (${{lotTraceQtyText(row.share * 100, 1)}}%)`)}}</td>
+                  <td class="num">${{escapeTableHtml(`${{lotTraceQtyText(row.totalQty)}} ${{uom}}`)}}</td>
+                  <td class="num">${{escapeTableHtml(`${{lotTraceQtyText(row.otherQty)}} ${{uom}}`)}}</td>
+                  <td>${{escapeTableHtml(otherParents)}}</td>
                 </tr>
               `;
             }}).join("")}}
@@ -22186,6 +25014,8 @@ def html_template(
       meta.textContent = `${{snapshot.relatedLots.length}} lots relies, ${{snapshot.events.length}} evenements, ${{snapshot.links.length}} liens, ${{snapshot.planEvents.length}} evenements de plan`;
       const creationQty = root.qty !== "" ? `${{lotTraceQtyText(root.qty)}} ${{root.uom || ""}}`.trim() : "n/a";
       const downstreamText = `${{root.downstream_lot_count || 0}} lots, ${{root.downstream_node_count || 0}} noeuds, ${{root.downstream_finished_product_lot_count || 0}} PF`;
+      const panelSelectedRows = lotTraceRowsForDirection(snapshot);
+      const panelMixedLotCount = lotTraceMixedLotRows(snapshot, panelSelectedRows).length;
       const openingStockNote = lotTraceContainsOpeningStock(snapshot.events)
         ? '<div class="lotTraceEmpty">Note: les lots en stock initial demarrent la genealogie a J0; leur origine amont avant J0 n est pas reconstruite dans ce run.</div>'
         : "";
@@ -22200,6 +25030,7 @@ def html_template(
           ${{lotTraceMetricHtml("Statut PF", root.pf_availability_status_label || "n/a")}}
           ${{lotTraceMetricHtml("Stock PF restant", root.pf_remaining_stock_qty ? lotTraceQtyText(root.pf_remaining_stock_qty) : "0,0")}}
           ${{lotTraceMetricHtml("Input bloquant", (root.pf_blocking_input_item_ids || []).join(", ") || "aucun")}}
+          ${{lotTraceMetricHtml("Lots mixtes visibles", panelMixedLotCount ? String(panelMixedLotCount) : "aucun")}}
         </div>
         ${{openingStockNote}}
         <div class="lotTraceSectionTitle">Evenements du lot et de sa genealogie</div>
@@ -22228,7 +25059,34 @@ def html_template(
         links = snapshot.links || [];
       }}
       const lots = Array.from(lotSet);
-      const events = (snapshot.events || []).filter(row => lotSet.has(String(row.lot_id || "")));
+      function eventMatchesDirection(row) {{
+        if (lotTraceDirection !== "upstream" && lotTraceDirection !== "downstream") return true;
+        function canonicalNodeId(nodeId) {{
+          const raw = String(nodeId || "");
+          return raw === "DC-1910" ? "DC-1920" : raw;
+        }}
+        function routePartsFromSource(sourceId) {{
+          const raw = String(sourceId || "");
+          if (!raw.startsWith("edge:")) return {{ src: "", dst: "" }};
+          const body = raw.slice(5);
+          const marker = "_TO_";
+          const markerIdx = body.indexOf(marker);
+          if (markerIdx <= 0) return {{ src: "", dst: "" }};
+          const src = canonicalNodeId(body.slice(0, markerIdx));
+          const rest = body.slice(markerIdx + marker.length);
+          const itemSep = rest.lastIndexOf("_");
+          const dst = canonicalNodeId(itemSep > 0 ? rest.slice(0, itemSep) : rest);
+          return {{ src, dst }};
+        }}
+        const rootNode = canonicalNodeId((snapshot.rootLot || {{}}).node_id);
+        const route = routePartsFromSource(row.source_id);
+        const src = canonicalNodeId(route.src || row.node_id || "");
+        const dst = canonicalNodeId(route.dst || "");
+        if (lotTraceDirection === "upstream" && src === rootNode && dst && dst !== rootNode) return false;
+        if (lotTraceDirection === "downstream" && dst === rootNode && src && src !== rootNode) return false;
+        return true;
+      }}
+      const events = (snapshot.events || []).filter(row => lotSet.has(String(row.lot_id || "")) && eventMatchesDirection(row));
       return {{ lots, links, events }};
     }}
 
@@ -22370,6 +25228,32 @@ def html_template(
         }}
         return `${{lotTraceDisplayNodeId(link.parent_node_id)}} -> ${{lotTraceDisplayNodeId(link.child_node_id)}}`;
       }}
+      function lotTraceCompactItemId(itemId) {{
+        return String(itemId || "n/a").replace(/^item:/, "");
+      }}
+      function lotTraceGroupedProductionSummary(links, fallbackLink) {{
+        const linkRows = Array.isArray(links) && links.length ? links : [fallbackLink || {{}}];
+        const childQty = lotTraceQtyText((fallbackLink || {{}}).child_qty);
+        const childItem = lotTraceCompactItemId((fallbackLink || {{}}).child_item_id);
+        const childNode = lotTraceDisplayNodeId((fallbackLink || {{}}).child_node_id);
+        const byItem = new Map();
+        linkRows.forEach((row) => {{
+          const item = lotTraceCompactItemId(row.parent_item_id);
+          const lot = String(row.parent_lot_id || "");
+          const qty = Number(row.parent_qty || 0);
+          if (!byItem.has(item)) byItem.set(item, {{ item, lots: new Set(), qty: 0 }});
+          const acc = byItem.get(item);
+          if (lot) acc.lots.add(lot);
+          if (Number.isFinite(qty)) acc.qty += qty;
+        }});
+        const rows = Array.from(byItem.values()).sort((a, b) => String(a.item).localeCompare(String(b.item)));
+        const componentText = rows
+          .map(row => `${{row.item}}: ${{lotTraceQtyText(row.qty)}} (${{row.lots.size}} lot${{row.lots.size > 1 ? "s" : ""}})`)
+          .join("; ");
+        const detail = `${{childNode}} - ${{childItem}}`;
+        const qty = `${{linkRows.length}} lot${{linkRows.length > 1 ? "s" : ""}} / ${{rows.length}} ref -> ${{childQty || "n/a"}}`;
+        return {{ detail, qty, componentText }};
+      }}
       function lotTraceDisplayNodeId(nodeId) {{
         const raw = lotTraceCanonicalNodeId(nodeId);
         if (raw === "SDC-1450") return "D-1450";
@@ -22424,8 +25308,109 @@ def html_template(
         }}
         return fallbackNodeId || raw || "flux inconnu";
       }}
+      function lotTraceStockContext(nodeId, itemId, day) {{
+        const dayNum = Number(day);
+        if (!Number.isFinite(dayNum)) return null;
+        const rawNode = String(nodeId || "");
+        const canonicalNode = lotTraceCanonicalNodeId(rawNode);
+        const item = String(itemId || "");
+        const contexts = LOT_TRACE.stock_context || {{}};
+        return contexts[`${{canonicalNode}}|${{item}}|${{Math.round(dayNum)}}`]
+          || contexts[`${{rawNode}}|${{item}}|${{Math.round(dayNum)}}`]
+          || null;
+      }}
+      function lotTraceStockContextText(context) {{
+        if (!context) return "";
+        const before = Number(context.before_qty);
+        const after = Number(context.after_qty);
+        const delta = Number(context.delta_qty);
+        const hasBeforeAfter = Number.isFinite(before) && Number.isFinite(after);
+        const base = hasBeforeAfter
+          ? `${{lotTraceQtyText(before)}} -> ${{lotTraceQtyText(after)}}`
+          : (Number.isFinite(after) ? `apres ${{lotTraceQtyText(after)}}` : "");
+        const deltaText = Number.isFinite(delta) && Math.abs(delta) > 1e-9
+          ? ` (${{delta > 0 ? "+" : ""}}${{lotTraceQtyText(delta)}})`
+          : "";
+        return base ? `${{context.label || "stock"}}: ${{base}}${{deltaText}}` : "";
+      }}
+      function lotTraceTransportDayText(row) {{
+        const shipStart = row.shipFirstDay;
+        const shipEnd = row.shipLastDay;
+        const receiptStart = row.receiptFirstDay;
+        const receiptEnd = row.receiptLastDay;
+        function rangeText(label, start, end) {{
+          if (!Number.isFinite(Number(start))) return "";
+          return start === end ? `${{label}} J${{start}}` : `${{label}} J${{start}}-${{end}}`;
+        }}
+        const parts = [
+          rangeText("depart", shipStart, shipEnd),
+          rangeText("arrivee", receiptStart, receiptEnd),
+        ].filter(Boolean);
+        if (parts.length) return parts.join(" / ");
+        return row.firstDay === row.lastDay ? `J${{row.firstDay ?? ""}}` : `J${{row.firstDay ?? ""}}-${{row.lastDay ?? ""}}`;
+      }}
+      function lotTraceEndpointLabel(row) {{
+        const dstType = lotTraceNodeType(row.dst);
+        const dst = lotTraceDisplayNodeId(row.dst);
+        if (dstType === "distribution_center") return `${{dst}} - stock DC`;
+        if (dstType === "customer") return `${{dst}} - client`;
+        if (dstType === "factory") return `${{dst}} - stock usine`;
+        if (dstType === "supplier_dc") return `${{dst}} - stock fournisseur`;
+        return `${{dst}} - stock`;
+      }}
+      function lotTraceSourceLabel(row) {{
+        const srcType = lotTraceNodeType(row.src);
+        const src = lotTraceDisplayNodeId(row.src);
+        if (srcType === "supplier_dc") return `${{src}} - fournisseur`;
+        if (srcType === "factory") return `${{src}} - stock amont usine`;
+        if (srcType === "distribution_center") return `${{src}} - stock DC`;
+        return `${{src}} - source amont`;
+      }}
+      function lotTraceSourceStockText(row) {{
+        const day = Number.isFinite(Number(row.shipFirstDay)) ? row.shipFirstDay : row.firstDay;
+        const context = lotTraceStockContext(row.src, row.item, day);
+        const stockText = lotTraceStockContextText(context);
+        if (stockText) return stockText;
+        const shipped = Number(row.shippedQty || row.receivedQty || 0);
+        if (Number.isFinite(shipped) && shipped > 0) {{
+          return `sortie lot: ${{lotTraceQtyText(shipped)}} ${{row.uom || ""}}`.trim();
+        }}
+        return "stock source n/a";
+      }}
+      function lotTraceEndpointStockText(row) {{
+        const day = Number.isFinite(Number(row.receiptLastDay)) ? row.receiptLastDay : row.lastDay;
+        const context = lotTraceStockContext(row.dst, row.item, day);
+        const stockText = lotTraceStockContextText(context);
+        if (stockText) return stockText;
+        const qtyText = lotTraceTransportQtySummary(row);
+        return qtyText ? `lot recu: ${{qtyText}}` : "";
+      }}
+      function lotTraceEndpointServiceText(row) {{
+        const dstType = lotTraceNodeType(row.dst);
+        const childLots = Array.from(row.childLotIds || []);
+        if (dstType !== "customer" || !childLots.length) return "";
+        const serviceDays = [];
+        let servedQty = 0;
+        childLots.forEach((lotId) => {{
+          const factorInfo = selectedLotTraceContributionInfo(snapshot, lotId);
+          const factor = factorInfo.totalQty > 0 ? factorInfo.contributionQty / factorInfo.totalQty : 1;
+          (lotTraceIndexes.eventsByLot.get(lotId) || []).forEach((event) => {{
+            if (String(event.event_type || "") !== "demand_service") return;
+            const day = lotTraceDay(event);
+            if (day !== null) serviceDays.push(day);
+            const qty = Number(event.qty);
+            if (Number.isFinite(qty)) servedQty += qty * factor;
+          }});
+        }});
+        if (!serviceDays.length) return "pas encore servi client";
+        const minDay = Math.min(...serviceDays);
+        const maxDay = Math.max(...serviceDays);
+        const dayText = minDay === maxDay ? `J${{minDay}}` : `J${{minDay}}-${{maxDay}}`;
+        return `service client ${{dayText}}: ${{lotTraceQtyText(servedQty)}}`;
+      }}
       function lotTraceTransportSummaryRows(selected) {{
         const groups = new Map();
+        const contributionQtyByLot = selectedLotTraceDownstreamContributionQtyByLot(snapshot);
         function transportLinkIdentity(link) {{
           return [
             lotTraceDay(link) ?? "",
@@ -22471,9 +25456,16 @@ def html_template(
               shippedQty: 0,
               receivedQty: 0,
               lotIds: new Set(),
+              childLotIds: new Set(),
+              childContributionByLot: new Map(),
+              childTotalByLot: new Map(),
               uom: "",
               firstDay: null,
               lastDay: null,
+              shipFirstDay: null,
+              shipLastDay: null,
+              receiptFirstDay: null,
+              receiptLastDay: null,
               sideCounts: {{ upstream: 0, downstream: 0, context: 0 }},
             }});
           }}
@@ -22484,6 +25476,13 @@ def html_template(
           if (day === null) return;
           row.firstDay = row.firstDay === null ? day : Math.min(row.firstDay, day);
           row.lastDay = row.lastDay === null ? day : Math.max(row.lastDay, day);
+        }}
+        function rememberRange(row, prefix, day) {{
+          if (day === null) return;
+          const firstKey = `${{prefix}}FirstDay`;
+          const lastKey = `${{prefix}}LastDay`;
+          row[firstKey] = row[firstKey] === null ? day : Math.min(row[firstKey], day);
+          row[lastKey] = row[lastKey] === null ? day : Math.max(row[lastKey], day);
         }}
         (selected.links || []).forEach((link) => {{
           if (String(link.link_type || "") !== "transport") return;
@@ -22503,7 +25502,21 @@ def html_template(
             }});
             const qty = Number(link.parent_qty);
             if (Number.isFinite(qty)) row.receivedQty += qty;
+            const childLotId = String(link.child_lot_id || "");
+            if (childLotId) {{
+              row.childLotIds.add(childLotId);
+              const childContributionQty = Number(link.parent_qty || link.child_qty || 0);
+              const existingContribution = row.childContributionByLot.get(childLotId) || 0;
+              if (Number.isFinite(childContributionQty) && childContributionQty > 0) {{
+                row.childContributionByLot.set(childLotId, existingContribution + childContributionQty);
+              }} else if (contributionQtyByLot.has(childLotId)) {{
+                row.childContributionByLot.set(childLotId, Math.max(existingContribution, contributionQtyByLot.get(childLotId) || 0));
+              }}
+              const totalQty = lotTraceLotTotalQty(childLotId);
+              if (totalQty > 0) row.childTotalByLot.set(childLotId, totalQty);
+            }}
             rememberDay(row, lotTraceDay(link));
+            rememberRange(row, "receipt", lotTraceDay(link));
           }});
         }});
         (selected.events || []).forEach((event) => {{
@@ -22525,6 +25538,7 @@ def html_template(
             const qty = Number(event.qty);
             if (Number.isFinite(qty)) row.shippedQty += qty;
             rememberDay(row, lotTraceDay(event));
+            rememberRange(row, "ship", lotTraceDay(event));
           }});
         }});
         return Array.from(groups.values()).map(row => {{
@@ -22532,6 +25546,21 @@ def html_template(
           row.side = counts.upstream >= counts.downstream && counts.upstream > 0
             ? "upstream"
             : (counts.downstream > 0 ? "downstream" : "context");
+          const childLots = Array.from(row.childLotIds || []);
+          row.childLotCount = childLots.length;
+          row.childContributionQty = childLots.reduce((acc, lotId) => acc + (row.childContributionByLot.get(lotId) || 0), 0);
+          row.childTotalQty = childLots.reduce((acc, lotId) => acc + (row.childTotalByLot.get(lotId) || 0), 0);
+          row.mixedLotIds = childLots.filter(lotId => {{
+            const total = row.childTotalByLot.get(lotId) || 0;
+            const contribution = row.childContributionByLot.get(lotId) || 0;
+            return total > contribution + 1e-6;
+          }});
+          row.mergedLotIds = childLots.filter(lotId => {{
+            const total = row.childTotalByLot.get(lotId) || 0;
+            const contribution = row.childContributionByLot.get(lotId) || 0;
+            const parentLinks = lotTraceIndexes.parentsByChild.get(lotId) || [];
+            return total <= contribution + 1e-6 && parentLinks.length > 1;
+          }});
           const lotIds = Array.from(row.lotIds || []);
           row.lotText = lotIds.length <= 2
             ? lotIds.join(", ")
@@ -22544,19 +25573,284 @@ def html_template(
           String(a.item).localeCompare(String(b.item))
         );
       }}
+      function lotTraceTransportRowStartsFromRoot(row, snapshot) {{
+        const rootNode = lotTraceCanonicalNodeId(((snapshot || {{}}).rootLot || {{}}).node_id);
+        return Boolean(rootNode) && lotTraceCanonicalNodeId(row.src) === rootNode && lotTraceCanonicalNodeId(row.dst) !== rootNode;
+      }}
+      function lotTraceTransportRowArrivesAtRoot(row, snapshot) {{
+        const rootNode = lotTraceCanonicalNodeId(((snapshot || {{}}).rootLot || {{}}).node_id);
+        return Boolean(rootNode) && lotTraceCanonicalNodeId(row.dst) === rootNode && lotTraceCanonicalNodeId(row.src) !== rootNode;
+      }}
+      function lotTraceIsUpstreamTransportRow(row, snapshot) {{
+        if (row.side === "upstream") return true;
+        if (row.side === "downstream") return false;
+        if (lotTraceTransportRowStartsFromRoot(row, snapshot)) return false;
+        if (lotTraceTransportRowArrivesAtRoot(row, snapshot)) return true;
+        return true;
+      }}
+      function lotTraceIsDownstreamTransportRow(row, snapshot) {{
+        if (row.side === "downstream") return true;
+        if (row.side === "upstream") return false;
+        if (lotTraceTransportRowStartsFromRoot(row, snapshot)) return true;
+        if (lotTraceTransportRowArrivesAtRoot(row, snapshot)) return false;
+        return true;
+      }}
+      function lotTraceTransportRowsForDirection(rows, snapshot, direction) {{
+        if (direction === "upstream") return (rows || []).filter(row => lotTraceIsUpstreamTransportRow(row, snapshot));
+        if (direction === "downstream") return (rows || []).filter(row => lotTraceIsDownstreamTransportRow(row, snapshot));
+        return rows || [];
+      }}
+      function lotTraceTransportLinkToIndividualRow(link) {{
+        const src = String(link.parent_node_id || "");
+        const dst = String(link.child_node_id || "");
+        const item = String(link.parent_item_id || link.child_item_id || "");
+        const parentLotId = String(link.parent_lot_id || "");
+        const childLotId = String(link.child_lot_id || "");
+        const day = lotTraceDay(link);
+        const contributionQty = Number(link.parent_qty || link.child_qty || 0);
+        const childTotalQty = lotTraceLotTotalQty(childLotId);
+        const parentInfo = lotTraceLotInfo(parentLotId);
+        const childInfo = lotTraceLotInfo(childLotId);
+        const uom = childInfo.uom || parentInfo.uom || "";
+        const otherParts = (lotTraceIndexes.parentsByChild.get(childLotId) || [])
+          .filter(parentLink =>
+            String(parentLink.link_type || "") === "transport" &&
+            String(parentLink.parent_lot_id || "") !== parentLotId
+          )
+          .map(parentLink => {{
+            const qty = Number(parentLink.parent_qty || parentLink.child_qty || 0);
+            return {{
+              lotId: String(parentLink.parent_lot_id || ""),
+              qty: Number.isFinite(qty) ? qty : 0,
+            }};
+          }})
+          .filter(part => part.lotId && part.qty > 1e-9);
+        const otherText = otherParts.length
+          ? `autre part: ${{otherParts.map(part => `${{lotTraceQtyText(part.qty)}} ${{uom}} via ${{part.lotId}}`).join(" + ")}}`
+          : "";
+        const row = {{
+          individualLink: true,
+          category: lotTraceTransportKind(src, dst, item),
+          src,
+          dst,
+          item,
+          parentLotId,
+          childLotId,
+          shippedCount: 0,
+          receivedCount: 1,
+          shippedQty: 0,
+          receivedQty: Number.isFinite(contributionQty) ? contributionQty : 0,
+          lotIds: new Set([parentLotId, childLotId].filter(Boolean)),
+          childLotIds: new Set([childLotId].filter(Boolean)),
+          childContributionByLot: new Map(),
+          childTotalByLot: new Map(),
+          uom,
+          firstDay: day,
+          lastDay: day,
+          shipFirstDay: null,
+          shipLastDay: null,
+          receiptFirstDay: day,
+          receiptLastDay: day,
+          side: "downstream",
+          mixedOtherText: otherText,
+        }};
+        if (childLotId) {{
+          row.childContributionByLot.set(childLotId, Number.isFinite(contributionQty) ? contributionQty : 0);
+          if (childTotalQty > 0) row.childTotalByLot.set(childLotId, childTotalQty);
+        }}
+        row.childLotCount = childLotId ? 1 : 0;
+        row.childContributionQty = Number.isFinite(contributionQty) ? contributionQty : 0;
+        row.childTotalQty = childTotalQty > 0 ? childTotalQty : row.childContributionQty;
+        row.mixedLotIds = childTotalQty > row.childContributionQty + 1e-6 ? [childLotId] : [];
+        row.mergedLotIds = [];
+        row.lotText = parentLotId && childLotId ? `${{parentLotId}} -> ${{childLotId}}` : (childLotId || parentLotId || "");
+        return row;
+      }}
+      function lotTraceDownstreamIndividualTransportRows(snapshot) {{
+        const rows = (snapshot.downstreamLinks || [])
+          .filter(link => String(link.link_type || "") === "transport")
+          .map(lotTraceTransportLinkToIndividualRow)
+        return lotTraceConsolidatePhysicalTransportRows(rows)
+          .sort((a, b) =>
+            Number(a.firstDay ?? 0) - Number(b.firstDay ?? 0) ||
+            String(a.parentLotId || "").localeCompare(String(b.parentLotId || "")) ||
+            String(a.childLotId || "").localeCompare(String(b.childLotId || ""))
+          );
+      }}
+      function lotTraceTransportPhysicalGroupKey(row) {{
+        return [
+          row.category || "",
+          lotTraceCanonicalNodeId(row.src),
+          lotTraceCanonicalNodeId(row.dst),
+          row.item || "",
+          Number.isFinite(Number(row.firstDay)) ? Number(row.firstDay) : "",
+        ].join("|");
+      }}
+      function lotTraceCanConsolidatePhysicalTransport(rows) {{
+        if (!Array.isArray(rows) || rows.length < 2) return false;
+        const first = rows[0] || {{}};
+        const totalQty = rows.reduce((acc, row) => acc + Math.max(0, Number(row.receivedQty || row.childContributionQty || 0) || 0), 0);
+        const estimate = lotTraceLogisticsEstimate(first.item, totalQty);
+        return Boolean(estimate && estimate.maxTrucks <= 1);
+      }}
+      function lotTraceBuildPhysicalTransportGroup(rows) {{
+        const childRows = (rows || []).slice().sort((a, b) =>
+          String(a.parentLotId || "").localeCompare(String(b.parentLotId || "")) ||
+          String(a.childLotId || "").localeCompare(String(b.childLotId || ""))
+        );
+        if (childRows.length <= 1) return childRows[0] || null;
+        const first = childRows[0] || {{}};
+        const lotIds = new Set();
+        const parentLotIds = new Set();
+        const childLotIds = new Set();
+        const childContributionByLot = new Map();
+        const childTotalByLot = new Map();
+        let receivedQty = 0;
+        let shippedQty = 0;
+        let firstDay = null;
+        let lastDay = null;
+        let receiptFirstDay = null;
+        let receiptLastDay = null;
+        let shipFirstDay = null;
+        let shipLastDay = null;
+        let uom = first.uom || "";
+        childRows.forEach((row) => {{
+          [row.parentLotId, row.childLotId].forEach(lotId => {{
+            const text = String(lotId || "");
+            if (text) lotIds.add(text);
+          }});
+          if (row.parentLotId) parentLotIds.add(String(row.parentLotId));
+          if (row.childLotId) childLotIds.add(String(row.childLotId));
+          if (!uom && row.uom) uom = row.uom;
+          const qty = Number(row.receivedQty || row.childContributionQty || 0);
+          if (Number.isFinite(qty)) receivedQty += qty;
+          const shipQty = Number(row.shippedQty || 0);
+          if (Number.isFinite(shipQty)) shippedQty += shipQty;
+          const childLotId = String(row.childLotId || "");
+          if (childLotId) {{
+            const contribution = Number(row.childContributionQty || row.receivedQty || 0);
+            const total = Number(row.childTotalQty || contribution || 0);
+            childContributionByLot.set(childLotId, (childContributionByLot.get(childLotId) || 0) + (Number.isFinite(contribution) ? contribution : 0));
+            if (Number.isFinite(total) && total > 0) childTotalByLot.set(childLotId, total);
+          }}
+          [row.firstDay, row.lastDay].forEach(dayValue => {{
+            const day = Number(dayValue);
+            if (!Number.isFinite(day)) return;
+            firstDay = firstDay === null ? day : Math.min(firstDay, day);
+            lastDay = lastDay === null ? day : Math.max(lastDay, day);
+          }});
+          [row.receiptFirstDay, row.receiptLastDay].forEach(dayValue => {{
+            const day = Number(dayValue);
+            if (!Number.isFinite(day)) return;
+            receiptFirstDay = receiptFirstDay === null ? day : Math.min(receiptFirstDay, day);
+            receiptLastDay = receiptLastDay === null ? day : Math.max(receiptLastDay, day);
+          }});
+          [row.shipFirstDay, row.shipLastDay].forEach(dayValue => {{
+            const day = Number(dayValue);
+            if (!Number.isFinite(day)) return;
+            shipFirstDay = shipFirstDay === null ? day : Math.min(shipFirstDay, day);
+            shipLastDay = shipLastDay === null ? day : Math.max(shipLastDay, day);
+          }});
+        }});
+        const childLots = Array.from(childLotIds);
+        const parentLots = Array.from(parentLotIds);
+        const childContributionQty = childLots.reduce((acc, lotId) => acc + (childContributionByLot.get(lotId) || 0), 0);
+        const childTotalQty = childLots.reduce((acc, lotId) => acc + (childTotalByLot.get(lotId) || 0), 0);
+        const mixedLotIds = childLots.filter(lotId => {{
+          const total = childTotalByLot.get(lotId) || 0;
+          const contribution = childContributionByLot.get(lotId) || 0;
+          return total > contribution + 1e-6;
+        }});
+        return {{
+          ...first,
+          physicalTransportGroup: true,
+          individualLink: true,
+          childRows,
+          category: first.category,
+          src: first.src,
+          dst: first.dst,
+          item: first.item,
+          parentLotId: parentLots.length === 1 ? parentLots[0] : "",
+          parentLotIds: parentLots,
+          childLotId: "",
+          childLotIds,
+          lotIds,
+          childContributionByLot,
+          childTotalByLot,
+          receivedCount: childRows.length,
+          shippedCount: childRows.reduce((acc, row) => acc + Number(row.shippedCount || 0), 0),
+          receivedQty,
+          shippedQty,
+          uom,
+          firstDay,
+          lastDay,
+          receiptFirstDay,
+          receiptLastDay,
+          shipFirstDay,
+          shipLastDay,
+          side: "downstream",
+          childLotCount: childLots.length,
+          childContributionQty,
+          childTotalQty,
+          mixedLotIds,
+          mergedLotIds: [],
+          lotText: `${{childRows.length}} lots recus`,
+        }};
+      }}
+      function lotTraceConsolidatePhysicalTransportRows(rows) {{
+        const groups = new Map();
+        (rows || []).forEach((row) => {{
+          const key = lotTraceTransportPhysicalGroupKey(row);
+          if (!groups.has(key)) groups.set(key, []);
+          groups.get(key).push(row);
+        }});
+        const result = [];
+        groups.forEach((groupRows) => {{
+          if (lotTraceCanConsolidatePhysicalTransport(groupRows)) {{
+            const grouped = lotTraceBuildPhysicalTransportGroup(groupRows);
+            if (grouped) result.push(grouped);
+          }} else {{
+            result.push(...groupRows);
+          }}
+        }});
+        return result;
+      }}
+      function lotTraceTransportQtySummary(row) {{
+        const uom = String(row.uom || "").trim();
+        const allocated = Number(row.receivedQty || row.childContributionQty || row.shippedQty || 0);
+        const total = Number(row.childTotalQty || 0);
+        const hasMixed = total > allocated + 1e-6;
+        if (hasMixed) {{
+          return `${{lotTraceQtyText(allocated)}} / ${{lotTraceQtyText(total)}} ${{uom}}`.trim();
+        }}
+        const qty = allocated || Number(row.shippedQty || 0);
+        return `${{lotTraceQtyText(qty)}} ${{uom}}`.trim();
+      }}
+      function lotTraceTransportMixSummary(row) {{
+        const parts = [];
+        const mixedCount = (row.mixedLotIds || []).length;
+        const mergedCount = (row.mergedLotIds || []).length;
+        if (mixedCount) parts.push(`${{mixedCount}} lot${{mixedCount > 1 ? "s" : ""}} mixte${{mixedCount > 1 ? "s" : ""}}`);
+        if (mergedCount) parts.push(`${{mergedCount}} lot${{mergedCount > 1 ? "s" : ""}} fusionne${{mergedCount > 1 ? "s" : ""}}`);
+        if (row.receivedCount > 1) parts.push(`${{row.receivedCount}} receptions techniques`);
+        if (row.shippedCount > 1) parts.push(`${{row.shippedCount}} sorties techniques`);
+        return parts.join(" - ");
+      }}
       function renderLotTraceTransportSummaryTable(rows, limit = 18) {{
         if (!rows.length) return '<div class="lotTraceEmpty">Aucun transport visible pour la direction selectionnee.</div>';
         const visibleRows = rows.slice(0, limit);
         const overflow = rows.length > limit ? `<div class="lotTracePanelMeta">${{rows.length - limit}} flux logistiques masques.</div>` : "";
         return `
           <table class="lotTraceTable">
-            <thead><tr><th>Flux</th><th>Route</th><th>Item</th><th>Jours</th><th class="num">Expedie</th><th class="num">Recu alloue</th><th>Logistique</th></tr></thead>
+            <thead><tr><th>Flux</th><th>Route</th><th>Item</th><th>Jours</th><th class="num">Quantite trace / total</th><th>Lecture</th><th>Logistique</th></tr></thead>
             <tbody>
               ${{visibleRows.map(row => {{
-                const dayText = row.firstDay === row.lastDay ? `${{row.firstDay ?? ""}}` : `${{row.firstDay ?? ""}}-${{row.lastDay ?? ""}}`;
+                const dayText = lotTraceTransportDayText(row);
                 const route = `${{lotTraceDisplayNodeId(row.src)}} -> ${{lotTraceDisplayNodeId(row.dst)}}`;
-                const shipped = row.shippedCount ? `${{row.shippedCount}} / ${{lotTraceQtyText(row.shippedQty)}}` : "";
-                const received = row.receivedCount ? `${{row.receivedCount}} / ${{lotTraceQtyText(row.receivedQty)}}` : "";
+                const qtyText = lotTraceTransportQtySummary(row);
+                const mixText = row.individualLink
+                  ? `${{row.childLotId ? `lot recu ${{row.childLotId}}` : "reception aval"}}${{row.mixedOtherText ? " - " + row.mixedOtherText : ""}}`
+                  : (lotTraceTransportMixSummary(row) || "flux non melange");
                 const logistics = lotTraceLogisticsDetailText(row.item, row.receivedQty || row.shippedQty);
                 return `
                   <tr>
@@ -22564,8 +25858,8 @@ def html_template(
                     <td>${{escapeTableHtml(route)}}</td>
                     <td>${{escapeTableHtml(row.item || "")}}</td>
                     <td>${{escapeTableHtml(dayText)}}</td>
-                    <td class="num">${{escapeTableHtml(shipped)}}</td>
-                    <td class="num">${{escapeTableHtml(received)}}</td>
+                    <td class="num">${{escapeTableHtml(qtyText)}}</td>
+                    <td>${{escapeTableHtml(mixText)}}</td>
                     <td>${{escapeTableHtml(logistics)}}</td>
                   </tr>
                 `;
@@ -22583,17 +25877,47 @@ def html_template(
         const productionLinksToRoot = (selected.links || []).filter(link =>
           String(link.link_type || "") === "production" && String(link.child_lot_id || "") === String(snapshot.lotId || "")
         );
-        const keepDetailedLotGraph = selected.lots.length <= 45 && selected.links.length <= 55;
+        const keepDetailedLotGraph = !isFinishedProductionRoot && selected.lots.length <= 45 && selected.links.length <= 55;
         if (keepDetailedLotGraph) return false;
         if (!transportRows.length && !productionLinksToRoot.length) return false;
         if (!isFinishedProductionRoot && transportLinkCount < 20 && !productionLinksToRoot.length) return false;
         const leftRowsAll = lotTraceDirection === "downstream"
           ? []
-          : transportRows.filter(row => lotTraceDirection === "upstream" || row.side === "upstream" || row.side === "context");
+          : transportRows.filter(row => lotTraceIsUpstreamTransportRow(row, snapshot));
         const rightRowsAll = lotTraceDirection === "upstream"
           ? []
-          : transportRows.filter(row => lotTraceDirection === "downstream" || row.side === "downstream");
-        const rightRows = rightRowsAll.slice(0, 12);
+          : transportRows.filter(row => lotTraceIsDownstreamTransportRow(row, snapshot));
+        function orderTransportRowsAsSupplyChain(rows) {{
+          const remaining = (rows || []).slice();
+          const ordered = [];
+          let currentNode = lotTraceCanonicalNodeId(root.node_id);
+          let guard = 0;
+          while (remaining.length && guard < 100) {{
+            guard += 1;
+            let idx = remaining.findIndex(row => lotTraceCanonicalNodeId(row.src) === currentNode);
+            if (idx < 0) idx = remaining.findIndex(row => ordered.some(prev => lotTraceCanonicalNodeId(prev.dst) === lotTraceCanonicalNodeId(row.src)));
+            if (idx < 0) break;
+            const row = remaining.splice(idx, 1)[0];
+            ordered.push(row);
+            currentNode = lotTraceCanonicalNodeId(row.dst);
+          }}
+          remaining.sort((a, b) =>
+            Number(a.firstDay ?? 0) - Number(b.firstDay ?? 0) ||
+            String(a.src).localeCompare(String(b.src)) ||
+            String(a.dst).localeCompare(String(b.dst))
+          );
+          return [...ordered, ...remaining];
+        }}
+        const useIndividualDownstreamRows = isFinishedProductionRoot && lotTraceDirection !== "upstream";
+        const individualRightRowsAll = useIndividualDownstreamRows
+          ? lotTraceDownstreamIndividualTransportRows(snapshot)
+          : [];
+        const orderedRightRowsAll = useIndividualDownstreamRows
+          ? individualRightRowsAll
+          : (isFinishedProductionRoot ? orderTransportRowsAsSupplyChain(rightRowsAll) : rightRowsAll);
+        const graphRowLimit = (lotTraceShowDetails || lotTraceDirection === "both") ? Number.POSITIVE_INFINITY : 40;
+        const rightRowLimit = (lotTraceShowDetails || lotTraceDirection === "both") ? Number.POSITIVE_INFINITY : 18;
+        const rightRows = orderedRightRowsAll.slice(0, rightRowLimit);
         const componentCount = new Set(
           productionLinksToRoot.map(link => String(link.parent_item_id || link.parent_lot_id || "")).filter(Boolean)
         ).size;
@@ -22638,28 +25962,78 @@ def html_template(
               String(a.node).localeCompare(String(b.node)) ||
               String(a.item).localeCompare(String(b.item))
             );
+        const upstreamTransportVisualRows = leftRowsAll.map(row => ({{ ...row, kind: "transport" }}));
         const leftVisualRowsAll = [
+          ...upstreamTransportVisualRows,
           ...componentRowsAll,
-          ...leftRowsAll.map(row => ({{ ...row, kind: "transport" }})),
         ];
-        const leftVisualRows = leftVisualRowsAll.slice(0, 12);
+        const leftVisualRows = leftVisualRowsAll.slice(0, graphRowLimit);
+        const hasUpstreamTransportRows = leftRowsAll.length > 0 && lotTraceDirection !== "downstream";
+        const useUpstreamSupplyLayout = hasUpstreamTransportRows;
         const hasProductionHub = Boolean(componentCount || leftVisualRows.length);
-        const rowHeight = 94;
-        const maxRows = Math.max(leftVisualRows.length, rightRows.length, 1);
+        function lotTraceRightRowSpan(row) {{
+          return row && row.physicalTransportGroup
+            ? Math.max(1, row.childLotCount || (row.childRows || []).length)
+            : 1;
+        }}
+        const rightVisualSlotCount = rightRows.reduce((acc, row) => acc + lotTraceRightRowSpan(row), 0);
+        const rowHeight = 104;
+        const maxRows = Math.max(leftVisualRows.length, rightVisualSlotCount, 1);
         const nodeWidth = 250;
         const opWidth = 260;
-        const nodeHeight = 68;
+        const stateWidth = 270;
+        const nodeHeight = 78;
         const layoutBoth = lotTraceDirection === "both";
-        const width = layoutBoth ? 1240 : 920;
+        const hasRightState = rightRows.length > 0;
         const height = Math.max(380, maxRows * rowHeight + 130);
-        const leftOpX = 40;
-        const productionX = layoutBoth ? 360 : 330;
-        const rootX = lotTraceDirection === "downstream" ? 40 : (layoutBoth ? 650 : 620);
-        const rightOpX = layoutBoth ? 940 : 330;
+        const upstreamSourceX = 40;
+        const upstreamTransportX = useUpstreamSupplyLayout ? 340 : 40;
+        const upstreamStateX = useUpstreamSupplyLayout ? 640 : 40;
+        const leftOpX = useUpstreamSupplyLayout ? upstreamStateX : 40;
+        const productionX = layoutBoth
+          ? (useUpstreamSupplyLayout ? 950 : 360)
+          : (useUpstreamSupplyLayout ? 930 : 330);
+        const rootX = lotTraceDirection === "downstream"
+          ? 40
+          : (layoutBoth
+              ? (useUpstreamSupplyLayout ? 1240 : 650)
+              : (useUpstreamSupplyLayout ? 1220 : 620));
+        const rightOpX = layoutBoth
+          ? (useUpstreamSupplyLayout ? rootX + nodeWidth + 70 : 940)
+          : (useUpstreamSupplyLayout ? rootX + nodeWidth + 70 : 330);
+        const rightStateX = rightOpX + opWidth + 40;
+        const useSupplyChainLayout = isFinishedProductionRoot && !useIndividualDownstreamRows && lotTraceDirection !== "upstream" && rightRows.length > 0;
+        const chainFirstTransportX = rootX + nodeWidth + 70;
+        const chainStepX = opWidth + stateWidth + 110;
+        function chainTransportX(idx) {{
+          return chainFirstTransportX + idx * chainStepX;
+        }}
+        function chainStateX(idx) {{
+          return chainTransportX(idx) + opWidth + 42;
+        }}
+        const chainEndX = useSupplyChainLayout
+          ? chainStateX(rightRows.length - 1) + stateWidth + 50
+          : 0;
+        const upstreamEndX = useUpstreamSupplyLayout ? rootX + nodeWidth + 80 : 0;
+        const individualRightEndX = useIndividualDownstreamRows && rightRows.length
+          ? rightOpX + opWidth + 40 + stateWidth + 40 + opWidth + 40 + stateWidth + 60
+          : 0;
+        const width = Math.max(
+          layoutBoth ? (hasRightState ? 1540 : 1240) : (hasRightState ? 1220 : 920),
+          chainEndX,
+          upstreamEndX,
+          individualRightEndX
+        );
         const rootY = Math.max(42, height / 2 - 34);
         const productionY = rootY;
         const rootQty = root.qty !== "" ? `${{lotTraceQtyText(root.qty)}} ${{root.uom || ""}}`.trim() : "";
         const rootDetail = `J${{root.created_day ?? ""}} - ${{root.node_id || "n/a"}} / ${{root.item_id || "n/a"}}${{rootQty ? " - " + rootQty : ""}}`;
+        const rootProductionEvent = (snapshot.events || []).find(row =>
+          String(row.lot_id || "") === String(snapshot.lotId || "") && String(row.event_type || "") === "production_output"
+        ) || {{}};
+        const rootAfterProduction = rootProductionEvent.qty_after !== undefined && rootProductionEvent.qty_after !== ""
+          ? `stock lot apres production: ${{lotTraceQtyText(rootProductionEvent.qty_after)}} ${{root.uom || ""}}`.trim()
+          : "";
         const rootStatusClass = lotTracePfStatusClass(root);
         const rootStatusLabel = lotTracePfStatusShortLabel(root);
         const rootClass = ["lotTraceGraphNode", "root", rootStatusClass].filter(Boolean).join(" ");
@@ -22667,8 +26041,8 @@ def html_template(
           ? `
             <g class="lotTraceGraphNode operation production" transform="translate(${{productionX}},${{productionY}})">
               <rect width="${{opWidth}}" height="${{nodeHeight}}"></rect>
-              <text x="10" y="19">${{escapeTableHtml("Production BOM")}}</text>
-              <text class="muted" x="10" y="38">${{escapeTableHtml(`${{root.node_id || "n/a"}} - ${{root.item_id || "n/a"}}`)}}</text>
+              <text x="10" y="19">${{escapeTableHtml(`${{lotTraceDisplayNodeId(root.node_id)}} - production`)}}</text>
+              <text class="muted" x="10" y="38">${{escapeTableHtml(`BOM -> ${{root.item_id || "n/a"}}`)}}</text>
               <text class="muted" x="10" y="55">${{escapeTableHtml(`${{componentCount || "n/a"}} composants -> ${{lotTraceQtyText(root.qty)}}`)}}</text>
             </g>
           `
@@ -22679,10 +26053,35 @@ def html_template(
             <text x="10" y="19">${{escapeTableHtml(snapshot.lotId || "")}}</text>
             <text class="muted" x="10" y="38">${{escapeTableHtml(rootStatusLabel || `Racine selectionnee - ${{lotTraceScopeLabel(root)}}`)}}</text>
             <text class="muted" x="10" y="55">${{escapeTableHtml(rootDetail)}}</text>
+            ${{rootAfterProduction ? `<text class="muted" x="10" y="65">${{escapeTableHtml(rootAfterProduction)}}</text>` : ""}}
           </g>
         `;
         const paths = [];
         const nodes = [];
+        function graphRowY(idx) {{
+          return useSupplyChainLayout ? rootY : 42 + idx * rowHeight;
+        }}
+        const individualSharedSourceByLot = new Map();
+        if (useIndividualDownstreamRows) {{
+          let slotIndex = 0;
+          rightRows.forEach((row) => {{
+            if (row.individualLink) {{
+              const childRows = row.physicalTransportGroup ? (row.childRows || []) : [row];
+              childRows.forEach((childRow, childIdx) => {{
+                const parentLotId = String(childRow.parentLotId || "");
+                const childLotId = String(childRow.childLotId || "");
+                if (!childLotId || parentLotId !== String(snapshot.lotId || "")) return;
+                const y = graphRowY(slotIndex + childIdx);
+                individualSharedSourceByLot.set(childLotId, {{
+                  x: rightOpX + opWidth + 40,
+                  y,
+                  yMid: y + nodeHeight / 2,
+                }});
+              }});
+            }}
+            slotIndex += lotTraceRightRowSpan(row);
+          }});
+        }}
         function curvedPath(x1, y1, x2, y2, cls, title) {{
           const mid = Math.max(Math.min(x1, x2) + 28, (x1 + x2) / 2);
           return `<path class="lotTraceGraphLink ${{cls}}" d="M ${{x1}} ${{y1}} C ${{mid}} ${{y1}}, ${{mid}} ${{y2}}, ${{x2}} ${{y2}}"><title>${{escapeTableHtml(title || "")}}</title></path>`;
@@ -22712,52 +26111,306 @@ def html_template(
           }}
           const dayText = row.firstDay === row.lastDay ? `${{row.firstDay ?? ""}}` : `${{row.firstDay ?? ""}}-${{row.lastDay ?? ""}}`;
           const route = `${{lotTraceDisplayNodeId(row.src)}} -> ${{lotTraceDisplayNodeId(row.dst)}}`;
-          const shipped = row.shippedCount ? `${{lotTraceQtyText(row.shippedQty)}} ${{row.uom || ""}}`.trim() : "";
-          const received = row.receivedCount ? `${{lotTraceQtyText(row.receivedQty)}} ${{row.uom || ""}}`.trim() : "";
           const lotSuffix = row.lotText ? ` - ${{row.lotText}}` : "";
           const logisticsText = lotTraceLogisticsShortText(row.item, row.receivedQty || row.shippedQty);
           const logisticsSuffix = logisticsText ? ` | ${{logisticsText}}` : "";
+          const qtyText = lotTraceTransportQtySummary(row);
+          const mixText = lotTraceTransportMixSummary(row);
+          const mixSuffix = mixText ? ` | ${{mixText}}` : "";
           const yMid = y + nodeHeight / 2;
           const targetX = hasProductionHub ? productionX : rootX;
           const targetY = hasProductionHub ? productionY + nodeHeight / 2 : rootY + nodeHeight / 2;
-          paths.push(curvedPath(leftOpX + opWidth, yMid, targetX, targetY, "transport", received || shipped || "Flux amont"));
+          if (useUpstreamSupplyLayout) {{
+            const sourceTitle = lotTraceSourceLabel(row);
+            const sourceLine2 = `${{lotTraceDisplayNodeId(row.src)}} - ${{row.item || ""}}`;
+            const sourceLine3 = lotTraceSourceStockText(row);
+            const endpointTitle = lotTraceEndpointLabel(row);
+            const endpointStock = lotTraceEndpointStockText(row);
+            const endpointLine2 = `${{lotTraceDisplayNodeId(row.dst)}} - ${{row.item || ""}}`;
+            const endpointLine3 = endpointStock || qtyText || "etat stock n/a";
+            paths.push(curvedPath(upstreamSourceX + stateWidth, yMid, upstreamTransportX, yMid, "transport", `${{row.category || "Transport amont"}} - ${{route}}`));
+            paths.push(curvedPath(upstreamTransportX + opWidth, yMid, upstreamStateX, yMid, "transport", endpointTitle));
+            paths.push(curvedPath(upstreamStateX + stateWidth, yMid, targetX, targetY, "production", "Stock amont disponible pour production"));
+            nodes.push(`
+              <g class="lotTraceGraphNode operation stockState" transform="translate(${{upstreamSourceX}},${{y}})">
+                <rect width="${{stateWidth}}" height="${{nodeHeight}}"></rect>
+                <text x="10" y="19">${{escapeTableHtml(sourceTitle)}}</text>
+                <text class="muted" x="10" y="36">${{escapeTableHtml(sourceLine2)}}</text>
+                <text class="muted" x="10" y="52">${{escapeTableHtml(sourceLine3)}}</text>
+              </g>
+            `);
+            nodes.push(`
+              <g class="lotTraceGraphNode operation transport" transform="translate(${{upstreamTransportX}},${{y}})">
+                <rect width="${{opWidth}}" height="${{nodeHeight}}"></rect>
+                <text x="10" y="19">${{escapeTableHtml(`${{row.category || "Transport"}} J${{dayText}}`)}}</text>
+                <text class="muted" x="10" y="38">${{escapeTableHtml(`${{route}} - ${{row.item || ""}}`)}}</text>
+                <text class="muted" x="10" y="55">${{escapeTableHtml(`${{qtyText || "flux n/a"}}${{mixSuffix}}${{logisticsSuffix}}${{lotSuffix}}`)}}</text>
+              </g>
+            `);
+            nodes.push(`
+              <g class="lotTraceGraphNode operation stockState" transform="translate(${{upstreamStateX}},${{y}})">
+                <rect width="${{stateWidth}}" height="${{nodeHeight}}"></rect>
+                <text x="10" y="19">${{escapeTableHtml(endpointTitle)}}</text>
+                <text class="muted" x="10" y="36">${{escapeTableHtml(endpointLine2)}}</text>
+                <text class="muted" x="10" y="52">${{escapeTableHtml(endpointLine3)}}</text>
+              </g>
+            `);
+            return;
+          }}
+          paths.push(curvedPath(leftOpX + opWidth, yMid, targetX, targetY, "transport", qtyText || "Flux amont"));
           nodes.push(`
             <g class="lotTraceGraphNode operation transport" transform="translate(${{leftOpX}},${{y}})">
                 <rect width="${{opWidth}}" height="${{nodeHeight}}"></rect>
                 <text x="10" y="19">${{escapeTableHtml(`${{row.category || "Transport"}} J${{dayText}}`)}}</text>
                 <text class="muted" x="10" y="38">${{escapeTableHtml(`${{route}} - ${{row.item || ""}}`)}}</text>
-                <text class="muted" x="10" y="55">${{escapeTableHtml(`${{received || shipped || "flux n/a"}}${{logisticsSuffix}}${{lotSuffix}}`)}}</text>
+                <text class="muted" x="10" y="55">${{escapeTableHtml(`${{qtyText || "flux n/a"}}${{mixSuffix}}${{logisticsSuffix}}${{lotSuffix}}`)}}</text>
               </g>
             `);
-          }}
+        }}
         function downstreamRowNode(row, idx) {{
-          const y = 42 + idx * rowHeight;
-          const dayText = row.firstDay === row.lastDay ? `${{row.firstDay ?? ""}}` : `${{row.firstDay ?? ""}}-${{row.lastDay ?? ""}}`;
+          const y = graphRowY(idx);
+          const dayText = lotTraceTransportDayText(row);
           const route = `${{lotTraceDisplayNodeId(row.src)}} -> ${{lotTraceDisplayNodeId(row.dst)}}`;
-          const shipped = row.shippedCount ? `${{lotTraceQtyText(row.shippedQty)}} ${{row.uom || ""}}`.trim() : "";
-          const received = row.receivedCount ? `${{lotTraceQtyText(row.receivedQty)}} ${{row.uom || ""}}`.trim() : "";
           const lotSuffix = row.lotText ? ` - ${{row.lotText}}` : "";
           const logisticsText = lotTraceLogisticsShortText(row.item, row.receivedQty || row.shippedQty);
           const logisticsSuffix = logisticsText ? ` | ${{logisticsText}}` : "";
+          const qtyText = lotTraceTransportQtySummary(row);
+          const mixText = lotTraceTransportMixSummary(row);
+          const mixSuffix = mixText ? ` | ${{mixText}}` : "";
           const yMid = y + nodeHeight / 2;
-          paths.push(curvedPath(rootX + nodeWidth, rootY + nodeHeight / 2, rightOpX, yMid, "transport", row.category || "Transport aval"));
+          if (row.individualLink) {{
+            if (row.physicalTransportGroup) {{
+              const childRows = row.childRows || [];
+              const groupSpan = lotTraceRightRowSpan(row);
+              const transportY = graphRowY(idx) + ((groupSpan - 1) * rowHeight) / 2;
+              const transportYMid = transportY + nodeHeight / 2;
+              const sourceRefs = new Map();
+              childRows.forEach((childRow, childIdx) => {{
+                const parentLotId = String(childRow.parentLotId || "");
+                if (!parentLotId) return;
+                if (sourceRefs.has(parentLotId)) return;
+                if (parentLotId === String(snapshot.lotId || "")) {{
+                  sourceRefs.set(parentLotId, {{
+                    x: rootX + nodeWidth,
+                    yMid: rootY + nodeHeight / 2,
+                    needsNode: false,
+                  }});
+                  return;
+                }}
+                const sharedSource = individualSharedSourceByLot.get(parentLotId);
+                if (sharedSource) {{
+                  sourceRefs.set(parentLotId, {{
+                    x: sharedSource.x + stateWidth,
+                    yMid: sharedSource.yMid,
+                    needsNode: false,
+                  }});
+                  return;
+                }}
+                const sourceY = graphRowY(idx + childIdx);
+                sourceRefs.set(parentLotId, {{
+                  x: rightOpX + stateWidth,
+                  y: sourceY,
+                  yMid: sourceY + nodeHeight / 2,
+                  needsNode: true,
+                  row: childRow,
+                }});
+              }});
+              const hasNonRootSource = Array.from(sourceRefs.keys()).some(parentLotId => parentLotId !== String(snapshot.lotId || ""));
+              const transportX = hasNonRootSource
+                ? Math.max(...Array.from(sourceRefs.values()).map(ref => ref.x + 40), rightOpX + stateWidth + 40)
+                : rightOpX;
+              const stateX = transportX + opWidth + 40;
+              sourceRefs.forEach((ref, parentLotId) => {{
+                if (ref.needsNode) {{
+                  const sourceRow = ref.row || row;
+                  nodes.push(`
+                    <g class="lotTraceGraphNode operation stockState" transform="translate(${{rightOpX}},${{ref.y}})">
+                      <rect width="${{stateWidth}}" height="${{nodeHeight}}"></rect>
+                      <text x="10" y="19">${{escapeTableHtml(parentLotId)}}</text>
+                      <text class="muted" x="10" y="36">${{escapeTableHtml(`${{lotTraceDisplayNodeId(sourceRow.src)}} / ${{sourceRow.item || ""}}`)}}</text>
+                      <text class="muted" x="10" y="52">${{escapeTableHtml(`lot source: ${{lotTraceQtyText(sourceRow.receivedQty)}} ${{sourceRow.uom || ""}}`.trim())}}</text>
+                    </g>
+                  `);
+                }}
+                paths.push(curvedPath(ref.x, ref.yMid, transportX, transportYMid, "transport", `${{row.category || "Transport aval"}} - ${{route}}`));
+              }});
+              const groupedQtyText = lotTraceTransportQtySummary(row);
+              const groupedLogisticsText = lotTraceLogisticsShortText(row.item, row.receivedQty || row.childContributionQty);
+              const groupedLogisticsSuffix = groupedLogisticsText ? ` | ${{groupedLogisticsText}}` : "";
+              nodes.push(`
+                <g class="lotTraceGraphNode operation transport" transform="translate(${{transportX}},${{transportY}})">
+                  <rect width="${{opWidth}}" height="${{nodeHeight}}"></rect>
+                  <text x="10" y="19">${{escapeTableHtml(`${{row.category || "Transport"}} J${{row.firstDay ?? ""}}`)}}</text>
+                  <text class="muted" x="10" y="38">${{escapeTableHtml(`${{route}} - ${{row.item || ""}}`)}}</text>
+                  <text class="muted" x="10" y="55">${{escapeTableHtml(`${{groupedQtyText || "flux n/a"}}${{groupedLogisticsSuffix}} | ${{childRows.length}} lots`)}}</text>
+                </g>
+              `);
+              const endpointsByChild = new Map();
+              childRows.forEach((childRow) => {{
+                const childLotId = String(childRow.childLotId || "");
+                if (!childLotId) return;
+                if (!endpointsByChild.has(childLotId)) {{
+                  endpointsByChild.set(childLotId, {{
+                    ...childRow,
+                    receivedQty: 0,
+                    childContributionQty: 0,
+                    childTotalQty: lotTraceLotTotalQty(childLotId) || 0,
+                    parentLotIds: new Set(),
+                    childLotIds: new Set([childLotId]),
+                    childContributionByLot: new Map(),
+                    childTotalByLot: new Map(),
+                    mixedOtherText: "",
+                  }});
+                }}
+                const endpoint = endpointsByChild.get(childLotId);
+                const qty = Number(childRow.receivedQty || childRow.childContributionQty || 0);
+                if (Number.isFinite(qty)) {{
+                  endpoint.receivedQty += qty;
+                  endpoint.childContributionQty += qty;
+                }}
+                if (childRow.parentLotId) endpoint.parentLotIds.add(String(childRow.parentLotId));
+                endpoint.childContributionByLot.set(childLotId, endpoint.childContributionQty);
+                if (endpoint.childTotalQty > 0) endpoint.childTotalByLot.set(childLotId, endpoint.childTotalQty);
+              }});
+              Array.from(endpointsByChild.values()).forEach((endpointRow, childIdx) => {{
+                const childY = graphRowY(idx + childIdx);
+                const childYMid = childY + nodeHeight / 2;
+                const childLotId = String(endpointRow.childLotId || "");
+                const parentSet = endpointRow.parentLotIds || new Set();
+                const otherParts = (lotTraceIndexes.parentsByChild.get(childLotId) || [])
+                  .filter(parentLink =>
+                    String(parentLink.link_type || "") === "transport" &&
+                    !parentSet.has(String(parentLink.parent_lot_id || ""))
+                  )
+                  .map(parentLink => {{
+                    const qty = Number(parentLink.parent_qty || parentLink.child_qty || 0);
+                    return {{
+                      lotId: String(parentLink.parent_lot_id || ""),
+                      qty: Number.isFinite(qty) ? qty : 0,
+                    }};
+                  }})
+                  .filter(part => part.lotId && part.qty > 1e-9);
+                endpointRow.mixedOtherText = otherParts.length
+                  ? `autre part: ${{otherParts.map(part => `${{lotTraceQtyText(part.qty)}} ${{endpointRow.uom || ""}} via ${{part.lotId}}`).join(" + ")}}`
+                  : "";
+                paths.push(curvedPath(transportX + opWidth, transportYMid, stateX, childYMid, "transport", childLotId || lotTraceEndpointLabel(endpointRow)));
+                const endpointService = lotTraceEndpointServiceText(endpointRow);
+                const endpointStock = lotTraceEndpointStockText(endpointRow);
+                const endpointTitle = childLotId || lotTraceEndpointLabel(endpointRow);
+                const endpointLine2 = `${{lotTraceDisplayNodeId(endpointRow.dst)}} / ${{endpointRow.item || ""}}`;
+                const endpointLine3 = `part tracee: ${{lotTraceTransportQtySummary(endpointRow) || "n/a"}}`;
+                const endpointLine4 = endpointRow.mixedOtherText || endpointService || endpointStock || "";
+                nodes.push(`
+                  <g class="lotTraceGraphNode operation stockState ${{endpointRow.mixedOtherText ? "mixed" : ""}}" transform="translate(${{stateX}},${{childY}})">
+                    <rect width="${{stateWidth}}" height="${{nodeHeight}}"></rect>
+                    <text x="10" y="19">${{escapeTableHtml(endpointTitle)}}</text>
+                    <text class="muted" x="10" y="36">${{escapeTableHtml(endpointLine2)}}</text>
+                    <text class="muted" x="10" y="52">${{escapeTableHtml(endpointLine3)}}</text>
+                    ${{endpointLine4 ? `<text class="muted" x="10" y="65">${{escapeTableHtml(endpointLine4)}}</text>` : ""}}
+                  </g>
+                `);
+              }});
+              return;
+            }}
+            const rootLotId = String(snapshot.lotId || "");
+            const parentLotId = String(row.parentLotId || "");
+            const childLotId = String(row.childLotId || "");
+            const hasSourceLotNode = parentLotId && parentLotId !== rootLotId;
+            const sharedSource = hasSourceLotNode ? individualSharedSourceByLot.get(parentLotId) : null;
+            const sourceX = sharedSource ? sharedSource.x : rightOpX;
+            const sourceY = sharedSource ? sharedSource.y : y;
+            const transportX = hasSourceLotNode
+              ? (sharedSource ? sharedSource.x + stateWidth + 40 : rightOpX + stateWidth + 40)
+              : rightOpX;
+            const stateX = transportX + opWidth + 40;
+            const startX = hasSourceLotNode
+              ? (sharedSource ? sharedSource.x + stateWidth : sourceX + stateWidth)
+              : rootX + nodeWidth;
+            const startY = hasSourceLotNode
+              ? (sharedSource ? sharedSource.yMid : sourceY + nodeHeight / 2)
+              : rootY + nodeHeight / 2;
+            if (hasSourceLotNode && !sharedSource) {{
+              nodes.push(`
+                <g class="lotTraceGraphNode operation stockState" transform="translate(${{sourceX}},${{y}})">
+                  <rect width="${{stateWidth}}" height="${{nodeHeight}}"></rect>
+                  <text x="10" y="19">${{escapeTableHtml(parentLotId)}}</text>
+                  <text class="muted" x="10" y="36">${{escapeTableHtml(`${{lotTraceDisplayNodeId(row.src)}} / ${{row.item || ""}}`)}}</text>
+                  <text class="muted" x="10" y="52">${{escapeTableHtml(`lot source: ${{lotTraceQtyText(row.receivedQty)}} ${{row.uom || ""}}`.trim())}}</text>
+                </g>
+              `);
+            }}
+            paths.push(curvedPath(startX, startY, transportX, yMid, "transport", `${{row.category || "Transport aval"}} - ${{route}}`));
+            paths.push(curvedPath(transportX + opWidth, yMid, stateX, yMid, "transport", childLotId || lotTraceEndpointLabel(row)));
+            nodes.push(`
+              <g class="lotTraceGraphNode operation transport" transform="translate(${{transportX}},${{y}})">
+                <rect width="${{opWidth}}" height="${{nodeHeight}}"></rect>
+                <text x="10" y="19">${{escapeTableHtml(`${{row.category || "Transport"}} J${{row.firstDay ?? ""}}`)}}</text>
+                <text class="muted" x="10" y="38">${{escapeTableHtml(`${{route}} - ${{row.item || ""}}`)}}</text>
+                <text class="muted" x="10" y="55">${{escapeTableHtml(`${{qtyText || "flux n/a"}}${{logisticsSuffix}}`)}}</text>
+              </g>
+            `);
+            const endpointService = lotTraceEndpointServiceText(row);
+            const endpointStock = lotTraceEndpointStockText(row);
+            const endpointTitle = childLotId || lotTraceEndpointLabel(row);
+            const endpointLine2 = `${{lotTraceDisplayNodeId(row.dst)}} / ${{row.item || ""}}`;
+            const endpointLine3 = `part tracee: ${{qtyText || "n/a"}}`;
+            const endpointLine4 = row.mixedOtherText || endpointService || endpointStock || "";
+            nodes.push(`
+              <g class="lotTraceGraphNode operation stockState ${{row.mixedOtherText ? "mixed" : ""}}" transform="translate(${{stateX}},${{y}})">
+                <rect width="${{stateWidth}}" height="${{nodeHeight}}"></rect>
+                <text x="10" y="19">${{escapeTableHtml(endpointTitle)}}</text>
+                <text class="muted" x="10" y="36">${{escapeTableHtml(endpointLine2)}}</text>
+                <text class="muted" x="10" y="52">${{escapeTableHtml(endpointLine3)}}</text>
+                ${{endpointLine4 ? `<text class="muted" x="10" y="65">${{escapeTableHtml(endpointLine4)}}</text>` : ""}}
+              </g>
+            `);
+            return;
+          }}
+          const transportX = useSupplyChainLayout ? chainTransportX(idx) : rightOpX;
+          const stateX = useSupplyChainLayout ? chainStateX(idx) : rightStateX;
+          const startX = useSupplyChainLayout && idx > 0
+            ? chainStateX(idx - 1) + stateWidth
+            : rootX + nodeWidth;
+          const startY = useSupplyChainLayout ? yMid : rootY + nodeHeight / 2;
+          paths.push(curvedPath(startX, startY, transportX, yMid, "transport", `${{row.category || "Transport aval"}} - ${{route}}`));
+          paths.push(curvedPath(transportX + opWidth, yMid, stateX, yMid, "transport", lotTraceEndpointLabel(row)));
           nodes.push(`
-            <g class="lotTraceGraphNode operation transport" transform="translate(${{rightOpX}},${{y}})">
+            <g class="lotTraceGraphNode operation transport" transform="translate(${{transportX}},${{y}})">
               <rect width="${{opWidth}}" height="${{nodeHeight}}"></rect>
-              <text x="10" y="19">${{escapeTableHtml(`${{row.category || "Transport"}} J${{dayText}}`)}}</text>
-              <text class="muted" x="10" y="38">${{escapeTableHtml(`${{route}} - ${{row.item || ""}}`)}}</text>
-              <text class="muted" x="10" y="55">${{escapeTableHtml(`${{received || shipped || "flux n/a"}}${{logisticsSuffix}}${{lotSuffix}}`)}}</text>
+              <text x="10" y="19">${{escapeTableHtml(row.category || "Transport")}}</text>
+              <text class="muted" x="10" y="38">${{escapeTableHtml(`${{route}} - ${{dayText}}`)}}</text>
+              <text class="muted" x="10" y="55">${{escapeTableHtml(`${{qtyText || "flux n/a"}}${{mixSuffix}}${{logisticsSuffix}}${{lotSuffix}}`)}}</text>
+            </g>
+          `);
+          const endpointTitle = lotTraceEndpointLabel(row);
+          const endpointQty = lotTraceTransportQtySummary(row);
+          const endpointStock = lotTraceEndpointStockText(row);
+          const endpointService = lotTraceEndpointServiceText(row);
+          const endpointLine2 = `${{lotTraceDisplayNodeId(row.dst)}} - ${{row.item || ""}}`;
+          const endpointLine3 = endpointService || endpointStock || endpointQty || "etat stock n/a";
+          const endpointLine4 = endpointService && endpointStock ? endpointStock : endpointQty;
+          nodes.push(`
+            <g class="lotTraceGraphNode operation stockState" transform="translate(${{stateX}},${{y}})">
+              <rect width="${{stateWidth}}" height="${{nodeHeight}}"></rect>
+              <text x="10" y="19">${{escapeTableHtml(endpointTitle)}}</text>
+              <text class="muted" x="10" y="36">${{escapeTableHtml(endpointLine2)}}</text>
+              <text class="muted" x="10" y="52">${{escapeTableHtml(endpointLine3)}}</text>
+              ${{endpointLine4 && endpointLine4 !== endpointLine3 ? `<text class="muted" x="10" y="65">${{escapeTableHtml(endpointLine4)}}</text>` : ""}}
             </g>
           `);
         }}
         leftVisualRows.forEach(upstreamVisualRowNode);
-        rightRows.forEach(downstreamRowNode);
+        let rightSlotIndex = 0;
+        rightRows.forEach((row) => {{
+          downstreamRowNode(row, rightSlotIndex);
+          rightSlotIndex += lotTraceRightRowSpan(row);
+        }});
         if (hasProductionHub) {{
           paths.push(curvedPath(productionX + opWidth, productionY + nodeHeight / 2, rootX, rootY + nodeHeight / 2, "production", "Production vers lot PF selectionne"));
         }}
-        const omittedFluxCount = Math.max(0, leftVisualRowsAll.length - leftVisualRows.length) + Math.max(0, rightRowsAll.length - rightRows.length);
+        const omittedFluxCount = Math.max(0, leftVisualRowsAll.length - leftVisualRows.length) + Math.max(0, orderedRightRowsAll.length - rightRows.length);
         const omittedFlux = omittedFluxCount
-          ? `<div class="lotTracePanelMeta">${{omittedFluxCount}} elements supplementaires masques dans ce graphe groupe.</div>`
+          ? `<div class="lotTracePanelMeta">${{omittedFluxCount}} elements supplementaires masques dans ce graphe groupe. Active Details pour afficher la chaine complete et les tables completes.</div>`
           : "";
         const nonTransportLinks = Math.max(0, (selected.links || []).length - transportLinkCount);
         const remainingNonTransportLinks = Math.max(0, nonTransportLinks - productionLinksToRoot.length);
@@ -22767,14 +26420,24 @@ def html_template(
         const layoutHint = lotTraceDirection === "both"
           ? "Amont a gauche, production et lot selectionne au centre, aval a droite."
           : (lotTraceDirection === "upstream" ? "Amont a gauche, lot selectionne a droite." : "Lot selectionne a gauche, aval a droite.");
+        const upstreamHeaderSvg = leftVisualRows.length
+          ? (useUpstreamSupplyLayout
+              ? `
+                <text class="lotTraceGraphTimelineText" x="${{upstreamSourceX}}" y="24">Source amont</text>
+                <text class="lotTraceGraphTimelineText" x="${{upstreamTransportX}}" y="24">Transport amont</text>
+                <text class="lotTraceGraphTimelineText" x="${{upstreamStateX}}" y="24">Stock arrivee</text>
+              `
+              : `<text class="lotTraceGraphTimelineText" x="${{leftOpX}}" y="24">Amont</text>`)
+          : "";
         const headerSvg = `
-          ${{leftVisualRows.length ? `<text class="lotTraceGraphTimelineText" x="${{leftOpX}}" y="24">Amont</text>` : ""}}
+          ${{upstreamHeaderSvg}}
           ${{hasProductionHub ? `<text class="lotTraceGraphTimelineText" x="${{productionX}}" y="24">Production</text>` : ""}}
           <text class="lotTraceGraphTimelineText" x="${{rootX}}" y="24">Lot selectionne</text>
-          ${{rightRows.length ? `<text class="lotTraceGraphTimelineText" x="${{rightOpX}}" y="24">Aval</text>` : ""}}
+          ${{rightRows.length ? `<text class="lotTraceGraphTimelineText" x="${{useSupplyChainLayout ? chainFirstTransportX : rightOpX}}" y="24">${{useIndividualDownstreamRows ? "Transports physiques / receptions aval" : "Chaine supply aval"}}</text>` : ""}}
+          ${{rightRows.length && !useSupplyChainLayout && !useIndividualDownstreamRows ? `<text class="lotTraceGraphTimelineText" x="${{rightStateX}}" y="24">Etat apres arrivee</text>` : ""}}
         `;
         graphWrap.innerHTML = `
-          <div class="lotTracePanelMeta">Graphe groupe: ${{selected.lots.length}} lots et ${{selected.links.length}} liens resumes. Boites bleues = composants/production BOM, boites orange = flux logistiques agreges. ${{layoutHint}}${{extraNote}}</div>
+          <div class="lotTracePanelMeta">Graphe metier: les sites supply sont affiches dans la chaine physique. Orange = transport, vert = lot/noeud supply avec stock ou service apres arrivee, bleu = production/BOM. ${{layoutHint}}${{extraNote}}</div>
           ${{omittedFlux}}
           <svg class="lotTraceGraphSvg" width="${{width}}" height="${{height}}" viewBox="0 0 ${{width}} ${{height}}">
             <defs>
@@ -22929,20 +26592,21 @@ def html_template(
           const link = node.link || {{}};
           const links = Array.isArray(node.links) && node.links.length ? node.links : [link];
           const groupedProduction = String(link.link_type || "") === "production" && links.length > 1;
+          const groupedSummary = groupedProduction ? lotTraceGroupedProductionSummary(links, link) : null;
           const label = groupedProduction ? "Production BOM" : lotTraceOperationLabel(link);
           const detail = groupedProduction
-            ? `${{lotTraceDisplayNodeId(link.child_node_id)}} - ${{link.child_item_id || "n/a"}}`
+            ? groupedSummary.detail
             : lotTraceOperationDetail(link);
           const parentQty = lotTraceQtyText(link.parent_qty);
           const childQty = lotTraceQtyText(link.child_qty);
-          const componentCount = new Set(links.map(row => String(row.parent_item_id || row.parent_lot_id || "")).filter(Boolean)).size;
           const qty = groupedProduction
-            ? `${{componentCount}} comps -> ${{childQty || "n/a"}}`
+            ? groupedSummary.qty
             : (parentQty || childQty ? `${{parentQty || "n/a"}} -> ${{childQty || "n/a"}}` : "");
           const logisticsTitle = String(link.link_type || "") === "transport"
             ? lotTraceLogisticsDetailText(link.parent_item_id || link.child_item_id, link.parent_qty || link.child_qty)
             : "";
-          const opTitle = `${{label}} J${{lotTraceDay(link) ?? ""}}${{logisticsTitle ? " | " + logisticsTitle : ""}}`;
+          const componentTitle = groupedSummary && groupedSummary.componentText ? ` | composants: ${{groupedSummary.componentText}}` : "";
+          const opTitle = `${{label}} J${{lotTraceDay(link) ?? ""}}${{componentTitle}}${{logisticsTitle ? " | " + logisticsTitle : ""}}`;
           const cls = `lotTraceGraphNode operation ${{node.opClass || ""}}`.trim();
           return `
             <g class="${{cls}}" transform="translate(${{pos.x}},${{pos.y}})">
@@ -22956,6 +26620,7 @@ def html_template(
         }}
         const lotId = node.lotId;
         const info = lotTraceLotInfo(lotId);
+        const contributionInfo = selectedLotTraceContributionInfo(snapshot, lotId);
         const scopeLabel = lotTraceScopeLabel(info);
         const nodeLine = `${{info.node_id || "n/a"}} / ${{info.item_id || "n/a"}}`;
         const qty = info.qty !== "" ? `${{lotTraceQtyText(info.qty)}} ${{info.uom || ""}}`.trim() : "";
@@ -22965,13 +26630,22 @@ def html_template(
         const baseCls = lotId === snapshot.lotId ? "lotTraceGraphNode root" : "lotTraceGraphNode";
         const statusClass = lotTracePfStatusClass(info);
         const statusLabel = lotTracePfStatusShortLabel(info);
-        const cls = [baseCls, statusClass].filter(Boolean).join(" ");
+        const mixedClass = contributionInfo.isMixedWithOtherOrigin ? "mixed" : "";
+        const cls = [baseCls, statusClass, mixedClass].filter(Boolean).join(" ");
+        const contributionLine = contributionInfo.isMixedWithOtherOrigin
+          ? `part tracee ${{lotTraceQtyText(contributionInfo.contributionQty)}} / ${{lotTraceQtyText(contributionInfo.totalQty)}} ${{info.uom || ""}}`.trim()
+          : (contributionInfo.isMergedFromSeveralSelectedLots
+              ? `fusion interne ${{contributionInfo.parentCount}} parents - ${{qty}}`
+              : `J${{info.created_day ?? ""}} - ${{nodeLine}}${{qty ? " - " + qty : ""}}`);
+        const roleLine = contributionInfo.isMixedWithOtherOrigin
+          ? `${{roleLabel}} - lot mixte ${{lotTraceQtyText(contributionInfo.share * 100, 1)}}%`
+          : (statusLabel || `${{roleLabel}} - ${{scopeLabel}}`);
         return `
           <g class="${{cls}}" transform="translate(${{pos.x}},${{pos.y}})">
             <rect width="${{pos.width}}" height="${{pos.height}}"></rect>
             <text x="10" y="18">${{escapeTableHtml(lotId)}}</text>
-            <text class="muted" x="10" y="35">${{escapeTableHtml(statusLabel || `${{roleLabel}} - ${{scopeLabel}}`)}}</text>
-            <text class="muted" x="10" y="50">${{escapeTableHtml(`J${{info.created_day ?? ""}} - ${{nodeLine}}${{qty ? " - " + qty : ""}}`)}}</text>
+            <text class="muted" x="10" y="35">${{escapeTableHtml(roleLine)}}</text>
+            <text class="muted" x="10" y="50">${{escapeTableHtml(contributionLine)}}</text>
           </g>
         `;
       }}).join("");
@@ -23026,7 +26700,7 @@ def html_template(
               <div class="lotTraceSectionTitle">Details de l'ordre</div>
               ${{renderDeferredProductionOrderDetail(selectedOrder)}}
               <div class="lotTraceSectionTitle">Tous les ordres reportes</div>
-              ${{renderDeferredProductionOrdersTable(deferredOrders, 18)}}
+              ${{renderDeferredProductionOrdersTable(deferredOrders, deferredOrders.length)}}
             `
             : "";
         }}
@@ -23045,16 +26719,18 @@ def html_template(
         const openingStockNote = snapshot && lotTraceContainsOpeningStock(selected.events)
           ? '<div class="lotTraceEmpty">Note: certains lots visibles sont du stock initial; leur provenance avant J0 n est pas tracee par la simulation.</div>'
           : "";
-        const transportSummaryRows = snapshot ? lotTraceTransportSummaryRows(selected) : [];
+        const mixedLotRows = snapshot ? lotTraceMixedLotRows(snapshot, selected) : [];
         tables.innerHTML = snapshot && lotTraceShowDetails
           ? `
             ${{openingStockNote}}
-            <div class="lotTraceSectionTitle">Flux logistiques visibles</div>
-            ${{renderLotTraceTransportSummaryTable(transportSummaryRows, 18)}}
+            <div class="lotTraceSectionTitle">Receptions / transports visibles</div>
+            ${{renderLotTraceTransportLinksTable(selected.links, selected.links.length)}}
+            <div class="lotTraceSectionTitle">Lots mixtes visibles</div>
+            ${{renderLotTraceMixedLotsTable(mixedLotRows, mixedLotRows.length)}}
             <div class="lotTraceSectionTitle">Evenements visibles dans le graphe</div>
-            ${{renderLotTraceEventsTable(selected.events, 18)}}
+            ${{renderLotTraceEventsTable(selected.events, selected.events.length)}}
             <div class="lotTraceSectionTitle">Liens visibles dans le graphe</div>
-            ${{renderLotTraceLinksTable(selected.links, 14)}}
+            ${{renderLotTraceLinksTable(selected.links, selected.links.length)}}
           `
           : "";
       }}
@@ -23066,6 +26742,7 @@ def html_template(
       const modalSelect = document.getElementById("lotTraceModalSelect");
       const focusBtn = document.getElementById("lotTraceFocusBtn");
       const openBtn = document.getElementById("lotTraceOpenBtn");
+      const ordersBtn = document.getElementById("lotTraceOrdersBtn");
       const clearBtn = document.getElementById("lotTraceClearBtn");
       const hasDeferredOrders = lotTraceDeferredOrders().length > 0;
       const visible = currentPanelMode === "ops" && Boolean(LOT_TRACE.available || hasDeferredOrders);
@@ -23080,6 +26757,10 @@ def html_template(
       }}
       if (focusBtn) focusBtn.disabled = !selectedLotId;
       if (openBtn) openBtn.disabled = !visible;
+      if (ordersBtn) {{
+        ordersBtn.disabled = !visible || !hasDeferredOrders;
+        ordersBtn.style.display = hasDeferredOrders ? "inline-flex" : "none";
+      }}
       if (clearBtn) clearBtn.disabled = !selectedLotId;
       renderLotTracePanel();
       renderLotTraceModal();
@@ -23088,7 +26769,38 @@ def html_template(
     function initLotTraceControls() {{
       const select = document.getElementById("lotTraceSelect");
       const modalSelect = document.getElementById("lotTraceModalSelect");
-      function populateSelect(target) {{
+      function lotTraceDefaultSelection(preferOrders = false) {{
+        const deferredOrders = lotTraceDeferredOrders();
+        const options = Array.isArray(LOT_TRACE.lot_options) ? LOT_TRACE.lot_options : Object.values(LOT_TRACE.lots || {{}});
+        if (preferOrders && deferredOrders.length) {{
+          return lotTraceDeferredOrderValue(String(deferredOrders[0].campaign_id || ""));
+        }}
+        if (LOT_TRACE.default_lot) return LOT_TRACE.default_lot;
+        if (options.length && options[0] && options[0].lot_id) return String(options[0].lot_id || "");
+        if (deferredOrders.length) return lotTraceDeferredOrderValue(String(deferredOrders[0].campaign_id || ""));
+        return "";
+      }}
+      function appendDeferredOrderOptions(target, deferredOrders) {{
+        if (!target || !deferredOrders.length) return;
+        const orderGroup = document.createElement("optgroup");
+        orderGroup.label = "Ordres reportes";
+        deferredOrders.forEach((order) => {{
+          const opt = document.createElement("option");
+          opt.value = lotTraceDeferredOrderValue(String(order.campaign_id || ""));
+          const status = String(order.status || "") === "completed_after_delay" ? "produit apres report" : "toujours bloque";
+          const delayText = `J${{order.first_delay_day ?? ""}}` + (order.last_delay_day !== order.first_delay_day ? `-J${{order.last_delay_day ?? ""}}` : "");
+          const inputText = (order.blocking_input_item_ids || []).join(", ") || "input inconnu";
+          const completionText = order.completed_lot_id ? ` -> ${{order.completed_lot_id}} J${{order.completed_day}}` : "";
+          opt.textContent = `[ROUGE - ORDRE REPORTE] ${{delayText}} | ${{order.output_item_id || ""}} | manque ${{inputText}} | ${{status}}${{completionText}}`;
+          opt.className = "deferredOrder";
+          opt.style.color = "#991b1b";
+          opt.style.fontWeight = "900";
+          opt.title = order.campaign_id || "";
+          orderGroup.appendChild(opt);
+        }});
+        target.appendChild(orderGroup);
+      }}
+      function populateSelect(target, includeDeferredOrders = false) {{
         if (!target) return;
         target.innerHTML = "";
         const empty = document.createElement("option");
@@ -23096,25 +26808,6 @@ def html_template(
         empty.textContent = (LOT_TRACE.available || lotTraceDeferredOrders().length) ? "Selection" : "Aucun lot ou ordre traceable";
         target.appendChild(empty);
         const deferredOrders = lotTraceDeferredOrders();
-        if (deferredOrders.length) {{
-          const orderGroup = document.createElement("optgroup");
-          orderGroup.label = "Ordres reportes";
-          deferredOrders.forEach((order) => {{
-            const opt = document.createElement("option");
-            opt.value = lotTraceDeferredOrderValue(String(order.campaign_id || ""));
-            const status = String(order.status || "") === "completed_after_delay" ? "produit apres report" : "toujours bloque";
-            const delayText = `J${{order.first_delay_day ?? ""}}` + (order.last_delay_day !== order.first_delay_day ? `-J${{order.last_delay_day ?? ""}}` : "");
-            const inputText = (order.blocking_input_item_ids || []).join(", ") || "input inconnu";
-            const completionText = order.completed_lot_id ? ` -> ${{order.completed_lot_id}} J${{order.completed_day}}` : "";
-            opt.textContent = `[ROUGE - ORDRE REPORTE] ${{delayText}} | ${{order.output_item_id || ""}} | manque ${{inputText}} | ${{status}}${{completionText}}`;
-            opt.className = "deferredOrder";
-            opt.style.color = "#991b1b";
-            opt.style.fontWeight = "900";
-            opt.title = order.campaign_id || "";
-            orderGroup.appendChild(opt);
-          }});
-          target.appendChild(orderGroup);
-        }}
         const options = Array.isArray(LOT_TRACE.lot_options) ? LOT_TRACE.lot_options : [];
         if (options.length) {{
           const lotGroup = document.createElement("optgroup");
@@ -23136,25 +26829,33 @@ def html_template(
           }});
           target.appendChild(lotGroup);
         }}
+        if (includeDeferredOrders) appendDeferredOrderOptions(target, deferredOrders);
       }}
-      populateSelect(select);
-      populateSelect(modalSelect);
+      populateSelect(select, false);
+      populateSelect(modalSelect, true);
       if (!select && !modalSelect) return;
       const onLotChange = (ev) => setSelectedLot(String(ev.target.value || ""));
       if (select) select.addEventListener("change", onLotChange);
       if (modalSelect) modalSelect.addEventListener("change", onLotChange);
-      const deferredOrders = lotTraceDeferredOrders();
-      const options = Array.isArray(LOT_TRACE.lot_options) ? LOT_TRACE.lot_options : Object.values(LOT_TRACE.lots || {{}});
-      if (!selectedLotId && deferredOrders.length) selectedLotId = lotTraceDeferredOrderValue(String(deferredOrders[0].campaign_id || ""));
-      if (!selectedLotId && options.length && LOT_TRACE.default_lot) selectedLotId = LOT_TRACE.default_lot;
+      if (!selectedLotId) selectedLotId = lotTraceDefaultSelection(false);
       if (selectedLotId) lotTraceDirection = lotTracePreferredDirection(selectedLotId);
       const focusBtn = document.getElementById("lotTraceFocusBtn");
       if (focusBtn) focusBtn.addEventListener("click", () => focusSelectedLot());
       const openBtn = document.getElementById("lotTraceOpenBtn");
+      const ordersBtn = document.getElementById("lotTraceOrdersBtn");
       const modal = document.getElementById("lotTraceModal");
       if (openBtn && modal) openBtn.addEventListener("click", () => {{
-        if (!selectedLotId && deferredOrders.length) selectedLotId = lotTraceDeferredOrderValue(String(deferredOrders[0].campaign_id || ""));
-        if (!selectedLotId && LOT_TRACE.default_lot) selectedLotId = LOT_TRACE.default_lot;
+        if (!selectedLotId) selectedLotId = lotTraceDefaultSelection(false);
+        modal.classList.add("visible");
+        updateLotTraceControls();
+      }});
+      if (ordersBtn && modal) ordersBtn.addEventListener("click", () => {{
+        const orderSelection = lotTraceDefaultSelection(true);
+        if (orderSelection) {{
+          selectedLotId = orderSelection;
+          lotTraceDirection = "both";
+          lotTraceShowDetails = true;
+        }}
         modal.classList.add("visible");
         updateLotTraceControls();
       }});
@@ -23268,7 +26969,8 @@ def html_template(
       if (customerDemandOverlay) {{
         markers = markers.filter(marker => marker.kind !== "service");
       }}
-      markers = markers.slice(0, 80);
+      const compactedMarkers = lotTraceCompactMarkers(markers, 140);
+      markers = compactedMarkers.markers;
       if (!markers.length && !customerDemandOverlay) return plotlyFigure;
       const data = (plotlyFigure.data || []).slice();
       const layout = {{ ...(plotlyFigure.layout || {{}}) }};
@@ -23284,12 +26986,11 @@ def html_template(
         layout.barmode = "overlay";
       }}
       const axisRefs = ["x"];
-      if (layout.xaxis2 || data.some(trace => String(trace.xaxis || "") === "x2")) axisRefs.push("x2");
       layout.shapes = Array.isArray(layout.shapes) ? layout.shapes.slice() : [];
       markers.forEach((marker) => {{
         const day = marker.day;
-        const isProductionMarker = marker.kind === "production" || marker.kind === "consume";
-        const isTransportMarker = marker.kind === "transport" || marker.kind === "shipment" || marker.kind === "receipt";
+        const style = lotTraceMarkerStyle(marker.kind);
+        const isMajorMarker = marker.kind === "production" || marker.kind === "delay";
         axisRefs.forEach((xref) => {{
           layout.shapes.push({{
             type: "line",
@@ -23297,15 +26998,63 @@ def html_template(
             yref: "paper",
             x0: day,
             x1: day,
-            y0: 0,
+            y0: isMajorMarker ? 0 : 0.90,
             y1: 1,
             line: {{
-              color: "#f97316",
-              width: isProductionMarker ? 2.4 : 1.35,
-              dash: isProductionMarker ? "solid" : (isTransportMarker ? "dash" : "dot"),
+              color: style.color,
+              width: style.width,
+              dash: style.dash,
             }},
-            opacity: isProductionMarker ? 0.88 : 0.62,
+            opacity: isMajorMarker ? 0.82 : 0.72,
           }});
+        }});
+      }});
+      function markerAxisStats(axisName = "y") {{
+        const values = [];
+        data.forEach((trace) => {{
+          const traceAxis = String(trace.yaxis || "y");
+          if (traceAxis !== axisName) return;
+          (trace.y || []).forEach((value) => {{
+            const numeric = Number(value);
+            if (Number.isFinite(numeric)) values.push(numeric);
+          }});
+        }});
+        if (!values.length) return {{ min: 0, max: 1, range: 1 }};
+        const min = Math.min(...values);
+        const max = Math.max(...values);
+        const range = Math.max(1, max - min);
+        return {{ min, max, range }};
+      }}
+      const markerGroups = new Map();
+      markers.forEach((marker) => {{
+        const kind = marker.kind || "event";
+        if (!markerGroups.has(kind)) markerGroups.set(kind, []);
+        markerGroups.get(kind).push(marker);
+      }});
+      const axisStats = markerAxisStats("y");
+      Array.from(markerGroups.entries()).forEach(([kind, group], groupIdx) => {{
+        const style = lotTraceMarkerStyle(kind);
+        const markerY = axisStats.min + axisStats.range * Math.max(0.74, 0.96 - groupIdx * 0.035);
+        data.push({{
+          type: "scatter",
+          mode: "markers",
+          name: `${{selectedLotId}} - ${{style.label}}`,
+          x: group.map(marker => marker.day),
+          y: group.map(() => markerY),
+          marker: {{
+            color: style.color,
+            symbol: style.symbol,
+            size: 8,
+            line: {{ color: "#ffffff", width: 1 }},
+          }},
+          customdata: group.map(marker => [
+            marker.label || style.label,
+            marker.qty || 0,
+            marker.count || 1,
+            (marker.lots || []).slice(0, 4).join(", "),
+            (marker.itemIds || []).slice(0, 4).join(", "),
+          ]),
+          hovertemplate: "J%{{x}}<br>%{{customdata[0]}}<br>qte tracee=%{{customdata[1]:,.1f}}<br>evenements=%{{customdata[2]}}<br>lots=%{{customdata[3]}}<br>items=%{{customdata[4]}}<extra></extra>",
         }});
       }});
       layout.annotations = Array.isArray(layout.annotations) ? layout.annotations.slice() : [];
@@ -23316,8 +27065,10 @@ def html_template(
       const customerDemandText = customerDemandOverlay
         ? ` | demande servie par lot: ${{fmtPanelQty(customerDemandOverlay.total)}}`
         : "";
+      const markerSummary = lotTraceMarkerSummaryText(markers, compactedMarkers.hidden);
+      const markerSummaryText = markerSummary ? ` | ${{markerSummary}}` : "";
       layout.annotations.push({{
-        text: `${{selectedLotId}} - ${{markerLabel}}${{customerDemandText}}`,
+        text: `${{selectedLotId}} - ${{markerLabel}}${{markerSummaryText}}${{customerDemandText}}`,
         xref: "paper",
         yref: "paper",
         x: 1,
@@ -23490,8 +27241,28 @@ def html_template(
       }};
     }}
 
+    function supplierStressCampaignMeta(nodeId) {{
+      return ((SIMULATED_RISK_CAMPAIGN_METRICS.nodes || {{}})[nodeId]) || null;
+    }}
+
     function nodeSensitivityMeta(nodeId) {{
-      return SUPPLIER_PARAMETER_SENSITIVITY_NODES[nodeId] || null;
+      const meta = SUPPLIER_PARAMETER_SENSITIVITY_NODES[nodeId] || null;
+      if (meta) return meta;
+      const campaign = supplierStressCampaignMeta(nodeId);
+      if (!campaign) return null;
+      const status = campaign.status === "sensitive"
+        ? "sensitive"
+        : (campaign.status === "watch" ? "watch" : (campaign.status === "not_local" ? "not_local" : "robust"));
+      return {{
+        source: "supplier_risk_campaign",
+        status,
+        status_label: `Stress test fournisseur - ${{campaign.status_label || "resultat disponible"}}`,
+        driver_family_label: "Stress tests fournisseurs",
+        driver_label: campaign.driver_label || "n/a",
+        driver_color: campaign.driver_color || "#475569",
+        first_unacceptable: campaign.impact_metier_delta || campaign.impact_pct || "n/a",
+        reason: campaign.impact_metier_lecture || campaign.impact_explanation || "aucune degradation KPI visible",
+      }};
     }}
 
     function simulatedRiskStateHasNodes() {{
@@ -23499,21 +27270,11 @@ def html_template(
     }}
 
     function normalizeSimulatedRiskViewMode() {{
-      const hasCampaign = Boolean(SIMULATED_RISK_CAMPAIGN_METRICS && SIMULATED_RISK_CAMPAIGN_METRICS.available);
-      const hasState = simulatedRiskStateHasNodes();
-      if (simulatedRiskViewMode === "campaign" && !hasCampaign) {{
-        simulatedRiskViewMode = hasState ? "state" : "campaign";
-      }}
-      if (simulatedRiskViewMode === "state" && !hasState && hasCampaign) {{
-        simulatedRiskViewMode = "campaign";
-      }}
+      simulatedRiskViewMode = "state";
     }}
 
     function selectedSimulatedRiskMetrics() {{
       normalizeSimulatedRiskViewMode();
-      if (simulatedRiskViewMode === "campaign" && SIMULATED_RISK_CAMPAIGN_METRICS.available) {{
-        return SIMULATED_RISK_CAMPAIGN_METRICS;
-      }}
       return SIMULATED_RISK_STATE_METRICS || {{ nodes: {{}}, global: {{}} }};
     }}
 
@@ -23649,8 +27410,8 @@ def html_template(
 
     function riskPredictionUncertainty(meta) {{
       if (!meta) return 0;
-      const risk = parsePercentText(summaryLineValue(meta, "Risque estime max"));
-      const high = parsePercentText(summaryLineValue(meta, "Estimation prudente"));
+      const risk = parsePercentText(summaryLineValue(meta, ["Score menace max", "Risque estime max"]));
+      const high = parsePercentText(summaryLineValue(meta, ["Borne prudente", "Estimation prudente"]));
       return Math.max(0, Math.min(1, high - risk));
     }}
 
@@ -23699,9 +27460,6 @@ def html_template(
         const simulatedMeta = nodeSimulatedRiskMeta(n.id);
         if (!simulatedMeta) return 8;
         const score = Number(simulatedMeta.score) || 0;
-        if (simulatedMeta.source === "supplier_risk_campaign") {{
-          return Math.max(9, Math.min(18, 9 + score * 80));
-        }}
         const applied = Number(simulatedMeta.applied_event_count) || 0;
         return Math.max(9, Math.min(17, 9 + score * 6 + Math.min(applied, 4)));
       }}
@@ -23724,7 +27482,6 @@ def html_template(
       if (currentPanelMode === "simulated_risk") {{
         const simulatedMeta = nodeSimulatedRiskMeta(n.id);
         if (!simulatedMeta) return 0.34;
-        if (simulatedMeta.source === "supplier_risk_campaign") return 0.96;
         return simulatedMeta.status === "applied" ? 0.96 : 0.58;
       }}
       const meta = currentPanelMode === "sensitivity" ? nodeSensitivityMeta(n.id) : null;
@@ -23736,6 +27493,14 @@ def html_template(
     function nodeSensitivityText(n) {{
       const meta = nodeSensitivityMeta(n.id);
       if (!meta || currentPanelMode !== "sensitivity") return "";
+      if (meta.source === "supplier_risk_campaign") {{
+        return [
+          `Stress tests fournisseurs: ${{meta.status_label || "n/a"}}`,
+          `Pire famille testee: ${{meta.driver_label || "n/a"}}`,
+          `Impact metier: ${{meta.first_unacceptable || "n/a"}}`,
+          `Lecture: ${{meta.reason || "n/a"}}`,
+        ].join("<br>");
+      }}
       return [
         `Statut sensibilite: ${{meta.status_label || "n/a"}}`,
         `Point faible principal: ${{meta.driver_family_label || "n/a"}} - ${{meta.driver_label || "n/a"}}`,
@@ -23748,7 +27513,7 @@ def html_template(
       const meta = nodeRiskMeta(n.id);
       if (!meta || currentPanelMode !== "risk") return "";
       const lines = Array.isArray(meta.summary_lines) ? meta.summary_lines : [];
-      const selected = lines.filter(entry => ["Niveau de risque", "Risque estime max", "Estimation prudente", "Priorite d'action", "Marge de recuperation min", "Action prudente"].includes(entry.label));
+      const selected = lines.filter(entry => ["Niveau de criticite", "Criticite fournisseur", "Action prudente", "Marge incertitude", "Niveau de risque"].includes(entry.label));
       if (!selected.length) return "";
       return selected.map(entry => `${{entry.label}}: ${{entry.value || "n/a"}}`).join("<br>");
     }}
@@ -23756,17 +27521,6 @@ def html_template(
     function nodeSimulatedRiskText(n) {{
       const meta = nodeSimulatedRiskMeta(n.id);
       if (!meta || currentPanelMode !== "simulated_risk") return "";
-      if (meta.source === "supplier_risk_campaign") {{
-        return [
-          `Statut campagne: ${{meta.status_label || "n/a"}}`,
-          `Pire risque teste: ${{meta.driver_label || "n/a"}}`,
-          `Impact metier: ${{meta.impact_metier_kpi || "n/a"}} ${{meta.impact_metier_delta || ""}}`,
-          `Score decisionnel: ${{fmtPanelQty(Number(meta.score_decisionnel_pct || meta.impact_pct) || 0, 1)}}%`,
-          `Familles testees: ${{meta.tested_family_count || 0}}`,
-          `Horizon: ${{meta.period || "n/a"}}`,
-          `Pourquoi: ${{meta.impact_explanation || "aucune degradation KPI visible"}}`,
-        ].join("<br>");
-      }}
       return [
         `Statut risques simules: ${{meta.status_label || "n/a"}}`,
         `Type principal: ${{meta.driver_label || "n/a"}}`,
@@ -24167,55 +27921,82 @@ def html_template(
       const incomingBlock = document.getElementById("incomingBlock");
       const outgoingBlock = document.getElementById("outgoingBlock");
       const thirdBlock = document.getElementById("thirdBlock");
+      const fourthBlock = document.getElementById("fourthBlock");
       const metaBlock = document.getElementById("panelMeta");
       const metaGrid = document.getElementById("panelMetaGrid");
       const incomingLabel = document.getElementById("incomingLabel");
       const outgoingLabel = document.getElementById("outgoingLabel");
       const thirdLabel = document.getElementById("thirdLabel");
+      const fourthLabel = document.getElementById("fourthLabel");
       const incomingTabs = document.getElementById("incomingTabs");
       const outgoingTabs = document.getElementById("outgoingTabs");
       const thirdTabs = document.getElementById("thirdTabs");
+      const fourthTabs = document.getElementById("fourthTabs");
       const incomingImg = document.getElementById("factoryIncomingImage");
       const outgoingImg = document.getElementById("factoryOutgoingImage");
       const thirdImg = document.getElementById("factoryThirdImage");
+      const fourthImg = document.getElementById("factoryFourthImage");
       const incomingFigure = document.getElementById("factoryIncomingFigure");
       const outgoingFigure = document.getElementById("factoryOutgoingFigure");
       const thirdFigure = document.getElementById("factoryThirdFigure");
+      const fourthFigure = document.getElementById("factoryFourthFigure");
       const fourthHelp = document.getElementById("fourthHelp");
       const noImg = document.getElementById("factoryHoverNoImage");
       const statePill = document.getElementById("factoryHoverState");
       const clearBtn = document.getElementById("factoryHoverClearSelection");
+      const detailControls = document.getElementById("panelDetailControls");
       incomingBlock.style.display = "block";
       outgoingBlock.style.display = "block";
       thirdBlock.style.display = "none";
+      if (fourthBlock) {{
+        fourthBlock.style.display = "none";
+        fourthBlock.classList.remove("panelAdvancedBlock");
+        fourthBlock.classList.remove("isCollapsed");
+      }}
       incomingLabel.textContent = "Stock matieres premieres (entree)";
       outgoingLabel.textContent = "Production produits finis (sortie)";
       thirdLabel.textContent = "Analyse complementaire";
+      if (fourthLabel) fourthLabel.textContent = "MRP / risque";
       incomingTabs.innerHTML = "";
       incomingTabs.style.display = "none";
       outgoingTabs.innerHTML = "";
       outgoingTabs.style.display = "none";
       thirdTabs.innerHTML = "";
       thirdTabs.style.display = "none";
+      if (fourthTabs) {{
+        fourthTabs.innerHTML = "";
+        fourthTabs.style.display = "none";
+      }}
       incomingImg.removeAttribute("src");
       incomingImg.style.display = "none";
       outgoingImg.removeAttribute("src");
       outgoingImg.style.display = "none";
       thirdImg.removeAttribute("src");
       thirdImg.style.display = "none";
+      if (fourthImg) {{
+        fourthImg.removeAttribute("src");
+        fourthImg.style.display = "none";
+      }}
       purgePlotlyNode(incomingFigure);
       purgePlotlyNode(outgoingFigure);
       purgePlotlyNode(thirdFigure);
+      if (fourthFigure) purgePlotlyNode(fourthFigure);
       incomingFigure.innerHTML = "";
       outgoingFigure.innerHTML = "";
       thirdFigure.innerHTML = "";
+      if (fourthFigure) fourthFigure.innerHTML = "";
       incomingFigure.style.display = "none";
       outgoingFigure.style.display = "none";
       thirdFigure.style.display = "none";
+      if (fourthFigure) fourthFigure.style.display = "none";
       incomingFigure.classList.remove("factoryFigureStackContainer");
       outgoingFigure.classList.remove("factoryFigureStackContainer");
       thirdFigure.classList.remove("factoryFigureStackContainer");
+      if (fourthFigure) fourthFigure.classList.remove("factoryFigureStackContainer");
       fourthHelp.style.display = "block";
+      if (detailControls) detailControls.classList.remove("visible");
+      panelDetailsExpanded = false;
+      panelDetailsKey = "";
       metaGrid.innerHTML = "";
       metaBlock.style.display = "none";
       noImg.style.display = "none";
@@ -24375,10 +28156,27 @@ def html_template(
       return "businessInfo";
     }}
 
+    function simulationDiagnosticPayload(nodeId, nodeType) {{
+      if (currentPanelMode !== "ops") return null;
+      if (nodeType === "edge") {{
+        return ((SIMULATION_DIAGNOSTICS.edges || {{}})[nodeId]) || null;
+      }}
+      return ((SIMULATION_DIAGNOSTICS.nodes || {{}})[nodeId]) || null;
+    }}
+
     function businessSummaryPayload(nodeId, nodeType) {{
       const nodeLabel = nodeType === "edge"
         ? ((EDGE_BY_ID[nodeId] || {{}}).from || "n/a") + " -> " + ((EDGE_BY_ID[nodeId] || {{}}).to || "n/a")
         : ((nodeById[nodeId] || {{}}).name || nodeId);
+      const simulationDiagnostic = simulationDiagnosticPayload(nodeId, nodeType);
+      if (simulationDiagnostic) {{
+        return {{
+          pill: simulationDiagnostic.pill || "Diagnostic",
+          title: simulationDiagnostic.title || `${{nodeLabel}} - diagnostic simulation`,
+          text: simulationDiagnostic.text || "",
+          cls: simulationDiagnostic.cls || "businessInfo",
+        }};
+      }}
       if (currentPanelMode === "sensitivity") {{
         const meta = nodeSensitivityMeta(nodeId);
         if (meta) {{
@@ -24400,52 +28198,44 @@ def html_template(
       if (currentPanelMode === "simulated_risk") {{
         const meta = nodeSimulatedRiskMeta(nodeId);
         if (meta) {{
-          if (meta.source === "supplier_risk_campaign") {{
-            const cls = meta.status === "sensitive" ? "businessAlert" : (meta.status === "watch" ? "businessWarn" : (meta.status === "robust" ? "businessOk" : "businessInfo"));
-            return {{
-              pill: "Risques simules",
-              title: `${{meta.status_label || "Campagne"}} - ${{nodeLabel}}`,
-              text: `Question metier: si l'on degrade ce fournisseur, quelle famille de risque impacte le plus les KPI ? Pire risque teste: ${{meta.driver_label || "n/a"}}. Impact metier principal: ${{meta.impact_metier_kpi || "n/a"}} ${{meta.impact_metier_delta || ""}}. Score decisionnel modele ${{fmtPanelQty(Number(meta.score_decisionnel_pct || meta.impact_pct) || 0, 1)}}% sur ${{meta.tested_family_count || 0}} familles testees. Horizon: ${{meta.period || "n/a"}}. Ce n'est pas une probabilite terrain.`,
-              cls,
-            }};
-          }}
           const cls = meta.status === "applied" ? "businessWarn" : (meta.status === "configured" ? "businessInfo" : "businessOk");
           return {{
             pill: "Risques simules",
             title: `${{meta.status_label || "Scenario"}} - ${{nodeLabel}}`,
-            text: `Question metier: que se passe-t-il si ces risques fournisseurs se produisent ? Type principal: ${{meta.driver_label || "n/a"}}. Evenements appliques: ${{meta.applied_event_count || 0}} sur ${{meta.configured_event_count || 0}} configures. Periode: ${{meta.period || "n/a"}}. Cette lecture vient des evenements injectes dans le scenario courant.`,
+            text: `Question metier: quels aleas ont vraiment pese sur ce noeud ? Famille appliquee dominante: ${{meta.applied_event_count ? (meta.driver_label || "n/a") : "aucune"}}. Evenements ayant modifie le run: ${{meta.applied_event_count || 0}}. Periode: ${{meta.period || "n/a"}}.`,
             cls,
           }};
         }}
         return {{
           pill: "Risques simules",
-          title: `${{nodeLabel}} - aucun evenement simule local`,
-          text: "Question metier: que se passe-t-il si ces risques fournisseurs se produisent ? Aucun evenement de risque fournisseur n'est configure ou applique sur ce noeud dans ce run.",
+          title: `${{nodeLabel}} - aucun evenement local`,
+          text: "Question metier: quels aleas ont vraiment pese sur ce noeud ? Aucun evenement fournisseur n'est configure ou applique localement. Les stress tests contrefactuels sont disponibles dans l'onglet Sensibilite.",
           cls: "businessInfo",
         }};
       }}
       if (currentPanelMode === "risk") {{
         const meta = nodeRiskMeta(nodeId);
         if (meta) {{
-          const zone = summaryLineValue(meta, "Niveau de risque") || meta.decision_zone || "n/a";
-          const risk = summaryLineValue(meta, "Risque estime max") || "n/a";
+          const zone = summaryLineValue(meta, ["Niveau de criticite", "Niveau de risque"]) || meta.decision_zone || "n/a";
+          const criticity = summaryLineValue(meta, ["Criticite fournisseur", "Priorite d'action"]) || "n/a";
+          const uncertainty = summaryLineValue(meta, ["Marge incertitude"]) || "n/a";
           const action = summaryLineValue(meta, "Action prudente") || "n/a";
           const riskScore = Math.max(Number(meta.risk_probability) || 0, Number(meta.action_priority_score) || 0);
           const uncertaintyScore = Number(meta.prediction_uncertainty) || riskPredictionUncertainty(meta);
           const matrixCell = riskScore >= 0.35
-            ? (uncertaintyScore >= 0.20 ? "risque fort + incertitude forte" : "risque fort + incertitude faible")
-            : (uncertaintyScore >= 0.20 ? "risque faible + incertitude forte" : "risque faible + incertitude faible");
+            ? (uncertaintyScore >= 0.20 ? "menace forte + incertitude forte" : "menace forte + incertitude faible")
+            : (uncertaintyScore >= 0.20 ? "menace faible + incertitude forte" : "menace faible + incertitude faible");
           return {{
-            pill: "Risque",
-            title: `Niveau ${{zone}} - ${{nodeLabel}}`,
-            text: `Question metier: quel fournisseur merite une action ou une surveillance ? Risque = menace fournisseur. Incertitude = confiance dans l'estimation. Risque estime max ${{risk}}. Matrice decisionnelle: ${{matrixCell}}. Action metier: ${{action}}.`,
+            pill: "Criticite",
+            title: `Criticite ${{zone}} - ${{nodeLabel}}`,
+            text: `Question metier: quel fournisseur merite une action ou une surveillance ? Criticite fournisseur ${{criticity}}. Classe ${{zone}}. Action metier: ${{action}}. Marge d'incertitude ${{uncertainty}} dans les details de confiance.`,
             cls: riskZoneBusinessClass(zone),
           }};
         }}
         return {{
-          pill: "Risque",
-          title: `${{nodeLabel}} - pas de fiche risque fournisseur`,
-          text: "Question metier: quel fournisseur merite une action ou une surveillance ? Aucun risque fournisseur local n'est disponible pour ce noeud dans le run courant.",
+          pill: "Criticite",
+          title: `${{nodeLabel}} - pas de fiche criticite fournisseur`,
+          text: "Question metier: quel fournisseur est critique et merite une action ou une surveillance ? Aucune criticite fournisseur locale n'est disponible pour ce noeud dans le run courant.",
           cls: "businessInfo",
         }};
       }}
@@ -24638,16 +28428,8 @@ def html_template(
         return true;
       }}
       if (currentPanelMode === "simulated_risk") {{
-        const simulatedMetrics = nodeSimulatedRiskMeta(nodeId);
-        const lines = (simulatedMetrics && Array.isArray(simulatedMetrics.summary_lines)) ? simulatedMetrics.summary_lines : [];
-        if (!lines.length) {{
-          metaBlock.style.display = "none";
-          return false;
-        }}
-        metaTitle.textContent = "Risques simules du scenario";
-        lines.forEach((entry) => appendPanelMetaEntry(metaGrid, entry));
-        metaBlock.style.display = "block";
-        return true;
+        metaBlock.style.display = "none";
+        return false;
       }}
       if (currentPanelMode === "risk") {{
         metaBlock.style.display = "none";
@@ -24659,12 +28441,13 @@ def html_template(
         const generalLines = (generalMetrics && Array.isArray(generalMetrics.summary_lines)) ? generalMetrics.summary_lines : [];
         const riskLines = [];
         if (riskMetrics) {{
-          riskLines.push({{ label: "Famille", value: "Confiance prediction risque fournisseur" }});
-          riskLines.push({{ label: "Lecture", value: "Ecart entre estimation centrale et prudente. Ce n'est pas la resilience Monte Carlo." }});
-          riskLines.push({{ label: "Estimation centrale", value: summaryLineValue(riskMetrics, "Risque estime max") || "n/a" }});
-          riskLines.push({{ label: "Estimation prudente", value: summaryLineValue(riskMetrics, "Estimation prudente") || "n/a" }});
-          riskLines.push({{ label: "Ecart prudent", value: `${{fmtPanelQty(riskPredictionUncertainty(riskMetrics) * 100, 1)}} pts` }});
-          riskLines.push({{ label: "Niveau risque", value: summaryLineValue(riskMetrics, "Niveau de risque") || "n/a" }});
+          riskLines.push({{ label: "Famille", value: "Confiance lecture criticite fournisseur" }});
+          riskLines.push({{ label: "Lecture", value: "La marge d'incertitude sert uniquement a juger la confiance. Elle ne remplace pas la criticite fournisseur." }});
+          riskLines.push({{ label: "Criticite fournisseur", value: summaryLineValue(riskMetrics, ["Criticite fournisseur", "Priorite d'action"]) || "n/a" }});
+          riskLines.push({{ label: "Menace centrale detail", value: summaryLineValue(riskMetrics, ["Score menace max", "Risque estime max"]) || "n/a" }});
+          riskLines.push({{ label: "Borne haute detail", value: summaryLineValue(riskMetrics, ["Borne prudente", "Estimation prudente"]) || "n/a" }});
+          riskLines.push({{ label: "Marge incertitude", value: summaryLineValue(riskMetrics, "Marge incertitude") || `${{fmtPanelQty(riskPredictionUncertainty(riskMetrics) * 100, 1)}} pts` }});
+          riskLines.push({{ label: "Niveau criticite", value: summaryLineValue(riskMetrics, ["Niveau de criticite", "Niveau de risque"]) || "n/a" }});
           riskLines.push({{ label: "Action prudente", value: summaryLineValue(riskMetrics, "Action prudente") || "n/a" }});
         }}
         if (!generalLines.length && !riskLines.length) {{
@@ -24678,7 +28461,7 @@ def html_template(
           generalLines.forEach((entry) => entries.push(entry));
         }}
         if (riskLines.length) {{
-          entries.push({{ label: "Confiance prediction risque", value: "" }});
+          entries.push({{ label: "Confiance lecture criticite", value: "" }});
           riskLines.forEach((entry) => entries.push(entry));
         }}
         entries.forEach((entry) => appendPanelMetaEntry(metaGrid, entry));
@@ -24692,6 +28475,20 @@ def html_template(
             : (nodeType === "customer"
                 ? (CUSTOMER_CURRENT_METRICS[nodeId] || null)
                 : (nodeType === "edge" ? (EDGE_BY_ID[nodeId] || null) : null)));
+      const simulationDiagnostic = simulationDiagnosticPayload(nodeId, nodeType);
+      if (simulationDiagnostic && Array.isArray(simulationDiagnostic.summary_lines) && simulationDiagnostic.summary_lines.length) {{
+        metaTitle.textContent = "Diagnostic operationnel";
+        simulationDiagnostic.summary_lines.forEach((entry) => appendPanelMetaEntry(metaGrid, entry));
+        const currentLines = (isFactoryLikeNode(nodeId, nodeType) && currentPanelMode === "ops")
+          ? buildFactoryWindowSummaryLines(metrics)
+          : ((metrics && Array.isArray(metrics.summary_lines)) ? metrics.summary_lines : []);
+        if (currentLines.length && nodeType !== "edge") {{
+          appendPanelMetaEntry(metaGrid, {{ label: "Indicateurs courants", value: "" }});
+          currentLines.slice(0, 6).forEach((entry) => appendPanelMetaEntry(metaGrid, entry));
+        }}
+        metaBlock.style.display = "block";
+        return true;
+      }}
       if (nodeType === "edge") {{
         const edge = EDGE_BY_ID[nodeId] || null;
         const edgeMetrics = edge && edge.edge_metrics ? edge.edge_metrics : null;
@@ -24792,7 +28589,7 @@ def html_template(
         }}
         if (nodeType === "supplier_dc") {{
           return {{
-            incoming: "Fournisseur - synthese / top 3",
+            incoming: "Fournisseur - sensibilite / stress tests",
             outgoing: "Fournisseur - courbes par niveau teste",
             third: "Fournisseur - details avances",
             fourth: "Fournisseur - methode / garde-fous"
@@ -24828,23 +28625,23 @@ def html_template(
       if (currentPanelMode === "risk") {{
         if (nodeType === "supplier_dc") {{
           return {{
-            incoming: "Fournisseur - synthese risques",
-            outgoing: "Fournisseur - evolution du risque",
+            incoming: "Fournisseur - synthese criticite",
+            outgoing: "Fournisseur - evolution criticite",
             third: "Fournisseur - couples article-site",
             fourth: "Fournisseur - action recommandee"
           }};
         }}
         if (nodeType === "factory" || nodeType === "distribution_center") {{
           return {{
-            incoming: "Site - risques fournisseurs entrants",
-            outgoing: "Site - evolution des risques entrants",
+            incoming: "Site - criticites fournisseurs entrantes",
+            outgoing: "Site - evolution des criticites entrantes",
             third: "Site - fournisseurs / articles exposes",
             fourth: "Site - action recommandee"
           }};
         }}
         return {{
-          incoming: "Risques fournisseurs",
-          outgoing: "Evolution du risque",
+          incoming: "Criticite fournisseurs",
+          outgoing: "Evolution criticite",
           third: "Couples exposes",
           fourth: "Action recommandee"
         }};
@@ -24852,14 +28649,14 @@ def html_template(
       if (currentPanelMode === "simulated_risk") {{
         if (nodeType === "supplier_dc") {{
           return {{
-            incoming: "Campagne risques simules",
+            incoming: "Effets appliques",
             outgoing: "Effet sur stock fournisseur",
             third: "Ordres / envois concernes",
             fourth: "References fournisseur"
           }};
         }}
         return {{
-          incoming: "Campagne risques simules",
+          incoming: "Effets appliques",
           outgoing: "Effet local",
           third: "Flux concernes",
           fourth: "References"
@@ -24870,7 +28667,7 @@ def html_template(
           return {{
             incoming: "Monte Carlo - impact fournisseur",
             outgoing: "Drivers Monte Carlo",
-            third: "Risque fournisseur",
+            third: "Risque fournisseur simule",
             fourth: "Sources / limites"
           }};
         }}
@@ -24893,7 +28690,7 @@ def html_template(
         return {{
           incoming: "Monte Carlo - impact noeud",
           outgoing: "Details Monte Carlo",
-          third: "Risque fournisseur",
+          third: "Risque fournisseur simule",
           fourth: "Sources / limites"
         }};
       }}
@@ -24905,34 +28702,34 @@ def html_template(
       }}
       if (nodeId === "SDC-1450" && isFactoryLikeNode(nodeId, nodeType)) {{
         return {{
-          incoming: "Stock intrants / PFI",
-          outgoing: "Stock et expeditions PFI",
-          third: "Planning lots production",
-          fourth: "Pilotage MRP"
+          incoming: "Stocks intrants et PFI",
+          outgoing: "Production et stock PFI",
+          third: "Planning lots",
+          fourth: "Audit MRP"
         }};
       }}
       if (nodeType === "supplier_dc") {{
         return {{
-          incoming: "Fournisseur - flux physiques, stock, capacite",
-          outgoing: "Expeditions fournisseur",
-          third: "Planning lots production",
-          fourth: "Pilotage MRP"
+          incoming: "Pilotage / execution",
+          outgoing: "Stock fournisseur",
+          third: "Details fournisseur",
+          fourth: "Audit MRP"
         }};
       }}
       if (isFactoryLikeNode(nodeId, nodeType)) {{
         return {{
-          incoming: "Stock matieres",
-          outgoing: "Flux aval",
-          third: "Planning lots production",
-          fourth: "Pilotage MRP"
+          incoming: "Stocks composants / arrivages",
+          outgoing: "Production et stock produits",
+          third: "Planning lots",
+          fourth: "Audit MRP"
         }};
       }}
       if (nodeType === "distribution_center") {{
         return {{
-          incoming: "Stock DC",
+          incoming: "Stock physique DC",
           outgoing: "Receptions DC",
           third: "Expeditions DC",
-          fourth: "Pilotage MRP"
+          fourth: "Audit MRP"
         }};
       }}
       if (nodeType === "customer") {{
@@ -24940,7 +28737,7 @@ def html_template(
           incoming: "Demande client",
           outgoing: "Servi et backlog",
           third: "Receptions client",
-          fourth: "Pilotage MRP"
+          fourth: "Audit MRP"
         }};
       }}
       if (nodeType === "edge") {{
@@ -24957,6 +28754,29 @@ def html_template(
         third: "Capacite",
         fourth: "MRP / risque"
       }};
+    }}
+
+    function supplierStressCampaignAsset(nodeId) {{
+      const meta = supplierStressCampaignMeta(nodeId);
+      return meta && meta.asset ? meta.asset : null;
+    }}
+
+    function bundleAssetEntries(entries) {{
+      const usable = entries.filter(entry => entry && entry.asset);
+      if (!usable.length) return null;
+      if (usable.length === 1) return usable[0].asset;
+      return {{ bundle: usable }};
+    }}
+
+    function sensitivityPayloadWithSupplierStress(nodeId, payload) {{
+      const stressAsset = supplierStressCampaignAsset(nodeId);
+      if (!stressAsset) return payload;
+      const base = payload ? {{ ...payload }} : {{}};
+      base.incoming = bundleAssetEntries([
+        {{ label: "Seuils locaux", asset: payload && payload.incoming ? payload.incoming : null }},
+        {{ label: "Stress tests fournisseurs", asset: stressAsset }},
+      ]);
+      return base;
     }}
 
     function panelImages(nodeId, nodeType) {{
@@ -24993,6 +28813,10 @@ def html_template(
           : (nodeType === "supplier_dc"
               ? (SUPPLIER_SENSITIVITY_HOVER_IMAGES[nodeId] || null)
               : (nodeType === "distribution_center" ? (DC_SENSITIVITY_HOVER_IMAGES[nodeId] || null) : null));
+        if (nodeType === "supplier_dc") {{
+          const mergedPayload = sensitivityPayloadWithSupplierStress(nodeId, payload);
+          if (mergedPayload) return mergedPayload;
+        }}
         if (payload) return payload;
         if (nodeType === "edge") {{
           return null;
@@ -25008,19 +28832,11 @@ def html_template(
       if (currentPanelMode === "simulated_risk") {{
         if (nodeType === "edge") return null;
         const simulatedMeta = nodeSimulatedRiskMeta(nodeId);
-        if (simulatedMeta && simulatedMeta.asset) {{
-          return {{
-            incoming: simulatedMeta.asset,
-            outgoing: null,
-            third: null,
-            fourth: null,
-          }};
-        }}
         const modelDetails = ((MODEL_PANEL.nodes || {{}})[nodeId]) || null;
-        if (!modelDetails) return null;
+        if (!modelDetails || (!simulatedMeta && !modelDetails.simulated_risks)) return null;
         if (nodeType === "supplier_dc") {{
           return {{
-            incoming: modelDetails.simulated_risks || modelDetails.supplier_risk_catalog || null,
+            incoming: modelDetails.simulated_risks || null,
             outgoing: modelDetails.stock_flow || null,
             third: modelDetails.supplier_order_send || null,
             fourth: modelDetails.nominal || modelDetails.capacity_nominal || null,
@@ -25060,19 +28876,18 @@ def html_template(
         : (((MODEL_PANEL.nodes || {{}})[nodeId]) || null);
       if (nodeType === "supplier_dc") {{
         const supplierBase = SUPPLIER_HOVER_IMAGES[nodeId] || {{}};
-        const supplierDirectEntries = modelDetails ? [
-          {{ label: "Commandes / envois physiques", asset: modelDetails.supplier_order_send || null }},
-          {{ label: "Graph stock fournisseur", asset: supplierBase.incoming || null }},
+        const supplierFlowTop = (modelDetails && modelDetails.supplier_order_send) || supplierBase.outgoing || supplierBase.incoming || null;
+        const supplierStockTop = supplierFlowTop === supplierBase.incoming
+          ? null
+          : (supplierBase.incoming || null);
+        const supplierDetailEntries = modelDetails ? [
           {{ label: "Bilan stock fournisseur", asset: modelDetails.stock_flow || null }},
           {{ label: "References fournisseur", asset: modelDetails.nominal || null }},
           {{ label: "Reference capacite", asset: modelDetails.capacity_nominal || null }},
-        ] : [
-          {{ label: "Graph stock fournisseur", asset: supplierBase.incoming || null }},
-        ];
-        const supplierDirectBundle = {{
-          bundle: supplierDirectEntries.filter(entry => !!entry.asset)
+        ] : [];
+        const supplierDetailBundle = {{
+          bundle: supplierDetailEntries.filter(entry => !!entry.asset)
         }};
-        const supplierDirectTop = supplierDirectBundle.bundle.length ? supplierDirectBundle : (supplierBase.incoming || null);
         const supplierMrpEntries = modelDetails ? [
           {{ label: "Carnet", asset: modelDetails.third || null }},
           {{ label: "Flux MRP", asset: modelDetails.outgoing || null }},
@@ -25083,7 +28898,13 @@ def html_template(
           bundle: supplierMrpEntries.filter(entry => !!entry.asset)
         }};
         const supplierMrpFourth = supplierMrpBundle.bundle.length ? supplierMrpBundle : null;
-        return {{ ...supplierBase, incoming: supplierDirectTop, fourth: supplierMrpFourth }};
+        return {{
+          ...supplierBase,
+          incoming: supplierFlowTop,
+          outgoing: supplierStockTop,
+          third: supplierDetailBundle.bundle.length ? supplierDetailBundle : null,
+          fourth: supplierMrpFourth
+        }};
       }}
       const modelBundleEntries = modelDetails ? [
         {{ label: "Reference capacite", asset: modelDetails.capacity_nominal || null }},
@@ -25126,58 +28947,35 @@ def html_template(
 
     function updateSimulatedRiskControls() {{
       normalizeSimulatedRiskViewMode();
-      const viewSelect = document.getElementById("simulatedRiskViewSelect");
-      const hasCampaign = Boolean(SIMULATED_RISK_CAMPAIGN_METRICS && SIMULATED_RISK_CAMPAIGN_METRICS.available);
       const hasState = simulatedRiskStateHasNodes();
-      if (viewSelect) {{
-        viewSelect.value = simulatedRiskViewMode;
-        const campaignOption = viewSelect.querySelector('option[value="campaign"]');
-        if (campaignOption) {{
-          campaignOption.disabled = !hasCampaign;
-          campaignOption.textContent = hasCampaign ? "Campagne stress tests" : "Campagne stress tests (non dispo)";
-        }}
-        const stateOption = viewSelect.querySelector('option[value="state"]');
-        if (stateOption) {{
-          stateOption.disabled = !hasState;
-          stateOption.textContent = hasState ? "State-dependent du run" : "State-dependent du run (aucun evenement)";
-        }}
-      }}
       const value = document.getElementById("simulatedRiskViewValue");
       if (value) {{
-        value.textContent = SIMULATED_RISK_VIEW_LABELS[simulatedRiskViewMode] || simulatedRiskViewMode;
+        value.textContent = hasState ? "scenario injecte actif" : "aucun evenement injecte";
       }}
       const legend = document.getElementById("simulatedRiskLegend");
       if (legend) {{
-        const hint = simulatedRiskViewMode === "campaign"
-          ? "Couleur = pire famille testee. Taille = impact decisionnel."
-          : "Couleur = famille declenchee dans le run. Taille = intensite / nombre d'evenements.";
+        const hint = "Risques simules: evenements scenario metier et declenchements state-dependent appliques dans le run courant.";
         legend.setAttribute("title", hint);
       }}
       const legendHint = document.getElementById("simulatedRiskLegendHint");
       if (legendHint) {{
-        legendHint.textContent = simulatedRiskViewMode === "campaign"
-          ? "Campagne stress tests: couleur = pire famille testee. Taille = score decisionnel modele."
-          : "State-dependent: couleur = famille declenchee pendant le run. Taille = intensite / nombre d'evenements.";
+        legendHint.textContent = "Scenario injecte: couleur = famille appliquee dominante. Taille = intensite / nombre d'evenements. Les stress tests contrefactuels restent dans Sensibilite.";
       }}
       const globalSummary = document.getElementById("simulatedRiskGlobalSummary");
       if (globalSummary) {{
         const metrics = selectedSimulatedRiskMetrics();
         const global = metrics.global || {{}};
-        const counts = global.family_counts || {{}};
+        const counts = global.applied_family_counts || global.family_counts || {{}};
         const families = Object.entries(counts)
           .sort((a, b) => Number(b[1] || 0) - Number(a[1] || 0))
           .slice(0, 5)
           .map(([family, count]) => `${{SIMULATED_RISK_FAMILY_LABELS[family] || family}}: ${{count}}`);
-        const configured = Number(global.configured_event_count || 0);
         const applied = Number(global.applied_event_count || 0);
-        const nodes = Number(global.node_count || 0);
-        const modeLabel = simulatedRiskViewMode === "campaign" ? "Stress tests" : "State-dependent";
-        const eventText = simulatedRiskViewMode === "campaign"
-          ? `${{configured}} evenements testes`
-          : `${{configured}} evenements generes, ${{applied}} appliques`;
+        const nodes = Number(global.applied_node_count || global.node_count || 0);
+        const modeLabel = "Scenario injecte";
         globalSummary.textContent = families.length
-          ? `${{modeLabel}}: ${{eventText}}, ${{nodes}} noeuds. Familles: ${{families.join(" ; ")}}.`
-          : `${{modeLabel}}: aucun evenement disponible.`;
+          ? `${{modeLabel}}: ${{applied}} evenements ont modifie le run sur ${{nodes}} noeuds. Familles touchees: ${{families.join(" ; ")}}.`
+          : `${{modeLabel}}: aucun evenement fournisseur configure ou applique dans ce run. Les stress tests contrefactuels sont dans Sensibilite.`;
       }}
     }}
 
@@ -25210,7 +29008,13 @@ def html_template(
       document.getElementById("modeSimulatedRisk").classList.toggle("active", currentPanelMode === "simulated_risk");
       document.getElementById("modeRisk").classList.toggle("active", currentPanelMode === "risk");
       document.getElementById("modeUncertainty").classList.toggle("active", currentPanelMode === "uncertainty");
-      document.getElementById("modeStructural").classList.toggle("active", currentPanelMode === "structural");
+      const structuralBtn = document.getElementById("modeStructural");
+      const structuralAvailable = hasStructuralPayload();
+      if (structuralBtn) {{
+        structuralBtn.classList.toggle("active", currentPanelMode === "structural");
+        structuralBtn.classList.toggle("hidden", !structuralAvailable);
+        structuralBtn.disabled = !structuralAvailable;
+      }}
       const sensitivityLegend = document.getElementById("sensitivityLegend");
       if (sensitivityLegend) {{
         sensitivityLegend.classList.toggle("visible", currentPanelMode === "sensitivity");
@@ -25283,10 +29087,82 @@ def html_template(
       if (isDebugPanelMode(mode) && !debugToolsVisible) {{
         debugToolsVisible = true;
       }}
+      if (mode === "structural" && !hasStructuralPayload()) {{
+        return;
+      }}
       currentPanelMode = mode;
       lastFactoryPanelRenderKey = "";
       applyModeUi();
       draw();
+    }}
+
+    function isAdvancedPanelSlot(slot, nodeId, nodeType) {{
+      if (isDebugPanelMode(currentPanelMode)) return false;
+      if (currentPanelMode === "ops") {{
+        if (isFactoryLikeNode(nodeId, nodeType)) return slot === "third" || slot === "fourth";
+        if (nodeType === "supplier_dc") return slot === "third" || slot === "fourth";
+        if (nodeType === "customer") return slot === "third" || slot === "fourth";
+        if (nodeType === "edge") return slot === "third" || slot === "fourth";
+        return slot === "fourth";
+      }}
+      if (currentPanelMode === "sensitivity") {{
+        return slot === "third" || slot === "fourth";
+      }}
+      if (currentPanelMode === "simulated_risk") {{
+        return slot === "outgoing" || slot === "third" || slot === "fourth";
+      }}
+      if (currentPanelMode === "risk") {{
+        return slot === "outgoing" || slot === "third";
+      }}
+      if (currentPanelMode === "uncertainty") {{
+        return slot === "third" || slot === "fourth";
+      }}
+      return false;
+    }}
+
+    function applyPanelDetailVisibility(nodeId, nodeType) {{
+      const controls = document.getElementById("panelDetailControls");
+      const toggle = document.getElementById("panelDetailsToggle");
+      const hint = document.getElementById("panelDetailHint");
+      const blocks = [
+        {{ slot: "incoming", el: document.getElementById("incomingBlock"), label: document.getElementById("incomingLabel") }},
+        {{ slot: "outgoing", el: document.getElementById("outgoingBlock"), label: document.getElementById("outgoingLabel") }},
+        {{ slot: "third", el: document.getElementById("thirdBlock"), label: document.getElementById("thirdLabel") }},
+        {{ slot: "fourth", el: document.getElementById("fourthBlock"), label: document.getElementById("fourthLabel") }},
+      ];
+      const advanced = blocks.filter(block =>
+        block.el &&
+        block.el.style.display !== "none" &&
+        isAdvancedPanelSlot(block.slot, nodeId, nodeType)
+      );
+      blocks.forEach(block => {{
+        if (block.el) {{
+          block.el.classList.remove("panelAdvancedBlock");
+          block.el.classList.remove("isCollapsed");
+        }}
+      }});
+      if (!advanced.length) {{
+        if (controls) controls.classList.remove("visible");
+        return;
+      }}
+      advanced.forEach(block => {{
+        block.el.classList.add("panelAdvancedBlock");
+        block.el.classList.toggle("isCollapsed", !panelDetailsExpanded);
+      }});
+      const labels = advanced
+        .map(block => (block.label ? String(block.label.textContent || "").trim() : "details"))
+        .filter(Boolean);
+      if (controls) controls.classList.add("visible");
+      if (toggle) {{
+        toggle.textContent = panelDetailsExpanded
+          ? "Masquer details"
+          : `Afficher details (${{advanced.length}})`;
+      }}
+      if (hint) {{
+        hint.textContent = panelDetailsExpanded
+          ? "Vue complete: les blocs d'audit et de details sont affiches."
+          : `Vue resume: masque ${{labels.join(" / ")}}.`;
+      }}
     }}
 
     function showFactoryPanel(nodeId, nodeType, panelState) {{
@@ -25308,6 +29184,10 @@ def html_template(
       if (panel.classList.contains("visible") && lastFactoryPanelRenderKey === renderKey) {{
         positionFactoryPanel();
         return;
+      }}
+      if (panelDetailsKey !== renderKey) {{
+        panelDetailsExpanded = false;
+        panelDetailsKey = renderKey;
       }}
       lastFactoryPanelRenderKey = renderKey;
       const title = document.getElementById("factoryHoverTitle");
@@ -25353,7 +29233,7 @@ def html_template(
         json: "DEBUG",
         sensitivity: "Sensibilite",
         simulated_risk: "Risques simules",
-        risk: "Risques",
+        risk: "Criticite fournisseurs",
         uncertainty: "Incertitude",
         structural: "Structurel",
       }};
@@ -25385,14 +29265,12 @@ def html_template(
         : (currentPanelMode === "data"
           ? "Audit donnees: sources, champs et corrections. Cette vue sert a verifier les donnees, pas a piloter la decision."
           : (currentPanelMode === "simulated_risk"
-            ? (simulatedRiskViewMode === "campaign"
-              ? "Risques simules: campagne fournisseur x famille de risque. La carte montre le pire stress test et son impact KPI modele."
-              : "Risques simules: state-dependent du run. La carte montre les evenements declenches par les seuils observes pendant la simulation.")
+            ? "Risques simules: scenario injecte dans le run courant. La carte montre les evenements fournisseurs configures ou declenches qui ont vraiment pese localement."
           : (currentPanelMode === "risk"
-            ? "Risques fournisseurs: le risque est la menace metier. L'incertitude indique la confiance. L'action recommandee croise les deux."
+            ? "Criticite fournisseurs: lecture structurelle des fournisseurs importants, de la menace estimee, de l'incertitude et de l'action recommandee."
             : (currentPanelMode === "uncertainty"
               ? "Incertitude: les cartes locales mesurent la confiance de lecture. Le bouton Monte Carlo mesure la resilience globale sous aleas."
-              : "Simulation: lecture factuelle du run courant. Pas de prediction ni d'incertitude dans cet onglet."))));
+              : "Simulation: les premiers panneaux sont la lecture metier. Audit MRP regroupe le carnet, les flux planifies et les details de calcul."))));
       fourthHelp.style.display = fourthImageInfo ? "block" : "none";
 
       incomingBlock.style.display = incomingImageInfo ? "block" : "none";
@@ -25467,6 +29345,121 @@ def html_template(
               plot_bgcolor: "#ffffff",
               xaxis: {{ tickangle: -20 }},
               yaxis: {{ title: figure.y_label || "", gridcolor: "#e2e8f0" }},
+            }},
+          }};
+        }}
+        if (figure.kind === "production_execution") {{
+          const traces = [];
+          const addBarSeries = (series, axisSuffix) => {{
+            const points = Array.isArray(series.points) ? series.points : [];
+            const filtered = filterSeriesByTimeline(
+              points.map(point => Number(point.day) || 0),
+              points.map(point => Number(point.value) || 0)
+            );
+            if (!filtered.days.length) return;
+            traces.push({{
+              type: "bar",
+              name: series.label || "Quantite",
+              x: filtered.days,
+              y: filtered.values,
+              xaxis: axisSuffix ? `x${{axisSuffix}}` : "x",
+              yaxis: axisSuffix ? `y${{axisSuffix}}` : "y",
+              marker: {{
+                color: series.color || "#0f766e",
+                opacity: Number(series.opacity || 0.78),
+              }},
+              hovertemplate: "J%{{x}}<br>%{{fullData.name}}: %{{y:,.1f}}<extra></extra>",
+            }});
+          }};
+          const addLineSeries = (series, axisSuffix) => {{
+            const points = Array.isArray(series.points) ? series.points : [];
+            const filtered = filterSeriesByTimeline(
+              points.map(point => Number(point.day) || 0),
+              points.map(point => Number(point.value) || 0)
+            );
+            if (!filtered.days.length) return;
+            traces.push({{
+              type: "scatter",
+              mode: "lines",
+              name: series.label || "Repere",
+              x: filtered.days,
+              y: filtered.values,
+              xaxis: axisSuffix ? `x${{axisSuffix}}` : "x",
+              yaxis: axisSuffix ? `y${{axisSuffix}}` : "y",
+              line: {{
+                width: Number(series.width || 1.9),
+                color: series.color || "#475569",
+                dash: series.dash || "solid",
+              }},
+              hovertemplate: "J%{{x}}<br>%{{fullData.name}}: %{{y:,.1f}}<extra></extra>",
+            }});
+          }};
+          (figure.top_bars || figure.bars || []).forEach(series => addBarSeries(series, ""));
+          (figure.top_lines || []).forEach(series => addLineSeries(series, ""));
+          (figure.bottom_bars || []).forEach(series => addBarSeries(series, "2"));
+          (figure.bottom_lines || figure.lines || []).forEach(series => addLineSeries(series, "2"));
+          return {{
+            data: traces,
+            layout: {{
+              title: {{ text: figure.title || "", font: {{ size: 12 }} }},
+              margin: {{ l: 64, r: 24, t: 72, b: 86 }},
+              paper_bgcolor: "#ffffff",
+              plot_bgcolor: "#ffffff",
+              barmode: "overlay",
+              bargap: 0.16,
+              xaxis: {{ ...dayAxisLayout(""), domain: [0, 1], anchor: "y", showticklabels: false }},
+              yaxis: {{
+                title: figure.top_y_label || "Quantite lot",
+                domain: [0.45, 1],
+                anchor: "x",
+                gridcolor: "#e2e8f0",
+              }},
+              xaxis2: {{ ...dayAxisLayout(figure.x_label || "Jour"), domain: [0, 1], anchor: "y2" }},
+              yaxis2: {{
+                title: figure.bottom_y_label || "Quantite / jour",
+                domain: [0, 0.32],
+                anchor: "x2",
+                gridcolor: "#e2e8f0",
+              }},
+              legend: STANDARD_LEGEND,
+              annotations: [
+                {{
+                  text: figure.top_title || "Lots physiques produits ou reportes",
+                  xref: "paper",
+                  yref: "paper",
+                  x: 0,
+                  y: 1.04,
+                  xanchor: "left",
+                  yanchor: "bottom",
+                  showarrow: false,
+                  font: {{ size: 10, color: "#334155" }},
+                  align: "left",
+                }},
+                {{
+                  text: figure.bottom_title || "Besoin quotidien avant lotification",
+                  xref: "paper",
+                  yref: "paper",
+                  x: 0,
+                  y: 0.35,
+                  xanchor: "left",
+                  yanchor: "bottom",
+                  showarrow: false,
+                  font: {{ size: 10, color: "#334155" }},
+                  align: "left",
+                }},
+                ...(figure.note ? [{{
+                  text: figure.note,
+                  xref: "paper",
+                  yref: "paper",
+                  x: 0,
+                  y: 1.17,
+                  xanchor: "left",
+                  yanchor: "bottom",
+                  showarrow: false,
+                  font: {{ size: 10, color: "#475569" }},
+                  align: "left",
+                }}] : []),
+              ],
             }},
           }};
         }}
@@ -25840,6 +29833,7 @@ def html_template(
         figureEl.style.display = "none";
         figureEl.classList.remove("factoryHtmlPanel");
         figureEl.classList.remove("factoryOrderLedgerPanel");
+        figureEl.classList.remove("factoryTallHtmlPanel");
         figureEl.classList.remove("factoryKpiTreePanel");
         figureEl.classList.remove("factoryFigureStackContainer");
         if (tabsEl) {{
@@ -25856,7 +29850,10 @@ def html_template(
           let selectedIdx = panelBundleSelection[selectionKey] ?? 0;
           if (!hasSavedSelection && selectionKey.includes(":supplier_dc:")) {{
             const graphIdx = entries.findIndex(entry => (entry.label || "").toLowerCase() === "graph stock fournisseur");
-            const physicalFlowIdx = entries.findIndex(entry => (entry.label || "").toLowerCase().includes("envois physiques"));
+            const physicalFlowIdx = entries.findIndex(entry =>
+              ((entry.label || "").toLowerCase().includes("execution") ||
+               (entry.label || "").toLowerCase().includes("envois physiques"))
+            );
             const carnetIdx = entries.findIndex(entry => (entry.label || "").toLowerCase() === "carnet");
             const nominalIdx = entries.findIndex(entry => (entry.label || "").toLowerCase() === "nominal fournisseur");
             const preferredIdx = selectionKey.endsWith(":incoming")
@@ -25905,6 +29902,9 @@ def html_template(
           figureEl.innerHTML = asset.html;
           if (figureEl.querySelector(".orderLedgerPanelContent")) {{
             figureEl.classList.add("factoryOrderLedgerPanel");
+          }}
+          if (figureEl.querySelector(".sensitivityHtmlPanelContent")) {{
+            figureEl.classList.add("factoryTallHtmlPanel");
           }}
           applyLotTraceHtmlHighlight(figureEl);
           return true;
@@ -25955,6 +29955,7 @@ def html_template(
       if (renderAsset(outgoingImageInfo, outgoingImg, outgoingFigure, outgoingTabs, `${{currentPanelMode}}:${{nodeType}}:${{nodeId}}:outgoing`)) visibleCount += 1;
       if (renderAsset(thirdImageInfo, thirdImg, thirdFigure, thirdTabs, `${{currentPanelMode}}:${{nodeType}}:${{nodeId}}:third`)) visibleCount += 1;
       if (renderAsset(fourthImageInfo, fourthImg, fourthFigure, fourthTabs, `${{currentPanelMode}}:${{nodeType}}:${{nodeId}}:fourth`)) visibleCount += 1;
+      applyPanelDetailVisibility(nodeId, nodeType);
 
       if (!visibleCount && !hasMeta && !hasBusinessSummary) {{
         hideFactoryPanel();
@@ -25969,7 +29970,7 @@ def html_template(
         ) {{
           noImg.textContent = "Pas de courbe locale: fournisseur hors perimetre top actifs de l'etude.";
         }} else if (currentPanelMode === "risk") {{
-          noImg.textContent = "Aucune fiche risque fournisseur disponible pour ce noeud.";
+          noImg.textContent = "Aucune fiche criticite fournisseur disponible pour ce noeud.";
         }} else if (currentPanelMode === "uncertainty") {{
           noImg.textContent = "Aucune fiche incertitude disponible pour ce noeud.";
         }} else {{
@@ -26148,7 +30149,7 @@ def html_template(
               <div class="kpiFormulaIntro">
                 <b>Fill rate</b>: part de la demande servie, lecture client. <b>Disponibilite produit</b>: capacite a tenir le besoin produit dans le temps. <b>Backlog</b>: demande non servie restante.
                 <b>Adherence ligne</b>: stabilite entre plan et execution industrielle. <b>Cout stock</b>: cout ou estimation de cout d'immobilisation. <b>Signal MP usine zero</b>: diagnostic technique dans nos stocks usine, pas rupture client ni rupture fournisseur.
-                <b>Retard matiere</b>: ecart arrivee effective moins arrivee prevue. <b>Sensibilite</b>: effet observe quand on stresse un parametre. <b>Risque fournisseur</b>: score de decision, pas probabilite historique.
+                <b>Retard matiere</b>: ecart arrivee effective moins arrivee prevue. <b>Sensibilite</b>: effet observe quand on stresse un parametre. <b>Criticite fournisseur</b>: score de decision, pas probabilite historique.
                 <b>Incertitude</b>: confiance dans la lecture, pas danger fournisseur.
               </div>
             </details>
@@ -26631,6 +30632,20 @@ def html_template(
       }}
     }}
 
+    function renderSimulatedRiskGlobalIfVisible() {{
+      const modal = document.getElementById("simulatedRiskGlobalModal");
+      if (modal && modal.classList.contains("visible")) {{
+        renderSimulatedRiskGlobalDiagnostic();
+      }}
+    }}
+
+    function renderScenarioComparisonIfVisible() {{
+      const modal = document.getElementById("scenarioComparisonModal");
+      if (modal && modal.classList.contains("visible")) {{
+        renderScenarioComparison();
+      }}
+    }}
+
     function initRiskTooltipPortal() {{
       let tooltip = document.getElementById("riskTooltipPortal");
       if (!tooltip) {{
@@ -26723,12 +30738,648 @@ def html_template(
     function renderGlobalSensitivityTop3() {{
       const content = document.getElementById("sensitivityTop3Content");
       if (!content) return false;
+      const title = document.getElementById("sensitivityTop3ModalTitle");
+      const meta = document.getElementById("sensitivityTop3ModalMeta");
+      if (title) title.textContent = "Sensibilite - Top 3 resultats";
+      if (meta) meta.textContent = "Vue globale sans selectionner de noeud";
       const asset = (SUPPLIER_PARAMETER_SENSITIVITY_NODES || {{}})._global_top3 || null;
       if (asset && asset.html) {{
         content.innerHTML = asset.html;
         return true;
       }}
       content.innerHTML = '<div class="panelEmptyState">Aucun Top 3 de sensibilite disponible pour ce run.</div>';
+      return false;
+    }}
+
+    function escapeHtmlText(value) {{
+      return String(value ?? "").replace(/[&<>"']/g, (ch) => ({{
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;",
+      }}[ch] || ch));
+    }}
+
+    function renderSupplierStressCampaignOverview() {{
+      const content = document.getElementById("sensitivityTop3Content");
+      if (!content) return false;
+      const title = document.getElementById("sensitivityTop3ModalTitle");
+      const meta = document.getElementById("sensitivityTop3ModalMeta");
+      if (title) title.textContent = "Sensibilite - Stress tests fournisseurs";
+      const global = (SIMULATED_RISK_CAMPAIGN_METRICS && SIMULATED_RISK_CAMPAIGN_METRICS.global) || {{}};
+      const nodes = Object.entries((SIMULATED_RISK_CAMPAIGN_METRICS && SIMULATED_RISK_CAMPAIGN_METRICS.nodes) || {{}})
+        .sort((a, b) => Number((b[1] || {{}}).score || 0) - Number((a[1] || {{}}).score || 0));
+      if (meta) {{
+        const stressCases = Number(global.stress_case_count || 0);
+        const horizon = global.horizon_days || "n/a";
+        meta.textContent = `${{nodes.length}} fournisseurs testes ; ${{stressCases}} cas de stress ; horizon ${{horizon}} jours`;
+      }}
+      if (!nodes.length) {{
+        content.innerHTML = '<div class="panelEmptyState">Aucune campagne de stress tests fournisseurs disponible pour ce run.</div>';
+        return false;
+      }}
+      const rowsHtml = nodes.map(([supplierId, row], idx) => {{
+        const score = Number(row.score_decisionnel_pct || row.impact_pct || 0);
+        const metier = Number(row.impact_metier_pct || 0);
+        const color = row.driver_color || "#64748b";
+        return `
+          <tr>
+            <td class="num">${{idx + 1}}</td>
+            <td><span class="sensitivityLegendDot" style="background:${{escapeHtmlText(color)}}"></span> ${{escapeHtmlText(supplierId)}}</td>
+            <td>${{escapeHtmlText(row.status_label || "n/a")}}</td>
+            <td>${{escapeHtmlText(row.driver_label || "n/a")}}</td>
+            <td class="num">${{fmtPanelQty(score, 1)}}%</td>
+            <td>${{escapeHtmlText(row.impact_metier_kpi || "n/a")}}</td>
+            <td>${{escapeHtmlText(row.impact_metier_delta || "n/a")}}</td>
+            <td class="num">${{fmtPanelQty(metier, 1)}}%</td>
+            <td>${{escapeHtmlText(row.impact_metier_lecture || row.impact_explanation || "aucune degradation KPI visible")}}</td>
+          </tr>
+        `;
+      }}).join("");
+      content.innerHTML = `
+        <div class="factoryHtmlPanelContent sensitivityHtmlPanelContent">
+          <div class="orderLedgerTextHeader">Stress tests fournisseurs - vue globale</div>
+          <div class="orderLedgerStatus">Question metier: si l'on degrade un fournisseur dans un run contrefactuel, quels KPI bougent le plus ? Cette vue compare des scenarios simules separes au nominal ; ce ne sont pas des evenements observes du run courant.</div>
+          <div class="orderLedgerStatus">Lecture: le score decisionnel classe les stress tests pour prioriser l'analyse. L'impact metier et son delta indiquent le KPI vraiment degrade.</div>
+          <table class="materialTable">
+            <thead>
+              <tr>
+                <th class="num">Rang</th>
+                <th>Fournisseur</th>
+                <th>Statut</th>
+                <th>Pire famille testee</th>
+                <th class="num">Score decisionnel</th>
+                <th>KPI metier</th>
+                <th>Delta KPI</th>
+                <th class="num">Intensite metier</th>
+                <th>Lecture</th>
+              </tr>
+            </thead>
+            <tbody>${{rowsHtml}}</tbody>
+          </table>
+        </div>
+      `;
+      return true;
+    }}
+
+    function scenarioTubePercentile(values, pct) {{
+      const nums = (values || []).map(Number).filter(Number.isFinite).sort((a, b) => a - b);
+      if (!nums.length) return null;
+      if (nums.length === 1) return nums[0];
+      const pos = (nums.length - 1) * pct;
+      const lo = Math.floor(pos);
+      const hi = Math.ceil(pos);
+      if (lo === hi) return nums[lo];
+      return nums[lo] + (nums[hi] - nums[lo]) * (pos - lo);
+    }}
+
+    function scenarioTubeSeriesMap(series) {{
+      const map = new Map();
+      const days = Array.isArray(series.days) ? series.days : [];
+      const values = Array.isArray(series.values) ? series.values : [];
+      days.forEach((dayRaw, idx) => {{
+        const day = Number(dayRaw);
+        const value = Number(values[idx]);
+        if (!Number.isFinite(day) || !Number.isFinite(value)) return;
+        const key = Math.round(day);
+        const previous = map.has(key) ? Number(map.get(key)) : null;
+        if (previous === null || Math.abs(value) > Math.abs(previous)) {{
+          map.set(key, value);
+        }}
+      }});
+      return map;
+    }}
+
+    function buildScenarioTubePlotlyFigure(figure, palette) {{
+      const rawSeries = Array.isArray(figure.series) ? figure.series : [];
+      if (!rawSeries.length) return null;
+      const seriesMaps = rawSeries.map(series => ({{ series, valuesByDay: scenarioTubeSeriesMap(series) }}));
+      const daySet = new Set();
+      seriesMaps.forEach(item => item.valuesByDay.forEach((_value, day) => daySet.add(day)));
+      let days = [...daySet].filter(Number.isFinite).sort((a, b) => a - b);
+      if (!days.length) return null;
+      const minDay = Math.min(...days);
+      const maxDay = Math.max(...days);
+      if (maxDay - minDay <= 5000) {{
+        days = [];
+        for (let day = minDay; day <= maxDay; day += 1) days.push(day);
+      }}
+      const low = [];
+      const high = [];
+      const median = [];
+      const zeroFloorTube = Boolean(figure.tube_zero_floor);
+      const upperPctRaw = Number(figure.tube_upper_percentile);
+      const upperPct = Number.isFinite(upperPctRaw) ? Math.max(0, Math.min(1, upperPctRaw)) : 0.90;
+      days.forEach(day => {{
+        const vals = seriesMaps.map(item => Number(item.valuesByDay.get(day) || 0)).filter(Number.isFinite);
+        low.push(zeroFloorTube ? 0 : scenarioTubePercentile(vals, 0.10));
+        high.push(scenarioTubePercentile(vals, upperPct));
+        median.push(scenarioTubePercentile(vals, 0.50));
+      }});
+      const traces = [];
+      traces.push({{
+        type: "scatter",
+        mode: "lines",
+        name: "borne basse",
+        x: days,
+        y: low,
+        line: {{ width: 0, color: "rgba(37,99,235,0)" }},
+        hoverinfo: "skip",
+        showlegend: false,
+      }});
+      traces.push({{
+        type: "scatter",
+        mode: "lines",
+        name: figure.tube_label || "Enveloppe scenarios",
+        x: days,
+        y: high,
+        fill: "tonexty",
+        fillcolor: "rgba(37,99,235,0.16)",
+        line: {{ width: 0, color: "rgba(37,99,235,0)" }},
+        hovertemplate: "Jour=%{{x}}<br>Enveloppe haute=%{{y:.2f}}<extra></extra>",
+      }});
+      rawSeries.forEach((series, idx) => {{
+        const map = seriesMaps[idx].valuesByDay;
+        const y = days.map(day => Number(map.get(day) || 0));
+        traces.push({{
+          type: "scatter",
+          mode: "lines",
+          name: idx === 0 ? (figure.trajectory_label || "Trajectoires scenarios") : "trajectoire scenario",
+          x: days,
+          y,
+          line: {{
+            width: 0.8,
+            color: "rgba(71,85,105,0.32)",
+            shape: figure.step_like ? "hv" : "linear",
+          }},
+          opacity: 0.48,
+          hoverinfo: "skip",
+          showlegend: idx === 0,
+          legendgroup: "all-trajectories",
+        }});
+      }});
+      traces.push({{
+        type: "scatter",
+        mode: "lines",
+        name: "mediane scenarios",
+        x: days,
+        y: median,
+        line: {{
+          width: 1.8,
+          color: "rgba(37,99,235,0.72)",
+          dash: "dot",
+          shape: figure.step_like ? "hv" : "linear",
+        }},
+        hovertemplate: "Mediane<br>Jour=%{{x}}<br>Valeur=%{{y:.2f}}<extra></extra>",
+      }});
+      const highlightSeries = rawSeries.filter(series => (
+        Boolean(series.is_nominal) || Boolean(series.is_current) || Boolean(series.is_max_impact)
+      ));
+      highlightSeries.forEach((series) => {{
+        const map = scenarioTubeSeriesMap(series);
+        const y = days.map(day => Number(map.get(day) || 0));
+        const isNominal = Boolean(series.is_nominal);
+        const isCurrent = Boolean(series.is_current);
+        const isMaxImpact = Boolean(series.is_max_impact);
+        const color = isNominal ? "#111827" : isCurrent ? "#d97706" : isMaxImpact ? "#be123c" : (series.color || palette[0]);
+        const namePrefix = isNominal ? "nominal" : isCurrent ? "run courant" : isMaxImpact ? "plus perturbateur" : "scenario";
+        traces.push({{
+          type: "scatter",
+          mode: "lines",
+          name: `${{namePrefix}} - ${{series.label || ""}}`,
+          x: days,
+          y,
+          line: {{
+            width: isCurrent || isMaxImpact ? 3.0 : 2.6,
+            color,
+            dash: isNominal ? "solid" : "solid",
+            shape: figure.step_like ? "hv" : "linear",
+          }},
+          hovertemplate: `${{series.label || "Scenario"}}<br>Jour=%{{x}}<br>Valeur=%{{y:.2f}}<extra></extra>`,
+        }});
+      }});
+      const shapes = [];
+      const referenceValue = Number(figure.reference_line_value);
+      if (Number.isFinite(referenceValue)) {{
+        shapes.push({{
+          type: "line",
+          xref: "paper",
+          x0: 0,
+          x1: 1,
+          yref: "y",
+          y0: referenceValue,
+          y1: referenceValue,
+          line: {{ color: "#2563eb", width: 1.4, dash: "dash" }},
+        }});
+      }}
+      const annotations = figure.note ? [{{
+        text: figure.note,
+        xref: "paper",
+        yref: "paper",
+        x: 0,
+        y: 1.17,
+        xanchor: "left",
+        yanchor: "bottom",
+        showarrow: false,
+        font: {{ size: 10, color: "#475569" }},
+        align: "left",
+      }}] : [];
+      if (Number.isFinite(referenceValue) && figure.reference_line_label) {{
+        annotations.push({{
+          text: figure.reference_line_label,
+          xref: "paper",
+          yref: "y",
+          x: 1,
+          y: referenceValue,
+          xanchor: "right",
+          yanchor: "bottom",
+          showarrow: false,
+          font: {{ size: 10, color: "#2563eb" }},
+        }});
+      }}
+      return {{
+        data: traces,
+        layout: {{
+          title: {{ text: figure.title || "", font: {{ size: 12 }} }},
+          margin: {{ l: 54, r: 18, t: figure.note ? 66 : 46, b: 64 }},
+          paper_bgcolor: "#ffffff",
+          plot_bgcolor: "#ffffff",
+          xaxis: dayAxisLayout(figure.x_label || "Jour"),
+          yaxis: {{ title: figure.y_label || "", gridcolor: "#e2e8f0", rangemode: "tozero" }},
+          legend: {{ orientation: "h", y: -0.28, font: {{ size: 10 }} }},
+          shapes,
+          annotations,
+        }},
+      }};
+    }}
+
+    function buildSimulatedRiskDiagnosticPlotlyFigure(figure) {{
+      if (!figure) return null;
+      const palette = ["#0f766e", "#2563eb", "#dc2626", "#d97706", "#7c3aed", "#475569", "#0891b2"];
+      if (figure.kind === "bar") {{
+        return {{
+          data: [{{
+            type: "bar",
+            name: figure.y_label || "Valeur",
+            x: figure.labels || [],
+            y: figure.values || [],
+            marker: {{ color: figure.colors || palette[0] }},
+            hovertemplate: "%{{x}}<br>%{{y:.2f}}<extra></extra>",
+          }}],
+          layout: {{
+            title: {{ text: figure.title || "", font: {{ size: 12 }} }},
+            margin: {{ l: 64, r: 18, t: 46, b: 92 }},
+            paper_bgcolor: "#ffffff",
+            plot_bgcolor: "#ffffff",
+            xaxis: {{ title: "", tickangle: -18, automargin: true }},
+            yaxis: {{ title: figure.y_label || "", gridcolor: "#e2e8f0" }},
+            showlegend: false,
+          }},
+        }};
+      }}
+      if (figure.kind !== "line_multi") return null;
+      if (figure.scenario_tube) {{
+        return buildScenarioTubePlotlyFigure(figure, palette);
+      }}
+      return {{
+        data: (figure.series || []).map((series, idx) => {{
+          const filtered = filterSeriesByTimeline(series.days || [], series.values || []);
+          const showMarkers = Boolean(series.show_markers) || (filtered.days || []).length <= 2;
+          const trace = {{
+            type: "scatter",
+            mode: showMarkers ? "lines+markers" : "lines",
+            name: series.label || `Serie ${{idx + 1}}`,
+            x: filtered.days,
+            y: filtered.values,
+            line: {{
+              width: Number(series.width || 2.2),
+              color: series.color || palette[idx % palette.length],
+              dash: series.dash || "solid",
+              shape: figure.step_like ? "hv" : "linear",
+            }},
+            hovertemplate: `${{series.label || "Serie"}}<br>Jour=%{{x}}<br>Valeur=%{{y:.2f}}<extra></extra>`,
+          }};
+          if (showMarkers) {{
+            trace.marker = {{
+              size: Number(series.marker_size || 6),
+              color: series.color || palette[idx % palette.length],
+            }};
+          }}
+          return trace;
+        }}),
+        layout: {{
+          title: {{ text: figure.title || "", font: {{ size: 12 }} }},
+          margin: {{ l: 54, r: 18, t: figure.note ? 66 : 46, b: 58 }},
+          paper_bgcolor: "#ffffff",
+          plot_bgcolor: "#ffffff",
+          xaxis: dayAxisLayout(figure.x_label || "Jour"),
+          yaxis: {{ title: figure.y_label || "", gridcolor: "#e2e8f0" }},
+          legend: {{ orientation: "h", y: -0.26, font: {{ size: 10 }} }},
+          annotations: figure.note ? [{{
+            text: figure.note,
+            xref: "paper",
+            yref: "paper",
+            x: 0,
+            y: 1.17,
+            xanchor: "left",
+            yanchor: "bottom",
+            showarrow: false,
+            font: {{ size: 10, color: "#475569" }},
+            align: "left",
+          }}] : [],
+        }},
+      }};
+    }}
+
+    function renderDiagnosticFigureSlots(figures, slots) {{
+      if (!window.Plotly || !figures) return;
+      const purgeDiagnosticPlot = (node) => {{
+        if (!node) return;
+        const plots = node.matches && node.matches(".js-plotly-plot")
+          ? [node, ...Array.from(node.querySelectorAll(".js-plotly-plot"))]
+          : Array.from(node.querySelectorAll(".js-plotly-plot"));
+        plots.forEach((plotNode) => {{
+          try {{ Plotly.purge(plotNode); }} catch (e) {{}}
+        }});
+      }};
+      const sizeDiagnosticLayout = (layout, targetEl) => {{
+        const rect = targetEl.getBoundingClientRect();
+        return {{
+          ...(layout || {{}}),
+          autosize: false,
+          width: Math.max(320, Math.floor(rect.width || targetEl.clientWidth || 680)),
+          height: Math.max(260, Math.floor(rect.height || targetEl.clientHeight || 300)),
+          showlegend: (layout || {{}}).showlegend ?? true,
+        }};
+      }};
+      slots.forEach(([key, elementId]) => {{
+        const el = document.getElementById(elementId);
+        if (!el) return;
+        purgeDiagnosticPlot(el);
+        const plotlyFigure = buildSimulatedRiskDiagnosticPlotlyFigure(figures[key] || null);
+        if (!plotlyFigure) {{
+          el.innerHTML = '<div class="panelEmptyState">Courbe non disponible.</div>';
+          return;
+        }}
+        el.innerHTML = "";
+        installCtrlScrollZoomGate(el);
+        Plotly.react(el, plotlyFigure.data, sizeDiagnosticLayout(plotlyFigure.layout, el), PLOTLY_RESPONSIVE_CONFIG);
+      }});
+    }}
+
+    function renderSimulatedRiskGlobalDiagnosticFigures() {{
+      if (!window.Plotly || !SIMULATED_RISK_GLOBAL_DIAGNOSTIC) return;
+      const figures = SIMULATED_RISK_GLOBAL_DIAGNOSTIC.figures || {{}};
+      const slots = [
+        ["risk_intensity", "simRiskChartRisk"],
+        ["risk_breadth", "simRiskChartBreadth"],
+        ["production_events", "simRiskChartProduction"],
+        ["customer_service", "simRiskChartService"],
+      ];
+      renderDiagnosticFigureSlots(figures, slots);
+    }}
+
+    function renderSimulatedRiskGlobalDiagnostic() {{
+      const content = document.getElementById("simulatedRiskGlobalContent");
+      if (!content) return false;
+      if (SIMULATED_RISK_GLOBAL_DIAGNOSTIC && SIMULATED_RISK_GLOBAL_DIAGNOSTIC.html) {{
+        content.innerHTML = SIMULATED_RISK_GLOBAL_DIAGNOSTIC.html;
+        requestAnimationFrame(renderSimulatedRiskGlobalDiagnosticFigures);
+        return true;
+      }}
+      content.innerHTML = '<div class="panelEmptyState">Aucun bilan de scenario risque disponible pour ce run.</div>';
+      return false;
+    }}
+
+    function scenarioComparisonScenarios() {{
+      return Array.isArray(SCENARIO_COMPARISON.scenarios) ? SCENARIO_COMPARISON.scenarios : [];
+    }}
+
+    function ensureScenarioComparisonSelection() {{
+      const scenarios = scenarioComparisonScenarios();
+      const validIds = new Set(scenarios.map(s => String(s.id || "")));
+      if (!scenarioComparisonSelectedIds.size) {{
+        scenarioComparisonSelectedIds = new Set(
+          (SCENARIO_COMPARISON.default_selected_ids || scenarios.map(s => s.id)).map(String).filter(id => validIds.has(id))
+        );
+      }} else {{
+        scenarioComparisonSelectedIds = new Set([...scenarioComparisonSelectedIds].filter(id => validIds.has(id)));
+      }}
+      if (!scenarioComparisonSelectedIds.size && scenarios.length) {{
+        scenarioComparisonSelectedIds.add(String(scenarios[0].id || ""));
+      }}
+    }}
+
+    function scenarioComparisonSelectedScenarioList() {{
+      ensureScenarioComparisonSelection();
+      const selected = scenarioComparisonSelectedIds;
+      return scenarioComparisonScenarios().filter(s => selected.has(String(s.id || "")));
+    }}
+
+    function scenarioComparisonCard(title, value, text, color) {{
+      return `
+        <div class="riskScenarioCard" style="border-left-color:${{escapeHtmlText(color || "#64748b")}}">
+          <div class="riskScenarioCardTitle">${{escapeHtmlText(title)}}</div>
+          <div class="riskScenarioCardText"><strong>${{escapeHtmlText(value)}}</strong><br>${{escapeHtmlText(text)}}</div>
+        </div>
+      `;
+    }}
+
+    function scenarioComparisonDelta(value, base, digits = 0) {{
+      const diff = Number(value || 0) - Number(base || 0);
+      if (Math.abs(diff) <= 1e-9) return "0";
+      return `${{diff > 0 ? "+" : ""}}${{fmtPanelQty(diff, digits)}}`;
+    }}
+
+    function scenarioComparisonCardsHtml() {{
+      const scenarios = scenarioComparisonSelectedScenarioList();
+      const allScenarios = scenarioComparisonScenarios();
+      if (!scenarios.length) {{
+        return '<div class="panelEmptyState">Aucun scenario selectionne.</div>';
+      }}
+      const nominal = allScenarios.find(s => ["_codex_lot_trace_5y_safe", "baseline_nominal"].includes(String(s.id || ""))) || allScenarios[0] || scenarios[0];
+      const nominalKpis = (nominal && nominal.kpis) || {{}};
+      const bestCost = scenarios.reduce((best, item) => Number((item.kpis || {{}}).total_cost || Infinity) < Number((best.kpis || {{}}).total_cost || Infinity) ? item : best, scenarios[0]);
+      const bestProduction = scenarios.reduce((best, item) => {{
+        const a = item.kpis || {{}};
+        const b = best.kpis || {{}};
+        const aKey = [Number(a.input_delay_count || 0), Number(a.input_delay_volume || 0)];
+        const bKey = [Number(b.input_delay_count || 0), Number(b.input_delay_volume || 0)];
+        return (aKey[0] < bKey[0] || (aKey[0] === bKey[0] && aKey[1] < bKey[1])) ? item : best;
+      }}, scenarios[0]);
+      const mostRisk = scenarios.reduce((best, item) => {{
+        const a = item.kpis || {{}};
+        const b = best.kpis || {{}};
+        return Number(a.impact_score || a.risk_event_count || 0) > Number(b.impact_score || b.risk_event_count || 0) ? item : best;
+      }}, scenarios[0]);
+      const refText = `Base de comparaison: fill rate ${{fmtPanelQty(Number(nominalKpis.fill_rate || 0) * 100, 1)}}% ; cout total ${{fmtPanelQty(nominalKpis.total_cost || 0, 0)}}. Amorcage client: ${{Number(nominalKpis.startup_backlog_days || 0)}} j, pic ${{fmtPanelQty(nominalKpis.startup_backlog_peak || 0, 0)}}.`;
+      const bestCostKpis = bestCost.kpis || {{}};
+      const bestProductionKpis = bestProduction.kpis || {{}};
+      const mostRiskKpis = mostRisk.kpis || {{}};
+      return [
+        scenarioComparisonCard("Reference", nominal.label || "Reference", refText, "#2563eb"),
+        scenarioComparisonCard(
+          "Cout total le plus bas",
+          bestCost.label || "n/a",
+          `Cout total ${{fmtPanelQty(bestCostKpis.total_cost || 0, 0)}} ; delta vs reference ${{scenarioComparisonDelta(bestCostKpis.total_cost || 0, nominalKpis.total_cost || 0, 0)}}.`,
+          "#0f766e"
+        ),
+        scenarioComparisonCard(
+          "Production la moins reportee",
+          bestProduction.label || "n/a",
+          `${{Number(bestProductionKpis.input_delay_count || 0)}} reports intrants ; volume reporte ${{fmtPanelQty(bestProductionKpis.input_delay_volume || 0, 0)}}.`,
+          "#d97706"
+        ),
+        scenarioComparisonCard(
+          "Scenario le plus perturbateur",
+          mostRisk.label || "n/a",
+          `Score ${{fmtPanelQty(mostRiskKpis.impact_score || 0, 1)}} ; fill rate ${{fmtPanelQty(Number(mostRiskKpis.fill_rate || 0) * 100, 1)}}% ; backlog max ${{fmtPanelQty(mostRiskKpis.max_backlog || 0, 0)}}.`,
+          "#be123c"
+        ),
+      ].join("");
+    }}
+
+    function filterScenarioComparisonFigure(figure) {{
+      ensureScenarioComparisonSelection();
+      const selected = scenarioComparisonSelectedIds;
+      if (!figure) return null;
+      if (figure.kind === "line_multi") {{
+        const filteredSeries = (figure.series || []).filter(series => {{
+          const id = String(series.scenario_id || "");
+          return selected.has(id);
+        }});
+        if (!filteredSeries.length) return null;
+        return {{ ...figure, series: filteredSeries }};
+      }}
+      if (figure.kind === "bar") {{
+        const ids = figure.ids || [];
+        const labels = [];
+        const values = [];
+        const colors = [];
+        ids.forEach((id, idx) => {{
+          if (!selected.has(String(id || ""))) return;
+          labels.push((figure.labels || [])[idx]);
+          values.push((figure.values || [])[idx]);
+          colors.push((figure.colors || [])[idx] || "#2563eb");
+        }});
+        if (!labels.length) return null;
+        return {{ ...figure, ids: ids.filter(id => selected.has(String(id || ""))), labels, values, colors }};
+      }}
+      return figure;
+    }}
+
+    function renderScenarioComparisonFigures() {{
+      if (!window.Plotly || !SCENARIO_COMPARISON) return;
+      const sourceFigures = SCENARIO_COMPARISON.figures || {{}};
+      const filteredFigures = {{
+        backlog: filterScenarioComparisonFigure(sourceFigures.backlog || null),
+        service_rate: filterScenarioComparisonFigure(sourceFigures.service_rate || null),
+        production_delays: filterScenarioComparisonFigure(sourceFigures.production_delays || null),
+        production_starts: filterScenarioComparisonFigure(sourceFigures.production_starts || null),
+        risk_rows: filterScenarioComparisonFigure(sourceFigures.risk_rows || null),
+        cost: filterScenarioComparisonFigure(sourceFigures.cost || null),
+      }};
+      renderDiagnosticFigureSlots(filteredFigures, [
+        ["backlog", "scenarioCmpBacklog"],
+        ["service_rate", "scenarioCmpService"],
+        ["production_delays", "scenarioCmpProduction"],
+        ["production_starts", "scenarioCmpStarts"],
+        ["risk_rows", "scenarioCmpRisk"],
+        ["cost", "scenarioCmpCost"],
+      ]);
+    }}
+
+    function applyScenarioComparisonFilter() {{
+      ensureScenarioComparisonSelection();
+      const selected = scenarioComparisonSelectedIds;
+      const total = scenarioComparisonScenarios().length;
+      document.querySelectorAll(".scenarioComparisonChk").forEach(chk => {{
+        chk.checked = selected.has(String(chk.value || ""));
+      }});
+      document.querySelectorAll(".scenarioComparisonTable tbody tr[data-scenario-id]").forEach(row => {{
+        row.classList.toggle("scenarioComparisonHidden", !selected.has(String(row.getAttribute("data-scenario-id") || "")));
+      }});
+      const meta = document.getElementById("scenarioComparisonSelectionMeta");
+      if (meta) meta.textContent = `${{selected.size}} / ${{total}} scenario(s) affiches`;
+      const cards = document.getElementById("scenarioComparisonCards");
+      if (cards) cards.innerHTML = scenarioComparisonCardsHtml();
+      requestAnimationFrame(renderScenarioComparisonFigures);
+    }}
+
+    function bindScenarioComparisonControls() {{
+      ensureScenarioComparisonSelection();
+      document.querySelectorAll(".scenarioComparisonChk").forEach(chk => {{
+        chk.checked = scenarioComparisonSelectedIds.has(String(chk.value || ""));
+        chk.addEventListener("change", () => {{
+          const id = String(chk.value || "");
+          if (chk.checked) scenarioComparisonSelectedIds.add(id);
+          else scenarioComparisonSelectedIds.delete(id);
+          applyScenarioComparisonFilter();
+        }});
+      }});
+      document.querySelectorAll("[data-scenario-select]").forEach(btn => {{
+        btn.addEventListener("click", () => {{
+          const mode = String(btn.getAttribute("data-scenario-select") || "");
+          const scenarios = scenarioComparisonScenarios();
+          const nominal = scenarios.find(s => ["_codex_lot_trace_5y_safe", "baseline_nominal"].includes(String(s.id || "")));
+          const withNominal = (items) => {{
+            const ids = [];
+            if (nominal) ids.push(String(nominal.id || ""));
+            items.forEach(item => {{
+              const id = String(item.id || "");
+              if (id && !ids.includes(id)) ids.push(id);
+            }});
+            return new Set(ids);
+          }};
+          const familyIncludes = (scenario, key) => String(scenario.family || scenario.kind || "").toLowerCase().includes(key);
+          if (mode === "all") {{
+            scenarioComparisonSelectedIds = new Set(scenarios.map(s => String(s.id || "")));
+          }} else if (mode === "top") {{
+            const ranked = [...scenarios]
+              .filter(s => !["_codex_lot_trace_5y_safe", "baseline_nominal"].includes(String(s.id || "")))
+              .sort((a, b) => Number((b.kpis || {{}}).impact_score || 0) - Number((a.kpis || {{}}).impact_score || 0))
+              .slice(0, 8);
+            scenarioComparisonSelectedIds = withNominal(ranked);
+          }} else if (mode === "service") {{
+            const service = scenarios.filter(s => {{
+              const k = s.kpis || {{}};
+              return Number(k.fill_rate || 1) < 0.999 || Number(k.max_backlog || 0) > 0;
+            }});
+            scenarioComparisonSelectedIds = withNominal(service.length ? service : scenarios.slice(0, 1));
+          }} else if (mode === "lead_time") {{
+            scenarioComparisonSelectedIds = withNominal(scenarios.filter(s => familyIncludes(s, "lead_time") || familyIncludes(s, "delai")));
+          }} else if (mode === "quality") {{
+            scenarioComparisonSelectedIds = withNominal(scenarios.filter(s => familyIncludes(s, "quality")));
+          }} else if (mode === "transport") {{
+            scenarioComparisonSelectedIds = withNominal(scenarios.filter(s => familyIncludes(s, "transport")));
+          }} else if (mode === "combined") {{
+            scenarioComparisonSelectedIds = withNominal(scenarios.filter(s => familyIncludes(s, "combined")));
+          }} else if (mode === "current") {{
+            const current = scenarios.find(s => Boolean(s.is_current)) || scenarios[0];
+            scenarioComparisonSelectedIds = new Set(current ? [String(current.id || "")] : []);
+          }} else if (mode === "nominal_current") {{
+            const ids = [];
+            const current = scenarios.find(s => Boolean(s.is_current));
+            if (nominal) ids.push(String(nominal.id || ""));
+            if (current) ids.push(String(current.id || ""));
+            scenarioComparisonSelectedIds = new Set(ids.length ? ids : scenarios.slice(0, 2).map(s => String(s.id || "")));
+          }}
+          applyScenarioComparisonFilter();
+        }});
+      }});
+    }}
+
+    function renderScenarioComparison() {{
+      const content = document.getElementById("scenarioComparisonContent");
+      if (!content) return false;
+      if (SCENARIO_COMPARISON && SCENARIO_COMPARISON.html) {{
+        content.innerHTML = SCENARIO_COMPARISON.html;
+        bindScenarioComparisonControls();
+        applyScenarioComparisonFilter();
+        return true;
+      }}
+      content.innerHTML = '<div class="panelEmptyState">Aucune comparaison de scenarios disponible. Regenerer au moins un run nominal et un run risque dans etudecas/simulation/result.</div>';
       return false;
     }}
 
@@ -26769,12 +31420,54 @@ def html_template(
         renderGlobalSensitivityTop3();
         sensitivityTop3Modal.classList.add("visible");
       }});
+      const supplierStressCampaignBtn = document.getElementById("supplierStressCampaignBtn");
+      if (supplierStressCampaignBtn) {{
+        supplierStressCampaignBtn.addEventListener("click", () => {{
+          setPanelMode("sensitivity");
+          renderSupplierStressCampaignOverview();
+          sensitivityTop3Modal.classList.add("visible");
+        }});
+      }}
       document.getElementById("sensitivityTop3CloseBtn").addEventListener("click", () => {{
         sensitivityTop3Modal.classList.remove("visible");
       }});
       sensitivityTop3Modal.addEventListener("click", (ev) => {{
         if (ev.target === sensitivityTop3Modal) {{
           sensitivityTop3Modal.classList.remove("visible");
+        }}
+      }});
+      const simulatedRiskGlobalModal = document.getElementById("simulatedRiskGlobalModal");
+      const simulatedRiskGlobalBtn = document.getElementById("simulatedRiskGlobalBtn");
+      if (simulatedRiskGlobalBtn) {{
+        simulatedRiskGlobalBtn.addEventListener("click", () => {{
+          setPanelMode("simulated_risk");
+          simulatedRiskGlobalModal.classList.add("visible");
+          renderSimulatedRiskGlobalDiagnostic();
+        }});
+      }}
+      document.getElementById("simulatedRiskGlobalCloseBtn").addEventListener("click", () => {{
+        simulatedRiskGlobalModal.classList.remove("visible");
+      }});
+      simulatedRiskGlobalModal.addEventListener("click", (ev) => {{
+        if (ev.target === simulatedRiskGlobalModal) {{
+          simulatedRiskGlobalModal.classList.remove("visible");
+        }}
+      }});
+      const scenarioComparisonModal = document.getElementById("scenarioComparisonModal");
+      const scenarioComparisonBtn = document.getElementById("scenarioComparisonBtn");
+      if (scenarioComparisonBtn) {{
+        scenarioComparisonBtn.addEventListener("click", () => {{
+          setPanelMode("simulated_risk");
+          scenarioComparisonModal.classList.add("visible");
+          renderScenarioComparison();
+        }});
+      }}
+      document.getElementById("scenarioComparisonCloseBtn").addEventListener("click", () => {{
+        scenarioComparisonModal.classList.remove("visible");
+      }});
+      scenarioComparisonModal.addEventListener("click", (ev) => {{
+        if (ev.target === scenarioComparisonModal) {{
+          scenarioComparisonModal.classList.remove("visible");
         }}
       }});
       const monteCarloModal = document.getElementById("monteCarloModal");
@@ -26809,16 +31502,6 @@ def html_template(
           draw();
         }});
       }}
-      const simulatedRiskViewSelect = document.getElementById("simulatedRiskViewSelect");
-      if (simulatedRiskViewSelect) {{
-        simulatedRiskViewSelect.addEventListener("change", (ev) => {{
-          simulatedRiskViewMode = String(ev.target.value || "campaign");
-          normalizeSimulatedRiskViewMode();
-          lastFactoryPanelRenderKey = "";
-          updateSimulatedRiskControls();
-          draw();
-        }});
-      }}
       const kpiTreeModal = document.getElementById("kpiTreeModal");
       document.getElementById("kpiTreeBtn").addEventListener("click", () => {{
         kpiTreeModal.classList.add("visible");
@@ -26844,6 +31527,24 @@ def html_template(
           modelEquationsModal.classList.remove("visible");
         }}
       }});
+      const panelDetailsToggle = document.getElementById("panelDetailsToggle");
+      if (panelDetailsToggle) {{
+        panelDetailsToggle.addEventListener("click", () => {{
+          panelDetailsExpanded = !panelDetailsExpanded;
+          applyPanelDetailVisibility(
+            currentFactoryHoverId || selectedPanelNodeId || "",
+            currentFactoryHoverType || selectedPanelNodeType || ""
+          );
+          requestAnimationFrame(() => {{
+            placeAndResizeFactoryPanel();
+            if (window.Plotly && Plotly.Plots && Plotly.Plots.resize) {{
+              document.querySelectorAll("#factoryHoverPanel .js-plotly-plot").forEach(plot => {{
+                try {{ Plotly.Plots.resize(plot); }} catch (e) {{}}
+              }});
+            }}
+          }});
+        }});
+      }}
       document.getElementById("showDebugTools").addEventListener("change", (ev) => {{
         debugToolsVisible = Boolean(ev.target.checked);
         if (!debugToolsVisible && isDebugPanelMode(currentPanelMode)) {{
@@ -26897,6 +31598,8 @@ def html_template(
         renderMaterialTable();
         refreshFactoryPanel();
         renderGlobalKpiTreeIfVisible();
+        renderSimulatedRiskGlobalIfVisible();
+        renderScenarioComparisonIfVisible();
       }});
       document.getElementById("yearEnd").addEventListener("input", (ev) => {{
         selectedYearEnd = Number(ev.target.value || 1);
@@ -26908,6 +31611,8 @@ def html_template(
         renderMaterialTable();
         refreshFactoryPanel();
         renderGlobalKpiTreeIfVisible();
+        renderSimulatedRiskGlobalIfVisible();
+        renderScenarioComparisonIfVisible();
       }});
       document.getElementById("factoryHoverClearSelection").addEventListener("click", clearPanelSelection);
       window.addEventListener("resize", placeAndResizeFactoryPanel);
@@ -26953,6 +31658,7 @@ def main() -> None:
     )
     input_arrivals_csv = Path(args.input_arrivals_csv)
     production_constraint_csv = Path(args.production_constraint_csv)
+    mrp_trace_csv = production_constraint_csv.parent / "mrp_trace_daily.csv"
     lot_events_csv = (
         Path(args.lot_events_csv)
         if args.lot_events_csv
@@ -27058,6 +31764,7 @@ def main() -> None:
             sim_output_png_dir,
             demand_service_csv,
             production_constraint_csv,
+            mrp_trace_csv,
         )
         payload["factory_current_metrics"] = build_factory_current_metrics(
             raw,
@@ -27068,6 +31775,11 @@ def main() -> None:
             lot_genealogy_csv,
             production_plan_events_csv,
             raw,
+            sim_input,
+            sim_output,
+            Path(args.dc_stocks_csv),
+            demand_service_csv,
+            supplier_stocks_csv,
         )
         payload["supplier_hover_images"] = build_supplier_hover_images(
             raw,
@@ -27076,13 +31788,14 @@ def main() -> None:
             supplier_stocks_csv,
             supplier_stock_flows_csv,
             supplier_capacity_csv,
+            mrp_trace_csv,
         )
         payload["distribution_center_hover_images"] = build_distribution_center_hover_images(
             raw,
             sim_input_png_dir,
             Path(args.dc_stocks_csv),
             supplier_shipments_csv,
-            Path(args.dc_stocks_csv).parent / "mrp_trace_daily.csv",
+            mrp_trace_csv,
         )
         edge_metrics = build_edge_metrics(
             raw,
@@ -27093,6 +31806,21 @@ def main() -> None:
             edge_id = str(edge_payload.get("id") or "")
             if edge_id in edge_metrics:
                 edge_payload["edge_metrics"] = edge_metrics[edge_id]
+        payload["simulation_diagnostics"] = build_simulation_diagnostics_payload(
+            raw,
+            demand_service_csv=demand_service_csv,
+            dc_stocks_csv=Path(args.dc_stocks_csv),
+            sim_input_stocks_csv=sim_input,
+            sim_output_products_csv=sim_output,
+            production_constraint_csv=production_constraint_csv,
+            production_plan_events_csv=production_plan_events_csv,
+            supplier_shipments_csv=supplier_shipments_csv,
+            supplier_stocks_csv=supplier_stocks_csv,
+            supplier_stock_flows_csv=supplier_stock_flows_csv,
+            supplier_local_criticality_csv=supplier_local_criticality_csv,
+            mrp_trace_csv=mrp_trace_csv,
+            edge_metrics=edge_metrics,
+        )
         payload["model_panel"] = build_model_panel_metrics(
             raw,
             sim_input_stocks_csv=sim_input,
@@ -27108,6 +31836,12 @@ def main() -> None:
             dc_stocks_csv=Path(args.dc_stocks_csv),
             production_constraint_csv=production_constraint_csv,
         )
+        payload["simulated_risk_global_diagnostic"] = build_simulated_risk_global_diagnostic_payload(
+            raw=raw,
+            output_root=output_root_from_csv(demand_service_csv),
+            simulated_risk_metrics=payload["model_panel"].get("simulated_risk_metrics", {}),
+        )
+        payload["scenario_comparison"] = build_scenario_comparison_payload(output_root_from_csv(demand_service_csv))
         payload["supplier_risk_campaign"] = build_supplier_risk_campaign_payload(
             supplier_risk_campaign_summary_json,
             supplier_risk_campaign_summary_csv,
