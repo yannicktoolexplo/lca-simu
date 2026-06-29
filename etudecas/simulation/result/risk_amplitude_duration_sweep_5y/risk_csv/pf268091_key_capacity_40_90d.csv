@@ -1,0 +1,5 @@
+event_id,risk_type,supplier_id,item_id,dst_node_id,edge_id,start_day,end_day,multiplier,notes
+pf268091_key_capacity_40_90d_capacity_SDC_VD0951020A_007923_1,capacity,SDC-VD0951020A,item:007923,M-1810,,0,89,0.4,pf268091_key_capacity_40_90d: capacity on 007923 gros flux for 90d
+pf268091_key_capacity_40_90d_capacity_SDC_VD0525412A_333362_2,capacity,SDC-VD0525412A,item:333362,M-1810,,0,89,0.4,pf268091_key_capacity_40_90d: capacity on 333362 composant for 90d
+pf268091_key_capacity_40_90d_capacity_SDC_VD0989480A_426331_3,capacity,SDC-VD0989480A,item:426331,M-1810,,0,89,0.4,pf268091_key_capacity_40_90d: capacity on 426331 composant for 90d
+pf268091_key_capacity_40_90d_capacity_SDC_1450_693055_4,capacity,SDC-1450,item:693055,M-1810,,0,89,0.4,pf268091_key_capacity_40_90d: capacity on 693055 PFI for 90d

@@ -1,0 +1,3 @@
+event_id,risk_type,supplier_id,item_id,dst_node_id,edge_id,start_day,end_day,multiplier,notes
+network_transport_block_120d_lead_time_extra_days_M_1430_268967_factory_dc,lead_time_extra_days,M-1430,item:268967,DC-1920,,0,119,45.0,network_transport_block_120d: lead_time_extra_days on transport usine -> DC 268967 for 120d
+network_transport_block_120d_lead_time_extra_days_DC_1920_268967_dc_client,lead_time_extra_days,DC-1920,item:268967,C-XXXXX,,0,119,45.0,network_transport_block_120d: lead_time_extra_days on transport DC -> client 268967 for 120d
