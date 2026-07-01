@@ -12,6 +12,7 @@
 *.bak
 *.swp
 *~
+~$*.xlsx
 
 # Fichiers de configuration de l'environnement virtuel Python
 venv/
@@ -37,6 +38,7 @@ dist/
 
 # Fichiers de cache
 __pycache__/
+.pytest_cache/
 
 # Fichiers de documentation générés
 docs/_build/

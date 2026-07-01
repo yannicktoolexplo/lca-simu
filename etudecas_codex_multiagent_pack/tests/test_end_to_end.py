@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from etudecas.cli import run
+from etudecas_agentkit.cli import run
 
 from tests.conftest import ROOT
 

@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import pandas as pd
 
-from etudecas.core.config_loader import load_yaml
-from etudecas.data.validator import DataValidator
+from etudecas_agentkit.core.config_loader import load_yaml
+from etudecas_agentkit.data.validator import DataValidator
 
 from tests.conftest import ROOT
 

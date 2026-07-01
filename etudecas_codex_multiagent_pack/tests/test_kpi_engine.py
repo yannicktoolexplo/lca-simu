@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import pandas as pd
 
-from etudecas.core.case import CaseStudy
-from etudecas.kpi.engine import KPIEngine
+from etudecas_agentkit.core.case import CaseStudy
+from etudecas_agentkit.kpi.engine import KPIEngine
 
 from tests.conftest import ROOT
 

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Etudecas Lot Trace"
+  short_description: "Suivi de lots et genealogie"
+  default_prompt: "Utilise ce skill pour modifier ou auditer la lotification et la genealogie des lots Etudecas."

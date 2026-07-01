@@ -93,7 +93,7 @@
   },
   "data_poc_price_integration": {
     "enabled": true,
-    "xlsx_path": "/workspaces/lca-simu/etudecas/donnees/Data_poc.xlsx",
+    "xlsx_path": "/workspaces/lca-simu/etudecas/data/source/Data_poc.xlsx",
     "sheet_found": true,
     "rows_read": 33,
     "rows_mapped": 33

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from etudecas.validation.visual_checks import VisualValidator
+from etudecas_agentkit.validation.visual_checks import VisualValidator
 
 
 def test_visual_validator_accepts_non_empty_file(tmp_path):
