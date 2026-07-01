@@ -33,6 +33,13 @@ Archive all non-kept `simulation_output` directories:
 python etudecas\simulation\sensibility\cleanup_sensibility_outputs.py --execute
 ```
 
+Delete all non-kept `simulation_output` directories when the study is
+reproducible from scripts and compact summaries are enough:
+
+```powershell
+python etudecas\simulation\sensibility\cleanup_sensibility_outputs.py --delete --execute
+```
+
 Keep paths containing a token:
 
 ```powershell
@@ -45,4 +52,6 @@ The script writes:
 - `sensibility_artifact_manifest.json`
 
 It moves outputs to `etudecas/simulation/sensibility_archives` by default. Use
-`--archive-root` to place the archive outside the repository.
+`--archive-root` to place the archive outside the repository. With `--delete`,
+it removes only discovered `simulation_output` directories and keeps the root
+summaries, reports, case registry CSVs and input files.
