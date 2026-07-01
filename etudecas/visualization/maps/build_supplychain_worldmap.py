@@ -8576,6 +8576,12 @@ def build_simulated_risk_global_diagnostic_payload(
 def build_scenario_comparison_payload(current_output_root: Path) -> dict[str, Any]:
     result_root = current_output_root.parent
     sweep_root = result_root / "risk_amplitude_duration_sweep_5y"
+    sweep_cases_root = sweep_root / "cases"
+    compact_payload_path = sweep_root / "scenario_comparison_payload_compact.json"
+    if compact_payload_path.exists() and not sweep_cases_root.exists():
+        compact_payload = load_json_dict(compact_payload_path)
+        if compact_payload:
+            return compact_payload
     sweep_summary_csv = sweep_root / "risk_amplitude_duration_sweep_summary.csv"
     sweep_rows = read_csv_rows(sweep_summary_csv)
     sweep_by_id = {str(row.get("case_id") or ""): row for row in sweep_rows if row.get("case_id")}
@@ -8638,7 +8644,7 @@ def build_scenario_comparison_payload(current_output_root: Path) -> dict[str, An
                 continue
             roots.append(root)
             seen.add(root)
-        cases_root = sweep_root / "cases"
+        cases_root = sweep_cases_root
         if cases_root.exists():
             for row in sorted(sweep_rows, key=lambda item: to_float(item.get("impact_score")), reverse=True):
                 case_id = str(row.get("case_id") or "")
