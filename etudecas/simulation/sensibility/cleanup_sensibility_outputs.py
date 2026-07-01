@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Inventory and archive heavy sensitivity simulation outputs.
+"""Inventory and archive or delete heavy sensitivity simulation outputs.
 
 The script is safe by default: it performs a dry-run and writes a manifest.
-Use ``--execute`` to move ``simulation_output`` directories to an archive root.
+Use ``--execute`` to move ``simulation_output`` directories to an archive root,
+or ``--delete --execute`` to remove them after the manifest has been written.
 """
 
 from __future__ import annotations
@@ -41,7 +42,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--execute",
         action="store_true",
-        help="Actually move simulation_output directories. Default is dry-run.",
+        help="Actually apply the selected action. Default is dry-run.",
+    )
+    parser.add_argument(
+        "--delete",
+        action="store_true",
+        help="Delete simulation_output directories instead of archiving them.",
     )
     parser.add_argument(
         "--keep",
@@ -164,18 +170,20 @@ def write_manifest(path: Path, rows: list[dict[str, Any]]) -> None:
             writer.writerow({field: row.get(field, "") for field in fieldnames})
 
 
-def archive_outputs(
+def apply_output_retention(
     rows: list[dict[str, Any]],
     *,
     root: Path,
     archive_root: Path,
     execute: bool,
+    delete: bool,
     limit: int,
     overwrite: bool,
 ) -> list[dict[str, Any]]:
     root_resolved = safe_resolve(root)
     archive_resolved = safe_resolve(archive_root)
-    archive_resolved.mkdir(parents=True, exist_ok=True)
+    if not delete:
+        archive_resolved.mkdir(parents=True, exist_ok=True)
 
     moved = 0
     for row in rows:
@@ -188,6 +196,16 @@ def archive_outputs(
             continue
         if limit and moved >= limit:
             row["action"] = "skip_limit"
+            continue
+        if delete:
+            row["archive_destination"] = ""
+            if not execute:
+                row["action"] = "dry_run_delete"
+                moved += 1
+                continue
+            shutil.rmtree(src)
+            row["action"] = "deleted"
+            moved += 1
             continue
         relative = src.relative_to(root_resolved)
         dst = archive_resolved / relative
@@ -219,11 +237,12 @@ def main() -> None:
     json_summary_path = Path(args.json_summary)
 
     rows = discover_outputs(root, args.keep)
-    rows = archive_outputs(
+    rows = apply_output_retention(
         rows,
         root=root,
         archive_root=archive_root,
         execute=bool(args.execute),
+        delete=bool(args.delete),
         limit=max(0, int(args.limit)),
         overwrite=bool(args.overwrite),
     )
@@ -238,6 +257,7 @@ def main() -> None:
         "root": str(root),
         "archive_root": str(archive_root),
         "execute": bool(args.execute),
+        "delete": bool(args.delete),
         "output_count": len(rows),
         "total_size_bytes": total_size,
         "total_size_mb": round(total_size / 1024 / 1024, 3),
