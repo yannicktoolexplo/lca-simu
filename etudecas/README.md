@@ -1,72 +1,87 @@
 # Etudecas
 
-Le point d’entrée actif est maintenant :
+Le point d'entree actif reste :
 
-- [run_etudecas_pipeline.py](C:/dev/lca-simu/etudecas/run_etudecas_pipeline.py)
+```powershell
+python etudecas/run_etudecas_pipeline.py
+```
 
-L’idée directrice est simple :
+Le livrable principal est un graphe JSON de supply chain. La chaine nominale
+enrichit ce graphe depuis les donnees cas, le geocode, le prepare pour la
+simulation, lance le moteur dynamique, puis genere les cartes et rapports.
 
-1. le livrable principal est un **graphe JSON de supply chain**
-2. ce graphe est enrichi depuis les `xlsx`
-3. il est préparé pour la simulation
-4. la simulation et la map se construisent à partir de ce graphe
+## Structure Actuelle
 
-## Pipeline actif
+- `donnees/` : ingestion et enrichissement du graphe metier depuis les donnees cas.
+- `scripts_geocodage/` : geocodage hors ligne des noeuds.
+- `simulation_prep/` : transformation du graphe en entree simulation.
+- `knowledge_graph/` : contrat JSON generique, template Excel et enrichissements JSON.
+- `simulation/engine/` : moteur de simulation canonique.
+- `simulation/lot_trace/` : lecture, indexation, payload et modeles de vue pour le suivi de lots.
+- `simulation/analysis/` : audits et analyses post-run.
+- `simulation/baselines/`, `simulation/scenarios/`, `simulation/sensibility/`, `simulation/montecarlo/` : campagnes et variantes.
+- `visualization/maps/` : generation des cartes HTML interactives.
+- `config/` : configuration metier du cas actif.
+- `supplier_risk_kpi/` : KPI et criticite fournisseurs.
 
-Chaîne principale :
+## Chemins Compatibles
 
-- [update_supply_graph_from_case_data.py](C:/dev/lca-simu/etudecas/donnees/update_supply_graph_from_case_data.py)
-- [geocode_nodes_offline.py](C:/dev/lca-simu/etudecas/scripts_geocodage/geocode_nodes_offline.py)
-- [prepare_simulation_graph.py](C:/dev/lca-simu/etudecas/simulation_prep/prepare_simulation_graph.py)
-- [rebuild_real_demand_target_baseline.py](C:/dev/lca-simu/etudecas/simulation/baselines/rebuild_real_demand_target_baseline.py)
-- [inject_mrp_seed_data_v2.py](C:/dev/lca-simu/etudecas/simulation_prep/inject_mrp_seed_data_v2.py)
-- [rebuild_mrp_lot_policy_baseline.py](C:/dev/lca-simu/etudecas/simulation/baselines/rebuild_mrp_lot_policy_baseline.py)
-- [run_first_simulation.py](C:/dev/lca-simu/etudecas/simulation/run_first_simulation.py)
-- [build_supplychain_worldmap.py](C:/dev/lca-simu/etudecas/affichage_supply_script/build_supplychain_worldmap.py)
-- [build_supplier_risk_kpi.py](C:/dev/lca-simu/etudecas/supplier_risk_kpi/build_supplier_risk_kpi.py) pour produire le panel KPI risque fournisseur depuis les sorties de simulation
+Ces anciens chemins restent disponibles comme wrappers :
 
-Artefacts de référence actifs :
+```powershell
+python etudecas/simulation/run_first_simulation.py
+python etudecas/affichage_supply_script/build_supplychain_worldmap.py
+```
 
-- [supply_graph_reference_baseline_simulation_ready.json](C:/dev/lca-simu/etudecas/simulation_prep/result/reference_baseline/supply_graph_reference_baseline_simulation_ready.json)
-- [supply_graph_reference_baseline_real_demand_target_calibrated.json](C:/dev/lca-simu/etudecas/simulation_prep/result/reference_baseline/supply_graph_reference_baseline_real_demand_target_calibrated.json)
-- [supply_graph_reference_baseline_real_demand_target_calibrated_mrp_lot_policy.json](C:/dev/lca-simu/etudecas/simulation_prep/result/reference_baseline/supply_graph_reference_baseline_real_demand_target_calibrated_mrp_lot_policy.json)
-- [supply_graph_reference_baseline_real_demand_target_calibrated_mrp_lot_policy_recalibrated.json](C:/dev/lca-simu/etudecas/simulation_prep/result/reference_baseline/supply_graph_reference_baseline_real_demand_target_calibrated_mrp_lot_policy_recalibrated.json)
-- [supply_graph_reference_baseline_real_demand_target_calibrated_mrp_lot_policy_recalibrated_5y.json](C:/dev/lca-simu/etudecas/simulation_prep/result/reference_baseline/supply_graph_reference_baseline_real_demand_target_calibrated_mrp_lot_policy_recalibrated_5y.json)
+Les chemins canoniques sont maintenant :
+
+```powershell
+python etudecas/simulation/engine/run_first_simulation.py
+python etudecas/visualization/maps/build_supplychain_worldmap.py
+```
+
+## Pipeline Actif
+
+Chaine principale :
+
+- `donnees/update_supply_graph_from_case_data.py`
+- `scripts_geocodage/geocode_nodes_offline.py`
+- `simulation_prep/prepare_simulation_graph.py`
+- `simulation/baselines/rebuild_real_demand_target_baseline.py`
+- `simulation_prep/inject_mrp_seed_data_v2.py`
+- `simulation/baselines/rebuild_mrp_lot_policy_baseline.py`
+- `simulation/engine/run_first_simulation.py`
+- `visualization/maps/build_supplychain_worldmap.py`
+- `supplier_risk_kpi/build_supplier_risk_kpi.py`
 
 ## Usage
 
-Rebâtir tout le pipeline actif 1 an :
+Rebatir tout le pipeline actif 1 an :
 
 ```powershell
 python etudecas/run_etudecas_pipeline.py all
 ```
 
-Rebâtir aussi la variante 5 ans :
+Rebatir aussi la variante 5 ans :
 
 ```powershell
 python etudecas/run_etudecas_pipeline.py all --with-5y
 ```
 
-Reconstruire seulement le graphe métier :
+Reconstruire seulement le graphe metier :
 
 ```powershell
 python etudecas/run_etudecas_pipeline.py graph
 ```
 
-Lancer la simulation depuis un graphe JSON donné :
+Lancer la simulation depuis un graphe JSON donne :
 
 ```powershell
 python etudecas/run_etudecas_pipeline.py simulate --input-graph <graph.json> --output-dir <result_dir>
 ```
 
-## Scripts legacy ou secondaires
+## Legacy
 
-Ces scripts ne sont plus dans la chaîne principale, mais restent disponibles pour étude ou compatibilité :
-
-- [inject_mrp_seed_data.py](C:/dev/lca-simu/etudecas/simulation_prep/inject_mrp_seed_data.py)
-- [estimate_supplier_capacities.py](C:/dev/lca-simu/etudecas/simulation_prep/estimate_supplier_capacities.py)
-- dossiers `SC_*`, `Prediction`, `worstcase`
-- scripts de sensibilité, Monte Carlo et scénarios spécifiques dans [simulation](C:/dev/lca-simu/etudecas/simulation)
-- [supplier_risk_kpi](C:/dev/lca-simu/etudecas/supplier_risk_kpi) pour le MVP KPI fournisseur probabiliste/actionnable
-
-Le principe est de ne plus considérer ces scripts comme la voie nominale de construction de la baseline.
+Les dossiers `SC_*`, `Prediction`, `worstcase` et certains scripts historiques
+restent disponibles pour comparaison ou compatibilite, mais ne sont plus la voie
+nominale de construction de la baseline.

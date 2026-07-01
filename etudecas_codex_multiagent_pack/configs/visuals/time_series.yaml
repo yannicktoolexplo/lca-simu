@@ -1,0 +1,16 @@
+figure_id: time_series
+type: time_series
+data:
+  x: date
+  y:
+    - quality
+    - delay
+    - stress
+  entity: aircraft_id
+labels:
+  title: "KPI time series"
+  x: "Date"
+  y: "Score"
+output:
+  path: outputs/figures/time_series.png
+  dpi: 140

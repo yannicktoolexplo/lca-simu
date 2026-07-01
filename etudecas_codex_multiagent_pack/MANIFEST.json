@@ -1,0 +1,10 @@
+{
+  "name": "etudecas_codex_multiagent_pack",
+  "description": "Pack de démarrage Codex multi-agent pour etudecas",
+  "top_level_files": [
+    "AGENTS.md",
+    "README.md",
+    "pyproject.toml"
+  ],
+  "generated_files_count": 107
+}

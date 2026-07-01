@@ -2043,11 +2043,29 @@
       font-size: 10.5px;
       line-height: 1.25;
     }
+    .kpiTreeCardMeta {
+      margin-top: 6px;
+      color: #0f172a;
+      font-size: 10.5px;
+      font-weight: 800;
+      line-height: 1.25;
+    }
     .kpiTreeChart {
       min-height: 230px;
       border: 1px solid #e2e8f0;
       border-radius: 12px;
       background: #ffffff;
+    }
+    .kpiTreeEmptyChart {
+      min-height: 230px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+      color: #64748b;
+      font-size: 12px;
+      font-weight: 700;
+      text-align: center;
     }
     .kpiTreeDetail {
       display: grid;
@@ -5825,6 +5843,45 @@
         const expected = String(expectedLabel || "").toLowerCase();
         return (seriesList || []).find(series => String(series.label || "").toLowerCase() === expected) || null;
       }
+      function traceHasVisibleData(trace) {
+        const x = trace && Array.isArray(trace.x) ? trace.x : [];
+        const y = trace && Array.isArray(trace.y) ? trace.y : [];
+        if (!x.length || !y.length) return false;
+        return y.some(value => Number.isFinite(Number(value)));
+      }
+      function purgeKpiPlot(targetEl) {
+        if (!window.Plotly || !targetEl) return;
+        try { Plotly.purge(targetEl); } catch (e) {}
+      }
+      function renderKpiPlotOrEmpty(targetEl, traces, layout, config, emptyMessage) {
+        if (!targetEl) return false;
+        const hasData = (traces || []).some(traceHasVisibleData);
+        if (!hasData) {
+          purgeKpiPlot(targetEl);
+          targetEl.innerHTML = `<div class="kpiTreeEmptyChart">${escapeKpiHtml(emptyMessage || "Aucune donnee disponible dans la fenetre selectionnee.")}</div>`;
+          return false;
+        }
+        if (targetEl.querySelector && targetEl.querySelector(".kpiTreeEmptyChart")) {
+          targetEl.innerHTML = "";
+        }
+        installCtrlScrollZoomGate(targetEl);
+        Plotly.react(targetEl, traces, layout, config);
+        return true;
+      }
+      function groupDataMeta(group) {
+        const series = group.secondary || [];
+        const seriesCount = series.length;
+        const maxPoints = Math.max(0, ...series.map(row => (row.values || []).length));
+        if (group.id === "cost") {
+          const totalRow = (group.summary || []).find(row => String(row.label || "").toLowerCase() === "cout operationnel total");
+          if (totalRow && totalRow.value) return `Total: ${totalRow.value} - ${seriesCount} courbes - ${maxPoints} jours`;
+        }
+        const firstSummary = (group.summary || [])[0] || null;
+        if (firstSummary && firstSummary.label && firstSummary.value) {
+          return `${firstSummary.label}: ${firstSummary.value}`;
+        }
+        return `${seriesCount} courbes - ${maxPoints} jours`;
+      }
       function seriesWindowValues(series, smooth = false) {
         if (!series) return [];
         const values = smooth ? smoothValues(series.values || []) : (series.values || []);
@@ -6045,6 +6102,7 @@
           btn.innerHTML = `
             <div class="kpiTreeCardTitle">${group.label || group.id}</div>
             <div class="kpiTreeCardObjective">${group.objective || ""}</div>
+            <div class="kpiTreeCardMeta">${escapeKpiHtml(groupDataMeta(group))}</div>
           `;
           btn.onclick = () => {
             selectedId = group.id;
@@ -6072,8 +6130,7 @@
             hovertemplate: `${label}<br>Jour=%{x}<br>Valeur=%{y:.2f}<extra></extra>`,
           };
         });
-        installCtrlScrollZoomGate(mainChartEl);
-        Plotly.react(mainChartEl, traces, {
+        const mainRendered = renderKpiPlotOrEmpty(mainChartEl, traces, {
             title: { text: `KPI principaux - vue management (${selectedTimelineWindowLabel()})`, font: { size: 12 } },
           margin: { l: 54, r: 18, t: 42, b: 42 },
           paper_bgcolor: "#ffffff",
@@ -6081,7 +6138,8 @@
           xaxis: dayAxisLayout("Jour"),
           yaxis: { title: main.y_label || "Score / indice", gridcolor: "#e2e8f0" },
           legend: { orientation: "h", y: -0.22 },
-        }, PLOTLY_RESPONSIVE_CONFIG);
+        }, PLOTLY_RESPONSIVE_CONFIG, "Aucun KPI principal disponible dans la fenetre selectionnee.");
+        if (!mainRendered || !mainChartEl.on) return;
         mainChartEl.on("plotly_click", (ev) => {
           const point = ev && ev.points && ev.points[0];
           const groupId = point && point.customdata;
@@ -6115,8 +6173,7 @@
             line: { width: 2.2, color: series.color || "#2563eb", dash: series.dash || "solid" },
           };
         });
-        installCtrlScrollZoomGate(secondaryChartEl);
-        Plotly.react(secondaryChartEl, traces, {
+        renderKpiPlotOrEmpty(secondaryChartEl, traces, {
           title: { text: `KPI secondaires - ${group.label || selectedId} (${selectedTimelineWindowLabel()})`, font: { size: 12 } },
           margin: { l: 58, r: 18, t: 42, b: 42 },
           paper_bgcolor: "#ffffff",
@@ -6124,7 +6181,7 @@
           xaxis: dayAxisLayout("Jour"),
           yaxis: { title: group.secondary_y_label || "Valeur", gridcolor: "#e2e8f0" },
           legend: { orientation: "h", y: -0.24 },
-        }, PLOTLY_RESPONSIVE_CONFIG);
+        }, PLOTLY_RESPONSIVE_CONFIG, `Aucune courbe secondaire disponible pour ${group.label || selectedId} dans la fenetre selectionnee.`);
       }
       bindSmoothingControls();
       renderCards();
@@ -6320,7 +6377,16 @@
       const kpiTreeModal = document.getElementById("kpiTreeModal");
       document.getElementById("kpiTreeBtn").addEventListener("click", () => {
         kpiTreeModal.classList.add("visible");
-        renderGlobalKpiTree();
+        requestAnimationFrame(() => {
+          renderGlobalKpiTree();
+          requestAnimationFrame(() => {
+            if (window.Plotly && Plotly.Plots && Plotly.Plots.resize) {
+              kpiTreeModal.querySelectorAll(".js-plotly-plot").forEach(plot => {
+                try { Plotly.Plots.resize(plot); } catch (e) {}
+              });
+            }
+          });
+        });
       });
       document.getElementById("kpiTreeCloseBtn").addEventListener("click", () => {
         kpiTreeModal.classList.remove("visible");

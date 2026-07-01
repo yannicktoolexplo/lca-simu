@@ -1,0 +1,36 @@
+columns:
+  date:
+    type: datetime
+    required: true
+  echelon:
+    type: string
+    required: true
+  demand:
+    type: float
+    required: true
+    min: 0
+  orders:
+    type: float
+    required: true
+    min: 0
+  inventory:
+    type: float
+    required: true
+    min: 0
+  backlog:
+    type: float
+    required: true
+    min: 0
+  service_level_raw:
+    type: float
+    required: true
+    min: 0
+    max: 1
+  inventory_ratio:
+    type: float
+    required: true
+    min: 1
+  bullwhip_ratio:
+    type: float
+    required: true
+    min: 1
