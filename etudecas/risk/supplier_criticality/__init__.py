@@ -1,0 +1,2 @@
+"""Supplier criticality KPI builder."""
+

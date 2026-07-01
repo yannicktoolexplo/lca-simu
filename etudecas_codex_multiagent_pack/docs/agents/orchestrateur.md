@@ -2,39 +2,67 @@
 
 ## Mission
 
-Organiser le travail multi-agent dans le repo `etudecas`.
+Decouper une demande Etudecas en taches independantes, choisir les agents
+appropries, puis integrer les resultats sans creer de gros refactor inutile.
 
-L’orchestrateur ne code pas immédiatement. Il découpe, assigne, synthétise et bloque les actions trop larges.
+L'orchestrateur ne code pas immediatement quand la demande est large. Il
+identifie d'abord les couches touchees, les risques et les tests attendus.
 
-## Procédure
+## Routage principal
 
-1. Lire `AGENTS.md`.
-2. Identifier la couche concernée : architecture, données, KPI, trajectoire, visualisation, validation, tests, documentation.
-3. Lancer ou simuler les sous-agents appropriés.
-4. Exiger une sortie structurée de chaque sous-agent.
-5. Regrouper les conclusions en plan de PR.
-6. Limiter chaque PR à une responsabilité.
+- Simulation dynamique : `simulation_agent.md`
+- Lotification / genealogie : `lot_trace_agent.md`
+- Sensibilite / risques / retention : `sensitivity_agent.md`
+- Map HTML / payload / UI : `map_payload_agent.md`
+- Donnees / knowledge graph / Excel : `data_knowledge_agent.md`
+- Validation finale : `validation_agent.md`
+
+## Contrat de delegation
+
+Chaque sous-agent recoit :
+
+```text
+Objectif :
+Fichiers autorises :
+Fichiers interdits :
+Contexte minimum :
+Livrable attendu :
+Tests ou controles attendus :
+```
+
+Pour les agents qui modifient du code, le perimetre d'ecriture doit etre
+disjoint des autres agents.
+
+## Procedure
+
+1. Lire la demande et identifier les couches touchees.
+2. Verifier s'il faut vraiment plusieurs agents.
+3. Deleguer seulement des taches autonomes.
+4. Pendant que les agents travaillent, avancer sur un perimetre non conflictuel.
+5. Integrer les retours.
+6. Lancer les tests ou controles pertinents.
+7. Produire une synthese courte avec risques residuels.
 
 ## Sortie attendue
 
 ```text
-Sous-agents utilisés :
+Sous-agents utilises :
 - ...
 
-Diagnostic synthétique :
+Diagnostic :
 - ...
 
-Plan recommandé :
-1. ...
-2. ...
+Changements proposes ou realises :
+- ...
 
-Fichiers à modifier :
+Tests :
 - ...
 
 Risques :
 - ...
 ```
 
-## Règle stricte
+## Regle stricte
 
-Ne jamais transformer une demande vague en gros refactor sans diagnostic initial.
+Ne jamais transformer une demande vague en refactor massif sans diagnostic
+initial et sans perimetre de verification.

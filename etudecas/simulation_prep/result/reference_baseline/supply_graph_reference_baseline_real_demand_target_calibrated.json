@@ -5766,7 +5766,7 @@
           },
           "source_truth": {
             "type": "demand_pf_weekly_real_demand",
-            "xlsx_path": "etudecas\\donnees\\demand_PF.xlsx",
+            "xlsx_path": "etudecas/data/source/demand_PF.xlsx",
             "sheet": "Demande",
             "annual_total_qty": 1575986.0,
             "period_count_weeks": 52
@@ -6008,7 +6008,7 @@
           "service_level_target_source": "simulation_prep_business_rule_by_product",
           "source_truth": {
             "type": "demand_pf_weekly_real_demand",
-            "xlsx_path": "etudecas\\donnees\\demand_PF.xlsx",
+            "xlsx_path": "etudecas/data/source/demand_PF.xlsx",
             "sheet": "Demande",
             "annual_total_qty": 3576442.0,
             "period_count_weeks": 52

@@ -30,8 +30,11 @@ REPO_ROOT = ROOT.parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-BASE_GRAPH_JSON = ROOT / "donnees" / "supply_graph_poc.json"
-GEOCODED_GRAPH_JSON = ROOT / "result_geocodage" / "supply_graph_poc_geocoded.json"
+SOURCE_DATA_DIR = ROOT / "data" / "source"
+DATA_REPORTS_DIR = ROOT / "data" / "reports"
+GEOCODED_DATA_DIR = ROOT / "data" / "geocoded"
+BASE_GRAPH_JSON = SOURCE_DATA_DIR / "supply_graph_poc.json"
+GEOCODED_GRAPH_JSON = GEOCODED_DATA_DIR / "supply_graph_poc_geocoded.json"
 PREP_GRAPH_JSON = ROOT / "simulation_prep" / "result" / "reference_baseline" / "supply_graph_reference_baseline_simulation_ready.json"
 REAL_DEMAND_GRAPH_JSON = (
     ROOT / "simulation_prep" / "result" / "reference_baseline" / "supply_graph_reference_baseline_real_demand_target_calibrated.json"
@@ -71,6 +74,8 @@ ACTIVE_MRP_PHYSICAL_OUTPUT_DIR = (
 )
 ACTIVE_MRP_PHYSICAL_RERUN_ROOT = ROOT / "simulation" / "result" / "_reruns"
 SIMULATION_ENGINE_SCRIPT = ROOT / "simulation" / "engine" / "run_first_simulation.py"
+SUPPLIER_CRITICALITY_SCRIPT = ROOT / "risk" / "supplier_criticality" / "build_supplier_criticality.py"
+SUPPLIER_CRITICALITY_OUTPUT_DIR = ROOT / "risk" / "supplier_criticality" / "result"
 DEFAULT_CASE_CONFIG_JSON = ROOT / "config" / "cases" / "data_poc.json"
 DEFAULT_ENRICHMENT_EXCEL = ROOT / "config" / "cases" / "data_poc_enrichment_input.xlsx"
 ACTIVE_MRP_PHYSICAL_BASE_STOCK_FLOOR_PAIRS = [
@@ -186,18 +191,24 @@ def forward_optional_flags(*, skip_map: bool, skip_plots: bool) -> list[str]:
 
 def build_knowledge_graph() -> None:
     run_python(
-        ROOT / "donnees" / "update_supply_graph_from_case_data.py",
+        ROOT / "knowledge_graph" / "update_supply_graph_from_case_data.py",
         "--input-json",
         repo_rel(BASE_GRAPH_JSON),
+        "--data-dir",
+        repo_rel(SOURCE_DATA_DIR),
         "--output-json",
         repo_rel(BASE_GRAPH_JSON),
+        "--report-json",
+        repo_rel(DATA_REPORTS_DIR / "case_data_update_report.json"),
+        "--report-md",
+        repo_rel(DATA_REPORTS_DIR / "case_data_update_report.md"),
     )
     run_python(
-        ROOT / "scripts_geocodage" / "geocode_nodes_offline.py",
+        ROOT / "geocoding" / "geocode_nodes_offline.py",
         "--input-json",
         repo_rel(BASE_GRAPH_JSON),
         "--output-dir",
-        "etudecas/result_geocodage",
+        repo_rel(GEOCODED_DATA_DIR),
         "--output-name",
         GEOCODED_GRAPH_JSON.name,
     )
@@ -327,6 +338,16 @@ def run_direct_simulation(*, input_graph: Path, output_dir: Path, scenario_id: s
     )
 
 
+def build_supplier_criticality(*, sim_result_dir: Path | None, output_dir: Path) -> None:
+    args = [
+        "--output-dir",
+        repo_rel(output_dir),
+    ]
+    if sim_result_dir is not None:
+        args.extend(["--sim-result-dir", repo_rel(sim_result_dir)])
+    run_python(SUPPLIER_CRITICALITY_SCRIPT, *args)
+
+
 def run_active_mrp_physical(
     *,
     output_dir: Path | None,
@@ -430,8 +451,8 @@ def parse_args() -> argparse.Namespace:
     enrich = sub.add_parser("enrich-graph", help="Create/apply the generic Excel enrichment workbook for a graph JSON.")
     enrich.add_argument("--input-json", required=True)
     enrich.add_argument("--excel", default=repo_rel(DEFAULT_ENRICHMENT_EXCEL))
-    enrich.add_argument("--output-json", default="etudecas/donnees/supply_graph_poc_enriched_from_excel.json")
-    enrich.add_argument("--report-json", default="etudecas/donnees/supply_graph_excel_enrichment_report.json")
+    enrich.add_argument("--output-json", default="etudecas/data/source/supply_graph_poc_enriched_from_excel.json")
+    enrich.add_argument("--report-json", default="etudecas/data/reports/supply_graph_excel_enrichment_report.json")
     enrich.add_argument("--case-config-json", default="", help="Optional case config JSON merged before creating/applying.")
     enrich.add_argument("--create-template", action="store_true")
     enrich.add_argument("--apply", action="store_true")
@@ -468,6 +489,21 @@ def parse_args() -> argparse.Namespace:
     sim5.add_argument("--days", type=int, default=1825)
     sim5.add_argument("--skip-map", action="store_true")
     sim5.add_argument("--skip-plots", action="store_true")
+
+    supplier_criticality = sub.add_parser(
+        "supplier-criticality",
+        help="Build supplier criticality KPI artifacts used by the map and KPI trees.",
+    )
+    supplier_criticality.add_argument(
+        "--sim-result-dir",
+        default="",
+        help="Simulation result directory. Defaults to the current retained 5y lot-trace run.",
+    )
+    supplier_criticality.add_argument(
+        "--output-dir",
+        default=repo_rel(SUPPLIER_CRITICALITY_OUTPUT_DIR),
+        help="Output directory for supplier criticality artifacts.",
+    )
 
     active = sub.add_parser(
         "active-mrp-physical",
@@ -559,6 +595,12 @@ def main() -> None:
             days=args.days,
             skip_map=args.skip_map,
             skip_plots=args.skip_plots,
+        )
+        return
+    if args.command == "supplier-criticality":
+        build_supplier_criticality(
+            sim_result_dir=Path(args.sim_result_dir) if args.sim_result_dir else None,
+            output_dir=Path(args.output_dir),
         )
         return
     if args.command == "active-mrp-physical":

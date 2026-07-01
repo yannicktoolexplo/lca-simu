@@ -2,7 +2,7 @@
   "generated_at_utc": "2026-04-30T14:26:15.312721+00:00",
   "input_graph": "etudecas\\simulation_prep\\result\\reference_baseline\\supply_graph_reference_baseline_real_demand_target_calibrated.json",
   "output_graph": "etudecas\\simulation_prep\\result\\reference_baseline\\supply_graph_reference_baseline_real_demand_target_calibrated_mrp_lot_policy.json",
-  "stocks_mrp_xlsx": "etudecas\\donnees\\Stocks_MRP.xlsx",
+  "stocks_mrp_xlsx": "etudecas/data/source/Stocks_MRP.xlsx",
   "snapshot_at_utc": "2025-01-01T03:03:48+00:00",
   "stock_rows_total": 32,
   "policy_rows_total": 26,

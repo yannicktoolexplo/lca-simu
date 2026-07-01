@@ -91,7 +91,7 @@
   },
   "data_poc_price_integration": {
     "enabled": true,
-    "xlsx_path": "etudecas\\donnees\\Data_poc.xlsx",
+    "xlsx_path": "etudecas/data/source/Data_poc.xlsx",
     "sheet_found": true,
     "rows_read": 33,
     "rows_mapped": 33,
@@ -99,7 +99,7 @@
   },
   "demand_pf_integration": {
     "enabled": true,
-    "xlsx_path": "etudecas\\donnees\\demand_PF.xlsx",
+    "xlsx_path": "etudecas/data/source/demand_PF.xlsx",
     "sheet_found": true,
     "rows_read": 104,
     "rows_mapped": 104,
@@ -204,7 +204,7 @@
   },
   "demand_pf_actor_integration": {
     "enabled": true,
-    "xlsx_path": "etudecas\\donnees\\demand_PF.xlsx",
+    "xlsx_path": "etudecas/data/source/demand_PF.xlsx",
     "sheet_found": true,
     "rows_read": 32,
     "rows_mapped": 32,
@@ -212,7 +212,7 @@
   },
   "demand_pf_relation_integration": {
     "enabled": true,
-    "xlsx_path": "etudecas\\donnees\\demand_PF.xlsx",
+    "xlsx_path": "etudecas/data/source/demand_PF.xlsx",
     "sheet_found": true,
     "rows_read": 39,
     "rows_mapped": 39,

@@ -1,48 +1,78 @@
-# etudecas — pack Codex multi-agent
+# Etudecas Codex Multi-Agent Pack
 
-Ce pack donne une base prête à déposer dans le repo `etudecas` pour piloter Codex comme une équipe de développement structurée.
+Ce dossier est un kit d'orchestration pour developper le vrai repo Etudecas
+avec des sous-agents specialises. Il ne remplace pas le package principal
+`etudecas`.
 
-Il contient :
+## Contenu
 
-- `AGENTS.md` : règles permanentes du repo pour Codex ;
-- `docs/agents/*.md` : rôles spécialisés à utiliser comme sous-agents ;
-- `docs/prompts/*.md` : prompts prêts à copier dans Codex ;
-- `configs/*` : exemples de cas, schémas, visualisations et règles de validation ;
-- `etudecas/*` : squelette Python générique ;
-- `tests/*` : tests minimaux pour verrouiller la généricité ;
-- `data/reference/*` : petits jeux de données de référence.
+- `AGENTS.md` : regles de routage multi-agent pour Etudecas ;
+- `docs/agents/*.md` : roles operationnels ;
+- `skills/*/SKILL.md` : skills Codex reutilisables par domaine Etudecas ;
+- `docs/prompts/*.md` : prompts de travail reutilisables ;
+- `configs/*` : exemples generiques de cas, schemas et visuals ;
+- `etudecas_agentkit/*` : mini-kit de reference sans collision avec le vrai
+  package `etudecas` ;
+- `tests/*` : tests du mini-kit de reference ;
+- `data/reference/*` : petits jeux de donnees.
 
-## Installation locale
+## Regle de fond
 
-```bash
-python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
+```text
+Le moteur Python reste generique.
+Le cas metier vit dans les donnees, les configs ou le knowledge graph.
+Les resultats lourds ne sont pas source de verite.
+Une simulation ou sensibilite doit etre regenerable par script.
+Chaque changement important a un test ou un controle objectif.
+```
+
+## Installation du mini-kit de reference
+
+Le mini-kit est optionnel. Il sert a tester des contrats generiques hors du
+vrai package `etudecas`.
+
+```powershell
+cd etudecas_codex_multiagent_pack
 python -m pip install -e ".[dev]"
 python -m pytest
 ```
 
-## Usage minimal
+Sans dependances dev, les tests peuvent echouer sur `pytest`, `pandas` ou
+`pyyaml`. Ce n'est pas bloquant pour le repo principal.
 
-```bash
-python -m etudecas.cli configs/cases/fal_aircraft.yaml
+## Usage minimal du mini-kit
+
+```powershell
+python -m etudecas_agentkit.cli configs/cases/example_minimal.yaml
 ```
 
-La règle principale est simple :
+## Usage recommande dans le vrai repo
+
+1. Lire `AGENTS.md`.
+2. Choisir le role principal.
+3. Deleguer uniquement les taches independantes.
+4. Modifier le vrai code dans `../etudecas`, pas le squelette du pack.
+5. Valider avec les tests du repo principal :
+
+```powershell
+python -m unittest discover -s etudecas -p "test*.py" -v
+```
+
+## Premier prompt utile
 
 ```text
-Le moteur Python reste générique.
-Le cas métier vit dans YAML.
-Les résultats et les visuels sont validés automatiquement.
-Les notebooks ne sont pas la source de vérité.
-Chaque changement a un test.
+Lis etudecas_codex_multiagent_pack/AGENTS.md.
+La tache concerne le vrai repo Etudecas, pas le mini-kit.
+Choisis les agents utiles parmi simulation, lot_trace, sensitivity, map_payload,
+data_knowledge et validation. Propose un perimetre court, puis implemente avec
+tests.
 ```
 
-## Premier prompt à lancer dans Codex
+## Skills disponibles
 
-```text
-Lis le repo etudecas et applique AGENTS.md.
-Je veux passer d’un projet one-shot à un moteur générique de cas d’étude.
-Utilise les rôles dans docs/agents/*.md.
-Ne modifie aucun fichier applicatif dans cette première passe.
-Produis un audit architecture, données, KPI, visualisation, tests et reviewer.
-```
+- `etudecas-simulation`
+- `etudecas-lot-trace`
+- `etudecas-sensitivity`
+- `etudecas-map-payload`
+- `etudecas-data-knowledge`
+- `etudecas-validation`

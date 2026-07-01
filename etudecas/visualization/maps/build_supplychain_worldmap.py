@@ -71,7 +71,7 @@ SIMULATION_HIDDEN_ITEM_IDS: set[str] = set()
 DEFAULT_SUPPLIER_PARAMETER_SENSITIVITY_DIR = Path(
     "etudecas/simulation/sensibility/active_supplier_parameter_result_60_75_guarded"
 )
-DEFAULT_SUPPLIER_RISK_KPI_DIR = Path("etudecas/supplier_risk_kpi/result")
+DEFAULT_SUPPLIER_RISK_KPI_DIR = Path("etudecas/risk/supplier_criticality/result")
 DEFAULT_MONTECARLO_UNCERTAINTY_DIR = Path("etudecas/simulation/montecarlo/active_mrp_physical_uncertainty")
 DEFAULT_SUPPLIER_RISK_CAMPAIGN_DIR = Path("etudecas/simulation/sensibility/supplier_risk_campaign_multisource_result")
 SIMULATED_RISK_FAMILY_INFO = {

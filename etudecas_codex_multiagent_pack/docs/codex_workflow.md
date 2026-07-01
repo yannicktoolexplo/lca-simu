@@ -1,27 +1,60 @@
-# Workflow Codex recommandé
+# Workflow Codex recommande
 
-## 1. Audit sans modification
+## 1. Classer la demande
 
-Utiliser `docs/prompts/00_audit_multiagent.md`.
+Choisir le role principal :
 
-## 2. Mise en place des règles
+- simulation ;
+- lot_trace ;
+- sensitivity ;
+- map_payload ;
+- data_knowledge ;
+- validation.
 
-Utiliser `docs/prompts/01_create_agents_docs.md`.
+## 2. Decouper seulement si utile
 
-## 3. Refactor incrémental
+Utiliser plusieurs agents quand les perimetres sont independants. Exemple :
 
-Appliquer les PR dans l’ordre de `docs/roadmap.md`.
+- un agent lot trace audite les invariants ;
+- un agent map payload corrige le rendu ;
+- un agent validation verifie les tests.
 
-## 4. Revue GitHub
+Eviter deux agents sur le meme fichier.
 
-Sur chaque PR, demander :
+## 3. Implementer dans le vrai repo
 
-```text
-@codex review
+Le code applicatif vit dans `../etudecas`. Le dossier
+`etudecas_codex_multiagent_pack` sert de guide, pas de remplacement.
+
+## 4. Conserver peu de resultats
+
+Les runs complets sont temporaires. Garder par defaut :
+
+- summaries ;
+- registries ;
+- inputs/configs ;
+- payloads compacts necessaires a l'affichage courant.
+
+## 5. Verifier
+
+Commande minimale :
+
+```powershell
+python -m unittest discover -s etudecas -p "test*.py" -v
 ```
 
-avec le focus défini dans `docs/prompts/08_github_review.md`.
+Ajouter des controles dedies :
 
-## 5. Garde-fou permanent
+- smoke payload compact ;
+- ouverture HTML si map modifiee ;
+- invariants de quantite si lot trace modifie ;
+- comparaison scenario si sensibilite modifiee.
 
-Un cas métier doit pouvoir changer sans modifier le moteur Python.
+## 6. Conclure
+
+Toujours mentionner :
+
+- fichiers changes ;
+- tests executes ;
+- limites ;
+- prochaine action utile.

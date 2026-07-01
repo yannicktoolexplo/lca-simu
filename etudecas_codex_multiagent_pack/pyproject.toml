@@ -3,7 +3,7 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "etudecas"
+name = "etudecas-codex-multiagent-pack"
 version = "0.1.0"
 description = "Moteur générique de cas d'étude avec KPI, trajectoires, visualisations et validation."
 requires-python = ">=3.10"
@@ -22,7 +22,7 @@ dev = [
 ]
 
 [tool.setuptools.packages.find]
-include = ["etudecas*"]
+include = ["etudecas_agentkit*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

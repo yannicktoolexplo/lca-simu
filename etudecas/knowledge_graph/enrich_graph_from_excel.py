@@ -12,10 +12,10 @@ from .io import load_graph, save_graph
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Create/apply a generic Excel enrichment workbook for a supply graph JSON.")
-    parser.add_argument("--input-json", default="etudecas/donnees/supply_graph_poc.json")
+    parser.add_argument("--input-json", default="etudecas/data/source/supply_graph_poc.json")
     parser.add_argument("--excel", default="etudecas/config/cases/data_poc_enrichment_input.xlsx")
-    parser.add_argument("--output-json", default="etudecas/donnees/supply_graph_poc_enriched_from_excel.json")
-    parser.add_argument("--report-json", default="etudecas/donnees/supply_graph_excel_enrichment_report.json")
+    parser.add_argument("--output-json", default="etudecas/data/source/supply_graph_poc_enriched_from_excel.json")
+    parser.add_argument("--report-json", default="etudecas/data/reports/supply_graph_excel_enrichment_report.json")
     parser.add_argument(
         "--case-config-json",
         default="",

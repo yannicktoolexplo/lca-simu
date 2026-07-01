@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from etudecas.core.case import CaseStudy
+from etudecas_agentkit.core.case import CaseStudy
 
 from tests.conftest import ROOT
 

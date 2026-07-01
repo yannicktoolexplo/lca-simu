@@ -1,12 +1,14 @@
-# Prompt GitHub — Codex review
+# Prompt GitHub - Codex review
 
 @codex review
 
-Focus spécifique :
-- logique métier codée en dur ;
-- absence de tests ;
-- régression dans le calcul KPI ;
-- visualisation non générique ;
+Focus specifique :
+
+- logique metier codee en dur ;
+- regression simulation ou lotification ;
+- payload HTML trop lourd ;
+- sensibilite qui stocke des sorties completes par defaut ;
+- absence de tests ou d'invariants ;
 - erreurs silencieuses ;
-- incohérences entre config YAML et code ;
-- modification non justifiée de données brutes.
+- incoherences entre config, JSON, simulation et affichage ;
+- modification non justifiee de donnees brutes.

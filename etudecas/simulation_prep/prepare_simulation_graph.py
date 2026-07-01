@@ -32,7 +32,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Prepare simulation-ready supply graph.")
     parser.add_argument(
         "--input",
-        default="etudecas/result_geocodage/supply_graph_poc_geocoded.json",
+        default="etudecas/data/geocoded/supply_graph_poc_geocoded.json",
         help="Input geocoded graph JSON.",
     )
     parser.add_argument(
@@ -52,12 +52,12 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--data-poc-xlsx",
-        default="etudecas/donnees/Data_poc.xlsx",
+        default="etudecas/data/source/Data_poc.xlsx",
         help="Optional Data_poc.xlsx path used to align material prices from Relations_acteurs.",
     )
     parser.add_argument(
         "--demand-pf-xlsx",
-        default="etudecas/donnees/demand_PF.xlsx",
+        default="etudecas/data/source/demand_PF.xlsx",
         help="Optional demand_PF.xlsx path used to load weekly customer demand.",
     )
     parser.add_argument(

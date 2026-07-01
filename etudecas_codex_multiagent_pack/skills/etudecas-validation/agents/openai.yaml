@@ -1,0 +1,4 @@
+interface:
+  display_name: "Etudecas Validation"
+  short_description: "Validation et invariants Etudecas"
+  default_prompt: "Utilise ce skill pour verifier invariants, tests, rapports et regressions Etudecas."

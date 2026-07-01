@@ -1,7 +1,7 @@
 # Simulation prep report
 
 ## Inputs / outputs
-- Input graph: etudecas\result_geocodage\supply_graph_poc_geocoded.json
+- Input graph: etudecas\data\geocoded\supply_graph_poc_geocoded.json
 - Output graph: etudecas\simulation_prep\result\reference_baseline\supply_graph_reference_baseline_simulation_ready.json
 - Generated at (UTC): 2026-04-30T14:26:14.674598+00:00
 
@@ -50,14 +50,14 @@
 
 ## Data_poc pricing import
 - Enabled: True
-- XLSX path: etudecas\donnees\Data_poc.xlsx
+- XLSX path: etudecas\data\source\Data_poc.xlsx
 - Rows read: 33
 - Rows mapped: 33
 - Error: none
 
 ## demand_PF import
 - Enabled: True
-- XLSX path: etudecas\donnees\demand_PF.xlsx
+- XLSX path: etudecas\data\source\demand_PF.xlsx
 - Sheet found: True
 - Rows read: 104
 - Rows mapped: 104

@@ -1,28 +1,31 @@
-# Prompt Codex — Audit multi-agent initial
+# Prompt Codex - Audit multi-agent courant
 
-Lis le repo `etudecas`.
+Lis le vrai repo `etudecas` et le guide `etudecas_codex_multiagent_pack/AGENTS.md`.
 
-Je veux passer d’un projet one-shot à un moteur générique de cas d’étude.
+Objectif : verifier que la demande est traitee avec les bons roles agents sans
+creer de refactor massif inutile.
 
-Utilise des subagents spécialisés :
-- architecture ;
-- données ;
-- KPI / métier ;
-- visualisation ;
-- tests ;
-- reviewer.
+Utilise des sous-agents seulement si les questions sont independantes :
 
-Ne modifie aucun fichier.
+- simulation ;
+- lot_trace ;
+- sensitivity ;
+- map_payload ;
+- data_knowledge ;
+- validation.
 
-Chaque subagent doit produire :
-1. fichiers inspectés ;
-2. problèmes détectés ;
-3. risques ;
-4. refactor proposé ;
-5. tests à ajouter.
+Chaque sous-agent doit produire :
 
-Ensuite, synthétise :
-- une architecture cible ;
-- une roadmap en PR ;
-- les 5 premiers fichiers à créer ;
-- les règles à mettre ou améliorer dans `AGENTS.md`.
+1. fichiers inspectes ;
+2. probleme concret detecte ;
+3. correction ou recommandation ;
+4. tests ou controles a executer ;
+5. risque residuel.
+
+Synthese attendue :
+
+- role principal ;
+- roles secondaires utiles ;
+- fichiers a modifier ;
+- tests minimaux ;
+- artefacts a conserver ou supprimer.
