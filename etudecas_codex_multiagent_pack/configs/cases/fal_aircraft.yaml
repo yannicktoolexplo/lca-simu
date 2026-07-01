@@ -1,0 +1,83 @@
+case_id: fal_aircraft_performance
+business_question: "Suivre l’évolution de performance d’une ligne d’assemblage final aéronautique."
+system_boundary:
+  included:
+    - aircraft_flow
+    - remaining_work
+    - delay
+    - stress
+  excluded:
+    - full_company_cost
+    - supplier_contracts
+    - long_term_workforce_planning
+data:
+  path: data/reference/fal_aircraft_tiny.csv
+  schema: configs/schemas/fal_aircraft_schema.yaml
+trajectory:
+  dimensions: [quality, delay, stress]
+  time_column: date
+  entity_column: aircraft_id
+kpi_tree:
+  performance:
+    type: composite
+    aggregation: weighted_mean
+    children:
+      quality: 0.4
+      delay: 0.3
+      stress: 0.3
+  quality:
+    type: composite
+    aggregation: weighted_mean
+    children:
+      remaining_work: 0.6
+      documentation_status: 0.4
+  delay:
+    type: composite
+    aggregation: weighted_mean
+    children:
+      delay_days_score: 0.7
+      unplanned_work_score: 0.3
+  stress:
+    type: composite
+    aggregation: weighted_mean
+    children:
+      stress_index_score: 1.0
+  remaining_work:
+    type: elementary
+    source_column: remaining_hours
+    direction: minimize
+    target: 0.0
+    min: 0.0
+    max: 500.0
+  documentation_status:
+    type: elementary
+    source_column: documentation_up_to_date
+    direction: maximize
+    target: 1.0
+    min: 0.0
+    max: 1.0
+  delay_days_score:
+    type: elementary
+    source_column: delay_days
+    direction: minimize
+    target: 0.0
+    min: 0.0
+    max: 20.0
+  unplanned_work_score:
+    type: elementary
+    source_column: unplanned_work_hours
+    direction: minimize
+    target: 0.0
+    min: 0.0
+    max: 100.0
+  stress_index_score:
+    type: elementary
+    source_column: stress_index
+    direction: minimize
+    target: 0.0
+    min: 0.0
+    max: 1.0
+visuals:
+  trajectory_3d: configs/visuals/trajectory_3d.yaml
+  time_series: configs/visuals/time_series.yaml
+validation_rules: configs/validation/validation_rules.yaml

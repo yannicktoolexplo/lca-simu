@@ -1,0 +1,72 @@
+{
+  "case_id": "data_poc",
+  "node_aliases": {
+    "DC-1910": "DC-1920"
+  },
+  "node_display_labels": {
+    "SDC-1450": "D-1450"
+  },
+  "upstream_internal_site_ids": [
+    "SDC-1450"
+  ],
+  "item_reference_notes": {
+    "item:007923": "007923 (ancienne ref 693710)"
+  },
+  "logistics_assumptions": {
+    "item:268967": {
+      "unitsPerCase": 125,
+      "unitLabel": "PF",
+      "centralCasesPerPallet": 48,
+      "minCasesPerPallet": 40,
+      "maxCasesPerPallet": 64,
+      "truckPalletSlots": 33,
+      "palletEnvelopeM3": 1.632,
+      "identifiableMassKgPerUnit": 0.0351
+    }
+  },
+  "standard_order_overrides": [
+    {
+      "src": "SDC-VD0520115A",
+      "dst": "M-1430",
+      "item_id": "item:708073",
+      "qty": 5000.0,
+      "uom": "KG",
+      "min_original_qty": 1000000.0,
+      "note": "corrige: valeur source 5 000 000 interpretee comme g, soit 5 000 kg"
+    }
+  ],
+  "production_cost_line_shares": [
+    {
+      "node_id": "M-1430",
+      "item_id": "item:268967",
+      "share": 0.4
+    },
+    {
+      "node_id": "M-1810",
+      "item_id": "item:268091",
+      "share": 0.45
+    },
+    {
+      "node_id": "SDC-1450",
+      "item_id": "item:773474",
+      "share": 0.15
+    }
+  ],
+  "production_cost_line_profiles": [
+    {
+      "node_id": "M-1430",
+      "item_id": "item:268967",
+      "profile": "medicament_gelule"
+    },
+    {
+      "node_id": "M-1810",
+      "item_id": "item:268091",
+      "profile": "creme_dermato"
+    },
+    {
+      "node_id": "SDC-1450",
+      "item_id": "item:773474",
+      "profile": "semi_fini_extraction"
+    }
+  ]
+}

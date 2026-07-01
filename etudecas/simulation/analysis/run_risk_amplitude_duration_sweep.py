@@ -12,7 +12,7 @@ from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[3]
-SIM_SCRIPT = ROOT / "etudecas" / "simulation" / "run_first_simulation.py"
+SIM_SCRIPT = ROOT / "etudecas" / "simulation" / "engine" / "run_first_simulation.py"
 INPUT_JSON = (
     ROOT
     / "etudecas"

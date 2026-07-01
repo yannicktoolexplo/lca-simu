@@ -28,7 +28,7 @@ from etudecas.simulation.analysis_batch_common import load_json, numeric_kpis, r
 
 
 SIM_ROOT = Path(__file__).resolve().parents[1]
-RUN_SCRIPT = SIM_ROOT / "run_first_simulation.py"
+RUN_SCRIPT = SIM_ROOT / "engine" / "run_first_simulation.py"
 BASE_INPUT = SIM_ROOT / "result" / "model_assumption_review" / "cases" / "baseline_gaillac" / "input_case.json"
 CRITICAL_MATERIALS = SIM_ROOT / "result" / "data" / "critical_input_materials_analysis.csv"
 OUT_DIR = SIM_ROOT / "result" / "supplier_risk_proxy_study"

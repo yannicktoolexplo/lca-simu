@@ -49,6 +49,7 @@ docs/_build/
 # Fichiers de journalisation
 *.log
 logs/
+tmp_*
 
 # Fichiers d'authentification et de clés
 *.key
@@ -128,3 +129,18 @@ etudecas/simulation/result/data/
 etudecas/simulation/result/maps/
 etudecas/simulation/result/summaries/
 etudecas/simulation/sensibility/_*/
+
+# Etudecas generated simulation artifacts
+etudecas/simulation/result/**/data/
+etudecas/simulation/result/**/maps/
+etudecas/simulation/result/**/plots/
+etudecas/simulation/result/**/summaries/
+etudecas/simulation/result/**/reports/lot_trace_viewer.html
+etudecas/simulation/result/**/*.html
+etudecas/simulation/sensibility/**/simulation_output/
+etudecas/simulation/sensibility/**/cases/**/simulation_output/
+etudecas/simulation/sensibility/**/*_stdout.log
+etudecas/simulation/sensibility/**/*_stderr.log
+etudecas/simulation/sensibility_archives/
+etudecas/simulation/experiments/result/
+etudecas/artifacts/

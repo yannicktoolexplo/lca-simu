@@ -1,0 +1,27 @@
+score_bounds:
+  enabled: true
+  min: 0.0
+  max: 1.0
+  columns:
+    - quality
+    - delay
+    - stress
+    - performance
+no_nan:
+  enabled: true
+temporal_order:
+  enabled: true
+  time_column: date
+  entity_column: aircraft_id
+business_rules:
+  - id: late_case_not_excellent
+    description: "Un cas très en retard ne doit pas avoir une performance finale excellente."
+    severity: warning
+    when:
+      column: delay_days
+      operator: ">="
+      value: 15
+    then_not:
+      column: performance
+      operator: ">"
+      value: 0.9
