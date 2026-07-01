@@ -1,1 +1,0 @@
-event_id,trigger_day,start_day,end_day,supplier_id,item_id,risk_family,risk_type,multiplier,trigger_metric,trigger_value,threshold,consecutive_days,effect,notes
