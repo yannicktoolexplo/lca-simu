@@ -1,0 +1,40 @@
+{
+  "schema_version": "etudecas.data_manifest.v1",
+  "canonical_root": "etudecas/data",
+  "active_directories": {
+    "source": {
+      "path": "etudecas/data/source",
+      "role": "Fichiers metier source et graphe JSON de base."
+    },
+    "geocoded": {
+      "path": "etudecas/data/geocoded",
+      "role": "Graphe geocode et rapports de geocodage."
+    },
+    "reports": {
+      "path": "etudecas/data/reports",
+      "role": "Rapports d'enrichissement et controles de donnees."
+    }
+  },
+  "canonical_source_files": [
+    "021081.xlsx",
+    "268191.xlsx",
+    "268967.xlsx",
+    "Data_poc.xlsx",
+    "demand_PF.xlsx",
+    "Extract_En_cours.xlsx",
+    "Fournisseur.xlsx",
+    "Stocks_MRP.xlsx",
+    "supply_graph_poc.json"
+  ],
+  "legacy_paths": {
+    "etudecas/donnees": {
+      "status": "replaced_by_etudecas_data_source",
+      "replacement": "etudecas/data/source",
+      "note": "Peut rester localement si Extract_En_cours.xlsx est ouvert dans Excel."
+    },
+    "etudecas/result_geocodage": {
+      "status": "replaced_by_etudecas_data_geocoded",
+      "replacement": "etudecas/data/geocoded"
+    }
+  }
+}

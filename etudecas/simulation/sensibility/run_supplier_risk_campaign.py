@@ -26,6 +26,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from etudecas.simulation.analysis_batch_common import safe_name, to_float  # noqa: E402
+from etudecas.simulation.initial_state_policy import merge_living_initial_state_args  # noqa: E402
 from etudecas.simulation.sensibility.run_supplier_parameter_sensitivity import (  # noqa: E402
     derived_case_kpis,
 )
@@ -298,6 +299,7 @@ def run_simulation_case(
         return load_json(summary_path(output_dir))
 
     output_dir.mkdir(parents=True, exist_ok=True)
+    merged_extra_args = merge_living_initial_state_args(extra_args)
     cmd = [
         sys.executable,
         str(run_script),
@@ -309,7 +311,7 @@ def run_simulation_case(
         scenario_id,
         "--days",
         str(days),
-        *extra_args,
+        *merged_extra_args,
     ]
     if risk_csv is not None:
         cmd.extend(["--supplier-risk-events-csv", str(risk_csv)])
