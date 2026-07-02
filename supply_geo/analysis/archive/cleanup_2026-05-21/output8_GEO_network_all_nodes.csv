@@ -1,0 +1,118 @@
+﻿variant,node_id,supplier,role_hint,country,region,lat,lon,is_primary,supplier_status,source_ids,geocode_status
+all,FRN-34B2AC7037114C@GEO-8689266dc39fa102cbb8,FRN-34B2AC7037114C,tier4_raw_material,United States,Outside_Europe,,,True,baseline_primary,SRC_FRN-34B2AC7037114C_001,source_backed_site
+all,FRN-60C89B8D6563EA@GEO-572afd02f88fc2ce8dc7,FRN-60C89B8D6563EA,tier4_raw_material,India,Outside_Europe,,,False,alternate,SRC_FRN-191F6AC0669F77_001,source_backed_site
+all,FRN-7A25E45203FCC9~R1A8E7CC0B3F6@GEO-2d1e2778afb387cd7e4b,FRN-7A25E45203FCC9,tier4_raw_material,China,Outside_Europe,,,False,alternate_requires_allocation_source,,fallback_site_needs_source
+all,FRN-5AA9E59DA0B02F@GEO-68dcea035dd3e7cdf6a2,FRN-5AA9E59DA0B02F,tier4_raw_material,India,Outside_Europe,,,False,alternate,SRC_FRN-5AA9E59DA0B02F_001,source_backed_site
+all,FRN-798BE9ED657B85@GEO-bb436e6014b2c700e8ae,FRN-798BE9ED657B85,tier3_first_transformation,France,France,,,False,alternate,SRC_FRN-798BE9ED657B85_001,source_backed_site
+all,FRN-CD09D021B366DB@GEO-a3bc0de583692b0dc451,FRN-CD09D021B366DB,tier3_first_transformation,Austria,Europe_non_FR,,,True,baseline_primary,SRC_AMAG_001,source_backed_site
+all,FRN-8D94FBDCC3B3B5@GEO-0f52c6ebdcd39c430fbe,FRN-8D94FBDCC3B3B5,tier3_first_transformation,France,France,,,False,alternate,SRC_THYSSEN_001,source_backed_site
+all,FRN-6EF3EF62BA6339@GEO-c5b76bafb69cd8345a78,FRN-6EF3EF62BA6339,tier3_first_transformation,France,France,,,False,alternate_requires_allocation_source,SRC_FRN-C3B826345B6812_001,source_backed_site
+all,FRN-D2C24A0C097FC3@GEO-f320277cfa76e08c8091,FRN-D2C24A0C097FC3,tier3_first_transformation,France,France,,,False,alternate,,kept_from_source_json
+all,FRN-45A091671294B0@GEO-92e8f19f958080f82a7f,FRN-45A091671294B0,tier1,France,France,,,True,baseline_primary,,kept_from_source_json
+all,FRN-8461B2D08E3D4E@GEO-837333f650189fb01b97,FRN-8461B2D08E3D4E,tier1,France,France,,,False,alternate,SRC_FIGEAC_001,source_backed_site
+all,FRN-0B41BF5B9E4B4E@GEO-5a0fd20a68d1347cdb04,FRN-0B41BF5B9E4B4E,tier1,France,France,,,False,alternate_requires_allocation_source,SRC_FRN-FCB0C890EFA2B8_001,source_backed_site
+all,FRN-72A106312E8F95@GEO-5a73d15b857023861a4c,FRN-72A106312E8F95,tier1,France,France,,,False,alternate_requires_allocation_source,SRC_FRN-72A106312E8F95_001,source_backed_site
+all,FRN-999053838C0E1C@GEO-a60b48da71481d6321ba,FRN-999053838C0E1C,tier1,France,France,,,False,alternate_requires_allocation_source,SRC_FRN-D0B6DB0F437592_001,source_backed_site
+all,FRN-2229587D79B6E7@GEO-70d43a1a011c9323b967,FRN-2229587D79B6E7,tier1,France,France,,,False,alternate_requires_allocation_source,,kept_from_source_json
+all,FRN-98C883F706EF89@GEO-2b608cd3ed2af3ca1b03,FRN-98C883F706EF89,tier1,Thailand,Outside_Europe,,,False,alternate_requires_allocation_source,SRC_FRN-4BCB03E5586F0F_THAILAND_001,source_backed_site
+all,FRN-02CF7132A43469@GEO-2531a3361a2ce3ede88a,FRN-02CF7132A43469,tier1,France,France,,,False,alternate,,kept_from_source_json
+all,FRN-4F36F37FC51169@GEO-f352db443b585a5d6093,FRN-4F36F37FC51169,tier1,France,France,,,False,alternate_requires_allocation_source,,kept_from_source_json
+all,FRN-C1DF555DA868BF~R83F9BF45C815@GEO-5725668e1204d8ba7aac,FRN-C1DF555DA868BF,tier1,France,France,,,False,alternate,SRC_LAUAK_001,source_backed_site
+all,FRN-AA08AEDDCB94EB~RD6EC75E44EAD@GEO-29dd0c9ae8d28b0e23eb,FRN-AA08AEDDCB94EB,oem,France,France,,,True,baseline_primary,SRC_FRN-AA08AEDDCB94EB_001,source_backed_site
+all,FRN-19E8A3B02C44AE@GEO-dd421bb03ce8089f0076,FRN-19E8A3B02C44AE,tier4_raw_material,Germany,Europe_non_FR,,,True,baseline_primary,,kept_from_source_json
+all,FRN-3C5607FC501E5A@GEO-f929908abf70849d698c,FRN-3C5607FC501E5A,tier4_raw_material,Luxembourg,Europe_non_FR,,,False,alternate_requires_allocation_source,SRC_FRN-3C5607FC501E5A_001,source_backed_site
+all,FRN-CF71418802439F@GEO-8f204d42fc8307a24ca5,FRN-CF71418802439F,tier4_raw_material,China,Outside_Europe,,,False,alternate,SRC_BAOWU_001,source_backed_site
+all,FRN-B8E884308EA449@GEO-cb09da0c4aa4abeb8c29,FRN-B8E884308EA449,tier4_raw_material,United States,Outside_Europe,,,False,alternate,,fallback_site_needs_source
+all,FRN-8CF694326AFCE1@GEO-869b50e6ed17a47dd30d,FRN-8CF694326AFCE1,tier3_first_transformation,Germany,Europe_non_FR,,,False,alternate,,kept_from_source_json
+all,FRN-D562155C5EAD74@GEO-79cb5b64486a74dc7ffc,FRN-D562155C5EAD74,tier3_first_transformation,France,France,,,False,alternate,,kept_from_source_json
+all,FRN-83186B5AEF84D8@GEO-5833d3b9b992e92dacea,FRN-83186B5AEF84D8,tier3_first_transformation,France,France,,,True,baseline_primary,SRC_AUBERT_001,source_backed_site
+all,FRN-6378B78052F4FE@GEO-96b1e8c27f69ed72a45f,FRN-6378B78052F4FE,tier4_raw_material,Japan,Outside_Europe,,,True,baseline_primary,,fallback_site_needs_source
+all,FRN-301ED6D3E70080@GEO-f2bb0dbbfb547456b33b,FRN-301ED6D3E70080,tier4_raw_material,Germany,Europe_non_FR,,,False,alternate,SRC_FRN-301ED6D3E70080_001,source_backed_site
+all,FRN-2FC748C1ABC9C3@GEO-f039ef72bf6ce0eb538e,FRN-2FC748C1ABC9C3,tier4_raw_material,Germany,Europe_non_FR,,,False,alternate,,kept_from_source_json
+all,FRN-0F56088BEA4986@GEO-4d495f99d4d8bd073e0e,FRN-0F56088BEA4986,tier3_first_transformation,Japan,Outside_Europe,,,True,baseline_primary,SRC_FRN-9C546CCC918C61_001,source_backed_site
+all,FRN-33013E3321A5B5@GEO-936c49b28b06915e5ec8,FRN-33013E3321A5B5,tier3_first_transformation,France,France,,,False,alternate,SRC_EXSTO_001,source_backed_site
+all,FRN-5E8C7A0B3C0183@GEO-e0a0817fcb3d2b452570,FRN-5E8C7A0B3C0183,tier2_second_transformation,Germany,Europe_non_FR,,,False,alternate,,kept_from_source_json
+all,FRN-0B3DAD918C8F64@GEO-1f44dab446b07c787db6,FRN-0B3DAD918C8F64,tier2_second_transformation,United States,Outside_Europe,,,False,alternate,SRC_DUPONT_001,source_backed_site
+all,FRN-1DE52367D9D2BE@GEO-aa8715298b70b53233a5,FRN-1DE52367D9D2BE,tier2_second_transformation,Germany,Europe_non_FR,,,True,baseline_primary,,kept_from_source_json
+all,FRN-23F69D11DA051D@GEO-29548027363ceef51aa8,FRN-23F69D11DA051D,tier2_second_transformation,France,France,,,False,alternate,,kept_from_source_json
+all,FRN-F05E300AE66407@GEO-f714c22ee708773c08d1,FRN-F05E300AE66407,tier3_first_transformation,France,France,,,True,baseline_primary,SRC_FRN-446E35B7988374_001,kept_from_source_json
+all,FRN-87FB5EDE498059@GEO-39e5514df18767a39c61,FRN-87FB5EDE498059,tier3_first_transformation,Germany,Europe_non_FR,,,False,alternate,SRC_FRN-87FB5EDE498059_001,kept_from_source_json
+all,FRN-0A33FC5A2472A2@GEO-a46b214e2415043da5b4,FRN-0A33FC5A2472A2,tier2_second_transformation,France,France,,,True,baseline_primary,,kept_from_source_json
+all,FRN-099010FD9764F4@GEO-6e0e7957071374dddc3b,FRN-099010FD9764F4,tier2_second_transformation,United States,Outside_Europe,,,False,alternate,SRC_FRN-099010FD9764F4_001,kept_from_source_json
+all,FRN-CA06FA01372D3A@GEO-4ceb0d4598ee8507aeb7,FRN-CA06FA01372D3A,tier1,France,France,,,False,alternate,SRC_FRN-CA06FA01372D3A_001,kept_from_source_json
+all,FRN-EFD76ECB77D7DC@GEO-75410cf58875d5ef6da0,FRN-EFD76ECB77D7DC,tier1,"St. Louis, United States",Outside_Europe,,,False,alternate,SRC_KEMKO_001,source_backed_city_or_hq
+all,FRN-8F3177205B17E8@GEO-02ef9f4775542429349e,FRN-8F3177205B17E8,tier4_raw_material,China,Outside_Europe,,,False,alternate,,kept_from_source_json
+all,FRN-1FBDAEFBEB869B@GEO-f6ff5989250bdd28debc,FRN-1FBDAEFBEB869B,tier3_first_transformation,Germany,Europe_non_FR,,,True,baseline_primary,,kept_from_source_json
+all,FRN-2F86C605D36715@GEO-4648e8f1a28dcd083b81,FRN-2F86C605D36715,tier3_first_transformation,France,France,,,False,alternate,,kept_from_source_json
+all,FRN-0D637C05CC81D5@GEO-e794ff4ca8e05d133d8d,FRN-0D637C05CC81D5,tier3_first_transformation,Italy,Europe_non_FR,,,True,baseline_primary_inferred_after_review,SRC_MASTROTTO_001,kept_from_source_json
+all,FRN-935B8529CE61B4@GEO-4b1ec88cd136315d309d,FRN-935B8529CE61B4,tier2_second_transformation,France,France,,,True,baseline_primary,SRC_FRN-935B8529CE61B4_001,kept_from_source_json
+all,FRN-213AAC10F8FF68@GEO-a85c5bf9df1bcc8db8c9,FRN-213AAC10F8FF68,tier2_second_transformation,United Kingdom,Europe_non_FR,,,False,alternate,SRC_MGR_001,source_backed_site
+all,FRN-72A8D622F0F88D@GEO-b7afa63b39538050a548,FRN-72A8D622F0F88D,tier1,France,France,,,False,alternate_requires_allocation_source,SRC_FRN-72A8D622F0F88D_001,source_backed_site
+all,FRN-73FE254CB14818@GEO-4f7d699e0be3e356dc14,FRN-73FE254CB14818,tier1,France,France,,,False,alternate,SRC_FRN-67CD5F21738C93_001,source_backed_site
+all,FRN-FD0761D13CF2C9@GEO-8dc04fe511279e0b1185,FRN-FD0761D13CF2C9,tier2_second_transformation,Canada,Outside_Europe,,,True,baseline_primary_inferred_after_review,SRC_FRN-869E1A8BB344FD_001,source_backed_site
+all,FRN-DE6523078882AF@GEO-c365d7f3aa1fb810f1dc,FRN-DE6523078882AF,tier1,France,France,,,True,baseline_primary_inferred_after_review,SRC_FRN-DE6523078882AF_001,kept_from_source_json
+all,FRN-9039B0A26EAA3B@GEO-ab7463df24bbad27b915,FRN-9039B0A26EAA3B,tier1,France,France,,,False,alternate,SRC_MADEL_EC_001,kept_from_source_json
+all,FRN-8D803DB4CA43C4@GEO-c819b98fb343d3a845c3,FRN-8D803DB4CA43C4,tier1,Germany,Europe_non_FR,,,False,alternate,SRC_FRN-9A1259AF62E7E2_001,kept_from_source_json
+all,FRN-482DAF5037232F@GEO-c3e908d4aa0ca7ece9fa,FRN-482DAF5037232F,tier4_raw_material,Brazil,Outside_Europe,,,True,baseline_primary,SRC_FRN-482DAF5037232F_001,kept_from_source_json
+all,FRN-D227736E23A53A@GEO-8f7219f3a21150fdd08c,FRN-D227736E23A53A,tier4_raw_material,Sweden,Europe_non_FR,,,False,alternate,SRC_FRN-D227736E23A53A_001,kept_from_source_json
+all,FRN-AC50E317D82C5C@GEO-7ea6654fd93efe8d1218,FRN-AC50E317D82C5C,tier4_raw_material,Sweden,Europe_non_FR,,,False,alternate,SRC_FRN-AC50E317D82C5C_001,source_backed_site
+all,FRN-BC96F516F6356A@GEO-17d92528a1ca7f13c991,FRN-BC96F516F6356A,tier4_raw_material,France,France,,,False,alternate,SRC_GASCOGNE_001,kept_from_source_json
+all,FRN-B7600B824E7BC7@GEO-8b13047a779d5f0330f2,FRN-B7600B824E7BC7,tier3_first_transformation,"Shikokuchuo, Japan",Outside_Europe,,,False,alternate,SRC_DAIO_001,source_backed_city_or_hq
+all,FRN-D5AC44A74AFB92@GEO-b3e721bd50d7813552a1,FRN-D5AC44A74AFB92,tier3_first_transformation,Germany,Europe_non_FR,,,True,baseline_primary,SRC_FRN-D5AC44A74AFB92_001,kept_from_source_json
+all,FRN-446E35B7988374@GEO-ac1906156c69e81f0b23,FRN-446E35B7988374,tier3_first_transformation,France,France,,,False,alternate,SRC_FRN-446E35B7988374_001,kept_from_source_json
+all,FRN-095262A67F7661@GEO-7e2d825222a95c861506,FRN-095262A67F7661,tier2_second_transformation,United States,Outside_Europe,,,True,baseline_primary_inferred_after_review,SRC_FRN-095262A67F7661_001,kept_from_source_json
+all,FRN-77A20D424743A6@GEO-6bc0555fafe40dbb9446,FRN-77A20D424743A6,tier3_first_transformation,France,France,,,True,baseline_primary,SRC_SAINTGOBAIN_001,kept_from_source_json
+all,FRN-332F92E4BA4B00@GEO-96b1e8c27f69ed72a45f,FRN-332F92E4BA4B00,tier3_first_transformation,"Tokyo, Japan",Outside_Europe,,,False,alternate,SRC_SHINETSU_001,source_backed_city_or_hq
+all,FRN-BDE3FD68E4E87F@GEO-7ae8b81aef6fc9988eab,FRN-BDE3FD68E4E87F,tier2_second_transformation,"Blackburn, United Kingdom",Outside_Europe,,,True,baseline_primary_inferred_after_review,SRC_FRN-BDE3FD68E4E87F_001,source_backed_city_or_hq
+all,FRN-6DA33580D77667@GEO-23b673869dc28b11c186,FRN-6DA33580D77667,tier2_second_transformation,Belgium,Europe_non_FR,,,False,alternate,SRC_FRN-D16128C2D1AA8B_001,source_backed_site
+all,FRN-931CE9F49D95CD@GEO-64d5f956a113db4c3607,FRN-931CE9F49D95CD,tier2_second_transformation,United States,Outside_Europe,,,True,baseline_primary_inferred_after_review,SRC_FRN-931CE9F49D95CD_001,kept_from_source_json
+all,FRN-F436B1B68664EB@GEO-48dbdf7176d46f0972c6,FRN-F436B1B68664EB,tier3_first_transformation,China,Outside_Europe,,,True,baseline_primary,,kept_from_source_json
+all,FRN-0CA3DB5897A052@GEO-40d13e04904fc79a9aa5,FRN-0CA3DB5897A052,tier3_first_transformation,"Huddersfield, United Kingdom",Outside_Europe,,,False,alternate,SRC_HUDDERSFIELD_001,source_backed_city_or_hq
+all,FRN-4BB98A8F3046A5@GEO-0f24527bba181fbded17,FRN-4BB98A8F3046A5,tier3_first_transformation,France,France,,,False,alternate_requires_allocation_source,,kept_from_source_json
+all,FRN-655B21F6A3D529@GEO-a9a432026c59b137fcd7,FRN-655B21F6A3D529,tier3_first_transformation,France,France,,,False,alternate,,kept_from_source_json
+all,FRN-E0AC66F8EC6C54@GEO-42e54b2e16ab5169ccc3,FRN-E0AC66F8EC6C54,tier3_first_transformation,France,France,,,False,alternate,,kept_from_source_json
+all,FRN-CF3D91FACC36F2@GEO-c164002cee30b2f97ef5,FRN-CF3D91FACC36F2,tier3_first_transformation,France,France,,,False,alternate,,kept_from_source_json
+all,FRN-B97B666EABAA84@GEO-ddaea058f9f1e478be61,FRN-B97B666EABAA84,tier2_second_transformation,France,France,,,False,alternate,,kept_from_source_json
+all,FRN-0F389602532562@GEO-ac8360b97fa5d4a6eaff,FRN-0F389602532562,tier2_second_transformation,Poland,Europe_non_FR,,,False,alternate_requires_allocation_source,,kept_from_source_json
+all,FRN-42D16514C836F9@GEO-44f31386ba2578946b02,FRN-42D16514C836F9,tier4_raw_material,Canada,Outside_Europe,,,False,alternate,,kept_from_source_json
+all,FRN-174726BD5498A5@GEO-5584249a6a4ce1578924,FRN-174726BD5498A5,tier4_raw_material,Canada,Outside_Europe,,,False,alternate,,kept_from_source_json
+all,FRN-C2C13D47AFDB04@GEO-bcad9256f89cfbc9a3da,FRN-C2C13D47AFDB04,tier2_second_transformation,United States,Outside_Europe,,,True,baseline_primary,SRC_FRN-BDF19DDAD7E188_001,source_backed_site
+all,FRN-D9C48086C34DAF@GEO-1d6e423933d037c93227,FRN-D9C48086C34DAF,tier1,United States,Outside_Europe,,,False,alternate_requires_allocation_source,SRC_FRN-D9C48086C34DAF_001,source_backed_site
+all,FRN-2EC56F8EB8EC02@GEO-c66a566b445a315beded,FRN-2EC56F8EB8EC02,tier1,Lithuania,Europe_non_FR,,,False,alternate,SRC_JCAERO_001,source_backed_site
+all,FRN-82CCA67E25D130@GEO-96b4c1dc2b00e11d0149,FRN-82CCA67E25D130,tier1,France,France,,,False,alternate,SRC_ANJOU_001,source_backed_site
+all,FRN-51245894531FE9@GEO-08c25eb05ca395b979e7,FRN-51245894531FE9,tier1,United States,Outside_Europe,,,False,alternate,SRC_ANCRA_001,source_backed_site
+all,FRN-4DC00ECEFB8526@GEO-7782eb6a125c895e7951,FRN-4DC00ECEFB8526,tier1,United States,Outside_Europe,,,False,alternate,SRC_TA_001,source_backed_site
+all,FRN-B4E809AFDBFA0B@GEO-866985ed9a72afd3e25d,FRN-B4E809AFDBFA0B,tier1,Japan,Outside_Europe,,,False,alternate,SRC_JAMCO_001,source_backed_site
+all,FRN-19277B67029E73@GEO-e1ce2677883a62228b70,FRN-19277B67029E73,tier1,Japan,Outside_Europe,,,False,alternate,SRC_JAMCO_001,source_backed_site
+all,FRN-AA9FC43191C9DB@GEO-a5e186c5f84b166eae23,FRN-AA9FC43191C9DB,tier1,Philippines,Outside_Europe,,,False,alternate,SRC_JAMCO_001,source_backed_site
+all,FRN-01464643EEA78E@GEO-e5b075535a2b5f3bda33,FRN-01464643EEA78E,tier3_first_transformation,Japan,Outside_Europe,,,False,alternate,,kept_from_source_json
+all,FRN-4D05106737BED8@GEO-63c6c116fa1fa60ea902,FRN-4D05106737BED8,tier2_second_transformation,France,France,,,True,baseline_primary,SRC_LELIEVRE_001,kept_from_source_json
+all,FRN-B9C4C86C42C8B4@GEO-c13e780b04666c1772a2,FRN-B9C4C86C42C8B4,tier1,"Berwyn, United States",Outside_Europe,,,True,baseline_primary_inferred_after_review,SRC_TE_001,source_backed_city_or_hq
+all,FRN-A11855A23B3277@GEO-d9d521305682a4f07c32,FRN-A11855A23B3277,tier1,United States,Outside_Europe,,,False,alternate,SRC_FRN-AB3EB7C0CECDE9_001,kept_from_source_json
+all,FRN-42EDB7DB79E4B3@GEO-dad5800a81a4dc3dec72,FRN-42EDB7DB79E4B3,tier1,"Lindenberg im Allgau, Germany",Outside_Europe,,,True,baseline_primary,SRC_FRN-52D5AE23024E5C_001,source_backed_city_or_hq
+all,FRN-CEF93150EAB259@GEO-af9b71f701537224c45f,FRN-CEF93150EAB259,tier4_raw_material,Arabie Saoudite,Outside_Europe,,,True,baseline_primary,SRC_FRN-CEF93150EAB259_001,kept_from_source_json
+all,FRN-A8DAAA5DEF510F@GEO-6b347deb04d6796947a9,FRN-A8DAAA5DEF510F,tier4_raw_material,France,France,,,False,alternate,,kept_from_source_json
+all,FRN-BF6DDA7768754E@GEO-f0488344a504993ceae8,FRN-BF6DDA7768754E,tier2_second_transformation,France,France,,,False,alternate,SRC_AUBERON_001,kept_from_source_json
+all,FRN-EAF03ECECB6231@GEO-5aba3e8e602652c02370,FRN-EAF03ECECB6231,tier2_second_transformation,France,France,,,False,alternate,SRC_FRN-EAF03ECECB6231_001,kept_from_source_json
+all,FRN-61C32423BFF67F@GEO-a4f924297d2e260355b1,FRN-61C32423BFF67F,tier4_raw_material,France,France,,,False,alternate,,kept_from_source_json
+all,FRN-4C5D687CCB33A2@GEO-575bc0af45a28a9602d1,FRN-4C5D687CCB33A2,tier4_raw_material,China,Outside_Europe,,,True,baseline_primary,SRC_SHANDONG_LOYAL_001,kept_from_source_json
+all,FRN-8C9D165AC08887@GEO-76d9692606a6e19f3847,FRN-8C9D165AC08887,tier4_raw_material,China,Outside_Europe,,,False,alternate,SRC_FRN-8C9D165AC08887_WEF_001,kept_from_source_json
+all,FRN-0470CB8E24F90C@GEO-23037635f8935735409f,FRN-0470CB8E24F90C,tier4_raw_material,Mexico,Outside_Europe,,,False,alternate,SRC_ORBIA_001,kept_from_source_json
+all,FRN-86B55CBC7AFCE9@GEO-083837edaf2857821a90,FRN-86B55CBC7AFCE9,tier2_second_transformation,United States,Outside_Europe,,,False,alternate,SRC_FRN-86B55CBC7AFCE9_001,kept_from_source_json
+all,FRN-7841573D28AA9A@GEO-6ea8e904e0009a99f0c2,FRN-7841573D28AA9A,tier2_second_transformation,France,France,,,False,alternate,,kept_from_source_json
+all,FRN-664F9D3A953246@GEO-e5d79f8d81666108018f,FRN-664F9D3A953246,tier2_second_transformation,France,France,,,False,alternate,SRC_FRN-664F9D3A953246_001,kept_from_source_json
+all,FRN-60698C6D4CC207@GEO-10b739fa92a9d74a0aa1,FRN-60698C6D4CC207,tier2_second_transformation,Finland,Europe_non_FR,,,False,alternate,,kept_from_source_json
+all,FRN-692EAC3B5CF3EE@GEO-1fe793bb16670fe9accf,FRN-692EAC3B5CF3EE,tier1,Germany,Europe_non_FR,,,False,alternate,,kept_from_source_json
+all,FRN-B6625637884109@GEO-cffac82c29ba3bfa8c14,FRN-B6625637884109,tier4_raw_material,Cameroun,Outside_Europe,,,True,baseline_primary,SRC_HALCYON_001,kept_from_source_json
+all,FRN-4674144B3134A7@GEO-287a10e3f9340eef832b,FRN-4674144B3134A7,tier4_raw_material,Liberia,Outside_Europe,,,False,alternate,SRC_FRN-26DEDB3523ED49_001,kept_from_source_json
+all,FRN-6593B612CCC15F@GEO-29a79fd56774bdb42c9a,FRN-6593B612CCC15F,tier4_raw_material,Côte d'Ivoire,Outside_Europe,,,False,alternate,SRC_HALCYON_001,kept_from_source_json
+all,FRN-A561D8E52E28DD@GEO-93787a350041cb7cc1b8,FRN-A561D8E52E28DD,tier4_raw_material,Indonésie,Outside_Europe,,,False,alternate,SRC_HALCYON_001,kept_from_source_json
+all,FRN-7BD747E6CC4CD5@GEO-8f27eed30cde0c624dbf,FRN-7BD747E6CC4CD5,tier4_raw_material,Liberia,Outside_Europe,,,False,alternate,SRC_FRN-26DEDB3523ED49_001,kept_from_source_json
+all,FRN-4E9DE984AC7CCA@GEO-4f31fbafb11b6d11c097,FRN-4E9DE984AC7CCA,tier4_raw_material,Nigeria,Outside_Europe,,,False,alternate,SRC_FRN-26DEDB3523ED49_001,kept_from_source_json
+all,FRN-68DAD6BBF1BAEB@GEO-5da5e152c0017f2833d2,FRN-68DAD6BBF1BAEB,tier3_first_transformation,Japan,Outside_Europe,,,True,baseline_primary,SRC_FRN-68DAD6BBF1BAEB_001,kept_from_source_json
+all,FRN-00E06DCA30233C@GEO-43cd71b9c47f0c0b5afb,FRN-00E06DCA30233C,tier3_first_transformation,Portugal,Europe_non_FR,,,True,baseline_primary_inferred_after_review,SRC_FRN-00E06DCA30233C_001,kept_from_source_json
+all,FRN-E44BD8109B6A57@GEO-d36cbb59da833bcfb0ae,FRN-E44BD8109B6A57,tier2_second_transformation,Denmark,Europe_non_FR,,,False,alternate,SRC_FRN-E44BD8109B6A57_001,kept_from_source_json
+all,FRN-AEA0242468D6C5@GEO-e00d280631d8d1192d84,FRN-AEA0242468D6C5,tier2_second_transformation,Germany,Europe_non_FR,,,True,baseline_primary,SRC_FRN-69EC9F91F7F98F_001,kept_from_source_json
+all,FRN-69EC9F91F7F98F@GEO-97971ade203e8d8e29e1,FRN-69EC9F91F7F98F,tier2_second_transformation,France,France,,,False,alternate,SRC_FRN-69EC9F91F7F98F_001,kept_from_source_json
+all,FRN-BEA11B23A9388A@GEO-85a045b6a34b121a027a,FRN-BEA11B23A9388A,tier1,France,France,,,True,baseline_primary,,kept_from_source_json
+all,FRN-4F3EF5C6442315~R8E237D906277@GEO-6dcb32b3fc05a3773446,FRN-4F3EF5C6442315,tier1,France,France,,,False,alternate,SRC_FRN-4F3EF5C6442315_FRN-1045D929655FAF_001,source_backed_site

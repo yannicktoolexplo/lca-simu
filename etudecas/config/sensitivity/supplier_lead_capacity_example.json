@@ -1,0 +1,53 @@
+{
+  "study_id": "supplier_lead_capacity_example",
+  "title": "Supplier lead-time and capacity sensitivity",
+  "baseline": "nominal_5y",
+  "input_graph": "etudecas/simulation_prep/result/reference_baseline/_mrp_bom_tests/bom_weekly_mps_lotified_no_static_fallback_physical_floor.json",
+  "run_script": "etudecas/simulation/engine/run_first_simulation.py",
+  "scenario_id": "scn:BASE",
+  "horizon_days": 1825,
+  "retention": "summary",
+  "sampling": {
+    "method": "one_at_a_time",
+    "include_baseline": true,
+    "max_scenarios": 200
+  },
+  "parameters": [
+    {
+      "name": "supplier_capacity_scale",
+      "target": "supplier.capacity",
+      "family": "capacity",
+      "kind": "factor",
+      "baseline": 1.0,
+      "levels": [0.5, 0.75, 1.0, 1.25],
+      "description": "Supplier daily throughput multiplier."
+    },
+    {
+      "name": "supplier_lead_time_scale",
+      "target": "supplier.lead_time",
+      "family": "lead_time",
+      "kind": "factor",
+      "baseline": 1.0,
+      "levels": [1.0, 1.25, 1.5, 2.0],
+      "description": "Supplier planned lead-time multiplier."
+    },
+    {
+      "name": "supplier_opening_stock_scale",
+      "target": "supplier.opening_stock",
+      "family": "stock",
+      "kind": "factor",
+      "baseline": 1.0,
+      "levels": [0.25, 0.5, 0.75, 1.0],
+      "description": "Available supplier opening stock multiplier."
+    }
+  ],
+  "metrics": [
+    "fill_rate",
+    "max_backlog",
+    "ending_backlog",
+    "production_replanning_count",
+    "input_delay_volume",
+    "total_cost",
+    "total_external_procured_ordered_qty"
+  ]
+}

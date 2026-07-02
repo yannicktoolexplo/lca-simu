@@ -1,0 +1,2 @@
+event_id,risk_type,supplier_id,item_id,dst_node_id,edge_id,start_day,end_day,multiplier,notes
+campaign_capacity_SDC-VD0989480A,capacity,SDC-VD0989480A,,,,0,364,0.5,Supplier risk campaign: debit fournisseur divise par deux

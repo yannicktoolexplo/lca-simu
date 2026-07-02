@@ -1,70 +1,104 @@
 # Etudecas
 
-Le point d’entrée actif est maintenant :
+Le point d'entree actif reste :
 
-- [run_etudecas_pipeline.py](C:/dev/lca-simu/etudecas/run_etudecas_pipeline.py)
+```powershell
+python etudecas/run_etudecas_pipeline.py
+```
 
-L’idée directrice est simple :
+Le livrable principal est un graphe JSON de supply chain. La chaine nominale
+enrichit ce graphe depuis les donnees cas, le geocode, le prepare pour la
+simulation, lance le moteur dynamique, puis genere les cartes et rapports.
 
-1. le livrable principal est un **graphe JSON de supply chain**
-2. ce graphe est enrichi depuis les `xlsx`
-3. il est préparé pour la simulation
-4. la simulation et la map se construisent à partir de ce graphe
+## Structure Actuelle
 
-## Pipeline actif
+- `data/source/` : fichiers metier source et graphe JSON de base.
+- `data/geocoded/` : graphe geocode et rapports de geocodage.
+- `data/reports/` : rapports d'enrichissement de donnees.
+- `geocoding/` : geocodage hors ligne des noeuds.
+- `simulation_prep/` : transformation du graphe en entree simulation.
+- `knowledge_graph/` : contrat JSON generique, template Excel et enrichissements JSON.
+- `simulation/engine/` : moteur de simulation canonique.
+- `simulation/lot_trace/` : lecture, indexation, payload et modeles de vue pour le suivi de lots.
+- `simulation/analysis/` : audits et analyses post-run.
+- `analysis/` : analyses historiques rangees hors du pipeline nominal.
+- `simulation/baselines/`, `simulation/scenarios/`, `simulation/sensibility/`, `simulation/montecarlo/` : campagnes et variantes.
+- `visualization/maps/` : generation des cartes HTML interactives.
+- `config/` : configuration metier du cas actif.
+- `risk/` : criticite fournisseur et vues de risque construites depuis la simulation.
+- `prototypes/` : POC non nominaux, dont prediction fournisseur sur donnees synthetiques.
+- `archive/` : anciens outputs ou cartes conserves pour reference.
 
-Chaîne principale :
+## Chemins Compatibles
 
-- [update_supply_graph_from_case_data.py](C:/dev/lca-simu/etudecas/donnees/update_supply_graph_from_case_data.py)
-- [geocode_nodes_offline.py](C:/dev/lca-simu/etudecas/scripts_geocodage/geocode_nodes_offline.py)
-- [prepare_simulation_graph.py](C:/dev/lca-simu/etudecas/simulation_prep/prepare_simulation_graph.py)
-- [rebuild_real_demand_target_baseline.py](C:/dev/lca-simu/etudecas/simulation/baselines/rebuild_real_demand_target_baseline.py)
-- [inject_mrp_seed_data_v2.py](C:/dev/lca-simu/etudecas/simulation_prep/inject_mrp_seed_data_v2.py)
-- [rebuild_mrp_lot_policy_baseline.py](C:/dev/lca-simu/etudecas/simulation/baselines/rebuild_mrp_lot_policy_baseline.py)
-- [run_first_simulation.py](C:/dev/lca-simu/etudecas/simulation/run_first_simulation.py)
-- [build_supplychain_worldmap.py](C:/dev/lca-simu/etudecas/affichage_supply_script/build_supplychain_worldmap.py)
+Ces anciens chemins restent disponibles comme wrappers :
 
-Artefacts de référence actifs :
+```powershell
+python etudecas/simulation/run_first_simulation.py
+python etudecas/affichage_supply_script/build_supplychain_worldmap.py
+python etudecas/supplier_risk_kpi/build_supplier_risk_kpi.py
+```
 
-- [supply_graph_reference_baseline_simulation_ready.json](C:/dev/lca-simu/etudecas/simulation_prep/result/reference_baseline/supply_graph_reference_baseline_simulation_ready.json)
-- [supply_graph_reference_baseline_real_demand_target_calibrated.json](C:/dev/lca-simu/etudecas/simulation_prep/result/reference_baseline/supply_graph_reference_baseline_real_demand_target_calibrated.json)
-- [supply_graph_reference_baseline_real_demand_target_calibrated_mrp_lot_policy.json](C:/dev/lca-simu/etudecas/simulation_prep/result/reference_baseline/supply_graph_reference_baseline_real_demand_target_calibrated_mrp_lot_policy.json)
-- [supply_graph_reference_baseline_real_demand_target_calibrated_mrp_lot_policy_recalibrated.json](C:/dev/lca-simu/etudecas/simulation_prep/result/reference_baseline/supply_graph_reference_baseline_real_demand_target_calibrated_mrp_lot_policy_recalibrated.json)
-- [supply_graph_reference_baseline_real_demand_target_calibrated_mrp_lot_policy_recalibrated_5y.json](C:/dev/lca-simu/etudecas/simulation_prep/result/reference_baseline/supply_graph_reference_baseline_real_demand_target_calibrated_mrp_lot_policy_recalibrated_5y.json)
+Les chemins canoniques sont maintenant :
+
+```powershell
+python etudecas/simulation/engine/run_first_simulation.py
+python etudecas/visualization/maps/build_supplychain_worldmap.py
+python etudecas/risk/supplier_criticality/build_supplier_criticality.py
+```
+
+## Pipeline Actif
+
+Chaine principale :
+
+- `knowledge_graph/update_supply_graph_from_case_data.py`
+- `geocoding/geocode_nodes_offline.py`
+- `simulation_prep/prepare_simulation_graph.py`
+- `simulation/baselines/rebuild_real_demand_target_baseline.py`
+- `simulation_prep/inject_mrp_seed_data_v2.py`
+- `simulation/baselines/rebuild_mrp_lot_policy_baseline.py`
+- `simulation/engine/run_first_simulation.py`
+- `visualization/maps/build_supplychain_worldmap.py`
+- `risk/supplier_criticality/build_supplier_criticality.py`
 
 ## Usage
 
-Rebâtir tout le pipeline actif 1 an :
+Rebatir tout le pipeline actif 1 an :
 
 ```powershell
 python etudecas/run_etudecas_pipeline.py all
 ```
 
-Rebâtir aussi la variante 5 ans :
+Rebatir aussi la variante 5 ans :
 
 ```powershell
 python etudecas/run_etudecas_pipeline.py all --with-5y
 ```
 
-Reconstruire seulement le graphe métier :
+Reconstruire seulement le graphe metier :
 
 ```powershell
 python etudecas/run_etudecas_pipeline.py graph
 ```
 
-Lancer la simulation depuis un graphe JSON donné :
+Lancer la simulation depuis un graphe JSON donne :
 
 ```powershell
 python etudecas/run_etudecas_pipeline.py simulate --input-graph <graph.json> --output-dir <result_dir>
 ```
 
-## Scripts legacy ou secondaires
+Reconstruire la criticite fournisseur utilisee par la carte et les arbres KPI :
 
-Ces scripts ne sont plus dans la chaîne principale, mais restent disponibles pour étude ou compatibilité :
+```powershell
+python etudecas/run_etudecas_pipeline.py supplier-criticality
+```
 
-- [inject_mrp_seed_data.py](C:/dev/lca-simu/etudecas/simulation_prep/inject_mrp_seed_data.py)
-- [estimate_supplier_capacities.py](C:/dev/lca-simu/etudecas/simulation_prep/estimate_supplier_capacities.py)
-- dossiers `SC_*`, `Prediction`, `worstcase`
-- scripts de sensibilité, Monte Carlo et scénarios spécifiques dans [simulation](C:/dev/lca-simu/etudecas/simulation)
+## Dossiers non nominaux
 
-Le principe est de ne plus considérer ces scripts comme la voie nominale de construction de la baseline.
+Les anciens dossiers `SC_*` ont ete ranges dans `analysis/`. Le POC
+`Prediction` a ete deplace dans `prototypes/prediction`. Les anciens resultats
+`worstcase` et l'ancien HTML `affichage_result` sont dans `archive/`.
+
+Les anciens dossiers `donnees/`, `scripts_geocodage/` et `result_geocodage/`
+ont ete remplaces par `data/source`, `data/geocoded`, `data/reports` et
+`geocoding`.

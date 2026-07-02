@@ -219,14 +219,24 @@ def apply_scales(
         ),
         6,
     )
+    econ["external_procurement_nominal_capacity_scale"] = round(
+        max(
+            0.0,
+            to_float(econ.get("external_procurement_nominal_capacity_scale"), 1.0)
+            * external_procurement_daily_cap_days_scale,
+        ),
+        6,
+    )
     econ["external_procurement_lead_days"] = int(
-        round(
-            max(
-                0.0,
-                to_float(econ.get("external_procurement_lead_days"), 4.0)
-                * external_procurement_lead_days_scale,
-            )
-        )
+        round(max(0.0, to_float(econ.get("external_procurement_lead_days"), 4.0)))
+    )
+    econ["external_procurement_lead_time_scale"] = round(
+        max(
+            0.01,
+            to_float(econ.get("external_procurement_lead_time_scale"), 1.0)
+            * external_procurement_lead_days_scale,
+        ),
+        6,
     )
     econ["external_procurement_cost_multiplier"] = round(
         max(
@@ -306,6 +316,7 @@ def run_simulation(
     days: int = 0,
     skip_map: bool = True,
     skip_plots: bool = True,
+    extra_args: list[str] | None = None,
 ) -> tuple[dict[str, Any], str]:
     output_dir.mkdir(parents=True, exist_ok=True)
     cmd = [
@@ -324,6 +335,8 @@ def run_simulation(
         cmd.append("--skip-map")
     if skip_plots:
         cmd.append("--skip-plots")
+    if extra_args:
+        cmd.extend(str(arg) for arg in extra_args)
 
     proc = subprocess.run(cmd, capture_output=True, text=True)
     if proc.returncode != 0:

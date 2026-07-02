@@ -1,0 +1,4 @@
+interface:
+  display_name: "Etudecas Simulation"
+  short_description: "Moteur simulation Etudecas"
+  default_prompt: "Utilise ce skill pour modifier ou auditer le moteur de simulation Etudecas."

@@ -393,7 +393,7 @@ def main() -> None:
     source_path = Path(args.source)
     output_graph_path = Path(args.output_graph)
     output_dir = Path(args.output_dir)
-    run_script = Path("etudecas/simulation/run_first_simulation.py")
+    run_script = Path("etudecas/simulation/engine/run_first_simulation.py")
     previous_metrics = collect_run_metrics(output_dir)
 
     data = load_json(source_path)

@@ -43,7 +43,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--stocks-mrp-xlsx",
-        default="etudecas/donnees/Stocks_MRP.xlsx",
+        default="etudecas/data/source/Stocks_MRP.xlsx",
         help="MRP workbook path.",
     )
     parser.add_argument(

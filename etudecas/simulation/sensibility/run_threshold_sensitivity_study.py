@@ -48,7 +48,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--run-script",
-        default="etudecas/simulation/run_first_simulation.py",
+        default="etudecas/simulation/engine/run_first_simulation.py",
         help="Simulation runner script.",
     )
     parser.add_argument("--scenario-id", default="scn:BASE", help="Scenario id.")

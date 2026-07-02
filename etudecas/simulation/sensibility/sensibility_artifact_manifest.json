@@ -1,0 +1,14 @@
+{
+  "generated_at": "2026-07-01T16:56:06.320105+00:00",
+  "root": "etudecas\\simulation\\sensibility",
+  "archive_root": "etudecas\\simulation\\sensibility_archives",
+  "execute": true,
+  "delete": true,
+  "output_count": 5097,
+  "total_size_bytes": 86871841694,
+  "total_size_mb": 82847.444,
+  "actions": {
+    "deleted": 5097
+  },
+  "manifest": "etudecas\\simulation\\sensibility\\sensibility_artifact_manifest.csv"
+}

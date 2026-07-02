@@ -1,0 +1,2 @@
+event_id,risk_type,supplier_id,item_id,dst_node_id,edge_id,start_day,end_day,multiplier,notes
+campaign_cost_SDC-VD0990780A,purchase_cost,SDC-VD0990780A,,,,0,364,1.5,Supplier risk campaign: prix achat multiplie par 1.5

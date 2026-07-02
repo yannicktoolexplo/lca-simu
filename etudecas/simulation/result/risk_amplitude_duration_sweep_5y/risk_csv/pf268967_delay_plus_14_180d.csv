@@ -1,0 +1,9 @@
+event_id,risk_type,supplier_id,item_id,dst_node_id,edge_id,start_day,end_day,multiplier,notes
+pf268967_delay_plus_14_180d_lead_time_extra_days_SDC_VD0520132A_038005_1,lead_time_extra_days,SDC-VD0520132A,item:038005,M-1430,,0,179,14.0,pf268967_delay_plus_14_180d: lead_time_extra_days on 038005 MP for 180d
+pf268967_delay_plus_14_180d_lead_time_extra_days_SDC_VD0914690A_042342_2,lead_time_extra_days,SDC-VD0914690A,item:042342,M-1430,,0,179,14.0,pf268967_delay_plus_14_180d: lead_time_extra_days on 042342 composant for 180d
+pf268967_delay_plus_14_180d_lead_time_extra_days_SDC_VD0525412A_333362_3,lead_time_extra_days,SDC-VD0525412A,item:333362,M-1430,,0,179,14.0,pf268967_delay_plus_14_180d: lead_time_extra_days on 333362 composant for 180d
+pf268967_delay_plus_14_180d_lead_time_extra_days_SDC_VD0993480A_344135_4,lead_time_extra_days,SDC-VD0993480A,item:344135,M-1430,,0,179,14.0,pf268967_delay_plus_14_180d: lead_time_extra_days on 344135 composant for 180d
+pf268967_delay_plus_14_180d_lead_time_extra_days_SDC_VD0520115A_708073_5,lead_time_extra_days,SDC-VD0520115A,item:708073,M-1430,,0,179,14.0,pf268967_delay_plus_14_180d: lead_time_extra_days on 708073 composant for 180d
+pf268967_delay_plus_14_180d_lead_time_extra_days_SDC_VD0508918A_730384_6,lead_time_extra_days,SDC-VD0508918A,item:730384,M-1430,,0,179,14.0,pf268967_delay_plus_14_180d: lead_time_extra_days on 730384 composant for 180d
+pf268967_delay_plus_14_180d_lead_time_extra_days_SDC_VD1095770A_734545_7,lead_time_extra_days,SDC-VD1095770A,item:734545,M-1430,,0,179,14.0,pf268967_delay_plus_14_180d: lead_time_extra_days on 734545 composant for 180d
+pf268967_delay_plus_14_180d_lead_time_extra_days_SDC_1450_773474_8,lead_time_extra_days,SDC-1450,item:773474,M-1430,,0,179,14.0,pf268967_delay_plus_14_180d: lead_time_extra_days on 773474 PFI for 180d

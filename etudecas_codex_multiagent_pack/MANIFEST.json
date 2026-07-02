@@ -1,0 +1,12 @@
+﻿{
+    "name":  "etudecas_codex_multiagent_pack",
+    "description":  "Pack operationnel Codex multi-agent pour Etudecas",
+    "top_level_files":  [
+                            "AGENTS.md",
+                            "README.md",
+                            "pyproject.toml"
+                        ],
+    "package_dir":  "etudecas_agentkit",
+    "skills_dir":  "skills",
+    "generated_files_count":  99
+}

@@ -26,6 +26,6 @@ simchaingreenhorizons/
 ├── environment/                     # Moteur ACV (phase production, usage, transport)
 ├── predictions/                     # Modules prédictifs (demande, rupture, etc.)
 ├── tools/                           # Outils/CLI/visualisations (data_tools, plots…)
-├── analysis/                        # Analyses et rapports (CSV, graphiques)
+├── supply_geo/analysis/             # Données, cartes et archives de l'analyse supply geo
 ├── data/                            # Fichiers Excel/JSON/DB (demande, coûts, GEO, simchain.db)
 └── utils/                           # Fonctions communes et outils de visualisation

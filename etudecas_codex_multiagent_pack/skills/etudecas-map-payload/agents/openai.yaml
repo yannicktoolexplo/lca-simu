@@ -1,0 +1,4 @@
+interface:
+  display_name: "Etudecas Map Payload"
+  short_description: "Carte et payload Etudecas"
+  default_prompt: "Utilise ce skill pour la carte HTML, les payloads, les loaders et l'interactivite Etudecas."

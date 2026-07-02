@@ -1,7 +1,7 @@
 # Simulation prep report
 
 ## Inputs / outputs
-- Input graph: /workspaces/lca-simu/etudecas/result_geocodage/supply_graph_poc_geocoded.json
+- Input graph: /workspaces/lca-simu/etudecas/data/geocoded/supply_graph_poc_geocoded.json
 - Output graph: /workspaces/lca-simu/etudecas/simulation_prep/result/supply_graph_poc_simulation_ready.json
 - Generated at (UTC): 2026-03-17T14:33:29.974606+00:00
 
@@ -44,7 +44,7 @@
 
 ## Data_poc pricing import
 - Enabled: True
-- XLSX path: /workspaces/lca-simu/etudecas/donnees/Data_poc.xlsx
+- XLSX path: /workspaces/lca-simu/etudecas/data/source/Data_poc.xlsx
 - Rows read: 33
 - Rows mapped: 33
 - Error: none
