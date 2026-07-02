@@ -1,0 +1,2 @@
+event_id,risk_type,supplier_id,item_id,dst_node_id,edge_id,start_day,end_day,multiplier,notes
+dc_customer_pf_delay_plus_21_90d_lead_time_extra_days_DC_1920_268967,lead_time_extra_days,DC-1920,item:268967,C-XXXXX,,0,89,21.0,dc_customer_pf_delay_plus_21_90d: lead_time_extra_days on transport DC -> client 268967 for 90d

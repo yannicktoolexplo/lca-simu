@@ -67,7 +67,7 @@ def main() -> None:
 
     sim_cmd = [
         "python",
-        "etudecas/simulation/run_first_simulation.py",
+        "etudecas/simulation/engine/run_first_simulation.py",
         "--input",
         str(scenario_input_path),
         "--output-dir",

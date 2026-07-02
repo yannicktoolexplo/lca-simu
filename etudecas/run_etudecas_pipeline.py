@@ -20,15 +20,21 @@ import argparse
 import json
 import subprocess
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable
 
 
 ROOT = Path(__file__).resolve().parent
 REPO_ROOT = ROOT.parent
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
-BASE_GRAPH_JSON = ROOT / "donnees" / "supply_graph_poc.json"
-GEOCODED_GRAPH_JSON = ROOT / "result_geocodage" / "supply_graph_poc_geocoded.json"
+SOURCE_DATA_DIR = ROOT / "data" / "source"
+DATA_REPORTS_DIR = ROOT / "data" / "reports"
+GEOCODED_DATA_DIR = ROOT / "data" / "geocoded"
+BASE_GRAPH_JSON = SOURCE_DATA_DIR / "supply_graph_poc.json"
+GEOCODED_GRAPH_JSON = GEOCODED_DATA_DIR / "supply_graph_poc_geocoded.json"
 PREP_GRAPH_JSON = ROOT / "simulation_prep" / "result" / "reference_baseline" / "supply_graph_reference_baseline_simulation_ready.json"
 REAL_DEMAND_GRAPH_JSON = (
     ROOT / "simulation_prep" / "result" / "reference_baseline" / "supply_graph_reference_baseline_real_demand_target_calibrated.json"
@@ -52,6 +58,51 @@ FINAL_GRAPH_5Y_JSON = (
 )
 FINAL_OUTPUT_1Y_DIR = ROOT / "simulation" / "result" / "reference_baseline_real_demand_target_calibrated_mrp_lot_policy_recalibrated"
 FINAL_OUTPUT_5Y_DIR = ROOT / "simulation" / "result" / "reference_baseline_real_demand_target_calibrated_mrp_lot_policy_recalibrated_5y"
+ACTIVE_MRP_PHYSICAL_GRAPH_JSON = (
+    ROOT
+    / "simulation_prep"
+    / "result"
+    / "reference_baseline"
+    / "_mrp_bom_tests"
+    / "bom_weekly_mps_lotified_no_static_fallback_physical_floor.json"
+)
+ACTIVE_MRP_PHYSICAL_OUTPUT_DIR = (
+    ROOT
+    / "simulation"
+    / "result"
+    / "mrp_bom_test_weekly_mps_lotified_no_fallback_physical_floor_explicit_input_targets_test"
+)
+ACTIVE_MRP_PHYSICAL_RERUN_ROOT = ROOT / "simulation" / "result" / "_reruns"
+SIMULATION_ENGINE_SCRIPT = ROOT / "simulation" / "engine" / "run_first_simulation.py"
+SUPPLIER_CRITICALITY_SCRIPT = ROOT / "risk" / "supplier_criticality" / "build_supplier_criticality.py"
+SUPPLIER_CRITICALITY_OUTPUT_DIR = ROOT / "risk" / "supplier_criticality" / "result"
+DEFAULT_CASE_CONFIG_JSON = ROOT / "config" / "cases" / "data_poc.json"
+DEFAULT_ENRICHMENT_EXCEL = ROOT / "config" / "cases" / "data_poc_enrichment_input.xlsx"
+ACTIVE_MRP_PHYSICAL_BASE_STOCK_FLOOR_PAIRS = [
+    ("M-1430", "item:038005", 1.0),
+    ("M-1430", "item:042342", 1.0),
+    ("M-1430", "item:333362", 1.0),
+    ("M-1430", "item:344135", 1.0),
+    ("M-1430", "item:708073", 1.0),
+    ("M-1430", "item:730384", 1.0),
+    ("M-1430", "item:734545", 1.0),
+    ("M-1430", "item:773474", 1.0),
+    ("M-1810", "item:001757", 1.0),
+    ("M-1810", "item:001848", 1.0),
+    ("M-1810", "item:001893", 1.0),
+    ("M-1810", "item:002612", 1.0),
+    ("M-1810", "item:007923", 1.0),
+    ("M-1810", "item:016332", 1.0),
+    ("M-1810", "item:029313", 1.0),
+    ("M-1810", "item:039668", 1.0),
+    ("M-1810", "item:049371", 1.0),
+    ("M-1810", "item:055703", 1.0),
+    ("M-1810", "item:099439", 1.0),
+    ("M-1810", "item:338928", 1.0),
+    ("M-1810", "item:338929", 1.0),
+    ("M-1810", "item:426331", 1.0),
+    ("M-1810", "item:693055", 1.0),
+]
 
 
 def repo_rel(path: Path) -> str:
@@ -75,6 +126,30 @@ def load_json(path: Path) -> dict:
 def write_json(path: Path, data: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+
+
+def resolve_repo_path(path: Path) -> Path:
+    return path if path.is_absolute() else REPO_ROOT / path
+
+
+def timestamped_active_mrp_physical_output_dir() -> Path:
+    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    return ACTIVE_MRP_PHYSICAL_RERUN_ROOT / f"active_mrp_physical_{stamp}"
+
+
+def validate_simulation_output_dir(output_dir: Path, *, overwrite: bool) -> Path:
+    resolved = resolve_repo_path(output_dir).resolve(strict=False)
+    result_root = (ROOT / "simulation" / "result").resolve(strict=False)
+    try:
+        resolved.relative_to(result_root)
+    except ValueError as exc:
+        raise ValueError(f"Refusing output outside simulation/result: {resolved}") from exc
+    if resolved.exists() and any(resolved.iterdir()) and not overwrite:
+        raise FileExistsError(
+            f"Output directory already exists and is not empty: {repo_rel(resolved)}. "
+            "Use --output-dir with a new path, or pass --overwrite explicitly."
+        )
+    return resolved
 
 
 def patch_repeated_horizon_graph(source_graph: Path, output_graph: Path, *, scenario_id: str, days: int) -> None:
@@ -116,21 +191,61 @@ def forward_optional_flags(*, skip_map: bool, skip_plots: bool) -> list[str]:
 
 def build_knowledge_graph() -> None:
     run_python(
-        ROOT / "donnees" / "update_supply_graph_from_case_data.py",
+        ROOT / "knowledge_graph" / "update_supply_graph_from_case_data.py",
         "--input-json",
         repo_rel(BASE_GRAPH_JSON),
+        "--data-dir",
+        repo_rel(SOURCE_DATA_DIR),
         "--output-json",
         repo_rel(BASE_GRAPH_JSON),
+        "--report-json",
+        repo_rel(DATA_REPORTS_DIR / "case_data_update_report.json"),
+        "--report-md",
+        repo_rel(DATA_REPORTS_DIR / "case_data_update_report.md"),
     )
     run_python(
-        ROOT / "scripts_geocodage" / "geocode_nodes_offline.py",
+        ROOT / "geocoding" / "geocode_nodes_offline.py",
         "--input-json",
         repo_rel(BASE_GRAPH_JSON),
         "--output-dir",
-        "etudecas/result_geocodage",
+        repo_rel(GEOCODED_DATA_DIR),
         "--output-name",
         GEOCODED_GRAPH_JSON.name,
     )
+
+
+def run_excel_enrichment(
+    *,
+    input_json: Path,
+    excel: Path,
+    output_json: Path,
+    report_json: Path,
+    case_config_json: Path | None,
+    create_template: bool,
+    apply: bool,
+) -> None:
+    from etudecas.knowledge_graph.enrichers import enrich_graph_from_excel
+    from etudecas.knowledge_graph.excel_template import write_excel_template
+    from etudecas.knowledge_graph.io import load_graph, save_graph
+
+    if not create_template and not apply:
+        raise ValueError("Pass create_template and/or apply for Excel enrichment.")
+    graph = load_graph(input_json)
+    if case_config_json:
+        config = load_json(case_config_json)
+        if not isinstance(config, dict):
+            raise ValueError(f"Case config must be a JSON object: {case_config_json}")
+        graph["case_config"] = config
+    if create_template:
+        write_excel_template(excel, graph)
+        print(f"[OK] Excel template written: {excel.resolve()}")
+    if apply:
+        enriched, report = enrich_graph_from_excel(graph, excel)
+        save_graph(output_json, enriched)
+        report_json.parent.mkdir(parents=True, exist_ok=True)
+        report_json.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(f"[OK] Enriched graph written: {output_json.resolve()}")
+        print(f"[OK] Report written: {report_json.resolve()}")
 
 
 def prepare_reference_graph(*, simulation_days: int) -> None:
@@ -195,7 +310,7 @@ def build_reference_baseline(*, scenario_id: str, days: int, skip_map: bool, ski
 def run_5y_reference(*, scenario_id: str, days: int, skip_map: bool, skip_plots: bool) -> None:
     patch_repeated_horizon_graph(FINAL_GRAPH_1Y_JSON, FINAL_GRAPH_5Y_JSON, scenario_id=scenario_id, days=days)
     run_python(
-        ROOT / "simulation" / "run_first_simulation.py",
+        SIMULATION_ENGINE_SCRIPT,
         "--input",
         repo_rel(FINAL_GRAPH_5Y_JSON),
         "--output-dir",
@@ -210,7 +325,7 @@ def run_5y_reference(*, scenario_id: str, days: int, skip_map: bool, skip_plots:
 
 def run_direct_simulation(*, input_graph: Path, output_dir: Path, scenario_id: str, days: int, skip_map: bool, skip_plots: bool) -> None:
     run_python(
-        ROOT / "simulation" / "run_first_simulation.py",
+        SIMULATION_ENGINE_SCRIPT,
         "--input",
         repo_rel(input_graph),
         "--output-dir",
@@ -223,11 +338,124 @@ def run_direct_simulation(*, input_graph: Path, output_dir: Path, scenario_id: s
     )
 
 
+def build_supplier_criticality(*, sim_result_dir: Path | None, output_dir: Path) -> None:
+    args = [
+        "--output-dir",
+        repo_rel(output_dir),
+    ]
+    if sim_result_dir is not None:
+        args.extend(["--sim-result-dir", repo_rel(sim_result_dir)])
+    run_python(SUPPLIER_CRITICALITY_SCRIPT, *args)
+
+
+def run_active_mrp_physical(
+    *,
+    output_dir: Path | None,
+    scenario_id: str,
+    days: int,
+    overwrite: bool,
+    dry_run: bool,
+    skip_map: bool,
+    skip_plots: bool,
+) -> None:
+    input_graph = ACTIVE_MRP_PHYSICAL_GRAPH_JSON
+    if not input_graph.exists():
+        raise FileNotFoundError(f"Active MRP physical graph not found: {repo_rel(input_graph)}")
+    target_output_dir = validate_simulation_output_dir(
+        output_dir or timestamped_active_mrp_physical_output_dir(),
+        overwrite=overwrite or dry_run,
+    )
+    simulator_args = [
+        "--input",
+        repo_rel(input_graph),
+        "--output-dir",
+        repo_rel(target_output_dir),
+        "--scenario-id",
+        scenario_id,
+        "--days",
+        str(days),
+        "--output-profile",
+        "full",
+        "--mrp-base-stock-floor-factor",
+        "0",
+    ]
+    for node_id, item_id, factor in ACTIVE_MRP_PHYSICAL_BASE_STOCK_FLOOR_PAIRS:
+        simulator_args.extend(
+            [
+                "--mrp-base-stock-floor-factor-pair",
+                f"{node_id},{item_id},{factor:g}",
+            ]
+        )
+    if skip_map:
+        simulator_args.append("--skip-map")
+    if skip_plots:
+        simulator_args.append("--skip-plots")
+
+    pipeline_cmd = [
+        sys.executable,
+        repo_rel(Path(__file__)),
+        "active-mrp-physical",
+        "--output-dir",
+        repo_rel(target_output_dir),
+        "--scenario-id",
+        scenario_id,
+        "--days",
+        str(days),
+    ]
+    if overwrite:
+        pipeline_cmd.append("--overwrite")
+    if dry_run:
+        pipeline_cmd.append("--dry-run")
+    if skip_map:
+        pipeline_cmd.append("--skip-map")
+    if not skip_plots:
+        pipeline_cmd.append("--with-plots")
+    pipeline_cmd.append("--full-output")
+
+    if dry_run:
+        print("[DRY-RUN] Active MRP physical baseline rebuild")
+        print(f"[DRY-RUN] input_graph={repo_rel(input_graph)}")
+        print(f"[DRY-RUN] output_dir={repo_rel(target_output_dir)}")
+        print("[DRY-RUN] simulator command:")
+        print(" ".join([sys.executable, repo_rel(SIMULATION_ENGINE_SCRIPT), *simulator_args]))
+        return
+
+    run_python(SIMULATION_ENGINE_SCRIPT, *simulator_args)
+    manifest = {
+        "baseline": "active_mrp_physical",
+        "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+        "input_graph": repo_rel(input_graph),
+        "output_dir": repo_rel(target_output_dir),
+        "scenario_id": scenario_id,
+        "days": days,
+        "overwrite": overwrite,
+        "skip_map": skip_map,
+        "skip_plots": skip_plots,
+        "pipeline_command": pipeline_cmd,
+        "simulator_command": [
+            sys.executable,
+            repo_rel(SIMULATION_ENGINE_SCRIPT),
+            *simulator_args,
+        ],
+    }
+    write_json(target_output_dir / "run_manifest.json", manifest)
+    print(f"[OK] Active MRP physical run manifest: {(target_output_dir / 'run_manifest.json').resolve()}")
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Unified etudecas pipeline around the supply-chain JSON graph.")
     sub = parser.add_subparsers(dest="command", required=True)
 
     graph = sub.add_parser("graph", help="Rebuild the knowledge-graph JSON from XLSX and geocode it.")
+
+    enrich = sub.add_parser("enrich-graph", help="Create/apply the generic Excel enrichment workbook for a graph JSON.")
+    enrich.add_argument("--input-json", required=True)
+    enrich.add_argument("--excel", default=repo_rel(DEFAULT_ENRICHMENT_EXCEL))
+    enrich.add_argument("--output-json", default="etudecas/data/source/supply_graph_poc_enriched_from_excel.json")
+    enrich.add_argument("--report-json", default="etudecas/data/reports/supply_graph_excel_enrichment_report.json")
+    enrich.add_argument("--case-config-json", default="", help="Optional case config JSON merged before creating/applying.")
+    enrich.add_argument("--create-template", action="store_true")
+    enrich.add_argument("--apply", action="store_true")
 
     prepare = sub.add_parser("prepare", help="Prepare the simulation-ready reference graph from the geocoded graph.")
     prepare.add_argument("--simulation-days", type=int, default=365)
@@ -262,6 +490,46 @@ def parse_args() -> argparse.Namespace:
     sim5.add_argument("--skip-map", action="store_true")
     sim5.add_argument("--skip-plots", action="store_true")
 
+    supplier_criticality = sub.add_parser(
+        "supplier-criticality",
+        help="Build supplier criticality KPI artifacts used by the map and KPI trees.",
+    )
+    supplier_criticality.add_argument(
+        "--sim-result-dir",
+        default="",
+        help="Simulation result directory. Defaults to the current retained 5y lot-trace run.",
+    )
+    supplier_criticality.add_argument(
+        "--output-dir",
+        default=repo_rel(SUPPLIER_CRITICALITY_OUTPUT_DIR),
+        help="Output directory for supplier criticality artifacts.",
+    )
+
+    active = sub.add_parser(
+        "active-mrp-physical",
+        help="Rebuild the current active 5y MRP physical baseline from its retained JSON source.",
+    )
+    active.add_argument(
+        "--output-dir",
+        default=None,
+        help=(
+            "Output directory. Defaults to a timestamped folder under "
+            "etudecas/simulation/result/_reruns, so the validated baseline is not overwritten."
+        ),
+    )
+    active.add_argument("--scenario-id", default="scn:BASE")
+    active.add_argument("--days", type=int, default=1825)
+    active.add_argument("--overwrite", action="store_true", help="Allow writing into an existing non-empty output directory.")
+    active.add_argument("--dry-run", action="store_true", help="Print the exact simulator command without running it.")
+    active.add_argument("--skip-map", action="store_true")
+    active.add_argument("--with-plots", action="store_true", help="Generate legacy PNG plots in addition to the HTML Plotly map.")
+    active.add_argument(
+        "--full-output",
+        action="store_true",
+        default=True,
+        help="Kept for documentation: active baseline reruns always use the full output profile.",
+    )
+
     return parser.parse_args()
 
 
@@ -269,6 +537,17 @@ def main() -> None:
     args = parse_args()
     if args.command == "graph":
         build_knowledge_graph()
+        return
+    if args.command == "enrich-graph":
+        run_excel_enrichment(
+            input_json=resolve_repo_path(Path(args.input_json)),
+            excel=resolve_repo_path(Path(args.excel)),
+            output_json=resolve_repo_path(Path(args.output_json)),
+            report_json=resolve_repo_path(Path(args.report_json)),
+            case_config_json=resolve_repo_path(Path(args.case_config_json)) if args.case_config_json else None,
+            create_template=args.create_template,
+            apply=args.apply,
+        )
         return
     if args.command == "prepare":
         prepare_reference_graph(simulation_days=args.simulation_days)
@@ -316,6 +595,23 @@ def main() -> None:
             days=args.days,
             skip_map=args.skip_map,
             skip_plots=args.skip_plots,
+        )
+        return
+    if args.command == "supplier-criticality":
+        build_supplier_criticality(
+            sim_result_dir=Path(args.sim_result_dir) if args.sim_result_dir else None,
+            output_dir=Path(args.output_dir),
+        )
+        return
+    if args.command == "active-mrp-physical":
+        run_active_mrp_physical(
+            output_dir=Path(args.output_dir) if args.output_dir else None,
+            scenario_id=args.scenario_id,
+            days=args.days,
+            overwrite=args.overwrite,
+            dry_run=args.dry_run,
+            skip_map=args.skip_map,
+            skip_plots=not args.with_plots,
         )
         return
     raise ValueError(f"Unsupported command: {args.command}")

@@ -164,6 +164,23 @@ def extract_name_and_country(name_field: str, location_field: str) -> Tuple[str,
 
     return name_clean, country, is_primary
 
+def entry_metadata(entry: Any) -> Dict[str, Any]:
+    if not isinstance(entry, dict):
+        return {
+            "supplier_status": "",
+            "baseline_completion_assumption": False,
+            "baseline_completion_confidence": "",
+            "simulation_node_type": "",
+            "lca_component_trace": {},
+        }
+    return {
+        "supplier_status": entry.get("supplier_status") or "",
+        "baseline_completion_assumption": bool(entry.get("baseline_completion_assumption", False)),
+        "baseline_completion_confidence": entry.get("baseline_completion_confidence") or "",
+        "simulation_node_type": entry.get("simulation_node_type") or "",
+        "lca_component_trace": entry.get("lca_component_trace") or {},
+    }
+
 def load_enriched(path: Path) -> List[Dict[str, Any]]:
     """
     Charge le JSON enrichi (liste d'objets) et fabrique DES 'records' utilisables par la visualisation :
@@ -182,6 +199,8 @@ def load_enriched(path: Path) -> List[Dict[str, Any]]:
     records = []
     for rec in raw:
         if not isinstance(rec, dict):
+            continue
+        if rec.get("simulation_supply_usable") is False:
             continue
         system = (rec.get("system") or "").strip()
         component = (rec.get("component") or "").strip()
@@ -225,7 +244,38 @@ def load_enriched(path: Path) -> List[Dict[str, Any]]:
                     "lon": lon,
                     "role": role_hint,
                     "description": desc,
+                    **entry_metadata(entry),
                 })
+            for extra_entries, extra_tier in (
+                (rec.get("oem_sites") or [], "oem"),
+                (rec.get("logistics_providers") or [], "logistics"),
+            ):
+                for entry in extra_entries:
+                    if not isinstance(entry, dict):
+                        continue
+                    nm = entry.get("name") or entry.get("supplier") or ""
+                    loc = entry.get("location") or entry.get("country") or ""
+                    role_hint = entry.get("role_hint") or entry.get("role") or extra_tier
+                    is_p = bool(entry.get("is_primary", False))
+                    lat = entry.get("lat")
+                    lon = entry.get("lon")
+                    desc = entry.get("description") or entry.get("notes") or ""
+                    supplier, country, is_star = extract_name_and_country(nm, loc)
+                    is_primary = is_p or is_star
+                    lat = float(lat) if isinstance(lat, (int, float, str)) and str(lat).strip() not in ("", "None") else None
+                    lon = float(lon) if isinstance(lon, (int, float, str)) and str(lon).strip() not in ("", "None") else None
+                    if not supplier or country is None:
+                        continue
+                    tiers_out[extra_tier].append({
+                        "supplier": supplier,
+                        "country": country,
+                        "is_primary": is_primary,
+                        "lat": lat,
+                        "lon": lon,
+                        "role": role_hint,
+                        "description": desc,
+                        **entry_metadata(entry),
+                    })
         else:
             # Ancien format : dictionnaire par tier
             suppliers_dict = suppliers_obj if isinstance(suppliers_obj, dict) else {}
@@ -267,9 +317,18 @@ def load_enriched(path: Path) -> List[Dict[str, Any]]:
                         "lon": lon,
                         "role": role_hint,
                         "description": desc,
+                        **entry_metadata(entry if isinstance(entry, dict) else {}),
                     })
 
-        records.append({"system": system, "component": component, "tiers": tiers_out})
+        records.append({
+            "system": system,
+            "component": component,
+            "tiers": tiers_out,
+            "lca": rec.get("lca_traceability") or {},
+            "mass_kg": rec.get("mass_kg"),
+            "mass_confidence": rec.get("mass_confidence") or "",
+            "mass_estimation_method": rec.get("mass_estimation_method") or "",
+        })
     return records
 
 def build_data(records: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -307,9 +366,46 @@ def html_template(title: str, data_json: str) -> str:
    position: sticky; top: 0; z-index: 5;
  }}
  label {{ font-size: 12px; color: #333; margin-right: 4px; }}
- select, input[type="checkbox"] {{ padding: 6px 8px; font-size: 13px; border: 1px solid #ccc; border-radius: 6px; background: white; }}
+ select, input[type="text"] {{ padding: 6px 8px; font-size: 13px; border: 1px solid #ccc; border-radius: 6px; background: white; }}
+ input[type="checkbox"] {{ margin-right: 4px; }}
+ #supplierSearch {{ min-width: 180px; }}
+ .search-status {{ font-size: 12px; color: #555; margin-left: 6px; white-space: nowrap; }}
+ .tier-legend {{ display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }}
+ .tier-legend-title {{ font-size: 12px; color: #333; margin-right: 0; }}
+ .legend-item {{ display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: #222; white-space: nowrap; }}
+ .legend-dot {{ width: 10px; height: 10px; border-radius: 50%; display: inline-block; border: 1px solid rgba(0,0,0,.35); box-sizing: border-box; }}
+ button {{ padding: 7px 10px; font-size: 13px; border: 1px solid #bbb; border-radius: 6px; background: white; cursor: pointer; }}
+ button:hover {{ background: #f3f4f6; }}
  #chart {{ width: 100%; height: calc(100vh - 64px); }}
  .spacer {{ flex: 1; }}
+ .modal-backdrop {{ display: none; position: fixed; inset: 0; z-index: 20; background: rgba(17,24,39,.45); align-items: center; justify-content: center; padding: 18px; box-sizing: border-box; }}
+ .modal-backdrop.active {{ display: flex; }}
+ .supply-modal {{ width: min(1500px, 96vw); height: min(880px, 92vh); background: white; border-radius: 8px; box-shadow: 0 20px 60px rgba(0,0,0,.24); display: flex; flex-direction: column; overflow: hidden; }}
+ .supply-modal-header {{ display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border-bottom: 1px solid #e5e7eb; }}
+ .supply-modal-header h2 {{ margin: 0; font-size: 16px; font-weight: 650; }}
+ .supply-modal-close {{ font-size: 18px; line-height: 1; padding: 4px 9px; }}
+ .supply-list-controls {{ display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 10px 14px; border-bottom: 1px solid #e5e7eb; background: #f9fafb; }}
+ .supply-list-controls select {{ min-width: 220px; max-width: 420px; }}
+ #supplySearch {{ min-width: 220px; }}
+ .supply-list-status {{ font-size: 12px; color: #4b5563; white-space: nowrap; }}
+ .supply-list-results {{ flex: 1; overflow: auto; padding: 12px 14px 18px; background: #f3f4f6; }}
+ .supply-card {{ background: white; border: 1px solid #e5e7eb; border-radius: 8px; margin-bottom: 12px; overflow: hidden; }}
+ .supply-card-header {{ display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 10px 12px; border-bottom: 1px solid #edf0f3; }}
+ .supply-card-title {{ font-size: 13px; font-weight: 650; color: #111827; line-height: 1.35; }}
+ .supply-card-subtitle {{ margin-top: 3px; font-size: 12px; color: #4b5563; line-height: 1.35; }}
+ .supply-card-meta {{ font-size: 12px; color: #374151; white-space: nowrap; }}
+ .supply-path {{ display: flex; gap: 8px; align-items: stretch; overflow-x: auto; padding: 10px 12px 12px; }}
+ .supply-stage {{ min-width: 180px; flex: 1 0 180px; border: 1px solid #e5e7eb; border-top-width: 4px; border-radius: 6px; background: #fbfdff; padding: 8px; }}
+ .supply-stage-title {{ font-size: 11px; font-weight: 700; text-transform: uppercase; color: #374151; margin-bottom: 7px; letter-spacing: .02em; }}
+ .supply-node {{ border: 1px solid #d1d5db; border-radius: 6px; padding: 7px 8px; margin-top: 6px; background: white; color: #111827; line-height: 1.25; }}
+ .supply-node-name {{ font-size: 12px; font-weight: 650; }}
+ .supply-node-detail {{ font-size: 11px; color: #4b5563; margin-top: 2px; }}
+ .supply-node.match {{ border-color: #111827; box-shadow: 0 0 0 2px rgba(17,24,39,.12); }}
+ .supply-node.muted {{ opacity: .28; filter: grayscale(1); }}
+ .supply-node.missing {{ color: #6b7280; background: #f9fafb; border-style: dashed; font-size: 12px; }}
+ .supply-node.secondary {{ border-style: dashed; }}
+ .supply-arrow {{ display: flex; align-items: center; justify-content: center; color: #6b7280; font-size: 18px; min-width: 18px; }}
+ .supply-empty {{ padding: 20px; color: #4b5563; background: white; border: 1px solid #e5e7eb; border-radius: 8px; }}
 </style>
 </head>
 <body>
@@ -322,13 +418,20 @@ def html_template(title: str, data_json: str) -> str:
     <label for="componentSel">Composant</label>
     <select id="componentSel"></select>
   </div>
+  <div>
+    <label for="supplierSearch">Fournisseur</label>
+    <input id="supplierSearch" type="text" placeholder="ex. Alcoa" autocomplete="off"/>
+    <span id="supplierSearchStatus" class="search-status"></span>
+  </div>
   <div id="tiersContainer">
     <label>Niveaux</label>
     <!-- les cases seront injectées dynamiquement -->
   </div>
+  <div id="tierLegend" class="tier-legend"></div>
   <div>
     <label>Flux</label>
     <label><input type="checkbox" id="showFlows"> Afficher</label>
+    <label><input type="checkbox" id="bridgeGaps" checked> Relier tiers absents</label>
     <label><input type="checkbox" class="flowChk" value="Tier4 → Tier3" checked> T4→T3</label>
     <label><input type="checkbox" class="flowChk" value="Tier3 → Tier2" checked> T3→T2</label>
     <label><input type="checkbox" class="flowChk" value="Tier2 → Tier1" checked> T2→T1</label>
@@ -337,9 +440,37 @@ def html_template(title: str, data_json: str) -> str:
   <div>
     <label><input type="checkbox" id="onlyPrimary"> Fournisseurs principaux uniquement</label>
   </div>
+  <div>
+    <button id="openSupplyList" type="button">Listes Supply</button>
+  </div>
   <div class="spacer"></div>
 </div>
 <div id="chart"></div>
+<div id="supplyListModal" class="modal-backdrop" aria-hidden="true">
+  <div class="supply-modal" role="dialog" aria-modal="true" aria-labelledby="supplyListTitle">
+    <div class="supply-modal-header">
+      <h2 id="supplyListTitle">Listes Supply</h2>
+      <button id="closeSupplyList" class="supply-modal-close" type="button" aria-label="Fermer">x</button>
+    </div>
+    <div class="supply-list-controls">
+      <div>
+        <label for="supplySystemSel">Systeme</label>
+        <select id="supplySystemSel"></select>
+      </div>
+      <div>
+        <label for="supplyComponentSel">Composant</label>
+        <select id="supplyComponentSel"></select>
+      </div>
+      <div>
+        <label for="supplySearch">Recherche</label>
+        <input id="supplySearch" type="text" placeholder="fournisseur, systeme, composant" autocomplete="off"/>
+      </div>
+      <label><input type="checkbox" id="supplyOnlyPrimary"> Fournisseurs principaux uniquement</label>
+      <span id="supplyListStatus" class="supply-list-status"></span>
+    </div>
+    <div id="supplyListResults" class="supply-list-results"></div>
+  </div>
+</div>
 
 <script>
 // Supprime les nœuds logistiques pour l’affichage (pas de points, pas de cases)
@@ -409,17 +540,143 @@ function fillSelect(sel, options) {{
 function currentFilters() {{
   const sys = document.getElementById("systemSel").value;
   const comp = document.getElementById("componentSel").value;
+  const supplierSearch = (document.getElementById("supplierSearch")?.value || "").trim().toLowerCase();
   const tierChks = Array.from(document.querySelectorAll(".tierChk")).filter(x => x.checked).map(x => x.value);
   const flowChks = Array.from(document.querySelectorAll(".flowChk")).filter(x => x.checked).map(x => x.value);
   const onlyPrimary = document.getElementById("onlyPrimary").checked;
   const showFlows = document.getElementById("showFlows")?.checked ?? false;
-  return {{ system: sys, component: comp, tiers: tierChks, flows: flowChks, onlyPrimary, showFlows }};
+  const bridgeGaps = document.getElementById("bridgeGaps")?.checked ?? true;
+  return {{ system: sys, component: comp, supplierSearch, tiers: tierChks, flows: flowChks, onlyPrimary, showFlows, bridgeGaps }};
 }}
 
 function recordMatches(rec, filters) {{
   if (filters.system !== "All" && rec.system !== filters.system) return false;
   if (filters.component !== "All" && rec.component !== filters.component) return false;
   return true;
+}}
+
+function supplierMatchesSearch(supplier, query) {{
+  if (!query) return true;
+  const haystack = [
+    supplier.supplier,
+    supplier.name,
+    supplier.country,
+    supplier.description,
+    supplier.supplier_status
+  ].filter(Boolean).join(" ").toLowerCase();
+  return query.split(/\s+/).filter(Boolean).every(token => haystack.includes(token));
+}}
+
+function updateSupplierSearchStatus(filters) {{
+  const el = document.getElementById("supplierSearchStatus");
+  if (!el) return;
+  if (!filters.supplierSearch) {{
+    el.textContent = "";
+    return;
+  }}
+  let total = 0;
+  let matched = 0;
+  for (const rec of DATA.records) {{
+    if (!recordMatches(rec, filters)) continue;
+    for (const tier of DATA.tiers) {{
+      if (!filters.tiers.includes(tier)) continue;
+      const suppliers = (rec.tiers && rec.tiers[tier]) ? rec.tiers[tier] : [];
+      for (const s of suppliers) {{
+        if (filters.onlyPrimary && !s.is_primary) continue;
+        if (!getLatLon(s)) continue;
+        total += 1;
+        if (supplierMatchesSearch(s, filters.supplierSearch)) matched += 1;
+      }}
+    }}
+  }}
+  el.textContent = `${{matched}}/${{total}} noeuds`;
+}}
+
+function fmtMass(value) {{
+  if (typeof value !== "number" || !isFinite(value)) return "";
+  if (value >= 10) return value.toFixed(2);
+  if (value >= 1) return value.toFixed(3);
+  return value.toPrecision(3);
+}}
+
+const HOVER_BREAK = "<br>";
+
+function wrapForHover(value, maxLen = 46) {{
+  const text = String(value ?? "").trim();
+  if (!text) return "";
+  const words = text.split(/\s+/);
+  const lines = [];
+  let line = "";
+  for (const word of words) {{
+    if (line && (line.length + word.length + 1) > maxLen) {{
+      lines.push(line);
+      line = word;
+    }} else {{
+      line = line ? `${{line}} ${{word}}` : word;
+    }}
+  }}
+  if (line) lines.push(line);
+  return lines.join(HOVER_BREAK);
+}}
+
+function hoverFromText(value, maxLen = 56) {{
+  return String(value ?? "")
+    .replaceAll(String.fromCharCode(13), "")
+    .split(String.fromCharCode(10))
+    .map(part => wrapForHover(part, maxLen))
+    .filter(Boolean)
+    .join(HOVER_BREAK);
+}}
+
+function lcaHover(rec, supplier) {{
+  const lca = rec.lca || supplier.lca_component_trace || {{}};
+  if (!lca || !lca.has_lca_mass) return "Masse: non renseignee";
+  const additiveMass = (typeof lca.recommended_additive_mass_kg === "number")
+    ? lca.recommended_additive_mass_kg
+    : (typeof lca.lca_recommended_additive_mass_kg === "number" ? lca.lca_recommended_additive_mass_kg : lca.mass_kg);
+  const sourceMass = (typeof lca.current_source_mass_kg === "number")
+    ? lca.current_source_mass_kg
+    : (typeof lca.lca_current_source_mass_kg === "number" ? lca.lca_current_source_mass_kg : lca.mass_kg);
+  const referenceMass = (typeof lca.topdown_reference_mass_kg === "number")
+    ? lca.topdown_reference_mass_kg
+    : (typeof lca.lca_topdown_reference_mass_kg === "number" ? lca.lca_topdown_reference_mass_kg : 0);
+  const source = `Masse de cette ligne: ${{fmtMass(sourceMass)}} kg`;
+  const used = sourceMass !== additiveMass ? `\nComptee dans le total simulation: ${{fmtMass(additiveMass)}} kg` : "";
+  const reference = referenceMass > 0 ? `\nNote: ligne siege/global gardee comme repere, pas additionnee aux pieces detaillees` : "";
+  const rawPolicy = lca.mass_policy || lca.lca_mass_policy || "";
+  const policyLabels = {{
+    include_exact_component: "piece detaillee",
+    include_baseline_estimate: "piece estimee",
+    include_with_review: "piece a verifier",
+    topdown_reference_only: "ligne siege/global",
+    scenario_only_mass: "scenario uniquement"
+  }};
+  const policy = rawPolicy ? `\nType masse: ${{policyLabels[rawPolicy] || rawPolicy}}` : "";
+  const share = (typeof lca.mass_share_of_non_packaging_bom === "number")
+    ? `, ${{(100 * lca.mass_share_of_non_packaging_bom).toFixed(2)}}% BOM`
+    : "";
+  const equipment = lca.equipment_match ? `\nEquipement ACV: ${{lca.equipment_match}}` : "";
+  const material = lca.material_match ? `\nMatiere ACV: ${{lca.material_match}}` : "";
+  return `${{source}}${{share}} | ${{lca.match_level || "match ?"}} | conf=${{lca.confidence || "?"}}${{used}}${{reference}}${{policy}}${{equipment}}${{material}}`;
+}}
+
+function assumptionHover(supplier) {{
+  if (!supplier.baseline_completion_assumption) return "";
+  const kind = supplier.simulation_node_type ? `, ${{supplier.simulation_node_type}}` : "";
+  const conf = supplier.baseline_completion_confidence ? `, conf=${{supplier.baseline_completion_confidence}}` : "";
+  return `\nHypothese supply baseline${{kind}}${{conf}}`;
+}}
+
+function nodeHover(rec, supplier) {{
+  const status = supplier.supplier_status ? `Statut: ${{supplier.supplier_status}}` : "";
+  return [
+    wrapForHover(supplier.supplier || "?", 38),
+    wrapForHover(supplier.country || "?", 38),
+    wrapForHover(`[${{rec.system}}] ${{rec.component}}`, 58),
+    hoverFromText(lcaHover(rec, supplier), 58),
+    hoverFromText(status, 58),
+    hoverFromText(assumptionHover(supplier), 58)
+  ].filter(Boolean).join(HOVER_BREAK);
 }}
 
 
@@ -431,8 +688,7 @@ function initTierCheckboxes() {{
     const lbl = document.createElement('label');
     const cb = document.createElement('input');
     cb.type = 'checkbox'; cb.className = 'tierChk'; cb.value = t;
-    // cocher par défaut tous sauf peut-être logistics et oem
-    cb.checked = (t !== 'logistics' && t !== 'oem');
+    cb.checked = (t !== 'logistics');
     lbl.appendChild(cb);
     const labelTxt = (DATA.tier_styles[t] && DATA.tier_styles[t].name) ? DATA.tier_styles[t].name : t;
     lbl.appendChild(document.createTextNode(' ' + labelTxt));
@@ -440,8 +696,256 @@ function initTierCheckboxes() {{
   }});
 }}
 
-function buildTraces() {{
-  const filters = currentFilters();
+function initTierLegend() {{
+  const container = document.getElementById('tierLegend');
+  if (!container) return;
+  container.innerHTML = '<span class="tier-legend-title">Legende tiers</span>';
+  const labels = {{
+    tier4_raw_material: "Tier 4 - Matiere",
+    tier3_first_transformation: "Tier 3 - 1ere transfo",
+    tier2_second_transformation: "Tier 2 - 2e transfo",
+    tier1: "Tier 1",
+    oem: "OEM"
+  }};
+  const ordered = ["tier4_raw_material", "tier3_first_transformation", "tier2_second_transformation", "tier1", "oem"];
+  ordered.forEach(t => {{
+    if (!(DATA.tiers || []).includes(t)) return;
+    const style = DATA.tier_styles[t] || {{}};
+    const item = document.createElement("span");
+    item.className = "legend-item";
+    const dot = document.createElement("span");
+    dot.className = "legend-dot";
+    dot.style.background = style.color || "#666";
+    item.appendChild(dot);
+    item.appendChild(document.createTextNode(labels[t] || style.name || t));
+    container.appendChild(item);
+  }});
+}}
+
+const SUPPLY_TIER_ORDER = ["tier4_raw_material", "tier3_first_transformation", "tier2_second_transformation", "tier1", "oem"];
+const SUPPLY_TIER_LABELS = {{
+  tier4_raw_material: "Tier 4 - Matiere",
+  tier3_first_transformation: "Tier 3 - 1ere transfo",
+  tier2_second_transformation: "Tier 2 - 2e transfo",
+  tier1: "Tier 1",
+  oem: "OEM"
+}};
+
+function escapeHtml(value) {{
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}}
+
+function textMatchesQuery(value, query) {{
+  if (!query) return false;
+  const haystack = String(value ?? "").toLowerCase();
+  return query.split(/\s+/).filter(Boolean).every(token => haystack.includes(token));
+}}
+
+function supplierDisplayName(supplier) {{
+  return supplier.supplier || supplier.name || "?";
+}}
+
+function currentSupplyListFilters() {{
+  return {{
+    system: document.getElementById("supplySystemSel")?.value || "All",
+    component: document.getElementById("supplyComponentSel")?.value || "All",
+    search: (document.getElementById("supplySearch")?.value || "").trim().toLowerCase(),
+    onlyPrimary: document.getElementById("supplyOnlyPrimary")?.checked || false
+  }};
+}}
+
+function supplyRecordMatches(rec, filters) {{
+  if (filters.system !== "All" && rec.system !== filters.system) return false;
+  if (filters.component !== "All" && rec.component !== filters.component) return false;
+  return true;
+}}
+
+function supplyVisibleSuppliers(rec, tier, filters) {{
+  const list = (rec.tiers && rec.tiers[tier]) ? rec.tiers[tier] : [];
+  return list.filter(s => !filters.onlyPrimary || s.is_primary);
+}}
+
+function supplyCardMatchesSearch(rec, tierEntries, filters) {{
+  if (!filters.search) return true;
+  const recordText = [rec.system, rec.component].filter(Boolean).join(" ");
+  if (textMatchesQuery(recordText, filters.search)) return true;
+  return tierEntries.some(entry => entry.list.some(s => supplierMatchesSearch(s, filters.search)));
+}}
+
+function renderSupplyNode(supplier, filters, recordTextMatches) {{
+  const supplierMatch = filters.search && supplierMatchesSearch(supplier, filters.search);
+  const muted = filters.search && !supplierMatch && !recordTextMatches;
+  const classes = ["supply-node"];
+  if (supplierMatch) classes.push("match");
+  if (muted) classes.push("muted");
+  if (!supplier.is_primary) classes.push("secondary");
+  const name = escapeHtml(supplierDisplayName(supplier));
+  const details = [
+    supplier.country,
+    supplier.is_primary ? "principal" : "secondaire",
+    supplier.supplier_status
+  ].filter(Boolean).map(escapeHtml).join(" | ");
+  return `<div class="${{classes.join(" ")}}">
+    <div class="supply-node-name">${{name}}</div>
+    ${{details ? `<div class="supply-node-detail">${{details}}</div>` : ""}}
+  </div>`;
+}}
+
+function renderSupplyStage(entry, filters, recordTextMatches) {{
+  const style = DATA.tier_styles[entry.tier] || {{}};
+  const title = escapeHtml(SUPPLY_TIER_LABELS[entry.tier] || style.name || entry.tier);
+  const nodes = entry.list.length
+    ? entry.list.map(s => renderSupplyNode(s, filters, recordTextMatches)).join("")
+    : '<div class="supply-node missing">Tier absent ou non renseigne</div>';
+  return `<div class="supply-stage" style="border-top-color:${{escapeHtml(style.color || "#666")}}">
+    <div class="supply-stage-title">${{title}}</div>
+    ${{nodes}}
+  </div>`;
+}}
+
+function renderSupplyCard(rec, tierEntries, filters) {{
+  const recordText = [rec.system, rec.component].filter(Boolean).join(" ");
+  const recordTextMatches = textMatchesQuery(recordText, filters.search);
+  const visibleTierCount = tierEntries.filter(entry => entry.list.length > 0).length;
+  const visibleSupplierCount = tierEntries.reduce((sum, entry) => sum + entry.list.length, 0);
+  const lca = rec.lca || {{}};
+  const mass = lca && lca.has_lca_mass
+    ? `Masse ligne: ${{escapeHtml(fmtMass(lca.current_source_mass_kg ?? lca.mass_kg))}} kg`
+    : "Masse ligne: non renseignee";
+  const stages = [];
+  tierEntries.forEach((entry, idx) => {{
+    stages.push(renderSupplyStage(entry, filters, recordTextMatches));
+    if (idx < tierEntries.length - 1) stages.push('<div class="supply-arrow">&rarr;</div>');
+  }});
+  return `<article class="supply-card">
+    <div class="supply-card-header">
+      <div>
+        <div class="supply-card-title">${{escapeHtml(rec.component || "?")}}</div>
+        <div class="supply-card-subtitle">${{escapeHtml(rec.system || "?")}}</div>
+      </div>
+      <div class="supply-card-meta">${{mass}} | ${{visibleTierCount}}/5 tiers | ${{visibleSupplierCount}} fournisseurs</div>
+    </div>
+    <div class="supply-path">${{stages.join("")}}</div>
+  </article>`;
+}}
+
+function renderSupplyList() {{
+  const results = document.getElementById("supplyListResults");
+  const status = document.getElementById("supplyListStatus");
+  if (!results) return;
+  const filters = currentSupplyListFilters();
+  const cards = [];
+  let supplierTotal = 0;
+  for (const rec of DATA.records) {{
+    if (!supplyRecordMatches(rec, filters)) continue;
+    const tierEntries = SUPPLY_TIER_ORDER.map(tier => {{
+      return {{ tier, list: supplyVisibleSuppliers(rec, tier, filters) }};
+    }});
+    if (!tierEntries.some(entry => entry.list.length)) continue;
+    if (!supplyCardMatchesSearch(rec, tierEntries, filters)) continue;
+    supplierTotal += tierEntries.reduce((sum, entry) => sum + entry.list.length, 0);
+    cards.push(renderSupplyCard(rec, tierEntries, filters));
+  }}
+  results.innerHTML = cards.length
+    ? cards.join("")
+    : '<div class="supply-empty">Aucun parcours supply ne correspond aux filtres.</div>';
+  if (status) status.textContent = `${{cards.length}} parcours | ${{supplierTotal}} fournisseurs visibles`;
+}}
+
+function refreshSupplyDependentSelects() {{
+  const sysSel = document.getElementById("supplySystemSel");
+  const compSel = document.getElementById("supplyComponentSel");
+  if (!sysSel || !compSel) return;
+  const sys = sysSel.value || "All";
+  const comp = compSel.value || "All";
+  const comps = ["All"], syses = ["All"];
+  for (const rec of DATA.records) {{
+    if (sys === "All" || rec.system === sys) {{
+      if (rec.component && !comps.includes(rec.component)) comps.push(rec.component);
+    }}
+    if (comp === "All" || rec.component === comp) {{
+      if (rec.system && !syses.includes(rec.system)) syses.push(rec.system);
+    }}
+  }}
+  fillSelect(compSel, comps);
+  fillSelect(sysSel, syses);
+  if (syses.includes(sys)) sysSel.value = sys;
+  if (comps.includes(comp)) compSel.value = comp;
+}}
+
+function openSupplyListModal() {{
+  const modal = document.getElementById("supplyListModal");
+  if (!modal) return;
+  const mapFilters = currentFilters();
+  fillSelect(document.getElementById("supplySystemSel"), DATA.systems || ["All"]);
+  fillSelect(document.getElementById("supplyComponentSel"), DATA.components || ["All"]);
+  if ((DATA.systems || []).includes(mapFilters.system)) document.getElementById("supplySystemSel").value = mapFilters.system;
+  if ((DATA.components || []).includes(mapFilters.component)) document.getElementById("supplyComponentSel").value = mapFilters.component;
+  document.getElementById("supplySearch").value = mapFilters.supplierSearch || "";
+  document.getElementById("supplyOnlyPrimary").checked = mapFilters.onlyPrimary;
+  refreshSupplyDependentSelects();
+  renderSupplyList();
+  modal.classList.add("active");
+  modal.setAttribute("aria-hidden", "false");
+}}
+
+function closeSupplyListModal() {{
+  const modal = document.getElementById("supplyListModal");
+  if (!modal) return;
+  modal.classList.remove("active");
+  modal.setAttribute("aria-hidden", "true");
+}}
+
+function initSupplyListModal() {{
+  document.getElementById("openSupplyList")?.addEventListener("click", openSupplyListModal);
+  document.getElementById("closeSupplyList")?.addEventListener("click", closeSupplyListModal);
+  document.getElementById("supplyListModal")?.addEventListener("click", event => {{
+    if (event.target && event.target.id === "supplyListModal") closeSupplyListModal();
+  }});
+  document.getElementById("supplySystemSel")?.addEventListener("change", () => {{
+    refreshSupplyDependentSelects();
+    renderSupplyList();
+  }});
+  document.getElementById("supplyComponentSel")?.addEventListener("change", () => {{
+    refreshSupplyDependentSelects();
+    renderSupplyList();
+  }});
+  document.getElementById("supplySearch")?.addEventListener("input", renderSupplyList);
+  document.getElementById("supplyOnlyPrimary")?.addEventListener("change", renderSupplyList);
+  window.addEventListener("keydown", event => {{
+    if (event.key === "Escape") closeSupplyListModal();
+  }});
+}}
+
+function pushNodeTrace(traces, bucket, style, tier, marker, hoverinfo = "text", showlegend = true) {{
+  if (!bucket.xs.length) return;
+  traces.push({{
+    type: "scattergeo",
+    mode: "markers",
+    lon: bucket.xs,
+    lat: bucket.ys,
+    text: bucket.texts,
+    hoverinfo,
+    hoverlabel: {{align: "left", namelength: -1}},
+    name: style.name || tier,
+    showlegend,
+    marker: {{
+      size: marker.size,
+      color: marker.color,
+      opacity: marker.opacity,
+      symbol: style.symbol || "circle",
+      line: {{width: marker.lineWidth, color: marker.lineColor}}
+    }}
+  }});
+}}
+
+function buildTraces(filtersInput = null) {{
+  const filters = filtersInput || currentFilters();
   const traces = [];
   const lines = [];
 
@@ -449,7 +953,8 @@ function buildTraces() {{
   for (const tier of DATA.tiers) {{
     if (!filters.tiers.includes(tier)) continue;
     const style = DATA.tier_styles[tier] || {{}};
-    const xs = [], ys = [], texts = [];
+    const active = {{ xs: [], ys: [], texts: [] }};
+    const muted = {{ xs: [], ys: [], texts: [] }};
 
     for (const rec of DATA.records) {{
       if (!recordMatches(rec, filters)) continue;
@@ -458,41 +963,58 @@ function buildTraces() {{
         if (filters.onlyPrimary && !s.is_primary) continue;
         const loc = getLatLon(s);
         if (!loc) continue;
-        xs.push(loc.lon); ys.push(loc.lat);
-        texts.push(`${{s.supplier || "?"}} — ${{s.country || "?"}}\\n[${{rec.system}}] ${{rec.component}}`);
+        const match = supplierMatchesSearch(s, filters.supplierSearch);
+        const bucket = (!filters.supplierSearch || match) ? active : muted;
+        bucket.xs.push(loc.lon);
+        bucket.ys.push(loc.lat);
+        bucket.texts.push(nodeHover(rec, s));
       }}
     }}
 
-    traces.push({{
-      type: "scattergeo",
-      mode: "markers",
-      lon: xs, lat: ys, text: texts,
-      name: style.name || tier,
-      marker: {{
+    if (filters.supplierSearch) {{
+      pushNodeTrace(traces, muted, style, tier, {{
+        size: 5,
+        color: "#9CA3AF",
+        opacity: 0.22,
+        lineWidth: 0.25,
+        lineColor: "#9CA3AF"
+      }}, "skip", false);
+      pushNodeTrace(traces, active, style, tier, {{
+        size: 13,
+        color: style.color || "#666",
+        opacity: 1,
+        lineWidth: 1.4,
+        lineColor: "#111827"
+      }}, "text", true);
+    }} else {{
+      pushNodeTrace(traces, active, style, tier, {{
         size: 8,
         color: style.color || "#666",
-        symbol: style.symbol || "circle",
-        line: {{width: 0.5, color: "#333"}}
-      }}
-    }});
+        opacity: 1,
+        lineWidth: 0.5,
+        lineColor: "#333"
+      }}, "text", true);
+    }}
   }}
 
   // Lignes/flux avec agrégation par paire de pays
   function addLines(fromTier, toTier, label) {{
-    if (!currentFilters().showFlows) return;
-    if (!currentFilters().flows.includes(label)) return;
+    const filtersNow = currentFilters();
+    if (!filtersNow.showFlows) return;
+    if (!filtersNow.flows.includes(label)) return;
+    if (!filtersNow.tiers.includes(fromTier) || !filtersNow.tiers.includes(toTier)) return;
 
     const style = FLOW_STYLES[label] || {{ color: "#888" }};
     const edgeMap = new Map(); // key: "lat1,lon1->lat2,lon2" ; val: {{from,to,value}}
 
     for (const rec of DATA.records) {{
-      if (!recordMatches(rec, currentFilters())) continue;
+      if (!recordMatches(rec, filtersNow)) continue;
 
       const fromList = (rec.tiers && rec.tiers[fromTier]) ? rec.tiers[fromTier] : [];
       const toList   = (rec.tiers && rec.tiers[toTier]) ? rec.tiers[toTier] : [];
 
       for (const f of fromList) {{
-        if (currentFilters().onlyPrimary && !f.is_primary) continue;
+        if (filtersNow.onlyPrimary && !f.is_primary) continue;
         const fLoc = getLatLon(f);
         if (!fLoc) continue;
 
@@ -500,7 +1022,7 @@ function buildTraces() {{
         const fUnits = (typeof f.units === "number" && f.units > 0) ? f.units : 1;
 
         for (const t of toList) {{
-          if (currentFilters().onlyPrimary && !t.is_primary) continue;
+          if (filtersNow.onlyPrimary && !t.is_primary) continue;
           const tLoc = getLatLon(t);
           if (!tLoc) continue;
 
@@ -532,10 +1054,76 @@ function buildTraces() {{
         mode: "lines",
         lon: [from.lon, to.lon],
         lat: [from.lat, to.lat],
-        line: {{ width, color: style.color }},
-        opacity: 0.9,
-        hoverinfo: "text",
-        text: `${{label}} — qty: ${{value}}`,
+        line: {{ width, color: filtersNow.supplierSearch ? "#CBD5E1" : style.color }},
+        opacity: filtersNow.supplierSearch ? 0.18 : 0.9,
+        hoverinfo: "skip",
+        showlegend: false
+      }});
+    }});
+  }}
+
+  function compactTierName(tier) {{
+    if (tier === "tier4_raw_material") return "T4";
+    if (tier === "tier3_first_transformation") return "T3";
+    if (tier === "tier2_second_transformation") return "T2";
+    if (tier === "tier1") return "T1";
+    if (tier === "oem") return "OEM";
+    return tier;
+  }}
+
+  function addGapBridgeLines() {{
+    const filtersNow = currentFilters();
+    if (!filtersNow.showFlows || !filtersNow.bridgeGaps) return;
+
+    const ordered = ["tier4_raw_material", "tier3_first_transformation", "tier2_second_transformation", "tier1", "oem"];
+    const edgeMap = new Map();
+
+    for (const rec of DATA.records) {{
+      if (!recordMatches(rec, filtersNow)) continue;
+      const present = [];
+      for (let idx = 0; idx < ordered.length; idx++) {{
+        const tier = ordered[idx];
+        const list = ((rec.tiers && rec.tiers[tier]) ? rec.tiers[tier] : [])
+          .filter(s => !filtersNow.onlyPrimary || s.is_primary)
+          .filter(s => getLatLon(s));
+        if (list.length) present.push({{ tier, idx, list }});
+      }}
+
+      for (let i = 0; i < present.length - 1; i++) {{
+        const from = present[i];
+        const to = present[i + 1];
+        if (to.idx - from.idx <= 1) continue;
+        if (!filtersNow.tiers.includes(from.tier) || !filtersNow.tiers.includes(to.tier)) continue;
+        const missing = ordered.slice(from.idx + 1, to.idx).map(compactTierName).join(", ");
+        const label = `${{compactTierName(from.tier)}}->${{compactTierName(to.tier)}} (tier absent: ${{missing}})`;
+
+        for (const f of from.list) {{
+          const fLoc = getLatLon(f);
+          if (!fLoc) continue;
+          for (const t of to.list) {{
+            const tLoc = getLatLon(t);
+            if (!tLoc) continue;
+            const dist = haversineKm(fLoc.lat, fLoc.lon, tLoc.lat, tLoc.lon);
+            if (dist < MIN_FLOW_DIST_KM) continue;
+            const key = `${{label}}|${{fLoc.lat.toFixed(3)}},${{fLoc.lon.toFixed(3)}}->${{tLoc.lat.toFixed(3)}},${{tLoc.lon.toFixed(3)}}`;
+            if (!edgeMap.has(key)) {{
+              edgeMap.set(key, {{ from: fLoc, to: tLoc, value: 0, label }});
+            }}
+            edgeMap.get(key).value += 1;
+          }}
+        }}
+      }}
+    }}
+
+    edgeMap.forEach(({{from, to, value, label}}) => {{
+      lines.push({{
+        type: "scattergeo",
+        mode: "lines",
+        lon: [from.lon, to.lon],
+        lat: [from.lat, to.lat],
+        line: {{ width: 1.6, color: "#6B7280", dash: "dot" }},
+        opacity: filtersNow.supplierSearch ? 0.16 : 0.72,
+        hoverinfo: "skip",
         showlegend: false
       }});
     }});
@@ -545,12 +1133,15 @@ function buildTraces() {{
   addLines("tier3_first_transformation", "tier2_second_transformation", "Tier3 → Tier2");
   addLines("tier2_second_transformation", "tier1", "Tier2 → Tier1");
   addLines("tier1", "oem", "Tier1 → OEM");
+  addGapBridgeLines();
 
   return traces.concat(lines);
 }}
 
 function draw() {{
-  const traces = buildTraces();
+  const filters = currentFilters();
+  updateSupplierSearchStatus(filters);
+  const traces = buildTraces(filters);
   const layout = {{
     geo: {{
       scope: "world",
@@ -586,11 +1177,14 @@ function refreshDependentSelects() {{
 function initUI() {{
   // Injecte dynamiquement les cases à cocher des niveaux
   initTierCheckboxes();
+  initTierLegend();
+  initSupplyListModal();
   fillSelect(document.getElementById("systemSel"), DATA.systems || ["All"]);
   fillSelect(document.getElementById("componentSel"), DATA.components || ["All"]);
   document.getElementById("systemSel").addEventListener("change", ()=>{{ refreshDependentSelects(); draw(); }});
   document.getElementById("componentSel").addEventListener("change", ()=>{{ refreshDependentSelects(); draw(); }});
-  for (const el of document.querySelectorAll(".tierChk, .flowChk, #onlyPrimary, #showFlows")) {{ el.addEventListener("change", draw); }}
+  document.getElementById("supplierSearch").addEventListener("input", draw);
+  for (const el of document.querySelectorAll(".tierChk, .flowChk, #onlyPrimary, #showFlows, #bridgeGaps")) {{ el.addEventListener("change", draw); }}
   draw();
 }}
 window.addEventListener("load", initUI);
@@ -621,7 +1215,7 @@ def main():
     data = build_data(records)
     html_str = html_template(args.title, json.dumps(data, ensure_ascii=False))
     out_path.write_text(html_str, encoding="utf-8")
-    print(f"[OK] HTML généré → {out_path.resolve()}")
+    print(f"[OK] HTML generated -> {out_path.resolve()}")
 
 if __name__ == "__main__":
     main()

@@ -1,0 +1,2 @@
+event_id,risk_type,supplier_id,item_id,dst_node_id,edge_id,start_day,end_day,multiplier,notes
+factory_dc_pf_delay_plus_45_90d_lead_time_extra_days_M_1430_268967,lead_time_extra_days,M-1430,item:268967,DC-1920,,0,89,45.0,factory_dc_pf_delay_plus_45_90d: lead_time_extra_days on transport usine -> DC 268967 for 90d

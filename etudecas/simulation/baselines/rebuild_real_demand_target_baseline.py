@@ -131,7 +131,7 @@ def main() -> None:
     output_graph_path = Path(args.output_graph)
     named_output_graph_path = Path(args.named_output_graph)
     output_dir = Path(args.output_dir)
-    run_script = Path("etudecas/simulation/run_first_simulation.py")
+    run_script = Path("etudecas/simulation/engine/run_first_simulation.py")
 
     base_data = load_json(source_path)
     if (base_data.get("meta") or {}).get("baseline_rebuild"):

@@ -1,0 +1,49 @@
+event_id,risk_type,supplier_id,item_id,dst_node_id,edge_id,start_day,end_day,multiplier,notes
+pack_capacity_start_042342,capacity,SDC-VD0914690A,item:042342,M-1430,,0,45,0.45,Packaging supplier start-up throughput restriction
+pack_reliability_start_042342,reliability,SDC-VD0914690A,item:042342,M-1430,,0,45,0.90,Packaging supplier OTIF degradation after labor absence
+pack_lead_start_042342,lead_time_extra_days,SDC-VD0914690A,item:042342,M-1430,,0,45,14,Packaging delivery delay after EDI disruption
+pack_release_start_042342,quality_delay,SDC-VD0914690A,item:042342,M-1430,,0,45,10,Packaging release quarantine delay
+pack_capacity_start_333362,capacity,SDC-VD0525412A,item:333362,M-1430,,0,80,0.60,Printed component capacity reduction during first campaign
+pack_quality_start_333362,quality_yield,SDC-VD0525412A,item:333362,M-1430,,0,80,0.93,Printed component quality yield loss during first campaign
+pack_upstream_capacity_start_333362,external_capacity,SDC-VD0525412A,item:333362,M-1430,,0,120,0.50,Paper upstream market capacity reduced for printed component
+pack_upstream_lead_start_333362,external_lead_time_extra_days,SDC-VD0525412A,item:333362,M-1430,,0,120,21,Paper upstream procurement delay for printed component
+pack_capacity_start_344135,capacity,SDC-VD0993480A,item:344135,M-1430,,0,80,0.60,Second printed component throughput restriction
+pack_lead_start_344135,lead_time,SDC-VD0993480A,item:344135,M-1430,,0,80,1.45,Second printed component carrier delay
+pack_capacity_344135_y5,capacity,SDC-VD0993480A,item:344135,M-1430,,1610,1640,0.60,Late packaging capacity restriction near campaign peak
+pack_lead_344135_y5,lead_time,SDC-VD0993480A,item:344135,M-1430,,1610,1640,1.45,Late packaging lead time extension near campaign peak
+raw_availability_start_038005,availability,SDC-VD0520132A,item:038005,M-1430,,0,40,0.60,Raw material supplier allocation during launch
+raw_lead_start_038005,lead_time_extra_days,SDC-VD0520132A,item:038005,M-1430,,0,40,14,Raw material customs and release delay during launch
+raw_purchase_cost_start_038005,purchase_cost,SDC-VD0520132A,item:038005,M-1430,,0,40,1.35,Raw material spot price increase during launch
+semi_finished_delay_773474_y1,lead_time_extra_days,SDC-1450,item:773474,M-1430,,120,180,14,Internal semi-finished delivery delay after line maintenance
+semi_finished_capacity_773474_y1,capacity,SDC-1450,item:773474,M-1430,,120,180,0.70,Internal semi-finished capacity pressure after line maintenance
+semi_finished_availability_773474_y3,availability,SDC-1450,item:773474,M-1430,,900,980,0.70,Internal semi-finished allocation during competing campaign
+semi_finished_delay_773474_y3,lead_time_extra_days,SDC-1450,item:773474,M-1430,,900,980,21,Internal semi-finished delivery delay during competing campaign
+cardboard_quality_start_730384,quality_yield,SDC-VD0508918A,item:730384,M-1430,,0,70,0.90,Cardboard quality yield loss during first campaign
+cardboard_lead_start_730384,lead_time_extra_days,SDC-VD0508918A,item:730384,M-1430,,0,70,10,Cardboard inbound logistics delay during first campaign
+cardboard_freight_cost_y3,transport_cost,SDC-VD0508918A,item:730384,M-1430,,880,910,1.50,Cardboard freight premium during transport congestion
+cardboard_capacity_y5,capacity,SDC-VD0508918A,item:730384,M-1430,,1685,1710,0.50,Cardboard supplier capacity outage near late campaign
+panel_capacity_338928_y2,capacity,SDC-VD0901566A,item:338928,M-1810,,450,520,0.60,Panel component capacity loss after energy curtailment
+panel_reliability_338928_y2,reliability,SDC-VD0901566A,item:338928,M-1810,,450,520,0.88,Panel component OTIF degradation after energy curtailment
+panel_quality_338928_y4,quality_yield,SDC-VD0901566A,item:338928,M-1810,,1000,1120,0.94,Panel component quality deviation during supplier change
+panel_delay_338928_y4,lead_time_extra_days,SDC-VD0901566A,item:338928,M-1810,,1000,1120,14,Panel component release delay during supplier change
+panel_capacity_338929_y3,capacity,SDC-VD0914360C,item:338929,M-1810,,820,920,0.55,Second panel component capacity restriction
+panel_quality_338929_y3,quality_yield,SDC-VD0914360C,item:338929,M-1810,,820,920,0.94,Second panel component quality yield loss
+panel_release_338929_y3,quality_delay,SDC-VD0914360C,item:338929,M-1810,,820,920,10,Second panel component quarantine release delay
+fg_supplier_delay_693055_y3,lead_time_extra_days,SDC-1450,item:693055,M-1810,,900,980,21,Internal semi-finished supplier delivery delay
+fg_supplier_availability_693055_y3,availability,SDC-1450,item:693055,M-1810,,900,980,0.70,Internal semi-finished supplier allocation
+fg_supplier_capacity_693055_y4,capacity,SDC-1450,item:693055,M-1810,,1500,1560,0.65,Internal semi-finished supplier capacity pressure
+api_stock_loss_start_0960508,stock_writeoff,SDC-VD0960508A,item:021081,SDC-1450,,0,0,0.40,Raw material supplier stock quarantine at launch
+api_stock_access_start_0960508,stock,SDC-VD0960508A,item:021081,SDC-1450,,0,45,0.55,Raw material usable stock restricted after quarantine
+api_lead_start_0949099,lead_time_extra_days,SDC-VD0949099A,item:021081,SDC-1450,,0,45,21,Alternative raw material supplier delivery delay
+api_upstream_capacity_start_0949099,external_capacity,SDC-VD0949099A,item:021081,SDC-1450,,0,90,0.45,Alternative raw material upstream capacity pressure
+api_upstream_lead_start_0949099,external_lead_time_extra_days,SDC-VD0949099A,item:021081,SDC-1450,,0,90,35,Alternative raw material upstream lead time extension
+api_external_cost_start_0949099,external_cost,SDC-VD0949099A,item:021081,SDC-1450,,0,90,1.50,Alternative raw material upstream spot sourcing premium
+specialist_capacity_426331_y4,capacity,SDC-VD0989480A,item:426331,M-1810,,1430,1460,0.50,Specialist component supplier capacity loss
+specialist_lead_426331_y4,lead_time_extra_days,SDC-VD0989480A,item:426331,M-1810,,1430,1460,21,Specialist component supplier delivery delay
+case_capacity_start_734545,capacity,SDC-VD1095770A,item:734545,M-1430,,0,30,0.55,Case or shipper component supplier capacity restriction
+case_quality_start_734545,quality_yield,SDC-VD1095770A,item:734545,M-1430,,0,30,0.92,Case or shipper component quality yield loss
+case_lead_734545_y3,lead_time_extra_days,SDC-VD1095770A,item:734545,M-1430,,880,910,14,Case or shipper component inbound logistics delay
+case_availability_734545_y4,availability,SDC-VD1095770A,item:734545,M-1430,,1390,1420,0.65,Case or shipper component supplier allocation
+label_capacity_start_708073,capacity,SDC-VD0520115A,item:708073,M-1430,,0,40,0.60,Label component capacity reduction during first campaign
+label_quality_start_708073,quality_yield,SDC-VD0520115A,item:708073,M-1430,,0,40,0.90,Label component quality deviation during first campaign
+label_lead_708073_y5,lead_time_extra_days,SDC-VD0520115A,item:708073,M-1430,,1770,1790,10,Label component late horizon delivery delay

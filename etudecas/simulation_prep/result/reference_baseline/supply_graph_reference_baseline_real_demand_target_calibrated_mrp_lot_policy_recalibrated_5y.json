@@ -8,7 +8,8 @@
     "carbon_unit": "Kilogram",
     "notes": [
       "Fields with is_default=true were filled with standard placeholder values because Data_poc.xlsx did not provide them.",
-      "Graph enriched with auxiliary case-study Excel workbooks (021081.xlsx, 268191.xlsx, 268967.xlsx, Fournisseur.xlsx)."
+      "Graph enriched with auxiliary case-study Excel workbooks (021081.xlsx, 268191.xlsx, 268967.xlsx, Fournisseur.xlsx).",
+      "For product 268091, workbook 268191.xlsx is treated as the BOM source of truth: active component 007923, former Data_poc.xlsx reference 693710."
     ],
     "source_files": [
       "Data_poc.xlsx",
@@ -33,7 +34,7 @@
     },
     "simulation_prep": {
       "prepared_for_simulation": true,
-      "prepared_at_utc": "2026-04-23T09:22:02.177421+00:00",
+      "prepared_at_utc": "2026-04-30T14:25:43.801703+00:00",
       "assumption_version": "v1",
       "notes": [
         "Missing/default values were replaced with explicit assumptions for first-pass simulation.",
@@ -42,7 +43,7 @@
     },
     "baseline_rebuild": {
       "type": "real_demand_target_service_rebuild",
-      "generated_at_utc": "2026-04-23T09:22:35.822019+00:00",
+      "generated_at_utc": "2026-04-30T14:26:14.979405+00:00",
       "source_graph": "etudecas\\simulation_prep\\result\\reference_baseline\\supply_graph_reference_baseline_simulation_ready.json",
       "scenario_id": "scn:BASE",
       "days": 365,
@@ -75,20 +76,20 @@
       }
     },
     "mrp_seed": {
-      "generated_at_utc": "2026-04-23T09:22:36.171016+00:00",
-      "stocks_mrp_xlsx": "etudecas\\donnees\\Stocks_MRP.xlsx",
+      "generated_at_utc": "2026-04-30T14:26:15.312721+00:00",
+      "stocks_mrp_xlsx": "etudecas/data/source/Stocks_MRP.xlsx",
       "snapshot_at_utc": "2025-01-01T03:03:48+00:00",
       "stock_rows_injected": 28,
       "inventory_states_created": 0,
       "inventory_states_updated": 28,
-      "mrp_policies_applied": 25,
+      "mrp_policies_applied": 26,
       "mrp_policy_overrides_applied": 2,
       "lot_policies_applied": 3,
       "legacy_batch_updates": 0
     },
     "mrp_lot_policy_rebuild": {
       "type": "mrp_lot_policy_lot_execution_rebuild",
-      "generated_at_utc": "2026-04-23T09:22:36.488659+00:00",
+      "generated_at_utc": "2026-04-30T14:26:15.627276+00:00",
       "source_graph": "etudecas\\simulation_prep\\result\\reference_baseline\\supply_graph_reference_baseline_real_demand_target_calibrated_mrp_lot_policy.json",
       "scenario_id": "scn:BASE",
       "days": 365,
@@ -128,6 +129,13 @@
             "max_lots_per_week": 10,
             "source": "industrial_confirmation_2026-04-13"
           }
+        },
+        "SDC-1450": {
+          "item:773474": {
+            "max_lots_per_week": 10,
+            "source": "working_assumption_align_factory_lot_execution",
+            "inject_capacity_from_lot_week": false
+          }
         }
       },
       "applied_factory_lot_execution_rows": [
@@ -146,6 +154,14 @@
           "nominal_lot_qty": 142485.0,
           "capacity_qty_per_day": 203550.0,
           "source": "industrial_confirmation_2026-04-13"
+        },
+        {
+          "node_id": "SDC-1450",
+          "item_id": "item:773474",
+          "max_lots_per_week": 10.0,
+          "nominal_lot_qty": 3200000.0,
+          "capacity_qty_per_day": 0.0,
+          "source": "working_assumption_align_factory_lot_execution"
         }
       ],
       "factory_lot_sizing_overrides": {
@@ -3412,8 +3428,8 @@
     {
       "id": "SDC-1450",
       "type": "factory",
-      "name": "Internal Semi-finished Site - D1450",
-      "role_raw": "Internal Upstream Semi-finished Site",
+      "name": "Internal PFI Site - D-1450",
+      "role_raw": "Internal PFI Site",
       "location_ID": "France - GAILLAC - 81600",
       "geo": {
         "lat": 43.901816,
@@ -3467,7 +3483,6 @@
               "unit_value_basis": 3.895
             },
             "is_default_initial": false,
-            "uom_source": "simulation_prep_inferred_from_relations_bom",
             "initial_source": "mrp_snapshot_2025-01-01T03:03:48+00:00"
           },
           {
@@ -3484,7 +3499,12 @@
               "unit_value_basis": 12.125
             },
             "is_default_initial": false,
-            "initial_source": "mrp_snapshot_2025-01-01T03:03:48+00:00"
+            "initial_source": "mrp_snapshot_2025-01-01T03:03:48+00:00",
+            "mrp_policy": {
+              "safety_stock_qty": 900000.0,
+              "safety_stock_uom": "KG",
+              "source": "mrp_policy_sheet"
+            }
           }
         ],
         "backlogs": [],
@@ -3519,12 +3539,6 @@
             "time_unit": "day",
             "is_default": true
           },
-          "capacity": {
-            "max_rate": 500000.0,
-            "uom": "G/day",
-            "is_default": false,
-            "source": "case_data_upstream_bom_assumption"
-          },
           "cost": {
             "value": 0.35,
             "per": "unit",
@@ -3545,6 +3559,7 @@
             "source_workbook": "021081.xlsx",
             "source_sheet": "BOM"
           },
+          "capacity": {},
           "lot_sizing": {
             "fixed_lot_qty": 3200000.0,
             "min_lot_qty": 0.0,
@@ -3552,6 +3567,10 @@
             "uom": "G",
             "source": "mrp_lot_sheet",
             "normalization_rule": ""
+          },
+          "lot_execution": {
+            "max_lots_per_week": 10.0,
+            "source": "working_assumption_align_factory_lot_execution"
           }
         }
       ],
@@ -5637,7 +5656,7 @@
         "source_workbook": "021081.xlsx",
         "product_code": "773474",
         "supplier_account": "VD0960508A",
-        "standard_order_qty": 1.0,
+        "standard_order_qty": 20000.0,
         "standard_order_uom": "KG",
         "pricing_currency": "USD"
       },
@@ -5686,7 +5705,7 @@
         "source_workbook": "021081.xlsx",
         "product_code": "773474",
         "supplier_account": "VD0972460A",
-        "standard_order_qty": 1.0,
+        "standard_order_qty": 20000.0,
         "standard_order_uom": "KG",
         "pricing_currency": "USD"
       },
@@ -6066,7 +6085,7 @@
           },
           "source_truth": {
             "type": "demand_pf_weekly_real_demand",
-            "xlsx_path": "etudecas\\donnees\\demand_PF.xlsx",
+            "xlsx_path": "etudecas/data/source/demand_PF.xlsx",
             "sheet": "Demande",
             "annual_total_qty": 1575986.0,
             "period_count_weeks": 52
@@ -6308,7 +6327,7 @@
           "service_level_target_source": "simulation_prep_business_rule_by_product",
           "source_truth": {
             "type": "demand_pf_weekly_real_demand",
-            "xlsx_path": "etudecas\\donnees\\demand_PF.xlsx",
+            "xlsx_path": "etudecas/data/source/demand_PF.xlsx",
             "sheet": "Demande",
             "annual_total_qty": 3576442.0,
             "period_count_weeks": 52

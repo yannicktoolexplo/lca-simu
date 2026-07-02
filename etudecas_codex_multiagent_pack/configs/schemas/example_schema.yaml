@@ -1,0 +1,22 @@
+columns:
+  date:
+    type: datetime
+    required: true
+  aircraft_id:
+    type: string
+    required: true
+  quality_score:
+    type: float
+    required: true
+    min: 0
+    max: 1
+  delay_days:
+    type: float
+    required: true
+    min: 0
+    max: 20
+  stress_index:
+    type: float
+    required: true
+    min: 0
+    max: 1

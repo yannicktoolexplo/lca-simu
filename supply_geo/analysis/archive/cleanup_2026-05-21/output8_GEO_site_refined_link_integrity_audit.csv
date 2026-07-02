@@ -1,0 +1,347 @@
+﻿variant,record_index,system,component,present_roles,missing_roles,complete_roles,has_t1,has_oem,direct_adjacent_edge_count,bridge_needed,bridge_labels,status
+primary,1,Ens. Equipements latéraux,A5086 - Aluminium,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+primary,2,Ens. Stowage latéral,"15CDV6 (chrome, molibdene, vanadium)",T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+primary,3,Ens. Equipements latéraux,Ertalon par moulage par injection plastique,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,4,Ensemble porte,FILM DECOR AERFILM - Ep0.33 714g-m2,T3;T2;T1;OEM,T4,False,True,True,3,False,,continuous_direct
+primary,5,Bumper version porte,alliage Cu,T3;T1;OEM,T4;T2,False,True,True,1,True,T3->T1 missing:T2,continuous_with_gap_bridge
+primary,6,Ens. Stowage latéral,cuir,T3;T2;T1;OEM,T4,False,True,True,3,False,,continuous_direct
+primary,7,lightning,lightning,T2;T1;OEM,T4;T3,False,True,True,2,False,,continuous_direct
+primary,8,Padding (rembourrage),AIRVOLT LAMINAT,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,9,Stowage assemblé avec porte,Silicone,T3;T2;T1;OEM,T4,False,True,True,3,False,,continuous_direct
+primary,10,System IFE (In-Flight Entertainment) est un ensemble d'équipements et de logiciels qui permet aux passagers d'occuper leur temps à bord d'un avion.,System IFE boitier ref FJKL1-3K1100-01ATAB,T3;T2;T1;OEM,T4,False,True,True,3,False,,continuous_direct
+primary,11,Coussin ottoman,tissu,T3;T2;T1;OEM,T4,False,True,True,3,False,,continuous_direct
+primary,12,Manchette acc. Mobile,FRMC55:EU28 polyuréthane flexible traité UL,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,13,Accoudoir allée,30NCD6 (nickel-chrome- molibdene),T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+primary,14,Ens. Palette optimisée,35NC6 (nickel-chrome),T3;T1;OEM,T4;T2,False,True,True,1,True,T3->T1 missing:T2,continuous_with_gap_bridge
+primary,15,Ens. Equipements latéraux,acier,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,16,Stowage assemblé avec porte,35NC6 (nickel-chrome),T1;OEM,T4;T3;T2,False,True,True,1,False,,continuous_direct
+primary,17,Accoudoir allée,A2017 - Aluminium,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,18,Ens. Stowage latéral,A2017 - Aluminium,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,19,Ens. Palette optimisée,A2017 - Aluminium,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,20,Ens. Tablette cocktail,A2017 - Aluminium,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,21,Ens. Tablette repas,A2017 - Aluminium,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,22,Ens. Têtière,A2017 - Aluminium,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,23,Stowage assemblé avec porte,A2017 - Aluminium,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,24,Support écran,A2017 - Aluminium,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,25,Accoudoir allée,A2024 - Aluminium,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,26,Ens. Tablette cocktail,A2024 - Aluminium,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,27,Ens. Tablette repas,A2024 - Aluminium,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,28,Ens. Têtière,A2024 - Aluminium,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,29,Accoudoir allée,A5086 - Aluminium,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+primary,30,Bumper version porte,A5086 - Aluminium,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+primary,31,Ens. Stowage latéral,A5086 - Aluminium,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+primary,32,ens. equipements lateraux,"velours eu28: polyurethane flexible foam, with flame retardant eu28: pa6.6 fibres",T2;T1;OEM,T4;T3,False,True,True,2,False,,continuous_direct
+primary,33,Ens. Structure fauteuil,4140 (acier),T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+primary,34,Habillage sous fauteuil,A5086 - Aluminium,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+primary,35,Manchette acc. Mobile,A5086 - Aluminium,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+primary,36,Manchette équipée,A5086 - Aluminium,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+primary,37,Renfort tubulaire,A5086 - Aluminium,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+primary,38,Stowage assemblé avec porte,A5086 - Aluminium,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+primary,39,Structure ottoman horizontale,A5086 - Aluminium,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+primary,40,Support écran,A5086 - Aluminium,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+primary,41,Support équipé,A5086 - Aluminium,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+primary,42,Support manchette équipée,A5086 - Aluminium,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+primary,43,Support NFC,A5086 - Aluminium,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+primary,44,Renfort tubulaire,A6060 - Aluminium,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+primary,45,Ceinture de sécurité,acier,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,46,Support clamps,acier,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,47,Accoudoir allée,acier,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,48,Bumper version porte,acier,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,49,Ens. Stowage latéral,acier,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,50,ens. coque,de: aluminium cast part machining + tth compris dans le steel tinplated,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+primary,51,Ens. Structure fauteuil,35NC6 (nickel-chrome),T1;OEM,T4;T3;T2,False,True,True,1,False,,continuous_direct
+primary,52,Ens. Palette optimisée,acier,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,53,Ensemble porte,acier,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,54,Ens. Structure fauteuil,A2017 - Aluminium,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,55,Ens. Structure fauteuil,A2024 - Aluminium,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,56,Ens. Tablette cocktail,acier,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,57,Ens. Tablette repas,acier,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,58,Habillage sous fauteuil,acier,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,59,Manchette équipée,acier,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,60,Renfort tubulaire,acier,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,61,Stowage assemblé avec porte,acier,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,62,Structure ottoman horizontale,acier,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,63,Support écran,acier,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,64,Support équipé,acier,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,65,Support manchette équipée,acier,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,66,Accoudoir allée,Alu,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+primary,67,Ens. Palette optimisée,Alu,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+primary,68,Ensemble porte,Alu,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+primary,69,Ens. Structure fauteuil,A5086 - Aluminium,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+primary,70,Manchette acc. Mobile,Alu,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+primary,71,Brackets set,cables FJKL1-3K1J01-01ATAB_BRACKETS-SET,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+primary,72,Ens. Structure fauteuil,acier,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,73,SFCU (Seat Function Control Unit),Clavier,T2;OEM,T4;T3;T1,False,False,True,0,True,T2->OEM missing:T1,continuous_with_gap_bridge
+primary,74,Commande actionnement ECU,Commande actionnement ECU,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+primary,75,bumper version porte,copolymere lexan fst simapro: extrusion et thermoformage,T4;OEM,T3;T2;T1,False,False,True,0,True,"T4->OEM missing:T3,T2,T1",continuous_with_gap_bridge
+primary,76,Manchette acc. Mobile,cuir,T3;T2;T1;OEM,T4,False,True,True,3,False,,continuous_direct
+primary,77,Manchette équipée,cuir,T3;T2;T1;OEM,T4,False,True,True,3,False,,continuous_direct
+primary,78,Ecran - Screen Display (COTS),"Display, liquid crystal, 17 pouces",T4;T3;T2;OEM,T1,False,False,True,2,True,T2->OEM missing:T1,continuous_with_gap_bridge
+primary,79,Accoudoir allée,Ertalon,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,80,Ens. Stowage latéral,Ertalon,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,81,Ens. Structure fauteuil,inox,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+primary,82,Ensemble porte,Ertalon,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,83,Ens. Tablette repas,Ertalon,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,84,Stowage assemblé avec porte,Ertalon,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,85,Structure ottoman horizontale,Ertalon,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,86,Coussin ottoman,FRMC55 (C55 = % de carbone) et FMR = ?,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,87,Coussin têtière,FRMC55 (C55 = % de carbone) et FMR = ?,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,88,Ens. Coussin assise,FRMC55 (C55 = % de carbone) et FMR = ?,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,89,Ens.coussin dossier version têtière,FRMC55 (C55 = % de carbone) et FMR = ?,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,90,Ens. Coussin dossier,FRMC55 (C55 = % de carbone) et FMR = ?,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,91,Ens. Stowage latéral,FRMC55 (C55 = % de carbone) et FMR = ?,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,92,Manchette acc. Mobile,FRMC55 (C55 = % de carbone) et FMR = ?,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,93,Manchette équipée,FRMC55 (C55 = % de carbone) et FMR = ?,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,94,Accoudoir allée,inox,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+primary,95,Ens. Palette optimisée,inox,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+primary,96,Ensemble porte,inox,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+primary,97,Ens. Structure fauteuil,GLO: moulage par injection plastique,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,98,Ens. Tablette cocktail,inox,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+primary,99,Ens. Tablette repas,inox,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+primary,100,Ens. Têtière,inox,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+primary,101,Stowage assemblé avec porte,inox,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+primary,102,Support écran,inox,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+primary,103,Capot NFC,kydex,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,104,Coussin ottoman,kydex,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,105,Ens. Stowage latéral,kydex,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,106,Ensemble porte,kydex,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,107,Ens. Tablette cocktail,kydex,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,108,Ens. Tablette repas,kydex,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,109,Stowage assemblé avec porte,kydex,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,110,Ens. Coque,NIDA - GLO (moulage par injection plastique),T4;T3;T2;OEM,T1,False,False,True,2,True,T2->OEM missing:T1,continuous_with_gap_bridge
+primary,111,Ceinture de sécurité,nylon,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,112,Support clamps,nylon,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,113,Ens. Stowage latéral,nylon,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,114,Ens. Palette optimisée,nylon,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,115,Ensemble porte,nylon,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,116,Ens. Structure fixe,35NC6 (nickel-chrome),T1;OEM,T4;T3;T2,False,True,True,1,False,,continuous_direct
+primary,117,Ens. Tablette cocktail,nylon,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,118,Ens. Tablette repas,nylon,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,119,Ens. Têtière,nylon,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,120,Stowage assemblé avec porte,nylon,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,121,Ecran - 00-5136-51 Rev F Seat Power Box 4 (SPB4),"Display, liquid crystal, 17 pouces",T4;T3;T2;OEM,T1,False,False,True,2,True,T2->OEM missing:T1,continuous_with_gap_bridge
+primary,122,Ens. Structure fixe,acier,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,123,Ens. Structure fixe,Alu,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+primary,124,Ens. Structure fixe,caoutchouc,T4;T2;T1;OEM,T3,False,True,True,2,True,T4->T2 missing:T3,continuous_with_gap_bridge
+primary,125,Ens. Palette optimisée,Polychloroprene,T4;T2;T1;OEM,T3,False,True,True,2,True,T4->T2 missing:T3,continuous_with_gap_bridge
+primary,126,Powerbox,powerbox,T4;T3;T2;OEM,T1,False,False,True,2,True,T2->OEM missing:T1,continuous_with_gap_bridge
+primary,128,Ens. Coque,Résine BR623 - composite,T4;T3;T2;OEM,T1,False,False,True,2,True,T2->OEM missing:T1,continuous_with_gap_bridge
+primary,129,Ens. Tablette repas,Silicone50 shore,T3;T2;T1;OEM,T4,False,True,True,3,False,,continuous_direct
+primary,130,Remote extender unit,télécommande,T4;T2;T1;OEM,T3,False,True,True,2,True,T4->T2 missing:T3,continuous_with_gap_bridge
+primary,131,Coussin têtière,tissu,T3;T2;T1;OEM,T4,False,True,True,3,False,,continuous_direct
+primary,132,Ens. Coussin assise,tissu,T3;T2;T1;OEM,T4,False,True,True,3,False,,continuous_direct
+primary,133,Ens.coussin dossier version têtière,tissu,T3;T2;T1;OEM,T4,False,True,True,3,False,,continuous_direct
+primary,134,Ens. Coussin dossier,tissu,T3;T2;T1;OEM,T4,False,True,True,3,False,,continuous_direct
+primary,135,Ens. Tablette cocktail,tissu,T3;T2;T1;OEM,T4,False,True,True,3,False,,continuous_direct
+primary,136,Ens. Têtière,tissu,T3;T2;T1;OEM,T4,False,True,True,3,False,,continuous_direct
+primary,137,Padding (rembourrage),ULTRA LEATHER SMOKE,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,138,Ens. Structure fixe,inox,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+primary,139,Ens. Structure fixe,nylon,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,140,Coussin têtière,velcro,T3;T2;T1;OEM,T4,False,True,True,3,False,,continuous_direct
+primary,141,Ens.coussin dossier version têtière,velcro,T3;T2;T1;OEM,T4,False,True,True,3,False,,continuous_direct
+primary,142,Ens. Coussin dossier,velcro,T3;T2;T1;OEM,T4,False,True,True,3,False,,continuous_direct
+primary,143,Manchette équipée,velcro,T3;T2;T1;OEM,T4,False,True,True,3,False,,continuous_direct
+primary,144,Coussin ottoman,velours,T3;T2;T1;OEM,T4,False,True,True,3,False,,continuous_direct
+primary,145,Coussin têtière,velours,T3;T2;T1;OEM,T4,False,True,True,3,False,,continuous_direct
+primary,146,Ens. Coussin assise,velours,T3;T2;T1;OEM,T4,False,True,True,3,False,,continuous_direct
+primary,147,Ens.coussin dossier version têtière,velours,T3;T2;T1;OEM,T4,False,True,True,3,False,,continuous_direct
+primary,148,Ens. Coussin dossier,velours,T3;T2;T1;OEM,T4,False,True,True,3,False,,continuous_direct
+primary,149,Ens. Structure porte,velcro,T3;T2;T1;OEM,T4,False,True,True,3,False,,continuous_direct
+primary,150,Habillage sous fauteuil,velours,T3;T2;T1;OEM,T4,False,True,True,3,False,,continuous_direct
+primary,151,Ens. Structure porte,Z10CNT18,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,152,Manchette équipée,FRMC55:EU28 polyuréthane flexible traité UL,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,153,Support écran Screen Display (COTS),"Display, liquid crystal, 17 pouces",T4;T3;T2;OEM,T1,False,False,True,2,True,T2->OEM missing:T1,continuous_with_gap_bridge
+primary,154,bumper version porte,de: aluminium cast part machining glo: steel sheet stamping and bending,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+primary,155,accoudoir allee,de: aluminium cast part machining glo: steel sheet stamping and bending,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+primary,157,Siége,aluminium,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,158,Siége,"Tissu, mousse, polyéthylène",T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,159,Siége,Moulage plastique,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,160,Siége,"autre (silicium, cuirs synthétique)",T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,161,Siége,65% aluminium,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+primary,162,Siége,"16 % Tissu, mousse, polyéthylène",T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,163,Siége,11% Moulage plastique,T4;T3;T2;OEM,T1,False,False,True,2,True,T2->OEM missing:T1,continuous_with_gap_bridge
+primary,164,Siége,"8% autre (silicium, cuirs synthétique)",T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,165,Siége,"16 % Tissu, mousse",T4;T3;T2;OEM,T1,False,False,True,2,True,T2->OEM missing:T1,continuous_with_gap_bridge
+primary,166,siege,titane fibre de carbone,T3;T2;OEM,T4;T1,False,False,True,1,True,T2->OEM missing:T1,continuous_with_gap_bridge
+primary,167,Accoudoir allée,A2024 - Aluminium,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,168,Siége,"Tissu, mousse, polyéthylène",T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,169,Siége,"Tissu, mousse, polyéthylène",T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,170,Siége,"autre (silicium, cuirs synthétique)",T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,171,Siége,"autre (silicium, cuirs synthétique)",T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,172,Siége,Moulage plastique,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,173,Siége,Moulage plastique,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,174,Siége,aluminium,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+primary,175,Siége,aluminium,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,1,Ens. Equipements latéraux,A5086 - Aluminium,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+all,2,Ens. Stowage latéral,"15CDV6 (chrome, molibdene, vanadium)",T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+all,3,Ens. Equipements latéraux,Ertalon par moulage par injection plastique,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,4,Ensemble porte,FILM DECOR AERFILM - Ep0.33 714g-m2,T3;T2;T1;OEM,T4,False,True,True,3,False,,continuous_direct
+all,5,Bumper version porte,alliage Cu,T3;T1;OEM,T4;T2,False,True,True,1,True,T3->T1 missing:T2,continuous_with_gap_bridge
+all,6,Ens. Stowage latéral,cuir,T3;T2;T1;OEM,T4,False,True,True,3,False,,continuous_direct
+all,7,lightning,lightning,T2;T1;OEM,T4;T3,False,True,True,2,False,,continuous_direct
+all,8,Padding (rembourrage),AIRVOLT LAMINAT,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,9,Stowage assemblé avec porte,Silicone,T3;T2;T1;OEM,T4,False,True,True,3,False,,continuous_direct
+all,10,System IFE (In-Flight Entertainment) est un ensemble d'équipements et de logiciels qui permet aux passagers d'occuper leur temps à bord d'un avion.,System IFE boitier ref FJKL1-3K1100-01ATAB,T3;T2;T1;OEM,T4,False,True,True,3,False,,continuous_direct
+all,11,Coussin ottoman,tissu,T3;T2;T1;OEM,T4,False,True,True,3,False,,continuous_direct
+all,12,Manchette acc. Mobile,FRMC55:EU28 polyuréthane flexible traité UL,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,13,Accoudoir allée,30NCD6 (nickel-chrome- molibdene),T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+all,14,Ens. Palette optimisée,35NC6 (nickel-chrome),T3;T1;OEM,T4;T2,False,True,True,1,True,T3->T1 missing:T2,continuous_with_gap_bridge
+all,15,Ens. Equipements latéraux,acier,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,16,Stowage assemblé avec porte,35NC6 (nickel-chrome),T1;OEM,T4;T3;T2,False,True,True,1,False,,continuous_direct
+all,17,Accoudoir allée,A2017 - Aluminium,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,18,Ens. Stowage latéral,A2017 - Aluminium,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,19,Ens. Palette optimisée,A2017 - Aluminium,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,20,Ens. Tablette cocktail,A2017 - Aluminium,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,21,Ens. Tablette repas,A2017 - Aluminium,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,22,Ens. Têtière,A2017 - Aluminium,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,23,Stowage assemblé avec porte,A2017 - Aluminium,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,24,Support écran,A2017 - Aluminium,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,25,Accoudoir allée,A2024 - Aluminium,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,26,Ens. Tablette cocktail,A2024 - Aluminium,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,27,Ens. Tablette repas,A2024 - Aluminium,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,28,Ens. Têtière,A2024 - Aluminium,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,29,Accoudoir allée,A5086 - Aluminium,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+all,30,Bumper version porte,A5086 - Aluminium,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+all,31,Ens. Stowage latéral,A5086 - Aluminium,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+all,32,ens. equipements lateraux,"velours eu28: polyurethane flexible foam, with flame retardant eu28: pa6.6 fibres",T3;T2;T1;OEM,T4,False,True,True,3,False,,continuous_direct
+all,33,Ens. Structure fauteuil,4140 (acier),T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+all,34,Habillage sous fauteuil,A5086 - Aluminium,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+all,35,Manchette acc. Mobile,A5086 - Aluminium,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+all,36,Manchette équipée,A5086 - Aluminium,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+all,37,Renfort tubulaire,A5086 - Aluminium,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+all,38,Stowage assemblé avec porte,A5086 - Aluminium,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+all,39,Structure ottoman horizontale,A5086 - Aluminium,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+all,40,Support écran,A5086 - Aluminium,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+all,41,Support équipé,A5086 - Aluminium,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+all,42,Support manchette équipée,A5086 - Aluminium,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+all,43,Support NFC,A5086 - Aluminium,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+all,44,Renfort tubulaire,A6060 - Aluminium,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+all,45,Ceinture de sécurité,acier,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,46,Support clamps,acier,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,47,Accoudoir allée,acier,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,48,Bumper version porte,acier,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,49,Ens. Stowage latéral,acier,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,50,ens. coque,de: aluminium cast part machining + tth compris dans le steel tinplated,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+all,51,Ens. Structure fauteuil,35NC6 (nickel-chrome),T1;OEM,T4;T3;T2,False,True,True,1,False,,continuous_direct
+all,52,Ens. Palette optimisée,acier,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,53,Ensemble porte,acier,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,54,Ens. Structure fauteuil,A2017 - Aluminium,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,55,Ens. Structure fauteuil,A2024 - Aluminium,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,56,Ens. Tablette cocktail,acier,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,57,Ens. Tablette repas,acier,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,58,Habillage sous fauteuil,acier,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,59,Manchette équipée,acier,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,60,Renfort tubulaire,acier,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,61,Stowage assemblé avec porte,acier,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,62,Structure ottoman horizontale,acier,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,63,Support écran,acier,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,64,Support équipé,acier,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,65,Support manchette équipée,acier,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,66,Accoudoir allée,Alu,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+all,67,Ens. Palette optimisée,Alu,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+all,68,Ensemble porte,Alu,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+all,69,Ens. Structure fauteuil,A5086 - Aluminium,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+all,70,Manchette acc. Mobile,Alu,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+all,71,Brackets set,cables FJKL1-3K1J01-01ATAB_BRACKETS-SET,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+all,72,Ens. Structure fauteuil,acier,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,73,SFCU (Seat Function Control Unit),Clavier,T2;OEM,T4;T3;T1,False,False,True,0,True,T2->OEM missing:T1,continuous_with_gap_bridge
+all,74,Commande actionnement ECU,Commande actionnement ECU,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+all,75,bumper version porte,copolymere lexan fst simapro: extrusion et thermoformage,T4;OEM,T3;T2;T1,False,False,True,0,True,"T4->OEM missing:T3,T2,T1",continuous_with_gap_bridge
+all,76,Manchette acc. Mobile,cuir,T3;T2;T1;OEM,T4,False,True,True,3,False,,continuous_direct
+all,77,Manchette équipée,cuir,T3;T2;T1;OEM,T4,False,True,True,3,False,,continuous_direct
+all,78,Ecran - Screen Display (COTS),"Display, liquid crystal, 17 pouces",T4;T3;T2;OEM,T1,False,False,True,2,True,T2->OEM missing:T1,continuous_with_gap_bridge
+all,79,Accoudoir allée,Ertalon,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,80,Ens. Stowage latéral,Ertalon,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,81,Ens. Structure fauteuil,inox,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+all,82,Ensemble porte,Ertalon,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,83,Ens. Tablette repas,Ertalon,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,84,Stowage assemblé avec porte,Ertalon,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,85,Structure ottoman horizontale,Ertalon,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,86,Coussin ottoman,FRMC55 (C55 = % de carbone) et FMR = ?,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,87,Coussin têtière,FRMC55 (C55 = % de carbone) et FMR = ?,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,88,Ens. Coussin assise,FRMC55 (C55 = % de carbone) et FMR = ?,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,89,Ens.coussin dossier version têtière,FRMC55 (C55 = % de carbone) et FMR = ?,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,90,Ens. Coussin dossier,FRMC55 (C55 = % de carbone) et FMR = ?,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,91,Ens. Stowage latéral,FRMC55 (C55 = % de carbone) et FMR = ?,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,92,Manchette acc. Mobile,FRMC55 (C55 = % de carbone) et FMR = ?,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,93,Manchette équipée,FRMC55 (C55 = % de carbone) et FMR = ?,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,94,Accoudoir allée,inox,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+all,95,Ens. Palette optimisée,inox,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+all,96,Ensemble porte,inox,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+all,97,Ens. Structure fauteuil,GLO: moulage par injection plastique,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,98,Ens. Tablette cocktail,inox,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+all,99,Ens. Tablette repas,inox,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+all,100,Ens. Têtière,inox,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+all,101,Stowage assemblé avec porte,inox,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+all,102,Support écran,inox,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+all,103,Capot NFC,kydex,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,104,Coussin ottoman,kydex,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,105,Ens. Stowage latéral,kydex,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,106,Ensemble porte,kydex,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,107,Ens. Tablette cocktail,kydex,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,108,Ens. Tablette repas,kydex,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,109,Stowage assemblé avec porte,kydex,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,110,Ens. Coque,NIDA - GLO (moulage par injection plastique),T4;T3;T2;OEM,T1,False,False,True,2,True,T2->OEM missing:T1,continuous_with_gap_bridge
+all,111,Ceinture de sécurité,nylon,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,112,Support clamps,nylon,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,113,Ens. Stowage latéral,nylon,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,114,Ens. Palette optimisée,nylon,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,115,Ensemble porte,nylon,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,116,Ens. Structure fixe,35NC6 (nickel-chrome),T1;OEM,T4;T3;T2,False,True,True,1,False,,continuous_direct
+all,117,Ens. Tablette cocktail,nylon,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,118,Ens. Tablette repas,nylon,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,119,Ens. Têtière,nylon,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,120,Stowage assemblé avec porte,nylon,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,121,Ecran - 00-5136-51 Rev F Seat Power Box 4 (SPB4),"Display, liquid crystal, 17 pouces",T4;T3;T2;OEM,T1,False,False,True,2,True,T2->OEM missing:T1,continuous_with_gap_bridge
+all,122,Ens. Structure fixe,acier,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,123,Ens. Structure fixe,Alu,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+all,124,Ens. Structure fixe,caoutchouc,T4;T2;T1;OEM,T3,False,True,True,2,True,T4->T2 missing:T3,continuous_with_gap_bridge
+all,125,Ens. Palette optimisée,Polychloroprene,T4;T2;T1;OEM,T3,False,True,True,2,True,T4->T2 missing:T3,continuous_with_gap_bridge
+all,126,Powerbox,powerbox,T4;T3;T2;OEM,T1,False,False,True,2,True,T2->OEM missing:T1,continuous_with_gap_bridge
+all,128,Ens. Coque,Résine BR623 - composite,T4;T3;T2;OEM,T1,False,False,True,2,True,T2->OEM missing:T1,continuous_with_gap_bridge
+all,129,Ens. Tablette repas,Silicone50 shore,T3;T2;T1;OEM,T4,False,True,True,3,False,,continuous_direct
+all,130,Remote extender unit,télécommande,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,131,Coussin têtière,tissu,T3;T2;T1;OEM,T4,False,True,True,3,False,,continuous_direct
+all,132,Ens. Coussin assise,tissu,T3;T2;T1;OEM,T4,False,True,True,3,False,,continuous_direct
+all,133,Ens.coussin dossier version têtière,tissu,T3;T2;T1;OEM,T4,False,True,True,3,False,,continuous_direct
+all,134,Ens. Coussin dossier,tissu,T3;T2;T1;OEM,T4,False,True,True,3,False,,continuous_direct
+all,135,Ens. Tablette cocktail,tissu,T3;T2;T1;OEM,T4,False,True,True,3,False,,continuous_direct
+all,136,Ens. Têtière,tissu,T3;T2;T1;OEM,T4,False,True,True,3,False,,continuous_direct
+all,137,Padding (rembourrage),ULTRA LEATHER SMOKE,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,138,Ens. Structure fixe,inox,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+all,139,Ens. Structure fixe,nylon,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,140,Coussin têtière,velcro,T3;T2;T1;OEM,T4,False,True,True,3,False,,continuous_direct
+all,141,Ens.coussin dossier version têtière,velcro,T3;T2;T1;OEM,T4,False,True,True,3,False,,continuous_direct
+all,142,Ens. Coussin dossier,velcro,T3;T2;T1;OEM,T4,False,True,True,3,False,,continuous_direct
+all,143,Manchette équipée,velcro,T3;T2;T1;OEM,T4,False,True,True,3,False,,continuous_direct
+all,144,Coussin ottoman,velours,T3;T2;T1;OEM,T4,False,True,True,3,False,,continuous_direct
+all,145,Coussin têtière,velours,T3;T2;T1;OEM,T4,False,True,True,3,False,,continuous_direct
+all,146,Ens. Coussin assise,velours,T3;T2;T1;OEM,T4,False,True,True,3,False,,continuous_direct
+all,147,Ens.coussin dossier version têtière,velours,T3;T2;T1;OEM,T4,False,True,True,3,False,,continuous_direct
+all,148,Ens. Coussin dossier,velours,T3;T2;T1;OEM,T4,False,True,True,3,False,,continuous_direct
+all,149,Ens. Structure porte,velcro,T3;T2;T1;OEM,T4,False,True,True,3,False,,continuous_direct
+all,150,Habillage sous fauteuil,velours,T3;T2;T1;OEM,T4,False,True,True,3,False,,continuous_direct
+all,151,Ens. Structure porte,Z10CNT18,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,152,Manchette équipée,FRMC55:EU28 polyuréthane flexible traité UL,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,153,Support écran Screen Display (COTS),"Display, liquid crystal, 17 pouces",T4;T3;T2;OEM,T1,False,False,True,2,True,T2->OEM missing:T1,continuous_with_gap_bridge
+all,154,bumper version porte,de: aluminium cast part machining glo: steel sheet stamping and bending,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+all,155,accoudoir allee,de: aluminium cast part machining glo: steel sheet stamping and bending,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+all,157,Siége,aluminium,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,158,Siége,"Tissu, mousse, polyéthylène",T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,159,Siége,Moulage plastique,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,160,Siége,"autre (silicium, cuirs synthétique)",T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,161,Siége,65% aluminium,T4;T3;T1;OEM,T2,False,True,True,2,True,T3->T1 missing:T2,continuous_with_gap_bridge
+all,162,Siége,"16 % Tissu, mousse, polyéthylène",T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,163,Siége,11% Moulage plastique,T4;T3;T2;OEM,T1,False,False,True,2,True,T2->OEM missing:T1,continuous_with_gap_bridge
+all,164,Siége,"8% autre (silicium, cuirs synthétique)",T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,165,Siége,"16 % Tissu, mousse",T4;T3;T2;OEM,T1,False,False,True,2,True,T2->OEM missing:T1,continuous_with_gap_bridge
+all,166,siege,titane fibre de carbone,T3;T2;OEM,T4;T1,False,False,True,1,True,T2->OEM missing:T1,continuous_with_gap_bridge
+all,167,Accoudoir allée,A2024 - Aluminium,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,168,Siége,"Tissu, mousse, polyéthylène",T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,169,Siége,"Tissu, mousse, polyéthylène",T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,170,Siége,"autre (silicium, cuirs synthétique)",T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,171,Siége,"autre (silicium, cuirs synthétique)",T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,172,Siége,Moulage plastique,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,173,Siége,Moulage plastique,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,174,Siége,aluminium,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct
+all,175,Siége,aluminium,T4;T3;T2;T1;OEM,,True,True,True,4,False,,continuous_direct

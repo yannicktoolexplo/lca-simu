@@ -25,7 +25,7 @@ from etudecas.simulation.analysis_batch_common import load_json, numeric_kpis, r
 
 
 SIM_ROOT = Path(__file__).resolve().parents[1]
-RUN_SCRIPT = SIM_ROOT / "run_first_simulation.py"
+RUN_SCRIPT = SIM_ROOT / "engine" / "run_first_simulation.py"
 BASE_INPUT = SIM_ROOT / "sensibility" / "shock_campaign_result" / "cases" / "baseline" / "input_case.json"
 FULL_SAMPLES = SIM_ROOT / "result" / "data" / "full_system_exploration_samples.csv"
 CRITICAL_MATERIALS = SIM_ROOT / "result" / "data" / "critical_input_materials_analysis.csv"

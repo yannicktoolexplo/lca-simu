@@ -20,9 +20,10 @@ import pandas as pd
 import plotly.graph_objects as go
 
 ROOT = Path(__file__).resolve().parent.parent
-JSON_PATH = ROOT / "analysis" / "output8_GEO_normalized.json"
-ARRIVALS_CSV = ROOT / "analysis" / "supply_arrivals.csv"
-OUT_HTML = ROOT / "analysis" / "sim_flows.html"
+ANALYSIS_DIR = ROOT / "supply_geo" / "analysis"
+JSON_PATH = ANALYSIS_DIR / "output8_GEO_normalized.json"
+ARRIVALS_CSV = ANALYSIS_DIR / "supply_arrivals.csv"
+OUT_HTML = ANALYSIS_DIR / "sim_flows.html"
 WINDOW_DAYS = None  # pas de fenêtre, progression sur l'intégralité de la distance jusqu'à l'arrivée
 
 ROLE_ORDER = [

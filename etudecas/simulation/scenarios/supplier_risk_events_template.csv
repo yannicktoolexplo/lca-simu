@@ -1,0 +1,8 @@
+event_id,supplier_id,item_id,dst_node_id,risk_type,start_day,end_day,multiplier,notes
+upstream_capacity_50_packaging,SDC-VD0914690A,item:042342,M-1430,supplier_upstream_supply_capacity,180,270,0.5,Upstream supplier supply capacity limited to 50 percent for one packaging component.
+upstream_lead_x150_raw,SDC-VD0520132A,item:038005,M-1430,supplier_upstream_supply_lead_time,180,270,1.5,Raw material upstream procurement lead time increased by 50 percent.
+upstream_extra_14d_raw,SDC-VD0520132A,item:049371,M-1810,supplier_upstream_supply_lead_time_extra_days,180,270,14,Raw material upstream procurement gets an additional fixed 14-day delay.
+upstream_quality_yield_90,SDC-VD0508918A,item:730384,M-1430,supplier_upstream_supply_quality_yield,180,270,0.9,Only 90 percent of upstream receipts are usable after quality/release loss.
+supplier_output_capacity_60,SDC-VD0993480A,item:344135,M-1430,capacity,180,270,0.6,Supplier outbound physical capacity limited to 60 percent.
+supplier_stock_writeoff_20,SDC-VD0910216A,item:001893,M-1810,stock_writeoff,180,180,0.2,One-shot loss of 20 percent of supplier on-hand stock.
+supplier_otif_95,SDC-VD1091642A,item:002612,M-1810,reliability,180,270,0.95,Supplier delivery reliability drops to 95 percent.
