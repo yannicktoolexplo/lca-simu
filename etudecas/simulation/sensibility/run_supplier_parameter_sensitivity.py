@@ -25,6 +25,8 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from etudecas.simulation.initial_state_policy import merge_living_initial_state_args  # noqa: E402
+
 SERVICE_KPI_TOLERANCE = 0.001
 COUNT_KPI_TOLERANCE = 1.0
 REQUIRED_DERIVED_KPI_COLUMNS = [
@@ -416,6 +418,7 @@ def run_simulation_case(
     extra_args: list[str],
 ) -> dict[str, Any]:
     output_dir.mkdir(parents=True, exist_ok=True)
+    merged_extra_args = merge_living_initial_state_args(extra_args)
     cmd = [
         sys.executable,
         str(run_script),
@@ -431,7 +434,7 @@ def run_simulation_case(
         "--skip-plots",
         "--output-profile",
         "compact",
-        *extra_args,
+        *merged_extra_args,
     ]
     proc = subprocess.run(cmd, capture_output=True, text=True)
     if proc.returncode != 0:

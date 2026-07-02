@@ -851,6 +851,16 @@ def parse_args() -> argparse.Namespace:
         help="Optional path to generated hover-map HTML. Defaults inside <output-dir>/maps/.",
     )
     parser.add_argument(
+        "--map-payload-mode",
+        choices=["chunked", "compressed", "raw", "external"],
+        default="chunked",
+        help=(
+            "How the map DATA payload is stored. chunked keeps a standalone HTML with "
+            "gzip/base64 blocks; raw embeds plain JSON and is much larger; external writes "
+            "a sibling JSON file that must be served over HTTP."
+        ),
+    )
+    parser.add_argument(
         "--skip-map",
         action="store_true",
         help="Skip map HTML generation after simulation.",
@@ -1027,6 +1037,66 @@ def parse_args() -> argparse.Namespace:
             "Override warm-up cutover behavior. When enabled, the physical opening stock "
             "at measured day 0 is restored after warm-up while warm-up-generated order books remain."
         ),
+    )
+    parser.add_argument(
+        "--initial-state-scale",
+        type=float,
+        default=None,
+        help="Override initialization_policy.state_scale for explicit-state runs.",
+    )
+    parser.add_argument(
+        "--initial-factory-input-on-hand-days",
+        type=float,
+        default=None,
+        help="Override factory input opening cover days in initialization_policy.",
+    )
+    parser.add_argument(
+        "--initial-supplier-output-on-hand-days",
+        type=float,
+        default=None,
+        help="Override supplier output opening cover days in initialization_policy.",
+    )
+    parser.add_argument(
+        "--initial-distribution-center-on-hand-days",
+        type=float,
+        default=None,
+        help="Override distribution center opening cover days in initialization_policy.",
+    )
+    parser.add_argument(
+        "--initial-customer-on-hand-days",
+        type=float,
+        default=None,
+        help="Override customer opening cover days in initialization_policy.",
+    )
+    parser.add_argument(
+        "--initial-seed-safety-time-on-hand",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Whether safety-time cover may create extra opening stock beyond observed J0 stock.",
+    )
+    parser.add_argument(
+        "--initial-seed-estimated-source-on-hand",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Whether estimated unmodeled source buffers may create extra opening stock at J0.",
+    )
+    parser.add_argument(
+        "--initial-seed-in-transit",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Override initialization_policy.seed_in_transit.",
+    )
+    parser.add_argument(
+        "--initial-in-transit-fill-ratio",
+        type=float,
+        default=None,
+        help="Override initialization_policy.in_transit_fill_ratio.",
+    )
+    parser.add_argument(
+        "--initial-seed-estimated-source-pipeline",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Override initialization_policy.seed_estimated_source_pipeline.",
     )
     parser.add_argument(
         "--soft-safety-time-stock-target-factor",
@@ -2488,6 +2558,17 @@ def scenario_initialization_policy(
         "customer_on_hand_days": max(
             0.0,
             to_float(raw.get("customer_on_hand_days"), 0.0),
+        ),
+        "seed_safety_time_on_hand": (
+            raw.get("seed_safety_time_on_hand")
+            if isinstance(raw.get("seed_safety_time_on_hand"), bool)
+            else str(raw.get("seed_safety_time_on_hand", "true")).strip().lower() in {"1", "true", "yes", "y", "on"}
+        ),
+        "seed_estimated_source_on_hand": (
+            raw.get("seed_estimated_source_on_hand")
+            if isinstance(raw.get("seed_estimated_source_on_hand"), bool)
+            else str(raw.get("seed_estimated_source_on_hand", "true")).strip().lower()
+            in {"1", "true", "yes", "y", "on"}
         ),
         "seed_in_transit": (
             raw.get("seed_in_transit")
@@ -4350,6 +4431,47 @@ def main() -> None:
         initialization_policy["restore_opening_stock_after_warmup"] = bool(
             args.restore_opening_stock_after_warmup
         )
+    if args.initial_state_scale is not None:
+        initialization_policy["state_scale"] = max(0.0, float(args.initial_state_scale))
+    if args.initial_factory_input_on_hand_days is not None:
+        initialization_policy["factory_input_on_hand_days"] = max(
+            0.0,
+            float(args.initial_factory_input_on_hand_days),
+        )
+    if args.initial_supplier_output_on_hand_days is not None:
+        initialization_policy["supplier_output_on_hand_days"] = max(
+            0.0,
+            float(args.initial_supplier_output_on_hand_days),
+        )
+    if args.initial_distribution_center_on_hand_days is not None:
+        initialization_policy["distribution_center_on_hand_days"] = max(
+            0.0,
+            float(args.initial_distribution_center_on_hand_days),
+        )
+    if args.initial_customer_on_hand_days is not None:
+        initialization_policy["customer_on_hand_days"] = max(
+            0.0,
+            float(args.initial_customer_on_hand_days),
+        )
+    if args.initial_seed_safety_time_on_hand is not None:
+        initialization_policy["seed_safety_time_on_hand"] = bool(
+            args.initial_seed_safety_time_on_hand
+        )
+    if args.initial_seed_estimated_source_on_hand is not None:
+        initialization_policy["seed_estimated_source_on_hand"] = bool(
+            args.initial_seed_estimated_source_on_hand
+        )
+    if args.initial_seed_in_transit is not None:
+        initialization_policy["seed_in_transit"] = bool(args.initial_seed_in_transit)
+    if args.initial_in_transit_fill_ratio is not None:
+        initialization_policy["in_transit_fill_ratio"] = max(
+            0.0,
+            float(args.initial_in_transit_fill_ratio),
+        )
+    if args.initial_seed_estimated_source_pipeline is not None:
+        initialization_policy["seed_estimated_source_pipeline"] = bool(
+            args.initial_seed_estimated_source_pipeline
+        )
     if args.soft_safety_time_stock_target_factor is not None:
         initialization_policy["soft_safety_time_stock_target_factor"] = max(
             0.0,
@@ -4625,13 +4747,26 @@ def main() -> None:
     base_stock: dict[tuple[str, str], float] = defaultdict(float)
     pair_mrp_safety_time_days: dict[tuple[str, str], float] = defaultdict(float)
     pair_mrp_safety_stock_qty: dict[tuple[str, str], float] = defaultdict(float)
+    observed_opening_stock_rows: list[dict[str, Any]] = []
     for n in nodes:
         nid = str(n.get("id"))
         inv = n.get("inventory") or {}
         for st in (inv.get("states") or []):
-            key = (nid, str(st.get("item_id")))
+            item_id = str(st.get("item_id"))
+            key = (nid, item_id)
             initial = to_float(st.get("initial"), 0.0)
             stock[key] = initial
+            if initial > 1e-9:
+                observed_opening_stock_rows.append(
+                    {
+                        "node_id": nid,
+                        "node_type": str(n.get("type") or ""),
+                        "item_id": item_id,
+                        "opening_stock_qty": round(initial, 6),
+                        "uom": normalize_unit(st.get("uom") or item_unit_map.get(item_id, "")),
+                        "source": str(st.get("initial_source") or st.get("source") or "graph_inventory_initial"),
+                    }
+                )
             # An MRP snapshot is an opening position, not a standing reorder target.
             # Keeping the opening stock as perpetual base stock forces some seeded
             # supplier pairs into daily capped replenishment even when downstream
@@ -5215,6 +5350,8 @@ def main() -> None:
         ) -> None:
             nonlocal total_initialization_stock_added
             raw_target = max(0.0, target)
+            if raw_target <= 1e-9:
+                return
             # Estimated upstream supplier sources need their opening buffer at full scale.
             # If we also shrink them with state_scale, the supplier can remain artificially
             # pinned at zero stock while shipping at full daily capacity.
@@ -5288,9 +5425,14 @@ def main() -> None:
             if pair[0] not in process_node_ids or daily_req <= 1e-9:
                 continue
             category_prefix = "factory" if node_type_by_id.get(pair[0]) == "factory" else "process_node"
+            safety_cover_days = (
+                pair_mrp_safety_time_days.get(pair, 0.0)
+                if initialization_policy["seed_safety_time_on_hand"]
+                else 0.0
+            )
             cover_days = (
                 initialization_policy["factory_input_on_hand_days"]
-                + pair_mrp_safety_time_days.get(pair, 0.0)
+                + safety_cover_days
             )
             ensure_stock_target(
                 pair,
@@ -5310,10 +5452,15 @@ def main() -> None:
             node_id, _item_id = pair
             if node_id not in supplier_node_ids or daily_signal <= 1e-9:
                 continue
-            cover_days = max(
-                initialization_policy["supplier_output_on_hand_days"],
-                float(review_period_days) + process_tau_days_by_pair.get(pair, 0.0) + pair_mrp_safety_time_days.get(pair, 0.0),
-            )
+            if initialization_policy["seed_safety_time_on_hand"]:
+                cover_days = max(
+                    initialization_policy["supplier_output_on_hand_days"],
+                    float(review_period_days)
+                    + process_tau_days_by_pair.get(pair, 0.0)
+                    + pair_mrp_safety_time_days.get(pair, 0.0),
+                )
+            else:
+                cover_days = initialization_policy["supplier_output_on_hand_days"]
             ensure_stock_target(
                 pair,
                 daily_signal * cover_days,
@@ -5327,9 +5474,14 @@ def main() -> None:
             daily_signal = max(0.0, propagated_demand_daily.get(pair, 0.0))
             if daily_signal <= 1e-9:
                 continue
+            safety_cover_days = (
+                pair_mrp_safety_time_days.get(pair, 0.0)
+                if initialization_policy["seed_safety_time_on_hand"]
+                else 0.0
+            )
             cover_days = (
                 initialization_policy["distribution_center_on_hand_days"]
-                + pair_mrp_safety_time_days.get(pair, 0.0)
+                + safety_cover_days
             )
             ensure_stock_target(
                 pair,
@@ -5359,16 +5511,17 @@ def main() -> None:
                     cover_days=customer_days,
                 )
 
-        for src_pair, policy in sorted(estimated_source_policies.items()):
-            if src_pair in supplier_stock_floor_overrides:
-                continue
-            ensure_stock_target(
-                src_pair,
-                to_float(policy.get("target_stock_qty_day0"), 0.0),
-                category="estimated_source_on_hand",
-                daily_signal=to_float(policy.get("daily_capacity_qty"), 0.0),
-                cover_days=to_float(policy.get("target_cover_days"), 0.0),
-            )
+        if initialization_policy["seed_estimated_source_on_hand"]:
+            for src_pair, policy in sorted(estimated_source_policies.items()):
+                if src_pair in supplier_stock_floor_overrides:
+                    continue
+                ensure_stock_target(
+                    src_pair,
+                    to_float(policy.get("target_stock_qty_day0"), 0.0),
+                    category="estimated_source_on_hand",
+                    daily_signal=to_float(policy.get("daily_capacity_qty"), 0.0),
+                    cover_days=to_float(policy.get("target_cover_days"), 0.0),
+                )
         if initialization_policy["seed_estimated_source_pipeline"]:
             for src_pair, policy in sorted(estimated_source_policies.items()):
                 daily_capacity = max(0.0, to_float(policy.get("daily_capacity_qty"), 0.0))
@@ -5400,6 +5553,7 @@ def main() -> None:
             and economic_policy["external_procurement_enabled"]
             and economic_policy["external_procurement_seed_upstream_pipeline"]
             and economic_policy["external_procurement_capacity_mode"] == "supplier_nominal"
+            and initialization_policy["seed_estimated_source_pipeline"]
         ):
             fill_ratio = max(0.0, to_float(economic_policy.get("external_procurement_upstream_pipeline_fill_ratio"), 1.0))
             for src_pair, policy in sorted(estimated_source_policies.items()):
@@ -7314,9 +7468,7 @@ def main() -> None:
                 if record_day:
                     for arrival_day, chunk_pull_qty, chunk_delivered_qty in delivery_schedule:
                         physical_release_day = int(arrival_day - transport_lead_days)
-                        chunk_lead_cover_days = int(max(1, lead_cover))
-                        chunk_order_date_imt = int(arrival_day - chunk_lead_cover_days - warmup_days)
-                        is_opening_open_order_cost = chunk_order_date_imt < 0
+                        is_opening_open_order_cost = source_mode.startswith("opening_")
                         chunk_transport_cost, transport_cost_basis, transport_cost_units = lane_transport_cost_for_chunk(
                             lane,
                             str(item_id),
@@ -8432,6 +8584,8 @@ def main() -> None:
                 "supplier_output_on_hand_days": initialization_policy["supplier_output_on_hand_days"],
                 "distribution_center_on_hand_days": initialization_policy["distribution_center_on_hand_days"],
                 "customer_on_hand_days": initialization_policy["customer_on_hand_days"],
+                "seed_safety_time_on_hand": initialization_policy["seed_safety_time_on_hand"],
+                "seed_estimated_source_on_hand": initialization_policy["seed_estimated_source_on_hand"],
                 "seed_in_transit": initialization_policy["seed_in_transit"],
                 "in_transit_fill_ratio": initialization_policy["in_transit_fill_ratio"],
                 "seed_estimated_source_pipeline": initialization_policy["seed_estimated_source_pipeline"],
@@ -8562,6 +8716,7 @@ def main() -> None:
             ],
             "assumed_supplier_nodes": assumed_supplier_nodes,
             "assumed_supply_edges": assumed_supply_edges,
+            "observed_opening_stock_rows": observed_opening_stock_rows,
             "externally_sourced_unmodeled_pairs": [
                 {"node_id": n, "item_id": i}
                 for n, i in externally_sourced_pairs
@@ -8884,6 +9039,9 @@ def main() -> None:
     lot_path_audit_report_path = report_path(output_dir, "lot_path_audit.md")
     lot_path_audit_issues_path = data_path(output_dir, "lot_path_audit_issues.csv")
     assumptions_ledger_path = data_path(output_dir, "assumptions_ledger.csv")
+    observed_opening_stock_path = data_path(output_dir, "initialization_observed_stock.csv")
+    initialization_state_path = data_path(output_dir, "initialization_state.csv")
+    initialization_pipeline_path = data_path(output_dir, "initialization_pipeline.csv")
     input_pivot_path = data_path(output_dir, "production_input_stocks_pivot.csv")
     compact_output = args.output_profile == "compact"
 
@@ -8913,12 +9071,61 @@ def main() -> None:
         )
         writer.writeheader()
         writer.writerows(safety_reference_rows)
-    if not compact_output:
-        with daily_path.open("w", encoding="utf-8", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=list(daily_rows[0].keys()) if daily_rows else [])
-            if daily_rows:
-                writer.writeheader()
-                writer.writerows(daily_rows)
+    # This file is small and is the canonical daily KPI/cost source consumed by maps.
+    # Keep it even in compact mode; compact only skips bulky diagnostic extracts.
+    with daily_path.open("w", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=list(daily_rows[0].keys()) if daily_rows else [])
+        if daily_rows:
+            writer.writeheader()
+            writer.writerows(daily_rows)
+
+    initialization_state_fields = [
+        "node_id",
+        "item_id",
+        "category",
+        "daily_signal",
+        "cover_days",
+        "added_opening_qty",
+        "target_opening_stock",
+    ]
+    with initialization_state_path.open("w", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=initialization_state_fields)
+        writer.writeheader()
+        for row in initialization_state_rows:
+            writer.writerow({field: row.get(field, "") for field in initialization_state_fields})
+
+    observed_opening_stock_fields = [
+        "node_id",
+        "node_type",
+        "item_id",
+        "opening_stock_qty",
+        "uom",
+        "source",
+    ]
+    with observed_opening_stock_path.open("w", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=observed_opening_stock_fields)
+        writer.writeheader()
+        for row in observed_opening_stock_rows:
+            writer.writerow({field: row.get(field, "") for field in observed_opening_stock_fields})
+
+    initialization_pipeline_fields = [
+        "node_id",
+        "item_id",
+        "category",
+        "seeded_pipeline_qty",
+        "lead_days",
+        "lane_src",
+        "source_file",
+        "planning_element",
+        "physical_delivery_day",
+        "usable_day",
+        "receipt_release_days",
+    ]
+    with initialization_pipeline_path.open("w", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=initialization_pipeline_fields)
+        writer.writeheader()
+        for row in initialization_pipeline_rows:
+            writer.writerow({field: row.get(field, "") for field in initialization_pipeline_fields})
 
     with input_stock_path.open("w", encoding="utf-8", newline="") as f:
         writer = csv.DictWriter(
@@ -9323,6 +9530,12 @@ def main() -> None:
                 "--supplier-local-criticality-json",
                 str(summary_path(output_dir, "supplier_local_criticality_summary.json")),
             ]
+            if args.map_payload_mode == "chunked":
+                map_cmd.append("--chunked-embedded-payload")
+            elif args.map_payload_mode == "compressed":
+                map_cmd.append("--compress-embedded-payload")
+            elif args.map_payload_mode == "external":
+                map_cmd.append("--externalize-payload")
             try:
                 subprocess.run(map_cmd, check=True, capture_output=True, text=True)
                 generated_map_path = str(map_output_path)
@@ -9529,6 +9742,7 @@ def main() -> None:
 - Opening stock bootstrap scale: {summary['policy']['opening_stock_bootstrap_scale']}
 - Initialization mode: {summary['policy']['initialization_policy']['mode']}
 - Initialization stock days factory / supplier FG / DC / customer: {summary['policy']['initialization_policy']['factory_input_on_hand_days']} / {summary['policy']['initialization_policy']['supplier_output_on_hand_days']} / {summary['policy']['initialization_policy']['distribution_center_on_hand_days']} / {summary['policy']['initialization_policy']['customer_on_hand_days']}
+- Initialization synthetic safety/source buffers: safety-time on hand={summary['policy']['initialization_policy'].get('seed_safety_time_on_hand', True)} / estimated-source on hand={summary['policy']['initialization_policy'].get('seed_estimated_source_on_hand', True)}
 - Initialization seed in-transit / fill ratio / estimated-source pipeline: {summary['policy']['initialization_policy']['seed_in_transit']} / {summary['policy']['initialization_policy']['in_transit_fill_ratio']} / {summary['policy']['initialization_policy']['seed_estimated_source_pipeline']}
 - Opening open-orders reconstruction enabled / horizon days: {summary['policy']['initialization_policy']['seed_open_orders_from_january_snapshot']} / {summary['policy']['initialization_policy']['opening_open_orders_horizon_days']}
 - Opening open-orders source: {summary['policy']['initialization_policy'].get('opening_open_order_source', 'none')}
@@ -9638,6 +9852,7 @@ Le graphe `Reappro amont` utilise maintenant `order_date_IMT` pour dater les ord
 ## Files
 - summaries/first_simulation_summary.json
 - reports/mrp_safety_stock_reference.csv
+- data/first_simulation_daily.csv
 - data/production_input_stocks_daily.csv
 - data/production_output_products_daily.csv
 - data/production_demand_service_daily.csv
@@ -9652,6 +9867,9 @@ Le graphe `Reappro amont` utilise maintenant `order_date_IMT` pour dater les ord
 - data/mrp_trace_daily.csv
 - data/mrp_orders_daily.csv
 - data/assumptions_ledger.csv
+- data/initialization_observed_stock.csv
+- data/initialization_state.csv
+- data/initialization_pipeline.csv
 - data/production_supplier_shipments_daily.csv
 - data/production_supplier_stocks_daily.csv
 - data/production_supplier_stock_flows_daily.csv
@@ -9674,6 +9892,7 @@ Le graphe `Reappro amont` utilise maintenant `order_date_IMT` pour dater les ord
     print(f"[OK] Simulation summary: {summary_output_path.resolve()}")
     print(f"[OK] Simulation report: {report_output_path.resolve()}")
     print(f"[OK] MRP safety stock reference CSV: {safety_reference_path.resolve()}")
+    print(f"[OK] Simulation daily CSV: {daily_path.resolve()}")
     print(f"[OK] Production input stocks CSV: {input_stock_path.resolve()}")
     print(f"[OK] Production output products CSV: {output_prod_path.resolve()}")
     print(f"[OK] Production demand service CSV: {demand_pair_path.resolve()}")
@@ -9691,6 +9910,9 @@ Le graphe `Reappro amont` utilise maintenant `order_date_IMT` pour dater les ord
     print(f"[OK] MRP trace CSV: {mrp_trace_path.resolve()}")
     print(f"[OK] MRP orders CSV: {mrp_orders_path.resolve()}")
     print(f"[OK] Assumptions ledger CSV: {assumptions_ledger_path.resolve()}")
+    print(f"[OK] Initialization observed stock CSV: {observed_opening_stock_path.resolve()}")
+    print(f"[OK] Initialization synthetic stock CSV: {initialization_state_path.resolve()}")
+    print(f"[OK] Initialization pipeline CSV: {initialization_pipeline_path.resolve()}")
     print(f"[OK] Production supplier shipments CSV: {supplier_shipment_path.resolve()}")
     print(f"[OK] Production supplier stocks CSV: {supplier_stock_path.resolve()}")
     print(f"[OK] Production supplier stock flows CSV: {supplier_stock_flow_path.resolve()}")
@@ -9701,9 +9923,8 @@ Le graphe `Reappro amont` utilise maintenant `order_date_IMT` pour dater les ord
     print(f"[OK] Supplier state-dependent risk events CSV: {supplier_state_risk_events_path.resolve()}")
     print(f"[OK] Supplier nominal audit report: {supplier_nominal_audit_path.resolve()}")
     if compact_output:
-        print("[INFO] Compact output profile: detailed daily/input/DC CSVs skipped.")
+        print("[INFO] Compact output profile: bulky detailed input/DC CSVs skipped; first_simulation_daily.csv is kept.")
     else:
-        print(f"[OK] Simulation daily CSV: {daily_path.resolve()}")
         print(f"[OK] Production input consumption CSV: {input_consumption_path.resolve()}")
         print(f"[OK] Production input replenishment arrivals CSV: {input_arrival_path.resolve()}")
         print(f"[OK] Production input replenishment shipments CSV: {input_shipment_path.resolve()}")

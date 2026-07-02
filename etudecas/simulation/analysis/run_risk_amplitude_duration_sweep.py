@@ -12,6 +12,11 @@ from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[3]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from etudecas.simulation.initial_state_policy import merge_living_initial_state_args  # noqa: E402
+
 SIM_SCRIPT = ROOT / "etudecas" / "simulation" / "engine" / "run_first_simulation.py"
 INPUT_JSON = (
     ROOT
@@ -416,7 +421,7 @@ def run_case(case: Case, *, force: bool = False) -> dict[str, Any]:
         cmd.append("--supplier-state-dependent-risks")
     if risk_csv is not None:
         cmd.extend(["--supplier-risk-events-csv", str(risk_csv)])
-    cmd.extend(case.extra_args)
+    cmd.extend(merge_living_initial_state_args(case.extra_args))
     proc = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True)
     if proc.returncode != 0:
         details = "\n".join(part for part in [proc.stdout.strip(), proc.stderr.strip()] if part)

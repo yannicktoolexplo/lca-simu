@@ -6,6 +6,22 @@ Le point d'entree actif reste :
 python etudecas/run_etudecas_pipeline.py
 ```
 
+Pour un usage operationnel sans IA, le chemin recommande est :
+
+```powershell
+python -m pip install -r requirements-etudecas.txt
+python etudecas/run_etudecas_pipeline.py doctor
+python etudecas/run_etudecas_pipeline.py rebuild-map-5y --open-map
+```
+
+Sous Windows, le raccourci suivant lance le meme pipeline actif et ouvre la carte :
+
+```powershell
+.\run_etudecas_active.cmd
+```
+
+Voir [OPERATIONS.md](OPERATIONS.md) pour les options, les fichiers generes et les criteres de validation.
+
 Le livrable principal est un graphe JSON de supply chain. La chaine nominale
 enrichit ce graphe depuis les donnees cas, le geocode, le prepare pour la
 simulation, lance le moteur dynamique, puis genere les cartes et rapports.
@@ -15,6 +31,7 @@ simulation, lance le moteur dynamique, puis genere les cartes et rapports.
 - `data/source/` : fichiers metier source et graphe JSON de base.
 - `data/geocoded/` : graphe geocode et rapports de geocodage.
 - `data/reports/` : rapports d'enrichissement de donnees.
+- `data/MANIFEST.json` : inventaire canonique des donnees actives et des anciens chemins remplaces.
 - `geocoding/` : geocodage hors ligne des noeuds.
 - `simulation_prep/` : transformation du graphe en entree simulation.
 - `knowledge_graph/` : contrat JSON generique, template Excel et enrichissements JSON.
@@ -63,6 +80,18 @@ Chaine principale :
 
 ## Usage
 
+Rebatir le run actif 5 ans lotifie, generer la carte autonome et valider les artefacts :
+
+```powershell
+python etudecas/run_etudecas_pipeline.py rebuild-map-5y --open-map
+```
+
+Verifier les prerequis sans lancer la simulation :
+
+```powershell
+python etudecas/run_etudecas_pipeline.py doctor
+```
+
 Rebatir tout le pipeline actif 1 an :
 
 ```powershell
@@ -102,3 +131,5 @@ Les anciens dossiers `SC_*` ont ete ranges dans `analysis/`. Le POC
 Les anciens dossiers `donnees/`, `scripts_geocodage/` et `result_geocodage/`
 ont ete remplaces par `data/source`, `data/geocoded`, `data/reports` et
 `geocoding`.
+Si `donnees/` existe encore localement, il s'agit d'un reliquat ignore par Git,
+generalement conserve tant qu'un fichier Excel est ouvert.

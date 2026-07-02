@@ -17,18 +17,23 @@ single operational entrypoint for rebuilding the reference graph and its simulat
 from __future__ import annotations
 
 import argparse
+import csv
+import importlib.util
 import json
+import os
 import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Iterable
+from typing import Any, Iterable
 
 
 ROOT = Path(__file__).resolve().parent
 REPO_ROOT = ROOT.parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
+
+from etudecas.simulation.initial_state_policy import living_supply_initial_state_args  # noqa: E402
 
 SOURCE_DATA_DIR = ROOT / "data" / "source"
 DATA_REPORTS_DIR = ROOT / "data" / "reports"
@@ -103,6 +108,22 @@ ACTIVE_MRP_PHYSICAL_BASE_STOCK_FLOOR_PAIRS = [
     ("M-1810", "item:426331", 1.0),
     ("M-1810", "item:693055", 1.0),
 ]
+ACTIVE_MRP_PHYSICAL_INITIAL_STATE_ARGS = living_supply_initial_state_args()
+CORE_RUNTIME_MODULES = ["numpy", "pandas", "openpyxl"]
+PIPELINE_SUCCESS_MARKER = "DATA_CHUNKED_GZIP_BASE64"
+DEFAULT_MAX_STANDALONE_MAP_MB = 40.0
+
+
+def ok_line(message: str) -> None:
+    print(f"[OK] {message}", flush=True)
+
+
+def info_line(message: str) -> None:
+    print(f"[INFO] {message}", flush=True)
+
+
+def warn_line(message: str) -> None:
+    print(f"[WARN] {message}", flush=True)
 
 
 def repo_rel(path: Path) -> str:
@@ -130,6 +151,243 @@ def write_json(path: Path, data: dict) -> None:
 
 def resolve_repo_path(path: Path) -> Path:
     return path if path.is_absolute() else REPO_ROOT / path
+
+
+def data_manifest_source_files() -> list[Path]:
+    manifest_path = ROOT / "data" / "MANIFEST.json"
+    if not manifest_path.exists():
+        return [
+            SOURCE_DATA_DIR / name
+            for name in [
+                "021081.xlsx",
+                "268191.xlsx",
+                "268967.xlsx",
+                "Data_poc.xlsx",
+                "demand_PF.xlsx",
+                "Extract_En_cours.xlsx",
+                "Fournisseur.xlsx",
+                "Stocks_MRP.xlsx",
+                "supply_graph_poc.json",
+            ]
+        ]
+    manifest = load_json(manifest_path)
+    files = manifest.get("canonical_source_files") or []
+    return [SOURCE_DATA_DIR / str(name) for name in files]
+
+
+def missing_runtime_modules() -> list[str]:
+    return [name for name in CORE_RUNTIME_MODULES if importlib.util.find_spec(name) is None]
+
+
+def preflight_checks(*, require_active_graph: bool = True) -> list[dict[str, Any]]:
+    checks: list[dict[str, Any]] = []
+
+    def add(name: str, ok: bool, detail: str = "") -> None:
+        checks.append({"name": name, "ok": bool(ok), "detail": detail})
+
+    add("repo_root", REPO_ROOT.exists(), repo_rel(REPO_ROOT))
+    for path in data_manifest_source_files():
+        add(f"source:{path.name}", path.exists(), repo_rel(path))
+    for script in [
+        ROOT / "knowledge_graph" / "update_supply_graph_from_case_data.py",
+        ROOT / "geocoding" / "geocode_nodes_offline.py",
+        ROOT / "simulation_prep" / "prepare_simulation_graph.py",
+        SIMULATION_ENGINE_SCRIPT,
+        ROOT / "visualization" / "maps" / "build_supplychain_worldmap.py",
+    ]:
+        add(f"script:{script.name}", script.exists(), repo_rel(script))
+    if require_active_graph:
+        add("active_lotified_graph", ACTIVE_MRP_PHYSICAL_GRAPH_JSON.exists(), repo_rel(ACTIVE_MRP_PHYSICAL_GRAPH_JSON))
+    missing_modules = missing_runtime_modules()
+    add(
+        "python_runtime_modules",
+        not missing_modules,
+        "missing=" + ", ".join(missing_modules) if missing_modules else "ok",
+    )
+    return checks
+
+
+def assert_preflight_ok(checks: list[dict[str, Any]]) -> None:
+    failed = [check for check in checks if not check.get("ok")]
+    if not failed:
+        return
+    lines = ["Preflight failed. Missing or invalid prerequisites:"]
+    lines.extend(f"- {row['name']}: {row.get('detail', '')}" for row in failed)
+    if any(str(row.get("name")) == "python_runtime_modules" for row in failed):
+        lines.append("Install dependencies with: python -m pip install -r requirements.txt")
+    raise RuntimeError("\n".join(lines))
+
+
+def print_preflight(checks: list[dict[str, Any]]) -> None:
+    for row in checks:
+        status = "OK" if row.get("ok") else "FAIL"
+        print(f"[{status}] {row['name']} - {row.get('detail', '')}", flush=True)
+
+
+def find_generated_map(output_dir: Path) -> Path | None:
+    maps_dir = output_dir / "maps"
+    if not maps_dir.exists():
+        return None
+    maps = sorted(maps_dir.glob("*.html"), key=lambda p: p.stat().st_mtime, reverse=True)
+    return maps[0] if maps else None
+
+
+def count_csv_rows(path: Path) -> int:
+    if not path.exists():
+        return 0
+    with path.open("r", encoding="utf-8", newline="") as f:
+        return max(0, sum(1 for _ in csv.reader(f)) - 1)
+
+
+def read_summary_kpis(summary_path: Path) -> dict[str, Any]:
+    if not summary_path.exists():
+        return {}
+    summary = load_json(summary_path)
+    kpis = summary.get("kpis")
+    return kpis if isinstance(kpis, dict) else {}
+
+
+def validate_active_run_outputs(
+    output_dir: Path,
+    *,
+    scenario_id: str,
+    days: int,
+    output_profile: str,
+    max_map_mb: float,
+) -> list[dict[str, Any]]:
+    summary_path = output_dir / "summaries" / "first_simulation_summary.json"
+    report_path = output_dir / "reports" / "first_simulation_report.md"
+    lot_events_path = output_dir / "data" / "production_lot_events.csv"
+    lot_genealogy_path = output_dir / "data" / "production_lot_genealogy.csv"
+    lot_audit_path = output_dir / "reports" / "lot_path_audit.md"
+    daily_path = output_dir / "data" / "first_simulation_daily.csv"
+    supplier_criticality_summary_path = output_dir / "supplier_criticality" / "summaries" / "supplier_risk_kpi_summary.json"
+    supplier_criticality_csv_path = output_dir / "supplier_criticality" / "data" / "supplier_risk_kpi.csv"
+    map_path = find_generated_map(output_dir)
+
+    validations: list[dict[str, Any]] = []
+
+    def add(name: str, ok: bool, detail: str = "") -> None:
+        validations.append({"name": name, "ok": bool(ok), "detail": detail})
+
+    add("summary_json", summary_path.exists(), repo_rel(summary_path))
+    add("simulation_report", report_path.exists(), repo_rel(report_path))
+    daily_rows = count_csv_rows(daily_path)
+    lot_event_rows = count_csv_rows(lot_events_path)
+    lot_genealogy_rows = count_csv_rows(lot_genealogy_path)
+    add("daily_kpi_csv", daily_path.exists(), repo_rel(daily_path))
+    add("daily_kpi_row_count", daily_rows == days, f"{daily_rows} rows, expected {days}")
+    add("lot_events_csv", lot_events_path.exists() and lot_event_rows > 0, f"{lot_event_rows} rows")
+    add("lot_genealogy_csv", lot_genealogy_path.exists() and lot_genealogy_rows > 0, f"{lot_genealogy_rows} rows")
+    add("lot_path_audit", lot_audit_path.exists(), repo_rel(lot_audit_path))
+    add(
+        "supplier_criticality_summary",
+        supplier_criticality_summary_path.exists(),
+        repo_rel(supplier_criticality_summary_path),
+    )
+    add(
+        "supplier_criticality_csv",
+        supplier_criticality_csv_path.exists() and count_csv_rows(supplier_criticality_csv_path) > 0,
+        f"{count_csv_rows(supplier_criticality_csv_path)} rows",
+    )
+    add("map_html", map_path is not None and map_path.exists(), repo_rel(map_path) if map_path else "missing")
+    if map_path and map_path.exists():
+        map_size_mb = map_path.stat().st_size / (1024 * 1024)
+        add("map_size", map_size_mb <= max_map_mb, f"{map_size_mb:.2f} MB <= {max_map_mb:.2f} MB")
+        head = map_path.read_text(encoding="utf-8", errors="ignore")[:600_000]
+        add("map_payload_compressed", PIPELINE_SUCCESS_MARKER in head, PIPELINE_SUCCESS_MARKER)
+    summary = load_json(summary_path) if summary_path.exists() else {}
+    add("summary_scenario_id", summary.get("scenario_id") == scenario_id, f"{summary.get('scenario_id')} == {scenario_id}")
+    add("summary_sim_days", int(summary.get("sim_days") or -1) == days, f"{summary.get('sim_days')} == {days}")
+    add("summary_timeline_days", int(summary.get("timeline_days") or -1) == days, f"{summary.get('timeline_days')} == {days}")
+    policy = summary.get("policy") if isinstance(summary.get("policy"), dict) else {}
+    add("summary_output_profile", policy.get("output_profile") == output_profile, f"{policy.get('output_profile')} == {output_profile}")
+    add("summary_lot_trace_enabled", bool(policy.get("lot_trace_enabled")), str(policy.get("lot_trace_enabled")))
+    economic = summary.get("economic_consistency") if isinstance(summary.get("economic_consistency"), dict) else {}
+    if economic:
+        add("economic_consistency", str(economic.get("status") or "").lower() == "ok", str(economic.get("status")))
+    kpis = summary.get("kpis") if isinstance(summary.get("kpis"), dict) else {}
+    if kpis:
+        fill_rate = kpis.get("fill_rate")
+        ending_backlog = kpis.get("ending_backlog")
+        total_cost = kpis.get("total_cost")
+        add("kpi_fill_rate_present", fill_rate is not None, f"fill_rate={fill_rate}")
+        add("kpi_total_cost_present", total_cost is not None, f"total_cost={total_cost}")
+        add("kpi_ending_backlog_present", ending_backlog is not None, f"ending_backlog={ending_backlog}")
+    return validations
+
+
+def assert_validations_ok(validations: list[dict[str, Any]]) -> None:
+    failed = [row for row in validations if not row.get("ok")]
+    if not failed:
+        return
+    lines = ["Pipeline output validation failed:"]
+    lines.extend(f"- {row['name']}: {row.get('detail', '')}" for row in failed)
+    raise RuntimeError("\n".join(lines))
+
+
+def write_pipeline_report(
+    *,
+    output_dir: Path,
+    command_name: str,
+    preflight: list[dict[str, Any]],
+    validations: list[dict[str, Any]],
+    started_at_utc: str,
+    finished_at_utc: str,
+) -> None:
+    map_path = find_generated_map(output_dir)
+    kpis = read_summary_kpis(output_dir / "summaries" / "first_simulation_summary.json")
+    report = {
+        "schema_version": "etudecas.pipeline_report.v1",
+        "command": command_name,
+        "started_at_utc": started_at_utc,
+        "finished_at_utc": finished_at_utc,
+        "output_dir": repo_rel(output_dir),
+        "map_html": repo_rel(map_path) if map_path else None,
+        "map_size_mb": round(map_path.stat().st_size / (1024 * 1024), 3) if map_path and map_path.exists() else None,
+        "kpis": {
+            "fill_rate": kpis.get("fill_rate"),
+            "ending_backlog": kpis.get("ending_backlog"),
+            "total_cost": kpis.get("total_cost"),
+            "total_explicit_initialization_stock_qty": kpis.get("total_explicit_initialization_stock_qty"),
+            "total_explicit_initialization_pipeline_qty": kpis.get("total_explicit_initialization_pipeline_qty"),
+        },
+        "preflight": preflight,
+        "validations": validations,
+    }
+    reports_dir = output_dir / "reports"
+    reports_dir.mkdir(parents=True, exist_ok=True)
+    json_path = reports_dir / "pipeline_report.json"
+    md_path = reports_dir / "pipeline_report.md"
+    write_json(json_path, report)
+    md_lines = [
+        "# Etudecas Pipeline Report",
+        "",
+        f"- Command: `{command_name}`",
+        f"- Output: `{repo_rel(output_dir)}`",
+        f"- Map: `{repo_rel(map_path) if map_path else 'missing'}`",
+        f"- Map size MB: `{report['map_size_mb']}`",
+        f"- Fill rate: `{report['kpis']['fill_rate']}`",
+        f"- Ending backlog: `{report['kpis']['ending_backlog']}`",
+        f"- Total cost: `{report['kpis']['total_cost']}`",
+        "",
+        "## Validations",
+        "",
+    ]
+    for row in validations:
+        status = "OK" if row.get("ok") else "FAIL"
+        md_lines.append(f"- {status} `{row['name']}`: {row.get('detail', '')}")
+    md_path.write_text("\n".join(md_lines) + "\n", encoding="utf-8")
+    ok_line(f"Pipeline report: {json_path.resolve()}")
+
+
+def open_file_in_default_app(path: Path) -> None:
+    if os.name == "nt":
+        os.startfile(str(path.resolve()))  # type: ignore[attr-defined]
+    elif sys.platform == "darwin":
+        subprocess.run(["open", str(path.resolve())], check=False)
+    else:
+        subprocess.run(["xdg-open", str(path.resolve())], check=False)
 
 
 def timestamped_active_mrp_physical_output_dir() -> Path:
@@ -348,16 +606,93 @@ def build_supplier_criticality(*, sim_result_dir: Path | None, output_dir: Path)
     run_python(SUPPLIER_CRITICALITY_SCRIPT, *args)
 
 
+def build_map_for_simulation_result(
+    *,
+    input_graph: Path,
+    output_dir: Path,
+    supplier_criticality_dir: Path,
+    title: str = "Supply Graph POC - Geocoded Map",
+) -> Path:
+    data_dir = output_dir / "data"
+    reports_dir = output_dir / "reports"
+    summaries_dir = output_dir / "summaries"
+    plots_dir = output_dir / "plots"
+    maps_dir = output_dir / "maps"
+    maps_dir.mkdir(parents=True, exist_ok=True)
+    map_output_path = maps_dir / f"supply_graph_{output_dir.name}.html"
+    map_script = ROOT / "visualization" / "maps" / "build_supplychain_worldmap.py"
+    criticality_data = supplier_criticality_dir / "data"
+    criticality_summaries = supplier_criticality_dir / "summaries"
+    map_cmd = [
+        sys.executable,
+        repo_rel(map_script),
+        "--input",
+        repo_rel(input_graph),
+        "--output",
+        repo_rel(map_output_path),
+        "--title",
+        title,
+        "--sim-input-stocks-csv",
+        repo_rel(data_dir / "production_input_stocks_daily.csv"),
+        "--sim-output-products-csv",
+        repo_rel(data_dir / "production_output_products_daily.csv"),
+        "--demand-service-csv",
+        repo_rel(data_dir / "production_demand_service_daily.csv"),
+        "--sim-input-stocks-png-dir",
+        repo_rel(plots_dir),
+        "--sim-output-products-png-dir",
+        repo_rel(plots_dir),
+        "--supplier-shipments-csv",
+        repo_rel(data_dir / "production_supplier_shipments_daily.csv"),
+        "--supplier-stocks-csv",
+        repo_rel(data_dir / "production_supplier_stocks_daily.csv"),
+        "--supplier-stock-flows-csv",
+        repo_rel(data_dir / "production_supplier_stock_flows_daily.csv"),
+        "--supplier-capacity-csv",
+        repo_rel(data_dir / "production_supplier_capacity_daily.csv"),
+        "--supplier-nominal-parameters-csv",
+        repo_rel(data_dir / "supplier_nominal_parameters.csv"),
+        "--factory-nominal-capacities-csv",
+        repo_rel(data_dir / "production_capacity_nominal_parameters.csv"),
+        "--input-arrivals-csv",
+        repo_rel(data_dir / "production_input_replenishment_arrivals_daily.csv"),
+        "--dc-stocks-csv",
+        repo_rel(data_dir / "production_dc_stocks_daily.csv"),
+        "--production-constraint-csv",
+        repo_rel(data_dir / "production_constraint_daily.csv"),
+        "--safety-reference-csv",
+        repo_rel(reports_dir / "mrp_safety_stock_reference.csv"),
+        "--daily-kpi-csv",
+        repo_rel(data_dir / "first_simulation_daily.csv"),
+        "--supplier-local-criticality-csv",
+        repo_rel(data_dir / "supplier_local_criticality_ranking.csv"),
+        "--supplier-local-criticality-json",
+        repo_rel(summaries_dir / "supplier_local_criticality_summary.json"),
+        "--supplier-risk-kpi-summary-json",
+        repo_rel(criticality_summaries / "supplier_risk_kpi_summary.json"),
+        "--supplier-risk-kpi-supplier-csv",
+        repo_rel(criticality_data / "supplier_risk_kpi.csv"),
+        "--supplier-risk-kpi-pair-csv",
+        repo_rel(criticality_data / "supplier_item_risk_kpi.csv"),
+        "--supplier-risk-kpi-panel-csv",
+        repo_rel(criticality_data / "supplier_item_week_panel.csv"),
+        "--chunked-embedded-payload",
+    ]
+    run_python(map_script, *map_cmd[2:])
+    return map_output_path
+
+
 def run_active_mrp_physical(
     *,
     output_dir: Path | None,
     scenario_id: str,
     days: int,
+    output_profile: str,
     overwrite: bool,
     dry_run: bool,
     skip_map: bool,
     skip_plots: bool,
-) -> None:
+) -> Path:
     input_graph = ACTIVE_MRP_PHYSICAL_GRAPH_JSON
     if not input_graph.exists():
         raise FileNotFoundError(f"Active MRP physical graph not found: {repo_rel(input_graph)}")
@@ -375,9 +710,10 @@ def run_active_mrp_physical(
         "--days",
         str(days),
         "--output-profile",
-        "full",
+        output_profile,
         "--mrp-base-stock-floor-factor",
         "0",
+        *ACTIVE_MRP_PHYSICAL_INITIAL_STATE_ARGS,
     ]
     for node_id, item_id, factor in ACTIVE_MRP_PHYSICAL_BASE_STOCK_FLOOR_PAIRS:
         simulator_args.extend(
@@ -401,6 +737,8 @@ def run_active_mrp_physical(
         scenario_id,
         "--days",
         str(days),
+        "--output-profile",
+        output_profile,
     ]
     if overwrite:
         pipeline_cmd.append("--overwrite")
@@ -410,7 +748,6 @@ def run_active_mrp_physical(
         pipeline_cmd.append("--skip-map")
     if not skip_plots:
         pipeline_cmd.append("--with-plots")
-    pipeline_cmd.append("--full-output")
 
     if dry_run:
         print("[DRY-RUN] Active MRP physical baseline rebuild")
@@ -418,7 +755,7 @@ def run_active_mrp_physical(
         print(f"[DRY-RUN] output_dir={repo_rel(target_output_dir)}")
         print("[DRY-RUN] simulator command:")
         print(" ".join([sys.executable, repo_rel(SIMULATION_ENGINE_SCRIPT), *simulator_args]))
-        return
+        return target_output_dir
 
     run_python(SIMULATION_ENGINE_SCRIPT, *simulator_args)
     manifest = {
@@ -428,6 +765,7 @@ def run_active_mrp_physical(
         "output_dir": repo_rel(target_output_dir),
         "scenario_id": scenario_id,
         "days": days,
+        "output_profile": output_profile,
         "overwrite": overwrite,
         "skip_map": skip_map,
         "skip_plots": skip_plots,
@@ -437,14 +775,146 @@ def run_active_mrp_physical(
             repo_rel(SIMULATION_ENGINE_SCRIPT),
             *simulator_args,
         ],
+        "initial_state_policy": {
+            "reason": "run starts from observed ERP/MRP J0 stocks and firm open orders, without synthetic startup cover",
+            "args": ACTIVE_MRP_PHYSICAL_INITIAL_STATE_ARGS,
+        },
     }
     write_json(target_output_dir / "run_manifest.json", manifest)
     print(f"[OK] Active MRP physical run manifest: {(target_output_dir / 'run_manifest.json').resolve()}")
+    return target_output_dir
+
+
+def run_operational_rebuild(
+    *,
+    output_dir: Path | None,
+    scenario_id: str,
+    days: int,
+    output_profile: str,
+    overwrite: bool,
+    dry_run: bool,
+    skip_preflight: bool,
+    skip_validation: bool,
+    with_plots: bool,
+    open_map: bool,
+    max_map_mb: float,
+) -> Path:
+    started_at = datetime.now(timezone.utc).isoformat()
+    preflight: list[dict[str, Any]] = []
+    if not skip_preflight:
+        info_line("Preflight checks")
+        preflight = preflight_checks(require_active_graph=True)
+        print_preflight(preflight)
+        assert_preflight_ok(preflight)
+
+    target_output_dir = run_active_mrp_physical(
+        output_dir=output_dir,
+        scenario_id=scenario_id,
+        days=days,
+        output_profile=output_profile,
+        overwrite=overwrite,
+        dry_run=dry_run,
+        skip_map=True,
+        skip_plots=not with_plots,
+    )
+    if dry_run:
+        info_line("Dry-run stops before supplier criticality rebuild, final map build and validations.")
+        return target_output_dir
+
+    supplier_criticality_dir = target_output_dir / "supplier_criticality"
+    info_line("Rebuilding supplier criticality for the current run")
+    build_supplier_criticality(sim_result_dir=target_output_dir, output_dir=supplier_criticality_dir)
+
+    info_line("Building final standalone map with current-run supplier criticality")
+    build_map_for_simulation_result(
+        input_graph=ACTIVE_MRP_PHYSICAL_GRAPH_JSON,
+        output_dir=target_output_dir,
+        supplier_criticality_dir=supplier_criticality_dir,
+    )
+
+    validations: list[dict[str, Any]] = []
+    if not skip_validation:
+        info_line("Output validations")
+        validations = validate_active_run_outputs(
+            target_output_dir,
+            scenario_id=scenario_id,
+            days=days,
+            output_profile=output_profile,
+            max_map_mb=max_map_mb,
+        )
+        print_preflight(validations)
+        assert_validations_ok(validations)
+
+    finished_at = datetime.now(timezone.utc).isoformat()
+    write_pipeline_report(
+        output_dir=target_output_dir,
+        command_name="rebuild-active",
+        preflight=preflight,
+        validations=validations,
+        started_at_utc=started_at,
+        finished_at_utc=finished_at,
+    )
+    map_path = find_generated_map(target_output_dir)
+    if map_path:
+        ok_line(f"Standalone map: {map_path.resolve()}")
+        if open_map:
+            open_file_in_default_app(map_path)
+    return target_output_dir
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Unified etudecas pipeline around the supply-chain JSON graph.")
     sub = parser.add_subparsers(dest="command", required=True)
+
+    doctor = sub.add_parser("doctor", help="Check data files, scripts and Python runtime dependencies.")
+    doctor.add_argument(
+        "--no-active-graph",
+        action="store_true",
+        help="Do not require the retained active lotified graph during the check.",
+    )
+
+    rebuild_active = sub.add_parser(
+        "rebuild-active",
+        aliases=["rebuild-map-5y"],
+        help=(
+            "One-command operational rebuild: active lotified 5y simulation, standalone compressed map, "
+            "artifact validation and pipeline report."
+        ),
+    )
+    rebuild_active.add_argument(
+        "--output-dir",
+        default=None,
+        help=(
+            "Output directory. Defaults to a timestamped folder under "
+            "etudecas/simulation/result/_reruns."
+        ),
+    )
+    rebuild_active.add_argument("--scenario-id", default="scn:BASE")
+    rebuild_active.add_argument("--days", type=int, default=1825)
+    rebuild_active.add_argument("--overwrite", action="store_true")
+    rebuild_active.add_argument("--dry-run", action="store_true")
+    rebuild_active.add_argument("--skip-preflight", action="store_true")
+    rebuild_active.add_argument("--skip-validation", action="store_true")
+    rebuild_active.add_argument("--with-plots", action="store_true", help="Also generate legacy PNG plots.")
+    rebuild_active.add_argument("--open-map", action="store_true", help="Open the generated HTML map at the end.")
+    rebuild_active.add_argument(
+        "--output-profile",
+        choices=["compact", "full"],
+        default="compact",
+        help="compact is the normal operational mode; full keeps heavy debug CSVs.",
+    )
+    rebuild_active.add_argument(
+        "--full-output",
+        action="store_true",
+        default=False,
+        help="Shortcut for --output-profile full.",
+    )
+    rebuild_active.add_argument(
+        "--max-map-mb",
+        type=float,
+        default=DEFAULT_MAX_STANDALONE_MAP_MB,
+        help="Fail validation if the standalone HTML map exceeds this size.",
+    )
 
     graph = sub.add_parser("graph", help="Rebuild the knowledge-graph JSON from XLSX and geocode it.")
 
@@ -524,10 +994,16 @@ def parse_args() -> argparse.Namespace:
     active.add_argument("--skip-map", action="store_true")
     active.add_argument("--with-plots", action="store_true", help="Generate legacy PNG plots in addition to the HTML Plotly map.")
     active.add_argument(
+        "--output-profile",
+        choices=["compact", "full"],
+        default="compact",
+        help="Result output volume. compact is enough for the interactive map; full keeps heavy debug CSVs.",
+    )
+    active.add_argument(
         "--full-output",
         action="store_true",
-        default=True,
-        help="Kept for documentation: active baseline reruns always use the full output profile.",
+        default=False,
+        help="Shortcut for --output-profile full.",
     )
 
     return parser.parse_args()
@@ -535,6 +1011,28 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
+    if args.command == "doctor":
+        checks = preflight_checks(require_active_graph=not args.no_active_graph)
+        print_preflight(checks)
+        assert_preflight_ok(checks)
+        ok_line("Doctor checks passed.")
+        return
+    if args.command in {"rebuild-active", "rebuild-map-5y"}:
+        output_profile = "full" if args.full_output else args.output_profile
+        run_operational_rebuild(
+            output_dir=Path(args.output_dir) if args.output_dir else None,
+            scenario_id=args.scenario_id,
+            days=args.days,
+            output_profile=output_profile,
+            overwrite=args.overwrite,
+            dry_run=args.dry_run,
+            skip_preflight=args.skip_preflight,
+            skip_validation=args.skip_validation,
+            with_plots=args.with_plots,
+            open_map=args.open_map,
+            max_map_mb=args.max_map_mb,
+        )
+        return
     if args.command == "graph":
         build_knowledge_graph()
         return
@@ -604,10 +1102,12 @@ def main() -> None:
         )
         return
     if args.command == "active-mrp-physical":
+        output_profile = "full" if args.full_output else args.output_profile
         run_active_mrp_physical(
             output_dir=Path(args.output_dir) if args.output_dir else None,
             scenario_id=args.scenario_id,
             days=args.days,
+            output_profile=output_profile,
             overwrite=args.overwrite,
             dry_run=args.dry_run,
             skip_map=args.skip_map,
