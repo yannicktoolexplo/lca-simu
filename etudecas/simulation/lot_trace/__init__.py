@@ -18,6 +18,10 @@ from .indexes import (
 from .payload import (
     build_lot_trace_payload,
 )
+from .rules import (
+    LotTraceItemClassifier,
+    LotTraceItemSets,
+)
 from .schema import (
     LOT_TRACE_INTEGER_FIELDS,
     LOT_TRACE_NUMERIC_FIELDS,
@@ -37,6 +41,8 @@ __all__ = [
     "LOT_TRACE_PLAN_EVENT_FIELDS",
     "PRODUCTION_CAMPAIGN_FIELDS",
     "LotTraceIndexes",
+    "LotTraceItemClassifier",
+    "LotTraceItemSets",
     "build_lot_trace_indexes",
     "build_lot_trace_payload",
     "build_production_campaign_rows",

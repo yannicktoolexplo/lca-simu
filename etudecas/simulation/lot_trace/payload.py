@@ -20,10 +20,18 @@ from .io import (
     LOT_TRACE_PLAN_EVENT_FIELDS,
     read_csv_rows,
 )
+from .indexes import (
+    build_lot_trace_indexes,
+    lot_trace_downstream_stats,
+    lot_trace_upstream_roots,
+    lot_trace_upstream_stats,
+)
+from .rules import LotTraceItemClassifier
 from .schema import (
     compact_lot_trace_row,
     to_float,
 )
+from .stock_context import LotTraceStockContextSources, build_lot_trace_stock_context
 
 
 def build_lot_trace_payload(
@@ -113,79 +121,18 @@ def build_lot_trace_payload(
     for row in plan_events:
         plan_events_by_campaign[str(row.get("campaign_id") or "")].append(row)
 
-    events_by_lot: dict[str, list[dict[str, Any]]] = defaultdict(list)
     event_counts: dict[str, int] = defaultdict(int)
     for row in events:
-        lot_id = str(row.get("lot_id") or "")
-        events_by_lot[lot_id].append(row)
         event_counts[str(row.get("event_type") or "")] += 1
-
-    children_by_parent: dict[str, list[str]] = defaultdict(list)
-    parents_by_child: dict[str, list[str]] = defaultdict(list)
-    link_rows_by_parent: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    link_rows_by_child: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    for row in genealogy:
-        parent_lot = str(row.get("parent_lot_id") or "")
-        child_lot = str(row.get("child_lot_id") or "")
-        if parent_lot and child_lot:
-            children_by_parent[parent_lot].append(child_lot)
-            parents_by_child[child_lot].append(parent_lot)
-            link_rows_by_parent[parent_lot].append(row)
-            link_rows_by_child[child_lot].append(row)
 
     link_counts: dict[str, int] = defaultdict(int)
     for row in genealogy:
         link_counts[str(row.get("link_type") or "")] += 1
 
-    node_type_by_id: dict[str, str] = {}
-    final_good_item_ids: set[str] = set()
-    produced_item_ids: set[str] = set()
-    consumed_item_ids: set[str] = set()
-    semi_finished_item_ids: set[str] = set()
-    if raw:
-        node_type_by_id = {str(node.get("id") or ""): str(node.get("type") or "") for node in raw.get("nodes", []) or []}
-        for edge in raw.get("edges", []) or []:
-            src = str(edge.get("from") or "")
-            dst = str(edge.get("to") or "")
-            dst_type = node_type_by_id.get(dst, "")
-            src_type = node_type_by_id.get(src, "")
-            edge_items = {str(item_id) for item_id in (edge.get("items") or []) if str(item_id)}
-            if dst_type == "customer":
-                final_good_item_ids.update(edge_items)
-            if src_type == "factory" and dst_type == "factory":
-                semi_finished_item_ids.update(edge_items)
-            if is_upstream_internal_site(src) or is_upstream_internal_site(dst):
-                semi_finished_item_ids.update(edge_items)
-        for node in raw.get("nodes", []) or []:
-            node_id = str(node.get("id") or "")
-            for proc in node.get("processes") or []:
-                for output in proc.get("outputs") or []:
-                    item_id = str(output.get("item_id") or "")
-                    if not item_id:
-                        continue
-                    produced_item_ids.add(item_id)
-                    if is_upstream_internal_site(node_id):
-                        semi_finished_item_ids.add(item_id)
-                for input_row in proc.get("inputs") or []:
-                    item_id = str(input_row.get("item_id") or "")
-                    if item_id:
-                        consumed_item_ids.add(item_id)
-        semi_finished_item_ids.update(produced_item_ids & consumed_item_ids)
-        semi_finished_item_ids.difference_update(final_good_item_ids)
-
-    def lot_trace_item_family(item_id: Any, node_id: Any = "") -> str:
-        item = str(item_id or "")
-        node = str(node_id or "")
-        node_type = node_type_by_id.get(node, "")
-        if item in final_good_item_ids or node_type in {"distribution_center", "customer"}:
-            return "finished_product"
-        if item in semi_finished_item_ids or is_upstream_internal_site(node):
-            return "semi_finished"
-        if item in consumed_item_ids or node_type == "supplier_dc":
-            return "raw_material"
-        if item in produced_item_ids:
-            return "produced_item"
-        return "inventory_item"
+    trace_indexes = build_lot_trace_indexes({"events": events, "genealogy": genealogy})
+    events_by_lot = trace_indexes.events_by_lot
+    item_classifier = LotTraceItemClassifier.from_raw(raw)
+    node_type_by_id = item_classifier.node_type_by_id
 
     creation_priority = {
         "production_output": 0,
@@ -196,277 +143,21 @@ def build_lot_trace_payload(
         "opening_stock": 5,
     }
 
-    def lot_trace_scope(creation: dict[str, Any]) -> tuple[str, str]:
-        event_type = str(creation.get("event_type") or "")
-        item_family = lot_trace_item_family(creation.get("item_id"), creation.get("node_id"))
-        if event_type == "production_output":
-            if item_family == "semi_finished":
-                return "semi_finished", "Semi-fini produit"
-            return "finished_product", "PF produit"
-        if event_type in {"external_procurement_receipt", "estimated_source_receipt", "estimated_capacity_receipt"}:
-            return "supplier_material", "MP fournisseur"
-        if event_type == "lane_receipt":
-            if item_family == "finished_product":
-                return "finished_product_receipt", "PF recu"
-            if item_family == "semi_finished":
-                return "semi_finished_receipt", "Semi-fini recu"
-            if item_family == "raw_material":
-                return "raw_material_receipt", "MP recue"
-            return "inventory_receipt", "Lot recu"
-        if event_type == "opening_stock":
-            if item_family == "finished_product":
-                return "finished_product_opening", "PF stock initial"
-            if item_family == "semi_finished":
-                return "semi_finished_opening", "Semi-fini stock initial"
-            if item_family == "raw_material":
-                return "raw_material_opening", "MP stock initial"
-            return "opening_stock", "Stock initial"
-        if event_type == "production_consume":
-            return "material_consumption", "MP consommee"
-        if event_type == "demand_service":
-            return "customer_service", "Service client"
-        return "inventory_lot", "Lot stock"
-
     def row_day(row: dict[str, Any]) -> int:
         numeric = to_float(row.get("day"))
         return int(round(numeric)) if numeric is not None and not math.isnan(numeric) else 0
 
-    def build_lot_trace_stock_context() -> dict[str, dict[str, Any]]:
-        relevant_keys: set[tuple[str, str, int]] = set()
-        for row in events:
-            node_id = str(row.get("node_id") or "")
-            item_id = str(row.get("item_id") or "")
-            if node_id and item_id:
-                relevant_keys.add((node_id, item_id, row_day(row)))
-        for row in genealogy:
-            day = row_day(row)
-            parent_node = str(row.get("parent_node_id") or "")
-            parent_item = str(row.get("parent_item_id") or "")
-            child_node = str(row.get("child_node_id") or "")
-            child_item = str(row.get("child_item_id") or "")
-            if parent_node and parent_item:
-                relevant_keys.add((parent_node, parent_item, day))
-            if child_node and child_item:
-                relevant_keys.add((child_node, child_item, day))
-        if not relevant_keys:
-            return {}
-
-        relevant_by_pair: dict[tuple[str, str], set[int]] = defaultdict(set)
-        for node_id, item_id, day in relevant_keys:
-            relevant_by_pair[(node_id, item_id)].add(day)
-
-        out: dict[str, dict[str, Any]] = {}
-
-        def key(node_id: str, item_id: str, day: int) -> str:
-            return f"{node_id}|{item_id}|{day}"
-
-        def set_context(
-            *,
-            node_id: str,
-            item_id: str,
-            day: int,
-            label: str,
-            before: float | None = None,
-            after: float | None = None,
-            delta: float | None = None,
-            extra: dict[str, Any] | None = None,
-            overwrite: bool = False,
-        ) -> None:
-            if not node_id or not item_id:
-                return
-            if (node_id, item_id, day) not in relevant_keys:
-                return
-            ctx_key = key(node_id, item_id, day)
-            if ctx_key in out and not overwrite:
-                return
-            payload: dict[str, Any] = {
-                "node_id": node_id,
-                "item_id": item_id,
-                "day": day,
-                "label": label,
-            }
-            if before is not None and not math.isnan(before):
-                payload["before_qty"] = round(before, 6)
-            if after is not None and not math.isnan(after):
-                payload["after_qty"] = round(after, 6)
-            if delta is not None and not math.isnan(delta):
-                payload["delta_qty"] = round(delta, 6)
-            elif before is not None and after is not None and not math.isnan(before) and not math.isnan(after):
-                payload["delta_qty"] = round(after - before, 6)
-            if extra:
-                payload.update(extra)
-            out[ctx_key] = payload
-
-        def add_end_of_day_context(csv_path: Path | None, *, stock_field: str, label: str) -> None:
-            if csv_path is None or not csv_path.exists():
-                return
-            rows = read_csv_rows(csv_path)
-            by_pair: dict[tuple[str, str], dict[int, float]] = defaultdict(dict)
-            for row in rows:
-                node_id = str(row.get("node_id") or "")
-                item_id = str(row.get("item_id") or "")
-                if (node_id, item_id) not in relevant_by_pair:
-                    continue
-                day = int(to_float(row.get("day")) or 0)
-                value = to_float(row.get(stock_field))
-                if value is None or math.isnan(value):
-                    continue
-                by_pair[(node_id, item_id)][day] = value
-            for (node_id, item_id), wanted_days in relevant_by_pair.items():
-                series = by_pair.get((node_id, item_id), {})
-                if not series:
-                    continue
-                for day in wanted_days:
-                    if day not in series:
-                        continue
-                    before = series.get(day - 1)
-                    if before is None and day == 0:
-                        before = 0.0
-                    after = series.get(day)
-                    set_context(
-                        node_id=node_id,
-                        item_id=item_id,
-                        day=day,
-                        label=label,
-                        before=before,
-                        after=after,
-                    )
-
-        if input_stocks_csv is not None and input_stocks_csv.exists():
-            for row in read_csv_rows(input_stocks_csv):
-                node_id = str(row.get("node_id") or "")
-                item_id = str(row.get("item_id") or "")
-                day = int(to_float(row.get("day")) or 0)
-                if (node_id, item_id, day) not in relevant_keys:
-                    continue
-                before = to_float(row.get("stock_before_production"))
-                after = to_float(row.get("stock_end_of_day"))
-                set_context(
-                    node_id=node_id,
-                    item_id=item_id,
-                    day=day,
-                    label="stock intrant usine",
-                    before=before,
-                    after=after,
-                    overwrite=True,
-                )
-
-        add_end_of_day_context(output_products_csv, stock_field="stock_end_of_day", label="stock produit usine fin de jour")
-        add_end_of_day_context(dc_stocks_csv, stock_field="stock_end_of_day", label="stock DC fin de jour")
-        add_end_of_day_context(supplier_stocks_csv, stock_field="stock_end_of_day", label="stock fournisseur fin de jour")
-
-        if demand_service_csv is not None and demand_service_csv.exists():
-            for row in read_csv_rows(demand_service_csv):
-                node_id = str(row.get("node_id") or "")
-                item_id = str(row.get("item_id") or "")
-                day = int(to_float(row.get("day")) or 0)
-                if (node_id, item_id, day) not in relevant_keys:
-                    continue
-                available = to_float(row.get("available_before_service_qty"))
-                served = to_float(row.get("served_qty")) or 0.0
-                backlog = to_float(row.get("backlog_end_qty"))
-                after = (available - served) if available is not None and not math.isnan(available) else None
-                set_context(
-                    node_id=node_id,
-                    item_id=item_id,
-                    day=day,
-                    label="stock client avant/apres service",
-                    before=available,
-                    after=after,
-                    extra={"served_qty": round(served, 6), "backlog_end_qty": round(backlog or 0.0, 6)},
-                    overwrite=True,
-                )
-
-        return out
-
-    stock_context = build_lot_trace_stock_context()
-
-    def lot_trace_downstream_stats(lot_id: str) -> dict[str, Any]:
-        visited: set[str] = set()
-        queue = list(children_by_parent.get(lot_id, []))
-        link_types: set[str] = set()
-        nodes: set[str] = set()
-        finished_product_lots = 0
-        while queue and len(visited) < 5000:
-            child = queue.pop(0)
-            if child in visited:
-                continue
-            visited.add(child)
-            for row in events_by_lot.get(child, []):
-                node_id = str(row.get("node_id") or "")
-                if node_id:
-                    nodes.add(node_id)
-                if str(row.get("event_type") or "") == "production_output":
-                    finished_product_lots += 1
-            for row in link_rows_by_parent.get(child, []):
-                link_type = str(row.get("link_type") or "")
-                if link_type:
-                    link_types.add(link_type)
-            queue.extend(children_by_parent.get(child, []))
-        for row in link_rows_by_parent.get(lot_id, []):
-            link_type = str(row.get("link_type") or "")
-            if link_type:
-                link_types.add(link_type)
-        return {
-            "downstream_lot_count": len(visited),
-            "downstream_node_count": len(nodes),
-            "downstream_finished_product_lot_count": finished_product_lots,
-            "downstream_link_types": sorted(link_types),
-        }
-
-    def lot_trace_upstream_stats(lot_id: str) -> dict[str, Any]:
-        visited: set[str] = set()
-        queue = list(parents_by_child.get(lot_id, []))
-        link_types: set[str] = set()
-        nodes: set[str] = set()
-        supplier_material_lots = 0
-        while queue and len(visited) < 5000:
-            parent = queue.pop(0)
-            if parent in visited:
-                continue
-            visited.add(parent)
-            for row in events_by_lot.get(parent, []):
-                node_id = str(row.get("node_id") or "")
-                if node_id:
-                    nodes.add(node_id)
-                if str(row.get("event_type") or "") in {
-                    "external_procurement_receipt",
-                    "estimated_source_receipt",
-                    "estimated_capacity_receipt",
-                    "opening_stock",
-                }:
-                    supplier_material_lots += 1
-            for row in link_rows_by_child.get(parent, []):
-                link_type = str(row.get("link_type") or "")
-                if link_type:
-                    link_types.add(link_type)
-            queue.extend(parents_by_child.get(parent, []))
-        for row in link_rows_by_child.get(lot_id, []):
-            link_type = str(row.get("link_type") or "")
-            if link_type:
-                link_types.add(link_type)
-        return {
-            "upstream_lot_count": len(visited),
-            "upstream_node_count": len(nodes),
-            "upstream_material_lot_count": supplier_material_lots,
-            "upstream_link_types": sorted(link_types),
-        }
-
-    def upstream_root_lots(lot_id: str) -> set[str]:
-        roots: set[str] = set()
-        visited: set[str] = set()
-        queue = list(parents_by_child.get(lot_id, []))
-        while queue and len(visited) < 5000:
-            parent = queue.pop(0)
-            if parent in visited:
-                continue
-            visited.add(parent)
-            grandparents = parents_by_child.get(parent, [])
-            if grandparents:
-                queue.extend(grandparents)
-            else:
-                roots.add(parent)
-        return roots
+    stock_context = build_lot_trace_stock_context(
+        events,
+        genealogy,
+        LotTraceStockContextSources(
+            input_stocks_csv=input_stocks_csv,
+            output_products_csv=output_products_csv,
+            dc_stocks_csv=dc_stocks_csv,
+            demand_service_csv=demand_service_csv,
+            supplier_stocks_csv=supplier_stocks_csv,
+        ),
+    )
 
     def lot_creation_row(lot_id: str) -> dict[str, Any]:
         rows = events_by_lot.get(lot_id, [])
@@ -489,7 +180,7 @@ def build_lot_trace_payload(
         return node_type_by_id.get(node_id, "") == "factory" or node_id.startswith("M-") or is_upstream_internal_site(node_id)
 
     def upstream_supply_origin(lot_id: str) -> dict[str, Any]:
-        roots = upstream_root_lots(lot_id)
+        roots = lot_trace_upstream_roots(trace_indexes, lot_id)
         factory_stock_roots = {root for root in roots if is_factory_opening_stock_root(root)}
         supplier_roots: set[str] = set()
         unknown_roots: set[str] = set()
@@ -718,6 +409,33 @@ def build_lot_trace_payload(
         )
 
     lots: dict[str, dict[str, Any]] = {}
+    selectable_creation_types = {
+        "production_output",
+        "external_procurement_receipt",
+        "estimated_source_receipt",
+        "estimated_capacity_receipt",
+        "opening_stock",
+    }
+    empty_downstream_stats = {
+        "downstream_lot_count": 0,
+        "downstream_node_count": 0,
+        "downstream_finished_product_lot_count": 0,
+        "downstream_link_types": [],
+    }
+    empty_upstream_stats = {
+        "upstream_lot_count": 0,
+        "upstream_node_count": 0,
+        "upstream_material_lot_count": 0,
+        "upstream_link_types": [],
+    }
+    empty_supply_origin = {
+        "upstream_root_lot_count": 0,
+        "upstream_factory_stock_root_count": 0,
+        "upstream_supplier_root_count": 0,
+        "upstream_unknown_root_count": 0,
+        "produced_from_factory_stock_only": False,
+        "upstream_supply_origin_label": "Sans ascendance tracee",
+    }
     for lot_id, rows in events_by_lot.items():
         sorted_rows = sorted(
             rows,
@@ -728,10 +446,17 @@ def build_lot_trace_payload(
             ),
         )
         creation = sorted_rows[0]
-        scope, scope_label = lot_trace_scope(creation)
-        downstream_stats = lot_trace_downstream_stats(lot_id)
-        upstream_stats = lot_trace_upstream_stats(lot_id)
-        supply_origin = upstream_supply_origin(lot_id)
+        scope, scope_label = item_classifier.scope_for_creation(creation)
+        creation_type = str(creation.get("event_type") or "")
+        can_be_selected = creation_type in selectable_creation_types
+        if can_be_selected:
+            downstream_stats = lot_trace_downstream_stats(trace_indexes, lot_id)
+            upstream_stats = lot_trace_upstream_stats(trace_indexes, lot_id)
+            supply_origin = upstream_supply_origin(lot_id)
+        else:
+            downstream_stats = dict(empty_downstream_stats)
+            upstream_stats = dict(empty_upstream_stats)
+            supply_origin = dict(empty_supply_origin)
         pf_status = finished_product_availability_status(lot_id, creation, scope)
         days = [row_day(row) for row in sorted_rows]
         created_day = row_day(creation)
@@ -740,13 +465,7 @@ def build_lot_trace_payload(
         upstream_count = int(upstream_stats["upstream_lot_count"])
         downstream_count = int(downstream_stats["downstream_lot_count"])
         traceable = upstream_count > 0 or downstream_count > 0 or len(sorted_rows) > 1
-        selectable = traceable and str(creation.get("event_type") or "") in {
-            "production_output",
-            "external_procurement_receipt",
-            "estimated_source_receipt",
-            "estimated_capacity_receipt",
-            "opening_stock",
-        }
+        selectable = traceable and can_be_selected
         trace_label = f"amont {upstream_count} / aval {downstream_count}"
         label_parts = [
             f"[{scope_label} - {trace_label}]",
