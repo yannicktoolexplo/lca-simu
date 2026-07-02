@@ -1,0 +1,18 @@
+from etudecas.visualization.maps.worldmap_html_template import html_template
+
+
+def test_html_template_keeps_data_marker_and_interpolates_inputs() -> None:
+    html = html_template(
+        "Supply < Map",
+        '{"nodes": []}',
+        '<tr><td>MAT-1</td></tr>',
+        1,
+        '<tr><td>equation</td></tr>',
+    )
+
+    assert "<title>Supply &lt; Map</title>" in html
+    assert '<div class="title">Supply &lt; Map</div>' in html
+    assert 'const DATA = {"nodes": []};' in html
+    assert "<div id=\"materialTableMeta\" class=\"tableModalMeta\">1 lignes</div>" in html
+    assert "<tr><td>MAT-1</td></tr>" in html
+    assert "<tr><td>equation</td></tr>" in html

@@ -1,0 +1,46 @@
+case_id: supply_chain_bullwhip
+business_question: "Observer l’amplification de la demande et la robustesse de la supply chain."
+entities:
+  - retailer
+  - wholesaler
+  - distributor
+  - manufacturer
+data:
+  path: data/reference/supply_chain_tiny.csv
+  schema: configs/schemas/supply_chain_schema.yaml
+trajectory:
+  dimensions: [service_level, inventory_health, bullwhip_control]
+  time_column: date
+  entity_column: echelon
+kpi_tree:
+  performance:
+    type: composite
+    aggregation: weighted_mean
+    children:
+      service_level: 0.4
+      inventory_health: 0.3
+      bullwhip_control: 0.3
+  service_level:
+    type: elementary
+    source_column: service_level_raw
+    direction: maximize
+    target: 1.0
+    min: 0.0
+    max: 1.0
+  inventory_health:
+    type: elementary
+    source_column: inventory_ratio
+    direction: minimize
+    target: 1.0
+    min: 1.0
+    max: 4.0
+  bullwhip_control:
+    type: elementary
+    source_column: bullwhip_ratio
+    direction: minimize
+    target: 1.0
+    min: 1.0
+    max: 5.0
+visuals:
+  trajectory_3d: configs/visuals/trajectory_3d.yaml
+validation_rules: configs/validation/validation_rules.yaml

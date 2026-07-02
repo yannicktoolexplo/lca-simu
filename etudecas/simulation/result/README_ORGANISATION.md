@@ -1,54 +1,60 @@
-# Organisation des resultats d'analyse
+# Organisation des resultats de simulation
 
-- `etudecas/simulation/montecarlo/result/`:
-  - `montecarlo_report.md`
-  - `montecarlo_summary.json`
-  - `montecarlo_samples.csv`
+`etudecas/simulation/result` ne doit pas devenir une archive permanente de tous
+les runs. Les simulations sont regenerables; le depot doit conserver seulement
+les resultats utiles au developpement courant et a la validation.
 
-- `etudecas/simulation/sensibility/result/`:
-  - `sensitivity_report.md`
-  - `sensitivity_summary.json`
-  - `sensitivity_cases.csv`
-  - `sensitivity_delta_vs_baseline.csv`
+## Regle de retention
 
-- `etudecas/simulation/sensibility/targeted_plan_result/`:
-  - `experiment_plan_report.md`
-  - `experiment_plan_summary.json`
-  - `scenario_results.csv`
-  - `scenario_delta_vs_baseline.csv`
-  - `targeted_experiment_insights.md`
+Conserver localement:
 
-- `etudecas/simulation/result/` (resultats generaux):
-  - `reference_baseline/`
-    - `reference_baseline_manifest.md`
-    - `reference_baseline_report.md`
-    - `reference_baseline_summary.json`
-  - `data/`
-    - `first_simulation_daily.csv`
-    - `production_*.csv`
-    - `critical_input_materials_analysis.csv`
-    - `fill_rate_whatif_analysis.csv`
-    - `full_system_exploration_samples.csv`
-  - `summaries/`
-    - `first_simulation_summary.json`
-    - `deep_supply_analysis_summary.json`
-    - `full_system_exploration_summary.json`
-  - `reports/`
-    - `first_simulation_report.md`
-    - `general_analysis_insights.md`
-    - `deep_supply_analysis.md`
-    - `deep_supply_analysis_technical_review.md`
-    - `full_system_exploration_report.md`
-  - `maps/`
-    - `supply_graph_poc_geocoded_map_with_factory_hover.html`
-  - `plots/`
-    - `factories/input_stocks/`
-    - `factories/output_products/`
-    - `suppliers/input_stocks/`
-    - `distribution_centers/factory_outputs/`
+- un run complet canonique pour l'interface et les audits lots;
+- les payloads compacts necessaires aux comparaisons de scenarios;
+- les summaries, manifests et rapports courts;
+- quelques fixtures reduits pour tests.
 
-- `etudecas/simulation/result/max_param_exploration/`:
-  - exploration elargie (757 runs)
-  - `full_system_exploration_report.md`
-  - `full_system_exploration_summary.json`
-  - `full_system_exploration_samples.csv`
+Eviter de conserver:
+
+- plusieurs runs 5 ans complets redondants;
+- les `mrp_trace_daily.csv` de runs non canoniques;
+- les HTML generes non canoniques;
+- les dossiers debug sans manifest.
+
+## Run canonique courant
+
+Le run de reference actuel est:
+
+```text
+_codex_lot_trace_5y_risk_portfolio/
+```
+
+Il contient les traces necessaires a la carte, au suivi de lots, aux risques
+simules et aux audits de coherence.
+
+## Format attendu pour un run conserve
+
+Un run conserve devrait contenir:
+
+```text
+<run>/
+  data/       # CSV necessaires, pas tous les CSV si le run est compact
+  reports/    # rapports markdown/csv courts
+  maps/       # carte canonique si utile
+  summaries/  # KPI et syntheses
+  run_manifest.json
+```
+
+`run_manifest.json` doit identifier le graphe d'entree, la config, l'horizon,
+les options de simulation, la date, le mode de retention et les hashes utiles.
+
+## Etudes de sensibilite
+
+Les resultats de sensibilite doivent aller en priorite dans:
+
+```text
+etudecas/simulation/experiments/result/<study>/
+```
+
+avec `study_manifest.json`, `metrics.csv`, `registry.csv` et `summary.json`.
+Les sorties completes de chaque scenario ne doivent etre gardees que pour un
+debug explicite.

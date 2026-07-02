@@ -1,0 +1,4 @@
+interface:
+  display_name: "Etudecas Sensitivity"
+  short_description: "Sensibilite et risques Etudecas"
+  default_prompt: "Utilise ce skill pour les scenarios, sweeps, risques et artefacts compacts Etudecas."

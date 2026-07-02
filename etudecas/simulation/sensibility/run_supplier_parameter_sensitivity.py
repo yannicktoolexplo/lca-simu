@@ -58,7 +58,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--run-script",
-        default="etudecas/simulation/run_first_simulation.py",
+        default="etudecas/simulation/engine/run_first_simulation.py",
         help="Simulation runner script.",
     )
     parser.add_argument("--scenario-id", default="scn:BASE", help="Scenario id.")
@@ -132,9 +132,18 @@ def parse_args() -> argparse.Namespace:
         help="Cost increase warning threshold vs baseline.",
     )
     parser.add_argument(
+        "--artifact-mode",
+        choices=["summary", "compact", "full"],
+        default="summary",
+        help=(
+            "Retention mode for each case. summary keeps only reports/summaries and small diagnostic CSVs; "
+            "compact keeps selected operational CSVs; full keeps the complete simulation_output."
+        ),
+    )
+    parser.add_argument(
         "--keep-case-data",
         action="store_true",
-        help="Keep detailed case data. By default only summaries and inputs are retained.",
+        help="Legacy alias for --artifact-mode full.",
     )
     parser.add_argument(
         "--summarize-existing",
@@ -639,22 +648,30 @@ def derived_case_kpis(output_dir: Path, case_input: Path | None = None) -> dict[
     return out
 
 
-def prune_case_output(output_dir: Path) -> None:
+def prune_case_output(output_dir: Path, *, artifact_mode: str = "summary") -> None:
     if not output_dir.exists():
         return
-    keep = {
+    if artifact_mode == "full":
+        return
+    summary_keep = {
         output_dir / "summaries",
         output_dir / "reports",
         output_dir / "data" / "production_demand_service_daily.csv",
-        output_dir / "data" / "production_input_stocks_daily.csv",
         output_dir / "data" / "production_constraint_daily.csv",
         output_dir / "data" / "production_output_products_daily.csv",
+        output_dir / "data" / "production_factory_nervousness.csv",
+        output_dir / "data" / "supplier_nominal_parameters.csv",
+        output_dir / "data" / "supplier_risk_events_applied_daily.csv",
+        output_dir / "data" / "supplier_state_dependent_risk_events.csv",
+    }
+    compact_keep = summary_keep | {
+        output_dir / "data" / "production_input_stocks_daily.csv",
         output_dir / "data" / "production_supplier_stocks_daily.csv",
         output_dir / "data" / "production_dc_stocks_daily.csv",
         output_dir / "data" / "mrp_orders_daily.csv",
-        output_dir / "data" / "mrp_trace_daily.csv",
-        output_dir / "data" / "supplier_nominal_parameters.csv",
     }
+    keep = compact_keep if artifact_mode == "compact" else summary_keep
+
     def try_unlink(path: Path) -> None:
         try:
             path.unlink(missing_ok=True)
@@ -962,7 +979,7 @@ def run_case(
     cases_root: Path,
     extra_args: list[str],
     supplier_floor_csv: Path | None,
-    keep_case_data: bool,
+    artifact_mode: str,
 ) -> dict[str, Any]:
     case_dir = cases_root / case_id
     case_input = case_dir / "input_case.json"
@@ -1007,8 +1024,7 @@ def run_case(
         )
     op = operational_metrics(case_output)
     derived = derived_case_kpis(case_output, case_input)
-    if not keep_case_data:
-        prune_case_output(case_output)
+    prune_case_output(case_output, artifact_mode=artifact_mode)
 
     row: dict[str, Any] = {
         "case_id": case_id,
@@ -1505,6 +1521,7 @@ def recommendation_rows(summary_rows: list[dict[str, Any]]) -> list[dict[str, An
 
 def main() -> None:
     args = parse_args()
+    artifact_mode = "full" if args.keep_case_data else str(args.artifact_mode or "summary")
     input_path = Path(args.input)
     run_script = Path(args.run_script)
     baseline_result_dir = Path(args.baseline_result_dir)
@@ -1584,7 +1601,7 @@ def main() -> None:
                 cases_root=cases_root,
                 extra_args=extra_args,
                 supplier_floor_csv=supplier_floor_csv,
-                keep_case_data=True,
+                artifact_mode=artifact_mode,
             )
         all_rows.append(baseline_row)
 
@@ -1612,7 +1629,7 @@ def main() -> None:
                         cases_root=cases_root,
                         extra_args=extra_args,
                         supplier_floor_csv=supplier_floor_csv,
-                        keep_case_data=args.keep_case_data,
+                        artifact_mode=artifact_mode,
                     )
                 all_rows.append(row)
 

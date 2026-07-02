@@ -76,7 +76,7 @@
     },
     "mrp_seed": {
       "generated_at_utc": "2026-04-23T09:22:36.171016+00:00",
-      "stocks_mrp_xlsx": "etudecas\\donnees\\Stocks_MRP.xlsx",
+      "stocks_mrp_xlsx": "etudecas/data/source/Stocks_MRP.xlsx",
       "snapshot_at_utc": "2025-01-01T03:03:48+00:00",
       "stock_rows_injected": 28,
       "inventory_states_created": 0,
@@ -7684,7 +7684,7 @@
           },
           "source_truth": {
             "type": "demand_pf_weekly_real_demand",
-            "xlsx_path": "etudecas\\donnees\\demand_PF.xlsx",
+            "xlsx_path": "etudecas/data/source/demand_PF.xlsx",
             "sheet": "Demande",
             "annual_total_qty": 1575986.0,
             "period_count_weeks": 52
@@ -7926,7 +7926,7 @@
           "service_level_target_source": "simulation_prep_business_rule_by_product",
           "source_truth": {
             "type": "demand_pf_weekly_real_demand",
-            "xlsx_path": "etudecas\\donnees\\demand_PF.xlsx",
+            "xlsx_path": "etudecas/data/source/demand_PF.xlsx",
             "sheet": "Demande",
             "annual_total_qty": 3576442.0,
             "period_count_weeks": 52

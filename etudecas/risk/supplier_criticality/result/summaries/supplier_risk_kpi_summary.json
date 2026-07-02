@@ -1,0 +1,47 @@
+{
+  "input_sim_result_dir": "C:\\dev\\lca-simu\\etudecas\\simulation\\result\\_codex_lot_trace_5y_risk_portfolio",
+  "input_sensitivity_file": "C:\\dev\\lca-simu\\etudecas\\simulation\\sensibility\\active_supplier_parameter_result\\supplier_parameter_recommendations.csv",
+  "output_dir": "etudecas\\risk\\supplier_criticality\\result",
+  "week_count": 273,
+  "supplier_count": 30,
+  "pair_count": 40,
+  "panel_row_count": 10920,
+  "supplier_row_count": 30,
+  "input_counters": {
+    "shipment_rows": 24900,
+    "capacity_rows": 60225,
+    "stock_rows": 60225,
+    "mrp_order_rows": 24902,
+    "observable_mrp_late_rows": 0,
+    "observable_mrp_short_rows": 2395
+  },
+  "action_counts_latest": {
+    "green": 40
+  },
+  "decision_zone_counts_latest": {
+    "jaune": 5,
+    "vert": 35
+  },
+  "action_counts_all_weeks": {
+    "green": 10894,
+    "amber": 26
+  },
+  "decision_zone_counts_all_weeks": {
+    "jaune": 2120,
+    "vert": 8790,
+    "orange": 10
+  },
+  "normalizers": {
+    "lead_q90_max": 244.2,
+    "weekly_qty_q95_log_max": 13.489781802915555,
+    "sensitivity_delta_log_max": 13.7276372699997,
+    "sensitivity_fill_drop_max": 0.01
+  },
+  "outputs": {
+    "panel": "C:\\dev\\lca-simu\\etudecas\\risk\\supplier_criticality\\result\\data\\supplier_item_week_panel.csv",
+    "latest": "C:\\dev\\lca-simu\\etudecas\\risk\\supplier_criticality\\result\\data\\supplier_item_risk_kpi.csv",
+    "suppliers": "C:\\dev\\lca-simu\\etudecas\\risk\\supplier_criticality\\result\\data\\supplier_risk_kpi.csv",
+    "summary": "C:\\dev\\lca-simu\\etudecas\\risk\\supplier_criticality\\result\\summaries\\supplier_risk_kpi_summary.json",
+    "report": "C:\\dev\\lca-simu\\etudecas\\risk\\supplier_criticality\\result\\reports\\supplier_risk_kpi_report.md"
+  }
+}

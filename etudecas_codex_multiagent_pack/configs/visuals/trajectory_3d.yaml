@@ -1,0 +1,16 @@
+figure_id: trajectory_3d
+type: 3d_trajectory
+data:
+  x: quality
+  y: delay
+  z: stress
+  time: date
+  entity: aircraft_id
+labels:
+  title: "Performance trajectory"
+  x: "Quality"
+  y: "Delay"
+  z: "Stress"
+output:
+  path: outputs/figures/trajectory_3d.png
+  dpi: 140

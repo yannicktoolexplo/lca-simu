@@ -2,7 +2,7 @@
 
 - Source graph: `etudecas\simulation_prep\result\reference_baseline\supply_graph_reference_baseline_real_demand_target_calibrated.json`
 - Output graph: `etudecas\simulation_prep\result\reference_baseline\supply_graph_reference_baseline_real_demand_target_calibrated_mrp_lot_policy.json`
-- Workbook: `etudecas\donnees\Stocks_MRP.xlsx`
+- Workbook: `etudecas\data\source\Stocks_MRP.xlsx`
 - Snapshot UTC: `2025-01-01T03:03:48+00:00`
 - Stock rows injected: `28` / `32`
 - Inventory states created: `0`

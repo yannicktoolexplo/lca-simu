@@ -1,0 +1,4 @@
+interface:
+  display_name: "Etudecas Data Knowledge"
+  short_description: "Donnees et graphe Etudecas"
+  default_prompt: "Utilise ce skill pour Excel, JSON, schemas, enrichissement et graphe de connaissance Etudecas."
