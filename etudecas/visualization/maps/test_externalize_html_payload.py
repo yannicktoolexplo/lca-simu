@@ -1,20 +1,26 @@
 import json
+import tempfile
 import unittest
+from pathlib import Path
 
 from etudecas.visualization.maps.compress_html_payload import compress_embedded
 from etudecas.visualization.maps.chunk_html_payload import chunk_embedded
 from etudecas.visualization.maps.externalize_html_payload import externalize
+from etudecas.visualization.maps.html_payload_tools import apply_html_payload_mode
 
 
 class ExternalizeHtmlPayloadTest(unittest.TestCase):
-    def test_externalizes_data_and_defers_load_listener_init(self):
-        html = """
+    def sample_html(self) -> str:
+        return """
         <script>
         const DATA = {"name": "abc", "nested": {"value": 3}};
         function init() { window.didInit = Boolean(DATA.nested); }
         window.addEventListener("load", init);
         </script>
         """
+
+    def test_externalizes_data_and_defers_load_listener_init(self):
+        html = self.sample_html()
 
         new_html, data_text = externalize(html, "map.data.json")
 
@@ -92,6 +98,38 @@ class ExternalizeHtmlPayloadTest(unittest.TestCase):
         self.assertIn("loadEmbeddedChunkedMapData().then(() => {", new_html)
         self.assertIn("loadEmbeddedChunkedMapGroup", new_html)
         self.assertLess(new_html.index("loadEmbeddedChunkedMapData().then(() => {"), new_html.index("const NODES = DATA.nodes"))
+
+    def test_apply_html_payload_mode_externalizes_and_writes_payload(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            output_html = root / "nested" / "map.html"
+            payload_json = root / "payloads" / "map.data.json"
+
+            new_html = apply_html_payload_mode(
+                self.sample_html(),
+                output_html,
+                externalize_payload=True,
+                payload_json=payload_json,
+                log=None,
+            )
+
+            self.assertEqual(json.loads(payload_json.read_text(encoding="utf-8"))["nested"]["value"], 3)
+            self.assertIn('const DATA_EXTERNAL_URL = "../payloads/map.data.json"', new_html)
+
+    def test_apply_html_payload_mode_rejects_multiple_modes(self):
+        with self.assertRaisesRegex(ValueError, "Use only one payload mode"):
+            apply_html_payload_mode(
+                self.sample_html(),
+                Path("map.html"),
+                externalize_payload=True,
+                compress_embedded_payload=True,
+                log=None,
+            )
+
+    def test_apply_html_payload_mode_no_mode_keeps_html(self):
+        html = self.sample_html()
+
+        self.assertEqual(apply_html_payload_mode(html, Path("map.html"), log=None), html)
 
 
 if __name__ == "__main__":

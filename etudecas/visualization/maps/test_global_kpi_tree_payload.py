@@ -5,7 +5,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from etudecas.visualization.maps.build_supplychain_worldmap import build_global_kpi_tree_payload
+from etudecas.visualization.maps import build_supplychain_worldmap as worldmap_builder
+from etudecas.visualization.maps.global_kpi_tree_payload import build_global_kpi_tree_payload
 
 
 def write_csv(path: Path, fieldnames: list[str], rows: list[dict[str, object]]) -> None:
@@ -17,6 +18,9 @@ def write_csv(path: Path, fieldnames: list[str], rows: list[dict[str, object]]) 
 
 
 class GlobalKpiTreePayloadTest(unittest.TestCase):
+    def test_builder_reexports_extracted_payload_builder(self) -> None:
+        self.assertIs(worldmap_builder.build_global_kpi_tree_payload, build_global_kpi_tree_payload)
+
     def test_cost_supply_is_rebuilt_from_components_when_total_is_missing(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
