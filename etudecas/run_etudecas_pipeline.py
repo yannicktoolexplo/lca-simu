@@ -34,6 +34,17 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from etudecas.simulation.initial_state_policy import living_supply_initial_state_args  # noqa: E402
+from etudecas.simulation.analysis.component_immobilized_stock import (  # noqa: E402
+    build_component_immobilized_stock_artifacts,
+)
+from etudecas.analysis.from_simulation.report_component_immobilized_stock import (  # noqa: E402
+    DEFAULT_PRODUCT_SOURCES,
+    build_report as build_component_stock_source_truth_report,
+)
+from etudecas.analysis.from_simulation.audit_source_truth_alignment import (  # noqa: E402
+    build_report as build_source_truth_alignment_report,
+)
+from etudecas.simulation.run_format import export_run_package, validate_run_package  # noqa: E402
 
 SOURCE_DATA_DIR = ROOT / "data" / "source"
 DATA_REPORTS_DIR = ROOT / "data" / "reports"
@@ -79,8 +90,10 @@ ACTIVE_MRP_PHYSICAL_OUTPUT_DIR = (
 )
 ACTIVE_MRP_PHYSICAL_RERUN_ROOT = ROOT / "simulation" / "result" / "_reruns"
 SIMULATION_ENGINE_SCRIPT = ROOT / "simulation" / "engine" / "run_first_simulation.py"
+ROBUST_MONTECARLO_SCRIPT = ROOT / "simulation" / "montecarlo" / "run_robust_montecarlo.py"
 SUPPLIER_CRITICALITY_SCRIPT = ROOT / "risk" / "supplier_criticality" / "build_supplier_criticality.py"
 SUPPLIER_CRITICALITY_OUTPUT_DIR = ROOT / "risk" / "supplier_criticality" / "result"
+SOURCE_PROFILE_SCRIPT = ROOT / "data" / "profile_source_files.py"
 DEFAULT_CASE_CONFIG_JSON = ROOT / "config" / "cases" / "data_poc.json"
 DEFAULT_ENRICHMENT_EXCEL = ROOT / "config" / "cases" / "data_poc_enrichment_input.xlsx"
 ACTIVE_MRP_PHYSICAL_BASE_STOCK_FLOOR_PAIRS = [
@@ -109,6 +122,7 @@ ACTIVE_MRP_PHYSICAL_BASE_STOCK_FLOOR_PAIRS = [
     ("M-1810", "item:693055", 1.0),
 ]
 ACTIVE_MRP_PHYSICAL_INITIAL_STATE_ARGS = living_supply_initial_state_args()
+ACTIVE_MRP_OPENING_PRODUCTION_ORDER_BOM_ISSUE_MODE = "wip"
 CORE_RUNTIME_MODULES = ["numpy", "pandas", "openpyxl"]
 PIPELINE_SUCCESS_MARKER = "DATA_CHUNKED_GZIP_BASE64"
 DEFAULT_MAX_STANDALONE_MAP_MB = 40.0
@@ -140,6 +154,48 @@ def run_python(script: Path, *args: str) -> None:
     subprocess.run(cmd, check=True, cwd=REPO_ROOT)
 
 
+def run_robust_montecarlo_for_result(
+    *,
+    output_dir: Path,
+    runs: int,
+    probe_runs: int,
+    profiles: str,
+    final_profile: str,
+    days: int,
+    seed: int,
+    trajectory_max_points: int,
+    trajectory_display_runs: int,
+    workers: int,
+) -> Path:
+    montecarlo_dir = output_dir / "montecarlo"
+    args = [
+        "--manifest-json",
+        repo_rel(output_dir / "run_manifest.json"),
+        "--output-dir",
+        repo_rel(montecarlo_dir),
+        "--days",
+        str(days),
+        "--seed",
+        str(seed),
+        "--profiles",
+        profiles,
+        "--final-profile",
+        final_profile,
+        "--probe-runs",
+        str(probe_runs),
+        "--final-runs",
+        str(runs),
+        "--trajectory-max-points",
+        str(trajectory_max_points),
+        "--trajectory-display-runs",
+        str(trajectory_display_runs),
+        "--workers",
+        str(max(1, int(workers))),
+    ]
+    run_python(ROBUST_MONTECARLO_SCRIPT, *args)
+    return montecarlo_dir / "selected" / "montecarlo_summary.json"
+
+
 def load_json(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
@@ -159,14 +215,14 @@ def data_manifest_source_files() -> list[Path]:
         return [
             SOURCE_DATA_DIR / name
             for name in [
-                "021081.xlsx",
-                "268191.xlsx",
+                "773474.xlsx",
+                "268091.xlsx",
                 "268967.xlsx",
                 "Data_poc.xlsx",
                 "demand_PF.xlsx",
                 "Extract_En_cours.xlsx",
                 "Fournisseur.xlsx",
-                "Stocks_MRP.xlsx",
+                "Extract_Données_Complémentaires.xlsx",
                 "supply_graph_poc.json",
             ]
         ]
@@ -194,6 +250,7 @@ def preflight_checks(*, require_active_graph: bool = True) -> list[dict[str, Any
         ROOT / "simulation_prep" / "prepare_simulation_graph.py",
         SIMULATION_ENGINE_SCRIPT,
         ROOT / "visualization" / "maps" / "build_supplychain_worldmap.py",
+        SOURCE_PROFILE_SCRIPT,
     ]:
         add(f"script:{script.name}", script.exists(), repo_rel(script))
     if require_active_graph:
@@ -254,6 +311,8 @@ def validate_active_run_outputs(
     days: int,
     output_profile: str,
     max_map_mb: float,
+    montecarlo_summary_json: Path | None = None,
+    montecarlo_expected_runs: int | None = None,
 ) -> list[dict[str, Any]]:
     summary_path = output_dir / "summaries" / "first_simulation_summary.json"
     report_path = output_dir / "reports" / "first_simulation_report.md"
@@ -261,6 +320,8 @@ def validate_active_run_outputs(
     lot_genealogy_path = output_dir / "data" / "production_lot_genealogy.csv"
     lot_audit_path = output_dir / "reports" / "lot_path_audit.md"
     daily_path = output_dir / "data" / "first_simulation_daily.csv"
+    component_immob_daily_path = output_dir / "data" / "component_immobilized_stock_daily.csv"
+    component_immob_summary_path = output_dir / "data" / "component_immobilized_stock_summary.csv"
     supplier_criticality_summary_path = output_dir / "supplier_criticality" / "summaries" / "supplier_risk_kpi_summary.json"
     supplier_criticality_csv_path = output_dir / "supplier_criticality" / "data" / "supplier_risk_kpi.csv"
     map_path = find_generated_map(output_dir)
@@ -277,6 +338,16 @@ def validate_active_run_outputs(
     lot_genealogy_rows = count_csv_rows(lot_genealogy_path)
     add("daily_kpi_csv", daily_path.exists(), repo_rel(daily_path))
     add("daily_kpi_row_count", daily_rows == days, f"{daily_rows} rows, expected {days}")
+    add(
+        "component_immobilized_stock_daily",
+        component_immob_daily_path.exists() and count_csv_rows(component_immob_daily_path) > 0,
+        f"{count_csv_rows(component_immob_daily_path)} rows",
+    )
+    add(
+        "component_immobilized_stock_summary",
+        component_immob_summary_path.exists() and count_csv_rows(component_immob_summary_path) > 0,
+        f"{count_csv_rows(component_immob_summary_path)} rows",
+    )
     add("lot_events_csv", lot_events_path.exists() and lot_event_rows > 0, f"{lot_event_rows} rows")
     add("lot_genealogy_csv", lot_genealogy_path.exists() and lot_genealogy_rows > 0, f"{lot_genealogy_rows} rows")
     add("lot_path_audit", lot_audit_path.exists(), repo_rel(lot_audit_path))
@@ -314,6 +385,39 @@ def validate_active_run_outputs(
         add("kpi_fill_rate_present", fill_rate is not None, f"fill_rate={fill_rate}")
         add("kpi_total_cost_present", total_cost is not None, f"total_cost={total_cost}")
         add("kpi_ending_backlog_present", ending_backlog is not None, f"ending_backlog={ending_backlog}")
+    if montecarlo_summary_json is not None:
+        mc_summary_path = montecarlo_summary_json
+        mc_dir = mc_summary_path.parent
+        mc_samples_path = mc_dir / "montecarlo_samples.csv"
+        mc_trajectories_path = mc_dir / "montecarlo_trajectories.json"
+        add("montecarlo_summary", mc_summary_path.exists(), repo_rel(mc_summary_path))
+        add("montecarlo_samples", mc_samples_path.exists(), repo_rel(mc_samples_path))
+        add("montecarlo_trajectories", mc_trajectories_path.exists(), repo_rel(mc_trajectories_path))
+        if mc_summary_path.exists():
+            mc_summary = load_json(mc_summary_path)
+            add(
+                "montecarlo_scenario_id",
+                str(mc_summary.get("scenario_id") or "") == scenario_id,
+                f"{mc_summary.get('scenario_id')} == {scenario_id}",
+            )
+            add(
+                "montecarlo_days",
+                int(mc_summary.get("days_override") or -1) == days,
+                f"{mc_summary.get('days_override')} == {days}",
+            )
+            if montecarlo_expected_runs is not None:
+                add(
+                    "montecarlo_successful_runs",
+                    int(mc_summary.get("successful_stochastic_runs") or -1) == int(montecarlo_expected_runs),
+                    f"{mc_summary.get('successful_stochastic_runs')} == {montecarlo_expected_runs}",
+                )
+            add("montecarlo_failed_runs", int(mc_summary.get("failed_runs") or 0) == 0, str(mc_summary.get("failed_runs")))
+    run_package_dir = output_dir / "run"
+    if run_package_dir.exists():
+        for row in validate_run_package(run_package_dir):
+            add(f"generic_run:{row['name']}", bool(row.get("ok")), str(row.get("detail", "")))
+    else:
+        add("generic_run:package_exists", False, repo_rel(run_package_dir))
     return validations
 
 
@@ -337,6 +441,8 @@ def write_pipeline_report(
 ) -> None:
     map_path = find_generated_map(output_dir)
     kpis = read_summary_kpis(output_dir / "summaries" / "first_simulation_summary.json")
+    manifest_path = output_dir / "run_manifest.json"
+    manifest = load_json(manifest_path) if manifest_path.exists() else {}
     report = {
         "schema_version": "etudecas.pipeline_report.v1",
         "command": command_name,
@@ -344,6 +450,7 @@ def write_pipeline_report(
         "finished_at_utc": finished_at_utc,
         "output_dir": repo_rel(output_dir),
         "map_html": repo_rel(map_path) if map_path else None,
+        "generic_run_package": repo_rel(output_dir / "run") if (output_dir / "run").exists() else None,
         "map_size_mb": round(map_path.stat().st_size / (1024 * 1024), 3) if map_path and map_path.exists() else None,
         "kpis": {
             "fill_rate": kpis.get("fill_rate"),
@@ -352,6 +459,7 @@ def write_pipeline_report(
             "total_explicit_initialization_stock_qty": kpis.get("total_explicit_initialization_stock_qty"),
             "total_explicit_initialization_pipeline_qty": kpis.get("total_explicit_initialization_pipeline_qty"),
         },
+        "montecarlo": manifest.get("montecarlo") if isinstance(manifest.get("montecarlo"), dict) else None,
         "preflight": preflight,
         "validations": validations,
     }
@@ -366,10 +474,12 @@ def write_pipeline_report(
         f"- Command: `{command_name}`",
         f"- Output: `{repo_rel(output_dir)}`",
         f"- Map: `{repo_rel(map_path) if map_path else 'missing'}`",
+        f"- Generic run package: `{report['generic_run_package'] or 'missing'}`",
         f"- Map size MB: `{report['map_size_mb']}`",
         f"- Fill rate: `{report['kpis']['fill_rate']}`",
         f"- Ending backlog: `{report['kpis']['ending_backlog']}`",
         f"- Total cost: `{report['kpis']['total_cost']}`",
+        f"- Monte Carlo: `{report['montecarlo'] or 'not run'}`",
         "",
         "## Validations",
         "",
@@ -447,6 +557,12 @@ def forward_optional_flags(*, skip_map: bool, skip_plots: bool) -> list[str]:
     return args
 
 
+def optional_pf_service_target_args(pf_service_target: float | None) -> list[str]:
+    if pf_service_target is None:
+        return []
+    return ["--pf-service-target", f"{max(0.0, min(1.0, float(pf_service_target))):g}"]
+
+
 def build_knowledge_graph() -> None:
     run_python(
         ROOT / "knowledge_graph" / "update_supply_graph_from_case_data.py",
@@ -506,7 +622,7 @@ def run_excel_enrichment(
         print(f"[OK] Report written: {report_json.resolve()}")
 
 
-def prepare_reference_graph(*, simulation_days: int) -> None:
+def prepare_reference_graph(*, simulation_days: int, pf_service_target: float | None = None) -> None:
     run_python(
         ROOT / "simulation_prep" / "prepare_simulation_graph.py",
         "--input",
@@ -519,10 +635,18 @@ def prepare_reference_graph(*, simulation_days: int) -> None:
         "etudecas/simulation_prep/result/reference_baseline/simulation_prep_report.md",
         "--simulation-days",
         str(simulation_days),
+        *optional_pf_service_target_args(pf_service_target),
     )
 
 
-def build_reference_baseline(*, scenario_id: str, days: int, skip_map: bool, skip_plots: bool) -> None:
+def build_reference_baseline(
+    *,
+    scenario_id: str,
+    days: int,
+    skip_map: bool,
+    skip_plots: bool,
+    pf_service_target: float | None = None,
+) -> None:
     run_python(
         ROOT / "simulation" / "baselines" / "rebuild_real_demand_target_baseline.py",
         "--source",
@@ -536,6 +660,7 @@ def build_reference_baseline(*, scenario_id: str, days: int, skip_map: bool, ski
         "--days",
         str(days),
         "--skip-simulation",
+        *optional_pf_service_target_args(pf_service_target),
     )
     run_python(
         ROOT / "simulation_prep" / "inject_mrp_seed_data_v2.py",
@@ -579,6 +704,64 @@ def run_5y_reference(*, scenario_id: str, days: int, skip_map: bool, skip_plots:
         str(days),
         *forward_optional_flags(skip_map=skip_map, skip_plots=skip_plots),
     )
+    build_component_stock_artifacts(input_graph=FINAL_GRAPH_5Y_JSON, output_dir=FINAL_OUTPUT_5Y_DIR)
+    build_component_stock_source_truth_reports(input_graph=FINAL_GRAPH_5Y_JSON, output_dir=FINAL_OUTPUT_5Y_DIR)
+    export_run_package(output_dir=FINAL_OUTPUT_5Y_DIR, input_graph=FINAL_GRAPH_5Y_JSON)
+
+
+def refresh_active_mrp_physical_graph(
+    *,
+    scenario_id: str,
+    days: int,
+    pf_service_target: float | None,
+) -> None:
+    """Rebuild the retained active lotified graph from canonical source files."""
+    info_line("Refreshing active graph from source workbooks")
+    build_knowledge_graph()
+    prepare_reference_graph(simulation_days=365, pf_service_target=pf_service_target)
+    run_python(
+        ROOT / "simulation" / "baselines" / "rebuild_real_demand_target_baseline.py",
+        "--source",
+        repo_rel(PREP_GRAPH_JSON),
+        "--output-graph",
+        repo_rel(REAL_DEMAND_GRAPH_JSON),
+        "--named-output-graph",
+        repo_rel(REAL_DEMAND_GRAPH_JSON),
+        "--scenario-id",
+        scenario_id,
+        "--days",
+        "365",
+        "--skip-simulation",
+        *optional_pf_service_target_args(pf_service_target),
+    )
+    run_python(
+        ROOT / "simulation_prep" / "inject_mrp_seed_data_v2.py",
+        "--input-graph",
+        repo_rel(REAL_DEMAND_GRAPH_JSON),
+        "--output-graph",
+        repo_rel(MRP_LOT_GRAPH_JSON),
+        "--output-report-json",
+        "etudecas/simulation_prep/result/reference_baseline/mrp_lot_policy_report.json",
+        "--output-report-md",
+        "etudecas/simulation_prep/result/reference_baseline/mrp_lot_policy_report.md",
+        "--include-mrp-lot-policies",
+    )
+    run_python(
+        ROOT / "simulation" / "baselines" / "rebuild_mrp_lot_policy_baseline.py",
+        "--source",
+        repo_rel(MRP_LOT_GRAPH_JSON),
+        "--output-graph",
+        repo_rel(FINAL_GRAPH_1Y_JSON),
+        "--output-dir",
+        repo_rel(FINAL_OUTPUT_1Y_DIR),
+        "--scenario-id",
+        scenario_id,
+        "--days",
+        "365",
+        "--skip-simulation",
+    )
+    patch_repeated_horizon_graph(FINAL_GRAPH_1Y_JSON, ACTIVE_MRP_PHYSICAL_GRAPH_JSON, scenario_id=scenario_id, days=days)
+    ok_line(f"Active graph refreshed: {ACTIVE_MRP_PHYSICAL_GRAPH_JSON.resolve()}")
 
 
 def run_direct_simulation(*, input_graph: Path, output_dir: Path, scenario_id: str, days: int, skip_map: bool, skip_plots: bool) -> None:
@@ -594,6 +777,9 @@ def run_direct_simulation(*, input_graph: Path, output_dir: Path, scenario_id: s
         str(days),
         *forward_optional_flags(skip_map=skip_map, skip_plots=skip_plots),
     )
+    build_component_stock_artifacts(input_graph=input_graph, output_dir=output_dir)
+    build_component_stock_source_truth_reports(input_graph=input_graph, output_dir=output_dir)
+    export_run_package(output_dir=output_dir, input_graph=input_graph)
 
 
 def build_supplier_criticality(*, sim_result_dir: Path | None, output_dir: Path) -> None:
@@ -602,8 +788,81 @@ def build_supplier_criticality(*, sim_result_dir: Path | None, output_dir: Path)
         repo_rel(output_dir),
     ]
     if sim_result_dir is not None:
-        args.extend(["--sim-result-dir", repo_rel(sim_result_dir)])
+        run_package = sim_result_dir / "run"
+        if run_package.exists():
+            args.extend(["--run-package", repo_rel(run_package)])
+        else:
+            args.extend(["--sim-result-dir", repo_rel(sim_result_dir)])
     run_python(SUPPLIER_CRITICALITY_SCRIPT, *args)
+
+
+def build_supplier_local_criticality_artifacts(*, input_graph: Path, output_dir: Path) -> None:
+    from etudecas.visualization.maps.build_supplychain_worldmap import build_supplier_local_criticality
+
+    data_dir = output_dir / "data"
+    summaries_dir = output_dir / "summaries"
+    csv_path = data_dir / "supplier_local_criticality_ranking.csv"
+    json_path = summaries_dir / "supplier_local_criticality_summary.json"
+    raw = load_json(input_graph)
+    _, ranking_rows, summary = build_supplier_local_criticality(
+        raw,
+        data_dir / "production_supplier_shipments_daily.csv",
+        data_dir / "production_supplier_stocks_daily.csv",
+        data_dir / "production_supplier_capacity_daily.csv",
+        data_dir / "production_constraint_daily.csv",
+        ROOT / "simulation" / "sensibility" / "result" / "sensitivity_cases.csv",
+        ROOT / "simulation" / "sensibility" / "structural_result" / "sensitivity_cases.csv",
+    )
+    csv_path.parent.mkdir(parents=True, exist_ok=True)
+    json_path.parent.mkdir(parents=True, exist_ok=True)
+    columns = sorted({key for row in ranking_rows for key in row.keys()})
+    with csv_path.open("w", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=columns)
+        writer.writeheader()
+        writer.writerows(ranking_rows)
+    write_json(json_path, {"summary": summary, "ranking": ranking_rows})
+    ok_line(f"Supplier local criticality: {csv_path.resolve()}")
+
+
+def build_component_stock_artifacts(*, input_graph: Path, output_dir: Path) -> None:
+    summary = build_component_immobilized_stock_artifacts(
+        run_dir=output_dir,
+        graph_path=input_graph,
+        output_dir=output_dir / "data",
+    )
+    ok_line(
+        "Component immobilized stock: "
+        f"{summary['daily_rows']} daily rows, {summary['component_daily_rows']} component rows"
+    )
+
+
+def build_component_stock_source_truth_reports(*, input_graph: Path, output_dir: Path) -> None:
+    summary = build_component_stock_source_truth_report(
+        run_dir=output_dir,
+        graph_path=input_graph,
+        product_codes=sorted(DEFAULT_PRODUCT_SOURCES),
+        output_dir=output_dir / "reports" / "source_truth_component_stock",
+    )
+    ok_line(
+        "Component stock source-truth report: "
+        f"{summary['rows']} comparison rows, {summary['snapshot_rows']} snapshot pairs"
+    )
+    for product_code in sorted(DEFAULT_PRODUCT_SOURCES):
+        try:
+            alignment = build_source_truth_alignment_report(
+                run_dir=output_dir,
+                graph_path=input_graph,
+                product_code=product_code,
+                output_dir=output_dir / "reports" / f"source_truth_alignment_{product_code}",
+            )
+        except (FileNotFoundError, ValueError) as exc:
+            warn_line(f"Source-truth alignment {product_code} skipped: {exc}")
+            continue
+        ok_line(
+            "Source-truth alignment "
+            f"{product_code}: source stock {alignment['source_component_stock_value_eur']:.0f} EUR, "
+            f"opening sim delta {alignment['component_stock_value_delta_eur']:.0f} EUR"
+        )
 
 
 def build_map_for_simulation_result(
@@ -611,6 +870,8 @@ def build_map_for_simulation_result(
     input_graph: Path,
     output_dir: Path,
     supplier_criticality_dir: Path,
+    simulated_risk_output_dir: Path | None = None,
+    montecarlo_summary_json: Path | None = None,
     title: str = "Supply Graph POC - Geocoded Map",
 ) -> Path:
     data_dir = output_dir / "data"
@@ -626,6 +887,8 @@ def build_map_for_simulation_result(
     map_cmd = [
         sys.executable,
         repo_rel(map_script),
+        "--run-package",
+        repo_rel(output_dir / "run"),
         "--input",
         repo_rel(input_graph),
         "--output",
@@ -678,8 +941,47 @@ def build_map_for_simulation_result(
         repo_rel(criticality_data / "supplier_item_week_panel.csv"),
         "--chunked-embedded-payload",
     ]
+    if simulated_risk_output_dir is not None:
+        map_cmd.extend(["--simulated-risk-output-dir", repo_rel(simulated_risk_output_dir)])
+    run_montecarlo_summary_json = (
+        montecarlo_summary_json
+        if montecarlo_summary_json is not None
+        else output_dir / "montecarlo" / "selected" / "montecarlo_summary.json"
+    )
+    map_cmd.extend(["--montecarlo-summary-json", repo_rel(run_montecarlo_summary_json)])
     run_python(map_script, *map_cmd[2:])
     return map_output_path
+
+
+def write_state_dependent_scenario_graph(
+    *,
+    source_graph: Path,
+    output_graph: Path,
+    source_scenario_id: str,
+    target_scenario_id: str,
+) -> None:
+    data = load_json(source_graph)
+    scenarios = data.get("scenarios") or []
+    source_scenario = next((row for row in scenarios if str(row.get("id")) == source_scenario_id), None)
+    if not isinstance(source_scenario, dict):
+        source_scenario = scenarios[0] if scenarios else {"id": source_scenario_id}
+    state_scenario = json.loads(json.dumps(source_scenario))
+    state_scenario["id"] = target_scenario_id
+    state_scenario["name"] = "State-dependent complet"
+    state_scenario["description"] = (
+        "Scenario de risques simules dynamiques: les aleas fournisseurs sont "
+        "declenches par l'etat observe pendant la simulation."
+    )
+    data["scenarios"] = [row for row in scenarios if str((row or {}).get("id")) != target_scenario_id]
+    data["scenarios"].append(state_scenario)
+    meta = data.get("meta") if isinstance(data.get("meta"), dict) else {}
+    meta["state_dependent_scenario_variant"] = {
+        "source_graph": repo_rel(source_graph),
+        "source_scenario_id": source_scenario_id,
+        "target_scenario_id": target_scenario_id,
+    }
+    data["meta"] = meta
+    write_json(output_graph, data)
 
 
 def run_active_mrp_physical(
@@ -692,8 +994,11 @@ def run_active_mrp_physical(
     dry_run: bool,
     skip_map: bool,
     skip_plots: bool,
+    input_graph: Path | None = None,
+    supplier_state_dependent_risks: bool = False,
+    baseline_name: str = "active_mrp_physical",
 ) -> Path:
-    input_graph = ACTIVE_MRP_PHYSICAL_GRAPH_JSON
+    input_graph = input_graph or ACTIVE_MRP_PHYSICAL_GRAPH_JSON
     if not input_graph.exists():
         raise FileNotFoundError(f"Active MRP physical graph not found: {repo_rel(input_graph)}")
     target_output_dir = validate_simulation_output_dir(
@@ -713,6 +1018,8 @@ def run_active_mrp_physical(
         output_profile,
         "--mrp-base-stock-floor-factor",
         "0",
+        "--opening-production-order-bom-issue-mode",
+        ACTIVE_MRP_OPENING_PRODUCTION_ORDER_BOM_ISSUE_MODE,
         *ACTIVE_MRP_PHYSICAL_INITIAL_STATE_ARGS,
     ]
     for node_id, item_id, factor in ACTIVE_MRP_PHYSICAL_BASE_STOCK_FLOOR_PAIRS:
@@ -726,6 +1033,8 @@ def run_active_mrp_physical(
         simulator_args.append("--skip-map")
     if skip_plots:
         simulator_args.append("--skip-plots")
+    if supplier_state_dependent_risks:
+        simulator_args.append("--supplier-state-dependent-risks")
 
     pipeline_cmd = [
         sys.executable,
@@ -748,6 +1057,8 @@ def run_active_mrp_physical(
         pipeline_cmd.append("--skip-map")
     if not skip_plots:
         pipeline_cmd.append("--with-plots")
+    if supplier_state_dependent_risks:
+        pipeline_cmd.append("--supplier-state-dependent-risks")
 
     if dry_run:
         print("[DRY-RUN] Active MRP physical baseline rebuild")
@@ -758,12 +1069,15 @@ def run_active_mrp_physical(
         return target_output_dir
 
     run_python(SIMULATION_ENGINE_SCRIPT, *simulator_args)
+    build_component_stock_artifacts(input_graph=input_graph, output_dir=target_output_dir)
+    build_component_stock_source_truth_reports(input_graph=input_graph, output_dir=target_output_dir)
     manifest = {
-        "baseline": "active_mrp_physical",
+        "baseline": baseline_name,
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
         "input_graph": repo_rel(input_graph),
         "output_dir": repo_rel(target_output_dir),
         "scenario_id": scenario_id,
+        "supplier_state_dependent_risks": bool(supplier_state_dependent_risks),
         "days": days,
         "output_profile": output_profile,
         "overwrite": overwrite,
@@ -778,9 +1092,11 @@ def run_active_mrp_physical(
         "initial_state_policy": {
             "reason": "run starts from observed ERP/MRP J0 stocks and firm open orders, without synthetic startup cover",
             "args": ACTIVE_MRP_PHYSICAL_INITIAL_STATE_ARGS,
+            "opening_production_order_bom_issue_mode": ACTIVE_MRP_OPENING_PRODUCTION_ORDER_BOM_ISSUE_MODE,
         },
     }
     write_json(target_output_dir / "run_manifest.json", manifest)
+    export_run_package(output_dir=target_output_dir, input_graph=input_graph)
     print(f"[OK] Active MRP physical run manifest: {(target_output_dir / 'run_manifest.json').resolve()}")
     return target_output_dir
 
@@ -798,8 +1114,27 @@ def run_operational_rebuild(
     with_plots: bool,
     open_map: bool,
     max_map_mb: float,
+    refresh_input_graph: bool,
+    pf_service_target: float | None,
+    build_state_dependent_risk_scenario: bool,
+    with_montecarlo: bool,
+    montecarlo_runs: int,
+    montecarlo_probe_runs: int,
+    montecarlo_profiles: str,
+    montecarlo_final_profile: str,
+    montecarlo_seed: int,
+    montecarlo_trajectory_max_points: int,
+    montecarlo_trajectory_display_runs: int,
+    montecarlo_workers: int,
 ) -> Path:
     started_at = datetime.now(timezone.utc).isoformat()
+    if refresh_input_graph and not dry_run:
+        refresh_active_mrp_physical_graph(
+            scenario_id=scenario_id,
+            days=days,
+            pf_service_target=pf_service_target,
+        )
+
     preflight: list[dict[str, Any]] = []
     if not skip_preflight:
         info_line("Preflight checks")
@@ -821,6 +1156,79 @@ def run_operational_rebuild(
         info_line("Dry-run stops before supplier criticality rebuild, final map build and validations.")
         return target_output_dir
 
+    simulated_risk_output_dir: Path | None = None
+    if build_state_dependent_risk_scenario:
+        info_line("Building companion state-dependent risk scenario")
+        scenario_graph = target_output_dir / "scenario_graphs" / "state_dependent_full.json"
+        state_scenario_id = "scn:STATE_DEPENDENT_FULL"
+        write_state_dependent_scenario_graph(
+            source_graph=ACTIVE_MRP_PHYSICAL_GRAPH_JSON,
+            output_graph=scenario_graph,
+            source_scenario_id=scenario_id,
+            target_scenario_id=state_scenario_id,
+        )
+        simulated_risk_output_dir = run_active_mrp_physical(
+            output_dir=target_output_dir / "scenario_runs" / "state_dependent_full",
+            scenario_id=state_scenario_id,
+            days=days,
+            output_profile=output_profile,
+            overwrite=True,
+            dry_run=False,
+            skip_map=True,
+            skip_plots=True,
+            input_graph=scenario_graph,
+            supplier_state_dependent_risks=True,
+            baseline_name="state_dependent_full",
+        )
+        manifest_path = target_output_dir / "run_manifest.json"
+        manifest = load_json(manifest_path) if manifest_path.exists() else {}
+        companion_runs = manifest.get("companion_runs") if isinstance(manifest.get("companion_runs"), dict) else {}
+        companion_runs["state_dependent_full"] = {
+            "output_dir": "scenario_runs/state_dependent_full",
+            "scenario_id": state_scenario_id,
+            "label": "State-dependent complet",
+            "role": "primary_simulated_risk",
+        }
+        manifest["companion_runs"] = companion_runs
+        write_json(manifest_path, manifest)
+
+    montecarlo_summary_json: Path | None = None
+    if with_montecarlo:
+        info_line("Running adaptive robust Monte Carlo suite for the current run")
+        montecarlo_summary_json = run_robust_montecarlo_for_result(
+            output_dir=target_output_dir,
+            runs=montecarlo_runs,
+            probe_runs=montecarlo_probe_runs,
+            profiles=montecarlo_profiles,
+            final_profile=montecarlo_final_profile,
+            days=days,
+            seed=montecarlo_seed,
+            trajectory_max_points=montecarlo_trajectory_max_points,
+            trajectory_display_runs=montecarlo_trajectory_display_runs,
+            workers=montecarlo_workers,
+        )
+        manifest_path = target_output_dir / "run_manifest.json"
+        manifest = load_json(manifest_path) if manifest_path.exists() else {}
+        manifest["montecarlo"] = {
+            "output_dir": "montecarlo",
+            "suite_summary_json": "montecarlo/montecarlo_suite_summary.json",
+            "selected_summary_json": "montecarlo/selected/montecarlo_summary.json",
+            "selected_trajectories_json": "montecarlo/selected/montecarlo_trajectories.json",
+            "runs": montecarlo_runs,
+            "probe_runs": montecarlo_probe_runs,
+            "profiles": montecarlo_profiles,
+            "final_profile": montecarlo_final_profile,
+            "seed": montecarlo_seed,
+            "workers": montecarlo_workers,
+        }
+        write_json(manifest_path, manifest)
+
+    info_line("Building supplier local criticality artifacts for the current run")
+    build_supplier_local_criticality_artifacts(
+        input_graph=ACTIVE_MRP_PHYSICAL_GRAPH_JSON,
+        output_dir=target_output_dir,
+    )
+
     supplier_criticality_dir = target_output_dir / "supplier_criticality"
     info_line("Rebuilding supplier criticality for the current run")
     build_supplier_criticality(sim_result_dir=target_output_dir, output_dir=supplier_criticality_dir)
@@ -830,7 +1238,24 @@ def run_operational_rebuild(
         input_graph=ACTIVE_MRP_PHYSICAL_GRAPH_JSON,
         output_dir=target_output_dir,
         supplier_criticality_dir=supplier_criticality_dir,
+        simulated_risk_output_dir=simulated_risk_output_dir,
+        montecarlo_summary_json=montecarlo_summary_json,
     )
+    map_path = find_generated_map(target_output_dir)
+
+    info_line("Exporting generic simulation run package")
+    generic_run_dir = export_run_package(
+        output_dir=target_output_dir,
+        input_graph=ACTIVE_MRP_PHYSICAL_GRAPH_JSON,
+        map_html=map_path,
+        extra_metadata={
+            "pipeline_command": "rebuild-active",
+            "supplier_criticality_dir": repo_rel(supplier_criticality_dir),
+            "simulated_risk_output_dir": repo_rel(simulated_risk_output_dir) if simulated_risk_output_dir else "",
+            "montecarlo_summary_json": repo_rel(montecarlo_summary_json) if montecarlo_summary_json else "",
+        },
+    )
+    ok_line(f"Generic run package: {generic_run_dir.resolve()}")
 
     validations: list[dict[str, Any]] = []
     if not skip_validation:
@@ -841,6 +1266,8 @@ def run_operational_rebuild(
             days=days,
             output_profile=output_profile,
             max_map_mb=max_map_mb,
+            montecarlo_summary_json=montecarlo_summary_json,
+            montecarlo_expected_runs=montecarlo_runs if with_montecarlo else None,
         )
         print_preflight(validations)
         assert_validations_ok(validations)
@@ -854,7 +1281,6 @@ def run_operational_rebuild(
         started_at_utc=started_at,
         finished_at_utc=finished_at,
     )
-    map_path = find_generated_map(target_output_dir)
     if map_path:
         ok_line(f"Standalone map: {map_path.resolve()}")
         if open_map:
@@ -871,6 +1297,21 @@ def parse_args() -> argparse.Namespace:
         "--no-active-graph",
         action="store_true",
         help="Do not require the retained active lotified graph during the check.",
+    )
+
+    data_profile = sub.add_parser(
+        "data-profile",
+        help="Profile canonical source files and write etudecas/data/reports/source_data_profile.*.",
+    )
+    data_profile.add_argument(
+        "--output-json",
+        default=repo_rel(DATA_REPORTS_DIR / "source_data_profile.json"),
+        help="Output JSON report path.",
+    )
+    data_profile.add_argument(
+        "--output-md",
+        default=repo_rel(DATA_REPORTS_DIR / "source_data_profile.md"),
+        help="Output Markdown report path.",
     )
 
     rebuild_active = sub.add_parser(
@@ -915,6 +1356,57 @@ def parse_args() -> argparse.Namespace:
         default=DEFAULT_MAX_STANDALONE_MAP_MB,
         help="Fail validation if the standalone HTML map exceeds this size.",
     )
+    rebuild_active.add_argument(
+        "--refresh-input-graph",
+        action="store_true",
+        help="Rebuild the retained active simulation graph from data/source before running the 5y simulation.",
+    )
+    rebuild_active.add_argument(
+        "--pf-service-target",
+        type=float,
+        default=None,
+        help="Override finished-product service target while refreshing the input graph, e.g. 1.0 for nominal 100%%.",
+    )
+    rebuild_active.add_argument(
+        "--state-dependent-risk-scenario",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help=(
+            "Build a companion scn:STATE_DEPENDENT_FULL run and use it as the primary "
+            "Risques simules payload. Enabled by default for operational maps."
+        ),
+    )
+    rebuild_active.add_argument(
+        "--with-montecarlo",
+        action="store_true",
+        help="Run the adaptive robust Monte Carlo suite for the current run before building the map.",
+    )
+    rebuild_active.add_argument(
+        "--montecarlo-runs",
+        type=int,
+        default=200,
+        help="Final stochastic runs for the selected Monte Carlo profile.",
+    )
+    rebuild_active.add_argument(
+        "--montecarlo-probe-runs",
+        type=int,
+        default=8,
+        help="Screening runs per profile before selecting the final Monte Carlo profile.",
+    )
+    rebuild_active.add_argument(
+        "--montecarlo-profiles",
+        default="workshop,risk_probe,stress_probe,breakpoint_probe",
+        help="Comma-separated profiles probed by the adaptive Monte Carlo suite.",
+    )
+    rebuild_active.add_argument(
+        "--montecarlo-final-profile",
+        default="auto",
+        help="auto or explicit profile used for the final Monte Carlo run.",
+    )
+    rebuild_active.add_argument("--montecarlo-seed", type=int, default=42)
+    rebuild_active.add_argument("--montecarlo-trajectory-max-points", type=int, default=730)
+    rebuild_active.add_argument("--montecarlo-trajectory-display-runs", type=int, default=60)
+    rebuild_active.add_argument("--montecarlo-workers", type=int, default=4)
 
     graph = sub.add_parser("graph", help="Rebuild the knowledge-graph JSON from XLSX and geocode it.")
 
@@ -929,11 +1421,13 @@ def parse_args() -> argparse.Namespace:
 
     prepare = sub.add_parser("prepare", help="Prepare the simulation-ready reference graph from the geocoded graph.")
     prepare.add_argument("--simulation-days", type=int, default=365)
+    prepare.add_argument("--pf-service-target", type=float, default=None)
 
     reference = sub.add_parser("reference", help="Rebuild the active 1y reference baseline from the graph pipeline.")
     reference.add_argument("--simulation-days", type=int, default=365, help="Prep horizon written into the working graph.")
     reference.add_argument("--days", type=int, default=365, help="Final 1y measured horizon.")
     reference.add_argument("--scenario-id", default="scn:BASE")
+    reference.add_argument("--pf-service-target", type=float, default=None)
     reference.add_argument("--skip-map", action="store_true")
     reference.add_argument("--skip-plots", action="store_true")
 
@@ -941,6 +1435,7 @@ def parse_args() -> argparse.Namespace:
     all_cmd.add_argument("--simulation-days", type=int, default=365, help="Prep horizon written into the working graph.")
     all_cmd.add_argument("--days", type=int, default=365, help="Final 1y measured horizon.")
     all_cmd.add_argument("--scenario-id", default="scn:BASE")
+    all_cmd.add_argument("--pf-service-target", type=float, default=None)
     all_cmd.add_argument("--with-5y", action="store_true", help="Also rebuild and run the repeated 5y variant.")
     all_cmd.add_argument("--days-5y", type=int, default=1825)
     all_cmd.add_argument("--skip-map", action="store_true")
@@ -975,6 +1470,15 @@ def parse_args() -> argparse.Namespace:
         help="Output directory for supplier criticality artifacts.",
     )
 
+    export_run = sub.add_parser("export-run", help="Export a generic run package from an existing simulation result.")
+    export_run.add_argument("--output-dir", required=True, help="Existing simulation result directory.")
+    export_run.add_argument("--input-graph", default=repo_rel(ACTIVE_MRP_PHYSICAL_GRAPH_JSON))
+    export_run.add_argument("--package-dir", default="", help="Defaults to <output-dir>/run.")
+    export_run.add_argument("--map-html", default="", help="Optional generated map HTML path.")
+
+    validate_run = sub.add_parser("validate-run", help="Validate a generic run package.")
+    validate_run.add_argument("--package-dir", required=True)
+
     active = sub.add_parser(
         "active-mrp-physical",
         help="Rebuild the current active 5y MRP physical baseline from its retained JSON source.",
@@ -993,6 +1497,12 @@ def parse_args() -> argparse.Namespace:
     active.add_argument("--dry-run", action="store_true", help="Print the exact simulator command without running it.")
     active.add_argument("--skip-map", action="store_true")
     active.add_argument("--with-plots", action="store_true", help="Generate legacy PNG plots in addition to the HTML Plotly map.")
+    active.add_argument(
+        "--supplier-state-dependent-risks",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Enable state-dependent supplier risk triggers for this single simulation run.",
+    )
     active.add_argument(
         "--output-profile",
         choices=["compact", "full"],
@@ -1017,6 +1527,15 @@ def main() -> None:
         assert_preflight_ok(checks)
         ok_line("Doctor checks passed.")
         return
+    if args.command == "data-profile":
+        run_python(
+            SOURCE_PROFILE_SCRIPT,
+            "--output-json",
+            repo_rel(resolve_repo_path(Path(args.output_json))),
+            "--output-md",
+            repo_rel(resolve_repo_path(Path(args.output_md))),
+        )
+        return
     if args.command in {"rebuild-active", "rebuild-map-5y"}:
         output_profile = "full" if args.full_output else args.output_profile
         run_operational_rebuild(
@@ -1031,6 +1550,18 @@ def main() -> None:
             with_plots=args.with_plots,
             open_map=args.open_map,
             max_map_mb=args.max_map_mb,
+            refresh_input_graph=args.refresh_input_graph,
+            pf_service_target=args.pf_service_target,
+            build_state_dependent_risk_scenario=args.state_dependent_risk_scenario,
+            with_montecarlo=args.with_montecarlo,
+            montecarlo_runs=args.montecarlo_runs,
+            montecarlo_probe_runs=args.montecarlo_probe_runs,
+            montecarlo_profiles=args.montecarlo_profiles,
+            montecarlo_final_profile=args.montecarlo_final_profile,
+            montecarlo_seed=args.montecarlo_seed,
+            montecarlo_trajectory_max_points=args.montecarlo_trajectory_max_points,
+            montecarlo_trajectory_display_runs=args.montecarlo_trajectory_display_runs,
+            montecarlo_workers=args.montecarlo_workers,
         )
         return
     if args.command == "graph":
@@ -1048,26 +1579,28 @@ def main() -> None:
         )
         return
     if args.command == "prepare":
-        prepare_reference_graph(simulation_days=args.simulation_days)
+        prepare_reference_graph(simulation_days=args.simulation_days, pf_service_target=args.pf_service_target)
         return
     if args.command == "reference":
         build_knowledge_graph()
-        prepare_reference_graph(simulation_days=args.simulation_days)
+        prepare_reference_graph(simulation_days=args.simulation_days, pf_service_target=args.pf_service_target)
         build_reference_baseline(
             scenario_id=args.scenario_id,
             days=args.days,
             skip_map=args.skip_map,
             skip_plots=args.skip_plots,
+            pf_service_target=args.pf_service_target,
         )
         return
     if args.command == "all":
         build_knowledge_graph()
-        prepare_reference_graph(simulation_days=args.simulation_days)
+        prepare_reference_graph(simulation_days=args.simulation_days, pf_service_target=args.pf_service_target)
         build_reference_baseline(
             scenario_id=args.scenario_id,
             days=args.days,
             skip_map=args.skip_map,
             skip_plots=args.skip_plots,
+            pf_service_target=args.pf_service_target,
         )
         if args.with_5y:
             run_5y_reference(
@@ -1101,6 +1634,26 @@ def main() -> None:
             output_dir=Path(args.output_dir),
         )
         return
+    if args.command == "export-run":
+        output_dir = resolve_repo_path(Path(args.output_dir))
+        package_dir = export_run_package(
+            output_dir=output_dir,
+            input_graph=resolve_repo_path(Path(args.input_graph)) if args.input_graph else None,
+            package_dir=resolve_repo_path(Path(args.package_dir)) if args.package_dir else None,
+            map_html=resolve_repo_path(Path(args.map_html)) if args.map_html else find_generated_map(output_dir),
+            extra_metadata={"pipeline_command": "export-run"},
+        )
+        ok_line(f"Generic run package: {package_dir.resolve()}")
+        validations = validate_run_package(package_dir)
+        print_preflight(validations)
+        assert_validations_ok(validations)
+        return
+    if args.command == "validate-run":
+        validations = validate_run_package(resolve_repo_path(Path(args.package_dir)))
+        print_preflight(validations)
+        assert_validations_ok(validations)
+        ok_line("Generic run package checks passed.")
+        return
     if args.command == "active-mrp-physical":
         output_profile = "full" if args.full_output else args.output_profile
         run_active_mrp_physical(
@@ -1112,6 +1665,7 @@ def main() -> None:
             dry_run=args.dry_run,
             skip_map=args.skip_map,
             skip_plots=not args.with_plots,
+            supplier_state_dependent_risks=args.supplier_state_dependent_risks,
         )
         return
     raise ValueError(f"Unsupported command: {args.command}")

@@ -23,7 +23,7 @@ from typing import Any
 from xml.etree import ElementTree as ET
 
 
-PRODUCT_WORKBOOKS = ("021081.xlsx", "268191.xlsx", "268967.xlsx")
+PRODUCT_WORKBOOKS = ("773474.xlsx", "268091.xlsx", "268967.xlsx")
 LOCATION_WORKBOOK = "Fournisseur.xlsx"
 BASE_WORKBOOK = "Data_poc.xlsx"
 OPEN_ORDERS_WORKBOOK = "Extract_En_cours.xlsx"
@@ -935,12 +935,12 @@ def markdown_report(report: dict[str, Any]) -> str:
             "",
             "## Important assumptions",
             "",
-            "- `268191.xlsx` is interpreted as product `268091` because the BOM sheet explicitly points to `268091`.",
-            f"- `021081.xlsx` is modeled as an upstream component feeding internal site `{UPSTREAM_DISPLAY_CODE}` (technical id `SDC-1450`), which transforms `021081` into `773474` before delivery to downstream factories.",
+            "- `268091.xlsx` is the product workbook for finished product `268091`.",
+            f"- `773474.xlsx` is modeled as an upstream PFI workbook feeding internal site `{UPSTREAM_DISPLAY_CODE}` (technical id `SDC-1450`), which transforms `021081` into `773474` before delivery to downstream factories.",
             f"- `{UPSTREAM_DISPLAY_CODE}` is typed as an internal PFI site (`factory`). No process capacity is provided in the source data, so no artificial daily capacity is injected.",
             "- FIA lead times are applied directly to lanes, and delay limits are set to `max(lead + 14, 2 * lead)` as a simulation cap assumption.",
-            "- Component `007923` is the active BOM component kept for `268091`; `Data_poc.xlsx` still shows the former reference `693710`, but the product workbook `268191.xlsx` is treated as the operational source of truth.",
-            "- Component `007923` remains unconstrained because no supplier lane is provided in the new FIA data.",
+            "- Component `007923` is the active BOM component kept for `268091`; `Data_poc.xlsx` still shows the former reference `693710`, but the product workbook `268091.xlsx` is treated as the operational source of truth.",
+            "- Component `007923` is constrained by its FIA supplier lanes when present in `268091.xlsx`.",
             "",
             "## Unresolved points",
             "",
@@ -1025,10 +1025,7 @@ def main() -> None:
                 "output_product_code": output_product_code,
                 "bom_rows": len(workbook["bom_inputs"]),
                 "fia_rows": len(workbook["fia_rows"]),
-                "file_product_mismatch": bool(
-                    output_product_code and workbook["file_stem"] not in {output_product_code, "268191"}
-                )
-                or (workbook["file_stem"] == "268191" and output_product_code != "268091"),
+                "file_product_mismatch": bool(output_product_code and workbook["file_stem"] != output_product_code),
             }
         )
 
@@ -1198,12 +1195,12 @@ def main() -> None:
     notes = meta.setdefault("notes", [])
     case_note = (
         "Graph enriched with auxiliary case-study Excel workbooks "
-        "(021081.xlsx, 268191.xlsx, 268967.xlsx, Fournisseur.xlsx, Extract_En_cours.xlsx)."
+        "(773474.xlsx, 268091.xlsx, 268967.xlsx, Fournisseur.xlsx, Extract_En_cours.xlsx)."
     )
     if case_note not in notes:
         notes.append(case_note)
     bom_note = (
-        "For product 268091, workbook 268191.xlsx is treated as the BOM source of truth: "
+        "For product 268091, workbook 268091.xlsx is treated as the BOM source of truth: "
         "active component 007923, former Data_poc.xlsx reference 693710."
     )
     if bom_note not in notes:
@@ -1219,6 +1216,9 @@ def main() -> None:
         "opening_open_orders": opening_open_orders.get("counts", {}),
     }
 
+    output_json.parent.mkdir(parents=True, exist_ok=True)
+    report_json.parent.mkdir(parents=True, exist_ok=True)
+    report_md.parent.mkdir(parents=True, exist_ok=True)
     output_json.write_text(json.dumps(graph, indent=2, ensure_ascii=False), encoding="utf-8")
     report_json.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
     report_md.write_text(markdown_report(report), encoding="utf-8")

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from collections import defaultdict
+from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -112,9 +112,17 @@ def build_lot_trace_payload(
                 "plan_event_count": len(plan_events),
                 "campaign_count": len(campaign_rows),
                 "deferred_order_count": len(campaign_deferred_orders),
+                "deferred_order_completed_count": sum(
+                    1 for row in campaign_deferred_orders if str(row.get("status") or "") == "completed_after_delay"
+                ),
+                "deferred_order_blocked_count": sum(
+                    1 for row in campaign_deferred_orders if str(row.get("status") or "") != "completed_after_delay"
+                ),
                 "deferred_order_delay_event_count": sum(
                     int(row.get("delay_event_count") or 0) for row in campaign_deferred_orders
                 ),
+                "selectable_filter": "business_lots_pf_pfi_mp_no_transport_receipts",
+                "physical_lot_policy": "select_business_lots_contextual_transport_receipts",
             },
         }
     plan_events_by_campaign: dict[str, list[dict[str, Any]]] = defaultdict(list)
@@ -586,11 +594,21 @@ def build_lot_trace_payload(
             "plan_event_count": len(plan_events),
             "campaign_count": len(campaign_rows),
             "deferred_order_count": len(deferred_orders),
+            "deferred_order_completed_count": sum(
+                1 for row in deferred_orders if str(row.get("status") or "") == "completed_after_delay"
+            ),
+            "deferred_order_blocked_count": sum(
+                1 for row in deferred_orders if str(row.get("status") or "") != "completed_after_delay"
+            ),
             "deferred_order_delay_event_count": sum(int(row.get("delay_event_count") or 0) for row in deferred_orders),
             "traceable_lot_count": len(lot_options),
             "internal_traceable_lot_count": sum(1 for lot in lots.values() if lot.get("traceable")),
             "stock_context_count": len(stock_context),
             "selectable_filter": "business_lots_pf_pfi_mp_no_transport_receipts",
+            "physical_lot_policy": "select_business_lots_contextual_transport_receipts",
+            "selectable_scope_counts": dict(
+                sorted(Counter(str(lot.get("trace_scope") or "unknown") for lot in lot_options).items())
+            ),
             "selectable_finished_product_items": sorted(visible_finished_product_items_set),
             "factory_stock_only_finished_product_count": sum(
                 1 for lot in lot_options if lot.get("produced_from_factory_stock_only")

@@ -11,6 +11,7 @@ REPORTS_DIRNAME = "reports"
 SUMMARIES_DIRNAME = "summaries"
 MAPS_DIRNAME = "maps"
 PLOTS_DIRNAME = "plots"
+RUN_PACKAGE_DIRNAME = "run"
 
 
 def data_path(base_dir: Path | str, filename: str) -> Path:
@@ -33,6 +34,10 @@ def plots_path(base_dir: Path | str) -> Path:
     return Path(base_dir) / PLOTS_DIRNAME
 
 
+def run_package_path(base_dir: Path | str) -> Path:
+    return Path(base_dir) / RUN_PACKAGE_DIRNAME
+
+
 def ensure_standard_dirs(base_dir: Path | str) -> dict[str, Path]:
     root = Path(base_dir)
     paths = {
@@ -41,6 +46,7 @@ def ensure_standard_dirs(base_dir: Path | str) -> dict[str, Path]:
         "summaries": root / SUMMARIES_DIRNAME,
         "maps": root / MAPS_DIRNAME,
         "plots": root / PLOTS_DIRNAME,
+        "run": root / RUN_PACKAGE_DIRNAME,
     }
     for path in paths.values():
         path.mkdir(parents=True, exist_ok=True)

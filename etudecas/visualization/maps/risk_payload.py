@@ -317,6 +317,10 @@ def build_risk_payload_manifest(payload: dict[str, Any]) -> dict[str, Any]:
             "scenario_count": _count_sequence(scenario.get("scenarios")),
             "scenario_charts": _count_mapping(scenario.get("charts")),
             "risk_events": _count_sequence(diagnostic.get("events")),
+            "effective_cascades": _count_sequence(diagnostic.get("cascade_roots")),
+            "risk_origin_impacts": _count_sequence(diagnostic.get("origin_impacts")),
+            "risk_node_impacts": _count_mapping(diagnostic.get("node_impacts")),
+            "risk_edge_impacts": _count_mapping(diagnostic.get("edge_impacts")),
             "supplier_risk_panels": _count_mapping(payload.get("supplier_risk_hover_images")),
             "supplier_metrics": _count_mapping(payload.get("supplier_risk_metrics")),
             "supplier_local_metrics": _count_mapping(payload.get("supplier_local_metrics")),
@@ -340,6 +344,14 @@ def build_risk_generic_view(payload: dict[str, Any]) -> dict[str, Any]:
         },
         "events": {
             "risk_events": diagnostic.get("events", []) or [],
+            "effective_cascades": diagnostic.get("cascade_roots", []) or [],
+            "risk_origin_impacts": diagnostic.get("origin_impacts", []) or [],
+            "risk_node_impacts": list((diagnostic.get("node_impacts") or {}).values())
+            if isinstance(diagnostic.get("node_impacts"), dict)
+            else [],
+            "risk_edge_impacts": list((diagnostic.get("edge_impacts") or {}).values())
+            if isinstance(diagnostic.get("edge_impacts"), dict)
+            else [],
         },
         "diagnostics": {
             "simulated_risk": diagnostic,

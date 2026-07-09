@@ -28,6 +28,7 @@ try:
         ITEM_DISPLAY_REFERENCE_NOTES,
     )
     from etudecas.simulation.lot_trace import build_lot_trace_payload
+    from etudecas.simulation.uncertainty import build_uncertainty_diagnostics
     from etudecas.visualization.maps.supplier_risk_formatting import (
         risk_pct,
         risk_ratio,
@@ -44,6 +45,7 @@ except ModuleNotFoundError:
         ITEM_DISPLAY_REFERENCE_NOTES,
     )
     from etudecas.simulation.lot_trace import build_lot_trace_payload
+    from etudecas.simulation.uncertainty import build_uncertainty_diagnostics
     from etudecas.visualization.maps.supplier_risk_formatting import (
         risk_pct,
         risk_ratio,
@@ -73,6 +75,7 @@ try:
     )
     from etudecas.visualization.maps.html_payload_tools import apply_html_payload_mode
     from etudecas.visualization.maps.global_kpi_tree_payload import build_global_kpi_tree_payload
+    from etudecas.visualization.maps.montecarlo_trajectory_payload import build_montecarlo_trajectory_assets
 except ModuleNotFoundError:
     sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
     from etudecas.visualization.maps.chart_payloads import (
@@ -92,6 +95,7 @@ except ModuleNotFoundError:
     )
     from etudecas.visualization.maps.html_payload_tools import apply_html_payload_mode
     from etudecas.visualization.maps.global_kpi_tree_payload import build_global_kpi_tree_payload
+    from etudecas.visualization.maps.montecarlo_trajectory_payload import build_montecarlo_trajectory_assets
 
 try:
     from etudecas.visualization.maps.map_data_loader import (
@@ -114,6 +118,7 @@ try:
         render_data_table,
     )
     from etudecas.visualization.maps.map_payload_builder import (
+        attach_generic_payload_contract,
         build_payload_layers_manifest,
         compact_graph_payload,
         display_node_label,
@@ -130,6 +135,44 @@ try:
         build_supplier_risk_campaign_payload,
         render_supplier_risk_campaign_html,
         supplier_risk_campaign_status,
+    )
+    from etudecas.visualization.maps.scenario_comparison_payload import (
+        build_scenario_comparison_payload,
+    )
+    from etudecas.visualization.maps.supplier_operations_payload import (
+        build_passive_uncertainty_metric,
+        coefficient_of_variation,
+        compact_order_status,
+        consolidate_order_rows_weekly,
+        display_order_type,
+        effective_order_receipt_day,
+        effective_procurement_lead_days,
+        finite_numeric_values,
+        fmt_order_day,
+        fmt_order_day_range,
+        fmt_uncertainty_band,
+        is_display_order_row,
+        is_opening_order_row,
+        order_placed_day,
+        order_week_start,
+        planned_order_receipt_day,
+        planned_order_to_receipt_days,
+        planned_procurement_lead_days,
+        reference_transport_lead_days,
+        render_factory_nominal_capacities_html,
+        render_order_ledger_html,
+        render_passive_uncertainty_html,
+        render_supplier_nominal_parameters_html,
+        render_supplier_risk_prediction_html,
+        render_supplier_stock_flows_html,
+        resolved_order_day,
+        risk_level,
+        source_planned_material_lead_days,
+        uncertainty_level,
+    )
+    from etudecas.visualization.maps.adapters.etudecas_run_payload import (
+        map_inputs_from_run_package,
+        run_contract_payload,
     )
     from etudecas.visualization.maps.supplier_risk_panels import (
         build_simulated_risk_global_diagnostic_payload,
@@ -178,6 +221,7 @@ except ModuleNotFoundError:
         render_data_table,
     )
     from etudecas.visualization.maps.map_payload_builder import (
+        attach_generic_payload_contract,
         build_payload_layers_manifest,
         compact_graph_payload,
         display_node_label,
@@ -194,6 +238,44 @@ except ModuleNotFoundError:
         build_supplier_risk_campaign_payload,
         render_supplier_risk_campaign_html,
         supplier_risk_campaign_status,
+    )
+    from etudecas.visualization.maps.scenario_comparison_payload import (
+        build_scenario_comparison_payload,
+    )
+    from etudecas.visualization.maps.supplier_operations_payload import (
+        build_passive_uncertainty_metric,
+        coefficient_of_variation,
+        compact_order_status,
+        consolidate_order_rows_weekly,
+        display_order_type,
+        effective_order_receipt_day,
+        effective_procurement_lead_days,
+        finite_numeric_values,
+        fmt_order_day,
+        fmt_order_day_range,
+        fmt_uncertainty_band,
+        is_display_order_row,
+        is_opening_order_row,
+        order_placed_day,
+        order_week_start,
+        planned_order_receipt_day,
+        planned_order_to_receipt_days,
+        planned_procurement_lead_days,
+        reference_transport_lead_days,
+        render_factory_nominal_capacities_html,
+        render_order_ledger_html,
+        render_passive_uncertainty_html,
+        render_supplier_nominal_parameters_html,
+        render_supplier_risk_prediction_html,
+        render_supplier_stock_flows_html,
+        resolved_order_day,
+        risk_level,
+        source_planned_material_lead_days,
+        uncertainty_level,
+    )
+    from etudecas.visualization.maps.adapters.etudecas_run_payload import (
+        map_inputs_from_run_package,
+        run_contract_payload,
     )
     from etudecas.visualization.maps.supplier_risk_panels import (
         build_simulated_risk_global_diagnostic_payload,
@@ -252,6 +334,23 @@ def parse_args() -> argparse.Namespace:
         "--title",
         default="Supply Graph POC - Geocoded Map",
         help="HTML page title.",
+    )
+    parser.add_argument(
+        "--run-package",
+        default="",
+        help=(
+            "Generic simulation run package directory. When provided, standard "
+            "simulation CSV paths are resolved from run/artifact_index.json."
+        ),
+    )
+    parser.add_argument(
+        "--simulated-risk-output-dir",
+        default="",
+        help=(
+            "Optional simulation result directory used as the primary Risques simules "
+            "state-dependent scenario. The main map can stay nominal while this run "
+            "feeds risk events and risk diagnostic charts."
+        ),
     )
     parser.add_argument(
         "--externalize-payload",
@@ -1488,7 +1587,7 @@ def build_factory_hover_images(
                 outgoing_stock_with_targets,
                 title=f"{display_factory_id} - stock produits avec cible",
                 y_label="Quantite",
-                note="Lecture metier: stock physique et cible MRP affichee. Les details de calcul restent dans Audit MRP.",
+                note="Lecture metier: stock physique et cible MRP affichee. Les details de calcul restent dans Details MRP.",
                 series_styles=outgoing_target_styles,
             )
             if figure is not None:
@@ -1818,25 +1917,25 @@ def build_simulation_diagnostics_payload(
         worst_item = str(stats["worst_item"] or "")
         if service < 98.0 or backlog_days > 14:
             cls = "businessAlert"
-            status = "Critique service"
+            status = "Critique disponibilite"
             action = "Verifier stock aval et prioriser le reapprovisionnement du produit en retard."
         elif service < 99.5 or backlog_days > 2:
             cls = "businessWarn"
-            status = "Service sous surveillance"
+            status = "Disponibilite sous surveillance"
             action = "Surveiller les jours de backlog et verifier le stock DC sur les produits demandes."
         else:
             cls = "businessOk"
-            status = "Service client OK"
-            action = "Aucune action immediate; garder la preuve stock/demande pour expliquer le service."
+            status = "Disponibilite produit OK"
+            action = "Aucune action immediate; garder la preuve stock/demande pour expliquer la disponibilite."
         proof = (
             f"demande={compact_qty(stats['demand'])}, servi={compact_qty(stats['served'])}, "
-            f"service={service:.2f}%, backlog max={compact_qty(stats['max_backlog'])}"
+            f"disponibilite={service:.2f}%, backlog max={compact_qty(stats['max_backlog'])}"
         )
         if worst_item:
             proof += f" sur {item_label(worst_item)}"
         text = (
             "Question metier: le client est-il servi ? "
-            f"Reponse: {service:.2f}% servi, {backlog_days} jour(s) avec backlog. "
+            f"Reponse: disponibilite {service:.2f}%, {backlog_days} jour(s) avec backlog. "
             "Preuve: courbes demande / servi / backlog."
         )
         nodes[node_id] = make_diag(
@@ -1959,7 +2058,7 @@ def build_simulation_diagnostics_payload(
         else:
             proof = "stocks DC stables sur les items traces"
         text = (
-            "Question metier: le DC protege-t-il le service client ? "
+            "Question metier: le DC protege-t-il la disponibilite produit ? "
             f"Reponse: {status.lower()}. Receptions={compact_qty(inbound_by_node[node_id])}, "
             f"expeditions={compact_qty(outbound_by_node[node_id])}. Preuve: courbe stock DC / cible MRP."
         )
@@ -2465,7 +2564,7 @@ def build_distribution_center_hover_images(
                 y_label="Quantite",
                 note=(
                     "Lecture metier: stock physique disponible et cible MRP affichee. "
-                    "Position inventaire, besoin net et stock projete restent dans Audit MRP."
+                    "Position inventaire, besoin net et stock projete restent dans Details MRP."
                 ),
                 series_styles=per_item_styles,
             )
@@ -2888,2609 +2987,66 @@ def extend_global_kpi_tree_with_supplier_risk(
     return kpi_tree
 
 
-def is_display_order_row(row: dict[str, str]) -> bool:
-    order_type = str(row.get("order_type") or "").strip()
-    source_mode = str(row.get("source_mode") or "").strip()
-    return not order_type.startswith("external_procurement") and not source_mode.startswith("external_procurement")
 
 
-def display_order_type(order_type: Any) -> str:
-    raw = str(order_type or "").strip()
-    labels = {
-        "lane_release": "ordre_flux",
-        "opening_purchase_order": "ordre_achat_ouvert",
-        "opening_production_order": "ordre_production_ouvert",
-    }
-    return labels.get(raw, raw or "n/a")
 
 
-def compact_order_status(value: Any) -> str:
-    raw = str(value or "").strip()
-    labels = {
-        "planned_and_released": "planifie",
-        "opening_firm_order": "ouvert",
-        "released_before_or_at_j0": "rel<=J0",
-        "released": "lance",
-        "firm_receipt": "recu ferme",
-        "received": "recu",
-        "n/a": "n/a",
-    }
-    return labels.get(raw, raw or "n/a")
 
 
-def fmt_order_day(value: Any) -> str:
-    numeric = to_float(value)
-    if numeric is None or math.isnan(numeric):
-        return "n/a"
-    day = int(round(numeric))
-    return f"J{day:+d}".replace("+0", "0").replace("+", "")
 
 
-def fmt_order_day_range(min_value: Any, max_value: Any) -> str:
-    min_day = fmt_order_day(min_value)
-    max_day = fmt_order_day(max_value)
-    if min_day == max_day:
-        return min_day
-    return f"{min_day}..{max_day}"
 
 
-def order_week_start(day: int) -> int:
-    return (day // 7) * 7
 
 
-def order_placed_day(row: dict[str, str]) -> float | None:
-    value = to_float(row.get("order_date_imt"))
-    if value is None or math.isnan(value):
-        value = to_float(row.get("day"))
-    if value is None or math.isnan(value):
-        return None
-    return float(value)
 
 
-def is_opening_order_row(row: dict[str, str]) -> bool:
-    return str(row.get("order_type") or "").startswith("opening_")
 
 
-def reference_transport_lead_days(row: dict[str, str]) -> float | None:
-    value = to_float(row.get("lead_reference_days"))
-    if value is None or math.isnan(value) or value <= 0:
-        value = to_float(row.get("lead_cover_days"))
-    if value is None or math.isnan(value) or value <= 0:
-        return None
-    return float(value)
 
 
-def source_planned_material_lead_days(row: dict[str, str]) -> float | None:
-    value = to_float(row.get("lead_reference_days"))
-    if value is not None and not math.isnan(value) and value > 0:
-        return float(value)
-    if is_opening_order_row(row):
-        value = to_float(row.get("lead_days"))
-        if value is not None and not math.isnan(value) and value >= 0:
-            return float(value)
-    return None
 
 
-def planned_order_receipt_day(row: dict[str, str]) -> float | None:
-    order_day = order_placed_day(row)
-    planned_lead_days = planned_procurement_lead_days(row)
-    if (
-        order_day is not None
-        and planned_lead_days is not None
-        and not math.isnan(order_day)
-        and not math.isnan(planned_lead_days)
-        and planned_lead_days >= 0
-    ):
-        return float(order_day + planned_lead_days)
 
-    release_day = to_float(row.get("release_day"))
-    transport_lead_days = to_float(row.get("lead_reference_days"))
-    if transport_lead_days is None or math.isnan(transport_lead_days) or transport_lead_days <= 0:
-        transport_lead_days = to_float(row.get("lead_cover_days"))
-    if (
-        release_day is not None
-        and transport_lead_days is not None
-        and not math.isnan(release_day)
-        and not math.isnan(transport_lead_days)
-        and transport_lead_days > 0
-    ):
-        return float(release_day + transport_lead_days)
-    arrival_day = to_float(row.get("arrival_day"))
-    if arrival_day is not None and not math.isnan(arrival_day):
-        return float(arrival_day)
-    order_day = order_placed_day(row)
-    if order_day is not None and transport_lead_days is not None:
-        return float(order_day + transport_lead_days)
-    return None
 
 
-def effective_order_receipt_day(row: dict[str, str]) -> float | None:
-    value = to_float(row.get("actual_receipt_day"))
-    if value is None or math.isnan(value):
-        value = to_float(row.get("arrival_day"))
-    if value is None or math.isnan(value):
-        return None
-    return float(value)
 
 
-def planned_procurement_lead_days(row: dict[str, str]) -> float | None:
-    return source_planned_material_lead_days(row)
 
 
-def planned_order_to_receipt_days(row: dict[str, str]) -> float | None:
-    order_day = order_placed_day(row)
-    receipt_day = planned_order_receipt_day(row)
-    if order_day is None or receipt_day is None:
-        return None
-    return max(0.0, float(receipt_day - order_day))
 
 
-def effective_procurement_lead_days(row: dict[str, str]) -> float | None:
-    order_day = order_placed_day(row)
-    receipt_day = effective_order_receipt_day(row)
-    if (
-        order_day is not None
-        and receipt_day is not None
-        and not math.isnan(order_day)
-        and not math.isnan(receipt_day)
-    ):
-        return max(0.0, float(receipt_day - order_day))
 
-    release_day = to_float(row.get("release_day"))
-    if (
-        release_day is not None
-        and receipt_day is not None
-        and not math.isnan(release_day)
-        and not math.isnan(receipt_day)
-    ):
-        return max(0.0, float(receipt_day - release_day))
 
-    value = to_float(row.get("lead_days"))
-    if value is not None and not math.isnan(value) and value >= 0:
-        return float(value)
-    return None
 
 
-def resolved_order_day(row: dict[str, str], day_field: str = "day") -> int:
-    if day_field == "planned_arrival_day":
-        planned_day = planned_order_receipt_day(row)
-        return int(round(planned_day)) if planned_day is not None else 0
-    if day_field == "actual_receipt_day":
-        effective_day = effective_order_receipt_day(row)
-        return int(round(effective_day)) if effective_day is not None else 0
-    return int(to_float(row.get(day_field)) or 0)
 
 
-def consolidate_order_rows_weekly(rows: list[dict[str, str]]) -> list[dict[str, Any]]:
-    groups: dict[tuple[Any, ...], dict[str, Any]] = {}
-    for row in rows:
-        order_day = int(round(order_placed_day(row) or 0))
-        release_day = int(to_float(row.get("release_day")) or 0)
-        lead_reference_days = planned_procurement_lead_days(row)
-        planned_arrival = planned_order_receipt_day(row)
-        planned_arrival_day = int(round(planned_arrival)) if planned_arrival is not None else 0
-        effective_arrival = effective_order_receipt_day(row)
-        effective_arrival_day = int(round(effective_arrival)) if effective_arrival is not None else planned_arrival_day
-        item_id = str(row.get("item_id") or "")
-        key = (
-            order_week_start(order_day),
-            str(row.get("src_node_id") or ""),
-            str(row.get("dst_node_id") or ""),
-            item_id,
-            str(row.get("order_type") or ""),
-        )
-        group = groups.get(key)
-        if group is None:
-            group = {
-                "week_start": key[0],
-                "src_node_id": key[1],
-                "dst_node_id": key[2],
-                "item_id": item_id,
-                "order_type": key[4],
-                "line_count": 0,
-                "release_qty": 0.0,
-                "receipt_qty": 0.0,
-                "order_min": order_day,
-                "order_max": order_day,
-                "release_min": release_day,
-                "release_max": release_day,
-                "planned_arrival_min": planned_arrival_day,
-                "planned_arrival_max": planned_arrival_day,
-                "effective_arrival_min": effective_arrival_day,
-                "effective_arrival_max": effective_arrival_day,
-                "lead_reference_sum": 0.0,
-                "lead_reference_count": 0,
-                "statuses": defaultdict(int),
-                "exceptions": set(),
-            }
-            groups[key] = group
-        group["line_count"] += 1
-        group["release_qty"] += max(0.0, to_float(row.get("release_qty")) or 0.0)
-        group["receipt_qty"] += max(0.0, to_float(row.get("planned_receipt_qty")) or 0.0)
-        group["order_min"] = min(group["order_min"], order_day)
-        group["order_max"] = max(group["order_max"], order_day)
-        group["release_min"] = min(group["release_min"], release_day)
-        group["release_max"] = max(group["release_max"], release_day)
-        group["planned_arrival_min"] = min(group["planned_arrival_min"], planned_arrival_day)
-        group["planned_arrival_max"] = max(group["planned_arrival_max"], planned_arrival_day)
-        group["effective_arrival_min"] = min(group["effective_arrival_min"], effective_arrival_day)
-        group["effective_arrival_max"] = max(group["effective_arrival_max"], effective_arrival_day)
-        if lead_reference_days is not None and not math.isnan(lead_reference_days):
-            group["lead_reference_sum"] += float(lead_reference_days)
-            group["lead_reference_count"] += 1
-        status_key = str(row.get("order_status_end_of_run") or "n/a")
-        group["statuses"][status_key] += 1
-        for flag in [
-            str(row.get("planning_status") or ""),
-            str(row.get("release_status") or ""),
-            str(row.get("receipt_status") or ""),
-            str(row.get("order_status_end_of_run") or ""),
-        ]:
-            if flag and flag not in {"planned_and_released", "released", "firm_receipt", "received"}:
-                group["exceptions"].add(flag)
-    return sorted(
-        groups.values(),
-        key=lambda group: (
-            int(group["week_start"]),
-            str(group["item_id"]),
-            str(group["src_node_id"]),
-            str(group["dst_node_id"]),
-        ),
-        reverse=True,
-    )
 
 
-def render_order_ledger_html(
-    node_id: str,
-    node_orders: list[dict[str, str]],
-    item_labels: dict[str, str],
-    empty_reason: str | None = None,
-) -> str:
-    node_orders = [row for row in node_orders if is_display_order_row(row)]
-    if not node_orders:
-        reason_html = (
-            f"<div class=\"orderLedgerStatus\">{html.escape(empty_reason)}</div>"
-            if empty_reason else ""
-        )
-        return (
-            "<div class=\"factoryHtmlPanelContent orderLedgerPanelContent\">"
-            f"{reason_html}"
-            "<div class=\"panelEmptyState\">Aucun ordre MRP journalise pour ce noeud.</div>"
-            "</div>"
-        )
 
-    sorted_orders = sorted(
-        node_orders,
-        key=lambda r: (
-            int(to_float(r.get("order_date_imt")) or to_float(r.get("day")) or 0),
-            int(to_float(r.get("release_day")) or 0),
-            int(to_float(r.get("arrival_day")) or 0),
-            str(r.get("item_id") or ""),
-            str(r.get("edge_id") or ""),
-        ),
-        reverse=True,
-    )
-    status_counts: dict[str, int] = defaultdict(int)
-    for row in sorted_orders:
-        status_parts = [
-            f"plan={str(row.get('planning_status') or 'n/a')}",
-            f"release={str(row.get('release_status') or 'n/a')}",
-            f"receipt={str(row.get('receipt_status') or 'n/a')}",
-            f"run={str(row.get('order_status_end_of_run') or 'n/a')}",
-        ]
-        status_counts[" | ".join(status_parts)] += 1
 
-    edge_window_size = 500
-    if len(sorted_orders) > edge_window_size * 2:
-        display_orders = sorted_orders[:edge_window_size] + sorted_orders[-edge_window_size:]
-        display_note = f"{edge_window_size} plus recents + {edge_window_size} plus anciens"
-        separator_after = edge_window_size
-    else:
-        display_orders = sorted_orders
-        display_note = "tous les ordres"
-        separator_after = None
 
-    recent_rows: list[str] = []
-    for row_idx, row in enumerate(display_orders):
-        if separator_after is not None and row_idx == separator_after:
-            recent_rows.append(
-                '<tr class="orderLedgerSliceSeparator">'
-                '<td colspan="13">500 premiers ordres chronologiques affiches ci-dessous</td>'
-                '</tr>'
-            )
-        item_id = str(row.get("item_id") or "")
-        item_label = item_labels.get(item_id, compact_item_label(item_id))
-        mode_label = display_order_type(row.get("order_type"))
-        order_day_value = order_placed_day(row)
-        planned_arrival_day = planned_order_receipt_day(row)
-        actual_arrival_day_value = effective_order_receipt_day(row)
-        planned_lead_days_value = planned_procurement_lead_days(row)
-        effective_lead_days_value = effective_procurement_lead_days(row)
-        exceptions = [
-            str(row.get(field) or "").strip()
-            for field in ["exception_reason", "exception_type", "exception_code"]
-            if str(row.get(field) or "").strip()
-        ]
-        status_text = " | ".join(
-            part
-            for part in [
-                f"plan={str(row.get('planning_status') or 'n/a')}",
-                f"release={str(row.get('release_status') or 'n/a')}",
-                f"receipt={str(row.get('receipt_status') or 'n/a')}",
-                f"run={str(row.get('order_status_end_of_run') or 'n/a')}",
-            ]
-            if part
-        )
-        status_short = " / ".join(
-            [
-                compact_order_status(row.get("planning_status")),
-                compact_order_status(row.get("release_status")),
-                compact_order_status(row.get("receipt_status")),
-                compact_order_status(row.get("order_status_end_of_run")),
-            ]
-        )
-        release_qty = to_float(row.get("release_qty"))
-        receipt_qty = to_float(row.get("receipt_qty"))
-        if receipt_qty is None or math.isnan(receipt_qty):
-            receipt_qty = to_float(row.get("planned_receipt_qty"))
-        src_node_id = str(row.get("src_node_id") or "n/a")
-        dst_node_id = str(row.get("dst_node_id") or "n/a")
-        edge_id = str(row.get("edge_id") or "n/a")
-        flux_text = f"{src_node_id} -> {dst_node_id}"
-        exceptions_text = ", ".join(exceptions) if exceptions else "none"
-        row_cells = [
-            (fmt_order_day(order_day_value), ""),
-            (item_label, f"Item complet: {item_label}"),
-            (mode_label, mode_label),
-            (flux_text, f"{flux_text} | edge={edge_id}"),
-            (fmt_order_day(row.get("release_day")), ""),
-            (f"{fmt_qty(planned_lead_days_value, 1)} j", "Delai previsionnel matiere source: champ FIA 'Delai previsionnel de livraison en jours' quand disponible; sinon delai derive du carnet d'ouverture."),
-            (fmt_order_day(planned_arrival_day), ""),
-            (fmt_order_day(actual_arrival_day_value), ""),
-            (f"{fmt_qty(effective_lead_days_value, 1)} j", "Delai effectif matiere metier: arrivee effective - ordre passe fournisseur."),
-            (fmt_qty(release_qty, 1), ""),
-            (fmt_qty(receipt_qty, 1), ""),
-            (status_short, status_text or "n/a"),
-            (exceptions_text, exceptions_text),
-        ]
-        numeric_columns = {5, 8, 9, 10}
-        row_tds: list[str] = []
-        for idx, (value, title) in enumerate(row_cells):
-            cell_class = "num" if idx in numeric_columns else ""
-            title_attr = f' title="{html.escape(str(title), quote=True)}"' if title else ""
-            row_tds.append(
-                f'<td class="{cell_class}"{title_attr}>{html.escape(str(value))}</td>'
-            )
-        recent_rows.append("<tr>" + "".join(row_tds) + "</tr>")
 
-    title_suffix = "carnet d'ordres fournisseur" if node_id.startswith("SDC-") else "carnet d'ordres"
-    statuses_text = ", ".join(f"{status}={count}" for status, count in sorted(status_counts.items())) or "aucun"
-    table_header = "".join(
-        f"<th>{html.escape(label)}</th>"
-        for label in [
-            "Ordre passe",
-            "Item",
-            "Type",
-            "Flux",
-            "Envoi",
-            "Delai prev. mat.",
-            "Arrivee prev.",
-            "Arrivee effective",
-            "Delai eff. mat.",
-            "Qte envoyee",
-            "Qte recue",
-            "Statut",
-            "Exceptions",
-        ]
-    )
-    table_cols = "".join(
-        f"<col style=\"width:{width}px\">"
-        for width in [90, 90, 130, 270, 80, 95, 115, 125, 105, 115, 115, 330, 145]
-    )
-    recent_rows_body = "".join(recent_rows) if recent_rows else "<tr><td colspan=\"13\">Aucun ordre journalise</td></tr>"
-    recent_orders_html = (
-        "<div class=\"orderLedgerFrame\">"
-        "<div class=\"orderLedgerTableWrap\" tabindex=\"0\" aria-label=\"Tableau du carnet MRP avec barre de defilement horizontale native en bas.\">"
-        "<table class=\"orderLedgerTable orderLedgerWideTable\">"
-        f"<colgroup>{table_cols}</colgroup>"
-        f"<thead><tr>{table_header}</tr></thead>"
-        f"<tbody>{recent_rows_body}</tbody>"
-        "</table>"
-        "</div>"
-        "</div>"
-    )
 
-    return "".join(
-        [
-            "<div class=\"factoryHtmlPanelContent orderLedgerPanelContent\">",
-            f"<div class=\"orderLedgerTextHeader\">{html.escape(node_id)} - {html.escape(title_suffix)}</div>",
-            f"<div class=\"orderLedgerStatus\">Ordres MRP journalises: {len(sorted_orders)} ; lignes affichees: {len(display_orders)} ({html.escape(display_note)})</div>",
-            f"<div class=\"orderLedgerStatus\">Statuses lignes brutes: {html.escape(statuses_text)}</div>",
-            "<div class=\"orderLedgerStatus\">Jalons: ordre_passe=order_date_imt | envoi=release_day | arrivee_previsionnelle=ordre_passe+delai_previsionnel_source | arrivee_effective=actual_receipt_day/arrival_day | delai_previsionnel_matiere=delai source donnees FIA/Extract | delai_effectif_matiere=arrivee_effective-ordre_passe</div>",
-            "<div class=\"orderLedgerSectionTitle\">Ordres passes affiches: 500 derniers puis 500 premiers si le carnet depasse 1000 lignes.</div>",
-            recent_orders_html,
-            "</div>",
-        ]
-    )
 
 
-def render_supplier_stock_flows_html(
-    node_id: str,
-    flow_rows: list[dict[str, str]],
-    shipment_rows: list[dict[str, str]],
-    order_rows: list[dict[str, str]],
-    item_labels: dict[str, str],
-) -> str:
-    visible_flow_rows = [
-        row for row in flow_rows
-        if not is_simulation_hidden_item(str(row.get("item_id") or ""))
-    ]
-    visible_shipment_rows = [
-        row for row in shipment_rows
-        if not is_simulation_hidden_item(str(row.get("item_id") or ""))
-    ]
-    visible_order_rows = [
-        row for row in order_rows
-        if str(row.get("src_node_id") or "") == node_id
-        and not is_simulation_hidden_item(str(row.get("item_id") or ""))
-    ]
-    if not visible_flow_rows and not visible_shipment_rows and not visible_order_rows:
-        return (
-            "<div class=\"factoryHtmlPanelContent orderLedgerPanelContent\">"
-            f"<div class=\"orderLedgerTextHeader\">{html.escape(node_id)} - flux stock fournisseur</div>"
-            "<div class=\"panelEmptyState\">Aucun flux stock fournisseur, envoi physique ou ordre previsionnel disponible pour ce noeud.</div>"
-            "</div>"
-        )
 
-    stats_by_item: dict[str, dict[str, Any]] = {}
 
-    def stats_for(item_id: str, uom: str = "") -> dict[str, Any]:
-        stats = stats_by_item.get(item_id)
-        if stats is None:
-            stats = {
-                "uom": uom,
-                "first_day": None,
-                "last_day": None,
-                "stock_start": 0.0,
-                "stock_end": 0.0,
-                "min_stock": None,
-                "max_stock": 0.0,
-                "incoming": 0.0,
-                "incoming_external": 0.0,
-                "incoming_estimated": 0.0,
-                "incoming_upstream": 0.0,
-                "stock_writeoff": 0.0,
-                "outgoing_pulled": 0.0,
-                "outgoing_shipped": 0.0,
-                "physical_shipped": 0.0,
-                "planned_received": 0.0,
-                "confirmed_received": 0.0,
-                "loss": 0.0,
-                "incoming_days": 0,
-                "outgoing_days": 0,
-                "physical_send_days": set(),
-                "planned_receipt_days": set(),
-                "confirmed_receipt_days": set(),
-                "max_balance_gap": 0.0,
-            }
-            stats_by_item[item_id] = stats
-        elif uom and not stats.get("uom"):
-            stats["uom"] = uom
-        return stats
 
-    for row in visible_flow_rows:
-        item_id = str(row.get("item_id") or "")
-        if not item_id:
-            continue
-        stats = stats_for(item_id, str(row.get("uom") or ""))
-        day = int(to_float(row.get("day")) or 0)
-        start = max(0.0, to_float(row.get("stock_start_of_day")) or 0.0)
-        end = max(0.0, to_float(row.get("stock_end_of_day")) or 0.0)
-        incoming = max(0.0, to_float(row.get("incoming_qty")) or 0.0)
-        outgoing = max(0.0, to_float(row.get("outgoing_pulled_qty")) or 0.0)
-        if stats["first_day"] is None or day < stats["first_day"]:
-            stats["first_day"] = day
-            stats["stock_start"] = start
-        if stats["last_day"] is None or day >= stats["last_day"]:
-            stats["last_day"] = day
-            stats["stock_end"] = end
-        stats["min_stock"] = end if stats["min_stock"] is None else min(stats["min_stock"], end)
-        stats["max_stock"] = max(stats["max_stock"], end, start)
-        stats["incoming"] += incoming
-        stats["incoming_external"] += max(0.0, to_float(row.get("incoming_external_market_qty")) or 0.0)
-        stats["incoming_estimated"] += max(0.0, to_float(row.get("incoming_estimated_source_qty")) or 0.0)
-        stats["incoming_upstream"] += max(0.0, to_float(row.get("incoming_upstream_pipeline_qty")) or 0.0)
-        stats["stock_writeoff"] += max(0.0, to_float(row.get("stock_writeoff_qty")) or 0.0)
-        stats["outgoing_pulled"] += outgoing
-        stats["outgoing_shipped"] += max(0.0, to_float(row.get("outgoing_shipped_qty")) or 0.0)
-        stats["loss"] += max(0.0, to_float(row.get("outgoing_unreliable_loss_qty")) or 0.0)
-        if incoming > 1e-9:
-            stats["incoming_days"] += 1
-        if outgoing > 1e-9:
-            stats["outgoing_days"] += 1
-        stats["max_balance_gap"] = max(
-            stats["max_balance_gap"],
-            abs(to_float(row.get("balance_check_gap_qty")) or 0.0),
-        )
 
-    for row in visible_shipment_rows:
-        item_id = str(row.get("item_id") or "")
-        if not item_id:
-            continue
-        stats = stats_for(item_id, str(row.get("uom") or ""))
-        shipped = max(0.0, to_float(row.get("shipped_qty")) or 0.0)
-        if shipped <= 1e-9:
-            continue
-        stats["physical_shipped"] += shipped
-        send_day = to_float(row.get("day"))
-        if send_day is not None and not math.isnan(send_day):
-            stats["physical_send_days"].add(int(round(send_day)))
-        receipt_day = to_float(row.get("arrival_day"))
-        if receipt_day is not None and not math.isnan(receipt_day):
-            stats["confirmed_received"] += shipped
-            stats["confirmed_receipt_days"].add(int(round(receipt_day)))
 
-    for row in visible_order_rows:
-        item_id = str(row.get("item_id") or "")
-        if not item_id:
-            continue
-        stats = stats_for(item_id, str(row.get("uom") or ""))
-        planned_received = max(0.0, to_float(row.get("planned_receipt_qty")) or 0.0)
-        if planned_received <= 1e-9:
-            continue
-        stats["planned_received"] += planned_received
-        planned_receipt_day = planned_order_receipt_day(row)
-        if planned_receipt_day is not None and not math.isnan(planned_receipt_day):
-            stats["planned_receipt_days"].add(int(round(planned_receipt_day)))
 
-    rows_html: list[str] = []
-    for item_id, stats in sorted(stats_by_item.items(), key=lambda kv: item_labels.get(kv[0], kv[0])):
-        title = (
-            "Stock fin = stock debut + entrees - sorties stock. "
-            "Sorties stock = quantite prelevee chez fournisseur; expedie aval = quantite utile apres fiabilite."
-        )
-        cells = [
-            (item_labels.get(item_id, compact_item_label(item_id)), f"Item complet: {item_id}"),
-            (stats.get("uom") or "n/a", ""),
-            (fmt_qty(stats.get("stock_start"), 1), title),
-            (fmt_qty(stats.get("incoming"), 1), "entrees reelles dans le stock fournisseur"),
-            (fmt_qty(stats.get("incoming_external"), 1), "dont arrivees appro amont fournisseur"),
-            (fmt_qty(stats.get("stock_writeoff"), 1), "pertes de stock fournisseur appliquees par evenement de risque"),
-            (fmt_qty(stats.get("outgoing_pulled"), 1), "sorties reelles du stock fournisseur"),
-            (fmt_qty(stats.get("outgoing_shipped"), 1), "quantite utile expediee aval apres fiabilite"),
-            (fmt_qty(stats.get("physical_shipped"), 1), "envois physiques issus de production_supplier_shipments_daily.day"),
-            (fmt_qty(stats.get("planned_received"), 1), "receptions aval previsionnelles issues du carnet MRP, datees a ordre_passe + delai previsionnel source"),
-            (fmt_qty(stats.get("confirmed_received"), 1), "receptions aval reelles confirmees, datees par arrival_day des envois physiques fournisseur"),
-            (
-                fmt_qty((stats.get("physical_shipped") or 0.0) - (stats.get("outgoing_shipped") or 0.0), 1),
-                "ecart entre envois physiques et expedie aval du bilan stock; les commandes d'ouverture/historiques peuvent etre hors bilan stock quotidien",
-            ),
-            (fmt_qty(stats.get("loss"), 1), "ecart entre stock preleve et quantite utile aval"),
-            (fmt_qty(stats.get("stock_end"), 1), title),
-            (fmt_qty(stats.get("min_stock"), 1), "stock fin de jour minimum observe"),
-            (fmt_qty(stats.get("max_stock"), 1), "stock maximum observe"),
-            (str(stats.get("incoming_days") or 0), "jours avec entree fournisseur"),
-            (str(stats.get("outgoing_days") or 0), "jours avec sortie fournisseur"),
-            (str(len(stats.get("physical_send_days") or [])), "jours avec envoi physique"),
-            (str(len(stats.get("planned_receipt_days") or [])), "jours avec reception aval previsionnelle"),
-            (str(len(stats.get("confirmed_receipt_days") or [])), "jours avec reception aval reelle confirmee"),
-            (fmt_qty(stats.get("max_balance_gap"), 6), "ecart max du bilan stock quotidien"),
-        ]
-        numeric_columns = set(range(2, len(cells)))
-        row_tds: list[str] = []
-        for idx, (value, cell_title) in enumerate(cells):
-            cell_class = "num" if idx in numeric_columns else ""
-            title_attr = f' title="{html.escape(str(cell_title), quote=True)}"' if cell_title else ""
-            row_tds.append(f'<td class="{cell_class}"{title_attr}>{html.escape(str(value))}</td>')
-        rows_html.append("<tr>" + "".join(row_tds) + "</tr>")
 
-    headers = [
-        "Item",
-        "UOM",
-        "Stock debut",
-        "Entrees total",
-        "Dont appro amont",
-        "Pertes stock",
-        "Sorties stock",
-        "Expedie aval",
-        "Envois phys.",
-        "Receptions prev.",
-        "Receptions reelles",
-        "Ecart phys/stock",
-        "Ecart fiabilite",
-        "Stock fin",
-        "Stock min",
-        "Stock max",
-        "Jours entree",
-        "Jours sortie",
-        "Jours envoi phys.",
-        "Jours recept. prev.",
-        "Jours recept. reelle",
-        "Ecart bilan",
-    ]
-    table_cols = "".join(
-        f"<col style=\"width:{width}px\">"
-        for width in [105, 70, 115, 125, 125, 115, 120, 120, 120, 120, 130, 125, 120, 115, 115, 115, 100, 100, 120, 120, 130, 110]
-    )
-    return "".join(
-        [
-            "<div class=\"factoryHtmlPanelContent orderLedgerPanelContent\">",
-            f"<div class=\"orderLedgerTextHeader\">{html.escape(node_id)} - flux stock fournisseur</div>",
-            "<div class=\"orderLedgerStatus\">Bilan quotidien consolide par item: stock debut + entrees fournisseur - pertes stock - sorties stock = stock fin.</div>",
-            "<div class=\"orderLedgerStatus\">Entrees = arrivees dans le stock fournisseur; sorties stock = quantite prelevee chez le fournisseur; expedie aval tient compte de la fiabilite.</div>",
-            "<div class=\"orderLedgerStatus\">Envois phys. = production_supplier_shipments_daily.day. Receptions prev. = carnet MRP date a ordre_passe + delai previsionnel source. Receptions reelles = arrival_day des envois physiques confirmes.</div>",
-            "<div class=\"orderLedgerFrame\">",
-            "<div class=\"orderLedgerTableWrap\" tabindex=\"0\" aria-label=\"Tableau des flux de stock fournisseur avec defilement horizontal natif en bas.\">",
-            "<table class=\"orderLedgerTable orderLedgerWideTable\">",
-            f"<colgroup>{table_cols}</colgroup>",
-            f"<thead><tr>{''.join(f'<th>{html.escape(label)}</th>' for label in headers)}</tr></thead>",
-            f"<tbody>{''.join(rows_html)}</tbody>",
-            "</table>",
-            "</div>",
-            "</div>",
-            "</div>",
-        ]
-    )
 
 
-def build_scenario_comparison_payload(current_output_root: Path) -> dict[str, Any]:
-    result_root = current_output_root.parent
-    sweep_root = result_root / "risk_amplitude_duration_sweep_5y"
-    sweep_cases_root = sweep_root / "cases"
-    compact_payload_path = sweep_root / "scenario_comparison_payload_compact.json"
-    if compact_payload_path.exists() and not sweep_cases_root.exists():
-        compact_payload = load_json_dict(compact_payload_path)
-        if compact_payload:
-            return compact_payload
-    sweep_summary_csv = sweep_root / "risk_amplitude_duration_sweep_summary.csv"
-    sweep_rows = read_csv_rows(sweep_summary_csv)
-    sweep_by_id = {str(row.get("case_id") or ""): row for row in sweep_rows if row.get("case_id")}
-    preferred_names = [
-        "_codex_lot_trace_5y_safe",
-        "_codex_lot_trace_5y_state_risks",
-        "mrp_bom_test_weekly_mps_lotified_no_fallback_physical_floor_portfolio_cost_risk_non_state_risks_test",
-        "_codex_lot_trace_5y_risk_portfolio",
-        "mrp_bom_test_weekly_mps_lotified_no_fallback_physical_floor_multisource_portfolio_test",
-        "mrp_bom_test_weekly_mps_lotified_no_fallback_physical_floor_multisource_portfolio_state_dependent_risk_test",
-        "mrp_bom_test_weekly_mps_lotified_no_fallback_physical_floor_multisource_cost_risk_portfolio_test",
-    ]
-    if current_output_root.name not in preferred_names:
-        preferred_names.append(current_output_root.name)
 
-    label_overrides = {
-        "_codex_lot_trace_5y_safe": "Nominal 5 ans",
-        "_codex_lot_trace_5y_state_risks": "Risques state-dependent",
-        "_codex_lot_trace_5y_risk_portfolio": "Portefeuille risques actuel",
-        "mrp_bom_test_weekly_mps_lotified_no_fallback_physical_floor_portfolio_cost_risk_non_state_risks_test": "Risques metier fournisseurs",
-        "mrp_bom_test_weekly_mps_lotified_no_fallback_physical_floor_multisource_portfolio_test": "Multisource nominal",
-        "mrp_bom_test_weekly_mps_lotified_no_fallback_physical_floor_multisource_portfolio_state_dependent_risk_test": "Multisource + state-dependent",
-        "mrp_bom_test_weekly_mps_lotified_no_fallback_physical_floor_multisource_cost_risk_portfolio_test": "Multisource + risques cout",
-    }
 
-    def short_label(name: str) -> str:
-        if name in sweep_by_id and sweep_by_id[name].get("label"):
-            return str(sweep_by_id[name].get("label") or name)
-        if name in label_overrides:
-            return label_overrides[name]
-        cleaned = name.replace("_codex_", "").replace("mrp_bom_test_weekly_mps_lotified_no_fallback_physical_floor_", "")
-        return cleaned.replace("_", " ").strip().title()
 
-    def classify(name: str, summary: dict[str, Any]) -> str:
-        policy = summary.get("policy") or {}
-        supplier_risk_count = int(to_float((policy.get("supplier_risk") or {}).get("event_count")) or 0)
-        state_count = int(to_float((policy.get("supplier_state_dependent_risk") or {}).get("generated_event_count")) or 0)
-        lower = name.lower()
-        if "safe" in lower or (supplier_risk_count == 0 and state_count == 0 and "nominal" in lower):
-            return "nominal"
-        if supplier_risk_count > 0 and state_count > 0:
-            return "risques combines"
-        if supplier_risk_count > 0:
-            return "scenario metier"
-        if state_count > 0:
-            return "state-dependent"
-        if "multisource" in lower:
-            return "mitigation / multisource"
-        return "scenario"
 
-    def load_summary(root: Path) -> dict[str, Any]:
-        return load_json_dict(root / "summaries" / "first_simulation_summary.json")
 
-    def scenario_roots() -> list[Path]:
-        roots: list[Path] = []
-        seen: set[Path] = set()
-        for name in preferred_names:
-            root = result_root / name
-            if root in seen or not (root / "summaries" / "first_simulation_summary.json").exists():
-                continue
-            roots.append(root)
-            seen.add(root)
-        cases_root = sweep_cases_root
-        if cases_root.exists():
-            for row in sorted(sweep_rows, key=lambda item: to_float(item.get("impact_score")), reverse=True):
-                case_id = str(row.get("case_id") or "")
-                if not case_id:
-                    continue
-                if case_id == "baseline_nominal" and any(root.name == "_codex_lot_trace_5y_safe" for root in roots):
-                    continue
-                root = cases_root / case_id
-                if root in seen or not (root / "summaries" / "first_simulation_summary.json").exists():
-                    continue
-                roots.append(root)
-                seen.add(root)
-        return roots
 
-    def daily_totals(rows: list[dict[str, str]], field: str) -> dict[int, float]:
-        out: dict[int, float] = defaultdict(float)
-        for row in rows:
-            day = int(to_float(row.get("day")) or 0)
-            out[day] += max(0.0, to_float(row.get(field)) or 0.0)
-        return out
 
-    def dense_points(values: dict[int, float], max_day: int) -> list[tuple[int, float]]:
-        return [(day, float(values.get(day, 0.0))) for day in range(max_day + 1)]
-
-    def cumulative_ratio_points(num_by_day: dict[int, float], den_by_day: dict[int, float], max_day: int) -> list[tuple[int, float]]:
-        points: list[tuple[int, float]] = []
-        cum_num = 0.0
-        cum_den = 0.0
-        last = 100.0
-        for day in range(max_day + 1):
-            cum_num += float(num_by_day.get(day, 0.0))
-            cum_den += float(den_by_day.get(day, 0.0))
-            if cum_den > 1e-9:
-                last = 100.0 * cum_num / cum_den
-            points.append((day, last))
-        return points
-
-    def leading_startup_backlog_days(backlog_by_day: dict[int, float], max_day: int) -> list[int]:
-        days: list[int] = []
-        for day in range(max_day + 1):
-            value = float(backlog_by_day.get(day, 0.0))
-            if value > 1e-9:
-                days.append(day)
-                continue
-            break
-        return days
-
-    scenarios: list[dict[str, Any]] = []
-    for root in scenario_roots():
-        summary = load_summary(root)
-        if not summary:
-            continue
-        sweep_row = sweep_by_id.get(root.name, {})
-        horizon = int(to_float(summary.get("timeline_days") or summary.get("sim_days") or 0) or 0)
-        if horizon < 300:
-            continue
-        kpis = (summary.get("kpis") or {}) if isinstance(summary, dict) else {}
-        data_root = root / "data"
-        demand_rows = read_csv_rows(data_root / "production_demand_service_daily.csv")
-        plan_rows = read_csv_rows(data_root / "production_plan_events.csv")
-        constraint_rows = read_csv_rows(data_root / "production_constraint_daily.csv")
-        risk_rows = read_csv_rows(data_root / "supplier_risk_events_applied_daily.csv")
-
-        max_day = horizon - 1 if horizon > 0 else max([0] + [int(to_float(row.get("day")) or 0) for row in demand_rows + plan_rows + risk_rows])
-        demand_by_day = daily_totals(demand_rows, "demand_qty")
-        served_by_day = daily_totals(demand_rows, "served_qty")
-        backlog_by_day = daily_totals(demand_rows, "backlog_end_qty")
-        startup_backlog_days = leading_startup_backlog_days(backlog_by_day, max_day)
-        startup_day_set = set(startup_backlog_days)
-        startup_backlog_peak = max((backlog_by_day.get(day, 0.0) for day in startup_backlog_days), default=0.0)
-        decision_backlog_by_day = {
-            day: value
-            for day, value in backlog_by_day.items()
-            if day not in startup_day_set
-        }
-        max_backlog = max(decision_backlog_by_day.values(), default=0.0)
-        backlog_days = sum(1 for value in decision_backlog_by_day.values() if value > 1e-9)
-
-        starts_by_day: dict[int, float] = defaultdict(float)
-        input_delay_by_day: dict[int, float] = defaultdict(float)
-        lot_delay_by_day: dict[int, float] = defaultdict(float)
-        input_delay_volume = 0.0
-        for row in plan_rows:
-            day = int(to_float(row.get("day")) or 0)
-            event_type = str(row.get("event_type") or "")
-            reason = str(row.get("reason") or "")
-            if event_type == "start_campaign":
-                starts_by_day[day] += 1.0
-            if event_type == "delay_input_shortage" or reason == "input_shortage":
-                input_delay_by_day[day] += 1.0
-                input_delay_volume += max(0.0, to_float(row.get("shortfall_vs_lot_plan_qty")) or 0.0)
-            if event_type == "delay_weekly_lot_limit" or reason == "weekly_lot_limit":
-                lot_delay_by_day[day] += 1.0
-
-        risk_by_day: dict[int, float] = defaultdict(float)
-        risk_event_ids: set[str] = set()
-        risk_suppliers: set[str] = set()
-        for row in risk_rows:
-            day = int(to_float(row.get("day")) or 0)
-            risk_by_day[day] += 1.0
-            supplier_id = str(row.get("supplier_id") or "")
-            if supplier_id:
-                risk_suppliers.add(supplier_id)
-            for event_id in str(row.get("event_ids") or "").split(","):
-                event_id = event_id.strip()
-                if event_id:
-                    risk_event_ids.add(event_id)
-
-        actual_produced = sum(max(0.0, to_float(row.get("actual_qty")) or 0.0) for row in constraint_rows)
-        is_sweep = bool(sweep_row)
-        scenario_family = str(sweep_row.get("family") or classify(root.name, summary))
-        scenario_severity = str(sweep_row.get("severity") or "")
-        impact_score = max(0.0, to_float(sweep_row.get("impact_score")) or 0.0)
-        fill_rate_value = to_float(sweep_row.get("fill_rate")) if is_sweep else None
-        if fill_rate_value is None:
-            fill_rate_value = to_float(kpis.get("fill_rate")) or 0.0
-        max_backlog_value = to_float(sweep_row.get("backlog_max_ex_startup")) if is_sweep else None
-        if max_backlog_value is None:
-            max_backlog_value = max_backlog
-        input_delay_count_value = to_float(sweep_row.get("input_delay_count")) if is_sweep else None
-        if input_delay_count_value is None:
-            input_delay_count_value = sum(input_delay_by_day.values())
-        input_delay_volume_value = to_float(sweep_row.get("input_delay_volume")) if is_sweep else None
-        if input_delay_volume_value is None:
-            input_delay_volume_value = input_delay_volume
-        total_cost_value = to_float(sweep_row.get("total_cost")) if is_sweep else None
-        if total_cost_value is None:
-            total_cost_value = max(0.0, to_float(kpis.get("total_cost")) or 0.0)
-        scenarios.append(
-            {
-                "id": root.name,
-                "label": short_label(root.name),
-                "kind": "sweep " + scenario_family if is_sweep else classify(root.name, summary),
-                "family": scenario_family,
-                "severity": scenario_severity,
-                "source": "risk_amplitude_duration_sweep" if is_sweep else "run_result",
-                "impact_score": impact_score,
-                "is_current": root.resolve() == current_output_root.resolve(),
-                "horizon_days": max_day + 1,
-                "kpis": {
-                    "fill_rate": fill_rate_value,
-                    "fill_rate_delta_pp": to_float(sweep_row.get("fill_rate_delta_pp")) if is_sweep else 0.0,
-                    "ending_backlog": max(0.0, to_float(kpis.get("ending_backlog")) or 0.0),
-                    "max_backlog": max_backlog_value,
-                    "backlog_days": backlog_days,
-                    "startup_backlog_days": len(startup_backlog_days),
-                    "startup_backlog_peak": startup_backlog_peak,
-                    "startup_backlog_last_day": max(startup_backlog_days) if startup_backlog_days else None,
-                    "total_demand": max(0.0, to_float(kpis.get("total_demand")) or sum(demand_by_day.values())),
-                    "total_served": max(0.0, to_float(kpis.get("total_served")) or sum(served_by_day.values())),
-                    "total_produced": max(0.0, to_float(kpis.get("total_produced")) or actual_produced),
-                    "actual_produced": actual_produced,
-                    "input_delay_count": int(input_delay_count_value),
-                    "lot_delay_count": int(sum(lot_delay_by_day.values())),
-                    "input_delay_volume": input_delay_volume_value,
-                    "input_delay_volume_delta": to_float(sweep_row.get("input_delay_volume_delta")) if is_sweep else 0.0,
-                    "risk_event_count": len(risk_event_ids),
-                    "risk_row_count": len(risk_rows),
-                    "risk_supplier_count": len(risk_suppliers),
-                    "risk_applied_rows": to_float(sweep_row.get("risk_applied_rows")) if is_sweep else len(risk_rows),
-                    "state_events_generated": to_float(sweep_row.get("state_events_generated")) if is_sweep else 0.0,
-                    "total_unreliable_loss_qty": max(
-                        0.0,
-                        (
-                            to_float(sweep_row.get("unreliable_loss_qty"))
-                            if is_sweep
-                            else to_float(kpis.get("total_unreliable_loss_qty"))
-                        )
-                        or 0.0,
-                    ),
-                    "loss_delta": (to_float(sweep_row.get("loss_delta")) if is_sweep else 0.0) or 0.0,
-                    "total_external_procurement_cost": max(
-                        0.0,
-                        (
-                            to_float(sweep_row.get("external_procurement_cost"))
-                            if is_sweep
-                            else to_float(kpis.get("total_external_procurement_cost"))
-                        )
-                        or 0.0,
-                    ),
-                    "external_cost_delta": (to_float(sweep_row.get("external_cost_delta")) if is_sweep else 0.0) or 0.0,
-                    "total_transport_cost": max(0.0, to_float(kpis.get("total_transport_cost")) or 0.0),
-                    "total_purchase_cost": max(0.0, to_float(kpis.get("total_purchase_cost")) or 0.0),
-                    "total_cost": max(0.0, total_cost_value),
-                    "cost_delta": (to_float(sweep_row.get("cost_delta")) if is_sweep else 0.0) or 0.0,
-                    "impact_score": impact_score,
-                },
-                "series": {
-                    "backlog": dense_points(decision_backlog_by_day, max_day),
-                    "service_rate": cumulative_ratio_points(served_by_day, demand_by_day, max_day),
-                    "served": dense_points(served_by_day, max_day),
-                    "demand": dense_points(demand_by_day, max_day),
-                    "input_delays": dense_points(input_delay_by_day, max_day),
-                    "lot_delays": dense_points(lot_delay_by_day, max_day),
-                    "production_starts": dense_points(starts_by_day, max_day),
-                    "risk_rows": dense_points(risk_by_day, max_day),
-                },
-            }
-        )
-
-    if not scenarios:
-        return {"available": False, "html": "", "figures": {}, "scenarios": []}
-
-    nominal = next(
-        (
-            scenario
-            for scenario in scenarios
-            if scenario["id"] in {"_codex_lot_trace_5y_safe", "baseline_nominal"}
-        ),
-        scenarios[0],
-    )
-    nominal_kpis = nominal["kpis"]
-
-    def delta(value: float, base: float, digits: int = 1) -> str:
-        diff = value - base
-        if abs(diff) <= 1e-9:
-            return "0"
-        sign = "+" if diff > 0 else ""
-        return f"{sign}{fmt_qty(diff, digits)}"
-
-    best_cost = min(scenarios, key=lambda item: item["kpis"].get("total_cost", math.inf))
-    best_production = min(scenarios, key=lambda item: (item["kpis"].get("input_delay_count", math.inf), item["kpis"].get("input_delay_volume", math.inf)))
-    worst_backlog = max(scenarios, key=lambda item: item["kpis"].get("max_backlog", 0.0))
-    most_risk = max(scenarios, key=lambda item: item["kpis"].get("impact_score", 0.0) or item["kpis"].get("risk_event_count", 0.0))
-
-    def card(title: str, value: str, text: str, color: str) -> str:
-        return (
-            f"<div class=\"riskScenarioCard\" style=\"border-left-color:{html.escape(color)}\">"
-            f"<div class=\"riskScenarioCardTitle\">{html.escape(title)}</div>"
-            f"<div class=\"riskScenarioCardText\"><strong>{html.escape(value)}</strong><br>{html.escape(text)}</div>"
-            "</div>"
-        )
-
-    cards_html = "".join(
-        [
-            card(
-                "Reference",
-                nominal["label"],
-                (
-                    f"Base de comparaison: fill rate {fmt_pct(nominal_kpis['fill_rate'] * 100.0)} ; "
-                    f"cout total {fmt_qty(nominal_kpis['total_cost'], 0)}. "
-                    f"Amorcage client: {int(nominal_kpis.get('startup_backlog_days') or 0)} j, "
-                    f"pic {fmt_qty(nominal_kpis.get('startup_backlog_peak') or 0, 0)}."
-                ),
-                "#2563eb",
-            ),
-            card(
-                "Cout total le plus bas",
-                best_cost["label"],
-                f"Cout total {fmt_qty(best_cost['kpis']['total_cost'], 0)} ; delta vs reference {delta(best_cost['kpis']['total_cost'], nominal_kpis['total_cost'], 0)}.",
-                "#0f766e",
-            ),
-            card(
-                "Production la moins reportee",
-                best_production["label"],
-                f"{best_production['kpis']['input_delay_count']} reports intrants ; volume reporte {fmt_qty(best_production['kpis']['input_delay_volume'], 0)}.",
-                "#d97706",
-            ),
-            card(
-                "Scenario le plus perturbateur",
-                most_risk["label"],
-                (
-                    f"Score {fmt_qty(most_risk['kpis'].get('impact_score') or 0, 1)} ; "
-                    f"fill rate {fmt_pct((most_risk['kpis'].get('fill_rate') or 0) * 100.0)} ; "
-                    f"backlog max {fmt_qty(most_risk['kpis'].get('max_backlog') or 0, 0)}."
-                ),
-                "#be123c",
-            ),
-        ]
-    )
-
-    headers = [
-        "Scenario",
-        "Type",
-        "Famille",
-        "Amplitude",
-        "Service",
-        "Backlog max hors amorcage",
-        "Amorcage client",
-        "Reports intrants",
-        "Volume reporte",
-        "Delta volume",
-        "Score",
-        "Pertes fournisseur",
-        "Delta pertes",
-        "Cout appro fournisseur",
-        "Cout total",
-        "Delta cout",
-    ]
-    rows_html = []
-    for scenario in scenarios:
-        k = scenario["kpis"]
-        cls = "scenarioCurrentRow" if scenario.get("is_current") else ""
-        startup_cell = f"{int(k.get('startup_backlog_days') or 0)} j ; pic {fmt_qty(k.get('startup_backlog_peak') or 0, 0)}"
-        rows_html.append(
-            f"<tr class=\"{cls}\" data-scenario-id=\"{html.escape(scenario['id'])}\">"
-            f"<td>{html.escape(scenario['label'])}</td>"
-            f"<td>{html.escape(scenario['kind'])}</td>"
-            f"<td>{html.escape(str(scenario.get('family') or 'n/a'))}</td>"
-            f"<td>{html.escape(str(scenario.get('severity') or 'n/a'))}</td>"
-            f"<td>{html.escape(fmt_pct(k['fill_rate'] * 100.0))}</td>"
-            f"<td>{html.escape(fmt_qty(k['max_backlog'], 0))}</td>"
-            f"<td>{html.escape(startup_cell)}</td>"
-            f"<td>{html.escape(str(k['input_delay_count']))}</td>"
-            f"<td>{html.escape(fmt_qty(k['input_delay_volume'], 0))}</td>"
-            f"<td>{html.escape(delta(k.get('input_delay_volume_delta') or 0, 0, 0))}</td>"
-            f"<td>{html.escape(fmt_qty(k.get('impact_score') or 0, 1))}</td>"
-            f"<td>{html.escape(fmt_qty(k['total_unreliable_loss_qty'], 0))}</td>"
-            f"<td>{html.escape(delta(k.get('loss_delta') or 0, 0, 0))}</td>"
-            f"<td>{html.escape(fmt_qty(k['total_external_procurement_cost'], 0))}</td>"
-            f"<td>{html.escape(fmt_qty(k['total_cost'], 0))}</td>"
-            f"<td>{html.escape(delta(k.get('cost_delta') or (k['total_cost'] - nominal_kpis['total_cost']), 0, 0))}</td>"
-            "</tr>"
-        )
-
-    palette = ["#2563eb", "#0f766e", "#d97706", "#be123c", "#7c3aed", "#475569", "#0891b2"]
-    max_impact_id = ""
-    if scenarios:
-        max_impact_id = max(scenarios, key=lambda item: float((item.get("kpis") or {}).get("impact_score") or 0.0))["id"]
-    style_by_label = {
-        scenario["label"]: {
-            "color": palette[idx % len(palette)],
-            "width": 2.8 if scenario.get("is_current") else 2.1,
-            "dash": "solid" if scenario.get("is_current") else "dot" if scenario["kind"] == "nominal" else "solid",
-            "scenario_id": scenario["id"],
-            "is_current": bool(scenario.get("is_current")),
-            "is_nominal": scenario["id"] in {nominal["id"], "baseline_nominal", "_codex_lot_trace_5y_safe"} or scenario["kind"] == "nominal",
-            "is_max_impact": scenario["id"] == max_impact_id,
-            "family": scenario.get("family") or scenario["kind"],
-            "impact_score": float((scenario.get("kpis") or {}).get("impact_score") or 0.0),
-        }
-        for idx, scenario in enumerate(scenarios)
-    }
-
-    def enable_scenario_tube(
-        figure: dict[str, Any] | None,
-        *,
-        reference_value: float | None = None,
-        reference_label: str = "",
-        zero_floor: bool = False,
-        upper_percentile: float = 0.90,
-    ) -> dict[str, Any] | None:
-        if figure is None:
-            return None
-        figure["scenario_tube"] = True
-        figure["tube_label"] = "Enveloppe scenarios selectionnes"
-        figure["trajectory_label"] = "Trajectoires scenarios"
-        figure["tube_zero_floor"] = bool(zero_floor)
-        figure["tube_upper_percentile"] = float(upper_percentile)
-        if reference_value is not None:
-            figure["reference_line_value"] = float(reference_value)
-            figure["reference_line_label"] = reference_label
-        return figure
-
-    figures: dict[str, Any] = {}
-    backlog_figure = build_line_chart_figure(
-        {scenario["label"]: scenario["series"]["backlog"] for scenario in scenarios},
-        title="Backlog client compare hors amorcage",
-        y_label="Backlog fin jour",
-        note="Les jours d'amorcage J0..Jn dus au stock client initial nul sont retires de cette courbe et detailles dans le tableau.",
-        series_styles=style_by_label,
-    )
-    if backlog_figure is not None:
-        figures["backlog"] = enable_scenario_tube(backlog_figure, reference_value=0.0, reference_label="objectif backlog 0")
-
-    service_figure = build_line_chart_figure(
-        {scenario["label"]: scenario["series"]["service_rate"] for scenario in scenarios},
-        title="Service client cumule compare",
-        y_label="Servi / demande cumulee (%)",
-        note="Trajectoire de service cumule. Une baisse durable indique que les stocks et receptions n'absorbent plus le risque.",
-        series_styles=style_by_label,
-    )
-    if service_figure is not None:
-        figures["service_rate"] = enable_scenario_tube(service_figure, reference_value=100.0, reference_label="service 100%")
-
-    production_figure = build_line_chart_figure(
-        {scenario["label"]: scenario["series"]["input_delays"] for scenario in scenarios},
-        title="Reports de production par manque d'intrants",
-        y_label="Reports / jour",
-        note="Compare les jours ou une production attend de la matiere ou du PFI.",
-        event_like=True,
-        series_styles=style_by_label,
-    )
-    if production_figure is not None:
-        figures["production_delays"] = enable_scenario_tube(
-            production_figure,
-            reference_value=0.0,
-            reference_label="objectif report 0",
-            zero_floor=True,
-            upper_percentile=1.0,
-        )
-
-    starts_figure = build_line_chart_figure(
-        {scenario["label"]: scenario["series"]["production_starts"] for scenario in scenarios},
-        title="Lancements de production compares",
-        y_label="Lots / campagnes lancees",
-        note="Permet de voir si le scenario decale ou concentre les lancements de production.",
-        event_like=True,
-        series_styles=style_by_label,
-    )
-    if starts_figure is not None:
-        figures["production_starts"] = enable_scenario_tube(starts_figure)
-
-    risk_figure = build_line_chart_figure(
-        {scenario["label"]: scenario["series"]["risk_rows"] for scenario in scenarios},
-        title="Effets fournisseurs appliques dans chaque scenario",
-        y_label="Effets locaux / jour",
-        note="Mesure la pression risque appliquee dans le run, pas seulement les evenements configures.",
-        series_styles=style_by_label,
-    )
-    if risk_figure is not None:
-        figures["risk_rows"] = enable_scenario_tube(risk_figure)
-
-    figures["cost"] = {
-        "kind": "bar",
-        "title": "Cout total compare",
-        "y_label": "Cout total",
-        "ids": [scenario["id"] for scenario in scenarios],
-        "labels": [scenario["label"] for scenario in scenarios],
-        "values": [float(scenario["kpis"]["total_cost"]) for scenario in scenarios],
-        "colors": [style_by_label[scenario["label"]]["color"] for scenario in scenarios],
-    }
-
-    checks_html = "".join(
-        (
-            "<label class=\"scenarioComparisonCheck\">"
-            f"<input type=\"checkbox\" class=\"scenarioComparisonChk\" value=\"{html.escape(scenario['id'])}\" checked>"
-            f"<span>{html.escape(scenario['label'])}</span>"
-            f"<small>{html.escape(str(scenario.get('family') or scenario['kind']))}</small>"
-            "</label>"
-        )
-        for scenario in scenarios
-    )
-
-    scenarios_by_id = {scenario["id"]: scenario for scenario in scenarios}
-    default_selected_ids = []
-
-    def add_default_scenario(scenario: dict[str, Any] | None) -> None:
-        if not scenario:
-            return
-        scenario_id = str(scenario.get("id") or "")
-        if scenario_id and scenario_id not in default_selected_ids and scenario_id in scenarios_by_id:
-            default_selected_ids.append(scenario_id)
-
-    add_default_scenario(nominal)
-    add_default_scenario(scenarios_by_id.get(current_output_root.name))
-    for scenario in [most_risk, worst_backlog, best_cost, best_production]:
-        add_default_scenario(scenario)
-    ranked_defaults = sorted(
-        scenarios,
-        key=lambda scenario: (
-            -float((scenario.get("kpis") or {}).get("impact_score") or 0.0),
-            -float((scenario.get("kpis") or {}).get("max_backlog") or 0.0),
-            -float((scenario.get("kpis") or {}).get("input_delay_volume") or 0.0),
-            str(scenario.get("id") or ""),
-        ),
-    )
-    for scenario in ranked_defaults:
-        if len(default_selected_ids) >= 8:
-            break
-        add_default_scenario(scenario)
-    if not default_selected_ids:
-        default_selected_ids = [scenario["id"] for scenario in scenarios[: min(8, len(scenarios))]]
-
-    html_parts = [
-        "<div class=\"factoryHtmlPanelContent sensitivityHtmlPanelContent scenarioComparisonContent\">",
-        "<div class=\"orderLedgerTextHeader\">Comparaison de scenarios</div>",
-        "<div class=\"orderLedgerStatus\">Question metier: quel scenario degrade le service, reporte la production, augmente les couts ou consomme la resilience du reseau ? La ligne du scenario courant est surlignee.</div>",
-        "<div class=\"orderLedgerStatus\">Note: le backlog J0/J1 vient du stock client initialise a zero et du delai DC -> client. Il est affiche comme amorcage client, mais exclu du backlog comparatif des scenarios.</div>",
-        "<div class=\"scenarioComparisonControls\">",
-        "<div class=\"scenarioComparisonActions\">",
-        "<button class=\"tableBtn\" type=\"button\" data-scenario-select=\"all\">Tous</button>",
-        "<button class=\"tableBtn\" type=\"button\" data-scenario-select=\"top\">Top perturbateurs</button>",
-        "<button class=\"tableBtn\" type=\"button\" data-scenario-select=\"service\">Service degrade</button>",
-        "<button class=\"tableBtn\" type=\"button\" data-scenario-select=\"lead_time\">Delais</button>",
-        "<button class=\"tableBtn\" type=\"button\" data-scenario-select=\"quality\">Qualite</button>",
-        "<button class=\"tableBtn\" type=\"button\" data-scenario-select=\"transport\">Transport</button>",
-        "<button class=\"tableBtn\" type=\"button\" data-scenario-select=\"combined\">Cascades</button>",
-        "<button class=\"tableBtn\" type=\"button\" data-scenario-select=\"current\">Courant</button>",
-        "<button class=\"tableBtn\" type=\"button\" data-scenario-select=\"nominal_current\">Nominal + courant</button>",
-        "<span id=\"scenarioComparisonSelectionMeta\" class=\"scenarioComparisonSelectionMeta\"></span>",
-        "</div>",
-        f"<div id=\"scenarioComparisonScenarioChecks\" class=\"scenarioComparisonChecks\">{checks_html}</div>",
-        "</div>",
-        f"<div id=\"scenarioComparisonCards\" class=\"riskScenarioCards\">{cards_html}</div>",
-        "<div class=\"riskScenarioSection\">Courbes comparatives</div>",
-        "<div class=\"riskScenarioMuted\">Lecture des courbes: gris = trajectoires selectionnees, bande bleue = enveloppe centrale P10-P90. Pour les reports, la bande part de zero et montre l'amplitude des scenarios selectionnes. Pointille bleu = mediane, noir = nominal, orange = run courant, rouge = scenario le plus perturbateur.</div>",
-        "<div class=\"riskDiagnosticChartGrid\">",
-        "<div id=\"scenarioCmpBacklog\" class=\"riskDiagnosticChart\"></div>",
-        "<div id=\"scenarioCmpService\" class=\"riskDiagnosticChart\"></div>",
-        "<div id=\"scenarioCmpProduction\" class=\"riskDiagnosticChart\"></div>",
-        "<div id=\"scenarioCmpStarts\" class=\"riskDiagnosticChart\"></div>",
-        "<div id=\"scenarioCmpRisk\" class=\"riskDiagnosticChart\"></div>",
-        "<div id=\"scenarioCmpCost\" class=\"riskDiagnosticChart\"></div>",
-        "</div>",
-        "<div class=\"riskScenarioSection\">Tableau decisionnel</div>",
-        "<div class=\"kpiFormulaTableWrap\"><table class=\"kpiFormulaTable scenarioComparisonTable\">",
-        "<thead><tr>",
-        "".join(f"<th>{html.escape(header)}</th>" for header in headers),
-        "</tr></thead>",
-        f"<tbody>{''.join(rows_html)}</tbody>",
-        "</table></div>",
-        "<div class=\"riskScenarioMuted\">Lecture: le fill rate peut rester bon meme si la production est reportee. Dans ce cas, la decision se fait sur les reports, le stock consomme, le cout d'appro fournisseur et les pertes fournisseur.</div>",
-        "</div>",
-    ]
-    return {
-        "available": True,
-        "html": "".join(html_parts),
-        "figures": figures,
-        "scenarios": [
-            {
-                "id": scenario["id"],
-                "label": scenario["label"],
-                "kind": scenario["kind"],
-                "family": scenario.get("family") or "",
-                "severity": scenario.get("severity") or "",
-                "source": scenario.get("source") or "",
-                "impact_score": scenario.get("impact_score") or 0.0,
-                "is_current": bool(scenario.get("is_current")),
-                "kpis": scenario["kpis"],
-            }
-            for scenario in scenarios
-        ],
-        "default_selected_ids": default_selected_ids,
-    }
-
-
-def finite_numeric_values(values: Iterable[Any], *, positive_only: bool = False) -> list[float]:
-    out: list[float] = []
-    for value in values:
-        numeric = to_float(value)
-        if numeric is None or math.isnan(numeric):
-            continue
-        if positive_only and numeric <= 0:
-            continue
-        out.append(float(numeric))
-    return out
-
-
-def coefficient_of_variation(values: list[float]) -> float | None:
-    if len(values) < 2:
-        return None
-    mean_value = statistics.mean(values)
-    if abs(mean_value) <= 1e-12:
-        return None
-    return statistics.pstdev(values) / abs(mean_value)
-
-
-def uncertainty_level(cv: float | None) -> str:
-    if cv is None:
-        return "non estimee"
-    if cv < 0.05:
-        return "stable"
-    if cv < 0.20:
-        return "variable"
-    return "tres variable"
-
-
-def fmt_uncertainty_band(values: list[float], *, kind: str = "qty", digits: int = 1) -> str:
-    if not values:
-        return "n/a"
-    p10 = percentile(values, 0.10)
-    p50 = percentile(values, 0.50)
-    p90 = percentile(values, 0.90)
-
-    def fmt_value(value: float) -> str:
-        if kind == "days":
-            return fmt_days(value, digits)
-        if kind == "pct":
-            return fmt_pct(value * 100.0, digits)
-        return fmt_qty(value, digits)
-
-    return f"P10={fmt_value(p10)} ; P50={fmt_value(p50)} ; P90={fmt_value(p90)}"
-
-
-def render_passive_uncertainty_html(
-    scope_id: str,
-    *,
-    scope_label: str,
-    order_rows: list[dict[str, str]],
-    stock_rows: list[dict[str, str]],
-    capacity_rows: list[dict[str, str]],
-    shipment_rows: list[dict[str, str]],
-    nominal_rows: list[dict[str, str]],
-    item_labels: dict[str, str],
-) -> str:
-    visible_order_rows = [
-        row for row in order_rows
-        if not is_simulation_hidden_item(str(row.get("item_id") or ""))
-    ]
-    visible_stock_rows = [
-        row for row in stock_rows
-        if not is_simulation_hidden_item(str(row.get("item_id") or ""))
-    ]
-    visible_capacity_rows = [
-        row for row in capacity_rows
-        if not is_simulation_hidden_item(str(row.get("item_id") or ""))
-    ]
-    visible_shipment_rows = [
-        row for row in shipment_rows
-        if not is_simulation_hidden_item(str(row.get("item_id") or ""))
-    ]
-    visible_nominal_rows = [
-        row for row in nominal_rows
-        if not is_simulation_hidden_item(str(row.get("item_id") or ""))
-    ]
-
-    planned_leads = finite_numeric_values(
-        (planned_procurement_lead_days(row) for row in visible_order_rows),
-        positive_only=True,
-    )
-    if not planned_leads:
-        planned_leads = finite_numeric_values(
-            (row.get("planned_lead_time_days") for row in visible_nominal_rows),
-            positive_only=True,
-        )
-    effective_leads = finite_numeric_values(
-        (effective_procurement_lead_days(row) for row in visible_order_rows),
-        positive_only=True,
-    )
-    if not effective_leads:
-        effective_leads = finite_numeric_values(
-            (row.get("lead_days") for row in visible_shipment_rows),
-            positive_only=True,
-        )
-    comparable_lead_pairs: list[tuple[float, float]] = []
-    for row in visible_order_rows:
-        planned = planned_procurement_lead_days(row)
-        effective = effective_procurement_lead_days(row)
-        if planned is None or effective is None or planned <= 0 or effective < 0:
-            continue
-        comparable_lead_pairs.append((float(planned), float(effective)))
-    lead_ratio_values = [
-        effective / planned
-        for planned, effective in comparable_lead_pairs
-        if planned > 0
-    ]
-    late_pairs = [
-        (planned, effective)
-        for planned, effective in comparable_lead_pairs
-        if effective > planned + 1e-9
-    ]
-    delay_probability = len(late_pairs) / len(comparable_lead_pairs) if comparable_lead_pairs else None
-    avg_delay = (
-        statistics.mean(max(0.0, effective - planned) for planned, effective in comparable_lead_pairs)
-        if comparable_lead_pairs
-        else None
-    )
-    lead_cv = coefficient_of_variation(lead_ratio_values) or coefficient_of_variation(effective_leads)
-    lead_cv_suggested = max(0.05, min(0.35, lead_cv if lead_cv is not None else 0.10))
-
-    capacity_values = finite_numeric_values(
-        (row.get("capacity_qty_per_day") for row in visible_capacity_rows),
-        positive_only=True,
-    )
-    utilization_values = finite_numeric_values((row.get("utilization") for row in visible_capacity_rows))
-    nominal_capacity_values = finite_numeric_values(
-        (
-            row.get("industrial_nominal_capacity_qty_per_day")
-            or row.get("effective_capacity_qty_per_day")
-            or row.get("nominal_capacity_qty_per_day")
-            for row in visible_nominal_rows
-        ),
-        positive_only=True,
-    )
-    max_utilization = max(utilization_values) if utilization_values else None
-    avg_active_utilization_values = [value for value in utilization_values if value > 1e-9]
-    avg_active_utilization = statistics.mean(avg_active_utilization_values) if avg_active_utilization_values else None
-    capacity_cv = coefficient_of_variation(avg_active_utilization_values or utilization_values)
-    capacity_cv_suggested = max(0.05, min(0.30, capacity_cv if capacity_cv is not None else 0.10))
-
-    stock_values = finite_numeric_values((row.get("stock_end_of_day") for row in visible_stock_rows))
-    stock_cv = coefficient_of_variation(stock_values)
-    stock_cv_suggested = max(0.05, min(0.40, stock_cv if stock_cv is not None else 0.15))
-    stock_zero_days = sum(1 for value in stock_values if value <= 1e-9)
-    stock_zero_probability = stock_zero_days / len(stock_values) if stock_values else None
-
-    reliability_values = finite_numeric_values((row.get("reliability") for row in visible_shipment_rows))
-    loss_ratios: list[float] = []
-    for row in visible_shipment_rows:
-        pulled = to_float(row.get("pulled_qty"))
-        shipped = to_float(row.get("shipped_qty"))
-        if pulled is None or shipped is None or math.isnan(pulled) or math.isnan(shipped) or pulled <= 0:
-            continue
-        loss_ratios.append(max(0.0, min(1.0, (pulled - shipped) / pulled)))
-    reliability_cv = coefficient_of_variation(reliability_values)
-    reliability_mean = statistics.mean(reliability_values) if reliability_values else None
-    loss_mean = statistics.mean(loss_ratios) if loss_ratios else None
-    reliability_cv_suggested = max(0.002, min(0.05, reliability_cv if reliability_cv is not None else 0.005))
-
-    item_ids = sorted(
-        {
-            str(row.get("item_id") or "")
-            for row in visible_order_rows
-            + visible_stock_rows
-            + visible_capacity_rows
-            + visible_shipment_rows
-            + visible_nominal_rows
-            if str(row.get("item_id") or "")
-        }
-    )
-    item_text = ", ".join(item_labels.get(item_id, compact_item_label(item_id)) for item_id in item_ids[:8])
-    if len(item_ids) > 8:
-        item_text += f" +{len(item_ids) - 8}"
-    if not item_text:
-        item_text = "n/a"
-
-    def fmt_optional_mean(values: list[float], *, kind: str = "qty", digits: int = 1) -> str:
-        if not values:
-            return "n/a"
-        value = statistics.mean(values)
-        if kind == "days":
-            return fmt_days(value, digits)
-        if kind == "pct":
-            return fmt_pct(value * 100.0, digits)
-        return fmt_qty(value, digits)
-
-    def fmt_optional_pct_fraction(value: float | None, digits: int = 1) -> str:
-        return "n/a" if value is None else fmt_pct(value * 100.0, digits)
-
-    def data_confidence(row_count: int, *, has_distribution: bool = True) -> float:
-        value = 0.18 + math.log1p(max(0, row_count)) / 7.5
-        if has_distribution:
-            value += 0.08
-        return max(0.0, min(0.95, value))
-
-    def uncertainty_pressure_from_cv(cv: float | None, *, missing_penalty: float, scale: float) -> float:
-        if cv is None:
-            return missing_penalty
-        return max(0.0, min(1.0, cv / scale))
-
-    lead_uncertainty = uncertainty_pressure_from_cv(lead_cv, missing_penalty=0.45, scale=0.35)
-    capacity_uncertainty = uncertainty_pressure_from_cv(capacity_cv, missing_penalty=0.35, scale=0.30)
-    stock_uncertainty = uncertainty_pressure_from_cv(stock_cv, missing_penalty=0.35, scale=0.80)
-    reliability_uncertainty = uncertainty_pressure_from_cv(reliability_cv, missing_penalty=0.30, scale=0.05)
-    delay_risk = max(lead_uncertainty, delay_probability or 0.0)
-    capacity_risk = capacity_uncertainty
-    stock_cycle_pressure = min(0.35, stock_uncertainty)
-    stock_risk = max(stock_cycle_pressure, stock_zero_probability or 0.0)
-    reliability_risk = max(reliability_uncertainty, min(1.0, 4.0 * (loss_mean or 0.0)))
-    global_uncertainty = (
-        0.35 * delay_risk
-        + 0.25 * capacity_risk
-        + 0.20 * stock_risk
-        + 0.20 * reliability_risk
-    )
-    global_confidence = statistics.mean(
-        [
-            data_confidence(len(comparable_lead_pairs), has_distribution=bool(effective_leads)),
-            data_confidence(len(visible_capacity_rows), has_distribution=bool(capacity_values)),
-            data_confidence(len(visible_stock_rows), has_distribution=bool(stock_values)),
-            data_confidence(len(visible_shipment_rows), has_distribution=bool(reliability_values or loss_ratios)),
-        ]
-    )
-
-    def uncertainty_status_key(score: float) -> str:
-        if score >= 0.60:
-            return "sensitive"
-        if score >= 0.30:
-            return "watch"
-        return "robust"
-
-    def uncertainty_status_label(score: float) -> str:
-        if score >= 0.60:
-            return "fragile"
-        if score >= 0.30:
-            return "a qualifier"
-        return "fiable"
-
-    def uncertainty_fact(label: str, value: str, tooltip: str | None = None) -> str:
-        return "".join(
-            [
-                f"<div class=\"{html_tooltip_class('', tooltip)}\"{html_tooltip_attrs(tooltip)}>",
-                f"<span>{html.escape(label)}</span>",
-                f"<b>{html.escape(value)}</b>",
-                "</div>",
-            ]
-        )
-
-    def uncertainty_card(title: str, value: str, note: str, score: float, tooltip: str | None = None) -> str:
-        status_key = uncertainty_status_key(score)
-        return "".join(
-            [
-                f"<div class=\"{html_tooltip_class(f'uncertaintyCard sensitivityStatus-{html.escape(status_key)}', tooltip)}\"{html_tooltip_attrs(tooltip)}>",
-                f"<div class=\"uncertaintyCardLabel\">{html.escape(title)}</div>",
-                f"<div class=\"uncertaintyCardValue\">{html.escape(value)}</div>",
-                f"<div class=\"uncertaintyCardNote\">{html.escape(note)}</div>",
-                "</div>",
-            ]
-        )
-
-    global_uncertainty_tooltip = "\n".join(
-        [
-            "Formule",
-            "incertitude globale = 35% delai + 25% capacite + 20% stock + 20% fiabilite",
-            "",
-            "Calcul ici",
-            f"35% x delai {fmt_pct(delay_risk * 100.0)}",
-            f"25% x capacite {fmt_pct(capacity_risk * 100.0)}",
-            f"20% x stock {fmt_pct(stock_risk * 100.0)}",
-            f"20% x fiabilite {fmt_pct(reliability_risk * 100.0)}",
-            f"Resultat = {fmt_pct(global_uncertainty * 100.0)}",
-            "",
-            "Lecture",
-            "Mesure la qualite de lecture et la dispersion des donnees locales. Ce n'est ni un incident simule, ni une mesure de resilience.",
-        ]
-    )
-    confidence_tooltip = "\n".join(
-        [
-            "Formule",
-            "confiance donnees = moyenne des couvertures delai, capacite, stock et fiabilite",
-            "",
-            "Calcul ici",
-            f"Ordres comparables delai = {len(comparable_lead_pairs)}",
-            f"Lignes capacite = {len(visible_capacity_rows)}",
-            f"Lignes stock = {len(visible_stock_rows)}",
-            f"Lignes flux = {len(visible_shipment_rows)}",
-            f"Confiance moyenne = {fmt_pct(global_confidence * 100.0)}",
-            "",
-            "Lecture",
-            "Plus cette valeur est haute, plus les donnees suffisent a lire la situation.",
-        ]
-    )
-    lead_tooltip = "\n".join(
-        [
-            "Formule",
-            "score delai = max(incertitude delai, taux de retard)",
-            "incertitude delai = CV delai / 35%",
-            "",
-            "Calcul ici",
-            f"CV delai = {fmt_optional_pct_fraction(lead_cv)}",
-            f"Incertitude delai = {fmt_pct(lead_uncertainty * 100.0)}",
-            f"Taux retard = {fmt_optional_pct_fraction(delay_probability)}",
-            f"Retard moyen = {fmt_days(avg_delay, 1)}",
-            f"Score delai = {fmt_pct(delay_risk * 100.0)}",
-            "",
-            "Lecture",
-            "Mesure si les delais observes sont disperses ou souvent au-dessus du delai prevu.",
-        ]
-    )
-    capacity_tooltip = "\n".join(
-        [
-            "Formule",
-            "score capacite = CV utilisation capacite / 30%",
-            "",
-            "Calcul ici",
-            f"CV utilisation = {fmt_optional_pct_fraction(capacity_cv)}",
-            f"Utilisation active moyenne = {fmt_optional_pct_fraction(avg_active_utilization)}",
-            f"Utilisation max = {fmt_optional_pct_fraction(max_utilization)}",
-            f"Score capacite = {fmt_pct(capacity_risk * 100.0)}",
-            "",
-            "Lecture",
-            "Mesure la dispersion de l'utilisation capacite disponible dans les donnees.",
-        ]
-    )
-    stock_tooltip = "\n".join(
-        [
-            "Formule",
-            "score stock = max(pression cycle stock, part jours a stock zero)",
-            "pression cycle stock = min(35%, CV stock / 80%)",
-            "",
-            "Calcul ici",
-            f"CV stock = {fmt_optional_pct_fraction(stock_cv)}",
-            f"Pression cycle stock = {fmt_pct(stock_cycle_pressure * 100.0)}",
-            f"Part jours stock zero = {fmt_optional_pct_fraction(stock_zero_probability)}",
-            f"Jours stock zero = {stock_zero_days}",
-            f"Score stock = {fmt_pct(stock_risk * 100.0)}",
-            "",
-            "Lecture",
-            "Mesure l'incertitude de lecture liee aux cycles de stock et aux passages a zero.",
-        ]
-    )
-    reliability_tooltip = "\n".join(
-        [
-            "Formule",
-            "score fiabilite = max(CV fiabilite / 5%, 4 x perte moyenne)",
-            "",
-            "Calcul ici",
-            f"CV fiabilite = {fmt_optional_pct_fraction(reliability_cv)}",
-            f"Incertitude fiabilite = {fmt_pct(reliability_uncertainty * 100.0)}",
-            f"Perte moyenne = {fmt_optional_pct_fraction(loss_mean, 2)}",
-            f"4 x perte moyenne = {fmt_optional_pct_fraction(4.0 * (loss_mean or 0.0), 2)}",
-            f"Score fiabilite = {fmt_pct(reliability_risk * 100.0)}",
-            "",
-            "Lecture",
-            "Mesure la dispersion de fiabilite et les pertes observees sur les flux fournisseur.",
-        ]
-    )
-
-    dashboard_html = "".join(
-        [
-            f"<div class=\"{html_tooltip_class(f'uncertaintyDashboard sensitivityStatus-{html.escape(uncertainty_status_key(global_uncertainty))}', global_uncertainty_tooltip)}\"{html_tooltip_attrs(global_uncertainty_tooltip)}>",
-            "<div class=\"uncertaintyHero\">",
-            "<div>",
-            f"<div class=\"sensitivityStatusPill\">Lecture {html.escape(uncertainty_status_label(global_uncertainty))}</div>",
-            f"<div class=\"uncertaintyHeroTitle\">{html.escape(scope_id)} - confiance de lecture</div>",
-            f"<div class=\"uncertaintyHeroText\">Ce panneau dit si les donnees locales sont faciles a lire: couverture, dispersion des delais, cycles de stock, capacite et fiabilite. Il ne mesure pas la resilience du systeme. La resilience se lit dans le bouton Monte Carlo. Score lecture {fmt_pct(global_uncertainty * 100.0)} ; confiance donnees {fmt_pct(global_confidence * 100.0)}.</div>",
-            "</div>",
-            "<div class=\"uncertaintyHeroFacts\">",
-            uncertainty_fact("Items", item_text, f"Items couverts par cette lecture: {item_text}"),
-            uncertainty_fact("Lignes ordres", str(len(visible_order_rows)), f"Lignes carnet MRP/ordres utilisees. Couples delai comparables: {len(comparable_lead_pairs)}."),
-            uncertainty_fact("Lignes stock", str(len(visible_stock_rows)), f"Lignes de stock fournisseur utilisees. Jours stock zero detectes: {stock_zero_days}."),
-            uncertainty_fact("Lignes flux", str(len(visible_shipment_rows)), f"Lignes de flux fournisseur utilisees. Confiance donnees globale: {fmt_pct(global_confidence * 100.0)}."),
-            "</div>",
-            "</div>",
-            "<div class=\"uncertaintyCardGrid\">",
-            uncertainty_card(
-                "Delai matiere",
-                uncertainty_level(lead_cv),
-                "dispersion observee des delais" if lead_cv is not None else "donnees de delai limitees",
-                delay_risk,
-                lead_tooltip,
-            ),
-            uncertainty_card(
-                "Capacite",
-                uncertainty_level(capacity_cv),
-                f"utilisation max {fmt_optional_pct_fraction(max_utilization)}",
-                capacity_risk,
-                capacity_tooltip,
-            ),
-            uncertainty_card(
-                "Stock",
-                uncertainty_level(stock_cv),
-                f"jours a stock zero: {stock_zero_days}",
-                stock_risk,
-                stock_tooltip,
-            ),
-            uncertainty_card(
-                "Fiabilite",
-                uncertainty_level(reliability_cv),
-                f"perte moyenne {fmt_optional_pct_fraction(loss_mean, 2)}",
-                reliability_risk,
-                reliability_tooltip,
-            ),
-            "</div>",
-            "</div>",
-        ]
-    )
-
-    def envelope_row(
-        scenario: str,
-        lead_mult: float,
-        cap_mult: float,
-        stock_mult: float,
-        reliability_mult: float,
-        meaning: str,
-    ) -> str:
-        lead_factor = 1.0 + lead_cv_suggested * lead_mult
-        cap_factor = max(0.0, 1.0 - capacity_cv_suggested * cap_mult)
-        stock_factor = max(0.0, 1.0 - stock_cv_suggested * stock_mult)
-        reliability_factor = max(0.0, 1.0 - reliability_cv_suggested * reliability_mult)
-        return (
-            "<tr>"
-            f"<td>{html.escape(scenario)}</td>"
-            f"<td>x{lead_factor:.2f}</td>"
-            f"<td>x{cap_factor:.2f}</td>"
-            f"<td>x{stock_factor:.2f}</td>"
-            f"<td>x{reliability_factor:.3f}</td>"
-            f"<td>{html.escape(meaning)}</td>"
-            "</tr>"
-        )
-
-    envelope_rows = [
-        envelope_row("Reference", 0.0, 0.0, 0.0, 0.0, "run courant, sans alea ajoute"),
-        envelope_row("Prudent", 1.0, 1.0, 1.0, 1.0, "variation plausible a tester en premier"),
-        envelope_row("Pessimiste", 2.0, 2.0, 2.0, 2.0, "stress d'incertitude sans incident explicite"),
-    ]
-    envelope_html = "".join(
-        [
-            "<div class=\"uncertaintyEnvelope\">",
-            "<table class=\"kpiFormulaTable\">",
-            "<thead><tr><th>Enveloppe</th><th>Delai</th><th>Capacite</th><th>Stock</th><th>Fiabilite</th><th>Lecture</th></tr></thead>",
-            f"<tbody>{''.join(envelope_rows)}</tbody>",
-            "</table>",
-            "</div>",
-        ]
-    )
-
-    quality_rows = [
-        ("Lead time", len(comparable_lead_pairs), data_confidence(len(comparable_lead_pairs), has_distribution=bool(effective_leads)), "ordre -> reception prevue/effective"),
-        ("Capacite", len(visible_capacity_rows), data_confidence(len(visible_capacity_rows), has_distribution=bool(capacity_values)), "capacite quotidienne observee"),
-        ("Stock", len(visible_stock_rows), data_confidence(len(visible_stock_rows), has_distribution=bool(stock_values)), "stock fournisseur journalier"),
-        ("Fiabilite", len(visible_shipment_rows), data_confidence(len(visible_shipment_rows), has_distribution=bool(reliability_values or loss_ratios)), "expeditions et pertes"),
-    ]
-    quality_html = "".join(
-        [
-            "<div class=\"uncertaintyQualityGrid\">",
-            *(
-                "<div class=\"uncertaintyQualityCell\">"
-                f"<div class=\"uncertaintyQualityTitle\">{html.escape(name)}</div>"
-                f"<div class=\"uncertaintyQualityValue\">{count} lignes · {fmt_pct(conf * 100.0)}</div>"
-                f"<div class=\"uncertaintyQualityNote\">{html.escape(note)}</div>"
-                "</div>"
-                for name, count, conf, note in quality_rows
-            ),
-            "</div>",
-        ]
-    )
-
-    table_rows = [
-        (
-            "Lead time",
-            "mrp_orders_daily: order_date_imt, actual_receipt_day, lead_reference_days",
-            fmt_optional_mean(planned_leads, kind="days"),
-            f"{uncertainty_level(lead_cv)}" if lead_cv is not None else "non estimee",
-            fmt_uncertainty_band(effective_leads, kind="days"),
-            f"taux retard={fmt_optional_pct_fraction(delay_probability)} ; retard moyen={fmt_days(avg_delay, 1)}",
-            f"lead_time_cv={lead_cv_suggested:.3f} (inactif)",
-        ),
-        (
-            "Capacite",
-            "production_supplier_capacity_daily.csv",
-            fmt_optional_mean(nominal_capacity_values or capacity_values),
-            f"{uncertainty_level(capacity_cv)}" if capacity_cv is not None else "non estimee",
-            fmt_uncertainty_band(capacity_values),
-            f"util active={fmt_optional_pct_fraction(avg_active_utilization)} ; util max={fmt_optional_pct_fraction(max_utilization)}",
-            f"capacity_cv={capacity_cv_suggested:.3f} (inactif)",
-        ),
-        (
-            "Stock fournisseur",
-            "production_supplier_stocks_daily.csv",
-            fmt_optional_mean(stock_values),
-            f"{uncertainty_level(stock_cv)}" if stock_cv is not None else "non estimee",
-            fmt_uncertainty_band(stock_values),
-            f"part jours stock zero={fmt_optional_pct_fraction(stock_zero_probability)} ; jours zero={stock_zero_days}",
-            f"stock_availability_cv={stock_cv_suggested:.3f} (inactif)",
-        ),
-        (
-            "Fiabilite / qualite",
-            "production_supplier_shipments_daily.csv",
-            fmt_optional_pct_fraction(reliability_mean),
-            f"{uncertainty_level(reliability_cv)}" if reliability_cv is not None else "non estimee",
-            fmt_uncertainty_band(reliability_values, kind="pct", digits=2),
-            f"perte moyenne={fmt_optional_pct_fraction(loss_mean, 2)} ; lignes={len(visible_shipment_rows)}",
-            f"reliability_cv={reliability_cv_suggested:.3f} (inactif)",
-        ),
-    ]
-    rows_html = []
-    for dim, source, nominal, uncertainty, band, risk, inactive_param in table_rows:
-        rows_html.append(
-            "<tr>"
-            f"<td>{html.escape(dim)}</td>"
-            f"<td>{html.escape(source)}</td>"
-            f"<td>{html.escape(nominal)}</td>"
-            f"<td>{html.escape(uncertainty)}</td>"
-            f"<td>{html.escape(band)}</td>"
-            f"<td>{html.escape(risk)}</td>"
-            f"<td>{html.escape(inactive_param)}</td>"
-            "</tr>"
-        )
-
-    config_preview = {
-        "uncertainty_enabled": False,
-        "mode": "passive_calibration_only",
-        "scope": scope_id,
-        "lead_time_cv": round(lead_cv_suggested, 4),
-        "capacity_cv": round(capacity_cv_suggested, 4),
-        "stock_availability_cv": round(stock_cv_suggested, 4),
-        "reliability_cv": round(reliability_cv_suggested, 4),
-    }
-
-    return "".join(
-        [
-            "<div class=\"factoryHtmlPanelContent orderLedgerPanelContent\">",
-            f"<div class=\"orderLedgerTextHeader\">{html.escape(scope_id)} - confiance de lecture {html.escape(scope_label)}</div>",
-            "<div class=\"orderLedgerStatus\">Lecture courte: ce panneau local ne dit pas si la supply resiste. Il dit si les donnees fournisseur sont completes, stables et faciles a interpreter. La resilience se lit dans Monte Carlo.</div>",
-            "<div class=\"orderLedgerSectionTitle\">Synthese confiance de lecture</div>",
-            dashboard_html,
-            "<details class=\"sensitivityDetails riskMethodDetails\">",
-            "<summary>Afficher la methode, les donnees et les scenarios proposes</summary>",
-            "<div class=\"riskMethodStack\">",
-            "<div class=\"riskMethodNote\">Aucun alea n'est injecte dans la baseline. Les scenarios ci-dessous sont des enveloppes de test proposees, pas des incidents actives.</div>",
-            "<div class=\"orderLedgerSectionTitle\">Scenarios proposes non actives</div>",
-            envelope_html,
-            "<div class=\"orderLedgerSectionTitle\">Confiance dans les donnees</div>",
-            quality_html,
-            "<div class=\"orderLedgerSectionTitle\">Sources et calculs techniques</div>",
-            "<div class=\"orderLedgerFrame\">",
-            "<div class=\"orderLedgerTableWrap\" tabindex=\"0\" aria-label=\"Tableau incertitude passive avec defilement horizontal natif en bas.\">",
-            "<table class=\"orderLedgerTable orderLedgerWideTable\">",
-            "<colgroup>"
-            "<col style=\"width:135px\"><col style=\"width:245px\"><col style=\"width:130px\"><col style=\"width:145px\">"
-            "<col style=\"width:235px\"><col style=\"width:235px\"><col style=\"width:185px\">"
-            "</colgroup>",
-            "<thead><tr><th>Dimension</th><th>Source technique</th><th>Reference</th><th>Variabilite</th><th>Bande observee</th><th>Signal observe</th><th>Parametre technique propose</th></tr></thead>",
-            f"<tbody>{''.join(rows_html)}</tbody>",
-            "</table>",
-            "</div>",
-            "</div>",
-            "<div class=\"orderLedgerSectionTitle\">Parametres techniques proposes - inactifs dans ce run</div>",
-            f"<pre class=\"jsonPanelPre\">{html.escape(json.dumps(config_preview, indent=2, ensure_ascii=False))}</pre>",
-            "</div>",
-            "</details>",
-            "</div>",
-        ]
-    )
-
-
-def build_passive_uncertainty_metric(
-    scope_id: str,
-    *,
-    scope_label: str,
-    order_rows: list[dict[str, str]],
-    stock_rows: list[dict[str, str]],
-    capacity_rows: list[dict[str, str]],
-    shipment_rows: list[dict[str, str]],
-    nominal_rows: list[dict[str, str]],
-    item_labels: dict[str, str],
-) -> dict[str, Any]:
-    visible_order_rows = [
-        row for row in order_rows
-        if not is_simulation_hidden_item(str(row.get("item_id") or ""))
-    ]
-    visible_stock_rows = [
-        row for row in stock_rows
-        if not is_simulation_hidden_item(str(row.get("item_id") or ""))
-    ]
-    visible_capacity_rows = [
-        row for row in capacity_rows
-        if not is_simulation_hidden_item(str(row.get("item_id") or ""))
-    ]
-    visible_shipment_rows = [
-        row for row in shipment_rows
-        if not is_simulation_hidden_item(str(row.get("item_id") or ""))
-    ]
-    visible_nominal_rows = [
-        row for row in nominal_rows
-        if not is_simulation_hidden_item(str(row.get("item_id") or ""))
-    ]
-
-    comparable_lead_pairs: list[tuple[float, float]] = []
-    for row in visible_order_rows:
-        planned = planned_procurement_lead_days(row)
-        effective = effective_procurement_lead_days(row)
-        if planned is None or effective is None or planned <= 0 or effective < 0:
-            continue
-        comparable_lead_pairs.append((float(planned), float(effective)))
-    effective_leads = finite_numeric_values(
-        (effective for _planned, effective in comparable_lead_pairs),
-        positive_only=True,
-    )
-    if not effective_leads:
-        effective_leads = finite_numeric_values(
-            (row.get("lead_days") for row in visible_shipment_rows),
-            positive_only=True,
-        )
-    lead_ratio_values = [
-        effective / planned
-        for planned, effective in comparable_lead_pairs
-        if planned > 0
-    ]
-    late_pairs = [
-        (planned, effective)
-        for planned, effective in comparable_lead_pairs
-        if effective > planned + 1e-9
-    ]
-    delay_probability = len(late_pairs) / len(comparable_lead_pairs) if comparable_lead_pairs else None
-    avg_delay = (
-        statistics.mean(max(0.0, effective - planned) for planned, effective in comparable_lead_pairs)
-        if comparable_lead_pairs
-        else None
-    )
-    lead_cv = coefficient_of_variation(lead_ratio_values) or coefficient_of_variation(effective_leads)
-
-    utilization_values = finite_numeric_values((row.get("utilization") for row in visible_capacity_rows))
-    active_utilization_values = [value for value in utilization_values if value > 1e-9]
-    max_utilization = max(utilization_values) if utilization_values else None
-    capacity_cv = coefficient_of_variation(active_utilization_values or utilization_values)
-
-    stock_values = finite_numeric_values((row.get("stock_end_of_day") for row in visible_stock_rows))
-    stock_cv = coefficient_of_variation(stock_values)
-    stock_zero_days = sum(1 for value in stock_values if value <= 1e-9)
-    stock_zero_probability = stock_zero_days / len(stock_values) if stock_values else None
-
-    reliability_values = finite_numeric_values((row.get("reliability") for row in visible_shipment_rows))
-    reliability_cv = coefficient_of_variation(reliability_values)
-    loss_ratios: list[float] = []
-    for row in visible_shipment_rows:
-        pulled = to_float(row.get("pulled_qty"))
-        shipped = to_float(row.get("shipped_qty"))
-        if pulled is None or shipped is None or math.isnan(pulled) or math.isnan(shipped) or pulled <= 0:
-            continue
-        loss_ratios.append(max(0.0, min(1.0, (pulled - shipped) / pulled)))
-    loss_mean = statistics.mean(loss_ratios) if loss_ratios else None
-
-    def data_confidence(row_count: int, *, has_distribution: bool = True) -> float:
-        value = 0.18 + math.log1p(max(0, row_count)) / 7.5
-        if has_distribution:
-            value += 0.08
-        return max(0.0, min(0.95, value))
-
-    def uncertainty_pressure_from_cv(cv: float | None, *, missing_penalty: float, scale: float) -> float:
-        if cv is None:
-            return missing_penalty
-        return max(0.0, min(1.0, cv / scale))
-
-    lead_uncertainty = uncertainty_pressure_from_cv(lead_cv, missing_penalty=0.45, scale=0.35)
-    capacity_uncertainty = uncertainty_pressure_from_cv(capacity_cv, missing_penalty=0.35, scale=0.30)
-    stock_uncertainty = uncertainty_pressure_from_cv(stock_cv, missing_penalty=0.35, scale=0.80)
-    reliability_uncertainty = uncertainty_pressure_from_cv(reliability_cv, missing_penalty=0.30, scale=0.05)
-    delay_risk = max(lead_uncertainty, delay_probability or 0.0)
-    capacity_risk = capacity_uncertainty
-    stock_risk = max(min(0.35, stock_uncertainty), stock_zero_probability or 0.0)
-    reliability_risk = max(reliability_uncertainty, min(1.0, 4.0 * (loss_mean or 0.0)))
-    dimension_scores = {
-        "Delai": delay_risk,
-        "Capacite": capacity_risk,
-        "Stock": stock_risk,
-        "Fiabilite": reliability_risk,
-    }
-    global_uncertainty = (
-        0.35 * delay_risk
-        + 0.25 * capacity_risk
-        + 0.20 * stock_risk
-        + 0.20 * reliability_risk
-    )
-    global_confidence = statistics.mean(
-        [
-            data_confidence(len(comparable_lead_pairs), has_distribution=bool(effective_leads)),
-            data_confidence(len(visible_capacity_rows), has_distribution=bool(utilization_values)),
-            data_confidence(len(visible_stock_rows), has_distribution=bool(stock_values)),
-            data_confidence(len(visible_shipment_rows), has_distribution=bool(reliability_values or loss_ratios)),
-        ]
-    )
-
-    if global_uncertainty >= 0.60:
-        status = "high"
-        status_label = "Lecture fragile"
-        color = "#dc2626"
-    elif global_uncertainty >= 0.30:
-        status = "moderate"
-        status_label = "Lecture a qualifier"
-        color = "#d97706"
-    else:
-        status = "low"
-        status_label = "Lecture fiable"
-        color = "#16a34a"
-
-    dominant_dimension, dominant_score = max(dimension_scores.items(), key=lambda item: item[1])
-    item_ids = sorted(
-        {
-            str(row.get("item_id") or "")
-            for row in visible_order_rows
-            + visible_stock_rows
-            + visible_capacity_rows
-            + visible_shipment_rows
-            + visible_nominal_rows
-            if str(row.get("item_id") or "")
-        }
-    )
-    item_text = ", ".join(item_labels.get(item_id, compact_item_label(item_id)) for item_id in item_ids[:6])
-    if len(item_ids) > 6:
-        item_text += f" +{len(item_ids) - 6}"
-    if not item_text:
-        item_text = "n/a"
-
-    def fmt_ratio_pct(value: float | None, digits: int = 1) -> str:
-        return "n/a" if value is None else fmt_pct(value * 100.0, digits)
-
-    summary_lines = [
-        metric_label_value("Famille", f"Qualite de lecture {scope_label}"),
-        metric_label_value("Lecture", "Confiance dans les donnees et parametres. Aucun alea n'est injecte dans la baseline."),
-        metric_label_value("Score general", fmt_pct(global_uncertainty * 100.0)),
-        metric_label_value("Statut general", status_label),
-        metric_label_value("Source principale d'incertitude", f"{dominant_dimension} ({fmt_pct(dominant_score * 100.0)})"),
-        metric_label_value("Confiance donnees", fmt_pct(global_confidence * 100.0)),
-        metric_label_value("Retard matiere", f"taux de retard={fmt_ratio_pct(delay_probability)} ; retard moyen={fmt_days(avg_delay, 1)}"),
-        metric_label_value("Capacite", f"utilisation max={fmt_ratio_pct(max_utilization)} ; incertitude={fmt_pct(capacity_risk * 100.0)}"),
-        metric_label_value("Stock", f"jours a stock zero={stock_zero_days} ; part observee={fmt_ratio_pct(stock_zero_probability)}"),
-        metric_label_value("Fiabilite", f"perte moyenne={fmt_ratio_pct(loss_mean, 2)} ; score={fmt_pct(reliability_risk * 100.0)}"),
-        metric_label_value("Items couverts", item_text),
-    ]
-
-    return {
-        "title": f"Qualite de lecture - {scope_id}",
-        "summary_lines": summary_lines,
-        "score": round(global_uncertainty, 6),
-        "confidence": round(global_confidence, 6),
-        "status": status,
-        "status_label": status_label,
-        "color": color,
-        "dominant_dimension": dominant_dimension,
-        "dominant_score": round(dominant_score, 6),
-        "lead_score": round(delay_risk, 6),
-        "capacity_score": round(capacity_risk, 6),
-        "stock_score": round(stock_risk, 6),
-        "reliability_score": round(reliability_risk, 6),
-        "row_counts": {
-            "orders": len(visible_order_rows),
-            "stock": len(visible_stock_rows),
-            "capacity": len(visible_capacity_rows),
-            "shipments": len(visible_shipment_rows),
-        },
-    }
-
-
-def clamp01(value: float | None) -> float:
-    if value is None or math.isnan(value):
-        return 0.0
-    return max(0.0, min(1.0, float(value)))
-
-
-def risk_level(score: float) -> str:
-    if score >= 0.50:
-        return "fort"
-    if score >= 0.25:
-        return "modere"
-    return "faible"
-
-
-def render_supplier_risk_prediction_html(
-    node_id: str,
-    *,
-    order_rows: list[dict[str, str]],
-    stock_rows: list[dict[str, str]],
-    capacity_rows: list[dict[str, str]],
-    shipment_rows: list[dict[str, str]],
-    nominal_rows: list[dict[str, str]],
-    criticality_row: dict[str, str] | None,
-    economic_policy: dict[str, Any],
-    item_labels: dict[str, str],
-) -> str:
-    visible_order_rows = [
-        row for row in order_rows
-        if not is_simulation_hidden_item(str(row.get("item_id") or ""))
-    ]
-    visible_stock_rows = [
-        row for row in stock_rows
-        if not is_simulation_hidden_item(str(row.get("item_id") or ""))
-    ]
-    visible_capacity_rows = [
-        row for row in capacity_rows
-        if not is_simulation_hidden_item(str(row.get("item_id") or ""))
-    ]
-    visible_shipment_rows = [
-        row for row in shipment_rows
-        if not is_simulation_hidden_item(str(row.get("item_id") or ""))
-    ]
-    visible_nominal_rows = [
-        row for row in nominal_rows
-        if not is_simulation_hidden_item(str(row.get("item_id") or ""))
-    ]
-
-    comparable_lead_pairs: list[tuple[float, float]] = []
-    for row in visible_order_rows:
-        planned = planned_procurement_lead_days(row)
-        effective = effective_procurement_lead_days(row)
-        if planned is None or effective is None or planned <= 0 or effective < 0:
-            continue
-        comparable_lead_pairs.append((float(planned), float(effective)))
-    effective_leads = [effective for _, effective in comparable_lead_pairs]
-    lead_cv = coefficient_of_variation(effective_leads)
-    late_pairs = [(planned, effective) for planned, effective in comparable_lead_pairs if effective > planned + 1e-9]
-    delay_probability = len(late_pairs) / len(comparable_lead_pairs) if comparable_lead_pairs else None
-    avg_delay_days = (
-        statistics.mean(max(0.0, effective - planned) for planned, effective in comparable_lead_pairs)
-        if comparable_lead_pairs
-        else None
-    )
-
-    capacity_utils = finite_numeric_values((row.get("utilization") for row in visible_capacity_rows))
-    max_util = max(capacity_utils) if capacity_utils else None
-    avg_active_util_values = [value for value in capacity_utils if value > 1e-9]
-    avg_active_util = statistics.mean(avg_active_util_values) if avg_active_util_values else None
-    util_cv = coefficient_of_variation(capacity_utils)
-
-    stock_values = finite_numeric_values((row.get("stock_end_of_day") for row in visible_stock_rows))
-    stock_cv = coefficient_of_variation(stock_values)
-    stock_zero_probability = (
-        sum(1 for value in stock_values if value <= 1e-9) / len(stock_values)
-        if stock_values
-        else None
-    )
-    stock_p10 = percentile(stock_values, 0.10) if stock_values else None
-
-    reliability_values = finite_numeric_values((row.get("reliability") for row in visible_shipment_rows))
-    reliability_mean = statistics.mean(reliability_values) if reliability_values else None
-    reliability_cv = coefficient_of_variation(reliability_values)
-    loss_ratios: list[float] = []
-    for row in visible_shipment_rows:
-        pulled = to_float(row.get("pulled_qty"))
-        shipped = to_float(row.get("shipped_qty"))
-        if pulled is None or shipped is None or math.isnan(pulled) or math.isnan(shipped) or pulled <= 0:
-            continue
-        loss_ratios.append(max(0.0, min(1.0, (pulled - shipped) / pulled)))
-    loss_mean = statistics.mean(loss_ratios) if loss_ratios else None
-
-    local_criticality = clamp01(to_float((criticality_row or {}).get("local_criticality_score")))
-    overall_criticality = clamp01(to_float((criticality_row or {}).get("overall_criticality_score")))
-    observed_share = clamp01(to_float((criticality_row or {}).get("observed_sourcing_share")))
-    sole_source_pairs = int(to_float((criticality_row or {}).get("sole_source_pairs")) or 0)
-    shortage_events = int(to_float((criticality_row or {}).get("shortage_supported_events")) or 0)
-    impact_score = max(
-        overall_criticality,
-        0.75 * local_criticality,
-        0.60 * observed_share if sole_source_pairs > 0 else 0.35 * observed_share,
-        0.25 if shortage_events > 0 else 0.0,
-    )
-    if impact_score <= 1e-9 and visible_nominal_rows:
-        impact_score = max(0.25, max((to_float(row.get("mrp_share")) or 0.0) for row in visible_nominal_rows))
-    impact_score = clamp01(impact_score)
-
-    def confidence(row_count: int, *, has_criticality: bool = True) -> float:
-        value = 0.25 + math.log1p(max(0, row_count)) / 8.0
-        if not has_criticality:
-            value -= 0.08
-        return clamp01(min(0.95, value))
-
-    lead_occurrence = clamp01(
-        0.04
-        + 0.55 * (delay_probability or 0.0)
-        + 0.25 * min(1.0, (avg_delay_days or 0.0) / 30.0)
-        + 0.20 * min(1.0, (lead_cv or 0.0) / 0.30)
-    )
-    capacity_occurrence = clamp01(
-        0.03
-        + 0.70 * (max_util or 0.0)
-        + 0.20 * (avg_active_util or 0.0)
-        + 0.10 * min(1.0, (util_cv or 0.0) / 0.30)
-    )
-    stock_occurrence = clamp01(
-        0.03
-        + 0.65 * (stock_zero_probability or 0.0)
-        + (0.15 if stock_p10 is not None and stock_p10 <= 1e-9 else 0.0)
-        + 0.20 * min(1.0, (stock_cv or 0.0) / 1.0)
-    )
-    reliability_occurrence = clamp01(
-        0.02
-        + 1.50 * max(0.0, 1.0 - (reliability_mean if reliability_mean is not None else 1.0))
-        + 3.00 * (loss_mean or 0.0)
-        + 0.20 * min(1.0, (reliability_cv or 0.0) / 0.05)
-    )
-    dependency_occurrence = clamp01(0.04 + 0.20 * local_criticality + (0.08 if sole_source_pairs > 0 else 0.0))
-    external_enabled = bool(economic_policy.get("external_procurement_enabled"))
-    external_occurrence = clamp01((0.08 + 0.20 * impact_score) if external_enabled else 0.0)
-
-    categories = [
-        {
-            "category": "Delais d'appro allonges",
-            "occurrence": lead_occurrence,
-            "impact": impact_score,
-            "confidence": confidence(len(comparable_lead_pairs), has_criticality=criticality_row is not None),
-            "evidence": (
-                f"retards={len(late_pairs)}/{len(comparable_lead_pairs)} ; "
-                f"taux de retard={fmt_pct((delay_probability or 0.0) * 100.0)} ; "
-                f"retard moyen={fmt_days(avg_delay_days, 1)} ; variabilite {uncertainty_level(lead_cv)}" if lead_cv is not None
-                else f"retards={len(late_pairs)}/{len(comparable_lead_pairs)} ; donnees lead insuffisantes"
-            ),
-            "sensitivity": "delai: reference, +10%, +25%, +50%",
-        },
-        {
-            "category": "Capacite fournisseur sous tension",
-            "occurrence": capacity_occurrence,
-            "impact": impact_score,
-            "confidence": confidence(len(visible_capacity_rows), has_criticality=criticality_row is not None),
-            "evidence": (
-                f"util max={fmt_pct((max_util or 0.0) * 100.0)} ; "
-                f"util active={fmt_pct((avg_active_util or 0.0) * 100.0)} ; "
-                f"variabilite {uncertainty_level(util_cv)}" if util_cv is not None
-                else f"util max={fmt_pct((max_util or 0.0) * 100.0)} ; donnees capacite limitees"
-            ),
-            "sensitivity": "capacite: reference, -10%, -20%, -30%, -50%",
-        },
-        {
-            "category": "Fragilite stock fournisseur",
-            "occurrence": stock_occurrence,
-            "impact": impact_score,
-            "confidence": confidence(len(visible_stock_rows), has_criticality=criticality_row is not None),
-            "evidence": (
-                f"part jours stock zero={fmt_pct((stock_zero_probability or 0.0) * 100.0)} ; "
-                f"stock bas observe={fmt_qty(stock_p10, 1)} ; variabilite {uncertainty_level(stock_cv)}" if stock_cv is not None
-                else f"part jours stock zero={fmt_pct((stock_zero_probability or 0.0) * 100.0)} ; donnees stock limitees"
-            ),
-            "sensitivity": "stock: reference, -25%, -50%, -75%, zero",
-        },
-        {
-            "category": "Fiabilite / qualite",
-            "occurrence": reliability_occurrence,
-            "impact": impact_score,
-            "confidence": confidence(len(visible_shipment_rows), has_criticality=criticality_row is not None),
-            "evidence": (
-                f"reliability moyenne={fmt_pct((reliability_mean or 0.0) * 100.0)} ; "
-                f"perte moyenne={fmt_pct((loss_mean or 0.0) * 100.0, 2)} ; "
-                f"variabilite {uncertainty_level(reliability_cv)}" if reliability_cv is not None
-                else f"reliability moyenne={fmt_pct((reliability_mean or 0.0) * 100.0)} ; donnees qualite limitees"
-            ),
-            "sensitivity": "fiabilite: reference, -1%, -3%, -5%",
-        },
-        {
-            "category": "Dependance fournisseur",
-            "occurrence": dependency_occurrence,
-            "impact": max(impact_score, local_criticality),
-            "confidence": confidence(1 if criticality_row else 0, has_criticality=criticality_row is not None),
-            "evidence": (
-                f"local={local_criticality:.3f} ; overall={overall_criticality:.3f} ; "
-                f"sourcing={fmt_pct(observed_share * 100.0)} ; sole_source={sole_source_pairs}"
-            ),
-            "sensitivity": "tester perte fournisseur, double source ou baisse de part",
-        },
-        {
-            "category": "Contrainte appro amont fournisseur",
-            "occurrence": external_occurrence,
-            "impact": impact_score,
-            "confidence": confidence(len(visible_nominal_rows), has_criticality=criticality_row is not None),
-            "evidence": (
-                "appro amont fournisseur actif dans la politique" if external_enabled
-                else "appro amont fournisseur non actif pour ce diagnostic passif"
-            ),
-            "sensitivity": "appro amont: capacite -25/-50/-75% ; delai +25/+50/+100%",
-        },
-    ]
-    for row in categories:
-        row["expected"] = clamp01(float(row["occurrence"]) * float(row["impact"]) * float(row["confidence"]))
-    categories.sort(key=lambda row: float(row["expected"]), reverse=True)
-
-    rows_html = []
-    for row in categories:
-        expected = float(row["expected"])
-        rows_html.append(
-            "<tr>"
-            f"<td>{html.escape(str(row['category']))}</td>"
-            f"<td>{fmt_pct(float(row['occurrence']) * 100.0)}</td>"
-            f"<td>{fmt_pct(float(row['impact']) * 100.0)}</td>"
-            f"<td>{fmt_pct(float(row['confidence']) * 100.0)}</td>"
-            f"<td>{fmt_pct(expected * 100.0)}</td>"
-            f"<td>{html.escape(risk_level(expected))}</td>"
-            f"<td>{html.escape(str(row['evidence']))}</td>"
-            f"<td>{html.escape(str(row['sensitivity']))}</td>"
-            "</tr>"
-        )
-
-    sensitivity_rows = [
-        ("1", "Capacite fournisseur", "reference, -10%, -20%, -30%, -50%", "tester le seuil de saturation sans changer la reference du run"),
-        ("2", "Stock fournisseur", "reference, -25%, -50%, -75%, zero", "identifier le stock minimum qui preserve service, backlog et cibles"),
-        ("3", "Delai matiere", "reference, +25%, +50%, +100%", "mesurer la sensibilite aux retards et derives de delai"),
-        ("4", "Fiabilite / qualite", "reference, -1%, -3%, -5%", "simuler pertes, retours, release qualite et quantite utile"),
-        ("5", "Appro amont fournisseur", "capacite -25/-50/-75% ; delai +25/+50/+100%", "contraindre l'appro amont qui reconstitue le stock fournisseur"),
-    ]
-    sensitivity_html = "".join(
-        "<tr>"
-        f"<td>{html.escape(priority)}</td>"
-        f"<td>{html.escape(parameter)}</td>"
-        f"<td>{html.escape(grid)}</td>"
-        f"<td>{html.escape(reason)}</td>"
-        "</tr>"
-        for priority, parameter, grid, reason in sensitivity_rows
-    )
-
-    return "".join(
-        [
-            "<div class=\"factoryHtmlPanelContent orderLedgerPanelContent\">",
-            f"<div class=\"orderLedgerTextHeader\">{html.escape(node_id)} - lecture predictive des tensions fournisseur</div>",
-            "<div class=\"orderLedgerStatus\">Lecture seule: ce bloc estime une menace fournisseur probable, mais ne relance pas la simulation et ne modifie pas la baseline.</div>",
-            "<div class=\"orderLedgerStatus\">Score menace = tension metier normalisee. Incertitude = confiance dans cette lecture. L'action finale se lit dans la matrice niveau de menace x confiance.</div>",
-            "<div class=\"orderLedgerStatus\">Principe: score menace x impact local x confiance donne une priorite de surveillance, puis la grille propose les premiers tests a lancer.</div>",
-            "<div class=\"orderLedgerSectionTitle\">Introduction - etude de sensibilite recommandee</div>",
-            "<div class=\"kpiFormulaTableWrap\"><table class=\"kpiFormulaTable\">",
-            "<thead><tr><th>Priorite</th><th>Parametre</th><th>Grille proposee</th><th>Objectif</th></tr></thead>",
-            f"<tbody>{sensitivity_html}</tbody>",
-            "</table></div>",
-            "<div class=\"orderLedgerSectionTitle\">Prediction passive par categorie</div>",
-            "<div class=\"orderLedgerFrame\">",
-            "<div class=\"orderLedgerTableWrap\" tabindex=\"0\" aria-label=\"Tableau de prediction passive des tensions fournisseur avec defilement horizontal natif en bas.\">",
-            "<table class=\"orderLedgerTable orderLedgerWideTable\">",
-            "<colgroup>"
-            "<col style=\"width:175px\"><col style=\"width:105px\"><col style=\"width:95px\"><col style=\"width:105px\">"
-            "<col style=\"width:105px\"><col style=\"width:85px\"><col style=\"width:320px\"><col style=\"width:260px\">"
-            "</colgroup>",
-            "<thead><tr><th>Categorie</th><th>Score menace</th><th>Impact</th><th>Confiance</th><th>Priorite estimee</th><th>Niveau</th><th>Signaux observes</th><th>Test utile</th></tr></thead>",
-            f"<tbody>{''.join(rows_html)}</tbody>",
-            "</table>",
-            "</div>",
-            "</div>",
-            "</div>",
-        ]
-    )
-
-
-def render_supplier_nominal_parameters_html(
-    node_id: str,
-    nominal_rows: list[dict[str, str]],
-    item_labels: dict[str, str],
-) -> str:
-    visible_rows = [
-        row for row in nominal_rows
-        if not is_simulation_hidden_item(str(row.get("item_id") or ""))
-    ]
-    if not visible_rows:
-        return (
-            "<div class=\"factoryHtmlPanelContent orderLedgerPanelContent\">"
-            f"<div class=\"orderLedgerTextHeader\">{html.escape(node_id)} - references fournisseur</div>"
-            "<div class=\"panelEmptyState\">Aucune reference fournisseur disponible pour ce noeud.</div>"
-            "</div>"
-        )
-
-    sorted_rows = sorted(
-        visible_rows,
-        key=lambda row: (
-            str(row.get("dst_node_id") or ""),
-            str(row.get("item_id") or ""),
-            str(row.get("edge_id") or ""),
-        ),
-    )
-    rows_html: list[str] = []
-    for row in sorted_rows:
-        item_id = str(row.get("item_id") or "")
-        item_label = item_labels.get(item_id, compact_item_label(item_id))
-        dst_node_id = str(row.get("dst_node_id") or "n/a")
-        uom = str(row.get("uom") or "n/a")
-        cap_scale = to_float(row.get("applied_capacity_scale"))
-        cap_scale_text = f"x{fmt_qty(cap_scale, 1)}" if cap_scale is not None and not math.isnan(cap_scale) else "n/a"
-        neutral_cap = to_float(row.get("neutral_capacity_floor_qty_per_day"))
-        tested_cap = to_float(row.get("tested_capacity_floor_qty_per_day"))
-        displayed_cap_floor = tested_cap if tested_cap is not None and not math.isnan(tested_cap) and tested_cap > 0.0 else neutral_cap
-        neutral_cap_scale = to_float(row.get("neutral_capacity_scale_if_nominal"))
-        neutral_cap_scale_text = (
-            f"x{fmt_qty(neutral_cap_scale, 1)}"
-            if neutral_cap_scale is not None and not math.isnan(neutral_cap_scale) and neutral_cap_scale > 0.0
-            else "n/a"
-        )
-        current_headroom = to_float(row.get("current_capacity_headroom_vs_tested_floor"))
-        if current_headroom is None or math.isnan(current_headroom):
-            current_headroom = to_float(row.get("current_capacity_headroom_factor"))
-        current_headroom_text = (
-            f"x{fmt_qty(current_headroom, 1)}"
-            if current_headroom is not None and not math.isnan(current_headroom)
-            else "n/a"
-        )
-        industrial_cap = to_float(row.get("industrial_nominal_capacity_qty_per_day"))
-        industrial_util = to_float(row.get("industrial_peak_utilization_if_nominal"))
-        industrial_target = to_float(row.get("industrial_capacity_target_utilization"))
-        industrial_headroom = to_float(row.get("current_capacity_headroom_vs_industrial_nominal"))
-        industrial_target_text = (
-            fmt_pct(industrial_target * 100.0)
-            if industrial_target is not None and not math.isnan(industrial_target)
-            else "n/a"
-        )
-        industrial_headroom_text = (
-            f"x{fmt_qty(industrial_headroom, 1)}"
-            if industrial_headroom is not None and not math.isnan(industrial_headroom)
-            else "n/a"
-        )
-        upstream_cap = to_float(row.get("external_procurement_nominal_capacity_qty_per_day"))
-        upstream_need = to_float(row.get("external_procurement_daily_need_qty"))
-        upstream_target = to_float(row.get("external_procurement_target_utilization"))
-        upstream_seed = to_float(row.get("external_procurement_initial_pipeline_seed_qty"))
-        upstream_target_text = (
-            fmt_pct(upstream_target * 100.0)
-            if upstream_target is not None and not math.isnan(upstream_target) and upstream_target > 0.0
-            else "n/a"
-        )
-        stock_scale = to_float(row.get("neutral_opening_stock_scale"))
-        stock_scale_text = (
-            f"x{fmt_qty(stock_scale, 2)}"
-            if stock_scale is not None and not math.isnan(stock_scale)
-            else "n/a"
-        )
-        util_pct = to_float(row.get("max_capacity_utilization"))
-        otif = to_float(row.get("nominal_reliability_otif"))
-        mrp_share = to_float(row.get("mrp_share"))
-        lead_title = " | ".join(
-            part
-            for part in [
-                f"type={row.get('lead_time_type') or 'n/a'}",
-                f"source={row.get('lead_time_source') or 'n/a'}",
-                f"stages={row.get('lead_time_stages') or 'n/a'}",
-            ]
-            if part
-        )
-        reliability_title = f"source={row.get('reliability_source') or 'n/a'}"
-        capacity_title = (
-            f"basis={row.get('capacity_basis') or 'n/a'} | "
-            f"explicit={fmt_qty(row.get('explicit_capacity_qty_per_day'), 1)} | "
-            f"process={fmt_qty(row.get('process_capacity_qty_per_day'), 1)} | "
-            f"downstream_req={fmt_qty(row.get('downstream_requirement_qty_per_day'), 1)}"
-        )
-        neutral_capacity_title = (
-            f"Seuil neutre: {row.get('capacity_floor_basis') or 'n/a'} | "
-            f"cap min observee={fmt_qty(neutral_cap, 1)} | "
-            f"profil industriel={row.get('industrial_capacity_profile') or 'n/a'} | "
-            f"scale actuel={cap_scale_text} | "
-            f"capacite actuelle={fmt_qty(row.get('effective_capacity_qty_per_day'), 1)}"
-        )
-        upstream_capacity_title = (
-            "Contrainte appro amont fournisseur: besoin journalier baseline / taux cible; "
-            f"besoin={fmt_qty(upstream_need, 1)}/j | "
-            f"profil={row.get('external_procurement_capacity_profile') or 'n/a'} | "
-            f"base={row.get('external_procurement_capacity_basis') or 'n/a'} | "
-            f"pipeline ouvert={fmt_qty(upstream_seed, 1)}"
-        )
-        neutral_stock_title = (
-            "Stock initial minimal analytique pour garder les expeditions observees faisables; "
-            f"reductible={fmt_qty(row.get('neutral_opening_stock_reducible_qty'), 1)}"
-        )
-        cells = [
-            (item_label, f"Item complet: {item_label} ({item_id})"),
-            (dst_node_id, f"Destination: {dst_node_id} | edge={row.get('edge_id') or 'n/a'}"),
-            (uom, ""),
-            (fmt_qty(row.get("simulated_opening_stock_qty"), 1), "stock source au demarrage simule"),
-            (fmt_qty(row.get("neutral_opening_stock_floor_qty"), 1), neutral_stock_title),
-            (stock_scale_text, neutral_stock_title),
-            (fmt_qty(row.get("effective_capacity_qty_per_day"), 1), capacity_title),
-            (fmt_qty(industrial_cap, 1), neutral_capacity_title),
-            (industrial_target_text, neutral_capacity_title),
-            (fmt_qty(upstream_cap, 1), upstream_capacity_title),
-            (upstream_target_text, upstream_capacity_title),
-            (fmt_days(row.get("external_procurement_lead_days"), 1), upstream_capacity_title),
-            (fmt_qty(upstream_seed, 1), upstream_capacity_title),
-            (fmt_pct((industrial_util or 0.0) * 100.0) if industrial_util is not None and not math.isnan(industrial_util) else "n/a", neutral_capacity_title),
-            (industrial_headroom_text, neutral_capacity_title),
-            (fmt_qty(displayed_cap_floor, 1), neutral_capacity_title),
-            (neutral_cap_scale_text, neutral_capacity_title),
-            (current_headroom_text, neutral_capacity_title),
-            (str(row.get("capacity_basis") or "n/a"), capacity_title),
-            (fmt_pct((util_pct or 0.0) * 100.0) if util_pct is not None and not math.isnan(util_pct) else "n/a", "utilisation capacite max observee"),
-            (fmt_days(row.get("planned_lead_time_days"), 1), lead_title),
-            (fmt_pct((otif or 0.0) * 100.0) if otif is not None and not math.isnan(otif) else "n/a", reliability_title),
-            (fmt_pct((mrp_share or 0.0) * 100.0) if mrp_share is not None and not math.isnan(mrp_share) else "n/a", "part de sourcing MRP nominale"),
-            (fmt_qty(row.get("total_shipped_qty"), 1), "quantite totale expediee sur le run"),
-        ]
-        numeric_columns = set(range(3, 18)) | {19, 20, 21, 22, 23}
-        row_tds: list[str] = []
-        for idx, (value, title) in enumerate(cells):
-            cell_class = "num" if idx in numeric_columns else ""
-            title_attr = f' title="{html.escape(str(title), quote=True)}"' if title else ""
-            row_tds.append(f'<td class="{cell_class}"{title_attr}>{html.escape(str(value))}</td>')
-        rows_html.append("<tr>" + "".join(row_tds) + "</tr>")
-
-    headers = [
-        "Item",
-        "Destination",
-        "Unite",
-        "Stock ouv.",
-        "Stock minimum teste",
-        "Facteur stock",
-        "Cap actuelle/j",
-        "Cap cible/j",
-        "Taux cible",
-        "Cap amont/j",
-        "Taux amont cible",
-        "Delai amont",
-        "Appro amont deja lancee",
-        "Util pic cible",
-        "Marge cible",
-        "Cap min sans degradation/j",
-        "Facteur cap min",
-        "Marge actuelle",
-        "Reference capacite",
-        "Util max",
-        "Delai prev.",
-        "OTIF",
-        "Part MRP",
-        "Expedie total",
-    ]
-    table_header = "".join(f"<th>{html.escape(label)}</th>" for label in headers)
-    table_cols = "".join(
-        f"<col style=\"width:{width}px\">"
-        for width in [
-            95, 110, 70, 115, 125, 95, 130, 125, 90, 125, 95, 105,
-            135, 105, 115, 135, 95, 120, 175, 95, 105, 90, 95, 130,
-        ]
-    )
-    return "".join(
-        [
-            "<div class=\"factoryHtmlPanelContent orderLedgerPanelContent\">",
-            f"<div class=\"orderLedgerTextHeader\">{html.escape(node_id)} - references fournisseur</div>",
-            f"<div class=\"orderLedgerStatus\">Lignes fournisseur affichees: {len(sorted_rows)}. Cap actuelle/j = limite utilisee par le run actif; Cap cible/j = pic observe / taux cible; Cap min sans degradation/j = plus petite capacite testee qui conserve le service du run.</div>",
-            "<div class=\"orderLedgerStatus\">Profils cible: matiere qualifiee ~= 70%, delai long ~= 65%, packaging qualifie ~= 75%. Cap amont/j contraint l'appro amont fournisseur avec le meme taux cible; Appro amont deja lancee = commandes en route au demarrage.</div>",
-            "<div class=\"orderLedgerFrame\">",
-            "<div class=\"orderLedgerTableWrap\" tabindex=\"0\" aria-label=\"Tableau des parametres nominaux fournisseur avec defilement horizontal natif en bas.\">",
-            "<table class=\"orderLedgerTable orderLedgerWideTable\">",
-            f"<colgroup>{table_cols}</colgroup>",
-            f"<thead><tr>{table_header}</tr></thead>",
-            f"<tbody>{''.join(rows_html)}</tbody>",
-            "</table>",
-            "</div>",
-            "</div>",
-            "</div>",
-        ]
-    )
-
-
-def render_factory_nominal_capacities_html(
-    node_id: str,
-    capacity_rows: list[dict[str, str]],
-    item_labels: dict[str, str],
-) -> str:
-    visible_rows = [
-        row for row in capacity_rows
-        if not is_simulation_hidden_item(str(row.get("output_item_id") or ""))
-    ]
-    if not visible_rows:
-        return (
-            "<div class=\"factoryHtmlPanelContent orderLedgerPanelContent\">"
-            f"<div class=\"orderLedgerTextHeader\">{html.escape(node_id)} - references capacite usine</div>"
-            "<div class=\"panelEmptyState\">Aucune reference capacite usine disponible pour ce noeud.</div>"
-            "</div>"
-        )
-
-    rows_html: list[str] = []
-    for row in sorted(visible_rows, key=lambda r: (str(r.get("output_item_id") or ""), str(r.get("process_id") or ""))):
-        item_id = str(row.get("output_item_id") or "")
-        item_label = item_labels.get(item_id, compact_item_label(item_id))
-        target_util = to_float(row.get("industrial_capacity_target_utilization"))
-        peak_util_indus = to_float(row.get("industrial_peak_utilization_if_nominal"))
-        current_max_util = to_float(row.get("current_max_utilization"))
-        headroom = to_float(row.get("current_capacity_headroom_vs_industrial_nominal"))
-        current_capacity = to_float(row.get("current_capacity_qty_per_day"))
-        industrial_capacity = to_float(row.get("industrial_nominal_capacity_qty_per_day"))
-        current_capacity_text = (
-            fmt_qty(current_capacity, 1)
-            if current_capacity is not None and not math.isnan(current_capacity) and current_capacity > 0.0
-            else "non modelisee"
-        )
-        headroom_text = (
-            f"x{fmt_qty(headroom, 2)}"
-            if headroom is not None and not math.isnan(headroom)
-            else "n/a"
-        )
-        title = (
-            f"profil={row.get('industrial_capacity_profile') or 'n/a'} | "
-            f"source={row.get('capacity_source') or 'n/a'} | "
-            f"mode={row.get('current_capacity_limit_mode') or 'n/a'}"
-        )
-        cells = [
-            (item_label, f"Item complet: {item_label} ({item_id})"),
-            (str(row.get("process_id") or "n/a"), title),
-            (str(row.get("uom") or "n/a"), ""),
-            (current_capacity_text, title),
-            (fmt_qty(industrial_capacity, 1), title),
-            (fmt_pct((target_util or 0.0) * 100.0) if target_util is not None and not math.isnan(target_util) else "n/a", title),
-            (fmt_pct((peak_util_indus or 0.0) * 100.0) if peak_util_indus is not None and not math.isnan(peak_util_indus) else "n/a", title),
-            (headroom_text, title),
-            (fmt_qty(row.get("max_actual_qty_per_day"), 1), "pic journalier produit observe"),
-            (fmt_qty(row.get("total_actual_qty"), 1), "production totale observee"),
-            (fmt_pct((current_max_util or 0.0) * 100.0) if current_max_util is not None and not math.isnan(current_max_util) else "n/a", "utilisation max de la capacite actuelle"),
-            (str(row.get("capacity_binding_days") or "0"), "jours ou la capacite usine limite l'execution"),
-            (str(row.get("input_shortage_days") or "0"), "jours ou les intrants limitent l'execution"),
-            (str(row.get("lot_policy_mode") or "n/a"), "politique de lot observee"),
-        ]
-        numeric_columns = {3, 4, 5, 6, 7, 8, 9, 10, 11, 12}
-        row_tds: list[str] = []
-        for idx, (value, cell_title) in enumerate(cells):
-            cell_class = "num" if idx in numeric_columns else ""
-            title_attr = f' title="{html.escape(str(cell_title), quote=True)}"' if cell_title else ""
-            row_tds.append(f'<td class="{cell_class}"{title_attr}>{html.escape(str(value))}</td>')
-        rows_html.append("<tr>" + "".join(row_tds) + "</tr>")
-
-    headers = [
-        "Output",
-        "Process",
-        "Unite",
-        "Cap actuelle/j",
-        "Cap cible/j",
-        "Taux cible",
-        "Util pic cible",
-        "Marge actuelle",
-        "Pic produit/j",
-        "Produit total",
-        "Util max actuelle",
-        "Jours capacite",
-        "Jours intrants",
-        "Lot",
-    ]
-    table_cols = "".join(
-        f"<col style=\"width:{width}px\">"
-        for width in [110, 140, 80, 130, 130, 95, 105, 115, 120, 125, 120, 105, 105, 95]
-    )
-    return "".join(
-        [
-            "<div class=\"factoryHtmlPanelContent orderLedgerPanelContent\">",
-            f"<div class=\"orderLedgerTextHeader\">{html.escape(node_id)} - references capacite usine</div>",
-            "<div class=\"orderLedgerStatus\">Cap actuelle/j = limite du JSON actif; Cap cible/j = pic journalier produit / taux cible pharma. Le taux cible par defaut est 70% pour une usine GMP multi-produits ou un site interne semi-fini.</div>",
-            "<div class=\"orderLedgerStatus\">Pour les usines, appliquer directement la capacite cible peut changer le cadencement interne; elle est donc affichee comme lecture de sensibilite, pas comme remplacement automatique de la baseline.</div>",
-            "<div class=\"orderLedgerFrame\">",
-            "<div class=\"orderLedgerTableWrap\" tabindex=\"0\" aria-label=\"Tableau des capacites nominales usine avec defilement horizontal natif en bas.\">",
-            "<table class=\"orderLedgerTable orderLedgerWideTable\">",
-            f"<colgroup>{table_cols}</colgroup>",
-            f"<thead><tr>{''.join(f'<th>{html.escape(label)}</th>' for label in headers)}</tr></thead>",
-            f"<tbody>{''.join(rows_html)}</tbody>",
-            "</table>",
-            "</div>",
-            "</div>",
-            "</div>",
-        ]
-    )
 
 
 def build_edge_item_sets(raw: dict[str, Any]) -> tuple[dict[str, set[str]], dict[str, set[str]]]:
@@ -5939,8 +3495,8 @@ def build_factory_sensitivity_hover_images(
                 high_label: kpi_from_case(high_row, "fill_rate"),
             },
             input_deltas,
-            bar_title=f"{node_id} - impact capacite sur fill rate systeme",
-            bar_y_label="Fill rate",
+            bar_title=f"{node_id} - impact capacite sur disponibilite produit systeme",
+            bar_y_label="Disponibilite produit",
             line_title=f"{node_id} - ecart de stock intrants vs baseline",
             line_y_label="Delta stock total",
             filename=f"{node_id}_sensitivity_fill_rate.png",
@@ -6038,7 +3594,7 @@ def build_supplier_sensitivity_hover_images(
             )
         note = None
         if best_fill_impact < 0.002 and best_backlog_impact < 5.0:
-            note = "Impact faible: le nœud bouge peu sur le système malgré un choc local fort."
+            note = "Impact faible: le noeud bouge peu sur le systeme malgre une variation locale forte."
 
         incoming = build_combo_bar_line_payload(
             {
@@ -6047,8 +3603,8 @@ def build_supplier_sensitivity_hover_images(
                 high_label: kpi_from_case(best_high, "fill_rate"),
             },
             ship_deltas,
-            bar_title=f"{node_id} - impact {best_label} sur fill rate systeme",
-            bar_y_label="Fill rate",
+            bar_title=f"{node_id} - impact {best_label} sur disponibilite produit systeme",
+            bar_y_label="Disponibilite produit",
             line_title=f"{node_id} - ecart d'expeditions vs baseline",
             line_y_label="Delta expeditions / jour",
             filename=f"{node_id}_sensitivity_fill_rate.png",
@@ -6150,8 +3706,8 @@ def build_distribution_center_sensitivity_hover_images(
         incoming = build_combo_bar_line_payload(
             fill_values,
             backlog_deltas,
-            bar_title=f"{node_id} - impact demande sur fill rate systeme",
-            bar_y_label="Fill rate",
+            bar_title=f"{node_id} - impact demande sur disponibilite produit systeme",
+            bar_y_label="Disponibilite produit",
             line_title=f"{node_id} - ecart de backlog client vs baseline",
             line_y_label="Delta backlog",
             filename=f"{node_id}_sensitivity_fill_rate.png",
@@ -6267,8 +3823,8 @@ def build_factory_structural_hover_images(
                 high_label: kpi_from_case(high_row, "fill_rate"),
             },
             input_deltas,
-            bar_title=f"{node_id} - structurel: impact capacite sur fill rate",
-            bar_y_label="Fill rate",
+            bar_title=f"{node_id} - structurel: impact capacite sur disponibilite produit",
+            bar_y_label="Disponibilite produit",
             line_title=f"{node_id} - structurel: ecart de stock intrants vs baseline",
             line_y_label="Delta stock total",
             filename=f"{node_id}_structural_input.png",
@@ -6377,8 +3933,8 @@ def build_supplier_structural_hover_images(
                 high_label: kpi_from_case(best_high_row, "fill_rate"),
             },
             ship_deltas,
-            bar_title=f"{node_id} - structurel: impact {best_label} sur fill rate",
-            bar_y_label="Fill rate",
+            bar_title=f"{node_id} - structurel: impact {best_label} sur disponibilite produit",
+            bar_y_label="Disponibilite produit",
             line_title=f"{node_id} - structurel: ecart d'expeditions vs baseline",
             line_y_label="Delta expeditions / jour",
             filename=f"{node_id}_structural_shipments.png",
@@ -6481,8 +4037,8 @@ def build_distribution_center_structural_hover_images(
         incoming = build_combo_bar_line_payload(
             fill_values,
             backlog_deltas,
-            bar_title=f"{node_id} - structurel: impact demande sur fill rate",
-            bar_y_label="Fill rate",
+            bar_title=f"{node_id} - structurel: impact demande sur disponibilite produit",
+            bar_y_label="Disponibilite produit",
             line_title=f"{node_id} - structurel: ecart de backlog client vs baseline",
             line_y_label="Delta backlog",
             filename=f"{node_id}_structural_backlog.png",
@@ -6892,7 +4448,7 @@ def render_global_model_equations_html() -> str:
             ),
         ),
         (
-            "5. Demande et service client",
+            "5. Demande et disponibilite produit",
             table(
                 [
                     ("Demande", "D[c,i](t)", "Demande client exogene de l'item i au client c le jour t."),
@@ -6981,7 +4537,7 @@ def render_global_model_equations_html() -> str:
                     ("Prod[n,i](t)", "production[n,i](t)", "Quantite de l'item i fabriquee par le noeud n le jour t. C'est la production reelle executee, pas le signal MPS."),
                     ("Cons[n,i](t)", "consommations[n,i](t)", "Quantite de l'item i consommee comme intrant BOM par la production reelle du jour."),
                     ("Ship[n,i](t)", "expeditions[n,i](t)", "Quantite de l'item i sortie du stock du noeud n et envoyee vers un autre noeud ou le client."),
-                    ("Served[c,i](t)", "service client", "Cas particulier de sortie aval: quantite livree au client depuis le stock disponible."),
+                    ("Served[c,i](t)", "disponibilite client", "Cas particulier de sortie aval: quantite livree au client depuis le stock disponible."),
                     ("Req_BOM[s,i](t)", "besoin composant MRP", "Signal de commande amont calcule sur le plan lotifie ; ce n'est pas une consommation physique tant que la production n'est pas executee."),
                 ]
             ),
@@ -9543,6 +7099,67 @@ def build_model_panel_metrics(
     }
 
 
+def build_simulated_risk_metrics_from_output(raw: dict[str, Any], output_root: Path) -> dict[str, Any]:
+    """Build simulated-risk metrics from a simulation result directory.
+
+    This lets a nominal map display a separate state-dependent risk run without
+    reusing the nominal model panel as the source of risk events.
+    """
+
+    data_root = output_root / "data"
+    summary = load_json_dict(output_root / "summaries" / "first_simulation_summary.json")
+    production_tracking = (summary.get("production_tracking") or {}) if isinstance(summary, dict) else {}
+    configured_by_node: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    applied_by_node: dict[str, list[dict[str, str]]] = defaultdict(list)
+
+    for event in production_tracking.get("supplier_risk_events", []) or []:
+        if not isinstance(event, dict):
+            continue
+        node_id = str(event.get("supplier_id") or event.get("node_id") or "")
+        if node_id:
+            configured_by_node[node_id].append(dict(event))
+
+    for row in read_csv_rows(data_root / "supplier_state_dependent_risk_events.csv"):
+        node_id = str(row.get("supplier_id") or row.get("node_id") or "")
+        if node_id:
+            configured_by_node[node_id].append(dict(row))
+
+    for row in read_csv_rows(data_root / "assumptions_ledger.csv"):
+        if str(row.get("category") or "") != "supplier_risk_event":
+            continue
+        payload_text = str(row.get("payload_json") or "").strip()
+        payload: dict[str, Any] = {}
+        if payload_text:
+            try:
+                decoded = json.loads(payload_text)
+                if isinstance(decoded, dict):
+                    payload = decoded
+            except json.JSONDecodeError:
+                payload = {}
+        node_id = str(payload.get("supplier_id") or row.get("node_id") or "")
+        if node_id:
+            configured_by_node[node_id].append(payload)
+
+    for row in read_csv_rows(data_root / "supplier_risk_events_applied_daily.csv"):
+        node_id = str(row.get("supplier_id") or "")
+        if node_id:
+            applied_by_node[node_id].append(row)
+
+    payload = build_simulated_supplier_risk_metrics(
+        configured_by_node=configured_by_node,
+        applied_by_node=applied_by_node,
+    )
+    payload["source_output_dir"] = str(output_root)
+    policy = (summary.get("policy") or {}) if isinstance(summary, dict) else {}
+    state_policy = (policy.get("supplier_state_dependent_risk") or {}) if isinstance(policy, dict) else {}
+    payload.setdefault("global", {})["state_dependent_enabled"] = bool(state_policy.get("enabled"))
+    payload.setdefault("global", {})["state_dependent_generated_event_count"] = int(
+        to_float(state_policy.get("generated_event_count")) or 0
+    )
+    payload.setdefault("global", {})["scenario_id"] = str(summary.get("scenario_id") or "")
+    return payload
+
+
 def build_realistic_sensitivity_panel_metrics(
     raw: dict[str, Any],
     summary_json: Path,
@@ -9724,11 +7341,11 @@ def build_realistic_sensitivity_panel_metrics(
 
     def stress_test_label(row: dict[str, str] | None) -> str:
         if not row:
-            return "choc n/a"
+            return "variation n/a"
         factor_value = to_float(row.get("factor_value"))
         if factor_value is None or math.isnan(factor_value):
-            return "choc n/a"
-        return f"choc x1.00 -> {fmt_factor(factor_value)}"
+            return "variation n/a"
+        return f"variation severe x1.00 -> {fmt_factor(factor_value)}"
 
     def describe_local(row: dict[str, str] | None, *, kpi: str) -> str:
         if not row:
@@ -9795,7 +7412,7 @@ def build_realistic_sensitivity_panel_metrics(
                 ).get("delta::fill_rate")
             )
             if service_stress >= 0.05 or backlog_stress >= 200_000 or upstream_rel >= 0.03:
-                return "Usine critique pour le service"
+                return "Usine critique pour la disponibilite produit"
             if upstream_lt >= 0.01 or service_elasticity >= 0.03:
                 return "Usine sensible aux flux amont"
             return "Usine robuste localement"
@@ -9820,7 +7437,7 @@ def build_realistic_sensitivity_panel_metrics(
     def node_summary_lines(node_id: str) -> list[dict[str, str]]:
         node_type = node_types.get(node_id, "")
         service_line = metric_label_value(
-            "Service lie",
+            "Disponibilite liee",
             describe_stress(choose_node_stress(node_id, "fill_rate"), kpi="fill_rate"),
         )
         backlog_line = metric_label_value(
@@ -9833,7 +7450,7 @@ def build_realistic_sensitivity_panel_metrics(
         )
         baseline_line = metric_label_value(
             "Baseline",
-            f"FR {fmt_fill(baseline_fill)} | backlog {fmt_backlog(baseline_backlog)} | cout {fmt_money(baseline_cost)}",
+            f"disponibilite {fmt_fill(baseline_fill)} | backlog {fmt_backlog(baseline_backlog)} | cout {fmt_money(baseline_cost)}",
         )
         if node_type == "factory":
             return [
@@ -9969,10 +7586,10 @@ def build_realistic_sensitivity_panel_metrics(
             ]
         return [
             baseline_line,
-            metric_label_value("Service global", describe_stress(global_fill_stress, kpi="fill_rate")),
+            metric_label_value("Disponibilite globale", describe_stress(global_fill_stress, kpi="fill_rate")),
             service_line,
             metric_label_value(
-                "Elasticite service",
+                "Elasticite disponibilite",
                 describe_local(choose_node_local(node_id, "fill_rate"), kpi="fill_rate"),
             ),
             backlog_line,
@@ -9991,19 +7608,19 @@ def build_realistic_sensitivity_panel_metrics(
         if not node_id:
             continue
         nodes_payload[node_id] = {
-            "title": "Sensibilite realiste annuelle",
+            "title": "Sensibilite parametrique annuelle",
             "summary_lines": node_summary_lines(node_id),
         }
 
     global_payload = {
-        "title": "Sensibilite realiste annuelle",
+        "title": "Sensibilite parametrique annuelle",
         "summary_lines": [
             metric_label_value(
                 "Baseline",
-                f"FR {fmt_fill(baseline_fill)} | backlog {fmt_backlog(baseline_backlog)} | cout {fmt_money(baseline_cost)}",
+                f"disponibilite {fmt_fill(baseline_fill)} | backlog {fmt_backlog(baseline_backlog)} | cout {fmt_money(baseline_cost)}",
             ),
-            metric_label_value("Service global", describe_stress(global_fill_stress, kpi="fill_rate")),
-            metric_label_value("Elasticite service", describe_local(global_fill_local, kpi="fill_rate")),
+            metric_label_value("Disponibilite globale", describe_stress(global_fill_stress, kpi="fill_rate")),
+            metric_label_value("Elasticite disponibilite", describe_local(global_fill_local, kpi="fill_rate")),
             metric_label_value("Cout global", describe_stress(global_cost_stress, kpi="total_cost")),
             metric_label_value("Elasticite cout", describe_local(global_cost_local, kpi="total_cost")),
         ],
@@ -10188,9 +7805,9 @@ def build_threshold_sensitivity_panel_metrics(
         "summary_lines": [
             metric(
                 "Baseline",
-                f"FR {fmt_fill(baseline_fill)} | backlog {fmt_backlog(baseline_backlog)} | cout {fmt_money(baseline_cost)}",
+                f"disponibilite {fmt_fill(baseline_fill)} | backlog {fmt_backlog(baseline_backlog)} | cout {fmt_money(baseline_cost)}",
             ),
-            metric("Service cible", fmt_fill(service_threshold)),
+            metric("Disponibilite cible", fmt_fill(service_threshold)),
             metric("Levier global critique", str((global_best or {}).get("parameter_label") or "n/a")),
             metric("Point de bascule", side_label(global_best or {})),
             metric("Bande sure", safe_band_label(global_best or {})),
@@ -10212,10 +7829,10 @@ def build_threshold_sensitivity_panel_metrics(
             "title": "Seuils annuels",
             "summary_lines": [
                 metric(
-                    "Baseline",
-                    f"FR {fmt_fill(baseline_fill)} | backlog {fmt_backlog(baseline_backlog)} | cout {fmt_money(baseline_cost)}",
-                ),
-                metric("Service cible", fmt_fill(service_threshold)),
+                "Baseline",
+                    f"disponibilite {fmt_fill(baseline_fill)} | backlog {fmt_backlog(baseline_backlog)} | cout {fmt_money(baseline_cost)}",
+            ),
+                metric("Disponibilite cible", fmt_fill(service_threshold)),
                 metric("Driver critique", str(best_row.get("parameter_label") or "n/a")),
                 metric("Point de bascule", side_label(best_row)),
                 metric("Bande sure", safe_band_label(best_row)),
@@ -10338,46 +7955,30 @@ def build_threshold_metric_curve_payload(
         return f"{raw} ref." if abs(value - 1.0) <= 1e-9 else raw
 
     x = [format_parameter_level(level) for level, _ in usable_rows]
-    fill = [float(to_float(row.get("kpi::fill_rate")) or 0.0) for _, row in usable_rows]
     availability = [
         float(to_float(row.get("kpi::product_availability")) or to_float(row.get("kpi::fill_rate")) or 0.0)
         for _, row in usable_rows
     ]
-    adherence = [float(to_float(row.get("kpi::line_adherence")) or 0.0) for _, row in usable_rows]
+    has_replanning_rate = any(row.get("kpi::production_replanning_rate") not in (None, "") for _, row in usable_rows)
+    replanning_rate = [
+        float(to_float(row.get("kpi::production_replanning_rate")) or 0.0) if has_replanning_rate else None
+        for _, row in usable_rows
+    ]
     backlog = [float(to_float(row.get("kpi::ending_backlog")) or 0.0) for _, row in usable_rows]
     inventory_cost = [
         float(to_float(row.get("kpi::inventory_cost")) or to_float(row.get("kpi::total_holding_cost")) or 0.0)
         for _, row in usable_rows
     ]
-    target_gap = [float(to_float(row.get("guard::raw_material_max_target_gap_qty")) or 0.0) for _, row in usable_rows]
     material_delay = [float(to_float(row.get("kpi::material_delay_days")) or 0.0) for _, row in usable_rows]
 
     service_extra = [
-        {
-            "type": "scatter",
-            "mode": "lines+markers",
-            "name": "Fill rate",
-            "x": x,
-            "y": fill,
-            "line": {"width": 2.0, "color": "#2563eb", "dash": "dot"},
-            "marker": {"size": 6, "color": "#2563eb"},
-        },
-        {
-            "type": "scatter",
-            "mode": "lines+markers",
-            "name": "Adherence ligne",
-            "x": x,
-            "y": adherence,
-            "line": {"width": 2.0, "color": "#d97706"},
-            "marker": {"size": 6, "color": "#d97706"},
-        },
     ]
     if service_threshold is not None and not math.isnan(service_threshold):
         service_extra.append(
             {
                 "type": "scatter",
                 "mode": "lines",
-                "name": "Seuil service",
+                "name": "Seuil disponibilite",
                 "x": x,
                 "y": [float(service_threshold) for _ in x],
                 "line": {"width": 1.4, "color": "#dc2626", "dash": "dash"},
@@ -10387,7 +7988,7 @@ def build_threshold_metric_curve_payload(
         "figure": {
             "kind": "dual_panel",
             "x_axis_kind": "parameter_sweep",
-            "title": f"{parameter_label} - sensibilite par niveau teste",
+            "title": f"{parameter_label} - impact KPI par niveau teste",
                 "show_legend": True,
                 "top": {
                     "kind": "line",
@@ -10400,11 +8001,11 @@ def build_threshold_metric_curve_payload(
             },
                 "bottom": {
                     "kind": "line",
-                    "title": "Backlog final (0 = aucun backlog)",
+                    "title": "Taux de replanification production" if has_replanning_rate else "Taux de replanification production - non calcule dans cette etude",
                     "x_label": "Niveau teste du parametre (x1 = reference active, pas un jour)",
-                    "y_label": "Quantite",
+                    "y_label": "Ratio",
                 "x": x,
-                "y": backlog,
+                "y": replanning_rate,
             },
         }
     }
@@ -10412,11 +8013,11 @@ def build_threshold_metric_curve_payload(
         "figure": {
             "kind": "dual_panel",
             "x_axis_kind": "parameter_sweep",
-            "title": f"{parameter_label} - stock et cout par niveau teste",
+            "title": f"{parameter_label} - cout et detail supply par niveau teste",
                 "show_legend": True,
                 "top": {
                     "kind": "line",
-                    "title": "Cout de stock",
+                    "title": "Cout de stockage",
                     "x_label": "Niveau teste du parametre (x1 = reference active, pas un jour)",
                     "y_label": "Cout",
                 "x": x,
@@ -10424,11 +8025,22 @@ def build_threshold_metric_curve_payload(
             },
                 "bottom": {
                     "kind": "line",
-                    "title": "Retard matiere",
+                    "title": "Backlog final",
                     "x_label": "Niveau teste du parametre (x1 = reference active, pas un jour)",
-                    "y_label": "Jours de retard",
+                    "y_label": "Quantite",
                 "x": x,
-                "y": material_delay,
+                "y": backlog,
+                "extra_traces": [
+                    {
+                        "type": "scatter",
+                        "mode": "lines+markers",
+                        "name": "Retard matiere",
+                        "x": x,
+                        "y": material_delay,
+                        "line": {"width": 1.8, "color": "#d97706", "dash": "dot"},
+                        "marker": {"size": 5, "color": "#d97706"},
+                    }
+                ],
             },
         }
     }
@@ -10472,8 +8084,8 @@ def build_threshold_metric_curve_payload(
     ax_fill.axvline(1.0, color="#64748b", linestyle=":", linewidth=1.1)
     if base_fill is not None:
         ax_fill.axhline(base_fill, color="#0f766e", linestyle=":", linewidth=1.0)
-    ax_fill.set_ylabel("Fill rate")
-    ax_fill.set_title(f"{parameter_label} - service", fontsize=12, pad=10)
+    ax_fill.set_ylabel("Disponibilite produit")
+    ax_fill.set_title(f"{parameter_label} - disponibilite produit", fontsize=12, pad=10)
     ax_fill.grid(True, color="#e2e8f0", linewidth=0.9)
     ax_fill.set_facecolor("#ffffff")
 
@@ -10612,8 +8224,9 @@ def build_supplier_threshold_metric_curve_payload(
     ending_stock = []
     avg_utilization = []
     availability = []
-    adherence = []
+    replanning_rate = []
     inventory_cost = []
+    has_replanning_rate = any(row.get("kpi::production_replanning_rate") not in (None, "") for _, row, _ in usable_rows)
     for _, row, case_output_dir in usable_rows:
         metrics = read_supplier_case_metrics(case_output_dir, node_id, metrics_cache)
         shipped.append(float(metrics.get("total_shipped") or 0.0))
@@ -10623,7 +8236,9 @@ def build_supplier_threshold_metric_curve_payload(
         availability.append(
             float(to_float(row.get("kpi::product_availability")) or to_float(row.get("kpi::fill_rate")) or 0.0)
         )
-        adherence.append(float(to_float(row.get("kpi::line_adherence")) or 0.0))
+        replanning_rate.append(
+            float(to_float(row.get("kpi::production_replanning_rate")) or 0.0) if has_replanning_rate else None
+        )
         inventory_cost.append(
             float(to_float(row.get("kpi::inventory_cost")) or to_float(row.get("kpi::total_holding_cost")) or 0.0)
         )
@@ -10632,34 +8247,23 @@ def build_supplier_threshold_metric_curve_payload(
         "figure": {
             "kind": "dual_panel",
             "x_axis_kind": "parameter_sweep",
-            "title": f"{parameter_label} - flux et service par niveau teste",
+            "title": f"{parameter_label} - impact KPI par niveau teste",
                 "show_legend": True,
                 "top": {
                     "kind": "line",
-                    "title": "Expedie total fournisseur",
-                    "x_label": "Niveau teste du parametre (x1 = reference active, pas un jour)",
-                    "y_label": "Quantite",
-                "x": x,
-                "y": shipped,
-            },
-                "bottom": {
-                    "kind": "line",
-                    "title": "Disponibilite et adherence supply",
+                    "title": "Disponibilite produit",
                     "x_label": "Niveau teste du parametre (x1 = reference active, pas un jour)",
                     "y_label": "Ratio",
                 "x": x,
                 "y": availability,
-                "extra_traces": [
-                    {
-                        "type": "scatter",
-                        "mode": "lines+markers",
-                        "name": "Adherence ligne",
-                        "x": x,
-                        "y": adherence,
-                        "line": {"width": 2.0, "color": "#d97706"},
-                        "marker": {"size": 6, "color": "#d97706"},
-                    }
-                ],
+            },
+                "bottom": {
+                    "kind": "line",
+                    "title": "Taux de replanification production" if has_replanning_rate else "Taux de replanification production - non calcule dans cette etude",
+                    "x_label": "Niveau teste du parametre (x1 = reference active, pas un jour)",
+                    "y_label": "Ratio",
+                "x": x,
+                "y": replanning_rate,
             },
         }
     }
@@ -10667,11 +8271,19 @@ def build_supplier_threshold_metric_curve_payload(
         "figure": {
             "kind": "dual_panel",
             "x_axis_kind": "parameter_sweep",
-            "title": f"{parameter_label} - stock et capacite par niveau teste",
+            "title": f"{parameter_label} - cout et detail fournisseur par niveau teste",
                 "show_legend": True,
                 "top": {
                     "kind": "line",
-                    "title": "Stock moyen fournisseur",
+                    "title": "Cout de stockage",
+                    "x_label": "Niveau teste du parametre (x1 = reference active, pas un jour)",
+                    "y_label": "Cout",
+                "x": x,
+                "y": inventory_cost,
+                },
+                "bottom": {
+                    "kind": "line",
+                    "title": "Stock fournisseur",
                     "x_label": "Niveau teste du parametre (x1 = reference active, pas un jour)",
                     "y_label": "Quantite",
                 "x": x,
@@ -10683,18 +8295,19 @@ def build_supplier_threshold_metric_curve_payload(
                         "name": "Stock final fournisseur",
                         "x": x,
                         "y": ending_stock,
-                        "line": {"width": 2.0, "color": "#d97706"},
-                        "marker": {"size": 6, "color": "#d97706"},
-                    }
+                        "line": {"width": 1.8, "color": "#d97706", "dash": "dot"},
+                        "marker": {"size": 5, "color": "#d97706"},
+                    },
+                    {
+                        "type": "scatter",
+                        "mode": "lines+markers",
+                        "name": "Expedie total fournisseur",
+                        "x": x,
+                        "y": shipped,
+                        "line": {"width": 1.8, "color": "#64748b", "dash": "dot"},
+                        "marker": {"size": 5, "color": "#64748b"},
+                    },
                 ],
-                },
-                "bottom": {
-                    "kind": "line",
-                    "title": "Cout de stock",
-                    "x_label": "Niveau teste du parametre (x1 = reference active, pas un jour)",
-                    "y_label": "Cout",
-                "x": x,
-                "y": inventory_cost,
             },
         }
     }
@@ -11023,6 +8636,7 @@ def build_supplier_parameter_sensitivity_hover_payloads(
         adherence_drop = safe_float(row.get("max_line_adherence_drop")) or 0.0
         nervousness_delta = safe_float(row.get("max_line_nervousness_increase")) or 0.0
         replanning_delta = safe_float(row.get("max_production_replanning_count_increase")) or 0.0
+        replanning_rate_delta = safe_float(row.get("max_production_replanning_rate_increase")) or 0.0
         material_delay = safe_float(row.get("max_material_delay_days_increase")) or 0.0
         target_gap = safe_float(row.get("max_raw_material_target_gap_increase")) or 0.0
         safety_gap = safe_float(row.get("max_raw_material_safety_floor_gap_increase")) or 0.0
@@ -11033,18 +8647,20 @@ def build_supplier_parameter_sensitivity_hover_payloads(
         cost_delta = safe_float(row.get("max_total_cost_increase")) or 0.0
         parts: list[str] = []
         if fill_drop > 1e-9:
-            parts.append(f"service -{fill_drop * 100:.1f} pts max")
+            parts.append(f"disponibilite -{fill_drop * 100:.1f} pts max")
         if availability_drop > 1e-9:
             parts.append(f"dispo -{availability_drop * 100:.1f} pts max")
         if adherence_drop > 1e-9:
             parts.append(f"adherence -{adherence_drop * 100:.1f} pts max")
-        if nervousness_delta > 1e-9 or replanning_delta > 1e-9:
+        if replanning_rate_delta > 1e-9 or replanning_delta > 1e-9 or nervousness_delta > 1e-9:
             planning_parts: list[str] = []
+            if replanning_rate_delta > 1e-9:
+                planning_parts.append(f"taux replanification +{replanning_rate_delta * 100:.1f} pts")
             if nervousness_delta > 1e-9:
                 planning_parts.append(f"amplitude +{nervousness_delta:.0f} pts")
             if replanning_delta > 1e-9:
                 planning_parts.append(f"lignes replanifiees +{replanning_delta:.0f}")
-            parts.append(f"instabilite planning ({' ; '.join(planning_parts)})")
+            parts.append(f"replanification ({' ; '.join(planning_parts)})")
         if material_delay > 1e-9:
             parts.append(f"retard matiere max +{material_delay:.0f} j")
         if target_gap > 1e-6:
@@ -11089,6 +8705,13 @@ def build_supplier_parameter_sensitivity_hover_payloads(
                 return label
         return "n/a"
 
+    def metric_max_label_any(row: dict[str, str], metric_names: list[str], *, kind: str = "qty") -> str:
+        for metric_name in metric_names:
+            label = metric_max_label(row, metric_name, kind=kind)
+            if label != "n/a":
+                return label
+        return "n/a"
+
     def metric_max_label(row: dict[str, str], metric_name: str, *, kind: str = "qty") -> str:
         values = metric_values_for_row(row, metric_name)
         if not values:
@@ -11112,6 +8735,26 @@ def build_supplier_parameter_sensitivity_hover_payloads(
         if baseline_holding_cost is None:
             return fmt_money_short(max_value)
         return f"{fmt_money_short(max_value)} ({fmt_money_short(max_value - baseline_holding_cost)} vs baseline)"
+
+    def replanning_rate_label(row: dict[str, str]) -> str:
+        rate = safe_float(row.get("production_replanning_rate_max"))
+        if rate is None:
+            return metric_max_label_any(row, ["kpi::production_replanning_rate"], kind="pct_fraction")
+        return fmt_fill_value(rate)
+
+    def replanning_delta_label(row: dict[str, str]) -> str:
+        rate_delta = safe_float(row.get("max_production_replanning_rate_increase"))
+        count_delta = safe_float(row.get("max_production_replanning_count_increase"))
+        if rate_delta is not None and not math.isnan(rate_delta):
+            count_suffix = (
+                f" ; +{fmt_qty(count_delta, 0)} lignes"
+                if count_delta is not None and not math.isnan(count_delta)
+                else ""
+            )
+            return f"+{rate_delta * 100:.1f} pts{count_suffix}"
+        if count_delta is not None and not math.isnan(count_delta):
+            return f"+{fmt_qty(count_delta, 0)} lignes"
+        return "n/a"
 
     def line_adherence_label(row: dict[str, str]) -> str:
         return metric_min_label(row, "kpi::line_adherence", kind="pct_fraction")
@@ -11159,6 +8802,7 @@ def build_supplier_parameter_sensitivity_hover_payloads(
         adherence_drop = safe_float(row.get("max_line_adherence_drop")) or 0.0
         nervousness_delta = safe_float(row.get("max_line_nervousness_increase")) or 0.0
         replanning_delta = safe_float(row.get("max_production_replanning_count_increase")) or 0.0
+        replanning_rate_delta = safe_float(row.get("max_production_replanning_rate_increase")) or 0.0
         target_gap = safe_float(row.get("max_raw_material_target_gap_increase")) or 0.0
         upstream_delta = safe_float(row.get("max_supplier_upstream_ordered_qty_delta"))
         if upstream_delta is None:
@@ -11184,6 +8828,7 @@ def build_supplier_parameter_sensitivity_hover_payloads(
             or (first_bad is not None and abs(first_bad - 1.0) <= 0.25)
             or nervousness_delta > 0.0
             or replanning_delta > 0.0
+            or replanning_rate_delta > 0.0
             or target_gap > 1e-6
             or material_delay > 0.0
             or upstream_delta > 5_000_000
@@ -11217,11 +8862,11 @@ def build_supplier_parameter_sensitivity_hover_payloads(
         elif "lead" in parameter_group:
             base = f"Delai: eviter de sortir de {band}; au-dela, les garde-fous amont/cout se degradent."
         elif "reliability" in parameter_group:
-            base = f"Fiabilite: rester dans {band}; une baisse peut creer du stress amont meme sans rupture service."
+            base = f"Fiabilite: rester dans {band}; une baisse peut creer une contrainte amont meme sans rupture disponibilite."
         elif "upstream" in parameter_group:
             base = f"Appro amont fournisseur: garder {band} comme zone de reference testee."
         elif "combined" in parameter_group:
-            base = f"Scenario combine: lire ce test comme un stress simultane; acceptable seulement si {band} reste valide."
+            base = f"Scenario combine: lire ce test comme une variation simultanee; acceptable seulement si {band} reste valide."
         elif direction == "higher_is_riskier":
             base = f"Ne pas depasser {band} sans retest."
         else:
@@ -11258,6 +8903,7 @@ def build_supplier_parameter_sensitivity_hover_payloads(
         adherence_drop = safe_float(row.get("max_line_adherence_drop")) or 0.0
         nervousness_delta = safe_float(row.get("max_line_nervousness_increase")) or 0.0
         replanning_delta = safe_float(row.get("max_production_replanning_count_increase")) or 0.0
+        replanning_rate_delta = safe_float(row.get("max_production_replanning_rate_increase")) or 0.0
         target_gap = safe_float(row.get("max_raw_material_target_gap_increase")) or 0.0
         safety_gap = safe_float(row.get("max_raw_material_safety_floor_gap_increase")) or 0.0
         upstream_delta = safe_float(row.get("max_supplier_upstream_ordered_qty_delta"))
@@ -11275,6 +8921,7 @@ def build_supplier_parameter_sensitivity_hover_payloads(
             + adherence_drop * 100.0
             + min(nervousness_delta / 10.0, 30.0)
             + min(replanning_delta / 10.0, 30.0)
+            + min(replanning_rate_delta * 140.0, 35.0)
             + min(target_gap / 1_000_000.0, 80.0)
             + min(safety_gap / 1_000_000.0, 40.0)
             + min(upstream_delta / 10_000_000.0, 40.0)
@@ -11295,6 +8942,7 @@ def build_supplier_parameter_sensitivity_hover_payloads(
         adherence_drop = safe_float(row.get("max_line_adherence_drop")) or 0.0
         nervousness_delta = safe_float(row.get("max_line_nervousness_increase")) or 0.0
         replanning_delta = safe_float(row.get("max_production_replanning_count_increase")) or 0.0
+        replanning_rate_delta = safe_float(row.get("max_production_replanning_rate_increase")) or 0.0
         target_gap = safe_float(row.get("max_raw_material_target_gap_increase")) or 0.0
         material_delay = safe_float(row.get("max_material_delay_days_increase")) or 0.0
         stockout_days = safe_float(row.get("max_raw_material_stockout_days_increase")) or 0.0
@@ -11314,10 +8962,9 @@ def build_supplier_parameter_sensitivity_hover_payloads(
                 "Calcul ici",
                 f"Zone acceptable autour de x1 = {baseline_contiguous_band(row)}",
                 f"Premier niveau degrade = {first_unacceptable(row)}",
-                f"Fill rate min = {fmt_fill_value(safe_float(row.get('fill_rate_min')))} ; baisse max = {fmt_fill_value(fill_drop)}",
-                f"Disponibilite min = {metric_min_label_any(row, ['kpi::product_availability', 'kpi::fill_rate'], kind='pct_fraction')} ; baisse max = {fmt_fill_value(availability_drop)}",
-                f"Adherence min = {line_adherence_label(row)} ; baisse max = {fmt_fill_value(adherence_drop)}",
-                f"Instabilite planning = amplitude +{fmt_qty(nervousness_delta, 0)} pts ; lignes replanifiees +{fmt_qty(replanning_delta, 0)}",
+                f"Disponibilite produit min = {metric_min_label_any(row, ['kpi::product_availability', 'kpi::fill_rate'], kind='pct_fraction')} ; baisse max = {fmt_fill_value(max(availability_drop, fill_drop))}",
+                f"Taux replanification max = {replanning_rate_label(row)} ; variation = {replanning_delta_label(row)}",
+                f"Signal technique adherence = {line_adherence_label(row)} ; nervosite +{fmt_qty(nervousness_delta, 0)} pts ; lignes replanifiees +{fmt_qty(replanning_delta, 0)}",
                 f"Retard matiere = +{fmt_qty(material_delay, 0)} j",
                 f"Gap cible stock = {fmt_qty(target_gap, 0)} ; appro amont delta = {fmt_qty(upstream_delta, 0)}",
                 f"Cout stockage max = {holding_cost_delta_label(row)} ; delta = {fmt_money_short(inventory_delta)}",
@@ -11357,9 +9004,8 @@ def build_supplier_parameter_sensitivity_hover_payloads(
                     scope_labels.get(scope, scope),
                     baseline_contiguous_band(row),
                     first_unacceptable(row),
-                    fmt_fill_value(safe_float(row.get("fill_rate_min"))),
                     metric_min_label_any(row, ["kpi::product_availability", "kpi::fill_rate"], kind="pct_fraction"),
-                    line_adherence_label(row),
+                    replanning_rate_label(row),
                     holding_cost_delta_label(row),
                     driver_text(row),
                 ]
@@ -11370,11 +9016,10 @@ def build_supplier_parameter_sensitivity_hover_payloads(
                 "Perimetre du test",
                 "Zone acceptable autour de la reference",
                 "Premier niveau ou ca se degrade",
-                "Fill min",
-                "Disponibilite min",
-                "Adherence ligne",
+                "Disponibilite produit min",
+                "Taux replanification max",
                 "Cout stockage max",
-                "Cause de degradation",
+                "Lecture metier",
             ],
             rows,
         )
@@ -11390,11 +9035,12 @@ def build_supplier_parameter_sensitivity_hover_payloads(
                     fmt_levels(row.get("acceptable_ranges"), row),
                     baseline_contiguous_band(row),
                     first_unacceptable(row),
-                    fmt_fill_value(safe_float(row.get("fill_rate_min"))),
                     metric_min_label_any(row, ["kpi::product_availability", "kpi::fill_rate"], kind="pct_fraction"),
+                    replanning_rate_label(row),
+                    replanning_delta_label(row),
                     line_adherence_label(row),
                     holding_cost_delta_label(row),
-                    fmt_pct((safe_float(row.get("max_fill_rate_drop")) or 0.0) * 100.0, 1),
+                    fmt_pct(max((safe_float(row.get("max_product_availability_drop")) or 0.0), (safe_float(row.get("max_fill_rate_drop")) or 0.0)) * 100.0, 1),
                     fmt_qty(
                         safe_float(row.get("max_supplier_upstream_ordered_qty_delta"))
                         if safe_float(row.get("max_supplier_upstream_ordered_qty_delta")) is not None
@@ -11413,11 +9059,12 @@ def build_supplier_parameter_sensitivity_hover_payloads(
                 "Plages acceptables",
                 "Zone acceptable autour de la reference",
                 "Premier niveau ou ca se degrade",
-                "Fill min",
-                "Disponibilite min",
-                "Adherence ligne",
+                "Disponibilite produit min",
+                "Taux replanification max",
+                "Variation replanification",
+                "Signal technique adherence",
                 "Cout stockage max",
-                "Baisse fill max",
+                "Baisse disponibilite produit max",
                 "Variation appro amont",
                 "Variation ecart cible",
                 "Lecture stable",
@@ -11445,7 +9092,7 @@ def build_supplier_parameter_sensitivity_hover_payloads(
                     margin_pct_label(row, "upstream_capacity_reduction_margin_pct"),
                     margin_pct_label(row, "upstream_delay_increase_margin_pct"),
                     metric_min_label_any(row, ["kpi::product_availability", "kpi::fill_rate"], kind="pct_fraction"),
-                    line_adherence_label(row),
+                    replanning_rate_label(row),
                     holding_cost_delta_label(row),
                 ]
             )
@@ -11459,8 +9106,8 @@ def build_supplier_parameter_sensitivity_hover_payloads(
                 "Fiabilite - marge baisse",
                 "Appro amont cap - marge baisse",
                 "Appro amont delai - marge hausse",
-                "Disponibilite min",
-                "Adherence min",
+                "Disponibilite produit min",
+                "Taux replanification max",
                 "Cout stockage max",
             ],
             rows,
@@ -11493,10 +9140,11 @@ def build_supplier_parameter_sensitivity_hover_payloads(
                 return "watch"
             return "robust"
         if metric == "replanning":
-            delta = safe_float(row.get("max_production_replanning_count_increase")) or 0.0
-            if delta >= 50.0:
+            rate_delta = safe_float(row.get("max_production_replanning_rate_increase")) or 0.0
+            count_delta = safe_float(row.get("max_production_replanning_count_increase")) or 0.0
+            if rate_delta >= 0.02 or count_delta >= 50.0:
                 return "sensitive"
-            if delta > 0.0:
+            if rate_delta > 0.0 or count_delta > 0.0:
                 return "watch"
             return "robust"
         if metric == "planning":
@@ -11576,41 +9224,59 @@ def build_supplier_parameter_sensitivity_hover_payloads(
         return fallback
 
     def planning_instability_value(row: dict[str, str]) -> str:
-        nervousness = safe_float(row.get("line_nervousness_max"))
+        rate = safe_float(row.get("production_replanning_rate_max"))
         replanning = safe_float(row.get("production_replanning_count_max"))
-        if nervousness is None and replanning is None:
+        if rate is None and replanning is None:
             return "n/a"
-        if nervousness is None:
-            return f"{fmt_qty(replanning, 0)} lignes"
-        if replanning is None:
-            return f"{fmt_qty(nervousness, 0)}%"
-        return f"{fmt_qty(nervousness, 0)}% / {fmt_qty(replanning, 0)} lignes"
+        if rate is not None:
+            suffix = f" / {fmt_qty(replanning, 0)} lignes" if replanning is not None else ""
+            return f"{fmt_fill_value(rate)}{suffix}"
+        return f"{fmt_qty(replanning, 0)} lignes"
 
     def planning_instability_tooltip(row: dict[str, str], value: str) -> str:
+        raw_rate = safe_float(row.get("production_replanning_rate_max"))
+        raw_rate_delta = safe_float(row.get("max_production_replanning_rate_increase"))
+        raw_replanning = safe_float(row.get("production_replanning_count_max"))
+        rate = raw_rate or 0.0
+        rate_delta = raw_rate_delta or 0.0
         nervousness = safe_float(row.get("line_nervousness_max")) or 0.0
-        replanning = safe_float(row.get("production_replanning_count_max")) or 0.0
+        replanning = raw_replanning or 0.0
         nervousness_delta = safe_float(row.get("max_line_nervousness_increase")) or 0.0
         replanning_delta = safe_float(row.get("max_production_replanning_count_increase")) or 0.0
+        if raw_rate is None and raw_replanning is None:
+            return "\n".join(
+                [
+                    "Lecture metier",
+                    "Le taux de replanification mesure la part des lignes de planning production qui ont ete reportees ou replanifiees dans la grille testee.",
+                    "",
+                    "Statut des donnees",
+                    "Ce KPI n'est pas encore present dans les resultats de sensibilite utilises pour cette carte.",
+                    "",
+                    "Action",
+                    "Regenerer l'etude de sensibilite avec le script a jour pour alimenter ce KPI sur les courbes et les cartes.",
+                ]
+            )
         return "\n".join(
             [
                 "Lecture metier",
-                "La nervosite planning regroupe deux signaux: l'amplitude des changements de plan et le nombre de lignes replanifiees.",
+                "Le taux de replanification mesure la part des lignes de planning production qui ont ete reportees ou replanifiees dans la grille testee.",
                 "",
-                "Composant 1 - amplitude",
-                "Variation du plan par ligne entre deux jours consecutifs.",
-                f"Maximum observe = {fmt_qty(nervousness, 0)}%",
-                f"Augmentation vs reference = +{fmt_qty(nervousness_delta, 0)} pts",
+                "KPI principal",
+                f"Taux max observe = {fmt_fill_value(rate)}",
+                f"Variation vs reference = +{rate_delta * 100:.1f} pts",
                 "",
-                "Composant 2 - lignes replanifiees",
-                "Nombre de lignes dont le plan change suffisamment entre deux jours.",
+                "Volume associe",
                 f"Maximum observe = {fmt_qty(replanning, 0)} lignes",
                 f"Augmentation vs reference = +{fmt_qty(replanning_delta, 0)} lignes",
+                "",
+                "Signal technique conserve en detail",
+                f"Nervosite planning max = {fmt_qty(nervousness, 0)} ; variation +{fmt_qty(nervousness_delta, 0)} pts",
                 "",
                 "Valeur affichee",
                 f"{value}",
                 "",
                 "Lecture",
-                "Un retard peut surtout augmenter l'amplitude des changements sans multiplier fortement le nombre de lignes touchees.",
+                "C'est un KPI de stabilite industrielle: plus il monte, plus l'usine doit reorganiser son planning a cause des contraintes intrants ou fournisseurs.",
             ]
         )
 
@@ -11631,42 +9297,26 @@ def build_supplier_parameter_sensitivity_hover_payloads(
         scope_note = "test local" if locally_tested else "lecture globale/amont"
         regularity = "lecture stable" if bool_text(best_row.get("acceptable_is_contiguous")) else "lecture irreguliere"
         dashboard_tooltip = sensitivity_row_tooltip(best_row, best_scope)
-        fill_value = card_value_from_row(best_row, "fill_rate_min", fmt_fill_value(safe_float(best_row.get("baseline_fill_rate"))))
         availability_value = card_value_from_row(
             best_row,
             "product_availability_min",
             metric_min_label_any(best_row, ["kpi::product_availability", "kpi::fill_rate"], kind="pct_fraction"),
         )
-        adherence_value = card_value_from_row(best_row, "line_adherence_min", line_adherence_label(best_row))
         planning_value = planning_instability_value(best_row)
         cost_value = card_value_from_row(best_row, "inventory_cost_max", holding_cost_delta_label(best_row), kind="money")
         kpi_cards = [
             sensitivity_metric_card(
-                "Fill rate min",
-                fill_value,
-                f"plus bas observe dans la grille",
-                sensitivity_card_status(best_row, "service"),
-                sensitivity_metric_tooltip(best_row, "Fill rate min", "fill rate min = minimum du fill rate observe dans les scenarios testes", fill_value, "kpi::fill_rate"),
-            ),
-            sensitivity_metric_card(
-                "Disponibilite min",
+                "Disponibilite produit",
                 availability_value,
                 "plus bas observe dans la grille",
                 sensitivity_card_status(best_row, "availability"),
-                sensitivity_metric_tooltip(best_row, "Disponibilite min", "disponibilite min = minimum de disponibilite produit observe dans la grille", availability_value, "kpi::product_availability"),
+                sensitivity_metric_tooltip(best_row, "Disponibilite produit min", "disponibilite produit min = minimum observe dans la grille", availability_value, "kpi::product_availability"),
             ),
             sensitivity_metric_card(
-                "Adherence min",
-                adherence_value,
-                "plus bas observe dans la grille",
-                sensitivity_card_status(best_row, "adherence"),
-                sensitivity_metric_tooltip(best_row, "Adherence min", "adherence min = minimum d'adherence de ligne observe dans les scenarios testes", adherence_value, "kpi::line_adherence"),
-            ),
-            sensitivity_metric_card(
-                "Nervosite planning",
+                "Taux replanification",
                 planning_value,
-                "amplitude max / lignes replanifiees",
-                sensitivity_card_status(best_row, "planning"),
+                "part max des lignes touchees",
+                sensitivity_card_status(best_row, "replanning"),
                 planning_instability_tooltip(best_row, planning_value),
             ),
             sensitivity_metric_card(
@@ -11684,7 +9334,7 @@ def build_supplier_parameter_sensitivity_hover_payloads(
                 "<div class=\"sensitivityHeroMain\">",
                 f"<div class=\"sensitivityStatusPill\">{html.escape(status_label)}</div>",
                 f"<div class=\"sensitivityHeroTitle\">{html.escape(display_node_label(node_id))}</div>",
-                f"<div class=\"sensitivityHeroText\">Premier point faible teste: <b>{html.escape(driver_label)}</b>. Premier niveau ou ca se degrade: <b>{html.escape(break_label)}</b>. Type: <b>{html.escape(family_label)}</b>.</div>",
+                f"<div class=\"sensitivityHeroText\">Point de fragilite teste: <b>{html.escape(driver_label)}</b>. Premier niveau qui degrade les KPI: <b>{html.escape(break_label)}</b>. Famille: <b>{html.escape(family_label)}</b>.</div>",
                 "<div class=\"sensitivityHeroText\">Lecture: ce seuil vient d'une grille de simulation. Ce n'est pas une donnee reelle fournisseur ni un seuil exact continu.</div>",
                 "</div>",
                 "<div class=\"sensitivityHeroFacts\">",
@@ -11778,13 +9428,11 @@ def build_supplier_parameter_sensitivity_hover_payloads(
         status_key, status_label = status_for_row(row, locally_tested=True)
         label = str(row.get("parameter_label") or row.get("parameter_key") or "n/a")
         tooltip = sensitivity_row_tooltip(row, scope)
-        fill_value = card_value_from_row(row, "fill_rate_min", fmt_fill_value(safe_float(row.get("baseline_fill_rate"))))
         availability_value = card_value_from_row(
             row,
             "product_availability_min",
             metric_min_label_any(row, ["kpi::product_availability", "kpi::fill_rate"], kind="pct_fraction"),
         )
-        adherence_value = card_value_from_row(row, "line_adherence_min", line_adherence_label(row))
         planning_value = planning_instability_value(row)
         cost_value = card_value_from_row(row, "inventory_cost_max", holding_cost_delta_label(row), kind="money")
         color = driver_family_colors.get(family, driver_family_colors["other"])
@@ -11801,10 +9449,8 @@ def build_supplier_parameter_sensitivity_hover_payloads(
                 f"<div class=\"sensitivityCompareTitle\">{html.escape(label)}</div>",
                 f"<div class=\"sensitivityCompareText\">Se degrade a partir de <b>{html.escape(first_unacceptable(row))}</b>. Zone acceptable autour de x1: <b>{html.escape(baseline_contiguous_band(row))}</b>.</div>",
                 "<div class=\"sensitivityCompareKpis\">",
-                f"<div><span>Fill rate min</span><b>{html.escape(fill_value)}</b></div>",
-                f"<div><span>Disponibilite min</span><b>{html.escape(availability_value)}</b></div>",
-                f"<div><span>Adherence min</span><b>{html.escape(adherence_value)}</b></div>",
-                f"<div><span>Nervosite planning</span><b>{html.escape(planning_value)}</b></div>",
+                f"<div><span>Disponibilite produit</span><b>{html.escape(availability_value)}</b></div>",
+                f"<div><span>Taux replanification</span><b>{html.escape(planning_value)}</b></div>",
                 f"<div><span>Cout stockage</span><b>{html.escape(cost_value)}</b></div>",
                 "</div>",
                 f"<div class=\"sensitivityCompareReason\">{html.escape(driver_text(row))}</div>",
@@ -11838,12 +9484,12 @@ def build_supplier_parameter_sensitivity_hover_payloads(
                 "<div class=\"sensitivityCompareDashboard\">",
                 "<div class=\"sensitivityCompareHeader\">",
                 f"<div><div class=\"sensitivityCompareEyebrow\">Vue comparee</div><div class=\"sensitivityCompareHeading\">{html.escape(heading)}</div></div>",
-                f"<div class=\"sensitivityCompareNote\">{html.escape(note)} Chaque carte correspond a un stress test; ce sont des resultats de grille, pas des donnees fournisseur reelles.</div>",
+                f"<div class=\"sensitivityCompareNote\">{html.escape(note)} Chaque carte correspond a un niveau teste; ce sont des resultats de grille, pas des donnees fournisseur reelles.</div>",
                 "</div>",
                 "<div class=\"sensitivityCompareGrid\">",
                 cards,
                 "</div>",
-                "<div class=\"sensitivityRecommendation\"><b>Lecture.</b> Utiliser cette vue pour comparer ce qui degrade d'abord le noeud: service client, disponibilite, adherence usine, nervosite planning ou cout. Revenir a la vue standard pour les courbes detaillees par niveau teste.</div>",
+                "<div class=\"sensitivityRecommendation\"><b>Lecture.</b> Utiliser cette vue pour comparer ce qui degrade d'abord le noeud: disponibilite produit, taux de replanification ou cout de stockage. Revenir aux courbes pour voir l'effet niveau par niveau.</div>",
                 "</div>",
             ]
         )
@@ -11956,7 +9602,7 @@ def build_supplier_parameter_sensitivity_hover_payloads(
                 ),
                 (
                     "Usage",
-                    "Ces signaux expliquent le stress interne du modele. La decision metier reste prioritairement: fill rate, disponibilite, adherence, cout.",
+                    "Ces signaux expliquent la contrainte interne du modele. La decision metier reste prioritairement: disponibilite produit, taux de replanification, cout de stockage.",
                 ),
             ]
         )
@@ -11970,7 +9616,7 @@ def build_supplier_parameter_sensitivity_hover_payloads(
             ),
             (
                 "Garde-fous",
-                "Acceptable signifie: fill rate conserve, backlog final nul ou controle, cout dans le seuil et gaps de stock matiere non degrades vs baseline.",
+                "Acceptable signifie: disponibilite produit conservee, taux de replanification non degrade, cout de stockage dans le seuil et backlog final nul ou controle.",
             ),
             (
                 "Lecture irreguliere",
@@ -12034,8 +9680,11 @@ def build_supplier_parameter_sensitivity_hover_payloads(
                 else "vue amont: fournisseurs relies au noeud + contraintes globales"
             )
         )
+        baseline_replanning_rate = safe_float(best_row.get("baseline_production_replanning_rate"))
         baseline_line = (
-            f"FR {fmt_fill_value(baseline_fill)} | backlog {fmt_qty(baseline_backlog, 0)} | cout {fmt_money_short(baseline_cost)}"
+            f"disponibilite {fmt_fill_value(baseline_fill)} | "
+            f"replanification {fmt_fill_value(baseline_replanning_rate)} | "
+            f"backlog {fmt_qty(baseline_backlog, 0)} | cout {fmt_money_short(baseline_cost)}"
         )
         summary_rows_html = render_data_kv(
             [
@@ -12047,18 +9696,17 @@ def build_supplier_parameter_sensitivity_hover_payloads(
                     "Lecture niveaux testes",
                     "x1 ref. = valeur du scenario actif; x0.75 = 75% de cette reference. Les taux capacite cible sont gardes dans les onglets nominaux.",
                 ),
-                ("Service cible", fmt_fill_value(service_threshold)),
+                ("Disponibilite cible", fmt_fill_value(service_threshold)),
                 ("Point faible principal", parameter_label),
                 ("Type de point faible", driver_family_labels.get(family, family)),
                 ("Ou agit ce point faible", scope_labels.get(best_scope, best_scope)),
                 ("Zone acceptable autour de la reference", baseline_contiguous_band(best_row)),
                 ("Premier niveau ou ca se degrade", first_unacceptable(best_row)),
-                ("Fill rate min", fmt_fill_value(safe_float(best_row.get("fill_rate_min")))),
                 (
                     "Disponibilite produit",
                     metric_min_label_any(best_row, ["kpi::product_availability", "kpi::fill_rate"], kind="pct_fraction"),
                 ),
-                ("Adherence ligne", line_adherence_label(best_row)),
+                ("Taux replanification", planning_instability_value(best_row)),
                 ("Cout stockage max", holding_cost_delta_label(best_row)),
                 ("Cause principale", driver_text(best_row)),
                 ("Recommandation", recommendation_text(best_row)),
@@ -12087,11 +9735,11 @@ def build_supplier_parameter_sensitivity_hover_payloads(
             overview_sections,
         )
         compare = data_html_asset(
-            f"{display_node_label(node_id)} - top 3 sensibilites",
-            "Vue comparee: les pires stress tests, avec familles differentes quand la grille le permet.",
+            f"{display_node_label(node_id)} - priorites KPI",
+            "Vue comparee: les tests de sensibilite les plus degradants sur disponibilite produit, taux de replanification ou cout de stockage.",
             [
                 (
-                    "Comparaison top 3",
+                    "Comparaison priorites KPI",
                     sensitivity_comparison_html(node_id, scoped_rows),
                 )
             ],
@@ -12099,7 +9747,7 @@ def build_supplier_parameter_sensitivity_hover_payloads(
         incoming = {
             "bundle": [
                 {"label": "Lecture immediate", "asset": overview},
-                {"label": "Top 3 resultats", "asset": compare},
+                {"label": "Priorites KPI", "asset": compare},
             ]
         }
 
@@ -12136,8 +9784,8 @@ def build_supplier_parameter_sensitivity_hover_payloads(
                 service_threshold=service_threshold,
             )
         curve_entries = [
-            {"label": "Service / pilotage", "asset": curve_primary},
-            {"label": "Stock / cout", "asset": curve_secondary},
+            {"label": "KPI metier", "asset": curve_primary},
+            {"label": "Cout / detail supply", "asset": curve_secondary},
         ]
         curve_bundle = [entry for entry in curve_entries if entry.get("asset")]
         outgoing = {"bundle": curve_bundle} if len(curve_bundle) > 1 else (curve_bundle[0]["asset"] if curve_bundle else None)
@@ -12237,15 +9885,15 @@ def build_supplier_parameter_sensitivity_hover_payloads(
         if str(row.get("parameter_key") or "") and str(row.get("parameter_key") or "") != "baseline"
     ]
     node_meta["_global_top3"] = data_html_asset(
-        "Sensibilite - top 3 resultats globaux",
-        "Vue accessible sans selectionner de noeud: les pires stress tests, avec familles differentes quand la grille le permet.",
+        "Sensibilite - priorites KPI globales",
+        "Vue accessible sans selectionner de noeud: les tests qui degradent le plus disponibilite produit, taux de replanification ou cout de stockage.",
         [
             (
-                "Top 3 resultats globaux",
+                "Priorites KPI globales",
                 sensitivity_comparison_html(
                     "__global__",
                     global_scoped_rows,
-                    title="Top 3 resultats globaux",
+                    title="Priorites KPI globales",
                     include_context=True,
                 ),
             )
@@ -12344,11 +9992,11 @@ def build_montecarlo_uncertainty_payload(summary_json: Path) -> dict[str, Any]:
 
     def mc_node_driver_from_factor(raw_factor: str) -> tuple[str, str, str, str, str] | None:
         prefixes = {
-            "supplier_stock_node::": ("stock", "Stock fournisseur", "low_is_worse", "#0f766e", "moins de stock degrade le service"),
-            "supplier_capacity_node::": ("capacity", "Capacite fournisseur", "low_is_worse", "#d97706", "moins de capacite degrade le service"),
-            "supplier_lead_node::": ("lead", "Delai fournisseur", "high_is_worse", "#7c3aed", "plus de delai degrade le service"),
-            "supplier_reliability_node::": ("reliability", "Fiabilite fournisseur", "low_is_worse", "#2563eb", "moins de fiabilite degrade le service"),
-            "capacity_node::": ("factory_capacity", "Capacite usine", "low_is_worse", "#be123c", "moins de capacite degrade le service"),
+            "supplier_stock_node::": ("stock", "Stock fournisseur", "low_is_worse", "#0f766e", "moins de stock degrade la disponibilite produit"),
+            "supplier_capacity_node::": ("capacity", "Capacite fournisseur", "low_is_worse", "#d97706", "moins de capacite degrade la disponibilite produit"),
+            "supplier_lead_node::": ("lead", "Delai fournisseur", "high_is_worse", "#7c3aed", "plus de delai degrade la disponibilite produit"),
+            "supplier_reliability_node::": ("reliability", "Fiabilite fournisseur", "low_is_worse", "#2563eb", "moins de fiabilite degrade la disponibilite produit"),
+            "capacity_node::": ("factory_capacity", "Capacite usine", "low_is_worse", "#be123c", "moins de capacite degrade la disponibilite produit"),
         }
         for prefix, payload in prefixes.items():
             if raw_factor.startswith(prefix):
@@ -12365,7 +10013,7 @@ def build_montecarlo_uncertainty_payload(summary_json: Path) -> dict[str, Any]:
             backlog_signal = max(0.0, backlog_corr)
             cost_signal = max(0.0, cost_corr)
             formula = (
-                "55% x max(0, -corr fill rate) + "
+                "55% x max(0, -corr disponibilite produit) + "
                 "35% x max(0, corr backlog) + "
                 "10% x max(0, corr cout)"
             )
@@ -12374,7 +10022,7 @@ def build_montecarlo_uncertainty_payload(summary_json: Path) -> dict[str, Any]:
             backlog_signal = max(0.0, -backlog_corr)
             cost_signal = max(0.0, -cost_corr)
             formula = (
-                "55% x max(0, corr fill rate) + "
+                "55% x max(0, corr disponibilite produit) + "
                 "35% x max(0, -corr backlog) + "
                 "10% x max(0, -corr cout)"
             )
@@ -12468,7 +10116,7 @@ def build_montecarlo_uncertainty_payload(summary_json: Path) -> dict[str, Any]:
 
             views = {
                 "global": view_payload("global", "score", "Impact global Monte Carlo"),
-                "service": view_payload("service", "service_score", "Impact service client"),
+                "service": view_payload("service", "service_score", "Impact disponibilite produit"),
                 "backlog": view_payload("backlog", "backlog_score", "Impact backlog"),
                 "cost": view_payload("cost", "cost_score", "Impact cout"),
             }
@@ -12481,7 +10129,7 @@ def build_montecarlo_uncertainty_payload(summary_json: Path) -> dict[str, Any]:
                     str(top.get("formula") or ""),
                     "",
                     "Calcul driver principal",
-                    f"corr fill rate = {corr_text(float(top.get('fill_corr') or 0.0))}",
+                    f"corr disponibilite = {corr_text(float(top.get('fill_corr') or 0.0))}",
                     f"corr backlog = {corr_text(float(top.get('backlog_corr') or 0.0))}",
                     f"corr cout = {corr_text(float(top.get('cost_corr') or 0.0))}",
                     f"score impact = {score_label}",
@@ -12495,7 +10143,7 @@ def build_montecarlo_uncertainty_payload(summary_json: Path) -> dict[str, Any]:
                 {"label": "Statut", "value": status_label},
                 {"label": "Impact noeud", "value": score_label},
                 {"label": "Driver principal", "value": driver_label},
-                {"label": "Correlation fill rate", "value": corr_text(float(top.get("fill_corr") or 0.0))},
+                {"label": "Correlation disponibilite", "value": corr_text(float(top.get("fill_corr") or 0.0))},
                 {"label": "Correlation backlog", "value": corr_text(float(top.get("backlog_corr") or 0.0))},
                 {"label": "Correlation cout", "value": corr_text(float(top.get("cost_corr") or 0.0))},
                 {"label": "Runs", "value": str(runs)},
@@ -12516,35 +10164,10 @@ def build_montecarlo_uncertainty_payload(summary_json: Path) -> dict[str, Any]:
                     "</tr>"
                 )
 
-            node_dashboard = "".join(
-                [
-                    f"<div class=\"{html_tooltip_class(f'uncertaintyDashboard sensitivityStatus-{status}', tooltip)}\"{html_tooltip_attrs(tooltip)}>",
-                    "<div class=\"uncertaintyHero\">",
-                    "<div>",
-                    f"<div class=\"sensitivityStatusPill\">{html.escape(status_label)}</div>",
-                    f"<div class=\"uncertaintyHeroTitle\">{html.escape(node_id)} - impact Monte Carlo</div>",
-                    f"<div class=\"uncertaintyHeroText\">Ce noeud est lu avec les {runs} runs Monte Carlo. Couleur = driver principal observe. Taille = impact sur service, backlog et cout. Driver principal: {html.escape(driver_label)}.</div>",
-                    "</div>",
-                    "<div class=\"uncertaintyHeroFacts\">",
-                    f"<div><span>Impact noeud</span><b>{html.escape(score_label)}</b></div>",
-                    f"<div><span>Driver</span><b>{html.escape(driver_label)}</b></div>",
-                    f"<div><span>Runs</span><b>{runs}</b></div>",
-                    f"<div><span>Horizon</span><b>{days} j</b></div>",
-                    "</div>",
-                    "</div>",
-                    "<div class=\"uncertaintyCardGrid\">",
-                    metric_card("Fill rate", corr_text(float(top.get("fill_corr") or 0.0)), "correlation avec le service"),
-                    metric_card("Backlog", corr_text(float(top.get("backlog_corr") or 0.0)), "correlation avec le backlog"),
-                    metric_card("Cout total", corr_text(float(top.get("cost_corr") or 0.0)), "correlation avec le cout"),
-                    metric_card("Profil teste", profile, "aleas Monte Carlo actifs"),
-                    "</div>",
-                    "</div>",
-                ]
-            )
             driver_table = (
                 "<div class=\"orderLedgerTableWrap\" tabindex=\"0\">"
                 "<table class=\"kpiFormulaTable\"><thead><tr>"
-                "<th>Dimension testee</th><th>Impact</th><th>Corr. service</th><th>Corr. backlog</th><th>Corr. cout</th><th>Lecture</th>"
+                "<th>Dimension testee</th><th>Impact</th><th>Corr. disponibilite</th><th>Corr. backlog</th><th>Corr. cout</th><th>Lecture</th>"
                 "</tr></thead><tbody>"
                 f"{''.join(driver_table_rows)}"
                 "</tbody></table></div>"
@@ -12558,9 +10181,8 @@ def build_montecarlo_uncertainty_payload(summary_json: Path) -> dict[str, Any]:
             )
             node_assets[node_id] = data_html_asset(
                 f"{node_id} - impact Monte Carlo",
-                "Lecture principale du mode Incertitude: impact observe dans les runs aleatoires.",
+                "Details du mode Incertitude: dimensions testees, correlations et limites de lecture.",
                 [
-                    ("Synthese Monte Carlo", node_dashboard),
                     ("Drivers observes pour ce noeud", driver_table),
                     ("Limites", limit_note),
                 ],
@@ -12618,7 +10240,10 @@ def build_montecarlo_uncertainty_payload(summary_json: Path) -> dict[str, Any]:
         )
         return {"available": False, "summary_json": str(summary_json), "html": html_body}
 
+    diagnostics = build_uncertainty_diagnostics(summary_json)
     decision = summary.get("decision_metrics") or {}
+    if not decision and isinstance(diagnostics.get("decision_metrics"), dict):
+        decision = diagnostics.get("decision_metrics") or {}
     runs = int(as_float(summary.get("successful_stochastic_runs"), 0.0) or 0)
     failed = int(as_float(summary.get("failed_runs"), 0.0) or 0)
     days = int(as_float(summary.get("days_override"), 0.0) or 0)
@@ -12634,10 +10259,17 @@ def build_montecarlo_uncertainty_payload(summary_json: Path) -> dict[str, Any]:
         status_label = "Echantillon a renforcer"
     if service_risk > 0.0 or backlog_risk > 0.0:
         status_cls = "watch"
-        status_label = "Fragilite service observee"
+        status_label = "Fragilite disponibilite observee"
     if service_risk >= 0.20 or backlog_risk >= 0.20:
         status_cls = "sensitive"
-        status_label = "Risque de service eleve"
+        status_label = "Risque disponibilite eleve"
+    diag_meta = diagnostics.get("meta") if isinstance(diagnostics.get("meta"), dict) else {}
+    suite_assessment = diagnostics.get("suite_assessment") if isinstance(diagnostics.get("suite_assessment"), dict) else {}
+    interpretation = str(diag_meta.get("interpretation") or "incertitude_operationnelle")
+    suite_status = str(suite_assessment.get("status") or "")
+    if interpretation == "stress_tres_severe" or suite_status == "too_extreme":
+        status_cls = "sensitive"
+        status_label = "Variation tres severe"
 
     fill_stat = stat(summary, "fill_rate")
     backlog_stat = stat(summary, "ending_backlog")
@@ -12645,19 +10277,202 @@ def build_montecarlo_uncertainty_payload(summary_json: Path) -> dict[str, Any]:
     inv_cost_stat = stat(summary, "total_inventory_cost_legacy_raw_holding")
     supplier_binding_stat = stat(summary, "total_supplier_capacity_binding_qty")
     mc_nodes, mc_node_assets = build_montecarlo_node_payloads(summary)
+    trajectory_assets = build_montecarlo_trajectory_assets(summary_json)
+    trajectory_days = trajectory_assets.get("days") if isinstance(trajectory_assets.get("days"), list) else []
+    trajectory_horizon_label = (
+        f"J{min(trajectory_days)} -> J{max(trajectory_days)} ; {len(trajectory_days)} pts"
+        if trajectory_days
+        else "n/a"
+    )
+    trajectory_summaries = (
+        trajectory_assets.get("metric_summaries")
+        if isinstance(trajectory_assets.get("metric_summaries"), dict)
+        else {}
+    )
+
+    def trajectory_value(metric_key: str, field: str) -> float | None:
+        row = trajectory_summaries.get(metric_key) if isinstance(trajectory_summaries, dict) else None
+        if not isinstance(row, dict):
+            return None
+        return to_float(row.get(field))
+
+    def format_trajectory_value(metric_key: str, field: str, kind: str = "qty") -> str:
+        value = trajectory_value(metric_key, field)
+        if value is None:
+            return "n/a"
+        if kind == "int":
+            return fmt_qty(value, 0)
+        if kind == "money":
+            return fmt_money_short(value)
+        return fmt_qty(value, 1)
+
+    def threshold_value_text(row: dict[str, Any]) -> str:
+        value = to_float(row.get("threshold"))
+        if value is None:
+            return "n/a"
+        metric = str(row.get("metric") or "")
+        if metric.endswith("fill_rate"):
+            return pct01(value)
+        if abs(value) >= 1_000_000:
+            return fmt_money_short(value) if metric.endswith("total_cost") else fmt_qty(value, 0)
+        return fmt_qty(value, 1)
+
+    def format_kpi_value(metric: str, value: Any) -> str:
+        numeric = to_float(value)
+        if numeric is None or math.isnan(numeric):
+            return "n/a"
+        if metric == "kpi::fill_rate":
+            return pct01(numeric)
+        if "cost" in metric:
+            return fmt_money_short(numeric)
+        if abs(numeric) >= 1_000_000:
+            return fmt_qty(numeric, 0)
+        return fmt_qty(numeric, 1)
+
+    def format_kpi_delta(metric: str, value: Any) -> str:
+        numeric = to_float(value)
+        if numeric is None or math.isnan(numeric):
+            return "n/a"
+        sign = "+" if numeric >= 0 else "-"
+        abs_value = abs(numeric)
+        if metric == "kpi::fill_rate":
+            return f"{sign}{abs_value * 100.0:.2f} pts"
+        if "cost" in metric:
+            return f"{sign}{fmt_money_short(abs_value)}"
+        return f"{sign}{fmt_qty(abs_value, 1)}"
+
+    def display_kpi_label(value: Any) -> str:
+        raw = str(value or "").strip()
+        normalized = raw.lower().replace("_", " ")
+        if raw == "kpi::fill_rate" or normalized in {"fill rate", "fillrate", "service", "service client"}:
+            return "Disponibilite produit"
+        if raw == "kpi::ending_backlog" or normalized in {"ending backlog", "backlog final"}:
+            return "Backlog final"
+        if raw == "kpi::total_cost" or normalized in {"total cost", "cout total"}:
+            return "Cout total"
+        if raw == "kpi::total_supplier_capacity_binding_qty":
+            return "Capacite fournisseur contrainte"
+        if raw == "kpi::total_produced":
+            return "Production realisee"
+        return raw or "n/a"
+
+    def propagation_signal_text(corr: float | None, r2: float | None) -> str:
+        if corr is None or math.isnan(corr) or r2 is None or math.isnan(r2):
+            return "signal non lisible"
+        explained = max(0.0, min(1.0, r2))
+        if explained >= 0.50:
+            label = "signal fort"
+        elif explained >= 0.20:
+            label = "signal moyen"
+        elif explained >= 0.05:
+            label = "signal faible"
+        else:
+            label = "signal fragile"
+        return f"{label} - {fmt_pct(explained * 100.0, 0)} des ecarts expliques"
+
+    def propagation_transfer_text(row: dict[str, Any]) -> str:
+        input_rel = to_float(row.get("input_relative_uncertainty"))
+        output_rel = to_float(row.get("kpi_uncertainty_relative_to_baseline"))
+        ratio = to_float(row.get("uncertainty_transfer_ratio"))
+        if input_rel is None or math.isnan(input_rel) or output_rel is None or math.isnan(output_rel):
+            return "n/a - baseline KPI nulle"
+        if ratio is None or math.isnan(ratio):
+            ratio = output_rel / input_rel if abs(input_rel) > 1e-12 else float("nan")
+        if math.isnan(ratio):
+            return "n/a"
+        return f"x{ratio:.1f} ({fmt_pct(input_rel * 100.0, 0)} entree -> {fmt_pct(output_rel * 100.0, 1)} KPI)"
+
+    def propagation_band_chart_html(rows: list[dict[str, Any]]) -> str:
+        chart_rows: list[tuple[dict[str, Any], float, float | None]] = []
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            output_rel = to_float(row.get("kpi_uncertainty_relative_to_baseline"))
+            if output_rel is None or math.isnan(output_rel) or output_rel <= 0:
+                continue
+            ratio = to_float(row.get("uncertainty_transfer_ratio"))
+            chart_rows.append((row, output_rel, ratio))
+            if len(chart_rows) >= 8:
+                break
+        if not chart_rows:
+            return ""
+
+        max_rel = max(value for _, value, _ in chart_rows)
+        max_rel = max(max_rel, 0.05)
+        width = 980
+        label_x = 18
+        axis_x = 360
+        axis_w = 430
+        value_x = 820
+        row_h = 42
+        top = 58
+        height = top + len(chart_rows) * row_h + 40
+        center = axis_x + axis_w / 2.0
+
+        def svg_text(value: Any, limit: int = 48) -> str:
+            text = str(value or "n/a").replace("\n", " ").strip()
+            if len(text) > limit:
+                text = f"{text[: limit - 1]}..."
+            return html.escape(text)
+
+        row_bits = [
+            f"<line x1=\"{axis_x}\" y1=\"34\" x2=\"{axis_x + axis_w}\" y2=\"34\" stroke=\"#cbd5e1\" stroke-width=\"1\"/>",
+            f"<line x1=\"{center:.1f}\" y1=\"28\" x2=\"{center:.1f}\" y2=\"{height - 28}\" stroke=\"#0f172a\" stroke-width=\"1.2\" opacity=\"0.65\"/>",
+            f"<text x=\"{axis_x}\" y=\"24\" font-size=\"11\" fill=\"#64748b\" text-anchor=\"middle\">-{html.escape(fmt_pct(max_rel * 100.0, 1))}</text>",
+            f"<text x=\"{center:.1f}\" y=\"24\" font-size=\"11\" fill=\"#0f172a\" text-anchor=\"middle\">nominal</text>",
+            f"<text x=\"{axis_x + axis_w}\" y=\"24\" font-size=\"11\" fill=\"#64748b\" text-anchor=\"middle\">+{html.escape(fmt_pct(max_rel * 100.0, 1))}</text>",
+        ]
+        for idx, (row, output_rel, ratio) in enumerate(chart_rows):
+            y = top + idx * row_h
+            half = min(axis_w / 2.0, (output_rel / max_rel) * (axis_w / 2.0))
+            x1 = center - half
+            band_w = half * 2.0
+            ratio_text = "n/a" if ratio is None or math.isnan(ratio) else f"x{ratio:.1f}"
+            kpi_label = display_kpi_label(row.get("kpi_label") or row.get("kpi") or "KPI")
+            input_label = row.get("label") or row.get("factor") or "input"
+            status = row.get("status_label") or ""
+            row_bits.extend(
+                [
+                    f"<text x=\"{label_x}\" y=\"{y + 4}\" font-size=\"12\" font-weight=\"700\" fill=\"#0f172a\">{svg_text(input_label, 42)}</text>",
+                    f"<text x=\"{label_x}\" y=\"{y + 20}\" font-size=\"11\" fill=\"#64748b\">{svg_text(kpi_label, 44)}</text>",
+                    f"<rect x=\"{x1:.1f}\" y=\"{y - 10}\" width=\"{band_w:.1f}\" height=\"20\" rx=\"10\" fill=\"#0f766e\" opacity=\"0.16\"/>",
+                    f"<line x1=\"{x1:.1f}\" y1=\"{y}\" x2=\"{x1 + band_w:.1f}\" y2=\"{y}\" stroke=\"#0f766e\" stroke-width=\"2.4\" opacity=\"0.72\"/>",
+                    f"<circle cx=\"{center:.1f}\" cy=\"{y}\" r=\"3.5\" fill=\"#111827\"/>",
+                    f"<text x=\"{value_x}\" y=\"{y + 3}\" font-size=\"12\" fill=\"#0f172a\">+/- {html.escape(fmt_pct(output_rel * 100.0, 1))} KPI</text>",
+                    f"<text x=\"{value_x}\" y=\"{y + 19}\" font-size=\"11\" fill=\"#64748b\">{html.escape(ratio_text)} - {svg_text(status, 24)}</text>",
+                ]
+            )
+
+        return (
+            "<div class=\"orderLedgerStatus\">"
+            "Lecture graphique: chaque bande traduit l'incertitude de sortie estimee si l'input fournisseur varie de -20% a +20%. "
+            "Le point central est le nominal. Ce n'est pas une probabilite historique; c'est une sensibilite observee dans les runs Monte Carlo."
+            "</div>"
+            "<div class=\"orderLedgerTableWrap\" tabindex=\"0\">"
+            f"<svg role=\"img\" aria-label=\"Bandes d'incertitude fournisseur\" viewBox=\"0 0 {width} {height}\" "
+            "style=\"width:100%;min-width:760px;height:auto;display:block;background:#ffffff;border:1px solid #dbe5f1;border-radius:12px;\">"
+            "<rect x=\"0\" y=\"0\" width=\"980\" height=\"100%\" fill=\"#ffffff\"/>"
+            f"<text x=\"{label_x}\" y=\"26\" font-size=\"13\" font-weight=\"800\" fill=\"#0f172a\">Bandes d'incertitude fournisseur</text>"
+            f"<text x=\"{axis_x + axis_w / 2.0}\" y=\"{height - 10}\" font-size=\"11\" fill=\"#64748b\" text-anchor=\"middle\">plage KPI finale relative au nominal</text>"
+            f"{''.join(row_bits)}"
+            "</svg>"
+            "</div>"
+        )
+
+    def interpretation_label(key: str) -> str:
+        labels = {
+            "stress_tres_severe": "stress tres severe",
+            "stress_non_probabiliste": "stress non probabiliste",
+            "incertitude_operationnelle": "incertitude operationnelle",
+        }
+        return labels.get(key, key.replace("_", " "))
 
     cards = [
         metric_card(
-            "Service client",
+            "Disponibilite produit",
             f"P05 {format_stat(summary, 'fill_rate', 'p05', 'pct01')}",
             f"mediane {format_stat(summary, 'fill_rate', 'p50', 'pct01')} ; baseline {format_stat(summary, 'fill_rate', 'baseline', 'pct01')}",
-            "Distribution du fill rate sur les scenarios aleatoires. P05 signifie que 5% des scenarios sont en dessous.",
-        ),
-        metric_card(
-            "Risque fill rate < 100%",
-            pct01(service_risk),
-            "part des scenarios ou le service n'est plus parfait",
-            "Calcul = nombre de runs Monte Carlo avec fill_rate < 100% / nombre de runs valides.",
+            "Part de la demande client servie dans les scenarios. C'est la mesure principale de disponibilite produit cote client.",
         ),
         metric_card(
             "Backlog",
@@ -12666,16 +10481,10 @@ def build_montecarlo_uncertainty_payload(summary_json: Path) -> dict[str, Any]:
             "Backlog final observe dans les scenarios. Un backlog positif indique que la demande client n'est pas totalement absorbee.",
         ),
         metric_card(
-            "Cout total",
-            f"P50 {format_stat(summary, 'total_cost', 'p50', 'money')}",
-            f"P05-P95 {format_stat(summary, 'total_cost', 'p05', 'money')} - {format_stat(summary, 'total_cost', 'p95', 'money')}",
-            "Distribution du cout total quand les parametres incertains bougent autour du nominal.",
-        ),
-        metric_card(
-            "Cout stock",
-            f"P50 {format_stat(summary, 'total_inventory_cost_legacy_raw_holding', 'p50', 'money')}",
-            f"baseline {format_stat(summary, 'total_inventory_cost_legacy_raw_holding', 'baseline', 'money')}",
-            "Composante stockage observee dans les scenarios Monte Carlo.",
+            "Reports de production",
+            f"P95 max {format_trajectory_value('production_reports', 'p95_max', 'qty')}",
+            f"mediane max {format_trajectory_value('production_reports', 'p50_max', 'qty')}",
+            "Volume de lots produits qui entrent en report par manque supply. C'est un signal de nervosite MRP et une cause possible de degradation de disponibilite.",
         ),
         metric_card(
             "Capacite fournisseur contrainte",
@@ -12684,13 +10493,78 @@ def build_montecarlo_uncertainty_payload(summary_json: Path) -> dict[str, Any]:
             "Quantite totale qui rencontre une limite de capacite fournisseur dans la simulation.",
         ),
     ]
+    secondary_cards = [
+        metric_card(
+            "Lecture statistique",
+            "exploratoire" if runs < 30 else ("solide" if runs >= 100 else "intermediaire"),
+            f"{runs} runs valides ; drivers a confirmer" if runs < 30 else f"{runs} runs valides",
+            "Moins de 30 runs: les enveloppes donnent une premiere lecture, mais les correlations de drivers restent instables. Viser 60-120 runs pour un diagnostic exploitable.",
+        ),
+        metric_card(
+            "Nature du profil",
+            interpretation_label(interpretation),
+            f"assessment {suite_status or 'n/a'} ; profil {profile}",
+            "Un profil stress explore les points de rupture du modele. Il ne doit pas etre lu comme une probabilite historique terrain.",
+        ),
+        metric_card(
+            "Risque disponibilite < 100%",
+            pct01(service_risk),
+            "part des scenarios ou toute la demande client n'est pas servie",
+            "Calcul = nombre de runs Monte Carlo avec disponibilite produit < 100% / nombre de runs valides.",
+        ),
+        metric_card(
+            "Cout total",
+            f"P50 {format_stat(summary, 'total_cost', 'p50', 'money')}",
+            f"P05-P95 {format_stat(summary, 'total_cost', 'p05', 'money')} - {format_stat(summary, 'total_cost', 'p95', 'money')}",
+            "Distribution du cout total quand les parametres incertains bougent autour du nominal.",
+        ),
+        metric_card(
+            "Ordres production en attente",
+            f"P95 max {format_trajectory_value('production_delay_active_orders', 'p95_max', 'int')}",
+            f"mediane max {format_trajectory_value('production_delay_active_orders', 'p50_max', 'int')}",
+            "Nombre de campagnes de production encore bloquees en fin de jour. Cette lecture distingue le stock de reports du simple signal journalier de planification.",
+        ),
+        metric_card(
+            "Pertes fiabilite fournisseur",
+            f"P95 {format_stat(summary, 'total_unreliable_loss_qty', 'p95', 'qty')}",
+            f"baseline {format_stat(summary, 'total_unreliable_loss_qty', 'baseline', 'qty')}",
+            "Quantite perdue par fiabilite/OTIF fournisseur degradee dans les scenarios.",
+        ),
+        metric_card(
+            "Appro amont mobilisee",
+            f"P50 {format_stat(summary, 'total_external_procured_qty', 'p50', 'qty')}",
+            f"P95 {format_stat(summary, 'total_external_procured_qty', 'p95', 'qty')}",
+            "Quantite totale reconstituee via l'approvisionnement amont fournisseur. Elle mesure la resilience consommee par les scenarios.",
+        ),
+        metric_card(
+            "Trajectoires",
+            "disponibles" if trajectory_assets.get("available") else "non generees",
+            (
+                f"{trajectory_assets.get('stochastic_run_count') or 0} runs ; horizon {trajectory_horizon_label}"
+                if trajectory_assets.get("available")
+                else "relancer Monte Carlo avec --save-trajectories"
+            ),
+            "Les trajectoires permettent d'afficher toutes les courbes, leur enveloppe et la mediane. Le resume Monte Carlo seul ne contient que des KPI finaux.",
+        ),
+    ]
+    secondary_cards_html = (
+        "<section class=\"dataSummarySection\">"
+        "<div class=\"dataSummarySectionTitle\">KPI secondaires et qualite du test</div>"
+        "<div class=\"uncertaintyCardGrid\">"
+        f"{''.join(secondary_cards)}"
+        "</div>"
+        "</section>"
+    )
 
     distribution_rows = [
-        ("Fill rate", "fill_rate", "pct01"),
+        ("Disponibilite produit", "fill_rate", "pct01"),
         ("Backlog final", "ending_backlog", "qty"),
         ("Cout total", "total_cost", "money"),
         ("Cout stockage", "total_inventory_cost_legacy_raw_holding", "money"),
+        ("Production realisee", "total_produced", "qty"),
         ("Capacite fournisseur contrainte", "total_supplier_capacity_binding_qty", "qty"),
+        ("Appro amont mobilisee", "total_external_procured_qty", "qty"),
+        ("Pertes fiabilite fournisseur", "total_unreliable_loss_qty", "qty"),
         ("Appro amont rejetee", "total_external_procured_rejected_qty", "qty"),
     ]
     table_rows = []
@@ -12709,7 +10583,7 @@ def build_montecarlo_uncertainty_payload(summary_json: Path) -> dict[str, Any]:
         )
 
     driver_targets = [
-        ("kpi::fill_rate", "Facteurs qui expliquent le fill rate"),
+        ("kpi::fill_rate", "Facteurs qui expliquent la disponibilite produit"),
         ("kpi::total_cost", "Facteurs qui expliquent le cout total"),
         ("kpi::ending_backlog", "Facteurs qui expliquent le backlog"),
     ]
@@ -12752,13 +10626,444 @@ def build_montecarlo_uncertainty_payload(summary_json: Path) -> dict[str, Any]:
         if driver_sections
         else '<div class="orderLedgerStatus">Pas assez de runs ou de variance pour classer les drivers.</div>'
     )
+
+    threshold_rows_html = []
+    for row in (diagnostics.get("threshold_probabilities") or [])[:12]:
+        if not isinstance(row, dict):
+            continue
+        threshold_label = str(row.get("label") or "n/a").replace("Fill rate", "Disponibilite produit")
+        threshold_rows_html.append(
+            "<tr>"
+            f"<td>{html.escape(threshold_label)}</td>"
+            f"<td>{html.escape(display_kpi_label(row.get('metric_label') or row.get('metric') or 'n/a'))}</td>"
+            f"<td>{html.escape(str(row.get('comparator') or ''))} {html.escape(threshold_value_text(row))}</td>"
+            f"<td>{html.escape(pct01(row.get('probability'), 1))}</td>"
+            "</tr>"
+        )
+    threshold_section_html = (
+        "<section class=\"dataSummarySection\">"
+        "<div class=\"dataSummarySectionTitle\">Probabilites de seuils metier</div>"
+        "<div class=\"orderLedgerStatus\">Lecture: les seuils sont comptes run par run sur les scenarios valides. En profil stress, ce sont des frequences de test, pas des probabilites historiques.</div>"
+        "<div class=\"orderLedgerTableWrap\" tabindex=\"0\">"
+        "<table class=\"kpiFormulaTable\"><thead><tr><th>Seuil</th><th>KPI</th><th>Condition</th><th>Frequence</th></tr></thead><tbody>"
+        f"{''.join(threshold_rows_html)}"
+        "</tbody></table></div>"
+        "</section>"
+        if threshold_rows_html
+        else ""
+    )
+
+    family_rows_html = []
+    for row in (diagnostics.get("factor_family_impacts") or [])[:10]:
+        if not isinstance(row, dict):
+            continue
+        top = row.get("top_driver") if isinstance(row.get("top_driver"), dict) else {}
+        score = to_float(row.get("top_absolute_correlation")) or 0.0
+        family_rows_html.append(
+            "<tr>"
+            f"<td>{html.escape(str(row.get('label') or row.get('family') or 'n/a'))}</td>"
+            f"<td>{html.escape(fmt_pct(score * 100.0, 1))}</td>"
+            f"<td>{html.escape(str(row.get('driver_count') or 0))}</td>"
+            f"<td>{html.escape(str(top.get('label') or top.get('factor') or 'n/a'))}</td>"
+            f"<td>{html.escape(display_kpi_label(top.get('target_label') or top.get('target') or 'n/a'))}</td>"
+            f"<td>{html.escape(corr_text(to_float(top.get('correlation')) or 0.0))}</td>"
+            "</tr>"
+        )
+    family_section_html = (
+        "<section class=\"dataSummarySection\">"
+        "<div class=\"dataSummarySectionTitle\">Familles de parametres les plus explicatives</div>"
+        "<div class=\"orderLedgerStatus\">Lecture: classe les familles d'aleas qui expliquent le plus les ecarts entre runs. Utile pour savoir si le probleme vient plutot des stocks, des delais, des capacites ou de la demande.</div>"
+        "<div class=\"orderLedgerTableWrap\" tabindex=\"0\">"
+        "<table class=\"kpiFormulaTable\"><thead><tr><th>Famille</th><th>Signal max</th><th>Drivers</th><th>Driver principal</th><th>KPI explique</th><th>Corr.</th></tr></thead><tbody>"
+        f"{''.join(family_rows_html)}"
+        "</tbody></table></div>"
+        "</section>"
+        if family_rows_html
+        else ""
+    )
+
+    propagation = diagnostics.get("uncertainty_propagation") if isinstance(diagnostics.get("uncertainty_propagation"), dict) else {}
+    supplier_relative_rows_for_chart = []
+    if propagation.get("available"):
+        candidate_rows = propagation.get("top_supplier_relative_factors") or propagation.get("top_relative_factors") or []
+        supplier_relative_rows_for_chart = candidate_rows if isinstance(candidate_rows, list) else []
+    propagation_band_chart = propagation_band_chart_html(supplier_relative_rows_for_chart)
+    propagation_rows_html = []
+    if propagation.get("available"):
+        for row in supplier_relative_rows_for_chart[:18]:
+            if not isinstance(row, dict):
+                continue
+            rel = to_float(row.get("kpi_uncertainty_relative_to_baseline"))
+            if rel is None or math.isnan(rel):
+                continue
+            rel_text = fmt_pct(rel * 100.0, 1)
+            corr = to_float(row.get("correlation")) or 0.0
+            r2 = to_float(row.get("r2")) or 0.0
+            signed_delta = to_float(row.get("kpi_delta_for_input_uncertainty")) or 0.0
+            direction_text = "KPI augmente" if signed_delta >= 0 else "KPI baisse"
+            link_text = "lien positif" if corr >= 0 else "lien negatif"
+            domain_text = (
+                f"p05 {format_kpi_value(str(row.get('factor') or ''), row.get('input_p05'))} - "
+                f"p95 {format_kpi_value(str(row.get('factor') or ''), row.get('input_p95'))}"
+            )
+            propagation_rows_html.append(
+                "<tr>"
+                f"<td>{html.escape(str(row.get('label') or row.get('factor') or 'n/a'))}</td>"
+                f"<td>{html.escape(str(row.get('family_label') or 'n/a'))}</td>"
+                f"<td>{html.escape(display_kpi_label(row.get('kpi_label') or row.get('kpi') or 'n/a'))}</td>"
+                f"<td>{html.escape(pct01(row.get('input_relative_uncertainty'), 0))}</td>"
+                f"<td>{html.escape(format_kpi_delta(str(row.get('kpi') or ''), row.get('kpi_uncertainty_abs')))}</td>"
+                f"<td>{html.escape(direction_text)}</td>"
+                f"<td>{html.escape(rel_text)}</td>"
+                f"<td>{html.escape(propagation_transfer_text(row))}</td>"
+                f"<td>{html.escape(f'{link_text} ({corr_text(corr)})')}</td>"
+                f"<td>{html.escape(propagation_signal_text(corr, r2))}</td>"
+                f"<td>{html.escape(domain_text)}</td>"
+                f"<td>{html.escape(str(row.get('status_label') or 'n/a'))}</td>"
+                "</tr>"
+            )
+    propagation_absolute_rows_html = []
+    if propagation.get("available"):
+        for row in (propagation.get("top_supplier_absolute_factors") or propagation.get("top_absolute_factors") or [])[:12]:
+            if not isinstance(row, dict):
+                continue
+            corr = to_float(row.get("correlation")) or 0.0
+            r2 = to_float(row.get("r2")) or 0.0
+            signed_delta = to_float(row.get("kpi_delta_for_input_uncertainty")) or 0.0
+            direction_text = "KPI augmente" if signed_delta >= 0 else "KPI baisse"
+            link_text = "lien positif" if corr >= 0 else "lien negatif"
+            domain_text = (
+                f"p05 {format_kpi_value(str(row.get('factor') or ''), row.get('input_p05'))} - "
+                f"p95 {format_kpi_value(str(row.get('factor') or ''), row.get('input_p95'))}"
+            )
+            propagation_absolute_rows_html.append(
+                "<tr>"
+                f"<td>{html.escape(str(row.get('label') or row.get('factor') or 'n/a'))}</td>"
+                f"<td>{html.escape(str(row.get('family_label') or 'n/a'))}</td>"
+                f"<td>{html.escape(display_kpi_label(row.get('kpi_label') or row.get('kpi') or 'n/a'))}</td>"
+                f"<td>{html.escape(pct01(row.get('input_relative_uncertainty'), 0))}</td>"
+                f"<td>{html.escape(format_kpi_delta(str(row.get('kpi') or ''), row.get('kpi_uncertainty_abs')))}</td>"
+                f"<td>{html.escape(direction_text)}</td>"
+                f"<td>{html.escape(f'{link_text} ({corr_text(corr)})')}</td>"
+                f"<td>{html.escape(propagation_signal_text(corr, r2))}</td>"
+                f"<td>{html.escape(domain_text)}</td>"
+                f"<td>{html.escape(str(row.get('status_label') or 'n/a'))}</td>"
+                "</tr>"
+            )
+    research_control_rows_html = []
+    if propagation.get("available"):
+        for row in (propagation.get("research_control_factors") or [])[:10]:
+            if not isinstance(row, dict):
+                continue
+            rel = to_float(row.get("kpi_uncertainty_relative_to_baseline"))
+            rel_text = "n/a" if rel is None or math.isnan(rel) else fmt_pct(rel * 100.0, 1)
+            corr = to_float(row.get("correlation")) or 0.0
+            r2 = to_float(row.get("r2")) or 0.0
+            signed_delta = to_float(row.get("kpi_delta_for_input_uncertainty")) or 0.0
+            direction_text = "KPI augmente" if signed_delta >= 0 else "KPI baisse"
+            research_control_rows_html.append(
+                "<tr>"
+                f"<td>{html.escape(str(row.get('label') or row.get('factor') or 'n/a'))}</td>"
+                f"<td>{html.escape(display_kpi_label(row.get('kpi_label') or row.get('kpi') or 'n/a'))}</td>"
+                f"<td>{html.escape(format_kpi_delta(str(row.get('kpi') or ''), row.get('kpi_uncertainty_abs')))}</td>"
+                f"<td>{html.escape(rel_text)}</td>"
+                f"<td>{html.escape(propagation_transfer_text(row))}</td>"
+                f"<td>{html.escape(direction_text)}</td>"
+                f"<td>{html.escape(propagation_signal_text(corr, r2))}</td>"
+                "</tr>"
+            )
+    propagation_absolute_section_html = (
+        "<div class=\"dataSummarySectionTitle\">Impacts absolus sur KPI a nominal zero</div>"
+        "<div class=\"orderLedgerStatus\">Ces KPI valent zero dans le nominal, par exemple backlog final, pertes ou capacite contrainte. On ne peut donc pas dire +40% versus zero; on affiche ce que l'incertitude peut creer en quantite absolue.</div>"
+        "<div class=\"orderLedgerTableWrap\" tabindex=\"0\">"
+        "<table class=\"kpiFormulaTable\"><thead><tr><th>Input incertain</th><th>Famille</th><th>KPI a zero nominal</th><th>Incertitude entree</th><th>Impact absolu estime</th><th>Sens si input +20%</th><th>Lien observe</th><th>Qualite du signal</th><th>Domaine MC observe</th><th>Lecture</th></tr></thead><tbody>"
+        f"{''.join(propagation_absolute_rows_html)}"
+        "</tbody></table></div>"
+        if propagation_absolute_rows_html
+        else ""
+    )
+    research_control_section_html = (
+        "<div class=\"dataSummarySectionTitle\">Controles modele / recherche</div>"
+        "<div class=\"orderLedgerStatus\">Ces lignes gardent les facteurs usine ou internes visibles pour validation scientifique. Dans cette etude, elles ne sont pas l'axe decisionnel principal si la capacite usine n'est pas atteinte; elles servent surtout a verifier que le modele ne confond pas une contrainte fournisseur avec une contrainte industrielle.</div>"
+        "<div class=\"orderLedgerTableWrap\" tabindex=\"0\">"
+        "<table class=\"kpiFormulaTable\"><thead><tr><th>Facteur controle</th><th>KPI sortie</th><th>Amplitude KPI estimee</th><th>Effet relatif</th><th>Propagation</th><th>Sens si input +20%</th><th>Qualite du signal</th></tr></thead><tbody>"
+        f"{''.join(research_control_rows_html)}"
+        "</tbody></table></div>"
+        if research_control_rows_html
+        else ""
+    )
+    propagation_section_html = (
+        "<section class=\"dataSummarySection\">"
+        "<div class=\"dataSummarySectionTitle\">Propagation d'incertitude entree -> KPI</div>"
+        "<div class=\"orderLedgerStatus\">Lecture supplier-first: la synthese met d'abord les incertitudes fournisseur, car l'objectif metier est la prediction de risque fournisseur. Les facteurs usine restent disponibles plus bas comme controles modele/recherche, pas comme cause metier prioritaire quand la capacite usine n'est pas atteinte.</div>"
+        "<div class=\"dataSummarySectionTitle\">Prediction fournisseur - propagation relative lisible</div>"
+        f"{propagation_band_chart}"
+        "<div class=\"orderLedgerTableWrap\" tabindex=\"0\">"
+        "<table class=\"kpiFormulaTable\"><thead><tr><th>Input incertain</th><th>Famille</th><th>KPI sortie</th><th>Incertitude entree</th><th>Amplitude KPI estimee</th><th>Sens si input +20%</th><th>Effet relatif sur KPI</th><th>Propagation</th><th>Lien observe</th><th>Qualite du signal</th><th>Domaine MC observe</th><th>Lecture</th></tr></thead><tbody>"
+        f"{''.join(propagation_rows_html)}"
+        "</tbody></table></div>"
+        f"{propagation_absolute_section_html}"
+        f"{research_control_section_html}"
+        "</section>"
+        if propagation_rows_html
+        else ""
+    )
+
+    propagation_by_kpi_html = []
+    if propagation.get("available"):
+        for metric, rows in (propagation.get("by_kpi") or {}).items():
+            if metric not in {"kpi::fill_rate", "kpi::ending_backlog", "kpi::total_cost", "kpi::total_produced", "kpi::total_supplier_capacity_binding_qty", "kpi::total_external_procured_qty", "kpi::total_unreliable_loss_qty"}:
+                continue
+            if not isinstance(rows, list) or not rows:
+                continue
+            row = next(
+                (
+                    candidate
+                    for candidate in rows
+                    if isinstance(candidate, dict)
+                    and candidate.get("business_scope") == "supplier_prediction"
+                ),
+                rows[0],
+            )
+            scope_note = ""
+            if isinstance(row, dict) and row.get("business_scope") != "supplier_prediction":
+                scope_note = " (controle modele)"
+            propagation_by_kpi_html.append(
+                "<div class=\"uncertaintyCard\">"
+                f"<div class=\"uncertaintyCardLabel\">{html.escape(display_kpi_label(row.get('kpi_label') or metric))}</div>"
+                f"<div class=\"uncertaintyCardValue\">{html.escape(format_kpi_delta(str(metric), row.get('kpi_uncertainty_abs')))}</div>"
+                f"<div class=\"uncertaintyCardNote\">input cle: {html.escape(str(row.get('label') or row.get('factor') or 'n/a') + scope_note)}</div>"
+                "</div>"
+            )
+    propagation_cards_html = (
+        "<section class=\"dataSummarySection\">"
+        "<div class=\"dataSummarySectionTitle\">KPI les plus sensibles a une incertitude fournisseur de 20%</div>"
+        "<div class=\"uncertaintyCardGrid\">"
+        f"{''.join(propagation_by_kpi_html)}"
+        "</div>"
+        "</section>"
+        if propagation_by_kpi_html
+        else ""
+    )
+
+    supplier_rows_html = []
+    for row in (diagnostics.get("supplier_impacts") or [])[:12]:
+        if not isinstance(row, dict):
+            continue
+        top = row.get("top_driver") if isinstance(row.get("top_driver"), dict) else {}
+        score = to_float(row.get("score")) or 0.0
+        supplier_rows_html.append(
+            "<tr>"
+            f"<td>{html.escape(str(row.get('supplier_id') or 'n/a'))}</td>"
+            f"<td>{html.escape(fmt_pct(score * 100.0, 1))}</td>"
+            f"<td>{html.escape(str(row.get('driver_count') or 0))}</td>"
+            f"<td>{html.escape(str(top.get('family_label') or 'n/a'))}</td>"
+            f"<td>{html.escape(display_kpi_label(top.get('target_label') or top.get('target') or 'n/a'))}</td>"
+            f"<td>{html.escape(corr_text(to_float(top.get('correlation')) or 0.0))}</td>"
+            "</tr>"
+        )
+    supplier_section_html = (
+        "<section class=\"dataSummarySection\">"
+        "<div class=\"dataSummarySectionTitle\">Fournisseurs et noeuds a prioriser</div>"
+        "<div class=\"orderLedgerStatus\">Lecture: priorite modele issue des correlations Monte Carlo par fournisseur. A utiliser comme point d'entree diagnostic, puis verifier les courbes de stock, commandes, receptions et criticite fournisseur.</div>"
+        "<div class=\"orderLedgerTableWrap\" tabindex=\"0\">"
+        "<table class=\"kpiFormulaTable\"><thead><tr><th>Fournisseur/noeud</th><th>Signal max</th><th>Drivers</th><th>Type d'alea</th><th>KPI explique</th><th>Corr.</th></tr></thead><tbody>"
+        f"{''.join(supplier_rows_html)}"
+        "</tbody></table></div>"
+        "</section>"
+        if supplier_rows_html
+        else ""
+    )
+
+    def top_driver_for_kpi(metric: str) -> dict[str, Any]:
+        rankings_payload = diagnostics.get("driver_rankings") if isinstance(diagnostics.get("driver_rankings"), dict) else {}
+        by_kpi = rankings_payload.get("by_kpi") if isinstance(rankings_payload.get("by_kpi"), dict) else {}
+        rows = by_kpi.get(metric) if isinstance(by_kpi.get(metric), list) else []
+        for row in rows:
+            if isinstance(row, dict) and row.get("business_scope") != "research_control":
+                return row
+        return rows[0] if rows and isinstance(rows[0], dict) else {}
+
+    def short_driver_card(title: str, metric: str, objective: str) -> str:
+        row = top_driver_for_kpi(metric)
+        if not row:
+            return metric_card(title, "n/a", "pas de driver lisible")
+        corr = to_float(row.get("correlation")) or 0.0
+        return metric_card(
+            title,
+            str(row.get("label") or row.get("factor") or "n/a"),
+            f"{objective} ; corr. {corr_text(corr)}",
+        )
+
+    def action_for_driver(row: dict[str, Any]) -> tuple[str, str]:
+        family = str(row.get("family") or "")
+        factor = str(row.get("factor") or "")
+        label = str(row.get("label") or row.get("factor") or "n/a")
+        if family == "supplier_lead" or "lead" in factor:
+            return "Reduire ou securiser le delai fournisseur", f"Tester delai reduit, transport prioritaire ou source plus proche pour {label}."
+        if family == "supplier_stock" or "stock" in factor:
+            return "Renforcer stock amont fournisseur", f"Tester stock de securite, stock consigne ou reconstitution plus rapide pour {label}."
+        if family == "supplier_capacity" or "capacity" in factor:
+            return "Reserver ou diversifier la capacite fournisseur", f"Tester capacite reservee, seconde source ou plafond appro plus haut pour {label}."
+        if family == "supplier_reliability" or "reliability" in factor:
+            return "Ameliorer fiabilite fournisseur", f"Tester OTIF plus eleve, double sourcing ou controle qualite renforce pour {label}."
+        if "external_procurement" in factor:
+            return "Renforcer l'approvisionnement amont", f"Tester capacite/delai appro amont plus robuste pour {label}."
+        return "Tester mitigation ciblee", f"Construire un scenario de mitigation sur {label} et comparer disponibilite, cout et nervosite."
+
+    decision_cards_html = (
+        "<section class=\"dataSummarySection\">"
+        "<div class=\"dataSummarySectionTitle\">Synthese decisionnelle Monte Carlo</div>"
+        "<div class=\"orderLedgerStatus\">Lecture: priorise les causes d'incertitude qui expliquent les ecarts entre runs. Les courbes ci-dessous montrent ensuite quand ces causes se propagent dans le temps.</div>"
+        "<div class=\"uncertaintyCardGrid\">"
+        f"{short_driver_card('Disponibilite produit', 'kpi::fill_rate', 'a proteger')}"
+        f"{short_driver_card('Backlog client', 'kpi::ending_backlog', 'a eviter')}"
+        f"{short_driver_card('Cout supply', 'kpi::total_cost', 'a maitriser')}"
+        f"{short_driver_card('Capacite fournisseur', 'kpi::total_supplier_capacity_binding_qty', 'a surveiller')}"
+        "</div>"
+        "</section>"
+    )
+
+    mitigation_rows_html = []
+    seen_actions: set[tuple[str, str]] = set()
+    supplier_impacts = diagnostics.get("supplier_impacts") if isinstance(diagnostics.get("supplier_impacts"), list) else []
+    driver_sources = []
+    for row in supplier_impacts[:8]:
+        if isinstance(row, dict) and isinstance(row.get("top_driver"), dict):
+            driver_sources.append(row.get("top_driver") or {})
+    for metric in ["kpi::fill_rate", "kpi::ending_backlog", "kpi::total_cost"]:
+        driver = top_driver_for_kpi(metric)
+        if driver:
+            driver_sources.append(driver)
+    for row in driver_sources:
+        action, test = action_for_driver(row)
+        key = (action, str(row.get("label") or row.get("factor") or ""))
+        if key in seen_actions:
+            continue
+        seen_actions.add(key)
+        mitigation_rows_html.append(
+            "<tr>"
+            f"<td>{html.escape(str(row.get('label') or row.get('factor') or 'n/a'))}</td>"
+            f"<td>{html.escape(display_kpi_label(row.get('target_label') or row.get('kpi_label') or 'KPI'))}</td>"
+            f"<td>{html.escape(action)}</td>"
+            f"<td>{html.escape(test)}</td>"
+            "</tr>"
+        )
+        if len(mitigation_rows_html) >= 8:
+            break
+    mitigation_section_html = (
+        "<section class=\"dataSummarySection\">"
+        "<div class=\"dataSummarySectionTitle\">Actions de mitigation a comparer</div>"
+        "<div class=\"orderLedgerStatus\">Lecture: propositions issues des drivers Monte Carlo. La decision doit se faire en comparant des scenarios avant/apres: disponibilite produit, backlog, cout, stock consomme et nervosite production.</div>"
+        "<div class=\"orderLedgerTableWrap\" tabindex=\"0\">"
+        "<table class=\"kpiFormulaTable\"><thead><tr><th>Cause prioritaire</th><th>KPI touche</th><th>Action a tester</th><th>Scenario de comparaison</th></tr></thead><tbody>"
+        f"{''.join(mitigation_rows_html)}"
+        "</tbody></table></div>"
+        "<button id=\"uncertaintyScenarioCompareBtn\" class=\"tableBtn\" type=\"button\">Comparer les scenarios disponibles</button>"
+        "</section>"
+        if mitigation_rows_html
+        else ""
+    )
+
+    def driver_label(row: dict[str, Any] | None) -> str:
+        if not isinstance(row, dict) or not row:
+            return "aucun driver lisible"
+        return str(row.get("label") or row.get("factor") or "n/a")
+
+    def driver_family_label(row: dict[str, Any] | None) -> str:
+        if not isinstance(row, dict) or not row:
+            return "n/a"
+        return str(row.get("family_label") or row.get("family") or "n/a")
+
+    def driver_target_label(row: dict[str, Any] | None) -> str:
+        if not isinstance(row, dict) or not row:
+            return "n/a"
+        return display_kpi_label(row.get("target_label") or row.get("kpi_label") or row.get("target") or "KPI")
+
+    def supplier_priority(score: float) -> str:
+        if score >= 0.75:
+            return "P1 action"
+        if score >= 0.65:
+            return "P2 qualification"
+        return "P3 surveillance"
+
+    service_driver = top_driver_for_kpi("kpi::fill_rate")
+    backlog_driver = top_driver_for_kpi("kpi::ending_backlog")
+    supplier_binding_driver = top_driver_for_kpi("kpi::total_supplier_capacity_binding_qty")
+    cost_driver = top_driver_for_kpi("kpi::total_cost")
+    top_supplier_row = next((row for row in supplier_impacts if isinstance(row, dict)), {})
+    top_supplier_driver = top_supplier_row.get("top_driver") if isinstance(top_supplier_row.get("top_driver"), dict) else {}
+    top_supplier_action, top_supplier_test = action_for_driver(top_supplier_driver or service_driver)
+
+    business_agent_cards_html = "".join(
+        [
+            metric_card(
+                "Agent disponibilite produit",
+                f"Disponibilite P05 {format_stat(summary, 'fill_rate', 'p05', 'pct01')}",
+                f"Alerte si disponibilite/backlog se degradent. Cause prioritaire: {driver_label(service_driver)}.",
+            ),
+            metric_card(
+                "Agent achats fournisseurs",
+                str(top_supplier_row.get("supplier_id") or "top fournisseur n/a"),
+                f"{top_supplier_action}. Driver: {driver_family_label(top_supplier_driver)}.",
+            ),
+            metric_card(
+                "Agent planning production",
+                f"Reports P95 {format_trajectory_value('production_reports', 'p95_max', 'qty')}",
+                f"Suit les lots reportes et la nervosite MRP. Cause supply: {driver_label(backlog_driver or supplier_binding_driver)}.",
+            ),
+            metric_card(
+                "Agent finance / arbitrage",
+                f"Cout P95 {format_stat(summary, 'total_cost', 'p95', 'money')}",
+                f"Compare mitigations cout-disponibilite. Driver cout: {driver_label(cost_driver)}.",
+            ),
+        ]
+    )
+
+    business_supplier_rows_html = []
+    for row in supplier_impacts[:6]:
+        if not isinstance(row, dict):
+            continue
+        top = row.get("top_driver") if isinstance(row.get("top_driver"), dict) else {}
+        score = to_float(row.get("score")) or 0.0
+        action, _test = action_for_driver(top)
+        business_supplier_rows_html.append(
+            "<tr>"
+            f"<td>{html.escape(supplier_priority(score))}</td>"
+            f"<td>{html.escape(str(row.get('supplier_id') or 'n/a'))}</td>"
+            f"<td>{html.escape(fmt_pct(score * 100.0, 1))}</td>"
+            f"<td>{html.escape(driver_family_label(top))}</td>"
+            f"<td>{html.escape(driver_target_label(top))}</td>"
+            f"<td>{html.escape(action)}</td>"
+            "</tr>"
+        )
+    business_supplier_table_html = (
+        "<div class=\"orderLedgerTableWrap\" tabindex=\"0\">"
+        "<table class=\"kpiFormulaTable\"><thead><tr><th>Priorite</th><th>Fournisseur/noeud</th><th>Signal</th><th>Cause simulee</th><th>KPI touche</th><th>Action metier</th></tr></thead><tbody>"
+        f"{''.join(business_supplier_rows_html)}"
+        "</tbody></table></div>"
+        if business_supplier_rows_html
+        else "<div class=\"panelEmptyState\">Aucun fournisseur prioritaire lisible dans ce resume Monte Carlo.</div>"
+    )
+    business_agent_section_html = (
+        "<section class=\"dataSummarySection\">"
+        "<div class=\"dataSummarySectionTitle\">Cellule supply - priorites par agent metier</div>"
+        "<div class=\"orderLedgerStatus\">Lecture: cette section force l'ordre de decision: disponibilite produit, backlog, reports de production, cause fournisseur, action a tester. Les statistiques detaillees restent plus bas comme preuves, pas comme premier niveau de pilotage.</div>"
+        "<div class=\"uncertaintyCardGrid\">"
+        f"{business_agent_cards_html}"
+        "</div>"
+        "<div class=\"dataSummarySectionTitle\">Top fournisseurs a traiter</div>"
+        f"{business_supplier_table_html}"
+        "</section>"
+    )
+
     html_body = (
         "<div class=\"factoryHtmlPanelContent dataSummaryPanelContent monteCarloPanelContent\">"
         f"<div class=\"{html_tooltip_class(f'uncertaintyDashboard sensitivityStatus-{status_cls}', hero_tooltip)}\"{html_tooltip_attrs(hero_tooltip)}>"
         "<div class=\"uncertaintyHero\">"
         f"<div class=\"sensitivityStatusPill\">{html.escape(status_label)}</div>"
         "<div class=\"uncertaintyHeroTitle\">Incertitude dynamique - Monte Carlo</div>"
-        "<div class=\"uncertaintyHeroText\">Cette lecture rejoue la simulation avec des aleas controles sur demande, delais, stocks, capacites fournisseurs, capacites usines et couts. Elle mesure la robustesse de la baseline, pas une probabilite historique fournisseur.</div>"
+        "<div class=\"uncertaintyHeroText\">Cette lecture rejoue la simulation avec des aleas controles. La synthese est supplier-first pour la prediction fournisseur; les capacites usines restent dans les details comme controles modele/recherche. Elle mesure la robustesse de la baseline, pas une probabilite historique fournisseur.</div>"
         "</div>"
         "<div class=\"uncertaintyHeroFacts\">"
         f"<div><span>Runs valides</span><b>{runs}</b></div>"
@@ -12770,6 +11075,13 @@ def build_montecarlo_uncertainty_payload(summary_json: Path) -> dict[str, Any]:
         f"{''.join(cards)}"
         "</div>"
         "</div>"
+        f"{business_agent_section_html}"
+        f"{mitigation_section_html}"
+        "<div id=\"monteCarloDynamicChartsAnchor\"></div>"
+        "<details class=\"dataSummarySection\">"
+        "<summary class=\"dataSummarySectionTitle\">Details KPI, propagation et modele Monte Carlo</summary>"
+        f"{decision_cards_html}"
+        f"{secondary_cards_html}"
         "<section class=\"dataSummarySection\">"
         "<div class=\"dataSummarySectionTitle\">Distribution des KPI metier</div>"
         "<div class=\"orderLedgerTableWrap\" tabindex=\"0\">"
@@ -12777,11 +11089,15 @@ def build_montecarlo_uncertainty_payload(summary_json: Path) -> dict[str, Any]:
         f"{''.join(table_rows)}"
         "</tbody></table></div>"
         "</section>"
-        "<section class=\"dataSummarySection\">"
+        f"{propagation_cards_html}"
+        f"{propagation_section_html}"
+        f"{threshold_section_html}"
         "<div class=\"dataSummarySectionTitle\">Drivers observes dans les runs</div>"
         "<div class=\"orderLedgerStatus\">La correlation indique quels parametres aleatoires expliquent le plus les ecarts entre scenarios. Ce n'est pas une causalite terrain; c'est une lecture du modele rejoue.</div>"
         f"{driver_sections_html}"
-        "</section>"
+        f"{family_section_html}"
+        f"{supplier_section_html}"
+        "</details>"
         "</div>"
     )
     return {
@@ -12800,6 +11116,8 @@ def build_montecarlo_uncertainty_payload(summary_json: Path) -> dict[str, Any]:
         "supplier_capacity_binding_p95": supplier_binding_stat.get("p95"),
         "nodes": mc_nodes,
         "node_assets": mc_node_assets,
+        "trajectory_assets": trajectory_assets,
+        "diagnostics": diagnostics,
     }
 
 
@@ -13232,6 +11550,7 @@ def build_supplier_local_criticality(
 
 def main() -> None:
     args = parse_args()
+    run_inputs = map_inputs_from_run_package(args.run_package) if args.run_package else None
     in_path = Path(args.input)
     out_path = Path(args.output)
     sim_input = Path(args.sim_input_stocks_csv)
@@ -13285,6 +11604,49 @@ def main() -> None:
     structural_sensitivity_cases_csv = Path(args.structural_sensitivity_cases_csv)
     supplier_local_criticality_csv = Path(args.supplier_local_criticality_csv)
     supplier_local_criticality_json = Path(args.supplier_local_criticality_json)
+    if run_inputs:
+        if run_inputs.input_graph and run_inputs.input_graph.exists():
+            in_path = run_inputs.input_graph
+        sim_input = run_inputs.sim_input_stocks_csv
+        sim_output = run_inputs.sim_output_products_csv
+        demand_service_csv = run_inputs.demand_service_csv
+        sim_input_png_dir = run_inputs.plots_dir
+        sim_output_png_dir = run_inputs.plots_dir
+        supplier_shipments_csv = run_inputs.supplier_shipments_csv
+        supplier_stocks_csv = run_inputs.supplier_stocks_csv
+        supplier_stock_flows_csv = run_inputs.supplier_stock_flows_csv or supplier_stock_flows_csv
+        supplier_capacity_csv = run_inputs.supplier_capacity_csv
+        supplier_nominal_parameters_csv = run_inputs.supplier_nominal_parameters_csv or supplier_nominal_parameters_csv
+        factory_nominal_capacities_csv = run_inputs.factory_nominal_capacities_csv or factory_nominal_capacities_csv
+        input_arrivals_csv = run_inputs.input_arrivals_csv
+        production_constraint_csv = run_inputs.production_constraint_csv
+        mrp_trace_csv = production_constraint_csv.parent / "mrp_trace_daily.csv"
+        lot_events_csv = run_inputs.lot_events_csv
+        lot_genealogy_csv = run_inputs.lot_genealogy_csv
+        production_plan_events_csv = run_inputs.production_plan_events_csv
+        production_campaigns_csv = run_inputs.production_campaigns_csv
+        daily_kpi_csv = run_inputs.daily_kpi_csv
+        supplier_local_criticality_csv = run_inputs.supplier_local_criticality_csv
+        supplier_local_criticality_json = run_inputs.supplier_local_criticality_json
+        args.dc_stocks_csv = str(run_inputs.dc_stocks_csv)
+        if run_inputs.safety_reference_csv:
+            args.safety_reference_csv = str(run_inputs.safety_reference_csv)
+        if not str(args.simulated_risk_output_dir or "").strip():
+            metadata = run_inputs.package.manifest.get("metadata", {})
+            if not isinstance(metadata, dict):
+                metadata = {}
+            configured_risk_dir = metadata.get("simulated_risk_output_dir") or metadata.get("state_dependent_output_dir")
+            risk_dir_candidates: list[Path] = []
+            if configured_risk_dir:
+                configured_path = Path(str(configured_risk_dir))
+                risk_dir_candidates.append(configured_path)
+                if not configured_path.is_absolute():
+                    risk_dir_candidates.append(run_inputs.output_root / configured_path)
+            risk_dir_candidates.append(run_inputs.output_root / "scenario_runs" / "state_dependent_full")
+            for candidate in risk_dir_candidates:
+                if candidate.exists():
+                    args.simulated_risk_output_dir = str(candidate)
+                    break
     realistic_sensitivity_summary_json = (
         Path(args.realistic_sensitivity_summary_json)
         if args.realistic_sensitivity_summary_json
@@ -13444,10 +11806,22 @@ def main() -> None:
             dc_stocks_csv=Path(args.dc_stocks_csv),
             production_constraint_csv=production_constraint_csv,
         )
+        simulated_risk_output_root = (
+            Path(args.simulated_risk_output_dir)
+            if str(args.simulated_risk_output_dir or "").strip()
+            else output_root_from_csv(demand_service_csv)
+        )
+        if simulated_risk_output_root.exists():
+            payload["simulated_risk_metrics"] = build_simulated_risk_metrics_from_output(
+                raw,
+                simulated_risk_output_root,
+            )
+        else:
+            payload["simulated_risk_metrics"] = payload["model_panel"].get("simulated_risk_metrics", {})
         payload["simulated_risk_global_diagnostic"] = build_simulated_risk_global_diagnostic_payload(
             raw=raw,
-            output_root=output_root_from_csv(demand_service_csv),
-            simulated_risk_metrics=payload["model_panel"].get("simulated_risk_metrics", {}),
+            output_root=simulated_risk_output_root if simulated_risk_output_root.exists() else output_root_from_csv(demand_service_csv),
+            simulated_risk_metrics=payload.get("simulated_risk_metrics", {}),
         )
         payload["scenario_comparison"] = build_scenario_comparison_payload(output_root_from_csv(demand_service_csv))
         payload["supplier_risk_campaign"] = build_supplier_risk_campaign_payload(
@@ -13585,6 +11959,9 @@ def main() -> None:
                 build_sensitivity_payload_manifest(payload),
             ]
         )
+        if run_inputs:
+            payload["run_contract"] = run_contract_payload(run_inputs)
+        payload = attach_generic_payload_contract(payload)
     except Exception as exc:
         print(f"[ERROR] Unable to read/parse input JSON: {exc}", file=sys.stderr)
         sys.exit(1)

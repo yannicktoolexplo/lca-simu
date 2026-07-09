@@ -3,25 +3,25 @@
 ## Inputs / outputs
 - Input graph: etudecas\data\geocoded\supply_graph_poc_geocoded.json
 - Output graph: etudecas\simulation_prep\result\reference_baseline\supply_graph_reference_baseline_simulation_ready.json
-- Generated at (UTC): 2026-04-30T14:26:14.674598+00:00
+- Generated at (UTC): 2026-07-09T11:43:37.623558+00:00
 
 ## What was enriched
 - Edge distances filled: 38
-- Edge lead times updated: 6
+- Edge lead times updated: 4
 - Edge transport costs updated: 39
-- Edge delay limits updated: 6
+- Edge delay limits updated: 4
 - Edge pricing aligned from Data_poc Relations_acteurs: 0
 - Edge pricing aligned from demand_PF Relations_acteurs: 39
-- Nodes added from demand_PF Acteurs: 2
-- Node locations filled from demand_PF Acteurs: 0
-- Edges added from demand_PF Relations_acteurs: 7
-- Inventory states added from demand_PF Relations_acteurs: 7
+- Nodes added from demand_PF Acteurs: 1
+- Node locations filled from demand_PF Acteurs: 1
+- Edges added from demand_PF Relations_acteurs: 5
+- Inventory states added from demand_PF Relations_acteurs: 4
 - Inventory initials updated: 65
 - Inventory holding costs updated: 65
 - Holding-cost source item-value median: 53
 - Holding-cost source global fallback: 12
-- Inventory UOM harmonized: 10
-- Node policies added: 33
+- Inventory UOM harmonized: 16
+- Node policies added: 35
 - Process capacities updated: 2
 - Process costs updated: 3
 - DC alias reconciliations (1910->1920): 1
@@ -38,11 +38,11 @@
 
 ## Changed entities
 - Changed edges: 44
-- Changed nodes: 35
+- Changed nodes: 37
 - Changed demand rows: 3
 
 ## Validation after prep
-- Missing geo nodes: 1
+- Missing geo nodes: 3
 - Edges still missing distance: 1
 - Edges still zero transport cost: 0
 - Factory inbound edges missing sell_price: 0
