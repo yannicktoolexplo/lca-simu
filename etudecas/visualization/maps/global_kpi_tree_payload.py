@@ -294,12 +294,57 @@ def effective_procurement_lead_days(row: dict[str, str]) -> float | None:
     return None
 
 
+def build_component_immobilized_series(
+    component_immobilized_stock_csv: Path,
+    days: list[int],
+    *,
+    product_item_filter: set[str] | None = None,
+) -> dict[str, dict[int, float]]:
+    rows = read_csv_rows(component_immobilized_stock_csv)
+    out: dict[str, dict[int, float]] = defaultdict(lambda: defaultdict(float))
+    wanted_days = set(days)
+    for row in rows:
+        day_value = to_float(row.get("day"))
+        if day_value is None or math.isnan(day_value):
+            continue
+        day = int(day_value)
+        if day not in wanted_days:
+            continue
+        product_item_id = str(row.get("product_item_id") or "").strip()
+        if product_item_filter is not None and product_item_id not in product_item_filter:
+            continue
+        mode = str(row.get("threshold_mode") or "")
+        stock_value = max(0.0, to_float(row.get("stock_value_eur")) or 0.0)
+        useful_value = max(0.0, to_float(row.get("useful_stock_value_eur")) or 0.0)
+        immobilized_value = max(0.0, to_float(row.get("immobilized_stock_value_eur")) or 0.0)
+        product_code = str(row.get("product_code") or row.get("product_item_id") or "").strip()
+        if mode == "target_stock":
+            out["stock_value"][day] += stock_value
+            out["useful_target_stock"][day] += useful_value
+            out["immobilized_target_stock"][day] += immobilized_value
+            if product_code:
+                out[f"stock_value::{product_code}"][day] += stock_value
+                out[f"immobilized_target_stock::{product_code}"][day] += immobilized_value
+        elif mode == "demand_90d":
+            out["useful_demand_90d"][day] += useful_value
+            out["immobilized_demand_90d"][day] += immobilized_value
+            if product_code:
+                out[f"immobilized_demand_90d::{product_code}"][day] += immobilized_value
+    return {key: dict(value) for key, value in out.items()}
+
+
+def mean_series(series: dict[int, float]) -> float:
+    values = [max(0.0, float(value)) for value in series.values()]
+    return sum(values) / len(values) if values else 0.0
+
+
 def build_global_kpi_tree_payload(
     daily_kpi_csv: Path,
     demand_service_csv: Path,
     production_constraint_csv: Path,
     mrp_orders_csv: Path | None = None,
     raw: dict[str, Any] | None = None,
+    component_immobilized_stock_csv: Path | None = None,
 ) -> dict[str, Any] | None:
     daily_rows, effective_daily_kpi_csv, cost_source = read_daily_kpi_rows_with_cost_fallback(daily_kpi_csv)
     demand_rows = read_csv_rows(demand_service_csv)
@@ -447,6 +492,19 @@ def build_global_kpi_tree_payload(
             "days": days,
             "values": [round(float(values.get(day, 0.0)), 6) for day in days],
         }
+
+    component_stock_csv = component_immobilized_stock_csv or (
+        daily_kpi_csv.parent / "component_immobilized_stock_daily.csv"
+    )
+    component_stock_series = (
+        build_component_immobilized_series(
+            component_stock_csv,
+            days,
+            product_item_filter=finished_good_item_ids if finished_good_item_ids else None,
+        )
+        if component_stock_csv.exists()
+        else {}
+    )
 
     demand_qty = {day: demand_by_day[day].get("demand_qty", daily_by_day[day].get("demand", 0.0)) for day in days}
     required_qty = {day: demand_by_day[day].get("required_qty", demand_qty[day]) for day in days}
@@ -1530,6 +1588,51 @@ def build_global_kpi_tree_payload(
         "Carnet initial deja engage",
         "Pilotable",
     }
+    if component_stock_series:
+        kpi_definitions.extend(
+            [
+                {
+                    "family": "Stock composants",
+                    "level": "KPI principal",
+                    "name": "Valeur stock composant simulee",
+                    "formula": "stock_end_of_day x prix unitaire composant",
+                    "terms": "Lecture comparable au fichier reel si celui-ci expose une valeur totale du stock composant. Le calcul exclut les prix de secours generiques.",
+                    "interpretation": "C'est la lecture principale pour comparer au KPI reel `Sum_Valeur totale du stock`.",
+                },
+                {
+                    "family": "Stock composants",
+                    "level": "KPI secondaire",
+                    "name": "Stock composant total valorise",
+                    "formula": "stock_end_of_day x prix unitaire composant",
+                    "terms": "Agrégation par perimetre produit fini et composant disponible dans component_immobilized_stock_daily.csv.",
+                    "interpretation": "Valeur du stock composant suivi par la simulation, avant separation utile/immobilise.",
+                },
+                {
+                    "family": "Stock composants",
+                    "level": "KPI secondaire",
+                    "name": "Excedent economique 90j",
+                    "formula": "max(stock - besoin journalier MRP x 90, 0) x prix unitaire",
+                    "terms": "Lecture proche d'un KPI financier: stock au-dessus d'une couverture economique de 90 jours.",
+                    "interpretation": "Diagnostic de surstock, pas la comparaison directe avec le fichier reel de valeur totale.",
+                },
+                {
+                    "family": "Stock composants",
+                    "level": "KPI secondaire",
+                    "name": "Excedent vs cible MRP",
+                    "formula": "max(stock - target_stock_qty, 0) x prix unitaire",
+                    "terms": "Lecture stricte pilotage MRP.",
+                    "interpretation": "Diagnostic MRP pour auditer la cible, pas la comparaison directe avec le fichier reel.",
+                },
+            ]
+        )
+        visible_definition_names.update(
+            {
+                "Valeur stock composant simulee",
+                "Stock composant total valorise",
+                "Excedent economique 90j",
+                "Excedent vs cible MRP",
+            }
+        )
 
     physics_kpi_display = [
         ("product_availability", "Disponibilite produit", "#0f766e", "served_qty / required_with_backlog_qty"),
@@ -1676,6 +1779,86 @@ def build_global_kpi_tree_payload(
             for definition in physics_kpi_definitions
         ],
     }
+    component_stock_group = None
+    if component_stock_series:
+        def component_avg(key: str) -> float:
+            series = component_stock_series.get(key, {})
+            return sum(max(0.0, float(series.get(day, 0.0))) for day in days) / len(days) if days else 0.0
+
+        top_component_products = sorted(
+            [
+                (
+                    key.split("::", 1)[1],
+                    component_avg(key),
+                    component_stock_series.get(key, {}),
+                )
+                for key in component_stock_series
+                if key.startswith("immobilized_demand_90d::")
+            ],
+            key=lambda row: row[1],
+            reverse=True,
+        )[:5]
+        component_product_palette = ["#111827", "#7c3aed", "#0891b2", "#be123c", "#65a30d"]
+        component_stock_group = {
+            "id": "component_stock",
+            "label": "Stock composants valorise",
+            "objective": "Comparer la valeur totale du stock composant simule au reel, puis lire les diagnostics de surstock.",
+            "summary": [
+                summary("Valeur stock composant moyen", fmt_qty(component_avg("stock_value"))),
+                summary("Utile economique 90j moyen", fmt_qty(component_avg("useful_demand_90d"))),
+                summary("Excedent economique 90j moyen", fmt_qty(component_avg("immobilized_demand_90d"))),
+                summary("Utile cible MRP moyen", fmt_qty(component_avg("useful_target_stock"))),
+                summary("Excedent vs cible MRP moyen", fmt_qty(component_avg("immobilized_target_stock"))),
+                summary(
+                    "Principal PF contributeur",
+                    (
+                        f"{top_component_products[0][0]} - {fmt_qty(top_component_products[0][1])}"
+                        if top_component_products
+                        else "n/a"
+                    ),
+                ),
+                summary("Source", component_stock_csv.name),
+            ],
+            "secondary": [
+                {
+                    "label": "Stock composant total valorise",
+                    **series_from_map(component_stock_series.get("stock_value", {})),
+                    "color": "#475569",
+                },
+                {
+                    "label": "Stock utile economique 90j",
+                    **series_from_map(component_stock_series.get("useful_demand_90d", {})),
+                    "color": "#0f766e",
+                },
+                {
+                    "label": "Excedent economique 90j",
+                    **series_from_map(component_stock_series.get("immobilized_demand_90d", {})),
+                    "color": "#d97706",
+                },
+                {
+                    "label": "Stock utile cible MRP",
+                    **series_from_map(component_stock_series.get("useful_target_stock", {})),
+                    "color": "#2563eb",
+                    "dash": "dash",
+                },
+                {
+                    "label": "Excedent vs cible MRP",
+                    **series_from_map(component_stock_series.get("immobilized_target_stock", {})),
+                    "color": "#be123c",
+                    "dash": "dot",
+                },
+                *[
+                    {
+                        "label": f"Excedent 90j PF {product_code}",
+                        **series_from_map(series),
+                        "color": component_product_palette[idx % len(component_product_palette)],
+                        "dash": "dashdot",
+                    }
+                    for idx, (product_code, _avg, series) in enumerate(top_component_products)
+                ],
+            ],
+            "secondary_y_label": "EUR",
+        }
     kpi_definitions.extend(
         [
             {
@@ -1847,6 +2030,7 @@ def build_global_kpi_tree_payload(
                 ],
                 "secondary_y_label": "Cout / jour",
             },
+            *([component_stock_group] if component_stock_group else []),
         ],
     }
 

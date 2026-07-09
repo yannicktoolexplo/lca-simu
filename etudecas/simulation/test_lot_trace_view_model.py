@@ -61,6 +61,21 @@ class LotTraceViewModelTest(unittest.TestCase):
         self.assertAlmostEqual(mixed["visible_share"], 0.6)
         self.assertTrue(mixed["is_mixed_with_other_origin"])
 
+    def test_mixed_customer_lot_propagates_partial_parent_share(self) -> None:
+        payload = self._payload()
+        for link in payload["genealogy"]:
+            if link["parent_lot_id"] == "LOT-PF" and link["child_lot_id"] == "LOT-DC-A":
+                link["parent_qty"] = 3.0
+                break
+
+        view = build_lot_trace_view_model(payload, "LOT-PF")
+
+        mixed = view["mixed_customer_lots"][0]
+        self.assertEqual(mixed["lot_id"], "LOT-CUST")
+        self.assertAlmostEqual(mixed["visible_contribution_qty"], 3.0)
+        self.assertAlmostEqual(mixed["other_contribution_qty"], 7.0)
+        self.assertAlmostEqual(mixed["visible_share"], 0.3)
+
     @unittest.skipUnless(
         os.environ.get("ETUDECAS_RUN_SLOW_TESTS") == "1",
         "set ETUDECAS_RUN_SLOW_TESTS=1 to validate the 5-year lot view model",

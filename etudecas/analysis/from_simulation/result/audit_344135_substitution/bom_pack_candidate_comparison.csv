@@ -1,0 +1,5 @@
+component,finished_product,workbook,component_type,qty_per_1000_pf,uom,supplier_accounts,stock_locations,open_order_count,open_order_qty,open_order_locations,substitution_reading
+333362,268967,268967.xlsx,Pack,1000,UN.,VD0525412A,1430:142250 ZUN,6,629000.0,1430/VD0525412A,structural_similarity_only_not_a_declared_substitute
+338928,268091,268091.xlsx,Pack,1000,UN.,VD0901566A,1810:404065 ZUN,3,365033.0,1810/VD0901566A,structural_similarity_only_not_a_declared_substitute
+338929,268091,268091.xlsx,Pack,1000,UN.,VD0914360C,1810:354000 ZUN,1,57600.0,1810/VD0914360C,structural_similarity_only_not_a_declared_substitute
+344135,268967,268967.xlsx,Pack,1000,UN.,VD0993480A,1430:0 ZUN,0,0,,target_component

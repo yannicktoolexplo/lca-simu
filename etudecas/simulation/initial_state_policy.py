@@ -1,7 +1,7 @@
 """Shared simulation startup-state policies.
 
 The reference runs should start from the observed ERP/MRP snapshot at J0:
-physical stocks from ``Stocks_MRP.xlsx`` and firm open orders from
+physical stocks from ``Extract_Données_Complémentaires.xlsx`` and firm open orders from
 ``Extract_En_cours.xlsx``. Synthetic cover and synthetic in-transit quantities
 are useful for what-if tests, but they should not be the default baseline.
 """

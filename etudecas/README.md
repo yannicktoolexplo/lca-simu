@@ -22,6 +22,11 @@ Sous Windows, le raccourci suivant lance le meme pipeline actif et ouvre la cart
 
 Voir [OPERATIONS.md](OPERATIONS.md) pour les options, les fichiers generes et les criteres de validation.
 
+Chaque run operationnel genere aussi un package generique dans `<result>/run/`.
+Ce package est le contrat a privilegier pour les futurs viewers, diagnostics,
+API de simulation et etudes de sensibilite : il expose `run_manifest.json`,
+`nodes.json`, `flows.json`, `kpis.json` et des index vers les artefacts lourds.
+
 Le livrable principal est un graphe JSON de supply chain. La chaine nominale
 enrichit ce graphe depuis les donnees cas, le geocode, le prepare pour la
 simulation, lance le moteur dynamique, puis genere les cartes et rapports.
@@ -86,6 +91,12 @@ Rebatir le run actif 5 ans lotifie, generer la carte autonome et valider les art
 python etudecas/run_etudecas_pipeline.py rebuild-map-5y --open-map
 ```
 
+Ajouter l'incertitude Monte Carlo robuste au run courant :
+
+```powershell
+python etudecas/run_etudecas_pipeline.py rebuild-map-5y --with-montecarlo --montecarlo-runs 60 --open-map
+```
+
 Verifier les prerequis sans lancer la simulation :
 
 ```powershell
@@ -120,6 +131,13 @@ Reconstruire la criticite fournisseur utilisee par la carte et les arbres KPI :
 
 ```powershell
 python etudecas/run_etudecas_pipeline.py supplier-criticality
+```
+
+Exporter ou valider le format de run generique depuis un resultat existant :
+
+```powershell
+python etudecas/run_etudecas_pipeline.py export-run --output-dir <result_dir>
+python etudecas/run_etudecas_pipeline.py validate-run --package-dir <result_dir>/run
 ```
 
 ## Dossiers non nominaux

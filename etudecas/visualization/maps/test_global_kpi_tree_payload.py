@@ -330,6 +330,114 @@ class GlobalKpiTreePayloadTest(unittest.TestCase):
         self.assertEqual(transport_series["values"], [10.0, 30.0])
         self.assertIn("reconstruit", cost_group["summary"][-1]["value"])
 
+    def test_component_immobilized_stock_group_is_added_when_artifact_exists(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            data_dir = root / "data"
+            daily_csv = data_dir / "first_simulation_daily.csv"
+            demand_csv = data_dir / "production_demand_service_daily.csv"
+            constraint_csv = data_dir / "production_constraint_daily.csv"
+
+            write_csv(
+                daily_csv,
+                [
+                    "day",
+                    "demand",
+                    "served",
+                    "backlog_end",
+                    "holding_cost_day",
+                    "warehouse_operating_cost_day",
+                    "inventory_risk_cost_day",
+                    "operational_transport_cost_day",
+                    "operational_purchase_cost_day",
+                    "production_cost_day",
+                ],
+                [
+                    {
+                        "day": 0,
+                        "demand": 100,
+                        "served": 100,
+                        "backlog_end": 0,
+                        "holding_cost_day": 1,
+                        "warehouse_operating_cost_day": 1,
+                        "inventory_risk_cost_day": 1,
+                        "operational_transport_cost_day": 1,
+                        "operational_purchase_cost_day": 1,
+                        "production_cost_day": 1,
+                    },
+                    {
+                        "day": 1,
+                        "demand": 100,
+                        "served": 100,
+                        "backlog_end": 0,
+                        "holding_cost_day": 1,
+                        "warehouse_operating_cost_day": 1,
+                        "inventory_risk_cost_day": 1,
+                        "operational_transport_cost_day": 1,
+                        "operational_purchase_cost_day": 1,
+                        "production_cost_day": 1,
+                    },
+                ],
+            )
+            write_csv(
+                demand_csv,
+                ["day", "item_id", "demand_qty", "required_with_backlog_qty", "served_qty", "backlog_end_qty"],
+                [
+                    {"day": 0, "item_id": "item:PF", "demand_qty": 100, "required_with_backlog_qty": 100, "served_qty": 100, "backlog_end_qty": 0},
+                    {"day": 1, "item_id": "item:PF", "demand_qty": 100, "required_with_backlog_qty": 100, "served_qty": 100, "backlog_end_qty": 0},
+                ],
+            )
+            write_csv(
+                constraint_csv,
+                [
+                    "day",
+                    "node_id",
+                    "output_item_id",
+                    "desired_qty",
+                    "planned_qty_after_lot_rule",
+                    "actual_qty",
+                    "shortfall_vs_desired_qty",
+                    "shortfall_vs_lot_plan_qty",
+                    "binding_cause",
+                ],
+                [
+                    {"day": 0, "node_id": "M-1", "output_item_id": "item:PF", "desired_qty": 100, "planned_qty_after_lot_rule": 100, "actual_qty": 100, "shortfall_vs_desired_qty": 0, "shortfall_vs_lot_plan_qty": 0, "binding_cause": ""},
+                    {"day": 1, "node_id": "M-1", "output_item_id": "item:PF", "desired_qty": 100, "planned_qty_after_lot_rule": 100, "actual_qty": 100, "shortfall_vs_desired_qty": 0, "shortfall_vs_lot_plan_qty": 0, "binding_cause": ""},
+                ],
+            )
+            write_csv(
+                data_dir / "component_immobilized_stock_daily.csv",
+                [
+                    "day",
+                    "node_id",
+                    "product_item_id",
+                    "product_code",
+                    "threshold_mode",
+                    "stock_value_eur",
+                    "useful_stock_value_eur",
+                    "immobilized_stock_value_eur",
+                    "component_count",
+                    "priced_component_count",
+                ],
+                [
+                    {"day": 0, "node_id": "M-1", "product_item_id": "item:PF", "product_code": "PF", "threshold_mode": "target_stock", "stock_value_eur": 100, "useful_stock_value_eur": 20, "immobilized_stock_value_eur": 80, "component_count": 1, "priced_component_count": 1},
+                    {"day": 1, "node_id": "M-1", "product_item_id": "item:PF", "product_code": "PF", "threshold_mode": "target_stock", "stock_value_eur": 200, "useful_stock_value_eur": 50, "immobilized_stock_value_eur": 150, "component_count": 1, "priced_component_count": 1},
+                    {"day": 0, "node_id": "M-1", "product_item_id": "item:PF", "product_code": "PF", "threshold_mode": "demand_90d", "stock_value_eur": 100, "useful_stock_value_eur": 60, "immobilized_stock_value_eur": 40, "component_count": 1, "priced_component_count": 1},
+                    {"day": 1, "node_id": "M-1", "product_item_id": "item:PF", "product_code": "PF", "threshold_mode": "demand_90d", "stock_value_eur": 200, "useful_stock_value_eur": 70, "immobilized_stock_value_eur": 130, "component_count": 1, "priced_component_count": 1},
+                ],
+            )
+
+            payload = build_global_kpi_tree_payload(daily_csv, demand_csv, constraint_csv)
+
+        self.assertIsNotNone(payload)
+        group = next(group for group in payload["groups"] if group["id"] == "component_stock")
+        self.assertEqual(group["secondary_y_label"], "EUR")
+        summary_by_label = {row["label"]: row["value"] for row in group["summary"]}
+        self.assertEqual(summary_by_label["Valeur stock composant moyen"], "150.0")
+        self.assertEqual(summary_by_label["Excedent economique 90j moyen"], "85.0")
+        series_by_label = {series["label"]: series for series in group["secondary"]}
+        self.assertEqual(series_by_label["Excedent vs cible MRP"]["values"], [80.0, 150.0])
+
 
 if __name__ == "__main__":
     unittest.main()

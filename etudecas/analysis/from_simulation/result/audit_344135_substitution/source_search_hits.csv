@@ -1,0 +1,17 @@
+file,sheet,row,matched_terms,content
+268967.xlsx,BOM,6,344135;34413,268967 | 1000 | 344135 | Pack | 1000 | UN.
+268967.xlsx,FIA,5,344135;34413;VD0993480A,344135 | VD0993480A | 4.03 | 1000 | EUR | 35 | 120000 | ZUN
+Data_poc.xlsx,Acteurs,2,344135;34413,"Manufacturer | Manufacturer of Drugs - D1430 | France - GIEN - 45500 |  |  |  |  |  |  | 268967 | 038005,042342,773474,333362,344135,708073,730384,734545 |  |  |  |  |  |  | "
+Data_poc.xlsx,Acteurs,9,344135;34413;VD0993480A,Supplier Distribution Center | Supplier of Packaging - VD0993480A | France - CONDE SUR NOIREAU - 14110 |  |  |  |  |  |  | 344135 | 344135 |  |  |  |  |  |  | 
+Data_poc.xlsx,BOM,6,344135;34413,344135 |  |  |  |  |  |  |  |  |  |  | 
+Data_poc.xlsx,BOM,14,344135;34413,268967 |  |  |  |  |  | 268967 | 1000 | UN | 344135 | 1000 | UN
+Data_poc.xlsx,Relations_acteurs,5,344135;34413;VD0993480A,M - D1430 | SDC - VD0993480A | 344135 | 4.03 | 1000 | UN |  |  |  |  | 
+demand_PF.xlsx,Acteurs,2,344135;34413,"Manufacturer | Manufacturer of Drugs - D1430 | France - GIEN - 45500 |  |  |  |  |  |  | 268967 | 038005,042342,773474,333362,344135,708073,730384,734545 |  |  |  |  |  |  | "
+demand_PF.xlsx,Acteurs,13,344135;34413;VD0993480A,Supplier Distribution Center | Supplier of Packaging - VD0993480A | France - CONDE SUR NOIREAU - 14110 |  |  |  |  |  |  | 344135 | 344135 |  |  |  |  |  |  | 
+demand_PF.xlsx,BOM,7,344135;34413,344135 |  |  |  |  |  |  |  |  |  |  | 
+demand_PF.xlsx,BOM,15,344135;34413,268967 |  |  |  |  |  | 268967 | 1000 | UN | 344135 | 1000 | UN
+demand_PF.xlsx,Relations_acteurs,5,344135;34413;VD0993480A,M - D1430 | SDC - VD0993480A | 344135 | 4.03 | 1000 | EUR | UN |  |  |  |  | 
+Extract_Données_Complémentaires.xlsx,Stocks,25,344135;34413,344135 | AC | 1430 | Gien | 0 | ZUN | 2025-01-01 03:03:48
+Extract_Données_Complémentaires.xlsx,Politique de Stock MRP,19,344135;34413,344135 | AC | 1430 | Gien | 10 | 0 | ZUN
+Fournisseur.xlsx,LOCATION,26,VD0993480A,VD0993480A | France - CONDE SUR NOIREAU - 14110 | France | 14110 | CONDE SUR NOIREAU
+supply_graph_poc.json,,,344135;34413;VD0993480A,json file contains matching terms

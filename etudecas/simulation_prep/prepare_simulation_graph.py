@@ -22,7 +22,7 @@ from pathlib import Path
 from statistics import median
 from typing import Any
 
-PRODUCT_SERVICE_TARGETS = {
+DEFAULT_PRODUCT_SERVICE_TARGETS = {
     "item:268967": 0.80,
     "item:268091": 0.93,
 }
@@ -83,6 +83,15 @@ def parse_args() -> argparse.Namespace:
         type=float,
         default=0.20,
         help="Annual inventory carrying rate applied to item value to derive daily holding cost (default: 0.20).",
+    )
+    parser.add_argument(
+        "--pf-service-target",
+        type=float,
+        default=None,
+        help=(
+            "Override all finished-product service targets used by the prep graph "
+            "(for example 1.0 for nominal 100%% product availability)."
+        ),
     )
     return parser.parse_args()
 
@@ -1053,9 +1062,11 @@ def prepare_graph(
     upstream_dc_warm_start_days: float = 0.0,
     simulation_days: int = 30,
     annual_carry_rate: float = 0.20,
+    product_service_targets: dict[str, float] | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     g = deepcopy(graph)
     ensure_sim_meta(g)
+    service_targets = dict(product_service_targets or DEFAULT_PRODUCT_SERVICE_TARGETS)
 
     nodes = g.get("nodes", []) or []
     edges = g.get("edges", []) or []
@@ -1370,7 +1381,7 @@ def prepare_graph(
         item_unit_map = infer_item_unit_map(nodes, edges)
 
     # Remove the duplicate Gaillac factory branch when the upstream transformation
-    # is already modeled on SDC-1450 from source case data (021081.xlsx + Data_poc).
+    # is already modeled on SDC-1450 from source case data (773474.xlsx + Data_poc).
     canonical_upstream_node_id = "SDC-1450"
     duplicate_upstream_factory_id = "M-1450"
     canonical_upstream_node = node_by_id.get(canonical_upstream_node_id)
@@ -1974,8 +1985,8 @@ def prepare_graph(
                 profile = [{"type": "constant", "value": 0.0, "uom": "unit/day", "is_default": True}]
                 d["profile"] = profile
 
-            if item_id in PRODUCT_SERVICE_TARGETS:
-                d["service_level_target"] = PRODUCT_SERVICE_TARGETS[item_id]
+            if item_id in service_targets:
+                d["service_level_target"] = service_targets[item_id]
                 d["service_level_target_source"] = "simulation_prep_business_rule_by_product"
 
             demand_pair = (node_id, item_id)
@@ -2044,9 +2055,9 @@ def prepare_graph(
             continue
         nid = str(n.get("id") or "")
         item_targets = {
-            item_id: PRODUCT_SERVICE_TARGETS[item_id]
+            item_id: service_targets[item_id]
             for customer_id, item_id in sorted(customer_item_pairs)
-            if customer_id == nid and item_id in PRODUCT_SERVICE_TARGETS
+            if customer_id == nid and item_id in service_targets
         }
         if not item_targets:
             continue
@@ -2252,7 +2263,7 @@ def prepare_graph(
                 f"{invented_item_id}: GAILLAC?" if invented_item_id else None
             ),
             "simulation_horizon_days_default": target_sim_days,
-            "product_service_targets": PRODUCT_SERVICE_TARGETS,
+            "product_service_targets": service_targets,
             "demand_pf_mapping_rule": "weekly demand values from demand_PF.xlsx converted to daily rates via uniform division by 7",
             "demand_pf_tail_rule": "no artificial tail extension beyond the provided weekly source periods",
         },
@@ -2366,6 +2377,10 @@ def main() -> None:
     out_report_md = Path(args.output_report_md)
     data_poc_xlsx = Path(args.data_poc_xlsx) if str(args.data_poc_xlsx).strip() else None
     demand_pf_xlsx = Path(args.demand_pf_xlsx) if str(args.demand_pf_xlsx).strip() else None
+    product_service_targets = dict(DEFAULT_PRODUCT_SERVICE_TARGETS)
+    if args.pf_service_target is not None:
+        target = max(0.0, min(1.0, float(args.pf_service_target)))
+        product_service_targets = {item_id: target for item_id in product_service_targets}
 
     out_graph.parent.mkdir(parents=True, exist_ok=True)
 
@@ -2378,6 +2393,7 @@ def main() -> None:
         upstream_dc_warm_start_days=args.upstream_dc_warm_start_days,
         simulation_days=args.simulation_days,
         annual_carry_rate=args.annual_carry_rate,
+        product_service_targets=product_service_targets,
     )
 
     out_graph.write_text(json.dumps(prepared, indent=2, ensure_ascii=False), encoding="utf-8")

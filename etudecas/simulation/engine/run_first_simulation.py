@@ -311,6 +311,8 @@ PRODUCTION_PLAN_EVENT_FIELDS = [
     "notes",
 ]
 
+OPENING_PRODUCTION_ORDER_LANE_PREFIX = "OPENING_PRODUCTION_ORDER|"
+
 def to_float(x: Any, default: float = 0.0) -> float:
     try:
         return float(x)
@@ -1097,6 +1099,18 @@ def parse_args() -> argparse.Namespace:
         action=argparse.BooleanOptionalAction,
         default=None,
         help="Override initialization_policy.seed_estimated_source_pipeline.",
+    )
+    parser.add_argument(
+        "--opening-production-order-bom-issue-mode",
+        choices=["receipt", "release", "wip"],
+        default=None,
+        help=(
+            "How source O.Proc opening production orders consume BOM components. "
+            "receipt keeps the historical behavior and issues components when the finished/semi-finished "
+            "order is received. release issues components at the source release/order date and receives "
+            "the output at the source entry date. wip receives the output but treats components as already "
+            "issued to opening WIP, without consuming J0 free stock."
+        ),
     )
     parser.add_argument(
         "--soft-safety-time-stock-target-factor",
@@ -2584,6 +2598,12 @@ def scenario_initialization_policy(
             if isinstance(raw.get("seed_estimated_source_pipeline"), bool)
             else str(raw.get("seed_estimated_source_pipeline", "true")).strip().lower() in {"1", "true", "yes", "y", "on"}
         ),
+        "opening_production_order_bom_issue_mode": (
+            str(raw.get("opening_production_order_bom_issue_mode") or "receipt").strip().lower()
+            if str(raw.get("opening_production_order_bom_issue_mode") or "receipt").strip().lower()
+            in {"receipt", "release", "wip"}
+            else "receipt"
+        ),
         "restore_opening_stock_after_warmup": (
             raw.get("restore_opening_stock_after_warmup")
             if isinstance(raw.get("restore_opening_stock_after_warmup"), bool)
@@ -2918,6 +2938,8 @@ def seed_open_orders_from_metadata(
     pair_mrp_safety_time_days: dict[tuple[str, str], float],
     total_timeline_days: int,
     warmup_days: int,
+    opening_production_bom_issues_by_day: dict[int, list[dict[str, Any]]] | None,
+    opening_production_order_bom_issue_mode: str,
     mrp_order_rows: list[dict[str, Any]],
     supplier_shipment_rows: list[dict[str, Any]],
     initialization_pipeline_rows: list[dict[str, Any]],
@@ -2927,6 +2949,11 @@ def seed_open_orders_from_metadata(
     if not isinstance(rows, list) or not rows:
         return 0.0, [], {}
 
+    opening_production_order_bom_issue_mode = (
+        opening_production_order_bom_issue_mode
+        if opening_production_order_bom_issue_mode in {"receipt", "release", "wip"}
+        else "receipt"
+    )
     seeded_total_qty = 0.0
     open_order_rows: list[dict[str, Any]] = []
     bridge_days_by_pair: dict[tuple[str, str], int] = {}
@@ -2947,6 +2974,14 @@ def seed_open_orders_from_metadata(
         item_uom = normalize_unit(item_unit_map.get(item_id, raw_uom))
         if raw_uom and item_uom and can_convert_units(raw_uom, item_uom):
             qty = convert_quantity(qty, raw_uom, item_uom)
+        order_type = str(raw.get("order_type") or "opening_open_order")
+        source_mode = (
+            "opening_purchase_order"
+            if order_type == "purchase_open_order"
+            else "opening_production_order"
+            if order_type == "production_open_order"
+            else "opening_open_order"
+        )
 
         usable_day = max(0, int(round(to_float(raw.get("usable_day"), 0.0))))
         physical_delivery_day = max(0, int(round(to_float(raw.get("physical_delivery_day"), usable_day))))
@@ -2958,9 +2993,6 @@ def seed_open_orders_from_metadata(
         else:
             receipt_status = "firm_receipt"
             actual_receipt_day = usable_day
-            pipeline[arrival_day].append((dst, item_id, qty, ""))
-            in_transit[pair] += qty
-            seeded_total_qty += qty
 
         lane_list = lanes_by_dest_item.get(pair, [])
         selected_lane = None
@@ -2987,14 +3019,36 @@ def seed_open_orders_from_metadata(
         safety_time_days = max(0.0, pair_mrp_safety_time_days.get(pair, 0.0))
         standard_order_qty = max(0.0, to_float(selected_lane.get("standard_order_qty"), 0.0)) if selected_lane else 0.0
         mrp_share = max(0.0, to_float(selected_lane.get("mrp_share"), 0.0)) if selected_lane else 0.0
-        order_type = str(raw.get("order_type") or "opening_open_order")
-        source_mode = (
-            "opening_purchase_order"
-            if order_type == "purchase_open_order"
-            else "opening_production_order"
-            if order_type == "production_open_order"
-            else "opening_open_order"
-        )
+        source_marker = ""
+        if source_mode == "opening_production_order":
+            source_marker = (
+                f"{OPENING_PRODUCTION_ORDER_LANE_PREFIX}"
+                f"source_row={raw.get('source_row', '')};"
+                f"release_day={int(release_day)};"
+                f"usable_day={int(usable_day)}"
+            )
+        if actual_receipt_day != "":
+            pipeline[arrival_day].append((dst, item_id, qty, source_marker))
+            in_transit[pair] += qty
+            seeded_total_qty += qty
+        if (
+            source_mode == "opening_production_order"
+            and opening_production_order_bom_issue_mode == "release"
+            and opening_production_bom_issues_by_day is not None
+        ):
+            issue_day = warmup_days + max(0, int(release_day))
+            if issue_day < total_timeline_days:
+                opening_production_bom_issues_by_day[issue_day].append(
+                    {
+                        "node_id": dst,
+                        "item_id": item_id,
+                        "qty": qty,
+                        "source_id": source_marker,
+                        "release_day": int(release_day),
+                        "usable_day": int(usable_day),
+                        "source_row": raw.get("source_row", ""),
+                    }
+                )
         row = {
             "day": 0,
             "node_id": dst,
@@ -4351,7 +4405,7 @@ def main() -> None:
         (str(n.get("id")), str(state.get("item_id")))
         for n in nodes
         for state in (((n.get("inventory") or {}).get("states") or []))
-        if str(state.get("initial_source") or "").strip().lower() == "mrp_snapshot"
+        if str(state.get("initial_source") or "").strip().lower().startswith("mrp_snapshot")
     }
     item_unit_map = infer_item_unit_map(nodes, edges)
     assumed_supplier_nodes_set = {
@@ -4471,6 +4525,10 @@ def main() -> None:
     if args.initial_seed_estimated_source_pipeline is not None:
         initialization_policy["seed_estimated_source_pipeline"] = bool(
             args.initial_seed_estimated_source_pipeline
+        )
+    if args.opening_production_order_bom_issue_mode is not None:
+        initialization_policy["opening_production_order_bom_issue_mode"] = str(
+            args.opening_production_order_bom_issue_mode
         )
     if args.soft_safety_time_stock_target_factor is not None:
         initialization_policy["soft_safety_time_stock_target_factor"] = max(
@@ -4998,6 +5056,7 @@ def main() -> None:
     input_stock_rows: list[dict[str, Any]] = []
     output_prod_rows: list[dict[str, Any]] = []
     input_consumption_rows: list[dict[str, Any]] = []
+    opening_production_consumption_rows: list[dict[str, Any]] = []
     input_arrival_rows: list[dict[str, Any]] = []
     input_shipment_rows: list[dict[str, Any]] = []
     supplier_shipment_rows: list[dict[str, Any]] = []
@@ -5588,6 +5647,14 @@ def main() -> None:
 
         initialization_state_rows.sort(key=lambda r: (r["node_id"], r["item_id"], r["category"]))
         initialization_pipeline_rows.sort(key=lambda r: (r["node_id"], r["item_id"], r["category"]))
+    opening_production_bom_issues_by_day: dict[int, list[dict[str, Any]]] = defaultdict(list)
+    opening_production_order_bom_issue_mode = str(
+        initialization_policy.get("opening_production_order_bom_issue_mode", "receipt")
+    ).strip().lower()
+    if opening_production_order_bom_issue_mode not in {"receipt", "release", "wip"}:
+        opening_production_order_bom_issue_mode = "receipt"
+    initialization_policy["opening_production_order_bom_issue_mode"] = opening_production_order_bom_issue_mode
+
     if initialization_policy["seed_open_orders_from_january_snapshot"]:
         horizon_cap_days = initialization_policy["opening_open_orders_horizon_days"]
         if horizon_cap_days <= 0:
@@ -5615,6 +5682,8 @@ def main() -> None:
                 pair_mrp_safety_time_days=pair_mrp_safety_time_days,
                 total_timeline_days=total_timeline_days,
                 warmup_days=warmup_days,
+                opening_production_bom_issues_by_day=opening_production_bom_issues_by_day,
+                opening_production_order_bom_issue_mode=opening_production_order_bom_issue_mode,
                 mrp_order_rows=mrp_order_rows,
                 supplier_shipment_rows=supplier_shipment_rows,
                 initialization_pipeline_rows=initialization_pipeline_rows,
@@ -6020,6 +6089,9 @@ def main() -> None:
         estimated_source_arrivals_today_by_pair: dict[tuple[str, str], float] = defaultdict(float)
         estimated_capacity_replenished_today_by_pair: dict[tuple[str, str], float] = defaultdict(float)
         supplier_stock_writeoff_today_by_pair: dict[tuple[str, str], float] = defaultdict(float)
+        produced_today = 0.0
+        produced_today_by_pair: dict[tuple[str, str], float] = defaultdict(float)
+        consumed_today_by_pair: dict[tuple[str, str], float] = defaultdict(float)
         lot_arrivals_by_key: dict[tuple[str, str, str], deque[dict[str, Any]]] = defaultdict(deque)
         for lot_payload in lot_arrivals_today:
             lot_arrivals_by_key[
@@ -6086,12 +6158,143 @@ def main() -> None:
                     notes="Receipt existed in aggregate pipeline without scheduled parent lot detail.",
                 )
 
+        def issue_opening_production_order_components(
+            dst_node_id: str,
+            item_id: str,
+            qty: float,
+            source_id: str,
+            *,
+            issue_day_for_record: int,
+            receipt_day_for_record: int | str,
+            mode: str,
+        ) -> list[dict[str, Any]]:
+            """Issue BOM components for source O.Proc rows and record the reconciliation.
+
+            In a source-truth run, O.Proc rows represent firm manufacturing orders.
+            The component issue belongs to the order/release date, while the output
+            receipt belongs to the entry date.  When mode is ``wip``, components are
+            treated as already issued before the simulation cut-over and do not
+            consume free stock.
+            """
+
+            if qty <= 1e-9:
+                return []
+            output_pair = (str(dst_node_id), str(item_id))
+            parent_allocations: list[dict[str, Any]] = []
+            input_requirements = process_input_requirements_by_output_pair.get(output_pair, [])
+            for input_pair, req_per_output_unit in input_requirements:
+                required_qty = max(0.0, qty * req_per_output_unit)
+                if required_qty <= 1e-9:
+                    continue
+                available_qty = max(0.0, stock.get(input_pair, 0.0))
+                if mode == "wip":
+                    consumed_qty = 0.0
+                    assumed_wip_qty = required_qty
+                    shortage_qty = 0.0
+                else:
+                    consumed_qty = min(required_qty, available_qty)
+                    assumed_wip_qty = 0.0
+                    shortage_qty = max(0.0, required_qty - consumed_qty)
+                if consumed_qty > 1e-9:
+                    stock[input_pair] = max(0.0, available_qty - consumed_qty)
+                    consumed_today_by_pair[input_pair] += consumed_qty
+                    parent_allocations.extend(
+                        lot_ledger.consume(
+                            day=issue_day_for_record,
+                            node_id=input_pair[0],
+                            item_id=input_pair[1],
+                            qty=consumed_qty,
+                            event_type="opening_production_consume",
+                            source_id=source_id,
+                            uom=item_unit_map.get(input_pair[1], ""),
+                            notes="Component issue for opening production order.",
+                        )
+                    )
+                opening_production_consumption_rows.append(
+                    {
+                        "day": issue_day_for_record,
+                        "issue_day": issue_day_for_record,
+                        "receipt_day": receipt_day_for_record,
+                        "node_id": output_pair[0],
+                        "output_item_id": output_pair[1],
+                        "component_node_id": input_pair[0],
+                        "component_item_id": input_pair[1],
+                        "bom_issue_mode": mode,
+                        "opening_production_qty": round(qty, 6),
+                        "required_component_qty": round(required_qty, 6),
+                        "consumed_from_stock_qty": round(consumed_qty, 6),
+                        "assumed_initial_wip_qty": round(assumed_wip_qty, 6),
+                        "shortage_assumed_wip_or_source_gap_qty": round(shortage_qty, 6),
+                        "source_id": source_id,
+                    }
+                )
+            return parent_allocations
+
+        def record_opening_production_order_receipt(dst_node_id: str, item_id: str, qty: float, source_id: str) -> None:
+            """Materialize an opening production order output receipt.
+
+            The BOM issue can be handled at receipt (legacy), at release date
+            (source-truth), or as opening WIP.  The output receipt remains dated
+            by the source entry/usable day.
+            """
+
+            nonlocal produced_today
+            if qty <= 1e-9:
+                return
+            output_pair = (str(dst_node_id), str(item_id))
+            output_day_for_lot = int(day - warmup_days)
+            parent_allocations: list[dict[str, Any]] = []
+            if opening_production_order_bom_issue_mode in {"receipt", "wip"}:
+                issue_day_for_record = (
+                    -1
+                    if opening_production_order_bom_issue_mode == "wip"
+                    else output_day_for_lot
+                )
+                parent_allocations = issue_opening_production_order_components(
+                    dst_node_id,
+                    item_id,
+                    qty,
+                    source_id,
+                    issue_day_for_record=issue_day_for_record,
+                    receipt_day_for_record=output_day_for_lot,
+                    mode=opening_production_order_bom_issue_mode,
+                )
+            lot_ledger.create_child_lot(
+                day=output_day_for_lot,
+                node_id=output_pair[0],
+                item_id=output_pair[1],
+                qty=qty,
+                source_type="opening_production_order",
+                source_id=source_id,
+                parent_allocations=parent_allocations,
+                link_type="production",
+                uom=item_unit_map.get(output_pair[1], ""),
+                notes="Opening production order received from source order book.",
+            )
+            produced_today += qty
+            produced_today_by_pair[output_pair] += qty
+
+        for issue_payload in opening_production_bom_issues_by_day.pop(day, []):
+            issue_opening_production_order_components(
+                str(issue_payload.get("node_id") or ""),
+                str(issue_payload.get("item_id") or ""),
+                max(0.0, to_float(issue_payload.get("qty"), 0.0)),
+                str(issue_payload.get("source_id") or ""),
+                issue_day_for_record=int(day - warmup_days),
+                receipt_day_for_record=int(to_float(issue_payload.get("usable_day"), day - warmup_days)),
+                mode="release",
+            )
+
         for dst, item_id, qty, _lane_id in arrivals_today:
+            is_opening_production_receipt = str(_lane_id).startswith(OPENING_PRODUCTION_ORDER_LANE_PREFIX)
             stock[(dst, item_id)] += qty
             in_transit[(dst, item_id)] -= qty
-            arrivals_qty += qty
-            arrivals_today_by_pair[(dst, item_id)] += qty
-            record_lane_lot_receipt(dst, item_id, qty, _lane_id)
+            if is_opening_production_receipt:
+                record_opening_production_order_receipt(dst, item_id, qty, str(_lane_id))
+            else:
+                arrivals_qty += qty
+                arrivals_today_by_pair[(dst, item_id)] += qty
+                record_lane_lot_receipt(dst, item_id, qty, _lane_id)
         for src, item_id, qty in external_arrivals_today:
             stock[(src, item_id)] += qty
             external_in_transit[(src, item_id)] -= qty
@@ -6347,9 +6550,6 @@ def main() -> None:
                 )
 
         # Production/transformation
-        produced_today = 0.0
-        produced_today_by_pair: dict[tuple[str, str], float] = defaultdict(float)
-        consumed_today_by_pair: dict[tuple[str, str], float] = defaultdict(float)
         for n in nodes:
             nid = str(n.get("id"))
             for p in (n.get("processes") or []):
@@ -7128,7 +7328,11 @@ def main() -> None:
                     # long-lead lots when already-released orders cover the target.
                     needed = max(needed, soft_safety_target_qty - stock[pair] - in_transit[pair])
                 else:
-                    needed = max(needed, soft_safety_target_qty - stock[pair])
+                    # A physical floor should trigger when the local stock is too
+                    # low, but it must still respect firm in-transit receipts.
+                    # Ignoring in-transit here stacks duplicate long-lead lots on
+                    # every review day until the receipts physically arrive.
+                    needed = max(needed, soft_safety_target_qty - stock[pair] - in_transit[pair])
             has_regular_need = needed > 1e-9
             active_lanes: list[tuple[dict[str, Any], float, dict[str, Any]]] = []
             annual_min_lot_lanes: list[tuple[dict[str, Any], float, dict[str, Any]]] = []
@@ -8589,6 +8793,9 @@ def main() -> None:
                 "seed_in_transit": initialization_policy["seed_in_transit"],
                 "in_transit_fill_ratio": initialization_policy["in_transit_fill_ratio"],
                 "seed_estimated_source_pipeline": initialization_policy["seed_estimated_source_pipeline"],
+                "opening_production_order_bom_issue_mode": initialization_policy[
+                    "opening_production_order_bom_issue_mode"
+                ],
                 "restore_opening_stock_after_warmup": initialization_policy["restore_opening_stock_after_warmup"],
                 "seed_open_orders_from_january_snapshot": initialization_policy["seed_open_orders_from_january_snapshot"],
                 "opening_open_order_source": opening_open_order_source,
@@ -9014,6 +9221,7 @@ def main() -> None:
     safety_reference_path = report_path(output_dir, "mrp_safety_stock_reference.csv")
     input_stock_path = data_path(output_dir, "production_input_stocks_daily.csv")
     input_consumption_path = data_path(output_dir, "production_input_consumption_daily.csv")
+    opening_production_consumption_path = data_path(output_dir, "opening_production_order_component_consumption.csv")
     input_arrival_path = data_path(output_dir, "production_input_replenishment_arrivals_daily.csv")
     input_shipment_path = data_path(output_dir, "production_input_replenishment_shipments_daily.csv")
     output_prod_path = data_path(output_dir, "production_output_products_daily.csv")
@@ -9140,6 +9348,29 @@ def main() -> None:
             writer = csv.DictWriter(f, fieldnames=["day", "node_id", "item_id", "consumed_qty", "uom"])
             writer.writeheader()
             writer.writerows(input_consumption_rows)
+
+    with opening_production_consumption_path.open("w", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(
+            f,
+            fieldnames=[
+                "day",
+                "issue_day",
+                "receipt_day",
+                "node_id",
+                "output_item_id",
+                "component_node_id",
+                "component_item_id",
+                "bom_issue_mode",
+                "opening_production_qty",
+                "required_component_qty",
+                "consumed_from_stock_qty",
+                "assumed_initial_wip_qty",
+                "shortage_assumed_wip_or_source_gap_qty",
+                "source_id",
+            ],
+        )
+        writer.writeheader()
+        writer.writerows(opening_production_consumption_rows)
 
     with input_arrival_path.open("w", encoding="utf-8", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=["day", "node_id", "item_id", "arrived_qty", "uom"])
@@ -9719,6 +9950,20 @@ def main() -> None:
             for node_id, proc_id, outputs in unmodeled_process_capacity_rows[:10]
         )
         industrial_validation_md = f"{industrial_validation_md}\n" + "\n".join(capacity_note_lines)
+    generated_generic_run_path: str | None = None
+    try:
+        from etudecas.simulation.run_format import export_run_package
+
+        generic_run_path = export_run_package(
+            output_dir=output_dir,
+            input_graph=input_path,
+            map_html=Path(generated_map_path) if generated_map_path else None,
+            extra_metadata={"producer": "simulation_engine"},
+        )
+        generated_generic_run_path = str(generic_run_path)
+    except Exception as exc:
+        print(f"[WARN] Generic run package export failed: {exc}", file=sys.stderr)
+
     report = f"""# First simulation report
 
 ## Run setup
@@ -9746,6 +9991,7 @@ def main() -> None:
 - Initialization seed in-transit / fill ratio / estimated-source pipeline: {summary['policy']['initialization_policy']['seed_in_transit']} / {summary['policy']['initialization_policy']['in_transit_fill_ratio']} / {summary['policy']['initialization_policy']['seed_estimated_source_pipeline']}
 - Opening open-orders reconstruction enabled / horizon days: {summary['policy']['initialization_policy']['seed_open_orders_from_january_snapshot']} / {summary['policy']['initialization_policy']['opening_open_orders_horizon_days']}
 - Opening open-orders source: {summary['policy']['initialization_policy'].get('opening_open_order_source', 'none')}
+- Opening production-order BOM issue mode: {summary['policy']['initialization_policy'].get('opening_production_order_bom_issue_mode', 'receipt')}
 - Opening open-orders demand multiplier / BOM signal for MRP: {summary['policy']['initialization_policy']['opening_open_orders_demand_multiplier']} / {summary['policy']['initialization_policy']['use_bom_demand_signal_for_mrp']}
 - MRP demand signal source: {summary['policy']['initialization_policy']['mrp_demand_signal_source']}
 - MRP demand signal smoothing / static fallback on propagated pairs: {summary['policy']['initialization_policy']['mrp_demand_signal_smoothing_days']} j / {summary['policy']['initialization_policy']['mrp_static_fallback_for_propagated_pairs']}
@@ -9851,9 +10097,11 @@ Le graphe `Reappro amont` utilise maintenant `order_date_IMT` pour dater les ord
 
 ## Files
 - summaries/first_simulation_summary.json
+- run/run_manifest.json ({generated_generic_run_path or 'not generated'})
 - reports/mrp_safety_stock_reference.csv
 - data/first_simulation_daily.csv
 - data/production_input_stocks_daily.csv
+- data/opening_production_order_component_consumption.csv
 - data/production_output_products_daily.csv
 - data/production_demand_service_daily.csv
 - data/production_constraint_daily.csv
@@ -9902,6 +10150,8 @@ Le graphe `Reappro amont` utilise maintenant `order_date_IMT` pour dater les ord
     print(f"[OK] Factory nervousness CSV: {factory_nervousness_path.resolve()}")
     print(f"[OK] Production lot events CSV: {lot_event_path.resolve()}")
     print(f"[OK] Production lot genealogy CSV: {lot_genealogy_path.resolve()}")
+    if generated_generic_run_path:
+        print(f"[OK] Generic run package: {Path(generated_generic_run_path).resolve()}")
     if generated_lot_audit_report_path:
         print(f"[OK] Lot path audit report: {lot_path_audit_report_path.resolve()}")
         print(f"[OK] Lot path audit issues CSV: {lot_path_audit_issues_path.resolve()}")

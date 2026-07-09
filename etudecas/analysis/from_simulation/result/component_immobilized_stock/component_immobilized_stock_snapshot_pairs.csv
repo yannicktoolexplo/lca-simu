@@ -1,0 +1,833 @@
+product_code,alignment,metric_id,metric_label,comparison_role,source_date,source_day,sim_day,observed_value_eur,simulated_value_eur,gap_eur,gap_pct
+268091,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-01-06,5,5,656921.88,720013.072068915,63091.192068915,9.604063129837446
+268091,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-01-13,12,12,720134.07,720013.072068915,-120.99793108494487,-0.016802139507848153
+268091,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-01-20,19,19,606978.55,784028.8452989149,177050.2952989149,29.16911895797881
+268091,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-01-27,26,26,692705.41,789776.434428515,97071.024428515,14.013319807696462
+268091,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-02-03,33,33,613334.5,929681.890428515,316347.39042851503,51.57828076335426
+268091,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-02-10,40,40,656472.97,940114.390428515,283641.42042851506,43.20686964895373
+268091,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-02-17,47,47,695644.81,990184.390428515,294539.580428515,42.34051288739076
+268091,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-02-24,54,54,740448.32,962687.842601315,222239.52260131505,30.014184190642105
+268091,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-03-03,61,61,715265.49,989057.842601315,273792.352601315,38.27842338672246
+268091,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-03-10,68,68,823262.17,1015427.842601315,192165.67260131496,23.34197775677157
+268091,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-03-17,75,75,899331.26,1032767.842601315,133436.582601315,14.837311737758897
+268091,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-03-24,82,82,826291.24,1043627.842601315,217336.602601315,26.302663283870103
+268091,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-03-31,89,89,860620.24,1043627.842601315,183007.602601315,21.264617550862503
+268091,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-04-07,96,96,844469.28,1043627.842601315,199158.56260131497,23.58387300972215
+268091,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-04-14,103,103,949947.4,1069997.842601315,120050.44260131486,12.637588418191877
+268091,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-04-21,110,110,986757.36,1096367.842601315,109610.4826013149,11.108149484825216
+268091,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-04-28,117,117,950013.26,1096367.842601315,146354.58260131488,15.405530508207315
+268091,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-05-05,124,124,952816.2,1122737.842601315,169921.64260131493,17.83362232939731
+268091,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-05-12,131,131,904276.21,1149107.842601315,244831.63260131492,27.0748726875514
+268091,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-05-19,138,138,977680.69,1149107.842601315,171427.15260131494,17.534063458010504
+268091,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-05-26,145,145,964313.13,1175477.842601315,211164.71260131488,21.89794020551342
+268091,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-06-02,152,152,913515.99,1175477.842601315,261961.8526013149,28.676219734403873
+268091,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-06-09,159,159,901349.11,1201847.842601315,300498.7326013149,33.33877287584107
+268091,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-06-16,166,166,1030088.41,1201847.842601315,171759.43260131485,16.674241835350312
+268091,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-06-23,173,173,1018792.36,1201847.842601315,183055.4826013149,17.967889217515815
+268091,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-06-30,180,180,1056984.52,1201847.842601315,144863.32260131487,13.705340036703173
+268091,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-07-07,187,187,955981.86,1201847.842601315,245865.9826013149,25.71868702627003
+268091,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-07-14,194,194,943812.41,1201847.842601315,258035.43260131485,27.339694823605345
+268091,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-07-21,201,201,979933.29,1201847.842601315,221914.55260131485,22.64588363982561
+268091,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-07-28,208,208,927498.18,1201847.842601315,274349.66260131483,29.579536490445168
+268091,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-08-04,215,215,927498.18,1201847.842601315,274349.66260131483,29.579536490445168
+268091,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-08-11,222,222,927498.18,1201847.842601315,274349.66260131483,29.579536490445168
+268091,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-08-18,229,229,927498.18,1201847.842601315,274349.66260131483,29.579536490445168
+268091,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-08-25,236,236,951028.42,1201847.842601315,250819.42260131484,26.37349392790121
+268091,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-09-01,243,243,936323.01,1160603.020860515,224280.01086051506,23.953273439313964
+268091,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-09-08,250,250,954057.28,1133106.473033315,179049.193033315,18.767132412984157
+268091,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-09-15,257,257,1070103.57,1098735.7882493152,28632.218249315163,2.6756492597548442
+268091,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-09-22,264,264,1134444.24,1060355.190240515,-74089.04975948506,-6.5308674633038875
+268091,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-09-29,271,271,991637.45,1060355.190240515,68717.74024051498,6.9297241890687955
+268091,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-10-06,278,278,896029.67,1060355.190240515,164325.5202405149,18.33929452810585
+268091,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-10-13,285,285,888479.56,1060355.190240515,171875.63024051487,19.344916639445803
+268091,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-10-20,292,292,878742.0,1060355.190240515,181613.19024051493,20.667407525817016
+268091,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-10-27,299,299,820347.49,1056013.079551715,235665.58955171495,28.727532225607828
+268091,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-11-03,306,306,839166.59,1047279.159140515,208112.56914051506,24.799911200053266
+268091,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-11-10,313,313,922272.23,1045971.5560305149,123699.3260305149,13.412452636735567
+268091,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-11-17,320,320,940190.38,1044663.9529205151,104473.57292051509,11.111959358754032
+268091,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-11-24,327,327,1054580.85,1038125.937370515,-16454.91262948513,-1.5603272740525422
+268091,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-12-01,334,334,1185097.87,1034203.128040515,-150894.7419594851,-12.732681897359676
+268091,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-12-08,341,341,1273667.17,1030280.3187105149,-243386.851289485,-19.109140678367723
+268091,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-12-15,348,348,1241546.58,1019819.4938305151,-221727.086169485,-17.85894220493
+268091,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-12-22,355,355,1434836.3,1009358.668950515,-425477.63104948506,-29.653391892126304
+268091,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-12-29,362,362,1435465.25,1008051.065840515,-427414.18415948504,-29.775306936861412
+268091,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-01-06,5,5,656921.88,656378.877906675,-543.0020933250198,-0.08265854888636374
+268091,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-01-13,12,12,720134.07,654608.432885252,-65525.63711474789,-9.09908860647961
+268091,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-01-20,19,19,606978.55,716037.7902887351,109059.24028873502,17.967560845228387
+268091,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-01-27,26,26,692705.41,722324.254636329,29618.844636328984,4.27582118007841
+268091,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-02-03,33,33,613334.5,862107.0768969333,248772.57689693326,40.56066907974902
+268091,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-02-10,40,40,656472.97,871749.5929827329,215276.62298273295,32.79291498974177
+268091,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-02-17,47,47,695644.81,920987.5366063685,225342.72660636844,32.393359853625356
+268091,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-02-24,54,54,740448.32,878554.189257315,138105.86925731506,18.651655426446922
+268091,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-03-03,61,61,715265.49,923647.0778622739,208381.5878622739,29.13346034103699
+268091,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-03-10,68,68,823262.17,950595.8543162387,127333.68431623862,15.466966533423806
+268091,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-03-17,75,75,899331.26,968208.6840361152,68877.42403611518,7.658737897770303
+268091,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-03-24,82,82,826291.24,979563.8812669351,153272.64126693516,18.549469466351255
+268091,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-03-31,89,89,860620.24,980211.4868957552,119591.24689575518,13.895937062293024
+268091,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-04-07,96,96,844469.28,980039.3765224152,135570.09652241517,16.053881382448296
+268091,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-04-14,103,103,949947.4,1006147.372893315,56199.97289331502,5.9161141862502085
+268091,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-04-21,110,110,986757.36,1033166.4478343951,46409.08783439512,4.703191454725518
+268091,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-04-28,117,117,950013.26,1033419.2287216751,83405.9687216751,8.779453112230781
+268091,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-05-05,124,124,952816.2,1059212.1598931951,106395.95989319519,11.16647259914296
+268091,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-05-12,131,131,904276.21,1084656.243082407,180380.03308240697,19.947448698490806
+268091,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-05-19,138,138,977680.69,1084320.0463360369,106639.35633603693,10.907380848039141
+268091,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-05-26,145,145,964313.13,1111198.9536953615,146885.8236953615,15.232170871235727
+268091,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-06-02,152,152,913515.99,1111827.298873015,198311.308873015,21.70857555246679
+268091,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-06-09,159,159,901349.11,1138093.959725495,236744.84972549498,26.265610860313046
+268091,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-06-16,166,166,1030088.41,1136883.897202337,106795.4872023369,10.367604000353415
+268091,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-06-23,173,173,1018792.36,1137514.029220515,118721.66922051494,11.653176239024305
+268091,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-06-30,180,180,1056984.52,1138126.653047175,81142.1330471749,7.6767569923516845
+268091,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-07-07,187,187,955981.86,1138282.271781135,182300.4117811349,19.06944257092231
+268091,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-07-14,194,194,943812.41,1138321.200752995,194508.79075299494,20.60884013519116
+268091,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-07-21,201,201,979933.29,1138391.4451735949,158458.15517359483,16.170300242947643
+268091,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-07-28,208,208,927498.18,1139177.923044995,211679.7430449949,22.82265858947506
+268091,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-08-04,215,215,927498.18,1139313.881815915,211815.70181591494,22.837317245831677
+268091,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-08-11,222,222,927498.18,1138864.622223015,211366.4422230149,22.78887945882707
+268091,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-08-18,229,229,927498.18,1138129.020287595,210630.84028759494,22.709569121482797
+268091,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-08-25,236,236,951028.42,1137488.284595795,186459.86459579493,19.606129603970714
+268091,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-09-01,243,243,936323.01,1076469.3675165148,140146.35751651484,14.967736135899816
+268091,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-09-08,250,250,954057.28,1048972.8196893148,94915.53968931478,9.948620662410832
+268091,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-09-15,257,257,1070103.57,1028330.1949053152,-41773.37509468489,-3.9036758932301185
+268091,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-09-22,264,264,1134444.24,1007303.9368965148,-127140.30310348514,-11.207276534233639
+268091,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-09-29,271,271,991637.45,1007303.9368965148,15666.486896514893,1.5798603508283087
+268091,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-10-06,278,278,896029.67,1007303.9368965148,111274.2668965148,12.41859177459099
+268091,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-10-13,285,285,888479.56,1007303.9368965148,118824.37689651479,13.373901015406002
+268091,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-10-20,292,292,878742.0,1007303.9368965148,128561.93689651485,14.630225583449391
+268091,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-10-27,299,299,820347.49,1001968.9162077152,181621.42620771518,22.139572366792418
+268091,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-11-03,306,306,839166.59,994227.9057965149,155061.31579651497,18.478013501051677
+268091,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-11-10,313,313,922272.23,992920.3026865149,70648.07268651493,7.660219010011278
+268091,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-11-17,320,320,940190.38,991612.699576515,51422.319576515,5.469351811120956
+268091,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-11-24,327,327,1054580.85,936681.0634801153,-117899.78651988483,-11.1797769246317
+268091,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-12-01,334,334,1185097.87,981151.8746965149,-203945.9953034852,-17.209211193965373
+268091,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-12-08,341,341,1273667.17,977141.1835623548,-296525.98643764516,-23.281277355813856
+268091,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-12-15,348,348,1241546.58,928266.319940115,-313280.2600598851,-25.23306536432045
+268091,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-12-22,355,355,1434836.3,923457.8950601149,-511378.40493988513,-35.64019149361395
+268091,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-12-29,362,362,1435465.25,954999.8124965149,-480465.4375034851,-33.471060166972705
+268091,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-01-06,5,5,656921.88,494229.00626445113,-162692.87373554887,-24.765939252251556
+268091,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-01-13,12,12,720134.07,482640.9535530546,-237493.11644694535,-32.97901409482618
+268091,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-01-20,19,19,606978.55,475609.52400639164,-131369.0259936084,-21.643108474526553
+268091,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-01-27,26,26,692705.41,496764.1316987906,-195941.27830120944,-28.286379097459253
+268091,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-02-03,33,33,613334.5,638969.077456715,25634.57745671505,4.179542722073363
+268091,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-02-10,40,40,656472.97,648344.6142211278,-8128.355778872152,-1.2381859041160754
+268091,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-02-17,47,47,695644.81,692432.5612074544,-3212.248792545637,-0.4617656520064653
+268091,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-02-24,54,54,740448.32,655630.1952613151,-84818.12473868486,-11.454968894883152
+268091,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-03-03,61,61,715265.49,724323.9225453069,9058.43254530686,1.2664433936700705
+268091,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-03-10,68,68,823262.17,754834.2522527162,-68427.91774728382,-8.31180154279211
+268091,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-03-17,75,75,899331.26,772203.4453550904,-127127.81464490958,-14.135816278076398
+268091,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-03-24,82,82,826291.24,787840.7779709788,-38450.46202902123,-4.653378877527642
+268091,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-03-31,89,89,860620.24,793676.6464335953,-66943.59356640466,-7.778528839433831
+268091,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-04-07,96,96,844469.28,792602.4887911303,-51866.79120886978,-6.141939373907098
+268091,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-04-14,103,103,949947.4,815579.0086866558,-134368.39131334424,-14.144824367469635
+268091,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-04-21,110,110,986757.36,847206.6195669557,-139550.74043304427,-14.142356174880142
+268091,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-04-28,117,117,950013.26,850885.1585215277,-99128.10147847235,-10.434391355597747
+268091,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-05-05,124,124,952816.2,870152.4690481419,-82663.7309518581,-8.675726856014634
+268091,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-05-12,131,131,904276.21,885837.2554180103,-18438.954581989674,-2.0390843392849707
+268091,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-05-19,138,138,977680.69,884785.742278915,-92894.94772108493,-9.501563104522903
+268091,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-05-26,145,145,964313.13,912283.8994818823,-52029.23051811766,-5.395470506361109
+268091,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-06-02,152,152,913515.99,918144.3798694059,4628.389869405888,0.5066566891079693
+268091,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-06-09,159,159,901349.11,945346.1158408767,43997.00584087672,4.881239172785861
+268091,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-06-16,166,166,1030088.41,941461.0375999964,-88627.3724000036,-8.603860750166444
+268091,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-06-23,173,173,1018792.36,943876.6546353637,-74915.70536463626,-7.353383113771707
+268091,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-06-30,180,180,1056984.52,950478.5523574862,-106505.9676425138,-10.076398057609568
+268091,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-07-07,187,187,955981.86,953210.8520845196,-2771.0079154804116,-0.289859884525467
+268091,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-07-14,194,194,943812.41,953261.9930913837,9449.583091383683,1.0012141174731621
+268091,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-07-21,201,201,979933.29,951650.9145478582,-28282.37545214186,-2.88615314335753
+268091,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-07-28,208,208,927498.18,958119.1418775255,30620.961877525435,3.3014578936990944
+268091,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-08-04,215,215,927498.18,961411.1242396091,33912.94423960906,3.656389303061388
+268091,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-08-11,222,222,927498.18,955440.4905513347,27942.310551334638,3.0126539495025897
+268091,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-08-18,229,229,927498.18,946594.3834137965,19096.203413796495,2.0588938960286147
+268091,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-08-25,236,236,951028.42,938933.0844404441,-12095.335559555911,-1.271816415281881
+268091,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-09-01,243,243,936323.01,887496.509264515,-48826.500735484995,-5.214706913534571
+268091,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-09-08,250,250,954057.28,882634.0519333149,-71423.22806668514,-7.486262047776119
+268091,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-09-15,257,257,1070103.57,876555.9802693151,-193547.589730685,-18.086809086216295
+268091,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-09-22,264,264,1134444.24,869768.800244515,-264675.43975548504,-23.33084610271238
+268091,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-09-29,271,271,991637.45,869768.800244515,-121868.649755485,-12.289637685172641
+268091,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-10-06,278,278,896029.67,869768.800244515,-26260.869755485095,-2.9308035921941173
+268091,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-10-13,285,285,888479.56,869768.800244515,-18710.75975548511,-2.105930242839251
+268091,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-10-20,292,292,878742.0,869768.800244515,-8973.199755485053,-1.0211415586696724
+268091,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-10-27,299,299,820347.49,868046.6799397151,47699.189939715085,5.814510377756514
+268091,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-11-03,306,306,839166.59,865547.917144515,26381.327144515002,3.143753273651541
+268091,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-11-10,313,313,922272.23,865125.8288345151,-57146.40116548492,-6.196261722581077
+268091,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-11-17,320,320,940190.38,864703.7405245149,-75486.63947548508,-8.028867459320853
+268091,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-11-24,327,327,1054580.85,782256.3404729151,-272324.509527085,-25.823009163032403
+268091,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-12-01,334,334,1185097.87,861327.034044515,-323770.8359554851,-27.320177020948073
+268091,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-12-08,341,341,1273667.17,859802.039934215,-413865.1300657849,-32.493978004142555
+268091,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-12-15,348,348,1241546.58,778592.1136129149,-462954.46638708515,-37.28852979379035
+268091,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-12-22,355,355,1434836.3,776498.2696929149,-658338.0303070851,-45.8824487718275
+268091,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-12-29,362,362,1435465.25,854165.806170915,-581299.443829085,-40.49554273982495
+268091,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-01-06,5,5,656921.88,720013.072068915,63091.192068915,9.604063129837446
+268091,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-01-13,12,12,720134.07,720013.072068915,-120.99793108494487,-0.016802139507848153
+268091,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-01-20,19,19,606978.55,784028.8452989149,177050.2952989149,29.16911895797881
+268091,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-01-27,26,26,692705.41,789776.434428515,97071.024428515,14.013319807696462
+268091,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-02-03,33,33,613334.5,929681.890428515,316347.39042851503,51.57828076335426
+268091,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-02-10,40,40,656472.97,940114.390428515,283641.42042851506,43.20686964895373
+268091,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-02-17,47,47,695644.81,990184.390428515,294539.580428515,42.34051288739076
+268091,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-02-24,54,54,740448.32,962687.842601315,222239.52260131505,30.014184190642105
+268091,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-03-03,61,61,715265.49,989057.842601315,273792.352601315,38.27842338672246
+268091,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-03-10,68,68,823262.17,1015427.842601315,192165.67260131496,23.34197775677157
+268091,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-03-17,75,75,899331.26,1032767.842601315,133436.582601315,14.837311737758897
+268091,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-03-24,82,82,826291.24,1043627.842601315,217336.602601315,26.302663283870103
+268091,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-03-31,89,89,860620.24,1043627.842601315,183007.602601315,21.264617550862503
+268091,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-04-07,96,96,844469.28,1043627.842601315,199158.56260131497,23.58387300972215
+268091,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-04-14,103,103,949947.4,1069997.842601315,120050.44260131486,12.637588418191877
+268091,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-04-21,110,110,986757.36,1096367.842601315,109610.4826013149,11.108149484825216
+268091,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-04-28,117,117,950013.26,1096367.842601315,146354.58260131488,15.405530508207315
+268091,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-05-05,124,124,952816.2,1122737.842601315,169921.64260131493,17.83362232939731
+268091,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-05-12,131,131,904276.21,1149107.842601315,244831.63260131492,27.0748726875514
+268091,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-05-19,138,138,977680.69,1149107.842601315,171427.15260131494,17.534063458010504
+268091,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-05-26,145,145,964313.13,1175477.842601315,211164.71260131488,21.89794020551342
+268091,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-06-02,152,152,913515.99,1175477.842601315,261961.8526013149,28.676219734403873
+268091,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-06-09,159,159,901349.11,1201847.842601315,300498.7326013149,33.33877287584107
+268091,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-06-16,166,166,1030088.41,1201847.842601315,171759.43260131485,16.674241835350312
+268091,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-06-23,173,173,1018792.36,1201847.842601315,183055.4826013149,17.967889217515815
+268091,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-06-30,180,180,1056984.52,1201847.842601315,144863.32260131487,13.705340036703173
+268091,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-07-07,187,187,955981.86,1201847.842601315,245865.9826013149,25.71868702627003
+268091,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-07-14,194,194,943812.41,1201847.842601315,258035.43260131485,27.339694823605345
+268091,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-07-21,201,201,979933.29,1201847.842601315,221914.55260131485,22.64588363982561
+268091,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-07-28,208,208,927498.18,1201847.842601315,274349.66260131483,29.579536490445168
+268091,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-08-04,215,215,927498.18,1201847.842601315,274349.66260131483,29.579536490445168
+268091,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-08-11,222,222,927498.18,1201847.842601315,274349.66260131483,29.579536490445168
+268091,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-08-18,229,229,927498.18,1201847.842601315,274349.66260131483,29.579536490445168
+268091,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-08-25,236,236,951028.42,1201847.842601315,250819.42260131484,26.37349392790121
+268091,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-09-01,243,243,936323.01,1160603.020860515,224280.01086051506,23.953273439313964
+268091,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-09-08,250,250,954057.28,1133106.473033315,179049.193033315,18.767132412984157
+268091,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-09-15,257,257,1070103.57,1098735.7882493152,28632.218249315163,2.6756492597548442
+268091,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-09-22,264,264,1134444.24,1060355.190240515,-74089.04975948506,-6.5308674633038875
+268091,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-09-29,271,271,991637.45,1060355.190240515,68717.74024051498,6.9297241890687955
+268091,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-10-06,278,278,896029.67,1060355.190240515,164325.5202405149,18.33929452810585
+268091,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-10-13,285,285,888479.56,1060355.190240515,171875.63024051487,19.344916639445803
+268091,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-10-20,292,292,878742.0,1060355.190240515,181613.19024051493,20.667407525817016
+268091,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-10-27,299,299,820347.49,1056013.079551715,235665.58955171495,28.727532225607828
+268091,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-11-03,306,306,839166.59,1047279.159140515,208112.56914051506,24.799911200053266
+268091,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-11-10,313,313,922272.23,1045971.5560305149,123699.3260305149,13.412452636735567
+268091,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-11-17,320,320,940190.38,1044663.9529205151,104473.57292051509,11.111959358754032
+268091,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-11-24,327,327,1054580.85,1038125.937370515,-16454.91262948513,-1.5603272740525422
+268091,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-12-01,334,334,1185097.87,1034203.128040515,-150894.7419594851,-12.732681897359676
+268091,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-12-08,341,341,1273667.17,1030280.3187105149,-243386.851289485,-19.109140678367723
+268091,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-12-15,348,348,1241546.58,1019819.4938305151,-221727.086169485,-17.85894220493
+268091,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-12-22,355,355,1434836.3,1009358.668950515,-425477.63104948506,-29.653391892126304
+268091,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-12-29,362,362,1435465.25,1008051.065840515,-427414.18415948504,-29.775306936861412
+268091,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-01-06,5,4,656921.88,720013.072068915,63091.192068915,9.604063129837446
+268091,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-01-13,12,11,720134.07,720013.072068915,-120.99793108494487,-0.016802139507848153
+268091,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-01-20,19,18,606978.55,784028.8452989149,177050.2952989149,29.16911895797881
+268091,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-01-27,26,25,692705.41,763406.434428515,70701.024428515,10.206506749891703
+268091,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-02-03,33,32,613334.5,929681.890428515,316347.39042851503,51.57828076335426
+268091,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-02-10,40,39,656472.97,940114.390428515,283641.42042851506,43.20686964895373
+268091,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-02-17,47,46,695644.81,961834.3904285149,266189.58042851486,38.26515724720419
+268091,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-02-24,54,53,740448.32,969561.9795581149,229113.65955811494,30.942559172544946
+268091,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-03-03,61,60,715265.49,989057.842601315,273792.352601315,38.27842338672246
+268091,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-03-10,68,67,823262.17,1015427.842601315,192165.67260131496,23.34197775677157
+268091,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-03-17,75,74,899331.26,1032767.842601315,133436.582601315,14.837311737758897
+268091,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-03-24,82,81,826291.24,1032767.842601315,206476.602601315,24.988356720484536
+268091,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-03-31,89,88,860620.24,1043627.842601315,183007.602601315,21.264617550862503
+268091,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-04-07,96,95,844469.28,1043627.842601315,199158.56260131497,23.58387300972215
+268091,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-04-14,103,102,949947.4,1043627.842601315,93680.44260131498,9.861645244917241
+268091,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-04-21,110,109,986757.36,1096367.842601315,109610.4826013149,11.108149484825216
+268091,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-04-28,117,116,950013.26,1096367.842601315,146354.58260131488,15.405530508207315
+268091,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-05-05,124,123,952816.2,1122737.842601315,169921.64260131493,17.83362232939731
+268091,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-05-12,131,130,904276.21,1149107.842601315,244831.63260131492,27.0748726875514
+268091,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-05-19,138,137,977680.69,1149107.842601315,171427.15260131494,17.534063458010504
+268091,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-05-26,145,144,964313.13,1149107.842601315,184794.71260131488,19.16335128624816
+268091,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-06-02,152,151,913515.99,1175477.842601315,261961.8526013149,28.676219734403873
+268091,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-06-09,159,158,901349.11,1201847.842601315,300498.7326013149,33.33877287584107
+268091,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-06-16,166,165,1030088.41,1201847.842601315,171759.43260131485,16.674241835350312
+268091,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-06-23,173,172,1018792.36,1201847.842601315,183055.4826013149,17.967889217515815
+268091,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-06-30,180,179,1056984.52,1201847.842601315,144863.32260131487,13.705340036703173
+268091,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-07-07,187,186,955981.86,1201847.842601315,245865.9826013149,25.71868702627003
+268091,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-07-14,194,193,943812.41,1201847.842601315,258035.43260131485,27.339694823605345
+268091,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-07-21,201,200,979933.29,1201847.842601315,221914.55260131485,22.64588363982561
+268091,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-07-28,208,207,927498.18,1201847.842601315,274349.66260131483,29.579536490445168
+268091,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-08-04,215,214,927498.18,1201847.842601315,274349.66260131483,29.579536490445168
+268091,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-08-11,222,221,927498.18,1201847.842601315,274349.66260131483,29.579536490445168
+268091,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-08-18,229,228,927498.18,1201847.842601315,274349.66260131483,29.579536490445168
+268091,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-08-25,236,235,951028.42,1201847.842601315,250819.42260131484,26.37349392790121
+268091,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-09-01,243,242,936323.01,1167477.157817315,231154.14781731507,24.68743642403011
+268091,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-09-08,250,249,954057.28,1139980.6099901148,185923.32999011478,19.48764858123768
+268091,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-09-15,257,256,1070103.57,1105609.925206115,35506.35520611494,3.3180297871648943
+268091,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-09-22,264,263,1134444.24,1060355.190240515,-74089.04975948506,-6.5308674633038875
+268091,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-09-29,271,270,991637.45,1060355.190240515,68717.74024051498,6.9297241890687955
+268091,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-10-06,278,277,896029.67,1060355.190240515,164325.5202405149,18.33929452810585
+268091,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-10-13,285,284,888479.56,1060355.190240515,171875.63024051487,19.344916639445803
+268091,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-10-20,292,291,878742.0,1060355.190240515,181613.19024051493,20.667407525817016
+268091,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-10-27,299,298,820347.49,1056432.380910515,236084.8909105151,28.778644877735303
+268091,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-11-03,306,305,839166.59,1047279.159140515,208112.56914051506,24.799911200053266
+268091,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-11-10,313,312,922272.23,1045971.5560305149,123699.3260305149,13.412452636735567
+268091,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-11-17,320,319,940190.38,1044663.9529205151,104473.57292051509,11.111959358754032
+268091,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-11-24,327,326,1054580.85,1039433.540480515,-15147.309519485105,-1.4363345891863202
+268091,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-12-01,334,333,1185097.87,1035510.731150515,-149587.13884948508,-12.62234475617487
+268091,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-12-08,341,340,1273667.17,1031587.9218205152,-242079.24817948474,-19.006476250737055
+268091,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-12-15,348,347,1241546.58,1021127.096940515,-220419.4830594851,-17.75362170136904
+268091,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-12-22,355,354,1434836.3,1009358.668950515,-425477.63104948506,-29.653391892126304
+268091,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-12-29,362,361,1435465.25,1008051.065840515,-427414.18415948504,-29.775306936861412
+268091,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-01-06,5,4,656921.88,656527.5120555949,-394.3679444050649,-0.060032700449110465
+268091,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-01-13,12,11,720134.07,654947.213435879,-65186.85656412097,-9.052044512228253
+268091,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-01-20,19,18,606978.55,716298.7087516171,109320.15875161707,18.01054728402133
+268091,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-01-27,26,25,692705.41,695735.8161661961,3030.4061661961023,0.4374740145592485
+268091,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-02-03,33,32,613334.5,862201.0075785599,248866.50757855992,40.57598383566552
+268091,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-02-10,40,39,656472.97,871899.952270469,215426.98227046907,32.81581909921883
+268091,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-02-17,47,46,695644.81,892745.1642847782,197100.35428477812,28.33347585598721
+268091,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-02-24,54,53,740448.32,885428.326214115,144980.00621411507,19.580030408349778
+268091,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-03-03,61,60,715265.49,923532.3283909104,208266.83839091042,29.11741742089506
+268091,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-03-10,68,67,823262.17,950497.5550193116,127235.38501931156,15.455026315531
+268091,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-03-17,75,74,899331.26,968217.3037298952,68886.04372989514,7.659696353698986
+268091,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-03-24,82,81,826291.24,968595.1641071151,142303.92410711513,17.222005658333632
+268091,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-03-31,89,88,860620.24,980136.2300177151,119515.99001771514,13.88719256913074
+268091,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-04-07,96,95,844469.28,980100.9293141551,135631.6493141551,16.061170314467223
+268091,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-04-14,103,102,949947.4,979805.0950947352,29857.69509473513,3.1430893010218384
+268091,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-04-21,110,109,986757.36,1033033.1035979151,46275.74359791516,4.6896780782983125
+268091,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-04-28,117,116,950013.26,1033419.5680796752,83406.30807967519,8.779488833626932
+268091,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-05-05,124,123,952816.2,1059328.0606778152,106511.86067781528,11.178636622447778
+268091,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-05-12,131,130,904276.21,1084814.0039503549,180537.7939503549,19.964894791421628
+268091,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-05-19,138,137,977680.69,1084227.0874868715,106546.39748687157,10.897872748910647
+268091,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-05-26,145,144,964313.13,1084771.0059410715,120457.87594107154,12.491572726078255
+268091,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-06-02,152,151,913515.99,1111759.247992695,198243.2579926951,21.70112621594014
+268091,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-06-09,159,158,901349.11,1138133.955171775,236784.8451717751,26.270048147246197
+268091,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-06-16,166,165,1030088.41,1137017.2460860235,106928.83608602348,10.380549382748951
+268091,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-06-23,173,172,1018792.36,1137473.306519775,118680.94651977497,11.649179084909408
+268091,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-06-30,180,179,1056984.52,1138007.6388382148,81023.11883821478,7.6654972050314205
+268091,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-07-07,187,186,955981.86,1138313.237179575,182331.37717957504,19.07268169079851
+268091,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-07-14,194,193,943812.41,1138285.146162535,194472.73616253503,20.605020033857684
+268091,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-07-21,201,200,979933.29,1138405.872758275,158472.58275827486,16.171772545687762
+268091,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-07-28,208,207,927498.18,1139017.9979664749,211519.8179664748,22.805415959573615
+268091,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-08-04,215,214,927498.18,1139333.0756706551,211834.89567065507,22.839386668193253
+268091,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-08-11,222,221,927498.18,1138957.960184035,211459.78018403484,22.798942870597852
+268091,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-08-18,229,228,927498.18,1138263.523175575,210765.34317557502,22.72407080902035
+268091,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-08-25,236,235,951028.42,1137554.843374495,186526.4233744949,19.613128214874468
+268091,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-09-01,243,242,936323.01,1083343.504473315,147020.49447331508,15.701899120615979
+268091,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-09-08,250,249,954057.28,1075283.2843643147,121226.00436431472,12.706365425387741
+268091,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-09-15,257,256,1070103.57,1032096.091862115,-38007.478137885104,-3.55175697039167
+268091,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-09-22,264,263,1134444.24,1007303.9368965148,-127140.30310348514,-11.207276534233639
+268091,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-09-29,271,270,991637.45,1007303.9368965148,15666.486896514893,1.5798603508283087
+268091,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-10-06,278,277,896029.67,1007303.9368965148,111274.2668965148,12.41859177459099
+268091,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-10-13,285,284,888479.56,1007303.9368965148,118824.37689651479,13.373901015406002
+268091,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-10-20,292,291,878742.0,1007303.9368965148,128561.93689651485,14.630225583449391
+268091,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-10-27,299,298,820347.49,1003381.1275665149,183033.6375665149,22.31172031336561
+268091,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-11-03,306,305,839166.59,994227.9057965149,155061.31579651497,18.478013501051677
+268091,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-11-10,313,312,922272.23,992920.3026865149,70648.07268651493,7.660219010011278
+268091,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-11-17,320,319,940190.38,991612.699576515,51422.319576515,5.469351811120956
+268091,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-11-24,327,326,1054580.85,937282.116590115,-117298.73340988508,-11.1227824220291
+268091,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-12-01,334,333,1185097.87,982459.477806515,-202638.39219348517,-17.098874052780566
+268091,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-12-08,341,340,1273667.17,978491.5024595751,-295175.66754042485,-23.175259164482103
+268091,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-12-15,348,347,1241546.58,928867.3730501151,-312679.206949885,-25.184653720352962
+268091,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-12-22,355,354,1434836.3,923457.8950601149,-511378.40493988513,-35.64019149361395
+268091,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-12-29,362,361,1435465.25,954999.8124965149,-480465.4375034851,-33.471060166972705
+268091,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-01-06,5,4,656921.88,496338.2859141383,-160583.5940858617,-24.444853943038357
+268091,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-01-13,12,11,720134.07,484210.6726156791,-235923.39738432085,-32.761038147288446
+268091,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-01-20,19,18,606978.55,476371.71604743355,-130606.83395256649,-21.517536979283122
+268091,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-01-27,26,25,692705.41,470025.4122865184,-222679.99771348166,-32.14642104693273
+268091,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-02-03,33,32,613334.5,638690.9934748474,25356.493474847404,4.134203028665011
+268091,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-02-10,40,39,656472.97,648769.7455004707,-7703.224499529228,-1.1734259979552895
+268091,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-02-17,47,46,695644.81,664996.1810287674,-30648.628971232683,-4.405787052624267
+268091,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-02-24,54,53,740448.32,656845.8095941151,-83602.51040588482,-11.29079614980892
+268091,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-03-03,61,60,715265.49,723224.1394864802,7958.649486480164,1.1126846741173217
+268091,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-03-10,68,67,823262.17,754580.2366873487,-68681.93331265135,-8.342656302627308
+268091,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-03-17,75,74,899331.26,772197.8213083894,-127133.43869161059,-14.13644163682363
+268091,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-03-24,82,81,826291.24,775987.3199701152,-50303.920029884786,-6.0879164143002145
+268091,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-03-31,89,88,860620.24,792885.6303173592,-67734.60968264076,-7.870441169573326
+268091,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-04-07,96,95,844469.28,793154.3120399731,-51314.96796002693,-6.076593805760102
+268091,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-04-14,103,102,949947.4,789709.4279067093,-160237.97209329077,-16.86808891663799
+268091,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-04-21,110,109,986757.36,845951.2005109244,-140806.15948907554,-14.269582898178285
+268091,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-04-28,117,116,950013.26,850599.2768355906,-99413.98316440941,-10.464483744617354
+268091,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-05-05,124,123,952816.2,871723.6104240626,-81092.58957593737,-8.510832369972023
+268091,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-05-12,131,130,904276.21,887312.9880418326,-16963.221958167385,-1.8758894429133977
+268091,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-05-19,138,137,977680.69,884549.9422003094,-93130.74779969058,-9.525681416464368
+268091,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-05-26,145,144,964313.13,885577.546774886,-78735.58322511404,-8.164939455414657
+268091,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-06-02,152,151,913515.99,917192.7725089288,3676.7825089287944,0.40248693500469485
+268091,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-06-09,159,158,901349.11,945573.6701942311,44224.560194231104,4.906485145831131
+268091,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-06-16,166,165,1030088.41,942192.2895529524,-87896.12044704764,-8.532871508286132
+268091,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-06-23,173,172,1018792.36,943141.3893741965,-75650.97062580346,-7.425553390074839
+268091,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-06-30,180,179,1056984.52,949307.1694699962,-107677.35053000378,-10.187221145869172
+268091,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-07-07,187,186,955981.86,953194.8247321487,-2787.0352678513154,-0.2915364176315349
+268091,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-07-14,194,193,943812.41,953213.5442502904,9401.134250290343,0.9960808049017222
+268091,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-07-21,201,200,979933.29,952048.882049144,-27884.407950856024,-2.8455414501589207
+268091,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-07-28,208,207,927498.18,956565.2278818862,29067.04788188613,3.1339196678408716
+268091,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-08-04,215,214,927498.18,961448.3794951395,33950.199495139415,3.660406050084046
+268091,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-08-11,222,221,927498.18,956640.1317502046,29141.95175020455,3.1419955724554143
+268091,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-08-18,229,228,927498.18,947922.7406689419,20424.56066894182,2.202113288129775
+268091,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-08-25,236,235,951028.42,939823.9235469267,-11204.496453073341,-1.1781452811971005
+268091,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-09-01,243,242,936323.01,888712.1235973148,-47610.886402685195,-5.084878390704635
+268091,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-09-08,250,249,954057.28,921855.3343365929,-32201.945663407096,-3.37526334513239
+268091,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-09-15,257,256,1070103.57,877771.5946021151,-192331.97539788496,-17.97321126569879
+268091,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-09-22,264,263,1134444.24,869768.800244515,-264675.43975548504,-23.33084610271238
+268091,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-09-29,271,270,991637.45,869768.800244515,-121868.649755485,-12.289637685172641
+268091,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-10-06,278,277,896029.67,869768.800244515,-26260.869755485095,-2.9308035921941173
+268091,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-10-13,285,284,888479.56,869768.800244515,-18710.75975548511,-2.105930242839251
+268091,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-10-20,292,291,878742.0,869768.800244515,-8973.199755485053,-1.0211415586696724
+268091,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-10-27,299,298,820347.49,868502.535314515,48155.04531451501,5.87007894843623
+268091,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-11-03,306,305,839166.59,865547.917144515,26381.327144515002,3.143753273651541
+268091,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-11-10,313,312,922272.23,865125.8288345151,-57146.40116548492,-6.196261722581077
+268091,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-11-17,320,319,940190.38,864703.7405245149,-75486.63947548508,-8.028867459320853
+268091,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-11-24,327,326,1054580.85,782518.0709629148,-272062.77903708525,-25.798190725451274
+268091,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-12-01,334,333,1185097.87,861749.122354515,-323348.7476454851,-27.284560695859245
+268091,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-12-08,341,340,1273667.17,860349.0669360152,-413318.1030639848,-32.451029028563624
+268091,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-12-15,348,347,1241546.58,778853.8441029149,-462692.73589708516,-37.267448789322515
+268091,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-12-22,355,354,1434836.3,776498.2696929149,-658338.0303070851,-45.8824487718275
+268091,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-12-29,362,361,1435465.25,854165.806170915,-581299.443829085,-40.49554273982495
+268091,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-01-06,5,4,656921.88,720013.072068915,63091.192068915,9.604063129837446
+268091,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-01-13,12,11,720134.07,720013.072068915,-120.99793108494487,-0.016802139507848153
+268091,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-01-20,19,18,606978.55,784028.8452989149,177050.2952989149,29.16911895797881
+268091,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-01-27,26,25,692705.41,763406.434428515,70701.024428515,10.206506749891703
+268091,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-02-03,33,32,613334.5,929681.890428515,316347.39042851503,51.57828076335426
+268091,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-02-10,40,39,656472.97,940114.390428515,283641.42042851506,43.20686964895373
+268091,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-02-17,47,46,695644.81,961834.3904285149,266189.58042851486,38.26515724720419
+268091,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-02-24,54,53,740448.32,969561.9795581149,229113.65955811494,30.942559172544946
+268091,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-03-03,61,60,715265.49,989057.842601315,273792.352601315,38.27842338672246
+268091,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-03-10,68,67,823262.17,1015427.842601315,192165.67260131496,23.34197775677157
+268091,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-03-17,75,74,899331.26,1032767.842601315,133436.582601315,14.837311737758897
+268091,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-03-24,82,81,826291.24,1032767.842601315,206476.602601315,24.988356720484536
+268091,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-03-31,89,88,860620.24,1043627.842601315,183007.602601315,21.264617550862503
+268091,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-04-07,96,95,844469.28,1043627.842601315,199158.56260131497,23.58387300972215
+268091,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-04-14,103,102,949947.4,1043627.842601315,93680.44260131498,9.861645244917241
+268091,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-04-21,110,109,986757.36,1096367.842601315,109610.4826013149,11.108149484825216
+268091,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-04-28,117,116,950013.26,1096367.842601315,146354.58260131488,15.405530508207315
+268091,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-05-05,124,123,952816.2,1122737.842601315,169921.64260131493,17.83362232939731
+268091,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-05-12,131,130,904276.21,1149107.842601315,244831.63260131492,27.0748726875514
+268091,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-05-19,138,137,977680.69,1149107.842601315,171427.15260131494,17.534063458010504
+268091,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-05-26,145,144,964313.13,1149107.842601315,184794.71260131488,19.16335128624816
+268091,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-06-02,152,151,913515.99,1175477.842601315,261961.8526013149,28.676219734403873
+268091,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-06-09,159,158,901349.11,1201847.842601315,300498.7326013149,33.33877287584107
+268091,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-06-16,166,165,1030088.41,1201847.842601315,171759.43260131485,16.674241835350312
+268091,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-06-23,173,172,1018792.36,1201847.842601315,183055.4826013149,17.967889217515815
+268091,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-06-30,180,179,1056984.52,1201847.842601315,144863.32260131487,13.705340036703173
+268091,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-07-07,187,186,955981.86,1201847.842601315,245865.9826013149,25.71868702627003
+268091,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-07-14,194,193,943812.41,1201847.842601315,258035.43260131485,27.339694823605345
+268091,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-07-21,201,200,979933.29,1201847.842601315,221914.55260131485,22.64588363982561
+268091,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-07-28,208,207,927498.18,1201847.842601315,274349.66260131483,29.579536490445168
+268091,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-08-04,215,214,927498.18,1201847.842601315,274349.66260131483,29.579536490445168
+268091,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-08-11,222,221,927498.18,1201847.842601315,274349.66260131483,29.579536490445168
+268091,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-08-18,229,228,927498.18,1201847.842601315,274349.66260131483,29.579536490445168
+268091,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-08-25,236,235,951028.42,1201847.842601315,250819.42260131484,26.37349392790121
+268091,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-09-01,243,242,936323.01,1167477.157817315,231154.14781731507,24.68743642403011
+268091,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-09-08,250,249,954057.28,1139980.6099901148,185923.32999011478,19.48764858123768
+268091,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-09-15,257,256,1070103.57,1105609.925206115,35506.35520611494,3.3180297871648943
+268091,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-09-22,264,263,1134444.24,1060355.190240515,-74089.04975948506,-6.5308674633038875
+268091,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-09-29,271,270,991637.45,1060355.190240515,68717.74024051498,6.9297241890687955
+268091,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-10-06,278,277,896029.67,1060355.190240515,164325.5202405149,18.33929452810585
+268091,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-10-13,285,284,888479.56,1060355.190240515,171875.63024051487,19.344916639445803
+268091,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-10-20,292,291,878742.0,1060355.190240515,181613.19024051493,20.667407525817016
+268091,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-10-27,299,298,820347.49,1056432.380910515,236084.8909105151,28.778644877735303
+268091,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-11-03,306,305,839166.59,1047279.159140515,208112.56914051506,24.799911200053266
+268091,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-11-10,313,312,922272.23,1045971.5560305149,123699.3260305149,13.412452636735567
+268091,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-11-17,320,319,940190.38,1044663.9529205151,104473.57292051509,11.111959358754032
+268091,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-11-24,327,326,1054580.85,1039433.540480515,-15147.309519485105,-1.4363345891863202
+268091,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-12-01,334,333,1185097.87,1035510.731150515,-149587.13884948508,-12.62234475617487
+268091,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-12-08,341,340,1273667.17,1031587.9218205152,-242079.24817948474,-19.006476250737055
+268091,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-12-15,348,347,1241546.58,1021127.096940515,-220419.4830594851,-17.75362170136904
+268091,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-12-22,355,354,1434836.3,1009358.668950515,-425477.63104948506,-29.653391892126304
+268091,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-12-29,362,361,1435465.25,1008051.065840515,-427414.18415948504,-29.775306936861412
+268967,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-01-06,5,5,220644.25,2007074.1279249997,1786429.8779249997,809.6426160776905
+268967,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-01-13,12,12,202836.97,2175702.048415,1972865.078415,972.6358456325788
+268967,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-01-20,19,19,229908.04,2569167.0878275,2339259.0478275,1017.4759646628712
+268967,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-01-27,26,26,207844.71,2681585.4846925,2473740.7746925,1190.1870269839922
+268967,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-02-03,33,33,204819.55,2681585.4846925,2476765.9346925,1209.242933446783
+268967,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-02-10,40,40,204816.91,2793585.4846925,2588768.5746925,1263.9427939287336
+268967,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-02-17,47,47,235695.96,2887672.0566925,2651976.0966925,1125.1682450104365
+268967,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-02-24,54,54,284703.12,2999672.0566925,2714968.9366925,953.6140442340429
+268967,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-03-03,61,61,267389.54,3028359.1066925,2760969.5666925,1032.5645373758825
+268967,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-03-10,68,68,248241.29,3115040.6066925,2866799.3166925,1154.843868516998
+268967,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-03-17,75,75,262994.07,3073599.0321830306,2810604.962183031,1068.6951847176747
+268967,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-03-24,82,82,199951.95,3095778.614153031,2895826.6641530306,1448.261276848278
+268967,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-03-31,89,89,217097.43,3206668.7711480306,2989571.3411480305,1377.0643628291828
+268967,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-04-07,96,96,188514.27,3255202.8654380306,3066688.5954380305,1626.7673505236662
+268967,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-04-14,103,103,181337.72,3255202.8654380306,3073865.1454380304,1695.1052133213268
+268967,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-04-21,110,110,227641.26,3255686.4654380307,3028045.205438031,1330.182940227106
+268967,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-04-28,117,117,212287.9,3302353.665438031,3090065.765438031,1455.6014570015677
+268967,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-05-05,124,124,206964.49,3308301.4654380307,3101336.9754380304,1498.4874822913005
+268967,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-05-12,131,131,242401.58,3317863.8154380308,3075462.2354380307,1268.7467777388379
+268967,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-05-19,138,138,234418.65,3374492.2154380307,3140073.5654380308,1339.5152499334124
+268967,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-05-26,145,145,275919.95,3385420.615438031,3109500.665438031,1126.9575344001153
+268967,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-06-02,152,152,281205.25,3396349.0154380305,3115143.7654380305,1107.7829327290406
+268967,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-06-09,159,159,263831.65,3405911.365438031,3142079.715438031,1190.941160940331
+268967,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-06-16,166,166,245626.38,3416839.7654380305,3171213.3854380306,1291.0719872344455
+268967,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-06-23,173,173,226080.81,2920355.321914194,2694274.511914194,1191.730740841823
+268967,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-06-30,180,180,260360.09,3025299.041614194,2764938.951614194,1061.967274482888
+268967,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-07-07,187,187,244808.06,3233658.420611694,2988850.360611694,1220.8954070432542
+268967,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-07-14,194,194,222549.86,3288861.8384741936,3066311.9784741937,1377.8089900726939
+268967,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-07-21,201,201,238918.79,3311393.5884741936,3072474.7984741936,1285.9912769833606
+268967,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-07-28,208,208,264882.35,3312360.788474194,3047478.4384741937,1150.5026433336136
+268967,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-08-04,215,215,259584.68,3312360.788474194,3052776.1084741936,1176.0232185020295
+268967,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-08-11,222,222,307672.96,3312360.788474194,3004687.828474194,976.5849519158894
+268967,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-08-18,229,229,307672.96,3319191.038474194,3011518.078474194,978.804922757656
+268967,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-08-25,236,236,311416.01,3327387.3384741936,3015971.328474194,968.470223632431
+268967,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-09-01,243,243,304896.32,3335583.638474194,3030687.318474194,994.0058700853436
+268967,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-09-08,250,250,302209.28,3343779.9384741937,3041570.658474194,1006.4451556465087
+268967,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-09-15,257,257,283236.31,3351976.238474194,3068739.928474194,1083.4556941072258
+268967,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-09-22,264,264,251514.18,3358806.488474194,3107292.308474194,1235.4342440947837
+268967,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-09-29,271,271,225804.87,3368368.8384741936,3142563.9684741935,1391.7166483053236
+268967,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-10-06,278,278,263501.2,3376565.138474194,3113063.9384741937,1181.423059353883
+268967,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-10-13,285,285,242881.18,3384761.4384741937,3141880.2584741935,1293.5873658363296
+268967,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-10-20,292,292,263748.53,3392957.738474194,3129209.2084741937,1186.436644205825
+268967,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-10-27,299,299,248721.2,3399787.988474194,3151066.788474194,1266.9071990944856
+268967,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-11-03,306,306,232963.05,3401154.038474194,3168190.988474194,1359.954288233346
+268967,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-11-10,313,313,306353.26,3232016.423964725,2925663.163964725,954.9965826917347
+268967,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-11-17,320,320,321401.26,3250819.4879047247,2929418.227904725,911.4520048567093
+268967,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-11-24,327,327,349564.46,3316629.9948997246,2967065.5348997246,848.7892433057195
+268967,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-12-01,334,334,334234.98,3175696.6511077555,2841461.6711077555,850.1389265443597
+268967,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-12-08,341,341,330780.69,3213302.778987756,2882522.088987756,871.4299764559279
+268967,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-12-15,348,348,334550.57,3279596.5607902557,2945045.990790256,880.299199846007
+268967,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-12-22,355,355,333222.01,3119860.369853287,2786638.359853287,836.2707973141652
+268967,same_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-12-29,362,362,382653.99,3132367.420553287,2749713.4305532873,718.5900323561992
+268967,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-01-06,5,5,220644.25,79791.42998799999,-140852.820012,-63.83706804596087
+268967,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-01-13,12,12,202836.97,79791.42998799999,-123045.54001200001,-60.662284598315594
+268967,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-01-20,19,19,229908.04,79791.42998799999,-150116.61001200002,-65.29419763310584
+268967,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-01-27,26,26,207844.71,79791.53751831985,-128053.17248168014,-61.61002244496872
+268967,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-02-03,33,33,204819.55,79791.53751831985,-125028.01248168014,-61.04300711610789
+268967,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-02-10,40,40,204816.91,191198.84984939985,-13618.060150600155,-6.6488944446042835
+268967,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-02-17,47,47,235695.96,285036.80732939986,49340.84732939987,20.934108216958776
+268967,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-02-24,54,54,284703.12,397036.80732939986,112333.68732939987,39.45643002767229
+268967,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-03-03,61,61,267389.54,397036.80732939986,129647.26732939988,48.48628982622129
+268967,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-03-10,68,68,248241.29,442736.80732939986,194495.51732939985,78.34938230034167
+268967,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-03-17,75,75,262994.07,1983898.794121318,1720904.724121318,654.3511510055408
+268967,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-03-24,82,82,199951.95,1993300.326091318,1793348.376091318,896.8896657878644
+268967,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-03-31,89,89,217097.43,2059110.8330863179,1842013.403086318,848.4731500904079
+268967,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-04-07,96,96,188514.27,2096716.527376318,1908202.2573763179,1012.2322609191963
+268967,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-04-14,103,103,181337.72,2096716.527376318,1915378.807376318,1056.2495256785614
+268967,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-04-21,110,110,227641.26,2096716.527376318,1869075.2673763179,821.0617299237923
+268967,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-04-28,117,117,212287.9,2143293.4553763177,1931005.5553763178,909.616400829401
+268967,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-05-05,124,124,206964.49,2143777.0553763183,1936812.5653763183,935.818780012126
+268967,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-05-12,131,131,242401.58,2143777.0553763183,1901375.4753763182,784.390710397316
+268967,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-05-19,138,138,234418.65,2190528.913876318,1956110.263876318,834.4516376475669
+268967,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-05-26,145,145,275919.95,2201457.313876318,1925537.3638763179,697.8608701097248
+268967,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-06-02,152,152,281205.25,2212385.713876318,1931180.4638763182,686.7512124600513
+268967,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-06-09,159,159,263831.65,2221948.063876318,1958116.413876318,742.1840457262492
+268967,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-06-16,166,166,245626.38,2232876.463876318,1987250.0838763183,809.0540127963121
+268967,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-06-23,173,173,226080.81,1770420.3258524812,1544339.5158524811,683.0918182982807
+268967,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-06-30,180,180,260360.09,1864435.645552481,1604075.555552481,616.0988635210878
+268967,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-07-07,187,187,244808.06,2061866.624549981,1817058.564549981,742.2380474523515
+268967,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-07-14,194,194,222549.86,2108873.742412481,1886323.8824124811,847.5960768577797
+268967,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-07-21,201,201,238918.79,2127430.286912481,1888511.4969124808,790.4407589342306
+268967,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-07-28,208,208,264882.35,2128397.486912481,1863515.136912481,703.5255980296464
+268967,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-08-04,215,215,259584.68,2128397.486912481,1868812.806912481,719.9241522698802
+268967,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-08-11,222,222,307672.96,2128397.486912481,1820724.526912481,591.7726819127951
+268967,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-08-18,229,229,307672.96,2135227.736912481,1827554.776912481,593.9926527545615
+268967,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-08-25,236,236,311416.01,2143424.036912481,1832008.0269124808,588.283186504278
+268967,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-09-01,243,243,304896.32,2151620.336912481,1846724.016912481,605.6891788370817
+268967,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-09-08,250,250,302209.28,2159816.636912481,1857607.356912481,614.675815683913
+268967,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-09-15,257,257,283236.31,2168012.9369124807,1884776.6269124807,665.4431513079946
+268967,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-09-22,264,264,251514.18,2174843.1869124807,1923329.0069124808,764.7000288065193
+268967,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-09-29,271,271,225804.87,2184405.536912481,1958600.6669124807,867.3863707689212
+268967,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-10-06,278,278,263501.2,2192601.836912481,1929100.6369124812,732.1031695159191
+268967,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-10-13,285,285,242881.18,2200798.136912481,1957916.956912481,806.1213128627261
+268967,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-10-20,292,292,263748.53,2208994.4369124807,1945245.9069124807,737.5381037810828
+268967,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-10-27,299,299,248721.2,2215824.6869124807,1967103.4869124808,790.8869396386318
+268967,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-11-03,306,306,232963.05,2217190.736912481,1984227.686912481,851.7349368977102
+268967,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-11-10,313,313,306353.26,2048053.1224030117,1741699.8624030116,568.5266291610579
+268967,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-11-17,320,320,321401.26,2066856.186343012,1745454.926343012,543.0765661413436
+268967,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-11-24,327,327,349564.46,2132666.693338012,1783102.233338012,510.0925401106313
+268967,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-12-01,334,334,334234.98,1991733.3495460432,1657498.3695460432,495.90810918295966
+268967,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-12-08,341,341,330780.69,2029339.4774260428,1698558.7874260428,513.4999831538058
+268967,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-12-15,348,348,334550.57,2095633.259228543,1761082.6892285428,526.402537358864
+268967,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-12-22,355,355,333222.01,1935897.0682915743,1602675.0582915742,480.96314474892404
+268967,same_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-12-29,362,362,382653.99,1948404.1189915743,1565750.1289915743,409.181707210625
+268967,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-01-06,5,5,220644.25,0.0,-220644.25,-100.0
+268967,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-01-13,12,12,202836.97,0.0,-202836.97,-100.0
+268967,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-01-20,19,19,229908.04,0.0,-229908.04,-100.0
+268967,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-01-27,26,26,207844.71,0.0,-207844.71,-100.0
+268967,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-02-03,33,33,204819.55,0.0,-204819.55,-100.0
+268967,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-02-10,40,40,204816.91,0.0,-204816.91,-100.0
+268967,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-02-17,47,47,235695.96,0.0,-235695.96,-100.0
+268967,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-02-24,54,54,284703.12,0.0,-284703.12,-100.0
+268967,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-03-03,61,61,267389.54,0.0,-267389.54,-100.0
+268967,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-03-10,68,68,248241.29,0.0,-248241.29,-100.0
+268967,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-03-17,75,75,262994.07,2445799.1850522417,2182805.115052242,829.9826361302526
+268967,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-03-24,82,82,199951.95,2578573.0986258965,2378621.1486258963,1189.5963748420038
+268967,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-03-31,89,89,217097.43,2782176.823134751,2565079.393134751,1181.5337441510712
+268967,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-04-07,96,96,188514.27,2971070.3975721234,2782556.1275721234,1476.0453559150315
+268967,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-04-14,103,103,181337.72,3162075.8542356687,2980738.1342356685,1643.7496480245081
+268967,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-04-21,110,110,227641.26,3177981.7735025855,2950340.5135025857,1296.0482267153968
+268967,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-04-28,117,117,212287.9,3183683.3399329195,2971395.4399329196,1399.7008025106093
+268967,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-05-05,124,124,206964.49,3170599.5226207,2963635.0326207,1431.9533909516072
+268967,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-05-12,131,131,242401.58,3106956.8779863287,2864555.2979863286,1181.7395323851968
+268967,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-05-19,138,138,234418.65,2927183.675499385,2692765.0254993853,1148.69914381786
+268967,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-05-26,145,145,275919.95,2752389.4884174094,2476469.538417409,897.5318886573475
+268967,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-06-02,152,152,281205.25,2725120.5348745435,2443915.2848745435,869.0859380735401
+268967,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-06-09,159,159,263831.65,2510036.261543222,2246204.611543222,851.3779948475559
+268967,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-06-16,166,166,245626.38,2290883.5503795166,2045257.1703795167,832.6699967566663
+268967,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-06-23,173,173,226080.81,2295267.334040189,2069186.524040189,915.2419986641896
+268967,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-06-30,180,180,260360.09,2490858.6122195637,2230498.522219564,856.6975538453546
+268967,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-07-07,187,187,244808.06,2535466.2438453706,2290658.1838453705,935.695574665871
+268967,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-07-14,194,194,222549.86,2468856.754723063,2246306.8947230633,1009.3499473435137
+268967,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-07-21,201,201,238918.79,2451975.0436067297,2213056.2536067297,926.2797009840581
+268967,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-07-28,208,208,264882.35,2579230.179258115,2314347.829258115,873.7267051799092
+268967,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-08-04,215,215,259584.68,2796543.551921184,2536958.871921184,977.3145595191457
+268967,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-08-11,222,222,307672.96,2848363.0475195707,2540690.0875195707,825.7762032515209
+268967,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-08-18,229,229,307672.96,2696045.9737830055,2388373.0137830055,776.2700413396761
+268967,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-08-25,236,236,311416.01,2605612.5832396494,2294196.5732396496,736.6983390608754
+268967,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-09-01,243,243,304896.32,2830369.4463995756,2525473.1263995757,828.3055454390449
+268967,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-09-08,250,250,302209.28,2860519.5613546926,2558310.2813546928,846.5359771065577
+268967,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-09-15,257,257,283236.31,2781189.739136749,2497953.429136749,881.9326269067511
+268967,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-09-22,264,264,251514.18,2733821.1519503808,2482306.9719503806,986.9451384213727
+268967,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-09-29,271,271,225804.87,2787516.2151563535,2561711.3451563534,1134.480113363522
+268967,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-10-06,278,278,263501.2,2732995.3535076813,2469494.153507681,937.1851640552989
+268967,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-10-13,285,285,242881.18,2651801.6244188864,2408920.444418886,991.8102524118527
+268967,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-10-20,292,292,263748.53,2644186.513064949,2380437.9830649486,902.5407584508426
+268967,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-10-27,299,299,248721.2,2650119.102699225,2401397.9026992247,965.4978758140538
+268967,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-11-03,306,306,232963.05,2604865.043368536,2371901.9933685362,1018.1451493567483
+268967,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-11-10,313,313,306353.26,2509918.938971484,2203565.6789714843,719.2891235991692
+268967,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-11-17,320,320,321401.26,2498531.74071476,2177130.48071476,677.3870397131485
+268967,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-11-24,327,327,349564.46,2540279.00671407,2190714.5467140703,626.6983052894078
+268967,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-12-01,334,334,334234.98,2513835.7641369277,2179600.7841369277,652.1162997771592
+268967,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-12-08,341,341,330780.69,2570693.8462380907,2239913.1562380907,677.1595875920359
+268967,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-12-15,348,348,334550.57,2620104.4731434477,2285553.903143448,683.171427011303
+268967,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-12-22,355,355,333222.01,2586381.6145091937,2253159.6045091935,676.173703084377
+268967,same_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-12-29,362,362,382653.99,2584005.7701096963,2201351.780109696,575.2852022030911
+268967,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-01-06,5,5,220644.25,425229.410425,204585.160425,92.72172758864099
+268967,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-01-13,12,12,202836.97,425229.410425,222392.440425,109.64097936633544
+268967,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-01-20,19,19,229908.04,425229.410425,195321.370425,84.95630271346752
+268967,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-01-27,26,26,207844.71,425229.410425,217384.70042500002,104.58996066101466
+268967,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-02-03,33,33,204819.55,425229.410425,220409.86042500002,107.61172965422492
+268967,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-02-10,40,40,204816.91,537229.410425,332412.500425,162.29739059387234
+268967,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-02-17,47,47,235695.96,631315.982425,395620.0224250001,167.8518471105742
+268967,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-02-24,54,54,284703.12,743315.982425,458612.86242500006,161.08459311053565
+268967,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-03-03,61,61,267389.54,772003.032425,504613.492425,188.7184863046625
+268967,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-03-10,68,68,248241.29,858684.532425,610443.242425,245.9072148815372
+268967,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-03-17,75,75,262994.07,930060.7562523901,667066.68625239,253.64324231812145
+268967,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-03-24,82,82,199951.95,942838.8062523901,742886.8562523902,371.53268885469237
+268967,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-03-31,89,89,217097.43,987918.4562523902,770821.0262523901,355.05764681433135
+268967,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-04-07,96,96,188514.27,998846.8562523901,810332.58625239,429.8521200821508
+268967,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-04-14,103,103,181337.72,998846.8562523901,817509.1362523901,450.8213383582799
+268967,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-04-21,110,110,227641.26,999330.45625239,771689.19625239,338.99355338851575
+268967,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-04-28,117,117,212287.9,1045997.6562523901,833709.7562523901,392.72598968306255
+268967,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-05-05,124,124,206964.49,1051945.45625239,844980.9662523901,408.27340296511255
+268967,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-05-12,131,131,242401.58,1061507.8062523901,819106.2262523902,337.9129072724651
+268967,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-05-19,138,138,234418.65,1118136.20625239,883717.55625239,376.98261475884703
+268967,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-05-26,145,145,275919.95,1129064.6062523902,853144.6562523902,309.2000619209993
+268967,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-06-02,152,152,281205.25,1139993.00625239,858787.7562523901,305.3953495720262
+268967,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-06-09,159,159,263831.65,1149555.3562523902,885723.7062523902,335.7154860883408
+268967,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-06-16,166,166,245626.38,1160483.75625239,914857.3762523901,372.45892572792474
+268967,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-06-23,173,173,226080.81,1002452.70773913,776371.8977391301,343.4045984438618
+268967,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-06-30,180,180,260360.09,1013381.1077391299,753021.01773913,289.2229057606832
+268967,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-07-07,187,187,244808.06,1024309.50773913,779501.4477391299,318.413310304869
+268967,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-07-14,194,194,222549.86,1032505.80773913,809955.94773913,363.9435889733339
+268967,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-07-21,201,201,238918.79,1055037.55773913,816118.76773913,341.5883563361132
+268967,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-07-28,208,208,264882.35,1056004.75773913,791122.40773913,298.6693555607348
+268967,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-08-04,215,215,259584.68,1056004.75773913,796420.07773913,306.8055009021064
+268967,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-08-11,222,222,307672.96,1056004.75773913,748331.79773913,243.22312813551437
+268967,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-08-18,229,229,307672.96,1062835.00773913,755162.04773913,245.44309897728093
+268967,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-08-25,236,236,311416.01,1071031.30773913,759615.29773913,243.92300759974734
+268967,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-09-01,243,243,304896.32,1079227.60773913,774331.28773913,253.9654423310619
+268967,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-09-08,250,250,302209.28,1087423.9077391298,785214.6277391298,259.82479020469844
+268967,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-09-15,257,257,283236.31,1095620.20773913,812383.8977391298,286.82194657144413
+268967,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-09-22,264,264,251514.18,1102450.45773913,850936.27773913,338.3253690663206
+268967,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-09-29,271,271,225804.87,1112012.80773913,886207.93773913,392.4662642303197
+268967,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-10-06,278,278,263501.2,1120209.10773913,856707.9077391301,325.1248600534381
+268967,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-10-13,285,285,242881.18,1128405.4077391298,885524.2277391299,364.59153720314185
+268967,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-10-20,292,292,263748.53,1136601.70773913,872853.1777391299,330.94143794436684
+268967,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-10-27,299,299,248721.2,1143431.95773913,894710.75773913,359.72436516836115
+268967,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-11-03,306,306,232963.05,1144798.00773913,911834.9577391299,391.4075462778883
+268967,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-11-10,313,313,306353.26,1088478.1915665201,782124.9315665201,255.30165129188447
+268967,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-11-17,320,320,321401.26,1088478.1915665201,767076.9315665201,238.66643570921912
+268967,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-11-24,327,327,349564.46,1088478.1915665201,738913.7315665202,211.38125184880641
+268967,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-12-01,334,334,334234.98,1032158.3753939101,697923.3953939101,208.8121941616973
+268967,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-12-08,341,341,330780.69,1032158.3753939101,701377.6853939102,212.03707066271315
+268967,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-12-15,348,348,334550.57,1032641.9753939101,698091.4053939101,208.6654359590271
+268967,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-12-22,355,355,333222.01,976322.1592213,643100.1492213,192.99449913926756
+268967,same_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-12-29,362,362,382653.99,976805.7592213,594151.7692213,155.27128548203564
+268967,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-01-06,5,4,220644.25,2004344.911925,1783700.661925,808.4056855889061
+268967,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-01-13,12,11,202836.97,2119492.741585,1916655.771585,944.9242766666254
+268967,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-01-20,19,18,229908.04,2512957.889395,2283049.849395,993.0274075647811
+268967,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-01-27,26,25,207844.71,2681585.4846925,2473740.7746925,1190.1870269839922
+268967,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-02-03,33,32,204819.55,2681585.4846925,2476765.9346925,1209.242933446783
+268967,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-02-10,40,39,204816.91,2793585.4846925,2588768.5746925,1263.9427939287336
+268967,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-02-17,47,46,235695.96,2841972.0566925,2606276.0966925,1105.7788587859122
+268967,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-02-24,54,53,284703.12,2953972.0566925,2669268.9366925,937.5622355991393
+268967,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-03-03,61,60,267389.54,3028359.1066925,2760969.5666925,1032.5645373758825
+268967,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-03-10,68,67,248241.29,3069340.6066925,2821099.3166925,1136.4343605741415
+268967,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-03-17,75,74,262994.07,3027899.0321830306,2764904.962183031,1051.3183670578696
+268967,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-03-24,82,81,199951.95,3086377.082183031,2886425.1321830307,1443.5593812328566
+268967,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-03-31,89,88,217097.43,3197267.347575531,2980169.9175755307,1372.7338539086027
+268967,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-04-07,96,95,188514.27,3255202.8654380306,3066688.5954380305,1626.7673505236662
+268967,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-04-14,103,102,181337.72,3255202.8654380306,3073865.1454380304,1695.1052133213268
+268967,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-04-21,110,109,227641.26,3255686.4654380307,3028045.205438031,1330.182940227106
+268967,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-04-28,117,116,212287.9,3256653.665438031,3044365.765438031,1434.0740878015333
+268967,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-05-05,124,123,206964.49,3305569.365438031,3098604.875438031,1497.1674007642716
+268967,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-05-12,131,130,242401.58,3315131.7154380307,3072730.1354380306,1267.6196811250284
+268967,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-05-19,138,137,234418.65,3326060.115438031,3091641.465438031,1318.8547350810318
+268967,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-05-26,145,144,275919.95,3382688.5154380305,3106768.5654380303,1125.9673559081284
+268967,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-06-02,152,151,281205.25,3393616.915438031,3112411.665438031,1106.8113648084561
+268967,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-06-09,159,158,263831.65,3404545.3154380308,3140713.665438031,1190.4233875799323
+268967,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-06-16,166,165,245626.38,3414107.665438031,3168481.285438031,1289.9596881401872
+268967,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-06-23,173,172,226080.81,2917623.221914194,2691542.411914194,1190.5222791417787
+268967,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-06-30,180,179,260360.09,2994362.345704194,2734002.2557041943,1050.0850017774208
+268967,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-07-07,187,186,244808.06,3202722.0498941937,2957913.9898941936,1208.2584167752457
+268967,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-07-14,194,193,222549.86,3287495.788474194,3064945.928474194,1377.19517256681
+268967,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-07-21,201,200,238918.79,3310027.538474194,3071108.7484741937,1285.4195136657916
+268967,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-07-28,208,207,264882.35,3312360.788474194,3047478.4384741937,1150.5026433336136
+268967,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-08-04,215,214,259584.68,3312360.788474194,3052776.1084741936,1176.0232185020295
+268967,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-08-11,222,221,307672.96,3312360.788474194,3004687.828474194,976.5849519158894
+268967,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-08-18,229,228,307672.96,3317824.988474194,3010152.028474194,978.3609285893026
+268967,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-08-25,236,235,311416.01,3326021.288474194,3014605.278474194,968.0315660309801
+268967,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-09-01,243,242,304896.32,3334217.5884741936,3029321.2684741938,993.5578325360548
+268967,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-09-08,250,249,302209.28,3342413.888474194,3040204.608474194,1005.9931344511306
+268967,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-09-15,257,256,283236.31,3350610.1884741937,3067373.8784741936,1082.9733936564114
+268967,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-09-22,264,263,251514.18,3358806.488474194,3107292.308474194,1235.4342440947837
+268967,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-09-29,271,270,225804.87,3367002.788474194,3141197.9184741937,1391.1116790679466
+268967,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-10-06,278,277,263501.2,3375199.0884741936,3111697.8884741934,1180.9046366673826
+268967,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-10-13,285,284,242881.18,3383395.388474194,3140514.2084741937,1293.0249303277405
+268967,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-10-20,292,291,263748.53,3391591.6884741937,3127843.158474194,1185.9187076698374
+268967,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-10-27,299,298,248721.2,3399787.988474194,3151066.788474194,1266.9071990944856
+268967,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-11-03,306,305,232963.05,3401154.038474194,3168190.988474194,1359.954288233346
+268967,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-11-10,313,312,306353.26,3232016.423964725,2925663.163964725,954.9965826917347
+268967,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-11-17,320,319,321401.26,3241417.955934725,2920016.695934725,908.5268352509647
+268967,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-11-24,327,326,349564.46,3307228.5713272253,2957664.1113272253,846.099775511282
+268967,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-12-01,334,333,334234.98,3175696.6511077555,2841461.6711077555,850.1389265443597
+268967,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-12-08,341,340,330780.69,3203901.247017756,2873120.557017756,868.5877513036677
+268967,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-12-15,348,347,334550.57,3270195.137217756,2935644.567217756,877.4890346824864
+268967,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-12-22,355,354,333222.01,3119860.369853287,2786638.359853287,836.2707973141652
+268967,previous_day,stock_total_value,"Diagnostic: stock composant brut, PFI inclus si valorise",diagnostic,2025-12-29,362,361,382653.99,3128877.957878287,2746223.9678782867,717.6781216571887
+268967,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-01-06,5,4,220644.25,79791.42998799999,-140852.820012,-63.83706804596087
+268967,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-01-13,12,11,202836.97,79791.42998799999,-123045.54001200001,-60.662284598315594
+268967,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-01-20,19,18,229908.04,79791.42998799999,-150116.61001200002,-65.29419763310584
+268967,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-01-27,26,25,207844.71,79791.53751831985,-128053.17248168014,-61.61002244496872
+268967,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-02-03,33,32,204819.55,79791.53751831985,-125028.01248168014,-61.04300711610789
+268967,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-02-10,40,39,204816.91,191198.84984939985,-13618.060150600155,-6.6488944446042835
+268967,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-02-17,47,46,235695.96,239336.8073293999,3640.8473293998977,1.544721992434617
+268967,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-02-24,54,53,284703.12,351336.80732939986,66633.68732939987,23.40462139276867
+268967,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-03-03,61,60,267389.54,397036.80732939986,129647.26732939988,48.48628982622129
+268967,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-03-10,68,67,248241.29,397036.80732939986,148795.51732939985,59.939874357484946
+268967,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-03-17,75,74,262994.07,1938198.794121318,1675204.724121318,636.9743333457358
+268967,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-03-24,82,81,199951.95,1983898.794121318,1783946.844121318,892.1877701724429
+268967,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-03-31,89,88,217097.43,2049709.409513818,1832611.9795138182,844.1426411698278
+268967,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-04-07,96,95,188514.27,2096716.527376318,1908202.2573763179,1012.2322609191963
+268967,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-04-14,103,102,181337.72,2096716.527376318,1915378.807376318,1056.2495256785614
+268967,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-04-21,110,109,227641.26,2096716.527376318,1869075.2673763179,821.0617299237923
+268967,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-04-28,117,116,212287.9,2097593.4553763177,1885305.5553763178,888.0890316293664
+268967,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-05-05,124,123,206964.49,2143777.0553763183,1936812.5653763183,935.818780012126
+268967,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-05-12,131,130,242401.58,2143777.0553763183,1901375.4753763182,784.390710397316
+268967,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-05-19,138,137,234418.65,2143777.0553763183,1909358.4053763184,814.5078923440257
+268967,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-05-26,145,144,275919.95,2198725.213876318,1922805.2638763182,696.8706916177385
+268967,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-06-02,152,151,281205.25,2209653.613876318,1928448.363876318,685.7796445394665
+268967,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-06-09,159,158,263831.65,2220582.013876318,1956750.363876318,741.6662723658507
+268967,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-06-16,166,165,245626.38,2230144.363876318,1984517.9838763182,807.9417137020537
+268967,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-06-23,173,172,226080.81,1770420.3258524812,1544339.5158524811,683.0918182982807
+268967,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-06-30,180,179,260360.09,1836231.0496424811,1575870.959642481,605.265945192476
+268967,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-07-07,187,186,244808.06,2033662.3538324812,1788854.2938324811,730.7170743612286
+268967,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-07-14,194,193,222549.86,2108873.742412481,1886323.8824124811,847.5960768577797
+268967,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-07-21,201,200,238918.79,2127307.342412481,1888388.552412481,790.3893002356496
+268967,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-07-28,208,207,264882.35,2128397.486912481,1863515.136912481,703.5255980296464
+268967,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-08-04,215,214,259584.68,2128397.486912481,1868812.806912481,719.9241522698802
+268967,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-08-11,222,221,307672.96,2128397.486912481,1820724.526912481,591.7726819127951
+268967,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-08-18,229,228,307672.96,2133861.6869124807,1826188.7269124808,593.5486585862081
+268967,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-08-25,236,235,311416.01,2142057.986912481,1830641.976912481,587.844528902827
+268967,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-09-01,243,242,304896.32,2150254.286912481,1845357.9669124808,605.2411412877927
+268967,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-09-08,250,249,302209.28,2158450.586912481,1856241.306912481,614.2237944885348
+268967,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-09-15,257,256,283236.31,2166646.886912481,1883410.5769124809,664.9608508571803
+268967,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-09-22,264,263,251514.18,2174843.1869124807,1923329.0069124808,764.7000288065193
+268967,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-09-29,271,270,225804.87,2183039.486912481,1957234.616912481,866.781401531544
+268967,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-10-06,278,277,263501.2,2191235.786912481,1927734.5869124809,731.5847468294189
+268967,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-10-13,285,284,242881.18,2199432.086912481,1956550.9069124812,805.5588773541372
+268967,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-10-20,292,291,263748.53,2207628.386912481,1943879.856912481,737.0201672450954
+268967,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-10-27,299,298,248721.2,2215824.6869124807,1967103.4869124808,790.8869396386318
+268967,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-11-03,306,305,232963.05,2217190.736912481,1984227.686912481,851.7349368977102
+268967,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-11-10,313,312,306353.26,2048053.1224030117,1741699.8624030116,568.5266291610579
+268967,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-11-17,320,319,321401.26,2057454.654373012,1736053.394373012,540.1513965355991
+268967,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-11-24,327,326,349564.46,2123265.269765512,1773700.8097655121,507.4030723161937
+268967,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-12-01,334,333,334234.98,1991733.3495460432,1657498.3695460432,495.90810918295966
+268967,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-12-08,341,340,330780.69,2019937.945456043,1689157.255456043,510.65775800154563
+268967,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-12-15,348,347,334550.57,2086231.835656043,1751681.2656560428,523.5923721953434
+268967,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-12-22,355,354,333222.01,1935897.0682915743,1602675.0582915742,480.96314474892404
+268967,previous_day,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,2025-12-29,362,361,382653.99,1944914.6563165742,1562260.6663165742,408.26979651161463
+268967,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-01-06,5,4,220644.25,0.0,-220644.25,-100.0
+268967,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-01-13,12,11,202836.97,0.0,-202836.97,-100.0
+268967,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-01-20,19,18,229908.04,0.0,-229908.04,-100.0
+268967,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-01-27,26,25,207844.71,0.0,-207844.71,-100.0
+268967,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-02-03,33,32,204819.55,0.0,-204819.55,-100.0
+268967,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-02-10,40,39,204816.91,0.0,-204816.91,-100.0
+268967,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-02-17,47,46,235695.96,0.0,-235695.96,-100.0
+268967,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-02-24,54,53,284703.12,0.0,-284703.12,-100.0
+268967,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-03-03,61,60,267389.54,0.0,-267389.54,-100.0
+268967,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-03-10,68,67,248241.29,0.0,-248241.29,-100.0
+268967,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-03-17,75,74,262994.07,2379122.010620157,2116127.940620157,804.6295266734177
+268967,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-03-24,82,81,199951.95,2555869.0050280523,2355917.055028052,1178.24160005844
+268967,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-03-31,89,88,217097.43,2753267.1218998297,2536169.6918998295,1168.2172800939327
+268967,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-04-07,96,95,188514.27,2951001.2471691836,2762486.9771691835,1465.3993977056398
+268967,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-04-14,103,102,181337.72,3134005.94186964,2952668.2218696396,1628.270291404149
+268967,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-04-21,110,109,227641.26,3187619.6539569944,2959978.3939569946,1300.2820288189382
+268967,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-04-28,117,116,212287.9,3140078.9700413016,2927791.0700413017,1379.1605974910967
+268967,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-05-05,124,123,206964.49,3174213.338736025,2967248.8487360254,1433.6994953752817
+268967,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-05-12,131,130,242401.58,3114746.843649332,2872345.263649332,1184.953193642274
+268967,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-05-19,138,137,234418.65,2946063.0639109914,2711644.4139109915,1156.7528496179768
+268967,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-05-26,145,144,275919.95,2737032.286006792,2461112.336006792,891.966070596487
+268967,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-06-02,152,151,281205.25,2758580.1959042028,2477374.9459042028,880.9845996489051
+268967,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-06-09,159,158,263831.65,2520540.2125251475,2256708.5625251476,855.3593029968722
+268967,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-06-16,166,165,245626.38,2334593.2456155447,2088966.8656155448,850.4651925479441
+268967,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-06-23,173,172,226080.81,2181903.78526872,1955822.9752687197,865.0990658024978
+268967,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-06-30,180,179,260360.09,2487610.8589142226,2227250.7689142227,855.4501455711675
+268967,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-07-07,187,186,244808.06,2523862.0711713717,2279054.0111713717,930.9554641180407
+268967,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-07-14,194,193,222549.86,2481953.428898154,2259403.568898154,1015.2347743099699
+268967,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-07-21,201,200,238918.79,2455418.9133103183,2216500.123310318,927.7211404386898
+268967,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-07-28,208,207,264882.35,2561747.2414363176,2296864.8914363175,867.126439884091
+268967,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-08-04,215,214,259584.68,2751018.8813045244,2491434.201304524,959.7770566832081
+268967,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-08-11,222,221,307672.96,2868096.6198030286,2560423.6598030287,832.1900175442875
+268967,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-08-18,229,228,307672.96,2706861.1665491457,2399188.2065491457,779.7852000218497
+268967,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-08-25,236,235,311416.01,2625017.5219839844,2313601.511983984,742.9295340287688
+268967,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-09-01,243,242,304896.32,2773487.333447443,2468591.013447443,809.6493304502471
+268967,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-09-08,250,249,302209.28,2882100.8188403444,2579891.538840344,853.677140172646
+268967,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-09-15,257,256,283236.31,2784076.508203565,2500840.198203565,882.9518355904174
+268967,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-09-22,264,263,251514.18,2747136.277525165,2495622.097525165,992.2391244601657
+268967,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-09-29,271,270,225804.87,2769750.6778578293,2543945.807857829,1126.6124631669056
+268967,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-10-06,278,277,263501.2,2757053.6986215813,2493552.498621581,946.3154242263721
+268967,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-10-13,285,284,242881.18,2651232.992603332,2408351.8126033316,991.5761330718715
+268967,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-10-20,292,291,263748.53,2651277.904092418,2387529.374092418,905.2294524987182
+268967,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-10-27,299,298,248721.2,2644560.7925289893,2395839.592528989,963.2631205257087
+268967,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-11-03,306,305,232963.05,2615327.6851443956,2382364.6351443958,1022.6362657702138
+268967,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-11-10,313,312,306353.26,2493092.2137213163,2186738.9537213165,713.7965346676306
+268967,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-11-17,320,319,321401.26,2501753.6779563227,2180352.4179563224,678.389505366694
+268967,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-11-24,327,326,349564.46,2525526.243726667,2175961.783726667,622.477978375338
+268967,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-12-01,334,333,334234.98,2497469.712315831,2163234.732315831,647.2197291605537
+268967,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-12-08,341,340,330780.69,2564913.8592429506,2234133.1692429506,675.4122101997401
+268967,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-12-15,348,347,334550.57,2606119.9235828645,2271569.3535828646,678.9913266573914
+268967,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-12-22,355,354,333222.01,2561205.4126666514,2227983.4026666516,668.6183192600788
+268967,previous_day,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,2025-12-29,362,361,382653.99,2593899.8163375612,2211245.826337561,577.8708400081131
+268967,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-01-06,5,4,220644.25,422500.19442500005,201855.94442500005,91.48479709985648
+268967,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-01-13,12,11,202836.97,425229.410425,222392.440425,109.64097936633544
+268967,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-01-20,19,18,229908.04,425229.410425,195321.370425,84.95630271346752
+268967,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-01-27,26,25,207844.71,425229.410425,217384.70042500002,104.58996066101466
+268967,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-02-03,33,32,204819.55,425229.410425,220409.86042500002,107.61172965422492
+268967,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-02-10,40,39,204816.91,537229.410425,332412.500425,162.29739059387234
+268967,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-02-17,47,46,235695.96,585615.982425,349920.0224250001,148.46246088605002
+268967,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-02-24,54,53,284703.12,697615.982425,412912.86242500006,145.03278447563204
+268967,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-03-03,61,60,267389.54,772003.032425,504613.492425,188.7184863046625
+268967,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-03-10,68,67,248241.29,812984.532425,564743.242425,227.49770693868047
+268967,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-03-17,75,74,262994.07,884360.7562523901,621366.68625239,236.26642465831642
+268967,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-03-24,82,81,199951.95,942838.8062523901,742886.8562523902,371.53268885469237
+268967,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-03-31,89,88,217097.43,987918.4562523902,770821.0262523901,355.05764681433135
+268967,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-04-07,96,95,188514.27,998846.8562523901,810332.58625239,429.8521200821508
+268967,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-04-14,103,102,181337.72,998846.8562523901,817509.1362523901,450.8213383582799
+268967,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-04-21,110,109,227641.26,999330.45625239,771689.19625239,338.99355338851575
+268967,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-04-28,117,116,212287.9,1000297.6562523901,788009.7562523901,371.1986204830281
+268967,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-05-05,124,123,206964.49,1049213.3562523902,842248.8662523902,406.9533214380835
+268967,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-05-12,131,130,242401.58,1058775.70625239,816374.1262523901,336.78581065865586
+268967,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-05-19,138,137,234418.65,1069704.1062523902,835285.4562523902,356.3220999064666
+268967,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-05-26,145,144,275919.95,1126332.50625239,850412.5562523901,308.2098834290127
+268967,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-06-02,152,151,281205.25,1137260.9062523902,856055.6562523902,304.4237816514415
+268967,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-06-09,159,158,263831.65,1148189.3062523901,884357.6562523901,335.19771272794225
+268967,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-06-16,166,165,245626.38,1157751.6562523902,912125.2762523902,371.34662663366623
+268967,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-06-23,173,172,226080.81,999720.6077391299,773639.79773913,342.19613674381736
+268967,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-06-30,180,179,260360.09,1010649.00773913,750288.91773913,288.17355138382766
+268967,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-07-07,187,186,244808.06,1021577.40773913,776769.34773913,317.2972931279836
+268967,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-07-14,194,193,222549.86,1031139.75773913,808589.89773913,363.32977146745003
+268967,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-07-21,201,200,238918.79,1053671.50773913,814752.7177391299,341.01659301854403
+268967,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-07-28,208,207,264882.35,1056004.75773913,791122.40773913,298.6693555607348
+268967,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-08-04,215,214,259584.68,1056004.75773913,796420.07773913,306.8055009021064
+268967,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-08-11,222,221,307672.96,1056004.75773913,748331.79773913,243.22312813551437
+268967,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-08-18,229,228,307672.96,1061468.95773913,753795.9977391299,244.9991048089276
+268967,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-08-25,236,235,311416.01,1069665.25773913,758249.2477391299,243.48434999829647
+268967,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-09-01,243,242,304896.32,1077861.55773913,772965.2377391299,253.51740478177302
+268967,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-09-08,250,249,302209.28,1086057.85773913,783848.57773913,259.3727690093203
+268967,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-09-15,257,256,283236.31,1094254.1577391298,811017.8477391298,286.33964612062977
+268967,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-09-22,264,263,251514.18,1102450.45773913,850936.27773913,338.3253690663206
+268967,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-09-29,271,270,225804.87,1110646.75773913,884841.88773913,391.86129499294236
+268967,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-10-06,278,277,263501.2,1118843.05773913,855341.85773913,324.60643736693794
+268967,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-10-13,285,284,242881.18,1127039.35773913,884158.1777391301,364.02910169455293
+268967,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-10-20,292,291,263748.53,1135235.6577391298,871487.1277391298,330.4235014083793
+268967,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-10-27,299,298,248721.2,1143431.95773913,894710.75773913,359.72436516836115
+268967,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-11-03,306,305,232963.05,1144798.00773913,911834.9577391299,391.4075462778883
+268967,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-11-10,313,312,306353.26,1088478.1915665201,782124.9315665201,255.30165129188447
+268967,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-11-17,320,319,321401.26,1088478.1915665201,767076.9315665201,238.66643570921912
+268967,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-11-24,327,326,349564.46,1088478.1915665201,738913.7315665202,211.38125184880641
+268967,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-12-01,334,333,334234.98,1032158.3753939101,697923.3953939101,208.8121941616973
+268967,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-12-08,341,340,330780.69,1032158.3753939101,701377.6853939102,212.03707066271315
+268967,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-12-15,348,347,334550.57,1032641.9753939101,698091.4053939101,208.6654359590271
+268967,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-12-22,355,354,333222.01,976322.1592213,643100.1492213,192.99449913926756
+268967,previous_day,stock_total_value_without_internal_rollup,Stock composant valorise hors PFI/flux internes,direct_real_like,2025-12-29,362,361,382653.99,976322.1592213,593668.1692213,155.14490498878635

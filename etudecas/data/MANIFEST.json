@@ -16,16 +16,73 @@
     }
   },
   "canonical_source_files": [
-    "021081.xlsx",
-    "268191.xlsx",
+    "773474.xlsx",
+    "268091.xlsx",
     "268967.xlsx",
     "Data_poc.xlsx",
     "demand_PF.xlsx",
     "Extract_En_cours.xlsx",
     "Fournisseur.xlsx",
-    "Stocks_MRP.xlsx",
+    "Extract_Données_Complémentaires.xlsx",
+    "CA_Perdu_Réel.csv",
+    "Dispo_PF_Projeté.csv",
+    "Stock_Composants_Immobilisé_Cos.csv",
+    "Stock_Composants_Immobilisé_Pharma.csv",
+    "Stock_PF_Immobilisé.csv",
     "supply_graph_poc.json"
   ],
+  "business_reference_files": {
+    "CA_Perdu_Réel.csv": {
+      "role": "Historique CA livre/perdu par produit et date de livraison.",
+      "intended_use": "Validation service client, pertes de CA et comparaison simulation/reel."
+    },
+    "Dispo_PF_Projeté.csv": {
+      "role": "Ruptures produit fini projetees par semaine.",
+      "intended_use": "Validation disponibilite produit et signal de tension PF."
+    },
+    "Stock_Composants_Immobilisé_Cos.csv": {
+      "role": "Valeur de stock composants immobilise cosmetique.",
+      "intended_use": "Validation cout de stockage / immobilisation composants.",
+      "measurement": "stock_value",
+      "product_scope": {
+        "business_name": "cos",
+        "finished_product_item_id": "item:268967",
+        "finished_product_code": "268967",
+        "scope": "Composants rattaches au BOM du produit fini 268967."
+      },
+      "comparison_note": "Comparer au stock simule des composants du BOM 268967 apres valorisation par les prix composants disponibles sur les liens fournisseur-usine. Controler les prix a zero, les composants internes et les cas multi-sources avant comparaison."
+    },
+    "Stock_Composants_Immobilisé_Pharma.csv": {
+      "role": "Valeur de stock composants immobilise pharma.",
+      "intended_use": "Validation cout de stockage / immobilisation composants.",
+      "measurement": "stock_value",
+      "product_scope": {
+        "business_name": "pharma",
+        "finished_product_item_id": "item:268091",
+        "finished_product_code": "268091",
+        "scope": "Composants rattaches au BOM du produit fini 268091.",
+        "assumption": "Le code mentionne comme 26809 est interprete comme 268091, produit fini present dans le graphe et la simulation."
+      },
+      "comparison_note": "Comparer au stock simule des composants du BOM 268091 apres valorisation par les prix composants disponibles sur les liens fournisseur-usine. Controler les prix a zero, les composants internes et les cas multi-sources avant comparaison."
+    },
+    "Stock_PF_Immobilisé.csv": {
+      "role": "Valeur de stock produits finis immobilise par article.",
+      "intended_use": "Validation cout de stockage PF et dynamique de stock.",
+      "measurement": "stock_value",
+      "product_scope": {
+        "finished_product_item_ids": [
+          "item:268967",
+          "item:268091"
+        ],
+        "finished_product_codes": [
+          "268967",
+          "268091"
+        ],
+        "scope": "Stocks immobilises de produits finis par article."
+      },
+      "comparison_note": "Comparer aux stocks PF simules par article/site apres valorisation avec les memes conventions de cout."
+    }
+  },
   "legacy_paths": {
     "etudecas/donnees": {
       "status": "replaced_by_etudecas_data_source",
@@ -35,6 +92,11 @@
     "etudecas/result_geocodage": {
       "status": "replaced_by_etudecas_data_geocoded",
       "replacement": "etudecas/data/geocoded"
+    },
+    "etudecas/data/source/Stocks_MRP.xlsx": {
+      "status": "replaced_by_extract_donnees_complementaires",
+      "replacement": "etudecas/data/source/Extract_Données_Complémentaires.xlsx",
+      "note": "Ancien nom encore present localement; le pipeline actif prefere le fichier Extract_Donnees_Complementaires."
     }
   }
 }
