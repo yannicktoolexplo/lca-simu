@@ -215,6 +215,8 @@ SUPPLIER_STATE_RISK_EVENT_FIELDS = [
     "end_day",
     "supplier_id",
     "item_id",
+    "dst_node_id",
+    "edge_id",
     "risk_family",
     "risk_type",
     "multiplier",
@@ -2592,6 +2594,8 @@ def make_state_dependent_supplier_event(
     consecutive_days: int,
     effect: str,
     notes: str,
+    dst_node_id: str = "",
+    edge_id: str = "",
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     end_day = start_day + max(1, int(duration_days)) - 1
     event = {
@@ -2600,8 +2604,8 @@ def make_state_dependent_supplier_event(
         "risk_type": risk_type,
         "supplier_id": supplier_id,
         "item_id": item_id,
-        "dst_node_id": "",
-        "edge_id": "",
+        "dst_node_id": dst_node_id,
+        "edge_id": edge_id,
         "start_day": int(start_day),
         "end_day": int(end_day),
         "multiplier": multiplier,
@@ -2615,6 +2619,8 @@ def make_state_dependent_supplier_event(
         "end_day": int(end_day),
         "supplier_id": supplier_id,
         "item_id": item_id,
+        "dst_node_id": dst_node_id,
+        "edge_id": edge_id,
         "risk_family": risk_family,
         "risk_type": risk_type,
         "multiplier": round(multiplier, 6),
@@ -5942,25 +5948,36 @@ def main() -> None:
         consecutive_days: int,
         effect: str,
         notes: str,
+        dst_node_id: str = "",
+        edge_id: str = "",
         duration_days: int = 14,
         cooldown_days: int = 14,
     ) -> None:
         observation_warmup_days = max(0, int(args.supplier_state_risk_observation_warmup_days or 0))
         if not args.supplier_state_dependent_risks or trigger_day < observation_warmup_days:
             return
-        key = (risk_family, trigger_metric, supplier_id, item_id)
+        key = (risk_family, trigger_metric, supplier_id, item_id, dst_node_id, edge_id)
         if trigger_day <= supplier_state_risk_open_until_by_key.get(key, -1):
             return
         safe_supplier = re.sub(r"[^A-Za-z0-9]+", "_", supplier_id).strip("_")
         safe_item = re.sub(r"[^A-Za-z0-9]+", "_", item_id).strip("_")
+        safe_dst = re.sub(r"[^A-Za-z0-9]+", "_", dst_node_id).strip("_")
+        safe_edge = re.sub(r"[^A-Za-z0-9]+", "_", edge_id).strip("_")
         safe_metric = re.sub(r"[^A-Za-z0-9]+", "_", trigger_metric).strip("_")
-        event_id = f"state_{risk_family}_{safe_metric}_{safe_supplier}_{safe_item}_d{trigger_day}"
+        scope_parts = [safe_supplier, safe_item]
+        if safe_dst:
+            scope_parts.append(safe_dst)
+        if safe_edge:
+            scope_parts.append(safe_edge[:40])
+        event_id = f"state_{risk_family}_{safe_metric}_{'_'.join(scope_parts)}_d{trigger_day}"
         start_day = trigger_day + 1
         event, row = make_state_dependent_supplier_event(
             event_id=event_id,
             trigger_day=trigger_day,
             supplier_id=supplier_id,
             item_id=item_id,
+            dst_node_id=dst_node_id,
+            edge_id=edge_id,
             risk_family=risk_family,
             risk_type=risk_type,
             multiplier=multiplier,
@@ -5993,10 +6010,12 @@ def main() -> None:
         required_consecutive_days: int,
         effect: str,
         notes: str,
+        dst_node_id: str = "",
+        edge_id: str = "",
         duration_days: int = 14,
         cooldown_days: int = 14,
     ) -> None:
-        counter_key = (counter_family, supplier_id, item_id)
+        counter_key = (counter_family, supplier_id, item_id, dst_node_id, edge_id)
         if triggered:
             supplier_state_risk_counters[counter_key] += 1
         else:
@@ -6006,6 +6025,8 @@ def main() -> None:
                 trigger_day=trigger_day,
                 supplier_id=supplier_id,
                 item_id=item_id,
+                dst_node_id=dst_node_id,
+                edge_id=edge_id,
                 risk_family=risk_family,
                 risk_type=risk_type,
                 multiplier=multiplier,
@@ -6032,6 +6053,35 @@ def main() -> None:
             supplier_state_risk_metric_windows[metric_key] = window
         window.append(float(value))
         return sum(window) / len(window)
+
+    def candidate_supply_lanes_for_factory_input(
+        dst_node_id: str,
+        item_id: str,
+        *,
+        limit: int = 2,
+    ) -> list[dict[str, Any]]:
+        candidate_lanes = [
+            lane
+            for lane in lanes_by_dest_item.get((dst_node_id, item_id), [])
+            if str(lane.get("src") or "").strip() and str(lane.get("item_id") or "") == item_id
+        ]
+        if not candidate_lanes:
+            return []
+
+        def source_priority(lane: dict[str, Any]) -> tuple[int, float, float, str]:
+            src = str(lane.get("src") or "")
+            node_type = node_type_by_id.get(src, "")
+            if src in supplier_node_ids:
+                type_rank = 0
+            elif node_type in {"factory", "distribution_center"}:
+                type_rank = 1
+            else:
+                type_rank = 2
+            share = max(0.0, to_float(lane.get("mrp_share"), 0.0))
+            lead_days = max(1.0, to_float(lane.get("lead_days_mean"), lane.get("lead_days")) or 1.0)
+            return (type_rank, -share, lead_days, src)
+
+        return sorted(candidate_lanes, key=source_priority)[: max(1, int(limit))]
 
     for day in range(total_timeline_days):
         record_day = day >= warmup_days
@@ -6939,6 +6989,96 @@ def main() -> None:
                                 "notes": "lot_policy_enabled" if lot_policy["enabled"] else "daily_unlotified_plan",
                             }
                         )
+                        if args.supplier_state_dependent_risks and binding_cause == "input_shortage" and binding_item:
+                            shortage_reference_qty = max(lot_planned_qty, desired_qty, 1.0)
+                            shortage_ratio = max(0.0, shortfall_vs_lot_plan_qty) / shortage_reference_qty
+                            next_receipt_text = next_receipt_day_for_pair(receipt_pair, day)
+                            next_receipt_output_day = (
+                                int(to_float(next_receipt_text) or 0)
+                                if str(next_receipt_text or "").strip()
+                                else None
+                            )
+                            days_until_receipt = (
+                                max(0, next_receipt_output_day - output_day)
+                                if next_receipt_output_day is not None
+                                else 365
+                            )
+                            for source_lane in candidate_supply_lanes_for_factory_input(nid, binding_item):
+                                source_node_id = str(source_lane.get("src") or "")
+                                if not source_node_id:
+                                    continue
+                                source_edge_id = str(source_lane.get("edge_id") or "")
+                                source_lead_days = max(
+                                    1.0,
+                                    to_float(source_lane.get("lead_days_mean"), source_lane.get("lead_days")) or 1.0,
+                                )
+                                late_threshold_days = max(7.0, source_lead_days)
+                                lane_scope = f"{nid}:{out_item}:{binding_item}"
+                                note = (
+                                    "Cascade production: report par manque d'intrant. "
+                                    f"Site={nid}, produit={out_item}, intrant={binding_item}, "
+                                    f"shortfall_ratio={shortage_ratio:.3f}, prochaine_reception={next_receipt_text or 'n/a'}."
+                                )
+                                update_state_risk_counter_and_register(
+                                    trigger_day=output_day,
+                                    supplier_id=source_node_id,
+                                    item_id=binding_item,
+                                    counter_family=f"factory_input_shortage_watch:{lane_scope}",
+                                    risk_family="availability",
+                                    risk_type="availability",
+                                    multiplier=0.92,
+                                    trigger_metric="factory_input_shortage_reported",
+                                    trigger_value=shortage_ratio,
+                                    threshold=0.05,
+                                    triggered=shortage_ratio >= 0.05,
+                                    required_consecutive_days=2,
+                                    effect="Disponibilite lane amont x0.92 pendant 10 jours",
+                                    notes=note,
+                                    dst_node_id=nid,
+                                    edge_id=source_edge_id,
+                                    duration_days=10,
+                                    cooldown_days=21,
+                                )
+                                update_state_risk_counter_and_register(
+                                    trigger_day=output_day,
+                                    supplier_id=source_node_id,
+                                    item_id=binding_item,
+                                    counter_family=f"factory_input_shortage_late:{lane_scope}",
+                                    risk_family="lead",
+                                    risk_type="lead_time_extra_days",
+                                    multiplier=2.0,
+                                    trigger_metric="factory_input_shortage_next_receipt_late",
+                                    trigger_value=float(days_until_receipt),
+                                    threshold=late_threshold_days,
+                                    triggered=shortage_ratio >= 0.10 and float(days_until_receipt) > late_threshold_days,
+                                    required_consecutive_days=1,
+                                    effect="Delai lane amont +2 jours pendant 14 jours",
+                                    notes=note,
+                                    dst_node_id=nid,
+                                    edge_id=source_edge_id,
+                                    duration_days=14,
+                                    cooldown_days=21,
+                                )
+                                update_state_risk_counter_and_register(
+                                    trigger_day=output_day,
+                                    supplier_id=source_node_id,
+                                    item_id=binding_item,
+                                    counter_family=f"factory_input_shortage_severe:{lane_scope}",
+                                    risk_family="capacity",
+                                    risk_type="capacity",
+                                    multiplier=0.88,
+                                    trigger_metric="factory_input_shortage_severe_or_repeated",
+                                    trigger_value=shortage_ratio,
+                                    threshold=0.35,
+                                    triggered=shortage_ratio >= 0.35,
+                                    required_consecutive_days=2,
+                                    effect="Capacite lane amont x0.88 pendant 14 jours",
+                                    notes=note,
+                                    dst_node_id=nid,
+                                    edge_id=source_edge_id,
+                                    duration_days=14,
+                                    cooldown_days=28,
+                                )
                 if qty <= 0:
                     continue
 
