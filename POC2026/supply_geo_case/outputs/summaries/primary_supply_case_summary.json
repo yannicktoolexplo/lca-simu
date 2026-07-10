@@ -1,0 +1,81 @@
+{
+  "schema_version": "poc2026.supply_geo_case.v1",
+  "generated_at_utc": "2026-07-09T17:30:41+00:00",
+  "source": {
+    "json_path": "C:\\dev\\lca-simu\\supply_geo\\analysis\\output8_GEO_normalized_simulation_ready_researched.json",
+    "map_html": "C:\\dev\\lca-simu\\supply_geo\\analysis\\maps\\output8_GEO_simulation_ready_researched_map.html",
+    "root_map_html": "C:\\dev\\lca-simu\\supply_geo\\analysis\\map.html"
+  },
+  "counts": {
+    "source_records": 175,
+    "usable_records": 170,
+    "excluded_records": 5,
+    "skipped_records": 0,
+    "primary_paths": 172,
+    "path_node_rows": 860,
+    "primary_lane_rows": 688,
+    "unique_role_nodes": 104,
+    "unique_sites": 103,
+    "unique_flows": 143,
+    "weather_rows": 24720,
+    "event_seed_rows": 9147,
+    "transport_weather_rows": 12000,
+    "node_operational_rows": 24720,
+    "operational_event_rows": 45416,
+    "sdd_node_state_rows": 206400,
+    "sdd_lane_state_rows": 165120,
+    "sdd_flow_state_rows": 41280,
+    "sdd_event_ledger_rows": 158855
+  },
+  "mass": {
+    "usable_record_mass_kg": 129.949472,
+    "allocated_primary_path_mass_kg": 129.949472,
+    "allocation_gap_kg": 0.0
+  },
+  "excluded_record_indexes": [
+    127,
+    156,
+    157,
+    174,
+    175
+  ],
+  "readiness_counts": {
+    "primary_complete_needs_validation": 127,
+    "primary_ready_topology": 45
+  },
+  "transport_model_counts": {
+    "lane_specific": 172
+  },
+  "lca_use_class_counts": {
+    "quantitative_ready": 128,
+    "usable_for_baseline": 17,
+    "usable_with_review": 13,
+    "scenario_only_review_required": 14
+  },
+  "role_node_counts": {
+    "T4": 172,
+    "T3": 172,
+    "T2": 172,
+    "T1": 172,
+    "OEM": 172
+  },
+  "edge_counts": {
+    "T4->T3": 172,
+    "T3->T2": 172,
+    "T2->T1": 172,
+    "T1->OEM": 172
+  },
+  "mode_counts": {
+    "ship|truck": 283,
+    "truck": 273,
+    "internal": 100,
+    "rail|truck": 32
+  },
+  "event_type_counts": {
+    "heatwave": 774,
+    "storm": 3010,
+    "cold": 3454,
+    "drought": 684,
+    "hurricane": 1225
+  }
+}

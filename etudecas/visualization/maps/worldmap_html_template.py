@@ -1263,6 +1263,19 @@ def html_template(
       border-color: #93c5fd;
       color: #1d4ed8;
     }}
+    .panelSubTab.secondary {{
+      font-size: 10.5px;
+      background: #f8fafc;
+    }}
+    .panelSubTab.secondary.active {{
+      background: #ecfeff;
+      border-color: #67e8f9;
+      color: #0e7490;
+    }}
+    .panelSubTabSeparator {{
+      flex-basis: 100%;
+      height: 0;
+    }}
     .factoryPlotHelp {{
       display: none;
       font-size: 11px;
@@ -3958,6 +3971,18 @@ def html_template(
       }});
     }}
 
+    function fmtMultiplierPercent(value, digits = 0) {{
+      const numeric = Number(value);
+      if (!Number.isFinite(numeric)) return "n/a";
+      const percent = numeric * 100;
+      const rounded = Math.round(percent);
+      const finalDigits = Math.abs(percent - rounded) < 1e-9 ? 0 : digits;
+      return `${{percent.toLocaleString("fr-FR", {{
+        minimumFractionDigits: finalDigits,
+        maximumFractionDigits: finalDigits,
+      }})}}%`;
+    }}
+
     function escapeTableHtml(value) {{
       return String(value ?? "").replace(/[&<>"']/g, (ch) => ({{
         "&": "&amp;",
@@ -4551,6 +4576,8 @@ def html_template(
     }}
 
     function lotTracePlotCategory(plotlyFigure, contextNodeType = "") {{
+      const explicitCategory = String((((plotlyFigure || {{}}).layout || {{}}).meta || {{}}).lot_trace_category || "");
+      if (explicitCategory) return explicitCategory;
       const title = plotlyFigureTitleText(plotlyFigure).toLowerCase();
       if (contextNodeType === "edge") {{
         return title.includes("envois et receptions physiques") ? "transport" : "none";
@@ -4560,7 +4587,12 @@ def html_template(
         title.includes("stock intrant") ||
         title.includes("stocks intrants") ||
         title.includes("receptions intrants") ||
-        title.includes("arrivages intrants")
+        title.includes("arrivages intrants") ||
+        title.includes("stock physique et cible physique") ||
+        title.includes("stock physique et seuil mrp") ||
+        title.includes("stock physique vs consigne physique") ||
+        title.includes("pilotage mrp") ||
+        title.includes("receptions physiques intrants")
       ) return "factory_input";
       if (
         title.includes("stock produits finis") ||
@@ -7500,7 +7532,10 @@ def html_template(
         }});
         layout.barmode = "overlay";
       }}
-      const axisRefs = ["x"];
+      const axisRefs = Array.from(new Set(data
+        .map(trace => String(trace.xaxis || "x"))
+        .filter(axisName => axisName && axisName !== "undefined")));
+      if (!axisRefs.length) axisRefs.push("x");
       layout.shapes = Array.isArray(layout.shapes) ? layout.shapes.slice() : [];
       markers.forEach((marker) => {{
         const day = marker.day;
@@ -7839,7 +7874,7 @@ def html_template(
         lines.push(`Causes supply actives: ${{impact.effective_root_count || 0}} / ${{impact.root_count || 0}}`);
       }}
       if (Number(impact.production_delay_count || 0) > 0) {{
-        lines.push(`Reports production: ${{impact.production_delay_count}} ; volume reporte=${{fmtPanelQty(Number(impact.production_shortfall_qty) || 0, 0)}}`);
+        lines.push(`Replanification production: ${{impact.production_delay_count}} lignes ; volume associe=${{fmtPanelQty(Number(impact.production_shortfall_qty) || 0, 0)}}`);
       }}
       if (Number(impact.customer_backlog_max_qty || 0) > 0) {{
         lines.push(`Backlog client max: ${{fmtPanelQty(Number(impact.customer_backlog_max_qty) || 0, 0)}}`);
@@ -7859,7 +7894,7 @@ def html_template(
         `Periode: ${{impact.period || "n/a"}}`,
         `Jours touches: ${{impact.active_day_count || 0}} ; lignes appliquees: ${{impact.delay_row_count || 0}}`,
         `Delai ajoute max: ${{fmtPanelQty(Number(impact.max_extra_days) || 0, 1)}} j`,
-        `Multiplicateur lead max: x${{fmtPanelQty(Number(impact.max_multiplier) || 1, 2)}}`,
+        `Multiplicateur lead max: ${{fmtMultiplierPercent(Number(impact.max_multiplier) || 1)}}`,
         `Articles: ${{itemText}}`,
         `Evenements: ${{events}}`,
       ];
@@ -8121,7 +8156,7 @@ def html_template(
       return [
         absorption,
         simulatedRiskCascadeShortText(row.reading || "n/a", 70),
-        `Reports: ${{reports}} | Volume: ${{fmtPanelQty(volume, 0)}}`,
+        `Replanification: ${{reports}} lignes | Volume associe: ${{fmtPanelQty(volume, 0)}}`,
         `Backlog max: ${{fmtPanelQty(backlog, 0)}}`,
         conclusion,
       ];
@@ -8489,7 +8524,7 @@ def html_template(
         ["Declencheur principal", impact.primary_trigger || "n/a"],
         ["Periode", impact.period || "n/a"],
         ["Causes supply actives", `${{impact.effective_root_count || 0}} / ${{impact.root_count || 0}}`],
-        ["Reports production", String(impact.production_delay_count || 0)],
+        ["Volume replanifie", String(impact.production_delay_count || 0)],
         ["Volume reporte", fmtPanelQty(Number(impact.production_shortfall_qty) || 0, 0)],
         ["Backlog client max", fmtPanelQty(Number(impact.customer_backlog_max_qty) || 0, 0)],
       ].map(([label, value]) => `
@@ -9726,11 +9761,11 @@ def html_template(
           const impact = simulatedRiskEdgeImpact(nodeId);
           if (impact) {{
             const extraDays = fmtPanelQty(Number(impact.max_extra_days) || 0, 1);
-            const multiplier = fmtPanelQty(Number(impact.max_multiplier) || 1, 2);
+            const multiplier = fmtMultiplierPercent(Number(impact.max_multiplier) || 1);
             return {{
               pill: "Risques simules",
               title: `Delai transport impacte - ${{nodeLabel}}`,
-              text: `Question metier: ce flux est-il un vecteur de perturbation ? Oui: ${{impact.delay_row_count || 0}} effet(s) de delai applique(s) sur ${{impact.active_day_count || 0}} jour(s), periode ${{impact.period || "n/a"}}, delai ajoute max ${{extraDays}} j, multiplicateur max x${{multiplier}}.`,
+              text: `Question metier: ce flux est-il un vecteur de perturbation ? Oui: ${{impact.delay_row_count || 0}} effet(s) de delai applique(s) sur ${{impact.active_day_count || 0}} jour(s), periode ${{impact.period || "n/a"}}, delai ajoute max ${{extraDays}} j, multiplicateur max ${{multiplier}}.`,
               cls: "businessWarn",
             }};
           }}
@@ -9747,7 +9782,7 @@ def html_template(
           return {{
             pill: "Risques simules",
             title: `${{impact.stage_label || "Impact reel"}} - ${{nodeLabel}}`,
-            text: `Question metier: ou le scenario a-t-il vraiment pese ? Role carte: ${{impact.role || "noeud impacte"}}. Origine: ${{impact.supplier_label || impact.supplier_id || "n/a"}} / ${{impact.item_label || impact.item_id || "n/a"}}. Declencheur: ${{impact.primary_trigger || "n/a"}}. Periode: ${{impact.period || "n/a"}}. Reports production: ${{impact.production_delay_count || 0}}.`,
+            text: `Question metier: ou le scenario a-t-il vraiment pese ? Role carte: ${{impact.role || "noeud impacte"}}. Origine: ${{impact.supplier_label || impact.supplier_id || "n/a"}} / ${{impact.item_label || impact.item_id || "n/a"}}. Declencheur: ${{impact.primary_trigger || "n/a"}}. Periode: ${{impact.period || "n/a"}}. Volume replanifie: ${{impact.production_delay_count || 0}} lignes.`,
             cls,
           }};
         }}
@@ -10055,7 +10090,7 @@ def html_template(
               {{ label: "Jours touches", value: String(impact.active_day_count || 0) }},
               {{ label: "Lignes appliquees", value: String(impact.delay_row_count || 0) }},
               {{ label: "Delai ajoute max", value: `${{fmtPanelQty(Number(impact.max_extra_days) || 0, 1)}} j` }},
-              {{ label: "Multiplicateur lead max", value: `x${{fmtPanelQty(Number(impact.max_multiplier) || 1, 2)}}` }},
+              {{ label: "Multiplicateur lead max", value: fmtMultiplierPercent(Number(impact.max_multiplier) || 1) }},
               {{ label: "Articles", value: Array.isArray(impact.item_ids) ? impact.item_ids.join(", ") : "n/a" }},
             ];
           }}
@@ -10069,7 +10104,7 @@ def html_template(
               {{ label: "Declencheur", value: impact.primary_trigger || "n/a" }},
               {{ label: "Periode", value: impact.period || "n/a" }},
               {{ label: "Causes supply actives", value: `${{impact.effective_root_count || 0}} / ${{impact.root_count || 0}}` }},
-              {{ label: "Reports production", value: String(impact.production_delay_count || 0) }},
+              {{ label: "Volume replanifie", value: String(impact.production_delay_count || 0) }},
               {{ label: "Volume reporte", value: fmtPanelQty(Number(impact.production_shortfall_qty) || 0, 0) }},
               {{ label: "Backlog max", value: fmtPanelQty(Number(impact.customer_backlog_max_qty) || 0, 0) }},
             ];
@@ -11073,6 +11108,7 @@ def html_template(
             }}),
             layout: {{
               title: {{ text: figure.title || "", font: {{ size: 12 }} }},
+              meta: {{ lot_trace_category: figure.lot_trace_category || "" }},
               margin: STANDARD_PLOT_MARGIN,
               paper_bgcolor: "#ffffff",
               plot_bgcolor: "#ffffff",
@@ -11166,6 +11202,7 @@ def html_template(
             data: traces,
             layout: {{
               title: {{ text: figure.title || "", font: {{ size: 12 }} }},
+              meta: {{ lot_trace_category: figure.lot_trace_category || "" }},
               margin: {{ l: 64, r: 24, t: 72, b: 86 }},
               paper_bgcolor: "#ffffff",
               plot_bgcolor: "#ffffff",
@@ -11271,6 +11308,7 @@ def html_template(
             data: traces,
             layout: {{
               title: {{ text: figure.title || "", font: {{ size: 12 }} }},
+              meta: {{ lot_trace_category: figure.lot_trace_category || "" }},
               margin: GANTT_PLOT_MARGIN,
               paper_bgcolor: "#ffffff",
               plot_bgcolor: "#ffffff",
@@ -11321,6 +11359,14 @@ def html_template(
             : {{ title: bottom.x_label || "", tickangle: -20, gridcolor: "#e2e8f0" }};
           const showLegend = Boolean(figure.show_legend);
           const primaryMode = isParameterSweep ? "lines+markers" : "lines";
+          const panelHoverTemplate = (panel) => panel && panel.y_unit === "percent"
+            ? "%{{fullData.name}}<br>%{{x}}<br>%{{y:.2f}}%<extra></extra>"
+            : "%{{fullData.name}}<br>%{{x}}<br>%{{y:,.2f}}<extra></extra>";
+          const panelYAxisLayout = (panel) => {{
+            const axis = {{ title: panel.y_label || "", gridcolor: "#e2e8f0" }};
+            if (panel.y_unit === "percent") axis.ticksuffix = "%";
+            return axis;
+          }};
           const traces = [];
           traces.push(top.kind === "bar"
             ? {{
@@ -11332,6 +11378,7 @@ def html_template(
                 yaxis: "y",
                 name: top.title || "Panel 1",
                 showlegend: showLegend,
+                hovertemplate: panelHoverTemplate(top),
               }}
             : {{
                 type: "scatter",
@@ -11344,6 +11391,7 @@ def html_template(
                 yaxis: "y",
                 name: top.title || "Panel 1",
                 showlegend: showLegend,
+                hovertemplate: panelHoverTemplate(top),
               }});
           traces.push(bottom.kind === "line"
             ? {{
@@ -11357,6 +11405,7 @@ def html_template(
                 yaxis: "y2",
                 name: bottom.title || "Panel 2",
                 showlegend: showLegend,
+                hovertemplate: panelHoverTemplate(bottom),
               }}
             : {{
                 type: "bar",
@@ -11367,12 +11416,14 @@ def html_template(
                 yaxis: "y2",
                 name: bottom.title || "Panel 2",
                 showlegend: showLegend,
+                hovertemplate: panelHoverTemplate(bottom),
               }});
           (top.extra_traces || []).forEach((trace) => {{
             traces.push({{
               ...trace,
               xaxis: "x",
               yaxis: "y",
+              hovertemplate: trace.hovertemplate || panelHoverTemplate(top),
             }});
           }});
           (bottom.extra_traces || []).forEach((trace) => {{
@@ -11380,20 +11431,22 @@ def html_template(
               ...trace,
               xaxis: "x2",
               yaxis: "y2",
+              hovertemplate: trace.hovertemplate || panelHoverTemplate(bottom),
             }});
           }});
           return {{
             data: traces,
             layout: {{
               title: {{ text: figure.title || "", font: {{ size: 12 }} }},
+              meta: {{ lot_trace_category: figure.lot_trace_category || "" }},
               margin: {{ l: 60, r: 20, t: 48, b: 46 }},
               paper_bgcolor: "#ffffff",
               plot_bgcolor: "#ffffff",
               grid: {{ rows: 2, columns: 1, pattern: "independent", roworder: "top to bottom" }},
               xaxis: topXAxis,
-              yaxis: {{ title: top.y_label || "", gridcolor: "#e2e8f0" }},
+              yaxis: panelYAxisLayout(top),
               xaxis2: bottomXAxis,
-              yaxis2: {{ title: bottom.y_label || "", gridcolor: "#e2e8f0" }},
+              yaxis2: panelYAxisLayout(bottom),
               annotations: [
                 {{
                   text: top.title || "",
@@ -11635,6 +11688,8 @@ def html_template(
             }}
           }}
           if (selectedIdx >= entries.length) selectedIdx = 0;
+          const selectedEntry = entries[selectedIdx] || entries[0];
+          const selectedAsset = selectedEntry.asset;
           if (tabsEl && entries.length > 1) {{
             tabsEl.style.display = "flex";
             entries.forEach((entry, idx) => {{
@@ -11653,7 +11708,37 @@ def html_template(
               tabsEl.appendChild(btn);
             }});
           }}
-          return renderAsset(entries[selectedIdx].asset, imgEl, figureEl, null, selectionKey);
+          if (selectedAsset && Array.isArray(selectedAsset.bundle) && selectedAsset.bundle.length) {{
+            const nestedEntries = selectedAsset.bundle.filter(entry => entry && entry.asset);
+            if (!nestedEntries.length) return false;
+            const nestedKey = `${{selectionKey}}:${{selectedEntry.label || selectedIdx}}`;
+            let nestedIdx = panelBundleSelection[nestedKey] ?? 0;
+            if (nestedIdx >= nestedEntries.length) nestedIdx = 0;
+            if (tabsEl && nestedEntries.length > 1) {{
+              if (entries.length > 1) {{
+                const separator = document.createElement("span");
+                separator.className = "panelSubTabSeparator";
+                tabsEl.appendChild(separator);
+              }}
+              nestedEntries.forEach((entry, idx) => {{
+                const btn = document.createElement("button");
+                btn.type = "button";
+                btn.className = idx === nestedIdx ? "panelSubTab secondary active" : "panelSubTab secondary";
+                btn.textContent = entry.label || `Vue ${{idx + 1}}`;
+                btn.onclick = () => {{
+                  panelBundleSelection[nestedKey] = idx;
+                  renderAsset(asset, imgEl, figureEl, tabsEl, selectionKey);
+                  requestAnimationFrame(() => {{
+                    placeAndResizeFactoryPanel();
+                    requestAnimationFrame(runQueuedPanelPlotRenderJobs);
+                  }});
+                }};
+                tabsEl.appendChild(btn);
+              }});
+            }}
+            return renderAsset(nestedEntries[nestedIdx].asset, imgEl, figureEl, null, nestedKey);
+          }}
+          return renderAsset(selectedAsset, imgEl, figureEl, null, selectionKey);
         }}
         if (asset.data_b64) {{
           imgEl.src = `data:${{asset.mime || "image/png"}};base64,${{asset.data_b64}}`;
@@ -13178,14 +13263,25 @@ def html_template(
       if (!scenarios.length) {{
         return '<div class="panelEmptyState">Aucun scenario selectionne.</div>';
       }}
+      const scenarioReplanningText = (kpis) => {{
+        const rate = Number(kpis.production_replanning_rate);
+        const volume = Number(kpis.input_delay_volume || 0);
+        const count = Number(kpis.production_replanning_count ?? kpis.input_delay_count ?? 0);
+        if (Number.isFinite(rate)) {{
+          return `taux replanification ${{fmtPanelQty(rate * 100, 1)}}% ; volume associe ${{fmtPanelQty(volume, 0)}}.`;
+        }}
+        return `taux replanification n/a ; volume associe ${{fmtPanelQty(volume, 0)}} ; ${{fmtPanelQty(count, 0)}} lignes.`;
+      }};
       const nominal = allScenarios.find(s => ["_codex_lot_trace_5y_safe", "baseline_nominal"].includes(String(s.id || ""))) || allScenarios[0] || scenarios[0];
       const nominalKpis = (nominal && nominal.kpis) || {{}};
       const bestCost = scenarios.reduce((best, item) => Number((item.kpis || {{}}).total_cost || Infinity) < Number((best.kpis || {{}}).total_cost || Infinity) ? item : best, scenarios[0]);
       const bestProduction = scenarios.reduce((best, item) => {{
         const a = item.kpis || {{}};
         const b = best.kpis || {{}};
-        const aKey = [Number(a.input_delay_count || 0), Number(a.input_delay_volume || 0)];
-        const bKey = [Number(b.input_delay_count || 0), Number(b.input_delay_volume || 0)];
+        const aRate = Number.isFinite(Number(a.production_replanning_rate)) ? Number(a.production_replanning_rate) : Infinity;
+        const bRate = Number.isFinite(Number(b.production_replanning_rate)) ? Number(b.production_replanning_rate) : Infinity;
+        const aKey = [aRate, Number(a.production_replanning_count ?? a.input_delay_count ?? 0), Number(a.input_delay_volume || 0)];
+        const bKey = [bRate, Number(b.production_replanning_count ?? b.input_delay_count ?? 0), Number(b.input_delay_volume || 0)];
         return (aKey[0] < bKey[0] || (aKey[0] === bKey[0] && aKey[1] < bKey[1])) ? item : best;
       }}, scenarios[0]);
       const mostRisk = scenarios.reduce((best, item) => {{
@@ -13208,7 +13304,7 @@ def html_template(
         scenarioComparisonCard(
           "Production la moins reportee",
           bestProduction.label || "n/a",
-          `${{Number(bestProductionKpis.input_delay_count || 0)}} reports intrants ; volume reporte ${{fmtPanelQty(bestProductionKpis.input_delay_volume || 0, 0)}}.`,
+          scenarioReplanningText(bestProductionKpis),
           "#d97706"
         ),
         scenarioComparisonCard(
@@ -13415,8 +13511,10 @@ def html_template(
         const factorTubeKeys = [
           ["service_rate", "mcFactorTubeService"],
           ["backlog", "mcFactorTubeBacklog"],
-          ["total_supply_cost_cum", "mcFactorTubeCost"],
+          ["production_delay_active_orders", "mcFactorTubeProdDelayOrders"],
+          ["production_reports", "mcFactorTubeReports"],
           ["supplier_capacity_binding", "mcFactorTubeSupplierBinding"],
+          ["total_supply_cost_cum", "mcFactorTubeCost"],
         ].filter(([key]) => factorTubeFigures[key]);
         const figureKeys = [
           ["service_rate", "mcTrajectoryService"],

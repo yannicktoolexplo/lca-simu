@@ -1,0 +1,3 @@
+product_code,node_id,product_item_id,component_item_id,issue
+268091,M-1810,item:268091,item:693055,missing_or_fallback_unit_value
+268967,M-1430,item:268967,item:730384,missing_or_fallback_unit_value

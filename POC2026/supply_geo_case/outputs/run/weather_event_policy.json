@@ -1,0 +1,17 @@
+{
+  "enabled": true,
+  "horizon_months": 240,
+  "seed": 2026,
+  "thresholds": {
+    "heatwave_temp_c": 32.0,
+    "heat_index_c": 35.0,
+    "drought_temp_c": 27.0,
+    "drought_precip_mm": 18.0,
+    "drought_humidity_pct": 55.0,
+    "storm_precip_mm": 95.0,
+    "storm_wind_ms": 15.0,
+    "hurricane_precip_mm": 155.0,
+    "hurricane_wind_ms": 25.0,
+    "cold_temp_c": -4.0
+  }
+}

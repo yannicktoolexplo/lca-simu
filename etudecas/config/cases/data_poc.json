@@ -33,6 +33,26 @@
       "uom": "KG",
       "min_original_qty": 1000000.0,
       "note": "corrige: valeur source 5 000 000 interpretee comme g, soit 5 000 kg"
+    },
+    {
+      "src": "SDC-1450",
+      "dst": "M-1810",
+      "item_id": "item:693055",
+      "qty": 50000.0,
+      "uom": "G",
+      "order_frequency_days": 7,
+      "min_original_qty": 0.0,
+      "note": "flux interne Gaillac -> Avene: la quantite standard source 1 G n'est pas un lot industriel; regroupement logistique hebdomadaire d'environ 50 kg"
+    },
+    {
+      "src": "SDC-1450",
+      "dst": "M-1430",
+      "item_id": "item:773474",
+      "qty": 3200000.0,
+      "uom": "G",
+      "order_frequency_days": 7,
+      "min_original_qty": 0.0,
+      "note": "flux interne Gaillac -> Gien: la quantite standard source 1 G n'est pas un lot industriel; regroupement sur la granularite campagne interne observee de 3 200 kg"
     }
   ],
   "production_cost_line_shares": [

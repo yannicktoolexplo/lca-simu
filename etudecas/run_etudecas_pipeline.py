@@ -37,9 +37,15 @@ from etudecas.simulation.initial_state_policy import living_supply_initial_state
 from etudecas.simulation.analysis.component_immobilized_stock import (  # noqa: E402
     build_component_immobilized_stock_artifacts,
 )
+from etudecas.simulation.analysis.finished_goods_inventory_value import (  # noqa: E402
+    build_finished_goods_inventory_value_artifacts,
+)
 from etudecas.analysis.from_simulation.report_component_immobilized_stock import (  # noqa: E402
     DEFAULT_PRODUCT_SOURCES,
     build_report as build_component_stock_source_truth_report,
+)
+from etudecas.analysis.from_simulation.report_finished_goods_stock_value import (  # noqa: E402
+    build_report as build_finished_goods_stock_source_truth_report,
 )
 from etudecas.analysis.from_simulation.audit_source_truth_alignment import (  # noqa: E402
     build_report as build_source_truth_alignment_report,
@@ -96,31 +102,57 @@ SUPPLIER_CRITICALITY_OUTPUT_DIR = ROOT / "risk" / "supplier_criticality" / "resu
 SOURCE_PROFILE_SCRIPT = ROOT / "data" / "profile_source_files.py"
 DEFAULT_CASE_CONFIG_JSON = ROOT / "config" / "cases" / "data_poc.json"
 DEFAULT_ENRICHMENT_EXCEL = ROOT / "config" / "cases" / "data_poc_enrichment_input.xlsx"
-ACTIVE_MRP_PHYSICAL_BASE_STOCK_FLOOR_PAIRS = [
-    ("M-1430", "item:038005", 1.0),
-    ("M-1430", "item:042342", 1.0),
-    ("M-1430", "item:333362", 1.0),
-    ("M-1430", "item:344135", 1.0),
-    ("M-1430", "item:708073", 1.0),
-    ("M-1430", "item:730384", 1.0),
-    ("M-1430", "item:734545", 1.0),
-    ("M-1430", "item:773474", 1.0),
-    ("M-1810", "item:001757", 1.0),
-    ("M-1810", "item:001848", 1.0),
-    ("M-1810", "item:001893", 1.0),
-    ("M-1810", "item:002612", 1.0),
-    ("M-1810", "item:007923", 1.0),
-    ("M-1810", "item:016332", 1.0),
-    ("M-1810", "item:029313", 1.0),
-    ("M-1810", "item:039668", 1.0),
-    ("M-1810", "item:049371", 1.0),
-    ("M-1810", "item:055703", 1.0),
-    ("M-1810", "item:099439", 1.0),
-    ("M-1810", "item:338928", 1.0),
-    ("M-1810", "item:338929", 1.0),
-    ("M-1810", "item:426331", 1.0),
-    ("M-1810", "item:693055", 1.0),
+ACTIVE_MRP_STATIC_REQUIREMENT_PAIRS = [
+    ("M-1430", "item:038005"),
+    ("M-1430", "item:042342"),
+    ("M-1430", "item:333362"),
+    ("M-1430", "item:344135"),
+    ("M-1430", "item:708073"),
+    ("M-1430", "item:730384"),
+    ("M-1430", "item:734545"),
+    ("M-1430", "item:773474"),
+    ("M-1810", "item:001757"),
+    ("M-1810", "item:001848"),
+    ("M-1810", "item:001893"),
+    ("M-1810", "item:002612"),
+    ("M-1810", "item:007923"),
+    ("M-1810", "item:016332"),
+    ("M-1810", "item:029313"),
+    ("M-1810", "item:039668"),
+    ("M-1810", "item:049371"),
+    ("M-1810", "item:055703"),
+    ("M-1810", "item:099439"),
+    ("M-1810", "item:338928"),
+    ("M-1810", "item:338929"),
+    ("M-1810", "item:426331"),
+    ("M-1810", "item:693055"),
 ]
+ACTIVE_MRP_COMPONENT_TARGET_PAIRS = [
+    ("M-1430", "item:038005"),
+    ("M-1430", "item:042342"),
+    ("M-1430", "item:333362"),
+    ("M-1430", "item:344135"),
+    ("M-1430", "item:708073"),
+    ("M-1430", "item:730384"),
+    ("M-1430", "item:734545"),
+    ("M-1430", "item:773474"),
+    ("M-1810", "item:001757"),
+    ("M-1810", "item:001848"),
+    ("M-1810", "item:001893"),
+    ("M-1810", "item:002612"),
+    ("M-1810", "item:007923"),
+    ("M-1810", "item:016332"),
+    ("M-1810", "item:029313"),
+    ("M-1810", "item:039668"),
+    ("M-1810", "item:049371"),
+    ("M-1810", "item:055703"),
+    ("M-1810", "item:099439"),
+    ("M-1810", "item:338928"),
+    ("M-1810", "item:338929"),
+    ("M-1810", "item:426331"),
+    ("M-1810", "item:693055"),
+]
+ACTIVE_MRP_COMPONENT_SAFETY_TARGET_FACTOR = 1.0
 ACTIVE_MRP_PHYSICAL_INITIAL_STATE_ARGS = living_supply_initial_state_args()
 ACTIVE_MRP_OPENING_PRODUCTION_ORDER_BOM_ISSUE_MODE = "wip"
 CORE_RUNTIME_MODULES = ["numpy", "pandas", "openpyxl"]
@@ -705,7 +737,9 @@ def run_5y_reference(*, scenario_id: str, days: int, skip_map: bool, skip_plots:
         *forward_optional_flags(skip_map=skip_map, skip_plots=skip_plots),
     )
     build_component_stock_artifacts(input_graph=FINAL_GRAPH_5Y_JSON, output_dir=FINAL_OUTPUT_5Y_DIR)
+    build_finished_goods_stock_artifacts(input_graph=FINAL_GRAPH_5Y_JSON, output_dir=FINAL_OUTPUT_5Y_DIR)
     build_component_stock_source_truth_reports(input_graph=FINAL_GRAPH_5Y_JSON, output_dir=FINAL_OUTPUT_5Y_DIR)
+    build_finished_goods_stock_source_truth_reports(output_dir=FINAL_OUTPUT_5Y_DIR)
     export_run_package(output_dir=FINAL_OUTPUT_5Y_DIR, input_graph=FINAL_GRAPH_5Y_JSON)
 
 
@@ -778,7 +812,9 @@ def run_direct_simulation(*, input_graph: Path, output_dir: Path, scenario_id: s
         *forward_optional_flags(skip_map=skip_map, skip_plots=skip_plots),
     )
     build_component_stock_artifacts(input_graph=input_graph, output_dir=output_dir)
+    build_finished_goods_stock_artifacts(input_graph=input_graph, output_dir=output_dir)
     build_component_stock_source_truth_reports(input_graph=input_graph, output_dir=output_dir)
+    build_finished_goods_stock_source_truth_reports(output_dir=output_dir)
     export_run_package(output_dir=output_dir, input_graph=input_graph)
 
 
@@ -833,6 +869,29 @@ def build_component_stock_artifacts(*, input_graph: Path, output_dir: Path) -> N
     ok_line(
         "Component immobilized stock: "
         f"{summary['daily_rows']} daily rows, {summary['component_daily_rows']} component rows"
+    )
+
+
+def build_finished_goods_stock_artifacts(*, input_graph: Path, output_dir: Path) -> None:
+    summary = build_finished_goods_inventory_value_artifacts(
+        run_dir=output_dir,
+        graph_path=input_graph,
+        output_dir=output_dir / "data",
+    )
+    ok_line(
+        "Finished-goods stock value: "
+        f"{summary['daily_rows']} daily rows, {summary['summary_rows']} summary rows"
+    )
+
+
+def build_finished_goods_stock_source_truth_reports(*, output_dir: Path) -> None:
+    summary = build_finished_goods_stock_source_truth_report(
+        run_dir=output_dir,
+        output_dir=output_dir / "reports" / "source_truth_finished_goods_stock",
+    )
+    ok_line(
+        "Finished-goods stock source-truth report: "
+        f"{summary['rows']} comparison rows, {summary['snapshot_pairs']} snapshot pairs"
     )
 
 
@@ -1020,13 +1079,26 @@ def run_active_mrp_physical(
         "0",
         "--opening-production-order-bom-issue-mode",
         ACTIVE_MRP_OPENING_PRODUCTION_ORDER_BOM_ISSUE_MODE,
+        "--use-bom-demand-signal-for-mrp",
+        "--mrp-demand-signal-source",
+        "mps_lotified",
+        "--mrp-demand-signal-smoothing-days",
+        "7",
+        "--no-mrp-static-fallback-for-propagated-pairs",
         *ACTIVE_MRP_PHYSICAL_INITIAL_STATE_ARGS,
     ]
-    for node_id, item_id, factor in ACTIVE_MRP_PHYSICAL_BASE_STOCK_FLOOR_PAIRS:
+    for node_id, item_id in ACTIVE_MRP_COMPONENT_TARGET_PAIRS:
         simulator_args.extend(
             [
-                "--mrp-base-stock-floor-factor-pair",
-                f"{node_id},{item_id},{factor:g}",
+                "--soft-safety-time-stock-target-factor-pair",
+                f"{node_id},{item_id},{ACTIVE_MRP_COMPONENT_SAFETY_TARGET_FACTOR:g}",
+            ]
+        )
+    for node_id, item_id in ACTIVE_MRP_STATIC_REQUIREMENT_PAIRS:
+        simulator_args.extend(
+            [
+                "--mrp-static-requirement-pair",
+                f"{node_id},{item_id}",
             ]
         )
     if skip_map:
@@ -1070,7 +1142,9 @@ def run_active_mrp_physical(
 
     run_python(SIMULATION_ENGINE_SCRIPT, *simulator_args)
     build_component_stock_artifacts(input_graph=input_graph, output_dir=target_output_dir)
+    build_finished_goods_stock_artifacts(input_graph=input_graph, output_dir=target_output_dir)
     build_component_stock_source_truth_reports(input_graph=input_graph, output_dir=target_output_dir)
+    build_finished_goods_stock_source_truth_reports(output_dir=target_output_dir)
     manifest = {
         "baseline": baseline_name,
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),

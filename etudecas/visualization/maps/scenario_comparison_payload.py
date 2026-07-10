@@ -243,6 +243,28 @@ def build_scenario_comparison_payload(current_output_root: Path) -> dict[str, An
         input_delay_volume_value = to_float(sweep_row.get("input_delay_volume")) if is_sweep else None
         if input_delay_volume_value is None:
             input_delay_volume_value = input_delay_volume
+        production_replanning_count_value = to_float(sweep_row.get("production_replanning_count")) if is_sweep else None
+        if production_replanning_count_value is None:
+            production_replanning_count_value = to_float(kpis.get("production_replanning_count"))
+        if production_replanning_count_value is None:
+            production_replanning_count_value = input_delay_count_value
+        production_replanning_rate_value = to_float(sweep_row.get("production_replanning_rate")) if is_sweep else None
+        if production_replanning_rate_value is None:
+            production_replanning_rate_value = to_float(kpis.get("production_replanning_rate"))
+        if production_replanning_rate_value is None:
+            planning_line_count = to_float(kpis.get("production_planning_line_count"))
+            if planning_line_count is None:
+                planning_line_count = float(
+                    sum(
+                        1
+                        for row in plan_rows
+                        if str(row.get("event_type") or "")
+                        or str(row.get("reason") or "")
+                        or (to_float(row.get("planned_qty_after_lot_rule")) or 0.0) > 0.0
+                    )
+                )
+            if planning_line_count and planning_line_count > 0:
+                production_replanning_rate_value = max(0.0, production_replanning_count_value or 0.0) / planning_line_count
         total_cost_value = to_float(sweep_row.get("total_cost")) if is_sweep else None
         if total_cost_value is None:
             total_cost_value = max(0.0, to_float(kpis.get("total_cost")) or 0.0)
@@ -274,6 +296,8 @@ def build_scenario_comparison_payload(current_output_root: Path) -> dict[str, An
                     "lot_delay_count": int(sum(lot_delay_by_day.values())),
                     "input_delay_volume": input_delay_volume_value,
                     "input_delay_volume_delta": to_float(sweep_row.get("input_delay_volume_delta")) if is_sweep else 0.0,
+                    "production_replanning_count": int(production_replanning_count_value or 0),
+                    "production_replanning_rate": production_replanning_rate_value,
                     "risk_event_count": len(risk_event_ids),
                     "risk_row_count": len(risk_rows),
                     "risk_supplier_count": len(risk_suppliers),
@@ -343,7 +367,27 @@ def build_scenario_comparison_payload(current_output_root: Path) -> dict[str, An
         return f"{sign}{fmt_qty(diff, digits)}"
 
     best_cost = min(scenarios, key=lambda item: item["kpis"].get("total_cost", math.inf))
-    best_production = min(scenarios, key=lambda item: (item["kpis"].get("input_delay_count", math.inf), item["kpis"].get("input_delay_volume", math.inf)))
+    def replanning_sort_key(scenario: dict[str, Any]) -> tuple[float, float, float]:
+        kpis = scenario["kpis"]
+        rate = kpis.get("production_replanning_rate")
+        rate_key = float(rate) if rate is not None else math.inf
+        return (
+            rate_key,
+            float(kpis.get("production_replanning_count") or kpis.get("input_delay_count") or math.inf),
+            float(kpis.get("input_delay_volume") or math.inf),
+        )
+
+    def replanning_text(kpis: dict[str, Any]) -> str:
+        rate = to_float(kpis.get("production_replanning_rate"))
+        count = to_float(kpis.get("production_replanning_count"))
+        if count is None:
+            count = to_float(kpis.get("input_delay_count"))
+        volume = to_float(kpis.get("input_delay_volume")) or 0.0
+        if rate is not None:
+            return f"taux replanification {fmt_pct(rate * 100.0)} ; volume associe {fmt_qty(volume, 0)}."
+        return f"taux replanification n/a ; volume associe {fmt_qty(volume, 0)} ; {fmt_qty(count or 0, 0)} lignes."
+
+    best_production = min(scenarios, key=replanning_sort_key)
     worst_backlog = max(scenarios, key=lambda item: item["kpis"].get("max_backlog", 0.0))
     most_risk = max(scenarios, key=lambda item: item["kpis"].get("impact_score", 0.0) or item["kpis"].get("risk_event_count", 0.0))
 
@@ -361,7 +405,7 @@ def build_scenario_comparison_payload(current_output_root: Path) -> dict[str, An
                 "Reference",
                 nominal["label"],
                 (
-                    f"Base de comparaison: fill rate {fmt_pct(nominal_kpis['fill_rate'] * 100.0)} ; "
+                    f"Base de comparaison: disponibilite produit {fmt_pct(nominal_kpis['fill_rate'] * 100.0)} ; "
                     f"cout total {fmt_qty(nominal_kpis['total_cost'], 0)}. "
                     f"Amorcage client: {int(nominal_kpis.get('startup_backlog_days') or 0)} j, "
                     f"pic {fmt_qty(nominal_kpis.get('startup_backlog_peak') or 0, 0)}."
@@ -377,7 +421,7 @@ def build_scenario_comparison_payload(current_output_root: Path) -> dict[str, An
             card(
                 "Production la moins reportee",
                 best_production["label"],
-                f"{best_production['kpis']['input_delay_count']} reports intrants ; volume reporte {fmt_qty(best_production['kpis']['input_delay_volume'], 0)}.",
+                replanning_text(best_production["kpis"]),
                 "#d97706",
             ),
             card(
@@ -385,7 +429,7 @@ def build_scenario_comparison_payload(current_output_root: Path) -> dict[str, An
                 most_risk["label"],
                 (
                     f"Score {fmt_qty(most_risk['kpis'].get('impact_score') or 0, 1)} ; "
-                    f"fill rate {fmt_pct((most_risk['kpis'].get('fill_rate') or 0) * 100.0)} ; "
+                    f"disponibilite produit {fmt_pct((most_risk['kpis'].get('fill_rate') or 0) * 100.0)} ; "
                     f"backlog max {fmt_qty(most_risk['kpis'].get('max_backlog') or 0, 0)}."
                 ),
                 "#be123c",
@@ -398,10 +442,10 @@ def build_scenario_comparison_payload(current_output_root: Path) -> dict[str, An
         "Type",
         "Famille",
         "Amplitude",
-        "Service",
+        "Disponibilite produit",
         "Backlog max hors amorcage",
         "Amorcage client",
-        "Reports intrants",
+        "Taux replanification",
         "Volume reporte",
         "Delta volume",
         "Score",
@@ -425,7 +469,7 @@ def build_scenario_comparison_payload(current_output_root: Path) -> dict[str, An
             f"<td>{html.escape(fmt_pct(k['fill_rate'] * 100.0))}</td>"
             f"<td>{html.escape(fmt_qty(k['max_backlog'], 0))}</td>"
             f"<td>{html.escape(startup_cell)}</td>"
-            f"<td>{html.escape(str(k['input_delay_count']))}</td>"
+            f"<td>{html.escape(replanning_text(k))}</td>"
             f"<td>{html.escape(fmt_qty(k['input_delay_volume'], 0))}</td>"
             f"<td>{html.escape(delta(k.get('input_delay_volume_delta') or 0, 0, 0))}</td>"
             f"<td>{html.escape(fmt_qty(k.get('impact_score') or 0, 1))}</td>"
@@ -489,9 +533,9 @@ def build_scenario_comparison_payload(current_output_root: Path) -> dict[str, An
 
     service_figure = build_line_chart_figure(
         {scenario["label"]: scenario["series"]["service_rate"] for scenario in scenarios},
-        title="Service client cumule compare",
+        title="Disponibilite produit cumulee comparee",
         y_label="Servi / demande cumulee (%)",
-        note="Trajectoire de service cumule. Une baisse durable indique que les stocks et receptions n'absorbent plus le risque.",
+        note="Trajectoire de disponibilite produit cumulee. Une baisse durable indique que les stocks et receptions n'absorbent plus le risque.",
         series_styles=style_by_label,
     )
     if service_figure is not None:
@@ -499,9 +543,9 @@ def build_scenario_comparison_payload(current_output_root: Path) -> dict[str, An
 
     production_figure = build_line_chart_figure(
         {scenario["label"]: scenario["series"]["input_delays"] for scenario in scenarios},
-        title="Reports de production par manque d'intrants",
-        y_label="Reports / jour",
-        note="Compare les jours ou une production attend de la matiere ou du PFI.",
+        title="Replanification production par manque d'intrants",
+        y_label="Lignes reportees / jour",
+        note="Volume journalier associe au taux de replanification: jours ou une production attend de la matiere ou du PFI.",
         event_like=True,
         series_styles=style_by_label,
     )
@@ -509,7 +553,7 @@ def build_scenario_comparison_payload(current_output_root: Path) -> dict[str, An
         figures["production_delays"] = enable_scenario_tube(
             production_figure,
             reference_value=0.0,
-            reference_label="objectif report 0",
+            reference_label="objectif replanification 0",
             zero_floor=True,
             upper_percentile=1.0,
         )
@@ -624,7 +668,7 @@ def build_scenario_comparison_payload(current_output_root: Path) -> dict[str, An
         "</tr></thead>",
         f"<tbody>{''.join(rows_html)}</tbody>",
         "</table></div>",
-        "<div class=\"riskScenarioMuted\">Lecture: le fill rate peut rester bon meme si la production est reportee. Dans ce cas, la decision se fait sur les reports, le stock consomme, le cout d'appro fournisseur et les pertes fournisseur.</div>",
+        "<div class=\"riskScenarioMuted\">Lecture: la disponibilite produit peut rester bonne meme si la production est reportee. Dans ce cas, la decision se fait sur le taux de replanification, le stock consomme, le cout d'appro fournisseur et les pertes fournisseur.</div>",
         "</div>",
     ]
     return {

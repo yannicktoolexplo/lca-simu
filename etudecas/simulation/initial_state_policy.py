@@ -26,6 +26,7 @@ ERP_SNAPSHOT_INITIAL_STATE_ARGS: tuple[str, ...] = (
     "--no-initial-seed-estimated-source-on-hand",
     "--no-initial-seed-in-transit",
     "--no-initial-seed-estimated-source-pipeline",
+    "--initial-seed-open-orders-from-january-snapshot",
     "--mrp-base-stock-floor-factor",
     "0",
 )
@@ -46,6 +47,8 @@ _INITIAL_STATE_FLAGS = {
     "--no-initial-seed-in-transit",
     "--initial-seed-estimated-source-pipeline",
     "--no-initial-seed-estimated-source-pipeline",
+    "--initial-seed-open-orders-from-january-snapshot",
+    "--no-initial-seed-open-orders-from-january-snapshot",
 }
 
 

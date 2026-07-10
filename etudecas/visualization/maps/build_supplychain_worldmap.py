@@ -595,6 +595,106 @@ def to_float(x: Any) -> float | None:
         return None
 
 
+def finite_float(value: Any) -> float | None:
+    numeric = to_float(value)
+    if numeric is None or math.isnan(numeric):
+        return None
+    return numeric
+
+
+def first_finite_metric(row: dict[str, Any], keys: list[str]) -> float | None:
+    for key in keys:
+        numeric = finite_float(row.get(key))
+        if numeric is not None:
+            return numeric
+    return None
+
+
+def fraction_metric_to_percent(value: float | None) -> float | None:
+    if value is None:
+        return None
+    # Simulation KPI rates are stored as fractions. Keep already-percent values as-is
+    # for backward-compatible imported summaries.
+    return value * 100.0 if abs(value) <= 1.5 else value
+
+
+def production_planning_line_count_from_constraint_csv(production_constraint_csv: Path) -> float | None:
+    if not production_constraint_csv.exists():
+        return None
+    line_count = 0
+    try:
+        for row in read_csv_rows(production_constraint_csv):
+            planned = max(0.0, finite_float(row.get("planned_qty_after_lot_rule")) or 0.0)
+            actual = max(0.0, finite_float(row.get("actual_qty")) or 0.0)
+            requested_lots = finite_float(row.get("requested_lot_starts"))
+            if planned > 1e-9 or actual > 1e-9 or (requested_lots is not None and requested_lots > 1e-9):
+                line_count += 1
+    except Exception:
+        return None
+    return float(line_count) if line_count > 0 else None
+
+
+def production_output_pair_count(raw: dict[str, Any]) -> int:
+    pairs: set[tuple[str, str]] = set()
+    for node in raw.get("nodes", []) or []:
+        node_id = str(node.get("id") or "")
+        if not node_id:
+            continue
+        if str(node.get("type") or "") != "factory" and not (node.get("processes") or []):
+            continue
+        for proc in node.get("processes") or []:
+            if not isinstance(proc, dict):
+                continue
+            for out in proc.get("outputs") or []:
+                if not isinstance(out, dict):
+                    continue
+                item_id = str(out.get("item_id") or "").strip()
+                if item_id:
+                    pairs.add((node_id, item_id))
+    return len(pairs)
+
+
+def production_replanning_rate_denominator(
+    raw: dict[str, Any],
+    *,
+    horizon_days: int | None,
+    production_constraint_csv: Path,
+) -> float | None:
+    line_count = production_planning_line_count_from_constraint_csv(production_constraint_csv) or 0.0
+    pair_count = production_output_pair_count(raw)
+    daily_opportunities = float(pair_count * horizon_days) if pair_count > 0 and horizon_days and horizon_days > 0 else 0.0
+    denominator = max(line_count, daily_opportunities)
+    return denominator if denominator > 0 else None
+
+
+def sensitivity_availability_percent(row: dict[str, Any]) -> float:
+    value = first_finite_metric(row, ["kpi::product_availability", "product_availability", "kpi::fill_rate", "fill_rate"])
+    return float(fraction_metric_to_percent(value) or 0.0)
+
+
+def sensitivity_replanning_rate_percent(
+    row: dict[str, Any],
+    *,
+    baseline_production_planning_line_count: float | None = None,
+) -> float | None:
+    rate = first_finite_metric(row, ["kpi::production_replanning_rate", "production_replanning_rate"])
+    if rate is not None:
+        return fraction_metric_to_percent(rate)
+
+    replanning_count = first_finite_metric(row, ["kpi::production_replanning_count", "production_replanning_count"])
+    if replanning_count is None:
+        return None
+    denominator = first_finite_metric(
+        row,
+        ["kpi::production_planning_line_count", "production_planning_line_count"],
+    )
+    if denominator is None or denominator <= 0:
+        denominator = baseline_production_planning_line_count
+    if denominator is None or denominator <= 0:
+        return None
+    return 100.0 * replanning_count / denominator
+
+
 def collect_node_item_ids(node: dict[str, Any]) -> list[str]:
     item_ids: set[str] = set()
     for state in (((node.get("inventory") or {}).get("states")) or []):
@@ -1440,20 +1540,24 @@ def build_factory_hover_images(
                 y_label="Quantite",
             )
         incoming_descriptors = detail.get("incoming") or []
-        incoming_stock_series = {
-            f"{str(descriptor.get('item_label') or descriptor.get('item_id') or '').strip()} - stock": list(
-                zip(descriptor.get("days") or [], descriptor.get("values") or [])
-            )
-            for descriptor in incoming_descriptors
-            if str(descriptor.get("item_label") or descriptor.get("item_id") or "").strip()
-        }
-        incoming_stock_series = {label: pts for label, pts in incoming_stock_series.items() if pts}
+        incoming_stock_series_by_item: dict[str, tuple[str, list[tuple[int, float]]]] = {}
+        incoming_unit_by_item: dict[str, str] = {}
+        for descriptor in incoming_descriptors:
+            item_id = str(descriptor.get("item_id") or "").strip()
+            item_label = str(descriptor.get("item_label") or item_id).strip()
+            if not item_id or not item_label:
+                continue
+            pts = list(zip(descriptor.get("days") or [], descriptor.get("values") or []))
+            if pts:
+                incoming_stock_series_by_item[item_id] = (f"{item_label} - stock physique", pts)
+            incoming_unit_by_item[item_id] = normalize_quantity_unit(descriptor.get("unit"))
+        incoming_stock_series = {label: pts for label, pts in incoming_stock_series_by_item.values() if pts}
         incoming_item_ids: set[str] = {
             str(descriptor.get("item_id") or "")
             for descriptor in incoming_descriptors
             if str(descriptor.get("item_id") or "")
         }
-        incoming_arrival_series: dict[str, list[tuple[int, float]]] = {}
+        incoming_arrival_series_by_item: dict[str, tuple[str, list[tuple[int, float]]]] = {}
         incoming_item_labels: set[str] = set()
         for descriptor in incoming_descriptors:
             item_label = str(descriptor.get("item_label") or descriptor.get("item_id") or "").strip()
@@ -1467,6 +1571,13 @@ def build_factory_hover_images(
                     if str(row.get("node_id") or "") == factory_id
                 }
             )
+            for row in input_arrival_rows:
+                if str(row.get("node_id") or "") != factory_id:
+                    continue
+                item_id = str(row.get("item_id") or "")
+                uom = str(row.get("uom") or "").strip()
+                if item_id and uom:
+                    incoming_unit_by_item[item_id] = normalize_quantity_unit(uom)
             for item_id in item_ids:
                 if is_simulation_hidden_item(item_id):
                     continue
@@ -1481,7 +1592,9 @@ def build_factory_hover_images(
                     item_label = item_labels.get(item_id, compact_item_label(item_id))
                     incoming_item_labels.add(item_label)
                     incoming_item_ids.add(item_id)
-                    incoming_arrival_series[f"{item_label} - reception"] = arrival_pts
+                    incoming_arrival_series_by_item[item_id] = (f"{item_label} - reception", arrival_pts)
+                    incoming_unit_by_item.setdefault(item_id, "unite non renseignee")
+        incoming_arrival_series = {label: pts for label, pts in incoming_arrival_series_by_item.values() if pts}
         display_factory_id = display_node_label(factory_id)
         incoming_title = f"{display_factory_id} - stocks et receptions intrants"
         top_title = f"{display_factory_id} - stock intrants"
@@ -1497,49 +1610,274 @@ def build_factory_hover_images(
                 incoming_title = f"{display_factory_id} - stocks et arrivages intrants"
                 bottom_title = f"{display_factory_id} - arrivages intrants"
         if incoming_stock_series or incoming_arrival_series:
-            incoming_target_series, incoming_target_styles = stock_target_overlay_series(
+            all_physical_target_series_by_item = mrp_physical_target_series_by_item(
                 mrp_trace_rows,
                 node_id=factory_id,
                 item_ids=incoming_item_ids,
                 item_labels=item_labels,
             )
-            incoming_top_series = {**incoming_stock_series, **incoming_target_series}
-            figure = build_dual_line_multi_panel_figure(
-                title=incoming_title,
-                top_title=top_title,
-                top_y_label="Stock",
-                top_series_map=incoming_top_series,
-                bottom_title=bottom_title,
-                bottom_y_label="Receptions",
-                bottom_series_map=incoming_arrival_series,
-                top_series_styles=incoming_target_styles,
-                bottom_step_like=True,
-            )
-            if figure is not None:
-                incoming = {"figure": figure}
+            unit_groups: dict[str, set[str]] = defaultdict(set)
+            for item_id in incoming_item_ids:
+                if is_simulation_hidden_item(item_id):
+                    continue
+                unit = normalize_quantity_unit(incoming_unit_by_item.get(item_id))
+                unit_category = unit
+                if unit == "KG" and is_significant_kg_overstock(
+                    incoming_stock_series_by_item.get(item_id),
+                    all_physical_target_series_by_item.get(item_id),
+                ):
+                    unit_category = KG_OVERSTOCK_CATEGORY_LABEL
+                unit_groups[unit_category].add(item_id)
+            stock_entries: list[dict[str, Any]] = []
+            mrp_entries: list[dict[str, Any]] = []
+            receipt_entries: list[dict[str, Any]] = []
+            for unit, scoped_item_ids in sorted(unit_groups.items(), key=lambda kv: (kv[0] == "unite non renseignee", kv[0])):
+                display_unit = display_unit_for_category(unit)
+                scoped_stock_series = {
+                    label: pts
+                    for item_id, (label, pts) in incoming_stock_series_by_item.items()
+                    if item_id in scoped_item_ids and pts
+                }
+                scoped_arrival_series = {
+                    label: pts
+                    for item_id, (label, pts) in incoming_arrival_series_by_item.items()
+                    if item_id in scoped_item_ids and pts
+                }
+                physical_target_series_by_item = mrp_physical_target_series_by_item(
+                    mrp_trace_rows,
+                    node_id=factory_id,
+                    item_ids=scoped_item_ids,
+                    item_labels=item_labels,
+                )
+                physical_top_series, physical_top_styles = comparable_stock_series_for_items(
+                    scoped_item_ids,
+                    stock_series_by_item=incoming_stock_series_by_item,
+                    target_series_by_item=physical_target_series_by_item,
+                    item_labels=item_labels,
+                )
+                physical_figure = build_line_chart_figure(
+                    physical_top_series,
+                    title=f"{display_factory_id} - stock physique et cible physique nette ({unit})",
+                    y_label=f"Stock physique ({display_unit})",
+                    series_styles=physical_top_styles,
+                    lot_trace_category="factory_input",
+                    note=(
+                        "Vue physique valorisable: stock reel et cible physique nette "
+                        "= max(cible de position MRP - receptions futures MRP, 0). "
+                        "La cible est lissee sur 30 jours pour eviter les crenaux journaliers de pilotage. "
+                        "Un stock durablement au-dessus de cette cible correspond a du stock immobilise; "
+                        "la valeur industrielle de stock immobilise se compare a cette vue physique. "
+                        "La vraie cible MRP de position et le pipeline restent dans Pilotage MRP."
+                    ),
+                )
+                inventory_position_series = mrp_metric_series_by_item(
+                    mrp_trace_rows,
+                    node_id=factory_id,
+                    item_ids=scoped_item_ids,
+                    item_labels=item_labels,
+                    value_field="inventory_position_qty",
+                    label_suffix="position inventaire MRP",
+                )
+                target_position_series = mrp_metric_series_by_item(
+                    mrp_trace_rows,
+                    node_id=factory_id,
+                    item_ids=scoped_item_ids,
+                    item_labels=item_labels,
+                    value_field="target_stock_display_qty",
+                    label_suffix="cible MRP (position, moy. 30j)",
+                    rolling_window_days=MRP_TARGET_DISPLAY_SMOOTHING_DAYS,
+                )
+                future_receipt_series = mrp_metric_series_by_item(
+                    mrp_trace_rows,
+                    node_id=factory_id,
+                    item_ids=scoped_item_ids,
+                    item_labels=item_labels,
+                    value_field="recv_prev_future_qty",
+                    label_suffix="receptions futures MRP",
+                )
+                net_requirement_series = mrp_metric_series_by_item(
+                    mrp_trace_rows,
+                    node_id=factory_id,
+                    item_ids=scoped_item_ids,
+                    item_labels=item_labels,
+                    value_field="bn_qty",
+                    label_suffix="besoin net MRP",
+                )
+                mrp_top_series = {
+                    **inventory_position_series,
+                    **target_position_series,
+                }
+                mrp_bottom_series = {
+                    **future_receipt_series,
+                    **net_requirement_series,
+                }
+                mrp_top_styles = {
+                    **metric_series_styles_for_items(
+                        scoped_item_ids,
+                        item_labels=item_labels,
+                        label_suffix="position inventaire MRP",
+                        dash="solid",
+                        width=1.9,
+                    ),
+                    **metric_series_styles_for_items(
+                        scoped_item_ids,
+                        item_labels=item_labels,
+                        label_suffix="cible MRP (position, moy. 30j)",
+                        dash="dash",
+                        width=1.55,
+                    ),
+                }
+                mrp_bottom_styles = {
+                    **metric_series_styles_for_items(
+                        scoped_item_ids,
+                        item_labels=item_labels,
+                        label_suffix="receptions futures MRP",
+                        dash="dot",
+                        width=1.45,
+                    ),
+                    **metric_series_styles_for_items(
+                        scoped_item_ids,
+                        item_labels=item_labels,
+                        label_suffix="besoin net MRP",
+                        dash="dash",
+                        width=1.45,
+                    ),
+                }
+                mrp_figure = build_dual_line_multi_panel_figure(
+                    title=f"{display_factory_id} - pilotage MRP ({unit})",
+                    top_title=f"{display_factory_id} - position inventaire vs cible MRP ({unit})",
+                    top_y_label=f"Position inventaire / cible MRP ({display_unit})",
+                    top_series_map=mrp_top_series,
+                    bottom_title=f"{display_factory_id} - pipeline et besoin net MRP ({unit})",
+                    bottom_y_label=f"Pipeline / besoin net ({display_unit})",
+                    bottom_series_map=mrp_bottom_series,
+                    top_series_styles=mrp_top_styles,
+                    bottom_series_styles=mrp_bottom_styles,
+                    lot_trace_category="factory_input",
+                )
+                receipt_figure = build_line_chart_figure(
+                    scoped_arrival_series,
+                    title=f"{display_factory_id} - receptions physiques intrants ({unit})",
+                    y_label=f"Receptions ({display_unit})",
+                    step_like=True,
+                    series_styles=series_styles_for_item_entries(
+                        scoped_item_ids,
+                        incoming_arrival_series_by_item,
+                        item_labels=item_labels,
+                        dash="dot",
+                        width=1.55,
+                    ),
+                    lot_trace_category="factory_input",
+                )
+                if physical_figure is not None:
+                    stock_entries.append({"label": unit, "asset": {"figure": physical_figure}})
+                if mrp_figure is not None:
+                    mrp_entries.append({"label": unit, "asset": {"figure": mrp_figure}})
+                if receipt_figure is not None:
+                    receipt_entries.append({"label": unit, "asset": {"figure": receipt_figure}})
+            family_entries = [
+                {
+                    "label": "Stock physique",
+                    "asset": {"bundle": stock_entries} if len(stock_entries) > 1 else (stock_entries[0]["asset"] if stock_entries else None),
+                },
+                {
+                    "label": "Pilotage MRP",
+                    "asset": {"bundle": mrp_entries} if len(mrp_entries) > 1 else (mrp_entries[0]["asset"] if mrp_entries else None),
+                },
+                {
+                    "label": "Receptions",
+                    "asset": {"bundle": receipt_entries} if len(receipt_entries) > 1 else (receipt_entries[0]["asset"] if receipt_entries else None),
+                },
+            ]
+            family_entries = [entry for entry in family_entries if entry.get("asset")]
+            if family_entries:
+                incoming = {"bundle": family_entries} if len(family_entries) > 1 else family_entries[0]["asset"]
         outgoing_descriptors = detail.get("outgoing") or []
-        outgoing_stock_series = {
-            f"{str(descriptor.get('item_label') or descriptor.get('item_id') or '').strip()} - stock": list(
-                zip(descriptor.get("days") or [], descriptor.get("stock_values") or [])
-            )
-            for descriptor in outgoing_descriptors
-            if str(descriptor.get("item_label") or descriptor.get("item_id") or "").strip()
-        }
-        outgoing_stock_series = {label: pts for label, pts in outgoing_stock_series.items() if pts}
+        outgoing_stock_series_by_item: dict[str, tuple[str, list[tuple[int, float]]]] = {}
+        outgoing_unit_by_item: dict[str, str] = {}
+        for descriptor in outgoing_descriptors:
+            item_id = str(descriptor.get("item_id") or "").strip()
+            item_label = str(descriptor.get("item_label") or item_id).strip()
+            if not item_id or not item_label:
+                continue
+            pts = list(zip(descriptor.get("days") or [], descriptor.get("stock_values") or []))
+            if pts:
+                outgoing_stock_series_by_item[item_id] = (f"{item_label} - stock", pts)
+            outgoing_unit_by_item[item_id] = normalize_quantity_unit(descriptor.get("unit"))
+        outgoing_stock_series = {label: pts for label, pts in outgoing_stock_series_by_item.values() if pts}
         outgoing_item_ids: set[str] = {
             str(descriptor.get("item_id") or "")
             for descriptor in outgoing_descriptors
             if str(descriptor.get("item_id") or "")
         }
-        outgoing_target_series, outgoing_target_styles = stock_target_overlay_series(
-            mrp_trace_rows,
-            node_id=factory_id,
-            item_ids=outgoing_item_ids,
-            item_labels=item_labels,
-        )
-        outgoing_stock_with_targets = {**outgoing_stock_series, **outgoing_target_series}
+        def outgoing_stock_asset_for_units(
+            *,
+            outbound_series_by_item: dict[str, tuple[str, list[tuple[int, float]]]] | None = None,
+            outbound_title: str = "expeditions par item",
+        ) -> dict[str, Any] | None:
+            if not outgoing_stock_series_by_item:
+                return None
+            outbound_series_by_item = outbound_series_by_item or {}
+            unit_groups: dict[str, set[str]] = defaultdict(set)
+            for item_id in outgoing_item_ids:
+                if is_simulation_hidden_item(item_id):
+                    continue
+                unit_groups[normalize_quantity_unit(outgoing_unit_by_item.get(item_id))].add(item_id)
+            unit_entries: list[dict[str, Any]] = []
+            for unit, scoped_item_ids in sorted(unit_groups.items(), key=lambda kv: (kv[0] == "unite non renseignee", kv[0])):
+                scoped_stock_series = {
+                    label: pts
+                    for item_id, (label, pts) in outgoing_stock_series_by_item.items()
+                    if item_id in scoped_item_ids and pts
+                }
+                scoped_outbound_series = {
+                    label: pts
+                    for item_id, (label, pts) in outbound_series_by_item.items()
+                    if item_id in scoped_item_ids and pts
+                }
+                target_series, target_styles = stock_target_overlay_series(
+                    mrp_trace_rows,
+                    node_id=factory_id,
+                    item_ids=scoped_item_ids,
+                    item_labels=item_labels,
+                )
+                top_series = {**scoped_stock_series, **target_series}
+                top_styles = {
+                    **{label: {"width": 1.9} for label in scoped_stock_series},
+                    **target_styles,
+                }
+                if scoped_outbound_series:
+                    figure = build_dual_line_multi_panel_figure(
+                        title=f"{display_factory_id} - stock et {outbound_title} ({unit})",
+                        top_title=f"{display_factory_id} - stock produits ({unit})",
+                        top_y_label=f"Stock ({unit})",
+                        top_series_map=top_series,
+                        bottom_title=f"{display_factory_id} - {outbound_title} ({unit})",
+                        bottom_y_label=f"Expeditions ({unit})",
+                        bottom_series_map=scoped_outbound_series,
+                        top_series_styles=top_styles,
+                        bottom_step_like=True,
+                        lot_trace_category="factory_output",
+                    )
+                else:
+                    figure = build_line_chart_figure(
+                        top_series,
+                        title=f"{display_factory_id} - stock produits avec cible ({unit})",
+                        y_label=f"Quantite ({unit})",
+                        note=(
+                            "Lecture metier: les series sont separees par unite pour eviter de comparer "
+                            "des kilogrammes, grammes, metres et unites sur le meme axe."
+                        ),
+                        series_styles=top_styles,
+                        lot_trace_category="factory_output",
+                    )
+                if figure is not None:
+                    unit_entries.append({"label": unit, "asset": {"figure": figure}})
+            if not unit_entries:
+                return None
+            return {"bundle": unit_entries} if len(unit_entries) > 1 else unit_entries[0]["asset"]
         if is_upstream_internal_site(factory_id) and supplier_shipment_rows:
-            outbound_series: dict[str, list[tuple[int, float]]] = {}
+            outbound_series_by_item: dict[str, tuple[str, list[tuple[int, float]]]] = {}
             outbound_item_ids = sorted(
                 {
                     str(row.get("item_id") or "")
@@ -1559,39 +1897,28 @@ def build_factory_hover_images(
                 )
                 if shipped_pts:
                     item_label = item_labels.get(item_id, compact_item_label(item_id))
-                    outbound_series[item_label] = shipped_pts
-            if outbound_series:
-                if outgoing_stock_series:
-                    figure = build_dual_line_multi_panel_figure(
-                        title=f"{display_factory_id} - stock et expeditions PFI",
-                        top_title=f"{display_factory_id} - stock PFI produits",
-                        top_y_label="Stock",
-                        top_series_map=outgoing_stock_with_targets,
-                        bottom_title=f"{display_factory_id} - expeditions PFI par item",
-                        bottom_y_label="Expeditions",
-                        bottom_series_map=outbound_series,
-                        top_series_styles=outgoing_target_styles,
-                        bottom_step_like=True,
-                    )
-                else:
+                    outbound_series_by_item[item_id] = (item_label, shipped_pts)
+            if outbound_series_by_item:
+                grouped_outgoing = outgoing_stock_asset_for_units(
+                    outbound_series_by_item=outbound_series_by_item,
+                    outbound_title="expeditions PFI par item",
+                )
+                if grouped_outgoing is not None:
+                    outgoing = grouped_outgoing
+                elif not outgoing_stock_series:
                     figure = build_line_chart_figure(
-                        outbound_series,
+                        {label: pts for label, pts in outbound_series_by_item.values()},
                         title=f"{display_factory_id} - expeditions PFI par item",
                         y_label="Quantite",
                         step_like=True,
+                        lot_trace_category="factory_output",
                     )
-                if figure is not None:
-                    outgoing = {"figure": figure}
+                    if figure is not None:
+                        outgoing = {"figure": figure}
         elif outgoing_stock_series:
-            figure = build_line_chart_figure(
-                outgoing_stock_with_targets,
-                title=f"{display_factory_id} - stock produits avec cible",
-                y_label="Quantite",
-                note="Lecture metier: stock physique et cible MRP affichee. Les details de calcul restent dans Details MRP.",
-                series_styles=outgoing_target_styles,
-            )
-            if figure is not None:
-                outgoing = {"figure": figure}
+            grouped_outgoing = outgoing_stock_asset_for_units()
+            if grouped_outgoing is not None:
+                outgoing = grouped_outgoing
         factory_rows = [row for row in constraint_rows if str(row.get("node_id") or "") == factory_id]
         production_gantt_figure = build_factory_production_gantt_figure(raw, factory_id, factory_rows, item_labels)
         production_gantt = {"figure": production_gantt_figure} if production_gantt_figure is not None else None
@@ -1756,6 +2083,7 @@ def build_factory_production_gantt_figure(
     return {
         "kind": "gantt",
         "title": f"{display_node_label(factory_id)} - planning production lots",
+        "lot_trace_category": "production",
         "x_label": "Jour",
         "y_label": "Produit",
         "note": "Barres = lots lances. Duree = quantite/capacite si capacite modelisee; sinon jalon court. Ce n'est pas une charge usine complete.",
@@ -1772,6 +2100,56 @@ def item_label_lookup(raw: dict[str, Any]) -> dict[str, str]:
         base_label = code if code else (name if name else item_id)
         lookup[item_id] = ITEM_DISPLAY_REFERENCE_NOTES.get(item_id, base_label)
     return lookup
+
+
+MRP_TARGET_DISPLAY_SMOOTHING_DAYS = 30
+KG_OVERSTOCK_CATEGORY_LABEL = "KG - surstock"
+KG_OVERSTOCK_MIN_RATIO = 3.0
+KG_OVERSTOCK_MIN_EXCESS_QTY = 5_000.0
+
+
+def rolling_average_points(points: list[tuple[int, float]], window_days: int) -> list[tuple[int, float]]:
+    if window_days <= 1 or len(points) <= 1:
+        return points
+    ordered = sorted(points, key=lambda item: item[0])
+    out: list[tuple[int, float]] = []
+    values: list[float] = []
+    value_sum = 0.0
+    for day, value in ordered:
+        value = float(value)
+        values.append(value)
+        value_sum += value
+        if len(values) > window_days:
+            value_sum -= values.pop(0)
+        out.append((day, value_sum / float(len(values))))
+    return out
+
+
+def mean_positive_series_value(points: list[tuple[int, float]]) -> float:
+    values = [float(value) for _, value in points if value is not None and math.isfinite(float(value))]
+    return statistics.mean(values) if values else 0.0
+
+
+def is_significant_kg_overstock(
+    stock_entry: tuple[str, list[tuple[int, float]]] | None,
+    target_entry: tuple[str, list[tuple[int, float]]] | None,
+) -> bool:
+    if not stock_entry or not target_entry:
+        return False
+    stock_mean = mean_positive_series_value(stock_entry[1])
+    target_mean = mean_positive_series_value(target_entry[1])
+    if target_mean <= 1e-9:
+        return False
+    excess_qty = stock_mean - target_mean
+    if excess_qty < KG_OVERSTOCK_MIN_EXCESS_QTY:
+        return False
+    return stock_mean / target_mean >= KG_OVERSTOCK_MIN_RATIO
+
+
+def display_unit_for_category(unit_category: str) -> str:
+    if unit_category == KG_OVERSTOCK_CATEGORY_LABEL:
+        return "KG"
+    return unit_category
 
 
 def stock_target_overlay_series(
@@ -1803,10 +2181,248 @@ def stock_target_overlay_series(
                 break
         if not target_pts:
             continue
-        label = f"{item_labels.get(item_id, compact_item_label(item_id))} - {label_suffix}"
+        target_pts = rolling_average_points(target_pts, MRP_TARGET_DISPLAY_SMOOTHING_DAYS)
+        label = (
+            f"{item_labels.get(item_id, compact_item_label(item_id))} - "
+            f"{label_suffix} (moy. 30j)"
+        )
         series_map[label] = target_pts
         series_styles[label] = {"color": "#2563eb", "width": 1.8, "dash": "dash"}
     return series_map, series_styles
+
+
+def mrp_inventory_position_overlay_series(
+    mrp_trace_rows: list[dict[str, str]],
+    *,
+    node_id: str,
+    item_ids: set[str],
+    item_labels: dict[str, str],
+) -> tuple[dict[str, list[tuple[int, float]]], dict[str, dict[str, Any]]]:
+    if not mrp_trace_rows or not node_id or not item_ids:
+        return {}, {}
+    series_map: dict[str, list[tuple[int, float]]] = {}
+    series_styles: dict[str, dict[str, Any]] = {}
+    metric_specs = [
+        (
+            "recv_prev_future_qty",
+            "receptions futures MRP",
+            {"color": "#7c3aed", "width": 1.25, "dash": "dot"},
+        ),
+        (
+            "inventory_position_qty",
+            "position inventaire MRP",
+            {"color": "#0f766e", "width": 2.0},
+        ),
+    ]
+    for item_id in sorted(item_ids):
+        if is_simulation_hidden_item(item_id):
+            continue
+        item_name = item_labels.get(item_id, compact_item_label(item_id))
+        for field, suffix, style in metric_specs:
+            pts = aggregate_daily_series(
+                mrp_trace_rows,
+                value_field=field,
+                node_field="node_id",
+                node_id=node_id,
+                item_ids={item_id},
+            )
+            if not any(abs(value) > 1e-9 for _, value in pts):
+                continue
+            label = f"{item_name} - {suffix}"
+            series_map[label] = pts
+            series_styles[label] = dict(style)
+        target_pts: list[tuple[int, float]] = []
+        for field in ("target_stock_display_qty", "target_stock_qty", "safety_floor_qty"):
+            pts = aggregate_daily_series(
+                mrp_trace_rows,
+                value_field=field,
+                node_field="node_id",
+                node_id=node_id,
+                item_ids={item_id},
+            )
+            if any(abs(value) > 1e-9 for _, value in pts):
+                target_pts = pts
+                break
+        if target_pts:
+            target_pts = rolling_average_points(target_pts, MRP_TARGET_DISPLAY_SMOOTHING_DAYS)
+            label = f"{item_name} - cible position MRP (moy. 30j)"
+            series_map[label] = target_pts
+            series_styles[label] = {"color": "#2563eb", "width": 1.65, "dash": "dash"}
+    return series_map, series_styles
+
+
+def mrp_metric_series_by_item(
+    mrp_trace_rows: list[dict[str, str]],
+    *,
+    node_id: str,
+    item_ids: set[str],
+    item_labels: dict[str, str],
+    value_field: str,
+    label_suffix: str,
+    clip_non_negative: bool = False,
+    rolling_window_days: int = 0,
+) -> dict[str, list[tuple[int, float]]]:
+    if not mrp_trace_rows or not node_id or not item_ids:
+        return {}
+    out: dict[str, list[tuple[int, float]]] = {}
+    scoped_items = {item_id for item_id in item_ids if not is_simulation_hidden_item(item_id)}
+    rows_by_item: dict[str, list[dict[str, str]]] = defaultdict(list)
+    for row in mrp_trace_rows:
+        if str(row.get("node_id") or "") != node_id:
+            continue
+        item_id = str(row.get("item_id") or "")
+        if item_id in scoped_items:
+            rows_by_item[item_id].append(row)
+    for item_id in sorted(scoped_items):
+        pts: list[tuple[int, float]] = []
+        for row in rows_by_item.get(item_id, []):
+            day = int(to_float(row.get("day")) or 0)
+            value = float(to_float(row.get(value_field)) or 0.0)
+            if clip_non_negative:
+                value = max(0.0, value)
+            pts.append((day, value))
+        if not any(abs(value) > 1e-9 for _, value in pts):
+            continue
+        if rolling_window_days > 1:
+            pts = rolling_average_points(pts, rolling_window_days)
+        item_name = item_labels.get(item_id, compact_item_label(item_id))
+        out[f"{item_name} - {label_suffix}"] = sorted(pts, key=lambda it: it[0])
+    return out
+
+
+COMPARABLE_STOCK_COLORS = [
+    "#0f766e",
+    "#2563eb",
+    "#dc2626",
+    "#d97706",
+    "#7c3aed",
+    "#0891b2",
+    "#be123c",
+    "#65a30d",
+    "#475569",
+    "#ea580c",
+    "#4f46e5",
+    "#15803d",
+]
+
+
+def comparable_stock_series_for_items(
+    item_ids: set[str],
+    *,
+    stock_series_by_item: dict[str, tuple[str, list[tuple[int, float]]]],
+    target_series_by_item: dict[str, tuple[str, list[tuple[int, float]]]],
+    item_labels: dict[str, str],
+) -> tuple[dict[str, list[tuple[int, float]]], dict[str, dict[str, Any]]]:
+    series: dict[str, list[tuple[int, float]]] = {}
+    styles: dict[str, dict[str, Any]] = {}
+    sorted_item_ids = sorted(
+        [item_id for item_id in item_ids if not is_simulation_hidden_item(item_id)],
+        key=lambda item_id: item_labels.get(item_id, compact_item_label(item_id)),
+    )
+    for idx, item_id in enumerate(sorted_item_ids):
+        color = COMPARABLE_STOCK_COLORS[idx % len(COMPARABLE_STOCK_COLORS)]
+        stock_entry = stock_series_by_item.get(item_id)
+        if stock_entry and stock_entry[1]:
+            label, points = stock_entry
+            series[label] = points
+            styles[label] = {"width": 1.9, "color": color}
+        target_entry = target_series_by_item.get(item_id)
+        if target_entry and target_entry[1]:
+            label, points = target_entry
+            series[label] = points
+            styles[label] = {"width": 1.55, "color": color, "dash": "dash"}
+    return series, styles
+
+
+def comparable_item_color_map(item_ids: set[str], item_labels: dict[str, str]) -> dict[str, str]:
+    sorted_item_ids = sorted(
+        [item_id for item_id in item_ids if not is_simulation_hidden_item(item_id)],
+        key=lambda item_id: item_labels.get(item_id, compact_item_label(item_id)),
+    )
+    return {
+        item_id: COMPARABLE_STOCK_COLORS[idx % len(COMPARABLE_STOCK_COLORS)]
+        for idx, item_id in enumerate(sorted_item_ids)
+    }
+
+
+def metric_series_styles_for_items(
+    item_ids: set[str],
+    *,
+    item_labels: dict[str, str],
+    label_suffix: str,
+    dash: str,
+    width: float,
+) -> dict[str, dict[str, Any]]:
+    colors = comparable_item_color_map(item_ids, item_labels)
+    styles: dict[str, dict[str, Any]] = {}
+    for item_id, color in colors.items():
+        item_name = item_labels.get(item_id, compact_item_label(item_id))
+        styles[f"{item_name} - {label_suffix}"] = {"color": color, "dash": dash, "width": width}
+    return styles
+
+
+def series_styles_for_item_entries(
+    item_ids: set[str],
+    series_by_item: dict[str, tuple[str, list[tuple[int, float]]]],
+    *,
+    item_labels: dict[str, str],
+    dash: str,
+    width: float,
+) -> dict[str, dict[str, Any]]:
+    colors = comparable_item_color_map(item_ids, item_labels)
+    styles: dict[str, dict[str, Any]] = {}
+    for item_id, (label, points) in series_by_item.items():
+        if item_id not in colors or not points:
+            continue
+        styles[label] = {"color": colors[item_id], "dash": dash, "width": width}
+    return styles
+
+
+def mrp_physical_target_series_by_item(
+    mrp_trace_rows: list[dict[str, str]],
+    *,
+    node_id: str,
+    item_ids: set[str],
+    item_labels: dict[str, str],
+) -> dict[str, tuple[str, list[tuple[int, float]]]]:
+    if not mrp_trace_rows or not node_id or not item_ids:
+        return {}
+    scoped_items = {item_id for item_id in item_ids if not is_simulation_hidden_item(item_id)}
+    rows_by_item: dict[str, list[dict[str, str]]] = defaultdict(list)
+    for row in mrp_trace_rows:
+        if str(row.get("node_id") or "") != node_id:
+            continue
+        item_id = str(row.get("item_id") or "")
+        if item_id in scoped_items:
+            rows_by_item[item_id].append(row)
+    out: dict[str, tuple[str, list[tuple[int, float]]]] = {}
+    for item_id in sorted(scoped_items):
+        pts: list[tuple[int, float]] = []
+        for row in rows_by_item.get(item_id, []):
+            day = int(to_float(row.get("day")) or 0)
+            target = to_float(row.get("target_stock_display_qty"))
+            if target is None or math.isnan(target) or abs(target) <= 1e-9:
+                target = to_float(row.get("target_stock_qty"))
+            if target is None or math.isnan(target) or abs(target) <= 1e-9:
+                target = to_float(row.get("safety_floor_qty"))
+            future_receipts = to_float(row.get("recv_prev_future_qty"))
+            physical_target = max(0.0, (target or 0.0) - (future_receipts or 0.0))
+            pts.append((day, physical_target))
+        if not any(abs(value) > 1e-9 for _, value in pts):
+            continue
+        pts = rolling_average_points(pts, MRP_TARGET_DISPLAY_SMOOTHING_DAYS)
+        item_name = item_labels.get(item_id, compact_item_label(item_id))
+        out[item_id] = (f"{item_name} - cible physique nette (moy. 30j)", sorted(pts, key=lambda it: it[0]))
+    return out
+
+
+def normalize_quantity_unit(unit: Any) -> str:
+    value = str(unit or "").strip()
+    if not value:
+        return "unite non renseignee"
+    normalized = value.upper().replace("UNIT/DAY", "UN").replace("UNIT", "UN")
+    normalized = normalized.replace("/DAY", "")
+    return normalized or "unite non renseignee"
 
 
 def build_simulation_diagnostics_payload(
@@ -2479,6 +3095,8 @@ def build_supplier_hover_images(
             top_series_styles=supplier_target_styles,
             top_step_like=True,
             bottom_event_like=True,
+            top_lot_trace_category="supplier_stock",
+            bottom_lot_trace_category="supplier_send",
         )
         has_dynamic_supplier_panel = figure is not None
         if figure is not None:
@@ -2527,7 +3145,7 @@ def build_distribution_center_hover_images(
         )
         outgoing = None
         third = None
-        if incoming is None and dc_stock_rows:
+        if dc_stock_rows:
             per_item_stock: dict[str, list[tuple[int, float]]] = {}
             per_item_styles: dict[str, dict[str, Any]] = {}
             dc_stock_item_ids: set[str] = set()
@@ -2567,6 +3185,7 @@ def build_distribution_center_hover_images(
                     "Position inventaire, besoin net et stock projete restent dans Details MRP."
                 ),
                 series_styles=per_item_styles,
+                lot_trace_category="dc_stock",
             )
             if figure is not None:
                 incoming = {"figure": figure}
@@ -2594,6 +3213,7 @@ def build_distribution_center_hover_images(
                     title=f"{dc_id} - receptions journalieres par item",
                     y_label="Quantite",
                     step_like=True,
+                    lot_trace_category="receipt",
                 )
                 if figure is not None:
                     outgoing = {"figure": figure}
@@ -2620,6 +3240,7 @@ def build_distribution_center_hover_images(
                     title=f"{dc_id} - expeditions journalieres par item",
                     y_label="Quantite",
                     step_like=True,
+                    lot_trace_category="shipment",
                 )
                 if figure is not None:
                     third = {"figure": figure}
@@ -2705,11 +3326,20 @@ def build_customer_hover_images(
             y_label="Quantite",
             filename=f"{safe_case_token(customer_id)}_customer_demand.png",
         )
+        figure = build_line_chart_figure(
+            incoming_series,
+            title=f"{customer_id} - demande dans le temps",
+            y_label="Quantite",
+            lot_trace_category="customer_service",
+        )
+        if figure is not None:
+            incoming = {"figure": figure}
         if incoming is None:
             figure = build_line_chart_figure(
                 incoming_series,
                 title=f"{customer_id} - demande dans le temps",
                 y_label="Quantite",
+                lot_trace_category="customer_service",
             )
             if figure is not None:
                 incoming = {"figure": figure}
@@ -2722,6 +3352,17 @@ def build_customer_hover_images(
             y_label="Quantite",
             filename=f"{safe_case_token(customer_id)}_customer_service_backlog.png",
         )
+        figure = build_line_chart_figure(
+            {
+                "Servi": served_series,
+                "Backlog": backlog_series,
+            },
+            title=f"{customer_id} - servi et backlog dans le temps",
+            y_label="Quantite",
+            lot_trace_category="customer_service",
+        )
+        if figure is not None:
+            outgoing = {"figure": figure}
         if outgoing is None:
             figure = build_line_chart_figure(
                 {
@@ -2730,6 +3371,7 @@ def build_customer_hover_images(
                 },
                 title=f"{customer_id} - servi et backlog dans le temps",
                 y_label="Quantite",
+                lot_trace_category="customer_service",
             )
             if figure is not None:
                 outgoing = {"figure": figure}
@@ -2775,12 +3417,22 @@ def build_customer_hover_images(
                 y_label="Quantite",
                 filename=f"{safe_case_token(customer_id)}_customer_receipts.png",
             )
+            figure = build_line_chart_figure(
+                inbound_by_item,
+                title=f"{customer_id} - receptions client par item",
+                y_label="Quantite",
+                step_like=True,
+                lot_trace_category="receipt",
+            )
+            if figure is not None:
+                third = {"figure": figure}
             if third is None:
                 figure = build_line_chart_figure(
                     inbound_by_item,
                     title=f"{customer_id} - receptions client par item",
                     y_label="Quantite",
                     step_like=True,
+                    lot_trace_category="receipt",
                 )
                 if figure is not None:
                     third = {"figure": figure}
@@ -3193,6 +3845,7 @@ def build_factory_industrial_payload(
         "figure": {
             "kind": "production_execution",
             "title": f"{factory_id} - execution production par lots",
+            "lot_trace_category": "production",
             "x_label": "Jour",
             "top_title": "Lots physiques produits ou reportes",
             "bottom_title": "Besoin quotidien avant lotification",
@@ -7326,7 +7979,10 @@ def build_realistic_sensitivity_panel_metrics(
     def fmt_factor(value: float | None) -> str:
         if value is None or math.isnan(value):
             return "n/a"
-        return f"x{value:.2f}"
+        percent = value * 100.0
+        if abs(percent - round(percent)) <= 1e-9:
+            return f"{percent:.0f}%"
+        return f"{percent:.1f}%"
 
     def local_test_label(row: dict[str, str] | None) -> str:
         if not row:
@@ -7345,7 +8001,7 @@ def build_realistic_sensitivity_panel_metrics(
         factor_value = to_float(row.get("factor_value"))
         if factor_value is None or math.isnan(factor_value):
             return "variation n/a"
-        return f"variation severe x1.00 -> {fmt_factor(factor_value)}"
+        return f"variation severe 100% -> {fmt_factor(factor_value)}"
 
     def describe_local(row: dict[str, str] | None, *, kpi: str) -> str:
         if not row:
@@ -7680,7 +8336,8 @@ def build_threshold_sensitivity_panel_metrics(
     def fmt_level(value: float | None) -> str:
         if value is None:
             return "n/a"
-        return f"x{value:.2f}"
+        percent = value * 100.0
+        return f"{percent:.0f}%" if abs(percent - round(percent)) <= 1e-9 else f"{percent:.1f}%"
 
     def side_label(row: dict[str, str]) -> str:
         mono = str(row.get("fill_rate_monotonicity") or "").strip().lower()
@@ -7939,6 +8596,7 @@ def build_threshold_metric_curve_payload(
     parameter_label: str,
     filename: str,
     service_threshold: float | None,
+    baseline_production_planning_line_count: float | None = None,
 ) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
     usable_rows = []
     for row in parameter_rows:
@@ -7951,19 +8609,20 @@ def build_threshold_metric_curve_payload(
         return None, None
 
     def format_parameter_level(value: float) -> str:
-        raw = f"x{value:.2f}".rstrip("0").rstrip(".")
+        percent = value * 100.0
+        raw = f"{percent:.0f}%" if abs(percent - round(percent)) <= 1e-9 else f"{percent:.1f}%"
         return f"{raw} ref." if abs(value - 1.0) <= 1e-9 else raw
 
     x = [format_parameter_level(level) for level, _ in usable_rows]
-    availability = [
-        float(to_float(row.get("kpi::product_availability")) or to_float(row.get("kpi::fill_rate")) or 0.0)
-        for _, row in usable_rows
-    ]
-    has_replanning_rate = any(row.get("kpi::production_replanning_rate") not in (None, "") for _, row in usable_rows)
+    availability = [sensitivity_availability_percent(row) for _, row in usable_rows]
     replanning_rate = [
-        float(to_float(row.get("kpi::production_replanning_rate")) or 0.0) if has_replanning_rate else None
+        sensitivity_replanning_rate_percent(
+            row,
+            baseline_production_planning_line_count=baseline_production_planning_line_count,
+        )
         for _, row in usable_rows
     ]
+    has_replanning_rate = any(value is not None for value in replanning_rate)
     backlog = [float(to_float(row.get("kpi::ending_backlog")) or 0.0) for _, row in usable_rows]
     inventory_cost = [
         float(to_float(row.get("kpi::inventory_cost")) or to_float(row.get("kpi::total_holding_cost")) or 0.0)
@@ -7980,7 +8639,7 @@ def build_threshold_metric_curve_payload(
                 "mode": "lines",
                 "name": "Seuil disponibilite",
                 "x": x,
-                "y": [float(service_threshold) for _ in x],
+                "y": [float(fraction_metric_to_percent(service_threshold)) for _ in x],
                 "line": {"width": 1.4, "color": "#dc2626", "dash": "dash"},
             }
         )
@@ -7993,8 +8652,9 @@ def build_threshold_metric_curve_payload(
                 "top": {
                     "kind": "line",
                     "title": "Disponibilite produit",
-                    "x_label": "Niveau teste du parametre (x1 = reference active, pas un jour)",
-                    "y_label": "Ratio",
+                    "x_label": "Niveau teste du parametre (100% = reference active)",
+                    "y_label": "Disponibilite produit (%)",
+                    "y_unit": "percent",
                 "x": x,
                 "y": availability,
                 "extra_traces": service_extra,
@@ -8002,8 +8662,9 @@ def build_threshold_metric_curve_payload(
                 "bottom": {
                     "kind": "line",
                     "title": "Taux de replanification production" if has_replanning_rate else "Taux de replanification production - non calcule dans cette etude",
-                    "x_label": "Niveau teste du parametre (x1 = reference active, pas un jour)",
-                    "y_label": "Ratio",
+                    "x_label": "Niveau teste du parametre (100% = reference active)",
+                    "y_label": "Taux de replanification (%)",
+                    "y_unit": "percent",
                 "x": x,
                 "y": replanning_rate,
             },
@@ -8018,7 +8679,7 @@ def build_threshold_metric_curve_payload(
                 "top": {
                     "kind": "line",
                     "title": "Cout de stockage",
-                    "x_label": "Niveau teste du parametre (x1 = reference active, pas un jour)",
+                    "x_label": "Niveau teste du parametre (100% = reference active)",
                     "y_label": "Cout",
                 "x": x,
                 "y": inventory_cost,
@@ -8026,7 +8687,7 @@ def build_threshold_metric_curve_payload(
                 "bottom": {
                     "kind": "line",
                     "title": "Backlog final",
-                    "x_label": "Niveau teste du parametre (x1 = reference active, pas un jour)",
+                    "x_label": "Niveau teste du parametre (100% = reference active)",
                     "y_label": "Quantite",
                 "x": x,
                 "y": backlog,
@@ -8073,7 +8734,8 @@ def build_threshold_metric_curve_payload(
             break
 
     def format_level(value: float) -> str:
-        return f"x{value:.2f}"
+        percent = value * 100.0
+        return f"{percent:.0f}%" if abs(percent - round(percent)) <= 1e-9 else f"{percent:.1f}%"
 
     incoming_fig, incoming_axes = plt.subplots(2, 1, figsize=(9.2, 7.0), sharex=True)
     incoming_fig.patch.set_facecolor("#ffffff")
@@ -8202,6 +8864,7 @@ def build_supplier_threshold_metric_curve_payload(
     parameter_label: str,
     filename: str,
     metrics_cache: dict[tuple[str, str], dict[str, float]],
+    baseline_production_planning_line_count: float | None = None,
 ) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
     usable_rows = []
     for row in parameter_rows:
@@ -8215,7 +8878,8 @@ def build_supplier_threshold_metric_curve_payload(
         return None, None
 
     def format_parameter_level(value: float) -> str:
-        raw = f"x{value:.2f}".rstrip("0").rstrip(".")
+        percent = value * 100.0
+        raw = f"{percent:.0f}%" if abs(percent - round(percent)) <= 1e-9 else f"{percent:.1f}%"
         return f"{raw} ref." if abs(value - 1.0) <= 1e-9 else raw
 
     x = [format_parameter_level(level) for level, _, _ in usable_rows]
@@ -8226,22 +8890,23 @@ def build_supplier_threshold_metric_curve_payload(
     availability = []
     replanning_rate = []
     inventory_cost = []
-    has_replanning_rate = any(row.get("kpi::production_replanning_rate") not in (None, "") for _, row, _ in usable_rows)
     for _, row, case_output_dir in usable_rows:
         metrics = read_supplier_case_metrics(case_output_dir, node_id, metrics_cache)
         shipped.append(float(metrics.get("total_shipped") or 0.0))
         avg_stock.append(float(metrics.get("avg_stock") or 0.0))
         ending_stock.append(float(metrics.get("ending_stock") or 0.0))
         avg_utilization.append(float(metrics.get("avg_utilization") or 0.0))
-        availability.append(
-            float(to_float(row.get("kpi::product_availability")) or to_float(row.get("kpi::fill_rate")) or 0.0)
-        )
+        availability.append(sensitivity_availability_percent(row))
         replanning_rate.append(
-            float(to_float(row.get("kpi::production_replanning_rate")) or 0.0) if has_replanning_rate else None
+            sensitivity_replanning_rate_percent(
+                row,
+                baseline_production_planning_line_count=baseline_production_planning_line_count,
+            )
         )
         inventory_cost.append(
             float(to_float(row.get("kpi::inventory_cost")) or to_float(row.get("kpi::total_holding_cost")) or 0.0)
         )
+    has_replanning_rate = any(value is not None for value in replanning_rate)
 
     incoming_payload = {
         "figure": {
@@ -8252,16 +8917,18 @@ def build_supplier_threshold_metric_curve_payload(
                 "top": {
                     "kind": "line",
                     "title": "Disponibilite produit",
-                    "x_label": "Niveau teste du parametre (x1 = reference active, pas un jour)",
-                    "y_label": "Ratio",
+                    "x_label": "Niveau teste du parametre (100% = reference active)",
+                    "y_label": "Disponibilite produit (%)",
+                    "y_unit": "percent",
                 "x": x,
                 "y": availability,
             },
                 "bottom": {
                     "kind": "line",
                     "title": "Taux de replanification production" if has_replanning_rate else "Taux de replanification production - non calcule dans cette etude",
-                    "x_label": "Niveau teste du parametre (x1 = reference active, pas un jour)",
-                    "y_label": "Ratio",
+                    "x_label": "Niveau teste du parametre (100% = reference active)",
+                    "y_label": "Taux de replanification (%)",
+                    "y_unit": "percent",
                 "x": x,
                 "y": replanning_rate,
             },
@@ -8276,7 +8943,7 @@ def build_supplier_threshold_metric_curve_payload(
                 "top": {
                     "kind": "line",
                     "title": "Cout de stockage",
-                    "x_label": "Niveau teste du parametre (x1 = reference active, pas un jour)",
+                    "x_label": "Niveau teste du parametre (100% = reference active)",
                     "y_label": "Cout",
                 "x": x,
                 "y": inventory_cost,
@@ -8284,7 +8951,7 @@ def build_supplier_threshold_metric_curve_payload(
                 "bottom": {
                     "kind": "line",
                     "title": "Stock fournisseur",
-                    "x_label": "Niveau teste du parametre (x1 = reference active, pas un jour)",
+                    "x_label": "Niveau teste du parametre (100% = reference active)",
                     "y_label": "Quantite",
                 "x": x,
                 "y": avg_stock,
@@ -8334,7 +9001,8 @@ def build_supplier_threshold_metric_curve_payload(
         avg_utilization.append(float(metrics.get("avg_utilization") or 0.0))
 
     def format_level(value: float) -> str:
-        return f"x{value:.2f}"
+        percent = value * 100.0
+        return f"{percent:.0f}%" if abs(percent - round(percent)) <= 1e-9 else f"{percent:.1f}%"
 
     incoming_fig, incoming_axes = plt.subplots(2, 1, figsize=(9.2, 7.0), sharex=True)
     incoming_fig.patch.set_facecolor("#ffffff")
@@ -8404,6 +9072,7 @@ def build_threshold_hover_payloads(
     threshold_parameter_summary_csv: Path,
     threshold_sweep_cases_csv: Path,
     threshold_summary_json: Path,
+    baseline_production_planning_line_count: float | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
     summary_rows = read_csv_rows(threshold_parameter_summary_csv)
     case_rows = read_csv_rows(threshold_sweep_cases_csv)
@@ -8458,6 +9127,7 @@ def build_threshold_hover_payloads(
                 parameter_label=parameter_label,
                 filename=f"{safe_case_token(node_id)}_threshold.png",
                 metrics_cache=supplier_metrics_cache,
+                baseline_production_planning_line_count=baseline_production_planning_line_count,
             )
         else:
             incoming, outgoing = build_threshold_metric_curve_payload(
@@ -8465,6 +9135,7 @@ def build_threshold_hover_payloads(
                 parameter_label=parameter_label,
                 filename=f"{safe_case_token(node_id)}_threshold.png",
                 service_threshold=service_threshold,
+                baseline_production_planning_line_count=baseline_production_planning_line_count,
             )
         if not incoming and not outgoing:
             continue
@@ -8485,6 +9156,7 @@ def build_supplier_parameter_sensitivity_hover_payloads(
     supplier_parameter_summary_csv: Path,
     supplier_parameter_cases_csv: Path,
     supplier_nominal_parameters_csv: Path | None = None,
+    baseline_production_planning_line_count: float | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any]]:
     summary_rows = read_csv_rows(supplier_parameter_summary_csv)
     case_rows = read_csv_rows(supplier_parameter_cases_csv)
@@ -8566,7 +9238,8 @@ def build_supplier_parameter_sensitivity_hover_payloads(
     def fmt_factor(value: float | None, *, row: dict[str, str] | None = None) -> str:
         if value is None:
             return "n/a"
-        raw = f"x{value:.2f}".rstrip("0").rstrip(".")
+        percent = value * 100.0
+        raw = f"{percent:.0f}%" if abs(percent - round(percent)) <= 1e-9 else f"{percent:.1f}%"
         if abs(value - 1.0) <= 1e-9:
             raw = f"{raw} ref."
         return raw
@@ -8659,7 +9332,7 @@ def build_supplier_parameter_sensitivity_hover_payloads(
             if nervousness_delta > 1e-9:
                 planning_parts.append(f"amplitude +{nervousness_delta:.0f} pts")
             if replanning_delta > 1e-9:
-                planning_parts.append(f"lignes replanifiees +{replanning_delta:.0f}")
+                planning_parts.append(f"volume associe +{replanning_delta:.0f} lignes")
             parts.append(f"replanification ({' ; '.join(planning_parts)})")
         if material_delay > 1e-9:
             parts.append(f"retard matiere max +{material_delay:.0f} j")
@@ -8736,10 +9409,53 @@ def build_supplier_parameter_sensitivity_hover_payloads(
             return fmt_money_short(max_value)
         return f"{fmt_money_short(max_value)} ({fmt_money_short(max_value - baseline_holding_cost)} vs baseline)"
 
+    def derived_replanning_rate_from_count(count: float | None) -> float | None:
+        if count is None or math.isnan(count):
+            return None
+        denominator = baseline_production_planning_line_count
+        if denominator is None or denominator <= 0:
+            return None
+        return count / denominator
+
+    def baseline_replanning_rate_label(row: dict[str, str], parameter_key: str) -> str:
+        rate = safe_float(row.get("baseline_production_replanning_rate"))
+        if rate is not None:
+            return fmt_fill_value(rate)
+        baseline_count = (
+            safe_float(row.get("baseline_production_replanning_count"))
+            or safe_float(baseline.get("kpi::production_replanning_count"))
+            or safe_float(baseline.get("production_replanning_count"))
+            or safe_float(baseline_case_row.get("kpi::production_replanning_count"))
+            or safe_float(baseline_case_row.get("production_replanning_count"))
+        )
+        if baseline_count is None:
+            for case_row in case_rows_by_param.get(parameter_key, []):
+                level = safe_float(case_row.get("level"))
+                if level is not None and abs(level - 1.0) <= 1e-9:
+                    baseline_count = (
+                        safe_float(case_row.get("kpi::production_replanning_count"))
+                        or safe_float(case_row.get("production_replanning_count"))
+                    )
+                    break
+        derived_rate = derived_replanning_rate_from_count(baseline_count)
+        if derived_rate is None:
+            return "n/a"
+        return f"{fmt_fill_value(derived_rate)} derive"
+
     def replanning_rate_label(row: dict[str, str]) -> str:
         rate = safe_float(row.get("production_replanning_rate_max"))
         if rate is None:
-            return metric_max_label_any(row, ["kpi::production_replanning_rate"], kind="pct_fraction")
+            label = metric_max_label_any(row, ["kpi::production_replanning_rate"], kind="pct_fraction")
+            if label != "n/a":
+                return label
+            count = safe_float(row.get("production_replanning_count_max"))
+            if count is None:
+                values = metric_values_for_row(row, "kpi::production_replanning_count")
+                count = max(values) if values else None
+            derived_rate = derived_replanning_rate_from_count(count)
+            if derived_rate is not None:
+                return f"{fmt_fill_value(derived_rate)} derive"
+            return "n/a"
         return fmt_fill_value(rate)
 
     def replanning_delta_label(row: dict[str, str]) -> str:
@@ -8747,13 +9463,16 @@ def build_supplier_parameter_sensitivity_hover_payloads(
         count_delta = safe_float(row.get("max_production_replanning_count_increase"))
         if rate_delta is not None and not math.isnan(rate_delta):
             count_suffix = (
-                f" ; +{fmt_qty(count_delta, 0)} lignes"
+                f" ; volume associe +{fmt_qty(count_delta, 0)} lignes"
                 if count_delta is not None and not math.isnan(count_delta)
                 else ""
             )
             return f"+{rate_delta * 100:.1f} pts{count_suffix}"
         if count_delta is not None and not math.isnan(count_delta):
-            return f"+{fmt_qty(count_delta, 0)} lignes"
+            derived_delta = derived_replanning_rate_from_count(count_delta)
+            if derived_delta is not None:
+                return f"+{derived_delta * 100:.2f} pts derive ; volume associe +{fmt_qty(count_delta, 0)} lignes"
+            return f"taux n/a ; volume associe +{fmt_qty(count_delta, 0)} lignes"
         return "n/a"
 
     def line_adherence_label(row: dict[str, str]) -> str:
@@ -8915,13 +9634,17 @@ def build_supplier_parameter_sensitivity_hover_payloads(
         first_bad = safe_float(row.get("first_unacceptable_level"))
         proximity = 0.0 if first_bad is None else max(0.0, 1.0 - abs(first_bad - 1.0))
         non_contiguous = 0.5 if not bool_text(row.get("acceptable_is_contiguous")) else 0.0
+        replanning_score = (
+            min(replanning_rate_delta * 140.0, 35.0)
+            if replanning_rate_delta > 1e-12
+            else min(replanning_delta / 100.0, 10.0)
+        )
         return (
             fill_drop * 100.0
             + availability_drop * 120.0
             + adherence_drop * 100.0
             + min(nervousness_delta / 10.0, 30.0)
-            + min(replanning_delta / 10.0, 30.0)
-            + min(replanning_rate_delta * 140.0, 35.0)
+            + replanning_score
             + min(target_gap / 1_000_000.0, 80.0)
             + min(safety_gap / 1_000_000.0, 40.0)
             + min(upstream_delta / 10_000_000.0, 40.0)
@@ -8960,11 +9683,11 @@ def build_supplier_parameter_sensitivity_hover_payloads(
                 f"Perimetre = {scope_text}",
                 "",
                 "Calcul ici",
-                f"Zone acceptable autour de x1 = {baseline_contiguous_band(row)}",
+                f"Zone acceptable autour de 100% = {baseline_contiguous_band(row)}",
                 f"Premier niveau degrade = {first_unacceptable(row)}",
                 f"Disponibilite produit min = {metric_min_label_any(row, ['kpi::product_availability', 'kpi::fill_rate'], kind='pct_fraction')} ; baisse max = {fmt_fill_value(max(availability_drop, fill_drop))}",
                 f"Taux replanification max = {replanning_rate_label(row)} ; variation = {replanning_delta_label(row)}",
-                f"Signal technique adherence = {line_adherence_label(row)} ; nervosite +{fmt_qty(nervousness_delta, 0)} pts ; lignes replanifiees +{fmt_qty(replanning_delta, 0)}",
+                f"Signal technique adherence = {line_adherence_label(row)} ; nervosite +{fmt_qty(nervousness_delta, 0)} pts ; volume replanifie +{fmt_qty(replanning_delta, 0)} lignes",
                 f"Retard matiere = +{fmt_qty(material_delay, 0)} j",
                 f"Gap cible stock = {fmt_qty(target_gap, 0)} ; appro amont delta = {fmt_qty(upstream_delta, 0)}",
                 f"Cout stockage max = {holding_cost_delta_label(row)} ; delta = {fmt_money_short(inventory_delta)}",
@@ -9231,12 +9954,19 @@ def build_supplier_parameter_sensitivity_hover_payloads(
         if rate is not None:
             suffix = f" / {fmt_qty(replanning, 0)} lignes" if replanning is not None else ""
             return f"{fmt_fill_value(rate)}{suffix}"
-        return f"{fmt_qty(replanning, 0)} lignes"
+        derived_rate = derived_replanning_rate_from_count(replanning)
+        if derived_rate is not None:
+            return f"{fmt_fill_value(derived_rate)} derive / {fmt_qty(replanning, 0)} lignes"
+        return f"taux n/a ({fmt_qty(replanning, 0)} lignes)"
 
     def planning_instability_tooltip(row: dict[str, str], value: str) -> str:
         raw_rate = safe_float(row.get("production_replanning_rate_max"))
         raw_rate_delta = safe_float(row.get("max_production_replanning_rate_increase"))
         raw_replanning = safe_float(row.get("production_replanning_count_max"))
+        derived_rate = derived_replanning_rate_from_count(raw_replanning)
+        derived_rate_delta = derived_replanning_rate_from_count(
+            safe_float(row.get("max_production_replanning_count_increase"))
+        )
         rate = raw_rate or 0.0
         rate_delta = raw_rate_delta or 0.0
         nervousness = safe_float(row.get("line_nervousness_max")) or 0.0
@@ -9254,6 +9984,44 @@ def build_supplier_parameter_sensitivity_hover_payloads(
                     "",
                     "Action",
                     "Regenerer l'etude de sensibilite avec le script a jour pour alimenter ce KPI sur les courbes et les cartes.",
+                ]
+            )
+        if raw_rate is None and derived_rate is None:
+            return "\n".join(
+                [
+                    "Lecture metier",
+                    "Le KPI principal attendu est le taux de replanification: part des lignes de planning production reportees ou replanifiees.",
+                    "",
+                    "Statut des donnees",
+                    "Cette ligne ne contient pas encore le taux. On affiche donc seulement le volume technique associe.",
+                    "",
+                    "Volume associe",
+                    f"Maximum observe = {fmt_qty(replanning, 0)} lignes",
+                    f"Augmentation vs reference = +{fmt_qty(replanning_delta, 0)} lignes",
+                    "",
+                    "Action",
+                    "Regenerer l'etude de sensibilite avec production_replanning_rate pour comparer les scenarios en pourcentage.",
+                ]
+            )
+        if raw_rate is None and derived_rate is not None:
+            return "\n".join(
+                [
+                    "Lecture metier",
+                    "Le KPI principal est le taux de replanification: part des lignes de planning production reportees ou replanifiees.",
+                    "",
+                    "Compatibilite donnees",
+                    "Cette etude ancienne ne contient que le nombre de lignes. Le taux affiche est derive avec le denominateur du run nominal.",
+                    "",
+                    "KPI derive",
+                    f"Taux max derive = {fmt_fill_value(derived_rate)}",
+                    f"Variation derivee vs reference = +{(derived_rate_delta or 0.0) * 100:.2f} pts",
+                    "",
+                    "Volume associe",
+                    f"Maximum observe = {fmt_qty(replanning, 0)} lignes",
+                    f"Augmentation vs reference = +{fmt_qty(replanning_delta, 0)} lignes",
+                    "",
+                    "Valeur affichee",
+                    f"{value}",
                 ]
             )
         return "\n".join(
@@ -9447,7 +10215,7 @@ def build_supplier_parameter_sensitivity_hover_payloads(
                 f"<div class=\"sensitivityCompareFamily\">{html.escape(family_label)}</div>",
                 f"<div class=\"sensitivityCompareContext\">{html.escape(sensitivity_comparison_context(row))}</div>" if include_context else "",
                 f"<div class=\"sensitivityCompareTitle\">{html.escape(label)}</div>",
-                f"<div class=\"sensitivityCompareText\">Se degrade a partir de <b>{html.escape(first_unacceptable(row))}</b>. Zone acceptable autour de x1: <b>{html.escape(baseline_contiguous_band(row))}</b>.</div>",
+                f"<div class=\"sensitivityCompareText\">Se degrade a partir de <b>{html.escape(first_unacceptable(row))}</b>. Zone acceptable autour de 100%: <b>{html.escape(baseline_contiguous_band(row))}</b>.</div>",
                 "<div class=\"sensitivityCompareKpis\">",
                 f"<div><span>Disponibilite produit</span><b>{html.escape(availability_value)}</b></div>",
                 f"<div><span>Taux replanification</span><b>{html.escape(planning_value)}</b></div>",
@@ -9590,7 +10358,7 @@ def build_supplier_parameter_sensitivity_hover_payloads(
                 ),
                 (
                     "Nervosite planning",
-                    f"amplitude +{fmt_qty(safe_float(row.get('max_line_nervousness_increase')), 0)} pts ; lignes replanifiees +{fmt_qty(safe_float(row.get('max_production_replanning_count_increase')), 0)}",
+                    f"amplitude +{fmt_qty(safe_float(row.get('max_line_nervousness_increase')), 0)} pts ; volume replanifie +{fmt_qty(safe_float(row.get('max_production_replanning_count_increase')), 0)} lignes",
                 ),
                 (
                     "Ecart cible stock MP",
@@ -9680,10 +10448,9 @@ def build_supplier_parameter_sensitivity_hover_payloads(
                 else "vue amont: fournisseurs relies au noeud + contraintes globales"
             )
         )
-        baseline_replanning_rate = safe_float(best_row.get("baseline_production_replanning_rate"))
         baseline_line = (
             f"disponibilite {fmt_fill_value(baseline_fill)} | "
-            f"replanification {fmt_fill_value(baseline_replanning_rate)} | "
+            f"replanification {baseline_replanning_rate_label(best_row, parameter_key)} | "
             f"backlog {fmt_qty(baseline_backlog, 0)} | cout {fmt_money_short(baseline_cost)}"
         )
         summary_rows_html = render_data_kv(
@@ -9694,7 +10461,7 @@ def build_supplier_parameter_sensitivity_hover_payloads(
                 ("Baseline", baseline_line),
                 (
                     "Lecture niveaux testes",
-                    "x1 ref. = valeur du scenario actif; x0.75 = 75% de cette reference. Les taux capacite cible sont gardes dans les onglets nominaux.",
+                    "100% ref. = valeur du scenario actif; 75% = 75% de cette reference. Les taux capacite cible sont gardes dans les onglets nominaux.",
                 ),
                 ("Disponibilite cible", fmt_fill_value(service_threshold)),
                 ("Point faible principal", parameter_label),
@@ -9775,6 +10542,7 @@ def build_supplier_parameter_sensitivity_hover_payloads(
                 parameter_label=curve_parameter_label,
                 filename=f"{safe_case_token(node_id)}_supplier_parameter_sensitivity.png",
                 metrics_cache={},
+                baseline_production_planning_line_count=baseline_production_planning_line_count,
             )
         else:
             curve_primary, curve_secondary = build_threshold_metric_curve_payload(
@@ -9782,6 +10550,7 @@ def build_supplier_parameter_sensitivity_hover_payloads(
                 parameter_label=curve_parameter_label,
                 filename=f"{safe_case_token(node_id)}_supplier_parameter_sensitivity.png",
                 service_threshold=service_threshold,
+                baseline_production_planning_line_count=baseline_production_planning_line_count,
             )
         curve_entries = [
             {"label": "KPI metier", "asset": curve_primary},
@@ -9988,7 +10757,7 @@ def build_montecarlo_uncertainty_payload(summary_json: Path) -> dict[str, Any]:
     def corr_text(value: float | None) -> str:
         if value is None or math.isnan(value):
             return "n/a"
-        return f"{value:+.2f}"
+        return f"{value * 100.0:+.1f}%"
 
     def mc_node_driver_from_factor(raw_factor: str) -> tuple[str, str, str, str, str] | None:
         prefixes = {
@@ -10153,10 +10922,12 @@ def build_montecarlo_uncertainty_payload(summary_json: Path) -> dict[str, Any]:
             driver_table_rows = []
             for row in rows[:8]:
                 score_row = float(row.get("score") or 0.0)
+                raw_factor = str(row.get("factor") or "")
                 driver_table_rows.append(
                     "<tr>"
                     f"<td>{html.escape(str(row.get('label') or 'n/a'))}</td>"
                     f"<td>{html.escape(fmt_pct(score_row * 100.0, 1))}</td>"
+                    f"<td>{html.escape(factor_tested_range_text(raw_factor))}</td>"
                     f"<td>{html.escape(corr_text(float(row.get('fill_corr') or 0.0)))}</td>"
                     f"<td>{html.escape(corr_text(float(row.get('backlog_corr') or 0.0)))}</td>"
                     f"<td>{html.escape(corr_text(float(row.get('cost_corr') or 0.0)))}</td>"
@@ -10167,7 +10938,7 @@ def build_montecarlo_uncertainty_payload(summary_json: Path) -> dict[str, Any]:
             driver_table = (
                 "<div class=\"orderLedgerTableWrap\" tabindex=\"0\">"
                 "<table class=\"kpiFormulaTable\"><thead><tr>"
-                "<th>Dimension testee</th><th>Impact</th><th>Corr. disponibilite</th><th>Corr. backlog</th><th>Corr. cout</th><th>Lecture</th>"
+                "<th>Dimension testee</th><th>Lien observe</th><th>Plage testee</th><th>Corr. disponibilite</th><th>Corr. backlog</th><th>Corr. cout</th><th>Lecture</th>"
                 "</tr></thead><tbody>"
                 f"{''.join(driver_table_rows)}"
                 "</tbody></table></div>"
@@ -10276,7 +11047,6 @@ def build_montecarlo_uncertainty_payload(summary_json: Path) -> dict[str, Any]:
     cost_stat = stat(summary, "total_cost")
     inv_cost_stat = stat(summary, "total_inventory_cost_legacy_raw_holding")
     supplier_binding_stat = stat(summary, "total_supplier_capacity_binding_qty")
-    mc_nodes, mc_node_assets = build_montecarlo_node_payloads(summary)
     trajectory_assets = build_montecarlo_trajectory_assets(summary_json)
     trajectory_days = trajectory_assets.get("days") if isinstance(trajectory_assets.get("days"), list) else []
     trajectory_horizon_label = (
@@ -10355,6 +11125,54 @@ def build_montecarlo_uncertainty_payload(summary_json: Path) -> dict[str, Any]:
         if raw == "kpi::total_produced":
             return "Production realisee"
         return raw or "n/a"
+
+    def factor_distribution_values(raw_factor: Any) -> list[float]:
+        factor = str(raw_factor or "").strip()
+        distributions = summary.get("factor_distributions") if isinstance(summary.get("factor_distributions"), dict) else {}
+        if not factor or not distributions:
+            return []
+        if factor.startswith("factor::"):
+            values = (distributions.get("global") or {}).get(factor.removeprefix("factor::"))
+        else:
+            mapping = [
+                ("demand_item::", "demand_item_scale"),
+                ("capacity_node::", "capacity_node_scale"),
+                ("supplier_stock_node::", "supplier_stock_node_scale"),
+                ("supplier_capacity_node::", "supplier_capacity_node_scale"),
+                ("supplier_lead_node::", "supplier_lead_node_scale"),
+                ("supplier_reliability_node::", "supplier_reliability_node_scale"),
+            ]
+            values = None
+            for prefix, distribution_key in mapping:
+                if factor.startswith(prefix):
+                    values = (distributions.get(distribution_key) or {}).get(factor.removeprefix(prefix))
+                    break
+        if not isinstance(values, list):
+            return []
+        out: list[float] = []
+        for value in values:
+            numeric = to_float(value)
+            if numeric is not None and not math.isnan(numeric):
+                out.append(float(numeric))
+        return out
+
+    def factor_tested_range_text(raw_factor: Any) -> str:
+        values = factor_distribution_values(raw_factor)
+        if not values:
+            return "n/a"
+        low = min(values)
+        high = max(values)
+        center = values[len(values) // 2] if len(values) >= 3 else None
+
+        def factor_pct(value: float) -> str:
+            percent = value * 100.0
+            return f"{percent:.0f}%" if abs(percent - round(percent)) <= 1e-9 else f"{percent:.1f}%"
+
+        if center is not None and low < center < high:
+            return f"{factor_pct(low)} -> {factor_pct(high)} ; centre {factor_pct(center)}"
+        return f"{factor_pct(low)} -> {factor_pct(high)}"
+
+    mc_nodes, mc_node_assets = build_montecarlo_node_payloads(summary)
 
     def propagation_signal_text(corr: float | None, r2: float | None) -> str:
         if corr is None or math.isnan(corr) or r2 is None or math.isnan(r2):
@@ -10597,9 +11415,11 @@ def build_montecarlo_uncertainty_payload(summary_json: Path) -> dict[str, Any]:
         for row in rows[:8]:
             corr = as_float(row.get("correlation"), 0.0)
             direction = "augmente avec le KPI" if corr >= 0 else "fait baisser le KPI"
+            raw_factor = str(row.get("factor") or "")
             driver_rows.append(
                 "<tr>"
-                f"<td>{html.escape(factor_label(str(row.get('factor') or '')))}</td>"
+                f"<td>{html.escape(factor_label(raw_factor))}</td>"
+                f"<td>{html.escape(factor_tested_range_text(raw_factor))}</td>"
                 f"<td>{corr:+.2f}</td>"
                 f"<td>{html.escape(direction)}</td>"
                 "</tr>"
@@ -10609,7 +11429,7 @@ def build_montecarlo_uncertainty_payload(summary_json: Path) -> dict[str, Any]:
             f"{html.escape(title)}"
             "</div>"
             "<div class=\"orderLedgerTableWrap\" tabindex=\"0\">"
-            "<table class=\"kpiFormulaTable\"><thead><tr><th>Parametre aleatoire</th><th>Correlation</th><th>Lecture</th></tr></thead><tbody>"
+            "<table class=\"kpiFormulaTable\"><thead><tr><th>Parametre aleatoire</th><th>Plage testee</th><th>Correlation</th><th>Lecture</th></tr></thead><tbody>"
             f"{''.join(driver_rows)}"
             "</tbody></table></div>"
         )
@@ -10665,6 +11485,7 @@ def build_montecarlo_uncertainty_payload(summary_json: Path) -> dict[str, Any]:
             f"<td>{html.escape(fmt_pct(score * 100.0, 1))}</td>"
             f"<td>{html.escape(str(row.get('driver_count') or 0))}</td>"
             f"<td>{html.escape(str(top.get('label') or top.get('factor') or 'n/a'))}</td>"
+            f"<td>{html.escape(factor_tested_range_text(top.get('factor')))}</td>"
             f"<td>{html.escape(display_kpi_label(top.get('target_label') or top.get('target') or 'n/a'))}</td>"
             f"<td>{html.escape(corr_text(to_float(top.get('correlation')) or 0.0))}</td>"
             "</tr>"
@@ -10674,7 +11495,7 @@ def build_montecarlo_uncertainty_payload(summary_json: Path) -> dict[str, Any]:
         "<div class=\"dataSummarySectionTitle\">Familles de parametres les plus explicatives</div>"
         "<div class=\"orderLedgerStatus\">Lecture: classe les familles d'aleas qui expliquent le plus les ecarts entre runs. Utile pour savoir si le probleme vient plutot des stocks, des delais, des capacites ou de la demande.</div>"
         "<div class=\"orderLedgerTableWrap\" tabindex=\"0\">"
-        "<table class=\"kpiFormulaTable\"><thead><tr><th>Famille</th><th>Signal max</th><th>Drivers</th><th>Driver principal</th><th>KPI explique</th><th>Corr.</th></tr></thead><tbody>"
+        "<table class=\"kpiFormulaTable\"><thead><tr><th>Famille</th><th>Lien max observe</th><th>Drivers</th><th>Driver principal</th><th>Plage testee</th><th>KPI explique</th><th>Corr.</th></tr></thead><tbody>"
         f"{''.join(family_rows_html)}"
         "</tbody></table></div>"
         "</section>"
@@ -10855,19 +11676,20 @@ def build_montecarlo_uncertainty_payload(summary_json: Path) -> dict[str, Any]:
         supplier_rows_html.append(
             "<tr>"
             f"<td>{html.escape(str(row.get('supplier_id') or 'n/a'))}</td>"
-            f"<td>{html.escape(fmt_pct(score * 100.0, 1))}</td>"
-            f"<td>{html.escape(str(row.get('driver_count') or 0))}</td>"
             f"<td>{html.escape(str(top.get('family_label') or 'n/a'))}</td>"
+            f"<td>{html.escape(factor_tested_range_text(top.get('factor')))}</td>"
             f"<td>{html.escape(display_kpi_label(top.get('target_label') or top.get('target') or 'n/a'))}</td>"
+            f"<td>{html.escape(fmt_pct(score * 100.0, 1))}</td>"
             f"<td>{html.escape(corr_text(to_float(top.get('correlation')) or 0.0))}</td>"
+            f"<td>{html.escape(str(row.get('driver_count') or 0))}</td>"
             "</tr>"
         )
     supplier_section_html = (
         "<section class=\"dataSummarySection\">"
         "<div class=\"dataSummarySectionTitle\">Fournisseurs et noeuds a prioriser</div>"
-        "<div class=\"orderLedgerStatus\">Lecture: priorite modele issue des correlations Monte Carlo par fournisseur. A utiliser comme point d'entree diagnostic, puis verifier les courbes de stock, commandes, receptions et criticite fournisseur.</div>"
+        "<div class=\"orderLedgerStatus\">Lecture: le lien KPI observe n'est pas une variation directe du KPI. Il indique a quel point la variation testee du parametre explique les ecarts entre runs Monte Carlo.</div>"
         "<div class=\"orderLedgerTableWrap\" tabindex=\"0\">"
-        "<table class=\"kpiFormulaTable\"><thead><tr><th>Fournisseur/noeud</th><th>Signal max</th><th>Drivers</th><th>Type d'alea</th><th>KPI explique</th><th>Corr.</th></tr></thead><tbody>"
+        "<table class=\"kpiFormulaTable\"><thead><tr><th>Fournisseur/noeud</th><th>Type d'alea</th><th>Plage testee</th><th>KPI explique</th><th>Lien max observe</th><th>Corr.</th><th>Drivers</th></tr></thead><tbody>"
         f"{''.join(supplier_rows_html)}"
         "</tbody></table></div>"
         "</section>"
@@ -11031,15 +11853,16 @@ def build_montecarlo_uncertainty_payload(summary_json: Path) -> dict[str, Any]:
             "<tr>"
             f"<td>{html.escape(supplier_priority(score))}</td>"
             f"<td>{html.escape(str(row.get('supplier_id') or 'n/a'))}</td>"
-            f"<td>{html.escape(fmt_pct(score * 100.0, 1))}</td>"
             f"<td>{html.escape(driver_family_label(top))}</td>"
+            f"<td>{html.escape(factor_tested_range_text(top.get('factor')))}</td>"
             f"<td>{html.escape(driver_target_label(top))}</td>"
+            f"<td>{html.escape(fmt_pct(score * 100.0, 1))}</td>"
             f"<td>{html.escape(action)}</td>"
             "</tr>"
         )
     business_supplier_table_html = (
         "<div class=\"orderLedgerTableWrap\" tabindex=\"0\">"
-        "<table class=\"kpiFormulaTable\"><thead><tr><th>Priorite</th><th>Fournisseur/noeud</th><th>Signal</th><th>Cause simulee</th><th>KPI touche</th><th>Action metier</th></tr></thead><tbody>"
+        "<table class=\"kpiFormulaTable\"><thead><tr><th>Priorite</th><th>Fournisseur/noeud</th><th>Cause simulee</th><th>Plage testee</th><th>KPI touche</th><th>Lien KPI observe</th><th>Action metier</th></tr></thead><tbody>"
         f"{''.join(business_supplier_rows_html)}"
         "</tbody></table></div>"
         if business_supplier_rows_html
@@ -11848,6 +12671,11 @@ def main() -> None:
             supplier_risk_pair_csv=supplier_risk_pair_csv,
             supplier_risk_summary_json=supplier_risk_summary_json,
         )
+        baseline_production_planning_line_count = production_replanning_rate_denominator(
+            raw,
+            horizon_days=read_timeline_horizon_days(output_root_from_csv(demand_service_csv)),
+            production_constraint_csv=production_constraint_csv,
+        )
         (
             payload["factory_supplier_risk_hover_images"],
             payload["supplier_risk_hover_images"],
@@ -11874,6 +12702,7 @@ def main() -> None:
             threshold_parameter_summary_csv,
             threshold_sweep_cases_csv,
             threshold_sensitivity_summary_json,
+            baseline_production_planning_line_count=baseline_production_planning_line_count,
         )
         payload["factory_sensitivity_hover_images"] = merge_hover_payload_maps(
             factory_threshold_hover_images,
@@ -11898,6 +12727,7 @@ def main() -> None:
             supplier_parameter_summary_csv,
             supplier_parameter_cases_csv,
             supplier_nominal_parameters_csv,
+            baseline_production_planning_line_count=baseline_production_planning_line_count,
         )
         payload["supplier_parameter_sensitivity_nodes"] = supplier_parameter_sensitivity_nodes
         payload["factory_sensitivity_hover_images"] = merge_hover_payload_maps(

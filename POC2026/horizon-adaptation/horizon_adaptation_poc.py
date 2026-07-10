@@ -5,37 +5,58 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import yaml
 
 BASE_DIR = Path(__file__).resolve().parent
+CONFIG_DIR = BASE_DIR / "config"
+PARAMS_PATH = CONFIG_DIR / "ha_parameters.yml"
 OUT_DIR = BASE_DIR / "outputs"
 CSV_DIR = OUT_DIR / "csv"
 IMG_DIR = OUT_DIR / "images"
 CSV_DIR.mkdir(parents=True, exist_ok=True)
 IMG_DIR.mkdir(parents=True, exist_ok=True)
 
-MONTHS = list(range(1, 241))
-START_YEAR = 2026
 
-MAIN_LEAD = 3
-BACKUP_LEAD = 1
-BIOSOURCED_LEAD = 1
-RAW_STORAGE_EF = 0.012
-FG_STORAGE_EF = 0.018
-SOLAR_EF = 0.035
-BIOMASS_EF = 0.16
-BATTERY_USE_EF = 0.025
-BACKUP_MATERIAL_PREMIUM_EF = 5.5
-BACKUP_INBOUND_PREMIUM_EF = 2.8
-AIR_PREMIUM_EF = 6.8
+def load_yaml_config(path: Path) -> dict:
+    with path.open("r", encoding="utf-8") as handle:
+        data = yaml.safe_load(handle)
+    if not isinstance(data, dict):
+        raise ValueError(f"Expected a YAML mapping in {path}")
+    return data
 
-SOLAR_LCOE = 0.04
-BIOMASS_LCOE = 0.085
-BATTERY_CYCLE_COST = 0.03
-STORAGE_FIXED_COST = 0.35
-BACKLOG_PENALTY_COST = 25.0
-BATTERY_CAPEX_MONTHLY = 2.8
-SOLAR_CAPEX_MONTHLY = 0.9
-BIOMASS_CAPEX_MONTHLY = 1.1
+
+PARAMS = load_yaml_config(PARAMS_PATH)
+
+MONTHS = list(range(1, int(PARAMS["study"]["horizon_months"]) + 1))
+START_YEAR = int(PARAMS["study"]["start_year"])
+
+LEAD_TIMES = PARAMS["lead_times"]
+MAIN_LEAD = int(LEAD_TIMES["main_months"])
+BACKUP_LEAD = int(LEAD_TIMES["backup_months"])
+BIOSOURCED_LEAD = int(LEAD_TIMES["biosourced_months"])
+
+ENV_FACTORS = PARAMS["environmental_factors"]
+RAW_STORAGE_EF = float(ENV_FACTORS["raw_storage_kgco2e_per_unit_month"])
+FG_STORAGE_EF = float(ENV_FACTORS["finished_goods_storage_kgco2e_per_unit_month"])
+SOLAR_EF = float(ENV_FACTORS["solar_kgco2e_per_kwh"])
+BIOMASS_EF = float(ENV_FACTORS["biomass_kgco2e_per_kwh"])
+BATTERY_USE_EF = float(ENV_FACTORS["battery_use_kgco2e_per_kwh"])
+BACKUP_MATERIAL_PREMIUM_EF = float(ENV_FACTORS["backup_material_premium_kgco2e_per_unit"])
+BACKUP_INBOUND_PREMIUM_EF = float(ENV_FACTORS["backup_inbound_premium_kgco2e_per_unit"])
+AIR_PREMIUM_EF = float(ENV_FACTORS["air_premium_kgco2e_per_unit"])
+
+ECON_FACTORS = PARAMS["economic_factors"]
+SOLAR_LCOE = float(ECON_FACTORS["solar_lcoe_per_kwh"])
+BIOMASS_LCOE = float(ECON_FACTORS["biomass_lcoe_per_kwh"])
+BATTERY_CYCLE_COST = float(ECON_FACTORS["battery_cycle_cost_per_kwh"])
+STORAGE_FIXED_COST = float(ECON_FACTORS["storage_fixed_cost_per_unit_month"])
+BACKLOG_PENALTY_COST = float(ECON_FACTORS["backlog_penalty_cost_per_unit_month"])
+BATTERY_CAPEX_MONTHLY = float(ECON_FACTORS["battery_capex_monthly_per_kwh"])
+SOLAR_CAPEX_MONTHLY = float(ECON_FACTORS["solar_capex_monthly_per_scale_unit"])
+BIOMASS_CAPEX_MONTHLY = float(ECON_FACTORS["biomass_capex_monthly_per_scale_unit"])
+
+WEATHER_DRIVER = PARAMS["weather_driver"]
+WEATHER_THRESHOLDS = PARAMS["weather_event_thresholds"]
 
 
 @dataclass(frozen=True)
@@ -71,129 +92,184 @@ class AdaptationPolicy:
     biosourced_transition_ramp: float = 0.0
 
 
-POLICIES = [
-    AdaptationPolicy(
-        name="reference_2045",
-        label="Reference 2045",
-        raw_target=55.0,
-        reorder_threshold=24.0,
-        fg_target=14.0,
-        backup_order_qty=12.0,
-        air_start_threshold=14.0,
-        air_end_threshold=24.0,
-        solar_scale=10.0,
-        battery_capacity=18.0,
-        biomass_capacity=4.0,
-        insulation_factor=1.0,
-        cooling_upgrade=1.0,
-    ),
-    AdaptationPolicy(
-        name="resilience_inventory",
-        label="Stock de resilience",
-        raw_target=78.0,
-        reorder_threshold=34.0,
-        fg_target=22.0,
-        backup_order_qty=14.0,
-        air_start_threshold=16.0,
-        air_end_threshold=28.0,
-        solar_scale=10.0,
-        battery_capacity=18.0,
-        biomass_capacity=4.0,
-        insulation_factor=0.95,
-        cooling_upgrade=1.05,
-    ),
-    AdaptationPolicy(
-        name="energy_autonomy",
-        label="Autonomie energetique",
-        raw_target=55.0,
-        reorder_threshold=24.0,
-        fg_target=14.0,
-        backup_order_qty=12.0,
-        air_start_threshold=14.0,
-        air_end_threshold=24.0,
-        solar_scale=18.0,
-        battery_capacity=42.0,
-        biomass_capacity=9.0,
-        insulation_factor=0.82,
-        cooling_upgrade=0.86,
-    ),
-    AdaptationPolicy(
-        name="integrated_adaptation",
-        label="Adaptation integree",
-        raw_target=82.0,
-        reorder_threshold=34.0,
-        fg_target=22.0,
-        backup_order_qty=16.0,
-        air_start_threshold=18.0,
-        air_end_threshold=30.0,
-        solar_scale=20.0,
-        battery_capacity=48.0,
-        biomass_capacity=10.0,
-        insulation_factor=0.74,
-        cooling_upgrade=0.78,
-    ),
-    AdaptationPolicy(
-        name="lean_exposed",
-        label="Lean expose",
-        raw_target=40.0,
-        reorder_threshold=18.0,
-        fg_target=8.0,
-        backup_order_qty=10.0,
-        air_start_threshold=10.0,
-        air_end_threshold=18.0,
-        solar_scale=6.0,
-        battery_capacity=8.0,
-        biomass_capacity=0.0,
-        insulation_factor=1.14,
-        cooling_upgrade=1.12,
-    ),
-]
+def build_adaptation_policy(config: dict) -> AdaptationPolicy:
+    return AdaptationPolicy(**config)
 
-TIMELINE_POLICY_NAME = "reference_2045"
 
-REFERENCE_2045_POLICY = next(policy for policy in POLICIES if policy.name == "reference_2045")
+POLICIES = [build_adaptation_policy(policy_config) for policy_config in PARAMS["policies"]]
+
+TIMELINE_POLICY_NAME = PARAMS["timeline_policy_name"]
+
+REFERENCE_2045_POLICY = next(policy for policy in POLICIES if policy.name == TIMELINE_POLICY_NAME)
+SCENARIO_OVERRIDES = PARAMS["scenario_overrides"]
 NO_BIOMASS_BASELINE_POLICY = replace(
     REFERENCE_2045_POLICY,
-    name="baseline_degraded",
-    label="Baseline degradee",
-    raw_target=46.0,
-    reorder_threshold=18.0,
-    fg_target=10.0,
-    air_start_threshold=8.0,
-    air_end_threshold=14.0,
-    biomass_capacity=0.0,
+    **SCENARIO_OVERRIDES["baseline_degraded"],
 )
 BIOMASS_POLICY = replace(
     NO_BIOMASS_BASELINE_POLICY,
-    name="baseline_plus_biomass",
-    label="Baseline + biomasse",
-    biomass_capacity=10.0,
-    biomass_local_resource=True,
-    biomass_local_stock_cap_kwh=620.0,
-    biomass_local_regen_kwh=26.0,
-    biomass_local_stress_sensitivity=0.38,
-    biomass_local_stress_recovery=0.18,
-    biomass_local_ef_premium=0.04,
-    biomass_local_cost_premium=0.08,
+    **SCENARIO_OVERRIDES["baseline_plus_biomass"],
 )
 BASELINE_SCENARIO_POLICIES = [NO_BIOMASS_BASELINE_POLICY]
 BIOMASS_SCENARIO_POLICIES = [NO_BIOMASS_BASELINE_POLICY, BIOMASS_POLICY]
 BIOSOURCED_MATERIAL_POLICY = replace(
     NO_BIOMASS_BASELINE_POLICY,
-    name="baseline_biosourced_materials",
-    label="Baseline + materiaux biosources",
-    backup_order_qty=6.0,
-    biosourced_materials=True,
-    biosourced_material_ef_discount=0.30,
-    biosourced_inbound_ef_discount=0.52,
-    biosourced_local_stress_sensitivity=0.34,
-    biosourced_local_stress_recovery=0.16,
-    biosourced_cost_premium=0.10,
-    biosourced_water_penalty=0.08,
-    biosourced_transition_target=0.78,
-    biosourced_transition_ramp=0.055,
+    **SCENARIO_OVERRIDES["baseline_biosourced_materials"],
 )
 BIOSOURCED_MATERIAL_SCENARIO_POLICIES = [NO_BIOMASS_BASELINE_POLICY, BIOSOURCED_MATERIAL_POLICY]
+
+
+def clamp(value: float, lower: float, upper: float) -> float:
+    return min(upper, max(lower, value))
+
+
+def build_weather_anomalies(year: int, month: int, transition_progress: float) -> dict[str, float]:
+    heat_anomaly = 0.0
+    dry_anomaly = 0.0
+    storm_anomaly = 0.0
+
+    # Anomalies shape the weather curves; events are triggered later from the
+    # weather values, not directly from the calendar.
+    if month in [7, 8] and (year >= 2029 and ((year - 2029) % 3 == 0 or year >= 2038)):
+        heat_anomaly = 4.5 + 3.2 * transition_progress
+    if month in [6, 7, 8] and year >= 2040:
+        heat_anomaly = max(heat_anomaly, 5.8 + 2.8 * transition_progress)
+
+    if month in [5, 6, 7] and (year >= 2031 and ((year - 2031) % 5 in [0, 1] or year >= 2041)):
+        dry_anomaly = 0.52 + 0.42 * transition_progress
+    if month in [4, 5, 6, 7] and year >= 2042:
+        dry_anomaly = max(dry_anomaly, 0.70 + 0.25 * transition_progress)
+
+    if month in [10, 11] and (year >= 2030 and ((year - 2030) % 4 == 0 or year >= 2038)):
+        storm_anomaly = 0.58 + 0.50 * transition_progress
+    if month in [1, 2] and year >= 2036 and ((year - 2036) % 5 in [0, 1] or year >= 2043):
+        storm_anomaly = max(storm_anomaly, 0.40 + 0.42 * transition_progress)
+
+    return {
+        "heat_anomaly": heat_anomaly,
+        "dry_anomaly": dry_anomaly,
+        "storm_anomaly": storm_anomaly,
+    }
+
+
+def build_weather_row(
+    month_index: int,
+    year: int,
+    month: int,
+    season_angle: float,
+    warming: float,
+    transition_progress: float,
+) -> dict[str, float]:
+    anomalies = build_weather_anomalies(year, month, transition_progress)
+    heat_anomaly = anomalies["heat_anomaly"]
+    dry_anomaly = anomalies["dry_anomaly"]
+    storm_anomaly = anomalies["storm_anomaly"]
+
+    temp_c = (
+        float(WEATHER_DRIVER["baseline_temp_c"])
+        + float(WEATHER_DRIVER["seasonal_temp_amplitude_c"]) * math.sin(season_angle - math.pi / 2)
+        + warming
+        + heat_anomaly
+        - 1.2 * storm_anomaly
+    )
+    humidity_pct = clamp(
+        float(WEATHER_DRIVER["baseline_humidity_pct"])
+        + float(WEATHER_DRIVER["seasonal_humidity_amplitude_pct"]) * math.cos(season_angle)
+        - 18.0 * dry_anomaly
+        + 12.0 * storm_anomaly
+        + 0.35 * max(0.0, temp_c - 30.0),
+        24.0,
+        98.0,
+    )
+    precip_mm = max(
+        0.0,
+        float(WEATHER_DRIVER["baseline_precip_mm"])
+        + float(WEATHER_DRIVER["seasonal_precip_amplitude_mm"]) * math.cos(season_angle - math.pi / 5)
+        - 58.0 * dry_anomaly
+        + 86.0 * storm_anomaly,
+    )
+    wind_ms = max(
+        0.5,
+        float(WEATHER_DRIVER["baseline_wind_ms"])
+        + float(WEATHER_DRIVER["seasonal_wind_amplitude_ms"]) * math.cos(season_angle + math.pi / 6)
+        + 5.8 * storm_anomaly
+        + 0.08 * max(0.0, precip_mm - 100.0),
+    )
+    heat_index_c = temp_c + 0.08 * max(0.0, humidity_pct - 45.0) if temp_c >= 24.0 else temp_c
+
+    return {
+        "month_index": month_index,
+        "temp_c": temp_c,
+        "humidity_pct": humidity_pct,
+        "precip_mm": precip_mm,
+        "wind_ms": wind_ms,
+        "heat_index_c": heat_index_c,
+        "heat_anomaly": heat_anomaly,
+        "dry_anomaly": dry_anomaly,
+        "storm_anomaly": storm_anomaly,
+    }
+
+
+def generate_weather_events(weather: dict[str, float]) -> dict[str, float | str]:
+    heatwave = clamp(
+        max(
+            (weather["temp_c"] - float(WEATHER_THRESHOLDS["heatwave_temp_c"])) / 8.0,
+            (weather["heat_index_c"] - float(WEATHER_THRESHOLDS["heatwave_heat_index_c"])) / 9.0,
+            0.0,
+        ),
+        0.0,
+        1.6,
+    )
+    drought_temp_factor = clamp(
+        (weather["temp_c"] - float(WEATHER_THRESHOLDS["drought_temp_c"])) / 10.0,
+        0.0,
+        1.0,
+    )
+    precip_deficit = clamp(
+        (float(WEATHER_THRESHOLDS["drought_precip_mm"]) - weather["precip_mm"])
+        / float(WEATHER_THRESHOLDS["drought_precip_mm"]),
+        0.0,
+        1.0,
+    )
+    humidity_deficit = clamp((55.0 - weather["humidity_pct"]) / 35.0, 0.0, 1.0)
+    drought = clamp(
+        precip_deficit * (0.55 + 0.45 * drought_temp_factor) + 0.35 * humidity_deficit,
+        0.0,
+        1.45,
+    )
+    storm_stress = clamp(
+        max(
+            (weather["precip_mm"] - float(WEATHER_THRESHOLDS["storm_precip_mm"])) / 70.0,
+            (weather["wind_ms"] - float(WEATHER_THRESHOLDS["storm_wind_ms"])) / 5.0,
+            0.0,
+        ),
+        0.0,
+        1.5,
+    )
+    cold_stress = clamp(
+        (float(WEATHER_THRESHOLDS["cold_temp_c"]) - weather["temp_c"]) / 12.0,
+        0.0,
+        1.4,
+    )
+    chronic_heat = max(0.0, weather["heat_index_c"] - 24.0) / 18.0
+    heat_stress = max(0.0, chronic_heat + 1.05 * heatwave)
+
+    event_labels = []
+    if heatwave > 0:
+        event_labels.append("canicule")
+    if drought > 0:
+        event_labels.append("secheresse")
+    if storm_stress > 0:
+        event_labels.append("tempete / inondation")
+
+    return {
+        "heatwave": heatwave,
+        "drought": drought,
+        "heat_stress": heat_stress,
+        "cold_stress": cold_stress,
+        "storm_stress": storm_stress,
+        "climate_event": " + ".join(event_labels) if event_labels else "aucun",
+    }
 
 
 def build_exogenous_context() -> pd.DataFrame:
@@ -204,32 +280,13 @@ def build_exogenous_context() -> pd.DataFrame:
         season_angle = 2 * math.pi * (month - 1) / 12
         warming = 2.0 * (t - 1) / (len(MONTHS) - 1)
         transition_progress = (t - 1) / (len(MONTHS) - 1)
-        seasonal_temperature = 13.0 * math.sin(season_angle - math.pi / 2)
-
-        heatwave = 0.0
-        storm = 0.0
-        drought = 0.0
-
-        # Climate shocks become more frequent and more severe over time.
-        if month in [7, 8] and (year >= 2029 and ((year - 2029) % 3 == 0 or year >= 2038)):
-            heatwave = 0.65 + 0.70 * transition_progress
-        if month in [6, 7, 8] and year >= 2040:
-            heatwave = max(heatwave, 0.85 + 0.55 * transition_progress)
-
-        if month in [5, 6, 7] and (year >= 2031 and ((year - 2031) % 5 in [0, 1] or year >= 2041)):
-            drought = 0.55 + 0.60 * transition_progress
-        if month in [4, 5, 6, 7] and year >= 2042:
-            drought = max(drought, 0.75 + 0.45 * transition_progress)
-
-        if month in [10, 11] and (year >= 2030 and ((year - 2030) % 4 == 0 or year >= 2038)):
-            storm = 0.60 + 0.70 * transition_progress
-        if month in [1, 2] and year >= 2036 and ((year - 2036) % 5 in [0, 1] or year >= 2043):
-            storm = max(storm, 0.45 + 0.55 * transition_progress)
-
-        chronic_heat = 0.22 * warming + max(0.0, seasonal_temperature - 7.0) / 18.0
-        heat_stress = max(0.0, chronic_heat + 1.05 * heatwave)
-        cold_stress = max(0.0, -seasonal_temperature / 12.0)
-        storm_stress = storm
+        weather = build_weather_row(t, year, month, season_angle, warming, transition_progress)
+        weather_events = generate_weather_events(weather)
+        heatwave = float(weather_events["heatwave"])
+        drought = float(weather_events["drought"])
+        heat_stress = float(weather_events["heat_stress"])
+        cold_stress = float(weather_events["cold_stress"])
+        storm_stress = float(weather_events["storm_stress"])
         scarcity = min(1.25, 0.10 + 0.14 * warming + 0.55 * drought + 0.18 * storm_stress)
 
         grid_factor = max(0.08, 0.52 - 0.28 * transition_progress + 0.06 * heatwave + 0.04 * storm_stress + 0.02 * cold_stress)
@@ -260,21 +317,21 @@ def build_exogenous_context() -> pd.DataFrame:
             - 2.50 * storm_stress,
         )
 
-        climate_event = "aucun"
-        if heatwave > 0 and drought > 0:
-            climate_event = "canicule + secheresse"
-        elif heatwave > 0:
-            climate_event = "canicule"
-        elif drought > 0:
-            climate_event = "secheresse"
-        elif storm_stress > 0:
-            climate_event = "tempete / inondation"
+        climate_event = str(weather_events["climate_event"])
 
         rows.append({
             "month_index": t,
             "year": year,
             "month": month,
             "warming": warming,
+            "temp_c": weather["temp_c"],
+            "humidity_pct": weather["humidity_pct"],
+            "precip_mm": weather["precip_mm"],
+            "wind_ms": weather["wind_ms"],
+            "heat_index_c": weather["heat_index_c"],
+            "heat_anomaly": weather["heat_anomaly"],
+            "dry_anomaly": weather["dry_anomaly"],
+            "storm_anomaly": weather["storm_anomaly"],
             "heatwave": heatwave,
             "drought": drought,
             "heat_stress": heat_stress,
@@ -1239,6 +1296,14 @@ def build_event_timeline(states: pd.DataFrame) -> pd.DataFrame:
         "month_index",
         "year",
         "month",
+        "temp_c",
+        "humidity_pct",
+        "precip_mm",
+        "wind_ms",
+        "heat_index_c",
+        "heatwave",
+        "drought",
+        "storm_stress",
         "climate_event",
         "operational_feedback_event",
         "backlog_end",
@@ -1318,6 +1383,20 @@ def build_outputs_package(
         for result in results
     ], ignore_index=True)
     exogenous = EXOGENOUS.copy()
+    weather_driver = exogenous[[
+        "month_index",
+        "year",
+        "month",
+        "temp_c",
+        "humidity_pct",
+        "precip_mm",
+        "wind_ms",
+        "heat_index_c",
+        "heatwave",
+        "drought",
+        "storm_stress",
+        "climate_event",
+    ]].copy()
 
     summary.to_csv(csv_dir / "ha_strategy_summary.csv", index=False)
     method_comparison.to_csv(csv_dir / "ha_method_comparison.csv", index=False)
@@ -1326,6 +1405,7 @@ def build_outputs_package(
     states_all.to_csv(csv_dir / "ha_monthly_states.csv", index=False)
     costs_all.to_csv(csv_dir / "ha_monthly_costs.csv", index=False)
     exogenous.to_csv(csv_dir / "ha_exogenous_context.csv", index=False)
+    weather_driver.to_csv(csv_dir / "ha_weather_driver.csv", index=False)
 
     reference = results_by_name.get(timeline_policy_name, results[0])
     display_reference = results_by_name.get(display_policy_name or timeline_policy_name, reference)
@@ -1355,6 +1435,53 @@ def build_outputs_package(
     cumulative.to_csv(csv_dir / "ha_reference_cumulative.csv", index=False)
     event_timeline.to_csv(csv_dir / "ha_event_timeline.csv", index=False)
     event_impact.to_csv(csv_dir / "ha_event_impact_breakdown.csv", index=False)
+
+    fig, axes = plt.subplots(4, 1, figsize=(15, 10.5), sharex=True)
+    heat_months = weather_driver.loc[weather_driver["climate_event"].str.contains("canicule"), "month_index"]
+    drought_months = weather_driver.loc[weather_driver["climate_event"].str.contains("secheresse"), "month_index"]
+    storm_months = weather_driver.loc[weather_driver["climate_event"].str.contains("tempete"), "month_index"]
+
+    axes[0].plot(weather_driver["month_index"], weather_driver["temp_c"], color="#d7301f", label="Temperature")
+    axes[0].plot(weather_driver["month_index"], weather_driver["heat_index_c"], color="#e6550d", linestyle="--", label="Heat index proxy")
+    axes[0].axhline(float(WEATHER_THRESHOLDS["heatwave_temp_c"]), color="#d7301f", alpha=0.25, linewidth=1.0)
+    axes[0].scatter(heat_months, weather_driver.loc[weather_driver["month_index"].isin(heat_months), "temp_c"], color="#d7301f", s=24)
+    axes[0].set_ylabel("degC")
+    axes[0].set_title("Driver meteo synthetique : temperature, humidite, pluie et vent")
+    axes[0].legend(loc="upper left")
+    axes[0].grid(alpha=0.2)
+
+    axes[1].plot(weather_driver["month_index"], weather_driver["humidity_pct"], color="#3182bd", label="Humidite")
+    axes[1].scatter(drought_months, weather_driver.loc[weather_driver["month_index"].isin(drought_months), "humidity_pct"], color="#e6550d", s=18, label="Mois secheresse")
+    axes[1].set_ylabel("%")
+    axes[1].legend(loc="upper right")
+    axes[1].grid(alpha=0.2)
+
+    axes[2].bar(weather_driver["month_index"], weather_driver["precip_mm"], color="#9ecae1", width=0.85, label="Precipitations")
+    axes[2].axhline(float(WEATHER_THRESHOLDS["drought_precip_mm"]), color="#e6550d", alpha=0.35, linewidth=1.0, label="Seuil secheresse")
+    axes[2].axhline(float(WEATHER_THRESHOLDS["storm_precip_mm"]), color="#3182bd", alpha=0.35, linewidth=1.0, label="Seuil tempete")
+    axes[2].set_ylabel("mm/mois")
+    axes[2].legend(loc="upper right", ncol=3, fontsize=8)
+    axes[2].grid(axis="y", alpha=0.2)
+
+    ax_wind = axes[3]
+    ax_event = ax_wind.twinx()
+    ax_wind.plot(weather_driver["month_index"], weather_driver["wind_ms"], color="#636363", label="Vent")
+    ax_wind.scatter(storm_months, weather_driver.loc[weather_driver["month_index"].isin(storm_months), "wind_ms"], color="#3182bd", s=22)
+    ax_wind.axhline(float(WEATHER_THRESHOLDS["storm_wind_ms"]), color="#636363", alpha=0.35, linewidth=1.0)
+    ax_event.plot(weather_driver["month_index"], weather_driver["heatwave"], color="#d7301f", alpha=0.85, label="Intensite canicule")
+    ax_event.plot(weather_driver["month_index"], weather_driver["drought"], color="#e6550d", alpha=0.85, label="Intensite secheresse")
+    ax_event.plot(weather_driver["month_index"], weather_driver["storm_stress"], color="#3182bd", alpha=0.85, label="Intensite tempete")
+    ax_event.set_ylim(0.0, 1.65)
+    ax_wind.set_xlabel("Mois")
+    ax_wind.set_ylabel("Vent (m/s)")
+    ax_event.set_ylabel("Indice evenement")
+    handles_left, labels_left = ax_wind.get_legend_handles_labels()
+    handles_right, labels_right = ax_event.get_legend_handles_labels()
+    ax_wind.legend(handles_left + handles_right, labels_left + labels_right, loc="upper right", ncol=4, fontsize=8)
+    ax_wind.grid(alpha=0.2)
+    plt.tight_layout()
+    plt.savefig(img_dir / "ha_weather_driver.png", dpi=160, bbox_inches="tight")
+    plt.close()
 
     fig, axes = plt.subplots(3, 1, figsize=(15, 11), sharex=True)
     axes[0].plot(exogenous["month_index"], exogenous["warming"], color="#d7301f", label="Rechauffement cumule")

@@ -1101,6 +1101,15 @@ def parse_args() -> argparse.Namespace:
         help="Override initialization_policy.seed_estimated_source_pipeline.",
     )
     parser.add_argument(
+        "--initial-seed-open-orders-from-january-snapshot",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help=(
+            "Inject firm open purchase/production orders from the opening ERP snapshot "
+            "when the graph metadata contains Extract_En_cours.xlsx rows."
+        ),
+    )
+    parser.add_argument(
         "--opening-production-order-bom-issue-mode",
         choices=["receipt", "release", "wip"],
         default=None,
@@ -1110,6 +1119,52 @@ def parse_args() -> argparse.Namespace:
             "order is received. release issues components at the source release/order date and receives "
             "the output at the source entry date. wip receives the output but treats components as already "
             "issued to opening WIP, without consuming J0 free stock."
+        ),
+    )
+    parser.add_argument(
+        "--use-bom-demand-signal-for-mrp",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help=(
+            "Use the demand propagated through BOM and supply lanes as the MRP target signal. "
+            "This avoids sizing component targets from the theoretical maximum factory capacity."
+        ),
+    )
+    parser.add_argument(
+        "--mrp-demand-signal-source",
+        choices=["demand", "mps_lotified"],
+        default=None,
+        help=(
+            "Source used to propagate MRP component demand. demand uses direct downstream demand; "
+            "mps_lotified uses the lotified production plan before propagating component needs."
+        ),
+    )
+    parser.add_argument(
+        "--mrp-demand-signal-smoothing-days",
+        type=int,
+        default=0,
+        help=(
+            "Rolling window used for the MRP demand signal. 0 keeps scenario value; "
+            "7 is usually appropriate for weekly MPS/lotified production."
+        ),
+    )
+    parser.add_argument(
+        "--mrp-static-fallback-for-propagated-pairs",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help=(
+            "Whether a component with a known propagated MRP path may fall back to static capacity "
+            "when the propagated signal is zero. Disable for demand-driven component targets."
+        ),
+    )
+    parser.add_argument(
+        "--mrp-static-requirement-pair",
+        action="append",
+        default=[],
+        metavar="NODE,ITEM",
+        help=(
+            "Force one pair to keep the historical static requirement as its MRP sizing signal, "
+            "even when BOM/MPS propagated demand is enabled. Can be repeated."
         ),
     )
     parser.add_argument(
@@ -1340,6 +1395,11 @@ def lane_records(
             ):
                 previous_qty = standard_order_qty
                 standard_order_qty = max(0.0, to_float(override.get("qty"), standard_order_qty))
+                if "order_frequency_days" in override:
+                    order_frequency_days = max(
+                        1,
+                        int(round(max(1.0, to_float(override.get("order_frequency_days"), order_frequency_days)))),
+                    )
                 standard_order_qty_note = str(
                     override.get("note")
                     or f"overridden from {previous_qty:g} to {standard_order_qty:g}"
@@ -1975,6 +2035,34 @@ def parse_pair_factor_specs(specs: list[str]) -> dict[str, float]:
             continue
         parsed[policy_pair_key(node_id, item_id)] = max(0.0, min(10.0, factor))
     return parsed
+
+
+def parse_pair_key_values(raw: Any) -> list[str]:
+    if raw is None:
+        return []
+    if isinstance(raw, dict):
+        values = list(raw.keys())
+    elif isinstance(raw, (list, tuple, set)):
+        values = list(raw)
+    else:
+        values = [raw]
+    parsed: set[str] = set()
+    for value in values:
+        text = str(value).strip()
+        if not text:
+            continue
+        if "|" in text:
+            parts = [part.strip() for part in text.split("|", 1)]
+        elif "/" in text:
+            parts = [part.strip() for part in text.split("/", 1)]
+        elif "," in text:
+            parts = [part.strip() for part in text.split(",", 1)]
+        else:
+            continue
+        if len(parts) != 2 or not parts[0] or not parts[1]:
+            continue
+        parsed.add(policy_pair_key(parts[0], parts[1]))
+    return sorted(parsed)
 
 
 def normalize_optional_item_id(item_id: Any) -> str:
@@ -2646,6 +2734,7 @@ def scenario_initialization_policy(
             else str(raw.get("mrp_static_fallback_for_propagated_pairs", "true")).strip().lower()
             in {"1", "true", "yes", "y", "on"}
         ),
+        "mrp_static_requirement_pairs": parse_pair_key_values(raw.get("mrp_static_requirement_pairs")),
         "mrp_enforce_physical_safety_floor": (
             raw.get("mrp_enforce_physical_safety_floor")
             if isinstance(raw.get("mrp_enforce_physical_safety_floor"), bool)
@@ -4526,10 +4615,32 @@ def main() -> None:
         initialization_policy["seed_estimated_source_pipeline"] = bool(
             args.initial_seed_estimated_source_pipeline
         )
+    if args.initial_seed_open_orders_from_january_snapshot is not None:
+        initialization_policy["seed_open_orders_from_january_snapshot"] = bool(
+            args.initial_seed_open_orders_from_january_snapshot
+        )
     if args.opening_production_order_bom_issue_mode is not None:
         initialization_policy["opening_production_order_bom_issue_mode"] = str(
             args.opening_production_order_bom_issue_mode
         )
+    if args.use_bom_demand_signal_for_mrp is not None:
+        initialization_policy["use_bom_demand_signal_for_mrp"] = bool(args.use_bom_demand_signal_for_mrp)
+    if args.mrp_demand_signal_source is not None:
+        initialization_policy["mrp_demand_signal_source"] = str(args.mrp_demand_signal_source)
+    if args.mrp_demand_signal_smoothing_days and args.mrp_demand_signal_smoothing_days > 0:
+        initialization_policy["mrp_demand_signal_smoothing_days"] = max(
+            1,
+            int(args.mrp_demand_signal_smoothing_days),
+        )
+    if args.mrp_static_fallback_for_propagated_pairs is not None:
+        initialization_policy["mrp_static_fallback_for_propagated_pairs"] = bool(
+            args.mrp_static_fallback_for_propagated_pairs
+        )
+    cli_static_requirement_pairs = parse_pair_key_values(args.mrp_static_requirement_pair)
+    if cli_static_requirement_pairs:
+        merged_static_requirement_pairs = set(initialization_policy["mrp_static_requirement_pairs"])
+        merged_static_requirement_pairs.update(cli_static_requirement_pairs)
+        initialization_policy["mrp_static_requirement_pairs"] = sorted(merged_static_requirement_pairs)
     if args.soft_safety_time_stock_target_factor is not None:
         initialization_policy["soft_safety_time_stock_target_factor"] = max(
             0.0,
@@ -4570,6 +4681,11 @@ def main() -> None:
                 initialization_policy["mrp_base_stock_floor_factor"],
             ),
         )
+
+    static_requirement_pair_keys = set(initialization_policy["mrp_static_requirement_pairs"])
+
+    def static_requirement_for_pair(pair: tuple[str, str]) -> bool:
+        return policy_pair_key(pair[0], pair[1]) in static_requirement_pair_keys
 
     lead_time_policy_cfg = scenario_policy_dict(scenario, "lead_time_policy")
     lead_time_distribution_mode = normalize_lead_time_distribution_mode(
@@ -7271,7 +7387,9 @@ def main() -> None:
             )
             static_daily_req = max(0.0, required_daily_input_by_pair.get(pair, 0.0))
             dynamic_daily_req = max(0.0, propagated_demand_today.get(pair, 0.0))
-            if dynamic_daily_req > 1e-9:
+            if static_requirement_for_pair(pair):
+                item_daily_req = static_daily_req
+            elif dynamic_daily_req > 1e-9:
                 # Use the propagated downstream demand signal for day-to-day supplier
                 # replenishment targets. The static engineering requirement remains a
                 # fallback for items that currently have no propagated demand, but it
@@ -8091,7 +8209,10 @@ def main() -> None:
                 item_daily_req_static = max(0.0, required_daily_input_by_pair.get(pair, 0.0))
                 item_daily_req_dynamic = max(0.0, propagated_demand_today.get(pair, 0.0))
                 item_daily_req_raw_dynamic = max(0.0, raw_propagated_demand_today.get(pair, 0.0))
-                if item_daily_req_dynamic > 1e-9:
+                if static_requirement_for_pair(pair):
+                    item_daily_req = item_daily_req_static
+                    gross_requirement_basis = "static_requirement_override" if item_daily_req_static > 1e-9 else "none"
+                elif item_daily_req_dynamic > 1e-9:
                     item_daily_req = item_daily_req_dynamic
                     if mrp_demand_signal_source == "mps_lotified":
                         gross_requirement_basis = (

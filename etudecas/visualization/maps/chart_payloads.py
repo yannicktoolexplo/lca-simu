@@ -116,6 +116,7 @@ def build_line_chart_figure(
     event_like: bool = False,
     note: str | None = None,
     series_styles: dict[str, dict[str, Any]] | None = None,
+    lot_trace_category: str | None = None,
 ) -> dict[str, Any] | None:
     usable = {
         label: (densify_event_spike_series(pts) if event_like else densify_daily_series(pts) if step_like else pts)
@@ -144,6 +145,7 @@ def build_line_chart_figure(
         "step_like": step_like and not event_like,
         "note": note or "",
         "series": series_payload,
+        "lot_trace_category": lot_trace_category or "",
     }
 
 
@@ -162,6 +164,9 @@ def build_dual_line_multi_panel_figure(
     top_event_like: bool = False,
     bottom_step_like: bool = False,
     bottom_event_like: bool = False,
+    lot_trace_category: str | None = None,
+    top_lot_trace_category: str | None = None,
+    bottom_lot_trace_category: str | None = None,
 ) -> dict[str, Any] | None:
     top_figure = build_line_chart_figure(
         top_series_map,
@@ -170,6 +175,7 @@ def build_dual_line_multi_panel_figure(
         step_like=top_step_like,
         event_like=top_event_like,
         series_styles=top_series_styles,
+        lot_trace_category=top_lot_trace_category or lot_trace_category,
     )
     bottom_figure = build_line_chart_figure(
         bottom_series_map,
@@ -178,6 +184,7 @@ def build_dual_line_multi_panel_figure(
         step_like=bottom_step_like,
         event_like=bottom_event_like,
         series_styles=bottom_series_styles,
+        lot_trace_category=bottom_lot_trace_category or lot_trace_category,
     )
     if top_figure is None and bottom_figure is None:
         return None
@@ -186,6 +193,7 @@ def build_dual_line_multi_panel_figure(
         "title": title,
         "top": top_figure,
         "bottom": bottom_figure,
+        "lot_trace_category": lot_trace_category or "",
     }
 
 
