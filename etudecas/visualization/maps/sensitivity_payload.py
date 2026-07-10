@@ -125,7 +125,10 @@ def multiplier_label(value: float | None, fallback: str) -> str:
         return fallback
     if abs(value - 1.0) <= 1e-9:
         return "Base"
-    return f"x{value:.2f}"
+    percent = value * 100.0
+    if abs(percent - round(percent)) <= 1e-9:
+        return f"{percent:.0f}%"
+    return f"{percent:.1f}%"
 
 
 def align_series(

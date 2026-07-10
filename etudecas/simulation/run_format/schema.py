@@ -42,6 +42,18 @@ CANONICAL_DATA_ARTIFACTS: tuple[ArtifactSpec, ...] = (
         "component_immobilized_stock_summary",
         "node_product_item",
     ),
+    ArtifactSpec(
+        "finished_goods_stock_value_daily.csv",
+        "timeseries",
+        "finished_goods_stock_value",
+        "day_node_product",
+    ),
+    ArtifactSpec(
+        "finished_goods_stock_value_summary.csv",
+        "diagnostics",
+        "finished_goods_stock_value_summary",
+        "product_location",
+    ),
     ArtifactSpec("production_input_consumption_daily.csv", "timeseries", "factory_input_consumption", "day_node_item"),
     ArtifactSpec(
         "production_input_replenishment_arrivals_daily.csv",

@@ -19,8 +19,10 @@ FACTOR_TUBE_GROUP_QUANTILE = 0.20
 FACTOR_TUBE_METRIC_TARGETS = {
     "service_rate": "kpi::fill_rate",
     "backlog": "kpi::ending_backlog",
+    "production_delay_active_orders": "kpi::total_produced",
+    "production_reports": "kpi::total_produced",
+    "supplier_capacity_binding": "kpi::total_cost",
     "total_supply_cost_cum": "kpi::total_cost",
-    "supplier_capacity_binding": "kpi::total_supplier_capacity_binding_qty",
 }
 FACTOR_TUBE_COLORS = [
     ("#0f766e", "rgba(15,118,110,0.18)"),
@@ -29,6 +31,22 @@ FACTOR_TUBE_COLORS = [
     ("#2563eb", "rgba(37,99,235,0.16)"),
     ("#be123c", "rgba(190,18,60,0.14)"),
 ]
+INPUT_FACTOR_PREFIXES = (
+    "factor::",
+    "supplier_stock_node::",
+    "supplier_capacity_node::",
+    "supplier_lead_node::",
+    "supplier_reliability_node::",
+    "demand_item::",
+    "capacity_node::",
+)
+SPARSE_FACTOR_TUBE_METRICS = {
+    "production_delay_active_orders",
+    "production_reports",
+}
+TEMPORAL_FACTOR_SELECTION_METRICS = SPARSE_FACTOR_TUBE_METRICS | {
+    "supplier_capacity_binding",
+}
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -85,6 +103,12 @@ def _factor_label(raw_factor: str) -> str:
         "factor::external_procurement_daily_cap_days_scale": "Capacite appro amont globale",
         "factor::external_procurement_transport_cost_scale": "Couts transport appro amont",
         "factor::external_procurement_cost_multiplier_scale": "Couts appro amont",
+        "factor::capacity_scale": "Capacites usines globales",
+        "factor::demand_scale": "Demande globale",
+        "factor::production_stock_scale": "Stock produits finis global",
+        "factor::holding_cost_scale": "Couts de stockage globaux",
+        "factor::purchase_cost_floor_scale": "Couts achats plancher",
+        "factor::transport_cost_scale": "Couts transport globaux",
     }
     if raw_factor in labels:
         return labels[raw_factor]
@@ -113,6 +137,10 @@ def _is_supplier_prediction_factor(raw_factor: str) -> bool:
         "factor::external_procurement_",
     )
     return raw_factor.startswith(supplier_prefixes)
+
+
+def _is_montecarlo_input_factor(raw_factor: str) -> bool:
+    return raw_factor.startswith(INPUT_FACTOR_PREFIXES)
 
 
 def _ranked_factor_candidates(summary: dict[str, Any], target_kpi: str, samples: dict[str, dict[str, str]]) -> list[str]:
@@ -148,6 +176,16 @@ def _median(values: list[float]) -> float:
     return float(statistics.median(values)) if values else 0.0
 
 
+def _mean(values: list[float]) -> float:
+    return float(sum(values) / len(values)) if values else 0.0
+
+
+def _reduce_group(values: list[float], reducer: str) -> float:
+    if reducer == "mean":
+        return _mean(values)
+    return _median(values)
+
+
 def _series_by_run(metric: dict[str, Any], days: list[int]) -> tuple[dict[str, list[float]], list[float] | None]:
     by_run: dict[str, list[float]] = {}
     nominal: list[float] | None = None
@@ -170,6 +208,53 @@ def _series_by_run(metric: dict[str, Any], days: list[int]) -> tuple[dict[str, l
     return by_run, nominal
 
 
+def _temporal_effect_factor_candidates(
+    *,
+    samples: dict[str, dict[str, str]],
+    by_run: dict[str, list[float]],
+    days: list[int],
+    reducer: str,
+) -> list[str]:
+    sample_columns: set[str] = set()
+    for row in samples.values():
+        sample_columns.update(row.keys())
+        break
+    scored: list[tuple[float, float, str]] = []
+    for factor in sample_columns:
+        if not _is_montecarlo_input_factor(factor):
+            continue
+        rows: list[tuple[float, list[float]]] = []
+        for run_id, sample in samples.items():
+            if str(sample.get("is_baseline") or "").strip().lower() in {"1", "true", "yes"}:
+                continue
+            value = _as_float(sample.get(factor))
+            values = by_run.get(run_id)
+            if value is None or values is None:
+                continue
+            rows.append((value, values))
+        if len(rows) < 4:
+            continue
+        rows.sort(key=lambda item: item[0])
+        if abs(rows[-1][0] - rows[0][0]) <= 1e-12:
+            continue
+        group_size = max(1, int(math.ceil(len(rows) * FACTOR_TUBE_GROUP_QUANTILE)))
+        group_size = min(group_size, max(1, len(rows) // 2))
+        low_group = rows[:group_size]
+        high_group = rows[-group_size:]
+        max_gap = 0.0
+        total_gap = 0.0
+        for pos in range(len(days)):
+            low_value = _reduce_group([series[pos] for _, series in low_group], reducer)
+            high_value = _reduce_group([series[pos] for _, series in high_group], reducer)
+            gap = abs(high_value - low_value)
+            max_gap = max(max_gap, gap)
+            total_gap += gap
+        if max_gap > 1e-9:
+            scored.append((total_gap, max_gap, factor))
+    scored.sort(reverse=True)
+    return [factor for _, _, factor in scored[:FACTOR_TUBE_DISPLAY_LIMIT]]
+
+
 def _factor_tube_bands_for_metric(
     *,
     summary: dict[str, Any],
@@ -184,7 +269,17 @@ def _factor_tube_bands_for_metric(
     by_run, nominal = _series_by_run(metric, days)
     if not by_run:
         return None
+    reducer = "mean" if metric_key in SPARSE_FACTOR_TUBE_METRICS else "median"
     factors = _ranked_factor_candidates(summary, target_kpi, samples)
+    if metric_key in TEMPORAL_FACTOR_SELECTION_METRICS:
+        temporal_factors = _temporal_effect_factor_candidates(
+            samples=samples,
+            by_run=by_run,
+            days=days,
+            reducer=reducer,
+        )
+        if temporal_factors:
+            factors = temporal_factors
     bands: list[dict[str, Any]] = []
     for idx, factor in enumerate(factors):
         rows: list[tuple[str, float, list[float]]] = []
@@ -210,8 +305,8 @@ def _factor_tube_bands_for_metric(
         low_band: list[float] = []
         high_band: list[float] = []
         for pos in range(len(days)):
-            low_value = _median([series[pos] for _, _, series in low_group])
-            high_value = _median([series[pos] for _, _, series in high_group])
+            low_value = _reduce_group([series[pos] for _, _, series in low_group], reducer)
+            high_value = _reduce_group([series[pos] for _, _, series in high_group], reducer)
             low_medians.append(low_value)
             high_medians.append(high_value)
             low_band.append(min(low_value, high_value))
@@ -238,6 +333,7 @@ def _factor_tube_bands_for_metric(
                 "high_input": _median([value for _, value, _ in high_group]),
                 "low_group_count": len(low_group),
                 "high_group_count": len(high_group),
+                "aggregation": reducer,
             }
         )
     if not bands:
@@ -250,6 +346,8 @@ def _factor_tube_bands_for_metric(
         "note": (
             "Lecture: chaque zone compare les runs ou l'input est bas avec ceux ou il est haut. "
             "La largeur de la zone montre quand l'incertitude de cet input se propage dans le temps. "
+            "Les courbes ont le meme perimetre que les trajectoires Monte Carlo globales; les inputs affiches sont choisis a partir des drivers KPI disponibles. "
+            "Pour les KPI rares en pics, les zones utilisent une moyenne de groupe afin de ne pas masquer les reports. "
             "Les autres aleas continuent de varier: c'est une lecture conditionnelle Monte Carlo, pas une preuve causale isolee."
         ),
         "days": days,
@@ -507,7 +605,7 @@ def build_montecarlo_trajectory_assets(summary_json: Path) -> dict[str, Any]:
         "backlog": "Backlog",
         "production_delay_active_orders": "Ordres en attente",
         "production_reports": "Lots reportes",
-        "production_delay_input_qty": "Reports intrants",
+        "production_delay_input_qty": "Volume replanifie par intrants",
         "production_delay_capacity_qty": "Reports capacite",
         "production_delay_active_qty": "Volume en attente",
         "produced_qty": "Production",

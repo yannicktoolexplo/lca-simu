@@ -772,15 +772,15 @@ def supplier_risk_summary_asset(
         sensitivity_card = risk_explanation_card(
             "Impact sensibilite fournisseur",
             pct_field(sensitivity_value),
-            "indice de sensibilite: 65% compensation + 35% baisse fill rate",
+            "indice de sensibilite: 65% compensation + 35% baisse disponibilite produit",
             "Ce score resume l'impact observe quand on degrade ce fournisseur dans le modele. Il ne mesure pas la vraie capacite fournisseur.",
             component_status(pct_field(sensitivity_value)),
             [
                 ("Statut", "indice issu des variations de sensibilite, pas une donnee terrain"),
                 ("Role", "utilise dans le signal de menace avec un poids de 8%, puis dans le facteur sensibilite"),
-                ("Formule", "impact sensibilite = 65% x score compensation matiere + 35% x score baisse service client"),
+                ("Formule", "impact sensibilite = 65% x score compensation matiere + 35% x score baisse disponibilite produit"),
                 ("Appro fournisseur", f"score {pct_field(sensitivity_external_pressure)} ; delta quantite {fmt_qty(sensitivity_external_qty, 1)}"),
-                ("Baisse service client", f"score {pct_field(sensitivity_fill_pressure)} ; baisse fill rate observee {pct_field(sensitivity_fill_drop)}"),
+                ("Baisse disponibilite produit", f"score {pct_field(sensitivity_fill_pressure)} ; baisse observee {pct_field(sensitivity_fill_drop)}"),
                 ("Seuil de test", sensitivity_threshold_text),
                 ("Point important", "0% = aucun impact observe dans les niveaux testes, pas une garantie fournisseur reelle"),
                 ("Application", f"65% x {pct_field(sensitivity_external_pressure)} + 35% x {pct_field(sensitivity_fill_pressure)} = {pct_field(sensitivity_value)}"),
@@ -2308,7 +2308,7 @@ def build_simulated_risk_global_diagnostic_payload(
         return item_labels.get(item_id, compact_item_label(item_id))
 
     stage_info = {
-        "service_client": {"label": "Service client", "color": "#dc2626", "rank": 5},
+        "service_client": {"label": "Disponibilite produit degradee", "color": "#dc2626", "rank": 5},
         "production": {"label": "Production reportee", "color": "#f97316", "rank": 4},
         "cost": {"label": "Surcout fournisseur", "color": "#7c3aed", "rank": 3},
         "local_absorbed": {"label": "Absorbe localement", "color": "#0f766e", "rank": 2},
@@ -2432,6 +2432,33 @@ def build_simulated_risk_global_diagnostic_payload(
         if str(row.get("reason") or row.get("event_type") or "") == "input_shortage"
         or str(row.get("event_type") or "") == "delay_input_shortage"
     ]
+    production_plan_line_count = sum(
+        1
+        for row in plan_rows
+        if str(row.get("node_id") or "").strip()
+        and (
+            str(row.get("output_item_id") or "").strip()
+            or str(row.get("event_type") or "").strip()
+            or str(row.get("reason") or "").strip()
+            or (to_float(row.get("planned_qty_after_lot_rule")) or 0.0) > 0.0
+            or (to_float(row.get("actual_qty")) or 0.0) > 0.0
+        )
+    )
+    input_replanning_rate = (
+        len(input_delay_rows) / production_plan_line_count
+        if production_plan_line_count > 0
+        else None
+    )
+    total_replanning_rate = (
+        len(delay_rows) / production_plan_line_count
+        if production_plan_line_count > 0
+        else None
+    )
+
+    def replanning_rate_text(rate: float | None, count: int) -> str:
+        if rate is not None and math.isfinite(rate):
+            return f"{fmt_pct(rate * 100.0, 1)} ; volume associe {count} lignes"
+        return f"taux n/a ; volume associe {count} lignes"
     delay_by_blocker: dict[tuple[str, str, str], dict[str, Any]] = defaultdict(lambda: {
         "count": 0,
         "days": set(),
@@ -2511,9 +2538,9 @@ def build_simulated_risk_global_diagnostic_payload(
     total_cost = max(0.0, to_float(kpis.get("total_cost")) or 0.0)
     family_text = family_summary(family_counts, 5)
     service_status = (
-        "Service client final absorbe"
+        "Disponibilite produit final absorbee"
         if fill_rate >= 0.999 and ending_backlog <= 1e-9
-        else "Service client degrade"
+        else "Disponibilite produit degradee"
     )
     production_status = (
         "Production reportee par intrants"
@@ -2956,7 +2983,7 @@ def build_simulated_risk_global_diagnostic_payload(
 
         if service_rows:
             cascade_stage = "service_client"
-            cascade_label = "Service client"
+            cascade_label = "Disponibilite produit"
             reading = f"Backlog max {fmt_qty(backlog_max, 0)} sur {len(service_rows)} ligne(s) client."
             priority = 5
         elif production_rows:
@@ -3829,15 +3856,15 @@ def build_simulated_risk_global_diagnostic_payload(
     cards_html = "".join(
         [
             card_html(
-                "Service client",
+                "Disponibilite produit",
                 service_status,
-                f"Fill rate {fmt_pct(fill_rate * 100.0)} ; backlog final {fmt_qty(ending_backlog, 0)}. Backlog temporaire max: {fmt_qty(max_backlog, 0)} sur {len(backlog_days)} jours.",
+                f"Disponibilite {fmt_pct(fill_rate * 100.0)} ; backlog final {fmt_qty(ending_backlog, 0)}. Backlog temporaire max: {fmt_qty(max_backlog, 0)} sur {len(backlog_days)} jours.",
                 "#16a34a" if service_status.endswith("absorbe") else "#dc2626",
             ),
             card_html(
                 "Production",
                 production_status,
-                f"{len(input_delay_rows)} reports par manque d'intrants ; {fmt_qty(input_shortfall_total, 0)} de volume lotifie reporte. Production realisee: {fmt_qty(actual_produced, 0)}.",
+                f"{len(input_delay_rows)} lignes reportees par manque d'intrants ; {fmt_qty(input_shortfall_total, 0)} de volume lotifie associe. Production realisee: {fmt_qty(actual_produced, 0)}.",
                 "#d97706" if input_delay_rows else "#16a34a",
             ),
             card_html(
@@ -3863,7 +3890,7 @@ def build_simulated_risk_global_diagnostic_payload(
 
     diagnosis_lines: list[str] = []
     if fill_rate >= 0.999 and ending_backlog <= 1e-9:
-        diagnosis_lines.append("Le risque est absorbe cote client sur l'horizon: le bon indicateur n'est pas seulement le fill rate, mais les reports, le stock consomme et le cout d'appro fournisseur.")
+        diagnosis_lines.append("Le risque est absorbe cote disponibilite produit sur l'horizon: le bon indicateur n'est pas seulement la disponibilite finale, mais le taux de replanification, le stock consomme et le cout d'appro fournisseur.")
     else:
         diagnosis_lines.append("Le risque atteint le client: il faut lire les pics de backlog et les receptions aval associees.")
     if input_delay_rows and blocker_rows:
@@ -3897,7 +3924,7 @@ def build_simulated_risk_global_diagnostic_payload(
     if total_unreliable_loss > 1e-9:
         recommendations.append("Ajouter un scenario qualite/release explicite pour distinguer perte physique, quarantaine et retard de liberation.")
     if fill_rate >= 0.999 and ending_backlog <= 1e-9:
-        recommendations.append("Garder le service client comme indicateur de validation, mais piloter la robustesse par report de production, couverture stock et cout d'appro fournisseur.")
+        recommendations.append("Garder la disponibilite produit comme indicateur de validation, mais piloter la robustesse par taux de replanification, couverture stock et cout d'appro fournisseur.")
     recommendations.append("Prochaine etape scientifique: comparer ce run a un nominal et a deux scenarios de mitigation, avec les memes KPI.")
 
     horizon_days = int(
@@ -4057,7 +4084,7 @@ def build_simulated_risk_global_diagnostic_payload(
             "Servi client": all_days_points(served_by_day),
             "Backlog fin jour": all_days_points(backlog_by_day),
         },
-        title="Service client - demande, servi, backlog",
+        title="Disponibilite produit - demande, servi, backlog",
         y_label="Quantite / jour",
         note="Permet de voir si les risques restent absorbes par les stocks ou atteignent le client.",
         series_styles={
@@ -4180,7 +4207,7 @@ def build_simulated_risk_global_diagnostic_payload(
                             str(row.get("absorption_label") or row.get("stage_label") or info["label"]),
                             [
                                 str(row.get("reading") or "n/a"),
-                                f"Reports: {row.get('production_delay_count') or 0}",
+                                f"Replanification: {row.get('production_delay_count') or 0} lignes",
                                 f"Backlog max: {fmt_qty(float(row.get('customer_backlog_max_qty') or 0.0), 0)}",
                             ],
                         ),
@@ -4196,15 +4223,15 @@ def build_simulated_risk_global_diagnostic_payload(
         {"Indicateur": "Noeuds fournisseurs touches", "Valeur": str(len(supplier_stats))},
         {"Indicateur": "Jours avec effet fournisseur", "Valeur": str(len(applied_days))},
         {"Indicateur": "Lignes d'application fournisseur", "Valeur": str(len(applied_rows))},
-        {"Indicateur": "Reports production par intrants", "Valeur": str(len(input_delay_rows))},
-        {"Indicateur": "Reports production tous motifs", "Valeur": str(len(delay_rows))},
+        {"Indicateur": "Taux replanification par intrants", "Valeur": replanning_rate_text(input_replanning_rate, len(input_delay_rows))},
+        {"Indicateur": "Taux replanification tous motifs", "Valeur": replanning_rate_text(total_replanning_rate, len(delay_rows))},
         {"Indicateur": "Plan lotifie total", "Valeur": fmt_qty(planned_after_lot, 0)},
         {"Indicateur": "Manque vs plan lotifie", "Valeur": fmt_qty(lot_shortfall_total, 0)},
         {"Indicateur": "Causes de cascade agregees", "Valeur": str(len(cascade_root_rows))},
         {"Indicateur": "Signaux state/scenario analyses", "Valeur": str(len(cascade_rows))},
         {"Indicateur": "Cascades avec impact supply", "Valeur": str(len(effective_cascade_rows))},
         {"Indicateur": "Cascades production", "Valeur": str(cascade_stage_counts.get("production", 0))},
-        {"Indicateur": "Cascades service client", "Valeur": str(cascade_stage_counts.get("service_client", 0))},
+        {"Indicateur": "Cascades disponibilite produit", "Valeur": str(cascade_stage_counts.get("service_client", 0))},
         {"Indicateur": "Effets absorbes localement", "Valeur": str(cascade_stage_counts.get("local_absorbed", 0))},
     ]
     global_metrics = (simulated_risk_metrics.get("global") or {}) if isinstance(simulated_risk_metrics, dict) else {}

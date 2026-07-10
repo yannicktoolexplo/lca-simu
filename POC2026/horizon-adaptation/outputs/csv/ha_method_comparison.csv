@@ -1,16 +1,16 @@
 policy_label,method,total_kgCO2e
-Reference 2045,Classical LCA,124177.84916456076
-Reference 2045,Time-Dependent DLCA,123837.33237306656
-Reference 2045,State-Dependent Dynamic LCA,140893.05496578722
-Stock de resilience,Classical LCA,125177.89437957467
-Stock de resilience,Time-Dependent DLCA,124810.47027118337
-Stock de resilience,State-Dependent Dynamic LCA,143187.60968024994
-Autonomie energetique,Classical LCA,125827.71907292538
-Autonomie energetique,Time-Dependent DLCA,125636.01104288624
-Autonomie energetique,State-Dependent Dynamic LCA,142451.71089289215
-Adaptation integree,Classical LCA,127196.01778575519
-Adaptation integree,Time-Dependent DLCA,127045.30371936073
-Adaptation integree,State-Dependent Dynamic LCA,146140.4237510097
-Lean expose,Classical LCA,123663.1684715638
-Lean expose,Time-Dependent DLCA,123273.63256088013
-Lean expose,State-Dependent Dynamic LCA,145797.01563703496
+Reference 2045,Classical LCA,122715.49884019338
+Reference 2045,Time-Dependent DLCA,122277.45722343883
+Reference 2045,State-Dependent Dynamic LCA,138401.4037884472
+Stock de resilience,Classical LCA,123326.32513254344
+Stock de resilience,Time-Dependent DLCA,122872.8175997998
+Stock de resilience,State-Dependent Dynamic LCA,140344.6326645804
+Autonomie energetique,Classical LCA,124209.87370700855
+Autonomie energetique,Time-Dependent DLCA,123943.27994902985
+Autonomie energetique,State-Dependent Dynamic LCA,139710.42049013998
+Adaptation integree,Classical LCA,125027.48392456309
+Adaptation integree,Time-Dependent DLCA,124798.94145577848
+Adaptation integree,State-Dependent Dynamic LCA,142896.05200038405
+Lean expose,Classical LCA,120457.22613542617
+Lean expose,Time-Dependent DLCA,119967.50912849976
+Lean expose,State-Dependent Dynamic LCA,134759.85207718326

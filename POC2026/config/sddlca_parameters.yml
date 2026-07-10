@@ -1,0 +1,135 @@
+# POC2026 short-horizon SDD-LCA parameters.
+# Units are stated in keys where ambiguity matters. Values are illustrative POC
+# assumptions, not calibrated industrial data.
+
+study:
+  horizon_weeks: 52
+
+lead_times:
+  main_weeks: 2
+  backup_weeks: 1
+
+initial_state:
+  raw_inventory:
+    - source: main
+      qty: 30.0
+  finished_goods_inventory:
+    - source: main
+      qty: 14.0
+  backlog_units: 0.0
+
+environmental_factors:
+  main_material_kgco2e_per_unit: 20.0
+  backup_material_kgco2e_per_unit: 24.0
+  inbound_main_transport_kgco2e_per_unit: 0.8
+  inbound_backup_transport_kgco2e_per_unit: 5.0
+  nominal_kwh_per_unit: 8.0
+  truck_outbound_kgco2e_per_unit: 1.8
+  air_outbound_kgco2e_per_unit: 10.0
+  raw_storage_kgco2e_per_unit_week: 0.03
+  finished_goods_storage_kgco2e_per_unit_week: 0.06
+
+economic_factors:
+  main_material_cost_per_unit: 50.0
+  backup_material_cost_per_unit: 68.0
+  inbound_main_transport_cost_per_unit: 2.0
+  inbound_backup_transport_cost_per_unit: 9.0
+  electricity_cost_per_kwh: 0.14
+  truck_outbound_cost_per_unit: 6.0
+  air_outbound_cost_per_unit: 24.0
+  raw_storage_cost_per_unit_week: 0.35
+  finished_goods_storage_cost_per_unit_week: 0.55
+  backlog_penalty_cost_per_unit_week: 18.0
+
+policies:
+  baseline:
+    name: baseline
+    label: Reference
+    raw_target: 60.0
+    raw_reorder_threshold: 26.0
+    fg_target: 16.0
+    backup_order_qty: 10.0
+    air_backlog_start_threshold: 3.0
+    air_backlog_end_threshold: 6.0
+    carbon_aware_grid_threshold:
+    carbon_aware_backlog_guard: 0.0
+    carbon_aware_capacity_cap: 1.0
+  dynamic_shift:
+    name: dynamic_shift
+    label: Decalage temporel + regime degrade
+    raw_target: 170.0
+    raw_reorder_threshold: 85.0
+    fg_target: 72.0
+    backup_order_qty: 10.0
+    air_backlog_start_threshold: 4.0
+    air_backlog_end_threshold: 7.0
+    carbon_aware_grid_threshold:
+    carbon_aware_backlog_guard: 0.0
+    carbon_aware_capacity_cap: 1.0
+  climate_transition:
+    name: climate_transition
+    label: Transition climatique + disruptions
+    raw_target: 60.0
+    raw_reorder_threshold: 26.0
+    fg_target: 16.0
+    backup_order_qty: 10.0
+    air_backlog_start_threshold: 3.0
+    air_backlog_end_threshold: 6.0
+    carbon_aware_grid_threshold:
+    carbon_aware_backlog_guard: 0.0
+    carbon_aware_capacity_cap: 1.0
+  backup_early:
+    name: backup_early
+    label: Backup anticipe
+    raw_target: 60.0
+    raw_reorder_threshold: 28.0
+    fg_target: 16.0
+    backup_order_qty: 14.0
+    air_backlog_start_threshold: 3.0
+    air_backlog_end_threshold: 6.0
+    carbon_aware_grid_threshold:
+    carbon_aware_backlog_guard: 0.0
+    carbon_aware_capacity_cap: 1.0
+  inventory_buffer:
+    name: inventory_buffer
+    label: Stock tampon
+    raw_target: 72.0
+    raw_reorder_threshold: 32.0
+    fg_target: 22.0
+    backup_order_qty: 10.0
+    air_backlog_start_threshold: 3.0
+    air_backlog_end_threshold: 6.0
+    carbon_aware_grid_threshold:
+    carbon_aware_backlog_guard: 0.0
+    carbon_aware_capacity_cap: 1.0
+  low_carbon:
+    name: low_carbon
+    label: Discipline carbone
+    raw_target: 60.0
+    raw_reorder_threshold: 26.0
+    fg_target: 16.0
+    backup_order_qty: 10.0
+    air_backlog_start_threshold: 12.0
+    air_backlog_end_threshold: 18.0
+    carbon_aware_grid_threshold: 0.5
+    carbon_aware_backlog_guard: 4.0
+    carbon_aware_capacity_cap: 0.6
+  service_first:
+    name: service_first
+    label: Service prioritaire
+    raw_target: 68.0
+    raw_reorder_threshold: 30.0
+    fg_target: 20.0
+    backup_order_qty: 14.0
+    air_backlog_start_threshold: 1.0
+    air_backlog_end_threshold: 3.0
+    carbon_aware_grid_threshold:
+    carbon_aware_backlog_guard: 0.0
+    carbon_aware_capacity_cap: 1.0
+
+counterfactual_policy_order:
+  - baseline
+  - backup_early
+  - inventory_buffer
+  - low_carbon
+  - service_first

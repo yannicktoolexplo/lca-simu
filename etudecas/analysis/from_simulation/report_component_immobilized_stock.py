@@ -43,8 +43,10 @@ DEFAULT_PRODUCT_SOURCES = {
 SIMULATED_METRIC_LABELS = {
     "stock_total_value": "Diagnostic: stock composant brut, PFI inclus si valorise",
     "stock_total_value_without_internal_rollup": "Stock composant valorise hors PFI/flux internes",
-    "excess_over_90d": "Diagnostic: excedent au-dessus couverture 90j",
-    "excess_vs_mrp_target": "Diagnostic: excedent au-dessus cible MRP",
+    "excess_over_90d": "Diagnostic: excedent au-dessus couverture 90j, hors PFI/flux internes",
+    "excess_over_90d_with_internal_rollup": "Diagnostic brut: excedent au-dessus couverture 90j, PFI inclus si valorise",
+    "excess_vs_mrp_target": "Diagnostic: excedent au-dessus cible MRP, hors PFI/flux internes",
+    "excess_vs_mrp_target_with_internal_rollup": "Diagnostic brut: excedent au-dessus cible MRP, PFI inclus si valorise",
 }
 
 ALIGNMENTS = {
@@ -150,12 +152,12 @@ def read_simulated_values(run_dir: Path, product_code: str) -> dict[str, dict[in
         day = int(parse_float(row.get("day")))
         if mode == "target_stock":
             by_metric.setdefault("stock_total_value", {})[day] = max(0.0, parse_float(row.get("stock_value_eur")))
-            by_metric.setdefault("excess_vs_mrp_target", {})[day] = max(
+            by_metric.setdefault("excess_vs_mrp_target_with_internal_rollup", {})[day] = max(
                 0.0,
                 parse_float(row.get("immobilized_stock_value_eur")),
             )
         elif mode == "demand_90d":
-            by_metric.setdefault("excess_over_90d", {})[day] = max(
+            by_metric.setdefault("excess_over_90d_with_internal_rollup", {})[day] = max(
                 0.0,
                 parse_float(row.get("immobilized_stock_value_eur")),
             )
@@ -163,21 +165,36 @@ def read_simulated_values(run_dir: Path, product_code: str) -> dict[str, dict[in
     component_path = run_dir / "data" / "component_immobilized_stock_components_daily.csv"
     if component_path.exists():
         without_internal: dict[int, float] = {}
+        excess_target_without_internal: dict[int, float] = {}
+        excess_90d_without_internal: dict[int, float] = {}
         for row in read_csv_rows(component_path):
             if str(row.get("product_code") or "") != str(product_code):
-                continue
-            if str(row.get("threshold_mode") or "") != "target_stock":
                 continue
             source = str(row.get("value_source") or "")
             if source in {"internal_bom_rollup", "internal_transfer_bom_rollup"}:
                 continue
             day = int(parse_float(row.get("day")))
-            without_internal[day] = without_internal.get(day, 0.0) + max(
-                0.0,
-                parse_float(row.get("stock_value_eur")),
-            )
+            mode = str(row.get("threshold_mode") or "")
+            if mode == "target_stock":
+                without_internal[day] = without_internal.get(day, 0.0) + max(
+                    0.0,
+                    parse_float(row.get("stock_value_eur")),
+                )
+                excess_target_without_internal[day] = excess_target_without_internal.get(day, 0.0) + max(
+                    0.0,
+                    parse_float(row.get("immobilized_value_eur")),
+                )
+            elif mode == "demand_90d":
+                excess_90d_without_internal[day] = excess_90d_without_internal.get(day, 0.0) + max(
+                    0.0,
+                    parse_float(row.get("immobilized_value_eur")),
+                )
         if without_internal:
             by_metric["stock_total_value_without_internal_rollup"] = without_internal
+        if excess_target_without_internal:
+            by_metric["excess_vs_mrp_target"] = excess_target_without_internal
+        if excess_90d_without_internal:
+            by_metric["excess_over_90d"] = excess_90d_without_internal
     return by_metric
 
 
