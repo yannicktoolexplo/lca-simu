@@ -2410,86 +2410,136 @@ def supplier_risk_multipliers_for_lane(
     lane: dict[str, Any],
     output_day: int,
 ) -> dict[str, Any]:
-    out: dict[str, Any] = {
-        "stock": 1.0,
-        "capacity": 1.0,
-        "lead_time": 1.0,
-        "lead_time_extra_days": 0.0,
-        "quality_delay": 0.0,
-        "reliability": 1.0,
-        "quality_yield": 1.0,
-        "availability": 1.0,
-        "purchase_cost": 1.0,
-        "transport_cost": 1.0,
-        "external_capacity": 1.0,
-        "external_availability": 1.0,
-        "external_lead_time": 1.0,
-        "external_lead_time_extra_days": 0.0,
-        "external_quality_yield": 1.0,
-        "external_cost": 1.0,
-        "stock_writeoff_fraction": 0.0,
-        "event_ids": [],
-    }
+    def empty_effects() -> dict[str, Any]:
+        return {
+            "stock": 1.0,
+            "capacity": 1.0,
+            "lead_time": 1.0,
+            "lead_time_extra_days": 0.0,
+            "quality_delay": 0.0,
+            "reliability": 1.0,
+            "quality_yield": 1.0,
+            "availability": 1.0,
+            "purchase_cost": 1.0,
+            "transport_cost": 1.0,
+            "external_capacity": 1.0,
+            "external_availability": 1.0,
+            "external_lead_time": 1.0,
+            "external_lead_time_extra_days": 0.0,
+            "external_quality_yield": 1.0,
+            "external_cost": 1.0,
+            "stock_writeoff_fraction": 0.0,
+            "event_ids": [],
+        }
+
+    def clamp_effects(effects: dict[str, Any], *, cap_state_dependent: bool) -> dict[str, Any]:
+        out = dict(effects)
+        out["stock"] = max(0.0, min(10.0, to_float(out.get("stock"), 1.0)))
+        out["capacity"] = max(0.0, min(10.0, to_float(out.get("capacity"), 1.0)))
+        out["availability"] = max(0.0, min(10.0, to_float(out.get("availability"), 1.0)))
+        out["lead_time"] = max(0.05, min(20.0, to_float(out.get("lead_time"), 1.0)))
+        out["reliability"] = max(0.01, min(10.0, to_float(out.get("reliability"), 1.0)))
+        out["quality_yield"] = max(0.01, min(10.0, to_float(out.get("quality_yield"), 1.0)))
+        out["purchase_cost"] = max(0.0, min(100.0, to_float(out.get("purchase_cost"), 1.0)))
+        out["transport_cost"] = max(0.0, min(100.0, to_float(out.get("transport_cost"), 1.0)))
+        out["external_capacity"] = max(0.0, min(10.0, to_float(out.get("external_capacity"), 1.0)))
+        out["external_availability"] = max(0.0, min(10.0, to_float(out.get("external_availability"), 1.0)))
+        out["external_lead_time"] = max(0.05, min(20.0, to_float(out.get("external_lead_time"), 1.0)))
+        out["external_quality_yield"] = max(0.01, min(10.0, to_float(out.get("external_quality_yield"), 1.0)))
+        out["external_cost"] = max(0.0, min(100.0, to_float(out.get("external_cost"), 1.0)))
+        out["lead_time_extra_days"] = max(0.0, min(3650.0, to_float(out.get("lead_time_extra_days"), 0.0)))
+        out["quality_delay"] = max(0.0, min(3650.0, to_float(out.get("quality_delay"), 0.0)))
+        out["external_lead_time_extra_days"] = max(
+            0.0,
+            min(3650.0, to_float(out.get("external_lead_time_extra_days"), 0.0)),
+        )
+        out["stock_writeoff_fraction"] = max(0.0, min(1.0, to_float(out.get("stock_writeoff_fraction"), 0.0)))
+        if cap_state_dependent:
+            # Endogenous state-dependent signals are early warnings and mild
+            # control perturbations. Keep those bounded without weakening
+            # explicit exogenous crisis scenarios that may overlap the same lane.
+            out["capacity"] = max(to_float(out.get("capacity"), 1.0), 0.70)
+            out["availability"] = max(to_float(out.get("availability"), 1.0), 0.70)
+            out["reliability"] = max(to_float(out.get("reliability"), 1.0), 0.75)
+            out["quality_yield"] = max(to_float(out.get("quality_yield"), 1.0), 0.75)
+            out["external_capacity"] = max(to_float(out.get("external_capacity"), 1.0), 0.70)
+            out["external_availability"] = max(to_float(out.get("external_availability"), 1.0), 0.70)
+            out["external_quality_yield"] = max(to_float(out.get("external_quality_yield"), 1.0), 0.75)
+            out["lead_time"] = min(to_float(out.get("lead_time"), 1.0), 1.50)
+            out["lead_time_extra_days"] = min(to_float(out.get("lead_time_extra_days"), 0.0), 10.0)
+            out["external_lead_time"] = min(to_float(out.get("external_lead_time"), 1.0), 1.50)
+            out["external_lead_time_extra_days"] = min(
+                to_float(out.get("external_lead_time_extra_days"), 0.0),
+                10.0,
+            )
+            out["external_cost"] = min(to_float(out.get("external_cost"), 1.0), 1.50)
+            out["purchase_cost"] = min(to_float(out.get("purchase_cost"), 1.0), 1.50)
+            out["transport_cost"] = min(to_float(out.get("transport_cost"), 1.0), 1.50)
+        return out
+
+    def apply_event(effects: dict[str, Any], event: dict[str, Any]) -> None:
+        risk_type = str(event.get("risk_type") or "")
+        multiplier = to_float(event.get("multiplier"), 1.0)
+        if risk_type in {"lead_time_extra_days", "quality_delay", "external_lead_time_extra_days"}:
+            effects[risk_type] = to_float(effects.get(risk_type), 0.0) + multiplier
+            effects["event_ids"].append(str(event.get("event_id") or ""))
+        elif risk_type == "stock_writeoff":
+            current_fraction = max(0.0, min(1.0, to_float(effects.get("stock_writeoff_fraction"), 0.0)))
+            event_fraction = max(0.0, min(1.0, multiplier))
+            effects["stock_writeoff_fraction"] = 1.0 - ((1.0 - current_fraction) * (1.0 - event_fraction))
+            effects["event_ids"].append(str(event.get("event_id") or ""))
+        elif risk_type in effects and risk_type != "event_ids":
+            effects[risk_type] = to_float(effects.get(risk_type), 1.0) * multiplier
+            effects["event_ids"].append(str(event.get("event_id") or ""))
+
+    out = empty_effects()
     if not events:
         return out
+
+    scenario_out: dict[str, Any] = empty_effects()
+    state_out: dict[str, Any] = empty_effects()
     state_dependent_applied = False
     for event in events:
         if not supplier_risk_event_applies(event, lane, output_day):
             continue
         if str(event.get("source") or "") == "state_dependent_supplier_risk":
             state_dependent_applied = True
-        risk_type = str(event.get("risk_type") or "")
-        multiplier = to_float(event.get("multiplier"), 1.0)
-        if risk_type in {"lead_time_extra_days", "quality_delay", "external_lead_time_extra_days"}:
-            out[risk_type] = to_float(out.get(risk_type), 0.0) + multiplier
-            out["event_ids"].append(str(event.get("event_id") or ""))
-        elif risk_type == "stock_writeoff":
-            current_fraction = max(0.0, min(1.0, to_float(out.get("stock_writeoff_fraction"), 0.0)))
-            event_fraction = max(0.0, min(1.0, multiplier))
-            out["stock_writeoff_fraction"] = 1.0 - ((1.0 - current_fraction) * (1.0 - event_fraction))
-            out["event_ids"].append(str(event.get("event_id") or ""))
-        elif risk_type in out and risk_type != "event_ids":
-            out[risk_type] = to_float(out.get(risk_type), 1.0) * multiplier
-            out["event_ids"].append(str(event.get("event_id") or ""))
-    out["stock"] = max(0.0, min(10.0, to_float(out.get("stock"), 1.0)))
-    out["capacity"] = max(0.0, min(10.0, to_float(out.get("capacity"), 1.0)))
-    out["availability"] = max(0.0, min(10.0, to_float(out.get("availability"), 1.0)))
-    out["lead_time"] = max(0.05, min(20.0, to_float(out.get("lead_time"), 1.0)))
-    out["reliability"] = max(0.01, min(10.0, to_float(out.get("reliability"), 1.0)))
-    out["quality_yield"] = max(0.01, min(10.0, to_float(out.get("quality_yield"), 1.0)))
-    out["purchase_cost"] = max(0.0, min(100.0, to_float(out.get("purchase_cost"), 1.0)))
-    out["transport_cost"] = max(0.0, min(100.0, to_float(out.get("transport_cost"), 1.0)))
-    out["external_capacity"] = max(0.0, min(10.0, to_float(out.get("external_capacity"), 1.0)))
-    out["external_availability"] = max(0.0, min(10.0, to_float(out.get("external_availability"), 1.0)))
-    out["external_lead_time"] = max(0.05, min(20.0, to_float(out.get("external_lead_time"), 1.0)))
-    out["external_quality_yield"] = max(0.01, min(10.0, to_float(out.get("external_quality_yield"), 1.0)))
-    out["external_cost"] = max(0.0, min(100.0, to_float(out.get("external_cost"), 1.0)))
-    out["lead_time_extra_days"] = max(0.0, min(3650.0, to_float(out.get("lead_time_extra_days"), 0.0)))
-    out["quality_delay"] = max(0.0, min(3650.0, to_float(out.get("quality_delay"), 0.0)))
-    out["external_lead_time_extra_days"] = max(
-        0.0,
-        min(3650.0, to_float(out.get("external_lead_time_extra_days"), 0.0)),
-    )
-    out["stock_writeoff_fraction"] = max(0.0, min(1.0, to_float(out.get("stock_writeoff_fraction"), 0.0)))
-    if state_dependent_applied:
-        out["capacity"] = max(to_float(out.get("capacity"), 1.0), 0.70)
-        out["availability"] = max(to_float(out.get("availability"), 1.0), 0.70)
-        out["reliability"] = max(to_float(out.get("reliability"), 1.0), 0.75)
-        out["quality_yield"] = max(to_float(out.get("quality_yield"), 1.0), 0.75)
-        out["external_capacity"] = max(to_float(out.get("external_capacity"), 1.0), 0.70)
-        out["external_availability"] = max(to_float(out.get("external_availability"), 1.0), 0.70)
-        out["external_quality_yield"] = max(to_float(out.get("external_quality_yield"), 1.0), 0.75)
-        out["lead_time"] = min(to_float(out.get("lead_time"), 1.0), 1.50)
-        out["lead_time_extra_days"] = min(to_float(out.get("lead_time_extra_days"), 0.0), 10.0)
-        out["external_lead_time"] = min(to_float(out.get("external_lead_time"), 1.0), 1.50)
-        out["external_lead_time_extra_days"] = min(
-            to_float(out.get("external_lead_time_extra_days"), 0.0),
-            10.0,
-        )
-        out["external_cost"] = min(to_float(out.get("external_cost"), 1.0), 1.50)
-        out["purchase_cost"] = min(to_float(out.get("purchase_cost"), 1.0), 1.50)
-        out["transport_cost"] = min(to_float(out.get("transport_cost"), 1.0), 1.50)
-    return out
+            apply_event(state_out, event)
+        else:
+            apply_event(scenario_out, event)
+
+    scenario_out = clamp_effects(scenario_out, cap_state_dependent=False)
+    state_out = clamp_effects(state_out, cap_state_dependent=state_dependent_applied)
+    multiplicative_fields = {
+        "stock",
+        "capacity",
+        "lead_time",
+        "reliability",
+        "quality_yield",
+        "availability",
+        "purchase_cost",
+        "transport_cost",
+        "external_capacity",
+        "external_availability",
+        "external_lead_time",
+        "external_quality_yield",
+        "external_cost",
+    }
+    additive_fields = {"lead_time_extra_days", "quality_delay", "external_lead_time_extra_days"}
+    out = empty_effects()
+    for field in multiplicative_fields:
+        out[field] = to_float(scenario_out.get(field), 1.0) * to_float(state_out.get(field), 1.0)
+    for field in additive_fields:
+        out[field] = to_float(scenario_out.get(field), 0.0) + to_float(state_out.get(field), 0.0)
+    scenario_writeoff = max(0.0, min(1.0, to_float(scenario_out.get("stock_writeoff_fraction"), 0.0)))
+    state_writeoff = max(0.0, min(1.0, to_float(state_out.get("stock_writeoff_fraction"), 0.0)))
+    out["stock_writeoff_fraction"] = 1.0 - ((1.0 - scenario_writeoff) * (1.0 - state_writeoff))
+    out["event_ids"] = [
+        event_id
+        for event_id in [*(scenario_out.get("event_ids") or []), *(state_out.get("event_ids") or [])]
+        if str(event_id)
+    ]
+    return clamp_effects(out, cap_state_dependent=False)
 
 
 def supplier_risk_event_applies_to_pair(

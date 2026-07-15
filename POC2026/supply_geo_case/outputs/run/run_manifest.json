@@ -1,6 +1,6 @@
 {
   "schema_version": "poc2026.supply_geo_case.v1",
-  "generated_at_utc": "2026-07-09T17:30:41+00:00",
+  "generated_at_utc": "2026-07-15T12:08:49+00:00",
   "case_name": "output8_GEO_simulation_ready_researched_primary_supply_case",
   "output_dir": "C:\\dev\\lca-simu\\POC2026\\supply_geo_case\\outputs",
   "source_json": "C:\\dev\\lca-simu\\supply_geo\\analysis\\output8_GEO_normalized_simulation_ready_researched.json",
@@ -25,7 +25,13 @@
     "sdd_node_state_rows": 206400,
     "sdd_lane_state_rows": 165120,
     "sdd_flow_state_rows": 41280,
-    "sdd_event_ledger_rows": 158855
+    "sdd_event_ledger_rows": 158855,
+    "brightway_component_impacts": 259,
+    "brightway_parameters": 684,
+    "brightway_supply_alignment_rows": 172,
+    "brightway_person_equivalent_indicators": 16,
+    "brightway_reference_person_equivalent_results": 16,
+    "brightway_parametric_regional_scenarios": 4
   },
   "capabilities": {
     "primary_supply_paths": true,
@@ -35,7 +41,11 @@
     "transport_weather_risk": true,
     "node_operational_state": true,
     "operational_event_lineage": true,
-    "sdd_stateful_supply_engine": true
+    "sdd_stateful_supply_engine": true,
+    "brightway_supply_lca_source": true,
+    "brightway_person_equivalent_units": true,
+    "brightway_regionalized_parametric_scenarios": true,
+    "brightway_runtime_available": false
   },
   "entrypoints": {
     "nodes": "nodes.json",
@@ -56,6 +66,26 @@
     "sdd_monthly_impacts": "../data/sdd_monthly_impacts.csv",
     "sdd_cumulative_impacts": "../data/sdd_cumulative_impacts.csv",
     "sdd_method_comparison": "../summaries/sdd_method_comparison.json",
+    "brightway_component_impacts": "../data/brightway_component_impacts.csv",
+    "brightway_indicator_summary": "../data/brightway_indicator_summary.csv",
+    "brightway_indicator_unit_views": "../data/brightway_indicator_unit_views.csv",
+    "brightway_reference_person_equivalent_results": "../data/brightway_reference_person_equivalent_results.csv",
+    "brightway_reference_weighted_results": "../data/brightway_reference_weighted_results.csv",
+    "brightway_reference_phase_breakdown": "../data/brightway_reference_phase_breakdown.csv",
+    "brightway_reference_scenarios": "../data/brightway_reference_scenarios.csv",
+    "brightway_reference_weighting_factors": "../data/brightway_reference_weighting_factors.csv",
+    "brightway_reference_climate_contributors": "../data/brightway_reference_climate_contributors.csv",
+    "brightway_masterboard_equipment_summary": "../data/brightway_masterboard_equipment_summary.csv",
+    "brightway_masterboard_material_summary": "../data/brightway_masterboard_material_summary.csv",
+    "brightway_parameters": "../data/brightway_parameters.csv",
+    "brightway_activities": "../data/brightway_activities.csv",
+    "brightway_activity_exchanges": "../data/brightway_activity_exchanges.csv",
+    "brightway_supply_alignment": "../data/brightway_supply_alignment.csv",
+    "brightway_parametric_levers": "../data/brightway_parametric_levers.csv",
+    "brightway_parametric_sensitivity": "../data/brightway_parametric_sensitivity.csv",
+    "brightway_parametric_switches": "../data/brightway_parametric_switches.csv",
+    "brightway_parametric_regional_scenarios": "../data/brightway_parametric_regional_scenarios.csv",
+    "brightway_model_summary": "../summaries/brightway_model_summary.json",
     "general_kpis": "../summaries/general_kpis.json",
     "base_results_map": "../maps/supply_geo_base_results_map.html",
     "dashboard": "../maps/supply_geo_base_results_map.html"

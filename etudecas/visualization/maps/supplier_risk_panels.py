@@ -2297,6 +2297,19 @@ def build_simulated_risk_global_diagnostic_payload(
         for node in raw.get("nodes", []) or []
         if isinstance(node, dict) and str(node.get("id") or "")
     }
+    node_type_by_id = {
+        str(node.get("id") or ""): str(node.get("type") or "").lower()
+        for node in raw.get("nodes", []) or []
+        if isinstance(node, dict) and str(node.get("id") or "")
+    }
+    edge_by_id = {
+        str(edge.get("id") or ""): edge
+        for edge in raw.get("edges", []) or []
+        if isinstance(edge, dict) and str(edge.get("id") or "")
+    }
+    edges_by_from: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for edge in edge_by_id.values():
+        edges_by_from[str(edge.get("from") or "")].append(edge)
 
     def label_node(node_id: str) -> str:
         node_id = str(node_id or "")
@@ -2567,6 +2580,191 @@ def build_simulated_risk_global_diagnostic_payload(
     def same_item(left: str, right: str) -> bool:
         return bool(normalized_item_key(left)) and normalized_item_key(left) == normalized_item_key(right)
 
+    process_outputs_by_node_input: dict[tuple[str, str], set[str]] = defaultdict(set)
+    produced_items_by_node: dict[str, set[str]] = defaultdict(set)
+    for node in raw.get("nodes", []) or []:
+        if not isinstance(node, dict):
+            continue
+        node_id = str(node.get("id") or "")
+        if not node_id:
+            continue
+        for process in node.get("processes") or []:
+            if not isinstance(process, dict):
+                continue
+            output_items = {
+                str(output.get("item_id") or "")
+                for output in process.get("outputs") or []
+                if isinstance(output, dict) and str(output.get("item_id") or "")
+            }
+            if not output_items:
+                continue
+            produced_items_by_node[node_id].update(output_items)
+            for input_row in process.get("inputs") or []:
+                if not isinstance(input_row, dict):
+                    continue
+                input_item = str(input_row.get("item_id") or "")
+                if input_item:
+                    process_outputs_by_node_input[(node_id, normalized_item_key(input_item))].update(output_items)
+
+    def node_is_factory(node_id: str) -> bool:
+        return node_type_by_id.get(str(node_id or "")) == "factory"
+
+    def downstream_factory_nodes_for_item(supplier_id: str, item_id: str) -> set[str]:
+        return {
+            str(edge.get("to") or "")
+            for edge in edges_by_from.get(str(supplier_id or ""), [])
+            if node_is_factory(str(edge.get("to") or "")) and edge_matches_items(edge, {str(item_id or "")})
+        }
+
+    def output_items_for_component(factory_nodes: set[str], item_id: str) -> set[str]:
+        outputs: set[str] = set()
+        item_key = normalized_item_key(item_id)
+        for factory_id in factory_nodes:
+            outputs.update(process_outputs_by_node_input.get((factory_id, item_key), set()))
+            if any(same_item(item_id, output_item) for output_item in produced_items_by_node.get(factory_id, set())):
+                outputs.add(str(item_id))
+        return outputs
+
+    def edge_matches_items(edge: dict[str, Any], item_ids: set[str]) -> bool:
+        if not item_ids:
+            return True
+        return any(
+            any(same_item(str(edge_item), item_id) for item_id in item_ids)
+            for edge_item in (edge.get("items") or [])
+        )
+
+    def edge_display_label(edge_id: str) -> str:
+        edge = edge_by_id.get(str(edge_id or "")) or {}
+        if edge:
+            items = [label_item(str(item)) for item in (edge.get("items") or [])[:2]]
+            suffix = f" / {', '.join(items)}" if items else ""
+            return f"{edge.get('from') or '?'} -> {edge.get('to') or '?'}{suffix}"
+        return str(edge_id or "")
+
+    def route_closure_for_rows(rows: list[dict[str, Any]]) -> dict[str, Any]:
+        edge_ids: set[str] = set()
+        node_ids: set[str] = set()
+        route_edges: list[dict[str, Any]] = []
+
+        def add_node(node_id: str) -> None:
+            node_id = str(node_id or "")
+            if node_id:
+                node_ids.add(node_id)
+
+        def add_edge(edge_id: str, *, role: str = "route") -> None:
+            edge_id = str(edge_id or "")
+            if not edge_id or edge_id in edge_ids:
+                return
+            edge = edge_by_id.get(edge_id)
+            edge_ids.add(edge_id)
+            if edge:
+                add_node(str(edge.get("from") or ""))
+                add_node(str(edge.get("to") or ""))
+            route_edges.append(
+                {
+                    "edge_id": edge_id,
+                    "role": role,
+                    "label": edge_display_label(edge_id),
+                }
+            )
+
+        for row in rows:
+            for node_id in row.get("highlight_node_ids") or []:
+                add_node(str(node_id))
+            add_node(str(row.get("supplier_id") or ""))
+            for node_id in row.get("affected_factory_nodes") or []:
+                add_node(str(node_id))
+            for node_id in row.get("affected_customer_nodes") or []:
+                add_node(str(node_id))
+            for edge_id in row.get("highlight_edge_ids") or []:
+                add_edge(str(edge_id), role="local_supply_flow")
+            for edge in row.get("impacted_edges") or []:
+                add_edge(str(edge.get("edge_id") or ""), role=str(edge.get("role") or "route"))
+
+        supplier_ids = {
+            str(row.get("supplier_id") or "")
+            for row in rows
+            if str(row.get("supplier_id") or "")
+        }
+        factory_ids = {
+            str(node_id)
+            for row in rows
+            for node_id in (row.get("affected_factory_nodes") or [])
+            if str(node_id)
+        }
+        customer_ids = {
+            str(node_id)
+            for row in rows
+            for node_id in (row.get("affected_customer_nodes") or [])
+            if str(node_id)
+        }
+        local_destination_ids = {
+            str(node_id)
+            for row in rows
+            for node_id in (row.get("highlight_node_ids") or [])
+            if str(node_id)
+        }
+        trigger_items = {
+            str(row.get("item_id") or "")
+            for row in rows
+            if str(row.get("item_id") or "")
+        }
+        output_items = {
+            str(item_id)
+            for row in rows
+            for item_id in (row.get("impacted_output_items") or [])
+            if str(item_id)
+        }
+
+        for supplier_id in supplier_ids:
+            for edge in edges_by_from.get(supplier_id, []):
+                to_node = str(edge.get("to") or "")
+                if not to_node or to_node not in (factory_ids | local_destination_ids | node_ids):
+                    continue
+                if edge_matches_items(edge, trigger_items):
+                    add_edge(str(edge.get("id") or ""), role="local_supply_flow")
+
+        # Complete the route from factory to customer when the output product is
+        # known. This fixes the common visual gap factory -> DC -> client.
+        if factory_ids and output_items:
+            max_depth = 4
+            target_customers = set(customer_ids)
+            for factory_id in sorted(factory_ids):
+                queue: list[tuple[str, list[str], set[str]]] = [(factory_id, [], {factory_id})]
+                while queue:
+                    current_node, path_edge_ids, seen_nodes = queue.pop(0)
+                    if len(path_edge_ids) >= max_depth:
+                        continue
+                    for edge in edges_by_from.get(current_node, []):
+                        if not edge_matches_items(edge, output_items):
+                            continue
+                        edge_id = str(edge.get("id") or "")
+                        next_node = str(edge.get("to") or "")
+                        if not edge_id or not next_node or next_node in seen_nodes:
+                            continue
+                        next_path = [*path_edge_ids, edge_id]
+                        is_customer = next_node in target_customers
+                        if is_customer:
+                            for path_edge_id in next_path:
+                                add_edge(path_edge_id, role="downstream_route")
+                            continue
+                        # If no customer is known yet, still keep the first DC leg:
+                        # this makes production-stage cascades show the actual
+                        # supply route without inventing a customer impact.
+                        if not target_customers and len(next_path) <= 2:
+                            for path_edge_id in next_path:
+                                add_edge(path_edge_id, role="downstream_route")
+                        next_seen = set(seen_nodes)
+                        next_seen.add(next_node)
+                        queue.append((next_node, next_path, next_seen))
+
+        return {
+            "route_node_ids": sorted(node_ids),
+            "route_edge_ids": sorted(edge_ids),
+            "route_edges": sorted(route_edges, key=lambda row: (str(row.get("role") or ""), str(row.get("edge_id") or ""))),
+            "route_edge_labels": [edge_display_label(edge_id) for edge_id in sorted(edge_ids)],
+        }
+
     def event_int(event: dict[str, Any], field: str, default: int = 0) -> int:
         value = to_float(event.get(field))
         if value is None or math.isnan(value):
@@ -2643,7 +2841,7 @@ def build_simulated_risk_global_diagnostic_payload(
         if edge_id == "SUPPLIER_UPSTREAM_SUPPLY_PROACTIVE":
             return f"appro amont -> {label_node(dst_node_id or supplier_id)} / {item_label}"
         if edge_id:
-            return edge_id
+            return edge_display_label(edge_id)
         if dst_node_id:
             return f"{label_node(supplier_id)} -> {label_node(dst_node_id)} / {item_label}"
         return f"{label_node(supplier_id)} / {item_label}"
@@ -2708,11 +2906,21 @@ def build_simulated_risk_global_diagnostic_payload(
             "summary": f"{len(rows)} ligne(s), {len(days)} jour(s), intensite max {fmt_pct(max_score * 100.0, 0)}",
         }
 
+    def risk_row_has_cost_effect(row: dict[str, str]) -> bool:
+        return any(
+            (to_float(row.get(field)) or 1.0) > 1.000001
+            for field in (
+                "purchase_cost_multiplier",
+                "transport_cost_multiplier",
+                "external_cost_multiplier",
+            )
+        )
+
     def cost_signal(rows: list[dict[str, str]], family: str) -> tuple[bool, str]:
         if not rows:
             return False, "pas de surcout local"
-        if family == "cost":
-            return True, "evenement cout"
+        if family == "cost" or any(risk_row_has_cost_effect(row) for row in rows):
+            return True, "evenement cout applique localement"
         return False, "pas de surcout local"
 
     def event_label(event: dict[str, Any]) -> str:
@@ -2900,6 +3108,24 @@ def build_simulated_risk_global_diagnostic_payload(
         day = int(to_float(row.get("day")) or 0)
         daily_cost_by_day[day] += max(0.0, to_float(row.get("external_procurement_transport_cost_day")) or 0.0)
         daily_cost_by_day[day] += max(0.0, to_float(row.get("external_procurement_purchase_cost_day")) or 0.0)
+    cost_signal_rows_by_day: dict[int, int] = defaultdict(int)
+    for row in applied_rows:
+        if not risk_row_has_cost_effect(row):
+            continue
+        day = int(to_float(row.get("day")) or 0)
+        cost_signal_rows_by_day[day] += 1
+
+    def allocated_cost_for_event_rows(rows: list[dict[str, str]], start_day: int, end_day: int) -> float:
+        cost_days = {
+            int(to_float(row.get("day")) or 0)
+            for row in rows
+            if risk_row_has_cost_effect(row)
+        }
+        return sum(
+            max(0.0, daily_cost_by_day.get(day, 0.0)) / max(1, cost_signal_rows_by_day.get(day, 1))
+            for day in cost_days
+            if start_day <= day <= end_day
+        )
 
     cascade_rows: list[dict[str, Any]] = []
     cascade_followup_by_family = {
@@ -2924,6 +3150,15 @@ def build_simulated_risk_global_diagnostic_payload(
         event_item = str(event.get("item_id") or "")
         event_applied_rows = applied_rows_by_event.get(event_id, [])
         supplier_id = str(event.get("supplier_id") or event.get("node_id") or "")
+        local_destination_nodes = {
+            str(row.get("dst_node_id") or "")
+            for row in event_applied_rows
+            if str(row.get("dst_node_id") or "").strip()
+            and str(row.get("dst_node_id") or "").strip() != supplier_id
+        }
+        configured_dst_node = str(event.get("dst_node_id") or "")
+        if configured_dst_node and configured_dst_node != supplier_id:
+            local_destination_nodes.add(configured_dst_node)
         local_text, local_score, applied_day_count = local_effect_text(event_applied_rows, family)
         local_application = local_application_summary(event_applied_rows, family, supplier_id)
         cost_flag, cost_text = cost_signal(event_applied_rows, family)
@@ -2939,12 +3174,22 @@ def build_simulated_risk_global_diagnostic_payload(
             for row in production_rows
             if str(row.get("node_id") or "").strip()
         }
+        if not affected_factory_nodes:
+            affected_factory_nodes = {node_id for node_id in local_destination_nodes if node_is_factory(node_id)}
+        if not affected_factory_nodes and node_is_factory(supplier_id):
+            affected_factory_nodes.add(supplier_id)
+        if not affected_factory_nodes and event_item:
+            affected_factory_nodes = downstream_factory_nodes_for_item(supplier_id, event_item)
         impacted_output_items = {
             str(row.get("output_item_id") or "")
             for row in production_rows
             if str(row.get("output_item_id") or "").strip()
         }
         if not impacted_output_items and event_item:
+            impacted_output_items = output_items_for_component(affected_factory_nodes, event_item)
+        if not impacted_output_items and event_item and (
+            node_is_factory(supplier_id) or any(node_type_by_id.get(node_id) in {"distribution_center", "customer"} for node_id in local_destination_nodes)
+        ):
             impacted_output_items = {event_item}
         service_rows = [
             row
@@ -2966,11 +3211,11 @@ def build_simulated_risk_global_diagnostic_payload(
         }
         backlog_max = max((max(0.0, to_float(row.get("backlog_end_qty")) or 0.0) for row in service_rows), default=0.0)
         backlog_qty_days = sum(max(0.0, to_float(row.get("backlog_end_qty")) or 0.0) for row in service_rows)
-        event_cost_window = sum(
-            value
-            for day, value in daily_cost_by_day.items()
-            if start_day <= day <= min(service_window_end, end_day + 14)
-        )
+        event_cost_window = allocated_cost_for_event_rows(
+            event_applied_rows,
+            start_day,
+            min(service_window_end, end_day + 14),
+        ) if cost_flag else 0.0
         impact_modes = []
         if event_applied_rows:
             impact_modes.append("local")
@@ -3172,6 +3417,7 @@ def build_simulated_risk_global_diagnostic_payload(
                     "reading": reading,
                 },
                 "cost_signal": cost_text,
+                "cost_impact_qty": round(event_cost_window, 6),
                 "impact_score": round(impact_score, 6),
                 "impact_modes": sorted(set(impact_modes)),
                 "root_cause_label": root_cause_label,
@@ -3228,6 +3474,7 @@ def build_simulated_risk_global_diagnostic_payload(
         production_shortfall = max(float(row.get("production_shortfall_qty") or 0.0) for row in rows)
         backlog_max = max(float(row.get("customer_backlog_max_qty") or 0.0) for row in rows)
         backlog_qty_days = max(float(row.get("customer_backlog_qty_days") or 0.0) for row in rows)
+        cost_impact = max(float(row.get("cost_impact_qty") or 0.0) for row in rows)
         local_applied = sum(1 for row in rows if str(row.get("local_effect") or "").startswith("non applique") is False)
         affected_factory_nodes = sorted({
             str(node_id)
@@ -3446,6 +3693,7 @@ def build_simulated_risk_global_diagnostic_payload(
             "production_shortfall_qty": round(production_shortfall, 6),
             "customer_backlog_max_qty": round(backlog_max, 6),
             "customer_backlog_qty_days": round(backlog_qty_days, 6),
+            "cost_impact_qty": round(cost_impact, 6),
             "affected_factory_nodes": affected_factory_nodes,
             "affected_factory_labels": affected_factory_labels,
             "affected_customer_nodes": affected_customer_nodes,
@@ -3512,6 +3760,217 @@ def build_simulated_risk_global_diagnostic_payload(
         }
 
     cascade_root_rows = [merge_cascade_group(rows) for rows in cascade_groups.values() if rows]
+
+    business_path_groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for row in cascade_root_rows:
+        supplier_id = str(row.get("supplier_id") or "")
+        item_id = normalized_item_key(str(row.get("item_id") or ""))
+        factory_key = ",".join(sorted(str(node_id) for node_id in (row.get("affected_factory_nodes") or []) if str(node_id))) or "no_factory"
+        output_key = ",".join(sorted(normalized_item_key(str(item_id)) for item_id in (row.get("impacted_output_items") or []) if str(item_id))) or "no_output"
+        stage = str(row.get("stage") or "other")
+        key = "|".join([supplier_id, item_id, factory_key, output_key, stage])
+        business_path_groups[key].append(row)
+
+    def merge_business_path_group(key: str, rows: list[dict[str, Any]]) -> dict[str, Any]:
+        representative = max(rows, key=lambda row: float(row.get("impact_score") or 0.0))
+        stage = str(representative.get("stage") or "other")
+        supplier_id = str(representative.get("supplier_id") or "")
+        item_id = str(representative.get("item_id") or "")
+        families = sorted({
+            str(family)
+            for row in rows
+            for family in (row.get("risk_families") or [row.get("risk_family") or "other"])
+            if str(family)
+        })
+        sources = sorted({
+            str(source)
+            for row in rows
+            for source in str(row.get("source") or "scenario").split(",")
+            if str(source).strip()
+        })
+        source_text = ", ".join(source.strip() for source in sources) or "n/a"
+        start_day = min(int(row.get("start_day") or 0) for row in rows)
+        end_day = max(int(row.get("end_day") or start_day) for row in rows)
+        worst = representative
+        worst_period = str(worst.get("period") or f"J{worst.get('start_day', start_day)} -> J{worst.get('end_day', end_day)}")
+        affected_factory_nodes = sorted({
+            str(node_id)
+            for row in rows
+            for node_id in (row.get("affected_factory_nodes") or [])
+            if str(node_id)
+        })
+        affected_customer_nodes = sorted({
+            str(node_id)
+            for row in rows
+            for node_id in (row.get("affected_customer_nodes") or [])
+            if str(node_id)
+        })
+        impacted_output_items = sorted({
+            str(item_id)
+            for row in rows
+            for item_id in (row.get("impacted_output_items") or [])
+            if str(item_id)
+        })
+        route = route_closure_for_rows(rows)
+        route_node_ids = route.get("route_node_ids") or []
+        route_edge_ids = route.get("route_edge_ids") or []
+        route_edge_labels = route.get("route_edge_labels") or []
+        production_shortfall = max(float(row.get("production_shortfall_qty") or 0.0) for row in rows)
+        production_shortfall_total_signal = sum(max(0.0, float(row.get("production_shortfall_qty") or 0.0)) for row in rows)
+        production_delay_count = max(int(row.get("production_delay_count") or 0) for row in rows)
+        production_delay_count_total_signal = sum(max(0, int(row.get("production_delay_count") or 0)) for row in rows)
+        backlog_max = max(float(row.get("customer_backlog_max_qty") or 0.0) for row in rows)
+        backlog_qty_days = max(float(row.get("customer_backlog_qty_days") or 0.0) for row in rows)
+        backlog_qty_days_total_signal = sum(max(0.0, float(row.get("customer_backlog_qty_days") or 0.0)) for row in rows)
+        cost_impact = max(float(row.get("cost_impact_qty") or 0.0) for row in rows)
+        cost_impact_total_signal = sum(max(0.0, float(row.get("cost_impact_qty") or 0.0)) for row in rows)
+        stage_rank = int(stage_info.get(stage, stage_info["other"])["rank"])
+        path_score = (
+            stage_rank * 1_000_000.0
+            + backlog_qty_days * 100.0
+            + production_shortfall
+            + cost_impact
+            + len(rows) * 10_000.0
+        )
+        action = cascade_action(stage, supplier_id, item_id, set(affected_factory_nodes), set(affected_customer_nodes))
+        factory_label = ", ".join(label_node(node_id) for node_id in affected_factory_nodes) or "site non atteint"
+        customer_label = ", ".join(label_node(node_id) for node_id in affected_customer_nodes) or "client non atteint"
+        output_label = ", ".join(label_item(output_item) for output_item in impacted_output_items) or label_item(item_id)
+        business_path_label = (
+            f"{label_node(supplier_id)} / {label_item(item_id)} -> {factory_label} -> {output_label} -> "
+            f"{stage_info.get(stage, stage_info['other'])['label']}"
+        )
+        route_text = " -> ".join(
+            part
+            for part in [
+                supplier_id,
+                ",".join(affected_factory_nodes),
+                "DC/client" if affected_customer_nodes else "",
+                ",".join(affected_customer_nodes),
+            ]
+            if part
+        ) or business_path_label
+        if stage == "service_client":
+            reading = f"Client atteint: backlog max {fmt_qty(backlog_max, 0)}, backlog-jours {fmt_qty(backlog_qty_days, 0)}."
+        elif stage == "production":
+            reading = f"Production reportee: {production_delay_count} report(s), volume {fmt_qty(production_shortfall, 0)}."
+        elif stage == "cost":
+            reading = f"Surcout additionnel observe: {fmt_qty(cost_impact, 0)}."
+        elif stage == "local_absorbed":
+            reading = "Effets appliques puis absorbes avant production ou client."
+        else:
+            reading = "Signaux configures sans effet applique observable."
+        local_application = dict(representative.get("local_application") or {})
+        if len(rows) > 1:
+            local_application["summary"] = f"{len(rows)} occurrence(s) consolidee(s)"
+        impacted_nodes = list(representative.get("impacted_nodes") or [])
+        known_node_roles = {(str(node.get("node_id") or ""), str(node.get("role") or "")) for node in impacted_nodes}
+        for node_id in route_node_ids:
+            role = "route_node"
+            if (str(node_id), role) not in known_node_roles:
+                impacted_nodes.append(
+                    {
+                        "node_id": str(node_id),
+                        "role": role,
+                        "label": label_node(str(node_id)),
+                        "first_day": start_day,
+                    }
+                )
+        impacted_edges = list(representative.get("impacted_edges") or [])
+        known_edge_ids = {str(edge.get("edge_id") or "") for edge in impacted_edges}
+        for edge_id in route_edge_ids:
+            if str(edge_id) not in known_edge_ids:
+                impacted_edges.append(
+                    {
+                        "edge_id": str(edge_id),
+                        "role": "route",
+                        "first_day": start_day,
+                        "source": "business_path",
+                    }
+                )
+        return {
+            **representative,
+            "business_path_key": key,
+            "root_key": key,
+            "event_id": key,
+            "occurrence_count": len(rows),
+            "event_count": sum(max(1, int(row.get("event_count") or 1)) for row in rows),
+            "event_ids": sorted({
+                str(event_id)
+                for row in rows
+                for event_id in (row.get("event_ids") or [row.get("event_id")])
+                if str(event_id)
+            }),
+            "risk_families": families,
+            "source": source_text,
+            "stage": stage,
+            "stage_label": stage_info.get(stage, stage_info["other"])["label"],
+            "start_day": start_day,
+            "end_day": end_day,
+            "duration_days": max(0, end_day - start_day + 1),
+            "period": f"J{start_day} -> J{end_day}",
+            "worst_period": worst_period,
+            "supplier_id": supplier_id,
+            "supplier_label": label_node(supplier_id),
+            "item_id": item_id,
+            "item_label": label_item(item_id),
+            "affected_factory_nodes": affected_factory_nodes,
+            "affected_factory_labels": [label_node(node_id) for node_id in affected_factory_nodes],
+            "affected_customer_nodes": affected_customer_nodes,
+            "affected_customer_labels": [label_node(node_id) for node_id in affected_customer_nodes],
+            "impacted_output_items": impacted_output_items,
+            "impacted_output_item_labels": [label_item(output_item) for output_item in impacted_output_items],
+            "production_delay_count": production_delay_count,
+            "production_delay_count_total_signal": production_delay_count_total_signal,
+            "production_shortfall_qty": round(production_shortfall, 6),
+            "production_shortfall_qty_total_signal": round(production_shortfall_total_signal, 6),
+            "customer_backlog_max_qty": round(backlog_max, 6),
+            "customer_backlog_qty_days": round(backlog_qty_days, 6),
+            "customer_backlog_qty_days_total_signal": round(backlog_qty_days_total_signal, 6),
+            "cost_impact_qty": round(cost_impact, 6),
+            "cost_impact_qty_total_signal": round(cost_impact_total_signal, 6),
+            "impact_score": round(path_score, 6),
+            "business_path_label": business_path_label,
+            "route_text": route_text,
+            "route_node_ids": route_node_ids,
+            "route_edge_ids": route_edge_ids,
+            "route_edges": route.get("route_edges") or [],
+            "route_edge_labels": route_edge_labels,
+            "highlight_node_ids": sorted(set(route_node_ids) | {str(node_id) for node_id in (representative.get("highlight_node_ids") or []) if str(node_id)}),
+            "highlight_edge_ids": sorted(set(route_edge_ids) | {str(edge_id) for edge_id in (representative.get("highlight_edge_ids") or []) if str(edge_id)}),
+            "impacted_nodes": sorted(impacted_nodes, key=lambda node: (int(node.get("first_day") or 0), str(node.get("role") or ""), str(node.get("node_id") or ""))),
+            "impacted_edges": sorted(impacted_edges, key=lambda edge: (int(edge.get("first_day") or 0), str(edge.get("role") or ""), str(edge.get("edge_id") or ""))),
+            "impacted_edge_labels": route_edge_labels,
+            "local_application": local_application,
+            "reading": reading,
+            "root_cause_label": business_path_label,
+            "action": action,
+            "table_row": {
+                "Chemin metier": business_path_label,
+                "Occurrences": str(len(rows)),
+                "Pire periode": worst_period,
+                "Production reportee": f"{production_delay_count} report(s), {fmt_qty(production_shortfall, 0)}",
+                "Backlog max": fmt_qty(backlog_max, 0),
+                "Backlog-jours": fmt_qty(backlog_qty_days, 0),
+                "Cout additionnel": fmt_qty(cost_impact, 0),
+                "Chemin carte": f"{len(route_node_ids)} noeud(s), {len(route_edge_ids)} flux",
+                "Action recommandee": str(action.get("label") or "n/a"),
+            },
+        }
+
+    cascade_path_groups = [
+        merge_business_path_group(key, rows)
+        for key, rows in business_path_groups.items()
+        if rows
+    ]
+    cascade_path_groups.sort(
+        key=lambda row: (
+            -int(stage_info.get(str(row.get("stage") or "other"), stage_info["other"])["rank"]),
+            -float(row.get("impact_score") or 0.0),
+            str(row.get("business_path_key") or ""),
+        )
+    )
+
     cascade_stage_counts: dict[str, int] = defaultdict(int)
     for row in cascade_root_rows:
         cascade_stage_counts[str(row["stage"])] += 1
@@ -3522,13 +3981,18 @@ def build_simulated_risk_global_diagnostic_payload(
         [row for row in cascade_root_rows if row["stage"] != "configured_only"] or cascade_root_rows,
         key=lambda row: (-float(row.get("impact_score") or 0.0), str(row.get("event_id") or "")),
     )[:12]
+    visible_path_group_rows = [
+        row for row in cascade_path_groups if str(row.get("stage") or "") != "configured_only"
+    ][:12] or cascade_path_groups[:12]
+    path_group_table_rows = [dict(row["table_row"]) for row in visible_path_group_rows]
     cascade_table_rows = [dict(row["table_row"]) for row in visible_cascade_rows]
     cascade_summary_text = (
         f"{len(effective_cascade_rows)} cascade(s) avec impact supply: "
         f"{cascade_stage_counts.get('service_client', 0)} service client, "
         f"{cascade_stage_counts.get('production', 0)} production, "
         f"{cascade_stage_counts.get('cost', 0)} cout. "
-        f"{cascade_stage_counts.get('local_absorbed', 0)} effet(s) absorbe(s) localement."
+        f"{cascade_stage_counts.get('local_absorbed', 0)} effet(s) absorbe(s) localement. "
+        f"{len(cascade_path_groups)} chemin(s) metier consolide(s)."
     )
 
     origin_stats: dict[tuple[str, str], dict[str, Any]] = defaultdict(lambda: {
@@ -3828,6 +4292,9 @@ def build_simulated_risk_global_diagnostic_payload(
             continue
         edge_impacts[edge_id] = {
             "edge_id": edge_id,
+            "display_label": edge_display_label(edge_id),
+            "from_node_id": str((edge_by_id.get(edge_id) or {}).get("from") or ""),
+            "to_node_id": str((edge_by_id.get(edge_id) or {}).get("to") or ""),
             "status": "delay_impacted",
             "status_label": "Delai transport impacte",
             "color": "#dc2626" if float(stats["max_extra_days"]) >= 7 or float(stats["max_multiplier"]) >= 1.2 else "#f97316",
@@ -4228,6 +4695,7 @@ def build_simulated_risk_global_diagnostic_payload(
         {"Indicateur": "Plan lotifie total", "Valeur": fmt_qty(planned_after_lot, 0)},
         {"Indicateur": "Manque vs plan lotifie", "Valeur": fmt_qty(lot_shortfall_total, 0)},
         {"Indicateur": "Causes de cascade agregees", "Valeur": str(len(cascade_root_rows))},
+        {"Indicateur": "Chemins metier consolides", "Valeur": str(len(cascade_path_groups))},
         {"Indicateur": "Signaux state/scenario analyses", "Valeur": str(len(cascade_rows))},
         {"Indicateur": "Cascades avec impact supply", "Valeur": str(len(effective_cascade_rows))},
         {"Indicateur": "Cascades production", "Valeur": str(cascade_stage_counts.get("production", 0))},
@@ -4252,7 +4720,7 @@ def build_simulated_risk_global_diagnostic_payload(
         f"<div class=\"orderLedgerStatus\">{html.escape(cascade_summary_text)}</div>",
         "<div class=\"riskScenarioSection\">Diagramme des cascades dynamiques fournisseur</div>",
         "<div class=\"riskScenarioMuted\">Lecture: chaque ligne suit une cause supply avec impact depuis son declencheur, son effet local, sa propagation aval, puis son impact ou absorption.</div>",
-        cascade_diagram_html(visible_cascade_rows),
+        cascade_diagram_html(visible_path_group_rows),
         "<div class=\"riskScenarioSection\">Courbes du scenario</div>",
         "<div class=\"riskDiagnosticChartGrid\">",
         "<div id=\"simRiskChartRisk\" class=\"riskDiagnosticChart\"></div>",
@@ -4267,6 +4735,22 @@ def build_simulated_risk_global_diagnostic_payload(
             ["Origine", "Impact dominant", "Declencheur principal", "Familles", "Periode", "Causes supply actives", "Production reportee", "Backlog", "Lecture"],
             top_origin_rows,
             "Aucune origine dominante exploitable dans ce run.",
+        ),
+        "<div class=\"riskScenarioSection\">Chemins metier consolides</div>",
+        table_html(
+            [
+                "Chemin metier",
+                "Occurrences",
+                "Pire periode",
+                "Production reportee",
+                "Backlog max",
+                "Backlog-jours",
+                "Cout additionnel",
+                "Chemin carte",
+                "Action recommandee",
+            ],
+            path_group_table_rows,
+            "Aucun chemin metier consolide exploitable dans ce run.",
         ),
         "<div class=\"riskScenarioSection\">Cascades avec impact supply</div>",
         table_html(
@@ -4329,6 +4813,7 @@ def build_simulated_risk_global_diagnostic_payload(
             "cascade_stage_counts": dict(sorted(cascade_stage_counts.items())),
             "cascade_event_stage_counts": dict(sorted(cascade_event_stage_counts.items())),
             "cascade_root_count": len(cascade_root_rows),
+            "cascade_path_group_count": len(cascade_path_groups),
             "cascade_signal_count": len(cascade_rows),
             "origin_count": len(origin_rows),
             "node_impact_count": len(node_impacts),
@@ -4349,6 +4834,10 @@ def build_simulated_risk_global_diagnostic_payload(
                 cascade_root_rows,
                 key=lambda row: (-float(row.get("impact_score") or 0.0), str(row.get("event_id") or "")),
             )
+        ],
+        "cascade_path_groups": [
+            {key: value for key, value in row.items() if key != "table_row"}
+            for row in cascade_path_groups
         ],
         "events": [
             {key: value for key, value in row.items() if key != "table_row"}
