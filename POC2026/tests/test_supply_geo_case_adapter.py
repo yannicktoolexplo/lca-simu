@@ -34,12 +34,22 @@ def test_supply_geo_case_builds_primary_run_package(tmp_path: Path) -> None:
     assert manifest["capabilities"]["node_operational_state"] is True
     assert manifest["capabilities"]["operational_event_lineage"] is True
     assert manifest["capabilities"]["sdd_stateful_supply_engine"] is True
+    assert manifest["capabilities"]["brightway_supply_lca_source"] is True
     assert manifest["entrypoints"]["dashboard"] == "../maps/supply_geo_base_results_map.html"
     assert manifest["entrypoints"]["transport_weather"] == "../data/transport_weather_risk.csv"
     assert manifest["entrypoints"]["node_operational_state"] == "../data/node_operational_state.csv"
     assert manifest["entrypoints"]["operational_events"] == "../data/operational_event_seed.csv"
     assert manifest["entrypoints"]["sdd_monthly_impacts"] == "../data/sdd_monthly_impacts.csv"
     assert manifest["entrypoints"]["base_results_map"] == "../maps/supply_geo_base_results_map.html"
+    assert manifest["entrypoints"]["brightway_component_impacts"] == "../data/brightway_component_impacts.csv"
+    assert manifest["entrypoints"]["brightway_supply_alignment"] == "../data/brightway_supply_alignment.csv"
+    assert manifest["entrypoints"]["brightway_indicator_unit_views"] == "../data/brightway_indicator_unit_views.csv"
+    assert manifest["entrypoints"]["brightway_reference_person_equivalent_results"] == "../data/brightway_reference_person_equivalent_results.csv"
+    assert manifest["entrypoints"]["brightway_reference_scenarios"] == "../data/brightway_reference_scenarios.csv"
+    assert manifest["entrypoints"]["brightway_parametric_levers"] == "../data/brightway_parametric_levers.csv"
+    assert manifest["entrypoints"]["brightway_parametric_sensitivity"] == "../data/brightway_parametric_sensitivity.csv"
+    assert manifest["entrypoints"]["brightway_parametric_regional_scenarios"] == "../data/brightway_parametric_regional_scenarios.csv"
+    assert manifest["entrypoints"]["brightway_model_summary"] == "../summaries/brightway_model_summary.json"
 
 
 def test_supply_geo_case_primary_path_invariants(tmp_path: Path) -> None:
@@ -83,6 +93,17 @@ def test_supply_geo_case_weather_events_are_generated_from_weather_curves(tmp_pa
     sdd_flow = pd.read_csv(data_dir / "sdd_flow_state.csv")
     sdd_monthly = pd.read_csv(data_dir / "sdd_monthly_impacts.csv")
     sdd_cumulative = pd.read_csv(data_dir / "sdd_cumulative_impacts.csv")
+    bw_impacts = pd.read_csv(data_dir / "brightway_component_impacts.csv")
+    bw_params = pd.read_csv(data_dir / "brightway_parameters.csv")
+    bw_alignment = pd.read_csv(data_dir / "brightway_supply_alignment.csv")
+    bw_units = pd.read_csv(data_dir / "brightway_indicator_unit_views.csv")
+    bw_ref_pe = pd.read_csv(data_dir / "brightway_reference_person_equivalent_results.csv")
+    bw_ref_weighted = pd.read_csv(data_dir / "brightway_reference_weighted_results.csv")
+    bw_ref_scenarios = pd.read_csv(data_dir / "brightway_reference_scenarios.csv")
+    bw_bom_materials = pd.read_csv(data_dir / "brightway_masterboard_material_summary.csv")
+    bw_levers = pd.read_csv(data_dir / "brightway_parametric_levers.csv")
+    bw_sensitivity = pd.read_csv(data_dir / "brightway_parametric_sensitivity.csv")
+    bw_regional = pd.read_csv(data_dir / "brightway_parametric_regional_scenarios.csv")
 
     assert not weather.empty
     assert not events.empty
@@ -129,6 +150,29 @@ def test_supply_geo_case_weather_events_are_generated_from_weather_curves(tmp_pa
     assert {"oem_service_level", "sdd_kgCO2e", "surimpact_kgCO2e"}.issubset(sdd_flow.columns)
     assert (sdd_monthly["sdd_kgCO2e"] >= sdd_monthly["td_dlca_kgCO2e"]).all()
     assert sdd_cumulative["sdd_cumulative"].iloc[-1] >= sdd_cumulative["td_dlca_cumulative"].iloc[-1]
+    assert not bw_impacts.empty
+    assert not bw_params.empty
+    assert not bw_alignment.empty
+    assert {"system", "component", "climate_kgco2e"}.issubset(bw_impacts.columns)
+    assert {"name", "amount", "parameter_family"}.issubset(bw_params.columns)
+    assert {"path_id", "match_level", "brightway_climate_kgco2e"}.issubset(bw_alignment.columns)
+    assert not bw_units.empty
+    assert {"raw_unit", "person_equivalent_value", "normalization_status"}.issubset(bw_units.columns)
+    assert (bw_units["normalization_status"] == "normalized_ef30_person_equivalent").any()
+    assert not bw_ref_pe.empty
+    assert not bw_ref_weighted.empty
+    assert not bw_ref_scenarios.empty
+    assert not bw_bom_materials.empty
+    climate_ref = bw_ref_pe.loc[bw_ref_pe["short_label"].eq("Climate Change - total")].iloc[0]
+    assert abs(climate_ref["impact_total_person_equivalent"] - 57.2691147164561) < 1e-6
+    assert {"without_ife", "all_fr"}.issubset(set(bw_ref_scenarios["scenario_id"]))
+    assert not bw_levers.empty
+    assert not bw_sensitivity.empty
+    assert not bw_regional.empty
+    assert {"lever_id", "parameter_count", "affected_exchange_count", "abs_delta_amount_sum"}.issubset(bw_levers.columns)
+    assert {"lever_id", "activity_name", "exchange_name", "delta_amount"}.issubset(bw_sensitivity.columns)
+    assert {"scenario_id", "elec_switch_param", "al_switch_param", "foreground_amount_index"}.issubset(bw_regional.columns)
+    assert {"france_first", "europe_first", "fully_globalized"}.issubset(set(bw_regional["scenario_id"]))
 
 
 def test_supply_geo_case_dashboard_exports_plotly_tabs(tmp_path: Path) -> None:
@@ -156,6 +200,21 @@ def test_supply_geo_case_dashboard_exports_plotly_tabs(tmp_path: Path) -> None:
     assert "baseMapKpiOpsPlot" in map_html
     assert "baseMapKpiMaritimePlot" in map_html
     assert "baseMapKpiEventPlot" in map_html
+    assert "baseMapKpiSddTierPlot" in map_html
+    assert "baseMapKpiSddImpactPlot" in map_html
+    assert "baseMapKpiBwClimatePlot" in map_html
+    assert "baseMapKpiBwIndicatorPlot" in map_html
+    assert "baseMapKpiBwRawIndicatorPlot" in map_html
+    assert "baseMapKpiBwUnitCoveragePlot" in map_html
+    assert "baseMapKpiBwReferenceWeightedPlot" in map_html
+    assert "baseMapKpiBwReferencePhasePlot" in map_html
+    assert "baseMapKpiBwReferenceScenarioPlot" in map_html
+    assert "baseMapKpiBwReferenceClimateContributorPlot" in map_html
+    assert "baseMapKpiBwAlignmentPlot" in map_html
+    assert "baseMapKpiBwLeverPlot" in map_html
+    assert "baseMapKpiBwSensitivityPlot" in map_html
+    assert "baseMapKpiBwSwitchPlot" in map_html
+    assert "baseMapKpiBwRegionalScenarioPlot" in map_html
     assert "L.circleMarker" not in map_html
 
     payload = json.loads(kpis.read_text(encoding="utf-8"))
@@ -183,6 +242,21 @@ def test_supply_geo_case_dashboard_exports_plotly_tabs(tmp_path: Path) -> None:
     assert payload["horizon_adaptation"]["reference_cumulative"]
     assert payload["horizon_adaptation"]["event_impact"]
     assert payload["event_month"]
+    assert payload["brightway_model"]["available"] is True
+    assert payload["brightway_model"]["counts"]["climate_component_rows"] > 0
+    assert payload["brightway_model"]["counts"]["parameters"] > 0
+    assert payload["brightway_model"]["component_impacts"]
+    assert payload["brightway_model"]["indicator_unit_views"]
+    assert payload["brightway_model"]["reference_person_equivalent_results"]
+    assert payload["brightway_model"]["reference_weighted_results"]
+    assert payload["brightway_model"]["reference_scenarios"]
+    assert payload["brightway_model"]["supply_alignment"]
+    assert payload["brightway_model"]["parametric_levers"]
+    assert payload["brightway_model"]["parametric_sensitivity"]
+    assert payload["brightway_model"]["parametric_switches"]
+    assert payload["brightway_model"]["parametric_regional_scenarios"]
+    assert payload["brightway_model"]["counts"]["parametric_formulas_evaluated"] > 0
+    assert payload["brightway_model"]["counts"]["person_equivalent_indicators"] > 0
     assert payload["map_src"].endswith("supply_geo_base_results_map.html")
     assert not payload["map_src"].startswith("C:")
 

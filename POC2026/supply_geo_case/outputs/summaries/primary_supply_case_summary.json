@@ -1,6 +1,6 @@
 {
   "schema_version": "poc2026.supply_geo_case.v1",
-  "generated_at_utc": "2026-07-09T17:30:41+00:00",
+  "generated_at_utc": "2026-07-15T12:08:49+00:00",
   "source": {
     "json_path": "C:\\dev\\lca-simu\\supply_geo\\analysis\\output8_GEO_normalized_simulation_ready_researched.json",
     "map_html": "C:\\dev\\lca-simu\\supply_geo\\analysis\\maps\\output8_GEO_simulation_ready_researched_map.html",
@@ -25,7 +25,13 @@
     "sdd_node_state_rows": 206400,
     "sdd_lane_state_rows": 165120,
     "sdd_flow_state_rows": 41280,
-    "sdd_event_ledger_rows": 158855
+    "sdd_event_ledger_rows": 158855,
+    "brightway_component_impacts": 259,
+    "brightway_parameters": 684,
+    "brightway_supply_alignment_rows": 172,
+    "brightway_person_equivalent_indicators": 16,
+    "brightway_reference_person_equivalent_results": 16,
+    "brightway_parametric_regional_scenarios": 4
   },
   "mass": {
     "usable_record_mass_kg": 129.949472,
@@ -77,5 +83,54 @@
     "cold": 3454,
     "drought": 684,
     "hurricane": 1225
+  },
+  "brightway_model": {
+    "available": true,
+    "runtime": {
+      "can_execute_brightway": false,
+      "modules": {
+        "brightway25": false,
+        "bw2data": false,
+        "bw2io": false,
+        "bw2calc": false,
+        "lca_algebraic": false
+      },
+      "note": "Brightway runtime is optional here; Excel exports from bw_tristan are used when the runtime is unavailable."
+    },
+    "counts": {
+      "impact_rows": 7085,
+      "climate_component_rows": 259,
+      "indicator_unit_views": 28,
+      "person_equivalent_indicators": 16,
+      "reference_person_equivalent_results": 16,
+      "reference_weighted_results": 16,
+      "reference_phase_breakdown_rows": 135,
+      "reference_scenarios": 14,
+      "masterboard_equipment_summary_rows": 48,
+      "masterboard_material_summary_rows": 64,
+      "parameters": 684,
+      "activities": 51,
+      "exchanges": 590,
+      "parametric_formulas": 433,
+      "parametric_formulas_evaluated": 431,
+      "parametric_formula_failures": 2,
+      "parametric_levers": 7,
+      "parametric_sensitivity_rows": 544,
+      "parametric_switches": 2,
+      "parametric_regional_scenarios": 4,
+      "supply_alignment_rows": 172,
+      "supply_alignment_matched_rows": 172,
+      "supply_alignment_contributive_rows": 152,
+      "supply_alignment_contributive_matched_rows": 152,
+      "supply_alignment_zero_mass_not_required_rows": 6
+    },
+    "source_files": {
+      "impact_results_xlsx": "bw_tristan/STELIALCASEATS.xlsx",
+      "reference_results_xlsx": "bw_tristan/STELIA LCA SEATS v14022022v2.xlsx",
+      "masterboard_xlsx": "bw_tristan/STELIA Masterboard LCA SEATS 6.0.xlsx",
+      "inventory_xlsx": "bw_tristan/opera_bw2 - inventaire.xlsx",
+      "bw2package": "bw_tristan/OPERA_siege.bw2package",
+      "ef30_normalization_factors": "https://eplca.jrc.ec.europa.eu/permalink/Normalisation_Weighting_Factors_EF_3.0.xlsx"
+    }
   }
 }

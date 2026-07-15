@@ -16,6 +16,8 @@
 - Operational event rows: **45416**
 - SDD node-state rows: **206400**
 - SDD flow-state rows: **41280**
+- Brightway component impacts: **259**
+- Brightway parameters: **684**
 
 ## Mass allocation
 

@@ -1,0 +1,49 @@
+group_type,label,row_count,quantity_per_seat,packaging_mass,chips_mass,raw_mass,material_domain,source_file,source_sheet
+equipment,Consommation passive siège (kg Kerosène),1,18007.732901053,0.0,0.0,0.0,use_or_energy,bw_tristan/STELIA Masterboard LCA SEATS 6.0.xlsx,BOM
+equipment,"ENERGIE INFRASTRUCTURES (Gaz, kWh/siège)",1,217.352,0.0,0.0,0.0,use_or_energy,bw_tristan/STELIA Masterboard LCA SEATS 6.0.xlsx,BOM
+equipment,"ENERGIE INFRASTRUCTURES (Elec, kWh/siège)",1,113.534,0.0,0.0,0.0,use_or_energy,bw_tristan/STELIA Masterboard LCA SEATS 6.0.xlsx,BOM
+equipment,DONNEES (MO/siège),1,76.5,0.0,0.0,0.0,component_or_packaging,bw_tristan/STELIA Masterboard LCA SEATS 6.0.xlsx,BOM
+equipment,PACKAGING FAUTEUIL,4,53.0,0.0,0.0,0.0,component_or_packaging,bw_tristan/STELIA Masterboard LCA SEATS 6.0.xlsx,BOM
+equipment,ENSEMBLE COQUE,10,49.47,63.2,0.0,0.0,component_or_packaging,bw_tristan/STELIA Masterboard LCA SEATS 6.0.xlsx,BOM
+equipment,ENS STRUCTURE FAUTEUIL,13,25.8461,2.5,80.946,97.437,component_or_packaging,bw_tristan/STELIA Masterboard LCA SEATS 6.0.xlsx,BOM
+equipment,ENSEMBLE PALETTE OPTIMISEE,10,13.6548069,52.5,78.093,90.097,component_or_packaging,bw_tristan/STELIA Masterboard LCA SEATS 6.0.xlsx,BOM
+equipment,ENSEMBLE STRUCTURE FIXE,11,10.06629842,15.0,15.082,17.63,component_or_packaging,bw_tristan/STELIA Masterboard LCA SEATS 6.0.xlsx,BOM
+equipment,ENSEMBLE PORTE,11,9.1457356,52.5,0.0,0.0,component_or_packaging,bw_tristan/STELIA Masterboard LCA SEATS 6.0.xlsx,BOM
+equipment,STOWAGE ASSEMBLE AVEC PORTE,12,6.9408381,9.0,68.564,72.376,component_or_packaging,bw_tristan/STELIA Masterboard LCA SEATS 6.0.xlsx,BOM
+equipment,ENS TABLETTE COCKTAIL,9,5.544,6.0,49.039,52.484,component_or_packaging,bw_tristan/STELIA Masterboard LCA SEATS 6.0.xlsx,BOM
+equipment,RENFORT TUBULAIRE,7,4.171333333,11.333333333,0.0,0.0,component_or_packaging,bw_tristan/STELIA Masterboard LCA SEATS 6.0.xlsx,BOM
+equipment,ACCOUDOIR ALLEE,11,3.9019877,11.25,10.584,12.77,component_or_packaging,bw_tristan/STELIA Masterboard LCA SEATS 6.0.xlsx,BOM
+equipment,ENSEMBLE EQUIPEMENTS LATERALES,8,3.746420718,0.002402135,0.0,0.0,component_or_packaging,bw_tristan/STELIA Masterboard LCA SEATS 6.0.xlsx,BOM
+equipment,ENS TABLETTE REPAS,12,3.6897,4.8,18.537,21.016,component_or_packaging,bw_tristan/STELIA Masterboard LCA SEATS 6.0.xlsx,BOM
+equipment,BRACKETS-SET (cables),3,3.465,0.2,0.0,0.0,component_or_packaging,bw_tristan/STELIA Masterboard LCA SEATS 6.0.xlsx,BOM
+equipment,"ECRAN 17,3 INCH PNR 00-5155-02",3,3.428,3.0,0.0,0.0,component_or_packaging,bw_tristan/STELIA Masterboard LCA SEATS 6.0.xlsx,BOM
+equipment,ENS COUSSIN DOSSIER,6,2.634,1.6,0.0,0.0,component_or_packaging,bw_tristan/STELIA Masterboard LCA SEATS 6.0.xlsx,BOM
+equipment,SUPPORT + CLAMPS,3,2.5684,0.0008,0.0,0.0,component_or_packaging,bw_tristan/STELIA Masterboard LCA SEATS 6.0.xlsx,BOM
+equipment,00-5136-51 Rev F Seat Power Box 4 (SPB4),3,2.5,2.0,0.0,0.0,component_or_packaging,bw_tristan/STELIA Masterboard LCA SEATS 6.0.xlsx,BOM
+equipment,SYSTEM IFE BOITIER,3,2.5,2.0,0.0,0.0,component_or_packaging,bw_tristan/STELIA Masterboard LCA SEATS 6.0.xlsx,BOM
+equipment,ENS COUSSIN DOSSIER VERSION TETIERE,6,2.402,1.6,0.0,0.0,component_or_packaging,bw_tristan/STELIA Masterboard LCA SEATS 6.0.xlsx,BOM
+equipment,PADDING,3,2.25,1.0,0.0,0.0,component_or_packaging,bw_tristan/STELIA Masterboard LCA SEATS 6.0.xlsx,BOM
+equipment,"COUSSIN OTTOMAN STD PITCH 38"" QTU",6,2.181,1.6,0.0,0.0,component_or_packaging,bw_tristan/STELIA Masterboard LCA SEATS 6.0.xlsx,BOM
+equipment,SUPPORT ECRAN ASSEMBLE,7,2.06486,4.5,16.071,17.521,component_or_packaging,bw_tristan/STELIA Masterboard LCA SEATS 6.0.xlsx,BOM
+equipment,Structure Ottoman (horizontale),6,2.0574168,7.5,0.0,0.0,component_or_packaging,bw_tristan/STELIA Masterboard LCA SEATS 6.0.xlsx,BOM
+equipment,ENS COUSSIN ASSISE,5,2.016,1.45,0.0,0.0,component_or_packaging,bw_tristan/STELIA Masterboard LCA SEATS 6.0.xlsx,BOM
+equipment,LIGHTING x3,3,1.8,2.0,0.0,0.0,component_or_packaging,bw_tristan/STELIA Masterboard LCA SEATS 6.0.xlsx,BOM
+equipment,COMMANDE ACTIONNEMENT,3,1.75,2.0,0.0,0.0,component_or_packaging,bw_tristan/STELIA Masterboard LCA SEATS 6.0.xlsx,BOM
+equipment,ENS STOWAGE LATERAL,12,1.737912233,10.0,0.777,0.847,component_or_packaging,bw_tristan/STELIA Masterboard LCA SEATS 6.0.xlsx,BOM
+equipment,SUPPORT ECRAN,3,1.45,2.0,0.0,0.0,component_or_packaging,bw_tristan/STELIA Masterboard LCA SEATS 6.0.xlsx,BOM
+equipment,SFCU,3,1.2,2.0,0.0,0.0,component_or_packaging,bw_tristan/STELIA Masterboard LCA SEATS 6.0.xlsx,BOM
+equipment,ENSEMBLE TETIERE,9,1.0945,0.6,0.0,0.0,component_or_packaging,bw_tristan/STELIA Masterboard LCA SEATS 6.0.xlsx,BOM
+equipment,REMOTE EXTENDER UNIT 3 (REU3),3,1.07,2.0,0.0,0.0,component_or_packaging,bw_tristan/STELIA Masterboard LCA SEATS 6.0.xlsx,BOM
+equipment,HABILLAGE SOUS FAUTEUIL,6,1.064111618,0.002402135,0.0,0.0,component_or_packaging,bw_tristan/STELIA Masterboard LCA SEATS 6.0.xlsx,BOM
+equipment,NETTOYAGE,1,1.0,0.0,0.0,0.0,component_or_packaging,bw_tristan/STELIA Masterboard LCA SEATS 6.0.xlsx,BOM
+equipment,CEINTURE DE SECURITE,3,0.99,0.2,0.0,0.0,component_or_packaging,bw_tristan/STELIA Masterboard LCA SEATS 6.0.xlsx,BOM
+equipment,COUSSIN TETIERE,6,0.478666667,0.333333333,0.0,0.0,component_or_packaging,bw_tristan/STELIA Masterboard LCA SEATS 6.0.xlsx,BOM
+equipment,BUMPER VERSION PORTE,6,0.371666667,0.333333333,0.0,0.0,component_or_packaging,bw_tristan/STELIA Masterboard LCA SEATS 6.0.xlsx,BOM
+equipment,MANCHETTE EQUIPEE,7,0.3066495,1.0,0.0,0.0,component_or_packaging,bw_tristan/STELIA Masterboard LCA SEATS 6.0.xlsx,BOM
+equipment,SUPPORT MANCHETTE EQUIPEE,4,0.248,0.25,0.0,0.0,component_or_packaging,bw_tristan/STELIA Masterboard LCA SEATS 6.0.xlsx,BOM
+equipment,SUPPORT EQUIPE,4,0.227,0.25,0.0,0.0,component_or_packaging,bw_tristan/STELIA Masterboard LCA SEATS 6.0.xlsx,BOM
+equipment,MANCHETTE ACC MOBILE,6,0.1965,1.0,0.0,0.0,component_or_packaging,bw_tristan/STELIA Masterboard LCA SEATS 6.0.xlsx,BOM
+equipment,CAPOT NFC,3,0.194,0.25,0.0,0.0,component_or_packaging,bw_tristan/STELIA Masterboard LCA SEATS 6.0.xlsx,BOM
+equipment,SUPPORT NFC,3,0.135,0.25,0.0,0.0,component_or_packaging,bw_tristan/STELIA Masterboard LCA SEATS 6.0.xlsx,BOM
+equipment,PAPIER/FAUTEUIL,1,0.0025,0.0,0.0,0.0,component_or_packaging,bw_tristan/STELIA Masterboard LCA SEATS 6.0.xlsx,BOM
+equipment,Maintenance - Remplacement,1,0.0,0.0,0.0,0.0,component_or_packaging,bw_tristan/STELIA Masterboard LCA SEATS 6.0.xlsx,BOM

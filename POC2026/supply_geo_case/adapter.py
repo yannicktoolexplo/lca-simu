@@ -8,6 +8,7 @@ scale: data files, summaries, reports, maps and a lightweight run manifest.
 from __future__ import annotations
 
 import argparse
+import ast
 import csv
 import hashlib
 import html
@@ -16,6 +17,8 @@ import itertools
 import json
 import math
 import os
+import re
+import unicodedata
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -29,6 +32,7 @@ SCHEMA_VERSION = "poc2026.supply_geo_case.v1"
 CASE_ROOT = Path(__file__).resolve().parent
 REPO_ROOT = CASE_ROOT.parents[1]
 DEFAULT_CONFIG = CASE_ROOT / "config" / "supply_geo_case.yml"
+BW_TRISTAN_ROOT = REPO_ROOT / "bw_tristan"
 
 EDGE_ORDER = (
     ("T4->T3", "T4", "T3"),
@@ -228,6 +232,16 @@ def safe_float(value: Any, default: float = 0.0) -> float:
         return default
 
 
+def optional_float(value: Any) -> float | None:
+    try:
+        if value in (None, ""):
+            return None
+        number = float(value)
+        return number if math.isfinite(number) else None
+    except (TypeError, ValueError):
+        return None
+
+
 def clamp(value: float, low: float, high: float) -> float:
     return max(low, min(high, value))
 
@@ -237,6 +251,12 @@ def slug(value: Any) -> str:
     chars = [ch if ch.isalnum() else "_" for ch in text]
     out = "_".join(part for part in "".join(chars).split("_") if part)
     return out or "unknown"
+
+
+def ascii_key(value: Any) -> str:
+    text = unicodedata.normalize("NFKD", clean(value))
+    text = "".join(ch for ch in text if not unicodedata.combining(ch))
+    return text.lower()
 
 
 def stable_phase(value: str) -> float:
@@ -1101,6 +1121,1158 @@ def artifact_record(output_root: Path, path: Path, *, group: str, domain: str, g
     return record
 
 
+def brightway_runtime_status() -> dict[str, Any]:
+    modules = ["brightway25", "bw2data", "bw2io", "bw2calc", "lca_algebraic"]
+    availability = {name: importlib.util.find_spec(name) is not None for name in modules}
+    return {
+        "can_execute_brightway": all(availability.values()),
+        "modules": availability,
+        "note": "Brightway runtime is optional here; Excel exports from bw_tristan are used when the runtime is unavailable.",
+    }
+
+
+def indicator_unit(indicator: str) -> str:
+    start = indicator.rfind("[")
+    end = indicator.rfind("]")
+    if start >= 0 and end > start:
+        return indicator[start + 1 : end].strip()
+    return ""
+
+
+def load_workbook_rows(path: Path, sheet_name: str) -> list[tuple[Any, ...]]:
+    if not path.exists() or importlib.util.find_spec("openpyxl") is None:
+        return []
+    from openpyxl import load_workbook
+
+    workbook = load_workbook(path, read_only=True, data_only=True)
+    try:
+        if sheet_name not in workbook.sheetnames:
+            return []
+        sheet = workbook[sheet_name]
+        return [tuple(row) for row in sheet.iter_rows(values_only=True)]
+    finally:
+        workbook.close()
+
+
+def load_brightway_component_impacts(path: Path) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    rows = load_workbook_rows(path, "Master")
+    if len(rows) < 4:
+        return [], []
+
+    max_cols = max(len(row) for row in rows)
+    families: list[str] = []
+    systems: list[str] = []
+    components: list[str] = []
+    family = ""
+    system = ""
+    for col in range(1, max_cols):
+        family = clean(rows[0][col] if col < len(rows[0]) else "") or family
+        system = clean(rows[1][col] if col < len(rows[1]) else "") or system
+        component = clean(rows[2][col] if col < len(rows[2]) else "") or system
+        families.append(family)
+        systems.append(system)
+        components.append(component)
+
+    impact_rows: list[dict[str, Any]] = []
+    climate_rows: list[dict[str, Any]] = []
+    for row_index in range(3, len(rows)):
+        row = rows[row_index]
+        indicator = clean(row[0] if row else "")
+        if not indicator:
+            continue
+        unit = indicator_unit(indicator)
+        is_climate_total = "climate change - total" in indicator.lower()
+        for col in range(1, max_cols):
+            value = optional_float(row[col] if col < len(row) else None)
+            if value is None:
+                continue
+            item = {
+                "source_file": rel(path, REPO_ROOT),
+                "indicator": indicator,
+                "unit": unit,
+                "family": families[col - 1] if col - 1 < len(families) else "",
+                "system": systems[col - 1] if col - 1 < len(systems) else "",
+                "component": components[col - 1] if col - 1 < len(components) else "",
+                "value": round(value, 9),
+            }
+            impact_rows.append(item)
+            if is_climate_total:
+                climate_rows.append(
+                    {
+                        "source_file": rel(path, REPO_ROOT),
+                        "family": item["family"],
+                        "system": item["system"],
+                        "component": item["component"],
+                        "indicator": indicator,
+                        "unit": unit,
+                        "climate_kgco2e": round(value, 9),
+                    }
+                )
+    return impact_rows, climate_rows
+
+
+def load_brightway_inventory(path: Path) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
+    rows = load_workbook_rows(path, "OPERA")
+    if not rows:
+        return [], [], []
+
+    parameters: list[dict[str, Any]] = []
+    activities: list[dict[str, Any]] = []
+    exchanges: list[dict[str, Any]] = []
+    mode = ""
+    current_activity: dict[str, Any] | None = None
+    exchange_header: list[str] = []
+
+    for row in rows:
+        first = clean(row[0] if len(row) > 0 else "")
+        second = clean(row[1] if len(row) > 1 else "")
+        if first == "Project parameters":
+            mode = "project_header"
+            continue
+        if mode == "project_header":
+            mode = "project"
+            continue
+        if mode == "project":
+            if not first:
+                mode = ""
+                continue
+            if first in {"Activity", "Parameters", "Exchanges", "name"}:
+                mode = ""
+            else:
+                parameters.append(
+                    {
+                        "name": first,
+                        "amount": optional_float(row[1] if len(row) > 1 else None),
+                        "formula": clean(row[2] if len(row) > 2 else ""),
+                        "parameter_family": first.split("_", 1)[0] if "_" in first else first,
+                    }
+                )
+                continue
+
+        if first == "Activity":
+            current_activity = {"activity_name": second}
+            activities.append(current_activity)
+            mode = "activity"
+            continue
+        if current_activity is not None and first in {"code", "comment", "location", "reference product", "type", "unit"}:
+            current_activity[slug(first)] = second
+            continue
+        if first == "Exchanges" and current_activity is not None:
+            mode = "exchange_header"
+            continue
+        if mode == "exchange_header":
+            exchange_header = [slug(cell) for cell in row]
+            mode = "exchanges"
+            continue
+        if mode == "exchanges":
+            if not any(clean(cell) for cell in row[:8]):
+                mode = ""
+                exchange_header = []
+                continue
+            item = {"activity_name": current_activity.get("activity_name", "") if current_activity else ""}
+            for idx, header in enumerate(exchange_header):
+                if not header:
+                    continue
+                value = row[idx] if idx < len(row) else ""
+                item[header] = optional_float(value) if header in {"amount", "original_amount"} else clean(value)
+            exchanges.append(item)
+
+    return parameters, activities, exchanges
+
+
+def indicator_summary_rows(impact_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    by_indicator: dict[str, list[float]] = defaultdict(list)
+    units: dict[str, str] = {}
+    for row in impact_rows:
+        indicator = clean(row.get("indicator"))
+        value = optional_float(row.get("value"))
+        if indicator and value is not None:
+            by_indicator[indicator].append(value)
+            units[indicator] = clean(row.get("unit"))
+    out = []
+    for indicator, values in by_indicator.items():
+        out.append(
+            {
+                "indicator": indicator,
+                "unit": units.get(indicator, ""),
+                "component_count": len(values),
+                "sum_value": round(sum(values), 9),
+                "mean_value": round(mean(values), 9),
+                "max_value": round(max(values), 9),
+            }
+        )
+    return sorted(out, key=lambda row: (-safe_float(row.get("sum_value")), row["indicator"]))
+
+
+def short_indicator_label(indicator: str) -> str:
+    label = re.sub(r"^EF\s*3\.0\s*", "", clean(indicator), flags=re.IGNORECASE)
+    label = re.sub(r"\s*\[[^\]]+\]\s*$", "", label).strip()
+    return label or clean(indicator)
+
+
+def ef30_indicator_category(indicator: str) -> tuple[str, str]:
+    text = slug(indicator)
+    if "climate_change" in text:
+        return "Climate change", "aggregate" if "total" in text else "subindicator"
+    if "ozone_depletion" in text:
+        return "Ozone depletion", "aggregate"
+    if "human_toxicity_cancer" in text:
+        return "Human toxicity, cancer", "aggregate" if "total" in text else "subindicator"
+    if "human_toxicity_non_cancer" in text:
+        return "Human toxicity, non-cancer", "aggregate" if "total" in text else "subindicator"
+    if "particulate_matter" in text:
+        return "Particulate matter", "aggregate"
+    if "ionising_radiation" in text:
+        return "Ionising radiation", "aggregate"
+    if "photochemical_ozone_formation" in text:
+        return "Photochemical ozone formation", "aggregate"
+    if "acidification" in text:
+        return "Acidification", "aggregate"
+    if "eutrophication_terrestrial" in text:
+        return "Terrestrial eutrophication", "aggregate"
+    if "eutrophication_freshwater" in text:
+        return "Freshwater eutrophication", "aggregate"
+    if "eutrophication_marine" in text:
+        return "Marine eutrophication", "aggregate"
+    if "land_use" in text:
+        return "Land use", "aggregate"
+    if "ecotoxicity_freshwater" in text:
+        return "Ecotoxicity freshwater", "aggregate" if "total" in text else "subindicator"
+    if "water_use" in text:
+        return "Water use", "aggregate"
+    if "resource_use_fossils" in text:
+        return "Resource depletion, fossils", "aggregate"
+    if "resource_use_mineral" in text or "resource_use_minerals" in text:
+        return "Resource depletion, minerals and metals", "aggregate"
+    return "", "unknown"
+
+
+def build_indicator_unit_views(indicator_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    for row in indicator_rows:
+        indicator = clean(row.get("indicator"))
+        category, scope = ef30_indicator_category(indicator)
+        factor_row = EF30_NORMALIZATION_FACTORS.get(category, {})
+        factor = optional_float(factor_row.get("factor"))
+        raw_value = safe_float(row.get("sum_value"))
+        include_pe = bool(factor is not None and scope == "aggregate")
+        if include_pe:
+            pe_value: float | str = round(raw_value / factor, 9)
+            status = "normalized_ef30_person_equivalent"
+        elif factor is not None and scope == "subindicator":
+            pe_value = ""
+            status = "subindicator_excluded_to_avoid_double_counting"
+        else:
+            pe_value = ""
+            status = "missing_normalization_factor"
+
+        raw_unit = clean(row.get("unit"))
+        short_label = short_indicator_label(indicator)
+        out.append(
+            {
+                "indicator": indicator,
+                "short_label": short_label,
+                "ef30_category": category,
+                "indicator_scope": scope,
+                "raw_unit": raw_unit,
+                "raw_sum_value": round(raw_value, 9),
+                "raw_mean_value": row.get("mean_value", ""),
+                "raw_max_value": row.get("max_value", ""),
+                "component_count": row.get("component_count", ""),
+                "normalization_factor_per_person_year": round(factor, 12) if factor is not None else "",
+                "normalization_factor_unit": clean(factor_row.get("unit")),
+                "person_equivalent_value": pe_value,
+                "person_equivalent_unit": "person eq." if include_pe else "",
+                "include_in_person_equivalent": include_pe,
+                "normalization_status": status,
+                "normalization_source": EF30_NORMALIZATION_SOURCE if factor is not None else "",
+                "raw_plot_label": f"{short_label} [{raw_unit or 'unit unknown'}]",
+                "pe_plot_label": short_label,
+            }
+        )
+    return sorted(
+        out,
+        key=lambda row: (
+            0 if row["include_in_person_equivalent"] else 1,
+            -safe_float(row.get("person_equivalent_value"), -1.0),
+            -safe_float(row.get("raw_sum_value")),
+            row["short_label"],
+        ),
+    )
+
+
+def workbook_sheet_by_tokens(workbook: Any, *tokens: str, starts_with: str | None = None) -> str:
+    token_keys = [ascii_key(token) for token in tokens]
+    start_key = ascii_key(starts_with) if starts_with else ""
+    for name in workbook.sheetnames:
+        key = ascii_key(name)
+        if start_key and not key.startswith(start_key):
+            continue
+        if all(token in key for token in token_keys):
+            return name
+    return ""
+
+
+def cell_number(sheet: Any, row: int, col: int) -> float | None:
+    return optional_float(sheet.cell(row, col).value)
+
+
+def rounded_or_blank(value: float | None, digits: int = 9) -> float | str:
+    return round(value, digits) if value is not None else ""
+
+
+def load_stelia_reference_workbook(path: Path) -> dict[str, list[dict[str, Any]]]:
+    empty = {
+        "reference_person_equivalent_results": [],
+        "reference_weighted_results": [],
+        "reference_phase_breakdown": [],
+        "reference_scenarios": [],
+        "reference_weighting_factors": [],
+        "reference_climate_contributors": [],
+    }
+    if not path.exists() or importlib.util.find_spec("openpyxl") is None:
+        return empty
+
+    from openpyxl import load_workbook
+
+    workbook = load_workbook(path, read_only=True, data_only=True)
+    try:
+        perseq_name = workbook_sheet_by_tokens(workbook, "graphes", "perseq")
+        weighted_name = workbook_sheet_by_tokens(workbook, "graphes", "pond")
+        weighting_name = workbook_sheet_by_tokens(workbook, starts_with="pond")
+        scenarii_name = workbook_sheet_by_tokens(workbook, "scenarii")
+
+        out = {key: list(value) for key, value in empty.items()}
+
+        if perseq_name:
+            sheet = workbook[perseq_name]
+            for row_idx in range(23, 39):
+                indicator = clean(sheet.cell(row_idx, 1).value)
+                if not indicator:
+                    continue
+                out["reference_person_equivalent_results"].append(
+                    {
+                        "indicator": indicator,
+                        "short_label": short_indicator_label(indicator),
+                        "impact_total_person_equivalent": rounded_or_blank(cell_number(sheet, row_idx, 2)),
+                        "impact_without_use_person_equivalent": rounded_or_blank(cell_number(sheet, row_idx, 3)),
+                        "use_phase_person_equivalent": rounded_or_blank(cell_number(sheet, row_idx, 4)),
+                        "person_equivalent_unit": "person eq.",
+                        "source_sheet": perseq_name,
+                        "source_row": row_idx,
+                    }
+                )
+
+            phases = [clean(sheet.cell(44, col).value) for col in range(2, 7)]
+            for row_idx in range(45, 54):
+                indicator = clean(sheet.cell(row_idx, 1).value)
+                if not indicator:
+                    continue
+                for offset, phase in enumerate(phases, start=2):
+                    value = cell_number(sheet, row_idx, offset)
+                    if not phase or value is None:
+                        continue
+                    out["reference_phase_breakdown"].append(
+                        {
+                            "result_view": "person_equivalent",
+                            "end_of_life_variant": "landfill",
+                            "indicator": indicator,
+                            "short_label": short_indicator_label(indicator),
+                            "phase": phase,
+                            "value": round(value, 9),
+                            "unit": "person eq.",
+                            "source_sheet": perseq_name,
+                            "source_row": row_idx,
+                        }
+                    )
+
+            for scope, start_row, end_row in (
+                ("system", 88, 97),
+                ("component", 103, 108),
+            ):
+                for row_idx in range(start_row, end_row + 1):
+                    label = clean(sheet.cell(row_idx, 1).value)
+                    value = cell_number(sheet, row_idx, 2)
+                    share = cell_number(sheet, row_idx, 3)
+                    if not label or value is None:
+                        continue
+                    out["reference_climate_contributors"].append(
+                        {
+                            "contributor_scope": scope,
+                            "label": label,
+                            "climate_person_equivalent": round(value, 9),
+                            "share_of_non_use_climate_pct": round(100.0 * share, 4) if share is not None else "",
+                            "source_sheet": perseq_name,
+                            "source_row": row_idx,
+                        }
+                    )
+
+        if weighted_name:
+            sheet = workbook[weighted_name]
+            for row_idx in range(23, 39):
+                indicator = clean(sheet.cell(row_idx, 1).value)
+                if not indicator:
+                    continue
+                out["reference_weighted_results"].append(
+                    {
+                        "indicator": indicator,
+                        "short_label": short_indicator_label(indicator),
+                        "impact_total_weighted_score": rounded_or_blank(cell_number(sheet, row_idx, 2)),
+                        "per_cabin_16_seats_weighted_score": rounded_or_blank(cell_number(sheet, row_idx, 3)),
+                        "impact_without_use_weighted_score": rounded_or_blank(cell_number(sheet, row_idx, 4)),
+                        "use_phase_weighted_score": rounded_or_blank(cell_number(sheet, row_idx, 5)),
+                        "weighted_unit": "weighted person eq.",
+                        "source_sheet": weighted_name,
+                        "source_row": row_idx,
+                    }
+                )
+
+            for header_row, start_row, end_row, variant in (
+                (44, 45, 53, "landfill"),
+                (56, 57, 65, "recycling"),
+            ):
+                phases = [clean(sheet.cell(header_row, col).value) for col in range(2, 7)]
+                for row_idx in range(start_row, end_row + 1):
+                    indicator = clean(sheet.cell(row_idx, 1).value)
+                    if not indicator:
+                        continue
+                    for offset, phase in enumerate(phases, start=2):
+                        value = cell_number(sheet, row_idx, offset)
+                        if not phase or value is None:
+                            continue
+                        out["reference_phase_breakdown"].append(
+                            {
+                                "result_view": "weighted",
+                                "end_of_life_variant": variant,
+                                "indicator": indicator,
+                                "short_label": short_indicator_label(indicator),
+                                "phase": phase,
+                                "value": round(value, 9),
+                                "unit": "weighted person eq.",
+                                "source_sheet": weighted_name,
+                                "source_row": row_idx,
+                            }
+                        )
+
+        if weighting_name:
+            sheet = workbook[weighting_name]
+            for row_idx in range(2, 18):
+                category = clean(sheet.cell(row_idx, 1).value)
+                if not category:
+                    continue
+                equal_weight = cell_number(sheet, row_idx, 2)
+                ef30_weight = cell_number(sheet, row_idx, 3)
+                factor = cell_number(sheet, row_idx, 4)
+                out["reference_weighting_factors"].append(
+                    {
+                        "category": category,
+                        "equal_weight": rounded_or_blank(equal_weight, 12),
+                        "ef30_weight_pct": round(100.0 * ef30_weight, 6) if ef30_weight is not None else "",
+                        "weighting_factor_vs_equal_weight": rounded_or_blank(factor, 9),
+                        "source_sheet": weighting_name,
+                        "source_row": row_idx,
+                    }
+                )
+
+        if scenarii_name:
+            sheet = workbook[scenarii_name]
+
+            def add_scenario_rows(scenario_id: str, scenario_label: str, rows: range, mode: str) -> None:
+                for row_idx in rows:
+                    phase = clean(sheet.cell(row_idx, 1).value)
+                    if not phase:
+                        continue
+                    if mode == "sans_ife":
+                        lifecycle_reduction = cell_number(sheet, row_idx, 2)
+                        relative_reduction = cell_number(sheet, row_idx, 3)
+                        production_reduction = cell_number(sheet, row_idx, 4)
+                        baseline = cell_number(sheet, row_idx, 5)
+                        scenario = cell_number(sheet, row_idx, 6)
+                    else:
+                        production_reduction = cell_number(sheet, row_idx, 2)
+                        lifecycle_reduction = cell_number(sheet, row_idx, 3)
+                        relative_reduction = cell_number(sheet, row_idx, 4)
+                        baseline = cell_number(sheet, row_idx, 5)
+                        scenario = cell_number(sheet, row_idx, 6)
+                    out["reference_scenarios"].append(
+                        {
+                            "scenario_id": scenario_id,
+                            "scenario_label": scenario_label,
+                            "phase": phase,
+                            "baseline_climate_weighted_score": rounded_or_blank(baseline),
+                            "scenario_climate_weighted_score": rounded_or_blank(scenario),
+                            "lifecycle_climate_reduction_pct": round(100.0 * lifecycle_reduction, 6) if lifecycle_reduction is not None else "",
+                            "relative_climate_reduction_pct": round(100.0 * relative_reduction, 6) if relative_reduction is not None else "",
+                            "production_only_climate_reduction_pct": round(100.0 * production_reduction, 6) if production_reduction is not None else "",
+                            "weighted_unit": "weighted person eq.",
+                            "source_sheet": scenarii_name,
+                            "source_row": row_idx,
+                        }
+                    )
+
+            add_scenario_rows("without_ife", "Sans IFE", range(4, 11), "sans_ife")
+            add_scenario_rows("all_fr", "Fabrication 100% sur site / mix FR", range(26, 33), "all_fr")
+
+        for key in out:
+            out[key].sort(key=lambda row: (clean(row.get("scenario_id")), clean(row.get("result_view")), -safe_float(row.get("impact_total_person_equivalent"), -safe_float(row.get("impact_total_weighted_score"), -safe_float(row.get("value")))), clean(row.get("label") or row.get("indicator") or row.get("phase"))))
+        return out
+    finally:
+        workbook.close()
+
+
+def load_masterboard_bom_summaries(path: Path) -> dict[str, list[dict[str, Any]]]:
+    empty = {"masterboard_equipment_summary": [], "masterboard_material_summary": []}
+    if not path.exists() or importlib.util.find_spec("openpyxl") is None:
+        return empty
+
+    from openpyxl import load_workbook
+
+    workbook = load_workbook(path, read_only=True, data_only=True)
+    try:
+        sheet_name = workbook_sheet_by_tokens(workbook, starts_with="bom")
+        if not sheet_name:
+            return empty
+        sheet = workbook[sheet_name]
+        equipment: dict[str, dict[str, Any]] = {}
+        material: dict[str, dict[str, Any]] = {}
+
+        def add(group: dict[str, dict[str, Any]], key: str, qty: float, packaging: float, chips: float, raw: float) -> None:
+            row = group.setdefault(
+                key or "unknown",
+                {
+                    "label": key or "unknown",
+                    "row_count": 0,
+                    "quantity_per_seat": 0.0,
+                    "packaging_mass": 0.0,
+                    "chips_mass": 0.0,
+                    "raw_mass": 0.0,
+                },
+            )
+            row["row_count"] += 1
+            row["quantity_per_seat"] += qty
+            row["packaging_mass"] += packaging
+            row["chips_mass"] += chips
+            row["raw_mass"] += raw
+
+        for row_idx in range(2, sheet.max_row + 1):
+            equipment_label = clean(sheet.cell(row_idx, 1).value)
+            material_label = clean(sheet.cell(row_idx, 4).value)
+            qty = safe_float(sheet.cell(row_idx, 7).value)
+            packaging = safe_float(sheet.cell(row_idx, 9).value)
+            chips = safe_float(sheet.cell(row_idx, 10).value)
+            raw = safe_float(sheet.cell(row_idx, 12).value)
+            if not any([equipment_label, material_label, qty, packaging, chips, raw]):
+                continue
+            add(equipment, equipment_label, qty, packaging, chips, raw)
+            add(material, material_label, qty, packaging, chips, raw)
+
+        def finalize(group: dict[str, dict[str, Any]], group_type: str) -> list[dict[str, Any]]:
+            rows: list[dict[str, Any]] = []
+            for row in group.values():
+                qty = safe_float(row["quantity_per_seat"])
+                rows.append(
+                    {
+                        "group_type": group_type,
+                        "label": row["label"],
+                        "row_count": row["row_count"],
+                        "quantity_per_seat": round(qty, 9),
+                        "packaging_mass": round(safe_float(row["packaging_mass"]), 9),
+                        "chips_mass": round(safe_float(row["chips_mass"]), 9),
+                        "raw_mass": round(safe_float(row["raw_mass"]), 9),
+                        "material_domain": "use_or_energy" if qty > 100.0 else "component_or_packaging",
+                        "source_file": rel(path, REPO_ROOT),
+                        "source_sheet": sheet_name,
+                    }
+                )
+            return sorted(rows, key=lambda item: (-safe_float(item.get("quantity_per_seat")), item["label"]))[:80]
+
+        return {
+            "masterboard_equipment_summary": finalize(equipment, "equipment"),
+            "masterboard_material_summary": finalize(material, "material"),
+        }
+    finally:
+        workbook.close()
+
+
+def match_brightway_component(system: str, component: str, climate_rows: list[dict[str, Any]]) -> tuple[dict[str, Any] | None, str]:
+    def bw_match_slug(value: Any) -> str:
+        text = slug(value)
+        if "padding" in text:
+            return "padding"
+        if "screen_display" in text or "display_liquid_crystal" in text:
+            return "ecran"
+        return text
+
+    system_slug = bw_match_slug(system)
+    component_slug = bw_match_slug(component)
+    exact: dict[tuple[str, str], dict[str, Any]] = {}
+    by_component: dict[str, dict[str, Any]] = {}
+    for row in climate_rows:
+        bw_system_slug = bw_match_slug(row.get("system"))
+        bw_component_slug = bw_match_slug(row.get("component"))
+        exact[(bw_system_slug, bw_component_slug)] = row
+        by_component.setdefault(bw_component_slug, row)
+    if (system_slug, component_slug) in exact:
+        return exact[(system_slug, component_slug)], "exact_system_component"
+    if component_slug in by_component:
+        return by_component[component_slug], "component_exact"
+    for row in climate_rows:
+        bw_component_slug = slug(row.get("component"))
+        bw_system_slug = slug(row.get("system"))
+        if component_slug and len(component_slug) >= 4 and (component_slug in bw_component_slug or bw_component_slug in component_slug):
+            return row, "component_fuzzy"
+        if system_slug and len(system_slug) >= 4 and system_slug == bw_system_slug:
+            return row, "system_only"
+    return None, "unmatched"
+
+
+def build_brightway_supply_alignment(path_rows: list[dict[str, Any]], climate_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    for row in path_rows:
+        match, level = match_brightway_component(clean(row.get("system")), clean(row.get("component")), climate_rows)
+        if match is None and safe_float(row.get("path_mass_kg")) <= 0.0:
+            level = "not_required_zero_mass"
+        out.append(
+            {
+                "path_id": row.get("path_id", ""),
+                "record_index": row.get("record_index", ""),
+                "system": row.get("system", ""),
+                "component": row.get("component", ""),
+                "family": row.get("family", ""),
+                "path_mass_kg": row.get("path_mass_kg", 0.0),
+                "match_level": level,
+                "brightway_system": match.get("system", "") if match else "",
+                "brightway_component": match.get("component", "") if match else "",
+                "brightway_climate_kgco2e": match.get("climate_kgco2e", "") if match else "",
+                "brightway_unit": match.get("unit", "") if match else "",
+            }
+        )
+    return out
+
+
+def eval_parametric_formula(expr: str, values: dict[str, float]) -> float:
+    tree = ast.parse(expr.replace("^", "**"), mode="eval")
+
+    def visit(node: ast.AST) -> float:
+        if isinstance(node, ast.Expression):
+            return visit(node.body)
+        if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
+            return float(node.value)
+        if isinstance(node, ast.Num):
+            return float(node.n)
+        if isinstance(node, ast.Name):
+            if node.id not in values:
+                raise KeyError(node.id)
+            return values[node.id]
+        if isinstance(node, ast.UnaryOp):
+            value = visit(node.operand)
+            if isinstance(node.op, ast.USub):
+                return -value
+            if isinstance(node.op, ast.UAdd):
+                return value
+        if isinstance(node, ast.BinOp):
+            left = visit(node.left)
+            right = visit(node.right)
+            if isinstance(node.op, ast.Add):
+                return left + right
+            if isinstance(node.op, ast.Sub):
+                return left - right
+            if isinstance(node.op, ast.Mult):
+                return left * right
+            if isinstance(node.op, ast.Div):
+                return left / right
+            if isinstance(node.op, ast.Pow):
+                return left**right
+        raise ValueError(f"Unsupported formula node: {type(node).__name__}")
+
+    value = visit(tree)
+    if not math.isfinite(value):
+        raise ValueError("non-finite formula result")
+    return value
+
+
+def formula_names(expr: str) -> set[str]:
+    try:
+        tree = ast.parse(expr.replace("^", "**"), mode="eval")
+    except SyntaxError:
+        return set()
+    return {node.id for node in ast.walk(tree) if isinstance(node, ast.Name)}
+
+
+def parameter_tokens(name: str) -> set[str]:
+    return {part for part in re.split(r"[^a-z0-9]+", clean(name).lower()) if part}
+
+
+def param_is_aluminium_material(name: str) -> bool:
+    tokens = parameter_tokens(name)
+    has_al = any(token.startswith("al") or token.startswith("alu") for token in tokens)
+    return has_al and "elec" not in tokens and "eol" not in tokens and "inc" not in tokens and "recy" not in tokens
+
+
+def param_is_electricity(name: str) -> bool:
+    return "elec" in parameter_tokens(name)
+
+
+def param_is_transport(name: str) -> bool:
+    tokens = parameter_tokens(name)
+    return bool(tokens & {"truck", "tkm", "transport", "boat", "ship", "plane", "freight"})
+
+
+def param_is_packaging(name: str) -> bool:
+    tokens = parameter_tokens(name)
+    return bool(tokens & {"pack", "box", "carton", "ply", "pe", "film"})
+
+
+def param_is_end_of_life(name: str) -> bool:
+    tokens = parameter_tokens(name)
+    return bool(tokens & {"eol", "inc", "valo", "recy", "scrap", "waste", "landfill"})
+
+
+def param_is_steel(name: str) -> bool:
+    tokens = parameter_tokens(name)
+    return bool(tokens & {"acier", "steel", "inox", "30ncd", "30ncd6", "35nc", "30nc", "4140", "z10", "z15"})
+
+
+def param_is_polymer_textile(name: str) -> bool:
+    tokens = parameter_tokens(name)
+    return bool(tokens & {"nylon", "pa6", "pa66", "pu", "pvc", "kydex", "frmc", "tissu", "cuir", "velour", "velours", "silicone", "caoutchouc", "ertalon", "pc", "pether"})
+
+
+PARAMETRIC_LEVERS = (
+    ("aluminium_material", "Aluminium matiere +10%", param_is_aluminium_material),
+    ("electricity", "Electricite process +10%", param_is_electricity),
+    ("transport", "Transport foreground +10%", param_is_transport),
+    ("packaging", "Packaging +10%", param_is_packaging),
+    ("end_of_life", "Fin de vie / recyclage +10%", param_is_end_of_life),
+    ("steel_inox", "Acier / inox +10%", param_is_steel),
+    ("polymer_textile", "Polymere / textile +10%", param_is_polymer_textile),
+)
+
+EF30_NORMALIZATION_SOURCE = "https://eplca.jrc.ec.europa.eu/permalink/Normalisation_Weighting_Factors_EF_3.0.xlsx"
+
+EF30_NORMALIZATION_FACTORS = {
+    "Climate change": {"factor": 8095.525063944057, "unit": "kg CO2 eq./person"},
+    "Ozone depletion": {"factor": 0.05364799056726336, "unit": "kg CFC-11 eq./person"},
+    "Human toxicity, cancer": {"factor": 1.689950739575603e-05, "unit": "CTUh/person"},
+    "Human toxicity, non-cancer": {"factor": 0.0002296592158999324, "unit": "CTUh/person"},
+    "Particulate matter": {"factor": 0.000595386937135986, "unit": "disease incidences/person"},
+    "Ionising radiation": {"factor": 4220.15981253385, "unit": "kBq U-235 eq./person"},
+    "Photochemical ozone formation": {"factor": 40.601397461454425, "unit": "kg NMVOC eq./person"},
+    "Acidification": {"factor": 55.569541230602006, "unit": "mol H+ eq./person"},
+    "Terrestrial eutrophication": {"factor": 176.754999788942, "unit": "mol N eq./person"},
+    "Freshwater eutrophication": {"factor": 1.6068521282881312, "unit": "kg P eq./person"},
+    "Marine eutrophication": {"factor": 19.54518155191913, "unit": "kg N eq./person"},
+    "Land use": {"factor": 819498.1829230306, "unit": "pt/person"},
+    "Ecotoxicity freshwater": {"factor": 42683.16186559794, "unit": "CTUe/person"},
+    "Water use": {"factor": 11468.708640759718, "unit": "m3 water eq of deprived water/person"},
+    "Resource depletion, fossils": {"factor": 65004.259664016674, "unit": "MJ/person"},
+    "Resource depletion, minerals and metals": {"factor": 0.06364027822595558, "unit": "kg Sb eq./person"},
+}
+
+SUPPLIER_ROLES_FOR_LOCALIZATION = ("t4", "t3", "t2", "t1")
+
+REGIONALIZATION_SCENARIOS = (
+    {
+        "scenario_id": "current_export",
+        "label": "Baseline export Brightway",
+        "target_scope": "current",
+        "description": "Etat exporte depuis bw_tristan et la supply_geo source.",
+        "elec_switch_param": "",
+        "al_switch_param": "",
+        "transport_policy": "current routes",
+        "transport_amount_factor": 1.0,
+        "local_content_target_pct": "",
+    },
+    {
+        "scenario_id": "france_first",
+        "label": "100% francais si disponible",
+        "target_scope": "france",
+        "description": "Electricite FR, fournisseurs FR des que possible, transport localise. Aluminium force en EU car le switch FR n'existe pas encore dans bw_tristan.",
+        "elec_switch_param": "fr",
+        "al_switch_param": "eu",
+        "transport_policy": "short_france",
+        "transport_amount_factor": 0.45,
+        "local_content_target_pct": 100.0,
+    },
+    {
+        "scenario_id": "europe_first",
+        "label": "100% europeen si disponible",
+        "target_scope": "europe",
+        "description": "Electricite EU, aluminium EU, fournisseurs europeens et distances intercontinentales reduites.",
+        "elec_switch_param": "eu",
+        "al_switch_param": "eu",
+        "transport_policy": "europeanized",
+        "transport_amount_factor": 0.70,
+        "local_content_target_pct": 100.0,
+    },
+    {
+        "scenario_id": "fully_globalized",
+        "label": "Totalement mondialise",
+        "target_scope": "world",
+        "description": "Mix electrique et aluminium rest-of-world, chaines longues et transports intercontinentaux amplifies.",
+        "elec_switch_param": "cn",
+        "al_switch_param": "row",
+        "transport_policy": "long_global",
+        "transport_amount_factor": 1.35,
+        "local_content_target_pct": 0.0,
+    },
+)
+
+
+def build_parametric_switches(exchanges: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    electricity_count = sum(1 for row in exchanges if "electricity" in clean(row.get("name")).lower() or "electric" in clean(row.get("name")).lower())
+    aluminium_count = sum(1 for row in exchanges if "aluminium" in clean(row.get("name")).lower())
+    return [
+        {
+            "switch_id": "elec_switch_param",
+            "label": "Mix electricite regional",
+            "values": "fr|eu|us|cn",
+            "affected_exchange_count": electricity_count,
+            "requires_brightway_runtime": True,
+            "status": "scripted_in_bw_tristan",
+        },
+        {
+            "switch_id": "al_switch_param",
+            "label": "Mix aluminium primaire",
+            "values": "eu|us|cn|row",
+            "affected_exchange_count": aluminium_count,
+            "requires_brightway_runtime": True,
+            "status": "scripted_in_bw_tristan",
+        },
+    ]
+
+
+def country_in_target_scope(country_code: str, target_scope: str) -> bool:
+    code = clean(country_code).upper()
+    if target_scope == "france":
+        return code == "FR"
+    if target_scope == "europe":
+        return code in REGION_COUNTRIES["Europe"]
+    if target_scope == "world":
+        return True
+    return False
+
+
+def supply_localization_share(path_rows: list[dict[str, Any]], target_scope: str) -> dict[str, float | str]:
+    if target_scope not in {"france", "europe", "world"}:
+        return {
+            "current_role_mass_already_target_pct": "",
+            "current_path_mass_already_target_pct": "",
+            "current_non_target_role_mass_pct": "",
+        }
+
+    total_path_mass = sum(safe_float(row.get("path_mass_kg")) for row in path_rows)
+    role_denominator = total_path_mass * len(SUPPLIER_ROLES_FOR_LOCALIZATION)
+    role_target_mass = 0.0
+    path_target_mass = 0.0
+    for row in path_rows:
+        path_mass = safe_float(row.get("path_mass_kg"))
+        role_matches = [
+            country_in_target_scope(clean(row.get(f"{role}_country_code")), target_scope)
+            for role in SUPPLIER_ROLES_FOR_LOCALIZATION
+        ]
+        role_target_mass += path_mass * sum(1 for matched in role_matches if matched)
+        if role_matches and all(role_matches):
+            path_target_mass += path_mass
+
+    role_pct = 100.0 * role_target_mass / role_denominator if role_denominator else 0.0
+    path_pct = 100.0 * path_target_mass / total_path_mass if total_path_mass else 0.0
+    return {
+        "current_role_mass_already_target_pct": round(role_pct, 4),
+        "current_path_mass_already_target_pct": round(path_pct, 4),
+        "current_non_target_role_mass_pct": round(max(0.0, 100.0 - role_pct), 4),
+    }
+
+
+def scenario_formula_delta(
+    evaluated: list[dict[str, Any]],
+    parameter_values: dict[str, float],
+    scaled_params: set[str],
+    scale: float,
+) -> dict[str, float | int]:
+    if not scaled_params or math.isclose(scale, 1.0):
+        return {
+            "affected_exchange_count": 0,
+            "baseline_abs_amount_sum": 0.0,
+            "scenario_abs_amount_sum": 0.0,
+            "signed_delta_amount_sum": 0.0,
+            "abs_delta_amount_sum": 0.0,
+            "foreground_amount_index": 1.0,
+        }
+
+    scenario_values = dict(parameter_values)
+    for name in scaled_params:
+        scenario_values[name] = scenario_values[name] * scale
+
+    affected_count = 0
+    baseline_abs = 0.0
+    scenario_abs = 0.0
+    signed_delta = 0.0
+    abs_delta = 0.0
+    for item in evaluated:
+        if not item["names"].intersection(scaled_params):
+            continue
+        try:
+            scenario = eval_parametric_formula(item["formula"], scenario_values)
+        except Exception:
+            continue
+        baseline = safe_float(item["baseline"])
+        delta = scenario - baseline
+        if abs(delta) <= 1e-12:
+            continue
+        affected_count += 1
+        baseline_abs += abs(baseline)
+        scenario_abs += abs(scenario)
+        signed_delta += delta
+        abs_delta += abs(delta)
+
+    return {
+        "affected_exchange_count": affected_count,
+        "baseline_abs_amount_sum": round(baseline_abs, 9),
+        "scenario_abs_amount_sum": round(scenario_abs, 9),
+        "signed_delta_amount_sum": round(signed_delta, 9),
+        "abs_delta_amount_sum": round(abs_delta, 9),
+        "foreground_amount_index": round(scenario_abs / baseline_abs, 6) if baseline_abs else 1.0,
+    }
+
+
+def build_regionalization_scenarios(
+    *,
+    parameter_values: dict[str, float],
+    evaluated: list[dict[str, Any]],
+    exchanges: list[dict[str, Any]],
+    path_rows: list[dict[str, Any]],
+    runtime_available: bool,
+) -> list[dict[str, Any]]:
+    transport_params = {name for name in parameter_values if param_is_transport(name)}
+    electricity_count = sum(1 for row in exchanges if "electricity" in clean(row.get("name")).lower() or "electric" in clean(row.get("name")).lower())
+    aluminium_count = sum(1 for row in exchanges if "aluminium" in clean(row.get("name")).lower())
+    total_kg_km = sum(safe_float(row.get("allocated_kg_km")) for row in path_rows)
+
+    rows: list[dict[str, Any]] = []
+    for scenario in REGIONALIZATION_SCENARIOS:
+        transport_factor = safe_float(scenario.get("transport_amount_factor"), 1.0)
+        delta = scenario_formula_delta(evaluated, parameter_values, transport_params, transport_factor)
+        localization = supply_localization_share(path_rows, clean(scenario.get("target_scope")))
+        switch_count = 0
+        if clean(scenario.get("elec_switch_param")):
+            switch_count += electricity_count
+        if clean(scenario.get("al_switch_param")):
+            switch_count += aluminium_count
+        requires_runtime = bool(switch_count)
+        rows.append(
+            {
+                "scenario_id": scenario["scenario_id"],
+                "label": scenario["label"],
+                "description": scenario["description"],
+                "target_scope": scenario["target_scope"],
+                "elec_switch_param": scenario["elec_switch_param"],
+                "al_switch_param": scenario["al_switch_param"],
+                "transport_policy": scenario["transport_policy"],
+                "transport_amount_factor": transport_factor,
+                "local_content_target_pct": scenario["local_content_target_pct"],
+                "current_role_mass_already_target_pct": localization["current_role_mass_already_target_pct"],
+                "current_path_mass_already_target_pct": localization["current_path_mass_already_target_pct"],
+                "current_non_target_role_mass_pct": localization["current_non_target_role_mass_pct"],
+                "brightway_switch_affected_exchange_count": switch_count,
+                "transport_formula_affected_exchange_count": delta["affected_exchange_count"],
+                "affected_exchange_count": int(switch_count + safe_float(delta["affected_exchange_count"])),
+                "baseline_transport_proxy_kg_km": round(total_kg_km, 3),
+                "scenario_transport_proxy_kg_km": round(total_kg_km * transport_factor, 3),
+                "transport_proxy_delta_kg_km": round(total_kg_km * (transport_factor - 1.0), 3),
+                "baseline_abs_foreground_amount_sum": delta["baseline_abs_amount_sum"],
+                "scenario_abs_foreground_amount_sum": delta["scenario_abs_amount_sum"],
+                "signed_delta_amount_sum": delta["signed_delta_amount_sum"],
+                "abs_delta_amount_sum": delta["abs_delta_amount_sum"],
+                "foreground_amount_index": delta["foreground_amount_index"],
+                "requires_brightway_runtime": requires_runtime,
+                "can_execute_exact_lcia_now": bool(runtime_available) if requires_runtime else True,
+                "proxy_available_now": True,
+                "unit_note": "Transport kg.km is a supply_geo proxy; foreground amount sums mix exchange units. Exact LCIA scenario deltas require Brightway runtime.",
+            }
+        )
+    return rows
+
+
+def build_parametric_scenarios(parameters: list[dict[str, Any]], exchanges: list[dict[str, Any]], path_rows: list[dict[str, Any]], runtime_available: bool) -> dict[str, Any]:
+    parameter_values = {
+        clean(row.get("name")): safe_float(row.get("amount"))
+        for row in parameters
+        if clean(row.get("name")) and math.isfinite(safe_float(row.get("amount"), float("nan")))
+    }
+    formula_rows = [row for row in exchanges if clean(row.get("formula"))]
+    evaluated: list[dict[str, Any]] = []
+    formula_failures = 0
+    for row in formula_rows:
+        formula = clean(row.get("formula"))
+        try:
+            baseline = eval_parametric_formula(formula, parameter_values)
+        except Exception:
+            formula_failures += 1
+            continue
+        names = formula_names(formula)
+        evaluated.append({"row": row, "formula": formula, "baseline": baseline, "names": names})
+
+    sensitivity_rows: list[dict[str, Any]] = []
+    lever_rows: list[dict[str, Any]] = []
+    scale = 1.10
+    for lever_id, label, predicate in PARAMETRIC_LEVERS:
+        lever_params = {name for name in parameter_values if predicate(name)}
+        if not lever_params:
+            continue
+        scenario_values = dict(parameter_values)
+        for name in lever_params:
+            scenario_values[name] = scenario_values[name] * scale
+
+        lever_details: list[dict[str, Any]] = []
+        for item in evaluated:
+            if not item["names"].intersection(lever_params):
+                continue
+            try:
+                scenario = eval_parametric_formula(item["formula"], scenario_values)
+            except Exception:
+                continue
+            baseline = safe_float(item["baseline"])
+            delta = scenario - baseline
+            if abs(delta) <= 1e-12:
+                continue
+            source = item["row"]
+            detail = {
+                "lever_id": lever_id,
+                "lever_label": label,
+                "activity_name": source.get("activity_name", ""),
+                "exchange_name": source.get("name", ""),
+                "exchange_type": source.get("type", ""),
+                "database": source.get("database", ""),
+                "location": source.get("location", ""),
+                "unit": source.get("unit", ""),
+                "formula": item["formula"],
+                "baseline_amount": round(baseline, 12),
+                "scenario_amount": round(scenario, 12),
+                "delta_amount": round(delta, 12),
+                "abs_delta_amount": round(abs(delta), 12),
+                "relative_delta_pct": round(100.0 * delta / baseline, 4) if baseline else "",
+                "parameter_count_in_formula": len(item["names"].intersection(lever_params)),
+                "label": f"{source.get('activity_name', '')} / {source.get('name', '')}",
+            }
+            lever_details.append(detail)
+            sensitivity_rows.append(detail)
+        lever_rows.append(
+            {
+                "lever_id": lever_id,
+                "lever_label": label,
+                "parameter_count": len(lever_params),
+                "affected_exchange_count": len(lever_details),
+                "signed_delta_amount_sum": round(sum(safe_float(row.get("delta_amount")) for row in lever_details), 9),
+                "abs_delta_amount_sum": round(sum(safe_float(row.get("abs_delta_amount")) for row in lever_details), 9),
+                "mean_abs_relative_delta_pct": round(mean(abs(safe_float(row.get("relative_delta_pct"))) for row in lever_details if row.get("relative_delta_pct") != ""), 4),
+            }
+        )
+
+    sensitivity_rows.sort(key=lambda row: (-safe_float(row.get("abs_delta_amount")), row["lever_id"], row["activity_name"]))
+    lever_rows.sort(key=lambda row: (-safe_float(row.get("abs_delta_amount_sum")), row["lever_label"]))
+    switch_rows = build_parametric_switches(exchanges)
+    return {
+        "parametric_levers": lever_rows,
+        "parametric_sensitivity": sensitivity_rows,
+        "parametric_switches": switch_rows,
+        "parametric_regional_scenarios": build_regionalization_scenarios(
+            parameter_values=parameter_values,
+            evaluated=evaluated,
+            exchanges=exchanges,
+            path_rows=path_rows,
+            runtime_available=runtime_available,
+        ),
+        "formula_count": len(formula_rows),
+        "formula_evaluated_count": len(evaluated),
+        "formula_failure_count": formula_failures,
+    }
+
+
+def build_brightway_model_payload(path_rows: list[dict[str, Any]]) -> dict[str, Any]:
+    root = BW_TRISTAN_ROOT
+    impacts_path = root / "STELIALCASEATS.xlsx"
+    reference_results_path = root / "STELIA LCA SEATS v14022022v2.xlsx"
+    masterboard_path = root / "STELIA Masterboard LCA SEATS 6.0.xlsx"
+    inventory_path = root / "opera_bw2 - inventaire.xlsx"
+    package_path = root / "OPERA_siege.bw2package"
+    impact_rows, climate_rows = load_brightway_component_impacts(impacts_path)
+    reference_results = load_stelia_reference_workbook(reference_results_path)
+    masterboard_summaries = load_masterboard_bom_summaries(masterboard_path)
+    parameters, activities, exchanges = load_brightway_inventory(inventory_path)
+    alignment = build_brightway_supply_alignment(path_rows, climate_rows)
+    runtime = brightway_runtime_status()
+    indicator_summary = indicator_summary_rows(impact_rows)
+    indicator_unit_views = build_indicator_unit_views(indicator_summary)
+    parametric = build_parametric_scenarios(parameters, exchanges, path_rows, bool(runtime.get("can_execute_brightway")))
+    matched = [row for row in alignment if row["match_level"] != "unmatched"]
+    contributive = [row for row in alignment if safe_float(row.get("path_mass_kg")) > 0.0]
+    contributive_matched = [row for row in contributive if row["match_level"] not in {"unmatched", "not_required_zero_mass"}]
+    zero_mass_not_required = [row for row in alignment if row["match_level"] == "not_required_zero_mass"]
+    return {
+        "schema_version": "poc2026.supply_geo_case.brightway_model.v1",
+        "available": impacts_path.exists() or inventory_path.exists() or package_path.exists(),
+        "runtime": runtime,
+        "source_files": {
+            "impact_results_xlsx": rel(impacts_path, REPO_ROOT),
+            "reference_results_xlsx": rel(reference_results_path, REPO_ROOT),
+            "masterboard_xlsx": rel(masterboard_path, REPO_ROOT),
+            "inventory_xlsx": rel(inventory_path, REPO_ROOT),
+            "bw2package": rel(package_path, REPO_ROOT),
+            "ef30_normalization_factors": EF30_NORMALIZATION_SOURCE,
+        },
+        "counts": {
+            "impact_rows": len(impact_rows),
+            "climate_component_rows": len(climate_rows),
+            "indicator_unit_views": len(indicator_unit_views),
+            "person_equivalent_indicators": sum(1 for row in indicator_unit_views if row["include_in_person_equivalent"]),
+            "reference_person_equivalent_results": len(reference_results["reference_person_equivalent_results"]),
+            "reference_weighted_results": len(reference_results["reference_weighted_results"]),
+            "reference_phase_breakdown_rows": len(reference_results["reference_phase_breakdown"]),
+            "reference_scenarios": len(reference_results["reference_scenarios"]),
+            "masterboard_equipment_summary_rows": len(masterboard_summaries["masterboard_equipment_summary"]),
+            "masterboard_material_summary_rows": len(masterboard_summaries["masterboard_material_summary"]),
+            "parameters": len(parameters),
+            "activities": len(activities),
+            "exchanges": len(exchanges),
+            "parametric_formulas": parametric["formula_count"],
+            "parametric_formulas_evaluated": parametric["formula_evaluated_count"],
+            "parametric_formula_failures": parametric["formula_failure_count"],
+            "parametric_levers": len(parametric["parametric_levers"]),
+            "parametric_sensitivity_rows": len(parametric["parametric_sensitivity"]),
+            "parametric_switches": len(parametric["parametric_switches"]),
+            "parametric_regional_scenarios": len(parametric["parametric_regional_scenarios"]),
+            "supply_alignment_rows": len(alignment),
+            "supply_alignment_matched_rows": len(matched),
+            "supply_alignment_contributive_rows": len(contributive),
+            "supply_alignment_contributive_matched_rows": len(contributive_matched),
+            "supply_alignment_zero_mass_not_required_rows": len(zero_mass_not_required),
+        },
+        "impact_rows": impact_rows,
+        "component_impacts": climate_rows,
+        "indicator_summary": indicator_summary,
+        "indicator_unit_views": indicator_unit_views,
+        "reference_person_equivalent_results": reference_results["reference_person_equivalent_results"],
+        "reference_weighted_results": reference_results["reference_weighted_results"],
+        "reference_phase_breakdown": reference_results["reference_phase_breakdown"],
+        "reference_scenarios": reference_results["reference_scenarios"],
+        "reference_weighting_factors": reference_results["reference_weighting_factors"],
+        "reference_climate_contributors": reference_results["reference_climate_contributors"],
+        "masterboard_equipment_summary": masterboard_summaries["masterboard_equipment_summary"],
+        "masterboard_material_summary": masterboard_summaries["masterboard_material_summary"],
+        "parameters": parameters,
+        "activities": activities,
+        "exchanges": exchanges,
+        "supply_alignment": alignment,
+        "parametric_levers": parametric["parametric_levers"],
+        "parametric_sensitivity": parametric["parametric_sensitivity"],
+        "parametric_switches": parametric["parametric_switches"],
+        "parametric_regional_scenarios": parametric["parametric_regional_scenarios"],
+        "top_climate_components": sorted(climate_rows, key=lambda row: -safe_float(row.get("climate_kgco2e")))[:20],
+        "top_parameter_amounts": sorted(parameters, key=lambda row: -abs(safe_float(row.get("amount"))))[:20],
+    }
+
+
 def build_summary(
     *,
     source_json: Path,
@@ -1117,6 +2289,7 @@ def build_summary(
     node_operational_rows: list[dict[str, Any]],
     operational_event_rows: list[dict[str, Any]],
     sdd_results: dict[str, list[dict[str, Any]]],
+    brightway_model: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     path_rows = tables["paths"]
     lane_rows = tables["lanes"]
@@ -1151,6 +2324,12 @@ def build_summary(
             "sdd_lane_state_rows": len(sdd_results.get("sdd_lane_state", [])),
             "sdd_flow_state_rows": len(sdd_results.get("sdd_flow_state", [])),
             "sdd_event_ledger_rows": len(sdd_results.get("sdd_event_ledger", [])),
+            "brightway_component_impacts": (brightway_model or {}).get("counts", {}).get("climate_component_rows", 0),
+            "brightway_parameters": (brightway_model or {}).get("counts", {}).get("parameters", 0),
+            "brightway_supply_alignment_rows": (brightway_model or {}).get("counts", {}).get("supply_alignment_rows", 0),
+            "brightway_person_equivalent_indicators": (brightway_model or {}).get("counts", {}).get("person_equivalent_indicators", 0),
+            "brightway_reference_person_equivalent_results": (brightway_model or {}).get("counts", {}).get("reference_person_equivalent_results", 0),
+            "brightway_parametric_regional_scenarios": (brightway_model or {}).get("counts", {}).get("parametric_regional_scenarios", 0),
         },
         "mass": {
             "usable_record_mass_kg": round(record_mass, 6),
@@ -1165,6 +2344,12 @@ def build_summary(
         "edge_counts": dict(Counter(row.get("edge") for row in lane_rows)),
         "mode_counts": dict(Counter(row.get("modes") for row in lane_rows)),
         "event_type_counts": dict(Counter(row.get("event_type") for row in event_rows)),
+        "brightway_model": {
+            "available": bool((brightway_model or {}).get("available")),
+            "runtime": (brightway_model or {}).get("runtime", {}),
+            "counts": (brightway_model or {}).get("counts", {}),
+            "source_files": (brightway_model or {}).get("source_files", {}),
+        },
     }
 
 
@@ -1190,6 +2375,8 @@ def write_report(path: Path, summary: dict[str, Any]) -> None:
         f"- Operational event rows: **{counts.get('operational_event_rows', 0)}**",
         f"- SDD node-state rows: **{counts.get('sdd_node_state_rows', 0)}**",
         f"- SDD flow-state rows: **{counts.get('sdd_flow_state_rows', 0)}**",
+        f"- Brightway component impacts: **{counts.get('brightway_component_impacts', 0)}**",
+        f"- Brightway parameters: **{counts.get('brightway_parameters', 0)}**",
         "",
         "## Mass allocation",
         "",
@@ -2457,6 +3644,7 @@ def build_general_kpi_payload(
     node_operational_rows: list[dict[str, Any]],
     operational_event_rows: list[dict[str, Any]],
     sdd_results: dict[str, list[dict[str, Any]]],
+    brightway_model: dict[str, Any],
     map_src: str,
 ) -> dict[str, Any]:
     total_kg_km = sum(safe_float(row.get("allocated_kg_km")) for row in path_rows)
@@ -2532,6 +3720,8 @@ def build_general_kpi_payload(
 
     counts = summary.get("counts", {})
     mass = summary.get("mass", {})
+    brightway_counts = brightway_model.get("counts", {})
+    brightway_runtime = brightway_model.get("runtime", {})
     cards = [
         {"label": "Records utilisables", "value": counts.get("usable_records", 0), "unit": ""},
         {"label": "Chemins primaires", "value": counts.get("primary_paths", 0), "unit": ""},
@@ -2549,6 +3739,12 @@ def build_general_kpi_payload(
         {"label": "Service noeuds moy.", "value": round(mean(safe_float(row.get("avg_service_proxy_pct")) for row in node_ops_month), 1), "unit": "%"},
         {"label": "Service SDD OEM moy.", "value": round(mean(safe_float(row.get("avg_oem_service_level")) for row in sdd_results.get("sdd_monthly_impacts", [])) * 100.0, 1), "unit": "%"},
         {"label": "Surimpact SDD", "value": round(sum(safe_float(row.get("surimpact_total")) for row in sdd_results.get("sdd_monthly_impacts", [])), 1), "unit": "kgCO2e"},
+        {"label": "Composants ACV BW", "value": brightway_counts.get("climate_component_rows", 0), "unit": ""},
+        {"label": "Parametres BW", "value": brightway_counts.get("parameters", 0), "unit": ""},
+        {"label": "Indicateurs PE BW", "value": brightway_counts.get("person_equivalent_indicators", 0), "unit": ""},
+        {"label": "Scenarios region BW", "value": brightway_counts.get("parametric_regional_scenarios", 0), "unit": ""},
+        {"label": "Match BW supply", "value": round(100.0 * safe_float(brightway_counts.get("supply_alignment_matched_rows")) / safe_float(brightway_counts.get("supply_alignment_rows"), 1.0), 1), "unit": "%"},
+        {"label": "Runtime BW local", "value": 1 if brightway_runtime.get("can_execute_brightway") else 0, "unit": "bool"},
     ]
 
     return {
@@ -2586,6 +3782,34 @@ def build_general_kpi_payload(
         "event_exposure": event_exposure,
         "path_scatter": scatter_rows,
         "horizon_adaptation": build_horizon_adaptation_payload(),
+        "brightway_model": {
+            "schema_version": brightway_model.get("schema_version"),
+            "available": brightway_model.get("available"),
+            "runtime": brightway_model.get("runtime", {}),
+            "source_files": brightway_model.get("source_files", {}),
+            "counts": brightway_model.get("counts", {}),
+            "component_impacts": brightway_model.get("component_impacts", []),
+            "indicator_summary": brightway_model.get("indicator_summary", []),
+            "indicator_unit_views": brightway_model.get("indicator_unit_views", []),
+            "reference_person_equivalent_results": brightway_model.get("reference_person_equivalent_results", []),
+            "reference_weighted_results": brightway_model.get("reference_weighted_results", []),
+            "reference_phase_breakdown": brightway_model.get("reference_phase_breakdown", []),
+            "reference_scenarios": brightway_model.get("reference_scenarios", []),
+            "reference_weighting_factors": brightway_model.get("reference_weighting_factors", []),
+            "reference_climate_contributors": brightway_model.get("reference_climate_contributors", []),
+            "masterboard_equipment_summary": brightway_model.get("masterboard_equipment_summary", []),
+            "masterboard_material_summary": brightway_model.get("masterboard_material_summary", []),
+            "parameters": brightway_model.get("parameters", []),
+            "activities": brightway_model.get("activities", []),
+            "exchanges": brightway_model.get("exchanges", []),
+            "supply_alignment": brightway_model.get("supply_alignment", []),
+            "parametric_levers": brightway_model.get("parametric_levers", []),
+            "parametric_sensitivity": brightway_model.get("parametric_sensitivity", []),
+            "parametric_switches": brightway_model.get("parametric_switches", []),
+            "parametric_regional_scenarios": brightway_model.get("parametric_regional_scenarios", []),
+            "top_climate_components": brightway_model.get("top_climate_components", []),
+            "top_parameter_amounts": brightway_model.get("top_parameter_amounts", []),
+        },
     }
 
 
@@ -2900,12 +4124,27 @@ def write_enriched_base_map_html(
         "schema_version": "poc2026.supply_geo_case.base_map_dashboard.v1",
         "cards": dashboard_payload.get("cards", []),
         "top_sites_by_mass": dashboard_payload.get("top_sites_by_mass", []),
+        "family_mass": dashboard_payload.get("family_mass", []),
+        "mode_kg_km": dashboard_payload.get("mode_kg_km", []),
+        "edge_kg_km": dashboard_payload.get("edge_kg_km", []),
+        "event_exposure": dashboard_payload.get("event_exposure", []),
         "weather_month": dashboard_payload.get("weather_month", []),
+        "weather_region": dashboard_payload.get("weather_region", []),
+        "weather_profile": dashboard_payload.get("weather_profile", []),
+        "weather_region_month": dashboard_payload.get("weather_region_month", []),
         "event_month": dashboard_payload.get("event_month", []),
+        "ops_month": dashboard_payload.get("ops_month", []),
         "maritime_month": dashboard_payload.get("maritime_month", []),
+        "maritime_region": dashboard_payload.get("maritime_region", []),
         "node_ops_month": dashboard_payload.get("node_ops_month", []),
+        "node_ops_region": dashboard_payload.get("node_ops_region", []),
+        "node_ops_lineage": dashboard_payload.get("node_ops_lineage", []),
+        "sdd_monthly": dashboard_payload.get("sdd_monthly", []),
         "sdd_cumulative": dashboard_payload.get("sdd_cumulative", []),
         "sdd_method_comparison": dashboard_payload.get("sdd_method_comparison", []),
+        "sdd_tier_month": dashboard_payload.get("sdd_tier_month", []),
+        "path_scatter": dashboard_payload.get("path_scatter", []),
+        "brightway_model": dashboard_payload.get("brightway_model", {}),
     }
     dashboard_json = json_for_script(compact_dashboard_payload)
     source_html = source_map.read_text(encoding="utf-8")
@@ -3044,10 +4283,36 @@ def write_enriched_base_map_html(
     <div id="baseMapKpiMethodPlot" class="sdd-dashboard-plot"></div>
     <div id="baseMapKpiCumulativePlot" class="sdd-dashboard-plot"></div>
     <div id="baseMapKpiWeatherPlot" class="sdd-dashboard-plot"></div>
+    <div id="baseMapKpiWeatherWaterPlot" class="sdd-dashboard-plot"></div>
+    <div id="baseMapKpiRegionalWeatherPlot" class="sdd-dashboard-plot"></div>
     <div id="baseMapKpiOpsPlot" class="sdd-dashboard-plot"></div>
+    <div id="baseMapKpiOpsEventsPlot" class="sdd-dashboard-plot"></div>
+    <div id="baseMapKpiOpsLineagePlot" class="sdd-dashboard-plot"></div>
     <div id="baseMapKpiMaritimePlot" class="sdd-dashboard-plot"></div>
+    <div id="baseMapKpiMaritimeRegionPlot" class="sdd-dashboard-plot"></div>
     <div id="baseMapKpiEventPlot" class="sdd-dashboard-plot"></div>
+    <div id="baseMapKpiEventExposurePlot" class="sdd-dashboard-plot"></div>
+    <div id="baseMapKpiSddServicePlot" class="sdd-dashboard-plot"></div>
+    <div id="baseMapKpiSddTierPlot" class="sdd-dashboard-plot"></div>
+    <div id="baseMapKpiSddImpactPlot" class="sdd-dashboard-plot"></div>
+    <div id="baseMapKpiPathScatterPlot" class="sdd-dashboard-plot"></div>
     <div id="baseMapKpiTopSitesPlot" class="sdd-dashboard-plot"></div>
+    <div id="baseMapKpiFamilyMassPlot" class="sdd-dashboard-plot"></div>
+    <div id="baseMapKpiModeMixPlot" class="sdd-dashboard-plot"></div>
+    <div id="baseMapKpiBwClimatePlot" class="sdd-dashboard-plot"></div>
+    <div id="baseMapKpiBwIndicatorPlot" class="sdd-dashboard-plot"></div>
+    <div id="baseMapKpiBwRawIndicatorPlot" class="sdd-dashboard-plot"></div>
+    <div id="baseMapKpiBwUnitCoveragePlot" class="sdd-dashboard-plot"></div>
+    <div id="baseMapKpiBwReferenceWeightedPlot" class="sdd-dashboard-plot"></div>
+    <div id="baseMapKpiBwReferencePhasePlot" class="sdd-dashboard-plot"></div>
+    <div id="baseMapKpiBwReferenceScenarioPlot" class="sdd-dashboard-plot"></div>
+    <div id="baseMapKpiBwReferenceClimateContributorPlot" class="sdd-dashboard-plot"></div>
+    <div id="baseMapKpiBwAlignmentPlot" class="sdd-dashboard-plot"></div>
+    <div id="baseMapKpiBwParamPlot" class="sdd-dashboard-plot"></div>
+    <div id="baseMapKpiBwLeverPlot" class="sdd-dashboard-plot"></div>
+    <div id="baseMapKpiBwSensitivityPlot" class="sdd-dashboard-plot"></div>
+    <div id="baseMapKpiBwSwitchPlot" class="sdd-dashboard-plot"></div>
+    <div id="baseMapKpiBwRegionalScenarioPlot" class="sdd-dashboard-plot"></div>
   </div>
 </section>
 <script>
@@ -3097,6 +4362,10 @@ const BASE_DASHBOARD_PAYLOAD = __BASE_DASHBOARD_PAYLOAD__;
     return Number.isFinite(value) ? value : fallback;
   }
 
+  function truthy(value) {
+    return value === true || value === 1 || value === "1" || value === "true" || value === "True";
+  }
+
   function showChartCanvas() {
     const chart = document.getElementById("chart");
     const panel = document.getElementById("sddDashboardPanel");
@@ -3138,6 +4407,38 @@ const BASE_DASHBOARD_PAYLOAD = __BASE_DASHBOARD_PAYLOAD__;
       const unit = card.unit ? ` ${escapeHtml(card.unit)}` : "";
       return `<div class="sdd-dashboard-card"><span>${escapeHtml(card.label || "")}</span><b>${fmt(card.value, 1)}${unit}</b></div>`;
     }).join("");
+  }
+
+  function horizontalBarPlot(id, rows, title, valueKey = "value", labelKey = "label", color = "#2b8cbe", xTitle = "") {
+    const data = (rows || []).slice(0, 16).reverse();
+    const layout = dashboardLayout(title, "");
+    layout.margin = { l: 170, r: 24, t: 48, b: 42 };
+    layout.xaxis.title = xTitle;
+    renderDashboardPlot(
+      id,
+      [{ type: "bar", orientation: "h", x: data.map(row => num(row, valueKey)), y: data.map(row => row[labelKey] || row.name || "n/a"), marker: { color } }],
+      layout
+    );
+  }
+
+  function groupedCountRows(rows, key) {
+    const counts = {};
+    (rows || []).forEach(row => {
+      const label = String(row?.[key] || "unknown");
+      counts[label] = (counts[label] || 0) + 1;
+    });
+    return Object.entries(counts).map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value || a.label.localeCompare(b.label));
+  }
+
+  function topBy(rows, key, limit = 14) {
+    return (rows || [])
+      .filter(row => Number.isFinite(Number(row?.[key])))
+      .sort((a, b) => Number(b[key]) - Number(a[key]))
+      .slice(0, limit);
+  }
+
+  function phaseRows(rows, view, shortLabel) {
+    return (rows || []).filter(row => row.result_view === view && row.short_label === shortLabel && row.end_of_life_variant === "landfill");
   }
 
   function renderDashboard() {
@@ -3228,19 +4529,164 @@ const BASE_DASHBOARD_PAYLOAD = __BASE_DASHBOARD_PAYLOAD__;
       dashboardLayout("Top sites par masse allouee", "kg")
     );
 
+    renderDashboardPlot(
+      "baseMapKpiWeatherWaterPlot",
+      [
+        { type: "bar", name: "Precipitations", x: weatherX, y: weather.map(row => num(row, "avg_precip_mm")), marker: { color: "#9ecae1" }, opacity: 0.58 },
+        { type: "scatter", mode: "lines", name: "Humidite", x: weatherX, y: weather.map(row => num(row, "avg_humidity_pct")), line: { color: "#3182bd" } },
+        { type: "scatter", mode: "lines", name: "Secheresse", x: weatherX, y: weather.map(row => num(row, "avg_drought") * 100), line: { color: "#e6550d" } },
+        { type: "scatter", mode: "lines", name: "Ouragan", x: weatherX, y: weather.map(row => num(row, "avg_hurricane") * 100), line: { color: "#756bb1" } }
+      ],
+      dashboardLayout("Eau, humidite et risques meteo", "mm / % / indice x100")
+    );
+
+    const weatherRegion = dashboardRows("weather_region");
+    renderDashboardPlot(
+      "baseMapKpiRegionalWeatherPlot",
+      [
+        { type: "bar", name: "Temp.", x: weatherRegion.map(row => row.label), y: weatherRegion.map(row => num(row, "avg_temp_c")), marker: { color: "#fb6a4a" } },
+        { type: "bar", name: "Vent", x: weatherRegion.map(row => row.label), y: weatherRegion.map(row => num(row, "avg_wind_ms")), marker: { color: "#6baed6" } },
+        { type: "bar", name: "Ouragan", x: weatherRegion.map(row => row.label), y: weatherRegion.map(row => num(row, "avg_hurricane") * 100), marker: { color: "#756bb1" } }
+      ],
+      { ...dashboardLayout("Profils meteo par region", "valeur moyenne"), barmode: "group" }
+    );
+
+    const opsEventKeys = ["capacite_appoint", "capacite_meteo_degradee", "maintenance_corrective_meteo", "congestion_logistique_inbound", "congestion_logistique_outbound", "froid_transport_ou_site", "recalage_qualite", "retard_approvisionnement"];
+    renderDashboardPlot(
+      "baseMapKpiOpsEventsPlot",
+      opsEventKeys.map((key, idx) => ({
+        type: "scatter",
+        mode: "lines",
+        name: key.replaceAll("_", " "),
+        x: opsX,
+        y: ops.map(row => num(row, key)),
+        line: { width: 1.5, color: ["#2ca02c", "#31a354", "#74c476", "#fd8d3c", "#e6550d", "#6baed6", "#636363", "#756bb1"][idx] || "#555" }
+      })),
+      dashboardLayout("Evenements operationnels par mois", "occurrences")
+    );
+
+    horizontalBarPlot("baseMapKpiOpsLineagePlot", dashboardRows("node_ops_lineage"), "Lineage operations -> drivers", "value", "label", "#756bb1");
+    horizontalBarPlot("baseMapKpiMaritimeRegionPlot", dashboardRows("maritime_region"), "Risque maritime par bassin", "risk_index", "label", "#3182bd");
+    horizontalBarPlot("baseMapKpiEventExposurePlot", dashboardRows("event_exposure"), "Top expositions meteo par site", "value", "label", "#e6550d");
+
+    const sddMonthly = dashboardRows("sdd_monthly");
+    const sddMonths = sddMonthly.map(row => num(row, "month_index"));
+    renderDashboardPlot(
+      "baseMapKpiSddServicePlot",
+      [
+        { type: "scatter", mode: "lines", name: "Service OEM", x: sddMonths, y: sddMonthly.map(row => num(row, "avg_oem_service_level") * 100), line: { color: "#2ca02c" } },
+        { type: "scatter", mode: "lines", name: "TD-DLCA", x: sddMonths, y: sddMonthly.map(row => num(row, "td_dlca_kgCO2e")), yaxis: "y2", line: { color: "#3182bd" } },
+        { type: "scatter", mode: "lines", name: "SDD", x: sddMonths, y: sddMonthly.map(row => num(row, "sdd_kgCO2e")), yaxis: "y2", line: { color: "#f16913" } }
+      ],
+      {
+        ...dashboardLayout("Service supply et impact mensuel SDD", "% / kgCO2e"),
+        yaxis2: { title: "kgCO2e", overlaying: "y", side: "right", gridcolor: "rgba(0,0,0,0)" }
+      }
+    );
+
+    const tierRows = dashboardRows("sdd_tier_month");
+    const roles = Array.from(new Set(tierRows.map(row => row.role))).filter(Boolean);
+    renderDashboardPlot(
+      "baseMapKpiSddTierPlot",
+      roles.map(role => {
+        const rows = tierRows.filter(row => row.role === role);
+        return { type: "scatter", mode: "lines", name: role, x: rows.map(row => num(row, "month_index")), y: rows.map(row => num(row, "avg_disruption_index") * 100) };
+      }),
+      dashboardLayout("Disruption SDD par tier", "indice x100")
+    );
+
+    renderDashboardPlot(
+      "baseMapKpiSddImpactPlot",
+      [
+        { type: "bar", name: "Surimpact", x: sddMonths, y: sddMonthly.map(row => num(row, "surimpact_total")), marker: { color: "#f16913" }, opacity: 0.62 },
+        { type: "scatter", mode: "lines", name: "Surimpact cumule", x: cumulativeX, y: cumulative.map(row => num(row, "surimpact_cumulative")), yaxis: "y2", line: { color: "#d62728" } }
+      ],
+      {
+        ...dashboardLayout("Surimpact SDD mensuel et cumule", "kgCO2e/mois"),
+        yaxis2: { title: "kgCO2e cumule", overlaying: "y", side: "right", gridcolor: "rgba(0,0,0,0)" }
+      }
+    );
+
+    const pathScatter = dashboardRows("path_scatter");
+    renderDashboardPlot(
+      "baseMapKpiPathScatterPlot",
+      [{
+        type: "scatter",
+        mode: "markers",
+        name: "Chemins",
+        x: pathScatter.map(row => num(row, "x")),
+        y: pathScatter.map(row => num(row, "y")),
+        text: pathScatter.map(row => `${escapeHtml(row.system || "")}<br>${escapeHtml(row.component || "")}<br>${fmt(row.kg_km, 0)} kg.km`),
+        hoverinfo: "text",
+        marker: { size: pathScatter.map(row => 6 + Math.min(18, Math.sqrt(num(row, "kg_km")) / 45)), color: pathScatter.map(row => num(row, "kg_km")), colorscale: "Viridis", showscale: true }
+      }],
+      dashboardLayout("Masse vs distance des chemins", "kg")
+    );
+
+    horizontalBarPlot("baseMapKpiFamilyMassPlot", dashboardRows("family_mass"), "Masse allouee par famille", "value", "label", "#31a354");
+    horizontalBarPlot("baseMapKpiModeMixPlot", dashboardRows("mode_kg_km"), "Mix transport kg.km", "value", "label", "#6baed6");
+
+    const bw = dashboardPayload.brightway_model || {};
+    const bwRows = key => Array.isArray(bw[key]) ? bw[key] : [];
+    const indicatorUnits = bwRows("indicator_unit_views");
+    const referencePe = bwRows("reference_person_equivalent_results");
+    const referenceWeighted = bwRows("reference_weighted_results");
+    const peIndicators = topBy(indicatorUnits.filter(row => truthy(row.include_in_person_equivalent)), "person_equivalent_value", 16);
+    horizontalBarPlot("baseMapKpiBwClimatePlot", bwRows("top_climate_components"), "Brightway: top composants climat", "climate_kgco2e", "component", "#fb6a4a", "kgCO2e");
+    horizontalBarPlot("baseMapKpiBwIndicatorPlot", referencePe.length ? topBy(referencePe, "impact_total_person_equivalent", 16) : peIndicators, "Reference STELIA: indicateurs en personne eq.", referencePe.length ? "impact_total_person_equivalent" : "person_equivalent_value", referencePe.length ? "short_label" : "pe_plot_label", "#9e9ac8", "personne eq.");
+    horizontalBarPlot("baseMapKpiBwRawIndicatorPlot", topBy(indicatorUnits, "raw_sum_value", 16), "Brightway: indicateurs bruts par unite", "raw_sum_value", "raw_plot_label", "#bcbddc", "valeur brute");
+    horizontalBarPlot("baseMapKpiBwUnitCoveragePlot", groupedCountRows(indicatorUnits, "normalization_status"), "Brightway: statut des facteurs d'unite", "value", "label", "#969696", "indicateurs");
+    horizontalBarPlot("baseMapKpiBwReferenceWeightedPlot", topBy(referenceWeighted, "impact_total_weighted_score", 16), "Reference STELIA: normalise et pondere", "impact_total_weighted_score", "short_label", "#756bb1", "personne eq. ponderee");
+    horizontalBarPlot("baseMapKpiBwReferencePhasePlot", phaseRows(bwRows("reference_phase_breakdown"), "person_equivalent", "Climate change"), "Reference STELIA: climat hors usage par phase", "value", "phase", "#31a354", "personne eq.");
+    horizontalBarPlot("baseMapKpiBwReferenceScenarioPlot", bwRows("reference_scenarios").filter(row => row.phase === "Total"), "Reference STELIA: reductions scenarios climat", "lifecycle_climate_reduction_pct", "scenario_label", "#2b8cbe", "% cycle de vie");
+    horizontalBarPlot("baseMapKpiBwReferenceClimateContributorPlot", bwRows("reference_climate_contributors"), "Reference STELIA: contributeurs climat hors usage", "climate_person_equivalent", "label", "#fd8d3c", "personne eq.");
+    horizontalBarPlot("baseMapKpiBwAlignmentPlot", groupedCountRows(bwRows("supply_alignment"), "match_level"), "Brightway: qualite du matching supply", "value", "label", "#74c476", "lignes");
+    horizontalBarPlot("baseMapKpiBwParamPlot", bwRows("top_parameter_amounts"), "Brightway: principaux parametres", "amount", "name", "#fdae6b", "valeur du parametre");
+    horizontalBarPlot("baseMapKpiBwLeverPlot", bwRows("parametric_levers"), "Parametrisation: effet quantite d'un +10%", "abs_delta_amount_sum", "lever_label", "#41ab5d", "delta absolu, unites mixtes");
+    horizontalBarPlot("baseMapKpiBwSensitivityPlot", bwRows("parametric_sensitivity").slice(0, 14), "Parametrisation: echanges les plus sensibles", "abs_delta_amount", "label", "#fd8d3c", "delta absolu, unite de l'echange");
+    horizontalBarPlot("baseMapKpiBwSwitchPlot", bwRows("parametric_switches"), "Parametrisation: switchs Brightway scriptes", "affected_exchange_count", "label", "#6baed6", "echanges affectes");
+    horizontalBarPlot("baseMapKpiBwRegionalScenarioPlot", bwRows("parametric_regional_scenarios"), "Parametrisation: sourcing FR / EU / mondialise", "foreground_amount_index", "label", "#2ca25f", "indice transport foreground");
+
     const status = document.getElementById("sddDashboardStatus");
     if (status) {
-      status.textContent = `${fmt(weather.length, 0)} mois meteo, ${fmt(ops.length, 0)} mois operations, ${fmt(sites.length, 0)} sites`;
+      const bwStatus = bw.runtime?.can_execute_brightway ? "Brightway executable" : "Brightway non executable localement, exports Excel utilises";
+      status.textContent = `${fmt(weather.length, 0)} mois meteo, ${fmt(ops.length, 0)} mois operations, ${fmt(sites.length, 0)} sites - ${bwStatus}`;
     }
     setTimeout(() => {
       [
         "baseMapKpiMethodPlot",
         "baseMapKpiCumulativePlot",
         "baseMapKpiWeatherPlot",
+        "baseMapKpiWeatherWaterPlot",
+        "baseMapKpiRegionalWeatherPlot",
         "baseMapKpiOpsPlot",
+        "baseMapKpiOpsEventsPlot",
+        "baseMapKpiOpsLineagePlot",
         "baseMapKpiMaritimePlot",
+        "baseMapKpiMaritimeRegionPlot",
         "baseMapKpiEventPlot",
-        "baseMapKpiTopSitesPlot"
+        "baseMapKpiEventExposurePlot",
+        "baseMapKpiSddServicePlot",
+        "baseMapKpiSddTierPlot",
+        "baseMapKpiSddImpactPlot",
+        "baseMapKpiPathScatterPlot",
+        "baseMapKpiTopSitesPlot",
+        "baseMapKpiFamilyMassPlot",
+        "baseMapKpiModeMixPlot",
+        "baseMapKpiBwClimatePlot",
+        "baseMapKpiBwIndicatorPlot",
+        "baseMapKpiBwRawIndicatorPlot",
+        "baseMapKpiBwUnitCoveragePlot",
+        "baseMapKpiBwReferenceWeightedPlot",
+        "baseMapKpiBwReferencePhasePlot",
+        "baseMapKpiBwReferenceScenarioPlot",
+        "baseMapKpiBwReferenceClimateContributorPlot",
+        "baseMapKpiBwAlignmentPlot",
+        "baseMapKpiBwParamPlot",
+        "baseMapKpiBwLeverPlot",
+        "baseMapKpiBwSensitivityPlot",
+        "baseMapKpiBwSwitchPlot",
+        "baseMapKpiBwRegionalScenarioPlot"
       ].forEach(id => {
         const node = document.getElementById(id);
         if (node) Plotly.Plots.resize(node);
@@ -4387,6 +5833,10 @@ def write_run_package(
             "node_operational_state": summary["counts"].get("node_operational_rows", 0) > 0,
             "operational_event_lineage": summary["counts"].get("operational_event_rows", 0) > 0,
             "sdd_stateful_supply_engine": summary["counts"].get("sdd_flow_state_rows", 0) > 0,
+            "brightway_supply_lca_source": summary["counts"].get("brightway_component_impacts", 0) > 0,
+            "brightway_person_equivalent_units": summary["counts"].get("brightway_person_equivalent_indicators", 0) > 0,
+            "brightway_regionalized_parametric_scenarios": summary["counts"].get("brightway_parametric_regional_scenarios", 0) > 0,
+            "brightway_runtime_available": bool(summary.get("brightway_model", {}).get("runtime", {}).get("can_execute_brightway")),
         },
         "entrypoints": {
             "nodes": "nodes.json",
@@ -4407,6 +5857,26 @@ def write_run_package(
             "sdd_monthly_impacts": "../data/sdd_monthly_impacts.csv",
             "sdd_cumulative_impacts": "../data/sdd_cumulative_impacts.csv",
             "sdd_method_comparison": "../summaries/sdd_method_comparison.json",
+            "brightway_component_impacts": "../data/brightway_component_impacts.csv",
+            "brightway_indicator_summary": "../data/brightway_indicator_summary.csv",
+            "brightway_indicator_unit_views": "../data/brightway_indicator_unit_views.csv",
+            "brightway_reference_person_equivalent_results": "../data/brightway_reference_person_equivalent_results.csv",
+            "brightway_reference_weighted_results": "../data/brightway_reference_weighted_results.csv",
+            "brightway_reference_phase_breakdown": "../data/brightway_reference_phase_breakdown.csv",
+            "brightway_reference_scenarios": "../data/brightway_reference_scenarios.csv",
+            "brightway_reference_weighting_factors": "../data/brightway_reference_weighting_factors.csv",
+            "brightway_reference_climate_contributors": "../data/brightway_reference_climate_contributors.csv",
+            "brightway_masterboard_equipment_summary": "../data/brightway_masterboard_equipment_summary.csv",
+            "brightway_masterboard_material_summary": "../data/brightway_masterboard_material_summary.csv",
+            "brightway_parameters": "../data/brightway_parameters.csv",
+            "brightway_activities": "../data/brightway_activities.csv",
+            "brightway_activity_exchanges": "../data/brightway_activity_exchanges.csv",
+            "brightway_supply_alignment": "../data/brightway_supply_alignment.csv",
+            "brightway_parametric_levers": "../data/brightway_parametric_levers.csv",
+            "brightway_parametric_sensitivity": "../data/brightway_parametric_sensitivity.csv",
+            "brightway_parametric_switches": "../data/brightway_parametric_switches.csv",
+            "brightway_parametric_regional_scenarios": "../data/brightway_parametric_regional_scenarios.csv",
+            "brightway_model_summary": "../summaries/brightway_model_summary.json",
             "general_kpis": "../summaries/general_kpis.json",
             "base_results_map": "../maps/supply_geo_base_results_map.html",
             "dashboard": "../maps/supply_geo_base_results_map.html",
@@ -4463,6 +5933,7 @@ def build_supply_geo_case(
         transport_weather_rows=transport_weather_rows,
         horizon_months=horizon_months,
     )
+    brightway_model = build_brightway_model_payload(tables["paths"])
 
     data_paths = {
         "paths": dirs["data"] / "primary_supply_paths.csv",
@@ -4480,6 +5951,25 @@ def build_supply_geo_case(
         "sdd_event_ledger": dirs["data"] / "sdd_event_ledger.csv",
         "sdd_monthly_impacts": dirs["data"] / "sdd_monthly_impacts.csv",
         "sdd_cumulative_impacts": dirs["data"] / "sdd_cumulative_impacts.csv",
+        "brightway_component_impacts": dirs["data"] / "brightway_component_impacts.csv",
+        "brightway_indicator_summary": dirs["data"] / "brightway_indicator_summary.csv",
+        "brightway_indicator_unit_views": dirs["data"] / "brightway_indicator_unit_views.csv",
+        "brightway_reference_person_equivalent_results": dirs["data"] / "brightway_reference_person_equivalent_results.csv",
+        "brightway_reference_weighted_results": dirs["data"] / "brightway_reference_weighted_results.csv",
+        "brightway_reference_phase_breakdown": dirs["data"] / "brightway_reference_phase_breakdown.csv",
+        "brightway_reference_scenarios": dirs["data"] / "brightway_reference_scenarios.csv",
+        "brightway_reference_weighting_factors": dirs["data"] / "brightway_reference_weighting_factors.csv",
+        "brightway_reference_climate_contributors": dirs["data"] / "brightway_reference_climate_contributors.csv",
+        "brightway_masterboard_equipment_summary": dirs["data"] / "brightway_masterboard_equipment_summary.csv",
+        "brightway_masterboard_material_summary": dirs["data"] / "brightway_masterboard_material_summary.csv",
+        "brightway_parameters": dirs["data"] / "brightway_parameters.csv",
+        "brightway_activities": dirs["data"] / "brightway_activities.csv",
+        "brightway_activity_exchanges": dirs["data"] / "brightway_activity_exchanges.csv",
+        "brightway_supply_alignment": dirs["data"] / "brightway_supply_alignment.csv",
+        "brightway_parametric_levers": dirs["data"] / "brightway_parametric_levers.csv",
+        "brightway_parametric_sensitivity": dirs["data"] / "brightway_parametric_sensitivity.csv",
+        "brightway_parametric_switches": dirs["data"] / "brightway_parametric_switches.csv",
+        "brightway_parametric_regional_scenarios": dirs["data"] / "brightway_parametric_regional_scenarios.csv",
         "skipped": dirs["data"] / "skipped_records.csv",
     }
     write_csv(data_paths["paths"], tables["paths"])
@@ -4497,6 +5987,25 @@ def build_supply_geo_case(
     write_csv(data_paths["sdd_event_ledger"], sdd_results["sdd_event_ledger"])
     write_csv(data_paths["sdd_monthly_impacts"], sdd_results["sdd_monthly_impacts"])
     write_csv(data_paths["sdd_cumulative_impacts"], sdd_results["sdd_cumulative_impacts"])
+    write_csv(data_paths["brightway_component_impacts"], brightway_model["component_impacts"])
+    write_csv(data_paths["brightway_indicator_summary"], brightway_model["indicator_summary"])
+    write_csv(data_paths["brightway_indicator_unit_views"], brightway_model["indicator_unit_views"])
+    write_csv(data_paths["brightway_reference_person_equivalent_results"], brightway_model["reference_person_equivalent_results"])
+    write_csv(data_paths["brightway_reference_weighted_results"], brightway_model["reference_weighted_results"])
+    write_csv(data_paths["brightway_reference_phase_breakdown"], brightway_model["reference_phase_breakdown"])
+    write_csv(data_paths["brightway_reference_scenarios"], brightway_model["reference_scenarios"])
+    write_csv(data_paths["brightway_reference_weighting_factors"], brightway_model["reference_weighting_factors"])
+    write_csv(data_paths["brightway_reference_climate_contributors"], brightway_model["reference_climate_contributors"])
+    write_csv(data_paths["brightway_masterboard_equipment_summary"], brightway_model["masterboard_equipment_summary"])
+    write_csv(data_paths["brightway_masterboard_material_summary"], brightway_model["masterboard_material_summary"])
+    write_csv(data_paths["brightway_parameters"], brightway_model["parameters"])
+    write_csv(data_paths["brightway_activities"], brightway_model["activities"])
+    write_csv(data_paths["brightway_activity_exchanges"], brightway_model["exchanges"])
+    write_csv(data_paths["brightway_supply_alignment"], brightway_model["supply_alignment"])
+    write_csv(data_paths["brightway_parametric_levers"], brightway_model["parametric_levers"])
+    write_csv(data_paths["brightway_parametric_sensitivity"], brightway_model["parametric_sensitivity"])
+    write_csv(data_paths["brightway_parametric_switches"], brightway_model["parametric_switches"])
+    write_csv(data_paths["brightway_parametric_regional_scenarios"], brightway_model["parametric_regional_scenarios"])
     write_csv(data_paths["skipped"], tables["skipped_records"], fieldnames=["record_index", "system", "component", "missing_roles"])
 
     map_ref = {
@@ -4522,6 +6031,7 @@ def build_supply_geo_case(
         node_operational_rows=node_operational_rows,
         operational_event_rows=operational_event_rows,
         sdd_results=sdd_results,
+        brightway_model=brightway_model,
     )
     summary_path = dirs["summaries"] / "primary_supply_case_summary.json"
     write_json(summary_path, summary)
@@ -4529,6 +6039,26 @@ def build_supply_geo_case(
     write_report(report_path, summary)
     sdd_method_path = dirs["summaries"] / "sdd_method_comparison.json"
     write_json(sdd_method_path, sdd_results["sdd_method_comparison"])
+    brightway_summary_path = dirs["summaries"] / "brightway_model_summary.json"
+    write_json(
+        brightway_summary_path,
+        {
+            "schema_version": brightway_model.get("schema_version"),
+            "available": brightway_model.get("available"),
+            "runtime": brightway_model.get("runtime", {}),
+            "source_files": brightway_model.get("source_files", {}),
+            "counts": brightway_model.get("counts", {}),
+            "parametric_levers": brightway_model.get("parametric_levers", []),
+            "parametric_switches": brightway_model.get("parametric_switches", []),
+            "parametric_regional_scenarios": brightway_model.get("parametric_regional_scenarios", []),
+            "indicator_unit_views": brightway_model.get("indicator_unit_views", []),
+            "reference_person_equivalent_results": brightway_model.get("reference_person_equivalent_results", []),
+            "reference_weighted_results": brightway_model.get("reference_weighted_results", []),
+            "reference_scenarios": brightway_model.get("reference_scenarios", []),
+            "top_climate_components": brightway_model.get("top_climate_components", []),
+            "top_parameter_amounts": brightway_model.get("top_parameter_amounts", []),
+        },
+    )
     stale_sdd_map_path = dirs["maps"] / "supply_geo_sdd_results_map.html"
     if stale_sdd_map_path.exists():
         stale_sdd_map_path.unlink()
@@ -4544,6 +6074,7 @@ def build_supply_geo_case(
         node_operational_rows=node_operational_rows,
         operational_event_rows=operational_event_rows,
         sdd_results=sdd_results,
+        brightway_model=brightway_model,
         map_src=browser_rel(base_results_map_path, dirs["maps"]),
     )
     write_enriched_base_map_html(
@@ -4575,9 +6106,29 @@ def build_supply_geo_case(
         (data_paths["sdd_event_ledger"], "data", "sdd_event_ledger", "sdd_event", False),
         (data_paths["sdd_monthly_impacts"], "data", "sdd_monthly_impacts", "month", True),
         (data_paths["sdd_cumulative_impacts"], "data", "sdd_cumulative_impacts", "month", True),
+        (data_paths["brightway_component_impacts"], "data", "brightway_component_impacts", "component_indicator", True),
+        (data_paths["brightway_indicator_summary"], "data", "brightway_indicator_summary", "indicator", True),
+        (data_paths["brightway_indicator_unit_views"], "data", "brightway_indicator_unit_views", "indicator_unit", True),
+        (data_paths["brightway_reference_person_equivalent_results"], "data", "brightway_reference_person_equivalent_results", "indicator", True),
+        (data_paths["brightway_reference_weighted_results"], "data", "brightway_reference_weighted_results", "indicator", True),
+        (data_paths["brightway_reference_phase_breakdown"], "data", "brightway_reference_phase_breakdown", "indicator_phase", True),
+        (data_paths["brightway_reference_scenarios"], "data", "brightway_reference_scenarios", "scenario_phase", True),
+        (data_paths["brightway_reference_weighting_factors"], "data", "brightway_reference_weighting_factors", "weighting_factor", True),
+        (data_paths["brightway_reference_climate_contributors"], "data", "brightway_reference_climate_contributors", "climate_contributor", True),
+        (data_paths["brightway_masterboard_equipment_summary"], "data", "brightway_masterboard_equipment_summary", "equipment", True),
+        (data_paths["brightway_masterboard_material_summary"], "data", "brightway_masterboard_material_summary", "material", True),
+        (data_paths["brightway_parameters"], "data", "brightway_parameters", "parameter", True),
+        (data_paths["brightway_activities"], "data", "brightway_activities", "activity", True),
+        (data_paths["brightway_activity_exchanges"], "data", "brightway_activity_exchanges", "exchange", True),
+        (data_paths["brightway_supply_alignment"], "data", "brightway_supply_alignment", "path_component", True),
+        (data_paths["brightway_parametric_levers"], "data", "brightway_parametric_levers", "lever", True),
+        (data_paths["brightway_parametric_sensitivity"], "data", "brightway_parametric_sensitivity", "lever_exchange", True),
+        (data_paths["brightway_parametric_switches"], "data", "brightway_parametric_switches", "switch", True),
+        (data_paths["brightway_parametric_regional_scenarios"], "data", "brightway_parametric_regional_scenarios", "regional_scenario", True),
         (data_paths["skipped"], "data", "skipped_records", "record", False),
         (summary_path, "summaries", "primary_supply_case_summary", "case", True),
         (sdd_method_path, "summaries", "sdd_method_comparison", "case", True),
+        (brightway_summary_path, "summaries", "brightway_model_summary", "case", True),
         (general_kpis_path, "summaries", "general_kpis", "case", True),
         (report_path, "reports", "primary_supply_case_report", "case", False),
         (map_ref_path, "maps", "source_map_reference", "case", False),

@@ -266,6 +266,7 @@ class SupplierRiskPanelsTest(unittest.TestCase):
         self.assertEqual(payload["summary"]["origin_count"], 1)
         self.assertEqual(payload["summary"]["node_impact_count"], 2)
         self.assertEqual(payload["summary"]["edge_delay_impact_count"], 1)
+        self.assertEqual(payload["summary"]["cascade_path_group_count"], 1)
         self.assertEqual(payload["summary"]["top_origin"]["supplier_id"], "S-1")
         self.assertEqual(payload["origin_impacts"][0]["primary_trigger"], "stock_cover_below_3d")
         self.assertEqual(payload["node_impacts"]["S-1"]["stage"], "production")
@@ -279,7 +280,12 @@ class SupplierRiskPanelsTest(unittest.TestCase):
         self.assertEqual(payload["cascade_roots"][0]["absorption_label"], "Absorbe partiellement: production reportee")
         self.assertEqual(payload["cascade_roots"][0]["action"]["label"], "Securiser l'intrant bloquant")
         self.assertIn("M-1", payload["cascade_roots"][0]["highlight_node_ids"])
+        self.assertEqual(payload["cascade_path_groups"][0]["occurrence_count"], 1)
+        self.assertEqual(payload["cascade_path_groups"][0]["route_edge_ids"], ["E-1"])
+        self.assertIn("S-1 -> M-1", payload["cascade_path_groups"][0]["route_edge_labels"][0])
+        self.assertEqual(payload["cascade_path_groups"][0]["action"]["label"], "Securiser l'intrant bloquant")
         self.assertIn("Origines principales des problemes", payload["html"])
+        self.assertIn("Chemins metier consolides", payload["html"])
         self.assertIn("Cascades avec impact supply", payload["html"])
 
 

@@ -495,6 +495,443 @@
     ]
   },
   {
+    "name": "brightway_component_impacts.csv",
+    "group": "data",
+    "domain": "brightway_component_impacts",
+    "grain": "component_indicator",
+    "required": true,
+    "path": "data/brightway_component_impacts.csv",
+    "format": "csv",
+    "exists": true,
+    "row_count": 259,
+    "columns": [
+      "source_file",
+      "family",
+      "system",
+      "component",
+      "indicator",
+      "unit",
+      "climate_kgco2e"
+    ]
+  },
+  {
+    "name": "brightway_indicator_summary.csv",
+    "group": "data",
+    "domain": "brightway_indicator_summary",
+    "grain": "indicator",
+    "required": true,
+    "path": "data/brightway_indicator_summary.csv",
+    "format": "csv",
+    "exists": true,
+    "row_count": 28,
+    "columns": [
+      "indicator",
+      "unit",
+      "component_count",
+      "sum_value",
+      "mean_value",
+      "max_value"
+    ]
+  },
+  {
+    "name": "brightway_indicator_unit_views.csv",
+    "group": "data",
+    "domain": "brightway_indicator_unit_views",
+    "grain": "indicator_unit",
+    "required": true,
+    "path": "data/brightway_indicator_unit_views.csv",
+    "format": "csv",
+    "exists": true,
+    "row_count": 28,
+    "columns": [
+      "indicator",
+      "short_label",
+      "ef30_category",
+      "indicator_scope",
+      "raw_unit",
+      "raw_sum_value",
+      "raw_mean_value",
+      "raw_max_value",
+      "component_count",
+      "normalization_factor_per_person_year",
+      "normalization_factor_unit",
+      "person_equivalent_value",
+      "person_equivalent_unit",
+      "include_in_person_equivalent",
+      "normalization_status",
+      "normalization_source",
+      "raw_plot_label",
+      "pe_plot_label"
+    ]
+  },
+  {
+    "name": "brightway_reference_person_equivalent_results.csv",
+    "group": "data",
+    "domain": "brightway_reference_person_equivalent_results",
+    "grain": "indicator",
+    "required": true,
+    "path": "data/brightway_reference_person_equivalent_results.csv",
+    "format": "csv",
+    "exists": true,
+    "row_count": 16,
+    "columns": [
+      "indicator",
+      "short_label",
+      "impact_total_person_equivalent",
+      "impact_without_use_person_equivalent",
+      "use_phase_person_equivalent",
+      "person_equivalent_unit",
+      "source_sheet",
+      "source_row"
+    ]
+  },
+  {
+    "name": "brightway_reference_weighted_results.csv",
+    "group": "data",
+    "domain": "brightway_reference_weighted_results",
+    "grain": "indicator",
+    "required": true,
+    "path": "data/brightway_reference_weighted_results.csv",
+    "format": "csv",
+    "exists": true,
+    "row_count": 16,
+    "columns": [
+      "indicator",
+      "short_label",
+      "impact_total_weighted_score",
+      "per_cabin_16_seats_weighted_score",
+      "impact_without_use_weighted_score",
+      "use_phase_weighted_score",
+      "weighted_unit",
+      "source_sheet",
+      "source_row"
+    ]
+  },
+  {
+    "name": "brightway_reference_phase_breakdown.csv",
+    "group": "data",
+    "domain": "brightway_reference_phase_breakdown",
+    "grain": "indicator_phase",
+    "required": true,
+    "path": "data/brightway_reference_phase_breakdown.csv",
+    "format": "csv",
+    "exists": true,
+    "row_count": 135,
+    "columns": [
+      "result_view",
+      "end_of_life_variant",
+      "indicator",
+      "short_label",
+      "phase",
+      "value",
+      "unit",
+      "source_sheet",
+      "source_row"
+    ]
+  },
+  {
+    "name": "brightway_reference_scenarios.csv",
+    "group": "data",
+    "domain": "brightway_reference_scenarios",
+    "grain": "scenario_phase",
+    "required": true,
+    "path": "data/brightway_reference_scenarios.csv",
+    "format": "csv",
+    "exists": true,
+    "row_count": 14,
+    "columns": [
+      "scenario_id",
+      "scenario_label",
+      "phase",
+      "baseline_climate_weighted_score",
+      "scenario_climate_weighted_score",
+      "lifecycle_climate_reduction_pct",
+      "relative_climate_reduction_pct",
+      "production_only_climate_reduction_pct",
+      "weighted_unit",
+      "source_sheet",
+      "source_row"
+    ]
+  },
+  {
+    "name": "brightway_reference_weighting_factors.csv",
+    "group": "data",
+    "domain": "brightway_reference_weighting_factors",
+    "grain": "weighting_factor",
+    "required": true,
+    "path": "data/brightway_reference_weighting_factors.csv",
+    "format": "csv",
+    "exists": true,
+    "row_count": 16,
+    "columns": [
+      "category",
+      "equal_weight",
+      "ef30_weight_pct",
+      "weighting_factor_vs_equal_weight",
+      "source_sheet",
+      "source_row"
+    ]
+  },
+  {
+    "name": "brightway_reference_climate_contributors.csv",
+    "group": "data",
+    "domain": "brightway_reference_climate_contributors",
+    "grain": "climate_contributor",
+    "required": true,
+    "path": "data/brightway_reference_climate_contributors.csv",
+    "format": "csv",
+    "exists": true,
+    "row_count": 16,
+    "columns": [
+      "contributor_scope",
+      "label",
+      "climate_person_equivalent",
+      "share_of_non_use_climate_pct",
+      "source_sheet",
+      "source_row"
+    ]
+  },
+  {
+    "name": "brightway_masterboard_equipment_summary.csv",
+    "group": "data",
+    "domain": "brightway_masterboard_equipment_summary",
+    "grain": "equipment",
+    "required": true,
+    "path": "data/brightway_masterboard_equipment_summary.csv",
+    "format": "csv",
+    "exists": true,
+    "row_count": 48,
+    "columns": [
+      "group_type",
+      "label",
+      "row_count",
+      "quantity_per_seat",
+      "packaging_mass",
+      "chips_mass",
+      "raw_mass",
+      "material_domain",
+      "source_file",
+      "source_sheet"
+    ]
+  },
+  {
+    "name": "brightway_masterboard_material_summary.csv",
+    "group": "data",
+    "domain": "brightway_masterboard_material_summary",
+    "grain": "material",
+    "required": true,
+    "path": "data/brightway_masterboard_material_summary.csv",
+    "format": "csv",
+    "exists": true,
+    "row_count": 64,
+    "columns": [
+      "group_type",
+      "label",
+      "row_count",
+      "quantity_per_seat",
+      "packaging_mass",
+      "chips_mass",
+      "raw_mass",
+      "material_domain",
+      "source_file",
+      "source_sheet"
+    ]
+  },
+  {
+    "name": "brightway_parameters.csv",
+    "group": "data",
+    "domain": "brightway_parameters",
+    "grain": "parameter",
+    "required": true,
+    "path": "data/brightway_parameters.csv",
+    "format": "csv",
+    "exists": true,
+    "row_count": 684,
+    "columns": [
+      "name",
+      "amount",
+      "formula",
+      "parameter_family"
+    ]
+  },
+  {
+    "name": "brightway_activities.csv",
+    "group": "data",
+    "domain": "brightway_activities",
+    "grain": "activity",
+    "required": true,
+    "path": "data/brightway_activities.csv",
+    "format": "csv",
+    "exists": true,
+    "row_count": 51,
+    "columns": [
+      "activity_name",
+      "code",
+      "comment",
+      "location",
+      "reference_product",
+      "type",
+      "unit"
+    ]
+  },
+  {
+    "name": "brightway_activity_exchanges.csv",
+    "group": "data",
+    "domain": "brightway_activity_exchanges",
+    "grain": "exchange",
+    "required": true,
+    "path": "data/brightway_activity_exchanges.csv",
+    "format": "csv",
+    "exists": true,
+    "row_count": 590,
+    "columns": [
+      "activity_name",
+      "name",
+      "amount",
+      "database",
+      "location",
+      "unit",
+      "type",
+      "formula",
+      "original_amount",
+      "reference_product",
+      "unknown",
+      "categories"
+    ]
+  },
+  {
+    "name": "brightway_supply_alignment.csv",
+    "group": "data",
+    "domain": "brightway_supply_alignment",
+    "grain": "path_component",
+    "required": true,
+    "path": "data/brightway_supply_alignment.csv",
+    "format": "csv",
+    "exists": true,
+    "row_count": 172,
+    "columns": [
+      "path_id",
+      "record_index",
+      "system",
+      "component",
+      "family",
+      "path_mass_kg",
+      "match_level",
+      "brightway_system",
+      "brightway_component",
+      "brightway_climate_kgco2e",
+      "brightway_unit"
+    ]
+  },
+  {
+    "name": "brightway_parametric_levers.csv",
+    "group": "data",
+    "domain": "brightway_parametric_levers",
+    "grain": "lever",
+    "required": true,
+    "path": "data/brightway_parametric_levers.csv",
+    "format": "csv",
+    "exists": true,
+    "row_count": 7,
+    "columns": [
+      "lever_id",
+      "lever_label",
+      "parameter_count",
+      "affected_exchange_count",
+      "signed_delta_amount_sum",
+      "abs_delta_amount_sum",
+      "mean_abs_relative_delta_pct"
+    ]
+  },
+  {
+    "name": "brightway_parametric_sensitivity.csv",
+    "group": "data",
+    "domain": "brightway_parametric_sensitivity",
+    "grain": "lever_exchange",
+    "required": true,
+    "path": "data/brightway_parametric_sensitivity.csv",
+    "format": "csv",
+    "exists": true,
+    "row_count": 544,
+    "columns": [
+      "lever_id",
+      "lever_label",
+      "activity_name",
+      "exchange_name",
+      "exchange_type",
+      "database",
+      "location",
+      "unit",
+      "formula",
+      "baseline_amount",
+      "scenario_amount",
+      "delta_amount",
+      "abs_delta_amount",
+      "relative_delta_pct",
+      "parameter_count_in_formula",
+      "label"
+    ]
+  },
+  {
+    "name": "brightway_parametric_switches.csv",
+    "group": "data",
+    "domain": "brightway_parametric_switches",
+    "grain": "switch",
+    "required": true,
+    "path": "data/brightway_parametric_switches.csv",
+    "format": "csv",
+    "exists": true,
+    "row_count": 2,
+    "columns": [
+      "switch_id",
+      "label",
+      "values",
+      "affected_exchange_count",
+      "requires_brightway_runtime",
+      "status"
+    ]
+  },
+  {
+    "name": "brightway_parametric_regional_scenarios.csv",
+    "group": "data",
+    "domain": "brightway_parametric_regional_scenarios",
+    "grain": "regional_scenario",
+    "required": true,
+    "path": "data/brightway_parametric_regional_scenarios.csv",
+    "format": "csv",
+    "exists": true,
+    "row_count": 4,
+    "columns": [
+      "scenario_id",
+      "label",
+      "description",
+      "target_scope",
+      "elec_switch_param",
+      "al_switch_param",
+      "transport_policy",
+      "transport_amount_factor",
+      "local_content_target_pct",
+      "current_role_mass_already_target_pct",
+      "current_path_mass_already_target_pct",
+      "current_non_target_role_mass_pct",
+      "brightway_switch_affected_exchange_count",
+      "transport_formula_affected_exchange_count",
+      "affected_exchange_count",
+      "baseline_transport_proxy_kg_km",
+      "scenario_transport_proxy_kg_km",
+      "transport_proxy_delta_kg_km",
+      "baseline_abs_foreground_amount_sum",
+      "scenario_abs_foreground_amount_sum",
+      "signed_delta_amount_sum",
+      "abs_delta_amount_sum",
+      "foreground_amount_index",
+      "requires_brightway_runtime",
+      "can_execute_exact_lcia_now",
+      "proxy_available_now",
+      "unit_note"
+    ]
+  },
+  {
     "name": "skipped_records.csv",
     "group": "data",
     "domain": "skipped_records",
@@ -520,7 +957,7 @@
     "path": "summaries/primary_supply_case_summary.json",
     "format": "json",
     "exists": true,
-    "size_bytes": 2093
+    "size_bytes": 4323
   },
   {
     "name": "sdd_method_comparison.json",
@@ -534,6 +971,17 @@
     "size_bytes": 231
   },
   {
+    "name": "brightway_model_summary.json",
+    "group": "summaries",
+    "domain": "brightway_model_summary",
+    "grain": "case",
+    "required": true,
+    "path": "summaries/brightway_model_summary.json",
+    "format": "json",
+    "exists": true,
+    "size_bytes": 67096
+  },
+  {
     "name": "general_kpis.json",
     "group": "summaries",
     "domain": "general_kpis",
@@ -542,7 +990,7 @@
     "path": "summaries/general_kpis.json",
     "format": "json",
     "exists": true,
-    "size_bytes": 2368661
+    "size_bytes": 3494283
   },
   {
     "name": "primary_supply_case_report.md",
@@ -553,7 +1001,7 @@
     "path": "reports/primary_supply_case_report.md",
     "format": "md",
     "exists": true,
-    "size_bytes": 1069
+    "size_bytes": 1142
   },
   {
     "name": "source_map_reference.json",
@@ -575,7 +1023,7 @@
     "path": "maps/supply_geo_base_results_map.html",
     "format": "html",
     "exists": true,
-    "size_bytes": 3589667
+    "size_bytes": 5320657
   },
   {
     "name": "nodes.json",

@@ -99,6 +99,9 @@ SIMULATION_ENGINE_SCRIPT = ROOT / "simulation" / "engine" / "run_first_simulatio
 ROBUST_MONTECARLO_SCRIPT = ROOT / "simulation" / "montecarlo" / "run_robust_montecarlo.py"
 SUPPLIER_CRITICALITY_SCRIPT = ROOT / "risk" / "supplier_criticality" / "build_supplier_criticality.py"
 SUPPLIER_CRITICALITY_OUTPUT_DIR = ROOT / "risk" / "supplier_criticality" / "result"
+SUPPLIER_RISK_CAMPAIGN_CASES_CSV = (
+    ROOT / "simulation" / "sensibility" / "supplier_risk_campaign_multisource_result" / "supplier_risk_campaign_cases.csv"
+)
 SOURCE_PROFILE_SCRIPT = ROOT / "data" / "profile_source_files.py"
 DEFAULT_CASE_CONFIG_JSON = ROOT / "config" / "cases" / "data_poc.json"
 DEFAULT_ENRICHMENT_EXCEL = ROOT / "config" / "cases" / "data_poc_enrichment_input.xlsx"
@@ -1012,12 +1015,687 @@ def build_map_for_simulation_result(
     return map_output_path
 
 
+def normalize_graph_item_id(value: Any) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    return text if text.startswith("item:") else f"item:{text}"
+
+
+def load_supplier_campaign_sensitivity_cases(path: Path = SUPPLIER_RISK_CAMPAIGN_CASES_CSV) -> dict[tuple[str, str], dict[str, str]]:
+    """Return the strongest observed sensitivity case per supplier/risk_type."""
+    if not path.exists():
+        return {}
+    best: dict[tuple[str, str], dict[str, str]] = {}
+    with path.open("r", encoding="utf-8-sig", newline="") as f:
+        for row in csv.DictReader(f):
+            supplier_id = str(row.get("supplier_id") or "").strip()
+            risk_type = str(row.get("risk_type") or "").strip()
+            if not supplier_id or supplier_id == "__all__" or not risk_type:
+                continue
+            key = (supplier_id, risk_type)
+            score = float(row.get("score_decisionnel_modele") or row.get("impact_score") or 0.0)
+            previous = best.get(key)
+            previous_score = (
+                float(previous.get("score_decisionnel_modele") or previous.get("impact_score") or 0.0)
+                if previous
+                else -1.0
+            )
+            if score > previous_score:
+                best[key] = dict(row)
+    return best
+
+
+def sensitivity_note(
+    sensitivity_cases: dict[tuple[str, str], dict[str, str]],
+    supplier_id: str,
+    risk_type: str,
+) -> str:
+    case = sensitivity_cases.get((supplier_id, risk_type))
+    if not case:
+        return "calibrage metier: pas de cas de sensibilite local disponible"
+    score = str(case.get("score_decisionnel_pct") or case.get("impact_pct") or "n/a")
+    multiplier = str(case.get("multiplier") or "n/a")
+    kpi = str(case.get("impact_metier_kpi") or "KPI")
+    delta = str(case.get("impact_metier_delta") or "n/a")
+    return f"calibre sensibilite: test {risk_type}={multiplier}, score {score}%, KPI {kpi} {delta}"
+
+
+def graph_edge_lookup(data: dict[str, Any]) -> dict[tuple[str, str, str], dict[str, Any]]:
+    lookup: dict[tuple[str, str, str], dict[str, Any]] = {}
+    for edge in data.get("edges") or []:
+        if not isinstance(edge, dict):
+            continue
+        src = str(edge.get("from") or "")
+        dst = str(edge.get("to") or "")
+        for item in edge.get("items") or []:
+            lookup[(src, dst, normalize_graph_item_id(item))] = edge
+    return lookup
+
+
+def supplier_risk_event(
+    *,
+    event_id: str,
+    supplier_id: str,
+    item_id: str,
+    risk_type: str,
+    multiplier: float,
+    start_day: int,
+    end_day: int,
+    dst_node_id: str = "",
+    edge_id: str = "",
+    notes: str = "",
+) -> dict[str, Any]:
+    return {
+        "event_id": event_id,
+        "supplier_id": supplier_id,
+        "item_id": normalize_graph_item_id(item_id),
+        "dst_node_id": dst_node_id,
+        "edge_id": edge_id,
+        "risk_type": risk_type,
+        "multiplier": multiplier,
+        "start_day": int(start_day),
+        "end_day": int(end_day),
+        "notes": notes,
+    }
+
+
+def repeated_windows(
+    *,
+    horizon_days: int,
+    start_offset: int,
+    duration_days: int,
+    repeat_days: int = 365,
+) -> list[tuple[int, int]]:
+    windows: list[tuple[int, int]] = []
+    base = 0
+    while base < max(1, horizon_days):
+        start = base + int(start_offset)
+        end = start + max(1, int(duration_days)) - 1
+        if start < horizon_days:
+            windows.append((max(0, start), min(horizon_days - 1, end)))
+        base += max(1, int(repeat_days))
+    return windows
+
+
+def variable_repeated_windows(
+    *,
+    horizon_days: int,
+    start_offsets: list[int],
+    duration_days: list[int],
+    repeat_days: int = 365,
+) -> list[tuple[int, int, int]]:
+    windows: list[tuple[int, int, int]] = []
+    if not start_offsets or not duration_days:
+        return windows
+    year_idx = 0
+    base = 0
+    while base < max(1, horizon_days):
+        offset = int(start_offsets[year_idx % len(start_offsets)])
+        duration = int(duration_days[year_idx % len(duration_days)])
+        start = base + offset
+        end = start + max(1, duration) - 1
+        if start < horizon_days:
+            windows.append((year_idx + 1, max(0, start), min(horizon_days - 1, end)))
+        year_idx += 1
+        base += max(1, int(repeat_days))
+    return windows
+
+
+def build_calibrated_pharma_supplier_risk_events(
+    data: dict[str, Any],
+    *,
+    horizon_days: int,
+) -> list[dict[str, Any]]:
+    """Build an injected pharma risk portfolio calibrated with sensitivity artifacts.
+
+    The companion run still uses endogenous state-dependent triggers. These events are
+    exogenous shocks that make the run severe enough to test propagation: US hurricane
+    on upstream active material, packaging/quality crises on sensitive suppliers, and
+    an internal PFI release slowdown.
+    """
+    edge_by_key = graph_edge_lookup(data)
+    sensitivity_cases = load_supplier_campaign_sensitivity_cases()
+    node_by_id = {
+        str(node.get("id") or ""): node
+        for node in data.get("nodes") or []
+        if isinstance(node, dict) and str(node.get("id") or "")
+    }
+    events: list[dict[str, Any]] = []
+
+    def add_lane_event(
+        *,
+        slug: str,
+        supplier_id: str,
+        dst_node_id: str,
+        item_id: str,
+        risk_type: str,
+        multiplier: float,
+        start_day: int,
+        end_day: int,
+        scenario_label: str,
+        require_existing_lane: bool = True,
+    ) -> None:
+        item_id = normalize_graph_item_id(item_id)
+        edge = edge_by_key.get((supplier_id, dst_node_id, item_id), {})
+        if require_existing_lane and not edge:
+            return
+        sens = sensitivity_note(sensitivity_cases, supplier_id, risk_type)
+        events.append(
+            supplier_risk_event(
+                event_id=f"{slug}_{supplier_id}_{item_id.replace(':', '')}_{risk_type}_d{start_day}_{end_day}",
+                supplier_id=supplier_id,
+                item_id=item_id,
+                dst_node_id=dst_node_id,
+                edge_id=str(edge.get("id") or ""),
+                risk_type=risk_type,
+                multiplier=multiplier,
+                start_day=start_day,
+                end_day=end_day,
+                notes=f"{scenario_label}. {sens}.",
+            )
+        )
+
+    def is_us_supplier(node_id: str) -> bool:
+        node = node_by_id.get(node_id) or {}
+        geo = node.get("geo") if isinstance(node.get("geo"), dict) else {}
+        country = str(geo.get("country") or node.get("country") or "").strip().lower()
+        return country in {"united states", "usa", "us", "etats-unis", "états-unis"}
+
+    # 1) US hurricane: all US suppliers feeding item:021081 into SDC-1450 are hit
+    # together. The downstream effect is delayed but critical for PFI 773474.
+    us_supplier_edges = [
+        edge
+        for edge in data.get("edges") or []
+        if isinstance(edge, dict)
+        and str(edge.get("to") or "") == "SDC-1450"
+        and normalize_graph_item_id("021081") in {normalize_graph_item_id(item) for item in edge.get("items") or []}
+        and is_us_supplier(str(edge.get("from") or ""))
+    ]
+    for idx, (start, end) in enumerate(repeated_windows(horizon_days=horizon_days, start_offset=215, duration_days=130), start=1):
+        for edge in us_supplier_edges:
+            supplier_id = str(edge.get("from") or "")
+            dst_node_id = str(edge.get("to") or "")
+            item_id = "item:021081"
+            label = (
+                f"Ouragan US saison {idx}: fermeture/ralentissement fournisseurs americains "
+                "et congestion transport sur l'actif amont 021081"
+            )
+            add_lane_event(
+                slug=f"us_hurricane_y{idx}",
+                supplier_id=supplier_id,
+                dst_node_id=dst_node_id,
+                item_id=item_id,
+                risk_type="availability",
+                multiplier=0.15,
+                start_day=start,
+                end_day=end,
+                scenario_label=label,
+            )
+            add_lane_event(
+                slug=f"us_hurricane_y{idx}",
+                supplier_id=supplier_id,
+                dst_node_id=dst_node_id,
+                item_id=item_id,
+                risk_type="capacity",
+                multiplier=0.20,
+                start_day=start,
+                end_day=end,
+                scenario_label=label,
+            )
+            add_lane_event(
+                slug=f"us_hurricane_y{idx}",
+                supplier_id=supplier_id,
+                dst_node_id=dst_node_id,
+                item_id=item_id,
+                risk_type="lead_time_extra_days",
+                multiplier=90.0,
+                start_day=start,
+                end_day=min(horizon_days - 1, end + 45),
+                scenario_label=label,
+            )
+            add_lane_event(
+                slug=f"us_hurricane_y{idx}",
+                supplier_id=supplier_id,
+                dst_node_id=dst_node_id,
+                item_id=item_id,
+                risk_type="transport_cost",
+                multiplier=3.0,
+                start_day=start,
+                end_day=min(horizon_days - 1, end + 45),
+                scenario_label=label,
+            )
+
+    # 2) Pharma packaging and incoming quality crises calibrated from sensitivity:
+    # SDC-VD0508918A and SDC-VD0525412A were the strongest replanification/stockout
+    # signals for lead-time and quality-delay stress tests.
+    for idx, (start, end) in enumerate(repeated_windows(horizon_days=horizon_days, start_offset=35, duration_days=220), start=1):
+        add_lane_event(
+            slug=f"pharma_pack_delay_y{idx}",
+            supplier_id="SDC-VD0508918A",
+            dst_node_id="M-1430",
+            item_id="item:730384",
+            risk_type="lead_time_extra_days",
+            multiplier=75.0,
+            start_day=start,
+            end_day=end,
+            scenario_label="Crise pharma packaging: retard fournisseur sensible 730384",
+        )
+        add_lane_event(
+            slug=f"pharma_pack_quarantine_y{idx}",
+            supplier_id="SDC-VD0508918A",
+            dst_node_id="M-1430",
+            item_id="item:730384",
+            risk_type="quality_delay",
+            multiplier=35.0,
+            start_day=start + 20,
+            end_day=min(horizon_days - 1, end + 20),
+            scenario_label="Crise pharma packaging: quarantaine qualite 730384",
+        )
+        add_lane_event(
+            slug=f"pharma_pack_quarantine_y{idx}",
+            supplier_id="SDC-VD0508918A",
+            dst_node_id="M-1430",
+            item_id="item:730384",
+            risk_type="stock",
+            multiplier=0.15,
+            start_day=start + 20,
+            end_day=min(horizon_days - 1, end + 20),
+            scenario_label="Crise pharma packaging: stock fournisseur 730384 partiellement bloque en quarantaine",
+        )
+        add_lane_event(
+            slug=f"pharma_pack_delay_y{idx}",
+            supplier_id="SDC-VD0525412A",
+            dst_node_id="M-1430",
+            item_id="item:333362",
+            risk_type="lead_time_extra_days",
+            multiplier=90.0,
+            start_day=start,
+            end_day=end,
+            scenario_label="Crise pharma packaging: retard fournisseur sensible 333362",
+        )
+        add_lane_event(
+            slug=f"pharma_pack_quarantine_y{idx}",
+            supplier_id="SDC-VD0525412A",
+            dst_node_id="M-1430",
+            item_id="item:333362",
+            risk_type="quality_delay",
+            multiplier=45.0,
+            start_day=start + 20,
+            end_day=min(horizon_days - 1, end + 20),
+            scenario_label="Crise pharma packaging: quarantaine qualite 333362",
+        )
+        add_lane_event(
+            slug=f"pharma_pack_quarantine_y{idx}",
+            supplier_id="SDC-VD0525412A",
+            dst_node_id="M-1430",
+            item_id="item:333362",
+            risk_type="stock",
+            multiplier=0.10,
+            start_day=start + 20,
+            end_day=min(horizon_days - 1, end + 20),
+            scenario_label="Crise pharma packaging: stock fournisseur 333362 partiellement bloque en quarantaine",
+        )
+        add_lane_event(
+            slug=f"pharma_pack_cost_y{idx}",
+            supplier_id="SDC-VD0525412A",
+            dst_node_id="M-1430",
+            item_id="item:333362",
+            risk_type="purchase_cost",
+            multiplier=2.0,
+            start_day=start,
+            end_day=end,
+            scenario_label="Crise pharma packaging: achat spot et lots urgents 333362",
+        )
+
+    # 3) Supplier reliability and batch release shocks on high-volume pharma inputs.
+    for idx, (start, end) in enumerate(repeated_windows(horizon_days=horizon_days, start_offset=70, duration_days=260), start=1):
+        add_lane_event(
+            slug=f"pharma_capsule_capacity_y{idx}",
+            supplier_id="SDC-VD0914690A",
+            dst_node_id="M-1430",
+            item_id="item:042342",
+            risk_type="capacity",
+            multiplier=0.22,
+            start_day=start,
+            end_day=end,
+            scenario_label="Crise pharma composant haute cadence: capacite fournisseur 042342 fortement reduite",
+        )
+        add_lane_event(
+            slug=f"pharma_capsule_availability_y{idx}",
+            supplier_id="SDC-VD0914690A",
+            dst_node_id="M-1430",
+            item_id="item:042342",
+            risk_type="availability",
+            multiplier=0.35,
+            start_day=start,
+            end_day=end,
+            scenario_label="Crise pharma composant haute cadence: disponibilite fournisseur 042342 degradee",
+        )
+        add_lane_event(
+            slug=f"pharma_capsule_reliability_y{idx}",
+            supplier_id="SDC-VD0914690A",
+            dst_node_id="M-1430",
+            item_id="item:042342",
+            risk_type="reliability",
+            multiplier=0.50,
+            start_day=start,
+            end_day=end,
+            scenario_label="Crise pharma composant haute cadence: pertes de fiabilite 042342",
+        )
+        add_lane_event(
+            slug=f"pharma_pack_reliability_y{idx}",
+            supplier_id="SDC-VD0993480A",
+            dst_node_id="M-1430",
+            item_id="item:344135",
+            risk_type="reliability",
+            multiplier=0.55,
+            start_day=start,
+            end_day=end,
+            scenario_label="Crise pharma packaging: non-conformites fournisseur 344135",
+        )
+        add_lane_event(
+            slug=f"pharma_pack_availability_y{idx}",
+            supplier_id="SDC-VD0993480A",
+            dst_node_id="M-1430",
+            item_id="item:344135",
+            risk_type="availability",
+            multiplier=0.35,
+            start_day=start,
+            end_day=end,
+            scenario_label="Crise pharma packaging: disponibilite fournisseur 344135 degradee",
+        )
+        add_lane_event(
+            slug=f"pharma_pack_delay_y{idx}",
+            supplier_id="SDC-VD0993480A",
+            dst_node_id="M-1430",
+            item_id="item:344135",
+            risk_type="lead_time_extra_days",
+            multiplier=55.0,
+            start_day=start,
+            end_day=min(horizon_days - 1, end + 30),
+            scenario_label="Crise pharma packaging: retard fournisseur 344135",
+        )
+
+    # 4) Downstream PFI release consequence: if the US active-material chain is hit,
+    # the internal PFI 773474 route can also slow down due to release testing and
+    # allocation. This makes the upstream hurricane visible at the pharma factory.
+    for idx, (start, end) in enumerate(repeated_windows(horizon_days=horizon_days, start_offset=250, duration_days=180), start=1):
+        add_lane_event(
+            slug=f"pfi_release_hold_y{idx}",
+            supplier_id="SDC-1450",
+            dst_node_id="M-1430",
+            item_id="item:773474",
+            risk_type="lead_time_extra_days",
+            multiplier=60.0,
+            start_day=start,
+            end_day=end,
+            scenario_label="Propagation pharma: liberation PFI 773474 ralentie apres tension matiere active",
+        )
+        add_lane_event(
+            slug=f"pfi_release_hold_y{idx}",
+            supplier_id="SDC-1450",
+            dst_node_id="M-1430",
+            item_id="item:773474",
+            risk_type="quality_delay",
+            multiplier=30.0,
+            start_day=start,
+            end_day=end,
+            scenario_label="Propagation pharma: controle qualite et liberation PFI 773474 prolonges",
+        )
+        add_lane_event(
+            slug=f"pfi_release_hold_y{idx}",
+            supplier_id="SDC-1450",
+            dst_node_id="M-1430",
+            item_id="item:773474",
+            risk_type="capacity",
+            multiplier=0.40,
+            start_day=start,
+            end_day=end,
+            scenario_label="Propagation pharma: capacite PFI 773474 reservee et allocation limitee",
+        )
+        add_lane_event(
+            slug=f"pfi_release_hold_y{idx}",
+            supplier_id="SDC-1450",
+            dst_node_id="M-1430",
+            item_id="item:773474",
+            risk_type="availability",
+            multiplier=0.25,
+            start_day=start,
+            end_day=end,
+            scenario_label="Propagation pharma: allocation PFI 773474 vers Gien limitee",
+        )
+
+    # 5) More varied pharma supplier waves. These windows are deliberately not
+    # annual clones: they create several distinct business paths and make the
+    # state-dependent layer easier to audit by route and product.
+    varied_supplier_waves = [
+        {
+            "slug": "api_excipient_pressure",
+            "supplier_id": "SDC-VD0520132A",
+            "dst_node_id": "M-1430",
+            "item_id": "item:038005",
+            "label": "Crise excipient pharma: saturation fournisseur et liberation qualite 038005",
+            "windows": variable_repeated_windows(
+                horizon_days=horizon_days,
+                start_offsets=[18, 122, 235, 52, 301],
+                duration_days=[155, 96, 185, 128, 210],
+            ),
+            "events": [
+                ("capacity", 0.28, 0, 0),
+                ("availability", 0.42, 8, 10),
+                ("external_capacity", 0.35, 0, 65),
+                ("external_availability", 0.45, 0, 65),
+                ("quality_delay", 52.0, 26, 42),
+                ("lead_time_extra_days", 85.0, 0, 55),
+                ("purchase_cost", 2.4, 0, 20),
+            ],
+        },
+        {
+            "slug": "closure_component_pressure",
+            "supplier_id": "SDC-VD0993480A",
+            "dst_node_id": "M-1430",
+            "item_id": "item:344135",
+            "label": "Crise composant de fermeture pharma: non-conformites et faiblesse capacitaire 344135",
+            "windows": variable_repeated_windows(
+                horizon_days=horizon_days,
+                start_offsets=[42, 98, 178, 255, 64],
+                duration_days=[180, 142, 118, 220, 166],
+            ),
+            "events": [
+                ("stock", 0.04, 0, 28),
+                ("external_capacity", 0.25, 0, 84),
+                ("external_availability", 0.30, 0, 84),
+                ("reliability", 0.32, 12, 20),
+                ("availability", 0.18, 28, 42),
+                ("lead_time_extra_days", 115.0, 0, 70),
+                ("quality_delay", 64.0, 18, 58),
+            ],
+        },
+        {
+            "slug": "capsule_supplier_pressure",
+            "supplier_id": "SDC-VD0914690A",
+            "dst_node_id": "M-1430",
+            "item_id": "item:042342",
+            "label": "Crise capacitaire gellules pharma: capacite et fiabilite 042342 sous tension",
+            "windows": variable_repeated_windows(
+                horizon_days=horizon_days,
+                start_offsets=[76, 150, 12, 286, 204],
+                duration_days=[210, 95, 175, 150, 238],
+            ),
+            "events": [
+                ("capacity", 0.16, 0, 38),
+                ("availability", 0.24, 25, 45),
+                ("external_capacity", 0.32, 0, 75),
+                ("external_availability", 0.40, 0, 75),
+                ("reliability", 0.28, 0, 0),
+                ("lead_time_extra_days", 105.0, 18, 62),
+                ("transport_cost", 3.2, 42, 62),
+            ],
+        },
+        {
+            "slug": "pfi_chain_pressure",
+            "supplier_id": "SDC-1450",
+            "dst_node_id": "M-1430",
+            "item_id": "item:773474",
+            "label": "Crise PFI interne: arbitrage inter-sites, release qualite et allocation 773474",
+            "windows": variable_repeated_windows(
+                horizon_days=horizon_days,
+                start_offsets=[5, 184, 312, 132, 240],
+                duration_days=[120, 196, 142, 252, 165],
+            ),
+            "events": [
+                ("availability", 0.10, 0, 30),
+                ("capacity", 0.22, 0, 20),
+                ("external_capacity", 0.30, 0, 80),
+                ("external_availability", 0.35, 0, 80),
+                ("quality_delay", 75.0, 15, 58),
+                ("lead_time_extra_days", 95.0, 0, 80),
+                ("transport_cost", 2.2, 10, 20),
+            ],
+        },
+    ]
+    for wave in varied_supplier_waves:
+        for year_idx, start, end in wave["windows"]:
+            duration = max(1, end - start + 1)
+            for risk_type, multiplier, start_shift, end_shift in wave["events"]:
+                shifted_start = min(horizon_days - 1, start + int(start_shift))
+                shifted_end = min(horizon_days - 1, end + int(end_shift))
+                if shifted_end < shifted_start:
+                    shifted_end = min(horizon_days - 1, shifted_start + max(7, duration // 2))
+                add_lane_event(
+                    slug=f"{wave['slug']}_w{year_idx}",
+                    supplier_id=str(wave["supplier_id"]),
+                    dst_node_id=str(wave["dst_node_id"]),
+                    item_id=str(wave["item_id"]),
+                    risk_type=risk_type,
+                    multiplier=float(multiplier),
+                    start_day=shifted_start,
+                    end_day=shifted_end,
+                    scenario_label=str(wave["label"]),
+                )
+
+    # 5b) Irrecoverable batch failures. These are intentionally punctual:
+    # stock_writeoff represents rejected/quarantined stock destroyed once, not a
+    # daily availability slowdown.
+    stock_writeoff_pulses = [
+        (
+            "batch_reject_730384",
+            "SDC-VD0508918A",
+            "M-1430",
+            "item:730384",
+            "Rejet lot packaging 730384: stock fournisseur non liberable",
+            [118, 413, 776, 1138, 1512],
+            0.28,
+        ),
+        (
+            "batch_reject_333362",
+            "SDC-VD0525412A",
+            "M-1430",
+            "item:333362",
+            "Rejet lot packaging 333362: non-conformite critique",
+            [96, 388, 742, 1104, 1486],
+            0.32,
+        ),
+        (
+            "batch_reject_344135",
+            "SDC-VD0993480A",
+            "M-1430",
+            "item:344135",
+            "Rejet lot fermeture 344135: quarantaine definitive",
+            [104, 352, 694, 1069, 1438],
+            0.45,
+        ),
+        (
+            "batch_reject_038005",
+            "SDC-VD0520132A",
+            "M-1430",
+            "item:038005",
+            "Rejet matiere 038005: destruction ou recontrole impossible",
+            [165, 540, 903, 1268, 1615],
+            0.22,
+        ),
+    ]
+    for slug, supplier_id, dst_node_id, item_id, label, pulse_days, fraction in stock_writeoff_pulses:
+        for idx, pulse_day in enumerate(pulse_days, start=1):
+            if pulse_day >= horizon_days:
+                continue
+            add_lane_event(
+                slug=f"{slug}_p{idx}",
+                supplier_id=supplier_id,
+                dst_node_id="",
+                item_id=item_id,
+                risk_type="stock_writeoff",
+                multiplier=float(fraction),
+                start_day=int(pulse_day),
+                end_day=int(pulse_day),
+                scenario_label=label,
+                require_existing_lane=False,
+            )
+
+    # 6) Downstream cold-chain/logistics disruption. This is still an explicit
+    # risk scenario, but it is not interpreted as a supplier criticality score:
+    # it helps validate whether DC and customer arcs appear correctly when the
+    # final product route is impacted.
+    downstream_waves = [
+        (
+            "finished_good_dc_lane",
+            "M-1430",
+            "DC-1920",
+            "item:268967",
+            "Perturbation transport PF: lane usine vers DC-1920 sur 268967",
+            [55, 228, 28, 309, 136],
+            [84, 118, 72, 140, 96],
+            [
+                ("lead_time_extra_days", 32.0, 0, 0),
+                ("transport_cost", 3.5, 0, 24),
+                ("quality_delay", 18.0, 6, 24),
+            ],
+        ),
+        (
+            "finished_good_customer_lane",
+            "DC-1920",
+            "C-XXXXX",
+            "item:268967",
+            "Perturbation distribution client: congestion aval et livraisons tardives 268967",
+            [84, 248, 43, 330, 165],
+            [70, 96, 84, 118, 76],
+            [
+                ("lead_time_extra_days", 24.0, 0, 0),
+                ("transport_cost", 3.0, 0, 18),
+                ("availability", 0.35, 4, 28),
+            ],
+        ),
+    ]
+    for slug, supplier_id, dst_node_id, item_id, label, offsets, durations, risk_defs in downstream_waves:
+        for year_idx, start, end in variable_repeated_windows(
+            horizon_days=horizon_days,
+            start_offsets=list(offsets),
+            duration_days=list(durations),
+        ):
+            for risk_type, multiplier, start_shift, end_shift in risk_defs:
+                add_lane_event(
+                    slug=f"{slug}_w{year_idx}",
+                    supplier_id=supplier_id,
+                    dst_node_id=dst_node_id,
+                    item_id=item_id,
+                    risk_type=risk_type,
+                    multiplier=float(multiplier),
+                    start_day=min(horizon_days - 1, start + int(start_shift)),
+                    end_day=min(horizon_days - 1, end + int(end_shift)),
+                    scenario_label=label,
+                )
+
+    return sorted(events, key=lambda row: (int(row["start_day"]), str(row["supplier_id"]), str(row["risk_type"])))
+
+
 def write_state_dependent_scenario_graph(
     *,
     source_graph: Path,
     output_graph: Path,
     source_scenario_id: str,
     target_scenario_id: str,
+    horizon_days: int,
 ) -> None:
     data = load_json(source_graph)
     scenarios = data.get("scenarios") or []
@@ -1028,9 +1706,13 @@ def write_state_dependent_scenario_graph(
     state_scenario["id"] = target_scenario_id
     state_scenario["name"] = "State-dependent complet"
     state_scenario["description"] = (
-        "Scenario de risques simules dynamiques: les aleas fournisseurs sont "
-        "declenches par l'etat observe pendant la simulation."
+        "Scenario de risques simules dynamiques: portefeuille de crises pharma "
+        "calibre par sensibilite, puis aleas fournisseurs declenches par l'etat "
+        "observe pendant la simulation."
     )
+    injected_events = build_calibrated_pharma_supplier_risk_events(data, horizon_days=horizon_days)
+    existing_events = [row for row in (state_scenario.get("supplier_risk_events") or []) if isinstance(row, dict)]
+    state_scenario["supplier_risk_events"] = existing_events + injected_events
     data["scenarios"] = [row for row in scenarios if str((row or {}).get("id")) != target_scenario_id]
     data["scenarios"].append(state_scenario)
     meta = data.get("meta") if isinstance(data.get("meta"), dict) else {}
@@ -1038,6 +1720,16 @@ def write_state_dependent_scenario_graph(
         "source_graph": repo_rel(source_graph),
         "source_scenario_id": source_scenario_id,
         "target_scenario_id": target_scenario_id,
+        "injected_supplier_risk_event_count": len(injected_events),
+        "calibration_source": repo_rel(SUPPLIER_RISK_CAMPAIGN_CASES_CSV),
+        "scenario_families": [
+            "ouragan fournisseurs americains",
+            "retards et quarantaine packaging pharma",
+            "fiabilite composants haute cadence",
+            "ralentissement liberation PFI 773474",
+            "crises fournisseur pharma variees",
+            "perturbations logistiques aval PF",
+        ],
     }
     data["meta"] = meta
     write_json(output_graph, data)
@@ -1240,6 +1932,7 @@ def run_operational_rebuild(
             output_graph=scenario_graph,
             source_scenario_id=scenario_id,
             target_scenario_id=state_scenario_id,
+            horizon_days=days,
         )
         simulated_risk_output_dir = run_active_mrp_physical(
             output_dir=target_output_dir / "scenario_runs" / "state_dependent_full",

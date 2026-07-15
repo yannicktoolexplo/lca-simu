@@ -7855,12 +7855,64 @@ def html_template(
 
     function simulatedRiskNodeImpact(nodeId) {{
       if (simulatedRiskVisibleMode() !== "state") return null;
-      return SIMULATED_RISK_NODE_IMPACTS[nodeId] || null;
+      const row = selectedSimulatedRiskCascade();
+      const globalImpact = SIMULATED_RISK_NODE_IMPACTS[nodeId] || null;
+      if (row) {{
+        if (!selectedSimulatedRiskCascadeIncludesNode(nodeId)) return null;
+        const color = simulatedRiskCascadeStageColor(row.stage);
+        return {{
+          ...(globalImpact || {{}}),
+          selected_cascade: true,
+          color,
+          score: Math.max(Number((globalImpact || {{}}).score) || 0, 0.82),
+          stage: row.stage || (globalImpact || {{}}).stage || "",
+          stage_label: row.stage_label || simulatedRiskCascadeStageLabel(row),
+          status_label: row.absorption_label || row.stage_label || simulatedRiskCascadeStageLabel(row),
+          primary_trigger: row.trigger || row.trigger_metric || row.root_cause_label || (globalImpact || {{}}).primary_trigger || "cascade selectionnee",
+          period: row.period || simulatedRiskCascadePeriodText(row) || (globalImpact || {{}}).period || "n/a",
+          supplier_id: row.supplier_id || (globalImpact || {{}}).supplier_id || "",
+          supplier_label: row.supplier_label || (globalImpact || {{}}).supplier_label || "",
+          item_id: row.item_id || (globalImpact || {{}}).item_id || "",
+          item_label: row.item_label || (globalImpact || {{}}).item_label || "",
+          production_delay_count: row.production_delay_count ?? (globalImpact || {{}}).production_delay_count ?? 0,
+          production_shortfall_qty: row.production_shortfall_qty ?? (globalImpact || {{}}).production_shortfall_qty ?? 0,
+          customer_backlog_max_qty: row.customer_backlog_max_qty ?? (globalImpact || {{}}).customer_backlog_max_qty ?? 0,
+          root_count: row.root_count ?? (globalImpact || {{}}).root_count ?? 1,
+          effective_root_count: row.effective_root_count ?? (globalImpact || {{}}).effective_root_count ?? 1,
+        }};
+      }}
+      return globalImpact;
     }}
 
     function simulatedRiskEdgeImpact(edgeId) {{
       if (simulatedRiskVisibleMode() !== "state") return null;
-      return SIMULATED_RISK_EDGE_IMPACTS[edgeId] || null;
+      const row = selectedSimulatedRiskCascade();
+      const globalImpact = SIMULATED_RISK_EDGE_IMPACTS[edgeId] || null;
+      if (row) {{
+        if (!selectedSimulatedRiskCascadeIncludesEdge(edgeId)) return null;
+        const edge = EDGE_BY_ID[edgeId] || {{}};
+        const duration = simulatedRiskCascadeDuration(row);
+        const itemIds = new Set([
+          row.item_id,
+          ...(Array.isArray(row.impacted_output_items) ? row.impacted_output_items : []),
+          ...(Array.isArray(edge.items) ? edge.items : []),
+        ].map(value => String(value || "")).filter(Boolean));
+        return {{
+          ...(globalImpact || {{}}),
+          selected_cascade: true,
+          color: simulatedRiskCascadeStageColor(row.stage),
+          score: Math.max(Number((globalImpact || {{}}).score) || 0, 0.82),
+          status_label: row.stage_label || simulatedRiskCascadeStageLabel(row),
+          period: row.period || simulatedRiskCascadePeriodText(row) || (globalImpact || {{}}).period || "n/a",
+          active_day_count: duration ?? (globalImpact || {{}}).active_day_count ?? 0,
+          delay_row_count: row.applied_event_count ?? (globalImpact || {{}}).delay_row_count ?? 0,
+          max_extra_days: (globalImpact || {{}}).max_extra_days ?? 0,
+          max_multiplier: (globalImpact || {{}}).max_multiplier ?? 1,
+          item_ids: [...itemIds],
+          event_examples: [row.root_cause_label || row.trigger || "cascade selectionnee"].filter(Boolean),
+        }};
+      }}
+      return globalImpact;
     }}
 
     function simulatedRiskImpactLines(impact) {{
@@ -7921,15 +7973,25 @@ def html_template(
     }}
 
     function simulatedRiskCascadeRows() {{
-      const rows = Array.isArray(SIMULATED_RISK_GLOBAL_DIAGNOSTIC.cascade_roots)
+      const groupedRows = Array.isArray(SIMULATED_RISK_GLOBAL_DIAGNOSTIC.cascade_path_groups)
+        ? SIMULATED_RISK_GLOBAL_DIAGNOSTIC.cascade_path_groups
+        : [];
+      const rootRows = Array.isArray(SIMULATED_RISK_GLOBAL_DIAGNOSTIC.cascade_roots)
         ? SIMULATED_RISK_GLOBAL_DIAGNOSTIC.cascade_roots
         : [];
+      const rows = groupedRows.length ? groupedRows : rootRows;
       return rows.slice().sort((a, b) => Number(b.impact_score || 0) - Number(a.impact_score || 0));
     }}
 
     function simulatedRiskCascadeKey(row, idx = 0) {{
       if (!row) return "";
-      return String(row.root_key || row.event_id || `${{row.stage || "cascade"}}|${{row.supplier_id || ""}}|${{row.item_id || ""}}|${{row.root_day ?? idx}}`);
+      return String(row.business_path_key || row.root_key || row.event_id || `${{row.stage || "cascade"}}|${{row.supplier_id || ""}}|${{row.item_id || ""}}|${{row.root_day ?? idx}}`);
+    }}
+
+    function simulatedRiskCascadeKeyForRow(row) {{
+      const rows = simulatedRiskCascadeRows();
+      const idx = rows.indexOf(row);
+      return simulatedRiskCascadeKey(row, idx >= 0 ? idx : 0);
     }}
 
     function simulatedRiskCascadeFamilies(row) {{
@@ -7981,6 +8043,9 @@ def html_template(
           row.absorption_label,
           row.reading,
           row.period,
+          row.business_path_label,
+          row.route_text,
+          row.worst_period,
           ...(Array.isArray(row.affected_factory_labels) ? row.affected_factory_labels : []),
           ...(Array.isArray(row.affected_customer_labels) ? row.affected_customer_labels : []),
           ...(Array.isArray(row.impacted_output_item_labels) ? row.impacted_output_item_labels : []),
@@ -7988,6 +8053,8 @@ def html_template(
           ...(Array.isArray(row.affected_customer_nodes) ? row.affected_customer_nodes : []),
           ...(Array.isArray(row.impacted_output_items) ? row.impacted_output_items : []),
           ...(Array.isArray(row.highlight_edge_ids) ? row.highlight_edge_ids : []),
+          ...(Array.isArray(row.route_edge_ids) ? row.route_edge_ids : []),
+          ...(Array.isArray(row.route_edge_labels) ? row.route_edge_labels : []),
         ].map(value => String(value || "").toLowerCase()).join(" ");
         if (!haystack.includes(text)) return false;
       }}
@@ -8006,6 +8073,7 @@ def html_template(
     function simulatedRiskCascadeNodeIds(row) {{
       if (!row) return [];
       const ids = [];
+      if (Array.isArray(row.route_node_ids)) ids.push(...row.route_node_ids);
       if (Array.isArray(row.highlight_node_ids)) ids.push(...row.highlight_node_ids);
       if (row.supplier_id) ids.push(row.supplier_id);
       if (Array.isArray(row.affected_factory_nodes)) ids.push(...row.affected_factory_nodes);
@@ -8017,9 +8085,74 @@ def html_template(
     function simulatedRiskCascadeEdgeIds(row) {{
       if (!row) return [];
       const ids = [];
+      if (Array.isArray(row.route_edge_ids)) ids.push(...row.route_edge_ids);
       if (Array.isArray(row.highlight_edge_ids)) ids.push(...row.highlight_edge_ids);
       if (Array.isArray(row.impacted_edges)) ids.push(...row.impacted_edges.map(edge => edge && edge.edge_id));
       return [...new Set(ids.map(value => String(value || "")).filter(Boolean))];
+    }}
+
+    function simulatedRiskCascadePathSignature(row) {{
+      const nodes = simulatedRiskCascadeNodeIds(row).join(">");
+      const edges = simulatedRiskCascadeEdgeIds(row).join(">");
+      return `${{nodes}}|${{edges}}`;
+    }}
+
+    function diversifiedSimulatedRiskCascadeRows(rows, limit = 120) {{
+      const input = Array.isArray(rows) ? rows : [];
+      const seenPaths = new Set();
+      const diversified = [];
+      const repeated = [];
+      input.forEach(row => {{
+        const signature = simulatedRiskCascadePathSignature(row);
+        if (signature && !seenPaths.has(signature)) {{
+          seenPaths.add(signature);
+          diversified.push(row);
+        }} else {{
+          repeated.push(row);
+        }}
+      }});
+      return [...diversified, ...repeated].slice(0, limit);
+    }}
+
+    function simulatedRiskCascadeRouteText(row) {{
+      if (!row) return "n/a";
+      if (row.route_text) return String(row.route_text);
+      if (row.business_path_label) return String(row.business_path_label);
+      const supplier = row.supplier_id || "origine";
+      const factories = Array.isArray(row.affected_factory_nodes) && row.affected_factory_nodes.length
+        ? row.affected_factory_nodes.join(",")
+        : "";
+      const customers = Array.isArray(row.affected_customer_nodes) && row.affected_customer_nodes.length
+        ? row.affected_customer_nodes.join(",")
+        : "";
+      const route = [supplier, factories, customers].filter(Boolean).join(" -> ");
+      const item = row.item_id || "item n/a";
+      const edgeCount = simulatedRiskCascadeEdgeIds(row).length;
+      const suffix = edgeCount ? `${{edgeCount}} flux` : "flux non localise";
+      return `${{route || supplier}} | ${{item}} | ${{suffix}}`;
+    }}
+
+    function selectedSimulatedRiskCascadeNodeIdSet() {{
+      const row = selectedSimulatedRiskCascade();
+      return new Set(simulatedRiskCascadeNodeIds(row));
+    }}
+
+    function selectedSimulatedRiskCascadeEdgeIdSet() {{
+      const row = selectedSimulatedRiskCascade();
+      if (!row) return new Set();
+      const directIds = simulatedRiskCascadeEdgeIds(row);
+      const derivedIds = selectedSimulatedRiskCascadeMapEdges().map(edge => String(edge.id || ""));
+      return new Set([...directIds, ...derivedIds].filter(Boolean));
+    }}
+
+    function selectedSimulatedRiskCascadeIncludesNode(nodeId) {{
+      if (!selectedSimulatedRiskCascadeKey) return false;
+      return selectedSimulatedRiskCascadeNodeIdSet().has(String(nodeId || ""));
+    }}
+
+    function selectedSimulatedRiskCascadeIncludesEdge(edgeId) {{
+      if (!selectedSimulatedRiskCascadeKey) return false;
+      return selectedSimulatedRiskCascadeEdgeIdSet().has(String(edgeId || ""));
     }}
 
     function setSelectedSimulatedRiskCascade(key, shouldDraw = true) {{
@@ -8068,6 +8201,10 @@ def html_template(
         affected_factory: "Usine touchee",
         affected_customer: "Client touche",
         supplier_flow: "Flux fournisseur",
+        local_supply_flow: "Flux fournisseur",
+        downstream_route: "Flux aval",
+        route: "Flux de route",
+        route_node: "Noeud de route",
       }};
       return labels[value] || value || "n/a";
     }}
@@ -8182,13 +8319,11 @@ def html_template(
     function simulatedRiskCascadeRowsForNode(nodeId) {{
       const id = String(nodeId || "");
       if (!id) return [];
-      const cascades = Array.isArray(SIMULATED_RISK_GLOBAL_DIAGNOSTIC.cascade_roots)
-        ? SIMULATED_RISK_GLOBAL_DIAGNOSTIC.cascade_roots
-        : [];
       const containsNode = (values) => Array.isArray(values) && values.map(value => String(value || "")).includes(id);
-      return cascades
+      return simulatedRiskCascadeRows()
         .filter(row =>
           String(row.supplier_id || "") === id ||
+          containsNode(row.route_node_ids) ||
           containsNode(row.affected_factory_nodes) ||
           containsNode(row.affected_customer_nodes)
         )
@@ -8244,7 +8379,9 @@ def html_template(
         const itemLabel = row.item_label || simulatedRiskCascadeItemLabel(row.item_id);
         const edgeLabels = Array.isArray(row.impacted_edge_labels) && row.impacted_edge_labels.length
           ? row.impacted_edge_labels.map(simulatedRiskCascadeEdgeLabel)
-          : (Array.isArray(row.highlight_edge_ids) ? row.highlight_edge_ids.map(simulatedRiskCascadeEdgeLabel) : []);
+          : (Array.isArray(row.route_edge_labels) && row.route_edge_labels.length
+            ? row.route_edge_labels
+            : (Array.isArray(row.highlight_edge_ids) ? row.highlight_edge_ids.map(simulatedRiskCascadeEdgeLabel) : []));
         const localLines = simulatedRiskCascadeLocalLines(row);
         const routeLines = simulatedRiskCascadePropagationLines(row, itemLabel, outputLabels, factoryLabels, customerLabels, edgeLabels);
         const impactLines = simulatedRiskCascadeImpactLines(row);
@@ -8309,7 +8446,9 @@ def html_template(
         : (Array.isArray(row.impacted_output_items) ? row.impacted_output_items.map(simulatedRiskCascadeItemLabel) : []);
       const edgeLabels = Array.isArray(row.impacted_edge_labels) && row.impacted_edge_labels.length
         ? row.impacted_edge_labels.map(simulatedRiskCascadeEdgeLabel)
-        : simulatedRiskCascadeEdgeIds(row).map(simulatedRiskCascadeEdgeLabel);
+        : (Array.isArray(row.route_edge_labels) && row.route_edge_labels.length
+          ? row.route_edge_labels
+          : simulatedRiskCascadeEdgeIds(row).map(simulatedRiskCascadeEdgeLabel));
       const localApplication = row.local_application || {{}};
       const duration = simulatedRiskCascadeDuration(row);
       const periodText = simulatedRiskCascadePeriodText(row);
@@ -8317,6 +8456,7 @@ def html_template(
         ["Origine", supplierLabel],
         ["Article declencheur", itemLabel],
         ["Periode / duree", duration !== null ? `${{periodText}}` : periodText],
+        ["Occurrences consolidees", row.occurrence_count ? `${{row.occurrence_count}} occurrence(s), pire periode ${{row.worst_period || row.period || "n/a"}}` : "n/a"],
         ["Signal declencheur", simulatedRiskCascadeTriggerDetail(row)],
         ["Effet configure", row.configured_effect || row.local_effect || "n/a"],
         ["Facteurs appliques", simulatedRiskCascadeListText(localApplication.factor_labels || [], 4)],
@@ -8353,7 +8493,7 @@ def html_template(
           <div class="riskScenarioCards">
             <div class="riskScenarioCard" style="border-left-color:${{escapeHtmlText(color)}}">
               <div class="riskScenarioCardTitle">Cause supply avec impact</div>
-              <div class="riskScenarioCardText"><strong>${{escapeHtmlText(row.root_cause_label || row.label || "n/a")}}</strong><br>${{escapeHtmlText(families)}} ; ${{escapeHtmlText(periodText)}}</div>
+              <div class="riskScenarioCardText"><strong>${{escapeHtmlText(row.business_path_label || row.root_cause_label || row.label || "n/a")}}</strong><br>${{escapeHtmlText(families)}} ; ${{escapeHtmlText(periodText)}}</div>
             </div>
             <div class="riskScenarioCard" style="border-left-color:#0f766e">
               <div class="riskScenarioCardTitle">Propagation aval</div>
@@ -8390,7 +8530,7 @@ def html_template(
     }}
 
     function simulatedRiskCascadeListItemHtml(row, idx) {{
-      const key = simulatedRiskCascadeKey(row, idx);
+      const key = simulatedRiskCascadeKeyForRow(row);
       const active = key && key === selectedSimulatedRiskCascadeKey;
       const color = simulatedRiskCascadeStageColor(row.stage);
       const supplierLabel = row.supplier_label || simulatedRiskCascadeNodeLabel(row.supplier_id);
@@ -8408,10 +8548,14 @@ def html_template(
         ? `backlog max ${{fmtPanelQty(Number(row.customer_backlog_max_qty) || 0, 0)}}`
         : (row.stage === "production"
           ? `${{row.production_delay_count || 0}} report(s), ${{fmtPanelQty(Number(row.production_shortfall_qty) || 0, 0)}}`
-          : (row.reading || "effet observe"));
+          : (row.stage === "cost"
+            ? `cout add. ${{fmtPanelQty(Number(row.cost_impact_qty) || 0, 0)}}`
+            : (row.reading || "effet observe")));
+      const routeText = simulatedRiskCascadeRouteText(row);
       const chips = [
         simulatedRiskCascadeStageLabel(row),
         duration !== null ? `${{duration}} j` : "",
+        row.occurrence_count ? `${{row.occurrence_count}} occurrence(s)` : "",
         factoryLabels.length ? `Site: ${{simulatedRiskCascadeListText(factoryLabels, 1)}}` : "",
         outputLabels.length ? `Produit: ${{simulatedRiskCascadeListText(outputLabels, 2)}}` : "",
         edgeCount ? `${{edgeCount}} flux` : "",
@@ -8419,7 +8563,7 @@ def html_template(
       return `
         <button class="riskCascadeListItem${{active ? " active" : ""}}" type="button" data-cascade-key="${{escapeHtmlText(key)}}" style="border-left-color:${{escapeHtmlText(color)}}">
           <div class="riskCascadeListTitle">${{escapeHtmlText(simulatedRiskCascadeShortText(title, 90))}}</div>
-          <div class="riskCascadeListText">${{escapeHtmlText(row.trigger || row.root_cause_label || "signal")}} - ${{escapeHtmlText(simulatedRiskCascadePeriodText(row))}}</div>
+          <div class="riskCascadeListText">${{escapeHtmlText(routeText)}} - ${{escapeHtmlText(simulatedRiskCascadePeriodText(row))}}</div>
           <div class="riskCascadeListMeta">${{escapeHtmlText(metric)}}</div>
           <div class="riskCascadeChips">${{chips}}</div>
         </button>
@@ -8434,7 +8578,7 @@ def html_template(
       const rows = filteredSimulatedRiskCascadeRows();
       const selected = selectedSimulatedRiskCascade();
       const detailRow = selected || rows[0] || null;
-      const listHtml = rows.slice(0, 80).map(simulatedRiskCascadeListItemHtml).join("");
+      const listHtml = diversifiedSimulatedRiskCascadeRows(rows, 80).map(simulatedRiskCascadeListItemHtml).join("");
       const html = `
         <div id="simRiskCascadeExplorerHost" class="riskCascadeExplorer">
           <div class="riskScenarioSection">Explorateur de cascades dynamiques fournisseur</div>
@@ -8855,6 +8999,7 @@ def html_template(
       if (currentPanelMode === "simulated_risk") {{
         const impact = simulatedRiskNodeImpact(n.id);
         if (impact && impact.color) return impact.color;
+        if (selectedSimulatedRiskCascadeKey) return "#cbd5e1";
         const simulatedMeta = nodeSimulatedRiskMeta(n.id);
         return (simulatedMeta && simulatedMeta.driver_color) ? simulatedMeta.driver_color : "#94a3b8";
       }}
@@ -8883,6 +9028,7 @@ def html_template(
           const roots = Number(impact.effective_root_count) || 0;
           return Math.max(10, Math.min(20, 10 + score * 7 + Math.min(roots, 4)));
         }}
+        if (selectedSimulatedRiskCascadeKey) return 7;
         const simulatedMeta = nodeSimulatedRiskMeta(n.id);
         if (!simulatedMeta) return 8;
         const score = Number(simulatedMeta.score) || 0;
@@ -8908,6 +9054,7 @@ def html_template(
       if (currentPanelMode === "simulated_risk") {{
         const impact = simulatedRiskNodeImpact(n.id);
         if (impact) return 0.98;
+        if (selectedSimulatedRiskCascadeKey) return 0.16;
         const simulatedMeta = nodeSimulatedRiskMeta(n.id);
         if (!simulatedMeta) return 0.34;
         if (simulatedMeta.source === "supplier_risk_campaign") return 0.96;
@@ -8944,6 +9091,9 @@ def html_template(
       if (impact && currentPanelMode === "simulated_risk") {{
         const impactLines = simulatedRiskImpactLines(impact);
         if (impactLines.length) return impactLines.join("<br>");
+      }}
+      if (currentPanelMode === "simulated_risk" && selectedSimulatedRiskCascadeKey) {{
+        return "Hors cascade selectionnee";
       }}
       const meta = nodeSimulatedRiskMeta(n.id);
       if (!meta || currentPanelMode !== "simulated_risk") return "";
@@ -9235,11 +9385,92 @@ def html_template(
       return traces;
     }}
 
+    function simulatedRiskCascadeRouteClosure(row) {{
+      if (!row) return {{ nodeIds: new Set(), edgeIds: new Set() }};
+      const edgeIds = new Set(simulatedRiskCascadeEdgeIds(row));
+      const nodeIds = new Set(simulatedRiskCascadeNodeIds(row));
+      const itemIds = new Set([
+        row.item_id,
+        ...(Array.isArray(row.impacted_output_items) ? row.impacted_output_items : []),
+      ].map(value => String(value || "")).filter(Boolean));
+
+      function edgeItems(edge) {{
+        return Array.isArray(edge && edge.items) ? edge.items.map(value => String(value || "")) : [];
+      }}
+
+      function edgeMatchesItems(edge, allowedItems) {{
+        if (!allowedItems || !allowedItems.size) return true;
+        return edgeItems(edge).some(item => allowedItems.has(item));
+      }}
+
+      function addEdge(edge) {{
+        if (!edge || !edge.id) return;
+        edgeIds.add(String(edge.id));
+        if (edge.from) nodeIds.add(String(edge.from));
+        if (edge.to) nodeIds.add(String(edge.to));
+      }}
+
+      for (const edge of (DATA.edges || [])) {{
+        if (!nodeIds.has(String(edge.from || "")) || !nodeIds.has(String(edge.to || ""))) continue;
+        if (edgeMatchesItems(edge, itemIds)) addEdge(edge);
+      }}
+
+      const outputItemIds = new Set(
+        (Array.isArray(row.impacted_output_items) ? row.impacted_output_items : [])
+          .map(value => String(value || ""))
+          .filter(Boolean)
+      );
+      const factoryNodes = new Set([
+        ...(Array.isArray(row.affected_factory_nodes) ? row.affected_factory_nodes : []),
+        ...Array.from(nodeIds).filter(nodeId => isFactoryLikeNode(nodeId, String((nodeById[nodeId] || {{}}).type || ""))),
+      ].map(value => String(value || "")).filter(Boolean));
+      const customerNodes = new Set(
+        (Array.isArray(row.affected_customer_nodes) ? row.affected_customer_nodes : [])
+          .map(value => String(value || ""))
+          .filter(Boolean)
+      );
+
+      if (factoryNodes.size && customerNodes.size && outputItemIds.size) {{
+        const edges = DATA.edges || [];
+        const byFrom = new Map();
+        edges.forEach(edge => {{
+          const from = String(edge.from || "");
+          if (!from) return;
+          if (!byFrom.has(from)) byFrom.set(from, []);
+          byFrom.get(from).push(edge);
+        }});
+        const maxDepth = 3;
+        factoryNodes.forEach(factoryId => {{
+          const queue = [{{ nodeId: factoryId, path: [], seen: new Set([factoryId]) }}];
+          while (queue.length) {{
+            const current = queue.shift();
+            if (!current || current.path.length >= maxDepth) continue;
+            (byFrom.get(current.nodeId) || []).forEach(edge => {{
+              if (!edgeMatchesItems(edge, outputItemIds)) return;
+              const nextNode = String(edge.to || "");
+              if (!nextNode || current.seen.has(nextNode)) return;
+              const nextPath = [...current.path, edge];
+              if (customerNodes.has(nextNode)) {{
+                nextPath.forEach(addEdge);
+                return;
+              }}
+              const nextSeen = new Set(current.seen);
+              nextSeen.add(nextNode);
+              queue.push({{ nodeId: nextNode, path: nextPath, seen: nextSeen }});
+            }});
+          }}
+        }});
+      }}
+
+      return {{ nodeIds, edgeIds }};
+    }}
+
     function selectedSimulatedRiskCascadeMapNodes() {{
       if (currentPanelMode !== "simulated_risk" || simulatedRiskVisibleMode() !== "state") return [];
       const row = selectedSimulatedRiskCascade();
       if (!row) return [];
-      return simulatedRiskCascadeNodeIds(row)
+      const closure = simulatedRiskCascadeRouteClosure(row);
+      return [...closure.nodeIds]
         .map(nodeId => nodeById[nodeId])
         .filter(node => node && Number.isFinite(node.lat) && Number.isFinite(node.lon));
     }}
@@ -9248,19 +9479,8 @@ def html_template(
       if (currentPanelMode !== "simulated_risk" || simulatedRiskVisibleMode() !== "state") return [];
       const row = selectedSimulatedRiskCascade();
       if (!row) return [];
-      const edgeIds = new Set(simulatedRiskCascadeEdgeIds(row));
-      const nodeIds = new Set(simulatedRiskCascadeNodeIds(row));
-      const itemIds = new Set([
-        row.item_id,
-        ...(Array.isArray(row.impacted_output_items) ? row.impacted_output_items : []),
-      ].map(value => String(value || "")).filter(Boolean));
-      for (const edge of (DATA.edges || [])) {{
-        if (!nodeIds.has(String(edge.from || "")) || !nodeIds.has(String(edge.to || ""))) continue;
-        const items = Array.isArray(edge.items) ? edge.items.map(value => String(value || "")) : [];
-        const itemMatch = !itemIds.size || items.some(item => itemIds.has(item));
-        if (itemMatch && edge.id) edgeIds.add(String(edge.id));
-      }}
-      return [...edgeIds].map(edgeId => EDGE_BY_ID[edgeId]).filter(Boolean);
+      const closure = simulatedRiskCascadeRouteClosure(row);
+      return [...closure.edgeIds].map(edgeId => EDGE_BY_ID[edgeId]).filter(Boolean);
     }}
 
     function buildSimulatedRiskCascadeOverlayTraces() {{
@@ -9377,8 +9597,14 @@ def html_template(
           let width = 1 + Math.min(itemCount, 4);
           const mutedEdgeMode = currentPanelMode === "sensitivity" || currentPanelMode === "simulated_risk" || currentPanelMode === "risk" || currentPanelMode === "uncertainty";
           const riskEdgeImpact = currentPanelMode === "simulated_risk" ? simulatedRiskEdgeImpact(e.id) : null;
+          const simulatedRiskCascadeFocus = currentPanelMode === "simulated_risk" && Boolean(selectedSimulatedRiskCascadeKey);
           let lineColor = mutedEdgeMode ? "#94a3b8" : edgeLeadColor(e);
           let lineOpacity = mutedEdgeMode ? 0.24 : 0.65;
+          if (simulatedRiskCascadeFocus && !riskEdgeImpact) {{
+            lineColor = "#cbd5e1";
+            lineOpacity = 0.08;
+            width = 1.15;
+          }}
           if (riskEdgeImpact) {{
             const impactScore = Number(riskEdgeImpact.score) || 0;
             lineColor = riskEdgeImpact.color || "#f97316";
@@ -9786,6 +10012,14 @@ def html_template(
             cls,
           }};
         }}
+        if (selectedSimulatedRiskCascadeKey) {{
+          return {{
+            pill: "Risques simules",
+            title: `${{nodeLabel}} - hors cascade selectionnee`,
+            text: "Question metier: ce noeud participe-t-il au cas selectionne ? Non. Les noeuds et flux du cas choisi restent surlignes sur la carte.",
+            cls: "businessInfo",
+          }};
+        }}
         const meta = nodeSimulatedRiskMeta(nodeId);
         if (meta) {{
           const cls = meta.status === "applied" ? "businessWarn" : (meta.status === "configured" ? "businessInfo" : "businessOk");
@@ -10108,6 +10342,8 @@ def html_template(
               {{ label: "Volume reporte", value: fmtPanelQty(Number(impact.production_shortfall_qty) || 0, 0) }},
               {{ label: "Backlog max", value: fmtPanelQty(Number(impact.customer_backlog_max_qty) || 0, 0) }},
             ];
+          }} else if (selectedSimulatedRiskCascadeKey) {{
+            lines = [];
           }} else {{
             const meta = nodeSimulatedRiskMeta(nodeId);
             lines = meta && Array.isArray(meta.summary_lines) ? meta.summary_lines : [];
@@ -10753,26 +10989,27 @@ def html_template(
       const clearCascadeBtn = document.getElementById("simulatedRiskCascadeClearBtn");
       if (stageFilter) stageFilter.value = simulatedRiskCascadeStageFilter;
       if (familyFilter) familyFilter.value = simulatedRiskCascadeFamilyFilter;
-      const filteredCascades = visibleMode === "state" ? filteredSimulatedRiskCascadeRows() : [];
-      const filteredKeys = new Set(filteredCascades.map((row, idx) => simulatedRiskCascadeKey(row, idx)));
+      const filteredCascades = hasState ? filteredSimulatedRiskCascadeRows() : [];
+      const filteredKeys = new Set(filteredCascades.map(row => simulatedRiskCascadeKeyForRow(row)));
       if (selectedSimulatedRiskCascadeKey && !filteredKeys.has(selectedSimulatedRiskCascadeKey)) {{
         selectedSimulatedRiskCascadeKey = "";
       }}
       if (cascadeSelect) {{
         const options = ['<option value="">Toutes les cascades</option>'];
-        filteredCascades.slice(0, 120).forEach((row, idx) => {{
-          const key = simulatedRiskCascadeKey(row, idx);
+        diversifiedSimulatedRiskCascadeRows(filteredCascades, 120).forEach((row) => {{
+          const key = simulatedRiskCascadeKeyForRow(row);
           const title = row.root_cause_label || row.label || key;
           const stage = simulatedRiskCascadeStageLabel(row);
-          options.push(`<option value="${{escapeHtmlText(key)}}">${{escapeHtmlText(simulatedRiskCascadeShortText(`[${{stage}}] ${{title}}`, 120))}}</option>`);
+          const route = simulatedRiskCascadeRouteText(row);
+          options.push(`<option value="${{escapeHtmlText(key)}}">${{escapeHtmlText(simulatedRiskCascadeShortText(`[${{stage}}] ${{route}} | ${{title}}`, 140))}}</option>`);
         }});
         cascadeSelect.innerHTML = options.join("");
         cascadeSelect.value = selectedSimulatedRiskCascadeKey || "";
-        cascadeSelect.disabled = visibleMode !== "state" || !filteredCascades.length;
+        cascadeSelect.disabled = !filteredCascades.length;
       }}
-      if (stageFilter) stageFilter.disabled = visibleMode !== "state";
-      if (familyFilter) familyFilter.disabled = visibleMode !== "state";
-      if (clearCascadeBtn) clearCascadeBtn.disabled = visibleMode !== "state" || !selectedSimulatedRiskCascadeKey;
+      if (stageFilter) stageFilter.disabled = !hasState;
+      if (familyFilter) familyFilter.disabled = !hasState;
+      if (clearCascadeBtn) clearCascadeBtn.disabled = !hasState || !selectedSimulatedRiskCascadeKey;
     }}
 
     function updateUncertaintyControls() {{
@@ -13618,9 +13855,10 @@ def html_template(
       const simulatedRiskCascadeSelect = document.getElementById("simulatedRiskCascadeSelect");
       if (simulatedRiskCascadeSelect) {{
         simulatedRiskCascadeSelect.addEventListener("change", (ev) => {{
+          const cascadeKey = ev.target.value || "";
           setPanelMode("simulated_risk");
           setSimulatedRiskViewMode("state");
-          setSelectedSimulatedRiskCascade(ev.target.value || "");
+          setSelectedSimulatedRiskCascade(cascadeKey);
         }});
       }}
       const simulatedRiskCascadeStageFilterEl = document.getElementById("simulatedRiskCascadeStageFilter");
