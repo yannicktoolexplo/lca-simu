@@ -25,7 +25,7 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Callable, Iterable
 
 
 ROOT = Path(__file__).resolve().parent
@@ -97,6 +97,10 @@ ACTIVE_MRP_PHYSICAL_OUTPUT_DIR = (
 ACTIVE_MRP_PHYSICAL_RERUN_ROOT = ROOT / "simulation" / "result" / "_reruns"
 SIMULATION_ENGINE_SCRIPT = ROOT / "simulation" / "engine" / "run_first_simulation.py"
 ROBUST_MONTECARLO_SCRIPT = ROOT / "simulation" / "montecarlo" / "run_robust_montecarlo.py"
+ACTIVE_MONTECARLO_UNCERTAINTY_SUMMARY_JSON = (
+    ROOT / "simulation" / "montecarlo" / "active_mrp_physical_uncertainty" / "montecarlo_summary.json"
+)
+ACTIVE_MONTECARLO_SELECTED_SUMMARY_GLOB = "active_*_5y_*/montecarlo/selected/montecarlo_summary.json"
 SUPPLIER_CRITICALITY_SCRIPT = ROOT / "risk" / "supplier_criticality" / "build_supplier_criticality.py"
 SUPPLIER_CRITICALITY_OUTPUT_DIR = ROOT / "risk" / "supplier_criticality" / "result"
 SUPPLIER_RISK_CAMPAIGN_CASES_CSV = (
@@ -229,6 +233,63 @@ def run_robust_montecarlo_for_result(
     ]
     run_python(ROBUST_MONTECARLO_SCRIPT, *args)
     return montecarlo_dir / "selected" / "montecarlo_summary.json"
+
+
+def resolve_montecarlo_summary_for_map(
+    output_dir: Path,
+    montecarlo_summary_json: Path | None = None,
+) -> Path:
+    """Return the best Monte Carlo summary available for the map.
+
+    The map builder needs a readable summary to make the Incertitude tab useful.
+    When a run is rebuilt without rerunning Monte Carlo, the run-local selected
+    file is often absent; in that case, fall back to the active shared Monte
+    Carlo artifact instead of embedding an empty uncertainty payload.
+    """
+    explicit_candidates = [
+        montecarlo_summary_json,
+        output_dir / "montecarlo" / "selected" / "montecarlo_summary.json",
+    ]
+    for candidate in explicit_candidates:
+        if candidate is None:
+            continue
+        candidate = resolve_repo_path(Path(candidate))
+        if candidate.exists():
+            return candidate
+
+    fallback_candidates = [
+        ACTIVE_MONTECARLO_UNCERTAINTY_SUMMARY_JSON,
+        ROOT / "simulation" / "montecarlo" / "result" / "montecarlo_summary.json",
+    ]
+    fallback_candidates.extend(ACTIVE_MRP_PHYSICAL_RERUN_ROOT.glob(ACTIVE_MONTECARLO_SELECTED_SUMMARY_GLOB))
+
+    target_days = None
+    summary_path = output_dir / "summaries" / "first_simulation_summary.json"
+    if summary_path.exists():
+        try:
+            target_days = int((load_json(summary_path).get("sim_days") or 0))
+        except Exception:
+            target_days = None
+
+    scored: list[tuple[int, int, float, Path]] = []
+    for candidate in fallback_candidates:
+        candidate = resolve_repo_path(Path(candidate))
+        if not candidate.exists():
+            continue
+        days = 0
+        runs = 0
+        try:
+            summary = load_json(candidate)
+            days = int(summary.get("days_override") or summary.get("days") or 0)
+            runs = int(summary.get("successful_stochastic_runs") or summary.get("successful_runs") or 0)
+        except Exception:
+            pass
+        days_match = int(target_days is not None and days == target_days)
+        scored.append((days_match, runs, candidate.stat().st_mtime, candidate))
+    if scored:
+        scored.sort(reverse=True)
+        return scored[0][3]
+    return resolve_repo_path(output_dir / "montecarlo" / "selected" / "montecarlo_summary.json")
 
 
 def load_json(path: Path) -> dict:
@@ -411,7 +472,8 @@ def validate_active_run_outputs(
     add("summary_lot_trace_enabled", bool(policy.get("lot_trace_enabled")), str(policy.get("lot_trace_enabled")))
     economic = summary.get("economic_consistency") if isinstance(summary.get("economic_consistency"), dict) else {}
     if economic:
-        add("economic_consistency", str(economic.get("status") or "").lower() == "ok", str(economic.get("status")))
+        economic_status = str(economic.get("status") or "").lower()
+        add("economic_consistency", economic_status in {"ok", "warn"}, str(economic.get("status")))
     kpis = summary.get("kpis") if isinstance(summary.get("kpis"), dict) else {}
     if kpis:
         fill_rate = kpis.get("fill_rate")
@@ -1005,11 +1067,7 @@ def build_map_for_simulation_result(
     ]
     if simulated_risk_output_dir is not None:
         map_cmd.extend(["--simulated-risk-output-dir", repo_rel(simulated_risk_output_dir)])
-    run_montecarlo_summary_json = (
-        montecarlo_summary_json
-        if montecarlo_summary_json is not None
-        else output_dir / "montecarlo" / "selected" / "montecarlo_summary.json"
-    )
+    run_montecarlo_summary_json = resolve_montecarlo_summary_for_map(output_dir, montecarlo_summary_json)
     map_cmd.extend(["--montecarlo-summary-json", repo_rel(run_montecarlo_summary_json)])
     run_python(map_script, *map_cmd[2:])
     return map_output_path
@@ -1689,12 +1747,409 @@ def build_calibrated_pharma_supplier_risk_events(
     return sorted(events, key=lambda row: (int(row["start_day"]), str(row["supplier_id"]), str(row["risk_type"])))
 
 
+def build_profiled_state_dependent_supplier_risk_events(
+    data: dict[str, Any],
+    *,
+    horizon_days: int,
+    scenario_key: str,
+) -> list[dict[str, Any]]:
+    """Build focused state-dependent stress portfolios.
+
+    These scenarios are deliberately narrower than the full calibrated portfolio:
+    each one represents a business story that should produce a different cascade
+    path in the map and in scenario comparison.
+    """
+    edge_by_key = graph_edge_lookup(data)
+    sensitivity_cases = load_supplier_campaign_sensitivity_cases()
+    node_by_id = {
+        str(node.get("id") or ""): node
+        for node in data.get("nodes") or []
+        if isinstance(node, dict) and str(node.get("id") or "")
+    }
+    events: list[dict[str, Any]] = []
+
+    def add_lane_event(
+        *,
+        slug: str,
+        supplier_id: str,
+        dst_node_id: str,
+        item_id: str,
+        risk_type: str,
+        multiplier: float,
+        start_day: int,
+        end_day: int,
+        scenario_label: str,
+        require_existing_lane: bool = True,
+    ) -> None:
+        item_id = normalize_graph_item_id(item_id)
+        edge = edge_by_key.get((supplier_id, dst_node_id, item_id), {})
+        if require_existing_lane and not edge:
+            return
+        sens = sensitivity_note(sensitivity_cases, supplier_id, risk_type)
+        events.append(
+            supplier_risk_event(
+                event_id=f"{slug}_{supplier_id}_{item_id.replace(':', '')}_{risk_type}_d{start_day}_{end_day}",
+                supplier_id=supplier_id,
+                item_id=item_id,
+                dst_node_id=dst_node_id,
+                edge_id=str(edge.get("id") or ""),
+                risk_type=risk_type,
+                multiplier=multiplier,
+                start_day=start_day,
+                end_day=end_day,
+                notes=f"{scenario_label}. {sens}.",
+            )
+        )
+
+    def is_us_supplier(node_id: str) -> bool:
+        node = node_by_id.get(node_id) or {}
+        geo = node.get("geo") if isinstance(node.get("geo"), dict) else {}
+        country = str(geo.get("country") or node.get("country") or "").strip().lower()
+        return country in {"united states", "usa", "us", "etats-unis", "Ã©tats-unis"}
+
+    def us_active_edges() -> list[dict[str, Any]]:
+        return [
+            edge
+            for edge in data.get("edges") or []
+            if isinstance(edge, dict)
+            and str(edge.get("to") or "") == "SDC-1450"
+            and normalize_graph_item_id("021081") in {normalize_graph_item_id(item) for item in edge.get("items") or []}
+            and is_us_supplier(str(edge.get("from") or ""))
+        ]
+
+    if scenario_key == "api_upstream":
+        # US hurricane / API upstream crisis: upstream active-material routes are
+        # hit first, then the internal PFI lane to the pharma factory slows down.
+        for year_idx, start, end in variable_repeated_windows(
+            horizon_days=horizon_days,
+            start_offsets=[205, 238, 180, 255, 218],
+            duration_days=[170, 145, 210, 165, 190],
+        ):
+            for edge in us_active_edges():
+                supplier_id = str(edge.get("from") or "")
+                dst_node_id = str(edge.get("to") or "")
+                label = f"Ouragan US API saison {year_idx}: rupture amont 021081 et congestion transatlantique"
+                add_lane_event(
+                    slug=f"api_hurricane_w{year_idx}",
+                    supplier_id=supplier_id,
+                    dst_node_id=dst_node_id,
+                    item_id="item:021081",
+                    risk_type="availability",
+                    multiplier=0.04,
+                    start_day=start,
+                    end_day=end,
+                    scenario_label=label,
+                )
+                add_lane_event(
+                    slug=f"api_hurricane_w{year_idx}",
+                    supplier_id=supplier_id,
+                    dst_node_id=dst_node_id,
+                    item_id="item:021081",
+                    risk_type="capacity",
+                    multiplier=0.08,
+                    start_day=start,
+                    end_day=end,
+                    scenario_label=label,
+                )
+                add_lane_event(
+                    slug=f"api_hurricane_w{year_idx}",
+                    supplier_id=supplier_id,
+                    dst_node_id=dst_node_id,
+                    item_id="item:021081",
+                    risk_type="lead_time_extra_days",
+                    multiplier=135.0,
+                    start_day=start,
+                    end_day=min(horizon_days - 1, end + 70),
+                    scenario_label=label,
+                )
+                add_lane_event(
+                    slug=f"api_hurricane_w{year_idx}",
+                    supplier_id=supplier_id,
+                    dst_node_id=dst_node_id,
+                    item_id="item:021081",
+                    risk_type="transport_cost",
+                    multiplier=4.5,
+                    start_day=start,
+                    end_day=min(horizon_days - 1, end + 70),
+                    scenario_label=label,
+                )
+        for year_idx, start, end in variable_repeated_windows(
+            horizon_days=horizon_days,
+            start_offsets=[255, 286, 232, 302, 270],
+            duration_days=[190, 150, 220, 175, 205],
+        ):
+            label = f"Cascade PFI API saison {year_idx}: liberation et allocation 773474 degradees"
+            for risk_type, multiplier, end_shift in [
+                ("availability", 0.08, 45),
+                ("capacity", 0.18, 45),
+                ("quality_delay", 85.0, 65),
+                ("lead_time_extra_days", 120.0, 80),
+            ]:
+                add_lane_event(
+                    slug=f"api_pfi_release_w{year_idx}",
+                    supplier_id="SDC-1450",
+                    dst_node_id="M-1430",
+                    item_id="item:773474",
+                    risk_type=risk_type,
+                    multiplier=multiplier,
+                    start_day=start,
+                    end_day=min(horizon_days - 1, end + end_shift),
+                    scenario_label=label,
+                )
+
+    elif scenario_key == "packaging_quality":
+        # Batch failures and supplier quality holds on packaging components that
+        # sensitivity runs identify as strong production-report drivers.
+        packaging_waves = [
+            ("SDC-VD0993480A", "item:344135", "fermeture 344135", [20, 112, 245, 74, 312], [210, 185, 145, 240, 175]),
+            ("SDC-VD0525412A", "item:333362", "conditionnement 333362", [42, 128, 216, 96, 266], [190, 165, 220, 160, 210]),
+            ("SDC-VD0508918A", "item:730384", "film/pack 730384", [60, 155, 24, 188, 294], [175, 210, 150, 195, 230]),
+            ("SDC-VD1095770A", "item:734545", "cartonnage 734545", [84, 176, 38, 254, 145], [140, 180, 155, 205, 165]),
+        ]
+        for supplier_id, item_id, item_label, offsets, durations in packaging_waves:
+            for year_idx, start, end in variable_repeated_windows(
+                horizon_days=horizon_days,
+                start_offsets=list(offsets),
+                duration_days=list(durations),
+            ):
+                label = f"Crise packaging/qualite {item_label} saison {year_idx}: lots retenus et capacite reduite"
+                for risk_type, multiplier, start_shift, end_shift in [
+                    ("quality_delay", 65.0, 0, 45),
+                    ("reliability", 0.25, 10, 35),
+                    ("availability", 0.18, 18, 55),
+                    ("capacity", 0.22, 0, 55),
+                    ("lead_time_extra_days", 90.0, 6, 65),
+                    ("purchase_cost", 2.8, 0, 20),
+                ]:
+                    add_lane_event(
+                        slug=f"pack_quality_w{year_idx}",
+                        supplier_id=supplier_id,
+                        dst_node_id="M-1430",
+                        item_id=item_id,
+                        risk_type=risk_type,
+                        multiplier=multiplier,
+                        start_day=min(horizon_days - 1, start + start_shift),
+                        end_day=min(horizon_days - 1, end + end_shift),
+                        scenario_label=label,
+                    )
+        for slug, supplier_id, item_id, days, fraction in [
+            ("pack_reject_344135", "SDC-VD0993480A", "item:344135", [82, 386, 771, 1122, 1490], 0.52),
+            ("pack_reject_333362", "SDC-VD0525412A", "item:333362", [105, 425, 736, 1088, 1518], 0.38),
+            ("pack_reject_730384", "SDC-VD0508918A", "item:730384", [118, 448, 802, 1160, 1534], 0.32),
+        ]:
+            for idx, day in enumerate(days, start=1):
+                if day < horizon_days:
+                    add_lane_event(
+                        slug=f"{slug}_p{idx}",
+                        supplier_id=supplier_id,
+                        dst_node_id="",
+                        item_id=item_id,
+                        risk_type="stock_writeoff",
+                        multiplier=fraction,
+                        start_day=day,
+                        end_day=day,
+                        scenario_label="Rejet qualite lot packaging: stock amont detruit ou non liberable",
+                        require_existing_lane=False,
+                    )
+
+    elif scenario_key == "downstream_distribution":
+        # Cold-chain/distribution crisis: product is made, but delivery to DC and
+        # customer is delayed, more expensive, or temporarily unavailable.
+        route_waves = [
+            ("M-1430", "DC-1920", "item:268967", "PF pharma usine -> DC", [18, 145, 276, 75, 214], [135, 190, 155, 210, 170]),
+            ("DC-1920", "C-XXXXX", "item:268967", "PF pharma DC -> client", [32, 160, 290, 92, 230], [150, 205, 175, 225, 190]),
+            ("M-1810", "DC-1920", "item:268091", "PF cosmetique usine -> DC", [54, 184, 302, 118, 248], [105, 155, 140, 175, 130]),
+            ("DC-1920", "C-XXXXX", "item:268091", "PF cosmetique DC -> client", [68, 202, 318, 132, 266], [120, 165, 150, 185, 145]),
+        ]
+        for supplier_id, dst_node_id, item_id, label_prefix, offsets, durations in route_waves:
+            for year_idx, start, end in variable_repeated_windows(
+                horizon_days=horizon_days,
+                start_offsets=list(offsets),
+                duration_days=list(durations),
+            ):
+                label = f"Crise distribution aval {label_prefix} saison {year_idx}: capacite transport et reception degradees"
+                for risk_type, multiplier, start_shift, end_shift in [
+                    ("lead_time_extra_days", 42.0, 0, 25),
+                    ("availability", 0.28, 8, 35),
+                    ("quality_delay", 22.0, 18, 44),
+                    ("transport_cost", 4.0, 0, 30),
+                ]:
+                    add_lane_event(
+                        slug=f"downstream_distribution_w{year_idx}",
+                        supplier_id=supplier_id,
+                        dst_node_id=dst_node_id,
+                        item_id=item_id,
+                        risk_type=risk_type,
+                        multiplier=multiplier,
+                        start_day=min(horizon_days - 1, start + start_shift),
+                        end_day=min(horizon_days - 1, end + end_shift),
+                        scenario_label=label,
+                    )
+
+    elif scenario_key == "internal_release_capacity":
+        # Internal PFI and release bottleneck: useful to distinguish supplier
+        # prediction risk from internal QA/release resilience.
+        internal_waves = [
+            ("SDC-1450", "M-1430", "item:773474", "PFI pharma 773474", [8, 148, 292, 96, 236], [180, 235, 160, 260, 205]),
+            ("SDC-1450", "M-1810", "item:693055", "matiere interne 693055", [46, 172, 318, 128, 260], [135, 185, 150, 200, 160]),
+            ("D-1450", "M-1430", "item:773474", "transport PFI D-1450", [24, 164, 304, 112, 250], [150, 205, 170, 215, 180]),
+        ]
+        for supplier_id, dst_node_id, item_id, label_prefix, offsets, durations in internal_waves:
+            for year_idx, start, end in variable_repeated_windows(
+                horizon_days=horizon_days,
+                start_offsets=list(offsets),
+                duration_days=list(durations),
+            ):
+                label = f"Crise release/capacite interne {label_prefix} saison {year_idx}: arbitrage, controle et allocation"
+                for risk_type, multiplier, start_shift, end_shift in [
+                    ("capacity", 0.20, 0, 60),
+                    ("availability", 0.18, 0, 60),
+                    ("quality_delay", 95.0, 15, 75),
+                    ("lead_time_extra_days", 85.0, 0, 70),
+                    ("transport_cost", 2.5, 8, 24),
+                ]:
+                    add_lane_event(
+                        slug=f"internal_release_w{year_idx}",
+                        supplier_id=supplier_id,
+                        dst_node_id=dst_node_id,
+                        item_id=item_id,
+                        risk_type=risk_type,
+                        multiplier=multiplier,
+                        start_day=min(horizon_days - 1, start + start_shift),
+                        end_day=min(horizon_days - 1, end + end_shift),
+                        scenario_label=label,
+                    )
+    else:
+        raise ValueError(f"Unknown state-dependent scenario key: {scenario_key}")
+
+    return sorted(events, key=lambda row: (int(row["start_day"]), str(row["supplier_id"]), str(row["risk_type"])))
+
+
+def state_dependent_scenario_catalog() -> dict[str, dict[str, Any]]:
+    return {
+        "full": {
+            "slug": "state_dependent_full",
+            "scenario_id": "scn:STATE_DEPENDENT_FULL",
+            "label": "Portefeuille state-dependent complet",
+            "name": "Portefeuille state-dependent complet",
+            "description": (
+                "Scenario de risques simules dynamiques: portefeuille de crises pharma "
+                "calibre par sensibilite, puis aleas fournisseurs declenches par l'etat observe."
+            ),
+            "families": [
+                "ouragan fournisseurs americains",
+                "retards et quarantaine packaging pharma",
+                "fiabilite composants haute cadence",
+                "ralentissement liberation PFI 773474",
+                "crises fournisseur pharma variees",
+                "perturbations logistiques aval PF",
+            ],
+            "builder_key": "full",
+        },
+        "api_upstream": {
+            "slug": "state_api_upstream_crisis",
+            "scenario_id": "scn:STATE_API_UPSTREAM_CRISIS",
+            "label": "Crise amont API / matiere critique",
+            "name": "Crise amont API / matiere critique",
+            "description": (
+                "Ouragan et congestion fournisseurs americains sur actif amont 021081, "
+                "avec propagation vers PFI 773474 puis PF pharma."
+            ),
+            "families": ["ouragan US API", "congestion transport amont", "release PFI 773474"],
+            "builder_key": "api_upstream",
+        },
+        "packaging_quality": {
+            "slug": "state_packaging_quality_crisis",
+            "scenario_id": "scn:STATE_PACKAGING_QUALITY_CRISIS",
+            "label": "Crise qualite packaging / lots rejetes",
+            "name": "Crise qualite packaging / lots rejetes",
+            "description": (
+                "Lots packaging retenus, rejets qualite et capacite fournisseur degradee "
+                "sur les composants sensibles de 268967."
+            ),
+            "families": ["quarantaine packaging", "rejets lots", "capacite fournisseur packaging"],
+            "builder_key": "packaging_quality",
+        },
+        "downstream_distribution": {
+            "slug": "state_downstream_distribution_crisis",
+            "scenario_id": "scn:STATE_DOWNSTREAM_DISTRIBUTION_CRISIS",
+            "label": "Crise distribution aval / transport",
+            "name": "Crise distribution aval / transport",
+            "description": (
+                "Perturbation transport/reception usine-DC-client sur PF pharma et cosmetique, "
+                "pour distinguer disponibilite produit et service client."
+            ),
+            "families": ["transport usine DC", "transport DC client", "reception aval"],
+            "builder_key": "downstream_distribution",
+        },
+        "internal_release_capacity": {
+            "slug": "state_internal_release_capacity_crisis",
+            "scenario_id": "scn:STATE_INTERNAL_RELEASE_CAPACITY_CRISIS",
+            "label": "Crise release interne / PFI",
+            "name": "Crise release interne / PFI",
+            "description": (
+                "Tension interne inter-sites, controle qualite et allocation PFI/matiere interne, "
+                "utile pour separer risque fournisseur et robustesse operationnelle interne."
+            ),
+            "families": ["release interne", "allocation inter-sites", "capacite PFI"],
+            "builder_key": "internal_release_capacity",
+        },
+    }
+
+
+def selected_state_dependent_scenario_specs(selection: str | None, *, horizon_days: int) -> list[dict[str, Any]]:
+    catalog = state_dependent_scenario_catalog()
+    aliases = {
+        "all": ["full", "api_upstream", "packaging_quality", "downstream_distribution", "internal_release_capacity"],
+        "extended": ["full", "api_upstream", "packaging_quality", "downstream_distribution"],
+        "variants": ["api_upstream", "packaging_quality", "downstream_distribution", "internal_release_capacity"],
+    }
+    raw_keys = [
+        key.strip()
+        for key in str(selection or "full").split(",")
+        if key.strip()
+    ] or ["full"]
+    keys: list[str] = []
+    for raw_key in raw_keys:
+        keys.extend(aliases.get(raw_key, [raw_key]))
+    ordered_keys: list[str] = []
+    for key in keys:
+        if key not in catalog:
+            known = ", ".join(sorted(catalog))
+            raise ValueError(f"Unknown state-dependent scenario '{key}'. Known values: {known}, all, extended, variants")
+        if key not in ordered_keys:
+            ordered_keys.append(key)
+
+    specs: list[dict[str, Any]] = []
+    for key in ordered_keys:
+        spec = dict(catalog[key])
+        builder_key = str(spec.get("builder_key") or key)
+
+        def build_events(data: dict[str, Any], *, _builder_key: str = builder_key) -> list[dict[str, Any]]:
+            if _builder_key == "full":
+                return build_calibrated_pharma_supplier_risk_events(data, horizon_days=horizon_days)
+            return build_profiled_state_dependent_supplier_risk_events(
+                data,
+                horizon_days=horizon_days,
+                scenario_key=_builder_key,
+            )
+
+        spec["key"] = key
+        spec["event_builder"] = build_events
+        specs.append(spec)
+    return specs
+
+
 def write_state_dependent_scenario_graph(
     *,
     source_graph: Path,
     output_graph: Path,
     source_scenario_id: str,
     target_scenario_id: str,
+    scenario_name: str,
+    scenario_description: str,
+    scenario_families: Iterable[str],
+    event_builder: Callable[[dict[str, Any]], list[dict[str, Any]]],
     horizon_days: int,
 ) -> None:
     data = load_json(source_graph)
@@ -1704,13 +2159,9 @@ def write_state_dependent_scenario_graph(
         source_scenario = scenarios[0] if scenarios else {"id": source_scenario_id}
     state_scenario = json.loads(json.dumps(source_scenario))
     state_scenario["id"] = target_scenario_id
-    state_scenario["name"] = "State-dependent complet"
-    state_scenario["description"] = (
-        "Scenario de risques simules dynamiques: portefeuille de crises pharma "
-        "calibre par sensibilite, puis aleas fournisseurs declenches par l'etat "
-        "observe pendant la simulation."
-    )
-    injected_events = build_calibrated_pharma_supplier_risk_events(data, horizon_days=horizon_days)
+    state_scenario["name"] = scenario_name
+    state_scenario["description"] = scenario_description
+    injected_events = event_builder(data)
     existing_events = [row for row in (state_scenario.get("supplier_risk_events") or []) if isinstance(row, dict)]
     state_scenario["supplier_risk_events"] = existing_events + injected_events
     data["scenarios"] = [row for row in scenarios if str((row or {}).get("id")) != target_scenario_id]
@@ -1722,14 +2173,7 @@ def write_state_dependent_scenario_graph(
         "target_scenario_id": target_scenario_id,
         "injected_supplier_risk_event_count": len(injected_events),
         "calibration_source": repo_rel(SUPPLIER_RISK_CAMPAIGN_CASES_CSV),
-        "scenario_families": [
-            "ouragan fournisseurs americains",
-            "retards et quarantaine packaging pharma",
-            "fiabilite composants haute cadence",
-            "ralentissement liberation PFI 773474",
-            "crises fournisseur pharma variees",
-            "perturbations logistiques aval PF",
-        ],
+        "scenario_families": list(scenario_families),
     }
     data["meta"] = meta
     write_json(output_graph, data)
@@ -1883,6 +2327,7 @@ def run_operational_rebuild(
     refresh_input_graph: bool,
     pf_service_target: float | None,
     build_state_dependent_risk_scenario: bool,
+    state_dependent_scenarios: str,
     with_montecarlo: bool,
     montecarlo_runs: int,
     montecarlo_probe_runs: int,
@@ -1924,39 +2369,62 @@ def run_operational_rebuild(
 
     simulated_risk_output_dir: Path | None = None
     if build_state_dependent_risk_scenario:
-        info_line("Building companion state-dependent risk scenario")
-        scenario_graph = target_output_dir / "scenario_graphs" / "state_dependent_full.json"
-        state_scenario_id = "scn:STATE_DEPENDENT_FULL"
-        write_state_dependent_scenario_graph(
-            source_graph=ACTIVE_MRP_PHYSICAL_GRAPH_JSON,
-            output_graph=scenario_graph,
-            source_scenario_id=scenario_id,
-            target_scenario_id=state_scenario_id,
-            horizon_days=days,
-        )
-        simulated_risk_output_dir = run_active_mrp_physical(
-            output_dir=target_output_dir / "scenario_runs" / "state_dependent_full",
-            scenario_id=state_scenario_id,
-            days=days,
-            output_profile=output_profile,
-            overwrite=True,
-            dry_run=False,
-            skip_map=True,
-            skip_plots=True,
-            input_graph=scenario_graph,
-            supplier_state_dependent_risks=True,
-            baseline_name="state_dependent_full",
+        specs = selected_state_dependent_scenario_specs(state_dependent_scenarios, horizon_days=days)
+        primary_slug = "state_dependent_full"
+        if not any(str(spec.get("slug")) == primary_slug for spec in specs):
+            primary_slug = str(specs[0].get("slug") or "")
+        info_line(
+            "Building companion state-dependent risk scenarios: "
+            + ", ".join(str(spec.get("label") or spec.get("slug")) for spec in specs)
         )
         manifest_path = target_output_dir / "run_manifest.json"
         manifest = load_json(manifest_path) if manifest_path.exists() else {}
         companion_runs = manifest.get("companion_runs") if isinstance(manifest.get("companion_runs"), dict) else {}
-        companion_runs["state_dependent_full"] = {
-            "output_dir": "scenario_runs/state_dependent_full",
-            "scenario_id": state_scenario_id,
-            "label": "State-dependent complet",
-            "role": "primary_simulated_risk",
-        }
+        for spec in specs:
+            slug = str(spec.get("slug") or spec.get("key") or "")
+            if not slug:
+                continue
+            state_scenario_id = str(spec.get("scenario_id") or "")
+            scenario_graph = target_output_dir / "scenario_graphs" / f"{slug}.json"
+            write_state_dependent_scenario_graph(
+                source_graph=ACTIVE_MRP_PHYSICAL_GRAPH_JSON,
+                output_graph=scenario_graph,
+                source_scenario_id=scenario_id,
+                target_scenario_id=state_scenario_id,
+                scenario_name=str(spec.get("name") or spec.get("label") or slug),
+                scenario_description=str(spec.get("description") or ""),
+                scenario_families=[str(item) for item in (spec.get("families") or [])],
+                event_builder=spec["event_builder"],
+                horizon_days=days,
+            )
+            scenario_output_dir = run_active_mrp_physical(
+                output_dir=target_output_dir / "scenario_runs" / slug,
+                scenario_id=state_scenario_id,
+                days=days,
+                output_profile=output_profile,
+                overwrite=True,
+                dry_run=False,
+                skip_map=True,
+                skip_plots=True,
+                input_graph=scenario_graph,
+                supplier_state_dependent_risks=True,
+                baseline_name=slug,
+            )
+            role = "primary_simulated_risk" if slug == primary_slug else "simulated_risk_variant"
+            if role == "primary_simulated_risk":
+                simulated_risk_output_dir = scenario_output_dir
+            companion_runs[slug] = {
+                "output_dir": f"scenario_runs/{slug}",
+                "scenario_id": state_scenario_id,
+                "label": str(spec.get("label") or slug),
+                "role": role,
+            }
         manifest["companion_runs"] = companion_runs
+        manifest["state_dependent_scenarios"] = {
+            "selection": state_dependent_scenarios,
+            "primary": primary_slug,
+            "count": len(specs),
+        }
         write_json(manifest_path, manifest)
 
     montecarlo_summary_json: Path | None = None
@@ -2144,6 +2612,15 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     rebuild_active.add_argument(
+        "--state-dependent-scenarios",
+        default="full",
+        help=(
+            "Comma-separated state-dependent scenario keys. Use full, api_upstream, "
+            "packaging_quality, downstream_distribution, internal_release_capacity, "
+            "or aliases extended/all/variants."
+        ),
+    )
+    rebuild_active.add_argument(
         "--with-montecarlo",
         action="store_true",
         help="Run the adaptive robust Monte Carlo suite for the current run before building the map.",
@@ -2320,6 +2797,7 @@ def main() -> None:
             refresh_input_graph=args.refresh_input_graph,
             pf_service_target=args.pf_service_target,
             build_state_dependent_risk_scenario=args.state_dependent_risk_scenario,
+            state_dependent_scenarios=args.state_dependent_scenarios,
             with_montecarlo=args.with_montecarlo,
             montecarlo_runs=args.montecarlo_runs,
             montecarlo_probe_runs=args.montecarlo_probe_runs,

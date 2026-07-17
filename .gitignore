@@ -18,6 +18,7 @@
 venv/
 env/
 ENV/
+.venv-brightway/
 
 # Fichiers de dépendances Python
 lib/

@@ -86,6 +86,15 @@ class ScenarioComparisonPayloadTest(unittest.TestCase):
                     "supplier_risk_events_applied_daily.csv",
                 ]:
                     (run_dir / "data" / csv_name).write_text("day\n", encoding="utf-8")
+            (companion / "data" / "supplier_risk_events_applied_daily.csv").write_text(
+                "\n".join(
+                    [
+                        "day,supplier_id,event_ids,capacity_multiplier,lead_time_extra_days,purchase_cost_multiplier",
+                        "0,SUP-1,EV-1,0.5,3,1.2",
+                    ]
+                ),
+                encoding="utf-8",
+            )
 
             (current / "run_manifest.json").write_text(
                 json.dumps(
@@ -108,6 +117,8 @@ class ScenarioComparisonPayloadTest(unittest.TestCase):
         self.assertIn("state_dependent_full", ids)
         state_row = next(row for row in payload["scenarios"] if row["id"] == "state_dependent_full")
         self.assertEqual(state_row["kpis"]["state_events_generated"], 3.0)
+        self.assertGreater(state_row["kpis"]["risk_input_amplitude_points"], 0.0)
+        self.assertIn("observed_impact_score", state_row["kpis"])
 
 
 if __name__ == "__main__":

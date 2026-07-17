@@ -759,12 +759,25 @@ def _kpi_baseline_value(rows: list[dict[str, str]], metric: str) -> float | None
     return baseline
 
 
+def _signal_confidence(corr: float | None) -> float:
+    if corr is None or math.isnan(corr):
+        return 0.0
+    return min(1.0, abs(corr))
+
+
 def _propagation_status(output_relative_impact: float | None, corr: float) -> tuple[str, str]:
     impact = abs(output_relative_impact or 0.0)
-    if impact >= 0.20 or abs(corr) >= 0.70:
+    signal = _signal_confidence(corr)
+    if signal < 0.20:
+        return "low", "Signal fragile"
+    if output_relative_impact is None and signal >= 0.35:
+        return "medium", "Lien visible, impact absolu"
+    if impact >= 0.20 and signal >= 0.35:
         return "high", "Propagation forte"
-    if impact >= 0.05 or abs(corr) >= 0.35:
+    if impact >= 0.05 and signal >= 0.20:
         return "medium", "Propagation visible"
+    if signal >= 0.35:
+        return "medium", "Lien visible, effet limite"
     return "low", "Propagation faible"
 
 
@@ -777,7 +790,7 @@ def _build_uncertainty_propagation(
     The estimate is local and model-based: for each sampled input factor and KPI
     we fit y = a + b*x on successful stochastic Monte Carlo rows. A +/-20%
     input uncertainty around the nominal multiplier is approximated by
-    +/- |b| * 0.20 on the output KPI.
+    +/- |b| * (0.20 * nominal_input) on the output KPI.
     """
 
     distribution_rows = _distribution_rows(rows)
@@ -830,8 +843,10 @@ def _build_uncertainty_propagation(
             slope, intercept, corr = _linear_regression(pairs)
             if slope is None or corr is None or intercept is None:
                 continue
-            delta_abs = abs(slope) * input_relative_uncertainty
-            delta_signed = slope * input_relative_uncertainty
+            input_reference = float(stats.get("reference") or stats.get("baseline") or 1.0)
+            input_delta_abs = abs(input_reference) * input_relative_uncertainty
+            delta_abs = abs(slope) * input_delta_abs
+            delta_signed = slope * input_delta_abs
             output_relative = None
             if baseline is not None and abs(baseline) > 1e-12:
                 output_relative = delta_abs / abs(baseline)
@@ -839,11 +854,13 @@ def _build_uncertainty_propagation(
             if output_relative is not None and abs(input_relative_uncertainty) > 1e-12:
                 transfer_ratio = output_relative / abs(input_relative_uncertainty)
             status, status_label = _propagation_status(output_relative, corr)
+            signal_confidence = _signal_confidence(corr)
             ranking_score = (
                 float(output_relative)
                 if output_relative is not None
                 else min(1.0, abs(corr)) * math.log1p(delta_abs)
             )
+            signal_adjusted_ranking_score = ranking_score * signal_confidence
             family, family_label, subject = _factor_family(factor)
             business_scope, business_scope_label = _factor_business_scope(factor)
             row_payload = {
@@ -862,6 +879,8 @@ def _build_uncertainty_propagation(
                 "slope": round(slope, 9),
                 "intercept": round(intercept, 9),
                 "input_baseline": stats.get("baseline"),
+                "input_reference": round(input_reference, 9),
+                "input_uncertainty_abs": round(input_delta_abs, 9),
                 "input_mean": round(float(stats["mean"]), 9),
                 "input_std": round(float(stats["std"]), 9),
                 "input_relative_std": None
@@ -879,6 +898,8 @@ def _build_uncertainty_propagation(
                 else round(output_relative, 9),
                 "uncertainty_transfer_ratio": None if transfer_ratio is None else round(transfer_ratio, 9),
                 "ranking_score": round(ranking_score, 9),
+                "signal_confidence": round(signal_confidence, 9),
+                "signal_adjusted_ranking_score": round(signal_adjusted_ranking_score, 9),
                 "direction": "positive" if slope >= 0 else "negative",
                 "status": status,
                 "status_label": status_label,
@@ -901,7 +922,7 @@ def _build_uncertainty_propagation(
                 },
             )
             family_bucket["driver_count"] += 1
-            score = float(row_payload.get("ranking_score") or 0.0)
+            score = float(row_payload.get("signal_adjusted_ranking_score") or 0.0)
             if score > float(family_bucket.get("max_kpi_uncertainty_relative_to_baseline") or 0.0):
                 family_bucket["max_kpi_uncertainty_relative_to_baseline"] = round(score, 9)
                 family_bucket["max_kpi_uncertainty_abs"] = row_payload["kpi_uncertainty_abs"]
@@ -909,9 +930,10 @@ def _build_uncertainty_propagation(
 
         metric_rows.sort(
             key=lambda row: (
+                float(row.get("signal_adjusted_ranking_score") or 0.0),
+                float(row.get("r2") or 0.0),
                 float(row.get("ranking_score") or 0.0),
                 float(row.get("kpi_uncertainty_abs") or 0.0),
-                float(row.get("r2") or 0.0),
             ),
             reverse=True,
         )
@@ -920,17 +942,19 @@ def _build_uncertainty_propagation(
 
     all_rows.sort(
         key=lambda row: (
+            float(row.get("signal_adjusted_ranking_score") or 0.0),
+            float(row.get("r2") or 0.0),
             float(row.get("ranking_score") or 0.0),
             float(row.get("kpi_uncertainty_abs") or 0.0),
-            float(row.get("r2") or 0.0),
         ),
         reverse=True,
     )
     primary_rows.sort(
         key=lambda row: (
+            float(row.get("signal_adjusted_ranking_score") or 0.0),
+            float(row.get("r2") or 0.0),
             float(row.get("ranking_score") or 0.0),
             float(row.get("kpi_uncertainty_abs") or 0.0),
-            float(row.get("r2") or 0.0),
         ),
         reverse=True,
     )
@@ -939,9 +963,10 @@ def _build_uncertainty_propagation(
     ]
     relative_primary_rows.sort(
         key=lambda row: (
+            float(row.get("signal_adjusted_ranking_score") or 0.0),
+            float(row.get("r2") or 0.0),
             float(row.get("kpi_uncertainty_relative_to_baseline") or 0.0),
             float(row.get("kpi_uncertainty_abs") or 0.0),
-            float(row.get("r2") or 0.0),
         ),
         reverse=True,
     )
@@ -950,9 +975,10 @@ def _build_uncertainty_propagation(
     ]
     absolute_primary_rows.sort(
         key=lambda row: (
-            float(row.get("kpi_uncertainty_abs") or 0.0),
+            float(row.get("signal_adjusted_ranking_score") or 0.0),
             float(row.get("r2") or 0.0),
             float(row.get("ranking_score") or 0.0),
+            float(row.get("kpi_uncertainty_abs") or 0.0),
         ),
         reverse=True,
     )
@@ -967,9 +993,10 @@ def _build_uncertainty_propagation(
     ]
     research_control_rows.sort(
         key=lambda row: (
+            float(row.get("signal_adjusted_ranking_score") or 0.0),
+            float(row.get("r2") or 0.0),
             float(row.get("ranking_score") or 0.0),
             float(row.get("kpi_uncertainty_abs") or 0.0),
-            float(row.get("r2") or 0.0),
         ),
         reverse=True,
     )

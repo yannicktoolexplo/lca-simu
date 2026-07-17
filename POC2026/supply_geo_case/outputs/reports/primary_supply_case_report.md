@@ -10,10 +10,10 @@
 - Primary lane rows: **688**
 - Unique sites: **103**
 - Weather rows: **24720**
-- Event seed rows: **9147**
+- Event seed rows: **9433**
 - Transport weather rows: **12000**
 - Node operational rows: **24720**
-- Operational event rows: **45416**
+- Operational event rows: **48603**
 - SDD node-state rows: **206400**
 - SDD flow-state rows: **41280**
 - Brightway component impacts: **259**
@@ -33,7 +33,7 @@
 ## Event Seeds
 
 - `heatwave`: **774**
-- `storm`: **3010**
+- `storm`: **3178**
 - `cold`: **3454**
-- `drought`: **684**
-- `hurricane`: **1225**
+- `drought`: **793**
+- `hurricane`: **1234**

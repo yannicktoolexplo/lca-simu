@@ -172,8 +172,15 @@ class UncertaintyDiagnosticsTest(unittest.TestCase):
         self.assertIn("kpi::fill_rate", payload["uncertainty_propagation"]["by_kpi"])
         fill_rate_driver = payload["uncertainty_propagation"]["by_kpi"]["kpi::fill_rate"][0]
         self.assertEqual(fill_rate_driver["input_baseline"], 1.0)
+        self.assertEqual(fill_rate_driver["input_reference"], 1.0)
+        self.assertAlmostEqual(fill_rate_driver["input_uncertainty_abs"], 0.20)
         self.assertIn("kpi_delta_for_input_uncertainty", fill_rate_driver)
         self.assertIn("uncertainty_transfer_ratio", fill_rate_driver)
+        self.assertIn("signal_adjusted_ranking_score", fill_rate_driver)
+        self.assertLessEqual(
+            fill_rate_driver["signal_adjusted_ranking_score"],
+            fill_rate_driver["ranking_score"],
+        )
         supplier_relative = payload["uncertainty_propagation"]["top_supplier_relative_factors"]
         self.assertTrue(supplier_relative)
         self.assertTrue(all(row["business_scope"] == "supplier_prediction" for row in supplier_relative))
@@ -181,6 +188,74 @@ class UncertaintyDiagnosticsTest(unittest.TestCase):
             fill_rate_driver["method"],
             "linear_regression_montecarlo",
         )
+
+    def test_uncertainty_propagation_uses_input_reference(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            selected = Path(tmp) / "selected"
+            selected.mkdir()
+            (selected / "montecarlo_summary.json").write_text(
+                json.dumps(
+                    {
+                        "scenario_id": "scn:BASE",
+                        "successful_stochastic_runs": 3,
+                        "metric_statistics": {
+                            "kpi::total_cost": {
+                                "baseline": 20.0,
+                                "p05": 16.0,
+                                "p50": 20.0,
+                                "p95": 24.0,
+                            }
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            with (selected / "montecarlo_samples.csv").open("w", encoding="utf-8", newline="") as handle:
+                writer = csv.DictWriter(
+                    handle,
+                    fieldnames=[
+                        "run_id",
+                        "status",
+                        "is_baseline",
+                        "kpi::total_cost",
+                        "factor::lead_time_scale",
+                    ],
+                )
+                writer.writeheader()
+                writer.writerow(
+                    {
+                        "run_id": "run_0000",
+                        "status": "ok",
+                        "is_baseline": "True",
+                        "kpi::total_cost": "20",
+                        "factor::lead_time_scale": "2.0",
+                    }
+                )
+                for run_id, factor, kpi in [
+                    ("run_0001", "1.6", "16"),
+                    ("run_0002", "2.0", "20"),
+                    ("run_0003", "2.4", "24"),
+                ]:
+                    writer.writerow(
+                        {
+                            "run_id": run_id,
+                            "status": "ok",
+                            "is_baseline": "False",
+                            "kpi::total_cost": kpi,
+                            "factor::lead_time_scale": factor,
+                        }
+                    )
+
+            payload = build_uncertainty_diagnostics(selected / "montecarlo_summary.json")
+
+        row = payload["uncertainty_propagation"]["by_kpi"]["kpi::total_cost"][0]
+        self.assertAlmostEqual(row["input_reference"], 2.0)
+        self.assertAlmostEqual(row["input_uncertainty_abs"], 0.4)
+        self.assertAlmostEqual(row["slope"], 10.0)
+        self.assertAlmostEqual(row["kpi_uncertainty_abs"], 4.0)
+        self.assertAlmostEqual(row["kpi_delta_for_input_uncertainty"], 4.0)
+        self.assertAlmostEqual(row["kpi_uncertainty_relative_to_baseline"], 0.2)
+        self.assertAlmostEqual(row["uncertainty_transfer_ratio"], 1.0)
 
     def test_missing_summary_returns_unavailable(self) -> None:
         payload = build_uncertainty_diagnostics(Path("missing/montecarlo_summary.json"))
