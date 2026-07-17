@@ -31,15 +31,16 @@ class MapPayloadBuilderTest(unittest.TestCase):
                 "factory_hover_series": {"M-1": {"x": [0]}},
                 "lot_trace": {"events": [{"event_id": "evt"}], "lots": {"L": {}}},
                 "simulation_diagnostics": {"summary": "ok"},
+                "run_contract": {"schema_version": "etudecas.simulation_run.v1"},
             }
         )
 
         self.assertEqual(contract["nodes"], [{"id": "M-1"}])
         self.assertEqual(contract["edges"], [{"id": "E-1"}])
-        self.assertEqual(contract["time_series"]["factory"], {"M-1": {"x": [0]}})
-        self.assertEqual(contract["events"]["lot_events"], [{"event_id": "evt"}])
-        self.assertEqual(contract["lots"]["lots"], {"L": {}})
-        self.assertEqual(contract["diagnostics"]["simulation"], {"summary": "ok"})
+        self.assertEqual(contract["schema_version"], "etudecas.map_viewer_payload.v1")
+        self.assertEqual(contract["counts"]["lot_events"], 1)
+        self.assertEqual(contract["counts"]["lot_nodes"], 1)
+        self.assertEqual(contract["run_contract"]["schema_version"], "etudecas.simulation_run.v1")
 
     def test_payload_layers_manifest_indexes_domains(self) -> None:
         manifest = build_payload_layers_manifest(

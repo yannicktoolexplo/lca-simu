@@ -9,32 +9,1574 @@
     "notes": [
       "Fields with is_default=true were filled with standard placeholder values because Data_poc.xlsx did not provide them.",
       "Graph enriched with auxiliary case-study Excel workbooks (021081.xlsx, 268191.xlsx, 268967.xlsx, Fournisseur.xlsx).",
-      "For product 268091, workbook 268191.xlsx is treated as the BOM source of truth: active component 007923, former Data_poc.xlsx reference 693710."
+      "For product 268091, workbook 268191.xlsx is treated as the BOM source of truth: active component 007923, former Data_poc.xlsx reference 693710.",
+      "Graph enriched with auxiliary case-study Excel workbooks (021081.xlsx, 268191.xlsx, 268967.xlsx, Fournisseur.xlsx, Extract_En_cours.xlsx).",
+      "Graph enriched with auxiliary case-study Excel workbooks (773474.xlsx, 268091.xlsx, 268967.xlsx, Fournisseur.xlsx, Extract_En_cours.xlsx).",
+      "For product 268091, workbook 268091.xlsx is treated as the BOM source of truth: active component 007923, former Data_poc.xlsx reference 693710."
     ],
     "source_files": [
       "Data_poc.xlsx",
       "Fournisseur.xlsx",
-      "021081.xlsx",
-      "268191.xlsx",
-      "268967.xlsx"
+      "773474.xlsx",
+      "268091.xlsx",
+      "268967.xlsx",
+      "Extract_En_cours.xlsx"
     ],
     "case_data_refresh": {
       "enabled": true,
       "source_files": [
         "Fournisseur.xlsx",
-        "021081.xlsx",
-        "268191.xlsx",
-        "268967.xlsx"
+        "773474.xlsx",
+        "268091.xlsx",
+        "268967.xlsx",
+        "Extract_En_cours.xlsx"
       ],
       "upstream_extension": {
         "input_item": "item:021081",
         "producer_node_id": "SDC-1450",
         "output_item": "item:773474"
+      },
+      "opening_open_orders": {
+        "raw_rows": 104,
+        "resolved_rows": 88,
+        "unresolved_rows": 16,
+        "purchase_rows": 82,
+        "production_rows": 22
+      }
+    },
+    "opening_open_orders": {
+      "source_file": "Extract_En_cours.xlsx",
+      "snapshot_date": "2025-01-01",
+      "snapshot_excel_serial": 45658,
+      "physical_delivery_day_basis": "Date de livraison",
+      "usable_day_basis": "Date entrée",
+      "rows": [
+        {
+          "source_row": 7,
+          "order_type": "purchase_open_order",
+          "planning_element": "ECHCDE",
+          "item_id": "item:001848",
+          "dst_node_id": "M-1430",
+          "src_node_id": "SDC-VD0951020A",
+          "quantity": 7000000.0,
+          "uom": "G",
+          "physical_delivery_day": 22,
+          "usable_day": 42,
+          "receipt_release_days": 14,
+          "physical_delivery_date": "2025-01-23",
+          "usable_date": "2025-02-12"
+        },
+        {
+          "source_row": 49,
+          "order_type": "purchase_open_order",
+          "planning_element": "AVICDE",
+          "item_id": "item:038005",
+          "dst_node_id": "M-1430",
+          "src_node_id": "SDC-VD0520132A",
+          "quantity": 10000000.0,
+          "uom": "G",
+          "physical_delivery_day": 14,
+          "usable_day": 34,
+          "receipt_release_days": 14,
+          "physical_delivery_date": "2025-01-15",
+          "usable_date": "2025-02-04"
+        },
+        {
+          "source_row": 52,
+          "order_type": "purchase_open_order",
+          "planning_element": "AVICDE",
+          "item_id": "item:038005",
+          "dst_node_id": "M-1430",
+          "src_node_id": "SDC-VD0520132A",
+          "quantity": 10000000.0,
+          "uom": "G",
+          "physical_delivery_day": 23,
+          "usable_day": 43,
+          "receipt_release_days": 14,
+          "physical_delivery_date": "2025-01-24",
+          "usable_date": "2025-02-13"
+        },
+        {
+          "source_row": 53,
+          "order_type": "purchase_open_order",
+          "planning_element": "AVICDE",
+          "item_id": "item:038005",
+          "dst_node_id": "M-1430",
+          "src_node_id": "SDC-VD0520132A",
+          "quantity": 10000000.0,
+          "uom": "G",
+          "physical_delivery_day": 27,
+          "usable_day": 47,
+          "receipt_release_days": 14,
+          "physical_delivery_date": "2025-01-28",
+          "usable_date": "2025-02-17"
+        },
+        {
+          "source_row": 48,
+          "order_type": "purchase_open_order",
+          "planning_element": "AVICDE",
+          "item_id": "item:038005",
+          "dst_node_id": "M-1430",
+          "src_node_id": "SDC-VD0520132A",
+          "quantity": 10000000.0,
+          "uom": "G",
+          "physical_delivery_day": 34,
+          "usable_day": 54,
+          "receipt_release_days": 14,
+          "physical_delivery_date": "2025-02-04",
+          "usable_date": "2025-02-24"
+        },
+        {
+          "source_row": 54,
+          "order_type": "purchase_open_order",
+          "planning_element": "AVICDE",
+          "item_id": "item:038005",
+          "dst_node_id": "M-1430",
+          "src_node_id": "SDC-VD0520132A",
+          "quantity": 10000000.0,
+          "uom": "G",
+          "physical_delivery_day": 48,
+          "usable_day": 68,
+          "receipt_release_days": 14,
+          "physical_delivery_date": "2025-02-18",
+          "usable_date": "2025-03-10"
+        },
+        {
+          "source_row": 50,
+          "order_type": "purchase_open_order",
+          "planning_element": "AVICDE",
+          "item_id": "item:038005",
+          "dst_node_id": "M-1430",
+          "src_node_id": "SDC-VD0520132A",
+          "quantity": 10000000.0,
+          "uom": "G",
+          "physical_delivery_day": 49,
+          "usable_day": 69,
+          "receipt_release_days": 14,
+          "physical_delivery_date": "2025-02-19",
+          "usable_date": "2025-03-11"
+        },
+        {
+          "source_row": 47,
+          "order_type": "purchase_open_order",
+          "planning_element": "AVICDE",
+          "item_id": "item:038005",
+          "dst_node_id": "M-1430",
+          "src_node_id": "SDC-VD0520132A",
+          "quantity": 10000000.0,
+          "uom": "G",
+          "physical_delivery_day": 55,
+          "usable_day": 75,
+          "receipt_release_days": 14,
+          "physical_delivery_date": "2025-02-25",
+          "usable_date": "2025-03-17"
+        },
+        {
+          "source_row": 55,
+          "order_type": "purchase_open_order",
+          "planning_element": "AVICDE",
+          "item_id": "item:038005",
+          "dst_node_id": "M-1430",
+          "src_node_id": "SDC-VD0520132A",
+          "quantity": 10000000.0,
+          "uom": "G",
+          "physical_delivery_day": 96,
+          "usable_day": 117,
+          "receipt_release_days": 14,
+          "physical_delivery_date": "2025-04-07",
+          "usable_date": "2025-04-28"
+        },
+        {
+          "source_row": 51,
+          "order_type": "purchase_open_order",
+          "planning_element": "ECHCDE",
+          "item_id": "item:038005",
+          "dst_node_id": "M-1430",
+          "src_node_id": "SDC-VD0520132A",
+          "quantity": 10000000.0,
+          "uom": "G",
+          "physical_delivery_day": 114,
+          "usable_day": 138,
+          "receipt_release_days": 14,
+          "physical_delivery_date": "2025-04-25",
+          "usable_date": "2025-05-19"
+        },
+        {
+          "source_row": 56,
+          "order_type": "purchase_open_order",
+          "planning_element": "AVICDE",
+          "item_id": "item:042342",
+          "dst_node_id": "M-1430",
+          "src_node_id": "SDC-VD0914690A",
+          "quantity": 30000000.0,
+          "uom": "UN",
+          "physical_delivery_day": 16,
+          "usable_day": 36,
+          "receipt_release_days": 14,
+          "physical_delivery_date": "2025-01-17",
+          "usable_date": "2025-02-06"
+        },
+        {
+          "source_row": 57,
+          "order_type": "purchase_open_order",
+          "planning_element": "AVICDE",
+          "item_id": "item:042342",
+          "dst_node_id": "M-1430",
+          "src_node_id": "SDC-VD0914690A",
+          "quantity": 30000000.0,
+          "uom": "UN",
+          "physical_delivery_day": 30,
+          "usable_day": 50,
+          "receipt_release_days": 14,
+          "physical_delivery_date": "2025-01-31",
+          "usable_date": "2025-02-20"
+        },
+        {
+          "source_row": 97,
+          "order_type": "purchase_open_order",
+          "planning_element": "AVICDE",
+          "item_id": "item:333362",
+          "dst_node_id": "M-1430",
+          "src_node_id": "SDC-VD0525412A",
+          "quantity": 105000.0,
+          "uom": "UN",
+          "physical_delivery_day": 54,
+          "usable_day": 58,
+          "receipt_release_days": 4,
+          "physical_delivery_date": "2025-02-24",
+          "usable_date": "2025-02-28"
+        },
+        {
+          "source_row": 94,
+          "order_type": "purchase_open_order",
+          "planning_element": "AVICDE",
+          "item_id": "item:333362",
+          "dst_node_id": "M-1430",
+          "src_node_id": "SDC-VD0525412A",
+          "quantity": 150000.0,
+          "uom": "UN",
+          "physical_delivery_day": 57,
+          "usable_day": 63,
+          "receipt_release_days": 4,
+          "physical_delivery_date": "2025-02-27",
+          "usable_date": "2025-03-05"
+        },
+        {
+          "source_row": 92,
+          "order_type": "purchase_open_order",
+          "planning_element": "AVICDE",
+          "item_id": "item:333362",
+          "dst_node_id": "M-1430",
+          "src_node_id": "SDC-VD0525412A",
+          "quantity": 124000.0,
+          "uom": "UN",
+          "physical_delivery_day": 64,
+          "usable_day": 70,
+          "receipt_release_days": 4,
+          "physical_delivery_date": "2025-03-06",
+          "usable_date": "2025-03-12"
+        },
+        {
+          "source_row": 96,
+          "order_type": "purchase_open_order",
+          "planning_element": "AVICDE",
+          "item_id": "item:333362",
+          "dst_node_id": "M-1430",
+          "src_node_id": "SDC-VD0525412A",
+          "quantity": 45000.0,
+          "uom": "UN",
+          "physical_delivery_day": 71,
+          "usable_day": 77,
+          "receipt_release_days": 4,
+          "physical_delivery_date": "2025-03-13",
+          "usable_date": "2025-03-19"
+        },
+        {
+          "source_row": 95,
+          "order_type": "purchase_open_order",
+          "planning_element": "AVICDE",
+          "item_id": "item:333362",
+          "dst_node_id": "M-1430",
+          "src_node_id": "SDC-VD0525412A",
+          "quantity": 165000.0,
+          "uom": "UN",
+          "physical_delivery_day": 78,
+          "usable_day": 84,
+          "receipt_release_days": 4,
+          "physical_delivery_date": "2025-03-20",
+          "usable_date": "2025-03-26"
+        },
+        {
+          "source_row": 93,
+          "order_type": "purchase_open_order",
+          "planning_element": "ECHCDE",
+          "item_id": "item:333362",
+          "dst_node_id": "M-1430",
+          "src_node_id": "SDC-VD0525412A",
+          "quantity": 40000.0,
+          "uom": "UN",
+          "physical_delivery_day": 85,
+          "usable_day": 91,
+          "receipt_release_days": 4,
+          "physical_delivery_date": "2025-03-27",
+          "usable_date": "2025-04-02"
+        },
+        {
+          "source_row": 104,
+          "order_type": "purchase_open_order",
+          "planning_element": "AVICDE",
+          "item_id": "item:734545",
+          "dst_node_id": "M-1430",
+          "src_node_id": "SDC-VD0525906A",
+          "quantity": 6400.0,
+          "uom": "UN",
+          "physical_delivery_day": 5,
+          "usable_day": 5,
+          "receipt_release_days": 0,
+          "physical_delivery_date": "2025-01-06",
+          "usable_date": "2025-01-06"
+        },
+        {
+          "source_row": 2,
+          "order_type": "purchase_open_order",
+          "planning_element": "AVICDE",
+          "item_id": "item:001757",
+          "dst_node_id": "M-1810",
+          "src_node_id": "SDC-VD0951020A",
+          "quantity": 2000000.0,
+          "uom": "G",
+          "physical_delivery_day": 9,
+          "usable_day": 28,
+          "receipt_release_days": 13,
+          "physical_delivery_date": "2025-01-10",
+          "usable_date": "2025-01-29"
+        },
+        {
+          "source_row": 4,
+          "order_type": "purchase_open_order",
+          "planning_element": "AVICDE",
+          "item_id": "item:001757",
+          "dst_node_id": "M-1810",
+          "src_node_id": "SDC-VD0951020A",
+          "quantity": 4000000.0,
+          "uom": "G",
+          "physical_delivery_day": 27,
+          "usable_day": 44,
+          "receipt_release_days": 13,
+          "physical_delivery_date": "2025-01-28",
+          "usable_date": "2025-02-14"
+        },
+        {
+          "source_row": 3,
+          "order_type": "purchase_open_order",
+          "planning_element": "AVICDE",
+          "item_id": "item:001757",
+          "dst_node_id": "M-1810",
+          "src_node_id": "SDC-VD0951020A",
+          "quantity": 2000000.0,
+          "uom": "G",
+          "physical_delivery_day": 63,
+          "usable_day": 82,
+          "receipt_release_days": 13,
+          "physical_delivery_date": "2025-03-05",
+          "usable_date": "2025-03-24"
+        },
+        {
+          "source_row": 8,
+          "order_type": "purchase_open_order",
+          "planning_element": "ECHCDE",
+          "item_id": "item:001848",
+          "dst_node_id": "M-1810",
+          "src_node_id": "SDC-VD0951020A",
+          "quantity": 6000000.0,
+          "uom": "G",
+          "physical_delivery_day": 50,
+          "usable_day": 69,
+          "receipt_release_days": 13,
+          "physical_delivery_date": "2025-02-20",
+          "usable_date": "2025-03-11"
+        },
+        {
+          "source_row": 14,
+          "order_type": "purchase_open_order",
+          "planning_element": "AVICDE",
+          "item_id": "item:002612",
+          "dst_node_id": "M-1810",
+          "src_node_id": "SDC-VD0910216A",
+          "quantity": 22500.0,
+          "uom": "KG",
+          "physical_delivery_day": 19,
+          "usable_day": 29,
+          "receipt_release_days": 8,
+          "physical_delivery_date": "2025-01-20",
+          "usable_date": "2025-01-30"
+        },
+        {
+          "source_row": 15,
+          "order_type": "purchase_open_order",
+          "planning_element": "AVICDE",
+          "item_id": "item:002612",
+          "dst_node_id": "M-1810",
+          "src_node_id": "SDC-VD0910216A",
+          "quantity": 22500.0,
+          "uom": "KG",
+          "physical_delivery_day": 35,
+          "usable_day": 47,
+          "receipt_release_days": 8,
+          "physical_delivery_date": "2025-02-05",
+          "usable_date": "2025-02-17"
+        },
+        {
+          "source_row": 19,
+          "order_type": "purchase_open_order",
+          "planning_element": "AVICDE",
+          "item_id": "item:007923",
+          "dst_node_id": "M-1810",
+          "src_node_id": "SDC-VD0956464A",
+          "quantity": 19140000.0,
+          "uom": "G",
+          "physical_delivery_day": 22,
+          "usable_day": 30,
+          "receipt_release_days": 6,
+          "physical_delivery_date": "2025-01-23",
+          "usable_date": "2025-01-31"
+        },
+        {
+          "source_row": 67,
+          "order_type": "purchase_open_order",
+          "planning_element": "AVICDE",
+          "item_id": "item:049371",
+          "dst_node_id": "M-1810",
+          "src_node_id": "SDC-VD0518550B",
+          "quantity": 1800000.0,
+          "uom": "G",
+          "physical_delivery_day": 14,
+          "usable_day": 26,
+          "receipt_release_days": 8,
+          "physical_delivery_date": "2025-01-15",
+          "usable_date": "2025-01-27"
+        },
+        {
+          "source_row": 63,
+          "order_type": "purchase_open_order",
+          "planning_element": "AVICDE",
+          "item_id": "item:049371",
+          "dst_node_id": "M-1810",
+          "src_node_id": "SDC-VD0518550B",
+          "quantity": 1800000.0,
+          "uom": "G",
+          "physical_delivery_day": 16,
+          "usable_day": 28,
+          "receipt_release_days": 8,
+          "physical_delivery_date": "2025-01-17",
+          "usable_date": "2025-01-29"
+        },
+        {
+          "source_row": 66,
+          "order_type": "purchase_open_order",
+          "planning_element": "AVICDE",
+          "item_id": "item:049371",
+          "dst_node_id": "M-1810",
+          "src_node_id": "SDC-VD0518550B",
+          "quantity": 1800000.0,
+          "uom": "G",
+          "physical_delivery_day": 16,
+          "usable_day": 28,
+          "receipt_release_days": 8,
+          "physical_delivery_date": "2025-01-17",
+          "usable_date": "2025-01-29"
+        },
+        {
+          "source_row": 62,
+          "order_type": "purchase_open_order",
+          "planning_element": "AVICDE",
+          "item_id": "item:049371",
+          "dst_node_id": "M-1810",
+          "src_node_id": "SDC-VD0518550B",
+          "quantity": 1800000.0,
+          "uom": "G",
+          "physical_delivery_day": 48,
+          "usable_day": 58,
+          "receipt_release_days": 8,
+          "physical_delivery_date": "2025-02-18",
+          "usable_date": "2025-02-28"
+        },
+        {
+          "source_row": 64,
+          "order_type": "purchase_open_order",
+          "planning_element": "AVICDE",
+          "item_id": "item:049371",
+          "dst_node_id": "M-1810",
+          "src_node_id": "SDC-VD0518550B",
+          "quantity": 1800000.0,
+          "uom": "G",
+          "physical_delivery_day": 51,
+          "usable_day": 63,
+          "receipt_release_days": 8,
+          "physical_delivery_date": "2025-02-21",
+          "usable_date": "2025-03-05"
+        },
+        {
+          "source_row": 59,
+          "order_type": "purchase_open_order",
+          "planning_element": "AVICDE",
+          "item_id": "item:049371",
+          "dst_node_id": "M-1810",
+          "src_node_id": "SDC-VD0518550B",
+          "quantity": 1800000.0,
+          "uom": "G",
+          "physical_delivery_day": 91,
+          "usable_day": 103,
+          "receipt_release_days": 8,
+          "physical_delivery_date": "2025-04-02",
+          "usable_date": "2025-04-14"
+        },
+        {
+          "source_row": 68,
+          "order_type": "purchase_open_order",
+          "planning_element": "AVICDE",
+          "item_id": "item:049371",
+          "dst_node_id": "M-1810",
+          "src_node_id": "SDC-VD0518550B",
+          "quantity": 1800000.0,
+          "uom": "G",
+          "physical_delivery_day": 93,
+          "usable_day": 105,
+          "receipt_release_days": 8,
+          "physical_delivery_date": "2025-04-04",
+          "usable_date": "2025-04-16"
+        },
+        {
+          "source_row": 61,
+          "order_type": "purchase_open_order",
+          "planning_element": "ECHCDE",
+          "item_id": "item:049371",
+          "dst_node_id": "M-1810",
+          "src_node_id": "SDC-VD0518550B",
+          "quantity": 1800000.0,
+          "uom": "G",
+          "physical_delivery_day": 107,
+          "usable_day": 121,
+          "receipt_release_days": 8,
+          "physical_delivery_date": "2025-04-18",
+          "usable_date": "2025-05-02"
+        },
+        {
+          "source_row": 65,
+          "order_type": "purchase_open_order",
+          "planning_element": "ECHCDE",
+          "item_id": "item:049371",
+          "dst_node_id": "M-1810",
+          "src_node_id": "SDC-VD0518550B",
+          "quantity": 1800000.0,
+          "uom": "G",
+          "physical_delivery_day": 113,
+          "usable_day": 126,
+          "receipt_release_days": 8,
+          "physical_delivery_date": "2025-04-24",
+          "usable_date": "2025-05-07"
+        },
+        {
+          "source_row": 60,
+          "order_type": "purchase_open_order",
+          "planning_element": "ECHCDE",
+          "item_id": "item:049371",
+          "dst_node_id": "M-1810",
+          "src_node_id": "SDC-VD0518550B",
+          "quantity": 1800000.0,
+          "uom": "G",
+          "physical_delivery_day": 133,
+          "usable_day": 145,
+          "receipt_release_days": 8,
+          "physical_delivery_date": "2025-05-14",
+          "usable_date": "2025-05-26"
+        },
+        {
+          "source_row": 58,
+          "order_type": "purchase_open_order",
+          "planning_element": "ECHCDE",
+          "item_id": "item:049371",
+          "dst_node_id": "M-1810",
+          "src_node_id": "SDC-VD0518550B",
+          "quantity": 1800000.0,
+          "uom": "G",
+          "physical_delivery_day": 140,
+          "usable_day": 153,
+          "receipt_release_days": 8,
+          "physical_delivery_date": "2025-05-21",
+          "usable_date": "2025-06-03"
+        },
+        {
+          "source_row": 69,
+          "order_type": "purchase_open_order",
+          "planning_element": "ECHCDE",
+          "item_id": "item:055703",
+          "dst_node_id": "M-1810",
+          "src_node_id": "SDC-VD0914320A",
+          "quantity": 300000.0,
+          "uom": "G",
+          "physical_delivery_day": 16,
+          "usable_day": 35,
+          "receipt_release_days": 13,
+          "physical_delivery_date": "2025-01-17",
+          "usable_date": "2025-02-05"
+        },
+        {
+          "source_row": 75,
+          "order_type": "production_open_order",
+          "planning_element": "O.Proc",
+          "item_id": "item:268091",
+          "dst_node_id": "M-1810",
+          "src_node_id": "",
+          "quantity": 139660.0,
+          "uom": "UN",
+          "physical_delivery_day": 9,
+          "usable_day": 23,
+          "receipt_release_days": 10,
+          "physical_delivery_date": "2025-01-10",
+          "usable_date": "2025-01-24"
+        },
+        {
+          "source_row": 72,
+          "order_type": "production_open_order",
+          "planning_element": "O.Proc",
+          "item_id": "item:268091",
+          "dst_node_id": "M-1810",
+          "src_node_id": "",
+          "quantity": 20795.0,
+          "uom": "UN",
+          "physical_delivery_day": 21,
+          "usable_day": 35,
+          "receipt_release_days": 10,
+          "physical_delivery_date": "2025-01-22",
+          "usable_date": "2025-02-05"
+        },
+        {
+          "source_row": 82,
+          "order_type": "production_open_order",
+          "planning_element": "O.Proc",
+          "item_id": "item:268091",
+          "dst_node_id": "M-1810",
+          "src_node_id": "",
+          "quantity": 77520.0,
+          "uom": "UN",
+          "physical_delivery_day": 21,
+          "usable_day": 35,
+          "receipt_release_days": 10,
+          "physical_delivery_date": "2025-01-22",
+          "usable_date": "2025-02-05"
+        },
+        {
+          "source_row": 80,
+          "order_type": "production_open_order",
+          "planning_element": "O.Proc",
+          "item_id": "item:268091",
+          "dst_node_id": "M-1810",
+          "src_node_id": "",
+          "quantity": 16800.0,
+          "uom": "UN",
+          "physical_delivery_day": 28,
+          "usable_day": 42,
+          "receipt_release_days": 10,
+          "physical_delivery_date": "2025-01-29",
+          "usable_date": "2025-02-12"
+        },
+        {
+          "source_row": 78,
+          "order_type": "production_open_order",
+          "planning_element": "O.Proc",
+          "item_id": "item:268091",
+          "dst_node_id": "M-1810",
+          "src_node_id": "",
+          "quantity": 141795.0,
+          "uom": "UN",
+          "physical_delivery_day": 29,
+          "usable_day": 43,
+          "receipt_release_days": 10,
+          "physical_delivery_date": "2025-01-30",
+          "usable_date": "2025-02-13"
+        },
+        {
+          "source_row": 89,
+          "order_type": "production_open_order",
+          "planning_element": "O.Proc",
+          "item_id": "item:268091",
+          "dst_node_id": "M-1810",
+          "src_node_id": "",
+          "quantity": 126795.0,
+          "uom": "UN",
+          "physical_delivery_day": 41,
+          "usable_day": 55,
+          "receipt_release_days": 10,
+          "physical_delivery_date": "2025-02-11",
+          "usable_date": "2025-02-25"
+        },
+        {
+          "source_row": 88,
+          "order_type": "production_open_order",
+          "planning_element": "O.Proc",
+          "item_id": "item:268091",
+          "dst_node_id": "M-1810",
+          "src_node_id": "",
+          "quantity": 11300.0,
+          "uom": "UN",
+          "physical_delivery_day": 47,
+          "usable_day": 61,
+          "receipt_release_days": 10,
+          "physical_delivery_date": "2025-02-17",
+          "usable_date": "2025-03-03"
+        },
+        {
+          "source_row": 90,
+          "order_type": "production_open_order",
+          "planning_element": "O.Proc",
+          "item_id": "item:268091",
+          "dst_node_id": "M-1810",
+          "src_node_id": "",
+          "quantity": 141800.0,
+          "uom": "UN",
+          "physical_delivery_day": 49,
+          "usable_day": 63,
+          "receipt_release_days": 10,
+          "physical_delivery_date": "2025-02-19",
+          "usable_date": "2025-03-05"
+        },
+        {
+          "source_row": 77,
+          "order_type": "production_open_order",
+          "planning_element": "O.Proc",
+          "item_id": "item:268091",
+          "dst_node_id": "M-1810",
+          "src_node_id": "",
+          "quantity": 141795.0,
+          "uom": "UN",
+          "physical_delivery_day": 50,
+          "usable_day": 64,
+          "receipt_release_days": 10,
+          "physical_delivery_date": "2025-02-20",
+          "usable_date": "2025-03-06"
+        },
+        {
+          "source_row": 81,
+          "order_type": "production_open_order",
+          "planning_element": "O.Proc",
+          "item_id": "item:268091",
+          "dst_node_id": "M-1810",
+          "src_node_id": "",
+          "quantity": 60695.0,
+          "uom": "UN",
+          "physical_delivery_day": 62,
+          "usable_day": 76,
+          "receipt_release_days": 10,
+          "physical_delivery_date": "2025-03-04",
+          "usable_date": "2025-03-18"
+        },
+        {
+          "source_row": 79,
+          "order_type": "production_open_order",
+          "planning_element": "O.Proc",
+          "item_id": "item:268091",
+          "dst_node_id": "M-1810",
+          "src_node_id": "",
+          "quantity": 141795.0,
+          "uom": "UN",
+          "physical_delivery_day": 79,
+          "usable_day": 93,
+          "receipt_release_days": 10,
+          "physical_delivery_date": "2025-03-21",
+          "usable_date": "2025-04-04"
+        },
+        {
+          "source_row": 85,
+          "order_type": "production_open_order",
+          "planning_element": "O.Proc",
+          "item_id": "item:268091",
+          "dst_node_id": "M-1810",
+          "src_node_id": "",
+          "quantity": 9800.0,
+          "uom": "UN",
+          "physical_delivery_day": 82,
+          "usable_day": 96,
+          "receipt_release_days": 10,
+          "physical_delivery_date": "2025-03-24",
+          "usable_date": "2025-04-07"
+        },
+        {
+          "source_row": 84,
+          "order_type": "production_open_order",
+          "planning_element": "O.Proc",
+          "item_id": "item:268091",
+          "dst_node_id": "M-1810",
+          "src_node_id": "",
+          "quantity": 141800.0,
+          "uom": "UN",
+          "physical_delivery_day": 92,
+          "usable_day": 106,
+          "receipt_release_days": 10,
+          "physical_delivery_date": "2025-04-03",
+          "usable_date": "2025-04-17"
+        },
+        {
+          "source_row": 73,
+          "order_type": "production_open_order",
+          "planning_element": "O.Proc",
+          "item_id": "item:268091",
+          "dst_node_id": "M-1810",
+          "src_node_id": "",
+          "quantity": 141800.0,
+          "uom": "UN",
+          "physical_delivery_day": 93,
+          "usable_day": 107,
+          "receipt_release_days": 10,
+          "physical_delivery_date": "2025-04-04",
+          "usable_date": "2025-04-18"
+        },
+        {
+          "source_row": 86,
+          "order_type": "production_open_order",
+          "planning_element": "O.Proc",
+          "item_id": "item:268091",
+          "dst_node_id": "M-1810",
+          "src_node_id": "",
+          "quantity": 48800.0,
+          "uom": "UN",
+          "physical_delivery_day": 96,
+          "usable_day": 111,
+          "receipt_release_days": 10,
+          "physical_delivery_date": "2025-04-07",
+          "usable_date": "2025-04-22"
+        },
+        {
+          "source_row": 76,
+          "order_type": "production_open_order",
+          "planning_element": "O.Proc",
+          "item_id": "item:268091",
+          "dst_node_id": "M-1810",
+          "src_node_id": "",
+          "quantity": 141795.0,
+          "uom": "UN",
+          "physical_delivery_day": 98,
+          "usable_day": 113,
+          "receipt_release_days": 10,
+          "physical_delivery_date": "2025-04-09",
+          "usable_date": "2025-04-24"
+        },
+        {
+          "source_row": 87,
+          "order_type": "production_open_order",
+          "planning_element": "O.Proc",
+          "item_id": "item:268091",
+          "dst_node_id": "M-1810",
+          "src_node_id": "",
+          "quantity": 36795.0,
+          "uom": "UN",
+          "physical_delivery_day": 104,
+          "usable_day": 119,
+          "receipt_release_days": 10,
+          "physical_delivery_date": "2025-04-15",
+          "usable_date": "2025-04-30"
+        },
+        {
+          "source_row": 74,
+          "order_type": "production_open_order",
+          "planning_element": "O.Proc",
+          "item_id": "item:268091",
+          "dst_node_id": "M-1810",
+          "src_node_id": "",
+          "quantity": 141795.0,
+          "uom": "UN",
+          "physical_delivery_day": 117,
+          "usable_day": 133,
+          "receipt_release_days": 10,
+          "physical_delivery_date": "2025-04-28",
+          "usable_date": "2025-05-14"
+        },
+        {
+          "source_row": 83,
+          "order_type": "production_open_order",
+          "planning_element": "O.Proc",
+          "item_id": "item:268091",
+          "dst_node_id": "M-1810",
+          "src_node_id": "",
+          "quantity": 120600.0,
+          "uom": "UN",
+          "physical_delivery_day": 118,
+          "usable_day": 134,
+          "receipt_release_days": 10,
+          "physical_delivery_date": "2025-04-29",
+          "usable_date": "2025-05-15"
+        },
+        {
+          "source_row": 91,
+          "order_type": "production_open_order",
+          "planning_element": "O.Proc",
+          "item_id": "item:268091",
+          "dst_node_id": "M-1810",
+          "src_node_id": "",
+          "quantity": 141780.0,
+          "uom": "UN",
+          "physical_delivery_day": 131,
+          "usable_day": 145,
+          "receipt_release_days": 10,
+          "physical_delivery_date": "2025-05-12",
+          "usable_date": "2025-05-26"
+        },
+        {
+          "source_row": 98,
+          "order_type": "purchase_open_order",
+          "planning_element": "AVICDE",
+          "item_id": "item:338928",
+          "dst_node_id": "M-1810",
+          "src_node_id": "SDC-VD0901566A",
+          "quantity": 153617.0,
+          "uom": "UN",
+          "physical_delivery_day": 8,
+          "usable_day": 16,
+          "receipt_release_days": 6,
+          "physical_delivery_date": "2025-01-09",
+          "usable_date": "2025-01-17"
+        },
+        {
+          "source_row": 99,
+          "order_type": "purchase_open_order",
+          "planning_element": "AVICDE",
+          "item_id": "item:338928",
+          "dst_node_id": "M-1810",
+          "src_node_id": "SDC-VD0901566A",
+          "quantity": 27576.0,
+          "uom": "UN",
+          "physical_delivery_day": 8,
+          "usable_day": 16,
+          "receipt_release_days": 6,
+          "physical_delivery_date": "2025-01-09",
+          "usable_date": "2025-01-17"
+        },
+        {
+          "source_row": 100,
+          "order_type": "purchase_open_order",
+          "planning_element": "AVICDE",
+          "item_id": "item:338928",
+          "dst_node_id": "M-1810",
+          "src_node_id": "SDC-VD0901566A",
+          "quantity": 183840.0,
+          "uom": "UN",
+          "physical_delivery_day": 8,
+          "usable_day": 16,
+          "receipt_release_days": 6,
+          "physical_delivery_date": "2025-01-09",
+          "usable_date": "2025-01-17"
+        },
+        {
+          "source_row": 101,
+          "order_type": "purchase_open_order",
+          "planning_element": "AVICDE",
+          "item_id": "item:338929",
+          "dst_node_id": "M-1810",
+          "src_node_id": "SDC-VD0914360C",
+          "quantity": 57600.0,
+          "uom": "UN",
+          "physical_delivery_day": 8,
+          "usable_day": 14,
+          "receipt_release_days": 4,
+          "physical_delivery_date": "2025-01-09",
+          "usable_date": "2025-01-15"
+        },
+        {
+          "source_row": 102,
+          "order_type": "purchase_open_order",
+          "planning_element": "AVICDE",
+          "item_id": "item:426331",
+          "dst_node_id": "M-1810",
+          "src_node_id": "SDC-VD0989480A",
+          "quantity": 19200.0,
+          "uom": "UN",
+          "physical_delivery_day": 28,
+          "usable_day": 29,
+          "receipt_release_days": 1,
+          "physical_delivery_date": "2025-01-29",
+          "usable_date": "2025-01-30"
+        },
+        {
+          "source_row": 40,
+          "order_type": "purchase_open_order",
+          "planning_element": "AVICDE",
+          "item_id": "item:021081",
+          "dst_node_id": "SDC-1450",
+          "src_node_id": "SDC-VD0949099A",
+          "quantity": 40000.0,
+          "uom": "KG",
+          "physical_delivery_day": 6,
+          "usable_day": 112,
+          "receipt_release_days": 75,
+          "physical_delivery_date": "2025-01-07",
+          "usable_date": "2025-04-23"
+        },
+        {
+          "source_row": 24,
+          "order_type": "purchase_open_order",
+          "planning_element": "AVICDE",
+          "item_id": "item:021081",
+          "dst_node_id": "SDC-1450",
+          "src_node_id": "SDC-VD0960508A",
+          "quantity": 100000.0,
+          "uom": "KG",
+          "physical_delivery_day": 6,
+          "usable_day": 112,
+          "receipt_release_days": 75,
+          "physical_delivery_date": "2025-01-07",
+          "usable_date": "2025-04-23"
+        },
+        {
+          "source_row": 41,
+          "order_type": "purchase_open_order",
+          "planning_element": "AVICDE",
+          "item_id": "item:021081",
+          "dst_node_id": "SDC-1450",
+          "src_node_id": "SDC-VD0949099A",
+          "quantity": 40000.0,
+          "uom": "KG",
+          "physical_delivery_day": 13,
+          "usable_day": 119,
+          "receipt_release_days": 75,
+          "physical_delivery_date": "2025-01-14",
+          "usable_date": "2025-04-30"
+        },
+        {
+          "source_row": 33,
+          "order_type": "purchase_open_order",
+          "planning_element": "ECHCDE",
+          "item_id": "item:021081",
+          "dst_node_id": "SDC-1450",
+          "src_node_id": "SDC-VD0972460A",
+          "quantity": 40000.0,
+          "uom": "KG",
+          "physical_delivery_day": 13,
+          "usable_day": 119,
+          "receipt_release_days": 75,
+          "physical_delivery_date": "2025-01-14",
+          "usable_date": "2025-04-30"
+        },
+        {
+          "source_row": 34,
+          "order_type": "purchase_open_order",
+          "planning_element": "AVICDE",
+          "item_id": "item:021081",
+          "dst_node_id": "SDC-1450",
+          "src_node_id": "SDC-VD0975221A",
+          "quantity": 40000.0,
+          "uom": "KG",
+          "physical_delivery_day": 13,
+          "usable_day": 119,
+          "receipt_release_days": 75,
+          "physical_delivery_date": "2025-01-14",
+          "usable_date": "2025-04-30"
+        },
+        {
+          "source_row": 29,
+          "order_type": "purchase_open_order",
+          "planning_element": "AVICDE",
+          "item_id": "item:021081",
+          "dst_node_id": "SDC-1450",
+          "src_node_id": "SDC-VD0960508A",
+          "quantity": 100000.0,
+          "uom": "KG",
+          "physical_delivery_day": 20,
+          "usable_day": 128,
+          "receipt_release_days": 75,
+          "physical_delivery_date": "2025-01-21",
+          "usable_date": "2025-05-09"
+        },
+        {
+          "source_row": 37,
+          "order_type": "purchase_open_order",
+          "planning_element": "ECHCDE",
+          "item_id": "item:021081",
+          "dst_node_id": "SDC-1450",
+          "src_node_id": "SDC-VD0949099A",
+          "quantity": 40000.0,
+          "uom": "KG",
+          "physical_delivery_day": 27,
+          "usable_day": 135,
+          "receipt_release_days": 75,
+          "physical_delivery_date": "2025-01-28",
+          "usable_date": "2025-05-16"
+        },
+        {
+          "source_row": 31,
+          "order_type": "purchase_open_order",
+          "planning_element": "ECHCDE",
+          "item_id": "item:021081",
+          "dst_node_id": "SDC-1450",
+          "src_node_id": "SDC-VD0972460A",
+          "quantity": 40000.0,
+          "uom": "KG",
+          "physical_delivery_day": 27,
+          "usable_day": 135,
+          "receipt_release_days": 75,
+          "physical_delivery_date": "2025-01-28",
+          "usable_date": "2025-05-16"
+        },
+        {
+          "source_row": 43,
+          "order_type": "purchase_open_order",
+          "planning_element": "ECHCDE",
+          "item_id": "item:021081",
+          "dst_node_id": "SDC-1450",
+          "src_node_id": "SDC-VD0949099A",
+          "quantity": 40000.0,
+          "uom": "KG",
+          "physical_delivery_day": 34,
+          "usable_day": 142,
+          "receipt_release_days": 75,
+          "physical_delivery_date": "2025-02-04",
+          "usable_date": "2025-05-23"
+        },
+        {
+          "source_row": 22,
+          "order_type": "purchase_open_order",
+          "planning_element": "ECHCDE",
+          "item_id": "item:021081",
+          "dst_node_id": "SDC-1450",
+          "src_node_id": "SDC-VD0960508A",
+          "quantity": 100000.0,
+          "uom": "KG",
+          "physical_delivery_day": 34,
+          "usable_day": 142,
+          "receipt_release_days": 75,
+          "physical_delivery_date": "2025-02-04",
+          "usable_date": "2025-05-23"
+        },
+        {
+          "source_row": 36,
+          "order_type": "purchase_open_order",
+          "planning_element": "ECHCDE",
+          "item_id": "item:021081",
+          "dst_node_id": "SDC-1450",
+          "src_node_id": "SDC-VD0975221A",
+          "quantity": 40000.0,
+          "uom": "KG",
+          "physical_delivery_day": 41,
+          "usable_day": 152,
+          "receipt_release_days": 75,
+          "physical_delivery_date": "2025-02-11",
+          "usable_date": "2025-06-02"
+        },
+        {
+          "source_row": 26,
+          "order_type": "purchase_open_order",
+          "planning_element": "ECHCDE",
+          "item_id": "item:021081",
+          "dst_node_id": "SDC-1450",
+          "src_node_id": "SDC-VD0960508A",
+          "quantity": 100000.0,
+          "uom": "KG",
+          "physical_delivery_day": 48,
+          "usable_day": 160,
+          "receipt_release_days": 75,
+          "physical_delivery_date": "2025-02-18",
+          "usable_date": "2025-06-10"
+        },
+        {
+          "source_row": 38,
+          "order_type": "purchase_open_order",
+          "planning_element": "ECHCDE",
+          "item_id": "item:021081",
+          "dst_node_id": "SDC-1450",
+          "src_node_id": "SDC-VD0949099A",
+          "quantity": 40000.0,
+          "uom": "KG",
+          "physical_delivery_day": 62,
+          "usable_day": 174,
+          "receipt_release_days": 75,
+          "physical_delivery_date": "2025-03-04",
+          "usable_date": "2025-06-24"
+        },
+        {
+          "source_row": 28,
+          "order_type": "purchase_open_order",
+          "planning_element": "ECHCDE",
+          "item_id": "item:021081",
+          "dst_node_id": "SDC-1450",
+          "src_node_id": "SDC-VD0960508A",
+          "quantity": 100000.0,
+          "uom": "KG",
+          "physical_delivery_day": 62,
+          "usable_day": 174,
+          "receipt_release_days": 75,
+          "physical_delivery_date": "2025-03-04",
+          "usable_date": "2025-06-24"
+        },
+        {
+          "source_row": 32,
+          "order_type": "purchase_open_order",
+          "planning_element": "ECHCDE",
+          "item_id": "item:021081",
+          "dst_node_id": "SDC-1450",
+          "src_node_id": "SDC-VD0972460A",
+          "quantity": 20000.0,
+          "uom": "KG",
+          "physical_delivery_day": 62,
+          "usable_day": 174,
+          "receipt_release_days": 75,
+          "physical_delivery_date": "2025-03-04",
+          "usable_date": "2025-06-24"
+        },
+        {
+          "source_row": 35,
+          "order_type": "purchase_open_order",
+          "planning_element": "ECHCDE",
+          "item_id": "item:021081",
+          "dst_node_id": "SDC-1450",
+          "src_node_id": "SDC-VD0975221A",
+          "quantity": 20000.0,
+          "uom": "KG",
+          "physical_delivery_day": 62,
+          "usable_day": 174,
+          "receipt_release_days": 75,
+          "physical_delivery_date": "2025-03-04",
+          "usable_date": "2025-06-24"
+        },
+        {
+          "source_row": 44,
+          "order_type": "purchase_open_order",
+          "planning_element": "ECHCDE",
+          "item_id": "item:021081",
+          "dst_node_id": "SDC-1450",
+          "src_node_id": "SDC-VD0949099A",
+          "quantity": 40000.0,
+          "uom": "KG",
+          "physical_delivery_day": 78,
+          "usable_day": 190,
+          "receipt_release_days": 75,
+          "physical_delivery_date": "2025-03-20",
+          "usable_date": "2025-07-10"
+        },
+        {
+          "source_row": 27,
+          "order_type": "purchase_open_order",
+          "planning_element": "ECHCDE",
+          "item_id": "item:021081",
+          "dst_node_id": "SDC-1450",
+          "src_node_id": "SDC-VD0960508A",
+          "quantity": 100000.0,
+          "uom": "KG",
+          "physical_delivery_day": 91,
+          "usable_day": 204,
+          "receipt_release_days": 75,
+          "physical_delivery_date": "2025-04-02",
+          "usable_date": "2025-07-24"
+        },
+        {
+          "source_row": 39,
+          "order_type": "purchase_open_order",
+          "planning_element": "ECHCDE",
+          "item_id": "item:021081",
+          "dst_node_id": "SDC-1450",
+          "src_node_id": "SDC-VD0949099A",
+          "quantity": 40000.0,
+          "uom": "KG",
+          "physical_delivery_day": 105,
+          "usable_day": 232,
+          "receipt_release_days": 75,
+          "physical_delivery_date": "2025-04-16",
+          "usable_date": "2025-08-21"
+        },
+        {
+          "source_row": 23,
+          "order_type": "purchase_open_order",
+          "planning_element": "ECHCDE",
+          "item_id": "item:021081",
+          "dst_node_id": "SDC-1450",
+          "src_node_id": "SDC-VD0960508A",
+          "quantity": 100000.0,
+          "uom": "KG",
+          "physical_delivery_day": 105,
+          "usable_day": 232,
+          "receipt_release_days": 75,
+          "physical_delivery_date": "2025-04-16",
+          "usable_date": "2025-08-21"
+        },
+        {
+          "source_row": 42,
+          "order_type": "purchase_open_order",
+          "planning_element": "ECHCDE",
+          "item_id": "item:021081",
+          "dst_node_id": "SDC-1450",
+          "src_node_id": "SDC-VD0949099A",
+          "quantity": 20000.0,
+          "uom": "KG",
+          "physical_delivery_day": 124,
+          "usable_day": 247,
+          "receipt_release_days": 75,
+          "physical_delivery_date": "2025-05-05",
+          "usable_date": "2025-09-05"
+        },
+        {
+          "source_row": 30,
+          "order_type": "purchase_open_order",
+          "planning_element": "ECHCDE",
+          "item_id": "item:021081",
+          "dst_node_id": "SDC-1450",
+          "src_node_id": "SDC-VD0960508A",
+          "quantity": 100000.0,
+          "uom": "KG",
+          "physical_delivery_day": 131,
+          "usable_day": 253,
+          "receipt_release_days": 75,
+          "physical_delivery_date": "2025-05-12",
+          "usable_date": "2025-09-11"
+        },
+        {
+          "source_row": 25,
+          "order_type": "purchase_open_order",
+          "planning_element": "ECHCDE",
+          "item_id": "item:021081",
+          "dst_node_id": "SDC-1450",
+          "src_node_id": "SDC-VD0960508A",
+          "quantity": 20000.0,
+          "uom": "KG",
+          "physical_delivery_day": 139,
+          "usable_day": 261,
+          "receipt_release_days": 75,
+          "physical_delivery_date": "2025-05-20",
+          "usable_date": "2025-09-19"
+        },
+        {
+          "source_row": 103,
+          "order_type": "production_open_order",
+          "planning_element": "O.Proc",
+          "item_id": "item:693055",
+          "dst_node_id": "SDC-1450",
+          "src_node_id": "",
+          "quantity": 600000.0,
+          "uom": "G",
+          "physical_delivery_day": 26,
+          "usable_day": 55,
+          "receipt_release_days": 21,
+          "physical_delivery_date": "2025-01-27",
+          "usable_date": "2025-02-25"
+        },
+        {
+          "source_row": 105,
+          "order_type": "production_open_order",
+          "planning_element": "O.Proc",
+          "item_id": "item:773474",
+          "dst_node_id": "SDC-1450",
+          "src_node_id": "",
+          "quantity": 3200000.0,
+          "uom": "G",
+          "physical_delivery_day": 23,
+          "usable_day": 61,
+          "receipt_release_days": 26,
+          "physical_delivery_date": "2025-01-24",
+          "usable_date": "2025-03-03"
+        }
+      ],
+      "unresolved_rows": [
+        {
+          "source_row": 5,
+          "item_id": "item:001757",
+          "planning_element": "AVICDE",
+          "division": "1820",
+          "supplier_account": "VD0951020A",
+          "quantity": 800000.0,
+          "uom": "G",
+          "reasons": [
+            "unmapped_or_missing_division:1820"
+          ]
+        },
+        {
+          "source_row": 6,
+          "item_id": "item:001757",
+          "planning_element": "AVICDE",
+          "division": "1820",
+          "supplier_account": "VD0951020A",
+          "quantity": 700000.0,
+          "uom": "G",
+          "reasons": [
+            "unmapped_or_missing_division:1820"
+          ]
+        },
+        {
+          "source_row": 9,
+          "item_id": "item:001893",
+          "planning_element": "AVICDE",
+          "division": "1820",
+          "supplier_account": "VD0518684A",
+          "quantity": 22800.0,
+          "uom": "KG",
+          "reasons": [
+            "unmapped_or_missing_division:1820"
+          ]
+        },
+        {
+          "source_row": 10,
+          "item_id": "item:001893",
+          "planning_element": "AVICDE",
+          "division": "1820",
+          "supplier_account": "VD0518684A",
+          "quantity": 22800.0,
+          "uom": "KG",
+          "reasons": [
+            "unmapped_or_missing_division:1820"
+          ]
+        },
+        {
+          "source_row": 11,
+          "item_id": "item:001893",
+          "planning_element": "AVICDE",
+          "division": "1820",
+          "supplier_account": "VD0518684A",
+          "quantity": 22800.0,
+          "uom": "KG",
+          "reasons": [
+            "unmapped_or_missing_division:1820"
+          ]
+        },
+        {
+          "source_row": 12,
+          "item_id": "item:001893",
+          "planning_element": "AVICDE",
+          "division": "1820",
+          "supplier_account": "VD0518684A",
+          "quantity": 22800.0,
+          "uom": "KG",
+          "reasons": [
+            "unmapped_or_missing_division:1820"
+          ]
+        },
+        {
+          "source_row": 13,
+          "item_id": "item:001893",
+          "planning_element": "AVICDE",
+          "division": "1820",
+          "supplier_account": "VD0910216A",
+          "quantity": 16560.0,
+          "uom": "KG",
+          "reasons": [
+            "unmapped_or_missing_division:1820"
+          ]
+        },
+        {
+          "source_row": 16,
+          "item_id": "item:002612",
+          "planning_element": "AVICDE",
+          "division": "1820",
+          "supplier_account": "VD0990780A",
+          "quantity": 24000.0,
+          "uom": "KG",
+          "reasons": [
+            "unmapped_or_missing_division:1820"
+          ]
+        },
+        {
+          "source_row": 17,
+          "item_id": "item:002612",
+          "planning_element": "AVICDE",
+          "division": "1820",
+          "supplier_account": "VD1091642A",
+          "quantity": 25000.0,
+          "uom": "KG",
+          "reasons": [
+            "unmapped_or_missing_division:1820"
+          ]
+        },
+        {
+          "source_row": 18,
+          "item_id": "item:002612",
+          "planning_element": "AVICDE",
+          "division": "1820",
+          "supplier_account": "VD1091642A",
+          "quantity": 25000.0,
+          "uom": "KG",
+          "reasons": [
+            "unmapped_or_missing_division:1820"
+          ]
+        },
+        {
+          "source_row": 20,
+          "item_id": "item:016332",
+          "planning_element": "AVICDE",
+          "division": "1820",
+          "supplier_account": "VD0514881A",
+          "quantity": 1200000.0,
+          "uom": "G",
+          "reasons": [
+            "unmapped_or_missing_division:1820"
+          ]
+        },
+        {
+          "source_row": 21,
+          "item_id": "item:016332",
+          "planning_element": "ECHCDE",
+          "division": "1820",
+          "supplier_account": "VD0514881A",
+          "quantity": 1200000.0,
+          "uom": "G",
+          "reasons": [
+            "unmapped_or_missing_division:1820"
+          ]
+        },
+        {
+          "source_row": 45,
+          "item_id": "item:029313",
+          "planning_element": "AVICDE",
+          "division": "1820",
+          "supplier_account": "VD0519670A",
+          "quantity": 300000.0,
+          "uom": "G",
+          "reasons": [
+            "unmapped_or_missing_division:1820"
+          ]
+        },
+        {
+          "source_row": 46,
+          "item_id": "item:029313",
+          "planning_element": "ECHCDE",
+          "division": "1820",
+          "supplier_account": "VD0519670A",
+          "quantity": 600000.0,
+          "uom": "G",
+          "reasons": [
+            "unmapped_or_missing_division:1820"
+          ]
+        },
+        {
+          "source_row": 70,
+          "item_id": "item:099439",
+          "planning_element": "AVICDE",
+          "division": "1820",
+          "supplier_account": "VD0505677A",
+          "quantity": 8400000.0,
+          "uom": "G",
+          "reasons": [
+            "unmapped_or_missing_division:1820"
+          ]
+        },
+        {
+          "source_row": 71,
+          "item_id": "item:099439",
+          "planning_element": "AVICDE",
+          "division": "1820",
+          "supplier_account": "VD0505677A",
+          "quantity": 4200000.0,
+          "uom": "G",
+          "reasons": [
+            "unmapped_or_missing_division:1820"
+          ]
+        }
+      ],
+      "counts": {
+        "raw_rows": 104,
+        "resolved_rows": 88,
+        "unresolved_rows": 16,
+        "purchase_rows": 82,
+        "production_rows": 22
       }
     },
     "simulation_prep": {
       "prepared_for_simulation": true,
-      "prepared_at_utc": "2026-04-30T14:25:43.801703+00:00",
+      "prepared_at_utc": "2026-07-09T11:43:36.852136+00:00",
       "assumption_version": "v1",
       "notes": [
         "Missing/default values were replaced with explicit assumptions for first-pass simulation.",
@@ -944,7 +2486,7 @@
           },
           {
             "item_id": "item:007923",
-            "state_id": "I_007923_M_1810",
+            "state_id": "I_007923",
             "initial": 0.0,
             "uom": "KG",
             "holding_cost": {
@@ -956,8 +2498,8 @@
               "unit_value_basis": 2.0
             },
             "is_default_initial": false,
-            "initial_source": "simulation_prep_assumption",
-            "uom_source": "simulation_prep_inferred_from_relations_bom"
+            "uom_source": "simulation_prep_inferred_from_relations_bom",
+            "initial_source": "simulation_prep_assumption"
           }
         ],
         "backlogs": [],
@@ -1135,7 +2677,7 @@
             ]
           },
           "attrs": {
-            "source_workbook": "268191.xlsx",
+            "source_workbook": "268091.xlsx",
             "source_sheet": "BOM"
           }
         }
@@ -1289,6 +2831,7 @@
               "unit_value_basis": 4.57
             },
             "is_default_initial": false,
+            "uom_source": "simulation_prep_inferred_from_relations_bom",
             "initial_source": "simulation_prep_assumption"
           },
           {
@@ -1834,6 +3377,7 @@
               "unit_value_basis": 5.43
             },
             "is_default_initial": false,
+            "uom_source": "simulation_prep_inferred_from_relations_bom",
             "initial_source": "simulation_prep_assumption"
           },
           {
@@ -1850,11 +3394,12 @@
               "unit_value_basis": 2.89
             },
             "is_default_initial": false,
+            "uom_source": "simulation_prep_inferred_from_relations_bom",
             "initial_source": "simulation_prep_assumption"
           },
           {
             "item_id": "item:007923",
-            "state_id": "I_007923_SDC_VD0951020A",
+            "state_id": "I_007923",
             "initial": 180.0,
             "uom": "KG",
             "holding_cost": {
@@ -1866,8 +3411,7 @@
               "unit_value_basis": 2.0
             },
             "is_default_initial": false,
-            "initial_source": "simulation_prep_assumption",
-            "uom_source": "simulation_prep_inferred_from_relations_bom"
+            "initial_source": "simulation_prep_assumption"
           }
         ],
         "backlogs": [],
@@ -2379,7 +3923,7 @@
       "attrs": {
         "description": "Supplier of Raw Materials - VD0514881A",
         "source_sheet": "Acteurs",
-        "location_ID": "SuÃ¨de - GÃ–TEBORG - 402 58",
+        "location_ID": "Suède - GÖTEBORG - 402 58",
         "legacy_key": "SDC - VD0514881A"
       },
       "inventory": {
@@ -2536,6 +4080,7 @@
               "unit_value_basis": 34.775
             },
             "is_default_initial": false,
+            "uom_source": "simulation_prep_inferred_from_relations_bom",
             "initial_source": "simulation_prep_assumption"
           }
         ],
@@ -3007,8 +4552,8 @@
           "reorder_mode": "base_stock",
           "source": "simulation_prep_assumption",
           "service_level_target_by_item": {
-            "item:268091": 0.93,
-            "item:268967": 0.8
+            "item:268091": 1.0,
+            "item:268967": 1.0
           },
           "service_level_target_source": "simulation_prep_business_rule_by_product"
         }
@@ -3150,7 +4695,7 @@
             ]
           },
           "attrs": {
-            "source_workbook": "021081.xlsx",
+            "source_workbook": "773474.xlsx",
             "source_sheet": "BOM"
           }
         }
@@ -3456,30 +5001,18 @@
       "id": "SDC-VD0956464A",
       "type": "supplier_dc",
       "name": "Supplier of Raw Materials - VD0956464A",
-      "role_raw": "Supplier Distribution Center",
       "location_ID": "France - PRECY SUR OISE - 60460",
       "geo": {
         "lat": null,
         "lon": null,
-        "country": "",
-        "raw": {
-          "location_ID": "France - PRECY SUR OISE - 60460",
-          "source": "demand_pf_acteurs"
-        }
-      },
-      "attrs": {
-        "legacy_key": "SDC - VD0956464A",
-        "location_ID": "France - PRECY SUR OISE - 60460"
-      },
-      "metadata": {
-        "description": "Supplier of Raw Materials - VD0956464A",
-        "source_sheet": "Acteurs"
+        "country": null,
+        "raw": null
       },
       "inventory": {
         "states": [
           {
             "item_id": "item:007923",
-            "state_id": "I_007923_SDC_VD0956464A",
+            "state_id": "I_007923",
             "initial": 180.0,
             "uom": "KG",
             "holding_cost": {
@@ -3491,8 +5024,8 @@
               "unit_value_basis": 2.0
             },
             "is_default_initial": false,
-            "initial_source": "simulation_prep_assumption",
-            "uom_source": "simulation_prep_inferred_from_relations_bom"
+            "uom_source": "simulation_prep_inferred_from_relations_bom",
+            "initial_source": "simulation_prep_assumption"
           }
         ],
         "backlogs": [],
@@ -3500,13 +5033,116 @@
       },
       "processes": [],
       "policies": {
+        "ordering": [],
+        "production": [],
         "simulation_policy": {
           "service_level_target": 0.95,
           "review_period_days": 7,
           "reorder_mode": "base_stock",
           "source": "simulation_prep_assumption"
         }
+      },
+      "accounting": {
+        "defaults_used": true
+      },
+      "lca": {
+        "defaults_used": true
+      },
+      "attrs": {
+        "source_sheet": "FIA",
+        "location_ID": "France - PRECY SUR OISE - 60460",
+        "legacy_key": "SDC - VD0956464A"
+      },
+      "defaults": {
+        "geo": true
+      },
+      "role_raw": "Supplier Distribution Center",
+      "metadata": {
+        "description": "Supplier of Raw Materials - VD0956464A",
+        "source_sheet": "Acteurs"
       }
+    },
+    {
+      "id": "SDC-VD0518550B",
+      "type": "supplier_dc",
+      "name": "Supplier of Raw Materials - VD0518550B",
+      "location_ID": null,
+      "geo": {
+        "lat": null,
+        "lon": null,
+        "country": null,
+        "raw": null
+      },
+      "inventory": {
+        "states": [],
+        "backlogs": [],
+        "wip": []
+      },
+      "processes": [],
+      "policies": {
+        "ordering": [],
+        "production": [],
+        "simulation_policy": {
+          "service_level_target": 0.95,
+          "review_period_days": 7,
+          "reorder_mode": "base_stock",
+          "source": "simulation_prep_assumption"
+        }
+      },
+      "accounting": {
+        "defaults_used": true
+      },
+      "lca": {
+        "defaults_used": true
+      },
+      "attrs": {
+        "source_sheet": "FIA"
+      },
+      "defaults": {
+        "geo": true
+      },
+      "role_raw": "Supplier Distribution Center"
+    },
+    {
+      "id": "SDC-VD0525906A",
+      "type": "supplier_dc",
+      "name": "Supplier of Raw Materials - VD0525906A",
+      "location_ID": null,
+      "geo": {
+        "lat": null,
+        "lon": null,
+        "country": null,
+        "raw": null
+      },
+      "inventory": {
+        "states": [],
+        "backlogs": [],
+        "wip": []
+      },
+      "processes": [],
+      "policies": {
+        "ordering": [],
+        "production": [],
+        "simulation_policy": {
+          "service_level_target": 0.95,
+          "review_period_days": 7,
+          "reorder_mode": "base_stock",
+          "source": "simulation_prep_assumption"
+        }
+      },
+      "accounting": {
+        "defaults_used": true
+      },
+      "lca": {
+        "defaults_used": true
+      },
+      "attrs": {
+        "source_sheet": "FIA"
+      },
+      "defaults": {
+        "geo": true
+      },
+      "role_raw": "Supplier Distribution Center"
     }
   ],
   "edges": [
@@ -3925,7 +5561,7 @@
       "attrs": {
         "source_row": 8,
         "source_sheet": "FIA",
-        "source_workbook": "268191.xlsx",
+        "source_workbook": "268091.xlsx",
         "product_code": "268091",
         "supplier_account": "VD0951020A",
         "standard_order_qty": 100.0,
@@ -3972,7 +5608,7 @@
       "attrs": {
         "source_row": 9,
         "source_sheet": "FIA",
-        "source_workbook": "268191.xlsx",
+        "source_workbook": "268091.xlsx",
         "product_code": "268091",
         "supplier_account": "VD0519670A",
         "standard_order_qty": 4000.0,
@@ -4019,7 +5655,7 @@
       "attrs": {
         "source_row": 10,
         "source_sheet": "FIA",
-        "source_workbook": "268191.xlsx",
+        "source_workbook": "268091.xlsx",
         "product_code": "268091",
         "supplier_account": "VD0951020A",
         "standard_order_qty": 6000.0,
@@ -4066,7 +5702,7 @@
       "attrs": {
         "source_row": 11,
         "source_sheet": "FIA",
-        "source_workbook": "268191.xlsx",
+        "source_workbook": "268091.xlsx",
         "product_code": "268091",
         "supplier_account": "VD0518684A",
         "standard_order_qty": 22800.0,
@@ -4113,7 +5749,7 @@
       "attrs": {
         "source_row": 12,
         "source_sheet": "FIA",
-        "source_workbook": "268191.xlsx",
+        "source_workbook": "268091.xlsx",
         "product_code": "268091",
         "supplier_account": "VD0910216A",
         "standard_order_qty": 23920.0,
@@ -4160,7 +5796,7 @@
       "attrs": {
         "source_row": 13,
         "source_sheet": "FIA",
-        "source_workbook": "268191.xlsx",
+        "source_workbook": "268091.xlsx",
         "product_code": "268091",
         "supplier_account": "VD1091642A",
         "standard_order_qty": 20900.0,
@@ -4207,7 +5843,7 @@
       "attrs": {
         "source_row": 14,
         "source_sheet": "FIA",
-        "source_workbook": "268191.xlsx",
+        "source_workbook": "268091.xlsx",
         "product_code": "268091",
         "supplier_account": "VD0500655A",
         "standard_order_qty": 21600.0,
@@ -4254,7 +5890,7 @@
       "attrs": {
         "source_row": 15,
         "source_sheet": "FIA",
-        "source_workbook": "268191.xlsx",
+        "source_workbook": "268091.xlsx",
         "product_code": "268091",
         "supplier_account": "VD0910216A",
         "standard_order_qty": 22500.0,
@@ -4301,7 +5937,7 @@
       "attrs": {
         "source_row": 16,
         "source_sheet": "FIA",
-        "source_workbook": "268191.xlsx",
+        "source_workbook": "268091.xlsx",
         "product_code": "268091",
         "supplier_account": "VD0990780A",
         "standard_order_qty": 23750.0,
@@ -4348,7 +5984,7 @@
       "attrs": {
         "source_row": 17,
         "source_sheet": "FIA",
-        "source_workbook": "268191.xlsx",
+        "source_workbook": "268091.xlsx",
         "product_code": "268091",
         "supplier_account": "VD1091642A",
         "standard_order_qty": 22500.0,
@@ -4395,7 +6031,7 @@
       "attrs": {
         "source_row": 18,
         "source_sheet": "FIA",
-        "source_workbook": "268191.xlsx",
+        "source_workbook": "268091.xlsx",
         "product_code": "268091",
         "supplier_account": "VD0514881A",
         "standard_order_qty": 1100.0,
@@ -4442,7 +6078,7 @@
       "attrs": {
         "source_row": 19,
         "source_sheet": "FIA",
-        "source_workbook": "268191.xlsx",
+        "source_workbook": "268091.xlsx",
         "product_code": "268091",
         "supplier_account": "VD0519670A",
         "standard_order_qty": 300.0,
@@ -4489,7 +6125,7 @@
       "attrs": {
         "source_row": 20,
         "source_sheet": "FIA",
-        "source_workbook": "268191.xlsx",
+        "source_workbook": "268091.xlsx",
         "product_code": "268091",
         "supplier_account": "VD1096202A",
         "standard_order_qty": 450.0,
@@ -4536,7 +6172,7 @@
       "attrs": {
         "source_row": 21,
         "source_sheet": "FIA",
-        "source_workbook": "268191.xlsx",
+        "source_workbook": "268091.xlsx",
         "product_code": "268091",
         "supplier_account": "VD0520132A",
         "standard_order_qty": 1600.0,
@@ -4583,7 +6219,7 @@
       "attrs": {
         "source_row": 22,
         "source_sheet": "FIA",
-        "source_workbook": "268191.xlsx",
+        "source_workbook": "268091.xlsx",
         "product_code": "268091",
         "supplier_account": "VD0914320A",
         "standard_order_qty": 300.0,
@@ -4630,7 +6266,7 @@
       "attrs": {
         "source_row": 23,
         "source_sheet": "FIA",
-        "source_workbook": "268191.xlsx",
+        "source_workbook": "268091.xlsx",
         "product_code": "268091",
         "supplier_account": "VD0964290A",
         "standard_order_qty": 300.0,
@@ -4677,7 +6313,7 @@
       "attrs": {
         "source_row": 24,
         "source_sheet": "FIA",
-        "source_workbook": "268191.xlsx",
+        "source_workbook": "268091.xlsx",
         "product_code": "268091",
         "supplier_account": "VD0505677A",
         "standard_order_qty": 4200.0,
@@ -4724,7 +6360,7 @@
       "attrs": {
         "source_row": 25,
         "source_sheet": "FIA",
-        "source_workbook": "268191.xlsx",
+        "source_workbook": "268091.xlsx",
         "product_code": "268091",
         "supplier_account": "VD0901566A",
         "standard_order_qty": 25000.0,
@@ -4771,7 +6407,7 @@
       "attrs": {
         "source_row": 26,
         "source_sheet": "FIA",
-        "source_workbook": "268191.xlsx",
+        "source_workbook": "268091.xlsx",
         "product_code": "268091",
         "supplier_account": "VD0914360C",
         "standard_order_qty": 5000.0,
@@ -4818,7 +6454,7 @@
       "attrs": {
         "source_row": 27,
         "source_sheet": "FIA",
-        "source_workbook": "268191.xlsx",
+        "source_workbook": "268091.xlsx",
         "product_code": "268091",
         "supplier_account": "VD0989480A",
         "standard_order_qty": 19200.0,
@@ -4865,7 +6501,7 @@
       "attrs": {
         "source_row": 28,
         "source_sheet": "FIA",
-        "source_workbook": "268191.xlsx",
+        "source_workbook": "268091.xlsx",
         "product_code": "268091",
         "supplier_account": "D1450",
         "standard_order_qty": 1.0,
@@ -5071,7 +6707,7 @@
       },
       "attrs": {
         "source_sheet": "FIA",
-        "source_workbook": "021081.xlsx",
+        "source_workbook": "773474.xlsx",
         "product_code": "773474",
         "supplier_account": "VD0949099A",
         "standard_order_qty": 20000.0,
@@ -5117,7 +6753,7 @@
       },
       "attrs": {
         "source_sheet": "FIA",
-        "source_workbook": "021081.xlsx",
+        "source_workbook": "773474.xlsx",
         "product_code": "773474",
         "supplier_account": "VD0960508A",
         "standard_order_qty": 20000.0,
@@ -5163,7 +6799,7 @@
       },
       "attrs": {
         "source_sheet": "FIA",
-        "source_workbook": "021081.xlsx",
+        "source_workbook": "773474.xlsx",
         "product_code": "773474",
         "supplier_account": "VD0972460A",
         "standard_order_qty": 20000.0,
@@ -5209,7 +6845,7 @@
       },
       "attrs": {
         "source_sheet": "FIA",
-        "source_workbook": "021081.xlsx",
+        "source_workbook": "773474.xlsx",
         "product_code": "773474",
         "supplier_account": "VD0975221A",
         "standard_order_qty": 20000.0,
@@ -5225,33 +6861,43 @@
       "items": [
         "item:007923"
       ],
+      "mode": "truck",
+      "distance_km": 570.0,
+      "lead_time": {
+        "type": "erlang_pipeline",
+        "mean": 14.0,
+        "stages": 4,
+        "time_unit": "day",
+        "is_default": false,
+        "source": "case_data_fia"
+      },
       "order_terms": {
         "sell_price": 2.18,
         "price_base": 1.0,
         "quantity_unit": "KG",
+        "is_default": false,
         "source": "demand_pf_relations_acteurs"
       },
-      "lead_time": {
-        "is_default": false,
-        "type": "erlang_pipeline",
-        "mean": 3.0,
-        "stages": 4,
-        "time_unit": "day",
-        "source": "simulation_prep_assumption"
-      },
       "transport_cost": {
-        "is_default": false,
         "value": 0.657,
         "per": "unit",
+        "is_default": false,
         "source": "simulation_prep_assumption"
       },
       "delay_step_limit": {
+        "value": 28,
         "is_default": false,
-        "value": 21,
-        "source": "simulation_prep_assumption"
+        "source": "case_data_fia_assumption_from_lead_time"
       },
-      "source": "demand_pf_relations_acteurs",
-      "distance_km": 570.0
+      "attrs": {
+        "source_sheet": "FIA",
+        "source_workbook": "268091.xlsx",
+        "product_code": "268091",
+        "supplier_account": "VD0951020A",
+        "standard_order_qty": 19074.0,
+        "standard_order_uom": "KG",
+        "pricing_currency": "EUR"
+      }
     },
     {
       "id": "edge:SDC-VD0956464A_TO_M-1810_007923",
@@ -5261,32 +6907,43 @@
       "items": [
         "item:007923"
       ],
+      "mode": "truck",
+      "distance_km": null,
+      "lead_time": {
+        "type": "erlang_pipeline",
+        "mean": 15.0,
+        "stages": 4,
+        "time_unit": "day",
+        "is_default": false,
+        "source": "case_data_fia"
+      },
       "order_terms": {
         "sell_price": 1820.0,
         "price_base": 1000.0,
         "quantity_unit": "KG",
+        "is_default": false,
         "source": "demand_pf_relations_acteurs"
       },
-      "lead_time": {
-        "is_default": false,
-        "type": "erlang_pipeline",
-        "mean": 3.0,
-        "stages": 4,
-        "time_unit": "day",
-        "source": "simulation_prep_assumption"
-      },
       "transport_cost": {
-        "is_default": false,
         "value": 0.58,
         "per": "unit",
+        "is_default": false,
         "source": "simulation_prep_assumption"
       },
       "delay_step_limit": {
+        "value": 30,
         "is_default": false,
-        "value": 21,
-        "source": "simulation_prep_assumption"
+        "source": "case_data_fia_assumption_from_lead_time"
       },
-      "source": "demand_pf_relations_acteurs"
+      "attrs": {
+        "source_sheet": "FIA",
+        "source_workbook": "268091.xlsx",
+        "product_code": "268091",
+        "supplier_account": "VD0956464A",
+        "standard_order_qty": 19140.0,
+        "standard_order_uom": "KG",
+        "pricing_currency": "EUR"
+      }
     }
   ],
   "scenarios": [
@@ -5526,14 +7183,14 @@
               "repeat_mode": "annual_cycle"
             }
           ],
-          "service_level_target": 0.8,
+          "service_level_target": 1.0,
           "service_level_target_source": "simulation_prep_business_rule_by_product",
           "defaults": {
             "demand": false
           },
           "source_truth": {
             "type": "demand_pf_weekly_real_demand",
-            "xlsx_path": "etudecas/data/source/demand_PF.xlsx",
+            "xlsx_path": "etudecas\\data\\source\\demand_PF.xlsx",
             "sheet": "Demande",
             "annual_total_qty": 1575986.0,
             "period_count_weeks": 52
@@ -5771,11 +7428,11 @@
           "defaults": {
             "demand": false
           },
-          "service_level_target": 0.93,
+          "service_level_target": 1.0,
           "service_level_target_source": "simulation_prep_business_rule_by_product",
           "source_truth": {
             "type": "demand_pf_weekly_real_demand",
-            "xlsx_path": "etudecas/data/source/demand_PF.xlsx",
+            "xlsx_path": "etudecas\\data\\source\\demand_PF.xlsx",
             "sheet": "Demande",
             "annual_total_qty": 3576442.0,
             "period_count_weeks": 52

@@ -1,0 +1,30 @@
+dst_node_id,estimated_value_eur,flags,item_id,not_in_graph_rows,product_scope,qty_item_uom,rows,src_node_id,supplier_lane_absent_rows
+SDC-1450,9922000.0,duplicate_same_key:8,item:021081,0,773474,820000.0,9,SDC-VD0960508A,0
+SDC-1450,3630000.0,duplicate_same_key:7,item:021081,0,773474,300000.0,8,SDC-VD0949099A,0
+SDC-1450,1500000.0,duplicate_same_key:2,item:021081,0,773474,100000.0,3,SDC-VD0975221A,0
+SDC-1450,1215000.0,duplicate_same_key:2,item:021081,0,773474,100000.0,3,SDC-VD0972460A,0
+M-1430,411300.0,duplicate_same_key:9,item:038005,0,268967,90000000.0,9,SDC-VD0520132A,0
+M-1810,290070.0,supplier_item_lane_absent:11; not_multiple_of_standard_order_qty:11; duplicate_same_key:11,item:049371,0,268091,19800000.0,11,SDC-VD0518550B,11
+M-1430,171849.08999999997,not_multiple_of_standard_order_qty:1,item:333362,0,268967,629000.0,6,SDC-VD0525412A,0
+M-1430,132600.0,duplicate_same_key:2,item:042342,0,268967,60000000.0,2,SDC-VD0914690A,0
+M-1810,51582.81323,not_multiple_of_standard_order_qty:3,item:338928,0,268091,365033.0,3,SDC-VD0901566A,0
+M-1810,43440.0,duplicate_same_key:2,item:001757,0,268091,8000000.0,3,SDC-VD0951020A,0
+M-1810,36900.0,duplicate_same_key:2,item:002612,0,268091,45000.0,2,SDC-VD0910216A,0
+M-1810,12432.96,not_multiple_of_standard_order_qty:1,item:338929,0,268091,57600.0,1,SDC-VD0914360C,0
+M-1810,9675.456,,item:426331,0,268091,19200.0,1,SDC-VD0989480A,0
+M-1810,9480.0,,item:001848,0,268091,6000000.0,1,SDC-VD0951020A,0
+M-1810,6105.0,,item:055703,0,268091,300000.0,1,SDC-VD0914320A,0
+M-1430,2729.216,supplier_item_lane_absent:1; not_multiple_of_standard_order_qty:1,item:734545,0,268967,6400.0,1,SDC-VD0525906A,1
+,0.0,supplier_item_lane_absent:2; no_dest_item_lane:2; unmapped_division:2; not_in_graph_open_orders:2,item:001757,2,268091,1500000.0,2,SDC-VD0951020A,2
+M-1430,0.0,supplier_item_lane_absent:1; no_dest_item_lane:1,item:001848,0,268091,7000000.0,1,SDC-VD0951020A,1
+,0.0,supplier_item_lane_absent:4; no_dest_item_lane:4; unmapped_division:4; not_in_graph_open_orders:4; duplicate_same_key:4,item:001893,4,268091,91200.0,4,SDC-VD0518684A,4
+,0.0,supplier_item_lane_absent:1; no_dest_item_lane:1; unmapped_division:1; not_in_graph_open_orders:1,item:001893,1,268091,16560.0,1,SDC-VD0910216A,1
+,0.0,supplier_item_lane_absent:1; no_dest_item_lane:1; unmapped_division:1; not_in_graph_open_orders:1,item:002612,1,268091,24000.0,1,SDC-VD0990780A,1
+,0.0,supplier_item_lane_absent:2; no_dest_item_lane:2; unmapped_division:2; not_in_graph_open_orders:2; duplicate_same_key:2,item:002612,2,268091,50000.0,2,SDC-VD1091642A,2
+M-1810,0.0,supplier_item_lane_absent:1; no_dest_item_lane:1,item:007923,0,268091,19140000.0,1,SDC-VD0956464A,1
+,0.0,supplier_item_lane_absent:2; no_dest_item_lane:2; unmapped_division:2; not_in_graph_open_orders:2; duplicate_same_key:2,item:016332,2,268091,2400000.0,2,SDC-VD0514881A,2
+,0.0,supplier_item_lane_absent:2; no_dest_item_lane:2; unmapped_division:2; not_in_graph_open_orders:2,item:029313,2,268091,900000.0,2,SDC-VD0519670A,2
+,0.0,supplier_item_lane_absent:2; no_dest_item_lane:2; unmapped_division:2; not_in_graph_open_orders:2,item:099439,2,268091,12600000.0,2,SDC-VD0505677A,2
+M-1810,0.0,duplicate_same_key:8,item:268091,0,268091,1945715.0,20,,0
+SDC-1450,0.0,,item:693055,0,268091,600000.0,1,,0
+SDC-1450,0.0,,item:773474,0,"268967,773474",3200000.0,1,,0

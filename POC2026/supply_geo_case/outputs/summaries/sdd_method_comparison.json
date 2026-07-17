@@ -1,0 +1,14 @@
+[
+  {
+    "method": "LCA classique",
+    "total_kgCO2e": 311219.41008
+  },
+  {
+    "method": "TD-DLCA",
+    "total_kgCO2e": 317113.759607
+  },
+  {
+    "method": "SDD supply_geo",
+    "total_kgCO2e": 380852.425555
+  }
+]

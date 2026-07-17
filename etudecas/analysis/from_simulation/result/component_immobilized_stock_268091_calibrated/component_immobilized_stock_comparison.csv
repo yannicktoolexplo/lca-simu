@@ -1,0 +1,4 @@
+product_code,metric_id,metric_label,comparison_role,observed_count,observed_mean_eur,observed_median_eur,observed_min_eur,observed_max_eur,simulated_count,simulated_mean_eur,simulated_median_eur,simulated_min_eur,simulated_max_eur,mean_gap_eur,mean_gap_pct
+268091,stock_total_value,Stock composant total valorise,direct_real_like,52,259678.4,250117.69,181337.72,382653.99,365,374946.7906467064,398258.01079026,196654.28156026002,748539.314572689,115268.39064670642,44.38890205989656
+268091,excess_over_90d,Diagnostic: excedent au-dessus couverture 90j,diagnostic,52,259678.4,250117.69,181337.72,382653.99,365,207439.82397861336,214255.60477505997,80959.53250266,372392.918376409,-52238.57602138663,-20.116642747870685
+268091,excess_vs_mrp_target,Diagnostic: excedent au-dessus cible MRP,diagnostic,52,259678.4,250117.69,181337.72,382653.99,365,349959.1846019398,372753.2742633431,166026.22941465996,729552.955150139,90280.78460193981,34.766382033291876

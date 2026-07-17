@@ -1,0 +1,260 @@
+source_file,family,system,component,indicator,unit,climate_kgco2e
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Brackets set,cables,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,19.1
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Brackets set,packaging,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.263
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Brackets set,Transport,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.0529
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ceinture de sécurité,acier,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,2.16
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ceinture de sécurité,nylon,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,1.69
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ceinture de sécurité,packaging,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.244
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ceinture de sécurité,Transport,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,5.37
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Commande actionnement ECU,Commande actionnement ECU,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,291.0
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Commande actionnement ECU,packaging,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.928
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Commande actionnement ECU,Transport,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.0542
+bw_tristan/STELIALCASEATS.xlsx,IFE,Ecran,Ecran,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,174.0
+bw_tristan/STELIALCASEATS.xlsx,IFE,Ecran,packaging,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,1.39
+bw_tristan/STELIALCASEATS.xlsx,IFE,Ecran,Transport,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,21.6
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,lightning,lightning,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,215.0
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,lightning,packaging,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.928
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,lightning,Transport,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.0558
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Padding,packaging,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.738
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Padding,Padding,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,3.98
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Padding,Transport,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.265
+bw_tristan/STELIALCASEATS.xlsx,IFE,Powerbox,packaging,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.928
+bw_tristan/STELIALCASEATS.xlsx,IFE,Powerbox,powerbox,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,21.8
+bw_tristan/STELIALCASEATS.xlsx,IFE,Powerbox,Transport,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,13.9
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Remote extender unit,packaging,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.928
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Remote extender unit,télécommande,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,43.7
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Remote extender unit,Transport,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.0332
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,SFCU,packaging,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.928
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,SFCU,Clavier,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,5.48
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,SFCU,Transport,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,3.95
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Support clamps,acier,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,3.81
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Support clamps,nylon,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,9.12
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Support clamps,packaging,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.000371
+bw_tristan/STELIALCASEATS.xlsx,IFE,System IFE,packaging,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.928
+bw_tristan/STELIALCASEATS.xlsx,IFE,System IFE,System IFE boitier,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,582.0
+bw_tristan/STELIALCASEATS.xlsx,IFE,System IFE,Transport,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.0542
+bw_tristan/STELIALCASEATS.xlsx,Site assemblage,Site assemblage,élec atelier,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,10.5
+bw_tristan/STELIALCASEATS.xlsx,Site assemblage,Site assemblage,élec bureaux,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.56
+bw_tristan/STELIALCASEATS.xlsx,Site assemblage,Site assemblage,gaz atelier,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,13.7
+bw_tristan/STELIALCASEATS.xlsx,Site assemblage,Site assemblage,gaz bureaux,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,1.03
+bw_tristan/STELIALCASEATS.xlsx,Site assemblage,Site assemblage,papierassemblage,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.00144
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Accoudoir allée,30NCD6,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.080054962
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Accoudoir allée,A2017,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,28.7
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Accoudoir allée,A2024,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,1.63
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Accoudoir allée,A5086,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,3.19
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Accoudoir allée,acier,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,2.11
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Accoudoir allée,Alu,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,1.07
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Accoudoir allée,Ertalon,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.0732
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Accoudoir allée,inox,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.079
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Accoudoir allée,packaging,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.0179
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Accoudoir allée,Transport,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.338
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Bumper version porte,A5086,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.243
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Bumper version porte,acier,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.0712
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Bumper version porte,alliage Cu,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.0114
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Bumper version porte,Copolymere Lexan FST,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.591
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Bumper version porte,packaging,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.117
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Bumper version porte,Transport,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.218
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Capot NFC,kydex,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.164
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Capot NFC,packaging,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.0875
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Capot NFC,Transport,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.00404
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Coussin ottoman,FRMC55,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,3.69
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Coussin ottoman,kydex,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.0877
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Coussin ottoman,packaging,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.56
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Coussin ottoman,tissu,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,7.14
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Coussin ottoman,Transport,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.416
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Coussin ottoman,velours,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.222
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Coussin têtière,FRMC55,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.444
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Coussin têtière,packaging,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.117
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Coussin têtière,tissu,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,4.23
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Coussin têtière,Transport,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.0748
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Coussin têtière,velcro,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.0456
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Coussin têtière,velours,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.0196
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Coussin assise,FRMC55,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,3.2
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Coussin assise,packaging,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.508
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Coussin assise,tissu,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,9.24
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Coussin assise,Transport,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.315
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Coussin assise,velours,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.163
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens.coussin dossier version têtière,FRMC55,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,3.13
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens.coussin dossier version têtière,packaging,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.56
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens.coussin dossier version têtière,tissu,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,17.2
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens.coussin dossier version têtière,Transport,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.375
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens.coussin dossier version têtière,velcro,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.0326
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens.coussin dossier version têtière,velours,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.0521
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Coussin dossier,FRMC55,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,4.0
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Coussin dossier,packaging,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.56
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Coussin dossier,tissu,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,16.7
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Coussin dossier,Transport,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.412
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Coussin dossier,velcro,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.0391
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Coussin dossier,velours,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.143
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Stowage latéral,15CDV6,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.0652
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Stowage latéral,A2017,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,1.4
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Stowage latéral,A5086,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,2.18
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Stowage latéral,acier,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.0451
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Stowage latéral,cuir,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.357
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Stowage latéral,Ertalon,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.021820198
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Stowage latéral,FRMC55,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.0587
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Stowage latéral,kydex,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,2.75
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Stowage latéral,nylon,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.0426
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Stowage latéral,packaging,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.0159
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Stowage latéral,Transport,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.128
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Coque,acier,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.984
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Coque,NIDA,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,21.9
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Coque,packaging,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,6.01
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Coque,Résine BR623,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,4.81
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Coque,Transport,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.756
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Equipements latéraux,A5086,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,36.8
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Equipements latéraux,acier,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.295
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Equipements latéraux,Ertalon,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.00127
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Equipements latéraux,nylon,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.0183
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Equipements latéraux,packaging,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,3.86e-06
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Equipements latéraux,Transport,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.828
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Equipements latéraux,velours,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.0521
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Palette optimisée,35NC6,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.169
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Palette optimisée,A2017,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,159.0
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Palette optimisée,acier,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,1.72
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Palette optimisée,Alu,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,2.2
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Palette optimisée,inox,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.104
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Palette optimisée,nylon,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.284
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Palette optimisée,packaging,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.0837
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Palette optimisée,Polychloroprene,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.0143
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Palette optimisée,Transport,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,1.37
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ensemble porte,acier,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.128
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ensemble porte,AER film,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.929
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ensemble porte,Alu,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,64.0
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ensemble porte,Ertalon,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.0145
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ensemble porte,inox,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.0208
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ensemble porte,kydex,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,3.28
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ensemble porte,nylon,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.0739
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ensemble porte,packaging,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.0837
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ensemble porte,Transport,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.671
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Structure fauteuil,35NC6,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,4.41
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Structure fauteuil,4140,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.00622
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Structure fauteuil,A2017,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,161.0
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Structure fauteuil,A2024,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,65.4
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Structure fauteuil,A5086,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,4.68
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Structure fauteuil,acier,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,5.25
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Structure fauteuil,inox,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.199
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Structure fauteuil,nylon,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.653
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Structure fauteuil,packaging,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,1.85
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Structure fauteuil,Transport,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,158.0
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Structure porte,velcro,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.391
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Structure porte,Z10CNT18,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,3.84
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Structure fixe,35NC6,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.0575
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Structure fixe,acier,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,4.25
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Structure fixe,Alu,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,40.7
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Structure fixe,caoutchouc,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.0502
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Structure fixe,inox,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.118
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Structure fixe,nylon,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.189
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Structure fixe,packaging,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,1.12
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Structure fixe,Transport,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.258
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Tablette cocktail,A2017,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,162.0
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Tablette cocktail,A2024,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,3.49
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Tablette cocktail,acier,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,3.36
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Tablette cocktail,inox,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.0523
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Tablette cocktail,kydex,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,1.08
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Tablette cocktail,nylon,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,1.85
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Tablette cocktail,packaging,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.021
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Tablette cocktail,tissu,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.0468
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Tablette cocktail,Transport,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.217
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Tablette repas,A2017,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,60.130936175
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Tablette repas,A2024,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,16.02869452
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Tablette repas,A2075,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.29786417
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Tablette repas,acier,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.345422335
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Tablette repas,Ertalon,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.051234094
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Tablette repas,inox,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.0611
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Tablette repas,kydex,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.14
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Tablette repas,nylon,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.252
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Tablette repas,packaging,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.00765
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Tablette repas,Silicone50 shore,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.0047
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Tablette repas,Transport,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.166
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Têtière,A2017,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,3.99
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Têtière,A2024,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.262
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Têtière,inox,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.00377
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Têtière,nylon,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.0247
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Têtière,packaging,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.259
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Têtière,tissu,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,4.23
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Ens. Têtière,Transport,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.0346
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Habillage sous fauteuil,A5086,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,13.3
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Habillage sous fauteuil,acier,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.0803
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Habillage sous fauteuil,packaging,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,3.86e-06
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Habillage sous fauteuil,Transport,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.055
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Habillage sous fauteuil,velours,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.0456
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Manchette acc. Mobile,A5086,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,1.07
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Manchette acc. Mobile,Alu,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.0091
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Manchette acc. Mobile,cuir,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.124
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Manchette acc. Mobile,FRMC55,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.143
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Manchette acc. Mobile,packaging,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.00263
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Manchette acc. Mobile,Transport,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,3.77
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Manchette équipée,A5086,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,1.74
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Manchette équipée,acier,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.0571
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Manchette équipée,cuir,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.191
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Manchette équipée,FRMC55,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.143
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Manchette équipée,packaging,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.00263
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Manchette équipée,Transport,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,4.28
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Manchette équipée,velcro,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.0391
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Renfort tubulaire,A5086,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,9.41
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Renfort tubulaire,A6060,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,3.75
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Renfort tubulaire,acier,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.17
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Renfort tubulaire,packaging,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.619
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Renfort tubulaire,Transport,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.148
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Stowage assemblé avec porte,35NC6,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.023719989
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Stowage assemblé avec porte,A2017,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,73.118711317
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Stowage assemblé avec porte,A5086,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,24.895417135
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Stowage assemblé avec porte,acier,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.279771633
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Stowage assemblé avec porte,Ertalon,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.14546799
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Stowage assemblé avec porte,inox,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.0405
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Stowage assemblé avec porte,kydex,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.536
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Stowage assemblé avec porte,nylon,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.284
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Stowage assemblé avec porte,packaging,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.0143
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Stowage assemblé avec porte,Silicone,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.0047
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Stowage assemblé avec porte,Transport,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.312
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Structure ottoman horizontale,A5086,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,19.5
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Structure ottoman horizontale,acier,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.198
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Structure ottoman horizontale,Ertalon,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.00199
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Structure ottoman horizontale,packaging,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.0119
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Structure ottoman horizontale,Transport,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.0589
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Support écran,A2017,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,23.5
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Support écran,A5086,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,5.21
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Support écran,acier,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.17
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Support écran,inox,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.0611
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Support écran,packaging,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.00717
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Support écran,Transport,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.111
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Support équipé,A5086,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,1.0
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Support équipé,acier,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.00889
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Support équipé,packaging,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.0875
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Support équipé,Transport,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.00473
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Support manchette équipée,A5086,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,1.18
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Support manchette équipée,acier,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.017
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Support manchette équipée,packaging,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.0875
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Support manchette équipée,Transport,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.00517
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Support NFC,A5086,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.101
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Support NFC,packaging,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.0875
+bw_tristan/STELIALCASEATS.xlsx,Sous-ensemble,Support NFC,Transport,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.00281
+bw_tristan/STELIALCASEATS.xlsx,Livraison,Livraison à Hambourg,packaging,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,19.4
+bw_tristan/STELIALCASEATS.xlsx,Livraison,Livraison à Hambourg,Transport,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,19.6
+bw_tristan/STELIALCASEATS.xlsx,Utilisation 1 an,Consommation passive,EU-28: Kerosene / Jet A1 at refinery Sphera,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,8260.0
+bw_tristan/STELIALCASEATS.xlsx,Utilisation 1 an,Consommation passive,"GLO: Cargo plane, 65 t payload Sphera <u-so>",EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,57600.0
+bw_tristan/STELIALCASEATS.xlsx,Utilisation 1 an,Entretien,Nettoyage et désinfection,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,11.6
+bw_tristan/STELIALCASEATS.xlsx,Utilisation 7 ans,Consommation passive,EU-28: Kerosene / Jet A1 at refinery Sphera,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,57820.0
+bw_tristan/STELIALCASEATS.xlsx,Utilisation 7 ans,Consommation passive,"GLO: Cargo plane, 65 t payload Sphera <u-so>",EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,403200.0
+bw_tristan/STELIALCASEATS.xlsx,Utilisation 7 ans,Entretien,Nettoyage et désinfection,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,81.2
+bw_tristan/STELIALCASEATS.xlsx,Fin de vie,Enfouissement,"Landfill Acier (11,54 kg)",EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.176
+bw_tristan/STELIALCASEATS.xlsx,Fin de vie,Enfouissement,"Landfill Aluminium (69,53 kg)",EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,1.06
+bw_tristan/STELIALCASEATS.xlsx,Fin de vie,Enfouissement,"Landfill DEEE (9,55 kg)",EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,3.08
+bw_tristan/STELIALCASEATS.xlsx,Fin de vie,Enfouissement,"landfill plastique (21,36 kg)",EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,1.53
+bw_tristan/STELIALCASEATS.xlsx,Fin de vie,Enfouissement,"landfill textile (2,34 kg)",EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,2.97
+bw_tristan/STELIALCASEATS.xlsx,Fin de vie,Recyclage,Credit Recyclage Acier,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,-39.8
+bw_tristan/STELIALCASEATS.xlsx,Fin de vie,Recyclage,Credit Recyclage Aluminium,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,-540.0
+bw_tristan/STELIALCASEATS.xlsx,Fin de vie,Recyclage,Credit Recyclage DEEE,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,-473.0
+bw_tristan/STELIALCASEATS.xlsx,Fin de vie,Recyclage,Credit Recyclage plastiques,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,-19.8
+bw_tristan/STELIALCASEATS.xlsx,Fin de vie,Recyclage,incinération Covers,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,-0.406
+bw_tristan/STELIALCASEATS.xlsx,Fin de vie,Recyclage,Incineration plastiques,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,9.910111235
+bw_tristan/STELIALCASEATS.xlsx,Fin de vie,Recyclage,Mise en décharche Acier,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.026323092
+bw_tristan/STELIALCASEATS.xlsx,Fin de vie,Recyclage,Mise en décharge Aluminium,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.158744519
+bw_tristan/STELIALCASEATS.xlsx,Fin de vie,Recyclage,Mise en décharge DEEE,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,2.218602526
+bw_tristan/STELIALCASEATS.xlsx,Fin de vie,Recyclage,Mise en décharge Plastiques,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,0.395953273
+bw_tristan/STELIALCASEATS.xlsx,Fin de vie,Recyclage,Mise en décharge Textile,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,2.65830379
+bw_tristan/STELIALCASEATS.xlsx,Fin de vie,Recyclage,Process recyclage Acier,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,3.34
+bw_tristan/STELIALCASEATS.xlsx,Fin de vie,Recyclage,Process recyclage Alu,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,20.1
+bw_tristan/STELIALCASEATS.xlsx,Fin de vie,Recyclage,Process recyclage DEEE,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,2.92
+bw_tristan/STELIALCASEATS.xlsx,Fin de vie,Recyclage,Process recyclage Plastiques,EF 3.0 Climate Change - total [kg CO2 eq.],kg CO2 eq.,1.0

@@ -1,0 +1,83 @@
+{
+  "schema_version": "etudecas.component_immobilized_stock_comparison.v1",
+  "run_dir": "C:\\dev\\lca-simu\\etudecas\\simulation\\result\\_experiments\\stock_target_268091_snapshotfix\\365d\\mc_refine_028_s2_soft025_cap050_strict_fia_orders\\run",
+  "sources": {
+    "268091": "C:\\dev\\lca-simu\\etudecas\\data\\source\\Stock_Composants_Immobilisé_Pharma.csv"
+  },
+  "rows": [
+    {
+      "product_code": "268091",
+      "metric_id": "stock_total_value",
+      "metric_label": "Stock composant total valorise",
+      "comparison_role": "direct_real_like",
+      "observed_count": 52,
+      "observed_mean_eur": 259678.4,
+      "observed_median_eur": 250117.69,
+      "observed_min_eur": 181337.72,
+      "observed_max_eur": 382653.99,
+      "simulated_count": 365,
+      "simulated_mean_eur": 374946.7906467064,
+      "simulated_median_eur": 398258.01079026,
+      "simulated_min_eur": 196654.28156026002,
+      "simulated_max_eur": 748539.314572689,
+      "mean_gap_eur": 115268.39064670642,
+      "mean_gap_pct": 44.38890205989656
+    },
+    {
+      "product_code": "268091",
+      "metric_id": "excess_over_90d",
+      "metric_label": "Diagnostic: excedent au-dessus couverture 90j",
+      "comparison_role": "diagnostic",
+      "observed_count": 52,
+      "observed_mean_eur": 259678.4,
+      "observed_median_eur": 250117.69,
+      "observed_min_eur": 181337.72,
+      "observed_max_eur": 382653.99,
+      "simulated_count": 365,
+      "simulated_mean_eur": 207439.82397861336,
+      "simulated_median_eur": 214255.60477505997,
+      "simulated_min_eur": 80959.53250266,
+      "simulated_max_eur": 372392.918376409,
+      "mean_gap_eur": -52238.57602138663,
+      "mean_gap_pct": -20.116642747870685
+    },
+    {
+      "product_code": "268091",
+      "metric_id": "excess_vs_mrp_target",
+      "metric_label": "Diagnostic: excedent au-dessus cible MRP",
+      "comparison_role": "diagnostic",
+      "observed_count": 52,
+      "observed_mean_eur": 259678.4,
+      "observed_median_eur": 250117.69,
+      "observed_min_eur": 181337.72,
+      "observed_max_eur": 382653.99,
+      "simulated_count": 365,
+      "simulated_mean_eur": 349959.1846019398,
+      "simulated_median_eur": 372753.2742633431,
+      "simulated_min_eur": 166026.22941465996,
+      "simulated_max_eur": 729552.955150139,
+      "mean_gap_eur": 90280.78460193981,
+      "mean_gap_pct": 34.766382033291876
+    }
+  ],
+  "best_by_product": {
+    "268091": {
+      "product_code": "268091",
+      "metric_id": "stock_total_value",
+      "metric_label": "Stock composant total valorise",
+      "comparison_role": "direct_real_like",
+      "observed_count": 52,
+      "observed_mean_eur": 259678.4,
+      "observed_median_eur": 250117.69,
+      "observed_min_eur": 181337.72,
+      "observed_max_eur": 382653.99,
+      "simulated_count": 365,
+      "simulated_mean_eur": 374946.7906467064,
+      "simulated_median_eur": 398258.01079026,
+      "simulated_min_eur": 196654.28156026002,
+      "simulated_max_eur": 748539.314572689,
+      "mean_gap_eur": 115268.39064670642,
+      "mean_gap_pct": 44.38890205989656
+    }
+  }
+}

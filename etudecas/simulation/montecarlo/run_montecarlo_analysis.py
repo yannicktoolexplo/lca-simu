@@ -6,6 +6,7 @@ Run reproducible Monte Carlo analysis on the supply simulation.
 from __future__ import annotations
 
 import argparse
+import concurrent.futures
 import csv
 import json
 import math
@@ -33,6 +34,10 @@ from etudecas.simulation.analysis_batch_common import (
     safe_name,
     to_float,
     write_json,
+)
+from etudecas.simulation.montecarlo.trajectory_collector import (
+    build_montecarlo_trajectories_payload,
+    extract_run_trajectories,
 )
 
 
@@ -77,11 +82,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--seed", type=int, default=42, help="Random seed.")
     parser.add_argument(
         "--uncertainty-profile",
-        choices=["workshop", "risk_probe", "legacy"],
+        choices=["workshop", "risk_probe", "stress_probe", "breakpoint_probe", "legacy"],
         default="workshop",
         help=(
             "Sampling profile. workshop keeps perturbations close to operational uncertainty; "
             "risk_probe widens supplier-side uncertainty to reveal fragility; "
+            "stress_probe is an exploratory but readable stress envelope, not a probability forecast; "
+            "breakpoint_probe searches for severe failure thresholds; "
             "legacy keeps the older wider stress-style ranges."
         ),
     )
@@ -95,6 +102,32 @@ def parse_args() -> argparse.Namespace:
         "--keep-run-artifacts",
         action="store_true",
         help="Keep per-run folders with full simulation outputs.",
+    )
+    parser.add_argument(
+        "--save-trajectories",
+        action="store_true",
+        help="Write compact daily trajectories for uncertainty tube charts without keeping full run artifacts.",
+    )
+    parser.add_argument(
+        "--trajectory-max-points",
+        type=int,
+        default=730,
+        help="Maximum points per trajectory. Default 730 keeps long 5-year views compact. 0 keeps every simulated day.",
+    )
+    parser.add_argument(
+        "--trajectory-display-runs",
+        type=int,
+        default=60,
+        help=(
+            "Maximum individual trajectories stored for display. Percentile bands are still "
+            "computed from every successful run. 0 displays every run."
+        ),
+    )
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=1,
+        help="Parallel simulation workers. 1 keeps the historical sequential execution.",
     )
     return parser.parse_args()
 
@@ -220,6 +253,56 @@ def factor_specs(profile: str) -> tuple[dict[str, tuple[float, float, float]], t
             (0.60, 1.0, 1.05),
             (0.90, 1.0, 1.80),
             (0.90, 1.0, 1.0),
+        )
+    if profile == "stress_probe":
+        return (
+            {
+                "demand_scale": (0.98, 1.10, 1.30),
+                "lead_time_scale": (1.00, 1.25, 2.00),
+                "transport_cost_scale": (1.00, 1.20, 1.70),
+                "supplier_stock_scale": (0.25, 0.65, 1.00),
+                "production_stock_scale": (0.65, 0.85, 1.00),
+                "capacity_scale": (0.60, 0.82, 1.00),
+                "supplier_capacity_scale": (0.25, 0.60, 1.00),
+                "supplier_reliability_scale": (0.65, 0.85, 1.00),
+                "external_procurement_daily_cap_days_scale": (0.20, 0.60, 1.00),
+                "external_procurement_lead_days_scale": (1.00, 1.45, 2.50),
+                "external_procurement_cost_multiplier_scale": (1.00, 1.35, 2.50),
+                "external_procurement_transport_cost_scale": (1.00, 1.35, 2.20),
+                "purchase_cost_floor_scale": (1.00, 1.20, 1.80),
+                "holding_cost_scale": (0.90, 1.10, 1.50),
+            },
+            (0.95, 1.08, 1.35),
+            (0.55, 0.80, 1.00),
+            (0.20, 0.60, 1.00),
+            (0.20, 0.55, 0.95),
+            (1.00, 1.50, 2.50),
+            (0.65, 0.85, 1.00),
+        )
+    if profile == "breakpoint_probe":
+        return (
+            {
+                "demand_scale": (1.00, 1.18, 1.45),
+                "lead_time_scale": (1.00, 1.45, 2.80),
+                "transport_cost_scale": (1.00, 1.35, 2.20),
+                "supplier_stock_scale": (0.10, 0.45, 0.95),
+                "production_stock_scale": (0.45, 0.75, 1.00),
+                "capacity_scale": (0.45, 0.70, 1.00),
+                "supplier_capacity_scale": (0.10, 0.45, 0.95),
+                "supplier_reliability_scale": (0.45, 0.75, 1.00),
+                "external_procurement_daily_cap_days_scale": (0.05, 0.25, 0.80),
+                "external_procurement_lead_days_scale": (1.00, 2.00, 4.00),
+                "external_procurement_cost_multiplier_scale": (1.00, 1.80, 4.00),
+                "external_procurement_transport_cost_scale": (1.00, 1.80, 3.00),
+                "purchase_cost_floor_scale": (1.00, 1.40, 2.20),
+                "holding_cost_scale": (0.90, 1.20, 1.80),
+            },
+            (0.95, 1.15, 1.60),
+            (0.35, 0.70, 1.00),
+            (0.05, 0.40, 1.00),
+            (0.05, 0.35, 0.90),
+            (1.00, 1.80, 3.50),
+            (0.45, 0.75, 1.00),
         )
     return (
         {
@@ -355,6 +438,146 @@ def write_scaled_supplier_neutral_floors(
     return True
 
 
+def execute_run_spec(
+    spec: dict[str, Any],
+    *,
+    base_data: dict[str, Any],
+    scenario_id: str,
+    run_script: Path,
+    days: int,
+    simulator_extra_args: list[str],
+    keep_run_artifacts: bool,
+    runs_dir: Path,
+    save_trajectories: bool,
+    trajectory_max_points: int,
+) -> dict[str, Any]:
+    """Execute one Monte Carlo simulation run.
+
+    The random factors are prepared before this function is called, so parallel
+    execution remains reproducible for a fixed seed.
+    """
+
+    run_id = str(spec["run_id"])
+    row = dict(spec["row"])
+    trajectory_run: dict[str, Any] | None = None
+
+    try:
+        mutated = apply_scales(
+            base_data=base_data,
+            scenario_id=scenario_id,
+            factors=spec["factors"],
+            demand_item_scale=spec["demand_item_scale"],
+            capacity_node_scale=spec["capacity_node_scale"],
+            supplier_node_scale=spec["supplier_node_scale"],
+            supplier_capacity_node_scale=spec["supplier_capacity_node_scale"],
+            edge_src_lead_time_scale=spec["edge_src_lead_time_scale"],
+            edge_src_reliability_scale=spec["edge_src_reliability_scale"],
+        )
+
+        if keep_run_artifacts:
+            case_dir = runs_dir / run_id
+            case_dir.mkdir(parents=True, exist_ok=True)
+            case_input = case_dir / "input_case.json"
+            case_output = case_dir / "simulation_output"
+            run_extra_args = list(simulator_extra_args)
+            neutral_floors_csv = arg_value(run_extra_args, "--supplier-neutral-floors-csv")
+            if neutral_floors_csv:
+                case_neutral_floors = case_dir / "supplier_neutral_floors_case.csv"
+                wrote_neutral_floors = write_scaled_supplier_neutral_floors(
+                    Path(neutral_floors_csv),
+                    case_neutral_floors,
+                    factors=spec["factors"],
+                    supplier_node_scale=spec["supplier_node_scale"],
+                    supplier_capacity_node_scale=spec["supplier_capacity_node_scale"],
+                    edge_src_lead_time_scale=spec["edge_src_lead_time_scale"],
+                    edge_src_reliability_scale=spec["edge_src_reliability_scale"],
+                )
+                if wrote_neutral_floors:
+                    run_extra_args = replace_arg_value(
+                        run_extra_args,
+                        "--supplier-neutral-floors-csv",
+                        str(case_neutral_floors),
+                    )
+            write_json(case_input, mutated)
+            summary, _ = run_simulation(
+                run_script=run_script,
+                input_json=case_input,
+                output_dir=case_output,
+                scenario_id=scenario_id,
+                days=days,
+                skip_map=True,
+                skip_plots=True,
+                extra_args=run_extra_args,
+            )
+            if save_trajectories:
+                series = extract_run_trajectories(
+                    case_output,
+                    max_points=max(0, int(trajectory_max_points)),
+                )
+                if series:
+                    trajectory_run = {
+                        "run_id": run_id,
+                        "is_baseline": bool(spec["is_baseline"]),
+                        "series": series,
+                    }
+            row["case_dir"] = str(case_dir)
+        else:
+            with tempfile.TemporaryDirectory(prefix=f"mc_{safe_name(run_id)}_") as tmp:
+                case_dir = Path(tmp)
+                case_input = case_dir / "input_case.json"
+                case_output = case_dir / "simulation_output"
+                run_extra_args = list(simulator_extra_args)
+                neutral_floors_csv = arg_value(run_extra_args, "--supplier-neutral-floors-csv")
+                if neutral_floors_csv:
+                    case_neutral_floors = case_dir / "supplier_neutral_floors_case.csv"
+                    wrote_neutral_floors = write_scaled_supplier_neutral_floors(
+                        Path(neutral_floors_csv),
+                        case_neutral_floors,
+                        factors=spec["factors"],
+                        supplier_node_scale=spec["supplier_node_scale"],
+                        supplier_capacity_node_scale=spec["supplier_capacity_node_scale"],
+                        edge_src_lead_time_scale=spec["edge_src_lead_time_scale"],
+                        edge_src_reliability_scale=spec["edge_src_reliability_scale"],
+                    )
+                    if wrote_neutral_floors:
+                        run_extra_args = replace_arg_value(
+                            run_extra_args,
+                            "--supplier-neutral-floors-csv",
+                            str(case_neutral_floors),
+                        )
+                write_json(case_input, mutated)
+                summary, _ = run_simulation(
+                    run_script=run_script,
+                    input_json=case_input,
+                    output_dir=case_output,
+                    scenario_id=scenario_id,
+                    days=days,
+                    skip_map=True,
+                    skip_plots=True,
+                    extra_args=run_extra_args,
+                )
+                if save_trajectories:
+                    series = extract_run_trajectories(
+                        case_output,
+                        max_points=max(0, int(trajectory_max_points)),
+                    )
+                    if series:
+                        trajectory_run = {
+                            "run_id": run_id,
+                            "is_baseline": bool(spec["is_baseline"]),
+                            "series": series,
+                        }
+            row["case_dir"] = ""
+
+        for k, v in numeric_kpis(summary).items():
+            row[f"kpi::{k}"] = v
+    except Exception as exc:
+        row["status"] = "failed"
+        row["error"] = str(exc)
+
+    return {"index": int(spec["index"]), "row": row, "trajectory_run": trajectory_run}
+
+
 def main() -> None:
     args = parse_args()
     manifest_config: dict[str, Any] = {}
@@ -412,6 +635,8 @@ def main() -> None:
 
     total_runs = 1 + max(0, int(args.runs))  # baseline + stochastic
     rows: list[dict[str, Any]] = []
+    trajectory_runs: list[dict[str, Any]] = []
+    run_specs: list[dict[str, Any]] = []
 
     for i in range(total_runs):
         run_id = f"run_{i:04d}"
@@ -467,101 +692,81 @@ def main() -> None:
         row.update({f"supplier_lead_node::{k}": v for k, v in edge_src_lead_time_scale.items()})
         row.update({f"supplier_reliability_node::{k}": v for k, v in edge_src_reliability_scale.items()})
 
-        print(f"[RUN] {i+1:03d}/{total_runs:03d} {run_id}")
+        run_specs.append(
+            {
+                "index": i,
+                "run_id": run_id,
+                "is_baseline": is_baseline,
+                "row": row,
+                "factors": factors,
+                "demand_item_scale": demand_item_scale,
+                "capacity_node_scale": capacity_node_scale,
+                "supplier_node_scale": supplier_node_scale,
+                "supplier_capacity_node_scale": supplier_capacity_node_scale,
+                "edge_src_lead_time_scale": edge_src_lead_time_scale,
+                "edge_src_reliability_scale": edge_src_reliability_scale,
+            }
+        )
 
-        try:
-            mutated = apply_scales(
+    worker_count = max(1, min(int(args.workers or 1), total_runs))
+    print(f"[RUNS] total={total_runs} workers={worker_count}", flush=True)
+    if worker_count == 1:
+        for spec in run_specs:
+            print(f"[RUN] {int(spec['index']) + 1:03d}/{total_runs:03d} {spec['run_id']}", flush=True)
+            result = execute_run_spec(
+                spec,
                 base_data=base_data,
                 scenario_id=scenario_id,
-                factors=factors,
-                demand_item_scale=demand_item_scale,
-                capacity_node_scale=capacity_node_scale,
-                supplier_node_scale=supplier_node_scale,
-                supplier_capacity_node_scale=supplier_capacity_node_scale,
-                edge_src_lead_time_scale=edge_src_lead_time_scale,
-                edge_src_reliability_scale=edge_src_reliability_scale,
+                run_script=run_script,
+                days=args.days,
+                simulator_extra_args=simulator_extra_args,
+                keep_run_artifacts=bool(args.keep_run_artifacts),
+                runs_dir=runs_dir,
+                save_trajectories=bool(args.save_trajectories),
+                trajectory_max_points=max(0, int(args.trajectory_max_points)),
             )
-
-            if args.keep_run_artifacts:
-                case_dir = runs_dir / run_id
-                case_dir.mkdir(parents=True, exist_ok=True)
-                case_input = case_dir / "input_case.json"
-                case_output = case_dir / "simulation_output"
-                run_extra_args = list(simulator_extra_args)
-                neutral_floors_csv = arg_value(run_extra_args, "--supplier-neutral-floors-csv")
-                if neutral_floors_csv:
-                    case_neutral_floors = case_dir / "supplier_neutral_floors_case.csv"
-                    wrote_neutral_floors = write_scaled_supplier_neutral_floors(
-                        Path(neutral_floors_csv),
-                        case_neutral_floors,
-                        factors=factors,
-                        supplier_node_scale=supplier_node_scale,
-                        supplier_capacity_node_scale=supplier_capacity_node_scale,
-                        edge_src_lead_time_scale=edge_src_lead_time_scale,
-                        edge_src_reliability_scale=edge_src_reliability_scale,
-                    )
-                    if wrote_neutral_floors:
-                        run_extra_args = replace_arg_value(
-                            run_extra_args,
-                            "--supplier-neutral-floors-csv",
-                            str(case_neutral_floors),
-                        )
-                write_json(case_input, mutated)
-                summary, _ = run_simulation(
-                    run_script=run_script,
-                    input_json=case_input,
-                    output_dir=case_output,
+            rows.append(result["row"])
+            if result.get("trajectory_run"):
+                trajectory_runs.append(result["trajectory_run"])
+    else:
+        result_by_index: dict[int, dict[str, Any]] = {}
+        with concurrent.futures.ThreadPoolExecutor(max_workers=worker_count) as executor:
+            future_to_spec = {
+                executor.submit(
+                    execute_run_spec,
+                    spec,
+                    base_data=base_data,
                     scenario_id=scenario_id,
+                    run_script=run_script,
                     days=args.days,
-                    skip_map=True,
-                    skip_plots=True,
-                    extra_args=run_extra_args,
+                    simulator_extra_args=simulator_extra_args,
+                    keep_run_artifacts=bool(args.keep_run_artifacts),
+                    runs_dir=runs_dir,
+                    save_trajectories=bool(args.save_trajectories),
+                    trajectory_max_points=max(0, int(args.trajectory_max_points)),
+                ): spec
+                for spec in run_specs
+            }
+            for completed, future in enumerate(concurrent.futures.as_completed(future_to_spec), start=1):
+                spec = future_to_spec[future]
+                try:
+                    result = future.result()
+                except Exception as exc:
+                    row = dict(spec["row"])
+                    row["status"] = "failed"
+                    row["error"] = str(exc)
+                    result = {"index": int(spec["index"]), "row": row, "trajectory_run": None}
+                result_by_index[int(result["index"])] = result
+                status = result["row"].get("status", "unknown")
+                print(
+                    f"[DONE] {completed:03d}/{total_runs:03d} {spec['run_id']} status={status}",
+                    flush=True,
                 )
-                row["case_dir"] = str(case_dir)
-            else:
-                with tempfile.TemporaryDirectory(prefix=f"mc_{safe_name(run_id)}_") as tmp:
-                    case_dir = Path(tmp)
-                    case_input = case_dir / "input_case.json"
-                    case_output = case_dir / "simulation_output"
-                    run_extra_args = list(simulator_extra_args)
-                    neutral_floors_csv = arg_value(run_extra_args, "--supplier-neutral-floors-csv")
-                    if neutral_floors_csv:
-                        case_neutral_floors = case_dir / "supplier_neutral_floors_case.csv"
-                        wrote_neutral_floors = write_scaled_supplier_neutral_floors(
-                            Path(neutral_floors_csv),
-                            case_neutral_floors,
-                            factors=factors,
-                            supplier_node_scale=supplier_node_scale,
-                            supplier_capacity_node_scale=supplier_capacity_node_scale,
-                            edge_src_lead_time_scale=edge_src_lead_time_scale,
-                            edge_src_reliability_scale=edge_src_reliability_scale,
-                        )
-                        if wrote_neutral_floors:
-                            run_extra_args = replace_arg_value(
-                                run_extra_args,
-                                "--supplier-neutral-floors-csv",
-                                str(case_neutral_floors),
-                            )
-                    write_json(case_input, mutated)
-                    summary, _ = run_simulation(
-                        run_script=run_script,
-                        input_json=case_input,
-                        output_dir=case_output,
-                        scenario_id=scenario_id,
-                        days=args.days,
-                        skip_map=True,
-                        skip_plots=True,
-                        extra_args=run_extra_args,
-                    )
-                row["case_dir"] = ""
-
-            for k, v in numeric_kpis(summary).items():
-                row[f"kpi::{k}"] = v
-        except Exception as exc:
-            row["status"] = "failed"
-            row["error"] = str(exc)
-
-        rows.append(row)
+        for i in range(total_runs):
+            result = result_by_index[i]
+            rows.append(result["row"])
+            if result.get("trajectory_run"):
+                trajectory_runs.append(result["trajectory_run"])
 
     samples_csv = output_dir / "montecarlo_samples.csv"
     all_columns = sorted({k for r in rows for k in r.keys()})
@@ -588,7 +793,7 @@ def main() -> None:
         "supplier_lead_node::",
         "supplier_reliability_node::",
     )
-    factor_cols = sorted([k for k in baseline.keys() if k.startswith(factor_prefixes)])
+    factor_cols = sorted({k for row in rows for k in row.keys() if k.startswith(factor_prefixes)})
 
     metric_stats: dict[str, Any] = {}
     for k in kpi_cols:
@@ -673,6 +878,7 @@ def main() -> None:
         "days_override": args.days,
         "seed": args.seed,
         "uncertainty_profile": args.uncertainty_profile,
+        "workers": worker_count,
         "simulator_extra_args": simulator_extra_args,
         "supplier_neutral_floors_adjusted_per_run": bool(supplier_neutral_floors_csv),
         "supplier_neutral_floors_source_csv": supplier_neutral_floors_csv,
@@ -703,6 +909,18 @@ def main() -> None:
     }
     summary_json = output_dir / "montecarlo_summary.json"
     write_json(summary_json, summary)
+
+    trajectories_json = output_dir / "montecarlo_trajectories.json"
+    if args.save_trajectories:
+        trajectories = build_montecarlo_trajectories_payload(
+            trajectory_runs,
+            scenario_id=scenario_id,
+            seed=int(args.seed),
+            profile=str(args.uncertainty_profile),
+            max_points=max(0, int(args.trajectory_max_points)),
+            max_display_runs=max(0, int(args.trajectory_display_runs)),
+        )
+        write_json(trajectories_json, trajectories)
 
     failed_csv = output_dir / "montecarlo_failed_runs.csv"
     if failed_rows:
@@ -748,6 +966,7 @@ def main() -> None:
 ## Files
 - montecarlo_samples.csv
 - montecarlo_summary.json
+- montecarlo_trajectories.json (si --save-trajectories)
 - montecarlo_report.md
 """
     if failed_rows:
@@ -756,6 +975,8 @@ def main() -> None:
 
     print(f"[OK] Samples CSV: {samples_csv.resolve()}")
     print(f"[OK] Summary JSON: {summary_json.resolve()}")
+    if args.save_trajectories:
+        print(f"[OK] Trajectories JSON: {trajectories_json.resolve()}")
     print(f"[OK] Report MD: {report_md.resolve()}")
     if failed_rows:
         print(f"[WARN] Failed runs CSV: {failed_csv.resolve()}")

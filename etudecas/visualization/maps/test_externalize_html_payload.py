@@ -81,7 +81,7 @@ class ExternalizeHtmlPayloadTest(unittest.TestCase):
     def test_chunk_embedded_splits_top_level_keys_and_defers_init(self):
         html = """
         <script>
-        const DATA = {"nodes": [{"id": "A"}], "lot_trace": {"lots": {"L1": {}}}, "model_panel": {"nodes": {}}};
+        const DATA = {"nodes": [{"id": "A"}], "lot_trace": {"lots": {"L1": {}}}, "model_panel": {"nodes": {}}, "montecarlo_uncertainty": {"available": true}};
         const NODES = DATA.nodes;
         function init() { window.nodeCount = NODES.length; }
         window.addEventListener("load", init);
@@ -90,9 +90,10 @@ class ExternalizeHtmlPayloadTest(unittest.TestCase):
 
         new_html, stats = chunk_embedded(html, chunk_size=64)
 
-        self.assertEqual(stats["key_count"], 3)
+        self.assertEqual(stats["key_count"], 4)
         self.assertEqual(stats["manifest"]["nodes"]["group"], "core")
         self.assertEqual(stats["manifest"]["lot_trace"]["group"], "lot_trace")
+        self.assertEqual(stats["manifest"]["montecarlo_uncertainty"]["group"], "uncertainty")
         self.assertIn("DATA_CHUNKED_GZIP_BASE64", new_html)
         self.assertIn("DATA_CHUNKED_MANIFEST", new_html)
         self.assertIn("loadEmbeddedChunkedMapData().then(() => {", new_html)

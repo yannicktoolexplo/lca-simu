@@ -36,9 +36,9 @@ except ModuleNotFoundError:
 
 
 KPI_FIELDS: tuple[tuple[str, str, str], ...] = (
-    ("fill_rate", "Service client", "%"),
+    ("fill_rate", "Disponibilite produit", "%"),
     ("ending_backlog", "Backlog final", "qty"),
-    ("production_replanning_count", "Reports production", "count"),
+    ("production_replanning_count", "Volume replanifie associe", "count"),
     ("raw_material_stockout_days", "Jours rupture MP", "days"),
     ("total_cost", "Cout total", "eur"),
     ("total_produced", "Production totale", "qty"),
@@ -476,13 +476,13 @@ const SUPPLIER_WHATIF = __PAYLOAD__;
       name: "Cout total", line: {color: "#ea580c", width: 3}
     }, {
       x, y: cases.map(c => c.kpis.production_replanning_count), type: "bar",
-      name: "Reports production", yaxis: "y2", marker: {color: "rgba(37,99,235,.35)"}
+      name: "Volume replanifie associe", yaxis: "y2", marker: {color: "rgba(37,99,235,.35)"}
     }], {
-      title: "Cout total et reports de production",
+      title: "Cout total et volume replanifie associe",
       margin: {l: 60, r: 60, t: 45, b: 50},
       xaxis: {title: "Niveau teste"},
       yaxis: {title: "Cout total"},
-      yaxis2: {title: "Reports", overlaying: "y", side: "right", rangemode: "tozero"},
+      yaxis2: {title: "Volume replanifie", overlaying: "y", side: "right", rangemode: "tozero"},
       legend: {orientation: "h"}
     }, {displayModeBar: false, responsive: true});
   }

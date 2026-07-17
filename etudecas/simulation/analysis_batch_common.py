@@ -16,8 +16,10 @@ from pathlib import Path
 from typing import Any
 
 try:
+    from .initial_state_policy import merge_living_initial_state_args
     from .result_paths import resolve_existing_path, summary_path
 except ImportError:
+    from initial_state_policy import merge_living_initial_state_args
     from result_paths import resolve_existing_path, summary_path
 
 
@@ -317,6 +319,7 @@ def run_simulation(
     skip_map: bool = True,
     skip_plots: bool = True,
     extra_args: list[str] | None = None,
+    use_living_initial_state: bool = True,
 ) -> tuple[dict[str, Any], str]:
     output_dir.mkdir(parents=True, exist_ok=True)
     cmd = [
@@ -335,8 +338,9 @@ def run_simulation(
         cmd.append("--skip-map")
     if skip_plots:
         cmd.append("--skip-plots")
-    if extra_args:
-        cmd.extend(str(arg) for arg in extra_args)
+    merged_extra_args = merge_living_initial_state_args(extra_args, enabled=use_living_initial_state)
+    if merged_extra_args:
+        cmd.extend(merged_extra_args)
 
     proc = subprocess.run(cmd, capture_output=True, text=True)
     if proc.returncode != 0:

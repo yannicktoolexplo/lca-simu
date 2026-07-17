@@ -1,0 +1,25 @@
+{
+  "target_component": "344135",
+  "explicit_substitution_hits": 0,
+  "target_open_order_count": 0,
+  "target_stock_rows": [
+    {
+      "item": "344135",
+      "item_type": "AC",
+      "division": "1430",
+      "division_name": "Gien",
+      "stock_total": 0.0,
+      "stock_uom": "ZUN",
+      "snapshot_date": "2025-01-01 03:03:48",
+      "safety_delay_days": 10.0,
+      "safety_stock": 0.0
+    }
+  ],
+  "structural_candidate_components": [
+    "333362",
+    "338928",
+    "338929",
+    "344135"
+  ],
+  "reading": "No explicit substitute for 344135 was found in the active source files. The closest components are packaging items with the same 1000 UN / 1000 PF ratio, but they belong to another finished product/site and cannot be consumed as substitutes without an explicit equivalence rule."
+}

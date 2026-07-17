@@ -1,0 +1,469 @@
+{
+  "schema_version": "etudecas.source_profile.v1",
+  "generated_at": "2026-07-08T17:06:43.635609+00:00",
+  "manifest": "C:/dev/lca-simu/etudecas/data/MANIFEST.json",
+  "source_dir": "C:/dev/lca-simu/etudecas/data/source",
+  "file_count": 14,
+  "missing_count": 0,
+  "business_reference_count": 5,
+  "files": [
+    {
+      "name": "021081.xlsx",
+      "path": "C:/dev/lca-simu/etudecas/data/source/021081.xlsx",
+      "exists": true,
+      "size_bytes": 17590,
+      "business_reference": {},
+      "type": "xlsx",
+      "row_count": null,
+      "columns": [],
+      "note": "Not profiled deeply by this lightweight source profiler."
+    },
+    {
+      "name": "268191.xlsx",
+      "path": "C:/dev/lca-simu/etudecas/data/source/268191.xlsx",
+      "exists": true,
+      "size_bytes": 19318,
+      "business_reference": {},
+      "type": "xlsx",
+      "row_count": null,
+      "columns": [],
+      "note": "Not profiled deeply by this lightweight source profiler."
+    },
+    {
+      "name": "268967.xlsx",
+      "path": "C:/dev/lca-simu/etudecas/data/source/268967.xlsx",
+      "exists": true,
+      "size_bytes": 18220,
+      "business_reference": {},
+      "type": "xlsx",
+      "row_count": null,
+      "columns": [],
+      "note": "Not profiled deeply by this lightweight source profiler."
+    },
+    {
+      "name": "Data_poc.xlsx",
+      "path": "C:/dev/lca-simu/etudecas/data/source/Data_poc.xlsx",
+      "exists": true,
+      "size_bytes": 25213,
+      "business_reference": {},
+      "type": "xlsx",
+      "row_count": null,
+      "columns": [],
+      "note": "Not profiled deeply by this lightweight source profiler."
+    },
+    {
+      "name": "demand_PF.xlsx",
+      "path": "C:/dev/lca-simu/etudecas/data/source/demand_PF.xlsx",
+      "exists": true,
+      "size_bytes": 41350,
+      "business_reference": {},
+      "type": "xlsx",
+      "row_count": null,
+      "columns": [],
+      "note": "Not profiled deeply by this lightweight source profiler."
+    },
+    {
+      "name": "Extract_En_cours.xlsx",
+      "path": "C:/dev/lca-simu/etudecas/data/source/Extract_En_cours.xlsx",
+      "exists": true,
+      "size_bytes": 20206,
+      "business_reference": {},
+      "type": "xlsx",
+      "row_count": null,
+      "columns": [],
+      "note": "Not profiled deeply by this lightweight source profiler."
+    },
+    {
+      "name": "Fournisseur.xlsx",
+      "path": "C:/dev/lca-simu/etudecas/data/source/Fournisseur.xlsx",
+      "exists": true,
+      "size_bytes": 17923,
+      "business_reference": {},
+      "type": "xlsx",
+      "row_count": null,
+      "columns": [],
+      "note": "Not profiled deeply by this lightweight source profiler."
+    },
+    {
+      "name": "Stocks_MRP.xlsx",
+      "path": "C:/dev/lca-simu/etudecas/data/source/Stocks_MRP.xlsx",
+      "exists": true,
+      "size_bytes": 22328,
+      "business_reference": {},
+      "type": "xlsx",
+      "row_count": null,
+      "columns": [],
+      "note": "Not profiled deeply by this lightweight source profiler."
+    },
+    {
+      "name": "CA_Perdu_Réel.csv",
+      "path": "C:/dev/lca-simu/etudecas/data/source/CA_Perdu_Réel.csv",
+      "exists": true,
+      "size_bytes": 37952,
+      "business_reference": {
+        "role": "Historique CA livre/perdu par produit et date de livraison.",
+        "intended_use": "Validation service client, pertes de CA et comparaison simulation/reel."
+      },
+      "type": "csv",
+      "encoding": "cp1252",
+      "delimiter": ";",
+      "row_count": 522,
+      "columns": [
+        "Product code",
+        "First delivery date",
+        "CA_Livré",
+        "CA_Perdu",
+        "Nb_Rep_CA_Perdu"
+      ],
+      "non_empty_by_column": {
+        "Product code": 522,
+        "First delivery date": 522,
+        "CA_Livré": 522,
+        "CA_Perdu": 522,
+        "Nb_Rep_CA_Perdu": 522
+      },
+      "unique_counts": {
+        "Product code": 2,
+        "First delivery date": 261,
+        "CA_Livré": 498,
+        "CA_Perdu": 244,
+        "Nb_Rep_CA_Perdu": 2
+      },
+      "numeric_stats": {
+        "CA_Livré": {
+          "count": 522,
+          "min": 0.0,
+          "max": 800424.36,
+          "sum": 43430514.50678002
+        },
+        "CA_Perdu": {
+          "count": 522,
+          "min": -45.86,
+          "max": 206969.91,
+          "sum": 2693384.8130199993
+        },
+        "Nb_Rep_CA_Perdu": {
+          "count": 522,
+          "min": 0.0,
+          "max": 1.0,
+          "sum": 255.0
+        }
+      },
+      "date_ranges": {
+        "First delivery date": {
+          "min": "2025-01-01",
+          "max": "2025-12-31",
+          "unique": 261
+        }
+      },
+      "sample_rows": [
+        {
+          "Product code": "268091",
+          "First delivery date": "2025-01-01",
+          "CA_Livré": "0.00000000000000000000",
+          "CA_Perdu": "0.00000000000000000000",
+          "Nb_Rep_CA_Perdu": "0"
+        },
+        {
+          "Product code": "268091",
+          "First delivery date": "2025-01-02",
+          "CA_Livré": "16809.43999999999869032763",
+          "CA_Perdu": "0.00000000000000000000",
+          "Nb_Rep_CA_Perdu": "0"
+        },
+        {
+          "Product code": "268091",
+          "First delivery date": "2025-01-03",
+          "CA_Livré": "8080.89999999999963620212",
+          "CA_Perdu": "1453.34999999999990905053",
+          "Nb_Rep_CA_Perdu": "1"
+        }
+      ]
+    },
+    {
+      "name": "Dispo_PF_Projeté.csv",
+      "path": "C:/dev/lca-simu/etudecas/data/source/Dispo_PF_Projeté.csv",
+      "exists": true,
+      "size_bytes": 1364,
+      "business_reference": {
+        "role": "Ruptures produit fini projetees par semaine.",
+        "intended_use": "Validation disponibilite produit et signal de tension PF."
+      },
+      "type": "csv",
+      "encoding": "cp1252",
+      "delimiter": ";",
+      "row_count": 64,
+      "columns": [
+        "SKU Code",
+        "Year Week Snapshot",
+        "Nb_Semaine_Rupture_Produit",
+        "Répétition_Rupture_Produit"
+      ],
+      "non_empty_by_column": {
+        "SKU Code": 64,
+        "Year Week Snapshot": 64,
+        "Nb_Semaine_Rupture_Produit": 64,
+        "Répétition_Rupture_Produit": 64
+      },
+      "unique_counts": {
+        "SKU Code": 2,
+        "Year Week Snapshot": 32,
+        "Nb_Semaine_Rupture_Produit": 7,
+        "Répétition_Rupture_Produit": 7
+      },
+      "numeric_stats": {
+        "Nb_Semaine_Rupture_Produit": {
+          "count": 64,
+          "min": 0.0,
+          "max": 11.0,
+          "sum": 108.0
+        },
+        "Répétition_Rupture_Produit": {
+          "count": 64,
+          "min": 0.0,
+          "max": 6.0,
+          "sum": 79.0
+        }
+      },
+      "date_ranges": {
+        "Year Week Snapshot": {
+          "min": "2025|01",
+          "max": "2026|26",
+          "unique": 32
+        }
+      },
+      "sample_rows": [
+        {
+          "SKU Code": "268091",
+          "Year Week Snapshot": "2025|01",
+          "Nb_Semaine_Rupture_Produit": "0",
+          "Répétition_Rupture_Produit": "0"
+        },
+        {
+          "SKU Code": "268091",
+          "Year Week Snapshot": "2025|05",
+          "Nb_Semaine_Rupture_Produit": "2",
+          "Répétition_Rupture_Produit": "1"
+        },
+        {
+          "SKU Code": "268091",
+          "Year Week Snapshot": "2025|09",
+          "Nb_Semaine_Rupture_Produit": "3",
+          "Répétition_Rupture_Produit": "2"
+        }
+      ]
+    },
+    {
+      "name": "Stock_Composants_Immobilisé_Cos.csv",
+      "path": "C:/dev/lca-simu/etudecas/data/source/Stock_Composants_Immobilisé_Cos.csv",
+      "exists": true,
+      "size_bytes": 1669,
+      "business_reference": {
+        "role": "Valeur de stock composants immobilise cosmetique.",
+        "intended_use": "Validation cout de stockage / immobilisation composants.",
+        "measurement": "stock_value",
+        "product_scope": {
+          "business_name": "cos",
+          "finished_product_item_id": "item:268967",
+          "finished_product_code": "268967",
+          "scope": "Composants rattaches au BOM du produit fini 268967."
+        },
+        "comparison_note": "Comparer au stock simule des composants du BOM 268967 apres valorisation par les prix composants disponibles sur les liens fournisseur-usine. Controler les prix a zero, les composants internes et les cas multi-sources avant comparaison."
+      },
+      "type": "csv",
+      "encoding": "utf-8-sig",
+      "delimiter": ";",
+      "row_count": 52,
+      "columns": [
+        "Date de photo DMP",
+        "Sum_Valeur totale du stock"
+      ],
+      "non_empty_by_column": {
+        "Date de photo DMP": 52,
+        "Sum_Valeur totale du stock": 52
+      },
+      "unique_counts": {
+        "Date de photo DMP": 52,
+        "Sum_Valeur totale du stock": 49
+      },
+      "numeric_stats": {
+        "Sum_Valeur totale du stock": {
+          "count": 52,
+          "min": 606978.55,
+          "max": 1435465.25,
+          "sum": 48396151.02
+        }
+      },
+      "date_ranges": {
+        "Date de photo DMP": {
+          "min": "2025-01-06",
+          "max": "2025-12-29",
+          "unique": 52
+        }
+      },
+      "sample_rows": [
+        {
+          "Date de photo DMP": "2025-01-06 00:05:56",
+          "Sum_Valeur totale du stock": "656921.88"
+        },
+        {
+          "Date de photo DMP": "2025-01-13 00:06:03",
+          "Sum_Valeur totale du stock": "720134.07"
+        },
+        {
+          "Date de photo DMP": "2025-01-20 00:06:36",
+          "Sum_Valeur totale du stock": "606978.55"
+        }
+      ]
+    },
+    {
+      "name": "Stock_Composants_Immobilisé_Pharma.csv",
+      "path": "C:/dev/lca-simu/etudecas/data/source/Stock_Composants_Immobilisé_Pharma.csv",
+      "exists": true,
+      "size_bytes": 1658,
+      "business_reference": {
+        "role": "Valeur de stock composants immobilise pharma.",
+        "intended_use": "Validation cout de stockage / immobilisation composants.",
+        "measurement": "stock_value",
+        "product_scope": {
+          "business_name": "pharma",
+          "finished_product_item_id": "item:268091",
+          "finished_product_code": "268091",
+          "scope": "Composants rattaches au BOM du produit fini 268091.",
+          "assumption": "Le code mentionne comme 26809 est interprete comme 268091, produit fini present dans le graphe et la simulation."
+        },
+        "comparison_note": "Comparer au stock simule des composants du BOM 268091 apres valorisation par les prix composants disponibles sur les liens fournisseur-usine. Controler les prix a zero, les composants internes et les cas multi-sources avant comparaison."
+      },
+      "type": "csv",
+      "encoding": "utf-8-sig",
+      "delimiter": ";",
+      "row_count": 52,
+      "columns": [
+        "Date de photo DMP",
+        "Sum_Valeur totale du stock"
+      ],
+      "non_empty_by_column": {
+        "Date de photo DMP": 52,
+        "Sum_Valeur totale du stock": 52
+      },
+      "unique_counts": {
+        "Date de photo DMP": 52,
+        "Sum_Valeur totale du stock": 51
+      },
+      "numeric_stats": {
+        "Sum_Valeur totale du stock": {
+          "count": 52,
+          "min": 181337.72,
+          "max": 382653.99,
+          "sum": 13503276.799999997
+        }
+      },
+      "date_ranges": {
+        "Date de photo DMP": {
+          "min": "2025-01-06",
+          "max": "2025-12-29",
+          "unique": 52
+        }
+      },
+      "sample_rows": [
+        {
+          "Date de photo DMP": "2025-01-06 00:05:56",
+          "Sum_Valeur totale du stock": "220644.25"
+        },
+        {
+          "Date de photo DMP": "2025-01-13 00:06:03",
+          "Sum_Valeur totale du stock": "202836.97"
+        },
+        {
+          "Date de photo DMP": "2025-01-20 00:06:36",
+          "Sum_Valeur totale du stock": "229908.04"
+        }
+      ]
+    },
+    {
+      "name": "Stock_PF_Immobilisé.csv",
+      "path": "C:/dev/lca-simu/etudecas/data/source/Stock_PF_Immobilisé.csv",
+      "exists": true,
+      "size_bytes": 4065,
+      "business_reference": {
+        "role": "Valeur de stock produits finis immobilise par article.",
+        "intended_use": "Validation cout de stockage PF et dynamique de stock.",
+        "measurement": "stock_value",
+        "product_scope": {
+          "finished_product_item_ids": [
+            "item:268967",
+            "item:268091"
+          ],
+          "finished_product_codes": [
+            "268967",
+            "268091"
+          ],
+          "scope": "Stocks immobilises de produits finis par article."
+        },
+        "comparison_note": "Comparer aux stocks PF simules par article/site apres valorisation avec les memes conventions de cout."
+      },
+      "type": "csv",
+      "encoding": "cp1252",
+      "delimiter": ";",
+      "row_count": 104,
+      "columns": [
+        "Numéro article",
+        "Date de photo DMP",
+        "Sum_Valeur totale du stock"
+      ],
+      "non_empty_by_column": {
+        "Numéro article": 104,
+        "Date de photo DMP": 104,
+        "Sum_Valeur totale du stock": 104
+      },
+      "unique_counts": {
+        "Numéro article": 2,
+        "Date de photo DMP": 52,
+        "Sum_Valeur totale du stock": 104
+      },
+      "numeric_stats": {
+        "Sum_Valeur totale du stock": {
+          "count": 104,
+          "min": 215293.31,
+          "max": 2472793.99,
+          "sum": 100745429.06000005
+        }
+      },
+      "date_ranges": {
+        "Date de photo DMP": {
+          "min": "2025-01-06",
+          "max": "2025-12-29",
+          "unique": 52
+        }
+      },
+      "sample_rows": [
+        {
+          "Numéro article": "268091",
+          "Date de photo DMP": "2025-01-06 00:05:56",
+          "Sum_Valeur totale du stock": "256910.48"
+        },
+        {
+          "Numéro article": "268091",
+          "Date de photo DMP": "2025-01-13 00:06:03",
+          "Sum_Valeur totale du stock": "285631.22"
+        },
+        {
+          "Numéro article": "268091",
+          "Date de photo DMP": "2025-01-20 00:06:36",
+          "Sum_Valeur totale du stock": "260772.84"
+        }
+      ]
+    },
+    {
+      "name": "supply_graph_poc.json",
+      "path": "C:/dev/lca-simu/etudecas/data/source/supply_graph_poc.json",
+      "exists": true,
+      "size_bytes": 165888,
+      "business_reference": {},
+      "type": "json",
+      "row_count": null,
+      "columns": [],
+      "note": "Not profiled deeply by this lightweight source profiler."
+    }
+  ]
+}

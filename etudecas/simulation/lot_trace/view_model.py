@@ -33,7 +33,12 @@ def build_lot_trace_view_model(
     links = [_compact_link(link) for link in visible_links]
     component_groups = _build_component_groups(visible_links)
     transport_groups = _build_transport_groups(visible_links)
-    mixed_customer_lots = _build_mixed_customer_lots(indexes, visible_lot_ids)
+    contribution_qty_by_lot = _downstream_contribution_qty_by_lot(
+        indexes,
+        reach["root_lot_id"],
+        visible_lot_ids,
+    )
+    mixed_customer_lots = _build_mixed_customer_lots(indexes, visible_lot_ids, contribution_qty_by_lot)
     snapshot = _build_snapshot(reach, visible_links, visible_events, nodes)
 
     return {
@@ -56,6 +61,7 @@ def build_lot_trace_view_model(
             "component_group_count": len(component_groups),
             "transport_group_count": len(transport_groups),
             "mixed_customer_lot_count": len(mixed_customer_lots),
+            "selectable_lot_policy": "PF/PFI/MP lots only; transport receipt lots are context",
         },
     }
 
@@ -210,9 +216,71 @@ def _build_transport_groups(links: list[dict[str, Any]]) -> list[dict[str, Any]]
     return out
 
 
+def _downstream_contribution_qty_by_lot(
+    indexes: LotTraceIndexes,
+    root_lot_id: str,
+    visible_lot_ids: set[str],
+) -> dict[str, float]:
+    root = _as_str(root_lot_id)
+    if not root:
+        return {}
+    root_qty = _lot_total_qty(root, indexes)
+    contributions: dict[str, float] = {root: root_qty} if root_qty > 0 else {}
+    queue = [root]
+    guard = 0
+    while queue and guard < 10000:
+        guard += 1
+        parent = queue.pop(0)
+        parent_contribution = contributions.get(parent, 0.0)
+        if parent_contribution <= 0:
+            continue
+        parent_total = _lot_total_qty(parent, indexes)
+        parent_share = min(1.0, max(0.0, parent_contribution / parent_total)) if parent_total > 0 else 1.0
+        for link in indexes.link_rows_by_parent.get(parent, []):
+            if _as_str(link.get("link_type")) != "transport":
+                continue
+            child = _as_str(link.get("child_lot_id"))
+            if not child or child not in visible_lot_ids:
+                continue
+            link_qty = _to_float(link.get("parent_qty")) or _to_float(link.get("child_qty"))
+            if link_qty <= 0:
+                continue
+            traced_qty = link_qty * parent_share
+            if traced_qty <= 0:
+                continue
+            old = contributions.get(child, 0.0)
+            child_total = _lot_total_qty(child, indexes)
+            new_value = min(child_total, old + traced_qty) if child_total > 0 else old + traced_qty
+            if new_value > old + 1e-9:
+                contributions[child] = new_value
+                queue.append(child)
+    return contributions
+
+
+def _lot_total_qty(lot_id: str, indexes: LotTraceIndexes) -> float:
+    qty = _to_float(indexes.lots.get(lot_id, {}).get("qty"))
+    if qty > 0:
+        return qty
+    events = indexes.events_by_lot.get(lot_id, [])
+    for event in events:
+        if _as_str(event.get("event_type")) in {
+            "production_output",
+            "lane_receipt",
+            "external_procurement_receipt",
+            "estimated_source_receipt",
+            "estimated_capacity_receipt",
+            "opening_stock",
+        }:
+            event_qty = _to_float(event.get("qty"))
+            if event_qty > 0:
+                return event_qty
+    return _to_float(events[0].get("qty")) if events else 0.0
+
+
 def _build_mixed_customer_lots(
     indexes: LotTraceIndexes,
     visible_lot_ids: set[str],
+    contribution_qty_by_lot: dict[str, float],
 ) -> list[dict[str, Any]]:
     mixed: list[dict[str, Any]] = []
     for lot_id in sorted(visible_lot_ids):
@@ -226,22 +294,14 @@ def _build_mixed_customer_lots(
         parent_lots = _unique(link.get("parent_lot_id") for link in incoming)
         if len(parent_lots) <= 1:
             continue
-        visible_parent_lots = [lot for lot in parent_lots if lot in visible_lot_ids]
-        other_parent_lots = [lot for lot in parent_lots if lot not in visible_lot_ids]
+        visible_parent_lots = [lot for lot in parent_lots if contribution_qty_by_lot.get(lot, 0.0) > 0]
+        other_parent_lots = [lot for lot in parent_lots if lot not in visible_parent_lots]
         total_qty = max(
             [_to_float(link.get("child_qty")) for link in incoming]
-            + [_to_float(indexes.lots.get(lot_id, {}).get("qty"))]
+            + [_lot_total_qty(lot_id, indexes)]
         )
-        visible_qty = sum(
-            _to_float(link.get("parent_qty"))
-            for link in incoming
-            if _as_str(link.get("parent_lot_id")) in visible_lot_ids
-        )
-        other_qty = sum(
-            _to_float(link.get("parent_qty"))
-            for link in incoming
-            if _as_str(link.get("parent_lot_id")) not in visible_lot_ids
-        )
+        visible_qty = min(total_qty, max(0.0, contribution_qty_by_lot.get(lot_id, 0.0))) if total_qty > 0 else 0.0
+        other_qty = max(0.0, total_qty - visible_qty)
         mixed.append(
             {
                 "lot_id": lot_id,

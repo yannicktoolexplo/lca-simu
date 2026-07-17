@@ -1,0 +1,156 @@
+# POC2026 horizon-adaptation parameters.
+# Values are illustrative POC assumptions. They are separated from the script so
+# that scenarios can be reviewed, versioned and tested without editing code.
+
+study:
+  horizon_months: 240
+  start_year: 2026
+
+lead_times:
+  main_months: 3
+  backup_months: 1
+  biosourced_months: 1
+
+environmental_factors:
+  raw_storage_kgco2e_per_unit_month: 0.012
+  finished_goods_storage_kgco2e_per_unit_month: 0.018
+  solar_kgco2e_per_kwh: 0.035
+  biomass_kgco2e_per_kwh: 0.16
+  battery_use_kgco2e_per_kwh: 0.025
+  backup_material_premium_kgco2e_per_unit: 5.5
+  backup_inbound_premium_kgco2e_per_unit: 2.8
+  air_premium_kgco2e_per_unit: 6.8
+
+economic_factors:
+  solar_lcoe_per_kwh: 0.04
+  biomass_lcoe_per_kwh: 0.085
+  battery_cycle_cost_per_kwh: 0.03
+  storage_fixed_cost_per_unit_month: 0.35
+  backlog_penalty_cost_per_unit_month: 25.0
+  battery_capex_monthly_per_kwh: 2.8
+  solar_capex_monthly_per_scale_unit: 0.9
+  biomass_capex_monthly_per_scale_unit: 1.1
+
+weather_driver:
+  baseline_temp_c: 14.0
+  seasonal_temp_amplitude_c: 13.0
+  warming_2050_delta_c: 2.0
+  baseline_humidity_pct: 67.0
+  seasonal_humidity_amplitude_pct: 10.0
+  baseline_precip_mm: 72.0
+  seasonal_precip_amplitude_mm: 28.0
+  baseline_wind_ms: 4.2
+  seasonal_wind_amplitude_ms: 1.1
+
+weather_event_thresholds:
+  heatwave_temp_c: 32.0
+  heatwave_heat_index_c: 34.0
+  drought_precip_mm: 34.0
+  drought_temp_c: 25.0
+  storm_precip_mm: 112.0
+  storm_wind_ms: 9.5
+  cold_temp_c: 3.0
+
+timeline_policy_name: reference_2045
+
+policies:
+  - name: reference_2045
+    label: Reference 2045
+    raw_target: 55.0
+    reorder_threshold: 24.0
+    fg_target: 14.0
+    backup_order_qty: 12.0
+    air_start_threshold: 14.0
+    air_end_threshold: 24.0
+    solar_scale: 10.0
+    battery_capacity: 18.0
+    biomass_capacity: 4.0
+    insulation_factor: 1.0
+    cooling_upgrade: 1.0
+  - name: resilience_inventory
+    label: Stock de resilience
+    raw_target: 78.0
+    reorder_threshold: 34.0
+    fg_target: 22.0
+    backup_order_qty: 14.0
+    air_start_threshold: 16.0
+    air_end_threshold: 28.0
+    solar_scale: 10.0
+    battery_capacity: 18.0
+    biomass_capacity: 4.0
+    insulation_factor: 0.95
+    cooling_upgrade: 1.05
+  - name: energy_autonomy
+    label: Autonomie energetique
+    raw_target: 55.0
+    reorder_threshold: 24.0
+    fg_target: 14.0
+    backup_order_qty: 12.0
+    air_start_threshold: 14.0
+    air_end_threshold: 24.0
+    solar_scale: 18.0
+    battery_capacity: 42.0
+    biomass_capacity: 9.0
+    insulation_factor: 0.82
+    cooling_upgrade: 0.86
+  - name: integrated_adaptation
+    label: Adaptation integree
+    raw_target: 82.0
+    reorder_threshold: 34.0
+    fg_target: 22.0
+    backup_order_qty: 16.0
+    air_start_threshold: 18.0
+    air_end_threshold: 30.0
+    solar_scale: 20.0
+    battery_capacity: 48.0
+    biomass_capacity: 10.0
+    insulation_factor: 0.74
+    cooling_upgrade: 0.78
+  - name: lean_exposed
+    label: Lean expose
+    raw_target: 40.0
+    reorder_threshold: 18.0
+    fg_target: 8.0
+    backup_order_qty: 10.0
+    air_start_threshold: 10.0
+    air_end_threshold: 18.0
+    solar_scale: 6.0
+    battery_capacity: 8.0
+    biomass_capacity: 0.0
+    insulation_factor: 1.14
+    cooling_upgrade: 1.12
+
+scenario_overrides:
+  baseline_degraded:
+    name: baseline_degraded
+    label: Baseline degradee
+    raw_target: 46.0
+    reorder_threshold: 18.0
+    fg_target: 10.0
+    air_start_threshold: 8.0
+    air_end_threshold: 14.0
+    biomass_capacity: 0.0
+  baseline_plus_biomass:
+    name: baseline_plus_biomass
+    label: Baseline + biomasse
+    biomass_capacity: 10.0
+    biomass_local_resource: true
+    biomass_local_stock_cap_kwh: 620.0
+    biomass_local_regen_kwh: 26.0
+    biomass_local_stress_sensitivity: 0.38
+    biomass_local_stress_recovery: 0.18
+    biomass_local_ef_premium: 0.04
+    biomass_local_cost_premium: 0.08
+  baseline_biosourced_materials:
+    name: baseline_biosourced_materials
+    label: Baseline + materiaux biosources
+    backup_order_qty: 6.0
+    biosourced_materials: true
+    biosourced_material_ef_discount: 0.30
+    biosourced_inbound_ef_discount: 0.52
+    biosourced_local_stress_sensitivity: 0.34
+    biosourced_local_stress_recovery: 0.16
+    biosourced_cost_premium: 0.10
+    biosourced_water_penalty: 0.08
+    biosourced_transition_target: 0.78
+    biosourced_transition_ramp: 0.055

@@ -1,0 +1,3 @@
+product_code,division,source_min_price_value_eur,source_mean_price_value_eur,source_max_price_value_eur,priced_component_count,component_count,source_run_alignment_value_eur,description,location_ID,sim_day0_stock_value_eur,sim_mean_stock_value_eur
+268091,1810,525288.1854692481,603766.0642198975,655343.8108611719,13,15,726887.2090245851,Manufacturer of Cosmetics - D1810,France - AVENE - 34260,720013.072068915,953225.5406386447
+268967,1430,422500.194425,422500.194425,422500.194425,5,8,,Manufacturer of Drugs - D1430,France - GIEN - 45500,2004344.911925,2878419.5784336715

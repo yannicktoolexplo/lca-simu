@@ -17,6 +17,14 @@ from pathlib import Path
 from statistics import fmean, pstdev
 from typing import Any
 
+try:
+    from etudecas.simulation.run_format import load_run_package
+except ModuleNotFoundError:
+    import sys
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+    from etudecas.simulation.run_format import load_run_package
+
 
 ROOT = Path(__file__).resolve().parent
 ETUDECAS_ROOT = ROOT.parents[1]
@@ -1104,6 +1112,12 @@ def parse_args() -> argparse.Namespace:
         help="Simulation result directory containing data/*.csv.",
     )
     parser.add_argument(
+        "--run-package",
+        type=Path,
+        default=None,
+        help="Generic run package directory. When provided, it defines the simulation result directory.",
+    )
+    parser.add_argument(
         "--sensitivity-dir",
         type=Path,
         default=DEFAULT_SENSITIVITY_DIR,
@@ -1120,7 +1134,12 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    sim_result_dir = args.sim_result_dir.resolve()
+    if args.run_package:
+        run_package = load_run_package(args.run_package.resolve())
+        sim_result_dir = run_package.output_dir.resolve()
+    else:
+        sim_result_dir = args.sim_result_dir.resolve()
+    args.sim_result_dir = sim_result_dir
     output_dir = args.output_dir.resolve()
     paths = ensure_output_dirs(output_dir)
     sensitivity_file = args.sensitivity_dir / "supplier_parameter_recommendations.csv"
