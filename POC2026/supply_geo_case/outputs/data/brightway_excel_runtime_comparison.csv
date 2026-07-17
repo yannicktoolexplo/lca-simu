@@ -1,0 +1,4 @@
+scope_id,label,excel_person_equivalent,excel_kgco2e,runtime_kgco2e,runtime_person_equivalent,delta_kgco2e,delta_person_equivalent,relative_delta_pct,alignment_status,note
+production_without_use,Production/hors usage,0.349104716,2826.185978319,2449.945067684,0.302629545,-376.240910635,-0.046475171,-13.312673,close_enough_for_poc,Production Brightway OPERA vs Excel hors usage.
+lifecycle_total,Cycle de vie complet,57.269114716,463623.553573265,2662108.871703232,328.837086004,2198485.318129967,271.567971288,474.19621,not_aligned,Cycle complet non aligne: l'echange usage Brightway ne reproduit pas l'usage Excel.
+lifecycle_excel_aligned,Cycle complet corrige usage STELIA,57.269114716,463623.553573265,462846.896821319,57.173178165,-776.656751946,-0.095936551,-0.167519,aligned,Cycle complet avec usage STELIA calibre et branche tkm brute retiree.

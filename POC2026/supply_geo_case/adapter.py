@@ -18,6 +18,8 @@ import json
 import math
 import os
 import re
+import subprocess
+import tempfile
 import unicodedata
 from collections import Counter, defaultdict
 from dataclasses import dataclass
@@ -33,6 +35,11 @@ CASE_ROOT = Path(__file__).resolve().parent
 REPO_ROOT = CASE_ROOT.parents[1]
 DEFAULT_CONFIG = CASE_ROOT / "config" / "supply_geo_case.yml"
 BW_TRISTAN_ROOT = REPO_ROOT / "bw_tristan"
+BRIGHTWAY_PROJECT = "bw25-ecoinvent310"
+BRIGHTWAY_REQUIRED_DATABASES = ("biosphere3", "ecoinvent-3.10-cutoff", "OPERA_siege")
+_BRIGHTWAY_RUNTIME_STATUS_CACHE: dict[str, Any] | None = None
+_BRIGHTWAY_EXACT_SCENARIO_CACHE: dict[tuple[float, float], list[dict[str, Any]]] = {}
+_SDD_EXCHANGE_LCIA_CACHE: dict[tuple[int, str], dict[str, list[dict[str, Any]]]] = {}
 
 EDGE_ORDER = (
     ("T4->T3", "T4", "T3"),
@@ -71,6 +78,79 @@ SDD_STOCK_TARGET_MONTHS = {
     "T2": 1.1,
     "T1": 0.9,
     "OEM": 0.7,
+}
+
+SDD_BRIGHTWAY_ROLE_SCOPE_SHARE = {
+    "T4": 0.10,
+    "T3": 0.16,
+    "T2": 0.22,
+    "T1": 0.30,
+    "OEM": 0.22,
+}
+
+SDD_BACKUP_SUPPLIER_OVERHEAD_FACTOR = 0.15
+
+SDD_SCRAP_RECYCLING_PROFILES = {
+    "adhesive_composite": {
+        "recycling_rate": 0.10,
+        "avoided_burden_factor": 0.10,
+        "treatment_kgco2e_per_kg": 0.18,
+        "replacement_factor": 1.00,
+    },
+    "aluminium": {
+        "recycling_rate": 0.85,
+        "avoided_burden_factor": 0.65,
+        "treatment_kgco2e_per_kg": 0.12,
+        "replacement_factor": 1.00,
+    },
+    "copper": {
+        "recycling_rate": 0.90,
+        "avoided_burden_factor": 0.75,
+        "treatment_kgco2e_per_kg": 0.08,
+        "replacement_factor": 1.00,
+    },
+    "electronics_cots": {
+        "recycling_rate": 0.35,
+        "avoided_burden_factor": 0.35,
+        "treatment_kgco2e_per_kg": 0.45,
+        "replacement_factor": 0.95,
+    },
+    "general": {
+        "recycling_rate": 0.35,
+        "avoided_burden_factor": 0.30,
+        "treatment_kgco2e_per_kg": 0.20,
+        "replacement_factor": 1.00,
+    },
+    "polymer_plastic": {
+        "recycling_rate": 0.45,
+        "avoided_burden_factor": 0.25,
+        "treatment_kgco2e_per_kg": 0.18,
+        "replacement_factor": 1.00,
+    },
+    "rubber_silicone": {
+        "recycling_rate": 0.20,
+        "avoided_burden_factor": 0.15,
+        "treatment_kgco2e_per_kg": 0.22,
+        "replacement_factor": 1.00,
+    },
+    "steel": {
+        "recycling_rate": 0.80,
+        "avoided_burden_factor": 0.55,
+        "treatment_kgco2e_per_kg": 0.10,
+        "replacement_factor": 1.00,
+    },
+    "textile_leather": {
+        "recycling_rate": 0.15,
+        "avoided_burden_factor": 0.08,
+        "treatment_kgco2e_per_kg": 0.25,
+        "replacement_factor": 1.00,
+    },
+    "titanium_carbon": {
+        "recycling_rate": 0.60,
+        "avoided_burden_factor": 0.45,
+        "treatment_kgco2e_per_kg": 0.20,
+        "replacement_factor": 1.00,
+    },
 }
 
 REGION_COUNTRIES = {
@@ -198,6 +278,20 @@ WEATHER_PROFILES = {
         "cold_multiplier": 0.4,
         "hurricane_multiplier": 0.0,
     },
+}
+
+DEFAULT_CLIMATE_CHANGE = {
+    "enabled": True,
+    "warming_deg_c_at_horizon": 2.2,
+    "heatwave_factor_at_horizon": 1.75,
+    "drought_factor_at_horizon": 1.55,
+    "extreme_precip_factor_at_horizon": 1.35,
+    "storm_wind_factor_at_horizon": 1.25,
+    "hurricane_factor_at_horizon": 1.45,
+    "site_cold_factor_at_horizon": 0.85,
+    "maritime_storm_factor_at_horizon": 1.35,
+    "maritime_hurricane_factor_at_horizon": 1.45,
+    "maritime_cold_factor_at_horizon": 1.10,
 }
 
 STANDARD_DIRS = {
@@ -843,7 +937,77 @@ def heat_index_c(temp_c: float, humidity_pct: float) -> float:
     return temp_c + max(0.0, humidity_pct - 45.0) * 0.08
 
 
-def build_weather_row(site: dict[str, Any], month_index: int, horizon_months: int, seed: int, thresholds: dict[str, Any]) -> dict[str, Any]:
+def climate_change_signal(month_index: int, horizon_months: int, climate_config: dict[str, Any] | None) -> dict[str, float]:
+    config = {**DEFAULT_CLIMATE_CHANGE, **(climate_config or {})}
+    if not config.get("enabled", True):
+        return {
+            "climate_progress": 0.0,
+            "warming_delta_c": 0.0,
+            "heatwave_factor": 1.0,
+            "drought_factor": 1.0,
+            "extreme_precip_factor": 1.0,
+            "storm_wind_factor": 1.0,
+            "hurricane_factor": 1.0,
+            "site_cold_factor": 1.0,
+            "maritime_storm_factor": 1.0,
+            "maritime_hurricane_factor": 1.0,
+            "maritime_cold_factor": 1.0,
+            "hazard_factor": 1.0,
+        }
+    progress = clamp((month_index - 1) / max(1, horizon_months - 1), 0.0, 1.0)
+    # Slight convexity: later years carry more of the risk growth while keeping month 1 unchanged.
+    risk_progress = progress**1.15
+
+    def end_factor(name: str) -> float:
+        return safe_float(config.get(name), DEFAULT_CLIMATE_CHANGE[name])
+
+    def grow(name: str) -> float:
+        return 1.0 + (end_factor(name) - 1.0) * risk_progress
+
+    heatwave_factor = grow("heatwave_factor_at_horizon")
+    drought_factor = grow("drought_factor_at_horizon")
+    extreme_precip_factor = grow("extreme_precip_factor_at_horizon")
+    storm_wind_factor = grow("storm_wind_factor_at_horizon")
+    hurricane_factor = grow("hurricane_factor_at_horizon")
+    site_cold_factor = grow("site_cold_factor_at_horizon")
+    maritime_storm_factor = grow("maritime_storm_factor_at_horizon")
+    maritime_hurricane_factor = grow("maritime_hurricane_factor_at_horizon")
+    maritime_cold_factor = grow("maritime_cold_factor_at_horizon")
+    hazard_factor = mean(
+        [
+            heatwave_factor,
+            drought_factor,
+            extreme_precip_factor,
+            storm_wind_factor,
+            hurricane_factor,
+            maritime_storm_factor,
+            maritime_hurricane_factor,
+        ]
+    )
+    return {
+        "climate_progress": round(progress, 9),
+        "warming_delta_c": safe_float(config.get("warming_deg_c_at_horizon"), DEFAULT_CLIMATE_CHANGE["warming_deg_c_at_horizon"]) * progress,
+        "heatwave_factor": heatwave_factor,
+        "drought_factor": drought_factor,
+        "extreme_precip_factor": extreme_precip_factor,
+        "storm_wind_factor": storm_wind_factor,
+        "hurricane_factor": hurricane_factor,
+        "site_cold_factor": site_cold_factor,
+        "maritime_storm_factor": maritime_storm_factor,
+        "maritime_hurricane_factor": maritime_hurricane_factor,
+        "maritime_cold_factor": maritime_cold_factor,
+        "hazard_factor": hazard_factor,
+    }
+
+
+def build_weather_row(
+    site: dict[str, Any],
+    month_index: int,
+    horizon_months: int,
+    seed: int,
+    thresholds: dict[str, Any],
+    climate_config: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     lat = safe_float(site.get("lat"), 48.0)
     lon = safe_float(site.get("lon"), 2.0)
     site_uid = clean(site.get("site_uid"))
@@ -856,7 +1020,8 @@ def build_weather_row(site: dict[str, Any], month_index: int, horizon_months: in
     season = math.cos(month_angle - math.pi) * northern
     abs_lat = min(abs(lat), 65.0)
     tropicality = max(0.0, 1.0 - abs_lat / 45.0)
-    trend = 2.2 * month_index / max(1, horizon_months)
+    climate = climate_change_signal(month_index, horizon_months, climate_config)
+    trend = climate["warming_delta_c"]
     anomaly = 1.6 * math.sin(month_index * 0.71 + phase) + 1.1 * math.sin(month_index * 0.17 + lon / 35.0)
     winter_peak = month_season_peak(month_index, 1 if lat >= 0 else 7, 3)
     cold_outbreak = (
@@ -876,16 +1041,17 @@ def build_weather_row(site: dict[str, Any], month_index: int, horizon_months: in
         + 8.0 * math.sin(month_index * 0.43 + phase / 2.0)
         + safe_float(profile.get("humidity_offset"))
     )
+    humidity -= max(season, 0.0) * (climate["drought_factor"] - 1.0) * 6.0
     humidity = clamp(humidity, 20.0, 98.0)
 
-    storm_pulse = max(0.0, math.sin(month_index * 0.91 + phase) - 0.72)
-    dry_pulse = max(0.0, math.sin(month_index * 0.37 + phase * 1.7) - 0.62)
+    storm_pulse = max(0.0, math.sin(month_index * 0.91 + phase) - 0.72) * climate["extreme_precip_factor"]
+    dry_pulse = max(0.0, math.sin(month_index * 0.37 + phase * 1.7) - 0.62) * climate["drought_factor"]
     wet_season = max(0.0, math.sin(month_angle + phase / 4.0))
     base_precip = 35.0 + tropicality * 45.0
     hurricane_season = month_season_peak(month_index, 9 if lat >= 0 else 2, 4)
     hurricane_pulse = max(0.0, math.sin(month_index * 0.53 + phase * 1.3) - 0.36)
     hurricane = clamp(
-        hurricane_season * hurricane_pulse * safe_float(profile.get("hurricane_multiplier")) * 1.45,
+        hurricane_season * hurricane_pulse * safe_float(profile.get("hurricane_multiplier")) * 1.45 * climate["hurricane_factor"],
         0.0,
         1.0,
     )
@@ -896,7 +1062,7 @@ def build_weather_row(site: dict[str, Any], month_index: int, horizon_months: in
         + 190.0 * storm_pulse * safe_float(profile.get("storm_multiplier"), 1.0)
         + 210.0 * hurricane
         - 95.0 * dry_pulse * drought_multiplier
-        - 18.0 * max(season, 0.0)
+        - 18.0 * max(season, 0.0) * climate["drought_factor"]
     )
     precip *= safe_float(profile.get("precip_multiplier"), 1.0)
     precip = max(0.0, precip)
@@ -904,7 +1070,7 @@ def build_weather_row(site: dict[str, Any], month_index: int, horizon_months: in
     wind = (
         3.5
         + 2.0 * abs(math.sin(month_index * 0.29 + phase))
-        + 18.0 * storm_pulse * safe_float(profile.get("storm_multiplier"), 1.0)
+        + 18.0 * storm_pulse * safe_float(profile.get("storm_multiplier"), 1.0) * climate["storm_wind_factor"]
         + 19.0 * hurricane
         + 5.5 * cold_outbreak
         + 0.01 * abs(lon)
@@ -917,6 +1083,7 @@ def build_weather_row(site: dict[str, Any], month_index: int, horizon_months: in
         0.0,
         1.0,
     )
+    heatwave = clamp(heatwave * climate["heatwave_factor"], 0.0, 1.0)
     drought = 0.0
     if (
         precip < safe_float(thresholds.get("drought_precip_mm"), 18.0)
@@ -930,12 +1097,13 @@ def build_weather_row(site: dict[str, Any], month_index: int, horizon_months: in
             0.0,
             1.0,
         )
-    drought = clamp(drought * drought_multiplier, 0.0, 1.0)
+    drought = clamp(drought * drought_multiplier * climate["drought_factor"], 0.0, 1.0)
     storm = clamp(
         max(
             (precip - safe_float(thresholds.get("storm_precip_mm"), 95.0)) / 120.0,
             (wind - safe_float(thresholds.get("storm_wind_ms"), 15.0)) / 14.0,
-        ),
+        )
+        * max(climate["extreme_precip_factor"], climate["storm_wind_factor"]),
         0.0,
         1.0,
     )
@@ -946,13 +1114,14 @@ def build_weather_row(site: dict[str, Any], month_index: int, horizon_months: in
                 (precip - safe_float(thresholds.get("hurricane_precip_mm"), 155.0)) / 150.0,
                 (wind - safe_float(thresholds.get("hurricane_wind_ms"), 25.0)) / 10.0,
             )
-            * safe_float(profile.get("hurricane_multiplier")),
+            * safe_float(profile.get("hurricane_multiplier"))
+            * climate["hurricane_factor"],
             0.0,
             1.0,
         ),
     )
     cold = clamp((safe_float(thresholds.get("cold_temp_c"), -4.0) - temp_c) / 14.0, 0.0, 1.0)
-    cold = clamp(cold + cold_outbreak * 0.45, 0.0, 1.0)
+    cold = clamp((cold + cold_outbreak * 0.45) * climate["site_cold_factor"], 0.0, 1.0)
 
     events = []
     if heatwave > 0:
@@ -976,6 +1145,14 @@ def build_weather_row(site: dict[str, Any], month_index: int, horizon_months: in
         "lat": site.get("lat", ""),
         "lon": site.get("lon", ""),
         "month_index": month_index,
+        "climate_progress": round(climate["climate_progress"], 6),
+        "warming_delta_c": round(climate["warming_delta_c"], 4),
+        "hazard_intensification_factor": round(climate["hazard_factor"], 4),
+        "heatwave_factor": round(climate["heatwave_factor"], 4),
+        "drought_factor": round(climate["drought_factor"], 4),
+        "storm_factor": round(max(climate["extreme_precip_factor"], climate["storm_wind_factor"]), 4),
+        "hurricane_factor": round(climate["hurricane_factor"], 4),
+        "cold_factor": round(climate["site_cold_factor"], 4),
         "temp_c": round(temp_c, 2),
         "humidity_pct": round(humidity, 2),
         "precip_mm": round(precip, 2),
@@ -1017,6 +1194,9 @@ def event_seed_rows(weather_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
                     "month_index": row.get("month_index"),
                     "event_type": event_type,
                     "intensity": round(intensity, 4),
+                    "climate_progress": row.get("climate_progress"),
+                    "warming_delta_c": row.get("warming_delta_c"),
+                    "hazard_intensification_factor": row.get("hazard_intensification_factor"),
                     "source_weather_column": source_column,
                     "capacity_multiplier": round(max(0.0, 1.0 - capacity_loss * intensity), 4),
                     "lead_time_multiplier": round(1.0 + lead_gain * intensity, 4),
@@ -1033,8 +1213,9 @@ def build_weather_tables(config: dict[str, Any], sites: list[dict[str, Any]]) ->
     horizon = int(weather_config.get("horizon_months") or 240)
     seed = int(weather_config.get("seed") or 2026)
     thresholds = weather_config.get("thresholds") if isinstance(weather_config.get("thresholds"), dict) else {}
+    climate_config = weather_config.get("climate_change") if isinstance(weather_config.get("climate_change"), dict) else {}
     rows = [
-        build_weather_row(site, month_index, horizon, seed, thresholds)
+        build_weather_row(site, month_index, horizon, seed, thresholds, climate_config)
         for site in sites
         for month_index in range(1, horizon + 1)
     ]
@@ -1104,6 +1285,13 @@ def read_csv_rows(path: Path, columns: list[str] | None = None) -> list[dict[str
     return rows
 
 
+def read_csv_rows_preserve(path: Path) -> list[dict[str, Any]]:
+    if not path.exists():
+        return []
+    with path.open("r", encoding="utf-8", newline="") as handle:
+        return [dict(row) for row in csv.DictReader(handle)]
+
+
 def artifact_record(output_root: Path, path: Path, *, group: str, domain: str, grain: str, required: bool) -> dict[str, Any]:
     record = {
         "name": path.name,
@@ -1122,13 +1310,510 @@ def artifact_record(output_root: Path, path: Path, *, group: str, domain: str, g
 
 
 def brightway_runtime_status() -> dict[str, Any]:
+    global _BRIGHTWAY_RUNTIME_STATUS_CACHE
+    if _BRIGHTWAY_RUNTIME_STATUS_CACHE is not None:
+        return dict(_BRIGHTWAY_RUNTIME_STATUS_CACHE)
+
     modules = ["brightway25", "bw2data", "bw2io", "bw2calc", "lca_algebraic"]
     availability = {name: importlib.util.find_spec(name) is not None for name in modules}
-    return {
-        "can_execute_brightway": all(availability.values()),
+    current_status: dict[str, Any] = {}
+    external_status: dict[str, Any] = {}
+
+    if all(availability.values()):
+        try:
+            import bw2data as bd  # type: ignore[import-not-found]
+
+            bd.projects.set_current(BRIGHTWAY_PROJECT)
+            current_databases = sorted(list(bd.databases))
+            current_status = {
+                "available": True,
+                "project": str(bd.projects.current),
+                "databases": current_databases,
+                "methods_count": len(list(bd.methods)),
+                "required_databases_present": all(name in bd.databases for name in BRIGHTWAY_REQUIRED_DATABASES),
+            }
+        except Exception as exc:  # pragma: no cover - runtime optional
+            current_status = {"available": False, "error": f"{type(exc).__name__}: {exc}"}
+
+    external_python = os.environ.get("BRIGHTWAY_PYTHON")
+    if not external_python:
+        candidate = REPO_ROOT / ".venv-brightway" / "Scripts" / "python.exe"
+        if not candidate.exists():
+            candidate = REPO_ROOT / ".venv-brightway" / "bin" / "python"
+        external_python = str(candidate) if candidate.exists() else ""
+
+    if external_python:
+        probe = (
+            "import json, sys\n"
+            "mods=['brightway25','bw2data','bw2io','bw2calc','lca_algebraic']\n"
+            "status={'python':sys.executable,'modules':{},'available':False}\n"
+            "for name in mods:\n"
+            "    try:\n"
+            "        __import__(name); status['modules'][name]=True\n"
+            "    except Exception as exc:\n"
+            "        status['modules'][name]=False; status.setdefault('module_errors',{})[name]=type(exc).__name__+': '+str(exc)\n"
+            "try:\n"
+            "    import bw2data as bd\n"
+            f"    bd.projects.set_current({BRIGHTWAY_PROJECT!r})\n"
+            "    dbs=sorted(list(bd.databases))\n"
+            "    status.update({'available':all(status['modules'].values()),'project':str(bd.projects.current),'databases':dbs,'methods_count':len(list(bd.methods))})\n"
+            f"    status['required_databases_present']=all(name in bd.databases for name in {list(BRIGHTWAY_REQUIRED_DATABASES)!r})\n"
+            "except Exception as exc:\n"
+            "    status['error']=type(exc).__name__+': '+str(exc)\n"
+            "print(json.dumps(status, ensure_ascii=True))\n"
+        )
+        try:
+            completed = subprocess.run(
+                [external_python, "-c", probe],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=45,
+            )
+            stdout = completed.stdout.strip().splitlines()
+            external_status = json.loads(stdout[-1]) if stdout else {"available": False}
+            if completed.returncode != 0:
+                external_status["returncode"] = completed.returncode
+                external_status["stderr"] = completed.stderr.strip()[-1000:]
+        except Exception as exc:  # pragma: no cover - runtime optional
+            external_status = {
+                "available": False,
+                "python": external_python,
+                "error": f"{type(exc).__name__}: {exc}",
+            }
+
+    current_ready = bool(
+        all(availability.values())
+        and current_status.get("required_databases_present")
+        and int(current_status.get("methods_count") or 0) > 0
+    )
+    external_ready = bool(
+        external_status.get("available")
+        and external_status.get("required_databases_present")
+        and int(external_status.get("methods_count") or 0) > 0
+    )
+    status = {
+        "can_execute_brightway": current_ready or external_ready,
         "modules": availability,
+        "project": BRIGHTWAY_PROJECT,
+        "required_databases": list(BRIGHTWAY_REQUIRED_DATABASES),
+        "current_python": current_status,
+        "external_python": external_status,
+        "runtime_mode": "current_python" if current_ready else "external_python" if external_ready else "excel_fallback",
         "note": "Brightway runtime is optional here; Excel exports from bw_tristan are used when the runtime is unavailable.",
     }
+    _BRIGHTWAY_RUNTIME_STATUS_CACHE = dict(status)
+    return status
+
+
+def brightway_python_for_runtime(runtime: dict[str, Any]) -> str:
+    external = runtime.get("external_python", {}) if isinstance(runtime.get("external_python"), dict) else {}
+    current = runtime.get("current_python", {}) if isinstance(runtime.get("current_python"), dict) else {}
+    if external.get("available") and clean(external.get("python")):
+        return clean(external.get("python"))
+    if current.get("available"):
+        return os.sys.executable
+    return ""
+
+
+def climate_normalization_factor(indicator_unit_views: list[dict[str, Any]]) -> float:
+    for row in indicator_unit_views:
+        if clean(row.get("short_label")) == "Climate Change - total":
+            factor = safe_float(row.get("normalization_factor_per_person_year"))
+            if factor > 0.0:
+                return factor
+    return EF30_NORMALIZATION_FACTORS["Climate change"][0]
+
+
+def run_brightway_exact_scenarios(runtime: dict[str, Any], normalization_factor: float, excel_use_phase_pe: float) -> list[dict[str, Any]]:
+    cache_key = (round(normalization_factor, 9), round(excel_use_phase_pe, 9))
+    if cache_key in _BRIGHTWAY_EXACT_SCENARIO_CACHE:
+        return [dict(row) for row in _BRIGHTWAY_EXACT_SCENARIO_CACHE[cache_key]]
+    if not runtime.get("can_execute_brightway"):
+        return []
+    python_path = brightway_python_for_runtime(runtime)
+    if not python_path:
+        return []
+    script = CASE_ROOT / "tools" / "run_brightway_exact_scenarios.py"
+    if not script.exists():
+        return []
+    try:
+        completed = subprocess.run(
+            [
+                python_path,
+                str(script),
+                "--normalization-factor",
+                str(normalization_factor),
+                "--excel-use-phase-pe",
+                str(excel_use_phase_pe),
+                "--json",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=900,
+            cwd=str(REPO_ROOT),
+        )
+    except Exception as exc:
+        return [
+            {
+                "scenario_id": "runtime_error",
+                "label": "Erreur recalcul Brightway exact",
+                "root_activity_id": "",
+                "root_activity_name": "",
+                "validation_status": "runtime_error",
+                "error": f"{type(exc).__name__}: {exc}",
+            }
+        ]
+    stdout_lines = [line.strip() for line in completed.stdout.splitlines() if line.strip()]
+    json_line = stdout_lines[-1] if stdout_lines else ""
+    if completed.returncode != 0 or not json_line:
+        return [
+            {
+                "scenario_id": "runtime_error",
+                "label": "Erreur recalcul Brightway exact",
+                "root_activity_id": "",
+                "root_activity_name": "",
+                "validation_status": "runtime_error",
+                "error": (completed.stderr.strip() or completed.stdout.strip())[-1000:],
+            }
+        ]
+    try:
+        rows = json.loads(json_line)
+    except json.JSONDecodeError as exc:
+        return [
+            {
+                "scenario_id": "runtime_error",
+                "label": "Erreur parsing recalcul Brightway exact",
+                "root_activity_id": "",
+                "root_activity_name": "",
+                "validation_status": "runtime_error",
+                "error": f"{type(exc).__name__}: {exc}",
+            }
+        ]
+    result = rows if isinstance(rows, list) else []
+    _BRIGHTWAY_EXACT_SCENARIO_CACHE[cache_key] = [dict(row) for row in result]
+    return result
+
+
+def empty_sdd_exchange_lcia_outputs(status: str, note: str) -> dict[str, list[dict[str, Any]]]:
+    return {
+        "exchange_lcia": [],
+        "exchange_lcia_factors": [],
+        "exchange_lcia_category_totals": [],
+        "exchange_lcia_monthly": [],
+        "exchange_lcia_top": [],
+        "exchange_lcia_status": [
+            {
+                "status": status,
+                "input_rows": 0,
+                "output_rows": 0,
+                "unique_exchange_signatures": 0,
+                "exact_factor_count": 0,
+                "exact_factor_coverage_pct": "",
+                "method": "",
+                "note": note,
+            }
+        ],
+    }
+
+
+def run_sdd_exchange_brightway_lcia(
+    runtime: dict[str, Any],
+    exchange_delta_path: Path,
+    normalization_factor: float,
+) -> dict[str, list[dict[str, Any]]]:
+    if not exchange_delta_path.exists():
+        return empty_sdd_exchange_lcia_outputs("missing_input", f"Missing exchange delta CSV: {exchange_delta_path}")
+    if not runtime.get("can_execute_brightway"):
+        return empty_sdd_exchange_lcia_outputs("runtime_unavailable", "Brightway runtime is not executable.")
+    python_path = brightway_python_for_runtime(runtime)
+    if not python_path:
+        return empty_sdd_exchange_lcia_outputs("runtime_unavailable", "No Brightway Python interpreter found.")
+    script = CASE_ROOT / "tools" / "run_sdd_exchange_lcia.py"
+    if not script.exists():
+        return empty_sdd_exchange_lcia_outputs("script_missing", f"Missing script: {script}")
+
+    stat = exchange_delta_path.stat()
+    cache_key = (stat.st_size, clean(runtime.get("runtime_mode")) or python_path)
+    if cache_key in _SDD_EXCHANGE_LCIA_CACHE:
+        return {
+            key: [dict(row) for row in rows]
+            for key, rows in _SDD_EXCHANGE_LCIA_CACHE[cache_key].items()
+        }
+
+    with tempfile.TemporaryDirectory(prefix="poc2026_sdd_exchange_lcia_") as tmp:
+        tmp_dir = Path(tmp)
+        output_csv = tmp_dir / "sdd_brightway_exchange_lcia.csv"
+        factor_csv = tmp_dir / "sdd_brightway_exchange_lcia_factors.csv"
+        category_csv = tmp_dir / "sdd_brightway_exchange_lcia_category_totals.csv"
+        monthly_csv = tmp_dir / "sdd_brightway_exchange_lcia_monthly.csv"
+        top_csv = tmp_dir / "sdd_brightway_exchange_lcia_top.csv"
+        status_csv = tmp_dir / "sdd_brightway_exchange_lcia_status.csv"
+        try:
+            completed = subprocess.run(
+                [
+                    python_path,
+                    str(script),
+                    "--input-csv",
+                    str(exchange_delta_path),
+                    "--output-csv",
+                    str(output_csv),
+                    "--factor-csv",
+                    str(factor_csv),
+                    "--category-csv",
+                    str(category_csv),
+                    "--monthly-csv",
+                    str(monthly_csv),
+                    "--top-csv",
+                    str(top_csv),
+                    "--status-csv",
+                    str(status_csv),
+                    "--normalization-factor",
+                    str(normalization_factor),
+                    "--json",
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=2700,
+                cwd=str(REPO_ROOT),
+            )
+        except Exception as exc:
+            return empty_sdd_exchange_lcia_outputs("runtime_error", f"{type(exc).__name__}: {exc}")
+        if completed.returncode != 0:
+            message = (completed.stderr.strip() or completed.stdout.strip())[-2000:]
+            return empty_sdd_exchange_lcia_outputs("runtime_error", message)
+        outputs = {
+            "exchange_lcia": read_csv_rows_preserve(output_csv),
+            "exchange_lcia_factors": read_csv_rows_preserve(factor_csv),
+            "exchange_lcia_category_totals": read_csv_rows_preserve(category_csv),
+            "exchange_lcia_monthly": read_csv_rows_preserve(monthly_csv),
+            "exchange_lcia_top": read_csv_rows_preserve(top_csv),
+            "exchange_lcia_status": read_csv_rows_preserve(status_csv),
+        }
+    _SDD_EXCHANGE_LCIA_CACHE[cache_key] = {
+        key: [dict(row) for row in rows]
+        for key, rows in outputs.items()
+    }
+    return outputs
+
+
+def build_excel_runtime_comparison(
+    reference_person_equivalent: list[dict[str, Any]],
+    exact_scenario_lcia: list[dict[str, Any]],
+    normalization_factor: float,
+) -> list[dict[str, Any]]:
+    climate_reference = next(
+        (row for row in reference_person_equivalent if clean(row.get("short_label")) == "Climate Change - total"),
+        {},
+    )
+    if not climate_reference:
+        return []
+    exact_by_root = {
+        clean(row.get("root_activity_id")): row
+        for row in exact_scenario_lcia
+        if clean(row.get("scenario_id")) == "current_export"
+    }
+    rows: list[dict[str, Any]] = []
+    comparisons = [
+        (
+            "production_without_use",
+            "Production/hors usage",
+            "impact_without_use_person_equivalent",
+            exact_by_root.get("production"),
+            "Production Brightway OPERA vs Excel hors usage.",
+        ),
+        (
+            "lifecycle_total",
+            "Cycle de vie complet",
+            "impact_total_person_equivalent",
+            exact_by_root.get("lifecycle"),
+            "Cycle complet non aligne: l'echange usage Brightway ne reproduit pas l'usage Excel.",
+        ),
+        (
+            "lifecycle_excel_aligned",
+            "Cycle complet corrige usage STELIA",
+            "impact_total_person_equivalent",
+            exact_by_root.get("lifecycle_excel_aligned"),
+            "Cycle complet avec usage STELIA calibre et branche tkm brute retiree.",
+        ),
+    ]
+    for scope_id, label, excel_key, exact_row, note in comparisons:
+        if not exact_row:
+            continue
+        excel_pe = safe_float(climate_reference.get(excel_key))
+        excel_kg = excel_pe * normalization_factor
+        runtime_kg = safe_float(exact_row.get("score_kgco2e"))
+        delta_kg = runtime_kg - excel_kg
+        relative_delta = abs(delta_kg / excel_kg) if excel_kg else math.inf
+        if scope_id == "lifecycle_total":
+            alignment_status = "not_aligned"
+        elif relative_delta < 0.02:
+            alignment_status = "aligned"
+        elif relative_delta < 0.2:
+            alignment_status = "close_enough_for_poc"
+        else:
+            alignment_status = "not_aligned"
+        rows.append(
+            {
+                "scope_id": scope_id,
+                "label": label,
+                "excel_person_equivalent": round(excel_pe, 9),
+                "excel_kgco2e": round(excel_kg, 9),
+                "runtime_kgco2e": round(runtime_kg, 9),
+                "runtime_person_equivalent": round(runtime_kg / normalization_factor, 9) if normalization_factor else "",
+                "delta_kgco2e": round(delta_kg, 9),
+                "delta_person_equivalent": round(delta_kg / normalization_factor, 9) if normalization_factor else "",
+                "relative_delta_pct": round(100.0 * delta_kg / excel_kg, 6) if excel_kg else "",
+                "alignment_status": alignment_status,
+                "note": note,
+            }
+        )
+    return rows
+
+
+def parameter_by_name(parameters: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    return {clean(row.get("name")): row for row in parameters}
+
+
+def build_usage_calibration_rows(
+    reference_use_phase_components: list[dict[str, Any]],
+    parameters: list[dict[str, Any]],
+    exact_scenario_lcia: list[dict[str, Any]],
+    normalization_factor: float,
+) -> list[dict[str, Any]]:
+    params = parameter_by_name(parameters)
+    current_aligned = next(
+        (
+            row
+            for row in exact_scenario_lcia
+            if clean(row.get("scenario_id")) == "current_export"
+            and clean(row.get("root_activity_id")) == "lifecycle_excel_aligned"
+        ),
+        {},
+    )
+    current_raw = next(
+        (
+            row
+            for row in exact_scenario_lcia
+            if clean(row.get("scenario_id")) == "current_export"
+            and clean(row.get("root_activity_id")) == "lifecycle"
+        ),
+        {},
+    )
+    rows: list[dict[str, Any]] = []
+    for component in reference_use_phase_components:
+        label = clean(component.get("label"))
+        component_key = ascii_key(label)
+        parameter_name = ""
+        physical_amount: float | str = ""
+        physical_unit = ""
+        calibration_status = "excel_component_calibrated"
+        interpretation = ""
+        confidence = "medium"
+        if "kerosene" in component_key or "jet_a1" in component_key:
+            parameter_name = "fauteuil_kero_conso_passive"
+            parameter = params.get(parameter_name, {})
+            physical_amount = rounded_or_blank(optional_float(parameter.get("amount")), 6)
+            physical_unit = "kg kerosene allocated to seat over 7 years"
+            interpretation = "Passenger fuel allocation due to seat mass, from OPERA formula."
+            confidence = "high"
+        elif "cargo" in component_key or "plane" in component_key:
+            parameter_name = "fauteuil_cargo_conso_passive"
+            parameter = params.get(parameter_name, {})
+            physical_amount = rounded_or_blank(optional_float(parameter.get("amount")), 6)
+            physical_unit = "unresolved OPERA cargo proxy unit"
+            interpretation = "Likely an aircraft mass/use proxy from Sphera cargo plane, not supplier inbound logistics."
+            confidence = "low"
+        elif "nettoyage" in component_key or "clean" in component_key:
+            parameter_name = "fauteuil_nettoyage_savon"
+            parameter = params.get(parameter_name, {})
+            annual_amount = optional_float(parameter.get("amount"))
+            physical_amount = round(annual_amount * 7.0, 6) if annual_amount is not None else ""
+            physical_unit = "kg soap proxy over 7 years"
+            interpretation = "Marginal cleaning/maintenance proxy; climate contribution is negligible."
+            confidence = "medium"
+        else:
+            parameter = {}
+            interpretation = "Excel STELIA use-phase component without explicit OPERA mapping."
+            confidence = "low"
+
+        pe = safe_float(component.get("climate_person_equivalent"))
+        kgco2e = pe * normalization_factor
+        rows.append(
+            {
+                "usage_component_id": slug(label),
+                "label": label,
+                "system": clean(component.get("system")),
+                "component": clean(component.get("component")),
+                "excel_person_equivalent": round(pe, 9),
+                "excel_kgco2e": round(kgco2e, 9),
+                "person_equivalent_unit": "person eq.",
+                "raw_unit": "kgCO2e",
+                "parameter_name": parameter_name,
+                "physical_amount": physical_amount,
+                "physical_unit": physical_unit,
+                "parameter_formula": clean(parameter.get("formula")),
+                "calibration_status": calibration_status,
+                "interpretation": interpretation,
+                "confidence": confidence,
+                "source_sheet": clean(component.get("source_sheet")),
+                "source_row": component.get("source_row"),
+            }
+        )
+
+    total_use_kg = sum(safe_float(row.get("excel_kgco2e")) for row in rows)
+    for row in rows:
+        row["share_of_excel_use_pct"] = round(100.0 * safe_float(row.get("excel_kgco2e")) / total_use_kg, 4) if total_use_kg else ""
+    if current_aligned:
+        rows.append(
+            {
+                "usage_component_id": "lifecycle_excel_aligned_total",
+                "label": "Cycle complet corrige usage STELIA",
+                "system": "Cycle de vie",
+                "component": "Total",
+                "excel_person_equivalent": round(safe_float(current_aligned.get("score_person_equivalent")), 9),
+                "excel_kgco2e": round(safe_float(current_aligned.get("score_kgco2e")), 9),
+                "person_equivalent_unit": "person eq.",
+                "raw_unit": "kgCO2e",
+                "parameter_name": "",
+                "physical_amount": "",
+                "physical_unit": "",
+                "parameter_formula": "",
+                "calibration_status": "brightway_lifecycle_excel_aligned",
+                "interpretation": "Raw tkm use branch removed; Excel STELIA use phase added to Brightway non-use lifecycle.",
+                "confidence": "medium",
+                "source_sheet": "Brightway runtime",
+                "source_row": "",
+                "share_of_excel_use_pct": "",
+            }
+        )
+    if current_raw:
+        raw_context = current_aligned or current_raw
+        rows.append(
+            {
+                "usage_component_id": "lifecycle_raw_tkm_export",
+                "label": "Cycle complet export OPERA brut",
+                "system": "Cycle de vie",
+                "component": "Total brut",
+                "excel_person_equivalent": round(safe_float(current_raw.get("score_person_equivalent")), 9),
+                "excel_kgco2e": round(safe_float(current_raw.get("score_kgco2e")), 9),
+                "person_equivalent_unit": "person eq.",
+                "raw_unit": "kgCO2e",
+                "parameter_name": "fauteuil_distance_moyenne_vol*fauteuil_duree_vie*fauteuil_AR_an*fauteuil_masse_totale/1000",
+                "physical_amount": raw_context.get("raw_passive_usage_amount", ""),
+                "physical_unit": "consommation passive siege tkm units",
+                "parameter_formula": "",
+                "calibration_status": "raw_export_not_aligned",
+                "interpretation": "Raw OPERA export routes seat mass-distance through tkm kerosene estimate and overstates lifecycle climate.",
+                "confidence": "high",
+                "source_sheet": "Brightway runtime",
+                "source_row": "",
+                "share_of_excel_use_pct": "",
+            }
+        )
+    return rows
 
 
 def indicator_unit(indicator: str) -> str:
@@ -1429,6 +2114,7 @@ def load_stelia_reference_workbook(path: Path) -> dict[str, list[dict[str, Any]]
         "reference_scenarios": [],
         "reference_weighting_factors": [],
         "reference_climate_contributors": [],
+        "reference_use_phase_components": [],
     }
     if not path.exists() or importlib.util.find_spec("openpyxl") is None:
         return empty
@@ -1438,6 +2124,7 @@ def load_stelia_reference_workbook(path: Path) -> dict[str, list[dict[str, Any]]
     workbook = load_workbook(path, read_only=True, data_only=True)
     try:
         perseq_name = workbook_sheet_by_tokens(workbook, "graphes", "perseq")
+        transpo_perseq_name = workbook_sheet_by_tokens(workbook, "transpo", "perseq")
         weighted_name = workbook_sheet_by_tokens(workbook, "graphes", "pond")
         weighting_name = workbook_sheet_by_tokens(workbook, starts_with="pond")
         scenarii_name = workbook_sheet_by_tokens(workbook, "scenarii")
@@ -1503,6 +2190,34 @@ def load_stelia_reference_workbook(path: Path) -> dict[str, list[dict[str, Any]]
                             "climate_person_equivalent": round(value, 9),
                             "share_of_non_use_climate_pct": round(100.0 * share, 4) if share is not None else "",
                             "source_sheet": perseq_name,
+                            "source_row": row_idx,
+                        }
+                    )
+
+        if transpo_perseq_name:
+            sheet = workbook[transpo_perseq_name]
+            climate_col = 0
+            for col_idx in range(1, sheet.max_column + 1):
+                if short_indicator_label(clean(sheet.cell(1, col_idx).value)) == "Climate Change - total":
+                    climate_col = col_idx
+                    break
+            if climate_col:
+                for row_idx in range(2, sheet.max_row + 1):
+                    phase = clean(sheet.cell(row_idx, 1).value)
+                    system = clean(sheet.cell(row_idx, 2).value)
+                    component = clean(sheet.cell(row_idx, 3).value)
+                    value = cell_number(sheet, row_idx, climate_col)
+                    if phase != "Utilisation 7 ans" or value is None:
+                        continue
+                    out["reference_use_phase_components"].append(
+                        {
+                            "phase": phase,
+                            "system": system,
+                            "component": component,
+                            "label": f"{system} - {component}" if system and component else component or system,
+                            "climate_person_equivalent": round(value, 9),
+                            "person_equivalent_unit": "person eq.",
+                            "source_sheet": transpo_perseq_name,
                             "source_row": row_idx,
                         }
                     )
@@ -2204,6 +2919,30 @@ def build_brightway_model_payload(path_rows: list[dict[str, Any]]) -> dict[str, 
     runtime = brightway_runtime_status()
     indicator_summary = indicator_summary_rows(impact_rows)
     indicator_unit_views = build_indicator_unit_views(indicator_summary)
+    normalisation_factor = climate_normalization_factor(indicator_unit_views)
+    climate_reference = next(
+        (
+            row
+            for row in reference_results["reference_person_equivalent_results"]
+            if clean(row.get("short_label")) == "Climate Change - total"
+        ),
+        {},
+    )
+    excel_use_phase_pe = safe_float(climate_reference.get("use_phase_person_equivalent"))
+    if excel_use_phase_pe <= 0.0:
+        excel_use_phase_pe = 56.92001
+    exact_scenario_lcia = run_brightway_exact_scenarios(runtime, normalisation_factor, excel_use_phase_pe)
+    excel_runtime_comparison = build_excel_runtime_comparison(
+        reference_results["reference_person_equivalent_results"],
+        exact_scenario_lcia,
+        normalisation_factor,
+    )
+    usage_calibration = build_usage_calibration_rows(
+        reference_results["reference_use_phase_components"],
+        parameters,
+        exact_scenario_lcia,
+        normalisation_factor,
+    )
     parametric = build_parametric_scenarios(parameters, exchanges, path_rows, bool(runtime.get("can_execute_brightway")))
     matched = [row for row in alignment if row["match_level"] != "unmatched"]
     contributive = [row for row in alignment if safe_float(row.get("path_mass_kg")) > 0.0]
@@ -2220,6 +2959,7 @@ def build_brightway_model_payload(path_rows: list[dict[str, Any]]) -> dict[str, 
             "inventory_xlsx": rel(inventory_path, REPO_ROOT),
             "bw2package": rel(package_path, REPO_ROOT),
             "ef30_normalization_factors": EF30_NORMALIZATION_SOURCE,
+            "brightway_exact_scenario_script": rel(CASE_ROOT / "tools" / "run_brightway_exact_scenarios.py", REPO_ROOT),
         },
         "counts": {
             "impact_rows": len(impact_rows),
@@ -2229,6 +2969,7 @@ def build_brightway_model_payload(path_rows: list[dict[str, Any]]) -> dict[str, 
             "reference_person_equivalent_results": len(reference_results["reference_person_equivalent_results"]),
             "reference_weighted_results": len(reference_results["reference_weighted_results"]),
             "reference_phase_breakdown_rows": len(reference_results["reference_phase_breakdown"]),
+            "reference_use_phase_components": len(reference_results["reference_use_phase_components"]),
             "reference_scenarios": len(reference_results["reference_scenarios"]),
             "masterboard_equipment_summary_rows": len(masterboard_summaries["masterboard_equipment_summary"]),
             "masterboard_material_summary_rows": len(masterboard_summaries["masterboard_material_summary"]),
@@ -2242,6 +2983,9 @@ def build_brightway_model_payload(path_rows: list[dict[str, Any]]) -> dict[str, 
             "parametric_sensitivity_rows": len(parametric["parametric_sensitivity"]),
             "parametric_switches": len(parametric["parametric_switches"]),
             "parametric_regional_scenarios": len(parametric["parametric_regional_scenarios"]),
+            "exact_scenario_lcia": len(exact_scenario_lcia),
+            "excel_runtime_comparison": len(excel_runtime_comparison),
+            "usage_calibration": len(usage_calibration),
             "supply_alignment_rows": len(alignment),
             "supply_alignment_matched_rows": len(matched),
             "supply_alignment_contributive_rows": len(contributive),
@@ -2255,6 +2999,7 @@ def build_brightway_model_payload(path_rows: list[dict[str, Any]]) -> dict[str, 
         "reference_person_equivalent_results": reference_results["reference_person_equivalent_results"],
         "reference_weighted_results": reference_results["reference_weighted_results"],
         "reference_phase_breakdown": reference_results["reference_phase_breakdown"],
+        "reference_use_phase_components": reference_results["reference_use_phase_components"],
         "reference_scenarios": reference_results["reference_scenarios"],
         "reference_weighting_factors": reference_results["reference_weighting_factors"],
         "reference_climate_contributors": reference_results["reference_climate_contributors"],
@@ -2268,6 +3013,9 @@ def build_brightway_model_payload(path_rows: list[dict[str, Any]]) -> dict[str, 
         "parametric_sensitivity": parametric["parametric_sensitivity"],
         "parametric_switches": parametric["parametric_switches"],
         "parametric_regional_scenarios": parametric["parametric_regional_scenarios"],
+        "exact_scenario_lcia": exact_scenario_lcia,
+        "excel_runtime_comparison": excel_runtime_comparison,
+        "usage_calibration": usage_calibration,
         "top_climate_components": sorted(climate_rows, key=lambda row: -safe_float(row.get("climate_kgco2e")))[:20],
         "top_parameter_amounts": sorted(parameters, key=lambda row: -abs(safe_float(row.get("amount"))))[:20],
     }
@@ -2289,6 +3037,7 @@ def build_summary(
     node_operational_rows: list[dict[str, Any]],
     operational_event_rows: list[dict[str, Any]],
     sdd_results: dict[str, list[dict[str, Any]]],
+    sdd_brightway: dict[str, list[dict[str, Any]]] | None = None,
     brightway_model: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     path_rows = tables["paths"]
@@ -2324,12 +3073,21 @@ def build_summary(
             "sdd_lane_state_rows": len(sdd_results.get("sdd_lane_state", [])),
             "sdd_flow_state_rows": len(sdd_results.get("sdd_flow_state", [])),
             "sdd_event_ledger_rows": len(sdd_results.get("sdd_event_ledger", [])),
+            "sdd_brightway_inventory_delta_rows": len((sdd_brightway or {}).get("inventory_delta", [])),
+            "sdd_brightway_exchange_delta_rows": len((sdd_brightway or {}).get("exchange_delta", [])),
+            "sdd_brightway_exchange_lcia_rows": len((sdd_brightway or {}).get("exchange_lcia", [])),
+            "sdd_brightway_exchange_lcia_factor_rows": len((sdd_brightway or {}).get("exchange_lcia_factors", [])),
+            "sdd_brightway_monthly_rows": len((sdd_brightway or {}).get("monthly", [])),
             "brightway_component_impacts": (brightway_model or {}).get("counts", {}).get("climate_component_rows", 0),
             "brightway_parameters": (brightway_model or {}).get("counts", {}).get("parameters", 0),
             "brightway_supply_alignment_rows": (brightway_model or {}).get("counts", {}).get("supply_alignment_rows", 0),
             "brightway_person_equivalent_indicators": (brightway_model or {}).get("counts", {}).get("person_equivalent_indicators", 0),
             "brightway_reference_person_equivalent_results": (brightway_model or {}).get("counts", {}).get("reference_person_equivalent_results", 0),
+            "brightway_reference_use_phase_components": (brightway_model or {}).get("counts", {}).get("reference_use_phase_components", 0),
             "brightway_parametric_regional_scenarios": (brightway_model or {}).get("counts", {}).get("parametric_regional_scenarios", 0),
+            "brightway_exact_scenario_lcia": (brightway_model or {}).get("counts", {}).get("exact_scenario_lcia", 0),
+            "brightway_excel_runtime_comparison": (brightway_model or {}).get("counts", {}).get("excel_runtime_comparison", 0),
+            "brightway_usage_calibration": (brightway_model or {}).get("counts", {}).get("usage_calibration", 0),
         },
         "mass": {
             "usable_record_mass_kg": round(record_mass, 6),
@@ -2349,6 +3107,17 @@ def build_summary(
             "runtime": (brightway_model or {}).get("runtime", {}),
             "counts": (brightway_model or {}).get("counts", {}),
             "source_files": (brightway_model or {}).get("source_files", {}),
+        },
+        "sdd_brightway_coupling": {
+            "available": bool((sdd_brightway or {}).get("inventory_delta")),
+            "counts": {
+                "inventory_delta_rows": len((sdd_brightway or {}).get("inventory_delta", [])),
+                "exchange_delta_rows": len((sdd_brightway or {}).get("exchange_delta", [])),
+                "exchange_lcia_rows": len((sdd_brightway or {}).get("exchange_lcia", [])),
+                "exchange_lcia_factor_rows": len((sdd_brightway or {}).get("exchange_lcia_factors", [])),
+                "monthly_rows": len((sdd_brightway or {}).get("monthly", [])),
+                "mechanisms": len((sdd_brightway or {}).get("mechanism_totals", [])),
+            },
         },
     }
 
@@ -2473,6 +3242,9 @@ def build_weather_month_payload(weather_rows: list[dict[str, Any]]) -> list[dict
             {
                 "month_index": month,
                 "site_count": len(month_rows),
+                "avg_climate_progress": round(mean(values("climate_progress")), 4),
+                "avg_warming_delta_c": round(mean(values("warming_delta_c")), 4),
+                "avg_hazard_intensification_factor": round(mean(values("hazard_intensification_factor")), 4),
                 "avg_temp_c": round(mean(temp), 2),
                 "p90_temp_c": round(percentile(temp, 0.9), 2),
                 "max_temp_c": round(max(temp) if temp else 0.0, 2),
@@ -2583,6 +3355,12 @@ def build_weather_group_payload(
                 "label": label,
                 "site_count": len(site_ids),
                 "allocated_mass_kg": round(sum(site_mass.get(site_uid, 0.0) for site_uid in site_ids), 6),
+                "avg_climate_progress": round(mean(safe_float(row.get("climate_progress")) for row in rows), 4),
+                "avg_warming_delta_c": round(mean(safe_float(row.get("warming_delta_c")) for row in rows), 4),
+                "avg_hazard_intensification_factor": round(
+                    mean(safe_float(row.get("hazard_intensification_factor")) for row in rows),
+                    4,
+                ),
                 "avg_temp_c": round(mean(safe_float(row.get("temp_c")) for row in rows), 2),
                 "p90_temp_c": round(percentile((safe_float(row.get("temp_c")) for row in rows), 0.9), 2),
                 "avg_precip_mm": round(mean(safe_float(row.get("precip_mm")) for row in rows), 2),
@@ -2611,6 +3389,12 @@ def build_weather_region_month_payload(weather_rows: list[dict[str, Any]]) -> li
                 "world_region": region,
                 "month_index": month,
                 "site_count": len({clean(row.get("site_uid")) for row in rows}),
+                "avg_climate_progress": round(mean(safe_float(row.get("climate_progress")) for row in rows), 4),
+                "avg_warming_delta_c": round(mean(safe_float(row.get("warming_delta_c")) for row in rows), 4),
+                "avg_hazard_intensification_factor": round(
+                    mean(safe_float(row.get("hazard_intensification_factor")) for row in rows),
+                    4,
+                ),
                 "avg_temp_c": round(mean(safe_float(row.get("temp_c")) for row in rows), 2),
                 "risk_index": round(mean(event_risk_index(row) for row in rows), 4),
                 "avg_heatwave": round(mean(safe_float(row.get("heatwave")) for row in rows), 4),
@@ -2670,6 +3454,7 @@ def build_transport_weather_rows(
         return []
     horizon = int(weather_config.get("horizon_months") or 240)
     seed = int(weather_config.get("seed") or 2026)
+    climate_config = weather_config.get("climate_change") if isinstance(weather_config.get("climate_change"), dict) else {}
     sites = {clean(row.get("site_uid")): row for row in site_rows}
     rows: list[dict[str, Any]] = []
     for flow in flow_rows:
@@ -2689,13 +3474,14 @@ def build_transport_weather_rows(
         phase = stable_phase(f"{seed}:{flow.get('flow_uid')}:{route_region}")
         northern = 1.0 if (from_lat + to_lat) / 2.0 >= 0.0 else -1.0
         for month_index in range(1, horizon + 1):
+            climate = climate_change_signal(month_index, horizon, climate_config)
             winter = month_season_peak(month_index, 1 if northern >= 0.0 else 7, 3)
             cyclone_season = month_season_peak(month_index, 9 if northern >= 0.0 else 2, 4)
             monsoon_season = month_season_peak(month_index, 7 if northern >= 0.0 else 1, 3)
-            storm_pulse = max(0.0, math.sin(month_index * 0.74 + phase) - 0.35)
-            cyclone_pulse = max(0.0, math.sin(month_index * 0.51 + phase * 1.4) - 0.30)
-            cold_pulse = max(0.0, math.sin(month_index * 0.63 + phase * 0.8) - 0.28)
-            monsoon_pulse = max(0.0, math.sin(month_index * 0.47 + phase * 1.1) - 0.40)
+            storm_pulse = max(0.0, math.sin(month_index * 0.74 + phase) - 0.35) * climate["maritime_storm_factor"]
+            cyclone_pulse = max(0.0, math.sin(month_index * 0.51 + phase * 1.4) - 0.30) * climate["maritime_hurricane_factor"]
+            cold_pulse = max(0.0, math.sin(month_index * 0.63 + phase * 0.8) - 0.28) * climate["maritime_cold_factor"]
+            monsoon_pulse = max(0.0, math.sin(month_index * 0.47 + phase * 1.1) - 0.40) * climate["extreme_precip_factor"]
             hurricane = clamp(cyclone_season * cyclone_pulse * profile["hurricane"] * 1.35, 0.0, 1.0)
             cold = clamp(winter * cold_pulse * profile["cold"] * 1.1, 0.0, 1.0)
             monsoon = clamp(monsoon_season * monsoon_pulse * profile["monsoon"], 0.0, 1.0)
@@ -2720,6 +3506,22 @@ def build_transport_weather_rows(
                     "allocated_mass_kg": flow.get("allocated_mass_kg"),
                     "allocated_kg_km": flow.get("allocated_kg_km"),
                     "month_index": month_index,
+                    "climate_progress": round(climate["climate_progress"], 6),
+                    "warming_delta_c": round(climate["warming_delta_c"], 4),
+                    "maritime_hazard_intensification_factor": round(
+                        mean(
+                            [
+                                climate["maritime_storm_factor"],
+                                climate["maritime_hurricane_factor"],
+                                climate["maritime_cold_factor"],
+                                climate["extreme_precip_factor"],
+                            ]
+                        ),
+                        4,
+                    ),
+                    "maritime_storm_factor": round(climate["maritime_storm_factor"], 4),
+                    "maritime_hurricane_factor": round(climate["maritime_hurricane_factor"], 4),
+                    "maritime_cold_factor": round(climate["maritime_cold_factor"], 4),
                     "maritime_storm": round(storm, 4),
                     "maritime_hurricane": round(hurricane, 4),
                     "maritime_cold": round(cold, 4),
@@ -2746,6 +3548,12 @@ def build_maritime_month_payload(transport_weather_rows: list[dict[str, Any]]) -
                 "month_index": month,
                 "flow_count": len({clean(row.get("flow_uid")) for row in rows}),
                 "exposed_kg_km": round(sum(safe_float(row.get("allocated_kg_km")) for row in rows), 1),
+                "avg_climate_progress": round(weighted_mean(rows, "climate_progress", "allocated_kg_km"), 4),
+                "avg_warming_delta_c": round(weighted_mean(rows, "warming_delta_c", "allocated_kg_km"), 4),
+                "avg_maritime_hazard_intensification_factor": round(
+                    weighted_mean(rows, "maritime_hazard_intensification_factor", "allocated_kg_km"),
+                    4,
+                ),
                 "risk_index": round(weighted_mean(rows, "maritime_risk_index", "allocated_kg_km"), 4),
                 "storm": round(weighted_mean(rows, "maritime_storm", "allocated_kg_km"), 4),
                 "hurricane": round(weighted_mean(rows, "maritime_hurricane", "allocated_kg_km"), 4),
@@ -2772,6 +3580,12 @@ def build_maritime_region_payload(transport_weather_rows: list[dict[str, Any]]) 
                 "label": region,
                 "flow_count": len(flow_weight_by_region[region]),
                 "allocated_kg_km": round(sum(flow_weight_by_region[region].values()), 1),
+                "avg_climate_progress": round(weighted_mean(rows, "climate_progress", "allocated_kg_km"), 4),
+                "avg_warming_delta_c": round(weighted_mean(rows, "warming_delta_c", "allocated_kg_km"), 4),
+                "avg_maritime_hazard_intensification_factor": round(
+                    weighted_mean(rows, "maritime_hazard_intensification_factor", "allocated_kg_km"),
+                    4,
+                ),
                 "risk_index": round(weighted_mean(rows, "maritime_risk_index", "allocated_kg_km"), 4),
                 "storm": round(weighted_mean(rows, "maritime_storm", "allocated_kg_km"), 4),
                 "hurricane": round(weighted_mean(rows, "maritime_hurricane", "allocated_kg_km"), 4),
@@ -3062,7 +3876,14 @@ def build_node_ops_lineage_payload(operational_event_rows: list[dict[str, Any]])
             item["count"] += 1
             item["weight"] += weight
     out = [
-        {"source": source, "target": target, "count": item["count"], "weight": round(item["weight"], 3)}
+        {
+            "source": source,
+            "target": target,
+            "label": f"{source} -> {target}",
+            "count": item["count"],
+            "weight": round(item["weight"], 3),
+            "value": round(item["weight"], 3),
+        }
         for (source, target), item in links.items()
     ]
     return sorted(out, key=lambda row: (-safe_float(row.get("weight")), row["source"], row["target"]))
@@ -3070,6 +3891,11 @@ def build_node_ops_lineage_payload(operational_event_rows: list[dict[str, Any]])
 
 def family_ef(family: Any) -> float:
     return FAMILY_EF_KGCO2E_PER_KG.get(clean(family), FAMILY_EF_KGCO2E_PER_KG["general"])
+
+
+def scrap_recycling_profile(family: Any) -> dict[str, float]:
+    profile = SDD_SCRAP_RECYCLING_PROFILES.get(clean(family), SDD_SCRAP_RECYCLING_PROFILES["general"])
+    return {key: safe_float(value) for key, value in profile.items()}
 
 
 def mode_ef(modes: Any) -> float:
@@ -3465,6 +4291,1178 @@ def simulate_sdd_supply(
     }
 
 
+def brightway_exact_score(brightway_model: dict[str, Any], root_activity_id: str) -> float:
+    for row in brightway_model.get("exact_scenario_lcia", []):
+        if clean(row.get("scenario_id")) == "current_export" and clean(row.get("root_activity_id")) == root_activity_id:
+            score = safe_float(row.get("score_kgco2e"))
+            if score > 0.0:
+                return score
+    return 0.0
+
+
+def path_context_by_id(path_rows: list[dict[str, Any]], brightway_model: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    alignment_by_path = {clean(row.get("path_id")): row for row in brightway_model.get("supply_alignment", [])}
+    raw_scores: dict[str, float] = {}
+    for path in path_rows:
+        path_id = clean(path.get("path_id"))
+        alignment = alignment_by_path.get(path_id, {})
+        matched_score = safe_float(alignment.get("brightway_climate_kgco2e"))
+        fallback_score = safe_float(path.get("path_mass_kg")) * family_ef(path.get("family"))
+        raw_scores[path_id] = matched_score if matched_score > 0.0 else fallback_score
+
+    production_score = brightway_exact_score(brightway_model, "production")
+    raw_total = sum(raw_scores.values())
+    scale = production_score / raw_total if production_score > 0.0 and raw_total > 0.0 else 1.0
+
+    out: dict[str, dict[str, Any]] = {}
+    for path in path_rows:
+        path_id = clean(path.get("path_id"))
+        mass = max(safe_float(path.get("path_mass_kg")), 0.000001)
+        alignment = alignment_by_path.get(path_id, {})
+        static_score = raw_scores.get(path_id, 0.0) * scale
+        out[path_id] = {
+            "path": path,
+            "alignment": alignment,
+            "static_production_kgco2e": static_score,
+            "component_intensity_kgco2e_per_kg": static_score / mass,
+            "calibration_scale_to_exact_production": scale,
+            "calibration_source": "brightway_supply_alignment_scaled_to_exact_production"
+            if safe_float(alignment.get("brightway_climate_kgco2e")) > 0.0
+            else "family_proxy_scaled_to_exact_production",
+            "match_level": clean(alignment.get("match_level")) or "family_proxy",
+            "brightway_system": clean(alignment.get("brightway_system")),
+            "brightway_component": clean(alignment.get("brightway_component")),
+        }
+    return out
+
+
+def lane_state_index(lane_state_rows: list[dict[str, Any]]) -> dict[tuple[str, int, str], dict[str, Any]]:
+    return {
+        (clean(row.get("path_id")), int(safe_float(row.get("month_index"))), clean(row.get("edge"))): row
+        for row in lane_state_rows
+    }
+
+
+def role_inbound_edge(role: str) -> str:
+    if role not in ROLE_SEQUENCE:
+        return ""
+    role_index = ROLE_SEQUENCE.index(role)
+    return EDGE_ORDER[role_index - 1][0] if role_index > 0 else ""
+
+
+def sdd_brightway_role_scope_share(role: str) -> float:
+    share = safe_float(SDD_BRIGHTWAY_ROLE_SCOPE_SHARE.get(role))
+    return share if share > 0.0 else 1.0 / len(ROLE_SEQUENCE)
+
+
+def brightway_key(value: Any) -> str:
+    text = clean(value)
+    return slug(ascii_key(text)) if text else ""
+
+
+BRIGHTWAY_ACTIVITY_ALIASES = {
+    "accoudoir_allee": "accoudoir_allee",
+    "ceinture_de_securite": "ceinture_de_securite",
+    "commande_actionnement_ecu": "commande_actionnement_ecu",
+    "ecran": "ecran_seat",
+    "ens_coque": "ensemble_coque",
+    "ens_coussin_assise": "ensemble_coussin_assise",
+    "ens_coussin_dossier": "ensemble_coussin_dossier",
+    "ens_coussin_dossier_version_tetiere": "ensemble_coussin_dossier_version_tetiere",
+    "ens_equipements_lateraux": "ensemble_equipement_lateral",
+    "ens_palette_optimisee": "ensemble_palette_optimisee",
+    "ens_stowage_lateral": "ensemble_stowage_lateral",
+    "ens_structure_fauteuil": "ens_structure_fauteuil",
+    "ens_structure_fixe": "ensemble_structure_fixe",
+    "ens_structure_porte": "ensemble_porte",
+    "ens_tablette_cocktail": "ensemble_tablette_cocktail",
+    "ens_tablette_repas": "ensemble_tablette_repas",
+    "ens_tetiere": "ensemble_tetiere",
+    "manchette_acc_mobile": "manchette_acc_mobile",
+    "powerbox": "seat_power",
+    "sfcu_seat_function_control_unit": "sfcu",
+    "support_clamps": "support_et_clamps",
+    "support_equipe": "support_manchette_equipee",
+    "system_ife": "systeme_ife_boitier",
+    "system_ife_boitier": "systeme_ife_boitier",
+}
+
+
+def brightway_activity_candidates(row: dict[str, Any]) -> list[str]:
+    raw_values = [
+        row.get("brightway_system"),
+        row.get("system"),
+        row.get("brightway_component"),
+        row.get("component"),
+        row.get("brightway_exchange_proxy"),
+    ]
+    candidates: list[str] = []
+    for value in raw_values:
+        key = brightway_key(value)
+        if not key:
+            continue
+        variants = [key, key.replace("equipements_lateraux", "equipement_lateral")]
+        if key.startswith("ens_"):
+            variants.append(f"ensemble_{key[4:]}")
+        for variant in variants:
+            alias = BRIGHTWAY_ACTIVITY_ALIASES.get(variant, variant)
+            for candidate in (variant, alias):
+                if candidate and candidate not in candidates:
+                    candidates.append(candidate)
+    return candidates
+
+
+def brightway_exchanges_by_activity(exchanges: list[dict[str, Any]]) -> tuple[dict[str, list[dict[str, Any]]], dict[str, str]]:
+    by_key: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    names_by_key: dict[str, str] = {}
+    for row in exchanges:
+        activity_name = clean(row.get("activity_name"))
+        key = brightway_key(activity_name)
+        if not key:
+            continue
+        by_key[key].append(row)
+        names_by_key.setdefault(key, activity_name)
+    return by_key, names_by_key
+
+
+def resolve_brightway_activity_for_delta(
+    row: dict[str, Any],
+    activity_exchanges: dict[str, list[dict[str, Any]]],
+    activity_names: dict[str, str],
+) -> tuple[str, list[dict[str, Any]], str]:
+    candidates = brightway_activity_candidates(row)
+    for candidate in candidates:
+        if candidate in activity_exchanges:
+            return activity_names.get(candidate, candidate), activity_exchanges[candidate], "exact_or_alias"
+    for candidate in candidates:
+        if len(candidate) < 6:
+            continue
+        matches = [
+            key
+            for key in activity_exchanges
+            if key == candidate or (candidate in key and len(candidate) >= 8) or (key in candidate and len(key) >= 8)
+        ]
+        if len(matches) == 1:
+            match = matches[0]
+            return activity_names.get(match, match), activity_exchanges[match], "fuzzy_unique"
+    return "", [], "activity_unmatched"
+
+
+def brightway_exchange_category(row: dict[str, Any]) -> str:
+    if clean(row.get("type")) == "production":
+        return "production"
+    key = brightway_key(
+        " ".join(
+            [
+                clean(row.get("name")),
+                clean(row.get("reference_product")),
+                clean(row.get("unit")),
+                clean(row.get("categories")),
+            ]
+        )
+    )
+    if any(token in key for token in ("transport", "freight", "lorry", "aircraft", "cargo_plane")):
+        return "transport"
+    if any(token in key for token in ("electricity", "heat", "compressed_air", "steam", "natural_gas", "energy")):
+        return "energy"
+    if any(token in key for token in ("lubricating_oil", "cleaning", "nettoyage", "detergent", "maintenance")):
+        return "maintenance_consumable"
+    if any(token in key for token in ("scrap", "waste", "treatment", "recycling", "recyclage", "wastewater")):
+        return "waste_or_scrap"
+    if "water" in key or "eau" in key:
+        return "water"
+    return "material"
+
+
+def top_exchange_candidates(rows: list[dict[str, Any]], limit: int) -> list[dict[str, Any]]:
+    return sorted(rows, key=lambda row: -abs(safe_float(row.get("amount"))))[:limit]
+
+
+def sdd_virtual_exchange(name: str, unit: str, reference_product: str, category: str) -> dict[str, Any]:
+    return {
+        "activity_name": "production du siege",
+        "name": name,
+        "amount": 1.0,
+        "database": "SDD proxy",
+        "location": "case",
+        "unit": unit,
+        "type": "technosphere",
+        "reference_product": reference_product,
+        "exchange_category": category,
+    }
+
+
+def selected_brightway_exchanges_for_mechanism(exchanges: list[dict[str, Any]], mechanism: str) -> tuple[list[dict[str, Any]], str]:
+    usable: list[dict[str, Any]] = []
+    for row in exchanges:
+        category = brightway_exchange_category(row)
+        if category == "production":
+            continue
+        if abs(safe_float(row.get("amount"))) <= 1e-12:
+            continue
+        copy = dict(row)
+        copy["exchange_category"] = category
+        usable.append(copy)
+
+    mechanism = clean(mechanism)
+    if mechanism == "premium_transport":
+        return [
+            {
+                "activity_name": "transport premium SDD",
+                "name": "market for transport, freight, aircraft, medium haul (virtual SDD)",
+                "amount": 1.0,
+                "database": "SDD proxy",
+                "location": "GLO",
+                "unit": "ton kilometer",
+                "type": "technosphere",
+                "reference_product": "transport, freight, aircraft",
+                "exchange_category": "transport",
+            }
+        ], "virtual_air_freight_proxy"
+
+    by_category: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for row in usable:
+        by_category[row["exchange_category"]].append(row)
+
+    if mechanism in {"capacity_energy", "disruption_energy_overhead"}:
+        selected = top_exchange_candidates(by_category.get("energy", []), 4)
+        return selected, "energy_exchange_mapping" if selected else "no_energy_exchange_on_activity"
+
+    if mechanism == "maintenance":
+        selected = top_exchange_candidates(by_category.get("maintenance_consumable", []), 3)
+        selected.extend(top_exchange_candidates(by_category.get("water", []), 2))
+        if selected:
+            return selected, "maintenance_consumable_mapping"
+        fallback = top_exchange_candidates(by_category.get("energy", []), 3)
+        return fallback, "maintenance_energy_fallback" if fallback else "no_maintenance_exchange_on_activity"
+
+    if mechanism == "scrap_rework":
+        return [
+            sdd_virtual_exchange(
+                "SDD scrap replacement production calibrated by component intensity",
+                "kg replacement component output",
+                "scrap replacement production",
+                "scrap_rework",
+            )
+        ], "scrap_replacement_component_proxy"
+
+    if mechanism == "scrap_treatment":
+        return [
+            sdd_virtual_exchange(
+                "SDD scrap sorting and treatment calibrated by family profile",
+                "kg scrap treated",
+                "scrap sorting and treatment",
+                "scrap_treatment",
+            )
+        ], "scrap_treatment_family_proxy"
+
+    if mechanism == "recycling_credit":
+        return [
+            sdd_virtual_exchange(
+                "SDD avoided virgin material credit calibrated by family profile",
+                "kg scrap recovered",
+                "avoided virgin material credit",
+                "recycling_credit",
+            )
+        ], "recycling_avoided_burden_family_proxy"
+
+    if mechanism == "backup_material":
+        return [
+            sdd_virtual_exchange(
+                "SDD backup supplier overhead calibrated by component intensity",
+                "kg overhead-equivalent backup output",
+                "backup supplier overhead",
+                "supplier_overhead",
+            )
+        ], "backup_supplier_overhead_proxy"
+
+    selected = top_exchange_candidates(usable, 8)
+    return selected, "generic_foreground_mapping" if selected else "no_exchange_on_activity"
+
+
+def sdd_exchange_delta_amount(row: dict[str, Any], exchange: dict[str, Any]) -> float:
+    mechanism = clean(row.get("mechanism"))
+    amount_delta = safe_float(row.get("amount_delta"))
+    if mechanism == "premium_transport":
+        return amount_delta / 1000.0
+    if clean(exchange.get("database")) == "SDD proxy":
+        if mechanism == "backup_material":
+            return amount_delta * safe_float(row.get("operational_multiplier"), 1.0)
+        return amount_delta
+    path_mass = max(safe_float(row.get("path_mass_kg")), 1e-9)
+    ratio = amount_delta / path_mass
+    if mechanism == "backup_material":
+        ratio *= safe_float(row.get("operational_multiplier"), 1.0)
+    return safe_float(exchange.get("amount")) * ratio
+
+
+def exchange_delta_proxy_amount(row: dict[str, Any]) -> float:
+    amount = safe_float(row.get("amount_delta"))
+    if clean(row.get("mechanism")) == "backup_material":
+        amount *= safe_float(row.get("operational_multiplier"), 1.0)
+    if clean(row.get("mechanism")) == "premium_transport":
+        return amount / 1000.0
+    return amount
+
+
+def append_exchange_delta_group(
+    groups: dict[tuple[Any, ...], dict[str, Any]],
+    *,
+    source_row: dict[str, Any],
+    activity_name: str,
+    activity_match_status: str,
+    exchange: dict[str, Any],
+    exchange_category: str,
+    mapping_status: str,
+    mapping_rule_id: str,
+    lcia_allocation_method: str,
+    delta_amount: float,
+    delta_kgco2e: float,
+) -> None:
+    key = (
+        int(safe_float(source_row.get("month_index"))),
+        clean(source_row.get("mechanism")),
+        clean(source_row.get("inventory_delta_type")),
+        activity_name,
+        clean(exchange.get("name")),
+        clean(exchange.get("reference_product")),
+        exchange_category,
+        clean(exchange.get("unit")),
+        clean(exchange.get("database")),
+        clean(exchange.get("location")),
+        mapping_status,
+        activity_match_status,
+        clean(source_row.get("confidence")),
+    )
+    group = groups.setdefault(
+        key,
+        {
+            "month_index": key[0],
+            "mechanism": key[1],
+            "inventory_delta_type": key[2],
+            "activity_name": key[3],
+            "exchange_name": key[4],
+            "exchange_reference_product": key[5],
+            "exchange_category": key[6],
+            "exchange_unit": key[7],
+            "exchange_database": key[8],
+            "exchange_location": key[9],
+            "mapping_status": key[10],
+            "activity_match_status": key[11],
+            "confidence": key[12],
+            "delta_amount": 0.0,
+            "delta_kgco2e": 0.0,
+            "source_inventory_delta_kgco2e": 0.0,
+            "source_amount_delta": 0.0,
+            "row_count": 0,
+            "site_uids": set(),
+            "suppliers": set(),
+            "roles": set(),
+            "path_ids": set(),
+            "components": set(),
+            "systems": set(),
+            "families": set(),
+            "decision_labels": Counter(),
+            "driver_types": Counter(),
+            "mapping_rules": Counter(),
+            "lcia_allocation_methods": Counter(),
+        },
+    )
+    group["delta_amount"] += delta_amount
+    group["delta_kgco2e"] += delta_kgco2e
+    group["source_inventory_delta_kgco2e"] += safe_float(source_row.get("delta_kgco2e"))
+    group["source_amount_delta"] += safe_float(source_row.get("amount_delta"))
+    group["row_count"] += 1
+    for field, target in (
+        ("site_uid", "site_uids"),
+        ("supplier", "suppliers"),
+        ("role", "roles"),
+        ("path_id", "path_ids"),
+        ("component", "components"),
+        ("system", "systems"),
+        ("family", "families"),
+    ):
+        value = clean(source_row.get(field))
+        if value:
+            group[target].add(value)
+    group["decision_labels"].update(split_tokens(source_row.get("decision_labels")))
+    group["driver_types"].update(split_tokens(source_row.get("source_driver_types")))
+    group["mapping_rules"][mapping_rule_id] += 1
+    group["lcia_allocation_methods"][lcia_allocation_method] += 1
+
+
+def build_sdd_brightway_exchange_delta(
+    ledger_rows: list[dict[str, Any]],
+    brightway_model: dict[str, Any],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
+    activity_exchanges, activity_names = brightway_exchanges_by_activity(brightway_model.get("exchanges", []))
+    selection_cache: dict[tuple[str, str], tuple[list[dict[str, Any]], str]] = {}
+    activity_cache: dict[tuple[str, str, str, str], tuple[str, list[dict[str, Any]], str]] = {}
+    groups: dict[tuple[Any, ...], dict[str, Any]] = {}
+
+    for row in ledger_rows:
+        if not row.get("include_in_dynamic_acv"):
+            continue
+        row_delta = safe_float(row.get("delta_kgco2e"))
+        if abs(row_delta) < 1e-12:
+            continue
+        activity_cache_key = (
+            clean(row.get("brightway_system")),
+            clean(row.get("system")),
+            clean(row.get("brightway_component")),
+            clean(row.get("component")),
+        )
+        activity_name, exchanges, activity_match_status = activity_cache.get(activity_cache_key, ("", [], ""))
+        if not activity_match_status:
+            activity_name, exchanges, activity_match_status = resolve_brightway_activity_for_delta(row, activity_exchanges, activity_names)
+            activity_cache[activity_cache_key] = (activity_name, exchanges, activity_match_status)
+
+        mechanism = clean(row.get("mechanism"))
+        selection_key = (activity_name, mechanism)
+        selected_exchanges, mapping_rule_id = selection_cache.get(selection_key, ([], ""))
+        if not mapping_rule_id:
+            selected_exchanges, mapping_rule_id = selected_brightway_exchanges_for_mechanism(exchanges, mechanism)
+            selection_cache[selection_key] = (selected_exchanges, mapping_rule_id)
+
+        if not selected_exchanges:
+            proxy_unit = "ton kilometer" if mechanism == "premium_transport" else clean(row.get("amount_unit"))
+            append_exchange_delta_group(
+                groups,
+                source_row=row,
+                activity_name=activity_name or clean(row.get("brightway_activity_proxy")) or "production du siege",
+                activity_match_status=activity_match_status or "activity_unmatched",
+                exchange={
+                    "name": clean(row.get("brightway_exchange_proxy")) or f"{mechanism} proxy",
+                    "unit": proxy_unit,
+                    "database": "SDD proxy",
+                    "location": clean(row.get("route_region")) or "case",
+                },
+                exchange_category="proxy_unmapped",
+                mapping_status="proxy_unmapped",
+                mapping_rule_id=mapping_rule_id or "no_exchange_mapping",
+                lcia_allocation_method="source_delta_kept_as_unmapped_proxy",
+                delta_amount=exchange_delta_proxy_amount(row),
+                delta_kgco2e=row_delta,
+            )
+            continue
+
+        exchange_amounts = [sdd_exchange_delta_amount(row, exchange) for exchange in selected_exchanges]
+        total_weight = sum(abs(value) for value in exchange_amounts)
+        weights = [1.0 / len(selected_exchanges)] * len(selected_exchanges) if total_weight <= 1e-12 else [abs(value) / total_weight for value in exchange_amounts]
+        for exchange, delta_amount, weight in zip(selected_exchanges, exchange_amounts, weights):
+            mapping_status = "virtual_exchange_proxy" if clean(exchange.get("database")) == "SDD proxy" else "mapped_exchange"
+            append_exchange_delta_group(
+                groups,
+                source_row=row,
+                activity_name=activity_name or clean(exchange.get("activity_name")) or clean(row.get("brightway_activity_proxy")) or "production du siege",
+                activity_match_status=activity_match_status or "virtual_proxy",
+                exchange=exchange,
+                exchange_category=clean(exchange.get("exchange_category")) or brightway_exchange_category(exchange),
+                mapping_status=mapping_status,
+                mapping_rule_id=mapping_rule_id,
+                lcia_allocation_method="allocated_from_sdd_brightway_delta_pending_exact_exchange_lcia",
+                delta_amount=delta_amount,
+                delta_kgco2e=row_delta * weight,
+            )
+
+    exchange_rows: list[dict[str, Any]] = []
+    for group in groups.values():
+        site_uids = sorted(group["site_uids"])
+        suppliers = sorted(group["suppliers"])
+        roles = sorted(group["roles"], key=lambda role: ROLE_SEQUENCE.index(role) if role in ROLE_SEQUENCE else 99)
+        paths = sorted(group["path_ids"])
+        components = sorted(group["components"])
+        systems = sorted(group["systems"])
+        families = sorted(group["families"])
+        rule_ids = [label for label, _ in group["mapping_rules"].most_common(4)]
+        allocation_methods = [label for label, _ in group["lcia_allocation_methods"].most_common(3)]
+        key_text = "|".join(
+            clean(group.get(field))
+            for field in ("month_index", "mechanism", "activity_name", "exchange_name", "mapping_status")
+        )
+        exchange_rows.append(
+            {
+                "exchange_delta_id": "sddbwx:" + hashlib.sha1(key_text.encode("utf-8")).hexdigest()[:14],
+                "month_index": group["month_index"],
+                "site_uid": site_uids[0] if len(site_uids) == 1 else "multi_site",
+                "supplier": suppliers[0] if len(suppliers) == 1 else "multi_supplier",
+                "role": roles[0] if len(roles) == 1 else "multi_role",
+                "mechanism": group["mechanism"],
+                "inventory_delta_type": group["inventory_delta_type"],
+                "activity_name": group["activity_name"],
+                "exchange_name": group["exchange_name"],
+                "exchange_reference_product": group["exchange_reference_product"],
+                "exchange_category": group["exchange_category"],
+                "exchange_unit": group["exchange_unit"],
+                "exchange_database": group["exchange_database"],
+                "exchange_location": group["exchange_location"],
+                "delta_amount": round(group["delta_amount"], 12),
+                "delta_kgco2e": round(group["delta_kgco2e"], 9),
+                "source_inventory_delta_kgco2e": round(group["source_inventory_delta_kgco2e"], 9),
+                "source_amount_delta": round(group["source_amount_delta"], 9),
+                "row_count": group["row_count"],
+                "site_count": len(site_uids),
+                "role_count": len(roles),
+                "path_count": len(paths),
+                "component_count": len(components),
+                "system_count": len(systems),
+                "site_uid_sample": "|".join(site_uids[:5]),
+                "supplier_sample": " | ".join(suppliers[:3]),
+                "role_sample": "|".join(roles),
+                "path_id_sample": "|".join(paths[:5]),
+                "component_sample": " | ".join(components[:3]),
+                "system_sample": " | ".join(systems[:3]),
+                "family_sample": " | ".join(families[:3]),
+                "decision_label_sample": top_counter_labels(group["decision_labels"], 4),
+                "driver_type_sample": top_counter_labels(group["driver_types"], 4),
+                "mapping_status": group["mapping_status"],
+                "activity_match_status": group["activity_match_status"],
+                "mapping_rule_id": " | ".join(rule_ids),
+                "lcia_allocation_method": " | ".join(allocation_methods),
+                "confidence": group["confidence"],
+            }
+        )
+
+    exchange_rows.sort(
+        key=lambda row: (
+            int(safe_float(row.get("month_index"))),
+            clean(row.get("site_uid")),
+            clean(row.get("role")),
+            clean(row.get("mechanism")),
+            -abs(safe_float(row.get("delta_kgco2e"))),
+        )
+    )
+
+    category_groups: dict[tuple[str, str], dict[str, Any]] = defaultdict(lambda: defaultdict(float))
+    top_groups: dict[tuple[str, str, str], dict[str, Any]] = defaultdict(lambda: defaultdict(float))
+    for row in exchange_rows:
+        cat_key = (clean(row.get("exchange_category")), clean(row.get("mapping_status")))
+        category_groups[cat_key]["delta_kgco2e"] += safe_float(row.get("delta_kgco2e"))
+        category_groups[cat_key]["abs_delta_amount"] += abs(safe_float(row.get("delta_amount")))
+        category_groups[cat_key]["row_count"] += safe_float(row.get("row_count"))
+        category_groups[cat_key]["exchange_count"] += 1
+        top_key = (clean(row.get("activity_name")), clean(row.get("exchange_name")), clean(row.get("exchange_category")))
+        top_groups[top_key]["delta_kgco2e"] += safe_float(row.get("delta_kgco2e"))
+        top_groups[top_key]["abs_delta_amount"] += abs(safe_float(row.get("delta_amount")))
+        top_groups[top_key]["row_count"] += safe_float(row.get("row_count"))
+        top_groups[top_key]["exchange_unit"] = clean(row.get("exchange_unit"))
+        top_groups[top_key]["mapping_status"] = clean(row.get("mapping_status"))
+
+    category_rows = [
+        {
+            "exchange_category": category,
+            "mapping_status": mapping_status,
+            "label": f"{category} / {mapping_status}",
+            "value": round(safe_float(values.get("delta_kgco2e")), 9),
+            "delta_kgco2e": round(safe_float(values.get("delta_kgco2e")), 9),
+            "abs_delta_amount": round(safe_float(values.get("abs_delta_amount")), 9),
+            "row_count": int(safe_float(values.get("row_count"))),
+            "exchange_row_count": int(safe_float(values.get("exchange_count"))),
+        }
+        for (category, mapping_status), values in category_groups.items()
+    ]
+    category_rows.sort(key=lambda row: -abs(safe_float(row.get("delta_kgco2e"))))
+
+    top_exchange_rows = [
+        {
+            "activity_name": activity_name,
+            "exchange_name": exchange_name,
+            "exchange_category": exchange_category,
+            "label": f"{activity_name} -> {exchange_name}",
+            "value": round(safe_float(values.get("delta_kgco2e")), 9),
+            "delta_kgco2e": round(safe_float(values.get("delta_kgco2e")), 9),
+            "abs_delta_amount": round(safe_float(values.get("abs_delta_amount")), 9),
+            "exchange_unit": clean(values.get("exchange_unit")),
+            "mapping_status": clean(values.get("mapping_status")),
+            "row_count": int(safe_float(values.get("row_count"))),
+        }
+        for (activity_name, exchange_name, exchange_category), values in top_groups.items()
+    ]
+    top_exchange_rows.sort(key=lambda row: -abs(safe_float(row.get("delta_kgco2e"))))
+    return exchange_rows, category_rows, top_exchange_rows[:30]
+
+
+def compact_sdd_brightway_inventory_delta(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    grouped: dict[tuple[Any, ...], dict[str, Any]] = {}
+    for row in rows:
+        key = (
+            int(safe_float(row.get("month_index"))),
+            clean(row.get("role")),
+            clean(row.get("site_uid")),
+            clean(row.get("supplier")),
+            clean(row.get("mechanism")),
+            clean(row.get("inventory_delta_type")),
+            clean(row.get("decision_labels")),
+            clean(row.get("source_driver_types")),
+            clean(row.get("edge")),
+            clean(row.get("route_region")),
+            clean(row.get("calibration_source")),
+            clean(row.get("confidence")),
+            bool(row.get("include_in_dynamic_acv")),
+        )
+        if key not in grouped:
+            grouped[key] = {
+                "month_index": key[0],
+                "role": key[1],
+                "site_uid": key[2],
+                "supplier": key[3],
+                "mechanism": key[4],
+                "inventory_delta_type": key[5],
+                "decision_labels": key[6],
+                "source_driver_types": key[7],
+                "edge": key[8],
+                "route_region": key[9],
+                "calibration_source": key[10],
+                "confidence": key[11],
+                "include_in_dynamic_acv": key[12],
+                "row_count": 0,
+                "path_ids": set(),
+                "record_indexes": set(),
+                "components": set(),
+                "systems": set(),
+                "sdd_event_join_keys": set(),
+                "source_environmental_event_samples": set(),
+                "source_transport_flow_samples": set(),
+                "amount_units": set(),
+                "intensity_units": set(),
+                "calculation_notes": set(),
+                "mapping_rule_ids": set(),
+                "amount_delta": 0.0,
+                "delta_kgco2e": 0.0,
+                "baseline_path_production_kgco2e": 0.0,
+                "path_mass_kg": 0.0,
+                "source_environmental_event_count": 0,
+                "source_transport_flow_count": 0,
+                "role_scope_weighted": 0.0,
+                "role_scope_weight": 0.0,
+            }
+        group = grouped[key]
+        amount = safe_float(row.get("amount_delta"))
+        group["row_count"] += 1
+        group["amount_delta"] += amount
+        group["delta_kgco2e"] += safe_float(row.get("delta_kgco2e"))
+        group["baseline_path_production_kgco2e"] += safe_float(row.get("baseline_path_production_kgco2e"))
+        group["path_mass_kg"] += safe_float(row.get("path_mass_kg"))
+        group["source_environmental_event_count"] += int(safe_float(row.get("source_environmental_event_count")))
+        group["source_transport_flow_count"] += int(safe_float(row.get("source_transport_flow_count")))
+        role_scope_weight = abs(amount) if abs(amount) > 0.0 else 1.0
+        group["role_scope_weighted"] += safe_float(row.get("role_scope_share")) * role_scope_weight
+        group["role_scope_weight"] += role_scope_weight
+        for source_key, target_key in [
+            ("path_id", "path_ids"),
+            ("record_index", "record_indexes"),
+            ("component", "components"),
+            ("system", "systems"),
+            ("sdd_event_join_key", "sdd_event_join_keys"),
+            ("source_environmental_event_sample", "source_environmental_event_samples"),
+            ("source_transport_flow_sample", "source_transport_flow_samples"),
+            ("amount_unit", "amount_units"),
+            ("intensity_unit", "intensity_units"),
+            ("calculation_note", "calculation_notes"),
+            ("mapping_rule_id", "mapping_rule_ids"),
+        ]:
+            for value in [part for part in clean(row.get(source_key)).split("|") if part]:
+                group[target_key].add(value)
+
+    out: list[dict[str, Any]] = []
+    for key, group in grouped.items():
+        key_text = "|".join(str(part) for part in key)
+        path_ids = sorted(group["path_ids"])
+        components = sorted(group["components"])
+        systems = sorted(group["systems"])
+        record_indexes = sorted(group["record_indexes"])
+        join_keys = sorted(group["sdd_event_join_keys"])
+        env_event_samples = sorted(group["source_environmental_event_samples"])
+        transport_flow_samples = sorted(group["source_transport_flow_samples"])
+        amount_units = sorted(group["amount_units"])
+        intensity_units = sorted(group["intensity_units"])
+        calculation_notes = sorted(group["calculation_notes"])
+        mapping_rule_ids = sorted(group["mapping_rule_ids"])
+        out.append(
+            {
+                "delta_id": "sddbwagg:" + hashlib.sha1(key_text.encode("utf-8")).hexdigest()[:14],
+                "month_index": group["month_index"],
+                "role": group["role"],
+                "site_uid": group["site_uid"],
+                "supplier": group["supplier"],
+                "mechanism": group["mechanism"],
+                "inventory_delta_type": group["inventory_delta_type"],
+                "decision_labels": group["decision_labels"],
+                "source_driver_types": group["source_driver_types"],
+                "edge": group["edge"],
+                "route_region": group["route_region"],
+                "amount_delta": round(group["amount_delta"], 9),
+                "amount_unit": " | ".join(amount_units[:3]),
+                "delta_kgco2e": round(group["delta_kgco2e"], 9),
+                "include_in_dynamic_acv": group["include_in_dynamic_acv"],
+                "baseline_path_production_kgco2e": round(group["baseline_path_production_kgco2e"], 9),
+                "path_mass_kg": round(group["path_mass_kg"], 9),
+                "role_scope_share_avg": round(group["role_scope_weighted"] / group["role_scope_weight"], 6) if group["role_scope_weight"] else "",
+                "row_count": group["row_count"],
+                "path_count": len(path_ids),
+                "record_count": len(record_indexes),
+                "component_count": len(components),
+                "system_count": len(systems),
+                "source_environmental_event_count": group["source_environmental_event_count"],
+                "source_environmental_event_sample": "|".join(env_event_samples[:5]),
+                "source_transport_flow_count": group["source_transport_flow_count"],
+                "source_transport_flow_sample": "|".join(transport_flow_samples[:5]),
+                "path_id_sample": "|".join(path_ids[:5]),
+                "record_index_sample": "|".join(record_indexes[:5]),
+                "component_sample": " | ".join(components[:3]),
+                "system_sample": " | ".join(systems[:3]),
+                "sdd_event_join_key_sample": "|".join(join_keys[:5]),
+                "intensity_unit_sample": " | ".join(intensity_units[:2]),
+                "calibration_source": group["calibration_source"],
+                "confidence": group["confidence"],
+                "calculation_note_sample": " | ".join(calculation_notes[:2]),
+                "mapping_rule_id": " | ".join(mapping_rule_ids[:3]),
+            }
+        )
+    out.sort(
+        key=lambda row: (
+            int(safe_float(row.get("month_index"))),
+            clean(row.get("site_uid")),
+            clean(row.get("role")),
+            clean(row.get("mechanism")),
+        )
+    )
+    return out
+
+
+def build_sdd_brightway_coupling(
+    *,
+    path_rows: list[dict[str, Any]],
+    sdd_results: dict[str, list[dict[str, Any]]],
+    brightway_model: dict[str, Any],
+) -> dict[str, list[dict[str, Any]]]:
+    path_context = path_context_by_id(path_rows, brightway_model)
+    lanes = lane_state_index(sdd_results.get("sdd_lane_state", []))
+    production_score = brightway_exact_score(brightway_model, "production")
+    lifecycle_score = brightway_exact_score(brightway_model, "lifecycle_excel_aligned")
+    usage_delta = max(0.0, lifecycle_score - production_score) if lifecycle_score and production_score else 0.0
+    seats_per_month = 1.0
+
+    ledger_rows: list[dict[str, Any]] = []
+
+    def compact_token_summary(value: Any, limit: int = 3) -> tuple[int, str]:
+        tokens = [part for part in clean(value).split("|") if part and part != "none"]
+        return len(tokens), "|".join(tokens[:limit])
+
+    def add_delta(
+        *,
+        node: dict[str, Any],
+        mechanism: str,
+        inventory_delta_type: str,
+        amount_delta: float,
+        amount_unit: str,
+        intensity: float,
+        intensity_unit: str,
+        multiplier: float,
+        role_scope_share: float,
+        include_in_dynamic_acv: bool,
+        calibration_source: str,
+        confidence: str,
+        brightway_exchange_proxy: str,
+        note: str,
+        lane: dict[str, Any] | None = None,
+        model_parameters: dict[str, Any] | None = None,
+    ) -> None:
+        if amount_delta <= 0.0 and include_in_dynamic_acv:
+            return
+        path_id = clean(node.get("path_id"))
+        context = path_context.get(path_id, {})
+        path = context.get("path", {})
+        delta = amount_delta * intensity * multiplier if include_in_dynamic_acv else 0.0
+        if abs(delta) < 1e-9 and include_in_dynamic_acv:
+            return
+        month = int(safe_float(node.get("month_index")))
+        role = clean(node.get("role"))
+        env_event_count, env_event_sample = compact_token_summary(node.get("source_environmental_event_ids"))
+        transport_flow_count, transport_flow_sample = compact_token_summary(node.get("source_transport_flow_uids"))
+        ledger_row = {
+            "delta_id": f"sddbw:{path_id}:{month:03d}:{role}:{mechanism}:{len(ledger_rows) + 1}",
+            "sdd_event_join_key": f"sdd:{path_id}:{month:03d}:{role}",
+            "month_index": month,
+            "path_id": path_id,
+            "record_index": node.get("record_index"),
+            "role": role,
+            "site_uid": clean(node.get("site_uid")),
+            "supplier": clean(node.get("supplier")),
+            "system": clean(path.get("system")),
+            "component": clean(path.get("component")),
+            "family": clean(node.get("family")),
+            "mechanism": mechanism,
+            "inventory_delta_type": inventory_delta_type,
+            "decision_labels": clean(node.get("decisions")),
+            "source_driver_types": clean(node.get("source_driver_types")),
+            "source_environmental_event_count": env_event_count,
+            "source_environmental_event_sample": env_event_sample,
+            "source_transport_flow_count": transport_flow_count,
+            "source_transport_flow_sample": transport_flow_sample,
+            "edge": clean((lane or {}).get("edge")),
+            "route_region": clean((lane or {}).get("route_region")),
+            "amount_delta": round(amount_delta, 9),
+            "amount_unit": amount_unit,
+            "intensity_kgco2e_per_unit": round(intensity, 12),
+            "intensity_unit": intensity_unit,
+            "operational_multiplier": round(multiplier, 6),
+            "role_scope_share": round(role_scope_share, 6),
+            "delta_kgco2e": round(delta, 9),
+            "include_in_dynamic_acv": include_in_dynamic_acv,
+            "baseline_path_production_kgco2e": round(safe_float(context.get("static_production_kgco2e")), 9),
+            "path_mass_kg": round(safe_float(node.get("path_mass_kg")), 9),
+            "brightway_activity_proxy": "production du siege",
+            "brightway_exchange_proxy": brightway_exchange_proxy,
+            "brightway_match_level": clean(context.get("match_level")),
+            "brightway_system": clean(context.get("brightway_system")),
+            "brightway_component": clean(context.get("brightway_component")),
+            "calibration_source": calibration_source,
+            "confidence": confidence,
+            "calculation_note": note,
+            "mapping_rule_id": f"{mechanism}:{inventory_delta_type}",
+        }
+        for key, value in (model_parameters or {}).items():
+            ledger_row[f"model_{key}"] = round(value, 9) if isinstance(value, (int, float)) else clean(value)
+        ledger_rows.append(ledger_row)
+
+    for node in sdd_results.get("sdd_node_state", []):
+        path_id = clean(node.get("path_id"))
+        context = path_context.get(path_id)
+        if not context:
+            continue
+        role = clean(node.get("role"))
+        month = int(safe_float(node.get("month_index")))
+        inbound_edge = role_inbound_edge(role)
+        inbound_lane = lanes.get((path_id, month, inbound_edge)) if inbound_edge else None
+        component_intensity = safe_float(context.get("component_intensity_kgco2e_per_kg"))
+        role_share = sdd_brightway_role_scope_share(role)
+        role_local_component_intensity = component_intensity * role_share
+        calibration_source = clean(context.get("calibration_source"))
+        exchange_proxy = clean(context.get("brightway_component")) or clean(node.get("family")) or "component production proxy"
+
+        backup_output = safe_float(node.get("backup_output_kg"))
+        add_delta(
+            node=node,
+            mechanism="backup_material",
+            inventory_delta_type="supplier_substitution_overhead",
+            amount_delta=backup_output,
+            amount_unit="kg backup component output",
+            intensity=role_local_component_intensity,
+            intensity_unit="kgCO2e/kg output, role-local share of path-scaled Brightway production",
+            multiplier=SDD_BACKUP_SUPPLIER_OVERHEAD_FACTOR,
+            role_scope_share=role_share,
+            include_in_dynamic_acv=True,
+            calibration_source=calibration_source,
+            confidence="medium",
+            brightway_exchange_proxy=exchange_proxy,
+            note="Backup supplier output modelled as the differential sourcing overhead, not a full duplicate of component production.",
+            lane=inbound_lane,
+        )
+
+        scrap_rate = clamp(safe_float(node.get("scrap_multiplier")) - 1.0, 0.0, 0.35)
+        good_output = safe_float(node.get("good_output_kg"))
+        process_input_estimate = good_output / max(1.0 - scrap_rate, 0.000001) if scrap_rate > 0.0 else good_output
+        scrap_mass = max(0.0, process_input_estimate - good_output)
+        scrap_profile = scrap_recycling_profile(node.get("family"))
+        scrap_model_parameters = {
+            "scrap_recycling_rate": scrap_profile["recycling_rate"],
+            "scrap_avoided_burden_factor": scrap_profile["avoided_burden_factor"],
+            "scrap_treatment_kgco2e_per_kg": scrap_profile["treatment_kgco2e_per_kg"],
+            "scrap_replacement_factor": scrap_profile["replacement_factor"],
+        }
+        add_delta(
+            node=node,
+            mechanism="scrap_rework",
+            inventory_delta_type="yield_loss_replacement_production",
+            amount_delta=scrap_mass * scrap_profile["replacement_factor"],
+            amount_unit="kg replacement component output",
+            intensity=role_local_component_intensity,
+            intensity_unit="kgCO2e/kg replacement output, role-local share of path-scaled Brightway production",
+            multiplier=1.0,
+            role_scope_share=role_share,
+            include_in_dynamic_acv=True,
+            calibration_source=calibration_source,
+            confidence="medium",
+            brightway_exchange_proxy=exchange_proxy,
+            note="Scrap creates replacement production for the same role-local component scope.",
+            model_parameters=scrap_model_parameters,
+            lane=inbound_lane,
+        )
+        add_delta(
+            node=node,
+            mechanism="scrap_treatment",
+            inventory_delta_type="scrap_sorting_treatment_burden",
+            amount_delta=scrap_mass,
+            amount_unit="kg scrap treated",
+            intensity=scrap_profile["treatment_kgco2e_per_kg"],
+            intensity_unit="kgCO2e/kg scrap treatment and sorting proxy",
+            multiplier=1.0,
+            role_scope_share=role_share,
+            include_in_dynamic_acv=True,
+            calibration_source="family_scrap_recycling_profile_v1",
+            confidence="medium",
+            brightway_exchange_proxy=f"{exchange_proxy} scrap treatment proxy",
+            note="Additional sorting, collection and treatment burden for operation-driven scrap.",
+            model_parameters=scrap_model_parameters,
+            lane=inbound_lane,
+        )
+        add_delta(
+            node=node,
+            mechanism="recycling_credit",
+            inventory_delta_type="avoided_virgin_material_credit",
+            amount_delta=scrap_mass * scrap_profile["recycling_rate"],
+            amount_unit="kg scrap recovered",
+            intensity=-role_local_component_intensity * scrap_profile["avoided_burden_factor"],
+            intensity_unit="kgCO2e/kg recovered scrap, avoided burden credit against role-local component intensity",
+            multiplier=1.0,
+            role_scope_share=role_share,
+            include_in_dynamic_acv=True,
+            calibration_source="family_scrap_recycling_profile_v1",
+            confidence="medium",
+            brightway_exchange_proxy=f"{exchange_proxy} recycling credit proxy",
+            note="Avoided-burden recycling credit; kept explicit so cut-off or no-credit variants can be compared.",
+            model_parameters=scrap_model_parameters,
+            lane=inbound_lane,
+        )
+
+        capacity_boost = safe_float(node.get("capacity_boost_output_kg"))
+        add_delta(
+            node=node,
+            mechanism="capacity_energy",
+            inventory_delta_type="auxiliary_capacity_energy",
+            amount_delta=capacity_boost,
+            amount_unit="kg output supported by capacity boost",
+            intensity=0.85,
+            intensity_unit="kgCO2e/kg boosted output proxy",
+            multiplier=1.0,
+            role_scope_share=role_share,
+            include_in_dynamic_acv=True,
+            calibration_source="sdd_energy_proxy_pending_site_energy_brightway_mapping",
+            confidence="low",
+            brightway_exchange_proxy="site electricity/gas capacity proxy",
+            note="Temporary capacity support energy proxy; next step is mapping to regional electricity/gas exchanges.",
+            lane=inbound_lane,
+        )
+
+        disruption_energy_amount = safe_float(node.get("path_mass_kg")) * safe_float(node.get("disruption_index")) * role_share
+        add_delta(
+            node=node,
+            mechanism="disruption_energy_overhead",
+            inventory_delta_type="weather_disruption_energy_overhead",
+            amount_delta=disruption_energy_amount,
+            amount_unit="kg component-month disruption exposure",
+            intensity=0.10,
+            intensity_unit="kgCO2e/kg disruption exposure proxy",
+            multiplier=1.0,
+            role_scope_share=role_share,
+            include_in_dynamic_acv=True,
+            calibration_source="sdd_energy_proxy_pending_site_energy_brightway_mapping",
+            confidence="low",
+            brightway_exchange_proxy="site disruption energy proxy",
+            note="Residual energy overhead for degraded operating state.",
+            lane=inbound_lane,
+        )
+
+        add_delta(
+            node=node,
+            mechanism="maintenance",
+            inventory_delta_type="corrective_maintenance_overhead",
+            amount_delta=disruption_energy_amount,
+            amount_unit="kg component-month disruption exposure",
+            intensity=0.08,
+            intensity_unit="kgCO2e/kg disruption exposure proxy",
+            multiplier=1.0,
+            role_scope_share=role_share,
+            include_in_dynamic_acv=True,
+            calibration_source="sdd_maintenance_proxy_pending_brightway_process_mapping",
+            confidence="low",
+            brightway_exchange_proxy="maintenance corrective proxy",
+            note="Corrective maintenance proxy induced by environmental and logistics stress.",
+            lane=inbound_lane,
+        )
+
+        premium_output = safe_float(node.get("premium_output_kg"))
+        distance = safe_float((inbound_lane or {}).get("distance_km"))
+        add_delta(
+            node=node,
+            mechanism="premium_transport",
+            inventory_delta_type="transport_mode_switch_to_air_proxy",
+            amount_delta=premium_output * distance,
+            amount_unit="kg.km premium transport",
+            intensity=MODE_EF_KGCO2E_PER_KG_KM["air"],
+            intensity_unit="kgCO2e/kg.km air freight proxy",
+            multiplier=1.0,
+            role_scope_share=role_share,
+            include_in_dynamic_acv=True,
+            calibration_source="transport_mode_proxy_air_kgkm",
+            confidence="medium",
+            brightway_exchange_proxy="market for transport, freight, aircraft proxy",
+            note="Premium transport for unresolved gap/backlog, using air freight kg.km proxy.",
+            lane=inbound_lane,
+        )
+
+    monthly_totals: dict[int, dict[str, Any]] = defaultdict(lambda: defaultdict(float))
+    mechanism_totals: dict[str, dict[str, Any]] = defaultdict(lambda: defaultdict(float))
+    site_totals: dict[str, dict[str, Any]] = defaultdict(lambda: defaultdict(float))
+    component_totals: dict[str, dict[str, Any]] = defaultdict(lambda: defaultdict(float))
+
+    for row in ledger_rows:
+        if not row.get("include_in_dynamic_acv"):
+            continue
+        month = int(safe_float(row.get("month_index")))
+        mechanism = clean(row.get("mechanism"))
+        delta = safe_float(row.get("delta_kgco2e"))
+        monthly_totals[month]["sdd_inventory_delta_kgco2e"] += delta
+        monthly_totals[month][mechanism] += delta
+        mechanism_totals[mechanism]["delta_kgco2e"] += delta
+        mechanism_totals[mechanism]["row_count"] += 1
+        mechanism_totals[mechanism]["amount_delta"] += safe_float(row.get("amount_delta"))
+
+        site_key = clean(row.get("site_uid")) or clean(row.get("supplier"))
+        site_totals[site_key]["delta_kgco2e"] += delta
+        site_totals[site_key]["row_count"] += 1
+        site_totals[site_key]["label"] = clean(row.get("supplier")) or site_key
+        site_totals[site_key]["country_or_role"] = clean(row.get("role"))
+
+        component_key = f"{clean(row.get('system'))} / {clean(row.get('component'))}"
+        component_totals[component_key]["delta_kgco2e"] += delta
+        component_totals[component_key]["row_count"] += 1
+        component_totals[component_key]["label"] = component_key
+        component_totals[component_key]["family"] = clean(row.get("family"))
+
+    legacy_monthly = {
+        int(safe_float(row.get("month_index"))): row
+        for row in sdd_results.get("sdd_monthly_impacts", [])
+    }
+    max_month = max(
+        list(monthly_totals.keys()) + [int(safe_float(row.get("month_index"))) for row in sdd_results.get("sdd_monthly_impacts", [])],
+        default=0,
+    )
+    monthly_rows: list[dict[str, Any]] = []
+    cumulative_rows: list[dict[str, Any]] = []
+    running_static = 0.0
+    running_delta = 0.0
+    running_dynamic = 0.0
+    running_cycle = 0.0
+    mechanism_keys = sorted(mechanism_totals.keys())
+    for month in range(1, max_month + 1):
+        totals = monthly_totals.get(month, {})
+        delta = safe_float(totals.get("sdd_inventory_delta_kgco2e"))
+        static = production_score * seats_per_month
+        dynamic = static + delta
+        cycle_dynamic = dynamic + usage_delta * seats_per_month if usage_delta else 0.0
+        legacy = legacy_monthly.get(month, {})
+        row = {
+            "month_index": month,
+            "seat_equivalent_volume": seats_per_month,
+            "production_static_kgco2e": round(static, 9),
+            "sdd_inventory_delta_kgco2e": round(delta, 9),
+            "production_dynamic_kgco2e": round(dynamic, 9),
+            "cycle_dynamic_with_stelia_usage_kgco2e": round(cycle_dynamic, 9) if cycle_dynamic else "",
+            "delta_vs_static_pct": round(100.0 * delta / static, 6) if static else "",
+            "legacy_sdd_surimpact_proxy_kgco2e": safe_float(legacy.get("surimpact_total")),
+            "legacy_sdd_kgco2e": safe_float(legacy.get("sdd_kgCO2e")),
+        }
+        for mechanism in mechanism_keys:
+            row[mechanism] = round(safe_float(totals.get(mechanism)), 9)
+        monthly_rows.append(row)
+        running_static += static
+        running_delta += delta
+        running_dynamic += dynamic
+        running_cycle += cycle_dynamic if cycle_dynamic else 0.0
+        cumulative_rows.append(
+            {
+                "month_index": month,
+                "production_static_cumulative": round(running_static, 9),
+                "sdd_inventory_delta_cumulative": round(running_delta, 9),
+                "production_dynamic_cumulative": round(running_dynamic, 9),
+                "cycle_dynamic_with_stelia_usage_cumulative": round(running_cycle, 9) if running_cycle else "",
+                "delta_vs_static_pct": round(100.0 * running_delta / running_static, 6) if running_static else "",
+            }
+        )
+
+    mechanism_rows = [
+        {
+            "mechanism": mechanism,
+            "label": mechanism.replace("_", " "),
+            "delta_kgco2e": round(safe_float(values.get("delta_kgco2e")), 9),
+            "amount_delta": round(safe_float(values.get("amount_delta")), 9),
+            "row_count": int(safe_float(values.get("row_count"))),
+            "share_of_delta_pct": round(100.0 * safe_float(values.get("delta_kgco2e")) / max(sum(safe_float(v.get("delta_kgco2e")) for v in mechanism_totals.values()), 0.000001), 6),
+        }
+        for mechanism, values in mechanism_totals.items()
+    ]
+    mechanism_rows.sort(key=lambda row: -safe_float(row.get("delta_kgco2e")))
+
+    top_sites = [
+        {
+            "site_uid": site_uid,
+            "label": values["label"],
+            "meta": values["country_or_role"],
+            "value": round(safe_float(values.get("delta_kgco2e")), 9),
+            "row_count": int(safe_float(values.get("row_count"))),
+        }
+        for site_uid, values in site_totals.items()
+    ]
+    top_components = [
+        {"label": values["label"], "meta": values["family"], "value": round(safe_float(values.get("delta_kgco2e")), 9), "row_count": int(safe_float(values.get("row_count")))}
+        for values in component_totals.values()
+    ]
+    top_sites.sort(key=lambda row: -safe_float(row.get("value")))
+    top_components.sort(key=lambda row: -safe_float(row.get("value")))
+
+    summary_rows = []
+    if cumulative_rows:
+        final = cumulative_rows[-1]
+        delta = safe_float(final.get("sdd_inventory_delta_cumulative"))
+        static = safe_float(final.get("production_static_cumulative"))
+        summary_rows.append(
+            {
+                "label": "Production ACV statique programme",
+                "value": round(static, 9),
+                "unit": "kgCO2e",
+            }
+        )
+        summary_rows.append(
+            {
+                "label": "Surimpact ACV net",
+                "value": round(delta, 9),
+                "unit": "kgCO2e",
+            }
+        )
+        summary_rows.append(
+            {
+                "label": "Surimpact ACV par siege equivalent",
+                "value": round(delta / max(max_month * seats_per_month, 0.000001), 9),
+                "unit": "kgCO2e/seat eq.",
+            }
+        )
+        summary_rows.append(
+            {
+                "label": "Surimpact / production statique",
+                "value": round(100.0 * delta / static, 6) if static else 0.0,
+                "unit": "%",
+            }
+        )
+
+    exchange_delta_rows, exchange_category_rows, top_exchange_rows = build_sdd_brightway_exchange_delta(ledger_rows, brightway_model)
+
+    return {
+        "inventory_delta": compact_sdd_brightway_inventory_delta(ledger_rows),
+        "exchange_delta": exchange_delta_rows,
+        "exchange_category_totals": exchange_category_rows,
+        "top_exchanges": top_exchange_rows,
+        "monthly": monthly_rows,
+        "cumulative": cumulative_rows,
+        "mechanism_totals": mechanism_rows,
+        "site_impacts": top_sites,
+        "top_sites": top_sites[:20],
+        "top_components": top_components[:20],
+        "summary": summary_rows,
+    }
+
+
 def build_sdd_tier_month_payload(node_state_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     by_key: dict[tuple[str, int], list[dict[str, Any]]] = defaultdict(list)
     for row in node_state_rows:
@@ -3494,10 +5492,32 @@ def top_counter_labels(counter: Counter[str], limit: int = 5) -> str:
     return " | ".join(f"{label} ({count})" for label, count in counter.most_common(limit)) or "none"
 
 
-def build_sdd_site_map_payload(site_rows: list[dict[str, Any]], sdd_node_state: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def build_sdd_site_map_payload(
+    site_rows: list[dict[str, Any]],
+    sdd_node_state: list[dict[str, Any]],
+    *,
+    event_exposure_rows: list[dict[str, Any]] | None = None,
+    sdd_brightway_site_impacts: list[dict[str, Any]] | None = None,
+) -> list[dict[str, Any]]:
     by_site: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for row in sdd_node_state:
         by_site[clean(row.get("site_uid"))].append(row)
+
+    exposure_by_label_country: dict[tuple[str, str], dict[str, Any]] = {}
+    exposure_by_label: dict[str, dict[str, Any]] = {}
+    for row in event_exposure_rows or []:
+        label = clean(row.get("label"))
+        country = clean(row.get("meta"))
+        if label:
+            exposure_by_label_country[(label, country)] = row
+            if label not in exposure_by_label or safe_float(row.get("value")) > safe_float(exposure_by_label[label].get("value")):
+                exposure_by_label[label] = row
+
+    acv_by_site_uid = {
+        clean(row.get("site_uid")): row
+        for row in sdd_brightway_site_impacts or []
+        if clean(row.get("site_uid"))
+    }
 
     out: list[dict[str, Any]] = []
     for site in site_rows:
@@ -3515,6 +5535,10 @@ def build_sdd_site_map_payload(site_rows: list[dict[str, Any]], sdd_node_state: 
             driver_counts.update(split_tokens(row.get("source_driver_types")))
             if safe_float(row.get("disruption_index")) > 0.01 or safe_float(row.get("backlog_end_kg")) > 0.0:
                 affected_months.add(int(safe_float(row.get("month_index"))))
+        name = clean(site.get("name"))
+        country = clean(site.get("country_code"))
+        exposure = exposure_by_label_country.get((name, country), exposure_by_label.get(name, {}))
+        acv_impact = acv_by_site_uid.get(site_uid, {})
         out.append(
             {
                 "site_uid": site_uid,
@@ -3535,6 +5559,10 @@ def build_sdd_site_map_payload(site_rows: list[dict[str, Any]], sdd_node_state: 
                 "affected_month_count": len(affected_months),
                 "top_decisions": top_counter_labels(decision_counts),
                 "top_drivers": top_counter_labels(driver_counts),
+                "weather_exposure_index": round(safe_float(exposure.get("value")), 6),
+                "weather_event_count": int(safe_float(exposure.get("events"))),
+                "sdd_acv_delta_kgco2e": round(safe_float(acv_impact.get("value")), 9),
+                "sdd_acv_row_count": int(safe_float(acv_impact.get("row_count"))),
             }
         )
     return sorted(out, key=lambda row: (-safe_float(row.get("avg_disruption_index")), row["name"]))
@@ -3644,6 +5672,7 @@ def build_general_kpi_payload(
     node_operational_rows: list[dict[str, Any]],
     operational_event_rows: list[dict[str, Any]],
     sdd_results: dict[str, list[dict[str, Any]]],
+    sdd_brightway: dict[str, list[dict[str, Any]]],
     brightway_model: dict[str, Any],
     map_src: str,
 ) -> dict[str, Any]:
@@ -3684,6 +5713,7 @@ def build_general_kpi_payload(
         item["value"] += safe_float(row.get("intensity"))
         item["events"] += 1
     weather_month = build_weather_month_payload(weather_rows)
+    climate_horizon = weather_month[-1] if weather_month else {}
     weather_horizon = max((int(row["month_index"]) for row in weather_month), default=0)
     event_horizon = max(event_month.keys(), default=0)
     horizon_months = max(weather_horizon, event_horizon)
@@ -3722,29 +5752,55 @@ def build_general_kpi_payload(
     mass = summary.get("mass", {})
     brightway_counts = brightway_model.get("counts", {})
     brightway_runtime = brightway_model.get("runtime", {})
+    sdd_bw_summary = {clean(row.get("label")): row for row in sdd_brightway.get("summary", [])}
+    sdd_bw_delta = safe_float(sdd_bw_summary.get("Surimpact ACV net", {}).get("value"))
+    sdd_bw_delta_pct = safe_float(sdd_bw_summary.get("Surimpact / production statique", {}).get("value"))
+    sdd_bw_mechanisms = {clean(row.get("mechanism")): row for row in sdd_brightway.get("mechanism_totals", [])}
+    sdd_bw_recycling_credit = safe_float(sdd_bw_mechanisms.get("recycling_credit", {}).get("delta_kgco2e"))
+    sdd_bw_exchange_lcia_monthly = sdd_brightway.get("exchange_lcia_monthly", [])
+    sdd_bw_exchange_lcia_total = sum(safe_float(row.get("exact_delta_kgco2e")) for row in sdd_bw_exchange_lcia_monthly)
+    sdd_bw_exchange_lcia_status = (sdd_brightway.get("exchange_lcia_status") or [{}])[0]
+    aligned_lifecycle = next(
+        (
+            row
+            for row in brightway_model.get("exact_scenario_lcia", [])
+            if clean(row.get("scenario_id")) == "current_export"
+            and clean(row.get("root_activity_id")) == "lifecycle_excel_aligned"
+        ),
+        {},
+    )
     cards = [
-        {"label": "Records utilisables", "value": counts.get("usable_records", 0), "unit": ""},
+        {"label": "Lignes exploitables", "value": counts.get("usable_records", 0), "unit": ""},
         {"label": "Chemins primaires", "value": counts.get("primary_paths", 0), "unit": ""},
         {"label": "Masse allouee", "value": round(safe_float(mass.get("allocated_primary_path_mass_kg")), 2), "unit": "kg"},
         {"label": "Transport alloue", "value": round(total_kg_km, 0), "unit": "kg.km"},
         {"label": "Sites uniques", "value": counts.get("unique_sites", 0), "unit": ""},
-        {"label": "Event seeds", "value": counts.get("event_seed_rows", 0), "unit": ""},
-        {"label": "Lanes specifiques", "value": round(lane_specific_pct, 1), "unit": "%"},
+        {"label": "Evenements simules", "value": counts.get("event_seed_rows", 0), "unit": ""},
+        {"label": "Liaisons renseignees", "value": round(lane_specific_pct, 1), "unit": "%"},
         {"label": "Route moy. ponderee", "value": round(avg_route_km, 1), "unit": "km"},
         {"label": "Regions meteo", "value": len(weather_region), "unit": ""},
         {"label": "Profils meteo", "value": len(weather_profile), "unit": ""},
-        {"label": "Flux ship exposes", "value": len({clean(row.get("flow_uid")) for row in transport_weather_rows}), "unit": ""},
+        {"label": "Rechauffement fin horizon", "value": round(safe_float(climate_horizon.get("avg_warming_delta_c")), 2), "unit": "degC"},
+        {"label": "Aleas fin horizon", "value": round(safe_float(climate_horizon.get("avg_hazard_intensification_factor")), 2), "unit": "x"},
+        {"label": "Flux maritimes exposes", "value": len({clean(row.get("flow_uid")) for row in transport_weather_rows}), "unit": ""},
         {"label": "Risque maritime moy.", "value": round(mean(safe_float(row.get("risk_index")) for row in maritime_month), 3), "unit": ""},
-        {"label": "Events operationnels", "value": len(operational_event_rows), "unit": ""},
-        {"label": "Service noeuds moy.", "value": round(mean(safe_float(row.get("avg_service_proxy_pct")) for row in node_ops_month), 1), "unit": "%"},
+        {"label": "Evenements operationnels", "value": len(operational_event_rows), "unit": ""},
+        {"label": "Service sites moyen", "value": round(mean(safe_float(row.get("avg_service_proxy_pct")) for row in node_ops_month), 1), "unit": "%"},
         {"label": "Service SDD OEM moy.", "value": round(mean(safe_float(row.get("avg_oem_service_level")) for row in sdd_results.get("sdd_monthly_impacts", [])) * 100.0, 1), "unit": "%"},
-        {"label": "Surimpact SDD", "value": round(sum(safe_float(row.get("surimpact_total")) for row in sdd_results.get("sdd_monthly_impacts", [])), 1), "unit": "kgCO2e"},
+        {"label": "Impact operationnel estime", "value": round(sum(safe_float(row.get("surimpact_total")) for row in sdd_results.get("sdd_monthly_impacts", [])), 1), "unit": "kgCO2e"},
+        {"label": "Surimpact ACV net", "value": round(sdd_bw_delta / 1000.0, 1), "unit": "tCO2e"},
+        {"label": "Credit recyclage ACV", "value": round(sdd_bw_recycling_credit / 1000.0, 2), "unit": "tCO2e"},
+        {"label": "Recalcul Brightway partiel", "value": round(sdd_bw_exchange_lcia_total / 1000.0, 1), "unit": "tCO2e"},
+        {"label": "Facteurs ACV recalcules", "value": safe_float(sdd_bw_exchange_lcia_status.get("exact_factor_count")), "unit": ""},
+        {"label": "Surimpact / production", "value": round(sdd_bw_delta_pct, 1), "unit": "%"},
         {"label": "Composants ACV BW", "value": brightway_counts.get("climate_component_rows", 0), "unit": ""},
         {"label": "Parametres BW", "value": brightway_counts.get("parameters", 0), "unit": ""},
         {"label": "Indicateurs PE BW", "value": brightway_counts.get("person_equivalent_indicators", 0), "unit": ""},
-        {"label": "Scenarios region BW", "value": brightway_counts.get("parametric_regional_scenarios", 0), "unit": ""},
-        {"label": "Match BW supply", "value": round(100.0 * safe_float(brightway_counts.get("supply_alignment_matched_rows")) / safe_float(brightway_counts.get("supply_alignment_rows"), 1.0), 1), "unit": "%"},
-        {"label": "Runtime BW local", "value": 1 if brightway_runtime.get("can_execute_brightway") else 0, "unit": "bool"},
+        {"label": "Scenarios regionaux Brightway", "value": brightway_counts.get("parametric_regional_scenarios", 0), "unit": ""},
+        {"label": "Scenarios Brightway recalcules", "value": brightway_counts.get("exact_scenario_lcia", 0), "unit": ""},
+        {"label": "Cycle BW corrige", "value": round(safe_float(aligned_lifecycle.get("score_kgco2e")) / 1000.0, 1), "unit": "tCO2e"},
+        {"label": "Couverture ACV chaine", "value": round(100.0 * safe_float(brightway_counts.get("supply_alignment_matched_rows")) / safe_float(brightway_counts.get("supply_alignment_rows"), 1.0), 1), "unit": "%"},
+        {"label": "Brightway disponible", "value": 1 if brightway_runtime.get("can_execute_brightway") else 0, "unit": "bool"},
     ]
 
     return {
@@ -3778,6 +5834,21 @@ def build_general_kpi_payload(
         "sdd_cumulative": sdd_results.get("sdd_cumulative_impacts", []),
         "sdd_method_comparison": sdd_results.get("sdd_method_comparison", []),
         "sdd_tier_month": sdd_results.get("sdd_tier_month", []),
+        "sdd_brightway": {
+            "summary": sdd_brightway.get("summary", []),
+            "monthly": sdd_brightway.get("monthly", []),
+            "cumulative": sdd_brightway.get("cumulative", []),
+            "mechanism_totals": sdd_brightway.get("mechanism_totals", []),
+            "exchange_category_totals": sdd_brightway.get("exchange_category_totals", []),
+            "top_exchanges": sdd_brightway.get("top_exchanges", []),
+            "exchange_lcia_category_totals": sdd_brightway.get("exchange_lcia_category_totals", []),
+            "exchange_lcia_monthly": sdd_brightway.get("exchange_lcia_monthly", []),
+            "exchange_lcia_top": sdd_brightway.get("exchange_lcia_top", []),
+            "exchange_lcia_status": sdd_brightway.get("exchange_lcia_status", []),
+            "site_impacts": sdd_brightway.get("site_impacts", []),
+            "top_sites": sdd_brightway.get("top_sites", []),
+            "top_components": sdd_brightway.get("top_components", []),
+        },
         "event_month": event_month_rows,
         "event_exposure": event_exposure,
         "path_scatter": scatter_rows,
@@ -3794,6 +5865,7 @@ def build_general_kpi_payload(
             "reference_person_equivalent_results": brightway_model.get("reference_person_equivalent_results", []),
             "reference_weighted_results": brightway_model.get("reference_weighted_results", []),
             "reference_phase_breakdown": brightway_model.get("reference_phase_breakdown", []),
+            "reference_use_phase_components": brightway_model.get("reference_use_phase_components", []),
             "reference_scenarios": brightway_model.get("reference_scenarios", []),
             "reference_weighting_factors": brightway_model.get("reference_weighting_factors", []),
             "reference_climate_contributors": brightway_model.get("reference_climate_contributors", []),
@@ -3807,6 +5879,9 @@ def build_general_kpi_payload(
             "parametric_sensitivity": brightway_model.get("parametric_sensitivity", []),
             "parametric_switches": brightway_model.get("parametric_switches", []),
             "parametric_regional_scenarios": brightway_model.get("parametric_regional_scenarios", []),
+            "exact_scenario_lcia": brightway_model.get("exact_scenario_lcia", []),
+            "excel_runtime_comparison": brightway_model.get("excel_runtime_comparison", []),
+            "usage_calibration": brightway_model.get("usage_calibration", []),
             "top_climate_components": brightway_model.get("top_climate_components", []),
             "top_parameter_amounts": brightway_model.get("top_parameter_amounts", []),
         },
@@ -3916,9 +5991,9 @@ def write_sdd_results_map_html(
     <label for="metric">Couleur des noeuds</label>
     <div class="row">
       <select id="metric">
-        <option value="avg_disruption_index">Disruption moyenne</option>
+        <option value="avg_disruption_index">Perturbation moyenne</option>
         <option value="avg_service_level">Service moyen</option>
-        <option value="peak_backlog_kg">Backlog pic</option>
+        <option value="peak_backlog_kg">Retard max</option>
         <option value="affected_month_count">Mois affectes</option>
       </select>
     </div>
@@ -3929,13 +6004,13 @@ def write_sdd_results_map_html(
     <div class="stats">
       <div class="stat"><b id="siteCount"></b><span>sites</span></div>
       <div class="stat"><b id="laneCount"></b><span>liens</span></div>
-      <div class="stat"><b id="avgDisruption"></b><span>disruption moy.</span></div>
+      <div class="stat"><b id="avgDisruption"></b><span>perturbation moy.</span></div>
       <div class="stat"><b id="avgService"></b><span>service moy.</span></div>
     </div>
     <div class="row"><button type="button" id="openSource">Ouvrir carte source</button></div>
   </section>
   <section class="legend">
-    <div id="legendTitle">Disruption moyenne</div>
+    <div id="legendTitle">Perturbation moyenne</div>
     <div class="scale"></div>
     <div>Vert = faible, rouge = fort. Les liens sont colores par risque transport.</div>
   </section>
@@ -4001,8 +6076,8 @@ def write_sdd_results_map_html(
           <tr><td>Masse</td><td>${fmt(site.allocated_mass_kg)} kg</td></tr>
           <tr><td>Service moy.</td><td>${fmt(site.avg_service_level * 100)}%</td></tr>
           <tr><td>Service min</td><td>${fmt(site.min_service_level * 100)}%</td></tr>
-          <tr><td>Disruption</td><td>${fmt(site.avg_disruption_index)}</td></tr>
-          <tr><td>Backlog pic</td><td>${fmt(site.peak_backlog_kg)} kg</td></tr>
+          <tr><td>Perturbation</td><td>${fmt(site.avg_disruption_index)}</td></tr>
+          <tr><td>Retard max</td><td>${fmt(site.peak_backlog_kg)} kg</td></tr>
           <tr><td>Mois affectes</td><td>${site.affected_month_count}</td></tr>
           <tr><td>Decisions</td><td>${site.top_decisions}</td></tr>
           <tr><td>Drivers</td><td>${site.top_drivers}</td></tr>
@@ -4103,7 +6178,14 @@ def write_enriched_base_map_html(
     sdd_results: dict[str, list[dict[str, Any]]],
     dashboard_payload: dict[str, Any] | None = None,
 ) -> None:
-    sites = build_sdd_site_map_payload(site_rows, sdd_results.get("sdd_node_state", []))
+    dashboard_payload = dashboard_payload or {}
+    sdd_brightway_payload = dashboard_payload.get("sdd_brightway", {}) if isinstance(dashboard_payload.get("sdd_brightway"), dict) else {}
+    sites = build_sdd_site_map_payload(
+        site_rows,
+        sdd_results.get("sdd_node_state", []),
+        event_exposure_rows=dashboard_payload.get("event_exposure", []),
+        sdd_brightway_site_impacts=sdd_brightway_payload.get("site_impacts", []),
+    )
     lanes = build_sdd_lane_map_payload(site_rows, sdd_results.get("sdd_lane_state", []))
     payload = {
         "schema_version": "poc2026.supply_geo_case.base_map_sdd_overlay.v1",
@@ -4119,7 +6201,6 @@ def write_enriched_base_map_html(
         },
     }
     payload_json = json_for_script(payload)
-    dashboard_payload = dashboard_payload or {}
     compact_dashboard_payload = {
         "schema_version": "poc2026.supply_geo_case.base_map_dashboard.v1",
         "cards": dashboard_payload.get("cards", []),
@@ -4143,6 +6224,7 @@ def write_enriched_base_map_html(
         "sdd_cumulative": dashboard_payload.get("sdd_cumulative", []),
         "sdd_method_comparison": dashboard_payload.get("sdd_method_comparison", []),
         "sdd_tier_month": dashboard_payload.get("sdd_tier_month", []),
+        "sdd_brightway": dashboard_payload.get("sdd_brightway", {}),
         "path_scatter": dashboard_payload.get("path_scatter", []),
         "brightway_model": dashboard_payload.get("brightway_model", {}),
     }
@@ -4295,6 +6377,15 @@ def write_enriched_base_map_html(
     <div id="baseMapKpiSddServicePlot" class="sdd-dashboard-plot"></div>
     <div id="baseMapKpiSddTierPlot" class="sdd-dashboard-plot"></div>
     <div id="baseMapKpiSddImpactPlot" class="sdd-dashboard-plot"></div>
+    <div id="baseMapKpiSddAcvStaticDynamicPlot" class="sdd-dashboard-plot"></div>
+    <div id="baseMapKpiSddAcvDeltaMechanismPlot" class="sdd-dashboard-plot"></div>
+    <div id="baseMapKpiSddAcvExchangeCategoryPlot" class="sdd-dashboard-plot"></div>
+    <div id="baseMapKpiSddAcvTopExchangesPlot" class="sdd-dashboard-plot"></div>
+    <div id="baseMapKpiSddAcvExchangeExactMonthlyPlot" class="sdd-dashboard-plot"></div>
+    <div id="baseMapKpiSddAcvExchangeExactTopPlot" class="sdd-dashboard-plot"></div>
+    <div id="baseMapKpiSddAcvSeatEquivalentPlot" class="sdd-dashboard-plot"></div>
+    <div id="baseMapKpiSddAcvTopComponentsPlot" class="sdd-dashboard-plot"></div>
+    <div id="baseMapKpiSddAcvTopSitesPlot" class="sdd-dashboard-plot"></div>
     <div id="baseMapKpiPathScatterPlot" class="sdd-dashboard-plot"></div>
     <div id="baseMapKpiTopSitesPlot" class="sdd-dashboard-plot"></div>
     <div id="baseMapKpiFamilyMassPlot" class="sdd-dashboard-plot"></div>
@@ -4313,6 +6404,10 @@ def write_enriched_base_map_html(
     <div id="baseMapKpiBwSensitivityPlot" class="sdd-dashboard-plot"></div>
     <div id="baseMapKpiBwSwitchPlot" class="sdd-dashboard-plot"></div>
     <div id="baseMapKpiBwRegionalScenarioPlot" class="sdd-dashboard-plot"></div>
+    <div id="baseMapKpiBwUsageBreakdownPlot" class="sdd-dashboard-plot"></div>
+    <div id="baseMapKpiBwExactScenarioPlot" class="sdd-dashboard-plot"></div>
+    <div id="baseMapKpiBwAlignedLifecyclePlot" class="sdd-dashboard-plot"></div>
+    <div id="baseMapKpiBwExcelRuntimePlot" class="sdd-dashboard-plot"></div>
   </div>
 </section>
 <script>
@@ -4473,6 +6568,7 @@ const BASE_DASHBOARD_PAYLOAD = __BASE_DASHBOARD_PAYLOAD__;
       [
         { type: "scatter", mode: "lines", name: "Temp. moy.", x: weatherX, y: weather.map(row => num(row, "avg_temp_c")) },
         { type: "scatter", mode: "lines", name: "Temp. p90", x: weatherX, y: weather.map(row => num(row, "p90_temp_c")) },
+        { type: "scatter", mode: "lines", name: "Rechauffement applique", x: weatherX, y: weather.map(row => num(row, "avg_warming_delta_c")), line: { dash: "dot", width: 3 } },
         { type: "scatter", mode: "lines", name: "Humidite", x: weatherX, y: weather.map(row => num(row, "avg_humidity_pct")) },
         { type: "scatter", mode: "lines", name: "Vent", x: weatherX, y: weather.map(row => num(row, "avg_wind_ms")) }
       ],
@@ -4484,12 +6580,12 @@ const BASE_DASHBOARD_PAYLOAD = __BASE_DASHBOARD_PAYLOAD__;
     renderDashboardPlot(
       "baseMapKpiOpsPlot",
       [
-        { type: "scatter", mode: "lines", name: "Service proxy", x: opsX, y: ops.map(row => num(row, "avg_service_proxy_pct")) },
+        { type: "scatter", mode: "lines", name: "Service estime", x: opsX, y: ops.map(row => num(row, "avg_service_proxy_pct")) },
         { type: "scatter", mode: "lines", name: "Capacite", x: opsX, y: ops.map(row => num(row, "avg_capacity_applied") * 100) },
-        { type: "scatter", mode: "lines", name: "Disruption", x: opsX, y: ops.map(row => num(row, "avg_disruption_index") * 100) },
+        { type: "scatter", mode: "lines", name: "Perturbation", x: opsX, y: ops.map(row => num(row, "avg_disruption_index") * 100) },
         { type: "bar", name: "Sites affectes", x: opsX, y: ops.map(row => num(row, "affected_site_count")), opacity: 0.28 }
       ],
-      dashboardLayout("Etat operationnel des noeuds", "% / sites")
+      dashboardLayout("Etat operationnel des sites", "% / sites")
     );
 
     const maritime = dashboardRows("maritime_month");
@@ -4510,11 +6606,18 @@ const BASE_DASHBOARD_PAYLOAD = __BASE_DASHBOARD_PAYLOAD__;
     const eventX = events.map(row => num(row, "month_index"));
     const eventLayout = dashboardLayout("Evenements environnementaux", "sites/mois");
     eventLayout.barmode = "stack";
+    const eventSpecs = [
+      ["heatwave", "Canicule"],
+      ["drought", "Secheresse"],
+      ["storm", "Tempete"],
+      ["hurricane", "Ouragan"],
+      ["cold", "Froid"]
+    ];
     renderDashboardPlot(
       "baseMapKpiEventPlot",
-      ["heatwave", "drought", "storm", "hurricane", "cold"].map((key, idx) => ({
+      eventSpecs.map(([key, label], idx) => ({
         type: "bar",
-        name: key,
+        name: label,
         x: eventX,
         y: events.map(row => num(row, key)),
         marker: { color: ["#d62728", "#e6550d", "#3182bd", "#756bb1", "#6baed6"][idx] }
@@ -4592,7 +6695,7 @@ const BASE_DASHBOARD_PAYLOAD = __BASE_DASHBOARD_PAYLOAD__;
         const rows = tierRows.filter(row => row.role === role);
         return { type: "scatter", mode: "lines", name: role, x: rows.map(row => num(row, "month_index")), y: rows.map(row => num(row, "avg_disruption_index") * 100) };
       }),
-      dashboardLayout("Disruption SDD par tier", "indice x100")
+      dashboardLayout("Perturbation SDD par rang fournisseur", "indice x100")
     );
 
     renderDashboardPlot(
@@ -4602,10 +6705,57 @@ const BASE_DASHBOARD_PAYLOAD = __BASE_DASHBOARD_PAYLOAD__;
         { type: "scatter", mode: "lines", name: "Surimpact cumule", x: cumulativeX, y: cumulative.map(row => num(row, "surimpact_cumulative")), yaxis: "y2", line: { color: "#d62728" } }
       ],
       {
-        ...dashboardLayout("Surimpact SDD mensuel et cumule", "kgCO2e/mois"),
+        ...dashboardLayout("Surimpact ACV dynamique mensuel et cumule", "kgCO2e/mois"),
         yaxis2: { title: "kgCO2e cumule", overlaying: "y", side: "right", gridcolor: "rgba(0,0,0,0)" }
       }
     );
+
+    const sddBw = dashboardPayload.sdd_brightway || {};
+    const sddBwRows = key => Array.isArray(sddBw[key]) ? sddBw[key] : [];
+    const sddBwMonthly = sddBwRows("monthly");
+    const sddBwCumulative = sddBwRows("cumulative");
+    const sddBwMonths = sddBwMonthly.map(row => num(row, "month_index"));
+    const sddBwCumulativeMonths = sddBwCumulative.map(row => num(row, "month_index"));
+    renderDashboardPlot(
+      "baseMapKpiSddAcvStaticDynamicPlot",
+      [
+        { type: "scatter", mode: "lines", name: "Production statique BW", x: sddBwMonths, y: sddBwMonthly.map(row => num(row, "production_static_kgco2e")), line: { color: "#3182bd" } },
+        { type: "scatter", mode: "lines", name: "Production dynamique SDD-BW", x: sddBwMonths, y: sddBwMonthly.map(row => num(row, "production_dynamic_kgco2e")), line: { color: "#d62728" } },
+        { type: "bar", name: "Delta inventaire", x: sddBwMonths, y: sddBwMonthly.map(row => num(row, "sdd_inventory_delta_kgco2e")), yaxis: "y2", marker: { color: "#fd8d3c" }, opacity: 0.45 }
+      ],
+      {
+        ...dashboardLayout("Couplage SDD -> ACV Brightway", "kgCO2e/mois"),
+        yaxis2: { title: "delta kgCO2e", overlaying: "y", side: "right", gridcolor: "rgba(0,0,0,0)" }
+      }
+    );
+    horizontalBarPlot("baseMapKpiSddAcvDeltaMechanismPlot", sddBwRows("mechanism_totals"), "Delta ACV dynamique par mecanisme SDD", "delta_kgco2e", "label", "#e6550d", "kgCO2e");
+    horizontalBarPlot("baseMapKpiSddAcvExchangeCategoryPlot", sddBwRows("exchange_category_totals"), "Ledger SDD -> Brightway par categorie d'echange", "delta_kgco2e", "label", "#31a354", "kgCO2e alloues");
+    horizontalBarPlot("baseMapKpiSddAcvTopExchangesPlot", sddBwRows("top_exchanges"), "Principaux postes ACV expliquant le surimpact", "delta_kgco2e", "label", "#756bb1", "kgCO2e alloues");
+    const exchangeLciaMonthly = sddBwRows("exchange_lcia_monthly");
+    const exchangeLciaMonths = exchangeLciaMonthly.map(row => num(row, "month_index"));
+    renderDashboardPlot(
+      "baseMapKpiSddAcvExchangeExactMonthlyPlot",
+      [
+        { type: "scatter", mode: "lines", name: "Delta alloue", x: exchangeLciaMonths, y: exchangeLciaMonthly.map(row => num(row, "allocated_delta_kgco2e")), line: { color: "#e6550d" } },
+        { type: "scatter", mode: "lines", name: "Delta exact BW", x: exchangeLciaMonths, y: exchangeLciaMonthly.map(row => num(row, "exact_delta_kgco2e")), line: { color: "#3182bd" } },
+        { type: "bar", name: "Ecart exact-alloue", x: exchangeLciaMonths, y: exchangeLciaMonthly.map(row => num(row, "exact_minus_allocated_kgco2e")), marker: { color: "#bdbdbd" }, opacity: 0.45 }
+      ],
+      dashboardLayout("Test marginal Brightway: exact vs alloue", "kgCO2e/mois")
+    );
+    horizontalBarPlot("baseMapKpiSddAcvExchangeExactTopPlot", sddBwRows("exchange_lcia_top"), "Principaux echanges recalcules dans Brightway", "exact_delta_kgco2e", "label", "#3182bd", "kgCO2e recalcules");
+    renderDashboardPlot(
+      "baseMapKpiSddAcvSeatEquivalentPlot",
+      [
+        { type: "scatter", mode: "lines", name: "Delta par siege eq.", x: sddBwMonths, y: sddBwMonthly.map(row => num(row, "sdd_inventory_delta_kgco2e") / Math.max(num(row, "seat_equivalent_volume", 1), 0.000001)), line: { color: "#756bb1" } },
+        { type: "scatter", mode: "lines", name: "Delta cumule / prod statique", x: sddBwCumulativeMonths, y: sddBwCumulative.map(row => num(row, "delta_vs_static_pct")), yaxis: "y2", line: { color: "#2ca25f" } }
+      ],
+      {
+        ...dashboardLayout("Intensite ACV dynamique par equivalent siege", "kgCO2e/seat eq."),
+        yaxis2: { title: "% cumule", overlaying: "y", side: "right", gridcolor: "rgba(0,0,0,0)" }
+      }
+    );
+    horizontalBarPlot("baseMapKpiSddAcvTopComponentsPlot", sddBwRows("top_components"), "Top composants par surimpact ACV", "value", "label", "#fb6a4a", "kgCO2e");
+    horizontalBarPlot("baseMapKpiSddAcvTopSitesPlot", sddBwRows("top_sites"), "Top sites par surimpact ACV", "value", "label", "#6baed6", "kgCO2e");
 
     const pathScatter = dashboardRows("path_scatter");
     renderDashboardPlot(
@@ -4646,6 +6796,10 @@ const BASE_DASHBOARD_PAYLOAD = __BASE_DASHBOARD_PAYLOAD__;
     horizontalBarPlot("baseMapKpiBwSensitivityPlot", bwRows("parametric_sensitivity").slice(0, 14), "Parametrisation: echanges les plus sensibles", "abs_delta_amount", "label", "#fd8d3c", "delta absolu, unite de l'echange");
     horizontalBarPlot("baseMapKpiBwSwitchPlot", bwRows("parametric_switches"), "Parametrisation: switchs Brightway scriptes", "affected_exchange_count", "label", "#6baed6", "echanges affectes");
     horizontalBarPlot("baseMapKpiBwRegionalScenarioPlot", bwRows("parametric_regional_scenarios"), "Parametrisation: sourcing FR / EU / mondialise", "foreground_amount_index", "label", "#2ca25f", "indice transport foreground");
+    horizontalBarPlot("baseMapKpiBwUsageBreakdownPlot", bwRows("usage_calibration").filter(row => row.system === "Consommation passive" || row.system === "Entretien"), "Usage STELIA: decomposition climat", "excel_kgco2e", "component", "#fb6a4a", "kgCO2e");
+    horizontalBarPlot("baseMapKpiBwExactScenarioPlot", bwRows("exact_scenario_lcia").filter(row => row.root_activity_id === "production" && row.scenario_id !== "current_export"), "Brightway exact: delta production par scenario", "delta_kgco2e", "label", "#de2d26", "kgCO2e vs baseline");
+    horizontalBarPlot("baseMapKpiBwAlignedLifecyclePlot", bwRows("exact_scenario_lcia").filter(row => row.root_activity_id === "lifecycle_excel_aligned" && row.scenario_id !== "current_export"), "Brightway exact: cycle complet corrige usage", "delta_kgco2e", "label", "#3182bd", "kgCO2e vs baseline corrige");
+    horizontalBarPlot("baseMapKpiBwExcelRuntimePlot", bwRows("excel_runtime_comparison"), "Excel reference vs Brightway runtime", "relative_delta_pct", "label", "#756bb1", "% ecart");
 
     const status = document.getElementById("sddDashboardStatus");
     if (status) {
@@ -4669,6 +6823,15 @@ const BASE_DASHBOARD_PAYLOAD = __BASE_DASHBOARD_PAYLOAD__;
         "baseMapKpiSddServicePlot",
         "baseMapKpiSddTierPlot",
         "baseMapKpiSddImpactPlot",
+        "baseMapKpiSddAcvStaticDynamicPlot",
+        "baseMapKpiSddAcvDeltaMechanismPlot",
+        "baseMapKpiSddAcvExchangeCategoryPlot",
+        "baseMapKpiSddAcvTopExchangesPlot",
+        "baseMapKpiSddAcvExchangeExactMonthlyPlot",
+        "baseMapKpiSddAcvExchangeExactTopPlot",
+        "baseMapKpiSddAcvSeatEquivalentPlot",
+        "baseMapKpiSddAcvTopComponentsPlot",
+        "baseMapKpiSddAcvTopSitesPlot",
         "baseMapKpiPathScatterPlot",
         "baseMapKpiTopSitesPlot",
         "baseMapKpiFamilyMassPlot",
@@ -4686,7 +6849,11 @@ const BASE_DASHBOARD_PAYLOAD = __BASE_DASHBOARD_PAYLOAD__;
         "baseMapKpiBwLeverPlot",
         "baseMapKpiBwSensitivityPlot",
         "baseMapKpiBwSwitchPlot",
-        "baseMapKpiBwRegionalScenarioPlot"
+        "baseMapKpiBwRegionalScenarioPlot",
+        "baseMapKpiBwUsageBreakdownPlot",
+        "baseMapKpiBwExactScenarioPlot",
+        "baseMapKpiBwAlignedLifecyclePlot",
+        "baseMapKpiBwExcelRuntimePlot"
       ].forEach(id => {
         const node = document.getElementById(id);
         if (node) Plotly.Plots.resize(node);
@@ -4713,8 +6880,32 @@ const BASE_DASHBOARD_PAYLOAD = __BASE_DASHBOARD_PAYLOAD__;
         colorscale: [[0, "#2ca02c"], [0.5, "#ffbf00"], [1, "#d62728"]]
       };
     }
+    if (metric === "weather_exposure_index") {
+      return {
+        label: "Exposition meteo",
+        cmin: 0,
+        cmax: 1,
+        colorscale: [[0, "#2ca02c"], [0.5, "#ffbf00"], [1, "#d62728"]]
+      };
+    }
+    if (metric === "sdd_acv_delta_kgco2e") {
+      return {
+        label: "Surimpact ACV net",
+        cmin: 0,
+        cmax: 1,
+        colorscale: [[0, "#f7fbff"], [0.45, "#6baed6"], [1, "#d62728"]]
+      };
+    }
+    if (metric === "allocated_mass_kg") {
+      return {
+        label: "Masse allouee",
+        cmin: 0,
+        cmax: 1,
+        colorscale: [[0, "#f7fcf5"], [0.45, "#74c476"], [1, "#006d2c"]]
+      };
+    }
     return {
-      label: metric === "peak_backlog_kg" ? "Backlog pic" : (metric === "affected_month_count" ? "Mois affectes" : "Disruption"),
+      label: metric === "peak_backlog_kg" ? "Retard max" : (metric === "affected_month_count" ? "Mois affectes" : "Perturbation"),
       cmin: 0,
       cmax: 1,
       colorscale: [[0, "#2ca02c"], [0.5, "#ffbf00"], [1, "#d62728"]]
@@ -4732,6 +6923,18 @@ const BASE_DASHBOARD_PAYLOAD = __BASE_DASHBOARD_PAYLOAD__;
       const maxMonths = maxOf(sites, "affected_month_count") || 1;
       return Math.max(0, Math.min(1, raw / maxMonths));
     }
+    if (metric === "weather_exposure_index") {
+      const maxExposure = maxOf(sites, "weather_exposure_index") || 1;
+      return Math.max(0, Math.min(1, raw / maxExposure));
+    }
+    if (metric === "sdd_acv_delta_kgco2e") {
+      const maxDelta = maxOf(sites, "sdd_acv_delta_kgco2e") || 1;
+      return Math.max(0, Math.min(1, Math.log1p(raw) / Math.log1p(maxDelta)));
+    }
+    if (metric === "allocated_mass_kg") {
+      const maxMass = maxOf(sites, "allocated_mass_kg") || 1;
+      return Math.max(0, Math.min(1, Math.log1p(raw) / Math.log1p(maxMass)));
+    }
     return Math.max(0, Math.min(1, raw));
   }
 
@@ -4743,18 +6946,20 @@ const BASE_DASHBOARD_PAYLOAD = __BASE_DASHBOARD_PAYLOAD__;
       `Masse allouee: ${fmt(site.allocated_mass_kg)} kg`,
       `Service moyen: ${fmt(Number(site.avg_service_level || 0) * 100, 1)}%`,
       `Service min: ${fmt(Number(site.min_service_level || 0) * 100, 1)}%`,
-      `Disruption moyenne: ${fmt(site.avg_disruption_index, 3)}`,
-      `Backlog pic: ${fmt(site.peak_backlog_kg)} kg`,
+      `Perturbation moyenne: ${fmt(site.avg_disruption_index, 3)}`,
+      `Retard max: ${fmt(site.peak_backlog_kg)} kg`,
       `Mois affectes: ${fmt(site.affected_month_count, 0)}`,
+      `Exposition meteo: ${fmt(site.weather_exposure_index, 2)} (${fmt(site.weather_event_count, 0)} evenements)`,
+      `Surimpact ACV net: ${fmt(site.sdd_acv_delta_kgco2e, 1)} kgCO2e`,
       `Decisions: ${escapeHtml(site.top_decisions || "none")}`,
-      `Drivers: ${escapeHtml(site.top_drivers || "none")}`
+      `Facteurs: ${escapeHtml(site.top_drivers || "none")}`
     ].join("<br>");
   }
 
   function laneHover(lane) {
     return [
       `<b>${escapeHtml(lane.from_name || "")} -> ${escapeHtml(lane.to_name || "")}</b>`,
-      `Edge: ${escapeHtml(lane.edge || "")}`,
+      `Lien: ${escapeHtml(lane.edge || "")}`,
       `Modes: ${escapeHtml(lane.modes || "")}`,
       `Bassin: ${escapeHtml(lane.route_region || "")}`,
       `kg.km alloues: ${fmt(lane.allocated_kg_km)}`,
@@ -4813,6 +7018,32 @@ const BASE_DASHBOARD_PAYLOAD = __BASE_DASHBOARD_PAYLOAD__;
       hoverinfo: "text",
       line: { color, width },
       opacity: 0.62
+    };
+  }
+
+  function laneKgKmBucketTrace(name, minRatio, maxRatio, color, width) {
+    const maxKgKm = maxOf(lanes, "allocated_kg_km") || 1;
+    const lon = [];
+    const lat = [];
+    const text = [];
+    lanes.forEach(lane => {
+      const ratio = Number(lane.allocated_kg_km || 0) / maxKgKm;
+      if (ratio < minRatio || ratio >= maxRatio) return;
+      const hover = laneHover(lane);
+      lon.push(lane.from_lon, lane.to_lon, null);
+      lat.push(lane.from_lat, lane.to_lat, null);
+      text.push(hover, hover, null);
+    });
+    return {
+      type: "scattergeo",
+      mode: "lines",
+      name,
+      lon,
+      lat,
+      text,
+      hoverinfo: "text",
+      line: { color, width },
+      opacity: 0.58
     };
   }
 
@@ -4886,22 +7117,77 @@ const BASE_DASHBOARD_PAYLOAD = __BASE_DASHBOARD_PAYLOAD__;
     );
   }
 
+  function renderWeatherMap() {
+    currentView = "weather";
+    setActiveButton();
+    renderPlot(
+      [
+        laneBucketTrace("Routes meteo critiques", 0.35, 2, "#d62728", 2.6),
+        laneBucketTrace("Routes sous surveillance", 0.20, 0.35, "#ff9f1c", 1.8),
+        siteTrace("weather_exposure_index", "Exposition meteo sites")
+      ],
+      "Exposition meteo regionalisee des sites et routes"
+    );
+  }
+
+  function renderOperationsMap() {
+    currentView = "operations";
+    setActiveButton();
+    renderPlot(
+      [
+        laneBucketTrace("Transport degrade", 0.35, 2, "#d62728", 2.8),
+        siteTrace("affected_month_count", "Sites affectes par operations")
+      ],
+      "Operations: mois affectes, backlog et drivers"
+    );
+  }
+
   function renderSddImpact() {
     currentView = "impact";
     setActiveButton();
     renderPlot(
       [
         laneBucketTrace("Liaisons a risque eleve", 0.35, 2, "#d62728", 3.2),
-        siteTrace("peak_backlog_kg", "Backlog et rupture de service")
+        siteTrace("peak_backlog_kg", "Retards et rupture de service")
       ],
       "Impacts operationnels SDD localises"
+    );
+  }
+
+  function renderAcvMap() {
+    currentView = "acv";
+    setActiveButton();
+    renderPlot(
+      [
+        laneBucketTrace("Routes a risque eleve", 0.35, 2, "#756bb1", 2.5),
+        siteTrace("sdd_acv_delta_kgco2e", "Delta ACV dynamique")
+      ],
+      "ACV dynamique: surimpact net par site"
+    );
+  }
+
+  function renderCriticalityMap() {
+    currentView = "criticality";
+    setActiveButton();
+    renderPlot(
+      [
+        laneKgKmBucketTrace("Flux critique", 0.55, 2, "#d62728", 3.2),
+        laneKgKmBucketTrace("Flux intermediaire", 0.25, 0.55, "#f16913", 2.2),
+        laneKgKmBucketTrace("Flux diffus", 0, 0.25, "#9ecae1", 1.2),
+        siteTrace("allocated_mass_kg", "Masse allouee sites")
+      ],
+      "Criticite reseau: masse allouee et kg.km"
     );
   }
 
   function renderCurrentSddView() {
     if (currentView === "sites") renderSddSites();
     if (currentView === "lanes") renderSddLanes();
+    if (currentView === "weather") renderWeatherMap();
+    if (currentView === "operations") renderOperationsMap();
     if (currentView === "impact") renderSddImpact();
+    if (currentView === "acv") renderAcvMap();
+    if (currentView === "criticality") renderCriticalityMap();
     if (currentView === "dashboard") renderDashboard();
   }
 
@@ -4923,12 +7209,16 @@ const BASE_DASHBOARD_PAYLOAD = __BASE_DASHBOARD_PAYLOAD__;
       <button type="button" data-sdd-view="source">Carte source</button>
       <button type="button" data-sdd-view="sites">SDD sites</button>
       <button type="button" data-sdd-view="lanes">SDD liaisons</button>
+      <button type="button" data-sdd-view="weather">Meteo</button>
+      <button type="button" data-sdd-view="operations">Operations</button>
       <button type="button" data-sdd-view="impact">SDD impact</button>
+      <button type="button" data-sdd-view="acv">ACV dynamique</button>
+      <button type="button" data-sdd-view="criticality">Criticite reseau</button>
       <button type="button" data-sdd-view="dashboard">Dashboard KPI</button>
       <select id="sddMetricSelect" title="Metrique de couleur des sites">
-        <option value="avg_disruption_index">Disruption</option>
+        <option value="avg_disruption_index">Perturbation</option>
         <option value="avg_service_level">Service</option>
-        <option value="peak_backlog_kg">Backlog</option>
+        <option value="peak_backlog_kg">Retard max</option>
         <option value="affected_month_count">Mois affectes</option>
       </select>
     `;
@@ -4942,7 +7232,11 @@ const BASE_DASHBOARD_PAYLOAD = __BASE_DASHBOARD_PAYLOAD__;
     tabs.querySelector('[data-sdd-view="source"]').addEventListener("click", renderSource);
     tabs.querySelector('[data-sdd-view="sites"]').addEventListener("click", renderSddSites);
     tabs.querySelector('[data-sdd-view="lanes"]').addEventListener("click", renderSddLanes);
+    tabs.querySelector('[data-sdd-view="weather"]').addEventListener("click", renderWeatherMap);
+    tabs.querySelector('[data-sdd-view="operations"]').addEventListener("click", renderOperationsMap);
     tabs.querySelector('[data-sdd-view="impact"]').addEventListener("click", renderSddImpact);
+    tabs.querySelector('[data-sdd-view="acv"]').addEventListener("click", renderAcvMap);
+    tabs.querySelector('[data-sdd-view="criticality"]').addEventListener("click", renderCriticalityMap);
     tabs.querySelector('[data-sdd-view="dashboard"]').addEventListener("click", renderDashboard);
     tabs.querySelector("#sddMetricSelect").addEventListener("change", () => {
       if (currentView !== "source" && currentView !== "dashboard") renderCurrentSddView();
@@ -4952,7 +7246,11 @@ const BASE_DASHBOARD_PAYLOAD = __BASE_DASHBOARD_PAYLOAD__;
 
   window.renderSddSites = renderSddSites;
   window.renderSddLanes = renderSddLanes;
+  window.renderWeatherMap = renderWeatherMap;
+  window.renderOperationsMap = renderOperationsMap;
   window.renderSddImpact = renderSddImpact;
+  window.renderAcvMap = renderAcvMap;
+  window.renderCriticalityMap = renderCriticalityMap;
   window.renderBaseDashboard = renderDashboard;
 
   window.addEventListener("load", () => {
@@ -5286,6 +7584,7 @@ def write_results_dashboard_html(path: Path, payload: dict[str, Any]) -> None:
       Plotly.react("weatherTempPlot", [
         lineTrace("Temperature moyenne", weatherMonths, numSeries(weather, "avg_temp_c"), "#d62728"),
         lineTrace("Temperature p90", weatherMonths, numSeries(weather, "p90_temp_c"), "#ff7f0e", { dash: "dot" }),
+        lineTrace("Rechauffement applique", weatherMonths, numSeries(weather, "avg_warming_delta_c"), "#111111", { dash: "dot", width: 3 }),
         lineTrace("Heat index moyen", weatherMonths, numSeries(weather, "avg_heat_index_c"), "#7f3c8d", { dash: "dash" }),
         lineTrace("Heat index p90", weatherMonths, numSeries(weather, "p90_heat_index_c"), "#8c564b", { dash: "dashdot" })
       ], {
@@ -5429,25 +7728,25 @@ def write_results_dashboard_html(path: Path, payload: dict[str, Any]) -> None:
         margin: { l: 54, r: 62, t: 48, b: 52 },
         xaxis: { title: "Mois", gridcolor: "#eef2f7" },
         yaxis: { title: "Multiplicateur / indice", gridcolor: "#eef2f7", range: [0, 1.45] },
-        yaxis2: { title: "Service proxy (%)", overlaying: "y", side: "right", range: [0, 105], gridcolor: "rgba(0,0,0,0)" }
+        yaxis2: { title: "Service estime (%)", overlaying: "y", side: "right", range: [0, 105], gridcolor: "rgba(0,0,0,0)" }
       };
       Plotly.react("nodeOpsStatePlot", [
         lineTrace("Capacite appliquee moyenne", nodeOpsMonths, numSeries(nodeOps, "avg_capacity_applied"), "#2ca02c"),
         lineTrace("Capacite min", nodeOpsMonths, numSeries(nodeOps, "min_capacity_applied"), "#31a354", { dash: "dot" }),
-        lineTrace("Lead time moyen", nodeOpsMonths, numSeries(nodeOps, "avg_lead_time_multiplier"), "#7f3c8d"),
-        lineTrace("Disruption index", nodeOpsMonths, numSeries(nodeOps, "avg_disruption_index"), "#d62728", { width: 3 }),
-        lineTrace("Service proxy", nodeOpsMonths, numSeries(nodeOps, "avg_service_proxy_pct"), "#1f77b4", { yaxis: "y2" })
+        lineTrace("Delai moyen", nodeOpsMonths, numSeries(nodeOps, "avg_lead_time_multiplier"), "#7f3c8d"),
+        lineTrace("Perturbation moyenne", nodeOpsMonths, numSeries(nodeOps, "avg_disruption_index"), "#d62728", { width: 3 }),
+        lineTrace("Service estime", nodeOpsMonths, numSeries(nodeOps, "avg_service_proxy_pct"), "#1f77b4", { yaxis: "y2" })
       ], nodeOpsLayout, PLOT_CONFIG);
 
       const opEventTypes = [
         ["capacite_meteo_degradee", "Capacite meteo degradee", "#2ca02c"],
         ["capacite_appoint", "Capacite d'appoint", "#74c476"],
         ["retard_approvisionnement", "Retard approvisionnement", "#756bb1"],
-        ["congestion_logistique_inbound", "Congestion inbound", "#fd8d3c"],
-        ["congestion_logistique_outbound", "Congestion outbound", "#fdae6b"],
+        ["congestion_logistique_inbound", "Congestion amont", "#fd8d3c"],
+        ["congestion_logistique_outbound", "Congestion aval", "#fdae6b"],
         ["recalage_qualite", "Recalage qualite", "#636363"],
         ["maintenance_corrective_meteo", "Maintenance meteo", "#d62728"],
-        ["overtime_energetique", "Overtime energetique", "#ff7f0e"],
+        ["overtime_energetique", "Surconsommation energetique", "#ff7f0e"],
         ["froid_transport_ou_site", "Froid transport/site", "#17becf"]
       ];
       Plotly.react("nodeOpsEventPlot", opEventTypes.map(([key, label, color]) => (
@@ -5471,7 +7770,7 @@ def write_results_dashboard_html(path: Path, payload: dict[str, Any]) -> None:
       }], {
         ...plotLayout("Noeuds: disruption operationnelle par region"),
         margin: { l: 150, r: 18, t: 48, b: 52 },
-        xaxis: { title: "Disruption moyenne", gridcolor: "#eef2f7" },
+        xaxis: { title: "Perturbation moyenne", gridcolor: "#eef2f7" },
         yaxis: { automargin: true, autorange: "reversed" }
       }, PLOT_CONFIG);
 
@@ -5506,12 +7805,12 @@ def write_results_dashboard_html(path: Path, payload: dict[str, Any]) -> None:
         margin: { l: 54, r: 62, t: 48, b: 52 },
         xaxis: { title: "Mois", gridcolor: "#eef2f7" },
         yaxis: { title: "Service / disruption", gridcolor: "#eef2f7", range: [0, 1.05] },
-        yaxis2: { title: "Backlog kg / chemins", overlaying: "y", side: "right", gridcolor: "rgba(0,0,0,0)" }
+        yaxis2: { title: "Retard kg / chemins", overlaying: "y", side: "right", gridcolor: "rgba(0,0,0,0)" }
       };
       Plotly.react("sddServicePlot", [
         lineTrace("Service OEM moyen", sddMonths, numSeries(sddMonthly, "avg_oem_service_level"), "#2ca02c", { width: 3 }),
-        lineTrace("Disruption moyenne", sddMonths, numSeries(sddMonthly, "avg_path_disruption_index"), "#d62728"),
-        barTrace("Backlog OEM", sddMonths, numSeries(sddMonthly, "oem_backlog_kg"), "#c6dbef", { yaxis: "y2", opacity: 0.45 }),
+        lineTrace("Perturbation moyenne", sddMonths, numSeries(sddMonthly, "avg_path_disruption_index"), "#d62728"),
+        barTrace("Retard OEM", sddMonths, numSeries(sddMonthly, "oem_backlog_kg"), "#c6dbef", { yaxis: "y2", opacity: 0.45 }),
         lineTrace("Chemins affectes", sddMonths, numSeries(sddMonthly, "affected_path_count"), "#756bb1", { yaxis: "y2", dash: "dot" })
       ], sddServiceLayout, PLOT_CONFIG);
 
@@ -5550,13 +7849,13 @@ def write_results_dashboard_html(path: Path, payload: dict[str, Any]) -> None:
         yaxis2: { title: "SDD mensuel kgCO2e", overlaying: "y", side: "right", gridcolor: "rgba(0,0,0,0)" }
       };
       Plotly.react("sddImpactStackPlot", [
-        barTrace("Backup matiere", sddMonths, numSeries(sddMonthly, "backup_material"), "#9ecae1"),
-        barTrace("Transport premium", sddMonths, numSeries(sddMonthly, "premium_transport"), "#fd8d3c"),
-        barTrace("Scrap / rework", sddMonths, numSeries(sddMonthly, "scrap_rework"), "#756bb1"),
-        barTrace("Energie capacite", sddMonths, numSeries(sddMonthly, "capacity_energy"), "#ff7f0e"),
+        barTrace("Approvisionnement alternatif", sddMonths, numSeries(sddMonthly, "backup_material"), "#9ecae1"),
+        barTrace("Transport accelere", sddMonths, numSeries(sddMonthly, "premium_transport"), "#fd8d3c"),
+        barTrace("Rebut et reprise", sddMonths, numSeries(sddMonthly, "scrap_rework"), "#756bb1"),
+        barTrace("Energie d'appoint", sddMonths, numSeries(sddMonthly, "capacity_energy"), "#ff7f0e"),
         barTrace("Maintenance", sddMonths, numSeries(sddMonthly, "maintenance"), "#636363"),
-        barTrace("Backlog", sddMonths, numSeries(sddMonthly, "backlog_penalty"), "#bdbdbd"),
-        lineTrace("SDD mensuel", sddMonths, numSeries(sddMonthly, "sdd_kgCO2e"), "#d62728", { yaxis: "y2", width: 3 })
+        barTrace("Retard non absorbe", sddMonths, numSeries(sddMonthly, "backlog_penalty"), "#bdbdbd"),
+        lineTrace("Impact dynamique mensuel", sddMonths, numSeries(sddMonthly, "sdd_kgCO2e"), "#d62728", { yaxis: "y2", width: 3 })
       ], sddImpactLayout, PLOT_CONFIG);
 
       const sddCumulative = KPI_PAYLOAD.sdd_cumulative || [];
@@ -5575,17 +7874,17 @@ def write_results_dashboard_html(path: Path, payload: dict[str, Any]) -> None:
       const ops = KPI_PAYLOAD.ops_month || [];
       const opsMonths = ops.map(r => r.month_index);
       const opsLayout = {
-        ...plotLayout("Proxies operationnels derives des evenements meteo"),
+        ...plotLayout("Indicateurs operationnels derives des evenements meteo"),
         margin: { l: 54, r: 62, t: 48, b: 52 },
         xaxis: { title: "Mois", gridcolor: "#eef2f7" },
         yaxis: { title: "Multiplicateur", gridcolor: "#eef2f7", range: [0.72, 1.45] },
         yaxis2: { title: "Nombre d'evenements", overlaying: "y", side: "right", gridcolor: "rgba(0,0,0,0)" }
       };
       Plotly.react("opsProxyPlot", [
-        barTrace("Event seeds", opsMonths, numSeries(ops, "event_count"), "#c6dbef", { yaxis: "y2", opacity: 0.52 }),
+        barTrace("Evenements simules", opsMonths, numSeries(ops, "event_count"), "#c6dbef", { yaxis: "y2", opacity: 0.52 }),
         lineTrace("Capacite appliquee min", opsMonths, numSeries(ops, "capacity_multiplier_min"), "#2ca02c"),
-        lineTrace("Lead time max", opsMonths, numSeries(ops, "lead_time_multiplier_max"), "#7f3c8d"),
-        lineTrace("Scrap max", opsMonths, numSeries(ops, "scrap_multiplier_max"), "#d62728")
+        lineTrace("Delai max", opsMonths, numSeries(ops, "lead_time_multiplier_max"), "#7f3c8d"),
+        lineTrace("Taux de rebut max", opsMonths, numSeries(ops, "scrap_multiplier_max"), "#d62728")
       ], opsLayout, PLOT_CONFIG);
 
       const ha = KPI_PAYLOAD.horizon_adaptation || {};
@@ -5597,7 +7896,7 @@ def write_results_dashboard_html(path: Path, payload: dict[str, Any]) -> None:
         ["evt_tempete_inondation", "Tempete / inondation", "#1f77b4"],
         ["evt_maintenance_corrective", "Maintenance corrective", "#2ca02c"],
         ["evt_congestion_logistique", "Congestion logistique", "#fd8d3c"],
-        ["evt_overtime_energetique", "Overtime energetique", "#756bb1"],
+        ["evt_overtime_energetique", "Surconsommation energetique", "#756bb1"],
         ["evt_capacite_appoint", "Capacite d'appoint", "#e377c2"],
         ["evt_recalage_qualite", "Recalage qualite", "#636363"]
       ];
@@ -5614,9 +7913,9 @@ def write_results_dashboard_html(path: Path, payload: dict[str, Any]) -> None:
       const haStateMonths = haState.map(r => r.month_index);
       const policyTitle = ha.policy_label ? ` (${ha.policy_label})` : "";
       Plotly.react("haSystemPlot", [
-        lineTrace("Backlog", haStateMonths, numSeries(haState, "backlog_end"), "#111111"),
+        lineTrace("Retard", haStateMonths, numSeries(haState, "backlog_end"), "#111111"),
         lineTrace("Capacite appliquee", haStateMonths, numSeries(haState, "capacity_applied"), "#2ca02c"),
-        lineTrace("Production backup", haStateMonths, numSeries(haState, "good_output_backup_units"), "#756bb1"),
+        lineTrace("Production de secours", haStateMonths, numSeries(haState, "good_output_backup_units"), "#756bb1"),
         lineTrace("Disponibilite matiere principale", haStateMonths, scaledSeries(haState, "primary_supply_availability_applied", 100), "#31a354", { dash: "dot" })
       ], {
         ...plotLayout(`Reference horizon-adaptation: supply chain${policyTitle}`),
@@ -5688,8 +7987,8 @@ def write_results_dashboard_html(path: Path, payload: dict[str, Any]) -> None:
         yaxis2: { title: "Surimpact cumule", overlaying: "y", side: "right", gridcolor: "rgba(0,0,0,0)" }
       };
       Plotly.react("haEventImpactPlot", [
-        barTrace("Backup matiere", haImpactMonths, numSeries(haImpact, "surimpact_matiere"), "#9ecae1"),
-        barTrace("Inbound premium", haImpactMonths, numSeries(haImpact, "surimpact_inbound"), "#6baed6"),
+        barTrace("Approvisionnement alternatif", haImpactMonths, numSeries(haImpact, "surimpact_matiere"), "#9ecae1"),
+        barTrace("Transport amont accelere", haImpactMonths, numSeries(haImpact, "surimpact_inbound"), "#6baed6"),
         barTrace("Transport aval air", haImpactMonths, numSeries(haImpact, "surimpact_transport_aval"), "#fd8d3c"),
         barTrace("Rebut / recalage", haImpactMonths, numSeries(haImpact, "surimpact_rebut"), "#756bb1"),
         lineTrace("Surimpact cumule", haImpactMonths, numSeries(haImpact, "surimpact_cumule"), "#d62728", { yaxis: "y2", width: 3 })
@@ -5725,20 +8024,23 @@ def write_results_dashboard_html(path: Path, payload: dict[str, Any]) -> None:
 
       const months = (KPI_PAYLOAD.event_month || []).map(r => r.month_index);
       const eventTypes = ["heatwave", "drought", "storm", "hurricane", "cold"];
+      const eventLabels = { heatwave: "Canicule", drought: "Secheresse", storm: "Tempete", hurricane: "Ouragan", cold: "Froid" };
       const eventColors = { heatwave: "#d62728", drought: "#ff7f0e", storm: "#1f77b4", hurricane: "#9467bd", cold: "#17becf" };
       const traces = eventTypes.map(type => ({
         type: "bar",
-        name: type,
+        name: eventLabels[type] || type,
         x: months,
         y: (KPI_PAYLOAD.event_month || []).map(r => Number(r[type] || 0)),
         marker: { color: eventColors[type] || "#5e6a7d" },
-        hovertemplate: `${type}<br>mois=%{x}<br>events=%{y}<extra></extra>`
+        hovertemplate: `${eventLabels[type] || type}<br>mois=%{x}<br>evenements=%{y}<extra></extra>`
       }));
+      traces.push(lineTrace("Facteur d'intensification climatique", months, numSeries(weather, "avg_hazard_intensification_factor"), "#111111", { yaxis: "y2", dash: "dot", width: 3 }));
       Plotly.react("eventMonthPlot", traces, {
-        ...plotLayout("Event seeds meteo par mois"),
+        ...plotLayout("Evenements meteo simules par mois"),
         barmode: "stack",
         xaxis: { title: "Mois", gridcolor: "#eef2f7" },
-        yaxis: { title: "Nombre d'evenements", gridcolor: "#eef2f7" }
+        yaxis: { title: "Nombre d'evenements", gridcolor: "#eef2f7" },
+        yaxis2: { title: "Facteur climatique", overlaying: "y", side: "right", gridcolor: "rgba(0,0,0,0)" }
       }, PLOT_CONFIG);
     }
 
@@ -5833,9 +8135,15 @@ def write_run_package(
             "node_operational_state": summary["counts"].get("node_operational_rows", 0) > 0,
             "operational_event_lineage": summary["counts"].get("operational_event_rows", 0) > 0,
             "sdd_stateful_supply_engine": summary["counts"].get("sdd_flow_state_rows", 0) > 0,
+            "sdd_brightway_inventory_delta": summary["counts"].get("sdd_brightway_inventory_delta_rows", 0) > 0,
+            "sdd_brightway_exchange_delta": summary["counts"].get("sdd_brightway_exchange_delta_rows", 0) > 0,
+            "sdd_brightway_exchange_lcia": summary["counts"].get("sdd_brightway_exchange_lcia_rows", 0) > 0,
             "brightway_supply_lca_source": summary["counts"].get("brightway_component_impacts", 0) > 0,
             "brightway_person_equivalent_units": summary["counts"].get("brightway_person_equivalent_indicators", 0) > 0,
             "brightway_regionalized_parametric_scenarios": summary["counts"].get("brightway_parametric_regional_scenarios", 0) > 0,
+            "brightway_exact_scenario_lcia": summary["counts"].get("brightway_exact_scenario_lcia", 0) > 0,
+            "brightway_excel_runtime_comparison": summary["counts"].get("brightway_excel_runtime_comparison", 0) > 0,
+            "brightway_usage_calibration": summary["counts"].get("brightway_usage_calibration", 0) > 0,
             "brightway_runtime_available": bool(summary.get("brightway_model", {}).get("runtime", {}).get("can_execute_brightway")),
         },
         "entrypoints": {
@@ -5856,6 +8164,21 @@ def write_run_package(
             "sdd_event_ledger": "../data/sdd_event_ledger.csv",
             "sdd_monthly_impacts": "../data/sdd_monthly_impacts.csv",
             "sdd_cumulative_impacts": "../data/sdd_cumulative_impacts.csv",
+            "sdd_brightway_inventory_delta": "../data/sdd_brightway_inventory_delta.csv",
+            "sdd_brightway_exchange_delta": "../data/sdd_brightway_exchange_delta.csv",
+            "sdd_brightway_exchange_category_totals": "../data/sdd_brightway_exchange_category_totals.csv",
+            "sdd_brightway_top_exchanges": "../data/sdd_brightway_top_exchanges.csv",
+            "sdd_brightway_exchange_lcia": "../data/sdd_brightway_exchange_lcia.csv",
+            "sdd_brightway_exchange_lcia_factors": "../data/sdd_brightway_exchange_lcia_factors.csv",
+            "sdd_brightway_exchange_lcia_category_totals": "../data/sdd_brightway_exchange_lcia_category_totals.csv",
+            "sdd_brightway_exchange_lcia_monthly": "../data/sdd_brightway_exchange_lcia_monthly.csv",
+            "sdd_brightway_exchange_lcia_top": "../data/sdd_brightway_exchange_lcia_top.csv",
+            "sdd_brightway_exchange_lcia_status": "../data/sdd_brightway_exchange_lcia_status.csv",
+            "sdd_brightway_monthly": "../data/sdd_brightway_monthly.csv",
+            "sdd_brightway_cumulative": "../data/sdd_brightway_cumulative.csv",
+            "sdd_brightway_mechanism_totals": "../data/sdd_brightway_mechanism_totals.csv",
+            "sdd_brightway_top_sites": "../data/sdd_brightway_top_sites.csv",
+            "sdd_brightway_top_components": "../data/sdd_brightway_top_components.csv",
             "sdd_method_comparison": "../summaries/sdd_method_comparison.json",
             "brightway_component_impacts": "../data/brightway_component_impacts.csv",
             "brightway_indicator_summary": "../data/brightway_indicator_summary.csv",
@@ -5863,6 +8186,7 @@ def write_run_package(
             "brightway_reference_person_equivalent_results": "../data/brightway_reference_person_equivalent_results.csv",
             "brightway_reference_weighted_results": "../data/brightway_reference_weighted_results.csv",
             "brightway_reference_phase_breakdown": "../data/brightway_reference_phase_breakdown.csv",
+            "brightway_reference_use_phase_components": "../data/brightway_reference_use_phase_components.csv",
             "brightway_reference_scenarios": "../data/brightway_reference_scenarios.csv",
             "brightway_reference_weighting_factors": "../data/brightway_reference_weighting_factors.csv",
             "brightway_reference_climate_contributors": "../data/brightway_reference_climate_contributors.csv",
@@ -5876,6 +8200,9 @@ def write_run_package(
             "brightway_parametric_sensitivity": "../data/brightway_parametric_sensitivity.csv",
             "brightway_parametric_switches": "../data/brightway_parametric_switches.csv",
             "brightway_parametric_regional_scenarios": "../data/brightway_parametric_regional_scenarios.csv",
+            "brightway_exact_scenario_lcia": "../data/brightway_exact_scenario_lcia.csv",
+            "brightway_excel_runtime_comparison": "../data/brightway_excel_runtime_comparison.csv",
+            "brightway_usage_calibration": "../data/brightway_usage_calibration.csv",
             "brightway_model_summary": "../summaries/brightway_model_summary.json",
             "general_kpis": "../summaries/general_kpis.json",
             "base_results_map": "../maps/supply_geo_base_results_map.html",
@@ -5934,6 +8261,11 @@ def build_supply_geo_case(
         horizon_months=horizon_months,
     )
     brightway_model = build_brightway_model_payload(tables["paths"])
+    sdd_brightway = build_sdd_brightway_coupling(
+        path_rows=tables["paths"],
+        sdd_results=sdd_results,
+        brightway_model=brightway_model,
+    )
 
     data_paths = {
         "paths": dirs["data"] / "primary_supply_paths.csv",
@@ -5951,12 +8283,28 @@ def build_supply_geo_case(
         "sdd_event_ledger": dirs["data"] / "sdd_event_ledger.csv",
         "sdd_monthly_impacts": dirs["data"] / "sdd_monthly_impacts.csv",
         "sdd_cumulative_impacts": dirs["data"] / "sdd_cumulative_impacts.csv",
+        "sdd_brightway_inventory_delta": dirs["data"] / "sdd_brightway_inventory_delta.csv",
+        "sdd_brightway_exchange_delta": dirs["data"] / "sdd_brightway_exchange_delta.csv",
+        "sdd_brightway_exchange_category_totals": dirs["data"] / "sdd_brightway_exchange_category_totals.csv",
+        "sdd_brightway_top_exchanges": dirs["data"] / "sdd_brightway_top_exchanges.csv",
+        "sdd_brightway_exchange_lcia": dirs["data"] / "sdd_brightway_exchange_lcia.csv",
+        "sdd_brightway_exchange_lcia_factors": dirs["data"] / "sdd_brightway_exchange_lcia_factors.csv",
+        "sdd_brightway_exchange_lcia_category_totals": dirs["data"] / "sdd_brightway_exchange_lcia_category_totals.csv",
+        "sdd_brightway_exchange_lcia_monthly": dirs["data"] / "sdd_brightway_exchange_lcia_monthly.csv",
+        "sdd_brightway_exchange_lcia_top": dirs["data"] / "sdd_brightway_exchange_lcia_top.csv",
+        "sdd_brightway_exchange_lcia_status": dirs["data"] / "sdd_brightway_exchange_lcia_status.csv",
+        "sdd_brightway_monthly": dirs["data"] / "sdd_brightway_monthly.csv",
+        "sdd_brightway_cumulative": dirs["data"] / "sdd_brightway_cumulative.csv",
+        "sdd_brightway_mechanism_totals": dirs["data"] / "sdd_brightway_mechanism_totals.csv",
+        "sdd_brightway_top_sites": dirs["data"] / "sdd_brightway_top_sites.csv",
+        "sdd_brightway_top_components": dirs["data"] / "sdd_brightway_top_components.csv",
         "brightway_component_impacts": dirs["data"] / "brightway_component_impacts.csv",
         "brightway_indicator_summary": dirs["data"] / "brightway_indicator_summary.csv",
         "brightway_indicator_unit_views": dirs["data"] / "brightway_indicator_unit_views.csv",
         "brightway_reference_person_equivalent_results": dirs["data"] / "brightway_reference_person_equivalent_results.csv",
         "brightway_reference_weighted_results": dirs["data"] / "brightway_reference_weighted_results.csv",
         "brightway_reference_phase_breakdown": dirs["data"] / "brightway_reference_phase_breakdown.csv",
+        "brightway_reference_use_phase_components": dirs["data"] / "brightway_reference_use_phase_components.csv",
         "brightway_reference_scenarios": dirs["data"] / "brightway_reference_scenarios.csv",
         "brightway_reference_weighting_factors": dirs["data"] / "brightway_reference_weighting_factors.csv",
         "brightway_reference_climate_contributors": dirs["data"] / "brightway_reference_climate_contributors.csv",
@@ -5970,6 +8318,9 @@ def build_supply_geo_case(
         "brightway_parametric_sensitivity": dirs["data"] / "brightway_parametric_sensitivity.csv",
         "brightway_parametric_switches": dirs["data"] / "brightway_parametric_switches.csv",
         "brightway_parametric_regional_scenarios": dirs["data"] / "brightway_parametric_regional_scenarios.csv",
+        "brightway_exact_scenario_lcia": dirs["data"] / "brightway_exact_scenario_lcia.csv",
+        "brightway_excel_runtime_comparison": dirs["data"] / "brightway_excel_runtime_comparison.csv",
+        "brightway_usage_calibration": dirs["data"] / "brightway_usage_calibration.csv",
         "skipped": dirs["data"] / "skipped_records.csv",
     }
     write_csv(data_paths["paths"], tables["paths"])
@@ -5987,12 +8338,34 @@ def build_supply_geo_case(
     write_csv(data_paths["sdd_event_ledger"], sdd_results["sdd_event_ledger"])
     write_csv(data_paths["sdd_monthly_impacts"], sdd_results["sdd_monthly_impacts"])
     write_csv(data_paths["sdd_cumulative_impacts"], sdd_results["sdd_cumulative_impacts"])
+    write_csv(data_paths["sdd_brightway_inventory_delta"], sdd_brightway["inventory_delta"])
+    write_csv(data_paths["sdd_brightway_exchange_delta"], sdd_brightway["exchange_delta"])
+    sdd_exchange_lcia = run_sdd_exchange_brightway_lcia(
+        brightway_model.get("runtime", {}),
+        data_paths["sdd_brightway_exchange_delta"],
+        climate_normalization_factor(brightway_model.get("indicator_unit_views", [])),
+    )
+    sdd_brightway.update(sdd_exchange_lcia)
+    write_csv(data_paths["sdd_brightway_exchange_category_totals"], sdd_brightway["exchange_category_totals"])
+    write_csv(data_paths["sdd_brightway_top_exchanges"], sdd_brightway["top_exchanges"])
+    write_csv(data_paths["sdd_brightway_exchange_lcia"], sdd_brightway["exchange_lcia"])
+    write_csv(data_paths["sdd_brightway_exchange_lcia_factors"], sdd_brightway["exchange_lcia_factors"])
+    write_csv(data_paths["sdd_brightway_exchange_lcia_category_totals"], sdd_brightway["exchange_lcia_category_totals"])
+    write_csv(data_paths["sdd_brightway_exchange_lcia_monthly"], sdd_brightway["exchange_lcia_monthly"])
+    write_csv(data_paths["sdd_brightway_exchange_lcia_top"], sdd_brightway["exchange_lcia_top"])
+    write_csv(data_paths["sdd_brightway_exchange_lcia_status"], sdd_brightway["exchange_lcia_status"])
+    write_csv(data_paths["sdd_brightway_monthly"], sdd_brightway["monthly"])
+    write_csv(data_paths["sdd_brightway_cumulative"], sdd_brightway["cumulative"])
+    write_csv(data_paths["sdd_brightway_mechanism_totals"], sdd_brightway["mechanism_totals"])
+    write_csv(data_paths["sdd_brightway_top_sites"], sdd_brightway["top_sites"])
+    write_csv(data_paths["sdd_brightway_top_components"], sdd_brightway["top_components"])
     write_csv(data_paths["brightway_component_impacts"], brightway_model["component_impacts"])
     write_csv(data_paths["brightway_indicator_summary"], brightway_model["indicator_summary"])
     write_csv(data_paths["brightway_indicator_unit_views"], brightway_model["indicator_unit_views"])
     write_csv(data_paths["brightway_reference_person_equivalent_results"], brightway_model["reference_person_equivalent_results"])
     write_csv(data_paths["brightway_reference_weighted_results"], brightway_model["reference_weighted_results"])
     write_csv(data_paths["brightway_reference_phase_breakdown"], brightway_model["reference_phase_breakdown"])
+    write_csv(data_paths["brightway_reference_use_phase_components"], brightway_model["reference_use_phase_components"])
     write_csv(data_paths["brightway_reference_scenarios"], brightway_model["reference_scenarios"])
     write_csv(data_paths["brightway_reference_weighting_factors"], brightway_model["reference_weighting_factors"])
     write_csv(data_paths["brightway_reference_climate_contributors"], brightway_model["reference_climate_contributors"])
@@ -6006,6 +8379,9 @@ def build_supply_geo_case(
     write_csv(data_paths["brightway_parametric_sensitivity"], brightway_model["parametric_sensitivity"])
     write_csv(data_paths["brightway_parametric_switches"], brightway_model["parametric_switches"])
     write_csv(data_paths["brightway_parametric_regional_scenarios"], brightway_model["parametric_regional_scenarios"])
+    write_csv(data_paths["brightway_exact_scenario_lcia"], brightway_model["exact_scenario_lcia"])
+    write_csv(data_paths["brightway_excel_runtime_comparison"], brightway_model["excel_runtime_comparison"])
+    write_csv(data_paths["brightway_usage_calibration"], brightway_model["usage_calibration"])
     write_csv(data_paths["skipped"], tables["skipped_records"], fieldnames=["record_index", "system", "component", "missing_roles"])
 
     map_ref = {
@@ -6031,6 +8407,7 @@ def build_supply_geo_case(
         node_operational_rows=node_operational_rows,
         operational_event_rows=operational_event_rows,
         sdd_results=sdd_results,
+        sdd_brightway=sdd_brightway,
         brightway_model=brightway_model,
     )
     summary_path = dirs["summaries"] / "primary_supply_case_summary.json"
@@ -6051,6 +8428,8 @@ def build_supply_geo_case(
             "parametric_levers": brightway_model.get("parametric_levers", []),
             "parametric_switches": brightway_model.get("parametric_switches", []),
             "parametric_regional_scenarios": brightway_model.get("parametric_regional_scenarios", []),
+            "exact_scenario_lcia": brightway_model.get("exact_scenario_lcia", []),
+            "excel_runtime_comparison": brightway_model.get("excel_runtime_comparison", []),
             "indicator_unit_views": brightway_model.get("indicator_unit_views", []),
             "reference_person_equivalent_results": brightway_model.get("reference_person_equivalent_results", []),
             "reference_weighted_results": brightway_model.get("reference_weighted_results", []),
@@ -6074,6 +8453,7 @@ def build_supply_geo_case(
         node_operational_rows=node_operational_rows,
         operational_event_rows=operational_event_rows,
         sdd_results=sdd_results,
+        sdd_brightway=sdd_brightway,
         brightway_model=brightway_model,
         map_src=browser_rel(base_results_map_path, dirs["maps"]),
     )
@@ -6106,12 +8486,28 @@ def build_supply_geo_case(
         (data_paths["sdd_event_ledger"], "data", "sdd_event_ledger", "sdd_event", False),
         (data_paths["sdd_monthly_impacts"], "data", "sdd_monthly_impacts", "month", True),
         (data_paths["sdd_cumulative_impacts"], "data", "sdd_cumulative_impacts", "month", True),
+        (data_paths["sdd_brightway_inventory_delta"], "data", "sdd_brightway_inventory_delta", "sdd_brightway_delta", True),
+        (data_paths["sdd_brightway_exchange_delta"], "data", "sdd_brightway_exchange_delta", "sdd_brightway_exchange_delta", True),
+        (data_paths["sdd_brightway_exchange_category_totals"], "data", "sdd_brightway_exchange_category_totals", "exchange_category", True),
+        (data_paths["sdd_brightway_top_exchanges"], "data", "sdd_brightway_top_exchanges", "exchange", True),
+        (data_paths["sdd_brightway_exchange_lcia"], "data", "sdd_brightway_exchange_lcia", "sdd_brightway_exchange_lcia", True),
+        (data_paths["sdd_brightway_exchange_lcia_factors"], "data", "sdd_brightway_exchange_lcia_factors", "exchange_factor", True),
+        (data_paths["sdd_brightway_exchange_lcia_category_totals"], "data", "sdd_brightway_exchange_lcia_category_totals", "exchange_category", True),
+        (data_paths["sdd_brightway_exchange_lcia_monthly"], "data", "sdd_brightway_exchange_lcia_monthly", "month", True),
+        (data_paths["sdd_brightway_exchange_lcia_top"], "data", "sdd_brightway_exchange_lcia_top", "exchange", True),
+        (data_paths["sdd_brightway_exchange_lcia_status"], "data", "sdd_brightway_exchange_lcia_status", "case", True),
+        (data_paths["sdd_brightway_monthly"], "data", "sdd_brightway_monthly", "month", True),
+        (data_paths["sdd_brightway_cumulative"], "data", "sdd_brightway_cumulative", "month", True),
+        (data_paths["sdd_brightway_mechanism_totals"], "data", "sdd_brightway_mechanism_totals", "mechanism", True),
+        (data_paths["sdd_brightway_top_sites"], "data", "sdd_brightway_top_sites", "site", True),
+        (data_paths["sdd_brightway_top_components"], "data", "sdd_brightway_top_components", "component", True),
         (data_paths["brightway_component_impacts"], "data", "brightway_component_impacts", "component_indicator", True),
         (data_paths["brightway_indicator_summary"], "data", "brightway_indicator_summary", "indicator", True),
         (data_paths["brightway_indicator_unit_views"], "data", "brightway_indicator_unit_views", "indicator_unit", True),
         (data_paths["brightway_reference_person_equivalent_results"], "data", "brightway_reference_person_equivalent_results", "indicator", True),
         (data_paths["brightway_reference_weighted_results"], "data", "brightway_reference_weighted_results", "indicator", True),
         (data_paths["brightway_reference_phase_breakdown"], "data", "brightway_reference_phase_breakdown", "indicator_phase", True),
+        (data_paths["brightway_reference_use_phase_components"], "data", "brightway_reference_use_phase_components", "usage_component", True),
         (data_paths["brightway_reference_scenarios"], "data", "brightway_reference_scenarios", "scenario_phase", True),
         (data_paths["brightway_reference_weighting_factors"], "data", "brightway_reference_weighting_factors", "weighting_factor", True),
         (data_paths["brightway_reference_climate_contributors"], "data", "brightway_reference_climate_contributors", "climate_contributor", True),
@@ -6125,6 +8521,9 @@ def build_supply_geo_case(
         (data_paths["brightway_parametric_sensitivity"], "data", "brightway_parametric_sensitivity", "lever_exchange", True),
         (data_paths["brightway_parametric_switches"], "data", "brightway_parametric_switches", "switch", True),
         (data_paths["brightway_parametric_regional_scenarios"], "data", "brightway_parametric_regional_scenarios", "regional_scenario", True),
+        (data_paths["brightway_exact_scenario_lcia"], "data", "brightway_exact_scenario_lcia", "exact_lcia_scenario", True),
+        (data_paths["brightway_excel_runtime_comparison"], "data", "brightway_excel_runtime_comparison", "runtime_reference_comparison", True),
+        (data_paths["brightway_usage_calibration"], "data", "brightway_usage_calibration", "usage_calibration", True),
         (data_paths["skipped"], "data", "skipped_records", "record", False),
         (summary_path, "summaries", "primary_supply_case_summary", "case", True),
         (sdd_method_path, "summaries", "sdd_method_comparison", "case", True),

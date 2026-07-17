@@ -4591,6 +4591,7 @@ def html_template(
         title.includes("stock physique et cible physique") ||
         title.includes("stock physique et seuil mrp") ||
         title.includes("stock physique vs consigne physique") ||
+        title.includes("besoins intrants") ||
         title.includes("pilotage mrp") ||
         title.includes("receptions physiques intrants")
       ) return "factory_input";
@@ -13030,27 +13031,35 @@ def html_template(
           hovertemplate: "Jour=%{{x}}<br>Enveloppe haute=%{{y:.2f}}<extra></extra>",
         }});
       }}
+      const namedScenarioTrajectories = Boolean(figure.named_scenario_trajectories);
       rawSeries.forEach((series, idx) => {{
         const map = seriesMaps[idx].valuesByDay;
         const y = days.map(day => {{
           const value = Number(map.get(day));
           return Number.isFinite(value) ? value : null;
         }});
+        const isNominalSeries = Boolean(series.is_nominal);
+        const isCurrentSeries = Boolean(series.is_current);
+        const isMaxImpactSeries = Boolean(series.is_max_impact);
+        const namedColor = isNominalSeries ? "#111827" : isCurrentSeries ? "#d97706" : isMaxImpactSeries ? "#be123c" : (series.color || palette[idx % palette.length]);
+        const namedWidth = isNominalSeries ? 2.3 : isCurrentSeries || isMaxImpactSeries ? 2.5 : 1.7;
         traces.push({{
           type: "scatter",
           mode: "lines",
-          name: idx === 0 ? (figure.trajectory_label || "Trajectoires scenarios") : "trajectoire scenario",
+          name: namedScenarioTrajectories ? (series.label || `Scenario ${{idx + 1}}`) : (idx === 0 ? (figure.trajectory_label || "Trajectoires scenarios") : "trajectoire scenario"),
           x: days,
           y,
           line: {{
-            width: fanBandsEnabled ? 0.35 : 0.60,
-            color: fanBandsEnabled ? "rgba(100,116,139,0.34)" : "rgba(100,116,139,0.48)",
+            width: namedScenarioTrajectories ? namedWidth : (fanBandsEnabled ? 0.35 : 0.60),
+            color: namedScenarioTrajectories ? namedColor : (fanBandsEnabled ? "rgba(100,116,139,0.34)" : "rgba(100,116,139,0.48)"),
+            dash: namedScenarioTrajectories ? (series.dash || "solid") : "solid",
             shape: figure.step_like ? "hv" : "linear",
           }},
-          opacity: 1.0,
-          hoverinfo: "skip",
-          showlegend: idx === 0,
-          legendgroup: "all-trajectories",
+          opacity: namedScenarioTrajectories ? 0.92 : 1.0,
+          hoverinfo: namedScenarioTrajectories ? undefined : "skip",
+          hovertemplate: namedScenarioTrajectories ? `${{series.label || "Scenario"}}<br>Jour=%{{x}}<br>Valeur=%{{y:.2f}}<extra></extra>` : undefined,
+          showlegend: namedScenarioTrajectories ? true : idx === 0,
+          legendgroup: namedScenarioTrajectories ? `scenario-${{series.scenario_id || idx}}` : "all-trajectories",
         }});
       }});
       traces.push({{
@@ -13067,7 +13076,7 @@ def html_template(
         }},
         hovertemplate: "Mediane<br>Jour=%{{x}}<br>Valeur=%{{y:.2f}}<extra></extra>",
       }});
-      const highlightSeries = rawSeries.filter(series => (
+      const highlightSeries = namedScenarioTrajectories ? [] : rawSeries.filter(series => (
         Boolean(series.is_nominal) || Boolean(series.is_current) || Boolean(series.is_max_impact)
       ));
       highlightSeries.forEach((series) => {{
@@ -13163,6 +13172,7 @@ def html_template(
         const highFiltered = filterSeriesByTimeline(days, band.high || []);
         if (!lowFiltered.days.length || !highFiltered.days.length) return;
         const label = band.label || `Input ${{idx + 1}}`;
+        const aggregationLabel = band.aggregation_label || band.aggregation || "agregation de groupe";
         const inputLow = Number(band.low_input);
         const inputHigh = Number(band.high_input);
         const inputText = Number.isFinite(inputLow) && Number.isFinite(inputHigh)
@@ -13207,7 +13217,7 @@ def html_template(
           line: {{ width: 1.1, color: lineColor, shape: figure.step_like ? "hv" : "linear" }},
           opacity: 0.95,
           legendgroup: `factor-tube-${{idx}}`,
-          hovertemplate: `${{label}}<br>${{inputText}}<br>Jour=%{{x}}<br>Borne haute=%{{y:.2f}}<extra></extra>`,
+          hovertemplate: `${{label}}<br>${{aggregationLabel}}<br>${{inputText}}<br>Jour=%{{x}}<br>Borne haute=%{{y:.2f}}<extra></extra>`,
         }});
       }});
       const nominal = figure.nominal || null;
@@ -13780,7 +13790,7 @@ def html_template(
           dynamicAnchor.insertAdjacentHTML("beforeend", `
             <section class="dataSummarySection">
               <div class="dataSummarySectionTitle">Propagation temporelle par parametre d'incertitude</div>
-              <div class="orderLedgerStatus">Lecture: chaque courbe est une zone. Elle compare les runs ou un input incertain fournisseur est bas avec les runs ou ce meme input est haut. La zone montre a quels moments cet input elargit l'incertitude sur le KPI; le nominal reste en noir. Cliquer sur une zone surligne le noeud ou le driver concerne sur la carte.</div>
+              <div class="orderLedgerStatus">Lecture: chaque courbe est une zone. Elle compare les runs ou un input incertain fournisseur est bas avec les runs ou ce meme input est haut. Pour les KPI continus, la zone suit la mediane des groupes; pour les KPI rares en pics, elle peut suivre une moyenne ou un percentile haut de groupe afin de ne pas effacer les evenements tardifs. Le nominal reste en noir. Cliquer sur une zone surligne le noeud ou le driver concerne sur la carte.</div>
               <div class="riskDiagnosticChartGrid">${{factorChartsHtml}}</div>
             </section>
           `);

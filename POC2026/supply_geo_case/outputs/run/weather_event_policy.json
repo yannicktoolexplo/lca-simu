@@ -2,6 +2,19 @@
   "enabled": true,
   "horizon_months": 240,
   "seed": 2026,
+  "climate_change": {
+    "enabled": true,
+    "warming_deg_c_at_horizon": 2.2,
+    "heatwave_factor_at_horizon": 1.75,
+    "drought_factor_at_horizon": 1.55,
+    "extreme_precip_factor_at_horizon": 1.35,
+    "storm_wind_factor_at_horizon": 1.25,
+    "hurricane_factor_at_horizon": 1.45,
+    "site_cold_factor_at_horizon": 0.85,
+    "maritime_storm_factor_at_horizon": 1.35,
+    "maritime_hurricane_factor_at_horizon": 1.45,
+    "maritime_cold_factor_at_horizon": 1.1
+  },
   "thresholds": {
     "heatwave_temp_c": 32.0,
     "heat_index_c": 35.0,

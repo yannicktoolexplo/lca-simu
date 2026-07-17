@@ -1,6 +1,6 @@
 {
   "schema_version": "poc2026.supply_geo_case.v1",
-  "generated_at_utc": "2026-07-15T12:08:49+00:00",
+  "generated_at_utc": "2026-07-16T16:11:01+00:00",
   "source": {
     "json_path": "C:\\dev\\lca-simu\\supply_geo\\analysis\\output8_GEO_normalized_simulation_ready_researched.json",
     "map_html": "C:\\dev\\lca-simu\\supply_geo\\analysis\\maps\\output8_GEO_simulation_ready_researched_map.html",
@@ -18,20 +18,29 @@
     "unique_sites": 103,
     "unique_flows": 143,
     "weather_rows": 24720,
-    "event_seed_rows": 9147,
+    "event_seed_rows": 9433,
     "transport_weather_rows": 12000,
     "node_operational_rows": 24720,
-    "operational_event_rows": 45416,
+    "operational_event_rows": 48603,
     "sdd_node_state_rows": 206400,
     "sdd_lane_state_rows": 165120,
     "sdd_flow_state_rows": 41280,
-    "sdd_event_ledger_rows": 158855,
+    "sdd_event_ledger_rows": 159433,
+    "sdd_brightway_inventory_delta_rows": 81147,
+    "sdd_brightway_exchange_delta_rows": 91616,
+    "sdd_brightway_exchange_lcia_rows": 91616,
+    "sdd_brightway_exchange_lcia_factor_rows": 14,
+    "sdd_brightway_monthly_rows": 240,
     "brightway_component_impacts": 259,
     "brightway_parameters": 684,
     "brightway_supply_alignment_rows": 172,
     "brightway_person_equivalent_indicators": 16,
     "brightway_reference_person_equivalent_results": 16,
-    "brightway_parametric_regional_scenarios": 4
+    "brightway_reference_use_phase_components": 3,
+    "brightway_parametric_regional_scenarios": 4,
+    "brightway_exact_scenario_lcia": 12,
+    "brightway_excel_runtime_comparison": 3,
+    "brightway_usage_calibration": 5
   },
   "mass": {
     "usable_record_mass_kg": 129.949472,
@@ -79,15 +88,15 @@
   },
   "event_type_counts": {
     "heatwave": 774,
-    "storm": 3010,
+    "storm": 3178,
     "cold": 3454,
-    "drought": 684,
-    "hurricane": 1225
+    "drought": 793,
+    "hurricane": 1234
   },
   "brightway_model": {
     "available": true,
     "runtime": {
-      "can_execute_brightway": false,
+      "can_execute_brightway": true,
       "modules": {
         "brightway25": false,
         "bw2data": false,
@@ -95,6 +104,34 @@
         "bw2calc": false,
         "lca_algebraic": false
       },
+      "project": "bw25-ecoinvent310",
+      "required_databases": [
+        "biosphere3",
+        "ecoinvent-3.10-cutoff",
+        "OPERA_siege"
+      ],
+      "current_python": {},
+      "external_python": {
+        "python": "C:\\dev\\lca-simu\\.venv-brightway\\Scripts\\python.exe",
+        "modules": {
+          "brightway25": true,
+          "bw2data": true,
+          "bw2io": true,
+          "bw2calc": true,
+          "lca_algebraic": true
+        },
+        "available": true,
+        "project": "bw25-ecoinvent310",
+        "databases": [
+          "OPERA_siege",
+          "biosphere3",
+          "ecoinvent-3.10-biosphere",
+          "ecoinvent-3.10-cutoff"
+        ],
+        "methods_count": 669,
+        "required_databases_present": true
+      },
+      "runtime_mode": "external_python",
       "note": "Brightway runtime is optional here; Excel exports from bw_tristan are used when the runtime is unavailable."
     },
     "counts": {
@@ -105,6 +142,7 @@
       "reference_person_equivalent_results": 16,
       "reference_weighted_results": 16,
       "reference_phase_breakdown_rows": 135,
+      "reference_use_phase_components": 3,
       "reference_scenarios": 14,
       "masterboard_equipment_summary_rows": 48,
       "masterboard_material_summary_rows": 64,
@@ -118,6 +156,9 @@
       "parametric_sensitivity_rows": 544,
       "parametric_switches": 2,
       "parametric_regional_scenarios": 4,
+      "exact_scenario_lcia": 12,
+      "excel_runtime_comparison": 3,
+      "usage_calibration": 5,
       "supply_alignment_rows": 172,
       "supply_alignment_matched_rows": 172,
       "supply_alignment_contributive_rows": 152,
@@ -130,7 +171,19 @@
       "masterboard_xlsx": "bw_tristan/STELIA Masterboard LCA SEATS 6.0.xlsx",
       "inventory_xlsx": "bw_tristan/opera_bw2 - inventaire.xlsx",
       "bw2package": "bw_tristan/OPERA_siege.bw2package",
-      "ef30_normalization_factors": "https://eplca.jrc.ec.europa.eu/permalink/Normalisation_Weighting_Factors_EF_3.0.xlsx"
+      "ef30_normalization_factors": "https://eplca.jrc.ec.europa.eu/permalink/Normalisation_Weighting_Factors_EF_3.0.xlsx",
+      "brightway_exact_scenario_script": "POC2026/supply_geo_case/tools/run_brightway_exact_scenarios.py"
+    }
+  },
+  "sdd_brightway_coupling": {
+    "available": true,
+    "counts": {
+      "inventory_delta_rows": 81147,
+      "exchange_delta_rows": 91616,
+      "exchange_lcia_rows": 91616,
+      "exchange_lcia_factor_rows": 14,
+      "monthly_rows": 240,
+      "mechanisms": 8
     }
   }
 }

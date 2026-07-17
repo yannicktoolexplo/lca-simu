@@ -119,6 +119,97 @@ class MonteCarloTrajectoryPayloadTest(unittest.TestCase):
         self.assertEqual(factor_figure["nominal"]["values"], [100.0, 100.0])
         self.assertIsNotNone(assets["overview_bundle"])
 
+    def test_supplier_capacity_binding_uses_event_sensitive_grouping(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            summary = root / "montecarlo_summary.json"
+            summary.write_text(
+                json.dumps(
+                    {
+                        "driver_rankings": {
+                            "kpi::total_supplier_capacity_binding_qty": [
+                                {"factor": "supplier_capacity_node::SDC-A", "correlation": 0.8},
+                            ],
+                            "kpi::total_cost": [
+                                {"factor": "capacity_node::M-1", "correlation": 0.9},
+                            ],
+                        }
+                    }
+                ),
+                encoding="utf-8",
+            )
+            fieldnames = [
+                "run_id",
+                "status",
+                "is_baseline",
+                "supplier_capacity_node::SDC-A",
+                "capacity_node::M-1",
+            ]
+            with (root / "montecarlo_samples.csv").open("w", encoding="utf-8", newline="") as handle:
+                writer = csv.DictWriter(handle, fieldnames=fieldnames)
+                writer.writeheader()
+                writer.writerow(
+                    {
+                        "run_id": "run_0000",
+                        "status": "ok",
+                        "is_baseline": "True",
+                        "supplier_capacity_node::SDC-A": "1.0",
+                        "capacity_node::M-1": "1.0",
+                    }
+                )
+                for idx in range(1, 21):
+                    writer.writerow(
+                        {
+                            "run_id": f"run_{idx:04d}",
+                            "status": "ok",
+                            "is_baseline": "False",
+                            "supplier_capacity_node::SDC-A": f"{0.5 + idx * 0.05:.2f}",
+                            "capacity_node::M-1": f"{1.5 - idx * 0.02:.2f}",
+                        }
+                    )
+            series = [
+                {"run_id": "run_0000", "label": "Nominal", "is_baseline": True, "values": [0, 0]},
+            ]
+            for idx in range(1, 21):
+                late_value = 1000 if idx == 20 else 0
+                series.append(
+                    {
+                        "run_id": f"run_{idx:04d}",
+                        "label": f"run_{idx:04d}",
+                        "is_baseline": False,
+                        "values": [0, late_value],
+                    }
+                )
+            (root / "montecarlo_trajectories.json").write_text(
+                json.dumps(
+                    {
+                        "schema_version": "etudecas.montecarlo_trajectories.v1",
+                        "days": [0, 1000],
+                        "run_count": 21,
+                        "stochastic_run_count": 20,
+                        "metrics": {
+                            "supplier_capacity_binding": {
+                                "label": "Contrainte capacite fournisseur",
+                                "y_label": "Quantite contrainte / jour",
+                                "bands": {"p50": [0, 0], "p95": [0, 1000]},
+                                "series": series,
+                            }
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            assets = build_montecarlo_trajectory_assets(summary)
+
+        factor_figure = assets["factor_tube_figures"]["supplier_capacity_binding"]
+        first_band = factor_figure["bands"][0]
+        self.assertEqual(first_band["label"], "Capacite fournisseur SDC-A")
+        self.assertEqual(first_band["aggregation"], "p90")
+        self.assertEqual(first_band["aggregation_label"], "percentile 90 de groupe")
+        self.assertGreater(first_band["high"][-1], 0)
+        self.assertIn("evenements tardifs", factor_figure["note"])
+
 
 if __name__ == "__main__":
     unittest.main()

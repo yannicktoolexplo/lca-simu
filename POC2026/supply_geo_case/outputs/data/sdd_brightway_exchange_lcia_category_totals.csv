@@ -1,0 +1,9 @@
+exchange_category,mapping_status,lcia_status,label,allocated_delta_kgco2e,allocated_abs_delta_kgco2e,exact_delta_kgco2e,exact_minus_allocated_kgco2e,exact_coverage_allocated_pct,row_count,exact_row_count,value
+energy,mapped_exchange,exact_lcia_factor,energy / mapped_exchange / exact_lcia_factor,6794.739733833,6794.739733833,5040.598984774,-1754.140749059,99.065103,31841,18180,5040.598984774
+transport,virtual_exchange_proxy,exact_lcia_factor,transport / virtual_exchange_proxy / exact_lcia_factor,64.600950205,64.600950205,64.430473468,-0.170476737,100.0,110,110,64.430473468
+maintenance_consumable,mapped_exchange,exact_lcia_factor,maintenance_consumable / mapped_exchange / exact_lcia_factor,560.823445154,560.823445154,1.180068295,-559.643376859,100.0,3120,3120,1.180068295
+proxy_unmapped,proxy_unmapped,not_calculated_proxy,proxy_unmapped / proxy_unmapped / not_calculated_proxy,903.052745353,903.052745353,0.0,-903.052745353,0.0,25330,0,0.0
+scrap_treatment,virtual_exchange_proxy,calibrated_sdd_proxy_not_exact,scrap_treatment / virtual_exchange_proxy / calibrated_sdd_proxy_not_exact,115.442103739,115.442103739,0.0,-115.442103739,0.0,7843,0,0.0
+supplier_overhead,virtual_exchange_proxy,calibrated_sdd_proxy_not_exact,supplier_overhead / virtual_exchange_proxy / calibrated_sdd_proxy_not_exact,1344.345149506,1344.345149506,0.0,-1344.345149506,0.0,8128,0,0.0
+recycling_credit,virtual_exchange_proxy,calibrated_sdd_proxy_not_exact,recycling_credit / virtual_exchange_proxy / calibrated_sdd_proxy_not_exact,-435.573745495,435.573745495,0.0,435.573745495,0.0,7622,0,0.0
+scrap_rework,virtual_exchange_proxy,calibrated_sdd_proxy_not_exact,scrap_rework / virtual_exchange_proxy / calibrated_sdd_proxy_not_exact,2180.153756538,2180.153756538,0.0,-2180.153756538,0.0,7622,0,0.0

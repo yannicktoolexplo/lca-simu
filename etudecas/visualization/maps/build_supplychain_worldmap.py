@@ -1629,6 +1629,7 @@ def build_factory_hover_images(
                     unit_category = KG_OVERSTOCK_CATEGORY_LABEL
                 unit_groups[unit_category].add(item_id)
             stock_entries: list[dict[str, Any]] = []
+            demand_entries: list[dict[str, Any]] = []
             mrp_entries: list[dict[str, Any]] = []
             receipt_entries: list[dict[str, Any]] = []
             for unit, scoped_item_ids in sorted(unit_groups.items(), key=lambda kv: (kv[0] == "unite non renseignee", kv[0])):
@@ -1657,17 +1658,43 @@ def build_factory_hover_images(
                 )
                 physical_figure = build_line_chart_figure(
                     physical_top_series,
-                    title=f"{display_factory_id} - stock physique et cible physique nette ({unit})",
+                    title=f"{display_factory_id} - stock physique vs consigne physique ({unit})",
                     y_label=f"Stock physique ({display_unit})",
                     series_styles=physical_top_styles,
                     lot_trace_category="factory_input",
                     note=(
-                        "Vue physique valorisable: stock reel et cible physique nette "
+                        "Vue physique valorisable: stock reel et consigne physique "
                         "= max(cible de position MRP - receptions futures MRP, 0). "
-                        "La cible est lissee sur 30 jours pour eviter les crenaux journaliers de pilotage. "
-                        "Un stock durablement au-dessus de cette cible correspond a du stock immobilise; "
+                        "La consigne est lissee sur 30 jours pour eviter les crenaux journaliers de pilotage. "
+                        "Un stock durablement au-dessus de cette consigne correspond a du stock immobilise; "
                         "la valeur industrielle de stock immobilise se compare a cette vue physique. "
                         "La vraie cible MRP de position et le pipeline restent dans Pilotage MRP."
+                    ),
+                )
+                gross_daily_requirement_series = mrp_metric_series_by_item(
+                    mrp_trace_rows,
+                    node_id=factory_id,
+                    item_ids=scoped_item_ids,
+                    item_labels=item_labels,
+                    value_field="bb_demand_signal_raw_qty",
+                    label_suffix="besoin brut / jour",
+                )
+                demand_figure = build_line_chart_figure(
+                    gross_daily_requirement_series,
+                    title=f"{display_factory_id} - besoins intrants quotidiens ({unit})",
+                    y_label=f"Besoin / jour ({display_unit})",
+                    series_styles=metric_series_styles_for_items(
+                        scoped_item_ids,
+                        item_labels=item_labels,
+                        label_suffix="besoin brut / jour",
+                        dash="solid",
+                        width=1.7,
+                    ),
+                    lot_trace_category="factory_input",
+                    note=(
+                        "Besoin brut journalier issu de la demande/BOM avant couverture par le stock, "
+                        "les receptions futures et les regles de lot. Le besoin net a commander reste "
+                        "dans Pilotage MRP."
                     ),
                 )
                 inventory_position_series = mrp_metric_series_by_item(
@@ -1748,8 +1775,8 @@ def build_factory_hover_images(
                     top_title=f"{display_factory_id} - position inventaire vs cible MRP ({unit})",
                     top_y_label=f"Position inventaire / cible MRP ({display_unit})",
                     top_series_map=mrp_top_series,
-                    bottom_title=f"{display_factory_id} - pipeline et besoin net MRP ({unit})",
-                    bottom_y_label=f"Pipeline / besoin net ({display_unit})",
+                    bottom_title=f"{display_factory_id} - receptions futures et besoin net MRP ({unit})",
+                    bottom_y_label=f"Receptions futures / besoin net ({display_unit})",
                     bottom_series_map=mrp_bottom_series,
                     top_series_styles=mrp_top_styles,
                     bottom_series_styles=mrp_bottom_styles,
@@ -1771,6 +1798,8 @@ def build_factory_hover_images(
                 )
                 if physical_figure is not None:
                     stock_entries.append({"label": unit, "asset": {"figure": physical_figure}})
+                if demand_figure is not None:
+                    demand_entries.append({"label": unit, "asset": {"figure": demand_figure}})
                 if mrp_figure is not None:
                     mrp_entries.append({"label": unit, "asset": {"figure": mrp_figure}})
                 if receipt_figure is not None:
@@ -1779,6 +1808,10 @@ def build_factory_hover_images(
                 {
                     "label": "Stock physique",
                     "asset": {"bundle": stock_entries} if len(stock_entries) > 1 else (stock_entries[0]["asset"] if stock_entries else None),
+                },
+                {
+                    "label": "Besoins",
+                    "asset": {"bundle": demand_entries} if len(demand_entries) > 1 else (demand_entries[0]["asset"] if demand_entries else None),
                 },
                 {
                     "label": "Pilotage MRP",
@@ -2412,7 +2445,7 @@ def mrp_physical_target_series_by_item(
             continue
         pts = rolling_average_points(pts, MRP_TARGET_DISPLAY_SMOOTHING_DAYS)
         item_name = item_labels.get(item_id, compact_item_label(item_id))
-        out[item_id] = (f"{item_name} - cible physique nette (moy. 30j)", sorted(pts, key=lambda it: it[0]))
+        out[item_id] = (f"{item_name} - consigne physique (moy. 30j)", sorted(pts, key=lambda it: it[0]))
     return out
 
 
@@ -11099,6 +11132,12 @@ def build_montecarlo_uncertainty_payload(summary_json: Path) -> dict[str, Any]:
             return fmt_qty(numeric, 0)
         return fmt_qty(numeric, 1)
 
+    def format_input_factor_value(value: Any) -> str:
+        numeric = to_float(value)
+        if numeric is None or math.isnan(numeric):
+            return "n/a"
+        return fmt_pct(numeric * 100.0, 0)
+
     def format_kpi_delta(metric: str, value: Any) -> str:
         numeric = to_float(value)
         if numeric is None or math.isnan(numeric):
@@ -11524,8 +11563,8 @@ def build_montecarlo_uncertainty_payload(summary_json: Path) -> dict[str, Any]:
             direction_text = "KPI augmente" if signed_delta >= 0 else "KPI baisse"
             link_text = "lien positif" if corr >= 0 else "lien negatif"
             domain_text = (
-                f"p05 {format_kpi_value(str(row.get('factor') or ''), row.get('input_p05'))} - "
-                f"p95 {format_kpi_value(str(row.get('factor') or ''), row.get('input_p95'))}"
+                f"p05 {format_input_factor_value(row.get('input_p05'))} - "
+                f"p95 {format_input_factor_value(row.get('input_p95'))}"
             )
             propagation_rows_html.append(
                 "<tr>"
@@ -11554,8 +11593,8 @@ def build_montecarlo_uncertainty_payload(summary_json: Path) -> dict[str, Any]:
             direction_text = "KPI augmente" if signed_delta >= 0 else "KPI baisse"
             link_text = "lien positif" if corr >= 0 else "lien negatif"
             domain_text = (
-                f"p05 {format_kpi_value(str(row.get('factor') or ''), row.get('input_p05'))} - "
-                f"p95 {format_kpi_value(str(row.get('factor') or ''), row.get('input_p95'))}"
+                f"p05 {format_input_factor_value(row.get('input_p05'))} - "
+                f"p95 {format_input_factor_value(row.get('input_p95'))}"
             )
             propagation_absolute_rows_html.append(
                 "<tr>"

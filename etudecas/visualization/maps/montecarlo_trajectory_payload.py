@@ -21,7 +21,7 @@ FACTOR_TUBE_METRIC_TARGETS = {
     "backlog": "kpi::ending_backlog",
     "production_delay_active_orders": "kpi::total_produced",
     "production_reports": "kpi::total_produced",
-    "supplier_capacity_binding": "kpi::total_cost",
+    "supplier_capacity_binding": "kpi::total_supplier_capacity_binding_qty",
     "total_supply_cost_cum": "kpi::total_cost",
 }
 FACTOR_TUBE_COLORS = [
@@ -43,6 +43,9 @@ INPUT_FACTOR_PREFIXES = (
 SPARSE_FACTOR_TUBE_METRICS = {
     "production_delay_active_orders",
     "production_reports",
+}
+EVENT_FACTOR_TUBE_METRICS = {
+    "supplier_capacity_binding",
 }
 TEMPORAL_FACTOR_SELECTION_METRICS = SPARSE_FACTOR_TUBE_METRICS | {
     "supplier_capacity_binding",
@@ -176,14 +179,39 @@ def _median(values: list[float]) -> float:
     return float(statistics.median(values)) if values else 0.0
 
 
+def _percentile(values: list[float], q: float) -> float:
+    if not values:
+        return 0.0
+    ordered = sorted(values)
+    if len(ordered) == 1:
+        return float(ordered[0])
+    pos = max(0.0, min(1.0, q)) * (len(ordered) - 1)
+    lower = int(math.floor(pos))
+    upper = int(math.ceil(pos))
+    if lower == upper:
+        return float(ordered[lower])
+    weight = pos - lower
+    return float(ordered[lower] * (1.0 - weight) + ordered[upper] * weight)
+
+
 def _mean(values: list[float]) -> float:
     return float(sum(values) / len(values)) if values else 0.0
 
 
 def _reduce_group(values: list[float], reducer: str) -> float:
+    if reducer == "p90":
+        return _percentile(values, 0.90)
     if reducer == "mean":
         return _mean(values)
     return _median(values)
+
+
+def _reducer_label(reducer: str) -> str:
+    if reducer == "p90":
+        return "percentile 90 de groupe"
+    if reducer == "mean":
+        return "moyenne de groupe"
+    return "mediane de groupe"
 
 
 def _series_by_run(metric: dict[str, Any], days: list[int]) -> tuple[dict[str, list[float]], list[float] | None]:
@@ -252,7 +280,10 @@ def _temporal_effect_factor_candidates(
         if max_gap > 1e-9:
             scored.append((total_gap, max_gap, factor))
     scored.sort(reverse=True)
-    return [factor for _, _, factor in scored[:FACTOR_TUBE_DISPLAY_LIMIT]]
+    ordered = [factor for _, _, factor in scored]
+    supplier_first = [factor for factor in ordered if _is_supplier_prediction_factor(factor)]
+    fallback = [factor for factor in ordered if factor not in supplier_first]
+    return (supplier_first + fallback)[:FACTOR_TUBE_DISPLAY_LIMIT]
 
 
 def _factor_tube_bands_for_metric(
@@ -269,7 +300,12 @@ def _factor_tube_bands_for_metric(
     by_run, nominal = _series_by_run(metric, days)
     if not by_run:
         return None
-    reducer = "mean" if metric_key in SPARSE_FACTOR_TUBE_METRICS else "median"
+    if metric_key in EVENT_FACTOR_TUBE_METRICS:
+        reducer = "p90"
+    elif metric_key in SPARSE_FACTOR_TUBE_METRICS:
+        reducer = "mean"
+    else:
+        reducer = "median"
     factors = _ranked_factor_candidates(summary, target_kpi, samples)
     if metric_key in TEMPORAL_FACTOR_SELECTION_METRICS:
         temporal_factors = _temporal_effect_factor_candidates(
@@ -334,6 +370,7 @@ def _factor_tube_bands_for_metric(
                 "low_group_count": len(low_group),
                 "high_group_count": len(high_group),
                 "aggregation": reducer,
+                "aggregation_label": _reducer_label(reducer),
             }
         )
     if not bands:
@@ -347,7 +384,7 @@ def _factor_tube_bands_for_metric(
             "Lecture: chaque zone compare les runs ou l'input est bas avec ceux ou il est haut. "
             "La largeur de la zone montre quand l'incertitude de cet input se propage dans le temps. "
             "Les courbes ont le meme perimetre que les trajectoires Monte Carlo globales; les inputs affiches sont choisis a partir des drivers KPI disponibles. "
-            "Pour les KPI rares en pics, les zones utilisent une moyenne de groupe afin de ne pas masquer les reports. "
+            "Pour les KPI rares en pics, les zones utilisent une moyenne ou un percentile haut de groupe afin de ne pas masquer les evenements tardifs. "
             "Les autres aleas continuent de varier: c'est une lecture conditionnelle Monte Carlo, pas une preuve causale isolee."
         ),
         "days": days,

@@ -18,6 +18,66 @@ def to_float(x: Any) -> float | None:
         return None
 
 
+def _positive_gap_below_one(value: Any) -> float:
+    parsed = to_float(value)
+    if parsed is None:
+        return 0.0
+    return max(0.0, 1.0 - parsed)
+
+
+def _positive_gap_above_one(value: Any) -> float:
+    parsed = to_float(value)
+    if parsed is None:
+        return 0.0
+    return max(0.0, parsed - 1.0)
+
+
+def _positive_value(value: Any) -> float:
+    parsed = to_float(value)
+    if parsed is None:
+        return 0.0
+    return max(0.0, parsed)
+
+
+def supplier_risk_row_intensity(row: dict[str, str]) -> float:
+    """Daily risk exposure score from effective multipliers applied in the run.
+
+    One point is roughly one supplier-item-day at full disruption. This is not a
+    probability; it is a comparable input exposure measure across risk families.
+    """
+
+    operational_loss = sum(
+        _positive_gap_below_one(row.get(key))
+        for key in (
+            "stock_multiplier",
+            "capacity_multiplier",
+            "reliability_multiplier",
+            "quality_yield_multiplier",
+            "availability_multiplier",
+            "external_capacity_multiplier",
+            "external_availability_multiplier",
+            "external_quality_yield_multiplier",
+        )
+    )
+    delay_loss = (
+        0.35 * _positive_gap_above_one(row.get("lead_time_multiplier"))
+        + 0.35 * _positive_gap_above_one(row.get("external_lead_time_multiplier"))
+        + _positive_value(row.get("lead_time_extra_days")) / 30.0
+        + _positive_value(row.get("external_lead_time_extra_days")) / 30.0
+        + _positive_value(row.get("quality_delay_days")) / 30.0
+    )
+    cost_loss = 0.20 * sum(
+        _positive_gap_above_one(row.get(key))
+        for key in (
+            "purchase_cost_multiplier",
+            "transport_cost_multiplier",
+            "external_cost_multiplier",
+        )
+    )
+    physical_loss = _positive_value(row.get("stock_writeoff_fraction"))
+    return max(0.0, operational_loss + delay_loss + cost_loss + physical_loss)
+
+
 def build_scenario_comparison_payload(current_output_root: Path) -> dict[str, Any]:
     result_root = current_output_root.parent
     sweep_root = result_root / "risk_amplitude_duration_sweep_5y"
@@ -46,13 +106,24 @@ def build_scenario_comparison_payload(current_output_root: Path) -> dict[str, An
 
     label_overrides = {
         "_codex_lot_trace_5y_safe": "Nominal 5 ans",
-        "_codex_lot_trace_5y_state_risks": "Risques state-dependent",
+        "_codex_lot_trace_5y_state_risks": "State-dependent historique",
         "_codex_lot_trace_5y_risk_portfolio": "Portefeuille risques actuel",
         "mrp_bom_test_weekly_mps_lotified_no_fallback_physical_floor_portfolio_cost_risk_non_state_risks_test": "Risques metier fournisseurs",
         "mrp_bom_test_weekly_mps_lotified_no_fallback_physical_floor_multisource_portfolio_test": "Multisource nominal",
         "mrp_bom_test_weekly_mps_lotified_no_fallback_physical_floor_multisource_portfolio_state_dependent_risk_test": "Multisource + state-dependent",
         "mrp_bom_test_weekly_mps_lotified_no_fallback_physical_floor_multisource_cost_risk_portfolio_test": "Multisource + risques cout",
-        "state_dependent_full": "State-dependent complet",
+        "state_dependent_full": "Portefeuille state-dependent complet",
+        "state_api_upstream_crisis": "Crise amont API / matiere critique",
+        "state_packaging_quality_crisis": "Crise qualite packaging / lots rejetes",
+        "state_downstream_distribution_crisis": "Crise distribution aval / transport",
+        "state_internal_release_capacity_crisis": "Crise release interne / PFI",
+    }
+    family_overrides = {
+        "state_dependent_full": "Portefeuille multi-cascades",
+        "state_api_upstream_crisis": "API / matiere critique",
+        "state_packaging_quality_crisis": "Qualite packaging / lots rejetes",
+        "state_downstream_distribution_crisis": "Distribution aval / transport",
+        "state_internal_release_capacity_crisis": "Release interne / PFI",
     }
 
     def load_manifest(root: Path) -> dict[str, Any]:
@@ -77,11 +148,11 @@ def build_scenario_comparison_payload(current_output_root: Path) -> dict[str, An
         if "safe" in lower or (supplier_risk_count == 0 and state_count == 0 and (scenario_id == "scn:BASE" or "nominal" in lower)):
             return "nominal"
         if supplier_risk_count > 0 and state_count > 0:
-            return "risques combines"
+            return "state-dependent : aleas + declencheurs etat"
         if supplier_risk_count > 0:
             return "scenario metier"
         if state_count > 0:
-            return "state-dependent"
+            return "state-dependent : declencheurs etat"
         if "multisource" in lower:
             return "mitigation / multisource"
         return "scenario"
@@ -89,14 +160,18 @@ def build_scenario_comparison_payload(current_output_root: Path) -> dict[str, An
     def load_summary(root: Path) -> dict[str, Any]:
         return load_json_dict(root / "summaries" / "first_simulation_summary.json")
 
+    companion_meta_by_root: dict[Path, dict[str, Any]] = {}
+
     def scenario_roots() -> list[Path]:
         roots: list[Path] = []
         seen: set[Path] = set()
+        companion_meta_by_root.clear()
         if (current_output_root / "summaries" / "first_simulation_summary.json").exists():
             roots.append(current_output_root)
             seen.add(current_output_root)
         manifest = load_manifest(current_output_root)
         companion_runs = manifest.get("companion_runs") if isinstance(manifest.get("companion_runs"), dict) else {}
+        has_companion_runs = bool(companion_runs)
         for companion in companion_runs.values():
             if isinstance(companion, dict):
                 raw_path = str(companion.get("output_dir") or "")
@@ -111,12 +186,15 @@ def build_scenario_comparison_payload(current_output_root: Path) -> dict[str, An
                 continue
             roots.append(root)
             seen.add(root)
-        for name in preferred_names:
-            root = result_root / name
-            if root in seen or not (root / "summaries" / "first_simulation_summary.json").exists():
-                continue
-            roots.append(root)
-            seen.add(root)
+            if isinstance(companion, dict):
+                companion_meta_by_root[root.resolve()] = companion
+        if not has_companion_runs:
+            for name in preferred_names:
+                root = result_root / name
+                if root in seen or not (root / "summaries" / "first_simulation_summary.json").exists():
+                    continue
+                roots.append(root)
+                seen.add(root)
         cases_root = sweep_cases_root
         if cases_root.exists():
             for row in sorted(sweep_rows, key=lambda item: to_float(item.get("impact_score")), reverse=True):
@@ -165,11 +243,13 @@ def build_scenario_comparison_payload(current_output_root: Path) -> dict[str, An
             break
         return days
 
+    roots = scenario_roots()
     scenarios: list[dict[str, Any]] = []
-    for root in scenario_roots():
+    for root in roots:
         summary = load_summary(root)
         if not summary:
             continue
+        companion_meta = companion_meta_by_root.get(root.resolve(), {}) if isinstance(companion_meta_by_root, dict) else {}
         sweep_row = sweep_by_id.get(root.name, {})
         horizon = int(to_float(summary.get("timeline_days") or summary.get("sim_days") or 0) or 0)
         if horizon < 300:
@@ -215,9 +295,11 @@ def build_scenario_comparison_payload(current_output_root: Path) -> dict[str, An
         risk_by_day: dict[int, float] = defaultdict(float)
         risk_event_ids: set[str] = set()
         risk_suppliers: set[str] = set()
+        risk_input_amplitude_points = 0.0
         for row in risk_rows:
             day = int(to_float(row.get("day")) or 0)
             risk_by_day[day] += 1.0
+            risk_input_amplitude_points += supplier_risk_row_intensity(row)
             supplier_id = str(row.get("supplier_id") or "")
             if supplier_id:
                 risk_suppliers.add(supplier_id)
@@ -228,7 +310,20 @@ def build_scenario_comparison_payload(current_output_root: Path) -> dict[str, An
 
         actual_produced = sum(max(0.0, to_float(row.get("actual_qty")) or 0.0) for row in constraint_rows)
         is_sweep = bool(sweep_row)
-        scenario_family = str(sweep_row.get("family") or classify(root.name, summary))
+        scenario_kind = classify(root.name, summary)
+        scenario_label = str(companion_meta.get("label") or short_label(root.name)) if isinstance(companion_meta, dict) else short_label(root.name)
+        if root.name in label_overrides:
+            scenario_label = label_overrides[root.name]
+        if root.resolve() == current_output_root.resolve() and scenario_kind == "nominal":
+            scenario_label = "Nominal 5 ans"
+        if is_sweep:
+            scenario_family = str(sweep_row.get("family") or scenario_kind)
+        elif root.name in family_overrides:
+            scenario_family = family_overrides[root.name]
+        elif isinstance(companion_meta, dict) and companion_meta.get("label"):
+            scenario_family = str(companion_meta.get("label") or "")
+        else:
+            scenario_family = scenario_kind
         scenario_severity = str(sweep_row.get("severity") or "")
         impact_score = max(0.0, to_float(sweep_row.get("impact_score")) or 0.0)
         fill_rate_value = to_float(sweep_row.get("fill_rate")) if is_sweep else None
@@ -268,13 +363,22 @@ def build_scenario_comparison_payload(current_output_root: Path) -> dict[str, An
         total_cost_value = to_float(sweep_row.get("total_cost")) if is_sweep else None
         if total_cost_value is None:
             total_cost_value = max(0.0, to_float(kpis.get("total_cost")) or 0.0)
+        policy = summary.get("policy") or {}
+        configured_supplier_risk_count = int(to_float((policy.get("supplier_risk") or {}).get("event_count")) or 0)
+        generated_state_event_count = int(to_float((policy.get("supplier_state_dependent_risk") or {}).get("generated_event_count")) or 0)
+        scenario_amplitude = scenario_severity
+        if not scenario_amplitude and (configured_supplier_risk_count or generated_state_event_count):
+            scenario_amplitude = (
+                f"{configured_supplier_risk_count} aleas configures ; "
+                f"{generated_state_event_count} declencheurs auto"
+            )
         scenarios.append(
             {
                 "id": root.name,
-                "label": short_label(root.name),
-                "kind": "sweep " + scenario_family if is_sweep else classify(root.name, summary),
+                "label": scenario_label,
+                "kind": "sweep " + scenario_family if is_sweep else scenario_kind,
                 "family": scenario_family,
-                "severity": scenario_severity,
+                "severity": scenario_amplitude,
                 "source": "risk_amplitude_duration_sweep" if is_sweep else "run_result",
                 "impact_score": impact_score,
                 "is_current": root.resolve() == current_output_root.resolve(),
@@ -298,7 +402,9 @@ def build_scenario_comparison_payload(current_output_root: Path) -> dict[str, An
                     "input_delay_volume_delta": to_float(sweep_row.get("input_delay_volume_delta")) if is_sweep else 0.0,
                     "production_replanning_count": int(production_replanning_count_value or 0),
                     "production_replanning_rate": production_replanning_rate_value,
+                    "risk_input_amplitude_points": risk_input_amplitude_points,
                     "risk_event_count": len(risk_event_ids),
+                    "configured_supplier_risk_count": configured_supplier_risk_count,
                     "risk_row_count": len(risk_rows),
                     "risk_supplier_count": len(risk_suppliers),
                     "risk_applied_rows": to_float(sweep_row.get("risk_applied_rows")) if is_sweep else len(risk_rows),
@@ -359,6 +465,51 @@ def build_scenario_comparison_payload(current_output_root: Path) -> dict[str, An
     )
     nominal_kpis = nominal["kpis"]
 
+    def compute_observed_impact(kpis: dict[str, Any], base_kpis: dict[str, Any]) -> dict[str, float | str]:
+        total_demand = max(1.0, to_float(kpis.get("total_demand")) or to_float(base_kpis.get("total_demand")) or 1.0)
+        service_loss_pp = max(
+            0.0,
+            ((to_float(base_kpis.get("fill_rate")) or 0.0) - (to_float(kpis.get("fill_rate")) or 0.0)) * 100.0,
+        )
+        replan_volume_pct = 100.0 * max(0.0, to_float(kpis.get("input_delay_volume")) or 0.0) / total_demand
+        backlog_pct = 100.0 * max(0.0, to_float(kpis.get("max_backlog")) or 0.0) / total_demand
+        base_cost = max(1.0, to_float(base_kpis.get("total_cost")) or 1.0)
+        cost_delta_pct = 100.0 * max(0.0, (to_float(kpis.get("total_cost")) or 0.0) - base_cost) / base_cost
+        loss_qty_pct = 100.0 * max(0.0, to_float(kpis.get("total_unreliable_loss_qty")) or 0.0) / total_demand
+        # Weighted score for ranking scenarios. Service and backlog are weighted
+        # higher than pure cost, because the business decision first protects
+        # product availability and production continuity.
+        observed_score = (
+            5.0 * service_loss_pp
+            + 3.0 * backlog_pct
+            + 1.0 * replan_volume_pct
+            + 0.25 * cost_delta_pct
+            + 1.0 * loss_qty_pct
+        )
+        amplitude = max(0.0, to_float(kpis.get("risk_input_amplitude_points")) or 0.0)
+        effect_per_100 = (100.0 * observed_score / amplitude) if amplitude > 1e-9 else 0.0
+        if amplitude <= 1e-9:
+            absorption_label = "n/a"
+        elif service_loss_pp >= 2.0 or backlog_pct >= 0.5:
+            absorption_label = "impact client"
+        elif replan_volume_pct >= 2.0 or cost_delta_pct >= 5.0:
+            absorption_label = "absorbe client, impact production/cout"
+        else:
+            absorption_label = "absorbe par stocks/MRP"
+        return {
+            "service_loss_pp": service_loss_pp,
+            "replan_volume_pct": replan_volume_pct,
+            "backlog_pct": backlog_pct,
+            "cost_delta_pct": cost_delta_pct,
+            "loss_qty_pct": loss_qty_pct,
+            "observed_impact_score": observed_score,
+            "effect_per_100_amplitude": effect_per_100,
+            "absorption_label": absorption_label,
+        }
+
+    for scenario in scenarios:
+        scenario["kpis"].update(compute_observed_impact(scenario["kpis"], nominal_kpis))
+
     def delta(value: float, base: float, digits: int = 1) -> str:
         diff = value - base
         if abs(diff) <= 1e-9:
@@ -389,7 +540,14 @@ def build_scenario_comparison_payload(current_output_root: Path) -> dict[str, An
 
     best_production = min(scenarios, key=replanning_sort_key)
     worst_backlog = max(scenarios, key=lambda item: item["kpis"].get("max_backlog", 0.0))
-    most_risk = max(scenarios, key=lambda item: item["kpis"].get("impact_score", 0.0) or item["kpis"].get("risk_event_count", 0.0))
+    most_risk = max(
+        scenarios,
+        key=lambda item: (
+            item["kpis"].get("observed_impact_score", 0.0)
+            or item["kpis"].get("impact_score", 0.0)
+            or item["kpis"].get("risk_event_count", 0.0)
+        ),
+    )
 
     def card(title: str, value: str, text: str, color: str) -> str:
         return (
@@ -428,7 +586,7 @@ def build_scenario_comparison_payload(current_output_root: Path) -> dict[str, An
                 "Scenario le plus perturbateur",
                 most_risk["label"],
                 (
-                    f"Score {fmt_qty(most_risk['kpis'].get('impact_score') or 0, 1)} ; "
+                    f"Impact observe {fmt_qty(most_risk['kpis'].get('observed_impact_score') or 0, 1)} pts ; "
                     f"disponibilite produit {fmt_pct((most_risk['kpis'].get('fill_rate') or 0) * 100.0)} ; "
                     f"backlog max {fmt_qty(most_risk['kpis'].get('max_backlog') or 0, 0)}."
                 ),
@@ -439,22 +597,64 @@ def build_scenario_comparison_payload(current_output_root: Path) -> dict[str, An
 
     headers = [
         "Scenario",
-        "Type",
-        "Famille",
-        "Amplitude",
+        "Mecanisme",
+        "Crise / chemin metier",
+        "Configuration",
+        "Amplitude entree",
+        "Impact observe",
+        "Absorption / effet",
         "Disponibilite produit",
         "Backlog max hors amorcage",
         "Amorcage client",
         "Taux replanification",
         "Volume reporte",
         "Delta volume",
-        "Score",
         "Pertes fournisseur",
         "Delta pertes",
         "Cout appro fournisseur",
         "Cout total",
         "Delta cout",
     ]
+
+    def scenario_configuration_text(scenario: dict[str, Any]) -> str:
+        kpis = scenario["kpis"]
+        configured = int(to_float(kpis.get("configured_supplier_risk_count")) or 0)
+        state_events = int(to_float(kpis.get("state_events_generated")) or 0)
+        if configured or state_events:
+            return f"{configured} aleas configures ; {state_events} declencheurs auto"
+        return str(scenario.get("severity") or "n/a")
+
+    def amplitude_text(kpis: dict[str, Any]) -> str:
+        amplitude = to_float(kpis.get("risk_input_amplitude_points")) or 0.0
+        rows = int(to_float(kpis.get("risk_row_count")) or 0)
+        suppliers = int(to_float(kpis.get("risk_supplier_count")) or 0)
+        if amplitude <= 1e-9 and rows <= 0:
+            return "n/a"
+        return f"{fmt_qty(amplitude, 1)} pts risque-jour ; {rows} effets ; {suppliers} fournisseurs"
+
+    def observed_impact_text(kpis: dict[str, Any]) -> str:
+        parts: list[str] = []
+        service_loss_pp = to_float(kpis.get("service_loss_pp")) or 0.0
+        replan_volume_pct = to_float(kpis.get("replan_volume_pct")) or 0.0
+        cost_delta_pct = to_float(kpis.get("cost_delta_pct")) or 0.0
+        if service_loss_pp > 0.05:
+            parts.append(f"dispo -{fmt_qty(service_loss_pp, 1)} pts")
+        if replan_volume_pct > 0.05:
+            parts.append(f"report {fmt_qty(replan_volume_pct, 1)}% demande")
+        if cost_delta_pct > 0.05:
+            parts.append(f"cout +{fmt_qty(cost_delta_pct, 1)}%")
+        if not parts:
+            parts.append("impact KPI faible")
+        parts.append(f"score {fmt_qty(kpis.get('observed_impact_score') or 0, 1)}")
+        return " ; ".join(parts)
+
+    def absorption_text(kpis: dict[str, Any]) -> str:
+        label = str(kpis.get("absorption_label") or "n/a")
+        amplitude = to_float(kpis.get("risk_input_amplitude_points")) or 0.0
+        if amplitude <= 1e-9:
+            return label
+        return f"{label} ; {fmt_qty(kpis.get('effect_per_100_amplitude') or 0, 1)} pts impact / 100 pts entree"
+
     rows_html = []
     for scenario in scenarios:
         k = scenario["kpis"]
@@ -465,14 +665,16 @@ def build_scenario_comparison_payload(current_output_root: Path) -> dict[str, An
             f"<td>{html.escape(scenario['label'])}</td>"
             f"<td>{html.escape(scenario['kind'])}</td>"
             f"<td>{html.escape(str(scenario.get('family') or 'n/a'))}</td>"
-            f"<td>{html.escape(str(scenario.get('severity') or 'n/a'))}</td>"
+            f"<td>{html.escape(scenario_configuration_text(scenario))}</td>"
+            f"<td>{html.escape(amplitude_text(k))}</td>"
+            f"<td>{html.escape(observed_impact_text(k))}</td>"
+            f"<td>{html.escape(absorption_text(k))}</td>"
             f"<td>{html.escape(fmt_pct(k['fill_rate'] * 100.0))}</td>"
             f"<td>{html.escape(fmt_qty(k['max_backlog'], 0))}</td>"
             f"<td>{html.escape(startup_cell)}</td>"
             f"<td>{html.escape(replanning_text(k))}</td>"
             f"<td>{html.escape(fmt_qty(k['input_delay_volume'], 0))}</td>"
             f"<td>{html.escape(delta(k.get('input_delay_volume_delta') or 0, 0, 0))}</td>"
-            f"<td>{html.escape(fmt_qty(k.get('impact_score') or 0, 1))}</td>"
             f"<td>{html.escape(fmt_qty(k['total_unreliable_loss_qty'], 0))}</td>"
             f"<td>{html.escape(delta(k.get('loss_delta') or 0, 0, 0))}</td>"
             f"<td>{html.escape(fmt_qty(k['total_external_procurement_cost'], 0))}</td>"
@@ -484,7 +686,10 @@ def build_scenario_comparison_payload(current_output_root: Path) -> dict[str, An
     palette = ["#2563eb", "#0f766e", "#d97706", "#be123c", "#7c3aed", "#475569", "#0891b2"]
     max_impact_id = ""
     if scenarios:
-        max_impact_id = max(scenarios, key=lambda item: float((item.get("kpis") or {}).get("impact_score") or 0.0))["id"]
+        max_impact_id = max(
+            scenarios,
+            key=lambda item: float((item.get("kpis") or {}).get("observed_impact_score") or 0.0),
+        )["id"]
     style_by_label = {
         scenario["label"]: {
             "color": palette[idx % len(palette)],
@@ -495,7 +700,7 @@ def build_scenario_comparison_payload(current_output_root: Path) -> dict[str, An
             "is_nominal": scenario["id"] in {nominal["id"], "baseline_nominal", "_codex_lot_trace_5y_safe"} or scenario["kind"] == "nominal",
             "is_max_impact": scenario["id"] == max_impact_id,
             "family": scenario.get("family") or scenario["kind"],
-            "impact_score": float((scenario.get("kpis") or {}).get("impact_score") or 0.0),
+            "impact_score": float((scenario.get("kpis") or {}).get("observed_impact_score") or 0.0),
         }
         for idx, scenario in enumerate(scenarios)
     }
@@ -513,6 +718,7 @@ def build_scenario_comparison_payload(current_output_root: Path) -> dict[str, An
         figure["scenario_tube"] = True
         figure["tube_label"] = "Enveloppe scenarios selectionnes"
         figure["trajectory_label"] = "Trajectoires scenarios"
+        figure["named_scenario_trajectories"] = True
         figure["tube_zero_floor"] = bool(zero_floor)
         figure["tube_upper_percentile"] = float(upper_percentile)
         if reference_value is not None:
@@ -617,7 +823,7 @@ def build_scenario_comparison_payload(current_output_root: Path) -> dict[str, An
     ranked_defaults = sorted(
         scenarios,
         key=lambda scenario: (
-            -float((scenario.get("kpis") or {}).get("impact_score") or 0.0),
+            -float((scenario.get("kpis") or {}).get("observed_impact_score") or 0.0),
             -float((scenario.get("kpis") or {}).get("max_backlog") or 0.0),
             -float((scenario.get("kpis") or {}).get("input_delay_volume") or 0.0),
             str(scenario.get("id") or ""),
@@ -634,6 +840,8 @@ def build_scenario_comparison_payload(current_output_root: Path) -> dict[str, An
         "<div class=\"factoryHtmlPanelContent sensitivityHtmlPanelContent scenarioComparisonContent\">",
         "<div class=\"orderLedgerTextHeader\">Comparaison de scenarios</div>",
         "<div class=\"orderLedgerStatus\">Question metier: quel scenario degrade le service, reporte la production, augmente les couts ou consomme la resilience du reseau ? La ligne du scenario courant est surlignee.</div>",
+        "<div class=\"orderLedgerStatus\">Lecture state-dependent: les scenarios de crise configurent des aleas metier, puis le moteur declenche et propage les effets selon l'etat du run: stocks, retards, ordres, capacites, receptions et backlog.</div>",
+        "<div class=\"orderLedgerStatus\">Amplitude entree: points risque-jour calcules depuis les multiplicateurs vraiment appliques. Impact observe: perte de disponibilite produit, reports, backlog et surcout vs nominal. Ce n'est pas une probabilite.</div>",
         "<div class=\"orderLedgerStatus\">Note: le backlog J0/J1 vient du stock client initialise a zero et du delai DC -> client. Il est affiche comme amorcage client, mais exclu du backlog comparatif des scenarios.</div>",
         "<div class=\"scenarioComparisonControls\">",
         "<div class=\"scenarioComparisonActions\">",
@@ -668,7 +876,7 @@ def build_scenario_comparison_payload(current_output_root: Path) -> dict[str, An
         "</tr></thead>",
         f"<tbody>{''.join(rows_html)}</tbody>",
         "</table></div>",
-        "<div class=\"riskScenarioMuted\">Lecture: la disponibilite produit peut rester bonne meme si la production est reportee. Dans ce cas, la decision se fait sur le taux de replanification, le stock consomme, le cout d'appro fournisseur et les pertes fournisseur.</div>",
+        "<div class=\"riskScenarioMuted\">Lecture: deux scenarios ne sont comparables a amplitude egale que si leur amplitude entree normalisee est proche. Si l'impact par 100 points entree est eleve, la supply absorbe mal cette famille de crise.</div>",
         "</div>",
     ]
     return {
