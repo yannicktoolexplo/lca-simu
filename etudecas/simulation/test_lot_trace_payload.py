@@ -79,6 +79,9 @@ class LotTracePayloadTest(unittest.TestCase):
         self.assertTrue(payload["available"])
         self.assertEqual(payload["default_lot"], "LOT-PF")
         self.assertEqual(payload["summary"]["selectable_filter"], "business_lots_pf_pfi_mp_no_transport_receipts")
+        self.assertEqual(payload["summary"]["physical_lot_policy"], "select_business_lots_contextual_transport_receipts")
+        self.assertIn("selectable_scope_counts", payload["summary"])
+        self.assertGreater(payload["summary"]["selectable_scope_counts"].get("finished_product", 0), 0)
         self.assertIn("config", payload)
 
         option_ids = {row["lot_id"] for row in payload["lot_options"]}
@@ -121,6 +124,8 @@ class LotTracePayloadTest(unittest.TestCase):
         self.assertEqual(payload["default_view_model"]["version"], 1)
         self.assertEqual(payload["default_view_model"]["lot_id"], payload["default_lot"])
         self.assertEqual(payload["summary"]["default_view_model_lot"], payload["default_lot"])
+        self.assertIn("deferred_order_completed_count", payload["summary"])
+        self.assertIn("deferred_order_blocked_count", payload["summary"])
 
     def test_deferred_campaign_is_not_a_physical_lot(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

@@ -1,0 +1,15 @@
+{
+  "real_component_immobilized_stock_mean_eur": 930695.2119230769,
+  "real_component_immobilized_stock_min_eur": 606978.55,
+  "real_component_immobilized_stock_max_eur": 1435465.25,
+  "bom_component_count": 15,
+  "bom_cost_per_1000_eur": 470.874622,
+  "bom_cost_per_unit_eur": 0.47087462199999996,
+  "opening_open_order_value_eur": 491673.72923,
+  "supplier_mismatch_count": 12,
+  "supplier_mismatch_value_eur": 290070.0,
+  "ca_livre": 20994245.96677999,
+  "ca_perdu": 1611174.49302,
+  "ca_potentiel": 22605420.45979999,
+  "service_ca": 0.9287261877793775
+}

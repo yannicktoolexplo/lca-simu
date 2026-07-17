@@ -6,6 +6,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import yaml
 
 # ============================================================
 # FINAL POC SCRIPT
@@ -19,6 +20,8 @@ import pandas as pd
 # ============================================================
 
 BASE_DIR = Path(__file__).resolve().parent
+CONFIG_DIR = BASE_DIR / "config"
+PARAMS_PATH = CONFIG_DIR / "sddlca_parameters.yml"
 OUT_DIR = BASE_DIR / "outputs_sddlca_poc"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 CSV_DIR = OUT_DIR / "csv"
@@ -26,13 +29,24 @@ IMG_DIR = OUT_DIR / "images"
 CSV_DIR.mkdir(parents=True, exist_ok=True)
 IMG_DIR.mkdir(parents=True, exist_ok=True)
 
+
+def load_yaml_config(path: Path) -> dict:
+    with path.open("r", encoding="utf-8") as handle:
+        data = yaml.safe_load(handle)
+    if not isinstance(data, dict):
+        raise ValueError(f"Expected a YAML mapping in {path}")
+    return data
+
+
+PARAMS = load_yaml_config(PARAMS_PATH)
+
 # -----------------------------
 # Input data
 # -----------------------------
 # Main scenario:
 # one common year-long simulation mixing climate events, operational events and
 # feedback loops between the two.
-weeks = list(range(1, 53))
+weeks = list(range(1, int(PARAMS["study"]["horizon_weeks"]) + 1))
 
 demand = (
     [10] * 6
@@ -133,15 +147,16 @@ climate_transition_main_supply_availability = main_supply_availability.copy()
 climate_transition_backup_supply_availability = backup_supply_availability.copy()
 
 # Environmental factors
-MAIN_MATERIAL_EF = 20.0
-BACKUP_MATERIAL_EF = 24.0
-INBOUND_MAIN_TRANSPORT_EF = 0.8
-INBOUND_BACKUP_TRANSPORT_EF = 5.0
-NOMINAL_KWH_PER_UNIT = 8.0
-TRUCK_OUTBOUND_EF = 1.8
-AIR_OUTBOUND_EF = 10.0
-RAW_STORAGE_EF = 0.03
-FG_STORAGE_EF = 0.06
+ENV_FACTORS = PARAMS["environmental_factors"]
+MAIN_MATERIAL_EF = float(ENV_FACTORS["main_material_kgco2e_per_unit"])
+BACKUP_MATERIAL_EF = float(ENV_FACTORS["backup_material_kgco2e_per_unit"])
+INBOUND_MAIN_TRANSPORT_EF = float(ENV_FACTORS["inbound_main_transport_kgco2e_per_unit"])
+INBOUND_BACKUP_TRANSPORT_EF = float(ENV_FACTORS["inbound_backup_transport_kgco2e_per_unit"])
+NOMINAL_KWH_PER_UNIT = float(ENV_FACTORS["nominal_kwh_per_unit"])
+TRUCK_OUTBOUND_EF = float(ENV_FACTORS["truck_outbound_kgco2e_per_unit"])
+AIR_OUTBOUND_EF = float(ENV_FACTORS["air_outbound_kgco2e_per_unit"])
+RAW_STORAGE_EF = float(ENV_FACTORS["raw_storage_kgco2e_per_unit_week"])
+FG_STORAGE_EF = float(ENV_FACTORS["finished_goods_storage_kgco2e_per_unit_week"])
 
 main_material_ef_series = np.clip(
     np.linspace(21.4, 18.6, len(weeks)) + 0.35 * np.sin(np.linspace(0, 4 * np.pi, len(weeks))),
@@ -171,24 +186,26 @@ for week in weeks:
         truck_outbound_ef_series[week - 1] = round(truck_outbound_ef_series[week - 1] + 0.18, 3)
 
 # Economic factors for decision trade-off views
-MAIN_MATERIAL_COST = 50.0
-BACKUP_MATERIAL_COST = 68.0
-INBOUND_MAIN_TRANSPORT_COST = 2.0
-INBOUND_BACKUP_TRANSPORT_COST = 9.0
-ELECTRICITY_COST_PER_KWH = 0.14
-TRUCK_OUTBOUND_COST = 6.0
-AIR_OUTBOUND_COST = 24.0
-RAW_STORAGE_COST = 0.35
-FG_STORAGE_COST = 0.55
-BACKLOG_PENALTY_COST = 18.0
+ECON_FACTORS = PARAMS["economic_factors"]
+MAIN_MATERIAL_COST = float(ECON_FACTORS["main_material_cost_per_unit"])
+BACKUP_MATERIAL_COST = float(ECON_FACTORS["backup_material_cost_per_unit"])
+INBOUND_MAIN_TRANSPORT_COST = float(ECON_FACTORS["inbound_main_transport_cost_per_unit"])
+INBOUND_BACKUP_TRANSPORT_COST = float(ECON_FACTORS["inbound_backup_transport_cost_per_unit"])
+ELECTRICITY_COST_PER_KWH = float(ECON_FACTORS["electricity_cost_per_kwh"])
+TRUCK_OUTBOUND_COST = float(ECON_FACTORS["truck_outbound_cost_per_unit"])
+AIR_OUTBOUND_COST = float(ECON_FACTORS["air_outbound_cost_per_unit"])
+RAW_STORAGE_COST = float(ECON_FACTORS["raw_storage_cost_per_unit_week"])
+FG_STORAGE_COST = float(ECON_FACTORS["finished_goods_storage_cost_per_unit_week"])
+BACKLOG_PENALTY_COST = float(ECON_FACTORS["backlog_penalty_cost_per_unit_week"])
 
 CLASSICAL_METHOD = "Classical LCA"
 TIME_DEPENDENT_DLCA_METHOD = "Time-Dependent DLCA"
 SDD_METHOD = "State-Dependent Dynamic LCA"
 
 # Inventory policy
-main_lead = 2
-backup_lead = 1
+LEAD_TIMES = PARAMS["lead_times"]
+main_lead = int(LEAD_TIMES["main_weeks"])
+backup_lead = int(LEAD_TIMES["backup_weeks"])
 
 DECISION_REVERSAL_COLUMNS = [
     "service_floor_pct",
@@ -219,84 +236,17 @@ class DecisionPolicy:
     carbon_aware_capacity_cap: float = 1.0
 
 
-BASELINE_POLICY = DecisionPolicy(
-    name="baseline",
-    label="Reference",
-    raw_target=60.0,
-    raw_reorder_threshold=26.0,
-    fg_target=16.0,
-    backup_order_qty=10.0,
-    air_backlog_start_threshold=3.0,
-    air_backlog_end_threshold=6.0,
-)
+def build_decision_policy(config: dict) -> DecisionPolicy:
+    return DecisionPolicy(**config)
 
-DYNAMIC_SHIFT_POLICY = DecisionPolicy(
-    name="dynamic_shift",
-    label="Decalage temporel + regime degrade",
-    raw_target=170.0,
-    raw_reorder_threshold=85.0,
-    fg_target=72.0,
-    backup_order_qty=10.0,
-    air_backlog_start_threshold=4.0,
-    air_backlog_end_threshold=7.0,
-)
 
-CLIMATE_TRANSITION_POLICY = DecisionPolicy(
-    name="climate_transition",
-    label="Transition climatique + disruptions",
-    raw_target=60.0,
-    raw_reorder_threshold=26.0,
-    fg_target=16.0,
-    backup_order_qty=10.0,
-    air_backlog_start_threshold=3.0,
-    air_backlog_end_threshold=6.0,
-)
-
+POLICY_CONFIGS = PARAMS["policies"]
+BASELINE_POLICY = build_decision_policy(POLICY_CONFIGS["baseline"])
+DYNAMIC_SHIFT_POLICY = build_decision_policy(POLICY_CONFIGS["dynamic_shift"])
+CLIMATE_TRANSITION_POLICY = build_decision_policy(POLICY_CONFIGS["climate_transition"])
 COUNTERFACTUAL_POLICIES = [
-    BASELINE_POLICY,
-    DecisionPolicy(
-        name="backup_early",
-        label="Backup anticipe",
-        raw_target=60.0,
-        raw_reorder_threshold=28.0,
-        fg_target=16.0,
-        backup_order_qty=14.0,
-        air_backlog_start_threshold=3.0,
-        air_backlog_end_threshold=6.0,
-    ),
-    DecisionPolicy(
-        name="inventory_buffer",
-        label="Stock tampon",
-        raw_target=72.0,
-        raw_reorder_threshold=32.0,
-        fg_target=22.0,
-        backup_order_qty=10.0,
-        air_backlog_start_threshold=3.0,
-        air_backlog_end_threshold=6.0,
-    ),
-    DecisionPolicy(
-        name="low_carbon",
-        label="Discipline carbone",
-        raw_target=60.0,
-        raw_reorder_threshold=26.0,
-        fg_target=16.0,
-        backup_order_qty=10.0,
-        air_backlog_start_threshold=12.0,
-        air_backlog_end_threshold=18.0,
-        carbon_aware_grid_threshold=0.50,
-        carbon_aware_backlog_guard=4.0,
-        carbon_aware_capacity_cap=0.6,
-    ),
-    DecisionPolicy(
-        name="service_first",
-        label="Service prioritaire",
-        raw_target=68.0,
-        raw_reorder_threshold=30.0,
-        fg_target=20.0,
-        backup_order_qty=14.0,
-        air_backlog_start_threshold=1.0,
-        air_backlog_end_threshold=3.0,
-    ),
+    build_decision_policy(POLICY_CONFIGS[name])
+    for name in PARAMS["counterfactual_policy_order"]
 ]
 
 
@@ -425,6 +375,14 @@ def clone_inventory(inventory: list[dict]) -> list[dict]:
     ]
 
 
+def inventory_from_config(rows: list[dict]) -> list[dict]:
+    return [
+        {"source": str(row["source"]), "qty": float(row["qty"])}
+        for row in rows
+        if float(row["qty"]) > 1e-9
+    ]
+
+
 @dataclass
 class SupplyChainState:
     main_pipeline: list[float]
@@ -444,12 +402,13 @@ class SupplyChainState:
 
 
 def initial_state() -> SupplyChainState:
+    initial = PARAMS["initial_state"]
     return SupplyChainState(
         main_pipeline=[0.0] * (main_lead + 1),
         backup_pipeline=[0.0] * (backup_lead + 1),
-        raw_inventory=[{"source": "main", "qty": 30.0}],
-        fg_inventory=[{"source": "main", "qty": 14.0}],
-        backlog=0.0,
+        raw_inventory=inventory_from_config(initial["raw_inventory"]),
+        fg_inventory=inventory_from_config(initial["finished_goods_inventory"]),
+        backlog=float(initial["backlog_units"]),
     )
 
 

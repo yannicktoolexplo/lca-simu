@@ -1,0 +1,2 @@
+status,input_rows,output_rows,unique_exchange_signatures,exact_factor_count,exact_factor_coverage_pct,method
+ok,91616,91616,14,10,71.428571,ecoinvent-3.10 | EF v3.0 | climate change | global warming potential (GWP100)

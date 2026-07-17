@@ -1,0 +1,22 @@
+{
+  "full_source_component_stock_value_eur": 763827.39,
+  "sim_opening_component_stock_value_eur": 213871.67,
+  "implied_opening_scale_weighted": 0.28,
+  "real_pharma_component_stock_mean_eur": 259678.4,
+  "real_over_full_source_ratio": 0.34,
+  "source_open_purchase_value_eur": 547161.43,
+  "source_open_purchase_missing_lane_count": 11,
+  "source_open_purchase_missing_lane_value_eur": 290070.0,
+  "source_open_production_qty_268091": 1945715.0,
+  "source_open_production_count_268091": 20,
+  "sim_open_production_qty_268091": 1945715.0,
+  "oproc_required_total_raw": 4741738.2,
+  "oproc_consumed_total_raw": 997567.75,
+  "oproc_shortage_total_raw": 3744170.45,
+  "source_demand_rows": 52,
+  "source_forecast_demand": 3576442.0,
+  "source_real_demand": 3576442.0,
+  "sim_demand": 3576442.0,
+  "sim_served": 2440653.0,
+  "sim_max_backlog": 1135789.0
+}

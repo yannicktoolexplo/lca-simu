@@ -1,0 +1,8 @@
+lever_id,lever_label,parameter_count,affected_exchange_count,signed_delta_amount_sum,abs_delta_amount_sum,mean_abs_relative_delta_pct
+end_of_life,Fin de vie / recyclage +10%,154,134,-8.021157566,76.437781354,10.311
+aluminium_material,Aluminium matiere +10%,92,64,47.817844689,47.864107701,16.4505
+transport,Transport foreground +10%,39,33,36.00307,36.00307,10.0
+packaging,Packaging +10%,139,121,22.499462974,22.499519974,10.0
+electricity,Electricite process +10%,134,37,16.614791473,16.614791473,9.9993
+steel_inox,Acier / inox +10%,113,70,1.547110944,2.965102324,7.0892
+polymer_textile,Polymere / textile +10%,116,85,1.581016244,2.431016244,8.8499

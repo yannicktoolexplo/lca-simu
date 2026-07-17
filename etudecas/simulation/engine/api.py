@@ -78,6 +78,9 @@ class SimulationResult:
     kpis: dict[str, float]
     stdout: str
     output_profile: SimulationOutputProfile
+    run_manifest: dict[str, Any] = field(default_factory=dict)
+    generic_manifest: dict[str, Any] = field(default_factory=dict)
+    artifacts: list[dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -88,6 +91,9 @@ class SimulationResult:
             "summary": self.summary,
             "kpis": self.kpis,
             "output_profile": self.output_profile,
+            "run_manifest": self.run_manifest,
+            "generic_manifest": self.generic_manifest,
+            "artifacts": self.artifacts,
         }
 
 
@@ -188,6 +194,16 @@ def default_output_dir(run_id: str) -> Path:
     return Path("etudecas/simulation/result/_api_runs") / run_id
 
 
+def _load_json_if_exists(path: Path) -> Any:
+    if not path.exists():
+        return {} if path.suffix.lower() == ".json" else []
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {} if path.suffix.lower() == ".json" else []
+    return data
+
+
 def profile_engine_args(profile: SimulationOutputProfile, *, run_lot_audit: bool) -> list[str]:
     if profile == "minimal":
         args = ["--output-profile", "compact", "--no-lot-trace", "--skip-lot-audit"]
@@ -230,6 +246,15 @@ def simulate(request: SimulationRequest) -> SimulationResult:
         skip_plots=request.skip_plots,
         extra_args=extra_args,
     )
+    run_manifest = _load_json_if_exists(output_dir / "run_manifest.json")
+    generic_manifest = _load_json_if_exists(output_dir / "run" / "run_manifest.json")
+    artifacts = _load_json_if_exists(output_dir / "run" / "artifact_index.json")
+    if not isinstance(run_manifest, dict):
+        run_manifest = {}
+    if not isinstance(generic_manifest, dict):
+        generic_manifest = {}
+    if not isinstance(artifacts, list):
+        artifacts = []
     return SimulationResult(
         run_id=run_id,
         scenario_id=request.scenario_id,
@@ -239,6 +264,9 @@ def simulate(request: SimulationRequest) -> SimulationResult:
         kpis=numeric_kpis(summary),
         stdout=stdout,
         output_profile=request.output_profile,
+        run_manifest=run_manifest,
+        generic_manifest=generic_manifest,
+        artifacts=artifacts,
     )
 
 

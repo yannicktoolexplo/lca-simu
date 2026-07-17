@@ -79,10 +79,19 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Only rebuild the graph JSON without running the simulation.",
     )
+    parser.add_argument(
+        "--pf-service-target",
+        type=float,
+        default=None,
+        help=(
+            "Override all finished-product target fill rates in this baseline "
+            "(for example 1.0 for nominal 100%% product availability)."
+        ),
+    )
     return parser.parse_args()
 
 
-def compute_item_service(output_dir: Path) -> dict[str, dict[str, float]]:
+def compute_item_service(output_dir: Path, target_service_by_item: dict[str, float]) -> dict[str, dict[str, float]]:
     csv_path = output_dir / "data" / "production_demand_service_daily.csv"
     item_rows: dict[str, dict[str, float]] = {}
     with csv_path.open(encoding="utf-8", newline="") as fh:
@@ -103,12 +112,45 @@ def compute_item_service(output_dir: Path) -> dict[str, dict[str, float]]:
     for item_id, stats in item_rows.items():
         demand = stats["demand"]
         stats["fill_rate"] = (stats["served"] / demand) if demand > 0 else 0.0
-        stats["target_fill_rate"] = TARGET_SERVICE_BY_ITEM.get(item_id)
+        stats["target_fill_rate"] = target_service_by_item.get(item_id)
         if stats["target_fill_rate"] is None:
             stats["target_gap"] = None
         else:
             stats["target_gap"] = stats["fill_rate"] - stats["target_fill_rate"]
     return item_rows
+
+
+def apply_target_service(data: dict, target_service_by_item: dict[str, float], scenario_id: str) -> None:
+    scenarios = data.get("scenarios") or []
+    scenario = next((s for s in scenarios if str(s.get("id")) == scenario_id), None)
+    if not isinstance(scenario, dict):
+        return
+    customer_item_pairs: set[tuple[str, str]] = set()
+    for demand in scenario.get("demand") or []:
+        if not isinstance(demand, dict):
+            continue
+        item_id = str(demand.get("item_id") or "")
+        if item_id not in target_service_by_item:
+            continue
+        demand["service_level_target"] = target_service_by_item[item_id]
+        demand["service_level_target_source"] = "baseline_target_service_override"
+        customer_item_pairs.add((str(demand.get("node_id") or ""), item_id))
+
+    for node in data.get("nodes") or []:
+        if not isinstance(node, dict) or str(node.get("type") or "") != "customer":
+            continue
+        node_id = str(node.get("id") or "")
+        item_targets = {
+            item_id: target_service_by_item[item_id]
+            for customer_id, item_id in sorted(customer_item_pairs)
+            if customer_id == node_id and item_id in target_service_by_item
+        }
+        if not item_targets:
+            continue
+        policies = node.setdefault("policies", {})
+        sim_policy = policies.setdefault("simulation_policy", {})
+        sim_policy["service_level_target_by_item"] = item_targets
+        sim_policy["service_level_target_source"] = "baseline_target_service_override"
 
 
 def apply_scenario_settings(data: dict, scenario_id: str) -> dict:
@@ -132,6 +174,10 @@ def main() -> None:
     named_output_graph_path = Path(args.named_output_graph)
     output_dir = Path(args.output_dir)
     run_script = Path("etudecas/simulation/engine/run_first_simulation.py")
+    target_service_by_item = dict(TARGET_SERVICE_BY_ITEM)
+    if args.pf_service_target is not None:
+        target = max(0.0, min(1.0, float(args.pf_service_target)))
+        target_service_by_item = {item_id: target for item_id in target_service_by_item}
 
     base_data = load_json(source_path)
     if (base_data.get("meta") or {}).get("baseline_rebuild"):
@@ -146,6 +192,7 @@ def main() -> None:
         capacity_node_scale=FACTORY_CAPACITY_NODE_SCALE,
     )
     calibrated = apply_scenario_settings(calibrated, args.scenario_id)
+    apply_target_service(calibrated, target_service_by_item, args.scenario_id)
 
     meta = calibrated.get("meta") or {}
     meta["baseline_rebuild"] = {
@@ -157,7 +204,7 @@ def main() -> None:
         "factory_capacity_node_scale": FACTORY_CAPACITY_NODE_SCALE,
         "supplier_capacity_scale": SUPPLIER_CAPACITY_SCALE,
         "scenario_settings": SCENARIO_SETTINGS,
-        "target_service_by_item": TARGET_SERVICE_BY_ITEM,
+        "target_service_by_item": target_service_by_item,
     }
     calibrated["meta"] = meta
 
@@ -173,7 +220,7 @@ def main() -> None:
         "factory_capacity_node_scale": FACTORY_CAPACITY_NODE_SCALE,
         "supplier_capacity_scale": SUPPLIER_CAPACITY_SCALE,
         "scenario_settings": SCENARIO_SETTINGS,
-        "target_service_by_item": TARGET_SERVICE_BY_ITEM,
+        "target_service_by_item": target_service_by_item,
     }
 
     if not args.skip_simulation:
@@ -186,7 +233,7 @@ def main() -> None:
             skip_map=False,
             skip_plots=False,
         )
-        item_service = compute_item_service(output_dir)
+        item_service = compute_item_service(output_dir, target_service_by_item)
         result_summary["simulation_summary_file"] = str(summary_path(output_dir, "first_simulation_summary.json"))
         result_summary["simulation_report_file"] = str(report_path(output_dir, "first_simulation_report.md"))
         result_summary["global_kpis"] = summary.get("kpis", {})

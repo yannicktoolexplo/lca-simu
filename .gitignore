@@ -18,6 +18,7 @@
 venv/
 env/
 ENV/
+.venv-brightway/
 
 # Fichiers de dépendances Python
 lib/
@@ -126,6 +127,7 @@ analysis/sim_report/summary.txt
 analysis/sim_flows.html
 
 # Simulation scratch artifacts
+etudecas/donnees/
 etudecas/simulation/result/_*/
 etudecas/simulation/result/data/
 etudecas/simulation/result/maps/

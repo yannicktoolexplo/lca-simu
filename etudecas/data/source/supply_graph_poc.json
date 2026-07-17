@@ -10,13 +10,15 @@
       "Fields with is_default=true were filled with standard placeholder values because Data_poc.xlsx did not provide them.",
       "Graph enriched with auxiliary case-study Excel workbooks (021081.xlsx, 268191.xlsx, 268967.xlsx, Fournisseur.xlsx).",
       "For product 268091, workbook 268191.xlsx is treated as the BOM source of truth: active component 007923, former Data_poc.xlsx reference 693710.",
-      "Graph enriched with auxiliary case-study Excel workbooks (021081.xlsx, 268191.xlsx, 268967.xlsx, Fournisseur.xlsx, Extract_En_cours.xlsx)."
+      "Graph enriched with auxiliary case-study Excel workbooks (021081.xlsx, 268191.xlsx, 268967.xlsx, Fournisseur.xlsx, Extract_En_cours.xlsx).",
+      "Graph enriched with auxiliary case-study Excel workbooks (773474.xlsx, 268091.xlsx, 268967.xlsx, Fournisseur.xlsx, Extract_En_cours.xlsx).",
+      "For product 268091, workbook 268091.xlsx is treated as the BOM source of truth: active component 007923, former Data_poc.xlsx reference 693710."
     ],
     "source_files": [
       "Data_poc.xlsx",
       "Fournisseur.xlsx",
-      "021081.xlsx",
-      "268191.xlsx",
+      "773474.xlsx",
+      "268091.xlsx",
       "268967.xlsx",
       "Extract_En_cours.xlsx"
     ],
@@ -24,8 +26,8 @@
       "enabled": true,
       "source_files": [
         "Fournisseur.xlsx",
-        "021081.xlsx",
-        "268191.xlsx",
+        "773474.xlsx",
+        "268091.xlsx",
         "268967.xlsx",
         "Extract_En_cours.xlsx"
       ],
@@ -2342,6 +2344,18 @@
               "is_default": true
             },
             "is_default_initial": true
+          },
+          {
+            "item_id": "item:007923",
+            "state_id": "I_007923",
+            "initial": 0.0,
+            "uom": "G",
+            "holding_cost": {
+              "value": 0.0,
+              "per": "unit*day",
+              "is_default": true
+            },
+            "is_default_initial": true
           }
         ],
         "backlogs": [],
@@ -2517,7 +2531,7 @@
             ]
           },
           "attrs": {
-            "source_workbook": "268191.xlsx",
+            "source_workbook": "268091.xlsx",
             "source_sheet": "BOM"
           }
         }
@@ -2998,6 +3012,18 @@
             "state_id": "I_001848",
             "initial": 0.0,
             "uom": "G",
+            "holding_cost": {
+              "value": 0.0,
+              "per": "unit*day",
+              "is_default": true
+            },
+            "is_default_initial": true
+          },
+          {
+            "item_id": "item:007923",
+            "state_id": "I_007923",
+            "initial": 0.0,
+            "uom": "KG",
             "holding_cost": {
               "value": 0.0,
               "per": "unit*day",
@@ -4023,7 +4049,7 @@
             ]
           },
           "attrs": {
-            "source_workbook": "021081.xlsx",
+            "source_workbook": "773474.xlsx",
             "source_sheet": "BOM"
           }
         }
@@ -4247,7 +4273,20 @@
         "raw": null
       },
       "inventory": {
-        "states": [],
+        "states": [
+          {
+            "item_id": "item:007923",
+            "state_id": "I_007923",
+            "initial": 0.0,
+            "uom": "G",
+            "holding_cost": {
+              "value": 0.0,
+              "per": "unit*day",
+              "is_default": true
+            },
+            "is_default_initial": true
+          }
+        ],
         "backlogs": [],
         "wip": []
       },
@@ -4748,7 +4787,7 @@
       "attrs": {
         "source_row": 8,
         "source_sheet": "FIA",
-        "source_workbook": "268191.xlsx",
+        "source_workbook": "268091.xlsx",
         "product_code": "268091",
         "supplier_account": "VD0951020A",
         "standard_order_qty": 100.0,
@@ -4794,7 +4833,7 @@
       "attrs": {
         "source_row": 9,
         "source_sheet": "FIA",
-        "source_workbook": "268191.xlsx",
+        "source_workbook": "268091.xlsx",
         "product_code": "268091",
         "supplier_account": "VD0519670A",
         "standard_order_qty": 4000.0,
@@ -4840,7 +4879,7 @@
       "attrs": {
         "source_row": 10,
         "source_sheet": "FIA",
-        "source_workbook": "268191.xlsx",
+        "source_workbook": "268091.xlsx",
         "product_code": "268091",
         "supplier_account": "VD0951020A",
         "standard_order_qty": 6000.0,
@@ -4886,7 +4925,7 @@
       "attrs": {
         "source_row": 11,
         "source_sheet": "FIA",
-        "source_workbook": "268191.xlsx",
+        "source_workbook": "268091.xlsx",
         "product_code": "268091",
         "supplier_account": "VD0518684A",
         "standard_order_qty": 22800.0,
@@ -4932,7 +4971,7 @@
       "attrs": {
         "source_row": 12,
         "source_sheet": "FIA",
-        "source_workbook": "268191.xlsx",
+        "source_workbook": "268091.xlsx",
         "product_code": "268091",
         "supplier_account": "VD0910216A",
         "standard_order_qty": 23920.0,
@@ -4978,7 +5017,7 @@
       "attrs": {
         "source_row": 13,
         "source_sheet": "FIA",
-        "source_workbook": "268191.xlsx",
+        "source_workbook": "268091.xlsx",
         "product_code": "268091",
         "supplier_account": "VD1091642A",
         "standard_order_qty": 20900.0,
@@ -5024,7 +5063,7 @@
       "attrs": {
         "source_row": 14,
         "source_sheet": "FIA",
-        "source_workbook": "268191.xlsx",
+        "source_workbook": "268091.xlsx",
         "product_code": "268091",
         "supplier_account": "VD0500655A",
         "standard_order_qty": 21600.0,
@@ -5070,7 +5109,7 @@
       "attrs": {
         "source_row": 15,
         "source_sheet": "FIA",
-        "source_workbook": "268191.xlsx",
+        "source_workbook": "268091.xlsx",
         "product_code": "268091",
         "supplier_account": "VD0910216A",
         "standard_order_qty": 22500.0,
@@ -5116,7 +5155,7 @@
       "attrs": {
         "source_row": 16,
         "source_sheet": "FIA",
-        "source_workbook": "268191.xlsx",
+        "source_workbook": "268091.xlsx",
         "product_code": "268091",
         "supplier_account": "VD0990780A",
         "standard_order_qty": 23750.0,
@@ -5162,7 +5201,7 @@
       "attrs": {
         "source_row": 17,
         "source_sheet": "FIA",
-        "source_workbook": "268191.xlsx",
+        "source_workbook": "268091.xlsx",
         "product_code": "268091",
         "supplier_account": "VD1091642A",
         "standard_order_qty": 22500.0,
@@ -5208,7 +5247,7 @@
       "attrs": {
         "source_row": 18,
         "source_sheet": "FIA",
-        "source_workbook": "268191.xlsx",
+        "source_workbook": "268091.xlsx",
         "product_code": "268091",
         "supplier_account": "VD0514881A",
         "standard_order_qty": 1100.0,
@@ -5254,7 +5293,7 @@
       "attrs": {
         "source_row": 19,
         "source_sheet": "FIA",
-        "source_workbook": "268191.xlsx",
+        "source_workbook": "268091.xlsx",
         "product_code": "268091",
         "supplier_account": "VD0519670A",
         "standard_order_qty": 300.0,
@@ -5300,7 +5339,7 @@
       "attrs": {
         "source_row": 20,
         "source_sheet": "FIA",
-        "source_workbook": "268191.xlsx",
+        "source_workbook": "268091.xlsx",
         "product_code": "268091",
         "supplier_account": "VD1096202A",
         "standard_order_qty": 450.0,
@@ -5346,7 +5385,7 @@
       "attrs": {
         "source_row": 21,
         "source_sheet": "FIA",
-        "source_workbook": "268191.xlsx",
+        "source_workbook": "268091.xlsx",
         "product_code": "268091",
         "supplier_account": "VD0520132A",
         "standard_order_qty": 1600.0,
@@ -5392,7 +5431,7 @@
       "attrs": {
         "source_row": 22,
         "source_sheet": "FIA",
-        "source_workbook": "268191.xlsx",
+        "source_workbook": "268091.xlsx",
         "product_code": "268091",
         "supplier_account": "VD0914320A",
         "standard_order_qty": 300.0,
@@ -5438,7 +5477,7 @@
       "attrs": {
         "source_row": 23,
         "source_sheet": "FIA",
-        "source_workbook": "268191.xlsx",
+        "source_workbook": "268091.xlsx",
         "product_code": "268091",
         "supplier_account": "VD0964290A",
         "standard_order_qty": 300.0,
@@ -5484,7 +5523,7 @@
       "attrs": {
         "source_row": 24,
         "source_sheet": "FIA",
-        "source_workbook": "268191.xlsx",
+        "source_workbook": "268091.xlsx",
         "product_code": "268091",
         "supplier_account": "VD0505677A",
         "standard_order_qty": 4200.0,
@@ -5530,7 +5569,7 @@
       "attrs": {
         "source_row": 25,
         "source_sheet": "FIA",
-        "source_workbook": "268191.xlsx",
+        "source_workbook": "268091.xlsx",
         "product_code": "268091",
         "supplier_account": "VD0901566A",
         "standard_order_qty": 25000.0,
@@ -5576,7 +5615,7 @@
       "attrs": {
         "source_row": 26,
         "source_sheet": "FIA",
-        "source_workbook": "268191.xlsx",
+        "source_workbook": "268091.xlsx",
         "product_code": "268091",
         "supplier_account": "VD0914360C",
         "standard_order_qty": 5000.0,
@@ -5622,7 +5661,7 @@
       "attrs": {
         "source_row": 27,
         "source_sheet": "FIA",
-        "source_workbook": "268191.xlsx",
+        "source_workbook": "268091.xlsx",
         "product_code": "268091",
         "supplier_account": "VD0989480A",
         "standard_order_qty": 19200.0,
@@ -5668,7 +5707,7 @@
       "attrs": {
         "source_row": 28,
         "source_sheet": "FIA",
-        "source_workbook": "268191.xlsx",
+        "source_workbook": "268091.xlsx",
         "product_code": "268091",
         "supplier_account": "D1450",
         "standard_order_qty": 1.0,
@@ -5857,7 +5896,7 @@
       },
       "attrs": {
         "source_sheet": "FIA",
-        "source_workbook": "021081.xlsx",
+        "source_workbook": "773474.xlsx",
         "product_code": "773474",
         "supplier_account": "VD0949099A",
         "standard_order_qty": 20000.0,
@@ -5902,7 +5941,7 @@
       },
       "attrs": {
         "source_sheet": "FIA",
-        "source_workbook": "021081.xlsx",
+        "source_workbook": "773474.xlsx",
         "product_code": "773474",
         "supplier_account": "VD0960508A",
         "standard_order_qty": 20000.0,
@@ -5947,7 +5986,7 @@
       },
       "attrs": {
         "source_sheet": "FIA",
-        "source_workbook": "021081.xlsx",
+        "source_workbook": "773474.xlsx",
         "product_code": "773474",
         "supplier_account": "VD0972460A",
         "standard_order_qty": 20000.0,
@@ -5992,12 +6031,102 @@
       },
       "attrs": {
         "source_sheet": "FIA",
-        "source_workbook": "021081.xlsx",
+        "source_workbook": "773474.xlsx",
         "product_code": "773474",
         "supplier_account": "VD0975221A",
         "standard_order_qty": 20000.0,
         "standard_order_uom": "KG",
         "pricing_currency": "USD"
+      }
+    },
+    {
+      "id": "edge:SDC-VD0951020A_TO_M-1810_007923",
+      "type": "transport",
+      "from": "SDC-VD0951020A",
+      "to": "M-1810",
+      "items": [
+        "item:007923"
+      ],
+      "mode": "truck",
+      "distance_km": null,
+      "lead_time": {
+        "type": "erlang_pipeline",
+        "mean": 14.0,
+        "stages": 4,
+        "time_unit": "day",
+        "is_default": false,
+        "source": "case_data_fia"
+      },
+      "order_terms": {
+        "sell_price": 2.18,
+        "price_base": 1.0,
+        "quantity_unit": "KG",
+        "is_default": false,
+        "source": "case_data_fia"
+      },
+      "transport_cost": {
+        "value": 0.0,
+        "per": "unit",
+        "is_default": true
+      },
+      "delay_step_limit": {
+        "value": 28,
+        "is_default": false,
+        "source": "case_data_fia_assumption_from_lead_time"
+      },
+      "attrs": {
+        "source_sheet": "FIA",
+        "source_workbook": "268091.xlsx",
+        "product_code": "268091",
+        "supplier_account": "VD0951020A",
+        "standard_order_qty": 19074.0,
+        "standard_order_uom": "KG",
+        "pricing_currency": "EUR"
+      }
+    },
+    {
+      "id": "edge:SDC-VD0956464A_TO_M-1810_007923",
+      "type": "transport",
+      "from": "SDC-VD0956464A",
+      "to": "M-1810",
+      "items": [
+        "item:007923"
+      ],
+      "mode": "truck",
+      "distance_km": null,
+      "lead_time": {
+        "type": "erlang_pipeline",
+        "mean": 15.0,
+        "stages": 4,
+        "time_unit": "day",
+        "is_default": false,
+        "source": "case_data_fia"
+      },
+      "order_terms": {
+        "sell_price": 1820.0,
+        "price_base": 1000.0,
+        "quantity_unit": "KG",
+        "is_default": false,
+        "source": "case_data_fia"
+      },
+      "transport_cost": {
+        "value": 0.0,
+        "per": "unit",
+        "is_default": true
+      },
+      "delay_step_limit": {
+        "value": 30,
+        "is_default": false,
+        "source": "case_data_fia_assumption_from_lead_time"
+      },
+      "attrs": {
+        "source_sheet": "FIA",
+        "source_workbook": "268091.xlsx",
+        "product_code": "268091",
+        "supplier_account": "VD0956464A",
+        "standard_order_qty": 19140.0,
+        "standard_order_uom": "KG",
+        "pricing_currency": "EUR"
       }
     }
   ],

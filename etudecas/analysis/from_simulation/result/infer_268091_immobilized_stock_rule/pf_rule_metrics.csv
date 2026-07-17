@@ -1,0 +1,2 @@
+rule,real_mean,sim_mean,bias,mae,corr,sim_over_real,calibrated_scale,calibrated_sim_mean,calibrated_bias,calibrated_mae,median_unit_value_eur,implied_unit_value_min,implied_unit_value_max,implied_unit_value_cv
+physical_pf_stock_at_median_implied_unit_value,402761.9013461538,323116.76952082705,-79645.13182532681,250387.93150673903,0.02057747622725614,0.802252567685453,0.7423992430800928,239881.64511874685,-162880.2562274071,215278.9331938933,0.942972531144345,0.45353362974559225,664.0507375,4.252887361423238

@@ -2,12 +2,12 @@
 
 - Source graph: `etudecas\simulation_prep\result\reference_baseline\supply_graph_reference_baseline_real_demand_target_calibrated.json`
 - Output graph: `etudecas\simulation_prep\result\reference_baseline\supply_graph_reference_baseline_real_demand_target_calibrated_mrp_lot_policy.json`
-- Workbook: `etudecas\data\source\Stocks_MRP.xlsx`
+- Workbook: `etudecas\data\source\Extract_Données_Complémentaires.xlsx`
 - Snapshot UTC: `2025-01-01T03:03:48+00:00`
 - Stock rows injected: `28` / `32`
 - Inventory states created: `0`
 - Inventory states updated: `28`
-- MRP policy rows applied: `26`
+- MRP policy rows applied: `25`
 - MRP policy overrides applied: `2`
 - MRP lot policies applied: `3`
 - Legacy batch-size updates: `0`
@@ -43,7 +43,7 @@
 - SDC-1450 / item:773474: `0.0` -> `9600000.0` `G` (source `9600000.0` `G`)
 
 ## Injected MRP safety policies
-- DC-1920 / item:268091: safety time `0.0` d, safety stock `0.0` `UN` (source `mrp_policy_sheet`)
+- DC-1920 / item:268091: safety time `20.0` d, safety stock `0.0` `UN` (source `mrp_policy_sheet`)
 - DC-1920 / item:268967: safety time `25.0` d, safety stock `0.0` `UN` (source `mrp_policy_sheet`)
 - M-1430 / item:038005: safety time `20.0` d, safety stock `0.0` `KG` (source `mrp_policy_sheet`)
 - M-1430 / item:042342: safety time `5.0` d, safety stock `0.0` `UN` (source `mrp_policy_sheet`)
@@ -68,7 +68,6 @@
 - M-1810 / item:338929: safety time `10.0` d, safety stock `0.0` `UN` (source `mrp_policy_sheet`)
 - M-1810 / item:426331: safety time `7.0` d, safety stock `0.0` `UN` (source `mrp_policy_sheet`)
 - M-1810 / item:693055: safety time `20.0` d, safety stock `0.0` `G` (source `mrp_policy_sheet`)
-- SDC-1450 / item:021081: safety time `None` d, safety stock `900000.0` `KG` (source `mrp_policy_sheet`)
 
 ## Applied policy overrides
 - DC-1920 / item:268091: safety time `20.0` d, safety stock `None` `UN` (source `industrial_confirmation_2026-04-10`)

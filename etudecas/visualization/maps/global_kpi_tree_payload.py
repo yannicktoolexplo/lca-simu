@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import json
 from collections import defaultdict
 from pathlib import Path
 from typing import Any
@@ -28,6 +29,188 @@ def to_float(x: Any) -> float | None:
         return float(x)
     except (TypeError, ValueError):
         return None
+
+
+DAILY_COST_FIELDS = [
+    "holding_cost_day",
+    "warehouse_operating_cost_day",
+    "inventory_risk_cost_day",
+    "transport_cost_day",
+    "operational_transport_cost_day",
+    "purchase_cost_day",
+    "operational_purchase_cost_day",
+    "production_cost_day",
+    "total_supply_cost_day",
+]
+
+
+def positive_sum(rows: list[dict[str, str]], field: str) -> float:
+    total = 0.0
+    for row in rows:
+        value = to_float(row.get(field))
+        if value is not None and not math.isnan(value):
+            total += max(0.0, value)
+    return total
+
+
+def has_positive_daily_costs(rows: list[dict[str, str]]) -> bool:
+    return any(positive_sum(rows, field) > 1e-9 for field in DAILY_COST_FIELDS)
+
+
+def read_daily_kpi_rows_with_cost_fallback(daily_kpi_csv: Path) -> tuple[list[dict[str, str]], Path, str]:
+    rows = read_csv_rows(daily_kpi_csv)
+    if has_positive_daily_costs(rows):
+        return rows, daily_kpi_csv, "daily_cost_csv"
+
+    sibling_first_daily = daily_kpi_csv.parent / "first_simulation_daily.csv"
+    if sibling_first_daily != daily_kpi_csv and sibling_first_daily.exists():
+        sibling_rows = read_csv_rows(sibling_first_daily)
+        if has_positive_daily_costs(sibling_rows):
+            return sibling_rows, sibling_first_daily, "first_simulation_daily_fallback"
+
+    return rows, daily_kpi_csv, "summary_reconstructed_fallback"
+
+
+def read_summary_kpis(data_dir: Path) -> dict[str, float]:
+    summary_path = data_dir.parent / "summaries" / "first_simulation_summary.json"
+    if not summary_path.exists():
+        return {}
+    try:
+        payload = json.loads(summary_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {}
+    kpis = payload.get("kpis") if isinstance(payload, dict) else None
+    if not isinstance(kpis, dict):
+        return {}
+    out: dict[str, float] = {}
+    for key, value in kpis.items():
+        numeric = to_float(value)
+        if numeric is not None and not math.isnan(numeric):
+            out[str(key)] = float(numeric)
+    return out
+
+
+def add_weighted_total(target: dict[int, float], day: int, value: float) -> None:
+    target[day] = target.get(day, 0.0) + max(0.0, value)
+
+
+def stock_weight_from_rows(rows: list[dict[str, str]], day_field: str = "day") -> dict[int, float]:
+    weights: dict[int, float] = defaultdict(float)
+    for row in rows:
+        day_value = to_float(row.get(day_field))
+        if day_value is None or math.isnan(day_value):
+            continue
+        stock_value = None
+        for field in ["stock_end_of_day", "stock_qty", "ending_stock_qty", "available_stock_qty"]:
+            stock_value = to_float(row.get(field))
+            if stock_value is not None and not math.isnan(stock_value):
+                break
+        if stock_value is None or math.isnan(stock_value):
+            continue
+        weights[int(day_value)] += max(0.0, stock_value)
+    return dict(weights)
+
+
+def scale_daily_weights(days: list[int], weights: dict[int, float], total: float) -> dict[int, float]:
+    total = max(0.0, total)
+    if total <= 1e-9:
+        return {day: 0.0 for day in days}
+    weight_sum = sum(max(0.0, weights.get(day, 0.0)) for day in days)
+    if weight_sum <= 1e-9:
+        flat = total / len(days) if days else 0.0
+        return {day: flat for day in days}
+    return {day: total * max(0.0, weights.get(day, 0.0)) / weight_sum for day in days}
+
+
+def reconstructed_cost_series_from_run(
+    data_dir: Path,
+    days: list[int],
+) -> tuple[dict[str, dict[int, float]], str]:
+    """Recover daily cost curves when first_simulation_daily.csv is unavailable.
+
+    The engine summary remains the source of truth for totals. Daily shape is allocated
+    with operational drivers available in the run: stocks for inventory costs, shipped
+    transport cost for transport, MRP release volume for purchase, and production volume
+    for conversion cost.
+    """
+    if not days:
+        return {}, "no_days"
+
+    kpis = read_summary_kpis(data_dir)
+    if not kpis:
+        return {}, "missing_summary"
+
+    stock_weights: dict[int, float] = defaultdict(float)
+    for filename in [
+        "production_input_stocks_daily.csv",
+        "production_output_products_daily.csv",
+        "production_dc_stocks_daily.csv",
+        "production_supplier_stocks_daily.csv",
+    ]:
+        for day, value in stock_weight_from_rows(read_csv_rows(data_dir / filename)).items():
+            stock_weights[day] += value
+
+    production_weights: dict[int, float] = defaultdict(float)
+    for row in read_csv_rows(data_dir / "production_output_products_daily.csv"):
+        day = to_float(row.get("day"))
+        qty = to_float(row.get("produced_qty"))
+        if day is not None and not math.isnan(day) and qty is not None and not math.isnan(qty):
+            production_weights[int(day)] += max(0.0, qty)
+
+    purchase_weights: dict[int, float] = defaultdict(float)
+    for row in read_csv_rows(data_dir / "mrp_orders_daily.csv"):
+        day_value = to_float(row.get("release_day"))
+        if day_value is None or math.isnan(day_value):
+            day_value = to_float(row.get("day"))
+        qty = to_float(row.get("release_qty"))
+        if day_value is not None and not math.isnan(day_value) and qty is not None and not math.isnan(qty):
+            purchase_weights[int(day_value)] += max(0.0, qty)
+
+    transport_cost_weights: dict[int, float] = defaultdict(float)
+    transport_qty_weights: dict[int, float] = defaultdict(float)
+    transport_cost_observed = 0.0
+    for row in read_csv_rows(data_dir / "production_supplier_shipments_daily.csv"):
+        day = to_float(row.get("day"))
+        if day is None or math.isnan(day):
+            continue
+        cost = to_float(row.get("transport_cost"))
+        if cost is not None and not math.isnan(cost) and cost > 0:
+            add_weighted_total(transport_cost_weights, int(day), cost)
+            transport_cost_observed += cost
+        qty = to_float(row.get("shipped_qty"))
+        if qty is not None and not math.isnan(qty):
+            add_weighted_total(transport_qty_weights, int(day), qty)
+
+    holding = scale_daily_weights(days, dict(stock_weights), kpis.get("total_holding_cost", 0.0))
+    warehouse = scale_daily_weights(days, dict(stock_weights), kpis.get("total_warehouse_operating_cost", 0.0))
+    risk = scale_daily_weights(days, dict(stock_weights), kpis.get("total_inventory_risk_cost", 0.0))
+    production = scale_daily_weights(days, dict(production_weights), kpis.get("total_production_cost", 0.0))
+    purchase = scale_daily_weights(days, dict(purchase_weights), kpis.get("total_purchase_cost", 0.0))
+    transport_total = kpis.get("total_transport_cost", 0.0)
+    transport_weights = transport_cost_weights if transport_cost_observed > 1e-9 else transport_qty_weights
+    transport = scale_daily_weights(days, dict(transport_weights), transport_total)
+
+    total = {
+        day: holding[day] + warehouse[day] + risk[day] + production[day] + purchase[day] + transport[day]
+        for day in days
+    }
+    note = (
+        "reconstruit depuis first_simulation_summary.json; "
+        "forme journaliere allouee par stock, production, commandes MRP et transports"
+    )
+    if transport_cost_observed > 1e-9:
+        note += "; transport journalier observe puis remis a l'echelle du total moteur"
+    return {
+        "holding_cost_day": holding,
+        "warehouse_operating_cost_day": warehouse,
+        "inventory_risk_cost_day": risk,
+        "operational_transport_cost_day": transport,
+        "transport_cost_day": transport,
+        "operational_purchase_cost_day": purchase,
+        "purchase_cost_day": purchase,
+        "production_cost_day": production,
+        "total_supply_cost_day": total,
+    }, note
 
 
 def compact_item_label(item_id: str) -> str:
@@ -111,14 +294,59 @@ def effective_procurement_lead_days(row: dict[str, str]) -> float | None:
     return None
 
 
+def build_component_immobilized_series(
+    component_immobilized_stock_csv: Path,
+    days: list[int],
+    *,
+    product_item_filter: set[str] | None = None,
+) -> dict[str, dict[int, float]]:
+    rows = read_csv_rows(component_immobilized_stock_csv)
+    out: dict[str, dict[int, float]] = defaultdict(lambda: defaultdict(float))
+    wanted_days = set(days)
+    for row in rows:
+        day_value = to_float(row.get("day"))
+        if day_value is None or math.isnan(day_value):
+            continue
+        day = int(day_value)
+        if day not in wanted_days:
+            continue
+        product_item_id = str(row.get("product_item_id") or "").strip()
+        if product_item_filter is not None and product_item_id not in product_item_filter:
+            continue
+        mode = str(row.get("threshold_mode") or "")
+        stock_value = max(0.0, to_float(row.get("stock_value_eur")) or 0.0)
+        useful_value = max(0.0, to_float(row.get("useful_stock_value_eur")) or 0.0)
+        immobilized_value = max(0.0, to_float(row.get("immobilized_stock_value_eur")) or 0.0)
+        product_code = str(row.get("product_code") or row.get("product_item_id") or "").strip()
+        if mode == "target_stock":
+            out["stock_value"][day] += stock_value
+            out["useful_target_stock"][day] += useful_value
+            out["immobilized_target_stock"][day] += immobilized_value
+            if product_code:
+                out[f"stock_value::{product_code}"][day] += stock_value
+                out[f"immobilized_target_stock::{product_code}"][day] += immobilized_value
+        elif mode == "demand_90d":
+            out["useful_demand_90d"][day] += useful_value
+            out["immobilized_demand_90d"][day] += immobilized_value
+            if product_code:
+                out[f"immobilized_demand_90d::{product_code}"][day] += immobilized_value
+    return {key: dict(value) for key, value in out.items()}
+
+
+def mean_series(series: dict[int, float]) -> float:
+    values = [max(0.0, float(value)) for value in series.values()]
+    return sum(values) / len(values) if values else 0.0
+
+
 def build_global_kpi_tree_payload(
     daily_kpi_csv: Path,
     demand_service_csv: Path,
     production_constraint_csv: Path,
     mrp_orders_csv: Path | None = None,
     raw: dict[str, Any] | None = None,
+    component_immobilized_stock_csv: Path | None = None,
 ) -> dict[str, Any] | None:
-    daily_rows = read_csv_rows(daily_kpi_csv)
+    daily_rows, effective_daily_kpi_csv, cost_source = read_daily_kpi_rows_with_cost_fallback(daily_kpi_csv)
     demand_rows = read_csv_rows(demand_service_csv)
     constraint_rows = read_csv_rows(production_constraint_csv)
     mrp_order_rows = read_csv_rows(mrp_orders_csv) if mrp_orders_csv else []
@@ -246,11 +474,37 @@ def build_global_kpi_tree_payload(
     if not days:
         return None
 
+    cost_source_note = "cout journalier moteur"
+    if cost_source == "first_simulation_daily_fallback":
+        cost_source_note = "cout journalier moteur via first_simulation_daily.csv"
+    elif cost_source == "summary_reconstructed_fallback":
+        reconstructed_costs, reconstructed_note = reconstructed_cost_series_from_run(production_constraint_csv.parent, days)
+        if reconstructed_costs:
+            for field, series in reconstructed_costs.items():
+                for day, value in series.items():
+                    daily_by_day[day][field] = max(0.0, value)
+            cost_source_note = reconstructed_note
+        else:
+            cost_source_note = f"cout non disponible ({reconstructed_note})"
+
     def series_from_map(values: dict[int, float]) -> dict[str, Any]:
         return {
             "days": days,
             "values": [round(float(values.get(day, 0.0)), 6) for day in days],
         }
+
+    component_stock_csv = component_immobilized_stock_csv or (
+        daily_kpi_csv.parent / "component_immobilized_stock_daily.csv"
+    )
+    component_stock_series = (
+        build_component_immobilized_series(
+            component_stock_csv,
+            days,
+            product_item_filter=finished_good_item_ids if finished_good_item_ids else None,
+        )
+        if component_stock_csv.exists()
+        else {}
+    )
 
     demand_qty = {day: demand_by_day[day].get("demand_qty", daily_by_day[day].get("demand", 0.0)) for day in days}
     required_qty = {day: demand_by_day[day].get("required_qty", demand_qty[day]) for day in days}
@@ -642,8 +896,33 @@ def build_global_kpi_tree_payload(
         )
         for day in days
     }
+    startup_cost = {
+        day: total_supply_cost[day] if day < startup_cutoff_days else 0.0
+        for day in days
+    }
+    established_cost = {
+        day: total_supply_cost[day] if day >= startup_cutoff_days else 0.0
+        for day in days
+    }
     positive_costs = [value for value in total_supply_cost.values() if value > 0]
-    avg_total_supply_cost = sum(positive_costs) / len(positive_costs) if positive_costs else 1.0
+    established_positive_costs = [
+        total_supply_cost[day]
+        for day in days
+        if day >= startup_cutoff_days and total_supply_cost[day] > 0
+    ]
+    avg_established_cost = (
+        sum(established_positive_costs) / len(established_positive_costs)
+        if established_positive_costs
+        else 0.0
+    )
+    cost_index_base_costs = established_positive_costs if established_positive_costs else positive_costs
+    avg_total_supply_cost = sum(cost_index_base_costs) / len(cost_index_base_costs) if cost_index_base_costs else 1.0
+    established_average_cost = {
+        day: avg_established_cost if day >= startup_cutoff_days and avg_established_cost > 1e-9 else 0.0
+        for day in days
+    }
+    opening_cost = {day: opening_transport_cost[day] + opening_purchase_cost[day] for day in days}
+    cost_index_base_label = "regime etabli J30+" if established_positive_costs else "scenario complet"
     cost_index = {day: 100.0 * total_supply_cost[day] / avg_total_supply_cost for day in days}
     logistics_cost_index = {day: 100.0 * logistics_cost[day] / avg_total_supply_cost for day in days}
     inventory_cost_index = {day: 100.0 * inventory_cost[day] / avg_total_supply_cost for day in days}
@@ -723,7 +1002,7 @@ def build_global_kpi_tree_payload(
         "inventory_cost": inventory_cost,
     }
     physics_kpi_rows = compute_kpi_rows(days, physics_actual_series, physics_kpi_definitions)
-    physics_kpi_csv = daily_kpi_csv.parent / "physics_of_decision_kpi_daily.csv"
+    physics_kpi_csv = effective_daily_kpi_csv.parent / "physics_of_decision_kpi_daily.csv"
     if physics_kpi_rows:
         write_kpi_rows_csv(physics_kpi_rows, physics_kpi_csv)
 
@@ -864,13 +1143,15 @@ def build_global_kpi_tree_payload(
     total_actual_lot_starts = sum(actual_lot_starts.values())
     total_logistics_cost = sum(logistics_cost.values())
     total_supply_cost_value = sum(total_supply_cost.values())
+    total_startup_cost = sum(startup_cost.values())
+    total_established_cost = sum(established_cost.values())
     total_inventory_cost = sum(inventory_cost.values())
     total_transport_cost = sum(transport_cost.values())
     total_opening_transport_cost = sum(opening_transport_cost.values())
     total_purchase_cost = sum(purchase_cost.values())
     total_production_cost = sum(production_cost.values())
     total_opening_purchase_cost = sum(opening_purchase_cost.values())
-    total_opening_cost = total_opening_transport_cost + total_opening_purchase_cost
+    total_opening_cost = sum(opening_cost.values())
     total_scenario_cost_excluding_external = (
         total_supply_cost_value + total_opening_cost
     )
@@ -1154,15 +1435,47 @@ def build_global_kpi_tree_payload(
             "family": "Couts stock / transport",
             "level": "KPI principal",
             "name": "Pression cout supply",
-            "formula": "100 x (Cout_stock(t) + Cout_transport(t) + Cout_achat(t) + Cout_production(t)) / moyenne_run(Cout_total_operationnel)",
-            "terms": "Cout_stock=holding_cost + warehouse_operating_cost + inventory_risk_cost. Cout_transport=transport operationnel des commandes du scenario, hors carnet initial. Cout_achat=cout d'achat matiere/fournisseur. Cout_production=cout de conversion alloue sur la production reelle. moyenne_run=moyenne des jours avec cout total operationnel positif.",
-            "interpretation": "Indice base 100. Au-dessus de 100, la journee coute plus cher que la moyenne du scenario.",
+            "formula": "100 x (Cout_stock(t) + Cout_transport(t) + Cout_achat(t) + Cout_production(t)) / base_cout",
+            "terms": "base_cout=moyenne des jours J30+ avec cout operationnel positif si disponible, sinon moyenne des jours du scenario avec cout positif. Cout_transport et Cout_achat excluent le carnet initial deja engage.",
+            "interpretation": "Indice base 100. Au-dessus de 100, la journee coute plus cher que le regime etabli quand celui-ci est observable.",
+        },
+        {
+            "family": "Couts stock / transport",
+            "level": "KPI secondaire",
+            "name": "Cout d'amorcage J0-J29",
+            "formula": "Cout_operationnel_total(t) si t < 30, sinon 0",
+            "terms": "Isole la phase d'amorcage afin que les couts initiaux ne soient pas confondus avec le regime etabli.",
+            "interpretation": "Les pics J0-J29 peuvent venir de la mise en route du scenario et doivent etre lus a part.",
+        },
+        {
+            "family": "Couts stock / transport",
+            "level": "KPI secondaire",
+            "name": "Regime etabli J30+",
+            "formula": "Cout_operationnel_total(t) si t >= 30, sinon 0",
+            "terms": "Fenetre retenue pour la base d'indice lorsque des couts positifs existent apres J29.",
+            "interpretation": "Montre la trajectoire cout une fois l'amorcage sorti de la lecture principale.",
+        },
+        {
+            "family": "Couts stock / transport",
+            "level": "KPI secondaire",
+            "name": "Moyenne regime etabli",
+            "formula": "moyenne(Cout_operationnel_total(t) pour t >= 30 et cout > 0)",
+            "terms": "Ligne horizontale tracee sur J30+ uniquement; absente si aucun regime etabli positif n'est disponible.",
+            "interpretation": "Reference visuelle de la base 100 utilisee par l'indice cout.",
+        },
+        {
+            "family": "Couts stock / transport",
+            "level": "KPI secondaire",
+            "name": "Carnet initial deja engage",
+            "formula": "opening_open_order_purchase_cost_day + opening_open_order_transport_cost_day",
+            "terms": "Couts d'achat et de transport des open orders presents au demarrage, deja engages avant les decisions simulees.",
+            "interpretation": "Ce montant est affiche separement du cout operationnel pilotable pour eviter de l'attribuer a la politique courante.",
         },
         {
             "family": "Couts stock / transport",
             "level": "KPI secondaire",
             "name": "Contribution cout d'achat matiere - indice",
-            "formula": "100 x Cout_achat(t) / moyenne_run(Cout_total_operationnel)",
+            "formula": "100 x Cout_achat(t) / base_cout",
             "terms": "Cout_achat=operational_purchase_cost_day, c.-a-d. cout d'achat des matieres/fournisseurs sur les flux commandes par la politique simulee, hors carnet initial deja engage.",
             "interpretation": "Part de la pression cout due au cout d'achat des matieres/fournisseurs.",
         },
@@ -1170,7 +1483,7 @@ def build_global_kpi_tree_payload(
             "family": "Couts stock / transport",
             "level": "KPI secondaire",
             "name": "Contribution cout de production - indice",
-            "formula": "100 x Cout_production(t) / moyenne_run(Cout_total_operationnel)",
+            "formula": "100 x Cout_production(t) / base_cout",
             "terms": "Cout_production=production_cost_day, estimation de cout de conversion pharma: fabrication, main-d'oeuvre, utilites, qualite, nettoyage, maintenance et depreciation.",
             "interpretation": "Part de la pression cout due aux operations de fabrication, separee des achats matieres.",
         },
@@ -1178,7 +1491,7 @@ def build_global_kpi_tree_payload(
             "family": "Couts stock / transport",
             "level": "KPI secondaire",
             "name": "Contribution stock - indice",
-            "formula": "100 x Cout_stock(t) / moyenne_run(Cout_total_pilotable)",
+            "formula": "100 x Cout_stock(t) / base_cout",
             "terms": "Cout_stock=holding_cost_day + warehouse_operating_cost_day + inventory_risk_cost_day.",
             "interpretation": "Part de la pression cout due au stock: immobilisation, stockage, risque inventaire.",
         },
@@ -1186,7 +1499,7 @@ def build_global_kpi_tree_payload(
             "family": "Couts stock / transport",
             "level": "KPI secondaire",
             "name": "Contribution transport pilotable - indice",
-            "formula": "100 x Cout_transport_pilotable(t) / moyenne_run(Cout_total_pilotable)",
+            "formula": "100 x Cout_transport_pilotable(t) / base_cout",
             "terms": "Cout_transport_pilotable exclut le transport du carnet initial deja engage.",
             "interpretation": "Part de la pression cout due aux flux transport decidables par la politique simulee.",
         },
@@ -1213,9 +1526,9 @@ def build_global_kpi_tree_payload(
                 "family": "Couts supply",
                 "level": "KPI principal",
                 "name": "Cout supply operationnel",
-                "formula": "Indice base 100 du cout operationnel journalier total",
-                "terms": "Cout operationnel = cout d'achat matiere + cout de production + cout stock + cout de transport. Les montants reels sont affiches dans les KPI secondaires.",
-                "interpretation": "Permet de voir les jours plus chers que la moyenne du scenario, tout en gardant le detail en euros/quantite dans les secondaires.",
+                "formula": "Indice base 100 du cout operationnel journalier total, base J30+ si disponible",
+                "terms": "Cout operationnel = cout d'achat matiere + cout de production + cout stock + cout de transport. J0-J29, J30+, moyenne J30+ et carnet initial sont affiches dans les KPI secondaires.",
+                "interpretation": "Permet de voir les jours plus chers que le regime etabli, sans laisser l'amorcage J0-J29 deformer la base de comparaison.",
             },
             {
                 "family": "Couts supply",
@@ -1269,14 +1582,63 @@ def build_global_kpi_tree_payload(
         "Cout de production",
         "Cout stock",
         "Cout de transport pilotable",
+        "Cout d'amorcage J0-J29",
+        "Regime etabli J30+",
+        "Moyenne regime etabli",
+        "Carnet initial deja engage",
         "Pilotable",
     }
+    if component_stock_series:
+        kpi_definitions.extend(
+            [
+                {
+                    "family": "Stock composants",
+                    "level": "KPI principal",
+                    "name": "Valeur stock composant simulee",
+                    "formula": "stock_end_of_day x prix unitaire composant",
+                    "terms": "Lecture comparable au fichier reel si celui-ci expose une valeur totale du stock composant. Le calcul exclut les prix de secours generiques.",
+                    "interpretation": "C'est la lecture principale pour comparer au KPI reel `Sum_Valeur totale du stock`.",
+                },
+                {
+                    "family": "Stock composants",
+                    "level": "KPI secondaire",
+                    "name": "Stock composant total valorise",
+                    "formula": "stock_end_of_day x prix unitaire composant",
+                    "terms": "Agrégation par perimetre produit fini et composant disponible dans component_immobilized_stock_daily.csv.",
+                    "interpretation": "Valeur du stock composant suivi par la simulation, avant separation utile/immobilise.",
+                },
+                {
+                    "family": "Stock composants",
+                    "level": "KPI secondaire",
+                    "name": "Excedent economique 90j",
+                    "formula": "max(stock - besoin journalier MRP x 90, 0) x prix unitaire",
+                    "terms": "Lecture proche d'un KPI financier: stock au-dessus d'une couverture economique de 90 jours.",
+                    "interpretation": "Diagnostic de surstock, pas la comparaison directe avec le fichier reel de valeur totale.",
+                },
+                {
+                    "family": "Stock composants",
+                    "level": "KPI secondaire",
+                    "name": "Excedent vs cible MRP",
+                    "formula": "max(stock - target_stock_qty, 0) x prix unitaire",
+                    "terms": "Lecture stricte pilotage MRP.",
+                    "interpretation": "Diagnostic MRP pour auditer la cible, pas la comparaison directe avec le fichier reel.",
+                },
+            ]
+        )
+        visible_definition_names.update(
+            {
+                "Valeur stock composant simulee",
+                "Stock composant total valorise",
+                "Excedent economique 90j",
+                "Excedent vs cible MRP",
+            }
+        )
 
     physics_kpi_display = [
         ("product_availability", "Disponibilite produit", "#0f766e", "served_qty / required_with_backlog_qty"),
         ("line_adherence", "Adherence plan lotifie", "#2563eb", "actual_qty vs planned_qty_after_lot_rule, moyenne glissante 30j"),
         ("line_nervousness", "Nervosite planning (%)", "#d97706", "Amplitude moyenne journaliere des changements de plan par ligne"),
-        ("production_replanning_count", "Lignes replanifiees", "#7c3aed", "Nombre de lignes dont le plan change vs jour precedent"),
+        ("production_replanning_count", "Volume replanifie associe", "#7c3aed", "Nombre de lignes dont le plan change vs jour precedent; le KPI decisionnel reste le taux de replanification quand disponible."),
         ("raw_material_stockout_days", "Signal MP usine zero 30j", "#dc2626", "Diagnostic technique: nombre de jours calendaires, dans la fenetre glissante 30j, ou au moins une MP suivie finit la journee a stock usine nul."),
         ("material_delay_days", "Retard matiere", "#0891b2", "Moyenne des retards reception: delai effectif - delai previsionnel"),
         ("inventory_cost", "Cout stock", "#be123c", "Cout stock journalier; cible=cout stock moyen baseline"),
@@ -1380,7 +1742,7 @@ def build_global_kpi_tree_payload(
         "title": "Physics of Decision - trajectoire KPI",
         "subtitle": "Distances normalisees: 0 = cible atteinte, 1 = catastrophe. Score global = aggregation euclidienne ponderee.",
         "csv_path": str(physics_kpi_csv),
-        "startup_cutoff_day": None,
+        "startup_cutoff_day": startup_cutoff_days,
         "days": days,
         "main": {
             "series": [
@@ -1417,6 +1779,86 @@ def build_global_kpi_tree_payload(
             for definition in physics_kpi_definitions
         ],
     }
+    component_stock_group = None
+    if component_stock_series:
+        def component_avg(key: str) -> float:
+            series = component_stock_series.get(key, {})
+            return sum(max(0.0, float(series.get(day, 0.0))) for day in days) / len(days) if days else 0.0
+
+        top_component_products = sorted(
+            [
+                (
+                    key.split("::", 1)[1],
+                    component_avg(key),
+                    component_stock_series.get(key, {}),
+                )
+                for key in component_stock_series
+                if key.startswith("immobilized_demand_90d::")
+            ],
+            key=lambda row: row[1],
+            reverse=True,
+        )[:5]
+        component_product_palette = ["#111827", "#7c3aed", "#0891b2", "#be123c", "#65a30d"]
+        component_stock_group = {
+            "id": "component_stock",
+            "label": "Stock composants valorise",
+            "objective": "Comparer la valeur totale du stock composant simule au reel, puis lire les diagnostics de surstock.",
+            "summary": [
+                summary("Valeur stock composant moyen", fmt_qty(component_avg("stock_value"))),
+                summary("Utile economique 90j moyen", fmt_qty(component_avg("useful_demand_90d"))),
+                summary("Excedent economique 90j moyen", fmt_qty(component_avg("immobilized_demand_90d"))),
+                summary("Utile cible MRP moyen", fmt_qty(component_avg("useful_target_stock"))),
+                summary("Excedent vs cible MRP moyen", fmt_qty(component_avg("immobilized_target_stock"))),
+                summary(
+                    "Principal PF contributeur",
+                    (
+                        f"{top_component_products[0][0]} - {fmt_qty(top_component_products[0][1])}"
+                        if top_component_products
+                        else "n/a"
+                    ),
+                ),
+                summary("Source", component_stock_csv.name),
+            ],
+            "secondary": [
+                {
+                    "label": "Stock composant total valorise",
+                    **series_from_map(component_stock_series.get("stock_value", {})),
+                    "color": "#475569",
+                },
+                {
+                    "label": "Stock utile economique 90j",
+                    **series_from_map(component_stock_series.get("useful_demand_90d", {})),
+                    "color": "#0f766e",
+                },
+                {
+                    "label": "Excedent economique 90j",
+                    **series_from_map(component_stock_series.get("immobilized_demand_90d", {})),
+                    "color": "#d97706",
+                },
+                {
+                    "label": "Stock utile cible MRP",
+                    **series_from_map(component_stock_series.get("useful_target_stock", {})),
+                    "color": "#2563eb",
+                    "dash": "dash",
+                },
+                {
+                    "label": "Excedent vs cible MRP",
+                    **series_from_map(component_stock_series.get("immobilized_target_stock", {})),
+                    "color": "#be123c",
+                    "dash": "dot",
+                },
+                *[
+                    {
+                        "label": f"Excedent 90j PF {product_code}",
+                        **series_from_map(series),
+                        "color": component_product_palette[idx % len(component_product_palette)],
+                        "dash": "dashdot",
+                    }
+                    for idx, (product_code, _avg, series) in enumerate(top_component_products)
+                ],
+            ],
+            "secondary_y_label": "EUR",
+        }
     kpi_definitions.extend(
         [
             {
@@ -1538,14 +1980,14 @@ def build_global_kpi_tree_payload(
                     summary("Lignes contraintes matiere moy.", fmt_pct(avg_input_shortage_line_share)),
                     summary("Manque vs plan lotifie", fmt_qty(total_input_shortage_shortfall_lot_plan)),
                     summary("Manque vs besoin usine", fmt_qty(total_input_shortage_shortfall_desired)),
-                    summary("Lecture service client", "absorbe si fill rate reste a 100% et backlog a 0"),
+                    summary("Lecture disponibilite produit", "absorbe si disponibilite produit reste a 100% et backlog a 0"),
                 ],
                 "secondary": [
                     {"label": "Lignes contraintes matiere (%)", **series_from_map(input_shortage_line_share), "color": "#be123c"},
                     {"label": "Manque matiere vs plan lotifie (%)", **series_from_map(input_shortage_lot_plan_loss_share), "color": "#dc2626", "dash": "dash"},
                     {"label": "Manque matiere vs besoin usine (%)", **series_from_map(input_shortage_desired_loss_share), "color": "#f97316"},
                     {"label": "Nervosite planning (%)", **series_from_map(line_nervousness), "color": "#7c3aed"},
-                    {"label": "Lignes replanifiees", **series_from_map(production_replanning_count), "color": "#475569", "dash": "dot"},
+                    {"label": "Volume replanifie associe", **series_from_map(production_replanning_count), "color": "#475569", "dash": "dot"},
                     {"label": "Signal MP usine zero 30j", **series_from_map(raw_material_stockout_days_30d), "color": "#64748b", "dash": "dot"},
                 ],
                 "secondary_y_label": "% / lignes",
@@ -1556,16 +1998,31 @@ def build_global_kpi_tree_payload(
                 "objective": "Comprendre le cout operationnel: achat matiere, production, stock et transport.",
                 "summary": [
                     summary("Cout operationnel total", fmt_qty(total_supply_cost_value)),
+                    summary("Cout d'amorcage J0-J29", fmt_qty(total_startup_cost)),
+                    summary("Regime etabli J30+", fmt_qty(total_established_cost)),
+                    summary(
+                        "Moyenne regime etabli",
+                        fmt_qty(avg_established_cost) if avg_established_cost > 1e-9 else "n/a",
+                    ),
+                    summary("Base indice cout", cost_index_base_label),
                     summary("Cout d'achat matiere", f"{fmt_qty(total_purchase_cost)} ({cost_share(total_purchase_cost)})"),
                     summary("Cout de production", f"{fmt_qty(total_production_cost)} ({cost_share(total_production_cost)})"),
                     summary("Cout stock", f"{fmt_qty(total_inventory_cost)} ({cost_share(total_inventory_cost)})"),
                     summary("Cout de transport pilotable", f"{fmt_qty(total_transport_cost)} ({cost_share(total_transport_cost)})"),
-                    summary("Carnet initial deja engage", fmt_qty(total_opening_cost)),
+                    summary(
+                        "Carnet initial deja engage",
+                        f"{fmt_qty(total_opening_cost)} (achat {fmt_qty(total_opening_purchase_cost)}, transport {fmt_qty(total_opening_transport_cost)})",
+                    ),
                     summary("Cout total scenario", fmt_qty(total_scenario_cost_excluding_external)),
                     summary("Principal pic transport", transport_spike_driver),
+                    summary("Source cout", cost_source_note),
                 ],
                 "secondary": [
                     {"label": "Cout operationnel total", **series_from_map(total_supply_cost), "color": "#d97706"},
+                    {"label": "Cout d'amorcage (J0-J29)", **series_from_map(startup_cost), "color": "#f59e0b", "dash": "dot"},
+                    {"label": "Regime etabli (J30+)", **series_from_map(established_cost), "color": "#0891b2"},
+                    {"label": "Moyenne regime etabli", **series_from_map(established_average_cost), "color": "#111827", "dash": "dash"},
+                    {"label": "Carnet initial deja engage", **series_from_map(opening_cost), "color": "#64748b", "dash": "dashdot"},
                     {"label": "Cout d'achat matiere", **series_from_map(purchase_cost), "color": "#0f766e"},
                     {"label": "Cout de production", **series_from_map(production_cost), "color": "#be123c"},
                     {"label": "Cout stock", **series_from_map(inventory_cost), "color": "#7c3aed"},
@@ -1573,6 +2030,7 @@ def build_global_kpi_tree_payload(
                 ],
                 "secondary_y_label": "Cout / jour",
             },
+            *([component_stock_group] if component_stock_group else []),
         ],
     }
 

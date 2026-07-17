@@ -1,0 +1,17 @@
+contributor_scope,label,climate_person_equivalent,share_of_non_use_climate_pct,source_sheet,source_row
+component,A2017,0.08306515,34.7243,Graphes perseq,103
+component,A5086,0.015380707,6.4297,Graphes perseq,107
+component,Alu,0.013334685,5.5744,Graphes perseq,108
+system,Commande actionnement ECU,0.0360217,15.0584,Graphes perseq,89
+component,Commande actionnement ECU,0.0359,15.0075,Graphes perseq,104
+system,Ens. Palette optimisée,0.020334526,8.5006,Graphes perseq,92
+system,Ens. Structure fauteuil,0.049590807,20.7308,Graphes perseq,88
+system,Ens. Structure fixe,0.0057766,2.4148,Graphes perseq,96
+system,Ens. Tablette cocktail,0.02124963,8.8831,Graphes perseq,91
+system,Ens. Tablette repas,0.009571378,4.0012,Graphes perseq,94
+system,Ens. porte,0.008542728,3.5712,Graphes perseq,95
+system,Lightning - Diodes,0.02672189,11.1707,Graphes perseq,90
+system,Remote extender unit,0.0055191,2.3072,Graphes perseq,97
+system,Stowage assemblé avec porte,0.012309807,5.146,Graphes perseq,93
+component,Transport,0.022618782,9.4555,Graphes perseq,106
+component,lightning,0.0266,11.1198,Graphes perseq,105

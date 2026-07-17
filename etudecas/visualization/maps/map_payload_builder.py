@@ -269,29 +269,38 @@ def build_payload_layers_manifest(manifests: Iterable[dict[str, Any]]) -> dict[s
 
 
 def build_generic_payload_contract(payload: dict[str, Any]) -> dict[str, Any]:
-    """Expose a stable generic view of map data for future renderers/APIs.
+    """Expose a stable lightweight generic view for future renderers/APIs.
 
-    Existing maps still consume the legacy top-level sections. This contract
-    gives the next layers a generic surface without rewriting every consumer at
-    once.
+    Existing maps still consume the rich legacy top-level sections.  The generic
+    contract must not duplicate those heavy structures; it exposes references,
+    counts and the run package metadata so future viewers can migrate without
+    making autonomous HTML files much larger.
     """
 
+    lot_trace = payload.get("lot_trace", {}) or {}
+    run_contract = payload.get("run_contract", {}) or {}
+    artifacts = run_contract.get("artifacts") if isinstance(run_contract, dict) else []
+    if not isinstance(artifacts, list):
+        artifacts = []
     return {
+        "schema_version": "etudecas.map_viewer_payload.v1",
         "nodes": payload.get("nodes", []) or [],
         "edges": payload.get("edges", []) or [],
-        "time_series": {
-            "factory": payload.get("factory_hover_series", {}) or {},
-            "scenario_comparison": payload.get("scenario_comparison", {}).get("charts", {}) or {},
-        },
-        "events": {
-            "lot_events": payload.get("lot_trace", {}).get("events", []) or [],
-            "risk_events": payload.get("simulated_risk_global_diagnostic", {}).get("events", []) or [],
-        },
-        "lots": payload.get("lot_trace", {}) or {},
-        "diagnostics": {
-            "simulation": payload.get("simulation_diagnostics", {}) or {},
-            "simulated_risk": payload.get("simulated_risk_global_diagnostic", {}) or {},
-            "supplier_criticality": payload.get("supplier_local_metrics", {}) or {},
+        "run_contract": run_contract,
+        "artifact_domains": sorted(
+            {
+                str(row.get("domain"))
+                for row in artifacts
+                if isinstance(row, dict) and str(row.get("domain") or "")
+            }
+        ),
+        "counts": {
+            "nodes": len(payload.get("nodes", []) or []),
+            "edges": len(payload.get("edges", []) or []),
+            "lot_events": len(lot_trace.get("events", []) or []),
+            "lot_nodes": len(lot_trace.get("lots", {}) or {}),
+            "simulation_diagnostics_sections": len(payload.get("simulation_diagnostics", {}) or {}),
+            "scenario_comparison_charts": len((payload.get("scenario_comparison", {}) or {}).get("charts", {}) or {}),
         },
     }
 

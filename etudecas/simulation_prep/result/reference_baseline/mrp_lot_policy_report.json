@@ -1,11 +1,11 @@
 {
-  "generated_at_utc": "2026-04-30T14:26:15.312721+00:00",
+  "generated_at_utc": "2026-07-09T11:43:38.072414+00:00",
   "input_graph": "etudecas\\simulation_prep\\result\\reference_baseline\\supply_graph_reference_baseline_real_demand_target_calibrated.json",
   "output_graph": "etudecas\\simulation_prep\\result\\reference_baseline\\supply_graph_reference_baseline_real_demand_target_calibrated_mrp_lot_policy.json",
-  "stocks_mrp_xlsx": "etudecas/data/source/Stocks_MRP.xlsx",
+  "stocks_mrp_xlsx": "etudecas\\data\\source\\Extract_Données_Complémentaires.xlsx",
   "snapshot_at_utc": "2025-01-01T03:03:48+00:00",
   "stock_rows_total": 32,
-  "policy_rows_total": 26,
+  "policy_rows_total": 25,
   "lot_rows_total": 3,
   "stock_rows_injected": 28,
   "stock_rows_skipped": 4,
@@ -332,14 +332,13 @@
   "policy_rows_by_node": {
     "DC-1920": 2,
     "M-1430": 8,
-    "M-1810": 15,
-    "SDC-1450": 1
+    "M-1810": 15
   },
   "mrp_policies_applied": [
     {
       "node_id": "DC-1920",
       "item_id": "item:268091",
-      "safety_time_days": 0.0,
+      "safety_time_days": 20.0,
       "safety_stock_qty": 0.0,
       "uom": "UN",
       "source": "mrp_policy_sheet"
@@ -534,14 +533,6 @@
       "safety_time_days": 20.0,
       "safety_stock_qty": 0.0,
       "uom": "G",
-      "source": "mrp_policy_sheet"
-    },
-    {
-      "node_id": "SDC-1450",
-      "item_id": "item:021081",
-      "safety_time_days": null,
-      "safety_stock_qty": 900000.0,
-      "uom": "KG",
       "source": "mrp_policy_sheet"
     }
   ],

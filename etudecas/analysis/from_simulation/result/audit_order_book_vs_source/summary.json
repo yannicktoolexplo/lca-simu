@@ -1,0 +1,52 @@
+{
+  "source_open_orders_raw_rows": 104,
+  "source_open_orders_graph_rows": 88,
+  "source_purchase_rows": 82,
+  "source_production_rows": 22,
+  "source_rows_not_in_graph": 16,
+  "source_purchase_rows_missing_exact_lane": 30,
+  "source_purchase_value_missing_exact_lane_eur": 292799.216,
+  "source_order_value_estimate_eur": 17445164.535229992,
+  "source_order_value_mean_eur": 272580.69586296874,
+  "source_not_multiple_standard_rows": 17,
+  "run_counts": {
+    "5y_full": {
+      "path": "C:\\dev\\lca-simu\\etudecas\\simulation\\result\\mrp_bom_test_weekly_mps_lotified_no_fallback_physical_floor_multisource_portfolio_test",
+      "mrp_order_rows": 33292,
+      "order_types": {
+        "opening_purchase_order": 66,
+        "opening_production_order": 22,
+        "lane_release": 30092,
+        "external_procurement": 170,
+        "external_procurement_proactive": 2878,
+        "lane_release_min_annual_lot": 64
+      },
+      "opening_purchase_rows": 66,
+      "opening_production_rows": 22
+    },
+    "268091_365d_all_open_orders": {
+      "path": "C:\\dev\\lca-simu\\etudecas\\simulation\\result\\_experiments\\stock_target_268091_snapshotfix\\365d\\mc_refine_028_s2_soft025_cap050\\run",
+      "mrp_order_rows": 5167,
+      "order_types": {
+        "opening_purchase_order": 66,
+        "opening_production_order": 22,
+        "external_procurement_proactive": 2515,
+        "lane_release": 2564
+      },
+      "opening_purchase_rows": 66,
+      "opening_production_rows": 22
+    },
+    "268091_365d_strict_fia_orders": {
+      "path": "C:\\dev\\lca-simu\\etudecas\\simulation\\result\\_experiments\\stock_target_268091_snapshotfix\\365d\\mc_refine_028_s2_soft025_cap050_strict_fia_orders\\run",
+      "mrp_order_rows": 5252,
+      "order_types": {
+        "opening_purchase_order": 54,
+        "opening_production_order": 22,
+        "external_procurement_proactive": 2581,
+        "lane_release": 2595
+      },
+      "opening_purchase_rows": 54,
+      "opening_production_rows": 22
+    }
+  }
+}

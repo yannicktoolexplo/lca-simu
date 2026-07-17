@@ -25,13 +25,17 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from etudecas.simulation.initial_state_policy import merge_living_initial_state_args  # noqa: E402
+
 SERVICE_KPI_TOLERANCE = 0.001
 COUNT_KPI_TOLERANCE = 1.0
+RATE_KPI_TOLERANCE = 0.001
 REQUIRED_DERIVED_KPI_COLUMNS = [
     "kpi::product_availability",
     "kpi::line_adherence",
     "kpi::line_nervousness",
     "kpi::production_replanning_count",
+    "kpi::production_replanning_rate",
     "kpi::raw_material_stockout_days",
     "kpi::material_delay_days",
     "kpi::inventory_cost",
@@ -416,6 +420,7 @@ def run_simulation_case(
     extra_args: list[str],
 ) -> dict[str, Any]:
     output_dir.mkdir(parents=True, exist_ok=True)
+    merged_extra_args = merge_living_initial_state_args(extra_args)
     cmd = [
         sys.executable,
         str(run_script),
@@ -431,7 +436,7 @@ def run_simulation_case(
         "--skip-plots",
         "--output-profile",
         "compact",
-        *extra_args,
+        *merged_extra_args,
     ]
     proc = subprocess.run(cmd, capture_output=True, text=True)
     if proc.returncode != 0:
@@ -575,12 +580,17 @@ def derived_case_kpis(output_dir: Path, case_input: Path | None = None) -> dict[
     adhered_qty_total = 0.0
     line_changes = 0
     replanning_count = 0
+    production_planning_line_count = 0
     previous_plan_by_line: dict[tuple[str, str], float] = {}
     for row in read_csv_rows(data_dir / "production_constraint_daily.csv"):
         node_id = str(row.get("node_id") or "")
         item_id = str(row.get("output_item_id") or row.get("item_id") or "")
         planned = max(0.0, to_float(row.get("planned_qty_after_lot_rule"), 0.0))
         actual = max(0.0, to_float(row.get("actual_qty"), 0.0))
+        requested_lots = to_float(row.get("requested_lot_starts"), math.nan)
+        actual_lots = to_float(row.get("actual_lot_starts"), math.nan)
+        if planned > 1e-9 or actual > 1e-9 or (not math.isnan(requested_lots) and requested_lots > 1e-9):
+            production_planning_line_count += 1
         planned_qty_total += planned
         adhered_qty_total += min(actual, planned)
         key = (node_id, item_id)
@@ -588,8 +598,6 @@ def derived_case_kpis(output_dir: Path, case_input: Path | None = None) -> dict[
         if previous_plan is not None and abs(planned - previous_plan) > 1e-6:
             line_changes += 1
         previous_plan_by_line[key] = planned
-        requested_lots = to_float(row.get("requested_lot_starts"), math.nan)
-        actual_lots = to_float(row.get("actual_lot_starts"), math.nan)
         lot_shortfall = max(0.0, to_float(row.get("shortfall_vs_lot_plan_qty"), 0.0))
         if (
             (not math.isnan(requested_lots) and not math.isnan(actual_lots) and actual_lots + 1e-9 < requested_lots)
@@ -599,6 +607,12 @@ def derived_case_kpis(output_dir: Path, case_input: Path | None = None) -> dict[
     out["line_adherence"] = round(adhered_qty_total / planned_qty_total, 9) if planned_qty_total > 1e-9 else 1.0
     out["line_nervousness"] = float(line_changes)
     out["production_replanning_count"] = float(replanning_count)
+    out["production_planning_line_count"] = float(production_planning_line_count)
+    out["production_replanning_rate"] = (
+        round(replanning_count / production_planning_line_count, 9)
+        if production_planning_line_count > 0
+        else 0.0
+    )
 
     stock_by_key: dict[tuple[int, str, str], float] = {}
     for row in read_csv_rows(data_dir / "production_input_stocks_daily.csv"):
@@ -1112,6 +1126,14 @@ def is_case_acceptable(row: dict[str, Any], baseline: dict[str, Any], service_th
         value = to_float(row.get(key), math.nan)
         if not math.isnan(base) and (math.isnan(value) or value > base + COUNT_KPI_TOLERANCE):
             return False
+    no_worse_rate_is_better = [
+        "kpi::production_replanning_rate",
+    ]
+    for key in no_worse_rate_is_better:
+        base = to_float(baseline.get(key), math.nan)
+        value = to_float(row.get(key), math.nan)
+        if not math.isnan(base) and (math.isnan(value) or value > base + RATE_KPI_TOLERANCE):
+            return False
     no_worse_lower_is_better_hard = [
         "kpi::raw_material_stockout_days",
         "kpi::material_delay_days",
@@ -1211,6 +1233,7 @@ def summarize_parameter(
     baseline_line_adherence = first_available_metric(baseline, ["kpi::line_adherence"])
     baseline_line_nervousness = first_available_metric(baseline, ["kpi::line_nervousness"])
     baseline_replanning = first_available_metric(baseline, ["kpi::production_replanning_count"])
+    baseline_replanning_rate = first_available_metric(baseline, ["kpi::production_replanning_rate"])
     baseline_stockout_days = first_available_metric(baseline, ["kpi::raw_material_stockout_days"])
     baseline_material_delay = first_available_metric(baseline, ["kpi::material_delay_days"])
     baseline_inventory_cost = first_available_metric(
@@ -1224,6 +1247,7 @@ def summarize_parameter(
     line_adherence_values = clean_metric_values(rows, ["kpi::line_adherence"])
     line_nervousness_values = clean_metric_values(rows, ["kpi::line_nervousness"])
     replanning_values = clean_metric_values(rows, ["kpi::production_replanning_count"])
+    replanning_rate_values = clean_metric_values(rows, ["kpi::production_replanning_rate"])
     stockout_day_values = clean_metric_values(rows, ["kpi::raw_material_stockout_days"])
     material_delay_values = clean_metric_values(rows, ["kpi::material_delay_days"])
     inventory_cost_values = clean_metric_values(
@@ -1339,6 +1363,10 @@ def summarize_parameter(
         (value - baseline_replanning for value in replanning_values if not math.isnan(baseline_replanning)),
         default=math.nan,
     )
+    max_replanning_rate_increase = max(
+        (value - baseline_replanning_rate for value in replanning_rate_values if not math.isnan(baseline_replanning_rate)),
+        default=math.nan,
+    )
     max_stockout_day_increase = max(
         (value - baseline_stockout_days for value in stockout_day_values if not math.isnan(baseline_stockout_days)),
         default=math.nan,
@@ -1393,6 +1421,7 @@ def summarize_parameter(
         "line_adherence_min": min(line_adherence_values, default=math.nan),
         "line_nervousness_max": max(line_nervousness_values, default=math.nan),
         "production_replanning_count_max": max(replanning_values, default=math.nan),
+        "production_replanning_rate_max": max(replanning_rate_values, default=math.nan),
         "raw_material_stockout_days_max": max(stockout_day_values, default=math.nan),
         "material_delay_days_max": max(material_delay_values, default=math.nan),
         "inventory_cost_max": max(inventory_cost_values, default=math.nan),
@@ -1401,6 +1430,7 @@ def summarize_parameter(
         "max_line_adherence_drop": max_line_adherence_drop,
         "max_line_nervousness_increase": max_line_nervousness_increase,
         "max_production_replanning_count_increase": max_replanning_increase,
+        "max_production_replanning_rate_increase": max_replanning_rate_increase,
         "max_raw_material_stockout_days_increase": max_stockout_day_increase,
         "max_material_delay_days_increase": max_material_delay_increase,
         "max_inventory_cost_increase": max_inventory_cost_increase,
@@ -1429,6 +1459,7 @@ def summarize_parameter(
         "baseline_total_cost": baseline_cost,
         "baseline_product_availability": baseline_availability,
         "baseline_line_adherence": baseline_line_adherence,
+        "baseline_production_replanning_rate": baseline_replanning_rate,
         "baseline_inventory_cost": baseline_inventory_cost,
     }
 
@@ -1502,6 +1533,7 @@ def recommendation_rows(summary_rows: list[dict[str, Any]]) -> list[dict[str, An
                 "max_fill_rate_drop": row.get("max_fill_rate_drop"),
                 "max_product_availability_drop": row.get("max_product_availability_drop"),
                 "max_line_adherence_drop": row.get("max_line_adherence_drop"),
+                "max_production_replanning_rate_increase": row.get("max_production_replanning_rate_increase"),
                 "max_inventory_cost_increase": row.get("max_inventory_cost_increase"),
                 "capacity_reduction_margin_pct": row.get("capacity_reduction_margin_pct"),
                 "stock_reduction_margin_pct": row.get("stock_reduction_margin_pct"),
@@ -1717,6 +1749,7 @@ def main() -> None:
         f"- Product availability: {to_float(baseline_row.get('kpi::product_availability'), math.nan):.6f}",
         f"- Line adherence: {to_float(baseline_row.get('kpi::line_adherence'), math.nan):.6f}",
         f"- Line nervousness: {to_float(baseline_row.get('kpi::line_nervousness'), math.nan):.0f}",
+        f"- Production replanning rate: {to_float(baseline_row.get('kpi::production_replanning_rate'), math.nan):.6f}",
         f"- Ending backlog: {to_float(baseline_row.get('kpi::ending_backlog'), math.nan):.4f}",
         f"- Max daily backlog: {to_float(baseline_row.get('guard::max_daily_backlog_qty'), math.nan):.4f}",
         f"- Backlog days: {to_float(baseline_row.get('guard::backlog_days'), math.nan):.0f}",

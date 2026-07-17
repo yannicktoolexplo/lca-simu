@@ -1,0 +1,244 @@
+{
+  "run_dir": "C:\\dev\\lca-simu\\etudecas\\simulation\\result\\_reruns\\active_mrp_physical_nominal100_20260709_134334",
+  "graph_path": "C:\\dev\\lca-simu\\etudecas\\simulation_prep\\result\\reference_baseline\\_mrp_bom_tests\\bom_weekly_mps_lotified_no_static_fallback_physical_floor.json",
+  "scenario_policy": {
+    "scenario_id": "scn:BASE",
+    "safety_stock_days": 7.0,
+    "demand_stock_target_days": 14.0,
+    "fg_target_days": 0.0,
+    "review_period_days": 1.0
+  },
+  "mrp_seed": {
+    "generated_at_utc": "2026-07-09T11:43:38.072414+00:00",
+    "stocks_mrp_xlsx": "etudecas\\data\\source\\Extract_Données_Complémentaires.xlsx",
+    "snapshot_at_utc": "2025-01-01T03:03:48+00:00",
+    "stock_rows_injected": 28,
+    "inventory_states_created": 0,
+    "inventory_states_updated": 28,
+    "mrp_policies_applied": 25,
+    "mrp_policy_overrides_applied": 2,
+    "lot_policies_applied": 3,
+    "legacy_batch_updates": 0
+  },
+  "source_stock_rows": 32,
+  "source_policy_rows": 25,
+  "source_lot_rows": 3,
+  "graph_inventory_rows": 65,
+  "mrp_trace_pairs": 65,
+  "unresolved_open_orders": [
+    {
+      "source_row": 5,
+      "item_id": "item:001757",
+      "planning_element": "AVICDE",
+      "division": "1820",
+      "supplier_account": "VD0951020A",
+      "quantity": 800000.0,
+      "uom": "G",
+      "reasons": [
+        "unmapped_or_missing_division:1820"
+      ]
+    },
+    {
+      "source_row": 6,
+      "item_id": "item:001757",
+      "planning_element": "AVICDE",
+      "division": "1820",
+      "supplier_account": "VD0951020A",
+      "quantity": 700000.0,
+      "uom": "G",
+      "reasons": [
+        "unmapped_or_missing_division:1820"
+      ]
+    },
+    {
+      "source_row": 9,
+      "item_id": "item:001893",
+      "planning_element": "AVICDE",
+      "division": "1820",
+      "supplier_account": "VD0518684A",
+      "quantity": 22800.0,
+      "uom": "KG",
+      "reasons": [
+        "unmapped_or_missing_division:1820"
+      ]
+    },
+    {
+      "source_row": 10,
+      "item_id": "item:001893",
+      "planning_element": "AVICDE",
+      "division": "1820",
+      "supplier_account": "VD0518684A",
+      "quantity": 22800.0,
+      "uom": "KG",
+      "reasons": [
+        "unmapped_or_missing_division:1820"
+      ]
+    },
+    {
+      "source_row": 11,
+      "item_id": "item:001893",
+      "planning_element": "AVICDE",
+      "division": "1820",
+      "supplier_account": "VD0518684A",
+      "quantity": 22800.0,
+      "uom": "KG",
+      "reasons": [
+        "unmapped_or_missing_division:1820"
+      ]
+    },
+    {
+      "source_row": 12,
+      "item_id": "item:001893",
+      "planning_element": "AVICDE",
+      "division": "1820",
+      "supplier_account": "VD0518684A",
+      "quantity": 22800.0,
+      "uom": "KG",
+      "reasons": [
+        "unmapped_or_missing_division:1820"
+      ]
+    },
+    {
+      "source_row": 13,
+      "item_id": "item:001893",
+      "planning_element": "AVICDE",
+      "division": "1820",
+      "supplier_account": "VD0910216A",
+      "quantity": 16560.0,
+      "uom": "KG",
+      "reasons": [
+        "unmapped_or_missing_division:1820"
+      ]
+    },
+    {
+      "source_row": 16,
+      "item_id": "item:002612",
+      "planning_element": "AVICDE",
+      "division": "1820",
+      "supplier_account": "VD0990780A",
+      "quantity": 24000.0,
+      "uom": "KG",
+      "reasons": [
+        "unmapped_or_missing_division:1820"
+      ]
+    },
+    {
+      "source_row": 17,
+      "item_id": "item:002612",
+      "planning_element": "AVICDE",
+      "division": "1820",
+      "supplier_account": "VD1091642A",
+      "quantity": 25000.0,
+      "uom": "KG",
+      "reasons": [
+        "unmapped_or_missing_division:1820"
+      ]
+    },
+    {
+      "source_row": 18,
+      "item_id": "item:002612",
+      "planning_element": "AVICDE",
+      "division": "1820",
+      "supplier_account": "VD1091642A",
+      "quantity": 25000.0,
+      "uom": "KG",
+      "reasons": [
+        "unmapped_or_missing_division:1820"
+      ]
+    },
+    {
+      "source_row": 20,
+      "item_id": "item:016332",
+      "planning_element": "AVICDE",
+      "division": "1820",
+      "supplier_account": "VD0514881A",
+      "quantity": 1200000.0,
+      "uom": "G",
+      "reasons": [
+        "unmapped_or_missing_division:1820"
+      ]
+    },
+    {
+      "source_row": 21,
+      "item_id": "item:016332",
+      "planning_element": "ECHCDE",
+      "division": "1820",
+      "supplier_account": "VD0514881A",
+      "quantity": 1200000.0,
+      "uom": "G",
+      "reasons": [
+        "unmapped_or_missing_division:1820"
+      ]
+    },
+    {
+      "source_row": 45,
+      "item_id": "item:029313",
+      "planning_element": "AVICDE",
+      "division": "1820",
+      "supplier_account": "VD0519670A",
+      "quantity": 300000.0,
+      "uom": "G",
+      "reasons": [
+        "unmapped_or_missing_division:1820"
+      ]
+    },
+    {
+      "source_row": 46,
+      "item_id": "item:029313",
+      "planning_element": "ECHCDE",
+      "division": "1820",
+      "supplier_account": "VD0519670A",
+      "quantity": 600000.0,
+      "uom": "G",
+      "reasons": [
+        "unmapped_or_missing_division:1820"
+      ]
+    },
+    {
+      "source_row": 70,
+      "item_id": "item:099439",
+      "planning_element": "AVICDE",
+      "division": "1820",
+      "supplier_account": "VD0505677A",
+      "quantity": 8400000.0,
+      "uom": "G",
+      "reasons": [
+        "unmapped_or_missing_division:1820"
+      ]
+    },
+    {
+      "source_row": 71,
+      "item_id": "item:099439",
+      "planning_element": "AVICDE",
+      "division": "1820",
+      "supplier_account": "VD0505677A",
+      "quantity": 4200000.0,
+      "uom": "G",
+      "reasons": [
+        "unmapped_or_missing_division:1820"
+      ]
+    }
+  ],
+  "product_real_vs_sim": [
+    {
+      "product_item_id": "item:268091",
+      "label": "Cos",
+      "real_mean_component_immobilized_eur": 930695.2119230769,
+      "real_first_component_immobilized_eur": 656921.88,
+      "real_min_component_immobilized_eur": 606978.55,
+      "real_max_component_immobilized_eur": 1435465.25,
+      "sim_mean_component_immobilized_eur": 1622768.6806342888,
+      "sim_minus_real_mean_eur": 692073.4687112119
+    },
+    {
+      "product_item_id": "item:268967",
+      "label": "Pharma",
+      "real_mean_component_immobilized_eur": 259678.40000000002,
+      "real_first_component_immobilized_eur": 220644.25,
+      "real_min_component_immobilized_eur": 181337.72,
+      "real_max_component_immobilized_eur": 382653.99,
+      "sim_mean_component_immobilized_eur": 2631677.6126749557,
+      "sim_minus_real_mean_eur": 2371999.212674956
+    }
+  ]
+}
