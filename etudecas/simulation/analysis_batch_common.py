@@ -34,6 +34,19 @@ def safe_name(value: str) -> str:
     return re.sub(r"[^A-Za-z0-9_-]+", "_", str(value))
 
 
+def supplier_pair_key(src: Any, dst: Any, item_id: Any) -> str:
+    return f"{str(src or '').strip()}|{str(dst or '').strip()}|{str(item_id or '').strip()}"
+
+
+def parse_supplier_pair_key(value: Any) -> tuple[str, str, str]:
+    parts = str(value or "").split("|", 2)
+    if len(parts) != 3 or not all(part.strip() for part in parts):
+        raise ValueError(
+            "Supplier pair keys must use the format 'supplier|destination|item'."
+        )
+    return tuple(part.strip() for part in parts)  # type: ignore[return-value]
+
+
 def load_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
@@ -91,6 +104,10 @@ def apply_scales(
     supplier_capacity_node_scale: dict[str, float] | None = None,
     edge_src_lead_time_scale: dict[str, float] | None = None,
     edge_src_reliability_scale: dict[str, float] | None = None,
+    supplier_stock_pair_scale: dict[str, float] | None = None,
+    supplier_capacity_pair_scale: dict[str, float] | None = None,
+    edge_pair_lead_time_scale: dict[str, float] | None = None,
+    edge_pair_reliability_scale: dict[str, float] | None = None,
 ) -> dict[str, Any]:
     data = copy.deepcopy(base_data)
     demand_item_scale = demand_item_scale or {}
@@ -99,6 +116,26 @@ def apply_scales(
     supplier_capacity_node_scale = supplier_capacity_node_scale or {}
     edge_src_lead_time_scale = edge_src_lead_time_scale or {}
     edge_src_reliability_scale = edge_src_reliability_scale or {}
+    supplier_stock_pair_scale = supplier_stock_pair_scale or {}
+    supplier_capacity_pair_scale = supplier_capacity_pair_scale or {}
+    edge_pair_lead_time_scale = edge_pair_lead_time_scale or {}
+    edge_pair_reliability_scale = edge_pair_reliability_scale or {}
+    parsed_stock_pair_scale = {
+        parse_supplier_pair_key(key): to_float(value, 1.0)
+        for key, value in supplier_stock_pair_scale.items()
+    }
+    parsed_capacity_pair_scale = {
+        parse_supplier_pair_key(key): to_float(value, 1.0)
+        for key, value in supplier_capacity_pair_scale.items()
+    }
+    parsed_lead_pair_scale = {
+        parse_supplier_pair_key(key): to_float(value, 1.0)
+        for key, value in edge_pair_lead_time_scale.items()
+    }
+    parsed_reliability_pair_scale = {
+        parse_supplier_pair_key(key): to_float(value, 1.0)
+        for key, value in edge_pair_reliability_scale.items()
+    }
     production_nodes = set(detect_production_nodes(data))
 
     demand_global_scale = to_float(factors.get("demand_scale", 1.0), 1.0)
@@ -166,6 +203,14 @@ def apply_scales(
         raise ValueError("All edge_src_lead_time_scale values must be strictly positive.")
     if any(v <= 0 for v in edge_src_reliability_scale.values()):
         raise ValueError("All edge_src_reliability_scale values must be strictly positive.")
+    for label, values in (
+        ("supplier_stock_pair_scale", parsed_stock_pair_scale.values()),
+        ("supplier_capacity_pair_scale", parsed_capacity_pair_scale.values()),
+        ("edge_pair_lead_time_scale", parsed_lead_pair_scale.values()),
+        ("edge_pair_reliability_scale", parsed_reliability_pair_scale.values()),
+    ):
+        if any(value <= 0 for value in values):
+            raise ValueError(f"All {label} values must be strictly positive.")
 
     scn = choose_scenario(data, scenario_id)
     for d in (scn.get("demand", []) or []):
@@ -277,17 +322,62 @@ def apply_scales(
                 ),
                 6,
             )
+            item_capacity_scale = dict(
+                sim_constraints.get("supplier_item_capacity_scale") or {}
+            )
+            for (src, _dst, item_id), pair_scale in parsed_capacity_pair_scale.items():
+                if src != node_id:
+                    continue
+                item_capacity_scale[item_id] = round(
+                    max(
+                        0.01,
+                        to_float(item_capacity_scale.get(item_id), 1.0) * pair_scale,
+                    ),
+                    6,
+                )
+            if item_capacity_scale:
+                sim_constraints["supplier_item_capacity_scale"] = item_capacity_scale
             n["simulation_constraints"] = sim_constraints
         for st in states:
             if "initial" in st:
-                st["initial"] = round(max(0.0, to_float(st.get("initial"), 0.0) * inv_factor), 6)
+                item_id = str(st.get("item_id") or "")
+                pair_stock_factor = 1.0
+                for (src, _dst, pair_item), pair_scale in parsed_stock_pair_scale.items():
+                    if src == node_id and pair_item == item_id:
+                        pair_stock_factor *= pair_scale
+                st["initial"] = round(
+                    max(
+                        0.0,
+                        to_float(st.get("initial"), 0.0)
+                        * inv_factor
+                        * pair_stock_factor,
+                    ),
+                    6,
+                )
         inv["states"] = states
         n["inventory"] = inv
 
     for e in data.get("edges", []) or []:
         edge_src = str(e.get("from") or "")
-        edge_lead_scale = to_float(edge_src_lead_time_scale.get(edge_src, 1.0), 1.0) * lead_time_scale
-        edge_reliability = to_float(edge_src_reliability_scale.get(edge_src, 1.0), 1.0)
+        edge_dst = str(e.get("to") or "")
+        edge_items = [str(item_id) for item_id in (e.get("items") or [])]
+        pair_lead_scale = math.prod(
+            parsed_lead_pair_scale.get((edge_src, edge_dst, item_id), 1.0)
+            for item_id in edge_items
+        )
+        pair_reliability_scale = math.prod(
+            parsed_reliability_pair_scale.get((edge_src, edge_dst, item_id), 1.0)
+            for item_id in edge_items
+        )
+        edge_lead_scale = (
+            to_float(edge_src_lead_time_scale.get(edge_src, 1.0), 1.0)
+            * pair_lead_scale
+            * lead_time_scale
+        )
+        edge_reliability = (
+            to_float(edge_src_reliability_scale.get(edge_src, 1.0), 1.0)
+            * pair_reliability_scale
+        )
         lead = e.get("lead_time") or {}
         for k in ["mean", "min", "max"]:
             if k in lead:

@@ -24,7 +24,7 @@ class DomainPayloadLayersTest(unittest.TestCase):
     def test_risk_manifest_counts_scenarios_and_events(self) -> None:
         manifest = build_risk_payload_manifest(
             {
-                "scenario_comparison": {"scenarios": [{}, {}], "charts": {"backlog": {}}},
+                "scenario_comparison": {"scenarios": [{}, {}], "figures": {"backlog": {}}},
                 "simulated_risk_global_diagnostic": {"events": [{}, {}, {}]},
                 "supplier_risk_metrics": {"S-1": {}},
             }
@@ -32,7 +32,7 @@ class DomainPayloadLayersTest(unittest.TestCase):
 
         self.assertEqual(manifest["domain"], "risk")
         self.assertEqual(manifest["counts"]["scenario_count"], 2)
-        self.assertEqual(manifest["counts"]["scenario_charts"], 1)
+        self.assertEqual(manifest["counts"]["scenario_figures"], 1)
         self.assertEqual(manifest["counts"]["risk_events"], 3)
 
     def test_sensitivity_manifest_counts_domain_panels(self) -> None:

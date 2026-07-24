@@ -3,8 +3,224 @@
 from __future__ import annotations
 
 import html
+import json
+from pathlib import Path
+from urllib.request import urlopen
 
 DEBUG_PANEL_ENABLED = False
+PLOTLY_VERSION = "2.32.0"
+PLOTLY_CDN_URL = f"https://cdn.plot.ly/plotly-{PLOTLY_VERSION}.min.js"
+PLOTLY_VENDOR_PATH = Path(__file__).resolve().parent / "vendor" / f"plotly-{PLOTLY_VERSION}.min.js"
+PLOTLY_TOPOJSON_URL = "https://cdn.plot.ly/world_110m.json"
+PLOTLY_TOPOJSON_VENDOR_PATH = Path(__file__).resolve().parent / "vendor" / "world_110m.json"
+
+
+def ensure_plotly_vendor(*, allow_download: bool = False, timeout_seconds: int = 20) -> bool:
+    """Ensure a local Plotly bundle is available for autonomous generated maps."""
+
+    if PLOTLY_VENDOR_PATH.exists() and PLOTLY_VENDOR_PATH.stat().st_size > 1_000_000:
+        return True
+    if not allow_download:
+        return False
+    try:
+        with urlopen(PLOTLY_CDN_URL, timeout=timeout_seconds) as response:
+            js = response.read().decode("utf-8")
+    except Exception:
+        return False
+    if "Plotly" not in js or len(js) < 1_000_000:
+        return False
+    PLOTLY_VENDOR_PATH.parent.mkdir(parents=True, exist_ok=True)
+    PLOTLY_VENDOR_PATH.write_text(js, encoding="utf-8")
+    return True
+
+
+def ensure_plotly_topojson_vendor(*, allow_download: bool = False, timeout_seconds: int = 20) -> bool:
+    """Ensure Plotly geo background data is available for offline generated maps."""
+
+    if PLOTLY_TOPOJSON_VENDOR_PATH.exists() and PLOTLY_TOPOJSON_VENDOR_PATH.stat().st_size > 10_000:
+        return True
+    if not allow_download:
+        return False
+    try:
+        with urlopen(PLOTLY_TOPOJSON_URL, timeout=timeout_seconds) as response:
+            topojson_text = response.read().decode("utf-8")
+    except Exception:
+        return False
+    if '"objects"' not in topojson_text or len(topojson_text) < 10_000:
+        return False
+    PLOTLY_TOPOJSON_VENDOR_PATH.parent.mkdir(parents=True, exist_ok=True)
+    PLOTLY_TOPOJSON_VENDOR_PATH.write_text(topojson_text, encoding="utf-8")
+    return True
+
+
+def ensure_plotly_offline_assets(*, allow_download: bool = False, timeout_seconds: int = 20) -> bool:
+    plotly_ok = ensure_plotly_vendor(allow_download=allow_download, timeout_seconds=timeout_seconds)
+    topojson_ok = ensure_plotly_topojson_vendor(allow_download=allow_download, timeout_seconds=timeout_seconds)
+    return plotly_ok and topojson_ok
+
+
+def _inline_script_tag(script: str) -> str:
+    escaped_script = script.replace("</script", "<\\/script")
+    return f"<script>{escaped_script}</script>"
+
+
+def plotly_topojson_script_tag() -> str:
+    if not ensure_plotly_topojson_vendor():
+        return ""
+    topojson_text = PLOTLY_TOPOJSON_VENDOR_PATH.read_text(encoding="utf-8")
+    topojson_literal = json.dumps(topojson_text)
+    return _inline_script_tag(
+        f"""
+(function () {{
+  const topojsonText = {topojson_literal};
+  function isPlotlyTopojsonUrl(value) {{
+    const url = String(value || "");
+    return url.indexOf("world_110m.json") !== -1 && url.indexOf("cdn.plot.ly") !== -1;
+  }}
+  if (window.fetch && window.Response) {{
+    const originalFetch = window.fetch.bind(window);
+    window.fetch = function (input, init) {{
+      const url = typeof input === "string" ? input : (input && input.url);
+      if (isPlotlyTopojsonUrl(url)) {{
+        return Promise.resolve(new Response(topojsonText, {{
+          status: 200,
+          headers: {{"Content-Type": "application/json"}}
+        }}));
+      }}
+      return originalFetch(input, init);
+    }};
+  }}
+  if (window.XMLHttpRequest) {{
+    const OriginalXMLHttpRequest = window.XMLHttpRequest;
+    function dispatchSyntheticEvent(target, type) {{
+      const listeners = target.__listeners && target.__listeners[type] ? target.__listeners[type] : [];
+      listeners.forEach(function (listener) {{
+        try {{
+          listener.call(target, {{type: type, target: target, currentTarget: target}});
+        }} catch (err) {{
+          setTimeout(function () {{ throw err; }}, 0);
+        }}
+      }});
+      const handler = target["on" + type];
+      if (typeof handler === "function") {{
+        handler.call(target, {{type: type, target: target, currentTarget: target}});
+      }}
+    }}
+    function OfflineTopoXMLHttpRequest() {{
+      this.__xhr = new OriginalXMLHttpRequest();
+      this.__offlineTopo = false;
+      this.__listeners = {{}};
+      this.readyState = 0;
+      this.responseText = "";
+      this.response = "";
+      this.responseType = "";
+      this.status = 0;
+      this.statusText = "";
+    }}
+    OfflineTopoXMLHttpRequest.UNSENT = OriginalXMLHttpRequest.UNSENT || 0;
+    OfflineTopoXMLHttpRequest.OPENED = OriginalXMLHttpRequest.OPENED || 1;
+    OfflineTopoXMLHttpRequest.HEADERS_RECEIVED = OriginalXMLHttpRequest.HEADERS_RECEIVED || 2;
+    OfflineTopoXMLHttpRequest.LOADING = OriginalXMLHttpRequest.LOADING || 3;
+    OfflineTopoXMLHttpRequest.DONE = OriginalXMLHttpRequest.DONE || 4;
+    OfflineTopoXMLHttpRequest.prototype.open = function (method, url) {{
+      this.__offlineTopo = isPlotlyTopojsonUrl(url);
+      this.__url = String(url || "");
+      if (this.__offlineTopo) {{
+        this.readyState = 1;
+        dispatchSyntheticEvent(this, "readystatechange");
+        return;
+      }}
+      return this.__xhr.open.apply(this.__xhr, arguments);
+    }};
+    OfflineTopoXMLHttpRequest.prototype.send = function () {{
+      if (this.__offlineTopo) {{
+        const self = this;
+        setTimeout(function () {{
+          self.readyState = 4;
+          self.status = 200;
+          self.statusText = "OK";
+          self.responseText = topojsonText;
+          self.response = self.responseType === "json" ? JSON.parse(topojsonText) : topojsonText;
+          dispatchSyntheticEvent(self, "readystatechange");
+          dispatchSyntheticEvent(self, "load");
+          dispatchSyntheticEvent(self, "loadend");
+        }}, 0);
+        return;
+      }}
+      const xhr = this.__xhr;
+      const self = this;
+      xhr.onreadystatechange = function () {{
+        self.readyState = xhr.readyState;
+        self.status = xhr.status;
+        self.statusText = xhr.statusText;
+        self.responseText = xhr.responseText;
+        self.response = xhr.response;
+        dispatchSyntheticEvent(self, "readystatechange");
+      }};
+      xhr.onload = function () {{ dispatchSyntheticEvent(self, "load"); }};
+      xhr.onerror = function () {{ dispatchSyntheticEvent(self, "error"); }};
+      xhr.onloadend = function () {{ dispatchSyntheticEvent(self, "loadend"); }};
+      return xhr.send.apply(xhr, arguments);
+    }};
+    OfflineTopoXMLHttpRequest.prototype.abort = function () {{
+      if (this.__offlineTopo) {{
+        this.readyState = 0;
+        dispatchSyntheticEvent(this, "abort");
+        return;
+      }}
+      return this.__xhr.abort.apply(this.__xhr, arguments);
+    }};
+    OfflineTopoXMLHttpRequest.prototype.setRequestHeader = function () {{
+      if (!this.__offlineTopo) return this.__xhr.setRequestHeader.apply(this.__xhr, arguments);
+    }};
+    OfflineTopoXMLHttpRequest.prototype.getResponseHeader = function (name) {{
+      if (this.__offlineTopo) return String(name || "").toLowerCase() === "content-type" ? "application/json" : null;
+      return this.__xhr.getResponseHeader.apply(this.__xhr, arguments);
+    }};
+    OfflineTopoXMLHttpRequest.prototype.getAllResponseHeaders = function () {{
+      if (this.__offlineTopo) return "content-type: application/json\\r\\n";
+      return this.__xhr.getAllResponseHeaders.apply(this.__xhr, arguments);
+    }};
+    OfflineTopoXMLHttpRequest.prototype.overrideMimeType = function () {{
+      if (!this.__offlineTopo && this.__xhr.overrideMimeType) return this.__xhr.overrideMimeType.apply(this.__xhr, arguments);
+    }};
+    OfflineTopoXMLHttpRequest.prototype.addEventListener = function (type, listener) {{
+      this.__listeners[type] = this.__listeners[type] || [];
+      this.__listeners[type].push(listener);
+      if (!this.__offlineTopo && this.__xhr.addEventListener) {{
+        this.__xhr.addEventListener(type, listener);
+      }}
+    }};
+    OfflineTopoXMLHttpRequest.prototype.removeEventListener = function (type, listener) {{
+      const listeners = this.__listeners[type] || [];
+      this.__listeners[type] = listeners.filter(function (item) {{ return item !== listener; }});
+      if (!this.__offlineTopo && this.__xhr.removeEventListener) {{
+        this.__xhr.removeEventListener(type, listener);
+      }}
+    }};
+    window.XMLHttpRequest = OfflineTopoXMLHttpRequest;
+  }}
+}})();
+"""
+    )
+
+
+def plotly_script_tag() -> str:
+    topojson_tag = plotly_topojson_script_tag()
+    if ensure_plotly_vendor():
+        return topojson_tag + "\n" + _inline_script_tag(PLOTLY_VENDOR_PATH.read_text(encoding="utf-8"))
+    return topojson_tag + "\n" + (
+        f'<script src="{PLOTLY_CDN_URL}"></script>\n'
+        "<script>"
+        "window.addEventListener('load', function () {"
+        "if (!window.Plotly) {"
+        "document.body.innerHTML = '<pre style=\"padding:24px;font-family:system-ui\">"
+        "Plotly n\\'a pas ete charge. Regenerez la carte avec acces reseau pour embarquer Plotly dans le HTML autonome."
+        "</pre>';"
+        "}"
+        "});"
+        "</script>"
+    )
 
 
 def html_template(
@@ -14,12 +230,13 @@ def html_template(
     material_table_count: int,
     global_model_equations_html: str,
 ) -> str:
+    plotly_tag = plotly_script_tag()
     return f"""<!doctype html>
 <html>
 <head>
   <meta charset="utf-8"/>
   <title>{html.escape(title)}</title>
-  <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+  {plotly_tag}
   <style>
     body {{
       margin: 0;
@@ -982,6 +1199,10 @@ def html_template(
       border-radius: 8px;
       background: #ffffff;
       overflow: hidden;
+    }}
+    .riskDiagnosticChart.varianceDecompositionChart {{
+      grid-column: 1 / -1;
+      height: 360px;
     }}
     .riskScenarioNativeDetails {{
       margin-top: 10px;
@@ -10641,7 +10862,7 @@ def html_template(
         return {{
           incoming: "Stocks intrants et PFI",
           outgoing: "Production et stock PFI",
-          third: "Planning lots",
+          third: "Besoins intrants",
           fourth: "Details MRP"
         }};
       }}
@@ -10657,7 +10878,7 @@ def html_template(
         return {{
           incoming: "Stocks composants / arrivages",
           outgoing: "Production et stock produits",
-          third: "Planning lots",
+          third: "Besoins intrants",
           fourth: "Details MRP"
         }};
       }}
@@ -11133,7 +11354,7 @@ def html_template(
     function isAdvancedPanelSlot(slot, nodeId, nodeType) {{
       if (isDebugPanelMode(currentPanelMode)) return false;
       if (currentPanelMode === "ops") {{
-        if (isFactoryLikeNode(nodeId, nodeType)) return slot === "third" || slot === "fourth";
+        if (isFactoryLikeNode(nodeId, nodeType)) return slot === "fourth";
         if (nodeType === "supplier_dc") return slot === "third" || slot === "fourth";
         if (nodeType === "customer") return slot === "third" || slot === "fourth";
         if (nodeType === "edge") return slot === "third" || slot === "fourth";
@@ -11311,6 +11532,11 @@ def html_template(
       outgoingBlock.style.display = outgoingImageInfo ? "block" : "none";
       thirdBlock.style.display = thirdImageInfo ? "block" : "none";
       fourthBlock.style.display = fourthImageInfo ? "block" : "none";
+      const showFactoryNeedsFlow = currentPanelMode === "ops" && isFactoryLikeNode(nodeId, nodeType);
+      incomingBlock.style.order = "1";
+      thirdBlock.style.order = showFactoryNeedsFlow ? "2" : "3";
+      outgoingBlock.style.order = showFactoryNeedsFlow ? "3" : "2";
+      fourthBlock.style.order = "4";
 
       function buildPlotlyFigure(figure) {{
         if (!figure || !figure.kind) return null;
@@ -13043,10 +13269,14 @@ def html_template(
         const isMaxImpactSeries = Boolean(series.is_max_impact);
         const namedColor = isNominalSeries ? "#111827" : isCurrentSeries ? "#d97706" : isMaxImpactSeries ? "#be123c" : (series.color || palette[idx % palette.length]);
         const namedWidth = isNominalSeries ? 2.3 : isCurrentSeries || isMaxImpactSeries ? 2.5 : 1.7;
+        const scenarioTraceName = namedScenarioTrajectories
+          ? (series.label || `Scenario ${{idx + 1}}`)
+          : (idx === 0 ? (figure.trajectory_label || "Trajectoires scenarios") : (series.label || "trajectoire scenario"));
+        const scenarioHoverLabel = series.label || figure.trajectory_label || "Trajectoire scenario";
         traces.push({{
           type: "scatter",
           mode: "lines",
-          name: namedScenarioTrajectories ? (series.label || `Scenario ${{idx + 1}}`) : (idx === 0 ? (figure.trajectory_label || "Trajectoires scenarios") : "trajectoire scenario"),
+          name: scenarioTraceName,
           x: days,
           y,
           line: {{
@@ -13056,8 +13286,7 @@ def html_template(
             shape: figure.step_like ? "hv" : "linear",
           }},
           opacity: namedScenarioTrajectories ? 0.92 : 1.0,
-          hoverinfo: namedScenarioTrajectories ? undefined : "skip",
-          hovertemplate: namedScenarioTrajectories ? `${{series.label || "Scenario"}}<br>Jour=%{{x}}<br>Valeur=%{{y:.2f}}<extra></extra>` : undefined,
+          hovertemplate: `${{scenarioHoverLabel}}<br>Jour=%{{x}}<br>Valeur=%{{y:.2f}}<extra></extra>`,
           showlegend: namedScenarioTrajectories ? true : idx === 0,
           legendgroup: namedScenarioTrajectories ? `scenario-${{series.scenario_id || idx}}` : "all-trajectories",
         }});
@@ -13165,6 +13394,55 @@ def html_template(
       const bands = Array.isArray(figure.bands) ? figure.bands : [];
       if (!days.length || !bands.length) return null;
       const traces = [];
+      const pairedControlled = figure.method === "paired_controlled_runs" || Boolean(figure.paired_controlled);
+      const context = figure.global_context || {{}};
+      const contextDays = Array.isArray(context.days) && context.days.length
+        ? context.days.map(Number).filter(Number.isFinite)
+        : days;
+      const contextBands = Array.isArray(context.bands) ? context.bands : [];
+      contextBands.forEach((contextBand, idx) => {{
+        const lowFiltered = filterSeriesByTimeline(contextDays, contextBand.low || []);
+        const highFiltered = filterSeriesByTimeline(contextDays, contextBand.high || []);
+        if (!lowFiltered.days.length || !highFiltered.days.length) return;
+        traces.push({{
+          type: "scatter",
+          mode: "lines",
+          name: `${{contextBand.label || "Monte Carlo global"}} bas`,
+          x: lowFiltered.days,
+          y: lowFiltered.values,
+          line: {{ width: 0, color: "rgba(100,116,139,0)", shape: figure.step_like ? "hv" : "linear" }},
+          hoverinfo: "skip",
+          showlegend: false,
+          legendgroup: `factor-context-${{idx}}`,
+        }});
+        traces.push({{
+          type: "scatter",
+          mode: "lines",
+          name: contextBand.label || "Enveloppe Monte Carlo globale",
+          x: highFiltered.days,
+          y: highFiltered.values,
+          fill: "tonexty",
+          fillcolor: contextBand.fillcolor || "rgba(100,116,139,0.05)",
+          line: {{ width: 0, color: "rgba(100,116,139,0)", shape: figure.step_like ? "hv" : "linear" }},
+          hoverinfo: "skip",
+          showlegend: idx === 0,
+          legendgroup: `factor-context-${{idx}}`,
+        }});
+      }});
+      if (Array.isArray(context.median) && context.median.length) {{
+        const medianFiltered = filterSeriesByTimeline(contextDays, context.median);
+        if (medianFiltered.days.length) {{
+          traces.push({{
+            type: "scatter",
+            mode: "lines",
+            name: "mediane Monte Carlo globale",
+            x: medianFiltered.days,
+            y: medianFiltered.values,
+            line: {{ width: 1.2, color: "rgba(71,85,105,0.65)", dash: "dot", shape: figure.step_like ? "hv" : "linear" }},
+            hovertemplate: "Mediane Monte Carlo globale<br>Jour=%{{x}}<br>Valeur=%{{y:.2f}}<extra></extra>",
+          }});
+        }}
+      }}
       bands.forEach((band, idx) => {{
         const lineColor = band.line_color || palette[idx % palette.length];
         const fillColor = band.fillcolor || "rgba(15,118,110,0.16)";
@@ -13174,14 +13452,21 @@ def html_template(
         const label = band.label || `Input ${{idx + 1}}`;
         const aggregationLabel = band.aggregation_label || band.aggregation || "agregation de groupe";
         const inputLow = Number(band.low_input);
+        const inputReference = Number(band.reference_input);
         const inputHigh = Number(band.high_input);
         const inputText = Number.isFinite(inputLow) && Number.isFinite(inputHigh)
-          ? `input bas ${{inputLow.toFixed(2)}} / haut ${{inputHigh.toFixed(2)}}`
+          ? `plage testee ${{(inputLow * 100).toFixed(0)}}% / ${{(Number.isFinite(inputReference) ? inputReference * 100 : 100).toFixed(0)}}% / ${{(inputHigh * 100).toFixed(0)}}%`
           : "input bas / haut";
+        const explainedShare = Number(band.explained_share);
+        const shareText = pairedControlled
+          ? `${{Number(band.background_count || figure.background_count || 0)}} contextes apparies; autres entrees identiques dans chaque triplet`
+          : (Number.isFinite(explainedShare)
+            ? `ecart conditionnel max: ${{(explainedShare * 100).toFixed(0)}}% de l'enveloppe ${{band.global_spread_reference || "globale"}}`
+            : "ecart conditionnel max: n/a");
         traces.push({{
           type: "scatter",
           mode: "lines",
-          name: `borne basse - ${{label}}`,
+          name: `zone - ${{label}}`,
           x: lowFiltered.days,
           y: lowFiltered.values,
           customdata: lowFiltered.days.map(() => ({{
@@ -13192,8 +13477,7 @@ def html_template(
             highlight_node_ids: band.highlight_node_ids || [],
             line_color: lineColor,
           }})),
-          line: {{ width: 0.8, color: lineColor, shape: figure.step_like ? "hv" : "linear" }},
-          opacity: 0.32,
+          line: {{ width: 0, color: lineColor, shape: figure.step_like ? "hv" : "linear" }},
           hoverinfo: "skip",
           showlegend: false,
           legendgroup: `factor-tube-${{idx}}`,
@@ -13201,7 +13485,7 @@ def html_template(
         traces.push({{
           type: "scatter",
           mode: "lines",
-          name: label,
+          name: `zone - ${{label}}`,
           x: highFiltered.days,
           y: highFiltered.values,
           customdata: highFiltered.days.map(() => ({{
@@ -13214,11 +13498,56 @@ def html_template(
           }})),
           fill: "tonexty",
           fillcolor: fillColor,
-          line: {{ width: 1.1, color: lineColor, shape: figure.step_like ? "hv" : "linear" }},
-          opacity: 0.95,
+          line: {{ width: 0, color: lineColor, shape: figure.step_like ? "hv" : "linear" }},
+          opacity: 0.72,
+          showlegend: true,
           legendgroup: `factor-tube-${{idx}}`,
-          hovertemplate: `${{label}}<br>${{aggregationLabel}}<br>${{inputText}}<br>Jour=%{{x}}<br>Borne haute=%{{y:.2f}}<extra></extra>`,
+          hovertemplate: `${{label}}<br>${{aggregationLabel}}<br>${{inputText}}<br>${{shareText}}<br>Jour=%{{x}}<br>Borne haute zone=%{{y:.2f}}<extra></extra>`,
         }});
+        const lowGroupFiltered = filterSeriesByTimeline(days, band.low_group_median || []);
+        const highGroupFiltered = filterSeriesByTimeline(days, band.high_group_median || []);
+        if (!pairedControlled && lowGroupFiltered.days.length) {{
+          traces.push({{
+            type: "scatter",
+            mode: "lines",
+            name: `input bas - ${{label}}`,
+            x: lowGroupFiltered.days,
+            y: lowGroupFiltered.values,
+            customdata: lowGroupFiltered.days.map(() => ({{
+              factor: band.factor || "",
+              label,
+              family: band.family || "",
+              node_id: band.node_id || "",
+              highlight_node_ids: band.highlight_node_ids || [],
+              line_color: lineColor,
+            }})),
+            line: {{ width: 1.35, color: lineColor, dash: "dot", shape: figure.step_like ? "hv" : "linear" }},
+            opacity: 0.95,
+            legendgroup: `factor-tube-${{idx}}`,
+            hovertemplate: `${{label}}<br>input bas<br>${{aggregationLabel}}<br>Jour=%{{x}}<br>Valeur=%{{y:.2f}}<extra></extra>`,
+          }});
+        }}
+        if (!pairedControlled && highGroupFiltered.days.length) {{
+          traces.push({{
+            type: "scatter",
+            mode: "lines",
+            name: `input haut - ${{label}}`,
+            x: highGroupFiltered.days,
+            y: highGroupFiltered.values,
+            customdata: highGroupFiltered.days.map(() => ({{
+              factor: band.factor || "",
+              label,
+              family: band.family || "",
+              node_id: band.node_id || "",
+              highlight_node_ids: band.highlight_node_ids || [],
+              line_color: lineColor,
+            }})),
+            line: {{ width: 1.55, color: lineColor, dash: "solid", shape: figure.step_like ? "hv" : "linear" }},
+            opacity: 0.95,
+            legendgroup: `factor-tube-${{idx}}`,
+            hovertemplate: `${{label}}<br>input haut<br>${{aggregationLabel}}<br>Jour=%{{x}}<br>Valeur=%{{y:.2f}}<extra></extra>`,
+          }});
+        }}
       }});
       const nominal = figure.nominal || null;
       if (nominal && Array.isArray(nominal.values) && nominal.values.length) {{
@@ -13262,6 +13591,39 @@ def html_template(
     function buildSimulatedRiskDiagnosticPlotlyFigure(figure) {{
       if (!figure) return null;
       const palette = ["#0f766e", "#2563eb", "#dc2626", "#d97706", "#7c3aed", "#475569", "#0891b2"];
+      if (figure.kind === "stacked_bar_horizontal") {{
+        const labels = Array.isArray(figure.labels) ? figure.labels : [];
+        const series = Array.isArray(figure.series) ? figure.series : [];
+        return {{
+          data: series.map((row, idx) => ({{
+            type: "bar",
+            orientation: "h",
+            name: row.label || `Famille ${{idx + 1}}`,
+            x: Array.isArray(row.values) ? row.values.map(Number) : [],
+            y: labels,
+            marker: {{ color: row.color || palette[idx % palette.length] }},
+            text: (row.values || []).map(value => Number(value) >= 4 ? `${{Number(value).toFixed(1)}}%` : ""),
+            textposition: "inside",
+            insidetextanchor: "middle",
+            hovertemplate: `${{row.label || "Famille"}}<br>KPI=%{{y}}<br>Part predictive=%{{x:.1f}}%<extra></extra>`,
+          }})),
+          layout: {{
+            title: {{ text: figure.title || "", font: {{ size: 12 }} }},
+            margin: {{ l: 190, r: 24, t: 48, b: 88 }},
+            paper_bgcolor: "#ffffff",
+            plot_bgcolor: "#ffffff",
+            barmode: "stack",
+            xaxis: {{
+              title: figure.x_label || "Part de la dispersion (%)",
+              range: [0, 100],
+              ticksuffix: "%",
+              gridcolor: "#e2e8f0",
+            }},
+            yaxis: {{ automargin: true, autorange: "reversed" }},
+            legend: {{ orientation: "h", y: -0.30, font: {{ size: 10 }} }},
+          }},
+        }};
+      }}
       if (figure.kind === "bar") {{
         return {{
           data: [{{
@@ -13753,8 +14115,12 @@ def html_template(
           }});
         }}
         const dynamicAnchor = content.querySelector("#monteCarloDynamicChartsAnchor") || content;
-        const figures = (((MONTECARLO_UNCERTAINTY.trajectory_assets || {{}}).figures) || {{}});
-        const factorTubeFigures = (((MONTECARLO_UNCERTAINTY.trajectory_assets || {{}}).factor_tube_figures) || {{}});
+        const trajectoryAssets = MONTECARLO_UNCERTAINTY.trajectory_assets || {{}};
+        const figures = trajectoryAssets.figures || {{}};
+        const factorTubeFigures = trajectoryAssets.factor_tube_figures || {{}};
+        const varianceDecomposition = trajectoryAssets.variance_decomposition || {{}};
+        const costDiagnostics = trajectoryAssets.cost_diagnostics || {{}};
+        const temporalPropagation = trajectoryAssets.temporal_propagation || {{}};
         const factorTubeKeys = [
           ["service_rate", "mcFactorTubeService"],
           ["backlog", "mcFactorTubeBacklog"],
@@ -13771,7 +14137,19 @@ def html_template(
           ["supplier_capacity_binding", "mcTrajectorySupplierBinding"],
           ["total_supply_cost_cum", "mcTrajectoryCost"],
         ].filter(([key]) => figures[key]);
-        if (!factorTubeKeys.length && !figureKeys.length) {{
+        const varianceAvailable = Boolean(
+          varianceDecomposition.available
+          && varianceDecomposition.figure
+          && Array.isArray(varianceDecomposition.kpis)
+          && varianceDecomposition.kpis.length
+        );
+        const costDiagnosticsAvailable = Boolean(costDiagnostics.available && costDiagnostics.total_cost);
+        const temporalPropagationAvailable = Boolean(
+          temporalPropagation.available
+          && Array.isArray(temporalPropagation.factors)
+          && temporalPropagation.factors.length
+        );
+        if (!factorTubeKeys.length && !figureKeys.length && !varianceAvailable && !costDiagnosticsAvailable && !temporalPropagationAvailable) {{
           dynamicAnchor.innerHTML = '<div class="panelEmptyState">Aucune trajectoire Monte Carlo disponible. Relancer Monte Carlo avec sauvegarde des trajectoires.</div>';
         }}
         if (figureKeys.length) {{
@@ -13785,12 +14163,123 @@ def html_template(
           `);
           requestAnimationFrame(() => renderDiagnosticFigureSlots(figures, figureKeys));
         }}
-        if (factorTubeKeys.length) {{
-          const factorChartsHtml = factorTubeKeys.map(([_key, id]) => `<div id="${{id}}" class="riskDiagnosticChart"></div>`).join("");
+        if (varianceAvailable) {{
+          const varianceRows = varianceDecomposition.kpis.map(row => `
+            <tr>
+              <td>${{escapeHtmlText(row.label || row.kpi || "KPI")}}</td>
+              <td>${{Number(row.explained_percent || 0).toFixed(1)}}%</td>
+              <td>${{Number(row.residual_percent || 0).toFixed(1)}}%</td>
+              <td>${{Number(row.sample_count || 0)}}</td>
+            </tr>
+          `).join("");
           dynamicAnchor.insertAdjacentHTML("beforeend", `
             <section class="dataSummarySection">
-              <div class="dataSummarySectionTitle">Propagation temporelle par parametre d'incertitude</div>
-              <div class="orderLedgerStatus">Lecture: chaque courbe est une zone. Elle compare les runs ou un input incertain fournisseur est bas avec les runs ou ce meme input est haut. Pour les KPI continus, la zone suit la mediane des groupes; pour les KPI rares en pics, elle peut suivre une moyenne ou un percentile haut de groupe afin de ne pas effacer les evenements tardifs. Le nominal reste en noir. Cliquer sur une zone surligne le noeud ou le driver concerne sur la carte.</div>
+              <div class="dataSummarySectionTitle">Decomposition de la dispersion Monte Carlo</div>
+              <div class="orderLedgerStatus">${{escapeHtmlText(varianceDecomposition.warning || "Contribution predictive, pas causalite ni indices de Sobol.")}}</div>
+              <div class="riskDiagnosticChartGrid">
+                <div id="mcVarianceDecomposition" class="riskDiagnosticChart varianceDecompositionChart"></div>
+              </div>
+              <div class="dataSummaryTableWrap">
+                <table class="dataSummaryTable">
+                  <thead><tr><th>KPI</th><th>Part expliquee</th><th>Interactions / non-linearites / non expliquee</th><th>Runs</th></tr></thead>
+                  <tbody>${{varianceRows}}</tbody>
+                </table>
+              </div>
+            </section>
+          `);
+          requestAnimationFrame(() => renderDiagnosticFigureSlots(
+            {{ variance: varianceDecomposition.figure }},
+            [["variance", "mcVarianceDecomposition"]],
+          ));
+        }}
+        if (costDiagnosticsAvailable) {{
+          const costStat = (stats, key) => {{
+            const value = Number((stats || {{}})[key]);
+            return Number.isFinite(value) ? `${{fmtPanelQty(value / 1000000, 1)}} M EUR` : "n/a";
+          }};
+          const total = costDiagnostics.total_cost || {{}};
+          const nonProduction = costDiagnostics.cost_without_production || {{}};
+          const exceptional = costDiagnostics.exceptional_supply || {{}};
+          const exposure = costDiagnostics.economic_exposure || {{}};
+          const productionShare = Number(costDiagnostics.production_share);
+          const amplification = Number(costDiagnostics.production_amplification);
+          const fixedProductionShare = Boolean(costDiagnostics.fixed_production_share_detected);
+          const productionCostReading = fixedProductionShare
+            ? `Part de production imposee: ${{Number.isFinite(productionShare) ? fmtMultiplierPercent(productionShare, 1) : "n/a"}}. Amplification mecanique des autres couts: ${{Number.isFinite(amplification) ? "x" + amplification.toFixed(2) : "n/a"}}. Cette convention historique doit etre remplacee par les taux fixes par unite produite.`
+            : "Le cout de conversion est calcule par unite effectivement produite. Il ne rehausse pas mecaniquement les achats, le transport ou le stock.";
+          dynamicAnchor.insertAdjacentHTML("beforeend", `
+            <section class="dataSummarySection">
+              <div class="dataSummarySectionTitle">Lecture economique des couts Monte Carlo</div>
+              <div class="orderLedgerStatus">Le cout supply comptable, le recours fournisseur exceptionnel et leur exposition combinee sont presentes separement. Les percentiles portent sur les 200 runs.</div>
+              <div class="dataSummaryTableWrap">
+                <table class="dataSummaryTable">
+                  <thead><tr><th>Perimetre</th><th>Nominal</th><th>Mediane</th><th>P10 - P90</th><th>Lecture</th></tr></thead>
+                  <tbody>
+                    <tr><td>Cout supply comptable</td><td>${{costStat(total, "baseline")}}</td><td>${{costStat(total, "median")}}</td><td>${{costStat(total, "p10")}} - ${{costStat(total, "p90")}}</td><td>Achats, transport, stock, entrepot, risque inventaire et production.</td></tr>
+                    <tr><td>Cout hors production</td><td>${{costStat(nonProduction, "baseline")}}</td><td>${{costStat(nonProduction, "median")}}</td><td>${{costStat(nonProduction, "p10")}} - ${{costStat(nonProduction, "p90")}}</td><td>Isole achats, transport, stock, entrepot et risque inventaire.</td></tr>
+                    <tr><td>Recours fournisseur exceptionnel</td><td>${{costStat(exceptional, "baseline")}}</td><td>${{costStat(exceptional, "median")}}</td><td>${{costStat(exceptional, "p10")}} - ${{costStat(exceptional, "p90")}}</td><td>${{costDiagnostics.exceptional_in_total ? "Inclus dans le cout supply." : "Suivi separement du cout supply."}}</td></tr>
+                    <tr><td>Exposition economique combinee</td><td>${{costStat(exposure, "baseline")}}</td><td>${{costStat(exposure, "median")}}</td><td>${{costStat(exposure, "p10")}} - ${{costStat(exposure, "p90")}}</td><td>Cout supply + recours fournisseur exceptionnel.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="orderLedgerStatus">${{escapeHtmlText(productionCostReading)}}</div>
+            </section>
+          `);
+        }}
+        if (temporalPropagationAvailable) {{
+          const temporalRows = temporalPropagation.factors.map(row => {{
+            const scope = row.scope || {{}};
+            const stages = row.stage_first_effect_days || {{}};
+            const path = ((row.network_path || {{}}).node_ids || []).join(" -> ");
+            const lots = Array.isArray(row.nominally_exposed_lots) ? row.nominally_exposed_lots : [];
+            const outcomeLabels = {{
+              client_impacted: "Impact client observe",
+              absorbed_before_customer: "Absorbe avant le client",
+              no_observable_effect: "Aucun effet observable",
+            }};
+            const dayLabel = value => Number.isFinite(Number(value)) ? `J${{Number(value)}}` : "-";
+            return `
+              <tr>
+                <td>${{escapeHtmlText(scope.supplier_id || row.node_id || "global")}}</td>
+                <td>${{escapeHtmlText(scope.item_id || "-")}}</td>
+                <td>${{escapeHtmlText(scope.destination_id || "-")}}</td>
+                <td>${{dayLabel(stages.supplier)}}</td>
+                <td>${{dayLabel(stages.factory)}}</td>
+                <td>${{dayLabel(stages.customer)}}</td>
+                <td>${{escapeHtmlText(outcomeLabels[row.outcome] || row.outcome || "-")}}</td>
+                <td>${{escapeHtmlText(path || "-")}}</td>
+                <td>${{lots.length}}</td>
+              </tr>
+            `;
+          }}).join("");
+          const lotStatus = temporalPropagation.lotification_status || {{}};
+          dynamicAnchor.insertAdjacentHTML("beforeend", `
+            <section class="dataSummarySection">
+              <div class="dataSummarySectionTitle">Propagation temporelle fournisseur -> usine -> client</div>
+              <div class="orderLedgerStatus">${{escapeHtmlText(temporalPropagation.reading || "Chronologie issue des essais controles.")}}</div>
+              <div class="dataSummaryTableWrap">
+                <table class="dataSummaryTable">
+                  <thead><tr><th>Fournisseur</th><th>Article</th><th>Site receveur</th><th>Effet amont</th><th>Effet usine</th><th>Effet client</th><th>Issue</th><th>Chemin supply</th><th>Lots exposes</th></tr></thead>
+                  <tbody>${{temporalRows}}</tbody>
+                </table>
+              </div>
+              <div class="orderLedgerStatus">Lotification: ${{lotStatus.integrated ? "lots nominaux identifies dans les fenetres d'impact" : "non disponible"}}. Il s'agit d'une exposition temporelle; l'attribution causale exacte necessite un rejeu lotifie du scenario retenu.</div>
+            </section>
+          `);
+        }}
+        if (factorTubeKeys.length) {{
+          const pairedPropagation = factorTubeKeys.some(([key]) => (factorTubeFigures[key] || {{}}).method === "paired_controlled_runs");
+          const factorChartsHtml = factorTubeKeys.map(([_key, id]) => `<div id="${{id}}" class="riskDiagnosticChart"></div>`).join("");
+          const factorSectionTitle = pairedPropagation
+            ? "Effet marginal controle des parametres sur les KPI"
+            : "Lecture conditionnelle par parametre d'incertitude";
+          const factorSectionText = pairedPropagation
+            ? "Chaque zone correspond a l'effet d'un seul parametre, toutes choses egales par ailleurs. Sa plage metier basse / centrale / haute est indiquee dans le survol; +/-20% n'est utilise qu'en repli. La largeur montre un effet marginal local autour du nominal et n'a pas vocation a couvrir l'enveloppe Monte Carlo globale, qui combine plusieurs aleas et leurs interactions. Cliquer sur une zone surligne le fournisseur ou le driver concerne sur la carte."
+            : "Lecture exploratoire: les zones colorees comparent les runs ou un input est bas avec les runs ou ce meme input est haut. Les autres aleas continuent de varier; cette vue ne prouve pas un effet isole.";
+          dynamicAnchor.insertAdjacentHTML("beforeend", `
+            <section class="dataSummarySection">
+              <div class="dataSummarySectionTitle">${{factorSectionTitle}}</div>
+              <div class="orderLedgerStatus">${{factorSectionText}}</div>
               <div class="riskDiagnosticChartGrid">${{factorChartsHtml}}</div>
             </section>
           `);

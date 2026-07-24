@@ -304,10 +304,10 @@ except ModuleNotFoundError:
     )
 
 try:
-    from etudecas.visualization.maps.worldmap_html_template import html_template
+    from etudecas.visualization.maps.worldmap_html_template import ensure_plotly_offline_assets, html_template
 except ModuleNotFoundError:
     sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
-    from etudecas.visualization.maps.worldmap_html_template import html_template
+    from etudecas.visualization.maps.worldmap_html_template import ensure_plotly_offline_assets, html_template
 
 DEFAULT_SUPPLIER_PARAMETER_SENSITIVITY_DIR = Path(
     "etudecas/simulation/sensibility/active_supplier_parameter_result_60_75_guarded"
@@ -567,8 +567,8 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--montecarlo-summary-json",
-        default=str(DEFAULT_MONTECARLO_UNCERTAINTY_DIR / "montecarlo_summary.json"),
-        help="Optional Monte Carlo uncertainty summary JSON.",
+        default="",
+        help="Optional Monte Carlo uncertainty summary JSON. No implicit fallback is used.",
     )
     parser.add_argument(
         "--supplier-risk-campaign-summary-json",
@@ -1804,14 +1804,15 @@ def build_factory_hover_images(
                     mrp_entries.append({"label": unit, "asset": {"figure": mrp_figure}})
                 if receipt_figure is not None:
                     receipt_entries.append({"label": unit, "asset": {"figure": receipt_figure}})
+            demand_asset = (
+                {"bundle": demand_entries}
+                if len(demand_entries) > 1
+                else (demand_entries[0]["asset"] if demand_entries else None)
+            )
             family_entries = [
                 {
                     "label": "Stock physique",
                     "asset": {"bundle": stock_entries} if len(stock_entries) > 1 else (stock_entries[0]["asset"] if stock_entries else None),
-                },
-                {
-                    "label": "Besoins",
-                    "asset": {"bundle": demand_entries} if len(demand_entries) > 1 else (demand_entries[0]["asset"] if demand_entries else None),
                 },
                 {
                     "label": "Pilotage MRP",
@@ -1825,6 +1826,8 @@ def build_factory_hover_images(
             family_entries = [entry for entry in family_entries if entry.get("asset")]
             if family_entries:
                 incoming = {"bundle": family_entries} if len(family_entries) > 1 else family_entries[0]["asset"]
+        else:
+            demand_asset = None
         outgoing_descriptors = detail.get("outgoing") or []
         outgoing_stock_series_by_item: dict[str, tuple[str, list[tuple[int, float]]]] = {}
         outgoing_unit_by_item: dict[str, str] = {}
@@ -1989,9 +1992,17 @@ def build_factory_hover_images(
             outgoing_entries = [
                 {"label": "Execution production", "asset": production_execution},
                 {"label": "Stock produits / expeditions", "asset": outgoing},
+                {"label": "Planning lots", "asset": production_gantt},
             ]
             outgoing_bundle = {"bundle": [entry for entry in outgoing_entries if entry.get("asset")]}
             outgoing = outgoing_bundle if outgoing_bundle["bundle"] else outgoing
+        elif production_gantt is not None and outgoing is not None:
+            outgoing_entries = [
+                {"label": "Stock produits / expeditions", "asset": outgoing},
+                {"label": "Planning lots", "asset": production_gantt},
+            ]
+            outgoing_bundle = {"bundle": [entry for entry in outgoing_entries if entry.get("asset")]}
+            outgoing = outgoing_bundle if len(outgoing_bundle["bundle"]) > 1 else outgoing
         inbound_lead_days = {}
         for edge in raw.get("edges", []) or []:
             if str(edge.get("to") or "") != factory_id:
@@ -2000,7 +2011,7 @@ def build_factory_hover_images(
             lead_days = max(1.0, to_float(((edge.get("lead_time") or {}).get("mean"))) or 1.0)
             prev = inbound_lead_days.get(supplier_id)
             inbound_lead_days[supplier_id] = min(prev, lead_days) if prev is not None else lead_days
-        auxiliary = None
+        auxiliary = demand_asset
         if node_type == "supplier_dc":
             site_stock_payload = build_site_stock_payload(
                 raw,
@@ -2008,14 +2019,14 @@ def build_factory_hover_images(
                 factory_id,
                 title=f"{factory_id} - stocks complets du site",
             )
-            if production_gantt is not None:
+            if auxiliary is None and production_gantt is not None:
                 auxiliary = production_gantt
             elif site_stock_payload is not None:
                 if incoming is None:
                     incoming = site_stock_payload
-                else:
+                elif auxiliary is None:
                     auxiliary = site_stock_payload
-        elif production_gantt is not None:
+        elif auxiliary is None and production_gantt is not None:
             auxiliary = production_gantt
         if not incoming and not outgoing and not auxiliary:
             continue
@@ -11919,6 +11930,15 @@ def build_montecarlo_uncertainty_payload(summary_json: Path) -> dict[str, Any]:
         "</section>"
     )
 
+    paired_propagation = summary.get("paired_propagation") if isinstance(summary.get("paired_propagation"), dict) else {}
+    if paired_propagation.get("enabled") and paired_propagation.get("method") == "paired_controlled_runs":
+        # The controlled paired envelopes shown in the curves tab supersede the
+        # former mixed-Monte-Carlo regression approximation. Keep the detailed
+        # dashboard concise and avoid presenting two incompatible methods as if
+        # they measured the same quantity.
+        propagation_cards_html = ""
+        propagation_section_html = ""
+
     html_body = (
         "<div class=\"factoryHtmlPanelContent dataSummaryPanelContent monteCarloPanelContent\">"
         f"<div class=\"{html_tooltip_class(f'uncertaintyDashboard sensitivityStatus-{status_cls}', hero_tooltip)}\"{html_tooltip_attrs(hero_tooltip)}>"
@@ -12558,7 +12578,11 @@ def main() -> None:
     supplier_risk_supplier_csv = Path(args.supplier_risk_kpi_supplier_csv)
     supplier_risk_pair_csv = Path(args.supplier_risk_kpi_pair_csv)
     supplier_risk_panel_csv = Path(args.supplier_risk_kpi_panel_csv)
-    montecarlo_summary_json = Path(args.montecarlo_summary_json)
+    montecarlo_summary_json = (
+        Path(args.montecarlo_summary_json)
+        if str(args.montecarlo_summary_json or "").strip()
+        else Path("__missing_montecarlo_summary__.json")
+    )
     supplier_risk_campaign_summary_json = Path(args.supplier_risk_campaign_summary_json)
     supplier_risk_campaign_summary_csv = Path(args.supplier_risk_campaign_summary_csv)
     supplier_risk_campaign_cases_csv = Path(args.supplier_risk_campaign_cases_csv)
@@ -12852,6 +12876,11 @@ def main() -> None:
         encoding="utf-8",
     )
 
+    if not ensure_plotly_offline_assets(allow_download=True):
+        print(
+            "[WARN] Plotly offline assets unavailable; generated HTML may depend on the Plotly CDN.",
+            file=sys.stderr,
+        )
     html_str = html_template(
         args.title,
         json.dumps(payload, ensure_ascii=False),

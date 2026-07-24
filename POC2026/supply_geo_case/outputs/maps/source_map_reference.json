@@ -1,5 +1,0 @@
-{
-  "source_map_html": "C:\\dev\\lca-simu\\supply_geo\\analysis\\maps\\output8_GEO_simulation_ready_researched_map.html",
-  "root_map_html": "C:\\dev\\lca-simu\\supply_geo\\analysis\\map.html",
-  "note": "The existing supply_geo Plotly map remains the visual source of truth; this adapter injects SDD result views into an enriched copy of that base map."
-}

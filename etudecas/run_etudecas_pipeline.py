@@ -97,6 +97,10 @@ ACTIVE_MRP_PHYSICAL_OUTPUT_DIR = (
 ACTIVE_MRP_PHYSICAL_RERUN_ROOT = ROOT / "simulation" / "result" / "_reruns"
 SIMULATION_ENGINE_SCRIPT = ROOT / "simulation" / "engine" / "run_first_simulation.py"
 ROBUST_MONTECARLO_SCRIPT = ROOT / "simulation" / "montecarlo" / "run_robust_montecarlo.py"
+SUPPLIER_PARAMETER_SENSITIVITY_SCRIPT = (
+    ROOT / "simulation" / "sensibility" / "run_supplier_parameter_sensitivity.py"
+)
+MONTECARLO_CALIBRATION_SCRIPT = ROOT / "simulation" / "montecarlo" / "calibrate_from_sensitivity.py"
 ACTIVE_MONTECARLO_UNCERTAINTY_SUMMARY_JSON = (
     ROOT / "simulation" / "montecarlo" / "active_mrp_physical_uncertainty" / "montecarlo_summary.json"
 )
@@ -205,6 +209,7 @@ def run_robust_montecarlo_for_result(
     trajectory_max_points: int,
     trajectory_display_runs: int,
     workers: int,
+    sensitivity_calibration_json: Path | None = None,
 ) -> Path:
     montecarlo_dir = output_dir / "montecarlo"
     args = [
@@ -231,13 +236,162 @@ def run_robust_montecarlo_for_result(
         "--workers",
         str(max(1, int(workers))),
     ]
+    if sensitivity_calibration_json is not None:
+        args.extend(["--sensitivity-calibration-json", repo_rel(sensitivity_calibration_json)])
     run_python(ROBUST_MONTECARLO_SCRIPT, *args)
     return montecarlo_dir / "selected" / "montecarlo_summary.json"
+
+
+def run_supplier_sensitivity_for_montecarlo_calibration(
+    *,
+    output_dir: Path,
+    scenario_id: str,
+    days: int,
+    top_suppliers: int,
+    groups: str,
+    artifact_mode: str,
+    force: bool,
+) -> Path:
+    sensitivity_dir = output_dir / "sensitivity" / "supplier_parameter"
+    cases_csv = sensitivity_dir / "supplier_parameter_sensitivity_cases.csv"
+    summary_json = sensitivity_dir / "supplier_parameter_sensitivity_summary.json"
+    if cases_csv.exists() and summary_json.exists() and not force:
+        info_line("Using existing run-local supplier sensitivity for Monte Carlo calibration")
+        return cases_csv
+    info_line("Running supplier sensitivity before Monte Carlo calibration")
+    run_python(
+        SUPPLIER_PARAMETER_SENSITIVITY_SCRIPT,
+        "--input",
+        repo_rel(ACTIVE_MRP_PHYSICAL_GRAPH_JSON),
+        "--baseline-manifest",
+        repo_rel(output_dir / "run_manifest.json"),
+        "--baseline-result-dir",
+        repo_rel(output_dir),
+        "--output-dir",
+        repo_rel(sensitivity_dir),
+        "--scenario-id",
+        scenario_id,
+        "--days",
+        str(days),
+        "--top-suppliers",
+        str(max(0, int(top_suppliers))),
+        "--groups",
+        groups,
+        "--artifact-mode",
+        artifact_mode,
+    )
+    return cases_csv
+
+
+def build_montecarlo_calibration_from_sensitivity(
+    *,
+    output_dir: Path,
+    cases_csv: Path,
+    minimum_profile: str,
+) -> Path:
+    calibration_json = output_dir / "montecarlo" / "sensitivity_calibration.json"
+    summary_json = cases_csv.parent / "supplier_parameter_sensitivity_summary.json"
+    run_python(
+        MONTECARLO_CALIBRATION_SCRIPT,
+        "--cases-csv",
+        repo_rel(cases_csv),
+        "--summary-json",
+        repo_rel(summary_json),
+        "--output-json",
+        repo_rel(calibration_json),
+        "--minimum-profile",
+        minimum_profile,
+    )
+    return calibration_json
+
+
+def montecarlo_summary_is_complete_for_run(
+    summary_path: Path,
+    *,
+    output_dir: Path,
+    days: int,
+    scenario_id: str,
+    expected_runs: int | None,
+    require_calibrated: bool = False,
+) -> bool:
+    if not summary_path.exists():
+        return False
+    manifest_candidates = [
+        (output_dir / "run_manifest.json").resolve(),
+        (output_dir / "run" / "run_manifest.json").resolve(),
+    ]
+    if not montecarlo_summary_matches_run(
+        summary_path,
+        target_days=days,
+        target_manifest_candidates=manifest_candidates,
+        allow_missing_manifest=True,
+    ):
+        return False
+    try:
+        summary = load_json(summary_path)
+    except Exception:
+        return False
+    if str(summary.get("scenario_id") or "") != str(scenario_id):
+        return False
+    summary_days = int(summary.get("days_override") or summary.get("days") or -1)
+    if summary_days != int(days):
+        return False
+    if int(summary.get("failed_runs") or 0) != 0:
+        return False
+    if expected_runs is not None:
+        successful = int(summary.get("successful_stochastic_runs") or summary.get("successful_runs") or -1)
+        if successful != int(expected_runs):
+            return False
+    if require_calibrated:
+        calibration_path = output_dir / "montecarlo" / "sensitivity_calibration.json"
+        if not calibration_path.exists():
+            return False
+        calibration_info = summary.get("sensitivity_calibration")
+        if not isinstance(calibration_info, dict):
+            return False
+        if not str(calibration_info.get("recommended_profile") or "").strip():
+            return False
+    return True
+
+
+def write_run_montecarlo_manifest(
+    output_dir: Path,
+    *,
+    runs: int,
+    probe_runs: int,
+    profiles: str,
+    final_profile: str,
+    seed: int,
+    workers: int,
+    status: str,
+    sensitivity_calibration_json: Path | None = None,
+) -> None:
+    manifest_path = output_dir / "run_manifest.json"
+    manifest = load_json(manifest_path) if manifest_path.exists() else {}
+    manifest["montecarlo"] = {
+        "status": status,
+        "output_dir": "montecarlo",
+        "suite_summary_json": "montecarlo/montecarlo_suite_summary.json",
+        "selected_summary_json": "montecarlo/selected/montecarlo_summary.json",
+        "selected_trajectories_json": "montecarlo/selected/montecarlo_trajectories.json",
+        "runs": runs,
+        "probe_runs": probe_runs,
+        "profiles": profiles,
+        "final_profile": final_profile,
+        "seed": seed,
+        "workers": workers,
+    }
+    if sensitivity_calibration_json is not None:
+        manifest["montecarlo"]["sensitivity_calibration_json"] = repo_rel(sensitivity_calibration_json)
+        manifest["montecarlo"]["supplier_sensitivity_dir"] = "sensitivity/supplier_parameter"
+    write_json(manifest_path, manifest)
 
 
 def resolve_montecarlo_summary_for_map(
     output_dir: Path,
     montecarlo_summary_json: Path | None = None,
+    *,
+    allow_shared_fallback: bool = True,
 ) -> Path:
     """Return the best Monte Carlo summary available for the map.
 
@@ -246,6 +400,19 @@ def resolve_montecarlo_summary_for_map(
     file is often absent; in that case, fall back to the active shared Monte
     Carlo artifact instead of embedding an empty uncertainty payload.
     """
+    target_days = None
+    summary_path = output_dir / "summaries" / "first_simulation_summary.json"
+    if summary_path.exists():
+        try:
+            target_days = int((load_json(summary_path).get("sim_days") or 0))
+        except Exception:
+            target_days = None
+    output_dir_resolved = output_dir.resolve()
+    target_manifest_candidates = [
+        (output_dir / "run_manifest.json").resolve(),
+        (output_dir / "run" / "run_manifest.json").resolve(),
+    ]
+
     explicit_candidates = [
         montecarlo_summary_json,
         output_dir / "montecarlo" / "selected" / "montecarlo_summary.json",
@@ -254,22 +421,30 @@ def resolve_montecarlo_summary_for_map(
         if candidate is None:
             continue
         candidate = resolve_repo_path(Path(candidate))
-        if candidate.exists():
-            return candidate
+        if not candidate.exists():
+            continue
+        if not montecarlo_summary_matches_run(
+            candidate,
+            target_days=target_days,
+            target_manifest_candidates=target_manifest_candidates,
+            allow_missing_manifest=candidate.resolve().is_relative_to(output_dir_resolved)
+            if hasattr(candidate.resolve(), "is_relative_to")
+            else False,
+        ):
+            raise ValueError(
+                "Monte Carlo summary is not compatible with the current run/horizon: "
+                f"{candidate}"
+            )
+        return candidate
+
+    if not allow_shared_fallback:
+        return resolve_repo_path(output_dir / "montecarlo" / "selected" / "montecarlo_summary.json")
 
     fallback_candidates = [
         ACTIVE_MONTECARLO_UNCERTAINTY_SUMMARY_JSON,
         ROOT / "simulation" / "montecarlo" / "result" / "montecarlo_summary.json",
     ]
     fallback_candidates.extend(ACTIVE_MRP_PHYSICAL_RERUN_ROOT.glob(ACTIVE_MONTECARLO_SELECTED_SUMMARY_GLOB))
-
-    target_days = None
-    summary_path = output_dir / "summaries" / "first_simulation_summary.json"
-    if summary_path.exists():
-        try:
-            target_days = int((load_json(summary_path).get("sim_days") or 0))
-        except Exception:
-            target_days = None
 
     scored: list[tuple[int, int, float, Path]] = []
     for candidate in fallback_candidates:
@@ -284,12 +459,42 @@ def resolve_montecarlo_summary_for_map(
             runs = int(summary.get("successful_stochastic_runs") or summary.get("successful_runs") or 0)
         except Exception:
             pass
+        if not montecarlo_summary_matches_run(
+            candidate,
+            target_days=target_days,
+            target_manifest_candidates=target_manifest_candidates,
+            allow_missing_manifest=False,
+        ):
+            continue
         days_match = int(target_days is not None and days == target_days)
         scored.append((days_match, runs, candidate.stat().st_mtime, candidate))
     if scored:
         scored.sort(reverse=True)
         return scored[0][3]
     return resolve_repo_path(output_dir / "montecarlo" / "selected" / "montecarlo_summary.json")
+
+
+def montecarlo_summary_matches_run(
+    summary_path: Path,
+    *,
+    target_days: int | None,
+    target_manifest_candidates: list[Path],
+    allow_missing_manifest: bool,
+) -> bool:
+    try:
+        summary = load_json(summary_path)
+    except Exception:
+        return False
+    summary_days = int(summary.get("days_override") or summary.get("days") or 0)
+    if target_days is not None and summary_days and summary_days != target_days:
+        return False
+
+    manifest = summary.get("manifest") if isinstance(summary.get("manifest"), dict) else {}
+    manifest_path = str(manifest.get("manifest_path") or summary.get("run_manifest") or "").strip()
+    if not manifest_path:
+        return allow_missing_manifest
+    resolved_manifest = resolve_repo_path(Path(manifest_path)).resolve()
+    return resolved_manifest in target_manifest_candidates
 
 
 def load_json(path: Path) -> dict:
@@ -409,6 +614,7 @@ def validate_active_run_outputs(
     max_map_mb: float,
     montecarlo_summary_json: Path | None = None,
     montecarlo_expected_runs: int | None = None,
+    require_montecarlo: bool = False,
 ) -> list[dict[str, Any]]:
     summary_path = output_dir / "summaries" / "first_simulation_summary.json"
     report_path = output_dir / "reports" / "first_simulation_report.md"
@@ -482,8 +688,10 @@ def validate_active_run_outputs(
         add("kpi_fill_rate_present", fill_rate is not None, f"fill_rate={fill_rate}")
         add("kpi_total_cost_present", total_cost is not None, f"total_cost={total_cost}")
         add("kpi_ending_backlog_present", ending_backlog is not None, f"ending_backlog={ending_backlog}")
+    if require_montecarlo and montecarlo_summary_json is None:
+        montecarlo_summary_json = output_dir / "montecarlo" / "selected" / "montecarlo_summary.json"
     if montecarlo_summary_json is not None:
-        mc_summary_path = montecarlo_summary_json
+        mc_summary_path = resolve_repo_path(montecarlo_summary_json)
         mc_dir = mc_summary_path.parent
         mc_samples_path = mc_dir / "montecarlo_samples.csv"
         mc_trajectories_path = mc_dir / "montecarlo_trajectories.json"
@@ -509,6 +717,13 @@ def validate_active_run_outputs(
                     f"{mc_summary.get('successful_stochastic_runs')} == {montecarlo_expected_runs}",
                 )
             add("montecarlo_failed_runs", int(mc_summary.get("failed_runs") or 0) == 0, str(mc_summary.get("failed_runs")))
+            add(
+                "montecarlo_run_local",
+                mc_summary_path.resolve(strict=False).is_relative_to(output_dir.resolve(strict=False))
+                if hasattr(mc_summary_path.resolve(strict=False), "is_relative_to")
+                else str(mc_summary_path.resolve(strict=False)).startswith(str(output_dir.resolve(strict=False))),
+                repo_rel(mc_summary_path),
+            )
     run_package_dir = output_dir / "run"
     if run_package_dir.exists():
         for row in validate_run_package(run_package_dir):
@@ -996,6 +1211,7 @@ def build_map_for_simulation_result(
     supplier_criticality_dir: Path,
     simulated_risk_output_dir: Path | None = None,
     montecarlo_summary_json: Path | None = None,
+    allow_montecarlo_fallback: bool = False,
     title: str = "Supply Graph POC - Geocoded Map",
 ) -> Path:
     data_dir = output_dir / "data"
@@ -1067,8 +1283,16 @@ def build_map_for_simulation_result(
     ]
     if simulated_risk_output_dir is not None:
         map_cmd.extend(["--simulated-risk-output-dir", repo_rel(simulated_risk_output_dir)])
-    run_montecarlo_summary_json = resolve_montecarlo_summary_for_map(output_dir, montecarlo_summary_json)
-    map_cmd.extend(["--montecarlo-summary-json", repo_rel(run_montecarlo_summary_json)])
+    if montecarlo_summary_json is not None or allow_montecarlo_fallback:
+        run_montecarlo_summary_json = resolve_montecarlo_summary_for_map(
+            output_dir,
+            montecarlo_summary_json,
+            allow_shared_fallback=allow_montecarlo_fallback,
+        )
+        if run_montecarlo_summary_json.exists():
+            map_cmd.extend(["--montecarlo-summary-json", repo_rel(run_montecarlo_summary_json)])
+        elif montecarlo_summary_json is not None:
+            raise FileNotFoundError(f"Monte Carlo summary not found: {run_montecarlo_summary_json}")
     run_python(map_script, *map_cmd[2:])
     return map_output_path
 
@@ -2329,6 +2553,7 @@ def run_operational_rebuild(
     build_state_dependent_risk_scenario: bool,
     state_dependent_scenarios: str,
     with_montecarlo: bool,
+    require_montecarlo: bool,
     montecarlo_runs: int,
     montecarlo_probe_runs: int,
     montecarlo_profiles: str,
@@ -2337,6 +2562,12 @@ def run_operational_rebuild(
     montecarlo_trajectory_max_points: int,
     montecarlo_trajectory_display_runs: int,
     montecarlo_workers: int,
+    montecarlo_from_sensitivity: bool,
+    sensitivity_top_suppliers: int,
+    sensitivity_groups: str,
+    sensitivity_artifact_mode: str,
+    sensitivity_minimum_profile: str,
+    force_sensitivity: bool,
 ) -> Path:
     started_at = datetime.now(timezone.utc).isoformat()
     if refresh_input_graph and not dry_run:
@@ -2368,8 +2599,10 @@ def run_operational_rebuild(
         return target_output_dir
 
     simulated_risk_output_dir: Path | None = None
+    state_dependent_scenario_count = 0
     if build_state_dependent_risk_scenario:
         specs = selected_state_dependent_scenario_specs(state_dependent_scenarios, horizon_days=days)
+        state_dependent_scenario_count = len(specs)
         primary_slug = "state_dependent_full"
         if not any(str(spec.get("slug")) == primary_slug for spec in specs):
             primary_slug = str(specs[0].get("slug") or "")
@@ -2428,6 +2661,49 @@ def run_operational_rebuild(
         write_json(manifest_path, manifest)
 
     montecarlo_summary_json: Path | None = None
+    montecarlo_calibration_json: Path | None = None
+    if (require_montecarlo or with_montecarlo) and montecarlo_from_sensitivity:
+        sensitivity_cases_csv = run_supplier_sensitivity_for_montecarlo_calibration(
+            output_dir=target_output_dir,
+            scenario_id=scenario_id,
+            days=days,
+            top_suppliers=sensitivity_top_suppliers,
+            groups=sensitivity_groups,
+            artifact_mode=sensitivity_artifact_mode,
+            force=force_sensitivity,
+        )
+        montecarlo_calibration_json = build_montecarlo_calibration_from_sensitivity(
+            output_dir=target_output_dir,
+            cases_csv=sensitivity_cases_csv,
+            minimum_profile=sensitivity_minimum_profile,
+        )
+
+    local_montecarlo_summary_json = target_output_dir / "montecarlo" / "selected" / "montecarlo_summary.json"
+    if require_montecarlo and not with_montecarlo:
+        if montecarlo_summary_is_complete_for_run(
+            local_montecarlo_summary_json,
+            output_dir=target_output_dir,
+            days=days,
+            scenario_id=scenario_id,
+            expected_runs=montecarlo_runs,
+            require_calibrated=bool(montecarlo_from_sensitivity),
+        ):
+            info_line("Using existing run-local Monte Carlo suite for the final map")
+            montecarlo_summary_json = local_montecarlo_summary_json
+            write_run_montecarlo_manifest(
+                target_output_dir,
+                runs=montecarlo_runs,
+                probe_runs=montecarlo_probe_runs,
+                profiles=montecarlo_profiles,
+                final_profile=montecarlo_final_profile,
+                seed=montecarlo_seed,
+                workers=montecarlo_workers,
+                status="reused_local",
+                sensitivity_calibration_json=montecarlo_calibration_json,
+            )
+        else:
+            info_line("Monte Carlo is required for operational maps; running it for the current run")
+            with_montecarlo = True
     if with_montecarlo:
         info_line("Running adaptive robust Monte Carlo suite for the current run")
         montecarlo_summary_json = run_robust_montecarlo_for_result(
@@ -2441,22 +2717,19 @@ def run_operational_rebuild(
             trajectory_max_points=montecarlo_trajectory_max_points,
             trajectory_display_runs=montecarlo_trajectory_display_runs,
             workers=montecarlo_workers,
+            sensitivity_calibration_json=montecarlo_calibration_json,
         )
-        manifest_path = target_output_dir / "run_manifest.json"
-        manifest = load_json(manifest_path) if manifest_path.exists() else {}
-        manifest["montecarlo"] = {
-            "output_dir": "montecarlo",
-            "suite_summary_json": "montecarlo/montecarlo_suite_summary.json",
-            "selected_summary_json": "montecarlo/selected/montecarlo_summary.json",
-            "selected_trajectories_json": "montecarlo/selected/montecarlo_trajectories.json",
-            "runs": montecarlo_runs,
-            "probe_runs": montecarlo_probe_runs,
-            "profiles": montecarlo_profiles,
-            "final_profile": montecarlo_final_profile,
-            "seed": montecarlo_seed,
-            "workers": montecarlo_workers,
-        }
-        write_json(manifest_path, manifest)
+        write_run_montecarlo_manifest(
+            target_output_dir,
+            runs=montecarlo_runs,
+            probe_runs=montecarlo_probe_runs,
+            profiles=montecarlo_profiles,
+            final_profile=montecarlo_final_profile,
+            seed=montecarlo_seed,
+            workers=montecarlo_workers,
+            status="completed",
+            sensitivity_calibration_json=montecarlo_calibration_json,
+        )
 
     info_line("Building supplier local criticality artifacts for the current run")
     build_supplier_local_criticality_artifacts(
@@ -2475,6 +2748,7 @@ def run_operational_rebuild(
         supplier_criticality_dir=supplier_criticality_dir,
         simulated_risk_output_dir=simulated_risk_output_dir,
         montecarlo_summary_json=montecarlo_summary_json,
+        allow_montecarlo_fallback=False,
     )
     map_path = find_generated_map(target_output_dir)
 
@@ -2487,7 +2761,10 @@ def run_operational_rebuild(
             "pipeline_command": "rebuild-active",
             "supplier_criticality_dir": repo_rel(supplier_criticality_dir),
             "simulated_risk_output_dir": repo_rel(simulated_risk_output_dir) if simulated_risk_output_dir else "",
+            "state_dependent_scenarios": state_dependent_scenarios if state_dependent_scenario_count else "",
+            "state_dependent_scenario_count": state_dependent_scenario_count,
             "montecarlo_summary_json": repo_rel(montecarlo_summary_json) if montecarlo_summary_json else "",
+            "montecarlo_calibration_json": repo_rel(montecarlo_calibration_json) if montecarlo_calibration_json else "",
         },
     )
     ok_line(f"Generic run package: {generic_run_dir.resolve()}")
@@ -2502,7 +2779,8 @@ def run_operational_rebuild(
             output_profile=output_profile,
             max_map_mb=max_map_mb,
             montecarlo_summary_json=montecarlo_summary_json,
-            montecarlo_expected_runs=montecarlo_runs if with_montecarlo else None,
+            montecarlo_expected_runs=montecarlo_runs if (require_montecarlo or with_montecarlo) else None,
+            require_montecarlo=require_montecarlo,
         )
         print_preflight(validations)
         assert_validations_ok(validations)
@@ -2607,23 +2885,36 @@ def parse_args() -> argparse.Namespace:
         action=argparse.BooleanOptionalAction,
         default=True,
         help=(
-            "Build a companion scn:STATE_DEPENDENT_FULL run and use it as the primary "
+            "Build companion state-dependent runs and use the full portfolio as the primary "
             "Risques simules payload. Enabled by default for operational maps."
         ),
     )
     rebuild_active.add_argument(
         "--state-dependent-scenarios",
-        default="full",
+        default="all",
         help=(
             "Comma-separated state-dependent scenario keys. Use full, api_upstream, "
             "packaging_quality, downstream_distribution, internal_release_capacity, "
-            "or aliases extended/all/variants."
+            "or aliases extended/all/variants. Default: all, so operational maps keep "
+            "the named crisis scenarios and comparison trajectories."
         ),
     )
     rebuild_active.add_argument(
         "--with-montecarlo",
         action="store_true",
-        help="Run the adaptive robust Monte Carlo suite for the current run before building the map.",
+        help=(
+            "Force the adaptive robust Monte Carlo suite for the current run before building the map. "
+            "Operational maps require Monte Carlo by default and will run it automatically if missing."
+        ),
+    )
+    rebuild_active.add_argument(
+        "--require-montecarlo",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help=(
+            "Require a run-local Monte Carlo payload in the final operational map. Enabled by default; "
+            "use --no-require-montecarlo only for fast smoke maps without Incertitude."
+        ),
     )
     rebuild_active.add_argument(
         "--montecarlo-runs",
@@ -2651,6 +2942,43 @@ def parse_args() -> argparse.Namespace:
     rebuild_active.add_argument("--montecarlo-trajectory-max-points", type=int, default=730)
     rebuild_active.add_argument("--montecarlo-trajectory-display-runs", type=int, default=60)
     rebuild_active.add_argument("--montecarlo-workers", type=int, default=4)
+    rebuild_active.add_argument(
+        "--montecarlo-from-sensitivity",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help=(
+            "Run supplier sensitivity first and use it to calibrate the Monte Carlo profile. "
+            "Enabled by default for operational maps."
+        ),
+    )
+    rebuild_active.add_argument(
+        "--force-sensitivity",
+        action="store_true",
+        help="Recompute run-local supplier sensitivity even if matching local artifacts already exist.",
+    )
+    rebuild_active.add_argument(
+        "--sensitivity-top-suppliers",
+        type=int,
+        default=8,
+        help="Number of active suppliers swept before Monte Carlo calibration. 0 means all active suppliers.",
+    )
+    rebuild_active.add_argument(
+        "--sensitivity-groups",
+        default="stock,capacity,lead_time,reliability,external,combined",
+        help="Supplier sensitivity parameter groups used for Monte Carlo calibration.",
+    )
+    rebuild_active.add_argument(
+        "--sensitivity-artifact-mode",
+        choices=["summary", "compact", "full"],
+        default="summary",
+        help="Retention mode for the pre-Monte-Carlo sensitivity runs.",
+    )
+    rebuild_active.add_argument(
+        "--sensitivity-minimum-profile",
+        choices=["workshop", "risk_probe", "stress_probe", "breakpoint_probe"],
+        default="risk_probe",
+        help="Minimum Monte Carlo profile allowed when sensitivity calibration is active.",
+    )
 
     graph = sub.add_parser("graph", help="Rebuild the knowledge-graph JSON from XLSX and geocode it.")
 
@@ -2799,6 +3127,7 @@ def main() -> None:
             build_state_dependent_risk_scenario=args.state_dependent_risk_scenario,
             state_dependent_scenarios=args.state_dependent_scenarios,
             with_montecarlo=args.with_montecarlo,
+            require_montecarlo=args.require_montecarlo,
             montecarlo_runs=args.montecarlo_runs,
             montecarlo_probe_runs=args.montecarlo_probe_runs,
             montecarlo_profiles=args.montecarlo_profiles,
@@ -2807,6 +3136,12 @@ def main() -> None:
             montecarlo_trajectory_max_points=args.montecarlo_trajectory_max_points,
             montecarlo_trajectory_display_runs=args.montecarlo_trajectory_display_runs,
             montecarlo_workers=args.montecarlo_workers,
+            montecarlo_from_sensitivity=args.montecarlo_from_sensitivity,
+            sensitivity_top_suppliers=args.sensitivity_top_suppliers,
+            sensitivity_groups=args.sensitivity_groups,
+            sensitivity_artifact_mode=args.sensitivity_artifact_mode,
+            sensitivity_minimum_profile=args.sensitivity_minimum_profile,
+            force_sensitivity=args.force_sensitivity,
         )
         return
     if args.command == "graph":

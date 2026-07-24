@@ -315,7 +315,7 @@ def build_risk_payload_manifest(payload: dict[str, Any]) -> dict[str, Any]:
         "legacy_keys": [key for key in RISK_LEGACY_KEYS if key in payload],
         "counts": {
             "scenario_count": _count_sequence(scenario.get("scenarios")),
-            "scenario_charts": _count_mapping(scenario.get("charts")),
+            "scenario_figures": _count_mapping(scenario.get("figures")),
             "risk_events": _count_sequence(diagnostic.get("events")),
             "effective_cascades": _count_sequence(diagnostic.get("cascade_roots")),
             "risk_origin_impacts": _count_sequence(diagnostic.get("origin_impacts")),
@@ -338,7 +338,7 @@ def build_risk_generic_view(payload: dict[str, Any]) -> dict[str, Any]:
     )
     return {
         "time_series": {
-            "scenario_comparison": payload.get("scenario_comparison", {}).get("charts", {})
+            "scenario_comparison": payload.get("scenario_comparison", {}).get("figures", {})
             if isinstance(payload.get("scenario_comparison"), dict)
             else {},
         },
