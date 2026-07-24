@@ -43,6 +43,11 @@ class ScenarioPath:
     capacity_shock: np.ndarray
     lead_time_shock: np.ndarray
     risk_noise: np.ndarray
+    realized_risk_probability: np.ndarray | None = None
+    quality_yield_multiplier: np.ndarray | None = None
+    purchase_cost_multiplier: np.ndarray | None = None
+    transport_cost_multiplier: np.ndarray | None = None
+    scenario_seed: int | None = None
 
 
 @dataclass
@@ -53,6 +58,9 @@ class RunContext:
     risk_path: str | None
     observability_base: float
     baseline_columns: list[str]
+    prediction_interval: pd.DataFrame | None = None
+    physical_risk_envelope: pd.DataFrame | None = None
+    prediction_interval_metadata: dict[str, Any] | None = None
 
 
 DEFAULT_ACTIONS: tuple[Action, ...] = (
@@ -127,6 +135,23 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "max_order_gain": 0.28,
         "min_production_gain": -0.10,
         "max_production_gain": 0.22,
+    },
+    "physical_risk_mapping": {
+        "availability_loss_at_unit_risk": 0.55,
+        "capacity_loss_at_unit_risk": 0.42,
+        "lead_extra_fraction_of_nominal_at_unit_risk": 1.10,
+        "quality_yield_loss_at_unit_risk": 0.24,
+        "purchase_cost_increase_at_unit_risk": 0.35,
+        "transport_cost_increase_at_unit_risk": 0.22,
+        "severity_backlog_scale": 25.0,
+        "severity_fill_loss_scale": 0.025,
+        "minimum_interval_half_width": 0.04,
+        "maximum_interval_half_width": 0.35,
+        "conformal_alpha": 0.10,
+        "forecast_validity_days": 30.0,
+        "forecast_decay_days": 30.0,
+        "long_horizon_prior_center": 0.12,
+        "long_horizon_prior_half_width": 0.25,
     },
     "regime_thresholds": {
         "material_tension_days": 0.85,
@@ -230,7 +255,8 @@ def aggregate_baseline(frame: pd.DataFrame, days: int) -> tuple[pd.DataFrame, fl
     daily = daily.fillna(0.0).reset_index(names="day").sort_values("day").head(days)
     if daily.empty or daily["demand"].max() <= 0:
         raise ValueError("baseline CSV does not expose usable daily demand")
-    scale = max(float(daily["demand"].replace(0.0, np.nan).median()), 1.0)
+    scale = float(daily["demand"].replace(0.0, np.nan).median())
+    scale = max(scale, 1.0)
     for column in ["demand", "served", "backlog", "arrivals", "produced", "inventory", "orders"]:
         daily[column] = daily[column] / scale
     daily["demand"] = daily["demand"].clip(lower=0.05)
@@ -273,7 +299,8 @@ def load_risk_series(path: Path | None, days: int, seed: int) -> tuple[np.ndarra
     if path and path.exists() and path.stat().st_size > 0:
         frame = pd.read_csv(path)
         probability_column = first_existing_column(frame, [
-            "predicted_probability", "predicted_risk_probability", "risk_probability", "predicted_risk", "probability", "p_risk"
+            "predicted_incident_probability_30d", "predicted_probability", "predicted_risk_probability",
+            "risk_probability", "predicted_risk", "probability", "p_risk"
         ])
         if probability_column:
             probabilities = pd.to_numeric(frame[probability_column], errors="coerce").dropna().clip(0, 1)
@@ -303,8 +330,10 @@ def load_risk_series(path: Path | None, days: int, seed: int) -> tuple[np.ndarra
     return series, np.clip(0.07 + 0.13 * series, 0.05, 0.22)
 
 
-def build_input_context(repo_root: Path, baseline_csv: str, risk_csv: str, days: int, seed: int,
-                        force_synthetic: bool) -> RunContext:
+def build_input_context(
+    repo_root: Path, baseline_csv: str, risk_csv: str, days: int, seed: int,
+    force_synthetic: bool, mapping_config: Mapping[str, Any] | None = None,
+) -> RunContext:
     baseline_path: Path | None = None
     risk_path: Path | None = None
     if not force_synthetic:
@@ -335,9 +364,23 @@ def build_input_context(repo_root: Path, baseline_csv: str, risk_csv: str, days:
             "etudecas/**/predicted_supplier_risk.csv",
         ])
     risk, uncertainty = load_risk_series(risk_path, len(daily), seed)
+    from .risk_mapping import build_prediction_interval_envelope, map_prediction_interval_to_physical
+
+    interval, interval_meta = build_prediction_interval_envelope(
+        risk_path,
+        len(daily),
+        fallback_center=risk,
+        fallback_uncertainty=uncertainty,
+        mapping_config=mapping_config or DEFAULT_CONFIG.get("physical_risk_mapping", {}),
+    )
+    physical = map_prediction_interval_to_physical(
+        interval, mapping_config or DEFAULT_CONFIG.get("physical_risk_mapping", {})
+    )
     daily = daily.copy()
-    daily["base_risk"] = risk
-    daily["risk_uncertainty"] = uncertainty
+    daily["base_risk"] = interval["risk_center"].to_numpy(dtype=float)
+    daily["risk_uncertainty"] = (
+        interval["risk_upper"].to_numpy(dtype=float) - interval["risk_lower"].to_numpy(dtype=float)
+    ) / 2.0
     reference = rolling_median(daily["demand"])
     daily["demand_ratio"] = (daily["demand"] / reference).clip(0.4, 2.5)
     daily["historical_service"] = (daily["served"] / daily["demand"].replace(0, np.nan)).clip(0, 1).fillna(1)
@@ -345,8 +388,11 @@ def build_input_context(repo_root: Path, baseline_csv: str, risk_csv: str, days:
     daily["historical_production_utilization"] = (
         daily["produced"] / daily["produced"].rolling(28, min_periods=7).quantile(0.95).replace(0, np.nan)
     ).fillna(0).clip(0, 2)
-    return RunContext(daily, mode, str(baseline_path) if baseline_path else None,
-                      str(risk_path) if risk_path and risk_path.exists() else None, observability, columns)
+    return RunContext(
+        daily, mode, str(baseline_path) if baseline_path else None,
+        str(risk_path) if risk_path and risk_path.exists() else None, observability, columns,
+        interval, physical, interval_meta.__dict__,
+    )
 
 
 def correlated_noise(rng: np.random.Generator, length: int, sigma: float, correlation: float) -> np.ndarray:
@@ -357,20 +403,175 @@ def correlated_noise(rng: np.random.Generator, length: int, sigma: float, correl
     return result
 
 
-def sample_scenarios(count: int, length: int, config: Mapping[str, Any], seed: int) -> list[ScenarioPath]:
+def _slice_or_pad(values: pd.Series | np.ndarray, start_day: int, length: int, default: float) -> np.ndarray:
+    array = np.asarray(values, dtype=float)
+    if len(array) == 0:
+        return np.full(length, default, dtype=float)
+    start = max(0, int(start_day))
+    stop = min(len(array), start + length)
+    sliced = array[start:stop]
+    if len(sliced) < length:
+        fill = float(sliced[-1]) if len(sliced) else float(array[-1])
+        sliced = np.pad(sliced, (0, length - len(sliced)), constant_values=fill)
+    return sliced.astype(float)
+
+
+def sample_scenarios(
+    count: int,
+    length: int,
+    config: Mapping[str, Any],
+    seed: int,
+    *,
+    physical_risk: pd.DataFrame | None = None,
+    start_day: int = 0,
+) -> list[ScenarioPath]:
+    """Sample common-random-number scenarios, optionally from prediction intervals."""
+
     cfg = config["uncertainty"]
     rng = np.random.default_rng(seed)
     scenarios: list[ScenarioPath] = []
-    for _ in range(count):
+    use_physical = physical_risk is not None and not physical_risk.empty
+    if use_physical:
+        from .risk_mapping import interpolate_interval
+
+        columns: dict[str, np.ndarray] = {}
+        for name, default in (
+            ("risk_lower", 0.05), ("risk_center", 0.12), ("risk_upper", 0.25),
+            ("availability_multiplier_lower", 1.0), ("availability_multiplier_center", 1.0), ("availability_multiplier_upper", 1.0),
+            ("capacity_multiplier_lower", 1.0), ("capacity_multiplier_center", 1.0), ("capacity_multiplier_upper", 1.0),
+            ("lead_time_extra_days_lower", 0.0), ("lead_time_extra_days_center", 0.0), ("lead_time_extra_days_upper", 0.0),
+            ("quality_yield_multiplier_lower", 1.0), ("quality_yield_multiplier_center", 1.0), ("quality_yield_multiplier_upper", 1.0),
+            ("purchase_cost_multiplier_lower", 1.0), ("purchase_cost_multiplier_center", 1.0), ("purchase_cost_multiplier_upper", 1.0),
+            ("transport_cost_multiplier_lower", 1.0), ("transport_cost_multiplier_center", 1.0), ("transport_cost_multiplier_upper", 1.0),
+        ):
+            if name in physical_risk:
+                columns[name] = _slice_or_pad(physical_risk[name], start_day, length, default)
+            else:
+                columns[name] = np.full(length, default, dtype=float)
+
+    for scenario_index in range(count):
         corr = safe_float(cfg["temporal_correlation"], 0.7)
+        demand_multiplier = np.clip(
+            1 + correlated_noise(rng, length, safe_float(cfg["demand_sigma"]), corr), 0.65, 1.45
+        )
+        base_supply = np.clip(correlated_noise(rng, length, safe_float(cfg["supply_sigma"]), corr), 0, 0.65)
+        base_capacity = np.clip(correlated_noise(rng, length, safe_float(cfg["capacity_sigma"]), corr), 0, 0.45)
+        base_lead = np.clip(correlated_noise(rng, length, safe_float(cfg["lead_time_sigma"]), corr), -0.15, 0.80)
+        risk_noise = correlated_noise(rng, length, safe_float(cfg["risk_sigma"]), corr)
+        if use_physical:
+            latent = correlated_noise(rng, length, 1.0, corr)
+            realized_risk = np.clip(interpolate_interval(
+                columns["risk_lower"], columns["risk_center"], columns["risk_upper"], latent
+            ), 0.01, 0.995)
+            # Use the same latent quantile for probability and physical effects.
+            # The multiplier curves are decreasing with risk, which the linear
+            # interpolation handles naturally; reversing the endpoints would
+            # incorrectly associate high risk with high availability.
+            availability = interpolate_interval(
+                columns["availability_multiplier_lower"],
+                columns["availability_multiplier_center"],
+                columns["availability_multiplier_upper"],
+                latent,
+            )
+            capacity = interpolate_interval(
+                columns["capacity_multiplier_lower"],
+                columns["capacity_multiplier_center"],
+                columns["capacity_multiplier_upper"],
+                latent,
+            )
+            lead_extra = interpolate_interval(
+                columns["lead_time_extra_days_lower"],
+                columns["lead_time_extra_days_center"],
+                columns["lead_time_extra_days_upper"],
+                latent,
+            )
+            quality = interpolate_interval(
+                columns["quality_yield_multiplier_lower"],
+                columns["quality_yield_multiplier_center"],
+                columns["quality_yield_multiplier_upper"],
+                latent,
+            )
+            purchase_cost = interpolate_interval(
+                columns["purchase_cost_multiplier_lower"],
+                columns["purchase_cost_multiplier_center"],
+                columns["purchase_cost_multiplier_upper"],
+                latent,
+            )
+            transport_cost = interpolate_interval(
+                columns["transport_cost_multiplier_lower"],
+                columns["transport_cost_multiplier_center"],
+                columns["transport_cost_multiplier_upper"],
+                latent,
+            )
+            nominal_lead = max(1.0, safe_float(config["nominal"]["base_lead_time_days"], 5.0))
+            supply_shock = np.clip((1.0 - availability) + 0.35 * base_supply, 0.0, 0.85)
+            capacity_shock = np.clip((1.0 - capacity) + 0.35 * base_capacity, 0.0, 0.75)
+            lead_time_shock = np.clip(lead_extra / nominal_lead + 0.35 * base_lead, -0.15, 2.0)
+        else:
+            realized_risk = None
+            quality = None
+            purchase_cost = None
+            transport_cost = None
+            supply_shock = base_supply
+            capacity_shock = base_capacity
+            lead_time_shock = base_lead
         scenarios.append(ScenarioPath(
-            demand_multiplier=np.clip(1 + correlated_noise(rng, length, safe_float(cfg["demand_sigma"]), corr), 0.65, 1.45),
-            supply_shock=np.clip(correlated_noise(rng, length, safe_float(cfg["supply_sigma"]), corr), 0, 0.65),
-            capacity_shock=np.clip(correlated_noise(rng, length, safe_float(cfg["capacity_sigma"]), corr), 0, 0.45),
-            lead_time_shock=np.clip(correlated_noise(rng, length, safe_float(cfg["lead_time_sigma"]), corr), -0.15, 0.80),
-            risk_noise=correlated_noise(rng, length, safe_float(cfg["risk_sigma"]), corr),
+            demand_multiplier=demand_multiplier,
+            supply_shock=supply_shock,
+            capacity_shock=capacity_shock,
+            lead_time_shock=lead_time_shock,
+            risk_noise=risk_noise,
+            realized_risk_probability=realized_risk,
+            quality_yield_multiplier=quality,
+            purchase_cost_multiplier=purchase_cost,
+            transport_cost_multiplier=transport_cost,
+            scenario_seed=int(seed + scenario_index),
         ))
     return scenarios
+
+
+def central_scenario_from_physical(
+    physical_risk: pd.DataFrame | None,
+    length: int,
+    config: Mapping[str, Any],
+    *,
+    start_day: int = 0,
+) -> ScenarioPath:
+    if physical_risk is None or physical_risk.empty:
+        return no_uncertainty_scenario(length)
+    nominal_lead = max(1.0, safe_float(config["nominal"]["base_lead_time_days"], 5.0))
+    center = lambda name, default: _slice_or_pad(physical_risk[name], start_day, length, default) if name in physical_risk else np.full(length, default)
+    availability = center("availability_multiplier_center", 1.0)
+    capacity = center("capacity_multiplier_center", 1.0)
+    lead_extra = center("lead_time_extra_days_center", 0.0)
+    return ScenarioPath(
+        demand_multiplier=np.ones(length),
+        supply_shock=np.clip(1.0 - availability, 0.0, 0.85),
+        capacity_shock=np.clip(1.0 - capacity, 0.0, 0.75),
+        lead_time_shock=np.clip(lead_extra / nominal_lead, -0.15, 2.0),
+        risk_noise=np.zeros(length),
+        realized_risk_probability=np.clip(center("risk_center", 0.12), 0.01, 0.995),
+        quality_yield_multiplier=np.clip(center("quality_yield_multiplier_center", 1.0), 0.25, 1.0),
+        purchase_cost_multiplier=np.clip(center("purchase_cost_multiplier_center", 1.0), 1.0, 3.0),
+        transport_cost_multiplier=np.clip(center("transport_cost_multiplier_center", 1.0), 1.0, 3.0),
+    )
+
+
+def slice_scenario(scenario: ScenarioPath, start: int, length: int) -> ScenarioPath:
+    def sliced(value: np.ndarray | None, default: float) -> np.ndarray | None:
+        return None if value is None else _slice_or_pad(value, start, length, default)
+    return ScenarioPath(
+        demand_multiplier=_slice_or_pad(scenario.demand_multiplier, start, length, 1.0),
+        supply_shock=_slice_or_pad(scenario.supply_shock, start, length, 0.0),
+        capacity_shock=_slice_or_pad(scenario.capacity_shock, start, length, 0.0),
+        lead_time_shock=_slice_or_pad(scenario.lead_time_shock, start, length, 0.0),
+        risk_noise=_slice_or_pad(scenario.risk_noise, start, length, 0.0),
+        realized_risk_probability=sliced(scenario.realized_risk_probability, 0.12),
+        quality_yield_multiplier=sliced(scenario.quality_yield_multiplier, 1.0),
+        purchase_cost_multiplier=sliced(scenario.purchase_cost_multiplier, 1.0),
+        transport_cost_multiplier=sliced(scenario.transport_cost_multiplier, 1.0),
+        scenario_seed=scenario.scenario_seed,
+    )
 
 
 def no_uncertainty_scenario(length: int) -> ScenarioPath:
