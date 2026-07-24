@@ -15,18 +15,28 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
+HERE = Path(__file__).resolve()
+REPO_ROOT = HERE.parents[3]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from etudecas.prototypes.scan_2027_risk_control.core import DEFAULT_ACTIONS, build_input_context, load_config, safety_filter
+from etudecas.prototypes.scan_2027_risk_control.core import (
+    DEFAULT_ACTIONS,
+    build_input_context,
+    load_config,
+    safety_filter,
+)
 from etudecas.prototypes.scan_2027_risk_control.decision import (
     adaptive_summary,
     regime_transition_matrix,
     run_adaptive_controller,
     simulate_fixed_policy_scenarios,
 )
-from etudecas.prototypes.scan_2027_risk_control.model import derive_adaptive_state_space, derive_constraint_activity, estimate_supplier_impedance
+from etudecas.prototypes.scan_2027_risk_control.model import (
+    derive_adaptive_state_space,
+    derive_constraint_activity,
+    estimate_supplier_impedance,
+)
 from etudecas.prototypes.scan_2027_risk_control.reporting import save_plots, write_json, write_report
 
 
@@ -42,7 +52,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", default=str(Path(__file__).resolve().parent / "outputs" / "latest"))
     parser.add_argument("--days", type=int, default=180)
     parser.add_argument("--seed", type=int, default=2027)
-    parser.add_argument("--synthetic", action="store_true", help="Force the self-contained synthetic fallback.")
+    parser.add_argument("--synthetic", action="store_true",
+                        help="Force the self-contained synthetic fallback.")
     parser.add_argument("--no-plots", action="store_true")
     return parser.parse_args()
 
@@ -55,8 +66,11 @@ def main() -> None:
     output_dir = Path(args.output_dir).resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    context = build_input_context(repo_root, args.baseline_csv, args.risk_csv,
-                                  max(28, int(args.days)), int(args.seed), bool(args.synthetic))
+    context = build_input_context(
+        repo_root, args.baseline_csv, args.risk_csv,
+        max(28, int(args.days)), int(args.seed), bool(args.synthetic),
+        mapping_config=config.get("physical_risk_mapping", {}),
+    )
     actions = tuple(safety_filter(action, config) for action in DEFAULT_ACTIONS)
     adaptive, decisions, candidates = run_adaptive_controller(context, config, actions, int(args.seed))
     comparison, fixed = simulate_fixed_policy_scenarios(context, config, actions, int(args.seed))
