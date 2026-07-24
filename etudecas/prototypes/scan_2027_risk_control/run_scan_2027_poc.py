@@ -10,9 +10,14 @@ scenario-based robust selector.
 from __future__ import annotations
 
 import argparse
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 from etudecas.prototypes.scan_2027_risk_control.core import DEFAULT_ACTIONS, build_input_context, load_config, safety_filter
 from etudecas.prototypes.scan_2027_risk_control.decision import (
@@ -27,7 +32,7 @@ from etudecas.prototypes.scan_2027_risk_control.reporting import save_plots, wri
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run the SCAN 2027 state-dependent risk-control PoC.")
-    parser.add_argument("--repo-root", default=str(Path(__file__).resolve().parents[3]),
+    parser.add_argument("--repo-root", default=str(REPO_ROOT),
                         help="Repository root used to discover etudecas outputs.")
     parser.add_argument("--baseline-csv", default="auto",
                         help="Path to first_simulation_daily.csv, relative to repo root, or 'auto'.")
