@@ -175,6 +175,36 @@ def _summary_artifacts(output_dir: Path) -> list[dict[str, Any]]:
     return records
 
 
+def _has_metadata_value(metadata: dict[str, Any], key: str) -> bool:
+    value = metadata.get(key)
+    if value is None:
+        return False
+    if isinstance(value, bool):
+        return value
+    return bool(str(value).strip())
+
+
+def _has_state_dependent_companion(output_root: Path) -> bool:
+    scenario_root = output_root / "scenario_runs"
+    if not scenario_root.exists():
+        return False
+    for manifest_path in scenario_root.glob("*/run/run_manifest.json"):
+        manifest = _read_json(manifest_path)
+        capabilities = manifest.get("capabilities") if isinstance(manifest.get("capabilities"), dict) else {}
+        if capabilities.get("state_dependent_risk_enabled"):
+            return True
+        policy = _read_json(manifest_path.parent / "policy.json")
+        supplier_state = policy.get("supplier_state_dependent_risk") if isinstance(policy, dict) else {}
+        if isinstance(supplier_state, dict) and supplier_state.get("enabled"):
+            return True
+    return False
+
+
+def _has_supplier_criticality_artifacts(output_root: Path) -> bool:
+    criticality_dir = output_root / "supplier_criticality"
+    return criticality_dir.exists() and any(criticality_dir.glob("*"))
+
+
 def export_run_package(
     *,
     output_dir: Path | str,
@@ -219,6 +249,18 @@ def export_run_package(
     if map_path and not map_path.exists():
         map_path = None
 
+    metadata = extra_metadata or {}
+    supplier_state_policy = (
+        (policy.get("supplier_state_dependent_risk") or {}) if isinstance(policy, dict) else {}
+    )
+    supplier_risk_policy = (policy.get("supplier_risk") or {}) if isinstance(policy, dict) else {}
+    state_dependent_available = bool(supplier_state_policy.get("enabled")) or _has_metadata_value(
+        metadata, "simulated_risk_output_dir"
+    ) or _has_metadata_value(metadata, "state_dependent_scenarios") or _has_state_dependent_companion(output_root)
+    supplier_risk_available = bool(supplier_risk_policy.get("enabled")) or _has_metadata_value(
+        metadata, "supplier_criticality_dir"
+    ) or _has_supplier_criticality_artifacts(output_root)
+
     manifest = {
         "schema_version": RUN_PACKAGE_SCHEMA_VERSION,
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
@@ -247,14 +289,10 @@ def export_run_package(
         "map_html": str(map_path) if map_path else None,
         "capabilities": {
             "lot_trace_enabled": bool(policy.get("lot_trace_enabled")),
-            "state_dependent_risk_enabled": bool(
-                ((policy.get("supplier_state_dependent_risk") or {}) if isinstance(policy, dict) else {}).get("enabled")
-            ),
-            "supplier_risk_enabled": bool(
-                ((policy.get("supplier_risk") or {}) if isinstance(policy, dict) else {}).get("enabled")
-            ),
+            "state_dependent_risk_enabled": state_dependent_available,
+            "supplier_risk_enabled": supplier_risk_available,
         },
-        "metadata": extra_metadata or {},
+        "metadata": metadata,
     }
 
     _write_json(target / "run_manifest.json", manifest)

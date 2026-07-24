@@ -34,7 +34,17 @@ CREATION_PRIORITY = {
     "opening_stock": 5,
     "stock_reconciliation": 6,
 }
-DEPLETION_EVENTS = {"production_consume", "lane_ship", "demand_service", "writeoff", "supplier_writeoff"}
+PRODUCTION_CONSUME_EVENTS = {
+    "production_consume",
+    "production_consume_reference_transition",
+}
+DEPLETION_EVENTS = {
+    *PRODUCTION_CONSUME_EVENTS,
+    "lane_ship",
+    "demand_service",
+    "writeoff",
+    "supplier_writeoff",
+}
 
 
 def parse_args() -> argparse.Namespace:
@@ -531,7 +541,7 @@ def main() -> None:
     lane_receipt_qty: dict[tuple[str, str, str, str, str], float] = defaultdict(float)
     for row in events:
         event_type = str(row.get("event_type") or "")
-        if event_type == "production_consume":
+        if event_type in PRODUCTION_CONSUME_EVENTS:
             production_consume_qty[
                 (
                     str(row.get("day") or ""),

@@ -10,8 +10,25 @@
     "SDC-1450"
   ],
   "item_reference_notes": {
-    "item:007923": "007923 (ancienne ref 693710)"
+    "item:007923": "007923 (ancienne ref 693710)",
+    "item:344135": "344135 (nouvelle reference packaging; stock 2025 potentiellement porte par une ancienne reference 2024 pendant la transition)",
+    "item:EX-344135": "EX-344135 (ancienne reference packaging 2024 compatible avec 344135 pendant transition)"
   },
+  "reference_transitions": [
+    {
+      "new_item_id": "item:344135",
+      "old_item_id": "item:EX-344135",
+      "node_id": "M-1430",
+      "initial_stock_qty": 107800.0,
+      "uom": "UN",
+      "scope": "packaging",
+      "start_day": 0,
+      "end_day": 120,
+      "consume_policy": "use_old_until_new_stock_available",
+      "status": "old_reference_stock_covers_new_reference_transition",
+      "note": "Information industrielle: 344135 est une nouvelle reference packaging. Une ancienne reference 2024 compatible reste disponible au 01/01/2025. Hypothese nominale: un lot PF de couverture (107800 UN) est disponible sous EX-344135 puis la consommation bascule sur 344135 des que la nouvelle reference est physiquement disponible."
+    }
+  ],
   "logistics_assumptions": {
     "item:268967": {
       "unitsPerCase": 125,
@@ -87,6 +104,29 @@
       "node_id": "SDC-1450",
       "item_id": "item:773474",
       "profile": "semi_fini_extraction"
+    }
+  ],
+  "production_cost_unit_rates": [
+    {
+      "node_id": "M-1430",
+      "item_id": "item:268967",
+      "unit_rate": 5.039621341487,
+      "currency": "EUR",
+      "basis": "baseline_calibrated_fixed_unit_rate"
+    },
+    {
+      "node_id": "M-1810",
+      "item_id": "item:268091",
+      "unit_rate": 2.221042225515,
+      "currency": "EUR",
+      "basis": "baseline_calibrated_fixed_unit_rate"
+    },
+    {
+      "node_id": "SDC-1450",
+      "item_id": "item:773474",
+      "unit_rate": 0.172424935253,
+      "currency": "EUR",
+      "basis": "baseline_calibrated_fixed_unit_rate"
     }
   ]
 }

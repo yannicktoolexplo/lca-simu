@@ -13,6 +13,7 @@ from etudecas.simulation.lot_trace import (
     LOT_TRACE_GENEALOGY_FIELDS,
     LOT_TRACE_PLAN_EVENT_FIELDS,
     build_lot_trace_payload,
+    build_lot_trace_view_model,
 )
 
 
@@ -201,6 +202,23 @@ class LotTracePayloadTest(unittest.TestCase):
         self.assertNotIn("LOT-PF", option_ids)
         self.assertIn("LOT-RM-S", option_ids)
         self.assertEqual(payload["summary"]["selectable_finished_product_items"], ["item:OTHER"])
+
+    def test_view_model_propagates_material_contribution_through_production(self) -> None:
+        payload = self._build_payload()
+
+        model = build_lot_trace_view_model(payload, "LOT-RM-S", direction="downstream")
+
+        nodes_by_lot = {row["lot_id"]: row for row in model["nodes"]}
+        links_by_child = {row["child_lot_id"]: row for row in model["links"]}
+
+        self.assertAlmostEqual(nodes_by_lot["LOT-RM-S"]["contribution_qty"], 100.0)
+        self.assertEqual(nodes_by_lot["LOT-RM-S"]["contribution_basis"], "selected_lot_total_qty")
+        self.assertAlmostEqual(nodes_by_lot["LOT-PF"]["contribution_qty"], 10.0)
+        self.assertEqual(nodes_by_lot["LOT-PF"]["contribution_basis"], "production_bom_consumption_share")
+        self.assertAlmostEqual(nodes_by_lot["LOT-CUST"]["contribution_qty"], 10.0)
+        self.assertEqual(nodes_by_lot["LOT-CUST"]["contribution_basis"], "transport_quantity_share")
+        self.assertEqual(links_by_child["LOT-PF"]["contribution_basis"], "production_bom_consumption_share")
+        self.assertAlmostEqual(links_by_child["LOT-CUST"]["contribution_qty"], 10.0)
 
     @unittest.skipUnless(
         os.environ.get("ETUDECAS_RUN_SLOW_TESTS") == "1",

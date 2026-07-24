@@ -29,15 +29,19 @@ def build_lot_trace_view_model(
         for lot in reach["lot_ids"]
         for event in indexes.events_by_lot.get(lot, [])
     ]
-    nodes = [_lot_node(lot, indexes) for lot in reach["lot_ids"]]
-    links = [_compact_link(link) for link in visible_links]
     component_groups = _build_component_groups(visible_links)
     transport_groups = _build_transport_groups(visible_links)
-    contribution_qty_by_lot = _downstream_contribution_qty_by_lot(
+    contribution_by_lot = _downstream_contribution_by_lot(
         indexes,
         reach["root_lot_id"],
         visible_lot_ids,
     )
+    contribution_qty_by_lot = {
+        lot_id: _to_float(row.get("contribution_qty"))
+        for lot_id, row in contribution_by_lot.items()
+    }
+    nodes = [_lot_node(lot, indexes, contribution_by_lot) for lot in reach["lot_ids"]]
+    links = [_compact_link(link, contribution_by_lot) for link in visible_links]
     mixed_customer_lots = _build_mixed_customer_lots(indexes, visible_lot_ids, contribution_qty_by_lot)
     snapshot = _build_snapshot(reach, visible_links, visible_events, nodes)
 
@@ -216,43 +220,82 @@ def _build_transport_groups(links: list[dict[str, Any]]) -> list[dict[str, Any]]
     return out
 
 
-def _downstream_contribution_qty_by_lot(
+def _downstream_contribution_by_lot(
     indexes: LotTraceIndexes,
     root_lot_id: str,
     visible_lot_ids: set[str],
-) -> dict[str, float]:
+) -> dict[str, dict[str, Any]]:
+    """Propagate the selected lot contribution through production and transport.
+
+    The quantity has two distinct meanings depending on the link type:
+    - transport: same business item is moved, so the traced quantity stays in
+      the transported unit;
+    - production: a consumed MP/PFI lot contributes to the produced PF/PFI lot.
+      The child contribution is expressed in output units and is based on the
+      consumed component share for that production genealogy link.
+    """
+
     root = _as_str(root_lot_id)
     if not root:
         return {}
     root_qty = _lot_total_qty(root, indexes)
-    contributions: dict[str, float] = {root: root_qty} if root_qty > 0 else {}
+    contributions: dict[str, dict[str, Any]] = (
+        {
+            root: {
+                "contribution_qty": root_qty,
+                "contribution_basis": "selected_lot_total_qty",
+                "contribution_source_lot_id": root,
+                "contribution_path_link_type": "root",
+            }
+        }
+        if root_qty > 0
+        else {}
+    )
     queue = [root]
     guard = 0
     while queue and guard < 10000:
         guard += 1
         parent = queue.pop(0)
-        parent_contribution = contributions.get(parent, 0.0)
+        parent_contribution = _to_float((contributions.get(parent) or {}).get("contribution_qty"))
         if parent_contribution <= 0:
             continue
         parent_total = _lot_total_qty(parent, indexes)
         parent_share = min(1.0, max(0.0, parent_contribution / parent_total)) if parent_total > 0 else 1.0
         for link in indexes.link_rows_by_parent.get(parent, []):
-            if _as_str(link.get("link_type")) != "transport":
+            link_type = _as_str(link.get("link_type"))
+            if link_type not in {"transport", "production"}:
                 continue
             child = _as_str(link.get("child_lot_id"))
             if not child or child not in visible_lot_ids:
                 continue
-            link_qty = _to_float(link.get("parent_qty")) or _to_float(link.get("child_qty"))
-            if link_qty <= 0:
-                continue
-            traced_qty = link_qty * parent_share
+            parent_link_qty = _to_float(link.get("parent_qty"))
+            child_link_qty = _to_float(link.get("child_qty"))
+            if link_type == "production":
+                if parent_link_qty <= 0 or child_link_qty <= 0:
+                    continue
+                traced_parent_qty = min(parent_link_qty, parent_link_qty * parent_share)
+                traced_qty = child_link_qty * min(1.0, traced_parent_qty / parent_link_qty)
+                basis = "production_bom_consumption_share"
+            else:
+                link_qty = parent_link_qty or child_link_qty
+                if link_qty <= 0:
+                    continue
+                traced_qty = link_qty * parent_share
+                basis = "transport_quantity_share"
             if traced_qty <= 0:
                 continue
-            old = contributions.get(child, 0.0)
+            old = _to_float((contributions.get(child) or {}).get("contribution_qty"))
             child_total = _lot_total_qty(child, indexes)
             new_value = min(child_total, old + traced_qty) if child_total > 0 else old + traced_qty
             if new_value > old + 1e-9:
-                contributions[child] = new_value
+                contributions[child] = {
+                    "contribution_qty": new_value,
+                    "contribution_basis": basis,
+                    "contribution_source_lot_id": root,
+                    "contribution_parent_lot_id": parent,
+                    "contribution_path_link_type": link_type,
+                    "contribution_parent_share": _round_ratio(parent_share),
+                }
                 queue.append(child)
     return contributions
 
@@ -320,11 +363,16 @@ def _build_mixed_customer_lots(
     return mixed
 
 
-def _lot_node(lot_id: str, indexes: LotTraceIndexes) -> dict[str, Any]:
+def _lot_node(
+    lot_id: str,
+    indexes: LotTraceIndexes,
+    contribution_by_lot: dict[str, dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     lot = indexes.lots.get(lot_id, {})
     events = indexes.events_by_lot.get(lot_id, [])
     days = [_to_int(event.get("day")) for event in events]
     days = [day for day in days if day is not None]
+    contribution = (contribution_by_lot or {}).get(lot_id) or {}
     return {
         "lot_id": lot_id,
         "label": _as_str(lot.get("label")) or lot_id,
@@ -343,10 +391,20 @@ def _lot_node(lot_id: str, indexes: LotTraceIndexes) -> dict[str, Any]:
         "event_count": int(lot.get("event_count") or len(events)),
         "pf_availability_status": _as_str(lot.get("pf_availability_status")),
         "pf_availability_status_label": _as_str(lot.get("pf_availability_status_label")),
+        "contribution_qty": _round_qty(_to_float(contribution.get("contribution_qty"))),
+        "contribution_basis": _as_str(contribution.get("contribution_basis")),
+        "contribution_source_lot_id": _as_str(contribution.get("contribution_source_lot_id")),
+        "contribution_parent_lot_id": _as_str(contribution.get("contribution_parent_lot_id")),
+        "contribution_path_link_type": _as_str(contribution.get("contribution_path_link_type")),
     }
 
 
-def _compact_link(link: dict[str, Any]) -> dict[str, Any]:
+def _compact_link(
+    link: dict[str, Any],
+    contribution_by_lot: dict[str, dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    child_lot = _as_str(link.get("child_lot_id"))
+    child_contribution = (contribution_by_lot or {}).get(child_lot) or {}
     return {
         "link_id": link["_link_id"],
         "day": _to_int(link.get("day")),
@@ -362,6 +420,8 @@ def _compact_link(link: dict[str, Any]) -> dict[str, Any]:
         "allocation_share": _round_ratio(_to_float(link.get("allocation_share"))),
         "source_id": _as_str(link.get("source_id")),
         "production_campaign_id": _as_str(link.get("production_campaign_id")),
+        "contribution_qty": _round_qty(_to_float(child_contribution.get("contribution_qty"))),
+        "contribution_basis": _as_str(child_contribution.get("contribution_basis")),
     }
 
 

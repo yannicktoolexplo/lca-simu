@@ -27,6 +27,8 @@ try:
     from etudecas.case_config import (
         DEFAULT_PRODUCTION_COST_LINE_PROFILES,
         DEFAULT_PRODUCTION_COST_LINE_SHARES,
+        DEFAULT_PRODUCTION_COST_UNIT_RATES,
+        REFERENCE_TRANSITIONS,
         is_upstream_internal_site,
         standard_order_override,
     )
@@ -35,6 +37,8 @@ except ModuleNotFoundError:
     from etudecas.case_config import (
         DEFAULT_PRODUCTION_COST_LINE_PROFILES,
         DEFAULT_PRODUCTION_COST_LINE_SHARES,
+        DEFAULT_PRODUCTION_COST_UNIT_RATES,
+        REFERENCE_TRANSITIONS,
         is_upstream_internal_site,
         standard_order_override,
     )
@@ -3316,6 +3320,11 @@ def derive_supplier_daily_capacity_by_pair(
         review_days = node_review_period_days(node, default_review_period_days)
         sim_constraints = node.get("simulation_constraints") or {}
         node_capacity_scale = max(0.01, to_float(sim_constraints.get("supplier_capacity_scale"), 1.0))
+        item_capacity_scale_map = sim_constraints.get("supplier_item_capacity_scale") or {}
+        item_capacity_scale = max(
+            0.01,
+            to_float(item_capacity_scale_map.get(item_id), 1.0),
+        )
         explicit_capacity_map = sim_constraints.get("supplier_item_capacity_qty_per_day") or {}
         explicit_capacity = max(0.0, to_float(explicit_capacity_map.get(item_id), 0.0))
         initial_stock = max(0.0, stock.get(src_pair, 0.0))
@@ -3365,7 +3374,10 @@ def derive_supplier_daily_capacity_by_pair(
                 nominal_capacity = max(nominal_capacity, sum(plausible_hints) / len(plausible_hints))
                 basis += "+fia_hint"
 
-        scaled_capacity = max(0.01, nominal_capacity * node_capacity_scale)
+        scaled_capacity = max(
+            0.01,
+            nominal_capacity * node_capacity_scale * item_capacity_scale,
+        )
         if explicit_capacity <= 0.0 and standard_lot_floor > 0.0 and scaled_capacity < standard_lot_floor:
             # Inferred supplier capacity is a planning heuristic; it must not
             # make a standard order lot physically impossible to ship.
@@ -3385,6 +3397,7 @@ def derive_supplier_daily_capacity_by_pair(
                 "process_capacity_qty_per_day": round(process_capacity, 6),
                 "nominal_capacity_qty_per_day": round(nominal_capacity, 6),
                 "applied_capacity_scale": round(node_capacity_scale, 6),
+                "applied_item_capacity_scale": round(item_capacity_scale, 6),
                 "effective_capacity_qty_per_day": round(scaled_capacity, 6),
                 "basis": basis,
             }
@@ -4765,6 +4778,10 @@ def main() -> None:
         policy_pair_key(node_id, item_id): profile
         for (node_id, item_id), profile in DEFAULT_PRODUCTION_COST_LINE_PROFILES.items()
     }
+    default_production_cost_unit_rates = {
+        policy_pair_key(node_id, item_id): rate
+        for (node_id, item_id), rate in DEFAULT_PRODUCTION_COST_UNIT_RATES.items()
+    }
     raw_production_cost_line_shares = economic_policy_cfg.get("production_cost_line_shares")
     production_cost_line_shares = dict(default_production_cost_line_shares)
     if isinstance(raw_production_cost_line_shares, dict):
@@ -4780,6 +4797,19 @@ def main() -> None:
     if isinstance(raw_production_cost_line_profiles, dict):
         for raw_key, raw_value in raw_production_cost_line_profiles.items():
             production_cost_line_profiles[str(raw_key).strip()] = str(raw_value or "").strip() or "production"
+    raw_production_cost_unit_rates = economic_policy_cfg.get("production_cost_unit_rates")
+    production_cost_unit_rates = dict(default_production_cost_unit_rates)
+    if isinstance(raw_production_cost_unit_rates, dict):
+        for raw_key, raw_value in raw_production_cost_unit_rates.items():
+            rate = to_float(raw_value, float("nan"))
+            if math.isfinite(rate) and rate >= 0.0:
+                production_cost_unit_rates[str(raw_key).strip()] = rate
+    production_cost_mode = str(
+        economic_policy_cfg.get("production_cost_mode")
+        or ("fixed_unit_rate" if production_cost_unit_rates else "target_share")
+    ).strip().lower()
+    if production_cost_mode not in {"fixed_unit_rate", "target_share"}:
+        production_cost_mode = "fixed_unit_rate" if production_cost_unit_rates else "target_share"
     unmodeled_supplier_source_mode = str(scenario.get("unmodeled_supplier_source_mode", "external_procurement")).strip().lower()
     if unmodeled_supplier_source_mode not in {
         "external_procurement",
@@ -4834,12 +4864,18 @@ def main() -> None:
             in {"1", "true", "yes", "y", "on"}
         ),
         "production_cost_target_share_of_total": production_cost_target_share,
+        "production_cost_mode": production_cost_mode,
         "production_cost_basis": str(
             economic_policy_cfg.get("production_cost_basis")
-            or "pharma_standard_target_share_allocated_on_actual_production"
+            or (
+                "baseline_calibrated_fixed_unit_rate"
+                if production_cost_mode == "fixed_unit_rate"
+                else "pharma_standard_target_share_allocated_on_actual_production"
+            )
         ),
         "production_cost_line_shares": production_cost_line_shares,
         "production_cost_line_profiles": production_cost_line_profiles,
+        "production_cost_unit_rates": production_cost_unit_rates,
         "external_procurement_enabled": (
             economic_policy_cfg.get("external_procurement_enabled")
             if isinstance(economic_policy_cfg.get("external_procurement_enabled"), bool)
@@ -4978,6 +5014,7 @@ def main() -> None:
     pair_mrp_safety_time_days: dict[tuple[str, str], float] = defaultdict(float)
     pair_mrp_safety_stock_qty: dict[tuple[str, str], float] = defaultdict(float)
     observed_opening_stock_rows: list[dict[str, Any]] = []
+    node_type_lookup_for_opening = {str(n.get("id")): str(n.get("type") or "") for n in nodes}
     for n in nodes:
         nid = str(n.get("id"))
         inv = n.get("inventory") or {}
@@ -5011,6 +5048,62 @@ def main() -> None:
             if isinstance(mrp_policy, dict):
                 pair_mrp_safety_time_days[key] = max(0.0, to_float(mrp_policy.get("safety_time_days"), 0.0))
                 pair_mrp_safety_stock_qty[key] = max(0.0, to_float(mrp_policy.get("safety_stock_qty"), 0.0))
+
+    reference_transition_stock_rows: list[dict[str, Any]] = []
+    reference_substitutes_by_pair: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
+    for transition in REFERENCE_TRANSITIONS:
+        if not isinstance(transition, dict):
+            continue
+        node_id = str(transition.get("node_id") or transition.get("dst_node_id") or "").strip()
+        new_item_id = str(transition.get("new_item_id") or "").strip()
+        old_item_id = str(transition.get("old_item_id") or "").strip()
+        if not node_id or not new_item_id or not old_item_id:
+            continue
+        old_key = (node_id, old_item_id)
+        new_key = (node_id, new_item_id)
+        initial_transition_stock = max(0.0, to_float(transition.get("initial_stock_qty"), 0.0))
+        transition_uom = normalize_unit(transition.get("uom") or item_unit_map.get(new_item_id, ""))
+        if transition_uom:
+            item_unit_map.setdefault(old_item_id, transition_uom)
+        else:
+            item_unit_map.setdefault(old_item_id, item_unit_map.get(new_item_id, ""))
+        if initial_transition_stock > 1e-9:
+            stock[old_key] += initial_transition_stock
+            base_stock[old_key] = 0.0
+            holding_cost[old_key] = holding_cost.get(new_key, holding_cost.get(old_key, 0.0))
+            observed_opening_stock_rows.append(
+                {
+                    "node_id": node_id,
+                    "node_type": node_type_lookup_for_opening.get(node_id, ""),
+                    "item_id": old_item_id,
+                    "opening_stock_qty": round(initial_transition_stock, 6),
+                    "uom": item_unit_map.get(old_item_id, transition_uom),
+                    "source": "reference_transition_opening_stock",
+                }
+            )
+        normalized_transition = dict(transition)
+        normalized_transition["node_id"] = node_id
+        normalized_transition["new_item_id"] = new_item_id
+        normalized_transition["old_item_id"] = old_item_id
+        normalized_transition["start_day"] = int(to_float(transition.get("start_day"), 0.0))
+        normalized_transition["end_day"] = int(to_float(transition.get("end_day"), sim_days))
+        normalized_transition["consume_policy"] = str(
+            transition.get("consume_policy") or "use_old_until_new_stock_available"
+        )
+        reference_substitutes_by_pair[new_key].append(normalized_transition)
+        reference_transition_stock_rows.append(
+            {
+                "node_id": node_id,
+                "new_item_id": new_item_id,
+                "old_item_id": old_item_id,
+                "initial_stock_qty": round(initial_transition_stock, 6),
+                "uom": item_unit_map.get(old_item_id, transition_uom),
+                "consume_policy": normalized_transition["consume_policy"],
+                "start_day": normalized_transition["start_day"],
+                "end_day": normalized_transition["end_day"],
+                "note": str(transition.get("note") or ""),
+            }
+        )
     opening_stock_source_snapshot = dict(stock)
 
     lanes, lanes_by_dest_item = lane_records(
@@ -5283,6 +5376,14 @@ def main() -> None:
                 if key not in seen_output_pairs:
                     seen_output_pairs.add(key)
                     production_output_pairs.append(key)
+    for new_key, transitions in reference_substitutes_by_pair.items():
+        if new_key not in seen_input_pairs and new_key not in inbound_pairs:
+            continue
+        for transition in transitions:
+            old_key = (new_key[0], str(transition.get("old_item_id") or ""))
+            if old_key in stock_pairs and old_key not in seen_input_pairs:
+                seen_input_pairs.add(old_key)
+                production_input_pairs.append(old_key)
     production_input_pairs = sorted(production_input_pairs)
     production_output_pairs = sorted(production_output_pairs)
     mrp_trace_pairs = sorted(
@@ -5379,6 +5480,17 @@ def main() -> None:
     opening_open_order_bridge_days_by_pair: dict[tuple[str, str], int] = {}
     opening_open_order_source = "none"
     assumptions_ledger_rows: list[dict[str, Any]] = []
+    for row in reference_transition_stock_rows:
+        assumptions_ledger_rows.append(
+            {
+                "category": "reference_transition_stock",
+                "node_id": str(row.get("node_id") or ""),
+                "item_id": str(row.get("new_item_id") or ""),
+                "edge_id": "",
+                "source": "case_config_reference_transitions",
+                "payload_json": json.dumps(row, ensure_ascii=False, sort_keys=True),
+            }
+        )
     for lane in lanes:
         note = str(lane.get("standard_order_qty_note") or "")
         if not note:
@@ -5964,6 +6076,103 @@ def main() -> None:
             }
         )
 
+    def eligible_reference_transition_substitutes(node_id: str, item_id: str, output_day: int) -> list[dict[str, Any]]:
+        transitions = reference_substitutes_by_pair.get((str(node_id), str(item_id)), [])
+        if not transitions:
+            return []
+        eligible: list[dict[str, Any]] = []
+        for transition in transitions:
+            start_day = int(to_float(transition.get("start_day"), 0.0))
+            end_day = int(to_float(transition.get("end_day"), sim_days))
+            if output_day < start_day or output_day > end_day:
+                continue
+            eligible.append(transition)
+        return eligible
+
+    def available_bom_input_qty(node_id: str, item_id: str, output_day: int) -> float:
+        key = (str(node_id), str(item_id))
+        new_stock_qty = max(0.0, stock.get(key, 0.0))
+        total_available = new_stock_qty
+        for transition in eligible_reference_transition_substitutes(node_id, item_id, output_day):
+            old_item_id = str(transition.get("old_item_id") or "")
+            if not old_item_id:
+                continue
+            consume_policy = str(transition.get("consume_policy") or "")
+            if consume_policy == "use_old_until_new_stock_available" and new_stock_qty > 1e-9:
+                continue
+            total_available += max(0.0, stock.get((str(node_id), old_item_id), 0.0))
+        return total_available
+
+    def consume_bom_input_with_reference_transition(
+        *,
+        output_day: int,
+        node_id: str,
+        item_id: str,
+        qty: float,
+        event_type: str,
+        source_id: str,
+        production_campaign_id: str,
+        consumed_today_by_pair: dict[tuple[str, str], float],
+    ) -> list[dict[str, Any]]:
+        remaining = max(0.0, qty)
+        if remaining <= 1e-9:
+            return []
+        allocations: list[dict[str, Any]] = []
+        key = (str(node_id), str(item_id))
+        new_stock_before = max(0.0, stock.get(key, 0.0))
+        if new_stock_before > 1e-9:
+            take = min(new_stock_before, remaining)
+            stock[key] = max(0.0, new_stock_before - take)
+            consumed_today_by_pair[key] += take
+            allocations.extend(
+                lot_ledger.consume(
+                    day=output_day,
+                    node_id=node_id,
+                    item_id=item_id,
+                    qty=take,
+                    event_type=event_type,
+                    source_id=source_id,
+                    production_campaign_id=production_campaign_id,
+                    uom=item_unit_map.get(item_id, ""),
+                )
+            )
+            remaining -= take
+        if remaining <= 1e-9:
+            return allocations
+        for transition in eligible_reference_transition_substitutes(node_id, item_id, output_day):
+            consume_policy = str(transition.get("consume_policy") or "")
+            if consume_policy == "use_old_until_new_stock_available" and new_stock_before > 1e-9:
+                continue
+            old_item_id = str(transition.get("old_item_id") or "")
+            old_key = (str(node_id), old_item_id)
+            old_available = max(0.0, stock.get(old_key, 0.0))
+            if old_available <= 1e-9:
+                continue
+            take = min(old_available, remaining)
+            stock[old_key] = max(0.0, old_available - take)
+            consumed_today_by_pair[old_key] += take
+            allocations.extend(
+                lot_ledger.consume(
+                    day=output_day,
+                    node_id=node_id,
+                    item_id=old_item_id,
+                    qty=take,
+                    event_type=f"{event_type}_reference_transition",
+                    source_id=f"{source_id}|substitute_for={item_id}",
+                    production_campaign_id=production_campaign_id,
+                    uom=item_unit_map.get(old_item_id, item_unit_map.get(item_id, "")),
+                )
+            )
+            remaining -= take
+            if remaining <= 1e-9:
+                break
+        if remaining > 1e-6:
+            raise RuntimeError(
+                "BOM input consumption exceeded available stock after transition check: "
+                f"{node_id} {item_id} missing {remaining}"
+            )
+        return allocations
+
     def next_receipt_day_for_pair(pair: tuple[str, str], current_day: int) -> str:
         node_id, item_id = pair
         candidates: list[int] = []
@@ -6402,7 +6611,7 @@ def main() -> None:
                 required_qty = max(0.0, qty * req_per_output_unit)
                 if required_qty <= 1e-9:
                     continue
-                available_qty = max(0.0, stock.get(input_pair, 0.0))
+                available_qty = available_bom_input_qty(input_pair[0], input_pair[1], int(issue_day_for_record))
                 if mode == "wip":
                     consumed_qty = 0.0
                     assumed_wip_qty = required_qty
@@ -6412,18 +6621,16 @@ def main() -> None:
                     assumed_wip_qty = 0.0
                     shortage_qty = max(0.0, required_qty - consumed_qty)
                 if consumed_qty > 1e-9:
-                    stock[input_pair] = max(0.0, available_qty - consumed_qty)
-                    consumed_today_by_pair[input_pair] += consumed_qty
                     parent_allocations.extend(
-                        lot_ledger.consume(
-                            day=issue_day_for_record,
+                        consume_bom_input_with_reference_transition(
+                            output_day=issue_day_for_record,
                             node_id=input_pair[0],
                             item_id=input_pair[1],
                             qty=consumed_qty,
                             event_type="opening_production_consume",
                             source_id=source_id,
-                            uom=item_unit_map.get(input_pair[1], ""),
-                            notes="Component issue for opening production order.",
+                            production_campaign_id="",
+                            consumed_today_by_pair=consumed_today_by_pair,
                         )
                     )
                 opening_production_consumption_rows.append(
@@ -6802,7 +7009,7 @@ def main() -> None:
                             input_unit_mismatch_not_converted.add((nid, in_item, input_unit, item_unit))
                     req_per_unit = convert_quantity(req_per_unit_raw, input_unit, item_unit)
                     if req_per_unit > 0:
-                        input_limits.append(stock[key] / req_per_unit)
+                        input_limits.append(available_bom_input_qty(nid, in_item, output_day) / req_per_unit)
 
                 max_from_inputs = min(input_limits) if input_limits else cap
                 out_pair = (nid, out_item)
@@ -6920,7 +7127,7 @@ def main() -> None:
                         req_per_unit = convert_quantity(req_per_unit_raw, input_unit, item_unit)
                         if req_per_unit <= 0:
                             continue
-                        item_limit = stock[key] / req_per_unit
+                        item_limit = available_bom_input_qty(nid, in_item, output_day) / req_per_unit
                         if item_limit < input_binding_value:
                             input_binding_value = item_limit
                             input_binding_item = in_item
@@ -7146,18 +7353,16 @@ def main() -> None:
                     req_per_unit = convert_quantity(req_per_unit_raw, input_unit, item_unit)
                     if req_per_unit > 0:
                         consumed = qty * req_per_unit
-                        stock[key] -= consumed
-                        consumed_today_by_pair[key] += consumed
                         production_parent_allocations.extend(
-                            lot_ledger.consume(
-                                day=output_day,
+                            consume_bom_input_with_reference_transition(
+                                output_day=output_day,
                                 node_id=nid,
                                 item_id=in_item,
                                 qty=consumed,
                                 event_type="production_consume",
                                 source_id=f"{nid}|{out_item}",
                                 production_campaign_id=campaign_id,
-                                uom=item_unit_map.get(in_item, ""),
+                                consumed_today_by_pair=consumed_today_by_pair,
                             )
                         )
 
@@ -8748,6 +8953,48 @@ def main() -> None:
     )
     if (
         economic_policy["production_cost_enabled"]
+        and economic_policy["production_cost_mode"] == "fixed_unit_rate"
+        and production_qty_by_pair
+    ):
+        active_pairs = sorted(production_qty_by_pair)
+        allocated_cost_total = 0.0
+        for pair in active_pairs:
+            pair_key = policy_pair_key(pair[0], pair[1])
+            pair_qty_total = production_qty_by_pair.get(pair, 0.0)
+            unit_rate = max(
+                0.0,
+                to_float(economic_policy["production_cost_unit_rates"].get(pair_key), 0.0),
+            )
+            pair_cost = pair_qty_total * unit_rate
+            allocated_cost_total += pair_cost
+            if pair_cost > 1e-9:
+                for day_idx, qty in production_qty_by_pair_day[pair].items():
+                    production_cost_by_day[int(day_idx)] += qty * unit_rate
+            profile = str(
+                economic_policy["production_cost_line_profiles"].get(pair_key)
+                or "production"
+            )
+            production_cost_line_rows.append(
+                {
+                    "node_id": pair[0],
+                    "item_id": pair[1],
+                    "profile": profile,
+                    "produced_qty": round(pair_qty_total, 6),
+                    "unit_conversion_cost": round(unit_rate, 12),
+                    "cost_share_of_production": 0.0,
+                    "production_cost": round(pair_cost, 4),
+                    "allocation_basis": economic_policy["production_cost_basis"],
+                }
+            )
+        if allocated_cost_total > 1e-9:
+            for row in production_cost_line_rows:
+                row["cost_share_of_production"] = round(
+                    max(0.0, to_float(row.get("production_cost"), 0.0))
+                    / allocated_cost_total,
+                    6,
+                )
+    elif (
+        economic_policy["production_cost_enabled"]
         and economic_policy["production_cost_target_share_of_total"] > 1e-9
         and cost_without_production > 1e-9
         and production_qty_by_pair
@@ -8818,6 +9065,10 @@ def main() -> None:
                     "item_id": pair[1],
                     "profile": profile,
                     "produced_qty": round(pair_qty_total, 6),
+                    "unit_conversion_cost": round(
+                        pair_cost / pair_qty_total if pair_qty_total > 1e-9 else 0.0,
+                        12,
+                    ),
                     "cost_share_of_production": round(pair_share, 6),
                     "production_cost": round(pair_cost, 4),
                     "allocation_basis": economic_policy["production_cost_basis"],
@@ -8838,6 +9089,15 @@ def main() -> None:
         row["production_cost_day"] = round(production_cost_day, 4)
         row["total_supply_cost_day"] = round(
             operational_purchase + operational_transport + inventory_cost_day + production_cost_day,
+            4,
+        )
+        exceptional_supply_cost_day = (
+            max(0.0, to_float(row.get("external_procurement_purchase_cost_day"), 0.0))
+            + max(0.0, to_float(row.get("external_procurement_transport_cost_day"), 0.0))
+        )
+        row["exceptional_supply_cost_day"] = round(exceptional_supply_cost_day, 4)
+        row["total_economic_exposure_day"] = round(
+            to_float(row.get("total_supply_cost_day"), 0.0) + exceptional_supply_cost_day,
             4,
         )
 
@@ -8873,6 +9133,19 @@ def main() -> None:
         economic_warnings.append("inventory_risk_cost_share_below_5pct")
     if total_external_procured > 0 and total_external_procured_arrived <= 1e-9:
         economic_warnings.append("external_procurement_ordered_but_not_arrived_in_horizon")
+    customer_delay_qty_day = sum(max(0.0, to_float(row.get("backlog_end"), 0.0)) for row in daily_rows)
+    unmet_customer_demand_qty = ending_backlog
+    non_quality_loss_qty = (
+        max(0.0, total_unreliable_loss_qty)
+        + max(0.0, total_external_procured_rejected)
+        + max(0.0, total_estimated_source_rejected)
+    )
+    exceptional_supply_cost = max(0.0, total_external_procurement_cost)
+    total_economic_exposure = total_cost + exceptional_supply_cost
+    operational_risk_cost = (
+        max(0.0, total_inventory_risk_cost)
+        + max(0.0, exceptional_supply_cost)
+    )
 
     actual_input_consumption_avg_by_pair: dict[tuple[str, str], float] = defaultdict(float)
     for row in input_consumption_rows:
@@ -9159,6 +9432,7 @@ def main() -> None:
                 "transport_cost_realism_multiplier": economic_policy["transport_cost_realism_multiplier"],
                 "purchase_cost_realism_multiplier": economic_policy["purchase_cost_realism_multiplier"],
                 "production_cost_enabled": economic_policy["production_cost_enabled"],
+                "production_cost_mode": economic_policy["production_cost_mode"],
                 "production_cost_target_share_of_total": round(
                     economic_policy["production_cost_target_share_of_total"],
                     6,
@@ -9171,6 +9445,10 @@ def main() -> None:
                 "production_cost_line_profiles": dict(
                     sorted(economic_policy["production_cost_line_profiles"].items())
                 ),
+                "production_cost_unit_rates": {
+                    key: round(max(0.0, to_float(value, 0.0)), 12)
+                    for key, value in sorted(economic_policy["production_cost_unit_rates"].items())
+                },
                 "external_procurement_enabled": economic_policy["external_procurement_enabled"],
                 "external_procurement_proactive_replenishment": economic_policy[
                     "external_procurement_proactive_replenishment"
@@ -9223,6 +9501,7 @@ def main() -> None:
                 {"node_id": n, "item_id": i, "from_unit": fu, "to_unit": tu}
                 for n, i, fu, tu in sorted(input_unit_mismatch_not_converted)
             ],
+            "reference_transition_stocks": reference_transition_stock_rows,
             "customer_demand_daily_signal": [
                 {"node_id": n, "item_id": i, "demand_per_day": round(v, 6)}
                 for (n, i), v in sorted(demand_target_daily.items())
@@ -9363,6 +9642,18 @@ def main() -> None:
             "total_production_cost": round(total_production_cost, 4),
             "total_logistics_cost": round(total_logistics_cost, 4),
             "total_cost": round(total_cost, 4),
+            "total_supply_cost_accounting": round(total_cost, 4),
+            "total_economic_exposure": round(total_economic_exposure, 4),
+            "unmet_customer_demand_qty": round(unmet_customer_demand_qty, 4),
+            "customer_delay_qty_day": round(customer_delay_qty_day, 4),
+            "non_quality_loss_qty": round(non_quality_loss_qty, 4),
+            "exceptional_supply_cost": round(exceptional_supply_cost, 4),
+            "operational_risk_cost": round(operational_risk_cost, 4),
+            "sales_at_risk_qty_proxy": round(unmet_customer_demand_qty, 4),
+            "backlog_penalty_qty_day_proxy": round(customer_delay_qty_day, 4),
+            "quality_loss_qty_proxy": round(non_quality_loss_qty, 4),
+            "emergency_procurement_cost_proxy": round(exceptional_supply_cost, 4),
+            "risk_economic_cost_proxy_total": round(operational_risk_cost, 4),
             "total_external_procured_ordered_qty": round(total_external_procured, 4),
             "total_external_procured_arrived_qty": round(total_external_procured_arrived, 4),
             "total_external_procured_rejected_qty": round(total_external_procured_rejected, 4),
@@ -9383,6 +9674,13 @@ def main() -> None:
             "cost_share_transport": round(transport_share, 6),
             "cost_share_purchase": round(purchase_share, 6),
             "cost_share_production": round(production_share, 6),
+        },
+        "economic_risk_kpi_basis": {
+            "unmet_customer_demand_qty": "Demande client encore non servie en fin d'horizon. Le modele met la demande en retard; il ne l'annule pas automatiquement en vente perdue.",
+            "customer_delay_qty_day": "Retard client cumule: somme des quantites en backlog en fin de jour. Unite: quantite-jour.",
+            "non_quality_loss_qty": "Quantite rejetee ou perdue: pertes fournisseur, receptions rejetees ou pertes d'approvisionnement simulees.",
+            "exceptional_supply_cost": "Cout d'approvisionnement exceptionnel: cout des achats de secours / approvisionnement amont alternatif simule.",
+            "operational_risk_cost": "Cout operationnel lie aux risques: cout de risque stock + cout d'approvisionnement exceptionnel. Ce n'est pas un compte de resultat comptable.",
         },
         "economic_consistency": {
             "status": "warn" if economic_warnings else "ok",
@@ -10369,17 +10667,21 @@ def main() -> None:
 - Transport cost: {summary['kpis']['total_transport_cost']}
 - Holding cost (capital tied-up): {summary['kpis']['total_holding_cost']}
 - Warehouse operating cost: {summary['kpis']['total_warehouse_operating_cost']}
-- Inventory risk cost (obsolescence/compliance proxy): {summary['kpis']['total_inventory_risk_cost']}
+- Stock risk cost (obsolescence / compliance / depreciation): {summary['kpis']['total_inventory_risk_cost']}
 - Legacy raw holding cost before split: {summary['kpis']['total_inventory_cost_legacy_raw_holding']}
 - Purchase cost (from order_terms sell_price): {summary['kpis']['total_purchase_cost']}
-- Production cost (pharma conversion proxy): {summary['kpis']['total_production_cost']}
+- Allocated production cost: {summary['kpis']['total_production_cost']}
 - Logistics cost (transport + inventory capital + warehouse + inventory risk): {summary['kpis']['total_logistics_cost']}
 - Total cost: {summary['kpis']['total_cost']}
 - Total supplier upstream ordered qty: {summary['kpis']['total_external_procured_ordered_qty']}
 - Total supplier upstream arrived qty: {summary['kpis']['total_external_procured_arrived_qty']}
 - Supplier upstream arrived includes opening upstream pipeline receipts when the upstream pipeline seed is enabled.
 - Total supplier upstream rejected qty (cap-limited): {summary['kpis']['total_external_procured_rejected_qty']}
-- Total supplier upstream cost premium: {summary['kpis']['total_external_procurement_cost']}
+- Exceptional upstream procurement cost: {summary['kpis']['total_external_procurement_cost']}
+- Unserved customer demand at horizon end: {summary['kpis']['unmet_customer_demand_qty']}
+- Customer delay cumulated quantity-days: {summary['kpis']['customer_delay_qty_day']}
+- Rejected or lost quantity: {summary['kpis']['non_quality_loss_qty']}
+- Operational risk cost: {summary['kpis']['operational_risk_cost']}
 - Total estimated source ordered qty: {summary['kpis']['total_estimated_source_ordered_qty']}
 - Total estimated source replenished qty: {summary['kpis']['total_estimated_source_replenished_qty']}
 - Total estimated source rejected qty: {summary['kpis']['total_estimated_source_rejected_qty']}

@@ -14,6 +14,8 @@ Generated package:
 - `outputs/data/primary_supply_nodes.csv`
 - `outputs/data/primary_supply_lanes.csv`
 - `outputs/data/primary_supply_sites.csv`
+- `outputs/data/supplier_context_summary.csv` (optional web-context cache)
+- `outputs/data/supplier_context_results.csv` (optional web-search result cache)
 - `outputs/data/site_weather_driver.csv`
 - `outputs/data/supplier_risk_event_seed.csv`
 - `outputs/data/transport_weather_risk.csv`
@@ -74,6 +76,20 @@ Run:
 ```bash
 python POC2026/supply_geo_case/adapter.py
 ```
+
+Optional supplier context enrichment:
+
+```bash
+python POC2026/supply_geo_case/tools/enrich_supplier_context.py --limit 30 --exclude-oem
+python POC2026/supply_geo_case/adapter.py
+```
+
+The enrichment step is intentionally separate from the SDD simulation. It uses
+DuckDuckGo HTML search by default, or Bright Data DuckDuckGo SERP when
+`--provider brightdata`, `BRIGHTDATA_API_TOKEN` and `BRIGHTDATA_SERP_ZONE` are
+provided. The map reads the generated cache and exposes supplier context,
+weak-signal families and documentary criticality in hover tooltips, site click
+details, the `Contexte fournisseurs` map view and KPI dashboard plots.
 
 Brightway runtime:
 
