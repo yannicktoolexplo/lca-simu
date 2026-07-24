@@ -64,5 +64,22 @@
     "crisis_backlog_days": 1.6,
     "recovery_backlog_days": 0.15,
     "overstock_days": 7.0
+  },
+  "physical_risk_mapping": {
+    "availability_loss_at_unit_risk": 0.55,
+    "capacity_loss_at_unit_risk": 0.42,
+    "lead_extra_fraction_of_nominal_at_unit_risk": 1.1,
+    "quality_yield_loss_at_unit_risk": 0.24,
+    "purchase_cost_increase_at_unit_risk": 0.35,
+    "transport_cost_increase_at_unit_risk": 0.22,
+    "severity_backlog_scale": 25.0,
+    "severity_fill_loss_scale": 0.025,
+    "minimum_interval_half_width": 0.04,
+    "maximum_interval_half_width": 0.35,
+    "conformal_alpha": 0.1,
+    "forecast_validity_days": 30.0,
+    "forecast_decay_days": 30.0,
+    "long_horizon_prior_center": 0.12,
+    "long_horizon_prior_half_width": 0.25
   }
 }
