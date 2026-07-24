@@ -243,3 +243,195 @@ The tests verify:
 4. Estimate supplier impedance from controlled virtual perturbations.
 5. Integrate observability/controllability and adaptive model granularity.
 6. Operationalize the PoC as a reusable simulation and decision-support module.
+
+---
+
+## End-2026 validation work package
+
+The six activities previously listed as future work now have an executable
+orchestration script:
+
+```powershell
+python etudecas/prototypes/scan_2027_risk_control/run_end_2026_validation.py
+```
+
+For a fast self-contained check:
+
+```powershell
+python etudecas/prototypes/scan_2027_risk_control/run_end_2026_validation.py `
+  --synthetic `
+  --days 84 `
+  --paired-seed-count 4 `
+  --confusion-seed-count 3 `
+  --canonical-replay off
+```
+
+### A. Regime calibration on real `etudecas` trajectories
+
+The runner discovers the canonical daily simulation and its sibling artifacts
+when available:
+
+- production constraints;
+- supplier capacity utilization;
+- state-triggered supplier-risk events;
+- factory nervousness;
+- detailed input stocks and consumption.
+
+Regime thresholds are calibrated with robust trajectory anchors and exported in
+`config/calibrated_config.json`. Material tension is calculated from the low-tail
+cover of active factory-item pairs when detailed files exist; aggregate inventory
+is retained only as an explicitly marked fallback. The output includes the
+calibrated trajectory, threshold evidence, anchor counts and confidence level.
+
+This is a **pseudo-label calibration**. It reduces arbitrary threshold choice but
+still requires industrial labels before the regimes can be claimed as validated.
+
+### B. Prediction intervals converted into physical disturbances
+
+The current supplier-item-site prediction outputs are converted into:
+
+- incident-probability lower / centre / upper paths;
+- availability multipliers;
+- supplier-capacity multipliers;
+- additional lead-time days;
+- quality-yield multipliers;
+- purchase- and transport-cost multipliers.
+
+When `prediction_test_scored_rows.csv` is available, a finite-sample residual
+quantile contributes to interval width. Existing uncertainty penalties and impact
+proxies are retained. Every coefficient remains configurable and is reported as a
+research mapping pending calibration on real incidents.
+
+For canonical replay, the latest high-priority supplier-item-factory pairs are
+translated into an auditable `canonical_supplier_risk_events.csv` using the
+30-day validity horizon of the predictor.
+
+### C. Canonical action reinjection
+
+Three modes are available:
+
+```powershell
+# Prepare patched canonical graphs and ledgers only
+python etudecas/prototypes/scan_2027_risk_control/run_end_2026_validation.py `
+  --canonical-replay overlay
+
+# Execute the full multi-item MRP engine with paired seeds
+python etudecas/prototypes/scan_2027_risk_control/run_end_2026_validation.py `
+  --canonical-replay run `
+  --canonical-seed-count 3
+
+# Skip the full-engine stage
+python etudecas/prototypes/scan_2027_risk_control/run_end_2026_validation.py `
+  --canonical-replay off
+```
+
+The stage-1 adapter maps playbooks to explicit canonical levers:
+
+- safety stock and finished-goods targets;
+- production gap gain and smoothing;
+- external procurement headroom, lead time and cost;
+- capacity, opening-inventory and transport-delay overlays.
+
+The adaptive schedule is currently converted into a duration-weighted overlay.
+This is deliberate and documented: the canonical engine does not yet expose a
+day-by-day external-control port. The `run` mode nevertheless replays every
+fixed policy and the adaptive weighted policy in the real engine with identical
+supplier-risk events and common random seeds.
+
+### D. Paired-seed policy comparison
+
+Every playbook is compared against `mrp_reference` with common random numbers.
+The package reports paired means, 95% intervals, p90 deltas and win rates for:
+
+- robust objective;
+- service and backlog;
+- inventory;
+- nervousness;
+- supplier risk and RCI;
+- quality loss.
+
+The reference policy must have exactly zero paired delta; this is enforced by a
+unit test.
+
+### E. Explicit false-positive / false-negative experiments
+
+Forecast and physical truth are separated into four cases:
+
+| Case | Forecast | Physical event |
+|---|---:|---:|
+| TP | yes | yes |
+| FP | yes | no |
+| FN | no | yes |
+| TN | no | no |
+
+The same physical random path is used where comparisons require it. Results
+include service, backlog, nervousness, expediting, risk creation and regret
+relative to an oracle forecast. This identifies the asymmetric cost of acting on
+a false alert versus missing a real supplier event.
+
+### F. Procurement and planning validation of the RCI
+
+The runner creates:
+
+- `rci_business_review_template.csv` with model outputs;
+- `rci_business_review_blind.csv` for unbiased review;
+- `rci_business_validation_guide.md`;
+- `rci_business_validation_status.json`.
+
+All candidate playbooks are included, not only the selected response. This avoids
+selection bias and exposes high-RCI counterfactuals such as aggressive buffering.
+Procurement and planning reviewers independently classify whether each action
+could create supplier stress or planning instability. Once a completed file is
+passed with `--business-review-csv`, the script estimates an RCI threshold,
+precision, recall, F1 and rank correlation with plausibility ratings.
+
+Until this review is completed, the manifest correctly reports
+`pending_business_review`; it does not claim industrial validation.
+
+### End-2026 output additions
+
+```text
+<output>/
+├── end_2026_validation_report.md
+├── rci_business_validation_guide.md
+├── rci_business_validation_status.json
+├── config/calibrated_config.json
+├── data/
+│   ├── regime_calibration_frame.csv
+│   ├── regime_calibration_evidence.csv
+│   ├── prediction_interval_envelope.csv
+│   ├── physical_risk_envelope.csv
+│   ├── paired_policy_runs.csv
+│   ├── paired_policy_summary.csv
+│   ├── forecast_confusion_runs.csv
+│   ├── forecast_confusion_summary.csv
+│   ├── forecast_confusion_regret.csv
+│   ├── rci_business_review_template.csv
+│   └── rci_business_review_blind.csv
+├── canonical_replay/
+│   ├── adaptive_control_schedule.csv
+│   ├── canonical_control_overlays.csv
+│   ├── canonical_supplier_risk_events.csv
+│   ├── canonical_risk_mapping_ledger.csv
+│   └── <policy>/canonical_input_graph.json
+└── plots/end_2026/
+    ├── regime_calibration_trajectory.png
+    ├── regime_threshold_comparison.png
+    ├── prediction_interval.png
+    ├── prediction_to_physical_perturbations.png
+    ├── paired_policy_comparison.png
+    ├── forecast_confusion_cases.png
+    ├── forecast_error_regret.png
+    └── rci_business_review_episodes.png
+```
+
+## Current validation status
+
+| Work package | Code status | Remaining evidence |
+|---|---|---|
+| Regime calibration | Implemented | Industrial regime labels |
+| Prediction interval to physics | Implemented | Incident-based coefficient calibration |
+| Canonical reinjection | Overlay and executable replay implemented | Daily closed-loop control port |
+| Paired policy comparison | Implemented and tested | Large canonical campaign |
+| FP/FN study | Implemented and tested | Empirical forecast-error frequencies |
+| RCI business validation | Review protocol implemented | Procurement and planning workshop |
