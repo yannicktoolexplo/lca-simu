@@ -103,7 +103,9 @@ def main() -> None:
             "baseline_path": context.baseline_path,
             "risk_path": context.risk_path,
             "baseline_columns": context.baseline_columns,
+            "baseline_ingestion": dict(context.baseline_ingestion_metadata or {}),
         },
+        "prediction_to_physics": dict(context.prediction_interval_metadata or {}),
         "parameters": {
             "days": len(context.input_series),
             "seed": int(args.seed),

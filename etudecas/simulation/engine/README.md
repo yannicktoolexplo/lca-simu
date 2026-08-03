@@ -27,6 +27,54 @@ result = simulate(
 print(result.kpis)
 ```
 
+## Daily external controls
+
+`SimulationRequest(control_schedule_csv="controls.csv")` forwards a typed daily
+control schedule to the engine as `--control-schedule-csv`. When the field is
+omitted, no flag is emitted and the historical physical dynamics and legacy
+values are unchanged. The output contract now also contains an empty action
+ledger and neutral control-audit columns in the MRP trace. The pipeline
+`simulate` command accepts the same optional flag. Its public randomness
+contract also exposes `seed` and the tri-state
+`common_random_numbers`; omitting both preserves the engine defaults, while an
+explicit value is forwarded as `--seed` and
+`--[no-]common-random-numbers`.
+
+The CSV contract is implemented in `control_schedule.py`. `day` is a required,
+zero-based measured day; it does not include warm-up days. `policy`,
+`node_id`, `supplier_id`, `item_id` and `dst_node_id` are optional audit/scope
+columns. Blank scopes are global. A more-specific matching scope overrides a
+less-specific scope field by field.
+
+Supported action columns are:
+
+- `order_multiplier` in `[0, 2]`;
+- `safety_stock_multiplier` in `[0, 3]`;
+- `production_target_multiplier` in `[0, 2]`;
+- `capacity_multiplier` in `[0, 1.5]`;
+- `external_procurement_multiplier` in `[0, 3]`;
+- `expedite_level` in `[0, 1]`;
+- `lead_time_adjustment_days`, an integer in `[-30, 90]`;
+- `priority_weight` in `[0, 10]`.
+
+All values except the lead-time adjustment are dimensionless. Out-of-bound
+values are clamped and retained as requested/effective/bound metadata.
+Non-finite values, unknown columns or catalog identifiers, duplicate scopes and
+ambiguous equal-specificity scopes are rejected. Structurally impossible
+action/scope pairs are rejected as well: production targets only support
+`node_id`/`item_id`, and safety-stock controls cannot carry `supplier_id`.
+When the catalog identifies a `node_id` as a supplier, supplier-capacity
+controls must target it through `supplier_id` so lane execution can resolve it.
+`ResolvedControl.to_ledger_rows` and `write_control_ledger_csv` expose stable
+audit serialization.
+
+The executable engine writes `canonical_action_ledger.csv`. Its status and
+stage distinguish a physical application from a neutral/no-flow resolution or
+an unmatched schedule row. Quantity-bearing rows expose the distinct
+`q_mrp_base_qty`, post-safety, post-order, post-supplier, post-constraint,
+post-lotification and executable quantities. Supplier capacity is only reported
+as applied when a modeled capacity actually constrained that operational stage.
+
 ## Request contract without server
 
 The UI can build a simulation request without executing it. This keeps the

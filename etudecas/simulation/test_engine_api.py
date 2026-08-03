@@ -32,6 +32,13 @@ class SimulationEngineApiTest(unittest.TestCase):
                 parser.add_argument("--lot-trace", action="store_true")
                 parser.add_argument("--no-lot-trace", action="store_true")
                 parser.add_argument("--skip-lot-audit", action="store_true")
+                parser.add_argument("--control-schedule-csv", default="")
+                parser.add_argument("--seed", type=int, default=None)
+                parser.add_argument(
+                    "--common-random-numbers",
+                    action=argparse.BooleanOptionalAction,
+                    default=None,
+                )
                 args, extra = parser.parse_known_args()
 
                 data = json.loads(Path(args.input).read_text(encoding="utf-8"))
@@ -49,6 +56,9 @@ class SimulationEngineApiTest(unittest.TestCase):
                         "lot_trace": args.lot_trace,
                         "no_lot_trace": args.no_lot_trace,
                         "skip_lot_audit": args.skip_lot_audit,
+                        "control_schedule_csv": args.control_schedule_csv,
+                        "seed": args.seed,
+                        "common_random_numbers": args.common_random_numbers,
                         "extra": extra,
                     },
                 }
@@ -95,10 +105,13 @@ class SimulationEngineApiTest(unittest.TestCase):
                     output_dir=root / "run",
                     run_script=fake_engine,
                     output_profile="lot_trace",
+                    seed=1729,
+                    common_random_numbers=True,
                     overrides=SimulationOverrides(
                         edge_src_lead_time_scale={"SDC-1": 1.5},
                         edge_src_reliability_scale={"SDC-1": 0.8},
                         scenario_flags={"external_procurement_enabled": True},
+                        engine_args=("--seed", "1", "--no-common-random-numbers"),
                     ),
                 )
             )
@@ -108,6 +121,9 @@ class SimulationEngineApiTest(unittest.TestCase):
             self.assertEqual(result.kpis["edge_otif"], 0.8)
             self.assertTrue(result.summary["meta"]["lot_trace"])
             self.assertTrue(result.summary["meta"]["skip_lot_audit"])
+            self.assertEqual(result.summary["meta"]["control_schedule_csv"], "")
+            self.assertEqual(result.summary["meta"]["seed"], 1729)
+            self.assertIs(result.summary["meta"]["common_random_numbers"], True)
 
             written_input = json.loads(result.input_path.read_text(encoding="utf-8"))
             self.assertEqual(written_input["edges"][0]["lead_time"]["mean"], 15.0)
@@ -118,6 +134,11 @@ class SimulationEngineApiTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             fake_engine = self.write_fake_engine(root)
+            control_schedule = root / "daily controls.csv"
+            control_schedule.write_text(
+                "day,order_multiplier\n0,1.1\n",
+                encoding="utf-8",
+            )
             server = ThreadingHTTPServer(("127.0.0.1", 0), SimulationApiHandler)
             thread = threading.Thread(target=server.serve_forever, daemon=True)
             thread.start()
@@ -128,6 +149,9 @@ class SimulationEngineApiTest(unittest.TestCase):
                     "output_dir": str(root / "http_run"),
                     "run_script": str(fake_engine),
                     "output_profile": "minimal",
+                    "control_schedule_csv": str(control_schedule),
+                    "seed": 2027,
+                    "common_random_numbers": False,
                     "overrides": {"edge_src_lead_time_scale": {"SDC-1": 2.0}},
                 }
                 req = Request(
@@ -145,6 +169,11 @@ class SimulationEngineApiTest(unittest.TestCase):
             self.assertTrue(response["ok"])
             self.assertEqual(response["result"]["kpis"]["edge_lead_mean"], 20.0)
             self.assertEqual(response["result"]["output_profile"], "minimal")
+            summary_path = root / "http_run" / "summaries" / "first_simulation_summary.json"
+            summary = json.loads(summary_path.read_text(encoding="utf-8"))
+            self.assertEqual(summary["meta"]["control_schedule_csv"], str(control_schedule))
+            self.assertEqual(summary["meta"]["seed"], 2027)
+            self.assertIs(summary["meta"]["common_random_numbers"], False)
 
 
 if __name__ == "__main__":
