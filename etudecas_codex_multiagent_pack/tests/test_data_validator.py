@@ -5,7 +5,7 @@ import pandas as pd
 from etudecas_agentkit.core.config_loader import load_yaml
 from etudecas_agentkit.data.validator import DataValidator
 
-from tests.conftest import ROOT
+from .conftest import ROOT
 
 
 def test_data_validator_accepts_reference_dataset():
