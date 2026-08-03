@@ -41,6 +41,8 @@ def _save(
     fig: Any,
     path: Path,
     figure_provenance_label: str = "",
+    *,
+    bottom_margin: float = 0.035,
 ) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     if figure_provenance_label:
@@ -53,7 +55,7 @@ def _save(
             fontsize=7,
             color="dimgray",
         )
-        fig.tight_layout(rect=(0.0, 0.035, 1.0, 1.0))
+        fig.tight_layout(rect=(0.0, bottom_margin, 1.0, 1.0))
     else:
         fig.tight_layout()
     fig.savefig(path, dpi=170, bbox_inches="tight")
@@ -448,13 +450,18 @@ def save_regime_recovery_plot(
     )
     fig.text(
         0.5,
-        0.01,
+        0.055,
         "Entry-regime grouping is descriptive; censored episodes are lower "
         "bounds and no causal regime effect is inferred.",
         ha="center",
         fontsize=9,
     )
-    _save(fig, path, figure_provenance_label)
+    _save(
+        fig,
+        path,
+        figure_provenance_label,
+        bottom_margin=0.105,
+    )
     return path
 
 
@@ -915,13 +922,34 @@ def save_end_2026_plots(
                 alpha=0.8,
             )
             for row in ordered.itertuples():
+                policy = str(row.policy)
+                if policy == "oracle":
+                    offset = (-6, -8)
+                    horizontal_alignment = "right"
+                    vertical_alignment = "top"
+                elif policy == "supplier_relief":
+                    offset = (6, 5)
+                    horizontal_alignment = "left"
+                    vertical_alignment = "bottom"
+                elif policy == "recovery_damping":
+                    offset = (-6, 4)
+                    horizontal_alignment = "right"
+                    vertical_alignment = "bottom"
+                else:
+                    offset = (4, 4)
+                    horizontal_alignment = "left"
+                    vertical_alignment = "center"
                 ax.annotate(
-                    row.policy,
+                    policy,
                     (
                         getattr(row, stock_column),
                         getattr(row, service_column),
                     ),
                     fontsize=8,
+                    xytext=offset,
+                    textcoords="offset points",
+                    ha=horizontal_alignment,
+                    va=vertical_alignment,
                 )
             ax.axhline(0, linewidth=0.6, color="black")
             ax.axvline(0, linewidth=0.6, color="black")
