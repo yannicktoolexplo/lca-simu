@@ -71,15 +71,64 @@ def parse_args() -> argparse.Namespace:
         default=str(HERE / "outputs" / "continuation_2026_2027"),
         help="Campaign root. The validation package is written below this directory.",
     )
+    parser.add_argument(
+        "--config",
+        default="",
+        help=(
+            "Optional calibrated/research configuration forwarded to the "
+            "end-2026 runner."
+        ),
+    )
     parser.add_argument("--baseline-csv", default="auto")
     parser.add_argument("--risk-csv", default="auto")
+    parser.add_argument(
+        "--regime-annotations-csv",
+        default="",
+        help=(
+            "Optional expert regime labels forwarded to the end-2026 calibration "
+            "(day/period, site, item/article, validated_regime, "
+            "expert_confidence, comment)."
+        ),
+    )
     parser.add_argument("--canonical-graph", default="auto")
+    parser.add_argument(
+        "--canonical-engine-profile",
+        default="",
+        help=(
+            "Optional JSON profile forwarded to the canonical engine replay."
+        ),
+    )
     parser.add_argument("--scenario-id", default="scn:BASE")
     parser.add_argument("--days", type=int, default=365)
     parser.add_argument("--seed", type=int, default=20260)
     parser.add_argument("--paired-seed-count", type=int, default=20)
     parser.add_argument("--confusion-seed-count", type=int, default=10)
     parser.add_argument("--confusion-duration-days", type=int, default=42)
+    parser.add_argument(
+        "--confusion-alert-response-policy",
+        default="balanced_robust",
+    )
+    parser.add_argument(
+        "--confusion-alert-thresholds",
+        default="0.40,0.70",
+        help="Comma-separated alert thresholds for the FP/FN sensitivity grid.",
+    )
+    parser.add_argument(
+        "--confusion-interval-half-widths",
+        default="0.05,0.18",
+        help="Comma-separated prediction half-widths for the FP/FN sensitivity grid.",
+    )
+    parser.add_argument(
+        "--confusion-sensitivity-durations",
+        default="14,42",
+        help="Comma-separated alert durations for the FP/FN sensitivity grid.",
+    )
+    parser.add_argument(
+        "--confusion-sensitivity-seed-count",
+        type=int,
+        default=1,
+        help="Number of paired seeds used by the sensitivity grid; 0 disables it.",
+    )
     parser.add_argument("--controller-scenarios", type=int, default=24)
     parser.add_argument("--policy-comparison-scenarios", type=int, default=48)
     parser.add_argument("--controller-horizon-days", type=int, default=28)
@@ -87,11 +136,22 @@ def parse_args() -> argparse.Namespace:
         "--canonical-replay",
         choices=["off", "overlay", "run"],
         default="overlay",
-        help="Use 'run' for full multi-item paired replays; 'overlay' only prepares patched graphs.",
+        help=(
+            "Use 'run' for full multi-item paired daily-control replays; "
+            "'overlay' prepares auditable schedules and compatibility overlays."
+        ),
     )
     parser.add_argument("--canonical-days", type=int, default=365)
     parser.add_argument("--canonical-seed-count", type=int, default=5)
     parser.add_argument("--canonical-top-risk-pairs", type=int, default=5)
+    parser.add_argument(
+        "--mapping-sensitivity-factors",
+        default="0.8,1.0,1.2",
+        help=(
+            "Comma-separated positive factors for prediction-to-physics "
+            "coefficient sensitivity."
+        ),
+    )
     parser.add_argument("--business-review-csv", default="")
     parser.add_argument("--synthetic", action="store_true")
     parser.add_argument("--no-plots", action="store_true")
@@ -109,7 +169,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--continue-on-error",
         action="store_true",
-        help="Continue to the hand-off report even if a command fails.",
+        help=(
+            "Continue to the hand-off report even if a command fails; the "
+            "campaign still exits non-zero after recording all failed steps."
+        ),
     )
     return parser.parse_args()
 
@@ -135,6 +198,12 @@ def command_text(command: Iterable[str]) -> str:
 def fingerprint(command: list[str]) -> str:
     raw = json.dumps(command, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
     return hashlib.sha256(raw).hexdigest()
+
+
+def build_prototype_test_command(test_dir: Path) -> list[str]:
+    """Return the command that executes every unittest- and pytest-style test."""
+
+    return [sys.executable, "-m", "pytest", str(test_dir), "-q"]
 
 
 def load_campaign_state(path: Path) -> dict[str, Any]:
@@ -262,6 +331,16 @@ def build_validation_command(args: argparse.Namespace, validation_dir: Path) -> 
         str(max(1, int(args.confusion_seed_count))),
         "--confusion-duration-days",
         str(max(7, int(args.confusion_duration_days))),
+        "--confusion-alert-response-policy",
+        str(args.confusion_alert_response_policy),
+        "--confusion-alert-thresholds",
+        str(args.confusion_alert_thresholds),
+        "--confusion-interval-half-widths",
+        str(args.confusion_interval_half_widths),
+        "--confusion-sensitivity-durations",
+        str(args.confusion_sensitivity_durations),
+        "--confusion-sensitivity-seed-count",
+        str(max(0, int(args.confusion_sensitivity_seed_count))),
         "--controller-scenarios",
         str(max(2, int(args.controller_scenarios))),
         "--policy-comparison-scenarios",
@@ -278,6 +357,8 @@ def build_validation_command(args: argparse.Namespace, validation_dir: Path) -> 
         str(max(1, int(args.canonical_seed_count))),
         "--canonical-top-risk-pairs",
         str(max(1, int(args.canonical_top_risk_pairs))),
+        "--mapping-sensitivity-factors",
+        str(args.mapping_sensitivity_factors),
         "--scenario-id",
         str(args.scenario_id),
     ]
@@ -285,6 +366,22 @@ def build_validation_command(args: argparse.Namespace, validation_dir: Path) -> 
         command.append("--synthetic")
     if args.no_plots:
         command.append("--no-plots")
+    if args.config:
+        command.extend(["--config", str(Path(args.config).resolve())])
+    if getattr(args, "canonical_engine_profile", ""):
+        command.extend(
+            [
+                "--canonical-engine-profile",
+                str(Path(args.canonical_engine_profile).resolve()),
+            ]
+        )
+    if args.regime_annotations_csv:
+        command.extend(
+            [
+                "--regime-annotations-csv",
+                str(Path(args.regime_annotations_csv).resolve()),
+            ]
+        )
     if args.business_review_csv:
         command.extend(["--business-review-csv", str(Path(args.business_review_csv).resolve())])
     return command
@@ -296,7 +393,11 @@ def run_business_review_only(review_csv: Path, validation_dir: Path) -> dict[str
     try:
         import pandas as pd
 
+        from etudecas.prototypes.scan_2027_risk_control.end_2026_reporting import (
+            save_rci_business_comparison_plot,
+        )
         from etudecas.prototypes.scan_2027_risk_control.rci_validation import (
+            bind_completed_business_review,
             summarize_completed_business_review,
         )
     except ImportError as exc:  # pragma: no cover - environment-dependent error path
@@ -305,7 +406,22 @@ def run_business_review_only(review_csv: Path, validation_dir: Path) -> dict[str
         ) from exc
 
     completed = pd.read_csv(review_csv)
+    authoritative_path = (
+        validation_dir
+        / "data"
+        / "rci_business_review_template.csv"
+    )
+    require_file(
+        authoritative_path,
+        "Authoritative RCI business review template",
+    )
+    authoritative_review = pd.read_csv(authoritative_path)
+    completed = bind_completed_business_review(
+        authoritative_review,
+        completed,
+    )
     status = summarize_completed_business_review(completed)
+    save_rci_business_comparison_plot(validation_dir, completed, status)
     write_json(validation_dir / "rci_business_validation_status.json", status)
 
     manifest_path = validation_dir / "run_manifest.json"
@@ -326,6 +442,7 @@ def build_next_actions(manifest: dict[str, Any], validation_dir: Path) -> list[d
     actions: list[dict[str, str]] = []
     source = manifest.get("source") or {}
     calibration = manifest.get("regime_calibration") or {}
+    annotation_metadata = calibration.get("regime_annotations") or {}
     prediction = manifest.get("prediction_to_physics") or {}
     canonical = manifest.get("canonical_replay") or {}
     rci = manifest.get("rci_business_validation") or {}
@@ -333,19 +450,30 @@ def build_next_actions(manifest: dict[str, Any], validation_dir: Path) -> list[d
     if source.get("mode") == "synthetic_fallback" or not source.get("baseline_path"):
         actions.append({
             "priority": "P0",
-            "work": "Run the campaign on the real canonical etudecas baseline",
-            "why": "The current package is still based on synthetic or incomplete trajectories.",
+            "work": (
+                "Run the campaign on the canonical etudecas case-study "
+                "simulation output"
+            ),
+            "why": (
+                "The current package is still based on synthetic or incomplete "
+                "trajectories; case-study simulation evidence is the next "
+                "integration gate, not an industrial observation."
+            ),
             "evidence": "source.mode / source.baseline_path",
         })
 
     high = int(calibration.get("high_confidence_thresholds") or 0)
     low = int(calibration.get("low_confidence_thresholds") or 0)
-    if high == 0 or low > 0:
+    business_label_days = int(annotation_metadata.get("business_label_days") or 0)
+    if business_label_days == 0 or high == 0 or low > 0:
         actions.append({
             "priority": "P0",
             "work": "Label representative regime episodes with supply experts",
             "why": "Pseudo-anchors calibrate thresholds, but expert labels are needed for industrial validation.",
-            "evidence": f"high-confidence thresholds={high}; low-confidence thresholds={low}",
+            "evidence": (
+                f"business-label days={business_label_days}; "
+                f"high-confidence thresholds={high}; low-confidence thresholds={low}"
+            ),
         })
 
     interval_method = status_value(prediction.get("interval_method"))
@@ -362,16 +490,27 @@ def build_next_actions(manifest: dict[str, Any], validation_dir: Path) -> list[d
         actions.append({
             "priority": "P0",
             "work": "Execute paired canonical multi-item replays",
-            "why": "Prepared overlays are not equivalent to closed-loop evidence on the full MRP engine.",
+            "why": "Prepared schedules are not equivalent to executed physical evidence on the full MRP engine.",
             "evidence": f"canonical_replay.status={canonical_status}",
         })
 
-    if rci.get("status") != "validated_business_review":
+    rci_status = status_value(rci.get("status"))
+    if rci_status == "pending_business_review":
         actions.append({
             "priority": "P1",
             "work": "Complete the blinded RCI workshop with procurement and planning",
             "why": "The Risk Creation Index must be compared with expert judgments before operational use.",
-            "evidence": f"rci.status={status_value(rci.get('status'))}",
+            "evidence": f"rci.status={rci_status}",
+        })
+    elif rci_status == "review_available":
+        actions.append({
+            "priority": "P1",
+            "work": "Review RCI metrics and record explicit business sign-off",
+            "why": (
+                "A completed review supports statistical diagnostics but does "
+                "not automatically constitute industrial approval."
+            ),
+            "evidence": f"rci.status={rci_status}",
         })
 
     confusion_path = validation_dir / "data" / "forecast_confusion_summary.csv"
@@ -408,6 +547,10 @@ def write_handoff_report(
     state_path: Path,
     args: argparse.Namespace,
 ) -> Path:
+    from etudecas.prototypes.scan_2027_risk_control.reporting import (
+        prediction_coverage_report_lines,
+    )
+
     manifest_path = validation_dir / "run_manifest.json"
     manifest = load_json(manifest_path, {})
     if not isinstance(manifest, dict):
@@ -417,10 +560,13 @@ def write_handoff_report(
 
     source = manifest.get("source") or {}
     calibration = manifest.get("regime_calibration") or {}
+    annotation_metadata = calibration.get("regime_annotations") or {}
     prediction = manifest.get("prediction_to_physics") or {}
+    confusion_sensitivity = manifest.get("forecast_confusion_sensitivity") or {}
     canonical = manifest.get("canonical_replay") or {}
     rci = manifest.get("rci_business_validation") or {}
     work = manifest.get("work_package_status") or {}
+    coverage_evidence = prediction_coverage_report_lines(prediction)
 
     lines = [
         "# RESILIENCE-SCAN — campaign continuation hand-off",
@@ -451,10 +597,29 @@ def write_handoff_report(
         f"- Regime calibration: high={calibration.get('high_confidence_thresholds', 0)}, "
         f"medium={calibration.get('medium_confidence_thresholds', 0)}, "
         f"low={calibration.get('low_confidence_thresholds', 0)} confidence thresholds.",
+        f"- Regime-label provenance: `{status_value(annotation_metadata.get('label_provenance'))}`; "
+        f"business-label days={annotation_metadata.get('business_label_days', 0)}; "
+        f"coverage={annotation_metadata.get('business_label_coverage_fraction', 0.0)}.",
         f"- Material-cover source: `{status_value(calibration.get('material_cover_source'))}`.",
-        f"- Prediction interval method: `{status_value(prediction.get('interval_method'))}`; "
+        f"- Prediction-envelope method: `{status_value(prediction.get('interval_method'))}`; "
         f"rows used={prediction.get('rows_used', 0)}; pairs used={prediction.get('pairs_used', 0)}.",
+        *coverage_evidence,
+        f"- Prediction exports: scopes={prediction.get('export_scopes', [])}; "
+        f"granular rows={prediction.get('granular_interval_rows', 0)}; "
+        f"granular pairs={prediction.get('granular_pairs', 0)}; "
+        f"controller scope=`{status_value(prediction.get('controller_scope'))}`.",
+        f"- Forecast horizon policy: validity={prediction.get('forecast_validity_days')} days; "
+        f"prior centre={prediction.get('long_horizon_prior_center')}; "
+        f"uncertainty=`{status_value(prediction.get('uncertainty_policy'))}`.",
+        f"- Physical-mapping sensitivity: rows={prediction.get('coefficient_sensitivity_rows', 0)}; "
+        f"factors={prediction.get('coefficient_sensitivity_factors', [])}.",
+        f"- FP/FN sensitivity: `{status_value(confusion_sensitivity.get('status'))}`; "
+        f"design=`{status_value(confusion_sensitivity.get('design'))}`; "
+        f"rows={confusion_sensitivity.get('rows', 0)}.",
         f"- Canonical status: `{status_value(canonical.get('status'))}`.",
+        f"- Canonical runs: expected={canonical.get('expected_runs', 0)}; "
+        f"successful={canonical.get('successful_runs', 0)}; "
+        f"failed={canonical.get('failed_runs', 0)}.",
         f"- RCI business status: `{status_value(rci.get('status'))}`; completed rows={rci.get('completed_rows', 0)}.",
         "",
         "## Prioritized next actions",
@@ -506,9 +671,11 @@ def write_handoff_report(
         "",
         "## Limits",
         "",
-        "- The script orchestrates existing validated entrypoints; it does not create a daily external-control port in the canonical engine.",
-        "- Canonical `run` mode can be computationally expensive. Start with `overlay`, inspect the patched graphs and then increase seed counts.",
-        "- An RCI status is not considered industrially validated until completed expert reviews are supplied.",
+        "- Prediction-to-physics coefficients remain research hypotheses; one-at-a-time sensitivity does not replace incident-based estimation.",
+        "- The canonical engine now accepts bounded daily schedules; the adaptive schedule is precomputed, so state-feedback closed loop is not claimed.",
+        "- Any canonical `derived_oracle` row is an ex-post best-fixed benchmark copied from an executed run, not another replay or an online oracle policy.",
+        "- Canonical `run` mode can be computationally expensive. Start with `overlay`, inspect the schedules and compatibility overlays, then increase seed counts.",
+        "- Missing or incomplete expert ratings remain `pending_business_review`; a complete panel becomes `review_available`, which still requires explicit governance sign-off.",
     ])
 
     report_path = output_root / "SCAN_CONTINUATION_HANDOFF.md"
@@ -561,7 +728,7 @@ def main() -> int:
             if not args.skip_tests:
                 execute(
                     "prototype_tests",
-                    [sys.executable, "-m", "unittest", "discover", "-s", str(test_dir), "-v"],
+                    build_prototype_test_command(test_dir),
                 )
             if not args.skip_doctor:
                 require_file(pipeline, "etudecas pipeline")
@@ -623,15 +790,31 @@ def main() -> int:
             print(f"[INFO] partial hand-off report -> {report_path}")
         return 1
 
+    failed_results = [
+        result
+        for result in results
+        if result.return_code != 0 or result.status == "failed"
+    ]
+    overall_status = "failed" if failed_results else "ok"
     write_json(
         output_root / "last_run_summary.json",
         {
             "generated_at_utc": utc_now(),
             "stage": args.stage,
+            "overall_status": overall_status,
+            "failed_steps": [result.name for result in failed_results],
             "results": [asdict(result) for result in results],
             "validation_output": str(validation_dir),
         },
     )
+    if failed_results:
+        failed_names = ", ".join(result.name for result in failed_results)
+        print(
+            "[ERROR] SCAN continuation completed its requested hand-off but "
+            f"one or more steps failed: {failed_names}",
+            file=sys.stderr,
+        )
+        return 1
     print(f"SCAN continuation campaign completed: {output_root}")
     return 0
 

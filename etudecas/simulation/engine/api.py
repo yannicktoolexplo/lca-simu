@@ -64,6 +64,9 @@ class SimulationRequest:
     skip_map: bool = True
     skip_plots: bool = True
     run_lot_audit: bool = False
+    control_schedule_csv: Path | str | None = None
+    seed: int | None = None
+    common_random_numbers: bool | None = None
 
 
 @dataclass(frozen=True)
@@ -182,6 +185,13 @@ def request_from_dict(payload: dict[str, Any]) -> SimulationRequest:
         skip_map=bool(payload.get("skip_map", True)),
         skip_plots=bool(payload.get("skip_plots", True)),
         run_lot_audit=bool(payload.get("run_lot_audit", False)),
+        control_schedule_csv=payload.get("control_schedule_csv"),
+        seed=int(payload["seed"]) if payload.get("seed") is not None else None,
+        common_random_numbers=(
+            bool(payload["common_random_numbers"])
+            if payload.get("common_random_numbers") is not None
+            else None
+        ),
     )
 
 
@@ -235,6 +245,20 @@ def simulate(request: SimulationRequest) -> SimulationResult:
 
     extra_args = profile_engine_args(request.output_profile, run_lot_audit=request.run_lot_audit)
     extra_args.extend(str(arg) for arg in request.overrides.engine_args)
+    if request.control_schedule_csv is not None:
+        control_schedule_csv = str(request.control_schedule_csv).strip()
+        if control_schedule_csv:
+            extra_args.extend(["--control-schedule-csv", control_schedule_csv])
+    # Keep these typed controls last so an explicit request cannot be silently
+    # shadowed by the backward-compatible free-form engine_args escape hatch.
+    if request.seed is not None:
+        extra_args.extend(["--seed", str(int(request.seed))])
+    if request.common_random_numbers is not None:
+        extra_args.append(
+            "--common-random-numbers"
+            if request.common_random_numbers
+            else "--no-common-random-numbers"
+        )
 
     summary, stdout = run_simulation(
         run_script=Path(request.run_script),

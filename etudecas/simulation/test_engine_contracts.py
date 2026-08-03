@@ -86,6 +86,29 @@ class SimulationEngineContractsTest(unittest.TestCase):
 
         generic = simulation_request_payload(overrides={"factors": {"supplier_stock_scale": 0.8}})
         self.assertEqual(generic["overrides"], {"factors": {"supplier_stock_scale": 0.8}})
+        self.assertNotIn("control_schedule_csv", generic)
+        self.assertNotIn("seed", generic)
+        self.assertNotIn("common_random_numbers", generic)
+
+        scheduled = simulation_request_payload(
+            control_schedule_csv="daily_controls.csv",
+            seed=2027,
+            common_random_numbers=True,
+        )
+        self.assertEqual(scheduled["control_schedule_csv"], "daily_controls.csv")
+        self.assertEqual(scheduled["seed"], 2027)
+        self.assertIs(scheduled["common_random_numbers"], True)
+
+        supplier_scheduled = supplier_parameter_request_payload(
+            parameter_group="supplier_capacity_node",
+            supplier_id="SDC-1",
+            control_schedule_csv="supplier_controls.csv",
+            seed=99,
+            common_random_numbers=False,
+        )
+        self.assertEqual(supplier_scheduled["control_schedule_csv"], "supplier_controls.csv")
+        self.assertEqual(supplier_scheduled["seed"], 99)
+        self.assertIs(supplier_scheduled["common_random_numbers"], False)
 
 
 if __name__ == "__main__":

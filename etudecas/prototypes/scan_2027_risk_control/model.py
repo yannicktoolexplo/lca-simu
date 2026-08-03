@@ -13,6 +13,7 @@ from .core import (
     ScenarioPath,
     SimulationState,
     clamp,
+    classify_regime_signals,
     logit,
     safe_float,
     safety_filter,
@@ -162,29 +163,66 @@ def simulate_horizon(initial: SimulationState, action: Action, demand_path: np.n
 
 
 def classify_regime(state: SimulationState, metrics: Mapping[str, float], config: Mapping[str, Any]) -> str:
+    """Classify the operational state with the shared calibration predicates.
+
+    ``material_cover_days`` may be supplied explicitly by a richer physical
+    engine.  The reduced model otherwise has an observed raw-inventory state,
+    which is a valid material-cover measurement rather than an imputed zero.
+    Post-crisis context is taken from explicit metrics when available; the
+    one-step ``previous_backlog`` state supplies the conservative fallback.
+    """
+
     thresholds = config["regime_thresholds"]
     demand = max(safe_float(metrics.get("demand"), 1.0), EPS)
     raw_days = state.raw_inventory / demand
     finished_days = state.finished_inventory / demand
     backlog_days = state.backlog / demand
     total_inventory_days = raw_days + finished_days
-    nervousness = safe_float(metrics.get("nervousness"), 0.0)
-    utilization = safe_float(metrics.get("production_utilization"), 0.0)
-    if backlog_days >= safe_float(thresholds["crisis_backlog_days"], 1.60) and state.supplier_risk >= 0.55:
-        return "CRISIS"
-    if state.supplier_risk >= safe_float(thresholds["supplier_risk"], 0.68) or state.supplier_stress >= safe_float(thresholds["supplier_stress"], 0.72):
-        return "SUPPLIER_STRESS"
-    if nervousness >= safe_float(thresholds["oscillation_nervousness"], 0.38) and backlog_days >= 0.15:
-        return "OSCILLATORY"
-    if utilization >= safe_float(thresholds["capacity_saturation"], 0.94) and backlog_days >= 0.10:
-        return "CAPACITY_SATURATION"
-    if raw_days <= safe_float(thresholds["material_tension_days"], 0.85):
-        return "MATERIAL_TENSION"
-    if state.previous_backlog > state.backlog and backlog_days >= safe_float(thresholds["recovery_backlog_days"], 0.15):
-        return "RECOVERY"
-    if total_inventory_days >= safe_float(thresholds["overstock_days"], 7.0) and backlog_days < 0.05:
-        return "POST_CRISIS_OVERSTOCK"
-    return "NOMINAL"
+    nominal_inventory_days = max(
+        safe_float(config.get("nominal", {}).get("raw_inventory_days"), 3.0)
+        + safe_float(
+            config.get("nominal", {}).get("finished_inventory_days"), 1.2
+        ),
+        EPS,
+    )
+    material_cover_supplied = "material_cover_days" in metrics
+    material_cover = (
+        metrics.get("material_cover_days") if material_cover_supplied else raw_days
+    )
+    material_cover_known = metrics.get(
+        "material_cover_known",
+        True if not material_cover_supplied else None,
+    )
+    recent_disruption = metrics.get(
+        "recent_disruption_signal",
+        float(state.previous_backlog > 0.0),
+    )
+    return classify_regime_signals(
+        {
+            "backlog_days": backlog_days,
+            "previous_backlog_days": state.previous_backlog / demand,
+            "service": metrics.get("service", 1.0),
+            "supplier_risk": state.supplier_risk,
+            "supplier_stress": state.supplier_stress,
+            "nervousness": metrics.get("nervousness", 0.0),
+            "production_utilization": metrics.get(
+                "production_utilization", 0.0
+            ),
+            "supplier_utilization": metrics.get("supplier_utilization", 0.0),
+            "material_cover_days": material_cover,
+            "material_cover_known": material_cover_known,
+            "inventory_cover_days": total_inventory_days,
+            "inventory_excess_ratio": metrics.get(
+                "inventory_excess_ratio",
+                total_inventory_days / nominal_inventory_days,
+            ),
+            "recent_disruption_signal": recent_disruption,
+            "post_crisis_overstock_candidate": metrics.get(
+                "post_crisis_overstock_candidate", 1.0
+            ),
+        },
+        thresholds,
+    )
 
 
 def local_observability_score(base_score: float, state: SimulationState, risk_uncertainty: float,

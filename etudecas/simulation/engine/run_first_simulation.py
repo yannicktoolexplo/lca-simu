@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import json
 import math
 import random
@@ -15,7 +16,7 @@ import subprocess
 import sys
 from collections import defaultdict, deque
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 try:
     from etudecas.simulation.result_paths import data_path, ensure_standard_dirs, map_path, plots_path, report_path, summary_path
@@ -61,6 +62,24 @@ except ModuleNotFoundError:
     from etudecas.simulation.analysis.factory_nervousness import (
         FACTORY_NERVOUSNESS_FIELDS,
         build_factory_nervousness_rows,
+    )
+
+try:
+    from etudecas.simulation.engine.control_schedule import (
+        CONTROL_LEDGER_COLUMNS,
+        ControlCatalog,
+        ControlScheduleError,
+        ResolvedControl,
+        load_control_schedule,
+    )
+except ModuleNotFoundError:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+    from etudecas.simulation.engine.control_schedule import (
+        CONTROL_LEDGER_COLUMNS,
+        ControlCatalog,
+        ControlScheduleError,
+        ResolvedControl,
+        load_control_schedule,
     )
 
 
@@ -69,6 +88,64 @@ FACTORY_NOMINAL_TARGET_UTILIZATION = 0.70
 SUPPLIER_UPSTREAM_SUPPLY_NODE_ID = "SUPPLIER_UPSTREAM_SUPPLY"
 SUPPLIER_UPSTREAM_SUPPLY_EDGE_PREFIX = "SUPPLIER_UPSTREAM_SUPPLY"
 LOT_TRACE_EPS = 1e-6
+
+
+def _paired_lead_time_identity(
+    *,
+    seed: int,
+    measured_day: int,
+    lane: Mapping[str, Any],
+    source_mode: str,
+) -> str:
+    return "|".join(
+        [
+            str(int(seed)),
+            str(int(measured_day)),
+            str(lane.get("edge_id") or ""),
+            str(lane.get("src") or ""),
+            str(lane.get("dst") or ""),
+            str(lane.get("item_id") or ""),
+            str(source_mode),
+        ]
+    )
+
+
+def _paired_lead_time_seed(identity: str, invocation_ordinal: int) -> int:
+    """Stable CRN seed for the nth invocation of one physical lane/day stream."""
+
+    digest = hashlib.sha256(
+        f"{identity}|{int(invocation_ordinal)}".encode("utf-8")
+    ).digest()
+    return int.from_bytes(digest[:8], "big", signed=False)
+
+
+def _supplier_controlled_need_qty(
+    base_need_qty: float,
+    base_lane_weights: Mapping[int, float],
+    supplier_order_multipliers: Mapping[int, float],
+) -> float:
+    """Apply supplier-targeted order controls to the aggregate MRP need.
+
+    The supplier multipliers operate on each lane's neutral MRP share before
+    constraints and lotification.  Applying their weighted mean to the pair
+    need preserves the multi-source allocation while allowing a multiplier
+    above one to increase a mono-source order.
+    """
+
+    nonnegative_need = max(0.0, float(base_need_qty))
+    weight_total = sum(
+        max(0.0, float(weight))
+        for weight in base_lane_weights.values()
+    )
+    if nonnegative_need <= 0.0 or weight_total <= 0.0:
+        return nonnegative_need
+    controlled_weight_total = sum(
+        max(0.0, float(weight))
+        * max(0.0, float(supplier_order_multipliers.get(lane_key, 1.0)))
+        for lane_key, weight in base_lane_weights.items()
+    )
+    return nonnegative_need * controlled_weight_total / weight_total
+
 
 SUPPLIER_NOMINAL_PARAMETER_FIELDS = [
     "supplier_id",
@@ -899,6 +976,24 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=42,
         help="Random seed used by stochastic replenishment (default: 42).",
+    )
+    parser.add_argument(
+        "--control-schedule-csv",
+        default="",
+        help=(
+            "Optional bounded daily control schedule. Days are zero-based measured "
+            "days and never apply during warm-up. Empty preserves historical behavior."
+        ),
+    )
+    parser.add_argument(
+        "--common-random-numbers",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help=(
+            "Key stochastic lead-time draws by seed, measured day and lane so paired "
+            "policy runs share the same exogenous draw whenever the same lane/day is used. "
+            "Default is disabled to preserve the historical random stream."
+        ),
     )
     parser.add_argument(
         "--stochastic-lead-times",
@@ -4536,6 +4631,7 @@ def main() -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     ensure_standard_dirs(output_dir)
 
+    input_sha256 = hashlib.sha256(input_path.read_bytes()).hexdigest()
     data = json.loads(input_path.read_text(encoding="utf-8"))
     nodes = data.get("nodes", []) or []
     edges = data.get("edges", []) or []
@@ -4577,8 +4673,19 @@ def main() -> None:
     assumed_supply_edges = sorted(assumed_supply_edges_set)
 
     scenario = choose_scenario(data, args.scenario_id)
+    supplier_risk_events_path = (
+        Path(args.supplier_risk_events_csv)
+        if args.supplier_risk_events_csv
+        else None
+    )
+    supplier_risk_events_sha256 = (
+        hashlib.sha256(supplier_risk_events_path.read_bytes()).hexdigest()
+        if supplier_risk_events_path is not None
+        and supplier_risk_events_path.exists()
+        else ""
+    )
     supplier_risk_events, supplier_risk_warnings = load_supplier_risk_events(
-        csv_path=Path(args.supplier_risk_events_csv) if args.supplier_risk_events_csv else None,
+        csv_path=supplier_risk_events_path,
         scenario=scenario,
     )
     (
@@ -5048,6 +5155,116 @@ def main() -> None:
         for n in nodes
         if n.get("processes")
     }
+    control_schedule_path = (
+        Path(args.control_schedule_csv).resolve()
+        if args.control_schedule_csv
+        else None
+    )
+    known_item_ids = (
+        set(item_unit_map)
+        | {item_id for _, item_id in stock}
+        | {str(lane.get("item_id") or "") for lane in lanes}
+    )
+    try:
+        control_schedule = load_control_schedule(
+            control_schedule_path,
+            catalog=ControlCatalog(
+                node_ids=set(node_by_id),
+                supplier_ids=supplier_node_ids,
+                item_ids={item_id for item_id in known_item_ids if item_id},
+                dst_node_ids=set(node_by_id),
+            ),
+        )
+    except ControlScheduleError as exc:
+        raise SystemExit(f"Invalid --control-schedule-csv: {exc}") from exc
+    for warning in control_schedule.warnings:
+        print(f"[WARN] control schedule: {warning}", file=sys.stderr)
+    control_schedule_sha256 = (
+        hashlib.sha256(control_schedule_path.read_bytes()).hexdigest()
+        if control_schedule_path is not None
+        else ""
+    )
+    control_action_ledger_rows: list[dict[str, Any]] = []
+    control_applied_source_lines: set[int] = set()
+    control_applied_actions: set[tuple[int, str]] = set()
+    paired_rng_invocations: dict[str, int] = defaultdict(int)
+
+    def record_control_resolution(
+        resolved: ResolvedControl,
+        *,
+        stage: str,
+        action_names: tuple[str, ...],
+        status: str = "applied",
+        executed_control_volume_qty: float | None = None,
+        extra: dict[str, Any] | None = None,
+    ) -> None:
+        """Append only the levers actually used at this operational stage.
+
+        A resolved schedule contains all eight neutral-or-active values, but an
+        MRP ordering stage does not, for example, execute a production-capacity
+        lever.  Keeping the stage/action relationship explicit prevents the
+        action ledger and downstream KPIs from counting scheduled controls as
+        physical executions.
+        """
+
+        if not resolved.enabled:
+            return
+        payload = {
+            "action_stage": stage,
+            "executed_control_volume_qty": (
+                round(max(0.0, executed_control_volume_qty), 6)
+                if executed_control_volume_qty is not None
+                else ""
+            ),
+            **(extra or {}),
+        }
+        selected_actions = set(action_names)
+        rows = [
+            row
+            for row in resolved.to_ledger_rows(status=status, extra=payload)
+            if str(row.get("action") or "") in selected_actions
+        ]
+        control_action_ledger_rows.extend(rows)
+        control_applied_source_lines.update(
+            int(row["source_line"])
+            for row in rows
+            if str(row.get("source_line") or "").strip()
+        )
+        control_applied_actions.update(
+            (
+                int(row["source_line"]),
+                str(row["action"]),
+            )
+            for row in rows
+            if str(row.get("source_line") or "").strip()
+        )
+
+    def paired_lane_rng(
+        *,
+        measured_day: int,
+        lane: Mapping[str, Any],
+        source_mode: str,
+    ) -> random.Random:
+        """Return a stable lane/day stream for common-random-number replays."""
+
+        if not args.common_random_numbers:
+            return rng
+        identity = _paired_lead_time_identity(
+            seed=int(args.seed),
+            measured_day=int(measured_day),
+            lane=lane,
+            source_mode=source_mode,
+        )
+        # One lane can be sampled several times on the same day (for example
+        # separate lots).  Key the nth invocation, rather than returning the
+        # exact same variate for every call, while preserving nth-to-nth pairing
+        # across policy replays that exercise the same physical path.
+        invocation_ordinal = paired_rng_invocations[identity]
+        paired_rng_invocations[identity] += 1
+        return random.Random(
+            _paired_lead_time_seed(identity, invocation_ordinal)
+        )
+
     for lane in lanes:
         src = str(lane["src"])
         dst = str(lane["dst"])
@@ -6136,6 +6353,24 @@ def main() -> None:
     for day in range(total_timeline_days):
         record_day = day >= warmup_days
         output_day = day - warmup_days
+
+        def resolve_daily_control(
+            *,
+            node_id: str = "",
+            supplier_id: str = "",
+            item_id: str = "",
+            dst_node_id: str = "",
+        ) -> ResolvedControl | None:
+            if not record_day or not control_schedule.enabled:
+                return None
+            return control_schedule.resolve(
+                int(output_day),
+                node_id=node_id,
+                supplier_id=supplier_id,
+                item_id=item_id,
+                dst_node_id=dst_node_id,
+            )
+
         supplier_risk_events_today = supplier_risk_events + active_state_dependent_events(
             supplier_state_risk_events,
             output_day,
@@ -6206,6 +6441,7 @@ def main() -> None:
             )
             same_item_demand_today = propagate_demand_rates(mrp_demand_target_today, lanes)
             mps_output_command_today: dict[tuple[str, str], float] = {}
+            mps_capacity_today = dict(process_capacity_by_output_pair)
             for out_pair in process_input_requirements_by_output_pair:
                 out_signal = max(
                     0.0,
@@ -6213,7 +6449,30 @@ def main() -> None:
                     output_daily_signal_by_pair.get(out_pair, 0.0),
                 )
                 out_stock = max(0.0, stock[out_pair])
-                out_target = max(base_stock.get(out_pair, 0.0), fg_target_days * out_signal)
+                base_out_target = max(
+                    base_stock.get(out_pair, 0.0),
+                    fg_target_days * out_signal,
+                )
+                production_control = resolve_daily_control(
+                    node_id=out_pair[0],
+                    item_id=out_pair[1],
+                )
+                target_multiplier = (
+                    production_control.production_target_multiplier
+                    if production_control is not None
+                    else 1.0
+                )
+                capacity_multiplier = (
+                    production_control.capacity_multiplier
+                    if production_control is not None
+                    else 1.0
+                )
+                out_target = base_out_target * target_multiplier
+                if out_pair in mps_capacity_today:
+                    mps_capacity_today[out_pair] = max(
+                        0.0,
+                        mps_capacity_today[out_pair] * capacity_multiplier,
+                    )
                 raw_command = out_signal + production_gap_gain * (out_target - out_stock)
                 if out_signal <= 1e-9 and out_pair not in lanes_by_src_item:
                     raw_command = 0.0
@@ -6242,12 +6501,46 @@ def main() -> None:
                 mps_prev_production_command_by_pair[out_pair] = desired_qty
                 if desired_qty > 1e-9:
                     mps_output_command_today[out_pair] = desired_qty
+                if production_control is not None:
+                    mps_control_actions = [
+                        "production_target_multiplier"
+                    ]
+                    if out_pair in mps_capacity_today:
+                        mps_control_actions.append(
+                            "capacity_multiplier"
+                        )
+                    record_control_resolution(
+                        production_control,
+                        stage="mps_target_before_lotification",
+                        action_names=tuple(mps_control_actions),
+                        executed_control_volume_qty=desired_qty,
+                        extra={
+                            "quantity_uom": item_unit_map.get(out_pair[1], ""),
+                            "q_target_base_qty": round(base_out_target, 6),
+                            "q_target_controlled_qty": round(out_target, 6),
+                            "q_command_before_lotification_qty": round(
+                                desired_qty,
+                                6,
+                            ),
+                            "capacity_base_qty_per_day": round(
+                                process_capacity_by_output_pair.get(
+                                    out_pair,
+                                    0.0,
+                                ),
+                                6,
+                            ),
+                            "capacity_controlled_qty_per_day": round(
+                                mps_capacity_today.get(out_pair, 0.0),
+                                6,
+                            ),
+                        },
+                    )
             mps_component_signal_today, _mps_output_signal_today = lotified_mps_component_signal(
                 mps_output_command_today,
                 day=day,
                 process_input_requirements_by_output_pair=process_input_requirements_by_output_pair,
                 production_lot_policy_by_pair=production_lot_policy_by_pair,
-                process_capacity_by_output_pair=process_capacity_by_output_pair,
+                process_capacity_by_output_pair=mps_capacity_today,
                 mps_open_campaign_qty_by_pair=mps_open_campaign_qty_by_pair,
                 mps_started_lots_by_week_pair=mps_started_lots_by_week_pair,
             )
@@ -6775,9 +7068,22 @@ def main() -> None:
                 out_item = str((outputs[0] or {}).get("item_id"))
                 cap_raw = to_float(((p.get("capacity") or {}).get("max_rate")), 0.0)
                 has_capacity_limit = cap_raw > 0.0
+                production_control = resolve_daily_control(
+                    node_id=nid,
+                    item_id=out_item,
+                )
+                capacity_multiplier = (
+                    production_control.capacity_multiplier
+                    if production_control is not None
+                    else 1.0
+                )
                 # Missing capacity data means "capacity not modeled", not "zero capacity".
                 # Lot rules, input availability and demand signal still constrain execution.
-                cap = cap_raw if has_capacity_limit else float("inf")
+                cap = (
+                    cap_raw * capacity_multiplier
+                    if has_capacity_limit
+                    else float("inf")
+                )
 
                 batch_size = to_float(p.get("batch_size"), 1000.0)
                 if batch_size <= 0:
@@ -6815,7 +7121,16 @@ def main() -> None:
                     output_daily_signal_by_pair.get(out_pair, 0.0),
                 )
                 out_stock = max(0.0, stock[out_pair])
-                out_target = max(base_stock.get(out_pair, 0.0), fg_target_days * out_signal)
+                base_out_target = max(
+                    base_stock.get(out_pair, 0.0),
+                    fg_target_days * out_signal,
+                )
+                target_multiplier = (
+                    production_control.production_target_multiplier
+                    if production_control is not None
+                    else 1.0
+                )
+                out_target = base_out_target * target_multiplier
                 out_gap = out_target - out_stock
                 raw_command = out_signal + production_gap_gain * out_gap
 
@@ -7129,6 +7444,61 @@ def main() -> None:
                                     duration_days=14,
                                     cooldown_days=28,
                                 )
+                if production_control is not None:
+                    production_control_actions = [
+                        "production_target_multiplier"
+                    ]
+                    if has_capacity_limit:
+                        production_control_actions.append(
+                            "capacity_multiplier"
+                        )
+                    record_control_resolution(
+                        production_control,
+                        stage="production_execution",
+                        action_names=tuple(
+                            production_control_actions
+                        ),
+                        status=(
+                            "applied"
+                            if qty > 1e-9
+                            else (
+                                f"blocked:{binding_cause}"
+                                if binding_cause != "none"
+                                else "no_executable_production"
+                            )
+                        ),
+                        executed_control_volume_qty=qty,
+                        extra={
+                            "quantity_uom": item_unit_map.get(out_item, ""),
+                            "q_target_base_qty": round(base_out_target, 6),
+                            "q_target_controlled_qty": round(out_target, 6),
+                            "q_command_before_lotification_qty": round(
+                                desired_qty,
+                                6,
+                            ),
+                            "q_after_lotification_qty": round(
+                                lot_planned_qty,
+                                6,
+                            ),
+                            "q_executable_qty": round(qty, 6),
+                            "capacity_base_qty_per_day": round(
+                                cap_raw if has_capacity_limit else 0.0,
+                                6,
+                            ),
+                            "capacity_controlled_qty_per_day": round(
+                                cap if has_capacity_limit else 0.0,
+                                6,
+                            ),
+                            "binding_reason": binding_cause,
+                            "lot_policy_mode": (
+                                "fixed"
+                                if lot_policy.get("fixed_lot_qty", 0.0) > 1e-9
+                                else "min_max"
+                                if lot_policy["enabled"]
+                                else "none"
+                            ),
+                        },
+                    )
                 if qty <= 0:
                     continue
 
@@ -7409,6 +7779,7 @@ def main() -> None:
             policy: dict[str, Any],
             risk_mult: dict[str, Any],
             demand_signal_qty_per_day: float,
+            control_multiplier: float = 1.0,
         ) -> float:
             mode = str(
                 economic_policy.get("external_procurement_capacity_mode") or "supplier_nominal"
@@ -7430,6 +7801,7 @@ def main() -> None:
                 )
             cap_today *= max(0.0, to_float(risk_mult.get("external_capacity"), 1.0))
             cap_today *= max(0.0, to_float(risk_mult.get("external_availability"), 1.0))
+            cap_today *= max(0.0, float(control_multiplier))
             return max(0.0, cap_today)
 
         if (
@@ -7438,6 +7810,17 @@ def main() -> None:
             and economic_policy["external_procurement_proactive_replenishment"]
         ):
             for src_pair, policy in estimated_source_policies.items():
+                external_control = resolve_daily_control(
+                    node_id=src_pair[0],
+                    supplier_id=src_pair[0],
+                    item_id=src_pair[1],
+                    dst_node_id=src_pair[0],
+                )
+                external_multiplier = (
+                    external_control.external_procurement_multiplier
+                    if external_control is not None
+                    else 1.0
+                )
                 external_risk = supplier_risk_effects_for_pair(
                     supplier_risk_events_today,
                     src_pair[0],
@@ -7447,6 +7830,19 @@ def main() -> None:
                 base_ext_lead_days, effective_ext_lead_days, _external_lead_basis = (
                     external_procurement_leads(policy, external_risk)
                 )
+                if external_control is not None:
+                    expedite_reduction = int(
+                        math.floor(
+                            external_control.expedite_level
+                            * max(0, effective_ext_lead_days - 1)
+                        )
+                    )
+                    effective_ext_lead_days = max(
+                        1,
+                        effective_ext_lead_days
+                        + external_control.lead_time_adjustment_days
+                        - expedite_reduction,
+                    )
                 downstream_requirement = allocate_shared_downstream_pull(
                     src_pair=src_pair,
                     lanes_by_src_item=lanes_by_src_item,
@@ -7502,6 +7898,7 @@ def main() -> None:
                     policy,
                     external_risk,
                     demand_anchor,
+                    external_multiplier,
                 )
                 ext_cap_left = max(0.0, ext_cap_today - external_ordered_today_by_src_pair[src_pair])
                 ext_order_qty = min(desired_order_qty, ext_cap_left)
@@ -7509,6 +7906,46 @@ def main() -> None:
                     if record_day:
                         external_procured_rejected_today += desired_order_qty
                         external_rejected_today_by_src_pair[src_pair] += desired_order_qty
+                    if external_control is not None:
+                        record_control_resolution(
+                            external_control,
+                            stage="external_procurement_proactive",
+                            action_names=(
+                                "external_procurement_multiplier",
+                                "expedite_level",
+                                "lead_time_adjustment_days",
+                            ),
+                            status="applied_no_executable_flow",
+                            executed_control_volume_qty=0.0,
+                            extra={
+                                "quantity_uom": item_unit_map.get(
+                                    src_pair[1],
+                                    "",
+                                ),
+                                "q_mrp_base_qty": round(
+                                    desired_order_qty,
+                                    6,
+                                ),
+                                "q_after_control_qty": round(
+                                    desired_order_qty,
+                                    6,
+                                ),
+                                "q_after_constraints_qty": 0.0,
+                                "q_executable_qty": 0.0,
+                                "capacity_controlled_qty_per_day": (
+                                    round(ext_cap_today, 6)
+                                ),
+                                "lead_reference_days": int(
+                                    base_ext_lead_days
+                                ),
+                                "lead_effective_days": int(
+                                    effective_ext_lead_days
+                                ),
+                                "binding_reason": (
+                                    "external_capacity_or_control_zero"
+                                ),
+                            },
+                        )
                     continue
                 ext_receipt_qty = ext_order_qty * max(
                     0.01,
@@ -7548,6 +7985,10 @@ def main() -> None:
                     economic_policy["external_procurement_transport_cost_per_unit"]
                     * max(0.0, to_float(external_risk.get("external_cost"), 1.0))
                 )
+                if external_control is not None:
+                    ext_unit_transport *= (
+                        1.0 + 1.5 * external_control.expedite_level
+                    )
                 ext_purchase_cost = ext_order_qty * ext_unit_purchase
                 ext_transport_cost = ext_order_qty * ext_unit_transport
                 if record_day:
@@ -7565,8 +8006,64 @@ def main() -> None:
                             external_cost_ratio_today_by_src_pair[src_pair],
                             (ext_unit_purchase + ext_unit_transport) / ref_purchase,
                         )
+                if external_control is not None:
+                    record_control_resolution(
+                        external_control,
+                        stage="external_procurement_proactive",
+                        action_names=(
+                            "external_procurement_multiplier",
+                            "expedite_level",
+                            "lead_time_adjustment_days",
+                        ),
+                        executed_control_volume_qty=ext_order_qty,
+                        extra={
+                            "quantity_uom": item_unit_map.get(src_pair[1], ""),
+                            "q_mrp_base_qty": round(desired_order_qty, 6),
+                            "q_after_control_qty": round(
+                                desired_order_qty,
+                                6,
+                            ),
+                            "q_after_constraints_qty": round(
+                                ext_order_qty,
+                                6,
+                            ),
+                            "q_executable_qty": round(
+                                ext_receipt_qty,
+                                6,
+                            ),
+                            "capacity_controlled_qty_per_day": round(
+                                ext_cap_today,
+                                6,
+                            ),
+                            "lead_reference_days": int(base_ext_lead_days),
+                            "lead_effective_days": int(
+                                effective_ext_lead_days
+                            ),
+                            "binding_reason": (
+                                "external_capacity"
+                                if ext_order_qty + 1e-9
+                                < desired_order_qty
+                                else "none"
+                            ),
+                        },
+                    )
         for pair, lane_list in lanes_by_dest_item.items():
             dst, item_id = pair
+            pair_control = resolve_daily_control(
+                node_id=dst,
+                item_id=item_id,
+                dst_node_id=dst,
+            )
+            safety_stock_multiplier = (
+                pair_control.safety_stock_multiplier
+                if pair_control is not None
+                else 1.0
+            )
+            order_multiplier = (
+                pair_control.order_multiplier
+                if pair_control is not None
+                else 1.0
+            )
             pair_is_upstream_factory_mrp = dst in process_node_ids and pair not in demand_pairs
             pair_review_period_days = mrp_review_period_days if pair_is_upstream_factory_mrp else review_period_days
             strict_safety_floor = initialization_policy["mrp_strict_safety_floor_from_safety_time"]
@@ -7575,6 +8072,10 @@ def main() -> None:
                 if strict_safety_floor
                 else max(base_stock.get(pair, 0.0), 0.0) * base_stock_floor_factor_for_pair(pair)
             )
+            # Keep a control-free MRP target in parallel so the ledger's
+            # q_MRP value is genuinely the historical reference, even when a
+            # safety-stock multiplier is active.
+            neutral_target = target
             static_daily_req = max(0.0, required_daily_input_by_pair.get(pair, 0.0))
             dynamic_daily_req = max(0.0, propagated_demand_today.get(pair, 0.0))
             if static_requirement_for_pair(pair):
@@ -7599,36 +8100,97 @@ def main() -> None:
                 item_daily_req,
                 pair_review_period_days,
             )
-            explicit_safety_stock_qty = max(0.0, pair_mrp_safety_stock_qty.get(pair, 0.0))
+            explicit_safety_stock_base_qty = max(
+                0.0,
+                pair_mrp_safety_stock_qty.get(pair, 0.0),
+            )
+            explicit_safety_stock_qty = (
+                explicit_safety_stock_base_qty * safety_stock_multiplier
+            )
             soft_safety_target_qty = explicit_safety_stock_qty if strict_safety_floor else max(target, explicit_safety_stock_qty)
+            neutral_soft_safety_target_qty = (
+                explicit_safety_stock_base_qty
+                if strict_safety_floor
+                else max(neutral_target, explicit_safety_stock_base_qty)
+            )
             target = max(target, explicit_safety_stock_qty)
+            neutral_target = max(
+                neutral_target,
+                explicit_safety_stock_base_qty,
+            )
             if target_daily_req > 0:
                 safety_time_target_qty = (
                     target_daily_req
                     * max(0.0, pair_mrp_safety_time_days.get(pair, 0.0))
                     * soft_safety_factor_for_pair(pair)
+                    * safety_stock_multiplier
+                )
+                neutral_safety_time_target_qty = (
+                    target_daily_req
+                    * max(
+                        0.0,
+                        pair_mrp_safety_time_days.get(pair, 0.0),
+                    )
+                    * soft_safety_factor_for_pair(pair)
                 )
                 safety_target_qty = max(explicit_safety_stock_qty, safety_time_target_qty)
+                neutral_safety_target_qty = max(
+                    explicit_safety_stock_base_qty,
+                    neutral_safety_time_target_qty,
+                )
                 if strict_safety_floor:
                     soft_safety_target_qty = safety_target_qty
+                    neutral_soft_safety_target_qty = (
+                        neutral_safety_target_qty
+                    )
                 else:
                     soft_safety_target_qty = max(target, safety_target_qty)
+                    neutral_soft_safety_target_qty = max(
+                        neutral_target,
+                        neutral_safety_target_qty,
+                    )
                 target = max(target, soft_safety_target_qty)
-                target = max(target, safety_stock_days * target_daily_req)
+                neutral_target = max(
+                    neutral_target,
+                    neutral_soft_safety_target_qty,
+                )
+                target = max(
+                    target,
+                    safety_stock_days
+                    * target_daily_req
+                    * safety_stock_multiplier,
+                )
+                neutral_target = max(
+                    neutral_target,
+                    safety_stock_days * target_daily_req,
+                )
                 if pair in demand_pairs and demand_stock_target_days > 0.0:
                     target = max(target, demand_stock_target_days * target_daily_req)
+                    neutral_target = max(
+                        neutral_target,
+                        demand_stock_target_days * target_daily_req,
+                    )
                 if pair not in mrp_snapshot_pairs:
                     target = max(
                         target,
                         target_daily_req * effective_cover_days,
                     )
+                    neutral_target = max(
+                        neutral_target,
+                        target_daily_req * effective_cover_days,
+                    )
             else:
                 target = max(target, 0.0)
+                neutral_target = max(neutral_target, 0.0)
             target += backlog[pair]
+            neutral_target += backlog[pair]
 
             if day % pair_review_period_days != 0:
                 continue
 
+            neutral_needed = (
+                neutral_target - stock[pair] - in_transit[pair]
+            )
             needed = target - stock[pair] - in_transit[pair]
             if initialization_policy["mrp_enforce_physical_safety_floor"]:
                 if explicit_safety_stock_qty > 0.0 and pair_mrp_safety_time_days.get(pair, 0.0) <= 0.0:
@@ -7641,15 +8203,45 @@ def main() -> None:
                     # Ignoring in-transit here stacks duplicate long-lead lots on
                     # every review day until the receipts physically arrive.
                     needed = max(needed, soft_safety_target_qty - stock[pair] - in_transit[pair])
+                neutral_needed = max(
+                    neutral_needed,
+                    neutral_soft_safety_target_qty
+                    - stock[pair]
+                    - in_transit[pair],
+                )
+            q_mrp_base_qty = max(0.0, neutral_needed)
+            q_after_safety_stock_control_qty = max(0.0, needed)
+            needed *= order_multiplier
+            q_after_control_qty = max(0.0, needed)
             has_regular_need = needed > 1e-9
-            active_lanes: list[tuple[dict[str, Any], float, dict[str, Any]]] = []
-            annual_min_lot_lanes: list[tuple[dict[str, Any], float, dict[str, Any]]] = []
+            active_lanes: list[
+                tuple[
+                    dict[str, Any],
+                    float,
+                    dict[str, Any],
+                    ResolvedControl | None,
+                ]
+            ] = []
+            annual_min_lot_lanes: list[
+                tuple[
+                    dict[str, Any],
+                    float,
+                    dict[str, Any],
+                    ResolvedControl | None,
+                ]
+            ] = []
 
             for lane in lane_list:
                 lane_review_days = int(round(max(1.0, to_float(lane.get("order_frequency_days"), 1.0))))
                 if day % lane_review_days != 0:
                     continue
                 risk_mult = supplier_risk_multipliers_for_lane(supplier_risk_events_today, lane, output_day)
+                lane_control = resolve_daily_control(
+                    node_id=dst,
+                    supplier_id=str(lane.get("src") or ""),
+                    item_id=item_id,
+                    dst_node_id=dst,
+                )
                 availability_mult = lane_availability_multiplier(lane, day) * to_float(
                     risk_mult.get("availability"),
                     1.0,
@@ -7667,7 +8259,9 @@ def main() -> None:
                     )
                 if availability_mult <= 1e-9:
                     continue
-                active_lanes.append((lane, availability_mult, risk_mult))
+                active_lanes.append(
+                    (lane, availability_mult, risk_mult, lane_control)
+                )
 
             if (
                 mrp_multisource_min_annual_lot_enabled
@@ -7687,6 +8281,12 @@ def main() -> None:
                         if standard_order_qty <= 1e-9:
                             continue
                         risk_mult = supplier_risk_multipliers_for_lane(supplier_risk_events_today, lane, output_day)
+                        lane_control = resolve_daily_control(
+                            node_id=dst,
+                            supplier_id=str(lane.get("src") or ""),
+                            item_id=item_id,
+                            dst_node_id=dst,
+                        )
                         availability_mult = lane_availability_multiplier(lane, day) * to_float(
                             risk_mult.get("availability"),
                             1.0,
@@ -7704,17 +8304,228 @@ def main() -> None:
                                     effects=risk_mult,
                                 )
                             )
-                        annual_min_lot_lanes.append((lane, availability_mult, risk_mult))
+                        annual_min_lot_lanes.append(
+                            (lane, availability_mult, risk_mult, lane_control)
+                        )
 
-            if not has_regular_need and not annual_min_lot_lanes:
-                continue
+            # Supplier-targeted order multipliers act once on the lane's base
+            # MRP share. Their weighted mean adjusts the total pair need, so a
+            # multiplier above one can increase a mono-source order instead of
+            # being clipped back to the original remaining need.
+            base_lane_weights = {
+                id(lane): max(
+                    0.0,
+                    to_float(lane.get("mrp_share"), 0.0),
+                )
+                for lane, _, _, _ in active_lanes
+            }
+            if (
+                active_lanes
+                and sum(base_lane_weights.values()) <= 1e-9
+            ):
+                base_lane_weights = {
+                    id(lane): 1.0
+                    for lane, _, _, _ in active_lanes
+                }
+            base_lane_weight_total = sum(base_lane_weights.values())
+            supplier_order_multipliers: dict[int, float] = {}
+            priority_weights: dict[int, float] = {}
+            for lane, _, _, lane_control in active_lanes:
+                targeted_order_multiplier = 1.0
+                priority_weight = 1.0
+                if lane_control is not None:
+                    order_action = lane_control.action("order_multiplier")
+                    if (
+                        order_action.applied
+                        and bool(order_action.supplier_id)
+                    ):
+                        targeted_order_multiplier = max(
+                            0.0,
+                            lane_control.order_multiplier,
+                        )
+                    priority_action = lane_control.action(
+                        "priority_weight"
+                    )
+                    if priority_action.applied:
+                        priority_weight = max(
+                            0.0,
+                            lane_control.priority_weight,
+                        )
+                supplier_order_multipliers[id(lane)] = (
+                    targeted_order_multiplier
+                )
+                priority_weights[id(lane)] = priority_weight
 
-            active_share_total = sum(max(0.0, to_float(lane.get("mrp_share"), 0.0)) for lane, _, _ in active_lanes)
+            q_after_supplier_control_qty = _supplier_controlled_need_qty(
+                q_after_control_qty,
+                base_lane_weights,
+                supplier_order_multipliers,
+            )
+            needed = q_after_supplier_control_qty
+
+            allocation_weights = {
+                id(lane): (
+                    base_lane_weights[id(lane)]
+                    * supplier_order_multipliers[id(lane)]
+                    * priority_weights[id(lane)]
+                )
+                for lane, _, _, _ in active_lanes
+            }
+            active_share_total = sum(allocation_weights.values())
+            eligible_active_lanes = [
+                entry
+                for entry in active_lanes
+                if allocation_weights[id(entry[0])] > 1e-9
+            ]
+            has_regular_need = (
+                needed > 1e-9 and bool(eligible_active_lanes)
+            )
+
+            if base_lane_weight_total > 1e-9:
+                order_only_weight_total = sum(
+                    base_lane_weights[id(lane)]
+                    * supplier_order_multipliers[id(lane)]
+                    for lane, _, _, _ in active_lanes
+                )
+                for lane, _, _, lane_control in active_lanes:
+                    if lane_control is None:
+                        continue
+                    lane_key = id(lane)
+                    base_lane_target = (
+                        q_after_control_qty
+                        * base_lane_weights[lane_key]
+                        / base_lane_weight_total
+                    )
+                    supplier_controlled_lane_target = (
+                        base_lane_target
+                        * supplier_order_multipliers[lane_key]
+                    )
+                    order_action = lane_control.action(
+                        "order_multiplier"
+                    )
+                    if (
+                        order_action.applied
+                        and bool(order_action.supplier_id)
+                    ):
+                        record_control_resolution(
+                            lane_control,
+                            stage=(
+                                "supplier_order_control_before_constraints"
+                            ),
+                            action_names=("order_multiplier",),
+                            status=(
+                                "applied"
+                                if supplier_controlled_lane_target > 1e-9
+                                else "applied_zero_target"
+                            ),
+                            extra={
+                                "edge_id": str(
+                                    lane.get("edge_id") or ""
+                                ),
+                                "quantity_uom": item_unit_map.get(
+                                    item_id,
+                                    "",
+                                ),
+                                "q_supplier_base_share_qty": round(
+                                    base_lane_target,
+                                    6,
+                                ),
+                                "q_after_supplier_control_qty": round(
+                                    supplier_controlled_lane_target,
+                                    6,
+                                ),
+                                "q_pair_after_supplier_control_qty": (
+                                    round(
+                                        q_after_supplier_control_qty,
+                                        6,
+                                    )
+                                ),
+                                "binding_reason": (
+                                    "supplier_order_multiplier_zero"
+                                    if supplier_controlled_lane_target
+                                    <= 1e-9
+                                    else "none"
+                                ),
+                            },
+                        )
+
+                    priority_action = lane_control.action(
+                        "priority_weight"
+                    )
+                    if (
+                        priority_action.applied
+                        and len(active_lanes) > 1
+                    ):
+                        before_priority_target = (
+                            q_after_supplier_control_qty
+                            * (
+                                base_lane_weights[lane_key]
+                                * supplier_order_multipliers[lane_key]
+                            )
+                            / max(order_only_weight_total, 1e-9)
+                        )
+                        after_priority_target = (
+                            q_after_supplier_control_qty
+                            * allocation_weights[lane_key]
+                            / max(active_share_total, 1e-9)
+                            if active_share_total > 1e-9
+                            else 0.0
+                        )
+                        priority_changed = (
+                            abs(
+                                after_priority_target
+                                - before_priority_target
+                            )
+                            > 1e-9
+                        )
+                        record_control_resolution(
+                            lane_control,
+                            stage="supplier_allocation_priority",
+                            action_names=("priority_weight",),
+                            status=(
+                                "applied"
+                                if priority_changed
+                                else "applied_no_relative_effect"
+                            ),
+                            extra={
+                                "edge_id": str(
+                                    lane.get("edge_id") or ""
+                                ),
+                                "quantity_uom": item_unit_map.get(
+                                    item_id,
+                                    "",
+                                ),
+                                "q_before_priority_allocation_qty": (
+                                    round(
+                                        before_priority_target,
+                                        6,
+                                    )
+                                ),
+                                "q_after_priority_allocation_qty": (
+                                    round(
+                                        after_priority_target,
+                                        6,
+                                    )
+                                ),
+                                "binding_reason": (
+                                    "all_priority_weights_zero"
+                                    if active_share_total <= 1e-9
+                                    else (
+                                        "global_or_common_weight_cancels"
+                                        if not priority_changed
+                                        else "none"
+                                    )
+                                ),
+                            },
+                        )
+
+            pair_constrained_before_lot_qty = 0.0
 
             def try_ship_lane(
                 lane: dict[str, Any],
                 availability_mult: float,
                 risk_mult: dict[str, Any],
+                lane_control: ResolvedControl | None,
                 desired_delivered_qty: float,
                 remaining_need_qty: float,
                 source_mode: str = "lane_release",
@@ -7731,6 +8542,7 @@ def main() -> None:
                 nonlocal supplier_capacity_binding_qty_today
                 nonlocal total_external_procurement_cost
                 nonlocal total_unreliable_loss_qty
+                nonlocal pair_constrained_before_lot_qty
 
                 if desired_delivered_qty <= 1e-9 or remaining_need_qty <= 1e-9:
                     return 0.0
@@ -7760,6 +8572,11 @@ def main() -> None:
                             ext_policy,
                             risk_mult,
                             ext_daily_signal,
+                            (
+                                lane_control.external_procurement_multiplier
+                                if lane_control is not None
+                                else 1.0
+                            ),
                         )
                         if record_day:
                             external_desired_today_by_src_pair[src_pair] += ext_gap
@@ -7772,6 +8589,19 @@ def main() -> None:
                                     risk_mult,
                                 )
                             )
+                            if lane_control is not None:
+                                ext_expedite_reduction = int(
+                                    math.floor(
+                                        lane_control.expedite_level
+                                        * max(0, ext_lead_days - 1)
+                                    )
+                                )
+                                ext_lead_days = max(
+                                    1,
+                                    ext_lead_days
+                                    + lane_control.lead_time_adjustment_days
+                                    - ext_expedite_reduction,
+                                )
                             ext_receipt_qty = ext_order_qty * max(
                                 0.01,
                                 to_float(risk_mult.get("external_quality_yield"), 1.0),
@@ -7811,6 +8641,12 @@ def main() -> None:
                                 economic_policy["external_procurement_transport_cost_per_unit"]
                                 * max(0.0, to_float(risk_mult.get("external_cost"), 1.0))
                             )
+                            if lane_control is not None:
+                                ext_unit_transport *= (
+                                    1.0
+                                    + 1.5
+                                    * lane_control.expedite_level
+                                )
                             ext_order_cost = ext_order_qty * (ext_unit_purchase + ext_unit_transport)
                             if record_day:
                                 ext_purchase_cost = ext_order_qty * ext_unit_purchase
@@ -7818,6 +8654,115 @@ def main() -> None:
                                 external_procurement_purchase_cost_today += ext_purchase_cost
                                 external_procurement_transport_cost_today += ext_transport_cost
                                 total_external_procurement_cost += ext_order_cost
+                            if lane_control is not None:
+                                record_control_resolution(
+                                    lane_control,
+                                    stage="external_procurement_reactive",
+                                    action_names=(
+                                        "external_procurement_multiplier",
+                                        "expedite_level",
+                                        "lead_time_adjustment_days",
+                                    ),
+                                    executed_control_volume_qty=ext_order_qty,
+                                    extra={
+                                        "edge_id": str(
+                                            lane.get("edge_id") or ""
+                                        ),
+                                        "quantity_uom": item_unit_map.get(
+                                            item_id,
+                                            "",
+                                        ),
+                                        "q_mrp_base_qty": round(
+                                            ext_gap,
+                                            6,
+                                        ),
+                                        "q_after_constraints_qty": round(
+                                            ext_order_qty,
+                                            6,
+                                        ),
+                                        "q_executable_qty": round(
+                                            ext_receipt_qty,
+                                            6,
+                                        ),
+                                        "capacity_controlled_qty_per_day": round(
+                                            ext_cap_today,
+                                            6,
+                                        ),
+                                        "lead_reference_days": int(
+                                            base_ext_lead_days
+                                        ),
+                                        "lead_effective_days": int(
+                                            ext_lead_days
+                                        ),
+                                        "binding_reason": (
+                                            "external_capacity"
+                                            if ext_order_qty + 1e-9 < ext_gap
+                                            else "none"
+                                        ),
+                                    },
+                                )
+                        else:
+                            (
+                                base_ext_lead_days,
+                                ext_lead_days,
+                                _external_lead_basis,
+                            ) = external_procurement_leads(
+                                ext_policy,
+                                risk_mult,
+                            )
+                            if lane_control is not None:
+                                ext_expedite_reduction = int(
+                                    math.floor(
+                                        lane_control.expedite_level
+                                        * max(0, ext_lead_days - 1)
+                                    )
+                                )
+                                ext_lead_days = max(
+                                    1,
+                                    ext_lead_days
+                                    + lane_control.lead_time_adjustment_days
+                                    - ext_expedite_reduction,
+                                )
+                                record_control_resolution(
+                                    lane_control,
+                                    stage="external_procurement_reactive",
+                                    action_names=(
+                                        "external_procurement_multiplier",
+                                        "expedite_level",
+                                        "lead_time_adjustment_days",
+                                    ),
+                                    status=(
+                                        "applied_no_executable_flow"
+                                    ),
+                                    executed_control_volume_qty=0.0,
+                                    extra={
+                                        "edge_id": str(
+                                            lane.get("edge_id") or ""
+                                        ),
+                                        "quantity_uom": item_unit_map.get(
+                                            item_id,
+                                            "",
+                                        ),
+                                        "q_mrp_base_qty": round(
+                                            ext_gap,
+                                            6,
+                                        ),
+                                        "q_after_constraints_qty": 0.0,
+                                        "q_executable_qty": 0.0,
+                                        "capacity_controlled_qty_per_day": (
+                                            round(ext_cap_today, 6)
+                                        ),
+                                        "lead_reference_days": int(
+                                            base_ext_lead_days
+                                        ),
+                                        "lead_effective_days": int(
+                                            ext_lead_days
+                                        ),
+                                        "binding_reason": (
+                                            "external_capacity_or_control_zero"
+                                        ),
+                                    },
+                                )
                         ext_rejected = max(0.0, ext_gap - ext_order_qty)
                         if record_day:
                             external_procured_rejected_today += ext_rejected
@@ -7859,34 +8804,115 @@ def main() -> None:
                     max_feasible_qty = max(max_feasible_qty, unconstrained_pull_qty)
                 supplier_capacity_left = supplier_daily_capacity_by_pair.get(src_pair)
                 if supplier_capacity_left is not None:
+                    control_capacity_multiplier = (
+                        lane_control.capacity_multiplier
+                        if lane_control is not None
+                        else 1.0
+                    )
                     supplier_capacity_left = max(
                         0.0,
                         supplier_capacity_left
                         * availability_mult
                         * max(0.0, to_float(risk_mult.get("capacity"), 1.0))
+                        * control_capacity_multiplier
                         - supplier_capacity_used_today_by_src_pair[src_pair],
                     )
                     if supplier_backorder_extra_lead_days <= 0:
                         max_feasible_qty = min(max_feasible_qty, supplier_capacity_left)
                     if supplier_backorder_extra_lead_days <= 0 and supplier_capacity_left + 1e-9 < unconstrained_pull_qty:
                         supplier_capacity_binding_qty_today += unconstrained_pull_qty - max(0.0, supplier_capacity_left)
+                constrained_pull_qty = min(
+                    unconstrained_pull_qty,
+                    max_feasible_qty,
+                )
+                pair_constrained_before_lot_qty += constrained_pull_qty
                 if standard_order_qty > 1e-9:
                     target_units = max(1, int(math.ceil((unconstrained_pull_qty / standard_order_qty) - 1e-9)))
                     feasible_units = int(math.floor((max_feasible_qty / standard_order_qty) + 1e-9))
                     if feasible_units <= 0:
-                        return 0.0
-                    pull_qty = min(target_units, feasible_units) * standard_order_qty
+                        pull_qty = 0.0
+                    else:
+                        pull_qty = min(target_units, feasible_units) * standard_order_qty
                 else:
-                    pull_qty = min(unconstrained_pull_qty, max_feasible_qty)
+                    pull_qty = constrained_pull_qty
                 delivered_qty = pull_qty * rel
                 if pull_qty <= 1e-9 or delivered_qty <= 1e-9:
+                    if lane_control is not None:
+                        zero_flow_actions: list[str] = []
+                        capacity_action = lane_control.action(
+                            "capacity_multiplier"
+                        )
+                        if (
+                            supplier_capacity_left is not None
+                            and capacity_action.applied
+                        ):
+                            zero_flow_actions.append(
+                                "capacity_multiplier"
+                            )
+                        if zero_flow_actions:
+                            record_control_resolution(
+                                lane_control,
+                                stage="supplier_lane_execution",
+                                action_names=tuple(zero_flow_actions),
+                                status="applied_no_executable_flow",
+                                executed_control_volume_qty=0.0,
+                                extra={
+                                    "edge_id": str(
+                                        lane.get("edge_id") or ""
+                                    ),
+                                    "quantity_uom": item_unit_map.get(
+                                        item_id,
+                                        "",
+                                    ),
+                                    "q_lane_requested_qty": round(
+                                        desired_delivered_qty,
+                                        6,
+                                    ),
+                                    "q_before_constraints_qty": round(
+                                        unconstrained_pull_qty,
+                                        6,
+                                    ),
+                                    "q_after_constraints_qty": round(
+                                        constrained_pull_qty,
+                                        6,
+                                    ),
+                                    "q_after_lotification_qty": 0.0,
+                                    "q_executable_qty": 0.0,
+                                    "standard_order_qty": round(
+                                        standard_order_qty,
+                                        6,
+                                    ),
+                                    "capacity_controlled_remaining_qty": (
+                                        round(
+                                            supplier_capacity_left,
+                                            6,
+                                        )
+                                        if supplier_capacity_left
+                                        is not None
+                                        else ""
+                                    ),
+                                    "binding_reason": (
+                                        "lotification_or_capacity_zero"
+                                    ),
+                                },
+                            )
                     return 0.0
 
                 if supplier_backorder_extra_lead_days <= 0:
                     stock[src_pair] -= pull_qty
                     supplier_capacity_used_today_by_src_pair[src_pair] += pull_qty
                     supplier_shipped_from_stock_today_by_src_pair[src_pair] += delivered_qty
-                transport_lead_days = sample_lead_days(lane, rng, args.stochastic_lead_times, lead_time_distribution_mode)
+                lead_rng = paired_lane_rng(
+                    measured_day=output_day,
+                    lane=lane,
+                    source_mode=source_mode,
+                )
+                transport_lead_days = sample_lead_days(
+                    lane,
+                    lead_rng,
+                    args.stochastic_lead_times,
+                    lead_time_distribution_mode,
+                )
                 transport_lead_days = max(
                     1,
                     int(
@@ -7897,11 +8923,36 @@ def main() -> None:
                         )
                     ),
                 )
+                if lane_control is not None:
+                    expedite_reduction = int(
+                        math.floor(
+                            lane_control.expedite_level
+                            * max(0, transport_lead_days - 1)
+                        )
+                    )
+                    transport_lead_days = max(
+                        1,
+                        transport_lead_days
+                        + lane_control.lead_time_adjustment_days
+                        - expedite_reduction,
+                    )
                 lead_days = int(transport_lead_days + supplier_backorder_extra_lead_days)
                 lead_cover = (
                     lead_time_cover_days(lane, args.stochastic_lead_times, lead_time_distribution_mode)
                     + supplier_backorder_extra_lead_days
                 )
+                if lane_control is not None:
+                    lead_cover = max(
+                        1,
+                        lead_cover
+                        + lane_control.lead_time_adjustment_days
+                        - int(
+                            math.floor(
+                                lane_control.expedite_level
+                                * max(0, lead_cover - 1)
+                            )
+                        ),
+                    )
                 lead_reference = lead_time_reference_days(lane) + supplier_backorder_extra_lead_days
                 if args.supplier_state_dependent_risks and record_day and src_pair[0] in supplier_node_ids:
                     supplier_state_lead_observations_today_by_pair[src_pair].append(
@@ -7988,6 +9039,12 @@ def main() -> None:
                             chunk_delivered_qty,
                         )
                         chunk_transport_cost *= max(0.0, to_float(risk_mult.get("transport_cost"), 1.0))
+                        if lane_control is not None:
+                            chunk_transport_cost *= (
+                                1.0
+                                + 1.5
+                                * lane_control.expedite_level
+                            )
                         chunk_purchase_cost = (
                             chunk_delivered_qty
                             * lane["unit_purchase_cost"]
@@ -8033,36 +9090,117 @@ def main() -> None:
                                 "transport_cost": round(chunk_transport_cost, 6),
                             }
                         )
+                if lane_control is not None:
+                    executed_lane_actions: list[str] = []
+                    capacity_action = lane_control.action(
+                        "capacity_multiplier"
+                    )
+                    if (
+                        supplier_capacity_left is not None
+                        and capacity_action.applied
+                    ):
+                        executed_lane_actions.append(
+                            "capacity_multiplier"
+                        )
+                    for action_name in (
+                        "expedite_level",
+                        "lead_time_adjustment_days",
+                    ):
+                        if lane_control.action(action_name).applied:
+                            executed_lane_actions.append(action_name)
+                    record_control_resolution(
+                        lane_control,
+                        stage="supplier_lane_execution",
+                        action_names=tuple(executed_lane_actions),
+                        executed_control_volume_qty=delivered_qty,
+                        extra={
+                            "edge_id": str(lane.get("edge_id") or ""),
+                            "quantity_uom": item_unit_map.get(item_id, ""),
+                            "q_lane_requested_qty": round(
+                                desired_delivered_qty,
+                                6,
+                            ),
+                            "q_before_constraints_qty": round(
+                                unconstrained_pull_qty,
+                                6,
+                            ),
+                            "q_after_constraints_qty": round(
+                                constrained_pull_qty,
+                                6,
+                            ),
+                            "q_after_lotification_qty": round(
+                                pull_qty,
+                                6,
+                            ),
+                            "q_executable_qty": round(
+                                delivered_qty,
+                                6,
+                            ),
+                            "standard_order_qty": round(
+                                standard_order_qty,
+                                6,
+                            ),
+                            "capacity_controlled_remaining_qty": (
+                                round(supplier_capacity_left, 6)
+                                if supplier_capacity_left is not None
+                                else ""
+                            ),
+                            "lead_reference_days": int(lead_reference),
+                            "lead_effective_days": int(lead_days),
+                            "binding_reason": (
+                                "supplier_stock_or_capacity"
+                                if pull_qty + 1e-9
+                                < unconstrained_pull_qty
+                                else "none"
+                            ),
+                        },
+                    )
                 return delivered_qty
 
             remaining = max(0.0, needed)
-            if has_regular_need and active_share_total > 1e-9 and len(active_lanes) > 1:
-                for lane, availability_mult, risk_mult in active_lanes:
+            if (
+                has_regular_need
+                and active_share_total > 1e-9
+                and len(eligible_active_lanes) > 1
+            ):
+                for (
+                    lane,
+                    availability_mult,
+                    risk_mult,
+                    lane_control,
+                ) in eligible_active_lanes:
                     if remaining <= 1e-9:
                         break
-                    lane_share = max(0.0, to_float(lane.get("mrp_share"), 0.0))
+                    lane_share = allocation_weights[id(lane)]
                     lane_target_qty = needed * lane_share / active_share_total
                     remaining -= try_ship_lane(
                         lane,
                         availability_mult,
                         risk_mult,
+                        lane_control,
                         desired_delivered_qty=min(remaining, lane_target_qty),
                         remaining_need_qty=remaining,
                     )
 
             if has_regular_need:
-                for lane, availability_mult, risk_mult in active_lanes:
+                for (
+                    lane,
+                    availability_mult,
+                    risk_mult,
+                    lane_control,
+                ) in eligible_active_lanes:
                     if remaining <= 1e-9:
                         break
                     remaining -= try_ship_lane(
                         lane,
                         availability_mult,
                         risk_mult,
+                        lane_control,
                         desired_delivered_qty=remaining,
                         remaining_need_qty=remaining,
                     )
 
-            for lane, availability_mult, risk_mult in annual_min_lot_lanes:
+            for lane, availability_mult, risk_mult, lane_control in annual_min_lot_lanes:
                 edge_id = str(lane.get("edge_id") or "")
                 output_day_nonnegative = max(0, int(output_day))
                 year_idx = output_day_nonnegative // 365
@@ -8075,9 +9213,81 @@ def main() -> None:
                     lane,
                     availability_mult,
                     risk_mult,
+                    lane_control,
                     desired_delivered_qty=standard_order_qty,
                     remaining_need_qty=standard_order_qty,
                     source_mode="lane_release_min_annual_lot",
+                )
+            if pair_control is not None:
+                pair_release_qty = max(
+                    0.0,
+                    planned_release_today_by_pair.get(pair, 0.0),
+                )
+                pair_receipt_qty = max(
+                    0.0,
+                    planned_receipt_today_by_pair.get(pair, 0.0),
+                )
+                record_control_resolution(
+                    pair_control,
+                    # The audit row is emitted after executable quantities are
+                    # known, but the control itself was applied to ``needed``
+                    # before lane constraints and lotification.
+                    stage="mrp_order_control_before_constraints",
+                    action_names=(
+                        "order_multiplier",
+                        "safety_stock_multiplier",
+                    ),
+                    status=(
+                        "applied"
+                        if pair_receipt_qty > 1e-9
+                        else "no_executable_order"
+                    ),
+                    executed_control_volume_qty=pair_receipt_qty,
+                    extra={
+                        "quantity_uom": item_unit_map.get(item_id, ""),
+                        "q_mrp_base_qty": round(q_mrp_base_qty, 6),
+                        "q_after_safety_stock_control_qty": round(
+                            q_after_safety_stock_control_qty,
+                            6,
+                        ),
+                        "q_after_control_qty": round(
+                            q_after_control_qty,
+                            6,
+                        ),
+                        "q_after_supplier_control_qty": round(
+                            q_after_supplier_control_qty,
+                            6,
+                        ),
+                        "q_after_constraints_qty": round(
+                            pair_constrained_before_lot_qty,
+                            6,
+                        ),
+                        "q_after_lotification_qty": round(
+                            pair_release_qty,
+                            6,
+                        ),
+                        "q_executable_qty": round(
+                            pair_receipt_qty,
+                            6,
+                        ),
+                        "target_stock_controlled_qty": round(
+                            target,
+                            6,
+                        ),
+                        "explicit_safety_stock_base_qty": round(
+                            explicit_safety_stock_base_qty,
+                            6,
+                        ),
+                        "explicit_safety_stock_controlled_qty": round(
+                            explicit_safety_stock_qty,
+                            6,
+                        ),
+                        "binding_reason": (
+                            "stock_capacity_or_lot"
+                            if remaining > 1e-9
+                            else "none"
+                        ),
+                    },
                 )
 
         if record_day:
@@ -8099,6 +9309,16 @@ def main() -> None:
                 )
             for src_pair, nominal_cap in supplier_daily_capacity_by_pair.items():
                 src, item_id = src_pair
+                supplier_control = resolve_daily_control(
+                    node_id=src,
+                    supplier_id=src,
+                    item_id=item_id,
+                )
+                supplier_control_capacity = (
+                    supplier_control.capacity_multiplier
+                    if supplier_control is not None
+                    else 1.0
+                )
                 used_qty = supplier_capacity_used_today_by_src_pair.get(src_pair, 0.0)
                 capacity_multipliers_today: list[float] = []
                 for cap_lane in lanes_by_src_item.get(src_pair, []):
@@ -8108,7 +9328,11 @@ def main() -> None:
                             max(0.0, to_float(cap_risk.get("capacity"), 1.0))
                             * max(0.0, to_float(cap_risk.get("availability"), 1.0))
                         )
-                effective_cap_today = nominal_cap * min(capacity_multipliers_today or [1.0])
+                effective_cap_today = (
+                    nominal_cap
+                    * min(capacity_multipliers_today or [1.0])
+                    * supplier_control_capacity
+                )
                 supplier_capacity_daily_rows.append(
                     {
                         "day": output_day,
@@ -8120,6 +9344,32 @@ def main() -> None:
                         "utilization": round(used_qty / effective_cap_today, 6) if effective_cap_today > 1e-9 else 0.0,
                     }
                 )
+                if supplier_control is not None:
+                    record_control_resolution(
+                        supplier_control,
+                        stage="supplier_capacity",
+                        action_names=("capacity_multiplier",),
+                        executed_control_volume_qty=used_qty,
+                        extra={
+                            "quantity_uom": item_unit_map.get(item_id, ""),
+                            "capacity_base_qty_per_day": round(
+                                nominal_cap,
+                                6,
+                            ),
+                            "capacity_controlled_qty_per_day": round(
+                                effective_cap_today,
+                                6,
+                            ),
+                            "capacity_used_qty": round(used_qty, 6),
+                            "binding_reason": (
+                                "supplier_capacity"
+                                if effective_cap_today > 1e-9
+                                and used_qty + 1e-9
+                                >= effective_cap_today
+                                else "none"
+                            ),
+                        },
+                    )
                 if args.supplier_state_dependent_risks:
                     utilization = used_qty / effective_cap_today if effective_cap_today > 1e-9 else 0.0
                     update_state_risk_counter_and_register(
@@ -8394,6 +9644,21 @@ def main() -> None:
                     )
 
             for pair in mrp_trace_pairs:
+                trace_control = resolve_daily_control(
+                    node_id=pair[0],
+                    item_id=pair[1],
+                    dst_node_id=pair[0],
+                )
+                trace_safety_multiplier = (
+                    trace_control.safety_stock_multiplier
+                    if trace_control is not None
+                    else 1.0
+                )
+                trace_order_multiplier = (
+                    trace_control.order_multiplier
+                    if trace_control is not None
+                    else 1.0
+                )
                 pair_is_upstream_factory_mrp = pair[0] in process_node_ids and pair not in demand_pairs
                 pair_review_period_days = mrp_review_period_days if pair_is_upstream_factory_mrp else review_period_days
                 item_daily_req_static = max(0.0, required_daily_input_by_pair.get(pair, 0.0))
@@ -8437,7 +9702,13 @@ def main() -> None:
                     if strict_safety_floor
                     else max(base_stock.get(pair, 0.0), 0.0) * base_stock_floor_factor_for_pair(pair)
                 )
-                explicit_safety_stock_qty = max(0.0, pair_mrp_safety_stock_qty.get(pair, 0.0))
+                explicit_safety_stock_qty = (
+                    max(
+                        0.0,
+                        pair_mrp_safety_stock_qty.get(pair, 0.0),
+                    )
+                    * trace_safety_multiplier
+                )
                 safety_floor_qty = explicit_safety_stock_qty
                 soft_safety_target_qty = explicit_safety_stock_qty
                 coverage_target_qty = 0.0
@@ -8445,13 +9716,18 @@ def main() -> None:
                     safety_time_floor_qty = target_daily_req * max(
                         0.0,
                         pair_mrp_safety_time_days.get(pair, 0.0),
-                    )
+                    ) * trace_safety_multiplier
                     safety_floor_qty = max(explicit_safety_stock_qty, safety_time_floor_qty)
                     soft_safety_target_qty = max(
                         explicit_safety_stock_qty,
                         safety_time_floor_qty * soft_safety_factor_for_pair(pair),
                     )
-                    coverage_target_qty = max(coverage_target_qty, safety_stock_days * target_daily_req)
+                    coverage_target_qty = max(
+                        coverage_target_qty,
+                        safety_stock_days
+                        * target_daily_req
+                        * trace_safety_multiplier,
+                    )
                     if pair in demand_pairs and demand_stock_target_days > 0.0:
                         coverage_target_qty = max(coverage_target_qty, demand_stock_target_days * target_daily_req)
                     if pair not in mrp_snapshot_pairs:
@@ -8483,14 +9759,16 @@ def main() -> None:
                         display_safety_time_floor_qty = target_display_daily_req * max(
                             0.0,
                             pair_mrp_safety_time_days.get(pair, 0.0),
-                        )
+                        ) * trace_safety_multiplier
                         display_soft_safety_target_qty = max(
                             explicit_safety_stock_qty,
                             display_safety_time_floor_qty * soft_safety_factor_for_pair(pair),
                         )
                         display_coverage_target_qty = max(
                             display_coverage_target_qty,
-                            safety_stock_days * target_display_daily_req,
+                            safety_stock_days
+                            * target_display_daily_req
+                            * trace_safety_multiplier,
                         )
                         if pair in demand_pairs and demand_stock_target_days > 0.0:
                             display_coverage_target_qty = max(
@@ -8529,6 +9807,10 @@ def main() -> None:
                         bn_qty = max(0.0, bn_qty, soft_safety_target_qty - inventory_position_qty)
                     else:
                         bn_qty = max(0.0, bn_qty, soft_safety_target_qty - stock_proj_qty)
+                controlled_bn_qty = max(
+                    0.0,
+                    bn_qty * trace_order_multiplier,
+                )
                 arrival_min_day = planned_receipt_min_day_by_pair.get(pair)
                 arrival_max_day = planned_receipt_max_day_by_pair.get(pair)
                 mrp_trace_rows.append(
@@ -8561,6 +9843,18 @@ def main() -> None:
                         "recv_prev_future_qty": round(recv_prev_future_qty, 6),
                         "inventory_position_qty": round(inventory_position_qty, 6),
                         "bn_qty": round(bn_qty, 6),
+                        "controlled_bn_qty": round(
+                            controlled_bn_qty,
+                            6,
+                        ),
+                        "control_order_multiplier": round(
+                            trace_order_multiplier,
+                            6,
+                        ),
+                        "control_safety_stock_multiplier": round(
+                            trace_safety_multiplier,
+                            6,
+                        ),
                         "planned_release_qty": round(planned_release_today_by_pair.get(pair, 0.0), 6),
                         "planned_receipt_qty": round(planned_receipt_today_by_pair.get(pair, 0.0), 6),
                         "planned_order_count": int(planned_order_count_by_pair.get(pair, 0)),
@@ -9007,8 +10301,69 @@ def main() -> None:
             }
         )
 
+    for schedule_row in control_schedule.rows:
+        for action_name in schedule_row.effective:
+            if (schedule_row.source_line, action_name) in control_applied_actions:
+                continue
+            control_action_ledger_rows.append(
+                {
+                    "day": schedule_row.day,
+                    "resolved_node_id": "",
+                    "resolved_supplier_id": "",
+                    "resolved_item_id": "",
+                    "resolved_dst_node_id": "",
+                    "policy": schedule_row.policy,
+                    "action": action_name,
+                    "requested": schedule_row.requested[action_name],
+                    "effective": schedule_row.effective[action_name],
+                    "bound": schedule_row.bound[action_name],
+                    "status": "scheduled_not_resolved",
+                    "source_line": schedule_row.source_line,
+                    "scope_type": (
+                        "global"
+                        if schedule_row.specificity == 0
+                        else "targeted"
+                    ),
+                    "scope_specificity": schedule_row.specificity,
+                    "source_node_id": schedule_row.node_id,
+                    "source_supplier_id": schedule_row.supplier_id,
+                    "source_item_id": schedule_row.item_id,
+                    "source_dst_node_id": schedule_row.dst_node_id,
+                    "matched_source_lines": "",
+                    "action_stage": "schedule_audit",
+                    "executed_control_volume_qty": "",
+                    "binding_reason": (
+                        "day_or_operational_scope_not_reached_or_no_physical_execution"
+                    ),
+                }
+            )
+    control_action_ledger_rows.sort(
+        key=lambda row: (
+            int(to_float(row.get("day"), -1)),
+            str(row.get("action_stage") or ""),
+            str(row.get("resolved_node_id") or ""),
+            str(row.get("resolved_supplier_id") or ""),
+            str(row.get("resolved_item_id") or ""),
+            int(to_float(row.get("source_line"), -1)),
+            str(row.get("action") or ""),
+        )
+    )
+    matched_control_schedule_rows = len(
+        {
+            row.source_line
+            for row in control_schedule.rows
+            if row.source_line in control_applied_source_lines
+        }
+    )
+    scheduled_control_actions = sum(
+        len(row.effective)
+        for row in control_schedule.rows
+    )
+    resolved_control_actions = len(control_applied_actions)
+
     summary = {
         "input_file": str(input_path),
+        "input_sha256": input_sha256,
         "scenario_id": str(scenario.get("id")),
         "sim_days": sim_days,
         "warmup_days": warmup_days,
@@ -9037,9 +10392,31 @@ def main() -> None:
             "stochastic_lead_times": bool(args.stochastic_lead_times),
             "lead_time_distribution_mode": lead_time_distribution_mode,
             "seed": int(args.seed),
+            "common_random_numbers": bool(args.common_random_numbers),
+            "control_schedule": {
+                "enabled": bool(control_schedule.enabled),
+                "source_csv": str(control_schedule_path or ""),
+                "sha256": control_schedule_sha256,
+                "schedule_rows": len(control_schedule.rows),
+                "matched_schedule_rows": matched_control_schedule_rows,
+                "unmatched_schedule_rows": (
+                    len(control_schedule.rows) - matched_control_schedule_rows
+                ),
+                "action_ledger_rows": len(control_action_ledger_rows),
+                "scheduled_actions": scheduled_control_actions,
+                "resolved_actions": resolved_control_actions,
+                "unresolved_actions": max(
+                    0,
+                    scheduled_control_actions - resolved_control_actions,
+                ),
+                "measured_day_basis": "zero_based_after_warmup",
+                "neutral_without_schedule": True,
+                "warnings": list(control_schedule.warnings),
+            },
             "supplier_risk": {
                 "enabled": bool(supplier_risk_events),
                 "events_csv": str(args.supplier_risk_events_csv or ""),
+                "events_csv_sha256": supplier_risk_events_sha256,
                 "event_count": len(supplier_risk_events),
                 "warnings": supplier_risk_warnings,
                 "neutral_without_events": True,
@@ -9553,6 +10930,7 @@ def main() -> None:
     factory_nervousness_path = data_path(output_dir, "production_factory_nervousness.csv")
     mrp_trace_path = data_path(output_dir, "mrp_trace_daily.csv")
     mrp_orders_path = data_path(output_dir, "mrp_orders_daily.csv")
+    control_action_ledger_path = data_path(output_dir, "canonical_action_ledger.csv")
     lot_event_path = data_path(output_dir, "production_lot_events.csv")
     lot_genealogy_path = data_path(output_dir, "production_lot_genealogy.csv")
     lot_path_audit_report_path = report_path(output_dir, "lot_path_audit.md")
@@ -9597,6 +10975,25 @@ def main() -> None:
         if daily_rows:
             writer.writeheader()
             writer.writerows(daily_rows)
+
+    control_action_ledger_extra_columns = sorted(
+        {
+            str(column)
+            for row in control_action_ledger_rows
+            for column in row
+            if column not in CONTROL_LEDGER_COLUMNS
+        }
+    )
+    with control_action_ledger_path.open("w", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(
+            f,
+            fieldnames=[
+                *CONTROL_LEDGER_COLUMNS,
+                *control_action_ledger_extra_columns,
+            ],
+        )
+        writer.writeheader()
+        writer.writerows(control_action_ledger_rows)
 
     initialization_state_fields = [
         "node_id",
@@ -9839,6 +11236,9 @@ def main() -> None:
                 "recv_prev_future_qty",
                 "inventory_position_qty",
                 "bn_qty",
+                "controlled_bn_qty",
+                "control_order_multiplier",
+                "control_safety_stock_multiplier",
                 "planned_release_qty",
                 "planned_receipt_qty",
                 "planned_order_count",
@@ -10316,6 +11716,9 @@ def main() -> None:
 - Stochastic lead times: {summary['policy']['stochastic_lead_times']}
 - Lead-time distribution mode: {summary['policy']['lead_time_distribution_mode']}
 - Random seed: {summary['policy']['seed']}
+- Common random numbers: {summary['policy']['common_random_numbers']}
+- Daily control schedule enabled / rows / matched: {summary['policy']['control_schedule']['enabled']} / {summary['policy']['control_schedule']['schedule_rows']} / {summary['policy']['control_schedule']['matched_schedule_rows']}
+- Daily control schedule source / SHA-256: {summary['policy']['control_schedule']['source_csv'] or 'none'} / {summary['policy']['control_schedule']['sha256'] or 'n/a'}
 - Supplier risk events enabled / count: {summary['policy']['supplier_risk']['enabled']} / {summary['policy']['supplier_risk']['event_count']}
 - Supplier risk warnings: {summary['policy']['supplier_risk']['warnings']}
 - Supplier neutral floor test enabled / capacity pairs / stock pairs: {summary['policy']['supplier_neutral_floor_test']['enabled']} / {summary['policy']['supplier_neutral_floor_test']['capacity_override_pairs']} / {summary['policy']['supplier_neutral_floor_test']['stock_override_pairs']}
@@ -10425,6 +11828,7 @@ Le graphe `Reappro amont` utilise maintenant `order_date_IMT` pour dater les ord
 - data/lot_path_audit_issues.csv ({lot_path_audit_issues_path if generated_lot_audit_report_path else 'not generated'})
 - data/mrp_trace_daily.csv
 - data/mrp_orders_daily.csv
+- data/canonical_action_ledger.csv
 - data/assumptions_ledger.csv
 - data/initialization_observed_stock.csv
 - data/initialization_state.csv
@@ -10470,6 +11874,7 @@ Le graphe `Reappro amont` utilise maintenant `order_date_IMT` pour dater les ord
         print("[INFO] Lot path audit skipped (--skip-lot-audit).")
     print(f"[OK] MRP trace CSV: {mrp_trace_path.resolve()}")
     print(f"[OK] MRP orders CSV: {mrp_orders_path.resolve()}")
+    print(f"[OK] Canonical action ledger CSV: {control_action_ledger_path.resolve()}")
     print(f"[OK] Assumptions ledger CSV: {assumptions_ledger_path.resolve()}")
     print(f"[OK] Initialization observed stock CSV: {observed_opening_stock_path.resolve()}")
     print(f"[OK] Initialization synthetic stock CSV: {initialization_state_path.resolve()}")

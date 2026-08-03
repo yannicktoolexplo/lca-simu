@@ -863,9 +863,19 @@ def refresh_active_mrp_physical_graph(
     ok_line(f"Active graph refreshed: {ACTIVE_MRP_PHYSICAL_GRAPH_JSON.resolve()}")
 
 
-def run_direct_simulation(*, input_graph: Path, output_dir: Path, scenario_id: str, days: int, skip_map: bool, skip_plots: bool) -> None:
-    run_python(
-        SIMULATION_ENGINE_SCRIPT,
+def run_direct_simulation(
+    *,
+    input_graph: Path,
+    output_dir: Path,
+    scenario_id: str,
+    days: int,
+    skip_map: bool,
+    skip_plots: bool,
+    control_schedule_csv: Path | None = None,
+    seed: int | None = None,
+    common_random_numbers: bool | None = None,
+) -> None:
+    engine_args = [
         "--input",
         repo_rel(input_graph),
         "--output-dir",
@@ -874,8 +884,19 @@ def run_direct_simulation(*, input_graph: Path, output_dir: Path, scenario_id: s
         scenario_id,
         "--days",
         str(days),
-        *forward_optional_flags(skip_map=skip_map, skip_plots=skip_plots),
-    )
+    ]
+    if control_schedule_csv is not None:
+        engine_args.extend(["--control-schedule-csv", repo_rel(control_schedule_csv)])
+    if seed is not None:
+        engine_args.extend(["--seed", str(int(seed))])
+    if common_random_numbers is not None:
+        engine_args.append(
+            "--common-random-numbers"
+            if common_random_numbers
+            else "--no-common-random-numbers"
+        )
+    engine_args.extend(forward_optional_flags(skip_map=skip_map, skip_plots=skip_plots))
+    run_python(SIMULATION_ENGINE_SCRIPT, *engine_args)
     build_component_stock_artifacts(input_graph=input_graph, output_dir=output_dir)
     build_finished_goods_stock_artifacts(input_graph=input_graph, output_dir=output_dir)
     build_component_stock_source_truth_reports(input_graph=input_graph, output_dir=output_dir)
@@ -2692,6 +2713,23 @@ def parse_args() -> argparse.Namespace:
     sim.add_argument("--days", type=int, default=365)
     sim.add_argument("--skip-map", action="store_true")
     sim.add_argument("--skip-plots", action="store_true")
+    sim.add_argument(
+        "--control-schedule-csv",
+        default="",
+        help="Optional zero-based daily external-control schedule forwarded to the engine.",
+    )
+    sim.add_argument(
+        "--seed",
+        type=int,
+        default=None,
+        help="Optional stochastic seed forwarded to the engine (engine default when omitted).",
+    )
+    sim.add_argument(
+        "--common-random-numbers",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Optionally enable or disable keyed common-random-number lead-time draws.",
+    )
 
     sim5 = sub.add_parser("simulate-5y", help="Patch the active 1y graph to a repeated 5y horizon and run it.")
     sim5.add_argument("--scenario-id", default="scn:BASE")
@@ -2863,6 +2901,9 @@ def main() -> None:
             days=args.days,
             skip_map=args.skip_map,
             skip_plots=args.skip_plots,
+            control_schedule_csv=Path(args.control_schedule_csv) if args.control_schedule_csv else None,
+            seed=args.seed,
+            common_random_numbers=args.common_random_numbers,
         )
         return
     if args.command == "simulate-5y":

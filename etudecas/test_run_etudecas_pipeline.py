@@ -81,3 +81,92 @@ def test_montecarlo_summary_fallback_prefers_more_compatible_runs(tmp_path, monk
     resolved = pipeline.resolve_montecarlo_summary_for_map(output_dir)
 
     assert resolved == high_run_summary
+
+
+@pytest.mark.parametrize("with_schedule", [False, True])
+def test_direct_simulation_forwards_control_schedule_only_when_requested(
+    tmp_path,
+    monkeypatch,
+    with_schedule,
+) -> None:
+    calls: list[tuple[object, ...]] = []
+    monkeypatch.setattr(
+        pipeline,
+        "run_python",
+        lambda script, *args: calls.append((script, *args)),
+    )
+    for name in [
+        "build_component_stock_artifacts",
+        "build_finished_goods_stock_artifacts",
+        "build_component_stock_source_truth_reports",
+        "build_finished_goods_stock_source_truth_reports",
+        "export_run_package",
+    ]:
+        monkeypatch.setattr(pipeline, name, lambda **kwargs: None)
+
+    schedule = tmp_path / "daily controls.csv" if with_schedule else None
+    pipeline.run_direct_simulation(
+        input_graph=tmp_path / "graph.json",
+        output_dir=tmp_path / "run",
+        scenario_id="scn:BASE",
+        days=10,
+        skip_map=True,
+        skip_plots=False,
+        control_schedule_csv=schedule,
+    )
+
+    assert len(calls) == 1
+    command = list(calls[0][1:])
+    if schedule is None:
+        assert "--control-schedule-csv" not in command
+    else:
+        flag_index = command.index("--control-schedule-csv")
+        assert command[flag_index + 1] == pipeline.repo_rel(schedule)
+    assert "--seed" not in command
+    assert "--common-random-numbers" not in command
+    assert "--no-common-random-numbers" not in command
+
+
+@pytest.mark.parametrize(
+    ("common_random_numbers", "expected_flag"),
+    [
+        (True, "--common-random-numbers"),
+        (False, "--no-common-random-numbers"),
+    ],
+)
+def test_direct_simulation_forwards_typed_randomness_controls(
+    tmp_path,
+    monkeypatch,
+    common_random_numbers,
+    expected_flag,
+) -> None:
+    calls: list[tuple[object, ...]] = []
+    monkeypatch.setattr(
+        pipeline,
+        "run_python",
+        lambda script, *args: calls.append((script, *args)),
+    )
+    for name in [
+        "build_component_stock_artifacts",
+        "build_finished_goods_stock_artifacts",
+        "build_component_stock_source_truth_reports",
+        "build_finished_goods_stock_source_truth_reports",
+        "export_run_package",
+    ]:
+        monkeypatch.setattr(pipeline, name, lambda **kwargs: None)
+
+    pipeline.run_direct_simulation(
+        input_graph=tmp_path / "graph.json",
+        output_dir=tmp_path / "run",
+        scenario_id="scn:BASE",
+        days=10,
+        skip_map=True,
+        skip_plots=True,
+        seed=2027,
+        common_random_numbers=common_random_numbers,
+    )
+
+    command = list(calls[0][1:])
+    seed_index = command.index("--seed")
+    assert command[seed_index + 1] == "2027"
+    assert expected_flag in command
