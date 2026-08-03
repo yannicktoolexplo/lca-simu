@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from etudecas_agentkit.core.case import CaseStudy
 
-from tests.conftest import ROOT
+from .conftest import ROOT
 
 
 def test_case_study_loads_minimal_config():
