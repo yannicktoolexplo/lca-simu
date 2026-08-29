@@ -379,6 +379,13 @@ CONTROL_LEDGER_COLUMNS: tuple[str, ...] = (
     "source_item_id",
     "source_dst_node_id",
     "matched_source_lines",
+    # Stable execution-evidence schema.  These fields remain empty when a
+    # scheduled action never reaches a physical execution stage; their
+    # presence must not depend on which kinds of rows happened to be emitted.
+    "action_stage",
+    "edge_id",
+    "quantity_uom",
+    "executed_control_volume_qty",
 )
 
 

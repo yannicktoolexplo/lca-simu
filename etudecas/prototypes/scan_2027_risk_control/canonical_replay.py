@@ -977,7 +977,7 @@ def _read_result_csv(result_dir: Path, name: str) -> pd.DataFrame:
     if path is None:
         return pd.DataFrame()
     try:
-        return pd.read_csv(path)
+        return pd.read_csv(path, low_memory=False)
     except (OSError, pd.errors.ParserError, UnicodeDecodeError):
         return pd.DataFrame()
 
@@ -1528,6 +1528,67 @@ def _attach_mrp_reference_deltas(runs: pd.DataFrame) -> pd.DataFrame:
     return result
 
 
+_STUDENT_T_975_SMALL_DF = (
+    math.nan,
+    12.7062047364,
+    4.30265272975,
+    3.18244630528,
+    2.7764451052,
+    2.57058183564,
+    2.44691184879,
+    2.36462425101,
+    2.3060041352,
+    2.26215716285,
+    2.22813885196,
+    2.20098516008,
+    2.17881282966,
+    2.16036865646,
+    2.14478668792,
+    2.13144954556,
+    2.11990529922,
+    2.10981557783,
+    2.10092204024,
+    2.09302405441,
+    2.08596344727,
+    2.07961384473,
+    2.0738730679,
+    2.06865761042,
+    2.06389856163,
+    2.05953855275,
+    2.05552943864,
+    2.05183051648,
+    2.0484071418,
+    2.04522964213,
+    2.0422724563,
+)
+
+
+def _student_t_critical_95(sample_count: int) -> float:
+    """Two-sided 95% Student critical value without a SciPy dependency."""
+
+    degrees_of_freedom = int(sample_count) - 1
+    if degrees_of_freedom <= 0:
+        return math.nan
+    if degrees_of_freedom < len(_STUDENT_T_975_SMALL_DF):
+        return float(_STUDENT_T_975_SMALL_DF[degrees_of_freedom])
+    # Cornish-Fisher expansion around N(0, 1), accurate for df > 30.
+    z_value = 1.959963984540054
+    df = float(degrees_of_freedom)
+    return (
+        z_value
+        + (z_value**3 + z_value) / (4.0 * df)
+        + (5.0 * z_value**5 + 16.0 * z_value**3 + 3.0 * z_value)
+        / (96.0 * df**2)
+        + (
+            3.0 * z_value**7
+            + 19.0 * z_value**5
+            + 17.0 * z_value**3
+            - 15.0 * z_value
+        )
+        / (384.0 * df**3)
+    )
+
+
 def _paired_canonical_summary(runs: pd.DataFrame) -> pd.DataFrame:
     successful = runs.loc[runs["status"] == "ok"].copy()
     if successful.empty or "mrp_reference" not in set(successful["policy"]):
@@ -1616,10 +1677,14 @@ def _paired_canonical_summary(runs: pd.DataFrame) -> pd.DataFrame:
                 ci95_status = "not_estimable_single_pair"
             else:
                 std = float(delta.std(ddof=1))
-                half_width = 1.96 * std / math.sqrt(observed_count)
+                half_width = (
+                    _student_t_critical_95(observed_count)
+                    * std
+                    / math.sqrt(observed_count)
+                )
                 ci95_low = mean - half_width
                 ci95_high = mean + half_width
-                ci95_status = "normal_approximation_95"
+                ci95_status = "student_t_95"
             row[f"ci95_low_delta_{metric}"] = ci95_low
             row[f"ci95_high_delta_{metric}"] = ci95_high
             row[f"ci95_status_delta_{metric}"] = ci95_status

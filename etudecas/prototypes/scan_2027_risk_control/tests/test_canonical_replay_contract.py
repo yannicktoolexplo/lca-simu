@@ -291,6 +291,43 @@ def test_paired_summary_uses_seed_intersection_and_safe_paired_effect() -> None:
     )
 
 
+def test_paired_summary_uses_student_interval_for_three_pairs() -> None:
+    rows = []
+    for seed, controlled_value in enumerate((9.0, 10.0, 11.0), start=1):
+        rows.extend(
+            [
+                {
+                    "policy": "mrp_reference",
+                    "seed": seed,
+                    "status": "ok",
+                    "service_loss": 10.0,
+                },
+                {
+                    "policy": "balanced_robust",
+                    "seed": seed,
+                    "status": "ok",
+                    "service_loss": controlled_value,
+                },
+            ]
+        )
+
+    summary = _paired_canonical_summary(pd.DataFrame(rows))
+    controlled = summary.loc[
+        summary["policy"].eq("balanced_robust")
+    ].iloc[0]
+    expected_half_width = 4.30265272975 / math.sqrt(3.0)
+
+    assert controlled["ci95_status_delta_service_loss"] == "student_t_95"
+    assert math.isclose(
+        float(controlled["ci95_low_delta_service_loss"]),
+        -expected_half_width,
+    )
+    assert math.isclose(
+        float(controlled["ci95_high_delta_service_loss"]),
+        expected_half_width,
+    )
+
+
 def test_canonical_runs_export_per_seed_mrp_deltas_and_censor_recovery() -> None:
     runs = pd.DataFrame(
         [

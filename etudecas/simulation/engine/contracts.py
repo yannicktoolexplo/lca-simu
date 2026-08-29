@@ -118,8 +118,10 @@ def simulation_request_payload(
     overrides: dict[str, Any] | None = None,
     run_id: str | None = None,
     control_schedule_csv: str | None = None,
+    control_policy_json: str | None = None,
     seed: int | None = None,
     common_random_numbers: bool | None = None,
+    demand_perturbation_csv: str | None = None,
 ) -> dict[str, Any]:
     payload: dict[str, Any] = {
         "input_path": input_path,
@@ -134,10 +136,14 @@ def simulation_request_payload(
         payload["run_id"] = run_id
     if control_schedule_csv:
         payload["control_schedule_csv"] = str(control_schedule_csv)
+    if control_policy_json:
+        payload["control_policy_json"] = str(control_policy_json)
     if seed is not None:
         payload["seed"] = int(seed)
     if common_random_numbers is not None:
         payload["common_random_numbers"] = bool(common_random_numbers)
+    if demand_perturbation_csv:
+        payload["demand_perturbation_csv"] = str(demand_perturbation_csv)
     return payload
 
 
@@ -153,8 +159,10 @@ def supplier_parameter_request_payload(
     output_profile: str = DEFAULT_INTERACTIVE_OUTPUT_PROFILE,
     run_id: str | None = None,
     control_schedule_csv: str | None = None,
+    control_policy_json: str | None = None,
     seed: int | None = None,
     common_random_numbers: bool | None = None,
+    demand_perturbation_csv: str | None = None,
 ) -> dict[str, Any]:
     return simulation_request_payload(
         input_path=input_path,
@@ -169,8 +177,10 @@ def supplier_parameter_request_payload(
         ),
         run_id=run_id,
         control_schedule_csv=control_schedule_csv,
+        control_policy_json=control_policy_json,
         seed=seed,
         common_random_numbers=common_random_numbers,
+        demand_perturbation_csv=demand_perturbation_csv,
     )
 
 

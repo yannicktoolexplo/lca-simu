@@ -87,17 +87,34 @@ class SimulationEngineContractsTest(unittest.TestCase):
         generic = simulation_request_payload(overrides={"factors": {"supplier_stock_scale": 0.8}})
         self.assertEqual(generic["overrides"], {"factors": {"supplier_stock_scale": 0.8}})
         self.assertNotIn("control_schedule_csv", generic)
+        self.assertNotIn("control_policy_json", generic)
         self.assertNotIn("seed", generic)
         self.assertNotIn("common_random_numbers", generic)
+        self.assertNotIn("demand_perturbation_csv", generic)
 
         scheduled = simulation_request_payload(
             control_schedule_csv="daily_controls.csv",
             seed=2027,
             common_random_numbers=True,
+            demand_perturbation_csv="demand_excitation.csv",
         )
         self.assertEqual(scheduled["control_schedule_csv"], "daily_controls.csv")
+        self.assertEqual(
+            scheduled["demand_perturbation_csv"],
+            "demand_excitation.csv",
+        )
         self.assertEqual(scheduled["seed"], 2027)
         self.assertIs(scheduled["common_random_numbers"], True)
+
+        feedback = simulation_request_payload(
+            control_policy_json="state_feedback.json",
+            seed=2028,
+            common_random_numbers=False,
+        )
+        self.assertEqual(feedback["control_policy_json"], "state_feedback.json")
+        self.assertNotIn("control_schedule_csv", feedback)
+        self.assertEqual(feedback["seed"], 2028)
+        self.assertIs(feedback["common_random_numbers"], False)
 
         supplier_scheduled = supplier_parameter_request_payload(
             parameter_group="supplier_capacity_node",
@@ -105,10 +122,26 @@ class SimulationEngineContractsTest(unittest.TestCase):
             control_schedule_csv="supplier_controls.csv",
             seed=99,
             common_random_numbers=False,
+            demand_perturbation_csv="supplier_demand_excitation.csv",
         )
         self.assertEqual(supplier_scheduled["control_schedule_csv"], "supplier_controls.csv")
+        self.assertEqual(
+            supplier_scheduled["demand_perturbation_csv"],
+            "supplier_demand_excitation.csv",
+        )
         self.assertEqual(supplier_scheduled["seed"], 99)
         self.assertIs(supplier_scheduled["common_random_numbers"], False)
+
+        supplier_feedback = supplier_parameter_request_payload(
+            parameter_group="supplier_capacity_node",
+            supplier_id="SDC-1",
+            control_policy_json="supplier_feedback.json",
+        )
+        self.assertEqual(
+            supplier_feedback["control_policy_json"],
+            "supplier_feedback.json",
+        )
+        self.assertNotIn("control_schedule_csv", supplier_feedback)
 
 
 if __name__ == "__main__":

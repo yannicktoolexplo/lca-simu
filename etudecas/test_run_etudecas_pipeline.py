@@ -83,11 +83,11 @@ def test_montecarlo_summary_fallback_prefers_more_compatible_runs(tmp_path, monk
     assert resolved == high_run_summary
 
 
-@pytest.mark.parametrize("with_schedule", [False, True])
-def test_direct_simulation_forwards_control_schedule_only_when_requested(
+@pytest.mark.parametrize("control_mode", ["none", "schedule", "feedback"])
+def test_direct_simulation_forwards_only_the_requested_control_source(
     tmp_path,
     monkeypatch,
-    with_schedule,
+    control_mode,
 ) -> None:
     calls: list[tuple[object, ...]] = []
     monkeypatch.setattr(
@@ -104,7 +104,8 @@ def test_direct_simulation_forwards_control_schedule_only_when_requested(
     ]:
         monkeypatch.setattr(pipeline, name, lambda **kwargs: None)
 
-    schedule = tmp_path / "daily controls.csv" if with_schedule else None
+    schedule = tmp_path / "daily controls.csv" if control_mode == "schedule" else None
+    policy = tmp_path / "state feedback.json" if control_mode == "feedback" else None
     pipeline.run_direct_simulation(
         input_graph=tmp_path / "graph.json",
         output_dir=tmp_path / "run",
@@ -113,6 +114,7 @@ def test_direct_simulation_forwards_control_schedule_only_when_requested(
         skip_map=True,
         skip_plots=False,
         control_schedule_csv=schedule,
+        control_policy_json=policy,
     )
 
     assert len(calls) == 1
@@ -122,9 +124,30 @@ def test_direct_simulation_forwards_control_schedule_only_when_requested(
     else:
         flag_index = command.index("--control-schedule-csv")
         assert command[flag_index + 1] == pipeline.repo_rel(schedule)
+    if policy is None:
+        assert "--control-policy-json" not in command
+    else:
+        flag_index = command.index("--control-policy-json")
+        assert command[flag_index + 1] == pipeline.repo_rel(policy)
     assert "--seed" not in command
     assert "--common-random-numbers" not in command
     assert "--no-common-random-numbers" not in command
+
+
+def test_direct_simulation_rejects_mixed_open_and_closed_loop_controls(
+    tmp_path,
+) -> None:
+    with pytest.raises(ValueError, match="mutually exclusive"):
+        pipeline.run_direct_simulation(
+            input_graph=tmp_path / "graph.json",
+            output_dir=tmp_path / "run",
+            scenario_id="scn:BASE",
+            days=10,
+            skip_map=True,
+            skip_plots=True,
+            control_schedule_csv=tmp_path / "schedule.csv",
+            control_policy_json=tmp_path / "policy.json",
+        )
 
 
 @pytest.mark.parametrize(

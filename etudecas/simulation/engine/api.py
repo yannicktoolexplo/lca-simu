@@ -67,6 +67,11 @@ class SimulationRequest:
     control_schedule_csv: Path | str | None = None
     seed: int | None = None
     common_random_numbers: bool | None = None
+    # Keep new fields after the historical positional API.  In particular,
+    # callers written before feedback control was introduced expect the two
+    # arguments following control_schedule_csv to be seed and CRN.
+    control_policy_json: Path | str | None = None
+    demand_perturbation_csv: Path | str | None = None
 
 
 @dataclass(frozen=True)
@@ -185,7 +190,9 @@ def request_from_dict(payload: dict[str, Any]) -> SimulationRequest:
         skip_map=bool(payload.get("skip_map", True)),
         skip_plots=bool(payload.get("skip_plots", True)),
         run_lot_audit=bool(payload.get("run_lot_audit", False)),
+        demand_perturbation_csv=payload.get("demand_perturbation_csv"),
         control_schedule_csv=payload.get("control_schedule_csv"),
+        control_policy_json=payload.get("control_policy_json"),
         seed=int(payload["seed"]) if payload.get("seed") is not None else None,
         common_random_numbers=(
             bool(payload["common_random_numbers"])
@@ -245,10 +252,24 @@ def simulate(request: SimulationRequest) -> SimulationResult:
 
     extra_args = profile_engine_args(request.output_profile, run_lot_audit=request.run_lot_audit)
     extra_args.extend(str(arg) for arg in request.overrides.engine_args)
-    if request.control_schedule_csv is not None:
-        control_schedule_csv = str(request.control_schedule_csv).strip()
-        if control_schedule_csv:
-            extra_args.extend(["--control-schedule-csv", control_schedule_csv])
+    demand_perturbation_csv = str(
+        request.demand_perturbation_csv or ""
+    ).strip()
+    control_schedule_csv = str(request.control_schedule_csv or "").strip()
+    control_policy_json = str(request.control_policy_json or "").strip()
+    if control_schedule_csv and control_policy_json:
+        raise ValueError(
+            "SimulationRequest cannot combine control_schedule_csv with "
+            "control_policy_json: choose open-loop schedule or state feedback."
+        )
+    if control_schedule_csv:
+        extra_args.extend(["--control-schedule-csv", control_schedule_csv])
+    if control_policy_json:
+        extra_args.extend(["--control-policy-json", control_policy_json])
+    if demand_perturbation_csv:
+        extra_args.extend(
+            ["--demand-perturbation-csv", demand_perturbation_csv]
+        )
     # Keep these typed controls last so an explicit request cannot be silently
     # shadowed by the backward-compatible free-form engine_args escape hatch.
     if request.seed is not None:

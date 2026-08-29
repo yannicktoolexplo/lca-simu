@@ -1,0 +1,298 @@
+{
+  "schema_version": "scan.canonical_state_feedback.v2",
+  "name": "resilience_scan_warm_started_gated_feedback_v2",
+  "review_period_days": 7,
+  "confirmation_days": 3,
+  "minimum_dwell_days": 14,
+  "fallback_policy": "mrp_reference",
+  "emergency_regimes": [
+    "CRISIS"
+  ],
+  "thresholds": {
+    "material_tension_days": 0.75,
+    "capacity_saturation": 0.97,
+    "supplier_disruption": 0.3,
+    "supplier_stress": 0.85,
+    "oscillation_nervousness": 0.32,
+    "crisis_backlog_days": 1.8,
+    "crisis_disruption_floor": 0.2,
+    "recovery_backlog_days": 0.12,
+    "overstock_days": 5.5,
+    "nominal_finished_inventory_days": 1.2
+  },
+  "dynamics": {
+    "stress_memory": 0.82,
+    "nervousness_gain": 0.2,
+    "pressure_gain": 0.34,
+    "disruption_gain": 0.5,
+    "capacity_pressure_start": 0.8,
+    "recent_disruption_memory_days": 21
+  },
+  "slew_limits": {
+    "order_multiplier": 0.02,
+    "safety_stock_multiplier": 0.03,
+    "production_target_multiplier": 0.02,
+    "capacity_multiplier": 0.0,
+    "external_procurement_multiplier": 0.0,
+    "expedite_level": 0.0,
+    "lead_time_adjustment_days": 0,
+    "priority_weight": 0.0
+  },
+  "regime_policy": {
+    "NOMINAL": "mrp_reference",
+    "MATERIAL_TENSION": "measured_service_protection",
+    "CAPACITY_SATURATION": "supplier_relief",
+    "SUPPLIER_STRESS": "supplier_relief",
+    "OSCILLATORY": "recovery_damping",
+    "CRISIS": "bounded_crisis_response",
+    "RECOVERY": "recovery_damping",
+    "POST_CRISIS_OVERSTOCK": "inventory_release"
+  },
+  "playbooks": {
+    "mrp_reference": {
+      "commands": [
+        {
+          "scope": {},
+          "actions": {
+            "order_multiplier": 1.0,
+            "safety_stock_multiplier": 1.0,
+            "production_target_multiplier": 1.0,
+            "capacity_multiplier": 1.0,
+            "external_procurement_multiplier": 1.0,
+            "expedite_level": 0.0,
+            "lead_time_adjustment_days": 0,
+            "priority_weight": 1.0
+          }
+        }
+      ]
+    },
+    "measured_service_protection": {
+      "commands": [
+        {
+          "scope": {},
+          "actions": {
+            "order_multiplier": 1.0,
+            "safety_stock_multiplier": 1.0,
+            "production_target_multiplier": 1.0,
+            "capacity_multiplier": 1.0,
+            "external_procurement_multiplier": 1.0,
+            "expedite_level": 0.0,
+            "lead_time_adjustment_days": 0,
+            "priority_weight": 1.0
+          }
+        }
+      ]
+    },
+    "supplier_relief": {
+      "commands": [
+        {
+          "scope": {},
+          "actions": {
+            "order_multiplier": 0.98,
+            "safety_stock_multiplier": 1.0,
+            "production_target_multiplier": 0.99,
+            "capacity_multiplier": 1.0,
+            "external_procurement_multiplier": 1.0,
+            "expedite_level": 0.0,
+            "lead_time_adjustment_days": 0,
+            "priority_weight": 1.0
+          }
+        }
+      ]
+    },
+    "bounded_crisis_response": {
+      "commands": [
+        {
+          "scope": {},
+          "actions": {
+            "order_multiplier": 1.0,
+            "safety_stock_multiplier": 1.0,
+            "production_target_multiplier": 1.0,
+            "capacity_multiplier": 1.0,
+            "external_procurement_multiplier": 1.0,
+            "expedite_level": 0.0,
+            "lead_time_adjustment_days": 0,
+            "priority_weight": 1.0
+          }
+        }
+      ]
+    },
+    "recovery_damping": {
+      "commands": [
+        {
+          "scope": {},
+          "actions": {
+            "order_multiplier": 0.95,
+            "safety_stock_multiplier": 0.97,
+            "production_target_multiplier": 0.98,
+            "capacity_multiplier": 1.0,
+            "external_procurement_multiplier": 1.0,
+            "expedite_level": 0.0,
+            "lead_time_adjustment_days": 0,
+            "priority_weight": 1.0
+          }
+        }
+      ]
+    },
+    "inventory_release": {
+      "commands": [
+        {
+          "scope": {},
+          "actions": {
+            "order_multiplier": 0.92,
+            "safety_stock_multiplier": 0.94,
+            "production_target_multiplier": 0.97,
+            "capacity_multiplier": 1.0,
+            "external_procurement_multiplier": 1.0,
+            "expedite_level": 0.0,
+            "lead_time_adjustment_days": 0,
+            "priority_weight": 1.0
+          }
+        }
+      ]
+    }
+  },
+  "gates": {
+    "service_recovery_gate": {
+      "require_any": [
+        {
+          "signal": "backlog_days",
+          "operator": "ge",
+          "threshold": 0.1
+        },
+        {
+          "signal": "service_level",
+          "operator": "lt",
+          "threshold": 0.995
+        }
+      ]
+    },
+    "exceptional_cost_gate": {
+      "require_any": [
+        {
+          "signal": "backlog_days",
+          "operator": "ge",
+          "threshold": 1.0
+        },
+        {
+          "signal": "service_level",
+          "operator": "lt",
+          "threshold": 0.96
+        },
+        {
+          "signal": "supplier_disruption_score",
+          "operator": "ge",
+          "threshold": 0.5
+        }
+      ]
+    }
+  },
+  "action_gate_map": {
+    "order_multiplier": {
+      "gate": "service_recovery_gate",
+      "direction": "above_neutral"
+    },
+    "safety_stock_multiplier": {
+      "gate": "service_recovery_gate",
+      "direction": "above_neutral"
+    },
+    "production_target_multiplier": {
+      "gate": "service_recovery_gate",
+      "direction": "above_neutral"
+    },
+    "external_procurement_multiplier": {
+      "gate": "exceptional_cost_gate",
+      "direction": "above_neutral"
+    },
+    "expedite_level": {
+      "gate": "exceptional_cost_gate",
+      "direction": "above_neutral"
+    }
+  },
+  "protocol": {
+    "method": "deterministic_paired_burn_in_replay",
+    "physical_warmup_days": 60,
+    "warmup_profile_mode": "preperiod",
+    "restore_opening_stock_after_warmup": false,
+    "reset_backlog_after_warmup": false,
+    "controller_priming_days": 60,
+    "controller_warmup_action_count": 0,
+    "boundary_scope": "core_dynamic_engine_state_not_restart_checkpoint",
+    "restart_checkpoint_available": false,
+    "terminal_stability_window_days": 14,
+    "terminal_window_relative_mean_tolerance": 0.05,
+    "stationarity_claimed": false,
+    "validation_is_held_out": true,
+    "automatic_retuning_on_validation": false,
+    "excluded_pilot_seeds": [
+      310260
+    ]
+  },
+  "campaign": {
+    "graph": "auto",
+    "control_policy_json": "canonical_closed_loop_v2_config.json",
+    "engine_profile": "canonical_real_baseline_engine_profile.json",
+    "output_dir": "../outputs/canonical_closed_loop_v2",
+    "days": 90,
+    "training_seeds": [
+      300260,
+      300261,
+      300262,
+      300263,
+      300264,
+      300265,
+      300266,
+      300267,
+      300268,
+      300269
+    ],
+    "validation_seeds": [
+      310261,
+      310262,
+      310263,
+      310264,
+      310265,
+      310266,
+      310267,
+      310268,
+      310269,
+      310270,
+      310271,
+      310272,
+      310273,
+      310274,
+      310275,
+      310276,
+      310277,
+      310278,
+      310279,
+      310280,
+      310281,
+      310282,
+      310283,
+      310284,
+      310285,
+      310286,
+      310287,
+      310288,
+      310289,
+      310290
+    ],
+    "scenario_id": "scn:BASE",
+    "state_dependent_risks": true,
+    "controller_prime_during_warmup": true,
+    "engine_args": [
+      "--mrp-demand-signal-smoothing-days",
+      "1",
+      "--warmup-days",
+      "60",
+      "--warmup-profile-mode",
+      "preperiod",
+      "--no-restore-opening-stock-after-warmup",
+      "--warmup-boundary-audit",
+      "--supplier-state-risk-observation-warmup-days",
+      "0"
+    ],
+    "plot": true
+  }
+}

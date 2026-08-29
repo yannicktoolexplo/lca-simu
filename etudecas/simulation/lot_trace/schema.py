@@ -25,6 +25,14 @@ LOT_TRACE_NUMERIC_FIELDS = {
     "campaign_started_qty",
     "campaign_remaining_start_qty",
     "campaign_remaining_end_qty",
+    "batch_target_qty",
+    "batch_executed_start_qty",
+    "batch_executed_today_qty",
+    "batch_executed_end_qty",
+    "process_tau_days",
+    "wip_start_qty",
+    "wip_end_qty",
+    "released_qty",
     "planned_qty",
     "requested_qty",
     "started_qty",
@@ -33,9 +41,12 @@ LOT_TRACE_NUMERIC_FIELDS = {
     "blocked_lot_qty",
     "max_daily_shortfall_qty",
     "repeated_daily_shortfall_qty",
+    "remaining_qty",
+    "wip_qty",
 }
 LOT_TRACE_INTEGER_FIELDS = {
     "day",
+    "risk_decision_day",
     "next_expected_receipt_day",
     "first_event_day",
     "first_delay_day",
@@ -49,6 +60,13 @@ LOT_TRACE_INTEGER_FIELDS = {
     "started_lots_this_week",
     "requested_lot_starts",
     "actual_lot_starts",
+    "campaign_started_day",
+    "batch_started_day",
+    "is_day_zero_carry_in",
+    "last_release_day",
+    "first_execution_day",
+    "last_execution_day",
+    "released_batch_count",
 }
 
 
