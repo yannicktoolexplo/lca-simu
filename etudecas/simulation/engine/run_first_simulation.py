@@ -65,6 +65,24 @@ except ModuleNotFoundError:
     )
 
 try:
+    from etudecas.simulation.lot_trace.execution import (
+        LOT_EXECUTION_SEMANTICS_VERSION,
+        ProductionBatchWip,
+        make_batch_id,
+        physical_batch_target_qty,
+        production_week_index,
+    )
+except ModuleNotFoundError:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+    from etudecas.simulation.lot_trace.execution import (
+        LOT_EXECUTION_SEMANTICS_VERSION,
+        ProductionBatchWip,
+        make_batch_id,
+        physical_batch_target_qty,
+        production_week_index,
+    )
+
+try:
     from etudecas.simulation.engine.control_schedule import (
         CONTROL_LEDGER_COLUMNS,
         ControlCatalog,
@@ -82,12 +100,349 @@ except ModuleNotFoundError:
         load_control_schedule,
     )
 
+try:
+    from etudecas.simulation.engine.control_provider import (
+        CanonicalObservation,
+        ControlProviderError,
+        StateFeedbackControlProvider,
+        load_state_feedback_control_provider,
+    )
+except ModuleNotFoundError:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+    from etudecas.simulation.engine.control_provider import (
+        CanonicalObservation,
+        ControlProviderError,
+        StateFeedbackControlProvider,
+        load_state_feedback_control_provider,
+    )
+
+try:
+    from etudecas.simulation.engine.control_provider_v2 import (
+        load_state_feedback_control_provider_v2,
+    )
+except ModuleNotFoundError:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+    from etudecas.simulation.engine.control_provider_v2 import (
+        load_state_feedback_control_provider_v2,
+    )
+
+try:
+    from etudecas.simulation.engine.control_provider_v3 import (
+        load_state_feedback_control_provider_v3,
+    )
+except ModuleNotFoundError:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+    from etudecas.simulation.engine.control_provider_v3 import (
+        load_state_feedback_control_provider_v3,
+    )
+
+try:
+    from etudecas.simulation.engine.control_probe import (
+        CONTROL_PROBE_ACTIONS,
+        CONTROL_PROBE_COMPOSITION_COLUMNS,
+        CONTROL_PROBE_MODE,
+        ControlProbeError,
+        ProbeResolvedControl,
+        compose_feedback_with_probe,
+        load_control_probe_schedule,
+    )
+except ModuleNotFoundError:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+    from etudecas.simulation.engine.control_probe import (
+        CONTROL_PROBE_ACTIONS,
+        CONTROL_PROBE_COMPOSITION_COLUMNS,
+        CONTROL_PROBE_MODE,
+        ControlProbeError,
+        ProbeResolvedControl,
+        compose_feedback_with_probe,
+        load_control_probe_schedule,
+    )
+
+try:
+    from etudecas.simulation.engine.demand_perturbation import (
+        DEMAND_MULTIPLIER_MAX,
+        DEMAND_MULTIPLIER_MIN,
+        DEMAND_PERTURBATION_AUDIT_COLUMNS,
+        DemandPerturbationError,
+        load_demand_perturbation_schedule,
+    )
+except ModuleNotFoundError:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+    from etudecas.simulation.engine.demand_perturbation import (
+        DEMAND_MULTIPLIER_MAX,
+        DEMAND_MULTIPLIER_MIN,
+        DEMAND_PERTURBATION_AUDIT_COLUMNS,
+        DemandPerturbationError,
+        load_demand_perturbation_schedule,
+    )
+
 
 SUPPLIER_FUNCTIONAL_CAPACITY_HEADROOM_FACTOR = 2.5
 FACTORY_NOMINAL_TARGET_UTILIZATION = 0.70
 SUPPLIER_UPSTREAM_SUPPLY_NODE_ID = "SUPPLIER_UPSTREAM_SUPPLY"
 SUPPLIER_UPSTREAM_SUPPLY_EDGE_PREFIX = "SUPPLIER_UPSTREAM_SUPPLY"
 LOT_TRACE_EPS = 1e-6
+
+
+def _nonnegative_finite_float(value: str) -> float:
+    """Parse a finite non-negative CLI factor without silently clipping it."""
+
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError) as exc:
+        raise argparse.ArgumentTypeError("must be a number") from exc
+    if not math.isfinite(parsed) or parsed < 0.0:
+        raise argparse.ArgumentTypeError("must be finite and greater than or equal to 0")
+    return parsed
+
+
+def _load_pair_stock_scale_overrides(
+    csv_path: Path,
+    *,
+    valid_pairs: set[tuple[str, str]],
+    context: str,
+) -> tuple[dict[tuple[str, str], float], str]:
+    """Load a strict node/item stock-scale sensitivity schedule."""
+
+    if not csv_path.exists() or not csv_path.is_file():
+        raise ValueError(f"{context} CSV not found: {csv_path}")
+    raw_bytes = csv_path.read_bytes()
+    with csv_path.open(encoding="utf-8-sig", newline="") as handle:
+        reader = csv.DictReader(handle)
+        actual_columns = list(reader.fieldnames or [])
+        required_columns = ["node_id", "item_id", "scale"]
+        if set(actual_columns) != set(required_columns) or len(actual_columns) != 3:
+            raise ValueError(
+                f"{context} CSV columns must be exactly "
+                "node_id,item_id,scale"
+            )
+        overrides: dict[tuple[str, str], float] = {}
+        for line_number, row in enumerate(reader, start=2):
+            node_id = str(row.get("node_id") or "").strip()
+            item_id = str(row.get("item_id") or "").strip()
+            if not node_id or not item_id:
+                raise ValueError(
+                    f"{context} CSV line {line_number}: "
+                    "node_id and item_id are required"
+                )
+            pair = (node_id, item_id)
+            if pair in overrides:
+                raise ValueError(
+                    f"{context} CSV line {line_number}: "
+                    f"duplicate pair {node_id},{item_id}"
+                )
+            if pair not in valid_pairs:
+                raise ValueError(
+                    f"{context} CSV line {line_number}: "
+                    f"pair {node_id},{item_id} is not an inventory state in the graph"
+                )
+            try:
+                scale = _nonnegative_finite_float(str(row.get("scale") or ""))
+            except argparse.ArgumentTypeError as exc:
+                raise ValueError(
+                    f"{context} CSV line {line_number}: "
+                    f"scale {exc}"
+                ) from exc
+            overrides[pair] = scale
+    if not overrides:
+        raise ValueError(f"{context} CSV must contain at least one row")
+    return overrides, hashlib.sha256(raw_bytes).hexdigest()
+
+
+def load_opening_observed_stock_scale_overrides(
+    csv_path: Path,
+    *,
+    valid_pairs: set[tuple[str, str]],
+) -> tuple[dict[tuple[str, str], float], str]:
+    """Load strict pair-scoped pre-warmup opening-stock factors."""
+
+    return _load_pair_stock_scale_overrides(
+        csv_path,
+        valid_pairs=valid_pairs,
+        context="opening observed stock scale",
+    )
+
+
+def load_measurement_start_stock_scale_overrides(
+    csv_path: Path,
+    *,
+    valid_pairs: set[tuple[str, str]],
+) -> tuple[dict[tuple[str, str], float], str]:
+    """Load strict pair-scoped measured-J0 cutover stock factors."""
+
+    return _load_pair_stock_scale_overrides(
+        csv_path,
+        valid_pairs=valid_pairs,
+        context="measurement-start stock scale",
+    )
+
+
+def load_measurement_start_in_transit_scale_overrides(
+    csv_path: Path,
+    *,
+    valid_pairs: set[tuple[str, str]],
+) -> tuple[dict[tuple[str, str], float], str]:
+    """Load strict pair-scoped measured-J0 standard-pipeline factors."""
+
+    overrides, source_sha256 = _load_pair_stock_scale_overrides(
+        csv_path,
+        valid_pairs=valid_pairs,
+        context="measurement-start in-transit scale",
+    )
+    above_one = [pair for pair, factor in overrides.items() if factor > 1.0]
+    if above_one:
+        node_id, item_id = above_one[0]
+        raise ValueError(
+            "measurement-start in-transit scale CSV factor must be between "
+            f"0 and 1 for {node_id},{item_id}"
+        )
+    return overrides, source_sha256
+
+
+def _attach_shipment_trace_ids(
+    delivery_schedule: list[tuple[int, float, float]],
+    *,
+    start_sequence: int,
+    risk_event_ids: list[Any] | tuple[Any, ...],
+) -> tuple[list[tuple[int, float, float, str, str]], int]:
+    """Attach one stable transaction ID to every physical delivery chunk."""
+
+    sequence = int(start_sequence)
+    event_ids_text = ",".join(
+        dict.fromkeys(str(event_id) for event_id in risk_event_ids if str(event_id))
+    )
+    traced: list[tuple[int, float, float, str, str]] = []
+    for arrival_day, pulled_qty, delivered_qty in delivery_schedule:
+        sequence += 1
+        traced.append(
+            (
+                int(arrival_day),
+                float(pulled_qty),
+                float(delivered_qty),
+                f"SHIP-{sequence:08d}",
+                event_ids_text,
+            )
+        )
+    return traced, sequence
+
+
+def _finite_median(values: list[float]) -> float | None:
+    """Return the median of finite values without introducing dependencies."""
+
+    ordered = sorted(float(value) for value in values if math.isfinite(float(value)))
+    if not ordered:
+        return None
+    middle = len(ordered) // 2
+    if len(ordered) % 2:
+        return ordered[middle]
+    return 0.5 * (ordered[middle - 1] + ordered[middle])
+
+
+def _warmup_boundary_jsonable(value: Any) -> Any:
+    """Build a deterministic audit representation, not a restart snapshot."""
+
+    if isinstance(value, Mapping):
+        entries = [
+            {
+                "key": _warmup_boundary_jsonable(key),
+                "value": _warmup_boundary_jsonable(item),
+            }
+            for key, item in value.items()
+        ]
+        return sorted(
+            entries,
+            key=lambda entry: json.dumps(
+                entry["key"],
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            ),
+        )
+    if isinstance(value, (list, tuple, deque)):
+        return [_warmup_boundary_jsonable(item) for item in value]
+    if isinstance(value, (set, frozenset)):
+        items = [_warmup_boundary_jsonable(item) for item in value]
+        return sorted(
+            items,
+            key=lambda item: json.dumps(
+                item,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            ),
+        )
+    if isinstance(value, float) and not math.isfinite(value):
+        return {"non_finite_float": repr(value)}
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    return repr(value)
+
+
+def _warmup_boundary_sha256(value: Any) -> str:
+    payload = json.dumps(
+        _warmup_boundary_jsonable(value),
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
+
+
+def _canonical_supplier_disruption_proxy(
+    events: list[dict[str, Any]],
+    output_day: int,
+) -> tuple[float, int]:
+    """Summarize active physical supplier events as a bounded severity proxy.
+
+    This is deliberately *not* a probability.  It only normalizes the strongest
+    active availability/capacity/quality/lead-time/write-off effect to ``[0, 1]``
+    so a feedback policy can react to the physical state without reading a
+    future realized incident.  Cost-only events are excluded from the score.
+    """
+
+    reduction_types = {
+        "stock",
+        "capacity",
+        "reliability",
+        "quality_yield",
+        "availability",
+        "external_capacity",
+        "external_availability",
+        "external_quality_yield",
+    }
+    ratio_increase_types = {"lead_time", "external_lead_time"}
+    additive_delay_types = {
+        "lead_time_extra_days",
+        "quality_delay",
+        "external_lead_time_extra_days",
+    }
+    physical_types = reduction_types | ratio_increase_types | additive_delay_types | {
+        "stock_writeoff"
+    }
+    severities: list[float] = []
+    event_ids: set[str] = set()
+    for event in events:
+        if not (
+            int(event.get("start_day", 0))
+            <= int(output_day)
+            <= int(event.get("end_day", 0))
+        ):
+            continue
+        risk_type = str(event.get("risk_type") or "")
+        if risk_type not in physical_types:
+            continue
+        multiplier = to_float(event.get("multiplier"), 1.0)
+        if risk_type in reduction_types:
+            severity = max(0.0, 1.0 - multiplier)
+        elif risk_type in ratio_increase_types:
+            severity = max(0.0, 1.0 - (1.0 / max(1.0, multiplier)))
+        elif risk_type in additive_delay_types:
+            severity = max(0.0, multiplier) / 10.0
+        else:
+            severity = max(0.0, multiplier)
+        severities.append(max(0.0, min(1.0, severity)))
+        event_ids.add(str(event.get("event_id") or f"anonymous_{len(event_ids)}"))
+    return (max(severities, default=0.0), len(event_ids))
 
 
 def _paired_lead_time_identity(
@@ -336,6 +691,9 @@ PRODUCTION_LOT_EVENT_FIELDS = [
     "uom",
     "source_type",
     "source_id",
+    "shipment_id",
+    "risk_decision_day",
+    "risk_event_ids",
     "related_lot_id",
     "production_campaign_id",
     "notes",
@@ -354,6 +712,9 @@ PRODUCTION_LOT_GENEALOGY_FIELDS = [
     "child_qty",
     "allocation_share",
     "source_id",
+    "shipment_id",
+    "risk_decision_day",
+    "risk_event_ids",
     "production_campaign_id",
     "notes",
 ]
@@ -361,8 +722,23 @@ PRODUCTION_LOT_GENEALOGY_FIELDS = [
 PRODUCTION_PLAN_EVENT_FIELDS = [
     "day",
     "campaign_id",
+    "semantics_version",
+    "campaign_started_day",
     "node_id",
     "output_item_id",
+    "batch_id",
+    "batch_started_day",
+    "batch_target_qty",
+    "batch_executed_start_qty",
+    "batch_executed_today_qty",
+    "batch_executed_end_qty",
+    "process_tau_days",
+    "release_gate_mode",
+    "wip_start_qty",
+    "wip_end_qty",
+    "released_qty",
+    "released_lot_id",
+    "is_day_zero_carry_in",
     "event_type",
     "reason",
     "desired_qty",
@@ -437,6 +813,9 @@ class LotLedger:
         uom: str = "",
         source_type: str = "",
         source_id: str = "",
+        shipment_id: str = "",
+        risk_decision_day: int | str = "",
+        risk_event_ids: str = "",
         related_lot_id: str = "",
         production_campaign_id: str = "",
         notes: str = "",
@@ -456,6 +835,9 @@ class LotLedger:
                 "uom": uom,
                 "source_type": source_type,
                 "source_id": source_id,
+                "shipment_id": shipment_id,
+                "risk_decision_day": risk_decision_day,
+                "risk_event_ids": risk_event_ids,
                 "related_lot_id": related_lot_id,
                 "production_campaign_id": production_campaign_id,
                 "notes": notes,
@@ -471,6 +853,9 @@ class LotLedger:
         qty: float,
         source_type: str,
         source_id: str = "",
+        shipment_id: str = "",
+        risk_decision_day: int | str = "",
+        risk_event_ids: str = "",
         uom: str = "",
         event_type: str = "create",
         related_lot_id: str = "",
@@ -506,6 +891,9 @@ class LotLedger:
             uom=uom,
             source_type=source_type,
             source_id=source_id,
+            shipment_id=shipment_id,
+            risk_decision_day=risk_decision_day,
+            risk_event_ids=risk_event_ids,
             related_lot_id=related_lot_id,
             production_campaign_id=production_campaign_id,
             notes=notes,
@@ -545,6 +933,9 @@ class LotLedger:
         qty: float,
         event_type: str,
         source_id: str = "",
+        shipment_id: str = "",
+        risk_decision_day: int | str = "",
+        risk_event_ids: str = "",
         production_campaign_id: str = "",
         uom: str = "",
         notes: str = "",
@@ -602,12 +993,95 @@ class LotLedger:
                 uom=lot.get("uom") or uom,
                 source_type=str(lot.get("source_type") or ""),
                 source_id=source_id,
+                shipment_id=shipment_id,
+                risk_decision_day=risk_decision_day,
+                risk_event_ids=risk_event_ids,
                 production_campaign_id=production_campaign_id,
                 notes=notes,
             )
             if to_float(lot.get("qty_remaining"), 0.0) <= LOT_TRACE_EPS:
                 queue.popleft()
         return allocations
+
+    def pair_balance(self, *, node_id: str, item_id: str) -> float:
+        """Return remaining lot quantity for one aggregate stock pair."""
+
+        if not self.enabled:
+            return 0.0
+        return sum(
+            max(0.0, to_float(lot.get("qty_remaining"), 0.0))
+            for lot in self.lots.values()
+            if str(lot.get("node_id")) == str(node_id)
+            and str(lot.get("item_id")) == str(item_id)
+        )
+
+    def reconcile_pair_to_stock(
+        self,
+        *,
+        day: int,
+        node_id: str,
+        item_id: str,
+        target_qty: float,
+        source_id: str,
+        uom: str = "",
+        notes: str = "",
+    ) -> dict[str, Any]:
+        """Reconcile FIFO lot balances to an explicit aggregate stock target."""
+
+        target_qty = max(0.0, to_float(target_qty, 0.0))
+        if not self.enabled:
+            return {
+                "enabled": False,
+                "balance_before_qty": 0.0,
+                "balance_after_qty": 0.0,
+                "removed_qty": 0.0,
+                "added_qty": 0.0,
+            }
+        balance_before = self.pair_balance(node_id=node_id, item_id=item_id)
+        removed_qty = max(0.0, balance_before - target_qty)
+        added_qty = max(0.0, target_qty - balance_before)
+        if removed_qty > LOT_TRACE_EPS:
+            self.consume(
+                day=day,
+                node_id=node_id,
+                item_id=item_id,
+                qty=removed_qty,
+                event_type="measurement_start_stock_reduction",
+                source_id=source_id,
+                uom=uom,
+                notes=(
+                    notes
+                    or "FIFO lot reduction for measured-day-0 stock sensitivity."
+                ),
+            )
+        elif added_qty > LOT_TRACE_EPS:
+            self.create_lot(
+                day=day,
+                node_id=node_id,
+                item_id=item_id,
+                qty=added_qty,
+                source_type="measurement_start_stock_adjustment",
+                source_id=source_id,
+                uom=uom,
+                event_type="measurement_start_stock_increase",
+                notes=(
+                    notes
+                    or "Reconciliation lot for measured-day-0 stock sensitivity."
+                ),
+            )
+        balance_after = self.pair_balance(node_id=node_id, item_id=item_id)
+        if abs(balance_after - target_qty) > LOT_TRACE_EPS:
+            raise RuntimeError(
+                "lot balance reconciliation failed for "
+                f"{node_id},{item_id}: target={target_qty}, after={balance_after}"
+            )
+        return {
+            "enabled": True,
+            "balance_before_qty": balance_before,
+            "balance_after_qty": balance_after,
+            "removed_qty": removed_qty,
+            "added_qty": added_qty,
+        }
 
     def create_child_lot(
         self,
@@ -618,6 +1092,9 @@ class LotLedger:
         qty: float,
         source_type: str,
         source_id: str,
+        shipment_id: str = "",
+        risk_decision_day: int | str = "",
+        risk_event_ids: str = "",
         parent_allocations: list[dict[str, Any]],
         link_type: str,
         uom: str = "",
@@ -631,6 +1108,9 @@ class LotLedger:
             qty=qty,
             source_type=source_type,
             source_id=source_id,
+            shipment_id=shipment_id,
+            risk_decision_day=risk_decision_day,
+            risk_event_ids=risk_event_ids,
             uom=uom,
             event_type=source_type,
             production_campaign_id=production_campaign_id,
@@ -658,6 +1138,9 @@ class LotLedger:
                     "child_qty": round(max(0.0, to_float(qty, 0.0)), 6),
                     "allocation_share": round(share, 9),
                     "source_id": source_id,
+                    "shipment_id": shipment_id,
+                    "risk_decision_day": risk_decision_day,
+                    "risk_event_ids": risk_event_ids,
                     "production_campaign_id": production_campaign_id,
                     "notes": notes,
                 }
@@ -760,18 +1243,28 @@ def launch_campaign_qty(net_requirement_qty: float, lot_policy: dict[str, Any]) 
     lot_multiple_qty = max(0.0, to_float(lot_policy.get("lot_multiple_qty"), 0.0))
     if fixed_lot_qty > 1e-9:
         return math.ceil(requirement / fixed_lot_qty) * fixed_lot_qty
-    campaign_qty = requirement
-    if min_lot_qty > 1e-9:
-        campaign_qty = max(campaign_qty, min_lot_qty)
+    if max_lot_qty > 1e-9 and min_lot_qty > max_lot_qty + 1e-9:
+        raise ValueError(
+            f"Invalid lot policy: min_lot_qty={min_lot_qty} exceeds max_lot_qty={max_lot_qty}."
+        )
+    campaign_qty = max(requirement, min_lot_qty)
     if lot_multiple_qty > 1e-9:
-        campaign_qty = math.ceil(campaign_qty / lot_multiple_qty) * lot_multiple_qty
-    if max_lot_qty > 1e-9:
-        effective_max = max_lot_qty
-        if lot_multiple_qty > 1e-9:
-            effective_max = math.floor(max_lot_qty / lot_multiple_qty) * lot_multiple_qty
-            if effective_max <= 1e-9:
-                effective_max = max_lot_qty
-        campaign_qty = min(campaign_qty, effective_max)
+        minimum_feasible = math.ceil((min_lot_qty / lot_multiple_qty) - 1e-12) * lot_multiple_qty
+        maximum_feasible = (
+            math.floor((max_lot_qty / lot_multiple_qty) + 1e-12) * lot_multiple_qty
+            if max_lot_qty > 1e-9
+            else float("inf")
+        )
+        if max_lot_qty > 1e-9 and maximum_feasible + 1e-9 < max(minimum_feasible, lot_multiple_qty):
+            raise ValueError(
+                "Invalid lot policy: no positive lot_multiple_qty fits between "
+                f"min_lot_qty={min_lot_qty} and max_lot_qty={max_lot_qty}."
+            )
+        campaign_qty = math.ceil((campaign_qty / lot_multiple_qty) - 1e-12) * lot_multiple_qty
+        if max_lot_qty > 1e-9:
+            campaign_qty = min(campaign_qty, maximum_feasible)
+    elif max_lot_qty > 1e-9:
+        campaign_qty = min(campaign_qty, max_lot_qty)
     return max(0.0, campaign_qty)
 
 
@@ -978,11 +1471,75 @@ def parse_args() -> argparse.Namespace:
         help="Random seed used by stochastic replenishment (default: 42).",
     )
     parser.add_argument(
+        "--demand-perturbation-csv",
+        default="",
+        help=(
+            "Optional exact-pair demand excitation CSV for frequency identification. "
+            "Days are zero-based measured days, never warm-up days, and multipliers "
+            "must be finite in [0.5, 1.5]. Empty preserves historical behavior."
+        ),
+    )
+    parser.add_argument(
         "--control-schedule-csv",
         default="",
         help=(
             "Optional bounded daily control schedule. Days are zero-based measured "
             "days and never apply during warm-up. Empty preserves historical behavior."
+        ),
+    )
+    parser.add_argument(
+        "--control-probe-schedule-csv",
+        default="",
+        help=(
+            "Optional additive post-feedback identification probe for V2/V3. "
+            "Days are zero-based measured days and never apply during warm-up. "
+            "Only order, safety-stock and production-target multipliers are "
+            "supported."
+        ),
+    )
+    parser.add_argument(
+        "--control-policy-json",
+        default="",
+        help=(
+            "Optional causal state-feedback policy. The canonical state at the "
+            "end of measured day J may only generate controls effective on J+1. "
+            "Cannot be combined with --control-schedule-csv."
+        ),
+    )
+    parser.add_argument(
+        "--control-policy-v2-json",
+        default="",
+        help=(
+            "Optional gated V2 causal state-feedback policy. This additive "
+            "interface is mutually exclusive with the historical schedule and "
+            "V1 policy interfaces."
+        ),
+    )
+    parser.add_argument(
+        "--control-policy-v3-json",
+        default="",
+        help=(
+            "Optional continuous V3 causal state-feedback policy. This additive "
+            "interface is mutually exclusive with the historical schedule, V1 "
+            "and V2 policy interfaces."
+        ),
+    )
+    parser.add_argument(
+        "--controller-prime-during-warmup",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help=(
+            "Feed V2/V3 end-of-day warm-up observations to controller memory "
+            "without resolving or applying controls. Default is disabled."
+        ),
+    )
+    parser.add_argument(
+        "--warmup-boundary-audit",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help=(
+            "Emit a deterministic SHA-256 audit of core engine state at the "
+            "J0 cutover. This is not a serializable restart checkpoint."
         ),
     )
     parser.add_argument(
@@ -1142,6 +1699,50 @@ def parse_args() -> argparse.Namespace:
         type=float,
         default=None,
         help="Override initialization_policy.state_scale for explicit-state runs.",
+    )
+    parser.add_argument(
+        "--opening-observed-stock-scale",
+        type=_nonnegative_finite_float,
+        default=None,
+        help=(
+            "Stress-test factor applied only to observed opening inventory states "
+            "loaded from the graph before warm-up (effective default: 1.0). "
+            "Non-MRP base-stock references are scaled consistently; MRP snapshot "
+            "positions remain state only. This is a sensitivity assumption, not a "
+            "calibrated opening-state estimate."
+        ),
+    )
+    parser.add_argument(
+        "--opening-observed-stock-scale-csv",
+        default="",
+        help=(
+            "Pair-scoped opening-stock stress assumptions from a strict CSV with "
+            "columns node_id,item_id,scale. Only listed observed graph inventory "
+            "states are scaled before warm-up; all other pairs remain unchanged. "
+            "Mutually exclusive with --opening-observed-stock-scale."
+        ),
+    )
+    parser.add_argument(
+        "--measurement-start-stock-scale-csv",
+        default="",
+        help=(
+            "Pair-scoped measured-day-0 stock sensitivity from a strict CSV with "
+            "columns node_id,item_id,scale. Applied once after warm-up (and any "
+            "configured opening-stock restore), immediately before the J0 boundary "
+            "audit and measured dynamics. Lot balances are reconciled to the "
+            "adjusted aggregate stock."
+        ),
+    )
+    parser.add_argument(
+        "--measurement-start-in-transit-scale-csv",
+        default="",
+        help=(
+            "Pair-scoped measured-day-0 standard in-transit sensitivity from a "
+            "strict CSV with columns node_id,item_id,scale. Applied once after "
+            "warm-up, immediately before the J0 boundary audit. Only the native "
+            "standard pipeline and its in_transit balance are scaled; external "
+            "and estimated-source pipelines remain unchanged."
+        ),
     )
     parser.add_argument(
         "--initial-factory-input-on-hand-days",
@@ -1777,6 +2378,54 @@ def sample_lead_days(
     sampled_days = int(max(1, math.ceil(sampled)))
     delay_limit = int(round(max(1.0, to_float(lane.get("delay_step_limit"), 999.0))))
     return min(sampled_days, delay_limit)
+
+
+def compose_controlled_lane_lead_days(
+    *,
+    transport_lead_days_before_quality: float,
+    quality_delay_days: float,
+    expedite_level: float = 0.0,
+    lead_time_adjustment_days: int = 0,
+    delay_control_active: bool = False,
+) -> int:
+    """Compose transport control and an independent quality-release hold.
+
+    Expediting and manual lead-time adjustments are transport levers.  They
+    must not shorten a quarantine or any other quality-release delay.  The
+    inactive branch deliberately retains the historical single-ceiling
+    calculation so a neutral schedule remains byte-for-byte compatible with
+    the pre-control lead-time behavior, including fractional risk inputs.
+    """
+
+    transport_before_quality = max(
+        0.0,
+        float(transport_lead_days_before_quality),
+    )
+    quality_hold = max(0.0, float(quality_delay_days))
+    if not delay_control_active:
+        return max(
+            1,
+            int(math.ceil(transport_before_quality + quality_hold)),
+        )
+
+    transport_days = max(1, int(math.ceil(transport_before_quality)))
+    expedite_reduction = int(
+        math.floor(
+            max(0.0, float(expedite_level))
+            * max(0, transport_days - 1)
+        )
+    )
+    controlled_transport_days = max(
+        1,
+        transport_days
+        + int(lead_time_adjustment_days)
+        - expedite_reduction,
+    )
+    # Quality delays are expressed in whole simulation days.  Ceiling them
+    # separately guarantees that the complete release hold survives the
+    # transport intervention.
+    quality_hold_days = max(0, int(math.ceil(quality_hold)))
+    return controlled_transport_days + quality_hold_days
 
 
 def lead_time_reference_days(lane: dict[str, Any]) -> int:
@@ -5079,6 +5728,83 @@ def main() -> None:
     economic_policy["inventory_risk_cost_share_of_raw_holding"] /= inventory_cost_share_sum
     rng = random.Random(args.seed)
 
+    opening_observed_stock_global_scale_requested = (
+        args.opening_observed_stock_scale is not None
+    )
+    opening_observed_stock_scale_csv_requested = bool(
+        str(args.opening_observed_stock_scale_csv or "").strip()
+    )
+    if (
+        opening_observed_stock_global_scale_requested
+        and opening_observed_stock_scale_csv_requested
+    ):
+        raise SystemExit(
+            "--opening-observed-stock-scale and "
+            "--opening-observed-stock-scale-csv are mutually exclusive"
+        )
+    opening_observed_stock_scale_requested = (
+        opening_observed_stock_global_scale_requested
+        or opening_observed_stock_scale_csv_requested
+    )
+    opening_observed_stock_scale = (
+        float(args.opening_observed_stock_scale)
+        if opening_observed_stock_global_scale_requested
+        else 1.0
+    )
+    observed_graph_inventory_pairs = {
+        (str(node.get("id")), str(state.get("item_id")))
+        for node in nodes
+        for state in (((node.get("inventory") or {}).get("states") or []))
+    }
+    opening_observed_stock_scale_csv_path = (
+        Path(args.opening_observed_stock_scale_csv).resolve()
+        if opening_observed_stock_scale_csv_requested
+        else None
+    )
+    opening_observed_stock_scale_overrides: dict[tuple[str, str], float] = {}
+    opening_observed_stock_scale_csv_sha256 = ""
+    if opening_observed_stock_scale_csv_path is not None:
+        try:
+            (
+                opening_observed_stock_scale_overrides,
+                opening_observed_stock_scale_csv_sha256,
+            ) = load_opening_observed_stock_scale_overrides(
+                opening_observed_stock_scale_csv_path,
+                valid_pairs=observed_graph_inventory_pairs,
+            )
+        except ValueError as exc:
+            raise SystemExit(str(exc)) from exc
+    measurement_start_stock_scale_csv_path = (
+        Path(args.measurement_start_stock_scale_csv).resolve()
+        if str(args.measurement_start_stock_scale_csv or "").strip()
+        else None
+    )
+    measurement_start_stock_scale_overrides: dict[tuple[str, str], float] = {}
+    measurement_start_stock_scale_csv_sha256 = ""
+    if measurement_start_stock_scale_csv_path is not None:
+        try:
+            (
+                measurement_start_stock_scale_overrides,
+                measurement_start_stock_scale_csv_sha256,
+            ) = load_measurement_start_stock_scale_overrides(
+                measurement_start_stock_scale_csv_path,
+                valid_pairs=observed_graph_inventory_pairs,
+            )
+        except ValueError as exc:
+            raise SystemExit(str(exc)) from exc
+    measurement_start_in_transit_scale_csv_path = (
+        Path(args.measurement_start_in_transit_scale_csv).resolve()
+        if str(args.measurement_start_in_transit_scale_csv or "").strip()
+        else None
+    )
+    measurement_start_in_transit_scale_overrides: dict[
+        tuple[str, str], float
+    ] = {}
+    measurement_start_in_transit_scale_csv_sha256 = ""
+    opening_observed_stock_totals_by_uom: dict[str, dict[str, float]] = defaultdict(
+        lambda: {"source_qty": 0.0, "effective_qty": 0.0}
+    )
+    opening_observed_stock_scaled_positive_state_count = 0
     stock: dict[tuple[str, str], float] = defaultdict(float)
     holding_cost: dict[tuple[str, str], float] = defaultdict(float)
     base_stock: dict[tuple[str, str], float] = defaultdict(float)
@@ -5091,19 +5817,52 @@ def main() -> None:
         for st in (inv.get("states") or []):
             item_id = str(st.get("item_id"))
             key = (nid, item_id)
-            initial = to_float(st.get("initial"), 0.0)
+            input_initial = to_float(st.get("initial"), 0.0)
+            pair_opening_stock_scale = opening_observed_stock_scale_overrides.get(
+                key,
+                opening_observed_stock_scale,
+            )
+            initial = (
+                input_initial * pair_opening_stock_scale
+                if opening_observed_stock_scale_requested
+                else input_initial
+            )
             stock[key] = initial
-            if initial > 1e-9:
-                observed_opening_stock_rows.append(
-                    {
-                        "node_id": nid,
-                        "node_type": str(n.get("type") or ""),
-                        "item_id": item_id,
-                        "opening_stock_qty": round(initial, 6),
-                        "uom": normalize_unit(st.get("uom") or item_unit_map.get(item_id, "")),
-                        "source": str(st.get("initial_source") or st.get("source") or "graph_inventory_initial"),
-                    }
-                )
+            if input_initial > 1e-9:
+                stock_uom = normalize_unit(st.get("uom") or item_unit_map.get(item_id, ""))
+                observed_row = {
+                    "node_id": nid,
+                    "node_type": str(n.get("type") or ""),
+                    "item_id": item_id,
+                    "opening_stock_qty": round(initial, 6),
+                    "uom": stock_uom,
+                    "source": str(st.get("initial_source") or st.get("source") or "graph_inventory_initial"),
+                }
+                if opening_observed_stock_scale_requested:
+                    observed_row.update(
+                        {
+                            "input_opening_stock_qty": round(input_initial, 6),
+                            "opening_observed_stock_scale": round(
+                                pair_opening_stock_scale,
+                                9,
+                            ),
+                            "effective_opening_stock_qty": round(initial, 6),
+                            "base_stock_qty_after_scale": round(
+                                0.0 if key in mrp_snapshot_pairs else initial,
+                                6,
+                            ),
+                            "mrp_snapshot_state_only": int(key in mrp_snapshot_pairs),
+                        }
+                    )
+                    opening_observed_stock_totals_by_uom[stock_uom][
+                        "source_qty"
+                    ] += input_initial
+                    opening_observed_stock_totals_by_uom[stock_uom][
+                        "effective_qty"
+                    ] += initial
+                    if abs(pair_opening_stock_scale - 1.0) > 1e-12:
+                        opening_observed_stock_scaled_positive_state_count += 1
+                observed_opening_stock_rows.append(observed_row)
             # An MRP snapshot is an opening position, not a standing reorder target.
             # Keeping the opening stock as perpetual base stock forces some seeded
             # supplier pairs into daily capped replenishment even when downstream
@@ -5119,6 +5878,53 @@ def main() -> None:
                 pair_mrp_safety_time_days[key] = max(0.0, to_float(mrp_policy.get("safety_time_days"), 0.0))
                 pair_mrp_safety_stock_qty[key] = max(0.0, to_float(mrp_policy.get("safety_stock_qty"), 0.0))
     opening_stock_source_snapshot = dict(stock)
+    opening_observed_stock_scale_audit = {
+        "enabled": bool(opening_observed_stock_scale_requested),
+        "mode": (
+            "pair_csv_overrides"
+            if opening_observed_stock_scale_csv_requested
+            else "global_factor"
+        ),
+        "factor": round(opening_observed_stock_scale, 9),
+        "default_unlisted_pair_factor": round(opening_observed_stock_scale, 9),
+        "source_csv": str(opening_observed_stock_scale_csv_path or ""),
+        "source_csv_sha256": opening_observed_stock_scale_csv_sha256,
+        "pair_overrides": [
+            {
+                "node_id": pair[0],
+                "item_id": pair[1],
+                "factor": round(factor, 9),
+            }
+            for pair, factor in sorted(
+                opening_observed_stock_scale_overrides.items()
+            )
+        ],
+        "application_stage": "graph_inventory_initial_before_warmup",
+        "scope": (
+            "listed_observed_graph_inventory_states_only"
+            if opening_observed_stock_scale_csv_requested
+            else "all_observed_graph_inventory_states"
+        ),
+        "observed_positive_state_count": len(observed_opening_stock_rows),
+        "scaled_positive_state_count": (
+            opening_observed_stock_scaled_positive_state_count
+        ),
+        "base_stock_alignment": (
+            "scaled_for_non_mrp_pairs_mrp_snapshot_pairs_remain_state_only"
+        ),
+        "quantities_by_uom": {
+            uom or "unspecified": {
+                "source_qty": round(values["source_qty"], 6),
+                "effective_qty": round(values["effective_qty"], 6),
+            }
+            for uom, values in sorted(opening_observed_stock_totals_by_uom.items())
+        },
+        "scientific_interpretation": (
+            "pair_scoped_sensitivity_stress_test_not_calibrated_opening_state"
+            if opening_observed_stock_scale_csv_requested
+            else "global_sensitivity_stress_test_not_calibrated_opening_state"
+        ),
+    }
 
     lanes, lanes_by_dest_item = lane_records(
         edges,
@@ -5160,34 +5966,176 @@ def main() -> None:
         if args.control_schedule_csv
         else None
     )
+    control_probe_schedule_path = (
+        Path(args.control_probe_schedule_csv).resolve()
+        if args.control_probe_schedule_csv
+        else None
+    )
+    control_policy_path = (
+        Path(args.control_policy_json).resolve()
+        if args.control_policy_json
+        else None
+    )
+    control_policy_v2_path = (
+        Path(args.control_policy_v2_json).resolve()
+        if args.control_policy_v2_json
+        else None
+    )
+    control_policy_v3_path = (
+        Path(args.control_policy_v3_json).resolve()
+        if args.control_policy_v3_json
+        else None
+    )
+    selected_control_interfaces = sum(
+        path is not None
+        for path in (
+            control_schedule_path,
+            control_policy_path,
+            control_policy_v2_path,
+            control_policy_v3_path,
+        )
+    )
+    if (
+        control_schedule_path is not None
+        and control_policy_path is not None
+        and control_policy_v2_path is None
+        and control_policy_v3_path is None
+    ):
+        raise SystemExit(
+            "--control-schedule-csv and --control-policy-json are mutually exclusive."
+        )
+    if selected_control_interfaces > 1:
+        if control_policy_v3_path is None:
+            raise SystemExit(
+                "--control-schedule-csv, --control-policy-json and "
+                "--control-policy-v2-json are mutually exclusive."
+            )
+        raise SystemExit(
+            "--control-schedule-csv, --control-policy-json, "
+            "--control-policy-v2-json and --control-policy-v3-json are "
+            "mutually exclusive."
+        )
+    if (
+        control_probe_schedule_path is not None
+        and control_policy_v2_path is None
+        and control_policy_v3_path is None
+    ):
+        raise SystemExit(
+            "--control-probe-schedule-csv requires "
+            "--control-policy-v2-json or --control-policy-v3-json."
+        )
+    if (
+        args.controller_prime_during_warmup
+        and control_policy_v2_path is None
+        and control_policy_v3_path is None
+    ):
+        raise SystemExit(
+            "--controller-prime-during-warmup requires --control-policy-v2-json."
+        )
+    if args.controller_prime_during_warmup and warmup_days <= 0:
+        raise SystemExit(
+            "--controller-prime-during-warmup requires --warmup-days > 0."
+        )
     known_item_ids = (
         set(item_unit_map)
         | {item_id for _, item_id in stock}
         | {str(lane.get("item_id") or "") for lane in lanes}
     )
+    control_catalog = ControlCatalog(
+        node_ids=set(node_by_id),
+        supplier_ids=supplier_node_ids,
+        item_ids={item_id for item_id in known_item_ids if item_id},
+        dst_node_ids=set(node_by_id),
+    )
     try:
         control_schedule = load_control_schedule(
             control_schedule_path,
-            catalog=ControlCatalog(
-                node_ids=set(node_by_id),
-                supplier_ids=supplier_node_ids,
-                item_ids={item_id for item_id in known_item_ids if item_id},
-                dst_node_ids=set(node_by_id),
-            ),
+            catalog=control_catalog,
         )
     except ControlScheduleError as exc:
         raise SystemExit(f"Invalid --control-schedule-csv: {exc}") from exc
+    feedback_control: StateFeedbackControlProvider | None = None
+    if control_policy_path is not None:
+        try:
+            feedback_control = load_state_feedback_control_provider(
+                control_policy_path,
+                catalog=control_catalog,
+            )
+        except ControlProviderError as exc:
+            raise SystemExit(f"Invalid --control-policy-json: {exc}") from exc
+    elif control_policy_v2_path is not None:
+        try:
+            feedback_control = load_state_feedback_control_provider_v2(
+                control_policy_v2_path,
+                catalog=control_catalog,
+            )
+        except ControlProviderError as exc:
+            raise SystemExit(f"Invalid --control-policy-v2-json: {exc}") from exc
+    elif control_policy_v3_path is not None:
+        try:
+            feedback_control = load_state_feedback_control_provider_v3(
+                control_policy_v3_path,
+                catalog=control_catalog,
+            )
+        except ControlProviderError as exc:
+            raise SystemExit(f"Invalid --control-policy-v3-json: {exc}") from exc
+    control_probe = None
+    if control_probe_schedule_path is not None:
+        try:
+            control_probe = load_control_probe_schedule(
+                control_probe_schedule_path,
+                catalog=control_catalog,
+            )
+        except ControlProbeError as exc:
+            raise SystemExit(
+                f"Invalid --control-probe-schedule-csv: {exc}"
+            ) from exc
+    feedback_control_is_v2 = bool(control_policy_v2_path is not None)
+    feedback_control_is_v3 = bool(control_policy_v3_path is not None)
+    feedback_control_supports_priming = bool(
+        feedback_control_is_v2 or feedback_control_is_v3
+    )
+    control_provider = feedback_control or control_schedule
     for warning in control_schedule.warnings:
         print(f"[WARN] control schedule: {warning}", file=sys.stderr)
+    if feedback_control is not None:
+        for warning in feedback_control.warnings:
+            print(f"[WARN] state-feedback control: {warning}", file=sys.stderr)
+    if control_probe is not None:
+        for warning in control_probe.warnings:
+            print(f"[WARN] control probe: {warning}", file=sys.stderr)
     control_schedule_sha256 = (
         hashlib.sha256(control_schedule_path.read_bytes()).hexdigest()
         if control_schedule_path is not None
         else ""
     )
+    control_probe_schedule_sha256 = (
+        hashlib.sha256(control_probe_schedule_path.read_bytes()).hexdigest()
+        if control_probe_schedule_path is not None
+        else ""
+    )
     control_action_ledger_rows: list[dict[str, Any]] = []
+    control_probe_composition_rows: dict[
+        tuple[int, str, str, str, str, str], dict[str, Any]
+    ] = {}
     control_applied_source_lines: set[int] = set()
     control_applied_actions: set[tuple[int, str]] = set()
+    feedback_demand_history: deque[float] = deque(maxlen=28)
+    feedback_previous_order_by_pair: dict[tuple[str, str], float] | None = None
     paired_rng_invocations: dict[str, int] = defaultdict(int)
+
+    def feedback_audit_metadata_for_day(day: int) -> dict[str, Any]:
+        if feedback_control is None:
+            return {}
+        metadata = dict(feedback_control.audit_metadata_for_day(day))
+        command_audit = getattr(
+            feedback_control,
+            "command_audit_metadata_for_day",
+            None,
+        )
+        if callable(command_audit):
+            metadata.update(dict(command_audit(day)))
+        return metadata
 
     def record_control_resolution(
         resolved: ResolvedControl,
@@ -5216,6 +6164,7 @@ def main() -> None:
                 if executed_control_volume_qty is not None
                 else ""
             ),
+            **feedback_audit_metadata_for_day(resolved.day),
             **(extra or {}),
         }
         selected_actions = set(action_names)
@@ -5279,6 +6228,17 @@ def main() -> None:
         if dst in dc_node_ids and node_type_by_id.get(src) == "factory":
             dc_factory_items[dst].add((src, item_id))
     inbound_pairs = set(lanes_by_dest_item.keys())
+    if measurement_start_in_transit_scale_csv_path is not None:
+        try:
+            (
+                measurement_start_in_transit_scale_overrides,
+                measurement_start_in_transit_scale_csv_sha256,
+            ) = load_measurement_start_in_transit_scale_overrides(
+                measurement_start_in_transit_scale_csv_path,
+                valid_pairs=inbound_pairs,
+            )
+        except ValueError as exc:
+            raise SystemExit(str(exc)) from exc
     outbound_pairs = {(str(l["src"]), str(l["item_id"])) for l in lanes}
     produced_pairs = {
         (str(n.get("id")), str((out or {}).get("item_id")))
@@ -5335,6 +6295,26 @@ def main() -> None:
         (str(d.get("node_id")), str(d.get("item_id"))): (d.get("profile") or [])
         for d in demand_rows
     }
+    demand_perturbation_path = (
+        Path(args.demand_perturbation_csv).resolve()
+        if args.demand_perturbation_csv
+        else None
+    )
+    try:
+        demand_perturbation = load_demand_perturbation_schedule(
+            demand_perturbation_path,
+            demand_pairs=set(demand_pairs),
+            measured_days=sim_days,
+        )
+    except DemandPerturbationError as exc:
+        raise SystemExit(f"Invalid --demand-perturbation-csv: {exc}") from exc
+    demand_perturbation_sha256 = (
+        hashlib.sha256(demand_perturbation_path.read_bytes()).hexdigest()
+        if demand_perturbation_path is not None
+        else ""
+    )
+    demand_perturbation_audit_rows: list[dict[str, Any]] = []
+    demand_perturbation_applied_keys: set[tuple[int, str, str]] = set()
     pipeline_meta = (
         graph_meta.get("generated_by_pipeline")
         if isinstance(graph_meta.get("generated_by_pipeline"), dict)
@@ -5449,6 +6429,7 @@ def main() -> None:
     input_arrival_rows: list[dict[str, Any]] = []
     input_shipment_rows: list[dict[str, Any]] = []
     supplier_shipment_rows: list[dict[str, Any]] = []
+    supplier_shipment_sequence = 0
     supplier_stock_rows: list[dict[str, Any]] = []
     supplier_stock_flow_rows: list[dict[str, Any]] = []
     dc_stock_rows: list[dict[str, Any]] = []
@@ -5516,6 +6497,11 @@ def main() -> None:
     prev_production_command_by_pair: dict[tuple[str, str], float] = {}
     open_production_campaign_qty_by_pair: dict[tuple[str, str], float] = defaultdict(float)
     open_production_campaign_id_by_pair: dict[tuple[str, str], str] = {}
+    production_campaign_started_day_by_pair: dict[tuple[str, str], int] = {}
+    production_campaign_requested_qty_by_pair: dict[tuple[str, str], float] = {}
+    production_campaign_target_qty_by_pair: dict[tuple[str, str], float] = {}
+    production_batch_wip_by_pair: dict[tuple[str, str], ProductionBatchWip] = {}
+    production_batch_sequence_by_campaign: dict[str, int] = defaultdict(int)
     started_production_lots_by_week_pair: dict[tuple[int, tuple[str, str]], int] = defaultdict(int)
     mps_prev_production_command_by_pair: dict[tuple[str, str], float] = {}
     mps_open_campaign_qty_by_pair: dict[tuple[str, str], float] = defaultdict(float)
@@ -5596,6 +6582,53 @@ def main() -> None:
     opening_open_order_bridge_days_by_pair: dict[tuple[str, str], int] = {}
     opening_open_order_source = "none"
     assumptions_ledger_rows: list[dict[str, Any]] = []
+    if opening_observed_stock_global_scale_requested:
+        assumptions_ledger_rows.append(
+            {
+                "category": "opening_observed_stock_scale",
+                "node_id": "",
+                "item_id": "",
+                "edge_id": "",
+                "source": "cli_sensitivity_assumption",
+                "payload_json": json.dumps(
+                    opening_observed_stock_scale_audit,
+                    ensure_ascii=False,
+                    sort_keys=True,
+                ),
+            }
+        )
+    elif opening_observed_stock_scale_csv_requested:
+        for pair, factor in sorted(
+            opening_observed_stock_scale_overrides.items()
+        ):
+            assumptions_ledger_rows.append(
+                {
+                    "category": "opening_observed_stock_scale",
+                    "node_id": pair[0],
+                    "item_id": pair[1],
+                    "edge_id": "",
+                    "source": str(opening_observed_stock_scale_csv_path),
+                    "payload_json": json.dumps(
+                        {
+                            "node_id": pair[0],
+                            "item_id": pair[1],
+                            "factor": round(factor, 9),
+                            "application_stage": (
+                                "graph_inventory_initial_before_warmup"
+                            ),
+                            "source_csv_sha256": (
+                                opening_observed_stock_scale_csv_sha256
+                            ),
+                            "scientific_interpretation": (
+                                "pair_scoped_sensitivity_stress_test_not_"
+                                "calibrated_opening_state"
+                            ),
+                        },
+                        ensure_ascii=False,
+                        sort_keys=True,
+                    ),
+                }
+            )
     for lane in lanes:
         note = str(lane.get("standard_order_qty_note") or "")
         if not note:
@@ -6161,6 +7194,9 @@ def main() -> None:
         lane_id: str,
         source_type: str,
         source_id: str,
+        shipment_id: str = "",
+        risk_decision_day: int | str = "",
+        risk_event_ids: str = "",
         parent_allocations: list[dict[str, Any]],
         link_type: str,
         notes: str = "",
@@ -6175,6 +7211,9 @@ def main() -> None:
                 "lane_id": str(lane_id),
                 "source_type": source_type,
                 "source_id": source_id,
+                "shipment_id": shipment_id,
+                "risk_decision_day": risk_decision_day,
+                "risk_event_ids": risk_event_ids,
                 "parent_allocations": parent_allocations,
                 "link_type": link_type,
                 "notes": notes,
@@ -6350,9 +7389,74 @@ def main() -> None:
 
         return sorted(candidate_lanes, key=source_priority)[: max(1, int(limit))]
 
+    warmup_boundary_state_audit: dict[str, Any] = {}
+    measurement_start_stock_adjustment_rows: list[dict[str, Any]] = []
+    measurement_start_stock_scale_audit: dict[str, Any] = {
+        "enabled": bool(measurement_start_stock_scale_csv_path),
+        "source_csv": str(measurement_start_stock_scale_csv_path or ""),
+        "source_csv_sha256": measurement_start_stock_scale_csv_sha256,
+        "audit_csv": "data/measurement_start_stock_adjustments.csv",
+        "application_stage": (
+            "after_warmup_and_optional_restore_before_j0_boundary_audit"
+        ),
+        "measured_application_day": 0,
+        "scope": "listed_observed_graph_inventory_states_only",
+        "pair_overrides": [
+            {
+                "node_id": pair[0],
+                "item_id": pair[1],
+                "factor": round(factor, 9),
+            }
+            for pair, factor in sorted(
+                measurement_start_stock_scale_overrides.items()
+            )
+        ],
+        "adjustment_rows": 0,
+        "quantities_by_uom": {},
+        "lot_trace_enabled": bool(lot_ledger.enabled),
+        "lot_balance_reconciled_to_aggregate_stock": bool(lot_ledger.enabled),
+        "restart_checkpoint_available": False,
+        "scientific_interpretation": (
+            "pair_scoped_j0_sensitivity_stress_test_not_calibrated_state_or_"
+            "restart_checkpoint"
+        ),
+    }
+    measurement_start_in_transit_adjustment_rows: list[dict[str, Any]] = []
+    measurement_start_in_transit_scale_audit: dict[str, Any] = {
+        "enabled": bool(measurement_start_in_transit_scale_csv_path),
+        "source_csv": str(measurement_start_in_transit_scale_csv_path or ""),
+        "source_csv_sha256": measurement_start_in_transit_scale_csv_sha256,
+        "audit_csv": "data/measurement_start_in_transit_adjustments.csv",
+        "application_stage": "after_warmup_before_j0_boundary_audit",
+        "measured_application_day": 0,
+        "scope": "listed_native_standard_pipeline_pairs_only",
+        "pair_overrides": [
+            {
+                "node_id": pair[0],
+                "item_id": pair[1],
+                "factor": round(factor, 9),
+            }
+            for pair, factor in sorted(
+                measurement_start_in_transit_scale_overrides.items()
+            )
+        ],
+        "adjustment_rows": 0,
+        "quantities_by_uom": {},
+        "external_pipeline_unchanged": True,
+        "estimated_source_pipeline_unchanged": True,
+        "lot_arrivals_pipeline_scaled_proportionally": bool(lot_ledger.enabled),
+        "restart_checkpoint_available": False,
+        "scientific_interpretation": (
+            "pair_scoped_j0_standard_pipeline_sensitivity_stress_test_not_"
+            "calibrated_state_or_restart_checkpoint"
+        ),
+    }
     for day in range(total_timeline_days):
         record_day = day >= warmup_days
         output_day = day - warmup_days
+        production_constraint_day_start = len(production_constraint_rows)
+        supplier_capacity_day_start = len(supplier_capacity_daily_rows)
+        feedback_warmup_production_utilization_values: list[float] = []
 
         def resolve_daily_control(
             *,
@@ -6361,15 +7465,48 @@ def main() -> None:
             item_id: str = "",
             dst_node_id: str = "",
         ) -> ResolvedControl | None:
-            if not record_day or not control_schedule.enabled:
+            if not record_day or not control_provider.enabled:
                 return None
-            return control_schedule.resolve(
+            resolved = control_provider.resolve(
                 int(output_day),
                 node_id=node_id,
                 supplier_id=supplier_id,
                 item_id=item_id,
                 dst_node_id=dst_node_id,
             )
+            if control_probe is not None:
+                probe_resolved = control_probe.resolve(
+                    int(output_day),
+                    node_id=node_id,
+                    supplier_id=supplier_id,
+                    item_id=item_id,
+                    dst_node_id=dst_node_id,
+                )
+                resolved = compose_feedback_with_probe(
+                    resolved,
+                    probe_resolved,
+                )
+                if isinstance(resolved, ProbeResolvedControl):
+                    controller_audit = feedback_audit_metadata_for_day(
+                        int(output_day)
+                    )
+                    for composition_row in resolved.composition_rows():
+                        composition_row.update(controller_audit)
+                        key = (
+                            int(composition_row["day"]),
+                            str(composition_row["resolved_node_id"]),
+                            str(composition_row["resolved_supplier_id"]),
+                            str(composition_row["resolved_item_id"]),
+                            str(composition_row["resolved_dst_node_id"]),
+                            str(composition_row["action"]),
+                        )
+                        control_probe_composition_rows.setdefault(
+                            key,
+                            composition_row,
+                        )
+            if feedback_control is not None and not resolved.enabled:
+                return None
+            return resolved
 
         supplier_risk_events_today = supplier_risk_events + active_state_dependent_events(
             supplier_state_risk_events,
@@ -6392,6 +7529,446 @@ def main() -> None:
             warmup_backlog_cleared_qty = sum(max(0.0, val) for val in backlog.values())
             for pair in list(backlog.keys()):
                 backlog[pair] = 0.0
+        if day == warmup_days and measurement_start_stock_scale_overrides:
+            measurement_totals_by_uom: dict[str, dict[str, float]] = defaultdict(
+                lambda: {
+                    "stock_before_qty": 0.0,
+                    "stock_after_qty": 0.0,
+                    "stock_removed_qty": 0.0,
+                    "stock_added_qty": 0.0,
+                }
+            )
+            for pair, factor in sorted(
+                measurement_start_stock_scale_overrides.items()
+            ):
+                stock_before_qty = max(0.0, stock.get(pair, 0.0))
+                stock_after_qty = max(0.0, stock_before_qty * factor)
+                stock_removed_qty = max(0.0, stock_before_qty - stock_after_qty)
+                stock_added_qty = max(0.0, stock_after_qty - stock_before_qty)
+                stock[pair] = stock_after_qty
+                unit = normalize_unit(item_unit_map.get(pair[1], ""))
+                lot_result = lot_ledger.reconcile_pair_to_stock(
+                    day=0,
+                    node_id=pair[0],
+                    item_id=pair[1],
+                    target_qty=stock_after_qty,
+                    source_id="measurement_start_stock_scale_csv",
+                    uom=unit,
+                    notes=(
+                        "Pair-scoped measured-day-0 stock sensitivity; FIFO lot "
+                        "balance reconciled to adjusted aggregate stock."
+                    ),
+                )
+                adjustment_row = {
+                    "measured_day": 0,
+                    "node_id": pair[0],
+                    "item_id": pair[1],
+                    "uom": unit,
+                    "scale": round(factor, 9),
+                    "stock_before_qty": round(stock_before_qty, 6),
+                    "stock_after_qty": round(stock_after_qty, 6),
+                    "stock_removed_qty": round(stock_removed_qty, 6),
+                    "stock_added_qty": round(stock_added_qty, 6),
+                    "lot_trace_enabled": int(lot_ledger.enabled),
+                    "lot_balance_before_qty": round(
+                        to_float(lot_result.get("balance_before_qty"), 0.0),
+                        6,
+                    ),
+                    "lot_balance_after_qty": round(
+                        to_float(lot_result.get("balance_after_qty"), 0.0),
+                        6,
+                    ),
+                    "lot_removed_qty": round(
+                        to_float(lot_result.get("removed_qty"), 0.0),
+                        6,
+                    ),
+                    "lot_added_qty": round(
+                        to_float(lot_result.get("added_qty"), 0.0),
+                        6,
+                    ),
+                    "lot_balance_matches_stock_after": (
+                        int(
+                            abs(
+                                to_float(
+                                    lot_result.get("balance_after_qty"),
+                                    0.0,
+                                )
+                                - stock_after_qty
+                            )
+                            <= LOT_TRACE_EPS
+                        )
+                        if lot_ledger.enabled
+                        else ""
+                    ),
+                    "source_csv": str(measurement_start_stock_scale_csv_path),
+                    "source_csv_sha256": (
+                        measurement_start_stock_scale_csv_sha256
+                    ),
+                }
+                measurement_start_stock_adjustment_rows.append(adjustment_row)
+                totals = measurement_totals_by_uom[unit or "unspecified"]
+                totals["stock_before_qty"] += stock_before_qty
+                totals["stock_after_qty"] += stock_after_qty
+                totals["stock_removed_qty"] += stock_removed_qty
+                totals["stock_added_qty"] += stock_added_qty
+                assumptions_ledger_rows.append(
+                    {
+                        "category": "measurement_start_stock_scale",
+                        "node_id": pair[0],
+                        "item_id": pair[1],
+                        "edge_id": "",
+                        "source": str(measurement_start_stock_scale_csv_path),
+                        "payload_json": json.dumps(
+                            adjustment_row,
+                            ensure_ascii=False,
+                            sort_keys=True,
+                        ),
+                    }
+                )
+            measurement_start_stock_scale_audit["adjustment_rows"] = len(
+                measurement_start_stock_adjustment_rows
+            )
+            measurement_start_stock_scale_audit["quantities_by_uom"] = {
+                unit: {
+                    key: round(value, 6)
+                    for key, value in values.items()
+                }
+                for unit, values in sorted(measurement_totals_by_uom.items())
+            }
+        if day == warmup_days and measurement_start_in_transit_scale_overrides:
+            transit_totals_by_uom: dict[str, dict[str, float]] = defaultdict(
+                lambda: {
+                    "in_transit_before_qty": 0.0,
+                    "in_transit_after_qty": 0.0,
+                    "in_transit_removed_qty": 0.0,
+                    "lot_pipeline_before_qty": 0.0,
+                    "lot_pipeline_after_qty": 0.0,
+                    "lot_pipeline_removed_qty": 0.0,
+                }
+            )
+            for pair, factor in sorted(
+                measurement_start_in_transit_scale_overrides.items()
+            ):
+                arrival_details: dict[int, dict[str, float | int]] = {}
+                standard_before_qty = 0.0
+                standard_after_qty = 0.0
+                standard_row_count = 0
+                for arrival_day in sorted(list(pipeline.keys())):
+                    rewritten_rows: list[tuple[str, str, float, str]] = []
+                    for dst_node_id, item_id, qty, edge_id in pipeline[arrival_day]:
+                        before_qty = max(0.0, to_float(qty, 0.0))
+                        if (str(dst_node_id), str(item_id)) != pair:
+                            rewritten_rows.append(
+                                (dst_node_id, item_id, before_qty, edge_id)
+                            )
+                            continue
+                        after_qty = before_qty * factor
+                        standard_before_qty += before_qty
+                        standard_after_qty += after_qty
+                        standard_row_count += 1
+                        detail = arrival_details.setdefault(
+                            int(arrival_day),
+                            {
+                                "pipeline_row_count": 0,
+                                "pipeline_before_qty": 0.0,
+                                "pipeline_after_qty": 0.0,
+                                "lot_payload_count": 0,
+                                "lot_before_qty": 0.0,
+                                "lot_after_qty": 0.0,
+                            },
+                        )
+                        detail["pipeline_row_count"] = int(
+                            detail["pipeline_row_count"]
+                        ) + 1
+                        detail["pipeline_before_qty"] = float(
+                            detail["pipeline_before_qty"]
+                        ) + before_qty
+                        detail["pipeline_after_qty"] = float(
+                            detail["pipeline_after_qty"]
+                        ) + after_qty
+                        if after_qty > LOT_TRACE_EPS:
+                            rewritten_rows.append(
+                                (dst_node_id, item_id, after_qty, edge_id)
+                            )
+                    pipeline[arrival_day] = rewritten_rows
+
+                lot_before_qty = 0.0
+                lot_after_qty = 0.0
+                lot_payload_count = 0
+                for arrival_day in sorted(list(lot_arrivals_pipeline.keys())):
+                    for payload in lot_arrivals_pipeline[arrival_day]:
+                        if (
+                            str(payload.get("dst_node_id") or ""),
+                            str(payload.get("item_id") or ""),
+                        ) != pair:
+                            continue
+                        before_qty = max(0.0, to_float(payload.get("qty"), 0.0))
+                        after_qty = before_qty * factor
+                        payload["qty"] = after_qty
+                        payload["parent_allocations"] = [
+                            {
+                                **allocation,
+                                "qty": max(
+                                    0.0,
+                                    to_float(allocation.get("qty"), 0.0),
+                                )
+                                * factor,
+                            }
+                            for allocation in list(
+                                payload.get("parent_allocations") or []
+                            )
+                            if max(
+                                0.0,
+                                to_float(allocation.get("qty"), 0.0),
+                            )
+                            * factor
+                            > LOT_TRACE_EPS
+                        ]
+                        lot_before_qty += before_qty
+                        lot_after_qty += after_qty
+                        lot_payload_count += 1
+                        detail = arrival_details.setdefault(
+                            int(arrival_day),
+                            {
+                                "pipeline_row_count": 0,
+                                "pipeline_before_qty": 0.0,
+                                "pipeline_after_qty": 0.0,
+                                "lot_payload_count": 0,
+                                "lot_before_qty": 0.0,
+                                "lot_after_qty": 0.0,
+                            },
+                        )
+                        detail["lot_payload_count"] = int(
+                            detail["lot_payload_count"]
+                        ) + 1
+                        detail["lot_before_qty"] = float(
+                            detail["lot_before_qty"]
+                        ) + before_qty
+                        detail["lot_after_qty"] = float(
+                            detail["lot_after_qty"]
+                        ) + after_qty
+                    lot_arrivals_pipeline[arrival_day] = [
+                        payload
+                        for payload in lot_arrivals_pipeline[arrival_day]
+                        if (
+                            str(payload.get("dst_node_id") or ""),
+                            str(payload.get("item_id") or ""),
+                        )
+                        != pair
+                        or max(0.0, to_float(payload.get("qty"), 0.0))
+                        > LOT_TRACE_EPS
+                    ]
+
+                in_transit_before_qty = max(0.0, in_transit.get(pair, 0.0))
+                in_transit_after_qty = in_transit_before_qty * factor
+                in_transit[pair] = in_transit_after_qty
+                unit = normalize_unit(item_unit_map.get(pair[1], ""))
+                arrival_days_payload = [
+                    {
+                        "arrival_day_internal": int(arrival_day),
+                        "arrival_day_measured": int(arrival_day - warmup_days),
+                        **{
+                            key: round(float(value), 6)
+                            if key.endswith("_qty")
+                            else int(value)
+                            for key, value in detail.items()
+                        },
+                    }
+                    for arrival_day, detail in sorted(arrival_details.items())
+                ]
+                adjustment_row = {
+                    "measured_day": 0,
+                    "node_id": pair[0],
+                    "item_id": pair[1],
+                    "uom": unit,
+                    "scale": round(factor, 9),
+                    "in_transit_before_qty": round(in_transit_before_qty, 6),
+                    "in_transit_after_qty": round(in_transit_after_qty, 6),
+                    "in_transit_removed_qty": round(
+                        in_transit_before_qty - in_transit_after_qty, 6
+                    ),
+                    "standard_pipeline_before_qty": round(
+                        standard_before_qty, 6
+                    ),
+                    "standard_pipeline_after_qty": round(standard_after_qty, 6),
+                    "standard_pipeline_removed_qty": round(
+                        standard_before_qty - standard_after_qty, 6
+                    ),
+                    "standard_pipeline_row_count": standard_row_count,
+                    "lot_trace_enabled": int(lot_ledger.enabled),
+                    "lot_pipeline_before_qty": round(lot_before_qty, 6),
+                    "lot_pipeline_after_qty": round(lot_after_qty, 6),
+                    "lot_pipeline_removed_qty": round(
+                        lot_before_qty - lot_after_qty, 6
+                    ),
+                    "lot_payload_count": lot_payload_count,
+                    "arrival_day_count": len(arrival_days_payload),
+                    "arrival_days_json": json.dumps(
+                        arrival_days_payload,
+                        ensure_ascii=False,
+                        sort_keys=True,
+                    ),
+                    "pipeline_matches_in_transit_before": int(
+                        abs(standard_before_qty - in_transit_before_qty)
+                        <= LOT_TRACE_EPS
+                    ),
+                    "pipeline_matches_in_transit_after": int(
+                        abs(standard_after_qty - in_transit_after_qty)
+                        <= LOT_TRACE_EPS
+                    ),
+                    "external_in_transit_unchanged_qty": round(
+                        max(0.0, external_in_transit.get(pair, 0.0)), 6
+                    ),
+                    "estimated_source_in_transit_unchanged_qty": round(
+                        max(0.0, estimated_source_in_transit.get(pair, 0.0)), 6
+                    ),
+                    "source_csv": str(
+                        measurement_start_in_transit_scale_csv_path
+                    ),
+                    "source_csv_sha256": (
+                        measurement_start_in_transit_scale_csv_sha256
+                    ),
+                }
+                measurement_start_in_transit_adjustment_rows.append(
+                    adjustment_row
+                )
+                totals = transit_totals_by_uom[unit or "unspecified"]
+                for key in totals:
+                    totals[key] += float(adjustment_row[key])
+                assumptions_ledger_rows.append(
+                    {
+                        "category": "measurement_start_in_transit_scale",
+                        "node_id": pair[0],
+                        "item_id": pair[1],
+                        "edge_id": "",
+                        "source": str(
+                            measurement_start_in_transit_scale_csv_path
+                        ),
+                        "payload_json": json.dumps(
+                            adjustment_row,
+                            ensure_ascii=False,
+                            sort_keys=True,
+                        ),
+                    }
+                )
+            measurement_start_in_transit_scale_audit["adjustment_rows"] = len(
+                measurement_start_in_transit_adjustment_rows
+            )
+            measurement_start_in_transit_scale_audit["quantities_by_uom"] = {
+                unit: {
+                    key: round(value, 6)
+                    for key, value in values.items()
+                }
+                for unit, values in sorted(transit_totals_by_uom.items())
+            }
+        if day == warmup_days and args.warmup_boundary_audit:
+            boundary_components = {
+                "stock": dict(stock),
+                "backlog": dict(backlog),
+                "pipeline": dict(pipeline),
+                "external_pipeline": dict(external_pipeline),
+                "estimated_source_pipeline": dict(estimated_source_pipeline),
+                "in_transit": dict(in_transit),
+                "external_in_transit": dict(external_in_transit),
+                "estimated_source_in_transit": dict(estimated_source_in_transit),
+                "cumulative_output": dict(cum_output_by_pair),
+                "previous_production_command": dict(
+                    prev_production_command_by_pair
+                ),
+                "open_production_campaign_qty": dict(
+                    open_production_campaign_qty_by_pair
+                ),
+                "open_production_campaign_id": dict(
+                    open_production_campaign_id_by_pair
+                ),
+                "started_production_lots_by_week": dict(
+                    started_production_lots_by_week_pair
+                ),
+                "mps_previous_production_command": dict(
+                    mps_prev_production_command_by_pair
+                ),
+                "mps_open_campaign_qty": dict(mps_open_campaign_qty_by_pair),
+                "mps_started_lots_by_week": dict(
+                    mps_started_lots_by_week_pair
+                ),
+                "scheduled_lane_release_metrics": dict(
+                    scheduled_lane_release_metrics
+                ),
+                "mrp_multisource_annual_lane_orders": set(
+                    mrp_multisource_annual_lane_orders
+                ),
+                "mrp_target_demand_floor_cache": dict(
+                    mrp_target_demand_floor_cache
+                ),
+                "supplier_state_risk_events": list(supplier_state_risk_events),
+                "supplier_state_risk_open_until": dict(
+                    supplier_state_risk_open_until_by_key
+                ),
+                "supplier_state_risk_counters": dict(
+                    supplier_state_risk_counters
+                ),
+                "supplier_state_risk_metric_windows": {
+                    key: list(window)
+                    for key, window in supplier_state_risk_metric_windows.items()
+                },
+                "lot_arrivals_pipeline": dict(lot_arrivals_pipeline),
+                "lot_ledger": {
+                    "enabled": bool(lot_ledger.enabled),
+                    "lot_seq": int(lot_ledger._lot_seq),
+                    "event_seq": int(lot_ledger._event_seq),
+                    "campaign_seq": int(lot_ledger._campaign_seq),
+                    "lots_by_pair": {
+                        key: list(queue)
+                        for key, queue in lot_ledger.lots_by_pair.items()
+                    },
+                    "lots": dict(lot_ledger.lots),
+                },
+                "rng_state": rng.getstate(),
+                "paired_rng_invocations": dict(paired_rng_invocations),
+            }
+            component_hashes = {
+                name: _warmup_boundary_sha256(component)
+                for name, component in sorted(boundary_components.items())
+            }
+            warmup_boundary_state_audit = {
+                "schema_version": "etudecas.engine_warmup_boundary_audit.v1",
+                "method": "deterministic_paired_burn_in_replay",
+                "scope": "core_dynamic_engine_state_not_restart_checkpoint",
+                "physical_warmup_days": int(warmup_days),
+                "measured_cutover_day": 0,
+                "core_state_sha256": _warmup_boundary_sha256(
+                    boundary_components
+                ),
+                "component_sha256": component_hashes,
+                "restart_checkpoint_available": False,
+                **(
+                    {
+                        "opening_observed_stock_scale": (
+                            opening_observed_stock_scale_audit
+                        )
+                    }
+                    if opening_observed_stock_scale_requested
+                    else {}
+                ),
+                **(
+                    {
+                        "measurement_start_stock_scale": (
+                            measurement_start_stock_scale_audit
+                        )
+                    }
+                    if measurement_start_stock_scale_csv_path
+                    else {}
+                ),
+                **(
+                    {
+                        "measurement_start_in_transit_scale": (
+                            measurement_start_in_transit_scale_audit
+                        )
+                    }
+                    if measurement_start_in_transit_scale_csv_path
+                    else {}
+                ),
+            }
         supplier_stock_start_by_pair = (
             {pair: max(0.0, stock.get(pair, 0.0)) for pair in supplier_stock_pairs}
             if record_day
@@ -6411,6 +7988,16 @@ def main() -> None:
             profile_day,
             window_days=mrp_signal_smoothing_days,
         )
+        base_physical_demand_target_today = demand_target_today
+        if record_day and demand_perturbation.enabled:
+            raw_demand_target_today = demand_perturbation.apply(
+                output_day,
+                raw_demand_target_today,
+            )
+            demand_target_today = demand_perturbation.apply(
+                output_day,
+                demand_target_today,
+            )
         mrp_target_profile_day = (
             (profile_day // mrp_target_bucket_days) * mrp_target_bucket_days
             if mrp_target_bucket_days > 1
@@ -6430,6 +8017,65 @@ def main() -> None:
             if mrp_target_bucket_days > 1
             else demand_target_today
         )
+        if (
+            record_day
+            and demand_perturbation.enabled
+            and mrp_target_bucket_days > 1
+        ):
+            mrp_raw_demand_target_today = demand_perturbation.apply(
+                output_day,
+                mrp_raw_demand_target_today,
+            )
+            mrp_demand_target_today = demand_perturbation.apply(
+                output_day,
+                mrp_demand_target_today,
+            )
+        if record_day and demand_perturbation.enabled:
+            for perturbation_row in demand_perturbation.rows_for_day(output_day):
+                base_demand_qty = max(
+                    0.0,
+                    float(
+                        base_physical_demand_target_today.get(
+                            perturbation_row.pair,
+                            0.0,
+                        )
+                    ),
+                )
+                perturbed_demand_qty = max(
+                    0.0,
+                    float(
+                        demand_target_today.get(
+                            perturbation_row.pair,
+                            0.0,
+                        )
+                    ),
+                )
+                demand_perturbation_audit_rows.append(
+                    {
+                        "day": int(output_day),
+                        "node_id": perturbation_row.node_id,
+                        "item_id": perturbation_row.item_id,
+                        "demand_multiplier": perturbation_row.demand_multiplier,
+                        "base_demand_qty": round(base_demand_qty, 6),
+                        "perturbed_demand_qty": round(
+                            perturbed_demand_qty,
+                            6,
+                        ),
+                        "demand_delta_qty": round(
+                            perturbed_demand_qty - base_demand_qty,
+                            6,
+                        ),
+                        "source_line": perturbation_row.source_line,
+                        "status": "applied",
+                    }
+                )
+                demand_perturbation_applied_keys.add(
+                    (
+                        int(output_day),
+                        perturbation_row.node_id,
+                        perturbation_row.item_id,
+                    )
+                )
         if (
             initialization_policy["use_bom_demand_signal_for_mrp"]
             and mrp_demand_signal_source == "mps_lotified"
@@ -6600,6 +8246,7 @@ def main() -> None:
         supplier_stock_writeoff_today_by_pair: dict[tuple[str, str], float] = defaultdict(float)
         produced_today = 0.0
         produced_today_by_pair: dict[tuple[str, str], float] = defaultdict(float)
+        production_executed_today_by_pair: dict[tuple[str, str], float] = defaultdict(float)
         consumed_today_by_pair: dict[tuple[str, str], float] = defaultdict(float)
         lot_arrivals_by_key: dict[tuple[str, str, str], deque[dict[str, Any]]] = defaultdict(deque)
         for lot_payload in lot_arrivals_today:
@@ -6645,6 +8292,9 @@ def main() -> None:
                     qty=take,
                     source_type=str(payload.get("source_type") or "lane_receipt"),
                     source_id=str(payload.get("source_id") or lane_id),
+                    shipment_id=str(payload.get("shipment_id") or ""),
+                    risk_decision_day=payload.get("risk_decision_day", ""),
+                    risk_event_ids=str(payload.get("risk_event_ids") or ""),
                     parent_allocations=parents,
                     link_type=str(payload.get("link_type") or "transport"),
                     uom=item_unit_map.get(item_id, ""),
@@ -7160,11 +8810,13 @@ def main() -> None:
                     # is enough room to consume the next campaign realistically.
                     desired_qty = 0.0
                 prev_production_command_by_pair[out_pair] = desired_qty
-                campaign_started_qty = 0.0
-                campaign_requested_qty = 0.0
+                campaign_started_qty = max(0.0, production_campaign_target_qty_by_pair.get(out_pair, 0.0))
+                campaign_requested_qty = max(0.0, production_campaign_requested_qty_by_pair.get(out_pair, 0.0))
                 lot_planned_qty = desired_qty
                 campaign_id = open_production_campaign_id_by_pair.get(out_pair, "")
-                week_index = int(day // 7)
+                # Production weeks are aligned to the reported calendar.  A
+                # warm-up must not shift J0 into an arbitrary weekly bucket.
+                week_index = production_week_index(output_day)
                 week_key = (week_index, out_pair)
                 started_lots_this_week = int(started_production_lots_by_week_pair.get(week_key, 0))
                 requested_lot_starts = 0
@@ -7196,29 +8848,54 @@ def main() -> None:
                                 item_id=out_item,
                             )
                             open_production_campaign_id_by_pair[out_pair] = campaign_id
+                            production_campaign_started_day_by_pair[out_pair] = output_day
+                            production_campaign_requested_qty_by_pair[out_pair] = campaign_requested_qty
+                            production_campaign_target_qty_by_pair[out_pair] = campaign_started_qty
                         if actual_lot_starts > 0:
                             started_production_lots_by_week_pair[week_key] = started_lots_this_week + actual_lot_starts
                             started_lots_this_week = int(started_production_lots_by_week_pair[week_key])
                     lot_planned_qty = campaign_remaining_start_qty
 
-                qty_candidate = max(0.0, min(cap, max_from_inputs, lot_planned_qty))
-                fixed_lot_policy = to_float(lot_policy.get("fixed_lot_qty"), 0.0) > 1e-9
-                if (
-                    fixed_lot_policy
-                    and campaign_remaining_start_qty > 1e-9
-                    and qty_candidate + 1e-9 < lot_planned_qty
-                ):
-                    qty = 0.0
-                else:
-                    qty = qty_candidate
+                batch_wip: ProductionBatchWip | None = None
+                batch_remaining_start_qty = lot_planned_qty
+                batch_executed_start_qty = 0.0
+                if lot_policy["enabled"] and campaign_remaining_start_qty > 1e-9 and campaign_id:
+                    batch_wip = production_batch_wip_by_pair.get(out_pair)
+                    if batch_wip is not None and batch_wip.campaign_id != campaign_id:
+                        raise RuntimeError(
+                            f"Stale production WIP for {out_pair}: {batch_wip.campaign_id} != {campaign_id}"
+                        )
+                    if batch_wip is None:
+                        production_batch_sequence_by_campaign[campaign_id] += 1
+                        batch_target_qty = physical_batch_target_qty(campaign_remaining_start_qty, lot_policy)
+                        batch_wip = ProductionBatchWip(
+                            campaign_id=campaign_id,
+                            batch_id=make_batch_id(
+                                campaign_id,
+                                production_batch_sequence_by_campaign[campaign_id],
+                            ),
+                            node_id=nid,
+                            item_id=out_item,
+                            campaign_started_day=production_campaign_started_day_by_pair.get(out_pair, output_day),
+                            batch_started_day=output_day,
+                            target_qty=batch_target_qty,
+                        )
+                        production_batch_wip_by_pair[out_pair] = batch_wip
+                    batch_remaining_start_qty = batch_wip.remaining_qty
+                    batch_executed_start_qty = batch_wip.executed_qty
+
+                execution_plan_qty = batch_remaining_start_qty if batch_wip is not None else lot_planned_qty
+                qty = max(0.0, min(cap, max_from_inputs, execution_plan_qty))
                 if not lot_policy["enabled"] and qty > 1e-9:
                     campaign_id = lot_ledger.next_campaign_id(
                         day=output_day,
                         node_id=nid,
                         item_id=out_item,
                     )
+                    production_campaign_started_day_by_pair[out_pair] = output_day
                 binding_cause = "none"
                 binding_item = ""
+                production_plan_row: dict[str, Any] | None = None
                 if desired_qty > 1e-9 or campaign_remaining_start_qty > 1e-9:
                     input_binding_item = ""
                     input_binding_value = float("inf")
@@ -7239,7 +8916,10 @@ def main() -> None:
                         if item_limit < input_binding_value:
                             input_binding_value = item_limit
                             input_binding_item = in_item
-                    binding_reference_qty = lot_planned_qty if lot_policy["enabled"] else desired_qty
+                    # A campaign may contain several batches. Capacity and
+                    # material constraints apply to the current physical batch,
+                    # not to all batches in the campaign at once.
+                    binding_reference_qty = execution_plan_qty if lot_policy["enabled"] else desired_qty
                     if lot_weekly_limit_blocked and campaign_remaining_start_qty <= 1e-9 and desired_qty > 1e-9:
                         binding_cause = "weekly_lot_limit"
                     elif qty + 1e-9 < binding_reference_qty:
@@ -7254,6 +8934,16 @@ def main() -> None:
                             binding_cause = "policy_command"
                     elif lot_policy["enabled"] and campaign_remaining_start_qty > 1e-9 and qty <= 1e-9:
                         binding_cause = "lot_campaign_blocked"
+                    if (
+                        feedback_control_supports_priming
+                        and args.controller_prime_during_warmup
+                        and not record_day
+                        and has_capacity_limit
+                        and cap > 1e-9
+                    ):
+                        feedback_warmup_production_utilization_values.append(
+                            max(0.0, qty) / max(1e-9, cap)
+                        )
                     if record_day:
                         cap_qty_for_record = cap if has_capacity_limit else 0.0
                         input_qty_for_record = max_from_inputs if math.isfinite(max_from_inputs) else 0.0
@@ -7272,7 +8962,7 @@ def main() -> None:
                                 "binding_cause": binding_cause,
                                 "binding_input_item_id": binding_item,
                                 "shortfall_vs_desired_qty": round(max(0.0, desired_qty - qty), 6),
-                                "shortfall_vs_lot_plan_qty": round(max(0.0, lot_planned_qty - qty), 6),
+                                "shortfall_vs_lot_plan_qty": round(max(0.0, execution_plan_qty - qty), 6),
                                 "lot_policy_mode": (
                                     "fixed"
                                     if lot_policy.get("fixed_lot_qty", 0.0) > 1e-9
@@ -7295,7 +8985,20 @@ def main() -> None:
                             }
                         )
                         shortfall_vs_desired_qty = max(0.0, desired_qty - qty)
-                        shortfall_vs_lot_plan_qty = max(0.0, lot_planned_qty - qty)
+                        shortfall_vs_lot_plan_qty = max(0.0, execution_plan_qty - qty)
+                        projected_batch_executed_end_qty = (
+                            min(batch_wip.target_qty, batch_executed_start_qty + qty)
+                            if batch_wip is not None
+                            else qty
+                        )
+                        projected_batch_complete = (
+                            qty > LOT_TRACE_EPS
+                            if batch_wip is None
+                            else batch_wip.target_qty - projected_batch_executed_end_qty <= LOT_TRACE_EPS
+                        )
+                        projected_campaign_complete = (
+                            projected_batch_complete and campaign_remaining_end_qty <= LOT_TRACE_EPS
+                        )
                         if binding_cause == "input_shortage":
                             event_type = "partial_run_input_shortage" if qty > 1e-9 else "delay_input_shortage"
                         elif binding_cause == "capacity":
@@ -7306,19 +9009,60 @@ def main() -> None:
                             event_type = "delay_lot_campaign_blocked"
                         elif actual_lot_starts > 0:
                             event_type = "start_campaign"
+                        elif projected_campaign_complete:
+                            event_type = "run_campaign_complete"
                         elif qty > 1e-9 and campaign_remaining_end_qty > 1e-9:
                             event_type = "run_campaign_partial"
-                        elif qty > 1e-9:
-                            event_type = "run_campaign_complete"
                         else:
                             event_type = "plan_no_run"
                         receipt_pair = (nid, binding_item) if binding_item else ("", "")
-                        production_plan_event_rows.append(
-                            {
+                        batch_id_for_row = (
+                            batch_wip.batch_id
+                            if batch_wip is not None
+                            else (make_batch_id(campaign_id, 1) if campaign_id and qty > 1e-9 else "")
+                        )
+                        production_plan_row = {
                                 "day": output_day,
                                 "campaign_id": campaign_id,
+                                "semantics_version": LOT_EXECUTION_SEMANTICS_VERSION,
+                                "campaign_started_day": production_campaign_started_day_by_pair.get(
+                                    out_pair,
+                                    output_day,
+                                ),
                                 "node_id": nid,
                                 "output_item_id": out_item,
+                                "batch_id": batch_id_for_row,
+                                "batch_started_day": (
+                                    batch_wip.batch_started_day if batch_wip is not None else output_day
+                                ),
+                                "batch_target_qty": round(
+                                    batch_wip.target_qty if batch_wip is not None else qty,
+                                    6,
+                                ),
+                                "batch_executed_start_qty": round(batch_executed_start_qty, 6),
+                                "batch_executed_today_qty": round(qty, 6),
+                                "batch_executed_end_qty": round(projected_batch_executed_end_qty, 6),
+                                "process_tau_days": round(process_tau_days_by_pair.get(out_pair, 0.0), 6),
+                                "release_gate_mode": "execution_complete_tau_planning_only",
+                                "wip_start_qty": round(batch_executed_start_qty, 6),
+                                "wip_end_qty": round(
+                                    0.0 if projected_batch_complete else projected_batch_executed_end_qty,
+                                    6,
+                                ),
+                                "released_qty": round(
+                                    batch_wip.target_qty
+                                    if projected_batch_complete and batch_wip is not None
+                                    else qty
+                                    if batch_wip is None
+                                    else 0.0,
+                                    6,
+                                ),
+                                "released_lot_id": "",
+                                "is_day_zero_carry_in": int(
+                                    output_day == 0
+                                    and batch_wip is not None
+                                    and batch_wip.batch_started_day < 0
+                                ),
                                 "event_type": event_type,
                                 "reason": binding_cause,
                                 "desired_qty": round(desired_qty, 6),
@@ -7351,11 +9095,15 @@ def main() -> None:
                                 "next_expected_receipt_day": (
                                     next_receipt_day_for_pair(receipt_pair, day) if binding_item else ""
                                 ),
-                                "notes": "lot_policy_enabled" if lot_policy["enabled"] else "daily_unlotified_plan",
+                                "notes": (
+                                    "lot_policy_enabled; tau_process_used_for_planning_cover_only"
+                                    if lot_policy["enabled"]
+                                    else "daily_unlotified_plan; tau_process_used_for_planning_cover_only"
+                                ),
                             }
-                        )
+                        production_plan_event_rows.append(production_plan_row)
                         if args.supplier_state_dependent_risks and binding_cause == "input_shortage" and binding_item:
-                            shortage_reference_qty = max(lot_planned_qty, desired_qty, 1.0)
+                            shortage_reference_qty = max(execution_plan_qty, desired_qty, 1.0)
                             shortage_ratio = max(0.0, shortfall_vs_lot_plan_qty) / shortage_reference_qty
                             next_receipt_text = next_receipt_day_for_pair(receipt_pair, day)
                             next_receipt_output_day = (
@@ -7531,39 +9279,85 @@ def main() -> None:
                             )
                         )
 
-                stock[(nid, out_item)] += qty
-                lot_ledger.create_child_lot(
-                    day=output_day,
-                    node_id=nid,
-                    item_id=out_item,
-                    qty=qty,
-                    source_type="production_output",
-                    source_id=f"{nid}|{out_item}",
-                    parent_allocations=production_parent_allocations,
-                    link_type="production",
-                    uom=item_unit_map.get(out_item, ""),
-                    production_campaign_id=campaign_id,
-                )
-                produced_today += qty
-                produced_today_by_pair[(nid, out_item)] += qty
+                production_executed_today_by_pair[out_pair] += qty
+                released_qty = 0.0
+                released_lot_id = ""
+                release_parent_allocations = production_parent_allocations
+                release_batch_id = make_batch_id(campaign_id, 1)
+                if batch_wip is not None:
+                    accepted_qty = batch_wip.add_execution(qty, production_parent_allocations)
+                    if abs(accepted_qty - qty) > LOT_TRACE_EPS:
+                        raise RuntimeError(
+                            f"Batch execution mismatch for {batch_wip.batch_id}: accepted={accepted_qty}, planned={qty}"
+                        )
+                    release_batch_id = batch_wip.batch_id
+                    if batch_wip.is_complete:
+                        released_qty = batch_wip.target_qty
+                        release_parent_allocations = batch_wip.parent_allocations
+                        production_batch_wip_by_pair.pop(out_pair, None)
+                else:
+                    # No lot rule: the daily execution is an immediately
+                    # released physical batch, preserving legacy behaviour.
+                    released_qty = qty
+
+                if released_qty > LOT_TRACE_EPS:
+                    stock[out_pair] += released_qty
+                    released_lot_id = lot_ledger.create_child_lot(
+                        day=output_day,
+                        node_id=nid,
+                        item_id=out_item,
+                        qty=released_qty,
+                        source_type="production_output",
+                        source_id=f"{nid}|{out_item}",
+                        parent_allocations=release_parent_allocations,
+                        link_type="production",
+                        uom=item_unit_map.get(out_item, ""),
+                        production_campaign_id=campaign_id,
+                        notes=(
+                            f"semantics={LOT_EXECUTION_SEMANTICS_VERSION};batch_id={release_batch_id};"
+                            "released_only_after_physical_batch_completion"
+                        ),
+                    )
+                    produced_today += released_qty
+                    produced_today_by_pair[out_pair] += released_qty
+
+                if production_plan_row is not None:
+                    production_plan_row["released_qty"] = round(released_qty, 6)
+                    production_plan_row["released_lot_id"] = released_lot_id
+                    production_plan_row["wip_end_qty"] = round(
+                        production_batch_wip_by_pair[out_pair].executed_qty
+                        if out_pair in production_batch_wip_by_pair
+                        else 0.0,
+                        6,
+                    )
                 if lot_policy["enabled"]:
                     open_production_campaign_qty_by_pair[out_pair] = max(0.0, campaign_remaining_start_qty - qty)
                     if open_production_campaign_qty_by_pair[out_pair] <= 1e-9:
                         open_production_campaign_id_by_pair.pop(out_pair, None)
+                        production_campaign_started_day_by_pair.pop(out_pair, None)
+                        production_campaign_requested_qty_by_pair.pop(out_pair, None)
+                        production_campaign_target_qty_by_pair.pop(out_pair, None)
+                else:
+                    production_campaign_started_day_by_pair.pop(out_pair, None)
 
         if record_day:
             total_produced += produced_today
             for node_id, item_id in production_output_pairs:
                 q = produced_today_by_pair[(node_id, item_id)]
+                executed_q = production_executed_today_by_pair[(node_id, item_id)]
                 cum_output_by_pair[(node_id, item_id)] += q
-                if q > 1e-9:
-                    production_cost_qty_by_day_pair[(output_day, node_id, item_id)] += q
+                if executed_q > 1e-9:
+                    production_cost_qty_by_day_pair[(output_day, node_id, item_id)] += executed_q
+                active_wip = production_batch_wip_by_pair.get((node_id, item_id))
                 output_prod_rows.append(
                     {
                         "day": output_day,
                         "node_id": node_id,
                         "item_id": item_id,
                         "produced_qty": round(q, 6),
+                        "executed_qty": round(executed_q, 6),
+                        "released_qty": round(q, 6),
+                        "wip_end_qty": round(active_wip.executed_qty if active_wip is not None else 0.0, 6),
                         "cum_produced_qty": round(cum_output_by_pair[(node_id, item_id)], 6),
                         "stock_end_of_day": round(stock[(node_id, item_id)], 6),
                     }
@@ -8543,6 +10337,7 @@ def main() -> None:
                 nonlocal total_external_procurement_cost
                 nonlocal total_unreliable_loss_qty
                 nonlocal pair_constrained_before_lot_qty
+                nonlocal supplier_shipment_sequence
 
                 if desired_delivered_qty <= 1e-9 or remaining_need_qty <= 1e-9:
                     return 0.0
@@ -8913,29 +10708,48 @@ def main() -> None:
                     args.stochastic_lead_times,
                     lead_time_distribution_mode,
                 )
-                transport_lead_days = max(
-                    1,
-                    int(
-                        math.ceil(
-                            float(transport_lead_days) * max(0.05, to_float(risk_mult.get("lead_time"), 1.0))
-                            + max(0.0, to_float(risk_mult.get("lead_time_extra_days"), 0.0))
-                            + max(0.0, to_float(risk_mult.get("quality_delay"), 0.0))
-                        )
-                    ),
+                transport_lead_days_before_quality = (
+                    float(transport_lead_days)
+                    * max(
+                        0.05,
+                        to_float(risk_mult.get("lead_time"), 1.0),
+                    )
+                    + max(
+                        0.0,
+                        to_float(
+                            risk_mult.get("lead_time_extra_days"),
+                            0.0,
+                        ),
+                    )
                 )
-                if lane_control is not None:
-                    expedite_reduction = int(
-                        math.floor(
-                            lane_control.expedite_level
-                            * max(0, transport_lead_days - 1)
-                        )
+                quality_delay_days = max(
+                    0.0,
+                    to_float(risk_mult.get("quality_delay"), 0.0),
+                )
+                delay_control_active = bool(
+                    lane_control is not None
+                    and (
+                        lane_control.expedite_level > 1e-12
+                        or lane_control.lead_time_adjustment_days != 0
                     )
-                    transport_lead_days = max(
-                        1,
-                        transport_lead_days
-                        + lane_control.lead_time_adjustment_days
-                        - expedite_reduction,
-                    )
+                )
+                transport_lead_days = compose_controlled_lane_lead_days(
+                    transport_lead_days_before_quality=(
+                        transport_lead_days_before_quality
+                    ),
+                    quality_delay_days=quality_delay_days,
+                    expedite_level=(
+                        lane_control.expedite_level
+                        if lane_control is not None
+                        else 0.0
+                    ),
+                    lead_time_adjustment_days=(
+                        lane_control.lead_time_adjustment_days
+                        if lane_control is not None
+                        else 0
+                    ),
+                    delay_control_active=delay_control_active,
+                )
                 lead_days = int(transport_lead_days + supplier_backorder_extra_lead_days)
                 lead_cover = (
                     lead_time_cover_days(lane, args.stochastic_lead_times, lead_time_distribution_mode)
@@ -8982,7 +10796,18 @@ def main() -> None:
                 else:
                     delivery_schedule.append((day + lead_days, pull_qty, delivered_qty))
 
-                for arrival_day, chunk_pull_qty, chunk_delivered_qty in delivery_schedule:
+                traced_delivery_schedule, supplier_shipment_sequence = _attach_shipment_trace_ids(
+                    delivery_schedule,
+                    start_sequence=supplier_shipment_sequence,
+                    risk_event_ids=tuple(risk_mult.get("event_ids") or []),
+                )
+                for (
+                    arrival_day,
+                    chunk_pull_qty,
+                    chunk_delivered_qty,
+                    shipment_id,
+                    risk_event_ids,
+                ) in traced_delivery_schedule:
                     physical_release_day = int(arrival_day - transport_lead_days)
                     pipeline[arrival_day].append((dst, item_id, chunk_delivered_qty, lane["edge_id"]))
                     chunk_parent_allocations: list[dict[str, Any]] = []
@@ -8994,6 +10819,9 @@ def main() -> None:
                             qty=chunk_pull_qty,
                             event_type="lane_ship",
                             source_id=str(lane["edge_id"]),
+                            shipment_id=shipment_id,
+                            risk_decision_day=output_day,
+                            risk_event_ids=risk_event_ids,
                             uom=item_unit_map.get(str(item_id), ""),
                         )
                     schedule_lot_arrival(
@@ -9004,6 +10832,9 @@ def main() -> None:
                         lane_id=str(lane["edge_id"]),
                         source_type="lane_receipt",
                         source_id=str(lane["edge_id"]),
+                        shipment_id=shipment_id,
+                        risk_decision_day=output_day,
+                        risk_event_ids=risk_event_ids,
                         parent_allocations=chunk_parent_allocations,
                         link_type="transport",
                         notes="source_stock_backordered" if supplier_backorder_extra_lead_days > 0 else "",
@@ -9029,7 +10860,13 @@ def main() -> None:
                     )
                 in_transit[pair] += delivered_qty
                 if record_day:
-                    for arrival_day, chunk_pull_qty, chunk_delivered_qty in delivery_schedule:
+                    for (
+                        arrival_day,
+                        chunk_pull_qty,
+                        chunk_delivered_qty,
+                        shipment_id,
+                        risk_event_ids,
+                    ) in traced_delivery_schedule:
                         physical_release_day = int(arrival_day - transport_lead_days)
                         is_opening_open_order_cost = source_mode.startswith("opening_")
                         chunk_transport_cost, transport_cost_basis, transport_cost_units = lane_transport_cost_for_chunk(
@@ -9076,9 +10913,13 @@ def main() -> None:
                         supplier_shipment_rows.append(
                             {
                                 "day": int(physical_release_day - warmup_days),
+                                "shipment_id": shipment_id,
+                                "risk_decision_day": int(output_day),
+                                "risk_event_ids": risk_event_ids,
                                 "src_node_id": str(lane["src"]),
                                 "dst_node_id": str(dst),
                                 "item_id": str(item_id),
+                                "edge_id": str(lane["edge_id"]),
                                 "shipped_qty": round(chunk_delivered_qty, 6),
                                 "pulled_qty": round(chunk_pull_qty, 6),
                                 "lead_days": int(transport_lead_days),
@@ -9088,6 +10929,7 @@ def main() -> None:
                                 "transport_cost_basis": transport_cost_basis,
                                 "transport_cost_units": round(transport_cost_units, 6),
                                 "transport_cost": round(chunk_transport_cost, 6),
+                                "purchase_cost": round(chunk_purchase_cost, 6),
                             }
                         )
                 if lane_control is not None:
@@ -9899,6 +11741,196 @@ def main() -> None:
             if row is not None:
                 row["stock_end_of_day"] = round(stock[(node_id, item_id)], 6)
 
+        feedback_order_nervousness_today = 0.0
+        feedback_active_order_pair_count = 0
+        if feedback_control is not None:
+            feedback_demand_history.append(max(0.0, demand_today))
+            current_order_by_pair = {
+                pair: max(0.0, to_float(qty, 0.0))
+                for pair, qty in planned_release_today_by_pair.items()
+                if max(0.0, to_float(qty, 0.0)) > 1e-9
+            }
+            feedback_active_order_pair_count = len(current_order_by_pair)
+            if feedback_previous_order_by_pair is not None:
+                relative_changes = [
+                    abs(
+                        current_order_by_pair.get(pair, 0.0)
+                        - feedback_previous_order_by_pair.get(pair, 0.0)
+                    )
+                    / max(
+                        current_order_by_pair.get(pair, 0.0),
+                        feedback_previous_order_by_pair.get(pair, 0.0),
+                    )
+                    for pair in (
+                        set(current_order_by_pair)
+                        | set(feedback_previous_order_by_pair)
+                    )
+                    if max(
+                        current_order_by_pair.get(pair, 0.0),
+                        feedback_previous_order_by_pair.get(pair, 0.0),
+                    )
+                    > 1e-9
+                ]
+                feedback_order_nervousness_today = (
+                    _finite_median(relative_changes) or 0.0
+                )
+            feedback_previous_order_by_pair = current_order_by_pair
+
+        def build_feedback_observation(
+            *,
+            production_utilization_values: list[float],
+            supplier_utilization_values: list[float],
+        ) -> CanonicalObservation:
+            backlog_end_qty = sum(max(0.0, qty) for qty in backlog.values())
+            required_today_qty = demand_today + sum(
+                max(0.0, backlog_start_of_day_by_pair.get(pair, 0.0))
+                for pair in demand_pairs
+            )
+            service_level_today = (
+                min(1.0, max(0.0, served_today / required_today_qty))
+                if required_today_qty > 1e-9
+                else 1.0
+            )
+            recent_demand_qty = (
+                sum(feedback_demand_history) / len(feedback_demand_history)
+                if feedback_demand_history
+                else 0.0
+            )
+            backlog_days_today = (
+                backlog_end_qty / recent_demand_qty
+                if recent_demand_qty > 1e-9
+                else (365.0 if backlog_end_qty > 1e-9 else 0.0)
+            )
+
+            finished_cover_values = [
+                max(0.0, stock.get(pair, 0.0)) / demand_rate
+                for pair in demand_pairs
+                for demand_rate in [
+                    max(0.0, raw_demand_target_today.get(pair, 0.0))
+                ]
+                if demand_rate > 1e-9
+            ]
+            material_cover_values = [
+                max(0.0, stock.get(pair, 0.0)) / requirement
+                for pair in production_input_pairs
+                for requirement in [
+                    max(
+                        0.0,
+                        consumed_today_by_pair.get(pair, 0.0),
+                        raw_propagated_demand_today.get(pair, 0.0),
+                    )
+                ]
+                if requirement > 1e-9
+            ]
+            finished_inventory_cover_days = _finite_median(
+                finished_cover_values
+            )
+            material_cover_days = (
+                min(material_cover_values)
+                if material_cover_values
+                else None
+            )
+            disruption_score, active_event_count = (
+                _canonical_supplier_disruption_proxy(
+                    supplier_risk_events_today,
+                    output_day,
+                )
+            )
+            return CanonicalObservation(
+                day=int(output_day),
+                demand_qty=max(0.0, demand_today),
+                served_qty=max(0.0, served_today),
+                service_level=service_level_today,
+                backlog_qty=backlog_end_qty,
+                backlog_days=max(0.0, backlog_days_today),
+                inventory_qty=max(0.0, inv_total_today),
+                finished_inventory_cover_days=(
+                    max(0.0, finished_inventory_cover_days)
+                    if finished_inventory_cover_days is not None
+                    else None
+                ),
+                material_cover_days=(
+                    max(0.0, material_cover_days)
+                    if material_cover_days is not None
+                    else None
+                ),
+                production_utilization=max(
+                    production_utilization_values,
+                    default=0.0,
+                ),
+                supplier_utilization=max(
+                    supplier_utilization_values,
+                    default=0.0,
+                ),
+                order_nervousness=max(
+                    0.0,
+                    feedback_order_nervousness_today,
+                ),
+                active_order_pair_count=feedback_active_order_pair_count,
+                supplier_disruption_score=disruption_score,
+                active_supplier_event_count=active_event_count,
+            )
+
+        if (
+            feedback_control is not None
+            and feedback_control_supports_priming
+            and args.controller_prime_during_warmup
+            and not record_day
+        ):
+            feedback_warmup_supplier_utilization_values: list[float] = []
+            for src_pair, nominal_cap in supplier_daily_capacity_by_pair.items():
+                capacity_multipliers_today: list[float] = []
+                for cap_lane in lanes_by_src_item.get(src_pair, []):
+                    cap_risk = supplier_risk_multipliers_for_lane(
+                        supplier_risk_events_today,
+                        cap_lane,
+                        output_day,
+                    )
+                    if cap_risk.get("event_ids"):
+                        capacity_multipliers_today.append(
+                            max(0.0, to_float(cap_risk.get("capacity"), 1.0))
+                            * max(
+                                0.0,
+                                to_float(cap_risk.get("availability"), 1.0),
+                            )
+                        )
+                effective_cap_today = (
+                    nominal_cap * min(capacity_multipliers_today or [1.0])
+                )
+                used_qty = supplier_capacity_used_today_by_src_pair.get(
+                    src_pair,
+                    0.0,
+                )
+                feedback_warmup_supplier_utilization_values.append(
+                    used_qty / effective_cap_today
+                    if effective_cap_today > 1e-9
+                    else 0.0
+                )
+            prime_observation = getattr(feedback_control, "prime", None)
+            if not callable(prime_observation):
+                provider_version = "V3" if feedback_control_is_v3 else "V2"
+                raise SystemExit(
+                    f"The selected {provider_version} control provider does not "
+                    "support warm-up priming."
+                )
+            try:
+                prime_observation(
+                    build_feedback_observation(
+                        production_utilization_values=(
+                            feedback_warmup_production_utilization_values
+                        ),
+                        supplier_utilization_values=(
+                            feedback_warmup_supplier_utilization_values
+                        ),
+                    )
+                )
+            except ControlProviderError as exc:
+                provider_version = "V3" if feedback_control_is_v3 else "V2"
+                raise SystemExit(
+                    f"State-feedback {provider_version} priming failed on warm-up day "
+                    f"{output_day}: {exc}"
+                ) from exc
+
         if record_day:
             for node_id, item_id in supplier_stock_pairs:
                 pair = (node_id, item_id)
@@ -9984,6 +12016,36 @@ def main() -> None:
                     "supplier_capacity_binding_qty": round(supplier_capacity_binding_qty_today, 4),
                 }
             )
+
+            if feedback_control is not None:
+                production_utilization_values = [
+                    max(0.0, to_float(row.get("actual_qty"), 0.0))
+                    / max(1e-9, to_float(row.get("cap_qty"), 0.0))
+                    for row in production_constraint_rows[
+                        production_constraint_day_start:
+                    ]
+                    if str(row.get("capacity_limit_mode") or "") == "finite"
+                    and to_float(row.get("cap_qty"), 0.0) > 1e-9
+                ]
+                supplier_utilization_values = [
+                    max(0.0, to_float(row.get("utilization"), 0.0))
+                    for row in supplier_capacity_daily_rows[
+                        supplier_capacity_day_start:
+                    ]
+                ]
+                observation = build_feedback_observation(
+                    production_utilization_values=production_utilization_values,
+                    supplier_utilization_values=supplier_utilization_values,
+                )
+                try:
+                    feedback_control.observe(
+                        observation,
+                        last_effective_day=sim_days - 1,
+                    )
+                except ControlProviderError as exc:
+                    raise SystemExit(
+                        f"State-feedback control failed on day {output_day}: {exc}"
+                    ) from exc
 
     supplier_nominal_parameter_rows = build_supplier_nominal_parameter_rows(
         nodes=nodes,
@@ -10301,10 +12363,18 @@ def main() -> None:
             }
         )
 
-    for schedule_row in control_schedule.rows:
+    control_rows_for_audit = (
+        feedback_control.rows
+        if feedback_control is not None
+        else control_schedule.rows
+    )
+    for schedule_row in control_rows_for_audit:
         for action_name in schedule_row.effective:
             if (schedule_row.source_line, action_name) in control_applied_actions:
                 continue
+            feedback_audit = feedback_audit_metadata_for_day(
+                schedule_row.day
+            )
             control_action_ledger_rows.append(
                 {
                     "day": schedule_row.day,
@@ -10335,6 +12405,7 @@ def main() -> None:
                     "binding_reason": (
                         "day_or_operational_scope_not_reached_or_no_physical_execution"
                     ),
+                    **feedback_audit,
                 }
             )
     control_action_ledger_rows.sort(
@@ -10359,7 +12430,175 @@ def main() -> None:
         len(row.effective)
         for row in control_schedule.rows
     )
-    resolved_control_actions = len(control_applied_actions)
+    resolved_control_actions = len(
+        {
+            action
+            for action in control_applied_actions
+            if action[0] in {row.source_line for row in control_schedule.rows}
+        }
+    )
+    control_probe_rows = (
+        control_probe.rows if control_probe is not None else ()
+    )
+    control_probe_scheduled_actions = sum(
+        len(row.effective) for row in control_probe_rows
+    )
+    resolved_probe_actions = {
+        (int(row["probe_source_line"]), str(row["action"]))
+        for row in control_probe_composition_rows.values()
+        if str(row.get("probe_source_line") or "").strip()
+    }
+    matched_control_probe_rows = len(
+        {
+            row.source_line
+            for row in control_probe_rows
+            if any(
+                source_line == row.source_line
+                for source_line, _ in resolved_probe_actions
+            )
+        }
+    )
+    control_probe_clipped_rows = [
+        row
+        for row in control_probe_composition_rows.values()
+        if int(to_float(row.get("composition_clipped"), 0)) == 1
+    ]
+    feedback_source_lines = {
+        row.source_line
+        for row in (feedback_control.rows if feedback_control is not None else ())
+    }
+    matched_feedback_rows = len(
+        feedback_source_lines & control_applied_source_lines
+    )
+    scheduled_feedback_actions = sum(
+        len(row.effective)
+        for row in (feedback_control.rows if feedback_control is not None else ())
+    )
+    resolved_feedback_actions = len(
+        {
+            action
+            for action in control_applied_actions
+            if action[0] in feedback_source_lines
+        }
+    )
+    physically_applied_feedback_actions = {
+        (
+            int(to_float(row.get("source_line"), -1)),
+            str(row.get("action") or ""),
+        )
+        for row in control_action_ledger_rows
+        if int(to_float(row.get("source_line"), -1)) in feedback_source_lines
+        and str(row.get("status") or "") == "applied"
+        and to_float(row.get("executed_control_volume_qty"), 0.0) > 1e-9
+    }
+    feedback_provider_metadata = (
+        feedback_control.summary_metadata()
+        if feedback_control is not None
+        else {}
+    )
+    feedback_priming_rows = (
+        [dict(row) for row in getattr(feedback_control, "priming_rows", ())]
+        if feedback_control is not None
+        else []
+    )
+    controller_dynamic_warmup_days = int(
+        feedback_provider_metadata.get(
+            "controller_dynamic_warmup_days",
+            feedback_provider_metadata.get(
+                "priming_observation_count",
+                len(feedback_priming_rows),
+            ),
+        )
+        or 0
+    )
+    warmup_feedback_command_count = int(
+        feedback_provider_metadata.get(
+            "warmup_control_action_count",
+            feedback_provider_metadata.get("warmup_action_count", 0),
+        )
+        or 0
+    )
+    controller_warmup_matches_physical_warmup = bool(
+        controller_dynamic_warmup_days == int(warmup_days)
+        and warmup_feedback_command_count == 0
+    )
+    controller_observation_forecast_lookahead_days = max(
+        0,
+        int(mrp_signal_smoothing_days) - 1,
+    )
+    future_information_contract_satisfied = (
+        controller_observation_forecast_lookahead_days == 0
+    )
+    feedback_provider_causal_contract_satisfied = bool(
+        feedback_provider_metadata.get("causal_contract_satisfied", False)
+    )
+    feedback_observation_decision_count_match = bool(
+        feedback_provider_metadata.get("observation_count", 0)
+        == feedback_provider_metadata.get("decision_count", -1)
+        and feedback_provider_metadata.get("observation_count", 0) > 0
+    )
+    feedback_closed_loop_claim_checks = {
+        "provider_causal_contract_satisfied": (
+            feedback_provider_causal_contract_satisfied
+        ),
+        "observation_causal_contract_satisfied": bool(
+            future_information_contract_satisfied
+        ),
+        "observation_decision_count_match": (
+            feedback_observation_decision_count_match
+        ),
+        "controller_warmup_matches_physical_warmup": bool(
+            controller_warmup_matches_physical_warmup
+        ),
+        "physical_feedback_action_applied": bool(
+            physically_applied_feedback_actions
+        ),
+    }
+    feedback_closed_loop_claimed = bool(
+        feedback_control is not None
+        and all(feedback_closed_loop_claim_checks.values())
+    )
+    feedback_closed_loop_claim_reasons = [
+        name
+        for name, satisfied in feedback_closed_loop_claim_checks.items()
+        if not satisfied
+    ]
+    feedback_engine_warnings = list(
+        feedback_provider_metadata.get("warnings", [])
+    )
+    if feedback_control is not None and not future_information_contract_satisfied:
+        feedback_engine_warnings.append(
+            "The realized demand signal exposed to the controller uses a "
+            f"forward {int(mrp_signal_smoothing_days)}-day profile window; "
+            "closed_loop_claimed is therefore disabled. Use "
+            "--mrp-demand-signal-smoothing-days 1 for a causal observation."
+        )
+    if (
+        feedback_control is not None
+        and warmup_days > 0
+        and not controller_warmup_matches_physical_warmup
+    ):
+        feedback_engine_warnings.append(
+            "The physical engine was warmed up, but the controller dynamic "
+            "memory starts at measured day 0 and was not primed during warm-up."
+        )
+
+    demand_perturbation_manifest = {
+        "enabled": True,
+        "source_csv": str(demand_perturbation_path),
+        "sha256": demand_perturbation_sha256,
+        "row_count": len(demand_perturbation.rows),
+        "applied_count": len(demand_perturbation_applied_keys),
+        "audit_csv": "data/canonical_demand_perturbations.csv",
+        "measured_day_basis": "zero_based_after_warmup",
+        "warmup_application_count": 0,
+        "scope": "exact_node_id_item_id_demand_pairs",
+        "multiplier_bounds": [
+            DEMAND_MULTIPLIER_MIN,
+            DEMAND_MULTIPLIER_MAX,
+        ],
+        "application_stage": "daily_demand_before_service_and_mrp_propagation",
+    }
 
     summary = {
         "input_file": str(input_path),
@@ -10388,11 +12627,48 @@ def main() -> None:
             "output_profile": args.output_profile,
             "lot_trace_enabled": bool(args.lot_trace),
             "opening_stock_bootstrap_scale": opening_stock_bootstrap_scale,
+            **(
+                {
+                    "opening_observed_stock_scale": (
+                        opening_observed_stock_scale_audit
+                    )
+                }
+                if opening_observed_stock_scale_requested
+                else {}
+            ),
+            **(
+                {
+                    "measurement_start_stock_scale": (
+                        measurement_start_stock_scale_audit
+                    )
+                }
+                if measurement_start_stock_scale_csv_path
+                else {}
+            ),
+            **(
+                {
+                    "measurement_start_in_transit_scale": (
+                        measurement_start_in_transit_scale_audit
+                    )
+                }
+                if measurement_start_in_transit_scale_csv_path
+                else {}
+            ),
             "unmodeled_supplier_source_mode": unmodeled_supplier_source_mode,
             "stochastic_lead_times": bool(args.stochastic_lead_times),
             "lead_time_distribution_mode": lead_time_distribution_mode,
             "seed": int(args.seed),
             "common_random_numbers": bool(args.common_random_numbers),
+            **(
+                {"demand_perturbation": demand_perturbation_manifest}
+                if demand_perturbation.enabled
+                else {}
+            ),
+            **(
+                {"warmup_boundary_audit": warmup_boundary_state_audit}
+                if args.warmup_boundary_audit
+                else {}
+            ),
             "control_schedule": {
                 "enabled": bool(control_schedule.enabled),
                 "source_csv": str(control_schedule_path or ""),
@@ -10402,7 +12678,11 @@ def main() -> None:
                 "unmatched_schedule_rows": (
                     len(control_schedule.rows) - matched_control_schedule_rows
                 ),
-                "action_ledger_rows": len(control_action_ledger_rows),
+                "action_ledger_rows": (
+                    len(control_action_ledger_rows)
+                    if control_schedule.enabled
+                    else 0
+                ),
                 "scheduled_actions": scheduled_control_actions,
                 "resolved_actions": resolved_control_actions,
                 "unresolved_actions": max(
@@ -10413,6 +12693,164 @@ def main() -> None:
                 "neutral_without_schedule": True,
                 "warnings": list(control_schedule.warnings),
             },
+            **(
+                {
+                    "control_probe": {
+                        "enabled": True,
+                        "source_csv": str(control_probe_schedule_path),
+                        "sha256": control_probe_schedule_sha256,
+                        "schedule_rows": len(control_probe_rows),
+                        "matched_schedule_rows": matched_control_probe_rows,
+                        "unmatched_schedule_rows": max(
+                            0,
+                            len(control_probe_rows)
+                            - matched_control_probe_rows,
+                        ),
+                        "scheduled_actions": control_probe_scheduled_actions,
+                        "resolved_actions": len(resolved_probe_actions),
+                        "unresolved_actions": max(
+                            0,
+                            control_probe_scheduled_actions
+                            - len(resolved_probe_actions),
+                        ),
+                        "composition_rows": len(
+                            control_probe_composition_rows
+                        ),
+                        "composition_mode": CONTROL_PROBE_MODE,
+                        "composition_formula": (
+                            "clip(feedback_effective + "
+                            "(probe_effective - neutral_value))"
+                        ),
+                        "allowed_actions": list(CONTROL_PROBE_ACTIONS),
+                        "clipped_action_count": len(
+                            control_probe_clipped_rows
+                        ),
+                        "clipped_day_count": len(
+                            {
+                                int(row["day"])
+                                for row in control_probe_clipped_rows
+                            }
+                        ),
+                        "measured_day_basis": "zero_based_after_warmup",
+                        "warmup_application_count": 0,
+                        "audit_csv": (
+                            "data/canonical_control_probe_composition.csv"
+                        ),
+                        "feedback_command_export_modified": False,
+                        "incremental_physical_effect_claimed": False,
+                        "warnings": list(control_probe.warnings),
+                    }
+                }
+                if control_probe is not None
+                else {}
+            ),
+            "control_provider": (
+                {
+                    **feedback_provider_metadata,
+                    "provider_causal_contract_satisfied": bool(
+                        feedback_provider_causal_contract_satisfied
+                    ),
+                    "closed_loop_claimed": feedback_closed_loop_claimed,
+                    "closed_loop_claim_checks": (
+                        feedback_closed_loop_claim_checks
+                    ),
+                    "closed_loop_claim_reasons": (
+                        feedback_closed_loop_claim_reasons
+                    ),
+                    "direct_future_realization_access": False,
+                    "mrp_demand_signal_smoothing_days_effective": int(
+                        mrp_signal_smoothing_days
+                    ),
+                    "demand_realization_window_days_effective": int(
+                        mrp_signal_smoothing_days
+                    ),
+                    "demand_window_direction": "forward_inclusive",
+                    "future_profile_semantics": "realized_demand_path",
+                    "controller_observation_max_future_day_offset": int(
+                        controller_observation_forecast_lookahead_days
+                    ),
+                    "controller_observation_forecast_lookahead_days": int(
+                        controller_observation_forecast_lookahead_days
+                    ),
+                    "future_realization_access": bool(
+                        controller_observation_forecast_lookahead_days
+                    ),
+                    "future_information_contract_satisfied": bool(
+                        future_information_contract_satisfied
+                    ),
+                    "observation_causal_contract_satisfied": bool(
+                        future_information_contract_satisfied
+                    ),
+                    "physical_warmup_days": int(warmup_days),
+                    "controller_dynamic_warmup_days": int(
+                        controller_dynamic_warmup_days
+                    ),
+                    **(
+                        {
+                            "warmup_control_action_count": int(
+                                warmup_feedback_command_count
+                            )
+                        }
+                        if feedback_control_supports_priming
+                        else {}
+                    ),
+                    "controller_warmup_matches_physical_warmup": bool(
+                        controller_warmup_matches_physical_warmup
+                    ),
+                    "physical_action_applied": bool(
+                        physically_applied_feedback_actions
+                    ),
+                    "physically_applied_action_count": len(
+                        physically_applied_feedback_actions
+                    ),
+                    "matched_active_command_rows": matched_feedback_rows,
+                    "unmatched_active_command_rows": max(
+                        0,
+                        len(feedback_control.rows) - matched_feedback_rows,
+                    ),
+                    "scheduled_active_actions": scheduled_feedback_actions,
+                    "resolved_active_actions": resolved_feedback_actions,
+                    "unresolved_active_actions": max(
+                        0,
+                        scheduled_feedback_actions - resolved_feedback_actions,
+                    ),
+                    "action_ledger_rows": len(control_action_ledger_rows),
+                    "measured_day_basis": "zero_based_after_warmup",
+                    "warnings": feedback_engine_warnings,
+                    "artifacts": {
+                        "observations": "data/canonical_closed_loop_observations.csv",
+                        "decisions": "data/canonical_closed_loop_decisions.csv",
+                        "commands": "data/canonical_closed_loop_commands.csv",
+                        "action_ledger": "data/canonical_action_ledger.csv",
+                        **(
+                            {
+                                "priming": (
+                                    "data/canonical_controller_priming.csv"
+                                )
+                            }
+                            if feedback_priming_rows
+                            else {}
+                        ),
+                    },
+                }
+                if feedback_control is not None
+                else {
+                    "enabled": bool(control_schedule.enabled),
+                    "mode": (
+                        "daily_open_loop_schedule"
+                        if control_schedule.enabled
+                        else "historical_no_external_control"
+                    ),
+                    "integration_mode": (
+                        "daily_open_loop_schedule"
+                        if control_schedule.enabled
+                        else "historical_no_external_control"
+                    ),
+                    "closed_loop_claimed": False,
+                    "causal_lag_days": None,
+                    "future_realization_access": False,
+                }
+            ),
             "supplier_risk": {
                 "enabled": bool(supplier_risk_events),
                 "events_csv": str(args.supplier_risk_events_csv or ""),
@@ -10930,19 +13368,63 @@ def main() -> None:
     factory_nervousness_path = data_path(output_dir, "production_factory_nervousness.csv")
     mrp_trace_path = data_path(output_dir, "mrp_trace_daily.csv")
     mrp_orders_path = data_path(output_dir, "mrp_orders_daily.csv")
+    demand_perturbation_audit_path = data_path(
+        output_dir,
+        "canonical_demand_perturbations.csv",
+    )
     control_action_ledger_path = data_path(output_dir, "canonical_action_ledger.csv")
+    control_probe_composition_path = data_path(
+        output_dir,
+        "canonical_control_probe_composition.csv",
+    )
+    feedback_observations_path = data_path(
+        output_dir,
+        "canonical_closed_loop_observations.csv",
+    )
+    feedback_decisions_path = data_path(
+        output_dir,
+        "canonical_closed_loop_decisions.csv",
+    )
+    feedback_commands_path = data_path(
+        output_dir,
+        "canonical_closed_loop_commands.csv",
+    )
+    feedback_priming_path = data_path(
+        output_dir,
+        "canonical_controller_priming.csv",
+    )
     lot_event_path = data_path(output_dir, "production_lot_events.csv")
     lot_genealogy_path = data_path(output_dir, "production_lot_genealogy.csv")
     lot_path_audit_report_path = report_path(output_dir, "lot_path_audit.md")
     lot_path_audit_issues_path = data_path(output_dir, "lot_path_audit_issues.csv")
     assumptions_ledger_path = data_path(output_dir, "assumptions_ledger.csv")
     observed_opening_stock_path = data_path(output_dir, "initialization_observed_stock.csv")
+    measurement_start_stock_adjustment_path = data_path(
+        output_dir,
+        "measurement_start_stock_adjustments.csv",
+    )
+    measurement_start_in_transit_adjustment_path = data_path(
+        output_dir,
+        "measurement_start_in_transit_adjustments.csv",
+    )
     initialization_state_path = data_path(output_dir, "initialization_state.csv")
     initialization_pipeline_path = data_path(output_dir, "initialization_pipeline.csv")
     input_pivot_path = data_path(output_dir, "production_input_stocks_pivot.csv")
     compact_output = args.output_profile == "compact"
 
     summary_output_path.write_text(json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")
+    if demand_perturbation.enabled:
+        with demand_perturbation_audit_path.open(
+            "w",
+            encoding="utf-8",
+            newline="",
+        ) as f:
+            writer = csv.DictWriter(
+                f,
+                fieldnames=list(DEMAND_PERTURBATION_AUDIT_COLUMNS),
+            )
+            writer.writeheader()
+            writer.writerows(demand_perturbation_audit_rows)
     with safety_reference_path.open("w", encoding="utf-8", newline="") as f:
         writer = csv.DictWriter(
             f,
@@ -10976,6 +13458,34 @@ def main() -> None:
             writer.writeheader()
             writer.writerows(daily_rows)
 
+    if control_probe is not None:
+        probe_rows = [
+            control_probe_composition_rows[key]
+            for key in sorted(control_probe_composition_rows)
+        ]
+        probe_extra_columns = sorted(
+            {
+                str(column)
+                for row in probe_rows
+                for column in row
+                if column not in CONTROL_PROBE_COMPOSITION_COLUMNS
+            }
+        )
+        with control_probe_composition_path.open(
+            "w",
+            encoding="utf-8",
+            newline="",
+        ) as f:
+            writer = csv.DictWriter(
+                f,
+                fieldnames=[
+                    *CONTROL_PROBE_COMPOSITION_COLUMNS,
+                    *probe_extra_columns,
+                ],
+            )
+            writer.writeheader()
+            writer.writerows(probe_rows)
+
     control_action_ledger_extra_columns = sorted(
         {
             str(column)
@@ -10994,6 +13504,122 @@ def main() -> None:
         )
         writer.writeheader()
         writer.writerows(control_action_ledger_rows)
+
+    if feedback_control is not None:
+        def write_feedback_rows(
+            path: Path,
+            rows: list[dict[str, Any]],
+            base_fields: list[str],
+        ) -> None:
+            extra_fields = sorted(
+                {
+                    str(field)
+                    for row in rows
+                    for field in row
+                    if field not in base_fields
+                }
+            )
+            with path.open("w", encoding="utf-8", newline="") as feedback_file:
+                writer = csv.DictWriter(
+                    feedback_file,
+                    fieldnames=[*base_fields, *extra_fields],
+                )
+                writer.writeheader()
+                writer.writerows(rows)
+
+        observation_rows = [dict(row) for row in feedback_control.observation_rows]
+        decision_rows = [dict(row) for row in feedback_control.decision_rows]
+        command_rows = [
+            {
+                "decision_day": command.decision_day,
+                "effective_day": command.effective_day,
+                "causal_lag_days": command.effective_day - command.decision_day,
+                "policy": command.policy,
+                "node_id": command.node_id,
+                "supplier_id": command.supplier_id,
+                "item_id": command.item_id,
+                "dst_node_id": command.dst_node_id,
+                "scope_type": (
+                    "targeted" if any(command.scope_key) else "global"
+                ),
+                "active": int(command.active),
+                "requested_json": json.dumps(
+                    dict(command.requested or {}),
+                    ensure_ascii=False,
+                    sort_keys=True,
+                ),
+                "effective_json": json.dumps(
+                    dict(command.effective or {}),
+                    ensure_ascii=False,
+                    sort_keys=True,
+                ),
+                "slew_limited_actions": ";".join(
+                    command.slew_limited_actions
+                ),
+                "source_line": (
+                    command.source_line
+                    if command.source_line is not None
+                    else ""
+                ),
+                **(
+                    feedback_audit_metadata_for_day(command.effective_day)
+                    if feedback_control_supports_priming
+                    else {}
+                ),
+            }
+            for command in feedback_control.commands
+        ]
+        write_feedback_rows(
+            feedback_observations_path,
+            observation_rows,
+            ["day", "observation_hash", "observation_valid", "invalid_reason"],
+        )
+        write_feedback_rows(
+            feedback_decisions_path,
+            decision_rows,
+            [
+                "decision_day",
+                "effective_day",
+                "causal_lag_days",
+                "observation_hash",
+                "selected_policy",
+                "confirmed_regime",
+            ],
+        )
+        write_feedback_rows(
+            feedback_commands_path,
+            command_rows,
+            [
+                "decision_day",
+                "effective_day",
+                "causal_lag_days",
+                "policy",
+                "node_id",
+                "supplier_id",
+                "item_id",
+                "dst_node_id",
+                "scope_type",
+                "active",
+                "requested_json",
+                "effective_json",
+                "slew_limited_actions",
+                "source_line",
+            ],
+        )
+        if feedback_priming_rows:
+            write_feedback_rows(
+                feedback_priming_path,
+                feedback_priming_rows,
+                [
+                    "day",
+                    "observation_hash",
+                    "observation_valid",
+                    "invalid_reason",
+                    "priming_observation",
+                    "generated_command_count",
+                    "active_command_row_count",
+                ],
+            )
 
     initialization_state_fields = [
         "node_id",
@@ -11018,11 +13644,93 @@ def main() -> None:
         "uom",
         "source",
     ]
+    if opening_observed_stock_scale_requested:
+        observed_opening_stock_fields.extend(
+            [
+                "input_opening_stock_qty",
+                "opening_observed_stock_scale",
+                "effective_opening_stock_qty",
+                "base_stock_qty_after_scale",
+                "mrp_snapshot_state_only",
+            ]
+        )
     with observed_opening_stock_path.open("w", encoding="utf-8", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=observed_opening_stock_fields)
         writer.writeheader()
         for row in observed_opening_stock_rows:
             writer.writerow({field: row.get(field, "") for field in observed_opening_stock_fields})
+
+    if measurement_start_stock_scale_csv_path:
+        measurement_start_stock_adjustment_fields = [
+            "measured_day",
+            "node_id",
+            "item_id",
+            "uom",
+            "scale",
+            "stock_before_qty",
+            "stock_after_qty",
+            "stock_removed_qty",
+            "stock_added_qty",
+            "lot_trace_enabled",
+            "lot_balance_before_qty",
+            "lot_balance_after_qty",
+            "lot_removed_qty",
+            "lot_added_qty",
+            "lot_balance_matches_stock_after",
+            "source_csv",
+            "source_csv_sha256",
+        ]
+        with measurement_start_stock_adjustment_path.open(
+            "w",
+            encoding="utf-8",
+            newline="",
+        ) as f:
+            writer = csv.DictWriter(
+                f,
+                fieldnames=measurement_start_stock_adjustment_fields,
+            )
+            writer.writeheader()
+            writer.writerows(measurement_start_stock_adjustment_rows)
+
+    if measurement_start_in_transit_scale_csv_path:
+        measurement_start_in_transit_adjustment_fields = [
+            "measured_day",
+            "node_id",
+            "item_id",
+            "uom",
+            "scale",
+            "in_transit_before_qty",
+            "in_transit_after_qty",
+            "in_transit_removed_qty",
+            "standard_pipeline_before_qty",
+            "standard_pipeline_after_qty",
+            "standard_pipeline_removed_qty",
+            "standard_pipeline_row_count",
+            "lot_trace_enabled",
+            "lot_pipeline_before_qty",
+            "lot_pipeline_after_qty",
+            "lot_pipeline_removed_qty",
+            "lot_payload_count",
+            "arrival_day_count",
+            "arrival_days_json",
+            "pipeline_matches_in_transit_before",
+            "pipeline_matches_in_transit_after",
+            "external_in_transit_unchanged_qty",
+            "estimated_source_in_transit_unchanged_qty",
+            "source_csv",
+            "source_csv_sha256",
+        ]
+        with measurement_start_in_transit_adjustment_path.open(
+            "w",
+            encoding="utf-8",
+            newline="",
+        ) as f:
+            writer = csv.DictWriter(
+                f,
+                fieldnames=measurement_start_in_transit_adjustment_fields,
+            )
+            writer.writeheader()
+            writer.writerows(measurement_start_in_transit_adjustment_rows)
 
     initialization_pipeline_fields = [
         "node_id",
@@ -11094,7 +13802,17 @@ def main() -> None:
     with output_prod_path.open("w", encoding="utf-8", newline="") as f:
         writer = csv.DictWriter(
             f,
-            fieldnames=["day", "node_id", "item_id", "produced_qty", "cum_produced_qty", "stock_end_of_day"],
+            fieldnames=[
+                "day",
+                "node_id",
+                "item_id",
+                "produced_qty",
+                "executed_qty",
+                "released_qty",
+                "wip_end_qty",
+                "cum_produced_qty",
+                "stock_end_of_day",
+            ],
         )
         writer.writeheader()
         writer.writerows(output_prod_rows)
@@ -11307,9 +14025,13 @@ def main() -> None:
             f,
             fieldnames=[
                 "day",
+                "shipment_id",
+                "risk_decision_day",
+                "risk_event_ids",
                 "src_node_id",
                 "dst_node_id",
                 "item_id",
+                "edge_id",
                 "shipped_qty",
                 "pulled_qty",
                 "lead_days",
@@ -11319,6 +14041,7 @@ def main() -> None:
                 "transport_cost_basis",
                 "transport_cost_units",
                 "transport_cost",
+                "purchase_cost",
             ],
         )
         writer.writeheader()
@@ -11665,11 +14388,18 @@ def main() -> None:
     try:
         from etudecas.simulation.run_format import export_run_package
 
+        generic_run_metadata: dict[str, Any] = {
+            "producer": "simulation_engine",
+        }
+        if demand_perturbation.enabled:
+            generic_run_metadata["demand_perturbation"] = (
+                demand_perturbation_manifest
+            )
         generic_run_path = export_run_package(
             output_dir=output_dir,
             input_graph=input_path,
             map_html=Path(generated_map_path) if generated_map_path else None,
-            extra_metadata={"producer": "simulation_engine"},
+            extra_metadata=generic_run_metadata,
         )
         generated_generic_run_path = str(generic_run_path)
     except Exception as exc:
@@ -11719,6 +14449,7 @@ def main() -> None:
 - Common random numbers: {summary['policy']['common_random_numbers']}
 - Daily control schedule enabled / rows / matched: {summary['policy']['control_schedule']['enabled']} / {summary['policy']['control_schedule']['schedule_rows']} / {summary['policy']['control_schedule']['matched_schedule_rows']}
 - Daily control schedule source / SHA-256: {summary['policy']['control_schedule']['source_csv'] or 'none'} / {summary['policy']['control_schedule']['sha256'] or 'n/a'}
+- Control provider mode / closed-loop claimed / causal lag: {summary['policy']['control_provider']['mode']} / {summary['policy']['control_provider']['closed_loop_claimed']} / {summary['policy']['control_provider']['causal_lag_days']}
 - Supplier risk events enabled / count: {summary['policy']['supplier_risk']['enabled']} / {summary['policy']['supplier_risk']['event_count']}
 - Supplier risk warnings: {summary['policy']['supplier_risk']['warnings']}
 - Supplier neutral floor test enabled / capacity pairs / stock pairs: {summary['policy']['supplier_neutral_floor_test']['enabled']} / {summary['policy']['supplier_neutral_floor_test']['capacity_override_pairs']} / {summary['policy']['supplier_neutral_floor_test']['stock_override_pairs']}
@@ -11829,6 +14560,9 @@ Le graphe `Reappro amont` utilise maintenant `order_date_IMT` pour dater les ord
 - data/mrp_trace_daily.csv
 - data/mrp_orders_daily.csv
 - data/canonical_action_ledger.csv
+- data/canonical_closed_loop_observations.csv (feedback mode only)
+- data/canonical_closed_loop_decisions.csv (feedback mode only)
+- data/canonical_closed_loop_commands.csv (feedback mode only)
 - data/assumptions_ledger.csv
 - data/initialization_observed_stock.csv
 - data/initialization_state.csv
@@ -11856,6 +14590,11 @@ Le graphe `Reappro amont` utilise maintenant `order_date_IMT` pour dater les ord
     print(f"[OK] Simulation report: {report_output_path.resolve()}")
     print(f"[OK] MRP safety stock reference CSV: {safety_reference_path.resolve()}")
     print(f"[OK] Simulation daily CSV: {daily_path.resolve()}")
+    if demand_perturbation.enabled:
+        print(
+            "[OK] Canonical demand perturbation CSV: "
+            f"{demand_perturbation_audit_path.resolve()}"
+        )
     print(f"[OK] Production input stocks CSV: {input_stock_path.resolve()}")
     print(f"[OK] Production output products CSV: {output_prod_path.resolve()}")
     print(f"[OK] Production demand service CSV: {demand_pair_path.resolve()}")
@@ -11875,8 +14614,29 @@ Le graphe `Reappro amont` utilise maintenant `order_date_IMT` pour dater les ord
     print(f"[OK] MRP trace CSV: {mrp_trace_path.resolve()}")
     print(f"[OK] MRP orders CSV: {mrp_orders_path.resolve()}")
     print(f"[OK] Canonical action ledger CSV: {control_action_ledger_path.resolve()}")
+    if control_probe is not None:
+        print(
+            "[OK] Closed-loop control probe composition CSV: "
+            f"{control_probe_composition_path.resolve()}"
+        )
+    if feedback_control is not None:
+        print(f"[OK] Closed-loop observations CSV: {feedback_observations_path.resolve()}")
+        print(f"[OK] Closed-loop decisions CSV: {feedback_decisions_path.resolve()}")
+        print(f"[OK] Closed-loop commands CSV: {feedback_commands_path.resolve()}")
+        if feedback_priming_rows:
+            print(f"[OK] Controller priming CSV: {feedback_priming_path.resolve()}")
     print(f"[OK] Assumptions ledger CSV: {assumptions_ledger_path.resolve()}")
     print(f"[OK] Initialization observed stock CSV: {observed_opening_stock_path.resolve()}")
+    if measurement_start_stock_scale_csv_path:
+        print(
+            "[OK] Measurement-start stock adjustment CSV: "
+            f"{measurement_start_stock_adjustment_path.resolve()}"
+        )
+    if measurement_start_in_transit_scale_csv_path:
+        print(
+            "[OK] Measurement-start in-transit adjustment CSV: "
+            f"{measurement_start_in_transit_adjustment_path.resolve()}"
+        )
     print(f"[OK] Initialization synthetic stock CSV: {initialization_state_path.resolve()}")
     print(f"[OK] Initialization pipeline CSV: {initialization_pipeline_path.resolve()}")
     print(f"[OK] Production supplier shipments CSV: {supplier_shipment_path.resolve()}")

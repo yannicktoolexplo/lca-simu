@@ -10,11 +10,12 @@ It tests the following question:
 > nervousness, supplier stress or a second disruption?
 
 The decision layer remains deliberately located under `etudecas/prototypes/`.
-It reads existing `etudecas` outputs and retains a reduced-order research bench,
-while the end-2026 validation runner can now pass a bounded, auditable daily
-control schedule to the canonical multi-item MRP engine. That schedule is
-precomputed: the canonical replay is daily open loop and is not presented as
-state-feedback closed-loop control.
+It reads existing `etudecas` outputs and retains a reduced-order research bench.
+The end-2026 replay still supports a bounded, precomputed daily schedule and is
+therefore explicitly open loop. A separate canonical state-feedback provider
+now observes the realized multi-item engine state at the end of each measured
+day and can issue bounded commands for the next day. The two integration modes
+and their evidence are kept separate.
 
 ## What the PoC implements
 
@@ -231,6 +232,8 @@ among other contracts:
   a zero-width interval;
 - TP/FP/FN/TN experiments and multi-expert RCI agreement;
 - canonical schedule validation, bounds and engine integration;
+- canonical feedback causality, confirmation/dwell/slew/fallback, strict summary
+  claim and paired MRP-versus-feedback campaign exports;
 - a complete synthetic smoke run and its output contract.
 
 ## Scientific claims and limits
@@ -242,15 +245,31 @@ among other contracts:
 - the preferred response depends on the operating regime;
 - the response can create supplier risk through order nervousness;
 - scenario-based selection can compare bounded playbooks on a common basis;
-- observability and controllability can be monitored alongside service KPIs.
+- observability and controllability can be monitored alongside service KPIs;
+- the canonical simulator can recompute a finite, bounded response from its
+  realized end-of-day state with an auditable one-day causal delay.
 
 ### What it does not yet demonstrate
 
 - industrially calibrated supplier-stress equations;
 - guaranteed stability of the full multi-tier network;
 - an optimized MPC controller;
-- online state-feedback recomputation inside the canonical MRP simulation;
-- causal identification from real supplier data.
+- causal identification from real supplier data;
+- a global canonical frequency response or a global gain/phase margin. The
+  reduced-model impedance spectrum remains exploratory trajectory
+  post-processing. The separate canonical frequency protocol below can estimate
+  empirical harmonic-line responses, coherence and spectral-peak candidates,
+  but only
+  for its tested operating conditions and amplitudes; it does not identify an
+  isolated global LTI FRF.
+
+The canonical `supplier_disruption_score` is a bounded severity proxy derived
+from active physical availability, capacity, quality, lead-time and write-off
+effects. It is deliberately **not** an incident probability and must not be
+calibrated or interpreted as one. The canonical feedback implementation is a
+finite-state safety layer with temporal confirmation, dwell and slew limits; it is not yet
+Scenario/Tube MPC and does not by itself establish stability or industrial
+fitness.
 
 ## Remaining validation evidence
 
@@ -263,7 +282,8 @@ validated. The remaining evidence is:
 3. a consolidated paired canonical campaign with 20–30 seeds, then 50+;
 4. empirical alert-error frequencies and threshold/width/duration sensitivity;
 5. procurement and planning review of the RCI, followed by explicit sign-off;
-6. online state-feedback recomputation before using the term closed loop.
+6. independent phase/amplitude and multi-seed stochastic replications of the
+   tested-amplitude frequency study before making robust bandwidth claims.
 
 ### 2027 research direction
 
@@ -272,7 +292,9 @@ validated. The remaining evidence is:
    predictive sets or distributionally robust uncertainty sets, and separately
    estimate uncertainty in the latent incident probability.
 3. Add explicit stock, backlog, capacity and nervousness safety constraints.
-4. Estimate supplier impedance from controlled virtual perturbations.
+4. Extend the tested-amplitude canonical harmonic-line responses to
+   multi-amplitude and MIMO replications with independent phase realizations and
+   uncertainty.
 5. Integrate observability/controllability and adaptive model granularity.
 6. Operationalize the PoC as a reusable simulation and decision-support module.
 
@@ -512,6 +534,174 @@ supplier-risk events and paired random-number streams.
 legacy graph overlays remain in `overlay` packages for compatibility only; they
 are not combined with daily schedules in executable replays.
 
+### C.1. Canonical state-feedback loop
+
+The canonical closed-loop path uses the versioned policy
+`config/canonical_closed_loop_config.json` and the engine flag
+`--control-policy-json`. It is a distinct alternative to
+`--control-schedule-csv`; supplying both is rejected because a precomputed CSV
+cannot simultaneously be claimed as online state feedback.
+
+At the end of measured day `J`, the engine exposes only realized day-`J` state:
+demand, served quantity and service, backlog quantity and equivalent days,
+inventory and material/finished cover, production and supplier utilization,
+the dimensionless median pairwise change of same-pair orders, active supplier
+events and a bounded physical-disruption severity proxy. It never aggregates
+order quantities across incompatible UOMs, and material cover uses only current
+realized consumption/current-day need. The controller retains causal memory of backlog, order
+nervousness, supplier stress and recent disruption. It classifies this state
+into the same eight regimes (`NOMINAL`, `MATERIAL_TENSION`,
+`CAPACITY_SATURATION`, `SUPPLIER_STRESS`, `OSCILLATORY`, `CRISIS`, `RECOVERY`
+and `POST_CRISIS_OVERSTOCK`) and selects a configured finite playbook.
+
+The timing invariant is `observation(J) -> decision(J) -> command(J+1)`. No
+day-`J` action can depend on the end-of-day state it is about to change, and the
+provider has no direct access to future realizations. The engine additionally
+audits indirect access: because its MRP smoothing window is forward-inclusive,
+a width above one day would place future realized-profile values into the
+day-`J` demand state. Such a run is labelled with a positive look-ahead and
+cannot set the strict closed-loop claim. The paired campaign appends
+`--mrp-demand-signal-smoothing-days 1` after the canonical engine profile, so
+both MRP and feedback arms use current-day demand only. Regime
+`confirmation_days` provides temporal debounce, not distinct entry/exit
+thresholds; policy changes occur on configured review days, subject to
+`minimum_dwell_days`, except for an emergency review.
+Per-lever `slew_limits` damp abrupt command changes. Invalid or non-finite
+observations immediately activate the neutral `fallback_policy` and clear stale
+external commands. MRP, lotification, campaigns, stock availability and
+capacity constraints remain authoritative after the feedback command.
+
+A direct one-run invocation is:
+
+```powershell
+python etudecas/simulation/engine/run_first_simulation.py `
+  --input <canonical_graph.json> `
+  --output-dir <closed_loop_result> `
+  --scenario-id scn:BASE `
+  --days 90 `
+  --seed 200260 `
+  --common-random-numbers `
+  --supplier-state-dependent-risks `
+  --mrp-demand-signal-smoothing-days 1 `
+  --warmup-days 0 `
+  --supplier-state-risk-observation-warmup-days 0 `
+  --control-policy-json `
+    etudecas/prototypes/scan_2027_risk_control/config/canonical_closed_loop_config.json
+```
+
+The engine writes four linked evidence files:
+
+- `data/canonical_closed_loop_observations.csv`, including state validity and a
+  deterministic observation hash;
+- `data/canonical_closed_loop_decisions.csv`, including raw/confirmed regimes,
+  confirmation, dwell/review outcome, fallback and decision/effective days;
+- `data/canonical_closed_loop_commands.csv`, including requested/effective
+  values, scope and slew-limited levers;
+- `data/canonical_action_ledger.csv`, which follows those commands through the
+  physical execution stages and records binding or no-flow reasons.
+
+The engine summary records this evidence under `policy.control_provider`.
+Merely passing `--control-policy-json` is insufficient for a scientific claim:
+`closed_loop_claimed` becomes true only when observations exist, every command
+obeys the one-day causal lag, observation/decision counts match, the observation
+look-ahead is exactly zero and at least one feedback action was physically
+applied. The campaign runner independently rereads the four evidence CSVs and
+accepts only the authoritative
+`policy.control_provider.closed_loop_claimed` boolean.
+
+The controller's dynamic memory is not primed through a separate physical
+warm-up. A run with `warmup_days > 0` is explicitly marked as a controller
+cold-start mismatch and cannot claim the strict closed loop. The canonical
+paired configuration sets `warmup_days=0` and also sets the state-dependent
+supplier-risk observation warm-up to zero; both choices are exported in the
+manifest. This is a documented experimental choice, not a general warm-up
+solution.
+
+For an appraised comparison rather than a single run, use the paired campaign:
+
+```powershell
+python -m etudecas.prototypes.scan_2027_risk_control.canonical_closed_loop `
+  --config etudecas/prototypes/scan_2027_risk_control/config/canonical_closed_loop_config.json `
+  --graph auto `
+  --days 90 `
+  --seeds 200260,200261,200262 `
+  --output-dir etudecas/prototypes/scan_2027_risk_control/outputs/canonical_closed_loop
+```
+
+For every seed, the runner executes `mrp_reference` and `canonical_feedback`
+with the same untouched graph, external risk-event file, horizon, scenario and
+common-random-number contract. State-generated supplier risks are not forced to
+remain equal after intervention: their divergence can be a consequence of the
+feedback trajectory. Engine failures and output-contract violations are raised,
+and an existing non-empty run directory is not silently reused.
+With only three configured seeds this is a smoke campaign. Its 95% paired
+intervals use Student critical values; it is not presented as a consolidated
+20--30-seed statistical validation.
+
+The campaign exports:
+
+- `canonical_closed_loop_runs.csv`;
+- `canonical_closed_loop_paired_deltas.csv`;
+- `canonical_closed_loop_paired_summary.csv`;
+- `canonical_closed_loop_commands.json` and
+  `canonical_closed_loop_manifest.json`, including input/config hashes and the
+  strict engine-authored claim;
+- `canonical_closed_loop_comparison.png` and
+  `canonical_closed_loop_control_diagnostics.png` when matplotlib and the
+  engine feedback ledgers are available.
+
+The paired runner uses the historical compact engine output by default.  Pass
+`--engine-artifact-profile full` to request, for both arms, the direct factory
+input-consumption and replenishment-shipment tables, lot events and genealogy,
+the lot audit, the engine map and all node plots.  The runner validates this
+contract after each arm and refuses a non-empty campaign root; compact mode and
+existing cold-start campaigns are unchanged.
+
+Once a paired campaign is complete, build a separate multi-node comparison
+without modifying either physical run:
+
+```powershell
+python -m etudecas.prototypes.scan_2027_risk_control.canonical_node_comparison `
+  --paired-results-dir path/to/paired_campaign `
+  --output-dir path/to/new_node_comparison `
+  --seed 320270 `
+  --plot
+```
+
+The resulting standalone HTML compares MRP and feedback trajectories by day,
+node, item and lane, includes direct input consumption, replenishment, lot and
+genealogy aggregates when the full profile is available, and reports absent
+data instead of treating it as zero.  Sparse physical flow/event rows are
+zero-filled only for declared flow and count indicators; missing state rows
+remain missing.  The scope registry also records which customer-service totals
+can be reconciled with the global daily table.  Other global production, stock
+and shipment totals must not be presented as a naive sum of local tables.
+
+Build the separate business-facing evidence pack from the same completed pair
+and node comparison:
+
+```powershell
+python -m etudecas.prototypes.scan_2027_risk_control.canonical_industrial_results `
+  --paired-results-dir path/to/paired_campaign `
+  --comparison-dir path/to/node_comparison `
+  --output-dir path/to/new_industrial_pack `
+  --seed 320270
+```
+
+This read-only post-processing step writes a self-contained HTML dashboard,
+eight PNG figures, a French Markdown report, evidence CSVs and a provenance
+manifest.  It exposes the simulated supplier-penalty/cost trade-off,
+differences by physical-data family, end-of-horizon deferrals, lot-size
+amplification, state-dependent supplier-penalty episodes, the chronology of
+first divergences, crisis-command timing and client buffer.  The family view is
+not a causal funnel, and the supplier-penalty index is not an observed incident
+probability.
+It refuses a non-empty output directory.  Component quantities retain their
+own `G`, `KG`, `M` or `UN` unit and are never summed or compared by bar length
+across incompatible units.  The result remains one simulated paired
+counterfactual until it is repeated on independent realizations and calibrated
+with industrial observations.
+
 ### D. Paired-seed policy comparison
 
 Every playbook is compared against `mrp_reference` with common random numbers.
@@ -684,12 +874,255 @@ review remains pending.
     └── canonical_paired_replay.png
 ```
 
-Executable canonical runs additionally emit `canonical_control_schedule.csv`,
+Open-loop canonical replays additionally emit `canonical_control_schedule.csv`,
 `canonical_action_ledger.csv`, `canonical_runs.csv` and
-`canonical_paired_summary.csv`. The reporting package also includes regime
-separation, physical-risk fan charts, a paired-effect forest plot, the
+`canonical_paired_summary.csv`. State-feedback engine runs instead add
+`canonical_closed_loop_observations.csv`,
+`canonical_closed_loop_decisions.csv` and
+`canonical_closed_loop_commands.csv` beside the shared physical action ledger.
+The paired closed-loop runner writes its `canonical_closed_loop_*` run, delta,
+summary, command, manifest and optional comparison-figure artifacts at the
+campaign root. The reporting package also includes regime separation,
+physical-risk fan charts, a paired-effect forest plot, the
 service/stock/nervousness/risk frontier, seed-interval convergence and a
 TP/FP/FN/TN cost matrix.
+
+### Closed-Loop V2: paired burn-in and guarded damping
+
+`canonical_closed_loop_v2.py` is an additive protocol runner. It does not edit
+the historical cold-start config, V1 runner or V1 map pane. Its dedicated
+`config/canonical_closed_loop_v2_config.json` pre-registers 10 training seeds
+and 30 disjoint validation seeds, a 60-day `preperiod` burn-in, observe-only
+controller priming and a one-day causal action lag.
+
+```bash
+python etudecas/prototypes/scan_2027_risk_control/canonical_closed_loop_v2.py \
+  --config etudecas/prototypes/scan_2027_risk_control/config/canonical_closed_loop_v2_config.json \
+  --phase validation \
+  --output-dir path/to/new_v2_output
+```
+
+For every seed, the protocol requires identical MRP/V2 core-state hashes at J0,
+60 valid priming rows from J-60 through J-1, zero warm-up actions, first action
+no earlier than J1, a strict engine closed-loop claim and zero command-gate
+violations. It writes `canonical_closed_loop_v2_protocol.json` plus the usual
+paired CSVs and two PNG figures. The cutover evidence is called a deterministic
+paired burn-in replay, not a serialized snapshot. A terminal two-window
+diagnostic is reported separately and never upgrades the burn-in to a
+stationarity proof.
+
+### Closed-Loop V3: continuous state-dependent supplier relief
+
+V3 is additive. It has its own schema, engine flag, configuration and output
+directory; it does not modify the cold-start V1 campaign, the V2 protocol or
+their map panes. It retains the V2 supervisor and adds a bounded daily
+correction inside the configured `SUPPLIER_STRESS / supplier_relief` branch.
+The correction varies order and production targets smoothly with projected
+stress, while backlog, service and stock-cover protections can reduce or cancel
+it. It remains causal: day `J` state can affect only day `J + 1`.
+
+For an explicit paired technical run:
+
+```powershell
+python -m etudecas.prototypes.scan_2027_risk_control.canonical_closed_loop `
+  --config etudecas/prototypes/scan_2027_risk_control/config/canonical_closed_loop_v3_continuous_config.json `
+  --seeds 310271 `
+  --output-dir path/to/new_v3_output
+```
+
+Always provide `--seeds` to this generic runner when using the V3
+configuration. Its `training_seeds` and `validation_seeds` lists are not chosen
+automatically because selecting a phase implicitly could launch a large
+campaign by accident. The runner now rejects that ambiguous invocation instead
+of silently substituting an unrelated default seed.
+
+### Canonical frequency study: native spectra and designed harmonic-line responses
+
+`canonical_frequency_study.py` is a third additive research protocol. It does
+not replace the cold-start campaign, Closed-Loop V1 or Closed-Loop V2. It
+separates evidence that has different scientific meaning:
+
+- five-year Welch spectra from existing `etudecas` case-simulation outputs are
+  descriptive only;
+- bounded random-phase periodic multisines are injected in three separate SISO
+  campaigns on exact DFT lines to probe demand, supplier-availability and
+  supplier-lead-time responses;
+- MRP and the feedback controller selected by the policy schema use paired
+  baselines, common random numbers and the same designed exogenous signal;
+- an external MRP schedule probes order, safety-stock and production-target
+  levers. This remains a multiplicative MRP-overlay response, not an independent
+  additive plant dither;
+- low-coherence lines remain in the audit CSV but are invalidated for
+  interpretation.
+- numerical validity, supervisory-regime compatibility and a true local
+  small-signal derivative are three distinct claims. An unchanged day-by-day
+  regime trace is retained as tested-amplitude compatibility only. Without an
+  amplitude sweep toward zero and invariant lot/capacity/constraint active
+  sets, no line is promoted to a local derivative; changed traces remain
+  amplitude-conditioned hybrid regime-switching responses.
+
+```powershell
+python etudecas/prototypes/scan_2027_risk_control/canonical_frequency_study.py `
+  --config etudecas/prototypes/scan_2027_risk_control/config/canonical_frequency_study_config.json `
+  --stage all `
+  --output-dir path/to/new_frequency_output
+```
+
+The default designed protocol uses one-day sampling, a 196-day exact period
+(28 weeks, hence aligned with the plant's 7-day calendar and V2's 14-day dwell),
+60 warm-up days and four measured periods (784 days), with the first measured
+period reserved for settling. Demand, availability and lead-time excitations run
+in three separate SISO campaigns so calendar-frequency mixing cannot be
+misattributed across inputs. The designed graph copy
+focuses demand on the reachable `268967` subnetwork while preserving the source
+graph byte-for-byte. The supplier probe is the active 35-day
+`SDC-VD0993480A → M-1430 / item:344135` component lane linked directly to that
+finished item. It carries seven nonzero shipment and arrival days in every
+retained preflight period under nominal and supplier-stress baselines; its
+35–42 day operating delay remains below the 49-day
+phase-unwrapping bound. Endogenous
+supplier risks and stochastic lead times are disabled for the first
+identification pass; explicit physical supplier perturbations remain active. A
+separate stochastic, multi-seed robustness replication is still required.
+
+Main exports are:
+
+```text
+canonical_frequency_protocol.json
+canonical_frequency_native_spectra.csv
+canonical_frequency_native_bands.csv
+canonical_frequency_response.csv
+canonical_frequency_closed_loop_comparison.csv
+canonical_frequency_resonances.csv
+canonical_frequency_stability.csv
+canonical_frequency_delays.csv
+canonical_frequency_nonlinearity.csv
+canonical_frequency_regime_occupancy.csv
+canonical_frequency_excitation_audit.csv
+canonical_frequency_trajectories.csv
+canonical_frequency_report.md
+canonical_frequency_excitation_response.png
+canonical_frequency_bode_frf.png
+canonical_frequency_coherence.png
+canonical_frequency_resonances.png
+canonical_frequency_time_frequency.png
+canonical_frequency_stability.png
+```
+
+#### V3 demand-frequency pilot
+
+The first V3 pilot varies measured demand only, by +/-0.5%, at oscillation
+periods of approximately 196, 65.3, 28 and 15.1 days. It compares MRP and V3
+under a nominal condition and a fixed supplier-stress condition. Four 196-day
+cycles are simulated; the first is discarded and the remaining three are
+compared. In plain terms, the study makes demand oscillate at four speeds and
+checks whether controller and physical outputs follow that rhythm in a visible,
+repeatable way.
+
+```powershell
+python etudecas/prototypes/scan_2027_risk_control/canonical_frequency_study.py `
+  --config etudecas/prototypes/scan_2027_risk_control/config/canonical_frequency_v3_demand_pilot_config.json `
+  --stage designed `
+  --output-dir path/to/new_v3_frequency_output
+```
+
+Use `--stage designed` to reproduce the completed pilot. `--stage all` also
+requests the separate five-year observational spectra.
+
+In the completed stressed-condition runs, V3 was causally and physically
+active while the `SUPPLIER_STRESS` regime and `supplier_relief` policy remained
+unchanged between the reference and excited trajectories. The controller moved
+coherently at the two slowest periods, but its response and the main physical
+flows were not repeatable enough over the three retained cycles. Of 320
+response rows, 32 passed the numerical checks and eight feedback/MRP
+comparisons were usable; none showed reliable attenuation caused by dynamic V3
+modulation. The +/-0.5% signal also remained below the lot-sizing threshold for
+some target production and shipment flows.
+
+This pilot therefore demonstrates a real state-dependent dynamic controller and
+a stable stressed operating branch, but not an isolated linear Bode model,
+local stability proof or classical gain/phase margin. The next confirmation
+should use ten cycles, at least five phase offsets, and separate tests at 0.25%,
+0.5% and 1%. Larger 2% and 5% tests should be reported separately as nonlinear
+regime experiments rather than as a local linear response.
+
+Open `canonical_frequency_report.md` for the written result and the six
+`canonical_frequency_*.png` files for the curves. To expose them in the map,
+build a new HTML file with the same historical scan, V1 and V2 inputs and pass
+the V3 package through `--scan-frequency-results-dir`; use a new output path so
+the historical map remains untouched.
+
+#### Historical V2 lead-time campaign
+
+The MRP is already a feedback loop on inventory, transit and backlog. The V2
+layer is a thresholded hybrid supervisor whose local playbook is often
+constant. Consequently the protocol reports empirical disturbance-to-output
+diagonal harmonic-line responses, V2/MRP attenuation, coherence, phase-slope
+diagnostics, residual spectral energy, and symmetric period-to-period RMS
+repeatability. The period-resampling quantiles are descriptive and are not
+claimed as confidence intervals with calibrated 95% coverage. Weekly and
+lotification nonlinearities can still transfer harmonics within one SISO
+multisine, so the result is not called an isolated LTI FRF. The protocol
+explicitly refuses a single global Bode, pole set or classical gain/phase margin
+for V2 and always writes
+`global_stability_claimed=false` and `industrial_validation_claimed=false`.
+The runner also refuses the closed-loop label unless both V2 arms prove at least
+one causally scheduled and physically applied feedback action. Exactly zero
+responses remain numerical audit rows but are not classified as coherent or
+identifiable response lines. A V2/MRP difference is labelled dynamic only when
+a coherent control-output line proves modulation of a V2 command; otherwise an
+active constant playbook is reported as static policy conditioning.
+
+The first completed campaign is now accompanied by a strict posthoc audit. Its
+current evidence must be read as follows:
+
+- 1,104 harmonic-line rows were emitted; 52 pass the raw coherence threshold,
+  but only 22 pass the complete numerical gate, all for supplier lead time;
+- seven of those 22 retain the same supervisory-regime trace at the tested
+  amplitude and 15 are hybrid. None proves a zero-amplitude local derivative;
+- the three finite phase slopes (17.66--18.83 days) all come from hybrid
+  regime-switching command responses. They are preserved as descriptive
+  transition timing and removed from the local-delay field;
+- DC-aware repeated-period diagnostics contain 164 responses below the
+  numerical floor, 19 nonzero repeatable responses, 50 material interior
+  peaks, 23 monotonic growth cases and 20 other nonstationary cases. A null
+  response is no longer counted as an identified repeatable response;
+- only one V2/MRP comparison passes the complete gate: -0.0395 dB for stressed
+  supplier lead time to destination arrivals. Its exact paired three-period
+  interval is approximately [-0.0781, 0] dB and no coherent dynamic modulation
+  of a V2 command is identified, so the result is non-conclusive;
+- actuator commands and realized operations are separate evidence. In the
+  completed run, order and safety-stock overlays have positive realized volume
+  on 784/784 days, whereas production-target control has positive realized
+  volume on only 42/784 days. No actuator line passes the complete frequency
+  validity gate.
+
+`canonical_frequency_audit.py` reproduces this reclassification in a separate
+read-only audit package. `canonical_frequency_robust_siso.py` prepares the next
+lead-time campaign with 0.5%, 1%, 2% and 5% amplitudes, independent phase
+realisations and a longer confirmatory repeated-period design. These tools do
+not modify the immutable source package or any cold-start result.
+
+The first 0.5%/1% comparison now stops that lead-time matrix before further
+execution. The engine realizes transport time as
+`ceil(nominal_days * multiplier + extra_delays)`. On the 92 shipment
+observations shared by the two amplitudes, the requested multipliers differ but
+the realized delays are identical: 35/36 days in the nominal condition and
+42/43 days under supplier stress. Halving the requested amplitude therefore
+halves the numerical denominator without halving the physical input. It cannot
+support a local-response conclusion, and a 0.25% cell would repeat the same
+integer-delay mechanism.
+
+`canonical_frequency_lead_time_realization_audit.py` checks this condition from
+the immutable shipment and risk ledgers, writes detailed CSV/JSON evidence, and
+produces a plain-language Markdown report plus a requested-versus-realized PNG.
+The controller also accepts the optional
+`dynamics.recent_disruption_score_floor`; its default is `0.0`, which preserves
+the historical incident-memory rule exactly. A frequency-specific study may
+set a positive floor explicitly, but this does not remove daily lead-time
+quantization. The next protocol must therefore separate (1) a local study based
+on a genuinely continuous realized input in a fixed operating regime and (2)
+finite-amplitude regime-transition experiments for the switched V2 controller.
 
 ## Current validation status
 
@@ -697,7 +1130,8 @@ TP/FP/FN/TN cost matrix.
 |---|---|---|
 | Regime calibration | Pseudo-labels plus optional strict business annotations implemented | Representative industrial labels and coverage |
 | Prediction interval to physics | Portfolio + granular exports, binary-outcome residual-score calibration, explicit nonconformal fallbacks, horizon decay and coefficient sensitivity implemented | Independent incident-based validation and latent-probability uncertainty calibration |
-| Canonical reinjection | Bounded daily open-loop port, ledger and executable replay implemented | Online state-feedback controller |
-| Paired policy comparison | Implemented and tested | Large canonical campaign |
+| Canonical reinjection | Open-loop schedule, causal `J -> J+1` hybrid supervisor and bounded continuous V3 correction implemented with physical ledgers | Industrial threshold/dynamics calibration, stability evidence and governance |
+| Paired policy comparison | Reduced/open-loop benches plus V1 cold-start and V2 paired-burn-in canonical runners implemented and tested | Independent replication and industrial data |
+| Frequency and state-dependent dynamics | Historical V2 lead-time audit plus a V3 demand-only pilot in a fixed stressed regime, with four measured frequencies and six report figures | Confirm repeatability over more cycles, phases and small demand amplitudes before any local transfer-function or stability-margin claim; study larger nonlinear regime changes separately |
 | FP/FN study | TP/FP/FN/TN and configurable sensitivity grid implemented and tested | Empirical forecast-error frequencies |
 | RCI business validation | Multi-expert review protocol implemented; `pending_business_review` without a complete panel | Procurement/planning review and explicit sign-off |

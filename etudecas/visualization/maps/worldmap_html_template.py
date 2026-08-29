@@ -77,6 +77,18 @@ def html_template(
     .modeBtn.hidden {{
       display: none;
     }}
+    .modeBtn:disabled {{
+      cursor: not-allowed;
+      opacity: 0.45;
+    }}
+    #scanDashboardBtn {{
+      color: #6d28d9;
+      background: #f5f3ff;
+      border-left: 1px solid #ddd6fe;
+    }}
+    #scanDashboardBtn:hover {{
+      background: #ede9fe;
+    }}
     .debugOnly {{
       display: none !important;
     }}
@@ -1373,6 +1385,178 @@ def html_template(
     }}
     .monteCarloPane.hidden {{
       display: none;
+    }}
+    .scanDashboardModalCard {{
+      width: min(1480px, calc(100vw - 48px));
+    }}
+    .scanDashboardModalBody {{
+      background: #f8fafc;
+    }}
+    .scanDashboard {{
+      min-width: 0;
+    }}
+    .scanDashboardTabBar {{
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 14px;
+      border-bottom: 1px solid #e2e8f0;
+      background: #ffffff;
+    }}
+    .scanDashboardTabHint {{
+      color: #475569;
+      font-size: 12px;
+    }}
+    .scanDashboardPane {{
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      min-width: 0;
+      padding: 14px;
+    }}
+    .scanDashboardPane.hidden {{
+      display: none;
+    }}
+    .scanEvidenceBanner {{
+      padding: 11px 13px;
+      border: 1px solid #ddd6fe;
+      border-radius: 12px;
+      background: #f5f3ff;
+      color: #4c1d95;
+      font-size: 12px;
+      font-weight: 650;
+      line-height: 1.5;
+    }}
+    .scanMetricGrid {{
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+      gap: 10px;
+    }}
+    .scanMetricCard {{
+      min-width: 0;
+      padding: 12px;
+      border: 1px solid #e2e8f0;
+      border-top: 4px solid #64748b;
+      border-radius: 12px;
+      background: #ffffff;
+      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
+    }}
+    .scanMetricLabel {{
+      color: #64748b;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }}
+    .scanMetricValue {{
+      margin-top: 5px;
+      color: #0f172a;
+      font-size: 18px;
+      font-weight: 800;
+      overflow-wrap: anywhere;
+    }}
+    .scanMetricNote {{
+      margin-top: 4px;
+      color: #475569;
+      font-size: 11px;
+      line-height: 1.35;
+    }}
+    .scanDashboardSection {{
+      min-width: 0;
+      padding: 13px;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      background: #ffffff;
+    }}
+    .scanDashboardSection h3 {{
+      margin: 0 0 9px;
+      color: #0f172a;
+      font-size: 13px;
+    }}
+    .scanSectionNote {{
+      margin: -2px 0 10px;
+      color: #475569;
+      font-size: 11px;
+      line-height: 1.45;
+    }}
+    .scanLimitations ul {{
+      margin: 0;
+      padding-left: 20px;
+      color: #475569;
+      font-size: 12px;
+      line-height: 1.55;
+    }}
+    .scanFigureGrid {{
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }}
+    .scanFigureCard {{
+      min-width: 0;
+      padding: 12px;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      background: #ffffff;
+      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
+    }}
+    .scanFigureCard h3 {{
+      margin: 0;
+      color: #0f172a;
+      font-size: 13px;
+    }}
+    .scanFigureCard p {{
+      min-height: 34px;
+      margin: 5px 0 9px;
+      color: #475569;
+      font-size: 11px;
+      line-height: 1.45;
+    }}
+    .scanFigureCard img {{
+      display: block;
+      width: 100%;
+      height: auto;
+      max-height: 470px;
+      object-fit: contain;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      background: #ffffff;
+    }}
+    .scanDashboardSection .dataSummaryTable {{
+      min-width: 940px;
+    }}
+    @media (max-width: 900px) {{
+      .scanDashboardTabBar {{
+        align-items: flex-start;
+        flex-direction: column;
+        min-width: 0;
+      }}
+      .scanDashboardTabBar .lotTraceDirectionTabs {{
+        display: flex;
+        flex-wrap: wrap;
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        overflow: visible;
+        border-radius: 12px;
+      }}
+      .scanDashboardTabBar .lotTraceDirectionBtn {{
+        flex: 0 0 auto;
+      }}
+      .scanDashboardModalBody {{
+        overflow-x: hidden;
+      }}
+      .scanEvidenceBanner,
+      .scanEvidenceBanner code {{
+        overflow-wrap: anywhere;
+        word-break: break-word;
+      }}
+      .scanFigureGrid {{
+        grid-template-columns: 1fr;
+      }}
     }}
     #sensitivityTop3Content .factoryHtmlPanelContent,
     #monteCarloContent .factoryHtmlPanelContent {{
@@ -3185,6 +3369,7 @@ def html_template(
         <button id="modeRisk" class="modeBtn" type="button" title="Question metier: quel fournisseur est critique et merite une action ou une surveillance ?">Criticite fournisseurs</button>
         <button id="modeUncertainty" class="modeBtn" type="button" title="Question metier: peut-on faire confiance a cette lecture ?">Incertitude</button>
         <button id="modeStructural" class="modeBtn" type="button" title="Question metier: ou le reseau est-il fragile par construction ?">Structurel</button>
+        <button id="scanDashboardBtn" class="modeBtn hidden" type="button" title="Ouvre la synthese, les courbes et les validations RESILIENCE-SCAN.">RESILIENCE-SCAN</button>
         <button id="modeData" class="modeBtn debugOnly" type="button">Audit donnees</button>
         <button id="modeModel" class="modeBtn debugOnly" type="button">Regles modele</button>
         <button id="modeJson" class="modeBtn debugOnly{'' if DEBUG_PANEL_ENABLED else ' debugUnavailable'}" type="button">JSON</button>
@@ -3473,6 +3658,21 @@ def html_template(
     </div>
   </div>
 
+  <div id="scanDashboardModal" class="tableModal">
+    <div class="tableModalCard scanDashboardModalCard">
+      <div class="tableModalHeader">
+        <div>
+          <div class="tableModalTitle">RESILIENCE-SCAN - Resultats et courbes</div>
+          <div class="tableModalMeta">Synthese exploratoire, comparaison de politiques et validation canonique</div>
+        </div>
+        <button id="scanDashboardCloseBtn" class="tableBtn" type="button">Fermer</button>
+      </div>
+      <div class="tableModalBody scanDashboardModalBody">
+        <div id="scanDashboardContent"></div>
+      </div>
+    </div>
+  </div>
+
   <div id="monteCarloModal" class="tableModal">
     <div class="tableModalCard">
       <div class="tableModalHeader">
@@ -3610,6 +3810,7 @@ def html_template(
     const SIMULATED_RISK_NODE_IMPACTS = SIMULATED_RISK_GLOBAL_DIAGNOSTIC.node_impacts || {{}};
     const SIMULATED_RISK_EDGE_IMPACTS = SIMULATED_RISK_GLOBAL_DIAGNOSTIC.edge_impacts || {{}};
     const SCENARIO_COMPARISON = DATA.scenario_comparison || {{ available: false, html: "", figures: {{}}, scenarios: [] }};
+    const SCAN_DASHBOARD = DATA.scan_dashboard || {{ available: false, html: "", metrics: {{}}, figure_count: 0 }};
     const UNCERTAINTY_METRICS = MODEL_PANEL.uncertainty_metrics || DATA.uncertainty_metrics || {{ nodes: {{}}, edges: {{}} }};
     const DATA_PANEL = DATA.data_panel || {{ nodes: {{}}, edges: {{}} }};
     const JSON_PANEL = DATA.json_panel || {{ nodes: {{}}, edges: {{}} }};
@@ -13706,6 +13907,33 @@ def html_template(
       return false;
     }}
 
+    function renderScanDashboard() {{
+      const content = document.getElementById("scanDashboardContent");
+      if (!content) return false;
+      if (!(SCAN_DASHBOARD && SCAN_DASHBOARD.available && SCAN_DASHBOARD.html)) {{
+        content.innerHTML = '<div class="panelEmptyState">Aucun paquet RESILIENCE-SCAN fourni lors de la generation de cette map.</div>';
+        return false;
+      }}
+      content.innerHTML = SCAN_DASHBOARD.html;
+      const tabButtons = Array.from(content.querySelectorAll("[data-scan-dashboard-tab]"));
+      const panes = Array.from(content.querySelectorAll("[data-scan-dashboard-pane]"));
+      const setScanDashboardTab = (tab) => {{
+        tabButtons.forEach(btn => {{
+          const selected = String(btn.dataset.scanDashboardTab || "") === tab;
+          btn.classList.toggle("active", selected);
+          btn.setAttribute("aria-selected", selected ? "true" : "false");
+        }});
+        panes.forEach(pane => {{
+          pane.classList.toggle("hidden", String(pane.dataset.scanDashboardPane || "") !== tab);
+        }});
+      }};
+      tabButtons.forEach(btn => {{
+        btn.addEventListener("click", () => setScanDashboardTab(String(btn.dataset.scanDashboardTab || "summary")));
+      }});
+      setScanDashboardTab("summary");
+      return true;
+    }}
+
     function renderMonteCarloUncertainty() {{
       const content = document.getElementById("monteCarloContent");
       if (!content) return false;
@@ -13922,6 +14150,33 @@ def html_template(
           scenarioComparisonModal.classList.remove("visible");
         }}
       }});
+      const scanDashboardModal = document.getElementById("scanDashboardModal");
+      const scanDashboardBtn = document.getElementById("scanDashboardBtn");
+      const scanDashboardAvailable = Boolean(
+        SCAN_DASHBOARD && SCAN_DASHBOARD.available && SCAN_DASHBOARD.html
+      );
+      if (scanDashboardBtn) {{
+        scanDashboardBtn.classList.toggle("hidden", !scanDashboardAvailable);
+        scanDashboardBtn.disabled = !scanDashboardAvailable;
+        scanDashboardBtn.addEventListener("click", () => {{
+          if (!scanDashboardAvailable) return;
+          renderScanDashboard();
+          scanDashboardModal.classList.add("visible");
+          window.location.hash = "resilience-scan";
+        }});
+      }}
+      document.getElementById("scanDashboardCloseBtn").addEventListener("click", () => {{
+        scanDashboardModal.classList.remove("visible");
+      }});
+      scanDashboardModal.addEventListener("click", (ev) => {{
+        if (ev.target === scanDashboardModal) {{
+          scanDashboardModal.classList.remove("visible");
+        }}
+      }});
+      if (scanDashboardAvailable && window.location.hash === "#resilience-scan") {{
+        renderScanDashboard();
+        scanDashboardModal.classList.add("visible");
+      }}
       const monteCarloModal = document.getElementById("monteCarloModal");
       document.getElementById("monteCarloBtn").addEventListener("click", () => {{
         setPanelMode("uncertainty");

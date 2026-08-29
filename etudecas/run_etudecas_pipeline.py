@@ -872,9 +872,14 @@ def run_direct_simulation(
     skip_map: bool,
     skip_plots: bool,
     control_schedule_csv: Path | None = None,
+    control_policy_json: Path | None = None,
     seed: int | None = None,
     common_random_numbers: bool | None = None,
 ) -> None:
+    if control_schedule_csv is not None and control_policy_json is not None:
+        raise ValueError(
+            "control_schedule_csv and control_policy_json are mutually exclusive"
+        )
     engine_args = [
         "--input",
         repo_rel(input_graph),
@@ -887,6 +892,8 @@ def run_direct_simulation(
     ]
     if control_schedule_csv is not None:
         engine_args.extend(["--control-schedule-csv", repo_rel(control_schedule_csv)])
+    if control_policy_json is not None:
+        engine_args.extend(["--control-policy-json", repo_rel(control_policy_json)])
     if seed is not None:
         engine_args.extend(["--seed", str(int(seed))])
     if common_random_numbers is not None:
@@ -2719,6 +2726,14 @@ def parse_args() -> argparse.Namespace:
         help="Optional zero-based daily external-control schedule forwarded to the engine.",
     )
     sim.add_argument(
+        "--control-policy-json",
+        default="",
+        help=(
+            "Optional causal state-feedback policy forwarded to the engine. "
+            "It cannot be combined with --control-schedule-csv."
+        ),
+    )
+    sim.add_argument(
         "--seed",
         type=int,
         default=None,
@@ -2902,6 +2917,7 @@ def main() -> None:
             skip_map=args.skip_map,
             skip_plots=args.skip_plots,
             control_schedule_csv=Path(args.control_schedule_csv) if args.control_schedule_csv else None,
+            control_policy_json=Path(args.control_policy_json) if args.control_policy_json else None,
             seed=args.seed,
             common_random_numbers=args.common_random_numbers,
         )

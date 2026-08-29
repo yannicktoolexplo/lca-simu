@@ -432,11 +432,21 @@ def test_ledger_serialization_and_csv_writer_preserve_metadata(
     assert rows[0]["q_mrp"] == 12.0
     assert serialized[0]["status"] == "applied"
     with ledger_path.open("r", encoding="utf-8", newline="") as stream:
-        written = list(csv.DictReader(stream))
+        reader = csv.DictReader(stream)
+        written = list(reader)
+    assert {
+        "action_stage",
+        "edge_id",
+        "quantity_uom",
+        "executed_control_volume_qty",
+    }.issubset(set(reader.fieldnames or ()))
     assert written[0]["action"] == "order_multiplier"
     assert written[0]["requested"] == "9.0"
     assert written[0]["effective"] == "2.0"
     assert written[0]["bound"] == "upper"
+    assert written[0]["edge_id"] == ""
+    assert written[0]["quantity_uom"] == ""
+    assert written[0]["executed_control_volume_qty"] == ""
 
 
 def test_missing_path_and_directory_are_rejected(tmp_path: Path) -> None:

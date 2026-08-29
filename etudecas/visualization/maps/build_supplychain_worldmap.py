@@ -139,6 +139,9 @@ try:
     from etudecas.visualization.maps.scenario_comparison_payload import (
         build_scenario_comparison_payload,
     )
+    from etudecas.visualization.maps.scan_dashboard_payload import (
+        build_scan_dashboard_payload,
+    )
     from etudecas.visualization.maps.supplier_operations_payload import (
         build_passive_uncertainty_metric,
         coefficient_of_variation,
@@ -241,6 +244,9 @@ except ModuleNotFoundError:
     )
     from etudecas.visualization.maps.scenario_comparison_payload import (
         build_scenario_comparison_payload,
+    )
+    from etudecas.visualization.maps.scan_dashboard_payload import (
+        build_scan_dashboard_payload,
     )
     from etudecas.visualization.maps.supplier_operations_payload import (
         build_passive_uncertainty_metric,
@@ -350,6 +356,53 @@ def parse_args() -> argparse.Namespace:
             "Optional simulation result directory used as the primary Risques simules "
             "state-dependent scenario. The main map can stay nominal while this run "
             "feeds risk events and risk diagnostic charts."
+        ),
+    )
+    parser.add_argument(
+        "--scan-results-dir",
+        default="",
+        help=(
+            "Optional RESILIENCE-SCAN validation package. When provided, the "
+            "map embeds a dedicated dashboard with summary metrics, curves and "
+            "policy tables. The source package itself is not copied into Git."
+        ),
+    )
+    parser.add_argument(
+        "--closed-loop-results-dir",
+        default="",
+        help=(
+            "Optional paired canonical MRP-versus-feedback campaign. When used "
+            "with --scan-results-dir, it adds a Boucle fermee pane with causal "
+            "audit, paired deltas and controller diagnostics."
+        ),
+    )
+    parser.add_argument(
+        "--closed-loop-v2-results-dir",
+        default="",
+        help=(
+            "Optional additive Closed-Loop V2 campaign. When used with "
+            "--scan-results-dir, it adds a distinct Closed-Loop V2 pane and "
+            "does not replace the historical Boucle fermee pane."
+        ),
+    )
+    parser.add_argument(
+        "--scan-frequency-results-dir",
+        default="",
+        help=(
+            "Optional canonical frequency-analysis package. When used with "
+            "--scan-results-dir, it adds a distinct Analyse frequentielle pane "
+            "with empirical harmonic-line, coherence, spectral-peak and "
+            "repeatability evidence."
+        ),
+    )
+    parser.add_argument(
+        "--scan-control-system-results-dir",
+        default="",
+        help=(
+            "Optional canonical control-system analysis package. When used "
+            "with --scan-results-dir, it adds a distinct Analyse systeme pane "
+            "with local state-space, controllability, observability, pole and "
+            "stability evidence."
         ),
     )
     parser.add_argument(
@@ -12562,6 +12615,31 @@ def main() -> None:
     supplier_risk_campaign_summary_json = Path(args.supplier_risk_campaign_summary_json)
     supplier_risk_campaign_summary_csv = Path(args.supplier_risk_campaign_summary_csv)
     supplier_risk_campaign_cases_csv = Path(args.supplier_risk_campaign_cases_csv)
+    scan_results_dir = (
+        Path(args.scan_results_dir)
+        if str(args.scan_results_dir or "").strip()
+        else Path("__missing_scan_results_package__")
+    )
+    closed_loop_results_dir = (
+        Path(args.closed_loop_results_dir)
+        if str(args.closed_loop_results_dir or "").strip()
+        else Path("__missing_closed_loop_results_package__")
+    )
+    closed_loop_v2_results_dir = (
+        Path(args.closed_loop_v2_results_dir)
+        if str(args.closed_loop_v2_results_dir or "").strip()
+        else None
+    )
+    scan_frequency_results_dir = (
+        Path(args.scan_frequency_results_dir)
+        if str(args.scan_frequency_results_dir or "").strip()
+        else None
+    )
+    scan_control_system_results_dir = (
+        Path(args.scan_control_system_results_dir)
+        if str(args.scan_control_system_results_dir or "").strip()
+        else None
+    )
     out_path.parent.mkdir(parents=True, exist_ok=True)
     supplier_local_criticality_csv.parent.mkdir(parents=True, exist_ok=True)
     supplier_local_criticality_json.parent.mkdir(parents=True, exist_ok=True)
@@ -12686,6 +12764,13 @@ def main() -> None:
             simulated_risk_metrics=payload.get("simulated_risk_metrics", {}),
         )
         payload["scenario_comparison"] = build_scenario_comparison_payload(output_root_from_csv(demand_service_csv))
+        payload["scan_dashboard"] = build_scan_dashboard_payload(
+            scan_results_dir,
+            closed_loop_results_dir,
+            closed_loop_v2_results_dir,
+            scan_frequency_results_dir,
+            scan_control_system_results_dir,
+        )
         payload["supplier_risk_campaign"] = build_supplier_risk_campaign_payload(
             supplier_risk_campaign_summary_json,
             supplier_risk_campaign_summary_csv,

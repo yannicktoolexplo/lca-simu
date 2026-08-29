@@ -42,6 +42,8 @@ def group_for_key(key: str) -> str:
         return "lot_trace"
     if key == "montecarlo_uncertainty" or "uncertainty" in key:
         return "uncertainty"
+    if key == "scan_dashboard":
+        return "risk"
     if "sensitivity" in key or key in {"scenario_comparison", "realistic_sensitivity", "threshold_sensitivity"}:
         return "sensitivity"
     if "risk" in key:
