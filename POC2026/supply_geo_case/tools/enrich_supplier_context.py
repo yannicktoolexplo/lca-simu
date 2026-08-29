@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import html
 import json
 import math
@@ -41,19 +42,55 @@ RESULT_FIELDS = [
     "lat",
     "lon",
     "query",
+    "query_id",
+    "query_family",
+    "search_plan_version",
     "provider",
+    "serp_engine",
+    "search_region",
     "search_status",
     "retrieved_at_utc",
     "result_rank",
+    "serp_rank_original",
     "title",
     "url",
+    "canonical_url",
     "domain",
     "description",
     "signal_categories",
     "signal_hits",
     "weak_signal_score",
+    "positive_signal_categories",
+    "positive_signal_hits",
+    "resilience_evidence_score",
     "aerospace_relevance_score",
     "official_source_candidate",
+    "identity_match_score",
+    "source_type",
+    "source_quality_score",
+    "publication_date_hint",
+    "recency_factor",
+    "evidence_strength_score",
+    "verification_status",
+    "potential_sdd_effects",
+]
+
+SEARCH_ATTEMPT_FIELDS = [
+    "query_id",
+    "search_plan_version",
+    "scoring_rules_version",
+    "site_uid",
+    "supplier",
+    "query_family",
+    "query",
+    "provider",
+    "serp_engine",
+    "search_region",
+    "requested_at_utc",
+    "duration_seconds",
+    "status",
+    "error_type",
+    "result_count",
 ]
 
 SUMMARY_FIELDS = [
@@ -66,6 +103,7 @@ SUMMARY_FIELDS = [
     "lon",
     "query",
     "provider",
+    "search_plan_version",
     "context_search_status",
     "retrieved_at_utc",
     "result_count",
@@ -76,11 +114,59 @@ SUMMARY_FIELDS = [
     "weak_signal_score",
     "weak_signal_categories",
     "weak_signal_hits",
+    "observed_fragility_score",
+    "hazard_exposure_evidence_score",
+    "dependency_evidence_score",
+    "resilience_evidence_score",
+    "resilience_categories",
+    "structural_importance_score",
+    "structural_path_count",
+    "structural_system_count",
+    "structural_component_count",
+    "structural_score_basis",
+    "verified_evidence_count",
+    "candidate_evidence_count",
+    "model_activation_status",
     "documentary_criticality_score",
     "aerospace_relevance_score",
     "official_source_candidate",
     "data_confidence_score",
+    "risk_evidence_confidence_score",
     "context_short_summary",
+]
+
+EVIDENCE_FIELDS = [
+    "evidence_id",
+    "site_uid",
+    "supplier",
+    "roles",
+    "country_code",
+    "location",
+    "query_family",
+    "evidence_kind",
+    "evidence_category",
+    "fact_summary",
+    "publication_date_hint",
+    "recency_factor",
+    "source_title",
+    "source_url",
+    "canonical_url",
+    "source_domain",
+    "source_type",
+    "source_quality_score",
+    "identity_match_score",
+    "evidence_strength_score",
+    "verification_status",
+    "evidence_status",
+    "model_activation_status",
+    "potential_sdd_effects",
+    "retrieved_at_utc",
+    "query_id",
+    "query",
+    "serp_rank_original",
+    "result_rank",
+    "discovery_count",
+    "query_ids",
 ]
 
 SIGNAL_RULES = {
@@ -162,7 +248,8 @@ SIGNAL_RULES = {
             "non-conformity",
             "lawsuit",
             "litigation",
-            "compliance",
+            "compliance violation",
+            "regulatory breach",
             "quality issue",
             "rappel",
             "defaut",
@@ -197,6 +284,163 @@ SIGNAL_RULES = {
     },
 }
 
+POSITIVE_SIGNAL_RULES = {
+    "investissement_capacite": {
+        "weight": 1.8,
+        "terms": [
+            "investment",
+            "invests",
+            "new plant",
+            "new facility",
+            "capacity expansion",
+            "expands capacity",
+            "production expansion",
+            "investissement",
+            "nouvelle usine",
+            "extension de capacite",
+        ],
+    },
+    "certification_qualite": {
+        "weight": 1.4,
+        "terms": [
+            "as9100",
+            "en 9100",
+            "nadcap",
+            "iso 9001",
+            "certified",
+            "certification",
+            "accreditation",
+        ],
+    },
+    "contrat_reussite": {
+        "weight": 1.2,
+        "terms": [
+            "contract awarded",
+            "selected by airbus",
+            "selected by boeing",
+            "long term agreement",
+            "supplier award",
+            "partnership",
+            "contrat",
+            "accord long terme",
+            "prix fournisseur",
+        ],
+    },
+    "diversification_localisation": {
+        "weight": 1.3,
+        "terms": [
+            "dual source",
+            "multi sourcing",
+            "multiple sites",
+            "global footprint",
+            "local production",
+            "regional production",
+            "reduced dependency",
+            "reduced its dependency",
+            "reduced dependence",
+            "double source",
+            "multi-sourcing",
+            "plusieurs sites",
+            "production locale",
+        ],
+    },
+}
+
+QUERY_FAMILY_TEMPLATES = [
+    (
+        "identite_specialite",
+        '"{supplier}" {location} official aerospace products aircraft supplier {families} {components}',
+    ),
+    (
+        "certification_qualite",
+        '"{supplier}" aerospace AS9100 EN9100 NADCAP certification quality {location}',
+    ),
+    (
+        "incident_operationnel",
+        '"{supplier}" {location} fire flood explosion strike shutdown disruption delay incident',
+    ),
+    (
+        "fragilite_financiere",
+        '"{supplier}" bankruptcy insolvency restructuring layoff plant closure acquisition financial',
+    ),
+    (
+        "capacite_resilience",
+        '"{supplier}" investment expansion new plant capacity contract aerospace supplier award',
+    ),
+    (
+        "dependance_substitution",
+        '"{supplier}" sole source single source shortage lead time dependency alternative supplier aerospace',
+    ),
+    (
+        "exposition_climatique",
+        '"{supplier}" {location} flood heatwave storm hurricane cyclone cold weather transport disruption',
+    ),
+]
+
+RISK_QUERY_FAMILIES = {
+    "incident_operationnel",
+    "fragilite_financiere",
+    "certification_qualite",
+    "dependance_substitution",
+    "exposition_climatique",
+}
+
+QUERY_FAMILY_RISK_CATEGORIES = {
+    "certification_qualite": {"qualite_conformite"},
+    "incident_operationnel": {"incident_industriel", "rupture_approvisionnement", "cyber_securite"},
+    "fragilite_financiere": {"fragilite_financiere"},
+    "dependance_substitution": {
+        "dependance_source_unique",
+        "rupture_approvisionnement",
+        "risque_geopolitique_reglementaire",
+    },
+    "exposition_climatique": {"incident_industriel", "rupture_approvisionnement"},
+}
+
+QUERY_FAMILY_POSITIVE_CATEGORIES = {
+    "identite_specialite": {"certification_qualite"},
+    "certification_qualite": {"certification_qualite"},
+    "capacite_resilience": {
+        "investissement_capacite",
+        "contrat_reussite",
+        "diversification_localisation",
+    },
+    "dependance_substitution": {"diversification_localisation"},
+}
+
+AMBIGUOUS_PLACE_EVENT_PHRASES = {
+    "alcoa highway",
+    "airport highway",
+    "highway was shutdown",
+    "road was closed",
+    "traffic delays",
+    "vehicle crash",
+    "crash involving",
+}
+
+HAZARD_CATEGORIES = {"incident_industriel"}
+FRAGILITY_CATEGORIES = {
+    "rupture_approvisionnement",
+    "fragilite_financiere",
+    "qualite_conformite",
+    "cyber_securite",
+    "risque_geopolitique_reglementaire",
+}
+
+SDD_EFFECTS_BY_CATEGORY = {
+    "rupture_approvisionnement": "delai|capacite|stock_securite|transport_premium",
+    "incident_industriel": "capacite|delai|maintenance|reprise_progressive",
+    "fragilite_financiere": "capacite|delai|substitution_fournisseur",
+    "risque_geopolitique_reglementaire": "transport|delai|substitution_regionale",
+    "qualite_conformite": "rebut|reprise_qualite|delai",
+    "dependance_source_unique": "capacite|delai|absence_alternative",
+    "cyber_securite": "capacite|delai|reprise_progressive",
+    "investissement_capacite": "capacite|resilience|delai",
+    "certification_qualite": "qualite|rebut|confiance_fournisseur",
+    "contrat_reussite": "capacite|continuite",
+    "diversification_localisation": "substitution_regionale|resilience|delai",
+}
+
 AEROSPACE_TERMS = [
     "aerospace",
     "aeronautic",
@@ -228,7 +472,31 @@ LOW_CONTEXT_DOMAINS = {
     "yumpu.com",
 }
 
+IDENTITY_GENERIC_TOKENS = {
+    "aerospace",
+    "aircraft",
+    "company",
+    "component",
+    "components",
+    "engineering",
+    "group",
+    "industrie",
+    "industries",
+    "internal",
+    "material",
+    "production",
+    "supplier",
+}
+
 PATH_SITE_COLUMNS = ["t4_site_uid", "t3_site_uid", "t2_site_uid", "t1_site_uid", "oem_site_uid"]
+SEARCH_PLAN_VERSION = "supplier_context_evidence_v2"
+SCORING_RULES_VERSION = "supplier_context_scoring_v2_1"
+STRUCTURAL_IMPORTANCE_REFERENCES = {
+    "allocated_mass_kg": 130.0,
+    "path_count": 172.0,
+    "system_count": 46.0,
+    "component_count": 54.0,
+}
 
 
 def clean(value: Any) -> str:
@@ -251,6 +519,13 @@ def normalize_text(value: Any) -> str:
     text = unicodedata.normalize("NFKD", clean(value))
     text = "".join(char for char in text if not unicodedata.combining(char))
     return re.sub(r"\s+", " ", text.lower()).strip()
+
+
+def contains_normalized_term(text: str, term: Any) -> bool:
+    normalized_term = normalize_text(term)
+    if not normalized_term:
+        return False
+    return bool(re.search(rf"(?<![a-z0-9]){re.escape(normalized_term)}(?![a-z0-9])", text))
 
 
 def supplier_slug(value: Any) -> str:
@@ -307,6 +582,25 @@ def result_domain(url: str) -> str:
     if domain.startswith("www."):
         domain = domain[4:]
     return domain
+
+
+def canonicalize_url(url: Any) -> str:
+    parsed = urllib.parse.urlparse(clean(url))
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        return clean(url)
+    filtered_query = [
+        (key, value)
+        for key, value in urllib.parse.parse_qsl(parsed.query, keep_blank_values=True)
+        if not key.lower().startswith("utm_")
+        and key.lower() not in {"gclid", "fbclid", "mc_cid", "mc_eid", "ref", "source"}
+    ]
+    normalized = parsed._replace(
+        scheme="https",
+        netloc=parsed.netloc.lower(),
+        query=urllib.parse.urlencode(filtered_query),
+        fragment="",
+    )
+    return urllib.parse.urlunparse(normalized).rstrip("/")
 
 
 def decode_duckduckgo_url(href: str) -> str:
@@ -534,12 +828,43 @@ def signal_hits(text: str) -> tuple[float, dict[str, list[str]]]:
     weighted = 0.0
     hits: dict[str, list[str]] = {}
     for category, rule in SIGNAL_RULES.items():
-        terms = [term for term in rule["terms"] if normalize_text(term) in normalized]
+        terms = [term for term in rule["terms"] if contains_normalized_term(normalized, term)]
+        if category == "incident_industriel" and set(terms) <= {"fire"} and any(
+            phrase in normalized
+            for phrase in ("fire barrier", "fire protection", "fire resistant", "fire safety", "fire performance")
+        ):
+            terms = []
         if not terms:
             continue
         hits[category] = sorted(set(terms))
         weighted += float(rule["weight"]) * min(1.0, 0.55 + 0.15 * len(terms))
     return clamp(weighted / 8.0), hits
+
+
+def positive_signal_hits(text: str) -> tuple[float, dict[str, list[str]]]:
+    normalized = normalize_text(text)
+    weighted = 0.0
+    hits: dict[str, list[str]] = {}
+    for category, rule in POSITIVE_SIGNAL_RULES.items():
+        terms = [term for term in rule["terms"] if contains_normalized_term(normalized, term)]
+        if not terms:
+            continue
+        hits[category] = sorted(set(terms))
+        weighted += float(rule["weight"]) * min(1.0, 0.55 + 0.15 * len(terms))
+    return clamp(weighted / 6.0), hits
+
+
+def weighted_hits_score(
+    hits: dict[str, list[str]],
+    rules: dict[str, dict[str, Any]],
+    denominator: float,
+) -> float:
+    weighted = 0.0
+    for category, terms in hits.items():
+        if not terms or category not in rules:
+            continue
+        weighted += float(rules[category]["weight"]) * min(1.0, 0.55 + 0.15 * len(terms))
+    return clamp(weighted / denominator)
 
 
 def aerospace_relevance(text: str) -> float:
@@ -548,8 +873,16 @@ def aerospace_relevance(text: str) -> float:
     return clamp(hits / 4.0)
 
 
+def identity_tokens(value: Any) -> list[str]:
+    return [
+        token
+        for token in supplier_slug(supplier_search_name(value)).split()
+        if token not in IDENTITY_GENERIC_TOKENS
+    ]
+
+
 def official_candidate(supplier: str, result: dict[str, str]) -> bool:
-    tokens = supplier_slug(supplier).split()
+    tokens = identity_tokens(supplier)
     if not tokens:
         return False
     domain = normalize_text(result.get("domain"))
@@ -558,26 +891,286 @@ def official_candidate(supplier: str, result: dict[str, str]) -> bool:
     domain_tokens = re.findall(r"[a-z0-9]+", domain)
     domain_hit = any(token == tokens[0] or token.startswith(f"{tokens[0]}-") for token in domain_tokens)
     identity_hits = sum(1 for token in tokens if token in title or token in description)
+    if len(tokens) == 1:
+        return domain_hit and contains_normalized_term(f"{title} {description}", tokens[0])
     if domain_hit and tokens[0] in f"{title} {description}":
         return True
-    if len(tokens) == 1:
-        return domain_hit
     return domain_hit and identity_hits >= min(2, len(tokens))
 
 
-def score_result(site: dict[str, str], result: dict[str, str]) -> dict[str, Any]:
-    text = " ".join([result.get("title", ""), result.get("description", ""), result.get("domain", "")])
-    weak_score, hits = signal_hits(text)
+def identity_match_score(site: dict[str, str], result: dict[str, str], is_official: bool) -> float:
+    tokens = identity_tokens(site.get("name"))
+    if not tokens:
+        return 0.0
+    title = normalize_text(result.get("title"))
+    description = normalize_text(result.get("description"))
+    domain = normalize_text(result.get("domain"))
+    content = f"{title} {description}"
+    token_hits = sum(1 for token in tokens if re.search(rf"\b{re.escape(token)}\b", content))
+    token_ratio = token_hits / max(1, len(tokens))
+    exact_name = normalize_text(supplier_search_name(site.get("name")))
+    exact_hit = bool(exact_name and exact_name in content)
+    domain_hit = any(re.search(rf"(?:^|[.-]){re.escape(token)}(?:[.-]|$)", domain) for token in tokens)
+    location = normalize_text(search_location_label(site.get("location"), site.get("country_code")))
+    location_hit = bool(location and location in content)
+    business_context = any(
+        contains_normalized_term(content, term)
+        for term in (
+            "aerospace",
+            "aircraft",
+            "company",
+            "corporation",
+            "factory",
+            "facility",
+            "group",
+            "manufacturing",
+            "plant",
+            "production",
+            "refinery",
+            "smelter",
+            "supplier",
+        )
+    )
+    score = 0.58 * token_ratio + 0.18 * (1.0 if exact_hit else 0.0) + 0.14 * (1.0 if domain_hit else 0.0)
+    score += 0.10 * (1.0 if location_hit else 0.0)
+    if is_official:
+        score = max(score, 0.9)
+    elif len(tokens) == 1 and not (business_context and (location_hit or domain_hit or aerospace_relevance(content) > 0.0)):
+        score = min(score, 0.3)
+    return clamp(score)
+
+
+def source_type(row: dict[str, Any]) -> str:
+    domain = clean(row.get("domain")).lower()
+    if safe_float(row.get("official_source_candidate")) > 0:
+        return "source_officielle_fournisseur"
+    if domain.endswith(".gov") or domain.endswith(".gouv.fr") or domain.endswith(".europa.eu"):
+        return "autorite_publique"
+    if domain in LOW_CONTEXT_DOMAINS:
+        return "annuaire_reseau_social"
+    if domain.endswith(".wikipedia.org"):
+        return "encyclopedie"
+    return "presse_ou_source_metier"
+
+
+def publication_date_hint(text: Any) -> str:
+    normalized = clean(text)
+    iso_match = re.search(r"\b(20\d{2})[-/](0?[1-9]|1[0-2])[-/](0?[1-9]|[12]\d|3[01])\b", normalized)
+    if iso_match:
+        return f"{iso_match.group(1)}-{int(iso_match.group(2)):02d}-{int(iso_match.group(3)):02d}"
+    year_match = re.search(r"\b((?:19|20)\d{2})\b", normalized)
+    return year_match.group(1) if year_match else ""
+
+
+def evidence_recency_factor(date_hint: Any) -> float:
+    match = re.match(r"^((?:19|20)\d{2})", clean(date_hint))
+    if not match:
+        return 0.75
+    evidence_year = int(match.group(1))
+    current_year = datetime.now(timezone.utc).year
+    if evidence_year > current_year + 1:
+        return 0.5
+    age = max(0, current_year - evidence_year)
+    if age <= 2:
+        return 1.0
+    if age <= 5:
+        return 0.8
+    if age <= 10:
+        return 0.5
+    return 0.25
+
+
+def sdd_effects(categories: Iterable[str]) -> str:
+    effects: list[str] = []
+    for category in categories:
+        for effect in clean(SDD_EFFECTS_BY_CATEGORY.get(category)).split("|"):
+            if effect and effect not in effects:
+                effects.append(effect)
+    return "|".join(effects)
+
+
+def supplier_identity_in_segment(site: dict[str, str], segment: str) -> bool:
+    segment = normalize_text(segment)
+    exact_name = normalize_text(supplier_search_name(site.get("name")))
+    if exact_name and contains_normalized_term(segment, exact_name):
+        return True
+    tokens = identity_tokens(site.get("name"))
+    if not tokens:
+        return False
+    token_hits = sum(1 for token in tokens if contains_normalized_term(segment, token))
+    return token_hits >= min(2, len(tokens))
+
+
+def contextual_signal_hits(
+    site: dict[str, str],
+    text: str,
+    hits: dict[str, list[str]],
+    query_family: str,
+) -> dict[str, list[str]]:
+    allowed_categories = QUERY_FAMILY_RISK_CATEGORIES.get(query_family, set())
+    if not allowed_categories:
+        return {}
+    segments = [
+        segment.strip()
+        for segment in re.split(r"(?:[.!?;|]+|\s+[…]{1,3}\s+)", normalize_text(text))
+        if segment.strip()
+    ]
+    out: dict[str, list[str]] = {}
+    for category, terms in hits.items():
+        if category not in allowed_categories:
+            continue
+        accepted_terms: list[str] = []
+        for term in terms:
+            for segment in segments:
+                if not supplier_identity_in_segment(site, segment):
+                    continue
+                if not contains_normalized_term(segment, term):
+                    continue
+                if category == "incident_industriel" and any(
+                    phrase in segment for phrase in AMBIGUOUS_PLACE_EVENT_PHRASES
+                ):
+                    continue
+                if category == "incident_industriel":
+                    event_consequence = any(
+                        contains_normalized_term(segment, value)
+                        for value in (
+                            "accident",
+                            "closed",
+                            "closure",
+                            "damaged",
+                            "destroyed",
+                            "disrupted",
+                            "explosion",
+                            "halted",
+                            "hit",
+                            "injured",
+                            "killed",
+                            "shutdown",
+                            "stopped",
+                        )
+                    )
+                    industrial_context = any(
+                        contains_normalized_term(segment, value)
+                        for value in (
+                            "factory",
+                            "facility",
+                            "industrial",
+                            "manufacturing",
+                            "plant",
+                            "production",
+                            "refinery",
+                            "site",
+                            "smelter",
+                            "warehouse",
+                        )
+                    )
+                    if term in {"flood", "storm", "hurricane", "cyclone", "typhoon", "fire"} and not (
+                        event_consequence and industrial_context
+                    ):
+                        continue
+                if category == "qualite_conformite" and any(
+                    contains_normalized_term(segment, value)
+                    for value in ("certification", "certified", "approved", "strict compliance", "conformite des sieges")
+                ):
+                    continue
+                if category == "dependance_source_unique" and any(
+                    phrase in segment
+                    for phrase in ("reduced dependency", "reduced its dependency", "reduced dependence")
+                ):
+                    continue
+                accepted_terms.append(term)
+                break
+        if accepted_terms:
+            out[category] = sorted(set(accepted_terms))
+    return out
+
+
+def contextual_positive_hits(
+    site: dict[str, str],
+    text: str,
+    hits: dict[str, list[str]],
+    query_family: str,
+) -> dict[str, list[str]]:
+    allowed_categories = QUERY_FAMILY_POSITIVE_CATEGORIES.get(query_family, set())
+    if not allowed_categories:
+        return {}
+    segments = [
+        segment.strip()
+        for segment in re.split(r"(?:[.!?;|]+|\s+[…]{1,3}\s+)", normalize_text(text))
+        if segment.strip()
+    ]
+    out: dict[str, list[str]] = {}
+    for category, terms in hits.items():
+        if category not in allowed_categories:
+            continue
+        accepted = [
+            term
+            for term in terms
+            if any(
+                supplier_identity_in_segment(site, segment)
+                and contains_normalized_term(segment, term)
+                for segment in segments
+            )
+        ]
+        if accepted:
+            out[category] = sorted(set(accepted))
+    return out
+
+
+def score_result(site: dict[str, str], result: dict[str, str], query_family: str = "contexte_general") -> dict[str, Any]:
+    claim_text = " ".join([result.get("title", ""), result.get("description", "")])
+    text = " ".join([claim_text, result.get("domain", "")])
+    _raw_weak_score, raw_hits = signal_hits(claim_text)
+    _raw_positive_score, raw_positive_hits = positive_signal_hits(claim_text)
     aero_score = aerospace_relevance(text)
     is_official = official_candidate(site.get("name", ""), result)
-    return {
+    identity_score = identity_match_score(site, result, is_official)
+    gated_hits = (
+        contextual_signal_hits(site, claim_text, raw_hits, query_family)
+        if query_family in RISK_QUERY_FAMILIES and identity_score >= 0.45
+        else {}
+    )
+    positive_hits = (
+        contextual_positive_hits(site, claim_text, raw_positive_hits, query_family)
+        if identity_score >= 0.45
+        else {}
+    )
+    date_hint = publication_date_hint(text)
+    recency_factor = evidence_recency_factor(date_hint)
+    weak_score = weighted_hits_score(gated_hits, SIGNAL_RULES, 8.0) * recency_factor
+    positive_score = weighted_hits_score(positive_hits, POSITIVE_SIGNAL_RULES, 6.0)
+    base = {
         **result,
-        "signal_categories": "|".join(sorted(hits)),
-        "signal_hits": json.dumps(hits, ensure_ascii=False, sort_keys=True),
+        "canonical_url": canonicalize_url(result.get("url")),
+        "signal_categories": "|".join(sorted(gated_hits)),
+        "signal_hits": json.dumps(gated_hits, ensure_ascii=False, sort_keys=True),
         "weak_signal_score": round(weak_score, 4),
+        "positive_signal_categories": "|".join(sorted(positive_hits)),
+        "positive_signal_hits": json.dumps(positive_hits, ensure_ascii=False, sort_keys=True),
+        "resilience_evidence_score": round(positive_score, 4),
         "aerospace_relevance_score": round(aero_score, 4),
         "official_source_candidate": 1 if is_official else 0,
+        "identity_match_score": round(identity_score, 4),
+        "publication_date_hint": date_hint,
+        "recency_factor": round(recency_factor, 4),
     }
+    base["source_type"] = source_type(base)
+    quality = source_quality_score(base)
+    base["source_quality_score"] = round(quality, 4)
+    signal_basis = max(weak_score, positive_score, 0.35 * aero_score)
+    evidence_strength = clamp(identity_score * quality * signal_basis)
+    base["evidence_strength_score"] = round(evidence_strength, 4)
+    if identity_score < 0.35:
+        verification = "identite_non_confirmee"
+    elif is_official and query_family in {"identite_specialite", "certification_qualite", "capacite_resilience"}:
+        verification = "source_primaire_a_consulter"
+    elif quality >= 0.7 and evidence_strength >= 0.18:
+        verification = "indice_fort_a_verifier"
+    else:
+        verification = "indice_serp_a_confirmer"
+    base["verification_status"] = verification
+    base["potential_sdd_effects"] = sdd_effects([*gated_hits, *positive_hits])
+    return base
 
 
 def source_quality_score(row: dict[str, Any]) -> float:
@@ -603,7 +1196,7 @@ def result_business_priority(row: dict[str, Any]) -> tuple[float, float, float, 
         clamp(0.45 * aero_score + 0.35 * official_score + 0.15 * quality_score + 0.05 * weak_score),
     )
     return (
-        -business_score,
+        -max(business_score, safe_float(row.get("evidence_strength_score"))),
         -aero_score,
         -official_score,
         -quality_score,
@@ -619,18 +1212,55 @@ def rerank_result_rows(rows: list[dict[str, Any]]) -> None:
         row["result_rank"] = rank
 
 
-def summarize_site(site: dict[str, str], query: str, provider: str, status: str, retrieved_at: str, rows: list[dict[str, Any]]) -> dict[str, Any]:
-    source_count = len({clean(row.get("domain")) for row in rows if clean(row.get("domain"))})
+def structural_importance_score(site: dict[str, str], max_mass: float, max_path_count: float) -> float:
+    mass = max(0.0, safe_float(site.get("allocated_mass_kg")))
+    paths = max(0.0, safe_float(site.get("path_count")))
+    mass_score = math.log1p(mass) / math.log1p(STRUCTURAL_IMPORTANCE_REFERENCES["allocated_mass_kg"])
+    path_score = math.log1p(paths) / math.log1p(STRUCTURAL_IMPORTANCE_REFERENCES["path_count"])
+    return clamp(0.55 * mass_score + 0.45 * path_score)
+
+
+def summarize_site(
+    site: dict[str, str],
+    query: str,
+    provider: str,
+    status: str,
+    retrieved_at: str,
+    rows: list[dict[str, Any]],
+    *,
+    max_mass: float = 1.0,
+    max_path_count: float = 1.0,
+    structural_context: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    relevant_rows = [row for row in rows if safe_float(row.get("identity_match_score")) >= 0.35]
+    candidate_rows = [
+        row
+        for row in relevant_rows
+        if safe_float(row.get("evidence_strength_score")) >= 0.05
+    ]
+    source_count = len({clean(row.get("domain")) for row in relevant_rows if clean(row.get("domain"))})
     result_count = len(rows)
-    weak_score = max((safe_float(row.get("weak_signal_score")) for row in rows), default=0.0)
-    aero_score = max((safe_float(row.get("aerospace_relevance_score")) for row in rows), default=0.0)
-    official = any(safe_float(row.get("official_source_candidate")) > 0 for row in rows)
+    weak_score = max((safe_float(row.get("evidence_strength_score")) for row in candidate_rows if clean(row.get("signal_categories"))), default=0.0)
+    resilience_score = max(
+        (safe_float(row.get("evidence_strength_score")) for row in candidate_rows if clean(row.get("positive_signal_categories"))),
+        default=0.0,
+    )
+    aero_score = max((safe_float(row.get("aerospace_relevance_score")) for row in relevant_rows), default=0.0)
+    official = any(safe_float(row.get("official_source_candidate")) > 0 for row in relevant_rows)
     signal_counter: Counter[str] = Counter()
+    positive_counter: Counter[str] = Counter()
     hit_counter: Counter[str] = Counter()
-    for row in rows:
+    category_strength: dict[str, float] = defaultdict(float)
+    for row in candidate_rows:
+        evidence_strength = safe_float(row.get("evidence_strength_score"))
         for category in clean(row.get("signal_categories")).split("|"):
             if category:
                 signal_counter[category] += 1
+                category_strength[category] = max(category_strength[category], evidence_strength)
+        for category in clean(row.get("positive_signal_categories")).split("|"):
+            if category:
+                positive_counter[category] += 1
+                category_strength[category] = max(category_strength[category], evidence_strength)
         try:
             hits = json.loads(clean(row.get("signal_hits")) or "{}")
         except json.JSONDecodeError:
@@ -640,29 +1270,52 @@ def summarize_site(site: dict[str, str], query: str, provider: str, status: str,
                 if isinstance(terms, list):
                     for term in terms:
                         hit_counter[f"{category}:{term}"] += 1
-    data_confidence = clamp(
-        0.35 * min(result_count / 5.0, 1.0)
-        + 0.25 * (1.0 if official else 0.0)
-        + 0.25 * aero_score
-        + 0.15 * min(source_count / 4.0, 1.0)
+    identity_mean = (
+        sum(safe_float(row.get("identity_match_score")) for row in relevant_rows) / len(relevant_rows)
+        if relevant_rows
+        else 0.0
     )
-    if result_count:
-        criticality = clamp(0.76 * weak_score + 0.14 * (1.0 - data_confidence) + 0.10 * (1.0 if "dependance_source_unique" in signal_counter else 0.0))
-    elif status.startswith("error:"):
-        criticality = 0.0
-    else:
-        criticality = 0.25
-    top = rows[0] if rows else {}
+    quality_max = max((safe_float(row.get("source_quality_score")) for row in relevant_rows), default=0.0)
+    data_confidence = clamp(
+        0.25 * min(len(relevant_rows) / 8.0, 1.0)
+        + 0.20 * min(source_count / 4.0, 1.0)
+        + 0.20 * identity_mean
+        + 0.15 * quality_max
+        + 0.20 * (1.0 if official else 0.0)
+    )
+    fragility_score = max((category_strength.get(category, 0.0) for category in FRAGILITY_CATEGORIES), default=0.0)
+    hazard_score = max((category_strength.get(category, 0.0) for category in HAZARD_CATEGORIES), default=0.0)
+    dependency_score = category_strength.get("dependance_source_unique", 0.0)
+    risk_rows = [row for row in candidate_rows if clean(row.get("signal_categories"))]
+    risk_evidence_confidence = max(
+        (
+            safe_float(row.get("identity_match_score"))
+            * safe_float(row.get("source_quality_score"))
+            for row in risk_rows
+        ),
+        default=0.0,
+    )
+    documentary_risk = 0.45 * fragility_score + 0.30 * hazard_score + 0.25 * dependency_score
+    criticality = clamp(documentary_risk * (1.0 - 0.25 * resilience_score))
+    structural_context = structural_context or {}
+    structural_score = safe_float(
+        structural_context.get("score"),
+        structural_importance_score(site, max_mass, max_path_count),
+    )
+    top = relevant_rows[0] if relevant_rows else (rows[0] if rows else {})
     categories = "|".join(category for category, _ in signal_counter.most_common())
+    positive_categories = "|".join(category for category, _ in positive_counter.most_common())
     hits_label = "|".join(hit for hit, _ in hit_counter.most_common(12))
     if categories:
-        short = f"Signaux faibles: {categories}"
+        short = f"Indices SERP a confirmer: {categories}"
+        if positive_categories:
+            short += f" ; resilience observee: {positive_categories}"
     elif status.startswith("error:"):
         short = "Recherche bloquee ou erreur outil, a relancer via Bright Data ou plus tard"
-    elif result_count:
-        short = "Aucun signal faible explicite dans les resultats collectes"
+    elif relevant_rows:
+        short = "Identite ou specialite documentee, aucun incident fournisseur confirme"
     else:
-        short = "Aucun resultat exploitable collecte"
+        short = "Aucun resultat dont l'identite fournisseur est suffisamment confirmee"
     return {
         "site_uid": site.get("site_uid", ""),
         "supplier": site.get("name", ""),
@@ -673,6 +1326,7 @@ def summarize_site(site: dict[str, str], query: str, provider: str, status: str,
         "lon": site.get("lon", ""),
         "query": query,
         "provider": provider,
+        "search_plan_version": SEARCH_PLAN_VERSION,
         "context_search_status": status,
         "retrieved_at_utc": retrieved_at,
         "result_count": result_count,
@@ -683,10 +1337,28 @@ def summarize_site(site: dict[str, str], query: str, provider: str, status: str,
         "weak_signal_score": round(weak_score, 4),
         "weak_signal_categories": categories,
         "weak_signal_hits": hits_label,
+        "observed_fragility_score": round(fragility_score, 4),
+        "hazard_exposure_evidence_score": round(hazard_score, 4),
+        "dependency_evidence_score": round(dependency_score, 4),
+        "resilience_evidence_score": round(resilience_score, 4),
+        "resilience_categories": positive_categories,
+        "structural_importance_score": round(structural_score, 4),
+        "structural_path_count": int(safe_float(structural_context.get("path_count"), site.get("path_count"))),
+        "structural_system_count": int(safe_float(structural_context.get("system_count"))),
+        "structural_component_count": int(safe_float(structural_context.get("component_count"))),
+        "structural_score_basis": clean(structural_context.get("basis")) or "masse et nombre de chemins; substituabilite non documentee",
+        "verified_evidence_count": 0,
+        "candidate_evidence_count": sum(
+            1
+            for row in candidate_rows
+            if clean(row.get("signal_categories")) or clean(row.get("positive_signal_categories"))
+        ),
+        "model_activation_status": "inactive",
         "documentary_criticality_score": round(criticality, 4),
         "aerospace_relevance_score": round(aero_score, 4),
         "official_source_candidate": 1 if official else 0,
         "data_confidence_score": round(data_confidence, 4),
+        "risk_evidence_confidence_score": round(risk_evidence_confidence, 4),
         "context_short_summary": short,
     }
 
@@ -725,6 +1397,37 @@ def build_site_hints(path_rows: list[dict[str, str]]) -> dict[str, dict[str, str
         }
         for site_uid, values in counters.items()
     }
+
+
+def build_structural_context(path_rows: list[dict[str, str]]) -> dict[str, dict[str, Any]]:
+    stats: dict[str, dict[str, Any]] = defaultdict(
+        lambda: {"paths": set(), "systems": set(), "components": set(), "mass_kg": 0.0}
+    )
+    for row in path_rows:
+        site_uids = {clean(row.get(column)) for column in PATH_SITE_COLUMNS if clean(row.get(column))}
+        mass = max(0.0, safe_float(row.get("path_mass_kg")))
+        for site_uid in site_uids:
+            if clean(row.get("path_id")):
+                stats[site_uid]["paths"].add(clean(row.get("path_id")))
+            if clean(row.get("system")):
+                stats[site_uid]["systems"].add(clean(row.get("system")))
+            if clean(row.get("component")):
+                stats[site_uid]["components"].add(clean(row.get("component")))
+            stats[site_uid]["mass_kg"] += mass
+    out: dict[str, dict[str, Any]] = {}
+    for site_uid, values in stats.items():
+        mass_score = math.log1p(values["mass_kg"]) / math.log1p(STRUCTURAL_IMPORTANCE_REFERENCES["allocated_mass_kg"])
+        path_score = math.log1p(len(values["paths"])) / math.log1p(STRUCTURAL_IMPORTANCE_REFERENCES["path_count"])
+        system_score = len(values["systems"]) / STRUCTURAL_IMPORTANCE_REFERENCES["system_count"]
+        component_score = len(values["components"]) / STRUCTURAL_IMPORTANCE_REFERENCES["component_count"]
+        out[site_uid] = {
+            "score": clamp(0.30 * mass_score + 0.25 * path_score + 0.25 * system_score + 0.20 * component_score),
+            "path_count": len(values["paths"]),
+            "system_count": len(values["systems"]),
+            "component_count": len(values["components"]),
+            "basis": "masse allouee, chemins, systemes et composants; alternatives qualifiees encore non documentees",
+        }
+    return out
 
 
 def build_query(site: dict[str, str], template: str, hints: dict[str, str] | None = None) -> str:
@@ -782,6 +1485,33 @@ def build_queries(site: dict[str, str], template: str, hints: dict[str, str] | N
     return out
 
 
+def build_query_plan(
+    site: dict[str, str],
+    template: str,
+    hints: dict[str, str] | None = None,
+    profile: str = "evidence",
+) -> list[dict[str, str]]:
+    def planned_row(family: str, query: str) -> dict[str, str]:
+        digest = hashlib.sha1(
+            "|".join([SEARCH_PLAN_VERSION, clean(site.get("site_uid")), family, query]).encode("utf-8")
+        ).hexdigest()[:16]
+        return {"query_id": f"qry-{digest}", "query_family": family, "query": query}
+
+    if profile == "basic":
+        return [
+            planned_row("contexte_general", query)
+            for query in build_queries(site, template, hints)
+        ]
+    supplier = supplier_search_name(site.get("name"))
+    planned_site = {**site, "name": supplier}
+    plan: list[dict[str, str]] = []
+    for family, family_template in QUERY_FAMILY_TEMPLATES:
+        query = re.sub(r"\s+", " ", build_query(planned_site, family_template, hints)).strip()
+        if query and query not in {row["query"] for row in plan}:
+            plan.append(planned_row(family, query))
+    return plan
+
+
 def selected_sites(rows: list[dict[str, str]], *, offset: int, limit: int, exclude_oem: bool) -> list[dict[str, str]]:
     filtered = [
         row for row in rows
@@ -793,7 +1523,102 @@ def selected_sites(rows: list[dict[str, str]], *, offset: int, limit: int, exclu
     return filtered[offset: offset + limit]
 
 
-def write_summary_json(path: Path, summaries: list[dict[str, Any]], result_rows: list[dict[str, Any]]) -> None:
+def build_evidence_rows(result_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    evidence_by_key: dict[tuple[str, str, str], dict[str, Any]] = {}
+    for row in result_rows:
+        if safe_float(row.get("identity_match_score")) < 0.35:
+            continue
+        negative_categories = [value for value in clean(row.get("signal_categories")).split("|") if value]
+        positive_categories = [value for value in clean(row.get("positive_signal_categories")).split("|") if value]
+        categories: list[tuple[str, str]] = [
+            *[("risque", category) for category in negative_categories],
+            *[("resilience", category) for category in positive_categories],
+        ]
+        if safe_float(row.get("evidence_strength_score")) < 0.05:
+            categories = []
+        if not categories and (
+            safe_float(row.get("official_source_candidate")) > 0
+            or safe_float(row.get("aerospace_relevance_score")) >= 0.5
+        ):
+            categories.append(("capacite_specialite", "identite_specialite"))
+        for evidence_kind, category in categories:
+            canonical_url = clean(row.get("canonical_url")) or canonicalize_url(row.get("url"))
+            key = (clean(row.get("site_uid")), canonical_url, category)
+            digest = hashlib.sha1("|".join(key).encode("utf-8")).hexdigest()[:16]
+            description = clean(row.get("description"))
+            title = clean(row.get("title"))
+            query_id = clean(row.get("query_id"))
+            candidate = {
+                "evidence_id": f"ctx-{digest}",
+                "site_uid": row.get("site_uid", ""),
+                "supplier": row.get("supplier", ""),
+                "roles": row.get("roles", ""),
+                "country_code": row.get("country_code", ""),
+                "location": row.get("location", ""),
+                "query_family": row.get("query_family", ""),
+                "evidence_kind": evidence_kind,
+                "evidence_category": category,
+                "fact_summary": (description or title)[:700],
+                "publication_date_hint": row.get("publication_date_hint", ""),
+                "recency_factor": row.get("recency_factor", ""),
+                "source_title": title,
+                "source_url": row.get("url", ""),
+                "canonical_url": canonical_url,
+                "source_domain": row.get("domain", ""),
+                "source_type": row.get("source_type", ""),
+                "source_quality_score": row.get("source_quality_score", ""),
+                "identity_match_score": row.get("identity_match_score", ""),
+                "evidence_strength_score": row.get("evidence_strength_score", ""),
+                "verification_status": row.get("verification_status", ""),
+                "evidence_status": (
+                    "rejected"
+                    if clean(row.get("verification_status")) == "identite_non_confirmee"
+                    else "candidate"
+                ),
+                "model_activation_status": "inactive",
+                "potential_sdd_effects": row.get("potential_sdd_effects", ""),
+                "retrieved_at_utc": row.get("retrieved_at_utc", ""),
+                "query_id": query_id,
+                "query": row.get("query", ""),
+                "serp_rank_original": row.get("serp_rank_original", ""),
+                "result_rank": row.get("result_rank", ""),
+                "discovery_count": 1,
+                "query_ids": query_id,
+            }
+            existing = evidence_by_key.get(key)
+            if existing is None:
+                evidence_by_key[key] = candidate
+                continue
+            query_ids = {
+                value
+                for value in clean(existing.get("query_ids")).split("|")
+                if value
+            }
+            if query_id:
+                query_ids.add(query_id)
+            discovery_count = int(safe_float(existing.get("discovery_count"), 1.0)) + 1
+            if safe_float(candidate.get("evidence_strength_score")) > safe_float(existing.get("evidence_strength_score")):
+                evidence_by_key[key] = candidate
+                existing = candidate
+            existing["discovery_count"] = discovery_count
+            existing["query_ids"] = "|".join(sorted(query_ids))
+    evidence_rows = list(evidence_by_key.values())
+    evidence_rows.sort(
+        key=lambda row: (
+            clean(row.get("supplier")),
+            -safe_float(row.get("evidence_strength_score")),
+            clean(row.get("evidence_category")),
+        )
+    )
+    return evidence_rows
+
+
+def write_summary_json(
+    path: Path,
+    summaries: list[dict[str, Any]],
+    result_rows: list[dict[str, Any]],
+    evidence_rows: list[dict[str, Any]],
+) -> None:
     status_counts = Counter(clean(row.get("context_search_status")) for row in summaries)
     signal_counts: Counter[str] = Counter()
     for row in summaries:
@@ -801,10 +1626,15 @@ def write_summary_json(path: Path, summaries: list[dict[str, Any]], result_rows:
             if category:
                 signal_counts[category] += 1
     payload = {
-        "schema_version": "poc2026.supply_geo_case.supplier_context.v1",
+        "schema_version": "poc2026.supply_geo_case.supplier_context.v2",
+        "search_plan_version": SEARCH_PLAN_VERSION,
+        "scoring_rules_version": SCORING_RULES_VERSION,
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
         "summary_count": len(summaries),
         "result_count": len(result_rows),
+        "evidence_count": len(evidence_rows),
+        "evidence_status_counts": dict(Counter(clean(row.get("verification_status")) for row in evidence_rows)),
+        "query_family_counts": dict(Counter(clean(row.get("query_family")) for row in result_rows)),
         "status_counts": dict(status_counts),
         "signal_counts": dict(signal_counts),
         "top_critical_suppliers": sorted(
@@ -833,7 +1663,8 @@ def parse_args(argv: Iterable[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--limit", type=int, default=20, help="Number of sites to search. Use 0 for all.")
     parser.add_argument("--offset", type=int, default=0)
-    parser.add_argument("--max-results", type=int, default=5)
+    parser.add_argument("--max-results", type=int, default=28, help="Maximum total results retained per site.")
+    parser.add_argument("--results-per-query", type=int, default=4, help="Maximum results parsed for each query.")
     parser.add_argument("--delay", type=float, default=1.0)
     parser.add_argument("--region", default="fr-fr")
     parser.add_argument(
@@ -846,12 +1677,17 @@ def parse_args(argv: Iterable[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--exclude-oem", action="store_true")
     parser.add_argument("--fallback-queries", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument(
+        "--query-profile",
+        choices=["basic", "evidence"],
+        default="evidence",
+        help="evidence runs targeted identity, incident, finance, quality, capacity, dependency and climate queries.",
+    )
+    parser.add_argument(
         "--max-queries-per-site",
         type=int,
         default=0,
         help=(
-            "Limit fallback queries per site. 0 uses the provider default: 1 for Bright Data SERP, "
-            "all fallback queries for direct DuckDuckGo HTML."
+            "Limit queries per site. 0 runs the complete selected query profile."
         ),
     )
     parser.add_argument(
@@ -869,71 +1705,132 @@ def main(argv: Iterable[str] | None = None) -> int:
     if not sites:
         print(f"No sites found in {args.sites}", file=sys.stderr)
         return 2
-    site_hints = build_site_hints(read_csv(args.paths))
+    path_rows = read_csv(args.paths)
+    site_hints = build_site_hints(path_rows)
+    structural_by_site = build_structural_context(path_rows)
 
     result_path = args.output_dir / "supplier_context_results.csv"
     summary_path = args.output_dir / "supplier_context_summary.csv"
+    evidence_path = args.output_dir / "supplier_context_evidence.csv"
+    attempt_path = args.output_dir / "supplier_context_search_attempts.csv"
     json_path = args.output_dir.parent / "summaries" / "supplier_context_summary.json"
     existing_results = read_csv(result_path)
     existing_summaries = read_csv(summary_path)
-    done = {clean(row.get("site_uid")) for row in existing_summaries if clean(row.get("site_uid")) and not args.refresh}
+    existing_attempts = read_csv(attempt_path)
+    done = {
+        clean(row.get("site_uid"))
+        for row in existing_summaries
+        if clean(row.get("site_uid"))
+        and clean(row.get("search_plan_version")) == SEARCH_PLAN_VERSION
+        and not args.refresh
+    }
     existing_results_by_site: dict[str, list[dict[str, str]]] = defaultdict(list)
     for row in existing_results:
         existing_results_by_site[clean(row.get("site_uid"))].append(row)
     existing_summary_by_site = {clean(row.get("site_uid")): row for row in existing_summaries if clean(row.get("site_uid"))}
 
     work = [site for site in selected_sites(sites, offset=args.offset, limit=args.limit, exclude_oem=args.exclude_oem) if clean(site.get("site_uid")) not in done]
-    result_rows = [row for row in existing_results if clean(row.get("site_uid")) not in {clean(site.get("site_uid")) for site in work}]
-    summary_rows = [row for row in existing_summaries if clean(row.get("site_uid")) not in {clean(site.get("site_uid")) for site in work}]
+    work_site_uids = {clean(site.get("site_uid")) for site in work}
+    result_rows = [row for row in existing_results if clean(row.get("site_uid")) not in work_site_uids]
+    summary_rows = [row for row in existing_summaries if clean(row.get("site_uid")) not in work_site_uids]
+    attempt_rows = [row for row in existing_attempts if clean(row.get("site_uid")) not in work_site_uids]
+    max_mass = max((safe_float(site.get("allocated_mass_kg")) for site in sites), default=1.0)
+    max_path_count = max((safe_float(site.get("path_count")) for site in sites), default=1.0)
 
     for index, site in enumerate(work, 1):
         hints = site_hints.get(clean(site.get("site_uid")), {})
-        queries = build_queries(site, args.query_template, hints) if args.fallback_queries else [build_query(site, args.query_template, hints)]
+        query_plan = (
+            build_query_plan(site, args.query_template, hints, args.query_profile)
+            if args.fallback_queries
+            else build_query_plan(site, args.query_template, hints, "basic")[:1]
+        )
         if args.max_queries_per_site > 0:
-            queries = queries[:args.max_queries_per_site]
-        elif provider == "brightdata_serp_api":
-            queries = queries[:1]
-        query = " | ".join(queries)
+            query_plan = query_plan[:args.max_queries_per_site]
+        query = " | ".join(row["query"] for row in query_plan)
         retrieved_at = datetime.now(timezone.utc).isoformat()
-        print(f"[{index}/{len(work)}] {site.get('name')} :: {queries[0]} ({len(queries)} requete(s))")
+        print(f"[{index}/{len(work)}] {site.get('name')} :: {query_plan[0]['query']} ({len(query_plan)} requete(s))")
         status = "ok"
         scored_rows: list[dict[str, Any]] = []
         seen_urls: set[str] = set()
-        try:
-            for search_query in queries:
+        query_errors: list[str] = []
+        for query_item in query_plan:
+            if len(scored_rows) >= args.max_results:
+                break
+            search_query = query_item["query"]
+            query_family = query_item["query_family"]
+            requested_at = datetime.now(timezone.utc).isoformat()
+            started = time.monotonic()
+            raw_results: list[dict[str, str]] = []
+            attempt_status = "ok"
+            error_type = ""
+            try:
+                raw_results = search_results(
+                    provider,
+                    search_query,
+                    max(1, args.results_per_query),
+                    args.region,
+                    args.serp_engine,
+                )
+            except (urllib.error.URLError, TimeoutError, RuntimeError, OSError) as exc:
+                attempt_status = "error"
+                error_type = type(exc).__name__
+                query_errors.append(error_type)
+                print(f"  -> {query_family}: error:{error_type}: {exc}", file=sys.stderr)
+            attempt_rows.append(
+                {
+                    "query_id": query_item["query_id"],
+                    "search_plan_version": SEARCH_PLAN_VERSION,
+                    "scoring_rules_version": SCORING_RULES_VERSION,
+                    "site_uid": site.get("site_uid", ""),
+                    "supplier": site.get("name", ""),
+                    "query_family": query_family,
+                    "query": search_query,
+                    "provider": provider,
+                    "serp_engine": args.serp_engine,
+                    "search_region": args.region,
+                    "requested_at_utc": requested_at,
+                    "duration_seconds": round(time.monotonic() - started, 4),
+                    "status": attempt_status if raw_results or attempt_status == "error" else "no_results",
+                    "error_type": error_type,
+                    "result_count": len(raw_results),
+                }
+            )
+            for original_rank, result in enumerate(raw_results, 1):
+                url = clean(result.get("url"))
+                canonical_url = canonicalize_url(url)
+                if not url or canonical_url in seen_urls:
+                    continue
+                seen_urls.add(canonical_url)
+                scored = score_result(site, result, query_family)
+                scored_rows.append(
+                    {
+                        "site_uid": site.get("site_uid", ""),
+                        "supplier": site.get("name", ""),
+                        "roles": site.get("roles", ""),
+                        "country_code": site.get("country_code", ""),
+                        "location": site.get("location", ""),
+                        "lat": site.get("lat", ""),
+                        "lon": site.get("lon", ""),
+                        "query": search_query,
+                        "query_id": query_item["query_id"],
+                        "query_family": query_family,
+                        "search_plan_version": SEARCH_PLAN_VERSION,
+                        "provider": provider,
+                        "serp_engine": args.serp_engine,
+                        "search_region": args.region,
+                        "search_status": attempt_status,
+                        "retrieved_at_utc": retrieved_at,
+                        "result_rank": len(scored_rows) + 1,
+                        "serp_rank_original": original_rank,
+                        **scored,
+                    }
+                )
                 if len(scored_rows) >= args.max_results:
                     break
-                raw_results = search_results(provider, search_query, args.max_results, args.region, args.serp_engine)
-                for result in raw_results:
-                    url = clean(result.get("url"))
-                    if not url or url in seen_urls:
-                        continue
-                    seen_urls.add(url)
-                    scored = score_result(site, result)
-                    scored_rows.append(
-                        {
-                            "site_uid": site.get("site_uid", ""),
-                            "supplier": site.get("name", ""),
-                            "roles": site.get("roles", ""),
-                            "country_code": site.get("country_code", ""),
-                            "location": site.get("location", ""),
-                            "lat": site.get("lat", ""),
-                            "lon": site.get("lon", ""),
-                            "query": search_query,
-                            "provider": provider,
-                            "search_status": status,
-                            "retrieved_at_utc": retrieved_at,
-                            "result_rank": len(scored_rows) + 1,
-                            **scored,
-                        }
-                    )
-                    if len(scored_rows) >= args.max_results:
-                        break
-            if not scored_rows:
-                status = "no_results"
-        except (urllib.error.URLError, TimeoutError, RuntimeError, OSError) as exc:
-            status = f"error:{type(exc).__name__}"
-            print(f"  -> {status}: {exc}", file=sys.stderr)
+        if not scored_rows:
+            status = f"error:{query_errors[-1]}" if query_errors else "no_results"
+        elif query_errors:
+            status = "ok_partiel"
         if not scored_rows and status.startswith("error:") and clean(site.get("site_uid")) in existing_summary_by_site:
             stale_summary = dict(existing_summary_by_site[clean(site.get("site_uid"))])
             stale_summary["context_search_status"] = f"cache_conserve_apres_{status}"
@@ -942,18 +1839,38 @@ def main(argv: Iterable[str] | None = None) -> int:
             continue
         rerank_result_rows(scored_rows)
         result_rows.extend(scored_rows)
-        summary_rows.append(summarize_site(site, query, provider, status, retrieved_at, scored_rows))
+        summary_rows.append(
+            summarize_site(
+                site,
+                query,
+                provider,
+                status,
+                retrieved_at,
+                scored_rows,
+                max_mass=max_mass,
+                max_path_count=max_path_count,
+                structural_context=structural_by_site.get(clean(site.get("site_uid")), {}),
+            )
+        )
+        evidence_rows = build_evidence_rows(result_rows)
         write_csv(result_path, result_rows, RESULT_FIELDS)
         write_csv(summary_path, summary_rows, SUMMARY_FIELDS)
-        write_summary_json(json_path, summary_rows, result_rows)
+        write_csv(evidence_path, evidence_rows, EVIDENCE_FIELDS)
+        write_csv(attempt_path, attempt_rows, SEARCH_ATTEMPT_FIELDS)
+        write_summary_json(json_path, summary_rows, result_rows, evidence_rows)
         if index < len(work) and args.delay > 0:
             time.sleep(args.delay)
 
+    evidence_rows = build_evidence_rows(result_rows)
     write_csv(result_path, result_rows, RESULT_FIELDS)
     write_csv(summary_path, summary_rows, SUMMARY_FIELDS)
-    write_summary_json(json_path, summary_rows, result_rows)
+    write_csv(evidence_path, evidence_rows, EVIDENCE_FIELDS)
+    write_csv(attempt_path, attempt_rows, SEARCH_ATTEMPT_FIELDS)
+    write_summary_json(json_path, summary_rows, result_rows, evidence_rows)
     print(f"Wrote {len(summary_rows)} supplier context summaries: {summary_path}")
     print(f"Wrote {len(result_rows)} supplier context result rows: {result_path}")
+    print(f"Wrote {len(evidence_rows)} supplier context evidence rows: {evidence_path}")
+    print(f"Wrote {len(attempt_rows)} supplier context search attempts: {attempt_path}")
     return 0
 
 

@@ -63,7 +63,12 @@ Generated package:
 - `outputs/data/brightway_parametric_regional_scenarios.csv`
 - `outputs/data/brightway_exact_scenario_lcia.csv`
 - `outputs/data/brightway_excel_runtime_comparison.csv`
+- `outputs/data/brightway_excel_original_indicator_comparison.csv`
 - `outputs/data/brightway_usage_calibration.csv`
+- `outputs/data/sdd_aircraft_use_profile.csv`
+- `outputs/data/sdd_aircraft_use_components.csv`
+- `outputs/data/sdd_aircraft_use_monthly.csv`
+- `outputs/data/sdd_aircraft_use_cumulative.csv`
 - `outputs/summaries/sdd_method_comparison.json`
 - `outputs/summaries/brightway_model_summary.json`
 - `outputs/summaries/primary_supply_case_summary.json`
@@ -182,8 +187,103 @@ unit is confirmed in the legacy model.
 Transport changes are applied as scenario amount factors, not as a route-by-route
 Brightway rerouting.
 
+Aircraft use is represented with 84-month seat cohorts. Each monthly delivery
+creates a cohort whose in-service emissions are spread over its seven-year
+lifetime. The number of commissioned seats follows the supply service level, so
+the dashboard can compare the planned fleet, service without adaptation and
+service after adaptation. Two accounting views are deliberately kept separate:
+
+- calendar emissions are emitted only by seats active during the simulated
+  month and answer "what does the operating fleet emit now?";
+- full-lifetime attributed emissions assign the complete seven-year use phase
+  to seats commissioned in the month and answer "what impact is committed by
+  this month's deliveries?".
+
+The STELIA-aligned use phase is currently 460,797.37 kgCO2e per seat over seven
+years: upstream production of the fuel attributable to seat mass, in-flight
+emissions attributable to seat mass, and cleaning/disinfection. The legacy
+"Cargo plane" label means the second mechanism, not supplier air freight. This
+is a calibrated STELIA reference connected to Brightway outputs; it is not yet a
+fully physical Brightway foreground because the historical fuel/flight amount
+and unit still need to be reconstructed without double counting upstream fuel
+production and in-flight combustion.
+
+## Scenario siege allege a 50 %
+
+`config/lightweight_seat_50.yml` defines an engineering-screening scenario from
+109.967 kg to 54.9835 kg. The Masterboard product rows are stripped of use,
+energy and packaging flows, grouped into five functions, then reconciled to the
+OPERA reference mass. The mass target is not applied uniformly: structure,
+shell/stowage, comfort, passenger interfaces and IFE/electrical use separate
+reduction targets and process-complexity factors.
+
+When the Brightway runtime is available,
+`tools/run_lightweight_seat_scenario.py` copies the OPERA foreground, scales the
+427 exchanges belonging to the 44 affected activities and recalculates the 16
+main EF 3.0 indicators. This is an exact Brightway calculation of the modified
+foreground quantities, but remains a screening model of the future design: the
+candidate composite, sandwich, foam and electronics specifications are not yet
+qualified bills of material. The dashboard therefore labels the concept as
+non-certified and exposes the required CS 25.561/25.562/25.785/25.853, AS8049E,
+ARP6337 and equipment qualification gates.
+
+The in-flight benefit uses a marginal mass sensitivity of 0.020, 0.025 and
+0.030 kg fuel per kg carried per 1,000 km. It is kept separate from the
+historical attributional STELIA use allocation. Generated evidence is exported
+to `lightweight_seat_mass_budget.csv`, `lightweight_seat_indicator_results.csv`,
+`lightweight_seat_certification_gates.csv`, `lightweight_seat_exact_lcia.csv`
+and `lightweight_seat_scenario.json`; the same content is available in the
+`Siege allege 50 %` tab of the single base map.
+
+The same tab also crosses lightweighting with four sourcing variants calculated
+by `tools/run_lightweight_localization_scenarios.py`: current supply, France
+priority, Europe priority and a globalized stress test. France priority uses FR
+electricity, the available EU aluminium market and 45 percent of current
+foreground transport; Europe priority uses EU electricity/aluminium and 70
+percent of transport. The 100 percent local-content value is a substitution
+objective, not a demonstrated supplier coverage claim. All four variants are
+recalculated for the 16 EF 3.0 indicators. Exact rows, normalized comparisons
+and scenario summaries are exported respectively to
+`lightweight_seat_localization_exact_lcia.csv`,
+`lightweight_seat_localization_indicators.csv` and
+`lightweight_seat_localization_scenarios.csv`.
+
+A second, non-virtual layer selects named alternate suppliers already present in
+the researched source JSON. `supplier_alternatives.py` only considers alternates
+listed for the same component and tier, keeps an already-local primary supplier,
+then ranks eligible alternatives using source evidence, aerospace context,
+distance to the downstream site, documentary fragility and a concentration-cap
+proxy. It reconciles the 129.949 kg geographic supply allocation to the 54.9835
+kg lightweight target before rebuilding every route. The resulting transport
+factors feed `tools/run_lightweight_named_supplier_scenarios.py`; regional
+electricity and aluminium remain generic ecoinvent markets, while supplier names
+and routes are explicit. Capacity, commercial availability and component
+qualification are therefore still gates, not assumed facts. Assignments, routes,
+candidate audit, supplier loads and 16-indicator Brightway results are exported
+as `lightweight_seat_named_supplier_*.csv` and displayed in the lightweight-seat
+dashboard and the `Alternatives fournisseurs` map view.
+
+The `Validation Excel` map tab keeps three evidence levels separate. The
+historical `STELIA LCA SEATS v14022022v2.xlsx` workbook is the reference. Its 16
+EF 3.0 person-equivalent indicators are compared with the more detailed
+`STELIALCASEATS.xlsx` workbook to identify version drift; this is not presented
+as an independent Brightway validation. Climate change is also reconciled with
+the executable Brightway OPERA model. The use phase is explicitly marked as
+identical by calibration, the corrected lifecycle combines Brightway outside
+use with calibrated STELIA use, and the raw OPERA tkm lifecycle remains visible
+but rejected. Run the lightweight refresh after changing these contracts:
+
+```bash
+python POC2026/supply_geo_case/tools/refresh_excel_comparison_outputs.py
+python POC2026/supply_geo_case/tools/refresh_supplier_context_map.py
+```
+
 `supply_geo_base_results_map.html` is the single HTML map/dashboard entrypoint.
 It is an enriched copy of the original `supply_geo` Plotly map: the base filters
 remain available, and added view buttons switch the same page between source
 data, SDD site results, SDD lane risk, localized operational impacts and an
-integrated KPI dashboard.
+integrated KPI dashboard. The `Utilisation en vol` tab exposes the cohort fleet,
+commissioning, monthly use-phase mechanisms, cumulative calendar emissions and
+full-lifetime impacts attributed to deliveries. The `Validation Excel` tab
+shows the original workbook, detailed workbook and Brightway reconciliation
+without presenting calibrated values as independent validation.

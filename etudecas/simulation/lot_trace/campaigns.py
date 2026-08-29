@@ -3,6 +3,8 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import Any
 
+from .causality import CAMPAIGN_CAUSAL_FIELDS, causal_status, join_ids
+
 
 PRODUCTION_CAMPAIGN_FIELDS = [
     "campaign_id",
@@ -37,6 +39,7 @@ PRODUCTION_CAMPAIGN_FIELDS = [
     "first_event_type",
     "last_event_type",
     "notes",
+    *CAMPAIGN_CAUSAL_FIELDS,
 ]
 
 CAMPAIGN_DELAY_EVENT_TYPES = {
@@ -194,6 +197,34 @@ def build_production_campaign_rows(
         blocked_lot_qty = max_shortfall
         if status in {"still_blocked", "not_started_blocked"}:
             blocked_lot_qty = max(blocked_lot_qty, requested_qty, planned_qty)
+        planned_order_id = next(
+            (str(row.get("planned_order_id") or "") for row in ordered_rows if row.get("planned_order_id")),
+            "",
+        )
+        causal_event_ids = join_ids(
+            *(row.get("causal_event_ids") for row in ordered_rows),
+            *(row.get("causal_event_ids") for row in output_lot_rows),
+        )
+        causal_root_ids = join_ids(
+            *(row.get("causal_root_ids") for row in ordered_rows),
+            *(row.get("causal_root_ids") for row in output_lot_rows),
+        )
+        scenario_id = next(
+            (
+                str(row.get("scenario_id") or "")
+                for row in [*ordered_rows, *output_lot_rows]
+                if row.get("scenario_id")
+            ),
+            "",
+        )
+        baseline_reference_id = next(
+            (
+                str(row.get("baseline_reference_id") or "")
+                for row in ordered_rows
+                if row.get("baseline_reference_id")
+            ),
+            planned_order_id,
+        )
         out.append(
             {
                 "campaign_id": campaign_id,
@@ -228,6 +259,15 @@ def build_production_campaign_rows(
                 "first_event_type": str(first_row.get("event_type") or ""),
                 "last_event_type": str(ordered_rows[-1].get("event_type") or ""),
                 "notes": notes,
+                "scenario_id": scenario_id,
+                "planned_order_id": planned_order_id,
+                "causal_event_ids": causal_event_ids,
+                "causal_root_ids": causal_root_ids or causal_event_ids,
+                "causal_status": causal_status(
+                    causal_event_ids,
+                    root_ids=causal_root_ids,
+                ),
+                "baseline_reference_id": baseline_reference_id,
             }
         )
     return sorted(
