@@ -51,6 +51,7 @@ from etudecas.analysis.from_simulation.audit_source_truth_alignment import (  # 
     build_report as build_source_truth_alignment_report,
 )
 from etudecas.simulation.run_format import export_run_package, validate_run_package  # noqa: E402
+from etudecas.simulation.lot_trace.io import LOT_TRACE_CONTRACT_VERSION  # noqa: E402
 
 SOURCE_DATA_DIR = ROOT / "data" / "source"
 DATA_REPORTS_DIR = ROOT / "data" / "reports"
@@ -2514,6 +2515,7 @@ def run_active_mrp_physical(
         "supplier_state_dependent_risks": bool(supplier_state_dependent_risks),
         "days": days,
         "output_profile": output_profile,
+        "lot_trace_contract_version": LOT_TRACE_CONTRACT_VERSION,
         "overwrite": overwrite,
         "skip_map": skip_map,
         "skip_plots": skip_plots,

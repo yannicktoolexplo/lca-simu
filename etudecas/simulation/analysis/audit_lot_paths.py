@@ -16,11 +16,17 @@ try:
         UPSTREAM_INTERNAL_SITE_IDS,
         canonical_node_id,
     )
+    from etudecas.simulation.analysis.audit_lot_trace_semantics import (
+        audit_acceptance_semantics,
+    )
 except ModuleNotFoundError:
     sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
     from etudecas.case_config import (
         UPSTREAM_INTERNAL_SITE_IDS,
         canonical_node_id,
+    )
+    from etudecas.simulation.analysis.audit_lot_trace_semantics import (
+        audit_acceptance_semantics,
     )
 
 
@@ -699,6 +705,8 @@ def main() -> None:
             transport_receipt_share[receipt_key] += max(0.0, to_float(row.get("allocation_share")))
 
     for (lot_id, source_id), linked_qty in transport_parent_qty_by_lot_source_all.items():
+        if linked_qty <= EPS:
+            continue
         shipped_qty = ship_qty_by_lot_source.get((lot_id, source_id), 0.0)
         if shipped_qty <= EPS:
             transport_missing_ship += 1
@@ -728,6 +736,8 @@ def main() -> None:
             )
 
     for receipt_key, parent_qty in transport_receipt_parent_qty.items():
+        if parent_qty <= EPS:
+            continue
         receipt_qty = lane_receipt_qty.get(receipt_key, 0.0)
         child_qty = transport_receipt_child_qty.get(receipt_key, 0.0)
         day, lot_id, node_id, item_id, source_id = receipt_key
@@ -841,7 +851,8 @@ def main() -> None:
             "details": f"{len(mixed_customer_lots)} customer receipt lots mix more than one parent lot.",
         },
     ]
-    write_issues_csv(issues + warning_rows, issues_path)
+    acceptance_issues = audit_acceptance_semantics(events, genealogy, node_types=node_type)
+    write_issues_csv(issues + acceptance_issues + warning_rows, issues_path)
 
     top_transport_rows = [
         [kind, count]
@@ -879,6 +890,8 @@ def main() -> None:
 - Transport source route mismatches after canonical aliases: `{route_mismatches}`
 - Negative quantity rows: `{negative_qty_rows}`
 - Lots depleted above initial quantity: `{over_consumed}`
+- Lotification acceptance errors: `{sum(row['severity'] == 'error' for row in acceptance_issues)}`
+- Legacy-run migration debts: `{sum(row['severity'] == 'migration' for row in acceptance_issues)}`
 - Issue CSV: `{issues_path}`
 
 ## Simulation Cross-Checks
@@ -928,7 +941,13 @@ def main() -> None:
     report_path.write_text(report, encoding="utf-8")
     print(f"[OK] Lot path audit report: {report_path.resolve()}")
     print(f"[OK] Lot path issues CSV: {issues_path.resolve()}")
-    print(f"[OK] errors={sum(1 for row in issues if row['severity'] == 'error')} warnings={sum(1 for row in issues if row['severity'] == 'warning')}")
+    all_issues = issues + acceptance_issues
+    print(
+        "[OK] "
+        f"errors={sum(1 for row in all_issues if row['severity'] == 'error')} "
+        f"warnings={sum(1 for row in all_issues if row['severity'] == 'warning')} "
+        f"migration_debts={sum(1 for row in all_issues if row['severity'] == 'migration')}"
+    )
 
 
 if __name__ == "__main__":

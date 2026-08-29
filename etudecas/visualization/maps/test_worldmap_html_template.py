@@ -16,3 +16,9 @@ def test_html_template_keeps_data_marker_and_interpolates_inputs() -> None:
     assert "<div id=\"materialTableMeta\" class=\"tableModalMeta\">1 lignes</div>" in html
     assert "<tr><td>MAT-1</td></tr>" in html
     assert "<tr><td>equation</td></tr>" in html
+    assert "function selectedLotTraceDemandContributionQty(snapshot, row)" in html
+    assert "parsed && parsed[rootOrderId]" in html
+    assert "customerAllocationQty += selectedLotTraceDemandContributionQty(snapshot, row);" in html
+    assert "renderLotTraceEventsTable(snapshot.events, 14, snapshot)" in html
+    assert "renderLotTraceEventsTable(selected.events, selected.events.length, snapshot)" in html
+    assert "traces / ${rawQtyText} lot client" in html

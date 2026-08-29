@@ -12636,6 +12636,8 @@ def main() -> None:
             demand_service_csv,
             supplier_stocks_csv,
             production_campaigns_csv=production_campaigns_csv,
+            mrp_orders_csv=Path(args.dc_stocks_csv).parent / "mrp_orders_daily.csv",
+            include_causal_links=False,
         )
         payload["supplier_hover_images"] = build_supplier_hover_images(
             raw,

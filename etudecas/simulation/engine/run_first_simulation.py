@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import json
 import math
 import random
@@ -28,6 +29,7 @@ try:
         DEFAULT_PRODUCTION_COST_LINE_PROFILES,
         DEFAULT_PRODUCTION_COST_LINE_SHARES,
         DEFAULT_PRODUCTION_COST_UNIT_RATES,
+        LOT_TRACE_DEFAULT_LOGISTICS_ASSUMPTIONS,
         REFERENCE_TRANSITIONS,
         is_upstream_internal_site,
         standard_order_override,
@@ -38,6 +40,7 @@ except ModuleNotFoundError:
         DEFAULT_PRODUCTION_COST_LINE_PROFILES,
         DEFAULT_PRODUCTION_COST_LINE_SHARES,
         DEFAULT_PRODUCTION_COST_UNIT_RATES,
+        LOT_TRACE_DEFAULT_LOGISTICS_ASSUMPTIONS,
         REFERENCE_TRANSITIONS,
         is_upstream_internal_site,
         standard_order_override,
@@ -48,12 +51,46 @@ try:
         PRODUCTION_CAMPAIGN_FIELDS,
         build_production_campaign_rows,
     )
+    from etudecas.simulation.lot_trace.causality import (
+        LOT_CAUSAL_EVENT_FIELDS,
+        LOT_CAUSAL_GENEALOGY_FIELDS,
+        PLAN_CAUSAL_FIELDS,
+        causal_status,
+        inherited_causal_fields,
+        join_ids,
+        planned_order_reference,
+        resolved_causal_status,
+        split_ids,
+        stable_reference_id,
+    )
+    from etudecas.simulation.lot_trace.causal_links import (
+        LOT_CAUSAL_LINK_FIELDS,
+        build_lot_causal_link_rows,
+    )
+    from etudecas.simulation.lot_trace.io import LOT_TRACE_CONTRACT_VERSION
 except ModuleNotFoundError:
     sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
     from etudecas.simulation.lot_trace.campaigns import (
         PRODUCTION_CAMPAIGN_FIELDS,
         build_production_campaign_rows,
     )
+    from etudecas.simulation.lot_trace.causality import (
+        LOT_CAUSAL_EVENT_FIELDS,
+        LOT_CAUSAL_GENEALOGY_FIELDS,
+        PLAN_CAUSAL_FIELDS,
+        causal_status,
+        inherited_causal_fields,
+        join_ids,
+        planned_order_reference,
+        resolved_causal_status,
+        split_ids,
+        stable_reference_id,
+    )
+    from etudecas.simulation.lot_trace.causal_links import (
+        LOT_CAUSAL_LINK_FIELDS,
+        build_lot_causal_link_rows,
+    )
+    from etudecas.simulation.lot_trace.io import LOT_TRACE_CONTRACT_VERSION
 
 try:
     from etudecas.simulation.analysis.factory_nervousness import (
@@ -67,13 +104,36 @@ except ModuleNotFoundError:
         build_factory_nervousness_rows,
     )
 
+try:
+    from etudecas.simulation.lot_policy import (
+        available_component_quantity,
+        normalize_physical_quantity,
+        required_component_quantity,
+        resolve_canonical_lane_lot,
+        resolve_internal_dispatch_multiple,
+    )
+except ModuleNotFoundError:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+    from etudecas.simulation.lot_policy import (
+        available_component_quantity,
+        normalize_physical_quantity,
+        required_component_quantity,
+        resolve_canonical_lane_lot,
+        resolve_internal_dispatch_multiple,
+    )
+
+try:
+    from etudecas.simulation.logistics import estimate_internal_truck_handling
+except ModuleNotFoundError:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+    from etudecas.simulation.logistics import estimate_internal_truck_handling
+
 
 SUPPLIER_FUNCTIONAL_CAPACITY_HEADROOM_FACTOR = 2.5
 FACTORY_NOMINAL_TARGET_UTILIZATION = 0.70
 SUPPLIER_UPSTREAM_SUPPLY_NODE_ID = "SUPPLIER_UPSTREAM_SUPPLY"
 SUPPLIER_UPSTREAM_SUPPLY_EDGE_PREFIX = "SUPPLIER_UPSTREAM_SUPPLY"
 LOT_TRACE_EPS = 1e-6
-
 SUPPLIER_NOMINAL_PARAMETER_FIELDS = [
     "supplier_id",
     "supplier_name",
@@ -193,6 +253,7 @@ SUPPLIER_RISK_APPLIED_FIELDS = [
     "item_id",
     "edge_id",
     "event_ids",
+    "causal_root_ids",
     "stock_multiplier",
     "capacity_multiplier",
     "lead_time_multiplier",
@@ -214,6 +275,7 @@ SUPPLIER_RISK_APPLIED_FIELDS = [
 
 SUPPLIER_STATE_RISK_EVENT_FIELDS = [
     "event_id",
+    "causal_root_id",
     "trigger_day",
     "start_day",
     "end_day",
@@ -266,6 +328,18 @@ PRODUCTION_LOT_EVENT_FIELDS = [
     "related_lot_id",
     "production_campaign_id",
     "notes",
+    "business_batch_id",
+    "stock_lot_id",
+    "lot_occurrence_id",
+    "provenance_batch_id",
+    "shipment_id",
+    "departure_day",
+    "arrival_day",
+    "handling_unit_id",
+    "trace_status",
+    "trace_reason",
+    "lot_trace_contract_version",
+    *LOT_CAUSAL_EVENT_FIELDS,
 ]
 
 PRODUCTION_LOT_GENEALOGY_FIELDS = [
@@ -283,6 +357,25 @@ PRODUCTION_LOT_GENEALOGY_FIELDS = [
     "source_id",
     "production_campaign_id",
     "notes",
+    "component_allocation_share",
+    "business_batch_id",
+    "stock_lot_id",
+    "lot_occurrence_id",
+    "parent_business_batch_id",
+    "parent_stock_lot_id",
+    "parent_lot_occurrence_id",
+    "child_business_batch_id",
+    "child_stock_lot_id",
+    "child_lot_occurrence_id",
+    "provenance_batch_id",
+    "shipment_id",
+    "departure_day",
+    "arrival_day",
+    "handling_unit_id",
+    "trace_status",
+    "trace_reason",
+    "lot_trace_contract_version",
+    *LOT_CAUSAL_GENEALOGY_FIELDS,
 ]
 
 PRODUCTION_PLAN_EVENT_FIELDS = [
@@ -315,6 +408,7 @@ PRODUCTION_PLAN_EVENT_FIELDS = [
     "campaign_remaining_end_qty",
     "next_expected_receipt_day",
     "notes",
+    *PLAN_CAUSAL_FIELDS,
 ]
 
 OPENING_PRODUCTION_ORDER_LANE_PREFIX = "OPENING_PRODUCTION_ORDER|"
@@ -329,23 +423,80 @@ def to_float(x: Any, default: float = 0.0) -> float:
 class LotLedger:
     """Optional lot-level trace layered on top of aggregate stock equations."""
 
-    def __init__(self, *, enabled: bool = True) -> None:
+    def __init__(self, *, enabled: bool = True, scenario_id: str = "") -> None:
         self.enabled = enabled
+        self.scenario_id = str(scenario_id or "")
         self._lot_seq = 0
         self._event_seq = 0
         self._campaign_seq = 0
+        self._campaign_seq_by_pair: dict[tuple[str, str], int] = defaultdict(int)
+        self.planned_order_id_by_campaign: dict[str, str] = {}
+        self._shipment_identity_by_signature: dict[str, str] = {}
         self.lots_by_pair: dict[tuple[str, str], deque[str]] = defaultdict(deque)
         self.lots: dict[str, dict[str, Any]] = {}
         self.event_rows: list[dict[str, Any]] = []
         self.genealogy_rows: list[dict[str, Any]] = []
 
+    @staticmethod
+    def _normalize_origin_contributions(value: Any) -> dict[str, float]:
+        if not isinstance(value, dict):
+            return {}
+        return {
+            str(order_id): max(0.0, to_float(qty, 0.0))
+            for order_id, qty in value.items()
+            if str(order_id).strip() and max(0.0, to_float(qty, 0.0)) > LOT_TRACE_EPS
+        }
+
+    @classmethod
+    def _origin_contributions_json(cls, value: Any) -> str:
+        normalized = cls._normalize_origin_contributions(value)
+        return json.dumps(
+            {key: round(normalized[key], 6) for key in sorted(normalized)},
+            ensure_ascii=False,
+            separators=(",", ":"),
+        ) if normalized else ""
+
     def next_campaign_id(self, *, day: int, node_id: str, item_id: str) -> str:
         self._campaign_seq += 1
-        return f"CMP-{self._campaign_seq:08d}-{node_id}-{item_id}-D{day}"
+        pair = (str(node_id), str(item_id))
+        self._campaign_seq_by_pair[pair] += 1
+        campaign_id = f"CMP-{self._campaign_seq:08d}-{node_id}-{item_id}-D{day}"
+        self.planned_order_id_by_campaign[campaign_id] = planned_order_reference(
+            node_id=str(node_id),
+            item_id=str(item_id),
+            ordinal=self._campaign_seq_by_pair[pair],
+        )
+        return campaign_id
+
+    def planned_order_id(self, campaign_id: str) -> str:
+        return str(self.planned_order_id_by_campaign.get(str(campaign_id), ""))
 
     def _next_lot_id(self, *, day: int, node_id: str, item_id: str, source_type: str) -> str:
         self._lot_seq += 1
         return f"LOT-{self._lot_seq:08d}"
+
+    def next_shipment_identity(
+        self,
+        *,
+        departure_day: int,
+        arrival_day: int,
+        route_id: str,
+    ) -> tuple[str, str]:
+        """Return one route/date shipment ID; handling unit stays unknown without source data."""
+
+        signature = "|".join(
+            (
+                str(route_id),
+                str(int(departure_day)),
+                str(int(arrival_day)),
+            )
+        )
+        shipment_id = self._shipment_identity_by_signature.get(signature)
+        if not shipment_id:
+            signature_hash = hashlib.sha1(signature.encode("utf-8")).hexdigest()[:16].upper()
+            shipment_id = f"SHP-{signature_hash}"
+            self._shipment_identity_by_signature[signature] = shipment_id
+        return shipment_id, ""
 
     def _next_event_id(self) -> str:
         self._event_seq += 1
@@ -367,9 +518,35 @@ class LotLedger:
         related_lot_id: str = "",
         production_campaign_id: str = "",
         notes: str = "",
+        business_batch_id: str = "",
+        stock_lot_id: str = "",
+        lot_occurrence_id: str = "",
+        provenance_batch_id: str = "",
+        shipment_id: str = "",
+        departure_day: int | str = "",
+        arrival_day: int | str = "",
+        handling_unit_id: str = "",
+        trace_status: str = "traced",
+        trace_reason: str = "",
+        scenario_id: str = "",
+        causal_event_ids: Any = "",
+        causal_root_ids: Any = "",
+        causal_status_value: str = "",
+        baseline_reference_id: str = "",
+        planned_order_id: str = "",
+        origin_production_contributions: dict[str, float] | None = None,
+        origin_allocation_basis: str = "",
+        required_item_id: str = "",
+        consumed_item_id: str = "",
+        replacement_qty: float = 0.0,
+        replacement_reason: str = "",
+        replacement_transition_id: str = "",
     ) -> None:
         if not self.enabled:
             return
+        normalized_origin_contributions = self._normalize_origin_contributions(
+            origin_production_contributions
+        )
         self.event_rows.append(
             {
                 "event_id": self._next_event_id(),
@@ -386,6 +563,37 @@ class LotLedger:
                 "related_lot_id": related_lot_id,
                 "production_campaign_id": production_campaign_id,
                 "notes": notes,
+                "business_batch_id": business_batch_id,
+                "stock_lot_id": stock_lot_id or lot_id,
+                "lot_occurrence_id": lot_occurrence_id,
+                "provenance_batch_id": provenance_batch_id,
+                "shipment_id": shipment_id,
+                "departure_day": departure_day,
+                "arrival_day": arrival_day,
+                "handling_unit_id": handling_unit_id,
+                "trace_status": trace_status or "traced",
+                "trace_reason": trace_reason,
+                "lot_trace_contract_version": LOT_TRACE_CONTRACT_VERSION,
+                "scenario_id": str(scenario_id or self.scenario_id),
+                "causal_event_ids": join_ids(causal_event_ids),
+                "causal_root_ids": join_ids(causal_root_ids) or join_ids(causal_event_ids),
+                "causal_status": resolved_causal_status(
+                    causal_event_ids,
+                    root_ids=causal_root_ids,
+                    provided_status=causal_status_value,
+                ),
+                "baseline_reference_id": baseline_reference_id,
+                "planned_order_id": planned_order_id,
+                "origin_production_order_ids": join_ids(normalized_origin_contributions),
+                "origin_production_contributions_json": self._origin_contributions_json(
+                    normalized_origin_contributions
+                ),
+                "origin_allocation_basis": origin_allocation_basis,
+                "required_item_id": required_item_id,
+                "consumed_item_id": consumed_item_id,
+                "replacement_qty": round(max(0.0, to_float(replacement_qty, 0.0)), 6),
+                "replacement_reason": replacement_reason,
+                "replacement_transition_id": replacement_transition_id,
             }
         )
 
@@ -403,15 +611,55 @@ class LotLedger:
         related_lot_id: str = "",
         production_campaign_id: str = "",
         notes: str = "",
+        business_batch_id: str | None = None,
+        provenance_batch_id: str = "",
+        shipment_id: str = "",
+        departure_day: int | str = "",
+        arrival_day: int | str = "",
+        handling_unit_id: str = "",
+        trace_status: str = "traced",
+        trace_reason: str = "",
+        scenario_id: str = "",
+        causal_event_ids: Any = "",
+        causal_root_ids: Any = "",
+        causal_status_value: str = "",
+        baseline_reference_id: str = "",
+        planned_order_id: str = "",
+        origin_production_contributions: dict[str, float] | None = None,
+        origin_allocation_basis: str = "",
+        required_item_id: str = "",
+        consumed_item_id: str = "",
+        replacement_qty: float = 0.0,
+        replacement_reason: str = "",
+        replacement_transition_id: str = "",
     ) -> str:
         qty = max(0.0, to_float(qty, 0.0))
+        if normalize_unit(uom) == "UN":
+            qty = normalize_physical_quantity(qty, "UN", rounding="nearest")
         if qty <= LOT_TRACE_EPS or not self.enabled:
             return ""
         node_id = str(node_id)
         item_id = str(item_id)
         lot_id = self._next_lot_id(day=day, node_id=node_id, item_id=item_id, source_type=source_type)
+        lot_sequence = self._lot_seq
+        stock_lot_id = f"STOCKLOT-{lot_sequence:08d}"
+        lot_occurrence_id = f"LOCC-{lot_sequence:08d}"
+        resolved_business_batch_id = business_batch_id
+        if resolved_business_batch_id is None:
+            resolved_business_batch_id = (
+                ""
+                if (trace_status or "").startswith("untraced")
+                else f"BATCH-{lot_sequence:08d}"
+            )
+        normalized_origin_contributions = self._normalize_origin_contributions(
+            origin_production_contributions
+        )
         self.lots[lot_id] = {
             "lot_id": lot_id,
+            "business_batch_id": resolved_business_batch_id,
+            "stock_lot_id": stock_lot_id,
+            "lot_occurrence_id": lot_occurrence_id,
+            "provenance_batch_id": provenance_batch_id,
             "node_id": node_id,
             "item_id": item_id,
             "created_day": int(day),
@@ -420,6 +668,30 @@ class LotLedger:
             "initial_qty": qty,
             "qty_remaining": qty,
             "uom": uom,
+            "shipment_id": shipment_id,
+            "departure_day": departure_day,
+            "arrival_day": arrival_day,
+            "handling_unit_id": handling_unit_id,
+            "trace_status": trace_status or "traced",
+            "trace_reason": trace_reason,
+            "scenario_id": str(scenario_id or self.scenario_id),
+            "causal_event_ids": join_ids(causal_event_ids),
+            "causal_root_ids": join_ids(causal_root_ids) or join_ids(causal_event_ids),
+            "causal_status": resolved_causal_status(
+                causal_event_ids,
+                root_ids=causal_root_ids,
+                provided_status=causal_status_value,
+            ),
+            "baseline_reference_id": baseline_reference_id,
+            "planned_order_id": planned_order_id,
+            "origin_production_contributions": normalized_origin_contributions,
+            "origin_production_order_ids": join_ids(normalized_origin_contributions),
+            "origin_allocation_basis": origin_allocation_basis,
+            "required_item_id": required_item_id,
+            "consumed_item_id": consumed_item_id,
+            "replacement_qty": max(0.0, to_float(replacement_qty, 0.0)),
+            "replacement_reason": replacement_reason,
+            "replacement_transition_id": replacement_transition_id,
         }
         self.lots_by_pair[(node_id, item_id)].append(lot_id)
         self._append_event(
@@ -436,6 +708,29 @@ class LotLedger:
             related_lot_id=related_lot_id,
             production_campaign_id=production_campaign_id,
             notes=notes,
+            business_batch_id=resolved_business_batch_id,
+            stock_lot_id=stock_lot_id,
+            lot_occurrence_id=lot_occurrence_id,
+            provenance_batch_id=provenance_batch_id,
+            shipment_id=shipment_id,
+            departure_day=departure_day,
+            arrival_day=arrival_day,
+            handling_unit_id=handling_unit_id,
+            trace_status=trace_status,
+            trace_reason=trace_reason,
+            scenario_id=scenario_id,
+            causal_event_ids=causal_event_ids,
+            causal_root_ids=causal_root_ids,
+            causal_status_value=causal_status_value,
+            baseline_reference_id=baseline_reference_id,
+            planned_order_id=planned_order_id,
+            origin_production_contributions=normalized_origin_contributions,
+            origin_allocation_basis=origin_allocation_basis,
+            required_item_id=required_item_id,
+            consumed_item_id=consumed_item_id,
+            replacement_qty=replacement_qty,
+            replacement_reason=replacement_reason,
+            replacement_transition_id=replacement_transition_id,
         )
         return lot_id
 
@@ -461,6 +756,8 @@ class LotLedger:
                 source_id="initial_simulation_state",
                 uom=item_unit_map.get(item_id, ""),
                 event_type="opening_stock",
+                trace_status="untraced_before_horizon",
+                trace_reason="opening_stock_aggregated_without_source_batch_detail",
             )
 
     def consume(
@@ -475,6 +772,24 @@ class LotLedger:
         production_campaign_id: str = "",
         uom: str = "",
         notes: str = "",
+        shipment_id: str = "",
+        departure_day: int | str = "",
+        arrival_day: int | str = "",
+        handling_unit_id: str = "",
+        trace_status: str = "traced",
+        trace_reason: str = "",
+        scenario_id: str = "",
+        causal_event_ids: Any = "",
+        causal_root_ids: Any = "",
+        causal_status_value: str = "",
+        baseline_reference_id: str = "",
+        planned_order_id: str = "",
+        origin_production_contributions: dict[str, float] | None = None,
+        origin_allocation_basis: str = "",
+        required_item_id: str = "",
+        consumed_item_id: str = "",
+        replacement_reason: str = "",
+        replacement_transition_id: str = "",
     ) -> list[dict[str, Any]]:
         qty = max(0.0, to_float(qty, 0.0))
         if qty <= LOT_TRACE_EPS or not self.enabled:
@@ -499,6 +814,8 @@ class LotLedger:
                     uom=uom,
                     event_type="stock_reconciliation",
                     notes="Synthetic lot created because aggregate stock existed without lot detail.",
+                    trace_status="untraced_origin",
+                    trace_reason="aggregate_stock_without_lot_detail",
                 )
             lot_id = queue[0]
             lot = self.lots[lot_id]
@@ -507,8 +824,57 @@ class LotLedger:
             if take <= LOT_TRACE_EPS:
                 queue.popleft()
                 continue
+            lot_origin_contributions = self._normalize_origin_contributions(
+                lot.get("origin_production_contributions")
+            )
+            event_origin_contributions: dict[str, float] = {}
+            if lot_origin_contributions and available > LOT_TRACE_EPS:
+                fraction = min(1.0, take / available)
+                for order_id, contribution_qty in lot_origin_contributions.items():
+                    allocated_qty = min(contribution_qty, contribution_qty * fraction)
+                    if allocated_qty > LOT_TRACE_EPS:
+                        event_origin_contributions[order_id] = allocated_qty
+                    lot_origin_contributions[order_id] = max(
+                        0.0,
+                        contribution_qty - allocated_qty,
+                    )
+                lot["origin_production_contributions"] = {
+                    order_id: contribution_qty
+                    for order_id, contribution_qty in lot_origin_contributions.items()
+                    if contribution_qty > LOT_TRACE_EPS
+                }
+                lot["origin_production_order_ids"] = join_ids(
+                    lot["origin_production_contributions"]
+                )
+            explicit_origin_contributions = self._normalize_origin_contributions(
+                origin_production_contributions
+            )
+            for order_id, contribution_qty in explicit_origin_contributions.items():
+                event_origin_contributions[order_id] = (
+                    event_origin_contributions.get(order_id, 0.0) + contribution_qty
+                )
+            event_origin_basis = (
+                origin_allocation_basis
+                or (
+                    "proportional_mixed_stock"
+                    if len(event_origin_contributions) > 1
+                    else str(lot.get("origin_allocation_basis") or "direct_batch")
+                    if event_origin_contributions
+                    else ""
+                )
+            )
             lot["qty_remaining"] = max(0.0, available - take)
             remaining -= take
+            lot_trace_status = str(lot.get("trace_status") or "")
+            lot_trace_reason = str(lot.get("trace_reason") or "")
+            effective_trace_status = (
+                lot_trace_status
+                if trace_status == "traced" and lot_trace_status not in {"", "traced"}
+                else trace_status
+            )
+            effective_trace_reason = trace_reason or (
+                lot_trace_reason if effective_trace_status == lot_trace_status else ""
+            )
             allocations.append(
                 {
                     "lot_id": lot_id,
@@ -516,6 +882,36 @@ class LotLedger:
                     "item_id": item_id,
                     "qty": take,
                     "uom": lot.get("uom") or uom,
+                    "business_batch_id": str(lot.get("business_batch_id") or ""),
+                    "stock_lot_id": str(lot.get("stock_lot_id") or lot_id),
+                    "lot_occurrence_id": str(lot.get("lot_occurrence_id") or ""),
+                    "provenance_batch_id": str(lot.get("provenance_batch_id") or ""),
+                    "trace_status": effective_trace_status,
+                    "trace_reason": effective_trace_reason,
+                    "scenario_id": str(scenario_id or lot.get("scenario_id") or self.scenario_id),
+                    "causal_event_ids": join_ids(lot.get("causal_event_ids"), causal_event_ids),
+                    "causal_root_ids": join_ids(lot.get("causal_root_ids"), causal_root_ids)
+                    or join_ids(lot.get("causal_event_ids"), causal_event_ids),
+                    "causal_status": resolved_causal_status(
+                        join_ids(lot.get("causal_event_ids"), causal_event_ids),
+                        root_ids=join_ids(lot.get("causal_root_ids"), causal_root_ids),
+                        provided_status=causal_status_value,
+                    ),
+                    "baseline_reference_id": str(
+                        baseline_reference_id or lot.get("baseline_reference_id") or ""
+                    ),
+                    "planned_order_id": str(planned_order_id or lot.get("planned_order_id") or ""),
+                    "origin_production_order_ids": join_ids(event_origin_contributions),
+                    "origin_production_contributions": event_origin_contributions,
+                    "origin_production_contributions_json": self._origin_contributions_json(
+                        event_origin_contributions
+                    ),
+                    "origin_allocation_basis": event_origin_basis,
+                    "required_item_id": required_item_id,
+                    "consumed_item_id": consumed_item_id or item_id,
+                    "replacement_qty": take if required_item_id and required_item_id != (consumed_item_id or item_id) else 0.0,
+                    "replacement_reason": replacement_reason,
+                    "replacement_transition_id": replacement_transition_id,
                 }
             )
             self._append_event(
@@ -531,6 +927,34 @@ class LotLedger:
                 source_id=source_id,
                 production_campaign_id=production_campaign_id,
                 notes=notes,
+                business_batch_id=str(lot.get("business_batch_id") or ""),
+                stock_lot_id=str(lot.get("stock_lot_id") or lot_id),
+                lot_occurrence_id=str(lot.get("lot_occurrence_id") or ""),
+                provenance_batch_id=str(lot.get("provenance_batch_id") or ""),
+                shipment_id=shipment_id,
+                departure_day=departure_day,
+                arrival_day=arrival_day,
+                handling_unit_id=handling_unit_id,
+                trace_status=effective_trace_status,
+                trace_reason=effective_trace_reason,
+                scenario_id=scenario_id or str(lot.get("scenario_id") or ""),
+                causal_event_ids=join_ids(lot.get("causal_event_ids"), causal_event_ids),
+                causal_root_ids=join_ids(lot.get("causal_root_ids"), causal_root_ids),
+                causal_status_value=causal_status_value,
+                baseline_reference_id=baseline_reference_id
+                or str(lot.get("baseline_reference_id") or ""),
+                planned_order_id=planned_order_id or str(lot.get("planned_order_id") or ""),
+                origin_production_contributions=event_origin_contributions,
+                origin_allocation_basis=event_origin_basis,
+                required_item_id=required_item_id,
+                consumed_item_id=consumed_item_id or item_id,
+                replacement_qty=(
+                    take
+                    if required_item_id and required_item_id != (consumed_item_id or item_id)
+                    else 0.0
+                ),
+                replacement_reason=replacement_reason,
+                replacement_transition_id=replacement_transition_id,
             )
             if to_float(lot.get("qty_remaining"), 0.0) <= LOT_TRACE_EPS:
                 queue.popleft()
@@ -550,7 +974,151 @@ class LotLedger:
         uom: str = "",
         production_campaign_id: str = "",
         notes: str = "",
+        shipment_id: str = "",
+        departure_day: int | str = "",
+        arrival_day: int | str = "",
+        handling_unit_id: str = "",
+        trace_status: str = "traced",
+        trace_reason: str = "",
+        scenario_id: str = "",
+        causal_event_ids: Any = "",
+        causal_root_ids: Any = "",
+        causal_status_value: str = "",
+        baseline_reference_id: str = "",
+        planned_order_id: str = "",
+        origin_production_contributions: dict[str, float] | None = None,
+        origin_allocation_basis: str = "",
     ) -> str:
+        parent_batch_ids: list[str] = []
+        parent_batch_seen: set[str] = set()
+        parent_trace_statuses: set[str] = set()
+        parent_trace_reasons: set[str] = set()
+        for allocation in parent_allocations:
+            parent_lot = self.lots.get(str(allocation.get("lot_id") or ""), {})
+            stable_batch = str(
+                allocation.get("business_batch_id")
+                or parent_lot.get("business_batch_id")
+                or ""
+            ).strip()
+            # If the stock occurrence has one stable business batch, upstream
+            # component genealogy is not part of the transported batch identity.
+            # Provenance batches are used only for an already mixed occurrence.
+            candidates = [stable_batch] if stable_batch else str(
+                allocation.get("provenance_batch_id")
+                or parent_lot.get("provenance_batch_id")
+                or ""
+            ).split("|")
+            for candidate in candidates:
+                candidate = candidate.strip()
+                if not candidate or candidate in parent_batch_seen:
+                    continue
+                parent_batch_seen.add(candidate)
+                parent_batch_ids.append(candidate)
+            parent_status = str(
+                allocation.get("trace_status") or parent_lot.get("trace_status") or ""
+            ).strip()
+            parent_reason = str(
+                allocation.get("trace_reason") or parent_lot.get("trace_reason") or ""
+            ).strip()
+            if parent_status:
+                parent_trace_statuses.add(parent_status)
+            if parent_reason:
+                parent_trace_reasons.add(parent_reason)
+        parent_batch_ids.sort()
+        has_untraced_parent = any(
+            status.startswith("untraced") or status == "partially_traced_mixed_occurrence"
+            for status in parent_trace_statuses
+        )
+        inherited_business_batch_id: str | None = None
+        if link_type == "production" and planned_order_id:
+            inherited_business_batch_id = stable_reference_id(
+                "PBATCH",
+                planned_order_id,
+            )
+        elif link_type == "transport" and has_untraced_parent:
+            inherited_business_batch_id = ""
+        elif link_type == "transport" and len(parent_batch_ids) == 1:
+            inherited_business_batch_id = parent_batch_ids[0]
+        elif link_type == "transport" and len(parent_batch_ids) > 1:
+            # A consolidated receipt is one stock occurrence, not a new
+            # business batch. Its contributing batches stay in provenance.
+            inherited_business_batch_id = ""
+        elif link_type == "transport":
+            inherited_business_batch_id = ""
+        provenance_batch_id = "|".join(parent_batch_ids)
+        inherited_causality = inherited_causal_fields(
+            parent_allocations,
+            scenario_id=scenario_id or self.scenario_id,
+            causal_event_ids=causal_event_ids,
+            causal_root_ids=causal_root_ids,
+            causal_status_value=causal_status_value,
+            baseline_reference_id=baseline_reference_id,
+            planned_order_id=planned_order_id,
+        )
+        child_origin_contributions = self._normalize_origin_contributions(
+            origin_production_contributions
+        )
+        if link_type == "production" and planned_order_id:
+            child_origin_contributions = {
+                str(planned_order_id): max(0.0, to_float(qty, 0.0))
+            }
+            child_origin_basis = "direct_production_order"
+        else:
+            parent_origin_bases: set[str] = set()
+            for allocation in parent_allocations:
+                allocation_contributions = self._normalize_origin_contributions(
+                    allocation.get("origin_production_contributions")
+                )
+                allocation_basis = str(
+                    allocation.get("origin_allocation_basis") or ""
+                ).strip()
+                if allocation_basis:
+                    parent_origin_bases.add(allocation_basis)
+                for order_id, contribution_qty in allocation_contributions.items():
+                    child_origin_contributions[order_id] = (
+                        child_origin_contributions.get(order_id, 0.0)
+                        + contribution_qty
+                    )
+            child_origin_basis = (
+                origin_allocation_basis
+                or (
+                    "proportional_mixed_stock"
+                    if len(child_origin_contributions) > 1
+                    else next(iter(parent_origin_bases))
+                    if len(parent_origin_bases) == 1
+                    else "direct_batch"
+                    if child_origin_contributions
+                    else ""
+                )
+            )
+        resolved_trace_status = trace_status or "traced"
+        resolved_trace_reason = trace_reason
+        if link_type == "transport" and has_untraced_parent and parent_batch_ids:
+            resolved_trace_status = "partially_traced_mixed_occurrence"
+            resolved_trace_reason = (
+                "consolidated_receipt_mixes_identified_and_untraced_origins"
+                + (
+                    f":{','.join(sorted(parent_trace_reasons))}"
+                    if parent_trace_reasons
+                    else ""
+                )
+            )
+        elif link_type == "transport" and len(parent_batch_ids) > 1:
+            resolved_trace_status = "mixed_batch_occurrence"
+            resolved_trace_reason = "consolidated_receipt_multiple_business_batches"
+        elif link_type == "transport" and has_untraced_parent:
+            resolved_trace_status = "untraced_origin"
+            resolved_trace_reason = (
+                "inherited_untraced_parent_origin"
+                + (
+                    f":{','.join(sorted(parent_trace_reasons))}"
+                    if parent_trace_reasons
+                    else ""
+                )
+            )
+        elif link_type == "transport" and not parent_batch_ids:
+            resolved_trace_status = "untraced_origin"
+            resolved_trace_reason = "transport_parent_has_no_business_batch_provenance"
         child_lot_id = self.create_lot(
             day=day,
             node_id=node_id,
@@ -562,15 +1130,57 @@ class LotLedger:
             event_type=source_type,
             production_campaign_id=production_campaign_id,
             notes=notes,
+            business_batch_id=inherited_business_batch_id,
+            provenance_batch_id=provenance_batch_id,
+            shipment_id=shipment_id,
+            departure_day=departure_day,
+            arrival_day=arrival_day,
+            handling_unit_id=handling_unit_id,
+            trace_status=resolved_trace_status,
+            trace_reason=resolved_trace_reason,
+            scenario_id=inherited_causality["scenario_id"],
+            causal_event_ids=inherited_causality["causal_event_ids"],
+            causal_root_ids=inherited_causality["causal_root_ids"],
+            causal_status_value=inherited_causality["causal_status"],
+            baseline_reference_id=inherited_causality["baseline_reference_id"],
+            planned_order_id=inherited_causality["planned_order_id"],
+            origin_production_contributions=child_origin_contributions,
+            origin_allocation_basis=child_origin_basis,
         )
         if not child_lot_id or not self.enabled:
             return child_lot_id
         total_parent_qty = sum(max(0.0, to_float(a.get("qty"), 0.0)) for a in parent_allocations)
+        parent_qty_by_component: dict[tuple[str, str], float] = defaultdict(float)
+        if link_type == "production":
+            for alloc in parent_allocations:
+                component_key = (
+                    str(alloc.get("item_id") or ""),
+                    normalize_unit(alloc.get("uom")),
+                )
+                parent_qty_by_component[component_key] += max(
+                    0.0,
+                    to_float(alloc.get("qty"), 0.0),
+                )
+        child_lot = self.lots.get(child_lot_id, {})
         for alloc in parent_allocations:
             parent_qty = max(0.0, to_float(alloc.get("qty"), 0.0))
             if parent_qty <= LOT_TRACE_EPS:
                 continue
-            share = parent_qty / total_parent_qty if total_parent_qty > LOT_TRACE_EPS else 0.0
+            if link_type == "production":
+                component_key = (
+                    str(alloc.get("item_id") or ""),
+                    normalize_unit(alloc.get("uom")),
+                )
+                component_total_qty = parent_qty_by_component.get(component_key, 0.0)
+                share = parent_qty / component_total_qty if component_total_qty > LOT_TRACE_EPS else 0.0
+                component_allocation_share: float | str = share
+            else:
+                share = parent_qty / total_parent_qty if total_parent_qty > LOT_TRACE_EPS else 0.0
+                component_allocation_share = ""
+            parent_lot = self.lots.get(str(alloc.get("lot_id") or ""), {})
+            required_item_id = str(alloc.get("required_item_id") or "")
+            consumed_item_id = str(alloc.get("consumed_item_id") or alloc.get("item_id") or "")
+            replacement_qty = max(0.0, to_float(alloc.get("replacement_qty"), 0.0))
             self.genealogy_rows.append(
                 {
                     "day": int(day),
@@ -587,9 +1197,135 @@ class LotLedger:
                     "source_id": source_id,
                     "production_campaign_id": production_campaign_id,
                     "notes": notes,
+                    "component_allocation_share": (
+                        round(component_allocation_share, 9)
+                        if isinstance(component_allocation_share, float)
+                        else ""
+                    ),
+                    "business_batch_id": str(child_lot.get("business_batch_id") or ""),
+                    "stock_lot_id": str(child_lot.get("stock_lot_id") or ""),
+                    "lot_occurrence_id": str(child_lot.get("lot_occurrence_id") or ""),
+                    "parent_business_batch_id": str(
+                        alloc.get("business_batch_id") or parent_lot.get("business_batch_id") or ""
+                    ),
+                    "parent_stock_lot_id": str(
+                        alloc.get("stock_lot_id") or parent_lot.get("stock_lot_id") or ""
+                    ),
+                    "parent_lot_occurrence_id": str(
+                        alloc.get("lot_occurrence_id") or parent_lot.get("lot_occurrence_id") or ""
+                    ),
+                    "child_business_batch_id": str(child_lot.get("business_batch_id") or ""),
+                    "child_stock_lot_id": str(child_lot.get("stock_lot_id") or ""),
+                    "child_lot_occurrence_id": str(child_lot.get("lot_occurrence_id") or ""),
+                    "provenance_batch_id": provenance_batch_id,
+                    "shipment_id": shipment_id,
+                    "departure_day": departure_day,
+                    "arrival_day": arrival_day,
+                    "handling_unit_id": handling_unit_id,
+                    "trace_status": resolved_trace_status,
+                    "trace_reason": resolved_trace_reason,
+                    "lot_trace_contract_version": LOT_TRACE_CONTRACT_VERSION,
+                    **inherited_causality,
+                    "origin_production_order_ids": join_ids(child_origin_contributions),
+                    "origin_production_contributions_json": self._origin_contributions_json(
+                        child_origin_contributions
+                    ),
+                    "origin_allocation_basis": child_origin_basis,
+                    "required_item_id": required_item_id,
+                    "consumed_item_id": consumed_item_id,
+                    "replacement_qty": round(replacement_qty, 6),
+                    "replacement_reason": str(alloc.get("replacement_reason") or ""),
+                    "replacement_transition_id": str(
+                        alloc.get("replacement_transition_id") or ""
+                    ),
                 }
             )
         return child_lot_id
+
+    def record_allocation_event(
+        self,
+        *,
+        day: int,
+        event_type: str,
+        parent_allocations: list[dict[str, Any]],
+        source_id: str = "",
+        shipment_id: str = "",
+        departure_day: int | str = "",
+        arrival_day: int | str = "",
+        handling_unit_id: str = "",
+        notes: str = "",
+        trace_status: str = "traced",
+        trace_reason: str = "",
+        planned_order_id: str = "",
+        baseline_reference_id: str = "",
+    ) -> None:
+        """Record a physical milestone for stock allocated at an earlier date."""
+
+        if not self.enabled:
+            return
+        for allocation in parent_allocations:
+            qty = max(0.0, to_float(allocation.get("qty"), 0.0))
+            lot_id = str(allocation.get("lot_id") or "")
+            if qty <= LOT_TRACE_EPS or not lot_id:
+                continue
+            lot = self.lots.get(lot_id, {})
+            self._append_event(
+                day=day,
+                event_type=event_type,
+                lot_id=lot_id,
+                node_id=str(allocation.get("node_id") or lot.get("node_id") or ""),
+                item_id=str(allocation.get("item_id") or lot.get("item_id") or ""),
+                qty=qty,
+                qty_after=to_float(lot.get("qty_remaining"), 0.0),
+                uom=str(allocation.get("uom") or lot.get("uom") or ""),
+                source_type=str(lot.get("source_type") or ""),
+                source_id=source_id,
+                notes=notes,
+                business_batch_id=str(
+                    allocation.get("business_batch_id")
+                    or lot.get("business_batch_id")
+                    or ""
+                ),
+                stock_lot_id=str(
+                    allocation.get("stock_lot_id")
+                    or lot.get("stock_lot_id")
+                    or lot_id
+                ),
+                lot_occurrence_id=str(
+                    allocation.get("lot_occurrence_id")
+                    or lot.get("lot_occurrence_id")
+                    or ""
+                ),
+                provenance_batch_id=str(
+                    allocation.get("provenance_batch_id")
+                    or lot.get("provenance_batch_id")
+                    or ""
+                ),
+                shipment_id=shipment_id,
+                departure_day=departure_day,
+                arrival_day=arrival_day,
+                handling_unit_id=handling_unit_id,
+                trace_status=trace_status,
+                trace_reason=trace_reason,
+                scenario_id=str(
+                    allocation.get("scenario_id")
+                    or lot.get("scenario_id")
+                    or self.scenario_id
+                ),
+                causal_event_ids=allocation.get("causal_event_ids"),
+                causal_root_ids=allocation.get("causal_root_ids"),
+                causal_status_value=str(allocation.get("causal_status") or ""),
+                baseline_reference_id=baseline_reference_id
+                or str(allocation.get("baseline_reference_id") or ""),
+                planned_order_id=planned_order_id
+                or str(allocation.get("planned_order_id") or ""),
+                origin_production_contributions=allocation.get(
+                    "origin_production_contributions"
+                ),
+                origin_allocation_basis=str(
+                    allocation.get("origin_allocation_basis") or ""
+                ),
+            )
 
 
 def normalize_unit(unit: Any) -> str:
@@ -597,6 +1333,7 @@ def normalize_unit(unit: Any) -> str:
     aliases = {
         "UNIT": "UN",
         "UNITE": "UN",
+        "UNITES": "UN",
         "UNITS": "UN",
         "ZUN": "UN",
     }
@@ -1388,8 +2125,42 @@ def lane_records(
             round(max(1.0, to_float((supply_order_frequency or {}).get("value"), 1.0)))
         )
         delay_step_limit = int(round(max(1.0, to_float(((e.get("delay_step_limit") or {}).get("value")), 999.0))))
+        base_standard_order_qty = standard_order_qty
+        base_order_frequency_days = order_frequency_days
         for item_id in (e.get("items") or []):
+            standard_order_qty = base_standard_order_qty
+            order_frequency_days = base_order_frequency_days
             standard_order_qty_note = ""
+            lane_order_uom = order_unit or standard_order_uom
+            canonical_decision = None
+            dispatch_decision = None
+            if lane_order_uom in {"G", "KG", "UN", "M"}:
+                canonical_decision = resolve_canonical_lane_lot(
+                    origin_id=src,
+                    destination_id=dst,
+                    item_id=item_id,
+                    lane_uom=lane_order_uom,
+                )
+                dispatch_decision = resolve_internal_dispatch_multiple(
+                    origin_id=src,
+                    destination_id=dst,
+                    item_id=item_id,
+                    lane_uom=lane_order_uom,
+                )
+            if canonical_decision is not None:
+                previous_qty = standard_order_qty
+                standard_order_qty = max(0.0, canonical_decision.quantity)
+                if canonical_decision.order_frequency_days is not None:
+                    order_frequency_days = max(
+                        1,
+                        int(canonical_decision.order_frequency_days),
+                    )
+                standard_order_qty_note = (
+                    f"canonical {canonical_decision.scope}: {previous_qty:g} -> "
+                    f"{standard_order_qty:g} {canonical_decision.uom}; "
+                    f"source={canonical_decision.source}; "
+                    f"confidence={canonical_decision.confidence}"
+                )
             override = standard_order_override(src, dst, item_id)
             if (
                 override
@@ -1433,8 +2204,34 @@ def lane_records(
                 "reliability_source": reliability_source,
                 "availability_profile": e.get("availability_profile") or [],
                 "standard_order_qty": standard_order_qty,
-                "standard_order_uom": order_unit or standard_order_uom,
+                "standard_order_uom": lane_order_uom,
                 "standard_order_qty_note": standard_order_qty_note,
+                "standard_order_policy_scope": (
+                    canonical_decision.scope if canonical_decision else ""
+                ),
+                "standard_order_policy_source": (
+                    canonical_decision.source if canonical_decision else ""
+                ),
+                "standard_order_policy_confidence": (
+                    canonical_decision.confidence if canonical_decision else ""
+                ),
+                "physical_dispatch_multiple": (
+                    max(0.0, dispatch_decision.quantity)
+                    if dispatch_decision
+                    else 0.0
+                ),
+                "physical_dispatch_uom": (
+                    dispatch_decision.uom if dispatch_decision else ""
+                ),
+                "physical_dispatch_policy_scope": (
+                    dispatch_decision.scope if dispatch_decision else ""
+                ),
+                "physical_dispatch_policy_source": (
+                    dispatch_decision.source if dispatch_decision else ""
+                ),
+                "physical_dispatch_policy_confidence": (
+                    dispatch_decision.confidence if dispatch_decision else ""
+                ),
             }
             lanes.append(lane)
             lanes_by_dest_item[(dst, str(item_id))].append(lane)
@@ -2257,6 +3054,12 @@ def parse_supplier_risk_event_row(
             "multiplier": multiplier,
             "source": source,
             "notes": str(row.get("notes") or row.get("comment") or "").strip(),
+            "causal_root_id": str(
+                row.get("causal_root_id")
+                or row.get("root_event_id")
+                or row.get("cascade_root_id")
+                or event_id
+            ).strip(),
         },
         None,
     )
@@ -2434,6 +3237,7 @@ def supplier_risk_multipliers_for_lane(
             "external_cost": 1.0,
             "stock_writeoff_fraction": 0.0,
             "event_ids": [],
+            "causal_root_ids": [],
         }
 
     def clamp_effects(effects: dict[str, Any], *, cap_state_dependent: bool) -> dict[str, Any]:
@@ -2487,14 +3291,23 @@ def supplier_risk_multipliers_for_lane(
         if risk_type in {"lead_time_extra_days", "quality_delay", "external_lead_time_extra_days"}:
             effects[risk_type] = to_float(effects.get(risk_type), 0.0) + multiplier
             effects["event_ids"].append(str(event.get("event_id") or ""))
+            effects["causal_root_ids"].append(
+                str(event.get("causal_root_id") or event.get("event_id") or "")
+            )
         elif risk_type == "stock_writeoff":
             current_fraction = max(0.0, min(1.0, to_float(effects.get("stock_writeoff_fraction"), 0.0)))
             event_fraction = max(0.0, min(1.0, multiplier))
             effects["stock_writeoff_fraction"] = 1.0 - ((1.0 - current_fraction) * (1.0 - event_fraction))
             effects["event_ids"].append(str(event.get("event_id") or ""))
+            effects["causal_root_ids"].append(
+                str(event.get("causal_root_id") or event.get("event_id") or "")
+            )
         elif risk_type in effects and risk_type != "event_ids":
             effects[risk_type] = to_float(effects.get(risk_type), 1.0) * multiplier
             effects["event_ids"].append(str(event.get("event_id") or ""))
+            effects["causal_root_ids"].append(
+                str(event.get("causal_root_id") or event.get("event_id") or "")
+            )
 
     out = empty_effects()
     if not events:
@@ -2541,6 +3354,14 @@ def supplier_risk_multipliers_for_lane(
     out["event_ids"] = [
         event_id
         for event_id in [*(scenario_out.get("event_ids") or []), *(state_out.get("event_ids") or [])]
+        if str(event_id)
+    ]
+    out["causal_root_ids"] = [
+        event_id
+        for event_id in [
+            *(scenario_out.get("causal_root_ids") or []),
+            *(state_out.get("causal_root_ids") or []),
+        ]
         if str(event_id)
     ]
     return clamp_effects(out, cap_state_dependent=False)
@@ -2598,6 +3419,9 @@ def supplier_risk_applied_row(
         "item_id": item_id,
         "edge_id": edge_id,
         "event_ids": ",".join(str(x) for x in effects.get("event_ids", [])),
+        "causal_root_ids": ",".join(
+            str(x) for x in effects.get("causal_root_ids", effects.get("event_ids", []))
+        ),
         "stock_multiplier": round(to_float(effects.get("stock"), 1.0), 6),
         "capacity_multiplier": round(to_float(effects.get("capacity"), 1.0), 6),
         "lead_time_multiplier": round(to_float(effects.get("lead_time"), 1.0), 6),
@@ -2654,6 +3478,7 @@ def make_state_dependent_supplier_event(
     end_day = start_day + max(1, int(duration_days)) - 1
     event = {
         "event_id": event_id,
+        "causal_root_id": event_id,
         "risk_family": risk_family,
         "risk_type": risk_type,
         "supplier_id": supplier_id,
@@ -2668,6 +3493,7 @@ def make_state_dependent_supplier_event(
     }
     row = {
         "event_id": event_id,
+        "causal_root_id": event_id,
         "trigger_day": int(trigger_day),
         "start_day": int(start_day),
         "end_day": int(end_day),
@@ -2844,6 +3670,24 @@ def seed_lane_pipeline_uniform(
 
 
 def seed_external_pipeline_uniform(
+    pipeline: dict[int, list[tuple[str, str, float, str, str, str]]],
+    in_transit: dict[tuple[str, str], float],
+    *,
+    node_id: str,
+    item_id: str,
+    qty: float,
+    lead_days: int,
+) -> None:
+    if qty <= 1e-9:
+        return
+    lead_days = max(1, int(lead_days))
+    per_day = qty / float(lead_days)
+    for offset in range(lead_days):
+        pipeline[offset].append((node_id, item_id, per_day, "", "", ""))
+    in_transit[(node_id, item_id)] += qty
+
+
+def seed_estimated_source_pipeline_uniform(
     pipeline: dict[int, list[tuple[str, str, float]]],
     in_transit: dict[tuple[str, str], float],
     *,
@@ -5288,7 +6132,7 @@ def main() -> None:
 
     backlog: dict[tuple[str, str], float] = defaultdict(float)
     pipeline: dict[int, list[tuple[str, str, float, str]]] = defaultdict(list)
-    external_pipeline: dict[int, list[tuple[str, str, float]]] = defaultdict(list)
+    external_pipeline: dict[int, list[tuple[str, str, float, str, str, str]]] = defaultdict(list)
     estimated_source_pipeline: dict[int, list[tuple[str, str, float]]] = defaultdict(list)
     in_transit: dict[tuple[str, str], float] = defaultdict(float)
     external_in_transit: dict[tuple[str, str], float] = defaultdict(float)
@@ -5400,6 +6244,8 @@ def main() -> None:
     prev_production_command_by_pair: dict[tuple[str, str], float] = {}
     open_production_campaign_qty_by_pair: dict[tuple[str, str], float] = defaultdict(float)
     open_production_campaign_id_by_pair: dict[tuple[str, str], str] = {}
+    pending_production_campaign_id_by_pair: dict[tuple[str, str], str] = {}
+    production_campaign_causality_by_id: dict[str, dict[str, str]] = {}
     started_production_lots_by_week_pair: dict[tuple[int, tuple[str, str]], int] = defaultdict(int)
     mps_prev_production_command_by_pair: dict[tuple[str, str], float] = {}
     mps_open_campaign_qty_by_pair: dict[tuple[str, str], float] = defaultdict(float)
@@ -5493,29 +6339,68 @@ def main() -> None:
         )
     for lane in lanes:
         note = str(lane.get("standard_order_qty_note") or "")
-        if not note:
-            continue
-        assumptions_ledger_rows.append(
-            {
-                "category": "data_quality_override",
-                "node_id": str(lane.get("dst", "")),
-                "item_id": str(lane.get("item_id", "")),
-                "edge_id": str(lane.get("edge_id", "")),
-                "source": "simulation_lane_standard_order_qty_override",
-                "payload_json": json.dumps(
-                    {
-                        "src_node_id": str(lane.get("src", "")),
-                        "dst_node_id": str(lane.get("dst", "")),
-                        "item_id": str(lane.get("item_id", "")),
-                        "standard_order_qty": round(max(0.0, to_float(lane.get("standard_order_qty"), 0.0)), 6),
-                        "standard_order_uom": str(lane.get("standard_order_uom", "")),
-                        "note": note,
-                    },
-                    ensure_ascii=False,
-                    sort_keys=True,
-                ),
-            }
+        if note:
+            assumptions_ledger_rows.append(
+                {
+                    "category": "data_quality_override",
+                    "node_id": str(lane.get("dst", "")),
+                    "item_id": str(lane.get("item_id", "")),
+                    "edge_id": str(lane.get("edge_id", "")),
+                    "source": "simulation_lane_standard_order_qty_override",
+                    "payload_json": json.dumps(
+                        {
+                            "src_node_id": str(lane.get("src", "")),
+                            "dst_node_id": str(lane.get("dst", "")),
+                            "item_id": str(lane.get("item_id", "")),
+                            "standard_order_qty": round(max(0.0, to_float(lane.get("standard_order_qty"), 0.0)), 6),
+                            "standard_order_uom": str(lane.get("standard_order_uom", "")),
+                            "note": note,
+                        },
+                        ensure_ascii=False,
+                        sort_keys=True,
+                    ),
+                }
+            )
+        physical_dispatch_multiple = max(
+            0.0,
+            to_float(lane.get("physical_dispatch_multiple"), 0.0),
         )
+        if physical_dispatch_multiple > 1e-9:
+            assumptions_ledger_rows.append(
+                {
+                    "category": "internal_physical_dispatch_policy",
+                    "node_id": str(lane.get("dst", "")),
+                    "item_id": str(lane.get("item_id", "")),
+                    "edge_id": str(lane.get("edge_id", "")),
+                    "source": str(
+                        lane.get("physical_dispatch_policy_source")
+                        or "production_lot_policy"
+                    ),
+                    "payload_json": json.dumps(
+                        {
+                            "src_node_id": str(lane.get("src", "")),
+                            "dst_node_id": str(lane.get("dst", "")),
+                            "item_id": str(lane.get("item_id", "")),
+                            "physical_dispatch_multiple": round(
+                                physical_dispatch_multiple,
+                                6,
+                            ),
+                            "physical_dispatch_uom": str(
+                                lane.get("physical_dispatch_uom", "")
+                            ),
+                            "scope": str(
+                                lane.get("physical_dispatch_policy_scope", "")
+                            ),
+                            "confidence": str(
+                                lane.get("physical_dispatch_policy_confidence", "")
+                            ),
+                            "mrp_standard_order_qty_unchanged": True,
+                        },
+                        ensure_ascii=False,
+                        sort_keys=True,
+                    ),
+                }
+            )
     opening_stock_bootstrap_scale = max(
         0.0,
         to_float(scenario.get("opening_stock_bootstrap_scale", 1.0), 1.0),
@@ -5872,7 +6757,7 @@ def main() -> None:
                 transit_qty = daily_capacity * float(lead_days) * initialization_policy["in_transit_fill_ratio"] * state_scale
                 if transit_qty <= 1e-9:
                     continue
-                seed_external_pipeline_uniform(
+                seed_estimated_source_pipeline_uniform(
                     estimated_source_pipeline,
                     estimated_source_in_transit,
                     node_id=src_pair[0],
@@ -6009,6 +6894,7 @@ def main() -> None:
     supplier_state_risk_open_until_by_key: dict[tuple[str, str, str, str], int] = {}
     supplier_state_risk_counters: dict[tuple[str, str, str], int] = defaultdict(int)
     supplier_state_risk_metric_windows: dict[tuple[str, str, str], deque[float]] = {}
+    mrp_order_ordinal_by_scope: dict[tuple[str, str, str, str], int] = defaultdict(int)
     total_supplier_capacity_binding_qty = 0.0
     scheduled_lane_release_metrics: dict[int, list[tuple[tuple[str, str], float, float, float, float, bool]]] = defaultdict(list)
     mrp_multisource_min_annual_lot_enabled = args.mrp_multisource_policy in {
@@ -6020,13 +6906,37 @@ def main() -> None:
         min(365, int(args.mrp_multisource_min_annual_lot_window_days or 28)),
     )
     mrp_multisource_annual_lane_orders: set[tuple[int, str]] = set()
-    lot_ledger = LotLedger(enabled=bool(args.lot_trace))
+    lot_ledger = LotLedger(
+        enabled=bool(args.lot_trace),
+        scenario_id=str(scenario.get("id") or args.scenario_id or ""),
+    )
     lot_ledger.seed_opening_stock(
         day=-warmup_days,
         stock=stock,
         item_unit_map=item_unit_map,
     )
     lot_arrivals_pipeline: dict[int, list[dict[str, Any]]] = defaultdict(list)
+    lot_departure_pipeline: dict[int, list[dict[str, Any]]] = defaultdict(list)
+
+    def next_mrp_order_identity(
+        *,
+        source_mode: str,
+        src_node_id: str,
+        dst_node_id: str,
+        item_id: str,
+    ) -> str:
+        scope = (
+            str(source_mode),
+            str(src_node_id),
+            str(dst_node_id),
+            str(item_id),
+        )
+        mrp_order_ordinal_by_scope[scope] += 1
+        return stable_reference_id(
+            "MRPREQ",
+            *scope,
+            mrp_order_ordinal_by_scope[scope],
+        )
 
     def lane_transport_cost_for_chunk(
         lane: dict[str, Any],
@@ -6050,6 +6960,7 @@ def main() -> None:
     def schedule_lot_arrival(
         *,
         arrival_day: int,
+        departure_day: int,
         dst_node_id: str,
         item_id: str,
         qty: float,
@@ -6059,6 +6970,14 @@ def main() -> None:
         parent_allocations: list[dict[str, Any]],
         link_type: str,
         notes: str = "",
+        shipment_id: str = "",
+        handling_unit_id: str = "",
+        trace_status: str = "traced",
+        trace_reason: str = "",
+        causal_event_ids: Any = "",
+        causal_root_ids: Any = "",
+        planned_order_id: str = "",
+        baseline_reference_id: str = "",
     ) -> None:
         if not lot_ledger.enabled or qty <= 1e-9:
             return
@@ -6067,12 +6986,22 @@ def main() -> None:
                 "dst_node_id": str(dst_node_id),
                 "item_id": str(item_id),
                 "qty": max(0.0, qty),
+                "departure_day": int(departure_day),
+                "arrival_day": int(arrival_day - warmup_days),
                 "lane_id": str(lane_id),
                 "source_type": source_type,
                 "source_id": source_id,
                 "parent_allocations": parent_allocations,
                 "link_type": link_type,
                 "notes": notes,
+                "shipment_id": shipment_id,
+                "handling_unit_id": handling_unit_id,
+                "trace_status": trace_status,
+                "trace_reason": trace_reason,
+                "causal_event_ids": join_ids(causal_event_ids),
+                "causal_root_ids": join_ids(causal_root_ids) or join_ids(causal_event_ids),
+                "planned_order_id": planned_order_id,
+                "baseline_reference_id": baseline_reference_id or planned_order_id,
             }
         )
 
@@ -6134,6 +7063,10 @@ def main() -> None:
                     source_id=source_id,
                     production_campaign_id=production_campaign_id,
                     uom=item_unit_map.get(item_id, ""),
+                    planned_order_id=lot_ledger.planned_order_id(production_campaign_id),
+                    baseline_reference_id=lot_ledger.planned_order_id(production_campaign_id),
+                    required_item_id=item_id,
+                    consumed_item_id=item_id,
                 )
             )
             remaining -= take
@@ -6151,6 +7084,17 @@ def main() -> None:
             take = min(old_available, remaining)
             stock[old_key] = max(0.0, old_available - take)
             consumed_today_by_pair[old_key] += take
+            transition_id = str(
+                transition.get("transition_id")
+                or stable_reference_id(
+                    "TRANSITION",
+                    node_id,
+                    old_item_id,
+                    item_id,
+                    transition.get("start_day"),
+                    transition.get("end_day"),
+                )
+            )
             allocations.extend(
                 lot_ledger.consume(
                     day=output_day,
@@ -6161,6 +7105,12 @@ def main() -> None:
                     source_id=f"{source_id}|substitute_for={item_id}",
                     production_campaign_id=production_campaign_id,
                     uom=item_unit_map.get(old_item_id, item_unit_map.get(item_id, "")),
+                    planned_order_id=lot_ledger.planned_order_id(production_campaign_id),
+                    baseline_reference_id=lot_ledger.planned_order_id(production_campaign_id),
+                    required_item_id=item_id,
+                    consumed_item_id=old_item_id,
+                    replacement_reason="approved_reference_transition",
+                    replacement_transition_id=transition_id,
                 )
             )
             remaining -= take
@@ -6184,7 +7134,10 @@ def main() -> None:
         for arrival_day, rows in external_pipeline.items():
             if arrival_day < current_day:
                 continue
-            if any(str(dst) == node_id and str(it) == item_id and qty > 1e-9 for dst, it, qty in rows):
+            if any(
+                str(row[0]) == node_id and str(row[1]) == item_id and row[2] > 1e-9
+                for row in rows
+            ):
                 candidates.append(int(arrival_day - warmup_days))
         for arrival_day, rows in estimated_source_pipeline.items():
             if arrival_day < current_day:
@@ -6341,6 +7294,57 @@ def main() -> None:
             return (type_rank, -share, lead_days, src)
 
         return sorted(candidate_lanes, key=source_priority)[: max(1, int(limit))]
+
+    def production_shortage_causal_context(
+        *,
+        dst_node_id: str,
+        item_id: str,
+        current_day: int,
+        output_day: int,
+        active_risk_events: list[dict[str, Any]],
+    ) -> dict[str, str]:
+        """Find explicit upstream causes that can explain an input shortage.
+
+        The nearest affected receipt is preferred. Active lane risks are also
+        retained because they can prevent or delay creation of that receipt.
+        Empty causes mean the shortage is nominal and must not be attributed to
+        a scenario event.
+        """
+
+        event_ids = ""
+        root_ids = ""
+        for lane in candidate_supply_lanes_for_factory_input(dst_node_id, item_id, limit=8):
+            effects = supplier_risk_multipliers_for_lane(
+                active_risk_events,
+                lane,
+                output_day,
+            )
+            event_ids = join_ids(event_ids, effects.get("event_ids"))
+            root_ids = join_ids(root_ids, effects.get("causal_root_ids"))
+
+        matching_arrivals: list[tuple[int, dict[str, Any]]] = []
+        for arrival_day, payloads in lot_arrivals_pipeline.items():
+            if int(arrival_day) < int(current_day):
+                continue
+            for payload in payloads:
+                if (
+                    str(payload.get("dst_node_id") or "") == str(dst_node_id)
+                    and str(payload.get("item_id") or "") == str(item_id)
+                ):
+                    matching_arrivals.append((int(arrival_day), payload))
+        if matching_arrivals:
+            nearest_day = min(arrival_day for arrival_day, _payload in matching_arrivals)
+            for arrival_day, payload in matching_arrivals:
+                if arrival_day != nearest_day:
+                    continue
+                event_ids = join_ids(event_ids, payload.get("causal_event_ids"))
+                root_ids = join_ids(root_ids, payload.get("causal_root_ids"))
+
+        return {
+            "causal_event_ids": event_ids,
+            "causal_root_ids": root_ids or event_ids,
+            "causal_status": causal_status(event_ids, root_ids=root_ids),
+        }
 
     for day in range(total_timeline_days):
         record_day = day >= warmup_days
@@ -6505,6 +7509,7 @@ def main() -> None:
         arrivals_today = pipeline.pop(day, [])
         external_arrivals_today = external_pipeline.pop(day, [])
         estimated_source_arrivals_today = estimated_source_pipeline.pop(day, [])
+        lot_departures_today = lot_departure_pipeline.pop(day, [])
         lot_arrivals_today = lot_arrivals_pipeline.pop(day, [])
         arrivals_qty = 0.0
         external_arrivals_qty = 0.0
@@ -6518,6 +7523,95 @@ def main() -> None:
         produced_today_by_pair: dict[tuple[str, str], float] = defaultdict(float)
         consumed_today_by_pair: dict[tuple[str, str], float] = defaultdict(float)
         lot_arrivals_by_key: dict[tuple[str, str, str], deque[dict[str, Any]]] = defaultdict(deque)
+        for departure_payload in lot_departures_today:
+            departure_allocations = departure_payload.get("parent_allocations")
+            if not isinstance(departure_allocations, list):
+                departure_allocations = []
+            if bool(departure_payload.get("materialize_backorder_origin")):
+                source_lot_id = lot_ledger.create_lot(
+                    day=output_day,
+                    node_id=str(departure_payload.get("src_node_id") or ""),
+                    item_id=str(departure_payload.get("item_id") or ""),
+                    qty=max(0.0, to_float(departure_payload.get("qty"), 0.0)),
+                    source_type="supplier_backorder_fulfillment",
+                    source_id=str(departure_payload.get("source_id") or ""),
+                    uom=str(departure_payload.get("uom") or ""),
+                    event_type="supplier_backorder_fulfillment",
+                    notes=(
+                        "Modeled upstream fulfillment created at physical departure; "
+                        "source business batch is unavailable."
+                    ),
+                    shipment_id=str(departure_payload.get("shipment_id") or ""),
+                    departure_day=output_day,
+                    arrival_day=departure_payload.get("arrival_day", ""),
+                    trace_status="modeled_backorder_origin",
+                    trace_reason="supplier_source_batch_not_available_in_model",
+                    causal_event_ids=departure_payload.get("causal_event_ids"),
+                    causal_root_ids=departure_payload.get("causal_root_ids"),
+                    planned_order_id=str(
+                        departure_payload.get("planned_order_id") or ""
+                    ),
+                    baseline_reference_id=str(
+                        departure_payload.get("baseline_reference_id") or ""
+                    ),
+                )
+                if source_lot_id:
+                    departure_allocations.extend(
+                        lot_ledger.consume(
+                            day=output_day,
+                            node_id=str(departure_payload.get("src_node_id") or ""),
+                            item_id=str(departure_payload.get("item_id") or ""),
+                            qty=max(0.0, to_float(departure_payload.get("qty"), 0.0)),
+                            event_type="lane_ship",
+                            source_id=str(departure_payload.get("source_id") or ""),
+                            uom=str(departure_payload.get("uom") or ""),
+                            shipment_id=str(
+                                departure_payload.get("shipment_id") or ""
+                            ),
+                            departure_day=output_day,
+                            arrival_day=departure_payload.get("arrival_day", ""),
+                            trace_status="modeled_backorder_origin",
+                            trace_reason="supplier_source_batch_not_available_in_model",
+                            causal_event_ids=departure_payload.get(
+                                "causal_event_ids"
+                            ),
+                            causal_root_ids=departure_payload.get(
+                                "causal_root_ids"
+                            ),
+                            planned_order_id=str(
+                                departure_payload.get("planned_order_id") or ""
+                            ),
+                            baseline_reference_id=str(
+                                departure_payload.get("baseline_reference_id") or ""
+                            ),
+                        )
+                    )
+            else:
+                lot_ledger.record_allocation_event(
+                    day=output_day,
+                    event_type="lane_ship",
+                    parent_allocations=departure_allocations,
+                    source_id=str(departure_payload.get("source_id") or ""),
+                    shipment_id=str(departure_payload.get("shipment_id") or ""),
+                    departure_day=output_day,
+                    arrival_day=departure_payload.get("arrival_day", ""),
+                    handling_unit_id=str(
+                        departure_payload.get("handling_unit_id") or ""
+                    ),
+                    notes="Physical departure after an earlier stock reservation.",
+                    trace_status=str(
+                        departure_payload.get("trace_status") or "traced"
+                    ),
+                    trace_reason=str(
+                        departure_payload.get("trace_reason") or ""
+                    ),
+                    planned_order_id=str(
+                        departure_payload.get("planned_order_id") or ""
+                    ),
+                    baseline_reference_id=str(
+                        departure_payload.get("baseline_reference_id") or ""
+                    ),
+                )
         for lot_payload in lot_arrivals_today:
             lot_arrivals_by_key[
                 (
@@ -6565,6 +7659,16 @@ def main() -> None:
                     link_type=str(payload.get("link_type") or "transport"),
                     uom=item_unit_map.get(item_id, ""),
                     notes=str(payload.get("notes") or ""),
+                    shipment_id=str(payload.get("shipment_id") or ""),
+                    departure_day=payload.get("departure_day", ""),
+                    arrival_day=payload.get("arrival_day", output_day_for_lot),
+                    handling_unit_id=str(payload.get("handling_unit_id") or ""),
+                    trace_status=str(payload.get("trace_status") or "traced"),
+                    trace_reason=str(payload.get("trace_reason") or ""),
+                    causal_event_ids=payload.get("causal_event_ids") or "",
+                    causal_root_ids=payload.get("causal_root_ids") or "",
+                    planned_order_id=str(payload.get("planned_order_id") or ""),
+                    baseline_reference_id=str(payload.get("baseline_reference_id") or ""),
                 )
                 remaining -= take
                 payload["qty"] = payload_qty - take
@@ -6581,6 +7685,9 @@ def main() -> None:
                     uom=item_unit_map.get(item_id, ""),
                     event_type="lane_receipt",
                     notes="Receipt existed in aggregate pipeline without scheduled parent lot detail.",
+                    arrival_day=output_day_for_lot,
+                    trace_status="untraced_origin",
+                    trace_reason="aggregate_pipeline_without_scheduled_lot_detail",
                 )
 
         def issue_opening_production_order_components(
@@ -6718,7 +7825,14 @@ def main() -> None:
                 arrivals_qty += qty
                 arrivals_today_by_pair[(dst, item_id)] += qty
                 record_lane_lot_receipt(dst, item_id, qty, _lane_id)
-        for src, item_id, qty in external_arrivals_today:
+        for (
+            src,
+            item_id,
+            qty,
+            arrival_causal_events,
+            arrival_causal_roots,
+            arrival_planned_order_id,
+        ) in external_arrivals_today:
             stock[(src, item_id)] += qty
             external_in_transit[(src, item_id)] -= qty
             external_arrivals_qty += qty
@@ -6732,6 +7846,10 @@ def main() -> None:
                 source_id=SUPPLIER_UPSTREAM_SUPPLY_NODE_ID,
                 uom=item_unit_map.get(item_id, ""),
                 event_type="external_procurement_receipt",
+                causal_event_ids=arrival_causal_events,
+                causal_root_ids=arrival_causal_roots,
+                planned_order_id=arrival_planned_order_id,
+                baseline_reference_id=arrival_planned_order_id,
             )
         for src, item_id, qty in estimated_source_arrivals_today:
             stock[(src, item_id)] += qty
@@ -6935,6 +8053,8 @@ def main() -> None:
                 event_type="writeoff",
                 source_id="supplier_state_stock_writeoff",
                 uom=item_unit_map.get(stocked_item_id, ""),
+                causal_event_ids=stock_risk.get("event_ids"),
+                causal_root_ids=stock_risk.get("causal_root_ids"),
             )
             supplier_stock_writeoff_today_by_pair[src_pair] += writeoff_qty
             if record_day and stock_risk.get("event_ids"):
@@ -7009,7 +8129,11 @@ def main() -> None:
                             input_unit_mismatch_not_converted.add((nid, in_item, input_unit, item_unit))
                     req_per_unit = convert_quantity(req_per_unit_raw, input_unit, item_unit)
                     if req_per_unit > 0:
-                        input_limits.append(available_bom_input_qty(nid, in_item, output_day) / req_per_unit)
+                        physically_available = available_component_quantity(
+                            available_bom_input_qty(nid, in_item, output_day),
+                            item_unit,
+                        )
+                        input_limits.append(physically_available / req_per_unit)
 
                 max_from_inputs = min(input_limits) if input_limits else cap
                 out_pair = (nid, out_item)
@@ -7055,7 +8179,10 @@ def main() -> None:
                 campaign_started_qty = 0.0
                 campaign_requested_qty = 0.0
                 lot_planned_qty = desired_qty
-                campaign_id = open_production_campaign_id_by_pair.get(out_pair, "")
+                campaign_id = (
+                    open_production_campaign_id_by_pair.get(out_pair, "")
+                    or pending_production_campaign_id_by_pair.get(out_pair, "")
+                )
                 week_index = int(day // 7)
                 week_key = (week_index, out_pair)
                 started_lots_this_week = int(started_production_lots_by_week_pair.get(week_key, 0))
@@ -7067,6 +8194,13 @@ def main() -> None:
                     if campaign_remaining_start_qty <= 1e-9 and desired_qty > 1e-9:
                         campaign_requested_qty = launch_campaign_qty(desired_qty, lot_policy)
                         requested_lot_starts = campaign_lot_count(campaign_requested_qty, lot_policy)
+                        if campaign_requested_qty > 1e-9 and not campaign_id:
+                            campaign_id = lot_ledger.next_campaign_id(
+                                day=output_day,
+                                node_id=nid,
+                                item_id=out_item,
+                            )
+                            pending_production_campaign_id_by_pair[out_pair] = campaign_id
                         campaign_started_qty = campaign_requested_qty
                         if weekly_lot_limit > 0:
                             available_lot_starts = max(0, weekly_lot_limit - started_lots_this_week)
@@ -7082,11 +8216,6 @@ def main() -> None:
                         campaign_remaining_start_qty = campaign_started_qty
                         open_production_campaign_qty_by_pair[out_pair] = campaign_started_qty
                         if campaign_started_qty > 1e-9:
-                            campaign_id = lot_ledger.next_campaign_id(
-                                day=output_day,
-                                node_id=nid,
-                                item_id=out_item,
-                            )
                             open_production_campaign_id_by_pair[out_pair] = campaign_id
                         if actual_lot_starts > 0:
                             started_production_lots_by_week_pair[week_key] = started_lots_this_week + actual_lot_starts
@@ -7127,7 +8256,11 @@ def main() -> None:
                         req_per_unit = convert_quantity(req_per_unit_raw, input_unit, item_unit)
                         if req_per_unit <= 0:
                             continue
-                        item_limit = available_bom_input_qty(nid, in_item, output_day) / req_per_unit
+                        physically_available = available_component_quantity(
+                            available_bom_input_qty(nid, in_item, output_day),
+                            item_unit,
+                        )
+                        item_limit = physically_available / req_per_unit
                         if item_limit < input_binding_value:
                             input_binding_value = item_limit
                             input_binding_item = in_item
@@ -7205,6 +8338,42 @@ def main() -> None:
                         else:
                             event_type = "plan_no_run"
                         receipt_pair = (nid, binding_item) if binding_item else ("", "")
+                        planned_order_id = lot_ledger.planned_order_id(campaign_id)
+                        shortage_causality = {
+                            "causal_event_ids": "",
+                            "causal_root_ids": "",
+                            "causal_status": "nominal",
+                        }
+                        if binding_cause == "input_shortage" and binding_item:
+                            shortage_causality = production_shortage_causal_context(
+                                dst_node_id=nid,
+                                item_id=binding_item,
+                                current_day=day,
+                                output_day=output_day,
+                                active_risk_events=supplier_risk_events_today,
+                            )
+                        if campaign_id:
+                            previous_causality = production_campaign_causality_by_id.get(
+                                campaign_id,
+                                {},
+                            )
+                            campaign_event_ids = join_ids(
+                                previous_causality.get("causal_event_ids"),
+                                shortage_causality["causal_event_ids"],
+                            )
+                            campaign_root_ids = join_ids(
+                                previous_causality.get("causal_root_ids"),
+                                shortage_causality["causal_root_ids"],
+                            )
+                            production_campaign_causality_by_id[campaign_id] = {
+                                "causal_event_ids": campaign_event_ids,
+                                "causal_root_ids": campaign_root_ids or campaign_event_ids,
+                                "causal_status": causal_status(
+                                    campaign_event_ids,
+                                    root_ids=campaign_root_ids,
+                                ),
+                            }
+                            shortage_causality = production_campaign_causality_by_id[campaign_id]
                         production_plan_event_rows.append(
                             {
                                 "day": output_day,
@@ -7244,6 +8413,12 @@ def main() -> None:
                                     next_receipt_day_for_pair(receipt_pair, day) if binding_item else ""
                                 ),
                                 "notes": "lot_policy_enabled" if lot_policy["enabled"] else "daily_unlotified_plan",
+                                "scenario_id": lot_ledger.scenario_id,
+                                "planned_order_id": planned_order_id,
+                                "causal_event_ids": shortage_causality["causal_event_ids"],
+                                "causal_root_ids": shortage_causality["causal_root_ids"],
+                                "causal_status": shortage_causality["causal_status"],
+                                "baseline_reference_id": planned_order_id,
                             }
                         )
                         if args.supplier_state_dependent_risks and binding_cause == "input_shortage" and binding_item:
@@ -7352,7 +8527,11 @@ def main() -> None:
                     item_unit = normalize_unit(item_unit_map.get(in_item, input_unit))
                     req_per_unit = convert_quantity(req_per_unit_raw, input_unit, item_unit)
                     if req_per_unit > 0:
-                        consumed = qty * req_per_unit
+                        consumed = required_component_quantity(
+                            qty,
+                            req_per_unit,
+                            item_unit,
+                        )
                         production_parent_allocations.extend(
                             consume_bom_input_with_reference_transition(
                                 output_day=output_day,
@@ -7367,6 +8546,10 @@ def main() -> None:
                         )
 
                 stock[(nid, out_item)] += qty
+                campaign_causality = production_campaign_causality_by_id.get(
+                    campaign_id,
+                    {},
+                )
                 lot_ledger.create_child_lot(
                     day=output_day,
                     node_id=nid,
@@ -7378,6 +8561,11 @@ def main() -> None:
                     link_type="production",
                     uom=item_unit_map.get(out_item, ""),
                     production_campaign_id=campaign_id,
+                    planned_order_id=lot_ledger.planned_order_id(campaign_id),
+                    baseline_reference_id=lot_ledger.planned_order_id(campaign_id),
+                    causal_event_ids=campaign_causality.get("causal_event_ids", ""),
+                    causal_root_ids=campaign_causality.get("causal_root_ids", ""),
+                    causal_status_value=campaign_causality.get("causal_status", ""),
                 )
                 produced_today += qty
                 produced_today_by_pair[(nid, out_item)] += qty
@@ -7385,6 +8573,7 @@ def main() -> None:
                     open_production_campaign_qty_by_pair[out_pair] = max(0.0, campaign_remaining_start_qty - qty)
                     if open_production_campaign_qty_by_pair[out_pair] <= 1e-9:
                         open_production_campaign_id_by_pair.pop(out_pair, None)
+                        pending_production_campaign_id_by_pair.pop(out_pair, None)
 
         if record_day:
             total_produced += produced_today
@@ -7510,7 +8699,17 @@ def main() -> None:
             standard_order_qty: float = 0.0,
             mrp_share: float = 0.0,
             physical_release_day: int | None = None,
-        ) -> None:
+            mrp_order_id: str = "",
+            shipment_id: str = "",
+            causal_event_ids: Any = "",
+            causal_root_ids: Any = "",
+        ) -> str:
+            resolved_mrp_order_id = str(mrp_order_id or next_mrp_order_identity(
+                source_mode=source_mode,
+                src_node_id=src_node_id,
+                dst_node_id=dst_node_id,
+                item_id=item_id,
+            ))
             planned_release_today_by_pair[trace_pair] += max(0.0, release_qty)
             planned_receipt_today_by_pair[trace_pair] += max(0.0, receipt_qty)
             planned_order_count_by_pair[trace_pair] += 1
@@ -7523,7 +8722,7 @@ def main() -> None:
                 arrival_day if previous_max is None else max(previous_max, arrival_day)
             )
             if not record_day:
-                return
+                return resolved_mrp_order_id
             safety_days_int = int(math.ceil(max(0.0, safety_time_days)))
             cover_need_day = arrival_day + safety_days_int
             effective_lead_cover_days = int(max(1, lead_cover_days if lead_cover_days is not None else lead_days))
@@ -7564,9 +8763,20 @@ def main() -> None:
                     "safety_time_days": round(max(0.0, safety_time_days), 6),
                     "reliability": round(reliability, 6),
                     "standard_order_qty": round(max(0.0, standard_order_qty), 6),
-                        "mrp_share": round(max(0.0, mrp_share), 6),
+                    "mrp_share": round(max(0.0, mrp_share), 6),
+                    "mrp_order_id": resolved_mrp_order_id,
+                    "shipment_id": shipment_id,
+                    "scenario_id": str(scenario.get("id") or args.scenario_id or ""),
+                    "causal_event_ids": join_ids(causal_event_ids),
+                    "causal_root_ids": join_ids(causal_root_ids) or join_ids(causal_event_ids),
+                    "causal_status": causal_status(
+                        causal_event_ids,
+                        root_ids=causal_root_ids,
+                    ),
+                    "baseline_reference_id": resolved_mrp_order_id,
                     }
                 )
+            return resolved_mrp_order_id
 
         def external_procurement_leads(
             policy: dict[str, Any],
@@ -7720,7 +8930,22 @@ def main() -> None:
                     to_float(external_risk.get("external_quality_yield"), 1.0),
                 )
                 ext_arrival_day = day + effective_ext_lead_days
-                external_pipeline[ext_arrival_day].append((src_pair[0], src_pair[1], ext_receipt_qty))
+                ext_planned_order_id = next_mrp_order_identity(
+                    source_mode="external_procurement_proactive",
+                    src_node_id=SUPPLIER_UPSTREAM_SUPPLY_NODE_ID,
+                    dst_node_id=src_pair[0],
+                    item_id=src_pair[1],
+                )
+                external_pipeline[ext_arrival_day].append(
+                    (
+                        src_pair[0],
+                        src_pair[1],
+                        ext_receipt_qty,
+                        join_ids(external_risk.get("event_ids")),
+                        join_ids(external_risk.get("causal_root_ids")),
+                        ext_planned_order_id,
+                    )
+                )
                 external_in_transit[src_pair] += ext_receipt_qty
                 external_ordered_today_by_src_pair[src_pair] += ext_order_qty
                 register_mrp_order(
@@ -7738,6 +8963,9 @@ def main() -> None:
                     lead_reference_days=base_ext_lead_days,
                     edge_id=f"{SUPPLIER_UPSTREAM_SUPPLY_EDGE_PREFIX}_PROACTIVE",
                     reliability=max(0.01, to_float(external_risk.get("external_quality_yield"), 1.0)),
+                    mrp_order_id=ext_planned_order_id,
+                    causal_event_ids=external_risk.get("event_ids"),
+                    causal_root_ids=external_risk.get("causal_root_ids"),
                 )
                 ref_lane_purchase = max(
                     [max(0.0, to_float(lane.get("unit_purchase_cost"), 0.0)) for lane in lanes_by_src_item.get(src_pair, [])]
@@ -7982,7 +9210,22 @@ def main() -> None:
                                 to_float(risk_mult.get("external_quality_yield"), 1.0),
                             )
                             ext_arrival_day = day + ext_lead_days
-                            external_pipeline[ext_arrival_day].append((src_pair[0], src_pair[1], ext_receipt_qty))
+                            ext_planned_order_id = next_mrp_order_identity(
+                                source_mode="external_procurement",
+                                src_node_id=SUPPLIER_UPSTREAM_SUPPLY_NODE_ID,
+                                dst_node_id=src_pair[0],
+                                item_id=src_pair[1],
+                            )
+                            external_pipeline[ext_arrival_day].append(
+                                (
+                                    src_pair[0],
+                                    src_pair[1],
+                                    ext_receipt_qty,
+                                    join_ids(risk_mult.get("event_ids")),
+                                    join_ids(risk_mult.get("causal_root_ids")),
+                                    ext_planned_order_id,
+                                )
+                            )
                             external_in_transit[src_pair] += ext_receipt_qty
                             register_mrp_order(
                                 src_pair,
@@ -7999,6 +9242,9 @@ def main() -> None:
                                 lead_reference_days=base_ext_lead_days,
                                 edge_id=f"{SUPPLIER_UPSTREAM_SUPPLY_EDGE_PREFIX}_REACTIVE",
                                 reliability=max(0.01, to_float(risk_mult.get("external_quality_yield"), 1.0)),
+                                mrp_order_id=ext_planned_order_id,
+                                causal_event_ids=risk_mult.get("event_ids"),
+                                causal_root_ids=risk_mult.get("causal_root_ids"),
                             )
                             if record_day:
                                 external_procured_today += ext_order_qty
@@ -8052,7 +9298,28 @@ def main() -> None:
                 )
                 unconstrained_pull_qty = desired_delivered_qty / rel
                 standard_order_qty = max(0.0, to_float(lane.get("standard_order_qty"), 0.0))
+                physical_dispatch_multiple = max(
+                    0.0,
+                    to_float(lane.get("physical_dispatch_multiple"), 0.0),
+                )
                 max_feasible_qty = available
+                shipment_uom = normalize_unit(item_unit_map.get(str(item_id), ""))
+                if shipment_uom == "UN":
+                    standard_order_qty = normalize_physical_quantity(
+                        standard_order_qty,
+                        shipment_uom,
+                        rounding="nearest",
+                    )
+                    physical_dispatch_multiple = normalize_physical_quantity(
+                        physical_dispatch_multiple,
+                        shipment_uom,
+                        rounding="nearest",
+                    )
+                    max_feasible_qty = normalize_physical_quantity(
+                        max_feasible_qty,
+                        shipment_uom,
+                        rounding="down",
+                    )
                 supplier_backorder_extra_lead_days = 0
                 if annual_external_backorder and available + 1e-9 < unconstrained_pull_qty:
                     ext_policy = estimated_source_policies.get(src_pair, {})
@@ -8075,7 +9342,38 @@ def main() -> None:
                         max_feasible_qty = min(max_feasible_qty, supplier_capacity_left)
                     if supplier_backorder_extra_lead_days <= 0 and supplier_capacity_left + 1e-9 < unconstrained_pull_qty:
                         supplier_capacity_binding_qty_today += unconstrained_pull_qty - max(0.0, supplier_capacity_left)
-                if standard_order_qty > 1e-9:
+                if (
+                    physical_dispatch_multiple > 1e-9
+                    and max_feasible_qty + 1e-9 >= physical_dispatch_multiple
+                    and source_mode == "lane_release"
+                ):
+                    # Consolidate an internal road movement only after MRP has
+                    # created a real need. This rounds the physical release to a
+                    # production-batch multiple without changing the MRP target,
+                    # opening pipeline, or order-generation logic.
+                    target_dispatches = max(
+                        1,
+                        int(
+                            math.ceil(
+                                (unconstrained_pull_qty / physical_dispatch_multiple)
+                                - 1e-9
+                            )
+                        ),
+                    )
+                    feasible_dispatches = max(
+                        1,
+                        int(
+                            math.floor(
+                                (max_feasible_qty / physical_dispatch_multiple)
+                                + 1e-9
+                            )
+                        ),
+                    )
+                    pull_qty = (
+                        min(target_dispatches, feasible_dispatches)
+                        * physical_dispatch_multiple
+                    )
+                elif standard_order_qty > 1e-9:
                     target_units = max(1, int(math.ceil((unconstrained_pull_qty / standard_order_qty) - 1e-9)))
                     feasible_units = int(math.floor((max_feasible_qty / standard_order_qty) + 1e-9))
                     if feasible_units <= 0:
@@ -8083,7 +9381,22 @@ def main() -> None:
                     pull_qty = min(target_units, feasible_units) * standard_order_qty
                 else:
                     pull_qty = min(unconstrained_pull_qty, max_feasible_qty)
+                if shipment_uom == "UN":
+                    pull_qty = normalize_physical_quantity(
+                        pull_qty,
+                        shipment_uom,
+                        rounding="down",
+                    )
                 delivered_qty = pull_qty * rel
+                if shipment_uom == "UN":
+                    delivered_qty = min(
+                        pull_qty,
+                        normalize_physical_quantity(
+                            delivered_qty,
+                            shipment_uom,
+                            rounding="nearest",
+                        ),
+                    )
                 if pull_qty <= 1e-9 or delivered_qty <= 1e-9:
                     return 0.0
 
@@ -8125,6 +9438,15 @@ def main() -> None:
                         units = base_units + (1 if idx < remainder_units else 0)
                         chunk_pull_qty = units * standard_order_qty
                         chunk_delivered_qty = chunk_pull_qty * rel
+                        if shipment_uom == "UN":
+                            chunk_delivered_qty = min(
+                                chunk_pull_qty,
+                                normalize_physical_quantity(
+                                    chunk_delivered_qty,
+                                    shipment_uom,
+                                    rounding="nearest",
+                                ),
+                            )
                         if delivery_count > 1:
                             even_offset = int(round(idx * latest_offset / float(delivery_count - 1)))
                             cadence_offset = idx * order_frequency_days
@@ -8138,20 +9460,128 @@ def main() -> None:
 
                 for arrival_day, chunk_pull_qty, chunk_delivered_qty in delivery_schedule:
                     physical_release_day = int(arrival_day - transport_lead_days)
+                    departure_day_for_trace = int(physical_release_day - warmup_days)
+                    arrival_day_for_trace = int(arrival_day - warmup_days)
+                    mrp_order_id = next_mrp_order_identity(
+                        source_mode=source_mode,
+                        src_node_id=str(lane["src"]),
+                        dst_node_id=str(dst),
+                        item_id=str(item_id),
+                    )
+                    shipment_id, handling_unit_id = lot_ledger.next_shipment_identity(
+                        departure_day=departure_day_for_trace,
+                        arrival_day=arrival_day_for_trace,
+                        route_id=f"{lane['src']}->{dst}",
+                    )
+                    shipment_trace_status = (
+                        "modeled_backorder_origin"
+                        if supplier_backorder_extra_lead_days > 0
+                        else "traced"
+                    )
+                    shipment_trace_reason = (
+                        "supplier_source_batch_not_available_in_model"
+                        if supplier_backorder_extra_lead_days > 0
+                        else "route_date_consolidation_simulated_not_confirmed_vehicle"
+                    )
+                    internal_truck_route = (
+                        (
+                            is_upstream_internal_site(str(lane["src"]))
+                            or str(lane["src"]).startswith("M-")
+                        )
+                        and (
+                            str(dst).startswith("M-")
+                            or str(dst).startswith("DC-")
+                        )
+                    )
+                    if internal_truck_route:
+                        truck_estimate = estimate_internal_truck_handling(
+                            item_id=str(item_id),
+                            quantity=chunk_pull_qty,
+                            uom=shipment_uom,
+                            logistics_assumptions=LOT_TRACE_DEFAULT_LOGISTICS_ASSUMPTIONS,
+                        )
+                        if truck_estimate.handling_unit_kind:
+                            handling_unit_id = (
+                                f"{truck_estimate.handling_unit_kind}-{shipment_id}"
+                                f"-N{truck_estimate.truck_count}"
+                            )
+                        shipment_trace_reason = truck_estimate.trace_note()
                     pipeline[arrival_day].append((dst, item_id, chunk_delivered_qty, lane["edge_id"]))
                     chunk_parent_allocations: list[dict[str, Any]] = []
                     if supplier_backorder_extra_lead_days <= 0:
+                        reservation_precedes_departure = physical_release_day > day
                         chunk_parent_allocations = lot_ledger.consume(
                             day=output_day,
                             node_id=str(lane["src"]),
                             item_id=str(item_id),
                             qty=chunk_pull_qty,
-                            event_type="lane_ship",
+                            event_type=(
+                                "shipment_reserve"
+                                if reservation_precedes_departure
+                                else "lane_ship"
+                            ),
                             source_id=str(lane["edge_id"]),
                             uom=item_unit_map.get(str(item_id), ""),
+                            shipment_id=shipment_id,
+                            departure_day=departure_day_for_trace,
+                            arrival_day=arrival_day_for_trace,
+                            handling_unit_id=handling_unit_id,
+                            trace_status=shipment_trace_status,
+                            trace_reason=shipment_trace_reason,
+                            causal_event_ids=risk_mult.get("event_ids"),
+                            causal_root_ids=risk_mult.get("causal_root_ids"),
+                            planned_order_id=mrp_order_id,
+                            baseline_reference_id=mrp_order_id,
+                        )
+                        if reservation_precedes_departure:
+                            lot_departure_pipeline[physical_release_day].append(
+                                {
+                                    "src_node_id": str(lane["src"]),
+                                    "item_id": str(item_id),
+                                    "qty": chunk_pull_qty,
+                                    "uom": item_unit_map.get(str(item_id), ""),
+                                    "source_id": str(lane["edge_id"]),
+                                    "parent_allocations": chunk_parent_allocations,
+                                    "shipment_id": shipment_id,
+                                    "arrival_day": arrival_day_for_trace,
+                                    "handling_unit_id": handling_unit_id,
+                                    "trace_status": shipment_trace_status,
+                                    "trace_reason": shipment_trace_reason,
+                                    "causal_event_ids": risk_mult.get("event_ids"),
+                                    "causal_root_ids": risk_mult.get(
+                                        "causal_root_ids"
+                                    ),
+                                    "planned_order_id": mrp_order_id,
+                                    "baseline_reference_id": mrp_order_id,
+                                    "materialize_backorder_origin": False,
+                                }
+                            )
+                    else:
+                        lot_departure_pipeline[physical_release_day].append(
+                            {
+                                "src_node_id": str(lane["src"]),
+                                "item_id": str(item_id),
+                                "qty": chunk_pull_qty,
+                                "uom": item_unit_map.get(str(item_id), ""),
+                                "source_id": str(lane["edge_id"]),
+                                "parent_allocations": chunk_parent_allocations,
+                                "shipment_id": shipment_id,
+                                "arrival_day": arrival_day_for_trace,
+                                "handling_unit_id": handling_unit_id,
+                                "trace_status": shipment_trace_status,
+                                "trace_reason": shipment_trace_reason,
+                                "causal_event_ids": risk_mult.get("event_ids"),
+                                "causal_root_ids": risk_mult.get(
+                                    "causal_root_ids"
+                                ),
+                                "planned_order_id": mrp_order_id,
+                                "baseline_reference_id": mrp_order_id,
+                                "materialize_backorder_origin": True,
+                            }
                         )
                     schedule_lot_arrival(
                         arrival_day=arrival_day,
+                        departure_day=departure_day_for_trace,
                         dst_node_id=str(dst),
                         item_id=str(item_id),
                         qty=chunk_delivered_qty,
@@ -8160,7 +9590,15 @@ def main() -> None:
                         source_id=str(lane["edge_id"]),
                         parent_allocations=chunk_parent_allocations,
                         link_type="transport",
-                        notes="source_stock_backordered" if supplier_backorder_extra_lead_days > 0 else "",
+                        notes=shipment_trace_reason,
+                        shipment_id=shipment_id,
+                        handling_unit_id=handling_unit_id,
+                        trace_status=shipment_trace_status,
+                        trace_reason=shipment_trace_reason,
+                        causal_event_ids=risk_mult.get("event_ids"),
+                        causal_root_ids=risk_mult.get("causal_root_ids"),
+                        planned_order_id=mrp_order_id,
+                        baseline_reference_id=mrp_order_id,
                     )
                     register_mrp_order(
                         pair,
@@ -8180,6 +9618,10 @@ def main() -> None:
                         standard_order_qty=standard_order_qty,
                         mrp_share=to_float(lane.get("mrp_share"), 0.0),
                         physical_release_day=physical_release_day,
+                        mrp_order_id=mrp_order_id,
+                        shipment_id=shipment_id,
+                        causal_event_ids=risk_mult.get("event_ids"),
+                        causal_root_ids=risk_mult.get("causal_root_ids"),
                     )
                 in_transit[pair] += delivered_qty
                 if record_day:
@@ -8921,6 +10363,13 @@ def main() -> None:
         production_plan_event_rows,
         lot_ledger.event_rows,
     )
+    lot_causal_link_rows = build_lot_causal_link_rows(
+        lot_event_rows=lot_ledger.event_rows,
+        genealogy_rows=lot_ledger.genealogy_rows,
+        production_plan_rows=production_plan_event_rows,
+        production_campaign_rows=production_campaign_rows,
+        mrp_order_rows=mrp_order_rows,
+    )
     factory_nervousness_rows = build_factory_nervousness_rows(
         production_constraint_rows,
         production_campaign_rows,
@@ -9569,12 +11018,15 @@ def main() -> None:
             "unmodeled_supplier_source_policies": estimated_source_policy_rows,
             "lot_trace": {
                 "enabled": bool(args.lot_trace),
+                "lot_trace_contract_version": LOT_TRACE_CONTRACT_VERSION,
                 "lot_count": len(lot_ledger.lots),
                 "event_rows": len(lot_ledger.event_rows),
                 "genealogy_rows": len(lot_ledger.genealogy_rows),
+                "causal_link_rows": len(lot_causal_link_rows),
                 "outputs": [
                     "production_lot_events.csv",
                     "production_lot_genealogy.csv",
+                    "lot_causal_links.csv",
                 ],
             },
             "production_plan_events": {
@@ -9853,6 +11305,7 @@ def main() -> None:
     mrp_orders_path = data_path(output_dir, "mrp_orders_daily.csv")
     lot_event_path = data_path(output_dir, "production_lot_events.csv")
     lot_genealogy_path = data_path(output_dir, "production_lot_genealogy.csv")
+    lot_causal_link_path = data_path(output_dir, "lot_causal_links.csv")
     lot_path_audit_report_path = report_path(output_dir, "lot_path_audit.md")
     lot_path_audit_issues_path = data_path(output_dir, "lot_path_audit_issues.csv")
     assumptions_ledger_path = data_path(output_dir, "assumptions_ledger.csv")
@@ -10077,6 +11530,11 @@ def main() -> None:
         writer.writeheader()
         writer.writerows(lot_ledger.genealogy_rows)
 
+    with lot_causal_link_path.open("w", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=LOT_CAUSAL_LINK_FIELDS)
+        writer.writeheader()
+        writer.writerows(lot_causal_link_rows)
+
     generated_lot_audit_report_path: str | None = None
     if lot_ledger.enabled and not args.skip_lot_audit:
         lot_audit_script_path = Path(__file__).resolve().parents[1] / "analysis" / "audit_lot_paths.py"
@@ -10180,6 +11638,13 @@ def main() -> None:
                 "reliability",
                 "standard_order_qty",
                 "mrp_share",
+                "mrp_order_id",
+                "shipment_id",
+                "scenario_id",
+                "causal_event_ids",
+                "causal_root_ids",
+                "causal_status",
+                "baseline_reference_id",
             ],
         )
         writer.writeheader()
@@ -10723,6 +12188,7 @@ Le graphe `Reappro amont` utilise maintenant `order_date_IMT` pour dater les ord
 - data/production_factory_nervousness.csv
 - data/production_lot_events.csv
 - data/production_lot_genealogy.csv
+- data/lot_causal_links.csv
 - reports/lot_path_audit.md ({generated_lot_audit_report_path or 'not generated'})
 - data/lot_path_audit_issues.csv ({lot_path_audit_issues_path if generated_lot_audit_report_path else 'not generated'})
 - data/mrp_trace_daily.csv
@@ -10763,6 +12229,7 @@ Le graphe `Reappro amont` utilise maintenant `order_date_IMT` pour dater les ord
     print(f"[OK] Factory nervousness CSV: {factory_nervousness_path.resolve()}")
     print(f"[OK] Production lot events CSV: {lot_event_path.resolve()}")
     print(f"[OK] Production lot genealogy CSV: {lot_genealogy_path.resolve()}")
+    print(f"[OK] Lot causal links CSV: {lot_causal_link_path.resolve()}")
     if generated_generic_run_path:
         print(f"[OK] Generic run package: {Path(generated_generic_run_path).resolve()}")
     if generated_lot_audit_report_path:

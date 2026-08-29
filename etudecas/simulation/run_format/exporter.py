@@ -17,6 +17,7 @@ from etudecas.simulation.run_format.schema import (
     RUN_PACKAGE_SCHEMA_VERSION,
     ArtifactSpec,
 )
+from etudecas.simulation.lot_trace.io import LOT_TRACE_CONTRACT_VERSION
 
 
 def _read_json(path: Path) -> dict[str, Any]:
@@ -263,6 +264,7 @@ def export_run_package(
 
     manifest = {
         "schema_version": RUN_PACKAGE_SCHEMA_VERSION,
+        "lot_trace_contract_version": LOT_TRACE_CONTRACT_VERSION,
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
         "output_dir": str(output_root),
         "source_graph": str(graph_path) if graph_path else None,
