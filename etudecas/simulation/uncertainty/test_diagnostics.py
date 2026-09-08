@@ -8,6 +8,88 @@ from etudecas.simulation.uncertainty import build_uncertainty_diagnostics
 
 
 class UncertaintyDiagnosticsTest(unittest.TestCase):
+    def test_excludes_systemic_supplier_reliability_from_operational_diagnostics(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            selected = Path(tmp) / "selected"
+            selected.mkdir()
+            (selected / "montecarlo_summary.json").write_text(
+                json.dumps(
+                    {
+                        "successful_stochastic_runs": 3,
+                        "metric_statistics": {
+                            "kpi::total_cost": {"baseline": 100.0, "p50": 100.0},
+                        },
+                        "driver_rankings": {
+                            "kpi::total_cost": [
+                                {
+                                    "factor": "factor::supplier_reliability_scale",
+                                    "correlation": -0.9,
+                                    "absolute_correlation": 0.9,
+                                },
+                                {
+                                    "factor": "supplier_reliability_node::SDC-A",
+                                    "correlation": -0.7,
+                                    "absolute_correlation": 0.7,
+                                },
+                            ]
+                        },
+                        "factor_kpi_correlations_pearson": {
+                            "factor::supplier_reliability_scale": {"kpi::total_cost": -0.9},
+                            "supplier_reliability_node::SDC-A": {"kpi::total_cost": -0.7},
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            with (selected / "montecarlo_samples.csv").open("w", encoding="utf-8", newline="") as handle:
+                writer = csv.DictWriter(
+                    handle,
+                    fieldnames=[
+                        "run_id",
+                        "status",
+                        "is_baseline",
+                        "kpi::total_cost",
+                        "factor::supplier_reliability_scale",
+                        "supplier_reliability_node::SDC-A",
+                    ],
+                )
+                writer.writeheader()
+                writer.writerow(
+                    {
+                        "run_id": "run_0000",
+                        "status": "ok",
+                        "is_baseline": "True",
+                        "kpi::total_cost": 100,
+                        "factor::supplier_reliability_scale": 1.0,
+                        "supplier_reliability_node::SDC-A": 1.0,
+                    }
+                )
+                for index, value in enumerate((0.8, 0.9, 1.0), start=1):
+                    writer.writerow(
+                        {
+                            "run_id": f"run_{index:04d}",
+                            "status": "ok",
+                            "is_baseline": "False",
+                            "kpi::total_cost": 100 + index,
+                            "factor::supplier_reliability_scale": value,
+                            "supplier_reliability_node::SDC-A": value,
+                        }
+                    )
+
+            payload = build_uncertainty_diagnostics(selected / "montecarlo_summary.json")
+
+        drivers = payload["drivers_by_kpi"]["kpi::total_cost"]
+        correlations = payload["correlated_factors_by_kpi"]["by_kpi"]["kpi::total_cost"]
+        propagation = [
+            row
+            for rows in payload["uncertainty_propagation"]["by_kpi"].values()
+            for row in rows
+        ]
+        self.assertNotIn("factor::supplier_reliability_scale", {row["factor"] for row in drivers})
+        self.assertNotIn("factor::supplier_reliability_scale", {row["factor"] for row in correlations})
+        self.assertNotIn("factor::supplier_reliability_scale", {row["factor"] for row in propagation})
+        self.assertIn("supplier_reliability_node::SDC-A", {row["factor"] for row in drivers})
+
     def test_builds_diagnostics_from_montecarlo_files(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

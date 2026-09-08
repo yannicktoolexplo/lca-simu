@@ -10,6 +10,7 @@ LOT_TRACE_NUMERIC_FIELDS = {
     "parent_qty",
     "child_qty",
     "allocation_share",
+    "component_allocation_share",
     "desired_qty",
     "planned_qty_after_lot_rule",
     "actual_qty",
@@ -43,10 +44,13 @@ LOT_TRACE_NUMERIC_FIELDS = {
     "repeated_daily_shortfall_qty",
     "remaining_qty",
     "wip_qty",
+    "replacement_qty",
 }
 LOT_TRACE_INTEGER_FIELDS = {
     "day",
     "risk_decision_day",
+    "departure_day",
+    "arrival_day",
     "next_expected_receipt_day",
     "first_event_day",
     "first_delay_day",

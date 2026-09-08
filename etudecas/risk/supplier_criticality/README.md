@@ -64,6 +64,25 @@ Les principales familles de colonnes sont:
 - dynamique: `change_point_score`, `early_warning_score`
 - decision: `decision_zone`, `robust_decision`
 
+Les classeurs d'audit fournisseur déposés dans `etudecas/data/source/` sont reliés
+aux nœuds `SDC-VD...`. La carte affiche séparément le rang structurel comparable
+sur toute la population, l'indice d'audit réel et un indice croisé indicatif
+`70 % structurel / 30 % audit`. Cet indice indicatif ne modifie pas le classement.
+
+La fiche cartographique sépare l'audit de la criticité simulée et reproduit les
+trois radars du Dashboard sur les six familles, avec leurs seuils de maturité
+`75 %`, criticité `15/100` et résilience `70 semaines`.
+
+Pour les fournisseurs sans trame renseignée, les 28 critères sont estimés par
+proxy à partir des flux, délais, mono-source, exposition réseau et signaux publics.
+Ils portent le statut `estimation proxy`, une confiance explicite, ne comptent
+jamais comme réponses d'audit et ne modifient pas la criticité structurelle.
+Les réussites, certifications, incidents, fragilités et informations
+réglementaires effectivement retenus sont traçables dans
+`etudecas/data/source/supplier_public_evidence.csv` et dans l'onglet
+`Contexte public` de chaque fiche, avec date et portée. Les URL sont conservées
+uniquement dans le registre interne et ne sont pas embarquées dans la carte.
+
 ## Lecture correcte
 
 La baseline de simulation actuelle ne contient pas assez d'incidents observables

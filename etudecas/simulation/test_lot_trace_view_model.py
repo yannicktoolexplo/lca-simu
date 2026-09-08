@@ -24,8 +24,12 @@ class LotTraceViewModelTest(unittest.TestCase):
         self.assertNotIn("LOT-DC-A", upstream["snapshot"]["lot_ids"])
         self.assertEqual(set(downstream["snapshot"]["lot_ids"]), {"LOT-PF", "LOT-DC-A", "LOT-DC-B", "LOT-CUST"})
         self.assertNotIn("LOT-RM-S", downstream["snapshot"]["lot_ids"])
-        self.assertEqual(complete["summary"]["upstream_lot_count"], 2)
-        self.assertEqual(complete["summary"]["downstream_lot_count"], 3)
+        self.assertEqual(complete["summary"]["upstream_lot_count"], 1)
+        self.assertEqual(complete["summary"]["downstream_lot_count"], 1)
+        self.assertEqual(complete["summary"]["upstream_occurrence_count"], 2)
+        self.assertEqual(complete["summary"]["downstream_occurrence_count"], 3)
+        self.assertEqual(complete["summary"]["business_lot_count"], 2)
+        self.assertEqual(complete["summary"]["stock_occurrence_count"], 6)
         self.assertEqual(complete["snapshot"]["days"], [0, 2, 3, 5, 7])
 
     def test_transport_groups_consolidate_technical_splits(self) -> None:
@@ -41,10 +45,289 @@ class LotTraceViewModelTest(unittest.TestCase):
         self.assertEqual(factory_to_dc["parent_lot_ids"], ["LOT-PF"])
         self.assertEqual(factory_to_dc["child_lot_ids"], ["LOT-DC-A", "LOT-DC-B"])
         self.assertEqual(factory_to_dc["parent_lot_count"], 1)
-        self.assertEqual(factory_to_dc["child_lot_count"], 2)
+        self.assertEqual(factory_to_dc["child_lot_count"], 1)
+        self.assertEqual(factory_to_dc["parent_occurrence_count"], 1)
+        self.assertEqual(factory_to_dc["child_occurrence_count"], 2)
+        self.assertEqual(factory_to_dc["business_lot_ids"], ["LOT-PF"])
         self.assertTrue(factory_to_dc["is_consolidated"])
         self.assertAlmostEqual(factory_to_dc["shipped_qty"], 10.0)
         self.assertAlmostEqual(factory_to_dc["received_qty"], 10.0)
+        self.assertEqual(factory_to_dc["group_type"], "inferred_group")
+        self.assertEqual(factory_to_dc["trace_status"], "inferred")
+        self.assertFalse(factory_to_dc["is_physical_shipment"])
+
+    def test_view_model_separates_business_entities_and_readable_counts(self) -> None:
+        payload = self._payload()
+        for lot_id in ("LOT-PF", "LOT-DC-A", "LOT-DC-B", "LOT-CUST"):
+            payload["lots"][lot_id]["business_lot_id"] = "BATCH-PF-001"
+            payload["lots"][lot_id]["stock_occurrence_id"] = f"OCC-{lot_id}"
+        payload["lots"]["LOT-RM-S"]["business_lot_id"] = "BATCH-RM-001"
+        payload["lots"]["LOT-RM-F"]["business_lot_id"] = "BATCH-RM-001"
+        for link in payload["genealogy"]:
+            if (
+                link["link_type"] == "transport"
+                and link["parent_lot_id"] == "LOT-PF"
+            ):
+                link["shipment_id"] = "SHIP-FACTORY-DC"
+
+        view = build_lot_trace_view_model(payload, "LOT-PF")
+
+        self.assertEqual(
+            [row["business_lot_id"] for row in view["business_lots"]],
+            ["BATCH-PF-001", "BATCH-RM-001"],
+        )
+        pf_business_lot = view["business_lots"][0]
+        self.assertEqual(pf_business_lot["occurrence_count"], 4)
+        self.assertEqual(view["summary"]["business_lot_count"], 2)
+        self.assertEqual(view["summary"]["stock_occurrence_count"], 6)
+        self.assertEqual(view["summary"]["shipment_count"], 1)
+        self.assertEqual(view["summary"]["production_operation_count"], 1)
+        self.assertEqual(len(view["shipments"]), 1)
+        self.assertEqual(len(view["production_operations"]), 1)
+        self.assertIn("2 lot(s) metier", view["summary"]["business_counter_label"])
+        self.assertIn(
+            "6 occurrence(s) de stock",
+            view["summary"]["business_counter_label"],
+        )
+
+    def test_view_model_excludes_events_outside_selected_contribution(self) -> None:
+        payload = self._payload()
+        unrelated_writeoff = self._event(
+            "E-WRITEOFF-LATE",
+            "LOT-PF",
+            30,
+            "M-1",
+            "item:PF",
+            2.0,
+        )
+        unrelated_writeoff["event_type"] = "writeoff"
+        unrelated_shipment = self._event(
+            "E-SHIP-OTHER",
+            "LOT-PF",
+            4,
+            "M-1",
+            "item:PF",
+            2.0,
+        )
+        unrelated_shipment.update(
+            {
+                "event_type": "lane_ship",
+                "source_id": "M-1->DC-OTHER",
+                "related_lot_id": "LOT-OTHER-RECEIPT",
+            }
+        )
+        payload["events"].extend([unrelated_writeoff, unrelated_shipment])
+        payload["lots"]["LOT-PF"]["event_count"] = 3
+
+        view = build_lot_trace_view_model(payload, "LOT-PF")
+        event_ids = {event["event_id"] for event in view["events"]}
+        pf_node = next(
+            node for node in view["nodes"] if node["lot_id"] == "LOT-PF"
+        )
+
+        self.assertNotIn("E-WRITEOFF-LATE", event_ids)
+        self.assertNotIn("E-SHIP-OTHER", event_ids)
+        self.assertEqual(view["summary"]["excluded_non_causal_event_count"], 2)
+        self.assertEqual(pf_node["causal_event_count"], 1)
+        self.assertEqual(pf_node["available_event_count"], 3)
+
+    def test_untraced_receipt_is_occurrence_not_invented_business_lot(self) -> None:
+        lot = self._lot(
+            "LOT-UNTRACED",
+            4,
+            "M-1",
+            "item:RM",
+            12.0,
+            "raw_material_factory_receipt",
+        )
+        event = self._event(
+            "E-UNTRACED",
+            "LOT-UNTRACED",
+            4,
+            "M-1",
+            "item:RM",
+            12.0,
+        )
+        event["event_type"] = "lane_receipt"
+        payload = {
+            "available": True,
+            "lots": {"LOT-UNTRACED": lot},
+            "events": [event],
+            "genealogy": [],
+            "plan_events": [],
+            "lot_options": [],
+            "deferred_orders": [],
+            "stock_context": {},
+            "summary": {"lot_count": 1},
+        }
+
+        view = build_lot_trace_view_model(payload, "LOT-UNTRACED")
+
+        self.assertEqual(view["summary"]["business_lot_count"], 0)
+        self.assertEqual(view["summary"]["stock_occurrence_count"], 1)
+        self.assertEqual(view["summary"]["unidentified_occurrence_count"], 1)
+        self.assertEqual(view["business_lots"], [])
+
+    def test_transport_groups_use_shipment_id_and_expose_logistics_context(self) -> None:
+        payload = self._payload()
+        for link in payload["genealogy"]:
+            if link["parent_lot_id"] == "LOT-PF" and link["child_node_id"] == "DC-1":
+                link["shipment_id"] = "SHIP-001"
+                link["departure_day"] = 3
+                link["arrival_day"] = 5
+                link["handling_unit"] = "HU-TRAILER-001"
+
+        view = build_lot_trace_view_model(payload, "LOT-PF")
+        shipments = [
+            row
+            for row in view["transport_groups"]
+            if row["shipment_id"] == "SHIP-001"
+        ]
+
+        self.assertEqual(len(shipments), 1)
+        shipment = shipments[0]
+        self.assertEqual(shipment["group_type"], "shipment")
+        self.assertEqual(shipment["trace_status"], "simulation_movement_identified")
+        self.assertEqual(shipment["trace_reason"], "shipment_id_present")
+        self.assertEqual(shipment["reason"], "shipment_id_present")
+        self.assertEqual(shipment["departure_day"], 3)
+        self.assertEqual(shipment["arrival_day"], 5)
+        self.assertEqual(shipment["handling_unit"], "HU-TRAILER-001")
+        self.assertFalse(shipment["is_physical_shipment"])
+        self.assertTrue(shipment["is_simulated_shipment"])
+        self.assertAlmostEqual(shipment["shipped_qty"], 10.0)
+        self.assertAlmostEqual(shipment["received_qty"], 10.0)
+
+    def test_handling_unit_does_not_leak_between_successive_shipments(self) -> None:
+        payload = self._payload()
+        for link in payload["genealogy"]:
+            if link["link_type"] != "transport":
+                continue
+            if link["parent_node_id"] == "M-1":
+                link["shipment_id"] = "SHIP-FACTORY-DC"
+                link["handling_unit_id"] = "TRUCK-FACTORY-DC"
+            elif link["parent_node_id"] == "DC-1":
+                link["shipment_id"] = "SHIP-DC-CUSTOMER"
+        pf_event = next(
+            event for event in payload["events"] if event["lot_id"] == "LOT-PF"
+        )
+        pf_event.update(
+            {
+                "shipment_id": "SHIP-FACTORY-DC",
+                "handling_unit_id": "TRUCK-FACTORY-DC",
+            }
+        )
+
+        view = build_lot_trace_view_model(payload, "LOT-PF")
+        by_shipment = {
+            row["shipment_id"]: row
+            for row in view["transport_groups"]
+            if row.get("shipment_id")
+        }
+
+        self.assertEqual(
+            by_shipment["SHIP-FACTORY-DC"]["handling_unit"],
+            "TRUCK-FACTORY-DC",
+        )
+        self.assertEqual(
+            by_shipment["SHIP-DC-CUSTOMER"]["handling_unit"],
+            "",
+        )
+
+    def test_untraced_lane_receipt_is_explicit(self) -> None:
+        lot = self._lot(
+            "LOT-UNTRACED",
+            4,
+            "M-1",
+            "item:RM",
+            12.0,
+            "raw_material_factory_receipt",
+        )
+        event = self._event(
+            "E-UNTRACED",
+            "LOT-UNTRACED",
+            4,
+            "M-1",
+            "item:RM",
+            12.0,
+        )
+        event["event_type"] = "lane_receipt"
+        event["source_id"] = "S-RAW->M-1"
+        payload = {
+            "available": True,
+            "lots": {"LOT-UNTRACED": lot},
+            "events": [event],
+            "genealogy": [],
+            "plan_events": [],
+            "lot_options": [lot],
+            "deferred_orders": [],
+            "stock_context": {},
+            "summary": {"lot_count": 1},
+        }
+
+        view = build_lot_trace_view_model(payload, "LOT-UNTRACED")
+
+        self.assertEqual(len(view["transport_groups"]), 1)
+        receipt = view["transport_groups"][0]
+        self.assertEqual(receipt["group_type"], "untraced_receipt")
+        self.assertEqual(receipt["trace_status"], "untraced_origin")
+        self.assertEqual(receipt["trace_reason"], "no_transport_parent_link")
+        self.assertEqual(receipt["reason"], "no_transport_parent_link")
+        self.assertEqual(receipt["parent_lot_ids"], [])
+        self.assertEqual(receipt["child_lot_ids"], ["LOT-UNTRACED"])
+        self.assertIsNone(receipt["departure_day"])
+        self.assertEqual(receipt["arrival_day"], 4)
+        self.assertAlmostEqual(receipt["received_qty"], 12.0)
+
+    def test_untraced_lane_receipt_preserves_source_trace_reason(self) -> None:
+        lot = self._lot(
+            "LOT-UNTRACED",
+            4,
+            "M-1",
+            "item:RM",
+            12.0,
+            "raw_material_factory_receipt",
+        )
+        event = self._event(
+            "E-UNTRACED",
+            "LOT-UNTRACED",
+            4,
+            "M-1",
+            "item:RM",
+            12.0,
+        )
+        event.update(
+            {
+                "event_type": "lane_receipt",
+                "source_id": "aggregate-pipeline",
+                "trace_status": "untraced_origin",
+                "trace_reason": "aggregate_pipeline_without_scheduled_lot_detail",
+            }
+        )
+        payload = {
+            "available": True,
+            "lots": {"LOT-UNTRACED": lot},
+            "events": [event],
+            "genealogy": [],
+            "plan_events": [],
+            "lot_options": [lot],
+            "deferred_orders": [],
+            "stock_context": {},
+            "summary": {"lot_count": 1},
+        }
+
+        view = build_lot_trace_view_model(payload, "LOT-UNTRACED")
+
+        receipt = view["transport_groups"][0]
+        self.assertEqual(receipt["trace_status"], "untraced_origin")
+        self.assertEqual(
+            receipt["trace_reason"],
+            "aggregate_pipeline_without_scheduled_lot_detail",
+        )
+        self.assertEqual(
+            receipt["reason"],
+            "aggregate_pipeline_without_scheduled_lot_detail",
+        )
 
     def test_mixed_customer_lot_reports_other_origin(self) -> None:
         payload = self._payload()
@@ -63,10 +346,35 @@ class LotTraceViewModelTest(unittest.TestCase):
 
     def test_mixed_customer_lot_propagates_partial_parent_share(self) -> None:
         payload = self._payload()
+        payload["lots"]["LOT-OTHER-PF"] = self._lot(
+            "LOT-OTHER-PF",
+            3,
+            "M-1",
+            "item:PF",
+            3.0,
+            "finished_product",
+        )
+        payload["events"].append(
+            self._event("E-OTHER-PF", "LOT-OTHER-PF", 3, "M-1", "item:PF", 3.0)
+        )
         for link in payload["genealogy"]:
             if link["parent_lot_id"] == "LOT-PF" and link["child_lot_id"] == "LOT-DC-A":
                 link["parent_qty"] = 3.0
                 break
+        payload["genealogy"].append(
+            self._link(
+                5,
+                "transport",
+                "LOT-OTHER-PF",
+                "M-1",
+                "item:PF",
+                "LOT-DC-A",
+                "DC-1",
+                "item:PF",
+                3.0,
+                6.0,
+            )
+        )
 
         view = build_lot_trace_view_model(payload, "LOT-PF")
 
@@ -75,6 +383,213 @@ class LotTraceViewModelTest(unittest.TestCase):
         self.assertAlmostEqual(mixed["visible_contribution_qty"], 3.0)
         self.assertAlmostEqual(mixed["other_contribution_qty"], 7.0)
         self.assertAlmostEqual(mixed["visible_share"], 0.3)
+
+    def test_split_component_propagates_only_its_same_uom_consumption_share(self) -> None:
+        payload = self._payload()
+        payload["lots"]["LOT-RM-F"]["qty"] = 10.0
+        payload["events"][1]["qty"] = 10.0
+        payload["events"][1]["qty_after"] = 10.0
+        payload["lots"]["LOT-RM-F-B"] = self._lot(
+            "LOT-RM-F-B",
+            2,
+            "M-1",
+            "item:RM",
+            90.0,
+            "raw_material_factory_receipt",
+        )
+        payload["lots"]["LOT-OTHER-UOM"] = self._lot(
+            "LOT-OTHER-UOM",
+            2,
+            "M-1",
+            "item:OTHER",
+            1_000_000.0,
+            "raw_material_factory_receipt",
+        )
+        payload["lots"]["LOT-OTHER-UOM"]["uom"] = "G"
+        payload["events"].extend(
+            [
+                self._event("E-RM-F-B", "LOT-RM-F-B", 2, "M-1", "item:RM", 90.0),
+                self._event("E-OTHER-UOM", "LOT-OTHER-UOM", 2, "M-1", "item:OTHER", 1_000_000.0),
+            ]
+        )
+        payload["events"][-1]["uom"] = "G"
+        for link in payload["genealogy"]:
+            if link["link_type"] == "production" and link["parent_lot_id"] == "LOT-RM-F":
+                link["parent_qty"] = 10.0
+                break
+        payload["genealogy"].extend(
+            [
+                self._link(
+                    3,
+                    "production",
+                    "LOT-RM-F-B",
+                    "M-1",
+                    "item:RM",
+                    "LOT-PF",
+                    "M-1",
+                    "item:PF",
+                    90.0,
+                    10.0,
+                ),
+                self._link(
+                    3,
+                    "production",
+                    "LOT-OTHER-UOM",
+                    "M-1",
+                    "item:OTHER",
+                    "LOT-PF",
+                    "M-1",
+                    "item:PF",
+                    1_000_000.0,
+                    10.0,
+                ),
+            ]
+        )
+
+        view = build_lot_trace_view_model(payload, "LOT-RM-F")
+        nodes = {row["lot_id"]: row for row in view["nodes"]}
+        production_link = next(
+            row
+            for row in view["links"]
+            if row["link_type"] == "production"
+            and row["parent_lot_id"] == "LOT-RM-F"
+        )
+        mixed = view["mixed_customer_lots"][0]
+
+        self.assertAlmostEqual(nodes["LOT-PF"]["contribution_qty"], 1.0)
+        self.assertAlmostEqual(production_link["contribution_qty"], 1.0)
+        self.assertAlmostEqual(production_link["contribution_share_of_child"], 0.1)
+        self.assertAlmostEqual(production_link["allocation_share"], 0.1)
+        self.assertEqual(
+            production_link["allocation_basis"],
+            "same_child_same_component_same_uom",
+        )
+        self.assertAlmostEqual(nodes["LOT-DC-A"]["contribution_qty"], 0.6)
+        self.assertAlmostEqual(nodes["LOT-CUST"]["contribution_qty"], 0.6)
+        self.assertAlmostEqual(mixed["visible_contribution_qty"], 0.6)
+        self.assertAlmostEqual(mixed["other_contribution_qty"], 9.4)
+        self.assertAlmostEqual(mixed["visible_share"], 0.06)
+
+    def test_component_allocation_normalizes_zun_and_un(self) -> None:
+        lots = {
+            "LOT-A": self._lot(
+                "LOT-A",
+                0,
+                "M-1",
+                "item:COMP",
+                10.0,
+                "raw_material_opening",
+            ),
+            "LOT-B": self._lot(
+                "LOT-B",
+                0,
+                "M-1",
+                "item:COMP",
+                30.0,
+                "raw_material_opening",
+            ),
+            "LOT-PF": self._lot(
+                "LOT-PF",
+                1,
+                "M-1",
+                "item:PF",
+                100.0,
+                "finished_product",
+            ),
+        }
+        lots["LOT-A"]["uom"] = "ZUN"
+        lots["LOT-B"]["uom"] = "UN"
+        events = [
+            self._event("E-A", "LOT-A", 0, "M-1", "item:COMP", 10.0),
+            self._event("E-B", "LOT-B", 0, "M-1", "item:COMP", 30.0),
+            self._event("E-PF", "LOT-PF", 1, "M-1", "item:PF", 100.0),
+        ]
+        events[0]["uom"] = "ZUN"
+        events[1]["uom"] = "UN"
+        genealogy = [
+            self._link(
+                1,
+                "production",
+                "LOT-A",
+                "M-1",
+                "item:COMP",
+                "LOT-PF",
+                "M-1",
+                "item:PF",
+                10.0,
+                100.0,
+            ),
+            self._link(
+                1,
+                "production",
+                "LOT-B",
+                "M-1",
+                "item:COMP",
+                "LOT-PF",
+                "M-1",
+                "item:PF",
+                30.0,
+                100.0,
+            ),
+        ]
+        payload = {
+            "available": True,
+            "lots": lots,
+            "events": events,
+            "genealogy": genealogy,
+            "plan_events": [],
+            "lot_options": [lots["LOT-A"]],
+            "deferred_orders": [],
+            "stock_context": {},
+            "summary": {"lot_count": len(lots)},
+        }
+
+        view = build_lot_trace_view_model(payload, "LOT-A")
+        production_link = next(
+            row
+            for row in view["links"]
+            if row["link_type"] == "production"
+        )
+        nodes = {row["lot_id"]: row for row in view["nodes"]}
+
+        self.assertEqual(production_link["allocation_basis"], "same_child_same_component_same_uom")
+        self.assertAlmostEqual(production_link["allocation_share"], 0.25)
+        self.assertAlmostEqual(production_link["contribution_qty"], 25.0)
+        self.assertAlmostEqual(nodes["LOT-PF"]["contribution_qty"], 25.0)
+
+    def test_partial_component_contribution_follows_transport_delivery_loss(self) -> None:
+        lots = {
+            "LOT-A": self._lot("LOT-A", 0, "M-1", "item:RM", 10.0, "raw_material_opening"),
+            "LOT-B": self._lot("LOT-B", 0, "M-1", "item:RM", 90.0, "raw_material_opening"),
+            "LOT-PF": self._lot("LOT-PF", 1, "M-1", "item:PF", 100.0, "finished_product"),
+            "LOT-DC": self._lot("LOT-DC", 3, "DC-1", "item:PF", 90.0, "finished_product_receipt"),
+        }
+        events = [
+            self._event(f"E-{lot_id}", lot_id, lot["created_day"], lot["node_id"], lot["item_id"], lot["qty"])
+            for lot_id, lot in lots.items()
+        ]
+        genealogy = [
+            self._link(1, "production", "LOT-A", "M-1", "item:RM", "LOT-PF", "M-1", "item:PF", 10.0, 100.0),
+            self._link(1, "production", "LOT-B", "M-1", "item:RM", "LOT-PF", "M-1", "item:PF", 90.0, 100.0),
+            self._link(3, "transport", "LOT-PF", "M-1", "item:PF", "LOT-DC", "DC-1", "item:PF", 100.0, 90.0),
+        ]
+        payload = {
+            "available": True,
+            "lots": lots,
+            "events": events,
+            "genealogy": genealogy,
+            "plan_events": [],
+            "lot_options": [lots["LOT-A"]],
+            "deferred_orders": [],
+            "stock_context": {},
+            "summary": {"lot_count": len(lots)},
+        }
+
+        view = build_lot_trace_view_model(payload, "LOT-A")
+        nodes = {row["lot_id"]: row for row in view["nodes"]}
+
+        self.assertAlmostEqual(nodes["LOT-PF"]["contribution_qty"], 10.0)
+        self.assertAlmostEqual(nodes["LOT-DC"]["contribution_qty"], 9.0)
 
     @unittest.skipUnless(
         os.environ.get("ETUDECAS_RUN_SLOW_TESTS") == "1",
@@ -113,8 +628,16 @@ class LotTraceViewModelTest(unittest.TestCase):
             if row["child_lot_id"] == "LOT-00000095"
         }
 
-        self.assertEqual(view["summary"]["upstream_lot_count"], 8)
-        self.assertEqual(view["summary"]["downstream_lot_count"], 12)
+        self.assertEqual(view["summary"]["upstream_occurrence_count"], 8)
+        self.assertEqual(view["summary"]["downstream_occurrence_count"], 12)
+        self.assertLessEqual(
+            view["summary"]["upstream_lot_count"],
+            view["summary"]["upstream_occurrence_count"],
+        )
+        self.assertLessEqual(
+            view["summary"]["downstream_lot_count"],
+            view["summary"]["downstream_occurrence_count"],
+        )
         self.assertEqual(len(component_items), 8)
         self.assertEqual(len(factory_to_dc), 1)
         self.assertAlmostEqual(factory_to_dc[0]["shipped_qty"], 107800.0, places=4)

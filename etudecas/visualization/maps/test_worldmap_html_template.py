@@ -36,6 +36,19 @@ def test_html_template_keeps_data_marker_and_interpolates_inputs() -> None:
     assert "is_scenario_aggregate: true" in html
     assert "Les lots communs ne sont comptes qu'une fois" in html
     assert ".riskCascadeExplorer {\n      position: relative;\n      z-index: 2;" in html
+    assert "function selectedLotTraceDemandContributionQty(snapshot, row)" in html
+    assert "parsed && parsed[rootOrderId]" in html
+    assert "customerAllocationQty += selectedLotTraceDemandContributionQty(snapshot, row);" in html
+    assert "renderLotTraceEventsTable(snapshot.events, 14, snapshot)" in html
+    assert "renderLotTraceEventsTable(selected.events, selected.events.length, snapshot)" in html
+    assert "traces / ${rawQtyText} lot client" in html
+    assert 'id="supplierAuditSelect"' in html
+    assert "function initSupplierAuditControls()" in html
+    assert 'setPanelMode("risk");' in html
+    assert "selectedAuditSupplier" in html
+    assert 'figure.kind === "radar"' in html
+    assert 'type: "scatterpolar"' in html
+    assert "Audit à renseigner" in html
 
 
 def test_scan_dashboard_mobile_tabs_wrap_without_scrolling_the_modal() -> None:

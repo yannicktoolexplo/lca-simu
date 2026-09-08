@@ -1,0 +1,198 @@
+schema_version: poc2026.lightweight_seat.scenario.v1
+scenario_id: siege_allege_50
+label: Siege allege de rupture - cible 50 %
+status: concept_a_qualifier
+baseline_mass_kg: 109.967
+target_mass_kg: 54.9835
+functional_unit: un siege affaires livre et utilise pendant 7 ans
+
+flight_use:
+  lifetime_years: 7
+  average_flight_distance_km: 5556
+  annual_flight_cycles: 700
+  marginal_fuel_kg_per_kg_1000km:
+    low: 0.020
+    central: 0.025
+    high: 0.030
+
+families:
+  primary_structure:
+    label: Structure primaire et cinematique
+    fallback_mass_share: 0.3915426612
+    reduction_fraction: 0.45
+    process_complexity_multiplier: 1.12
+    bom_tokens:
+      - ens structure fauteuil
+      - ensemble palette optimisee
+      - ensemble structure fixe
+      - support + clamps
+      - structure ottoman
+      - renfort tubulaire
+      - commande actionnement
+    activity_names:
+      - ENS Structure fauteuil
+      - Ensemble palette optimisee
+      - Ensemble structure fixe
+      - Support et clamps
+      - Structure Ottoman horizontale
+      - Renfort tubulaire
+      - commande actionnement ECU
+    strategy: Topologie optimisee, reduction du nombre de pieces et substitution selective aluminium-composite sur les chemins de charge.
+    candidate_materials: Aluminium aeronautique optimise; CFRP qualifie; acier haute resistance limite aux ferrures
+    maturity: concept_structural
+    confidence: low
+    verification: Calculs statiques et fatigue; essais 16 g; tenue des ancrages; tolerance aux dommages; inspection et reparabilite
+
+  shell_stowage:
+    label: Coque, porte et rangements
+    fallback_mass_share: 0.3267826216
+    reduction_fraction: 0.60
+    process_complexity_multiplier: 1.18
+    bom_tokens:
+      - ensemble coque
+      - ensemble porte
+      - stowage
+      - equipements laterales
+      - equipement lateral
+      - habillage sous fauteuil
+      - bumper version porte
+      - support equipe
+      - capot nfc
+      - support nfc
+    activity_names:
+      - Ensemble coque
+      - Ensemble porte
+      - Stowage assemble avec porte
+      - Ensemble equipement lateral
+      - Ensemble stowage lateral
+      - Habillage sous fauteuil
+      - Bumper version porte
+      - Capot NFC
+      - Support NFC
+    strategy: Panneaux sandwich minces, fonctions integrees, porte et rangements simplifies, suppression des doublons de finition.
+    candidate_materials: Sandwich nid d'abeilles; peaux CFRP ou verre-phenolique; thermoplastiques FST
+    maturity: concept_architecture
+    confidence: low
+    verification: Charges des objets de masse; choc et abus; feu/fumee/toxicite; evacuation; durabilite des charnieres et verrous
+
+  comfort:
+    label: Coussins, tetiere et habillage souple
+    fallback_mass_share: 0.0686447836
+    reduction_fraction: 0.35
+    process_complexity_multiplier: 1.03
+    bom_tokens:
+      - coussin
+      - padding
+      - tetiere
+    activity_names:
+      - Coussin Ottoman
+      - Coussin tetiere
+      - Ensemble coussin assise
+      - Ensemble coussin dossier
+      - Ensemble coussin dossier version tetiere
+      - ensemble tetiere
+      - Padding
+    strategy: Mousses multi-densites optimisees, volumes creux et pare-feu integre sans degradation ergonomique.
+    candidate_materials: Mousse faible densite qualifiee; textile 3D; couche pare-feu optimisee
+    maturity: concept_materiaux_cabine
+    confidence: medium
+    verification: Essai feu coussin; ergonomie long-courrier; vieillissement; nettoyage; maintien des performances apres usure
+
+  passenger_interfaces:
+    label: Tablettes, accoudoirs et interfaces passager
+    fallback_mass_share: 0.1170078473
+    reduction_fraction: 0.50
+    process_complexity_multiplier: 1.10
+    bom_tokens:
+      - tablette
+      - accoudoir
+      - manchette
+      - ceinture
+    activity_names:
+      - Accoudoir allee
+      - Ceinture de securite
+      - Ensemble tablette cocktail
+      - Ensemble tablette repas
+      - Manchette acc mobile
+      - Manchette equipee
+      - Support manchette equipee
+    strategy: Tablettes sandwich, mecanismes communs, pieces monoblocs et reduction des epaisseurs non structurales.
+    candidate_materials: Sandwich composite; magnesium localise; thermoplastiques renforces FST
+    maturity: concept_detail
+    confidence: low
+    verification: Charges d'usage; pincement et liberation; crash; feu; cycles d'ouverture; maintenance et remplacement rapide
+
+  ife_electrical:
+    label: IFE, alimentation, supports et cablage
+    fallback_mass_share: 0.0960220863
+    reduction_fraction: 0.4707940988
+    process_complexity_multiplier: 1.05
+    bom_tokens:
+      - brackets-set
+      - ecran
+      - power box
+      - system ife
+      - lighting
+      - sfcu
+      - remote extender
+    activity_names:
+      - Brackets set
+      - ecran seat
+      - Lightning
+      - remote extender unit
+      - Seat power
+      - SFCU
+      - support ecran
+      - Support ecran assemble
+      - systeme IFE boitier
+    strategy: Electronique mutualisee, ecran et boitiers de nouvelle generation, supports integres et faisceaux raccourcis.
+    candidate_materials: Electronique basse puissance; aluminium mince; composites conducteurs maitrises; cablage optimise
+    maturity: concept_equipement
+    confidence: low
+    verification: CEM; thermique; crash des objets de masse; DO-160 applicable; maintenabilite; obsolescence et cybersecurite
+
+overhead_scales:
+  energie infrastructures: 0.82
+  packaging fauteuil: 0.60
+  papier fauteuil: 0.90
+  transport vers hambourg: 0.50
+  recyclage siege: 0.50
+
+certification_gates:
+  - gate_id: crash_static
+    label: Charges statiques et dynamiques
+    references: CS 25.561; CS 25.562; FAA AC 25.562-1B; SAE AS8049E
+    status: non_demontre
+    evidence_required: Modele de calcul correle, essais statiques, essais dynamiques et criteres de blessure occupant
+  - gate_id: flammability
+    label: Feu, fumee et toxicite cabine
+    references: CS 25.853 et Appendix F; FAA AC 25.853-1
+    status: non_demontre
+    evidence_required: Coupons, panneaux et coussins representatifs de la configuration de production
+  - gate_id: composite_structure
+    label: Structure composite de siege
+    references: SAE ARP6337; SAE AS8049E
+    status: non_demontre
+    evidence_required: Proprietes environnementales, dommages admissibles, fabrication, inspection, reparation et justification des chemins de charge
+  - gate_id: occupant_installation
+    label: Occupant, objets de masse et installation
+    references: CS 25.785; CS 25.561; CS 25.562
+    status: non_demontre
+    evidence_required: Retenue occupant, ecran et rangements, evacuation, interfaces plancher et configuration cabine
+  - gate_id: equipment_environment
+    label: Equipements electriques et environnement
+    references: DO-160 selon perimetre de qualification; exigences OEM applicables
+    status: non_demontre
+    evidence_required: CEM, temperature, vibration, alimentation, feu, maintenance et configuration logicielle
+
+evidence_sources:
+  - label: EASA CS-25 Amendment 28
+    url: https://www.easa.europa.eu/en/document-library/certification-specifications/cs-25-amendment-28
+  - label: FAA AC 25.562-1B
+    url: https://www.faa.gov/regulations_policies/advisory_circulars/index.cfm/go/document.information/documentID/22657
+  - label: FAA AC 25.853-1
+    url: https://www.faa.gov/airports/resources/advisory_circulars/index.cfm/go/document.information/documentNumber/25.853-1
+  - label: SAE AS8049E
+    url: https://saemobilus.sae.org/standards/as8049-performance-standard-seats-civil-rotorcraft-transport-airplanes
+  - label: SAE ARP6337
+    url: https://saemobilus.sae.org/standards/arp6337-design-manufacturing-performance-standard-composite-materials-used-aircraft-seat-structures

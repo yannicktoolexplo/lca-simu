@@ -65,6 +65,9 @@ migrations/
 # Fichiers output
 data_output
 
+# POC2026 generated supply-geo artifacts
+POC2026/supply_geo_case/outputs/
+
 # openai env
 .env
 
