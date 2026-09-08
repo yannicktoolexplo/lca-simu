@@ -5,7 +5,7 @@ import pandas as pd
 from etudecas_agentkit.core.config_loader import load_yaml
 from etudecas_agentkit.visualization.figure_factory import FigureFactory
 
-from tests.conftest import ROOT
+from .conftest import ROOT
 
 
 def test_figure_factory_generates_3d_trajectory(tmp_path):

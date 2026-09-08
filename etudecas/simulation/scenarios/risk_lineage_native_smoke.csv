@@ -1,0 +1,2 @@
+event_id,risk_type,supplier_id,item_id,dst_node_id,edge_id,start_day,end_day,multiplier,notes
+NATIVE-LINEAGE-SMOKE-LEAD,lead_time_extra_days,DC-1920,item:268967,C-XXXXX,edge:DC-1910_TO_C-XXXXX_268967,0,9,2,Verification technique du lien natif incident-expedition-lot-reception-client; ne pas utiliser comme scenario industriel calibre.

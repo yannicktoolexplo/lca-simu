@@ -1,0 +1,988 @@
+{
+  "schema_version": "scan.canonical_cascade_campaign.v2",
+  "name": "etudecas_two_business_cascades_intervention_campaign_2026",
+  "description": "Paired business comparison of normal operation, an untreated incident and isolated or combined interventions on two real canonical supply cascades.",
+  "required_solution_ids": [
+    "expedited_transport",
+    "second_supplier",
+    "emergency_purchase",
+    "targeted_stock",
+    "supplier_priority",
+    "replanning"
+  ],
+  "scientific_guards": {
+    "minimum_horizon_days": 720,
+    "minimum_warmup_days": 240,
+    "require_measurement_start_state_hash_pairing": true,
+    "require_untreated_incident_application": true,
+    "require_positive_incremental_customer_backlog": false
+  },
+  "study_assumptions": {
+    "source_graph_is_never_modified": true,
+    "historical_cold_start_is_never_overwritten": true,
+    "added_initialization_target_scale": 0.1,
+    "added_initialization_target_scale_reason": "The shared --initial-state-scale flag scales only added initialization targets; it does not scale the observed ERP inventory snapshots. The quality cascade therefore uses separate, pair-scoped and audited stock sensitivity files.",
+    "initial_state_assumption": "paired_pair_scoped_cutover_sensitivities_without_january_open_orders",
+    "initial_state_assumption_reason": "January ERP open orders and large 021081/773474 snapshots masked the explicit quality incident. In the quality cascade only, three stocks on the documented 021081-to-268967 path are stressed before the 240-day warm-up, then the common measured-day-0 M-1430/773474 balance is set to 25% with FIFO lot reconciliation before the J0 hash. The 20% sensitivity created a customer shortage in the incident-free reference for seed 330282, while 30% absorbed the quality incident for seeds 330281 and 330283; 25% is therefore the explicit calibration candidate to be tested across the final seed set. Every normal, untreated and treated arm uses the same two CSV files. Other materials and the historical cold-start artifacts remain untouched.",
+    "c2_measurement_start_sensitivity_scales": {
+      "M-1810/item:338929": 0.3,
+      "DC-1920/item:268091": 1.0
+    },
+    "c2_opening_finished_stock_scale": 1.25,
+    "c2_measurement_start_sensitivity_reason": "In the 338929-to-268091 cascade only, the paired measured-J0 on-hand balance and native standard in-transit pipeline for component M-1810/338929 retain 30 percent of the simulated cutover state. The finished-product DC-1920/268091 balance and pipeline are no longer stressed. Blind seed 330290 showed that scaling the finished-product pipeline itself created a day-0 customer shortage unrelated to the delayed component; even at full pipeline, 78,471 units of backlog were inherited from warm-up because the historical opening stock had been exhausted. A separate paired opening-stock sensitivity therefore retains 125 percent of the DC-1920/268091 snapshot before warm-up. External and estimated-source pipelines are never scaled. These are demonstrator sensitivities, not claims about current ERP stock.",
+    "horizon_reason": "The 021081 upstream lane is capped at 240 days, the quarantine adds 90 days and downstream transport can add up to 66 days before lot waiting. The C2 incident begins at measured day 0, lasts 60 days and adds 35 transport days. A 720-day measured horizon leaves a long post-recovery tail for both cascades and makes recovery censoring explicit.",
+    "state_dependent_background_risks": false,
+    "state_dependent_background_risks_reason": "Explicit incidents are isolated so solution deltas are attributable. Common random numbers still pair stochastic lead-time draws.",
+    "client_order_identifiers_available": false,
+    "individual_order_count_claim": "not_identifiable_without_persistent_customer_order_ids"
+  },
+  "campaign": {
+    "graph": "auto",
+    "engine_profile": "canonical_real_baseline_engine_profile.json",
+    "scenario_id": "scn:BASE",
+    "days": 720,
+    "seeds": [
+      330281
+    ],
+    "engine_args": [
+      "--initial-state-scale",
+      "0.1",
+      "--mrp-demand-signal-smoothing-days",
+      "1",
+      "--warmup-days",
+      "240",
+      "--warmup-profile-mode",
+      "preperiod",
+      "--no-restore-opening-stock-after-warmup",
+      "--warmup-boundary-audit",
+      "--no-initial-seed-open-orders-from-january-snapshot",
+      "--mrp-multisource-policy",
+      "legacy",
+      "--external-procurement-enabled",
+      "--external-procurement-proactive-replenishment"
+    ]
+  },
+  "cascades": [
+    {
+      "id": "quality_quarantine_021081_to_268967",
+      "label": "Quarantaine qualité 021081 vers le client 268967",
+      "customer_id": "C-XXXXX",
+      "finished_item_id": "item:268967",
+      "reference_lot_qty": 107800.0,
+      "reference_lot_note": "Native fixed finished-product lot at M-1430. The upstream 773474 fixed lot is 3,200,000 G and remains a documented working assumption.",
+      "recovery_consecutive_days": 7,
+      "backlog_tolerance_qty": 0.000001,
+      "paired_engine_args": [
+        "--opening-observed-stock-scale-csv",
+        "etudecas/prototypes/scan_2027_risk_control/config/canonical_cascade_opening_stock_scales.csv",
+        "--measurement-start-stock-scale-csv",
+        "etudecas/prototypes/scan_2027_risk_control/config/canonical_cascade_measurement_start_stock_scales.csv"
+      ],
+      "native_alternative_supplier_ids": [
+        "SDC-VD0975221A"
+      ],
+      "path": [
+        {
+          "kind": "transport",
+          "from": "SDC-VD0949099A",
+          "to": "SDC-1450",
+          "item_id": "item:021081"
+        },
+        {
+          "kind": "transport",
+          "from": "SDC-VD0960508A",
+          "to": "SDC-1450",
+          "item_id": "item:021081"
+        },
+        {
+          "kind": "transport",
+          "from": "SDC-VD0972460A",
+          "to": "SDC-1450",
+          "item_id": "item:021081"
+        },
+        {
+          "kind": "transform",
+          "node_id": "SDC-1450",
+          "input_item_id": "item:021081",
+          "output_item_id": "item:773474"
+        },
+        {
+          "kind": "transport",
+          "from": "SDC-1450",
+          "to": "M-1430",
+          "item_id": "item:773474"
+        },
+        {
+          "kind": "transform",
+          "node_id": "M-1430",
+          "input_item_id": "item:773474",
+          "output_item_id": "item:268967"
+        },
+        {
+          "kind": "transport",
+          "from": "M-1430",
+          "to": "DC-1920",
+          "item_id": "item:268967"
+        },
+        {
+          "kind": "transport",
+          "from": "DC-1920",
+          "to": "C-XXXXX",
+          "item_id": "item:268967"
+        }
+      ],
+      "incident": {
+        "start_day": 45,
+        "end_day": 200,
+        "description": "A shared sub-tier quality investigation affects three approved sources of 021081. Newly released lots from VD0949099A, VD0960508A and VD0972460A during measured days 45 to 200 are retained for 90 additional days before becoming fully usable. Existing stock and material already in transit are not quarantined, no quantity is destroyed, and VD0975221A remains an unaffected approved source. The effect then propagates through SDC-1450, 773474, M-1430, 268967, DC-1920 and the client.",
+        "risk_events": [
+          {
+            "event_id": "quality_hold_021081_shared_subtier_vd094",
+            "risk_type": "quality_delay",
+            "supplier_id": "SDC-VD0949099A",
+            "item_id": "item:021081",
+            "dst_node_id": "SDC-1450",
+            "edge_id": "edge:SDC-VD0949099A_TO_SDC-1450_021081",
+            "start_day": 45,
+            "end_day": 200,
+            "multiplier": 90,
+            "notes": "Native quality-release delay on newly released receipts only. One hundred percent of the lot remains available after the hold; this is not a yield loss, destruction or retroactive hold of existing stock or in-transit material."
+          },
+          {
+            "event_id": "quality_hold_021081_shared_subtier_vd096",
+            "risk_type": "quality_delay",
+            "supplier_id": "SDC-VD0960508A",
+            "item_id": "item:021081",
+            "dst_node_id": "SDC-1450",
+            "edge_id": "edge:SDC-VD0960508A_TO_SDC-1450_021081",
+            "start_day": 45,
+            "end_day": 200,
+            "multiplier": 90,
+            "notes": "Native quality-release delay on newly released receipts only. One hundred percent of the lot remains available after the hold; this is not a yield loss, destruction or retroactive hold of existing stock or in-transit material."
+          },
+          {
+            "event_id": "quality_hold_021081_shared_subtier_vd0972460",
+            "risk_type": "quality_delay",
+            "supplier_id": "SDC-VD0972460A",
+            "item_id": "item:021081",
+            "dst_node_id": "SDC-1450",
+            "edge_id": "edge:SDC-VD0972460A_TO_SDC-1450_021081",
+            "start_day": 45,
+            "end_day": 200,
+            "multiplier": 90,
+            "notes": "Native quality-release delay on newly released receipts only. One hundred percent of the lot remains available after the hold; this is not a yield loss, destruction or retroactive hold of existing stock or in-transit material."
+          }
+        ]
+      },
+      "production_target": {
+        "node_id": "M-1430",
+        "item_id": "item:268967"
+      },
+      "order_target": {
+        "node_id": "SDC-1450",
+        "item_id": "item:021081"
+      },
+      "stock_selectors": [
+        {
+          "file": "production_input_stocks_daily.csv",
+          "node_id": "SDC-1450",
+          "item_id": "item:021081",
+          "column": "stock_end_of_day",
+          "uom": "KG"
+        }
+      ],
+      "solutions": [
+        {
+          "id": "expedited_transport",
+          "label": "Transport accéléré ciblé",
+          "lever_fidelity": "native_simplified",
+          "native_levers": [
+            "expedite_level",
+            "lead_time_adjustment_days"
+          ],
+          "approximation_levers": [
+            "expedited_transport_contract"
+          ],
+          "approximation_notes": "The native engine shortens only the transport portion of newly released shipment lead time and adds an expedite premium. The 90-day quality hold is preserved, no carrier or mode is selected, and material already in transit is not accelerated.",
+          "engine_args": [],
+          "action_windows": [
+            {
+              "start_day": 45,
+              "end_day": 250,
+              "scope": {
+                "supplier_id": "SDC-VD0949099A",
+                "item_id": "item:021081",
+                "dst_node_id": "SDC-1450"
+              },
+              "actions": {
+                "expedite_level": 0.2,
+                "lead_time_adjustment_days": -7
+              }
+            },
+            {
+              "start_day": 45,
+              "end_day": 250,
+              "scope": {
+                "supplier_id": "SDC-VD0960508A",
+                "item_id": "item:021081",
+                "dst_node_id": "SDC-1450"
+              },
+              "actions": {
+                "expedite_level": 0.2,
+                "lead_time_adjustment_days": -7
+              }
+            },
+            {
+              "start_day": 45,
+              "end_day": 250,
+              "scope": {
+                "supplier_id": "SDC-VD0972460A",
+                "item_id": "item:021081",
+                "dst_node_id": "SDC-1450"
+              },
+              "actions": {
+                "expedite_level": 0.2,
+                "lead_time_adjustment_days": -7
+              }
+            }
+          ]
+        },
+        {
+          "id": "second_supplier",
+          "label": "Bascule vers un second fournisseur existant",
+          "lever_fidelity": "native_graph",
+          "native_levers": [
+            "priority_weight"
+          ],
+          "approximation_levers": [],
+          "approximation_notes": "",
+          "engine_args": [],
+          "action_windows": [
+            {
+              "start_day": 45,
+              "end_day": 250,
+              "scope": {
+                "supplier_id": "SDC-VD0949099A",
+                "item_id": "item:021081",
+                "dst_node_id": "SDC-1450"
+              },
+              "actions": {
+                "priority_weight": 0.1
+              }
+            },
+            {
+              "start_day": 45,
+              "end_day": 250,
+              "scope": {
+                "supplier_id": "SDC-VD0960508A",
+                "item_id": "item:021081",
+                "dst_node_id": "SDC-1450"
+              },
+              "actions": {
+                "priority_weight": 0.1
+              }
+            },
+            {
+              "start_day": 45,
+              "end_day": 250,
+              "scope": {
+                "supplier_id": "SDC-VD0972460A",
+                "item_id": "item:021081",
+                "dst_node_id": "SDC-1450"
+              },
+              "actions": {
+                "priority_weight": 0.1
+              }
+            },
+            {
+              "start_day": 45,
+              "end_day": 250,
+              "scope": {
+                "supplier_id": "SDC-VD0975221A",
+                "item_id": "item:021081",
+                "dst_node_id": "SDC-1450"
+              },
+              "actions": {
+                "priority_weight": 8.0
+              }
+            }
+          ]
+        },
+        {
+          "id": "emergency_purchase",
+          "label": "Achat exceptionnel amont",
+          "lever_fidelity": "approximation",
+          "native_levers": [
+            "external_procurement_multiplier"
+          ],
+          "approximation_levers": [
+            "direct_factory_emergency_purchase"
+          ],
+          "approximation_notes": "The native port increases capacity of modeled upstream external replenishment into supplier stock. It is not a new spot supplier delivering directly to SDC-1450.",
+          "engine_args": [],
+          "action_windows": [
+            {
+              "start_day": 45,
+              "end_day": 250,
+              "scope": {
+                "node_id": "SDC-VD0975221A",
+                "supplier_id": "SDC-VD0975221A",
+                "item_id": "item:021081",
+                "dst_node_id": "SDC-VD0975221A"
+              },
+              "actions": {
+                "external_procurement_multiplier": 2.5
+              }
+            }
+          ]
+        },
+        {
+          "id": "targeted_stock",
+          "label": "Stock de sécurité ciblé préventif",
+          "lever_fidelity": "native_engine",
+          "native_levers": [
+            "safety_stock_multiplier"
+          ],
+          "approximation_levers": [],
+          "approximation_notes": "",
+          "prerequisite": "The quality alert is available at measured day 0. The action raises the target for future replenishment; it does not inject stock or alter the paired warm-up state.",
+          "engine_args": [],
+          "action_windows": [
+            {
+              "start_day": 0,
+              "end_day": 200,
+              "scope": {
+                "node_id": "SDC-1450",
+                "item_id": "item:021081"
+              },
+              "actions": {
+                "safety_stock_multiplier": 2.0
+              }
+            },
+            {
+              "start_day": 201,
+              "end_day": 360,
+              "scope": {
+                "node_id": "SDC-1450",
+                "item_id": "item:021081"
+              },
+              "actions": {
+                "safety_stock_multiplier": 1.5
+              }
+            }
+          ]
+        },
+        {
+          "id": "supplier_priority",
+          "label": "Priorisation relative des fournisseurs disponibles",
+          "lever_fidelity": "native_graph",
+          "native_levers": [
+            "priority_weight"
+          ],
+          "approximation_levers": [],
+          "approximation_notes": "",
+          "engine_args": [],
+          "action_windows": [
+            {
+              "start_day": 45,
+              "end_day": 250,
+              "scope": {
+                "supplier_id": "SDC-VD0949099A",
+                "item_id": "item:021081",
+                "dst_node_id": "SDC-1450"
+              },
+              "actions": {
+                "priority_weight": 0.3
+              }
+            },
+            {
+              "start_day": 45,
+              "end_day": 250,
+              "scope": {
+                "supplier_id": "SDC-VD0960508A",
+                "item_id": "item:021081",
+                "dst_node_id": "SDC-1450"
+              },
+              "actions": {
+                "priority_weight": 0.3
+              }
+            },
+            {
+              "start_day": 45,
+              "end_day": 250,
+              "scope": {
+                "supplier_id": "SDC-VD0972460A",
+                "item_id": "item:021081",
+                "dst_node_id": "SDC-1450"
+              },
+              "actions": {
+                "priority_weight": 0.3
+              }
+            },
+            {
+              "start_day": 45,
+              "end_day": 250,
+              "scope": {
+                "supplier_id": "SDC-VD0975221A",
+                "item_id": "item:021081",
+                "dst_node_id": "SDC-1450"
+              },
+              "actions": {
+                "priority_weight": 6.0
+              }
+            }
+          ]
+        },
+        {
+          "id": "replanning",
+          "label": "Replanification MRP/MPS ciblée",
+          "lever_fidelity": "approximation",
+          "native_levers": [
+            "order_multiplier",
+            "production_target_multiplier"
+          ],
+          "approximation_levers": [
+            "finite_capacity_aps_replanning"
+          ],
+          "approximation_notes": "The native ports revise daily MRP demand and production targets. They do not redate firm orders, sequence campaigns or solve a finite-capacity APS problem.",
+          "engine_args": [],
+          "action_windows": [
+            {
+              "start_day": 0,
+              "end_day": 250,
+              "scope": {
+                "node_id": "SDC-1450",
+                "item_id": "item:773474"
+              },
+              "actions": {
+                "production_target_multiplier": 1.2
+              }
+            },
+            {
+              "start_day": 0,
+              "end_day": 250,
+              "scope": {
+                "node_id": "M-1430",
+                "item_id": "item:268967"
+              },
+              "actions": {
+                "production_target_multiplier": 1.15
+              }
+            },
+            {
+              "start_day": 0,
+              "end_day": 250,
+              "scope": {
+                "node_id": "SDC-1450",
+                "item_id": "item:021081"
+              },
+              "actions": {
+                "order_multiplier": 1.15
+              }
+            },
+            {
+              "start_day": 200,
+              "end_day": 500,
+              "scope": {
+                "node_id": "M-1430",
+                "item_id": "item:268967"
+              },
+              "actions": {
+                "production_target_multiplier": 1.15
+              }
+            }
+          ]
+        },
+        {
+          "id": "combined_response",
+          "label": "Plan combiné achats-logistique-stock-production",
+          "lever_fidelity": "mixed",
+          "native_levers": [
+            "safety_stock_multiplier",
+            "production_target_multiplier",
+            "external_procurement_multiplier",
+            "expedite_level",
+            "lead_time_adjustment_days",
+            "priority_weight"
+          ],
+          "approximation_levers": [
+            "direct_factory_emergency_purchase",
+            "finite_capacity_aps_replanning",
+            "expedited_transport_contract"
+          ],
+          "approximation_notes": "Combined native ports; emergency buying, carrier selection and APS replanning retain the same explicit approximations as their isolated variants.",
+          "engine_args": [],
+          "action_windows": [
+            {
+              "start_day": 0,
+              "end_day": 250,
+              "scope": {
+                "node_id": "SDC-1450",
+                "item_id": "item:021081"
+              },
+              "actions": {
+                "safety_stock_multiplier": 1.7
+              }
+            },
+            {
+              "start_day": 45,
+              "end_day": 250,
+              "scope": {
+                "supplier_id": "SDC-VD0949099A",
+                "item_id": "item:021081",
+                "dst_node_id": "SDC-1450"
+              },
+              "actions": {
+                "priority_weight": 0.1,
+                "expedite_level": 0.2,
+                "lead_time_adjustment_days": -7
+              }
+            },
+            {
+              "start_day": 45,
+              "end_day": 250,
+              "scope": {
+                "supplier_id": "SDC-VD0960508A",
+                "item_id": "item:021081",
+                "dst_node_id": "SDC-1450"
+              },
+              "actions": {
+                "priority_weight": 0.1,
+                "expedite_level": 0.2,
+                "lead_time_adjustment_days": -7
+              }
+            },
+            {
+              "start_day": 45,
+              "end_day": 250,
+              "scope": {
+                "supplier_id": "SDC-VD0972460A",
+                "item_id": "item:021081",
+                "dst_node_id": "SDC-1450"
+              },
+              "actions": {
+                "priority_weight": 0.1,
+                "expedite_level": 0.2,
+                "lead_time_adjustment_days": -7
+              }
+            },
+            {
+              "start_day": 45,
+              "end_day": 250,
+              "scope": {
+                "supplier_id": "SDC-VD0975221A",
+                "item_id": "item:021081",
+                "dst_node_id": "SDC-1450"
+              },
+              "actions": {
+                "priority_weight": 8.0,
+                "expedite_level": 0.15,
+                "lead_time_adjustment_days": -5
+              }
+            },
+            {
+              "start_day": 45,
+              "end_day": 250,
+              "scope": {
+                "node_id": "SDC-VD0975221A",
+                "supplier_id": "SDC-VD0975221A",
+                "item_id": "item:021081",
+                "dst_node_id": "SDC-VD0975221A"
+              },
+              "actions": {
+                "external_procurement_multiplier": 2.0
+              }
+            },
+            {
+              "start_day": 0,
+              "end_day": 250,
+              "scope": {
+                "node_id": "SDC-1450",
+                "item_id": "item:773474"
+              },
+              "actions": {
+                "production_target_multiplier": 1.15
+              }
+            },
+            {
+              "start_day": 200,
+              "end_day": 500,
+              "scope": {
+                "node_id": "M-1430",
+                "item_id": "item:268967"
+              },
+              "actions": {
+                "production_target_multiplier": 1.1
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "lead_time_delay_338929_to_268091",
+      "label": "Retard 338929 vers le client 268091",
+      "customer_id": "C-XXXXX",
+      "finished_item_id": "item:268091",
+      "reference_lot_qty": 14400.0,
+      "reference_lot_note": "Native minimum and lot multiple at M-1810; actual lots may be larger up to 142,485 units, so lot-equivalent counts remain approximations.",
+      "recovery_consecutive_days": 7,
+      "backlog_tolerance_qty": 0.000001,
+      "paired_engine_args": [
+        "--opening-observed-stock-scale-csv",
+        "etudecas/prototypes/scan_2027_risk_control/config/canonical_cascade_c2_opening_stock_scales.csv",
+        "--measurement-start-stock-scale-csv",
+        "etudecas/prototypes/scan_2027_risk_control/config/canonical_cascade_c2_measurement_start_scales.csv",
+        "--measurement-start-in-transit-scale-csv",
+        "etudecas/prototypes/scan_2027_risk_control/config/canonical_cascade_c2_measurement_start_scales.csv"
+      ],
+      "native_alternative_supplier_ids": [],
+      "path": [
+        {
+          "kind": "transport",
+          "from": "SDC-VD0914360C",
+          "to": "M-1810",
+          "item_id": "item:338929"
+        },
+        {
+          "kind": "transform",
+          "node_id": "M-1810",
+          "input_item_id": "item:338929",
+          "output_item_id": "item:268091"
+        },
+        {
+          "kind": "transport",
+          "from": "M-1810",
+          "to": "DC-1920",
+          "item_id": "item:268091"
+        },
+        {
+          "kind": "transport",
+          "from": "DC-1920",
+          "to": "C-XXXXX",
+          "item_id": "item:268091"
+        }
+      ],
+      "incident": {
+        "start_day": 0,
+        "end_day": 89,
+        "description": "From measured day 0 through day 89, every newly released shipment of component 338929 receives 35 additional transport days. The paired C2 sensitivity retains 30 percent of measured-J0 on-hand stock and native standard in-transit pipeline on M-1810/338929; the DC-1920/268091 finished-product balance and pipeline remain at their simulated cutover values. Before warm-up, the DC-1920/268091 opening snapshot is scaled to 125 percent so the incident-free reference does not inherit a day-0 backlog unrelated to 338929. External or estimated-source pipelines are unchanged. This moderate demonstrator incident may be absorbed before reaching the client; a physically applied event with no customer backlog is retained as a valid resilience outcome. The delay propagates through M-1810, 268091, DC-1920 and the client when the paired state does not absorb it.",
+        "risk_events": [
+          {
+            "event_id": "transport_delay_338929_primary",
+            "risk_type": "lead_time_extra_days",
+            "supplier_id": "SDC-VD0914360C",
+            "item_id": "item:338929",
+            "dst_node_id": "M-1810",
+            "edge_id": "edge:SDC-VD0914360C_TO_M-1810_338929",
+            "start_day": 0,
+            "end_day": 89,
+            "multiplier": 35,
+            "notes": "Native additive 35-day delay on shipments newly released during measured days 0 to 89. The explicitly documented paired J0 sensitivity scales the pre-existing native standard pipeline before the boundary audit; the incident itself never redates material already in transit. This is a demonstrator stress assumption, not an estimated industrial incident distribution."
+          }
+        ]
+      },
+      "production_target": {
+        "node_id": "M-1810",
+        "item_id": "item:268091"
+      },
+      "order_target": {
+        "node_id": "M-1810",
+        "item_id": "item:338929"
+      },
+      "stock_selectors": [
+        {
+          "file": "production_input_stocks_daily.csv",
+          "node_id": "M-1810",
+          "item_id": "item:338929",
+          "column": "stock_end_of_day",
+          "uom": "UN"
+        }
+      ],
+      "solutions": [
+        {
+          "id": "expedited_transport",
+          "label": "Transport accéléré ciblé",
+          "lever_fidelity": "native_simplified",
+          "native_levers": [
+            "expedite_level",
+            "lead_time_adjustment_days"
+          ],
+          "approximation_levers": [
+            "expedited_transport_contract"
+          ],
+          "approximation_notes": "The native engine shortens newly released shipment lead times and adds an expedite premium, but does not select a carrier or accelerate material already in transit.",
+          "engine_args": [],
+          "action_windows": [
+            {
+              "start_day": 0,
+              "end_day": 99,
+              "scope": {
+                "supplier_id": "SDC-VD0914360C",
+                "item_id": "item:338929",
+                "dst_node_id": "M-1810"
+              },
+              "actions": {
+                "expedite_level": 0.35,
+                "lead_time_adjustment_days": -7
+              }
+            }
+          ]
+        },
+        {
+          "id": "second_supplier_proxy",
+          "label": "Second fournisseur hypothétique par proxy amont",
+          "lever_fidelity": "approximation",
+          "native_levers": [
+            "external_procurement_multiplier"
+          ],
+          "approximation_levers": [
+            "new_second_supplier_lane"
+          ],
+          "approximation_notes": "The canonical graph has exactly one 338929 supplier lane. This variant uses upstream external replenishment as an explicitly labelled proxy; it does not create or validate a real second supplier.",
+          "ranking_eligible": false,
+          "ranking_exclusion_reason": "This is not a graph-native second supplier and must not compete with physically identified business options.",
+          "engine_args": [],
+          "action_windows": [
+            {
+              "start_day": 0,
+              "end_day": 99,
+              "scope": {
+                "node_id": "SDC-VD0914360C",
+                "supplier_id": "SDC-VD0914360C",
+                "item_id": "item:338929",
+                "dst_node_id": "SDC-VD0914360C"
+              },
+              "actions": {
+                "external_procurement_multiplier": 3.0
+              }
+            }
+          ]
+        },
+        {
+          "id": "emergency_purchase",
+          "label": "Achat exceptionnel amont",
+          "lever_fidelity": "approximation",
+          "native_levers": [
+            "external_procurement_multiplier"
+          ],
+          "approximation_levers": [
+            "direct_factory_emergency_purchase"
+          ],
+          "approximation_notes": "The native port increases modeled upstream replenishment capacity at the existing supplier. It is not a direct spot purchase delivered to M-1810.",
+          "engine_args": [],
+          "action_windows": [
+            {
+              "start_day": 0,
+              "end_day": 99,
+              "scope": {
+                "node_id": "SDC-VD0914360C",
+                "supplier_id": "SDC-VD0914360C",
+                "item_id": "item:338929",
+                "dst_node_id": "SDC-VD0914360C"
+              },
+              "actions": {
+                "external_procurement_multiplier": 2.3
+              }
+            }
+          ]
+        },
+        {
+          "id": "targeted_stock",
+          "label": "Stock de sécurité ciblé en réponse",
+          "lever_fidelity": "native_engine",
+          "native_levers": [
+            "safety_stock_multiplier"
+          ],
+          "approximation_levers": [],
+          "approximation_notes": "",
+          "prerequisite": "The alert is available at measured day 0. This lever raises the future replenishment target; it does not inject stock, recreate the J0 pipeline or claim advance warning.",
+          "engine_args": [],
+          "action_windows": [
+            {
+              "start_day": 0,
+              "end_day": 59,
+              "scope": {
+                "node_id": "M-1810",
+                "item_id": "item:338929"
+              },
+              "actions": {
+                "safety_stock_multiplier": 2.0
+              }
+            },
+            {
+              "start_day": 60,
+              "end_day": 159,
+              "scope": {
+                "node_id": "M-1810",
+                "item_id": "item:338929"
+              },
+              "actions": {
+                "safety_stock_multiplier": 1.5
+              }
+            }
+          ]
+        },
+        {
+          "id": "supplier_priority",
+          "label": "Test négatif de priorité sur une branche mono-source",
+          "lever_fidelity": "approximation",
+          "native_levers": [
+            "priority_weight"
+          ],
+          "approximation_levers": [
+            "customer_or_order_priority"
+          ],
+          "approximation_notes": "priority_weight is a relative supplier-lane allocation port. Because 338929 is mono-source it should have no relative effect; it is not customer, order or campaign priority.",
+          "ranking_eligible": false,
+          "ranking_exclusion_reason": "Declared negative control: a relative supplier priority has no alternative lane on 338929.",
+          "engine_args": [],
+          "action_windows": [
+            {
+              "start_day": 0,
+              "end_day": 99,
+              "scope": {
+                "supplier_id": "SDC-VD0914360C",
+                "item_id": "item:338929",
+                "dst_node_id": "M-1810"
+              },
+              "actions": {
+                "priority_weight": 5.0
+              }
+            }
+          ]
+        },
+        {
+          "id": "replanning",
+          "label": "Replanification MRP/MPS ciblée",
+          "lever_fidelity": "approximation",
+          "native_levers": [
+            "order_multiplier",
+            "production_target_multiplier"
+          ],
+          "approximation_levers": [
+            "finite_capacity_aps_replanning"
+          ],
+          "approximation_notes": "The native ports revise daily MRP and production targets but do not redate firm orders or optimize finite-capacity sequence decisions.",
+          "engine_args": [],
+          "action_windows": [
+            {
+              "start_day": 0,
+              "end_day": 29,
+              "scope": {
+                "node_id": "M-1810",
+                "item_id": "item:268091"
+              },
+              "actions": {
+                "production_target_multiplier": 1.2
+              }
+            },
+            {
+              "start_day": 0,
+              "end_day": 99,
+              "scope": {
+                "node_id": "M-1810",
+                "item_id": "item:338929"
+              },
+              "actions": {
+                "order_multiplier": 1.2
+              }
+            },
+            {
+              "start_day": 60,
+              "end_day": 119,
+              "scope": {
+                "node_id": "M-1810",
+                "item_id": "item:268091"
+              },
+              "actions": {
+                "production_target_multiplier": 1.15
+              }
+            }
+          ]
+        },
+        {
+          "id": "combined_response",
+          "label": "Plan combiné achats-logistique-stock-production",
+          "lever_fidelity": "mixed",
+          "native_levers": [
+            "safety_stock_multiplier",
+            "production_target_multiplier",
+            "external_procurement_multiplier",
+            "expedite_level",
+            "lead_time_adjustment_days"
+          ],
+          "approximation_levers": [
+            "new_second_supplier_lane",
+            "direct_factory_emergency_purchase",
+            "finite_capacity_aps_replanning",
+            "expedited_transport_contract"
+          ],
+          "approximation_notes": "No native second 338929 lane exists. The combined case therefore uses external upstream supply as a proxy and retains the documented expedite and APS simplifications.",
+          "engine_args": [],
+          "action_windows": [
+            {
+              "start_day": 0,
+              "end_day": 59,
+              "scope": {
+                "node_id": "M-1810",
+                "item_id": "item:338929"
+              },
+              "actions": {
+                "safety_stock_multiplier": 1.7
+              }
+            },
+            {
+              "start_day": 0,
+              "end_day": 99,
+              "scope": {
+                "supplier_id": "SDC-VD0914360C",
+                "item_id": "item:338929",
+                "dst_node_id": "M-1810"
+              },
+              "actions": {
+                "expedite_level": 0.35,
+                "lead_time_adjustment_days": -7
+              }
+            },
+            {
+              "start_day": 0,
+              "end_day": 99,
+              "scope": {
+                "node_id": "SDC-VD0914360C",
+                "supplier_id": "SDC-VD0914360C",
+                "item_id": "item:338929",
+                "dst_node_id": "SDC-VD0914360C"
+              },
+              "actions": {
+                "external_procurement_multiplier": 3.0
+              }
+            },
+            {
+              "start_day": 0,
+              "end_day": 29,
+              "scope": {
+                "node_id": "M-1810",
+                "item_id": "item:268091"
+              },
+              "actions": {
+                "production_target_multiplier": 1.15
+              }
+            },
+            {
+              "start_day": 60,
+              "end_day": 119,
+              "scope": {
+                "node_id": "M-1810",
+                "item_id": "item:268091"
+              },
+              "actions": {
+                "production_target_multiplier": 1.1
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -5,7 +5,7 @@ import pandas as pd
 from etudecas_agentkit.core.case import CaseStudy
 from etudecas_agentkit.kpi.engine import KPIEngine
 
-from tests.conftest import ROOT
+from .conftest import ROOT
 
 
 def test_kpi_engine_computes_elementary_and_composite_scores():
