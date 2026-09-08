@@ -14,8 +14,13 @@ from etudecas.visualization.maps.chart_payloads import build_line_chart_figure
 
 DEFAULT_TRAJECTORY_FILENAME = "montecarlo_trajectories.json"
 DEFAULT_SAMPLES_FILENAME = "montecarlo_samples.csv"
+DEFAULT_PAIRED_PROPAGATION_FILENAME = "montecarlo_paired_propagation.json"
+DEFAULT_VARIANCE_DECOMPOSITION_FILENAME = "variance_decomposition.json"
+DEFAULT_COST_DIAGNOSTICS_FILENAME = "montecarlo_cost_diagnostics.json"
+DEFAULT_TEMPORAL_PROPAGATION_FILENAME = "montecarlo_temporal_propagation.json"
 FACTOR_TUBE_DISPLAY_LIMIT = 4
 FACTOR_TUBE_GROUP_QUANTILE = 0.20
+FACTOR_TUBE_CANDIDATE_LIMIT = FACTOR_TUBE_DISPLAY_LIMIT * 4
 FACTOR_TUBE_METRIC_TARGETS = {
     "service_rate": "kpi::fill_rate",
     "backlog": "kpi::ending_backlog",
@@ -40,6 +45,9 @@ INPUT_FACTOR_PREFIXES = (
     "demand_item::",
     "capacity_node::",
 )
+EXCLUDED_OPERATIONAL_FACTORS = {
+    "factor::supplier_reliability_scale",
+}
 SPARSE_FACTOR_TUBE_METRICS = {
     "production_delay_active_orders",
     "production_reports",
@@ -51,12 +59,176 @@ TEMPORAL_FACTOR_SELECTION_METRICS = SPARSE_FACTOR_TUBE_METRICS | {
     "supplier_capacity_binding",
 }
 
+VARIANCE_KPI_LABELS = {
+    "kpi::fill_rate": "Disponibilite produit",
+    "kpi::ending_backlog": "Backlog final",
+    "kpi::total_cost": "Cout supply total",
+    "kpi::total_produced": "Production realisee",
+    "kpi::total_supplier_capacity_binding_qty": "Contrainte capacite fournisseur",
+    "kpi::avg_inventory": "Stock moyen",
+}
+
+VARIANCE_FAMILY_LABELS = {
+    "demand": "Demande",
+    "production_capacity": "Capacite usine",
+    "production_stock": "Stock produits finis",
+    "supplier_stock": "Stock fournisseur",
+    "supplier_capacity": "Capacite fournisseur",
+    "supplier_lead_time": "Delai fournisseur",
+    "supplier_reliability": "Fiabilite fournisseur locale",
+    "external_supply_capacity": "Capacite approvisionnement externe",
+    "external_supply_lead_time": "Delai approvisionnement externe",
+    "external_supply_cost": "Cout approvisionnement externe",
+    "purchase_cost": "Prix d'achat",
+    "transport_cost": "Cout transport",
+    "holding_cost": "Cout de possession",
+    "other_global_factors": "Autres parametres globaux",
+}
+
+VARIANCE_FAMILY_COLORS = {
+    "demand": "#2563eb",
+    "production_capacity": "#16a34a",
+    "production_stock": "#0f766e",
+    "supplier_stock": "#0891b2",
+    "supplier_capacity": "#d97706",
+    "supplier_lead_time": "#7c3aed",
+    "supplier_reliability": "#be123c",
+    "external_supply_capacity": "#65a30d",
+    "external_supply_lead_time": "#9333ea",
+    "external_supply_cost": "#c2410c",
+    "purchase_cost": "#0369a1",
+    "transport_cost": "#ea580c",
+    "holding_cost": "#4f46e5",
+    "other_global_factors": "#64748b",
+}
+
+VARIANCE_RESIDUAL_KEY = "interactions_nonlinearities_unexplained"
+VARIANCE_RESIDUAL_LABEL = "Interactions / non-linearites / non expliquee"
+VARIANCE_WARNING = (
+    "Contribution predictive issue des runs Monte Carlo; pas une causalite terrain "
+    "ni une decomposition de Sobol."
+)
+
 
 def _load_json(path: Path) -> dict[str, Any]:
     try:
         return json.loads(path.read_text(encoding="utf-8"))
     except Exception:
         return {}
+
+
+def _clamped_percent(value: Any) -> float:
+    numeric = _as_float(value)
+    if numeric is None:
+        return 0.0
+    return min(100.0, max(0.0, numeric))
+
+
+def _build_variance_decomposition_asset(path: Path) -> dict[str, Any]:
+    """Normalize the optional predictive variance decomposition for the map."""
+
+    empty = {
+        "available": False,
+        "path": str(path),
+        "status": "missing" if not path.exists() else "invalid",
+        "warning": VARIANCE_WARNING,
+        "kpis": [],
+        "figure": None,
+    }
+    if not path.exists():
+        return empty
+    payload = _load_json(path)
+    raw_kpis = payload.get("kpis") if isinstance(payload.get("kpis"), dict) else {}
+    if not raw_kpis:
+        return empty
+
+    kpis: list[dict[str, Any]] = []
+    family_order: list[str] = []
+    for kpi_key, raw_kpi in raw_kpis.items():
+        if not isinstance(raw_kpi, dict) or str(raw_kpi.get("status") or "") != "ok":
+            continue
+        families: list[dict[str, Any]] = []
+        for raw_family in raw_kpi.get("families") or []:
+            if not isinstance(raw_family, dict):
+                continue
+            family_key = str(raw_family.get("family") or "").strip()
+            if not family_key:
+                continue
+            percent = _clamped_percent(raw_family.get("explained_variance_percent"))
+            if percent <= 0.0:
+                continue
+            if family_key not in family_order:
+                family_order.append(family_key)
+            families.append(
+                {
+                    "family": family_key,
+                    "label": VARIANCE_FAMILY_LABELS.get(
+                        family_key,
+                        str(raw_family.get("label") or family_key.replace("_", " ").title()),
+                    ),
+                    "percent": percent,
+                    "factor_count": int(raw_family.get("factor_count") or 0),
+                }
+            )
+        explained_percent = _clamped_percent(raw_kpi.get("explained_percent"))
+        residual_percent = _clamped_percent(raw_kpi.get("residual_interactions_unexplained_percent"))
+        kpis.append(
+            {
+                "kpi": str(kpi_key),
+                "label": VARIANCE_KPI_LABELS.get(str(kpi_key), str(kpi_key).replace("kpi::", "").replace("_", " ").title()),
+                "sample_count": int(raw_kpi.get("sample_count") or 0),
+                "explained_percent": explained_percent,
+                "residual_percent": residual_percent,
+                "families": families,
+            }
+        )
+
+    if not kpis:
+        empty["status"] = "empty"
+        return empty
+
+    series: list[dict[str, Any]] = []
+    for family_key in family_order:
+        values = []
+        label = VARIANCE_FAMILY_LABELS.get(family_key, family_key.replace("_", " ").title())
+        for kpi in kpis:
+            family = next((row for row in kpi["families"] if row["family"] == family_key), None)
+            values.append(float(family["percent"]) if family else 0.0)
+        series.append(
+            {
+                "key": family_key,
+                "label": label,
+                "values": values,
+                "color": VARIANCE_FAMILY_COLORS.get(family_key, "#64748b"),
+            }
+        )
+    series.append(
+        {
+            "key": VARIANCE_RESIDUAL_KEY,
+            "label": VARIANCE_RESIDUAL_LABEL,
+            "values": [float(kpi["residual_percent"]) for kpi in kpis],
+            "color": "#cbd5e1",
+        }
+    )
+
+    return {
+        "available": True,
+        "path": str(path),
+        "status": "available",
+        "schema_version": payload.get("schema_version"),
+        "warning": VARIANCE_WARNING,
+        "method": payload.get("method") if isinstance(payload.get("method"), dict) else {},
+        "source": payload.get("source") if isinstance(payload.get("source"), dict) else {},
+        "kpis": kpis,
+        "figure": {
+            "kind": "stacked_bar_horizontal",
+            "title": "Decomposition predictive de la dispersion Monte Carlo",
+            "x_label": "Part de la dispersion du KPI (%)",
+            "labels": [kpi["label"] for kpi in kpis],
+            "series": series,
+            "warning": VARIANCE_WARNING,
+        },
+    }
 
 
 def _as_float(value: Any) -> float | None:
@@ -67,6 +239,86 @@ def _as_float(value: Any) -> float | None:
     if math.isnan(numeric):
         return None
     return numeric
+
+
+def _build_cost_diagnostics_asset(path: Path) -> dict[str, Any]:
+    """Expose the accounting perimeter separately from exceptional sourcing."""
+
+    empty = {"available": False, "path": str(path), "status": "missing" if not path.exists() else "invalid"}
+    if not path.exists():
+        return empty
+    payload = _load_json(path)
+    total = payload.get("total_cost") if isinstance(payload.get("total_cost"), dict) else {}
+    non_production = (
+        payload.get("cost_without_production")
+        if isinstance(payload.get("cost_without_production"), dict)
+        else {}
+    )
+    exposure = (
+        payload.get("economic_exposure_including_exceptional_supply")
+        if isinstance(payload.get("economic_exposure_including_exceptional_supply"), dict)
+        else {}
+    )
+    components = payload.get("components") if isinstance(payload.get("components"), dict) else {}
+    coupling = (
+        payload.get("production_cost_coupling")
+        if isinstance(payload.get("production_cost_coupling"), dict)
+        else {}
+    )
+    exceptional = (
+        payload.get("exceptional_supply_cost")
+        if isinstance(payload.get("exceptional_supply_cost"), dict)
+        else {}
+    )
+    if not total:
+        return empty
+    return {
+        "available": True,
+        "path": str(path),
+        "status": "available",
+        "sample_count": int(payload.get("sample_count") or 0),
+        "total_cost": total,
+        "cost_without_production": non_production,
+        "exceptional_supply": components.get("exceptional_supply") or {},
+        "economic_exposure": exposure,
+        "production_share": _as_float(coupling.get("median_share_of_total")),
+        "production_amplification": _as_float(coupling.get("mechanical_amplification_factor")),
+        "fixed_production_share_detected": bool(coupling.get("fixed_share_detected")),
+        "production_cost_reading": str(coupling.get("reading") or ""),
+        "exceptional_in_total": bool(exceptional.get("included_in_total_cost")),
+        "accounting_identity_valid": bool(
+            (payload.get("accounting_identity") or {}).get("valid_within_tolerance")
+        ),
+    }
+
+
+def _build_temporal_propagation_asset(path: Path) -> dict[str, Any]:
+    empty = {
+        "available": False,
+        "path": str(path),
+        "status": "missing" if not path.exists() else "invalid",
+        "factors": [],
+    }
+    if not path.exists():
+        return empty
+    payload = _load_json(path)
+    factors = [
+        row
+        for row in (payload.get("factors") or [])
+        if isinstance(row, dict)
+    ]
+    if not factors:
+        return empty
+    return {
+        "available": True,
+        "path": str(path),
+        "status": "available",
+        "schema_version": payload.get("schema_version"),
+        "horizon_days": int(payload.get("horizon_days") or 0),
+        "reading": str(payload.get("reading") or ""),
+        "lotification_status": payload.get("lotification_status") or {},
+        "factors": factors,
+    }
 
 
 def _load_samples(path: Path) -> dict[str, dict[str, str]]:
@@ -143,7 +395,10 @@ def _is_supplier_prediction_factor(raw_factor: str) -> bool:
 
 
 def _is_montecarlo_input_factor(raw_factor: str) -> bool:
-    return raw_factor.startswith(INPUT_FACTOR_PREFIXES)
+    return (
+        raw_factor not in EXCLUDED_OPERATIONAL_FACTORS
+        and raw_factor.startswith(INPUT_FACTOR_PREFIXES)
+    )
 
 
 def _ranked_factor_candidates(summary: dict[str, Any], target_kpi: str, samples: dict[str, dict[str, str]]) -> list[str]:
@@ -159,20 +414,25 @@ def _ranked_factor_candidates(summary: dict[str, Any], target_kpi: str, samples:
         if not isinstance(row, dict):
             continue
         factor = str(row.get("factor") or "")
-        if factor and factor in sample_columns and factor not in ranked:
+        if (
+            factor
+            and factor not in EXCLUDED_OPERATIONAL_FACTORS
+            and factor in sample_columns
+            and factor not in ranked
+        ):
             ranked.append(factor)
     supplier_first = [factor for factor in ranked if _is_supplier_prediction_factor(factor)]
     fallback = [factor for factor in ranked if factor not in supplier_first]
     candidates = supplier_first + fallback
     if candidates:
-        return candidates[:FACTOR_TUBE_DISPLAY_LIMIT]
+        return candidates[:FACTOR_TUBE_CANDIDATE_LIMIT]
 
     discovered = sorted(
         factor
         for factor in sample_columns
         if _is_supplier_prediction_factor(factor)
     )
-    return discovered[:FACTOR_TUBE_DISPLAY_LIMIT]
+    return discovered[:FACTOR_TUBE_CANDIDATE_LIMIT]
 
 
 def _median(values: list[float]) -> float:
@@ -212,6 +472,105 @@ def _reducer_label(reducer: str) -> str:
     if reducer == "mean":
         return "moyenne de groupe"
     return "mediane de groupe"
+
+
+def _float_series(values: Any, length: int) -> list[float]:
+    if not isinstance(values, list):
+        return []
+    clean: list[float] = []
+    for value in values[:length]:
+        numeric = _as_float(value)
+        clean.append(0.0 if numeric is None else numeric)
+    if len(clean) != length:
+        return []
+    return clean
+
+
+def _global_context_for_metric(metric: dict[str, Any], days: list[int]) -> dict[str, Any]:
+    bands = metric.get("bands") if isinstance(metric.get("bands"), dict) else {}
+    if not bands:
+        return {}
+    context_bands: list[dict[str, Any]] = []
+    full_low = _float_series(bands.get("min") or bands.get("p00"), len(days))
+    full_high = _float_series(bands.get("max") or bands.get("p100"), len(days))
+    if not full_low or not full_high:
+        full_band = _min_max_band_from_metric_series(days, metric)
+        if full_band:
+            full_low = _float_series(full_band.get("low"), len(days))
+            full_high = _float_series(full_band.get("high"), len(days))
+    if full_low and full_high:
+        context_bands.append(
+            {
+                "label": "Monte Carlo global min-max",
+                "low": full_low,
+                "high": full_high,
+                "fillcolor": "rgba(100,116,139,0.045)",
+            }
+        )
+    for label, low_key, high_key, fillcolor in [
+        ("Monte Carlo global 5-95%", "p05", "p95", "rgba(15,118,110,0.045)"),
+        ("Monte Carlo global 10-90%", "p10", "p90", "rgba(15,118,110,0.065)"),
+        ("Monte Carlo global 25-75%", "p25", "p75", "rgba(15,118,110,0.095)"),
+    ]:
+        low = _float_series(bands.get(low_key), len(days))
+        high = _float_series(bands.get(high_key), len(days))
+        if low and high:
+            context_bands.append({"label": label, "low": low, "high": high, "fillcolor": fillcolor})
+    median = _float_series(bands.get("p50"), len(days))
+    spread_reference = "min-max" if full_low and full_high else "5-95%"
+    spread_low = full_low or _float_series(bands.get("p05"), len(days))
+    spread_high = full_high or _float_series(bands.get("p95"), len(days))
+    max_spread = (
+        max(abs(high - low) for low, high in zip(spread_low, spread_high))
+        if spread_low and spread_high
+        else 0.0
+    )
+    if max_spread <= 1e-9 and context_bands:
+        first_band = context_bands[0]
+        first_low = _float_series(first_band.get("low"), len(days))
+        first_high = _float_series(first_band.get("high"), len(days))
+        if first_low and first_high:
+            max_spread = max(abs(high - low) for low, high in zip(first_low, first_high))
+    return {
+        "days": days,
+        "bands": context_bands,
+        "median": median,
+        "max_spread": max_spread,
+        "spread_reference": spread_reference,
+    }
+
+
+def _series_correlation(left: list[float], right: list[float]) -> float:
+    n = min(len(left), len(right))
+    if n < 2:
+        return 0.0
+    xs = left[:n]
+    ys = right[:n]
+    mean_x = _mean(xs)
+    mean_y = _mean(ys)
+    centered_x = [value - mean_x for value in xs]
+    centered_y = [value - mean_y for value in ys]
+    denom_x = math.sqrt(sum(value * value for value in centered_x))
+    denom_y = math.sqrt(sum(value * value for value in centered_y))
+    if denom_x <= 1e-12 or denom_y <= 1e-12:
+        return 0.0
+    return float(sum(x * y for x, y in zip(centered_x, centered_y)) / (denom_x * denom_y))
+
+
+def _is_redundant_delta(delta: list[float], existing: list[list[float]]) -> bool:
+    peak = max((abs(value) for value in delta), default=0.0)
+    if peak <= 1e-9:
+        return True
+    for previous in existing:
+        previous_peak = max((abs(value) for value in previous), default=0.0)
+        if previous_peak <= 1e-9:
+            continue
+        relative_peak_gap = abs(peak - previous_peak) / max(peak, previous_peak, 1.0)
+        if relative_peak_gap > 0.08:
+            continue
+        if _series_correlation(delta, previous) >= 0.995:
+            return True
+    return False
 
 
 def _series_by_run(metric: dict[str, Any], days: list[int]) -> tuple[dict[str, list[float]], list[float] | None]:
@@ -283,7 +642,7 @@ def _temporal_effect_factor_candidates(
     ordered = [factor for _, _, factor in scored]
     supplier_first = [factor for factor in ordered if _is_supplier_prediction_factor(factor)]
     fallback = [factor for factor in ordered if factor not in supplier_first]
-    return (supplier_first + fallback)[:FACTOR_TUBE_DISPLAY_LIMIT]
+    return (supplier_first + fallback)[:FACTOR_TUBE_CANDIDATE_LIMIT]
 
 
 def _factor_tube_bands_for_metric(
@@ -316,8 +675,13 @@ def _factor_tube_bands_for_metric(
         )
         if temporal_factors:
             factors = temporal_factors
+    global_context = _global_context_for_metric(metric, days)
+    global_max_spread = float(global_context.get("max_spread") or 0.0) if global_context else 0.0
     bands: list[dict[str, Any]] = []
-    for idx, factor in enumerate(factors):
+    delta_signatures: list[list[float]] = []
+    for factor in factors:
+        if len(bands) >= FACTOR_TUBE_DISPLAY_LIMIT:
+            break
         rows: list[tuple[str, float, list[float]]] = []
         for run_id, sample in samples.items():
             if str(sample.get("is_baseline") or "").strip().lower() in {"1", "true", "yes"}:
@@ -347,11 +711,16 @@ def _factor_tube_bands_for_metric(
             high_medians.append(high_value)
             low_band.append(min(low_value, high_value))
             high_band.append(max(low_value, high_value))
-        max_gap = max(abs(high - low) for low, high in zip(low_band, high_band))
+        delta_series = [high - low for low, high in zip(low_medians, high_medians)]
+        max_gap = max(abs(value) for value in delta_series)
         if max_gap <= 1e-9:
             continue
-        color, fill = FACTOR_TUBE_COLORS[idx % len(FACTOR_TUBE_COLORS)]
+        if _is_redundant_delta(delta_series, delta_signatures):
+            continue
+        delta_signatures.append(delta_series)
+        color, fill = FACTOR_TUBE_COLORS[len(bands) % len(FACTOR_TUBE_COLORS)]
         family, node_id = _factor_node_hint(factor)
+        explained_share = max_gap / global_max_spread if global_max_spread > 1e-9 else None
         bands.append(
             {
                 "factor": factor,
@@ -371,24 +740,27 @@ def _factor_tube_bands_for_metric(
                 "high_group_count": len(high_group),
                 "aggregation": reducer,
                 "aggregation_label": _reducer_label(reducer),
+                "max_gap": max_gap,
+                "explained_share": explained_share,
+                "global_spread_reference": global_context.get("spread_reference") if global_context else "",
             }
         )
     if not bands:
         return None
     return {
         "kind": "factor_tubes",
-        "title": f"{_metric_display_label(metric_key, metric)} - zones temporelles par input incertain",
+        "title": f"{_metric_display_label(metric_key, metric)} - lecture conditionnelle par input incertain",
         "y_label": str(metric.get("y_label") or ""),
         "x_label": "Jour",
         "note": (
-            "Lecture: chaque zone compare les runs ou l'input est bas avec ceux ou il est haut. "
-            "La largeur de la zone montre quand l'incertitude de cet input se propage dans le temps. "
-            "Les courbes ont le meme perimetre que les trajectoires Monte Carlo globales; les inputs affiches sont choisis a partir des drivers KPI disponibles. "
+            "Lecture: fond gris = dispersion Monte Carlo globale. Couleurs = comparaison conditionnelle entre runs ou l'input est bas et runs ou il est haut. "
+            "Cette vue ne doit pas envelopper toutes les trajectoires: elle montre quelle part de la dispersion globale semble associee a un input donne. "
             "Pour les KPI rares en pics, les zones utilisent une moyenne ou un percentile haut de groupe afin de ne pas masquer les evenements tardifs. "
-            "Les autres aleas continuent de varier: c'est une lecture conditionnelle Monte Carlo, pas une preuve causale isolee."
+            "Les autres aleas continuent de varier: ce n'est pas une preuve causale isolee."
         ),
         "days": days,
         "bands": bands,
+        "global_context": global_context,
         "nominal": {"label": "Nominal", "values": nominal or []},
     }
 
@@ -439,6 +811,141 @@ def _build_factor_tube_figures(
         )
         if figure is not None:
             figures[metric_key] = figure
+    return figures
+
+
+def _nominal_values_for_days(
+    *,
+    source_days: list[int],
+    metric: dict[str, Any],
+    target_days: list[int],
+) -> list[float]:
+    nominal = next(
+        (
+            series
+            for series in (metric.get("series") or [])
+            if isinstance(series, dict) and bool(series.get("is_baseline"))
+        ),
+        None,
+    )
+    if not isinstance(nominal, dict):
+        return []
+    values = nominal.get("values") if isinstance(nominal.get("values"), list) else []
+    points = {
+        int(day): float(values[position])
+        for position, day in enumerate(source_days[: len(values)])
+    }
+    output: list[float] = []
+    previous = 0.0
+    for day in target_days:
+        previous = points.get(int(day), previous)
+        output.append(previous)
+    return output
+
+
+def _build_paired_factor_tube_figures(
+    *,
+    payload: dict[str, Any],
+    source_days: list[int],
+    metrics: dict[str, Any],
+) -> dict[str, Any]:
+    if payload.get("method") != "paired_controlled_runs":
+        return {}
+    paired_days = [int(day) for day in (payload.get("days") or [])]
+    paired_metrics = payload.get("metrics") if isinstance(payload.get("metrics"), dict) else {}
+    if not paired_days or not paired_metrics:
+        return {}
+    uncertainty = float(payload.get("input_relative_uncertainty") or 0.20)
+    figures: dict[str, Any] = {}
+    for metric_key in FACTOR_TUBE_METRIC_TARGETS:
+        paired_metric = paired_metrics.get(metric_key)
+        source_metric = metrics.get(metric_key)
+        if not isinstance(paired_metric, dict) or not isinstance(source_metric, dict):
+            continue
+        nominal_values = _nominal_values_for_days(
+            source_days=source_days,
+            metric=source_metric,
+            target_days=paired_days,
+        )
+        bands: list[dict[str, Any]] = []
+        paired_factors = [row for row in (paired_metric.get("factors") or []) if isinstance(row, dict)]
+        metric_max_width = max((abs(float(row.get("max_width") or 0.0)) for row in paired_factors), default=0.0)
+        display_threshold = max(1e-9, metric_max_width * 0.005)
+        for index, factor_data in enumerate(paired_factors):
+            if not isinstance(factor_data, dict):
+                continue
+            if str(factor_data.get("factor") or "") in EXCLUDED_OPERATIONAL_FACTORS:
+                continue
+            if abs(float(factor_data.get("max_width") or 0.0)) < display_threshold:
+                continue
+            context_low = factor_data.get("low") if isinstance(factor_data.get("low"), list) else []
+            context_high = factor_data.get("high") if isinstance(factor_data.get("high"), list) else []
+            context_center = factor_data.get("center") if isinstance(factor_data.get("center"), list) else []
+            if not context_low or not context_high or not context_center:
+                continue
+            length = min(len(context_low), len(context_high), len(context_center), len(nominal_values))
+            low: list[float] = []
+            high: list[float] = []
+            for position in range(length):
+                nominal_value = float(nominal_values[position])
+                low_value = nominal_value + float(context_low[position]) - float(context_center[position])
+                high_value = nominal_value + float(context_high[position]) - float(context_center[position])
+                if bool(source_metric.get("zero_floor")):
+                    low_value = max(0.0, low_value)
+                    high_value = max(0.0, high_value)
+                if metric_key == "service_rate":
+                    low_value = max(0.0, min(100.0, low_value))
+                    high_value = max(0.0, min(100.0, high_value))
+                low.append(min(low_value, high_value))
+                high.append(max(low_value, high_value))
+            factor = str(factor_data.get("factor") or "")
+            family = str(factor_data.get("family") or "global")
+            node_id = str(factor_data.get("node_id") or "")
+            color, fill = FACTOR_TUBE_COLORS[index % len(FACTOR_TUBE_COLORS)]
+            bands.append(
+                {
+                    "factor": factor,
+                    "label": _factor_label(factor),
+                    "family": family,
+                    "node_id": node_id,
+                    "highlight_node_ids": [node_id] if node_id else [],
+                    "low": low,
+                    "high": high,
+                    "center": nominal_values[:length],
+                    "line_color": color,
+                    "fillcolor": fill,
+                    "low_input": factor_data.get("input_low", 1.0 - uncertainty),
+                    "reference_input": factor_data.get("input_reference", 1.0),
+                    "high_input": factor_data.get("input_high", 1.0 + uncertainty),
+                    "background_count": int(factor_data.get("background_count") or 0),
+                    "aggregation": "paired_effect_p10_p90",
+                    "aggregation_label": "effet apparie P10-P90",
+                    "max_gap": factor_data.get("max_width"),
+                }
+            )
+        if not bands:
+            continue
+        figures[metric_key] = {
+            "kind": "factor_tubes",
+            "method": "paired_controlled_runs",
+            "paired_controlled": True,
+            "title": f"{_metric_display_label(metric_key, source_metric)} - effet marginal controle",
+            "y_label": str(source_metric.get("y_label") or ""),
+            "x_label": "Jour",
+            "note": (
+                "Chaque zone isole l'effet d'un seul parametre, toutes choses egales par ailleurs. "
+                "Les valeurs basse, centrale et haute suivent la plage metier affichee pour ce parametre; "
+                f"a defaut, la plage de repli est +/-{uncertainty * 100:.0f}%. "
+                "La bande P10-P90 agrege plusieurs contextes Monte Carlo apparies puis applique cet effet autour du nominal. "
+                "C'est un effet marginal local: il ne doit pas couvrir l'enveloppe Monte Carlo globale, ou plusieurs aleas "
+                "et leurs interactions varient simultanement."
+            ),
+            "days": paired_days,
+            "bands": bands,
+            "nominal": {"label": "Nominal", "values": nominal_values},
+            "background_count": int(payload.get("background_count") or 0),
+            "paired_run_count": int(payload.get("run_count") or 0),
+        }
     return figures
 
 
@@ -604,12 +1111,21 @@ def build_montecarlo_trajectory_assets(summary_json: Path) -> dict[str, Any]:
 
     summary = _load_json(summary_json)
     trajectories_path = summary_json.with_name(DEFAULT_TRAJECTORY_FILENAME)
+    variance_path = summary_json.with_name(DEFAULT_VARIANCE_DECOMPOSITION_FILENAME)
+    cost_path = summary_json.with_name(DEFAULT_COST_DIAGNOSTICS_FILENAME)
+    temporal_path = summary_json.with_name(DEFAULT_TEMPORAL_PROPAGATION_FILENAME)
+    variance_decomposition = _build_variance_decomposition_asset(variance_path)
+    cost_diagnostics = _build_cost_diagnostics_asset(cost_path)
+    temporal_propagation = _build_temporal_propagation_asset(temporal_path)
     if not trajectories_path.exists():
         return {
             "available": False,
             "path": str(trajectories_path),
             "figures": {},
             "factor_tube_figures": {},
+            "variance_decomposition": variance_decomposition,
+            "cost_diagnostics": cost_diagnostics,
+            "temporal_propagation": temporal_propagation,
             "overview_bundle": None,
         }
 
@@ -622,6 +1138,9 @@ def build_montecarlo_trajectory_assets(summary_json: Path) -> dict[str, Any]:
             "path": str(trajectories_path),
             "figures": {},
             "factor_tube_figures": {},
+            "variance_decomposition": variance_decomposition,
+            "cost_diagnostics": cost_diagnostics,
+            "temporal_propagation": temporal_propagation,
             "overview_bundle": None,
         }
 
@@ -685,12 +1204,26 @@ def build_montecarlo_trajectory_assets(summary_json: Path) -> dict[str, Any]:
         if bundle
         else []
     )
-    factor_tube_figures = _build_factor_tube_figures(
-        summary_json=summary_json,
-        summary=summary,
-        days=days,
+    paired_path = summary_json.with_name(DEFAULT_PAIRED_PROPAGATION_FILENAME)
+    paired_payload = _load_json(paired_path) if paired_path.exists() else {}
+    paired_days = [int(day) for day in (paired_payload.get("days") or [])]
+    same_scenario = str(paired_payload.get("scenario_id") or "") == str(summary.get("scenario_id") or "")
+    same_horizon = bool(paired_days and days and paired_days[-1] == days[-1])
+    if paired_payload and (not same_scenario or not same_horizon):
+        paired_payload = {}
+    factor_tube_figures = _build_paired_factor_tube_figures(
+        payload=paired_payload,
+        source_days=days,
         metrics=metrics,
     )
+    factor_tube_source = "paired_controlled_runs" if factor_tube_figures else "conditional_montecarlo_fallback"
+    if not factor_tube_figures:
+        factor_tube_figures = _build_factor_tube_figures(
+            summary_json=summary_json,
+            summary=summary,
+            days=days,
+            metrics=metrics,
+        )
 
     return {
         "available": bool(bundle),
@@ -701,6 +1234,11 @@ def build_montecarlo_trajectory_assets(summary_json: Path) -> dict[str, Any]:
         "days": days,
         "figures": figures,
         "factor_tube_figures": factor_tube_figures,
+        "factor_tube_source": factor_tube_source,
+        "paired_propagation_path": str(paired_path) if paired_path.exists() else "",
+        "variance_decomposition": variance_decomposition,
+        "cost_diagnostics": cost_diagnostics,
+        "temporal_propagation": temporal_propagation,
         "metric_summaries": metric_summaries,
         "overview_bundle": {"bundle": overview_entries} if len(overview_entries) > 1 else (overview_entries[0]["asset"] if overview_entries else None),
     }

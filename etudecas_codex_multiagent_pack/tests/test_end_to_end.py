@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from etudecas_agentkit.cli import run
 
-from tests.conftest import ROOT
+from .conftest import ROOT
 
 
 def test_end_to_end_case_runs():

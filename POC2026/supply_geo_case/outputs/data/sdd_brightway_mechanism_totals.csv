@@ -1,9 +1,0 @@
-mechanism,label,delta_kgco2e,amount_delta,row_count,share_of_delta_pct
-capacity_energy,capacity energy,6253.277500149,7356.797059,92829,54.24621
-scrap_rework,scrap rework,2180.153756538,803.942431939,60468,18.912495
-backup_material,backup material,1344.345149506,3478.436878,63751,11.661985
-disruption_energy_overhead,disruption energy overhead,1114.076902446,11140.769022247,152527,9.664444
-maintenance,maintenance,891.261521758,11140.769020223,152347,7.731555
-scrap_treatment,scrap treatment,115.442103739,805.59747381,60111,1.001442
-premium_transport,premium transport,64.600950205,78781.6465837,210,0.560403
-recycling_credit,recycling credit,-435.573745495,601.525776832,60468,-3.778535

@@ -29,6 +29,84 @@ and inflated in the browser before initialization.
 Requires a recent browser with `DecompressionStream("gzip")`, such as recent
 Edge or Chrome.
 
+## Optional RESILIENCE-SCAN dashboard
+
+To add the research-results tab and its curated curves to a generated map, pass
+the final SCAN validation package:
+
+```bash
+python etudecas/visualization/maps/build_supplychain_worldmap.py \
+  --scan-results-dir path/to/real_release_candidate_strict_final_v6 \
+  --closed-loop-results-dir path/to/canonical_closed_loop_campaign \
+  --compress-embedded-payload \
+  --output path/to/resilience_scan_map.html
+```
+
+The `RESILIENCE-SCAN` button appears only when `--scan-results-dir` contains a
+valid package with `run_manifest.json`. The resulting HTML is self-contained:
+selected PNG curves, summary metrics, policy tables and scientific limitations
+are embedded in the map. When `--closed-loop-results-dir` contains a paired
+canonical campaign, a separate `Boucle fermee` pane presents the strict J to
+J+1 audit, paired MRP deltas and controller diagnostics. The pane confirms a
+causal loop only when every feedback seed has the authoritative engine claim,
+the representative summary reports zero demand-profile look-ahead and the
+future-access flag is false; otherwise it displays an explicit contract warning.
+It does not relabel the older precomputed schedules as closed-loop. Campaign
+directories remain outside Git.
+
+Closed-Loop V2 is additive and never replaces that historical pane:
+
+```bash
+python etudecas/visualization/maps/build_supplychain_worldmap.py \
+  --scan-results-dir path/to/scan_package \
+  --closed-loop-results-dir path/to/v1_campaign \
+  --closed-loop-v2-results-dir path/to/v2_protocol_or_validation_campaign \
+  --compress-embedded-payload \
+  --output path/to/resilience_scan_with_v2.html
+```
+
+The V2 argument accepts either the protocol root written by
+`canonical_closed_loop_v2.py` or its `validation` campaign directory. A distinct
+`Closed-Loop V2` pane is added only when the package is valid; omitting the
+argument preserves the previous tabs and dashboard payload.
+
+Frequency-domain evidence is also optional and additive:
+
+```bash
+python etudecas/visualization/maps/build_supplychain_worldmap.py \
+  --scan-results-dir path/to/scan_package \
+  --closed-loop-results-dir path/to/v1_campaign \
+  --closed-loop-v2-results-dir path/to/v2_protocol_or_validation_campaign \
+  --scan-frequency-results-dir path/to/canonical_frequency_package \
+  --compress-embedded-payload \
+  --output path/to/resilience_scan_with_frequency_analysis.html
+```
+
+The frequency package must contain either
+`canonical_frequency_protocol.json` or `canonical_frequency_manifest.json`,
+plus non-empty `canonical_frequency_response.csv`,
+`canonical_frequency_resonances.csv` and
+`canonical_frequency_stability.csv`. When that contract is complete, a distinct
+`Analyse fréquentielle` pane is added after the closed-loop panes. It can embed
+the following curated figures when present:
+
+- `canonical_frequency_excitation_response.png`;
+- `canonical_frequency_bode_frf.png`;
+- `canonical_frequency_coherence.png`;
+- `canonical_frequency_resonances.png`;
+- `canonical_frequency_time_frequency.png`;
+- `canonical_frequency_stability.png`.
+
+  The pane deliberately reports `global_stability_claimed=false` and presents
+  the designed results as empirical, regime-conditioned harmonic-line
+  responses, not isolated LTI FRFs, poles, or classical margins. Only rows
+  whose baseline and excited feedback arms keep the same day-by-day regime
+  trace are labeled as compatible at the tested amplitude only. No row is
+  labeled as a local small-signal derivative without an amplitude sweep toward
+  zero and invariant plant/controller active sets. An
+absent or incomplete package adds no pane and leaves the historical SCAN,
+cold-start, closed-loop V1 and Closed-Loop V2 views unchanged.
+
 ## Autonomous chunked HTML
 
 Recommended for large 5-year maps:
@@ -92,3 +170,50 @@ scenario already present in `metrics.csv`. It does not run the Python simulation
 engine inside the browser. It also displays the standard simulation request
 contract for the selected scenario. A truly live simulator should be implemented
 as a local API or a Pyodide/WebWorker app layer on top of that same contract.
+
+## Audit fournisseur et criticité
+
+La carte analyse par défaut les classeurs d'audit fournisseur placés dans
+`etudecas/data/source/`. Le fichier
+`Trame d'audit fournisseur finalisé.xlsx` est prioritaire sur une ancienne trame
+portant le même identifiant fournisseur.
+Lorsqu'un identifiant fournisseur `VD...` est trouvé dans la trame :
+
+- les 28 critères et les 6 familles d'audit sont ajoutés à la fiche du fournisseur
+  dans le mode `Criticité fournisseurs` ;
+- l'onglet `Audit fournisseur`, affiché en premier, donne accès à la synthèse,
+  au `Contexte public`, aux trois radars par famille (`Maturité`, `Criticité`,
+  `Résilience`) et au tableau complet des 28 critères ;
+- maturité, criticité `P x I` et délai de résilience sont ramenés sur une échelle
+  commune par la formule documentée dans la fiche ;
+- un indice croisé indicatif conserve 70 % de criticité structurelle et ajoute
+  30 % d'audit réel ou d'estimation ; le rang principal reste 100 % structurel
+  afin de rester comparable entre les 29 fournisseurs.
+
+Le référentiel est présenté sur la fiche de tous les fournisseurs du graphe. Si
+un fournisseur n'a pas encore de trame renseignée, ses 28 critères sont estimés
+par des proxys documentés (simulation, concentration des sources, délais et
+contexte public). Le statut `estimation proxy` et la confiance empêchent toute
+confusion avec un audit ; les réponses d'un autre fournisseur ne sont jamais
+recopiées.
+
+Le sélecteur et les fiches n'affichent que les matricules `SDC-VD...`. Les noms,
+adresses et raisons sociales utilisés pour la recherche documentaire ne sont pas
+présentés dans l'interface.
+
+Les faits documentaires retenus sont conservés dans
+`etudecas/data/source/supplier_public_evidence.csv`. Chaque ligne est rattachée
+au seul matricule et précise le type de signal, la date, la portée (site, entité,
+groupe ou réseau), le niveau de confiance, le statut de vérification, une synthèse
+anonymisée et la référence source. Les URL restent dans ce registre interne et
+ne sont ni embarquées ni affichées dans la carte. L'absence de fait retenu n'est
+jamais interprétée comme une absence d'incident.
+
+Le sélecteur `Audit fournisseur` permet d'ouvrir directement les 29 fiches, y
+compris celles des fournisseurs sans coordonnées et donc sans marqueur sur la carte.
+
+Pour ajouter les audits restants, placer un classeur renseigné par fournisseur
+dans ce dossier avec son identifiant `VD...`. Un fichier ou un autre dossier peut
+aussi être fourni avec `--supplier-audit-xlsx`; une valeur vide désactive la
+source. Chaque classeur doit avoir été recalculé et enregistré dans Excel, car le
+lecteur utilise les résultats de formules mis en cache dans le XLSX.

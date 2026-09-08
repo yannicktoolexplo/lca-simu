@@ -1,0 +1,85 @@
+{
+  "review_period_days": 7,
+  "controller_horizon_days": 28,
+  "controller_scenarios": 48,
+  "policy_comparison_scenarios": 100,
+  "risk_aversion": 0.55,
+  "cvar_quantile": 0.9,
+  "nominal": {
+    "raw_inventory_days": 3.0,
+    "finished_inventory_days": 1.2,
+    "pipeline_days": 4.0,
+    "supplier_capacity_ratio": 1.12,
+    "production_capacity_ratio": 1.1,
+    "base_lead_time_days": 5.0
+  },
+  "uncertainty": {
+    "demand_sigma": 0.08,
+    "supply_sigma": 0.1,
+    "capacity_sigma": 0.06,
+    "lead_time_sigma": 0.12,
+    "risk_sigma": 0.12,
+    "temporal_correlation": 0.7
+  },
+  "risk_dynamics": {
+    "stress_memory": 0.86,
+    "nervousness_gain": 0.44,
+    "pressure_gain": 0.38,
+    "expedite_gain": 0.22,
+    "relief_gain": 0.32,
+    "stress_to_risk_gain": 1.75,
+    "risk_to_capacity_loss": 0.42,
+    "risk_to_lead_time": 0.75
+  },
+  "controller_weights": {
+    "service_loss": 10.0,
+    "backlog_area": 5.0,
+    "inventory_area": 0.12,
+    "nervousness": 1.8,
+    "supplier_risk": 2.0,
+    "risk_creation": 6.0,
+    "expedite": 0.9,
+    "action_magnitude": 0.45,
+    "inventory_shortfall": 2.4,
+    "terminal_inventory_shortfall": 8.0,
+    "terminal_pipeline_shortfall": 2.0
+  },
+  "limits": {
+    "min_service": 0.92,
+    "max_backlog_days": 4.0,
+    "max_order_ratio": 1.55,
+    "max_production_ratio": 1.35,
+    "max_expedite": 0.4,
+    "min_order_gain": -0.18,
+    "max_order_gain": 0.28,
+    "min_production_gain": -0.1,
+    "max_production_gain": 0.22
+  },
+  "regime_thresholds": {
+    "material_tension_days": 0.85,
+    "capacity_saturation": 0.94,
+    "supplier_risk": 0.68,
+    "supplier_stress": 0.72,
+    "oscillation_nervousness": 0.38,
+    "crisis_backlog_days": 1.6,
+    "recovery_backlog_days": 0.15,
+    "overstock_days": 7.0
+  },
+  "physical_risk_mapping": {
+    "availability_loss_at_unit_risk": 0.55,
+    "capacity_loss_at_unit_risk": 0.42,
+    "lead_extra_fraction_of_nominal_at_unit_risk": 1.1,
+    "quality_yield_loss_at_unit_risk": 0.24,
+    "purchase_cost_increase_at_unit_risk": 0.35,
+    "transport_cost_increase_at_unit_risk": 0.22,
+    "severity_backlog_scale": 25.0,
+    "severity_fill_loss_scale": 0.025,
+    "minimum_interval_half_width": 0.04,
+    "maximum_interval_half_width": 0.35,
+    "conformal_alpha": 0.1,
+    "forecast_validity_days": 30.0,
+    "forecast_decay_days": 30.0,
+    "long_horizon_prior_center": 0.12,
+    "long_horizon_prior_half_width": 0.25
+  }
+}

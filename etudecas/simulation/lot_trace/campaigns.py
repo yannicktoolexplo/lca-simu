@@ -3,18 +3,28 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import Any
 
+from .causality import CAMPAIGN_CAUSAL_FIELDS, causal_status, join_ids
+
 
 PRODUCTION_CAMPAIGN_FIELDS = [
     "campaign_id",
     "record_type",
+    "semantics_version",
     "node_id",
     "output_item_id",
+    "process_tau_days",
+    "release_gate_mode",
     "status",
     "status_label",
+    "campaign_started_day",
     "first_event_day",
+    "first_execution_day",
+    "last_execution_day",
     "first_delay_day",
     "last_delay_day",
+    "last_release_day",
     "completed_day",
+    "completion_basis",
     "delay_event_count",
     "delay_day_count",
     "delay_span_days",
@@ -23,11 +33,14 @@ PRODUCTION_CAMPAIGN_FIELDS = [
     "requested_qty",
     "started_qty",
     "actual_qty",
+    "remaining_qty",
+    "wip_qty",
     "requested_lot_starts",
     "actual_lot_starts",
     "lot_policy_modes",
     "completed_lot_ids",
     "completed_lot_qty",
+    "released_batch_count",
     "blocked_lot_qty",
     "max_daily_shortfall_qty",
     "repeated_daily_shortfall_qty",
@@ -37,6 +50,7 @@ PRODUCTION_CAMPAIGN_FIELDS = [
     "first_event_type",
     "last_event_type",
     "notes",
+    *CAMPAIGN_CAUSAL_FIELDS,
 ]
 
 CAMPAIGN_DELAY_EVENT_TYPES = {
@@ -73,6 +87,43 @@ def _synthetic_order_id(row: dict[str, Any]) -> str:
     return f"ORDER-{node_id}-{output_item_id}-D{_as_day(row)}-{event_type}"
 
 
+def _compact_plan_release_rows(
+    rows: list[dict[str, Any]],
+    *,
+    campaign_id: str,
+) -> list[dict[str, Any]]:
+    """Return exact physical batch releases recorded by compact plan events.
+
+    Compact runs intentionally omit the lot ledger.  Their plan-event schema
+    nevertheless records a physical ``released_qty`` and a stable ``batch_id``
+    once execution of a batch is complete.  We use that evidence only when the
+    whole lot-event input is absent.  A repeated or anonymous release cannot be
+    counted exactly, so it is rejected instead of being turned into a synthetic
+    lot or an inferred batch.
+    """
+
+    release_rows: list[dict[str, Any]] = []
+    released_batch_ids: set[str] = set()
+    for row in rows:
+        if _qty(row, "released_qty") <= LOT_TRACE_EPS:
+            continue
+        batch_id = str(row.get("batch_id") or "").strip()
+        if not batch_id:
+            raise ValueError(
+                "Compact production release lacks batch_id; "
+                f"campaign {campaign_id!r} cannot be summarized exactly"
+            )
+        if batch_id in released_batch_ids:
+            raise ValueError(
+                "Compact production release repeats batch_id; "
+                f"campaign {campaign_id!r}, batch {batch_id!r} cannot be "
+                "summarized without double counting"
+            )
+        released_batch_ids.add(batch_id)
+        release_rows.append(row)
+    return release_rows
+
+
 def build_production_campaign_rows(
     production_plan_event_rows: list[dict[str, Any]],
     lot_event_rows: list[dict[str, Any]],
@@ -101,6 +152,7 @@ def build_production_campaign_rows(
         rows_by_campaign[campaign_id].append(row_copy)
         record_type_by_campaign[campaign_id] = record_type
 
+    lot_trace_available = bool(lot_event_rows)
     output_lots_by_campaign: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for row in lot_event_rows:
         if str(row.get("event_type") or "") != "production_output":
@@ -130,12 +182,63 @@ def build_production_campaign_rows(
         output_lot_rows = sorted(output_lots_by_campaign.get(campaign_id, []), key=lambda row: _as_day(row))
         output_lot_ids = [str(row.get("lot_id") or "") for row in output_lot_rows if str(row.get("lot_id") or "")]
         output_lot_qty = sum(_qty(row, "qty") for row in output_lot_rows)
+        compact_release_rows = (
+            []
+            if lot_trace_available
+            else _compact_plan_release_rows(
+                ordered_rows,
+                campaign_id=campaign_id,
+            )
+        )
+        release_evidence_rows = (
+            output_lot_rows if lot_trace_available else compact_release_rows
+        )
+        release_evidence_qty = (
+            output_lot_qty
+            if lot_trace_available
+            else sum(_qty(row, "released_qty") for row in compact_release_rows)
+        )
+        released_batch_count = (
+            len(output_lot_ids)
+            if lot_trace_available
+            else len(compact_release_rows)
+        )
         first_event_day = _as_day(first_row)
+        campaign_started_day = min(
+            (
+                int(round(_to_float(row.get("campaign_started_day"), _as_day(row))))
+                for row in ordered_rows
+                if str(row.get("campaign_started_day") or "").strip()
+            ),
+            default=first_event_day,
+        )
+        first_execution_day = min((_as_day(row) for row in run_rows), default="")
+        last_execution_day = max((_as_day(row) for row in run_rows), default="")
         first_delay_day = min((_as_day(row) for row in delay_rows), default="")
         last_delay_day = max((_as_day(row) for row in delay_rows), default="")
-        completed_day = min((_as_day(row) for row in output_lot_rows), default="")
-        if completed_day == "" and run_rows:
-            completed_day = min(_as_day(row) for row in run_rows)
+        last_release_day = max(
+            (_as_day(row) for row in release_evidence_rows),
+            default="",
+        )
+        final_row = ordered_rows[-1]
+        remaining_qty = _qty(final_row, "campaign_remaining_end_qty")
+        wip_qty = _qty(final_row, "wip_end_qty")
+        remaining_raw = final_row.get("campaign_remaining_end_qty")
+        has_explicit_remaining = remaining_raw is not None and str(remaining_raw).strip() != ""
+        campaign_complete = bool(release_evidence_rows) and (
+            (has_explicit_remaining and remaining_qty <= LOT_TRACE_EPS)
+            or str(final_row.get("event_type") or "") == "run_campaign_complete"
+        )
+        completed_day = last_release_day if campaign_complete else ""
+        completion_basis = (
+            (
+                "last_released_physical_lot"
+                if lot_trace_available
+                else "last_released_physical_batch_from_plan_event"
+            )
+            if campaign_complete
+            else ""
+        )
         planned_qty = max(
             [_qty(row, "planned_qty_after_lot_rule") for row in ordered_rows]
             + [_qty(row, "planned_qty_before") for row in ordered_rows]
@@ -154,16 +257,32 @@ def build_production_campaign_rows(
             planned_qty = requested_qty
         requested_lot_starts = max((_qty(row, "requested_lot_starts") for row in ordered_rows), default=0.0)
         actual_lot_starts = sum(_qty(row, "actual_lot_starts") for row in ordered_rows)
-        actual_qty = output_lot_qty if output_lot_qty > LOT_TRACE_EPS else sum(_qty(row, "actual_qty") for row in run_rows)
+        actual_qty = (
+            release_evidence_qty
+            if release_evidence_qty > LOT_TRACE_EPS
+            else sum(_qty(row, "actual_qty") for row in run_rows)
+        )
         max_shortfall = max((_qty(row, "shortfall_vs_lot_plan_qty") for row in delay_rows), default=0.0)
         repeated_shortfall = sum(_qty(row, "shortfall_vs_lot_plan_qty") for row in delay_rows)
         delay_days = sorted({_as_day(row) for row in delay_rows})
-        if output_lot_rows and delay_rows:
+        if campaign_complete and delay_rows:
             status = "completed_after_delay"
             status_label = "Produit apres report"
-        elif output_lot_rows:
+        elif campaign_complete:
             status = "completed_without_delay"
             status_label = "Produit sans report"
+        elif release_evidence_rows and delay_rows:
+            status = "partially_released_blocked"
+            status_label = "Partiellement libere, campagne encore contrainte"
+        elif release_evidence_rows:
+            status = "partially_released_in_progress"
+            status_label = "Partiellement libere, campagne en cours"
+        elif run_rows and delay_rows:
+            status = "in_progress_delayed"
+            status_label = "Encours de fabrication contraint"
+        elif run_rows:
+            status = "in_progress_wip"
+            status_label = "Encours de fabrication"
         elif delay_rows:
             status = "still_blocked" if record_type_by_campaign.get(campaign_id) == "campaign" else "not_started_blocked"
             status_label = "Toujours bloque" if status == "still_blocked" else "Ordre non lance"
@@ -188,24 +307,87 @@ def build_production_campaign_rows(
             if first_delay_day != "" and last_delay_day != ""
             else 0
         )
-        notes = "shortfall fields are daily planning signals; blocked_lot_qty counts the delayed lot once"
+        semantics_versions = sorted(
+            {
+                str(row.get("semantics_version") or "")
+                for row in ordered_rows
+                if str(row.get("semantics_version") or "")
+            }
+        )
+        semantics_version = "|".join(semantics_versions) or "legacy-daily-output"
+        process_tau_days = max((_qty(row, "process_tau_days") for row in ordered_rows), default=0.0)
+        release_gate_modes = sorted(
+            {
+                str(row.get("release_gate_mode") or "")
+                for row in ordered_rows
+                if str(row.get("release_gate_mode") or "")
+            }
+        )
+        release_gate_mode = "|".join(release_gate_modes) or "legacy_daily_output"
+        notes = (
+            "daily actual_qty is executed work; completed lots are released physical stock; "
+            "shortfall fields are daily planning signals; blocked_lot_qty counts the delayed batch once"
+        )
+        if lot_trace_available:
+            notes += "; release_evidence=lot_trace_production_output"
+        else:
+            notes += (
+                "; release_evidence=production_plan_released_batch; "
+                "compact evidence has no physical lot identifier or genealogy"
+            )
         if record_type_by_campaign.get(campaign_id) == "order_request":
             notes = "order request blocked before campaign creation; " + notes
         blocked_lot_qty = max_shortfall
         if status in {"still_blocked", "not_started_blocked"}:
             blocked_lot_qty = max(blocked_lot_qty, requested_qty, planned_qty)
+        planned_order_id = next(
+            (str(row.get("planned_order_id") or "") for row in ordered_rows if row.get("planned_order_id")),
+            "",
+        )
+        causal_event_ids = join_ids(
+            *(row.get("causal_event_ids") for row in ordered_rows),
+            *(row.get("causal_event_ids") for row in output_lot_rows),
+        )
+        causal_root_ids = join_ids(
+            *(row.get("causal_root_ids") for row in ordered_rows),
+            *(row.get("causal_root_ids") for row in output_lot_rows),
+        )
+        scenario_id = next(
+            (
+                str(row.get("scenario_id") or "")
+                for row in [*ordered_rows, *output_lot_rows]
+                if row.get("scenario_id")
+            ),
+            "",
+        )
+        baseline_reference_id = next(
+            (
+                str(row.get("baseline_reference_id") or "")
+                for row in ordered_rows
+                if row.get("baseline_reference_id")
+            ),
+            planned_order_id,
+        )
         out.append(
             {
                 "campaign_id": campaign_id,
                 "record_type": record_type_by_campaign.get(campaign_id, "campaign"),
+                "semantics_version": semantics_version,
                 "node_id": str(first_row.get("node_id") or ""),
                 "output_item_id": str(first_row.get("output_item_id") or ""),
+                "process_tau_days": round(process_tau_days, 6),
+                "release_gate_mode": release_gate_mode,
                 "status": status,
                 "status_label": status_label,
+                "campaign_started_day": campaign_started_day,
                 "first_event_day": first_event_day,
+                "first_execution_day": first_execution_day,
+                "last_execution_day": last_execution_day,
                 "first_delay_day": first_delay_day,
                 "last_delay_day": last_delay_day,
+                "last_release_day": last_release_day,
                 "completed_day": completed_day,
+                "completion_basis": completion_basis,
                 "delay_event_count": len(delay_rows),
                 "delay_day_count": len(delay_days),
                 "delay_span_days": delay_span_days,
@@ -214,11 +396,14 @@ def build_production_campaign_rows(
                 "requested_qty": round(requested_qty, 6),
                 "started_qty": round(started_qty, 6),
                 "actual_qty": round(actual_qty, 6),
+                "remaining_qty": round(remaining_qty, 6),
+                "wip_qty": round(wip_qty, 6),
                 "requested_lot_starts": round(requested_lot_starts, 6),
                 "actual_lot_starts": round(actual_lot_starts, 6),
                 "lot_policy_modes": "|".join(lot_policy_modes),
                 "completed_lot_ids": "|".join(output_lot_ids),
-                "completed_lot_qty": round(output_lot_qty, 6),
+                "completed_lot_qty": round(release_evidence_qty, 6),
+                "released_batch_count": released_batch_count,
                 "blocked_lot_qty": round(blocked_lot_qty, 6),
                 "max_daily_shortfall_qty": round(max_shortfall, 6),
                 "repeated_daily_shortfall_qty": round(repeated_shortfall, 6),
@@ -228,6 +413,15 @@ def build_production_campaign_rows(
                 "first_event_type": str(first_row.get("event_type") or ""),
                 "last_event_type": str(ordered_rows[-1].get("event_type") or ""),
                 "notes": notes,
+                "scenario_id": scenario_id,
+                "planned_order_id": planned_order_id,
+                "causal_event_ids": causal_event_ids,
+                "causal_root_ids": causal_root_ids or causal_event_ids,
+                "causal_status": causal_status(
+                    causal_event_ids,
+                    root_ids=causal_root_ids,
+                ),
+                "baseline_reference_id": baseline_reference_id,
             }
         )
     return sorted(
@@ -248,7 +442,13 @@ def deferred_orders_from_campaign_rows(
     visible_items = visible_finished_product_items or set()
     for row in campaign_rows:
         status = str(row.get("status") or "")
-        if status not in {"completed_after_delay", "still_blocked", "not_started_blocked"}:
+        if status not in {
+            "completed_after_delay",
+            "still_blocked",
+            "not_started_blocked",
+            "partially_released_blocked",
+            "in_progress_delayed",
+        }:
             continue
         output_item = str(row.get("output_item_id") or "")
         if visible_items and output_item not in visible_items:

@@ -86,6 +86,7 @@ CANONICAL_DATA_ARTIFACTS: tuple[ArtifactSpec, ...] = (
     ArtifactSpec("production_factory_nervousness.csv", "diagnostics", "factory_nervousness", "node_item"),
     ArtifactSpec("production_lot_events.csv", "lots", "lot_events", "event", True),
     ArtifactSpec("production_lot_genealogy.csv", "lots", "lot_genealogy", "genealogy", True),
+    ArtifactSpec("lot_causal_links.csv", "lots", "lot_causal_links", "causal_relation"),
     ArtifactSpec("lot_path_audit_issues.csv", "diagnostics", "lot_path_audit", "issue"),
     ArtifactSpec("supplier_risk_events_applied_daily.csv", "events", "supplier_risk_applied", "day_node_item"),
     ArtifactSpec("supplier_state_dependent_risk_events.csv", "events", "supplier_risk_configured", "event"),

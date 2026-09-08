@@ -81,3 +81,115 @@ def test_montecarlo_summary_fallback_prefers_more_compatible_runs(tmp_path, monk
     resolved = pipeline.resolve_montecarlo_summary_for_map(output_dir)
 
     assert resolved == high_run_summary
+
+
+@pytest.mark.parametrize("control_mode", ["none", "schedule", "feedback"])
+def test_direct_simulation_forwards_only_the_requested_control_source(
+    tmp_path,
+    monkeypatch,
+    control_mode,
+) -> None:
+    calls: list[tuple[object, ...]] = []
+    monkeypatch.setattr(
+        pipeline,
+        "run_python",
+        lambda script, *args: calls.append((script, *args)),
+    )
+    for name in [
+        "build_component_stock_artifacts",
+        "build_finished_goods_stock_artifacts",
+        "build_component_stock_source_truth_reports",
+        "build_finished_goods_stock_source_truth_reports",
+        "export_run_package",
+    ]:
+        monkeypatch.setattr(pipeline, name, lambda **kwargs: None)
+
+    schedule = tmp_path / "daily controls.csv" if control_mode == "schedule" else None
+    policy = tmp_path / "state feedback.json" if control_mode == "feedback" else None
+    pipeline.run_direct_simulation(
+        input_graph=tmp_path / "graph.json",
+        output_dir=tmp_path / "run",
+        scenario_id="scn:BASE",
+        days=10,
+        skip_map=True,
+        skip_plots=False,
+        control_schedule_csv=schedule,
+        control_policy_json=policy,
+    )
+
+    assert len(calls) == 1
+    command = list(calls[0][1:])
+    if schedule is None:
+        assert "--control-schedule-csv" not in command
+    else:
+        flag_index = command.index("--control-schedule-csv")
+        assert command[flag_index + 1] == pipeline.repo_rel(schedule)
+    if policy is None:
+        assert "--control-policy-json" not in command
+    else:
+        flag_index = command.index("--control-policy-json")
+        assert command[flag_index + 1] == pipeline.repo_rel(policy)
+    assert "--seed" not in command
+    assert "--common-random-numbers" not in command
+    assert "--no-common-random-numbers" not in command
+
+
+def test_direct_simulation_rejects_mixed_open_and_closed_loop_controls(
+    tmp_path,
+) -> None:
+    with pytest.raises(ValueError, match="mutually exclusive"):
+        pipeline.run_direct_simulation(
+            input_graph=tmp_path / "graph.json",
+            output_dir=tmp_path / "run",
+            scenario_id="scn:BASE",
+            days=10,
+            skip_map=True,
+            skip_plots=True,
+            control_schedule_csv=tmp_path / "schedule.csv",
+            control_policy_json=tmp_path / "policy.json",
+        )
+
+
+@pytest.mark.parametrize(
+    ("common_random_numbers", "expected_flag"),
+    [
+        (True, "--common-random-numbers"),
+        (False, "--no-common-random-numbers"),
+    ],
+)
+def test_direct_simulation_forwards_typed_randomness_controls(
+    tmp_path,
+    monkeypatch,
+    common_random_numbers,
+    expected_flag,
+) -> None:
+    calls: list[tuple[object, ...]] = []
+    monkeypatch.setattr(
+        pipeline,
+        "run_python",
+        lambda script, *args: calls.append((script, *args)),
+    )
+    for name in [
+        "build_component_stock_artifacts",
+        "build_finished_goods_stock_artifacts",
+        "build_component_stock_source_truth_reports",
+        "build_finished_goods_stock_source_truth_reports",
+        "export_run_package",
+    ]:
+        monkeypatch.setattr(pipeline, name, lambda **kwargs: None)
+
+    pipeline.run_direct_simulation(
+        input_graph=tmp_path / "graph.json",
+        output_dir=tmp_path / "run",
+        scenario_id="scn:BASE",
+        days=10,
+        skip_map=True,
+        skip_plots=True,
+        seed=2027,
+        common_random_numbers=common_random_numbers,
+    )
+
+    command = list(calls[0][1:])
+    seed_index = command.index("--seed")
+    assert command[seed_index + 1] == "2027"
+    assert expected_flag in command
