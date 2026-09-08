@@ -62,10 +62,16 @@ SUPPLIER_PREDICTION_GLOBAL_SUBJECTS = {
     "lead_time_scale",
     "supplier_stock_scale",
     "supplier_capacity_scale",
-    "supplier_reliability_scale",
     "external_procurement_daily_cap_days_scale",
     "external_procurement_lead_days_scale",
     "transport_cost_scale",
+}
+
+# Applying one reliability multiplier to every supplier at once is a systemic
+# stress scenario, not an operational supplier driver. Keep it readable for
+# backward-compatible files, but exclude it from operational attribution.
+EXCLUDED_OPERATIONAL_FACTORS = {
+    "factor::supplier_reliability_scale",
 }
 
 CONTEXT_GLOBAL_SUBJECTS = {
@@ -130,6 +136,10 @@ def _factor_label(raw_factor: str) -> str:
     if family == "global":
         return global_labels.get(subject, subject.replace("_", " "))
     return f"{label} {subject}"
+
+
+def _is_operational_factor(raw_factor: str) -> bool:
+    return str(raw_factor or "") not in EXCLUDED_OPERATIONAL_FACTORS
 
 
 def _factor_business_scope(raw_factor: str) -> tuple[str, str]:
@@ -257,6 +267,8 @@ def _build_drivers(summary: dict[str, Any]) -> tuple[dict[str, list[dict[str, An
             if not isinstance(row, dict):
                 continue
             raw_factor = str(row.get("factor") or "")
+            if not _is_operational_factor(raw_factor):
+                continue
             corr = _to_float(row.get("correlation"))
             abs_corr = _to_float(row.get("absolute_correlation"), abs(corr) if not math.isnan(corr) else 0.0)
             if math.isnan(corr):
@@ -633,6 +645,8 @@ def _correlated_factors_payload(
     source = "summary.factor_kpi_correlations_pearson"
     if isinstance(raw, dict) and raw:
         for factor, target_corrs in raw.items():
+            if not _is_operational_factor(str(factor)):
+                continue
             if not isinstance(target_corrs, dict):
                 continue
             for target, corr_value in target_corrs.items():
@@ -673,6 +687,8 @@ def _sample_correlations(rows: list[dict[str, str]]) -> dict[str, list[dict[str,
     for metric in kpi_cols:
         entries = []
         for factor in factor_cols:
+            if not _is_operational_factor(factor):
+                continue
             pairs: list[tuple[float, float]] = []
             for row in distribution_rows:
                 x = _to_float(row.get(factor))
@@ -834,6 +850,8 @@ def _build_uncertainty_propagation(
         metric_rows: list[dict[str, Any]] = []
         baseline = _kpi_baseline_value(rows, metric)
         for factor, stats in factor_stats.items():
+            if not _is_operational_factor(factor):
+                continue
             pairs: list[tuple[float, float]] = []
             for row in distribution_rows:
                 x = _to_float(row.get(factor))

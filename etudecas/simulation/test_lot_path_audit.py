@@ -114,6 +114,145 @@ class LotPathAuditTest(unittest.TestCase):
         self.assertFalse([row for row in issues if row["severity"] == "error"], issues)
         self.assertTrue([row for row in issues if row["kind"] == "lane_receipts_without_trace_parent"], issues)
 
+    def test_multi_day_wip_reconciles_consumption_at_campaign_level(self) -> None:
+        events = [
+            self._event("E0", -3, "opening_stock", "LOT-RM", "F-1", "item:RM-1", 100.0, 100.0, "opening_stock", "seed"),
+            self._event("E1", -2, "production_consume", "LOT-RM", "F-1", "item:RM-1", 30.0, 70.0, "opening_stock", "F-1|item:PF"),
+            self._event("E2", -1, "production_consume", "LOT-RM", "F-1", "item:RM-1", 30.0, 40.0, "opening_stock", "F-1|item:PF"),
+            self._event("E3", 0, "production_consume", "LOT-RM", "F-1", "item:RM-1", 40.0, 0.0, "opening_stock", "F-1|item:PF"),
+            self._event("E4", 0, "production_output", "LOT-PF", "F-1", "item:PF", 100.0, 100.0, "production_output", "F-1|item:PF"),
+        ]
+        for event in events[1:]:
+            event["production_campaign_id"] = "CMP-PRE-J0"
+        genealogy = [
+            {
+                "day": 0,
+                "link_type": "production",
+                "parent_lot_id": "LOT-RM",
+                "parent_node_id": "F-1",
+                "parent_item_id": "item:RM-1",
+                "child_lot_id": "LOT-PF",
+                "child_node_id": "F-1",
+                "child_item_id": "item:PF",
+                "parent_qty": 100.0,
+                "child_qty": 100.0,
+                "allocation_share": 1.0,
+                "source_id": "F-1|item:PF",
+                "production_campaign_id": "CMP-PRE-J0",
+                "notes": "semantics=campaign-batch-wip-release-v1;batch_id=CMP-PRE-J0-B001",
+            }
+        ]
+
+        issues = self._run_audit(events, genealogy)
+
+        self.assertFalse([row for row in issues if row["severity"] == "error"], issues)
+
+    def test_reference_transition_event_is_a_valid_production_consumption(self) -> None:
+        campaign_id = "CMP-1"
+        events = [
+            {
+                **self._event(
+                    "E1",
+                    0,
+                    "opening_stock",
+                    "LOT-P",
+                    "F-1",
+                    "item:EX-PACK",
+                    100.0,
+                    100.0,
+                    "opening_stock",
+                    "seed",
+                ),
+                "production_campaign_id": "",
+            },
+            {
+                **self._event(
+                    "E2",
+                    1,
+                    "production_consume_reference_transition",
+                    "LOT-P",
+                    "F-1",
+                    "item:EX-PACK",
+                    100.0,
+                    0.0,
+                    "opening_stock",
+                    campaign_id,
+                ),
+                "production_campaign_id": campaign_id,
+            },
+            {
+                **self._event(
+                    "E3",
+                    1,
+                    "production_output",
+                    "LOT-C",
+                    "F-1",
+                    "item:PF",
+                    1000.0,
+                    1000.0,
+                    "production_output",
+                    campaign_id,
+                ),
+                "production_campaign_id": campaign_id,
+            },
+        ]
+        genealogy = [
+            {
+                "day": 1,
+                "link_type": "production",
+                "parent_lot_id": "LOT-P",
+                "parent_node_id": "F-1",
+                "parent_item_id": "item:EX-PACK",
+                "child_lot_id": "LOT-C",
+                "child_node_id": "F-1",
+                "child_item_id": "item:PF",
+                "parent_qty": 100.0,
+                "child_qty": 1000.0,
+                "allocation_share": 1.0,
+                "source_id": campaign_id,
+                "production_campaign_id": campaign_id,
+                "notes": "",
+            }
+        ]
+
+        issues = self._run_audit(events, genealogy)
+
+        self.assertFalse([row for row in issues if row["severity"] == "error"], issues)
+
+    def test_multi_day_wip_campaign_quantity_mismatch_is_reported(self) -> None:
+        events = [
+            self._event("E0", -1, "opening_stock", "LOT-RM", "F-1", "item:RM-1", 100.0, 100.0, "opening_stock", "seed"),
+            self._event("E1", 0, "production_consume", "LOT-RM", "F-1", "item:RM-1", 90.0, 10.0, "opening_stock", "F-1|item:PF"),
+            self._event("E2", 0, "production_output", "LOT-PF", "F-1", "item:PF", 100.0, 100.0, "production_output", "F-1|item:PF"),
+        ]
+        for event in events[1:]:
+            event["production_campaign_id"] = "CMP-1"
+        genealogy = [
+            {
+                "day": 0,
+                "link_type": "production",
+                "parent_lot_id": "LOT-RM",
+                "parent_node_id": "F-1",
+                "parent_item_id": "item:RM-1",
+                "child_lot_id": "LOT-PF",
+                "child_node_id": "F-1",
+                "child_item_id": "item:PF",
+                "parent_qty": 100.0,
+                "child_qty": 100.0,
+                "allocation_share": 1.0,
+                "source_id": "F-1|item:PF",
+                "production_campaign_id": "CMP-1",
+                "notes": "semantics=campaign-batch-wip-release-v1;batch_id=CMP-1-B001",
+            }
+        ]
+
+        issues = self._run_audit(events, genealogy)
+
+        self.assertTrue(
+            [row for row in issues if row["kind"] == "production_wip_link_campaign_consume_qty_mismatch"],
+            issues,
+        )
+
     def _run_audit(self, events: list[dict[str, object]], genealogy: list[dict[str, object]]) -> list[dict[str, str]]:
         repo_root = Path(__file__).resolve().parents[2]
         with tempfile.TemporaryDirectory() as tmp:

@@ -1,0 +1,13 @@
+{
+  "schema_version": "etudecas.supplier_v8_v2_to_stage3_v3_chain.v1.stage3_go.v1",
+  "decision": "WAIT_FOR_EXPLICIT_GO",
+  "approved_by": "",
+  "approved_at_utc": "",
+  "stage3_inventory_signature": "d56761c3cdd704ec9d31bb2b452ee5dea25e9cdcf1e87c67d787a09e20b5a442",
+  "chain_wrapper_sha256": "451e3ab5e7a5f737db6d9375242ca88a179aff65aa2db39bd7ced63c217529b6",
+  "campaign_root": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_operating_point_full_campaign_v8_exposure_stratified_20260906_v2",
+  "results_dir": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_operating_point_full_campaign_v8_results_20260906_v2",
+  "stage3_supervision_dir": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_v8_stage3_supervision_20260906_v3",
+  "final_html": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\OUVRIR_DEMONSTRATION_RISQUES_FOURNISSEURS_V8_STAGE2_20260906_V3.html",
+  "operator_note_fr": "Modele inerte : copier vers le chemin GO officiel seulement apres accord, puis renseigner l'approbateur, l'horodatage et decision=GO_STAGE3_V3."
+}

@@ -300,7 +300,7 @@ def build_generic_payload_contract(payload: dict[str, Any]) -> dict[str, Any]:
             "lot_events": len(lot_trace.get("events", []) or []),
             "lot_nodes": len(lot_trace.get("lots", {}) or {}),
             "simulation_diagnostics_sections": len(payload.get("simulation_diagnostics", {}) or {}),
-            "scenario_comparison_charts": len((payload.get("scenario_comparison", {}) or {}).get("charts", {}) or {}),
+            "scenario_comparison_figures": len((payload.get("scenario_comparison", {}) or {}).get("figures", {}) or {}),
         },
     }
 

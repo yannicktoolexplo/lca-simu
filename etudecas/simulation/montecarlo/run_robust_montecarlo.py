@@ -23,7 +23,15 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 RUNNER = Path("etudecas/simulation/montecarlo/run_montecarlo_analysis.py")
-DEFAULT_PROFILES = ("workshop", "risk_probe", "stress_probe", "breakpoint_probe")
+DEFAULT_PROFILES = ("workshop", "risk_probe", "stress_probe", "portfolio_probe", "breakpoint_probe")
+PROFILE_RANK = {
+    "workshop": 0,
+    "risk_probe": 1,
+    "stress_probe": 2,
+    "portfolio_probe": 2,
+    "breakpoint_probe": 3,
+    "legacy": 1,
+}
 
 
 def parse_args() -> argparse.Namespace:
@@ -48,6 +56,11 @@ def parse_args() -> argparse.Namespace:
         "--final-profile",
         default="auto",
         help="auto or one explicit profile. auto selects the most informative non-catastrophic profile.",
+    )
+    parser.add_argument(
+        "--sensitivity-calibration-json",
+        default="",
+        help="Optional calibration JSON from supplier sensitivity. Used as a minimum profile floor.",
     )
     parser.add_argument("--probe-runs", type=int, default=8, help="Runs per profile for the screening step.")
     parser.add_argument("--final-runs", type=int, default=60, help="Runs for the selected final profile.")
@@ -97,6 +110,39 @@ def load_json(path: Path) -> dict[str, Any]:
 def write_json(path: Path, data: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+
+
+def load_calibration(path: str) -> dict[str, Any]:
+    if not path:
+        return {}
+    candidate = Path(path)
+    if not candidate.exists():
+        candidate = REPO_ROOT / candidate
+    if not candidate.exists():
+        return {"status": "missing", "source_json": path}
+    try:
+        calibration = load_json(candidate)
+    except Exception as exc:
+        return {"status": "invalid", "source_json": str(candidate), "reason": str(exc)}
+    if isinstance(calibration, dict):
+        calibration["source_json"] = str(candidate)
+        return calibration
+    return {"status": "invalid", "source_json": str(candidate)}
+
+
+def profile_floor(calibration: dict[str, Any]) -> str:
+    profile = str(calibration.get("recommended_profile") or "").strip()
+    return profile if profile in PROFILE_RANK else ""
+
+
+def apply_profile_floor(profiles: list[str], floor: str) -> list[str]:
+    if not floor:
+        return profiles
+    floor_rank = PROFILE_RANK.get(floor, 0)
+    filtered = [p for p in profiles if PROFILE_RANK.get(p, 0) >= floor_rank]
+    if floor not in filtered:
+        filtered.insert(0, floor)
+    return filtered or [floor]
 
 
 def to_float(value: Any, default: float = 0.0) -> float:
@@ -190,6 +236,11 @@ def assess_profile(samples_csv: Path, profile: str) -> dict[str, Any]:
     cost_spread_ratio = max(0.0, cost_p95 - cost_p05) / base_cost
     binding_ratio = binding_p95 / demand_ref
     failure_ratio = len(failed) / max(1, len(rows))
+    degraded_99_ratio = (
+        sum(1 for value in fill if value < 0.99) / float(len(fill))
+        if fill
+        else 0.0
+    )
 
     variation_score = (
         0.30 * clamp01(service_loss_tail / 0.08)
@@ -206,12 +257,23 @@ def assess_profile(samples_csv: Path, profile: str) -> dict[str, Any]:
         and binding_ratio < 0.001
         and cost_spread_ratio < 0.025
     )
-    catastrophic = (
-        failure_ratio > 0.25
-        or service_loss_median > 0.12
-        or ((fill_p50 or 1.0) < 0.88)
-        or backlog_ratio > 0.20
-    )
+    if profile == "portfolio_probe":
+        # Portfolio probing deliberately mixes near-nominal, cost-only and
+        # severe supplier scenarios. A bad tail is expected; what would make it
+        # unusable is most runs failing or the median network being destroyed.
+        catastrophic = (
+            failure_ratio > 0.25
+            or service_loss_median > 0.12
+            or ((fill_p50 or 1.0) < 0.88)
+            or degraded_99_ratio > 0.45
+        )
+    else:
+        catastrophic = (
+            failure_ratio > 0.25
+            or service_loss_median > 0.12
+            or ((fill_p50 or 1.0) < 0.88)
+            or backlog_ratio > 0.20
+        )
     target_distance = abs(variation_score - 0.38)
     status = "useful"
     if too_weak:
@@ -237,6 +299,7 @@ def assess_profile(samples_csv: Path, profile: str) -> dict[str, Any]:
         "cost_spread_ratio_p05_p95": round(cost_spread_ratio, 6),
         "supplier_capacity_binding_ratio_p95": round(binding_ratio, 8),
         "failure_ratio": round(failure_ratio, 6),
+        "fill_rate_below_99_ratio": round(degraded_99_ratio, 6),
         "samples_csv": repo_rel(samples_csv),
     }
 
@@ -269,6 +332,7 @@ def run_base_montecarlo(
     workers: int,
     keep_run_artifacts: bool,
     simulator_extra_args: list[str],
+    sensitivity_calibration_json: str,
 ) -> None:
     cmd = [
         sys.executable,
@@ -296,6 +360,8 @@ def run_base_montecarlo(
         cmd.append("--save-trajectories")
         cmd.extend(["--trajectory-max-points", str(trajectory_max_points)])
         cmd.extend(["--trajectory-display-runs", str(trajectory_display_runs)])
+    if sensitivity_calibration_json:
+        cmd.extend(["--sensitivity-calibration-json", sensitivity_calibration_json])
     if keep_run_artifacts:
         cmd.append("--keep-run-artifacts")
     for token in simulator_extra_args:
@@ -309,6 +375,10 @@ def copy_selected_artifacts(source_dir: Path, selected_dir: Path) -> None:
         "montecarlo_summary.json",
         "montecarlo_samples.csv",
         "montecarlo_trajectories.json",
+        "montecarlo_paired_propagation.json",
+        "montecarlo_temporal_propagation.json",
+        "variance_decomposition.json",
+        "montecarlo_cost_diagnostics.json",
         "montecarlo_report.md",
         "montecarlo_failed_runs.csv",
     ]:
@@ -327,9 +397,13 @@ def main() -> None:
     profiles = [p.strip() for p in str(args.profiles or "").split(",") if p.strip()]
     if not profiles:
         profiles = list(DEFAULT_PROFILES)
+    calibration = load_calibration(args.sensitivity_calibration_json)
+    calibration_floor = profile_floor(calibration)
     explicit_profile = args.final_profile if args.final_profile != "auto" else ""
     if explicit_profile and explicit_profile not in profiles:
         profiles.append(explicit_profile)
+    if not explicit_profile:
+        profiles = apply_profile_floor(profiles, calibration_floor)
 
     assessments: list[dict[str, Any]] = []
     if args.final_profile == "auto" and args.probe_runs > 0:
@@ -351,6 +425,7 @@ def main() -> None:
                 workers=args.workers,
                 keep_run_artifacts=args.keep_profile_artifacts,
                 simulator_extra_args=args.simulator_extra_arg,
+                sensitivity_calibration_json=args.sensitivity_calibration_json,
             )
             assessments.append(assess_profile(probe_dir / "montecarlo_samples.csv", profile))
     selected_profile = explicit_profile or choose_profile(assessments, "stress_probe")
@@ -372,6 +447,7 @@ def main() -> None:
         workers=args.workers,
         keep_run_artifacts=args.keep_profile_artifacts,
         simulator_extra_args=args.simulator_extra_arg,
+        sensitivity_calibration_json=args.sensitivity_calibration_json,
     )
     final_assessment = assess_profile(final_dir / "montecarlo_samples.csv", selected_profile)
     if not assessments:
@@ -386,12 +462,23 @@ def main() -> None:
         "days": args.days,
         "seed": args.seed,
         "profiles_probed": profiles,
+        "sensitivity_calibration": {
+            "source_json": calibration.get("source_json", args.sensitivity_calibration_json),
+            "status": calibration.get("status", ""),
+            "recommended_profile": calibration.get("recommended_profile", ""),
+            "sensitivity_strength_score": calibration.get("sensitivity_strength_score"),
+            "reason": calibration.get("reason", ""),
+        },
         "probe_runs": args.probe_runs,
         "final_runs": args.final_runs,
         "workers": args.workers,
         "selected_profile": selected_profile,
         "selected_summary_json": repo_rel(final_dir / "montecarlo_summary.json"),
         "selected_trajectories_json": repo_rel(final_dir / "montecarlo_trajectories.json"),
+        "selected_paired_propagation_json": repo_rel(final_dir / "montecarlo_paired_propagation.json"),
+        "selected_temporal_propagation_json": repo_rel(final_dir / "montecarlo_temporal_propagation.json"),
+        "selected_variance_decomposition_json": repo_rel(final_dir / "variance_decomposition.json"),
+        "selected_cost_diagnostics_json": repo_rel(final_dir / "montecarlo_cost_diagnostics.json"),
         "profile_assessments": assessments,
         "final_assessment": final_assessment,
         "selection_rule": (
@@ -409,6 +496,10 @@ def main() -> None:
         f"- Workers: **{args.workers}**",
         f"- Selected summary: `{repo_rel(final_dir / 'montecarlo_summary.json')}`",
         f"- Selected trajectories: `{repo_rel(final_dir / 'montecarlo_trajectories.json')}`",
+        f"- Paired propagation: `{repo_rel(final_dir / 'montecarlo_paired_propagation.json')}`",
+        f"- Temporal propagation: `{repo_rel(final_dir / 'montecarlo_temporal_propagation.json')}`",
+        f"- Variance decomposition: `{repo_rel(final_dir / 'variance_decomposition.json')}`",
+        f"- Cost diagnostics: `{repo_rel(final_dir / 'montecarlo_cost_diagnostics.json')}`",
         "",
         "## Profile assessments",
         "",

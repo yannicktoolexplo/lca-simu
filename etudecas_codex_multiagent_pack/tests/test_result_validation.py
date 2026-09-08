@@ -5,7 +5,7 @@ import pandas as pd
 from etudecas_agentkit.core.config_loader import load_yaml
 from etudecas_agentkit.validation.result_checks import ResultValidator
 
-from tests.conftest import ROOT
+from .conftest import ROOT
 
 
 def test_result_validator_accepts_scores_in_bounds():

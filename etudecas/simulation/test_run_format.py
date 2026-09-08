@@ -139,6 +139,47 @@ class RunFormatExportTest(unittest.TestCase):
             manifest = json.loads((package_dir / "run_manifest.json").read_text(encoding="utf-8"))
             self.assertEqual(manifest["capabilities"]["lot_trace_enabled"], False)
 
+    def test_export_run_package_marks_companion_risk_artifacts_available(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            output_dir = root / "result"
+            graph_path = root / "graph.json"
+            _write_json(
+                graph_path,
+                {
+                    "nodes": [{"id": "S1"}, {"id": "M1"}],
+                    "edges": [{"id": "E1", "from": "S1", "to": "M1", "items": ["item:A"]}],
+                },
+            )
+            _write_json(
+                output_dir / "summaries" / "first_simulation_summary.json",
+                {
+                    "scenario_id": "scn:base",
+                    "sim_days": 1,
+                    "timeline_days": 1,
+                    "policy": {
+                        "output_profile": "compact",
+                        "lot_trace_enabled": True,
+                        "supplier_state_dependent_risk": {"enabled": False},
+                        "supplier_risk": {"enabled": False},
+                    },
+                    "counts": {"nodes": 2, "edges": 1},
+                    "kpis": {},
+                },
+            )
+            _write_csv(output_dir / "data" / "first_simulation_daily.csv", [{"day": 0, "demand": 0}])
+            _write_json(
+                output_dir / "scenario_runs" / "state_dependent_full" / "run" / "run_manifest.json",
+                {"capabilities": {"state_dependent_risk_enabled": True}},
+            )
+            _write_json(output_dir / "supplier_criticality" / "supplier_criticality_summary.json", {"rows": []})
+
+            package_dir = export_run_package(output_dir=output_dir, input_graph=graph_path)
+
+            manifest = json.loads((package_dir / "run_manifest.json").read_text(encoding="utf-8"))
+            self.assertEqual(manifest["capabilities"]["state_dependent_risk_enabled"], True)
+            self.assertEqual(manifest["capabilities"]["supplier_risk_enabled"], True)
+
 
 if __name__ == "__main__":
     unittest.main()

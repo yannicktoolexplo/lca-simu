@@ -16,11 +16,17 @@ try:
         UPSTREAM_INTERNAL_SITE_IDS,
         canonical_node_id,
     )
+    from etudecas.simulation.analysis.audit_lot_trace_semantics import (
+        audit_acceptance_semantics,
+    )
 except ModuleNotFoundError:
     sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
     from etudecas.case_config import (
         UPSTREAM_INTERNAL_SITE_IDS,
         canonical_node_id,
+    )
+    from etudecas.simulation.analysis.audit_lot_trace_semantics import (
+        audit_acceptance_semantics,
     )
 
 
@@ -34,7 +40,18 @@ CREATION_PRIORITY = {
     "opening_stock": 5,
     "stock_reconciliation": 6,
 }
-DEPLETION_EVENTS = {"production_consume", "lane_ship", "demand_service", "writeoff", "supplier_writeoff"}
+PRODUCTION_CONSUME_EVENTS = {
+    "production_consume",
+    "production_consume_reference_transition",
+}
+DEPLETION_EVENTS = {
+    *PRODUCTION_CONSUME_EVENTS,
+    "lane_ship",
+    "demand_service",
+    "writeoff",
+    "supplier_writeoff",
+    "measurement_start_stock_reduction",
+}
 
 
 def parse_args() -> argparse.Namespace:
@@ -527,20 +544,23 @@ def main() -> None:
     unresolved_shipments.sort(reverse=True)
 
     production_consume_qty: dict[tuple[str, str, str, str, str], float] = defaultdict(float)
+    production_consume_qty_by_campaign_parent: dict[tuple[str, str, str, str], float] = defaultdict(float)
     production_output_qty: dict[tuple[str, str, str, str, str], float] = defaultdict(float)
     lane_receipt_qty: dict[tuple[str, str, str, str, str], float] = defaultdict(float)
     for row in events:
         event_type = str(row.get("event_type") or "")
-        if event_type == "production_consume":
+        if event_type in PRODUCTION_CONSUME_EVENTS:
+            consumed_qty = max(0.0, to_float(row.get("qty")))
+            campaign_parent_key = (
+                str(row.get("lot_id") or ""),
+                canonical_node_id(row.get("node_id")),
+                str(row.get("item_id") or ""),
+                str(row.get("production_campaign_id") or ""),
+            )
             production_consume_qty[
-                (
-                    str(row.get("day") or ""),
-                    str(row.get("lot_id") or ""),
-                    canonical_node_id(row.get("node_id")),
-                    str(row.get("item_id") or ""),
-                    str(row.get("production_campaign_id") or ""),
-                )
-            ] += max(0.0, to_float(row.get("qty")))
+                (str(row.get("day") or ""),) + campaign_parent_key
+            ] += consumed_qty
+            production_consume_qty_by_campaign_parent[campaign_parent_key] += consumed_qty
         elif event_type == "production_output":
             production_output_qty[
                 (
@@ -577,10 +597,15 @@ def main() -> None:
     transport_receipt_child_qty_conflict_keys: set[tuple[str, str, str, str, str]] = set()
     transport_receipt_share: dict[tuple[str, str, str, str, str], float] = defaultdict(float)
     transport_parent_qty_by_lot_source_all: dict[tuple[str, str], float] = defaultdict(float)
+    wip_link_parent_qty_by_campaign: dict[tuple[str, str, str, str], float] = defaultdict(float)
+    wip_link_example_by_campaign: dict[tuple[str, str, str, str], dict[str, Any]] = {}
 
     for row in genealogy:
         link_type = str(row.get("link_type") or "")
         if link_type == "production":
+            wip_release_semantics = (
+                "semantics=campaign-batch-wip-release-v1" in str(row.get("notes") or "")
+            )
             consume_key = (
                 str(row.get("day") or ""),
                 str(row.get("parent_lot_id") or ""),
@@ -590,7 +615,16 @@ def main() -> None:
             )
             expected_parent_qty = max(0.0, to_float(row.get("parent_qty")))
             actual_parent_qty = production_consume_qty.get(consume_key, 0.0)
-            if actual_parent_qty <= EPS:
+            if wip_release_semantics:
+                campaign_parent_key = (
+                    str(row.get("parent_lot_id") or ""),
+                    canonical_node_id(row.get("parent_node_id")),
+                    str(row.get("parent_item_id") or ""),
+                    str(row.get("production_campaign_id") or ""),
+                )
+                wip_link_parent_qty_by_campaign[campaign_parent_key] += expected_parent_qty
+                wip_link_example_by_campaign.setdefault(campaign_parent_key, row)
+            elif actual_parent_qty <= EPS:
                 production_missing_consume += 1
                 issues.append(
                     {
@@ -688,7 +722,46 @@ def main() -> None:
                     )
             transport_receipt_share[receipt_key] += max(0.0, to_float(row.get("allocation_share")))
 
+    # Multi-day batches consume components while they are work in progress and
+    # create genealogy links only when the physical lot is released.  Their
+    # reconciliation therefore belongs to campaign+parent, not release day.
+    for campaign_parent_key, expected_parent_qty in wip_link_parent_qty_by_campaign.items():
+        actual_parent_qty = production_consume_qty_by_campaign_parent.get(campaign_parent_key, 0.0)
+        example = wip_link_example_by_campaign[campaign_parent_key]
+        if actual_parent_qty <= EPS:
+            production_missing_consume += 1
+            issues.append(
+                {
+                    "severity": "error",
+                    "kind": "production_wip_link_missing_campaign_consume_event",
+                    "lot_id": example.get("parent_lot_id", ""),
+                    "day": example.get("day", ""),
+                    "node_id": example.get("parent_node_id", ""),
+                    "item_id": example.get("parent_item_id", ""),
+                    "details": f"campaign={example.get('production_campaign_id')}",
+                }
+            )
+        elif qty_mismatch(expected_parent_qty, actual_parent_qty):
+            production_consume_qty_mismatches += 1
+            issues.append(
+                {
+                    "severity": "error",
+                    "kind": "production_wip_link_campaign_consume_qty_mismatch",
+                    "lot_id": example.get("parent_lot_id", ""),
+                    "day": example.get("day", ""),
+                    "node_id": example.get("parent_node_id", ""),
+                    "item_id": example.get("parent_item_id", ""),
+                    "details": (
+                        f"campaign={example.get('production_campaign_id')} "
+                        f"links_parent_qty={expected_parent_qty:.6f} "
+                        f"consume_event_qty={actual_parent_qty:.6f}"
+                    ),
+                }
+            )
+
     for (lot_id, source_id), linked_qty in transport_parent_qty_by_lot_source_all.items():
+        if linked_qty <= EPS:
+            continue
         shipped_qty = ship_qty_by_lot_source.get((lot_id, source_id), 0.0)
         if shipped_qty <= EPS:
             transport_missing_ship += 1
@@ -718,6 +791,8 @@ def main() -> None:
             )
 
     for receipt_key, parent_qty in transport_receipt_parent_qty.items():
+        if parent_qty <= EPS:
+            continue
         receipt_qty = lane_receipt_qty.get(receipt_key, 0.0)
         child_qty = transport_receipt_child_qty.get(receipt_key, 0.0)
         day, lot_id, node_id, item_id, source_id = receipt_key
@@ -771,10 +846,13 @@ def main() -> None:
             output_qty_by_campaign[campaign_id] += qty
     actual_qty_by_campaign: dict[str, float] = {}
     for row in plan_events_raw:
-        if str(row.get("event_type") or "") != "start_campaign":
-            continue
         campaign_id = str(row.get("campaign_id") or "")
-        if campaign_id:
+        if not campaign_id:
+            continue
+        if str(row.get("semantics_version") or "") == "campaign-batch-wip-release-v1":
+            released_qty = max(0.0, to_float(row.get("released_qty")))
+            actual_qty_by_campaign[campaign_id] = actual_qty_by_campaign.get(campaign_id, 0.0) + released_qty
+        elif str(row.get("event_type") or "") == "start_campaign":
             actual_qty_by_campaign[campaign_id] = max(0.0, to_float(row.get("actual_qty")))
     production_plan_output_mismatches = 0
     for campaign_id, actual_qty in actual_qty_by_campaign.items():
@@ -831,7 +909,8 @@ def main() -> None:
             "details": f"{len(mixed_customer_lots)} customer receipt lots mix more than one parent lot.",
         },
     ]
-    write_issues_csv(issues + warning_rows, issues_path)
+    acceptance_issues = audit_acceptance_semantics(events, genealogy, node_types=node_type)
+    write_issues_csv(issues + acceptance_issues + warning_rows, issues_path)
 
     top_transport_rows = [
         [kind, count]
@@ -869,6 +948,8 @@ def main() -> None:
 - Transport source route mismatches after canonical aliases: `{route_mismatches}`
 - Negative quantity rows: `{negative_qty_rows}`
 - Lots depleted above initial quantity: `{over_consumed}`
+- Lotification acceptance errors: `{sum(row['severity'] == 'error' for row in acceptance_issues)}`
+- Legacy-run migration debts: `{sum(row['severity'] == 'migration' for row in acceptance_issues)}`
 - Issue CSV: `{issues_path}`
 
 ## Simulation Cross-Checks
@@ -918,7 +999,13 @@ def main() -> None:
     report_path.write_text(report, encoding="utf-8")
     print(f"[OK] Lot path audit report: {report_path.resolve()}")
     print(f"[OK] Lot path issues CSV: {issues_path.resolve()}")
-    print(f"[OK] errors={sum(1 for row in issues if row['severity'] == 'error')} warnings={sum(1 for row in issues if row['severity'] == 'warning')}")
+    all_issues = issues + acceptance_issues
+    print(
+        "[OK] "
+        f"errors={sum(1 for row in all_issues if row['severity'] == 'error')} "
+        f"warnings={sum(1 for row in all_issues if row['severity'] == 'warning')} "
+        f"migration_debts={sum(1 for row in all_issues if row['severity'] == 'migration')}"
+    )
 
 
 if __name__ == "__main__":

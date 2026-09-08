@@ -5,7 +5,9 @@ import unittest
 from etudecas.case_config import (
     DEFAULT_PRODUCTION_COST_LINE_PROFILES,
     DEFAULT_PRODUCTION_COST_LINE_SHARES,
+    DEFAULT_PRODUCTION_COST_UNIT_RATES,
     DEFAULT_CASE_CONFIG_PATH,
+    REFERENCE_TRANSITIONS,
     build_lot_trace_config,
     canonical_node_id,
     display_node_id,
@@ -30,6 +32,13 @@ class LotTraceConfigTest(unittest.TestCase):
                             "centralCasesPerPallet": 20,
                         }
                     },
+                    "reference_transitions": [
+                        {
+                            "new_item_id": "X",
+                            "old_item_id": "Y",
+                            "scope": "packaging",
+                        }
+                    ],
                 }
             }
         )
@@ -39,6 +48,14 @@ class LotTraceConfigTest(unittest.TestCase):
         self.assertIn("PFI-1", config["upstream_internal_site_ids"])
         self.assertEqual(config["item_reference_notes"]["item:X"], "Item X label")
         self.assertEqual(config["logistics_assumptions"]["item:X"]["unitsPerCase"], 10)
+        self.assertIn(
+            {
+                "new_item_id": "item:X",
+                "old_item_id": "item:Y",
+                "scope": "packaging",
+            },
+            config["reference_transitions"],
+        )
 
     def test_common_case_helpers_are_centralized(self) -> None:
         self.assertTrue(DEFAULT_CASE_CONFIG_PATH.exists())
@@ -52,6 +69,17 @@ class LotTraceConfigTest(unittest.TestCase):
         )
         self.assertIn(("M-1430", "item:268967"), DEFAULT_PRODUCTION_COST_LINE_SHARES)
         self.assertIn(("SDC-1450", "item:773474"), DEFAULT_PRODUCTION_COST_LINE_PROFILES)
+        self.assertGreater(
+            DEFAULT_PRODUCTION_COST_UNIT_RATES[("M-1430", "item:268967")],
+            0.0,
+        )
+        transition_344135 = next(
+            row for row in REFERENCE_TRANSITIONS if row.get("new_item_id") == "item:344135"
+        )
+        self.assertEqual(transition_344135["old_item_id"], "item:EX-344135")
+        self.assertEqual(transition_344135["node_id"], "M-1430")
+        self.assertEqual(transition_344135["initial_stock_qty"], 107800.0)
+        self.assertEqual(transition_344135["consume_policy"], "use_old_until_new_stock_available")
 
 
 if __name__ == "__main__":

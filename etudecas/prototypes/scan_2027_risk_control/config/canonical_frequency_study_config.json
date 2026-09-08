@@ -1,0 +1,118 @@
+{
+  "schema_version": "scan.canonical_frequency_study.v1",
+  "name": "resilience_scan_canonical_frequency_study",
+  "identification": {
+    "sample_interval_days": 1,
+    "period_days": 196,
+    "measured_periods": 4,
+    "warmup_periods": 1,
+    "warmup_days": 60,
+    "experiment_design": "separate_siso_campaigns",
+    "input_bins": {
+      "demand_multiplier": [1, 7, 19, 41],
+      "supplier_availability_multiplier": [1, 9, 23, 47],
+      "supplier_lead_time_multiplier": [1, 3, 5, 7]
+    },
+    "peak_fraction": {
+      "demand_multiplier": 0.02,
+      "supplier_availability_multiplier": 0.05,
+      "supplier_lead_time_multiplier": 0.05
+    },
+    "phase_seed": 320260,
+    "coherence_threshold": 0.8,
+    "bootstrap_samples": 2000,
+    "require_unaliased_supplier_delay": true,
+    "estimator": "paired_periodic_h1_empirical_diagonal_line_response",
+    "uncertainty_interval": "period_resampling_percentile_interval_not_coverage_calibrated",
+    "window": "rectangular_exact_dft_lines",
+    "detrend": "period_mean_only"
+  },
+  "supplier_probe": {
+    "supplier_id": "SDC-VD0993480A",
+    "item_id": "item:344135",
+    "dst_node_id": "M-1430",
+    "target_finished_item_id": "item:268967",
+    "nominal_lead_time_days": 35.0,
+    "selection_basis": "direct case-study component lane for finished item 268967; seven nonzero shipment and arrival days in every retained 196-day period under nominal and supplier-stress baselines; 35-42 day operating lead below the 49-day phase-unwrapping bound"
+  },
+  "operating_conditions": [
+    {
+      "name": "nominal_capacity",
+      "supplier_availability_baseline": 1.0,
+      "supplier_lead_time_baseline": 1.0,
+      "demand_scale_by_item": {
+        "item:268967": 1.0,
+        "item:268091": 0.0
+      },
+      "intended_regime": "measured_not_forced"
+    },
+    {
+      "name": "supplier_stress_capacity",
+      "supplier_availability_baseline": 0.65,
+      "supplier_lead_time_baseline": 1.2,
+      "demand_scale_by_item": {
+        "item:268967": 1.0,
+        "item:268091": 0.0
+      },
+      "intended_regime": "SUPPLIER_STRESS"
+    }
+  ],
+  "actuator_probe": {
+    "enabled": true,
+    "peak_fraction": 0.05,
+    "input_bins": {
+      "order_multiplier": [1, 7, 19, 41],
+      "safety_stock_multiplier": [1, 9, 23, 47],
+      "production_target_multiplier": [1, 11, 29, 53]
+    },
+    "response_scope": "tested_amplitude_command_to_output_active_set_unverified",
+    "small_signal_local_derivative_claimed": false,
+    "active_set_invariance_verified": false,
+    "interpretation": "tested-amplitude multiplicative MRP-overlay command-to-output response; physical active-set invariance and zero-amplitude local derivative are not verified"
+  },
+  "native_spectra": {
+    "segment_days": 365,
+    "overlap_fraction": 0.5,
+    "runs": [
+      {
+        "name": "mrp_case_5y",
+        "result_dir": "etudecas/simulation/result/mrp_bom_test_weekly_mps_lotified_no_fallback_physical_floor_multisource_portfolio_test",
+        "source_kind": "etudecas_case_simulation_output"
+      },
+      {
+        "name": "mrp_state_dependent_risk_5y",
+        "result_dir": "etudecas/simulation/result/mrp_bom_test_weekly_mps_lotified_no_fallback_physical_floor_multisource_portfolio_state_dependent_risk_test",
+        "source_kind": "etudecas_case_simulation_output_with_state_dependent_supplier_risk"
+      }
+    ]
+  },
+  "campaign": {
+    "graph": "auto",
+    "control_policy_json": "canonical_closed_loop_v2_config.json",
+    "engine_profile": "canonical_real_baseline_engine_profile.json",
+    "engine_script": "etudecas/simulation/engine/run_first_simulation.py",
+    "output_dir": "../outputs/canonical_frequency_study",
+    "scenario_id": "scn:BASE",
+    "seed": 320260,
+    "state_dependent_risks": false,
+    "engine_args": [
+      "--no-stochastic-lead-times"
+    ],
+    "paired_common_random_numbers": true
+  },
+  "claims": {
+    "native_spectra_causal": false,
+    "designed_response_scope": "tested_amplitude_operating_condition_dependent_active_set_unverified",
+    "small_signal_local_derivative_claimed": false,
+    "amplitude_sweep_verified": false,
+    "active_set_invariance_verified": false,
+    "isolated_lti_frf_claimed": false,
+    "local_stability_proven": false,
+    "global_stability_claimed": false,
+    "industrial_validation_claimed": false
+  },
+  "reporting": {
+    "plots": true,
+    "embed_in_separate_frequency_map_tab": true
+  }
+}

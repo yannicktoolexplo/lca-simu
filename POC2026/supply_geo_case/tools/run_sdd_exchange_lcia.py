@@ -229,6 +229,7 @@ def exact_rows(
         out.append(
             {
                 "exchange_delta_id": row.get("exchange_delta_id", ""),
+                "scenario_id": row.get("scenario_id", ""),
                 "month_index": row.get("month_index", ""),
                 "role": row.get("role", ""),
                 "role_count": row.get("role_count", ""),
@@ -247,6 +248,8 @@ def exact_rows(
                 "allocated_delta_kgco2e": round(allocated, 9),
                 "exact_unit_score_kgco2e_per_exchange_unit": round(unit_score, 12) if has_exact else "",
                 "exact_delta_kgco2e": round(exact_value, 9) if has_exact else "",
+                "retained_delta_kgco2e": round(exact_value if has_exact else allocated, 9),
+                "retained_result_method": "exact_brightway" if has_exact else "calibrated_sdd",
                 "exact_delta_person_equivalent": round(exact_value / normalization_factor, 12) if has_exact and normalization_factor else "",
                 "exact_minus_allocated_kgco2e": round(exact_value - allocated, 9) if has_exact else "",
                 "exact_to_allocated_ratio": round(exact_value / allocated, 9) if has_exact and abs(allocated) > 1e-12 else "",
@@ -257,6 +260,10 @@ def exact_rows(
                 "factor_match_status": factor.get("match_status", ""),
                 "factor_match_count": factor.get("match_count", ""),
                 "lcia_allocation_method": row.get("lcia_allocation_method", ""),
+                "physical_quantity_status": row.get("physical_quantity_status", ""),
+                "physical_quantity_source": row.get("physical_quantity_source", ""),
+                "regionalization_status": row.get("regionalization_status", ""),
+                "brightway_exact_eligible": row.get("brightway_exact_eligible", ""),
                 "source_row_count": row.get("row_count", ""),
                 "confidence": row.get("confidence", ""),
             }
@@ -265,34 +272,49 @@ def exact_rows(
 
 
 def aggregate_rows(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
-    category_groups: dict[tuple[str, str, str], dict[str, float]] = defaultdict(lambda: defaultdict(float))
-    monthly_groups: dict[int, dict[str, float]] = defaultdict(lambda: defaultdict(float))
-    top_groups: dict[tuple[str, str, str], dict[str, Any]] = defaultdict(lambda: defaultdict(float))
+    category_groups: dict[tuple[str, str, str, str], dict[str, float]] = defaultdict(lambda: defaultdict(float))
+    monthly_groups: dict[tuple[str, int], dict[str, float]] = defaultdict(lambda: defaultdict(float))
+    top_groups: dict[tuple[str, str, str, str], dict[str, Any]] = defaultdict(lambda: defaultdict(float))
     for row in rows:
+        scenario_id = clean(row.get("scenario_id"))
         allocated = safe_float(row.get("allocated_delta_kgco2e"))
         exact_raw = row.get("exact_delta_kgco2e")
         has_exact = clean(exact_raw) != ""
         exact = safe_float(exact_raw) if has_exact else 0.0
-        key = (clean(row.get("exchange_category")), clean(row.get("mapping_status")), clean(row.get("lcia_status")))
+        retained = safe_float(row.get("retained_delta_kgco2e"))
+        key = (
+            scenario_id,
+            clean(row.get("exchange_category")),
+            clean(row.get("mapping_status")),
+            clean(row.get("lcia_status")),
+        )
         category_groups[key]["allocated_delta_kgco2e"] += allocated
         category_groups[key]["allocated_abs_delta_kgco2e"] += abs(allocated)
         category_groups[key]["exact_delta_kgco2e"] += exact
+        category_groups[key]["retained_delta_kgco2e"] += retained
         category_groups[key]["exact_calculated_allocated_kgco2e"] += allocated if has_exact else 0.0
         category_groups[key]["exact_calculated_allocated_abs_kgco2e"] += abs(allocated) if has_exact else 0.0
         category_groups[key]["row_count"] += 1
         category_groups[key]["exact_row_count"] += 1 if has_exact else 0
 
         month = int(safe_float(row.get("month_index")))
-        monthly_groups[month]["allocated_delta_kgco2e"] += allocated
-        monthly_groups[month]["allocated_abs_delta_kgco2e"] += abs(allocated)
-        monthly_groups[month]["exact_delta_kgco2e"] += exact
-        monthly_groups[month]["exact_calculated_allocated_kgco2e"] += allocated if has_exact else 0.0
-        monthly_groups[month]["exact_calculated_allocated_abs_kgco2e"] += abs(allocated) if has_exact else 0.0
-        monthly_groups[month]["row_count"] += 1
-        monthly_groups[month]["exact_row_count"] += 1 if has_exact else 0
+        monthly_key = (scenario_id, month)
+        monthly_groups[monthly_key]["allocated_delta_kgco2e"] += allocated
+        monthly_groups[monthly_key]["allocated_abs_delta_kgco2e"] += abs(allocated)
+        monthly_groups[monthly_key]["exact_delta_kgco2e"] += exact
+        monthly_groups[monthly_key]["retained_delta_kgco2e"] += retained
+        monthly_groups[monthly_key]["exact_calculated_allocated_kgco2e"] += allocated if has_exact else 0.0
+        monthly_groups[monthly_key]["exact_calculated_allocated_abs_kgco2e"] += abs(allocated) if has_exact else 0.0
+        monthly_groups[monthly_key]["row_count"] += 1
+        monthly_groups[monthly_key]["exact_row_count"] += 1 if has_exact else 0
 
         if has_exact:
-            top_key = (clean(row.get("activity_name")), clean(row.get("exchange_name")), clean(row.get("exchange_category")))
+            top_key = (
+                scenario_id,
+                clean(row.get("activity_name")),
+                clean(row.get("exchange_name")),
+                clean(row.get("exchange_category")),
+            )
             top_groups[top_key]["exact_delta_kgco2e"] += exact
             top_groups[top_key]["allocated_delta_kgco2e"] += allocated
             top_groups[top_key]["quantity_delta_abs"] += abs(safe_float(row.get("quantity_delta_amount")))
@@ -301,7 +323,7 @@ def aggregate_rows(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], li
             top_groups[top_key]["mapping_status"] = clean(row.get("mapping_status"))
 
     category_rows = []
-    for (category, mapping_status, lcia_status), values in category_groups.items():
+    for (scenario_id, category, mapping_status, lcia_status), values in category_groups.items():
         allocated = safe_float(values.get("allocated_delta_kgco2e"))
         allocated_abs = safe_float(values.get("allocated_abs_delta_kgco2e"))
         exact = safe_float(values.get("exact_delta_kgco2e"))
@@ -309,6 +331,7 @@ def aggregate_rows(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], li
         covered_abs = safe_float(values.get("exact_calculated_allocated_abs_kgco2e"))
         category_rows.append(
             {
+                "scenario_id": scenario_id,
                 "exchange_category": category,
                 "mapping_status": mapping_status,
                 "lcia_status": lcia_status,
@@ -316,6 +339,7 @@ def aggregate_rows(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], li
                 "allocated_delta_kgco2e": round(allocated, 9),
                 "allocated_abs_delta_kgco2e": round(allocated_abs, 9),
                 "exact_delta_kgco2e": round(exact, 9),
+                "retained_delta_kgco2e": round(safe_float(values.get("retained_delta_kgco2e")), 9),
                 "exact_minus_allocated_kgco2e": round(exact - allocated, 9),
                 "exact_coverage_allocated_pct": round(100.0 * covered_abs / allocated_abs, 6) if allocated_abs else "",
                 "row_count": int(safe_float(values.get("row_count"))),
@@ -326,7 +350,7 @@ def aggregate_rows(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], li
     category_rows.sort(key=lambda row: -abs(safe_float(row.get("exact_delta_kgco2e"))))
 
     monthly_rows = []
-    for month, values in sorted(monthly_groups.items()):
+    for (scenario_id, month), values in sorted(monthly_groups.items()):
         allocated = safe_float(values.get("allocated_delta_kgco2e"))
         allocated_abs = safe_float(values.get("allocated_abs_delta_kgco2e"))
         exact = safe_float(values.get("exact_delta_kgco2e"))
@@ -334,10 +358,12 @@ def aggregate_rows(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], li
         covered_abs = safe_float(values.get("exact_calculated_allocated_abs_kgco2e"))
         monthly_rows.append(
             {
+                "scenario_id": scenario_id,
                 "month_index": month,
                 "allocated_delta_kgco2e": round(allocated, 9),
                 "allocated_abs_delta_kgco2e": round(allocated_abs, 9),
                 "exact_delta_kgco2e": round(exact, 9),
+                "retained_delta_kgco2e": round(safe_float(values.get("retained_delta_kgco2e")), 9),
                 "exact_minus_allocated_kgco2e": round(exact - allocated, 9),
                 "exact_coverage_allocated_pct": round(100.0 * covered_abs / allocated_abs, 6) if allocated_abs else "",
                 "row_count": int(safe_float(values.get("row_count"))),
@@ -346,11 +372,12 @@ def aggregate_rows(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], li
         )
 
     top_rows = []
-    for (activity_name, exchange_name, category), values in top_groups.items():
+    for (scenario_id, activity_name, exchange_name, category), values in top_groups.items():
         exact = safe_float(values.get("exact_delta_kgco2e"))
         allocated = safe_float(values.get("allocated_delta_kgco2e"))
         top_rows.append(
             {
+                "scenario_id": scenario_id,
                 "activity_name": activity_name,
                 "exchange_name": exchange_name,
                 "exchange_category": category,
@@ -380,6 +407,30 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     factor_rows = list(factors.values())
     factor_rows.sort(key=lambda row: (row["lcia_status"], row["exchange_database"], row["exchange_name"], row["exchange_location"]))
     exact_factor_count = sum(1 for row in factor_rows if row.get("lcia_status") == "exact_lcia_factor")
+    allocated_abs = sum(
+        abs(safe_float(row.get("allocated_delta_kgco2e")))
+        for row in output_rows
+    )
+    exact_covered_abs = sum(
+        abs(safe_float(row.get("allocated_delta_kgco2e")))
+        for row in output_rows
+        if clean(row.get("exact_delta_kgco2e")) != ""
+    )
+    exact_retained_abs = sum(
+        abs(safe_float(row.get("retained_delta_kgco2e")))
+        for row in output_rows
+        if clean(row.get("retained_result_method")) == "exact_brightway"
+    )
+    retained_abs = sum(
+        abs(safe_float(row.get("retained_delta_kgco2e")))
+        for row in output_rows
+    )
+    physical_row_count = sum(
+        1
+        for row in output_rows
+        if clean(row.get("physical_quantity_status"))
+        not in {"", "calibrated_not_yet_physical"}
+    )
     status_rows = [
         {
             "status": "ok",
@@ -388,6 +439,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "unique_exchange_signatures": len(factor_rows),
             "exact_factor_count": exact_factor_count,
             "exact_factor_coverage_pct": round(100.0 * exact_factor_count / len(factor_rows), 6) if factor_rows else "",
+            "exact_impact_coverage_pct": round(100.0 * exact_covered_abs / allocated_abs, 6) if allocated_abs else "",
+            "exact_retained_impact_share_pct": round(100.0 * exact_retained_abs / retained_abs, 6) if retained_abs else "",
+            "physical_inventory_row_count": physical_row_count,
+            "physical_inventory_row_coverage_pct": round(100.0 * physical_row_count / len(output_rows), 6) if output_rows else "",
             "method": " | ".join(METHOD_CLIMATE_EF30),
         }
     ]

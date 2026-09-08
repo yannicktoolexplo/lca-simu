@@ -73,6 +73,46 @@ def _load_production_cost_line_profiles(raw: dict[str, Any]) -> dict[tuple[str, 
     return profiles
 
 
+def _load_production_cost_unit_rates(raw: dict[str, Any]) -> dict[tuple[str, str], float]:
+    rates: dict[tuple[str, str], float] = {}
+    for row in raw.get("production_cost_unit_rates") or []:
+        if not isinstance(row, dict):
+            continue
+        node_id, item_id = _tuple_key(row)
+        if not node_id or not item_id:
+            continue
+        try:
+            rate = float(row.get("unit_rate") or 0.0)
+        except (TypeError, ValueError):
+            continue
+        if rate >= 0.0:
+            rates[(node_id, item_id)] = rate
+    return rates
+
+
+def _load_reference_transitions(raw: dict[str, Any]) -> list[dict[str, Any]]:
+    transitions: list[dict[str, Any]] = []
+    for row in raw.get("reference_transitions") or []:
+        if not isinstance(row, dict):
+            continue
+        normalized = dict(row)
+        if "new_item_id" in normalized:
+            normalized["new_item_id"] = normalize_item_id(normalized.get("new_item_id"))
+        if "old_item_id" in normalized and normalized.get("old_item_id"):
+            normalized["old_item_id"] = normalize_item_id(normalized.get("old_item_id"))
+        if "node_id" in normalized:
+            normalized["node_id"] = str(normalized.get("node_id") or "").strip()
+        for key in ("initial_stock_qty", "start_day", "end_day"):
+            if key not in normalized or normalized.get(key) in {"", None}:
+                continue
+            try:
+                normalized[key] = float(normalized.get(key))
+            except (TypeError, ValueError):
+                normalized.pop(key, None)
+        transitions.append(normalized)
+    return transitions
+
+
 _ACTIVE_CASE_CONFIG = load_case_config()
 
 NODE_ID_ALIASES = {
@@ -100,6 +140,8 @@ LOT_TRACE_DEFAULT_LOGISTICS_ASSUMPTIONS = {
 STANDARD_ORDER_OVERRIDES = _load_standard_order_overrides(_ACTIVE_CASE_CONFIG)
 DEFAULT_PRODUCTION_COST_LINE_SHARES = _load_production_cost_line_shares(_ACTIVE_CASE_CONFIG)
 DEFAULT_PRODUCTION_COST_LINE_PROFILES = _load_production_cost_line_profiles(_ACTIVE_CASE_CONFIG)
+DEFAULT_PRODUCTION_COST_UNIT_RATES = _load_production_cost_unit_rates(_ACTIVE_CASE_CONFIG)
+REFERENCE_TRANSITIONS = _load_reference_transitions(_ACTIVE_CASE_CONFIG)
 
 
 def canonical_node_id(node_id: Any) -> str:
@@ -151,6 +193,7 @@ def build_lot_trace_config(raw: dict[str, Any] | None = None) -> dict[str, Any]:
             item_id: dict(policy)
             for item_id, policy in LOT_TRACE_DEFAULT_LOGISTICS_ASSUMPTIONS.items()
         },
+        "reference_transitions": [dict(row) for row in REFERENCE_TRANSITIONS],
     }
     if not raw:
         return config
@@ -188,4 +231,9 @@ def build_lot_trace_config(raw: dict[str, Any] | None = None) -> dict[str, Any]:
             merged = set(str(node_id) for node_id in config["upstream_internal_site_ids"])
             merged.update(str(node_id) for node_id in upstream_sites if str(node_id))
             config["upstream_internal_site_ids"] = sorted(merged)
+        transitions = override.get("reference_transitions")
+        if isinstance(transitions, list):
+            config["reference_transitions"].extend(
+                _load_reference_transitions({"reference_transitions": transitions})
+            )
     return config

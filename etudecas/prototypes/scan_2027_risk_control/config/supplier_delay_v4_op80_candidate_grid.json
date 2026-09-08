@@ -1,0 +1,24 @@
+{
+  "candidates": [
+    {
+      "key": "op80_v4_17_95",
+      "offset_days_268091": 17.0,
+      "offset_days_268967": 95.0
+    },
+    {
+      "key": "op80_v4_17_96",
+      "offset_days_268091": 17.0,
+      "offset_days_268967": 96.0
+    },
+    {
+      "key": "op80_v4_17p5_95",
+      "offset_days_268091": 17.5,
+      "offset_days_268967": 95.0
+    },
+    {
+      "key": "op80_v4_17p5_96",
+      "offset_days_268091": 17.5,
+      "offset_days_268967": 96.0
+    }
+  ]
+}
