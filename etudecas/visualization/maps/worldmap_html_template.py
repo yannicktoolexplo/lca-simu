@@ -764,6 +764,8 @@ def html_template(
       font-weight: 700;
     }}
     .riskCascadeExplorer {{
+      position: relative;
+      z-index: 2;
       border: 1px solid #dbeafe;
       border-radius: 10px;
       background: #f8fafc;
@@ -8181,7 +8183,81 @@ def html_template(
       const rootRows = Array.isArray(SIMULATED_RISK_GLOBAL_DIAGNOSTIC.cascade_roots)
         ? SIMULATED_RISK_GLOBAL_DIAGNOSTIC.cascade_roots
         : [];
-      const rows = groupedRows.length ? groupedRows : rootRows;
+      const rows = groupedRows.length ? groupedRows.slice() : rootRows.slice();
+      if (groupedRows.length >= 2 && groupedRows.length <= 12) {{
+        const itemIds = [...new Set(groupedRows.map(row => String(row.item_id || "")).filter(Boolean))];
+        const familySignatures = [...new Set(groupedRows.map(row =>
+          (Array.isArray(row.risk_families) ? row.risk_families : [row.risk_family])
+            .map(value => String(value || ""))
+            .filter(Boolean)
+            .sort()
+            .join("+")
+        ))];
+        if (itemIds.length === 1 && familySignatures.length === 1) {{
+          const uniqueValues = (key) => [...new Set(groupedRows
+            .flatMap(row => Array.isArray(row[key]) ? row[key] : [])
+            .map(value => String(value || ""))
+            .filter(Boolean))];
+          const finiteValues = (key) => groupedRows
+            .map(row => Number(row[key]))
+            .filter(Number.isFinite);
+          const stageOrder = {{ configured_only: 0, local_absorbed: 1, cost: 2, production: 3, service_client: 4 }};
+          const aggregateStage = groupedRows.reduce((best, row) =>
+            Number(stageOrder[String(row.stage || "")] ?? -1) > Number(stageOrder[String(best.stage || "")] ?? -1)
+              ? row
+              : best
+          , groupedRows[0]);
+          const rootDays = finiteValues("root_day");
+          const lastDays = finiteValues("last_day");
+          const startDays = finiteValues("start_day");
+          const endDays = finiteValues("end_day");
+          const itemId = itemIds[0];
+          const eventIds = uniqueValues("event_ids");
+          const aggregateStart = startDays.length ? Math.min(...startDays) : null;
+          const aggregateEnd = endDays.length ? Math.max(...endDays) : null;
+          rows.push({{
+            business_path_key: `scenario_aggregate|${{itemId}}|${{familySignatures[0]}}`,
+            is_scenario_aggregate: true,
+            root_cause_label: `Ensemble de l'incident sur ${{itemId}}`,
+            label: `Vue d'ensemble dedupliquee - ${{groupedRows.length}} origines`,
+            business_path_label: "Tous les trajets de ce scenario",
+            supplier_label: `${{groupedRows.length}} origines fournisseur`,
+            item_id: itemId,
+            item_label: groupedRows.find(row => row.item_label)?.item_label || itemId,
+            event_ids: eventIds,
+            risk_families: uniqueValues("risk_families"),
+            stage: aggregateStage.stage,
+            stage_label: "Vue globale dedupliquee",
+            impact_score: groupedRows.reduce((total, row) => total + Number(row.impact_score || 0), 0),
+            root_day: rootDays.length ? Math.min(...rootDays) : null,
+            last_day: lastDays.length ? Math.max(...lastDays) : null,
+            start_day: aggregateStart,
+            end_day: aggregateEnd,
+            duration_days: aggregateStart !== null && aggregateEnd !== null
+              ? Math.max(0, Math.round(aggregateEnd - aggregateStart + 1))
+              : Math.max(...finiteValues("duration_days"), 0),
+            period: groupedRows.find(row => String(row.period || "").trim())?.period || "",
+            worst_period: groupedRows.find(row => String(row.worst_period || "").trim())?.worst_period || "",
+            occurrence_count: eventIds.length,
+            production_delay_count: Math.max(...finiteValues("production_delay_count"), 0),
+            production_shortfall_qty: Math.max(...finiteValues("production_shortfall_qty"), 0),
+            customer_backlog_max_qty: Math.max(...finiteValues("customer_backlog_max_qty"), 0),
+            cost_impact_qty: Math.max(...finiteValues("cost_impact_qty"), 0),
+            route_node_ids: uniqueValues("route_node_ids"),
+            highlight_node_ids: uniqueValues("highlight_node_ids"),
+            route_edge_ids: uniqueValues("route_edge_ids"),
+            highlight_edge_ids: uniqueValues("highlight_edge_ids"),
+            affected_factory_nodes: uniqueValues("affected_factory_nodes"),
+            affected_factory_labels: uniqueValues("affected_factory_labels"),
+            affected_customer_nodes: uniqueValues("affected_customer_nodes"),
+            affected_customer_labels: uniqueValues("affected_customer_labels"),
+            impacted_output_items: uniqueValues("impacted_output_items"),
+            impacted_output_item_labels: uniqueValues("impacted_output_item_labels"),
+            route_text: "Trajets combines et dedupliques",
+            reading: "Cette ligne reunit les origines du meme incident. Les lots communs ne sont comptes qu'une fois.",
+          }});
+        }}
+      }}
       return rows.slice().sort((a, b) => Number(b.impact_score || 0) - Number(a.impact_score || 0));
     }}
 
@@ -8291,6 +8367,184 @@ def html_template(
       if (Array.isArray(row.highlight_edge_ids)) ids.push(...row.highlight_edge_ids);
       if (Array.isArray(row.impacted_edges)) ids.push(...row.impacted_edges.map(edge => edge && edge.edge_id));
       return [...new Set(ids.map(value => String(value || "")).filter(Boolean))];
+    }}
+
+    const simulatedRiskCascadeLotCache = new Map();
+
+    function lotTraceRiskEventIds(value) {{
+      const values = Array.isArray(value) ? value : [value];
+      return [...new Set(values
+        .flatMap(entry => String(entry || "").split(/[|,;]/g))
+        .map(entry => entry.trim())
+        .filter(Boolean))];
+    }}
+
+    function simulatedRiskCascadeEventIds(row) {{
+      if (!row) return [];
+      if (Array.isArray(row.event_ids)) return lotTraceRiskEventIds(row.event_ids);
+      return lotTraceRiskEventIds(row.event_id);
+    }}
+
+    function simulatedRiskCascadeLotImpact(row) {{
+      const eventIds = simulatedRiskCascadeEventIds(row);
+      const outputItemIds = [...new Set(
+        (row && row.impacted_output_items || []).map(value => String(value || "")).filter(Boolean)
+      )].sort();
+      const routeNodeIds = simulatedRiskCascadeNodeIds(row).slice().sort();
+      const routeEdgeIds = simulatedRiskCascadeEdgeIds(row).slice().sort();
+      const cacheKey = JSON.stringify({{
+        eventIds: eventIds.slice().sort(),
+        outputItemIds,
+        routeNodeIds,
+        routeEdgeIds,
+        businessPathKey: String((row && row.business_path_key) || ""),
+      }});
+      if (simulatedRiskCascadeLotCache.has(cacheKey)) {{
+        return simulatedRiskCascadeLotCache.get(cacheKey);
+      }}
+      const eventIdSet = new Set(eventIds);
+      const directLotIds = new Set();
+      const rowMatches = (traceRow) => {{
+        const rowEventIds = lotTraceRiskEventIds(traceRow && traceRow.risk_event_ids);
+        return rowEventIds.some(eventId => eventIdSet.has(eventId));
+      }};
+      (LOT_TRACE.events || []).forEach(traceRow => {{
+        if (!rowMatches(traceRow)) return;
+        lotTraceAddSetValue(directLotIds, traceRow.lot_id);
+        lotTraceAddSetValue(directLotIds, traceRow.related_lot_id);
+      }});
+      (LOT_TRACE.genealogy || []).forEach(traceRow => {{
+        if (!rowMatches(traceRow)) return;
+        lotTraceAddSetValue(directLotIds, traceRow.parent_lot_id);
+        lotTraceAddSetValue(directLotIds, traceRow.child_lot_id);
+      }});
+
+      const allLotIds = new Set(directLotIds);
+      const queue = [...directLotIds];
+      let guard = 0;
+      while (queue.length && guard < 100000) {{
+        guard += 1;
+        const parentLotId = queue.shift();
+        (lotTraceIndexes.childrenByParent.get(parentLotId) || []).forEach(link => {{
+          const childLotId = String(link.child_lot_id || "");
+          if (!childLotId || allLotIds.has(childLotId)) return;
+          allLotIds.add(childLotId);
+          queue.push(childLotId);
+        }});
+      }}
+
+      const outputItems = new Set(outputItemIds);
+      const optionIds = new Set((LOT_TRACE.lot_options || []).map(lot => String(lot.lot_id || "")));
+      const lotRows = [...allLotIds].map(lotId => ({{ lotId, info: lotTraceLotInfo(lotId) }}));
+      const priority = (entry) => {{
+        const info = entry.info || {{}};
+        const scope = String(info.trace_scope || "");
+        const sourceType = String(info.source_type || info.created_event_type || "");
+        const itemId = String(info.item_id || "");
+        const nodeId = String(info.node_id || "");
+        if (outputItems.has(itemId) && sourceType === "production_output") return 0;
+        if (scope === "finished_product") return 1;
+        if (scope === "semi_finished") return 2;
+        if (scope === "supplier_material") return 3;
+        if (nodeId.startsWith("C-")) return 5;
+        return 4;
+      }};
+      lotRows.sort((a, b) =>
+        priority(a) - priority(b)
+        || Number((a.info || {{}}).created_day || 0) - Number((b.info || {{}}).created_day || 0)
+        || String(a.lotId).localeCompare(String(b.lotId))
+      );
+      const traceableLotRows = lotRows.filter(entry => optionIds.has(entry.lotId));
+      const traceableLotIds = traceableLotRows.map(entry => entry.lotId);
+      const finishedProductRows = lotRows.filter(entry =>
+        ["finished_product", "finished_product_opening"].includes(String((entry.info || {{}}).trace_scope || ""))
+      );
+      const finishedProductItemIds = [...new Set(finishedProductRows
+        .map(entry => String((entry.info || {{}}).item_id || ""))
+        .filter(Boolean))].sort();
+      const result = {{
+        available: Boolean(eventIds.length && directLotIds.size && traceableLotRows.length),
+        eventIds,
+        directLotIds: [...directLotIds],
+        lotIds: lotRows.map(entry => entry.lotId),
+        lotRows,
+        traceableLotIds,
+        traceableLotRows,
+        traceableCount: traceableLotRows.length,
+        finishedProductCount: finishedProductRows.length,
+        finishedProductItemIds,
+        customerLotCount: lotRows.filter(entry => String((entry.info || {{}}).node_id || "").startsWith("C-")).length,
+      }};
+      simulatedRiskCascadeLotCache.set(cacheKey, result);
+      return result;
+    }}
+
+    function selectedSimulatedRiskCascadeLotImpact() {{
+      if (currentPanelMode !== "simulated_risk") return null;
+      const row = selectedSimulatedRiskCascade();
+      if (!row) return null;
+      const impact = simulatedRiskCascadeLotImpact(row);
+      return impact.available ? impact : null;
+    }}
+
+    function lotTraceOverlayEnabledForCurrentMode() {{
+      if (!selectedLotId) return false;
+      if (currentPanelMode === "ops") return true;
+      const impact = selectedSimulatedRiskCascadeLotImpact();
+      return Boolean(impact && impact.traceableLotIds.includes(String(selectedLotId)));
+    }}
+
+    function simulatedRiskLotOptionLabel(entry) {{
+      const info = (entry && entry.info) || {{}};
+      const day = info.created_day ?? "n/a";
+      const qty = Number(info.qty ?? info.initial_qty);
+      const qtyText = Number.isFinite(qty) ? `${{lotTraceQtyText(qty)}} ${{info.uom || ""}}`.trim() : "qte n/a";
+      return `${{entry.lotId}} | ${{info.item_id || "article n/a"}} | ${{info.node_id || "noeud n/a"}} | J${{day}} | ${{qtyText}}`;
+    }}
+
+    function simulatedRiskCascadeLotsHtml(row) {{
+      if (
+        !row
+        || !LOT_TRACE.available
+        || simulatedRiskCascadeKeyForRow(row) !== selectedSimulatedRiskCascadeKey
+      ) return "";
+      const impact = simulatedRiskCascadeLotImpact(row);
+      if (!impact.available) return "";
+      const immediateOutputItems = [...new Set(
+        (row.impacted_output_items || []).map(value => String(value || "")).filter(Boolean)
+      )];
+      const downstreamFinishedItems = impact.finishedProductItemIds || [];
+      const downstreamItemText = downstreamFinishedItems
+        .map(itemId => simulatedRiskCascadeItemLabel(itemId))
+        .join(", ");
+      const immediateItemText = immediateOutputItems
+        .map(itemId => simulatedRiskCascadeItemLabel(itemId))
+        .join(", ");
+      const lineageContinuation = downstreamFinishedItems.some(itemId => !immediateOutputItems.includes(itemId))
+        ? `<div class="riskScenarioMuted"><strong>Lecture aval :</strong> le diagnostic de flux s'arrête à ${{escapeHtmlText(immediateItemText || "un produit intermédiaire")}}, tandis que la généalogie des lots continue jusqu'à ${{escapeHtmlText(downstreamItemText)}}. Cela décrit un contact physique, pas nécessairement une perte de service.</div>`
+        : "";
+      const optionHtml = impact.traceableLotRows.map(entry => `
+        <option value="${{escapeHtmlText(entry.lotId)}}">${{escapeHtmlText(simulatedRiskLotOptionLabel(entry))}}</option>
+      `).join("");
+      return `
+        <details class="riskDetailsBlock" open>
+          <summary>Lots contenant une matière exposée — ${{impact.traceableCount}} lots traçables</summary>
+          <div class="riskScenarioMuted">Le lien est physique dans cette simulation : l'incident est relié à une expédition, puis à tous ses descendants dans la généalogie. Ce comptage large peut dépasser le registre d'attribution quantitative. Une matière exposée dans un lot ne prouve pas, à elle seule, que l'incident a retardé ce lot.</div>
+          ${{lineageContinuation}}
+          <div class="riskCascadeContextGrid">
+            <div class="riskCascadeContextItem"><div class="riskCascadeContextLabel">Lots de provenance directement marqués</div><div class="riskCascadeContextValue">${{impact.directLotIds.length}}</div></div>
+            <div class="riskCascadeContextItem"><div class="riskCascadeContextLabel">Lots aval contenant la matière exposée</div><div class="riskCascadeContextValue">${{impact.lotRows.length}}</div></div>
+            <div class="riskCascadeContextItem"><div class="riskCascadeContextLabel">Lots finis aval${{downstreamItemText ? ` (${{escapeHtmlText(downstreamItemText)}})` : ""}}</div><div class="riskCascadeContextValue">${{impact.finishedProductCount}}</div></div>
+            <div class="riskCascadeContextItem"><div class="riskCascadeContextLabel">Lots traçables proposés</div><div class="riskCascadeContextValue">${{impact.traceableCount}}</div></div>
+          </div>
+          <div class="riskCascadeExplorerControls">
+            <input id="simRiskCascadeLotFilter" type="search" placeholder="Rechercher un lot, article, site..."/>
+            <select id="simRiskCascadeLotSelect" aria-label="Lots contenant une matière exposée">${{optionHtml}}</select>
+            <button id="simRiskCascadeLotOpenBtn" class="tableBtn" type="button">Voir le lot et la cascade</button>
+          </div>
+          <div id="simRiskCascadeLotFilterMeta" class="riskScenarioMuted">${{impact.traceableCount}} lot(s) traçable(s) affiché(s) ; aucun classement par rang n'est utilisé ici.</div>
+        </details>
+      `;
     }}
 
     function simulatedRiskCascadePathSignature(row) {{
@@ -8715,6 +8969,7 @@ def html_template(
           <div class="riskScenarioSection">Chronologie</div>
           ${{simulatedRiskCascadeTimelineHtml(row)}}
           ${{simulatedRiskCascadeDiagramHtml([row], "Lecture de la cascade selectionnee")}}
+          ${{simulatedRiskCascadeLotsHtml(row)}}
           <details class="riskDetailsBlock" open>
             <summary>Noeuds et flux concernes</summary>
             <div class="riskScenarioMuted">Lecture: ces lignes expliquent ou la cascade est localisee et quels arcs de la carte peuvent etre surlignes.</div>
@@ -8851,6 +9106,55 @@ def html_template(
       container.querySelectorAll(".riskCascadeListItem[data-cascade-key]").forEach(btn => {{
         btn.addEventListener("click", () => setSelectedSimulatedRiskCascade(btn.getAttribute("data-cascade-key") || ""));
       }});
+      const cascadeLotSelect = document.getElementById("simRiskCascadeLotSelect");
+      const cascadeLotFilter = document.getElementById("simRiskCascadeLotFilter");
+      const cascadeLotFilterMeta = document.getElementById("simRiskCascadeLotFilterMeta");
+      const cascadeLotOpenBtn = document.getElementById("simRiskCascadeLotOpenBtn");
+      if (cascadeLotFilter && cascadeLotSelect) {{
+        cascadeLotFilter.addEventListener("input", () => {{
+          const query = String(cascadeLotFilter.value || "").trim().toLowerCase();
+          let visibleCount = 0;
+          let firstVisible = null;
+          Array.from(cascadeLotSelect.options).forEach(option => {{
+            const visible = !query || String(option.textContent || "").toLowerCase().includes(query);
+            option.hidden = !visible;
+            if (visible) {{
+              visibleCount += 1;
+              if (!firstVisible) firstVisible = option;
+            }}
+          }});
+          if (firstVisible && cascadeLotSelect.selectedOptions[0] && cascadeLotSelect.selectedOptions[0].hidden) {{
+            cascadeLotSelect.value = firstVisible.value;
+          }}
+          if (!firstVisible) cascadeLotSelect.value = "";
+          if (cascadeLotOpenBtn) cascadeLotOpenBtn.disabled = !firstVisible;
+          if (cascadeLotFilterMeta) {{
+            cascadeLotFilterMeta.textContent = `${{visibleCount}} lot(s) traçable(s) affiché(s) ; aucun classement par rang n'est utilisé ici.`;
+          }}
+        }});
+      }}
+      if (cascadeLotOpenBtn && cascadeLotSelect) {{
+        cascadeLotOpenBtn.addEventListener("click", () => {{
+          const lotId = String(cascadeLotSelect.value || "");
+          const impact = selectedSimulatedRiskCascadeLotImpact();
+          if (
+            currentPanelMode !== "simulated_risk"
+            || !lotId
+            || !impact
+            || !impact.traceableLotIds.includes(lotId)
+          ) {{
+            cascadeLotOpenBtn.disabled = true;
+            return;
+          }}
+          const globalModal = document.getElementById("simulatedRiskGlobalModal");
+          if (globalModal) globalModal.classList.remove("visible");
+          setSelectedLot(lotId);
+          const lotModal = document.getElementById("lotTraceModal");
+          if (lotModal) lotModal.classList.add("visible");
+          updateLotTraceControls();
+          focusSelectedLot();
+        }});
+      }}
     }}
 
     function simulatedRiskNodeImpactAsset(nodeId) {{
@@ -9541,7 +9845,11 @@ def html_template(
 
     function buildLotTraceOverlayTraces() {{
       const snapshot = selectedLotTraceSnapshot();
-      if (!snapshot || currentPanelMode !== "ops") return [];
+      if (!snapshot || !lotTraceOverlayEnabledForCurrentMode()) return [];
+      const riskCascadeMode = currentPanelMode === "simulated_risk";
+      const lineColor = riskCascadeMode ? "#2563eb" : "#f97316";
+      const markerColor = riskCascadeMode ? "#2563eb" : "#f97316";
+      const markerLineColor = riskCascadeMode ? "#1e3a8a" : "#7c2d12";
       const traces = [];
       const highlightedEdges = snapshot.edgeIds
         .map(edgeId => EDGE_BY_ID[edgeId])
@@ -9555,12 +9863,12 @@ def html_template(
         traces.push({{
           type: "scattergeo",
           mode: "lines",
-          name: "Flux du lot",
+          name: riskCascadeMode ? "Chemin du lot exposé" : "Flux du lot",
           showlegend: false,
           lon: [src.lon, dst.lon],
           lat: [src.lat, dst.lat],
-          line: {{ width: 5, color: "#f97316" }},
-          opacity: 0.82,
+          line: {{ width: riskCascadeMode ? 3.2 : 5, color: lineColor }},
+          opacity: riskCascadeMode ? 0.98 : 0.82,
           hovertemplate: `${{selectedLotId}}<br>${{edge.from}} -> ${{edge.to}}<extra></extra>`,
         }});
       }});
@@ -9569,18 +9877,18 @@ def html_template(
         traces.push({{
           type: "scattergeo",
           mode: "markers",
-          name: "Lot selectionne",
+          name: riskCascadeMode ? "Lot exposé sélectionné" : "Lot selectionne",
           lon: nodes.map(n => n.lon),
           lat: nodes.map(n => n.lat),
           text: nodes.map(n => `${{selectedLotId}}<br>${{n.name || n.id}}<br>ID: ${{n.id}}<br>Type: ${{n.type}}`),
           customdata: nodes.map(n => [n.id, n.type, n.name || n.id]),
           hovertemplate: "%{{text}}<extra></extra>",
           marker: {{
-            size: 18,
-            color: "#f97316",
+            size: riskCascadeMode ? 13 : 18,
+            color: markerColor,
             opacity: 0.98,
-            symbol: "circle",
-            line: {{ width: 2.4, color: "#7c2d12" }},
+            symbol: riskCascadeMode ? "diamond" : "circle",
+            line: {{ width: 2.4, color: markerLineColor }},
           }},
         }});
       }}
@@ -9742,7 +10050,7 @@ def html_template(
         Number.isFinite(n.lat) &&
         Number.isFinite(n.lon)
       );
-      const lotOverlayNodes = selectedLotMapNodes();
+      const lotOverlayNodes = lotTraceOverlayEnabledForCurrentMode() ? selectedLotMapNodes() : [];
       const cascadeOverlayNodes = selectedSimulatedRiskCascadeMapNodes();
       const uncertaintyOverlayNodes = selectedUncertaintyDriverMapNodes();
       const visibleNodeIds = new Set([...visibleNodes, ...lotOverlayNodes, ...cascadeOverlayNodes, ...uncertaintyOverlayNodes].map(n => n.id));
@@ -9846,14 +10154,14 @@ def html_template(
         }}
       }}
 
-      buildLotTraceOverlayTraces().forEach(trace => traces.push(trace));
       buildSimulatedRiskCascadeOverlayTraces().forEach(trace => traces.push(trace));
+      buildLotTraceOverlayTraces().forEach(trace => traces.push(trace));
       buildUncertaintyDriverOverlayTraces().forEach(trace => traces.push(trace));
       document.getElementById("stats").textContent =
         `${{visibleNodes.length}} nodes visibles / ${{(DATA.nodes || []).length}} | ` +
         `${{showEdges ? drawnEdges : 0}} flux affiches / ${{(DATA.edges || []).length}}` +
         `${{edgesInteractive ? " (flux interactifs)" : " (flux non interactifs)"}}` +
-        `${{selectedLotId ? ` | lot ${{selectedLotId}}` : ""}}` +
+        `${{lotTraceOverlayEnabledForCurrentMode() ? ` | lot ${{selectedLotId}}` : ""}}` +
         `${{selectedSimulatedRiskCascadeKey ? " | cascade risque selectionnee" : ""}}` +
         `${{selectedUncertaintyDriver ? " | driver incertitude selectionne" : ""}}`;
       const visibleWithLot = [...visibleNodes];

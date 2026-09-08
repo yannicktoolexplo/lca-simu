@@ -1,0 +1,15 @@
+{
+  "schema_version": "etudecas.supplier_v8_v2_to_stage3_v4_chain.v1.stage3_go.v1",
+  "decision": "WAIT_FOR_EXPLICIT_GO",
+  "approved_by": "",
+  "approved_at_utc": "",
+  "stage3_inventory_signature": "d56761c3cdd704ec9d31bb2b452ee5dea25e9cdcf1e87c67d787a09e20b5a442",
+  "chain_wrapper_sha256": "b41f5cf62930944076f69865fb0f7dd161bb266ccd593df85da45033ac56b47d",
+  "superseded_chain_wrapper_sha256": "a674e3ee98ad9bd5fc3fe76d499b90fb173b17ff0930d7a06c69171ba5725e4b",
+  "change_scope": "signed_v8_comparability_projection_for_validation_only",
+  "campaign_root": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_operating_point_full_campaign_v8_exposure_stratified_20260906_v2",
+  "results_dir": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_operating_point_full_campaign_v8_results_20260906_v2",
+  "stage3_supervision_dir": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_v8_stage3_supervision_20260906_v3",
+  "final_html": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\OUVRIR_DEMONSTRATION_RISQUES_FOURNISSEURS_V8_STAGE2_20260906_V3.html",
+  "operator_note_fr": "Modèle inerte : publier vers supplier_v8_stage3_go_20260906_v5.json seulement après fin et validation de la campagne complète, puis renseigner l'approbateur, l'horodatage et decision=GO_STAGE3_V4. Ce fichier ne lance aucun calcul."
+}

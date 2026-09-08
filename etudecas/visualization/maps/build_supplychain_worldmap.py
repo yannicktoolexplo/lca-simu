@@ -434,6 +434,14 @@ def parse_args() -> argparse.Namespace:
         help="External JSON path when --externalize-payload is used. Defaults to <output>.data.json.",
     )
     parser.add_argument(
+        "--read-only-source",
+        action="store_true",
+        help=(
+            "Build the map without writing derived KPI, compliance or supplier "
+            "criticality reports next to the source simulation files."
+        ),
+    )
+    parser.add_argument(
         "--sim-input-stocks-csv",
         default="etudecas/simulation/result/data/production_input_stocks_daily.csv",
         help="Simulation CSV for input material stocks.",
@@ -4820,9 +4828,11 @@ def write_mrp_safety_arrival_reports(
     mrp_order_rows: list[dict[str, str]],
     input_rows: list[dict[str, str]],
     input_arrival_rows: list[dict[str, str]],
+    write_outputs: bool = True,
 ) -> dict[str, dict[str, Any]]:
     reports_dir = output_root / "reports"
-    reports_dir.mkdir(parents=True, exist_ok=True)
+    if write_outputs:
+        reports_dir.mkdir(parents=True, exist_ok=True)
 
     factory_ids = factory_like_node_ids(raw)
     analysis_node_ids = set(factory_ids)
@@ -4985,6 +4995,9 @@ def write_mrp_safety_arrival_reports(
         if min_delta is not None:
             prev = bucket.get("worst_delta_days")
             bucket["worst_delta_days"] = min_delta if prev is None else min(prev, min_delta)
+
+    if not write_outputs:
+        return summary_by_node
 
     csv_path = reports_dir / "mrp_safety_arrival_compliance.csv"
     with csv_path.open("w", encoding="utf-8", newline="") as f:
@@ -5427,6 +5440,7 @@ def build_model_panel_metrics(
     factory_nominal_capacities_csv: Path | None,
     dc_stocks_csv: Path,
     production_constraint_csv: Path,
+    write_derived_artifacts: bool = True,
 ) -> dict[str, Any]:
     item_labels = build_item_label_lookup(raw)
     incoming_items, outgoing_items = build_edge_item_sets(raw)
@@ -5503,6 +5517,7 @@ def build_model_panel_metrics(
         mrp_order_rows=mrp_order_rows,
         input_rows=input_rows,
         input_arrival_rows=input_arrival_rows,
+        write_outputs=write_derived_artifacts,
     )
 
     latest_input_stock = latest_value_map(input_rows, node_field="node_id", value_field="stock_end_of_day")
@@ -12641,8 +12656,9 @@ def main() -> None:
         else None
     )
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    supplier_local_criticality_csv.parent.mkdir(parents=True, exist_ok=True)
-    supplier_local_criticality_json.parent.mkdir(parents=True, exist_ok=True)
+    if not args.read_only_source:
+        supplier_local_criticality_csv.parent.mkdir(parents=True, exist_ok=True)
+        supplier_local_criticality_json.parent.mkdir(parents=True, exist_ok=True)
 
     try:
         raw = json.loads(in_path.read_text(encoding="utf-8"))
@@ -12745,6 +12761,7 @@ def main() -> None:
             factory_nominal_capacities_csv=factory_nominal_capacities_csv,
             dc_stocks_csv=Path(args.dc_stocks_csv),
             production_constraint_csv=production_constraint_csv,
+            write_derived_artifacts=not args.read_only_source,
         )
         simulated_risk_output_root = (
             Path(args.simulated_risk_output_dir)
@@ -12787,6 +12804,7 @@ def main() -> None:
             production_constraint_csv,
             Path(args.dc_stocks_csv).parent / "mrp_orders_daily.csv",
             raw,
+            write_derived_artifacts=not args.read_only_source,
         )
         payload["global_kpi_tree"] = extend_global_kpi_tree_with_supplier_risk(
             payload.get("global_kpi_tree"),
@@ -12920,22 +12938,23 @@ def main() -> None:
         print(f"[ERROR] Unable to read/parse input JSON: {exc}", file=sys.stderr)
         sys.exit(1)
 
-    csv_columns = sorted({key for row in supplier_local_ranking_rows for key in row.keys()})
-    with supplier_local_criticality_csv.open("w", encoding="utf-8", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=csv_columns)
-        writer.writeheader()
-        writer.writerows(supplier_local_ranking_rows)
-    supplier_local_criticality_json.write_text(
-        json.dumps(
-            {
-                "summary": supplier_local_summary,
-                "ranking": supplier_local_ranking_rows,
-            },
-            indent=2,
-            ensure_ascii=False,
-        ),
-        encoding="utf-8",
-    )
+    if not args.read_only_source:
+        csv_columns = sorted({key for row in supplier_local_ranking_rows for key in row.keys()})
+        with supplier_local_criticality_csv.open("w", encoding="utf-8", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=csv_columns)
+            writer.writeheader()
+            writer.writerows(supplier_local_ranking_rows)
+        supplier_local_criticality_json.write_text(
+            json.dumps(
+                {
+                    "summary": supplier_local_summary,
+                    "ranking": supplier_local_ranking_rows,
+                },
+                indent=2,
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
 
     html_str = html_template(
         args.title,

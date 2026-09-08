@@ -345,6 +345,7 @@ def build_global_kpi_tree_payload(
     mrp_orders_csv: Path | None = None,
     raw: dict[str, Any] | None = None,
     component_immobilized_stock_csv: Path | None = None,
+    write_derived_artifacts: bool = True,
 ) -> dict[str, Any] | None:
     daily_rows, effective_daily_kpi_csv, cost_source = read_daily_kpi_rows_with_cost_fallback(daily_kpi_csv)
     demand_rows = read_csv_rows(demand_service_csv)
@@ -1003,7 +1004,7 @@ def build_global_kpi_tree_payload(
     }
     physics_kpi_rows = compute_kpi_rows(days, physics_actual_series, physics_kpi_definitions)
     physics_kpi_csv = effective_daily_kpi_csv.parent / "physics_of_decision_kpi_daily.csv"
-    if physics_kpi_rows:
+    if physics_kpi_rows and write_derived_artifacts:
         write_kpi_rows_csv(physics_kpi_rows, physics_kpi_csv)
 
     total_demand = sum(demand_qty.values())
