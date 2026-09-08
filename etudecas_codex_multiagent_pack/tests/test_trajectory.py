@@ -6,7 +6,7 @@ from etudecas_agentkit.core.case import CaseStudy
 from etudecas_agentkit.kpi.engine import KPIEngine
 from etudecas_agentkit.trajectory.builder import TrajectoryBuilder
 
-from tests.conftest import ROOT
+from .conftest import ROOT
 
 
 def test_trajectory_builder_sorts_and_keeps_dimensions():

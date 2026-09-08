@@ -1,12 +1,24 @@
 from __future__ import annotations
 
+import math
 from dataclasses import replace
 from typing import Any, Mapping, Sequence
 
 import numpy as np
 import pandas as pd
 
-from .core import EPS, Action, ScenarioPath, SimulationState, clamp, logit, safe_float, safety_filter, sigmoid
+from .core import (
+    EPS,
+    Action,
+    ScenarioPath,
+    SimulationState,
+    clamp,
+    classify_regime_signals,
+    logit,
+    safe_float,
+    safety_filter,
+    sigmoid,
+)
 
 
 def simulate_step(state: SimulationState, action: Action, base_demand: float, base_risk: float,
@@ -34,25 +46,43 @@ def simulate_step(state: SimulationState, action: Action, base_demand: float, ba
         - safe_float(risk_cfg["relief_gain"], 0.32) * action.supplier_relief
     )
     stress = clamp(stress, 0.0, 2.0)
+    realized_base_risk = (
+        float(scenario.realized_risk_probability[step_index])
+        if scenario.realized_risk_probability is not None
+        else float(base_risk)
+    )
     risk_value = float(sigmoid(
-        logit(clamp(base_risk, 0.01, 0.99))
+        logit(clamp(realized_base_risk, 0.01, 0.99))
         + safe_float(risk_cfg["stress_to_risk_gain"], 1.75) * stress
         + float(scenario.risk_noise[step_index])
     ))
     risk_value = clamp(risk_value, 0.01, 0.995)
+    # The prediction interval is already translated into physical lead-time,
+    # capacity and availability shocks by risk_mapping.py.  Only the incremental
+    # risk created by our own response is fed back here; using total risk would
+    # count the exogenous forecast twice.
+    endogenous_risk_increment = max(0.0, risk_value - realized_base_risk)
 
     lead_time = safe_float(nominal["base_lead_time_days"], 5.0) * (
-        1.0 + safe_float(risk_cfg["risk_to_lead_time"], 0.75) * risk_value
+        1.0 + safe_float(risk_cfg["risk_to_lead_time"], 0.75) * endogenous_risk_increment
         + float(scenario.lead_time_shock[step_index]) - 0.22 * action.expedite
     )
     lead_time = clamp(lead_time, 1.0, 30.0)
-    availability = 1.0 - safe_float(risk_cfg["risk_to_capacity_loss"], 0.42) * risk_value
+    availability = 1.0 - safe_float(risk_cfg["risk_to_capacity_loss"], 0.42) * endogenous_risk_increment
     availability -= float(scenario.supply_shock[step_index])
     availability += 0.10 * action.expedite
     availability = clamp(availability, 0.05, 1.15)
     supply_capacity = supplier_capacity * availability
-    arrivals = min(state.pipeline / lead_time, supply_capacity)
-    pipeline = max(0.0, state.pipeline + order - arrivals)
+    gross_arrivals = min(state.pipeline / lead_time, supply_capacity)
+    quality_yield = (
+        float(scenario.quality_yield_multiplier[step_index])
+        if scenario.quality_yield_multiplier is not None
+        else 1.0
+    )
+    quality_yield = clamp(quality_yield, 0.25, 1.0)
+    arrivals = gross_arrivals * quality_yield
+    quality_loss = max(0.0, gross_arrivals - arrivals)
+    pipeline = max(0.0, state.pipeline + order - gross_arrivals)
     raw_inventory = max(0.0, state.raw_inventory + arrivals)
 
     desired_production = demand + 0.42 * state.backlog + 0.15 * max(0.0, finished_target - state.finished_inventory)
@@ -73,6 +103,18 @@ def simulate_step(state: SimulationState, action: Action, base_demand: float, ba
 
     production_utilization = production / max(production_capacity_effective, EPS)
     supplier_utilization = arrivals / max(supply_capacity, EPS)
+    purchase_cost_multiplier = (
+        float(scenario.purchase_cost_multiplier[step_index])
+        if scenario.purchase_cost_multiplier is not None
+        else 1.0
+    )
+    transport_cost_multiplier = (
+        float(scenario.transport_cost_multiplier[step_index])
+        if scenario.transport_cost_multiplier is not None
+        else 1.0
+    )
+    purchase_cost_proxy = gross_arrivals * max(1.0, purchase_cost_multiplier)
+    transport_cost_proxy = gross_arrivals * max(1.0, transport_cost_multiplier) * (1.0 + action.expedite)
     next_state = SimulationState(raw_inventory, finished_inventory, backlog, pipeline, order, stress, risk_value, state.backlog)
     metrics = {
         "demand": demand,
@@ -86,15 +128,24 @@ def simulate_step(state: SimulationState, action: Action, base_demand: float, ba
         "pipeline": pipeline,
         "order": order,
         "arrivals": arrivals,
+        "gross_arrivals": gross_arrivals,
+        "quality_yield": quality_yield,
+        "quality_loss": quality_loss,
         "production": production,
         "nervousness": nervousness,
         "supplier_pressure": supplier_pressure,
         "supplier_stress": stress,
         "supplier_risk": risk_value,
+        "forecast_risk": float(base_risk),
+        "realized_base_risk": realized_base_risk,
         "lead_time": lead_time,
         "production_utilization": production_utilization,
         "supplier_utilization": supplier_utilization,
         "expedite": action.expedite,
+        "purchase_cost_multiplier": purchase_cost_multiplier,
+        "transport_cost_multiplier": transport_cost_multiplier,
+        "purchase_cost_proxy": purchase_cost_proxy,
+        "transport_cost_proxy": transport_cost_proxy,
         "action_magnitude": abs(action.order_gain) + abs(action.production_gain) + action.expedite
         + abs(action.safety_stock_gain) * 0.25 + action.supplier_relief * 0.20,
     }
@@ -112,29 +163,66 @@ def simulate_horizon(initial: SimulationState, action: Action, demand_path: np.n
 
 
 def classify_regime(state: SimulationState, metrics: Mapping[str, float], config: Mapping[str, Any]) -> str:
+    """Classify the operational state with the shared calibration predicates.
+
+    ``material_cover_days`` may be supplied explicitly by a richer physical
+    engine.  The reduced model otherwise has an observed raw-inventory state,
+    which is a valid material-cover measurement rather than an imputed zero.
+    Post-crisis context is taken from explicit metrics when available; the
+    one-step ``previous_backlog`` state supplies the conservative fallback.
+    """
+
     thresholds = config["regime_thresholds"]
     demand = max(safe_float(metrics.get("demand"), 1.0), EPS)
     raw_days = state.raw_inventory / demand
     finished_days = state.finished_inventory / demand
     backlog_days = state.backlog / demand
     total_inventory_days = raw_days + finished_days
-    nervousness = safe_float(metrics.get("nervousness"), 0.0)
-    utilization = safe_float(metrics.get("production_utilization"), 0.0)
-    if backlog_days >= safe_float(thresholds["crisis_backlog_days"], 1.60) and state.supplier_risk >= 0.55:
-        return "CRISIS"
-    if state.supplier_risk >= safe_float(thresholds["supplier_risk"], 0.68) or state.supplier_stress >= safe_float(thresholds["supplier_stress"], 0.72):
-        return "SUPPLIER_STRESS"
-    if nervousness >= safe_float(thresholds["oscillation_nervousness"], 0.38) and backlog_days >= 0.15:
-        return "OSCILLATORY"
-    if utilization >= safe_float(thresholds["capacity_saturation"], 0.94) and backlog_days >= 0.10:
-        return "CAPACITY_SATURATION"
-    if raw_days <= safe_float(thresholds["material_tension_days"], 0.85):
-        return "MATERIAL_TENSION"
-    if state.previous_backlog > state.backlog and backlog_days >= safe_float(thresholds["recovery_backlog_days"], 0.15):
-        return "RECOVERY"
-    if total_inventory_days >= safe_float(thresholds["overstock_days"], 7.0) and backlog_days < 0.05:
-        return "POST_CRISIS_OVERSTOCK"
-    return "NOMINAL"
+    nominal_inventory_days = max(
+        safe_float(config.get("nominal", {}).get("raw_inventory_days"), 3.0)
+        + safe_float(
+            config.get("nominal", {}).get("finished_inventory_days"), 1.2
+        ),
+        EPS,
+    )
+    material_cover_supplied = "material_cover_days" in metrics
+    material_cover = (
+        metrics.get("material_cover_days") if material_cover_supplied else raw_days
+    )
+    material_cover_known = metrics.get(
+        "material_cover_known",
+        True if not material_cover_supplied else None,
+    )
+    recent_disruption = metrics.get(
+        "recent_disruption_signal",
+        float(state.previous_backlog > 0.0),
+    )
+    return classify_regime_signals(
+        {
+            "backlog_days": backlog_days,
+            "previous_backlog_days": state.previous_backlog / demand,
+            "service": metrics.get("service", 1.0),
+            "supplier_risk": state.supplier_risk,
+            "supplier_stress": state.supplier_stress,
+            "nervousness": metrics.get("nervousness", 0.0),
+            "production_utilization": metrics.get(
+                "production_utilization", 0.0
+            ),
+            "supplier_utilization": metrics.get("supplier_utilization", 0.0),
+            "material_cover_days": material_cover,
+            "material_cover_known": material_cover_known,
+            "inventory_cover_days": total_inventory_days,
+            "inventory_excess_ratio": metrics.get(
+                "inventory_excess_ratio",
+                total_inventory_days / nominal_inventory_days,
+            ),
+            "recent_disruption_signal": recent_disruption,
+            "post_crisis_overstock_candidate": metrics.get(
+                "post_crisis_overstock_candidate", 1.0
+            ),
+        },
+        thresholds,
+    )
 
 
 def local_observability_score(base_score: float, state: SimulationState, risk_uncertainty: float,
@@ -168,6 +256,9 @@ def policy_objective(trajectory: pd.DataFrame, reference: pd.DataFrame, config: 
         "risk_area": float(trajectory["supplier_risk"].sum()),
         "risk_creation": float((trajectory["supplier_risk"] - reference["supplier_risk"]).clip(lower=0).mean()),
         "expedite": float(trajectory["expedite"].sum()),
+        "quality_loss": float(trajectory.get("quality_loss", pd.Series(0.0, index=trajectory.index)).sum()),
+        "purchase_cost_proxy": float(trajectory.get("purchase_cost_proxy", pd.Series(0.0, index=trajectory.index)).sum()),
+        "transport_cost_proxy": float(trajectory.get("transport_cost_proxy", pd.Series(0.0, index=trajectory.index)).sum()),
         "action_magnitude": float(trajectory["action_magnitude"].sum()),
         "min_service": float(trajectory["service"].min()),
         "max_backlog": float(trajectory["backlog"].max()),
@@ -205,7 +296,8 @@ def evaluate_actions(initial: SimulationState, actions: Sequence[Action], demand
     rows: list[dict[str, float | str]] = []
     keys = ["service_loss", "backlog_area", "inventory_area", "inventory_shortfall",
             "terminal_inventory_shortfall", "terminal_pipeline_shortfall", "nervousness", "risk_area",
-            "risk_creation", "expedite", "action_magnitude", "constraint_violation", "min_service", "max_backlog", "final_risk"]
+            "risk_creation", "expedite", "quality_loss", "purchase_cost_proxy", "transport_cost_proxy",
+            "action_magnitude", "constraint_violation", "min_service", "max_backlog", "final_risk"]
     for action in actions:
         metrics = []
         for scenario, reference in zip(scenarios, references):

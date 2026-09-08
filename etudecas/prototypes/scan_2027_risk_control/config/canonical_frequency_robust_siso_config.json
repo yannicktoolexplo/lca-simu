@@ -1,0 +1,43 @@
+{
+  "schema_version": "scan.canonical_frequency_robust_siso_config.v1",
+  "name": "resilience_scan_supplier_lead_time_robust_siso",
+  "base_study_config": "etudecas/prototypes/scan_2027_risk_control/config/canonical_frequency_study_config.json",
+  "target_input_signal": "supplier_lead_time_multiplier",
+  "required_operating_conditions": [
+    "nominal_capacity",
+    "supplier_stress_capacity"
+  ],
+  "output_dir": "etudecas/prototypes/scan_2027_risk_control/outputs/canonical_frequency_robust_siso",
+  "profiles": {
+    "confirmatory": {
+      "confirmatory": true,
+      "amplitudes_percent": [0.5, 1.0, 2.0, 5.0],
+      "phase_seeds": [320260, 421267, 522274, 623281, 724288],
+      "measured_periods": 10,
+      "discarded_periods": 1,
+      "retained_periods": 9,
+      "interpretation": "Confirmatory tested-amplitude SISO matrix; completion permits scientific review but does not automatically establish a local derivative or closed-loop stability."
+    },
+    "pilot": {
+      "confirmatory": false,
+      "amplitudes_percent": [1.0, 5.0],
+      "phase_seeds": [320260, 421267],
+      "measured_periods": 4,
+      "discarded_periods": 1,
+      "retained_periods": 3,
+      "interpretation": "Short non-confirmatory smoke/pilot profile; its estimates must not be promoted to confirmatory evidence."
+    }
+  },
+  "execution": {
+    "python_executable": "python",
+    "stage": "designed",
+    "plots": false,
+    "existing_output_policy": "skip_verified_complete_refuse_partial_unless_retry_as_new_attempt"
+  },
+  "claims": {
+    "local_derivative_automatically_proven": false,
+    "dynamic_closed_loop_automatically_proven": false,
+    "global_stability_automatically_proven": false,
+    "incomplete_matrix_is_confirmatory_evidence": false
+  }
+}

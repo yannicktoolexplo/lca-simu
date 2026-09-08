@@ -7,6 +7,9 @@ import unittest
 from pathlib import Path
 
 from etudecas.visualization.maps import build_supplychain_worldmap as worldmap_builder
+from etudecas.visualization.maps.build_supplychain_worldmap import (
+    write_mrp_safety_arrival_reports,
+)
 from etudecas.visualization.maps.global_kpi_tree_payload import build_global_kpi_tree_payload
 
 
@@ -21,6 +24,22 @@ def write_csv(path: Path, fieldnames: list[str], rows: list[dict[str, object]]) 
 class GlobalKpiTreePayloadTest(unittest.TestCase):
     def test_builder_reexports_extracted_payload_builder(self) -> None:
         self.assertIs(worldmap_builder.build_global_kpi_tree_payload, build_global_kpi_tree_payload)
+
+    def test_read_only_safety_analysis_does_not_write_reports(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            summary = write_mrp_safety_arrival_reports(
+                {"nodes": [], "edges": []},
+                output_root=root,
+                mrp_trace_rows=[],
+                mrp_order_rows=[],
+                input_rows=[],
+                input_arrival_rows=[],
+                write_outputs=False,
+            )
+
+            self.assertEqual(summary, {})
+            self.assertFalse((root / "reports").exists())
 
     def test_cost_supply_is_rebuilt_from_components_when_total_is_missing(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -437,6 +456,38 @@ class GlobalKpiTreePayloadTest(unittest.TestCase):
         self.assertEqual(summary_by_label["Excedent economique 90j moyen"], "85.0")
         series_by_label = {series["label"]: series for series in group["secondary"]}
         self.assertEqual(series_by_label["Excedent vs cible MRP"]["values"], [80.0, 150.0])
+
+    def test_read_only_payload_does_not_write_physics_kpi_csv(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            data_dir = Path(tmp) / "data"
+            daily_csv = data_dir / "first_simulation_daily.csv"
+            demand_csv = data_dir / "production_demand_service_daily.csv"
+            constraint_csv = data_dir / "production_constraint_daily.csv"
+            write_csv(
+                daily_csv,
+                ["day", "demand", "served", "backlog_end", "holding_cost_day"],
+                [{"day": 0, "demand": 10, "served": 10, "backlog_end": 0, "holding_cost_day": 1}],
+            )
+            write_csv(
+                demand_csv,
+                ["day", "item_id", "demand_qty", "required_with_backlog_qty", "served_qty", "backlog_end_qty"],
+                [{"day": 0, "item_id": "item:PF", "demand_qty": 10, "required_with_backlog_qty": 10, "served_qty": 10, "backlog_end_qty": 0}],
+            )
+            write_csv(
+                constraint_csv,
+                ["day", "node_id", "output_item_id", "desired_qty", "planned_qty_after_lot_rule", "actual_qty"],
+                [{"day": 0, "node_id": "M-1", "output_item_id": "item:PF", "desired_qty": 10, "planned_qty_after_lot_rule": 10, "actual_qty": 10}],
+            )
+
+            payload = build_global_kpi_tree_payload(
+                daily_csv,
+                demand_csv,
+                constraint_csv,
+                write_derived_artifacts=False,
+            )
+
+            self.assertIsNotNone(payload)
+            self.assertFalse((data_dir / "physics_of_decision_kpi_daily.csv").exists())
 
 
 if __name__ == "__main__":

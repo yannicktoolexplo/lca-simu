@@ -1,39 +1,62 @@
-import requests
+from __future__ import annotations
+
+import os
+
 import pandas as pd
+import requests
 
-# Votre clé API FRED
-API_KEY = "0f9b43b457facd531052c888f5e9cd50"
+
 BASE_URL = "https://api.stlouisfed.org/fred"
+FRED_API_KEY_ENV = "FRED_API_KEY"
 
-def get_category_series(category_id):
 
+def get_category_series(
+    category_id: int,
+    *,
+    api_key: str | None = None,
+) -> pd.DataFrame:
+    """Return the FRED series listed under one category.
+
+    Credentials are supplied explicitly or through ``FRED_API_KEY``. They are
+    never stored in source control.
     """
-    Récupère les séries d'une catégorie FRED donnée.
-    
-    :param category_id: ID de la catégorie.
-    :return: DataFrame des séries économiques.
-    """
-    url = f"{BASE_URL}/category/series"
-    params = {
-        "category_id": category_id,
-        "api_key": API_KEY,
-        "file_type": "json"
-    }
-    response = requests.get(url, params=params)
+
+    resolved_api_key = api_key or os.getenv(FRED_API_KEY_ENV)
+    if not resolved_api_key:
+        raise RuntimeError(
+            f"Set {FRED_API_KEY_ENV} before querying the FRED API."
+        )
+    response = requests.get(
+        f"{BASE_URL}/category/series",
+        params={
+            "category_id": int(category_id),
+            "api_key": resolved_api_key,
+            "file_type": "json",
+        },
+        timeout=30,
+    )
+    response.raise_for_status()
     data = response.json()
-    if 'seriess' in data:
-        return pd.DataFrame(data['seriess'])
-    else:
-        raise ValueError(f"Erreur dans la récupération des séries : {data.get('error_message')}")
+    if "seriess" not in data:
+        raise ValueError(
+            "FRED category lookup failed: "
+            f"{data.get('error_message', 'missing seriess payload')}"
+        )
+    return pd.DataFrame(data["seriess"])
 
-# ID de la catégorie Durable Goods
-durable_goods_category_id = 32312
 
-# Récupérer les séries de la catégorie Durable Goods
-durable_goods_series = get_category_series(durable_goods_category_id)
+def main() -> None:
+    durable_goods_series = get_category_series(32312)
+    columns = [
+        "id",
+        "title",
+        "frequency",
+        "units",
+        "seasonal_adjustment",
+        "last_updated",
+    ]
+    print(durable_goods_series.loc[:, columns])
 
-# Sélectionner les colonnes pertinentes
-durable_goods_series_display = durable_goods_series[['id', 'title', 'frequency', 'units', 'seasonal_adjustment', 'last_updated']]
 
-# Afficher les séries sous forme de tableau
-print(durable_goods_series_display)
+if __name__ == "__main__":
+    main()
