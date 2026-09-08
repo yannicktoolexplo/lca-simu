@@ -1,0 +1,26 @@
+Pending additive patch for `etudecas/simulation/engine/run_first_simulation.py`.
+
+Purpose: add `--supplier-state-risk-families` as a comma-separated allowlist.
+Historical default remains all families. The meeting pilot must pass:
+
+    stock,capacity,lead,availability,upstream,reliability,cost
+
+and must therefore exclude `quality`.
+
+Implementation already checked before temporary removal for the frozen service-regime
+campaign:
+
+- constant `SUPPLIER_STATE_RISK_FAMILIES` in canonical order;
+- argparse parser `_parse_supplier_state_risk_families` (empty/all => historical set,
+  rejects unknown names and `all` mixed with names);
+- CLI option `--supplier-state-risk-families`;
+- early return in `register_state_dependent_supplier_event` when the generated
+  `risk_family` is outside the allowlist;
+- summary fields: `available_families`, `enabled_families`, `excluded_families`,
+  `family_filter_mode`;
+- reliability/quality rule list reports only enabled families;
+- unit test file `etudecas/simulation/test_supplier_state_risk_family_filter.py`;
+  4 tests passed.
+
+The code was temporarily removed because the signed V2 service-regime plan pins the
+exact pre-patch engine SHA-256 and correctly refuses execution after any engine edit.
