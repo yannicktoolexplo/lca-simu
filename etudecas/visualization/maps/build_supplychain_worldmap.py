@@ -27,6 +27,17 @@ try:
     from etudecas.case_config import (
         ITEM_DISPLAY_REFERENCE_NOTES,
     )
+    from etudecas.risk.supplier_audit import (
+        DEFAULT_SUPPLIER_AUDIT_SOURCE,
+        attach_supplier_audit_panels,
+        blend_criticality_with_audit,
+        estimate_supplier_audit_profiles,
+        expand_supplier_audit_coverage,
+        load_supplier_audits,
+        supplier_audit_coverage_summary,
+        supplier_audit_score,
+        supplier_estimated_score,
+    )
     from etudecas.simulation.lot_trace import build_lot_trace_payload
     from etudecas.simulation.uncertainty import build_uncertainty_diagnostics
     from etudecas.visualization.maps.supplier_risk_formatting import (
@@ -43,6 +54,17 @@ except ModuleNotFoundError:
     sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
     from etudecas.case_config import (
         ITEM_DISPLAY_REFERENCE_NOTES,
+    )
+    from etudecas.risk.supplier_audit import (
+        DEFAULT_SUPPLIER_AUDIT_SOURCE,
+        attach_supplier_audit_panels,
+        blend_criticality_with_audit,
+        estimate_supplier_audit_profiles,
+        expand_supplier_audit_coverage,
+        load_supplier_audits,
+        supplier_audit_coverage_summary,
+        supplier_audit_score,
+        supplier_estimated_score,
     )
     from etudecas.simulation.lot_trace import build_lot_trace_payload
     from etudecas.simulation.uncertainty import build_uncertainty_diagnostics
@@ -564,6 +586,11 @@ def parse_args() -> argparse.Namespace:
         "--supplier-risk-kpi-panel-csv",
         default=str(DEFAULT_SUPPLIER_RISK_KPI_DIR / "data" / "supplier_item_week_panel.csv"),
         help="Optional supplier-item-site weekly risk KPI panel CSV.",
+    )
+    parser.add_argument(
+        "--supplier-audit-xlsx",
+        default=str(DEFAULT_SUPPLIER_AUDIT_SOURCE),
+        help="Supplier audit workbook or directory whose criticality criteria are added to the risk map.",
     )
     parser.add_argument(
         "--montecarlo-summary-json",
@@ -12011,7 +12038,9 @@ def build_supplier_local_criticality(
     production_constraint_csv: Path,
     sensitivity_cases_csv: Path,
     structural_sensitivity_cases_csv: Path,
+    supplier_audits: dict[str, dict[str, Any]] | None = None,
 ) -> tuple[dict[str, Any], list[dict[str, Any]], dict[str, Any]]:
+    supplier_audits = supplier_audits or {}
     nodes = raw.get("nodes", []) or []
     edges = raw.get("edges", []) or []
     supplier_ids = sorted(str(n.get("id")) for n in nodes if str(n.get("type") or "") == "supplier_dc")
@@ -12289,7 +12318,13 @@ def build_supplier_local_criticality(
             + 0.20 * shortage_score.get(supplier_id, 0.0)
         )
         system_score = 0.5 * standard_system_score.get(supplier_id, 0.0) + 0.5 * structural_system_score.get(supplier_id, 0.0)
-        overall_score = 0.55 * local_score + 0.45 * system_score
+        structural_criticality_score = 0.55 * local_score + 0.45 * system_score
+        audit = supplier_audits.get(supplier_id)
+        audit_criticality_score = supplier_audit_score(audit)
+        # Keep the operational ranking comparable across the whole supplier
+        # population. Audit and proxy values are displayed alongside it and do
+        # not silently change the rank when coverage differs by supplier.
+        overall_score = structural_criticality_score
         std_label, _std_short, _std_low, _std_high, std_fill_impact, std_backlog_impact = select_best_supplier_case_pair(
             by_case_std,
             baseline_std,
@@ -12328,7 +12363,15 @@ def build_supplier_local_criticality(
             "structural_backlog_impact": round(struct_backlog_impact, 4),
             "local_criticality_score": round(local_score, 6),
             "system_criticality_score": round(system_score, 6),
+            "structural_criticality_score": round(structural_criticality_score, 6),
+            "audit_criticality_score": round(audit_criticality_score, 6) if audit_criticality_score is not None else "",
+            "audit_criterion_count": int((audit or {}).get("criterion_count") or 0),
+            "audit_answered_criterion_count": int((audit or {}).get("answered_criterion_count") or 0),
+            "audit_status": str((audit or {}).get("audit_status") or "not_available"),
             "overall_criticality_score": round(overall_score, 6),
+            "indicative_adjusted_score": round(
+                blend_criticality_with_audit(structural_criticality_score, audit), 6
+            ),
             "top_items_preview": item_labels,
             "destinations_preview": ", ".join(dest_nodes[:4]) + (", ..." if len(dest_nodes) > 4 else ""),
         }
@@ -12381,6 +12424,18 @@ def build_supplier_local_criticality(
         else:
             summary_lines.append(metric_label_value("Rupture couverte", "aucune detectee"))
         summary_lines.append(metric_label_value("Criticite locale", f"{local_score:.3f}"))
+        if audit_criticality_score is not None:
+            summary_lines.extend(
+                [
+                    metric_label_value("Criticite structurelle", f"{structural_criticality_score:.3f}"),
+                    metric_label_value("Indice audit fournisseur", f"{audit_criticality_score:.1%}"),
+                    metric_label_value(
+                        "Indice croise indicatif",
+                        f"{blend_criticality_with_audit(structural_criticality_score, audit):.3f}",
+                    ),
+                    metric_label_value("Criteres audit integres", str(audit.get("criterion_count") or 0)),
+                ]
+            )
         if std_label or struct_label or system_score > 1e-9:
             if std_label:
                 summary_lines.append(metric_label_value("Point faible sensibilite", std_label))
@@ -12394,9 +12449,40 @@ def build_supplier_local_criticality(
             "scores": {
                 "local": round(local_score, 6),
                 "system": round(system_score, 6),
+                "structural": round(structural_criticality_score, 6),
+                "audit": round(audit_criticality_score, 6) if audit_criticality_score is not None else None,
                 "overall": round(overall_score, 6),
             },
+            "supplier_audit": audit,
         }
+
+    estimate_supplier_audit_profiles(supplier_audits, ranking_rows)
+    for row in ranking_rows:
+        supplier_id = str(row["supplier_id"])
+        audit = supplier_audits.get(supplier_id) or {}
+        estimated_score = supplier_estimated_score(audit)
+        audited_score = supplier_audit_score(audit)
+        row["supplier_name"] = supplier_id
+        row["audit_status"] = str(audit.get("audit_status") or "not_available")
+        row["audit_criterion_count"] = int(audit.get("criterion_count") or 0)
+        row["audit_answered_criterion_count"] = int(audit.get("answered_criterion_count") or 0)
+        row["audit_estimated_criterion_count"] = int(audit.get("estimated_criterion_count") or 0)
+        row["audit_criticality_score"] = round(audited_score, 6) if audited_score is not None else ""
+        row["estimated_audit_risk_index"] = (
+            round(estimated_score, 6) if estimated_score is not None else ""
+        )
+        proxy_score = audited_score if audited_score is not None else estimated_score
+        row["indicative_adjusted_score"] = (
+            round(0.70 * float(row["structural_criticality_score"]) + 0.30 * proxy_score, 6)
+            if proxy_score is not None
+            else row["structural_criticality_score"]
+        )
+        supplier_metrics = metrics_by_supplier.get(supplier_id, {})
+        supplier_metrics["supplier_audit"] = audit
+        supplier_metrics.setdefault("scores", {})["audit_estimate"] = (
+            round(estimated_score, 6) if estimated_score is not None else None
+        )
+        supplier_metrics["scores"]["indicative_adjusted"] = row["indicative_adjusted_score"]
 
     ranking_rows.sort(key=lambda row: (-float(row["overall_criticality_score"]), -float(row["total_shipped_qty"]), row["supplier_id"]))
     for rank, row in enumerate(ranking_rows, start=1):
@@ -12423,7 +12509,20 @@ def build_supplier_local_criticality(
                 "local": 0.55,
                 "system": 0.45,
             },
+            "supplier_audit_blend": {
+                "structural_score": 0.70,
+                "supplier_audit_score": 0.30,
+                "ranking_effect": "none",
+                "purpose": "indicative_adjusted_score_only",
+            },
         },
+        "supplier_audit_profile_count": len(supplier_audits),
+        "supplier_audit_scored_count": sum(
+            1 for audit in supplier_audits.values() if supplier_audit_score(audit) is not None
+        ),
+        "supplier_audit_estimated_count": sum(
+            1 for audit in supplier_audits.values() if supplier_estimated_score(audit) is not None
+        ),
     }
     return metrics_by_supplier, ranking_rows, summary
 
@@ -12578,6 +12677,7 @@ def main() -> None:
     supplier_risk_supplier_csv = Path(args.supplier_risk_kpi_supplier_csv)
     supplier_risk_pair_csv = Path(args.supplier_risk_kpi_pair_csv)
     supplier_risk_panel_csv = Path(args.supplier_risk_kpi_panel_csv)
+    supplier_audit_xlsx = Path(args.supplier_audit_xlsx) if str(args.supplier_audit_xlsx or "").strip() else None
     montecarlo_summary_json = (
         Path(args.montecarlo_summary_json)
         if str(args.montecarlo_summary_json or "").strip()
@@ -12603,6 +12703,10 @@ def main() -> None:
                 f"{in_path} does not contain top-level nodes/edges required by the map builder."
             )
         payload = compact_graph_payload(raw)
+        completed_supplier_audits = load_supplier_audits(supplier_audit_xlsx) if supplier_audit_xlsx else {}
+        supplier_audits = expand_supplier_audit_coverage(raw.get("nodes", []) or [], completed_supplier_audits)
+        payload["supplier_audits"] = supplier_audits
+        payload["supplier_audit_coverage"] = supplier_audit_coverage_summary(supplier_audits)
         payload["data_panel"] = build_data_panel_payload(raw)
         payload["json_panel"] = build_json_panel_payload(raw)
         payload["timeline_horizon_days"] = read_timeline_horizon_days(output_root_from_csv(demand_service_csv))
@@ -12824,6 +12928,13 @@ def main() -> None:
             production_constraint_csv,
             sensitivity_cases_csv,
             structural_sensitivity_cases_csv,
+            supplier_audits=supplier_audits,
+        )
+        payload["supplier_audits"] = supplier_audits
+        payload["supplier_audit_coverage"] = supplier_audit_coverage_summary(supplier_audits)
+        payload["supplier_risk_hover_images"] = attach_supplier_audit_panels(
+            payload["supplier_risk_hover_images"],
+            supplier_audits,
         )
         payload["realistic_sensitivity"] = build_realistic_sensitivity_panel_metrics(
             raw,

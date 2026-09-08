@@ -1114,6 +1114,11 @@ def build_supplier_criticality(*, sim_result_dir: Path | None, output_dir: Path)
 
 
 def build_supplier_local_criticality_artifacts(*, input_graph: Path, output_dir: Path) -> None:
+    from etudecas.risk.supplier_audit import (
+        DEFAULT_SUPPLIER_AUDIT_SOURCE,
+        expand_supplier_audit_coverage,
+        load_supplier_audits,
+    )
     from etudecas.visualization.maps.build_supplychain_worldmap import build_supplier_local_criticality
 
     data_dir = output_dir / "data"
@@ -1121,6 +1126,10 @@ def build_supplier_local_criticality_artifacts(*, input_graph: Path, output_dir:
     csv_path = data_dir / "supplier_local_criticality_ranking.csv"
     json_path = summaries_dir / "supplier_local_criticality_summary.json"
     raw = load_json(input_graph)
+    supplier_audits = expand_supplier_audit_coverage(
+        raw.get("nodes", []) or [],
+        load_supplier_audits(DEFAULT_SUPPLIER_AUDIT_SOURCE),
+    )
     _, ranking_rows, summary = build_supplier_local_criticality(
         raw,
         data_dir / "production_supplier_shipments_daily.csv",
@@ -1129,6 +1138,7 @@ def build_supplier_local_criticality_artifacts(*, input_graph: Path, output_dir:
         data_dir / "production_constraint_daily.csv",
         ROOT / "simulation" / "sensibility" / "result" / "sensitivity_cases.csv",
         ROOT / "simulation" / "sensibility" / "structural_result" / "sensitivity_cases.csv",
+        supplier_audits=supplier_audits,
     )
     csv_path.parent.mkdir(parents=True, exist_ok=True)
     json_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1280,6 +1290,8 @@ def build_map_for_simulation_result(
         repo_rel(criticality_data / "supplier_item_risk_kpi.csv"),
         "--supplier-risk-kpi-panel-csv",
         repo_rel(criticality_data / "supplier_item_week_panel.csv"),
+        "--supplier-audit-xlsx",
+        repo_rel(ROOT / "data" / "source"),
         "--chunked-embedded-payload",
     ]
     if simulated_risk_output_dir is not None:
