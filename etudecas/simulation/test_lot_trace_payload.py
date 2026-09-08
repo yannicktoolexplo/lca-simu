@@ -13,6 +13,12 @@ from etudecas.simulation.lot_trace import (
     LOT_TRACE_GENEALOGY_FIELDS,
     LOT_TRACE_PLAN_EVENT_FIELDS,
     build_lot_trace_payload,
+    build_lot_trace_view_model,
+)
+from etudecas.simulation.lot_trace.labels import (
+    event_type_label,
+    format_quantity,
+    node_business_label,
 )
 
 
@@ -95,6 +101,22 @@ class LotTracePayloadTest(unittest.TestCase):
         self.assertEqual(payload["lots"]["LOT-RM-S"]["trace_scope"], "raw_material_opening")
         self.assertGreater(payload["lots"]["LOT-PF"]["upstream_lot_count"], 0)
         self.assertGreater(payload["lots"]["LOT-RM-S"]["downstream_lot_count"], 0)
+        self.assertNotIn("production_output", payload["lots"]["LOT-PF"]["label"])
+        self.assertNotIn("amont", payload["lots"]["LOT-PF"]["label"])
+        self.assertIn("Production terminée J3", payload["lots"]["LOT-PF"]["label"])
+        self.assertIn("10 UN", payload["lots"]["LOT-PF"]["label"])
+        self.assertEqual(
+            payload["lots"]["LOT-PF"]["trace_counts"],
+            {"upstream_lots": 2, "downstream_lots": 2},
+        )
+        self.assertEqual(payload["lots"]["LOT-PF"]["business_lot_id"], "LOT-PF")
+        self.assertEqual(payload["lots"]["LOT-DC"]["business_lot_id"], "LOT-PF")
+        self.assertEqual(payload["lots"]["LOT-DC"]["stock_occurrence_id"], "LOT-DC")
+        self.assertEqual(payload["lots"]["LOT-DC"]["shipment_id"], "")
+        self.assertEqual(payload["lots"]["LOT-DC"]["shipment_identity_status"], "not_available_legacy")
+        self.assertEqual(payload["lots"]["LOT-ORPHAN"]["origin_trace_status"], "untraced_transport_origin")
+        self.assertIn("Origine non tracée", payload["lots"]["LOT-ORPHAN"]["origin_trace_label"])
+        self.assertEqual(payload["summary"]["untraced_transport_receipt_count"], 1)
 
     def test_payload_contract_keeps_js_consumed_keys_and_fields(self) -> None:
         payload = self._build_payload()
@@ -111,6 +133,7 @@ class LotTracePayloadTest(unittest.TestCase):
             "campaigns",
             "deferred_orders",
             "stock_context",
+            "nomenclature",
             "default_view_model",
             "summary",
         ]:
@@ -126,6 +149,52 @@ class LotTracePayloadTest(unittest.TestCase):
         self.assertEqual(payload["summary"]["default_view_model_lot"], payload["default_lot"])
         self.assertIn("deferred_order_completed_count", payload["summary"])
         self.assertIn("deferred_order_blocked_count", payload["summary"])
+        self.assertEqual(
+            payload["nomenclature"]["event_type_labels"]["lane_receipt"],
+            "Réception logistique simulée",
+        )
+
+    def test_business_labels_are_french_and_keep_units_visible(self) -> None:
+        self.assertEqual(event_type_label("production_output"), "Production terminée")
+        self.assertEqual(event_type_label("unknown_internal_code"), "Événement métier non référencé")
+        self.assertEqual(node_business_label("SDC-1450"), "Site PFI interne D1450")
+        self.assertEqual(format_quantity(12.5, "KG"), "12,5 KG")
+        self.assertIn("unité non renseignée", format_quantity(12.5, ""))
+
+    def test_payload_accepts_explicit_identity_fields_from_newer_csv(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            events_path = root / "events.csv"
+            genealogy_path = root / "genealogy.csv"
+            plan_path = root / "plan.csv"
+            events = self._events()
+            for event in events:
+                if event["lot_id"] == "LOT-DC" and event["event_type"] == "lane_receipt":
+                    event["business_lot_id"] = "BATCH-PF-001"
+                    event["stock_occurrence_id"] = "OCC-DC-001"
+                    event["shipment_id"] = "SHIP-001"
+            self._write_csv(
+                events_path,
+                [*EVENT_FIELDS, "business_lot_id", "stock_occurrence_id", "shipment_id"],
+                events,
+            )
+            self._write_csv(genealogy_path, GENEALOGY_FIELDS, self._genealogy())
+            self._write_csv(plan_path, PLAN_FIELDS, [])
+
+            payload = build_lot_trace_payload(
+                events_path,
+                genealogy_path,
+                plan_path,
+                raw=self._raw_graph(),
+            )
+
+        dc_lot = payload["lots"]["LOT-DC"]
+        self.assertEqual(dc_lot["business_lot_id"], "BATCH-PF-001")
+        self.assertEqual(dc_lot["stock_occurrence_id"], "OCC-DC-001")
+        self.assertEqual(dc_lot["shipment_id"], "SHIP-001")
+        self.assertEqual(dc_lot["shipment_identity_status"], "identified")
+        self.assertIn("Lot métier BATCH-PF-001", dc_lot["label"])
+        self.assertNotIn("Lot métier LOT-DC", dc_lot["label"])
 
     def test_deferred_campaign_is_not_a_physical_lot(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -202,6 +271,32 @@ class LotTracePayloadTest(unittest.TestCase):
         self.assertIn("LOT-RM-S", option_ids)
         self.assertEqual(payload["summary"]["selectable_finished_product_items"], ["item:OTHER"])
 
+    def test_view_model_propagates_material_contribution_through_production(self) -> None:
+        payload = self._build_payload()
+
+        model = build_lot_trace_view_model(payload, "LOT-RM-S", direction="downstream")
+
+        nodes_by_lot = {row["lot_id"]: row for row in model["nodes"]}
+        links_by_child = {row["child_lot_id"]: row for row in model["links"]}
+
+        self.assertAlmostEqual(nodes_by_lot["LOT-RM-S"]["contribution_qty"], 100.0)
+        self.assertEqual(nodes_by_lot["LOT-RM-S"]["contribution_basis"], "selected_lot_total_qty")
+        self.assertAlmostEqual(nodes_by_lot["LOT-PF"]["contribution_qty"], 10.0)
+        self.assertEqual(
+            nodes_by_lot["LOT-PF"]["contribution_basis"],
+            "production_same_component_consumption_share",
+        )
+        self.assertAlmostEqual(nodes_by_lot["LOT-CUST"]["contribution_qty"], 10.0)
+        self.assertEqual(
+            nodes_by_lot["LOT-CUST"]["contribution_basis"],
+            "transport_received_quantity_share",
+        )
+        self.assertEqual(
+            links_by_child["LOT-PF"]["contribution_basis"],
+            "production_same_component_consumption_share",
+        )
+        self.assertAlmostEqual(links_by_child["LOT-CUST"]["contribution_qty"], 10.0)
+
     @unittest.skipUnless(
         os.environ.get("ETUDECAS_RUN_SLOW_TESTS") == "1",
         "set ETUDECAS_RUN_SLOW_TESTS=1 to validate the 5-year lot payload",
@@ -258,6 +353,49 @@ class LotTracePayloadTest(unittest.TestCase):
         self.assertEqual(len(factory_to_dc), 2)
         self.assertAlmostEqual(sum(row["child_qty"] for row in factory_to_dc), 107800.0, places=4)
 
+    def test_payload_can_keep_causal_registry_external_to_the_map(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            events_path = root / "events.csv"
+            genealogy_path = root / "genealogy.csv"
+            plan_path = root / "plan.csv"
+            causal_path = root / "lot_causal_links.csv"
+            self._write_csv(events_path, EVENT_FIELDS, self._events())
+            self._write_csv(genealogy_path, GENEALOGY_FIELDS, self._genealogy())
+            self._write_csv(plan_path, PLAN_FIELDS, [])
+            self._write_csv(
+                causal_path,
+                [
+                    "causal_root_id",
+                    "relation_type",
+                    "entity_type",
+                    "entity_id",
+                    "basis",
+                ],
+                [
+                    {
+                        "causal_root_id": "RISK-1",
+                        "relation_type": "risk_affects_business_lot",
+                        "entity_type": "business_lot",
+                        "entity_id": "LOT-PF",
+                        "basis": "state-dependent",
+                    }
+                ],
+            )
+
+            payload = build_lot_trace_payload(
+                events_path,
+                genealogy_path,
+                plan_path,
+                raw=self._raw_graph(),
+                lot_causal_links_csv=causal_path,
+                include_causal_links=False,
+            )
+
+        self.assertEqual(payload["causal_links"], [])
+        self.assertEqual(payload["summary"]["causal_link_count"], 1)
+        self.assertEqual(payload["summary"]["causal_link_rows_embedded"], 0)
+
     def _build_payload(self, visible_finished_product_items: list[str] | None = None) -> dict[str, object]:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -313,6 +451,7 @@ class LotTracePayloadTest(unittest.TestCase):
             self._event("E8", 6, "lane_ship", "LOT-DC", "DC-1", "item:PF", 10.0, 0.0, "edge:DC-1_TO_C-1_PF"),
             self._event("E9", 7, "lane_receipt", "LOT-CUST", "C-1", "item:PF", 10.0, 10.0, "edge:DC-1_TO_C-1_PF"),
             self._event("E10", 8, "demand_service", "LOT-CUST", "C-1", "item:PF", 10.0, 0.0, "customer_demand"),
+            self._event("E11", 9, "lane_receipt", "LOT-ORPHAN", "M-1", "item:RM", 5.0, 5.0, "edge:UNKNOWN"),
         ]
 
     def _genealogy(self) -> list[dict[str, object]]:

@@ -350,7 +350,8 @@ def build_montecarlo_trajectories_payload(
             series_payload.append(
                 {
                     "run_id": str(run.get("run_id") or ""),
-                    "label": "Nominal" if is_baseline else str(run.get("run_id") or "scenario"),
+                    "label": "Nominal" if is_baseline else str(run.get("label") or run.get("run_id") or "scenario"),
+                    "scenario_family": str(run.get("scenario_family") or ""),
                     "is_baseline": is_baseline,
                     "values": values,
                 }

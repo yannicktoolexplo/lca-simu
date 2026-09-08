@@ -1,0 +1,83 @@
+"""Canonical, engine-independent lot policies for etudecas simulations."""
+
+from .catalog import canonical_lot_policy_registry
+from .engine_adapter import (
+    LaneLotDecision,
+    available_component_quantity,
+    normalize_item_id,
+    normalize_physical_quantity,
+    required_component_quantity,
+    resolve_canonical_lane_lot,
+    resolve_internal_dispatch_multiple,
+)
+from .models import (
+    Confidence,
+    ConsolidatedTransportPlan,
+    ConsolidationMode,
+    ItemLotPolicy,
+    LotPolicyRegistry,
+    PolicyScope,
+    PolicySource,
+    ProcurementLotPolicy,
+    ProductionLotPolicy,
+    Quantity,
+    QuantityGranularityPolicy,
+    SourceKind,
+    TransportConsolidationPolicy,
+    TransportRequest,
+    UomPolicy,
+)
+from .operations import consolidate_transport_requests
+from .preflight import (
+    CandidateLotQuantity,
+    PreflightIssue,
+    PreflightSeverity,
+    preflight_candidate,
+    preflight_graph,
+)
+from .uom import (
+    IncompatibleUomError,
+    convert_quantity,
+    normalize_uom,
+    quantity_multiple,
+    round_up_to_multiple,
+    uom_dimension,
+)
+
+__all__ = [
+    "CandidateLotQuantity",
+    "Confidence",
+    "ConsolidatedTransportPlan",
+    "ConsolidationMode",
+    "IncompatibleUomError",
+    "ItemLotPolicy",
+    "LaneLotDecision",
+    "LotPolicyRegistry",
+    "PolicyScope",
+    "PolicySource",
+    "PreflightIssue",
+    "PreflightSeverity",
+    "ProcurementLotPolicy",
+    "ProductionLotPolicy",
+    "Quantity",
+    "QuantityGranularityPolicy",
+    "SourceKind",
+    "TransportConsolidationPolicy",
+    "TransportRequest",
+    "UomPolicy",
+    "canonical_lot_policy_registry",
+    "consolidate_transport_requests",
+    "convert_quantity",
+    "available_component_quantity",
+    "normalize_uom",
+    "normalize_item_id",
+    "normalize_physical_quantity",
+    "preflight_candidate",
+    "preflight_graph",
+    "quantity_multiple",
+    "round_up_to_multiple",
+    "required_component_quantity",
+    "resolve_canonical_lane_lot",
+    "resolve_internal_dispatch_multiple",
+    "uom_dimension",
+]

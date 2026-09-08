@@ -170,3 +170,50 @@ scenario already present in `metrics.csv`. It does not run the Python simulation
 engine inside the browser. It also displays the standard simulation request
 contract for the selected scenario. A truly live simulator should be implemented
 as a local API or a Pyodide/WebWorker app layer on top of that same contract.
+
+## Audit fournisseur et criticité
+
+La carte analyse par défaut les classeurs d'audit fournisseur placés dans
+`etudecas/data/source/`. Le fichier
+`Trame d'audit fournisseur finalisé.xlsx` est prioritaire sur une ancienne trame
+portant le même identifiant fournisseur.
+Lorsqu'un identifiant fournisseur `VD...` est trouvé dans la trame :
+
+- les 28 critères et les 6 familles d'audit sont ajoutés à la fiche du fournisseur
+  dans le mode `Criticité fournisseurs` ;
+- l'onglet `Audit fournisseur`, affiché en premier, donne accès à la synthèse,
+  au `Contexte public`, aux trois radars par famille (`Maturité`, `Criticité`,
+  `Résilience`) et au tableau complet des 28 critères ;
+- maturité, criticité `P x I` et délai de résilience sont ramenés sur une échelle
+  commune par la formule documentée dans la fiche ;
+- un indice croisé indicatif conserve 70 % de criticité structurelle et ajoute
+  30 % d'audit réel ou d'estimation ; le rang principal reste 100 % structurel
+  afin de rester comparable entre les 29 fournisseurs.
+
+Le référentiel est présenté sur la fiche de tous les fournisseurs du graphe. Si
+un fournisseur n'a pas encore de trame renseignée, ses 28 critères sont estimés
+par des proxys documentés (simulation, concentration des sources, délais et
+contexte public). Le statut `estimation proxy` et la confiance empêchent toute
+confusion avec un audit ; les réponses d'un autre fournisseur ne sont jamais
+recopiées.
+
+Le sélecteur et les fiches n'affichent que les matricules `SDC-VD...`. Les noms,
+adresses et raisons sociales utilisés pour la recherche documentaire ne sont pas
+présentés dans l'interface.
+
+Les faits documentaires retenus sont conservés dans
+`etudecas/data/source/supplier_public_evidence.csv`. Chaque ligne est rattachée
+au seul matricule et précise le type de signal, la date, la portée (site, entité,
+groupe ou réseau), le niveau de confiance, le statut de vérification, une synthèse
+anonymisée et la référence source. Les URL restent dans ce registre interne et
+ne sont ni embarquées ni affichées dans la carte. L'absence de fait retenu n'est
+jamais interprétée comme une absence d'incident.
+
+Le sélecteur `Audit fournisseur` permet d'ouvrir directement les 29 fiches, y
+compris celles des fournisseurs sans coordonnées et donc sans marqueur sur la carte.
+
+Pour ajouter les audits restants, placer un classeur renseigné par fournisseur
+dans ce dossier avec son identifiant `VD...`. Un fichier ou un autre dossier peut
+aussi être fourni avec `--supplier-audit-xlsx`; une valeur vide désactive la
+source. Chaque classeur doit avoir été recalculé et enregistré dans Excel, car le
+lecteur utilise les résultats de formules mis en cache dans le XLSX.

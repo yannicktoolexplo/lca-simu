@@ -142,11 +142,18 @@ def read_observed(product_code: str) -> pd.DataFrame:
     df = read_source_csv(PRODUCT_SOURCE[product_code]).copy()
     date_col = next(col for col in df.columns if "Date" in col)
     value_col = next(col for col in df.columns if "Valeur" in col or "stock" in col.lower())
-    df["snapshot_dt"] = pd.to_datetime(df[date_col])
+    df["snapshot_dt"] = pd.to_datetime(df[date_col], dayfirst=True, errors="coerce")
+    if df["snapshot_dt"].isna().all():
+        raise ValueError(
+            f"Aucune date source lisible pour {product_code} dans {PRODUCT_SOURCE[product_code]}"
+        )
+    df = df[df["snapshot_dt"].notna()].copy()
     df["source_day"] = (df["snapshot_dt"].dt.date - START_DATE).apply(lambda delta: delta.days)
     # Source snapshots are around 00:05. Compare with previous simulated closing day.
     df["sim_day"] = (df["source_day"] - 1).clip(lower=0)
     df["observed_value_eur"] = df[value_col].map(parse_float)
+    if df.empty:
+        raise ValueError(f"Aucune ligne source observee pour {product_code}")
     df["product_code"] = product_code
     return df[["product_code", "snapshot_dt", "source_day", "sim_day", "observed_value_eur"]].sort_values(
         "snapshot_dt"
@@ -531,11 +538,23 @@ def aggregate_future_need_modes(details: pd.DataFrame, consumption: pd.DataFrame
 
 
 def compare_rules(observed: pd.DataFrame, rules: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+    if observed.empty:
+        raise ValueError("Comparaison impossible: aucune ligne source observee.")
+    if rules.empty:
+        raise ValueError("Comparaison impossible: aucune serie simulation candidate.")
     pairs = observed.merge(rules, left_on=["product_code", "sim_day"], right_on=["product_code", "day"], how="left")
+    matched = pairs.dropna(subset=["immobilized_value_eur"])
+    if matched.empty:
+        products = ", ".join(sorted(set(map(str, observed["product_code"]))))
+        days = ", ".join(map(str, sorted(set(map(int, observed["sim_day"])))))
+        raise ValueError(
+            "Comparaison source/simulation impossible: aucune photo source n'est appariee "
+            f"avec une journee simulee. PF={products}; jours attendus={days}"
+        )
     pairs["implied_useful_value_eur"] = (pairs["stock_value_eur"] - pairs["observed_value_eur"]).clip(lower=0.0)
     pairs["useful_gap_vs_implied_eur"] = pairs["useful_value_eur"] - pairs["implied_useful_value_eur"]
     rows = []
-    for (product_code, rule), grp in pairs.dropna(subset=["immobilized_value_eur"]).groupby(["product_code", "rule"]):
+    for (product_code, rule), grp in matched.groupby(["product_code", "rule"]):
         m = metric(grp["observed_value_eur"], grp["immobilized_value_eur"])
         useful = metric(grp["implied_useful_value_eur"], grp["useful_value_eur"])
         rows.append(

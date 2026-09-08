@@ -252,6 +252,7 @@ def run(args: argparse.Namespace) -> list[dict[str, Any]]:
                 rows.append(
                     {
                         "scenario_id": scenario_id,
+                        "sourcing_scenario_id": scenario_id,
                         "label": scenario["label"],
                         "root_activity_id": root_id,
                         "root_activity_name": activity_name,
@@ -277,6 +278,7 @@ def run(args: argparse.Namespace) -> list[dict[str, Any]]:
             rows.append(
                 {
                     "scenario_id": scenario_id,
+                    "sourcing_scenario_id": scenario_id,
                     "label": f"{scenario['label']} - usage STELIA calibre",
                     "root_activity_id": "lifecycle_excel_aligned",
                     "root_activity_name": "siege cycle de vie corrige usage STELIA",

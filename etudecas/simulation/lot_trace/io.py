@@ -4,8 +4,14 @@ import csv
 from pathlib import Path
 
 from .campaigns import PRODUCTION_CAMPAIGN_FIELDS
+from .causality import (
+    LOT_CAUSAL_EVENT_FIELDS,
+    LOT_CAUSAL_GENEALOGY_FIELDS,
+    PLAN_CAUSAL_FIELDS,
+)
 
 
+LOT_TRACE_CONTRACT_VERSION = "3.0"
 LOT_TRACE_EVENT_FIELDS = [
     "event_id",
     "day",
@@ -24,6 +30,17 @@ LOT_TRACE_EVENT_FIELDS = [
     "related_lot_id",
     "production_campaign_id",
     "notes",
+    "business_batch_id",
+    "stock_lot_id",
+    "lot_occurrence_id",
+    "provenance_batch_id",
+    "departure_day",
+    "arrival_day",
+    "handling_unit_id",
+    "trace_status",
+    "trace_reason",
+    "lot_trace_contract_version",
+    *LOT_CAUSAL_EVENT_FIELDS,
 ]
 LOT_TRACE_GENEALOGY_FIELDS = [
     "day",
@@ -43,6 +60,24 @@ LOT_TRACE_GENEALOGY_FIELDS = [
     "risk_event_ids",
     "production_campaign_id",
     "notes",
+    "component_allocation_share",
+    "business_batch_id",
+    "stock_lot_id",
+    "lot_occurrence_id",
+    "parent_business_batch_id",
+    "parent_stock_lot_id",
+    "parent_lot_occurrence_id",
+    "child_business_batch_id",
+    "child_stock_lot_id",
+    "child_lot_occurrence_id",
+    "provenance_batch_id",
+    "departure_day",
+    "arrival_day",
+    "handling_unit_id",
+    "trace_status",
+    "trace_reason",
+    "lot_trace_contract_version",
+    *LOT_CAUSAL_GENEALOGY_FIELDS,
 ]
 LOT_TRACE_PLAN_EVENT_FIELDS = [
     "day",
@@ -89,6 +124,7 @@ LOT_TRACE_PLAN_EVENT_FIELDS = [
     "campaign_remaining_end_qty",
     "next_expected_receipt_day",
     "notes",
+    *PLAN_CAUSAL_FIELDS,
 ]
 LOT_TRACE_CAMPAIGN_FIELDS = PRODUCTION_CAMPAIGN_FIELDS
 
@@ -102,3 +138,16 @@ def read_csv_rows(csv_path: Path) -> list[dict[str, str]]:
         return []
     with csv_path.open("r", encoding="utf-8", newline="") as handle:
         return list(csv.DictReader(handle))
+
+
+def count_csv_rows(csv_path: Path) -> int:
+    if not csv_path.exists():
+        nested_data_path = csv_path.parent / "data" / csv_path.name
+        if nested_data_path.exists():
+            csv_path = nested_data_path
+    if not csv_path.exists():
+        return 0
+    with csv_path.open("r", encoding="utf-8", newline="") as handle:
+        reader = csv.reader(handle)
+        next(reader, None)
+        return sum(1 for _ in reader)

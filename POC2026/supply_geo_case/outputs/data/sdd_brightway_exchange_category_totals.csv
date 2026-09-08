@@ -1,9 +1,0 @@
-exchange_category,mapping_status,label,value,delta_kgco2e,abs_delta_amount,row_count,exchange_row_count
-energy,mapped_exchange,energy / mapped_exchange,6794.739733833,6794.739733833,56126.361799774,664866,31841
-scrap_rework,virtual_exchange_proxy,scrap_rework / virtual_exchange_proxy,2180.153756538,2180.153756538,803.942431939,60468,7622
-supplier_overhead,virtual_exchange_proxy,supplier_overhead / virtual_exchange_proxy,1344.345149506,1344.345149506,521.7655317,63751,8128
-proxy_unmapped,proxy_unmapped,proxy_unmapped / proxy_unmapped,903.052745353,903.052745353,3394.941711964,112835,25330
-maintenance_consumable,mapped_exchange,maintenance_consumable / mapped_exchange,560.823445154,560.823445154,0.645877003,72198,3120
-recycling_credit,virtual_exchange_proxy,recycling_credit / virtual_exchange_proxy,-435.573745495,-435.573745495,601.525776832,60468,7622
-scrap_treatment,virtual_exchange_proxy,scrap_treatment / virtual_exchange_proxy,115.442103739,115.442103739,805.59747381,60111,7843
-transport,virtual_exchange_proxy,transport / virtual_exchange_proxy,64.600950205,64.600950205,78.781646584,210,110

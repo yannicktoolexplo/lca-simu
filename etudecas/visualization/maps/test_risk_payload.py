@@ -7,6 +7,8 @@ from pathlib import Path
 import unittest
 
 from etudecas.visualization.maps.risk_payload import (
+    build_risk_generic_view,
+    build_risk_payload_manifest,
     build_supplier_risk_campaign_payload,
     supplier_risk_campaign_status,
 )
@@ -90,6 +92,21 @@ class RiskPayloadTest(unittest.TestCase):
         self.assertEqual(supplier_risk_campaign_status(0.01)[0], "robust")
         self.assertEqual(supplier_risk_campaign_status(0.03)[0], "watch")
         self.assertEqual(supplier_risk_campaign_status(0.06)[0], "sensitive")
+
+    def test_scenario_comparison_uses_figures_in_generic_risk_view(self) -> None:
+        payload = {
+            "scenario_comparison": {
+                "scenarios": [{"id": "nominal"}],
+                "figures": {"backlog": {"data": []}},
+            },
+            "simulated_risk_global_diagnostic": {"events": [], "cascade_roots": []},
+        }
+
+        manifest = build_risk_payload_manifest(payload)
+        generic = build_risk_generic_view(payload)
+
+        self.assertEqual(manifest["counts"]["scenario_figures"], 1)
+        self.assertIn("backlog", generic["time_series"]["scenario_comparison"])
 
 
 if __name__ == "__main__":
