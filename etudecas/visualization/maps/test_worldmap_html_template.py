@@ -22,3 +22,10 @@ def test_html_template_keeps_data_marker_and_interpolates_inputs() -> None:
     assert "renderLotTraceEventsTable(snapshot.events, 14, snapshot)" in html
     assert "renderLotTraceEventsTable(selected.events, selected.events.length, snapshot)" in html
     assert "traces / ${rawQtyText} lot client" in html
+    assert 'id="supplierAuditSelect"' in html
+    assert "function initSupplierAuditControls()" in html
+    assert 'setPanelMode("risk");' in html
+    assert "selectedAuditSupplier" in html
+    assert 'figure.kind === "radar"' in html
+    assert 'type: "scatterpolar"' in html
+    assert "Audit à renseigner" in html

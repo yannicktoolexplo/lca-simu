@@ -313,6 +313,7 @@ def html_template(
       white-space: nowrap;
     }}
     .sensitivityTop3Box,
+    .supplierAuditControlsBox,
     .simulatedRiskControlsBox,
     .lotTraceControlsBox,
     .uncertaintyMonteCarloBox,
@@ -320,6 +321,7 @@ def html_template(
       display: none;
     }}
     .sensitivityTop3Box.visible,
+    .supplierAuditControlsBox.visible,
     .simulatedRiskControlsBox.visible,
     .lotTraceControlsBox.visible,
     .uncertaintyMonteCarloBox.visible,
@@ -327,6 +329,7 @@ def html_template(
       display: flex;
     }}
     .simulatedRiskControlsBox,
+    .supplierAuditControlsBox,
     .lotTraceControlsBox,
     .uncertaintyControlsBox {{
       align-items: center;
@@ -334,6 +337,7 @@ def html_template(
       flex-wrap: wrap;
     }}
     .simulatedRiskControlsBox label,
+    .supplierAuditControlsBox label,
     .simulatedRiskModeLabel,
     .lotTraceControlsBox label,
     .uncertaintyControlsBox label {{
@@ -346,6 +350,7 @@ def html_template(
       white-space: nowrap;
     }}
     .simulatedRiskControlsBox select,
+    .supplierAuditControlsBox select,
     .lotTraceControlsBox select,
     .uncertaintyControlsBox select {{
       border: 1px solid #cbd5e1;
@@ -359,6 +364,10 @@ def html_template(
     .lotTraceControlsBox select {{
       min-width: 260px;
       max-width: min(520px, 52vw);
+    }}
+    .supplierAuditControlsBox select {{
+      min-width: 300px;
+      max-width: min(620px, 60vw);
     }}
     .uncertaintyControlsBox input[type="range"] {{
       width: 112px;
@@ -3443,6 +3452,15 @@ def html_template(
     <div class="box sensitivityTop3Box" id="sensitivityTop3Box">
       <button id="sensitivityTop3Btn" class="tableBtn" type="button" title="Vue globale sans selectionner de noeud: parametres qui degradent le plus disponibilite produit, taux de replanification ou cout de stockage.">Priorites KPI</button>
     </div>
+    <div class="box supplierAuditControlsBox" id="supplierAuditControlsBox">
+      <label title="Ouvre la fiche de criticite et d'audit, y compris pour un fournisseur sans coordonnees.">
+        Audit fournisseur
+        <select id="supplierAuditSelect">
+          <option value="">Choisir un fournisseur</option>
+        </select>
+      </label>
+      <span class="simulatedRiskViewValue" id="supplierAuditCoverageValue"></span>
+    </div>
     <div class="box simulatedRiskControlsBox" id="simulatedRiskControlsBox">
       <span class="simulatedRiskModeLabel" title="Cette vue distingue les evenements injectes dans le run et les scenarios contrefactuels de risque fournisseur.">Vue</span>
       <span class="simulatedRiskViewValue" id="simulatedRiskViewValue">scenario injecte</span>
@@ -3810,6 +3828,8 @@ def html_template(
     const DC_STRUCTURAL_HOVER_IMAGES = DATA.distribution_center_structural_hover_images || {{}};
     const FACTORY_CURRENT_METRICS = DATA.factory_current_metrics || {{}};
     const SUPPLIER_LOCAL_METRICS = DATA.supplier_local_metrics || {{}};
+    const SUPPLIER_AUDITS = DATA.supplier_audits || {{}};
+    const SUPPLIER_AUDIT_COVERAGE = DATA.supplier_audit_coverage || {{}};
     const CUSTOMER_CURRENT_METRICS = DATA.customer_current_metrics || {{}};
     const GLOBAL_KPI_TREE = DATA.global_kpi_tree || null;
     const MATERIAL_BALANCE_ROWS = DATA.material_balance_rows || [];
@@ -8247,6 +8267,52 @@ def html_template(
       renderLotTraceModal();
     }}
 
+    function initSupplierAuditControls() {{
+      const select = document.getElementById("supplierAuditSelect");
+      const coverage = document.getElementById("supplierAuditCoverageValue");
+      if (!select) return;
+      const entries = Object.entries(SUPPLIER_AUDITS).sort((left, right) =>
+        String(left[0]).localeCompare(String(right[0]), "fr", {{ sensitivity: "base" }})
+      );
+      entries.forEach(([supplierId, audit]) => {{
+        const option = document.createElement("option");
+        option.value = supplierId;
+        const status = audit.audit_status === "audited"
+          ? "audit renseigne"
+          : (audit.audit_status === "estimated"
+            ? "estimation proxy"
+            : (audit.audit_status === "in_progress" ? "audit partiel" : "a renseigner"));
+        const location = audit.map_marker_available === false ? " - sans coordonnees" : "";
+        option.textContent = `${{supplierId}} - ${{status}}${{location}}`;
+        select.appendChild(option);
+      }});
+      if (coverage) {{
+        const supplierCount = Number(SUPPLIER_AUDIT_COVERAGE.supplier_count || entries.length || 0);
+        const auditedCount = Number(SUPPLIER_AUDIT_COVERAGE.audited_supplier_count || 0);
+        const estimatedCount = Number(SUPPLIER_AUDIT_COVERAGE.estimated_supplier_count || 0);
+        const unlocatedCount = Number(SUPPLIER_AUDIT_COVERAGE.unlocated_supplier_count || 0);
+        coverage.textContent = `${{auditedCount}} audite${{auditedCount > 1 ? "s" : ""}}, ${{estimatedCount}} estime${{estimatedCount > 1 ? "s" : ""}} / ${{supplierCount}}` +
+          (unlocatedCount ? ` - ${{unlocatedCount}} sans coordonnees` : "");
+      }}
+      select.addEventListener("change", (event) => {{
+        const supplierId = String(event.target.value || "");
+        if (!supplierId) {{
+          if (selectedPanelNodeType === "supplier_dc") clearPanelSelection();
+          return;
+        }}
+        setPanelMode("risk");
+        panelBundleSelection[`risk:supplier_dc:${{supplierId}}:incoming`] = 0;
+        panelBundleSelection[`risk:supplier_dc:${{supplierId}}:incoming:Audit fournisseur`] = 0;
+        selectedPanelNodeId = supplierId;
+        selectedPanelNodeType = "supplier_dc";
+        currentHoveredPanelId = null;
+        currentHoveredPanelType = null;
+        panelAnchorClientX = null;
+        panelAnchorClientY = null;
+        refreshFactoryPanel();
+      }});
+    }}
+
     function initLotTraceControls() {{
       const contractVersion = String((((LOT_TRACE || {{}}).nomenclature || {{}}).contract_version || ""));
       if (LOT_TRACE.available && contractVersion !== "3.0") {{
@@ -10791,6 +10857,10 @@ def html_template(
     }}
 
     function clearPanelSelection() {{
+      const supplierAuditSelect = document.getElementById("supplierAuditSelect");
+      if (supplierAuditSelect && selectedPanelNodeType === "supplier_dc") {{
+        supplierAuditSelect.value = "";
+      }}
       selectedPanelNodeId = null;
       selectedPanelNodeType = null;
       refreshFactoryPanel();
@@ -10841,7 +10911,10 @@ def html_template(
 
     function syncPanelStateWithVisibleNodes(visibleNodes) {{
       const visibleNodeIds = new Set((visibleNodes || []).map(n => n.id));
-      if (selectedPanelNodeId && !visibleNodeIds.has(selectedPanelNodeId)) {{
+      const selectedAuditSupplier = (
+        selectedPanelNodeType === "supplier_dc" && Boolean(SUPPLIER_AUDITS[selectedPanelNodeId])
+      );
+      if (selectedPanelNodeId && !visibleNodeIds.has(selectedPanelNodeId) && !selectedAuditSupplier) {{
         selectedPanelNodeId = null;
         selectedPanelNodeType = null;
       }}
@@ -12021,6 +12094,10 @@ def html_template(
       if (riskLegend) {{
         riskLegend.classList.toggle("visible", currentPanelMode === "risk");
       }}
+      const supplierAuditControlsBox = document.getElementById("supplierAuditControlsBox");
+      if (supplierAuditControlsBox) {{
+        supplierAuditControlsBox.classList.toggle("visible", currentPanelMode === "risk");
+      }}
       const uncertaintyLegend = document.getElementById("uncertaintyLegend");
       if (uncertaintyLegend) {{
         uncertaintyLegend.classList.toggle("visible", currentPanelMode === "uncertainty");
@@ -12233,6 +12310,10 @@ def html_template(
       }};
       const modeTitle = modeTitles[currentPanelMode] || "Run nominal";
       title.textContent = `${{nodeTitle}}: ${{nodeName}} (${{displayNodeId}}) | ${{modeTitle}}`;
+      const supplierAuditSelect = document.getElementById("supplierAuditSelect");
+      if (supplierAuditSelect) {{
+        supplierAuditSelect.value = nodeType === "supplier_dc" && SUPPLIER_AUDITS[nodeId] ? nodeId : "";
+      }}
       if (panelState) {{
         statePill.textContent = panelState;
         statePill.classList.add("visible");
@@ -12279,6 +12360,85 @@ def html_template(
 
       function buildPlotlyFigure(figure) {{
         if (!figure || !figure.kind) return null;
+        if (figure.kind === "radar") {{
+          const categories = Array.isArray(figure.categories) ? figure.categories.map(String) : [];
+          const values = Array.isArray(figure.values) ? figure.values.map(Number) : [];
+          const hasValues = (
+            categories.length >= 3 &&
+            values.length === categories.length &&
+            values.every(Number.isFinite)
+          );
+          const closedCategories = categories.length ? [...categories, categories[0]] : [];
+          const radialMax = Math.max(1, Number(figure.radial_max || 100));
+          const threshold = Number(figure.threshold);
+          const unit = String(figure.unit || "");
+          const color = String(figure.color || "#2563eb");
+          const data = [];
+          if (hasValues) {{
+            data.push({{
+              type: "scatterpolar",
+              mode: "lines+markers",
+              name: figure.value_label || "Valeur auditée",
+              theta: closedCategories,
+              r: [...values, values[0]],
+              fill: "toself",
+              fillcolor: figure.fillcolor || "rgba(37, 99, 235, 0.18)",
+              line: {{ color, width: 2.6 }},
+              marker: {{ color, size: 6 }},
+              hovertemplate: `%{{theta}}<br>${{figure.value_label || "Valeur auditée"}} : %{{r:.1f}}${{unit}}<extra></extra>`,
+            }});
+          }}
+          if (categories.length >= 3 && Number.isFinite(threshold)) {{
+            data.push({{
+              type: "scatterpolar",
+              mode: "lines",
+              name: figure.threshold_label || "Seuil",
+              theta: closedCategories,
+              r: closedCategories.map(() => threshold),
+              line: {{ color: "#d97706", width: 2.2, dash: "dash" }},
+              hovertemplate: `%{{theta}}<br>${{figure.threshold_label || "Seuil"}} : %{{r:.1f}}${{unit}}<extra></extra>`,
+            }});
+          }}
+          return {{
+            data,
+            layout: {{
+              title: {{ text: figure.title || "Radar audit fournisseur", font: {{ size: 14 }} }},
+              margin: {{ l: 72, r: 72, t: 54, b: 58 }},
+              paper_bgcolor: "#ffffff",
+              polar: {{
+                bgcolor: "#ffffff",
+                radialaxis: {{
+                  visible: true,
+                  range: [0, radialMax],
+                  dtick: radialMax / 4,
+                  ticksuffix: unit,
+                  gridcolor: "#cbd5e1",
+                  linecolor: "#94a3b8",
+                  tickfont: {{ size: 9, color: "#475569" }},
+                }},
+                angularaxis: {{
+                  direction: "clockwise",
+                  rotation: 90,
+                  gridcolor: "#cbd5e1",
+                  linecolor: "#94a3b8",
+                  tickfont: {{ size: 10, color: "#334155" }},
+                }},
+              }},
+              legend: {{ ...STANDARD_LEGEND, orientation: "h", x: 0, y: -0.12 }},
+              annotations: hasValues ? [] : [{{
+                text: "Audit à renseigner",
+                xref: "paper",
+                yref: "paper",
+                x: 0.5,
+                y: 0.5,
+                showarrow: false,
+                font: {{ size: 14, color: "#64748b" }},
+                bgcolor: "rgba(255,255,255,0.88)",
+                borderpad: 6,
+              }}],
+            }},
+          }};
+        }}
         if (figure.kind === "line_multi") {{
           if (figure.scenario_tube) {{
             return buildScenarioTubePlotlyFigure(figure, ["#0f766e", "#2563eb", "#dc2626", "#d97706", "#7c3aed", "#475569"]);
@@ -15034,6 +15194,7 @@ def html_template(
       initFilters();
       initRiskTooltipPortal();
       initLotTraceControls();
+      initSupplierAuditControls();
       syncYearInputs();
       updateTimelineWindowLabel();
       applyModeUi();
