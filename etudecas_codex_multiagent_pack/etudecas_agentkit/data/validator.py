@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Any
 
 import pandas as pd
+import numpy as np
 
 from etudecas_agentkit.validation.report import ValidationReport
 
@@ -98,6 +99,10 @@ class DataValidator:
             invalid = int(converted.isna().sum() - series.isna().sum())
             if invalid:
                 report.add_issue("critical", f"Invalid numeric values in {rule.name}", column=rule.name, count=invalid)
+            nonfinite = converted.notna() & ~np.isfinite(converted)
+            fractional = converted.notna() & (converted % 1 != 0) if rule.type in {"int", "integer"} else pd.Series(False, index=series.index)
+            if bool((nonfinite | fractional).any()):
+                report.add_issue("critical", f"Non-finite or non-integer values in {rule.name}", column=rule.name, count=int((nonfinite | fractional).sum()))
             return converted
         if rule.type == "datetime":
             converted = pd.to_datetime(series, errors="coerce")
@@ -105,4 +110,6 @@ class DataValidator:
             if invalid:
                 report.add_issue("critical", f"Invalid datetime values in {rule.name}", column=rule.name, count=invalid)
             return converted
+        if rule.type != "string":
+            raise ValueError(f"Unsupported schema type: {rule.type}")
         return series

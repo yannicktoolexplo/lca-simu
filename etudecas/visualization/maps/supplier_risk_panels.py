@@ -2321,11 +2321,11 @@ def build_simulated_risk_global_diagnostic_payload(
         return item_labels.get(item_id, compact_item_label(item_id))
 
     stage_info = {
-        "service_client": {"label": "Disponibilite produit degradee", "color": "#dc2626", "rank": 5},
-        "production": {"label": "Production reportee", "color": "#f97316", "rank": 4},
-        "cost": {"label": "Surcout fournisseur", "color": "#7c3aed", "rank": 3},
-        "local_absorbed": {"label": "Absorbe localement", "color": "#0f766e", "rank": 2},
-        "configured_only": {"label": "Signal sans effet", "color": "#94a3b8", "rank": 1},
+        "service_client": {"label": "Backlog associé dans le périmètre aval", "color": "#dc2626", "rank": 5},
+        "production": {"label": "Report de production associé", "color": "#f97316", "rank": 4},
+        "cost": {"label": "Paramètre de coût appliqué", "color": "#7c3aed", "rank": 3},
+        "local_absorbed": {"label": "Application locale sans signal aval détecté", "color": "#0f766e", "rank": 2},
+        "configured_only": {"label": "Configuré, application non observée", "color": "#94a3b8", "rank": 1},
         "other": {"label": "Autre", "color": "#64748b", "rank": 0},
     }
 
@@ -2941,10 +2941,10 @@ def build_simulated_risk_global_diagnostic_payload(
         "other": "Signal fournisseur",
     }
     absorption_by_stage = {
-        "service_client": ("client_reached", "Client atteint"),
-        "production": ("production_blocked", "Absorbe partiellement: production reportee"),
-        "cost": ("economic_absorbed", "Absorbe par surcout"),
-        "local_absorbed": ("local_absorbed", "Absorbe localement"),
+        "service_client": ("client_association", "Backlog associé ; causalité non démontrée"),
+        "production": ("production_association", "Report associé ; causalité non démontrée"),
+        "cost": ("cost_parameter_applied", "Paramètre économique appliqué ; surcoût non attribué"),
+        "local_absorbed": ("local_application", "Application locale sans signal aval détecté"),
         "configured_only": ("inactive", "Signal sans effet applique"),
     }
 
@@ -3036,7 +3036,7 @@ def build_simulated_risk_global_diagnostic_payload(
                 "detail": family_root_cause_labels.get(family, family_root_cause_labels["other"]),
                 "node_ids": [supplier_id] if supplier_id else [],
                 "item_ids": [item_id] if item_id else [],
-                "status": "observed",
+                "status": "configured",
             }
         ]
         local_day = first_day(event_applied_rows)
@@ -3063,11 +3063,11 @@ def build_simulated_risk_global_diagnostic_payload(
                 {
                     "step": "production_delay",
                     "day": production_day,
-                    "label": "Propagation production",
-                    "detail": "Production reportee par manque d'intrant.",
+                    "label": "Signal de production associé",
+                    "detail": "Report pour manque d'intrant dans la fenêtre ; attribution à cet événement non démontrée.",
                     "node_ids": sorted(affected_factory_nodes),
                     "item_ids": sorted(impacted_output_items),
-                    "status": "observed",
+                    "status": "association_only",
                 }
             )
         service_day = first_day(service_rows)
@@ -3076,11 +3076,11 @@ def build_simulated_risk_global_diagnostic_payload(
                 {
                     "step": "customer_backlog",
                     "day": service_day,
-                    "label": "Effet client",
-                    "detail": "Backlog client observe.",
+                    "label": "Signal client associé",
+                    "detail": "Backlog observé dans le périmètre aval ; attribution à cet événement non démontrée.",
                     "node_ids": sorted(affected_customer_nodes),
                     "item_ids": sorted(impacted_output_items),
-                    "status": "observed",
+                    "status": "association_only",
                 }
             )
         final_level, final_label = cascade_absorption(stage)
@@ -3211,11 +3211,9 @@ def build_simulated_risk_global_diagnostic_payload(
         }
         backlog_max = max((max(0.0, to_float(row.get("backlog_end_qty")) or 0.0) for row in service_rows), default=0.0)
         backlog_qty_days = sum(max(0.0, to_float(row.get("backlog_end_qty")) or 0.0) for row in service_rows)
-        event_cost_window = allocated_cost_for_event_rows(
-            event_applied_rows,
-            start_day,
-            min(service_window_end, end_day + 14),
-        ) if cost_flag else 0.0
+        # A daily network bill cannot be allocated to concurrent events by
+        # dividing by their number. No causal monetary allocation is available.
+        event_cost_window = 0.0
         impact_modes = []
         if event_applied_rows:
             impact_modes.append("local")
@@ -3228,12 +3226,12 @@ def build_simulated_risk_global_diagnostic_payload(
 
         if service_rows:
             cascade_stage = "service_client"
-            cascade_label = "Disponibilite produit"
+            cascade_label = "Backlog associé, causalité non démontrée"
             reading = f"Backlog max {fmt_qty(backlog_max, 0)} sur {len(service_rows)} ligne(s) client."
             priority = 5
         elif production_rows:
             cascade_stage = "production"
-            cascade_label = "Production reportee"
+            cascade_label = "Report associé, causalité non démontrée"
             reading = f"{len(production_rows)} report(s), {fmt_qty(production_shortfall, 0)} de volume lotifie reporte."
             priority = 4
         elif cost_flag:
@@ -3243,7 +3241,7 @@ def build_simulated_risk_global_diagnostic_payload(
             priority = 3
         elif event_applied_rows:
             cascade_stage = "local_absorbed"
-            cascade_label = "Local absorbe"
+            cascade_label = "Application locale sans signal aval détecté"
             reading = "Effet applique localement, sans report production ni backlog client observe dans la fenetre."
             priority = 2
         else:
@@ -3369,6 +3367,14 @@ def build_simulated_risk_global_diagnostic_payload(
         cascade_rows.append(
             {
                 "event_id": event_id,
+                "causality_status": "association_only",
+                "configured": True,
+                "applied": bool(event_applied_rows),
+                "local_application_status": "applied" if event_applied_rows else "configured_only",
+                "evidence_basis": "temporal_window_and_network_reachability",
+                "attributed_customer_loss_qty": None,
+                "attributed_cost": None,
+                "score_kind": "descriptive_exposure",
                 "source": source_kind,
                 "stage": cascade_stage,
                 "stage_label": cascade_label,
@@ -3417,7 +3423,7 @@ def build_simulated_risk_global_diagnostic_payload(
                     "reading": reading,
                 },
                 "cost_signal": cost_text,
-                "cost_impact_qty": round(event_cost_window, 6),
+                "cost_impact_qty": None,
                 "impact_score": round(impact_score, 6),
                 "impact_modes": sorted(set(impact_modes)),
                 "root_cause_label": root_cause_label,
@@ -3851,7 +3857,7 @@ def build_simulated_risk_global_diagnostic_payload(
             if part
         ) or business_path_label
         if stage == "service_client":
-            reading = f"Client atteint: backlog max {fmt_qty(backlog_max, 0)}, backlog-jours {fmt_qty(backlog_qty_days, 0)}."
+            reading = f"Backlog associe dans le perimetre aval: backlog max {fmt_qty(backlog_max, 0)}, backlog-jours {fmt_qty(backlog_qty_days, 0)}."
         elif stage == "production":
             reading = f"Production reportee: {production_delay_count} report(s), volume {fmt_qty(production_shortfall, 0)}."
         elif stage == "cost":
@@ -3987,7 +3993,7 @@ def build_simulated_risk_global_diagnostic_payload(
     path_group_table_rows = [dict(row["table_row"]) for row in visible_path_group_rows]
     cascade_table_rows = [dict(row["table_row"]) for row in visible_cascade_rows]
     cascade_summary_text = (
-        f"{len(effective_cascade_rows)} cascade(s) avec impact supply: "
+        f"{len(effective_cascade_rows)} association(s) avec signal aval: "
         f"{cascade_stage_counts.get('service_client', 0)} service client, "
         f"{cascade_stage_counts.get('production', 0)} production, "
         f"{cascade_stage_counts.get('cost', 0)} cout. "
@@ -4117,15 +4123,15 @@ def build_simulated_risk_global_diagnostic_payload(
                 "decision_score": round(decision_score, 6),
                 "table_row": {
                     "Origine": f"{label_node(supplier_id)} / {label_item(item_id)}",
-                    "Impact dominant": dominant_stage_label(stats["stages"]),
+                    "Signal associe dominant": dominant_stage_label(stats["stages"]),
                     "Declencheur principal": primary_trigger,
                     "Familles": origin_family_text(stats["families"]),
                     "Periode": f"J{first_day} -> J{last_day}",
-                    "Causes supply actives": f"{effective_roots}/{int(stats['roots'])} avec impact supply",
+                    "Associations avec signal aval": f"{effective_roots}/{int(stats['roots'])} avec signal aval associe",
                     "Production reportee": f"{int(stats['production_delay_count'])} report(s), {fmt_qty(production_shortfall, 0)}",
                     "Backlog": f"pic {fmt_qty(float(stats['customer_backlog_max_qty']), 0)}",
                     "Lecture": (
-                        "Origine prioritaire"
+                        "Association a examiner"
                         if effective_roots
                         else "Effets locaux surtout absorbes"
                     ),
@@ -4378,7 +4384,7 @@ def build_simulated_risk_global_diagnostic_payload(
         )
     if top_origin:
         diagnosis_lines.append(
-            f"Origine dominante des problemes observes: {top_origin_text}. Ce classement agrege les signaux par couple fournisseur/article pour eviter de confondre plusieurs seuils simultanes avec plusieurs causes."
+            f"Perimetre avec le plus de signaux associes: {top_origin_text}. Ce classement agrege les signaux par couple fournisseur/article pour eviter de confondre plusieurs seuils simultanes avec plusieurs associations."
         )
     if top_backlog:
         diagnosis_lines.append(f"Le backlog temporaire principal est {top_backlog_text}; il est utile meme si le backlog final revient a zero.")
@@ -4616,7 +4622,7 @@ def build_simulated_risk_global_diagnostic_payload(
             "<div class=\"riskCascadeDiagram\">",
             f"<svg viewBox=\"0 0 {width} {height}\" role=\"img\" aria-label=\"Diagramme cascades state-dependent\">",
             "<defs><marker id=\"riskCascadeArrow\" markerWidth=\"8\" markerHeight=\"8\" refX=\"7\" refY=\"4\" orient=\"auto\"><path d=\"M0,0 L8,4 L0,8 Z\" fill=\"#64748b\"/></marker></defs>",
-            "<text class=\"cascadeMuted\" x=\"20\" y=\"18\">Cause supply</text>",
+            "<text class=\"cascadeMuted\" x=\"20\" y=\"18\">Evenement source</text>",
             "<text class=\"cascadeMuted\" x=\"302\" y=\"18\">Effet local</text>",
             "<text class=\"cascadeMuted\" x=\"584\" y=\"18\">Propagation aval</text>",
             "<text class=\"cascadeMuted\" x=\"866\" y=\"18\">Impact / absorption</text>",
@@ -4694,12 +4700,12 @@ def build_simulated_risk_global_diagnostic_payload(
         {"Indicateur": "Taux replanification tous motifs", "Valeur": replanning_rate_text(total_replanning_rate, len(delay_rows))},
         {"Indicateur": "Plan lotifie total", "Valeur": fmt_qty(planned_after_lot, 0)},
         {"Indicateur": "Manque vs plan lotifie", "Valeur": fmt_qty(lot_shortfall_total, 0)},
-        {"Indicateur": "Causes de cascade agregees", "Valeur": str(len(cascade_root_rows))},
+        {"Indicateur": "Groupes temporels de signaux", "Valeur": str(len(cascade_root_rows))},
         {"Indicateur": "Chemins metier consolides", "Valeur": str(len(cascade_path_groups))},
         {"Indicateur": "Signaux state/scenario analyses", "Valeur": str(len(cascade_rows))},
-        {"Indicateur": "Cascades avec impact supply", "Valeur": str(len(effective_cascade_rows))},
-        {"Indicateur": "Cascades production", "Valeur": str(cascade_stage_counts.get("production", 0))},
-        {"Indicateur": "Cascades disponibilite produit", "Valeur": str(cascade_stage_counts.get("service_client", 0))},
+        {"Indicateur": "Cascades avec signal aval associe", "Valeur": str(len(effective_cascade_rows))},
+        {"Indicateur": "Associations production", "Valeur": str(cascade_stage_counts.get("production", 0))},
+        {"Indicateur": "Associations service client", "Valeur": str(cascade_stage_counts.get("service_client", 0))},
         {"Indicateur": "Effets absorbes localement", "Valeur": str(cascade_stage_counts.get("local_absorbed", 0))},
     ]
     global_metrics = (simulated_risk_metrics.get("global") or {}) if isinstance(simulated_risk_metrics, dict) else {}
@@ -4712,14 +4718,28 @@ def build_simulated_risk_global_diagnostic_payload(
             }
         )
 
+    association_note = "Association temporelle et topologique : les signaux aval peuvent préexister ou relever de plusieurs événements. Aucune perte client ni aucun coût n'est causalement attribué sans preuve d'exécution reliée ou comparaison contrôlée. Les scores sont des indices descriptifs d'exposition, non des probabilités ; ne pas sommer les volumes des fenêtres qui se chevauchent."
+    for collection in (cascade_rows, cascade_root_rows, cascade_path_groups, origin_rows):
+        for record in collection:
+            record.update(causality_status="association_only", evidence_basis="temporal_window_and_network_reachability", score_kind="descriptive_exposure", attributed_customer_loss_qty=None, attributed_cost=None, quality_note=association_note)
+            if "cost_impact_qty" in record:
+                record["cost_impact_qty"] = None
+            if "impact_score" in record:
+                record["exposure_score"] = record["impact_score"]
+            if isinstance(record.get("action"), dict):
+                record["action"]["label"] = "Vérifier l'association aval"
+                record["action"]["rationale"] = association_note
+    for collection in (node_impacts, edge_impacts):
+        for record in collection.values():
+            record.update(causality_status="association_only", score_kind="descriptive_exposure", quality_note=association_note)
     html_parts = [
         "<div class=\"factoryHtmlPanelContent sensitivityHtmlPanelContent riskGlobalDiagnosticContent\">",
         "<div class=\"orderLedgerTextHeader\">Bilan du scenario risque</div>",
-        "<div class=\"orderLedgerStatus\">Question metier: le scenario injecte a-t-il touche le client, la production, les fournisseurs ou surtout les couts et stocks tampon ?</div>",
+        f"<div class=\"orderLedgerStatus\">{html.escape(association_note)}</div>",
         f"<div class=\"riskScenarioCards\">{cards_html}</div>",
         f"<div class=\"orderLedgerStatus\">{html.escape(cascade_summary_text)}</div>",
         "<div class=\"riskScenarioSection\">Diagramme des cascades dynamiques fournisseur</div>",
-        "<div class=\"riskScenarioMuted\">Lecture: chaque ligne suit une cause supply avec impact depuis son declencheur, son effet local, sa propagation aval, puis son impact ou absorption.</div>",
+        "<div class=\"riskScenarioMuted\">Lecture : événement configuré, application locale observée, puis signaux associés dans le périmètre aval. La liaison graphique ne prouve pas une causalité.</div>",
         cascade_diagram_html(visible_path_group_rows),
         "<div class=\"riskScenarioSection\">Courbes du scenario</div>",
         "<div class=\"riskDiagnosticChartGrid\">",
@@ -4732,7 +4752,7 @@ def build_simulated_risk_global_diagnostic_payload(
         bullet_list(diagnosis_lines),
         "<div class=\"riskScenarioSection\">Origines principales des problemes</div>",
         table_html(
-            ["Origine", "Impact dominant", "Declencheur principal", "Familles", "Periode", "Causes supply actives", "Production reportee", "Backlog", "Lecture"],
+            ["Origine", "Signal associe dominant", "Declencheur principal", "Familles", "Periode", "Associations avec signal aval", "Production reportee", "Backlog", "Lecture"],
             top_origin_rows,
             "Aucune origine dominante exploitable dans ce run.",
         ),
@@ -4752,7 +4772,7 @@ def build_simulated_risk_global_diagnostic_payload(
             path_group_table_rows,
             "Aucun chemin metier consolide exploitable dans ce run.",
         ),
-        "<div class=\"riskScenarioSection\">Cascades avec impact supply</div>",
+        "<div class=\"riskScenarioSection\">Cascades avec signal aval associe</div>",
         table_html(
             [
                 "Statut",
@@ -4802,6 +4822,9 @@ def build_simulated_risk_global_diagnostic_payload(
         "html": "".join(html_parts),
         "figures": figures,
         "summary": {
+            "causality_status": "association_only",
+            "score_kind": "descriptive_exposure",
+            "quality_note": association_note,
             "applied_event_count": len(applied_ids),
             "configured_event_count": len(configured_ids),
             "supplier_count": len(supplier_stats),

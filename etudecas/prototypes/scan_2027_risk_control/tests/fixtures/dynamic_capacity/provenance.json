@@ -1,0 +1,17 @@
+{
+  "purpose": "Recorded inputs for analytical regression tests; not new simulation evidence",
+  "files": [
+    {
+      "file": "supplier_nominal_parameters.csv",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_network_post_priority_extensions_smoke_20260903_v1\\cases\\baseline\\baseline_metrics__seed_340282\\seed_340282\\data\\supplier_nominal_parameters.csv",
+      "sha256": "1b609a3a21aee728ab9163a80538c5ec8b6382c7258d7c7648964588e7d693e5",
+      "size_bytes": 25218
+    },
+    {
+      "file": "prepared_physical_supplier_floors.csv",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_network_risk_screen_20260902_v2\\inputs\\prepared_physical_supplier_floors.csv",
+      "sha256": "9ae4a5089b28732da36019ef9c6e8fb629a051a0fb1635ab04ddc81d80825d0b",
+      "size_bytes": 497
+    }
+  ]
+}

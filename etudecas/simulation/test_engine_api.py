@@ -6,10 +6,11 @@ import textwrap
 from http.server import ThreadingHTTPServer
 from urllib.request import Request, urlopen
 import unittest
+from unittest.mock import patch
 
 from etudecas.simulation.engine import SimulationOverrides, SimulationRequest, simulate
 from etudecas.simulation.engine.api import request_from_dict
-from etudecas.simulation.engine.server import SimulationApiHandler
+from etudecas.simulation.engine.server import SimulationApiServer
 
 
 class SimulationEngineApiTest(unittest.TestCase):
@@ -82,6 +83,7 @@ class SimulationEngineApiTest(unittest.TestCase):
 
     def graph(self):
         return {
+            "items": [{"id": "item:A"}],
             "scenarios": [{"id": "scn:BASE", "demand": [], "economic_policy": {}}],
             "nodes": [
                 {"id": "SDC-1", "type": "supplier_dc"},
@@ -198,15 +200,18 @@ class SimulationEngineApiTest(unittest.TestCase):
                 "day,node_id,item_id,demand_multiplier\n",
                 encoding="utf-8",
             )
-            server = ThreadingHTTPServer(("127.0.0.1", 0), SimulationApiHandler)
+            engine_patch = patch("etudecas.simulation.engine.http_contract.ENGINE", fake_engine)
+            engine_patch.start()
+            self.addCleanup(engine_patch.stop)
+            server = SimulationApiServer(("127.0.0.1", 0), input_root=root,
+                                         output_root=root / "http_runs")
             thread = threading.Thread(target=server.serve_forever, daemon=True)
             thread.start()
             try:
                 payload = {
                     "input_graph": self.graph(),
                     "scenario_id": "scn:BASE",
-                    "output_dir": str(root / "http_run"),
-                    "run_script": str(fake_engine),
+                    "days": 7,
                     "output_profile": "minimal",
                     "demand_perturbation_csv": str(demand_perturbation),
                     "control_schedule_csv": str(control_schedule),
@@ -217,7 +222,7 @@ class SimulationEngineApiTest(unittest.TestCase):
                 req = Request(
                     f"http://127.0.0.1:{server.server_port}/simulate",
                     data=json.dumps(payload).encode("utf-8"),
-                    headers={"Content-Type": "application/json"},
+                    headers={"Content-Type": "application/json", "X-Etudecas-Token": server.token},
                     method="POST",
                 )
                 response = json.loads(urlopen(req, timeout=10).read().decode("utf-8"))
@@ -229,13 +234,15 @@ class SimulationEngineApiTest(unittest.TestCase):
             self.assertTrue(response["ok"])
             self.assertEqual(response["result"]["kpis"]["edge_lead_mean"], 20.0)
             self.assertEqual(response["result"]["output_profile"], "minimal")
-            summary_path = root / "http_run" / "summaries" / "first_simulation_summary.json"
+            output = Path(response["result"]["output_dir"])
+            self.assertTrue(output.is_relative_to((root / "http_runs").resolve()))
+            summary_path = output / "summaries" / "first_simulation_summary.json"
             summary = json.loads(summary_path.read_text(encoding="utf-8"))
             self.assertEqual(
                 summary["meta"]["demand_perturbation_csv"],
-                str(demand_perturbation),
+                str(demand_perturbation.resolve()),
             )
-            self.assertEqual(summary["meta"]["control_schedule_csv"], str(control_schedule))
+            self.assertEqual(summary["meta"]["control_schedule_csv"], str(control_schedule.resolve()))
             self.assertEqual(summary["meta"]["control_policy_json"], "")
             self.assertEqual(summary["meta"]["seed"], 2027)
             self.assertIs(summary["meta"]["common_random_numbers"], False)

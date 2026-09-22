@@ -1,0 +1,39 @@
+{
+  "schema_version": "etudecas.test_report.v1",
+  "source": "final-targeted.xml",
+  "counts": {
+    "passed": 112
+  },
+  "testcase_count": 112,
+  "modules": {
+    "etudecas.documentation.test_batch": {
+      "passed": 4
+    },
+    "etudecas.documentation.test_builder.DocumentationTest": {
+      "passed": 12
+    },
+    "etudecas.knowledge_graph.test_excel_enrichment.ExcelEnrichmentTest": {
+      "passed": 3
+    },
+    "etudecas.knowledge_graph.test_schema_contract": {
+      "passed": 17
+    },
+    "etudecas.simulation.test_engine_api.SimulationEngineApiTest": {
+      "passed": 4
+    },
+    "etudecas.simulation.test_http_contract": {
+      "passed": 33
+    },
+    "etudecas.simulation.test_request_contract": {
+      "passed": 31
+    },
+    "etudecas.testing.test_inventory": {
+      "passed": 4
+    },
+    "etudecas.testing.test_report": {
+      "passed": 4
+    }
+  },
+  "failures": [],
+  "skip_reasons": {}
+}

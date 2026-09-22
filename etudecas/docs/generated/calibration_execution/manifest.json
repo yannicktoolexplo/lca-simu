@@ -1,0 +1,222 @@
+{
+  "schema_version": "etudecas.documentation.v1",
+  "fingerprint_method": "python-ast-v1",
+  "business_source_fingerprints": {
+    "etudecas/docs/CALIBRATION_EXECUTION.md": "a6dea76cf5abc6597c097ece39ff86a0fae8de61cc4757fa7d6ecfc32a2dd4ee"
+  },
+  "references": [
+    {
+      "id": "write",
+      "kind": "implementation",
+      "path": "etudecas/atomic_io.py",
+      "symbol": "_write_atomic",
+      "line": 37,
+      "fingerprint": "09eaa445998aa7eb47cc61f642c9ee3946f0f6b85c4efd4bcc24e93b5d8edd14",
+      "reference_fingerprint": "09eaa445998aa7eb47cc61f642c9ee3946f0f6b85c4efd4bcc24e93b5d8edd14",
+      "changed": false,
+      "declaration": "def _write_atomic(path: Path, serialize: Callable[[TextIO], None], *, newline: str | None) -> None:",
+      "docstring": null
+    },
+    {
+      "id": "retry",
+      "kind": "implementation",
+      "path": "etudecas/atomic_io.py",
+      "symbol": "_replace_with_retry",
+      "line": 23,
+      "fingerprint": "db7f69355270c8e95753b68a05b33695d6c3e3443006d204778ec9894462f15c",
+      "reference_fingerprint": "db7f69355270c8e95753b68a05b33695d6c3e3443006d204778ec9894462f15c",
+      "changed": false,
+      "declaration": "def _replace_with_retry(temporary: Path, destination: Path) -> None:",
+      "docstring": null
+    },
+    {
+      "id": "json",
+      "kind": "implementation",
+      "path": "etudecas/atomic_io.py",
+      "symbol": "write_json_atomic",
+      "line": 62,
+      "fingerprint": "7800b5a556734d6830d1b83a9959a8c018cd34737a0c71502aa01c9bfd5fe9d1",
+      "reference_fingerprint": "7800b5a556734d6830d1b83a9959a8c018cd34737a0c71502aa01c9bfd5fe9d1",
+      "changed": false,
+      "declaration": "def write_json_atomic(path: Path, payload: Mapping[str, Any]) -> None:",
+      "docstring": null
+    },
+    {
+      "id": "csv",
+      "kind": "implementation",
+      "path": "etudecas/atomic_io.py",
+      "symbol": "write_csv_atomic",
+      "line": 70,
+      "fingerprint": "58dd4c634c46311e6bef80b36723fc0f7ee4ae7a5110da244ec9aee472152e63",
+      "reference_fingerprint": "58dd4c634c46311e6bef80b36723fc0f7ee4ae7a5110da244ec9aee472152e63",
+      "changed": false,
+      "declaration": "def write_csv_atomic(path: Path, rows: Sequence[Mapping[str, Any]], fields: Sequence[str] | None=None) -> None:",
+      "docstring": null
+    },
+    {
+      "id": "delays",
+      "kind": "contract",
+      "path": "etudecas/atomic_io.py",
+      "symbol": "RETRY_DELAYS",
+      "line": 19,
+      "fingerprint": "0cdcae115aaea2c181e2320bf73afa8f6255845cbbe66688c516b25067ba1569",
+      "reference_fingerprint": "0cdcae115aaea2c181e2320bf73afa8f6255845cbbe66688c516b25067ba1569",
+      "changed": false,
+      "declaration": "RETRY_DELAYS = (0.05, 0.1, 0.2, 0.4, 0.8)",
+      "docstring": null
+    },
+    {
+      "id": "errors",
+      "kind": "contract",
+      "path": "etudecas/atomic_io.py",
+      "symbol": "WINDOWS_RETRY_ERRORS",
+      "line": 20,
+      "fingerprint": "8c86faeafe0e00db15ddb724938ecbde46ebe56704d3cac311d0c88563fc266d",
+      "reference_fingerprint": "8c86faeafe0e00db15ddb724938ecbde46ebe56704d3cac311d0c88563fc266d",
+      "changed": false,
+      "declaration": "WINDOWS_RETRY_ERRORS = frozenset({5, 32, 33})",
+      "docstring": null
+    },
+    {
+      "id": "transient-test",
+      "kind": "test",
+      "path": "etudecas/test_atomic_io.py",
+      "symbol": "test_transient_replacement_preserves_old_file_until_success",
+      "line": 18,
+      "fingerprint": "fbcf1deddcaa9734e2f19d0c753ac282807124eab760f7b1d415f41d5b7e1b77",
+      "reference_fingerprint": "fbcf1deddcaa9734e2f19d0c753ac282807124eab760f7b1d415f41d5b7e1b77",
+      "changed": false,
+      "declaration": "def test_transient_replacement_preserves_old_file_until_success(tmp_path, monkeypatch, code):",
+      "docstring": null
+    },
+    {
+      "id": "persistent-test",
+      "kind": "test",
+      "path": "etudecas/test_atomic_io.py",
+      "symbol": "test_persistent_or_unrelated_failure_propagates",
+      "line": 43,
+      "fingerprint": "290e96774656795a4db2ae54c2da5c94b16036a52e0f99067214328f2b3c9598",
+      "reference_fingerprint": "290e96774656795a4db2ae54c2da5c94b16036a52e0f99067214328f2b3c9598",
+      "changed": false,
+      "declaration": "def test_persistent_or_unrelated_failure_propagates(tmp_path, monkeypatch, code, attempt_count):",
+      "docstring": null
+    },
+    {
+      "id": "signature",
+      "kind": "implementation",
+      "path": "etudecas/prototypes/scan_2027_risk_control/supplier_service_regime_calibration_runner_v2.py",
+      "symbol": "_campaign_signature",
+      "line": 347,
+      "fingerprint": "ac4ebe6c19442fb019274812fd75176d4c4fe74f45556153b7fd41153283b6bb",
+      "reference_fingerprint": "ac4ebe6c19442fb019274812fd75176d4c4fe74f45556153b7fd41153283b6bb",
+      "changed": false,
+      "declaration": "def _campaign_signature(plan: ValidatedPlan, *, smoke_only: bool) -> str:",
+      "docstring": null
+    },
+    {
+      "id": "manifest",
+      "kind": "implementation",
+      "path": "etudecas/prototypes/scan_2027_risk_control/supplier_service_regime_calibration_runner_v2.py",
+      "symbol": "_base_manifest",
+      "line": 1061,
+      "fingerprint": "b49faadfe7f9330dda38176660039ec00e4a6dec093d6f5c407e64496b895790",
+      "reference_fingerprint": "b49faadfe7f9330dda38176660039ec00e4a6dec093d6f5c407e64496b895790",
+      "changed": false,
+      "declaration": "def _base_manifest(*, plan: ValidatedPlan, signature: str, output_dir: Path, workers: int, retention: str, custom_executor_used: bool, smoke_only: bool) -> dict[str, Any]:",
+      "docstring": null
+    },
+    {
+      "id": "run",
+      "kind": "implementation",
+      "path": "etudecas/prototypes/scan_2027_risk_control/supplier_service_regime_calibration_runner_v2.py",
+      "symbol": "run_calibration",
+      "line": 1108,
+      "fingerprint": "b20a944ec752f634325112ca5245d3882811d1d999b436bee552f2676d82957f",
+      "reference_fingerprint": "b20a944ec752f634325112ca5245d3882811d1d999b436bee552f2676d82957f",
+      "changed": false,
+      "declaration": "def run_calibration(*, plan_dir: Path, output_dir: Path, mode: str, workers: int=2, retention: str='summary', checkpoint_after_repetitions: int | None=None, case_executor: CaseExecutor | None=None) -> dict[str, Any]:",
+      "docstring": null
+    },
+    {
+      "id": "ledger",
+      "kind": "implementation",
+      "path": "etudecas/prototypes/scan_2027_risk_control/supplier_service_regime_calibration_runner_v2.py",
+      "symbol": "_load_ledger",
+      "line": 678,
+      "fingerprint": "735800ef03be4d2d173624ffab38c2db863d6c5e1a5153fbdad57e2e59d788a0",
+      "reference_fingerprint": "735800ef03be4d2d173624ffab38c2db863d6c5e1a5153fbdad57e2e59d788a0",
+      "changed": false,
+      "declaration": "def _load_ledger(output_dir: Path, signature: str) -> dict[str, Any]:",
+      "docstring": null
+    },
+    {
+      "id": "checkpoint-test",
+      "kind": "test",
+      "path": "etudecas/prototypes/scan_2027_risk_control/tests/test_supplier_service_regime_calibration_runner.py",
+      "symbol": "test_screen_checkpoint_and_resume_adds_only_seeds_16_to_30",
+      "line": 190,
+      "fingerprint": "e6cc1edcc3711fc64c4eb1a084ae1bba029a02896c384a6edf1872d990caf25c",
+      "reference_fingerprint": "e6cc1edcc3711fc64c4eb1a084ae1bba029a02896c384a6edf1872d990caf25c",
+      "changed": false,
+      "declaration": "def test_screen_checkpoint_and_resume_adds_only_seeds_16_to_30(tmp_path: Path, synthetic_plan) -> None:",
+      "docstring": null
+    },
+    {
+      "id": "version-test",
+      "kind": "test",
+      "path": "etudecas/prototypes/scan_2027_risk_control/tests/test_calibration_atomic_v2.py",
+      "symbol": "test_v2_refuses_v1_output_without_changing_it",
+      "line": 28,
+      "fingerprint": "ecbc7cff34c85d3b3068932ae7ce056a202055242e891c507a07fb923efce1e1",
+      "reference_fingerprint": "ecbc7cff34c85d3b3068932ae7ce056a202055242e891c507a07fb923efce1e1",
+      "changed": false,
+      "declaration": "def test_v2_refuses_v1_output_without_changing_it(tmp_path, monkeypatch, plan):",
+      "docstring": null
+    },
+    {
+      "id": "orphan-test",
+      "kind": "test",
+      "path": "etudecas/prototypes/scan_2027_risk_control/tests/test_calibration_atomic_v2.py",
+      "symbol": "test_failed_ledger_commit_cannot_be_silently_resumed",
+      "line": 82,
+      "fingerprint": "873b437a3301594598fb78e421187f05befffd784600fce3ba63f7c86dd1244d",
+      "reference_fingerprint": "873b437a3301594598fb78e421187f05befffd784600fce3ba63f7c86dd1244d",
+      "changed": false,
+      "declaration": "def test_failed_ledger_commit_cannot_be_silently_resumed(tmp_path, monkeypatch, plan):",
+      "docstring": null
+    },
+    {
+      "id": "binding-test",
+      "kind": "test",
+      "path": "etudecas/prototypes/scan_2027_risk_control/tests/test_calibration_atomic_v2.py",
+      "symbol": "test_io_source_is_bound_to_signature_and_manifest",
+      "line": 40,
+      "fingerprint": "2d2d829ca73a4300fb17be9c47e10190aff99a8c1e086a25df5a62fdd0d75579",
+      "reference_fingerprint": "2d2d829ca73a4300fb17be9c47e10190aff99a8c1e086a25df5a62fdd0d75579",
+      "changed": false,
+      "declaration": "def test_io_source_is_bound_to_signature_and_manifest(plan, tmp_path, monkeypatch):",
+      "docstring": null
+    }
+  ],
+  "rules": [
+    {
+      "rule_id": "CALIBRATION-EXECUTION-001",
+      "status": "documented",
+      "changed_references": [],
+      "changed_business_sources": []
+    },
+    {
+      "rule_id": "CALIBRATION-EXECUTION-002",
+      "status": "documented",
+      "changed_references": [],
+      "changed_business_sources": []
+    },
+    {
+      "rule_id": "CALIBRATION-EXECUTION-003",
+      "status": "documented",
+      "changed_references": [],
+      "changed_business_sources": []
+    }
+  ],
+  "tests_executed": false
+}

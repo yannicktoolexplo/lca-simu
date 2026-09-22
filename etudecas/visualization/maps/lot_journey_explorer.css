@@ -1,0 +1,60 @@
+#lotJourneyModal .tableModalCard { width: min(1500px,98vw); max-width: 98vw; }
+#lotJourneyModal .tableModalBody { padding: 10px 14px; }
+#lotJourney .journeyHeading { margin: 0 0 8px; }
+#lotJourney .journeyWorkspace { display: grid; grid-template-columns: minmax(0,1fr) 360px; gap: 12px; align-items: start; }
+#lotJourney .journeyMain { min-width: 0; }
+#lotJourney .journeySidebar { min-width: 0; height: calc(100vh - 300px); min-height: 350px; overflow: auto; border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px; background: #fff; }
+#lotJourney .journeySidebar > p { margin: 0 0 10px; }
+#lotJourney .journeySidebar [hidden] { display: none; }
+#lotJourney .journeyTabs { display: flex; flex-wrap: wrap; gap: 4px; position: sticky; top: 0; padding-bottom: 8px; background: white; z-index: 2; }
+#lotJourney .journeyTabs button { padding: 6px; font-size: 12px; }
+#lotJourney .journeyScroll { height: 350px; margin-top: 6px; }
+#lotJourney .journeyColumn { width: 204px; }
+#lotJourney .journeyCanvas { gap: 24px; min-width: 0; }
+#lotJourney .journeyNode { font-size: 12px; min-height: 122px; }
+#lotJourney .journeyNode[aria-pressed=true] { color: #183247; background: #f0fdf4; }
+#lotJourney .journeyInspected { outline: 3px solid #15803d; outline-offset: 2px; }
+#lotJourney .journeyFuture { opacity: 0.5; border-style: dashed; }
+#lotJourney .journeyEdges path { pointer-events: stroke; }
+#lotJourney .journeyEdges path[data-journey-shipment-open] { cursor: pointer; }
+#lotJourney .journeyEdges path[data-journey-shipment-open]:hover { stroke-width: 5px; }
+#lotJourney .journeyGraphTools, #lotJourney .journeyDate, #lotJourney .journeySearchBar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 8px 0; }
+#lotJourney .journeyGraphTools button { padding: 4px 10px; }
+#lotJourney .journeyDate { font-size: 12px; }
+#lotJourney .journeyDate button { padding: 5px; }
+#journeyDay { width: 64px; }
+#journeyDaySlider { flex: 1; min-width: 100px; max-width: 300px; }
+#journeySearch { width: min(390px,65vw); }
+#journeyFilters { position: relative; }
+#journeyFilters summary { cursor: pointer; }
+#lotJourney .journeyFilters { position: absolute; z-index: 4; width: 440px; max-width: 70vw; display: grid; grid-template-columns: 1fr 1fr; padding: 12px; gap: 8px; background: white; border: 1px solid #94a3b8; box-shadow: 0 3px 15px #18324733; }
+#lotJourney .journeyFilters label { display: flex; flex-direction: column; min-width: 0; }
+#lotJourney .journeyFilters select, #lotJourney .journeyFilters input { padding: 6px; min-width: 0; }
+#journeySearchResults:not(:empty) { padding: 6px 12px; background: #f8fafc; border: 1px solid #94a3b8; }
+#journeySearchResults .journeySearchList { max-height: 180px; overflow: auto; }
+#journeySearchResults p { margin: 4px 0; }
+#lotJourney .journeyNote { font-size: 11px; margin: 6px 0; }
+#lotJourney .journeyLotSummary, #lotJourney .journeyOperations { margin: 0; padding: 8px; border: 0; }
+#lotJourney .journeyBalanceGrid { grid-template-columns: 1fr 1fr; }
+#lotJourney .journeyBalanceGrid > div { min-width: 0; }
+#lotJourney .journeyNetwork { padding: 10px; border-radius: 8px; background: #edf4f8; font-size: 12px; }
+#lotJourney .journeyNetwork > summary { font-weight: 600; cursor: pointer; }
+#lotJourney .journeyNetworkGrid { display: flex; flex-wrap: wrap; gap: 6px; }
+#lotJourney .journeyNetworkGrid > span { display: flex; flex-direction: column; gap: 4px; padding: 8px; background: white; border-radius: 5px; }
+#lotJourney .journeyIdentities { font-size: 12px; overflow-wrap: anywhere; }
+#lotJourney .journeyIdentities dt { margin-top: 12px; font-weight: 700; }
+#lotJourney .journeyIdentities dd { margin: 3px 0; }
+#lotJourney button:disabled { cursor: default; opacity: 0.5; }
+#lotJourney .journeyCaseTools { margin: 5px 0; font-size: 12px; }
+#lotJourney .journeyCaseTools summary { cursor: pointer; }
+#lotJourney .journeyCaseTools p { margin: 6px 0; }
+#journeyCaseMessage:empty { display: none; }
+#journeyCaseMessage { font-size: 12px; color: #183247; }
+#lotJourney .journeyFileLabel { display: inline-block; padding: 6px; border: 1px solid #94a3b8; border-radius: 6px; }
+#journeyCaseFile { max-width: 240px; margin-left: 8px; }
+#journeyDepth { padding: 4px; }
+@media (max-width: 900px) {
+  #lotJourney .journeyWorkspace { grid-template-columns: 1fr; }
+  #lotJourney .journeySidebar { height: auto; max-height: 500px; }
+  #lotJourney .journeyFilters { position: fixed; left: 10vw; }
+}

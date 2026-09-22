@@ -1,0 +1,351 @@
+{
+  "schema_version": "etudecas.documentation.v1",
+  "fingerprint_method": "python-ast-v1",
+  "business_source_fingerprints": {
+    "etudecas/config/cases/data_poc.json": "c6ba2705775ff4742996fe8318bd774d1faf9b983a5bd60d5c875d6876c710de",
+    "etudecas/docs/EXECUTION_VERIFICATION.md": "fea42b94139091f8ed79e6669932b05079cf931b2659063a40e8c257886a6772",
+    "etudecas/docs/LOTS_ET_CAMIONS.md": "c9a6584468552f76c41aec73e264ca53497cb0fe635e0d3f34084f3e0290b5cc",
+    "etudecas/docs/changes/2026-09-20-cost-rounding-README.md": "1ae6de1ab28ca8bf87ce1e15ee828f47c07ab94a070f621400a8a3d1f5404f22"
+  },
+  "references": [
+    {
+      "id": "physical",
+      "kind": "implementation",
+      "path": "etudecas/simulation/engine/run_first_simulation.py",
+      "symbol": "physical_execution_quantity",
+      "line": 2009,
+      "fingerprint": "8a759e4908e6435482895c123e6b10f34eec643970f6b1882c2e6cc36f32bb87",
+      "reference_fingerprint": "8a759e4908e6435482895c123e6b10f34eec643970f6b1882c2e6cc36f32bb87",
+      "changed": false,
+      "declaration": "def physical_execution_quantity(value: Any, uom: Any) -> float:",
+      "docstring": "Execute only whole countable units; retain forecast residuals upstream.\n\nRound down at a physical boundary, before updating stock AND its ledger.\nMass and length retain their precision. This never rounds display values."
+    },
+    {
+      "id": "ledger-guard",
+      "kind": "implementation",
+      "path": "etudecas/simulation/engine/run_first_simulation.py",
+      "symbol": "require_physical_integer",
+      "line": 1997,
+      "fingerprint": "b1227c5e5169e93439e4106365770748aab69a1de498da5eafab1639942e3be4",
+      "reference_fingerprint": "b1227c5e5169e93439e4106365770748aab69a1de498da5eafab1639942e3be4",
+      "changed": false,
+      "declaration": "def require_physical_integer(value: Any, uom: Any) -> float:",
+      "docstring": "Ledger guard: a physical boundary must quantize before recording it."
+    },
+    {
+      "id": "native-request",
+      "kind": "implementation",
+      "path": "etudecas/simulation/engine/api.py",
+      "symbol": "simulate",
+      "line": 292,
+      "fingerprint": "45c8b4978f7accdff8867f07b3714c8d648744470b8b583389b2f271b41e4bbd",
+      "reference_fingerprint": "45c8b4978f7accdff8867f07b3714c8d648744470b8b583389b2f271b41e4bbd",
+      "changed": false,
+      "declaration": "def simulate(request: SimulationRequest, *, run_executor=None) -> SimulationResult:",
+      "docstring": "Run one simulation from structured inputs and return structured outputs."
+    },
+    {
+      "id": "factor-contract",
+      "kind": "implementation",
+      "path": "etudecas/simulation/analysis_batch_common.py",
+      "symbol": "validate_factors",
+      "line": 100,
+      "fingerprint": "4311c9410d02ca1a20b492f0920f6051c1b412721b0ffaae9925c6776f551c17",
+      "reference_fingerprint": "4311c9410d02ca1a20b492f0920f6051c1b412721b0ffaae9925c6776f551c17",
+      "changed": false,
+      "declaration": "def validate_factors(factors: dict[str, float]) -> None:",
+      "docstring": null
+    },
+    {
+      "id": "view-contract",
+      "kind": "implementation",
+      "path": "etudecas/simulation/lot_trace/view_model.py",
+      "symbol": "build_lot_trace_view_model",
+      "line": 12,
+      "fingerprint": "f4f59d20c94e5260d511bca2105af086a848b67aca97dd2b1398bb37c11d65e1",
+      "reference_fingerprint": "f4f59d20c94e5260d511bca2105af086a848b67aca97dd2b1398bb37c11d65e1",
+      "changed": false,
+      "declaration": "def build_lot_trace_view_model(payload: dict[str, Any], lot_id: str, direction: str='all', indexes: LotTraceIndexes | None=None) -> dict[str, Any]:",
+      "docstring": null
+    },
+    {
+      "id": "view-payload",
+      "kind": "implementation",
+      "path": "etudecas/simulation/lot_trace/payload.py",
+      "symbol": "build_lot_trace_payload",
+      "line": 50,
+      "fingerprint": "5b08f9e9143c2e20ce62abc293bf9aebef9e6c6f7f58d99096f5f80c8329f299",
+      "reference_fingerprint": "5b08f9e9143c2e20ce62abc293bf9aebef9e6c6f7f58d99096f5f80c8329f299",
+      "changed": false,
+      "declaration": "def build_lot_trace_payload(lot_events_csv: Path, lot_genealogy_csv: Path, production_plan_events_csv: Path, raw: dict[str, Any] | None=None, input_stocks_csv: Path | None=None, output_products_csv: Path | None=None, dc_stocks_csv: Path | None=None, demand_service_csv: Path | None=None, supplier_stocks_csv: Path | None=None, visible_finished_product_items: Iterable[str] | None=None, production_campaigns_csv: Path | None=None, mrp_orders_csv: Path | None=None, lot_causal_links_csv: Path | None=None, include_causal_links: bool=True, material_traceability_json: Path | None=None) -> dict[str, Any]:",
+      "docstring": null
+    },
+    {
+      "id": "csv-oracle",
+      "kind": "implementation",
+      "path": "etudecas/testing/independent_review.py",
+      "symbol": "audit_run",
+      "line": 92,
+      "fingerprint": "20f660d36c95a48724467acc417e0885ad203581f91de1123e554ae39c6c4bc2",
+      "reference_fingerprint": "20f660d36c95a48724467acc417e0885ad203581f91de1123e554ae39c6c4bc2",
+      "changed": false,
+      "declaration": "def audit_run(run):",
+      "docstring": null
+    },
+    {
+      "id": "delivery-gate",
+      "kind": "implementation",
+      "path": "etudecas/testing/qualification.py",
+      "symbol": "require_run_invariants",
+      "line": 20,
+      "fingerprint": "c8b7e96918de8f8e87b0f34d0343bfbd4bce438b31cec2a48c185c16040b65f5",
+      "reference_fingerprint": "c8b7e96918de8f8e87b0f34d0343bfbd4bce438b31cec2a48c185c16040b65f5",
+      "changed": false,
+      "declaration": "def require_run_invariants(run: Path) -> dict:",
+      "docstring": null
+    },
+    {
+      "id": "browser-proof",
+      "kind": "implementation",
+      "path": "etudecas/testing/lot_browser_review.py",
+      "symbol": "review",
+      "line": 40,
+      "fingerprint": "ebbd7ea23c3ac42f54505de84bd074dc28c2b99c11079540ebc4c8ca1d70b347",
+      "reference_fingerprint": "ebbd7ea23c3ac42f54505de84bd074dc28c2b99c11079540ebc4c8ca1d70b347",
+      "changed": false,
+      "declaration": "def review(html, output, source_run=None):",
+      "docstring": null
+    },
+    {
+      "id": "cache-sources",
+      "kind": "implementation",
+      "path": "etudecas/simulation/source_fingerprint.py",
+      "symbol": "implementation_fingerprint",
+      "line": 20,
+      "fingerprint": "f588685bf758b663ebbca561e60a2c325cdc8280277b97a8d83c46723715ed06",
+      "reference_fingerprint": "f588685bf758b663ebbca561e60a2c325cdc8280277b97a8d83c46723715ed06",
+      "changed": false,
+      "declaration": "def implementation_fingerprint(run_script: Path) -> str:",
+      "docstring": null
+    },
+    {
+      "id": "known-demand",
+      "kind": "test",
+      "path": "etudecas/testing/test_correction_contracts.py",
+      "symbol": "test_fractional_forecast_accumulates_without_losing_demand",
+      "line": 15,
+      "fingerprint": "f5bd124d029f8d697c5b5207302d0d16a91deafdf847c3a85926ecf04ae743b9",
+      "reference_fingerprint": "f5bd124d029f8d697c5b5207302d0d16a91deafdf847c3a85926ecf04ae743b9",
+      "changed": false,
+      "declaration": "def test_fractional_forecast_accumulates_without_losing_demand():",
+      "docstring": null
+    },
+    {
+      "id": "corruption",
+      "kind": "test",
+      "path": "etudecas/testing/test_correction_contracts.py",
+      "symbol": "test_delivery_gate_refuses_corrupt_stock_and_missing_evidence",
+      "line": 71,
+      "fingerprint": "c14e2f29c51e4f97859ca47a6fdd1cd0059c015798808b973cd66f1070420357",
+      "reference_fingerprint": "c14e2f29c51e4f97859ca47a6fdd1cd0059c015798808b973cd66f1070420357",
+      "changed": false,
+      "declaration": "def test_delivery_gate_refuses_corrupt_stock_and_missing_evidence(known_run):",
+      "docstring": null
+    },
+    {
+      "id": "bad-factor-test",
+      "kind": "test",
+      "path": "etudecas/testing/test_correction_contracts.py",
+      "symbol": "test_invalid_sensitivity_cannot_be_recorded_as_applied",
+      "line": 54,
+      "fingerprint": "0daa8538dac10d416ce185ad2be53596e54181f49aa8a028d2fd69e9b010f069",
+      "reference_fingerprint": "0daa8538dac10d416ce185ad2be53596e54181f49aa8a028d2fd69e9b010f069",
+      "changed": false,
+      "declaration": "def test_invalid_sensitivity_cannot_be_recorded_as_applied(factors):",
+      "docstring": null
+    },
+    {
+      "id": "causal-test",
+      "kind": "test",
+      "path": "etudecas/simulation/test_lot_trace_view_model.py",
+      "symbol": "LotTraceViewModelTest.test_view_model_excludes_events_outside_selected_contribution",
+      "line": 93,
+      "fingerprint": "09ed54328d6e326a27c83b425c439345823964b3022e5ddb111f794b776a7cdc",
+      "reference_fingerprint": "09ed54328d6e326a27c83b425c439345823964b3022e5ddb111f794b776a7cdc",
+      "changed": false,
+      "declaration": "def test_view_model_excludes_events_outside_selected_contribution(self) -> None:",
+      "docstring": null
+    },
+    {
+      "id": "truck-context",
+      "kind": "implementation",
+      "path": "etudecas/simulation/logistics/display.py",
+      "symbol": "build_transport_context",
+      "line": 9,
+      "fingerprint": "e7d512402a28201b2bb29c7137680b73cd9391d0f4a16807fc9f4f9dbc271afa",
+      "reference_fingerprint": "e7d512402a28201b2bb29c7137680b73cd9391d0f4a16807fc9f4f9dbc271afa",
+      "changed": false,
+      "declaration": "def build_transport_context(events, graph, profiles=()):",
+      "docstring": null
+    },
+    {
+      "id": "truck-groups-test",
+      "kind": "test",
+      "path": "etudecas/simulation/logistics/test_display.py",
+      "symbol": "test_four_shipments_are_three_weekly_groups_not_four_trucks",
+      "line": 17,
+      "fingerprint": "d4ce0674e94c0c494bc2f3da0e820c5e58bd677c883891f618db13ea0ce849b4",
+      "reference_fingerprint": "d4ce0674e94c0c494bc2f3da0e820c5e58bd677c883891f618db13ea0ce849b4",
+      "changed": false,
+      "declaration": "def test_four_shipments_are_three_weekly_groups_not_four_trucks():",
+      "docstring": null
+    },
+    {
+      "id": "truck-capacity-test",
+      "kind": "test",
+      "path": "etudecas/simulation/logistics/test_display.py",
+      "symbol": "test_sourced_profile_can_dimension_real_capacity_proposals",
+      "line": 38,
+      "fingerprint": "9e953b80a7fb43bd34c6a1c1d1b88146073e74eef92d91be6027d165ac665234",
+      "reference_fingerprint": "9e953b80a7fb43bd34c6a1c1d1b88146073e74eef92d91be6027d165ac665234",
+      "changed": false,
+      "declaration": "def test_sourced_profile_can_dimension_real_capacity_proposals():",
+      "docstring": null
+    },
+    {
+      "id": "customer-csv-oracle",
+      "kind": "implementation",
+      "path": "etudecas/testing/lot_browser_review.py",
+      "symbol": "business_batch_csv_oracle",
+      "line": 15,
+      "fingerprint": "ba0a1839749b9b5e101ab75bc54347572466ed8ee32ead1c91528fff1cfb82f1",
+      "reference_fingerprint": "ba0a1839749b9b5e101ab75bc54347572466ed8ee32ead1c91528fff1cfb82f1",
+      "changed": false,
+      "declaration": "def business_batch_csv_oracle(run, batch_id):",
+      "docstring": "Read the supplied run's physical customer contributions, never a historical split."
+    },
+    {
+      "id": "customer-csv-oracle-test",
+      "kind": "test",
+      "path": "etudecas/testing/test_lot_customer_oracle.py",
+      "symbol": "test_customer_oracle_uses_current_csv_split_and_excludes_future_receipts",
+      "line": 9,
+      "fingerprint": "b9ea59a4a06dcc3613178c0c6b7ecddc9b20d9651d0a73dbe132953c417b9b8c",
+      "reference_fingerprint": "b9ea59a4a06dcc3613178c0c6b7ecddc9b20d9651d0a73dbe132953c417b9b8c",
+      "changed": false,
+      "declaration": "def test_customer_oracle_uses_current_csv_split_and_excludes_future_receipts(tmp_path):",
+      "docstring": null
+    },
+    {
+      "id": "cost-rounding",
+      "kind": "implementation",
+      "path": "etudecas/testing/map_delivery.py",
+      "symbol": "reconcile_exported_cost",
+      "line": 83,
+      "fingerprint": "3ceeaa70bebc0450a4706072f5ae6c3b687f2ebc995357027623f24d757f5def",
+      "reference_fingerprint": "3ceeaa70bebc0450a4706072f5ae6c3b687f2ebc995357027623f24d757f5def",
+      "changed": false,
+      "declaration": "def reconcile_exported_cost(values: list[str], summary_total: float, *, rounding_terms_per_value: int) -> dict:",
+      "docstring": "Bound export rounding, without a relative or arbitrary money tolerance.\n\nThe engine exports monetary columns and summary totals to four decimals.\ntotal_supply_cost_day combines five already-rounded costs and rounds its\nsum with raw production cost once more: six rounding terms per daily value.\nEach external purchase/transport column has just one rounding term.\nA final half-quantum covers the independently rounded summary total.\nSee run_first_simulation.py daily_rows, total_supply_cost_day and kpis."
+    },
+    {
+      "id": "cost-browser",
+      "kind": "implementation",
+      "path": "etudecas/testing/map_delivery.py",
+      "symbol": "reconcile_browser",
+      "line": 111,
+      "fingerprint": "4574d9f6612cafcb3a3ed67d90e7ad2c09442fcc92483e4d0419738919ee93bb",
+      "reference_fingerprint": "4574d9f6612cafcb3a3ed67d90e7ad2c09442fcc92483e4d0419738919ee93bb",
+      "changed": false,
+      "declaration": "def reconcile_browser(browser: dict, runs: list[dict], *, cost_checks: list | None=None) -> list[str]:",
+      "docstring": "Independent source oracle for browser values, monetary scopes and v3 score.\n\nDo not import a map producer: summaries and daily CSVs are read directly.\nThe score is checked against those quantities, not another payload score."
+    },
+    {
+      "id": "cost-rounding-bound-test",
+      "kind": "test",
+      "path": "etudecas/testing/test_map_delivery.py",
+      "symbol": "test_cost_rounding_bound_accepts_only_mathematically_possible_error",
+      "line": 119,
+      "fingerprint": "aa16cefdf07889996b196532c205d137050a97d8e12453899f99cd018e385d1f",
+      "reference_fingerprint": "aa16cefdf07889996b196532c205d137050a97d8e12453899f99cd018e385d1f",
+      "changed": false,
+      "declaration": "def test_cost_rounding_bound_accepts_only_mathematically_possible_error(daily_terms, summary, expected):",
+      "docstring": null
+    },
+    {
+      "id": "cost-rounding-long-test",
+      "kind": "test",
+      "path": "etudecas/testing/test_map_delivery.py",
+      "symbol": "test_long_horizon_rounding_accepts_accumulation_but_rejects_one_currency_unit",
+      "line": 126,
+      "fingerprint": "d3b151310a21effffa9ebfadd7f3e9959dfdbef310a69a596955d58b6b2c9f19",
+      "reference_fingerprint": "d3b151310a21effffa9ebfadd7f3e9959dfdbef310a69a596955d58b6b2c9f19",
+      "changed": false,
+      "declaration": "def test_long_horizon_rounding_accepts_accumulation_but_rejects_one_currency_unit():",
+      "docstring": null
+    },
+    {
+      "id": "cost-rounding-precision-test",
+      "kind": "test",
+      "path": "etudecas/testing/test_map_delivery.py",
+      "symbol": "test_unexpected_cost_export_precision_is_not_silently_tolerated",
+      "line": 138,
+      "fingerprint": "e84a51e1f50c71e8567dd9e7c33638e419c53db10a03093f089d0b8edc21c2c0",
+      "reference_fingerprint": "e84a51e1f50c71e8567dd9e7c33638e419c53db10a03093f089d0b8edc21c2c0",
+      "changed": false,
+      "declaration": "def test_unexpected_cost_export_precision_is_not_silently_tolerated(value):",
+      "docstring": null
+    },
+    {
+      "id": "cost-browser-test",
+      "kind": "test",
+      "path": "etudecas/testing/test_map_delivery.py",
+      "symbol": "test_browser_values_are_reconciled_with_runs",
+      "line": 69,
+      "fingerprint": "1fcc0239ccd7a70f9fb4e58e1e4c89a879d1244a97059f4c04819b7761e6579a",
+      "reference_fingerprint": "1fcc0239ccd7a70f9fb4e58e1e4c89a879d1244a97059f4c04819b7761e6579a",
+      "changed": false,
+      "declaration": "def test_browser_values_are_reconciled_with_runs(run, damage):",
+      "docstring": null
+    }
+  ],
+  "rules": [
+    {
+      "rule_id": "PHYSICAL-001",
+      "status": "documented",
+      "changed_references": [],
+      "changed_business_sources": []
+    },
+    {
+      "rule_id": "INPUT-REJECTION-001",
+      "status": "documented",
+      "changed_references": [],
+      "changed_business_sources": []
+    },
+    {
+      "rule_id": "TRACE-SELECTION-001",
+      "status": "documented",
+      "changed_references": [],
+      "changed_business_sources": []
+    },
+    {
+      "rule_id": "DELIVERY-PROOF-001",
+      "status": "documented",
+      "changed_references": [],
+      "changed_business_sources": []
+    },
+    {
+      "rule_id": "TRUCK-ESTIMATE-001",
+      "status": "hypothesis",
+      "changed_references": [],
+      "changed_business_sources": []
+    },
+    {
+      "rule_id": "COST-EXPORT-ROUNDING-001",
+      "status": "documented",
+      "changed_references": [],
+      "changed_business_sources": []
+    }
+  ],
+  "tests_executed": false
+}

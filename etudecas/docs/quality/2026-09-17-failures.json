@@ -1,0 +1,570 @@
+{
+  "date": "2026-09-17",
+  "scope": "full pytest run (2331 cases collected before the four reporting-tool tests were added)",
+  "counts": {
+    "failure": 79,
+    "passed": 2230,
+    "skipped": 22
+  },
+  "categories": {
+    "frozen_source_or_contract_check": 59,
+    "historical_checkout_missing": 2,
+    "v2_plan_signature_mismatch": 5,
+    "capacity_graph_mismatch": 13
+  },
+  "failures": [
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_finalize_supplier_operating_point_full_campaign_v4",
+      "test": "test_finalizer_pin_matches_frozen_v4_runner",
+      "category": "frozen_source_or_contract_check",
+      "message": "AssertionError: assert 'ef3154d98816...70ade97fd099a' == '3bc8795490c6...0d483881a5d9d'\n  \n  - 3bc8795490c6ef9ac1fef25d5dedb22811306ae869477df57e70d483881a5d9d\n  + ef3154d98816e92c15ef8205462faa791a09c1e11b1c4174ce870ade97fd099a",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_run_supplier_v8_post_stage3_final_v4_task",
+      "test": "test_validate_only_is_strictly_inert",
+      "category": "historical_checkout_missing",
+      "message": "AssertionError: Depot absent : C:\\dev\\lca-simu-pr40\r\n  Au caractère \r\n  C:\\dev\\lca-simu\\etudecas\\prototypes\\scan_2027_risk_control\\run_supplier_v8_post_stage3_final_v4_task.ps1:388 : 9\r\n  +         throw \"Depot absent : $resolvedRepo\"\r\n  +         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\r\n      + CategoryInfo          : OperationStopped: (Depot absent : C:\\dev\\lca-simu-pr40:String) [], RuntimeException\r\n      + FullyQualifiedErrorId : Depot absent : C:\\dev\\lca-simu-pr40\r\n   \r\n  \nassert 1 == 0\n +  where 1 = CompletedProcess(args=['C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe', '-NoProfile', '-NonInteractiv...imu-pr40:String) [], RuntimeException\\r\\n    + FullyQualifiedErrorId : Depot absent : C:\\\\dev\\\\lca-simu-pr40\\r\\n \\r\\n').returncode",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_run_supplier_v8_post_stage3_final_v4_task",
+      "test": "test_frozen_hash_block_is_small_exact_and_current",
+      "category": "frozen_source_or_contract_check",
+      "message": "AssertionError: assert '1fbb80123229...f34f710dff551' == 'fc97dfa4c4c0...4c56d5b11cabe'\n  \n  - fc97dfa4c4c06d82594efb91767d0a6d2dd7f23b23d4e2ce0ca4c56d5b11cabe\n  + 1fbb80123229f24c02e6d806fe4ac29270f79144584e631584ef34f710dff551",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_run_supplier_v8_stage3_closure_v1_task",
+      "test": "test_validate_only_is_inert_and_checks_frozen_hashes",
+      "category": "historical_checkout_missing",
+      "message": "AssertionError: Repository is absent: C:\\dev\\lca-simu-pr40\r\n  Au caractère C:\\dev\\lca-simu\\etudecas\\prototypes\\scan_2027_risk_control\\run_supplier_v8_stage3_closure_v1_task.ps1:368 \r\n  : 9\r\n  +         throw \"Repository is absent: $resolvedRepo\"\r\n  +         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\r\n      + CategoryInfo          : OperationStopped: (Repository is a...v\\lca-simu-pr40:String) [], RuntimeException\r\n      + FullyQualifiedErrorId : Repository is absent: C:\\dev\\lca-simu-pr40\r\n   \r\n  \nassert 1 == 0\n +  where 1 = CompletedProcess(args=['C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe', '-NoProfile', '-NonInteractiv...0:String) [], RuntimeException\\r\\n    + FullyQualifiedErrorId : Repository is absent: C:\\\\dev\\\\lca-simu-pr40\\r\\n \\r\\n').returncode",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_run_supplier_v8_stage3_closure_v1_task",
+      "test": "test_frozen_hash_bindings_are_exact",
+      "category": "frozen_source_or_contract_check",
+      "message": "AssertionError: assert '47ae414056e9...6ca7fc322fd03' == '004ab109ac4d...41aff0ce6de1a'\n  \n  - 004ab109ac4d396cc50501b17b58fc0b64798352e97d08cadb941aff0ce6de1a\n  + 47ae414056e9d4c2d350eeec4cb42b1a18739ccbe885a4d55bf6ca7fc322fd03",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_balanced_product_delay_multiseed_refinement_v3",
+      "test": "test_plan_revalidates_65_proofs_and_registers_exactly_15_new",
+      "category": "v2_plan_signature_mismatch",
+      "message": "ValueError: V2 refinement plan/signature mismatch",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_balanced_product_delay_multiseed_refinement_v3",
+      "test": "test_run_resumes_without_reexecuting_and_validates_80_proofs",
+      "category": "v2_plan_signature_mismatch",
+      "message": "ValueError: V2 refinement plan/signature mismatch",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_balanced_product_delay_multiseed_refinement_v3",
+      "test": "test_interrupted_run_imports_once_and_executes_only_missing",
+      "category": "v2_plan_signature_mismatch",
+      "message": "ValueError: V2 refinement plan/signature mismatch",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_balanced_product_delay_multiseed_refinement_v3",
+      "test": "test_tamper_in_v2_source_or_imported_evidence_fails_closed",
+      "category": "v2_plan_signature_mismatch",
+      "message": "ValueError: V2 refinement plan/signature mismatch",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_balanced_product_delay_multiseed_refinement_v3",
+      "test": "test_resigned_plan_proposal_graph_and_extra_evidence_fail_closed",
+      "category": "v2_plan_signature_mismatch",
+      "message": "ValueError: V2 refinement plan/signature mismatch",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_dynamic_requirement_reference",
+      "test": "test_protocol_is_plan_only_and_validates_without_results",
+      "category": "capacity_graph_mismatch",
+      "message": "ValueError: Capacity-coupling audit source differs from protocol: graph",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_dynamic_requirement_reference",
+      "test": "test_protocol_detects_file_tampering",
+      "category": "capacity_graph_mismatch",
+      "message": "ValueError: Capacity-coupling audit source differs from protocol: graph",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_dynamic_requirement_reference",
+      "test": "test_v3_guard_rejects_campaign_outside_protocol_binding",
+      "category": "capacity_graph_mismatch",
+      "message": "ValueError: Capacity-coupling audit source differs from protocol: graph",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_dynamic_requirement_reference",
+      "test": "test_commands_keep_old_hybrid_and_make_new_all_dynamic",
+      "category": "capacity_graph_mismatch",
+      "message": "ValueError: Capacity-coupling audit source differs from protocol: graph",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_dynamic_requirement_reference",
+      "test": "test_metric_extraction_covers_every_material_and_product",
+      "category": "capacity_graph_mismatch",
+      "message": "ValueError: Capacity-coupling audit source differs from protocol: graph",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_dynamic_requirement_reference",
+      "test": "test_smoke_custom_executor_builds_exact_paired_tables",
+      "category": "capacity_graph_mismatch",
+      "message": "ValueError: Capacity-coupling audit source differs from protocol: graph",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_dynamic_requirement_reference",
+      "test": "test_smoke_directory_cannot_be_reused_for_compare15",
+      "category": "capacity_graph_mismatch",
+      "message": "ValueError: Capacity-coupling audit source differs from protocol: graph",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_dynamic_requirement_reference",
+      "test": "test_paired_daily_demand_mismatch_is_rejected",
+      "category": "capacity_graph_mismatch",
+      "message": "ValueError: Capacity-coupling audit source differs from protocol: graph",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_dynamic_requirement_reference",
+      "test": "test_evidence_rejects_unbounded_service_and_impossible_supplier_flow",
+      "category": "capacity_graph_mismatch",
+      "message": "ValueError: Capacity-coupling audit source differs from protocol: graph",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_dynamic_requirement_reference",
+      "test": "test_lot_audit_error_is_fatal_and_retained_report_hash_is_checked",
+      "category": "capacity_graph_mismatch",
+      "message": "ValueError: Capacity-coupling audit source differs from protocol: graph",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_dynamic_requirement_reference",
+      "test": "test_campaign_manifest_change_during_comparison_fails_closed",
+      "category": "capacity_graph_mismatch",
+      "message": "ValueError: Capacity-coupling audit source differs from protocol: graph",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_dynamic_requirement_reference",
+      "test": "test_valid_orphan_evidence_is_reconciled_into_ledger",
+      "category": "capacity_graph_mismatch",
+      "message": "ValueError: Capacity-coupling audit source differs from protocol: graph",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_dynamic_requirement_reference",
+      "test": "test_invalid_orphan_evidence_is_archived_without_deletion",
+      "category": "capacity_graph_mismatch",
+      "message": "ValueError: Capacity-coupling audit source differs from protocol: graph",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_fresh_development_holdout_protocol_v7",
+      "test": "test_plan_freezes_one_triplet_150_new_blocks_and_450_fresh_cases",
+      "category": "frozen_source_or_contract_check",
+      "message": "etudecas.prototypes.scan_2027_risk_control.supplier_fresh_development_holdout_protocol_v7.V7ProtocolError: Pinned V6 file changed: supplier_balanced_product_delay_multiseed_refinement_v6.py (b54c21e35000a8d6dd06c97d210434b96b85a9ba90ef8d8c6eb3d855fd8831b2)",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_fresh_development_holdout_protocol_v7",
+      "test": "test_v6_rejection_and_rng_audit_are_diagnostics_not_v7_evidence",
+      "category": "frozen_source_or_contract_check",
+      "message": "etudecas.prototypes.scan_2027_risk_control.supplier_fresh_development_holdout_protocol_v7.V7ProtocolError: Pinned V6 file changed: supplier_balanced_product_delay_multiseed_refinement_v6.py (b54c21e35000a8d6dd06c97d210434b96b85a9ba90ef8d8c6eb3d855fd8831b2)",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_fresh_development_holdout_protocol_v7",
+      "test": "test_wrong_review_hash_and_tampered_rng_audit_are_rejected",
+      "category": "frozen_source_or_contract_check",
+      "message": "AssertionError: Regex pattern did not match.\n  Expected regex: 'reviewed'\n  Actual message: 'Pinned V6 file changed: supplier_balanced_product_delay_multiseed_refinement_v6.py (b54c21e35000a8d6dd06c97d210434b96b85a9ba90ef8d8c6eb3d855fd8831b2)'",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_fresh_development_holdout_protocol_v7",
+      "test": "test_prepare_run_monitor_and_early_finalization_start_no_engine",
+      "category": "frozen_source_or_contract_check",
+      "message": "etudecas.prototypes.scan_2027_risk_control.supplier_fresh_development_holdout_protocol_v7.V7ProtocolError: Pinned V6 file changed: supplier_balanced_product_delay_multiseed_refinement_v6.py (b54c21e35000a8d6dd06c97d210434b96b85a9ba90ef8d8c6eb3d855fd8831b2)",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_fresh_development_holdout_protocol_v7",
+      "test": "test_official_v4_adapter_supplies_proof_contract_without_running_engine",
+      "category": "frozen_source_or_contract_check",
+      "message": "etudecas.prototypes.scan_2027_risk_control.supplier_fresh_development_holdout_protocol_v7.V7ProtocolError: Pinned V6 file changed: supplier_balanced_product_delay_multiseed_refinement_v6.py (b54c21e35000a8d6dd06c97d210434b96b85a9ba90ef8d8c6eb3d855fd8831b2)",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_fresh_development_holdout_protocol_v7",
+      "test": "test_existing_plan_output_is_never_overwritten",
+      "category": "frozen_source_or_contract_check",
+      "message": "etudecas.prototypes.scan_2027_risk_control.supplier_fresh_development_holdout_protocol_v7.V7ProtocolError: Pinned V6 file changed: supplier_balanced_product_delay_multiseed_refinement_v6.py (b54c21e35000a8d6dd06c97d210434b96b85a9ba90ef8d8c6eb3d855fd8831b2)",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_fresh_development_holdout_protocol_v7",
+      "test": "test_full_injected_run_resumes_retains_outputs_and_finalizes_at_150_blocks",
+      "category": "frozen_source_or_contract_check",
+      "message": "etudecas.prototypes.scan_2027_risk_control.supplier_fresh_development_holdout_protocol_v7.V7ProtocolError: Pinned V6 file changed: supplier_balanced_product_delay_multiseed_refinement_v6.py (b54c21e35000a8d6dd06c97d210434b96b85a9ba90ef8d8c6eb3d855fd8831b2)",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_fresh_development_holdout_protocol_v7",
+      "test": "test_official_transaction_prunes_before_commit_and_cleans_crash_orphans",
+      "category": "frozen_source_or_contract_check",
+      "message": "etudecas.prototypes.scan_2027_risk_control.supplier_fresh_development_holdout_protocol_v7.V7ProtocolError: Pinned V6 file changed: supplier_balanced_product_delay_multiseed_refinement_v6.py (b54c21e35000a8d6dd06c97d210434b96b85a9ba90ef8d8c6eb3d855fd8831b2)",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_fresh_development_holdout_protocol_v7",
+      "test": "test_tampered_retained_snapshot_is_detected",
+      "category": "frozen_source_or_contract_check",
+      "message": "etudecas.prototypes.scan_2027_risk_control.supplier_fresh_development_holdout_protocol_v7.V7ProtocolError: Pinned V6 file changed: supplier_balanced_product_delay_multiseed_refinement_v6.py (b54c21e35000a8d6dd06c97d210434b96b85a9ba90ef8d8c6eb3d855fd8831b2)",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_fresh_development_holdout_protocol_v7",
+      "test": "test_live_monitor_validates_committed_evidence_and_tolerates_active_attempt",
+      "category": "frozen_source_or_contract_check",
+      "message": "etudecas.prototypes.scan_2027_risk_control.supplier_fresh_development_holdout_protocol_v7.V7ProtocolError: Pinned V6 file changed: supplier_balanced_product_delay_multiseed_refinement_v6.py (b54c21e35000a8d6dd06c97d210434b96b85a9ba90ef8d8c6eb3d855fd8831b2)",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_network_extension_interpretation_audit",
+      "test": "test_reviewed_planner_and_runner_builders_are_exactly_pinned",
+      "category": "frozen_source_or_contract_check",
+      "message": "AssertionError: assert '0e47ffdaccd2...a0507ada0c6d7' == 'e22d7b923fe4...2f23c5f1344c9'\n  \n  - e22d7b923fe4421aad590458dc9bc9293b77ff5393bd29258d22f23c5f1344c9\n  + 0e47ffdaccd2f3399fd543a7bcbf0b8d2425a1015b9ad908167a0507ada0c6d7",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_network_risk_results_dashboard",
+      "test": "test_builds_signed_autonomous_page_with_scientific_scope",
+      "category": "frozen_source_or_contract_check",
+      "message": "ValueError: Le contrat figé d'audit de frontière a changé.",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_network_risk_results_dashboard",
+      "test": "test_boundary_failure_publishes_only_an_unranked_group",
+      "category": "frozen_source_or_contract_check",
+      "message": "ValueError: Le contrat figé d'audit de frontière a changé.",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_network_risk_results_dashboard",
+      "test": "test_inherited_priority_flags_cannot_override_signed_boundary",
+      "category": "frozen_source_or_contract_check",
+      "message": "ValueError: Le contrat figé d'audit de frontière a changé.",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_network_risk_results_dashboard",
+      "test": "test_tampered_overlay_is_rejected_before_rendering",
+      "category": "frozen_source_or_contract_check",
+      "message": "AssertionError: Regex pattern did not match.\n  Expected regex: 'Empreinte de surcouche invalide'\n  Actual message: \"Le contrat figé d'audit de frontière a changé.\"",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_network_risk_results_dashboard",
+      "test": "test_overlay_inventory_is_exact",
+      "category": "frozen_source_or_contract_check",
+      "message": "AssertionError: Regex pattern did not match.\n  Expected regex: 'Inventaire disque de la surcouche'\n  Actual message: \"Le contrat figé d'audit de frontière a changé.\"",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_network_risk_results_dashboard",
+      "test": "test_resigned_legacy_extension_release_alias_cannot_be_reactivated",
+      "category": "frozen_source_or_contract_check",
+      "message": "AssertionError: Regex pattern did not match.\n  Expected regex: 'Alias release_gate_pass non neutralise'\n  Actual message: \"Le contrat figé d'audit de frontière a changé.\"",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_network_risk_results_dashboard",
+      "test": "test_tampered_boundary_is_rejected_before_rendering",
+      "category": "frozen_source_or_contract_check",
+      "message": "AssertionError: Regex pattern did not match.\n  Expected regex: 'Empreinte invalide'\n  Actual message: \"Le contrat figé d'audit de frontière a changé.\"",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_network_risk_results_dashboard",
+      "test": "test_unsigned_boundary_is_mandatory",
+      "category": "frozen_source_or_contract_check",
+      "message": "AssertionError: Regex pattern did not match.\n  Expected regex: 'audit de frontière est requis'\n  Actual message: \"Le contrat figé d'audit de frontière a changé.\"",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_network_risk_results_dashboard",
+      "test": "test_action_selector_input_is_never_promoted",
+      "category": "frozen_source_or_contract_check",
+      "message": "ValueError: Le contrat figé d'audit de frontière a changé.",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_network_risk_results_dashboard",
+      "test": "test_relative_navigation_links_remain_local_and_optional",
+      "category": "frozen_source_or_contract_check",
+      "message": "ValueError: Le contrat figé d'audit de frontière a changé.",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_service_regime_calibration_runner",
+      "test": "test_frozen_v2_plan_validates_and_is_pinned",
+      "category": "frozen_source_or_contract_check",
+      "message": "ValueError: Calibration protocol builder differs from the frozen V2 contract",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_service_regime_calibration_runner",
+      "test": "test_engine_command_has_no_incident_and_uses_candidate_input",
+      "category": "frozen_source_or_contract_check",
+      "message": "ValueError: Calibration protocol builder differs from the frozen V2 contract",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_service_regime_calibration_runner",
+      "test": "test_smoke_executes_one_nonreusable_case",
+      "category": "frozen_source_or_contract_check",
+      "message": "ValueError: Calibration protocol builder differs from the frozen V2 contract",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_service_regime_calibration_runner",
+      "test": "test_screen_checkpoint_and_resume_adds_only_seeds_16_to_30",
+      "category": "frozen_source_or_contract_check",
+      "message": "ValueError: Calibration protocol builder differs from the frozen V2 contract",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_service_regime_calibration_runner",
+      "test": "test_resume_rejects_checkpoint_ledger_mismatch",
+      "category": "frozen_source_or_contract_check",
+      "message": "ValueError: Calibration protocol builder differs from the frozen V2 contract",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_service_regime_calibration_runner",
+      "test": "test_invalid_checkpoint_count_and_existing_lock_fail_closed",
+      "category": "frozen_source_or_contract_check",
+      "message": "ValueError: Calibration protocol builder differs from the frozen V2 contract",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_v5_downstream_integration",
+      "test": "test_downstream_preflight_binds_plan_manifest_and_real_corridor_csv",
+      "category": "frozen_source_or_contract_check",
+      "message": "etudecas.prototypes.scan_2027_risk_control.supplier_operating_point_full_campaign_v5.V5CampaignAdapterError: The frozen V4 incident implementation changed; refusing V5 reuse",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_v5_downstream_integration",
+      "test": "test_campaign_launch_ready_accepts_exact_zero_terminal_counts",
+      "category": "frozen_source_or_contract_check",
+      "message": "etudecas.prototypes.scan_2027_risk_control.launch_supplier_operating_point_full_campaign_v5.V5LauncherAdapterError: The frozen V4 launcher changed; refusing V5 reuse",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_v5_downstream_integration",
+      "test": "test_adapters_patch_only_inside_context_and_restore[etudecas.prototypes.scan_2027_risk_control.supplier_operating_point_full_campaign_v5-etudecas.prototypes.scan_2027_risk_control.supplier_operating_point_full_campaign_v4-patched_fields0]",
+      "category": "frozen_source_or_contract_check",
+      "message": "etudecas.prototypes.scan_2027_risk_control.supplier_operating_point_full_campaign_v5.V5CampaignAdapterError: The frozen V4 incident implementation changed; refusing V5 reuse",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_v5_downstream_integration",
+      "test": "test_adapters_patch_only_inside_context_and_restore[etudecas.prototypes.scan_2027_risk_control.launch_supplier_operating_point_full_campaign_v5-etudecas.prototypes.scan_2027_risk_control.launch_supplier_operating_point_full_campaign_v4-patched_fields1]",
+      "category": "frozen_source_or_contract_check",
+      "message": "etudecas.prototypes.scan_2027_risk_control.launch_supplier_operating_point_full_campaign_v5.V5LauncherAdapterError: The frozen V4 launcher changed; refusing V5 reuse",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_v5_downstream_integration",
+      "test": "test_adapters_patch_only_inside_context_and_restore[etudecas.prototypes.scan_2027_risk_control.finalize_supplier_operating_point_full_campaign_v5-etudecas.prototypes.scan_2027_risk_control.finalize_supplier_operating_point_full_campaign_v4-patched_fields2]",
+      "category": "frozen_source_or_contract_check",
+      "message": "etudecas.prototypes.scan_2027_risk_control.finalize_supplier_operating_point_full_campaign_v5.V5FinalizerAdapterError: The frozen V4 finalizer changed; refusing V5 reuse",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_v5_downstream_integration",
+      "test": "test_relay_pins_the_frozen_v4_and_v5_implementation_hashes",
+      "category": "frozen_source_or_contract_check",
+      "message": "etudecas.prototypes.scan_2027_risk_control.continue_supplier_full_campaign_v4.FullCampaignRelayError: Dépendance figée modifiée : etudecas.prototypes.scan_2027_risk_control.supplier_balanced_product_delay_multiseed_refinement_v5 (12cafcd21b2e98116c15c2ce508cb725d1d9dd2b53a06310fc8071b4a69dedf5)",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_v5_final_standalone_delivery",
+      "test": "test_builds_exactly_three_v5_business_views",
+      "category": "frozen_source_or_contract_check",
+      "message": "etudecas.prototypes.scan_2027_risk_control.supplier_v5_final_standalone_delivery.V5FinalDeliveryError: Le chargeur de preuves réutilisé a changé ; livraison V5 refusée.",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_v5_final_standalone_delivery",
+      "test": "test_keeps_partial_trace_partial",
+      "category": "frozen_source_or_contract_check",
+      "message": "etudecas.prototypes.scan_2027_risk_control.supplier_v5_final_standalone_delivery.V5FinalDeliveryError: Le chargeur de preuves réutilisé a changé ; livraison V5 refusée.",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_v5_final_standalone_delivery",
+      "test": "test_refuses_complete_label_when_one_required_stage_is_missing",
+      "category": "frozen_source_or_contract_check",
+      "message": "AssertionError: Regex pattern did not match.\n  Expected regex: 'contraire aux preuves'\n  Actual message: 'Le chargeur de preuves réutilisé a changé ; livraison V5 refusée.'",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_v5_final_standalone_delivery",
+      "test": "test_refuses_unqualified_or_differently_selected_dossier",
+      "category": "frozen_source_or_contract_check",
+      "message": "AssertionError: Regex pattern did not match.\n  Expected regex: 'diffèrent'\n  Actual message: 'Le chargeur de preuves réutilisé a changé ; livraison V5 refusée.'",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_v6_completion_path",
+      "test": "test_v6_sidecar_and_bridge_bindings_restore_the_frozen_modules",
+      "category": "frozen_source_or_contract_check",
+      "message": "etudecas.prototypes.scan_2027_risk_control.supplier_holdout_curve_sidecar_v4.CurveSidecarError: Frozen V4/V5 curve-capture implementation changed",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_v6_completion_path",
+      "test": "test_v6_sidecar_binding_restores_every_name_after_exception",
+      "category": "frozen_source_or_contract_check",
+      "message": "AssertionError: Regex pattern did not match.\n  Expected regex: 'injected'\n  Actual message: 'Frozen V4/V5 curve-capture implementation changed'",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_v6_completion_path",
+      "test": "test_v6_watcher_never_publishes_ready_when_initialization_fails",
+      "category": "frozen_source_or_contract_check",
+      "message": "AssertionError: Regex pattern did not match.\n  Expected regex: 'initialization failed'\n  Actual message: 'Frozen V4/V5 curve-capture implementation changed'",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_v6_completion_path",
+      "test": "test_v6_relay_is_downstream_only_and_restores_bindings",
+      "category": "frozen_source_or_contract_check",
+      "message": "etudecas.prototypes.scan_2027_risk_control.supplier_holdout_curve_sidecar_v4.CurveSidecarError: Frozen V4/V5 curve-capture implementation changed",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_v6_completion_path",
+      "test": "test_v6_delivery_identity_and_binding_restore",
+      "category": "frozen_source_or_contract_check",
+      "message": "etudecas.prototypes.scan_2027_risk_control.supplier_v5_final_standalone_delivery.V5FinalDeliveryError: Frozen V5 delivery implementation changed",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_v6_completion_path",
+      "test": "test_v6_relay_help_and_detached_scientific_no_go_are_v6",
+      "category": "frozen_source_or_contract_check",
+      "message": "etudecas.prototypes.scan_2027_risk_control.supplier_holdout_curve_sidecar_v4.CurveSidecarError: Frozen V4/V5 curve-capture implementation changed",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_v6_completion_path",
+      "test": "test_v6_campaign_adapters_patch_and_restore_frozen_v4_implementations",
+      "category": "frozen_source_or_contract_check",
+      "message": "etudecas.prototypes.scan_2027_risk_control.supplier_operating_point_full_campaign_v5.V5CampaignAdapterError: Frozen V5 campaign adapter changed",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_v6_holdout_campaign_once_relay",
+      "test": "test_expected_receipt_command_equals_pinned_downstream_child_builder",
+      "category": "frozen_source_or_contract_check",
+      "message": "etudecas.prototypes.scan_2027_risk_control.supplier_holdout_curve_sidecar_v4.CurveSidecarError: Frozen V4/V5 curve-capture implementation changed",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_v7_downstream_adapter",
+      "test": "test_frozen_protocol_and_first_30_seed_contract",
+      "category": "frozen_source_or_contract_check",
+      "message": "etudecas.prototypes.scan_2027_risk_control.supplier_v7_campaign_trace_package.V7TracePackageError: Frozen V7 protocol changed: 9dd7e0b2fb6d71f214efec3a0f3ac62b9b98abd2684bf98f7c5984c66009f4cb",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_v7_downstream_adapter",
+      "test": "test_reused_v4_v5_orchestrators_are_explicitly_pinned",
+      "category": "frozen_source_or_contract_check",
+      "message": "AssertionError: assert '95caca2c93a3...28c8225376354' == '102dc0d8505e...60c3e7ae1d14e'\n  \n  - 102dc0d8505e184b89e614258ad843a4c02c2e4c0e5a5aea8f060c3e7ae1d14e\n  + 95caca2c93a3bf59fe4536773364f18686c19e705fad08573c628c8225376354",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_v7_stage2_delivery",
+      "test": "test_prepare_supervision_creates_only_its_owned_directory",
+      "category": "frozen_source_or_contract_check",
+      "message": "etudecas.prototypes.scan_2027_risk_control.supplier_v7_stage2_common.Stage2Error: Le protocole scientifique V7 figé a changé",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_v7_stage2_delivery",
+      "test": "test_source_inventory_tamper_is_fail_closed",
+      "category": "frozen_source_or_contract_check",
+      "message": "etudecas.prototypes.scan_2027_risk_control.supplier_v7_stage2_common.Stage2Error: Le protocole scientifique V7 figé a changé",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_v7_stage2_delivery",
+      "test": "test_guard_rejects_coherent_observed_pack_substitution_after_armament",
+      "category": "frozen_source_or_contract_check",
+      "message": "etudecas.prototypes.scan_2027_risk_control.supplier_v7_stage2_common.Stage2Error: Le protocole scientifique V7 figé a changé",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_v8_op100_checkpoint_10_task",
+      "test": "test_validate_only_is_inert_and_revalidates_frozen_inputs",
+      "category": "frozen_source_or_contract_check",
+      "message": "AssertionError: Empreinte diffÃ©rente (adaptateur) : a517d706c96398493e99f7f33ac57056c9b032de456d05d31ceea21b1ffdea5d\r\n  Au caractère \r\n  C:\\dev\\lca-simu\\etudecas\\prototypes\\scan_2027_risk_control\\run_supplier_v8_op100_checkpoint_10_task.ps1:369 : 13\r\n  +             throw \"Empreinte diffÃ©rente ($($source.label)) : $actual ...\r\n  +             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\r\n      + CategoryInfo          : OperationStopped: (Empreinte diffÃ...ceea21b1ffdea5d:String) [], RuntimeException\r\n      + FullyQualifiedErrorId : Empreinte diffÃ©rente (adaptateur) : a517d706c96398493e99f7f33ac57056c9b032de456d05d31ce \r\n     ea21b1ffdea5d\r\n   \r\n  \nassert 1 == 0\n +  where 1 = CompletedProcess(args=['C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe', '-NoProfile', '-NonInteractiv...xc3\\x83\\xc2\\xa9rente (adaptateur) : a517d706c96398493e99f7f33ac57056c9b032de456d05d31ce \\r\\n   ea21b1ffdea5d\\r\\n \\r\\n').returncode",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_v8_stage3_adapter",
+      "test": "test_stage3_inventory_is_explicit_and_v2_signature_stays_frozen",
+      "category": "frozen_source_or_contract_check",
+      "message": "etudecas.prototypes.scan_2027_risk_control.supplier_v7_stage2_common.Stage2Error: Le protocole scientifique V7 accepté a changé",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_v8_state_checkpoint",
+      "test": "test_frozen_legacy_is_pinned_and_context_restores_every_patch",
+      "category": "frozen_source_or_contract_check",
+      "message": "etudecas.prototypes.scan_2027_risk_control.supplier_v8_state_checkpoint.StateCheckpointError: Le générateur historique 10/30 a changé; adaptation refusée : a517d706c96398493e99f7f33ac57056c9b032de456d05d31ceea21b1ffdea5d",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_v8_state_checkpoint",
+      "test": "test_v8_comparability_remains_a_signed_30_seed_contract",
+      "category": "frozen_source_or_contract_check",
+      "message": "etudecas.prototypes.scan_2027_risk_control.supplier_v8_state_checkpoint.StateCheckpointError: Le générateur historique 10/30 a changé; adaptation refusée : a517d706c96398493e99f7f33ac57056c9b032de456d05d31ceea21b1ffdea5d",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_v8_state_checkpoint",
+      "test": "test_readiness_reads_no_campaign_file_while_target_is_active",
+      "category": "frozen_source_or_contract_check",
+      "message": "etudecas.prototypes.scan_2027_risk_control.supplier_v8_state_checkpoint.StateCheckpointError: Le générateur historique 10/30 a changé; adaptation refusée : a517d706c96398493e99f7f33ac57056c9b032de456d05d31ceea21b1ffdea5d",
+      "message_truncated": false
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_v8_state_checkpoint",
+      "test": "test_op93_20_checkpoint_package_round_trip_is_descriptive",
+      "category": "frozen_source_or_contract_check",
+      "message": "etudecas.prototypes.scan_2027_risk_control.supplier_v8_state_checkpoint.StateCheckpointError: Le générateur historique 10/30 a changé; adaptation refusée : a517d706c96398493e99f7f33ac57056c9b032de456d05d31ceea21b1ffdea5d",
+      "message_truncated": false
+    }
+  ]
+}

@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from etudecas.simulation.analysis_batch_common import apply_scales, load_json, write_json
+from etudecas.simulation.analysis_batch_common import apply_scales, load_json, write_json, validate_factors
 
 from .designs import ScenarioDesign, build_scenario_designs
 from .schema import StudySpec
@@ -33,10 +33,10 @@ def numeric_factor_values(design: ScenarioDesign) -> dict[str, float]:
     factors: dict[str, float] = {}
     for name, value in design.parameter_values.items():
         factor_name = FACTOR_ALIASES.get(name, name)
-        try:
-            factors[factor_name] = float(value)
-        except (TypeError, ValueError):
-            continue
+        if factor_name in factors:
+            raise ValueError(f"Duplicate aliased factor: {factor_name}")
+        factors[factor_name] = value
+    validate_factors(factors)
     return factors
 
 

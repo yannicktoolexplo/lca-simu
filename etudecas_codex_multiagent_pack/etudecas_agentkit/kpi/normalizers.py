@@ -17,17 +17,21 @@ def bounded_score(
     `maximize` : 1 au niveau de la cible ou au-dessus.
     `minimize` : 1 au niveau de la cible ou en-dessous.
     """
-    values = pd.to_numeric(values, errors="coerce")
+    if not all(np.isfinite(x) for x in (target, min_value, max_value)) or not min_value <= target <= max_value:
+        raise ValueError("Bounds must be finite and min <= target <= max")
+    values = pd.to_numeric(values, errors="raise")
+    if not np.isfinite(values).all():
+        raise ValueError("Normalization inputs must be finite")
     direction = direction.lower()
 
     if direction == "maximize":
         denominator = target - min_value
-        if denominator == 0:
+        if denominator <= 0:
             raise ValueError("target and min_value must differ for maximize normalization")
         score = (values - min_value) / denominator
     elif direction == "minimize":
         denominator = max_value - target
-        if denominator == 0:
+        if denominator <= 0:
             raise ValueError("max_value and target must differ for minimize normalization")
         score = 1 - ((values - target) / denominator)
     else:

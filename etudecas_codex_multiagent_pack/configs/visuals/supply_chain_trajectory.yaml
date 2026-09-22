@@ -1,0 +1,16 @@
+data:
+  entity: echelon
+  time: date
+  x: service_level
+  y: inventory_health
+  z: bullwhip_control
+figure_id: trajectory_3d
+labels:
+  title: Supply chain trajectory
+  x: Service
+  y: Inventory health
+  z: Bullwhip control
+output:
+  dpi: 140
+  path: outputs/figures/trajectory_3d.png
+type: 3d_trajectory

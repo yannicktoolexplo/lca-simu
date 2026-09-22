@@ -17,6 +17,20 @@ from etudecas.prototypes.scan_2027_risk_control import (
 from etudecas.prototypes.scan_2027_risk_control import (
     supplier_dynamic_requirement_reference_runner as runner,
 )
+from etudecas.prototypes.scan_2027_risk_control.tests.dynamic_capacity_fixture import (
+    build_capacity_audit,
+)
+
+
+@pytest.fixture(autouse=True)
+def _local_capacity_audit(tmp_path, monkeypatch):
+    paths, directory = build_capacity_audit(tmp_path / "capacity_inputs")
+    for name, key in (("DEFAULT_GRAPH", "graph_path"),
+                      ("DEFAULT_OLD_PROFILE", "old_profile_path"),
+                      ("DEFAULT_NEW_PROFILE", "new_profile_path"),
+                      ("DEFAULT_FLOORS", "current_floors_path")):
+        monkeypatch.setattr(protocol, name, paths[key])
+    monkeypatch.setattr(protocol, "DEFAULT_CAPACITY_AUDIT_DIR", directory)
 
 
 @pytest.fixture(autouse=True)
@@ -50,6 +64,22 @@ def _build_protocol(tmp_path: Path) -> tuple[Path, protocol.ValidatedProtocol]:
         capacity_audit_dir=protocol.DEFAULT_CAPACITY_AUDIT_DIR,
     )
     return output, protocol.validate_protocol(output)
+
+
+@pytest.mark.parametrize("mismatch", ["path", "sha256"])
+def test_capacity_audit_rejects_another_graph(mismatch):
+    source = protocol.validate_source_contract(
+        graph=protocol.DEFAULT_GRAPH, engine=protocol.DEFAULT_ENGINE,
+        supplier_floors=protocol.DEFAULT_FLOORS,
+        old_profile=protocol.DEFAULT_OLD_PROFILE, new_profile=protocol.DEFAULT_NEW_PROFILE,
+    )
+    protocol.validate_capacity_coupling_audit(protocol.DEFAULT_CAPACITY_AUDIT_DIR, source=source)
+    if mismatch == "path":
+        source["paths"]["graph"] = str(protocol.DEFAULT_GRAPH.with_name("another_graph.json"))
+    else:
+        source["sha256"]["graph"] = "0" * 64
+    with pytest.raises(ValueError, match="source differs from protocol: graph"):
+        protocol.validate_capacity_coupling_audit(protocol.DEFAULT_CAPACITY_AUDIT_DIR, source=source)
 
 
 def _v3_manifest(status: str, active_process_id: int) -> dict[str, Any]:

@@ -1,0 +1,5 @@
+# Trois enfants maximum ; le parent est exclu de ce nombre.
+[agents]
+enabled = true
+max_concurrent_threads_per_session = 3
+

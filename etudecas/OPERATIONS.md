@@ -1,6 +1,32 @@
-# Etudecas Operations
+# Etudecas — commandes et effets
 
-Ce guide decrit le chemin robuste pour reconstruire le run actif lotifie et la carte HTML autonome.
+[Comprendre le code et les dossiers](README.md) · [Documentation par sujet](docs/README.md)
+
+Ce guide sert à choisir une commande et à savoir ce qu'elle lit ou produit.
+Les commandes se lancent depuis la racine du dépôt, qui contient `etudecas/`.
+
+## Choisir une commande
+
+| Besoin | Commande ou entrée | Effet |
+|---|---|---|
+| Comprendre l'organisation | [README.md](README.md) | Lecture du guide ; aucune exécution nécessaire. |
+| Voir les commandes disponibles | `python etudecas/run_etudecas_pipeline.py --help` | Affiche l'aide. |
+| Vérifier les fichiers et dépendances du pipeline | `python etudecas/run_etudecas_pipeline.py doctor` | Diagnostic ; ne lance pas la simulation. |
+| Contrôler la documentation liée au code | `python -m etudecas.documentation check-all` | Contrôle les registres sans régénération. |
+| Consulter une carte existante | [Accueil des résultats](index.html) | Ouvre les fichiers déjà produits. |
+| Construire le graphe depuis les données source | `python etudecas/run_etudecas_pipeline.py graph` | Écrit le graphe enrichi et géocodé. |
+| Préparer les entrées du moteur | `python etudecas/run_etudecas_pipeline.py prepare` | Écrit un graphe préparé ; ne correspond pas à toute la chaîne de reconstruction. |
+| Recalculer et produire une carte | `python etudecas/run_etudecas_pipeline.py rebuild-map-5y` | Lance des calculs et crée un dossier de résultats ; détails ci-dessous. |
+
+`rebuild-map-5y` utilise par défaut un graphe **déjà préparé** ; il ne rejoue
+pas l'import des Excel. L'option `--refresh-input-graph` demande de reconstruire
+son entrée. `graph`, `prepare`, `reference` et `all` couvrent les
+étapes de construction correspondantes. Lire l'aide du sous-programme avant
+de choisir une reconstruction. Le lanceur `launch_interactive_map.py` ouvre
+un HTML existant avec l'API locale ; il n'est pas un constructeur de carte.
+
+Les exemples de reconstruction qui suivent sont des opérations à lancer
+volontairement, pas des étapes nécessaires pour lire le code.
 
 ## Installation Minimale
 
@@ -35,6 +61,14 @@ python etudecas/run_etudecas_pipeline.py rebuild-map-5y --open-map
 
 `rebuild-active` reste un alias compatible.
 
+La commande canonique exige Monte Carlo par défaut : 200 exécutions pour la
+phase finale du profil retenu, précédées d'exécutions de sélection et, par
+défaut, d'une campagne de sensibilité fournisseur. Ce nombre n'est donc pas
+le total des calculs de la commande.
+Pour produire explicitement une carte sans analyse d'incertitude, utiliser
+`--no-require-montecarlo`. La [livraison du 18 septembre 2026](docs/MAP_DELIVERY.md)
+documente ce perimetre, ses resultats et ses controles.
+
 Equivalent Windows court :
 
 ```powershell
@@ -44,6 +78,10 @@ Equivalent Windows court :
 Par defaut, cette commande :
 
 - lance la simulation active lotifiee sur 5 ans ;
+- construit également les scénarios de risque compagnons sélectionnés
+  (`--state-dependent-scenarios all` par défaut) ;
+- prépare les sensibilités puis la sélection et la phase finale Monte-Carlo,
+  lorsque leurs artefacts locaux compatibles doivent être produits ;
 - utilise le profil `compact` ;
 - reconstruit la criticite fournisseur depuis ce run ;
 - genere une carte HTML autonome compressee ;
@@ -78,8 +116,12 @@ historiques, mais les nouveaux developpements doivent partir de ce package.
 Exporter un ancien resultat sans relancer la simulation :
 
 ```powershell
-python etudecas/run_etudecas_pipeline.py export-run --output-dir etudecas/simulation/result/_reruns/<run>
+python etudecas/run_etudecas_pipeline.py export-run --output-dir "CHEMIN_RESULTAT_EXISTANT" --input-graph "GRAPHE_EXACT_DU_RESULTAT.json"
 ```
+
+Remplacer ces deux chemins par ceux du résultat concerné et de son manifeste
+source. Sans `--input-graph`, la commande prend le graphe actif actuel, qui
+peut être différent de celui d'un ancien calcul. Cet export écrit un package.
 
 Valider un package de run :
 
@@ -121,4 +163,7 @@ Pour reconstruire les graphes historiques depuis les XLSX :
 python etudecas/run_etudecas_pipeline.py all --with-5y
 ```
 
-Le run operationnel recommande reste `rebuild-map-5y`, qui utilise le graphe actif lotifie valide et produit la carte la plus recente.
+La commande opérationnelle `rebuild-map-5y` utilise le graphe actif lotifié
+retenu et produit une nouvelle carte du calcul lancé. Pour reproduire une
+livraison précise, reprendre son graphe et ses paramètres enregistrés ; le
+nom de la commande ne garantit pas à lui seul une reproduction identique.

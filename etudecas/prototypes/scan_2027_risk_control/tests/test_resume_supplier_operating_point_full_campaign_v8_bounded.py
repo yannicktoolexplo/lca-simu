@@ -15,7 +15,7 @@ from etudecas.prototypes.scan_2027_risk_control import (
 
 def test_child_working_directory_is_repository_root() -> None:
     assert (bounded.REPO_ROOT / "etudecas").is_dir()
-    assert bounded.REPO_ROOT.name == "lca-simu-pr40"
+    assert bounded.REPO_ROOT == Path(__file__).resolve().parents[4]
 
 
 def test_child_environment_exposes_repository_root(

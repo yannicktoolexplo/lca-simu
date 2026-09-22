@@ -1,0 +1,217 @@
+{
+  "schema_version": "etudecas.documentation.v1",
+  "fingerprint_method": "python-ast-v1",
+  "business_source_fingerprints": {
+    "etudecas/docs/PROVENANCE.md": "136596597c88f06e51efafe79a8499572a5b6ed6e500a5c4bb476e8ecbed015b",
+    "etudecas/simulation/run_format/README.md": "87e091243cb0f66cb32b38bb5b8b2607c59b131c46eeb2478acfff1a9ed121cf"
+  },
+  "references": [
+    {
+      "id": "mc-resolver",
+      "kind": "implementation",
+      "path": "etudecas/run_etudecas_pipeline.py",
+      "symbol": "resolve_montecarlo_summary_for_map",
+      "line": 391,
+      "fingerprint": "5b036a0c58f5f9d73dde0548ac91228d34bd1b766e6710615e2c149c18602d33",
+      "reference_fingerprint": "5b036a0c58f5f9d73dde0548ac91228d34bd1b766e6710615e2c149c18602d33",
+      "changed": false,
+      "declaration": "def resolve_montecarlo_summary_for_map(output_dir: Path, montecarlo_summary_json: Path | None=None, *, allow_shared_fallback: bool=True) -> Path:",
+      "docstring": "Return the best Monte Carlo summary available for the map.\n\nExplicit and run-local summaries take precedence. Shared summaries require\na manifest path pointing to the target run and a matching known horizon.\nAmong compatible shared summaries, prefer more successful runs, then newer\nfiles. An incompatible explicit/local file raises instead of falling back.\nIf no candidate qualifies, return the expected local path, possibly absent.\nManifest paths establish association, not cryptographic provenance."
+    },
+    {
+      "id": "mc-matcher",
+      "kind": "implementation",
+      "path": "etudecas/run_etudecas_pipeline.py",
+      "symbol": "montecarlo_summary_matches_run",
+      "line": 480,
+      "fingerprint": "bb9e4a2a98040359e3852e43a3c2bf29731ded36fa2b834a366a6122988b2cb2",
+      "reference_fingerprint": "bb9e4a2a98040359e3852e43a3c2bf29731ded36fa2b834a366a6122988b2cb2",
+      "changed": false,
+      "declaration": "def montecarlo_summary_matches_run(summary_path: Path, *, target_days: int | None, target_manifest_candidates: list[Path], allow_missing_manifest: bool) -> bool:",
+      "docstring": "Check declared run association and horizon; reject malformed metadata."
+    },
+    {
+      "id": "mc-rejection-test",
+      "kind": "test",
+      "path": "etudecas/test_run_etudecas_pipeline.py",
+      "symbol": "test_shared_montecarlo_rejects_missing_incompatible_or_malformed_provenance",
+      "line": 255,
+      "fingerprint": "3df53c53de2f75d282692c6aaae7105dfd3610030e211c3c1e6b65c3e6e19a63",
+      "reference_fingerprint": "3df53c53de2f75d282692c6aaae7105dfd3610030e211c3c1e6b65c3e6e19a63",
+      "changed": false,
+      "declaration": "def test_shared_montecarlo_rejects_missing_incompatible_or_malformed_provenance(tmp_path, monkeypatch, payload):",
+      "docstring": null
+    },
+    {
+      "id": "mc-selection-test",
+      "kind": "test",
+      "path": "etudecas/test_run_etudecas_pipeline.py",
+      "symbol": "test_montecarlo_summary_fallback_prefers_more_compatible_runs",
+      "line": 104,
+      "fingerprint": "45ea59a263d1c424073211e453c6a02fea30dd7180bbb16682954cf544cd4003",
+      "reference_fingerprint": "45ea59a263d1c424073211e453c6a02fea30dd7180bbb16682954cf544cd4003",
+      "changed": false,
+      "declaration": "def test_montecarlo_summary_fallback_prefers_more_compatible_runs(tmp_path, monkeypatch) -> None:",
+      "docstring": null
+    },
+    {
+      "id": "source-diagnostic",
+      "kind": "implementation",
+      "path": "etudecas/provenance.py",
+      "symbol": "diagnose_source_hash",
+      "line": 12,
+      "fingerprint": "b49be18206608b9b294ac804d6f50d77ca1b7963475728ac94c5c9540f9ca72b",
+      "reference_fingerprint": "b49be18206608b9b294ac804d6f50d77ca1b7963475728ac94c5c9540f9ca72b",
+      "changed": false,
+      "declaration": "def diagnose_source_hash(path: Path, expected_sha256: str) -> dict[str, object]:",
+      "docstring": "Classify a mismatch without accepting it or changing the source file."
+    },
+    {
+      "id": "source-diagnostic-cli",
+      "kind": "implementation",
+      "path": "etudecas/provenance.py",
+      "symbol": "main",
+      "line": 34,
+      "fingerprint": "781d0163f8516f9c2202c69b1a16f430b09e8a16f67a37ce49e6df7c7602d144",
+      "reference_fingerprint": "781d0163f8516f9c2202c69b1a16f430b09e8a16f67a37ce49e6df7c7602d144",
+      "changed": false,
+      "declaration": "def main(argv: list[str] | None=None) -> int:",
+      "docstring": null
+    },
+    {
+      "id": "source-diagnostic-tests",
+      "kind": "test",
+      "path": "etudecas/test_provenance.py",
+      "symbol": "SourceProvenanceTest",
+      "line": 13,
+      "fingerprint": "11412225056c52f8bfc89e28d8cb86b6e4d1d85363e64665144aba67ee6ad428",
+      "reference_fingerprint": "11412225056c52f8bfc89e28d8cb86b6e4d1d85363e64665144aba67ee6ad428",
+      "changed": false,
+      "declaration": "class SourceProvenanceTest",
+      "docstring": null
+    },
+    {
+      "id": "package-validator",
+      "kind": "implementation",
+      "path": "etudecas/simulation/run_format/validator.py",
+      "symbol": "validate_run_package",
+      "line": 84,
+      "fingerprint": "8cfa5c008d75fe8ac5682bb62b12ca8fe0f98f7be1fda5e87f6b4bdaf273962b",
+      "reference_fingerprint": "8cfa5c008d75fe8ac5682bb62b12ca8fe0f98f7be1fda5e87f6b4bdaf273962b",
+      "changed": false,
+      "declaration": "def validate_run_package(package_dir: Path | str) -> list[dict[str, Any]]:",
+      "docstring": "Validate package structure and physical artifacts, not simulation accuracy."
+    },
+    {
+      "id": "artifact-validator",
+      "kind": "implementation",
+      "path": "etudecas/simulation/run_format/validator.py",
+      "symbol": "_validate_artifact",
+      "line": 36,
+      "fingerprint": "271bc4ced0b8792d544e31d7a38eebe1acbec2ee646b80a903b3dafb516c82a5",
+      "reference_fingerprint": "271bc4ced0b8792d544e31d7a38eebe1acbec2ee646b80a903b3dafb516c82a5",
+      "changed": false,
+      "declaration": "def _validate_artifact(row: dict[str, Any], output: Path, validations: list[dict[str, Any]]) -> int | None:",
+      "docstring": "Check the physical file; stream CSV data without retaining its rows."
+    },
+    {
+      "id": "json-reader",
+      "kind": "implementation",
+      "path": "etudecas/simulation/run_format/validator.py",
+      "symbol": "_read_json",
+      "line": 13,
+      "fingerprint": "025fe0e2d662a34bca326bb9e28ac90d25fc9fa5f960edd1e07b320c6ca27ef6",
+      "reference_fingerprint": "025fe0e2d662a34bca326bb9e28ac90d25fc9fa5f960edd1e07b320c6ca27ef6",
+      "changed": false,
+      "declaration": "def _read_json(path: Path) -> Any:",
+      "docstring": null
+    },
+    {
+      "id": "checked-loader",
+      "kind": "implementation",
+      "path": "etudecas/simulation/run_format/validator.py",
+      "symbol": "_load_checked",
+      "line": 24,
+      "fingerprint": "42a1377e0342bf7981ba05c6a44fef7a281bed2d2bf1c4a83f129e3b9d0677c1",
+      "reference_fingerprint": "42a1377e0342bf7981ba05c6a44fef7a281bed2d2bf1c4a83f129e3b9d0677c1",
+      "changed": false,
+      "declaration": "def _load_checked(path: Path, expected: type, validations: list[dict[str, Any]], name: str) -> Any:",
+      "docstring": null
+    },
+    {
+      "id": "package-cli",
+      "kind": "implementation",
+      "path": "etudecas/simulation/run_format/cli.py",
+      "symbol": "main",
+      "line": 18,
+      "fingerprint": "01e8a854ce39401040bce7505a708fd018ab9bda6b82f853f496550d71f9b39d",
+      "reference_fingerprint": "01e8a854ce39401040bce7505a708fd018ab9bda6b82f853f496550d71f9b39d",
+      "changed": false,
+      "declaration": "def main() -> None:",
+      "docstring": null
+    },
+    {
+      "id": "canonical-artifacts",
+      "kind": "contract",
+      "path": "etudecas/simulation/run_format/schema.py",
+      "symbol": "CANONICAL_DATA_ARTIFACTS",
+      "line": 22,
+      "fingerprint": "7a5f62a4e5abc7621116c90b10f3277e043faeb267b08bdc10fe070e4a16aaee",
+      "reference_fingerprint": "7a5f62a4e5abc7621116c90b10f3277e043faeb267b08bdc10fe070e4a16aaee",
+      "changed": false,
+      "declaration": "CANONICAL_DATA_ARTIFACTS: tuple[ArtifactSpec, ...] = (ArtifactSpec('first_simulation_daily.csv', 'timeseries', 'global_kpi', 'day', True), ArtifactSpec('production_demand_service_daily.csv', 'timeseries', 'customer_service', 'day_node_item'), ArtifactSpec('production_output_products_daily.csv', 'timeseries', 'production_output', 'day_node_item'), ArtifactSpec('production_input_stocks_daily.csv', 'timeseries', 'factory_input_stock', 'day_node_item'), ArtifactSpec('component_immobilized_stock_daily.csv', 'timeseries', 'component_immobilized_stock', 'day_node_product'), ArtifactSpec('component_immobilized_stock_components_daily.csv', 'timeseries', 'component_immobilized_stock_component', 'day_node_product_item'), ArtifactSpec('component_immobilized_stock_summary.csv', 'diagnostics', 'component_immobilized_stock_summary', 'node_product_item'), ArtifactSpec('finished_goods_stock_value_daily.csv', 'timeseries', 'finished_goods_stock_value', 'day_node_product'), ArtifactSpec('finished_goods_stock_value_summary.csv', 'diagnostics', 'finished_goods_stock_value_summary', 'product_location'), ArtifactSpec('production_input_consumption_daily.csv', 'timeseries', 'factory_input_consumption', 'day_node_item'), ArtifactSpec('production_input_replenishment_arrivals_daily.csv', 'timeseries', 'factory_input_arrivals', 'day_node_item'), ArtifactSpec('production_input_replenishment_shipments_daily.csv', 'timeseries', 'factory_input_shipments', 'day_node_item'), ArtifactSpec('production_dc_stocks_daily.csv', 'timeseries', 'distribution_stock', 'day_node_item'), ArtifactSpec('production_supplier_stocks_daily.csv', 'timeseries', 'supplier_stock', 'day_node_item'), ArtifactSpec('production_supplier_stock_flows_daily.csv', 'timeseries', 'supplier_stock_flow', 'day_node_item'), ArtifactSpec('production_supplier_shipments_daily.csv', 'timeseries', 'supplier_shipments', 'day_node_item'), ArtifactSpec('production_supplier_capacity_daily.csv', 'timeseries', 'supplier_capacity', 'day_node_item'), ArtifactSpec('production_constraint_daily.csv', 'timeseries', 'production_constraint', 'day_node_item'), ArtifactSpec('mrp_trace_daily.csv', 'events', 'mrp_trace', 'day_node_item'), ArtifactSpec('mrp_orders_daily.csv', 'events', 'mrp_orders', 'day_node_item'), ArtifactSpec('opening_production_order_component_consumption.csv', 'events', 'opening_production_component_issue', 'day_node_item'), ArtifactSpec('production_plan_events.csv', 'events', 'production_plan', 'event'), ArtifactSpec('production_campaigns.csv', 'events', 'production_campaigns', 'campaign'), ArtifactSpec('production_factory_nervousness.csv', 'diagnostics', 'factory_nervousness', 'node_item'), ArtifactSpec('production_lot_events.csv', 'lots', 'lot_events', 'event', True), ArtifactSpec('production_lot_genealogy.csv', 'lots', 'lot_genealogy', 'genealogy', True), ArtifactSpec('lot_causal_links.csv', 'lots', 'lot_causal_links', 'causal_relation'), ArtifactSpec('lot_path_audit_issues.csv', 'diagnostics', 'lot_path_audit', 'issue'), ArtifactSpec('supplier_risk_events_applied_daily.csv', 'events', 'supplier_risk_applied', 'day_node_item'), ArtifactSpec('supplier_state_dependent_risk_events.csv', 'events', 'supplier_risk_configured', 'event'), ArtifactSpec('supplier_local_criticality_ranking.csv', 'diagnostics', 'supplier_local_criticality', 'node_item'), ArtifactSpec('supplier_nominal_parameters.csv', 'diagnostics', 'supplier_nominal_parameters', 'node_item'), ArtifactSpec('production_capacity_nominal_parameters.csv', 'diagnostics', 'factory_nominal_capacities', 'node_process'), ArtifactSpec('initialization_state.csv', 'diagnostics', 'initialization_state', 'run'), ArtifactSpec('initialization_observed_stock.csv', 'diagnostics', 'initialization_observed_stock', 'node_item'), ArtifactSpec('initialization_pipeline.csv', 'diagnostics', 'initialization_pipeline', 'lane_item'), ArtifactSpec('assumptions_ledger.csv', 'diagnostics', 'assumptions_ledger', 'assumption'), ArtifactSpec('physics_of_decision_kpi_daily.csv', 'timeseries', 'decision_physics', 'day'))",
+      "docstring": null
+    },
+    {
+      "id": "integrity-tests",
+      "kind": "test",
+      "path": "etudecas/simulation/test_run_format.py",
+      "symbol": "RunFormatIntegrityTest",
+      "line": 32,
+      "fingerprint": "57eb45f45414ef875fe1c6b0537665f83d6e912db63cc807b8fcd607ff2b7713",
+      "reference_fingerprint": "57eb45f45414ef875fe1c6b0537665f83d6e912db63cc807b8fcd607ff2b7713",
+      "changed": false,
+      "declaration": "class RunFormatIntegrityTest",
+      "docstring": null
+    },
+    {
+      "id": "disabled-lots-test",
+      "kind": "test",
+      "path": "etudecas/simulation/test_run_format.py",
+      "symbol": "RunFormatExportTest.test_validate_run_package_allows_empty_lot_artifacts_when_lot_trace_disabled",
+      "line": 224,
+      "fingerprint": "3f0869fe582eadc0ddc2166c12c2361edca14effe8e064b9594b82dc48fbca8c",
+      "reference_fingerprint": "3f0869fe582eadc0ddc2166c12c2361edca14effe8e064b9594b82dc48fbca8c",
+      "changed": false,
+      "declaration": "def test_validate_run_package_allows_empty_lot_artifacts_when_lot_trace_disabled(self) -> None:",
+      "docstring": null
+    }
+  ],
+  "rules": [
+    {
+      "rule_id": "PROVENANCE-SOURCE-001",
+      "status": "documented",
+      "changed_references": [],
+      "changed_business_sources": []
+    },
+    {
+      "rule_id": "PROVENANCE-MONTECARLO-001",
+      "status": "documented",
+      "changed_references": [],
+      "changed_business_sources": []
+    },
+    {
+      "rule_id": "PACKAGE-INTEGRITY-001",
+      "status": "documented",
+      "changed_references": [],
+      "changed_business_sources": []
+    },
+    {
+      "rule_id": "PACKAGE-TRACE-001",
+      "status": "documented",
+      "changed_references": [],
+      "changed_business_sources": []
+    }
+  ],
+  "tests_executed": false
+}

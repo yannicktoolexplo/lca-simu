@@ -1,0 +1,291 @@
+{
+  "schema_version": "etudecas.documentation.v1",
+  "fingerprint_method": "python-ast-v1",
+  "title": "Expéditions, lots et exposition aux risques",
+  "business_source_fingerprints": {
+    "etudecas/simulation/lot_trace/RISK_IMPACT_REGISTRY.md": "b24782f2039f7633b945b38279822380554bd35239acb7561054106ed8a5a379"
+  },
+  "references": [
+    {
+      "id": "engine-day-loop",
+      "path": "etudecas/simulation/engine/run_first_simulation.py",
+      "symbol": "main",
+      "kind": "implementation",
+      "reference_fingerprint": "4e5be273252205b8f29c0400d475019c7a59d47b2ba72b4cf182b11ed4b62684"
+    },
+    {
+      "id": "source-allocation",
+      "path": "etudecas/simulation/lot_trace/risk_impact_registry.py",
+      "symbol": "_allocate_source_lots",
+      "kind": "implementation",
+      "reference_fingerprint": "b887799f84731f045362a56f0c4d632698e13650bf641b5d6300ce931d215e9b"
+    },
+    {
+      "id": "shipment-chunks",
+      "path": "etudecas/simulation/engine/run_first_simulation.py",
+      "symbol": "_attach_shipment_trace_ids",
+      "kind": "implementation",
+      "reference_fingerprint": "c5fff81fc8eb08c31dd5e1db862c3325e8d2b1d7497ba2863285049812a3b20f"
+    },
+    {
+      "id": "native-join-test",
+      "path": "etudecas/simulation/test_risk_lot_impact_registry.py",
+      "symbol": "test_engine_smoke_emits_native_transaction_join_and_registry_counts_bundle_once",
+      "kind": "test",
+      "reference_fingerprint": "4ae9d86aac729dc3ea471ed8a4d3eb5ef1ccc30d21264c49be758aa9055f54f8"
+    },
+    {
+      "id": "lot-event-fields",
+      "path": "etudecas/simulation/lot_trace/io.py",
+      "symbol": "LOT_TRACE_EVENT_FIELDS",
+      "kind": "contract",
+      "reference_fingerprint": "8020b59f1067939dc3bf81ecf90101b48d81d4fd42b4b2078298b8882812b15e"
+    },
+    {
+      "id": "genealogy-fields",
+      "path": "etudecas/simulation/lot_trace/io.py",
+      "symbol": "LOT_TRACE_GENEALOGY_FIELDS",
+      "kind": "contract",
+      "reference_fingerprint": "0530b427b279c933e05bddff96f7b59761416f4471ce73af4208bcca1fdd5f89"
+    },
+    {
+      "id": "lot-contract-version",
+      "path": "etudecas/simulation/lot_trace/io.py",
+      "symbol": "LOT_TRACE_CONTRACT_VERSION",
+      "kind": "contract",
+      "reference_fingerprint": "9dab8a83b2667e2bfca028379b86a5e5d59f4d8c1e7d5f175e7b2514d9046e56"
+    },
+    {
+      "id": "risk-context-test",
+      "path": "etudecas/simulation/test_risk_lot_impact_registry.py",
+      "symbol": "test_engine_lot_ledger_carries_native_risk_context_through_receipt_genealogy",
+      "kind": "test",
+      "reference_fingerprint": "02686520a57fdeaf7b8dcd5e2839efb2ff0d8d608b6fa4ff92e676fff2f2cfae"
+    },
+    {
+      "id": "exposure-bundles",
+      "path": "etudecas/simulation/lot_trace/risk_impact_registry.py",
+      "symbol": "_build_exposure_bundles",
+      "kind": "implementation",
+      "reference_fingerprint": "beddd14c2742fb9748300d1836ee8c8089313b4f1a942c3728eb6448322bade9"
+    },
+    {
+      "id": "overlap-test",
+      "path": "etudecas/simulation/test_risk_lot_impact_registry.py",
+      "symbol": "test_overlapping_events_share_one_bundle_and_must_not_be_summed",
+      "kind": "test",
+      "reference_fingerprint": "c0ad6e13abcc8de8ac42c798cd21651ae8ad7c323c55a5bbc7e457923520ed34"
+    },
+    {
+      "id": "component-union",
+      "path": "etudecas/simulation/lot_trace/risk_impact_registry.py",
+      "symbol": "_derive_child_impact",
+      "kind": "implementation",
+      "reference_fingerprint": "89f6c6f99b30db60ccf42d4fbcffd6c3ec636908f5955ab1329795a924b1a6d9"
+    },
+    {
+      "id": "units-merge-test",
+      "path": "etudecas/simulation/test_risk_lot_impact_registry.py",
+      "symbol": "test_component_merge_uses_union_bounds_instead_of_adding_incompatible_units",
+      "kind": "test",
+      "reference_fingerprint": "2afa450f0221e73599748f061f519a951628289313a791bef88016ba147a4fb1"
+    },
+    {
+      "id": "client-exposure",
+      "path": "etudecas/simulation/lot_trace/risk_impact_registry.py",
+      "symbol": "_client_service_rows",
+      "kind": "implementation",
+      "reference_fingerprint": "fab9dd391ce94d2cd43b738f236f8bee29d7df87a6b2bc6afdb0cbce3a83514d"
+    },
+    {
+      "id": "no-causal-claim-test",
+      "path": "etudecas/simulation/test_risk_lot_impact_registry.py",
+      "symbol": "test_native_incident_propagates_to_campaign_client_and_cost_without_false_service_claim",
+      "kind": "test",
+      "reference_fingerprint": "474fe77e1206eac6e6226d23f22f47beec09f1f639104167d2b6cae3e3d51ed1"
+    },
+    {
+      "id": "legacy-proof-test",
+      "path": "etudecas/simulation/test_risk_lot_impact_registry.py",
+      "symbol": "test_legacy_run_is_explicitly_association_not_native_causality",
+      "kind": "test",
+      "reference_fingerprint": "1bf8b94879e990a3e0ceda5bd3b517ca1268c639997aa330a81da33d01879a99"
+    },
+    {
+      "id": "source-provenance",
+      "path": "etudecas/simulation/lot_trace/risk_impact_registry.py",
+      "symbol": "_build_source_provenance",
+      "kind": "implementation",
+      "reference_fingerprint": "0681f5c244025bd56ac75b86a63feba6803e8cb4a951bb46458d9a9b10172835"
+    },
+    {
+      "id": "registry-inputs",
+      "path": "etudecas/simulation/lot_trace/risk_impact_registry.py",
+      "symbol": "SOURCE_FILES",
+      "kind": "contract",
+      "reference_fingerprint": "ccf8a0ca95c0939126d60a5b12d28891cc4ad691ed8aa78df1251327e72e24ed"
+    },
+    {
+      "id": "registry-outputs",
+      "path": "etudecas/simulation/lot_trace/risk_impact_registry.py",
+      "symbol": "OUTPUT_FILENAMES",
+      "kind": "contract",
+      "reference_fingerprint": "483c0747fd75b41fb94222275f545a94a324d7c14a569286959ab2bb891d5a6f"
+    },
+    {
+      "id": "source-hash-test",
+      "path": "etudecas/simulation/test_risk_lot_impact_registry.py",
+      "symbol": "test_standalone_directory_hashes_exact_sources_and_written_registry_csvs",
+      "kind": "test",
+      "reference_fingerprint": "b17432776e385c0e430bf64cd22bd527ab80f01a95f3edb1732920f4285cf83e"
+    },
+    {
+      "id": "consolidated-shipment-identity",
+      "path": "etudecas/simulation/engine/run_first_simulation.py",
+      "symbol": "LotLedger.next_shipment_identity",
+      "kind": "implementation",
+      "reference_fingerprint": "d3d7ad2f98351b43372b32b21622595458384f5ab291e6368c429038bd390000"
+    },
+    {
+      "id": "chunk-identity-test",
+      "path": "etudecas/simulation/test_risk_lot_impact_registry.py",
+      "symbol": "test_multi_chunk_schedule_has_one_unique_join_key_per_physical_chunk",
+      "kind": "test",
+      "reference_fingerprint": "3c784b41dd3b5320087fb26ebcadc9706fe832f448ea87eb7f3e5d166968b0cf"
+    },
+    {
+      "id": "deferred-departure",
+      "path": "etudecas/simulation/engine/run_first_simulation.py",
+      "symbol": "LotLedger.record_allocation_event",
+      "kind": "implementation",
+      "reference_fingerprint": "241a011ed8515cb01ba5238a266798df20ba204a54d5de6aff49977a0ff2b432"
+    },
+    {
+      "id": "deferred-risk-test",
+      "path": "etudecas/simulation/test_risk_lot_impact_registry.py",
+      "symbol": "test_reserved_shipment_retains_risk_decision_on_later_physical_departure",
+      "kind": "test",
+      "reference_fingerprint": "ef3fd84842c4f83252dc7fc64c6e6c838e11400e15f912a4d887c4e4f27bf1bb"
+    },
+    {
+      "id": "structural-shipment-links",
+      "path": "etudecas/simulation/lot_trace/causal_links.py",
+      "symbol": "build_lot_causal_link_rows",
+      "kind": "implementation",
+      "reference_fingerprint": "8b4d655dc50b622bee20fc9a86f7495b3152dc0f3278dbf706ffcc31409caed8"
+    }
+  ],
+  "rules": [
+    {
+      "id": "TRACE-SHIPMENT-001",
+      "title": "Identité partagée entre expédition et lots",
+      "status": "documented",
+      "statement": "Chaque transaction du planning fournisseur (un article et un chunk de livraison) conserve son shipment_id depuis le CSV fournisseur jusqu’aux événements physiques et à la généalogie. Plusieurs lots sources peuvent contribuer à cette transaction. Des articles ou chunks partageant route et dates restent distincts. Une identité présente mais différente ne doit pas être remplacée silencieusement par un rapprochement temporel.",
+      "scope": "Identité de transaction unique dans un run, portée par le CSV fournisseur, les réservations, départs, réceptions et commandes MRP. Elle ne constitue pas une preuve de véhicule ou de chargement consolidé.",
+      "units": "Identifiants textuels ; quantités accompagnées de leur unité article.",
+      "limitations": "La rupture SHIP-*/SHP-* constatée dans l’audit a été corrigée et les scénarios courts mono-article et multi-articles vérifiés le 16 septembre 2026. Les anciens runs ne sont pas réécrits : ils peuvent conserver la rupture et doivent être régénérés pour cette preuve native. Les références aux tests ne remplacent pas leur exécution ; aucune validation métier externe n’est revendiquée.",
+      "references": [
+        "engine-day-loop",
+        "shipment-chunks",
+        "source-allocation",
+        "native-join-test",
+        "lot-contract-version",
+        "consolidated-shipment-identity",
+        "chunk-identity-test",
+        "structural-shipment-links"
+      ],
+      "sources": [
+        "etudecas/simulation/lot_trace/RISK_IMPACT_REGISTRY.md"
+      ]
+    },
+    {
+      "id": "TRACE-TIME-001",
+      "title": "Jour de décision du risque distinct du mouvement physique",
+      "status": "documented",
+      "statement": "risk_decision_day conserve le jour où le risque a été appliqué, même si le départ, la libération ou la réception intervient plus tard. shipment_id et risk_event_ids transportent le contexte vers les lots.",
+      "scope": "Champs natifs des événements et de la généalogie des lots ; contrat initial documenté dans le registre de risques.",
+      "units": "Jours du run ; identifiants d’incident et d’expédition.",
+      "limitations": "La propagation effective doit être vérifiée par les tests et les artefacts du run, y compris pour les départs différés. Les anciens runs peuvent manquer du contexte de risque ou porter des identifiants incompatibles ; la correction ne modifie pas ces artefacts historiques.",
+      "references": [
+        "engine-day-loop",
+        "lot-event-fields",
+        "genealogy-fields",
+        "risk-context-test",
+        "deferred-departure",
+        "deferred-risk-test"
+      ],
+      "sources": [
+        "etudecas/simulation/lot_trace/RISK_IMPACT_REGISTRY.md"
+      ]
+    },
+    {
+      "id": "RISK-BUNDLE-001",
+      "title": "Ne compter une expédition exposée qu’une fois",
+      "status": "documented",
+      "statement": "Plusieurs incidents peuvent viser la même expédition physique. Le bundle est l’unité d’exposition à sommer ; la table de liaison incidents/bundles ne doit pas multiplier la quantité physique.",
+      "scope": "Exposition des expéditions aux incidents simultanés ou superposés.",
+      "units": "Quantités par article et unité ; nombre de bundles distincts.",
+      "limitations": "Les sommes par incident ne sont pas nécessairement additives entre incidents. La qualité du rapprochement expédition/lot reste à contrôler.",
+      "references": [
+        "exposure-bundles",
+        "overlap-test",
+        "registry-outputs"
+      ],
+      "sources": [
+        "etudecas/simulation/lot_trace/RISK_IMPACT_REGISTRY.md"
+      ]
+    },
+    {
+      "id": "RISK-UNITS-001",
+      "title": "Bornes d’exposition des lots issus de plusieurs composants",
+      "status": "documented",
+      "statement": "Ne pas additionner des quantités de composants d’unités incompatibles. Pour un lot produit à partir de plusieurs composants exposés, utiliser une borne basse égale à la fraction maximale et une borne haute égale à la somme des fractions plafonnée à un.",
+      "scope": "Propagation dans la généalogie de production, avec fractions calculées par composant.",
+      "units": "Quantités dans leurs unités propres ; fractions adimensionnelles entre 0 et 1.",
+      "limitations": "Ces bornes ne décrivent pas le mélange microscopique réel. Un intervalle ne doit pas être remplacé par une valeur ponctuelle sans hypothèse supplémentaire.",
+      "references": [
+        "component-union",
+        "units-merge-test",
+        "genealogy-fields"
+      ],
+      "sources": [
+        "etudecas/simulation/lot_trace/RISK_IMPACT_REGISTRY.md"
+      ]
+    },
+    {
+      "id": "RISK-PROOF-001",
+      "title": "Exposition physique distincte de l’effet causal sur le service",
+      "status": "documented",
+      "statement": "Tracer la matière exposée jusqu’au client démontre une exposition dans le modèle. Cela ne démontre pas que l’incident a causé une perte de service ou un surcoût : cette conclusion nécessite un contrefactuel apparié. Une association historique reconstruite doit être distinguée d’un lien natif.",
+      "scope": "Interprétation du registre de risques, des lots servis et des coûts de transactions exposées.",
+      "units": "Quantités servies par unité ; coûts des transactions selon les unités monétaires du run, distincts d’un surcoût causal.",
+      "limitations": "Aucune validation métier externe ni causalité réelle n’est inférée par ce registre documentaire. Les tests liés sont des vérifications logicielles.",
+      "references": [
+        "client-exposure",
+        "no-causal-claim-test",
+        "legacy-proof-test"
+      ],
+      "sources": [
+        "etudecas/simulation/lot_trace/RISK_IMPACT_REGISTRY.md"
+      ]
+    },
+    {
+      "id": "RISK-PROVENANCE-001",
+      "title": "Provenance des données effectivement analysées",
+      "status": "documented",
+      "statement": "Le registre conserve chemins, empreintes et nombre de lignes des sources lues. Une campagne détectée impose une cohérence entre identité du run, manifeste et état initial ; les preuves absentes restent explicitement indisponibles.",
+      "scope": "Sources du registre et sorties CSV ; ancien run autonome ou run rattaché à une campagne.",
+      "units": "SHA-256 des octets des artefacts, tailles en octets et nombres de lignes.",
+      "limitations": "Ces empreintes d’artefacts restent exactes sur les octets. La normalisation AST de la documentation ne s’applique pas aux preuves de simulation. Une empreinte garantit une identité de contenu, pas sa justesse métier.",
+      "references": [
+        "source-provenance",
+        "registry-inputs",
+        "registry-outputs",
+        "source-hash-test"
+      ],
+      "sources": [
+        "etudecas/simulation/lot_trace/RISK_IMPACT_REGISTRY.md"
+      ]
+    }
+  ]
+}

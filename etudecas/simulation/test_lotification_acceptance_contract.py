@@ -48,10 +48,17 @@ class LotificationAcceptanceContractTest(unittest.TestCase):
             day=0,
             node_id="NODE",
             item_id="ITEM-UN",
-            qty=2.5,
+            qty=2,
             source_type="acceptance_fixture",
             uom="UN",
         )
+
+        with self.assertRaisesRegex(ValueError, "integral"):
+            ledger.create_lot(day=0, node_id="NODE", item_id="ITEM-UN", qty=2.5,
+                              source_type="invalid_fraction", uom="UN")
+        with self.assertRaisesRegex(ValueError, "integral"):
+            ledger.consume(day=1, node_id="NODE", item_id="ITEM-UN", qty=0.5,
+                           event_type="demand_service", uom="UN")
 
         unit_quantities = [
             float(ledger.lots[lot_id]["initial_qty"]),

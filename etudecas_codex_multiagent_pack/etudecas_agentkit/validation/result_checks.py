@@ -4,6 +4,7 @@ from operator import ge, gt, le, lt, eq, ne
 from typing import Any, Callable
 
 import pandas as pd
+import numpy as np
 
 from etudecas_agentkit.validation.report import ValidationReport
 
@@ -39,10 +40,15 @@ class ResultValidator:
             return
         low = float(spec.get("min", 0.0))
         high = float(spec.get("max", 1.0))
+        if not np.isfinite([low, high]).all() or low > high:
+            report.add_issue("critical", "Invalid score bounds")
+            return
         for column in spec.get("columns", []):
             if column not in df.columns:
+                report.add_issue("critical", f"Missing score column: {column}")
                 continue
-            bad = df[(df[column] < low) | (df[column] > high)]
+            values = pd.to_numeric(df[column], errors="coerce")
+            bad = df[~np.isfinite(values) | (values < low) | (values > high)]
             if not bad.empty:
                 report.add_issue("critical", f"Score out of bounds: {column}", column=column, count=len(bad))
 
@@ -51,6 +57,10 @@ class ResultValidator:
         if not spec.get("enabled", False):
             return
         counts = df.isna().sum()
+        for column in df.select_dtypes(include="number"):
+            count = int((~np.isfinite(df[column])).sum())
+            if count:
+                report.add_issue("critical", f"Non-finite result: {column}", count=count)
         for column, count in counts[counts > 0].items():
             report.add_issue("critical", f"NaN found in result column: {column}", column=column, count=int(count))
 
@@ -60,10 +70,13 @@ class ResultValidator:
             return
         time_column = spec.get("time_column")
         entity_column = spec.get("entity_column")
-        if time_column not in df.columns:
+        if time_column not in df.columns or (entity_column and entity_column not in df.columns):
+            report.add_issue("critical", "Missing temporal validation columns")
             return
         frame = df.copy()
-        frame[time_column] = pd.to_datetime(frame[time_column])
+        frame[time_column] = pd.to_datetime(frame[time_column], errors="coerce")
+        if frame[time_column].isna().any():
+            report.add_issue("critical", "Invalid temporal values")
         if entity_column in frame.columns:
             groups = frame.groupby(entity_column)
             for label, group in groups:
@@ -77,6 +90,10 @@ class ResultValidator:
             condition = rule.get("when", {})
             forbidden = rule.get("then_not", {})
             if condition.get("column") not in df.columns or forbidden.get("column") not in df.columns:
+                report.add_issue("critical", "Missing business rule columns", rule_id=rule.get("id"))
+                continue
+            if condition.get("operator", "==") not in OPS or forbidden.get("operator", "==") not in OPS:
+                report.add_issue("critical", "Unknown business rule operator", rule_id=rule.get("id"))
                 continue
             op_when = OPS[condition.get("operator", "==")]
             op_not = OPS[forbidden.get("operator", "==")]

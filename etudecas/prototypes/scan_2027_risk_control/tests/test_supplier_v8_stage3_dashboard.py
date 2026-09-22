@@ -10,20 +10,68 @@ from etudecas.prototypes.scan_2027_risk_control import (
 )
 
 
-REAL_V8_V2_ROOT = Path(
-    r"C:\dev\lca-simu-pr40-validation-artifacts-20260726"
-    r"\supplier_operating_point_full_campaign_v8_exposure_stratified_20260906_v2"
-)
-REAL_V8_V2_REGISTRY = REAL_V8_V2_ROOT / "target_discovery" / "target_registry.json"
-
-
 @pytest.fixture(scope="module")
-def real_registry() -> tuple[dict, dict]:
-    if not REAL_V8_V2_REGISTRY.is_file():
-        pytest.skip("Le registre V8 V2 réel n'est pas monté dans cet environnement.")
-    evidence = subject.validate_registry_file(REAL_V8_V2_ROOT, REAL_V8_V2_REGISTRY)
-    registry = subject._read_json(REAL_V8_V2_REGISTRY)  # noqa: SLF001
-    return registry, evidence
+def real_registry(historical_artifact) -> tuple[dict, dict]:
+    root = historical_artifact("supplier_operating_point_full_campaign_v8_exposure_stratified_20260906_v2")
+    path = historical_artifact("supplier_operating_point_full_campaign_v8_exposure_stratified_20260906_v2/target_discovery/target_registry.json")
+    evidence = subject.validate_registry_file(root, path)
+    return subject._read_json(path), evidence
+
+
+@pytest.fixture
+def synthetic_registry() -> tuple[dict, dict]:
+    """Small in-memory evidence for the native reader, not a historical replay."""
+    lanes = [f"synthetic-lane-{index:02d}" for index in range(18)]
+    states = list(subject.EXPECTED_STATES)
+    seeds = list(subject.EXPECTED_SEEDS)
+    registry = {
+        "schema_version": subject.campaign_v8.TARGET_REGISTRY_SCHEMA_VERSION,
+        "target_selection_revision": subject.campaign_v8.TARGET_SELECTION_REVISION,
+        "campaign_signature": "a" * 64, "engine_sha256": "b" * 64,
+        "states": states, "seeds": seeds, "campaign_seeds": seeds,
+        "lanes": lanes, "target_cell_count": 1620,
+        "required_comparable_seed_count": 30, "all_lane_windows_comparable": True,
+        "campaign_exposure_gate_passed": True, "exposure_gate_failures": [],
+        "incident_outcomes_used": False, "incident_probes_started": False,
+        "target_selection_engine_runs": 0, "disruption_window_days": 42,
+        "lane_contracts": [
+            {"lane_id": lane, "fixed_window_start_day": 180, "fixed_window_end_day": 221,
+             "disruption_window_days": 42, "comparable_campaign_seed_count": 30,
+             "required_comparable_seed_count": 30, "state_comparison_valid": True,
+             "selected_start_is_earliest_eligible": True, "target_selection_engine_runs": 0,
+             "incident_outcomes_used": False} for lane in lanes
+        ],
+        "targets": [
+            {"lane_id": lane, "operating_point_id": state, "seed": seed,
+             "target_window_start_day": 180, "target_window_end_day": 221,
+             "target_window_days": 42, "required_comparable_seed_count": 30,
+             "comparable_campaign_seed_count": 30, "state_comparison_valid": True,
+             "seed_cross_state_exposure_comparable": True,
+             "target_expected_delivered_qty": index + 1, "target_shipment_count": 2,
+             "target_uom": "unit"}
+            for lane in lanes for state in states for index, seed in enumerate(seeds)
+        ],
+    }
+    registry["registry_signature"] = subject._canonical_signature(registry, "registry_signature")
+    return registry, {key: registry[key] for key in ("campaign_signature", "engine_sha256", "registry_signature")}
+
+
+def test_native_reader_reduces_synthetic_matrix(synthetic_registry):
+    registry, evidence = synthetic_registry
+    summaries, status = subject._native_registry_summary(
+        registry, campaign_signature=evidence["campaign_signature"],
+        engine_sha256=evidence["engine_sha256"], lane_ids=set(registry["lanes"]),
+        expected_registry_signature=evidence["registry_signature"],
+    )
+    assert len(summaries) == 18
+    assert status["targetCellCount"] == 1620
+    for summary in summaries.values():
+        assert summary["fixedWindowStartDay"] == 180
+        assert summary["fixedWindowEndDay"] == 221
+        for state in summary["states"].values():
+            assert state["targetCount"] == 30
+            assert state["quantityMedian"] == 15.5
+            assert state["shipmentCountMedian"] == 2
 
 
 def test_real_v8_v2_registry_is_read_natively(real_registry: tuple[dict, dict]) -> None:
@@ -57,9 +105,9 @@ def test_real_v8_v2_registry_is_read_natively(real_registry: tuple[dict, dict]) 
 
 
 def test_legacy_v4_registry_reader_reproduces_original_no_go(
-    real_registry: tuple[dict, dict],
+    synthetic_registry: tuple[dict, dict],
 ) -> None:
-    registry, evidence = real_registry
+    registry, evidence = synthetic_registry
     with pytest.raises(subject.dashboard_v7.DashboardInputError, match="registre V4"):
         subject.implementation_v4._target_registry_summary(  # noqa: SLF001
             registry,
@@ -70,9 +118,9 @@ def test_legacy_v4_registry_reader_reproduces_original_no_go(
 
 
 def test_native_reader_rejects_design_seed_alias(
-    real_registry: tuple[dict, dict],
+    synthetic_registry: tuple[dict, dict],
 ) -> None:
-    registry, evidence = real_registry
+    registry, evidence = synthetic_registry
     tampered = dict(registry)
     tampered["design_seed"] = 123
     with pytest.raises(subject.V8DashboardInputError, match="graine de conception"):
@@ -86,9 +134,9 @@ def test_native_reader_rejects_design_seed_alias(
 
 
 def test_native_reader_rejects_non_shared_lane_window(
-    real_registry: tuple[dict, dict],
+    synthetic_registry: tuple[dict, dict],
 ) -> None:
-    registry, evidence = real_registry
+    registry, evidence = synthetic_registry
     tampered = dict(registry)
     tampered["targets"] = list(registry["targets"])
     changed = copy.deepcopy(tampered["targets"][0])

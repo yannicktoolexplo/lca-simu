@@ -14,6 +14,7 @@ from etudecas.visualization.maps.map_payload_builder import (
     is_upstream_internal_site,
 )
 from etudecas.visualization.maps.map_render import fmt_qty
+from etudecas.visualization.maps.physical_material_balance import apply_physical_material_balances
 
 
 SIMULATION_LEGACY_KEYS = (
@@ -61,6 +62,7 @@ def build_material_balance_table_rows(
     sim_dc_stocks_csv: Path | None = None,
     supplier_shipments_csv: Path,
     safety_reference_csv: Path | None = None,
+    lot_events_csv: Path | None = None,
 ) -> list[dict[str, Any]]:
     item_labels = _build_item_label_lookup(raw)
     node_type_by_id = _build_node_type_lookup(raw)
@@ -78,12 +80,14 @@ def build_material_balance_table_rows(
     max_day = max(
         [
             int(_to_float(row.get("day")) or 0)
-            for dataset in (demand_rows, input_rows, output_rows, dc_stock_rows, shipment_rows)
+            for dataset in (demand_rows, input_rows, output_rows, dc_stock_rows)
             for row in dataset
         ]
         or [0]
     )
     sim_days = max(1, max_day + 1)
+    shipment_rows = [row for row in shipment_rows if 0 <= int(_to_float(row.get("day")) or 0) < sim_days
+                     and str(row.get("departure_executed", "")).lower() not in {"false", "0"}]
     year_count = max(1, int(math.ceil(sim_days / 365.0)))
 
     def year_for_day(day: int) -> int:
@@ -558,6 +562,22 @@ def build_material_balance_table_rows(
             stock_equiv_safety,
             (_to_float(safety_reference.get("effective_reference_stock_qty")) if safety_reference else 0.0) or 0.0,
         )
+        calendar_days = _to_float(safety_reference.get("safety_time_calendar_days"))
+        if calendar_days is None:
+            calendar_days = _to_float(safety_policy.get("safety_time_calendar_days"))
+        row["safety_time_calendar_days"] = calendar_days
+        row["safety_time_basis"] = str(safety_reference.get("safety_time_calendar") or "source_working_days_unverified")
+        row["safety_time_effective_at_day"] = _to_float(safety_reference.get("safety_time_effective_at_day"))
+        row["safety_time_days"] = _to_float(safety_reference.get("safety_time_source_days")) or safety_days
+        if safety_days > 0 and calendar_days is None:
+            row["stock_equiv_safety_time_qty"] = None
+        elif not safety_reference and calendar_days is not None:
+            row["stock_equiv_safety_time_qty"] = avg_daily_need * calendar_days
+    physical_path = lot_events_csv or sim_input_stocks_csv.parent / "production_lot_events.csv"
+    apply_physical_material_balances(
+        rows, read_csv_rows(physical_path) if physical_path.exists() else [], input_rows,
+        horizon_days=sim_days, source_available=physical_path.exists(),
+    )
     return rows
 
 

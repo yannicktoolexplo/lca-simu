@@ -4,6 +4,8 @@ import hashlib
 import json
 import os
 import subprocess
+
+import pytest
 from pathlib import Path
 
 
@@ -24,6 +26,10 @@ GO_SHA256 = "255e5bb6d8f6be3473ab4622ea0d5faa9ff1529b65d497f405dc4975c8332a93"
 
 
 def _powershell() -> str:
+    executable = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32/WindowsPowerShell/v1.0/powershell.exe"
+    if not executable.is_file():
+        pytest.skip("Windows PowerShell 5.1 is required for this execution test")
+
     return str(
         Path(os.environ.get("SystemRoot", r"C:\Windows"))
         / "System32/WindowsPowerShell/v1.0/powershell.exe"
@@ -73,7 +79,7 @@ Write-Output 'PARSE_OK'
         assert forbidden not in source
 
 
-def test_guardian_binds_the_three_frozen_artifacts() -> None:
+def test_guardian_binds_the_three_frozen_artifacts(frozen_wrapper_environment, ) -> None:
     assert hashlib.sha256(V3.read_bytes()).hexdigest() == V3_SHA256
     assert hashlib.sha256(V4.read_bytes()).hexdigest() == V4_SHA256
     assert hashlib.sha256(GO.read_bytes()).hexdigest() == GO_SHA256
@@ -197,7 +203,7 @@ Write-Output 'STATE_MACHINE_OK'
     assert b"STATE_MACHINE_OK" in completed.stdout
 
 
-def test_validate_only_is_strict_and_does_not_mutate(tmp_path: Path) -> None:
+def test_validate_only_is_strict_and_does_not_mutate(frozen_wrapper_environment, tmp_path: Path) -> None:
     supervision = tmp_path / "must-not-exist"
     fixture = tmp_path / "observations.json"
     fixture.write_text(

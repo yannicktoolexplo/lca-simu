@@ -46,6 +46,7 @@ docs/_build/
 
 # Fichiers de configuration spécifiques à l'utilisateur
 *.ini
+!/pytest-reference.ini
 *.iml
 *.xml
 
@@ -138,6 +139,10 @@ etudecas/simulation/result/summaries/
 etudecas/simulation/sensibility/_*/
 
 # Etudecas generated simulation artifacts
+# Local result organization: physical folders; former paths remain compatible.
+etudecas/simulation/result/01_reference_actuelle_2026-09-20/
+etudecas/simulation/result/02_reference_monte_carlo_2026-07-24/
+etudecas/simulation/result/archive/
 etudecas/simulation/result/**/data/
 etudecas/simulation/result/**/maps/
 etudecas/simulation/result/**/plots/

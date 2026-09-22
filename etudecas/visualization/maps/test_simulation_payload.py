@@ -117,10 +117,12 @@ class SimulationPayloadTest(unittest.TestCase):
         self.assertEqual(pf_row["delivered_qty"], 1.0)
         self.assertEqual(material_row["unit"], "KG")
         self.assertEqual(material_row["planned_qty"], 1.0)
-        self.assertEqual(material_row["consumed_qty"], 0.5)
-        self.assertEqual(material_row["delivered_qty"], 0.25)
+        self.assertIsNone(material_row["consumed_qty"])
+        self.assertIsNone(material_row["delivered_qty"])
+        self.assertEqual(material_row["theoretical_consumed_qty"], 0.5)
+        self.assertEqual(material_row["balance_status"], "unavailable")
         self.assertEqual(material_row["yearly"]["1"]["planned_qty"], 1.0)
-        self.assertEqual(material_row["yearly"]["1"]["consumed_qty"], 0.5)
+        self.assertEqual(material_row["yearly"]["1"]["theoretical_consumed_qty"], 0.5)
 
     def test_render_material_balance_empty_state(self) -> None:
         self.assertEqual(

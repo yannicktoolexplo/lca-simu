@@ -2,9 +2,9 @@
 """Prepare a causal, cause-matched action protocol after the network top 3.
 
 This module never runs the simulation.  It turns the final V8 network scope
-into an auditable action-eligibility catalogue and, only when the network
-campaign has produced a stable confirmed top 3, selects the rows that may be
-tested next.  The protocol is deliberately conservative:
+into an auditable action-eligibility catalogue. Current scientific boundaries
+provide descriptive candidates but do not release an action selection; legacy
+top-three flags cannot override that restriction. The protocol requires:
 
 * no action is proposed on a lane without positive V10 reference flow;
 * a second source must already be structural, active in the reference and
@@ -710,28 +710,24 @@ def validate_scope_contract(
     }
 
 
-def select_confirmed_top3(network_results: Path) -> tuple[list[str], dict[str, Any]]:
-    """Return only a top 3 passing the consolidated V2 scientific gates.
+def select_confirmed_top3(
+    network_results: Path,
+    priority_boundary_audit_dir: Path | None = None,
+) -> tuple[list[str], dict[str, Any]]:
+    """Apply the current scientific action-selection contract.
 
     The historical 10-realisation fields are deliberately ignored.  The
     authoritative implementation lives in the additive V2 selector so both
-    entry points enforce the same 30-realisation and extension gates.
+    entry points preserve scoped candidates without claiming action release.
     """
 
     from etudecas.prototypes.scan_2027_risk_control import (
         supplier_v2_controllable_action_selector as v2_selector,
     )
 
-    supplier_ids, evidence = v2_selector._stable_v2_suppliers(network_results)
-    if not supplier_ids:
-        return [], {
-            "selection_status": "selection_refused_v2_not_stabilized",
-            "selection_reason": str(evidence.get("selection_reason") or ""),
-        }
-    return supplier_ids, {
-        "selection_status": "stabilized_v2_top3_selected",
-        "selection_reason": "",
-    }
+    return v2_selector.select_confirmed_action_suppliers(
+        network_results, priority_boundary_audit_dir
+    )
 
 
 def _report_text(
@@ -752,6 +748,9 @@ def _report_text(
 Ce dossier prépare les essais d'actions; il ne contient **aucune nouvelle simulation** et ne recommande aucune décision industrielle. Il couvre {scope_contract['active_lane_count']} voies actives et {scope_contract['active_supplier_count']} fournisseurs de la référence V10 sans commandes initiales.
 
 Mode : `{mode}`. Sélection : `{selection.get('selection_status')}`. Fournisseurs sélectionnés : `{', '.join(selected_suppliers) if selected_suppliers else 'aucun avant confirmation stable'}`.
+
+Motif : `{selection.get('selection_reason', '')}`. Candidats descriptifs : `{', '.join(selection.get('candidate_supplier_ids', [])) or 'aucun'}`.
+Les frontières scientifiques actuelles ne libèrent aucune sélection pour agir, même lorsqu'elles identifient un trio descriptif. Le détail de la décision figure dans `selection_evidence` du manifeste.
 
 ## Règles physiques
 
@@ -790,6 +789,10 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         help="Dossier réseau V2 consolidé; obligatoire en mode post-top3.",
     )
     parser.add_argument("--graph", type=Path, default=DEFAULT_GRAPH)
+    parser.add_argument(
+        "--priority-boundary-audit", type=Path,
+        help="Audit signé de la frontière scientifique ; sans cet audit, sélection refusée.",
+    )
     parser.add_argument("--qualified-source-csv", type=Path)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--expected-active-lanes", type=int, default=EXPECTED_ACTIVE_LANES)
@@ -855,7 +858,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.mode == "post-top3":
         if args.network_results is None:
             raise ValueError("--network-results est obligatoire en mode post-top3.")
-        selected_suppliers, selection = select_confirmed_top3(args.network_results.resolve())
+        selected_suppliers, selection = select_confirmed_top3(
+            args.network_results.resolve(),
+            args.priority_boundary_audit.resolve() if args.priority_boundary_audit else None,
+        )
     else:
         selected_suppliers = []
         selection = {
@@ -896,6 +902,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "created_at_utc": utc_now(),
         "selection_status": selection["selection_status"],
         "selection_reason": selection["selection_reason"],
+        "selection_evidence": selection,
         "selected_supplier_ids": selected_suppliers,
         "scope_contract": scope_contract,
         "action_row_count": len(catalog),

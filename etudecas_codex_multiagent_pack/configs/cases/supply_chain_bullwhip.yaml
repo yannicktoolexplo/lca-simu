@@ -42,5 +42,5 @@ kpi_tree:
     min: 1.0
     max: 5.0
 visuals:
-  trajectory_3d: configs/visuals/trajectory_3d.yaml
-validation_rules: configs/validation/validation_rules.yaml
+  trajectory_3d: configs/visuals/supply_chain_trajectory.yaml
+validation_rules: configs/validation/supply_chain_rules.yaml

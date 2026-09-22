@@ -1,0 +1,216 @@
+{
+  "schema_version": "etudecas.documentation.v1",
+  "fingerprint_method": "python-ast-v1",
+  "business_source_fingerprints": {
+    "etudecas/docs/DECISION_SUPPORT.md": "c90b73fe9957d633b4c3fde0945fa1c588d0479722c694b87b578549ab0730cc"
+  },
+  "references": [
+    {
+      "id": "fifo",
+      "kind": "implementation",
+      "path": "etudecas/decision_support.py",
+      "symbol": "fifo_delay",
+      "line": 47,
+      "fingerprint": "724aedaccd92497dd2984a85e555388c5a45ec51725f96b674692f902db4e7a2",
+      "reference_fingerprint": "724aedaccd92497dd2984a85e555388c5a45ec51725f96b674692f902db4e7a2",
+      "changed": false,
+      "declaration": "def fifo_delay(rows, days):",
+      "docstring": "Reconstruct daily demand cohorts under FIFO; not observed order-level OTIF."
+    },
+    {
+      "id": "score",
+      "kind": "implementation",
+      "path": "etudecas/decision_support.py",
+      "symbol": "score_breakdown",
+      "line": 104,
+      "fingerprint": "7709fb5d4577d90b3e4be76d7bf3541105eb44eeb200fcffbb1aa874b7e64399",
+      "reference_fingerprint": "7709fb5d4577d90b3e4be76d7bf3541105eb44eeb200fcffbb1aa874b7e64399",
+      "changed": false,
+      "declaration": "def score_breakdown(kpis):",
+      "docstring": "Expose the existing score without changing weights or implying calibration."
+    },
+    {
+      "id": "loss",
+      "kind": "implementation",
+      "path": "etudecas/decision_support.py",
+      "symbol": "audit_losses",
+      "line": 115,
+      "fingerprint": "5d44f2b63846c3caaf453bd2a51bc04b40fe0d23fd832152bb1a4eb584452dd1",
+      "reference_fingerprint": "5d44f2b63846c3caaf453bd2a51bc04b40fe0d23fd832152bb1a4eb584452dd1",
+      "changed": false,
+      "declaration": "def audit_losses(run, days):",
+      "docstring": "Reconcile departures inside the measured horizon, retaining item and unit."
+    },
+    {
+      "id": "bottlenecks",
+      "kind": "implementation",
+      "path": "etudecas/decision_support.py",
+      "symbol": "bottlenecks",
+      "line": 143,
+      "fingerprint": "20ab1d0f26105dd41f5603aaa4803afcc63ef05756fc5055a2ecb5e4c2425301",
+      "reference_fingerprint": "20ab1d0f26105dd41f5603aaa4803afcc63ef05756fc5055a2ecb5e4c2425301",
+      "changed": false,
+      "declaration": "def bottlenecks(run, graph, output):",
+      "docstring": "Link recorded input constraints to supplying lanes; no causal inference from proximity."
+    },
+    {
+      "id": "delivery",
+      "kind": "implementation",
+      "path": "etudecas/decision_support.py",
+      "symbol": "deliver",
+      "line": 238,
+      "fingerprint": "c3859cf05a797b033bfc7f1ac43b2eae2eef7122fb4c58275c25335d4ec61590",
+      "reference_fingerprint": "c3859cf05a797b033bfc7f1ac43b2eae2eef7122fb4c58275c25335d4ec61590",
+      "changed": false,
+      "declaration": "def deliver(run, execute_actions=False, render_map=False, browser=False):",
+      "docstring": null
+    },
+    {
+      "id": "actions",
+      "kind": "implementation",
+      "path": "etudecas/decision_actions.py",
+      "symbol": "execute_action",
+      "line": 17,
+      "fingerprint": "3e9263d4761f1647a0a48ecbe29fe63cadb407da736cf6d6f305a2f3bdd9073c",
+      "reference_fingerprint": "3e9263d4761f1647a0a48ecbe29fe63cadb407da736cf6d6f305a2f3bdd9073c",
+      "changed": false,
+      "declaration": "def execute_action(reference: Path, output: Path, action: str, targets: list[dict]) -> Path:",
+      "docstring": "Replay the reference command with one measured-day control schedule."
+    },
+    {
+      "id": "fifo-test",
+      "kind": "test",
+      "path": "etudecas/test_decision_support.py",
+      "symbol": "test_fifo_delay_distinguishes_served_and_censored_demand",
+      "line": 15,
+      "fingerprint": "debe1a79a23387940c29c8e8cc9e2655efde4e6cfea8f716e6333766cc8bf786",
+      "reference_fingerprint": "debe1a79a23387940c29c8e8cc9e2655efde4e6cfea8f716e6333766cc8bf786",
+      "changed": false,
+      "declaration": "def test_fifo_delay_distinguishes_served_and_censored_demand():",
+      "docstring": null
+    },
+    {
+      "id": "invalid-test",
+      "kind": "test",
+      "path": "etudecas/test_decision_support.py",
+      "symbol": "test_fifo_rejects_invalid_or_unaged_demand",
+      "line": 26,
+      "fingerprint": "7a09c6cb4a186f6aac4b3baca8606167f7006e075336bfe8a2a572197604e66d",
+      "reference_fingerprint": "7a09c6cb4a186f6aac4b3baca8606167f7006e075336bfe8a2a572197604e66d",
+      "changed": false,
+      "declaration": "def test_fifo_rejects_invalid_or_unaged_demand(damage):",
+      "docstring": null
+    },
+    {
+      "id": "score-test",
+      "kind": "test",
+      "path": "etudecas/test_decision_support.py",
+      "symbol": "test_score_components_exclude_incomparable_quantities",
+      "line": 36,
+      "fingerprint": "081e07204414c10ca25316b8a2ec9c18d84d033fd47fc4f0efcccb59a08503b4",
+      "reference_fingerprint": "081e07204414c10ca25316b8a2ec9c18d84d033fd47fc4f0efcccb59a08503b4",
+      "changed": false,
+      "declaration": "def test_score_components_exclude_incomparable_quantities():",
+      "docstring": null
+    },
+    {
+      "id": "loss-test",
+      "kind": "test",
+      "path": "etudecas/test_decision_support.py",
+      "symbol": "test_loss_audit_excludes_departures_outside_horizon_and_preserves_units",
+      "line": 54,
+      "fingerprint": "2b02d23ac51965be835b6cb601e0e68316e260aa69d6267bbc77d9575b6df759",
+      "reference_fingerprint": "2b02d23ac51965be835b6cb601e0e68316e260aa69d6267bbc77d9575b6df759",
+      "changed": false,
+      "declaration": "def test_loss_audit_excludes_departures_outside_horizon_and_preserves_units(tmp_path):",
+      "docstring": null
+    },
+    {
+      "id": "bottlenecks-test",
+      "kind": "test",
+      "path": "etudecas/test_decision_support.py",
+      "symbol": "test_bottlenecks_use_binding_input_and_explicit_causal_context",
+      "line": 66,
+      "fingerprint": "6edfa8bde5a51ddb82d4f094dfeacc06f3e7f00b8800419e4a8848b0ea10e3d3",
+      "reference_fingerprint": "6edfa8bde5a51ddb82d4f094dfeacc06f3e7f00b8800419e4a8848b0ea10e3d3",
+      "changed": false,
+      "declaration": "def test_bottlenecks_use_binding_input_and_explicit_causal_context(tmp_path):",
+      "docstring": null
+    },
+    {
+      "id": "actions-test",
+      "kind": "test",
+      "path": "etudecas/test_decision_actions.py",
+      "symbol": "test_action_replays_reference_in_isolated_directory_and_checks_cache",
+      "line": 9,
+      "fingerprint": "687336485ccf62eea4f95b666deb81f7195eb55689d365054f6bd0404463329b",
+      "reference_fingerprint": "687336485ccf62eea4f95b666deb81f7195eb55689d365054f6bd0404463329b",
+      "changed": false,
+      "declaration": "def test_action_replays_reference_in_isolated_directory_and_checks_cache(tmp_path, monkeypatch):",
+      "docstring": null
+    },
+    {
+      "id": "delivery-failure-test",
+      "kind": "test",
+      "path": "etudecas/test_decision_support.py",
+      "symbol": "test_failed_delivery_does_not_keep_an_old_success",
+      "line": 91,
+      "fingerprint": "da46b48f80d1b4a9d03b96e10bcf608e14ecf60f4409f7c6f4911f6ff2632236",
+      "reference_fingerprint": "da46b48f80d1b4a9d03b96e10bcf608e14ecf60f4409f7c6f4911f6ff2632236",
+      "changed": false,
+      "declaration": "def test_failed_delivery_does_not_keep_an_old_success(tmp_path, monkeypatch):",
+      "docstring": null
+    },
+    {
+      "id": "reference-sensitivity-labels",
+      "kind": "implementation",
+      "path": "etudecas/decision_support.py",
+      "symbol": "render_report",
+      "line": 201,
+      "fingerprint": "a492bc534c160cc2c7375d2f2d844a3ecf96b43424e099e78159dfee2d4c592b",
+      "reference_fingerprint": "a492bc534c160cc2c7375d2f2d844a3ecf96b43424e099e78159dfee2d4c592b",
+      "changed": false,
+      "declaration": "def render_report(output, report, map_path):",
+      "docstring": null
+    },
+    {
+      "id": "unknown-cost-test",
+      "kind": "test",
+      "path": "etudecas/test_decision_support.py",
+      "symbol": "test_unknown_cost_is_excluded_and_not_rendered_as_zero_score",
+      "line": 46,
+      "fingerprint": "a8fcf95229d4510379769d063e4931a0883d96501ac6ccb12460a3a7df75a2ad",
+      "reference_fingerprint": "a8fcf95229d4510379769d063e4931a0883d96501ac6ccb12460a3a7df75a2ad",
+      "changed": false,
+      "declaration": "def test_unknown_cost_is_excluded_and_not_rendered_as_zero_score():",
+      "docstring": null
+    }
+  ],
+  "rules": [
+    {
+      "rule_id": "DECISION-001",
+      "status": "documented",
+      "changed_references": [],
+      "changed_business_sources": []
+    },
+    {
+      "rule_id": "DECISION-002",
+      "status": "documented",
+      "changed_references": [],
+      "changed_business_sources": []
+    },
+    {
+      "rule_id": "DECISION-003",
+      "status": "documented",
+      "changed_references": [],
+      "changed_business_sources": []
+    },
+    {
+      "rule_id": "DECISION-004",
+      "status": "documented",
+      "changed_references": [],
+      "changed_business_sources": []
+    }
+  ],
+  "tests_executed": false
+}

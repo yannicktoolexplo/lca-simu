@@ -1,0 +1,372 @@
+{
+  "schema_version": "etudecas.documentation.v1",
+  "fingerprint_method": "python-ast-v1",
+  "business_source_fingerprints": {
+    "etudecas/docs/SIMULATION_INPUT_CONTRACT.md": "0c02473520477844cbef3abe165021c12cc21f8563598f63526a03972ca7ce22"
+  },
+  "references": [
+    {
+      "id": "parser",
+      "kind": "implementation",
+      "path": "etudecas/simulation/engine/api.py",
+      "symbol": "request_from_dict",
+      "line": 197,
+      "fingerprint": "fea0e1a1baeb14a4daea089df7793c39ed0d45ff413d569d50a9d52f121c004b",
+      "reference_fingerprint": "fea0e1a1baeb14a4daea089df7793c39ed0d45ff413d569d50a9d52f121c004b",
+      "changed": false,
+      "declaration": "def request_from_dict(payload: dict[str, Any]) -> SimulationRequest:",
+      "docstring": "Parse trusted Python/JSON input without coercing strings into booleans.\n\nInternal paths and engine arguments remain available here; HTTP applies its\nnarrower contract before calling this parser. Zero days means graph horizon."
+    },
+    {
+      "id": "scales",
+      "kind": "implementation",
+      "path": "etudecas/simulation/engine/api.py",
+      "symbol": "_float_mapping",
+      "line": 148,
+      "fingerprint": "6f902272f2c041ae9c66f0fd64030e9428a2ffc6179a2643c5e4c063ce0e861d",
+      "reference_fingerprint": "6f902272f2c041ae9c66f0fd64030e9428a2ffc6179a2643c5e4c063ce0e861d",
+      "changed": false,
+      "declaration": "def _float_mapping(value: Any) -> dict[str, float]:",
+      "docstring": null
+    },
+    {
+      "id": "flags",
+      "kind": "implementation",
+      "path": "etudecas/simulation/engine/api.py",
+      "symbol": "_bool_mapping",
+      "line": 167,
+      "fingerprint": "4edd2b0ca34015325bba8b55671cc1e39852d2eaf189618a870f8334b86b24b7",
+      "reference_fingerprint": "4edd2b0ca34015325bba8b55671cc1e39852d2eaf189618a870f8334b86b24b7",
+      "changed": false,
+      "declaration": "def _bool_mapping(value: Any) -> dict[str, bool]:",
+      "docstring": null
+    },
+    {
+      "id": "overrides",
+      "kind": "implementation",
+      "path": "etudecas/simulation/engine/api.py",
+      "symbol": "overrides_from_dict",
+      "line": 177,
+      "fingerprint": "4d82aefc7c61c1b3cfff61df8a9143c46c235e0bb001576679f63f6a12c4f84e",
+      "reference_fingerprint": "4d82aefc7c61c1b3cfff61df8a9143c46c235e0bb001576679f63f6a12c4f84e",
+      "changed": false,
+      "declaration": "def overrides_from_dict(payload: dict[str, Any] | None) -> SimulationOverrides:",
+      "docstring": null
+    },
+    {
+      "id": "http",
+      "kind": "implementation",
+      "path": "etudecas/simulation/engine/http_contract.py",
+      "symbol": "request_from_http",
+      "line": 41,
+      "fingerprint": "4b6d353a9efe874d317cc223e552178c0de58ae0c6c88a0d55615d294cc88604",
+      "reference_fingerprint": "4b6d353a9efe874d317cc223e552178c0de58ae0c6c88a0d55615d294cc88604",
+      "changed": false,
+      "declaration": "def request_from_http(payload, *, input_root: Path, output_root: Path, max_days: int=3660):",
+      "docstring": null
+    },
+    {
+      "id": "path",
+      "kind": "implementation",
+      "path": "etudecas/simulation/engine/http_contract.py",
+      "symbol": "confined_file",
+      "line": 21,
+      "fingerprint": "a0a33ad1cd08c90e35c99c893e8fe7b200ec65f858433509f7f6796bc7256712",
+      "reference_fingerprint": "a0a33ad1cd08c90e35c99c893e8fe7b200ec65f858433509f7f6796bc7256712",
+      "changed": false,
+      "declaration": "def confined_file(value, root: Path, suffix: str) -> Path:",
+      "docstring": null
+    },
+    {
+      "id": "fields",
+      "kind": "contract",
+      "path": "etudecas/simulation/engine/http_contract.py",
+      "symbol": "HTTP_FIELDS",
+      "line": 13,
+      "fingerprint": "fd30841bf5994990b0e14b850dd13f7f527aae71e26d7197fae79978da6b6d67",
+      "reference_fingerprint": "fd30841bf5994990b0e14b850dd13f7f527aae71e26d7197fae79978da6b6d67",
+      "changed": false,
+      "declaration": "HTTP_FIELDS = frozenset({'input_graph', 'input_path', 'scenario_id', 'days', 'output_profile', 'overrides', 'run_lot_audit', 'seed', 'common_random_numbers', 'control_schedule_csv', 'control_policy_json', 'demand_perturbation_csv', 'skip_map', 'skip_plots'})",
+      "docstring": null
+    },
+    {
+      "id": "server",
+      "kind": "implementation",
+      "path": "etudecas/simulation/engine/server.py",
+      "symbol": "SimulationApiServer",
+      "line": 24,
+      "fingerprint": "58852a2a0c1521911df1ac5ff908379e12572d6f4b71d61db4bd44d3e5caf949",
+      "reference_fingerprint": "58852a2a0c1521911df1ac5ff908379e12572d6f4b71d61db4bd44d3e5caf949",
+      "changed": false,
+      "declaration": "class SimulationApiServer",
+      "docstring": null
+    },
+    {
+      "id": "origin",
+      "kind": "implementation",
+      "path": "etudecas/simulation/engine/server.py",
+      "symbol": "SimulationApiHandler._check_origin_and_host",
+      "line": 105,
+      "fingerprint": "f3bc9d2a33d2f761d065ebc03abfaf4a7c56f5afc7003664e8f12b06966f6128",
+      "reference_fingerprint": "f3bc9d2a33d2f761d065ebc03abfaf4a7c56f5afc7003664e8f12b06966f6128",
+      "changed": false,
+      "declaration": "def _check_origin_and_host(self):",
+      "docstring": null
+    },
+    {
+      "id": "post",
+      "kind": "implementation",
+      "path": "etudecas/simulation/engine/server.py",
+      "symbol": "SimulationApiHandler.do_POST",
+      "line": 128,
+      "fingerprint": "1be5cf15b1ca8993723ca3bdbf25b3fa1e00d86db66e8ac76cd97b6d42544ba1",
+      "reference_fingerprint": "1be5cf15b1ca8993723ca3bdbf25b3fa1e00d86db66e8ac76cd97b6d42544ba1",
+      "changed": false,
+      "declaration": "def do_POST(self):",
+      "docstring": null
+    },
+    {
+      "id": "bounded",
+      "kind": "implementation",
+      "path": "etudecas/simulation/engine/bounded_execution.py",
+      "symbol": "run_simulation_bounded",
+      "line": 11,
+      "fingerprint": "1d012545300c5f82eb7e9187aae36947fe5883ca1c552218b52c6e5a2b4c5807",
+      "reference_fingerprint": "1d012545300c5f82eb7e9187aae36947fe5883ca1c552218b52c6e5a2b4c5807",
+      "changed": false,
+      "declaration": "def run_simulation_bounded(run_script: Path, input_json: Path, output_dir: Path, scenario_id: str, days: int=0, skip_map: bool=True, skip_plots: bool=True, extra_args: list[str] | None=None, use_living_initial_state: bool=True, *, timeout_seconds: float) -> tuple[dict[str, Any], str]:",
+      "docstring": null
+    },
+    {
+      "id": "graph",
+      "kind": "implementation",
+      "path": "etudecas/knowledge_graph/schema.py",
+      "symbol": "validate_graph_contract",
+      "line": 29,
+      "fingerprint": "46eff51f6fccd54a4e617dd00ada54c1ee3b41450a009a7c29afd20a823074f6",
+      "reference_fingerprint": "46eff51f6fccd54a4e617dd00ada54c1ee3b41450a009a7c29afd20a823074f6",
+      "changed": false,
+      "declaration": "def validate_graph_contract(graph: dict[str, Any]) -> list[dict[str, str]]:",
+      "docstring": null
+    },
+    {
+      "id": "shapes",
+      "kind": "implementation",
+      "path": "etudecas/knowledge_graph/schema.py",
+      "symbol": "_validate_shapes",
+      "line": 166,
+      "fingerprint": "7807e3775cff878c73ac78e07daaa5f7f1e911bbb5f2bfa9682fd45e34fa2287",
+      "reference_fingerprint": "7807e3775cff878c73ac78e07daaa5f7f1e911bbb5f2bfa9682fd45e34fa2287",
+      "changed": false,
+      "declaration": "def _validate_shapes(graph: dict[str, Any]) -> list[dict[str, str]]:",
+      "docstring": "Report malformed containers before inspecting their business fields."
+    },
+    {
+      "id": "numeric",
+      "kind": "implementation",
+      "path": "etudecas/knowledge_graph/schema.py",
+      "symbol": "_is_number",
+      "line": 157,
+      "fingerprint": "5c1fa1c0c8d3643a4f6e59d49abf624f811a0ce16570208c300e0d9e4a49ee8d",
+      "reference_fingerprint": "5c1fa1c0c8d3643a4f6e59d49abf624f811a0ce16570208c300e0d9e4a49ee8d",
+      "changed": false,
+      "declaration": "def _is_number(value: Any) -> bool:",
+      "docstring": null
+    },
+    {
+      "id": "types-test",
+      "kind": "test",
+      "path": "etudecas/simulation/test_request_contract.py",
+      "symbol": "test_request_rejects_coercions",
+      "line": 14,
+      "fingerprint": "a2d2fc9c2ac56730c991bc6019e87d7d9418e7e20ddbabd0f9851d5452b6014d",
+      "reference_fingerprint": "a2d2fc9c2ac56730c991bc6019e87d7d9418e7e20ddbabd0f9851d5452b6014d",
+      "changed": false,
+      "declaration": "def test_request_rejects_coercions(field, value):",
+      "docstring": null
+    },
+    {
+      "id": "scales-test",
+      "kind": "test",
+      "path": "etudecas/simulation/test_request_contract.py",
+      "symbol": "test_scales_require_finite_nonnegative_numbers",
+      "line": 20,
+      "fingerprint": "c419a1247f8512964cc45e2939718f02022fc1bb23010667aea7fd81e35353b0",
+      "reference_fingerprint": "c419a1247f8512964cc45e2939718f02022fc1bb23010667aea7fd81e35353b0",
+      "changed": false,
+      "declaration": "def test_scales_require_finite_nonnegative_numbers(value):",
+      "docstring": null
+    },
+    {
+      "id": "false-test",
+      "kind": "test",
+      "path": "etudecas/simulation/test_request_contract.py",
+      "symbol": "test_false_zero_and_internal_controls_are_preserved",
+      "line": 32,
+      "fingerprint": "8b0b6ac79f639c46a08bad2d829a11c1d7b744abc7451fc0e83e8a655fc06927",
+      "reference_fingerprint": "8b0b6ac79f639c46a08bad2d829a11c1d7b744abc7451fc0e83e8a655fc06927",
+      "changed": false,
+      "declaration": "def test_false_zero_and_internal_controls_are_preserved():",
+      "docstring": null
+    },
+    {
+      "id": "forbidden-test",
+      "kind": "test",
+      "path": "etudecas/simulation/test_http_contract.py",
+      "symbol": "test_http_rejects_internal_fields_and_unbounded_horizon",
+      "line": 24,
+      "fingerprint": "52e68d0f352cc152bbfd0064c2443fac813def900f39c188ffa00848c1e475de",
+      "reference_fingerprint": "52e68d0f352cc152bbfd0064c2443fac813def900f39c188ffa00848c1e475de",
+      "changed": false,
+      "declaration": "def test_http_rejects_internal_fields_and_unbounded_horizon(tmp_path, field, value):",
+      "docstring": null
+    },
+    {
+      "id": "paths-test",
+      "kind": "test",
+      "path": "etudecas/simulation/test_http_contract.py",
+      "symbol": "test_http_paths_cannot_escape_input_root",
+      "line": 42,
+      "fingerprint": "401dfe3431fd515c8e547660e4cd3ab22cacc1c3aeb01b9be483c99be43fc1b0",
+      "reference_fingerprint": "401dfe3431fd515c8e547660e4cd3ab22cacc1c3aeb01b9be483c99be43fc1b0",
+      "changed": false,
+      "declaration": "def test_http_paths_cannot_escape_input_root(tmp_path, field):",
+      "docstring": null
+    },
+    {
+      "id": "unique-test",
+      "kind": "test",
+      "path": "etudecas/simulation/test_http_contract.py",
+      "symbol": "test_http_assigns_engine_and_unique_output_without_writing",
+      "line": 32,
+      "fingerprint": "efbb836fd420ba26a6efc3f2bd49cf464157a93efe7bd86abac8bf015bd8d30e",
+      "reference_fingerprint": "efbb836fd420ba26a6efc3f2bd49cf464157a93efe7bd86abac8bf015bd8d30e",
+      "changed": false,
+      "declaration": "def test_http_assigns_engine_and_unique_output_without_writing(tmp_path):",
+      "docstring": null
+    },
+    {
+      "id": "access-test",
+      "kind": "test",
+      "path": "etudecas/simulation/test_http_contract.py",
+      "symbol": "test_http_rejects_before_simulation",
+      "line": 102,
+      "fingerprint": "1b23aec8fc67e0d82a71512881486c53bb97815032530b7756ceee229e366bb4",
+      "reference_fingerprint": "1b23aec8fc67e0d82a71512881486c53bb97815032530b7756ceee229e366bb4",
+      "changed": false,
+      "declaration": "def test_http_rejects_before_simulation(tmp_path, monkeypatch, headers, status):",
+      "docstring": null
+    },
+    {
+      "id": "busy-test",
+      "kind": "test",
+      "path": "etudecas/simulation/test_http_contract.py",
+      "symbol": "test_busy_and_timeout_release_slot",
+      "line": 128,
+      "fingerprint": "a235f89b7473832248e5b7eac25f6c27bcd51c77ba794bfc487bfc69b41e96a2",
+      "reference_fingerprint": "a235f89b7473832248e5b7eac25f6c27bcd51c77ba794bfc487bfc69b41e96a2",
+      "changed": false,
+      "declaration": "def test_busy_and_timeout_release_slot(tmp_path, monkeypatch):",
+      "docstring": null
+    },
+    {
+      "id": "deadline-test",
+      "kind": "test",
+      "path": "etudecas/simulation/test_http_contract.py",
+      "symbol": "test_real_subprocess_timeout",
+      "line": 158,
+      "fingerprint": "38f0644798f484a3fd1b35556034b7ba4ca65930d7d8749cae2415fb88098549",
+      "reference_fingerprint": "38f0644798f484a3fd1b35556034b7ba4ca65930d7d8749cae2415fb88098549",
+      "changed": false,
+      "declaration": "def test_real_subprocess_timeout(tmp_path):",
+      "docstring": null
+    },
+    {
+      "id": "partial-test",
+      "kind": "test",
+      "path": "etudecas/simulation/test_http_contract.py",
+      "symbol": "test_partial_body_times_out_and_releases_slot",
+      "line": 145,
+      "fingerprint": "1add781148151a6f1dc7764acd3f43442c4636e4a548bb01868961d480b06648",
+      "reference_fingerprint": "1add781148151a6f1dc7764acd3f43442c4636e4a548bb01868961d480b06648",
+      "changed": false,
+      "declaration": "def test_partial_body_times_out_and_releases_slot(tmp_path):",
+      "docstring": null
+    },
+    {
+      "id": "finite-test",
+      "kind": "test",
+      "path": "etudecas/knowledge_graph/test_schema_contract.py",
+      "symbol": "test_nonfinite_inventory_is_rejected",
+      "line": 12,
+      "fingerprint": "7aa3019b8c478f5ac3b54c3fe39545a4562e8f0abea4cd1d02245c54705a023a",
+      "reference_fingerprint": "7aa3019b8c478f5ac3b54c3fe39545a4562e8f0abea4cd1d02245c54705a023a",
+      "changed": false,
+      "declaration": "def test_nonfinite_inventory_is_rejected(value):",
+      "docstring": null
+    },
+    {
+      "id": "shape-test",
+      "kind": "test",
+      "path": "etudecas/knowledge_graph/test_schema_contract.py",
+      "symbol": "test_malformed_top_level_rows_return_issues",
+      "line": 20,
+      "fingerprint": "b771d1245537305e8afbc2a177f22eec2fa566291717d5d37b6cc66e3a779605",
+      "reference_fingerprint": "b771d1245537305e8afbc2a177f22eec2fa566291717d5d37b6cc66e3a779605",
+      "changed": false,
+      "declaration": "def test_malformed_top_level_rows_return_issues(field, value):",
+      "docstring": null
+    },
+    {
+      "id": "nested-test",
+      "kind": "test",
+      "path": "etudecas/knowledge_graph/test_schema_contract.py",
+      "symbol": "test_malformed_nested_rows_return_issues",
+      "line": 29,
+      "fingerprint": "a70abab0555d0fd94e394de7a4a6d96bf683d8a23cbcf64b4b4c2f386ee71d6f",
+      "reference_fingerprint": "a70abab0555d0fd94e394de7a4a6d96bf683d8a23cbcf64b4b4c2f386ee71d6f",
+      "changed": false,
+      "declaration": "def test_malformed_nested_rows_return_issues(node):",
+      "docstring": null
+    },
+    {
+      "id": "immutable-test",
+      "kind": "test",
+      "path": "etudecas/knowledge_graph/test_schema_contract.py",
+      "symbol": "test_valid_graph_validation_does_not_mutate_input",
+      "line": 35,
+      "fingerprint": "4dc27e80f3524f34690e235aa182e5b59b31f4e091e900d4e7856f03491567c4",
+      "reference_fingerprint": "4dc27e80f3524f34690e235aa182e5b59b31f4e091e900d4e7856f03491567c4",
+      "changed": false,
+      "declaration": "def test_valid_graph_validation_does_not_mutate_input():",
+      "docstring": null
+    }
+  ],
+  "rules": [
+    {
+      "rule_id": "SIMULATION-INPUT-001",
+      "status": "documented",
+      "changed_references": [],
+      "changed_business_sources": []
+    },
+    {
+      "rule_id": "SIMULATION-INPUT-002",
+      "status": "documented",
+      "changed_references": [],
+      "changed_business_sources": []
+    },
+    {
+      "rule_id": "SIMULATION-INPUT-003",
+      "status": "documented",
+      "changed_references": [],
+      "changed_business_sources": []
+    },
+    {
+      "rule_id": "SIMULATION-INPUT-004",
+      "status": "documented",
+      "changed_references": [],
+      "changed_business_sources": []
+    }
+  ],
+  "tests_executed": false
+}

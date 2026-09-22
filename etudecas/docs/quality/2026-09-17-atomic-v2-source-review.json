@@ -1,0 +1,22 @@
+{
+  "legacy_sources_unchanged": true,
+  "legacy_sha256": {
+    "supplier_service_regime_calibration_runner.py": "54e22075796f6899b43361fe548ffa42c7e5f6983ba216c0ed8c8c676a125fed",
+    "supplier_service_landscape_campaign.py": "c27c9af213804d49e957a64c0c88ed20981359916b7c78a37752276f16d45858",
+    "supplier_service_regime_calibration_protocol.py": "6da3c120bc89b26fe578c6d0877c749d94437f1aba647f694a9d32bc89b53ae8"
+  },
+  "compared_functions_and_classes": 42,
+  "unchanged_functions_and_classes": 37,
+  "reviewed_changed_functions": [
+    "_base_manifest",
+    "_campaign_signature",
+    "_write_csv",
+    "_write_json",
+    "run_calibration"
+  ],
+  "new_sources_sha256": {
+    "etudecas\\atomic_io.py": "7a50fe7240e28eb2b34634f430942ee0e665f8c606226014b65a1659603ea371",
+    "etudecas\\prototypes\\scan_2027_risk_control\\supplier_service_regime_calibration_runner_v2.py": "c8a2cbb287d997d6bedf012e9bd47144e6e6a845c5c08474d28ea16ee84424f1"
+  },
+  "scope": "AST comparison excludes module constants/imports; V2 schema and revision intentionally changed. Not a scientific qualification."
+}

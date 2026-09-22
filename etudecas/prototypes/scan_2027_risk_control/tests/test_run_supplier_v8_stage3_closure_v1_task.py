@@ -55,7 +55,7 @@ def test_wrapper_parses_in_windows_powershell() -> None:
     assert b"PARSE_OK" in completed.stdout
 
 
-def test_validate_only_is_inert_and_checks_frozen_hashes(tmp_path: Path) -> None:
+def test_validate_only_is_inert_and_checks_frozen_hashes(tmp_path: Path, frozen_wrapper_environment) -> None:
     closure_dir = tmp_path / "new-closure-root"
     report = closure_dir / "closure_report.json"
     absent_stage3 = tmp_path / "absent-stage3"

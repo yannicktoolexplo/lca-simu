@@ -2209,7 +2209,7 @@ def choose_scenario(data: dict[str, Any], scenario_id: str) -> dict[str, Any]:
     for scn in scenarios:
         if str(scn.get("id")) == scenario_id:
             return scn
-    return scenarios[0] if scenarios else {"id": scenario_id, "demand": []}
+    raise ValueError(f"Unknown scenario: {scenario_id!r}")
 
 
 def lane_records(
@@ -8230,6 +8230,88 @@ def main() -> None:
     for day in range(total_timeline_days):
         record_day = day >= warmup_days
         output_day = day - warmup_days
+        planned_release_today_by_pair: dict[tuple[str, str], float] = defaultdict(float)
+        planned_receipt_today_by_pair: dict[tuple[str, str], float] = defaultdict(float)
+        planned_order_count_by_pair: dict[tuple[str, str], int] = defaultdict(int)
+        planned_receipt_min_day_by_pair: dict[tuple[str, str], int] = {}
+        planned_receipt_max_day_by_pair: dict[tuple[str, str], int] = {}
+        def register_mrp_order(
+            trace_pair: tuple[str, str],
+            *,
+            source_mode: str,
+            src_node_id: str,
+            dst_node_id: str,
+            item_id: str,
+            release_qty: float,
+            receipt_qty: float,
+            arrival_day: int,
+            safety_time_days: float,
+            lead_days: int,
+            lead_cover_days: int | None = None,
+            lead_reference_days: int | None = None,
+            edge_id: str = "",
+            reliability: float = 1.0,
+            standard_order_qty: float = 0.0,
+            mrp_share: float = 0.0,
+            physical_release_day: int | None = None,
+        ) -> None:
+            planned_release_today_by_pair[trace_pair] += max(0.0, release_qty)
+            planned_receipt_today_by_pair[trace_pair] += max(0.0, receipt_qty)
+            planned_order_count_by_pair[trace_pair] += 1
+            previous_min = planned_receipt_min_day_by_pair.get(trace_pair)
+            previous_max = planned_receipt_max_day_by_pair.get(trace_pair)
+            planned_receipt_min_day_by_pair[trace_pair] = (
+                arrival_day if previous_min is None else min(previous_min, arrival_day)
+            )
+            planned_receipt_max_day_by_pair[trace_pair] = (
+                arrival_day if previous_max is None else max(previous_max, arrival_day)
+            )
+            if not record_day:
+                return
+            safety_days_int = int(math.ceil(max(0.0, safety_time_days)))
+            cover_need_day = arrival_day + safety_days_int
+            effective_lead_cover_days = int(max(1, lead_cover_days if lead_cover_days is not None else lead_days))
+            effective_lead_reference_days = int(max(1, lead_reference_days if lead_reference_days is not None else lead_days))
+            order_date_imt = cover_need_day - safety_days_int - effective_lead_cover_days
+            release_day_for_output = (
+                int(physical_release_day) if physical_release_day is not None else output_day
+            )
+            release_day_output = int(release_day_for_output - warmup_days)
+            order_day_output = int(output_day)
+            if source_mode.startswith("lane_release") and edge_id and order_day_output >= 0:
+                mrp_multisource_annual_lane_orders.add((order_day_output // 365, str(edge_id)))
+            order_status_end_of_run = "received" if arrival_day < total_timeline_days else "released_in_transit"
+            actual_receipt_day = int(arrival_day - warmup_days) if arrival_day >= warmup_days and arrival_day < total_timeline_days else ""
+            mrp_order_rows.append(
+                {
+                    "day": output_day,
+                    "node_id": trace_pair[0],
+                    "item_id": item_id,
+                    "order_type": source_mode,
+                    "src_node_id": src_node_id,
+                    "dst_node_id": dst_node_id,
+                    "edge_id": edge_id,
+                    "planning_status": "planned_and_released",
+                    "release_status": "released",
+                    "receipt_status": "firm_receipt" if arrival_day < total_timeline_days else "firm_receipt_outside_horizon",
+                    "order_status_end_of_run": order_status_end_of_run,
+                    "release_qty": round(release_qty, 6),
+                    "planned_receipt_qty": round(receipt_qty, 6),
+                    "release_day": release_day_output,
+                    "order_date_imt": int(order_date_imt - warmup_days),
+                    "arrival_day": int(arrival_day - warmup_days),
+                    "actual_receipt_day": actual_receipt_day,
+                    "implied_cover_need_day": int(cover_need_day - warmup_days),
+                    "lead_days": int(lead_days),
+                    "lead_reference_days": int(effective_lead_reference_days),
+                    "lead_cover_days": int(effective_lead_cover_days),
+                    "safety_time_days": round(max(0.0, safety_time_days), 6),
+                    "reliability": round(reliability, 6),
+                    "standard_order_qty": round(max(0.0, standard_order_qty), 6),
+                        "mrp_share": round(max(0.0, mrp_share), 6),
+                    }
+                )
+
         production_constraint_day_start = len(production_constraint_rows)
         supplier_capacity_day_start = len(supplier_capacity_daily_rows)
         feedback_warmup_production_utilization_values: list[float] = []
@@ -10237,11 +10319,6 @@ def main() -> None:
         supplier_shipped_from_stock_today_by_src_pair: dict[tuple[str, str], float] = defaultdict(float)
         supplier_released_today_by_src_pair: dict[tuple[str, str], float] = defaultdict(float)
         supplier_loss_today_by_src_pair: dict[tuple[str, str], float] = defaultdict(float)
-        planned_release_today_by_pair: dict[tuple[str, str], float] = defaultdict(float)
-        planned_receipt_today_by_pair: dict[tuple[str, str], float] = defaultdict(float)
-        planned_order_count_by_pair: dict[tuple[str, str], int] = defaultdict(int)
-        planned_receipt_min_day_by_pair: dict[tuple[str, str], int] = {}
-        planned_receipt_max_day_by_pair: dict[tuple[str, str], int] = {}
         for metric_pair, metric_shipped, metric_transport, metric_purchase, metric_loss, metric_is_opening in scheduled_lane_release_metrics.pop(day, []):
             shipped_today += metric_shipped
             shipped_today_to_pair[metric_pair] += metric_shipped
@@ -10252,82 +10329,6 @@ def main() -> None:
                 opening_transport_cost_today += metric_transport
                 opening_purchase_cost_today += metric_purchase
 
-        def register_mrp_order(
-            trace_pair: tuple[str, str],
-            *,
-            source_mode: str,
-            src_node_id: str,
-            dst_node_id: str,
-            item_id: str,
-            release_qty: float,
-            receipt_qty: float,
-            arrival_day: int,
-            safety_time_days: float,
-            lead_days: int,
-            lead_cover_days: int | None = None,
-            lead_reference_days: int | None = None,
-            edge_id: str = "",
-            reliability: float = 1.0,
-            standard_order_qty: float = 0.0,
-            mrp_share: float = 0.0,
-            physical_release_day: int | None = None,
-        ) -> None:
-            planned_release_today_by_pair[trace_pair] += max(0.0, release_qty)
-            planned_receipt_today_by_pair[trace_pair] += max(0.0, receipt_qty)
-            planned_order_count_by_pair[trace_pair] += 1
-            previous_min = planned_receipt_min_day_by_pair.get(trace_pair)
-            previous_max = planned_receipt_max_day_by_pair.get(trace_pair)
-            planned_receipt_min_day_by_pair[trace_pair] = (
-                arrival_day if previous_min is None else min(previous_min, arrival_day)
-            )
-            planned_receipt_max_day_by_pair[trace_pair] = (
-                arrival_day if previous_max is None else max(previous_max, arrival_day)
-            )
-            if not record_day:
-                return
-            safety_days_int = int(math.ceil(max(0.0, safety_time_days)))
-            cover_need_day = arrival_day + safety_days_int
-            effective_lead_cover_days = int(max(1, lead_cover_days if lead_cover_days is not None else lead_days))
-            effective_lead_reference_days = int(max(1, lead_reference_days if lead_reference_days is not None else lead_days))
-            order_date_imt = cover_need_day - safety_days_int - effective_lead_cover_days
-            release_day_for_output = (
-                int(physical_release_day) if physical_release_day is not None else output_day
-            )
-            release_day_output = int(release_day_for_output - warmup_days)
-            order_day_output = int(output_day)
-            if source_mode.startswith("lane_release") and edge_id and order_day_output >= 0:
-                mrp_multisource_annual_lane_orders.add((order_day_output // 365, str(edge_id)))
-            order_status_end_of_run = "received" if arrival_day < total_timeline_days else "released_in_transit"
-            actual_receipt_day = int(arrival_day - warmup_days) if arrival_day >= warmup_days and arrival_day < total_timeline_days else ""
-            mrp_order_rows.append(
-                {
-                    "day": output_day,
-                    "node_id": trace_pair[0],
-                    "item_id": item_id,
-                    "order_type": source_mode,
-                    "src_node_id": src_node_id,
-                    "dst_node_id": dst_node_id,
-                    "edge_id": edge_id,
-                    "planning_status": "planned_and_released",
-                    "release_status": "released",
-                    "receipt_status": "firm_receipt" if arrival_day < total_timeline_days else "firm_receipt_outside_horizon",
-                    "order_status_end_of_run": order_status_end_of_run,
-                    "release_qty": round(release_qty, 6),
-                    "planned_receipt_qty": round(receipt_qty, 6),
-                    "release_day": release_day_output,
-                    "order_date_imt": int(order_date_imt - warmup_days),
-                    "arrival_day": int(arrival_day - warmup_days),
-                    "actual_receipt_day": actual_receipt_day,
-                    "implied_cover_need_day": int(cover_need_day - warmup_days),
-                    "lead_days": int(lead_days),
-                    "lead_reference_days": int(effective_lead_reference_days),
-                    "lead_cover_days": int(effective_lead_cover_days),
-                    "safety_time_days": round(max(0.0, safety_time_days), 6),
-                    "reliability": round(reliability, 6),
-                    "standard_order_qty": round(max(0.0, standard_order_qty), 6),
-                        "mrp_share": round(max(0.0, mrp_share), 6),
-                    }
-                )
 
         def external_procurement_leads(
             policy: dict[str, Any],

@@ -1,0 +1,442 @@
+{
+  "schema_version": "etudecas.documentation.v1",
+  "fingerprint_method": "python-ast-v1",
+  "title": "Supplier lots, receipts and incident scope",
+  "business_source_fingerprints": {
+    "etudecas/docs/MATIERES_LOTS_ET_INCIDENTS.md": "a524b651ccee0f651a88bffffaf31c64e89e1dd1a4d3cf37089fa931436d6a93",
+    "etudecas/docs/PARCOURS_DES_LOTS.md": "f3f7e047af2be8f2445e00e58d5d2d0dec21f6914e80308fda3d1b472788a7f2",
+    "etudecas/visualization/maps/lot_journey.js": "feaba09b018a445d359ebb799a1ab844bb62711f1033549cce7655d8beb21783",
+    "etudecas/docs/FICHE_LOT.md": "faaa7e6e3ac737797fd49aa77d8e2ab27729f8dee242ea8197a701dbe429a362",
+    "etudecas/docs/TRANSPORTS_ET_IMPACTS.md": "ab8d84ad3e5828551f74ead46bd9d5ef57f792bfc600cc8b4298029c279fb688",
+    "etudecas/visualization/maps/lot_journey_operations.js": "95d65f4a696afce461b6218b89ccdfe6ba3c44c7e7ada47ebb7bd6b071e6fb51",
+    "etudecas/docs/EXPLORATEUR_DES_LOTS.md": "41f2c63a78d2cb1f3ac646be192e9697718a46433602c6b656cb60fa889d13a4",
+    "etudecas/visualization/maps/lot_journey_explorer.css": "669c2b330e25317b3e90a8c6dd967080919dcea7874bc1233d350b33ae699e5a",
+    "etudecas/visualization/maps/lot_journey_explorer.js": "5bfad41b11bc58fce60a69f868bb4d9d4220b70c279252abebf4d6202c35cf91",
+    "etudecas/visualization/maps/lot_journey_timeline.js": "e84c2b1247402069db92956f38fbbadcccd62c916c194259bb299b55fdf640bb",
+    "etudecas/docs/ENQUETES_LOTS.md": "771b614e948af3a5e26bcd24e3465d8e6a5365eda3212d4359240eb4128cec92",
+    "etudecas/visualization/maps/lot_journey_case.js": "2c43271548ef6abc4d7f8a294a3c2d29834d4b70622bc7384a369e8d4228e273"
+  },
+  "references": [
+    {
+      "id": "material-context",
+      "path": "etudecas/simulation/lot_trace/materials.py",
+      "symbol": "build_material_traceability",
+      "kind": "implementation",
+      "reference_fingerprint": "c60eb2b7afa9df9d51aee245a56ab972501d6de7aa6701bd73f2a886e1779a65"
+    },
+    {
+      "id": "incident-preview",
+      "path": "etudecas/simulation/lot_trace/materials.py",
+      "symbol": "build_incident_preview",
+      "kind": "implementation",
+      "reference_fingerprint": "3a2fd6288fa2fabd42233f65db26e64b2d179ca33e66d110ebdbcba150dc435a"
+    },
+    {
+      "id": "incident-scope",
+      "path": "etudecas/simulation/lot_trace/materials.py",
+      "symbol": "_incident_scope",
+      "kind": "implementation",
+      "reference_fingerprint": "b9a4c5ab3a770eb1af10de86b7bc4411a7a9422a4c3b009842607c9c693db4b4"
+    },
+    {
+      "id": "material-tests",
+      "path": "etudecas/simulation/lot_trace/test_materials.py",
+      "symbol": "MaterialTraceabilityTest",
+      "kind": "test",
+      "reference_fingerprint": "42c3a56a91f954b986cb5f77a2805454f65de1befbe7455175625ca0f564b00f"
+    },
+    {
+      "id": "material-browser",
+      "path": "etudecas/testing/material_browser_review.py",
+      "symbol": "review",
+      "kind": "test",
+      "reference_fingerprint": "3d01e064d99e9454ebb5f3b2cda414622ea3c0dafd5b42d18707402a9ebc77f7"
+    },
+    {
+      "id": "journey-template",
+      "path": "etudecas/visualization/maps/worldmap_html_template.py",
+      "symbol": "html_template",
+      "kind": "implementation",
+      "reference_fingerprint": "7b2b77b8ae593c869665e5563b977efd93b6765eabf0c50d1985ba974912bb2c"
+    },
+    {
+      "id": "journey-delivery",
+      "path": "etudecas/visualization/maps/material_delivery.py",
+      "symbol": "refresh",
+      "kind": "implementation",
+      "reference_fingerprint": "ddd387ee840f17e3df8b5ec383318245ac6fe97560166dbd1cec7a8f293d5b77"
+    },
+    {
+      "id": "journey-directions-test",
+      "path": "etudecas/testing/test_lot_journey.py",
+      "symbol": "test_forward_and_reverse_exclude_unrelated_sibling_consumption",
+      "kind": "test",
+      "reference_fingerprint": "c493760219d79c0ee957e6f2a38e9c49c42d84669bdb81151f415cfe7c08c6d0"
+    },
+    {
+      "id": "journey-branches-test",
+      "path": "etudecas/testing/test_lot_journey.py",
+      "symbol": "test_stock_cards_preserve_paths_without_inventing_cross_branches",
+      "kind": "test",
+      "reference_fingerprint": "1e7fc9a8f54aaa0b2e2c3663bd09fef8db0b25d7641461879899d27e82e05a72"
+    },
+    {
+      "id": "journey-browser",
+      "path": "etudecas/testing/journey_browser_review.py",
+      "symbol": "review",
+      "kind": "test",
+      "reference_fingerprint": "0f50fb0a102d0d5beabf7c2fc28e2a3addb40c0c5052d00047dacca0d42d97de"
+    },
+    {
+      "id": "lot-balance-reservation-test",
+      "path": "etudecas/testing/test_lot_journey.py",
+      "symbol": "test_balance_reserved_departure_is_not_debited_twice",
+      "kind": "test",
+      "reference_fingerprint": "017d8eff961db041b3d6f74a34f23c589fcf7ff8dfceca221ea9d97d783d160e"
+    },
+    {
+      "id": "lot-balance-invalid-test",
+      "path": "etudecas/testing/test_lot_journey.py",
+      "symbol": "test_balance_invalid_ledger_never_displays_certified_totals",
+      "kind": "test",
+      "reference_fingerprint": "a9a217977109257823b3028c866cb30baaedb018a418ca2d812c1c370e74f540"
+    },
+    {
+      "id": "lot-balance-scope-test",
+      "path": "etudecas/testing/test_lot_journey.py",
+      "symbol": "test_balance_uses_entire_occurrence_independent_of_direction",
+      "kind": "test",
+      "reference_fingerprint": "fc285de7ac72a9a439b0b3a31463664f2f05e8fb885cbd9c3bb69aa60f8e728f"
+    },
+    {
+      "id": "journey-cargo-test",
+      "path": "etudecas/testing/test_journey_operations.py",
+      "symbol": "test_complete_shipment_cargo_excludes_reservation_double_count",
+      "kind": "test",
+      "reference_fingerprint": "a805cd9a84e7ec7c30b4bfaa7d332994f4324e71fa7d6e6590a9b78fc20cbec5"
+    },
+    {
+      "id": "journey-impact-test",
+      "path": "etudecas/testing/test_journey_operations.py",
+      "symbol": "test_impact_does_not_spread_to_co_loaded_or_other_mixed_origins",
+      "kind": "test",
+      "reference_fingerprint": "73225d9bb75d12631a26898de61b2e151d01a68c228f49002913d83cfa5cf585"
+    },
+    {
+      "id": "journey-supplier-impact-test",
+      "path": "etudecas/testing/test_journey_operations.py",
+      "symbol": "test_supplier_lot_scope_requires_explicit_identity_including_possible_mixes",
+      "kind": "test",
+      "reference_fingerprint": "0a791891ff0c079daa1916df7e32f19755d2450a300161df485d5cd5b95e56dd"
+    },
+    {
+      "id": "journey-operations-browser",
+      "path": "etudecas/testing/journey_operations_browser.py",
+      "symbol": "check_operations",
+      "kind": "test",
+      "reference_fingerprint": "3e83709b56769ca3c3ab49a0a31ac531cd6f35cfeaec2601233d7596c64a2e91"
+    },
+    {
+      "id": "explorer-search-test",
+      "path": "etudecas/testing/test_journey_explorer.py",
+      "symbol": "test_identity_search_finds_mixed_business_occurrences_and_filters",
+      "kind": "test",
+      "reference_fingerprint": "a340b375ac2e1960128855fae6cd46b4866890cf61f178e376e05901fe53b879"
+    },
+    {
+      "id": "explorer-timeline-test",
+      "path": "etudecas/testing/test_journey_explorer.py",
+      "symbol": "test_timeline_exact_reservation_transit_receipt_and_open_shipment",
+      "kind": "test",
+      "reference_fingerprint": "5a8be9fefcbec88221156185082a6f45ec89a952a16ef2bf5a52ac3703a15281"
+    },
+    {
+      "id": "explorer-mix-test",
+      "path": "etudecas/testing/test_journey_explorer.py",
+      "symbol": "test_mixed_service_bounds_match_all_possible_integer_allocations",
+      "kind": "test",
+      "reference_fingerprint": "054e826fb4b63df01394cd69fe36bc19eee5fc3c59b21c5d153cbcb1f2e02d70"
+    },
+    {
+      "id": "explorer-identities-test",
+      "path": "etudecas/testing/test_journey_explorer.py",
+      "symbol": "test_documented_origin_and_handling_unit_search_and_quality_unknown",
+      "kind": "test",
+      "reference_fingerprint": "4de4ec1f3ea9ec5dc394f7d497e1db0a0d86a16b62d49586c473f42b4c7c2784"
+    },
+    {
+      "id": "explorer-fraction-test",
+      "path": "etudecas/testing/test_journey_explorer.py",
+      "symbol": "test_fractional_kg_roundoff_does_not_amplify_in_conservation_bounds",
+      "kind": "test",
+      "reference_fingerprint": "deed8f4d77dfe853c655602eb80be74d7cd52c084230d716afe877b0f682431f"
+    },
+    {
+      "id": "explorer-browser",
+      "path": "etudecas/testing/journey_explorer_review.py",
+      "symbol": "review",
+      "kind": "test",
+      "reference_fingerprint": "e1ca0f8b89c8a06f2c081b8bf68400ff592361fae8df4c256e53e8c8e53554c4"
+    },
+    {
+      "id": "explorer-scenario-export",
+      "path": "etudecas/visualization/maps/journey_scenario_delivery.py",
+      "symbol": "build_scenario_explorer",
+      "kind": "implementation",
+      "reference_fingerprint": "9e12204b1d0b68bff10f7d42c29fe7698e9ce64da0262f3b65efdb397a0c8e4e"
+    },
+    {
+      "id": "explorer-scenario-browser",
+      "path": "etudecas/testing/journey_scenario_review.py",
+      "symbol": "review",
+      "kind": "test",
+      "reference_fingerprint": "f45906258ac1b55065e9bdc8b54d2c70862218dba7844749b2e7dd886dceb62c"
+    },
+    {
+      "id": "explorer-scenario-graph-test",
+      "path": "etudecas/testing/test_journey_scenario_delivery.py",
+      "symbol": "test_scenario_export_rejects_graph_different_from_run_manifest",
+      "kind": "test",
+      "reference_fingerprint": "60e7341d1afefefcefc756d48d952b1530bee8281e244b8e12a4019736dc2498"
+    },
+    {
+      "id": "explorer-local-day-test",
+      "path": "etudecas/testing/test_journey_explorer.py",
+      "symbol": "test_local_balance_before_creation_and_during_reservation",
+      "kind": "test",
+      "reference_fingerprint": "86afd697ed6409467f82af63e3673efa7710c46defc497df810f2af7fe9270da"
+    },
+    {
+      "id": "case-roundtrip",
+      "path": "etudecas/testing/test_journey_case.py",
+      "symbol": "test_saved_case_roundtrip_restores_context_and_recomputes_impact",
+      "kind": "test",
+      "reference_fingerprint": "c8d1325fde618ab8fd6746809eb9a2b88ece6f0be4cc47e4d74e0963b11f7ea3"
+    },
+    {
+      "id": "case-mismatch",
+      "path": "etudecas/testing/test_journey_case.py",
+      "symbol": "test_case_rejects_same_lot_ids_with_different_physical_results",
+      "kind": "test",
+      "reference_fingerprint": "bdfc80df4d94c14d57a9753051838d5e25e23ac9c48930e5957a70b4ea03fb05"
+    },
+    {
+      "id": "case-invalid",
+      "path": "etudecas/testing/test_journey_case.py",
+      "symbol": "test_invalid_case_never_partially_replaces_navigation",
+      "kind": "test",
+      "reference_fingerprint": "ca47bf9e0430f8aff7d06ee93e14de1e5d50a34df138172d2b201614c82103f1"
+    },
+    {
+      "id": "case-neighbourhood",
+      "path": "etudecas/testing/test_journey_case.py",
+      "symbol": "test_neighbourhood_expansion_preserves_real_edges_and_full_scope",
+      "kind": "test",
+      "reference_fingerprint": "37d02af69452dba9a631389b4e838eed111a3a45a3d5ff3eba7a083a4b3494e4"
+    },
+    {
+      "id": "case-network-scope",
+      "path": "etudecas/testing/test_journey_case.py",
+      "symbol": "test_neighbourhood_does_not_truncate_network_totals",
+      "kind": "test",
+      "reference_fingerprint": "71b5f54de6b7a6857c85b7a717308ebc4332ff126489e6fe5ca86170fba1a62f"
+    },
+    {
+      "id": "case-report",
+      "path": "etudecas/testing/test_journey_case.py",
+      "symbol": "test_printable_report_captures_date_bounds_and_full_links",
+      "kind": "test",
+      "reference_fingerprint": "adb931974bb3de5f6c2d85f7c266f90c372a9d32805ce1b2a05faa617ecf07d9"
+    },
+    {
+      "id": "case-browser",
+      "path": "etudecas/testing/journey_case_review.py",
+      "symbol": "review",
+      "kind": "test",
+      "reference_fingerprint": "f3cb9b87f35fa8144ca258e0b823716d9db0bfb34f24ac89ec0c100f0c115e22"
+    }
+  ],
+  "rules": [
+    {
+      "id": "MATERIAL-IDENTITY-001",
+      "title": "Supplier origins and receipts",
+      "status": "documented",
+      "statement": "Do not infer a manufacturer batch from SHIP, BATCH or a truck. Documented allocations preserve unknown remainder. Single-origin splits retain identity; mixed picks retain possible origins without invented quantities.",
+      "scope": "Material receipt details and retrospective incident exploration",
+      "units": "Physical quantities by article and unit; unique occurrences",
+      "limitations": "Unknown manufacturer lots and inbound containers remain unknown. No quarantine, quality loss or delay is applied by a preview. Source authenticity is not certified.",
+      "references": [
+        "material-context",
+        "material-tests"
+      ],
+      "sources": [
+        "etudecas/docs/MATIERES_LOTS_ET_INCIDENTS.md"
+      ]
+    },
+    {
+      "id": "MATERIAL-EXPOSURE-001",
+      "title": "Incident scope distinct from physical effect",
+      "status": "documented",
+      "statement": "Recall previews follow positive physical links, deduplicate descendants and preserve unrelated branches. Native shipment incidents start at received occurrences, not all uses of source inventory. Exposure is not proven defect quantity, delay or service loss.",
+      "scope": "Material receipt details and retrospective incident exploration",
+      "units": "Physical quantities by article and unit; unique occurrences",
+      "limitations": "Unknown manufacturer lots and inbound containers remain unknown. No quarantine, quality loss or delay is applied by a preview. Source authenticity is not certified.",
+      "references": [
+        "incident-preview",
+        "incident-scope",
+        "material-tests",
+        "material-browser"
+      ],
+      "sources": [
+        "etudecas/docs/MATIERES_LOTS_ET_INCIDENTS.md"
+      ]
+    },
+    {
+      "id": "MATERIAL-JOURNEY-001",
+      "title": "Bidirectional physical lot journey",
+      "status": "documented",
+      "statement": "Traverse ancestors and descendants separately. Preserve each stock occurrence and its actual links. Separate selected PF contribution from mixed receipt totals; do not infer PF quantities from material presence.",
+      "scope": "Separate read-only dialog with independent navigation; existing detailed lot tracking is preserved",
+      "units": "Quantity in each article unit; simulated departure and arrival days",
+      "limitations": "Unknown manufacturer batches and actual truck identities remain unknown. Initial stock history before J0 is absent. No physical incident effect is applied. Large diagrams are explicitly paginated.",
+      "references": [
+        "journey-template",
+        "journey-delivery",
+        "journey-directions-test",
+        "journey-branches-test",
+        "journey-browser"
+      ],
+      "sources": [
+        "etudecas/docs/PARCOURS_DES_LOTS.md",
+        "etudecas/visualization/maps/lot_journey.js"
+      ]
+    },
+    {
+      "id": "MATERIAL-BALANCE-001",
+      "title": "Occurrence stock summary and reserved departures",
+      "status": "documented",
+      "statement": "Reconcile occurrence events through the selected end-of-day cutoff or all history. Preserve article, site and unit. Reserved departures are not debited twice. A pre-creation occurrence is distinct from unknown or invalid data. The summary covers the whole inspected occurrence independently of visible branches.",
+      "scope": "Read-only lot summary in the separate simplified journey dialog",
+      "units": "Physical article unit; fractional KG allowed, whole UN required; simulation days",
+      "limitations": "Local occurrence balance, independent of main-map time. Mixed receipts include all origins. The separate network balance follows the journey starting occurrence, not all units of all ancestors.",
+      "references": [
+        "journey-template",
+        "journey-browser",
+        "lot-balance-reservation-test",
+        "lot-balance-invalid-test",
+        "lot-balance-scope-test"
+      ],
+      "sources": [
+        "etudecas/docs/FICHE_LOT.md",
+        "etudecas/visualization/maps/lot_journey.js"
+      ]
+    },
+    {
+      "id": "MATERIAL-TRANSPORT-IMPACT-001",
+      "title": "Complete shipment cargo and conservative impact scope",
+      "status": "documented",
+      "statement": "Shipment totals count departures once by article and unit. Display existing truck planning groups with their assumptions, without inventing actual vehicle assignment. Impact scope follows positive descendant links from occurrence seeds or explicit supplier-origin allocations, including possible mixed origins. Co-loaded lots and other mixed parents are not added by proximity. Preserve physical data and legacy tracking.",
+      "scope": "Independent simplified journey dialog, full recorded horizon",
+      "units": "Article units and simulated days; local stock balances; estimated/proposed vehicle dimensions",
+      "limitations": "Potential exposure is not proven defect quantity, delay or service loss. Whole mixed receipts are included conservatively. Unknown supplier batches and actual vehicles remain unknown. Planning assumptions are not independently calibrated by display checks.",
+      "references": [
+        "journey-template",
+        "journey-delivery",
+        "journey-cargo-test",
+        "journey-impact-test",
+        "journey-supplier-impact-test",
+        "journey-operations-browser"
+      ],
+      "sources": [
+        "etudecas/docs/TRANSPORTS_ET_IMPACTS.md",
+        "etudecas/visualization/maps/lot_journey_operations.js"
+      ]
+    },
+    {
+      "id": "MATERIAL-EXPLORER-001",
+      "title": "Complete identity access and separate inspection",
+      "status": "documented",
+      "statement": "Index stock and business identities including mixed business_lot_ids, received shipments, with source occurrence fallback before receipt and documented external origins or containers. Filter and paginate without merging occurrences. Distinguish diagram origin from inspected card, with independent history and sidebar. Preserve legacy tracking.",
+      "scope": "Read-only simplified journey",
+      "units": "Occurrence identities and creation days",
+      "limitations": "Search establishes recorded identity presence, not defect or proportional physical allocation. Unknown origin and quality remain unknown.",
+      "references": [
+        "journey-template",
+        "explorer-search-test",
+        "explorer-identities-test",
+        "explorer-browser"
+      ],
+      "sources": [
+        "etudecas/docs/EXPLORATEUR_DES_LOTS.md",
+        "etudecas/visualization/maps/lot_journey.js",
+        "etudecas/visualization/maps/lot_journey_explorer.js",
+        "etudecas/visualization/maps/lot_journey_explorer.css"
+      ]
+    },
+    {
+      "id": "MATERIAL-NETWORK-001",
+      "title": "Dated physical network balance with mixed attribution bounds",
+      "status": "documented",
+      "statement": "Follow the starting occurrence through same-item same-unit transports to current stock, reserved stock, transit, consumption, service and loss. Transfers do not double count quantity. Unreceived shipments stay in transit. Mixed removals carry lower and upper bounds; conservation tightens categories without inventing proportional physical allocations.",
+      "scope": "End of simulation day, independent of displayed graph pagination; no engine mutation",
+      "units": "Whole UN, fractional KG, recorded simulation days",
+      "limitations": "Mixed attribution bounds can remain conservative and correlated; they are not additive exact quantities. Receipt passage totals differ from current stock and service. Material-to-PF conversion is not inferred. Unsupported or inconsistent data prevents numeric display.",
+      "references": [
+        "journey-template",
+        "explorer-timeline-test",
+        "explorer-mix-test",
+        "explorer-fraction-test",
+        "explorer-browser",
+        "explorer-local-day-test"
+      ],
+      "sources": [
+        "etudecas/docs/EXPLORATEUR_DES_LOTS.md",
+        "etudecas/visualization/maps/lot_journey_timeline.js"
+      ]
+    },
+    {
+      "id": "MATERIAL-SCENARIO-001",
+      "title": "Scenario-local identities, provenance and business state",
+      "status": "documented",
+      "statement": "Use one explicitly identified scenario and its manifest input graph for a standalone explorer. Expose native receipt incident IDs, initial history boundaries, reference-transition consumption and physical states. Manufacturer identity, containers, quality and expiry are not fabricated. A present stock is not proof of quality release.",
+      "scope": "Existing nominal and separately exported scenario results; new physical incidents deferred",
+      "units": "Scenario-local LOT/SHIP identifiers and article units",
+      "limitations": "No cross-scenario identity equivalence inferred from matching IDs. Standalone scenario diagrams use recorded link quantities without the nominal canonical PF contribution overlay. Quality and expiry remain undocumented.",
+      "references": [
+        "explorer-scenario-export",
+        "explorer-scenario-browser",
+        "explorer-scenario-graph-test",
+        "explorer-identities-test"
+      ],
+      "sources": [
+        "etudecas/docs/EXPLORATEUR_DES_LOTS.md",
+        "etudecas/visualization/maps/lot_journey_explorer.js"
+      ]
+    },
+    {
+      "id": "MATERIAL-INVESTIGATION-001",
+      "title": "Read-only investigation files, reports and graph neighbourhoods",
+      "status": "documented",
+      "statement": "Bind navigation files to SHA-256 fingerprints of events, genealogy, lot identities, materials, trucks and nodes. Validate all fields before replacing the independent journey state. Recompute optional impact scopes. Reports capture dated balances and full-horizon physical links, irrespective of graph visibility. Neighbourhoods expose only actual scoped edges without changing physical data or network totals.",
+      "scope": "Offline nominal and separate existing risk explorer; navigation files and script-free HTML reports",
+      "units": "Scenario-local identities, simulation days and article units",
+      "limitations": "The navigation JSON requires matching map data and contains no simulation results. Fingerprints do not certify industrial truth or rendering/engine versions. Report links cover the full selected direction and horizon, not just the cutoff or visible cards. Detailed shipment cargo and impacts require reopening the map. No new physical incidents.",
+      "references": [
+        "journey-template",
+        "journey-delivery",
+        "explorer-scenario-export",
+        "case-roundtrip",
+        "case-mismatch",
+        "case-invalid",
+        "case-neighbourhood",
+        "case-network-scope",
+        "case-report",
+        "case-browser"
+      ],
+      "sources": [
+        "etudecas/docs/ENQUETES_LOTS.md",
+        "etudecas/visualization/maps/lot_journey_case.js"
+      ]
+    }
+  ]
+}

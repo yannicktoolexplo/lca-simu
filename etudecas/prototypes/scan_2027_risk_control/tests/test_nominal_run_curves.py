@@ -221,15 +221,11 @@ def test_injection_is_additive_and_idempotence_is_rejected() -> None:
         subject.inject_nominal_run_curves(injected, payload)
 
 
-def test_real_replay_contract_when_available() -> None:
-    replay = Path(
-        r"C:\dev\lca-simu-pr40-validation-artifacts-20260726\supplier_network_nominal_trajectory_replay_20260904_v1"
+def test_real_replay_contract_when_available(historical_artifact) -> None:
+    replay = historical_artifact("supplier_network_nominal_trajectory_replay_20260904_v1")
+    expected = historical_artifact(
+        "supplier_network_risk_screen_20260902_v2/cases/baseline_nominal/seed_340281/summaries/first_simulation_summary.json"
     )
-    expected = Path(
-        r"C:\dev\lca-simu-pr40-validation-artifacts-20260726\supplier_network_risk_screen_20260902_v2\cases\baseline_nominal\seed_340281\summaries\first_simulation_summary.json"
-    )
-    if not replay.is_dir() or not expected.is_file():
-        pytest.skip("Replay nominal externe indisponible.")
 
     payload = subject.build_nominal_run_curves_payload(
         replay,

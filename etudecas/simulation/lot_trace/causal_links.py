@@ -323,7 +323,7 @@ def build_lot_causal_link_rows(
                         parent_entity_type=parent_type,
                         parent_entity_id=parent_id,
                         basis=(
-                            "simulated_route_date_consolidation"
+                            "physical_shipment_event"
                             if event_type == "lane_ship"
                             else "reserved_before_physical_departure"
                         ),

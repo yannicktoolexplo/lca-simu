@@ -67,11 +67,17 @@ documente. Une etude de sensibilite doit etre regenerable par script.
 Avant de conclure :
 
 ```powershell
-python -m unittest discover -s etudecas -p "test*.py" -v
+python -m pytest -q etudecas_codex_multiagent_pack/tests
 ```
 
 Ajouter des verifications ciblees si la carte, les payloads ou la simulation
 sont touches.
+
+Pour l'application principale, depuis la racine du depot, utiliser
+`python -m etudecas.toolbox tests --path chemin/test_module.py` puis la
+qualification des resultats concernes. Le pack contient un mini-kit distinct,
+pas une copie du moteur industriel. Le deploiement natif est prepare dans
+`native/` ; voir `../etudecas/docs/MULTI_AGENT_OPERATIONNEL.md` pour le statut et les commandes.
 
 ## Format de synthese
 

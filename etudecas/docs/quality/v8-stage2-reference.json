@@ -1,0 +1,351 @@
+{
+  "schema_version": "etudecas.supplier_v8_stage2.v1.source_inventory.v1",
+  "repo": "C:\\dev\\lca-simu-pr40",
+  "entry_count": 68,
+  "entries": [
+    {
+      "relative_path": "etudecas/__init__.py",
+      "sha256": "9d7915d5aa91b133a217fd23f1309eca31b2258a489e7944041b1762e86c51f3",
+      "size_bytes": 25
+    },
+    {
+      "relative_path": "etudecas/prototypes/scan_2027_risk_control/__init__.py",
+      "sha256": "66f4846d730380dfb7eccc03a2598216aaadf45adf59f9ea00b75a68b02e7d9f",
+      "size_bytes": 920
+    },
+    {
+      "relative_path": "etudecas/prototypes/scan_2027_risk_control/build_validated_operating_points_v4.py",
+      "sha256": "c4456f00224610c161187643892576a3ed4aa76cb9f55b471d9063a508d75da9",
+      "size_bytes": 26837
+    },
+    {
+      "relative_path": "etudecas/prototypes/scan_2027_risk_control/build_validated_operating_points_v5.py",
+      "sha256": "41492d5b66835028b7aed9977a4e21f4214e7d6e85d98c6a5ae535a7b2cbacb2",
+      "size_bytes": 25063
+    },
+    {
+      "relative_path": "etudecas/prototypes/scan_2027_risk_control/build_validated_operating_points_v6.py",
+      "sha256": "8943209948f19979b3f448c65ca364f9e18b98aac34aaecec21d4fc6f5a123a4",
+      "size_bytes": 11370
+    },
+    {
+      "relative_path": "etudecas/prototypes/scan_2027_risk_control/build_validated_operating_points_v7.py",
+      "sha256": "49832e2aaae2c6ba4ef83925b3e575ced974c74889b296be1ac4ec0ab88bbedb",
+      "size_bytes": 29406
+    },
+    {
+      "relative_path": "etudecas/prototypes/scan_2027_risk_control/calibration.py",
+      "sha256": "7358373a2019ca331fd204b38dbadace47b1b4c98fe85c9b0bb7dd62339a8ca3",
+      "size_bytes": 70530
+    },
+    {
+      "relative_path": "etudecas/prototypes/scan_2027_risk_control/continue_supplier_full_campaign_v4.py",
+      "sha256": "102dc0d8505e184b89e614258ad843a4c02c2e4c0e5a5aea8f060c3e7ae1d14e",
+      "size_bytes": 122387
+    },
+    {
+      "relative_path": "etudecas/prototypes/scan_2027_risk_control/continue_supplier_full_campaign_v5.py",
+      "sha256": "4a42e97e20233c7907a1cd5e6b202aa4f3a24b56e5da3b029d2ab4bc11cb21cd",
+      "size_bytes": 113096
+    },
+    {
+      "relative_path": "etudecas/prototypes/scan_2027_risk_control/continue_supplier_full_campaign_v7.py",
+      "sha256": "0e8ed879fc9a9458a3fc33d237b9728b4a39b99e5b0c8d996fe3af15bf8a18b5",
+      "size_bytes": 54981
+    },
+    {
+      "relative_path": "etudecas/prototypes/scan_2027_risk_control/continue_supplier_v4_calibration.py",
+      "sha256": "9a7e7762599138a950202f02794ef52034fc1e3c396060eb91fa1006c6e5a18d",
+      "size_bytes": 9992
+    },
+    {
+      "relative_path": "etudecas/prototypes/scan_2027_risk_control/core.py",
+      "sha256": "c495566a4c3681d30d5016a35f024c8e2e40c541f2c87482d42182785a1dee39",
+      "size_bytes": 48694
+    },
+    {
+      "relative_path": "etudecas/prototypes/scan_2027_risk_control/decision.py",
+      "sha256": "7d93f8c384438f582dafe207d31c63ac3030ced81ce314730758d0aa4a85f26a",
+      "size_bytes": 9820
+    },
+    {
+      "relative_path": "etudecas/prototypes/scan_2027_risk_control/experiments.py",
+      "sha256": "39c6c4f3412a0bee1d84a5a228fc682f2b872e7f65c74218eceac25728ddbaa8",
+      "size_bytes": 56309
+    },
+    {
+      "relative_path": "etudecas/prototypes/scan_2027_risk_control/finalize_supplier_operating_point_full_campaign_v4.py",
+      "sha256": "0a71a62a3ede37df18024ee9349e6f96e0fbfe80e6dd371f253215bac13e5984",
+      "size_bytes": 221127
+    },
+    {
+      "relative_path": "etudecas/prototypes/scan_2027_risk_control/finalize_supplier_operating_point_full_campaign_v5.py",
+      "sha256": "2bbfd696b0654f5837da0a51d0022ec1cf4cc9b9eaf98dfd6207a95603898c82",
+      "size_bytes": 2432
+    },
+    {
+      "relative_path": "etudecas/prototypes/scan_2027_risk_control/finalize_supplier_operating_point_full_campaign_v6.py",
+      "sha256": "a4d523d0817464074ae4089b660de2db992de950cad8566e9efd2b68dd08715b",
+      "size_bytes": 2027
+    },
+    {
+      "relative_path": "etudecas/prototypes/scan_2027_risk_control/finalize_supplier_operating_point_full_campaign_v7.py",
+      "sha256": "db0d5a2e96cf4af48d7303ccfe1718e7f5015ea30f03aa6c3cffb23b8f6d18a1",
+      "size_bytes": 14417
+    },
+    {
+      "relative_path": "etudecas/prototypes/scan_2027_risk_control/finalize_supplier_operating_point_full_campaign_v8.py",
+      "sha256": "a3cc635a8adc30522ecf2dbbb066bd81a3c4ac9bedf0a1d4552a14ec65f7c7ec",
+      "size_bytes": 37007
+    },
+    {
+      "relative_path": "etudecas/prototypes/scan_2027_risk_control/launch_supplier_operating_point_full_campaign_v4.py",
+      "sha256": "ee79cfc4d61ca98e7030217bdbf52886402e68074b66f7c7380d5e9890838e4c",
+      "size_bytes": 89786
+    },
+    {
+      "relative_path": "etudecas/prototypes/scan_2027_risk_control/launch_supplier_operating_point_full_campaign_v5.py",
+      "sha256": "59f1c33552f19bcf09c773733ece132e0e04d341c98807ca9c7087a2de1f4d13",
+      "size_bytes": 2324
+    },
+    {
+      "relative_path": "etudecas/prototypes/scan_2027_risk_control/launch_supplier_operating_point_full_campaign_v6.py",
+      "sha256": "5b6f166d753c6a8e25b7da3156fe6815ec80457d09e41f7f051939a4b9873cec",
+      "size_bytes": 1969
+    },
+    {
+      "relative_path": "etudecas/prototypes/scan_2027_risk_control/launch_supplier_operating_point_full_campaign_v7.py",
+      "sha256": "3d92a645fbb2bf19e244c908226f3dbe78f84c3565cf1791114c1231dfab4bd5",
+      "size_bytes": 2377
+    },
+    {
+      "relative_path": "etudecas/prototypes/scan_2027_risk_control/model.py",
+      "sha256": "ff6c9f33f06b22011817d623146618cf81fb390a918c6be5ce61dfc3cfe6359a",
+      "size_bytes": 20364
+    },
+    {
+      "relative_path": "etudecas/prototypes/scan_2027_risk_control/risk_mapping.py",
+      "sha256": "a89cb0d61eb4aa71b7e0e45513f310333f8324b68ef77720dfec426472eed16e",
+      "size_bytes": 99997
+    },
+    {
+      "relative_path": "etudecas/prototypes/scan_2027_risk_control/supplier_balanced_product_delay_calibration.py",
+      "sha256": "cbfa8d9c9a47c542ecd77374ea506826675ec5c32b554b3ff7db80689251beff",
+      "size_bytes": 61695
+    },
+    {
+      "relative_path": "etudecas/prototypes/scan_2027_risk_control/supplier_balanced_product_delay_fine_calibration.py",
+      "sha256": "d8697e4322865f0071494e7aabcc71ae709572cc3c80df5df42531493c0b8ef2",
+      "size_bytes": 65073
+    },
+    {
+      "relative_path": "etudecas/prototypes/scan_2027_risk_control/supplier_balanced_product_delay_fine_prevalidation.py",
+      "sha256": "b3247d48c9c382a2b02679d3e49e28c97c91326f79674f51d5c575fdca56dea7",
+      "size_bytes": 38106
+    },
+    {
+      "relative_path": "etudecas/prototypes/scan_2027_risk_control/supplier_balanced_product_delay_multiseed_calibration.py",
+      "sha256": "b1e0a931db4e7d682c236ef026bf26daf3b3ca472bf00cb8c050aa37009ef748",
+      "size_bytes": 49864
+    },
+    {
+      "relative_path": "etudecas/prototypes/scan_2027_risk_control/supplier_balanced_product_delay_multiseed_refinement_v2.py",
+      "sha256": "258591d909d9da1d95684ff30f969dc0d284bdb878d51fe2c920cbbaa57dc90a",
+      "size_bytes": 67094
+    },
+    {
+      "relative_path": "etudecas/prototypes/scan_2027_risk_control/supplier_balanced_product_delay_multiseed_refinement_v3.py",
+      "sha256": "707cbd79b8758b48a70665250d15e6af547fe0ad01b7bac44bad66ff14a9858e",
+      "size_bytes": 42121
+    },
+    {
+      "relative_path": "etudecas/prototypes/scan_2027_risk_control/supplier_balanced_product_delay_multiseed_refinement_v4.py",
+      "sha256": "f1e79797820cda882bd1317f26d7e564ad8fc0fe2f86c606da8a59a82cb627f8",
+      "size_bytes": 155563
+    },
+    {
+      "relative_path": "etudecas/prototypes/scan_2027_risk_control/supplier_balanced_product_delay_multiseed_refinement_v5.py",
+      "sha256": "46bc479466edfe9e1610abbf84aa3f0a6ff039b9066c9a395599494d0b4ed922",
+      "size_bytes": 71488
+    },
+    {
+      "relative_path": "etudecas/prototypes/scan_2027_risk_control/supplier_balanced_product_delay_multiseed_refinement_v6.py",
+      "sha256": "a12a835d376d17a2fd8fee54bb31bc37aa228a542da5417099bb267f2fe9847c",
+      "size_bytes": 56331
+    },
+    {
+      "relative_path": "etudecas/prototypes/scan_2027_risk_control/supplier_fresh_development_holdout_protocol_v7.py",
+      "sha256": "f11ba2523bd319e210e5d5d82a25beb1e88a2fc5bd17a181540f8662526a63e5",
+      "size_bytes": 128614
+    },
+    {
+      "relative_path": "etudecas/prototypes/scan_2027_risk_control/supplier_fresh_holdout_v6.py",
+      "sha256": "bae2589fa99f18cc1237aece1e5db9ae22a25882203b280d41f800c8fab181f2",
+      "size_bytes": 58621
+    },
+    {
+      "relative_path": "etudecas/prototypes/scan_2027_risk_control/supplier_holdout_curve_aggregator_v4.py",
+      "sha256": "959ad4a448755eec8fa188c0135d31c041f34846a0278616066e2b2790caffcc",
+      "size_bytes": 29532
+    },
+    {
+      "relative_path": "etudecas/prototypes/scan_2027_risk_control/supplier_holdout_curve_sidecar_v4.py",
+      "sha256": "f6198f12f8d81b8280df781155a31173a90f6344d1f47878aaebbc4321290f3b",
+      "size_bytes": 42903
+    },
+    {
+      "relative_path": "etudecas/prototypes/scan_2027_risk_control/supplier_holdout_curve_sidecar_v5.py",
+      "sha256": "cdb5c110c847e39a189d87b93a2aca08295913b593c039307b7006b1341ded8a",
+      "size_bytes": 15335
+    },
+    {
+      "relative_path": "etudecas/prototypes/scan_2027_risk_control/supplier_holdout_curve_sidecar_v6.py",
+      "sha256": "b2424ddb272a1601b60d60f7716e8dd23b64916d0a15a4e4f6a60ad60c513016",
+      "size_bytes": 23627
+    },
+    {
+      "relative_path": "etudecas/prototypes/scan_2027_risk_control/supplier_operating_point_campaign_v4_contract.py",
+      "sha256": "1612af4f3a82fc886ced62c61e7b511c9564693a9bb965f1b2896b3ffc3ba554",
+      "size_bytes": 16349
+    },
+    {
+      "relative_path": "etudecas/prototypes/scan_2027_risk_control/supplier_operating_point_full_campaign_v2.py",
+      "sha256": "dafb05400feef0cb77ef980c792a061de553ab94a73b281a6942742538e4444d",
+      "size_bytes": 285488
+    },
+    {
+      "relative_path": "etudecas/prototypes/scan_2027_risk_control/supplier_operating_point_full_campaign_v4.py",
+      "sha256": "3bc8795490c6ef9ac1fef25d5dedb22811306ae869477df57e70d483881a5d9d",
+      "size_bytes": 303246
+    },
+    {
+      "relative_path": "etudecas/prototypes/scan_2027_risk_control/supplier_operating_point_full_campaign_v4_dashboard.py",
+      "sha256": "7f159384e1609465469ff0263d635600d4dd06d71e7e3df90c8cedf9bebec601",
+      "size_bytes": 97733
+    },
+    {
+      "relative_path": "etudecas/prototypes/scan_2027_risk_control/supplier_operating_point_full_campaign_v5.py",
+      "sha256": "302c59d76d9bf490886ba3f100075992566292b1761b71bed9fd27746e6e7b12",
+      "size_bytes": 2477
+    },
+    {
+      "relative_path": "etudecas/prototypes/scan_2027_risk_control/supplier_operating_point_full_campaign_v6.py",
+      "sha256": "ac251c2f7fec97d770ae43e21247e07a2d1eda09ebed5dbf0a113f035e9c8564",
+      "size_bytes": 1672
+    },
+    {
+      "relative_path": "etudecas/prototypes/scan_2027_risk_control/supplier_operating_point_full_campaign_v7.py",
+      "sha256": "873ec412c8ac67db5e91731f31d648cf0bd509203b328f229721adb6a3f12b12",
+      "size_bytes": 8611
+    },
+    {
+      "relative_path": "etudecas/prototypes/scan_2027_risk_control/supplier_operating_point_full_campaign_v7_dashboard.py",
+      "sha256": "9ae766ccd6ebd90ac51e0bb273fa65252b34156196d5aad20481579d21977ded",
+      "size_bytes": 7475
+    },
+    {
+      "relative_path": "etudecas/prototypes/scan_2027_risk_control/supplier_operating_point_full_campaign_v8.py",
+      "sha256": "3dd8835992c9d97093fc6eaa0ba52dabfd0574fb775bbf8c62c2a26c9950bd39",
+      "size_bytes": 58349
+    },
+    {
+      "relative_path": "etudecas/prototypes/scan_2027_risk_control/supplier_physical_cascade_qualification_v5.py",
+      "sha256": "0bba07f024d1d3f29774bea6945be5d61a85153422c3dd6fac3c86b16fb739e9",
+      "size_bytes": 83163
+    },
+    {
+      "relative_path": "etudecas/prototypes/scan_2027_risk_control/supplier_priority_action_replay_v4.py",
+      "sha256": "80f3e46764a30715b0ccedc683ed4da297cc013bcdc1b05a97de1d9f5d619c20",
+      "size_bytes": 167144
+    },
+    {
+      "relative_path": "etudecas/prototypes/scan_2027_risk_control/supplier_priority_lot_replay_v4.py",
+      "sha256": "3491b3868921948b6a5c22f05a3e5cec2eab1a65093ec4eb36bfbbc039337c78",
+      "size_bytes": 126026
+    },
+    {
+      "relative_path": "etudecas/prototypes/scan_2027_risk_control/supplier_service_landscape_campaign.py",
+      "sha256": "c27c9af213804d49e957a64c0c88ed20981359916b7c78a37752276f16d45858",
+      "size_bytes": 119698
+    },
+    {
+      "relative_path": "etudecas/prototypes/scan_2027_risk_control/supplier_service_regime_calibration_protocol.py",
+      "sha256": "6da3c120bc89b26fe578c6d0877c749d94437f1aba647f694a9d32bc89b53ae8",
+      "size_bytes": 57460
+    },
+    {
+      "relative_path": "etudecas/prototypes/scan_2027_risk_control/supplier_service_regime_calibration_runner.py",
+      "sha256": "54e22075796f6899b43361fe548ffa42c7e5f6983ba216c0ed8c8c676a125fed",
+      "size_bytes": 60000
+    },
+    {
+      "relative_path": "etudecas/prototypes/scan_2027_risk_control/supplier_v4_final_standalone_delivery.py",
+      "sha256": "b245096492835a97ab79651d6c3aded2edc6c51da5d52756e33f59bef3a18e50",
+      "size_bytes": 112813
+    },
+    {
+      "relative_path": "etudecas/prototypes/scan_2027_risk_control/supplier_v5_final_standalone_delivery.py",
+      "sha256": "19174dc30c28ddfd4143f573414cc76279d1d5b384022b3c2d62d8962fa903be",
+      "size_bytes": 46375
+    },
+    {
+      "relative_path": "etudecas/prototypes/scan_2027_risk_control/supplier_v6_full_incident_lot_registry.py",
+      "sha256": "82274430c0aeea917f40acdf9b3fc2536f7aa7b63a33b4dd3416b699ed665706",
+      "size_bytes": 124993
+    },
+    {
+      "relative_path": "etudecas/prototypes/scan_2027_risk_control/supplier_v7_campaign_trace_package.py",
+      "sha256": "2275112624f5fa6ebbf0ab0f629bfec045f74e3d164251accfc975eeb2714783",
+      "size_bytes": 23036
+    },
+    {
+      "relative_path": "etudecas/prototypes/scan_2027_risk_control/supplier_v7_stage2_common.py",
+      "sha256": "1979024861914f476e58989064a8a85c048cceec2dce0929a01679c92a74b85d",
+      "size_bytes": 33802
+    },
+    {
+      "relative_path": "etudecas/prototypes/scan_2027_risk_control/supplier_v7_stage2_curves.py",
+      "sha256": "d828a49d251f83a2e3ac09827e7b110432532333bb0f1fe33f79ecd425eb86df",
+      "size_bytes": 32959
+    },
+    {
+      "relative_path": "etudecas/prototypes/scan_2027_risk_control/supplier_v7_stage2_delivery.py",
+      "sha256": "2203054d321c251e6cb505e9e0f467eee9fa8a242e9b312404173c0608de51f9",
+      "size_bytes": 108128
+    },
+    {
+      "relative_path": "etudecas/prototypes/scan_2027_risk_control/supplier_v7_stage2_pipeline.py",
+      "sha256": "224247268f797ade94e0788abdb598900092cabbd8739e7dff793e4f916a3201",
+      "size_bytes": 32865
+    },
+    {
+      "relative_path": "etudecas/prototypes/scan_2027_risk_control/supplier_v7_stage2_watcher.py",
+      "sha256": "e887b0649ce1bb2ab8961c193c732544f66604a78fd29a076ae348666bb8e92b",
+      "size_bytes": 21460
+    },
+    {
+      "relative_path": "etudecas/prototypes/scan_2027_risk_control/supplier_v8_stage2_common.py",
+      "sha256": "c73fbe80511176b9205a4b37a44d6e738fff59184847d77f6287ec4046ece8a5",
+      "size_bytes": 21477
+    },
+    {
+      "relative_path": "etudecas/prototypes/scan_2027_risk_control/supplier_v8_stage2_delivery.py",
+      "sha256": "6b264c8b71f63327282d01bf87ab7568ec469615bd5d17462b6f835a5b75cc31",
+      "size_bytes": 17010
+    },
+    {
+      "relative_path": "etudecas/prototypes/scan_2027_risk_control/supplier_v8_stage2_pipeline.py",
+      "sha256": "4dde24c519cefadc2e9f7598853e28259972fef1de9eb8b814dfdfab3fa0a7a8",
+      "size_bytes": 11623
+    },
+    {
+      "relative_path": "etudecas/prototypes/scan_2027_risk_control/supplier_v8_stage2_watcher.py",
+      "sha256": "d8d6bafe451f78edd1eeb698e5c43bf18c03cc5bd8e1392547f7e233a9ae2ab7",
+      "size_bytes": 3315
+    }
+  ],
+  "critical_protocol_sha256": "f11ba2523bd319e210e5d5d82a25beb1e88a2fc5bd17a181540f8662526a63e5",
+  "v8_campaign_runner_sha256": "3dd8835992c9d97093fc6eaa0ba52dabfd0574fb775bbf8c62c2a26c9950bd39",
+  "v8_finalizer_sha256": "a3cc635a8adc30522ecf2dbbb066bd81a3c4ac9bedf0a1d4552a14ec65f7c7ec",
+  "inventory_signature": "02ed2e5b92828732aec51b4322596e99c3fbaa9ec771e89c3be8cf9011f8191a"
+}

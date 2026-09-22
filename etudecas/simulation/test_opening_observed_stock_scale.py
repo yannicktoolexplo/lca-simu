@@ -203,12 +203,11 @@ def test_scale_reduces_mrp_snapshot_and_is_audited_at_warmup_boundary(
     assert scale_audit["scientific_interpretation"] == (
         "global_sensitivity_stress_test_not_calibrated_opening_state"
     )
-    assert scale_audit["quantities_by_uom"]["UN"]["effective_qty"] == (
-        pytest.approx(
-            scale_audit["quantities_by_uom"]["UN"]["source_qty"] * 0.1,
-            abs=1e-6,
-        )
-    )
+    # UN stress scaling executes whole units per stock row. Source quantities
+    # remain unchanged; fractional hypothetical pieces are never stocked.
+    expected_units = sum(int(float(r["input_opening_stock_qty"]) * 0.1)
+                         for r in rows if r["uom"] == "UN" and r["input_opening_stock_qty"])
+    assert scale_audit["quantities_by_uom"]["UN"]["effective_qty"] == expected_units
     boundary = summary["policy"]["warmup_boundary_audit"]
     replay_boundary = replay_summary["policy"]["warmup_boundary_audit"]
     assert boundary["opening_observed_stock_scale"] == scale_audit

@@ -1,0 +1,11 @@
+{
+  "name": "result_validation",
+  "status": "ok",
+  "issues": [],
+  "checks": [
+    {
+      "name": "result_rules",
+      "status": "passed"
+    }
+  ]
+}

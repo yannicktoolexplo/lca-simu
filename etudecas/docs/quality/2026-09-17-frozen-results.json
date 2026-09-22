@@ -1,0 +1,57 @@
+{
+  "scope": "59 previously failing frozen-source or contract tests; not the full suite",
+  "counts": {
+    "failure": 8,
+    "passed": 51
+  },
+  "remaining_failures": [
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_service_regime_calibration_runner",
+      "test": "test_frozen_v2_plan_validates_and_is_pinned",
+      "category": "historical_graph_missing",
+      "message": "ValueError: Execution input hash mismatch: supplier_capacity_identified__0p75/graph"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_service_regime_calibration_runner",
+      "test": "test_engine_command_has_no_incident_and_uses_candidate_input",
+      "category": "historical_graph_missing",
+      "message": "ValueError: Execution input hash mismatch: supplier_capacity_identified__0p75/graph"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_service_regime_calibration_runner",
+      "test": "test_smoke_executes_one_nonreusable_case",
+      "category": "historical_graph_missing",
+      "message": "ValueError: Execution input hash mismatch: supplier_capacity_identified__0p75/graph"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_service_regime_calibration_runner",
+      "test": "test_screen_checkpoint_and_resume_adds_only_seeds_16_to_30",
+      "category": "historical_graph_missing",
+      "message": "ValueError: Execution input hash mismatch: supplier_capacity_identified__0p75/graph"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_service_regime_calibration_runner",
+      "test": "test_resume_rejects_checkpoint_ledger_mismatch",
+      "category": "historical_graph_missing",
+      "message": "ValueError: Execution input hash mismatch: supplier_capacity_identified__0p75/graph"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_service_regime_calibration_runner",
+      "test": "test_invalid_checkpoint_count_and_existing_lock_fail_closed",
+      "category": "historical_graph_missing",
+      "message": "ValueError: Execution input hash mismatch: supplier_capacity_identified__0p75/graph"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_v8_op100_checkpoint_10_task",
+      "test": "test_validate_only_is_inert_and_revalidates_frozen_inputs",
+      "category": "frozen_stage2_inventory_mismatch",
+      "message": "AssertionError: Validation de l'inventaire Stage3 en erreur : Traceback (most recent call last):\r\n    File \"<string>\", line 4, in <module>\r\n    File \"C:\\dev\\lca-simu\\etudecas\\prototypes\\scan_2027_risk_control\\supplier_v8_stage3_common.py\", line 172, in \r\n  build_source_inventory\r\n      previous = _predecessor_inventory(root)\r\n                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\r\n    File \"C:\\dev\\lca-simu\\etudecas\\prototypes\\scan_2027_risk_control\\supplier_v8_stage3_common.py\", line 164, in \r\n  _predecessor_inventory\r\n      raise Stage2Error(\r\n  etudecas.prototypes.scan_2027_risk_control.supplier_v7_stage2_common.Stage2Error: Le périmètre Stage2 V2 figé a \r\n  changé; V3 refuse de masquer cette dérive.\r\n  Au caractère \r\n  C:\\dev\\lca-simu\\etudecas\\prototypes\\scan_2027_risk_control\\run_supplier_v8_op100_checkpoint_10_task.ps1:385 : 9\r\n  +         throw \"Validation de l'inventaire Stage3 en erreur : $($inven ...\r\n  +         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\r\n      + CategoryInfo          : OperationStopped: (Validation de l...r cette dérive.:String) [], RuntimeException\r\n      + FullyQualifiedErrorId : Validation de l'inventaire Stage3 en erreur : Traceback (most recent call last):\r\n    File \"<string>\", line 4, in <module>\r\n        File \"C:\\dev\\lca-simu\\etudecas\\prototypes\\scan_2027_risk_control\\supplier_v8_stage3_common.py\", line 172, in bui \r\n     ld_source_inventory\r\n      previous = _predecessor_inventory(root)\r\n                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\r\n        File \"C:\\dev\\lca-simu\\etudecas\\prototypes\\scan_2027_risk_control\\supplier_v8_stage3_common.py\", line 164, in _pr \r\n     edecessor_inventory\r\n      raise Stage2Error(\r\n      etudecas.prototypes.scan_2027_risk_control.supplier_v7_stage2_common.Stage2Error: Le périmètre Stage2 V2 figé a ch \r\n     angé; V3 refuse de masquer cette dérive.\r\n   \r\n  \nassert 1 == 0\n +  where 1 = CompletedProcess(args=['C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe', '-NoProfile', '-NonInteractiv...3\\xa9rim\\xc3\\xa8tre Stage2 V2 fig\\xc3\\xa9 a ch \\r\\n   ang\\xc3\\xa9; V3 refuse de masquer cette d\\xc3\\xa9rive.\\r\\n \\r\\n').returncode"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_v8_stage3_adapter",
+      "test": "test_stage3_inventory_is_explicit_and_v2_signature_stays_frozen",
+      "category": "frozen_stage2_inventory_mismatch",
+      "message": "etudecas.prototypes.scan_2027_risk_control.supplier_v7_stage2_common.Stage2Error: Le périmètre Stage2 V2 figé a changé; V3 refuse de masquer cette dérive."
+    }
+  ]
+}

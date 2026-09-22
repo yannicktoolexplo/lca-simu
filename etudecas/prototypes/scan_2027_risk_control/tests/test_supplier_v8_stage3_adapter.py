@@ -68,7 +68,8 @@ def _native_evidence() -> dict[str, Any]:
     }
 
 
-def test_stage3_inventory_is_explicit_and_v2_signature_stays_frozen() -> None:
+def test_historical_stage3_inventory_stays_frozen(historical_artifact) -> None:
+    historical_artifact("supplier_v8_stage2_supervision_20260906_v2/stage2_source_inventory.json")
     repo = Path(__file__).resolve().parents[4]
     v2 = predecessor_common.build_source_inventory(repo)
     predecessor_common.verify_source_inventory(v2)
@@ -83,6 +84,22 @@ def test_stage3_inventory_is_explicit_and_v2_signature_stays_frozen() -> None:
         if "supplier_v8_stage3_" in row["relative_path"]
     }
     assert explicit == set(common.EXPLICIT_SOURCE_FILENAMES)
+
+
+def test_stage3_source_discovery_is_explicit():
+    repo = Path(__file__).resolve().parents[4]
+    paths = common.source_paths(repo)
+    explicit = {path.name for path in paths if path.name.startswith("supplier_v8_stage3_")}
+    assert explicit == set(common.EXPLICIT_SOURCE_FILENAMES)
+
+
+def test_stage3_rejects_a_different_predecessor_even_when_self_consistent(monkeypatch):
+    # The predecessor validator is stubbed here; the Stage3 pin must still reject it.
+    monkeypatch.setattr(predecessor_common, "build_source_inventory",
+                        lambda _repo: {"inventory_signature": "0" * 64})
+    monkeypatch.setattr(predecessor_common, "verify_source_inventory", lambda _inventory: None)
+    with pytest.raises(common.Stage2Error, match="V3 refuse"):
+        common.build_source_inventory(Path(__file__).resolve().parents[4])
 
 
 def test_native_dashboard_binding_is_scoped_and_receipt_is_v3(

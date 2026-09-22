@@ -1,0 +1,15 @@
+{
+  "source": "etudecas/prototypes/scan_2027_risk_control/supplier_balanced_product_delay_multiseed_refinement_v2.py",
+  "expected": "258591d909d9da1d95684ff30f969dc0d284bdb878d51fe2c920cbbaa57dc90a",
+  "actual_before": "c171022e4c4cef525ae02d8e9c30bc6feb92e929c7dcfa05a3131bb2561d108d",
+  "head_matches_lf": true,
+  "plan_signature_valid": true,
+  "historical_plan": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_delay_multiseed_refinement_plan_20260904_v2",
+  "remaining_historical_v1_diagnostic": {
+    "plan_signature_valid": true,
+    "expected_driver": "b1e0a931db4e7d682c236ef026bf26daf3b3ca472bf00cb8c050aa37009ef748",
+    "actual_driver": "389b47d5ea102c7b40e821a48f4d6f8dd5ecb580b6de0f936ef71dae5eba03f2",
+    "lf_driver": "b1e0a931db4e7d682c236ef026bf26daf3b3ca472bf00cb8c050aa37009ef748",
+    "modified": false
+  }
+}

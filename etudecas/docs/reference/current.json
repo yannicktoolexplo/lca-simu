@@ -1,0 +1,821 @@
+{
+  "schema_version": "etudecas.fixed_reference.v1",
+  "reference_id": "reviewed_map_20260918-stable-1",
+  "recorded_at_utc": "2026-09-18T10:10:24.916972+00:00",
+  "scope": "Local calculated artifacts, consumed graphs and selected engine sources; not a transitive source inventory or scientific qualification. Sensitivity files are separate from nominal reference.",
+  "roles": [
+    {
+      "role": "nominal",
+      "label": "Reference nominale - cibles reelles conservees",
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918",
+      "scenario_id": "scn:BASE",
+      "days": 1825,
+      "seed": 42,
+      "is_nominal_reference": true
+    },
+    {
+      "role": "risk",
+      "label": "Hypotheses de risques - cibles reelles conservees",
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/scenario_runs/state_dependent_full",
+      "scenario_id": "scn:STATE_DEPENDENT_FULL",
+      "days": 1825,
+      "seed": 42,
+      "is_nominal_reference": false
+    },
+    {
+      "role": "sensitivity_stock",
+      "label": "Sensibilite seulement - cible x1.5",
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/actions/safety_150",
+      "scenario_id": "scn:STATE_DEPENDENT_FULL",
+      "days": 1825,
+      "seed": 42,
+      "is_nominal_reference": false
+    },
+    {
+      "role": "sensitivity_expedite",
+      "label": "Sensibilite seulement - acceleration",
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/actions/expedite_50",
+      "scenario_id": "scn:STATE_DEPENDENT_FULL",
+      "days": 1825,
+      "seed": 42,
+      "is_nominal_reference": false
+    }
+  ],
+  "files": [
+    {
+      "path": "etudecas/case_config.py",
+      "role": "input_or_selected_engine_source",
+      "sha256": "fd4623d52ab2f41faf899326fc0b19008fcd80bebbf2bfdadfbdea8cff7241ec"
+    },
+    {
+      "path": "etudecas/config/cases/data_poc.json",
+      "role": "input_or_selected_engine_source",
+      "sha256": "4c5648e110d73324484526314bc38484db0f5402675a46c51905ff044453029e"
+    },
+    {
+      "path": "etudecas/simulation/engine/run_first_simulation.py",
+      "role": "input_or_selected_engine_source",
+      "sha256": "f1b57be81910c3b39f2c571e6f7a8eeaa50cc27650dcdcb600540b587dfddc12"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/data/assumptions_ledger.csv",
+      "role": "nominal",
+      "sha256": "bb9e06cbe897b384d9b0a59e332a092087bae95505644b24bbc42837b32f3485"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/data/canonical_action_ledger.csv",
+      "role": "nominal",
+      "sha256": "4d4a8cdd17910366cd9a3458b3a0223260ed65a160fd7d642249ff46050b4c37"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/data/component_immobilized_stock_components_daily.csv",
+      "role": "nominal",
+      "sha256": "428c8094b26c66e8a375f4224c6fe5fdd322a4e552939bb3a97cc0f97f0eeb30"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/data/component_immobilized_stock_daily.csv",
+      "role": "nominal",
+      "sha256": "82f196315594a3f602d5da0957a38cba6b130e0852f35f81b93f9c044a98d771"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/data/component_immobilized_stock_summary.csv",
+      "role": "nominal",
+      "sha256": "2f8e6fd60a72f30dc4816e1d03360529c99d76194de2c9d330f790fb8a90b4d1"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/data/finished_goods_stock_value_daily.csv",
+      "role": "nominal",
+      "sha256": "d85a2ce978c161031fc2ba3beab51e3ab2ab017c301483da450ee49d43f0bafd"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/data/finished_goods_stock_value_summary.csv",
+      "role": "nominal",
+      "sha256": "af2c8fba040606fd83ae99323e19a4ac5358bac0f2f0622422f9052dcfeae71e"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/data/first_simulation_daily.csv",
+      "role": "nominal",
+      "sha256": "a14d8671ed2cd231b7103db32f0f12f2f63347cffd2bf70908ca2226bc97d158"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/data/initialization_observed_stock.csv",
+      "role": "nominal",
+      "sha256": "89295d600db95d650b5b90a7eed42e054b7acbd2c2d1cb8d71b26ccbe170bba3"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/data/initialization_pipeline.csv",
+      "role": "nominal",
+      "sha256": "b6bed27285120b271679944fe774c47c351eb513938a77cba6644beb547ae001"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/data/initialization_state.csv",
+      "role": "nominal",
+      "sha256": "45ca8c0c29ef35ebefd4599d5681aed0c492bb9e38971d7496407d38e231bc50"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/data/lot_causal_links.csv",
+      "role": "nominal",
+      "sha256": "3b9f58f46dc5ca6a25bc37ca3f2117561c355cbd0c071866167eabfb79334c7c"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/data/lot_path_audit_issues.csv",
+      "role": "nominal",
+      "sha256": "cce0addc253fbd80e96ceac665df4fb2bca53827ea5daff699d794d6b3002915"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/data/mrp_orders_daily.csv",
+      "role": "nominal",
+      "sha256": "443d9f0724083defc2590ea4b4477a45226b813da68d669f59c9d1d683e8646b"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/data/mrp_trace_daily.csv",
+      "role": "nominal",
+      "sha256": "4123a2d7e1ee81607c1ebacc75ee66c7784b9bb8afda061aa6b957b1c99bd3e3"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/data/opening_production_order_component_consumption.csv",
+      "role": "nominal",
+      "sha256": "04ce44687c651fa9f8b2023b95dfddd362dd196e91802a4cc030c37a4c7f673d"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/data/physics_of_decision_kpi_daily.csv",
+      "role": "nominal",
+      "sha256": "b302ed45d2e2d7ebb222af682a0b4199268fbe3b4b5ea59ddbc44612515166bc"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/data/production_campaigns.csv",
+      "role": "nominal",
+      "sha256": "bd31dd70a78b838577d7aacb649850fcf77d2aa7f086ed8816311092ed4adbd0"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/data/production_capacity_nominal_parameters.csv",
+      "role": "nominal",
+      "sha256": "b7a679198c94390c126eaceb365a5dfd6d3b78555eca2e5e45b49fc907f91f5e"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/data/production_constraint_daily.csv",
+      "role": "nominal",
+      "sha256": "18700452c80e0545a3626875356c94954e8b691f50e5f0c770d9de5ea80070e3"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/data/production_dc_stocks_daily.csv",
+      "role": "nominal",
+      "sha256": "a1086ee2d0db783061e5bbcdf66ef215e30d12217769888aa6145d089e023b64"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/data/production_demand_service_daily.csv",
+      "role": "nominal",
+      "sha256": "886696030c8b47feebca6cc45f0f71d890601a8e50ff5a922c4d07471af6998e"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/data/production_factory_nervousness.csv",
+      "role": "nominal",
+      "sha256": "80f8834ec67a037369a679f5278552fe75e6e706d3ab56e236394c37a10dd0e9"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/data/production_input_replenishment_arrivals_daily.csv",
+      "role": "nominal",
+      "sha256": "6ecae90d47f8ccac194eefceeecf0dab460a6c8eed2b6006f1912fcef93360e5"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/data/production_input_stocks_daily.csv",
+      "role": "nominal",
+      "sha256": "66d2d55554d72f0a366daa83831f1dee0f61ed4c24f7974317c53853f23d2c10"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/data/production_lot_events.csv",
+      "role": "nominal",
+      "sha256": "7fef766b2020be1ca67065de15084932f2540f91b59888bc5b510999b4017d72"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/data/production_lot_genealogy.csv",
+      "role": "nominal",
+      "sha256": "9940fc225fedf2bfb694e6029bf915f350740f952860cd60005a837eb4e08ad7"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/data/production_output_products_daily.csv",
+      "role": "nominal",
+      "sha256": "07618c07fa0f28b3ada14a0951ea4b06f60632e647ba069d3f5c26f6b53bc126"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/data/production_plan_events.csv",
+      "role": "nominal",
+      "sha256": "20e8d994415112aa88ba9acc8d29198b7dad016e625865818f8c7b8b850476cc"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/data/production_supplier_capacity_daily.csv",
+      "role": "nominal",
+      "sha256": "39944adbda635587afafb10ba6f4bb489030a0d0e1e17f2877b72c95617ead7c"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/data/production_supplier_shipments_daily.csv",
+      "role": "nominal",
+      "sha256": "ad19ac3b09fa0c8d0422852c2bd24aa8a6a950a957b8c46c3ac4f0a40d6bee2b"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/data/production_supplier_stock_flows_daily.csv",
+      "role": "nominal",
+      "sha256": "de5cc87745aa931e23099ce5ec60d4a115556befd9a34f55dd2fbcc380b21207"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/data/production_supplier_stocks_daily.csv",
+      "role": "nominal",
+      "sha256": "354f054237887c82a583cfa73ea068e6d92c70a996b67274922ce1e648ef89ba"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/data/supplier_local_criticality_ranking.csv",
+      "role": "nominal",
+      "sha256": "9b13fc4b10d3847175ee1a2874d991259132806b667fad4d4105b9c40dd09caf"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/data/supplier_nominal_parameters.csv",
+      "role": "nominal",
+      "sha256": "c889af8309d4528273a4c533b962acf93ba804f48288c727ba1861adeb905b20"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/data/supplier_risk_events_applied_daily.csv",
+      "role": "nominal",
+      "sha256": "622de05c35ac527fdc7be5d45217e3edacfdb1701eea78121f327d00a20a527f"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/data/supplier_state_dependent_risk_events.csv",
+      "role": "nominal",
+      "sha256": "199cbd3e826a9563b2914aa128a8c90ab85aa319c6e5e9a4e2f81b1a60b67740"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/actions/expedite_50-execution.json",
+      "role": "sensitivity_protocol",
+      "sha256": "65961f2ff7efe59899a53f167646ad3471c035a6ced921ed18638dc33a4dc4f4"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/actions/expedite_50.csv",
+      "role": "sensitivity_protocol",
+      "sha256": "ac4f5cbd70b5dab3211c6616ec25a0a74dc65825e60a304dd9c7e75ef7000797"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/actions/expedite_50/data/assumptions_ledger.csv",
+      "role": "sensitivity_expedite",
+      "sha256": "6e0a25bfd091b1a94e3e0525911d4493cae9c3dd383fe9e15c52700be1118ef0"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/actions/expedite_50/data/canonical_action_ledger.csv",
+      "role": "sensitivity_expedite",
+      "sha256": "ab891fa7cb7ae5a8001be02b8b8f4882b56fd6b4be80c415a2e7928a974946a5"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/actions/expedite_50/data/first_simulation_daily.csv",
+      "role": "sensitivity_expedite",
+      "sha256": "4dfcb270e0705b6c8ab7dd4c7f6b188be31adb308e444c72e9acfea5d3a66a10"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/actions/expedite_50/data/initialization_observed_stock.csv",
+      "role": "sensitivity_expedite",
+      "sha256": "89295d600db95d650b5b90a7eed42e054b7acbd2c2d1cb8d71b26ccbe170bba3"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/actions/expedite_50/data/initialization_pipeline.csv",
+      "role": "sensitivity_expedite",
+      "sha256": "b6bed27285120b271679944fe774c47c351eb513938a77cba6644beb547ae001"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/actions/expedite_50/data/initialization_state.csv",
+      "role": "sensitivity_expedite",
+      "sha256": "45ca8c0c29ef35ebefd4599d5681aed0c492bb9e38971d7496407d38e231bc50"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/actions/expedite_50/data/lot_causal_links.csv",
+      "role": "sensitivity_expedite",
+      "sha256": "a816f1e0ba3fd43409f5a67ee4610c528b3e45dc1eefe3caeacbd8bda43720a4"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/actions/expedite_50/data/lot_path_audit_issues.csv",
+      "role": "sensitivity_expedite",
+      "sha256": "eea68b7b73c2f69cce195203ff1efd3e4767c11050fec6af6fb14427fe116598"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/actions/expedite_50/data/mrp_orders_daily.csv",
+      "role": "sensitivity_expedite",
+      "sha256": "b2cf7be18971a15dd018ae3b6f6e33d11826f32cdaea302ca654941a888c339e"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/actions/expedite_50/data/mrp_trace_daily.csv",
+      "role": "sensitivity_expedite",
+      "sha256": "4b39cbaf1babc0c07aa5efc0bfd5fdc5b5a8c8adbcb85ee93d69f18b9fca6440"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/actions/expedite_50/data/opening_production_order_component_consumption.csv",
+      "role": "sensitivity_expedite",
+      "sha256": "04ce44687c651fa9f8b2023b95dfddd362dd196e91802a4cc030c37a4c7f673d"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/actions/expedite_50/data/production_campaigns.csv",
+      "role": "sensitivity_expedite",
+      "sha256": "2c25aeedbbf3c4fdf390bf8233f463f724a21b4faaa0540741c7e252319e8ce9"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/actions/expedite_50/data/production_capacity_nominal_parameters.csv",
+      "role": "sensitivity_expedite",
+      "sha256": "c2c1ec75423c32695f15fa7815719ca708b286ed1a6d9414cb0e5cdabcaffae2"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/actions/expedite_50/data/production_constraint_daily.csv",
+      "role": "sensitivity_expedite",
+      "sha256": "264d5a87ded435debe53346b85ea945e61ad2c24fb9da43bac439d7c805e4eff"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/actions/expedite_50/data/production_dc_stocks_daily.csv",
+      "role": "sensitivity_expedite",
+      "sha256": "4f32b2aff930906de75630c714bcb7dca2738e993615f979ea5f2dc01574463d"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/actions/expedite_50/data/production_demand_service_daily.csv",
+      "role": "sensitivity_expedite",
+      "sha256": "d9f3ef5dd7eb99712dde2fc9d1a7c8c0bd4ef41c409981654240f9ee558ae912"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/actions/expedite_50/data/production_factory_nervousness.csv",
+      "role": "sensitivity_expedite",
+      "sha256": "8965bbd585f5f10cdd5b05e763476bf9a833ee48fecb5dd65c133ac3adc432fc"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/actions/expedite_50/data/production_input_replenishment_arrivals_daily.csv",
+      "role": "sensitivity_expedite",
+      "sha256": "1026071be47be62ece73265c96c50638083c44b4599ff254a2a2afe0eac8ff1a"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/actions/expedite_50/data/production_input_stocks_daily.csv",
+      "role": "sensitivity_expedite",
+      "sha256": "d049969d0c082711104b7cb25dc474f6ddbf25c4df1b28433441b29847fcc82f"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/actions/expedite_50/data/production_lot_events.csv",
+      "role": "sensitivity_expedite",
+      "sha256": "7f3a739a2c7705d2fb1038a055a306c70f0914bbd4a2e334465196be5a97825e"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/actions/expedite_50/data/production_lot_genealogy.csv",
+      "role": "sensitivity_expedite",
+      "sha256": "d59b1d0ebad98d9e7abd2aa88c487486c66ced9b208d705c4f690ccb62fe9462"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/actions/expedite_50/data/production_output_products_daily.csv",
+      "role": "sensitivity_expedite",
+      "sha256": "662aaa03213d0cbb436498e025506668fef6dbfd6541e89fcfa6c75c81ac8ded"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/actions/expedite_50/data/production_plan_events.csv",
+      "role": "sensitivity_expedite",
+      "sha256": "f91def1cff111c3160ccab316f97494662a21534bd9a7b347f25c754c86b2837"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/actions/expedite_50/data/production_supplier_capacity_daily.csv",
+      "role": "sensitivity_expedite",
+      "sha256": "16f0daaa3f3ffddbaa30666cf71a58c6c8b56e8ef93ea65fb7d47f4070051849"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/actions/expedite_50/data/production_supplier_shipments_daily.csv",
+      "role": "sensitivity_expedite",
+      "sha256": "6afc3d86828386fe003d16cfe169ada1bb0ef5aec6f2e8545e1f9772d52cd0af"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/actions/expedite_50/data/production_supplier_stock_flows_daily.csv",
+      "role": "sensitivity_expedite",
+      "sha256": "6e76d46b3c387ff6792df103e04337b576faf191b8a8213a5b773dfdd0021b8c"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/actions/expedite_50/data/production_supplier_stocks_daily.csv",
+      "role": "sensitivity_expedite",
+      "sha256": "5e85e379bede60bbd6b059df16af86b6085aa80ad5d10fee484e812d210d15a5"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/actions/expedite_50/data/supplier_nominal_parameters.csv",
+      "role": "sensitivity_expedite",
+      "sha256": "34cae896747296f1a9f3d8f2afc6dd508a81f943cdbd9d2b10e0d10015171e3e"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/actions/expedite_50/data/supplier_risk_events_applied_daily.csv",
+      "role": "sensitivity_expedite",
+      "sha256": "dd5b55aa2b12a471281620dc20985e1f42bdd0350256f4253f1fecd984c65b51"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/actions/expedite_50/data/supplier_state_dependent_risk_events.csv",
+      "role": "sensitivity_expedite",
+      "sha256": "d47bb65f70c6038729b01ece40dfaf595ac70898d296524e98b55cc710405790"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/actions/expedite_50/summaries/first_simulation_summary.json",
+      "role": "sensitivity_expedite",
+      "sha256": "a83991a6daf93428ac7434a9515a1b412ee66cde68a8c3a15bb5dcc7e23bd014"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/actions/safety_150-execution.json",
+      "role": "sensitivity_protocol",
+      "sha256": "4bca6b1bbf41e3d8736d6ace001202bb796ec0db9e136547c2a7a05d94824fca"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/actions/safety_150.csv",
+      "role": "sensitivity_protocol",
+      "sha256": "ab05b79e2db753c65c62ca4e4cc87829c94480f85b366a815dc44caa9e8470b2"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/actions/safety_150/data/assumptions_ledger.csv",
+      "role": "sensitivity_stock",
+      "sha256": "1f124591525b2e1545efdf578363a3cf254cadbb87b46ebcc7cb4ed1e09c9e00"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/actions/safety_150/data/canonical_action_ledger.csv",
+      "role": "sensitivity_stock",
+      "sha256": "feb15cc848105525df2599d137287ada1787944d1aa981e7f611c2f900fcbf41"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/actions/safety_150/data/first_simulation_daily.csv",
+      "role": "sensitivity_stock",
+      "sha256": "8a0381de99f05d0333820edc75ccd395eb39b7afeae2b64cc0c8dedc91f0b71b"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/actions/safety_150/data/initialization_observed_stock.csv",
+      "role": "sensitivity_stock",
+      "sha256": "89295d600db95d650b5b90a7eed42e054b7acbd2c2d1cb8d71b26ccbe170bba3"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/actions/safety_150/data/initialization_pipeline.csv",
+      "role": "sensitivity_stock",
+      "sha256": "b6bed27285120b271679944fe774c47c351eb513938a77cba6644beb547ae001"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/actions/safety_150/data/initialization_state.csv",
+      "role": "sensitivity_stock",
+      "sha256": "45ca8c0c29ef35ebefd4599d5681aed0c492bb9e38971d7496407d38e231bc50"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/actions/safety_150/data/lot_causal_links.csv",
+      "role": "sensitivity_stock",
+      "sha256": "be122052261ac2ca50e0c598e801ce370ebd6c61c96fad4dcd6218d53c5842dd"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/actions/safety_150/data/lot_path_audit_issues.csv",
+      "role": "sensitivity_stock",
+      "sha256": "0d1c5b0c80f8c7e525e9f240962bf433131b8b6e79f73e654fed1615d8b89c5d"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/actions/safety_150/data/mrp_orders_daily.csv",
+      "role": "sensitivity_stock",
+      "sha256": "2e248d21c7b4a45898fda92815898560b5b16f131e7efdae9db2b22156cec76c"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/actions/safety_150/data/mrp_trace_daily.csv",
+      "role": "sensitivity_stock",
+      "sha256": "a222aee7eca593120c74964e8fbf3dd5251a443fd633e47530ac7950a5243a08"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/actions/safety_150/data/opening_production_order_component_consumption.csv",
+      "role": "sensitivity_stock",
+      "sha256": "04ce44687c651fa9f8b2023b95dfddd362dd196e91802a4cc030c37a4c7f673d"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/actions/safety_150/data/production_campaigns.csv",
+      "role": "sensitivity_stock",
+      "sha256": "647e86479222b7f50e155f64788e81a52dfe6b47ca9eaaba9e4293593f5e5485"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/actions/safety_150/data/production_capacity_nominal_parameters.csv",
+      "role": "sensitivity_stock",
+      "sha256": "d179dc77d27a3c07d6686472738409c6f394b7969de312756f459f8ef51098a0"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/actions/safety_150/data/production_constraint_daily.csv",
+      "role": "sensitivity_stock",
+      "sha256": "91b515c57fe26408c83542ecb40b1ea54294579adc72355ea39c063bb42bbf2e"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/actions/safety_150/data/production_dc_stocks_daily.csv",
+      "role": "sensitivity_stock",
+      "sha256": "f08bb636ea693576c8dda6eab54382abc95bd4eb3e02ea9e7a16602cf6596a5a"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/actions/safety_150/data/production_demand_service_daily.csv",
+      "role": "sensitivity_stock",
+      "sha256": "7768999084e4d2f0b81e17183ebfd80aa9b6a31fbfc17e89bdf0da824931f9a7"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/actions/safety_150/data/production_factory_nervousness.csv",
+      "role": "sensitivity_stock",
+      "sha256": "ff4e3ccc635cea5d4fdc94ce7164e853af9c4c606eb90c3881341b7b60b46881"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/actions/safety_150/data/production_input_replenishment_arrivals_daily.csv",
+      "role": "sensitivity_stock",
+      "sha256": "2441456598e8176eb2e1d810813bc821227cd253e73ec88c6674f8a709255561"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/actions/safety_150/data/production_input_stocks_daily.csv",
+      "role": "sensitivity_stock",
+      "sha256": "39fc510f585648d0cb4ca9beca84afa5e39ece8b7305cc4ec21352b2ffc9314c"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/actions/safety_150/data/production_lot_events.csv",
+      "role": "sensitivity_stock",
+      "sha256": "75096c09f944b735987711f693c13b2cad806c665fb62152635f8f7f6a162320"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/actions/safety_150/data/production_lot_genealogy.csv",
+      "role": "sensitivity_stock",
+      "sha256": "71bd59e9d258be53e2f2301b727adb2eafad22294e39df30fde7d7f7074d42c8"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/actions/safety_150/data/production_output_products_daily.csv",
+      "role": "sensitivity_stock",
+      "sha256": "fc6ae0ee291a7e3295f81298e85b4173a441c3d65df9b7bd43dbaa04ce9c471c"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/actions/safety_150/data/production_plan_events.csv",
+      "role": "sensitivity_stock",
+      "sha256": "e715efe75eebc52f07924e8201b5dbf3ead3ffa90e9fc477068d3cb9e83157b5"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/actions/safety_150/data/production_supplier_capacity_daily.csv",
+      "role": "sensitivity_stock",
+      "sha256": "1a9ff9df4d77f35401dfacfb2368529efe1041f621adcf1119fc82562201533c"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/actions/safety_150/data/production_supplier_shipments_daily.csv",
+      "role": "sensitivity_stock",
+      "sha256": "523db104fb25432111ac4381cd3796e870c5acd0c882e75f02cc9968891773d3"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/actions/safety_150/data/production_supplier_stock_flows_daily.csv",
+      "role": "sensitivity_stock",
+      "sha256": "75083046e1522d169834378dadc8a8a4feaca0a4b9ec8a673ddf4afcccccf7f9"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/actions/safety_150/data/production_supplier_stocks_daily.csv",
+      "role": "sensitivity_stock",
+      "sha256": "b44cd96883f69a8b4020581cc341176a26689f7b86d968ef9e76c162f96615a3"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/actions/safety_150/data/supplier_nominal_parameters.csv",
+      "role": "sensitivity_stock",
+      "sha256": "2a04cf747ef298219aea8f9cec494d20f3300914cd7359e08929a7def56eec87"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/actions/safety_150/data/supplier_risk_events_applied_daily.csv",
+      "role": "sensitivity_stock",
+      "sha256": "878ec5c6a3926f5a99df60869ddbdb54220adc9e2c619bf26935991d8eb9bfff"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/actions/safety_150/data/supplier_state_dependent_risk_events.csv",
+      "role": "sensitivity_stock",
+      "sha256": "7f62056dcb14d247d32fe1065a108f6a5463581a729e629badea43601b3bc9be"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/actions/safety_150/summaries/first_simulation_summary.json",
+      "role": "sensitivity_stock",
+      "sha256": "305ce75fee1857cb35afdd004d8392dc94871c7d499ea2557e353189c2010f6a"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/decision-report.json",
+      "role": "presentation_or_diagnostic",
+      "sha256": "7be5c6d54503a6dc2267a9defca69832d2482f7457f42e1551a5152a5d8f1216"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/decision_support/index.html",
+      "role": "presentation_or_diagnostic",
+      "sha256": "ba671f5760900d278e8ca5f7d4559e484018a0b2337ffa4f80d059558d42ba61"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/maps/supply_graph_reviewed_map_20260918.html",
+      "role": "presentation_or_diagnostic",
+      "sha256": "0909a94d0525a73ac66148964a36fff09a2e188acb9aecff14848936d045f273"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/run_manifest.json",
+      "role": "nominal",
+      "sha256": "41c9a04acf5a0e18f963565047201e0cc2b18f77d8d76692912edffaafa6b83a"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/scenario_graphs/state_dependent_full.json",
+      "role": "input_or_selected_engine_source",
+      "sha256": "5f24ea34630260ade0ff070dc934663cc5bd113ad58a5b8d2fc900286310fdd0"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/scenario_runs/state_dependent_full/data/assumptions_ledger.csv",
+      "role": "risk",
+      "sha256": "2684063e16b670dd876e131bd2db2d9413f1c0560dfaf954d53c017e39614e6b"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/scenario_runs/state_dependent_full/data/canonical_action_ledger.csv",
+      "role": "risk",
+      "sha256": "4d4a8cdd17910366cd9a3458b3a0223260ed65a160fd7d642249ff46050b4c37"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/scenario_runs/state_dependent_full/data/component_immobilized_stock_components_daily.csv",
+      "role": "risk",
+      "sha256": "7f026f89a883761a714ef6721df7d1ad7386b3ebda6fbf17e0a5dc7e362ed494"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/scenario_runs/state_dependent_full/data/component_immobilized_stock_daily.csv",
+      "role": "risk",
+      "sha256": "8c9636e412bf54e2c282688668829fd2b7ccb99600377475bc797ef636ce2a6e"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/scenario_runs/state_dependent_full/data/component_immobilized_stock_summary.csv",
+      "role": "risk",
+      "sha256": "4382754606aaa5f44a84f3cb2f375ab6011d71cb2c3009817cfdedee54de7644"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/scenario_runs/state_dependent_full/data/finished_goods_stock_value_daily.csv",
+      "role": "risk",
+      "sha256": "3774f09996a7d913d6defd931f8ec4284f8aa3e814408e4b8e708519d2c73dcc"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/scenario_runs/state_dependent_full/data/finished_goods_stock_value_summary.csv",
+      "role": "risk",
+      "sha256": "addb747be3e836d7a8f9321e01bab3eed444835ca718a137f895f962bf225409"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/scenario_runs/state_dependent_full/data/first_simulation_daily.csv",
+      "role": "risk",
+      "sha256": "7443b87db06a103e49d8463340bd218f18a9cbd2f77d630368107b805b435446"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/scenario_runs/state_dependent_full/data/initialization_observed_stock.csv",
+      "role": "risk",
+      "sha256": "89295d600db95d650b5b90a7eed42e054b7acbd2c2d1cb8d71b26ccbe170bba3"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/scenario_runs/state_dependent_full/data/initialization_pipeline.csv",
+      "role": "risk",
+      "sha256": "b6bed27285120b271679944fe774c47c351eb513938a77cba6644beb547ae001"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/scenario_runs/state_dependent_full/data/initialization_state.csv",
+      "role": "risk",
+      "sha256": "45ca8c0c29ef35ebefd4599d5681aed0c492bb9e38971d7496407d38e231bc50"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/scenario_runs/state_dependent_full/data/lot_causal_links.csv",
+      "role": "risk",
+      "sha256": "40eb15cfb8dfdced2eb0fa748216d4a956fa3bbb7a0845ac5982da62ae43f967"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/scenario_runs/state_dependent_full/data/lot_path_audit_issues.csv",
+      "role": "risk",
+      "sha256": "9159d877d96a491ccb5115c6deb247fdd7e9948a903483e7f7d23c8e632136c8"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/scenario_runs/state_dependent_full/data/mrp_orders_daily.csv",
+      "role": "risk",
+      "sha256": "f029e491f46371a1eef0f72c6849745d3ab6a4da8afe523a377125a133e5e194"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/scenario_runs/state_dependent_full/data/mrp_trace_daily.csv",
+      "role": "risk",
+      "sha256": "54acdac19b3426c99bc5c7294448b832eb5edfc0a80e861186683605f6f81d3c"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/scenario_runs/state_dependent_full/data/opening_production_order_component_consumption.csv",
+      "role": "risk",
+      "sha256": "04ce44687c651fa9f8b2023b95dfddd362dd196e91802a4cc030c37a4c7f673d"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/scenario_runs/state_dependent_full/data/production_campaigns.csv",
+      "role": "risk",
+      "sha256": "486078c239047ebd02c35234834b9a81c801416cdf8e0ce7be8a8f107d9f4416"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/scenario_runs/state_dependent_full/data/production_capacity_nominal_parameters.csv",
+      "role": "risk",
+      "sha256": "30ad5d390bc947ea74aaa5bb30acd3484804ad34bcc03fc637add9622771aa6e"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/scenario_runs/state_dependent_full/data/production_constraint_daily.csv",
+      "role": "risk",
+      "sha256": "fa3800991b7cbf570ca88c0c267ac318e50939ddaf368b9a2db9ddfbaf2d5b8a"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/scenario_runs/state_dependent_full/data/production_dc_stocks_daily.csv",
+      "role": "risk",
+      "sha256": "055a3ec739f5bfa5903bccd358f2f816d1df81a2926579c845b625581d0b93b1"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/scenario_runs/state_dependent_full/data/production_demand_service_daily.csv",
+      "role": "risk",
+      "sha256": "d532d177c09242f8bd680a78e5f5162ab9bf5accb7a742ec5612eb749bec344a"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/scenario_runs/state_dependent_full/data/production_factory_nervousness.csv",
+      "role": "risk",
+      "sha256": "c775ec916edc25fcad9e7ac7a7265fcb4d4cede30ce713db81d51c1104960668"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/scenario_runs/state_dependent_full/data/production_input_replenishment_arrivals_daily.csv",
+      "role": "risk",
+      "sha256": "8bb16ea45126ce49ffbb72e5b6add2ddd64dee0319bbb156cb90638a5f759bbf"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/scenario_runs/state_dependent_full/data/production_input_stocks_daily.csv",
+      "role": "risk",
+      "sha256": "339eb7b9da69e549f6929f8bb6a0e6803de7497390a63d8894e02de71962d79b"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/scenario_runs/state_dependent_full/data/production_lot_events.csv",
+      "role": "risk",
+      "sha256": "46fbd4622f686ad7f5edf87a4727aa2c80201675fbc046a30f047909cde7a0d8"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/scenario_runs/state_dependent_full/data/production_lot_genealogy.csv",
+      "role": "risk",
+      "sha256": "9777a1d95c17f12155a19d515b996644b4d0277dbb92c15b10b965c3c2bfd437"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/scenario_runs/state_dependent_full/data/production_output_products_daily.csv",
+      "role": "risk",
+      "sha256": "9746f43834387d7cc40ccdba9e52bdec60185ce0e4eb34877dac2195e18529cb"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/scenario_runs/state_dependent_full/data/production_plan_events.csv",
+      "role": "risk",
+      "sha256": "e808bd385573cfd60d0c95c9c37b68fac026525de28dec4d56455d871bdfc1ac"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/scenario_runs/state_dependent_full/data/production_supplier_capacity_daily.csv",
+      "role": "risk",
+      "sha256": "0830a57a139aab3ad2741a21b5a6dd93fd2ab4c6c583ec4ebe59df9c87617548"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/scenario_runs/state_dependent_full/data/production_supplier_shipments_daily.csv",
+      "role": "risk",
+      "sha256": "ab612e0015783dad99c6d149bb8993eac1300189d9bccfc4abdec113910339c8"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/scenario_runs/state_dependent_full/data/production_supplier_stock_flows_daily.csv",
+      "role": "risk",
+      "sha256": "c2c0e7215c42d711d5823e4b8ea202045cb7da174ca48b1bc119523d02acbf6b"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/scenario_runs/state_dependent_full/data/production_supplier_stocks_daily.csv",
+      "role": "risk",
+      "sha256": "471b544db2fcab748b5f69e6fd74e53d140589315debfc0f003d64f841750115"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/scenario_runs/state_dependent_full/data/supplier_nominal_parameters.csv",
+      "role": "risk",
+      "sha256": "cf50d35594d94ac507726b61587c3e54ddb424e7f723be55327b98fe8709ec12"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/scenario_runs/state_dependent_full/data/supplier_risk_events_applied_daily.csv",
+      "role": "risk",
+      "sha256": "a531ae93f054937119396071a7e2ceff974a75f8e0a9f4fb639ce7f0bf70545f"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/scenario_runs/state_dependent_full/data/supplier_state_dependent_risk_events.csv",
+      "role": "risk",
+      "sha256": "5f41d6104b64a2bc18935453ab123b1090aab7421743eba59a107008d91b2421"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/scenario_runs/state_dependent_full/run_manifest.json",
+      "role": "risk",
+      "sha256": "91947387806eadd1e63a5f3bb6a7bd271b0a648a8bec95dc6653e124a7c4f5b0"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/scenario_runs/state_dependent_full/summaries/component_immobilized_stock_summary.json",
+      "role": "risk",
+      "sha256": "d62fc467d136297bcab97f20a64a8daea6d397c64588d2309889f3e2981df927"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/scenario_runs/state_dependent_full/summaries/finished_goods_stock_value_summary.json",
+      "role": "risk",
+      "sha256": "339cfb2f111f9edb70677f27eb504bd7aa8eb82e5b66420376e429613ae86ab5"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/scenario_runs/state_dependent_full/summaries/first_simulation_summary.json",
+      "role": "risk",
+      "sha256": "49efab5d19d2fa537fcf7b3d6313c14172bef49909daff5c0bc60a3238b09000"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/summaries/component_immobilized_stock_summary.json",
+      "role": "nominal",
+      "sha256": "37f408c3e0fa03007cedfbab5960ef73d00e8041921f36b032fbe502e446fc77"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/summaries/finished_goods_stock_value_summary.json",
+      "role": "nominal",
+      "sha256": "4a6f3624d626b760922258c734fb555ea705da2841e6ae3f9651399d5367dffc"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/summaries/first_simulation_summary.json",
+      "role": "nominal",
+      "sha256": "f8dc970c802565a8c877302b438a9a7ba6c49d605253587e5c90711015b91254"
+    },
+    {
+      "path": "etudecas/simulation/result/_reruns/reviewed_map_20260918/summaries/supplier_local_criticality_summary.json",
+      "role": "nominal",
+      "sha256": "f447e16bcd64faddf1308c506874ba0f1011b00c60753808962cc4044db1becd"
+    },
+    {
+      "path": "etudecas/simulation_prep/result/reference_baseline/_mrp_bom_tests/bom_weekly_mps_lotified_no_static_fallback_physical_floor.json",
+      "role": "input_or_selected_engine_source",
+      "sha256": "bf9436132e53c1595de1feb8fb360c0f42cfca66f3c3bf18f49e24041ca425b5"
+    }
+  ]
+}

@@ -131,7 +131,6 @@ def derive_item_unit_value_map(
     price_map: dict[tuple[str, str, str], dict[str, Any]],
 ) -> tuple[dict[str, float], dict[str, Any]]:
     candidates_by_item: dict[str, list[float]] = defaultdict(list)
-    global_candidates: list[float] = []
     priced_edge_item_pairs = 0
 
     for edge in edges:
@@ -147,11 +146,13 @@ def derive_item_unit_value_map(
             if sell_price is None or sell_price <= 0 or price_base <= 0 or not quantity_unit:
                 continue
             target_unit = item_unit_map.get(item_id, quantity_unit)
+            if normalize_unit(target_unit) != quantity_unit and {normalize_unit(target_unit), quantity_unit} != {"G", "KG"}:
+                # A physical unit conversion needs an actual mass/length per piece.
+                continue
             unit_value = convert_unit_value(sell_price / price_base, quantity_unit, target_unit)
             if unit_value <= 0:
                 continue
             candidates_by_item[item_id].append(unit_value)
-            global_candidates.append(unit_value)
             priced_edge_item_pairs += 1
 
     item_unit_value_map = {
@@ -159,11 +160,11 @@ def derive_item_unit_value_map(
         for item_id, values in candidates_by_item.items()
         if values
     }
-    fallback_global_unit_value = float(median(global_candidates)) if global_candidates else 1.0
     stats = {
         "priced_edge_item_pairs": priced_edge_item_pairs,
         "priced_items": len(item_unit_value_map),
-        "fallback_global_unit_value_per_item_unit": fallback_global_unit_value,
+        "fallback_global_unit_value_per_item_unit": None,
+        "missing_price_policy": "unknown_no_cross_item_or_cross_unit_imputation",
     }
     return item_unit_value_map, stats
 
@@ -174,16 +175,19 @@ def holding_cost_per_unit_day_from_value(
     unit: Any,
     item_unit_map: dict[str, str],
     item_unit_value_map: dict[str, float],
-    fallback_global_unit_value: float,
+    fallback_global_unit_value: float | None,
     annual_carry_rate: float,
-) -> tuple[float, str, float]:
+) -> tuple[float | None, str, float | None]:
     target_unit = normalize_unit(unit) or item_unit_map.get(item_id, "")
     value_unit = item_unit_map.get(item_id, target_unit)
     unit_value = item_unit_value_map.get(item_id)
     source = "item_value_median_from_priced_edges"
     if unit_value is None or unit_value <= 0:
-        unit_value = fallback_global_unit_value
-        source = "global_value_median_fallback"
+        # A median mixing EUR/kg, EUR/piece and EUR/m is not an admissible price.
+        # Keep the legacy argument for callers, but never use it as a valuation.
+        return None, "missing_dimensioned_inventory_value", None
+    if normalize_unit(value_unit) != target_unit and {normalize_unit(value_unit), target_unit} != {"G", "KG"}:
+        return None, "missing_dimensioned_inventory_value", None
     unit_value = convert_unit_value(unit_value, value_unit, target_unit)
     holding_cost = max(0.0, unit_value * max(0.0, annual_carry_rate) / 365.0)
     return holding_cost, source, unit_value
@@ -1711,9 +1715,7 @@ def prepare_graph(
                 changed_edge_ids.append(eid)
 
     item_unit_value_map, holding_cost_value_stats = derive_item_unit_value_map(edges, item_unit_map, price_map)
-    fallback_global_unit_value = float(
-        holding_cost_value_stats.get("fallback_global_unit_value_per_item_unit") or 1.0
-    )
+    fallback_global_unit_value = None
 
     # Normalize scenario horizons to a consistent simulation window.
     target_sim_days = max(1, int(simulation_days))
@@ -1847,15 +1849,16 @@ def prepare_graph(
                 )
                 should_fill = hc.get("is_default") is True or hc_val is None or hc_val == 0
                 should_rescale_assumed = source.startswith("simulation_prep_") and (
-                    hc_val is None or abs(hc_val - target_hc) > 1e-12
+                    hc_val is None or target_hc is None or abs(hc_val - target_hc) > 1e-12
                 )
                 if should_fill or should_rescale_assumed:
                     hc["value"] = target_hc
                     hc["per"] = "unit*day"
                     hc["is_default"] = False
                     hc["source"] = f"simulation_prep_{target_hc_source}"
+                    hc["valuation_status"] = "known" if target_hc is not None else "unknown"
                     hc["annual_carry_rate"] = round(max(0.0, annual_carry_rate), 6)
-                    hc["unit_value_basis"] = round(max(0.0, unit_value_used), 6)
+                    hc["unit_value_basis"] = round(max(0.0, unit_value_used), 6) if unit_value_used is not None else None
                     st["holding_cost"] = hc
                     change_counts["inventory_holding_cost_updated"] += 1
                     change_counts[f"inventory_holding_cost_source::{target_hc_source}"] += 1
@@ -2245,10 +2248,10 @@ def prepare_graph(
                 "formula": "item_unit_value * annual_carry_rate / 365",
                 "annual_carry_rate": round(max(0.0, annual_carry_rate), 6),
                 "item_unit_value_basis": "median(sell_price / price_base) per item after Data_poc pricing alignment",
-                "fallback_unit_value_basis": "global median priced item-unit value",
+                "fallback_unit_value_basis": "unknown; no cross-item or cross-unit price imputation",
                 "priced_items": holding_cost_value_stats.get("priced_items", 0),
                 "priced_edge_item_pairs": holding_cost_value_stats.get("priced_edge_item_pairs", 0),
-                "fallback_global_unit_value_per_item_unit": round(fallback_global_unit_value, 6),
+                "fallback_global_unit_value_per_item_unit": None,
             },
             "process_cost_per_unit_assumed": 0.35,
             "demand_default_customer_rule": "weekly_fluctuating_profile(base=max(10, 1.0 * total_production_capacity_of_item))",

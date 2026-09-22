@@ -1,0 +1,3 @@
+supplier_id,item_id,dst_node_id,neutral_capacity_floor_qty_per_day,tested_capacity_floor_qty_per_day,effective_capacity_qty_per_day,applied_capacity_scale,capacity_floor_basis,source_neutral_capacity_floor_qty_per_day,source_tested_capacity_floor_qty_per_day
+SDC-VD0914360C,item:338929,M-1810,75000,75000,75000,1,corrected_baseline_measured_peak_daily_pull_x2.5,30000,75000
+SDC-VD0993480A,item:344135,M-1430,300000,300000,300000,1,corrected_baseline_measured_peak_daily_pull_x2.5,120000,300000

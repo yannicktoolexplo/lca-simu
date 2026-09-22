@@ -964,8 +964,10 @@ def test_multi_chunk_schedule_has_one_unique_join_key_per_physical_chunk() -> No
     assert {row[4] for row in traced} == {"E1,E2"}
 
 
+@pytest.mark.parametrize("risk_item", ["item:268967", ""])
 def test_engine_smoke_emits_native_transaction_join_and_registry_counts_bundle_once(
     tmp_path: Path,
+    risk_item: str,
 ) -> None:
     repo_root = Path(__file__).resolve().parents[2]
     engine = (
@@ -983,8 +985,8 @@ def test_engine_smoke_emits_native_transaction_join_and_registry_counts_bundle_o
     risk_csv = tmp_path / "native_risk.csv"
     risk_csv.write_text(
         "event_id,risk_type,supplier_id,item_id,dst_node_id,edge_id,start_day,end_day,multiplier,notes\n"
-        "DEMO-LEAD,lead_time_extra_days,DC-1920,item:268967,C-XXXXX,"
-        "edge:DC-1910_TO_C-XXXXX_268967,0,9,2,Native lineage smoke\n",
+        f"DEMO-LEAD,lead_time_extra_days,DC-1920,{risk_item},C-XXXXX,"
+        ",0,9,2,Native lineage smoke\n",
         encoding="utf-8",
     )
     output = tmp_path / "engine_output"
@@ -1034,6 +1036,14 @@ def test_engine_smoke_emits_native_transaction_join_and_registry_counts_bundle_o
     shipment_ids = [row["shipment_id"] for row in risk_shipments]
     assert all(shipment_ids)
     assert len(shipment_ids) == len(set(shipment_ids))
+    if not risk_item:
+        # Same route and dates do not make two article contributions the same
+        # transaction. Their risk bundles and lot allocations must stay apart.
+        by_route_dates: dict[tuple[str, ...], set[str]] = {}
+        for shipment in risk_shipments:
+            key = tuple(shipment[name] for name in ("src_node_id", "dst_node_id", "day", "arrival_day"))
+            by_route_dates.setdefault(key, set()).add(shipment["item_id"])
+        assert any(len(items) > 1 for items in by_route_dates.values())
 
     with (data / "production_lot_events.csv").open(
         encoding="utf-8", newline=""
@@ -1080,6 +1090,9 @@ def test_engine_smoke_emits_native_transaction_join_and_registry_counts_bundle_o
         risk_shipments
     )
     assert registry.quality["counts"]["scope_day_association_bundle_count"] == 0
+    reconciliation = registry.quality["quantity_reconciliation"]
+    assert reconciliation["source_allocation_coverage_ratio"] == pytest.approx(1.0)
+    assert reconciliation["receipt_lineage_in_horizon_coverage_ratio"] == pytest.approx(1.0)
     assert registry.incidents[0]["supplier_id"] == "DC-1920"
     assert registry.incidents[0]["risk_type"] == "lead_time_extra_days"
     assert registry.incidents[0]["event_source"]
@@ -1089,3 +1102,27 @@ def test_engine_smoke_emits_native_transaction_join_and_registry_counts_bundle_o
     assert sum(float(row["shipped_qty"]) for row in registry.bundles) == pytest.approx(
         sum(float(row["shipped_qty"]) for row in risk_shipments)
     )
+
+
+def test_reserved_shipment_retains_risk_decision_on_later_physical_departure() -> None:
+    ledger = LotLedger(enabled=True)
+    ledger.create_lot(day=0, node_id="SUP-1", item_id="item:C", qty=100,
+                      source_type="opening_stock", uom="UN", event_type="opening_stock")
+    allocations = ledger.consume(
+        day=1, node_id="SUP-1", item_id="item:C", qty=40,
+        event_type="shipment_reserve", source_id="edge:C", shipment_id="SHIP-1",
+        risk_decision_day=1, risk_event_ids="E1", uom="UN",
+    )
+    quantities = {key: row["qty_remaining"] for key, row in ledger.lots.items()}
+    ledger.record_allocation_event(
+        day=4, event_type="lane_ship", parent_allocations=allocations,
+        source_id="edge:C", shipment_id="SHIP-1", risk_decision_day=1,
+        risk_event_ids="E1", departure_day=4, arrival_day=6,
+    )
+    event = ledger.event_rows[-1]
+    assert event["shipment_id"] == "SHIP-1"
+    assert event["risk_decision_day"] == 1
+    assert event["risk_event_ids"] == "E1"
+    assert event["day"] == 4
+    assert event["qty"] == 40
+    assert {key: row["qty_remaining"] for key, row in ledger.lots.items()} == quantities

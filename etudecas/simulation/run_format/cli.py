@@ -36,8 +36,11 @@ def main() -> None:
             package_dir=Path(args.package_dir) if args.package_dir else None,
             map_html=Path(args.map_html) if args.map_html else None,
         )
-        print(f"[OK] Generic run package: {package_dir.resolve()}", flush=True)
-        _print_validations(validate_run_package(package_dir))
+        print(f"Generic run package written: {package_dir.resolve()}", flush=True)
+        validations = validate_run_package(package_dir)
+        _print_validations(validations)
+        if any(not row.get("ok") for row in validations):
+            raise SystemExit(1)
         return
     if args.command == "validate":
         validations = validate_run_package(Path(args.package_dir))

@@ -17,6 +17,13 @@ class VisualValidator:
             return report
         if path.stat().st_size == 0:
             report.add_issue("critical", f"Figure file is empty: {path}")
+        if path.suffix.lower() in {".png", ".jpg", ".jpeg", ".gif", ".webp"}:
+            try:
+                from PIL import Image
+                with Image.open(path) as image:
+                    image.verify()
+            except (OSError, ValueError) as exc:
+                report.add_issue("critical", f"Invalid image file: {exc}")
         if spec:
             labels = spec.get("labels", {})
             if not labels.get("title"):

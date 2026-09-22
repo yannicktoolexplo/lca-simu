@@ -128,5 +128,12 @@
       "currency": "EUR",
       "basis": "baseline_calibrated_fixed_unit_rate"
     }
-  ]
+  ],
+  "logistics_estimate_proxies": {
+    "item:338929": {
+      "source_item_id": "item:268967",
+      "source_reference": "hypothesis:packaging_proxy_from_item_268967",
+      "note": "Provisional analogy for transport estimates requested by user; packaging and gross weight not measured for this component."
+    }
+  }
 }

@@ -53,14 +53,16 @@ def load_lane_shipments(
 
     graph_path = Path(graph_json)
     graph = json.loads(graph_path.read_text(encoding="utf-8"))
-    edges = {
-        str(edge.get("id") or ""): edge
-        for edge in (graph.get("edges") or [])
-        if isinstance(edge, dict)
-    }
     events_path = Path(lot_events_csv)
     with events_path.open("r", encoding="utf-8-sig", newline="") as handle:
         event_rows = list(csv.DictReader(handle))
+    return shipment_lines_from_events(event_rows, graph)
+
+
+def shipment_lines_from_events(event_rows: Iterable[dict[str, Any]], graph: dict) -> list[ShipmentLine]:
+    """Use the same source-event contract in the CLI and the lot diagram."""
+    edges = {str(edge.get("id") or ""): edge for edge in graph.get("edges", [])
+             if isinstance(edge, dict)}
 
     lines: list[ShipmentLine] = []
     for row in event_rows:

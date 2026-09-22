@@ -26,6 +26,21 @@ Les colonnes existantes sont conservées. Les nouvelles simulations ajoutent :
 réceptionné. `risk_decision_day` reste le jour où l'effet a été calculé, même si
 la libération physique ou la réception a lieu plus tard.
 
+Pour les livraisons du planning fournisseur, `shipment_id` identifie une
+transaction physique (un article et un chunk de livraison) dans un run. Il est
+attribué une seule fois et conservé dans le CSV fournisseur, la réservation,
+le départ, la réception, la généalogie et la commande MRP. Plusieurs lots sources
+peuvent contribuer à cette transaction ; leurs quantités sont alors réconciliées
+par cet identifiant. Deux articles ou deux chunks partageant route et dates
+restent des transactions distinctes.
+
+Cet identifiant ne prouve ni l'identité d'un véhicule ni la consolidation réelle
+de son chargement. Les regroupements simulés par route/date utilisés par d'autres
+flux et les unités de manutention ne remplacent pas la clé de transaction du
+registre fournisseur. Lors d'un départ différé, les identifiants d'incident et
+le jour de décision restent ceux de la réservation ou de la décision initiale,
+pas ceux du départ physique.
+
 ## Niveaux de preuve
 
 - `native_transaction` : les identifiants d'incident sont portés par la

@@ -9,6 +9,7 @@ from typing import Any
 from etudecas.visualization.maps.chart_payloads import build_line_chart_figure
 from etudecas.visualization.maps.map_data_loader import load_json_dict, read_csv_rows
 from etudecas.visualization.maps.map_render import fmt_pct, fmt_qty
+from etudecas.visualization.maps.economic_valuation import economic_cost_view
 
 
 def to_float(x: Any) -> float | None:
@@ -78,6 +79,54 @@ def supplier_risk_row_intensity(row: dict[str, str]) -> float:
     return max(0.0, operational_loss + delay_loss + cost_loss + physical_loss)
 
 
+def compute_observed_impact(kpis: dict[str, Any], base_kpis: dict[str, Any]) -> dict[str, float | str]:
+    """Descriptive weighted impact, not a probability or calibrated decision score."""
+    total_demand = max(1.0, to_float(kpis.get("total_demand")) or to_float(base_kpis.get("total_demand")) or 1.0)
+    service_loss_pp = max(
+        0.0,
+        ((to_float(base_kpis.get("fill_rate")) or 0.0) - (to_float(kpis.get("fill_rate")) or 0.0)) * 100.0,
+    )
+    replan_volume_pct = None  # No common unit between intermediate output and customer demand.
+    backlog_pct = 100.0 * max(0.0, to_float(kpis.get("max_backlog")) or 0.0) / total_demand
+    base_cost = max(1.0, to_float(base_kpis.get("total_cost")) or 1.0)
+    cost_comparable = kpis.get("valuation_complete") is True and base_kpis.get("valuation_complete") is True
+    cost_delta_pct = 100.0 * max(0.0, (to_float(kpis.get("total_cost")) or 0.0) - base_cost) / base_cost if cost_comparable else None
+    loss_qty_pct = None  # Article/unit losses cannot be divided by finished demand.
+    # Retain existing weights only for comparable customer and monetary ratios.
+    # Excluded dimensions stay unavailable, not silently presented as zero loss.
+    observed_score = 5.0 * service_loss_pp + 3.0 * backlog_pct + 0.25 * (cost_delta_pct or 0.0)
+    amplitude = max(0.0, to_float(kpis.get("risk_input_amplitude_points")) or 0.0)
+    effect_per_100 = (100.0 * observed_score / amplitude) if amplitude > 1e-9 else 0.0
+    if amplitude <= 1e-9:
+        absorption_label = "n/a"
+    elif service_loss_pp > 1e-9 or backlog_pct >= 0.5:
+        absorption_label = "Service cumulé inférieur à la référence ou reliquat significatif"
+    elif cost_delta_pct is not None and cost_delta_pct >= 5.0:
+        absorption_label = "Service cumulé préservé ; coût opérationnel accru"
+    else:
+        absorption_label = "Service cumulé préservé dans ce scénario" if cost_comparable else "Service cumulé préservé ; coût non comparable"
+    return {
+        "fill_rate_delta_pp": 100.0 * ((to_float(kpis.get("fill_rate")) or 0.0) - (to_float(base_kpis.get("fill_rate")) or 0.0)),
+        "cost_delta": (to_float(kpis.get("total_cost")) or 0.0) - (to_float(base_kpis.get("total_cost")) or 0.0),
+        "operating_cost_delta": (to_float(kpis.get("operating_cost")) or to_float(kpis.get("total_cost")) or 0.0) - (to_float(base_kpis.get("operating_cost")) or to_float(base_kpis.get("total_cost")) or 0.0),
+        "economic_exposure_delta": (to_float(kpis.get("economic_exposure")) or 0.0) - (to_float(base_kpis.get("economic_exposure")) or 0.0) if kpis.get("economic_exposure") is not None and base_kpis.get("economic_exposure") is not None else None,
+        "monetary_comparison_eligible": cost_comparable,
+        "input_delay_volume_delta": (to_float(kpis.get("input_delay_volume")) or 0.0) - (to_float(base_kpis.get("input_delay_volume")) or 0.0),
+        "loss_delta": (to_float(kpis.get("total_unreliable_loss_qty")) or 0.0) - (to_float(base_kpis.get("total_unreliable_loss_qty")) or 0.0),
+        "external_cost_delta": (to_float(kpis.get("total_external_procurement_cost")) or 0.0) - (to_float(base_kpis.get("total_external_procurement_cost")) or 0.0),
+        "service_loss_pp": service_loss_pp,
+        "replan_volume_pct": replan_volume_pct,
+        "backlog_pct": backlog_pct,
+        "cost_delta_pct": cost_delta_pct,
+        "loss_qty_pct": loss_qty_pct,
+        "observed_impact_score": observed_score,
+        "score_contract": "customer_cost_v3_valuation_guard",
+        "score_excluded_dimensions": ["material_loss", "replanning"] + ([] if cost_comparable else ["cost"]),
+        "effect_per_100_amplitude": effect_per_100,
+        "absorption_label": absorption_label,
+    }
+
+
 def build_scenario_comparison_payload(current_output_root: Path) -> dict[str, Any]:
     result_root = current_output_root.parent
     sweep_root = result_root / "risk_amplitude_duration_sweep_5y"
@@ -88,7 +137,12 @@ def build_scenario_comparison_payload(current_output_root: Path) -> dict[str, An
         compact_ids = {str(row.get("id") or "") for row in compact_payload.get("scenarios", []) if isinstance(row, dict)}
         current_has_summary = (current_output_root / "summaries" / "first_simulation_summary.json").exists()
         if compact_payload and (not current_has_summary or current_output_root.name in compact_ids):
-            return compact_payload
+            # Old compact payloads have no auditable valuation/units contract.
+            # Preserve the archive, but do not republish its previous rankings.
+            if not current_has_summary:
+                return {"available": False, "scenarios": [], "figures": {},
+                        "html": "Comparaison archivée : sources de calcul nécessaires pour revalider les unités et les périmètres de coût.",
+                        "archive_source": str(compact_payload_path), "valuation_status": "unknown"}
     sweep_summary_csv = sweep_root / "risk_amplitude_duration_sweep_summary.csv"
     sweep_rows = read_csv_rows(sweep_summary_csv)
     sweep_by_id = {str(row.get("case_id") or ""): row for row in sweep_rows if row.get("case_id")}
@@ -233,11 +287,14 @@ def build_scenario_comparison_payload(current_output_root: Path) -> dict[str, An
             points.append((day, last))
         return points
 
-    def leading_startup_backlog_days(backlog_by_day: dict[int, float], max_day: int) -> list[int]:
+    def leading_startup_backlog_days(backlog_by_day: dict[int, float], served_by_day: dict[int, float], max_day: int) -> list[int]:
+        # Startup ends at the first customer service. A fractional forecast
+        # remainder may persist indefinitely with integer physical deliveries;
+        # waiting for exactly zero backlog would hide all later shortages.
         days: list[int] = []
         for day in range(max_day + 1):
             value = float(backlog_by_day.get(day, 0.0))
-            if value > 1e-9:
+            if value > 1e-9 and float(served_by_day.get(day, 0.0)) <= 1e-9:
                 days.append(day)
                 continue
             break
@@ -265,7 +322,7 @@ def build_scenario_comparison_payload(current_output_root: Path) -> dict[str, An
         demand_by_day = daily_totals(demand_rows, "demand_qty")
         served_by_day = daily_totals(demand_rows, "served_qty")
         backlog_by_day = daily_totals(demand_rows, "backlog_end_qty")
-        startup_backlog_days = leading_startup_backlog_days(backlog_by_day, max_day)
+        startup_backlog_days = leading_startup_backlog_days(backlog_by_day, served_by_day, max_day)
         startup_day_set = set(startup_backlog_days)
         startup_backlog_peak = max((backlog_by_day.get(day, 0.0) for day in startup_backlog_days), default=0.0)
         decision_backlog_by_day = {
@@ -384,6 +441,7 @@ def build_scenario_comparison_payload(current_output_root: Path) -> dict[str, An
                 "is_current": root.resolve() == current_output_root.resolve(),
                 "horizon_days": max_day + 1,
                 "kpis": {
+                    **economic_cost_view(summary),
                     "fill_rate": fill_rate_value,
                     "fill_rate_delta_pp": to_float(sweep_row.get("fill_rate_delta_pp")) if is_sweep else 0.0,
                     "ending_backlog": max(0.0, to_float(kpis.get("ending_backlog")) or 0.0),
@@ -459,53 +517,11 @@ def build_scenario_comparison_payload(current_output_root: Path) -> dict[str, An
         (
             scenario
             for scenario in scenarios
-            if scenario["id"] in {"_codex_lot_trace_5y_safe", "baseline_nominal"}
+            if scenario["kind"] == "nominal" or scenario["id"] in {"_codex_lot_trace_5y_safe", "baseline_nominal"}
         ),
         scenarios[0],
     )
     nominal_kpis = nominal["kpis"]
-
-    def compute_observed_impact(kpis: dict[str, Any], base_kpis: dict[str, Any]) -> dict[str, float | str]:
-        total_demand = max(1.0, to_float(kpis.get("total_demand")) or to_float(base_kpis.get("total_demand")) or 1.0)
-        service_loss_pp = max(
-            0.0,
-            ((to_float(base_kpis.get("fill_rate")) or 0.0) - (to_float(kpis.get("fill_rate")) or 0.0)) * 100.0,
-        )
-        replan_volume_pct = 100.0 * max(0.0, to_float(kpis.get("input_delay_volume")) or 0.0) / total_demand
-        backlog_pct = 100.0 * max(0.0, to_float(kpis.get("max_backlog")) or 0.0) / total_demand
-        base_cost = max(1.0, to_float(base_kpis.get("total_cost")) or 1.0)
-        cost_delta_pct = 100.0 * max(0.0, (to_float(kpis.get("total_cost")) or 0.0) - base_cost) / base_cost
-        loss_qty_pct = 100.0 * max(0.0, to_float(kpis.get("total_unreliable_loss_qty")) or 0.0) / total_demand
-        # Weighted score for ranking scenarios. Service and backlog are weighted
-        # higher than pure cost, because the business decision first protects
-        # product availability and production continuity.
-        observed_score = (
-            5.0 * service_loss_pp
-            + 3.0 * backlog_pct
-            + 1.0 * replan_volume_pct
-            + 0.25 * cost_delta_pct
-            + 1.0 * loss_qty_pct
-        )
-        amplitude = max(0.0, to_float(kpis.get("risk_input_amplitude_points")) or 0.0)
-        effect_per_100 = (100.0 * observed_score / amplitude) if amplitude > 1e-9 else 0.0
-        if amplitude <= 1e-9:
-            absorption_label = "n/a"
-        elif service_loss_pp >= 2.0 or backlog_pct >= 0.5:
-            absorption_label = "impact client"
-        elif replan_volume_pct >= 2.0 or cost_delta_pct >= 5.0:
-            absorption_label = "absorbe client, impact production/cout"
-        else:
-            absorption_label = "absorbe par stocks/MRP"
-        return {
-            "service_loss_pp": service_loss_pp,
-            "replan_volume_pct": replan_volume_pct,
-            "backlog_pct": backlog_pct,
-            "cost_delta_pct": cost_delta_pct,
-            "loss_qty_pct": loss_qty_pct,
-            "observed_impact_score": observed_score,
-            "effect_per_100_amplitude": effect_per_100,
-            "absorption_label": absorption_label,
-        }
 
     for scenario in scenarios:
         scenario["kpis"].update(compute_observed_impact(scenario["kpis"], nominal_kpis))
@@ -517,7 +533,8 @@ def build_scenario_comparison_payload(current_output_root: Path) -> dict[str, An
         sign = "+" if diff > 0 else ""
         return f"{sign}{fmt_qty(diff, digits)}"
 
-    best_cost = min(scenarios, key=lambda item: item["kpis"].get("total_cost", math.inf))
+    eligible_costs = [scenario for scenario in scenarios if scenario["kpis"].get("economic_ranking_eligible")]
+    best_cost = min(eligible_costs, key=lambda item: item["kpis"].get("economic_exposure", math.inf)) if eligible_costs and len(eligible_costs) == len(scenarios) else None
     def replanning_sort_key(scenario: dict[str, Any]) -> tuple[float, float, float]:
         kpis = scenario["kpis"]
         rate = kpis.get("production_replanning_rate")
@@ -544,8 +561,6 @@ def build_scenario_comparison_payload(current_output_root: Path) -> dict[str, An
         scenarios,
         key=lambda item: (
             item["kpis"].get("observed_impact_score", 0.0)
-            or item["kpis"].get("impact_score", 0.0)
-            or item["kpis"].get("risk_event_count", 0.0)
         ),
     )
 
@@ -564,16 +579,16 @@ def build_scenario_comparison_payload(current_output_root: Path) -> dict[str, An
                 nominal["label"],
                 (
                     f"Base de comparaison: disponibilite produit {fmt_pct(nominal_kpis['fill_rate'] * 100.0)} ; "
-                    f"cout total {fmt_qty(nominal_kpis['total_cost'], 0)}. "
+                    f"{nominal_kpis['cost_label']} {fmt_qty(nominal_kpis['total_cost'], 0)}. "
                     f"Amorcage client: {int(nominal_kpis.get('startup_backlog_days') or 0)} j, "
                     f"pic {fmt_qty(nominal_kpis.get('startup_backlog_peak') or 0, 0)}."
                 ),
                 "#2563eb",
             ),
             card(
-                "Cout total le plus bas",
-                best_cost["label"],
-                f"Cout total {fmt_qty(best_cost['kpis']['total_cost'], 0)} ; delta vs reference {delta(best_cost['kpis']['total_cost'], nominal_kpis['total_cost'], 0)}.",
+                "Exposition économique simulée" if best_cost else "Valorisation à compléter",
+                best_cost["label"] if best_cost else "Classement économique indisponible",
+                f"Exposition économique {fmt_qty(best_cost['kpis']['economic_exposure'], 0)}." if best_cost else "Au moins un scénario est partiellement valorisé ou sa couverture de valorisation n'est pas documentée.",
                 "#0f766e",
             ),
             card(
@@ -612,8 +627,10 @@ def build_scenario_comparison_payload(current_output_root: Path) -> dict[str, An
         "Pertes fournisseur",
         "Delta pertes",
         "Cout appro fournisseur",
-        "Cout total",
-        "Delta cout",
+        "Coût opérationnel simulé (sous-total si valorisation incomplète)",
+        "Delta coût opérationnel",
+        "Exposition économique simulée (opérationnel + externe)",
+        "Couverture de valorisation",
     ]
 
     def scenario_configuration_text(scenario: dict[str, Any]) -> str:
@@ -680,6 +697,8 @@ def build_scenario_comparison_payload(current_output_root: Path) -> dict[str, An
             f"<td>{html.escape(fmt_qty(k['total_external_procurement_cost'], 0))}</td>"
             f"<td>{html.escape(fmt_qty(k['total_cost'], 0))}</td>"
             f"<td>{html.escape(delta(k.get('cost_delta') or (k['total_cost'] - nominal_kpis['total_cost']), 0, 0))}</td>"
+            f"<td>{html.escape(fmt_qty(k.get('economic_exposure'), 0))}</td>"
+            f"<td>{html.escape(k['cost_label'])}</td>"
             "</tr>"
         )
 
@@ -731,7 +750,7 @@ def build_scenario_comparison_payload(current_output_root: Path) -> dict[str, An
         {scenario["label"]: scenario["series"]["backlog"] for scenario in scenarios},
         title="Backlog client compare hors amorcage",
         y_label="Backlog fin jour",
-        note="Les jours d'amorcage J0..Jn dus au stock client initial nul sont retires de cette courbe et detailles dans le tableau.",
+        note="Seuls les jours initiaux avec backlog avant le premier service client sont exclus et detailles dans le tableau.",
         series_styles=style_by_label,
     )
     if backlog_figure is not None:
@@ -787,13 +806,17 @@ def build_scenario_comparison_payload(current_output_root: Path) -> dict[str, An
 
     figures["cost"] = {
         "kind": "bar",
-        "title": "Cout total compare",
-        "y_label": "Cout total",
+        "title": "Coût opérationnel simulé — périmètre valorisé",
+        "y_label": "EUR (sous-total si valorisation incomplète)",
+        "valuation_status": "complete" if all(s["kpis"].get("valuation_complete") for s in scenarios) else "incomplete_or_unknown",
         "ids": [scenario["id"] for scenario in scenarios],
         "labels": [scenario["label"] for scenario in scenarios],
         "values": [float(scenario["kpis"]["total_cost"]) for scenario in scenarios],
         "colors": [style_by_label[scenario["label"]]["color"] for scenario in scenarios],
     }
+    for key, title in (("external_procurement_cost", "Approvisionnement externe simulé"), ("economic_exposure", "Exposition économique simulée — périmètre valorisé")):
+        figures[key] = {**figures["cost"], "title": title,
+                        "values": [scenario["kpis"].get(key) for scenario in scenarios]}
 
     checks_html = "".join(
         (
@@ -841,8 +864,8 @@ def build_scenario_comparison_payload(current_output_root: Path) -> dict[str, An
         "<div class=\"orderLedgerTextHeader\">Comparaison de scenarios</div>",
         "<div class=\"orderLedgerStatus\">Question metier: quel scenario degrade le service, reporte la production, augmente les couts ou consomme la resilience du reseau ? La ligne du scenario courant est surlignee.</div>",
         "<div class=\"orderLedgerStatus\">Lecture state-dependent: les scenarios de crise configurent des aleas metier, puis le moteur declenche et propage les effets selon l'etat du run: stocks, retards, ordres, capacites, receptions et backlog.</div>",
-        "<div class=\"orderLedgerStatus\">Amplitude entree: points risque-jour calcules depuis les multiplicateurs vraiment appliques. Impact observe: perte de disponibilite produit, reports, backlog et surcout vs nominal. Ce n'est pas une probabilite.</div>",
-        "<div class=\"orderLedgerStatus\">Note: le backlog J0/J1 vient du stock client initialise a zero et du delai DC -> client. Il est affiche comme amorcage client, mais exclu du backlog comparatif des scenarios.</div>",
+        "<div class=\"orderLedgerStatus\">Amplitude entree: points risque-jour calcules depuis les multiplicateurs vraiment appliques. Impact observe: perte de disponibilite produit, reports, backlog et surcout vs nominal. Le score pondere est descriptif, non calibre : ce n'est pas une probabilite. Le service cumule inclut les rattrapages et ne mesure pas les livraisons a l'heure.</div>",
+        "<div class=\"orderLedgerStatus\">Note: seuls les jours initiaux avec backlog avant le premier service client sont exclus du comparatif. Un reliquat fractionnaire apres le premier service reste visible.</div>",
         "<div class=\"scenarioComparisonControls\">",
         "<div class=\"scenarioComparisonActions\">",
         "<button class=\"tableBtn\" type=\"button\" data-scenario-select=\"all\">Tous</button>",
@@ -860,7 +883,7 @@ def build_scenario_comparison_payload(current_output_root: Path) -> dict[str, An
         "</div>",
         f"<div id=\"scenarioComparisonCards\" class=\"riskScenarioCards\">{cards_html}</div>",
         "<div class=\"riskScenarioSection\">Courbes comparatives</div>",
-        "<div class=\"riskScenarioMuted\">Lecture des courbes: gris = trajectoires selectionnees, bande bleue = enveloppe centrale P10-P90. Pour les reports, la bande part de zero et montre l'amplitude des scenarios selectionnes. Pointille bleu = mediane, noir = nominal, orange = run courant, rouge = scenario le plus perturbateur.</div>",
+        "<div class=\"riskScenarioMuted\">Lecture des courbes: gris = trajectoires selectionnees, bande bleue = enveloppe descriptive P10-P90 des scenarios selectionnes, pas un intervalle de confiance Monte Carlo. Pour les reports, la bande part de zero et montre l'amplitude des scenarios selectionnes. Pointille bleu = mediane, noir = nominal, orange = run courant, rouge = scenario le plus perturbateur.</div>",
         "<div class=\"riskDiagnosticChartGrid\">",
         "<div id=\"scenarioCmpBacklog\" class=\"riskDiagnosticChart\"></div>",
         "<div id=\"scenarioCmpService\" class=\"riskDiagnosticChart\"></div>",
@@ -883,6 +906,7 @@ def build_scenario_comparison_payload(current_output_root: Path) -> dict[str, An
         "available": True,
         "html": "".join(html_parts),
         "figures": figures,
+        "reference_id": nominal["id"],
         "scenarios": [
             {
                 "id": scenario["id"],
@@ -893,6 +917,8 @@ def build_scenario_comparison_payload(current_output_root: Path) -> dict[str, An
                 "source": scenario.get("source") or "",
                 "impact_score": scenario.get("impact_score") or 0.0,
                 "is_current": bool(scenario.get("is_current")),
+                "is_reference": scenario["id"] == nominal["id"],
+                "horizon_days": scenario["horizon_days"],
                 "kpis": scenario["kpis"],
             }
             for scenario in scenarios

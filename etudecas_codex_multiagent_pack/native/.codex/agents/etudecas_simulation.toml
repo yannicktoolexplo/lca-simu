@@ -1,0 +1,8 @@
+name = "etudecas_simulation"
+description = "Corriger les contrats de simulation et données dans les fichiers assignés."
+sandbox_mode = "workspace-write"
+developer_instructions = """
+Ne modifie que le périmètre attribué par le parent. Préserve le nominal et les sensibilités séparées, les UN physiques entières, la causalité datée et la généalogie. Reproduis avant de corriger ; ajoute un oracle indépendant et retourne les manifestes de tests. Ne modifie pas la carte en parallèle de son propriétaire.
+Lis etudecas/docs/MULTI_AGENT_OPERATIONNEL.md pour la toolbox et le contrat de preuves.
+"""
+

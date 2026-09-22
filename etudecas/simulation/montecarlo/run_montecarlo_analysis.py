@@ -139,20 +139,8 @@ def _sha256_file(path: Path) -> str:
 def _implementation_fingerprint(run_script: Path) -> str:
     """Fingerprint simulation code that can alter a run result."""
 
-    candidates = set(run_script.parent.rglob("*.py")) if run_script.parent.exists() else set()
-    candidates.update(
-        {
-            Path(__file__).resolve().parents[1] / "analysis_batch_common.py",
-            Path(__file__).resolve().parent / "trajectory_collector.py",
-        }
-    )
-    digest = hashlib.sha256()
-    for candidate in sorted((path.resolve() for path in candidates if path.is_file()), key=str):
-        digest.update(str(candidate).encode("utf-8"))
-        digest.update(b"\0")
-        digest.update(_sha256_file(candidate).encode("ascii"))
-        digest.update(b"\0")
-    return digest.hexdigest()
+    from etudecas.simulation.source_fingerprint import implementation_fingerprint
+    return implementation_fingerprint(run_script)
 
 
 def build_checkpoint_config(

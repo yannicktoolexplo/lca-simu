@@ -1,0 +1,372 @@
+{
+  "schema_version": "etudecas.documentation.v1",
+  "fingerprint_method": "python-ast-v1",
+  "business_source_fingerprints": {
+    "etudecas/docs/changes/2026-09-20-audit-model-corrections.md": "d86ac09b31b43ff64b05e770c1c7ddd5e06f4ac2c8ce50c8b672ce4490487294"
+  },
+  "references": [
+    {
+      "id": "engine-run",
+      "kind": "implementation",
+      "path": "etudecas/simulation/engine/run_first_simulation.py",
+      "symbol": "main",
+      "line": 6869,
+      "fingerprint": "4e5be273252205b8f29c0400d475019c7a59d47b2ba72b4cf182b11ed4b62684",
+      "reference_fingerprint": "4e5be273252205b8f29c0400d475019c7a59d47b2ba72b4cf182b11ed4b62684",
+      "changed": false,
+      "declaration": "def main() -> None:",
+      "docstring": null
+    },
+    {
+      "id": "demand-profile",
+      "kind": "implementation",
+      "path": "etudecas/simulation/engine/run_first_simulation.py",
+      "symbol": "demand_targets_for_day",
+      "line": 2935,
+      "fingerprint": "4851eb40e6cde20c5531b82e8276c087a48fe8030976d23a923b99fe5276b274",
+      "reference_fingerprint": "4851eb40e6cde20c5531b82e8276c087a48fe8030976d23a923b99fe5276b274",
+      "changed": false,
+      "declaration": "def demand_targets_for_day(demand_profiles: dict[tuple[str, str], list[dict[str, Any]]], day: int, *, window_days: int=1) -> dict[tuple[str, str], float]:",
+      "docstring": null
+    },
+    {
+      "id": "initialization",
+      "kind": "implementation",
+      "path": "etudecas/simulation/engine/run_first_simulation.py",
+      "symbol": "scenario_initialization_policy",
+      "line": 4687,
+      "fingerprint": "ab4dd7b400980ba72e0a15e80ee32dbe01a5cc0148e66a69a8bab23046127691",
+      "reference_fingerprint": "ab4dd7b400980ba72e0a15e80ee32dbe01a5cc0148e66a69a8bab23046127691",
+      "changed": false,
+      "declaration": "def scenario_initialization_policy(scenario: dict[str, Any], *, review_period_days: int, safety_stock_days: float) -> dict[str, Any]:",
+      "docstring": null
+    },
+    {
+      "id": "safety-calendar",
+      "kind": "implementation",
+      "path": "etudecas/simulation/engine/model_semantics.py",
+      "symbol": "safety_calendar_days",
+      "line": 86,
+      "fingerprint": "ae514fd6fc3d8b06bacf8006c9a54452d90794ab3ee9efbb5928f47eb8f56df2",
+      "reference_fingerprint": "ae514fd6fc3d8b06bacf8006c9a54452d90794ab3ee9efbb5928f47eb8f56df2",
+      "changed": false,
+      "declaration": "def safety_calendar_days(source_days: float, *, day: int, anchor_weekday: int, calendar: str) -> float:",
+      "docstring": "Elapsed cover after N working days; no production/transport closure implied."
+    },
+    {
+      "id": "safety-anchor",
+      "kind": "implementation",
+      "path": "etudecas/simulation/engine/model_semantics.py",
+      "symbol": "safety_calendar_anchor",
+      "line": 72,
+      "fingerprint": "26652a312842356046db0c1c8a4af8102f7e540006dc028a26a65b333074ce4f",
+      "reference_fingerprint": "26652a312842356046db0c1c8a4af8102f7e540006dc028a26a65b333074ce4f",
+      "changed": false,
+      "declaration": "def safety_calendar_anchor(graph: dict[str, Any], scenario: dict[str, Any]) -> dict[str, Any]:",
+      "docstring": null
+    },
+    {
+      "id": "known-value",
+      "kind": "implementation",
+      "path": "etudecas/simulation_prep/prepare_simulation_graph.py",
+      "symbol": "derive_item_unit_value_map",
+      "line": 128,
+      "fingerprint": "c8e3e2959a341cddbf0d8f2d139b169124eead913fd33de74a10d7046a0aed33",
+      "reference_fingerprint": "c8e3e2959a341cddbf0d8f2d139b169124eead913fd33de74a10d7046a0aed33",
+      "changed": false,
+      "declaration": "def derive_item_unit_value_map(edges: list[dict[str, Any]], item_unit_map: dict[str, str], price_map: dict[tuple[str, str, str], dict[str, Any]]) -> tuple[dict[str, float], dict[str, Any]]:",
+      "docstring": null
+    },
+    {
+      "id": "holding-conversion",
+      "kind": "implementation",
+      "path": "etudecas/simulation_prep/prepare_simulation_graph.py",
+      "symbol": "holding_cost_per_unit_day_from_value",
+      "line": 172,
+      "fingerprint": "528b279e011b7a08bfe5ed6ec8bca9886345e0172895bbbc5c6393a959066e16",
+      "reference_fingerprint": "528b279e011b7a08bfe5ed6ec8bca9886345e0172895bbbc5c6393a959066e16",
+      "changed": false,
+      "declaration": "def holding_cost_per_unit_day_from_value(*, item_id: str, unit: Any, item_unit_map: dict[str, str], item_unit_value_map: dict[str, float], fallback_global_unit_value: float | None, annual_carry_rate: float) -> tuple[float | None, str, float | None]:",
+      "docstring": null
+    },
+    {
+      "id": "holding-contract",
+      "kind": "implementation",
+      "path": "etudecas/simulation/engine/model_semantics.py",
+      "symbol": "inventory_holding_rate",
+      "line": 10,
+      "fingerprint": "bb5b6ba0fe52ee715a7396aaf203e874bde609b9408ab39603944fa7c282fcaf",
+      "reference_fingerprint": "bb5b6ba0fe52ee715a7396aaf203e874bde609b9408ab39603944fa7c282fcaf",
+      "changed": false,
+      "declaration": "def inventory_holding_rate(payload: dict[str, Any]) -> tuple[float | None, str]:",
+      "docstring": null
+    },
+    {
+      "id": "receipt-observation",
+      "kind": "implementation",
+      "path": "etudecas/simulation/engine/model_semantics.py",
+      "symbol": "ReceiptLeadObservations",
+      "line": 53,
+      "fingerprint": "7b6246df39d060f23c3fb43cfab10d63c1fbf1674522c5e1b536eb7182d178d3",
+      "reference_fingerprint": "7b6246df39d060f23c3fb43cfab10d63c1fbf1674522c5e1b536eb7182d178d3",
+      "changed": false,
+      "declaration": "class ReceiptLeadObservations",
+      "docstring": "Latent sampled outcomes become observations only on their receipt date."
+    },
+    {
+      "id": "tariff",
+      "kind": "implementation",
+      "path": "etudecas/simulation/engine/model_semantics.py",
+      "symbol": "transport_charge",
+      "line": 22,
+      "fingerprint": "21ad94ec2b2619654b397f01e7d1d26af1423e25e0af3d36240bfb390d82b54a",
+      "reference_fingerprint": "21ad94ec2b2619654b397f01e7d1d26af1423e25e0af3d36240bfb390d82b54a",
+      "changed": false,
+      "declaration": "def transport_charge(lane: dict[str, Any], pulled_qty: float, delivered_qty: float) -> tuple[float, str, float]:",
+      "docstring": "The declared tariff unit governs billing; procurement lot size is not a tariff."
+    },
+    {
+      "id": "execution-state",
+      "kind": "implementation",
+      "path": "etudecas/simulation/engine/model_semantics.py",
+      "symbol": "shipment_execution_state",
+      "line": 45,
+      "fingerprint": "7d50d9f2450af0dec6f8f875ced8cc3a5444109c7f4c0ad94d75c0709734e05e",
+      "reference_fingerprint": "7d50d9f2450af0dec6f8f875ced8cc3a5444109c7f4c0ad94d75c0709734e05e",
+      "changed": false,
+      "declaration": "def shipment_execution_state(departure_day: int, arrival_day: int, observation_day: int, *, reserved: bool=True) -> str:",
+      "docstring": null
+    },
+    {
+      "id": "mrp-modes",
+      "kind": "implementation",
+      "path": "etudecas/simulation/engine/run_first_simulation.py",
+      "symbol": "resolve_mrp_requirement_pair_modes",
+      "line": 3813,
+      "fingerprint": "02bed674b366730240487a4c35308a8a1141423a639f091a71e6d6f4a4edab6c",
+      "reference_fingerprint": "02bed674b366730240487a4c35308a8a1141423a639f091a71e6d6f4a4edab6c",
+      "changed": false,
+      "declaration": "def resolve_mrp_requirement_pair_modes(inherited_static_pairs: Any, cli_static_pairs: Any, cli_dynamic_pairs: Any) -> tuple[list[str], list[str]]:",
+      "docstring": "Resolve additive static requests and targeted dynamic overrides."
+    },
+    {
+      "id": "demand-integration-test",
+      "kind": "test",
+      "path": "etudecas/simulation/test_audit_model_semantics.py",
+      "symbol": "test_engine_preserves_source_demand_and_qualifies_incomplete_costs",
+      "line": 171,
+      "fingerprint": "b392b49801406ae42141cafa637fe8ba8b61eba4fca6a3c5129bf9dcf00735e1",
+      "reference_fingerprint": "b392b49801406ae42141cafa637fe8ba8b61eba4fca6a3c5129bf9dcf00735e1",
+      "changed": false,
+      "declaration": "def test_engine_preserves_source_demand_and_qualifies_incomplete_costs(tmp_path):",
+      "docstring": null
+    },
+    {
+      "id": "annual-boundary-test",
+      "kind": "test",
+      "path": "etudecas/simulation/test_audit_model_semantics.py",
+      "symbol": "test_engine_preserves_last_day_of_year_and_repeating_source_boundary",
+      "line": 210,
+      "fingerprint": "72dbfc651359fee8771c63395c40ec948b41831f1ace66b70c64f1c894388671",
+      "reference_fingerprint": "72dbfc651359fee8771c63395c40ec948b41831f1ace66b70c64f1c894388671",
+      "changed": false,
+      "declaration": "def test_engine_preserves_last_day_of_year_and_repeating_source_boundary(tmp_path):",
+      "docstring": null
+    },
+    {
+      "id": "calendar-test",
+      "kind": "test",
+      "path": "etudecas/simulation/test_audit_model_semantics.py",
+      "symbol": "test_working_day_coverage_matches_independent_calendar",
+      "line": 107,
+      "fingerprint": "d50ff76646b9d99247bc4cb04585ea28ba93f075821f4b2db5c565232c5755c6",
+      "reference_fingerprint": "d50ff76646b9d99247bc4cb04585ea28ba93f075821f4b2db5c565232c5755c6",
+      "changed": false,
+      "declaration": "def test_working_day_coverage_matches_independent_calendar(weekday, source_days):",
+      "docstring": null
+    },
+    {
+      "id": "calendar-default-test",
+      "kind": "test",
+      "path": "etudecas/simulation/test_audit_model_semantics.py",
+      "symbol": "test_calendar_anchor_and_full_source_target_are_explicit",
+      "line": 118,
+      "fingerprint": "bb8a8148b9e7660ab05d585125eb29cb91b77f6d5ff64620c700786833660dd3",
+      "reference_fingerprint": "bb8a8148b9e7660ab05d585125eb29cb91b77f6d5ff64620c700786833660dd3",
+      "changed": false,
+      "declaration": "def test_calendar_anchor_and_full_source_target_are_explicit():",
+      "docstring": null
+    },
+    {
+      "id": "unknown-price-test",
+      "kind": "test",
+      "path": "etudecas/simulation/test_audit_model_semantics.py",
+      "symbol": "test_missing_price_is_not_imputed_from_unrelated_dimension",
+      "line": 27,
+      "fingerprint": "b0022aec53e3721ae50b526eded5e6b05d4c9767fe94d87bc4971b5365254b4d",
+      "reference_fingerprint": "b0022aec53e3721ae50b526eded5e6b05d4c9767fe94d87bc4971b5365254b4d",
+      "changed": false,
+      "declaration": "def test_missing_price_is_not_imputed_from_unrelated_dimension(other_uom, other_price):",
+      "docstring": null
+    },
+    {
+      "id": "unit-conversion-test",
+      "kind": "test",
+      "path": "etudecas/simulation/test_audit_model_semantics.py",
+      "symbol": "test_known_same_material_cost_is_invariant_under_kg_to_g_conversion",
+      "line": 42,
+      "fingerprint": "5258f542c527eb7030c1538c28f516faef10ca7479fb59ef74b9d5bd1563bc1a",
+      "reference_fingerprint": "5258f542c527eb7030c1538c28f516faef10ca7479fb59ef74b9d5bd1563bc1a",
+      "changed": false,
+      "declaration": "def test_known_same_material_cost_is_invariant_under_kg_to_g_conversion():",
+      "docstring": null
+    },
+    {
+      "id": "incompatible-price-test",
+      "kind": "test",
+      "path": "etudecas/simulation/test_audit_model_semantics.py",
+      "symbol": "test_piece_price_cannot_silently_become_kg_price",
+      "line": 54,
+      "fingerprint": "f4465b21eb4c4d3dd84865a4bfd5fbb470ee790b1ffdd2300db01b924f34b452",
+      "reference_fingerprint": "f4465b21eb4c4d3dd84865a4bfd5fbb470ee790b1ffdd2300db01b924f34b452",
+      "changed": false,
+      "declaration": "def test_piece_price_cannot_silently_become_kg_price():",
+      "docstring": null
+    },
+    {
+      "id": "unknown-zero-test",
+      "kind": "test",
+      "path": "etudecas/simulation/test_audit_model_semantics.py",
+      "symbol": "test_unknown_and_explicit_zero_cost_remain_distinguishable",
+      "line": 62,
+      "fingerprint": "fa0ff9060d410a71f9d564a942d7a685e699f84c146f0cd0bd75ee9803994d16",
+      "reference_fingerprint": "fa0ff9060d410a71f9d564a942d7a685e699f84c146f0cd0bd75ee9803994d16",
+      "changed": false,
+      "declaration": "def test_unknown_and_explicit_zero_cost_remain_distinguishable():",
+      "docstring": null
+    },
+    {
+      "id": "receipt-observation-test",
+      "kind": "test",
+      "path": "etudecas/simulation/test_audit_model_semantics.py",
+      "symbol": "test_receipt_observation_never_reveals_future_sampled_delay",
+      "line": 94,
+      "fingerprint": "e6e3538dd20c6485961950a014222320ed06e7c2f463c4829defe4d04ba87479",
+      "reference_fingerprint": "e6e3538dd20c6485961950a014222320ed06e7c2f463c4829defe4d04ba87479",
+      "changed": false,
+      "declaration": "def test_receipt_observation_never_reveals_future_sampled_delay():",
+      "docstring": null
+    },
+    {
+      "id": "unit-tariff-test",
+      "kind": "test",
+      "path": "etudecas/simulation/test_audit_model_semantics.py",
+      "symbol": "test_unit_tariff_obeys_declared_unit_not_order_size",
+      "line": 69,
+      "fingerprint": "8a49846fd2d23c187d9db5c2f70f34f43b878c9d73a11035a664a069bf5dcf3e",
+      "reference_fingerprint": "8a49846fd2d23c187d9db5c2f70f34f43b878c9d73a11035a664a069bf5dcf3e",
+      "changed": false,
+      "declaration": "def test_unit_tariff_obeys_declared_unit_not_order_size(procurement_lot):",
+      "docstring": null
+    },
+    {
+      "id": "batch-tariff-test",
+      "kind": "test",
+      "path": "etudecas/simulation/test_audit_model_semantics.py",
+      "symbol": "test_batch_tariff_requires_its_own_explicit_conversion",
+      "line": 78,
+      "fingerprint": "4c002c5940b9b3945e030e83e9e95ef551be835eaddbdae876fe3be49f5300ac",
+      "reference_fingerprint": "4c002c5940b9b3945e030e83e9e95ef551be835eaddbdae876fe3be49f5300ac",
+      "changed": false,
+      "declaration": "def test_batch_tariff_requires_its_own_explicit_conversion():",
+      "docstring": null
+    },
+    {
+      "id": "execution-state-test",
+      "kind": "test",
+      "path": "etudecas/simulation/test_audit_model_semantics.py",
+      "symbol": "test_shipment_status_depends_on_physical_dates",
+      "line": 89,
+      "fingerprint": "8f9aa680c3877a0a29ad232b17e8ec8bcffbbf9cd3eee7ea83600563573e63b5",
+      "reference_fingerprint": "8f9aa680c3877a0a29ad232b17e8ec8bcffbbf9cd3eee7ea83600563573e63b5",
+      "changed": false,
+      "declaration": "def test_shipment_status_depends_on_physical_dates(observation, status):",
+      "docstring": null
+    },
+    {
+      "id": "mrp-modes-test",
+      "kind": "test",
+      "path": "etudecas/simulation/test_supplier_risk_planning_semantics.py",
+      "symbol": "test_targeted_dynamic_pair_overrides_inherited_and_cli_static_modes",
+      "line": 11,
+      "fingerprint": "e1cc9c545a85b0b3f86a00049c0e12c4349e62fcf04a0b940fabfa0247f12d23",
+      "reference_fingerprint": "e1cc9c545a85b0b3f86a00049c0e12c4349e62fcf04a0b940fabfa0247f12d23",
+      "changed": false,
+      "declaration": "def test_targeted_dynamic_pair_overrides_inherited_and_cli_static_modes() -> None:",
+      "docstring": null
+    }
+  ],
+  "rules": [
+    {
+      "rule_id": "AUDITED-DEMAND-001",
+      "status": "documented",
+      "changed_references": [],
+      "changed_business_sources": []
+    },
+    {
+      "rule_id": "AUDITED-SAFETY-001",
+      "status": "documented",
+      "changed_references": [],
+      "changed_business_sources": []
+    },
+    {
+      "rule_id": "AUDITED-SAFETY-002",
+      "status": "documented",
+      "changed_references": [],
+      "changed_business_sources": []
+    },
+    {
+      "rule_id": "AUDITED-VALUATION-001",
+      "status": "documented",
+      "changed_references": [],
+      "changed_business_sources": []
+    },
+    {
+      "rule_id": "AUDITED-OBSERVATION-001",
+      "status": "documented",
+      "changed_references": [],
+      "changed_business_sources": []
+    },
+    {
+      "rule_id": "AUDITED-TRANSPORT-001",
+      "status": "documented",
+      "changed_references": [],
+      "changed_business_sources": []
+    },
+    {
+      "rule_id": "AUDITED-SHIPMENT-001",
+      "status": "documented",
+      "changed_references": [],
+      "changed_business_sources": []
+    },
+    {
+      "rule_id": "AUDITED-TAU-001",
+      "status": "known_gap",
+      "changed_references": [],
+      "changed_business_sources": []
+    },
+    {
+      "rule_id": "AUDITED-MRP-001",
+      "status": "known_gap",
+      "changed_references": [],
+      "changed_business_sources": []
+    },
+    {
+      "rule_id": "AUDITED-RESERVATION-001",
+      "status": "known_gap",
+      "changed_references": [],
+      "changed_business_sources": []
+    }
+  ],
+  "tests_executed": false
+}

@@ -61,7 +61,7 @@ def choose_scenario(data: dict[str, Any], scenario_id: str) -> dict[str, Any]:
     for scn in scenarios:
         if str(scn.get("id")) == scenario_id:
             return scn
-    return scenarios[0] if scenarios else {"id": scenario_id, "demand": []}
+    raise ValueError(f"Unknown scenario: {scenario_id!r}")
 
 
 def detect_production_nodes(data: dict[str, Any]) -> list[str]:
@@ -94,6 +94,18 @@ def scale_profile_values(profile: list[dict[str, Any]], factor: float) -> None:
                     pt["value"] = round(max(0.0, to_float(pt.get("value"), 0.0) * factor), 6)
 
 
+SUPPORTED_FACTORS = frozenset(['capacity_scale', 'demand_scale', 'external_procurement_cost_multiplier_scale', 'external_procurement_daily_cap_days_scale', 'external_procurement_lead_days_scale', 'external_procurement_transport_cost_scale', 'fg_target_days_scale', 'holding_cost_scale', 'lead_time_scale', 'production_gap_gain_scale', 'production_smoothing_scale', 'production_stock_scale', 'purchase_cost_floor_scale', 'review_period_scale', 'safety_stock_days_scale', 'supplier_capacity_scale', 'supplier_reliability_scale', 'supplier_stock_scale', 'transport_cost_scale'])
+
+
+def validate_factors(factors: dict[str, float]) -> None:
+    unknown = set(factors) - SUPPORTED_FACTORS
+    if unknown:
+        raise ValueError(f"Unknown sensitivity factors: {sorted(unknown)}")
+    for name, value in factors.items():
+        if type(value) not in (int, float) or not math.isfinite(value) or value <= 0:
+            raise ValueError(f"Factor {name} must be a finite positive number")
+
+
 def apply_scales(
     base_data: dict[str, Any],
     scenario_id: str,
@@ -109,6 +121,17 @@ def apply_scales(
     edge_pair_lead_time_scale: dict[str, float] | None = None,
     edge_pair_reliability_scale: dict[str, float] | None = None,
 ) -> dict[str, Any]:
+    validate_factors(factors)
+    for label, mapping in (
+        ("demand_item_scale", demand_item_scale), ("capacity_node_scale", capacity_node_scale),
+        ("supplier_node_scale", supplier_node_scale), ("supplier_capacity_node_scale", supplier_capacity_node_scale),
+        ("edge_src_lead_time_scale", edge_src_lead_time_scale), ("edge_src_reliability_scale", edge_src_reliability_scale),
+        ("supplier_stock_pair_scale", supplier_stock_pair_scale), ("supplier_capacity_pair_scale", supplier_capacity_pair_scale),
+        ("edge_pair_lead_time_scale", edge_pair_lead_time_scale), ("edge_pair_reliability_scale", edge_pair_reliability_scale),
+    ):
+        for key, value in (mapping or {}).items():
+            if type(value) not in (int, float) or not math.isfinite(value) or value <= 0:
+                raise ValueError(f"{label}[{key}] must be finite and strictly positive")
     data = copy.deepcopy(base_data)
     demand_item_scale = demand_item_scale or {}
     capacity_node_scale = capacity_node_scale or {}

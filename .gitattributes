@@ -1,0 +1,97 @@
+# Frozen source files are hashed byte-for-byte by scientific provenance checks.
+# Preserve the LF representation already stored in Git on every platform.
+/etudecas/prototypes/scan_2027_risk_control/build_industrial_supply_preliminary_complete_v3.py text eol=lf
+/etudecas/prototypes/scan_2027_risk_control/supplier_operating_point_full_campaign_v2.py text eol=lf
+/etudecas/prototypes/scan_2027_risk_control/supplier_balanced_product_delay_multiseed_refinement_v3.py text eol=lf
+/etudecas/prototypes/scan_2027_risk_control/launch_supplier_operating_point_full_campaign_v8.py text eol=lf
+/etudecas/prototypes/scan_2027_risk_control/run_supplier_v8_v2_to_stage3_v3_chain_task.ps1 text eol=lf
+/etudecas/prototypes/scan_2027_risk_control/run_supplier_v8_v2_to_stage3_v4_chain_task.ps1 text eol=lf
+/etudecas/prototypes/scan_2027_risk_control/build_validated_operating_points_v4.py text eol=lf
+/etudecas/prototypes/scan_2027_risk_control/build_validated_operating_points_v5.py text eol=lf
+/etudecas/prototypes/scan_2027_risk_control/build_validated_operating_points_v6.py text eol=lf
+/etudecas/prototypes/scan_2027_risk_control/continue_supplier_full_campaign_v4.py text eol=lf
+/etudecas/prototypes/scan_2027_risk_control/continue_supplier_full_campaign_v5.py text eol=lf
+/etudecas/prototypes/scan_2027_risk_control/continue_supplier_full_campaign_v6.py text eol=lf
+/etudecas/prototypes/scan_2027_risk_control/continue_supplier_v4_calibration.py text eol=lf
+/etudecas/prototypes/scan_2027_risk_control/continue_supplier_v6_calibration.py text eol=lf
+/etudecas/prototypes/scan_2027_risk_control/finalize_supplier_operating_point_full_campaign_v4.py text eol=lf
+/etudecas/prototypes/scan_2027_risk_control/finalize_supplier_operating_point_full_campaign_v5.py text eol=lf
+/etudecas/prototypes/scan_2027_risk_control/finalize_supplier_operating_point_full_campaign_v6.py text eol=lf
+/etudecas/prototypes/scan_2027_risk_control/finalize_supplier_operating_point_full_campaign_v7.py text eol=lf
+/etudecas/prototypes/scan_2027_risk_control/finalize_supplier_operating_point_full_campaign_v8.py text eol=lf
+/etudecas/prototypes/scan_2027_risk_control/finalize_supplier_operating_point_full_campaign_v8_compat.py text eol=lf
+/etudecas/prototypes/scan_2027_risk_control/launch_supplier_operating_point_full_campaign_v4.py text eol=lf
+/etudecas/prototypes/scan_2027_risk_control/launch_supplier_operating_point_full_campaign_v5.py text eol=lf
+/etudecas/prototypes/scan_2027_risk_control/launch_supplier_operating_point_full_campaign_v6.py text eol=lf
+/etudecas/prototypes/scan_2027_risk_control/launch_supplier_operating_point_full_campaign_v7.py text eol=lf
+/etudecas/prototypes/scan_2027_risk_control/launch_supplier_operating_point_full_campaign_v8_resilient.py text eol=lf
+/etudecas/prototypes/scan_2027_risk_control/supervise_supplier_operating_point_full_campaign_v8_v2.py text eol=lf
+/etudecas/prototypes/scan_2027_risk_control/supplier_balanced_product_delay_multiseed_refinement_v5.py text eol=lf
+/etudecas/prototypes/scan_2027_risk_control/supplier_balanced_product_delay_multiseed_refinement_v6.py text eol=lf
+/etudecas/prototypes/scan_2027_risk_control/supplier_fresh_development_holdout_protocol_v7.py text eol=lf
+/etudecas/prototypes/scan_2027_risk_control/supplier_fresh_holdout_v6.py text eol=lf
+/etudecas/prototypes/scan_2027_risk_control/supplier_holdout_curve_aggregator_v4.py text eol=lf
+/etudecas/prototypes/scan_2027_risk_control/supplier_holdout_curve_sidecar_v4.py text eol=lf
+/etudecas/prototypes/scan_2027_risk_control/supplier_holdout_curve_sidecar_v5.py text eol=lf
+/etudecas/prototypes/scan_2027_risk_control/supplier_holdout_curve_sidecar_v6.py text eol=lf
+/etudecas/prototypes/scan_2027_risk_control/supplier_network_exploratory_action_protocol.py text eol=lf
+/etudecas/prototypes/scan_2027_risk_control/supplier_network_extension_interpretation_audit.py text eol=lf
+/etudecas/prototypes/scan_2027_risk_control/supplier_network_priority_boundary_audit.py text eol=lf
+/etudecas/prototypes/scan_2027_risk_control/supplier_operating_point_campaign_v4_contract.py text eol=lf
+/etudecas/prototypes/scan_2027_risk_control/supplier_operating_point_full_campaign_v4.py text eol=lf
+/etudecas/prototypes/scan_2027_risk_control/supplier_operating_point_full_campaign_v4_dashboard.py text eol=lf
+/etudecas/prototypes/scan_2027_risk_control/supplier_operating_point_full_campaign_v5.py text eol=lf
+/etudecas/prototypes/scan_2027_risk_control/supplier_operating_point_full_campaign_v6.py text eol=lf
+/etudecas/prototypes/scan_2027_risk_control/supplier_operating_point_full_campaign_v7.py text eol=lf
+/etudecas/prototypes/scan_2027_risk_control/supplier_operating_point_full_campaign_v8.py text eol=lf
+/etudecas/prototypes/scan_2027_risk_control/supplier_physical_cascade_qualification_v5.py text eol=lf
+/etudecas/prototypes/scan_2027_risk_control/supplier_priority_action_replay_v4.py text eol=lf
+/etudecas/prototypes/scan_2027_risk_control/supplier_priority_lot_replay_v4.py text eol=lf
+/etudecas/prototypes/scan_2027_risk_control/supplier_service_regime_calibration_protocol.py text eol=lf
+/etudecas/prototypes/scan_2027_risk_control/supplier_v4_final_standalone_delivery.py text eol=lf
+/etudecas/prototypes/scan_2027_risk_control/supplier_v5_final_standalone_delivery.py text eol=lf
+/etudecas/prototypes/scan_2027_risk_control/supplier_v6_final_standalone_delivery.py text eol=lf
+/etudecas/prototypes/scan_2027_risk_control/supplier_v8_op100_checkpoint_10.py text eol=lf
+/etudecas/prototypes/scan_2027_risk_control/supplier_v8_post_stage3_delivery_v4.py text eol=lf
+/etudecas/prototypes/scan_2027_risk_control/supplier_v8_post_stage3_focus_338929.py text eol=lf
+/etudecas/prototypes/scan_2027_risk_control/supplier_v8_stage3_common.py text eol=lf
+/etudecas/prototypes/scan_2027_risk_control/supplier_v8_stage3_dashboard.py text eol=lf
+/etudecas/prototypes/scan_2027_risk_control/supplier_v8_stage3_delivery.py text eol=lf
+/etudecas/prototypes/scan_2027_risk_control/supplier_v8_stage3_pipeline.py text eol=lf
+/etudecas/prototypes/scan_2027_risk_control/supplier_v8_stage3_watcher.py text eol=lf
+/etudecas/prototypes/scan_2027_risk_control/verify_supplier_v8_stage3_closure.py text eol=lf
+
+etudecas/prototypes/scan_2027_risk_control/tests/test_supplier_balanced_product_delay_multiseed_refinement_v6.py text eol=lf
+etudecas/prototypes/scan_2027_risk_control/tests/test_supplier_v6_completion_path.py text eol=lf
+etudecas/prototypes/scan_2027_risk_control/supplier_network_post_priority_extensions.py text eol=lf
+etudecas/prototypes/scan_2027_risk_control/supplier_network_post_priority_extension_runner.py text eol=lf
+
+# Retained test evidence: preserve the exact bytes recorded in provenance.json.
+etudecas/prototypes/scan_2027_risk_control/supplier_balanced_product_delay_multiseed_refinement_v2.py text eol=lf
+etudecas/prototypes/scan_2027_risk_control/tests/fixtures/dynamic_capacity/*.csv -text
+
+# Verified against the pinned Stage2 V8 inventory and Git HEAD.
+etudecas/prototypes/scan_2027_risk_control/build_validated_operating_points_v7.py text eol=lf
+etudecas/prototypes/scan_2027_risk_control/continue_supplier_full_campaign_v7.py text eol=lf
+etudecas/prototypes/scan_2027_risk_control/supplier_balanced_product_delay_calibration.py text eol=lf
+etudecas/prototypes/scan_2027_risk_control/supplier_balanced_product_delay_fine_calibration.py text eol=lf
+etudecas/prototypes/scan_2027_risk_control/supplier_balanced_product_delay_fine_prevalidation.py text eol=lf
+etudecas/prototypes/scan_2027_risk_control/supplier_balanced_product_delay_multiseed_calibration.py text eol=lf
+etudecas/prototypes/scan_2027_risk_control/supplier_balanced_product_delay_multiseed_refinement_v4.py text eol=lf
+etudecas/prototypes/scan_2027_risk_control/supplier_operating_point_full_campaign_v7_dashboard.py text eol=lf
+etudecas/prototypes/scan_2027_risk_control/supplier_service_landscape_campaign.py text eol=lf
+etudecas/prototypes/scan_2027_risk_control/supplier_service_regime_calibration_runner.py text eol=lf
+etudecas/prototypes/scan_2027_risk_control/supplier_v6_full_incident_lot_registry.py text eol=lf
+etudecas/prototypes/scan_2027_risk_control/supplier_v7_campaign_trace_package.py text eol=lf
+etudecas/prototypes/scan_2027_risk_control/supplier_v7_stage2_common.py text eol=lf
+etudecas/prototypes/scan_2027_risk_control/supplier_v7_stage2_curves.py text eol=lf
+etudecas/prototypes/scan_2027_risk_control/supplier_v7_stage2_delivery.py text eol=lf
+etudecas/prototypes/scan_2027_risk_control/supplier_v7_stage2_pipeline.py text eol=lf
+etudecas/prototypes/scan_2027_risk_control/supplier_v7_stage2_watcher.py text eol=lf
+etudecas/prototypes/scan_2027_risk_control/supplier_v8_stage2_common.py text eol=lf
+etudecas/prototypes/scan_2027_risk_control/supplier_v8_stage2_delivery.py text eol=lf
+etudecas/prototypes/scan_2027_risk_control/supplier_v8_stage2_pipeline.py text eol=lf
+etudecas/prototypes/scan_2027_risk_control/supplier_v8_stage2_watcher.py text eol=lf
+# New execution sources: stable bytes for campaign signatures across checkouts.
+etudecas/atomic_io.py text eol=lf
+etudecas/prototypes/scan_2027_risk_control/supplier_service_regime_calibration_runner_v2.py text eol=lf

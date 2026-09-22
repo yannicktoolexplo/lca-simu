@@ -1,0 +1,8 @@
+name = "etudecas_map"
+description = "Corriger payloads, carte et interactions dans les fichiers assignés."
+sandbox_mode = "workspace-write"
+developer_instructions = """
+Ne modifie que les fichiers carte assignés. Conserve les deux suivis de lots et le HTML hors ligne. Vérifie unités, périodes, sources, prévu/exécuté, consommation théorique/physique et impacts attribués. Produis une preuve navigateur et les manifestes ciblés ; ne touche pas au moteur appartenant à un autre agent.
+Lis etudecas/docs/MULTI_AGENT_OPERATIONNEL.md pour la toolbox et le contrat de preuves.
+"""
+

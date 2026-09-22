@@ -17,11 +17,6 @@ from etudecas.prototypes.scan_2027_risk_control import (
 )
 
 
-V7_BRIDGE = Path(
-    r"C:\dev\lca-simu-pr40-validation-artifacts-20260726"
-    r"\validated_operating_points_v7_20260905_v1.json"
-)
-
 EXPECTED_START_BY_ITEM = {
     "item:099439": 271,
     "item:730384": 482,
@@ -55,17 +50,16 @@ def _walk_keys(value: Any) -> list[str]:
 
 
 @pytest.fixture(scope="module")
-def real_registry() -> tuple[dict[str, Any], dict[str, Any], list[Any]]:
-    if not V7_BRIDGE.is_file():
-        pytest.skip("Local signed V7 campaign traces are unavailable")
+def real_registry(historical_artifact) -> tuple[dict[str, Any], dict[str, Any], list[Any]]:
+    bridge_path = historical_artifact("validated_operating_points_v7_20260905_v1.json")
     with subject.patched_v8_context():
         impl = subject.implementation_v4
         # Source validation is performed once below by the native V7 validator.
-        points = impl.load_operating_points(V7_BRIDGE, require_prevalidated=False)
+        points = impl.load_operating_points(bridge_path, require_prevalidated=False)
         lanes = impl.load_lanes(impl.DEFAULT_LANE_REFERENCE)
-        bridge = bridge_v7.validate_bridge(V7_BRIDGE, revalidate_source=True)
+        bridge = bridge_v7.validate_bridge(bridge_path, revalidate_source=True)
         traces = impl._import_v4_holdout_shipment_rows(  # noqa: SLF001
-            bridge_path=V7_BRIDGE,
+            bridge_path=bridge_path,
             bridge=bridge,
             points=points,
             lanes=lanes,

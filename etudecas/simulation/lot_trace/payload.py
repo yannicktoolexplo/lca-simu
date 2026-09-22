@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import json
 from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any, Iterable
@@ -43,6 +44,7 @@ from .schema import (
     to_float,
 )
 from .stock_context import LotTraceStockContextSources, build_lot_trace_stock_context
+from .materials import build_material_traceability
 
 
 def build_lot_trace_payload(
@@ -60,6 +62,7 @@ def build_lot_trace_payload(
     mrp_orders_csv: Path | None = None,
     lot_causal_links_csv: Path | None = None,
     include_causal_links: bool = True,
+    material_traceability_json: Path | None = None,
 ) -> dict[str, Any]:
     events_raw = read_csv_rows(lot_events_csv)
     genealogy_raw = read_csv_rows(lot_genealogy_csv)
@@ -77,6 +80,12 @@ def build_lot_trace_payload(
         read_csv_rows(lot_causal_links_csv) if include_causal_links else []
     )
     lot_trace_config = build_lot_trace_config(raw)
+    material_base = lot_events_csv.parent if lot_events_csv.is_file() else lot_events_csv.parent / "data"
+    material_path = material_traceability_json or material_base / "material_traceability.json"
+    if material_traceability_json is not None and not material_path.is_file():
+        raise FileNotFoundError(material_path)
+    material_metadata = json.loads(material_path.read_text(encoding="utf-8-sig")) if material_path.exists() else None
+    material_context = build_material_traceability(events_raw, genealogy_raw, raw, material_metadata)
     visible_finished_product_items_set = {
         str(item_id)
         for item_id in (visible_finished_product_items or [])
@@ -139,6 +148,7 @@ def build_lot_trace_payload(
     if not events_raw and not genealogy_raw:
         return {
             "available": False,
+            "material_traceability": material_context,
             "reason": "production_lot_events.csv and production_lot_genealogy.csv not found or empty",
             "config": lot_trace_config,
             "lots": {},
@@ -342,17 +352,14 @@ def build_lot_trace_payload(
                 "pf_availability_status_label": "En stock produit fini",
                 "pf_remaining_stock_qty": round(remaining_qty, 6),
             }
-        if input_status["pf_input_status"] == "input_shortage":
-            return {
-                **input_status,
-                "pf_availability_status": "input_shortage",
-                "pf_availability_status_label": input_status["pf_input_status_label"],
-                "pf_remaining_stock_qty": 0.0,
-            }
+        # This is an existing, produced lot. Historical component shortages
+        # describe its campaign, never its present lifecycle.
+        dispatched = any(str(row.get("event_type")) in {"lane_ship", "shipment_reserve"}
+                         for row in events_by_lot.get(lot_id, []))
         return {
             **input_status,
-            "pf_availability_status": "inputs_available",
-            "pf_availability_status_label": input_status["pf_input_status_label"],
+            "pf_availability_status": "dispatched" if dispatched else "depleted",
+            "pf_availability_status_label": "Produit - sorti du stock usine" if dispatched else "Produit - stock usine epuise",
             "pf_remaining_stock_qty": 0.0,
         }
 
@@ -730,7 +737,7 @@ def build_lot_trace_payload(
             ),
             "finished_product_availability_counts": {
                 status: sum(1 for lot in lot_options if str(lot.get("pf_availability_status") or "") == status)
-                for status in ["in_finished_stock", "inputs_available", "input_shortage"]
+                for status in ["in_finished_stock", "dispatched", "depleted"]
             },
             "event_counts": dict(sorted(event_counts.items())),
             "link_counts": dict(sorted(link_counts.items())),
@@ -757,8 +764,40 @@ def build_lot_trace_payload(
     if default_lot:
         from .view_model import build_lot_trace_view_model
 
-        payload["default_view_model"] = build_lot_trace_view_model(payload, default_lot)
+        view_indexes = build_lot_trace_indexes(payload)
+        models = {}
+        shared_links = []
+        shared_link_indices = {}
+        contribution_fields = ("contribution_qty", "contribution_share_of_child", "contribution_basis")
+        for option in lot_options:
+            model = build_lot_trace_view_model(payload, option["lot_id"], indexes=view_indexes)
+            packed_links = []
+            for link in model["links"]:
+                identity = link["link_id"]
+                if identity not in shared_link_indices:
+                    shared_link_indices[identity] = len(shared_links)
+                    shared_links.append({key: value for key, value in link.items() if key not in contribution_fields})
+                packed_links.append([shared_link_indices[identity], *(link[key] for key in contribution_fields)])
+            # One shared row per genealogical link; only selected contributions
+            # differ across views. No duplicate event or full lot histories.
+            models[option["lot_id"]] = {key: model[key] for key in
+                                      ("version", "lot_id", "snapshot", "summary")}
+            models[option["lot_id"]]["snapshot"] = {key: model["snapshot"][key] for key in
+                ("root_lot_id", "direction", "lot_ids", "upstream_lot_ids", "downstream_lot_ids", "event_ids")}
+            models[option["lot_id"]].update(nodes=[], links=[], packed_links=packed_links,
+                contribution_by_lot={node["lot_id"]: node["contribution_qty"] for node in model["nodes"]
+                                     if node["contribution_qty"] > 0})
+        payload["view_models"] = models
+        payload["view_model_links"] = shared_links
+        payload["view_model_encoding"] = "shared_links_v1"
+        payload["default_view_model"] = models.get(default_lot) or build_lot_trace_view_model(payload, default_lot, indexes=view_indexes)
         payload["summary"]["default_view_model_lot"] = default_lot
+    from etudecas.simulation.logistics.display import build_transport_context
+    try:
+        payload["truck_consolidation"] = build_transport_context(events_raw, raw or {})
+    except ValueError as exc:
+        payload["truck_consolidation"] = {"groups": [], "error": str(exc)}
+    payload["material_traceability"] = material_context
     return payload
 
 

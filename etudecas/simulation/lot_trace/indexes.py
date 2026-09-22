@@ -22,6 +22,8 @@ class LotTraceIndexes:
     _downstream_stats_cache: dict[str, dict[str, Any]] | None = None
     _upstream_stats_cache: dict[str, dict[str, Any]] | None = None
     _upstream_roots_cache: dict[str, set[str]] | None = None
+    _production_totals: dict | None = None
+    _transport_totals: dict | None = None
 
 
 def build_lot_trace_indexes(payload: dict[str, Any]) -> LotTraceIndexes:

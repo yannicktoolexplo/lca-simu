@@ -40,14 +40,14 @@ from etudecas.simulation.analysis.component_immobilized_stock import (  # noqa: 
 from etudecas.simulation.analysis.finished_goods_inventory_value import (  # noqa: E402
     build_finished_goods_inventory_value_artifacts,
 )
-from etudecas.analysis.from_simulation.report_component_immobilized_stock import (  # noqa: E402
+from etudecas.simulation.analysis.report_component_immobilized_stock import (  # noqa: E402
     DEFAULT_PRODUCT_SOURCES,
     build_report as build_component_stock_source_truth_report,
 )
-from etudecas.analysis.from_simulation.report_finished_goods_stock_value import (  # noqa: E402
+from etudecas.simulation.analysis.report_finished_goods_stock_value import (  # noqa: E402
     build_report as build_finished_goods_stock_source_truth_report,
 )
-from etudecas.analysis.from_simulation.audit_source_truth_alignment import (  # noqa: E402
+from etudecas.simulation.analysis.audit_source_truth_alignment import (  # noqa: E402
     build_report as build_source_truth_alignment_report,
 )
 from etudecas.simulation.run_format import export_run_package, validate_run_package  # noqa: E402
@@ -396,10 +396,12 @@ def resolve_montecarlo_summary_for_map(
 ) -> Path:
     """Return the best Monte Carlo summary available for the map.
 
-    The map builder needs a readable summary to make the Incertitude tab useful.
-    When a run is rebuilt without rerunning Monte Carlo, the run-local selected
-    file is often absent; in that case, fall back to the active shared Monte
-    Carlo artifact instead of embedding an empty uncertainty payload.
+    Explicit and run-local summaries take precedence. Shared summaries require
+    a manifest path pointing to the target run and a matching known horizon.
+    Among compatible shared summaries, prefer more successful runs, then newer
+    files. An incompatible explicit/local file raises instead of falling back.
+    If no candidate qualifies, return the expected local path, possibly absent.
+    Manifest paths establish association, not cryptographic provenance.
     """
     target_days = None
     summary_path = output_dir / "summaries" / "first_simulation_summary.json"
@@ -482,19 +484,32 @@ def montecarlo_summary_matches_run(
     target_manifest_candidates: list[Path],
     allow_missing_manifest: bool,
 ) -> bool:
+    """Check declared run association and horizon; reject malformed metadata."""
     try:
         summary = load_json(summary_path)
-    except Exception:
+        if not isinstance(summary, dict):
+            return False
+        raw_days = summary.get("days_override")
+        if raw_days is None:
+            raw_days = summary.get("days")
+        if isinstance(raw_days, bool) or not isinstance(raw_days, (int, str)):
+            return False
+        summary_days = int(raw_days)
+        if summary_days <= 0:
+            return False
+        if target_days is not None and summary_days != target_days:
+            return False
+        manifest = summary.get("manifest", {})
+        if not isinstance(manifest, dict):
+            return False
+        manifest_path = manifest.get("manifest_path") or summary.get("run_manifest")
+        if manifest_path is None or manifest_path == "":
+            return allow_missing_manifest
+        if not isinstance(manifest_path, str) or not manifest_path.strip():
+            return False
+        resolved_manifest = resolve_repo_path(Path(manifest_path.strip())).resolve()
+    except (OSError, ValueError, TypeError, OverflowError):
         return False
-    summary_days = int(summary.get("days_override") or summary.get("days") or 0)
-    if target_days is not None and summary_days and summary_days != target_days:
-        return False
-
-    manifest = summary.get("manifest") if isinstance(summary.get("manifest"), dict) else {}
-    manifest_path = str(manifest.get("manifest_path") or summary.get("run_manifest") or "").strip()
-    if not manifest_path:
-        return allow_missing_manifest
-    resolved_manifest = resolve_repo_path(Path(manifest_path)).resolve()
     return resolved_manifest in target_manifest_candidates
 
 
@@ -668,8 +683,9 @@ def validate_active_run_outputs(
     if map_path and map_path.exists():
         map_size_mb = map_path.stat().st_size / (1024 * 1024)
         add("map_size", map_size_mb <= max_map_mb, f"{map_size_mb:.2f} MB <= {max_map_mb:.2f} MB")
-        head = map_path.read_text(encoding="utf-8", errors="ignore")[:600_000]
-        add("map_payload_compressed", PIPELINE_SUCCESS_MARKER in head, PIPELINE_SUCCESS_MARKER)
+        html_text = map_path.read_text(encoding="utf-8", errors="ignore")
+        # Embedded Plotly can precede DATA by several megabytes in offline maps.
+        add("map_payload_compressed", PIPELINE_SUCCESS_MARKER in html_text, PIPELINE_SUCCESS_MARKER)
     summary = load_json(summary_path) if summary_path.exists() else {}
     add("summary_scenario_id", summary.get("scenario_id") == scenario_id, f"{summary.get('scenario_id')} == {scenario_id}")
     add("summary_sim_days", int(summary.get("sim_days") or -1) == days, f"{summary.get('sim_days')} == {days}")
@@ -1147,7 +1163,7 @@ def build_supplier_local_criticality_artifacts(*, input_graph: Path, output_dir:
         expand_supplier_audit_coverage,
         load_supplier_audits,
     )
-    from etudecas.visualization.maps.build_supplychain_worldmap import build_supplier_local_criticality
+    from etudecas.risk.supplier_criticality.local import build_supplier_local_criticality
 
     data_dir = output_dir / "data"
     summaries_dir = output_dir / "summaries"
@@ -1324,6 +1340,19 @@ def build_map_for_simulation_result(
     ]
     if simulated_risk_output_dir is not None:
         map_cmd.extend(["--simulated-risk-output-dir", repo_rel(simulated_risk_output_dir)])
+    # Operational maps must not silently import shared historical analyses.
+    # Missing run-local optional analyses remain visibly unavailable.
+    for option, filename in {
+        "--sensitivity-cases-csv": "sensitivity_cases.csv",
+        "--structural-sensitivity-cases-csv": "structural_sensitivity_cases.csv",
+        "--supplier-parameter-sensitivity-summary-json": "supplier_parameter_sensitivity_summary.json",
+        "--supplier-parameter-summary-csv": "supplier_parameter_threshold_summary.csv",
+        "--supplier-parameter-cases-csv": "supplier_parameter_sensitivity_cases.csv",
+        "--supplier-risk-campaign-summary-json": "supplier_risk_campaign_summary.json",
+        "--supplier-risk-campaign-summary-csv": "supplier_risk_campaign_summary.csv",
+        "--supplier-risk-campaign-cases-csv": "supplier_risk_campaign_cases.csv",
+    }.items():
+        map_cmd.extend([option, repo_rel(output_dir / "analyses" / filename)])
     if montecarlo_summary_json is not None or allow_montecarlo_fallback:
         run_montecarlo_summary_json = resolve_montecarlo_summary_for_map(
             output_dir,
