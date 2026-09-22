@@ -1,0 +1,102 @@
+{
+  "schema_version": "etudecas.documentation.v1",
+  "fingerprint_method": "python-ast-v1",
+  "business_source_fingerprints": {
+    "etudecas/docs/SUPPLIER_ACTION_SELECTION.md": "eb7fa83237c8ec51696f0b9b83b13f1bd651f38a3c48e1efa87bb77609d8d7b3"
+  },
+  "references": [
+    {
+      "id": "action-selection",
+      "kind": "implementation",
+      "path": "etudecas/prototypes/scan_2027_risk_control/supplier_v2_controllable_action_selector.py",
+      "symbol": "select_confirmed_action_suppliers",
+      "line": 589,
+      "fingerprint": "9644d2daf202acd01454a94117e0115bd15840a0613dcc38804eb46a677da66b",
+      "reference_fingerprint": "9644d2daf202acd01454a94117e0115bd15840a0613dcc38804eb46a677da66b",
+      "changed": false,
+      "declaration": "def select_confirmed_action_suppliers(network_dir: Path, priority_boundary_audit_dir: Path | None=None) -> tuple[list[str], dict[str, Any]]:",
+      "docstring": "Adapt scientific candidates to the legacy action-selection entry point.\n\nCurrent signed boundaries expose descriptive candidates, never a globally\nreleased action selection. Preserve their evidence without promoting a\nscoped trio or an unordered group to an actionable top three. Missing\nboundary input is a refusal; invalid supplied evidence raises."
+    },
+    {
+      "id": "scientific-candidates",
+      "kind": "implementation",
+      "path": "etudecas/prototypes/scan_2027_risk_control/supplier_v2_controllable_action_selector.py",
+      "symbol": "_scientific_candidate_suppliers",
+      "line": 337,
+      "fingerprint": "40e8477a37adacf671b154eab903245cd396b21ad434fd03a077cbc266d14809",
+      "reference_fingerprint": "40e8477a37adacf671b154eab903245cd396b21ad434fd03a077cbc266d14809",
+      "changed": false,
+      "declaration": "def _scientific_candidate_suppliers(network_dir: Path, priority_boundary_audit_dir: Path) -> tuple[list[str], dict[str, Any]]:",
+      "docstring": "Read candidates only from the signed service-envelope boundary.\n\nThe legacy aggregate rank and its inherited ``top3`` flags are never used.\nA released service-envelope trio remains scoped and therefore cannot\nrelease an action. If that boundary is unresolved, the signed unranked\npriority group is retained, also fail-closed."
+    },
+    {
+      "id": "protocol-adapter",
+      "kind": "implementation",
+      "path": "etudecas/prototypes/scan_2027_risk_control/supplier_post_top3_action_protocol.py",
+      "symbol": "select_confirmed_top3",
+      "line": 713,
+      "fingerprint": "146f112024a5a5e49ea822f8db2a17391203789b19c201d69318c910e5f6f56e",
+      "reference_fingerprint": "146f112024a5a5e49ea822f8db2a17391203789b19c201d69318c910e5f6f56e",
+      "changed": false,
+      "declaration": "def select_confirmed_top3(network_results: Path, priority_boundary_audit_dir: Path | None=None) -> tuple[list[str], dict[str, Any]]:",
+      "docstring": "Apply the current scientific action-selection contract.\n\nThe historical 10-realisation fields are deliberately ignored.  The\nauthoritative implementation lives in the additive V2 selector so both\nentry points preserve scoped candidates without claiming action release."
+    },
+    {
+      "id": "protocol-output",
+      "kind": "implementation",
+      "path": "etudecas/prototypes/scan_2027_risk_control/supplier_post_top3_action_protocol.py",
+      "symbol": "main",
+      "line": 804,
+      "fingerprint": "4450a39ed8803c68309746a44350a7499431bd3c63f61c75fed8b0dd1e35ba1d",
+      "reference_fingerprint": "4450a39ed8803c68309746a44350a7499431bd3c63f61c75fed8b0dd1e35ba1d",
+      "changed": false,
+      "declaration": "def main(argv: Sequence[str] | None=None) -> int:",
+      "docstring": null
+    },
+    {
+      "id": "legacy-rejection",
+      "kind": "test",
+      "path": "etudecas/prototypes/scan_2027_risk_control/tests/test_supplier_post_top3_action_protocol.py",
+      "symbol": "test_top3_selection_does_not_promote_legacy_consolidated_v2_flags",
+      "line": 264,
+      "fingerprint": "c05ac2784cb6f16614ea7fe44f3db838cf50be22014b56aea0b0366f09d6ebb6",
+      "reference_fingerprint": "c05ac2784cb6f16614ea7fe44f3db838cf50be22014b56aea0b0366f09d6ebb6",
+      "changed": false,
+      "declaration": "def test_top3_selection_does_not_promote_legacy_consolidated_v2_flags(tmp_path: Path):",
+      "docstring": null
+    },
+    {
+      "id": "candidate-scopes",
+      "kind": "test",
+      "path": "etudecas/prototypes/scan_2027_risk_control/tests/test_supplier_v2_controllable_action_selector.py",
+      "symbol": "test_legacy_protocol_preserves_scientific_candidates_without_action_release",
+      "line": 567,
+      "fingerprint": "660dbfcb34cd5e6f3bc39a285139132d32a5c3dfd114235e57b983e2c75dbfc1",
+      "reference_fingerprint": "660dbfcb34cd5e6f3bc39a285139132d32a5c3dfd114235e57b983e2c75dbfc1",
+      "changed": false,
+      "declaration": "def test_legacy_protocol_preserves_scientific_candidates_without_action_release(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, boundary_kind: str):",
+      "docstring": null
+    },
+    {
+      "id": "invalid-boundary",
+      "kind": "test",
+      "path": "etudecas/prototypes/scan_2027_risk_control/tests/test_supplier_v2_controllable_action_selector.py",
+      "symbol": "test_legacy_protocol_rejects_invalid_supplied_boundary",
+      "line": 589,
+      "fingerprint": "19698ecc0ccd2af5ba1a9f16c499372bae5ce26f8468c16c6e739e9259dbca2c",
+      "reference_fingerprint": "19698ecc0ccd2af5ba1a9f16c499372bae5ce26f8468c16c6e739e9259dbca2c",
+      "changed": false,
+      "declaration": "def test_legacy_protocol_rejects_invalid_supplied_boundary(tmp_path: Path):",
+      "docstring": null
+    }
+  ],
+  "rules": [
+    {
+      "rule_id": "SUPPLIER-ACTION-001",
+      "status": "documented",
+      "changed_references": [],
+      "changed_business_sources": []
+    }
+  ],
+  "tests_executed": false
+}

@@ -120,9 +120,9 @@ class GlobalKpiTreePayloadTest(unittest.TestCase):
 
         self.assertIsNotNone(payload)
         cost_group = next(group for group in payload["groups"] if group["id"] == "cost")
-        total_series = next(series for series in cost_group["secondary"] if series["label"] == "Cout operationnel total")
+        total_series = next(series for series in cost_group["secondary"] if series["label"] == "Cout operationnel valorise")
         self.assertEqual(total_series["values"], [70.0, 78.0])
-        self.assertEqual(cost_group["summary"][0]["label"], "Cout operationnel total")
+        self.assertEqual(cost_group["summary"][0]["label"], "Cout operationnel valorise")
         self.assertEqual(cost_group["summary"][0]["value"], "148.0")
 
     def test_cost_payload_splits_startup_established_and_opening_costs(self) -> None:
@@ -343,11 +343,12 @@ class GlobalKpiTreePayloadTest(unittest.TestCase):
 
         self.assertIsNotNone(payload)
         cost_group = next(group for group in payload["groups"] if group["id"] == "cost")
-        total_series = next(series for series in cost_group["secondary"] if series["label"] == "Cout operationnel total")
+        total_series = next(series for series in cost_group["secondary"] if series["label"] == "Cout operationnel valorise")
         transport_series = next(series for series in cost_group["secondary"] if series["label"] == "Cout de transport pilotable")
         self.assertAlmostEqual(sum(total_series["values"]), 400.0, places=4)
         self.assertEqual(transport_series["values"], [10.0, 30.0])
-        self.assertIn("reconstruit", cost_group["summary"][-1]["value"])
+        source = next(entry for entry in cost_group["summary"] if entry["label"] == "Source cout")
+        self.assertIn("reconstruit", source["value"])
 
     def test_component_immobilized_stock_group_is_added_when_artifact_exists(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

@@ -1,0 +1,49 @@
+{
+  "schema_version": "etudecas.documentation.catalog.v1",
+  "registries": [
+    {
+      "registry": "etudecas/docs/rules/lot_risk.json",
+      "output": "etudecas/docs/generated"
+    },
+    {
+      "registry": "etudecas/docs/rules/run_package.json",
+      "output": "etudecas/docs/generated/run_package"
+    },
+    {
+      "registry": "etudecas/docs/rules/supplier_actions.json",
+      "output": "etudecas/docs/generated/supplier_actions"
+    },
+    {
+      "registry": "etudecas/docs/rules/capacity_coupling.json",
+      "output": "etudecas/docs/generated/capacity_coupling"
+    },
+    {
+      "registry": "etudecas/docs/rules/calibration_execution.json",
+      "output": "etudecas/docs/generated/calibration_execution"
+    },
+    {
+      "registry": "etudecas/docs/rules/simulation_input.json",
+      "output": "etudecas/docs/generated/simulation_input"
+    },
+    {
+      "registry": "etudecas/docs/rules/scenario_comparison.json",
+      "output": "etudecas/docs/generated/scenario_comparison"
+    },
+    {
+      "registry": "etudecas/docs/rules/decision_support.json",
+      "output": "etudecas/docs/generated/decision_support"
+    },
+    {
+      "registry": "etudecas/docs/rules/execution_verification.json",
+      "output": "etudecas/docs/generated/execution_verification"
+    },
+    {
+      "registry": "etudecas/docs/rules/material_traceability.json",
+      "output": "etudecas/docs/generated/material_traceability"
+    },
+    {
+      "registry": "etudecas/docs/rules/audited_semantics.json",
+      "output": "etudecas/docs/generated/audited_semantics"
+    }
+  ]
+}

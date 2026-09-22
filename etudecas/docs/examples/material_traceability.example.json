@@ -1,0 +1,38 @@
+{
+  "version": "material-traceability/1.0",
+  "origins": [
+    {
+      "id": "DEMO-ORIGIN-338929",
+      "manufacturer_id": "DEMO-MANUFACTURER",
+      "item_id": "item:338929",
+      "batch_number": "DEMO-SAME-LOT-TWO-RECEIPTS",
+      "status": "simulated",
+      "source_reference": "hypothesis:demonstration_only_not_supplier_data"
+    }
+  ],
+  "allocations": [
+    {"receipt_id": "LEVT-00002017", "origin_id": "DEMO-ORIGIN-338929", "quantity": 5000, "uom": "UN"},
+    {"receipt_id": "LEVT-00002018", "origin_id": "DEMO-ORIGIN-338929", "quantity": 5000, "uom": "UN"}
+  ],
+  "handling_units": [
+    {
+      "id": "DEMO-CONTAINER-1",
+      "kind": "contenant",
+      "status": "simulated",
+      "source_reference": "hypothesis:demonstration_only_no_pallet_capacity_claim",
+      "contents": [{"receipt_id": "LEVT-00002017", "quantity": 5000, "uom": "UN"}]
+    }
+  ],
+  "incidents": [
+    {
+      "id": "DEMO-RECALL",
+      "label": "Exemple fictif de rappel fournisseur",
+      "kind": "quality_recall",
+      "day": 300,
+      "status": "scenario_preview",
+      "source_reference": "hypothesis:demonstration_only_no_engine_effect",
+      "target_type": "supplier_lot",
+      "target_id": "DEMO-ORIGIN-338929"
+    }
+  ]
+}

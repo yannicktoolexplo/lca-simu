@@ -36,6 +36,10 @@ BASE_V8_LAUNCHER_SHA256 = (
 
 
 def _powershell() -> str:
+    executable = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32/WindowsPowerShell/v1.0/powershell.exe"
+    if not executable.is_file():
+        pytest.skip("Windows PowerShell 5.1 is required for this execution test")
+
     system_root = Path(os.environ.get("SystemRoot", r"C:\Windows"))
     return str(
         system_root / "System32" / "WindowsPowerShell" / "v1.0" / "powershell.exe"
@@ -185,6 +189,7 @@ def test_task_disable_accepts_running_instance_when_definition_is_disabled() -> 
 
 
 def test_validate_only_is_read_only_and_reports_the_complete_chain(
+    frozen_wrapper_environment,
     tmp_path: Path,
 ) -> None:
     untouched_supervision = tmp_path / "must-not-be-created"
@@ -232,6 +237,7 @@ def test_validate_only_is_read_only_and_reports_the_complete_chain(
     ],
 )
 def test_validate_only_rejects_unbound_go(
+    frozen_wrapper_environment,
     tmp_path: Path,
     field: str,
     binding: str,
@@ -257,6 +263,7 @@ def test_validate_only_rejects_unbound_go(
 
 
 def test_validate_only_accepts_absent_go_without_authorizing_stage3(
+    frozen_wrapper_environment,
     tmp_path: Path,
 ) -> None:
     untouched_supervision = tmp_path / "must-not-be-created"
@@ -277,6 +284,7 @@ def test_validate_only_accepts_absent_go_without_authorizing_stage3(
 
 
 def test_validate_only_rejects_missing_required_stage3_input(
+    frozen_wrapper_environment,
     tmp_path: Path,
 ) -> None:
     untouched_supervision = tmp_path / "must-not-be-created"

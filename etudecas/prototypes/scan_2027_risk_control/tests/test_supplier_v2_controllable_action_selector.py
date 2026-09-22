@@ -563,6 +563,44 @@ def _signed_overlay_reader(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
 
+@pytest.mark.parametrize("boundary_kind", ["scoped_trio", "unresolved_group", "v3_service_group"])
+def test_legacy_protocol_preserves_scientific_candidates_without_action_release(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, boundary_kind: str,
+):
+    from etudecas.prototypes.scan_2027_risk_control import supplier_post_top3_action_protocol as protocol
+
+    network, boundary, *_ = _fixture(tmp_path, envelope_released=boundary_kind == "scoped_trio")
+    if boundary_kind == "v3_service_group":
+        _enable_v3_service_group(network, boundary, supplier_ids=["SUP-1", "SUP-2", "SUP-3", "SUP-4"])
+        monkeypatch.setattr(selector.network_dashboard.extension_contract,
+                            "validate_scientific_overlay", lambda _path: {"status": "complete"})
+        monkeypatch.setattr(selector.network_dashboard.boundary_contract,
+                            "validate_audit_package", lambda _path: {"status": "complete"})
+    expected_candidates, scientific = selector._scientific_candidate_suppliers(network, boundary)
+    selected, decision = protocol.select_confirmed_top3(network, boundary)
+    assert selected == []
+    assert decision["candidate_supplier_ids"] == expected_candidates
+    assert len(expected_candidates) == (3 if boundary_kind == "scoped_trio" else 4)
+    assert decision["candidate_selection_status"] == scientific["selection_status"]
+    assert decision["selection_reason"] == selector.SCIENTIFIC_BLOCKING_REASON
+    assert decision["action_promotion_allowed"] is False
+
+
+def test_legacy_protocol_rejects_invalid_supplied_boundary(tmp_path: Path):
+    from etudecas.prototypes.scan_2027_risk_control import supplier_post_top3_action_protocol as protocol
+
+    network, boundary, *_ = _fixture(tmp_path)
+    path = boundary / "scientific_priority_boundary_audit.json"
+    audit = json.loads(path.read_text(encoding="utf-8"))
+    audit["universal_supplier_top3_release_pass"] = True
+    _json(path, audit)
+    with pytest.raises(ValueError, match="scientifique"):
+        protocol.select_confirmed_top3(network, boundary)
+    path.unlink()
+    with pytest.raises(FileNotFoundError):
+        protocol.select_confirmed_top3(network, boundary)
+
+
 def test_direct_cli_help_works_from_repository_root():
     script = Path(selector.__file__).resolve()
     completed = subprocess.run(

@@ -12,9 +12,28 @@ from etudecas.prototypes.scan_2027_risk_control import (
 from etudecas.prototypes.scan_2027_risk_control import (
     supplier_service_regime_calibration_runner as runner,
 )
+from etudecas.prototypes.scan_2027_risk_control.tests.calibration_fixture import (
+    build_synthetic_plan,
+)
+from etudecas.prototypes.scan_2027_risk_control import (
+    supplier_service_regime_calibration_runner_v2 as runner_v2,
+)
+import sys
 
 
-PLAN_DIR = protocol.DEFAULT_OUTPUT_DIR
+@pytest.fixture(autouse=True, params=[runner, runner_v2], ids=["legacy-v1", "atomic-v2"])
+def runner_version(request, monkeypatch):
+    monkeypatch.setattr(sys.modules[__name__], "runner", request.param)
+
+
+@pytest.fixture
+def synthetic_plan(tmp_path, monkeypatch):
+    plan = build_synthetic_plan(tmp_path / "synthetic")
+    digest, files = runner._directory_digest(plan)
+    assert len(files) == runner.EXPECTED_PLAN_FILE_COUNT
+    # Only this test process accepts the synthetic artifact; all validators stay active.
+    monkeypatch.setattr(runner, "EXPECTED_PLAN_ARTIFACT_SHA256", digest)
+    return plan
 
 
 def _fake_executor(calls: list[tuple[str, int, str]]):
@@ -91,8 +110,9 @@ def _fake_executor(calls: list[tuple[str, int, str]]):
     return execute
 
 
-def test_frozen_v2_plan_validates_and_is_pinned(tmp_path: Path) -> None:
-    validated = runner.validate_plan_artifact(PLAN_DIR)
+def test_frozen_v2_plan_validates_and_is_pinned(tmp_path: Path, historical_artifact) -> None:
+    plan_dir = historical_artifact("supplier_service_regime_calibration_plan_20260903_v2")
+    validated = runner.validate_plan_artifact(plan_dir)
 
     assert validated.plan_artifact_sha256 == runner.EXPECTED_PLAN_ARTIFACT_SHA256
     assert len(validated.candidates) == 36
@@ -101,15 +121,15 @@ def test_frozen_v2_plan_validates_and_is_pinned(tmp_path: Path) -> None:
     )
 
     forged = tmp_path / "forged_plan"
-    shutil.copytree(PLAN_DIR, forged)
+    shutil.copytree(plan_dir, forged)
     report = forged / "AUDIT_ET_PROTOCOLE.md"
     report.write_text(report.read_text(encoding="utf-8") + "\nforged\n", encoding="utf-8")
     with pytest.raises(ValueError, match="inventory/digest"):
         runner.validate_plan_artifact(forged)
 
 
-def test_engine_command_has_no_incident_and_uses_candidate_input() -> None:
-    plan = runner.validate_plan_artifact(PLAN_DIR)
+def test_engine_command_has_no_incident_and_uses_candidate_input(synthetic_plan) -> None:
+    plan = runner.validate_plan_artifact(synthetic_plan)
     candidate = next(
         item for item in plan.candidates if item.kind == "graph_reliability"
     )
@@ -133,12 +153,12 @@ def test_engine_command_has_no_incident_and_uses_candidate_input() -> None:
     ).resolve()
 
 
-def test_smoke_executes_one_nonreusable_case(tmp_path: Path) -> None:
+def test_smoke_executes_one_nonreusable_case(tmp_path: Path, synthetic_plan) -> None:
     calls: list[tuple[str, int, str]] = []
     output = tmp_path / "smoke"
 
     manifest = runner.run_calibration(
-        plan_dir=PLAN_DIR,
+        plan_dir=synthetic_plan,
         output_dir=output,
         mode="smoke",
         workers=2,
@@ -160,7 +180,7 @@ def test_smoke_executes_one_nonreusable_case(tmp_path: Path) -> None:
     assert not (output / runner.SELECTION_FILE).exists()
     with pytest.raises(ValueError, match="another campaign signature"):
         runner.run_calibration(
-            plan_dir=PLAN_DIR,
+            plan_dir=synthetic_plan,
             output_dir=output,
             mode="screening",
             case_executor=_fake_executor([]),
@@ -168,12 +188,12 @@ def test_smoke_executes_one_nonreusable_case(tmp_path: Path) -> None:
 
 
 def test_screen_checkpoint_and_resume_adds_only_seeds_16_to_30(
-    tmp_path: Path,
+    tmp_path: Path, synthetic_plan,
 ) -> None:
     output = tmp_path / "staged"
     screening_calls: list[tuple[str, int, str]] = []
     screening = runner.run_calibration(
-        plan_dir=PLAN_DIR,
+        plan_dir=synthetic_plan,
         output_dir=output,
         mode="screening",
         workers=4,
@@ -185,7 +205,7 @@ def test_screen_checkpoint_and_resume_adds_only_seeds_16_to_30(
 
     with pytest.raises(ValueError, match="requires the signed 15-seed checkpoint"):
         runner.run_calibration(
-            plan_dir=PLAN_DIR,
+            plan_dir=synthetic_plan,
             output_dir=output,
             mode="confirmation",
             workers=4,
@@ -194,7 +214,7 @@ def test_screen_checkpoint_and_resume_adds_only_seeds_16_to_30(
 
     preliminary_calls: list[tuple[str, int, str]] = []
     preliminary = runner.run_calibration(
-        plan_dir=PLAN_DIR,
+        plan_dir=synthetic_plan,
         output_dir=output,
         mode="confirmation",
         workers=4,
@@ -214,7 +234,7 @@ def test_screen_checkpoint_and_resume_adds_only_seeds_16_to_30(
 
     repeated_calls: list[tuple[str, int, str]] = []
     repeated = runner.run_calibration(
-        plan_dir=PLAN_DIR,
+        plan_dir=synthetic_plan,
         output_dir=output,
         mode="confirmation",
         workers=4,
@@ -227,7 +247,7 @@ def test_screen_checkpoint_and_resume_adds_only_seeds_16_to_30(
 
     final_calls: list[tuple[str, int, str]] = []
     final = runner.run_calibration(
-        plan_dir=PLAN_DIR,
+        plan_dir=synthetic_plan,
         output_dir=output,
         mode="confirmation",
         workers=4,
@@ -249,16 +269,16 @@ def test_screen_checkpoint_and_resume_adds_only_seeds_16_to_30(
         assert ledger["case_file_sha256"][case_key] == item["sha256"]
 
 
-def test_resume_rejects_checkpoint_ledger_mismatch(tmp_path: Path) -> None:
+def test_resume_rejects_checkpoint_ledger_mismatch(tmp_path: Path, synthetic_plan) -> None:
     output = tmp_path / "tamper"
     runner.run_calibration(
-        plan_dir=PLAN_DIR,
+        plan_dir=synthetic_plan,
         output_dir=output,
         mode="screening",
         case_executor=_fake_executor([]),
     )
     runner.run_calibration(
-        plan_dir=PLAN_DIR,
+        plan_dir=synthetic_plan,
         output_dir=output,
         mode="confirmation",
         checkpoint_after_repetitions=15,
@@ -272,17 +292,17 @@ def test_resume_rejects_checkpoint_ledger_mismatch(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="evidence mismatch"):
         runner.run_calibration(
-            plan_dir=PLAN_DIR,
+            plan_dir=synthetic_plan,
             output_dir=output,
             mode="confirmation",
             case_executor=_fake_executor([]),
         )
 
 
-def test_invalid_checkpoint_count_and_existing_lock_fail_closed(tmp_path: Path) -> None:
+def test_invalid_checkpoint_count_and_existing_lock_fail_closed(tmp_path: Path, synthetic_plan) -> None:
     with pytest.raises(ValueError, match="exactly 15"):
         runner.run_calibration(
-            plan_dir=PLAN_DIR,
+            plan_dir=synthetic_plan,
             output_dir=tmp_path / "bad_checkpoint",
             mode="confirmation",
             checkpoint_after_repetitions=14,
@@ -294,7 +314,7 @@ def test_invalid_checkpoint_count_and_existing_lock_fail_closed(tmp_path: Path) 
     (output / runner.LOCK_FILE).write_text("999999\n", encoding="ascii")
     with pytest.raises(RuntimeError, match="lock exists"):
         runner.run_calibration(
-            plan_dir=PLAN_DIR,
+            plan_dir=synthetic_plan,
             output_dir=output,
             mode="smoke",
             case_executor=_fake_executor([]),
@@ -313,3 +333,27 @@ def test_daily_service_matrix_rejects_duplicate_rows() -> None:
     }
     with pytest.raises(ValueError, match="Duplicate product/day"):
         runner._validate_daily_service_rows([duplicate, duplicate])
+
+
+def test_production_pin_rejects_synthetic_plan(tmp_path):
+    plan = build_synthetic_plan(tmp_path / "untrusted")
+    with pytest.raises(ValueError, match="inventory/digest"):
+        runner.validate_plan_artifact(plan)
+
+
+@pytest.mark.parametrize("damage", ["missing_graph", "changed_graph", "changed_plan"])
+def test_synthetic_plan_keeps_integrity_checks(synthetic_plan, damage):
+    runner.validate_plan_artifact(synthetic_plan)
+    if damage == "changed_plan":
+        report = synthetic_plan / "AUDIT_ET_PROTOCOLE.md"
+        report.write_text("tampered", encoding="utf-8")
+        message = "inventory/digest"
+    else:
+        graph = synthetic_plan.parent / "graph.json"
+        if damage == "missing_graph":
+            graph.unlink()
+        else:
+            graph.write_text("{}", encoding="utf-8")
+        message = "Execution input hash mismatch"
+    with pytest.raises(ValueError, match=message):
+        runner.validate_plan_artifact(synthetic_plan)

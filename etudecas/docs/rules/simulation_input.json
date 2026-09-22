@@ -1,0 +1,292 @@
+{
+  "schema_version": "etudecas.documentation.v1",
+  "fingerprint_method": "python-ast-v1",
+  "title": "Contrats des entrées et de l'API HTTP de simulation",
+  "business_source_fingerprints": {
+    "etudecas/docs/SIMULATION_INPUT_CONTRACT.md": "0c02473520477844cbef3abe165021c12cc21f8563598f63526a03972ca7ce22"
+  },
+  "references": [
+    {
+      "id": "parser",
+      "path": "etudecas/simulation/engine/api.py",
+      "symbol": "request_from_dict",
+      "kind": "implementation",
+      "reference_fingerprint": "fea0e1a1baeb14a4daea089df7793c39ed0d45ff413d569d50a9d52f121c004b"
+    },
+    {
+      "id": "scales",
+      "path": "etudecas/simulation/engine/api.py",
+      "symbol": "_float_mapping",
+      "kind": "implementation",
+      "reference_fingerprint": "6f902272f2c041ae9c66f0fd64030e9428a2ffc6179a2643c5e4c063ce0e861d"
+    },
+    {
+      "id": "flags",
+      "path": "etudecas/simulation/engine/api.py",
+      "symbol": "_bool_mapping",
+      "kind": "implementation",
+      "reference_fingerprint": "4edd2b0ca34015325bba8b55671cc1e39852d2eaf189618a870f8334b86b24b7"
+    },
+    {
+      "id": "overrides",
+      "path": "etudecas/simulation/engine/api.py",
+      "symbol": "overrides_from_dict",
+      "kind": "implementation",
+      "reference_fingerprint": "4d82aefc7c61c1b3cfff61df8a9143c46c235e0bb001576679f63f6a12c4f84e"
+    },
+    {
+      "id": "http",
+      "path": "etudecas/simulation/engine/http_contract.py",
+      "symbol": "request_from_http",
+      "kind": "implementation",
+      "reference_fingerprint": "4b6d353a9efe874d317cc223e552178c0de58ae0c6c88a0d55615d294cc88604"
+    },
+    {
+      "id": "path",
+      "path": "etudecas/simulation/engine/http_contract.py",
+      "symbol": "confined_file",
+      "kind": "implementation",
+      "reference_fingerprint": "a0a33ad1cd08c90e35c99c893e8fe7b200ec65f858433509f7f6796bc7256712"
+    },
+    {
+      "id": "fields",
+      "path": "etudecas/simulation/engine/http_contract.py",
+      "symbol": "HTTP_FIELDS",
+      "kind": "contract",
+      "reference_fingerprint": "fd30841bf5994990b0e14b850dd13f7f527aae71e26d7197fae79978da6b6d67"
+    },
+    {
+      "id": "server",
+      "path": "etudecas/simulation/engine/server.py",
+      "symbol": "SimulationApiServer",
+      "kind": "implementation",
+      "reference_fingerprint": "58852a2a0c1521911df1ac5ff908379e12572d6f4b71d61db4bd44d3e5caf949"
+    },
+    {
+      "id": "origin",
+      "path": "etudecas/simulation/engine/server.py",
+      "symbol": "SimulationApiHandler._check_origin_and_host",
+      "kind": "implementation",
+      "reference_fingerprint": "f3bc9d2a33d2f761d065ebc03abfaf4a7c56f5afc7003664e8f12b06966f6128"
+    },
+    {
+      "id": "post",
+      "path": "etudecas/simulation/engine/server.py",
+      "symbol": "SimulationApiHandler.do_POST",
+      "kind": "implementation",
+      "reference_fingerprint": "1be5cf15b1ca8993723ca3bdbf25b3fa1e00d86db66e8ac76cd97b6d42544ba1"
+    },
+    {
+      "id": "bounded",
+      "path": "etudecas/simulation/engine/bounded_execution.py",
+      "symbol": "run_simulation_bounded",
+      "kind": "implementation",
+      "reference_fingerprint": "1d012545300c5f82eb7e9187aae36947fe5883ca1c552218b52c6e5a2b4c5807"
+    },
+    {
+      "id": "graph",
+      "path": "etudecas/knowledge_graph/schema.py",
+      "symbol": "validate_graph_contract",
+      "kind": "implementation",
+      "reference_fingerprint": "46eff51f6fccd54a4e617dd00ada54c1ee3b41450a009a7c29afd20a823074f6"
+    },
+    {
+      "id": "shapes",
+      "path": "etudecas/knowledge_graph/schema.py",
+      "symbol": "_validate_shapes",
+      "kind": "implementation",
+      "reference_fingerprint": "7807e3775cff878c73ac78e07daaa5f7f1e911bbb5f2bfa9682fd45e34fa2287"
+    },
+    {
+      "id": "numeric",
+      "path": "etudecas/knowledge_graph/schema.py",
+      "symbol": "_is_number",
+      "kind": "implementation",
+      "reference_fingerprint": "5c1fa1c0c8d3643a4f6e59d49abf624f811a0ce16570208c300e0d9e4a49ee8d"
+    },
+    {
+      "id": "types-test",
+      "path": "etudecas/simulation/test_request_contract.py",
+      "symbol": "test_request_rejects_coercions",
+      "kind": "test",
+      "reference_fingerprint": "a2d2fc9c2ac56730c991bc6019e87d7d9418e7e20ddbabd0f9851d5452b6014d"
+    },
+    {
+      "id": "scales-test",
+      "path": "etudecas/simulation/test_request_contract.py",
+      "symbol": "test_scales_require_finite_nonnegative_numbers",
+      "kind": "test",
+      "reference_fingerprint": "c419a1247f8512964cc45e2939718f02022fc1bb23010667aea7fd81e35353b0"
+    },
+    {
+      "id": "false-test",
+      "path": "etudecas/simulation/test_request_contract.py",
+      "symbol": "test_false_zero_and_internal_controls_are_preserved",
+      "kind": "test",
+      "reference_fingerprint": "8b0b6ac79f639c46a08bad2d829a11c1d7b744abc7451fc0e83e8a655fc06927"
+    },
+    {
+      "id": "forbidden-test",
+      "path": "etudecas/simulation/test_http_contract.py",
+      "symbol": "test_http_rejects_internal_fields_and_unbounded_horizon",
+      "kind": "test",
+      "reference_fingerprint": "52e68d0f352cc152bbfd0064c2443fac813def900f39c188ffa00848c1e475de"
+    },
+    {
+      "id": "paths-test",
+      "path": "etudecas/simulation/test_http_contract.py",
+      "symbol": "test_http_paths_cannot_escape_input_root",
+      "kind": "test",
+      "reference_fingerprint": "401dfe3431fd515c8e547660e4cd3ab22cacc1c3aeb01b9be483c99be43fc1b0"
+    },
+    {
+      "id": "unique-test",
+      "path": "etudecas/simulation/test_http_contract.py",
+      "symbol": "test_http_assigns_engine_and_unique_output_without_writing",
+      "kind": "test",
+      "reference_fingerprint": "efbb836fd420ba26a6efc3f2bd49cf464157a93efe7bd86abac8bf015bd8d30e"
+    },
+    {
+      "id": "access-test",
+      "path": "etudecas/simulation/test_http_contract.py",
+      "symbol": "test_http_rejects_before_simulation",
+      "kind": "test",
+      "reference_fingerprint": "1b23aec8fc67e0d82a71512881486c53bb97815032530b7756ceee229e366bb4"
+    },
+    {
+      "id": "busy-test",
+      "path": "etudecas/simulation/test_http_contract.py",
+      "symbol": "test_busy_and_timeout_release_slot",
+      "kind": "test",
+      "reference_fingerprint": "a235f89b7473832248e5b7eac25f6c27bcd51c77ba794bfc487bfc69b41e96a2"
+    },
+    {
+      "id": "deadline-test",
+      "path": "etudecas/simulation/test_http_contract.py",
+      "symbol": "test_real_subprocess_timeout",
+      "kind": "test",
+      "reference_fingerprint": "38f0644798f484a3fd1b35556034b7ba4ca65930d7d8749cae2415fb88098549"
+    },
+    {
+      "id": "partial-test",
+      "path": "etudecas/simulation/test_http_contract.py",
+      "symbol": "test_partial_body_times_out_and_releases_slot",
+      "kind": "test",
+      "reference_fingerprint": "1add781148151a6f1dc7764acd3f43442c4636e4a548bb01868961d480b06648"
+    },
+    {
+      "id": "finite-test",
+      "path": "etudecas/knowledge_graph/test_schema_contract.py",
+      "symbol": "test_nonfinite_inventory_is_rejected",
+      "kind": "test",
+      "reference_fingerprint": "7aa3019b8c478f5ac3b54c3fe39545a4562e8f0abea4cd1d02245c54705a023a"
+    },
+    {
+      "id": "shape-test",
+      "path": "etudecas/knowledge_graph/test_schema_contract.py",
+      "symbol": "test_malformed_top_level_rows_return_issues",
+      "kind": "test",
+      "reference_fingerprint": "b771d1245537305e8afbc2a177f22eec2fa566291717d5d37b6cc66e3a779605"
+    },
+    {
+      "id": "nested-test",
+      "path": "etudecas/knowledge_graph/test_schema_contract.py",
+      "symbol": "test_malformed_nested_rows_return_issues",
+      "kind": "test",
+      "reference_fingerprint": "a70abab0555d0fd94e394de7a4a6d96bf683d8a23cbcf64b4b4c2f386ee71d6f"
+    },
+    {
+      "id": "immutable-test",
+      "path": "etudecas/knowledge_graph/test_schema_contract.py",
+      "symbol": "test_valid_graph_validation_does_not_mutate_input",
+      "kind": "test",
+      "reference_fingerprint": "4dc27e80f3524f34690e235aa182e5b59b31f4e091e900d4e7856f03491567c4"
+    }
+  ],
+  "rules": [
+    {
+      "id": "SIMULATION-INPUT-001",
+      "title": "Interpréter les valeurs sans conversions ambiguës",
+      "status": "documented",
+      "statement": "Le parseur de dictionnaire exige des booléens réels, des jours et graines entiers non négatifs, et des multiplicateurs finis non négatifs. Il refuse les champs inconnus et exige une seule source de graphe.",
+      "scope": "request_from_dict ; les objets internes construits directement ne passent pas par ce parseur.",
+      "units": "Jours, graines entières et multiplicateurs sans dimension.",
+      "limitations": "Zéro jour conserve la convention Python historique ; les planchers et effets physiques des multiplicateurs restent définis dans le moteur.",
+      "references": [
+        "parser",
+        "scales",
+        "flags",
+        "overrides",
+        "types-test",
+        "scales-test",
+        "false-test"
+      ],
+      "sources": [
+        "etudecas/docs/SIMULATION_INPUT_CONTRACT.md"
+      ]
+    },
+    {
+      "id": "SIMULATION-INPUT-002",
+      "title": "Réserver le moteur et les sorties au serveur",
+      "status": "documented",
+      "statement": "HTTP impose le moteur et un nouveau dossier de résultats, refuse les arguments moteur libres et contrôle les chemins résolus sous la racine d'entrée. Le scénario doit exister et l'horizon être explicite et borné.",
+      "scope": "POST /simulate du serveur local.",
+      "units": "Chemins locaux, jours, identifiants de scénario et de run.",
+      "limitations": "Pas de protection contre une modification concurrente des fichiers par un acteur local. Le contrat Python interne conserve ses options de confiance.",
+      "references": [
+        "http",
+        "path",
+        "fields",
+        "forbidden-test",
+        "paths-test",
+        "unique-test"
+      ],
+      "sources": [
+        "etudecas/docs/SIMULATION_INPUT_CONTRACT.md"
+      ]
+    },
+    {
+      "id": "SIMULATION-INPUT-003",
+      "title": "Contrôler l'accès local et les exécutions simultanées",
+      "status": "documented",
+      "statement": "Le serveur local exige un jeton pour simuler, contrôle l'origine et l'hôte, limite le corps, réserve un seul créneau et applique un délai au sous-processus moteur. Les erreurs libèrent le créneau et ne sont pas annoncées comme succès.",
+      "scope": "Service HTTP local avec configuration contrôlée par son opérateur.",
+      "units": "Octets, secondes et nombre de simulations concurrentes.",
+      "limitations": "Le délai ne couvre pas tout le prétraitement ni les descendants éventuels du moteur. Ni la mémoire, ni les sorties, ni le nombre de connexions ne sont bornés. Outil local uniquement.",
+      "references": [
+        "server",
+        "origin",
+        "post",
+        "bounded",
+        "access-test",
+        "busy-test",
+        "deadline-test",
+        "partial-test"
+      ],
+      "sources": [
+        "etudecas/docs/SIMULATION_INPUT_CONTRACT.md"
+      ]
+    },
+    {
+      "id": "SIMULATION-INPUT-004",
+      "title": "Rapporter les graphes mal formés et les nombres non finis",
+      "status": "documented",
+      "statement": "Le validateur retourne des erreurs structurées pour les conteneurs et lignes invalides. Les champs numériques qu'il contrôle doivent être finis et ne peuvent pas être des booléens. Stocks et ratios BOM negatifs, articles absents et arcs sans extremites sont refuses.",
+      "scope": "Contrat de graphe, moteur CLI et API Python/HTTP.",
+      "units": "Unités des articles pour les stocks et quantités ; jours ; ratios de nomenclature.",
+      "limitations": "Les chaînes numériques finies restent acceptées dans le graphe. Ce contrôle ne couvre pas tous les champs moteur et ne démontre ni conservation physique ni validité scientifique.",
+      "references": [
+        "graph",
+        "shapes",
+        "numeric",
+        "finite-test",
+        "shape-test",
+        "nested-test",
+        "immutable-test"
+      ],
+      "sources": [
+        "etudecas/docs/SIMULATION_INPUT_CONTRACT.md"
+      ]
+    }
+  ]
+}

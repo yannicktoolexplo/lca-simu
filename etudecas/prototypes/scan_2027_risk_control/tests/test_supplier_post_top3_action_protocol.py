@@ -261,7 +261,7 @@ def test_top3_selection_rejects_legacy_ten_realisation_fields(tmp_path: Path):
     assert decision["selection_status"] == "selection_refused_v2_not_stabilized"
 
 
-def test_top3_selection_accepts_only_consolidated_v2_gates(tmp_path: Path):
+def test_top3_selection_does_not_promote_legacy_consolidated_v2_flags(tmp_path: Path):
     _write_json(
         tmp_path / "campaign_manifest.json",
         {
@@ -305,5 +305,7 @@ def test_top3_selection_accepts_only_consolidated_v2_gates(tmp_path: Path):
         ],
     )
     suppliers, decision = protocol.select_confirmed_top3(tmp_path)
-    assert suppliers == ["SUP-1", "SUP-2", "SUP-3"]
-    assert decision["selection_status"] == "stabilized_v2_top3_selected"
+    assert suppliers == []
+    assert decision["selection_status"] == "selection_refused_v2_not_stabilized"
+    assert decision["selection_reason"] == "priority_boundary_audit_required"
+    assert decision["action_promotion_allowed"] is False

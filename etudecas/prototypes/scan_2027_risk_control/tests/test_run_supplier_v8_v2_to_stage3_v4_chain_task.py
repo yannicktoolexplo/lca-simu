@@ -4,6 +4,8 @@ import hashlib
 import json
 import os
 import subprocess
+
+import pytest
 from pathlib import Path
 
 
@@ -23,6 +25,10 @@ ARTIFACT_ROOT = Path(r"C:\dev\lca-simu-pr40-validation-artifacts-20260726")
 
 
 def _powershell() -> str:
+    executable = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32/WindowsPowerShell/v1.0/powershell.exe"
+    if not executable.is_file():
+        pytest.skip("Windows PowerShell 5.1 is required for this execution test")
+
     return str(
         Path(os.environ.get("SystemRoot", r"C:\Windows"))
         / "System32/WindowsPowerShell/v1.0/powershell.exe"
@@ -119,7 +125,7 @@ def test_v4_atomic_json_supports_two_real_powershell_5_writes(
     }
 
 
-def test_v4_validate_only_accepts_its_own_explicit_go(tmp_path: Path) -> None:
+def test_v4_validate_only_accepts_its_own_explicit_go(frozen_wrapper_environment, tmp_path: Path) -> None:
     supervision = tmp_path / "must-not-be-created"
     go_file = tmp_path / "go-v4.json"
     go_file.write_text(

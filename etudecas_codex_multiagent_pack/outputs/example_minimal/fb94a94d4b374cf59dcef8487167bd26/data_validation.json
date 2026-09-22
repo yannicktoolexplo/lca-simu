@@ -1,0 +1,11 @@
+{
+  "name": "data_validation",
+  "status": "ok",
+  "issues": [],
+  "checks": [
+    {
+      "name": "schema",
+      "status": "passed"
+    }
+  ]
+}

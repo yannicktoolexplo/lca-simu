@@ -1,0 +1,181 @@
+{
+  "schema_version": "etudecas.documentation.v1",
+  "fingerprint_method": "python-ast-v1",
+  "business_source_fingerprints": {
+    "etudecas/docs/SCENARIO_COMPARISON.md": "6b85a994a8a5e6e6c5779f47c29fe7a8ef0ce9d932dc1bcacd4543060532d90f",
+    "etudecas/docs/changes/2026-09-20-cost-rounding-README.md": "1ae6de1ab28ca8bf87ce1e15ee828f47c07ab94a070f621400a8a3d1f5404f22"
+  },
+  "references": [
+    {
+      "id": "score",
+      "kind": "implementation",
+      "path": "etudecas/visualization/maps/scenario_comparison_payload.py",
+      "symbol": "compute_observed_impact",
+      "line": 82,
+      "fingerprint": "8919b4560130582c6f490da71caf8b1d7f6c66c8b8fe80c9a466dc2be306ee00",
+      "reference_fingerprint": "8919b4560130582c6f490da71caf8b1d7f6c66c8b8fe80c9a466dc2be306ee00",
+      "changed": false,
+      "declaration": "def compute_observed_impact(kpis: dict[str, Any], base_kpis: dict[str, Any]) -> dict[str, float | str]:",
+      "docstring": "Descriptive weighted impact, not a probability or calibrated decision score."
+    },
+    {
+      "id": "payload",
+      "kind": "implementation",
+      "path": "etudecas/visualization/maps/scenario_comparison_payload.py",
+      "symbol": "build_scenario_comparison_payload",
+      "line": 130,
+      "fingerprint": "e76ff6cdefbc717150a41b4443c0569d4cd4331fb7b06c28a7770ddf9f8009fb",
+      "reference_fingerprint": "e76ff6cdefbc717150a41b4443c0569d4cd4331fb7b06c28a7770ddf9f8009fb",
+      "changed": false,
+      "declaration": "def build_scenario_comparison_payload(current_output_root: Path) -> dict[str, Any]:",
+      "docstring": null
+    },
+    {
+      "id": "score-test",
+      "kind": "test",
+      "path": "etudecas/visualization/maps/test_scenario_comparison_payload.py",
+      "symbol": "ScenarioComparisonPayloadTest.test_observed_score_and_signed_deltas",
+      "line": 15,
+      "fingerprint": "9495d65f2467536afdc53060bbab3af20d64a62223fb2e5ca20b0c1d82ac3bfc",
+      "reference_fingerprint": "9495d65f2467536afdc53060bbab3af20d64a62223fb2e5ca20b0c1d82ac3bfc",
+      "changed": false,
+      "declaration": "def test_observed_score_and_signed_deltas(self) -> None:",
+      "docstring": null
+    },
+    {
+      "id": "zero-test",
+      "kind": "test",
+      "path": "etudecas/visualization/maps/test_scenario_comparison_payload.py",
+      "symbol": "ScenarioComparisonPayloadTest.test_zero_service_is_total_service_loss",
+      "line": 34,
+      "fingerprint": "192215d70855cd7eed5c684838dfad3ccb23599a342d2d5ab011502ad86e8ca6",
+      "reference_fingerprint": "192215d70855cd7eed5c684838dfad3ccb23599a342d2d5ab011502ad86e8ca6",
+      "changed": false,
+      "declaration": "def test_zero_service_is_total_service_loss(self) -> None:",
+      "docstring": null
+    },
+    {
+      "id": "payload-test",
+      "kind": "test",
+      "path": "etudecas/visualization/maps/test_scenario_comparison_payload.py",
+      "symbol": "ScenarioComparisonPayloadTest.test_current_run_with_companion_ignores_stale_compact",
+      "line": 64,
+      "fingerprint": "d355234715933f172e49071a1638c4e55302c96797a6f684527f1003abbd3c02",
+      "reference_fingerprint": "d355234715933f172e49071a1638c4e55302c96797a6f684527f1003abbd3c02",
+      "changed": false,
+      "declaration": "def test_current_run_with_companion_ignores_stale_compact(self) -> None:",
+      "docstring": null
+    },
+    {
+      "id": "browser",
+      "kind": "implementation",
+      "path": "etudecas/testing/map_browser.py",
+      "symbol": "review_map",
+      "line": 14,
+      "fingerprint": "3baf44816e9acc9c1cf414f7e31063f72f4a380e5fa1919f8b77fad4d5430800",
+      "reference_fingerprint": "3baf44816e9acc9c1cf414f7e31063f72f4a380e5fa1919f8b77fad4d5430800",
+      "changed": false,
+      "declaration": "def review_map(html: Path, output: Path) -> dict:",
+      "docstring": null
+    },
+    {
+      "id": "html-csv",
+      "kind": "implementation",
+      "path": "etudecas/testing/map_delivery.py",
+      "symbol": "reconcile_browser",
+      "line": 111,
+      "fingerprint": "4574d9f6612cafcb3a3ed67d90e7ad2c09442fcc92483e4d0419738919ee93bb",
+      "reference_fingerprint": "4574d9f6612cafcb3a3ed67d90e7ad2c09442fcc92483e4d0419738919ee93bb",
+      "changed": false,
+      "declaration": "def reconcile_browser(browser: dict, runs: list[dict], *, cost_checks: list | None=None) -> list[str]:",
+      "docstring": "Independent source oracle for browser values, monetary scopes and v3 score.\n\nDo not import a map producer: summaries and daily CSVs are read directly.\nThe score is checked against those quantities, not another payload score."
+    },
+    {
+      "id": "html-csv-test",
+      "kind": "test",
+      "path": "etudecas/testing/test_map_delivery.py",
+      "symbol": "test_browser_values_are_reconciled_with_runs",
+      "line": 69,
+      "fingerprint": "1fcc0239ccd7a70f9fb4e58e1e4c89a879d1244a97059f4c04819b7761e6579a",
+      "reference_fingerprint": "1fcc0239ccd7a70f9fb4e58e1e4c89a879d1244a97059f4c04819b7761e6579a",
+      "changed": false,
+      "declaration": "def test_browser_values_are_reconciled_with_runs(run, damage):",
+      "docstring": null
+    },
+    {
+      "id": "valuation",
+      "kind": "implementation",
+      "path": "etudecas/visualization/maps/economic_valuation.py",
+      "symbol": "economic_cost_view",
+      "line": 6,
+      "fingerprint": "57dbaee22a98851564acd39e579144cfd2c460ff0dd981ac2016145a0e34110e",
+      "reference_fingerprint": "57dbaee22a98851564acd39e579144cfd2c460ff0dd981ac2016145a0e34110e",
+      "changed": false,
+      "declaration": "def economic_cost_view(summary: dict[str, Any]) -> dict[str, Any]:",
+      "docstring": null
+    },
+    {
+      "id": "valuation-test",
+      "kind": "test",
+      "path": "etudecas/visualization/maps/test_audit_payload_contracts.py",
+      "symbol": "SemanticGuardTests.test_unknown_or_incomplete_value_cannot_affect_cost_ranking_or_score",
+      "line": 137,
+      "fingerprint": "fca0fdb45ced07c10d26e76fb2c14aaae546e320fdf4149cf780933f54e056d2",
+      "reference_fingerprint": "fca0fdb45ced07c10d26e76fb2c14aaae546e320fdf4149cf780933f54e056d2",
+      "changed": false,
+      "declaration": "def test_unknown_or_incomplete_value_cannot_affect_cost_ranking_or_score(self):",
+      "docstring": null
+    },
+    {
+      "id": "association-test",
+      "kind": "test",
+      "path": "etudecas/visualization/maps/test_audit_payload_contracts.py",
+      "symbol": "SemanticGuardTests.test_preexisting_client_backlog_is_not_attributed_to_unapplied_event",
+      "line": 226,
+      "fingerprint": "d51060cc13e287eb71e8dd8cdbdb729b861ca2b2155fcfea6a493d8433587f60",
+      "reference_fingerprint": "d51060cc13e287eb71e8dd8cdbdb729b861ca2b2155fcfea6a493d8433587f60",
+      "changed": false,
+      "declaration": "def test_preexisting_client_backlog_is_not_attributed_to_unapplied_event(self):",
+      "docstring": null
+    },
+    {
+      "id": "backlog-test",
+      "kind": "test",
+      "path": "etudecas/visualization/maps/test_audit_payload_contracts.py",
+      "symbol": "SemanticGuardTests.test_fractional_residuals_are_not_whole_unit_backlog",
+      "line": 177,
+      "fingerprint": "7ba93581876527c9dc2fb86a9bab79825a127178b92bc0a95f2c8657981df72f",
+      "reference_fingerprint": "7ba93581876527c9dc2fb86a9bab79825a127178b92bc0a95f2c8657981df72f",
+      "changed": false,
+      "declaration": "def test_fractional_residuals_are_not_whole_unit_backlog(self):",
+      "docstring": null
+    },
+    {
+      "id": "cost-scope-oracle-test",
+      "kind": "test",
+      "path": "etudecas/testing/test_map_delivery.py",
+      "symbol": "test_complete_cost_scopes_use_independent_csv_and_operating_score",
+      "line": 144,
+      "fingerprint": "5cbbb4e9706cb1eb10db8758e5131389f0aed613b18d95288845f4b496e813ca",
+      "reference_fingerprint": "5cbbb4e9706cb1eb10db8758e5131389f0aed613b18d95288845f4b496e813ca",
+      "changed": false,
+      "declaration": "def test_complete_cost_scopes_use_independent_csv_and_operating_score(run, damage):",
+      "docstring": null
+    }
+  ],
+  "rules": [
+    {
+      "rule_id": "SCENARIO-COMPARE-001",
+      "status": "documented",
+      "changed_references": [],
+      "changed_business_sources": []
+    },
+    {
+      "rule_id": "SCENARIO-COMPARE-002",
+      "status": "documented",
+      "changed_references": [],
+      "changed_business_sources": []
+    }
+  ],
+  "tests_executed": false
+}

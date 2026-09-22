@@ -1,0 +1,336 @@
+{
+  "schema_version": "etudecas.documentation.v1",
+  "fingerprint_method": "python-ast-v1",
+  "business_source_fingerprints": {
+    "etudecas/simulation/lot_trace/RISK_IMPACT_REGISTRY.md": "b24782f2039f7633b945b38279822380554bd35239acb7561054106ed8a5a379"
+  },
+  "references": [
+    {
+      "id": "engine-day-loop",
+      "kind": "implementation",
+      "path": "etudecas/simulation/engine/run_first_simulation.py",
+      "symbol": "main",
+      "line": 6869,
+      "fingerprint": "4e5be273252205b8f29c0400d475019c7a59d47b2ba72b4cf182b11ed4b62684",
+      "reference_fingerprint": "4e5be273252205b8f29c0400d475019c7a59d47b2ba72b4cf182b11ed4b62684",
+      "changed": false,
+      "declaration": "def main() -> None:",
+      "docstring": null
+    },
+    {
+      "id": "source-allocation",
+      "kind": "implementation",
+      "path": "etudecas/simulation/lot_trace/risk_impact_registry.py",
+      "symbol": "_allocate_source_lots",
+      "line": 1570,
+      "fingerprint": "b887799f84731f045362a56f0c4d632698e13650bf641b5d6300ce931d215e9b",
+      "reference_fingerprint": "b887799f84731f045362a56f0c4d632698e13650bf641b5d6300ce931d215e9b",
+      "changed": false,
+      "declaration": "def _allocate_source_lots(bundles: list[dict[str, Any]], lot_event_rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], dict[str, Any]]:",
+      "docstring": null
+    },
+    {
+      "id": "shipment-chunks",
+      "kind": "implementation",
+      "path": "etudecas/simulation/engine/run_first_simulation.py",
+      "symbol": "_attach_shipment_trace_ids",
+      "line": 370,
+      "fingerprint": "c5fff81fc8eb08c31dd5e1db862c3325e8d2b1d7497ba2863285049812a3b20f",
+      "reference_fingerprint": "c5fff81fc8eb08c31dd5e1db862c3325e8d2b1d7497ba2863285049812a3b20f",
+      "changed": false,
+      "declaration": "def _attach_shipment_trace_ids(delivery_schedule: list[tuple[int, float, float]], *, start_sequence: int, risk_event_ids: list[Any] | tuple[Any, ...]) -> tuple[list[tuple[int, float, float, str, str]], int]:",
+      "docstring": "Attach one stable transaction ID to every physical delivery chunk."
+    },
+    {
+      "id": "native-join-test",
+      "kind": "test",
+      "path": "etudecas/simulation/test_risk_lot_impact_registry.py",
+      "symbol": "test_engine_smoke_emits_native_transaction_join_and_registry_counts_bundle_once",
+      "line": 968,
+      "fingerprint": "4ae9d86aac729dc3ea471ed8a4d3eb5ef1ccc30d21264c49be758aa9055f54f8",
+      "reference_fingerprint": "4ae9d86aac729dc3ea471ed8a4d3eb5ef1ccc30d21264c49be758aa9055f54f8",
+      "changed": false,
+      "declaration": "def test_engine_smoke_emits_native_transaction_join_and_registry_counts_bundle_once(tmp_path: Path, risk_item: str) -> None:",
+      "docstring": null
+    },
+    {
+      "id": "lot-event-fields",
+      "kind": "contract",
+      "path": "etudecas/simulation/lot_trace/io.py",
+      "symbol": "LOT_TRACE_EVENT_FIELDS",
+      "line": 15,
+      "fingerprint": "8020b59f1067939dc3bf81ecf90101b48d81d4fd42b4b2078298b8882812b15e",
+      "reference_fingerprint": "8020b59f1067939dc3bf81ecf90101b48d81d4fd42b4b2078298b8882812b15e",
+      "changed": false,
+      "declaration": "LOT_TRACE_EVENT_FIELDS = ['event_id', 'day', 'event_type', 'lot_id', 'node_id', 'item_id', 'qty', 'qty_after', 'uom', 'source_type', 'source_id', 'shipment_id', 'risk_decision_day', 'risk_event_ids', 'related_lot_id', 'production_campaign_id', 'notes', 'business_batch_id', 'stock_lot_id', 'lot_occurrence_id', 'provenance_batch_id', 'departure_day', 'arrival_day', 'handling_unit_id', 'trace_status', 'trace_reason', 'lot_trace_contract_version', *LOT_CAUSAL_EVENT_FIELDS]",
+      "docstring": null
+    },
+    {
+      "id": "genealogy-fields",
+      "kind": "contract",
+      "path": "etudecas/simulation/lot_trace/io.py",
+      "symbol": "LOT_TRACE_GENEALOGY_FIELDS",
+      "line": 45,
+      "fingerprint": "0530b427b279c933e05bddff96f7b59761416f4471ce73af4208bcca1fdd5f89",
+      "reference_fingerprint": "0530b427b279c933e05bddff96f7b59761416f4471ce73af4208bcca1fdd5f89",
+      "changed": false,
+      "declaration": "LOT_TRACE_GENEALOGY_FIELDS = ['day', 'link_type', 'parent_lot_id', 'parent_node_id', 'parent_item_id', 'child_lot_id', 'child_node_id', 'child_item_id', 'parent_qty', 'child_qty', 'allocation_share', 'source_id', 'shipment_id', 'risk_decision_day', 'risk_event_ids', 'production_campaign_id', 'notes', 'component_allocation_share', 'business_batch_id', 'stock_lot_id', 'lot_occurrence_id', 'parent_business_batch_id', 'parent_stock_lot_id', 'parent_lot_occurrence_id', 'child_business_batch_id', 'child_stock_lot_id', 'child_lot_occurrence_id', 'provenance_batch_id', 'departure_day', 'arrival_day', 'handling_unit_id', 'trace_status', 'trace_reason', 'lot_trace_contract_version', *LOT_CAUSAL_GENEALOGY_FIELDS]",
+      "docstring": null
+    },
+    {
+      "id": "lot-contract-version",
+      "kind": "contract",
+      "path": "etudecas/simulation/lot_trace/io.py",
+      "symbol": "LOT_TRACE_CONTRACT_VERSION",
+      "line": 14,
+      "fingerprint": "9dab8a83b2667e2bfca028379b86a5e5d59f4d8c1e7d5f175e7b2514d9046e56",
+      "reference_fingerprint": "9dab8a83b2667e2bfca028379b86a5e5d59f4d8c1e7d5f175e7b2514d9046e56",
+      "changed": false,
+      "declaration": "LOT_TRACE_CONTRACT_VERSION = '3.0'",
+      "docstring": null
+    },
+    {
+      "id": "risk-context-test",
+      "kind": "test",
+      "path": "etudecas/simulation/test_risk_lot_impact_registry.py",
+      "symbol": "test_engine_lot_ledger_carries_native_risk_context_through_receipt_genealogy",
+      "line": 899,
+      "fingerprint": "02686520a57fdeaf7b8dcd5e2839efb2ff0d8d608b6fa4ff92e676fff2f2cfae",
+      "reference_fingerprint": "02686520a57fdeaf7b8dcd5e2839efb2ff0d8d608b6fa4ff92e676fff2f2cfae",
+      "changed": false,
+      "declaration": "def test_engine_lot_ledger_carries_native_risk_context_through_receipt_genealogy() -> None:",
+      "docstring": null
+    },
+    {
+      "id": "exposure-bundles",
+      "kind": "implementation",
+      "path": "etudecas/simulation/lot_trace/risk_impact_registry.py",
+      "symbol": "_build_exposure_bundles",
+      "line": 1406,
+      "fingerprint": "beddd14c2742fb9748300d1836ee8c8089313b4f1a942c3728eb6448322bade9",
+      "reference_fingerprint": "beddd14c2742fb9748300d1836ee8c8089313b4f1a942c3728eb6448322bade9",
+      "changed": false,
+      "declaration": "def _build_exposure_bundles(shipment_rows: list[dict[str, Any]], applied_rows: list[dict[str, Any]]) -> dict[str, Any]:",
+      "docstring": null
+    },
+    {
+      "id": "overlap-test",
+      "kind": "test",
+      "path": "etudecas/simulation/test_risk_lot_impact_registry.py",
+      "symbol": "test_overlapping_events_share_one_bundle_and_must_not_be_summed",
+      "line": 616,
+      "fingerprint": "c0ad6e13abcc8de8ac42c798cd21651ae8ad7c323c55a5bbc7e457923520ed34",
+      "reference_fingerprint": "c0ad6e13abcc8de8ac42c798cd21651ae8ad7c323c55a5bbc7e457923520ed34",
+      "changed": false,
+      "declaration": "def test_overlapping_events_share_one_bundle_and_must_not_be_summed() -> None:",
+      "docstring": null
+    },
+    {
+      "id": "component-union",
+      "kind": "implementation",
+      "path": "etudecas/simulation/lot_trace/risk_impact_registry.py",
+      "symbol": "_derive_child_impact",
+      "line": 1993,
+      "fingerprint": "89f6c6f99b30db60ccf42d4fbcffd6c3ec636908f5955ab1329795a924b1a6d9",
+      "reference_fingerprint": "89f6c6f99b30db60ccf42d4fbcffd6c3ec636908f5955ab1329795a924b1a6d9",
+      "changed": false,
+      "declaration": "def _derive_child_impact(child: str, links: list[dict[str, Any]], impacts: dict[str, _LotImpact], lot_info: dict[str, dict[str, Any]]) -> _LotImpact | None:",
+      "docstring": null
+    },
+    {
+      "id": "units-merge-test",
+      "kind": "test",
+      "path": "etudecas/simulation/test_risk_lot_impact_registry.py",
+      "symbol": "test_component_merge_uses_union_bounds_instead_of_adding_incompatible_units",
+      "line": 633,
+      "fingerprint": "2afa450f0221e73599748f061f519a951628289313a791bef88016ba147a4fb1",
+      "reference_fingerprint": "2afa450f0221e73599748f061f519a951628289313a791bef88016ba147a4fb1",
+      "changed": false,
+      "declaration": "def test_component_merge_uses_union_bounds_instead_of_adding_incompatible_units() -> None:",
+      "docstring": null
+    },
+    {
+      "id": "client-exposure",
+      "kind": "implementation",
+      "path": "etudecas/simulation/lot_trace/risk_impact_registry.py",
+      "symbol": "_client_service_rows",
+      "line": 2171,
+      "fingerprint": "fab9dd391ce94d2cd43b738f236f8bee29d7df87a6b2bc6afdb0cbce3a83514d",
+      "reference_fingerprint": "fab9dd391ce94d2cd43b738f236f8bee29d7df87a6b2bc6afdb0cbce3a83514d",
+      "changed": false,
+      "declaration": "def _client_service_rows(incident_id: str, impacts: dict[str, _LotImpact], lot_info: dict[str, dict[str, Any]], lot_events_by_lot: dict[str, list[dict[str, Any]]], service_context: dict[tuple[Any, ...], dict[str, Any]]) -> list[dict[str, Any]]:",
+      "docstring": null
+    },
+    {
+      "id": "no-causal-claim-test",
+      "kind": "test",
+      "path": "etudecas/simulation/test_risk_lot_impact_registry.py",
+      "symbol": "test_native_incident_propagates_to_campaign_client_and_cost_without_false_service_claim",
+      "line": 552,
+      "fingerprint": "474fe77e1206eac6e6226d23f22f47beec09f1f639104167d2b6cae3e3d51ed1",
+      "reference_fingerprint": "474fe77e1206eac6e6226d23f22f47beec09f1f639104167d2b6cae3e3d51ed1",
+      "changed": false,
+      "declaration": "def test_native_incident_propagates_to_campaign_client_and_cost_without_false_service_claim() -> None:",
+      "docstring": null
+    },
+    {
+      "id": "legacy-proof-test",
+      "kind": "test",
+      "path": "etudecas/simulation/test_risk_lot_impact_registry.py",
+      "symbol": "test_legacy_run_is_explicitly_association_not_native_causality",
+      "line": 598,
+      "fingerprint": "1bf8b94879e990a3e0ceda5bd3b517ca1268c639997aa330a81da33d01879a99",
+      "reference_fingerprint": "1bf8b94879e990a3e0ceda5bd3b517ca1268c639997aa330a81da33d01879a99",
+      "changed": false,
+      "declaration": "def test_legacy_run_is_explicitly_association_not_native_causality() -> None:",
+      "docstring": null
+    },
+    {
+      "id": "source-provenance",
+      "kind": "implementation",
+      "path": "etudecas/simulation/lot_trace/risk_impact_registry.py",
+      "symbol": "_build_source_provenance",
+      "line": 974,
+      "fingerprint": "0681f5c244025bd56ac75b86a63feba6803e8cb4a951bb46458d9a9b10172835",
+      "reference_fingerprint": "0681f5c244025bd56ac75b86a63feba6803e8cb4a951bb46458d9a9b10172835",
+      "changed": false,
+      "declaration": "def _build_source_provenance(*, data_dir: Path, source_files: dict[str, dict[str, Any]], risk_event_rows: list[dict[str, Any]]) -> dict[str, Any]:",
+      "docstring": null
+    },
+    {
+      "id": "registry-inputs",
+      "kind": "contract",
+      "path": "etudecas/simulation/lot_trace/risk_impact_registry.py",
+      "symbol": "SOURCE_FILES",
+      "line": 38,
+      "fingerprint": "ccf8a0ca95c0939126d60a5b12d28891cc4ad691ed8aa78df1251327e72e24ed",
+      "reference_fingerprint": "ccf8a0ca95c0939126d60a5b12d28891cc4ad691ed8aa78df1251327e72e24ed",
+      "changed": false,
+      "declaration": "SOURCE_FILES = {'assumptions': 'assumptions_ledger.csv', 'state_risk_events': 'supplier_state_dependent_risk_events.csv', 'applied_risk': 'supplier_risk_events_applied_daily.csv', 'supplier_shipments': 'production_supplier_shipments_daily.csv', 'lot_events': 'production_lot_events.csv', 'lot_genealogy': 'production_lot_genealogy.csv', 'production_campaigns': 'production_campaigns.csv', 'demand_service': 'production_demand_service_daily.csv', 'supplier_parameters': 'supplier_nominal_parameters.csv'}",
+      "docstring": null
+    },
+    {
+      "id": "registry-outputs",
+      "kind": "contract",
+      "path": "etudecas/simulation/lot_trace/risk_impact_registry.py",
+      "symbol": "OUTPUT_FILENAMES",
+      "line": 67,
+      "fingerprint": "483c0747fd75b41fb94222275f545a94a324d7c14a569286959ab2bb891d5a6f",
+      "reference_fingerprint": "483c0747fd75b41fb94222275f545a94a324d7c14a569286959ab2bb891d5a6f",
+      "changed": false,
+      "declaration": "OUTPUT_FILENAMES = {'incidents': 'risk_impact_incidents.csv', 'bundles': 'risk_impact_exposure_bundles.csv', 'bundle_events': 'risk_impact_bundle_events.csv', 'entities': 'risk_impact_entities.csv', 'edges': 'risk_impact_edges.csv', 'client_service': 'risk_impact_client_service.csv', 'costs': 'risk_impact_costs.csv', 'quality': 'risk_impact_quality.json'}",
+      "docstring": null
+    },
+    {
+      "id": "source-hash-test",
+      "kind": "test",
+      "path": "etudecas/simulation/test_risk_lot_impact_registry.py",
+      "symbol": "test_standalone_directory_hashes_exact_sources_and_written_registry_csvs",
+      "line": 779,
+      "fingerprint": "b17432776e385c0e430bf64cd22bd527ab80f01a95f3edb1732920f4285cf83e",
+      "reference_fingerprint": "b17432776e385c0e430bf64cd22bd527ab80f01a95f3edb1732920f4285cf83e",
+      "changed": false,
+      "declaration": "def test_standalone_directory_hashes_exact_sources_and_written_registry_csvs(tmp_path: Path) -> None:",
+      "docstring": null
+    },
+    {
+      "id": "consolidated-shipment-identity",
+      "kind": "implementation",
+      "path": "etudecas/simulation/engine/run_first_simulation.py",
+      "symbol": "LotLedger.next_shipment_identity",
+      "line": 995,
+      "fingerprint": "d3d7ad2f98351b43372b32b21622595458384f5ab291e6368c429038bd390000",
+      "reference_fingerprint": "d3d7ad2f98351b43372b32b21622595458384f5ab291e6368c429038bd390000",
+      "changed": false,
+      "declaration": "def next_shipment_identity(self, *, departure_day: int, arrival_day: int, route_id: str) -> tuple[str, str]:",
+      "docstring": "Return one route/date shipment ID; handling unit stays unknown without source data."
+    },
+    {
+      "id": "chunk-identity-test",
+      "kind": "test",
+      "path": "etudecas/simulation/test_risk_lot_impact_registry.py",
+      "symbol": "test_multi_chunk_schedule_has_one_unique_join_key_per_physical_chunk",
+      "line": 950,
+      "fingerprint": "3c784b41dd3b5320087fb26ebcadc9706fe832f448ea87eb7f3e5d166968b0cf",
+      "reference_fingerprint": "3c784b41dd3b5320087fb26ebcadc9706fe832f448ea87eb7f3e5d166968b0cf",
+      "changed": false,
+      "declaration": "def test_multi_chunk_schedule_has_one_unique_join_key_per_physical_chunk() -> None:",
+      "docstring": null
+    },
+    {
+      "id": "deferred-departure",
+      "kind": "implementation",
+      "path": "etudecas/simulation/engine/run_first_simulation.py",
+      "symbol": "LotLedger.record_allocation_event",
+      "line": 1907,
+      "fingerprint": "241a011ed8515cb01ba5238a266798df20ba204a54d5de6aff49977a0ff2b432",
+      "reference_fingerprint": "241a011ed8515cb01ba5238a266798df20ba204a54d5de6aff49977a0ff2b432",
+      "changed": false,
+      "declaration": "def record_allocation_event(self, *, day: int, event_type: str, parent_allocations: list[dict[str, Any]], source_id: str='', shipment_id: str='', risk_decision_day: int | str='', risk_event_ids: str='', departure_day: int | str='', arrival_day: int | str='', handling_unit_id: str='', notes: str='', trace_status: str='traced', trace_reason: str='', planned_order_id: str='', baseline_reference_id: str='') -> None:",
+      "docstring": "Record a physical milestone for stock allocated at an earlier date."
+    },
+    {
+      "id": "deferred-risk-test",
+      "kind": "test",
+      "path": "etudecas/simulation/test_risk_lot_impact_registry.py",
+      "symbol": "test_reserved_shipment_retains_risk_decision_on_later_physical_departure",
+      "line": 1107,
+      "fingerprint": "ef3fd84842c4f83252dc7fc64c6e6c838e11400e15f912a4d887c4e4f27bf1bb",
+      "reference_fingerprint": "ef3fd84842c4f83252dc7fc64c6e6c838e11400e15f912a4d887c4e4f27bf1bb",
+      "changed": false,
+      "declaration": "def test_reserved_shipment_retains_risk_decision_on_later_physical_departure() -> None:",
+      "docstring": null
+    },
+    {
+      "id": "structural-shipment-links",
+      "kind": "implementation",
+      "path": "etudecas/simulation/lot_trace/causal_links.py",
+      "symbol": "build_lot_causal_link_rows",
+      "line": 178,
+      "fingerprint": "8b4d655dc50b622bee20fc9a86f7495b3152dc0f3278dbf706ffcc31409caed8",
+      "reference_fingerprint": "8b4d655dc50b622bee20fc9a86f7495b3152dc0f3278dbf706ffcc31409caed8",
+      "changed": false,
+      "declaration": "def build_lot_causal_link_rows(*, lot_event_rows: Iterable[dict[str, Any]], genealogy_rows: Iterable[dict[str, Any]], production_plan_rows: Iterable[dict[str, Any]], production_campaign_rows: Iterable[dict[str, Any]], mrp_order_rows: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:",
+      "docstring": "Build a queryable causal index without replacing the physical genealogy.\n\nCausal roots are scenario events. Entity links remain separate from physical\nparent/child lot links so simultaneous risks are retained as co-causes rather\nthan being assigned arbitrary shares."
+    }
+  ],
+  "rules": [
+    {
+      "rule_id": "TRACE-SHIPMENT-001",
+      "status": "documented",
+      "changed_references": [],
+      "changed_business_sources": []
+    },
+    {
+      "rule_id": "TRACE-TIME-001",
+      "status": "documented",
+      "changed_references": [],
+      "changed_business_sources": []
+    },
+    {
+      "rule_id": "RISK-BUNDLE-001",
+      "status": "documented",
+      "changed_references": [],
+      "changed_business_sources": []
+    },
+    {
+      "rule_id": "RISK-UNITS-001",
+      "status": "documented",
+      "changed_references": [],
+      "changed_business_sources": []
+    },
+    {
+      "rule_id": "RISK-PROOF-001",
+      "status": "documented",
+      "changed_references": [],
+      "changed_business_sources": []
+    },
+    {
+      "rule_id": "RISK-PROVENANCE-001",
+      "status": "documented",
+      "changed_references": [],
+      "changed_business_sources": []
+    }
+  ],
+  "tests_executed": false
+}

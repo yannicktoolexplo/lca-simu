@@ -1,0 +1,75 @@
+name: Etudecas documentation
+
+on:
+  pull_request:
+    paths:
+      - 'etudecas/**'
+      - 'etudecas_codex_multiagent_pack/**'
+      - '.github/workflows/etudecas-documentation.yml'
+  push:
+    paths:
+      - 'etudecas/**'
+      - 'etudecas_codex_multiagent_pack/**'
+      - '.github/workflows/etudecas-documentation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  documentation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+      - run: python -m pip install 'pytest>=9,<10'
+      - name: Test documentation and diagnostic tools
+        run: python -m pytest etudecas/documentation etudecas/testing -q
+      - name: Check every code and business documentation registry
+        run: python -m etudecas.documentation check-all
+      - name: Test scenario comparison business rules
+        run: python -m pytest etudecas/visualization/maps/test_scenario_comparison_payload.py -q
+      - name: Test decision support and isolated action replay
+        run: python -m pytest etudecas/test_decision_support.py etudecas/test_decision_actions.py -q
+      - name: Test read-only reference verification
+        run: python -m pytest etudecas/test_reference_status.py -q
+
+  local-contracts:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+      - run: python -m pip install 'pytest>=9,<10'
+      - name: Test atomic publication and injected Windows errors
+        run: python -m pytest etudecas/test_atomic_io.py -q
+      - name: Test simulation input, graph and local HTTP contracts
+        run: python -m pytest etudecas/simulation/test_engine_api.py etudecas/simulation/test_request_contract.py etudecas/simulation/test_http_contract.py etudecas/knowledge_graph/test_schema_contract.py -q
+
+  independent-verification:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+      - run: python -m pip install 'pytest>=9,<10' -e './etudecas_codex_multiagent_pack[dev]'
+      - name: Known answers, deliberate corruption and pack examples
+        run: python -m pytest -c pytest-reference.ini etudecas/testing/test_independent_review.py etudecas/testing/test_correction_contracts.py etudecas_codex_multiagent_pack/tests -q
+      - name: Refuse invalid requests, missing cache evidence and unit-dependent ranking
+        run: python -m etudecas.testing.adversarial_review --output etudecas/artifacts/testing/ci-adversarial.json

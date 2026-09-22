@@ -53,7 +53,7 @@ def test_wrapper_parses_in_windows_powershell_5() -> None:
     assert b"PARSE_PS5_OK" in completed.stdout
 
 
-def test_validate_only_is_strictly_inert(tmp_path: Path) -> None:
+def test_validate_only_is_strictly_inert(tmp_path: Path, frozen_wrapper_environment) -> None:
     root = tmp_path / "must-stay-absent"
     focus = root / "focus"
     delivery = root / "delivery"

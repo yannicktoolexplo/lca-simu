@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import csv
-import shutil
 from pathlib import Path
 
 import pytest
+from etudecas.prototypes.scan_2027_risk_control.tests.dynamic_capacity_fixture import (
+    build_capacity_inputs,
+)
 
 from etudecas.prototypes.scan_2027_risk_control import (
     supplier_dynamic_capacity_coupling_audit as audit,
@@ -50,20 +52,12 @@ def test_formula_replay_captures_lot_floor_and_upstream_coupling() -> None:
     assert old_upstream == pytest.approx(new_upstream)
 
 
-@pytest.mark.skipif(
-    not audit.DEFAULT_SUPPLIER_PARAMETERS.is_file(),
-    reason="Completed reference export is not available in this checkout",
-)
-def test_real_audit_builds_and_validates_without_engine(tmp_path: Path) -> None:
+def test_retained_audit_builds_and_validates_without_engine(tmp_path: Path) -> None:
     output = tmp_path / "audit"
-    disposable_source = tmp_path / "supplier_nominal_parameters.csv"
-    shutil.copyfile(audit.DEFAULT_SUPPLIER_PARAMETERS, disposable_source)
+    paths = build_capacity_inputs(tmp_path / "inputs")
+    disposable_source = paths["supplier_parameters_path"]
     result = audit.build(
-        graph_path=audit.DEFAULT_GRAPH,
-        supplier_parameters_path=disposable_source,
-        current_floors_path=audit.DEFAULT_CURRENT_FLOORS,
-        old_profile_path=audit.DEFAULT_OLD_PROFILE,
-        new_profile_path=audit.DEFAULT_NEW_PROFILE,
+        **paths,
         output_dir=output,
     )
 

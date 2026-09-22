@@ -707,6 +707,51 @@ def html_template(
       background: #0f172a;
       color: #ffffff;
     }}
+    .lotTraceTruckPlanning {{ padding: 12px; background: #f5f9fc; font-size: 13px; }}
+    .lotTraceTruckPlanning table {{ width: 100%; border-collapse: collapse; }}
+    .lotTraceTruckPlanning td, .lotTraceTruckPlanning th {{ padding: 8px; text-align: left; border-bottom: 1px solid #cbd5e1; vertical-align: top; }}
+    .lotTraceTruckPlanning td:last-child {{ max-width: 440px; }}
+    .lotTraceMaterials {{ padding: 14px; background: #f8fafc; font-size: 13px; color: #183247; }}
+    .lotTraceMaterials summary {{ cursor: pointer; padding: 9px 0; }}
+    .materialArticle {{ border: 1px solid #cbd5e1; border-radius: 6px; margin: 7px 0; padding: 0 10px; background: white; }}
+    .materialTableScroll {{ overflow-x: auto; }}
+    .lotTraceMaterials table {{ border-collapse: collapse; width: 100%; min-width: 950px; }}
+    .lotTraceMaterials td, .lotTraceMaterials th {{ padding: 9px; text-align: left; vertical-align: top; border-top: 1px solid #dbe3ec; max-width: 260px; overflow-wrap: anywhere; }}
+    .lotTraceMaterials button {{ cursor: pointer; padding: 5px 8px; margin: 5px 0; border: 1px solid #94a3b8; border-radius: 5px; background: #f1f5f9; }}
+    .lotTraceMaterialIncidents {{ padding: 12px; margin-top: 12px; border: 1px solid #cbd5e1; border-radius: 6px; }}
+    .materialIncidentCard {{ padding: 10px; background: #fff7ed; margin: 8px 0; border-left: 4px solid #d97706; }}
+    .materialExposed {{ background: #fff1d6; }}
+    .lotTraceGraphNode.materialExposed rect {{ stroke: #d97706; stroke-width: 4; fill: #fff1d6; }}
+    #lotJourney {{ padding: 16px; background: #f8fafc; color: #183247; font-size: 13px; border-bottom: 2px solid #cbd5e1; }}
+    #lotJourney h3 {{ margin: 0 0 8px; }}
+    #lotJourney button {{ cursor: pointer; border: 1px solid #94a3b8; border-radius: 6px; padding: 7px 10px; background: white; color: #183247; }}
+    #lotJourney button[aria-pressed=true] {{ background: #183247; color: white; }}
+    .journeyToolbar {{ display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }}
+    #journeySearch {{ padding: 7px; border: 1px solid #94a3b8; border-radius: 5px; width: 240px; }}
+    #journeySearchResults button {{ display: block; margin: 4px 0; text-align: left; }}
+    .journeyScroll {{ overflow: auto; margin-top: 14px; max-height: 490px; border: 1px solid #dbe3ec; background: white; border-radius: 8px; }}
+    .journeyCanvas {{ position: relative; display: flex; gap: 44px; padding: 16px; width: max-content; min-width: calc(100% - 32px); align-items: flex-start; }}
+    .journeyColumn {{ display: flex; flex-direction: column; gap: 12px; width: 238px; z-index: 1; }}
+    #lotJourney .journeyNode {{ display: flex; flex-direction: column; gap: 6px; text-align: left; min-height: 130px; overflow-wrap: anywhere; box-shadow: 0 2px 5px #0f172a12; }}
+    #lotJourney .journeyRoot {{ border: 2px solid #2563eb; background: #eff6ff; }}
+    .journeyEdges {{ position: absolute; top: 0; left: 0; pointer-events: none; }}
+    .journeyNote {{ color: #526675; line-height: 1.5; }}
+    .journeyDetails summary {{ cursor: pointer; padding: 10px 0; font-weight: 600; }}
+    .journeyLotSummary {{ margin: 12px 0; padding: 14px; border: 1px solid #cbd5e1; border-radius: 8px; background: white; }}
+    .journeyLotSummary p {{ margin: 8px 0; font-size: 12px; }}
+    .journeyOperations {{ margin: 12px 0; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; background: white; }}
+    .journeyOperations summary {{ cursor: pointer; padding: 10px 0; font-weight: 600; }}
+    .journeyOperations table {{ width: 100%; border-collapse: collapse; }}
+    .journeyOperations td, .journeyOperations th {{ text-align: left; padding: 8px; border-top: 1px solid #dbe3ec; vertical-align: top; }}
+    .journeyOperations button {{ margin: 3px; }}
+    .journeyTruckGroup {{ padding: 12px; margin: 10px 0; background: #f1f5f9; border-radius: 6px; }}
+    #lotJourney .journeyImpacted {{ box-shadow: inset 0 0 0 3px #d97706; }}
+    .journeyBalanceGrid {{ display: grid; grid-template-columns: repeat(auto-fit,minmax(150px,1fr)); gap: 10px; margin-top: 12px; }}
+    .journeyBalanceGrid > div {{ display: flex; flex-direction: column; gap: 7px; padding: 10px; border-radius: 6px; background: #f1f5f9; }}
+    .journeyDetailCard {{ border: 1px solid #cbd5e1; padding: 12px; border-radius: 8px; background: white; margin: 8px 0; overflow-x: auto; }}
+    .journeyDetailCard table {{ border-collapse: collapse; width: 100%; margin-top: 10px; }}
+    .journeyDetailCard td, .journeyDetailCard th {{ border-top: 1px solid #dbe3ec; padding: 8px; vertical-align: top; text-align: left; }}
+    {Path(__file__).with_name('lot_journey_explorer.css').read_text(encoding='utf-8')}
     .lotTraceGraphWrap {{
       min-height: 380px;
       max-height: 620px;
@@ -1589,6 +1634,12 @@ def html_template(
       overflow: auto;
       padding: 0;
     }}
+    .businessFigureNote {{ margin: 6px 10px 12px; font-size: 12px; line-height: 1.5; color: #475569; overflow-wrap: anywhere; }}
+    .businessMaterialProof {{ min-width: 190px; max-width: 360px; white-space: normal; }}
+    .businessMaterialProof summary {{ cursor: pointer; color: #075985; margin-top: 7px; }}
+    .businessMaterialProof dl {{ display: grid; grid-template-columns: minmax(80px, 1fr) minmax(100px, 2fr); gap: 5px 10px; font-size: 12px; }}
+    .businessMaterialProof dt {{ font-weight: 600; }}
+    .businessMaterialProof dd {{ margin: 0; overflow-wrap: anywhere; }}
     .sensitivityTop3ModalBody,
     .monteCarloModalBody {{
       background: #f8fafc;
@@ -3812,6 +3863,7 @@ def html_template(
             <button class="lotTraceDirectionBtn" type="button" data-lot-trace-direction="downstream">Aval</button>
             <button class="lotTraceDirectionBtn" type="button" data-lot-trace-direction="upstream">Amont</button>
           </div>
+          <button id="lotTraceFitBtn" class="tableBtn" type="button">Vue complete / taille reelle</button>
           <button id="lotTraceOrderDetailsBtn" class="tableBtn lotTraceOrderDetailsBtn hidden" type="button">Details</button>
         </div>
         <div id="lotTraceGraphWrap" class="lotTraceGraphWrap"></div>
@@ -3834,15 +3886,16 @@ def html_template(
           <thead>
             <tr>
               <th>Type</th>
-              <th>Item</th>
-              <th>Noeud</th>
+              <th>Article</th>
+              <th>Site</th>
               <th>Demande / besoin prévu</th>
               <th>Demande moy. / j</th>
-              <th>Delai secu. j</th>
+              <th>Sécurité (jours source)</th>
               <th>Stock equiv. delai</th>
               <th>Stock initial</th>
-              <th>Livré / servi</th>
-              <th>Consommé simulé</th>
+              <th>Réceptionné / servi</th>
+              <th>Consommation physique</th>
+              <th>Stock final</th>
               <th>Ecart vs besoin</th>
               <th>Unité</th>
               <th>Diagnostic</th>
@@ -4408,6 +4461,7 @@ def html_template(
     }}
 
     function fmtPanelQty(value, digits = 1) {{
+      if (value === null || value === undefined || value === "") return "n/a";
       const numeric = Number(value);
       if (!Number.isFinite(numeric)) return "n/a";
       return numeric.toLocaleString("fr-FR", {{
@@ -4914,7 +4968,16 @@ def html_template(
       const models = LOT_TRACE.view_models && typeof LOT_TRACE.view_models === "object" && !Array.isArray(LOT_TRACE.view_models)
         ? LOT_TRACE.view_models
         : {{}};
-      if (lotTraceIsValidViewModel(models[id], id)) return models[id];
+      if (lotTraceIsValidViewModel(models[id], id)) {{
+        const model = models[id];
+        if (Array.isArray(model.packed_links) && !model.links.length) {{
+          model.links = model.packed_links.map(([index, qty, share, basis]) => ({{
+            ...(LOT_TRACE.view_model_links || [])[index],
+            contribution_qty: qty, contribution_share_of_child: share, contribution_basis: basis,
+          }}));
+        }}
+        return model;
+      }}
       if (lotTraceIsValidViewModel(LOT_TRACE.default_view_model, id)) return LOT_TRACE.default_view_model;
       return null;
     }}
@@ -4928,13 +4991,10 @@ def html_template(
         const upstreamLots = Array.isArray(modelSnapshot.upstream_lot_ids) ? modelSnapshot.upstream_lot_ids.map(lot => String(lot)) : [];
         const downstreamLots = Array.isArray(modelSnapshot.downstream_lot_ids) ? modelSnapshot.downstream_lot_ids.map(lot => String(lot)) : [];
         const eventIds = new Set(Array.isArray(modelSnapshot.event_ids) ? modelSnapshot.event_ids.map(id => String(id)) : []);
-        const events = eventIds.size
-          ? (LOT_TRACE.events || [])
-              .filter(row => eventIds.has(String(row.event_id || "")))
-              .sort((a, b) => (lotTraceDay(a) ?? 0) - (lotTraceDay(b) ?? 0) || String(a.lot_id || "").localeCompare(String(b.lot_id || "")))
-          : relatedLots
-              .flatMap(lot => lotTraceIndexes.eventsByLot.get(lot) || [])
-              .sort((a, b) => (lotTraceDay(a) ?? 0) - (lotTraceDay(b) ?? 0) || String(a.lot_id || "").localeCompare(String(b.lot_id || "")));
+        const events = relatedLots
+          .flatMap(lot => lotTraceIndexes.eventsByLot.get(lot) || [])
+          .filter(row => eventIds.has(String(row.event_id || "")))
+          .sort((a, b) => (lotTraceDay(a) ?? 0) - (lotTraceDay(b) ?? 0) || String(a.event_id || "").localeCompare(String(b.event_id || "")));
         const links = (Array.isArray(model.links) ? model.links : [])
           .map(row => ({{ ...row }}))
           .sort((a, b) => (lotTraceDay(a) ?? 0) - (lotTraceDay(b) ?? 0));
@@ -5005,119 +5065,9 @@ def html_template(
       if (!LOT_TRACE.available || !lotId) return null;
       const viewModelSnapshot = lotTraceSnapshotFromViewModel(lotId);
       if (viewModelSnapshot) return viewModelSnapshot;
-      const related = new Set([lotId]);
-      const traceLinks = [];
-      const upstreamLinks = [];
-      const downstreamLinks = [];
-      const upstreamLots = new Set();
-      const downstreamLots = new Set();
-      const seenLinks = new Set();
-      function linkIdentity(row) {{
-        return [
-          row.day || "",
-          row.link_type || "",
-          row.parent_lot_id || "",
-          row.child_lot_id || "",
-          row.source_id || "",
-          row.production_campaign_id || "",
-        ].join("|");
-      }}
-      function rememberTraceLink(row, direction) {{
-        const key = linkIdentity(row);
-        if (!seenLinks.has(key)) {{
-          seenLinks.add(key);
-          traceLinks.push(row);
-        }}
-        if (direction === "upstream") upstreamLinks.push(row);
-        if (direction === "downstream") downstreamLinks.push(row);
-      }}
-
-      const upstreamQueue = [lotId];
-      const visitedUpstream = new Set();
-      while (upstreamQueue.length && related.size < 5000) {{
-        const current = upstreamQueue.shift();
-        if (visitedUpstream.has(current)) continue;
-        visitedUpstream.add(current);
-        (lotTraceIndexes.parentsByChild.get(current) || []).forEach((link) => {{
-          const parent = String(link.parent_lot_id || "");
-          if (parent) {{
-            related.add(parent);
-            upstreamLots.add(parent);
-            rememberTraceLink(link, "upstream");
-            upstreamQueue.push(parent);
-          }}
-        }});
-      }}
-
-      const downstreamQueue = [lotId];
-      const visitedDownstream = new Set();
-      while (downstreamQueue.length && related.size < 5000) {{
-        const current = downstreamQueue.shift();
-        if (visitedDownstream.has(current)) continue;
-        visitedDownstream.add(current);
-        (lotTraceIndexes.childrenByParent.get(current) || []).forEach((link) => {{
-          const child = String(link.child_lot_id || "");
-          if (child) {{
-            related.add(child);
-            downstreamLots.add(child);
-            rememberTraceLink(link, "downstream");
-            downstreamQueue.push(child);
-          }}
-        }});
-      }}
-      const relatedLots = Array.from(related);
-      const events = relatedLots
-        .flatMap(lot => lotTraceIndexes.eventsByLot.get(lot) || [])
-        .sort((a, b) => (lotTraceDay(a) ?? 0) - (lotTraceDay(b) ?? 0) || String(a.lot_id || "").localeCompare(String(b.lot_id || "")));
-      const links = traceLinks
-        .sort((a, b) => (lotTraceDay(a) ?? 0) - (lotTraceDay(b) ?? 0));
-      const nodeIds = new Set();
-      const edgeIds = new Set();
-      const campaigns = new Set();
-      events.forEach((row) => {{
-        lotTraceAddSetValue(nodeIds, row.node_id);
-        lotTraceAddSetValue(campaigns, row.production_campaign_id);
-        lotTraceAddSetValue(edgeIds, lotTraceSourceEdgeId(row.source_id));
-      }});
-      links.forEach((row) => {{
-        lotTraceAddSetValue(nodeIds, row.parent_node_id);
-        lotTraceAddSetValue(nodeIds, row.child_node_id);
-        lotTraceAddSetValue(campaigns, row.production_campaign_id);
-        lotTraceAddSetValue(edgeIds, lotTraceSourceEdgeId(row.source_id));
-      }});
-      relatedLots.forEach((lot) => {{
-        (lotTraceIndexes.nodeIdsByLot.get(lot) || []).forEach(value => lotTraceAddSetValue(nodeIds, value));
-        (lotTraceIndexes.edgeIdsByLot.get(lot) || []).forEach(value => lotTraceAddSetValue(edgeIds, value));
-        (lotTraceIndexes.campaignsByLot.get(lot) || []).forEach(value => lotTraceAddSetValue(campaigns, value));
-      }});
-      const planEvents = Array.from(campaigns)
-        .flatMap(campaign => lotTraceIndexes.planByCampaign.get(campaign) || [])
-        .sort((a, b) => (lotTraceDay(a) ?? 0) - (lotTraceDay(b) ?? 0) || String(a.campaign_id || "").localeCompare(String(b.campaign_id || "")));
-      const days = new Set();
-      events.forEach(row => {{
-        const day = lotTraceDay(row);
-        if (day !== null) days.add(day);
-      }});
-      planEvents.forEach(row => {{
-        const day = lotTraceDay(row);
-        if (day !== null) days.add(day);
-      }});
-      return {{
-        lotId,
-        rootLot: (LOT_TRACE.lots || {{}})[lotId] || null,
-        relatedLots,
-        upstreamLots: Array.from(upstreamLots),
-        downstreamLots: Array.from(downstreamLots),
-        events,
-        links,
-        upstreamLinks,
-        downstreamLinks,
-        planEvents,
-        nodeIds: Array.from(nodeIds),
-        edgeIds: Array.from(edgeIds),
-        campaigns: Array.from(campaigns),
-        days: Array.from(days).sort((a, b) => a - b),
-      }};
+      // A missing causal model is missing evidence, never permission to show
+      // the complete history of shared component stocks as selected causes.
+      return null;
     }}
 
     function selectedLotTraceDays() {{
@@ -5588,48 +5538,10 @@ def html_template(
     }}
 
     function selectedLotTraceDownstreamContributionQtyByLot(snapshot) {{
-      const rootLotId = String((snapshot || {{}}).lotId || "");
-      const contributions = new Map();
-      if (!rootLotId) return contributions;
-      const rootQty = lotTraceLotTotalQty(rootLotId);
-      if (rootQty > 0) contributions.set(rootLotId, rootQty);
-      const linksByParent = new Map();
-      (snapshot.downstreamLinks || []).forEach((link) => {{
-        if (String(link.link_type || "") !== "transport") return;
-        const parent = String(link.parent_lot_id || "");
-        const child = String(link.child_lot_id || "");
-        if (!parent || !child) return;
-        if (!linksByParent.has(parent)) linksByParent.set(parent, []);
-        linksByParent.get(parent).push(link);
-      }});
-      const queue = [rootLotId];
-      let guard = 0;
-      while (queue.length && guard < 10000) {{
-        guard += 1;
-        const parent = queue.shift();
-        const parentContribution = contributions.get(parent) || 0;
-        if (parentContribution <= 0) continue;
-        const parentTotalQty = lotTraceLotTotalQty(parent);
-        const parentShare = parentTotalQty > 0 ? Math.max(0, Math.min(1, parentContribution / parentTotalQty)) : 1;
-        (linksByParent.get(parent) || []).forEach((link) => {{
-          const child = String(link.child_lot_id || "");
-          if (!child) return;
-          const linkQty = lotTraceNumericValue(link.parent_qty) || lotTraceNumericValue(link.child_qty);
-          if (linkQty <= 0) return;
-          const tracedLinkQty = linkQty * parentShare;
-          if (tracedLinkQty <= 0) return;
-          const oldContribution = contributions.get(child) || 0;
-          const totalQty = lotTraceLotTotalQty(child);
-          const mergedContribution = totalQty > 0
-            ? Math.min(totalQty, oldContribution + tracedLinkQty)
-            : oldContribution + tracedLinkQty;
-          if (mergedContribution > oldContribution + 1e-9) {{
-            contributions.set(child, mergedContribution);
-            queue.push(child);
-          }}
-        }});
-      }}
-      return contributions;
+      const model = snapshot && snapshot.viewModel;
+      if (!model) return new Map();
+      if (model.contribution_by_lot) return new Map(Object.entries(model.contribution_by_lot));
+      return new Map((model.nodes || []).map(node => [node.lot_id, Number(node.contribution_qty || 0)]));
     }}
 
     function selectedLotTraceContributionInfo(snapshot, lotId) {{
@@ -5989,7 +5901,7 @@ def html_template(
               const childInfo = lotTraceLotInfo(childLot);
               const parentInfo = lotTraceLotInfo(parentLot);
               const uom = childInfo.uom || parentInfo.uom || "";
-              const tracedQty = Number(row.parent_qty || row.child_qty || 0);
+              const tracedQty = Number(row.contribution_qty > 0 ? row.contribution_qty : (row.parent_qty || row.child_qty || 0));
               const totalQty = lotTraceLotTotalQty(childLot) || Number(row.child_qty || tracedQty || 0);
               const otherText = totalQty > tracedQty + 1e-6
                 ? lotTraceOtherTransportParentsText(childLot, parentLot, uom)
@@ -6372,14 +6284,13 @@ def html_template(
       const rootOccurrenceId = lotTraceStockOccurrenceId(root, selectedLotId);
       title.textContent = `${{rootBusinessIdentity}} - ${{lotTraceEventLabel(root.created_event_type)}}`;
       const creationQty = root.qty !== "" ? `${{lotTraceQtyText(root.qty)}} ${{root.uom || ""}}`.trim() : "n/a";
-      const downstreamText = `${{root.downstream_lot_count || 0}} lots, ${{root.downstream_node_count || 0}} noeuds, ${{root.downstream_finished_product_lot_count || 0}} PF`;
       const viewModel = lotTraceViewModelForLot(selectedLotId);
       const viewSummary = (viewModel && viewModel.summary) || {{}};
+      const downstreamText = `${{viewSummary.downstream_business_lot_count || 0}} lot(s) metier, ${{viewSummary.downstream_occurrence_count || 0}} occurrence(s) de stock`;
       meta.textContent = viewSummary.business_counter_label
         ? `${{viewSummary.business_counter_label}} | ${{snapshot.events.length}} evenement(s) causal(aux)`
         : `${{snapshot.relatedLots.length}} occurrence(s) de stock, ${{snapshot.events.length}} evenement(s), ${{snapshot.links.length}} lien(s)`;
-      const panelSelectedRows = lotTraceRowsForDirection(snapshot);
-      const panelMixedLotCount = lotTraceMixedLotRows(snapshot, panelSelectedRows).length;
+      const panelMixedLotCount = Number(viewSummary.mixed_customer_lot_count || 0);
       const openingStockNote = lotTraceContainsOpeningStock(snapshot.events)
         ? '<div class="lotTraceEmpty">Note: les lots en stock initial demarrent la genealogie a J0; leur origine amont avant J0 n est pas reconstruite dans ce run.</div>'
         : "";
@@ -7688,7 +7599,7 @@ def html_template(
           `
           : "";
         const rootNode = `
-          <g class="${{rootClass}}" transform="translate(${{rootX}},${{rootY}})">
+          <g class="${{rootClass}}" data-material-stock-lot="${{escapeTableHtml(snapshot.lotId)}}" transform="translate(${{rootX}},${{rootY}})">
             <rect width="${{nodeWidth}}" height="${{nodeHeight}}"></rect>
             <text x="10" y="19">${{escapeTableHtml(rootBusinessIdentity)}}</text>
             <text class="muted" x="10" y="38">${{escapeTableHtml(`Occurrence : ${{rootOccurrenceId}}${{rootStatusLabel ? " | " + rootStatusLabel : ""}}`)}}</text>
@@ -8333,7 +8244,7 @@ def html_template(
           ? `${{roleLabel}} - lot mixte ${{lotTraceQtyText(contributionInfo.share * 100, 1)}}%`
           : (statusLabel || `${{roleLabel}} - ${{scopeLabel}}`);
         return `
-          <g class="${{cls}}" transform="translate(${{pos.x}},${{pos.y}})">
+          <g class="${{cls}}" data-material-stock-lot="${{escapeTableHtml(lotId)}}" transform="translate(${{pos.x}},${{pos.y}})">
             <rect width="${{pos.width}}" height="${{pos.height}}"></rect>
             <text x="10" y="18">${{escapeTableHtml(businessIdentity)}}</text>
             <text class="muted" x="10" y="35">${{escapeTableHtml(`Occurrence : ${{occurrenceId}}`)}}</text>
@@ -8357,6 +8268,64 @@ def html_template(
           ${{nodeSvg}}
         </svg>
       `;
+    }}
+
+    function fitLotTraceGraphLabels() {{
+      document.querySelectorAll("#lotTraceGraphWrap .lotTraceGraphNode").forEach(group => {{
+        const rect = group.querySelector("rect");
+        if (!rect) return;
+        const width = Number(rect.getAttribute("width")) - 20;
+        group.querySelectorAll("text").forEach(text => {{
+          const full = text.textContent;
+          if (text.getComputedTextLength() <= width) return;
+          const title = document.createElementNS("http://www.w3.org/2000/svg", "title");
+          title.textContent = full;
+          let end = full.length;
+          while (end > 1 && text.getComputedTextLength() > width) {{
+            end -= 1;
+            text.textContent = full.slice(0, end) + "...";
+          }}
+          text.appendChild(title);
+          text.setAttribute("aria-label", full);
+        }});
+      }});
+    }}
+    document.getElementById("lotTraceFitBtn").addEventListener("click", () => {{
+      const svg = document.querySelector("#lotTraceGraphWrap svg");
+      if (!svg) return;
+      const fit = svg.dataset.fit !== "true";
+      svg.dataset.fit = String(fit);
+      svg.style.width = fit ? "100%" : "";
+      svg.style.minWidth = fit ? "0" : "";
+      svg.style.height = fit ? "auto" : "";
+      svg.style.minHeight = fit ? "0" : "";
+    }});
+
+    {Path(__file__).with_name('lot_material_trace.js').read_text(encoding='utf-8')}
+    {Path(__file__).with_name('lot_journey.js').read_text(encoding='utf-8')}
+    {Path(__file__).with_name('lot_journey_operations.js').read_text(encoding='utf-8')}
+{Path(__file__).with_name('lot_journey_explorer.js').read_text(encoding='utf-8')}
+{Path(__file__).with_name('lot_journey_timeline.js').read_text(encoding='utf-8')}
+{Path(__file__).with_name('lot_journey_case.js').read_text(encoding='utf-8')}
+{Path(__file__).with_name('map_business_ui.js').read_text(encoding='utf-8')}
+
+    function lotTraceTruckPlanningHtml(selected) {{
+      const context = LOT_TRACE.truck_consolidation;
+      if (!context) return '<p>Regroupement camion non calcule pour cette carte.</p>';
+      if (context.error) return `<p>Regroupement camion indisponible : ${{escapeTableHtml(context.error)}}</p>`;
+      const ids = new Set((selected.links || []).map(lotTraceShipmentId).filter(Boolean));
+      const groups = (context.groups || []).filter(g => g.shipment_ids.some(id => ids.has(id)));
+      const known = new Set(groups.flatMap(g => g.shipment_ids));
+      const missing = [...ids].filter(id => !known.has(id));
+      function countText(g) {{
+        if (g.truck_count !== null) return '1 chargement propose — ' + lotTraceQtyText(g.pallets) + ' palettes ; ' + lotTraceQtyText(g.weight_kg) + ' kg';
+        if (g.estimated_truck_count == null) return 'Estimation indisponible : profil manquant';
+        const basis = g.estimated_pallets == null ? 'masse connue' : lotTraceQtyText(g.estimated_pallets) + ' palettes estimees';
+        const proxy = (g.estimate_basis || []).some(b => b.startsWith('hypothesis:'));
+        return `${{g.estimated_truck_count}} camion(s) estime(s) selon ${{basis}}<br>${{proxy ? 'Hypothese par analogie de conditionnement ; ' : ''}}poids brut et palettisation a confirmer.`;
+      }}
+      const rows = groups.map(g => `<tr data-transport-group="${{escapeTableHtml(g.id)}}"><td>${{escapeTableHtml(g.origin)}} → ${{escapeTableHtml(g.destination)}}<br>J${{g.start_day}}–${{g.end_day}}</td><td>${{g.shipment_ids.filter(id => ids.has(id)).map(escapeTableHtml).join('<br>')}}<br><small>Groupe complet : ${{g.shipment_ids.length}} ligne(s) de livraison.</small></td><td>${{countText(g)}}</td></tr>`).join('');
+      return `<details class="lotTraceTruckPlanning" open><summary>Regroupement camion — ${{groups.length}} groupe(s) visible(s)</summary><p>Capacite : ${{context.capacity.max_pallets}} europalettes et ${{lotTraceQtyText(context.capacity.max_weight_kg)}} kg maximum. Un identifiant SHIP est une ligne de livraison, pas un camion. Groupes par trajet, compatibilite et semaine de depart ; dates de simulation conservees. Le chargement complet peut inclure d'autres lignes que celles de ce lot.</p><table><thead><tr><th>Trajet / semaine</th><th>Lignes visibles du lot</th><th>Camions</th></tr></thead><tbody>${{rows}}</tbody></table>${{missing.length ? '<p>' + missing.length + ' mouvement(s) sans depart exploitable pour ce regroupement.</p>' : ''}}</details>`;
     }}
 
     function renderLotTraceModal() {{
@@ -8418,6 +8387,11 @@ def html_template(
           : "Selectionne un lot PF/PFI/MP ou un ordre reporte";
       }}
       renderLotTraceGraph(snapshot);
+      document.getElementById("lotTraceGraphWrap").insertAdjacentHTML("afterbegin", lotTraceTruckPlanningHtml(selected));
+      document.getElementById("lotTraceGraphWrap").insertAdjacentHTML("afterbegin", lotTraceMaterialsHtml(snapshot, selected));
+      updateMaterialIncidentView(snapshot);
+      fitLotTraceGraphLabels();
+      document.getElementById("lotTraceGraphWrap").dataset.causalEventIds = JSON.stringify((selected.events || []).map(row => row.event_id));
       if (tables) {{
         const openingStockNote = snapshot && lotTraceContainsOpeningStock(selected.events)
           ? '<div class="lotTraceEmpty">Note: certains lots visibles sont du stock initial; leur provenance avant J0 n est pas tracee par la simulation.</div>'
@@ -8614,7 +8588,7 @@ def html_template(
       const onLotChange = (ev) => setSelectedLot(String(ev.target.value || ""));
       if (select) select.addEventListener("change", onLotChange);
       if (modalSelect) modalSelect.addEventListener("change", onLotChange);
-      if (!selectedLotId) selectedLotId = lotTraceDefaultSelection(false);
+      // Keep the network neutral until the user opens a lot or chooses one.
       if (selectedLotId) lotTraceDirection = lotTracePreferredDirection(selectedLotId);
       const focusBtn = document.getElementById("lotTraceFocusBtn");
       if (focusBtn) focusBtn.addEventListener("click", () => focusSelectedLot());
@@ -8878,80 +8852,7 @@ def html_template(
     }}
 
     function aggregateMaterialRow(row) {{
-      const years = selectedMaterialYears();
-      const yearly = row.yearly || {{}};
-      let days = 0;
-      let planned = 0;
-      let delivered = 0;
-      let consumed = 0;
-      let initial = null;
-      let finalStock = 0;
-      let foundYear = false;
-      years.forEach((year) => {{
-        const bucket = yearly[String(year)];
-        if (!bucket) return;
-        foundYear = true;
-        days += Number(bucket.days) || 0;
-        planned += Number(bucket.planned_qty) || 0;
-        delivered += Number(bucket.delivered_qty) || 0;
-        consumed += Number(bucket.consumed_qty) || 0;
-        const bucketInitial = Number(bucket.initial_qty);
-        if (initial === null && Number.isFinite(bucketInitial)) {{
-          initial = bucketInitial;
-        }}
-        const bucketFinal = Number(bucket.final_stock_qty);
-        if (Number.isFinite(bucketFinal)) {{
-          finalStock = bucketFinal;
-        }}
-      }});
-      if (!foundYear) {{
-        days = Math.max(1, Number(row.days) || 0);
-        planned = Number(row.planned_qty) || 0;
-        delivered = Number(row.delivered_qty) || 0;
-        consumed = Number(row.consumed_qty) || 0;
-        initial = Number(row.initial_qty) || 0;
-        finalStock = Number(row.final_stock_qty) || 0;
-      }}
-      if (row.scope === "pfi") {{
-        planned = Math.max(consumed, delivered);
-      }}
-      const safetyDays = Math.max(0, Number(row.safety_time_days) || 0);
-      const avgDaily = days > 0 ? planned / days : Math.max(0, Number(row.avg_daily_need_qty) || 0);
-      const stockEquivSafety = avgDaily * safetyDays;
-      let gap = consumed - planned;
-      if (row.scope === "pf") {{
-        gap = delivered - planned;
-      }} else if (row.scope === "pfi") {{
-        gap = delivered - Math.max(consumed, delivered);
-      }}
-      let diagnostic = row.diagnostic || "";
-      const tol = Math.max(1, Math.abs(planned) * 0.01);
-      if (row.scope === "pf") {{
-        diagnostic = Math.abs(gap) <= tol ? "demande servie sur la fenetre" : "ecart service sur la fenetre";
-      }} else if (row.scope === "material") {{
-        if (consumed <= 1e-9 && delivered <= 1e-9 && (initial || 0) > 0) {{
-          diagnostic = "coherent dormant sur la fenetre";
-        }} else if (delivered > 0 || consumed > 0) {{
-          diagnostic = "actif sur la fenetre";
-        }} else {{
-          diagnostic = "inactif sur la fenetre";
-        }}
-      }} else if (row.scope === "pfi") {{
-        diagnostic = (delivered > 0 || consumed > 0) ? "PFI actif sur la fenetre" : "PFI inactif sur la fenetre";
-      }}
-      return {{
-        ...row,
-        planned_qty: planned,
-        avg_daily_need_qty: avgDaily,
-        stock_equiv_safety_time_qty: stockEquivSafety,
-        initial_qty: initial === null ? 0 : initial,
-        delivered_qty: delivered,
-        consumed_qty: consumed,
-        final_stock_qty: finalStock,
-        gap_vs_need_qty: gap,
-        diagnostic,
-        selected_days: days,
-      }};
+      return businessAggregateMaterialRow(row, selectedMaterialYears());
     }}
 
     function renderMaterialTable() {{
@@ -8968,12 +8869,13 @@ def html_template(
           <td class="num">${{fmtPanelQty(row.avg_daily_need_qty, 3)}}</td>
           <td class="num">${{fmtPanelQty(row.safety_time_days, 1)}}</td>
           <td class="num">${{fmtPanelQty(row.stock_equiv_safety_time_qty, 3)}}</td>
-          <td class="num">${{fmtPanelQty(row.initial_qty, 3)}}</td>
-          <td class="num">${{fmtPanelQty(row.delivered_qty, 3)}}</td>
-          <td class="num">${{fmtPanelQty(row.consumed_qty, 3)}}</td>
+          <td class="num">${{businessPhysicalQuantity(row.initial_qty, row.unit, fmtPanelQty)}}</td>
+          <td class="num">${{businessPhysicalQuantity(row.delivered_qty, row.unit, fmtPanelQty)}}</td>
+          <td class="num">${{businessPhysicalQuantity(row.consumed_qty, row.unit, fmtPanelQty)}}</td>
+          <td class="num">${{businessPhysicalQuantity(row.final_stock_qty, row.unit, fmtPanelQty)}}</td>
           <td class="num">${{fmtPanelQty(row.gap_vs_need_qty, 3)}}</td>
           <td>${{escapeTableHtml(row.unit || "")}}</td>
-          <td>${{escapeTableHtml(row.diagnostic || "")}}</td>
+          <td>${{escapeTableHtml(row.diagnostic || "")}}${{businessMaterialProof(row, escapeTableHtml, fmtPanelQty)}}</td>
         </tr>
       `).join("");
       const years = selectedMaterialYears();
@@ -9148,12 +9050,13 @@ def html_template(
     function simulatedRiskImpactLines(impact) {{
       if (!impact) return [];
       const lines = [];
-      if (impact.stage_label) lines.push(`Impact reel: ${{impact.stage_label}}`);
+      if (impact.stage_label) lines.push(`Signal observé dans la simulation: ${{impact.stage_label}}`);
+      lines.push(impact.quality_note || "Association temporelle ; attribution causale au client non démontrée.");
       if (impact.status_label) lines.push(`Statut: ${{impact.status_label}}`);
       if (impact.primary_trigger) lines.push(`Declencheur: ${{impact.primary_trigger}}`);
       if (impact.period) lines.push(`Periode: ${{impact.period}}`);
       if (Number.isFinite(Number(impact.effective_root_count)) || Number.isFinite(Number(impact.root_count))) {{
-        lines.push(`Causes supply actives: ${{impact.effective_root_count || 0}} / ${{impact.root_count || 0}}`);
+        lines.push(`Origines associées actives: ${{impact.effective_root_count || 0}} / ${{impact.root_count || 0}}`);
       }}
       if (Number(impact.production_delay_count || 0) > 0) {{
         lines.push(`Replanification production: ${{impact.production_delay_count}} lignes ; volume associe=${{fmtPanelQty(Number(impact.production_shortfall_qty) || 0, 0)}}`);
@@ -10188,18 +10091,19 @@ def html_template(
       if (!impact) return null;
       const stageColor = impact.color || "#64748b";
       const roleLabels = {{
-        origin_supplier: "fournisseur origine du probleme",
-        affected_factory: "site industriel impacte",
-        affected_customer: "client impacte",
+        origin_supplier: "fournisseur avec événement configuré ou appliqué",
+        affected_factory: "site industriel associé",
+        affected_customer: "client associé",
       }};
       const roleLabel = roleLabels[impact.role] || impact.role || "noeud impacte";
       const rows = [
-        ["Impact observe", impact.stage_label || "n/a"],
+        ["Signal observé dans la simulation", impact.stage_label || "n/a"],
+        ["Limite d'interprétation", impact.quality_note || "Association temporelle ; causalité aval non démontrée."],
         ["Role dans la carte", roleLabel],
         ["Origine diagnostiquee", `${{impact.supplier_label || impact.supplier_id || "n/a"}} / ${{impact.item_label || impact.item_id || "n/a"}}`],
         ["Declencheur principal", impact.primary_trigger || "n/a"],
         ["Periode", impact.period || "n/a"],
-        ["Causes supply actives", `${{impact.effective_root_count || 0}} / ${{impact.root_count || 0}}`],
+        ["Origines associées actives", `${{impact.effective_root_count || 0}} / ${{impact.root_count || 0}}`],
         ["Volume replanifie", String(impact.production_delay_count || 0)],
         ["Volume reporte", fmtPanelQty(Number(impact.production_shortfall_qty) || 0, 0)],
         ["Backlog client max", fmtPanelQty(Number(impact.customer_backlog_max_qty) || 0, 0)],
@@ -10216,11 +10120,11 @@ def html_template(
       return {{
         html: `
           <div class="factoryHtmlPanelContent sensitivityHtmlPanelContent">
-            <div class="orderLedgerTextHeader">${{escapeHtmlText(nodeId)}} - impact reel du scenario</div>
-            <div class="orderLedgerStatus">Lecture metier: cette fiche vient du diagnostic global des cascades. Une cause supply active est un couple fournisseur/article ou un flux qui a cree un effet observable: report production, backlog client, surcout ou retard transport.</div>
+            <div class="orderLedgerTextHeader">${{escapeHtmlText(nodeId)}} — signaux associés au scénario</div>
+            <div class="orderLedgerStatus">${{escapeHtmlText(impact.quality_note || "Les événements locaux appliqués sont distingués des événements configurés. Les reports de production et le retard client concomitants sont des associations temporelles, sans attribution causale démontrée.")}}</div>
             <div class="riskScenarioCards">
               <div class="riskScenarioCard" style="border-left-color:${{escapeHtmlText(stageColor)}}">
-                <div class="riskScenarioCardTitle">Impact dominant</div>
+                <div class="riskScenarioCardTitle">Signal dominant</div>
                 <div class="riskScenarioCardText"><strong>${{escapeHtmlText(impact.stage_label || "n/a")}}</strong><br>${{escapeHtmlText(roleLabel)}}</div>
               </div>
               <div class="riskScenarioCard" style="border-left-color:#475569">
@@ -10229,7 +10133,7 @@ def html_template(
               </div>
             </div>
             ${{cascadeHtml}}
-            <div class="riskScenarioSection">Impact observe</div>
+            <div class="riskScenarioSection">Observations de la simulation</div>
             <div class="kpiFormulaTableWrap"><table class="kpiFormulaTable"><tbody>${{rows}}</tbody></table></div>
           </div>
         `
@@ -10743,12 +10647,12 @@ def html_template(
         `${{e.from}} -> ${{e.to}}`,
         `Items (${{itemCount}}): ${{itemPreview}}`,
         `Transit planifie envoi-reception: ${{e.planned_lead_days ?? 'n/a'}} j`,
-        `Transit observe moyen: ${{m.avg_lead_days}} j`,
-        `Transit observe min-max: ${{m.min_lead_days}} - ${{m.max_lead_days}} j`,
-        `Transit observe p50 / p90: ${{m.lead_p50_days}} / ${{m.lead_p90_days}} j`,
-        `Variabilite transit (ecart-type): ${{m.lead_std_days}} j`,
-        `Safety time destination: ${{m.safety_time_days}} j`,
-        `Transit + safety moyen: ${{m.effective_lead_days}} j`,
+        `Transit moyen après réception: ${{fmtPanelQty(m.avg_lead_days, 1)}} j calendaires`,
+        `Transit observé min-max: ${{fmtPanelQty(m.min_lead_days, 1)}} - ${{fmtPanelQty(m.max_lead_days, 1)}} j`,
+        `Transit observé p50 / p90: ${{fmtPanelQty(m.lead_p50_days, 1)}} / ${{fmtPanelQty(m.lead_p90_days, 1)}} j`,
+        `Variabilité transit (écart-type): ${{fmtPanelQty(m.lead_std_days, 1)}} j`,
+        `Sécurité destination: ${{fmtPanelQty(m.safety_time_days, 1)}} jours sources`,
+        m.effective_lead_note || "Transit + sécurité non calculé : calendriers distincts.",
         `Lignes d'expedition observees: ${{m.shipment_rows}}`,
         `Profil quantite: ${{qtyBehavior}}`,
         ...riskLines,
@@ -11550,8 +11454,8 @@ def html_template(
           const cls = impact.stage === "service_client" ? "businessAlert" : (impact.stage === "production" || impact.stage === "cost" ? "businessWarn" : "businessOk");
           return {{
             pill: "Risques simules",
-            title: `${{impact.stage_label || "Impact reel"}} - ${{nodeLabel}}`,
-            text: `Question metier: ou le scenario a-t-il vraiment pese ? Role carte: ${{impact.role || "noeud impacte"}}. Origine: ${{impact.supplier_label || impact.supplier_id || "n/a"}} / ${{impact.item_label || impact.item_id || "n/a"}}. Declencheur: ${{impact.primary_trigger || "n/a"}}. Periode: ${{impact.period || "n/a"}}. Volume replanifie: ${{impact.production_delay_count || 0}} lignes.`,
+            title: `${{impact.stage_label || "Signal associé"}} - ${{nodeLabel}}`,
+            text: `Question métier : quels signaux accompagne ce scénario ? ${{impact.quality_note || "Association temporelle ; causalité aval non démontrée."}} Rôle carte: ${{impact.role || "noeud associé"}}. Origine: ${{impact.supplier_label || impact.supplier_id || "n/a"}} / ${{impact.item_label || impact.item_id || "n/a"}}. Déclencheur: ${{impact.primary_trigger || "n/a"}}. Période: ${{impact.period || "n/a"}}. Replanifications: ${{impact.production_delay_count || 0}} lignes.`,
             cls,
           }};
         }}
@@ -11715,6 +11619,9 @@ def html_template(
       pill.textContent = payload.pill || "Lecture";
       title.textContent = payload.title;
       text.textContent = payload.text || "";
+      if (currentPanelMode === "ops") {{
+        text.textContent += " Diagnostic sur l’horizon complet du calcul ; les courbes et indicateurs de fenêtre suivent les années sélectionnées.";
+      }}
       summary.style.display = "block";
       return true;
     }}
@@ -11875,12 +11782,13 @@ def html_template(
           const impact = simulatedRiskNodeImpact(nodeId);
           if (impact) {{
             lines = [
-              {{ label: "Impact reel", value: impact.stage_label || "n/a" }},
+              {{ label: "Signal associé", value: impact.stage_label || "n/a" }},
+              {{ label: "Interprétation", value: impact.quality_note || "Association temporelle ; causalité aval non démontrée." }},
               {{ label: "Role carte", value: impact.role || "n/a" }},
               {{ label: "Origine", value: `${{impact.supplier_label || impact.supplier_id || "n/a"}} / ${{impact.item_label || impact.item_id || "n/a"}}` }},
               {{ label: "Declencheur", value: impact.primary_trigger || "n/a" }},
               {{ label: "Periode", value: impact.period || "n/a" }},
-              {{ label: "Causes supply actives", value: `${{impact.effective_root_count || 0}} / ${{impact.root_count || 0}}` }},
+              {{ label: "Origines associées actives", value: `${{impact.effective_root_count || 0}} / ${{impact.root_count || 0}}` }},
               {{ label: "Volume replanifie", value: String(impact.production_delay_count || 0) }},
               {{ label: "Volume reporte", value: fmtPanelQty(Number(impact.production_shortfall_qty) || 0, 0) }},
               {{ label: "Backlog max", value: fmtPanelQty(Number(impact.customer_backlog_max_qty) || 0, 0) }},
@@ -11932,7 +11840,7 @@ def html_template(
                 : (nodeType === "edge" ? (EDGE_BY_ID[nodeId] || null) : null)));
       const simulationDiagnostic = simulationDiagnosticPayload(nodeId, nodeType);
       if (simulationDiagnostic && Array.isArray(simulationDiagnostic.summary_lines) && simulationDiagnostic.summary_lines.length) {{
-        metaTitle.textContent = "Diagnostic operationnel";
+        metaTitle.textContent = "Diagnostic opérationnel — horizon complet";
         simulationDiagnostic.summary_lines.forEach((entry) => appendPanelMetaEntry(metaGrid, entry));
         const currentLines = (isFactoryLikeNode(nodeId, nodeType) && currentPanelMode === "ops")
           ? buildFactoryWindowSummaryLines(metrics)
@@ -11956,12 +11864,12 @@ def html_template(
           {{ label: "Flux", value: `${{edge.from}} -> ${{edge.to}}` }},
           {{ label: "Items", value: Array.isArray(edge.items) ? edge.items.join(", ") : "n/a" }},
           {{ label: "Transit planifie", value: `${{edge.planned_lead_days ?? 'n/a'}} j` }},
-          {{ label: "Transit moyen observe", value: `${{edgeMetrics.avg_lead_days}} j` }},
-          {{ label: "Transit min-max", value: `${{edgeMetrics.min_lead_days}} - ${{edgeMetrics.max_lead_days}} j` }},
-          {{ label: "Transit p50 / p90", value: `${{edgeMetrics.lead_p50_days}} / ${{edgeMetrics.lead_p90_days}} j` }},
-          {{ label: "Ecart-type transit", value: `${{edgeMetrics.lead_std_days}} j` }},
-          {{ label: "Safety time destination", value: `${{edgeMetrics.safety_time_days}} j` }},
-          {{ label: "Transit + safety moyen", value: `${{edgeMetrics.effective_lead_days}} j` }},
+          {{ label: "Transit moyen après réception", value: `${{fmtPanelQty(edgeMetrics.avg_lead_days, 1)}} j calendaires` }},
+          {{ label: "Transit min-max", value: `${{fmtPanelQty(edgeMetrics.min_lead_days, 1)}} - ${{fmtPanelQty(edgeMetrics.max_lead_days, 1)}} j` }},
+          {{ label: "Transit p50 / p90", value: `${{fmtPanelQty(edgeMetrics.lead_p50_days, 1)}} / ${{fmtPanelQty(edgeMetrics.lead_p90_days, 1)}} j` }},
+          {{ label: "Écart-type transit", value: `${{fmtPanelQty(edgeMetrics.lead_std_days, 1)}} j` }},
+          {{ label: "Sécurité destination", value: `${{fmtPanelQty(edgeMetrics.safety_time_days, 1)}} jours sources` }},
+          {{ label: "Transit et sécurité", value: edgeMetrics.effective_lead_note || "Non additionnés : calendriers distincts." }},
           {{ label: "Lignes d'expedition", value: `${{edgeMetrics.shipment_rows}}` }},
           {{ label: "Quantites distinctes", value: `${{edgeMetrics.distinct_shipped_qty}}` }},
         ];
@@ -12802,12 +12710,12 @@ def html_template(
         : (nodeType === "edge"
         ? `${{nodeInfo.from || "n/a"}} -> ${{nodeInfo.to || "n/a"}}`
         : (nodeInfo.name || nodeId));
-      const nodeTitle = lotTraceIsUpstreamInternalSite(nodeId) ? "Internal PFI Site" :
-        (isFactoryLikeNode(nodeId, nodeType) ? "Industrial Site" :
-        (nodeType === "supplier_dc" ? "Supplier" :
-        (nodeType === "distribution_center" ? "Distribution Center" : (nodeType === "factory" ? "Factory" : (nodeType === "customer" ? "Customer" : "Edge")))));
+      const nodeTitle = lotTraceIsUpstreamInternalSite(nodeId) ? "Site de produits semi-finis" :
+        (isFactoryLikeNode(nodeId, nodeType) ? "Site industriel" :
+        (nodeType === "supplier_dc" ? "Fournisseur" :
+        (nodeType === "distribution_center" ? "Dépôt" : (nodeType === "factory" ? "Usine" : (nodeType === "customer" ? "Client" : "Liaison")))));
       const modeTitles = {{
-        ops: "Run nominal",
+        ops: "Simulation de référence",
         data: "Donnees",
         model: "Modele",
         json: "DEBUG",
@@ -12849,7 +12757,7 @@ def html_template(
         : (currentPanelMode === "data"
           ? "Audit donnees: sources, champs et corrections. Cette vue sert a verifier les donnees, pas a piloter la decision."
           : (currentPanelMode === "simulated_risk"
-            ? "Risques simules: scenario injecte dans le run courant. La carte montre les evenements fournisseurs configures ou declenches qui ont vraiment pese localement."
+            ? "Risques simulés : événements configurés et applications locales distingués. Les signaux aval associés ne démontrent pas une attribution causale au client."
           : (currentPanelMode === "risk"
             ? "Criticite fournisseurs: lecture structurelle des fournisseurs importants, de la menace estimee, de l'incertitude et de l'action recommandee."
             : (currentPanelMode === "uncertainty"
@@ -13532,46 +13440,24 @@ def html_template(
         purgePlotlyNode(figureEl);
         if (!asset) return false;
         if (Array.isArray(asset.bundle) && asset.bundle.length) {{
-          const entries = asset.bundle.filter(entry => entry && entry.asset);
-          if (!entries.length) return false;
-          const selectionKey = bundleKey || "bundle";
-          const hasSavedSelection = Object.prototype.hasOwnProperty.call(panelBundleSelection, selectionKey);
-          let selectedIdx = panelBundleSelection[selectionKey] ?? 0;
-          if (!hasSavedSelection && selectionKey.includes(":supplier_dc:")) {{
-            const graphIdx = entries.findIndex(entry => (entry.label || "").toLowerCase() === "graph stock fournisseur");
-            const physicalFlowIdx = entries.findIndex(entry =>
-              ((entry.label || "").toLowerCase().includes("execution") ||
-               (entry.label || "").toLowerCase().includes("envois physiques"))
-            );
-            const carnetIdx = entries.findIndex(entry => (entry.label || "").toLowerCase() === "carnet");
-            const nominalIdx = entries.findIndex(entry => (entry.label || "").toLowerCase() === "nominal fournisseur");
-            const preferredIdx = selectionKey.endsWith(":incoming")
-              ? (physicalFlowIdx >= 0 ? physicalFlowIdx : (graphIdx >= 0 ? graphIdx : 0))
-              : (selectionKey.endsWith(":fourth") ? (carnetIdx >= 0 ? carnetIdx : 0) : (nominalIdx >= 0 ? nominalIdx : 0));
-            if (preferredIdx >= 0) {{
-              selectedIdx = preferredIdx;
-              panelBundleSelection[selectionKey] = preferredIdx;
-            }}
-          }} else if (!hasSavedSelection && selectionKey.includes(":factory:")) {{
-            const capacityIdx = entries.findIndex(entry => (entry.label || "").toLowerCase() === "nominal capacite");
-            if (capacityIdx >= 0) {{
-              selectedIdx = capacityIdx;
-              panelBundleSelection[selectionKey] = capacityIdx;
-            }}
-          }}
-          if (selectedIdx >= entries.length) selectedIdx = 0;
-          const selectedEntry = entries[selectedIdx] || entries[0];
-          const selectedAsset = selectedEntry.asset;
-          if (tabsEl && entries.length > 1) {{
+          const navigation = businessBundleNavigation(asset, bundleKey, panelBundleSelection);
+          navigation.levels.forEach((level, depth) => {{
+            if (!tabsEl || level.entries.length < 2) return;
             tabsEl.style.display = "flex";
-            entries.forEach((entry, idx) => {{
+            if (tabsEl.childElementCount) {{
+              const separator = document.createElement("span");
+              separator.className = "panelSubTabSeparator";
+              tabsEl.appendChild(separator);
+            }}
+            level.entries.forEach((entry, idx) => {{
               const btn = document.createElement("button");
               btn.type = "button";
-              btn.className = idx === selectedIdx ? "panelSubTab active" : "panelSubTab";
+              btn.className = `panelSubTab${{depth ? " secondary" : ""}}${{idx === level.index ? " active" : ""}}`;
+              btn.setAttribute("aria-pressed", String(idx === level.index));
               btn.textContent = entry.label || `Vue ${{idx + 1}}`;
               btn.onclick = () => {{
-                panelBundleSelection[selectionKey] = idx;
-                renderAsset(asset, imgEl, figureEl, tabsEl, selectionKey);
+                panelBundleSelection[level.key] = idx;
+                renderAsset(asset, imgEl, figureEl, tabsEl, bundleKey);
                 requestAnimationFrame(() => {{
                   placeAndResizeFactoryPanel();
                   requestAnimationFrame(runQueuedPanelPlotRenderJobs);
@@ -13579,38 +13465,8 @@ def html_template(
               }};
               tabsEl.appendChild(btn);
             }});
-          }}
-          if (selectedAsset && Array.isArray(selectedAsset.bundle) && selectedAsset.bundle.length) {{
-            const nestedEntries = selectedAsset.bundle.filter(entry => entry && entry.asset);
-            if (!nestedEntries.length) return false;
-            const nestedKey = `${{selectionKey}}:${{selectedEntry.label || selectedIdx}}`;
-            let nestedIdx = panelBundleSelection[nestedKey] ?? 0;
-            if (nestedIdx >= nestedEntries.length) nestedIdx = 0;
-            if (tabsEl && nestedEntries.length > 1) {{
-              if (entries.length > 1) {{
-                const separator = document.createElement("span");
-                separator.className = "panelSubTabSeparator";
-                tabsEl.appendChild(separator);
-              }}
-              nestedEntries.forEach((entry, idx) => {{
-                const btn = document.createElement("button");
-                btn.type = "button";
-                btn.className = idx === nestedIdx ? "panelSubTab secondary active" : "panelSubTab secondary";
-                btn.textContent = entry.label || `Vue ${{idx + 1}}`;
-                btn.onclick = () => {{
-                  panelBundleSelection[nestedKey] = idx;
-                  renderAsset(asset, imgEl, figureEl, tabsEl, selectionKey);
-                  requestAnimationFrame(() => {{
-                    placeAndResizeFactoryPanel();
-                    requestAnimationFrame(runQueuedPanelPlotRenderJobs);
-                  }});
-                }};
-                tabsEl.appendChild(btn);
-              }});
-            }}
-            return renderAsset(nestedEntries[nestedIdx].asset, imgEl, figureEl, null, nestedKey);
-          }}
-          return renderAsset(selectedAsset, imgEl, figureEl, null, selectionKey);
+          }});
+          return navigation.leaf ? renderAsset(navigation.leaf, imgEl, figureEl, null, navigation.key) : false;
         }}
         if (asset.data_b64) {{
           imgEl.src = `data:${{asset.mime || "image/png"}};base64,${{asset.data_b64}}`;
@@ -13642,7 +13498,7 @@ def html_template(
             const child = document.createElement("div");
             child.className = "factoryFigureStackItem";
             figureEl.appendChild(child);
-            const plotlyFigure = applyLotTracePlotOverlay(buildPlotlyFigure(panelFigure), nodeId, nodeType);
+            const plotlyFigure = businessPlotPresentation(applyLotTracePlotOverlay(buildPlotlyFigure(panelFigure), nodeId, nodeType), panelFigure, figureEl);
             if (plotlyFigure) {{
               plotRenderJobs.push(() => {{
                 installCtrlScrollZoomGate(child);
@@ -13652,7 +13508,7 @@ def html_template(
           }});
           return true;
         }}
-        const plotlyFigure = applyLotTracePlotOverlay(buildPlotlyFigure(asset.figure || null), nodeId, nodeType);
+        const plotlyFigure = businessPlotPresentation(applyLotTracePlotOverlay(buildPlotlyFigure(asset.figure || null), nodeId, nodeType), asset.figure, figureEl);
         if (plotlyFigure && window.Plotly) {{
           figureEl.style.display = "block";
           const plotHost = document.createElement("div");
@@ -13838,6 +13694,7 @@ def html_template(
               <div class="kpiTreeTitle">${{asset.title || "Arborescence KPI"}}</div>
               <div class="kpiTreeSubtitle">Question metier: comment les KPI se degradent-ils ensemble dans le temps ? Lecture: performance globale, contributions et ecarts aux cibles.</div>
               <div class="kpiTreeSubtitle">Fenetre: ${{selectedTimelineWindowLabel()}}</div>
+              <div class="kpiTreeSubtitle businessValuationNote">Valorisation : ${{asset.valuation_status === "complete" ? "couverture des taux configurés complète ; calibration industrielle non certifiée" : "incomplète ou non documentée ; coûts présentés comme sous-totaux connus"}}. ${{escapeHtmlText(asset.cost_scope_note || "Le périmètre économique doit être vérifié dans le manifeste du calcul.")}}</div>
             </div>
             <div class="kpiTreeControls">
               <span class="kpiTreeControlGroup">
@@ -13869,7 +13726,7 @@ def html_template(
               <summary>Glossaire KPI atelier</summary>
               <div class="kpiFormulaIntro">
                 <b>Disponibilite produit</b>: part de la demande servie et capacite a tenir le besoin produit dans le temps. <b>Backlog</b>: demande non servie restante.
-                <b>Adherence ligne</b>: stabilite entre plan et execution industrielle. <b>Cout stock</b>: cout ou estimation de cout d'immobilisation. <b>Signal MP usine zero</b>: diagnostic technique dans nos stocks usine, pas rupture client ni rupture fournisseur.
+                <b>Concordance production-demande</b>: proximité des volumes, sans preuve de respect du planning. <b>Respect du plan</b>: comparaison distincte entre planifié et exécuté. <b>Coût stock</b>: coût d'immobilisation sur le périmètre valorisé. <b>Manque matière usine</b>: besoin actif non couvert par les intrants, sans déduire une rupture client d'un stock nul.
                 <b>Retard matiere</b>: ecart arrivee effective moins arrivee prevue. <b>Sensibilite</b>: effet observe quand on stresse un parametre. <b>Criticite fournisseur</b>: score de decision, pas probabilite historique.
                 <b>Incertitude</b>: confiance dans la lecture, pas danger fournisseur.
               </div>
@@ -15121,12 +14978,30 @@ def html_template(
           try {{ Plotly.purge(plotNode); }} catch (e) {{}}
         }});
       }};
-      const sizeDiagnosticLayout = (layout, targetEl) => {{
+      const sizeDiagnosticLayout = (layout, targetEl, sourceFigure) => {{
         const rect = targetEl.getBoundingClientRect();
+        const width = Math.max(320, Math.floor(rect.width || targetEl.clientWidth || 680));
+        const charsPerLine = Math.max(30, Math.floor((width - 40) / 6.5));
+        const wrapHeading = (text) => {{
+          const lines = [""];
+          String(text || "").split(/\\s+/).forEach(word => {{
+            const last = lines.length - 1;
+            if (lines[last] && lines[last].length + word.length + 1 > charsPerLine) lines.push(word);
+            else lines[last] += (lines[last] ? " " : "") + word;
+          }});
+          return lines;
+        }};
+        const titleLines = wrapHeading(sourceFigure.title || "");
+        const noteLines = sourceFigure.note ? wrapHeading(sourceFigure.note) : [];
+        const heading = titleLines.map(escapeHtmlText).join("<br>") + (noteLines.length
+          ? `<br><span style="font-size:10px;color:#475569">${{noteLines.map(escapeHtmlText).join("<br>")}}</span>` : "");
         return {{
           ...(layout || {{}}),
+          title: {{ text: heading, x: 0.5, xanchor: "center", y: 0.94, yref: "container", yanchor: "top", font: {{ size: 12 }} }},
+          margin: {{ ...((layout || {{}}).margin || {{}}), t: 24 + titleLines.length * 16 + noteLines.length * 13 }},
+          annotations: ((layout || {{}}).annotations || []).filter(a => !sourceFigure.note || a.text !== sourceFigure.note),
           autosize: false,
-          width: Math.max(320, Math.floor(rect.width || targetEl.clientWidth || 680)),
+          width,
           height: Math.max(260, Math.floor(rect.height || targetEl.clientHeight || 300)),
           showlegend: (layout || {{}}).showlegend ?? true,
         }};
@@ -15142,7 +15017,7 @@ def html_template(
         }}
         el.innerHTML = "";
         installCtrlScrollZoomGate(el);
-        Plotly.react(el, plotlyFigure.data, sizeDiagnosticLayout(plotlyFigure.layout, el), PLOTLY_RESPONSIVE_CONFIG);
+        Plotly.react(el, plotlyFigure.data, sizeDiagnosticLayout(plotlyFigure.layout, el, figures[key] || {{}}), PLOTLY_RESPONSIVE_CONFIG);
         if ((figures[key] || {{}}).kind === "factor_tubes") {{
           if (typeof el.removeAllListeners === "function") {{
             el.removeAllListeners("plotly_click");
@@ -15289,9 +15164,9 @@ def html_template(
         }}
         return `taux replanification n/a ; volume associe ${{fmtPanelQty(volume, 0)}} ; ${{fmtPanelQty(count, 0)}} lignes.`;
       }};
-      const nominal = allScenarios.find(s => ["_codex_lot_trace_5y_safe", "baseline_nominal"].includes(String(s.id || ""))) || allScenarios[0] || scenarios[0];
+      const nominal = allScenarios.find(s => s.is_reference) || allScenarios.find(s => ["_codex_lot_trace_5y_safe", "baseline_nominal"].includes(String(s.id || ""))) || allScenarios[0] || scenarios[0];
       const nominalKpis = (nominal && nominal.kpis) || {{}};
-      const bestCost = scenarios.reduce((best, item) => Number((item.kpis || {{}}).total_cost || Infinity) < Number((best.kpis || {{}}).total_cost || Infinity) ? item : best, scenarios[0]);
+      const bestCost = businessComparableCostSelection(scenarios, nominal);
       const bestProduction = scenarios.reduce((best, item) => {{
         const a = item.kpis || {{}};
         const b = best.kpis || {{}};
@@ -15304,18 +15179,18 @@ def html_template(
       const mostRisk = scenarios.reduce((best, item) => {{
         const a = item.kpis || {{}};
         const b = best.kpis || {{}};
-        return Number(a.impact_score || a.risk_event_count || 0) > Number(b.impact_score || b.risk_event_count || 0) ? item : best;
+        return Number(a.observed_impact_score ?? a.impact_score ?? 0) > Number(b.observed_impact_score ?? b.impact_score ?? 0) ? item : best;
       }}, scenarios[0]);
-      const refText = `Base de comparaison: disponibilite produit ${{fmtPanelQty(Number(nominalKpis.fill_rate || 0) * 100, 1)}}% ; cout total ${{fmtPanelQty(nominalKpis.total_cost || 0, 0)}}. Amorcage client: ${{Number(nominalKpis.startup_backlog_days || 0)}} j, pic ${{fmtPanelQty(nominalKpis.startup_backlog_peak || 0, 0)}}.`;
-      const bestCostKpis = bestCost.kpis || {{}};
+      const refText = `Base de comparaison : disponibilité produit ${{fmtPanelQty(Number(nominalKpis.fill_rate || 0) * 100, 1)}}% ; exposition économique ${{fmtPanelQty(nominalKpis.economic_exposure, 0)}} (${{nominalKpis.valuation_complete === true ? "couverture des taux configurés complète" : "sous-total connu ; valorisation incomplète ou non documentée"}}). Amorcage client: ${{Number(nominalKpis.startup_backlog_days || 0)}} j, pic ${{fmtPanelQty(nominalKpis.startup_backlog_peak || 0, 0)}}.`;
+      const bestCostKpis = bestCost ? bestCost.kpis : {{}};
       const bestProductionKpis = bestProduction.kpis || {{}};
       const mostRiskKpis = mostRisk.kpis || {{}};
       return [
         scenarioComparisonCard("Reference", nominal.label || "Reference", refText, "#2563eb"),
         scenarioComparisonCard(
-          "Cout total le plus bas",
-          bestCost.label || "n/a",
-          `Cout total ${{fmtPanelQty(bestCostKpis.total_cost || 0, 0)}} ; delta vs reference ${{scenarioComparisonDelta(bestCostKpis.total_cost || 0, nominalKpis.total_cost || 0, 0)}}.`,
+          bestCost ? "Exposition économique la plus basse" : "Classement économique non disponible",
+          bestCost ? bestCost.label : "Valorisation incomplète ou non documentée",
+          bestCost ? `Exposition économique ${{fmtPanelQty(bestCostKpis.economic_exposure, 0)}} ; delta vs référence ${{scenarioComparisonDelta(bestCostKpis.economic_exposure, nominalKpis.economic_exposure, 0)}}. Inclut les coûts opérationnels et l'approvisionnement externe du modèle. Comparer aussi le service et les stocks ; calibration industrielle non certifiée.` : "Au moins un scénario comparé ne dispose pas d'une valorisation complète. Les sous-totaux connus restent consultables ; ils ne permettent pas de conclure au scénario le moins coûteux.",
           "#0f766e"
         ),
         scenarioComparisonCard(
@@ -15327,7 +15202,7 @@ def html_template(
         scenarioComparisonCard(
           "Scenario le plus perturbateur",
           mostRisk.label || "n/a",
-          `Score ${{fmtPanelQty(mostRiskKpis.impact_score || 0, 1)}} ; disponibilite produit ${{fmtPanelQty(Number(mostRiskKpis.fill_rate || 0) * 100, 1)}}% ; backlog max ${{fmtPanelQty(mostRiskKpis.max_backlog || 0, 0)}}.`,
+          `Score descriptif ${{fmtPanelQty(mostRiskKpis.observed_impact_score ?? mostRiskKpis.impact_score ?? 0, 1)}} ; disponibilite produit ${{fmtPanelQty(Number(mostRiskKpis.fill_rate || 0) * 100, 1)}}% ; backlog max ${{fmtPanelQty(mostRiskKpis.max_backlog || 0, 0)}}.`,
           "#be123c"
         ),
       ].join("");
@@ -15415,7 +15290,7 @@ def html_template(
         btn.addEventListener("click", () => {{
           const mode = String(btn.getAttribute("data-scenario-select") || "");
           const scenarios = scenarioComparisonScenarios();
-          const nominal = scenarios.find(s => ["_codex_lot_trace_5y_safe", "baseline_nominal"].includes(String(s.id || "")));
+          const nominal = scenarios.find(s => s.is_reference) || scenarios.find(s => ["_codex_lot_trace_5y_safe", "baseline_nominal"].includes(String(s.id || "")));
           const withNominal = (items) => {{
             const ids = [];
             if (nominal) ids.push(String(nominal.id || ""));
@@ -15430,14 +15305,14 @@ def html_template(
             scenarioComparisonSelectedIds = new Set(scenarios.map(s => String(s.id || "")));
           }} else if (mode === "top") {{
             const ranked = [...scenarios]
-              .filter(s => !["_codex_lot_trace_5y_safe", "baseline_nominal"].includes(String(s.id || "")))
-              .sort((a, b) => Number((b.kpis || {{}}).impact_score || 0) - Number((a.kpis || {{}}).impact_score || 0))
+              .filter(s => !s.is_reference && !["_codex_lot_trace_5y_safe", "baseline_nominal"].includes(String(s.id || "")))
+              .sort((a, b) => Number((b.kpis || {{}}).observed_impact_score ?? (b.kpis || {{}}).impact_score ?? 0) - Number((a.kpis || {{}}).observed_impact_score ?? (a.kpis || {{}}).impact_score ?? 0))
               .slice(0, 8);
             scenarioComparisonSelectedIds = withNominal(ranked);
           }} else if (mode === "service") {{
             const service = scenarios.filter(s => {{
               const k = s.kpis || {{}};
-              return Number(k.fill_rate || 1) < 0.999 || Number(k.max_backlog || 0) > 0;
+              return Number(k.fill_rate ?? 1) < 0.999 || Number(k.max_backlog || 0) > 0;
             }});
             scenarioComparisonSelectedIds = withNominal(service.length ? service : scenarios.slice(0, 1));
           }} else if (mode === "lead_time") {{
@@ -15727,6 +15602,21 @@ def html_template(
     }}
 
     function init() {{
+      installBusinessDialogs();
+      if (!MONTECARLO_UNCERTAINTY.available) {{
+        const button = document.getElementById("monteCarloBtn");
+        if (button) {{
+          button.textContent = "Monte Carlo — données non disponibles";
+          button.title = "Aucune campagne Monte Carlo n’est chargée dans cette carte.";
+        }}
+      }}
+      if (!SUPPLIER_PARAMETER_SENSITIVITY_NODES._global_top3) {{
+        const button = document.getElementById("sensitivityTop3Btn");
+        if (button) {{
+          button.textContent = "Priorités KPI — données non disponibles";
+          button.title = "Les sensibilités séparées ne constituent pas une campagne de priorisation chargée ici.";
+        }}
+      }}
       initFilters();
       initRiskTooltipPortal();
       initLotTraceControls();

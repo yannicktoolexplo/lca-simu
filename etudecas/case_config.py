@@ -194,6 +194,7 @@ def build_lot_trace_config(raw: dict[str, Any] | None = None) -> dict[str, Any]:
             for item_id, policy in LOT_TRACE_DEFAULT_LOGISTICS_ASSUMPTIONS.items()
         },
         "reference_transitions": [dict(row) for row in REFERENCE_TRANSITIONS],
+        "logistics_estimate_proxies": dict(_ACTIVE_CASE_CONFIG.get("logistics_estimate_proxies") or {}),
     }
     if not raw:
         return config
@@ -210,7 +211,7 @@ def build_lot_trace_config(raw: dict[str, Any] | None = None) -> dict[str, Any]:
     for override in override_sources:
         if not isinstance(override, dict):
             continue
-        for key in ["node_aliases", "node_display_labels", "item_reference_notes"]:
+        for key in ["node_aliases", "node_display_labels", "item_reference_notes", "logistics_estimate_proxies"]:
             value = override.get(key)
             if isinstance(value, dict):
                 config[key].update(value)

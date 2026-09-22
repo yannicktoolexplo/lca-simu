@@ -15,6 +15,12 @@ avec des sous-agents specialises. Il ne remplace pas le package principal
   package `etudecas` ;
 - `tests/*` : tests du mini-kit de reference ;
 - `data/reference/*` : petits jeux de donnees.
+- `native/` : configuration, profils et skills natifs prets a deployer a la racine.
+
+Le [guide operationnel](../etudecas/docs/MULTI_AGENT_OPERATIONNEL.md) decrit la
+toolbox `python -m etudecas.toolbox`, ses preuves et le contrat de delegation.
+La presence du staging ne suffit pas a prouver son installation : executer
+`python -m etudecas.toolbox doctor` depuis la racine du depot.
 
 ## Regle de fond
 
@@ -37,8 +43,8 @@ python -m pip install -e ".[dev]"
 python -m pytest
 ```
 
-Sans dependances dev, les tests peuvent echouer sur `pytest`, `pandas` ou
-`pyyaml`. Ce n'est pas bloquant pour le repo principal.
+`pytest` est une dependance de developpement. `pandas`, `pyyaml` et `Pillow`
+font partie des dependances d'execution du mini-kit.
 
 ## Usage minimal du mini-kit
 
@@ -55,7 +61,7 @@ python -m etudecas_agentkit.cli configs/cases/example_minimal.yaml
 5. Valider avec les tests du repo principal :
 
 ```powershell
-python -m unittest discover -s etudecas -p "test*.py" -v
+python -m etudecas.toolbox tests --path etudecas/testing/test_report.py
 ```
 
 ## Premier prompt utile
@@ -63,12 +69,16 @@ python -m unittest discover -s etudecas -p "test*.py" -v
 ```text
 Lis etudecas_codex_multiagent_pack/AGENTS.md.
 La tache concerne le vrai repo Etudecas, pas le mini-kit.
-Choisis les agents utiles parmi simulation, lot_trace, sensitivity, map_payload,
-data_knowledge et validation. Propose un perimetre court, puis implemente avec
-tests.
+Utilise les profils natifs etudecas_explorer, etudecas_simulation,
+etudecas_map et etudecas_validator selon le travail independant disponible.
+Attribue des perimetres disjoints, implemente et fournis les manifestes des tests.
 ```
 
 ## Skills disponibles
+
+Les six skills ci-dessous restent des references du pack ; ils ne sont pas
+automatiquement decouverts depuis ce dossier. Le deploiement `native/`
+fournit trois skills projet actifs documentes dans le guide operationnel.
 
 - `etudecas-simulation`
 - `etudecas-lot-trace`

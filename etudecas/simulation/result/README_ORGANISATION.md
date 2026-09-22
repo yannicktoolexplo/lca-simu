@@ -1,60 +1,33 @@
-# Organisation des resultats de simulation
+# Les deux simulations à consulter
 
-`etudecas/simulation/result` ne doit pas devenir une archive permanente de tous
-les runs. Les simulations sont regenerables; le depot doit conserver seulement
-les resultats utiles au developpement courant et a la validation.
+Rangement local du 21 septembre 2026, sans nouveau calcul ni suppression de résultats.
 
-## Regle de retention
+| Dossier | Utilisation | Carte |
+| --- | --- | --- |
+| [01_reference_actuelle_2026-09-20](01_reference_actuelle_2026-09-20/) | Référence actuelle : nominal, courbes, suivis des lots, scénario de risque et sensibilités. | [Ouvrir la carte](01_reference_actuelle_2026-09-20/maps/supply_graph_audited_corrections_20260920.html) |
+| [02_reference_monte_carlo_2026-07-24](02_reference_monte_carlo_2026-07-24/) | Version historique avec Monte Carlo. Calcul du 17 juillet, carte mise à jour le 24 juillet. | [Ouvrir la carte](02_reference_monte_carlo_2026-07-24/maps/supply_graph_active_5y_map_nomc_20260717_165502.html) |
+| [archive](archive/) | Autres simulations, essais, comparaisons et journaux dans leur arborescence d'origine. | Historique uniquement. |
 
-Conserver localement:
+La référence actuelle ne contient pas de résultats Monte Carlo ni SCAN.
+La seconde carte conserve Monte Carlo, mais précède les corrections récentes.
 
-- un run complet canonique pour l'interface et les audits lots;
-- les payloads compacts necessaires aux comparaisons de scenarios;
-- les summaries, manifests et rapports courts;
-- quelques fixtures reduits pour tests.
+[Accueil des résultats et vues complémentaires](../../index.html)
 
-Eviter de conserver:
+## Compatibilité des anciens chemins
 
-- plusieurs runs 5 ans complets redondants;
-- les `mrp_trace_daily.csv` de runs non canoniques;
-- les HTML generes non canoniques;
-- les dossiers debug sans manifest.
+Les dossiers ont été déplacés physiquement, sans duplication des données.
+Des jonctions Windows masquées conservent les anciens chemins pour les scripts,
+liens, manifestes et preuves historiques. Elles apparaissent si l'affichage des
+fichiers masqués est activé ; ce sont des liens, pas d'autres simulations.
+Le réglage local `.vscode/settings.json` masque uniquement ces 37 liens dans
+l'explorateur VS Code/Cursor. Les deux références et `archive` restent visibles.
+Ce réglage ne modifie pas l'affichage de Windows ni celui de l'application Codex.
+Ne pas les parcourir pour compter les fichiers : les mêmes données seraient
+comptées plusieurs fois. Ne pas écraser une archive via son ancien chemin.
 
-## Run canonique courant
+Les manifestes d'origine et les HTML restent identiques. Ces résultats volumineux
+restent locaux. Sur un autre poste, copier les dossiers physiques et recréer les
+jonctions si les anciens accès sont nécessaires.
 
-Le run de reference actuel est:
-
-```text
-_codex_lot_trace_5y_risk_portfolio/
-```
-
-Il contient les traces necessaires a la carte, au suivi de lots, aux risques
-simules et aux audits de coherence.
-
-## Format attendu pour un run conserve
-
-Un run conserve devrait contenir:
-
-```text
-<run>/
-  data/       # CSV necessaires, pas tous les CSV si le run est compact
-  reports/    # rapports markdown/csv courts
-  maps/       # carte canonique si utile
-  summaries/  # KPI et syntheses
-  run_manifest.json
-```
-
-`run_manifest.json` doit identifier le graphe d'entree, la config, l'horizon,
-les options de simulation, la date, le mode de retention et les hashes utiles.
-
-## Etudes de sensibilite
-
-Les resultats de sensibilite doivent aller en priorite dans:
-
-```text
-etudecas/simulation/experiments/result/<study>/
-```
-
-avec `study_manifest.json`, `metrics.csv`, `registry.csv` et `summary.json`.
-Les sorties completes de chaque scenario ne doivent etre gardees que pour un
-debug explicite.
+Inventaire, journal des déplacements et vérification :
+`etudecas/artifacts/testing/results_organization_20260921/`.

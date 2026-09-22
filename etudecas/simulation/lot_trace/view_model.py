@@ -20,9 +20,9 @@ def build_lot_trace_view_model(
     visible_lot_ids = set(reach["lot_ids"])
     visible_links = [
         link
-        for link in indexes.links
-        if _as_str(link.get("parent_lot_id")) in visible_lot_ids
-        and _as_str(link.get("child_lot_id")) in visible_lot_ids
+        for parent in reach["lot_ids"]
+        for link in indexes.link_rows_by_parent.get(parent, [])
+        if _as_str(link.get("child_lot_id")) in visible_lot_ids
     ]
     all_visible_events = [
         event
@@ -375,6 +375,7 @@ def _is_lot_creation_event(event_type: str) -> bool:
         "creation",
         "opening_stock",
         "production_output",
+        "opening_production_order",
         "lane_receipt",
         "external_procurement_receipt",
         "estimated_source_receipt",
@@ -437,7 +438,10 @@ def _event_matches_link(
         if role == "child":
             return _to_int(event.get("day")) == _transport_arrival_day(link)
         departure_day = _to_int(link.get("departure_day"))
-        return departure_day is None or _to_int(event.get("day")) == departure_day
+        if departure_day is not None:
+            return _to_int(event.get("day")) == departure_day
+        event_arrival = _to_int(event.get("arrival_day"))
+        return event_arrival is not None and event_arrival == _transport_arrival_day(link)
     return False
 
 
@@ -1327,22 +1331,28 @@ def _downstream_contribution_by_lot(
 
 
 def _production_component_denominators(indexes: LotTraceIndexes) -> dict[tuple[str, str, str], float]:
+    if indexes._production_totals is not None:
+        return indexes._production_totals
     totals: dict[tuple[str, str, str], float] = {}
     for link in indexes.links:
         if _as_str(link.get("link_type")) != "production":
             continue
         key = _production_component_key(link, indexes)
         totals[key] = totals.get(key, 0.0) + _to_float(link.get("parent_qty"))
+    indexes._production_totals = totals
     return totals
 
 
 def _transport_child_denominators(indexes: LotTraceIndexes) -> dict[tuple[str, str, str], float]:
+    if indexes._transport_totals is not None:
+        return indexes._transport_totals
     totals: dict[tuple[str, str, str], float] = {}
     for link in indexes.links:
         if _as_str(link.get("link_type")) != "transport":
             continue
         key = _transport_child_key(link, indexes)
         totals[key] = totals.get(key, 0.0) + _to_float(link.get("parent_qty"))
+    indexes._transport_totals = totals
     return totals
 
 

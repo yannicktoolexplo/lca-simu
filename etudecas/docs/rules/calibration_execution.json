@@ -1,0 +1,185 @@
+{
+  "schema_version": "etudecas.documentation.v1",
+  "fingerprint_method": "python-ast-v1",
+  "title": "Publication et reprise des calibrations fournisseurs",
+  "business_source_fingerprints": {
+    "etudecas/docs/CALIBRATION_EXECUTION.md": "a6dea76cf5abc6597c097ece39ff86a0fae8de61cc4757fa7d6ecfc32a2dd4ee"
+  },
+  "references": [
+    {
+      "id": "write",
+      "kind": "implementation",
+      "path": "etudecas/atomic_io.py",
+      "symbol": "_write_atomic",
+      "reference_fingerprint": "09eaa445998aa7eb47cc61f642c9ee3946f0f6b85c4efd4bcc24e93b5d8edd14"
+    },
+    {
+      "id": "retry",
+      "kind": "implementation",
+      "path": "etudecas/atomic_io.py",
+      "symbol": "_replace_with_retry",
+      "reference_fingerprint": "db7f69355270c8e95753b68a05b33695d6c3e3443006d204778ec9894462f15c"
+    },
+    {
+      "id": "json",
+      "kind": "implementation",
+      "path": "etudecas/atomic_io.py",
+      "symbol": "write_json_atomic",
+      "reference_fingerprint": "7800b5a556734d6830d1b83a9959a8c018cd34737a0c71502aa01c9bfd5fe9d1"
+    },
+    {
+      "id": "csv",
+      "kind": "implementation",
+      "path": "etudecas/atomic_io.py",
+      "symbol": "write_csv_atomic",
+      "reference_fingerprint": "58dd4c634c46311e6bef80b36723fc0f7ee4ae7a5110da244ec9aee472152e63"
+    },
+    {
+      "id": "delays",
+      "kind": "contract",
+      "path": "etudecas/atomic_io.py",
+      "symbol": "RETRY_DELAYS",
+      "reference_fingerprint": "0cdcae115aaea2c181e2320bf73afa8f6255845cbbe66688c516b25067ba1569"
+    },
+    {
+      "id": "errors",
+      "kind": "contract",
+      "path": "etudecas/atomic_io.py",
+      "symbol": "WINDOWS_RETRY_ERRORS",
+      "reference_fingerprint": "8c86faeafe0e00db15ddb724938ecbde46ebe56704d3cac311d0c88563fc266d"
+    },
+    {
+      "id": "transient-test",
+      "kind": "test",
+      "path": "etudecas/test_atomic_io.py",
+      "symbol": "test_transient_replacement_preserves_old_file_until_success",
+      "reference_fingerprint": "fbcf1deddcaa9734e2f19d0c753ac282807124eab760f7b1d415f41d5b7e1b77"
+    },
+    {
+      "id": "persistent-test",
+      "kind": "test",
+      "path": "etudecas/test_atomic_io.py",
+      "symbol": "test_persistent_or_unrelated_failure_propagates",
+      "reference_fingerprint": "290e96774656795a4db2ae54c2da5c94b16036a52e0f99067214328f2b3c9598"
+    },
+    {
+      "id": "signature",
+      "kind": "implementation",
+      "path": "etudecas/prototypes/scan_2027_risk_control/supplier_service_regime_calibration_runner_v2.py",
+      "symbol": "_campaign_signature",
+      "reference_fingerprint": "ac4ebe6c19442fb019274812fd75176d4c4fe74f45556153b7fd41153283b6bb"
+    },
+    {
+      "id": "manifest",
+      "kind": "implementation",
+      "path": "etudecas/prototypes/scan_2027_risk_control/supplier_service_regime_calibration_runner_v2.py",
+      "symbol": "_base_manifest",
+      "reference_fingerprint": "b49faadfe7f9330dda38176660039ec00e4a6dec093d6f5c407e64496b895790"
+    },
+    {
+      "id": "run",
+      "kind": "implementation",
+      "path": "etudecas/prototypes/scan_2027_risk_control/supplier_service_regime_calibration_runner_v2.py",
+      "symbol": "run_calibration",
+      "reference_fingerprint": "b20a944ec752f634325112ca5245d3882811d1d999b436bee552f2676d82957f"
+    },
+    {
+      "id": "ledger",
+      "kind": "implementation",
+      "path": "etudecas/prototypes/scan_2027_risk_control/supplier_service_regime_calibration_runner_v2.py",
+      "symbol": "_load_ledger",
+      "reference_fingerprint": "735800ef03be4d2d173624ffab38c2db863d6c5e1a5153fbdad57e2e59d788a0"
+    },
+    {
+      "id": "checkpoint-test",
+      "kind": "test",
+      "path": "etudecas/prototypes/scan_2027_risk_control/tests/test_supplier_service_regime_calibration_runner.py",
+      "symbol": "test_screen_checkpoint_and_resume_adds_only_seeds_16_to_30",
+      "reference_fingerprint": "e6cc1edcc3711fc64c4eb1a084ae1bba029a02896c384a6edf1872d990caf25c"
+    },
+    {
+      "id": "version-test",
+      "kind": "test",
+      "path": "etudecas/prototypes/scan_2027_risk_control/tests/test_calibration_atomic_v2.py",
+      "symbol": "test_v2_refuses_v1_output_without_changing_it",
+      "reference_fingerprint": "ecbc7cff34c85d3b3068932ae7ce056a202055242e891c507a07fb923efce1e1"
+    },
+    {
+      "id": "orphan-test",
+      "kind": "test",
+      "path": "etudecas/prototypes/scan_2027_risk_control/tests/test_calibration_atomic_v2.py",
+      "symbol": "test_failed_ledger_commit_cannot_be_silently_resumed",
+      "reference_fingerprint": "873b437a3301594598fb78e421187f05befffd784600fce3ba63f7c86dd1244d"
+    },
+    {
+      "id": "binding-test",
+      "kind": "test",
+      "path": "etudecas/prototypes/scan_2027_risk_control/tests/test_calibration_atomic_v2.py",
+      "symbol": "test_io_source_is_bound_to_signature_and_manifest",
+      "reference_fingerprint": "2d2d829ca73a4300fb17be9c47e10190aff99a8c1e086a25df5a62fdd0d75579"
+    }
+  ],
+  "rules": [
+    {
+      "id": "CALIBRATION-EXECUTION-001",
+      "title": "Publier un fichier complet ou signaler l'échec",
+      "status": "documented",
+      "statement": "La V2 publie chaque fichier par remplacement atomique. Elle retente uniquement les refus Windows 5, 32 et 33, dans une limite de six essais ; les autres erreurs et les refus persistants sont propagés.",
+      "scope": "Écriture des JSON et CSV par le runner V2.",
+      "units": "Secondes d'attente, codes Windows, fichiers UTF-8.",
+      "limitations": "Pas de transaction entre plusieurs fichiers ; pas de garantie contre une panne matérielle. Les reprises restent soumises au contrôle du registre.",
+      "references": [
+        "write",
+        "retry",
+        "delays",
+        "errors",
+        "json",
+        "csv",
+        "transient-test",
+        "persistent-test"
+      ],
+      "sources": [
+        "etudecas/docs/CALIBRATION_EXECUTION.md"
+      ]
+    },
+    {
+      "id": "CALIBRATION-EXECUTION-002",
+      "title": "Conserver l'identité de l'exécution et du checkpoint",
+      "status": "documented",
+      "statement": "La signature V2 inclut le code de publication. Un dossier V1 est refusé. La reprise conserve les preuves du checkpoint de 15 répétitions et ajoute seulement les répétitions 16 à 30 ; un inventaire incohérent bloque la reprise.",
+      "scope": "Calibrations nouvelles exécutées par le runner V2.",
+      "units": "SHA-256, graines et répétitions de simulation.",
+      "limitations": "Le plan reste figé ; aucune migration ou réparation automatique d'une campagne historique. Les dépendances transitives ne sont pas toutes couvertes par ces empreintes.",
+      "references": [
+        "signature",
+        "manifest",
+        "run",
+        "ledger",
+        "checkpoint-test",
+        "version-test",
+        "orphan-test",
+        "binding-test"
+      ],
+      "sources": [
+        "etudecas/docs/CALIBRATION_EXECUTION.md"
+      ]
+    },
+    {
+      "id": "CALIBRATION-EXECUTION-003",
+      "title": "Distinguer robustesse technique et validation métier",
+      "status": "documented",
+      "statement": "Une exécution synthétique reste non publiable. La calibration caractérise des hypothèses de simulation ; les autorisations de promotion d'action et de publication confirmatoire restent fausses.",
+      "scope": "Interprétation du manifeste de calibration et des tests synthétiques.",
+      "units": "Indicateurs booléens ; taux de service simulé.",
+      "limitations": "Les tests ne qualifient ni un fournisseur réel ni les campagnes V8 historiques.",
+      "references": [
+        "manifest",
+        "run",
+        "checkpoint-test"
+      ],
+      "sources": [
+        "etudecas/docs/CALIBRATION_EXECUTION.md"
+      ]
+    }
+  ]
+}

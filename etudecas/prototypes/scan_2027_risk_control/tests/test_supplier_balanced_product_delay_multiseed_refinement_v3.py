@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import shutil
 from pathlib import Path
 from typing import Any
 
@@ -18,18 +17,24 @@ from etudecas.prototypes.scan_2027_risk_control import (
 )
 from etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_balanced_product_delay_multiseed_refinement_v2 import (
     _raw_evidence,
+    _prepare_v1,
 )
 
 
 def _prepare_v2_no_go(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
-    if not v2.DEFAULT_PLAN_OUTPUT.is_dir() or not v3.DEFAULT_V2_RUN.is_dir():
-        pytest.skip("Signed complete V1/V2 campaign artifacts are unavailable")
-    v1_plan = v2.DEFAULT_SOURCE_PLAN
-    v1_run = v2.DEFAULT_SOURCE_RUN
+    # 81% passes V1's broad band but fails V2's narrower 79.25--80.75% band.
+    v1_plan, v1_run = _prepare_v1(tmp_path, op80_response=(0.79, 0.83))
     plan = tmp_path / "v2_plan"
     run = tmp_path / "v2_run"
-    shutil.copytree(v2.DEFAULT_PLAN_OUTPUT, plan)
-    shutil.copytree(v3.DEFAULT_V2_RUN, run)
+    v2.prepare_plan(plan, source_plan_dir=v1_plan, source_run_dir=v1_run)
+
+    def executor(candidate, adapter, _output, seed):
+        # V2 cannot qualify op80; V3 must add its 15 new cases, not launch holdout.
+        service = 0.93 if candidate.offset_days_268091 == 7.0 else 0.70
+        return _raw_evidence(candidate, adapter, seed, service, service)
+
+    v2.run(plan, run, executor=executor)
+    v3._v2_source(plan, run)
     return v1_plan, v1_run, plan, run
 
 
@@ -44,6 +49,24 @@ def _prepare_v3(tmp_path: Path) -> tuple[Path, Path]:
         v2_run_dir=v2_run,
     )
     return plan, v2_run
+
+
+def test_historical_v2_no_go_source(historical_artifact):
+    plan = historical_artifact(v2.DEFAULT_PLAN_OUTPUT.name)
+    run = historical_artifact(v3.DEFAULT_V2_RUN.name)
+    _plan, evidence, _hashes = v3._v2_source(plan, run)
+    assert len(evidence) == 65
+
+
+def test_resigned_v2_plan_cannot_accept_another_driver(tmp_path):
+    _v1_plan, _v1_run, plan, _run = _prepare_v2_no_go(tmp_path)
+    path = plan / "refinement_plan.json"
+    manifest = json.loads(path.read_text(encoding="utf-8"))
+    manifest["source_hashes"]["driver_sha256"] = "0" * 64
+    manifest["plan_signature"] = v2._stable_sha256(v2._manifest_signature_payload(manifest))
+    path.write_text(json.dumps(manifest), encoding="utf-8")
+    with pytest.raises(ValueError, match="V2 refinement plan/signature mismatch"):
+        v2.validate_plan(plan)
 
 
 def _v3_executor(calls: list[tuple[float, float, int]], v2_run: Path):

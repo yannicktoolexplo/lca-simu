@@ -1,0 +1,349 @@
+{
+  "schema_version": "etudecas.test_report.v1",
+  "source": "reference.xml",
+  "counts": {
+    "failure": 3,
+    "passed": 685,
+    "skipped": 2
+  },
+  "testcase_count": 690,
+  "modules": {
+    "etudecas.analysis.from_simulation.test_build_observed_2025_supply_bilan": {
+      "passed": 5
+    },
+    "etudecas.documentation.test_batch": {
+      "passed": 4
+    },
+    "etudecas.documentation.test_builder.DocumentationTest": {
+      "passed": 12
+    },
+    "etudecas.knowledge_graph.test_excel_enrichment.ExcelEnrichmentTest": {
+      "passed": 3
+    },
+    "etudecas.prototypes.scan_2027_risk_control.tests.test_calibration_atomic_v2": {
+      "passed": 4
+    },
+    "etudecas.prototypes.scan_2027_risk_control.tests.test_historical_fixture_policy": {
+      "failure": 1,
+      "passed": 6
+    },
+    "etudecas.prototypes.scan_2027_risk_control.tests.test_nominal_run_curves": {
+      "passed": 3
+    },
+    "etudecas.prototypes.scan_2027_risk_control.tests.test_powershell_go_validation": {
+      "failure": 2,
+      "passed": 14
+    },
+    "etudecas.prototypes.scan_2027_risk_control.tests.test_resume_supplier_operating_point_full_campaign_v8_bounded": {
+      "passed": 15
+    },
+    "etudecas.prototypes.scan_2027_risk_control.tests.test_run_supplier_v8_v2_to_stage3_v4_chain_task": {
+      "passed": 3
+    },
+    "etudecas.prototypes.scan_2027_risk_control.tests.test_run_supplier_v8_v3_to_v4_handoff_guardian_v1_task": {
+      "passed": 4
+    },
+    "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_dynamic_capacity_coupling_audit": {
+      "passed": 2
+    },
+    "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_dynamic_requirement_reference": {
+      "passed": 23
+    },
+    "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_operating_point_full_campaign_v8": {
+      "passed": 5
+    },
+    "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_service_regime_calibration_runner": {
+      "passed": 20
+    },
+    "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_v2_controllable_action_selector": {
+      "passed": 15
+    },
+    "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_v8_stage3_dashboard": {
+      "passed": 5
+    },
+    "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_v8_v2_to_stage3_v3_chain_task": {
+      "passed": 7
+    },
+    "etudecas.simulation.analysis.test_component_immobilized_stock.ComponentImmobilizedStockTest": {
+      "passed": 1
+    },
+    "etudecas.simulation.analysis.test_finished_goods_inventory_value.FinishedGoodsInventoryValueTest": {
+      "passed": 2
+    },
+    "etudecas.simulation.experiments.targeted_replay.test_targeted_replay.DiscoveryAndRunnerTests": {
+      "passed": 3
+    },
+    "etudecas.simulation.experiments.targeted_replay.test_targeted_replay.KpiSpecTests": {
+      "passed": 2
+    },
+    "etudecas.simulation.experiments.targeted_replay.test_targeted_replay.LotTraceEvidenceTests": {
+      "passed": 1
+    },
+    "etudecas.simulation.experiments.targeted_replay.test_targeted_replay.RankingTests": {
+      "passed": 1
+    },
+    "etudecas.simulation.logistics.test_truck_consolidation.TruckConsolidationTests": {
+      "passed": 15
+    },
+    "etudecas.simulation.montecarlo.test_robust_montecarlo.RobustMonteCarloTests": {
+      "passed": 6
+    },
+    "etudecas.simulation.montecarlo.test_run_montecarlo_resume.MonteCarloResumeCheckpointTests": {
+      "passed": 4
+    },
+    "etudecas.simulation.montecarlo.test_trajectory_collector.MonteCarloTrajectoryCollectorTest": {
+      "passed": 2
+    },
+    "etudecas.simulation.test_control_probe": {
+      "passed": 5
+    },
+    "etudecas.simulation.test_control_provider": {
+      "passed": 34
+    },
+    "etudecas.simulation.test_control_provider_v2": {
+      "passed": 10
+    },
+    "etudecas.simulation.test_control_provider_v3": {
+      "passed": 9
+    },
+    "etudecas.simulation.test_control_schedule": {
+      "passed": 39
+    },
+    "etudecas.simulation.test_control_schedule_engine_integration": {
+      "passed": 18
+    },
+    "etudecas.simulation.test_demand_perturbation": {
+      "passed": 7
+    },
+    "etudecas.simulation.test_demand_perturbation_engine_integration": {
+      "passed": 1
+    },
+    "etudecas.simulation.test_engine_api.SimulationEngineApiTest": {
+      "passed": 4
+    },
+    "etudecas.simulation.test_engine_contracts.SimulationEngineContractsTest": {
+      "passed": 3
+    },
+    "etudecas.simulation.test_factory_nervousness.FactoryNervousnessTest": {
+      "passed": 1
+    },
+    "etudecas.simulation.test_initial_state_policy.InitialStatePolicyTest": {
+      "passed": 2
+    },
+    "etudecas.simulation.test_kpi_engine.KpiEngineTest": {
+      "passed": 4
+    },
+    "etudecas.simulation.test_lot_ledger.LotLedgerTest": {
+      "passed": 8
+    },
+    "etudecas.simulation.test_lot_path_audit.LotPathAuditTest": {
+      "passed": 6
+    },
+    "etudecas.simulation.test_lot_policy.CanonicalLotPolicyTests": {
+      "passed": 11
+    },
+    "etudecas.simulation.test_lot_trace_acceptance.LotTraceAcceptanceTest": {
+      "passed": 11
+    },
+    "etudecas.simulation.test_lot_trace_causality.LotCausalityTest": {
+      "passed": 9
+    },
+    "etudecas.simulation.test_lot_trace_indexes": {
+      "passed": 2
+    },
+    "etudecas.simulation.test_lot_trace_payload.LotTracePayloadTest": {
+      "passed": 8,
+      "skipped": 1
+    },
+    "etudecas.simulation.test_lot_trace_procurement.LotTraceProcurementTest": {
+      "passed": 8
+    },
+    "etudecas.simulation.test_lot_trace_rules.LotTraceRulesTest": {
+      "passed": 1
+    },
+    "etudecas.simulation.test_lot_trace_stock_context": {
+      "passed": 3
+    },
+    "etudecas.simulation.test_lot_trace_view_model.LotTraceViewModelTest": {
+      "passed": 14,
+      "skipped": 1
+    },
+    "etudecas.simulation.test_lotification_acceptance_contract.LotificationAcceptanceContractTest": {
+      "passed": 6
+    },
+    "etudecas.simulation.test_opening_observed_stock_scale": {
+      "passed": 24
+    },
+    "etudecas.simulation.test_opening_purchase_order_supplier_risk": {
+      "passed": 4
+    },
+    "etudecas.simulation.test_production_batch_engine_integration": {
+      "passed": 1
+    },
+    "etudecas.simulation.test_production_campaigns.ProductionCampaignRowsTest": {
+      "passed": 12
+    },
+    "etudecas.simulation.test_production_execution.ProductionBatchExecutionTest": {
+      "passed": 8
+    },
+    "etudecas.simulation.test_risk_lot_impact_registry": {
+      "passed": 18
+    },
+    "etudecas.simulation.test_run_format.RunFormatExportTest": {
+      "passed": 3
+    },
+    "etudecas.simulation.test_run_format.RunFormatIntegrityTest": {
+      "passed": 15
+    },
+    "etudecas.simulation.test_sensitivity_experiments.SensitivityExperimentsTest": {
+      "passed": 9
+    },
+    "etudecas.simulation.test_supplier_risk_planning_semantics": {
+      "passed": 3
+    },
+    "etudecas.simulation.uncertainty.test_cost_diagnostics.CostDiagnosticsTests": {
+      "passed": 1
+    },
+    "etudecas.simulation.uncertainty.test_diagnostics.UncertaintyDiagnosticsTest": {
+      "passed": 4
+    },
+    "etudecas.simulation.uncertainty.test_pair_scales.PairScaleTests": {
+      "passed": 1
+    },
+    "etudecas.simulation.uncertainty.test_paired_propagation.PairedPropagationTests": {
+      "passed": 12
+    },
+    "etudecas.simulation.uncertainty.test_temporal_propagation.TemporalPropagationTests": {
+      "passed": 1
+    },
+    "etudecas.simulation.uncertainty.test_variance_decomposition.VarianceDecompositionTests": {
+      "passed": 3
+    },
+    "etudecas.test_atomic_io": {
+      "passed": 13
+    },
+    "etudecas.test_lot_trace_config.LotTraceConfigTest": {
+      "passed": 2
+    },
+    "etudecas.test_provenance.SourceProvenanceTest": {
+      "passed": 2
+    },
+    "etudecas.test_run_etudecas_pipeline": {
+      "passed": 29
+    },
+    "etudecas.testing.test_inventory": {
+      "passed": 4
+    },
+    "etudecas.testing.test_report": {
+      "passed": 4
+    },
+    "etudecas.visualization.maps.test_chart_payloads.ChartPayloadsTest": {
+      "passed": 8
+    },
+    "etudecas.visualization.maps.test_control_system_dashboard_payload": {
+      "passed": 5
+    },
+    "etudecas.visualization.maps.test_domain_payload_layers.DomainPayloadLayersTest": {
+      "passed": 3
+    },
+    "etudecas.visualization.maps.test_enrich_supplier_audit_archive": {
+      "passed": 6
+    },
+    "etudecas.visualization.maps.test_etudecas_run_payload_adapter.EtudecasRunPayloadAdapterTest": {
+      "passed": 1
+    },
+    "etudecas.visualization.maps.test_externalize_html_payload.ExternalizeHtmlPayloadTest": {
+      "passed": 8
+    },
+    "etudecas.visualization.maps.test_frequency_dashboard_payload": {
+      "passed": 6
+    },
+    "etudecas.visualization.maps.test_global_kpi_tree_payload.GlobalKpiTreePayloadTest": {
+      "passed": 7
+    },
+    "etudecas.visualization.maps.test_map_data_loader.MapDataLoaderTest": {
+      "passed": 1
+    },
+    "etudecas.visualization.maps.test_map_payload_builder.MapPayloadBuilderTest": {
+      "passed": 6
+    },
+    "etudecas.visualization.maps.test_map_render.MapRenderTest": {
+      "passed": 1
+    },
+    "etudecas.visualization.maps.test_montecarlo_trajectory_payload.MonteCarloTrajectoryPayloadTest": {
+      "passed": 8
+    },
+    "etudecas.visualization.maps.test_montecarlo_uncertainty_payload.MonteCarloUncertaintyPayloadTest": {
+      "passed": 1
+    },
+    "etudecas.visualization.maps.test_risk_payload.RiskPayloadTest": {
+      "passed": 3
+    },
+    "etudecas.visualization.maps.test_scan_dashboard_payload": {
+      "passed": 3
+    },
+    "etudecas.visualization.maps.test_scenario_comparison_payload.ScenarioComparisonPayloadTest": {
+      "passed": 2
+    },
+    "etudecas.visualization.maps.test_sensitivity_payload": {
+      "passed": 4
+    },
+    "etudecas.visualization.maps.test_simulation_payload.SimulationPayloadTest": {
+      "passed": 3
+    },
+    "etudecas.visualization.maps.test_supplier_audit": {
+      "passed": 9
+    },
+    "etudecas.visualization.maps.test_supplier_operations_payload.SupplierOperationsPayloadTest": {
+      "passed": 3
+    },
+    "etudecas.visualization.maps.test_supplier_risk_formatting.SupplierRiskFormattingTest": {
+      "passed": 4
+    },
+    "etudecas.visualization.maps.test_supplier_risk_panels.SupplierRiskPanelsTest": {
+      "passed": 4
+    },
+    "etudecas.visualization.maps.test_supplier_what_if.SupplierWhatIfTest": {
+      "passed": 1
+    },
+    "etudecas.visualization.maps.test_worldmap_html_template": {
+      "passed": 4
+    }
+  },
+  "failures": [
+    {
+      "classname": "etudecas.prototypes.scan_2027_risk_control.tests.test_historical_fixture_policy",
+      "name": "test_frozen_wrapper_environment_requires_explicit_original_paths[no_repo]",
+      "outcome": "failure",
+      "message": "subprocess.TimeoutExpired: Command '['C:\\\\Users\\\\yannick.martz\\\\AppData\\\\Local\\\\Programs\\\\Python\\\\Python311\\\\python.exe', '-m', 'pytest', 'test_sample.py', '-q', '--historical-artifacts', 'C:\\\\Users\\\\yannick.martz\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-yannick.martz\\\\pytest-2442\\\\test_frozen_wrapper_environmen1\\\\artifacts']' timed out after -0.32800000003771856 seconds",
+      "detail": "etudecas\\prototypes\\scan_2027_risk_control\\tests\\test_historical_fixture_policy.py:54: in test_frozen_wrapper_environment_requires_explicit_original_paths\n    result = subprocess.run(\nC:\\Users\\yannick.martz\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\subprocess.py:550: in run\n    stdout, stderr = process.communicate(input, timeout=timeout)\n                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nC:\\Users\\yannick.martz\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\subprocess.py:1228: in communicate\n    sts = self.wait(timeout=self._remaining_time(endtime))\n          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nC:\\Users\\yannick.martz\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\subprocess.py:1264: in wait\n    return self._wait(timeout=timeout)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^\nC:\\Users\\yannick.martz\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\subprocess.py:1593: in _wait\n    raise TimeoutExpired(self.args, timeout)\nE   subprocess.TimeoutExpired: Command '['C:\\\\Users\\\\yannick.martz\\\\AppData\\\\Local\\\\Programs\\\\Python\\\\Python311\\\\python.exe', '-m', 'pytest', 'test_sample.py', '-q', '--historical-artifacts', 'C:\\\\Users\\\\yannick.martz\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-yannick.martz\\\\pytest-2442\\\\test_frozen_wrapper_environmen1\\\\artifacts']' timed out after -0.32800000003771856 seconds"
+    },
+    {
+      "classname": "etudecas.prototypes.scan_2027_risk_control.tests.test_powershell_go_validation",
+      "name": "test_go_reader_isolated_from_historical_campaign[inventory-v3]",
+      "outcome": "failure",
+      "message": "subprocess.TimeoutExpired: Command '['C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe', '-NoProfile', '-NonInteractive', '-Command', '\\n$ErrorActionPreference=\\'Stop\\'\\n$tokens=$null; $errors=$null\\n$ast=[System.Management.Automation.Language.Parser]::ParseFile($env:TEST_WRAPPER,[ref]$tokens,[ref]$errors)\\nif($errors.Count){throw \\'Source parse failed\\'}\\nforeach($name in @(\\'Get-FullPath\\',\\'Read-JsonShared\\',\\'Get-JsonProperty\\',\\'Assert-SamePath\\',\\'Read-AndValidateStage3Go\\')) {\\n    $node=$ast.Find({param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name},$true)\\n    if($null -eq $node){throw \"Missing function: $name\"}\\n    # An extracted function has no defining script path. Supply that context\\n    # explicitly; preserve the original validation statements and file hash.\\n    $definition=$node.Extent.Text.Replace(\\'$PSCommandPath\\',\\'$env:TEST_WRAPPER\\')\\n    Invoke-Expression $definition\\n}\\n$Stage3GoSchemaVersion=$env:TEST_SCHEMA\\n$ExpectedStage3InventorySignature=\\'d56761c3cdd704ec9d31bb2b452ee5dea25e9cdcf1e87c67d787a09e20b5a442\\'\\n$CampaignRoot=Join-Path $env:TEST_ROOT \\'campaign\\'\\n$ResultsDir=Join-Path $env:TEST_ROOT \\'results\\'\\n$Stage3SupervisionDir=Join-Path $env:TEST_ROOT \\'supervision\\'\\n$FinalHtml=Join-Path $env:TEST_ROOT \\'final.html\\'\\ntry { Read-AndValidateStage3Go -Path $env:TEST_GO | ConvertTo-Json -Compress }\\ncatch { [Console]::Error.WriteLine($_.Exception.Message); exit 7 }\\n']' timed out after -22235.79700000002 seconds",
+      "detail": "etudecas\\prototypes\\scan_2027_risk_control\\tests\\test_powershell_go_validation.py:60: in test_go_reader_isolated_from_historical_campaign\n    result = subprocess.run(\nC:\\Users\\yannick.martz\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\subprocess.py:550: in run\n    stdout, stderr = process.communicate(input, timeout=timeout)\n                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nC:\\Users\\yannick.martz\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\subprocess.py:1228: in communicate\n    sts = self.wait(timeout=self._remaining_time(endtime))\n          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nC:\\Users\\yannick.martz\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\subprocess.py:1264: in wait\n    return self._wait(timeout=timeout)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^\nC:\\Users\\yannick.martz\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\subprocess.py:1593: in _wait\n    raise TimeoutExpired(self.args, timeout)\nE   subprocess.TimeoutExpired: Command '['C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe', '-NoProfile', '-NonInteractive', '-Command', '\\n$ErrorActionPreference=\\'Stop\\'\\n$tokens=$null; $errors=$null\\n$ast=[System.Management.Automation.Language.Parser]::ParseFile($env:TEST_WRAPPER,[ref]$tokens,[ref]$errors)\\nif($errors.Count){throw \\'Source parse failed\\'}\\nforeach($name in @(\\'Get-FullPath\\',\\'Read-JsonShared\\',\\'Get-JsonProperty\\',\\'Assert-SamePath\\',\\'Read-AndValidateStage3Go\\')) {\\n    $node=$ast.Find({param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name},$true)\\n    if($null -eq $node){throw \"Missing function: $name\"}\\n    # An extracted function has no defining script path. Supply that context\\n    # explicitly; preserve the original validation statements and file hash.\\n    $definition=$node.Extent.Text.Replace(\\'$PSCommandPath\\',\\'$env:TEST_WRAPPER\\')\\n    Invoke-Expression $definition\\n}\\n$Stage3GoSchemaVersion=$env:TEST_SCHEMA\\n$ExpectedStage3InventorySignature=\\'d56761c3cdd704ec9d31bb2b452ee5dea25e9cdcf1e87c67d787a09e20b5a442\\'\\n$CampaignRoot=Join-Path $env:TEST_ROOT \\'campaign\\'\\n$ResultsDir=Join-Path $env:TEST_ROOT \\'results\\'\\n$Stage3SupervisionDir=Join-Path $env:TEST_ROOT \\'supervision\\'\\n$FinalHtml=Join-Path $env:TEST_ROOT \\'final.html\\'\\ntry { Read-AndValidateStage3Go -Path $env:TEST_GO | ConvertTo-Json -Compress }\\ncatch { [Console]::Error.WriteLine($_.Exception.Message); exit 7 }\\n']' timed out after -22235.79700000002 seconds"
+    },
+    {
+      "classname": "etudecas.prototypes.scan_2027_risk_control.tests.test_powershell_go_validation",
+      "name": "test_go_reader_isolated_from_historical_campaign[inventory-v4]",
+      "outcome": "failure",
+      "message": "subprocess.TimeoutExpired: Command '['C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe', '-NoProfile', '-NonInteractive', '-Command', '\\n$ErrorActionPreference=\\'Stop\\'\\n$tokens=$null; $errors=$null\\n$ast=[System.Management.Automation.Language.Parser]::ParseFile($env:TEST_WRAPPER,[ref]$tokens,[ref]$errors)\\nif($errors.Count){throw \\'Source parse failed\\'}\\nforeach($name in @(\\'Get-FullPath\\',\\'Read-JsonShared\\',\\'Get-JsonProperty\\',\\'Assert-SamePath\\',\\'Read-AndValidateStage3Go\\')) {\\n    $node=$ast.Find({param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name},$true)\\n    if($null -eq $node){throw \"Missing function: $name\"}\\n    # An extracted function has no defining script path. Supply that context\\n    # explicitly; preserve the original validation statements and file hash.\\n    $definition=$node.Extent.Text.Replace(\\'$PSCommandPath\\',\\'$env:TEST_WRAPPER\\')\\n    Invoke-Expression $definition\\n}\\n$Stage3GoSchemaVersion=$env:TEST_SCHEMA\\n$ExpectedStage3InventorySignature=\\'d56761c3cdd704ec9d31bb2b452ee5dea25e9cdcf1e87c67d787a09e20b5a442\\'\\n$CampaignRoot=Join-Path $env:TEST_ROOT \\'campaign\\'\\n$ResultsDir=Join-Path $env:TEST_ROOT \\'results\\'\\n$Stage3SupervisionDir=Join-Path $env:TEST_ROOT \\'supervision\\'\\n$FinalHtml=Join-Path $env:TEST_ROOT \\'final.html\\'\\ntry { Read-AndValidateStage3Go -Path $env:TEST_GO | ConvertTo-Json -Compress }\\ncatch { [Console]::Error.WriteLine($_.Exception.Message); exit 7 }\\n']' timed out after 30 seconds",
+      "detail": "etudecas\\prototypes\\scan_2027_risk_control\\tests\\test_powershell_go_validation.py:60: in test_go_reader_isolated_from_historical_campaign\n    result = subprocess.run(\nC:\\Users\\yannick.martz\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\subprocess.py:550: in run\n    stdout, stderr = process.communicate(input, timeout=timeout)\n                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nC:\\Users\\yannick.martz\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\subprocess.py:1209: in communicate\n    stdout, stderr = self._communicate(input, endtime, timeout)\n                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nC:\\Users\\yannick.martz\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\subprocess.py:1630: in _communicate\n    raise TimeoutExpired(self.args, orig_timeout)\nE   subprocess.TimeoutExpired: Command '['C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe', '-NoProfile', '-NonInteractive', '-Command', '\\n$ErrorActionPreference=\\'Stop\\'\\n$tokens=$null; $errors=$null\\n$ast=[System.Management.Automation.Language.Parser]::ParseFile($env:TEST_WRAPPER,[ref]$tokens,[ref]$errors)\\nif($errors.Count){throw \\'Source parse failed\\'}\\nforeach($name in @(\\'Get-FullPath\\',\\'Read-JsonShared\\',\\'Get-JsonProperty\\',\\'Assert-SamePath\\',\\'Read-AndValidateStage3Go\\')) {\\n    $node=$ast.Find({param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name},$true)\\n    if($null -eq $node){throw \"Missing function: $name\"}\\n    # An extracted function has no defining script path. Supply that context\\n    # explicitly; preserve the original validation statements and file hash.\\n    $definition=$node.Extent.Text.Replace(\\'$PSCommandPath\\',\\'$env:TEST_WRAPPER\\')\\n    Invoke-Expression $definition\\n}\\n$Stage3GoSchemaVersion=$env:TEST_SCHEMA\\n$ExpectedStage3InventorySignature=\\'d56761c3cdd704ec9d31bb2b452ee5dea25e9cdcf1e87c67d787a09e20b5a442\\'\\n$CampaignRoot=Join-Path $env:TEST_ROOT \\'campaign\\'\\n$ResultsDir=Join-Path $env:TEST_ROOT \\'results\\'\\n$Stage3SupervisionDir=Join-Path $env:TEST_ROOT \\'supervision\\'\\n$FinalHtml=Join-Path $env:TEST_ROOT \\'final.html\\'\\ntry { Read-AndValidateStage3Go -Path $env:TEST_GO | ConvertTo-Json -Compress }\\ncatch { [Console]::Error.WriteLine($_.Exception.Message); exit 7 }\\n']' timed out after 30 seconds"
+    }
+  ],
+  "skip_reasons": {
+    "set ETUDECAS_RUN_SLOW_TESTS=1 to validate the 5-year lot payload": 1,
+    "set ETUDECAS_RUN_SLOW_TESTS=1 to validate the 5-year lot view model": 1
+  },
+  "execution_context": {
+    "started_local_date": "2026-09-17",
+    "completed_local_date": "2026-09-18",
+    "elapsed_seconds": 58057.31,
+    "selected": 690,
+    "deselected": 17,
+    "passed_subtests": 53,
+    "note": "Three subprocess timeouts in an overnight invocation; exact environmental cause not established. All three passed unchanged in isolated recheck. This does not turn the original invocation green."
+  }
+}

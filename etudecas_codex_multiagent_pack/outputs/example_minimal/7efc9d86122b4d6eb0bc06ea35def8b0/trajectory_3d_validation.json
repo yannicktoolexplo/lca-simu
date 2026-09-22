@@ -1,0 +1,13 @@
+{
+  "name": "visual_validation",
+  "status": "ok",
+  "issues": [],
+  "checks": [
+    {
+      "name": "visual_file",
+      "status": "passed",
+      "path": "C:\\dev\\lca-simu\\etudecas_codex_multiagent_pack\\outputs\\example_minimal\\7efc9d86122b4d6eb0bc06ea35def8b0\\trajectory_3d.png",
+      "size": 85026
+    }
+  ]
+}

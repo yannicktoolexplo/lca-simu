@@ -22,6 +22,7 @@ from etudecas.visualization.maps.map_payload_builder import (
     is_simulation_hidden_item,
 )
 from etudecas.visualization.maps.map_render import fmt_pct, fmt_qty
+from etudecas.visualization.maps.economic_valuation import economic_cost_view
 
 
 def to_float(x: Any) -> float | None:
@@ -353,6 +354,13 @@ def build_global_kpi_tree_payload(
     mrp_order_rows = read_csv_rows(mrp_orders_csv) if mrp_orders_csv else []
     input_consumption_csv = production_constraint_csv.parent / "production_input_consumption_daily.csv"
     input_consumption_rows = read_csv_rows(input_consumption_csv) if input_consumption_csv.exists() else []
+    if not input_consumption_rows:
+        ledger_path = production_constraint_csv.parent / "production_lot_events.csv"
+        input_consumption_rows = [
+            {**row, "consumed_qty": row.get("qty")}
+            for row in (read_csv_rows(ledger_path) if ledger_path.exists() else [])
+            if row.get("event_type") in {"production_consume", "production_consume_reference_transition"}
+        ]
     input_stocks_csv = production_constraint_csv.parent / "production_input_stocks_daily.csv"
     input_stock_rows = read_csv_rows(input_stocks_csv) if input_stocks_csv.exists() else []
     if not daily_rows and not demand_rows and not constraint_rows:
@@ -475,7 +483,9 @@ def build_global_kpi_tree_payload(
     if not days:
         return None
 
-    cost_source_note = "cout journalier moteur"
+    summary_path = daily_kpi_csv.parent.parent / "summaries" / "first_simulation_summary.json"
+    monetary = economic_cost_view(json.loads(summary_path.read_text(encoding="utf-8")) if summary_path.exists() else {})
+    cost_source_note = monetary["cost_label"] + " ; cout journalier moteur"
     if cost_source == "first_simulation_daily_fallback":
         cost_source_note = "cout journalier moteur via first_simulation_daily.csv"
     elif cost_source == "summary_reconstructed_fallback":
@@ -931,15 +941,13 @@ def build_global_kpi_tree_payload(
     purchase_cost_index = {day: 100.0 * purchase_cost[day] / avg_total_supply_cost for day in days}
 
     raw_material_stockout_flag = {day: 0.0 for day in days}
-    for row in input_stock_rows:
-        item_id = str(row.get("item_id") or "")
-        if is_simulation_hidden_item(item_id):
-            continue
+    for row in constraint_rows:
         day = int(to_float(row.get("day")) or 0)
         if day not in raw_material_stockout_flag:
             continue
-        stock_end = to_float(row.get("stock_end_of_day"))
-        if stock_end is not None and not math.isnan(stock_end) and stock_end <= 1e-9:
+        # A dormant or superseded reference with zero stock is not a shortage.
+        # Require an executed production constraint and an unmet lot plan.
+        if row.get("binding_cause") == "input_shortage" and (to_float(row.get("shortfall_vs_lot_plan_qty")) or 0.0) > 1e-9:
             raw_material_stockout_flag[day] = 1.0
 
     raw_material_stockout_days_30d: dict[int, float] = {}
@@ -1307,7 +1315,7 @@ def build_global_kpi_tree_payload(
         {
             "family": "Production",
             "level": "KPI principal",
-            "name": "Adherence lignes mensuelle",
+            "name": "Concordance production / besoin (30j)",
             "formula": "Moyenne lignes de max(0, 100 - |Production_30j - Reference_30j| / Reference_30j x 100)",
             "terms": "Ligne=couple site/produit. Production_30j=Σ actual_qty sur 30 jours. Reference_jour: PF=demande client du produit; semi-fini/intermediaire=quantite consommee par les sites aval dans production_input_consumption_daily.csv; sinon fallback=desired_qty, c.-a-d. besoin de production demande par le simulateur. Reference_30j=Σ Reference_jour sur 30 jours.",
             "interpretation": "Adherence mensuelle par site/produit, calculee ligne par ligne pour ne pas melanger UN et G.",
@@ -1323,7 +1331,7 @@ def build_global_kpi_tree_payload(
         {
             "family": "Production",
             "level": "KPI secondaire",
-            "name": "Adherence lignes hebdo",
+            "name": "Concordance production / besoin (7j)",
             "formula": "Moyenne lignes de max(0, 100 - |Production_7j - Reference_7j| / Reference_7j x 100)",
             "terms": "Production_7j=Σ actual_qty sur 7 jours. Reference_7j=Σ Reference_jour sur 7 jours, avec PF=demande client, semi-fini/intermediaire=consommation aval observee, fallback=desired_qty si l'aval direct n'est pas observable.",
             "interpretation": "Vision plus nerveuse que le mensuel, utile pour detecter des decalages court terme.",
@@ -1571,7 +1579,7 @@ def build_global_kpi_tree_payload(
         "Besoin avec backlog",
         "Servi",
         "Backlog fin de jour",
-        "Adherence lignes mensuelle",
+        "Concordance production / besoin (30j)",
         "Adherence plan lotifiee mensuelle",
         "Couverture demande horizon 30j",
         "Retard/deficit de production par ligne",
@@ -1640,7 +1648,7 @@ def build_global_kpi_tree_payload(
         ("line_adherence", "Adherence plan lotifie", "#2563eb", "actual_qty vs planned_qty_after_lot_rule, moyenne glissante 30j"),
         ("line_nervousness", "Nervosite planning (%)", "#d97706", "Amplitude moyenne journaliere des changements de plan par ligne"),
         ("production_replanning_count", "Volume replanifie associe", "#7c3aed", "Nombre de lignes dont le plan change vs jour precedent; le KPI decisionnel reste le taux de replanification quand disponible."),
-        ("raw_material_stockout_days", "Signal MP usine zero 30j", "#dc2626", "Diagnostic technique: nombre de jours calendaires, dans la fenetre glissante 30j, ou au moins une MP suivie finit la journee a stock usine nul."),
+        ("raw_material_stockout_days", "Jours de production bloques par intrants (30j)", "#dc2626", "Contrainte input_shortage executee avec deficit face au plan lotifie ; les references inactives a stock nul ne sont pas des ruptures."),
         ("material_delay_days", "Retard matiere", "#0891b2", "Moyenne des retards reception: delai effectif - delai previsionnel"),
         ("inventory_cost", "Cout stock", "#be123c", "Cout stock journalier; cible=cout stock moyen baseline"),
     ]
@@ -1884,6 +1892,9 @@ def build_global_kpi_tree_payload(
     )
 
     return {
+        "economic_valuation": monetary["economic_valuation"],
+        "valuation_status": monetary["valuation_status"],
+        "cost_scope_note": monetary["cost_scope_note"],
         "kind": "kpi_tree",
         "title": "Arborescence KPI management supply",
         "subtitle": "Clique une courbe KPI principale pour afficher ses KPI secondaires. Le bouton Physics of Decision bascule vers les distances normalisees.",
@@ -1906,7 +1917,7 @@ def build_global_kpi_tree_payload(
                 },
                 {
                     "id": "production",
-                    "label": "Adherence lignes mensuelle",
+                    "label": "Concordance production / besoin (30j)",
                     "values": [round(production_execution_score[day], 6) for day in days],
                     "color": "#2563eb",
                     "note": "Adherence mensuelle par ligne produit/site. Les secondaires affichent couverture, retard/deficit, avance/exces et contraintes sur ligne.",
@@ -1943,10 +1954,10 @@ def build_global_kpi_tree_payload(
             },
             {
                 "id": "production",
-                "label": "Adherence lignes mensuelle usine",
+                "label": "Concordance production / besoin (30j) usine",
                 "objective": "Reduire l'instabilite planning due aux ruptures composants.",
                 "summary": [
-                    summary("Adherence lignes mensuelle", fmt_pct(avg_monthly_adherence)),
+                    summary("Concordance production / besoin (30j)", fmt_pct(avg_monthly_adherence)),
                     summary("Couverture demande horizon 30j", fmt_pct(avg_forward_30d_coverage)),
                     summary("Retard/deficit horizon 30j", fmt_pct(avg_forward_30d_underproduction)),
                     summary("Rattrapage retard net 30j", fmt_pct(avg_net_delay_catchup_30d_rate)),
@@ -1961,7 +1972,7 @@ def build_global_kpi_tree_payload(
                     summary("Lots demandes / lances", f"{fmt_qty(total_requested_lot_starts, 0)} / {fmt_qty(total_actual_lot_starts, 0)}"),
                 ],
                 "secondary": [
-                    {"label": "Adherence lignes mensuelle (%)", **series_from_map(monthly_line_adherence_score), "color": "#2563eb"},
+                    {"label": "Concordance production / besoin (30j) (%)", **series_from_map(monthly_line_adherence_score), "color": "#2563eb"},
                     {"label": "Adherence plan lotifie mensuelle (%)", **series_from_map(monthly_lot_plan_adherence_score), "color": "#65a30d", "dash": "dash"},
                     {"label": "Couverture demande horizon 30j (%)", **series_from_map(forward_30d_coverage_rate), "color": "#0f766e"},
                     {"label": "Taux de rattrapage retard net 30j (%)", **series_from_map(net_delay_catchup_30d_rate), "color": "#0891b2"},
@@ -1989,16 +2000,20 @@ def build_global_kpi_tree_payload(
                     {"label": "Manque matiere vs besoin usine (%)", **series_from_map(input_shortage_desired_loss_share), "color": "#f97316"},
                     {"label": "Nervosite planning (%)", **series_from_map(line_nervousness), "color": "#7c3aed"},
                     {"label": "Volume replanifie associe", **series_from_map(production_replanning_count), "color": "#475569", "dash": "dot"},
-                    {"label": "Signal MP usine zero 30j", **series_from_map(raw_material_stockout_days_30d), "color": "#64748b", "dash": "dot"},
+                    {"label": "Jours de production bloques par intrants (30j)", **series_from_map(raw_material_stockout_days_30d), "color": "#64748b", "dash": "dot"},
                 ],
                 "secondary_y_label": "% / lignes",
             },
             {
                 "id": "cost",
                 "label": "Couts supply",
+                "valuation_status": monetary["valuation_status"],
+                "valuation_complete": monetary["valuation_complete"],
+                "economic_ranking_eligible": monetary["economic_ranking_eligible"],
+                "economic_valuation": monetary["economic_valuation"],
                 "objective": "Comprendre le cout operationnel: achat matiere, production, stock et transport.",
                 "summary": [
-                    summary("Cout operationnel total", fmt_qty(total_supply_cost_value)),
+                    summary("Cout operationnel valorise", fmt_qty(total_supply_cost_value)),
                     summary("Cout d'amorcage J0-J29", fmt_qty(total_startup_cost)),
                     summary("Regime etabli J30+", fmt_qty(total_established_cost)),
                     summary(
@@ -2014,12 +2029,15 @@ def build_global_kpi_tree_payload(
                         "Carnet initial deja engage",
                         f"{fmt_qty(total_opening_cost)} (achat {fmt_qty(total_opening_purchase_cost)}, transport {fmt_qty(total_opening_transport_cost)})",
                     ),
-                    summary("Cout total scenario", fmt_qty(total_scenario_cost_excluding_external)),
+                    summary("Cout operationnel simule (perimetre valorise)", fmt_qty(total_scenario_cost_excluding_external)),
                     summary("Principal pic transport", transport_spike_driver),
                     summary("Source cout", cost_source_note),
+                    summary("Couverture de valorisation", monetary["cost_label"]),
+                    summary("Approvisionnement externe simulé (périmètre séparé)", fmt_qty(monetary["external_procurement_cost"])),
+                    summary("Exposition économique simulée (périmètre valorisé)", fmt_qty(monetary["economic_exposure"])),
                 ],
                 "secondary": [
-                    {"label": "Cout operationnel total", **series_from_map(total_supply_cost), "color": "#d97706"},
+                    {"label": "Cout operationnel valorise", **series_from_map(total_supply_cost), "color": "#d97706"},
                     {"label": "Cout d'amorcage (J0-J29)", **series_from_map(startup_cost), "color": "#f59e0b", "dash": "dot"},
                     {"label": "Regime etabli (J30+)", **series_from_map(established_cost), "color": "#0891b2"},
                     {"label": "Moyenne regime etabli", **series_from_map(established_average_cost), "color": "#111827", "dash": "dash"},

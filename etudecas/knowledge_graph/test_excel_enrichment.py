@@ -36,7 +36,7 @@ class ExcelEnrichmentTest(unittest.TestCase):
                     {"id": "S-1", "type": "supplier_dc", "name": "Supplier"},
                     {"id": "M-1", "type": "factory", "name": "Factory"},
                 ],
-                "items": [{"item_id": "A", "uom": "KG"}],
+                "items": [{"item_id": "A", "uom": "KG"}, {"item_id": "PF", "uom": "UN"}],
                 "edges": [
                     {
                         "from": "S-1",

@@ -79,7 +79,7 @@ def test_wrapper_parses_and_contains_only_the_checkpoint_sequence() -> None:
     assert "Start-ScheduledTask" not in source
 
 
-def test_validate_only_is_inert_and_revalidates_frozen_inputs(tmp_path: Path) -> None:
+def test_validate_only_is_inert_and_revalidates_frozen_inputs(tmp_path: Path, frozen_wrapper_environment) -> None:
     campaign_root = tmp_path / "campaign"
     output_dir = tmp_path / "output"
     supervision_dir = tmp_path / "supervision"

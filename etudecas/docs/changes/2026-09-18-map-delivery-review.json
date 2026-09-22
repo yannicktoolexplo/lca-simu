@@ -1,0 +1,197 @@
+{
+  "delivery": "2026-09-18",
+  "html_sha256": "96ca50a13ea38d3ddd7839c38ccde76b399a5da54a8bc7ef3cc1950750f33fec",
+  "cross_checks": [
+    {
+      "name": "browser_review",
+      "ok": true
+    },
+    {
+      "name": "reviewed_html_unchanged",
+      "ok": true
+    },
+    {
+      "name": "horizon_1825",
+      "ok": true
+    },
+    {
+      "name": "no_montecarlo",
+      "ok": true
+    },
+    {
+      "name": "risk_payload_available",
+      "ok": true
+    },
+    {
+      "name": "exactly_current_scenarios",
+      "ok": true
+    },
+    {
+      "name": "reviewed_map_20260918:numeric_review",
+      "ok": true
+    },
+    {
+      "name": "reviewed_map_20260918:package",
+      "ok": true
+    },
+    {
+      "name": "reviewed_map_20260918:csv_unchanged",
+      "ok": true
+    },
+    {
+      "name": "reviewed_map_20260918:summary_unchanged",
+      "ok": true
+    },
+    {
+      "name": "reviewed_map_20260918:html_total_demand",
+      "ok": true
+    },
+    {
+      "name": "reviewed_map_20260918:html_total_served",
+      "ok": true
+    },
+    {
+      "name": "reviewed_map_20260918:html_ending_backlog",
+      "ok": true
+    },
+    {
+      "name": "reviewed_map_20260918:html_fill_rate",
+      "ok": true
+    },
+    {
+      "name": "reviewed_map_20260918:html_total_cost",
+      "ok": true
+    },
+    {
+      "name": "reviewed_map_20260918:html_backlog_days",
+      "ok": true
+    },
+    {
+      "name": "state_dependent_full:numeric_review",
+      "ok": true
+    },
+    {
+      "name": "state_dependent_full:package",
+      "ok": true
+    },
+    {
+      "name": "state_dependent_full:csv_unchanged",
+      "ok": true
+    },
+    {
+      "name": "state_dependent_full:summary_unchanged",
+      "ok": true
+    },
+    {
+      "name": "state_dependent_full:html_total_demand",
+      "ok": true
+    },
+    {
+      "name": "state_dependent_full:html_total_served",
+      "ok": true
+    },
+    {
+      "name": "state_dependent_full:html_ending_backlog",
+      "ok": true
+    },
+    {
+      "name": "state_dependent_full:html_fill_rate",
+      "ok": true
+    },
+    {
+      "name": "state_dependent_full:html_total_cost",
+      "ok": true
+    },
+    {
+      "name": "state_dependent_full:html_backlog_days",
+      "ok": true
+    },
+    {
+      "name": "selected_compute_sources_unchanged",
+      "ok": true
+    }
+  ],
+  "browser_checks": [
+    {
+      "name": "offline_map_loaded",
+      "ok": true
+    },
+    {
+      "name": "material_balance",
+      "ok": true
+    },
+    {
+      "name": "kpi_tree",
+      "ok": true
+    },
+    {
+      "name": "lot_trace",
+      "ok": true
+    },
+    {
+      "name": "scenario_comparison",
+      "ok": true
+    },
+    {
+      "name": "injected_risk",
+      "ok": true
+    },
+    {
+      "name": "uncertainty",
+      "ok": true
+    },
+    {
+      "name": "timeline_control",
+      "ok": true
+    }
+  ],
+  "javascript_errors": [],
+  "targeted_tests": {
+    "passed": 69,
+    "subtests_passed": 4
+  },
+  "documentation_registries_current": 6,
+  "runs": [
+    {
+      "scenario_id": "scn:BASE",
+      "days": 1825,
+      "rows": 3650,
+      "csv_sha256": "886696030c8b47feebca6cc45f0f71d890601a8e50ff5a922c4d07471af6998e",
+      "summary_sha256": "f8dc970c802565a8c877302b438a9a7ba6c49d605253587e5c90711015b91254",
+      "csv_totals": {
+        "demand_qty": 25762139.999890063,
+        "served_qty": 25762139.99988906,
+        "opening_backlog": 0.0,
+        "ending_backlog": 0.0,
+        "fill_rate": 0.9999999999999611
+      },
+      "days_with_backlog_including_startup": 3,
+      "total_cost": 289514139.1932,
+      "ok": true
+    },
+    {
+      "scenario_id": "scn:STATE_DEPENDENT_FULL",
+      "days": 1825,
+      "rows": 3650,
+      "csv_sha256": "d532d177c09242f8bd680a78e5f5162ab9bf5accb7a742ec5612eb749bec344a",
+      "summary_sha256": "49efab5d19d2fa537fcf7b3d6313c14172bef49909daff5c0bc60a3238b09000",
+      "csv_totals": {
+        "demand_qty": 25762139.999890063,
+        "served_qty": 25667344.000023026,
+        "opening_backlog": 0.0,
+        "ending_backlog": 94795.999865,
+        "fill_rate": 0.9963203367473571
+      },
+      "days_with_backlog_including_startup": 454,
+      "total_cost": 262259661.7488,
+      "ok": true
+    }
+  ],
+  "limits": [
+    "No Monte Carlo",
+    "Cumulative service is not on-time service",
+    "Composite impact score not qualified",
+    "Historical V8 not qualified",
+    "Targeted tests only, not full repository suite"
+  ]
+}

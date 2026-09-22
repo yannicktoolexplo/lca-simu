@@ -1,0 +1,865 @@
+{
+  "method": "CRLF to LF only; expected hash and Git HEAD checked before any writes",
+  "sources": [
+    {
+      "path": "etudecas/prototypes/scan_2027_risk_control/build_validated_operating_points_v4.py",
+      "actual_sha256": "14ee6dc6484dc5f18e8c3918822937375e05e74d264b4ae3b3754ce7fd8aace0",
+      "expected_lf_sha256": "c4456f00224610c161187643892576a3ed4aa76cb9f55b471d9063a508d75da9",
+      "lf_matches_HEAD": true,
+      "pins": [
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/build_validated_operating_points_v7.py",
+          "line": 53
+        }
+      ]
+    },
+    {
+      "path": "etudecas/prototypes/scan_2027_risk_control/build_validated_operating_points_v5.py",
+      "actual_sha256": "58a1941329d2d069bd320469b5d150fbdb17aad6d88ecaac9a5d5c8c7eab188e",
+      "expected_lf_sha256": "41492d5b66835028b7aed9977a4e21f4214e7d6e85d98c6a5ae535a7b2cbacb2",
+      "lf_matches_HEAD": true,
+      "pins": [
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/build_validated_operating_points_v6.py",
+          "line": 37
+        },
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/continue_supplier_full_campaign_v6.py",
+          "line": 84
+        }
+      ]
+    },
+    {
+      "path": "etudecas/prototypes/scan_2027_risk_control/build_validated_operating_points_v6.py",
+      "actual_sha256": "b1a9491aab8d377154ec1a002755ab0a5ed715367e1d50d4dbf56b61b1430c1d",
+      "expected_lf_sha256": "8943209948f19979b3f448c65ca364f9e18b98aac34aaecec21d4fc6f5a123a4",
+      "lf_matches_HEAD": true,
+      "pins": [
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/supplier_v6_holdout_campaign_once_relay.py",
+          "line": 74
+        }
+      ]
+    },
+    {
+      "path": "etudecas/prototypes/scan_2027_risk_control/continue_supplier_full_campaign_v4.py",
+      "actual_sha256": "95caca2c93a3bf59fe4536773364f18686c19e705fad08573c628c8225376354",
+      "expected_lf_sha256": "102dc0d8505e184b89e614258ad843a4c02c2e4c0e5a5aea8f060c3e7ae1d14e",
+      "lf_matches_HEAD": true,
+      "pins": [
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/continue_supplier_full_campaign_v5.py",
+          "line": 114
+        },
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/continue_supplier_full_campaign_v7.py",
+          "line": 93
+        }
+      ]
+    },
+    {
+      "path": "etudecas/prototypes/scan_2027_risk_control/continue_supplier_full_campaign_v5.py",
+      "actual_sha256": "65d47e1141bab80e54a7d5486bdcb95dc2ea6d8eb14dcc1dc3c2140b899b92db",
+      "expected_lf_sha256": "4a42e97e20233c7907a1cd5e6b202aa4f3a24b56e5da3b029d2ab4bc11cb21cd",
+      "lf_matches_HEAD": true,
+      "pins": [
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/continue_supplier_full_campaign_v6.py",
+          "line": 91
+        },
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/continue_supplier_full_campaign_v7.py",
+          "line": 96
+        }
+      ]
+    },
+    {
+      "path": "etudecas/prototypes/scan_2027_risk_control/continue_supplier_full_campaign_v6.py",
+      "actual_sha256": "190b88dc87426b3a77990eefc72ba7455f7c01f224abe4ad52fbe3efc1231caf",
+      "expected_lf_sha256": "b087250de5ccc483e08668b9074a943cf978a6589f3d9e74e733b38bd83512ad",
+      "lf_matches_HEAD": true,
+      "pins": [
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/supplier_v6_holdout_campaign_once_relay.py",
+          "line": 79
+        }
+      ]
+    },
+    {
+      "path": "etudecas/prototypes/scan_2027_risk_control/continue_supplier_v4_calibration.py",
+      "actual_sha256": "cf38af1e7a0f9da24d311889fdcbac4a5156cf1b555245858804969658a69ed6",
+      "expected_lf_sha256": "9a7e7762599138a950202f02794ef52034fc1e3c396060eb91fa1006c6e5a18d",
+      "lf_matches_HEAD": true,
+      "pins": [
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/supplier_holdout_curve_sidecar_v6.py",
+          "line": 44
+        }
+      ]
+    },
+    {
+      "path": "etudecas/prototypes/scan_2027_risk_control/continue_supplier_v6_calibration.py",
+      "actual_sha256": "ae8101cbd97d1981ec368d6cac35aea7f8e349597cc72c5204a78a21b5f7478f",
+      "expected_lf_sha256": "9af8432e26435aa4b2fb99157a944fa270c1427247087af133b2d9eb8adaa047",
+      "lf_matches_HEAD": true,
+      "pins": [
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/supplier_v6_holdout_campaign_once_relay.py",
+          "line": 73
+        }
+      ]
+    },
+    {
+      "path": "etudecas/prototypes/scan_2027_risk_control/finalize_supplier_operating_point_full_campaign_v4.py",
+      "actual_sha256": "0e99c58426f22bba8d9c52f41b7fa394ac39d7beb748daa8cffe86a5c54a34ab",
+      "expected_lf_sha256": "0a71a62a3ede37df18024ee9349e6f96e0fbfe80e6dd371f253215bac13e5984",
+      "lf_matches_HEAD": true,
+      "pins": [
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/continue_supplier_full_campaign_v5.py",
+          "line": 127
+        },
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/finalize_supplier_operating_point_full_campaign_v5.py",
+          "line": 25
+        }
+      ]
+    },
+    {
+      "path": "etudecas/prototypes/scan_2027_risk_control/finalize_supplier_operating_point_full_campaign_v5.py",
+      "actual_sha256": "c746b887b8ca1a815a8ea0026cf914037dfb3bffd4b0fb881de8ca37196139d9",
+      "expected_lf_sha256": "2bbfd696b0654f5837da0a51d0022ec1cf4cc9b9eaf98dfd6207a95603898c82",
+      "lf_matches_HEAD": true,
+      "pins": [
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/continue_supplier_full_campaign_v6.py",
+          "line": 88
+        },
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/finalize_supplier_operating_point_full_campaign_v6.py",
+          "line": 24
+        }
+      ]
+    },
+    {
+      "path": "etudecas/prototypes/scan_2027_risk_control/finalize_supplier_operating_point_full_campaign_v6.py",
+      "actual_sha256": "120760a143e9d95313bfcad8d87eaa4c230a47e0a1eedc0c323a55af99c3cdf1",
+      "expected_lf_sha256": "a4d523d0817464074ae4089b660de2db992de950cad8566e9efd2b68dd08715b",
+      "lf_matches_HEAD": true,
+      "pins": [
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/finalize_supplier_operating_point_full_campaign_v7.py",
+          "line": 35
+        },
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/supplier_v6_holdout_campaign_once_relay.py",
+          "line": 77
+        }
+      ]
+    },
+    {
+      "path": "etudecas/prototypes/scan_2027_risk_control/finalize_supplier_operating_point_full_campaign_v7.py",
+      "actual_sha256": "8215f3cb37ca93e65432287becebfa757a47a2a645905feaaa0c0959fabaa9dc",
+      "expected_lf_sha256": "db0d5a2e96cf4af48d7303ccfe1718e7f5015ea30f03aa6c3cffb23b8f6d18a1",
+      "lf_matches_HEAD": true,
+      "pins": [
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/finalize_supplier_operating_point_full_campaign_v8.py",
+          "line": 50
+        }
+      ]
+    },
+    {
+      "path": "etudecas/prototypes/scan_2027_risk_control/finalize_supplier_operating_point_full_campaign_v8.py",
+      "actual_sha256": "c2ee46f85dfa1d26c34da4e641ead0e02eaa52fcb1ebabaa39b26609fb9be240",
+      "expected_lf_sha256": "a3cc635a8adc30522ecf2dbbb066bd81a3c4ac9bedf0a1d4552a14ec65f7c7ec",
+      "lf_matches_HEAD": true,
+      "pins": [
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/finalize_supplier_operating_point_full_campaign_v8_compat.py",
+          "line": 28
+        },
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/run_supplier_v8_v2_to_stage3_v3_chain_task.ps1",
+          "line": 44
+        },
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/run_supplier_v8_v2_to_stage3_v4_chain_task.ps1",
+          "line": 44
+        }
+      ]
+    },
+    {
+      "path": "etudecas/prototypes/scan_2027_risk_control/finalize_supplier_operating_point_full_campaign_v8_compat.py",
+      "actual_sha256": "2bb37efdc4b78292744c77bfaa4193e8e7e9db3f238062e93c8a799d69aa64c5",
+      "expected_lf_sha256": "87718a8349d9f8318136af27c7a8507c6e23d0d0b93e255cd71a3d8dbdda6523",
+      "lf_matches_HEAD": true,
+      "pins": [
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/run_supplier_v8_v2_to_stage3_v4_chain_task.ps1",
+          "line": 45
+        }
+      ]
+    },
+    {
+      "path": "etudecas/prototypes/scan_2027_risk_control/launch_supplier_operating_point_full_campaign_v4.py",
+      "actual_sha256": "2d728312fcc2c35e157e6529c6955874cbc47550e8cf8f8f6c42e09775cb023d",
+      "expected_lf_sha256": "ee79cfc4d61ca98e7030217bdbf52886402e68074b66f7c7380d5e9890838e4c",
+      "lf_matches_HEAD": true,
+      "pins": [
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/continue_supplier_full_campaign_v5.py",
+          "line": 111
+        },
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/launch_supplier_operating_point_full_campaign_v5.py",
+          "line": 25
+        }
+      ]
+    },
+    {
+      "path": "etudecas/prototypes/scan_2027_risk_control/launch_supplier_operating_point_full_campaign_v5.py",
+      "actual_sha256": "d50325d81121bfaac7bc657c1c9bd5a1060af91dbe0d0097652ab11321a1d771",
+      "expected_lf_sha256": "59f1c33552f19bcf09c773733ece132e0e04d341c98807ca9c7087a2de1f4d13",
+      "lf_matches_HEAD": true,
+      "pins": [
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/continue_supplier_full_campaign_v6.py",
+          "line": 87
+        },
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/launch_supplier_operating_point_full_campaign_v6.py",
+          "line": 24
+        }
+      ]
+    },
+    {
+      "path": "etudecas/prototypes/scan_2027_risk_control/launch_supplier_operating_point_full_campaign_v6.py",
+      "actual_sha256": "897b768766230a2533e0bc2141c1aebb361118d002b5562eee46b31f95374d6b",
+      "expected_lf_sha256": "5b6f166d753c6a8e25b7da3156fe6815ec80457d09e41f7f051939a4b9873cec",
+      "lf_matches_HEAD": true,
+      "pins": [
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/launch_supplier_operating_point_full_campaign_v7.py",
+          "line": 27
+        },
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/supplier_v6_holdout_campaign_once_relay.py",
+          "line": 76
+        }
+      ]
+    },
+    {
+      "path": "etudecas/prototypes/scan_2027_risk_control/launch_supplier_operating_point_full_campaign_v7.py",
+      "actual_sha256": "a6ec91fd7b57e4185623081fd00799003190b80827be3ae51692852da3fe5994",
+      "expected_lf_sha256": "3d92a645fbb2bf19e244c908226f3dbe78f84c3565cf1791114c1231dfab4bd5",
+      "lf_matches_HEAD": true,
+      "pins": [
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/launch_supplier_operating_point_full_campaign_v8.py",
+          "line": 36
+        }
+      ]
+    },
+    {
+      "path": "etudecas/prototypes/scan_2027_risk_control/launch_supplier_operating_point_full_campaign_v8_resilient.py",
+      "actual_sha256": "127a05ede3fe5bb94fdadfdc0945e21d5a3fa87ded8dbb39205bbfa229778e57",
+      "expected_lf_sha256": "82c78d47b2fb8e37f028d3568c0697a1c21172df62bf83a30e16ba80655fb3b7",
+      "lf_matches_HEAD": true,
+      "pins": [
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/run_supplier_v8_stage3_closure_v1_task.ps1",
+          "line": 27
+        },
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/run_supplier_v8_v2_to_stage3_v3_chain_task.ps1",
+          "line": 40
+        },
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/run_supplier_v8_v2_to_stage3_v4_chain_task.ps1",
+          "line": 40
+        }
+      ]
+    },
+    {
+      "path": "etudecas/prototypes/scan_2027_risk_control/supervise_supplier_operating_point_full_campaign_v8_v2.py",
+      "actual_sha256": "7b11c7d6c21a84be9cb2a213a7fae0ae2339faa9400a0e9ea51b77726c095165",
+      "expected_lf_sha256": "2ad3309ca0db131f54998337d663afd9512300fad97fe27b7ec707d31187c254",
+      "lf_matches_HEAD": true,
+      "pins": [
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/run_supplier_v8_stage3_closure_v1_task.ps1",
+          "line": 28
+        },
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/run_supplier_v8_v2_to_stage3_v3_chain_task.ps1",
+          "line": 42
+        },
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/run_supplier_v8_v2_to_stage3_v4_chain_task.ps1",
+          "line": 42
+        }
+      ]
+    },
+    {
+      "path": "etudecas/prototypes/scan_2027_risk_control/supplier_balanced_product_delay_multiseed_refinement_v5.py",
+      "actual_sha256": "12cafcd21b2e98116c15c2ce508cb725d1d9dd2b53a06310fc8071b4a69dedf5",
+      "expected_lf_sha256": "46bc479466edfe9e1610abbf84aa3f0a6ff039b9066c9a395599494d0b4ed922",
+      "lf_matches_HEAD": true,
+      "pins": [
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/continue_supplier_full_campaign_v5.py",
+          "line": 141
+        },
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/continue_supplier_full_campaign_v6.py",
+          "line": 83
+        }
+      ]
+    },
+    {
+      "path": "etudecas/prototypes/scan_2027_risk_control/supplier_balanced_product_delay_multiseed_refinement_v6.py",
+      "actual_sha256": "b54c21e35000a8d6dd06c97d210434b96b85a9ba90ef8d8c6eb3d855fd8831b2",
+      "expected_lf_sha256": "a12a835d376d17a2fd8fee54bb31bc37aa228a542da5417099bb267f2fe9847c",
+      "lf_matches_HEAD": true,
+      "pins": [
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/supplier_fresh_development_holdout_protocol_v7.py",
+          "line": 96
+        }
+      ]
+    },
+    {
+      "path": "etudecas/prototypes/scan_2027_risk_control/supplier_fresh_development_holdout_protocol_v7.py",
+      "actual_sha256": "9dd7e0b2fb6d71f214efec3a0f3ac62b9b98abd2684bf98f7c5984c66009f4cb",
+      "expected_lf_sha256": "f11ba2523bd319e210e5d5d82a25beb1e88a2fc5bd17a181540f8662526a63e5",
+      "lf_matches_HEAD": true,
+      "pins": [
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/supplier_v7_campaign_trace_package.py",
+          "line": 48
+        },
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/supplier_v7_stage2_common.py",
+          "line": 67
+        }
+      ]
+    },
+    {
+      "path": "etudecas/prototypes/scan_2027_risk_control/supplier_fresh_holdout_v6.py",
+      "actual_sha256": "f540c092165de0b179b1372124909a0e2d9a2a495d0af25ab11126a097ec8778",
+      "expected_lf_sha256": "bae2589fa99f18cc1237aece1e5db9ae22a25882203b280d41f800c8fab181f2",
+      "lf_matches_HEAD": true,
+      "pins": [
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/supplier_fresh_development_holdout_protocol_v7.py",
+          "line": 99
+        },
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/supplier_v6_holdout_campaign_once_relay.py",
+          "line": 71
+        }
+      ]
+    },
+    {
+      "path": "etudecas/prototypes/scan_2027_risk_control/supplier_holdout_curve_aggregator_v4.py",
+      "actual_sha256": "7ccdb6722424f59e3d954d8b148aaf54d66cce8fb38fa9916b97529e2902a1ed",
+      "expected_lf_sha256": "959ad4a448755eec8fa188c0135d31c041f34846a0278616066e2b2790caffcc",
+      "lf_matches_HEAD": true,
+      "pins": [
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/continue_supplier_full_campaign_v5.py",
+          "line": 124
+        }
+      ]
+    },
+    {
+      "path": "etudecas/prototypes/scan_2027_risk_control/supplier_holdout_curve_sidecar_v4.py",
+      "actual_sha256": "46961a6e86fe6fb48a2eec3c80ede0fe95013d72b448a0c89634ba9328a60c81",
+      "expected_lf_sha256": "f6198f12f8d81b8280df781155a31173a90f6344d1f47878aaebbc4321290f3b",
+      "lf_matches_HEAD": true,
+      "pins": [
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/continue_supplier_full_campaign_v5.py",
+          "line": 121
+        },
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/supplier_holdout_curve_sidecar_v6.py",
+          "line": 41
+        }
+      ]
+    },
+    {
+      "path": "etudecas/prototypes/scan_2027_risk_control/supplier_holdout_curve_sidecar_v5.py",
+      "actual_sha256": "b7b5416af0532d89b982aa801b78a74f4a4213080507e15c5efd58c359148d9e",
+      "expected_lf_sha256": "cdb5c110c847e39a189d87b93a2aca08295913b593c039307b7006b1341ded8a",
+      "lf_matches_HEAD": true,
+      "pins": [
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/continue_supplier_full_campaign_v5.py",
+          "line": 143
+        },
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/continue_supplier_full_campaign_v6.py",
+          "line": 85
+        },
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/supplier_holdout_curve_sidecar_v6.py",
+          "line": 38
+        }
+      ]
+    },
+    {
+      "path": "etudecas/prototypes/scan_2027_risk_control/supplier_holdout_curve_sidecar_v6.py",
+      "actual_sha256": "ac89f480e6f4349ff2a3f68a9127677d1145df38ad8db9d5c9b333750baba6cc",
+      "expected_lf_sha256": "b2424ddb272a1601b60d60f7716e8dd23b64916d0a15a4e4f6a60ad60c513016",
+      "lf_matches_HEAD": true,
+      "pins": [
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/supplier_v6_holdout_campaign_once_relay.py",
+          "line": 72
+        }
+      ]
+    },
+    {
+      "path": "etudecas/prototypes/scan_2027_risk_control/supplier_network_exploratory_action_protocol.py",
+      "actual_sha256": "2ad277bf2e9a2fa1665e66a9ac9924e5971fb00ce6e293daec1bca6d5f5b0fb0",
+      "expected_lf_sha256": "2b0d39d9dacd607c7ad10590cd702128b04f8e2711a6ba136c281df57cce0403",
+      "lf_matches_HEAD": true,
+      "pins": [
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/supplier_network_exploratory_action_runner.py",
+          "line": 60
+        }
+      ]
+    },
+    {
+      "path": "etudecas/prototypes/scan_2027_risk_control/supplier_network_extension_interpretation_audit.py",
+      "actual_sha256": "9b3e347688285f97abda304d78e125680452605421cf6c10cd882b80e607c078",
+      "expected_lf_sha256": "173febfc8eacda3af23088f1a3aacd75fdcb3e50884a758c60ea684e229a7c17",
+      "lf_matches_HEAD": true,
+      "pins": [
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/supplier_network_risk_results_dashboard.py",
+          "line": 33
+        }
+      ]
+    },
+    {
+      "path": "etudecas/prototypes/scan_2027_risk_control/supplier_network_priority_boundary_audit.py",
+      "actual_sha256": "1bd0283b017a80472791082ef08a916ded84a4e6c4967ddb6a187a22155f2eb4",
+      "expected_lf_sha256": "066e6a9046c17325b068641d9803d3857618168cbaa3439732972a41b1bb7f15",
+      "lf_matches_HEAD": true,
+      "pins": [
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/supplier_network_post_priority_extensions.py",
+          "line": 51
+        },
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/supplier_network_risk_results_dashboard.py",
+          "line": 30
+        }
+      ]
+    },
+    {
+      "path": "etudecas/prototypes/scan_2027_risk_control/supplier_operating_point_campaign_v4_contract.py",
+      "actual_sha256": "065cb654bf66a9355632437c2f18404462ea22e43872f4a372bb9df2dbeb3697",
+      "expected_lf_sha256": "1612af4f3a82fc886ced62c61e7b511c9564693a9bb965f1b2896b3ffc3ba554",
+      "lf_matches_HEAD": true,
+      "pins": [
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/continue_supplier_full_campaign_v5.py",
+          "line": 118
+        }
+      ]
+    },
+    {
+      "path": "etudecas/prototypes/scan_2027_risk_control/supplier_operating_point_full_campaign_v4.py",
+      "actual_sha256": "ef3154d98816e92c15ef8205462faa791a09c1e11b1c4174ce870ade97fd099a",
+      "expected_lf_sha256": "3bc8795490c6ef9ac1fef25d5dedb22811306ae869477df57e70d483881a5d9d",
+      "lf_matches_HEAD": true,
+      "pins": [
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/continue_supplier_full_campaign_v5.py",
+          "line": 108
+        },
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/finalize_supplier_operating_point_full_campaign_v4.py",
+          "line": 74
+        },
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/supplier_operating_point_full_campaign_v5.py",
+          "line": 26
+        }
+      ]
+    },
+    {
+      "path": "etudecas/prototypes/scan_2027_risk_control/supplier_operating_point_full_campaign_v4_dashboard.py",
+      "actual_sha256": "37cdcdcae50beec6b4a76a0216b59b1ac2992d3bbf70dde8dff94dc14834bd5b",
+      "expected_lf_sha256": "7f159384e1609465469ff0263d635600d4dd06d71e7e3df90c8cedf9bebec601",
+      "lf_matches_HEAD": true,
+      "pins": [
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/continue_supplier_full_campaign_v5.py",
+          "line": 130
+        },
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/supplier_operating_point_full_campaign_v7_dashboard.py",
+          "line": 26
+        }
+      ]
+    },
+    {
+      "path": "etudecas/prototypes/scan_2027_risk_control/supplier_operating_point_full_campaign_v5.py",
+      "actual_sha256": "efde7f10541332d35fdfccaa7e2300e92c7ffedd9c87e693ad098802eccab8fb",
+      "expected_lf_sha256": "302c59d76d9bf490886ba3f100075992566292b1761b71bed9fd27746e6e7b12",
+      "lf_matches_HEAD": true,
+      "pins": [
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/continue_supplier_full_campaign_v6.py",
+          "line": 86
+        },
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/supplier_operating_point_full_campaign_v6.py",
+          "line": 22
+        }
+      ]
+    },
+    {
+      "path": "etudecas/prototypes/scan_2027_risk_control/supplier_operating_point_full_campaign_v6.py",
+      "actual_sha256": "947b6e5f6c0c416dbc0b1952af5fa6ce27c503f0e215ab1ad63fc39f6b4df98c",
+      "expected_lf_sha256": "ac251c2f7fec97d770ae43e21247e07a2d1eda09ebed5dbf0a113f035e9c8564",
+      "lf_matches_HEAD": true,
+      "pins": [
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/supplier_operating_point_full_campaign_v7.py",
+          "line": 28
+        },
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/supplier_v6_holdout_campaign_once_relay.py",
+          "line": 75
+        }
+      ]
+    },
+    {
+      "path": "etudecas/prototypes/scan_2027_risk_control/supplier_operating_point_full_campaign_v7.py",
+      "actual_sha256": "bd93dfb6c7514fd9f530667ec5bb504ecd82054e6936026cd6ed980e1cd34eaa",
+      "expected_lf_sha256": "873ec412c8ac67db5e91731f31d648cf0bd509203b328f229721adb6a3f12b12",
+      "lf_matches_HEAD": true,
+      "pins": [
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/supplier_operating_point_full_campaign_v8.py",
+          "line": 38
+        }
+      ]
+    },
+    {
+      "path": "etudecas/prototypes/scan_2027_risk_control/supplier_operating_point_full_campaign_v8.py",
+      "actual_sha256": "e817771f8dde4c98bc92dc50086c305def1efae12a999e63bd77c69f60239612",
+      "expected_lf_sha256": "3dd8835992c9d97093fc6eaa0ba52dabfd0574fb775bbf8c62c2a26c9950bd39",
+      "lf_matches_HEAD": true,
+      "pins": [
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/supervise_supplier_operating_point_full_campaign_v8_v2.py",
+          "line": 76
+        },
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/run_supplier_v8_v2_to_stage3_v3_chain_task.ps1",
+          "line": 43
+        },
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/run_supplier_v8_v2_to_stage3_v4_chain_task.ps1",
+          "line": 43
+        }
+      ]
+    },
+    {
+      "path": "etudecas/prototypes/scan_2027_risk_control/supplier_physical_cascade_qualification_v5.py",
+      "actual_sha256": "7103202f76d6446882dc951aa953dfd04ca6fb2a0998b965544a2519805bdc15",
+      "expected_lf_sha256": "0bba07f024d1d3f29774bea6945be5d61a85153422c3dd6fac3c86b16fb739e9",
+      "lf_matches_HEAD": true,
+      "pins": [
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/continue_supplier_full_campaign_v5.py",
+          "line": 146
+        },
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/continue_supplier_full_campaign_v6.py",
+          "line": 89
+        }
+      ]
+    },
+    {
+      "path": "etudecas/prototypes/scan_2027_risk_control/supplier_priority_action_replay_v4.py",
+      "actual_sha256": "c8ad0d7a5592f4f173e9f48c0292aab8765916da8a9f0c0db67dcb0a39607a1d",
+      "expected_lf_sha256": "80f3e46764a30715b0ccedc683ed4da297cc013bcdc1b05a97de1d9f5d619c20",
+      "lf_matches_HEAD": true,
+      "pins": [
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/continue_supplier_full_campaign_v5.py",
+          "line": 136
+        }
+      ]
+    },
+    {
+      "path": "etudecas/prototypes/scan_2027_risk_control/supplier_priority_lot_replay_v4.py",
+      "actual_sha256": "c3b67c86bd936fc6e7a78d2542c54f7b87b1fbd3ed4c8ab9b087ee0a88e51079",
+      "expected_lf_sha256": "3491b3868921948b6a5c22f05a3e5cec2eab1a65093ec4eb36bfbbc039337c78",
+      "lf_matches_HEAD": true,
+      "pins": [
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/continue_supplier_full_campaign_v5.py",
+          "line": 133
+        }
+      ]
+    },
+    {
+      "path": "etudecas/prototypes/scan_2027_risk_control/supplier_service_regime_calibration_protocol.py",
+      "actual_sha256": "6777f660db388c4a96222a06f9860f10ca3845c983d612d7a4491e99693af3a4",
+      "expected_lf_sha256": "6da3c120bc89b26fe578c6d0877c749d94437f1aba647f694a9d32bc89b53ae8",
+      "lf_matches_HEAD": true,
+      "pins": [
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/supplier_service_regime_calibration_runner.py",
+          "line": 48
+        }
+      ]
+    },
+    {
+      "path": "etudecas/prototypes/scan_2027_risk_control/supplier_v4_final_standalone_delivery.py",
+      "actual_sha256": "8c5d948887f451ad7ca4a8759803f298a01e6b174e6843d8c47a849f887422ee",
+      "expected_lf_sha256": "b245096492835a97ab79651d6c3aded2edc6c51da5d52756e33f59bef3a18e50",
+      "lf_matches_HEAD": true,
+      "pins": [
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/supplier_v5_final_standalone_delivery.py",
+          "line": 34
+        }
+      ]
+    },
+    {
+      "path": "etudecas/prototypes/scan_2027_risk_control/supplier_v5_final_standalone_delivery.py",
+      "actual_sha256": "49a5e1c549d5678720e9efcf7ad80412d1af8f4082f9907898adc4dfc58b61cb",
+      "expected_lf_sha256": "19174dc30c28ddfd4143f573414cc76279d1d5b384022b3c2d62d8962fa903be",
+      "lf_matches_HEAD": true,
+      "pins": [
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/continue_supplier_full_campaign_v5.py",
+          "line": 149
+        },
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/continue_supplier_full_campaign_v6.py",
+          "line": 90
+        },
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/supplier_v6_final_standalone_delivery.py",
+          "line": 26
+        }
+      ]
+    },
+    {
+      "path": "etudecas/prototypes/scan_2027_risk_control/supplier_v6_final_standalone_delivery.py",
+      "actual_sha256": "7b48fe33800a8575fe758e3a6c2c78d5d76249c369380b63599da3f3149924d3",
+      "expected_lf_sha256": "3b52c8b85d9eff7f8e15a6b256276ca05da0144b2d1b53fa9ae7850d7b8c74dd",
+      "lf_matches_HEAD": true,
+      "pins": [
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/supplier_v6_holdout_campaign_once_relay.py",
+          "line": 78
+        },
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/supplier_v7_final_standalone_delivery.py",
+          "line": 31
+        }
+      ]
+    },
+    {
+      "path": "etudecas/prototypes/scan_2027_risk_control/supplier_v8_op100_checkpoint_10.py",
+      "actual_sha256": "a517d706c96398493e99f7f33ac57056c9b032de456d05d31ceea21b1ffdea5d",
+      "expected_lf_sha256": "4c8a672869073cd9193357c0bfd4086f224f7f215c8d6d8818eae194ae9199c8",
+      "lf_matches_HEAD": true,
+      "pins": [
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/supplier_v8_state_checkpoint.py",
+          "line": 45
+        },
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/run_supplier_v8_op100_checkpoint_10_task.ps1",
+          "line": 21
+        }
+      ]
+    },
+    {
+      "path": "etudecas/prototypes/scan_2027_risk_control/supplier_v8_post_stage3_delivery_v4.py",
+      "actual_sha256": "7ad183a27a93fa989e6e2a416640202e42fc0b0baa1bbf3c8c94dc60d9fbb696",
+      "expected_lf_sha256": "8d39815f0ed90192b355bd3c15ef10245d35739b22a12303f5e83cba1530f9d2",
+      "lf_matches_HEAD": true,
+      "pins": [
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/run_supplier_v8_post_stage3_final_v4_task.ps1",
+          "line": 34
+        }
+      ]
+    },
+    {
+      "path": "etudecas/prototypes/scan_2027_risk_control/supplier_v8_post_stage3_focus_338929.py",
+      "actual_sha256": "1fbb80123229f24c02e6d806fe4ac29270f79144584e631584ef34f710dff551",
+      "expected_lf_sha256": "fc97dfa4c4c06d82594efb91767d0a6d2dd7f23b23d4e2ce0ca4c56d5b11cabe",
+      "lf_matches_HEAD": true,
+      "pins": [
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/run_supplier_v8_post_stage3_final_v4_task.ps1",
+          "line": 33
+        }
+      ]
+    },
+    {
+      "path": "etudecas/prototypes/scan_2027_risk_control/supplier_v8_stage3_common.py",
+      "actual_sha256": "6f42024ad51efc168f2b37802f19a5bf0d845475d54533e25c7b4c1d08325195",
+      "expected_lf_sha256": "7be27751d4c38ee89a742771d34053dedad014d18381151991bf1a6a2fe05b2c",
+      "lf_matches_HEAD": true,
+      "pins": [
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/run_supplier_v8_v2_to_stage3_v3_chain_task.ps1",
+          "line": 45
+        },
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/run_supplier_v8_v2_to_stage3_v4_chain_task.ps1",
+          "line": 46
+        }
+      ]
+    },
+    {
+      "path": "etudecas/prototypes/scan_2027_risk_control/supplier_v8_stage3_dashboard.py",
+      "actual_sha256": "664c93bd9eb8fae2ccee5783bb61e72a8a096ab9896b36f4c591cd9c936cde2e",
+      "expected_lf_sha256": "1c85162fd6440f907fe02b65dcde3c770dfc859b6de5c36829bd8abee65b747b",
+      "lf_matches_HEAD": true,
+      "pins": [
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/run_supplier_v8_v2_to_stage3_v3_chain_task.ps1",
+          "line": 47
+        },
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/run_supplier_v8_v2_to_stage3_v4_chain_task.ps1",
+          "line": 48
+        }
+      ]
+    },
+    {
+      "path": "etudecas/prototypes/scan_2027_risk_control/supplier_v8_stage3_delivery.py",
+      "actual_sha256": "15764cc201fe3c36fb73c2fbe380a3951472b98d2fa59b69d2446759b6113031",
+      "expected_lf_sha256": "45ab46efef50b3f0f7aef003b8e095e36510aea783e2f724b39e0521d0131d33",
+      "lf_matches_HEAD": true,
+      "pins": [
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/run_supplier_v8_v2_to_stage3_v3_chain_task.ps1",
+          "line": 48
+        },
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/run_supplier_v8_v2_to_stage3_v4_chain_task.ps1",
+          "line": 49
+        }
+      ]
+    },
+    {
+      "path": "etudecas/prototypes/scan_2027_risk_control/supplier_v8_stage3_pipeline.py",
+      "actual_sha256": "d8e1d9fce93899be7fbf46498c84445cef21ea67e581ce7f864c132231a575fd",
+      "expected_lf_sha256": "e6775ad6e5b94bdf51b1544c7a62522d496fb9c6b607f98d8c7329f7e46c218c",
+      "lf_matches_HEAD": true,
+      "pins": [
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/run_supplier_v8_v2_to_stage3_v3_chain_task.ps1",
+          "line": 46
+        },
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/run_supplier_v8_v2_to_stage3_v4_chain_task.ps1",
+          "line": 47
+        }
+      ]
+    },
+    {
+      "path": "etudecas/prototypes/scan_2027_risk_control/supplier_v8_stage3_watcher.py",
+      "actual_sha256": "4583f1a73a18b5e6a2cdaacb8dcfb7cf1085554e670888946b0cdd3a8afea69a",
+      "expected_lf_sha256": "e4043b4bc237b08e67a7ca2b4e38451577f33558e9de30852b09c401fab0ec4f",
+      "lf_matches_HEAD": true,
+      "pins": [
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/run_supplier_v8_v2_to_stage3_v3_chain_task.ps1",
+          "line": 49
+        },
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/run_supplier_v8_v2_to_stage3_v4_chain_task.ps1",
+          "line": 50
+        }
+      ]
+    },
+    {
+      "path": "etudecas/prototypes/scan_2027_risk_control/verify_supplier_v8_stage3_closure.py",
+      "actual_sha256": "47ae414056e9d4c2d350eeec4cb42b1a18739ccbe885a4d55bf6ca7fc322fd03",
+      "expected_lf_sha256": "004ab109ac4d396cc50501b17b58fc0b64798352e97d08cadb941aff0ce6de1a",
+      "lf_matches_HEAD": true,
+      "pins": [
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/run_supplier_v8_post_stage3_final_v4_task.ps1",
+          "line": 35
+        },
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/run_supplier_v8_stage3_closure_v1_task.ps1",
+          "line": 25
+        }
+      ]
+    },
+    {
+      "path": "etudecas/prototypes/scan_2027_risk_control/tests/test_supplier_balanced_product_delay_multiseed_refinement_v6.py",
+      "actual_sha256": "79b95ee122758380c7bc720df0a62d6a3fdc803e041932854d38fc4af6dcf9cf",
+      "expected_lf_sha256": "d3c039ea25556606cb6e3ff4546daf77ad13f56f51a6f39bb3f310f9be2d47c2",
+      "lf_matches_HEAD": true,
+      "pins": [
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/supplier_fresh_development_holdout_protocol_v7.py",
+          "line": 102
+        }
+      ]
+    },
+    {
+      "path": "etudecas/prototypes/scan_2027_risk_control/tests/test_supplier_v6_completion_path.py",
+      "actual_sha256": "2ef1fe0c7800b0f764597f243325d82b47337871f4c40f17c89b13ee6fa93e04",
+      "expected_lf_sha256": "3b43186935c27debbfbe7ea0220fbb312c07f41f8cc1333103f36bd4b61326a2",
+      "lf_matches_HEAD": true,
+      "pins": [
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/supplier_fresh_development_holdout_protocol_v7.py",
+          "line": 105
+        },
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/supplier_v6_holdout_campaign_once_relay.py",
+          "line": 80
+        }
+      ]
+    },
+    {
+      "path": "etudecas/prototypes/scan_2027_risk_control/supplier_network_post_priority_extensions.py",
+      "actual_sha256": "0e47ffdaccd2f3399fd543a7bcbf0b8d2425a1015b9ad908167a0507ada0c6d7",
+      "expected_lf_sha256": "e22d7b923fe4421aad590458dc9bc9293b77ff5393bd29258d22f23c5f1344c9",
+      "lf_matches_HEAD": true,
+      "pins": [
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/supplier_network_extension_interpretation_audit.py",
+          "line": 69
+        }
+      ]
+    },
+    {
+      "path": "etudecas/prototypes/scan_2027_risk_control/supplier_network_post_priority_extension_runner.py",
+      "actual_sha256": "85697f0fe38abef8163e97fa2ce935f5f20cd4ec41bf239a6d9604d7f84acdff",
+      "expected_lf_sha256": "3e404a3b92d2a8096a10ec1600110689210b112928c385ea1db3564618ff9df5",
+      "lf_matches_HEAD": true,
+      "pins": [
+        {
+          "path": "etudecas/prototypes/scan_2027_risk_control/supplier_network_extension_interpretation_audit.py",
+          "line": 72
+        }
+      ]
+    }
+  ]
+}

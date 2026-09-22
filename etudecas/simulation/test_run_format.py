@@ -29,6 +29,125 @@ def _write_empty_csv(path: Path, fieldnames: list[str]) -> None:
         writer.writeheader()
 
 
+class RunFormatIntegrityTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+        self.output = self.root / "result"
+        graph = self.root / "graph.json"
+        _write_json(graph, {"nodes": [{"id": "S1"}, {"id": "M1"}],
+                            "edges": [{"id": "E1", "from": "S1", "to": "M1"}]})
+        _write_json(self.output / "summaries" / "first_simulation_summary.json",
+                    {"policy": {"lot_trace_enabled": True}, "kpis": {}})
+        for name in ("first_simulation_daily.csv", "production_lot_events.csv", "production_lot_genealogy.csv"):
+            _write_csv(self.output / "data" / name, [{"day": 0, "qty": 1}])
+        # A custom package location must still resolve artifacts against output_dir.
+        self.package = export_run_package(output_dir=self.output, input_graph=graph,
+                                          package_dir=self.root / "separate_package")
+
+    def failures(self) -> list[dict[str, object]]:
+        return [row for row in validate_run_package(self.package) if not row["ok"]]
+
+    def edit(self, name: str, transform) -> None:
+        path = self.package / name
+        value = json.loads(path.read_text(encoding="utf-8"))
+        _write_json(path, transform(value))
+
+    def test_valid_custom_location_and_absent_optional_artifacts(self) -> None:
+        self.assertEqual(self.failures(), [])
+
+    def test_deleted_required_csv_is_rejected_despite_exists_flag(self) -> None:
+        (self.output / "data" / "first_simulation_daily.csv").unlink()
+        self.assertTrue(self.failures())
+
+    def test_csv_corruption_is_rejected(self) -> None:
+        path = self.output / "data" / "first_simulation_daily.csv"
+        for content in ('day,qty\n0,1,2\n', 'day,qty\n0\n', 'day,qty\n0,"unterminated',
+                        'day,day\n0,1\n', 'day,qty\n0,1\n1,2\n', ''):
+            with self.subTest(content=content):
+                path.write_text(content, encoding="utf-8")
+                self.assertTrue(self.failures())
+
+    def test_invalid_json_and_document_types_report_failures(self) -> None:
+        for name in ("run_manifest.json", "nodes.json", "flows.json", "kpis.json", "artifact_index.json", "lots_index.json"):
+            path = self.package / name
+            original = path.read_bytes()
+            try:
+                for content in ('{', 'null', '42', '"text"'):
+                    with self.subTest(name=name, content=content):
+                        path.write_text(content, encoding="utf-8")
+                        self.assertTrue(self.failures())
+            finally:
+                path.write_bytes(original)
+
+    def test_directory_entrypoint_is_rejected(self) -> None:
+        path = self.package / "nodes.json"
+        path.unlink()
+        path.mkdir()
+        self.assertTrue(self.failures())
+
+    def test_unknown_flow_endpoint_is_rejected(self) -> None:
+        self.edit("flows.json", lambda rows: [dict(rows[0], to="UNKNOWN")])
+        self.assertTrue(self.failures())
+
+    def test_duplicate_and_invalid_ids_are_rejected(self) -> None:
+        for nodes in ([{"id": "S1"}, {"id": "S1"}], [{}], [{"id": []}], [42]):
+            with self.subTest(nodes=nodes):
+                _write_json(self.package / "nodes.json", nodes)
+                self.assertTrue(self.failures())
+
+    def test_required_entry_cannot_be_removed(self) -> None:
+        self.edit("artifact_index.json", lambda rows: [row for row in rows if row["name"] != "first_simulation_daily.csv"])
+        self.assertTrue(self.failures())
+
+    def test_invalid_artifact_metadata_is_rejected(self) -> None:
+        path = self.package / "artifact_index.json"
+        original = json.loads(path.read_text(encoding="utf-8"))
+        for field, value in (("row_count", "1"), ("row_count", True), ("exists", "true"),
+                             ("required", False), ("path", []), ("format", "unknown")):
+            with self.subTest(field=field, value=value):
+                rows = [dict(row) for row in original]
+                rows[0][field] = value
+                _write_json(path, rows)
+                self.assertTrue(self.failures())
+
+    def test_stale_group_index_is_rejected(self) -> None:
+        _write_json(self.package / "lots_index.json", [])
+        self.assertTrue(self.failures())
+
+    def test_corrupt_json_artifact_is_rejected(self) -> None:
+        (self.output / "summaries" / "first_simulation_summary.json").write_text('{', encoding="utf-8")
+        self.assertTrue(self.failures())
+
+    def test_string_false_does_not_allow_empty_lots(self) -> None:
+        self.edit("run_manifest.json", lambda value: dict(value, capabilities={"lot_trace_enabled": "false"}))
+        self.assertTrue(self.failures())
+
+    def test_assertion_reports_actionable_failures(self) -> None:
+        from etudecas.simulation.run_format.validator import assert_run_package_valid
+        (self.output / "data" / "first_simulation_daily.csv").unlink()
+        with self.assertRaisesRegex(RuntimeError, "first_simulation_daily.csv"):
+            assert_run_package_valid(self.package)
+
+    def test_non_finite_json_is_rejected(self) -> None:
+        for value in ("NaN", "Infinity", "-Infinity"):
+            with self.subTest(value=value):
+                (self.package / "kpis.json").write_text('{"cost": ' + value + '}', encoding="utf-8")
+                self.assertTrue(self.failures())
+
+    def test_cli_export_returns_failure_for_incomplete_results(self) -> None:
+        import io
+        from contextlib import redirect_stdout
+        from unittest.mock import patch
+        from etudecas.simulation.run_format.cli import main
+
+        with patch("sys.argv", ["run_format", "export", "--output-dir", str(self.root / "empty")]):
+            with redirect_stdout(io.StringIO()), self.assertRaises(SystemExit) as raised:
+                main()
+        self.assertEqual(raised.exception.code, 1)
+
+
 class RunFormatExportTest(unittest.TestCase):
     def test_export_run_package_indexes_core_artifacts(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

@@ -1,0 +1,73 @@
+{
+  "schema_version": "etudecas.stabilization_review.v1",
+  "reference_id": "reviewed_map_20260918-stable-1",
+  "reference_ok": true,
+  "reference_counts": {
+    "match": 155
+  },
+  "manifest_sha256": "64ab8b3dd1b293073881a7b5fdff98f8d4ca92bc38c10ab1fd7b3dc8218f3cee",
+  "simulations_executed": 0,
+  "reference_results_changed": false,
+  "targeted_tests_passed": 58,
+  "subtests_passed": 4,
+  "documentation_domains": 8,
+  "documented_rules": 26,
+  "registered_references": 119,
+  "documentary_review_needed": false,
+  "browser_ok": true,
+  "browser_checks": [
+    {
+      "name": "offline_map_loaded",
+      "ok": true
+    },
+    {
+      "name": "material_balance",
+      "ok": true
+    },
+    {
+      "name": "kpi_tree",
+      "ok": true
+    },
+    {
+      "name": "lot_trace",
+      "ok": true
+    },
+    {
+      "name": "scenario_comparison",
+      "ok": true
+    },
+    {
+      "name": "injected_risk",
+      "ok": true
+    },
+    {
+      "name": "uncertainty",
+      "ok": true
+    },
+    {
+      "name": "timeline_control",
+      "ok": true
+    },
+    {
+      "name": "decision_dashboard",
+      "ok": true
+    }
+  ],
+  "html_sha256": "0909a94d0525a73ac66148964a36fff09a2e188acb9aecff14848936d045f273",
+  "dashboard_sha256": "ba671f5760900d278e8ca5f7d4559e484018a0b2337ffa4f80d059558d42ba61",
+  "historical_v8": {
+    "qualified": false,
+    "counts": {
+      "content_mismatch": 7,
+      "exact_match": 61
+    },
+    "repo_matches": false
+  },
+  "limits": [
+    "Selected source provenance, not transitive",
+    "Eight domains do not cover the entire engine",
+    "FIFO reconstructed; score descriptive",
+    "Historical V8 qualification remains open",
+    "No full repository test rerun"
+  ]
+}

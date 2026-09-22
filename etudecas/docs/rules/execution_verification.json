@@ -1,0 +1,300 @@
+{
+  "schema_version": "etudecas.documentation.v1",
+  "fingerprint_method": "python-ast-v1",
+  "title": "Execution physique et verification independante",
+  "business_source_fingerprints": {
+    "etudecas/docs/EXECUTION_VERIFICATION.md": "fea42b94139091f8ed79e6669932b05079cf931b2659063a40e8c257886a6772",
+    "etudecas/docs/LOTS_ET_CAMIONS.md": "c9a6584468552f76c41aec73e264ca53497cb0fe635e0d3f34084f3e0290b5cc",
+    "etudecas/config/cases/data_poc.json": "c6ba2705775ff4742996fe8318bd774d1faf9b983a5bd60d5c875d6876c710de",
+    "etudecas/docs/changes/2026-09-20-cost-rounding-README.md": "1ae6de1ab28ca8bf87ce1e15ee828f47c07ab94a070f621400a8a3d1f5404f22"
+  },
+  "references": [
+    {
+      "id": "physical",
+      "path": "etudecas/simulation/engine/run_first_simulation.py",
+      "symbol": "physical_execution_quantity",
+      "kind": "implementation",
+      "reference_fingerprint": "8a759e4908e6435482895c123e6b10f34eec643970f6b1882c2e6cc36f32bb87"
+    },
+    {
+      "id": "ledger-guard",
+      "path": "etudecas/simulation/engine/run_first_simulation.py",
+      "symbol": "require_physical_integer",
+      "kind": "implementation",
+      "reference_fingerprint": "b1227c5e5169e93439e4106365770748aab69a1de498da5eafab1639942e3be4"
+    },
+    {
+      "id": "native-request",
+      "path": "etudecas/simulation/engine/api.py",
+      "symbol": "simulate",
+      "kind": "implementation",
+      "reference_fingerprint": "45c8b4978f7accdff8867f07b3714c8d648744470b8b583389b2f271b41e4bbd"
+    },
+    {
+      "id": "factor-contract",
+      "path": "etudecas/simulation/analysis_batch_common.py",
+      "symbol": "validate_factors",
+      "kind": "implementation",
+      "reference_fingerprint": "4311c9410d02ca1a20b492f0920f6051c1b412721b0ffaae9925c6776f551c17"
+    },
+    {
+      "id": "view-contract",
+      "path": "etudecas/simulation/lot_trace/view_model.py",
+      "symbol": "build_lot_trace_view_model",
+      "kind": "implementation",
+      "reference_fingerprint": "f4f59d20c94e5260d511bca2105af086a848b67aca97dd2b1398bb37c11d65e1"
+    },
+    {
+      "id": "view-payload",
+      "path": "etudecas/simulation/lot_trace/payload.py",
+      "symbol": "build_lot_trace_payload",
+      "kind": "implementation",
+      "reference_fingerprint": "5b08f9e9143c2e20ce62abc293bf9aebef9e6c6f7f58d99096f5f80c8329f299"
+    },
+    {
+      "id": "csv-oracle",
+      "path": "etudecas/testing/independent_review.py",
+      "symbol": "audit_run",
+      "kind": "implementation",
+      "reference_fingerprint": "20f660d36c95a48724467acc417e0885ad203581f91de1123e554ae39c6c4bc2"
+    },
+    {
+      "id": "delivery-gate",
+      "path": "etudecas/testing/qualification.py",
+      "symbol": "require_run_invariants",
+      "kind": "implementation",
+      "reference_fingerprint": "c8b7e96918de8f8e87b0f34d0343bfbd4bce438b31cec2a48c185c16040b65f5"
+    },
+    {
+      "id": "browser-proof",
+      "path": "etudecas/testing/lot_browser_review.py",
+      "symbol": "review",
+      "kind": "implementation",
+      "reference_fingerprint": "ebbd7ea23c3ac42f54505de84bd074dc28c2b99c11079540ebc4c8ca1d70b347"
+    },
+    {
+      "id": "cache-sources",
+      "path": "etudecas/simulation/source_fingerprint.py",
+      "symbol": "implementation_fingerprint",
+      "kind": "implementation",
+      "reference_fingerprint": "f588685bf758b663ebbca561e60a2c325cdc8280277b97a8d83c46723715ed06"
+    },
+    {
+      "id": "known-demand",
+      "path": "etudecas/testing/test_correction_contracts.py",
+      "symbol": "test_fractional_forecast_accumulates_without_losing_demand",
+      "kind": "test",
+      "reference_fingerprint": "f5bd124d029f8d697c5b5207302d0d16a91deafdf847c3a85926ecf04ae743b9"
+    },
+    {
+      "id": "corruption",
+      "path": "etudecas/testing/test_correction_contracts.py",
+      "symbol": "test_delivery_gate_refuses_corrupt_stock_and_missing_evidence",
+      "kind": "test",
+      "reference_fingerprint": "c14e2f29c51e4f97859ca47a6fdd1cd0059c015798808b973cd66f1070420357"
+    },
+    {
+      "id": "bad-factor-test",
+      "path": "etudecas/testing/test_correction_contracts.py",
+      "symbol": "test_invalid_sensitivity_cannot_be_recorded_as_applied",
+      "kind": "test",
+      "reference_fingerprint": "0daa8538dac10d416ce185ad2be53596e54181f49aa8a028d2fd69e9b010f069"
+    },
+    {
+      "id": "causal-test",
+      "path": "etudecas/simulation/test_lot_trace_view_model.py",
+      "symbol": "LotTraceViewModelTest.test_view_model_excludes_events_outside_selected_contribution",
+      "kind": "test",
+      "reference_fingerprint": "09ed54328d6e326a27c83b425c439345823964b3022e5ddb111f794b776a7cdc"
+    },
+    {
+      "id": "truck-context",
+      "path": "etudecas/simulation/logistics/display.py",
+      "symbol": "build_transport_context",
+      "kind": "implementation",
+      "reference_fingerprint": "e7d512402a28201b2bb29c7137680b73cd9391d0f4a16807fc9f4f9dbc271afa"
+    },
+    {
+      "id": "truck-groups-test",
+      "path": "etudecas/simulation/logistics/test_display.py",
+      "symbol": "test_four_shipments_are_three_weekly_groups_not_four_trucks",
+      "kind": "test",
+      "reference_fingerprint": "d4ce0674e94c0c494bc2f3da0e820c5e58bd677c883891f618db13ea0ce849b4"
+    },
+    {
+      "id": "truck-capacity-test",
+      "path": "etudecas/simulation/logistics/test_display.py",
+      "symbol": "test_sourced_profile_can_dimension_real_capacity_proposals",
+      "kind": "test",
+      "reference_fingerprint": "9e953b80a7fb43bd34c6a1c1d1b88146073e74eef92d91be6027d165ac665234"
+    },
+    {
+      "id": "customer-csv-oracle",
+      "path": "etudecas/testing/lot_browser_review.py",
+      "symbol": "business_batch_csv_oracle",
+      "kind": "implementation",
+      "reference_fingerprint": "ba0a1839749b9b5e101ab75bc54347572466ed8ee32ead1c91528fff1cfb82f1"
+    },
+    {
+      "id": "customer-csv-oracle-test",
+      "path": "etudecas/testing/test_lot_customer_oracle.py",
+      "symbol": "test_customer_oracle_uses_current_csv_split_and_excludes_future_receipts",
+      "kind": "test",
+      "reference_fingerprint": "b9ea59a4a06dcc3613178c0c6b7ecddc9b20d9651d0a73dbe132953c417b9b8c"
+    },
+    {
+      "id": "cost-rounding",
+      "path": "etudecas/testing/map_delivery.py",
+      "symbol": "reconcile_exported_cost",
+      "kind": "implementation",
+      "reference_fingerprint": "3ceeaa70bebc0450a4706072f5ae6c3b687f2ebc995357027623f24d757f5def"
+    },
+    {
+      "id": "cost-browser",
+      "path": "etudecas/testing/map_delivery.py",
+      "symbol": "reconcile_browser",
+      "kind": "implementation",
+      "reference_fingerprint": "4574d9f6612cafcb3a3ed67d90e7ad2c09442fcc92483e4d0419738919ee93bb"
+    },
+    {
+      "id": "cost-rounding-bound-test",
+      "path": "etudecas/testing/test_map_delivery.py",
+      "symbol": "test_cost_rounding_bound_accepts_only_mathematically_possible_error",
+      "kind": "test",
+      "reference_fingerprint": "aa16cefdf07889996b196532c205d137050a97d8e12453899f99cd018e385d1f"
+    },
+    {
+      "id": "cost-rounding-long-test",
+      "path": "etudecas/testing/test_map_delivery.py",
+      "symbol": "test_long_horizon_rounding_accepts_accumulation_but_rejects_one_currency_unit",
+      "kind": "test",
+      "reference_fingerprint": "d3b151310a21effffa9ebfadd7f3e9959dfdbef310a69a596955d58b6b2c9f19"
+    },
+    {
+      "id": "cost-rounding-precision-test",
+      "path": "etudecas/testing/test_map_delivery.py",
+      "symbol": "test_unexpected_cost_export_precision_is_not_silently_tolerated",
+      "kind": "test",
+      "reference_fingerprint": "e84a51e1f50c71e8567dd9e7c33638e419c53db10a03093f089d0b8edc21c2c0"
+    },
+    {
+      "id": "cost-browser-test",
+      "path": "etudecas/testing/test_map_delivery.py",
+      "symbol": "test_browser_values_are_reconciled_with_runs",
+      "kind": "test",
+      "reference_fingerprint": "1fcc0239ccd7a70f9fb4e58e1e4c89a879d1244a97059f4c04819b7761e6579a"
+    }
+  ],
+  "rules": [
+    {
+      "id": "PHYSICAL-001",
+      "title": "Unites physiques entieres",
+      "status": "documented",
+      "statement": "La demande previsionnelle fractionnaire reste dans le reliquat ; les mouvements en UN sont entiers avant mise a jour simultanee du stock et du registre.",
+      "scope": "Moteur canonique et nouvelles livraisons ; aucune requalification automatique des campagnes historiques.",
+      "units": "UN entieres ; masses et longueurs non arrondies",
+      "limitations": "Les tests logiciels ne certifient ni les sources metier ni la calibration. Voir le guide pour les hypotheses ouvertes.",
+      "references": [
+        "physical",
+        "ledger-guard",
+        "known-demand"
+      ],
+      "sources": [
+        "etudecas/docs/EXECUTION_VERIFICATION.md"
+      ]
+    },
+    {
+      "id": "INPUT-REJECTION-001",
+      "title": "Refus des entrees invalides",
+      "status": "documented",
+      "statement": "Les requetes natives sont revalidees et les facteurs inconnus refuses avant execution.",
+      "scope": "Moteur canonique et nouvelles livraisons ; aucune requalification automatique des campagnes historiques.",
+      "units": "Types, noms et multiplicateurs",
+      "limitations": "Les tests logiciels ne certifient ni les sources metier ni la calibration. Voir le guide pour les hypotheses ouvertes.",
+      "references": [
+        "native-request",
+        "factor-contract",
+        "bad-factor-test"
+      ],
+      "sources": [
+        "etudecas/docs/EXECUTION_VERIFICATION.md"
+      ]
+    },
+    {
+      "id": "TRACE-SELECTION-001",
+      "title": "Selection causale commune",
+      "status": "documented",
+      "statement": "Tous les lots selectionnables partagent le meme calcul Python des evenements et contributions ; le HTML utilise des liens mutualises. Le navigateur rapproche le lot PBATCH des contributions reçues dans les CSV du calcul explicitement fourni, sans imposer une découpe historique à un nouveau scénario.",
+      "scope": "Moteur canonique et nouvelles livraisons ; aucune requalification automatique des campagnes historiques.",
+      "units": "Occurrences, lots metier, quantites par article/unite",
+      "limitations": "Les tests logiciels ne certifient ni les sources metier ni la calibration. Voir le guide pour les hypotheses ouvertes.",
+      "references": [
+        "view-contract",
+        "view-payload",
+        "browser-proof",
+        "causal-test",
+        "customer-csv-oracle",
+        "customer-csv-oracle-test"
+      ],
+      "sources": [
+        "etudecas/docs/EXECUTION_VERIFICATION.md"
+      ]
+    },
+    {
+      "id": "DELIVERY-PROOF-001",
+      "title": "Livraison sous controle independant",
+      "status": "documented",
+      "statement": "Les invariants CSV sont recalcules sans importer le moteur. Une corruption ou preuve manquante refuse la livraison. Une empreinte identifie les octets sans prouver leur justesse.",
+      "scope": "Moteur canonique et nouvelles livraisons ; aucune requalification automatique des campagnes historiques.",
+      "units": "Bilans quotidiens ; quantites ; couts ; empreintes",
+      "limitations": "Les tests logiciels ne certifient ni les sources metier ni la calibration. Voir le guide pour les hypotheses ouvertes.",
+      "references": [
+        "csv-oracle",
+        "delivery-gate",
+        "corruption",
+        "cache-sources"
+      ],
+      "sources": [
+        "etudecas/docs/EXECUTION_VERIFICATION.md"
+      ]
+    },
+    {
+      "id": "TRUCK-ESTIMATE-001",
+      "title": "Lots and estimated truck consolidation",
+      "status": "hypothesis",
+      "statement": "A production lot, purchase order, pallet and truck are distinct identities. Group complete compatible route/week flows; estimates by packaging analogy remain distinct from physically dimensioned truck loads.",
+      "scope": "Lot diagram, no rescheduling or simulation stock changes.",
+      "units": "UN, pallets, loaded kg, trucks",
+      "limitations": "Unknown gross weights and borrowed packaging remain explicit hypotheses; no certified loading for incomplete profiles.",
+      "references": [
+        "truck-context",
+        "truck-groups-test",
+        "truck-capacity-test"
+      ],
+      "sources": [
+        "etudecas/docs/LOTS_ET_CAMIONS.md",
+        "etudecas/config/cases/data_poc.json"
+      ]
+    },
+    {
+      "id": "COST-EXPORT-ROUNDING-001",
+      "title": "Rapprochement des couts exportes arrondis",
+      "status": "documented",
+      "statement": "Export a 4 decimales. Operationnel: cinq postes journaliers deja arrondis plus dernier arrondi avec production brute, puis arrondi du resume, soit (6*N+1)*0.00005. Externe: deux colonnes journalieres plus resume, soit (2*N+1)*0.00005. Calcul Decimal, precision et unicite des jours verifies.",
+      "scope": "Verification de livraison HTML/CSV uniquement; aucune modification des montants simules.",
+      "units": "Unite monetaire du modele, N jours executes",
+      "limitations": "Un ecart inferieur a la borne est compatible avec les arrondis, sans preuve de sa cause. Une precision ou formule export modifiee impose une revue. Les prix inconnus restent inconnus.",
+      "references": [
+        "cost-rounding",
+        "cost-browser",
+        "cost-rounding-bound-test",
+        "cost-rounding-long-test",
+        "cost-rounding-precision-test",
+        "cost-browser-test"
+      ],
+      "sources": [
+        "etudecas/docs/changes/2026-09-20-cost-rounding-README.md"
+      ]
+    }
+  ]
+}

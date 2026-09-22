@@ -78,7 +78,9 @@ def _raw_evidence(
     return payload
 
 
-def _prepare_v1(tmp_path: Path) -> tuple[Path, Path]:
+def _prepare_v1(
+    tmp_path: Path, *, op80_response: tuple[float, float] = (0.79, 0.82)
+) -> tuple[Path, Path]:
     source_points = _source_points(tmp_path)
     previous_plan = tmp_path / "previous_plan"
     previous_run = tmp_path / "previous_run"
@@ -113,7 +115,7 @@ def _prepare_v1(tmp_path: Path) -> tuple[Path, Path]:
         values = {
             (7.0, 90.0): (0.92, 0.94),
             (10.0, 90.0): (0.89, 0.93),
-            (14.0, 96.0): (0.79, 0.82),
+            (14.0, 96.0): op80_response,
             (16.0, 95.0): (0.75, 0.82),
         }
         left, right = values[

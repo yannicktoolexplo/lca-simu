@@ -1,0 +1,82 @@
+{
+  "schema_version": "etudecas.documentation.v1",
+  "fingerprint_method": "python-ast-v1",
+  "title": "Candidats fournisseurs et autorisation des actions",
+  "business_source_fingerprints": {
+    "etudecas/docs/SUPPLIER_ACTION_SELECTION.md": "eb7fa83237c8ec51696f0b9b83b13f1bd651f38a3c48e1efa87bb77609d8d7b3"
+  },
+  "references": [
+    {
+      "id": "action-selection",
+      "kind": "implementation",
+      "path": "etudecas/prototypes/scan_2027_risk_control/supplier_v2_controllable_action_selector.py",
+      "symbol": "select_confirmed_action_suppliers",
+      "reference_fingerprint": "9644d2daf202acd01454a94117e0115bd15840a0613dcc38804eb46a677da66b"
+    },
+    {
+      "id": "scientific-candidates",
+      "kind": "implementation",
+      "path": "etudecas/prototypes/scan_2027_risk_control/supplier_v2_controllable_action_selector.py",
+      "symbol": "_scientific_candidate_suppliers",
+      "reference_fingerprint": "40e8477a37adacf671b154eab903245cd396b21ad434fd03a077cbc266d14809"
+    },
+    {
+      "id": "protocol-adapter",
+      "kind": "implementation",
+      "path": "etudecas/prototypes/scan_2027_risk_control/supplier_post_top3_action_protocol.py",
+      "symbol": "select_confirmed_top3",
+      "reference_fingerprint": "146f112024a5a5e49ea822f8db2a17391203789b19c201d69318c910e5f6f56e"
+    },
+    {
+      "id": "protocol-output",
+      "kind": "implementation",
+      "path": "etudecas/prototypes/scan_2027_risk_control/supplier_post_top3_action_protocol.py",
+      "symbol": "main",
+      "reference_fingerprint": "4450a39ed8803c68309746a44350a7499431bd3c63f61c75fed8b0dd1e35ba1d"
+    },
+    {
+      "id": "legacy-rejection",
+      "kind": "test",
+      "path": "etudecas/prototypes/scan_2027_risk_control/tests/test_supplier_post_top3_action_protocol.py",
+      "symbol": "test_top3_selection_does_not_promote_legacy_consolidated_v2_flags",
+      "reference_fingerprint": "c05ac2784cb6f16614ea7fe44f3db838cf50be22014b56aea0b0366f09d6ebb6"
+    },
+    {
+      "id": "candidate-scopes",
+      "kind": "test",
+      "path": "etudecas/prototypes/scan_2027_risk_control/tests/test_supplier_v2_controllable_action_selector.py",
+      "symbol": "test_legacy_protocol_preserves_scientific_candidates_without_action_release",
+      "reference_fingerprint": "660dbfcb34cd5e6f3bc39a285139132d32a5c3dfd114235e57b983e2c75dbfc1"
+    },
+    {
+      "id": "invalid-boundary",
+      "kind": "test",
+      "path": "etudecas/prototypes/scan_2027_risk_control/tests/test_supplier_v2_controllable_action_selector.py",
+      "symbol": "test_legacy_protocol_rejects_invalid_supplied_boundary",
+      "reference_fingerprint": "19698ecc0ccd2af5ba1a9f16c499372bae5ce26f8468c16c6e739e9259dbca2c"
+    }
+  ],
+  "rules": [
+    {
+      "id": "SUPPLIER-ACTION-001",
+      "title": "Un candidat descriptif ne libère pas une action",
+      "status": "documented",
+      "statement": "Le protocole consulte le sélecteur scientifique actuel. Sans audit de frontière il refuse la sélection ; un audit fourni invalide provoque une erreur. Les candidats descriptifs sont conservés avec leurs motifs mais aucune frontière actuellement prise en charge ne libère une sélection pour agir.",
+      "scope": "Préparation du protocole historique post-top3 ; trio descriptif, groupe non départagé et groupe service V3.",
+      "units": "Identifiants fournisseurs ; groupes de candidats sans classement industriel implicite.",
+      "limitations": "Aucune simulation exécutée et aucune recommandation industrielle. Les tests du raccordement remplacent certains validateurs amont. Une future autorisation d'action exige un contrat supplémentaire ; les anciens indicateurs V2 ne suffisent pas.",
+      "references": [
+        "action-selection",
+        "scientific-candidates",
+        "protocol-adapter",
+        "protocol-output",
+        "legacy-rejection",
+        "candidate-scopes",
+        "invalid-boundary"
+      ],
+      "sources": [
+        "etudecas/docs/SUPPLIER_ACTION_SELECTION.md"
+      ]
+    }
+  ]
+}

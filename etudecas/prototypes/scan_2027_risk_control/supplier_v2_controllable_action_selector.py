@@ -586,6 +586,36 @@ def _scientific_candidate_suppliers(
     }
 
 
+def select_confirmed_action_suppliers(
+    network_dir: Path,
+    priority_boundary_audit_dir: Path | None = None,
+) -> tuple[list[str], dict[str, Any]]:
+    """Adapt scientific candidates to the legacy action-selection entry point.
+
+    Current signed boundaries expose descriptive candidates, never a globally
+    released action selection. Preserve their evidence without promoting a
+    scoped trio or an unordered group to an actionable top three. Missing
+    boundary input is a refusal; invalid supplied evidence raises.
+    """
+    if priority_boundary_audit_dir is None:
+        return [], {
+            "selection_status": "selection_refused_v2_not_stabilized",
+            "selection_reason": "priority_boundary_audit_required",
+            "candidate_supplier_ids": [],
+            "action_promotion_allowed": False,
+        }
+    candidates, evidence = _scientific_candidate_suppliers(
+        network_dir, priority_boundary_audit_dir
+    )
+    return [], {
+        **evidence,
+        "candidate_selection_status": evidence["selection_status"],
+        "selection_status": "selection_refused_v2_not_stabilized",
+        "candidate_supplier_ids": candidates,
+        "action_promotion_allowed": False,
+    }
+
+
 def _validated_action_audit(audit_dir: Path) -> dict[tuple[str, str], dict[str, str]]:
     manifest_path = audit_dir / "manifest.json"
     rows_path = audit_dir / "controllable_action_lever_audit.csv"

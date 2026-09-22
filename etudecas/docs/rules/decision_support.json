@@ -1,0 +1,188 @@
+{
+  "schema_version": "etudecas.documentation.v1",
+  "fingerprint_method": "python-ast-v1",
+  "title": "Diagnostic metier et actions exploratoires",
+  "business_source_fingerprints": {
+    "etudecas/docs/DECISION_SUPPORT.md": "c90b73fe9957d633b4c3fde0945fa1c588d0479722c694b87b578549ab0730cc"
+  },
+  "references": [
+    {
+      "id": "fifo",
+      "kind": "implementation",
+      "path": "etudecas/decision_support.py",
+      "symbol": "fifo_delay",
+      "reference_fingerprint": "724aedaccd92497dd2984a85e555388c5a45ec51725f96b674692f902db4e7a2"
+    },
+    {
+      "id": "score",
+      "kind": "implementation",
+      "path": "etudecas/decision_support.py",
+      "symbol": "score_breakdown",
+      "reference_fingerprint": "7709fb5d4577d90b3e4be76d7bf3541105eb44eeb200fcffbb1aa874b7e64399"
+    },
+    {
+      "id": "loss",
+      "kind": "implementation",
+      "path": "etudecas/decision_support.py",
+      "symbol": "audit_losses",
+      "reference_fingerprint": "5d44f2b63846c3caaf453bd2a51bc04b40fe0d23fd832152bb1a4eb584452dd1"
+    },
+    {
+      "id": "bottlenecks",
+      "kind": "implementation",
+      "path": "etudecas/decision_support.py",
+      "symbol": "bottlenecks",
+      "reference_fingerprint": "20ab1d0f26105dd41f5603aaa4803afcc63ef05756fc5055a2ecb5e4c2425301"
+    },
+    {
+      "id": "delivery",
+      "kind": "implementation",
+      "path": "etudecas/decision_support.py",
+      "symbol": "deliver",
+      "reference_fingerprint": "c3859cf05a797b033bfc7f1ac43b2eae2eef7122fb4c58275c25335d4ec61590"
+    },
+    {
+      "id": "actions",
+      "kind": "implementation",
+      "path": "etudecas/decision_actions.py",
+      "symbol": "execute_action",
+      "reference_fingerprint": "3e9263d4761f1647a0a48ecbe29fe63cadb407da736cf6d6f305a2f3bdd9073c"
+    },
+    {
+      "id": "fifo-test",
+      "kind": "test",
+      "path": "etudecas/test_decision_support.py",
+      "symbol": "test_fifo_delay_distinguishes_served_and_censored_demand",
+      "reference_fingerprint": "debe1a79a23387940c29c8e8cc9e2655efde4e6cfea8f716e6333766cc8bf786"
+    },
+    {
+      "id": "invalid-test",
+      "kind": "test",
+      "path": "etudecas/test_decision_support.py",
+      "symbol": "test_fifo_rejects_invalid_or_unaged_demand",
+      "reference_fingerprint": "7a09c6cb4a186f6aac4b3baca8606167f7006e075336bfe8a2a572197604e66d"
+    },
+    {
+      "id": "score-test",
+      "kind": "test",
+      "path": "etudecas/test_decision_support.py",
+      "symbol": "test_score_components_exclude_incomparable_quantities",
+      "reference_fingerprint": "081e07204414c10ca25316b8a2ec9c18d84d033fd47fc4f0efcccb59a08503b4"
+    },
+    {
+      "id": "loss-test",
+      "kind": "test",
+      "path": "etudecas/test_decision_support.py",
+      "symbol": "test_loss_audit_excludes_departures_outside_horizon_and_preserves_units",
+      "reference_fingerprint": "2b02d23ac51965be835b6cb601e0e68316e260aa69d6267bbc77d9575b6df759"
+    },
+    {
+      "id": "bottlenecks-test",
+      "kind": "test",
+      "path": "etudecas/test_decision_support.py",
+      "symbol": "test_bottlenecks_use_binding_input_and_explicit_causal_context",
+      "reference_fingerprint": "6edfa8bde5a51ddb82d4f094dfeacc06f3e7f00b8800419e4a8848b0ea10e3d3"
+    },
+    {
+      "id": "actions-test",
+      "kind": "test",
+      "path": "etudecas/test_decision_actions.py",
+      "symbol": "test_action_replays_reference_in_isolated_directory_and_checks_cache",
+      "reference_fingerprint": "687336485ccf62eea4f95b666deb81f7195eb55689d365054f6bd0404463329b"
+    },
+    {
+      "id": "delivery-failure-test",
+      "kind": "test",
+      "path": "etudecas/test_decision_support.py",
+      "symbol": "test_failed_delivery_does_not_keep_an_old_success",
+      "reference_fingerprint": "da46b48f80d1b4a9d03b96e10bcf608e14ecf60f4409f7c6f4911f6ff2632236"
+    },
+    {
+      "id": "reference-sensitivity-labels",
+      "kind": "implementation",
+      "path": "etudecas/decision_support.py",
+      "symbol": "render_report",
+      "reference_fingerprint": "a492bc534c160cc2c7375d2f2d844a3ecf96b43424e099e78159dfee2d4c592b"
+    },
+    {
+      "id": "unknown-cost-test",
+      "path": "etudecas/test_decision_support.py",
+      "symbol": "test_unknown_cost_is_excluded_and_not_rendered_as_zero_score",
+      "kind": "test",
+      "reference_fingerprint": "a8fcf95229d4510379769d063e4931a0883d96501ac6ccb12460a3a7df75a2ad"
+    }
+  ],
+  "rules": [
+    {
+      "id": "DECISION-001",
+      "title": "Retards reconstruits FIFO",
+      "status": "documented",
+      "statement": "Les cohortes journalieres sont servies FIFO ; les demandes ouvertes restent censurees. Le service le jour de la demande est borne, sans inventer un OTIF observe.",
+      "scope": "Diagnostic et livraison locale des runs existants ou reconstruits.",
+      "units": "Jours, quantites et unites-jours par produit",
+      "limitations": "Exploratoire, non calibre, sans Monte Carlo apparie ni recommandation industrielle ; voir les conventions du guide.",
+      "references": [
+        "fifo",
+        "fifo-test",
+        "invalid-test"
+      ],
+      "sources": [
+        "etudecas/docs/DECISION_SUPPORT.md"
+      ]
+    },
+    {
+      "id": "DECISION-002",
+      "title": "Score descriptif et pertes dans horizon",
+      "status": "documented",
+      "statement": "Le score retient service et reliquat ; le surcoût est exclu si la valorisation est incomplète ou inconnue et reste indisponible, pas zéro. Pertes matière et reports sans unité commune sont exclus. Les pertes sont rapprochées par article et unité.",
+      "scope": "Diagnostic et livraison locale des runs existants ou reconstruits.",
+      "units": "Points descriptifs et quantites par unite",
+      "limitations": "Exploratoire, non calibre, sans Monte Carlo apparie ni recommandation industrielle ; voir les conventions du guide.",
+      "references": [
+        "score",
+        "loss",
+        "score-test",
+        "loss-test",
+        "unknown-cost-test"
+      ],
+      "sources": [
+        "etudecas/docs/DECISION_SUPPORT.md"
+      ]
+    },
+    {
+      "id": "DECISION-003",
+      "title": "Preuves de blocage sans attribution abusive",
+      "status": "documented",
+      "statement": "Les contraintes lient usine, produit et composant ; le graphe donne les fournisseurs. Les liens explicites evenements-lots ne quantifient pas la causalite du retard client.",
+      "scope": "Diagnostic et livraison locale des runs existants ou reconstruits.",
+      "units": "Jours bloques, identifiants et lignes source",
+      "limitations": "Exploratoire, non calibre, sans Monte Carlo apparie ni recommandation industrielle ; voir les conventions du guide.",
+      "references": [
+        "bottlenecks",
+        "bottlenecks-test"
+      ],
+      "sources": [
+        "etudecas/docs/DECISION_SUPPORT.md"
+      ]
+    },
+    {
+      "id": "DECISION-004",
+      "title": "Actions isolees et livraison controlee",
+      "status": "documented",
+      "statement": "Les actions sont executees dans un dossier separe. La reprise verifie calendrier, sources, dependances et artefacts ; la livraison refuse les invariants CSV incorrects.",
+      "scope": "Diagnostic et livraison locale des runs existants ou reconstruits.",
+      "units": "Controles sans dimension et couts du modele",
+      "limitations": "Exploratoire, non calibre, sans Monte Carlo apparie ni recommandation industrielle ; voir les conventions du guide.",
+      "references": [
+        "actions",
+        "delivery",
+        "actions-test",
+        "delivery-failure-test",
+        "reference-sensitivity-labels"
+      ],
+      "sources": [
+        "etudecas/docs/DECISION_SUPPORT.md"
+      ]
+    }
+  ]
+}

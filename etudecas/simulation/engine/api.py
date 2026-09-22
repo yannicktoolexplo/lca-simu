@@ -8,9 +8,10 @@ structured so the internals can later move to an in-memory engine.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field, fields
 from datetime import datetime, timezone
 import json
+import math
 from pathlib import Path
 from typing import Any, Literal
 from uuid import uuid4
@@ -119,9 +120,7 @@ def apply_scenario_flags(data: dict[str, Any], scenario_id: str, flags: dict[str
     scenarios = data.get("scenarios") or []
     scenario = next((scn for scn in scenarios if str(scn.get("id")) == scenario_id), None)
     if scenario is None:
-        scenario = scenarios[0] if scenarios else None
-    if scenario is None:
-        return
+        raise ValueError(f"Unknown scenario: {scenario_id!r}")
     economic_policy = scenario.get("economic_policy")
     if not isinstance(economic_policy, dict):
         economic_policy = {}
@@ -147,22 +146,41 @@ def apply_overrides(data: dict[str, Any], scenario_id: str, overrides: Simulatio
 
 
 def _float_mapping(value: Any) -> dict[str, float]:
-    if not isinstance(value, dict):
+    if value is None:
         return {}
-    return {str(k): float(v) for k, v in value.items()}
+    if not isinstance(value, dict):
+        raise ValueError("Scale overrides must be objects")
+    result = {}
+    for key, number in value.items():
+        if not isinstance(key, str) or not key:
+            raise ValueError("Scale identifiers must be non-empty strings")
+        try:
+            valid = type(number) in (int, float) and math.isfinite(number) and number >= 0
+        except OverflowError:
+            valid = False
+        if not valid:
+            raise ValueError(f"Scale {key} must be a finite non-negative number")
+        result[key] = float(number)
+    return result
 
 
 def _bool_mapping(value: Any) -> dict[str, bool]:
-    if not isinstance(value, dict):
+    if value is None:
         return {}
-    return {str(k): bool(v) for k, v in value.items()}
+    if not isinstance(value, dict):
+        raise ValueError("Scenario flags must be an object")
+    if any(not isinstance(k, str) or not k or type(v) is not bool for k, v in value.items()):
+        raise ValueError("Scenario flags require string keys and JSON booleans")
+    return dict(value)
 
 
 def overrides_from_dict(payload: dict[str, Any] | None) -> SimulationOverrides:
-    payload = payload or {}
-    engine_args = payload.get("engine_args") or ()
-    if isinstance(engine_args, str):
-        engine_args = (engine_args,)
+    payload = {} if payload is None else payload
+    if not isinstance(payload, dict) or set(payload) - {f.name for f in fields(SimulationOverrides)}:
+        raise ValueError("Unknown or invalid simulation overrides")
+    engine_args = payload.get("engine_args", ())
+    if not isinstance(engine_args, (list, tuple)) or any(not isinstance(arg, str) for arg in engine_args):
+        raise ValueError("engine_args must be a sequence of strings")
     return SimulationOverrides(
         factors=_float_mapping(payload.get("factors")),
         demand_item_scale=_float_mapping(payload.get("demand_item_scale")),
@@ -177,6 +195,38 @@ def overrides_from_dict(payload: dict[str, Any] | None) -> SimulationOverrides:
 
 
 def request_from_dict(payload: dict[str, Any]) -> SimulationRequest:
+    """Parse trusted Python/JSON input without coercing strings into booleans.
+
+    Internal paths and engine arguments remain available here; HTTP applies its
+    narrower contract before calling this parser. Zero days means graph horizon.
+    """
+    if not isinstance(payload, dict) or set(payload) - {f.name for f in fields(SimulationRequest)}:
+        raise ValueError("Unknown or invalid simulation request fields")
+    for name in ("skip_map", "skip_plots", "run_lot_audit", "common_random_numbers"):
+        if name in payload and not (name == "common_random_numbers" and payload[name] is None):
+            if type(payload[name]) is not bool:
+                raise ValueError(f"{name} must be a JSON boolean")
+    for name in ("days", "seed"):
+        value = payload.get(name, 0 if name == "days" else None)
+        if value is not None and (type(value) is not int or value < 0):
+            raise ValueError(f"{name} must be a non-negative integer")
+        if name == "days" and value is None:
+            raise ValueError("days must be a non-negative integer")
+    profile = payload.get("output_profile", "diagnostic")
+    if not isinstance(profile, str) or profile not in {"minimal", "diagnostic", "lot_trace", "full_debug"}:
+        raise ValueError("Unsupported output profile")
+    for name in ("input_path", "output_dir", "run_script", "control_schedule_csv", "control_policy_json", "demand_perturbation_csv"):
+        value = payload.get(name)
+        if value is not None and (not isinstance(value, (str, Path)) or not str(value).strip()):
+            raise ValueError(f"{name} must be a non-empty path")
+    if payload.get("run_id") is not None and (not isinstance(payload["run_id"], str) or not payload["run_id"].strip()):
+        raise ValueError("run_id must be a non-empty string")
+    if "scenario_id" in payload and (not isinstance(payload["scenario_id"], str) or not payload["scenario_id"].strip()):
+        raise ValueError("scenario_id must be a non-empty string")
+    if (payload.get("input_graph") is None) == (payload.get("input_path") is None):
+        raise ValueError("Provide exactly one of input_graph and input_path")
+    if payload.get("input_graph") is not None and not isinstance(payload["input_graph"], dict):
+        raise ValueError("input_graph must be an object")
     return SimulationRequest(
         input_graph=payload.get("input_graph"),
         input_path=payload.get("input_path"),
@@ -239,14 +289,20 @@ def profile_engine_args(profile: SimulationOutputProfile, *, run_lot_audit: bool
     return args
 
 
-def simulate(request: SimulationRequest) -> SimulationResult:
+def simulate(request: SimulationRequest, *, run_executor=None) -> SimulationResult:
     """Run one simulation from structured inputs and return structured outputs."""
 
+    # Native dataclass callers obey the same contract as JSON callers.
+    request = request_from_dict(asdict(request))
     run_id = request.run_id or default_run_id(request.scenario_id)
     output_dir = Path(request.output_dir) if request.output_dir is not None else default_output_dir(run_id)
     input_path = output_dir / "inputs" / "simulation_input.json"
 
     base_graph = load_request_graph(request)
+    from etudecas.knowledge_graph.schema import validate_graph_contract
+    errors = [issue for issue in validate_graph_contract(base_graph) if issue["level"] == "error"]
+    if errors:
+        raise ValueError(f"Invalid simulation graph: {errors}")
     graph = apply_overrides(base_graph, request.scenario_id, request.overrides)
     write_json(input_path, graph)
 
@@ -281,7 +337,7 @@ def simulate(request: SimulationRequest) -> SimulationResult:
             else "--no-common-random-numbers"
         )
 
-    summary, stdout = run_simulation(
+    summary, stdout = (run_executor or run_simulation)(
         run_script=Path(request.run_script),
         input_json=input_path,
         output_dir=output_dir,

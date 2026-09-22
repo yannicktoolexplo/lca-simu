@@ -13,7 +13,7 @@ import json
 import math
 from pathlib import Path
 
-from etudecas.prototypes.scan_2027_risk_control import standalone_single_html as standalone
+from etudecas.visualization import standalone_html as standalone
 from etudecas.risk.supplier_audit import (
     DEFAULT_SUPPLIER_AUDIT_SOURCE, DEFAULT_SUPPLIER_CONTEXT_PROXIES,
     DEFAULT_SUPPLIER_PUBLIC_EVIDENCE, load_supplier_audits,
@@ -70,7 +70,7 @@ def replace_assignment(document, marker, value):
     while document[start].isspace():
         start += 1
     _, count = json.JSONDecoder().raw_decode(document[start:])
-    return document[:start] + standalone._script_json(value) + document[start + count:]
+    return document[:start] + standalone.script_json(value) + document[start + count:]
 
 
 def enrich_archive(source: Path, ranking: Path, output: Path):
@@ -79,10 +79,10 @@ def enrich_archive(source: Path, ranking: Path, output: Path):
     standalone.validate_single_html(source)
     document = source.read_text(encoding='utf8')
     original_hash = standalone.sha256_file(source)
-    entries = standalone._runtime_json_assignment(document, 'const files = ')
-    metadata = standalone._runtime_json_assignment(document, 'const metadata = ')
+    entries = standalone.runtime_json_assignment(document, 'const files = ')
+    metadata = standalone.runtime_json_assignment(document, 'const metadata = ')
     original_entries = deepcopy(entries)
-    data = decode_payload(standalone._decoded_entry(entries[VIEW], label=VIEW).decode('utf8'))
+    data = decode_payload(standalone.decoded_entry(entries[VIEW], label=VIEW).decode('utf8'))
     original_data = deepcopy(data)
     rows = matched_rankings(data, ranking)
     audit_nodes = list(data['nodes'])
@@ -111,7 +111,7 @@ def enrich_archive(source: Path, ranking: Path, output: Path):
     sources['sources/audit_fournisseur_renseigne.xlsx'] = Path(completed['source_file'])
     for name, path in sources.items():
         content = path.read_bytes()
-        entries[name] = standalone._entry(name, content, content, kind='file')
+        entries[name] = standalone.entry(name, content, content, kind='file')
     rendered = html_template('Carte historique - contexte et audits fournisseurs',
         json.dumps(data, ensure_ascii=False),
         render_material_balance_table_html(data.get('material_balance_rows', [])),
@@ -129,29 +129,29 @@ def enrich_archive(source: Path, ranking: Path, output: Path):
     plotly_tag = plotly_script_tag()
     if rendered.count(plotly_tag) != 1:
         raise ValueError('Expected one controlled Plotly asset')
-    topology = standalone._decoded_entry(entries['views/world_110m.json'], label='world topology')
+    topology = standalone.decoded_entry(entries['views/world_110m.json'], label='world topology')
     offline = ('<script src="plotly-2.32.0.min.js"></script><script>'
         "if(location.protocol==='file:'){"
         'window.PlotlyGeoAssets=window.PlotlyGeoAssets||{};'
         'window.PlotlyGeoAssets.topojson=window.PlotlyGeoAssets.topojson||{};'
         'window.PlotlyGeoAssets.topojson.world_110m='
-        + standalone._script_json(json.loads(topology)) + ';}</script>')
+        + standalone.script_json(json.loads(topology)) + ';}</script>')
     rendered = rendered.replace(plotly_tag, offline, 1)
     rendered, _ = compress_embedded(rendered)
     assert decode_payload(rendered) == data
     transformed, needs_plotly, _ = standalone.transform_view(
         rendered, VIEW, output.parent, set(entries) | {standalone.PLOTLY_PATH})
-    entries[VIEW] = standalone._entry(VIEW, rendered.encode('utf8'), transformed.encode('utf8'),
+    entries[VIEW] = standalone.entry(VIEW, rendered.encode('utf8'), transformed.encode('utf8'),
         kind='html', title='Carte historique - contexte et audits fournisseurs', needs_plotly=needs_plotly)
     inventory = standalone.inventory_document(entries, metadata['source_package'],
         hardened=bool(metadata.get('security_profile'))).encode('utf8')
-    entries[standalone.INVENTORY_PATH] = standalone._entry(
+    entries[standalone.INVENTORY_PATH] = standalone.entry(
         standalone.INVENTORY_PATH, inventory, inventory, kind='html', title='Contenu embarque')
     metadata['embedded_entry_count'] = len(entries)
     metadata['generated_at_utc'] = datetime.now(timezone.utc).isoformat()
     result = replace_assignment(document, 'const files = ', entries)
     result = replace_assignment(result, 'const metadata = ', metadata)
-    standalone._validate_single_html_document(result, label=str(output), opaque_depth=0)
+    standalone.validate_single_html_document(result, label=str(output), opaque_depth=0)
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(result, encoding='utf8')
     assert standalone.sha256_file(source) == original_hash

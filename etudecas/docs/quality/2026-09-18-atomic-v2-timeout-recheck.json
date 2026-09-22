@@ -1,0 +1,18 @@
+{
+  "schema_version": "etudecas.test_report.v1",
+  "source": "timeout-recheck.xml",
+  "counts": {
+    "passed": 3
+  },
+  "testcase_count": 3,
+  "modules": {
+    "etudecas.prototypes.scan_2027_risk_control.tests.test_historical_fixture_policy": {
+      "passed": 1
+    },
+    "etudecas.prototypes.scan_2027_risk_control.tests.test_powershell_go_validation": {
+      "passed": 2
+    }
+  },
+  "failures": [],
+  "skip_reasons": {}
+}

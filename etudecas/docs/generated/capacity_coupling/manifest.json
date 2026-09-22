@@ -1,0 +1,108 @@
+{
+  "schema_version": "etudecas.documentation.v1",
+  "fingerprint_method": "python-ast-v1",
+  "business_source_fingerprints": {
+    "etudecas/docs/CAPACITY_COUPLING.md": "c7727b0819298cc692f9d8d3bba126202d595066cb7e2c731bfb2cd878b33bec"
+  },
+  "references": [
+    {
+      "id": "direct",
+      "kind": "implementation",
+      "path": "etudecas/prototypes/scan_2027_risk_control/supplier_dynamic_capacity_coupling_audit.py",
+      "symbol": "replay_direct_capacity",
+      "line": 158,
+      "fingerprint": "9c6a4712339ddbde4b4ca83884759dd381b9d09f95153637090cde950a6522ab",
+      "reference_fingerprint": "9c6a4712339ddbde4b4ca83884759dd381b9d09f95153637090cde950a6522ab",
+      "changed": false,
+      "declaration": "def replay_direct_capacity(row: Mapping[str, Any], *, demand_anchor: float, review_days: float) -> tuple[float, float, str]:",
+      "docstring": "Replay ``derive_supplier_daily_capacity_by_pair`` for one single-lane pair."
+    },
+    {
+      "id": "upstream",
+      "kind": "implementation",
+      "path": "etudecas/prototypes/scan_2027_risk_control/supplier_dynamic_capacity_coupling_audit.py",
+      "symbol": "replay_upstream_capacity",
+      "line": 200,
+      "fingerprint": "bc739aac290ec9606499c18b63fdff068f2b900da2ef5f9c1f10d25d0fef2089",
+      "reference_fingerprint": "bc739aac290ec9606499c18b63fdff068f2b900da2ef5f9c1f10d25d0fef2089",
+      "changed": false,
+      "declaration": "def replay_upstream_capacity(row: Mapping[str, Any], *, demand_anchor: float, review_days: float) -> tuple[float, float]:",
+      "docstring": "Replay the initial unmodelled-source daily-need and capacity formulas."
+    },
+    {
+      "id": "analysis",
+      "kind": "implementation",
+      "path": "etudecas/prototypes/scan_2027_risk_control/supplier_dynamic_capacity_coupling_audit.py",
+      "symbol": "analyze",
+      "line": 241,
+      "fingerprint": "884daa90f7815b6b72ed3da4a13476b54b75ffdf741ee9cc721fca981a65ee94",
+      "reference_fingerprint": "884daa90f7815b6b72ed3da4a13476b54b75ffdf741ee9cc721fca981a65ee94",
+      "changed": false,
+      "declaration": "def analyze(*, graph_path: Path, supplier_parameters_path: Path, current_floors_path: Path, old_profile_path: Path, new_profile_path: Path) -> tuple[dict[str, Any], list[dict[str, Any]], list[dict[str, Any]]]:",
+      "docstring": null
+    },
+    {
+      "id": "formula-test",
+      "kind": "test",
+      "path": "etudecas/prototypes/scan_2027_risk_control/tests/test_supplier_dynamic_capacity_coupling_audit.py",
+      "symbol": "test_formula_replay_captures_lot_floor_and_upstream_coupling",
+      "line": 30,
+      "fingerprint": "88d6414cae3dcd3ae278726771b9ce06355bbfc93bb05641e16daf70232e087e",
+      "reference_fingerprint": "88d6414cae3dcd3ae278726771b9ce06355bbfc93bb05641e16daf70232e087e",
+      "changed": false,
+      "declaration": "def test_formula_replay_captures_lot_floor_and_upstream_coupling() -> None:",
+      "docstring": null
+    },
+    {
+      "id": "audit-test",
+      "kind": "test",
+      "path": "etudecas/prototypes/scan_2027_risk_control/tests/test_supplier_dynamic_capacity_coupling_audit.py",
+      "symbol": "test_retained_audit_builds_and_validates_without_engine",
+      "line": 55,
+      "fingerprint": "4aacf150b5f7e3a6879ac4cb2537e8e657008f78823819f4dffe06cd23401ce6",
+      "reference_fingerprint": "4aacf150b5f7e3a6879ac4cb2537e8e657008f78823819f4dffe06cd23401ce6",
+      "changed": false,
+      "declaration": "def test_retained_audit_builds_and_validates_without_engine(tmp_path: Path) -> None:",
+      "docstring": null
+    },
+    {
+      "id": "binding",
+      "kind": "implementation",
+      "path": "etudecas/prototypes/scan_2027_risk_control/supplier_dynamic_requirement_reference_protocol.py",
+      "symbol": "validate_capacity_coupling_audit",
+      "line": 458,
+      "fingerprint": "0133d1b3409598f5c55c84273c84d5eaff9d661d40b233e76a97693a9dbd13a4",
+      "reference_fingerprint": "0133d1b3409598f5c55c84273c84d5eaff9d661d40b233e76a97693a9dbd13a4",
+      "changed": false,
+      "declaration": "def validate_capacity_coupling_audit(capacity_audit_dir: Path, *, source: Mapping[str, Any]) -> dict[str, Any]:",
+      "docstring": "Validate the additive analytical audit that proves the comparison coupling."
+    },
+    {
+      "id": "binding-test",
+      "kind": "test",
+      "path": "etudecas/prototypes/scan_2027_risk_control/tests/test_supplier_dynamic_requirement_reference.py",
+      "symbol": "test_capacity_audit_rejects_another_graph",
+      "line": 70,
+      "fingerprint": "7aba5bcb1ad7b9adfc3b3292f7f2be52375dde27ed24777e433b590cac5ffdf0",
+      "reference_fingerprint": "7aba5bcb1ad7b9adfc3b3292f7f2be52375dde27ed24777e433b590cac5ffdf0",
+      "changed": false,
+      "declaration": "def test_capacity_audit_rejects_another_graph(mismatch):",
+      "docstring": null
+    }
+  ],
+  "rules": [
+    {
+      "rule_id": "CAPACITY-COUPLING-001",
+      "status": "documented",
+      "changed_references": [],
+      "changed_business_sources": []
+    },
+    {
+      "rule_id": "CAPACITY-COUPLING-002",
+      "status": "documented",
+      "changed_references": [],
+      "changed_business_sources": []
+    }
+  ],
+  "tests_executed": false
+}

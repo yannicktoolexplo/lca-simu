@@ -1,0 +1,49 @@
+[
+  {
+    "path": "etudecas/__init__.py",
+    "revisions_examined_limit": 100,
+    "available_revisions": 1,
+    "matches": [
+      {
+        "revision": "11d8e2ec4d548c968d8b6fa8a97dadef67e64da2",
+        "representation": "crlf"
+      }
+    ]
+  },
+  {
+    "path": "etudecas/prototypes/scan_2027_risk_control/calibration.py",
+    "revisions_examined_limit": 100,
+    "available_revisions": 2,
+    "matches": []
+  },
+  {
+    "path": "etudecas/prototypes/scan_2027_risk_control/core.py",
+    "revisions_examined_limit": 100,
+    "available_revisions": 3,
+    "matches": []
+  },
+  {
+    "path": "etudecas/prototypes/scan_2027_risk_control/decision.py",
+    "revisions_examined_limit": 100,
+    "available_revisions": 3,
+    "matches": []
+  },
+  {
+    "path": "etudecas/prototypes/scan_2027_risk_control/experiments.py",
+    "revisions_examined_limit": 100,
+    "available_revisions": 2,
+    "matches": []
+  },
+  {
+    "path": "etudecas/prototypes/scan_2027_risk_control/model.py",
+    "revisions_examined_limit": 100,
+    "available_revisions": 3,
+    "matches": []
+  },
+  {
+    "path": "etudecas/prototypes/scan_2027_risk_control/risk_mapping.py",
+    "revisions_examined_limit": 100,
+    "available_revisions": 2,
+    "matches": []
+  }
+]

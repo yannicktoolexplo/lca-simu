@@ -1,0 +1,2 @@
+-r requirements-etudecas.txt
+pytest>=9,<10

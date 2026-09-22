@@ -1,0 +1,191 @@
+{
+  "schema_version": "etudecas.documentation.v1",
+  "fingerprint_method": "python-ast-v1",
+  "title": "Intégrité et provenance des résultats",
+  "business_source_fingerprints": {
+    "etudecas/simulation/run_format/README.md": "87e091243cb0f66cb32b38bb5b8b2607c59b131c46eeb2478acfff1a9ed121cf",
+    "etudecas/docs/PROVENANCE.md": "136596597c88f06e51efafe79a8499572a5b6ed6e500a5c4bb476e8ecbed015b"
+  },
+  "references": [
+    {
+      "id": "mc-resolver",
+      "kind": "implementation",
+      "path": "etudecas/run_etudecas_pipeline.py",
+      "symbol": "resolve_montecarlo_summary_for_map",
+      "reference_fingerprint": "5b036a0c58f5f9d73dde0548ac91228d34bd1b766e6710615e2c149c18602d33"
+    },
+    {
+      "id": "mc-matcher",
+      "kind": "implementation",
+      "path": "etudecas/run_etudecas_pipeline.py",
+      "symbol": "montecarlo_summary_matches_run",
+      "reference_fingerprint": "bb9e4a2a98040359e3852e43a3c2bf29731ded36fa2b834a366a6122988b2cb2"
+    },
+    {
+      "id": "mc-rejection-test",
+      "kind": "test",
+      "path": "etudecas/test_run_etudecas_pipeline.py",
+      "symbol": "test_shared_montecarlo_rejects_missing_incompatible_or_malformed_provenance",
+      "reference_fingerprint": "3df53c53de2f75d282692c6aaae7105dfd3610030e211c3c1e6b65c3e6e19a63"
+    },
+    {
+      "id": "mc-selection-test",
+      "kind": "test",
+      "path": "etudecas/test_run_etudecas_pipeline.py",
+      "symbol": "test_montecarlo_summary_fallback_prefers_more_compatible_runs",
+      "reference_fingerprint": "45ea59a263d1c424073211e453c6a02fea30dd7180bbb16682954cf544cd4003"
+    },
+    {
+      "id": "source-diagnostic",
+      "kind": "implementation",
+      "path": "etudecas/provenance.py",
+      "symbol": "diagnose_source_hash",
+      "reference_fingerprint": "b49be18206608b9b294ac804d6f50d77ca1b7963475728ac94c5c9540f9ca72b"
+    },
+    {
+      "id": "source-diagnostic-cli",
+      "kind": "implementation",
+      "path": "etudecas/provenance.py",
+      "symbol": "main",
+      "reference_fingerprint": "781d0163f8516f9c2202c69b1a16f430b09e8a16f67a37ce49e6df7c7602d144"
+    },
+    {
+      "id": "source-diagnostic-tests",
+      "kind": "test",
+      "path": "etudecas/test_provenance.py",
+      "symbol": "SourceProvenanceTest",
+      "reference_fingerprint": "11412225056c52f8bfc89e28d8cb86b6e4d1d85363e64665144aba67ee6ad428"
+    },
+    {
+      "id": "package-validator",
+      "kind": "implementation",
+      "path": "etudecas/simulation/run_format/validator.py",
+      "symbol": "validate_run_package",
+      "reference_fingerprint": "8cfa5c008d75fe8ac5682bb62b12ca8fe0f98f7be1fda5e87f6b4bdaf273962b"
+    },
+    {
+      "id": "artifact-validator",
+      "kind": "implementation",
+      "path": "etudecas/simulation/run_format/validator.py",
+      "symbol": "_validate_artifact",
+      "reference_fingerprint": "271bc4ced0b8792d544e31d7a38eebe1acbec2ee646b80a903b3dafb516c82a5"
+    },
+    {
+      "id": "json-reader",
+      "kind": "implementation",
+      "path": "etudecas/simulation/run_format/validator.py",
+      "symbol": "_read_json",
+      "reference_fingerprint": "025fe0e2d662a34bca326bb9e28ac90d25fc9fa5f960edd1e07b320c6ca27ef6"
+    },
+    {
+      "id": "checked-loader",
+      "kind": "implementation",
+      "path": "etudecas/simulation/run_format/validator.py",
+      "symbol": "_load_checked",
+      "reference_fingerprint": "42a1377e0342bf7981ba05c6a44fef7a281bed2d2bf1c4a83f129e3b9d0677c1"
+    },
+    {
+      "id": "package-cli",
+      "kind": "implementation",
+      "path": "etudecas/simulation/run_format/cli.py",
+      "symbol": "main",
+      "reference_fingerprint": "01e8a854ce39401040bce7505a708fd018ab9bda6b82f853f496550d71f9b39d"
+    },
+    {
+      "id": "canonical-artifacts",
+      "kind": "contract",
+      "path": "etudecas/simulation/run_format/schema.py",
+      "symbol": "CANONICAL_DATA_ARTIFACTS",
+      "reference_fingerprint": "7a5f62a4e5abc7621116c90b10f3277e043faeb267b08bdc10fe070e4a16aaee"
+    },
+    {
+      "id": "integrity-tests",
+      "kind": "test",
+      "path": "etudecas/simulation/test_run_format.py",
+      "symbol": "RunFormatIntegrityTest",
+      "reference_fingerprint": "57eb45f45414ef875fe1c6b0537665f83d6e912db63cc807b8fcd607ff2b7713"
+    },
+    {
+      "id": "disabled-lots-test",
+      "kind": "test",
+      "path": "etudecas/simulation/test_run_format.py",
+      "symbol": "RunFormatExportTest.test_validate_run_package_allows_empty_lot_artifacts_when_lot_trace_disabled",
+      "reference_fingerprint": "3f0869fe582eadc0ddc2166c12c2361edca14effe8e064b9594b82dc48fbca8c"
+    }
+  ],
+  "rules": [
+    {
+      "id": "PROVENANCE-SOURCE-001",
+      "title": "Diagnostiquer un écart sans accepter une nouvelle empreinte",
+      "status": "documented",
+      "statement": "Le diagnostic compare les octets exacts à l'empreinte attendue. Pour une source UTF-8, il indique si CRLF explique seul l'écart. Seule une égalité exacte retourne un succès ; aucun fichier ni manifeste n'est modifié.",
+      "scope": "Diagnostic des sources figées, distinct du suivi documentaire AST.",
+      "units": "Octets et SHA-256.",
+      "limitations": "Une différence inexpliquée par les fins de ligne ne prouve pas une différence de comportement. L'origine et la fiabilité de l'empreinte fournie doivent être établies séparément.",
+      "references": [
+        "source-diagnostic",
+        "source-diagnostic-cli",
+        "source-diagnostic-tests"
+      ],
+      "sources": [
+        "etudecas/docs/PROVENANCE.md"
+      ]
+    },
+    {
+      "id": "PROVENANCE-MONTECARLO-001",
+      "title": "Rattacher les incertitudes au run affiché",
+      "status": "documented",
+      "statement": "Un résumé Monte Carlo partagé doit déclarer un manifeste du run cible et un horizon positif compatible. Parmi les candidats compatibles, davantage de runs réussis est prioritaire. Sans candidat compatible, le chemin local attendu est retourné, éventuellement absent.",
+      "scope": "Sélection du résumé Monte Carlo pour la carte du pipeline.",
+      "units": "Jours simulés et nombre de runs réussis.",
+      "limitations": "Le chemin du manifeste établit une association déclarée, pas une identité cryptographique du graphe, du moteur ou des paramètres. Un résumé local peut omettre le manifeste. Les sorties incompatibles explicites ou locales provoquent une erreur.",
+      "references": [
+        "mc-resolver",
+        "mc-matcher",
+        "mc-rejection-test",
+        "mc-selection-test"
+      ],
+      "sources": [
+        "etudecas/docs/PROVENANCE.md"
+      ]
+    },
+    {
+      "id": "PACKAGE-INTEGRITY-001",
+      "title": "Présence et lisibilité des résultats livrés",
+      "status": "documented",
+      "statement": "Une déclaration de présence ne suffit pas : les fichiers indexés sont contrôlés physiquement, les CSV comparés à leurs colonnes et nombres de lignes, les JSON lus. Un échec de validation produit un code de sortie non nul en ligne de commande, y compris après export.",
+      "scope": "Packages génériques de simulation v1, fichiers stables pendant le contrôle.",
+      "units": "Lignes CSV et octets JSON ; aucune conversion d'unité métier.",
+      "limitations": "Lecture complète des fichiers. Ni preuve de provenance, ni vérification de chaque valeur métier ou de l'exhaustivité des résumés. Un changement conservant la structure peut rester indétectable.",
+      "references": [
+        "package-validator",
+        "artifact-validator",
+        "json-reader",
+        "checked-loader",
+        "package-cli",
+        "integrity-tests"
+      ],
+      "sources": [
+        "etudecas/simulation/run_format/README.md"
+      ]
+    },
+    {
+      "id": "PACKAGE-TRACE-001",
+      "title": "Traçabilité obligatoire et cohérence des index",
+      "status": "documented",
+      "statement": "Les trois CSV obligatoires du schéma doivent être présents. Les CSV de lots vides ne sont acceptés que lorsque la traçabilité est explicitement désactivée. Les index par groupe correspondent à l'index principal et les flux référencent les nœuds du package.",
+      "scope": "Structure des résultats quotidiens et des traces de lots.",
+      "units": "Identifiants de nœuds et de flux ; nombres de lignes.",
+      "limitations": "Ne vérifie pas les jointures entre fichiers de lots, la conservation des quantités ni l'exactitude des KPI. Les KPI vides restent acceptés.",
+      "references": [
+        "package-validator",
+        "canonical-artifacts",
+        "integrity-tests",
+        "disabled-lots-test"
+      ],
+      "sources": [
+        "etudecas/simulation/run_format/README.md"
+      ]
+    }
+  ]
+}

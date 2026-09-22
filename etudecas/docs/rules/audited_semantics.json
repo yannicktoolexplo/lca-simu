@@ -1,0 +1,369 @@
+{
+  "schema_version": "etudecas.documentation.v1",
+  "fingerprint_method": "python-ast-v1",
+  "title": "Sémantique auditée : demande, sécurité, coûts et exécution physique",
+  "business_source_fingerprints": {
+    "etudecas/docs/changes/2026-09-20-audit-model-corrections.md": "d86ac09b31b43ff64b05e770c1c7ddd5e06f4ac2c8ce50c8b672ce4490487294"
+  },
+  "references": [
+    {
+      "id": "engine-run",
+      "kind": "implementation",
+      "path": "etudecas/simulation/engine/run_first_simulation.py",
+      "symbol": "main",
+      "reference_fingerprint": "4e5be273252205b8f29c0400d475019c7a59d47b2ba72b4cf182b11ed4b62684"
+    },
+    {
+      "id": "demand-profile",
+      "kind": "implementation",
+      "path": "etudecas/simulation/engine/run_first_simulation.py",
+      "symbol": "demand_targets_for_day",
+      "reference_fingerprint": "4851eb40e6cde20c5531b82e8276c087a48fe8030976d23a923b99fe5276b274"
+    },
+    {
+      "id": "initialization",
+      "kind": "implementation",
+      "path": "etudecas/simulation/engine/run_first_simulation.py",
+      "symbol": "scenario_initialization_policy",
+      "reference_fingerprint": "ab4dd7b400980ba72e0a15e80ee32dbe01a5cc0148e66a69a8bab23046127691"
+    },
+    {
+      "id": "safety-calendar",
+      "kind": "implementation",
+      "path": "etudecas/simulation/engine/model_semantics.py",
+      "symbol": "safety_calendar_days",
+      "reference_fingerprint": "ae514fd6fc3d8b06bacf8006c9a54452d90794ab3ee9efbb5928f47eb8f56df2"
+    },
+    {
+      "id": "safety-anchor",
+      "kind": "implementation",
+      "path": "etudecas/simulation/engine/model_semantics.py",
+      "symbol": "safety_calendar_anchor",
+      "reference_fingerprint": "26652a312842356046db0c1c8a4af8102f7e540006dc028a26a65b333074ce4f"
+    },
+    {
+      "id": "known-value",
+      "kind": "implementation",
+      "path": "etudecas/simulation_prep/prepare_simulation_graph.py",
+      "symbol": "derive_item_unit_value_map",
+      "reference_fingerprint": "c8e3e2959a341cddbf0d8f2d139b169124eead913fd33de74a10d7046a0aed33"
+    },
+    {
+      "id": "holding-conversion",
+      "kind": "implementation",
+      "path": "etudecas/simulation_prep/prepare_simulation_graph.py",
+      "symbol": "holding_cost_per_unit_day_from_value",
+      "reference_fingerprint": "528b279e011b7a08bfe5ed6ec8bca9886345e0172895bbbc5c6393a959066e16"
+    },
+    {
+      "id": "holding-contract",
+      "kind": "implementation",
+      "path": "etudecas/simulation/engine/model_semantics.py",
+      "symbol": "inventory_holding_rate",
+      "reference_fingerprint": "bb5b6ba0fe52ee715a7396aaf203e874bde609b9408ab39603944fa7c282fcaf"
+    },
+    {
+      "id": "receipt-observation",
+      "kind": "implementation",
+      "path": "etudecas/simulation/engine/model_semantics.py",
+      "symbol": "ReceiptLeadObservations",
+      "reference_fingerprint": "7b6246df39d060f23c3fb43cfab10d63c1fbf1674522c5e1b536eb7182d178d3"
+    },
+    {
+      "id": "tariff",
+      "kind": "implementation",
+      "path": "etudecas/simulation/engine/model_semantics.py",
+      "symbol": "transport_charge",
+      "reference_fingerprint": "21ad94ec2b2619654b397f01e7d1d26af1423e25e0af3d36240bfb390d82b54a"
+    },
+    {
+      "id": "execution-state",
+      "kind": "implementation",
+      "path": "etudecas/simulation/engine/model_semantics.py",
+      "symbol": "shipment_execution_state",
+      "reference_fingerprint": "7d50d9f2450af0dec6f8f875ced8cc3a5444109c7f4c0ad94d75c0709734e05e"
+    },
+    {
+      "id": "mrp-modes",
+      "kind": "implementation",
+      "path": "etudecas/simulation/engine/run_first_simulation.py",
+      "symbol": "resolve_mrp_requirement_pair_modes",
+      "reference_fingerprint": "02bed674b366730240487a4c35308a8a1141423a639f091a71e6d6f4a4edab6c"
+    },
+    {
+      "id": "demand-integration-test",
+      "kind": "test",
+      "path": "etudecas/simulation/test_audit_model_semantics.py",
+      "symbol": "test_engine_preserves_source_demand_and_qualifies_incomplete_costs",
+      "reference_fingerprint": "b392b49801406ae42141cafa637fe8ba8b61eba4fca6a3c5129bf9dcf00735e1"
+    },
+    {
+      "id": "annual-boundary-test",
+      "kind": "test",
+      "path": "etudecas/simulation/test_audit_model_semantics.py",
+      "symbol": "test_engine_preserves_last_day_of_year_and_repeating_source_boundary",
+      "reference_fingerprint": "72dbfc651359fee8771c63395c40ec948b41831f1ace66b70c64f1c894388671"
+    },
+    {
+      "id": "calendar-test",
+      "kind": "test",
+      "path": "etudecas/simulation/test_audit_model_semantics.py",
+      "symbol": "test_working_day_coverage_matches_independent_calendar",
+      "reference_fingerprint": "d50ff76646b9d99247bc4cb04585ea28ba93f075821f4b2db5c565232c5755c6"
+    },
+    {
+      "id": "calendar-default-test",
+      "kind": "test",
+      "path": "etudecas/simulation/test_audit_model_semantics.py",
+      "symbol": "test_calendar_anchor_and_full_source_target_are_explicit",
+      "reference_fingerprint": "bb8a8148b9e7660ab05d585125eb29cb91b77f6d5ff64620c700786833660dd3"
+    },
+    {
+      "id": "unknown-price-test",
+      "kind": "test",
+      "path": "etudecas/simulation/test_audit_model_semantics.py",
+      "symbol": "test_missing_price_is_not_imputed_from_unrelated_dimension",
+      "reference_fingerprint": "b0022aec53e3721ae50b526eded5e6b05d4c9767fe94d87bc4971b5365254b4d"
+    },
+    {
+      "id": "unit-conversion-test",
+      "kind": "test",
+      "path": "etudecas/simulation/test_audit_model_semantics.py",
+      "symbol": "test_known_same_material_cost_is_invariant_under_kg_to_g_conversion",
+      "reference_fingerprint": "5258f542c527eb7030c1538c28f516faef10ca7479fb59ef74b9d5bd1563bc1a"
+    },
+    {
+      "id": "incompatible-price-test",
+      "kind": "test",
+      "path": "etudecas/simulation/test_audit_model_semantics.py",
+      "symbol": "test_piece_price_cannot_silently_become_kg_price",
+      "reference_fingerprint": "f4465b21eb4c4d3dd84865a4bfd5fbb470ee790b1ffdd2300db01b924f34b452"
+    },
+    {
+      "id": "unknown-zero-test",
+      "kind": "test",
+      "path": "etudecas/simulation/test_audit_model_semantics.py",
+      "symbol": "test_unknown_and_explicit_zero_cost_remain_distinguishable",
+      "reference_fingerprint": "fa0ff9060d410a71f9d564a942d7a685e699f84c146f0cd0bd75ee9803994d16"
+    },
+    {
+      "id": "receipt-observation-test",
+      "kind": "test",
+      "path": "etudecas/simulation/test_audit_model_semantics.py",
+      "symbol": "test_receipt_observation_never_reveals_future_sampled_delay",
+      "reference_fingerprint": "e6e3538dd20c6485961950a014222320ed06e7c2f463c4829defe4d04ba87479"
+    },
+    {
+      "id": "unit-tariff-test",
+      "kind": "test",
+      "path": "etudecas/simulation/test_audit_model_semantics.py",
+      "symbol": "test_unit_tariff_obeys_declared_unit_not_order_size",
+      "reference_fingerprint": "8a49846fd2d23c187d9db5c2f70f34f43b878c9d73a11035a664a069bf5dcf3e"
+    },
+    {
+      "id": "batch-tariff-test",
+      "kind": "test",
+      "path": "etudecas/simulation/test_audit_model_semantics.py",
+      "symbol": "test_batch_tariff_requires_its_own_explicit_conversion",
+      "reference_fingerprint": "4c002c5940b9b3945e030e83e9e95ef551be835eaddbdae876fe3be49f5300ac"
+    },
+    {
+      "id": "execution-state-test",
+      "kind": "test",
+      "path": "etudecas/simulation/test_audit_model_semantics.py",
+      "symbol": "test_shipment_status_depends_on_physical_dates",
+      "reference_fingerprint": "8f9aa680c3877a0a29ad232b17e8ec8bcffbbf9cd3eee7ea83600563573e63b5"
+    },
+    {
+      "id": "mrp-modes-test",
+      "kind": "test",
+      "path": "etudecas/simulation/test_supplier_risk_planning_semantics.py",
+      "symbol": "test_targeted_dynamic_pair_overrides_inherited_and_cli_static_modes",
+      "reference_fingerprint": "e1cc9c545a85b0b3f86a00049c0e12c4349e62fcf04a0b940fabfa0247f12d23"
+    }
+  ],
+  "rules": [
+    {
+      "id": "AUDITED-DEMAND-001",
+      "title": "Demande exécutée distincte du signal MRP",
+      "status": "documented",
+      "statement": "La demande client utilisée pour le service vient du profil source quotidien sans lissage, après perturbations explicites. La fenêtre future de lissage est réservée à la planification MRP.",
+      "scope": "Nouvelles exécutions du moteur et sorties de traçabilité ; sources et résultats historiques conservés.",
+      "units": "Quantités par article dans leur unité source ; jours calendaires du simulateur.",
+      "limitations": "La demande et les prévisions peuvent rester fractionnaires ; ce contrat ne transforme pas une prévision en mouvement physique fractionnaire. Le changement modifie les nouveaux résultats, pas les historiques.",
+      "references": [
+        "engine-run",
+        "demand-profile",
+        "demand-integration-test",
+        "annual-boundary-test"
+      ],
+      "sources": [
+        "etudecas/docs/changes/2026-09-20-audit-model-corrections.md"
+      ]
+    },
+    {
+      "id": "AUDITED-SAFETY-001",
+      "title": "Jours de sécurité ouvrés avec ancrage explicite",
+      "status": "documented",
+      "statement": "Les jours sources de sécurité sont conservés. Le calendrier lundi-vendredi confirmé pour tous les sites les convertit en durée calendaire après le jour de référence. La date civile du scénario ou du snapshot sert d'ancrage ; à défaut J0 lundi est une convention déclarée.",
+      "scope": "Nouvelles exécutions du moteur et sorties de traçabilité ; sources et résultats historiques conservés.",
+      "units": "Jours ouvrés source, jours calendaires effectifs et date d'évaluation distincts.",
+      "limitations": "Ce calendrier concerne uniquement la couverture de sécurité. Aucune fermeture physique des usines ou transports, aucun jour férié ni calendrier de production nouveau n'est déduit.",
+      "references": [
+        "safety-calendar",
+        "safety-anchor",
+        "engine-run",
+        "calendar-test",
+        "calendar-default-test",
+        "demand-integration-test"
+      ],
+      "sources": [
+        "etudecas/docs/changes/2026-09-20-audit-model-corrections.md"
+      ]
+    },
+    {
+      "id": "AUDITED-SAFETY-002",
+      "title": "Application intégrale de la sécurité source au dépôt",
+      "status": "documented",
+      "statement": "Le facteur par défaut de la cible de sécurité souple est 1, conformément à la décision utilisateur. Une sensibilité peut fournir un autre facteur explicite ; elle conserve son identité et ses paramètres.",
+      "scope": "Nouvelles exécutions du moteur et sorties de traçabilité ; sources et résultats historiques conservés.",
+      "units": "Facteur sans dimension ; quantité cible dans l'unité de l'article.",
+      "limitations": "Les valeurs historiques 0,75 ne sont pas réécrites. Un graphe ou une option explicite peut encore déclarer une sensibilité différente ; le nouveau nominal doit retenir le facteur 1.",
+      "references": [
+        "initialization",
+        "calendar-default-test"
+      ],
+      "sources": [
+        "etudecas/docs/changes/2026-09-20-audit-model-corrections.md"
+      ]
+    },
+    {
+      "id": "AUDITED-VALUATION-001",
+      "title": "Prix inconnu distinct de zéro et coûts incomplets",
+      "status": "documented",
+      "statement": "Un prix manquant reste inconnu ; une médiane mélangeant prix/kg, prix/pièce ou prix/mètre est interdite. La préparation exporte null et le moteur refuse l'ancien fallback global. Les coûts numériques historiques restent des sous-totaux connus avec couverture explicite, jamais un coût complet lorsque complete=false.",
+      "scope": "Nouvelles exécutions du moteur et sorties de traçabilité ; sources et résultats historiques conservés.",
+      "units": "Valeur par unité physique documentée ; taux de possession par unité et jour ; quantité-jours non valorisée.",
+      "limitations": "complete=true décrit la couverture des taux configurés, pas une calibration industrielle. Aucun prix BOM ni taux de change n'est inventé. Les classements économiques complets exigent une couverture suffisante et des hypothèses compatibles.",
+      "references": [
+        "known-value",
+        "holding-conversion",
+        "holding-contract",
+        "engine-run",
+        "unknown-price-test",
+        "unit-conversion-test",
+        "incompatible-price-test",
+        "unknown-zero-test",
+        "demand-integration-test"
+      ],
+      "sources": [
+        "etudecas/docs/changes/2026-09-20-audit-model-corrections.md"
+      ]
+    },
+    {
+      "id": "AUDITED-OBSERVATION-001",
+      "title": "Délai prévu et délai constaté séparés",
+      "status": "documented",
+      "statement": "Un délai simulé lors d'une décision reste prévisionnel jusqu'à la réception. Les risques dépendant d'un délai observé ne reçoivent cette observation qu'à la date physique de réception ; une réception nulle n'apporte pas d'observation.",
+      "scope": "Nouvelles exécutions du moteur et sorties de traçabilité ; sources et résultats historiques conservés.",
+      "units": "Jours de transport entre départ et réception ; date d'observation distincte de date de décision.",
+      "limitations": "Les dates futures restent disponibles comme prévisions. Ce contrat n'est ni un modèle probabiliste de précision ETA ni une preuve de causalité propre à un incident.",
+      "references": [
+        "receipt-observation",
+        "engine-run",
+        "receipt-observation-test",
+        "demand-integration-test",
+        "annual-boundary-test"
+      ],
+      "sources": [
+        "etudecas/docs/changes/2026-09-20-audit-model-corrections.md"
+      ]
+    },
+    {
+      "id": "AUDITED-TRANSPORT-001",
+      "title": "Base tarifaire déclarée pour le transport",
+      "status": "documented",
+      "statement": "per=unit utilise les unités livrées et ne divise pas par le lot de commande. Une base batch/lot exige batch_qty propre au tarif ; shipment/dispatch facture l'occurrence. Une autre base nécessite une conversion explicite.",
+      "scope": "Nouvelles exécutions du moteur et sorties de traçabilité ; sources et résultats historiques conservés.",
+      "units": "Monnaie par unité livrée, par lot tarifaire ou par expédition selon la base déclarée.",
+      "limitations": "Le respect logiciel du tarif ne valide pas sa valeur industrielle. Le nombre de camions ou palettes nécessite toujours des données logistiques adaptées ; le lot d'approvisionnement n'est pas automatiquement une unité tarifaire.",
+      "references": [
+        "tariff",
+        "unit-tariff-test",
+        "batch-tariff-test"
+      ],
+      "sources": [
+        "etudecas/docs/changes/2026-09-20-audit-model-corrections.md"
+      ]
+    },
+    {
+      "id": "AUDITED-SHIPMENT-001",
+      "title": "Prévu, réservé, parti et reçu selon les dates physiques",
+      "status": "documented",
+      "statement": "Un départ futur reste planifié ou réservé, puis devient en transit et enfin reçu. Les colonnes exécutées ne comptent aucun départ après l'horizon. Le moteur conserve les prévisions historiques tout en exportant leur état et les dates réalisées séparément.",
+      "scope": "Nouvelles exécutions du moteur et sorties de traçabilité ; sources et résultats historiques conservés.",
+      "units": "Quantités physiques par article ; jours mesurés relatifs à J0 ; états à la fin de l'horizon.",
+      "limitations": "Le champ historique shipped_qty peut contenir une prévision future. Un consommateur doit utiliser executed_shipped_qty ou les dates et indicateurs d'exécution. Une réservation ne prouve pas un chargement de camion.",
+      "references": [
+        "execution-state",
+        "engine-run",
+        "execution-state-test",
+        "demand-integration-test",
+        "annual-boundary-test"
+      ],
+      "sources": [
+        "etudecas/docs/changes/2026-09-20-audit-model-corrections.md"
+      ]
+    },
+    {
+      "id": "AUDITED-TAU-001",
+      "title": "Durée physique tau à confirmer",
+      "status": "known_gap",
+      "statement": "La convention actuelle garde tau_process comme couverture de planification ; la durée physique de trois jours n'a pas été confirmée. Cette limite est exportée explicitement et aucune nouvelle immobilisation de production n'est appliquée.",
+      "scope": "Nouvelles exécutions du moteur et sorties de traçabilité ; sources et résultats historiques conservés.",
+      "units": "Jours de planification ; durée physique non validée.",
+      "limitations": "Le test vérifie l'export de la qualification, pas la pertinence industrielle d'une libération le même jour. Une décision métier et des essais physiques distincts restent nécessaires.",
+      "references": [
+        "engine-run",
+        "demand-integration-test"
+      ],
+      "sources": [
+        "etudecas/docs/changes/2026-09-20-audit-model-corrections.md"
+      ]
+    },
+    {
+      "id": "AUDITED-MRP-001",
+      "title": "Besoins MRP statiques encore non validés",
+      "status": "known_gap",
+      "statement": "Les couples configurés en besoin MRP statique conservent leur base capacité nominale multipliée par nomenclature. Ils ne sont pas présentés comme une demande observée ; aucune substitution par un besoin dynamique n'est faite sans décision explicite.",
+      "scope": "Nouvelles exécutions du moteur et sorties de traçabilité ; sources et résultats historiques conservés.",
+      "units": "Quantité théorique par jour et article, unité de nomenclature.",
+      "limitations": "La bonne sélection technique des modes statique/dynamique ne valide pas le dimensionnement métier des 23 références du cas historique. Le registre garde ce choix au statut de lacune connue.",
+      "references": [
+        "mrp-modes",
+        "engine-run",
+        "mrp-modes-test",
+        "demand-integration-test"
+      ],
+      "sources": [
+        "etudecas/docs/changes/2026-09-20-audit-model-corrections.md"
+      ]
+    },
+    {
+      "id": "AUDITED-RESERVATION-001",
+      "title": "Propriété du stock réservé encore à définir",
+      "status": "known_gap",
+      "statement": "La convention actuelle exclut le stock réservé du coût de possession du stock disponible jusqu'au départ. La règle de propriété économique pendant la réservation est exportée comme non décidée.",
+      "scope": "Nouvelles exécutions du moteur et sorties de traçabilité ; sources et résultats historiques conservés.",
+      "units": "Quantité-jours détenue ou réservée ; coût de possession du périmètre configuré.",
+      "limitations": "Le test vérifie la qualification explicite. Il ne valide pas cette règle comptable ; un coût complet industriel doit préciser transfert de propriété et détention économique.",
+      "references": [
+        "engine-run",
+        "demand-integration-test"
+      ],
+      "sources": [
+        "etudecas/docs/changes/2026-09-20-audit-model-corrections.md"
+      ]
+    }
+  ]
+}

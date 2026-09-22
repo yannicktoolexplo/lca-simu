@@ -1,0 +1,602 @@
+{
+  "completed_at_utc": "2026-09-17T10:47:49.461847+00:00",
+  "scope": "Full pytest etudecas invocation; historical integrations not opted in; not scientific qualification",
+  "counts": {
+    "failure": 1,
+    "passed": 2324,
+    "skipped": 28
+  },
+  "testcase_count": 2353,
+  "skip_reasons": {
+    "Historical integration: supply --historical-artifacts PATH": 21,
+    "Node.js absent : contrôle syntaxique JavaScript non disponible": 1,
+    "ancien fixture full a trois voies et executeur injecte; le contrat publiable groupe-4 exige le runner moteur builtin et sera teste sur le paquet V3 clos": 4,
+    "set ETUDECAS_RUN_SLOW_TESTS=1 to validate the 5-year lot payload": 1,
+    "set ETUDECAS_RUN_SLOW_TESTS=1 to validate the 5-year lot view model": 1
+  },
+  "failures": [
+    {
+      "classname": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_service_regime_calibration_runner",
+      "name": "test_screen_checkpoint_and_resume_adds_only_seeds_16_to_30",
+      "outcome": "failure",
+      "message": "PermissionError: [WinError 5] Accès refusé: 'C:\\\\Users\\\\yannick.martz\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-yannick.martz\\\\pytest-2438\\\\test_screen_checkpoint_and_res0\\\\staged\\\\execution_ledger.json.tmp' -> 'C:\\\\Users\\\\yannick.martz\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-yannick.martz\\\\pytest-2438\\\\test_screen_checkpoint_and_res0\\\\staged\\\\execution_ledger.json'",
+      "detail": "etudecas\\prototypes\\scan_2027_risk_control\\tests\\test_supplier_service_regime_calibration_runner.py:207: in test_screen_checkpoint_and_resume_adds_only_seeds_16_to_30\n    preliminary = runner.run_calibration(\netudecas\\prototypes\\scan_2027_risk_control\\supplier_service_regime_calibration_runner.py:1252: in run_calibration\n    _persist_evidence(output_dir, ledger, evidence)\netudecas\\prototypes\\scan_2027_risk_control\\supplier_service_regime_calibration_runner.py:761: in _persist_evidence\n    _write_json(output_dir / LEDGER_FILE, ledger)\netudecas\\prototypes\\scan_2027_risk_control\\supplier_service_regime_calibration_runner.py:111: in _write_json\n    campaign_core.write_json_atomic(path, payload)\netudecas\\prototypes\\scan_2027_risk_control\\supplier_service_landscape_campaign.py:740: in write_json_atomic\n    temporary.replace(path)\nC:\\Users\\yannick.martz\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\pathlib.py:1188: in replace\n    os.replace(self, target)\nE   PermissionError: [WinError 5] Accès refusé: 'C:\\\\Users\\\\yannick.martz\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-yannick.martz\\\\pytest-2438\\\\test_screen_checkpoint_and_res0\\\\staged\\\\execution_ledger.json.tmp' -> 'C:\\\\Users\\\\yannick.martz\\\\AppData\\\\Local\\\\Temp\\\\pytest-of-yannick.martz\\\\pytest-2438\\\\test_screen_checkpoint_and_res0\\\\staged\\\\execution_ledger.json'"
+    }
+  ],
+  "baseline_failure_followup_counts": {
+    "passed": 73,
+    "skipped": 5,
+    "failure": 1
+  },
+  "baseline_failure_followup": [
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_finalize_supplier_operating_point_full_campaign_v4",
+      "previous_test": "test_finalizer_pin_matches_frozen_v4_runner",
+      "current_test": "test_finalizer_pin_matches_frozen_v4_runner",
+      "previous_category": "frozen_source_or_contract_check",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_run_supplier_v8_post_stage3_final_v4_task",
+      "previous_test": "test_validate_only_is_strictly_inert",
+      "current_test": "test_validate_only_is_strictly_inert",
+      "previous_category": "historical_checkout_missing",
+      "current_outcome": "skipped"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_run_supplier_v8_post_stage3_final_v4_task",
+      "previous_test": "test_frozen_hash_block_is_small_exact_and_current",
+      "current_test": "test_frozen_hash_block_is_small_exact_and_current",
+      "previous_category": "frozen_source_or_contract_check",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_run_supplier_v8_stage3_closure_v1_task",
+      "previous_test": "test_validate_only_is_inert_and_checks_frozen_hashes",
+      "current_test": "test_validate_only_is_inert_and_checks_frozen_hashes",
+      "previous_category": "historical_checkout_missing",
+      "current_outcome": "skipped"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_run_supplier_v8_stage3_closure_v1_task",
+      "previous_test": "test_frozen_hash_bindings_are_exact",
+      "current_test": "test_frozen_hash_bindings_are_exact",
+      "previous_category": "frozen_source_or_contract_check",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_balanced_product_delay_multiseed_refinement_v3",
+      "previous_test": "test_plan_revalidates_65_proofs_and_registers_exactly_15_new",
+      "current_test": "test_plan_revalidates_65_proofs_and_registers_exactly_15_new",
+      "previous_category": "v2_plan_signature_mismatch",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_balanced_product_delay_multiseed_refinement_v3",
+      "previous_test": "test_run_resumes_without_reexecuting_and_validates_80_proofs",
+      "current_test": "test_run_resumes_without_reexecuting_and_validates_80_proofs",
+      "previous_category": "v2_plan_signature_mismatch",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_balanced_product_delay_multiseed_refinement_v3",
+      "previous_test": "test_interrupted_run_imports_once_and_executes_only_missing",
+      "current_test": "test_interrupted_run_imports_once_and_executes_only_missing",
+      "previous_category": "v2_plan_signature_mismatch",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_balanced_product_delay_multiseed_refinement_v3",
+      "previous_test": "test_tamper_in_v2_source_or_imported_evidence_fails_closed",
+      "current_test": "test_tamper_in_v2_source_or_imported_evidence_fails_closed",
+      "previous_category": "v2_plan_signature_mismatch",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_balanced_product_delay_multiseed_refinement_v3",
+      "previous_test": "test_resigned_plan_proposal_graph_and_extra_evidence_fail_closed",
+      "current_test": "test_resigned_plan_proposal_graph_and_extra_evidence_fail_closed",
+      "previous_category": "v2_plan_signature_mismatch",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_dynamic_requirement_reference",
+      "previous_test": "test_protocol_is_plan_only_and_validates_without_results",
+      "current_test": "test_protocol_is_plan_only_and_validates_without_results",
+      "previous_category": "capacity_graph_mismatch",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_dynamic_requirement_reference",
+      "previous_test": "test_protocol_detects_file_tampering",
+      "current_test": "test_protocol_detects_file_tampering",
+      "previous_category": "capacity_graph_mismatch",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_dynamic_requirement_reference",
+      "previous_test": "test_v3_guard_rejects_campaign_outside_protocol_binding",
+      "current_test": "test_v3_guard_rejects_campaign_outside_protocol_binding",
+      "previous_category": "capacity_graph_mismatch",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_dynamic_requirement_reference",
+      "previous_test": "test_commands_keep_old_hybrid_and_make_new_all_dynamic",
+      "current_test": "test_commands_keep_old_hybrid_and_make_new_all_dynamic",
+      "previous_category": "capacity_graph_mismatch",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_dynamic_requirement_reference",
+      "previous_test": "test_metric_extraction_covers_every_material_and_product",
+      "current_test": "test_metric_extraction_covers_every_material_and_product",
+      "previous_category": "capacity_graph_mismatch",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_dynamic_requirement_reference",
+      "previous_test": "test_smoke_custom_executor_builds_exact_paired_tables",
+      "current_test": "test_smoke_custom_executor_builds_exact_paired_tables",
+      "previous_category": "capacity_graph_mismatch",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_dynamic_requirement_reference",
+      "previous_test": "test_smoke_directory_cannot_be_reused_for_compare15",
+      "current_test": "test_smoke_directory_cannot_be_reused_for_compare15",
+      "previous_category": "capacity_graph_mismatch",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_dynamic_requirement_reference",
+      "previous_test": "test_paired_daily_demand_mismatch_is_rejected",
+      "current_test": "test_paired_daily_demand_mismatch_is_rejected",
+      "previous_category": "capacity_graph_mismatch",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_dynamic_requirement_reference",
+      "previous_test": "test_evidence_rejects_unbounded_service_and_impossible_supplier_flow",
+      "current_test": "test_evidence_rejects_unbounded_service_and_impossible_supplier_flow",
+      "previous_category": "capacity_graph_mismatch",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_dynamic_requirement_reference",
+      "previous_test": "test_lot_audit_error_is_fatal_and_retained_report_hash_is_checked",
+      "current_test": "test_lot_audit_error_is_fatal_and_retained_report_hash_is_checked",
+      "previous_category": "capacity_graph_mismatch",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_dynamic_requirement_reference",
+      "previous_test": "test_campaign_manifest_change_during_comparison_fails_closed",
+      "current_test": "test_campaign_manifest_change_during_comparison_fails_closed",
+      "previous_category": "capacity_graph_mismatch",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_dynamic_requirement_reference",
+      "previous_test": "test_valid_orphan_evidence_is_reconciled_into_ledger",
+      "current_test": "test_valid_orphan_evidence_is_reconciled_into_ledger",
+      "previous_category": "capacity_graph_mismatch",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_dynamic_requirement_reference",
+      "previous_test": "test_invalid_orphan_evidence_is_archived_without_deletion",
+      "current_test": "test_invalid_orphan_evidence_is_archived_without_deletion",
+      "previous_category": "capacity_graph_mismatch",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_fresh_development_holdout_protocol_v7",
+      "previous_test": "test_plan_freezes_one_triplet_150_new_blocks_and_450_fresh_cases",
+      "current_test": "test_plan_freezes_one_triplet_150_new_blocks_and_450_fresh_cases",
+      "previous_category": "frozen_source_or_contract_check",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_fresh_development_holdout_protocol_v7",
+      "previous_test": "test_v6_rejection_and_rng_audit_are_diagnostics_not_v7_evidence",
+      "current_test": "test_v6_rejection_and_rng_audit_are_diagnostics_not_v7_evidence",
+      "previous_category": "frozen_source_or_contract_check",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_fresh_development_holdout_protocol_v7",
+      "previous_test": "test_wrong_review_hash_and_tampered_rng_audit_are_rejected",
+      "current_test": "test_wrong_review_hash_and_tampered_rng_audit_are_rejected",
+      "previous_category": "frozen_source_or_contract_check",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_fresh_development_holdout_protocol_v7",
+      "previous_test": "test_prepare_run_monitor_and_early_finalization_start_no_engine",
+      "current_test": "test_prepare_run_monitor_and_early_finalization_start_no_engine",
+      "previous_category": "frozen_source_or_contract_check",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_fresh_development_holdout_protocol_v7",
+      "previous_test": "test_official_v4_adapter_supplies_proof_contract_without_running_engine",
+      "current_test": "test_official_v4_adapter_supplies_proof_contract_without_running_engine",
+      "previous_category": "frozen_source_or_contract_check",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_fresh_development_holdout_protocol_v7",
+      "previous_test": "test_existing_plan_output_is_never_overwritten",
+      "current_test": "test_existing_plan_output_is_never_overwritten",
+      "previous_category": "frozen_source_or_contract_check",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_fresh_development_holdout_protocol_v7",
+      "previous_test": "test_full_injected_run_resumes_retains_outputs_and_finalizes_at_150_blocks",
+      "current_test": "test_full_injected_run_resumes_retains_outputs_and_finalizes_at_150_blocks",
+      "previous_category": "frozen_source_or_contract_check",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_fresh_development_holdout_protocol_v7",
+      "previous_test": "test_official_transaction_prunes_before_commit_and_cleans_crash_orphans",
+      "current_test": "test_official_transaction_prunes_before_commit_and_cleans_crash_orphans",
+      "previous_category": "frozen_source_or_contract_check",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_fresh_development_holdout_protocol_v7",
+      "previous_test": "test_tampered_retained_snapshot_is_detected",
+      "current_test": "test_tampered_retained_snapshot_is_detected",
+      "previous_category": "frozen_source_or_contract_check",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_fresh_development_holdout_protocol_v7",
+      "previous_test": "test_live_monitor_validates_committed_evidence_and_tolerates_active_attempt",
+      "current_test": "test_live_monitor_validates_committed_evidence_and_tolerates_active_attempt",
+      "previous_category": "frozen_source_or_contract_check",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_network_extension_interpretation_audit",
+      "previous_test": "test_reviewed_planner_and_runner_builders_are_exactly_pinned",
+      "current_test": "test_reviewed_planner_and_runner_builders_are_exactly_pinned",
+      "previous_category": "frozen_source_or_contract_check",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_network_risk_results_dashboard",
+      "previous_test": "test_builds_signed_autonomous_page_with_scientific_scope",
+      "current_test": "test_builds_signed_autonomous_page_with_scientific_scope",
+      "previous_category": "frozen_source_or_contract_check",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_network_risk_results_dashboard",
+      "previous_test": "test_boundary_failure_publishes_only_an_unranked_group",
+      "current_test": "test_boundary_failure_publishes_only_an_unranked_group",
+      "previous_category": "frozen_source_or_contract_check",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_network_risk_results_dashboard",
+      "previous_test": "test_inherited_priority_flags_cannot_override_signed_boundary",
+      "current_test": "test_inherited_priority_flags_cannot_override_signed_boundary",
+      "previous_category": "frozen_source_or_contract_check",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_network_risk_results_dashboard",
+      "previous_test": "test_tampered_overlay_is_rejected_before_rendering",
+      "current_test": "test_tampered_overlay_is_rejected_before_rendering",
+      "previous_category": "frozen_source_or_contract_check",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_network_risk_results_dashboard",
+      "previous_test": "test_overlay_inventory_is_exact",
+      "current_test": "test_overlay_inventory_is_exact",
+      "previous_category": "frozen_source_or_contract_check",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_network_risk_results_dashboard",
+      "previous_test": "test_resigned_legacy_extension_release_alias_cannot_be_reactivated",
+      "current_test": "test_resigned_legacy_extension_release_alias_cannot_be_reactivated",
+      "previous_category": "frozen_source_or_contract_check",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_network_risk_results_dashboard",
+      "previous_test": "test_tampered_boundary_is_rejected_before_rendering",
+      "current_test": "test_tampered_boundary_is_rejected_before_rendering",
+      "previous_category": "frozen_source_or_contract_check",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_network_risk_results_dashboard",
+      "previous_test": "test_unsigned_boundary_is_mandatory",
+      "current_test": "test_unsigned_boundary_is_mandatory",
+      "previous_category": "frozen_source_or_contract_check",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_network_risk_results_dashboard",
+      "previous_test": "test_action_selector_input_is_never_promoted",
+      "current_test": "test_action_selector_input_is_never_promoted",
+      "previous_category": "frozen_source_or_contract_check",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_network_risk_results_dashboard",
+      "previous_test": "test_relative_navigation_links_remain_local_and_optional",
+      "current_test": "test_relative_navigation_links_remain_local_and_optional",
+      "previous_category": "frozen_source_or_contract_check",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_service_regime_calibration_runner",
+      "previous_test": "test_frozen_v2_plan_validates_and_is_pinned",
+      "current_test": "test_frozen_v2_plan_validates_and_is_pinned",
+      "previous_category": "frozen_source_or_contract_check",
+      "current_outcome": "skipped"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_service_regime_calibration_runner",
+      "previous_test": "test_engine_command_has_no_incident_and_uses_candidate_input",
+      "current_test": "test_engine_command_has_no_incident_and_uses_candidate_input",
+      "previous_category": "frozen_source_or_contract_check",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_service_regime_calibration_runner",
+      "previous_test": "test_smoke_executes_one_nonreusable_case",
+      "current_test": "test_smoke_executes_one_nonreusable_case",
+      "previous_category": "frozen_source_or_contract_check",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_service_regime_calibration_runner",
+      "previous_test": "test_screen_checkpoint_and_resume_adds_only_seeds_16_to_30",
+      "current_test": "test_screen_checkpoint_and_resume_adds_only_seeds_16_to_30",
+      "previous_category": "frozen_source_or_contract_check",
+      "current_outcome": "failure"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_service_regime_calibration_runner",
+      "previous_test": "test_resume_rejects_checkpoint_ledger_mismatch",
+      "current_test": "test_resume_rejects_checkpoint_ledger_mismatch",
+      "previous_category": "frozen_source_or_contract_check",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_service_regime_calibration_runner",
+      "previous_test": "test_invalid_checkpoint_count_and_existing_lock_fail_closed",
+      "current_test": "test_invalid_checkpoint_count_and_existing_lock_fail_closed",
+      "previous_category": "frozen_source_or_contract_check",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_v5_downstream_integration",
+      "previous_test": "test_downstream_preflight_binds_plan_manifest_and_real_corridor_csv",
+      "current_test": "test_downstream_preflight_binds_plan_manifest_and_real_corridor_csv",
+      "previous_category": "frozen_source_or_contract_check",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_v5_downstream_integration",
+      "previous_test": "test_campaign_launch_ready_accepts_exact_zero_terminal_counts",
+      "current_test": "test_campaign_launch_ready_accepts_exact_zero_terminal_counts",
+      "previous_category": "frozen_source_or_contract_check",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_v5_downstream_integration",
+      "previous_test": "test_adapters_patch_only_inside_context_and_restore[etudecas.prototypes.scan_2027_risk_control.supplier_operating_point_full_campaign_v5-etudecas.prototypes.scan_2027_risk_control.supplier_operating_point_full_campaign_v4-patched_fields0]",
+      "current_test": "test_adapters_patch_only_inside_context_and_restore[etudecas.prototypes.scan_2027_risk_control.supplier_operating_point_full_campaign_v5-etudecas.prototypes.scan_2027_risk_control.supplier_operating_point_full_campaign_v4-patched_fields0]",
+      "previous_category": "frozen_source_or_contract_check",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_v5_downstream_integration",
+      "previous_test": "test_adapters_patch_only_inside_context_and_restore[etudecas.prototypes.scan_2027_risk_control.launch_supplier_operating_point_full_campaign_v5-etudecas.prototypes.scan_2027_risk_control.launch_supplier_operating_point_full_campaign_v4-patched_fields1]",
+      "current_test": "test_adapters_patch_only_inside_context_and_restore[etudecas.prototypes.scan_2027_risk_control.launch_supplier_operating_point_full_campaign_v5-etudecas.prototypes.scan_2027_risk_control.launch_supplier_operating_point_full_campaign_v4-patched_fields1]",
+      "previous_category": "frozen_source_or_contract_check",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_v5_downstream_integration",
+      "previous_test": "test_adapters_patch_only_inside_context_and_restore[etudecas.prototypes.scan_2027_risk_control.finalize_supplier_operating_point_full_campaign_v5-etudecas.prototypes.scan_2027_risk_control.finalize_supplier_operating_point_full_campaign_v4-patched_fields2]",
+      "current_test": "test_adapters_patch_only_inside_context_and_restore[etudecas.prototypes.scan_2027_risk_control.finalize_supplier_operating_point_full_campaign_v5-etudecas.prototypes.scan_2027_risk_control.finalize_supplier_operating_point_full_campaign_v4-patched_fields2]",
+      "previous_category": "frozen_source_or_contract_check",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_v5_downstream_integration",
+      "previous_test": "test_relay_pins_the_frozen_v4_and_v5_implementation_hashes",
+      "current_test": "test_relay_pins_the_frozen_v4_and_v5_implementation_hashes",
+      "previous_category": "frozen_source_or_contract_check",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_v5_final_standalone_delivery",
+      "previous_test": "test_builds_exactly_three_v5_business_views",
+      "current_test": "test_builds_exactly_three_v5_business_views",
+      "previous_category": "frozen_source_or_contract_check",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_v5_final_standalone_delivery",
+      "previous_test": "test_keeps_partial_trace_partial",
+      "current_test": "test_keeps_partial_trace_partial",
+      "previous_category": "frozen_source_or_contract_check",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_v5_final_standalone_delivery",
+      "previous_test": "test_refuses_complete_label_when_one_required_stage_is_missing",
+      "current_test": "test_refuses_complete_label_when_one_required_stage_is_missing",
+      "previous_category": "frozen_source_or_contract_check",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_v5_final_standalone_delivery",
+      "previous_test": "test_refuses_unqualified_or_differently_selected_dossier",
+      "current_test": "test_refuses_unqualified_or_differently_selected_dossier",
+      "previous_category": "frozen_source_or_contract_check",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_v6_completion_path",
+      "previous_test": "test_v6_sidecar_and_bridge_bindings_restore_the_frozen_modules",
+      "current_test": "test_v6_sidecar_and_bridge_bindings_restore_the_frozen_modules",
+      "previous_category": "frozen_source_or_contract_check",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_v6_completion_path",
+      "previous_test": "test_v6_sidecar_binding_restores_every_name_after_exception",
+      "current_test": "test_v6_sidecar_binding_restores_every_name_after_exception",
+      "previous_category": "frozen_source_or_contract_check",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_v6_completion_path",
+      "previous_test": "test_v6_watcher_never_publishes_ready_when_initialization_fails",
+      "current_test": "test_v6_watcher_never_publishes_ready_when_initialization_fails",
+      "previous_category": "frozen_source_or_contract_check",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_v6_completion_path",
+      "previous_test": "test_v6_relay_is_downstream_only_and_restores_bindings",
+      "current_test": "test_v6_relay_is_downstream_only_and_restores_bindings",
+      "previous_category": "frozen_source_or_contract_check",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_v6_completion_path",
+      "previous_test": "test_v6_delivery_identity_and_binding_restore",
+      "current_test": "test_v6_delivery_identity_and_binding_restore",
+      "previous_category": "frozen_source_or_contract_check",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_v6_completion_path",
+      "previous_test": "test_v6_relay_help_and_detached_scientific_no_go_are_v6",
+      "current_test": "test_v6_relay_help_and_detached_scientific_no_go_are_v6",
+      "previous_category": "frozen_source_or_contract_check",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_v6_completion_path",
+      "previous_test": "test_v6_campaign_adapters_patch_and_restore_frozen_v4_implementations",
+      "current_test": "test_v6_campaign_adapters_patch_and_restore_frozen_v4_implementations",
+      "previous_category": "frozen_source_or_contract_check",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_v6_holdout_campaign_once_relay",
+      "previous_test": "test_expected_receipt_command_equals_pinned_downstream_child_builder",
+      "current_test": "test_expected_receipt_command_equals_pinned_downstream_child_builder",
+      "previous_category": "frozen_source_or_contract_check",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_v7_downstream_adapter",
+      "previous_test": "test_frozen_protocol_and_first_30_seed_contract",
+      "current_test": "test_frozen_protocol_and_first_30_seed_contract",
+      "previous_category": "frozen_source_or_contract_check",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_v7_downstream_adapter",
+      "previous_test": "test_reused_v4_v5_orchestrators_are_explicitly_pinned",
+      "current_test": "test_reused_v4_v5_orchestrators_are_explicitly_pinned",
+      "previous_category": "frozen_source_or_contract_check",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_v7_stage2_delivery",
+      "previous_test": "test_prepare_supervision_creates_only_its_owned_directory",
+      "current_test": "test_prepare_supervision_creates_only_its_owned_directory",
+      "previous_category": "frozen_source_or_contract_check",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_v7_stage2_delivery",
+      "previous_test": "test_source_inventory_tamper_is_fail_closed",
+      "current_test": "test_source_inventory_tamper_is_fail_closed",
+      "previous_category": "frozen_source_or_contract_check",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_v7_stage2_delivery",
+      "previous_test": "test_guard_rejects_coherent_observed_pack_substitution_after_armament",
+      "current_test": "test_guard_rejects_coherent_observed_pack_substitution_after_armament",
+      "previous_category": "frozen_source_or_contract_check",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_v8_op100_checkpoint_10_task",
+      "previous_test": "test_validate_only_is_inert_and_revalidates_frozen_inputs",
+      "current_test": "test_validate_only_is_inert_and_revalidates_frozen_inputs",
+      "previous_category": "frozen_source_or_contract_check",
+      "current_outcome": "skipped"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_v8_stage3_adapter",
+      "previous_test": "test_stage3_inventory_is_explicit_and_v2_signature_stays_frozen",
+      "current_test": "test_historical_stage3_inventory_stays_frozen",
+      "previous_category": "frozen_source_or_contract_check",
+      "current_outcome": "skipped"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_v8_state_checkpoint",
+      "previous_test": "test_frozen_legacy_is_pinned_and_context_restores_every_patch",
+      "current_test": "test_frozen_legacy_is_pinned_and_context_restores_every_patch",
+      "previous_category": "frozen_source_or_contract_check",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_v8_state_checkpoint",
+      "previous_test": "test_v8_comparability_remains_a_signed_30_seed_contract",
+      "current_test": "test_v8_comparability_remains_a_signed_30_seed_contract",
+      "previous_category": "frozen_source_or_contract_check",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_v8_state_checkpoint",
+      "previous_test": "test_readiness_reads_no_campaign_file_while_target_is_active",
+      "current_test": "test_readiness_reads_no_campaign_file_while_target_is_active",
+      "previous_category": "frozen_source_or_contract_check",
+      "current_outcome": "passed"
+    },
+    {
+      "module": "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_v8_state_checkpoint",
+      "previous_test": "test_op93_20_checkpoint_package_round_trip_is_descriptive",
+      "current_test": "test_op93_20_checkpoint_package_round_trip_is_descriptive",
+      "previous_category": "frozen_source_or_contract_check",
+      "current_outcome": "passed"
+    }
+  ],
+  "targeted_recheck": {
+    "schema_version": "etudecas.test_report.v1",
+    "source": "calibration-retest.xml",
+    "counts": {
+      "passed": 1
+    },
+    "testcase_count": 1,
+    "modules": {
+      "etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_service_regime_calibration_runner": {
+        "passed": 1
+      }
+    },
+    "failures": [],
+    "skip_reasons": {}
+  },
+  "targeted_recheck_note": "An isolated recheck does not replace the initial full-suite failure."
+}
