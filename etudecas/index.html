@@ -1,39 +1,27 @@
 <!doctype html>
 <html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Etudecas — résultats et cartes locales</title>
-<style>body{font:17px system-ui;color:#183247;background:#f4f7fa;max-width:1050px;margin:48px auto;padding:0 24px}h1{font-size:32px}p{line-height:1.6}section{background:white;border:1px solid #cfdae3;border-radius:12px;padding:24px;margin:20px 0}a{color:#075985}strong{color:#103f59}.cards{display:grid;grid-template-columns:1fr 1fr;gap:20px}.cards section{margin:0}small{color:#526675}li{margin:10px 0}@media(max-width:700px){.cards{grid-template-columns:1fr}}</style></head><body>
-<nav aria-label="Navigation du projet"><a href="README.md">Comprendre le code et les dossiers</a> · <a href="docs/README.md">Documentation par sujet</a> · <a href="OPERATIONS.md">Commandes</a></nav>
-<small>Étude de cas · livraison du 20 septembre 2026</small>
-<h1>Résultats et cartes locales</h1>
-<p>Cette page donne accès aux résultats déjà produits. Le <a href="README.md">guide du projet</a> présente l'organisation du logiciel et les endroits où modifier le code.</p>
-<p>La livraison décrite ici intègre les corrections de l'audit initial du 20 septembre et quatre calculs dans une nouvelle référence. Le nominal, les risques et les deux sensibilités restent séparés. Les anciens résultats sont conservés.</p>
-<section><h2>Les deux dossiers à garder sous la main</h2>
-<p><a href="simulation/result/01_reference_actuelle_2026-09-20/">01 — Référence actuelle du 20 septembre</a> : la version à consulter pour les derniers résultats et le suivi des lots.</p>
-<p><a href="simulation/result/02_reference_monte_carlo_2026-07-24/">02 — Version historique avec Monte Carlo</a> · <a href="simulation/result/02_reference_monte_carlo_2026-07-24/maps/supply_graph_active_5y_map_nomc_20260717_165502.html">Ouvrir sa carte du 24 juillet</a>. Elle précède les corrections récentes.</p>
-<p>La carte actuelle ne contient pas de résultats Monte Carlo ni SCAN. <a href="simulation/result/archive/">Les autres simulations sont archivées</a>. <a href="simulation/result/README_ORGANISATION.md">Organisation et compatibilité des anciens chemins</a>.</p>
-</section>
-<section><h2>Livraison actuelle</h2>
-<p><a href="simulation/result/01_reference_actuelle_2026-09-20/maps/supply_graph_audited_corrections_20260920.html">Ouvrir la nouvelle carte — nominal, courbes et suivis des lots</a></p>
-<p><a href="simulation/result/01_reference_actuelle_2026-09-20/scenario_runs/state_dependent_full/maps/lot_explorer_audited_20260920.html">Explorer les lots du nouveau scénario de risque</a>. Cette vue utilise ses propres événements et identifiants.</p>
-<p id="current-dashboard"><a href="simulation/result/01_reference_actuelle_2026-09-20/decision_support/index.html">Ouvrir le diagnostic et les sensibilités du nouveau calcul</a></p>
-<p><strong>Les contrôles d’intégration de cette livraison ont réussi dans le périmètre documenté.</strong> Les parcours vérifiés et leurs limites figurent dans le bilan de livraison. La <a href="docs/audit_since_head_20260920/README.md">revue ultérieure des fichiers depuis le dernier commit</a> décrit des constats supplémentaires dont les corrections restent proposées.</p>
-<p><a href="docs/changes/2026-09-20-audit-integrated-corrections.md">Corrections intégrées, résultats et limites</a> · <a href="docs/changes/2026-09-20-final-map-numeric-verification.md">Contre-vérification numérique de la carte</a> · <a href="docs/PROJECT_STATUS.md">Bilan actuel</a></p></section>
-<div class="cards"><section><h2>Lire les résultats</h2>
-<p><strong>Parcours simplifié des lots</strong> permet de rechercher un identifiant, choisir une date, explorer les étapes et consulter la fiche latérale. <strong>Suivi de lots</strong> conserve la fenêtre détaillée. Les mélanges restent décrits par des bornes lorsque l'attribution exacte manque.</p>
-<p>Les bilans matière distinguent réception, consommation physique, théorie BOM et stock final. Les filtres annuels définissent une période ; les diagnostics sur l'horizon complet sont signalés.</p>
-<p>Les jours de sécurité suivent <strong>lundi-vendredi</strong> et le dépôt applique <strong>100 % des jours source</strong>. Les sensibilités restent séparées du nominal. <code>tau_process</code> conserve son rôle de planification ; sa traduction en durée physique reste à confirmer.</p>
-<p><a href="docs/EXPLORATEUR_DES_LOTS.md">Guide de l'explorateur</a> · <a href="docs/ENQUETES_LOTS.md">Enquêtes enregistrées et fiches exportées</a> · <a href="docs/TRANSPORTS_ET_IMPACTS.md">Transports et impacts</a></p></section>
-<section><h2>Contrôles et limites</h2>
-<p>Les quatre nouveaux calculs passent les 62 familles d'invariants, soit <strong>3 867 173 contrôles physiques</strong>. L'oracle Excel rapproche 14 600 lignes quotidiennes et leurs semaines ; pour 268091, la première semaine vaut 13 300 UN.</p>
-<p>La vérification numérique couvre <strong>567 figures, 1 370 séries, 2 176 246 valeurs recalculées et 8 627 contrôles</strong>, sans écart dans ce périmètre. Elle ne certifie pas la calibration des hypothèses ni tous les textes et interactions.</p>
-<p><strong>1 035 tests principaux et 70 sous-tests</strong> ont réussi dans la suite générale. Après les derniers ajustements d'affichage et de vérification, <strong>156 tests ciblés et 3 sous-tests</strong> passent sur le code final. Ces ensembles se recouvrent et ne s'additionnent pas.</p>
-<p><a href="artifacts/testing/audit_corrections_20260920/verification-summary.json">Synthèse et empreintes de la livraison finale</a> · <a href="artifacts/testing/audit_corrections_20260920/replays/README.md">Preuves des replays</a> · <a href="artifacts/testing/audit_corrections_20260920/final-tests/README.md">Preuves des suites générales et complémentaires</a></p>
-<p>Les valorisations restent incomplètes : les montants connus ne justifient pas un classement économique. Les contrôles ne prouvent ni des prix industriels, ni une causalité générale des risques, ni une livraison à l'heure déduite du seul taux cumulé.</p></section></div>
-<section><h2>Lot signalé : distinguer les calculs</h2>
-<p>Dans le nouveau nominal, <strong>PBATCH-411EC755D7110AE0</strong> conserve 14 400 UN réparties en <strong>1 835 + 12 565</strong> ; la lecture datée correspondante est à <strong>J296</strong>.</p>
-<p>Dans l'ancien calcul <code>corrected_map_20260918</code>, les preuves conservées décrivent 53 événements causaux, 16 lots métier et <strong>3 473 + 10 927 = 14 400 UN</strong>. À la fin de J291, elles plaçaient 10 927 UN au dépôt et 3 473 UN en transport. Ces chiffres historiques ne décrivent pas le nouveau calcul.</p></section>
-<section><h2>Multi-agent opérationnel et historique</h2>
-<p><a href="docs/MULTI_AGENT_OPERATIONNEL.md">Profils Codex, skills et toolbox de preuves</a> : configuration native installée, contrôles locaux et contrats de délégation documentés.</p>
-<p><a href="docs/audit_20260920/README.md">Audit initial conservé</a> · <a href="simulation/result/_reruns/corrected_map_20260918/maps/supply_graph_corrected_map_20260918_enquetes_20260920.html">Carte historique examinée par l'audit</a> · <a href="simulation/result/_reruns/corrected_map_20260918/decision_support/index.html">Ancien diagnostic et sensibilités</a></p>
-<p><a href="docs/README.md">Documentation technique et métier</a> · <a href="docs/EXECUTION_VERIFICATION.md">Procédure de vérification</a>. Les résultats volumineux et certaines preuves restent locaux ; aucune signature historique n'a été réacceptée automatiquement.</p></section>
+<title>Etudecas — les résultats à conserver</title>
+<style>body{font:17px system-ui;color:#183247;background:#f4f7fa;max-width:960px;margin:40px auto;padding:0 24px}p{line-height:1.6}section{background:white;border:1px solid #cfdae3;border-radius:12px;padding:20px;margin:18px 0}a{color:#075985}small{color:#526675}h2{font-size:23px}</style>
+</head><body>
+<small>Sélection du 22 septembre 2026 · fichiers HTML consultables séparément</small>
+<h1>Les quatre résultats à conserver</h1>
+<p>Ces documents se trouvent dans <a href="resultats/">resultats</a>. Les dates ci-dessous désignent leurs résultats d'origine ; leur rassemblement ne relance aucune simulation.</p>
+<section><h2>1. Démonstration complète</h2>
+<p><a href="resultats/01_demonstration_complete.html">Ouvrir la démonstration avec contexte et audits fournisseurs</a></p>
+<p>Version du 15 septembre : neuf vues regroupant réseau, lots historiques, incidents, analyses et SCAN. Le document embarque ses données et ses pièces jointes.</p>
+<p><strong>Plusieurs calculs historiques sont réunis.</strong> Les horizons et campagnes Monte Carlo diffèrent selon la vue. Ce document ne représente pas le nominal corrigé du 20 septembre.</p></section>
+<section><h2>2. Carte récente et suivi des lots amélioré</h2>
+<p><a href="resultats/02_carte_lots_recente.html">Ouvrir la carte du 20 septembre et ses suivis de lots</a></p>
+<p>Simulation sur 1 825 jours, courbes, suivi détaillé et parcours interactif des lots. Le diagnostic et ses quatre pièces jointes sont embarqués pour conserver leur accès dans un fichier unique.</p>
+<p>Cette version ne contient pas de résultats Monte Carlo ni SCAN. Les données de la carte sont conservées ; seul l'accès au diagnostic a été rendu autonome.</p></section>
+<section><h2>3. Comparaison de plusieurs supply chains</h2>
+<p><a href="resultats/03_comparaison_supply_chains.html">Ouvrir « Configurations de service produit et leviers fournisseurs »</a></p>
+<p>Ébauche du 1er septembre : trois chaînes, configurations critiques à excellentes, jusqu'à 100 % de disponibilité fournisseur. Onglets fournisseur → client, configurations fragiles et décisions à tester.</p>
+<p>Les niveaux de service et certains indicateurs relèvent d'hypothèses simulées ou de proxies ; ce sont des explorations à interpréter avec leurs limites.</p></section>
+<section><h2>4. Fournisseurs critiques selon la configuration</h2>
+<p><a href="resultats/04_criticite_fournisseurs_configurations.html">Comparer les fournisseurs quand la supply chain se tend</a></p>
+<p>Résultats préliminaires du 4 septembre, remis en forme le 22 septembre : 18 liaisons fournisseur–article–usine, deux types d'incidents et trois configurations. Choisissez la configuration, la cause et l'indicateur ; cliquez sur une cellule pour voir le détail dans les trois états.</p>
+<p>Les services clients simulés avant incident sont de 100 %, 92,33 % et 79,47 %. Une seule graine commune a été utilisée ; les six incidents non exercés sont exclus des priorités. Ce résultat exploratoire n'est pas un classement statistiquement confirmé. Les données et leur provenance sont exportables depuis le HTML.</p>
+<p>Ces niveaux décrivent l'étude historique. Les essais du 22 septembre montrent qu'il faut requalifier les configurations avec le moteur corrigé avant de lancer une nouvelle comparaison.</p></section>
+<p><a href="docs/REGENERER_RESULTATS.md">Ce que l'on peut reconstruire et comment</a> · <a href="README.md">Code et organisation</a> · <a href="docs/PLAN_SIMPLIFICATION.md">Plan de simplification</a> · <a href="artifacts/testing/results_selection_20260922/selection.json">Origines des trois premiers fichiers</a> · <a href="artifacts/testing/rebuildability_20260922/supplier-independent-review.json">Vérification de la comparaison fournisseurs</a></p>
 </body></html>

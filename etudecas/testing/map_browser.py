@@ -90,12 +90,21 @@ def review_map(html: Path, output: Path) -> dict:
                 report["checks"].append(check)
             page.locator("#modeOps").click()
             slider = page.locator("#yearEnd")
-            original = slider.input_value()
+            minimum = float(slider.get_attribute("min") or "0")
+            maximum = float(slider.get_attribute("max") or "100")
             slider.focus()
             slider.press("Home")
             page.wait_for_function('document.querySelector(".js-plotly-plot") !== null')
-            report["checks"].append({"name": "timeline_control", "ok": slider.input_value() != original})
+            observed_minimum = float(slider.input_value())
             slider.press("End")
+            observed_maximum = float(slider.input_value())
+            report["checks"].append({
+                "name": "timeline_control",
+                "ok": observed_minimum == minimum and observed_maximum == maximum,
+                "minimum": minimum, "maximum": maximum,
+                "observed_minimum": observed_minimum, "observed_maximum": observed_maximum,
+                "scope": "Annual range endpoints; a single-year horizon has one position.",
+            })
             page.screenshot(path=str(output / "final-nominal.png"))
             decision_link = page.locator("#decisionSupportLink")
             if decision_link.count():

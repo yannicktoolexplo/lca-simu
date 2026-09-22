@@ -6,7 +6,7 @@ transport, puis construit une carte HTML pour explorer les résultats et les lot
 
 **Cette page est le point d'entrée pour comprendre et modifier le code.**
 La [documentation par sujet](docs/README.md) approfondit les fonctions métier.
-Les [résultats et cartes déjà produits](index.html) ont leur accueil séparé.
+Les [quatre HTML conservés](index.html) ont leur accueil séparé, dont la comparaison des fournisseurs selon la configuration de la supply chain. Les anciens résultats détaillés ont été retirés le 22 septembre ; le [guide de recalcul](docs/REGENERER_RESULTATS.md) distingue reconstruction des présentations et recalcul des simulations, avec leurs limites vérifiées.
 
 ## Où commencer selon ce que tu veux faire
 
@@ -69,7 +69,7 @@ ce poste, notamment les résultats, caches et anciennes données.
 | [testing/](testing/) | Outils de contrôle des CSV, cartes et parcours navigateur. Les anciennes commandes `journey_scenario_delivery.py` et `material_delivery.py` sont des relais ; leur implémentation est dans `visualization/maps/`. |
 | [toolbox/](toolbox/) | Commandes communes pour lancer les contrôles et rassembler leurs preuves. Le code métier reste dans ses modules. |
 | `artifacts/` | Journaux, captures et preuves locales produits par les contrôles. Certains scripts d'audit ponctuels y sont encore rangés. |
-| [archive/](archive/README.md) | Anciens résultats, cartes et fichiers conservés pour relire les travaux antérieurs. Vérifier les références avant tout retrait. |
+| Historique des résultats | Anciennes sorties retirées après conservation des trois HTML et des entrées de recalcul. Les sources versionnées restent accessibles dans Git. |
 | [affichage_supply_script/](affichage_supply_script/README.md), [supplier_risk_kpi/](supplier_risk_kpi/README.md) | Anciens points d'entrée conservés comme relais vers `visualization/maps/` et `risk/supplier_criticality/`. |
 | `donnees/` | Ancien emplacement remplacé par `data/source/` selon le manifeste ; un classeur subsiste localement. Son retrait demande une comparaison préalable. |
 | `__pycache__/` | Cache Python créé à l'exécution. |
@@ -111,7 +111,7 @@ politiques communes : état initial, feedback, mesures et empreintes des sources
 
 [launch_interactive_map.py](launch_interactive_map.py) **ouvre une carte existante
 et démarre une API locale**. Il ne construit pas le HTML ; son chemin par défaut
-vise une ancienne carte. Utiliser un chemin explicite pour cet usage, avec le
+vise la carte conservée sous `resultats/02_carte_lots_recente.html`. Utiliser un chemin explicite pour cet usage, avec le
 [contrat de l'API](docs/SIMULATION_INPUT_CONTRACT.md).
 
 Les JavaScript de lots sont encore assemblés dans une portée commune et
@@ -148,10 +148,11 @@ constitue un refactoring supplémentaire, au-delà de ces déplacements. La
 criticité a déjà été extraite du constructeur de carte ; les interfaces entre
 modules JavaScript restent à séparer progressivement.
 
-Les résultats de simulation, graphes d'entrée, archives et campagnes antérieures
-gardent leurs chemins. Ils constituent un rangement distinct : les déplacer
-demande de reprendre leurs manifestes et lecteurs. Les suffixes `v1`, `v2`,
-`pilot` ou le nom `archive` ne suffisent pas à décider qu'un fichier est inutilisé.
+Les anciens résultats de simulation ont été retirés le 22 septembre 2026.
+Les graphes d'entrée actifs sont conservés ; les commandes et contrôles de la
+référence récente sont sous `config/reproduction_20260920/`. Les anciens chemins
+ne sont plus maintenus par des jonctions. Les suffixes `v1`, `v2` ou `pilot`
+ne suffisent pas à décider qu'un programme est inutilisé : le tri du code est distinct.
 
 ## Documentation et résultats
 
