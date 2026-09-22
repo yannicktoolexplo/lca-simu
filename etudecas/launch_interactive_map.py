@@ -13,10 +13,7 @@ from urllib.request import urlopen
 import webbrowser
 
 
-DEFAULT_HTML = (
-    "etudecas/simulation/result/_codex_lot_trace_5y_risk_portfolio/maps/"
-    "supply_graph_lot_trace_5y_risk_portfolio.interactive_whatif.html"
-)
+DEFAULT_HTML = "etudecas/resultats/02_carte_lots_recente.html"
 
 
 def parse_args() -> argparse.Namespace:

@@ -1,0 +1,1827 @@
+{
+  "schema": "etudecas.historical_input_preservation.v1",
+  "status": "partial_exact_inputs_recovered_historical_recalculation_blocked",
+  "archive": "inputs_sources_01_03.zip",
+  "archive_sha256": "7ed9861890bac0562350e12c1fb30b45e75a96ba1e6a45764689ac7673c4db54",
+  "compressed_bytes": 709933,
+  "uncompressed_bytes": 5524809,
+  "files": [
+    {
+      "path": "common/graph.json",
+      "bytes": 241302,
+      "sha256": "bf9436132e53c1595de1feb8fb360c0f42cfca66f3c3bf18f49e24041ca425b5",
+      "source": "C:\\dev\\lca-simu\\etudecas\\simulation_prep\\result\\reference_baseline\\_mrp_bom_tests\\bom_weekly_mps_lotified_no_static_fallback_physical_floor.json",
+      "expected_sha256": "bf9436132e53c1595de1feb8fb360c0f42cfca66f3c3bf18f49e24041ca425b5",
+      "exact_expected_match": true
+    },
+    {
+      "path": "common/engine_profile.json",
+      "bytes": 4534,
+      "sha256": "d831542d9e8e7a987d601053ae0f5cb369680681bed7538a6c820f5657f529b0",
+      "source": "git:0cd6dd8e23d482080391ae69e4d146950923bc69",
+      "expected_sha256": "d831542d9e8e7a987d601053ae0f5cb369680681bed7538a6c820f5657f529b0",
+      "exact_expected_match": true
+    },
+    {
+      "path": "03/supplier_capacity_calibration.csv",
+      "bytes": 610,
+      "sha256": "d18c7a58f1d62f49a71f41b3b374a70ffcdec6114ce16c4719913a2f2487ded1",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_calibration_20260831_v10\\data\\supplier_capacity_calibration_measured_period.csv",
+      "expected_sha256": "d18c7a58f1d62f49a71f41b3b374a70ffcdec6114ce16c4719913a2f2487ded1",
+      "exact_expected_match": true
+    },
+    {
+      "path": "03/prepared_physical_supplier_floors.csv",
+      "bytes": 497,
+      "sha256": "9ae4a5089b28732da36019ef9c6e8fb629a051a0fb1635ab04ddc81d80825d0b",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\prepared_physical_supplier_floors.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/protocol.json",
+      "bytes": 161861,
+      "sha256": "fcf1c5bc5b9f3688d759d354441865177c30515f76f363bf93fd5f2eccd28e82",
+      "source": "historical campaign manifest; protocol only, no completed status or metric results",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/021081_sdc1450_268967__availability__l1_0p8.csv",
+      "bytes": 572,
+      "sha256": "4e5b534d5432144bf4a4651e95812c99ca0ea0c29c74c47e1fd11a09047cce31",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\021081_sdc1450_268967__availability__l1_0p8.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/021081_sdc1450_268967__availability__l2_0p5.csv",
+      "bytes": 554,
+      "sha256": "1ec1146be5636a1fe21cde48540f57b683ff1da12d78d9c604d05b3f731e4690",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\021081_sdc1450_268967__availability__l2_0p5.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/021081_sdc1450_268967__availability__l3_0p25.csv",
+      "bytes": 578,
+      "sha256": "89323c6abad8cf62bbee1283784448e96954547c2e7474830e59106c0950a39c",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\021081_sdc1450_268967__availability__l3_0p25.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/021081_sdc1450_268967__availability__l4_0p1.csv",
+      "bytes": 572,
+      "sha256": "60cef97d955c586ff7f89bae0e2b7d8f929749a7c72a262be2aab1f58f522ef8",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\021081_sdc1450_268967__availability__l4_0p1.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/021081_sdc1450_268967__availability__l5_0p05.csv",
+      "bytes": 575,
+      "sha256": "89c39c5925a31285a38dbfcdc766925627554d0ffc15e80532a13fa2e0fe5bde",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\021081_sdc1450_268967__availability__l5_0p05.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/021081_sdc1450_268967__availability__l6_0p01.csv",
+      "bytes": 575,
+      "sha256": "ecef1180e0e5a77322ca69bee4c8a199e011e9d6a82c4591fab44765791a6929",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\021081_sdc1450_268967__availability__l6_0p01.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/021081_sdc1450_268967__intermittent_delay__l1_30.csv",
+      "bytes": 3290,
+      "sha256": "eddded829c9e9d4f1913af297c3cf5e6c06cfa6d57a5e4987bd5d23e1a9aed5a",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\021081_sdc1450_268967__intermittent_delay__l1_30.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/021081_sdc1450_268967__intermittent_delay__l2_60.csv",
+      "bytes": 3302,
+      "sha256": "e41a673e36560ecd6a5b26b60a1e62afc9cceae8c0d24d6cbc4839db0a22b4f2",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\021081_sdc1450_268967__intermittent_delay__l2_60.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/021081_sdc1450_268967__intermittent_delay__l3_90.csv",
+      "bytes": 3302,
+      "sha256": "8a49e78bc74641be03db14c841f5250c89bc1b07b4beb185af5fc7c1bc978457",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\021081_sdc1450_268967__intermittent_delay__l3_90.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/021081_sdc1450_268967__intermittent_delay__l4_120.csv",
+      "bytes": 3326,
+      "sha256": "75cd27f5a5b9809f2a2c5b6a56d26fb1bab76bee810765b7f9f68bcad38326e8",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\021081_sdc1450_268967__intermittent_delay__l4_120.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/021081_sdc1450_268967__intermittent_delay__l5_150.csv",
+      "bytes": 3326,
+      "sha256": "cadbf6ddabc05235aed3e4ff10c3ca330d1849dd67e59ef4604d82c936b13c45",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\021081_sdc1450_268967__intermittent_delay__l5_150.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/021081_sdc1450_268967__intermittent_delay__l6_180.csv",
+      "bytes": 3326,
+      "sha256": "4fe940062bcb61b53f8bf914e84fc9a24e48b2862438b1664495290faad9b537",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\021081_sdc1450_268967__intermittent_delay__l6_180.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/021081_sdc1450_268967__lead_extra__l1_30.csv",
+      "bytes": 593,
+      "sha256": "e1f7c5c99d77bc0334ff018a6ea13f8162603d2964e3f12c7d11858040607377",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\021081_sdc1450_268967__lead_extra__l1_30.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/021081_sdc1450_268967__lead_extra__l2_60.csv",
+      "bytes": 575,
+      "sha256": "2cc7e29af2d3558a1fbed6c0ba3df1bddafaf7700e025a1574af5ae482be9ce8",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\021081_sdc1450_268967__lead_extra__l2_60.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/021081_sdc1450_268967__lead_extra__l3_90.csv",
+      "bytes": 593,
+      "sha256": "ab1a0c6a28297fd4c8ce30c568abf46157ba6a9c73512d5f5972e29b7cce09e9",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\021081_sdc1450_268967__lead_extra__l3_90.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/021081_sdc1450_268967__lead_extra__l4_120.csv",
+      "bytes": 599,
+      "sha256": "61350ef846e4b09fae046ee3dc8cdb70ce7d290e21940ce3f46dfbd86a5c9189",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\021081_sdc1450_268967__lead_extra__l4_120.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/021081_sdc1450_268967__lead_extra__l5_150.csv",
+      "bytes": 596,
+      "sha256": "aa5151827d4196b08373c2a2b3555dbd9fdac72658d9bc24f82d58d92bf87406",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\021081_sdc1450_268967__lead_extra__l5_150.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/021081_sdc1450_268967__lead_extra__l6_180.csv",
+      "bytes": 596,
+      "sha256": "a92d91ea03dc07d3403b10a35e22689743049590f7bd4a9d4fe9f0fdafc59399",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\021081_sdc1450_268967__lead_extra__l6_180.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/021081_sdc1450_268967__quality_delay__l1_30.csv",
+      "bytes": 590,
+      "sha256": "7d7c803fa3e8e5ed47da7a2f9fc182482494277e8b3dbfc1e7bb77590d1d97b6",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\021081_sdc1450_268967__quality_delay__l1_30.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/021081_sdc1450_268967__quality_delay__l2_60.csv",
+      "bytes": 572,
+      "sha256": "14ad10d4c0bf451fab5f75c4ed61fce7d2a8ef98008c644b38c28eea12ec4639",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\021081_sdc1450_268967__quality_delay__l2_60.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/021081_sdc1450_268967__quality_delay__l3_90.csv",
+      "bytes": 590,
+      "sha256": "a8cb2e3af901262ef838d86550189fc1368cb90104431ea5a6647aa5e3d1f062",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\021081_sdc1450_268967__quality_delay__l3_90.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/021081_sdc1450_268967__quality_delay__l4_120.csv",
+      "bytes": 596,
+      "sha256": "5eb101f1659dfd73c8859bad5f3e17ec16f66323dda4c19a16da8043ed796703",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\021081_sdc1450_268967__quality_delay__l4_120.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/021081_sdc1450_268967__quality_delay__l5_150.csv",
+      "bytes": 593,
+      "sha256": "97cd9e718c1fc0f253454250dc2e838a1c4c0abaa9bc1e45a67cae055ecb5712",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\021081_sdc1450_268967__quality_delay__l5_150.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/021081_sdc1450_268967__quality_delay__l6_180.csv",
+      "bytes": 593,
+      "sha256": "df2372b1fb7052cc85fdbab044b7251a7181d570bb7cdd23f76753d7ce6f6180",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\021081_sdc1450_268967__quality_delay__l6_180.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/021081_sdc1450_268967__quality_yield__l1_0p98.csv",
+      "bytes": 560,
+      "sha256": "4833bedbdcd7bde515d659a91bac7b3e467ad563b23657924d6da78bc998a049",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\021081_sdc1450_268967__quality_yield__l1_0p98.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/021081_sdc1450_268967__quality_yield__l2_0p9.csv",
+      "bytes": 536,
+      "sha256": "5b3dcecda4c2c26f6f1e938bae5005e4aed3984248c43a58411cf3c3cad24f02",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\021081_sdc1450_268967__quality_yield__l2_0p9.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/021081_sdc1450_268967__quality_yield__l3_0p75.csv",
+      "bytes": 560,
+      "sha256": "1d41b1a475b0384e0cf769030b0c9efabb858f6f724f95a33aa587fd44ef6418",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\021081_sdc1450_268967__quality_yield__l3_0p75.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/021081_sdc1450_268967__quality_yield__l4_0p5.csv",
+      "bytes": 554,
+      "sha256": "8da8e98506e0d33d725918bbac2cda4e7bbb6e7f9a8e3986e95b88520c058b17",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\021081_sdc1450_268967__quality_yield__l4_0p5.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/021081_sdc1450_268967__quality_yield__l5_0p25.csv",
+      "bytes": 557,
+      "sha256": "a0843c04493762ccc66634a3cab3369bb91e51d2bdc1c6aa2019ea00a333b2d7",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\021081_sdc1450_268967__quality_yield__l5_0p25.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/021081_sdc1450_268967__quality_yield__l6_0p1.csv",
+      "bytes": 551,
+      "sha256": "a584c6c661b06fe6e6f3c25b411e9c35bfdb8ff7179a702bc2232865c270cc1e",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\021081_sdc1450_268967__quality_yield__l6_0p1.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/021081_sdc1450_268967__reliability__l1_0p9.csv",
+      "bytes": 560,
+      "sha256": "e317ff75fe888868bf41f58dba9eb5fa62738956d1fb48ebf9c2761363187615",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\021081_sdc1450_268967__reliability__l1_0p9.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/021081_sdc1450_268967__reliability__l2_0p7.csv",
+      "bytes": 542,
+      "sha256": "ec16c22ed2815fa88bb59cc3ab7d02e8b96b4ba98e3c669b98ab9d098a21d35c",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\021081_sdc1450_268967__reliability__l2_0p7.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/021081_sdc1450_268967__reliability__l3_0p5.csv",
+      "bytes": 560,
+      "sha256": "32857ea10c1e161d1f2d329249bf075a9c9dfa9a91a1d39816a282faa0b371dd",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\021081_sdc1450_268967__reliability__l3_0p5.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/021081_sdc1450_268967__reliability__l4_0p3.csv",
+      "bytes": 560,
+      "sha256": "f05aa085f79570ef4c58d02bfdfb797b00a38e331b2baa807ed21463f0a3e21a",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\021081_sdc1450_268967__reliability__l4_0p3.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/021081_sdc1450_268967__reliability__l5_0p2.csv",
+      "bytes": 557,
+      "sha256": "1c144bb31aca6799dc4ddaba7e2d05a32c77b63c0518c73e7026788dd14f30ee",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\021081_sdc1450_268967__reliability__l5_0p2.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/021081_sdc1450_268967__reliability__l6_0p1.csv",
+      "bytes": 557,
+      "sha256": "1391e3821419661b0dc2301dec3298f48d97cd295b8a003cd66084028fe12f4d",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\021081_sdc1450_268967__reliability__l6_0p1.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/338929_m1810_268091__availability__l1_0p8.csv",
+      "bytes": 250,
+      "sha256": "919f8d8a0a6653de0dc31028d71a7a1c55b103caf2b668a574c0830610c09b3e",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\338929_m1810_268091__availability__l1_0p8.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/338929_m1810_268091__availability__l2_0p5.csv",
+      "bytes": 244,
+      "sha256": "0a41ad70823e047740d9ff3ea322cdde77db38952202eb00e620d01892816e04",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\338929_m1810_268091__availability__l2_0p5.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/338929_m1810_268091__availability__l3_0p25.csv",
+      "bytes": 252,
+      "sha256": "fb156856cf26da6a1c7ce284f85b57e84a130f10e8b3b72ad9685d10df393fe1",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\338929_m1810_268091__availability__l3_0p25.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/338929_m1810_268091__availability__l4_0p1.csv",
+      "bytes": 250,
+      "sha256": "bb90bac814c7d6655947d9db6ecf7b960470571c3a1ee9cf0a9740eb1522cf10",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\338929_m1810_268091__availability__l4_0p1.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/338929_m1810_268091__availability__l5_0p05.csv",
+      "bytes": 251,
+      "sha256": "bd51275349c38a0c75cbfe8f012b969a88e12a3f3631b7346333ed5686053df5",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\338929_m1810_268091__availability__l5_0p05.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/338929_m1810_268091__availability__l6_0p01.csv",
+      "bytes": 251,
+      "sha256": "86237185c595cc45accb542fcc98d515864646da4cfee35ca5ca247fe93f8a63",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\338929_m1810_268091__availability__l6_0p01.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/338929_m1810_268091__capacity__l1_0p2.csv",
+      "bytes": 237,
+      "sha256": "cbea29bafe3cb8f4ac7eeee03ce72426df48f2a0c0c8bd4de264992ee33f12df",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\338929_m1810_268091__capacity__l1_0p2.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/338929_m1810_268091__capacity__l2_0p1.csv",
+      "bytes": 231,
+      "sha256": "cf7c3bb654456cd68f9739d5fe74aa337903b2f40edcf41f708819c66dab7d5d",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\338929_m1810_268091__capacity__l2_0p1.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/338929_m1810_268091__capacity__l3_0p08.csv",
+      "bytes": 239,
+      "sha256": "ebe20a9d8409e9f5ed9e58922c8cc8dfbce7e92bcb7abb876fd2bccf2e7e5122",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\338929_m1810_268091__capacity__l3_0p08.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/338929_m1810_268091__capacity__l4_0p07.csv",
+      "bytes": 239,
+      "sha256": "9f50aefc8e8d5ed93f985f19e7bb9a570f89379816e4052d2e8e85300eb321a6",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\338929_m1810_268091__capacity__l4_0p07.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/338929_m1810_268091__capacity__l5_0p06.csv",
+      "bytes": 238,
+      "sha256": "225be51653f5f36bede2f19a61f9edb5153c2a1b671e7ee5e45a1cec24914c21",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\338929_m1810_268091__capacity__l5_0p06.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/338929_m1810_268091__capacity__l6_0p05.csv",
+      "bytes": 238,
+      "sha256": "73d48e6a9e840d97aadcc0c0d3a15fc42d0bcd8ed5f8cac53886451824a7daec",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\338929_m1810_268091__capacity__l6_0p05.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/338929_m1810_268091__intermittent_delay__l1_30.csv",
+      "bytes": 1144,
+      "sha256": "c82f5940ef7fee11033e2bb06db58e629f30a882d6b80945f3b168ee983a5b19",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\338929_m1810_268091__intermittent_delay__l1_30.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/338929_m1810_268091__intermittent_delay__l2_60.csv",
+      "bytes": 1148,
+      "sha256": "ef15da7ce416cb7d9d0ed71bc7f9776063b93e309cb0ca3a42c799a4c0b9a753",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\338929_m1810_268091__intermittent_delay__l2_60.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/338929_m1810_268091__intermittent_delay__l3_90.csv",
+      "bytes": 1148,
+      "sha256": "ef6ef4e75a9712d2269bb458a00f1bbda75957c16f42e74e23ea1225f97f3240",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\338929_m1810_268091__intermittent_delay__l3_90.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/338929_m1810_268091__intermittent_delay__l4_120.csv",
+      "bytes": 1156,
+      "sha256": "2a1114b3f53829ff1b15b645162e9ba7ff9cded93552f14c3a178d20aaf39845",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\338929_m1810_268091__intermittent_delay__l4_120.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/338929_m1810_268091__intermittent_delay__l5_150.csv",
+      "bytes": 1156,
+      "sha256": "2758c00d530f9616a05d1fbde8788bd81d027bffce06c899e31389a7e592da39",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\338929_m1810_268091__intermittent_delay__l5_150.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/338929_m1810_268091__intermittent_delay__l6_180.csv",
+      "bytes": 1156,
+      "sha256": "3d9396ae33de6397b0aa0b7f7e71d96dd6dfdc60d6de4548c55539e13bf797ba",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\338929_m1810_268091__intermittent_delay__l6_180.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/338929_m1810_268091__lead_extra__l1_30.csv",
+      "bytes": 257,
+      "sha256": "b9da7b25bcf59b5d1b89d2c221e5600a44ad28b8249ef08432fc9b243de6f750",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\338929_m1810_268091__lead_extra__l1_30.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/338929_m1810_268091__lead_extra__l2_60.csv",
+      "bytes": 251,
+      "sha256": "a7ce1cad3a4382eabf989c09e6a075d668fd99535124f499d47013567270ebb6",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\338929_m1810_268091__lead_extra__l2_60.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/338929_m1810_268091__lead_extra__l3_90.csv",
+      "bytes": 257,
+      "sha256": "47bb2e67267f9f32230a5c0a2196ee400c4105b1564fab6dc8d5917486609c8f",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\338929_m1810_268091__lead_extra__l3_90.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/338929_m1810_268091__lead_extra__l4_120.csv",
+      "bytes": 259,
+      "sha256": "02409a50f1287290fabeddd779421c3454e0df8c39ae0d62102ef60521c73459",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\338929_m1810_268091__lead_extra__l4_120.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/338929_m1810_268091__lead_extra__l5_150.csv",
+      "bytes": 258,
+      "sha256": "f05615c85b53eec5922eda8b2ee96c9f4c000ef4f72fdba64747cb8078694b1a",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\338929_m1810_268091__lead_extra__l5_150.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/338929_m1810_268091__lead_extra__l6_180.csv",
+      "bytes": 258,
+      "sha256": "09915b94e6938e7444217b067d8f3f9668e08eba98e2d8e08309f0202f1fad9b",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\338929_m1810_268091__lead_extra__l6_180.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/338929_m1810_268091__quality_delay__l1_30.csv",
+      "bytes": 256,
+      "sha256": "2d1bf8493ab56d527dae5b08631e065ac903c96d5e9f91bcd480ba29a23a3d59",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\338929_m1810_268091__quality_delay__l1_30.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/338929_m1810_268091__quality_delay__l2_60.csv",
+      "bytes": 250,
+      "sha256": "15be439919b93e83840819e6f82f1403831aeb73ef89597e19dcb3711d3f2514",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\338929_m1810_268091__quality_delay__l2_60.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/338929_m1810_268091__quality_delay__l3_90.csv",
+      "bytes": 256,
+      "sha256": "2623493c6d147d92d523e850799714db4154a562f78db49ba1c955614e82ad67",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\338929_m1810_268091__quality_delay__l3_90.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/338929_m1810_268091__quality_delay__l4_120.csv",
+      "bytes": 258,
+      "sha256": "87f8137d2d7be95bcbdd9d1782825991f1dc643b28f92c8fd35fffd4f41dc745",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\338929_m1810_268091__quality_delay__l4_120.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/338929_m1810_268091__quality_delay__l5_150.csv",
+      "bytes": 257,
+      "sha256": "d0b16cf9093128fcb101a19ba781aaf7aa4a7b65b2c2005b2b32c39af6edd163",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\338929_m1810_268091__quality_delay__l5_150.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/338929_m1810_268091__quality_delay__l6_180.csv",
+      "bytes": 257,
+      "sha256": "1b8f540ad4d7dc8d1d334e5a056cfc50dd6513b40be6aab2ecbb18d419036645",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\338929_m1810_268091__quality_delay__l6_180.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/338929_m1810_268091__quality_yield__l1_0p98.csv",
+      "bytes": 246,
+      "sha256": "f9b54c77beb9700869fad33e49715eb7228ca18c7f74c633d2989623aae39ea1",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\338929_m1810_268091__quality_yield__l1_0p98.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/338929_m1810_268091__quality_yield__l2_0p9.csv",
+      "bytes": 238,
+      "sha256": "404eb28ee84984517b6a4a689cb6b9b6fccf31d89f51c416c203e19a877b962c",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\338929_m1810_268091__quality_yield__l2_0p9.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/338929_m1810_268091__quality_yield__l3_0p75.csv",
+      "bytes": 246,
+      "sha256": "2a5c13f97bda144b7076ced9fa218ed43bbf5f022c5fc4e49af4208e9320e560",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\338929_m1810_268091__quality_yield__l3_0p75.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/338929_m1810_268091__quality_yield__l4_0p5.csv",
+      "bytes": 244,
+      "sha256": "327e5c3b708fa7ae6b0e7b127ce2eb276024961bcb2d705827d88cb06687cb1c",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\338929_m1810_268091__quality_yield__l4_0p5.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/338929_m1810_268091__quality_yield__l5_0p25.csv",
+      "bytes": 245,
+      "sha256": "93d5b7d76b2b8a7fcb63d87b58912336a4c6768be21b22f6a8436eb597546da3",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\338929_m1810_268091__quality_yield__l5_0p25.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/338929_m1810_268091__quality_yield__l6_0p1.csv",
+      "bytes": 243,
+      "sha256": "b920dc892aaae913da9ca0f5ba4f63945959aa20410fc9014ce720a6226018f3",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\338929_m1810_268091__quality_yield__l6_0p1.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/338929_m1810_268091__reliability__l1_0p9.csv",
+      "bytes": 246,
+      "sha256": "de8340dd154fde1b818761f7c850f5abdb6679a965915ff4ae407352735028aa",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\338929_m1810_268091__reliability__l1_0p9.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/338929_m1810_268091__reliability__l2_0p7.csv",
+      "bytes": 240,
+      "sha256": "8df49607d2dbb4b3feadbe69f04783df3db1e60412bebc751a9f6d4bd2a494ac",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\338929_m1810_268091__reliability__l2_0p7.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/338929_m1810_268091__reliability__l3_0p5.csv",
+      "bytes": 246,
+      "sha256": "f0d5e2f2291ac0584d6318d0272e9f7749e3b26fdfb7dadf595ad44a75a77b41",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\338929_m1810_268091__reliability__l3_0p5.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/338929_m1810_268091__reliability__l4_0p3.csv",
+      "bytes": 246,
+      "sha256": "6c8bf215107b0b9de785dc28bf9fef65720d44032a6d896c1100d50846a41dbc",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\338929_m1810_268091__reliability__l4_0p3.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/338929_m1810_268091__reliability__l5_0p2.csv",
+      "bytes": 245,
+      "sha256": "1deff1248faaf2db3903669f38792d5887b4ad061b5b8c4f19422fc4ca14be58",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\338929_m1810_268091__reliability__l5_0p2.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/338929_m1810_268091__reliability__l6_0p1.csv",
+      "bytes": 245,
+      "sha256": "943f0d0313efea4cef0dcb066640f210ba34a21d5da0ee672d26326b422564f6",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\338929_m1810_268091__reliability__l6_0p1.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/344135_m1430_268967__availability__l1_0p8.csv",
+      "bytes": 250,
+      "sha256": "3ab4dd7adf046778dce24e1a24e12de433e908d0e6ef8af4e5461eb421a95ec2",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\344135_m1430_268967__availability__l1_0p8.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/344135_m1430_268967__availability__l2_0p5.csv",
+      "bytes": 244,
+      "sha256": "228126a99a98bd48fcc3476172e7c8603c3c7e3d290972c8207cbcfc88f4c676",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\344135_m1430_268967__availability__l2_0p5.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/344135_m1430_268967__availability__l3_0p25.csv",
+      "bytes": 252,
+      "sha256": "217b2fc7a0e0e9b3f85a94784f9d1430bd9fb5301e37a6b035b0b4a7d81f5c73",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\344135_m1430_268967__availability__l3_0p25.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/344135_m1430_268967__availability__l4_0p1.csv",
+      "bytes": 250,
+      "sha256": "003792af672d392522ecfd6753d10228b111dd9564db7212510d1a342dc0cf72",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\344135_m1430_268967__availability__l4_0p1.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/344135_m1430_268967__availability__l5_0p05.csv",
+      "bytes": 251,
+      "sha256": "b64f1baa6c6265fab042f5285feebdfc6fee67a41813736e4e05fb14b3a63150",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\344135_m1430_268967__availability__l5_0p05.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/344135_m1430_268967__availability__l6_0p01.csv",
+      "bytes": 251,
+      "sha256": "8cb3b604fc9c9d074008e46631c90700ea6f94f11e2a9fd2ea7267d3ab0be415",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\344135_m1430_268967__availability__l6_0p01.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/344135_m1430_268967__capacity__l1_0p1.csv",
+      "bytes": 237,
+      "sha256": "3f4991e340c4e2eeb69e391549b3b1dd7ac2cc3ddae011d92b7c3c3dce7d5a84",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\344135_m1430_268967__capacity__l1_0p1.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/344135_m1430_268967__capacity__l2_0p05.csv",
+      "bytes": 233,
+      "sha256": "c38082e1baae91cdb4ae2699081559989160383d9ad3881442d81945ed6230c8",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\344135_m1430_268967__capacity__l2_0p05.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/344135_m1430_268967__capacity__l3_0p025.csv",
+      "bytes": 241,
+      "sha256": "54edcc56cbd83c8c0fdf35d8625b2c54832bf441081c214ae9547988e1ee9f29",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\344135_m1430_268967__capacity__l3_0p025.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/344135_m1430_268967__capacity__l4_0p015.csv",
+      "bytes": 241,
+      "sha256": "c8987fd19ccc3cb549923af55bbca058641aa55dc77086f5f8c4924558d6aed7",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\344135_m1430_268967__capacity__l4_0p015.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/344135_m1430_268967__capacity__l5_0p01.csv",
+      "bytes": 238,
+      "sha256": "9a6a9cafd87f1d6ca1daf4864ef46acacaaff7b172011f465f9ab8676da69731",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\344135_m1430_268967__capacity__l5_0p01.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/344135_m1430_268967__capacity__l6_0p005.csv",
+      "bytes": 240,
+      "sha256": "2b92a6cdfe2c704d4ba419919b18f6f8c872e67674aed56a1266f49b33c2ae41",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\344135_m1430_268967__capacity__l6_0p005.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/344135_m1430_268967__intermittent_delay__l1_30.csv",
+      "bytes": 1144,
+      "sha256": "b4f29d49441a7b2009f2b8600180ccb27fd59fc9f98068cee388266c010a1b0e",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\344135_m1430_268967__intermittent_delay__l1_30.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/344135_m1430_268967__intermittent_delay__l2_60.csv",
+      "bytes": 1148,
+      "sha256": "e8b37fe5477ed768f1075ec95daf13ea0280c03c6fd3488de759c7d3c1a7b1d9",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\344135_m1430_268967__intermittent_delay__l2_60.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/344135_m1430_268967__intermittent_delay__l3_90.csv",
+      "bytes": 1148,
+      "sha256": "ea574758e7e220adcbb68d919500862033830eb940699c7becf32b9ab2931540",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\344135_m1430_268967__intermittent_delay__l3_90.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/344135_m1430_268967__intermittent_delay__l4_120.csv",
+      "bytes": 1156,
+      "sha256": "d8a4929a9f8689808c0782278f6a8069e518574d6a1def500d74f4cb5cf8e86a",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\344135_m1430_268967__intermittent_delay__l4_120.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/344135_m1430_268967__intermittent_delay__l5_150.csv",
+      "bytes": 1156,
+      "sha256": "6c9433e1521845d16a56c87c45038c60523079c298fedf9813487a44fc2521f3",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\344135_m1430_268967__intermittent_delay__l5_150.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/344135_m1430_268967__intermittent_delay__l6_180.csv",
+      "bytes": 1156,
+      "sha256": "28a498e161f3d9a375a01d451700aae9af6e480ec1abcf2de5ad454f1e1e1f8c",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\344135_m1430_268967__intermittent_delay__l6_180.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/344135_m1430_268967__lead_extra__l1_30.csv",
+      "bytes": 257,
+      "sha256": "2ed56f5647cc1d72233b1cbae93685cfdff64987400e0608fe9ee096815c6921",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\344135_m1430_268967__lead_extra__l1_30.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/344135_m1430_268967__lead_extra__l2_60.csv",
+      "bytes": 251,
+      "sha256": "99aca01714a23eba4fce3be544a1c56696f2862c8f5ae86c5ff047b0a5b660d7",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\344135_m1430_268967__lead_extra__l2_60.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/344135_m1430_268967__lead_extra__l3_90.csv",
+      "bytes": 257,
+      "sha256": "abf14f2fe0afb58c87dfbe2ef8b8f060c9f9011167bd4ff02a69f668a76aa18f",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\344135_m1430_268967__lead_extra__l3_90.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/344135_m1430_268967__lead_extra__l4_120.csv",
+      "bytes": 259,
+      "sha256": "5fba373578118ecb35fb95a0e5f1bc1f6689d03d7bc4518c58bbfb304cd6aa39",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\344135_m1430_268967__lead_extra__l4_120.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/344135_m1430_268967__lead_extra__l5_150.csv",
+      "bytes": 258,
+      "sha256": "8b04c2e79813ce1d37d0563e4df737d3054acda530f2ec7fda0dcd635a6704cb",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\344135_m1430_268967__lead_extra__l5_150.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/344135_m1430_268967__lead_extra__l6_180.csv",
+      "bytes": 258,
+      "sha256": "25502e5b02822dc4848f757ae5c66e288f8f7bc03248f3d8851496a7263c17e6",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\344135_m1430_268967__lead_extra__l6_180.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/344135_m1430_268967__quality_delay__l1_30.csv",
+      "bytes": 256,
+      "sha256": "0720af5ba65d855a9fbf4b5339f22f6f3d584268cd6224eaae6f70587f63a795",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\344135_m1430_268967__quality_delay__l1_30.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/344135_m1430_268967__quality_delay__l2_60.csv",
+      "bytes": 250,
+      "sha256": "311db6a6a49c3e03c5a6ef0453b9f5e33ac72d26473bbd77002f1093963519d7",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\344135_m1430_268967__quality_delay__l2_60.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/344135_m1430_268967__quality_delay__l3_90.csv",
+      "bytes": 256,
+      "sha256": "48db6d95381343189f629cec6db5565837c56d6936e3869522182b2fa99d63b5",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\344135_m1430_268967__quality_delay__l3_90.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/344135_m1430_268967__quality_delay__l4_120.csv",
+      "bytes": 258,
+      "sha256": "19cf980ff1af8edd467c69e0312d6d8747755cbf14ecacc2934b80987339325c",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\344135_m1430_268967__quality_delay__l4_120.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/344135_m1430_268967__quality_delay__l5_150.csv",
+      "bytes": 257,
+      "sha256": "9b7365364852fd6198e3fc7a8109aea5c6f91542b4a3c236999bf19594af9efb",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\344135_m1430_268967__quality_delay__l5_150.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/344135_m1430_268967__quality_delay__l6_180.csv",
+      "bytes": 257,
+      "sha256": "eed763818861c368d0f50b2d9006a50f5c4d3802237ea272edb1a142ba9156df",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\344135_m1430_268967__quality_delay__l6_180.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/344135_m1430_268967__quality_yield__l1_0p98.csv",
+      "bytes": 246,
+      "sha256": "94e0b60a96720dcc435c2afbb3b2669e38443d2ae46f0e2c7b4efae03fa98b42",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\344135_m1430_268967__quality_yield__l1_0p98.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/344135_m1430_268967__quality_yield__l2_0p9.csv",
+      "bytes": 238,
+      "sha256": "a25d4c8caf7ff86dbd52ff08096fffa68bcb5034ab046e37cbc5df01cbbe225b",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\344135_m1430_268967__quality_yield__l2_0p9.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/344135_m1430_268967__quality_yield__l3_0p75.csv",
+      "bytes": 246,
+      "sha256": "96e8c010a2f16655ea76dae2e2ed61181c88a95abea2b5090601576ec3c20b27",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\344135_m1430_268967__quality_yield__l3_0p75.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/344135_m1430_268967__quality_yield__l4_0p5.csv",
+      "bytes": 244,
+      "sha256": "ecc8f8c1394ecebabacd787b946d915a701495a880278fe9d8bddc4102547972",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\344135_m1430_268967__quality_yield__l4_0p5.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/344135_m1430_268967__quality_yield__l5_0p25.csv",
+      "bytes": 245,
+      "sha256": "d5e521173c50ce313f5801090b13c42374d4408c343fded45469b0baef2ae2ab",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\344135_m1430_268967__quality_yield__l5_0p25.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/344135_m1430_268967__quality_yield__l6_0p1.csv",
+      "bytes": 243,
+      "sha256": "05f9bd5ebe12ebe3271811e97d40a2b59f6e0dc3907ba0b1fba6b78f0ce1db0a",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\344135_m1430_268967__quality_yield__l6_0p1.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/344135_m1430_268967__reliability__l1_0p9.csv",
+      "bytes": 246,
+      "sha256": "69ea95bd7f6619a9ceca5d7b237a2d0810c5d025eea85e8f63eefc9f31cae800",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\344135_m1430_268967__reliability__l1_0p9.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/344135_m1430_268967__reliability__l2_0p7.csv",
+      "bytes": 240,
+      "sha256": "14c345abbcb8a68a34f749858591bd9828354a685b012b47974d9be140d9540b",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\344135_m1430_268967__reliability__l2_0p7.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/344135_m1430_268967__reliability__l3_0p5.csv",
+      "bytes": 246,
+      "sha256": "35b3ecb3b4001d31c4722efabe5adc503b83d2b92da0dbc1ceff916b8b4baa23",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\344135_m1430_268967__reliability__l3_0p5.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/344135_m1430_268967__reliability__l4_0p3.csv",
+      "bytes": 246,
+      "sha256": "bebcc78d5b75ed182e1c7535bf368133d6ef9178cd7cf8df228daa3d330957c1",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\344135_m1430_268967__reliability__l4_0p3.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/344135_m1430_268967__reliability__l5_0p2.csv",
+      "bytes": 245,
+      "sha256": "29705090fecf6144f2878fce5234ae7345141027200539f02a5447a0f303d0a5",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\344135_m1430_268967__reliability__l5_0p2.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "03/risk_events/344135_m1430_268967__reliability__l6_0p1.csv",
+      "bytes": 245,
+      "sha256": "e875caccac08abe3618f21f3b9bb8cad679f6130ed97d06cb5579d3aa10c368a",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\supplier_service_landscape_20260831_v4\\inputs\\risk_events\\344135_m1430_268967__reliability__l6_0p1.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "01/cascades/config.json",
+      "bytes": 37809,
+      "sha256": "a3ff0b7208f803e9dedcb2a028a401db93d564d98124ef9d93c6c9d51a89ddf9",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\industrial_cascade_campaign_10seeds_20260828_v1\\canonical_cascade_config_snapshot.json",
+      "expected_sha256": "a3ff0b7208f803e9dedcb2a028a401db93d564d98124ef9d93c6c9d51a89ddf9",
+      "exact_expected_match": true
+    },
+    {
+      "path": "01/cascades/commands.original.json",
+      "bytes": 1409955,
+      "sha256": "f2566440bc45c9ebd94615417be2ebbb9895252c0297d61955d86b2a09c1ecea",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\industrial_cascade_campaign_10seeds_20260828_v1\\canonical_cascade_commands.json",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "01/cascades/protocol.json",
+      "bytes": 5700,
+      "sha256": "5bee82733f00e4959781baaa4155cfe59fac8ac30934ad797ef3fbaf3ef412c8",
+      "source": "historical cascade manifest; protocol fields only",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "01/cascades/prepared_inputs/lead_time_delay_338929_to_268091/incident_combined_response_control_schedule.csv",
+      "bytes": 24441,
+      "sha256": "662789eed2bc840cfa2de86c70bf9997e5c28412239c349df5863414d775cf23",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\industrial_cascade_campaign_10seeds_20260828_v1\\prepared_inputs\\lead_time_delay_338929_to_268091\\incident_combined_response_control_schedule.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "01/cascades/prepared_inputs/lead_time_delay_338929_to_268091/incident_emergency_purchase_control_schedule.csv",
+      "bytes": 9321,
+      "sha256": "51939708129e574f4739c34fa2eb09566d9e415ccf82b306cd8be6f80fa6a7bd",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\industrial_cascade_campaign_10seeds_20260828_v1\\prepared_inputs\\lead_time_delay_338929_to_268091\\incident_emergency_purchase_control_schedule.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "01/cascades/prepared_inputs/lead_time_delay_338929_to_268091/incident_expedited_transport_control_schedule.csv",
+      "bytes": 7521,
+      "sha256": "9c7821d956036c7f7b14435e8e8f8945e96e660a4ef74c4df370a8eff64de55b",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\industrial_cascade_campaign_10seeds_20260828_v1\\prepared_inputs\\lead_time_delay_338929_to_268091\\incident_expedited_transport_control_schedule.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "01/cascades/prepared_inputs/lead_time_delay_338929_to_268091/incident_replanning_control_schedule.csv",
+      "bytes": 9221,
+      "sha256": "089a9c7d955911497a464f5d452f02b0823914c15cb1781a22ca5cc7a0857dcc",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\industrial_cascade_campaign_10seeds_20260828_v1\\prepared_inputs\\lead_time_delay_338929_to_268091\\incident_replanning_control_schedule.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "01/cascades/prepared_inputs/lead_time_delay_338929_to_268091/incident_second_supplier_proxy_control_schedule.csv",
+      "bytes": 9621,
+      "sha256": "b8690302a2ce29749ca5d794249fab228453bf81d01f724e1bbea5729d363319",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\industrial_cascade_campaign_10seeds_20260828_v1\\prepared_inputs\\lead_time_delay_338929_to_268091\\incident_second_supplier_proxy_control_schedule.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "01/cascades/prepared_inputs/lead_time_delay_338929_to_268091/incident_supplier_priority_control_schedule.csv",
+      "bytes": 7021,
+      "sha256": "dc1c62ba749f3a9840f8a78179b6fb960409d414dbd43b2d63e2960f66ada5ed",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\industrial_cascade_campaign_10seeds_20260828_v1\\prepared_inputs\\lead_time_delay_338929_to_268091\\incident_supplier_priority_control_schedule.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "01/cascades/prepared_inputs/lead_time_delay_338929_to_268091/incident_targeted_stock_control_schedule.csv",
+      "bytes": 8441,
+      "sha256": "eea5c1b1d5e7675a7125dc87048e33e512c80e6d4baca94b0b4ef602ca4b6fd6",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\industrial_cascade_campaign_10seeds_20260828_v1\\prepared_inputs\\lead_time_delay_338929_to_268091\\incident_targeted_stock_control_schedule.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "01/cascades/prepared_inputs/lead_time_delay_338929_to_268091/paired_state/measurement_start_in_transit_scale.csv",
+      "bytes": 69,
+      "sha256": "7bdd54b16010b6df5a748c2675a31fc3d60d417664f4e4a3962351cbffd669d2",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\industrial_cascade_campaign_10seeds_20260828_v1\\prepared_inputs\\lead_time_delay_338929_to_268091\\paired_state\\measurement_start_in_transit_scale.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "01/cascades/prepared_inputs/lead_time_delay_338929_to_268091/paired_state/measurement_start_stock_scale.csv",
+      "bytes": 69,
+      "sha256": "7bdd54b16010b6df5a748c2675a31fc3d60d417664f4e4a3962351cbffd669d2",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\industrial_cascade_campaign_10seeds_20260828_v1\\prepared_inputs\\lead_time_delay_338929_to_268091\\paired_state\\measurement_start_stock_scale.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "01/cascades/prepared_inputs/lead_time_delay_338929_to_268091/paired_state/opening_observed_stock_scale.csv",
+      "bytes": 47,
+      "sha256": "7fbc1c0711aa755a63627f31192c4fa2a31c8d3102d698e9d99ca295c10833b6",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\industrial_cascade_campaign_10seeds_20260828_v1\\prepared_inputs\\lead_time_delay_338929_to_268091\\paired_state\\opening_observed_stock_scale.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "01/cascades/prepared_inputs/lead_time_delay_338929_to_268091/supplier_risk_events.csv",
+      "bytes": 596,
+      "sha256": "ad8f8b454a3b8eca40dcd74010c4754fb5818aa7cb530bd78f0b442c2642409e",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\industrial_cascade_campaign_10seeds_20260828_v1\\prepared_inputs\\lead_time_delay_338929_to_268091\\supplier_risk_events.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "01/cascades/prepared_inputs/quality_quarantine_021081_to_268967/incident_combined_response_control_schedule.csv",
+      "bytes": 126732,
+      "sha256": "09a297ea5af22b30f7c9916f01458ef1348dd91f7fa5947c6bdc5628c53baa1a",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\industrial_cascade_campaign_10seeds_20260828_v1\\prepared_inputs\\quality_quarantine_021081_to_268967\\incident_combined_response_control_schedule.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "01/cascades/prepared_inputs/quality_quarantine_021081_to_268967/incident_emergency_purchase_control_schedule.csv",
+      "bytes": 19128,
+      "sha256": "c3c4c4f7b5f8b9952392cd61a9f0165c3117580bb8f464f5cd4e651270fe3e5b",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\industrial_cascade_campaign_10seeds_20260828_v1\\prepared_inputs\\quality_quarantine_021081_to_268967\\incident_emergency_purchase_control_schedule.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "01/cascades/prepared_inputs/quality_quarantine_021081_to_268967/incident_expedited_transport_control_schedule.csv",
+      "bytes": 46416,
+      "sha256": "e6cd6517c155b81c99444933335bb094b467883e513b583a1b3d48b0d5cb42e7",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\industrial_cascade_campaign_10seeds_20260828_v1\\prepared_inputs\\quality_quarantine_021081_to_268967\\incident_expedited_transport_control_schedule.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "01/cascades/prepared_inputs/quality_quarantine_021081_to_268967/incident_replanning_control_schedule.csv",
+      "bytes": 49801,
+      "sha256": "a8d79a8b23672a5d4a683e79f8bfc752e4ef1a1554704ff81b112875f6439724",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\industrial_cascade_campaign_10seeds_20260828_v1\\prepared_inputs\\quality_quarantine_021081_to_268967\\incident_replanning_control_schedule.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "01/cascades/prepared_inputs/quality_quarantine_021081_to_268967/incident_second_supplier_control_schedule.csv",
+      "bytes": 56867,
+      "sha256": "7497266aaf6997a11b30ad018725034861abc081574c52fdd54d8082be0b1c1d",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\industrial_cascade_campaign_10seeds_20260828_v1\\prepared_inputs\\quality_quarantine_021081_to_268967\\incident_second_supplier_control_schedule.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "01/cascades/prepared_inputs/quality_quarantine_021081_to_268967/incident_supplier_priority_control_schedule.csv",
+      "bytes": 58515,
+      "sha256": "7bf1e513f0bcef9d38ef25042f3bf570200279f94a919d3cc3f1292ba03baaae",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\industrial_cascade_campaign_10seeds_20260828_v1\\prepared_inputs\\quality_quarantine_021081_to_268967\\incident_supplier_priority_control_schedule.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "01/cascades/prepared_inputs/quality_quarantine_021081_to_268967/incident_targeted_stock_control_schedule.csv",
+      "bytes": 19615,
+      "sha256": "b09abb0237dbc8e95c5ff7c2244084a1b8f8dca9a25ce38b0790977a69247232",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\industrial_cascade_campaign_10seeds_20260828_v1\\prepared_inputs\\quality_quarantine_021081_to_268967\\incident_targeted_stock_control_schedule.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "01/cascades/prepared_inputs/quality_quarantine_021081_to_268967/paired_state/measurement_start_stock_scale.csv",
+      "bytes": 46,
+      "sha256": "9e4bf03cd439d72d9cd6df5099b0350a496caa1635b75b7c324038135000fec3",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\industrial_cascade_campaign_10seeds_20260828_v1\\prepared_inputs\\quality_quarantine_021081_to_268967\\paired_state\\measurement_start_stock_scale.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "01/cascades/prepared_inputs/quality_quarantine_021081_to_268967/paired_state/opening_observed_stock_scale.csv",
+      "bytes": 96,
+      "sha256": "1461c4e91f9582184f294cc055cb9712cbada74c5dd8d03308936ad6ac77ea12",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\industrial_cascade_campaign_10seeds_20260828_v1\\prepared_inputs\\quality_quarantine_021081_to_268967\\paired_state\\opening_observed_stock_scale.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "01/cascades/prepared_inputs/quality_quarantine_021081_to_268967/supplier_risk_events.csv",
+      "bytes": 1209,
+      "sha256": "772dd487607b3b0d0321795f7670230fa02c76d8899c5f2d5506d59135da57b7",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\industrial_cascade_campaign_10seeds_20260828_v1\\prepared_inputs\\quality_quarantine_021081_to_268967\\supplier_risk_events.csv",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "01/paired/commands.original.json",
+      "bytes": 11670,
+      "sha256": "115d04f56ae41a962841116c8a9d2fd0c2208afb71a2a24df0df6cd4b231d8ba",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\paired_mrp_vs_v3_all_nodes_full_20260828_v2\\canonical_closed_loop_commands.json",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "01/paired/protocol.json",
+      "bytes": 6617,
+      "sha256": "f727a12de6158169f6f42dd03f8bbfe5ea0f200c664efb9efeff45515a61d376",
+      "source": "historical paired manifest; protocol fields only",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "01/frequency/source_snapshot/etudecas/prototypes/scan_2027_risk_control/__init__.py",
+      "bytes": 920,
+      "sha256": "66f4846d730380dfb7eccc03a2598216aaadf45adf59f9ea00b75a68b02e7d9f",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\canonical_frequency_v3_closed_loop_actuator_pilot_20260827_run5\\provenance\\source_snapshot\\etudecas\\prototypes\\scan_2027_risk_control\\__init__.py",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "01/frequency/source_snapshot/etudecas/prototypes/scan_2027_risk_control/calibration.py",
+      "bytes": 70530,
+      "sha256": "7358373a2019ca331fd204b38dbadace47b1b4c98fe85c9b0bb7dd62339a8ca3",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\canonical_frequency_v3_closed_loop_actuator_pilot_20260827_run5\\provenance\\source_snapshot\\etudecas\\prototypes\\scan_2027_risk_control\\calibration.py",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "01/frequency/source_snapshot/etudecas/prototypes/scan_2027_risk_control/canonical_closed_loop.py",
+      "bytes": 78465,
+      "sha256": "5484fcdbdf150b35f54c027ff89dea5fe27c22c39aef0435d4fde302f28cfcf9",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\canonical_frequency_v3_closed_loop_actuator_pilot_20260827_run5\\provenance\\source_snapshot\\etudecas\\prototypes\\scan_2027_risk_control\\canonical_closed_loop.py",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "01/frequency/source_snapshot/etudecas/prototypes/scan_2027_risk_control/canonical_closed_loop_v2.py",
+      "bytes": 42333,
+      "sha256": "62a400b8c41d67c8700d57e5feda1e69634fea58b299c681b54d5af442706a7d",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\canonical_frequency_v3_closed_loop_actuator_pilot_20260827_run5\\provenance\\source_snapshot\\etudecas\\prototypes\\scan_2027_risk_control\\canonical_closed_loop_v2.py",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "01/frequency/source_snapshot/etudecas/prototypes/scan_2027_risk_control/canonical_control_system_analysis.py",
+      "bytes": 86771,
+      "sha256": "388457c5a97490d08ad874222659eed0d920b1e1e5713555b827d724a485b07e",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\canonical_frequency_v3_closed_loop_actuator_pilot_20260827_run5\\provenance\\source_snapshot\\etudecas\\prototypes\\scan_2027_risk_control\\canonical_control_system_analysis.py",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "01/frequency/source_snapshot/etudecas/prototypes/scan_2027_risk_control/canonical_frequency_actuator_audit.py",
+      "bytes": 4646,
+      "sha256": "d735cdb50894809fd4d17ff1465dbba70a5034b33407a80943e540dba3bc907b",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\canonical_frequency_v3_closed_loop_actuator_pilot_20260827_run5\\provenance\\source_snapshot\\etudecas\\prototypes\\scan_2027_risk_control\\canonical_frequency_actuator_audit.py",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "01/frequency/source_snapshot/etudecas/prototypes/scan_2027_risk_control/canonical_frequency_audit.py",
+      "bytes": 51055,
+      "sha256": "59809f0f5ef819baa86c2eddd8698652f4f8159883755e03d699cd7931983738",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\canonical_frequency_v3_closed_loop_actuator_pilot_20260827_run5\\provenance\\source_snapshot\\etudecas\\prototypes\\scan_2027_risk_control\\canonical_frequency_audit.py",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "01/frequency/source_snapshot/etudecas/prototypes/scan_2027_risk_control/canonical_frequency_lead_time_realization_audit.py",
+      "bytes": 47949,
+      "sha256": "cb243f45bdde93e77567ba8d81cb98424de2b84182664bc91e7b2e1f6884abed",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\canonical_frequency_v3_closed_loop_actuator_pilot_20260827_run5\\provenance\\source_snapshot\\etudecas\\prototypes\\scan_2027_risk_control\\canonical_frequency_lead_time_realization_audit.py",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "01/frequency/source_snapshot/etudecas/prototypes/scan_2027_risk_control/canonical_frequency_revision.py",
+      "bytes": 39110,
+      "sha256": "9e7c0ac97f24202dadef389df17bf323987839086ce57bb5bfc49792a3fb5286",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\canonical_frequency_v3_closed_loop_actuator_pilot_20260827_run5\\provenance\\source_snapshot\\etudecas\\prototypes\\scan_2027_risk_control\\canonical_frequency_revision.py",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "01/frequency/source_snapshot/etudecas/prototypes/scan_2027_risk_control/canonical_frequency_robust_siso.py",
+      "bytes": 54070,
+      "sha256": "c80badf5778c45bd4f3cacec980ebf820b071b29d0e3aca5980bea284c68ca0c",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\canonical_frequency_v3_closed_loop_actuator_pilot_20260827_run5\\provenance\\source_snapshot\\etudecas\\prototypes\\scan_2027_risk_control\\canonical_frequency_robust_siso.py",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "01/frequency/source_snapshot/etudecas/prototypes/scan_2027_risk_control/canonical_frequency_study.py",
+      "bytes": 181682,
+      "sha256": "34e82036242d75c68edfd711d4259a7989e845754cdd86d70ac2b58a355d344d",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\canonical_frequency_v3_closed_loop_actuator_pilot_20260827_run5\\provenance\\source_snapshot\\etudecas\\prototypes\\scan_2027_risk_control\\canonical_frequency_study.py",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "01/frequency/source_snapshot/etudecas/prototypes/scan_2027_risk_control/canonical_replay.py",
+      "bytes": 81013,
+      "sha256": "b49bb6ddb73eac4842ca2fbb212a07d3237e78174af91376c3b559b3e0a84eca",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\canonical_frequency_v3_closed_loop_actuator_pilot_20260827_run5\\provenance\\source_snapshot\\etudecas\\prototypes\\scan_2027_risk_control\\canonical_replay.py",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "01/frequency/source_snapshot/etudecas/prototypes/scan_2027_risk_control/config/canonical_closed_loop_v3_continuous_config.json",
+      "bytes": 8284,
+      "sha256": "bc871f02baecd4882092cf9022d58355a2cfeaa83dbf70142e5d2432715c3509",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\canonical_frequency_v3_closed_loop_actuator_pilot_20260827_run5\\provenance\\source_snapshot\\etudecas\\prototypes\\scan_2027_risk_control\\config\\canonical_closed_loop_v3_continuous_config.json",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "01/frequency/source_snapshot/etudecas/prototypes/scan_2027_risk_control/config/canonical_frequency_v3_closed_loop_actuator_pilot_config.json",
+      "bytes": 4287,
+      "sha256": "7f6fc025683468d77b1cba8378c69208fd6a0095fb63f532f64ce415afecba05",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\canonical_frequency_v3_closed_loop_actuator_pilot_20260827_run5\\provenance\\source_snapshot\\etudecas\\prototypes\\scan_2027_risk_control\\config\\canonical_frequency_v3_closed_loop_actuator_pilot_config.json",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "01/frequency/source_snapshot/etudecas/prototypes/scan_2027_risk_control/config/canonical_real_baseline_engine_profile.json",
+      "bytes": 4534,
+      "sha256": "d831542d9e8e7a987d601053ae0f5cb369680681bed7538a6c820f5657f529b0",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\canonical_frequency_v3_closed_loop_actuator_pilot_20260827_run5\\provenance\\source_snapshot\\etudecas\\prototypes\\scan_2027_risk_control\\config\\canonical_real_baseline_engine_profile.json",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "01/frequency/source_snapshot/etudecas/prototypes/scan_2027_risk_control/core.py",
+      "bytes": 48694,
+      "sha256": "c495566a4c3681d30d5016a35f024c8e2e40c541f2c87482d42182785a1dee39",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\canonical_frequency_v3_closed_loop_actuator_pilot_20260827_run5\\provenance\\source_snapshot\\etudecas\\prototypes\\scan_2027_risk_control\\core.py",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "01/frequency/source_snapshot/etudecas/prototypes/scan_2027_risk_control/decision.py",
+      "bytes": 9820,
+      "sha256": "7d93f8c384438f582dafe207d31c63ac3030ced81ce314730758d0aa4a85f26a",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\canonical_frequency_v3_closed_loop_actuator_pilot_20260827_run5\\provenance\\source_snapshot\\etudecas\\prototypes\\scan_2027_risk_control\\decision.py",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "01/frequency/source_snapshot/etudecas/prototypes/scan_2027_risk_control/end_2026_reporting.py",
+      "bytes": 67362,
+      "sha256": "6cf8fbe20b03f194c79f05635794dab683d613b118ed82872201aac02155cad7",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\canonical_frequency_v3_closed_loop_actuator_pilot_20260827_run5\\provenance\\source_snapshot\\etudecas\\prototypes\\scan_2027_risk_control\\end_2026_reporting.py",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "01/frequency/source_snapshot/etudecas/prototypes/scan_2027_risk_control/experiments.py",
+      "bytes": 56309,
+      "sha256": "39c6c4f3412a0bee1d84a5a228fc682f2b872e7f65c74218eceac25728ddbaa8",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\canonical_frequency_v3_closed_loop_actuator_pilot_20260827_run5\\provenance\\source_snapshot\\etudecas\\prototypes\\scan_2027_risk_control\\experiments.py",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "01/frequency/source_snapshot/etudecas/prototypes/scan_2027_risk_control/frequency_analysis.py",
+      "bytes": 36691,
+      "sha256": "31a0a4a5d0f385ef3f1d85bcda947313400f2789a2afb5ea053a280df42f359a",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\canonical_frequency_v3_closed_loop_actuator_pilot_20260827_run5\\provenance\\source_snapshot\\etudecas\\prototypes\\scan_2027_risk_control\\frequency_analysis.py",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "01/frequency/source_snapshot/etudecas/prototypes/scan_2027_risk_control/frequency_reporting.py",
+      "bytes": 61496,
+      "sha256": "a8491879c1c8b582385b62288aff199582d2a6d598b4d5253f7f8c794112bb1b",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\canonical_frequency_v3_closed_loop_actuator_pilot_20260827_run5\\provenance\\source_snapshot\\etudecas\\prototypes\\scan_2027_risk_control\\frequency_reporting.py",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "01/frequency/source_snapshot/etudecas/prototypes/scan_2027_risk_control/model.py",
+      "bytes": 20364,
+      "sha256": "ff6c9f33f06b22011817d623146618cf81fb390a918c6be5ce61dfc3cfe6359a",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\canonical_frequency_v3_closed_loop_actuator_pilot_20260827_run5\\provenance\\source_snapshot\\etudecas\\prototypes\\scan_2027_risk_control\\model.py",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "01/frequency/source_snapshot/etudecas/prototypes/scan_2027_risk_control/rci_validation.py",
+      "bytes": 54244,
+      "sha256": "57f403d628c45566f2b5f86c0d3d3973b977215b50fdc554a9efe2809cc77ee9",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\canonical_frequency_v3_closed_loop_actuator_pilot_20260827_run5\\provenance\\source_snapshot\\etudecas\\prototypes\\scan_2027_risk_control\\rci_validation.py",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "01/frequency/source_snapshot/etudecas/prototypes/scan_2027_risk_control/reporting.py",
+      "bytes": 23437,
+      "sha256": "9fa2f86ceda0a7a4b31b2deeadff56e01763ca03a8995f460e6e8c25b1975d0e",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\canonical_frequency_v3_closed_loop_actuator_pilot_20260827_run5\\provenance\\source_snapshot\\etudecas\\prototypes\\scan_2027_risk_control\\reporting.py",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "01/frequency/source_snapshot/etudecas/prototypes/scan_2027_risk_control/risk_mapping.py",
+      "bytes": 99997,
+      "sha256": "a89cb0d61eb4aa71b7e0e45513f310333f8324b68ef77720dfec426472eed16e",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\canonical_frequency_v3_closed_loop_actuator_pilot_20260827_run5\\provenance\\source_snapshot\\etudecas\\prototypes\\scan_2027_risk_control\\risk_mapping.py",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "01/frequency/source_snapshot/etudecas/prototypes/scan_2027_risk_control/run_end_2026_validation.py",
+      "bytes": 67607,
+      "sha256": "03bdee5eb57cc4eef6b5415b412ff7ed749d3673f1a19f32969dae03ac978b68",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\canonical_frequency_v3_closed_loop_actuator_pilot_20260827_run5\\provenance\\source_snapshot\\etudecas\\prototypes\\scan_2027_risk_control\\run_end_2026_validation.py",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "01/frequency/source_snapshot/etudecas/prototypes/scan_2027_risk_control/run_scan_2027_poc.py",
+      "bytes": 7512,
+      "sha256": "dd9b2e08016aa8d743296cdc34d281add5f0fec681755d3bf63faa806b6152cf",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\canonical_frequency_v3_closed_loop_actuator_pilot_20260827_run5\\provenance\\source_snapshot\\etudecas\\prototypes\\scan_2027_risk_control\\run_scan_2027_poc.py",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "01/frequency/source_snapshot/etudecas/prototypes/scan_2027_risk_control/run_scan_continuation.py",
+      "bytes": 33102,
+      "sha256": "24caea171a28af29ec302bea2383c419fb766099aacec8836647744c3f1170ab",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\canonical_frequency_v3_closed_loop_actuator_pilot_20260827_run5\\provenance\\source_snapshot\\etudecas\\prototypes\\scan_2027_risk_control\\run_scan_continuation.py",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "01/frequency/source_snapshot/etudecas/simulation/analysis_batch_common.py",
+      "bytes": 16715,
+      "sha256": "726e79686e94d14a98ce182f3f8b8cef1a873d7927a29df219e23f09a07fd40e",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\canonical_frequency_v3_closed_loop_actuator_pilot_20260827_run5\\provenance\\source_snapshot\\etudecas\\simulation\\analysis_batch_common.py",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "01/frequency/source_snapshot/etudecas/simulation/engine/__init__.py",
+      "bytes": 1184,
+      "sha256": "d5b463a609ec294454a263c0cd2efa2be2bfdb728541e66b8df13bfeef7d00ab",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\canonical_frequency_v3_closed_loop_actuator_pilot_20260827_run5\\provenance\\source_snapshot\\etudecas\\simulation\\engine\\__init__.py",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "01/frequency/source_snapshot/etudecas/simulation/engine/api.py",
+      "bytes": 13138,
+      "sha256": "df74b5cccb8d7d7fe4d4b88ab18f8b7d84fd632ff432c86b5f292acc15ec0752",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\canonical_frequency_v3_closed_loop_actuator_pilot_20260827_run5\\provenance\\source_snapshot\\etudecas\\simulation\\engine\\api.py",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "01/frequency/source_snapshot/etudecas/simulation/engine/contracts.py",
+      "bytes": 7462,
+      "sha256": "fbdbaaa11d40acdc34f57f28a09d1ac242bec5fe0cc202277d44032d4d0740e0",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\canonical_frequency_v3_closed_loop_actuator_pilot_20260827_run5\\provenance\\source_snapshot\\etudecas\\simulation\\engine\\contracts.py",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "01/frequency/source_snapshot/etudecas/simulation/engine/control_probe.py",
+      "bytes": 18748,
+      "sha256": "d910a09e4b33665883eaf6f84af8a5ff12c77cb27a6434f785c9aff5063822cb",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\canonical_frequency_v3_closed_loop_actuator_pilot_20260827_run5\\provenance\\source_snapshot\\etudecas\\simulation\\engine\\control_probe.py",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "01/frequency/source_snapshot/etudecas/simulation/engine/control_provider.py",
+      "bytes": 43884,
+      "sha256": "695502135c41c5d8e727eef663559c7ed4e24b59ee3dc321680ba2fdd8484775",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\canonical_frequency_v3_closed_loop_actuator_pilot_20260827_run5\\provenance\\source_snapshot\\etudecas\\simulation\\engine\\control_provider.py",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "01/frequency/source_snapshot/etudecas/simulation/engine/control_provider_v2.py",
+      "bytes": 30517,
+      "sha256": "6f15639548f07d329a66bb847e68fbf4bbf9df0c70bb7ed999adf7e9922f8905",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\canonical_frequency_v3_closed_loop_actuator_pilot_20260827_run5\\provenance\\source_snapshot\\etudecas\\simulation\\engine\\control_provider_v2.py",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "01/frequency/source_snapshot/etudecas/simulation/engine/control_provider_v3.py",
+      "bytes": 19589,
+      "sha256": "b6e1452e926c8aaa07861750c793304f9a926a4fe0a6489e2e6ba4fdb06923e2",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\canonical_frequency_v3_closed_loop_actuator_pilot_20260827_run5\\provenance\\source_snapshot\\etudecas\\simulation\\engine\\control_provider_v3.py",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "01/frequency/source_snapshot/etudecas/simulation/engine/control_schedule.py",
+      "bytes": 25657,
+      "sha256": "e209ec6f6b125745574dde4664e0b4846055e82f00a5d1baaae6329fec015488",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\canonical_frequency_v3_closed_loop_actuator_pilot_20260827_run5\\provenance\\source_snapshot\\etudecas\\simulation\\engine\\control_schedule.py",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "01/frequency/source_snapshot/etudecas/simulation/engine/demand_perturbation.py",
+      "bytes": 10101,
+      "sha256": "25575f02608a7bd74ff1a9312a9c6edd795771f3a3a761e52d722204624ae461",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\canonical_frequency_v3_closed_loop_actuator_pilot_20260827_run5\\provenance\\source_snapshot\\etudecas\\simulation\\engine\\demand_perturbation.py",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "01/frequency/source_snapshot/etudecas/simulation/engine/run_first_simulation.py",
+      "bytes": 638786,
+      "sha256": "59facc532d021a4eea5090787a6369bfb36f64a97c6d5441805651159a4ff6b7",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\canonical_frequency_v3_closed_loop_actuator_pilot_20260827_run5\\provenance\\source_snapshot\\etudecas\\simulation\\engine\\run_first_simulation.py",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "01/frequency/source_snapshot/etudecas/simulation/engine/server.py",
+      "bytes": 2977,
+      "sha256": "870cc1077475ef46e7b6105c213fb6c7875dee49421d30f1b86cd33bd8de39db",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\canonical_frequency_v3_closed_loop_actuator_pilot_20260827_run5\\provenance\\source_snapshot\\etudecas\\simulation\\engine\\server.py",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "01/frequency/source_snapshot/etudecas/simulation_prep/result/reference_baseline/_mrp_bom_tests/bom_weekly_mps_lotified_no_static_fallback_physical_floor.json",
+      "bytes": 241302,
+      "sha256": "bf9436132e53c1595de1feb8fb360c0f42cfca66f3c3bf18f49e24041ca425b5",
+      "source": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\canonical_frequency_v3_closed_loop_actuator_pilot_20260827_run5\\provenance\\source_snapshot\\etudecas\\simulation_prep\\result\\reference_baseline\\_mrp_bom_tests\\bom_weekly_mps_lotified_no_static_fallback_physical_floor.json",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "01/frequency/protocol.json",
+      "bytes": 100284,
+      "sha256": "ab2f8d7bfc4a70a694e628b937c91aefc071b2edba92850429300e0262900a87",
+      "source": "historical frequency protocol; no transferred qualification",
+      "expected_sha256": null,
+      "exact_expected_match": null
+    },
+    {
+      "path": "01/brief_inputs/supplier_parameter_sensitivity_cases.csv",
+      "bytes": 575155,
+      "sha256": "3784336cd2f45cfe05525be413b6cd634a43dd0f61b431bf0f47c294329c2aaa",
+      "source": "git:e813e8cb298459810ecdbacb7e7ad5be75db62a5:etudecas/simulation/sensibility/active_supplier_parameter_result_60_75_guarded/supplier_parameter_sensitivity_cases.csv; restored CRLF as recorded in historical manifest",
+      "exact_historical_identity": true
+    },
+    {
+      "path": "01/unverified_helpers/etudecas/simulation/result_paths.py",
+      "bytes": 1670,
+      "sha256": "cfaba55db5a3cdbb835fbc5749b7129297c6d3a0f3699e46d70c56a9797755cd",
+      "source": "git:e813e8cb298459810ecdbacb7e7ad5be75db62a5:etudecas/simulation/result_paths.py",
+      "exact_historical_identity": false
+    },
+    {
+      "path": "01/unverified_helpers/etudecas/case_config.py",
+      "bytes": 7272,
+      "sha256": "da41846acbbcc1ff1637de29d3ed2f31084546bf4983463b4f0c692c2f6f2d66",
+      "source": "git:e813e8cb298459810ecdbacb7e7ad5be75db62a5:etudecas/case_config.py",
+      "exact_historical_identity": false
+    },
+    {
+      "path": "01/unverified_helpers/etudecas/simulation/lot_trace/campaigns.py",
+      "bytes": 13894,
+      "sha256": "d30977df347850d075e9911f2a8c172e2fc7f33a96f88b1f10b16120754c8289",
+      "source": "git:e813e8cb298459810ecdbacb7e7ad5be75db62a5:etudecas/simulation/lot_trace/campaigns.py",
+      "exact_historical_identity": false
+    },
+    {
+      "path": "01/unverified_helpers/etudecas/simulation/analysis/factory_nervousness.py",
+      "bytes": 10132,
+      "sha256": "db401345aea9548dd40d48ffc179774daba92a5afcab3999bdff59f9d7fb24b8",
+      "source": "git:e813e8cb298459810ecdbacb7e7ad5be75db62a5:etudecas/simulation/analysis/factory_nervousness.py",
+      "exact_historical_identity": false
+    }
+  ],
+  "recalculation_executed": false,
+  "historical_acceptance_transferred": false,
+  "external_paths_are_provenance_only": true,
+  "known_source_commit": {
+    "sha": "e813e8cb298459810ecdbacb7e7ad5be75db62a5",
+    "working_tree_dirty": true,
+    "sufficient_to_restore_execution": false
+  },
+  "missing_exact_sources": {
+    "03_engine_sha256": "90079ad137fae0d2d534d4b96a945f6edea54b4cfa3aea0bd2175bfe2e78b418",
+    "01_cascade_engine_sha256": "d2bfcf6276e815e5f28336d9fe5477bf26e4b058552230ce530ee4ff72cb46b0",
+    "01_snapshot_imports_without_source": [
+      {
+        "consumer": "etudecas/simulation/engine/run_first_simulation.py",
+        "import": "etudecas.simulation.result_paths"
+      },
+      {
+        "consumer": "etudecas/simulation/engine/run_first_simulation.py",
+        "import": "etudecas.case_config"
+      },
+      {
+        "consumer": "etudecas/simulation/engine/run_first_simulation.py",
+        "import": "etudecas.simulation.lot_trace.campaigns"
+      },
+      {
+        "consumer": "etudecas/simulation/engine/run_first_simulation.py",
+        "import": "etudecas.simulation.analysis.factory_nervousness"
+      },
+      {
+        "consumer": "etudecas/simulation/engine/run_first_simulation.py",
+        "import": "etudecas.simulation.result_paths"
+      },
+      {
+        "consumer": "etudecas/simulation/engine/run_first_simulation.py",
+        "import": "etudecas.case_config"
+      },
+      {
+        "consumer": "etudecas/simulation/engine/run_first_simulation.py",
+        "import": "etudecas.simulation.lot_trace.campaigns"
+      },
+      {
+        "consumer": "etudecas/simulation/engine/run_first_simulation.py",
+        "import": "etudecas.simulation.analysis.factory_nervousness"
+      },
+      {
+        "consumer": "etudecas/simulation/engine/run_first_simulation.py",
+        "import": "etudecas.simulation.run_format"
+      }
+    ],
+    "runtime_environment_at_historical_execution": "not recorded as a locked dependency set",
+    "03_campaign_generator": "No generator SHA in campaign manifest; present-day source is not proof of exact historical identity",
+    "01_snapshot_imports_distinct": [
+      {
+        "module": "etudecas.case_config",
+        "required_for_engine_start": true,
+        "candidate_git_e813_preserved": true,
+        "historical_identity_verified": false
+      },
+      {
+        "module": "etudecas.simulation.analysis.factory_nervousness",
+        "required_for_engine_start": true,
+        "candidate_git_e813_preserved": true,
+        "historical_identity_verified": false
+      },
+      {
+        "module": "etudecas.simulation.lot_trace.campaigns",
+        "required_for_engine_start": true,
+        "candidate_git_e813_preserved": true,
+        "historical_identity_verified": false
+      },
+      {
+        "module": "etudecas.simulation.result_paths",
+        "required_for_engine_start": true,
+        "candidate_git_e813_preserved": true,
+        "historical_identity_verified": false
+      },
+      {
+        "module": "etudecas.simulation.run_format",
+        "required_for_engine_start": false,
+        "candidate_git_e813_preserved": false,
+        "historical_identity_verified": false
+      }
+    ]
+  },
+  "01_key_input_checks": [
+    {
+      "historical_path": "provenance/repository/etudecas/simulation_prep/result/reference_baseline/_mrp_bom_tests/bom_weekly_mps_lotified_no_static_fallback_physical_floor.json",
+      "candidate_path": "C:\\dev\\lca-simu\\etudecas\\simulation_prep\\result\\reference_baseline\\_mrp_bom_tests\\bom_weekly_mps_lotified_no_static_fallback_physical_floor.json",
+      "expected_sha256": "bf9436132e53c1595de1feb8fb360c0f42cfca66f3c3bf18f49e24041ca425b5",
+      "actual_sha256": "bf9436132e53c1595de1feb8fb360c0f42cfca66f3c3bf18f49e24041ca425b5",
+      "exact": true
+    },
+    {
+      "historical_path": "provenance/repository/etudecas/data/source/CA_Perdu_Réel.csv",
+      "candidate_path": "C:\\dev\\lca-simu\\etudecas\\data\\source\\CA_Perdu_Réel.csv",
+      "expected_sha256": "4a2c70f39e9ca871ce6044095448108a17f8181cedabcb310ceaed06a8bfbf4a",
+      "actual_sha256": "4a2c70f39e9ca871ce6044095448108a17f8181cedabcb310ceaed06a8bfbf4a",
+      "exact": true
+    },
+    {
+      "historical_path": "provenance/repository/etudecas/simulation/sensibility/active_supplier_parameter_result_60_75_guarded/supplier_parameter_sensitivity_cases.csv",
+      "candidate_path": "C:\\dev\\lca-simu\\etudecas\\simulation\\sensibility\\active_supplier_parameter_result_60_75_guarded\\supplier_parameter_sensitivity_cases.csv",
+      "expected_sha256": "3784336cd2f45cfe05525be413b6cd634a43dd0f61b431bf0f47c294329c2aaa",
+      "actual_sha256": null,
+      "exact": true,
+      "recovered_from": "git:e813e8cb298459810ecdbacb7e7ad5be75db62a5:etudecas/simulation/sensibility/active_supplier_parameter_result_60_75_guarded/supplier_parameter_sensitivity_cases.csv",
+      "line_endings": "CRLF",
+      "preserved_as": "01/brief_inputs/supplier_parameter_sensitivity_cases.csv",
+      "recovered_sha256": "3784336cd2f45cfe05525be413b6cd634a43dd0f61b431bf0f47c294329c2aaa"
+    },
+    {
+      "historical_path": "provenance/repository/etudecas/risk/supplier_criticality/result/data/supplier_item_risk_kpi.csv",
+      "candidate_path": "C:\\dev\\lca-simu\\etudecas\\risk\\supplier_criticality\\result\\data\\supplier_item_risk_kpi.csv",
+      "expected_sha256": "781d0a709309b2c53d2f93277e0cb693264cb03a06d7d9e2a35aae2f5b3439ac",
+      "actual_sha256": "781d0a709309b2c53d2f93277e0cb693264cb03a06d7d9e2a35aae2f5b3439ac",
+      "exact": true
+    },
+    {
+      "historical_path": "provenance/artifacts/industrial_demo_executive_light_20260829_v9/brief_results.json",
+      "candidate_path": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\industrial_demo_executive_light_20260829_v9\\brief_results.json",
+      "expected_sha256": "98db0f5405c67ea103a60a26a63cf0e513433bf6fd2cdebe4d87d5e3418b3b6d",
+      "actual_sha256": "98db0f5405c67ea103a60a26a63cf0e513433bf6fd2cdebe4d87d5e3418b3b6d",
+      "exact": true
+    },
+    {
+      "historical_path": "provenance/artifacts/industrial_demo_offline_20260828_v6/assets/carte_reseau.html",
+      "candidate_path": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\industrial_demo_offline_20260828_v6\\assets\\carte_reseau.html",
+      "expected_sha256": "75cb2d74bc34a0e3386160d486d8598cdbe29337460dacd446cb149fcaa9f9c5",
+      "actual_sha256": "75cb2d74bc34a0e3386160d486d8598cdbe29337460dacd446cb149fcaa9f9c5",
+      "exact": true
+    },
+    {
+      "historical_path": "provenance/artifacts/industrial_demo_offline_20260828_v6/assets/plotly-2.32.0.min.js",
+      "candidate_path": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\industrial_demo_offline_20260828_v6\\assets\\plotly-2.32.0.min.js",
+      "expected_sha256": "0a17719a72751704861215da0e5c5cdb3f9a8d50eff5cb84cb6f8b80786682b0",
+      "actual_sha256": "0a17719a72751704861215da0e5c5cdb3f9a8d50eff5cb84cb6f8b80786682b0",
+      "exact": true
+    },
+    {
+      "historical_path": "provenance/artifacts/industrial_demo_offline_20260828_v6/assets/world_110m.json",
+      "candidate_path": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\industrial_demo_offline_20260828_v6\\assets\\world_110m.json",
+      "expected_sha256": "d75915eaa31c870df6b972c9e5bb86910197825f33dcfef740f3b2f68cffe843",
+      "actual_sha256": "d75915eaa31c870df6b972c9e5bb86910197825f33dcfef740f3b2f68cffe843",
+      "exact": true
+    },
+    {
+      "historical_path": "provenance/artifacts/industrial_demo_executive_light_20260829_v9/index.html",
+      "candidate_path": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\industrial_demo_executive_light_20260829_v9\\index.html",
+      "expected_sha256": "93f40e8f3595e3c4711040dc324a227fe661061b6a7c267a64bf0920913bd887",
+      "actual_sha256": "93f40e8f3595e3c4711040dc324a227fe661061b6a7c267a64bf0920913bd887",
+      "exact": true
+    },
+    {
+      "historical_path": "provenance/artifacts/integrated_risk_lot_maps_20260831_v5/quality_incident_lots_map.html",
+      "candidate_path": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\integrated_risk_lot_maps_20260831_v5\\quality_incident_lots_map.html",
+      "expected_sha256": "8ba4acbbc388cc4ab149c8d5206c1049f3aaf931262e4c2cf279040ab0986b4e",
+      "actual_sha256": "8ba4acbbc388cc4ab149c8d5206c1049f3aaf931262e4c2cf279040ab0986b4e",
+      "exact": true
+    },
+    {
+      "historical_path": "provenance/artifacts/integrated_risk_lot_maps_20260831_v5/delay_338929_incident_lots_map.html",
+      "candidate_path": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\integrated_risk_lot_maps_20260831_v5\\delay_338929_incident_lots_map.html",
+      "expected_sha256": "259b87b1290f4d504d2c3a5458feb30abb80e3aae0c6354e2e33e5f74da7b085",
+      "actual_sha256": "259b87b1290f4d504d2c3a5458feb30abb80e3aae0c6354e2e33e5f74da7b085",
+      "exact": true
+    },
+    {
+      "historical_path": "provenance/artifacts/industrial_cascade_full_trace_seed330281_20260828_v1/canonical_cascade_runs.csv",
+      "candidate_path": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\industrial_cascade_full_trace_seed330281_20260828_v1\\canonical_cascade_runs.csv",
+      "expected_sha256": "945af06c335d94e278d6d05e9d33c093147284b28a60a21b2d55b5f61f1e1efe",
+      "actual_sha256": "945af06c335d94e278d6d05e9d33c093147284b28a60a21b2d55b5f61f1e1efe",
+      "exact": true
+    },
+    {
+      "historical_path": "provenance/artifacts/industrial_registry_quality_seed330281_20260828_v2_units/risk_impact_quality.json",
+      "candidate_path": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\industrial_registry_quality_seed330281_20260828_v2_units\\risk_impact_quality.json",
+      "expected_sha256": "1b9cb763dfd6923164c080aa9165b433224bb075090cd2f1fa4157995f116ba7",
+      "actual_sha256": "1b9cb763dfd6923164c080aa9165b433224bb075090cd2f1fa4157995f116ba7",
+      "exact": true
+    },
+    {
+      "historical_path": "provenance/artifacts/industrial_registry_delay_seed330281_20260828_v2_units/risk_impact_quality.json",
+      "candidate_path": "C:\\dev\\lca-simu-pr40-validation-artifacts-20260726\\industrial_registry_delay_seed330281_20260828_v2_units\\risk_impact_quality.json",
+      "expected_sha256": "254cd9656b5a448382e8c372339d38e1aafdd717e5b7a88d63315a5d875433c6",
+      "actual_sha256": "254cd9656b5a448382e8c372339d38e1aafdd717e5b7a88d63315a5d875433c6",
+      "exact": true
+    }
+  ],
+  "01_views": [
+    "views/annexe_dynamique_frequentielle.html",
+    "views/carte_qualite_incident_lots.html",
+    "views/carte_reseau_lots.html",
+    "views/carte_retard_338929_incident_lots.html",
+    "views/comparaison_mrp_v3.html",
+    "views/comparaison_reseau_mrp_v3.html",
+    "views/incidents_risques_lots.html",
+    "views/resilience_scan_v3.html",
+    "views/stress_tests_incidents_lots.html"
+  ],
+  "scope_notes": [
+    "03 protocol, graph, profile, calibration and generated risk schedules are preserved as calculation inputs; campaign metrics and HTML are not duplicated.",
+    "01 includes the exact available MRP/V3/frequency snapshot, but unresolved imports prevent claiming an isolated executable snapshot.",
+    "Original command arrays retain original paths as provenance. No command in this bundle is advertised as executable until missing historical sources are recovered and all paths are explicitly rebound.",
+    "All nine views of 01 combine several different campaigns; their presentation can be reconstructed from the retained HTML, independently of historical recalculation.",
+    "Snapshot source files are not imported into the active engine and contain no automatic activation.",
+    "The 9 unresolved import occurrences are 5 distinct modules. Four are required at engine startup; Git e813 candidates are preserved separately with no historical hash certification. The fifth, run_format, is a caught optional run-package export (snapshot lines 13034-13050), so its absence does not by itself block CSV generation.",
+    "The sensitivity-case CSV is a derived compact input required by the historical brief, recovered exactly with recorded CRLF bytes; it is not a new simulation result."
+  ],
+  "unqualified_helper_candidates": [
+    {
+      "path": "01/unverified_helpers/etudecas/simulation/result_paths.py",
+      "bytes": 1670,
+      "sha256": "cfaba55db5a3cdbb835fbc5749b7129297c6d3a0f3699e46d70c56a9797755cd",
+      "source": "git:e813e8cb298459810ecdbacb7e7ad5be75db62a5:etudecas/simulation/result_paths.py",
+      "exact_historical_identity": false
+    },
+    {
+      "path": "01/unverified_helpers/etudecas/case_config.py",
+      "bytes": 7272,
+      "sha256": "da41846acbbcc1ff1637de29d3ed2f31084546bf4983463b4f0c692c2f6f2d66",
+      "source": "git:e813e8cb298459810ecdbacb7e7ad5be75db62a5:etudecas/case_config.py",
+      "exact_historical_identity": false
+    },
+    {
+      "path": "01/unverified_helpers/etudecas/simulation/lot_trace/campaigns.py",
+      "bytes": 13894,
+      "sha256": "d30977df347850d075e9911f2a8c172e2fc7f33a96f88b1f10b16120754c8289",
+      "source": "git:e813e8cb298459810ecdbacb7e7ad5be75db62a5:etudecas/simulation/lot_trace/campaigns.py",
+      "exact_historical_identity": false
+    },
+    {
+      "path": "01/unverified_helpers/etudecas/simulation/analysis/factory_nervousness.py",
+      "bytes": 10132,
+      "sha256": "db401345aea9548dd40d48ffc179774daba92a5afcab3999bdff59f9d7fb24b8",
+      "source": "git:e813e8cb298459810ecdbacb7e7ad5be75db62a5:etudecas/simulation/analysis/factory_nervousness.py",
+      "exact_historical_identity": false
+    }
+  ]
+}
