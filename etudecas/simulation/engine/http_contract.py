@@ -9,7 +9,7 @@ from etudecas.knowledge_graph.schema import validate_graph_contract
 from .api import request_from_dict
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-ENGINE = REPO_ROOT / "etudecas/simulation/run_first_simulation.py"
+ENGINE = REPO_ROOT / "etudecas/simulation/engine/run_first_simulation.py"
 HTTP_FIELDS = frozenset({
     "input_graph", "input_path", "scenario_id", "days", "output_profile", "overrides",
     "run_lot_audit", "seed", "common_random_numbers", "control_schedule_csv",

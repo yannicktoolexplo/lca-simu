@@ -240,18 +240,42 @@ def test_real_2025_mapping_and_totals_are_stable() -> None:
     assert by_product["268967"]["target_definition_confirmed"] is False
 
 
-def test_supplier_table_distinguishes_missing_from_zero_effect() -> None:
-    graph = (
-        REPO_ROOT
-        / "etudecas"
-        / "simulation_prep"
-        / "result"
-        / "reference_baseline"
-        / "_mrp_bom_tests"
-        / "bom_weekly_mps_lotified_no_static_fallback_physical_floor.json"
+def test_supplier_table_distinguishes_missing_from_zero_effect(tmp_path: Path) -> None:
+    # Synthetic observations: one supplier was tested with zero fill loss;
+    # the other was never tested. Neither fact supplies an occurrence probability.
+    sensitivity_csv = (
+        tmp_path / "etudecas/simulation/sensibility"
+        / "active_supplier_parameter_result_60_75_guarded"
+        / "supplier_parameter_sensitivity_cases.csv"
     )
-    ranking, _meta = sensitivity_ranking(REPO_ROOT)
-    result = supplier_decision_table(REPO_ROOT, graph, ranking)
+    sensitivity_csv.parent.mkdir(parents=True)
+    _write_csv(
+        sensitivity_csv,
+        ["case_id", "status", "parameter_key", "kpi::fill_rate", "kpi::total_cost", "level"],
+        [
+            {"case_id": "baseline", "status": "ok", "kpi::fill_rate": 1.0, "kpi::total_cost": 100},
+            {"case_id": "tested_zero", "status": "ok", "parameter_key": "reliability::SDC-VD-TESTED",
+             "kpi::fill_rate": 1.0, "kpi::total_cost": 100, "level": 0.5},
+        ],
+    )
+    kpi_csv = tmp_path / "etudecas/risk/supplier_criticality/result/data/supplier_item_risk_kpi.csv"
+    kpi_csv.parent.mkdir(parents=True)
+    _write_csv(
+        kpi_csv,
+        ["supplier_id", "item_id", "dst_node_id", "stock_coverage_days"],
+        [
+            {"supplier_id": "SDC-VD-TESTED", "item_id": "item:tested", "dst_node_id": "M-1810", "stock_coverage_days": 0},
+            {"supplier_id": "SDC-VD-UNTESTED", "item_id": "item:untested", "dst_node_id": "M-1810", "stock_coverage_days": ""},
+            {"supplier_id": "SDC-1450", "item_id": "item:excluded", "dst_node_id": "M-1810", "stock_coverage_days": 5},
+        ],
+    )
+    graph = tmp_path / "graph.json"
+    graph.write_text(json.dumps({"edges": [
+        {"from": "SDC-VD-TESTED", "to": "M-1810", "items": ["item:tested"], "attrs": {"product_code": "268091"}},
+        {"from": "SDC-VD-UNTESTED", "to": "M-1810", "items": ["item:untested"], "attrs": {"product_code": "268091"}},
+    ]}), encoding="utf-8")
+    ranking, _meta = sensitivity_ranking(tmp_path)
+    result = supplier_decision_table(tmp_path, graph, ranking)
 
     assert all(row["supplier_id"] != "SDC-1450" for row in result["rows"])
     untested = [row for row in result["rows"] if not row["conditional_consequence_tested"]]
@@ -259,6 +283,16 @@ def test_supplier_table_distinguishes_missing_from_zero_effect() -> None:
     assert all(row["conditional_fill_drop_tested"] is None for row in untested)
     assert any(row["stock_coverage_days"] is None for row in result["rows"])
     assert result["occurrence_probability_calibrated"] is False
+    by_supplier = {row["supplier_id"]: row for row in result["rows"]}
+    assert set(by_supplier) == {"SDC-VD-TESTED", "SDC-VD-UNTESTED"}
+    assert by_supplier["SDC-VD-TESTED"]["conditional_consequence_tested"] is True
+    assert by_supplier["SDC-VD-TESTED"]["evidence_consequence"] == "simulated"
+    assert by_supplier["SDC-VD-TESTED"]["conditional_fill_drop_tested"] == 0.0
+    assert by_supplier["SDC-VD-TESTED"]["stock_coverage_days"] == 0.0
+    assert by_supplier["SDC-VD-UNTESTED"]["conditional_consequence_tested"] is False
+    assert by_supplier["SDC-VD-UNTESTED"]["evidence_consequence"] == "not_tested"
+    assert by_supplier["SDC-VD-UNTESTED"]["conditional_fill_drop_tested"] is None
+    assert by_supplier["SDC-VD-UNTESTED"]["stock_coverage_days"] is None
 
 
 def test_json_safe_replaces_non_finite_values() -> None:

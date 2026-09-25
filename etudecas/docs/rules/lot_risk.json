@@ -11,7 +11,7 @@
       "path": "etudecas/simulation/engine/run_first_simulation.py",
       "symbol": "main",
       "kind": "implementation",
-      "reference_fingerprint": "4e5be273252205b8f29c0400d475019c7a59d47b2ba72b4cf182b11ed4b62684"
+      "reference_fingerprint": "9483b8cd012a6b678d25bf981f7ee19720f375bf1bf4f919f6007207681b3030"
     },
     {
       "id": "source-allocation",
@@ -29,35 +29,35 @@
     },
     {
       "id": "native-join-test",
-      "path": "etudecas/simulation/test_risk_lot_impact_registry.py",
+      "path": "etudecas/tests/risques/test_risk_lot_impact_registry.py",
       "symbol": "test_engine_smoke_emits_native_transaction_join_and_registry_counts_bundle_once",
       "kind": "test",
-      "reference_fingerprint": "4ae9d86aac729dc3ea471ed8a4d3eb5ef1ccc30d21264c49be758aa9055f54f8"
+      "reference_fingerprint": "36def5c7d2a8861605eec7fa1a3b553a22130fb1d426ded2f348fc670e0ed636"
     },
     {
       "id": "lot-event-fields",
-      "path": "etudecas/simulation/lot_trace/io.py",
+      "path": "etudecas/simulation/lot_trace/schema.py",
       "symbol": "LOT_TRACE_EVENT_FIELDS",
       "kind": "contract",
       "reference_fingerprint": "8020b59f1067939dc3bf81ecf90101b48d81d4fd42b4b2078298b8882812b15e"
     },
     {
       "id": "genealogy-fields",
-      "path": "etudecas/simulation/lot_trace/io.py",
+      "path": "etudecas/simulation/lot_trace/schema.py",
       "symbol": "LOT_TRACE_GENEALOGY_FIELDS",
       "kind": "contract",
       "reference_fingerprint": "0530b427b279c933e05bddff96f7b59761416f4471ce73af4208bcca1fdd5f89"
     },
     {
       "id": "lot-contract-version",
-      "path": "etudecas/simulation/lot_trace/io.py",
+      "path": "etudecas/simulation/lot_trace/schema.py",
       "symbol": "LOT_TRACE_CONTRACT_VERSION",
       "kind": "contract",
       "reference_fingerprint": "9dab8a83b2667e2bfca028379b86a5e5d59f4d8c1e7d5f175e7b2514d9046e56"
     },
     {
       "id": "risk-context-test",
-      "path": "etudecas/simulation/test_risk_lot_impact_registry.py",
+      "path": "etudecas/tests/risques/test_risk_lot_impact_registry.py",
       "symbol": "test_engine_lot_ledger_carries_native_risk_context_through_receipt_genealogy",
       "kind": "test",
       "reference_fingerprint": "02686520a57fdeaf7b8dcd5e2839efb2ff0d8d608b6fa4ff92e676fff2f2cfae"
@@ -71,7 +71,7 @@
     },
     {
       "id": "overlap-test",
-      "path": "etudecas/simulation/test_risk_lot_impact_registry.py",
+      "path": "etudecas/tests/risques/test_risk_lot_impact_registry.py",
       "symbol": "test_overlapping_events_share_one_bundle_and_must_not_be_summed",
       "kind": "test",
       "reference_fingerprint": "c0ad6e13abcc8de8ac42c798cd21651ae8ad7c323c55a5bbc7e457923520ed34"
@@ -85,7 +85,7 @@
     },
     {
       "id": "units-merge-test",
-      "path": "etudecas/simulation/test_risk_lot_impact_registry.py",
+      "path": "etudecas/tests/risques/test_risk_lot_impact_registry.py",
       "symbol": "test_component_merge_uses_union_bounds_instead_of_adding_incompatible_units",
       "kind": "test",
       "reference_fingerprint": "2afa450f0221e73599748f061f519a951628289313a791bef88016ba147a4fb1"
@@ -99,14 +99,14 @@
     },
     {
       "id": "no-causal-claim-test",
-      "path": "etudecas/simulation/test_risk_lot_impact_registry.py",
+      "path": "etudecas/tests/risques/test_risk_lot_impact_registry.py",
       "symbol": "test_native_incident_propagates_to_campaign_client_and_cost_without_false_service_claim",
       "kind": "test",
       "reference_fingerprint": "474fe77e1206eac6e6226d23f22f47beec09f1f639104167d2b6cae3e3d51ed1"
     },
     {
       "id": "legacy-proof-test",
-      "path": "etudecas/simulation/test_risk_lot_impact_registry.py",
+      "path": "etudecas/tests/risques/test_risk_lot_impact_registry.py",
       "symbol": "test_legacy_run_is_explicitly_association_not_native_causality",
       "kind": "test",
       "reference_fingerprint": "1bf8b94879e990a3e0ceda5bd3b517ca1268c639997aa330a81da33d01879a99"
@@ -134,7 +134,7 @@
     },
     {
       "id": "source-hash-test",
-      "path": "etudecas/simulation/test_risk_lot_impact_registry.py",
+      "path": "etudecas/tests/risques/test_risk_lot_impact_registry.py",
       "symbol": "test_standalone_directory_hashes_exact_sources_and_written_registry_csvs",
       "kind": "test",
       "reference_fingerprint": "b17432776e385c0e430bf64cd22bd527ab80f01a95f3edb1732920f4285cf83e"
@@ -148,7 +148,7 @@
     },
     {
       "id": "chunk-identity-test",
-      "path": "etudecas/simulation/test_risk_lot_impact_registry.py",
+      "path": "etudecas/tests/risques/test_risk_lot_impact_registry.py",
       "symbol": "test_multi_chunk_schedule_has_one_unique_join_key_per_physical_chunk",
       "kind": "test",
       "reference_fingerprint": "3c784b41dd3b5320087fb26ebcadc9706fe832f448ea87eb7f3e5d166968b0cf"
@@ -162,7 +162,7 @@
     },
     {
       "id": "deferred-risk-test",
-      "path": "etudecas/simulation/test_risk_lot_impact_registry.py",
+      "path": "etudecas/tests/risques/test_risk_lot_impact_registry.py",
       "symbol": "test_reserved_shipment_retains_risk_decision_on_later_physical_departure",
       "kind": "test",
       "reference_fingerprint": "ef3fd84842c4f83252dc7fc64c6e6c838e11400e15f912a4d887c4e4f27bf1bb"

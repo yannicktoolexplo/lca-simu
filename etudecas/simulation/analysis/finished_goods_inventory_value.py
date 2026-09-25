@@ -86,19 +86,6 @@ def convert_qty(qty: float, from_uom: Any, to_uom: Any) -> float | None:
     return None
 
 
-def is_finished_good_item(graph: dict[str, Any], item_id: str) -> bool:
-    for node in graph.get("nodes") or []:
-        if not isinstance(node, dict):
-            continue
-        if str(node.get("type") or "") != "factory":
-            continue
-        for process in node.get("processes") or []:
-            if not isinstance(process, dict):
-                continue
-            outputs = process.get("outputs") if isinstance(process.get("outputs"), list) else []
-            if any(str(output.get("item_id") or "") == item_id for output in outputs if isinstance(output, dict)):
-                return True
-    return False
 
 
 def finished_good_items(graph: dict[str, Any]) -> set[str]:

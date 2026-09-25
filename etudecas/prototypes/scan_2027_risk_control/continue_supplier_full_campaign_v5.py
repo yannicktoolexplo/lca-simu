@@ -16,6 +16,8 @@ overwritten.
 
 from __future__ import annotations
 
+from etudecas.prototypes.scan_2027_risk_control import supplier_campaign_source_revision as _source_revision
+
 import argparse
 import json
 import os
@@ -34,9 +36,7 @@ from etudecas.prototypes.scan_2027_risk_control import (
 from etudecas.prototypes.scan_2027_risk_control import (
     continue_supplier_full_campaign_v4 as relay_v4,
 )
-from etudecas.prototypes.scan_2027_risk_control import (
-    launch_supplier_operating_point_full_campaign_v5 as launcher_v5,
-)
+from etudecas.prototypes.scan_2027_risk_control.supplier_campaign_adapters import launch_v5 as launcher_v5
 from etudecas.prototypes.scan_2027_risk_control import (
     supplier_balanced_product_delay_multiseed_refinement_v5 as refinement_v5,
 )
@@ -411,6 +411,10 @@ class V5RelayConfig:
 
 
 class FullCampaignRelayV5(relay_v4.FullCampaignRelay):
+    @staticmethod
+    def _python_module(module: str, *arguments: str) -> list[str]:
+        return [sys.executable, "-m", *_source_revision.module_argv(module), *arguments]
+
     """Crash-resumable downstream campaign from immutable V5 calibration."""
 
     def __init__(
@@ -438,12 +442,13 @@ class FullCampaignRelayV5(relay_v4.FullCampaignRelay):
             if module in seen:
                 continue
             seen.add(module)
-            path = relay_v4._module_path(self.config.repo, module).resolve()  # noqa: SLF001
+            path = _source_revision.resolve_current_source(relay_v4._module_path(self.config.repo, module))  # noqa: SLF001
             if not path.is_file():
                 raise FullCampaignRelayError(f"Module V5 requis absent : {module}")
             digest = relay_v4.sha256_file(path)
             frozen = FROZEN_V4_SHA256.get(module) or FROZEN_V5_SHA256.get(module)
-            if frozen is not None and digest != frozen:
+            if (frozen is not None and digest != frozen
+                    and not _source_revision.accepts_current_revision(path, frozen, digest)):
                 raise FullCampaignRelayError(
                     f"Dépendance figée modifiée : {module} ({digest})"
                 )

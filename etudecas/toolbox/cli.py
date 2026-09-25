@@ -63,15 +63,20 @@ def code_fingerprint() -> dict[str, str]:
     # expectations are part of the proof, as are this runner and native config.
     excluded = {"artifacts", "result", "outputs", "archive", "archives", "__pycache__", "native", "vendor", "node_modules"}
     files = []
-    for directory in (ROOT / "etudecas", ROOT / "etudecas_codex_multiagent_pack"):
+    for directory in (ROOT / "etudecas",):
         for folder, directories, names in os.walk(directory):
             directories[:] = sorted(name for name in directories if name not in excluded)
-            files.extend(Path(folder) / name for name in names if Path(name).suffix in {".py", ".js", ".css"})
-    for directory in (ROOT / "etudecas/config", ROOT / "etudecas/docs/rules", ROOT / "etudecas_codex_multiagent_pack/configs"):
+            files.extend(Path(folder) / name for name in names if Path(name).suffix.lower() in {".py", ".js", ".css", ".ps1"})
+    for directory in (ROOT / "etudecas/config", ROOT / "etudecas/docs/rules"):
         files.extend(p for p in directory.rglob("*") if p.is_file() and p.suffix.lower() in {".json", ".yaml", ".yml", ".toml", ".csv"})
+    # This executable revision contract lives beside its research adapters.
+    # Editing it must invalidate qualification just like editing their Python.
+    revision = ROOT / "etudecas/prototypes/scan_2027_risk_control/supplier_campaign_source_revision.json"
+    if revision.is_file():
+        files.append(revision)
     files.extend((ROOT / ".codex/agents").glob("*.toml"))
     files.extend((ROOT / ".agents/skills").glob("*/SKILL.md"))
-    for path in (ROOT / "AGENTS.md", ROOT / ".codex/config.toml", ROOT / "pytest-reference.ini", ROOT / "requirements-etudecas.txt", ROOT / "requirements-etudecas-test.txt", ROOT / "etudecas_codex_multiagent_pack/pyproject.toml"):
+    for path in (ROOT / "AGENTS.md", ROOT / ".gitattributes", ROOT / ".codex/config.toml", ROOT / "pytest-reference.ini", ROOT / "requirements-etudecas.txt", ROOT / "requirements-etudecas-test.txt"):
         if path.is_file():
             files.append(path)
     return fingerprint(files)
@@ -241,7 +246,7 @@ def execute(args: argparse.Namespace) -> tuple[Path, dict[str, Any]]:
             write_json(run / "manifest.json", report)
             with (run / "execution.log").open("w", encoding="utf-8") as log:
                 environment = os.environ.copy()
-                environment["PYTHONPATH"] = os.pathsep.join((str(ROOT), str(ROOT / "etudecas_codex_multiagent_pack"), environment.get("PYTHONPATH", "")))
+                environment["PYTHONPATH"] = os.pathsep.join((str(ROOT), environment.get("PYTHONPATH", "")))
                 completed = subprocess.run(command, cwd=ROOT, stdout=log, stderr=subprocess.STDOUT,
                                            timeout=args.timeout, shell=False, check=False, env=environment)
             report["exit_code"] = completed.returncode

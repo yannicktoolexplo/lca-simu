@@ -7,7 +7,6 @@ from pathlib import Path
 import pytest
 
 from etudecas.prototypes.scan_2027_risk_control import (
-    industrial_supply_bilan_dashboard as industrial_dashboard,
     supplier_network_risk_screen_campaign as network,
 )
 
@@ -1165,7 +1164,7 @@ def test_summary_retention_has_no_heavy_case_csv_directory():
     assert audit["retained_case_total_bytes"] < 5 * 1024 * 1024
 
 
-def test_final_output_contract_is_compatible_with_industrial_dashboard(tmp_path: Path):
+def test_final_output_contract_contains_supplier_and_failure_mode_rankings(tmp_path: Path):
     manifest = {
         "status": "complete",
         "mode": "full",
@@ -1223,11 +1222,3 @@ def test_final_output_contract_is_compatible_with_industrial_dashboard(tmp_path:
         "failure_mode",
         "worst_service_delta",
     } <= set(mode_rows[0])
-    state = industrial_dashboard._campaign_state(tmp_path, kind="network")
-    assert state["state"] == industrial_dashboard.NETWORK_PRESELECTION_STATE
-    manifest["final_top3_conclusion_status"] = "conclusion_top3_refusee"
-    (tmp_path / "campaign_manifest.json").write_text(
-        json.dumps(manifest), encoding="utf-8"
-    )
-    state = industrial_dashboard._campaign_state(tmp_path, kind="network")
-    assert state["state"] == industrial_dashboard.NETWORK_PRESELECTION_STATE

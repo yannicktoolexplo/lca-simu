@@ -106,7 +106,7 @@ nouvelles empreintes sans relecture.
 
 Les statuts `documented`, `known_gap`, `hypothesis` et `experimental` décrivent
 l'état déclaré d'une règle. Aucun ne signifie « validé par le métier ». Par
-exemple, le [changement de statut de la jointure expéditions/lots](changes/2026-09-16-shipment-identity.md)
+exemple, le [changement de statut de la jointure expéditions/lots](../archive/README.md)
 accompagne une correction documentée. Une page à jour peut aussi décrire un
 défaut connu.
 
@@ -139,13 +139,19 @@ que le catalogue couvre tous les registres du dossier.
 
 ## Contrôles locaux et GitHub
 
-Les tests de `etudecas/documentation/` vérifient notamment les références
-absentes, les changements de sources, les fichiers générés modifiés et le
-traitement du catalogue :
+Pour vérifier le catalogue local, utiliser `check-all`, qui lit les fichiers
+sans les modifier. Le test suivant effectue ce même contrôle en lecture seule ;
+son corps a été relu :
 
 ```powershell
-python -m pytest etudecas/documentation -q
+python -B -m pytest -q -p no:cacheprovider etudecas/documentation/test_batch.py::test_project_catalog_is_current
 ```
+
+Ne pas lancer tout `etudecas/documentation/` : certains anciens cas altèrent
+volontairement des fichiers et restent exclus après l'incident Sophos.
+La [procédure de validation](TEST_VALIDATION.md) exige la relecture des cas et
+fixtures avant toute nouvelle sélection. Un contrôle documentaire réussi ne
+signifie pas que les tests métier référencés ont été exécutés.
 
 Le [workflow GitHub](../../.github/workflows/etudecas-documentation.yml) définit
 les déclencheurs, dépendances et tests réellement exécutés. Il prévoit le
@@ -153,6 +159,8 @@ contrôle documentaire et des tests applicatifs ciblés, dont certains importent
 le moteur, ainsi que des contrôles d'écritures atomiques sur Windows et Linux.
 Ces tests sont distincts du générateur statique décrit ici. Les détails de
 publication et reprise sont dans [CALIBRATION_EXECUTION.md](CALIBRATION_EXECUTION.md).
+La configuration historique de ce workflow ne constitue pas une autorisation
+de rejouer localement ses suites ou ses essais d'altération de fichiers.
 
 Le workflow ne crée aucun commit et ne publie aucun document. Il faut pousser
 les fichiers pour l'exécuter sur GitHub ; sa présence locale ne prouve pas une

@@ -23,14 +23,14 @@ Sources métier : [RISK_IMPACT_REGISTRY.md](<../../simulation/lot_trace/RISK_IMP
 
 Références :
 
-- implementation : [main](<../../simulation/engine/run_first_simulation.py#L6869>)
-- implementation : [_attach_shipment_trace_ids](<../../simulation/engine/run_first_simulation.py#L370>)
-- implementation : [_allocate_source_lots](<../../simulation/lot_trace/risk_impact_registry.py#L1570>)
-- test : [test_engine_smoke_emits_native_transaction_join_and_registry_counts_bundle_once](<../../simulation/test_risk_lot_impact_registry.py#L968>)
-- contract : [LOT_TRACE_CONTRACT_VERSION](<../../simulation/lot_trace/io.py#L14>)
-- implementation : [LotLedger.next_shipment_identity](<../../simulation/engine/run_first_simulation.py#L995>)
-- test : [test_multi_chunk_schedule_has_one_unique_join_key_per_physical_chunk](<../../simulation/test_risk_lot_impact_registry.py#L950>)
-- implementation : [build_lot_causal_link_rows](<../../simulation/lot_trace/causal_links.py#L178>)
+- implementation : [main](<../../simulation/engine/run_first_simulation.py#L6799>)
+- implementation : [_attach_shipment_trace_ids](<../../simulation/engine/run_first_simulation.py#L264>)
+- implementation : [_allocate_source_lots](<../../simulation/lot_trace/risk_impact_registry.py#L1569>)
+- test : [test_engine_smoke_emits_native_transaction_join_and_registry_counts_bundle_once](<../../tests/risques/test_risk_lot_impact_registry.py#L968>)
+- contract : [LOT_TRACE_CONTRACT_VERSION](<../../simulation/lot_trace/schema.py#L119>)
+- implementation : [LotLedger.next_shipment_identity](<../../simulation/engine/run_first_simulation.py#L889>)
+- test : [test_multi_chunk_schedule_has_one_unique_join_key_per_physical_chunk](<../../tests/risques/test_risk_lot_impact_registry.py#L950>)
+- implementation : [build_lot_causal_link_rows](<../../simulation/lot_trace/causal_links.py#L328>)
 
 ### TRACE-TIME-001 — Jour de décision du risque distinct du mouvement physique
 
@@ -48,12 +48,12 @@ Sources métier : [RISK_IMPACT_REGISTRY.md](<../../simulation/lot_trace/RISK_IMP
 
 Références :
 
-- implementation : [main](<../../simulation/engine/run_first_simulation.py#L6869>)
-- contract : [LOT_TRACE_EVENT_FIELDS](<../../simulation/lot_trace/io.py#L15>)
-- contract : [LOT_TRACE_GENEALOGY_FIELDS](<../../simulation/lot_trace/io.py#L45>)
-- test : [test_engine_lot_ledger_carries_native_risk_context_through_receipt_genealogy](<../../simulation/test_risk_lot_impact_registry.py#L899>)
-- implementation : [LotLedger.record_allocation_event](<../../simulation/engine/run_first_simulation.py#L1907>)
-- test : [test_reserved_shipment_retains_risk_decision_on_later_physical_departure](<../../simulation/test_risk_lot_impact_registry.py#L1107>)
+- implementation : [main](<../../simulation/engine/run_first_simulation.py#L6799>)
+- contract : [LOT_TRACE_EVENT_FIELDS](<../../simulation/lot_trace/schema.py#L122>)
+- contract : [LOT_TRACE_GENEALOGY_FIELDS](<../../simulation/lot_trace/schema.py#L154>)
+- test : [test_engine_lot_ledger_carries_native_risk_context_through_receipt_genealogy](<../../tests/risques/test_risk_lot_impact_registry.py#L899>)
+- implementation : [LotLedger.record_allocation_event](<../../simulation/engine/run_first_simulation.py#L1801>)
+- test : [test_reserved_shipment_retains_risk_decision_on_later_physical_departure](<../../tests/risques/test_risk_lot_impact_registry.py#L1107>)
 
 ### RISK-BUNDLE-001 — Ne compter une expédition exposée qu’une fois
 
@@ -71,9 +71,9 @@ Sources métier : [RISK_IMPACT_REGISTRY.md](<../../simulation/lot_trace/RISK_IMP
 
 Références :
 
-- implementation : [_build_exposure_bundles](<../../simulation/lot_trace/risk_impact_registry.py#L1406>)
-- test : [test_overlapping_events_share_one_bundle_and_must_not_be_summed](<../../simulation/test_risk_lot_impact_registry.py#L616>)
-- contract : [OUTPUT_FILENAMES](<../../simulation/lot_trace/risk_impact_registry.py#L67>)
+- implementation : [_build_exposure_bundles](<../../simulation/lot_trace/risk_impact_registry.py#L1405>)
+- test : [test_overlapping_events_share_one_bundle_and_must_not_be_summed](<../../tests/risques/test_risk_lot_impact_registry.py#L616>)
+- contract : [OUTPUT_FILENAMES](<../../simulation/lot_trace/risk_impact_registry.py#L66>)
 
 ### RISK-UNITS-001 — Bornes d’exposition des lots issus de plusieurs composants
 
@@ -91,9 +91,9 @@ Sources métier : [RISK_IMPACT_REGISTRY.md](<../../simulation/lot_trace/RISK_IMP
 
 Références :
 
-- implementation : [_derive_child_impact](<../../simulation/lot_trace/risk_impact_registry.py#L1993>)
-- test : [test_component_merge_uses_union_bounds_instead_of_adding_incompatible_units](<../../simulation/test_risk_lot_impact_registry.py#L633>)
-- contract : [LOT_TRACE_GENEALOGY_FIELDS](<../../simulation/lot_trace/io.py#L45>)
+- implementation : [_derive_child_impact](<../../simulation/lot_trace/risk_impact_registry.py#L1992>)
+- test : [test_component_merge_uses_union_bounds_instead_of_adding_incompatible_units](<../../tests/risques/test_risk_lot_impact_registry.py#L633>)
+- contract : [LOT_TRACE_GENEALOGY_FIELDS](<../../simulation/lot_trace/schema.py#L154>)
 
 ### RISK-PROOF-001 — Exposition physique distincte de l’effet causal sur le service
 
@@ -111,9 +111,9 @@ Sources métier : [RISK_IMPACT_REGISTRY.md](<../../simulation/lot_trace/RISK_IMP
 
 Références :
 
-- implementation : [_client_service_rows](<../../simulation/lot_trace/risk_impact_registry.py#L2171>)
-- test : [test_native_incident_propagates_to_campaign_client_and_cost_without_false_service_claim](<../../simulation/test_risk_lot_impact_registry.py#L552>)
-- test : [test_legacy_run_is_explicitly_association_not_native_causality](<../../simulation/test_risk_lot_impact_registry.py#L598>)
+- implementation : [_client_service_rows](<../../simulation/lot_trace/risk_impact_registry.py#L2170>)
+- test : [test_native_incident_propagates_to_campaign_client_and_cost_without_false_service_claim](<../../tests/risques/test_risk_lot_impact_registry.py#L552>)
+- test : [test_legacy_run_is_explicitly_association_not_native_causality](<../../tests/risques/test_risk_lot_impact_registry.py#L598>)
 
 ### RISK-PROVENANCE-001 — Provenance des données effectivement analysées
 
@@ -131,10 +131,10 @@ Sources métier : [RISK_IMPACT_REGISTRY.md](<../../simulation/lot_trace/RISK_IMP
 
 Références :
 
-- implementation : [_build_source_provenance](<../../simulation/lot_trace/risk_impact_registry.py#L974>)
-- contract : [SOURCE_FILES](<../../simulation/lot_trace/risk_impact_registry.py#L38>)
-- contract : [OUTPUT_FILENAMES](<../../simulation/lot_trace/risk_impact_registry.py#L67>)
-- test : [test_standalone_directory_hashes_exact_sources_and_written_registry_csvs](<../../simulation/test_risk_lot_impact_registry.py#L779>)
+- implementation : [_build_source_provenance](<../../simulation/lot_trace/risk_impact_registry.py#L973>)
+- contract : [SOURCE_FILES](<../../simulation/lot_trace/risk_impact_registry.py#L37>)
+- contract : [OUTPUT_FILENAMES](<../../simulation/lot_trace/risk_impact_registry.py#L66>)
+- test : [test_standalone_directory_hashes_exact_sources_and_written_registry_csvs](<../../tests/risques/test_risk_lot_impact_registry.py#L779>)
 
 ## Référence technique extraite
 
@@ -142,7 +142,7 @@ Les constantes sont affichées comme expressions Python ; les références et d�
 
 ### engine-day-loop
 
-[etudecas/simulation/engine/run_first_simulation.py:6869](<../../simulation/engine/run_first_simulation.py#L6869>)
+[etudecas/simulation/engine/run_first_simulation.py:6799](<../../simulation/engine/run_first_simulation.py#L6799>)
 
 ```python
 def main() -> None:
@@ -150,7 +150,7 @@ def main() -> None:
 
 ### source-allocation
 
-[etudecas/simulation/lot_trace/risk_impact_registry.py:1570](<../../simulation/lot_trace/risk_impact_registry.py#L1570>)
+[etudecas/simulation/lot_trace/risk_impact_registry.py:1569](<../../simulation/lot_trace/risk_impact_registry.py#L1569>)
 
 ```python
 def _allocate_source_lots(bundles: list[dict[str, Any]], lot_event_rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
@@ -158,7 +158,7 @@ def _allocate_source_lots(bundles: list[dict[str, Any]], lot_event_rows: list[di
 
 ### shipment-chunks
 
-[etudecas/simulation/engine/run_first_simulation.py:370](<../../simulation/engine/run_first_simulation.py#L370>)
+[etudecas/simulation/engine/run_first_simulation.py:264](<../../simulation/engine/run_first_simulation.py#L264>)
 
 ```python
 def _attach_shipment_trace_ids(delivery_schedule: list[tuple[int, float, float]], *, start_sequence: int, risk_event_ids: list[Any] | tuple[Any, ...]) -> tuple[list[tuple[int, float, float, str, str]], int]:
@@ -168,7 +168,7 @@ Attach one stable transaction ID to every physical delivery chunk.
 
 ### native-join-test
 
-[etudecas/simulation/test_risk_lot_impact_registry.py:968](<../../simulation/test_risk_lot_impact_registry.py#L968>)
+[etudecas/tests/risques/test_risk_lot_impact_registry.py:968](<../../tests/risques/test_risk_lot_impact_registry.py#L968>)
 
 ```python
 def test_engine_smoke_emits_native_transaction_join_and_registry_counts_bundle_once(tmp_path: Path, risk_item: str) -> None:
@@ -176,7 +176,7 @@ def test_engine_smoke_emits_native_transaction_join_and_registry_counts_bundle_o
 
 ### lot-event-fields
 
-[etudecas/simulation/lot_trace/io.py:15](<../../simulation/lot_trace/io.py#L15>)
+[etudecas/simulation/lot_trace/schema.py:122](<../../simulation/lot_trace/schema.py#L122>)
 
 ```python
 LOT_TRACE_EVENT_FIELDS = ['event_id', 'day', 'event_type', 'lot_id', 'node_id', 'item_id', 'qty', 'qty_after', 'uom', 'source_type', 'source_id', 'shipment_id', 'risk_decision_day', 'risk_event_ids', 'related_lot_id', 'production_campaign_id', 'notes', 'business_batch_id', 'stock_lot_id', 'lot_occurrence_id', 'provenance_batch_id', 'departure_day', 'arrival_day', 'handling_unit_id', 'trace_status', 'trace_reason', 'lot_trace_contract_version', *LOT_CAUSAL_EVENT_FIELDS]
@@ -184,7 +184,7 @@ LOT_TRACE_EVENT_FIELDS = ['event_id', 'day', 'event_type', 'lot_id', 'node_id', 
 
 ### genealogy-fields
 
-[etudecas/simulation/lot_trace/io.py:45](<../../simulation/lot_trace/io.py#L45>)
+[etudecas/simulation/lot_trace/schema.py:154](<../../simulation/lot_trace/schema.py#L154>)
 
 ```python
 LOT_TRACE_GENEALOGY_FIELDS = ['day', 'link_type', 'parent_lot_id', 'parent_node_id', 'parent_item_id', 'child_lot_id', 'child_node_id', 'child_item_id', 'parent_qty', 'child_qty', 'allocation_share', 'source_id', 'shipment_id', 'risk_decision_day', 'risk_event_ids', 'production_campaign_id', 'notes', 'component_allocation_share', 'business_batch_id', 'stock_lot_id', 'lot_occurrence_id', 'parent_business_batch_id', 'parent_stock_lot_id', 'parent_lot_occurrence_id', 'child_business_batch_id', 'child_stock_lot_id', 'child_lot_occurrence_id', 'provenance_batch_id', 'departure_day', 'arrival_day', 'handling_unit_id', 'trace_status', 'trace_reason', 'lot_trace_contract_version', *LOT_CAUSAL_GENEALOGY_FIELDS]
@@ -192,7 +192,7 @@ LOT_TRACE_GENEALOGY_FIELDS = ['day', 'link_type', 'parent_lot_id', 'parent_node_
 
 ### lot-contract-version
 
-[etudecas/simulation/lot_trace/io.py:14](<../../simulation/lot_trace/io.py#L14>)
+[etudecas/simulation/lot_trace/schema.py:119](<../../simulation/lot_trace/schema.py#L119>)
 
 ```python
 LOT_TRACE_CONTRACT_VERSION = '3.0'
@@ -200,7 +200,7 @@ LOT_TRACE_CONTRACT_VERSION = '3.0'
 
 ### risk-context-test
 
-[etudecas/simulation/test_risk_lot_impact_registry.py:899](<../../simulation/test_risk_lot_impact_registry.py#L899>)
+[etudecas/tests/risques/test_risk_lot_impact_registry.py:899](<../../tests/risques/test_risk_lot_impact_registry.py#L899>)
 
 ```python
 def test_engine_lot_ledger_carries_native_risk_context_through_receipt_genealogy() -> None:
@@ -208,7 +208,7 @@ def test_engine_lot_ledger_carries_native_risk_context_through_receipt_genealogy
 
 ### exposure-bundles
 
-[etudecas/simulation/lot_trace/risk_impact_registry.py:1406](<../../simulation/lot_trace/risk_impact_registry.py#L1406>)
+[etudecas/simulation/lot_trace/risk_impact_registry.py:1405](<../../simulation/lot_trace/risk_impact_registry.py#L1405>)
 
 ```python
 def _build_exposure_bundles(shipment_rows: list[dict[str, Any]], applied_rows: list[dict[str, Any]]) -> dict[str, Any]:
@@ -216,7 +216,7 @@ def _build_exposure_bundles(shipment_rows: list[dict[str, Any]], applied_rows: l
 
 ### overlap-test
 
-[etudecas/simulation/test_risk_lot_impact_registry.py:616](<../../simulation/test_risk_lot_impact_registry.py#L616>)
+[etudecas/tests/risques/test_risk_lot_impact_registry.py:616](<../../tests/risques/test_risk_lot_impact_registry.py#L616>)
 
 ```python
 def test_overlapping_events_share_one_bundle_and_must_not_be_summed() -> None:
@@ -224,7 +224,7 @@ def test_overlapping_events_share_one_bundle_and_must_not_be_summed() -> None:
 
 ### component-union
 
-[etudecas/simulation/lot_trace/risk_impact_registry.py:1993](<../../simulation/lot_trace/risk_impact_registry.py#L1993>)
+[etudecas/simulation/lot_trace/risk_impact_registry.py:1992](<../../simulation/lot_trace/risk_impact_registry.py#L1992>)
 
 ```python
 def _derive_child_impact(child: str, links: list[dict[str, Any]], impacts: dict[str, _LotImpact], lot_info: dict[str, dict[str, Any]]) -> _LotImpact | None:
@@ -232,7 +232,7 @@ def _derive_child_impact(child: str, links: list[dict[str, Any]], impacts: dict[
 
 ### units-merge-test
 
-[etudecas/simulation/test_risk_lot_impact_registry.py:633](<../../simulation/test_risk_lot_impact_registry.py#L633>)
+[etudecas/tests/risques/test_risk_lot_impact_registry.py:633](<../../tests/risques/test_risk_lot_impact_registry.py#L633>)
 
 ```python
 def test_component_merge_uses_union_bounds_instead_of_adding_incompatible_units() -> None:
@@ -240,7 +240,7 @@ def test_component_merge_uses_union_bounds_instead_of_adding_incompatible_units(
 
 ### client-exposure
 
-[etudecas/simulation/lot_trace/risk_impact_registry.py:2171](<../../simulation/lot_trace/risk_impact_registry.py#L2171>)
+[etudecas/simulation/lot_trace/risk_impact_registry.py:2170](<../../simulation/lot_trace/risk_impact_registry.py#L2170>)
 
 ```python
 def _client_service_rows(incident_id: str, impacts: dict[str, _LotImpact], lot_info: dict[str, dict[str, Any]], lot_events_by_lot: dict[str, list[dict[str, Any]]], service_context: dict[tuple[Any, ...], dict[str, Any]]) -> list[dict[str, Any]]:
@@ -248,7 +248,7 @@ def _client_service_rows(incident_id: str, impacts: dict[str, _LotImpact], lot_i
 
 ### no-causal-claim-test
 
-[etudecas/simulation/test_risk_lot_impact_registry.py:552](<../../simulation/test_risk_lot_impact_registry.py#L552>)
+[etudecas/tests/risques/test_risk_lot_impact_registry.py:552](<../../tests/risques/test_risk_lot_impact_registry.py#L552>)
 
 ```python
 def test_native_incident_propagates_to_campaign_client_and_cost_without_false_service_claim() -> None:
@@ -256,7 +256,7 @@ def test_native_incident_propagates_to_campaign_client_and_cost_without_false_se
 
 ### legacy-proof-test
 
-[etudecas/simulation/test_risk_lot_impact_registry.py:598](<../../simulation/test_risk_lot_impact_registry.py#L598>)
+[etudecas/tests/risques/test_risk_lot_impact_registry.py:598](<../../tests/risques/test_risk_lot_impact_registry.py#L598>)
 
 ```python
 def test_legacy_run_is_explicitly_association_not_native_causality() -> None:
@@ -264,7 +264,7 @@ def test_legacy_run_is_explicitly_association_not_native_causality() -> None:
 
 ### source-provenance
 
-[etudecas/simulation/lot_trace/risk_impact_registry.py:974](<../../simulation/lot_trace/risk_impact_registry.py#L974>)
+[etudecas/simulation/lot_trace/risk_impact_registry.py:973](<../../simulation/lot_trace/risk_impact_registry.py#L973>)
 
 ```python
 def _build_source_provenance(*, data_dir: Path, source_files: dict[str, dict[str, Any]], risk_event_rows: list[dict[str, Any]]) -> dict[str, Any]:
@@ -272,7 +272,7 @@ def _build_source_provenance(*, data_dir: Path, source_files: dict[str, dict[str
 
 ### registry-inputs
 
-[etudecas/simulation/lot_trace/risk_impact_registry.py:38](<../../simulation/lot_trace/risk_impact_registry.py#L38>)
+[etudecas/simulation/lot_trace/risk_impact_registry.py:37](<../../simulation/lot_trace/risk_impact_registry.py#L37>)
 
 ```python
 SOURCE_FILES = {'assumptions': 'assumptions_ledger.csv', 'state_risk_events': 'supplier_state_dependent_risk_events.csv', 'applied_risk': 'supplier_risk_events_applied_daily.csv', 'supplier_shipments': 'production_supplier_shipments_daily.csv', 'lot_events': 'production_lot_events.csv', 'lot_genealogy': 'production_lot_genealogy.csv', 'production_campaigns': 'production_campaigns.csv', 'demand_service': 'production_demand_service_daily.csv', 'supplier_parameters': 'supplier_nominal_parameters.csv'}
@@ -280,7 +280,7 @@ SOURCE_FILES = {'assumptions': 'assumptions_ledger.csv', 'state_risk_events': 's
 
 ### registry-outputs
 
-[etudecas/simulation/lot_trace/risk_impact_registry.py:67](<../../simulation/lot_trace/risk_impact_registry.py#L67>)
+[etudecas/simulation/lot_trace/risk_impact_registry.py:66](<../../simulation/lot_trace/risk_impact_registry.py#L66>)
 
 ```python
 OUTPUT_FILENAMES = {'incidents': 'risk_impact_incidents.csv', 'bundles': 'risk_impact_exposure_bundles.csv', 'bundle_events': 'risk_impact_bundle_events.csv', 'entities': 'risk_impact_entities.csv', 'edges': 'risk_impact_edges.csv', 'client_service': 'risk_impact_client_service.csv', 'costs': 'risk_impact_costs.csv', 'quality': 'risk_impact_quality.json'}
@@ -288,7 +288,7 @@ OUTPUT_FILENAMES = {'incidents': 'risk_impact_incidents.csv', 'bundles': 'risk_i
 
 ### source-hash-test
 
-[etudecas/simulation/test_risk_lot_impact_registry.py:779](<../../simulation/test_risk_lot_impact_registry.py#L779>)
+[etudecas/tests/risques/test_risk_lot_impact_registry.py:779](<../../tests/risques/test_risk_lot_impact_registry.py#L779>)
 
 ```python
 def test_standalone_directory_hashes_exact_sources_and_written_registry_csvs(tmp_path: Path) -> None:
@@ -296,7 +296,7 @@ def test_standalone_directory_hashes_exact_sources_and_written_registry_csvs(tmp
 
 ### consolidated-shipment-identity
 
-[etudecas/simulation/engine/run_first_simulation.py:995](<../../simulation/engine/run_first_simulation.py#L995>)
+[etudecas/simulation/engine/run_first_simulation.py:889](<../../simulation/engine/run_first_simulation.py#L889>)
 
 ```python
 def next_shipment_identity(self, *, departure_day: int, arrival_day: int, route_id: str) -> tuple[str, str]:
@@ -306,7 +306,7 @@ Return one route/date shipment ID; handling unit stays unknown without source da
 
 ### chunk-identity-test
 
-[etudecas/simulation/test_risk_lot_impact_registry.py:950](<../../simulation/test_risk_lot_impact_registry.py#L950>)
+[etudecas/tests/risques/test_risk_lot_impact_registry.py:950](<../../tests/risques/test_risk_lot_impact_registry.py#L950>)
 
 ```python
 def test_multi_chunk_schedule_has_one_unique_join_key_per_physical_chunk() -> None:
@@ -314,7 +314,7 @@ def test_multi_chunk_schedule_has_one_unique_join_key_per_physical_chunk() -> No
 
 ### deferred-departure
 
-[etudecas/simulation/engine/run_first_simulation.py:1907](<../../simulation/engine/run_first_simulation.py#L1907>)
+[etudecas/simulation/engine/run_first_simulation.py:1801](<../../simulation/engine/run_first_simulation.py#L1801>)
 
 ```python
 def record_allocation_event(self, *, day: int, event_type: str, parent_allocations: list[dict[str, Any]], source_id: str='', shipment_id: str='', risk_decision_day: int | str='', risk_event_ids: str='', departure_day: int | str='', arrival_day: int | str='', handling_unit_id: str='', notes: str='', trace_status: str='traced', trace_reason: str='', planned_order_id: str='', baseline_reference_id: str='') -> None:
@@ -324,7 +324,7 @@ Record a physical milestone for stock allocated at an earlier date.
 
 ### deferred-risk-test
 
-[etudecas/simulation/test_risk_lot_impact_registry.py:1107](<../../simulation/test_risk_lot_impact_registry.py#L1107>)
+[etudecas/tests/risques/test_risk_lot_impact_registry.py:1107](<../../tests/risques/test_risk_lot_impact_registry.py#L1107>)
 
 ```python
 def test_reserved_shipment_retains_risk_decision_on_later_physical_departure() -> None:
@@ -332,7 +332,7 @@ def test_reserved_shipment_retains_risk_decision_on_later_physical_departure() -
 
 ### structural-shipment-links
 
-[etudecas/simulation/lot_trace/causal_links.py:178](<../../simulation/lot_trace/causal_links.py#L178>)
+[etudecas/simulation/lot_trace/causal_links.py:328](<../../simulation/lot_trace/causal_links.py#L328>)
 
 ```python
 def build_lot_causal_link_rows(*, lot_event_rows: Iterable[dict[str, Any]], genealogy_rows: Iterable[dict[str, Any]], production_plan_rows: Iterable[dict[str, Any]], production_campaign_rows: Iterable[dict[str, Any]], mrp_order_rows: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:

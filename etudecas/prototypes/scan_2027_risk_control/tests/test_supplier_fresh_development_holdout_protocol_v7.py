@@ -10,9 +10,6 @@ import pytest
 from etudecas.prototypes.scan_2027_risk_control import (
     supplier_fresh_development_holdout_protocol_v7 as v7,
 )
-from etudecas.prototypes.scan_2027_risk_control import (
-    supplier_fresh_development_holdout_monitor_v7 as live_monitor,
-)
 
 
 def _write_json(path: Path, payload: dict[str, object]) -> None:
@@ -673,55 +670,6 @@ def test_seedwise_ties_are_secondary_and_not_inversions() -> None:
     assert diagnostic["by_measure"]["global"]["inversion_count_op100_below_op93"] == 0
 
 
-def test_live_monitor_validates_committed_evidence_and_tolerates_active_attempt(
-    tmp_path: Path, v6_design: tuple[Path, Path, Path, Path]
-) -> None:
-    plan_dir = _prepare(tmp_path, v6_design)
-    run_dir = tmp_path / "live-monitor-run"
-    v7.prepare_run(plan_dir, run_dir, test_only=True)
-    plan = v7.validate_plan(plan_dir, allow_test_source=True, verify_runtime=False)
-    candidate = plan.candidates[0]
-    seed = v7.V7_VALIDATION_SEEDS[0]
-    v7._execute_one(  # noqa: SLF001
-        plan=plan,
-        run_dir=run_dir,
-        candidate=candidate,
-        seed=seed,
-        mode=v7.TEST_ONLY_EXECUTION_MODE,
-        executor=_passing_executor,
-    )
-    active_candidate = plan.candidates[1]
-    active_seed = v7.V7_VALIDATION_SEEDS[1]
-    active_case = (
-        run_dir
-        / "engine_attempts"
-        / v7._attempt_digest(active_candidate, active_seed)  # noqa: SLF001
-        / "attempt-123-0123456789abcdef0123456789abcdef"
-        / "cases"
-        / active_candidate.candidate_id
-        / f"seed_{active_seed}"
-    )
-    (active_case / "data").mkdir(parents=True)
-
-    observed = live_monitor.inspect_run(
-        plan_dir,
-        run_dir,
-        allow_test_source=True,
-        verify_runtime=False,
-    )
-
-    assert observed["read_only"] is True
-    assert observed["committed_evidence"]["validated_case_count"] == 1
-    assert observed["progress"]["state"] == "not_written_yet"
-    assert observed["attempts"]["committed_attempts_verified_clean"] == 0
-    assert observed["attempts"]["uncommitted_attempt_count"] == 1
-    active = observed["attempts"]["uncommitted_attempts"][0]
-    assert active["candidate_key"] == active_candidate.key
-    assert active["seed"] == active_seed
-    assert active["heavy_directories_present"] == ["data"]
-    assert observed["descriptive_checkpoint"]["descriptive_only"] is True
-
-
 def test_cli_exposes_plan_runner_monitor_and_finalizer() -> None:
     help_text = v7._parser().format_help()  # noqa: SLF001
     for command in (
@@ -734,3 +682,45 @@ def test_cli_exposes_plan_runner_monitor_and_finalizer() -> None:
         "validate-result",
     ):
         assert command in help_text
+
+
+def test_reviewed_v6_inventory_records_actual_hash_and_preserves_history() -> None:
+    relative = "tests/test_supplier_v6_completion_path.py"
+    historical = "3b43186935c27debbfbe7ea0220fbb312c07f41f8cc1333103f36bd4b61326a2"
+    current = "e086cfe9700fd132de35fe0133c5c923c3e5f3294c7da863364847bc13875ef8"
+    inventory = {row["relative_path"]: row for row in v7._module_inventory()}
+    assert v7.PINNED_V6_MODULE_SHA256[relative] == historical
+    assert v7.REVIEWED_V6_IMPORT_REFACTOR_SHA256 == {relative: current}
+    assert inventory[relative]["sha256"] == current
+    assert v7.sha256_file(Path(inventory[relative]["path"])) == current
+
+
+def test_reviewed_v6_inventory_rejects_any_other_file_change(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source_root = Path(v7.__file__).resolve().parent
+    copied_root = tmp_path / "copied_sources"
+    for relative in v7.PINNED_V6_MODULE_SHA256:
+        target = copied_root / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(source_root / relative, target)
+    monkeypatch.setattr(v7, "__file__", str(copied_root / "protocol.py"))
+    v7._module_inventory()
+    target = copied_root / "tests/test_supplier_v6_completion_path.py"
+    target.write_bytes(target.read_bytes() + b"\n# unreviewed change\n")
+    with pytest.raises(v7.V7ProtocolError, match="Pinned V6 file changed"):
+        v7._module_inventory()
+
+
+def test_reviewed_v7_plan_rejects_historical_inventory_even_if_resigned(
+    tmp_path: Path, v6_design: tuple[Path, Path, Path, Path]
+) -> None:
+    plan_dir = _prepare(tmp_path, v6_design)
+    manifest_path = plan_dir / "protocol_manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    for row in manifest["pinned_v6_modules"]:
+        row["sha256"] = v7.PINNED_V6_MODULE_SHA256[row["relative_path"]]
+    manifest.pop("plan_signature")
+    _write_json(manifest_path, v7._signed(manifest, "plan_signature"))
+    with pytest.raises(v7.V7ProtocolError, match="plan-level contract changed"):
+        v7.validate_plan(plan_dir, allow_test_source=True, verify_runtime=False)

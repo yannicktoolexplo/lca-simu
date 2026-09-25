@@ -11,7 +11,7 @@
       "path": "etudecas/simulation/engine/api.py",
       "symbol": "request_from_dict",
       "kind": "implementation",
-      "reference_fingerprint": "fea0e1a1baeb14a4daea089df7793c39ed0d45ff413d569d50a9d52f121c004b"
+      "reference_fingerprint": "18cc3a2d2af0116483936a370a6f29830c7c8fe32fb11220c11f4056ce2e8794"
     },
     {
       "id": "scales",
@@ -81,7 +81,7 @@
       "path": "etudecas/simulation/engine/bounded_execution.py",
       "symbol": "run_simulation_bounded",
       "kind": "implementation",
-      "reference_fingerprint": "1d012545300c5f82eb7e9187aae36947fe5883ca1c552218b52c6e5a2b4c5807"
+      "reference_fingerprint": "98568473b9aa5b7fdbbc0c82376b74285cc5b88ed0647d4939f7125620c9def6"
     },
     {
       "id": "graph",
@@ -106,70 +106,70 @@
     },
     {
       "id": "types-test",
-      "path": "etudecas/simulation/test_request_contract.py",
+      "path": "etudecas/tests/moteur/test_request_contract.py",
       "symbol": "test_request_rejects_coercions",
       "kind": "test",
       "reference_fingerprint": "a2d2fc9c2ac56730c991bc6019e87d7d9418e7e20ddbabd0f9851d5452b6014d"
     },
     {
       "id": "scales-test",
-      "path": "etudecas/simulation/test_request_contract.py",
+      "path": "etudecas/tests/moteur/test_request_contract.py",
       "symbol": "test_scales_require_finite_nonnegative_numbers",
       "kind": "test",
       "reference_fingerprint": "c419a1247f8512964cc45e2939718f02022fc1bb23010667aea7fd81e35353b0"
     },
     {
       "id": "false-test",
-      "path": "etudecas/simulation/test_request_contract.py",
+      "path": "etudecas/tests/moteur/test_request_contract.py",
       "symbol": "test_false_zero_and_internal_controls_are_preserved",
       "kind": "test",
       "reference_fingerprint": "8b0b6ac79f639c46a08bad2d829a11c1d7b744abc7451fc0e83e8a655fc06927"
     },
     {
       "id": "forbidden-test",
-      "path": "etudecas/simulation/test_http_contract.py",
+      "path": "etudecas/tests/moteur/test_http_contract.py",
       "symbol": "test_http_rejects_internal_fields_and_unbounded_horizon",
       "kind": "test",
       "reference_fingerprint": "52e68d0f352cc152bbfd0064c2443fac813def900f39c188ffa00848c1e475de"
     },
     {
       "id": "paths-test",
-      "path": "etudecas/simulation/test_http_contract.py",
+      "path": "etudecas/tests/moteur/test_http_contract.py",
       "symbol": "test_http_paths_cannot_escape_input_root",
       "kind": "test",
       "reference_fingerprint": "401dfe3431fd515c8e547660e4cd3ab22cacc1c3aeb01b9be483c99be43fc1b0"
     },
     {
       "id": "unique-test",
-      "path": "etudecas/simulation/test_http_contract.py",
+      "path": "etudecas/tests/moteur/test_http_contract.py",
       "symbol": "test_http_assigns_engine_and_unique_output_without_writing",
       "kind": "test",
       "reference_fingerprint": "efbb836fd420ba26a6efc3f2bd49cf464157a93efe7bd86abac8bf015bd8d30e"
     },
     {
       "id": "access-test",
-      "path": "etudecas/simulation/test_http_contract.py",
+      "path": "etudecas/tests/moteur/test_http_contract.py",
       "symbol": "test_http_rejects_before_simulation",
       "kind": "test",
       "reference_fingerprint": "1b23aec8fc67e0d82a71512881486c53bb97815032530b7756ceee229e366bb4"
     },
     {
       "id": "busy-test",
-      "path": "etudecas/simulation/test_http_contract.py",
+      "path": "etudecas/tests/moteur/test_http_contract.py",
       "symbol": "test_busy_and_timeout_release_slot",
       "kind": "test",
       "reference_fingerprint": "a235f89b7473832248e5b7eac25f6c27bcd51c77ba794bfc487bfc69b41e96a2"
     },
     {
       "id": "deadline-test",
-      "path": "etudecas/simulation/test_http_contract.py",
+      "path": "etudecas/tests/moteur/test_http_contract.py",
       "symbol": "test_real_subprocess_timeout",
       "kind": "test",
       "reference_fingerprint": "38f0644798f484a3fd1b35556034b7ba4ca65930d7d8749cae2415fb88098549"
     },
     {
       "id": "partial-test",
-      "path": "etudecas/simulation/test_http_contract.py",
+      "path": "etudecas/tests/moteur/test_http_contract.py",
       "symbol": "test_partial_body_times_out_and_releases_slot",
       "kind": "test",
       "reference_fingerprint": "1add781148151a6f1dc7764acd3f43442c4636e4a548bb01868961d480b06648"

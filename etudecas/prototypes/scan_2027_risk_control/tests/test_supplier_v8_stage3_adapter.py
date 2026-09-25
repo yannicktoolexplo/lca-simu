@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from etudecas.prototypes.scan_2027_risk_control import (
+    supplier_stage_runtime as stage_runtime,
+)
+
 from contextlib import contextmanager
 from pathlib import Path
 from types import SimpleNamespace
@@ -8,23 +12,16 @@ from typing import Any
 import pytest
 
 from etudecas.prototypes.scan_2027_risk_control import (
-    supplier_v7_stage2_pipeline as legacy_pipeline,
-)
-from etudecas.prototypes.scan_2027_risk_control import (
-    supplier_v7_stage2_watcher as legacy_watcher,
-)
-from etudecas.prototypes.scan_2027_risk_control import (
     supplier_v8_stage2_common as predecessor_common,
 )
 from etudecas.prototypes.scan_2027_risk_control import (
     supplier_v8_stage3_common as common,
 )
-from etudecas.prototypes.scan_2027_risk_control import (
-    supplier_v8_stage3_pipeline as pipeline,
-)
-from etudecas.prototypes.scan_2027_risk_control import (
-    supplier_v8_stage3_watcher as watcher,
-)
+
+legacy_pipeline = stage_runtime.for_profile("v7-stage2")
+legacy_watcher = stage_runtime.for_profile("v7-stage2")
+pipeline = stage_runtime.for_profile("v8-stage3")
+watcher = pipeline
 
 
 def _paths(tmp_path: Path) -> common.Stage2Paths:
@@ -68,38 +65,180 @@ def _native_evidence() -> dict[str, Any]:
     }
 
 
-def test_historical_stage3_inventory_stays_frozen(historical_artifact) -> None:
-    historical_artifact("supplier_v8_stage2_supervision_20260906_v2/stage2_source_inventory.json")
-    repo = Path(__file__).resolve().parents[4]
-    v2 = predecessor_common.build_source_inventory(repo)
-    predecessor_common.verify_source_inventory(v2)
-    v3 = common.build_source_inventory(repo)
-    common.verify_source_inventory(v3)
-
-    assert v2["inventory_signature"] == common.PREDECESSOR_INVENTORY_SIGNATURE
-    assert v3["predecessor_inventory_signature"] == v2["inventory_signature"]
-    explicit = {
-        row["relative_path"].rsplit("/", 1)[-1]
-        for row in v3["entries"]
-        if "supplier_v8_stage3_" in row["relative_path"]
-    }
-    assert explicit == set(common.EXPLICIT_SOURCE_FILENAMES)
+def test_historical_stage3_inventory_stays_frozen(historical_artifact):
+    path = historical_artifact(
+        "supplier_v8_stage2_supervision_20260906_v2/stage2_source_inventory.json"
+    )
+    inventory = predecessor_common.read_json(path)
+    predecessor_common.verify_signature(
+        inventory, "inventory_signature", "historical predecessor"
+    )
+    assert inventory["inventory_signature"] == common.PREDECESSOR_INVENTORY_SIGNATURE
+    with pytest.raises(common.Stage2Error, match="Historical"):
+        pipeline.verify_source_inventory(inventory)
 
 
 def test_stage3_source_discovery_is_explicit():
     repo = Path(__file__).resolve().parents[4]
-    paths = common.source_paths(repo)
-    explicit = {path.name for path in paths if path.name.startswith("supplier_v8_stage3_")}
-    assert explicit == set(common.EXPLICIT_SOURCE_FILENAMES)
+    names = {path.name for path in pipeline.source_paths(repo)}
+    assert {
+        "supplier_stage_runtime.py",
+        "supplier_v8_stage3_common.py",
+        "supplier_v8_stage3_delivery.py",
+    } <= names
+    assert not names.intersection(
+        {
+            f"supplier_{version}_{kind}.py"
+            for version in ("v7_stage2", "v8_stage2", "v8_stage3")
+            for kind in ("pipeline", "watcher")
+        }
+    )
 
 
-def test_stage3_rejects_a_different_predecessor_even_when_self_consistent(monkeypatch):
-    # The predecessor validator is stubbed here; the Stage3 pin must still reject it.
-    monkeypatch.setattr(predecessor_common, "build_source_inventory",
-                        lambda _repo: {"inventory_signature": "0" * 64})
-    monkeypatch.setattr(predecessor_common, "verify_source_inventory", lambda _inventory: None)
-    with pytest.raises(common.Stage2Error, match="V3 refuse"):
-        common.build_source_inventory(Path(__file__).resolve().parents[4])
+def test_current_inventory_rejects_changed_source_cross_profile_and_old_schema(
+    tmp_path, monkeypatch
+):
+    runtime = stage_runtime.for_profile("v8-stage3")
+    source = tmp_path / "worker.py"
+    source.write_bytes(b"value = 1\n")
+    monkeypatch.setattr(runtime, "source_paths", lambda repo: [source])
+    inventory = runtime.build_source_inventory(tmp_path)
+    runtime.verify_source_inventory(inventory)
+    source.write_bytes(b"value = 2\n")
+    with pytest.raises(common.Stage2Error, match="changed"):
+        runtime.verify_source_inventory(inventory)
+    with pytest.raises(common.Stage2Error, match="other-profile"):
+        stage_runtime.for_profile("v7-stage2").verify_source_inventory(inventory)
+    old = dict(inventory)
+    old.pop("inventory_signature")
+    old["schema_version"] = common.SOURCE_INVENTORY_SCHEMA_VERSION
+    with pytest.raises(common.Stage2Error, match="Historical"):
+        runtime.verify_source_inventory(common.signed(old, "inventory_signature"))
+
+
+def test_inventory_cli_is_new_or_identical_and_never_overwrites_another_identity(
+    tmp_path, monkeypatch
+):
+    import json
+
+    runtime = stage_runtime.for_profile("v8-stage3")
+    source = tmp_path / "worker.py"
+    source.write_bytes(b"value = 1\n")
+    monkeypatch.setattr(runtime, "source_paths", lambda repo: [source])
+    monkeypatch.setattr(stage_runtime, "for_profile", lambda profile: runtime)
+    target = tmp_path / "inventory.json"
+    args = [
+        "--profile",
+        "v8-stage3",
+        "--mode",
+        "inventory",
+        "--repo",
+        str(tmp_path),
+        "--output",
+        str(target),
+    ]
+    assert stage_runtime.main(args) == 0
+    first = target.read_bytes()
+    assert stage_runtime.main(args) == 0
+    assert target.read_bytes() == first
+    assert json.loads(first)["profile"] == "v8-stage3"
+    source.write_bytes(b"value = 2\n")
+    assert stage_runtime.main(args) == 1
+    assert target.read_bytes() == first
+
+
+@pytest.mark.parametrize(
+    "fault", [None, "checksum", "source", "traversal", "signature"]
+)
+def test_archive_verification_is_read_only_and_never_authorizes_resume(tmp_path, fault):
+    import hashlib
+    import json
+    import zipfile
+
+    content = b"raise RuntimeError('archive must never execute')\n"
+    archive_path = tmp_path / "source.zip"
+    with zipfile.ZipFile(archive_path, "w") as archive:
+        archive.writestr("worker.py", content)
+    inventory = common.signed(
+        {
+            "schema_version": "etudecas.supplier_v7_stage2.v1.source_inventory.v1",
+            "entry_count": 1,
+            "entries": [
+                {
+                    "relative_path": "../worker.py"
+                    if fault == "traversal"
+                    else "worker.py",
+                    "size_bytes": len(content),
+                    "sha256": "0" * 64
+                    if fault == "source"
+                    else hashlib.sha256(content).hexdigest(),
+                }
+            ],
+        },
+        "inventory_signature",
+    )
+    if fault == "signature":
+        inventory["inventory_signature"] = "0" * 64
+    inventory_path = tmp_path / "inventory.json"
+    inventory_path.write_text(json.dumps(inventory), encoding="utf-8")
+    digest = (
+        "0" * 64
+        if fault == "checksum"
+        else hashlib.sha256(archive_path.read_bytes()).hexdigest()
+    )
+    if fault:
+        with pytest.raises((ValueError, common.Stage2Error)):
+            stage_runtime.verify_archived_inventory(
+                inventory_path, archive_path, digest
+            )
+    else:
+        result = stage_runtime.verify_archived_inventory(
+            inventory_path, archive_path, digest
+        )
+        assert result["ok"] is True
+        assert result["current_runtime_verified"] is False
+        assert result["resume_authorized"] is False
+    assert {path.name for path in tmp_path.iterdir()} == {
+        "source.zip",
+        "inventory.json",
+    }
+
+
+def test_stage3_rejects_a_different_archived_predecessor_even_when_self_consistent(
+    tmp_path,
+):
+    import hashlib
+    import json
+    import zipfile
+
+    capsule = tmp_path / "sources.zip"
+    content = b"SOURCE = 1\n"
+    with zipfile.ZipFile(capsule, "w") as archive:
+        archive.writestr("example.py", content)
+    inventory = common.signed(
+        {
+            "schema_version": common.SOURCE_INVENTORY_SCHEMA_VERSION,
+            "entry_count": 1,
+            "entries": [
+                {
+                    "relative_path": "example.py",
+                    "size_bytes": len(content),
+                    "sha256": hashlib.sha256(content).hexdigest(),
+                }
+            ],
+            "predecessor_inventory_signature": "0" * 64,
+            "explicit_stage3_source_filenames": list(
+                common.HISTORICAL_EXPLICIT_SOURCE_FILENAMES
+            ),
+        },
+        "inventory_signature",
+    )
+    inventory_path = tmp_path / "inventory.json"
+    inventory_path.write_text(json.dumps(inventory), encoding="utf-8")
+    with pytest.raises(ValueError, match="predecessor identity"):
+        stage_runtime.verify_archived_inventory(
+            inventory_path, capsule, hashlib.sha256(capsule.read_bytes()).hexdigest()
+        )
 
 
 def test_native_dashboard_binding_is_scoped_and_receipt_is_v3(
@@ -145,46 +284,35 @@ def test_native_dashboard_binding_is_scoped_and_receipt_is_v3(
     common.verify_signature(receipt, "validation_signature", "reçu test V3")
 
 
-def test_pipeline_contract_adds_native_registry_and_window_semantics(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    paths = _paths(tmp_path)
-    monkeypatch.setattr(
-        pipeline,
-        "_ORIGINAL_CONTRACT_PAYLOAD",
-        lambda _paths, _inventory: common.signed(
-            {
-                "schema_version": "legacy",
-                "scientific_contract": {},
-            },
-            "contract_signature",
-        ),
+def test_pipeline_contract_adds_native_registry_and_window_semantics(tmp_path):
+    contract = pipeline._contract_payload(
+        _paths(tmp_path), {"inventory_signature": "a" * 64}
     )
-    contract = pipeline._contract_payload_v3(paths, {})  # noqa: SLF001
     science = contract["scientific_contract"]
     assert science["native_v8_target_registry_reader_required"] is True
     assert science["obsolete_design_seed_projection_used"] is False
     assert science["target_window_is_worst_period"] is False
     assert science["target_window_is_average_season"] is False
     assert science["target_selection_uses_incident_outcomes"] is False
+    assert contract["orchestration"]["profile"] == "v8-stage3"
 
 
-def test_pipeline_context_is_v3_scoped_and_restored() -> None:
+def test_pipeline_profile_is_v3_scoped_without_mutating_v7(tmp_path):
     previous = (
         legacy_pipeline.common,
         legacy_pipeline.SCHEMA_VERSION,
-        legacy_pipeline._delivery,  # noqa: SLF001
-        legacy_pipeline._contract_payload,  # noqa: SLF001
+        legacy_pipeline._delivery,
+        legacy_pipeline._contract_payload,
     )
-    with pipeline.patched_v3_pipeline_context():
-        assert legacy_pipeline.common is common
-        assert legacy_pipeline.SCHEMA_VERSION == pipeline.SCHEMA_VERSION
-        assert legacy_pipeline._delivery is pipeline._delivery_v3  # noqa: SLF001
-        assert legacy_pipeline._contract_payload is pipeline._contract_payload_v3  # noqa: SLF001
-    assert legacy_pipeline.common is previous[0]
-    assert legacy_pipeline.SCHEMA_VERSION == previous[1]
-    assert legacy_pipeline._delivery is previous[2]  # noqa: SLF001
-    assert legacy_pipeline._contract_payload is previous[3]  # noqa: SLF001
+    pipeline._contract_payload(_paths(tmp_path), {"inventory_signature": "a" * 64})
+    assert pipeline.common is common
+    assert pipeline.profile == "v8-stage3"
+    assert (
+        legacy_pipeline.common,
+        legacy_pipeline.SCHEMA_VERSION,
+        legacy_pipeline._delivery,
+        legacy_pipeline._contract_payload,
+    ) == previous
 
 
 def test_consumer_binding_delegates_and_restores(
@@ -212,46 +340,44 @@ def test_shared_reader_binding_restores_predecessor_reader() -> None:
 
 
 def test_watcher_does_not_read_campaign_progress_before_final_overlay(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+    tmp_path, monkeypatch
+):
     paths = SimpleNamespace(results_dir=tmp_path / "results")
     paths.results_dir.mkdir()
 
     class Parser:
         @staticmethod
-        def parse_args(_argv: object) -> object:
+        def parse_args(_argv):
             return object()
 
-    monkeypatch.setattr(legacy_watcher, "_parser", lambda: Parser())
-    monkeypatch.setattr(pipeline, "paths_from_args", lambda _args: paths)
+    monkeypatch.setattr(watcher, "_watch_parser", lambda: Parser())
+    monkeypatch.setattr(watcher, "paths_from_args", lambda _args: paths)
     monkeypatch.setattr(
-        legacy_watcher,
-        "main",
-        lambda _argv: pytest.fail("Le watcher mature ne doit pas démarrer."),
+        watcher,
+        "prepare_supervision",
+        lambda _paths: pytest.fail("No supervision before final overlay"),
     )
     monkeypatch.setattr(
         common,
         "probe_stage1",
-        lambda _paths: pytest.fail("Aucun progress JSON ne doit être sondé."),
+        lambda _paths: pytest.fail("No progress JSON before final overlay"),
     )
+    assert watcher.watch([]) == 4
 
-    assert watcher.main([]) == 4
 
-
-def test_watcher_context_targets_v3_child_and_restores() -> None:
+def test_watcher_profile_targets_v3_without_mutating_v7():
     previous = (
         legacy_watcher.common,
-        legacy_watcher.pipeline,
-        legacy_watcher.MODULE_NAME,
+        legacy_watcher.profile,
+        legacy_watcher.DEFAULT_POLL_SECONDS,
     )
-    with watcher.patched_v3_watcher_context():
-        assert legacy_watcher.common is common
-        assert legacy_watcher.pipeline is pipeline
-        assert legacy_watcher.MODULE_NAME == watcher.MODULE_NAME
-        assert legacy_watcher.DEFAULT_POLL_SECONDS == 60.0
-        assert legacy_watcher.RESERVATION_SCHEMA_VERSION.startswith(
-            watcher.SCHEMA_VERSION
-        )
-    assert legacy_watcher.common is previous[0]
-    assert legacy_watcher.pipeline is previous[1]
-    assert legacy_watcher.MODULE_NAME == previous[2]
+    assert watcher is pipeline
+    assert watcher.common is common
+    assert watcher.profile == "v8-stage3"
+    assert watcher.DEFAULT_POLL_SECONDS == 60.0
+    assert watcher.RESERVATION_SCHEMA_VERSION.startswith(watcher.WATCHER_SCHEMA_VERSION)
+    assert (
+        legacy_watcher.common,
+        legacy_watcher.profile,
+        legacy_watcher.DEFAULT_POLL_SECONDS,
+    ) == previous

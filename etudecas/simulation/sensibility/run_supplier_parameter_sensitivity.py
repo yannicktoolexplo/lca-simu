@@ -30,23 +30,16 @@ from etudecas.simulation.initial_state_policy import merge_living_initial_state_
 SERVICE_KPI_TOLERANCE = 0.001
 COUNT_KPI_TOLERANCE = 1.0
 RATE_KPI_TOLERANCE = 0.001
-REQUIRED_DERIVED_KPI_COLUMNS = [
-    "kpi::product_availability",
-    "kpi::line_adherence",
-    "kpi::line_nervousness",
-    "kpi::production_replanning_count",
-    "kpi::production_replanning_rate",
-    "kpi::raw_material_stockout_days",
-    "kpi::material_delay_days",
-    "kpi::inventory_cost",
-]
 
 from etudecas.simulation.analysis_batch_common import (  # noqa: E402
     apply_scales,
     choose_scenario,
-    detect_demand_items,
     load_json,
     numeric_kpis,
+    study_case_identity,
+    study_case_input_hashes,
+    load_completed_study_case,
+    publish_completed_study_case,
     safe_name,
     to_float,
     write_json,
@@ -998,44 +991,50 @@ def run_case(
     case_dir = cases_root / case_id
     case_input = case_dir / "input_case.json"
     case_output = case_dir / "simulation_output"
-    summary_candidates = [
-        case_output / "summaries" / "first_simulation_summary.json",
-        case_output / "first_simulation_summary.json",
-    ]
-    summary_file = next((path for path in summary_candidates if path.exists()), None)
-    if summary_file is not None:
-        summary = load_json(summary_file)
-    else:
-        mutated = apply_scales(
-            base_data=base_data,
-            scenario_id=scenario_id,
-            factors=config["factors"],
-            demand_item_scale=config["demand_item_scale"],
-            capacity_node_scale=config["capacity_node_scale"],
-            supplier_node_scale=config["supplier_node_scale"],
-            supplier_capacity_node_scale=config["supplier_capacity_node_scale"],
-            edge_src_lead_time_scale=config["edge_src_lead_time_scale"],
-            edge_src_reliability_scale=config["edge_src_reliability_scale"],
-        )
-        apply_scenario_flags(mutated, scenario_id, config["scenario_flags"])
-        case_dir.mkdir(parents=True, exist_ok=True)
-        write_json(case_input, mutated)
-        case_extra_args = list(extra_args)
-        case_supplier_floor_csv = write_case_supplier_floor_csv(
-            baseline_csv=supplier_floor_csv,
-            output_csv=case_dir / "supplier_neutral_floors_case.csv",
-            config=config,
-        )
-        if case_supplier_floor_csv is not None:
-            case_extra_args.extend(["--supplier-neutral-floors-csv", str(case_supplier_floor_csv)])
-        summary = run_simulation_case(
-            run_script=run_script,
-            input_json=case_input,
-            output_dir=case_output,
-            scenario_id=scenario_id,
-            days=days,
-            extra_args=case_extra_args,
-        )
+    identity_args = dict(
+        base_data=base_data, config=config, run_script=run_script,
+        scenario_id=scenario_id, days=days,
+        extra_args=["--output-profile", "compact", *merge_living_initial_state_args(extra_args)],
+        dependency_paths=[supplier_floor_csv] if supplier_floor_csv is not None else [],
+        metadata={"study": "supplier_parameter", "case_id": case_id, "spec": spec,
+                  "level": level, "artifact_mode": artifact_mode,
+                  "case_dir": str(case_dir.resolve())},
+    )
+    identity = study_case_identity(**identity_args)
+    completed = load_completed_study_case(case_dir, identity)
+    if completed is not None:
+        return completed
+    mutated = apply_scales(
+        base_data=base_data,
+        scenario_id=scenario_id,
+        factors=config["factors"],
+        demand_item_scale=config["demand_item_scale"],
+        capacity_node_scale=config["capacity_node_scale"],
+        supplier_node_scale=config["supplier_node_scale"],
+        supplier_capacity_node_scale=config["supplier_capacity_node_scale"],
+        edge_src_lead_time_scale=config["edge_src_lead_time_scale"],
+        edge_src_reliability_scale=config["edge_src_reliability_scale"],
+    )
+    apply_scenario_flags(mutated, scenario_id, config["scenario_flags"])
+    case_dir.mkdir(parents=True, exist_ok=True)
+    write_json(case_input, mutated)
+    case_extra_args = list(extra_args)
+    case_supplier_floor_csv = write_case_supplier_floor_csv(
+        baseline_csv=supplier_floor_csv,
+        output_csv=case_dir / "supplier_neutral_floors_case.csv",
+        config=config,
+    )
+    if case_supplier_floor_csv is not None:
+        case_extra_args.extend(["--supplier-neutral-floors-csv", str(case_supplier_floor_csv)])
+    prepared_inputs = study_case_input_hashes(case_dir)
+    summary = run_simulation_case(
+        run_script=run_script,
+        input_json=case_input,
+        output_dir=case_output,
+        scenario_id=scenario_id,
+        days=days,
+        extra_args=case_extra_args,
+    )
     op = operational_metrics(case_output)
     derived = derived_case_kpis(case_output, case_input)
     prune_case_output(case_output, artifact_mode=artifact_mode)
@@ -1060,6 +1059,11 @@ def run_case(
         row[f"kpi::{key}"] = value
     for key, value in op.items():
         row[f"guard::{key}"] = value
+    publish_completed_study_case(
+        case_dir, identity=identity,
+        prepared_inputs=prepared_inputs,
+        current_identity=study_case_identity(**identity_args), row=row,
+    )
     return row
 
 
@@ -1075,17 +1079,6 @@ def write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
 def read_csv(path: Path) -> list[dict[str, Any]]:
     with path.open("r", encoding="utf-8", newline="") as f:
         return list(csv.DictReader(f))
-
-
-def reusable_case_row(row: dict[str, Any]) -> bool:
-    if str(row.get("status") or "").lower() != "ok":
-        return False
-    case_output = Path(str(row.get("case_output_dir") or ""))
-    if not (case_output / "summaries" / "first_simulation_summary.json").exists() and not (
-        case_output / "first_simulation_summary.json"
-    ).exists():
-        return False
-    return all(str(row.get(key) or "").strip() for key in REQUIRED_DERIVED_KPI_COLUMNS)
 
 
 def is_case_acceptable(row: dict[str, Any], baseline: dict[str, Any], service_threshold: float) -> bool:
@@ -1172,7 +1165,6 @@ def baseline_safe_range(ranges: list[list[float]], baseline_level: float = 1.0) 
 
 
 def safe_range_label(row: dict[str, Any]) -> str:
-    ranges = str(row.get("acceptable_ranges") or "[]")
     contiguous = str(row.get("acceptable_is_contiguous") or "").lower() == "true"
     low = row.get("baseline_contiguous_safe_low")
     high = row.get("baseline_contiguous_safe_high")
@@ -1603,13 +1595,6 @@ def main() -> None:
         baseline_row = baseline_matches[0]
     else:
         all_rows: list[dict[str, Any]] = []
-        existing_by_case_id: dict[str, dict[str, Any]] = {}
-        if cases_csv.exists():
-            for row in read_csv(cases_csv):
-                case_id = str(row.get("case_id") or "")
-                if case_id and reusable_case_row(row):
-                    existing_by_case_id[case_id] = row
-
         print("[RUN] baseline", flush=True)
         baseline_spec = {
             "parameter_key": "baseline",
@@ -1617,24 +1602,20 @@ def main() -> None:
             "parameter_label": "Baseline",
             "safe_direction": "baseline",
         }
-        if "baseline" in existing_by_case_id:
-            print("[REUSE] baseline", flush=True)
-            baseline_row = existing_by_case_id["baseline"]
-        else:
-            baseline_row = run_case(
-                case_id="baseline",
-                spec=baseline_spec,
-                level=1.0,
-                config=base_case(),
-                base_data=base_data,
-                run_script=run_script,
-                scenario_id=args.scenario_id,
-                days=args.days,
-                cases_root=cases_root,
-                extra_args=extra_args,
-                supplier_floor_csv=supplier_floor_csv,
-                artifact_mode=artifact_mode,
-            )
+        baseline_row = run_case(
+            case_id="baseline",
+            spec=baseline_spec,
+            level=1.0,
+            config=base_case(),
+            base_data=base_data,
+            run_script=run_script,
+            scenario_id=args.scenario_id,
+            days=args.days,
+            cases_root=cases_root,
+            extra_args=extra_args,
+            supplier_floor_csv=supplier_floor_csv,
+            artifact_mode=artifact_mode,
+        )
         all_rows.append(baseline_row)
 
         for spec_index, spec in enumerate(specs, start=1):
@@ -1645,24 +1626,20 @@ def main() -> None:
                     f"{level_index:02d}/{len(spec['levels']):02d} level={level}",
                     flush=True,
                 )
-                if case_id in existing_by_case_id:
-                    print(f"[REUSE] {case_id}", flush=True)
-                    row = existing_by_case_id[case_id]
-                else:
-                    row = run_case(
-                        case_id=case_id,
-                        spec=spec,
-                        level=float(level),
-                        config=config_for_spec(spec, float(level), selected_suppliers),
-                        base_data=base_data,
-                        run_script=run_script,
-                        scenario_id=args.scenario_id,
-                        days=args.days,
-                        cases_root=cases_root,
-                        extra_args=extra_args,
-                        supplier_floor_csv=supplier_floor_csv,
-                        artifact_mode=artifact_mode,
-                    )
+                row = run_case(
+                    case_id=case_id,
+                    spec=spec,
+                    level=float(level),
+                    config=config_for_spec(spec, float(level), selected_suppliers),
+                    base_data=base_data,
+                    run_script=run_script,
+                    scenario_id=args.scenario_id,
+                    days=args.days,
+                    cases_root=cases_root,
+                    extra_args=extra_args,
+                    supplier_floor_csv=supplier_floor_csv,
+                    artifact_mode=artifact_mode,
+                )
                 all_rows.append(row)
 
         write_csv(cases_csv, all_rows)
@@ -1729,6 +1706,19 @@ def main() -> None:
         "strongest_external_market_effects": strongest_external,
         "recommendations_csv": str(recommendations_csv),
     }
+    summary["provenance_status"] = (
+        "historical_unverified" if args.summarize_existing else "completed_case_receipts"
+    )
+    if args.summarize_existing:
+        summary["historical_cases_csv"] = str(cases_csv)
+        summary["provenance_note"] = (
+            "Historical CSV summary only: no simulation executed and no historical "
+            "graph, horizon, scenario, engine or external calibration qualified. "
+            "Current CLI settings select reporting criteria only."
+        )
+        for field in ("input", "run_script", "scenario_id", "days", "manifest_extra_args",
+                      "supplier_floor_csv", "selected_suppliers"):
+            summary[field] = None
     summary_json = output_dir / "supplier_parameter_sensitivity_summary.json"
     write_json(summary_json, summary)
 
@@ -1736,11 +1726,16 @@ def main() -> None:
         "# Supplier Parameter Sensitivity",
         "",
         "## Method",
-        f"- Horizon: {args.days} days",
-        f"- Scenario: {args.scenario_id}",
+        ("- Historical summary — provenance unverified; no simulation executed."
+         if args.summarize_existing else "- Case provenance: completed-case receipts verified."),
+        ("- Horizon: unknown (historical CSV not qualified)."
+         if args.summarize_existing else f"- Horizon: {args.days} days"),
+        ("- Scenario: unknown (historical CSV not qualified)."
+         if args.summarize_existing else f"- Scenario: {args.scenario_id}"),
         f"- Groups: {', '.join(sorted(groups))}",
-        f"- Suppliers swept: {', '.join(selected_suppliers) if selected_suppliers else '(none)'}",
-        f"- Supplier floor calibration CSV: {supplier_floor_csv if supplier_floor_csv else '(none)'}",
+        f"- Report supplier selection: {', '.join(selected_suppliers) if selected_suppliers else '(none)'}",
+        ("- Historical supplier calibration: unknown (not qualified)."
+         if args.summarize_existing else f"- Supplier floor calibration CSV: {supplier_floor_csv if supplier_floor_csv else '(none)'}"),
         "- Baseline guardrails are not warmup-adjusted: startup behavior remains included.",
         "- Accepted case: fill rate target met, ending backlog no worse than baseline, daily backlog no worse than baseline, raw-material safety-floor and target-stock gaps no worse than baseline.",
         "",

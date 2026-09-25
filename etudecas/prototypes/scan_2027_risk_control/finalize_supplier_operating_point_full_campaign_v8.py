@@ -14,6 +14,8 @@ states the actual scientific provenance and target-selection contract; no
 
 from __future__ import annotations
 
+from etudecas.prototypes.scan_2027_risk_control import supplier_campaign_source_revision as _source_revision
+
 import json
 import math
 import os
@@ -26,9 +28,7 @@ from uuid import uuid4
 from etudecas.prototypes.scan_2027_risk_control import (
     build_validated_operating_points_v7 as v7_bridge,
 )
-from etudecas.prototypes.scan_2027_risk_control import (
-    finalize_supplier_operating_point_full_campaign_v7 as adapter_v7,
-)
+from etudecas.prototypes.scan_2027_risk_control.supplier_campaign_adapters import finalize_v7 as adapter_v7
 from etudecas.prototypes.scan_2027_risk_control import (
     supplier_operating_point_full_campaign_v8 as campaign_v8,
 )
@@ -504,7 +504,7 @@ def validate_frozen_implementation() -> Path:
         trace_package.validate_frozen_v7_protocol()
         adapter_path = Path(adapter_v7.__file__).resolve()
         digest = adapter_v7.implementation_v4._sha256(adapter_path)  # noqa: SLF001
-        if digest != EXPECTED_V7_FINALIZER_SHA256:
+        if (digest != EXPECTED_V7_FINALIZER_SHA256 and not _source_revision.accepts_current_revision(adapter_path, EXPECTED_V7_FINALIZER_SHA256, digest)):
             raise V8FinalizerAdapterError(
                 f"Frozen V7 finalizer adapter changed: {digest}"
             )

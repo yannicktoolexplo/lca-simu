@@ -1,5 +1,11 @@
 # SimChainGreenHorizons
 
+Pour le travail courant sur **Etudecas**, commencer par son
+[guide principal](etudecas/README.md) ou ouvrir les
+[quatre cartes conservées](etudecas/index.html).
+Les anciens essais temporaires et rapports sont rangés dans
+[l'archive Etudecas](etudecas/archive/README.md).
+
 Simulation avancée de chaînes logistiques intégrant performance opérationnelle, économique et environnementale.  
 Ce projet fait partie de l’initiative **LCA-SIMU** pilotée par SCALIAN et IMT Mines Albi.
 

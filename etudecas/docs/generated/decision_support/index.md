@@ -24,8 +24,8 @@ Sources métier : [DECISION_SUPPORT.md](<../../DECISION_SUPPORT.md>)
 Références :
 
 - implementation : [fifo_delay](<../../../decision_support.py#L47>)
-- test : [test_fifo_delay_distinguishes_served_and_censored_demand](<../../../test_decision_support.py#L15>)
-- test : [test_fifo_rejects_invalid_or_unaged_demand](<../../../test_decision_support.py#L26>)
+- test : [test_fifo_delay_distinguishes_served_and_censored_demand](<../../../tests/analyses/test_decision_support.py#L15>)
+- test : [test_fifo_rejects_invalid_or_unaged_demand](<../../../tests/analyses/test_decision_support.py#L26>)
 
 ### DECISION-002 — Score descriptif et pertes dans horizon
 
@@ -45,9 +45,9 @@ Références :
 
 - implementation : [score_breakdown](<../../../decision_support.py#L104>)
 - implementation : [audit_losses](<../../../decision_support.py#L115>)
-- test : [test_score_components_exclude_incomparable_quantities](<../../../test_decision_support.py#L36>)
-- test : [test_loss_audit_excludes_departures_outside_horizon_and_preserves_units](<../../../test_decision_support.py#L54>)
-- test : [test_unknown_cost_is_excluded_and_not_rendered_as_zero_score](<../../../test_decision_support.py#L46>)
+- test : [test_score_components_exclude_incomparable_quantities](<../../../tests/analyses/test_decision_support.py#L36>)
+- test : [test_loss_audit_excludes_departures_outside_horizon_and_preserves_units](<../../../tests/analyses/test_decision_support.py#L54>)
+- test : [test_unknown_cost_is_excluded_and_not_rendered_as_zero_score](<../../../tests/analyses/test_decision_support.py#L46>)
 
 ### DECISION-003 — Preuves de blocage sans attribution abusive
 
@@ -66,7 +66,7 @@ Sources métier : [DECISION_SUPPORT.md](<../../DECISION_SUPPORT.md>)
 Références :
 
 - implementation : [bottlenecks](<../../../decision_support.py#L143>)
-- test : [test_bottlenecks_use_binding_input_and_explicit_causal_context](<../../../test_decision_support.py#L66>)
+- test : [test_bottlenecks_use_binding_input_and_explicit_causal_context](<../../../tests/analyses/test_decision_support.py#L66>)
 
 ### DECISION-004 — Actions isolees et livraison controlee
 
@@ -86,8 +86,8 @@ Références :
 
 - implementation : [execute_action](<../../../decision_actions.py#L17>)
 - implementation : [deliver](<../../../decision_support.py#L238>)
-- test : [test_action_replays_reference_in_isolated_directory_and_checks_cache](<../../../test_decision_actions.py#L9>)
-- test : [test_failed_delivery_does_not_keep_an_old_success](<../../../test_decision_support.py#L91>)
+- test : [test_action_replays_reference_in_isolated_directory_and_checks_cache](<../../../tests/analyses/test_decision_actions.py#L9>)
+- test : [test_failed_delivery_does_not_keep_an_old_success](<../../../tests/analyses/test_decision_support.py#L91>)
 - implementation : [render_report](<../../../decision_support.py#L201>)
 
 ## Référence technique extraite
@@ -154,7 +154,7 @@ Replay the reference command with one measured-day control schedule.
 
 ### fifo-test
 
-[etudecas/test_decision_support.py:15](<../../../test_decision_support.py#L15>)
+[etudecas/tests/analyses/test_decision_support.py:15](<../../../tests/analyses/test_decision_support.py#L15>)
 
 ```python
 def test_fifo_delay_distinguishes_served_and_censored_demand():
@@ -162,7 +162,7 @@ def test_fifo_delay_distinguishes_served_and_censored_demand():
 
 ### invalid-test
 
-[etudecas/test_decision_support.py:26](<../../../test_decision_support.py#L26>)
+[etudecas/tests/analyses/test_decision_support.py:26](<../../../tests/analyses/test_decision_support.py#L26>)
 
 ```python
 def test_fifo_rejects_invalid_or_unaged_demand(damage):
@@ -170,7 +170,7 @@ def test_fifo_rejects_invalid_or_unaged_demand(damage):
 
 ### score-test
 
-[etudecas/test_decision_support.py:36](<../../../test_decision_support.py#L36>)
+[etudecas/tests/analyses/test_decision_support.py:36](<../../../tests/analyses/test_decision_support.py#L36>)
 
 ```python
 def test_score_components_exclude_incomparable_quantities():
@@ -178,7 +178,7 @@ def test_score_components_exclude_incomparable_quantities():
 
 ### loss-test
 
-[etudecas/test_decision_support.py:54](<../../../test_decision_support.py#L54>)
+[etudecas/tests/analyses/test_decision_support.py:54](<../../../tests/analyses/test_decision_support.py#L54>)
 
 ```python
 def test_loss_audit_excludes_departures_outside_horizon_and_preserves_units(tmp_path):
@@ -186,7 +186,7 @@ def test_loss_audit_excludes_departures_outside_horizon_and_preserves_units(tmp_
 
 ### bottlenecks-test
 
-[etudecas/test_decision_support.py:66](<../../../test_decision_support.py#L66>)
+[etudecas/tests/analyses/test_decision_support.py:66](<../../../tests/analyses/test_decision_support.py#L66>)
 
 ```python
 def test_bottlenecks_use_binding_input_and_explicit_causal_context(tmp_path):
@@ -194,7 +194,7 @@ def test_bottlenecks_use_binding_input_and_explicit_causal_context(tmp_path):
 
 ### actions-test
 
-[etudecas/test_decision_actions.py:9](<../../../test_decision_actions.py#L9>)
+[etudecas/tests/analyses/test_decision_actions.py:9](<../../../tests/analyses/test_decision_actions.py#L9>)
 
 ```python
 def test_action_replays_reference_in_isolated_directory_and_checks_cache(tmp_path, monkeypatch):
@@ -202,7 +202,7 @@ def test_action_replays_reference_in_isolated_directory_and_checks_cache(tmp_pat
 
 ### delivery-failure-test
 
-[etudecas/test_decision_support.py:91](<../../../test_decision_support.py#L91>)
+[etudecas/tests/analyses/test_decision_support.py:91](<../../../tests/analyses/test_decision_support.py#L91>)
 
 ```python
 def test_failed_delivery_does_not_keep_an_old_success(tmp_path, monkeypatch):
@@ -218,7 +218,7 @@ def render_report(output, report, map_path):
 
 ### unknown-cost-test
 
-[etudecas/test_decision_support.py:46](<../../../test_decision_support.py#L46>)
+[etudecas/tests/analyses/test_decision_support.py:46](<../../../tests/analyses/test_decision_support.py#L46>)
 
 ```python
 def test_unknown_cost_is_excluded_and_not_rendered_as_zero_score():

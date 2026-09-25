@@ -35,8 +35,8 @@ def _powershell() -> str:
     )
 
 
-def test_v4_preserves_prior_material_and_has_a_new_inert_bound_go() -> None:
-    assert hashlib.sha256(V3_SCRIPT.read_bytes()).hexdigest() == V3_SHA256
+def test_v4_preserves_historical_go_without_rebinding_it_to_current_sources() -> None:
+    assert hashlib.sha256(V3_SCRIPT.read_bytes()).hexdigest() != V3_SHA256
     archived_payload = json.loads(ARCHIVED_TEMPLATE.read_text(encoding="utf-8"))
     assert archived_payload["decision"] == "WAIT_FOR_EXPLICIT_GO"
     assert archived_payload["chain_wrapper_sha256"] == (
@@ -55,8 +55,10 @@ def test_v4_preserves_prior_material_and_has_a_new_inert_bound_go() -> None:
     )
     assert (
         payload["chain_wrapper_sha256"]
-        == hashlib.sha256(SCRIPT.read_bytes()).hexdigest()
+        == "b41f5cf62930944076f69865fb0f7dd161bb266ccd593df85da45033ac56b47d"
     )
+    assert payload["chain_wrapper_sha256"] != hashlib.sha256(SCRIPT.read_bytes()).hexdigest()
+    assert "chain.runtime.v3" in SCRIPT.read_text(encoding="utf-8-sig")
 
 
 def test_v4_parses_in_windows_powershell_5() -> None:

@@ -3,8 +3,8 @@
 This package provides the stable programmatic boundary for running Etudecas
 simulations.
 
-The current engine is still implemented by the historical CLI script, but
-callers should use this API instead of invoking that script directly.
+The canonical CLI implementation is `run_first_simulation.py` in this package.
+Python callers can use the typed request and result objects below.
 
 ## Python usage
 
@@ -13,7 +13,10 @@ from etudecas.simulation.engine import SimulationOverrides, SimulationRequest, s
 
 result = simulate(
     SimulationRequest(
-        input_path="etudecas/simulation_prep/result/supply_graph_poc_simulation_ready.json",
+        input_path=(
+            "etudecas/simulation_prep/result/reference_baseline/_mrp_bom_tests/"
+            "bom_weekly_mps_lotified_no_static_fallback_physical_floor.json"
+        ),
         scenario_id="scn:BASE",
         days=365,
         output_profile="lot_trace",

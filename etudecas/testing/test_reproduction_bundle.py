@@ -1,3 +1,4 @@
+"""Regression tests grouped by business responsibility; original cases retained."""
 from __future__ import annotations
 
 import json
@@ -5,18 +6,20 @@ from pathlib import Path
 import stat
 import sys
 import zipfile
-
 import pytest
-
 from etudecas import reproduction_bundle as rb
 from etudecas import regenerate as regen
+from etudecas.testing.report import main, summarize
 
+
+# Reproduction bundle
 
 def workspace(tmp_path):
     root = tmp_path / "source"
     root.mkdir()
     inputs = {
         "etudecas/core.py": b"value = 'current working tree'\n",
+        "etudecas/run_campaign.ps1": b"Write-Output 'source script'\r\n",
         "etudecas/data/source/demand.csv": b"day,qty\n0,1\n",
         "etudecas/visualization/maps/vendor/plotly.min.js": b"const offline = true;",
         "etudecas/config/reproduction_20260920/nominal.json": b"{}",
@@ -48,6 +51,7 @@ def test_capture_extract_recapture_without_git_preserves_inputs_not_outputs(tmp_
         assert "etudecas/simulation_prep/result/graph.json" in names
         assert "etudecas/data/source/demand.csv" in names
         assert "etudecas/visualization/maps/vendor/plotly.min.js" in names
+        assert archive.read("etudecas/run_campaign.ps1") == b"Write-Output 'source script'\r\n"
         assert not any("old" in name for name in names)
         manifest = json.loads(archive.read(rb.MANIFEST))
         assert "${ROOT}/etudecas/simulation_prep/result/graph.json" in manifest["commands"][0]
@@ -55,12 +59,14 @@ def test_capture_extract_recapture_without_git_preserves_inputs_not_outputs(tmp_
     copy = tmp_path / "copy"
     rb.extract(bundle, copy, workspace=tmp_path)
     assert not (copy / ".git").exists()
+    assert (copy / "etudecas/run_campaign.ps1").read_bytes() == b"Write-Output 'source script'\r\n"
     (copy / "etudecas/core.py").write_text("value = 'new current bytes'\n")
     moved_command = [v.replace(str(root), str(copy)) for v in command]
     second = tmp_path / "second.zip"
     rb.capture(second, [moved_command], root=copy)
     with zipfile.ZipFile(second) as archive:
         assert b"new current bytes" in archive.read("etudecas/core.py")
+        assert archive.read("etudecas/run_campaign.ps1") == b"Write-Output 'source script'\r\n"
 
 
 def test_refuses_missing_external_input_and_existing_output(tmp_path):
@@ -225,7 +231,7 @@ def test_delivery_bundle_preserves_all_inputs_outside_disposable_results(tmp_pat
             assert zipped.read(graph.relative_to(root).as_posix()) == graph.read_bytes()
 
 
-@pytest.mark.parametrize("name", ["etudecas/core.py", "etudecas/simulation_prep/result/graph.json"])
+@pytest.mark.parametrize("name", ["etudecas/core.py", "etudecas/run_campaign.ps1", "etudecas/simulation_prep/result/graph.json"])
 @pytest.mark.parametrize("operation", ["modify", "remove"])
 def test_verify_current_refuses_changed_or_missing_captured_file(tmp_path, name, operation):
     root, command = workspace(tmp_path)
@@ -241,7 +247,7 @@ def test_verify_current_refuses_changed_or_missing_captured_file(tmp_path, name,
         rb.verify_current(archive, root=root)
 
 
-@pytest.mark.parametrize("name", ["etudecas/new.py", "etudecas/visualization/new.js", "etudecas/config/new.json", "etudecas/data/source/new.csv"])
+@pytest.mark.parametrize("name", ["etudecas/new.py", "etudecas/new_campaign.ps1", "etudecas/visualization/new.js", "etudecas/config/new.json", "etudecas/data/source/new.csv"])
 def test_verify_current_refuses_new_runtime_or_input(tmp_path, name):
     root, command = workspace(tmp_path)
     archive = tmp_path / "current.zip"
@@ -299,3 +305,45 @@ def test_changed_input_during_run_prevents_recording_a_successful_reproduction(t
         regen.main()
     assert (output / "source-bundle.json").is_file()
     assert not (output / "run_manifest.json").exists()
+
+
+# Report
+
+def test_report_preserves_setup_errors_failures_skips_and_successes(tmp_path):
+    source = tmp_path / "results.xml"
+    source.write_text('''<testsuites><testsuite>
+      <testcase classname="engine" name="ok"/>
+      <testcase classname="engine" name="wrong"><failure message="assertion">trace</failure></testcase>
+      <testcase classname="fixtures" name="setup"><error message="missing file">details</error></testcase>
+      <testcase classname="historical" name="old"><skipped message="explicit opt-in"/></testcase>
+    </testsuite></testsuites>''', encoding="utf-8")
+    output = tmp_path / "summary.json"
+    assert main(["--junit", str(source), "--output", str(output)]) == 1
+    result = json.loads(output.read_text(encoding="utf-8"))
+    assert result["counts"] == {"passed": 1, "failure": 1, "error": 1, "skipped": 1}
+    assert result["failures"][0]["detail"] == "trace"
+    assert result["failures"][1]["name"] == "setup"
+    assert result["skip_reasons"] == {"explicit opt-in": 1}
+
+
+def test_empty_or_invalid_report_is_not_success(tmp_path):
+    source = tmp_path / "results.xml"
+    for content in ("<broken", "<testsuite/>", "<other/>"):
+        source.write_text(content, encoding="utf-8")
+        assert main(["--junit", str(source), "--output", str(tmp_path / "report.json")]) == 2
+
+
+def test_single_suite_and_parameterized_names_are_preserved(tmp_path):
+    source = tmp_path / "results.xml"
+    source.write_text('<testsuite><testcase classname="module.Class" name="test[a-b]"/></testsuite>', encoding="utf-8")
+    assert summarize(source)["counts"] == {"passed": 1}
+    assert main(["--junit", str(source), "--output", str(tmp_path / "report.json")]) == 0
+
+
+def test_multiple_failure_diagnostics_are_not_lost(tmp_path):
+    source = tmp_path / "results.xml"
+    source.write_text('<testsuite><testcase name="subtests"><failure message="first"/>'
+                      '<failure message="second"/></testcase></testsuite>', encoding="utf-8")
+    result = summarize(source)
+    assert result["counts"] == {"failure": 1}
+    assert [row["message"] for row in result["failures"]] == ["first", "second"]

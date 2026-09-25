@@ -14,8 +14,8 @@ from etudecas.visualization.maps.control_system_dashboard_payload import (
 from etudecas.visualization.maps.frequency_dashboard_payload import (
     build_frequency_dashboard_section,
 )
-from etudecas.visualization.maps.map_data_loader import load_json_dict, read_csv_rows
-from etudecas.visualization.maps.map_render import fmt_qty, render_data_table
+from etudecas.visualization.maps.map_payload_builder import load_json_dict, read_csv_rows
+from etudecas.visualization.maps.map_payload_builder import fmt_qty, render_data_table
 
 
 SCAN_DASHBOARD_SCHEMA_VERSION = "etudecas.scan_dashboard.v1"

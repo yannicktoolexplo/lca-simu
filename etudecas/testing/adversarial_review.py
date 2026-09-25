@@ -84,10 +84,10 @@ def probes():
         engine = root/'etudecas/simulation/engine/run_first_simulation.py'
         engine.parent.mkdir(parents=True)
         engine.write_text('# fixture')
-        dependency = root/'etudecas/simulation/lot_policy/uom.py'
+        dependency = root/'etudecas/simulation/lot_policy/models.py'
         dependency.parent.mkdir(parents=True)
         dependency.write_text('VALUE = 1')
-        engine.write_text('from etudecas.simulation.lot_policy.uom import VALUE')
+        engine.write_text('from etudecas.simulation.lot_policy.models import VALUE')
         with patch.object(mc, '__file__', str(root/'etudecas/simulation/montecarlo/run_montecarlo_analysis.py')):
             before = mc._implementation_fingerprint(engine)
             dependency.write_text('VALUE = 2')
@@ -121,11 +121,10 @@ def probes():
             results.append({'probe':'action_cache_missing_schedule', 'expected':'reject',
                             'rejected':rejected, 'returned':str(returned)})
 
-    sys.path.insert(0,str(Path(__file__).resolve().parents[2]/'etudecas_codex_multiagent_pack'))
     import pandas as pd
-    from etudecas_agentkit.validation.result_checks import ResultValidator
-    from etudecas_agentkit.data.validator import DataValidator
-    from etudecas_agentkit.kpi.aggregators import weighted_mean
+    from etudecas.toolbox.validation_contracts import ResultValidator
+    from etudecas.toolbox.validation_contracts import DataValidator
+    from etudecas.toolbox.validation_contracts import weighted_mean
     result = ResultValidator({'score_bounds':{'enabled':True,'columns':['score'],'min':0,'max':1}}).validate(pd.DataFrame({'other':[2]}))
     results.append({'probe':'pack_missing_required_score','expected':'reject','rejected':result.status=='reject','status':result.status})
     result = DataValidator({'columns':{'count':{'type':'integer','required':True}}}).validate(pd.DataFrame({'count':[1.5]}))

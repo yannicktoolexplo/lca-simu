@@ -9,6 +9,8 @@ scientific dossier selection and never writes inside an upstream root.
 
 from __future__ import annotations
 
+from etudecas.prototypes.scan_2027_risk_control import supplier_stage_runtime as stage_runtime
+
 import argparse
 import copy
 import hashlib
@@ -41,11 +43,10 @@ from etudecas.prototypes.scan_2027_risk_control import (
     supplier_v8_stage3_delivery as delivery_v3,
 )
 from etudecas.prototypes.scan_2027_risk_control import (
-    supplier_v8_stage3_pipeline as pipeline_v3,
-)
-from etudecas.prototypes.scan_2027_risk_control import (
     verify_supplier_v8_stage3_closure as closure_v1,
 )
+
+pipeline_v3 = stage_runtime.for_profile('v8-stage3')
 
 
 SCHEMA_VERSION = "etudecas.supplier_v8_post_stage3_delivery_v4.v1"

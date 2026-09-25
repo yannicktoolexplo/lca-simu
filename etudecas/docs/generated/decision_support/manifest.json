@@ -80,7 +80,7 @@
     {
       "id": "fifo-test",
       "kind": "test",
-      "path": "etudecas/test_decision_support.py",
+      "path": "etudecas/tests/analyses/test_decision_support.py",
       "symbol": "test_fifo_delay_distinguishes_served_and_censored_demand",
       "line": 15,
       "fingerprint": "debe1a79a23387940c29c8e8cc9e2655efde4e6cfea8f716e6333766cc8bf786",
@@ -92,7 +92,7 @@
     {
       "id": "invalid-test",
       "kind": "test",
-      "path": "etudecas/test_decision_support.py",
+      "path": "etudecas/tests/analyses/test_decision_support.py",
       "symbol": "test_fifo_rejects_invalid_or_unaged_demand",
       "line": 26,
       "fingerprint": "7a09c6cb4a186f6aac4b3baca8606167f7006e075336bfe8a2a572197604e66d",
@@ -104,7 +104,7 @@
     {
       "id": "score-test",
       "kind": "test",
-      "path": "etudecas/test_decision_support.py",
+      "path": "etudecas/tests/analyses/test_decision_support.py",
       "symbol": "test_score_components_exclude_incomparable_quantities",
       "line": 36,
       "fingerprint": "081e07204414c10ca25316b8a2ec9c18d84d033fd47fc4f0efcccb59a08503b4",
@@ -116,7 +116,7 @@
     {
       "id": "loss-test",
       "kind": "test",
-      "path": "etudecas/test_decision_support.py",
+      "path": "etudecas/tests/analyses/test_decision_support.py",
       "symbol": "test_loss_audit_excludes_departures_outside_horizon_and_preserves_units",
       "line": 54,
       "fingerprint": "2b02d23ac51965be835b6cb601e0e68316e260aa69d6267bbc77d9575b6df759",
@@ -128,7 +128,7 @@
     {
       "id": "bottlenecks-test",
       "kind": "test",
-      "path": "etudecas/test_decision_support.py",
+      "path": "etudecas/tests/analyses/test_decision_support.py",
       "symbol": "test_bottlenecks_use_binding_input_and_explicit_causal_context",
       "line": 66,
       "fingerprint": "6edfa8bde5a51ddb82d4f094dfeacc06f3e7f00b8800419e4a8848b0ea10e3d3",
@@ -140,7 +140,7 @@
     {
       "id": "actions-test",
       "kind": "test",
-      "path": "etudecas/test_decision_actions.py",
+      "path": "etudecas/tests/analyses/test_decision_actions.py",
       "symbol": "test_action_replays_reference_in_isolated_directory_and_checks_cache",
       "line": 9,
       "fingerprint": "687336485ccf62eea4f95b666deb81f7195eb55689d365054f6bd0404463329b",
@@ -152,7 +152,7 @@
     {
       "id": "delivery-failure-test",
       "kind": "test",
-      "path": "etudecas/test_decision_support.py",
+      "path": "etudecas/tests/analyses/test_decision_support.py",
       "symbol": "test_failed_delivery_does_not_keep_an_old_success",
       "line": 91,
       "fingerprint": "da46b48f80d1b4a9d03b96e10bcf608e14ecf60f4409f7c6f4911f6ff2632236",
@@ -167,8 +167,8 @@
       "path": "etudecas/decision_support.py",
       "symbol": "render_report",
       "line": 201,
-      "fingerprint": "a492bc534c160cc2c7375d2f2d844a3ecf96b43424e099e78159dfee2d4c592b",
-      "reference_fingerprint": "a492bc534c160cc2c7375d2f2d844a3ecf96b43424e099e78159dfee2d4c592b",
+      "fingerprint": "6bef720881eeaa8e3dc0b309860d42e9fdebd521f230c712ad0416d2a249152e",
+      "reference_fingerprint": "6bef720881eeaa8e3dc0b309860d42e9fdebd521f230c712ad0416d2a249152e",
       "changed": false,
       "declaration": "def render_report(output, report, map_path):",
       "docstring": null
@@ -176,7 +176,7 @@
     {
       "id": "unknown-cost-test",
       "kind": "test",
-      "path": "etudecas/test_decision_support.py",
+      "path": "etudecas/tests/analyses/test_decision_support.py",
       "symbol": "test_unknown_cost_is_excluded_and_not_rendered_as_zero_score",
       "line": 46,
       "fingerprint": "a8fcf95229d4510379769d063e4931a0883d96501ac6ccb12460a3a7df75a2ad",

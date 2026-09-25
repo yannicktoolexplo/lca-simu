@@ -15,6 +15,11 @@ allowed to finish so no engine process is orphaned deliberately.
 
 from __future__ import annotations
 
+from etudecas.prototypes.scan_2027_risk_control import supplier_campaign_source_revision as _source_revision
+
+from etudecas.prototypes.scan_2027_risk_control import supplier_campaign_mechanics as _campaign_mechanics
+_campaign_context = _campaign_mechanics.Context(globals())
+
 import argparse
 import csv
 import hashlib
@@ -332,60 +337,16 @@ def _parse_utc(value: Any) -> datetime | None:
 
 
 def _load_shards(manifest: Mapping[str, Any]) -> list[Shard]:
-    raw = manifest.get("shards")
-    if not isinstance(raw, list) or len(raw) != EXPECTED_SHARD_COUNT:
-        raise ValueError("Campaign manifest must contain exactly 18 shard designs")
-    shards: list[Shard] = []
-    for row in raw:
-        if not isinstance(row, Mapping):
-            raise ValueError("Invalid shard design row")
-        seeds = tuple(int(value) for value in row.get("seed_ids") or [])
-        shard = Shard(
-            shard_id=str(row.get("shard_id") or ""),
-            shard_index=int(row.get("shard_index") or 0),
-            operating_point_id=str(row.get("operating_point_id") or ""),
-            seed_block=int(row.get("seed_block") or 0),
-            seed_ids=seeds,
-        )
-        if (
-            not shard.shard_id
-            or shard.operating_point_id not in set(EXPECTED_OPERATING_POINTS)
-            or shard.seed_block not in range(1, 7)
-            or len(shard.seed_ids) != 5
-            or int(row.get("total_rows") or 0) != EXPECTED_CASES_PER_SHARD
-        ):
-            raise ValueError(f"Invalid shard contract: {row}")
-        shards.append(shard)
-    if {shard.shard_index for shard in shards} != set(range(1, 19)):
-        raise ValueError("Shard indices must be exactly 1 through 18")
-    if len({shard.shard_id for shard in shards}) != EXPECTED_SHARD_COUNT:
-        raise ValueError("Shard ids are not unique")
-    expected_pairs = {
-        (point_id, block_number)
-        for point_id in EXPECTED_OPERATING_POINTS
-        for block_number in range(1, 7)
-    }
-    if {
-        (shard.operating_point_id, shard.seed_block) for shard in shards
-    } != expected_pairs:
-        raise ValueError(
-            "Shard plan must cover each operating point x seed block exactly once"
-        )
-    block_seeds: dict[int, tuple[int, ...]] = {}
-    for shard in shards:
-        previous = block_seeds.setdefault(shard.seed_block, shard.seed_ids)
-        if previous != shard.seed_ids:
-            raise ValueError(
-                "A seed block must be identical across all operating points"
-            )
-    planned_seeds = tuple(int(value) for value in manifest.get("seeds") or [])
-    flattened = tuple(value for block in range(1, 7) for value in block_seeds[block])
-    if len(set(flattened)) != 30 or planned_seeds != flattened:
-        raise ValueError("Shard seed blocks do not match the 30 signed repetitions")
-    return sorted(shards, key=lambda shard: shard.shard_index)
+    return _campaign_mechanics._load_shards(
+        manifest=manifest,
+        context=_campaign_context,
+    )
 
 
 def _verify_signed_design(manifest: Mapping[str, Any]) -> None:
+    if ("source_revision" in manifest
+            or Path(str(manifest.get("runner") or "")).resolve().parent == _source_revision.ROOT):
+        _source_revision.require_manifest_revision(manifest)
     unsigned_fields = {
         "campaign_signature",
         "status",
@@ -958,59 +919,26 @@ def _progress_payload(
     discovery_pid: int | None = None,
     discovery_log_path: Path | None = None,
 ) -> dict[str, Any]:
-    elapsed = max(0.0, time.monotonic() - started_monotonic)
-    durations = [
-        value for value in completed.values() if math.isfinite(value) and value > 0
-    ]
-    mean_duration = sum(durations) / len(durations) if durations else 0.0
-    remaining = max(0, len(shards) - len(completed) - len(failed))
-    eta = (
-        mean_duration * remaining / parallel_shards if durations and remaining else 0.0
+    return _campaign_mechanics._progress_payload(
+        manifest=manifest,
+        contract=contract,
+        status=status,
+        parallel_shards=parallel_shards,
+        workers_per_shard=workers_per_shard,
+        started_at_utc=started_at_utc,
+        started_monotonic=started_monotonic,
+        shards=shards,
+        queued=queued,
+        active=active,
+        completed=completed,
+        failed=failed,
+        wakefulness_state=wakefulness_state,
+        phase=phase,
+        discovery_status=discovery_status,
+        discovery_pid=discovery_pid,
+        discovery_log_path=discovery_log_path,
+        context=_campaign_context,
     )
-    payload = {
-        "schema_version": PROGRESS_SCHEMA_VERSION,
-        "campaign_signature": manifest["campaign_signature"],
-        "launch_contract_signature": contract["launch_contract_signature"],
-        "status": status,
-        "phase": phase,
-        "target_discovery_status": discovery_status,
-        "target_discovery_pid": discovery_pid or "",
-        "target_discovery_log_path": (
-            str(discovery_log_path) if discovery_log_path is not None else ""
-        ),
-        "parallel_shards": parallel_shards,
-        "workers_per_shard": workers_per_shard,
-        "maximum_engine_processes": parallel_shards * workers_per_shard,
-        "planned_shard_count": len(shards),
-        "completed_shard_count": len(completed),
-        "failed_shard_count": len(failed),
-        "active_shard_count": len(active),
-        "queued_shard_count": len(queued),
-        "completed_shard_ids": sorted(completed),
-        "queued_shard_ids": [shard.shard_id for shard in queued],
-        "active_shards": [
-            {
-                "shard_id": item.shard.shard_id,
-                "pid": item.process.pid,
-                "started_at_utc": item.started_at_utc,
-                "log_path": str(item.log_path),
-                "command_sha256": _stable_sha256(item.command),
-            }
-            for item in sorted(
-                active.values(), key=lambda value: value.shard.shard_index
-            )
-        ],
-        "failures": list(failed),
-        "started_at_utc": started_at_utc,
-        "updated_at_utc": utc_now(),
-        "elapsed_seconds": elapsed,
-        "mean_completed_shard_seconds": mean_duration,
-        "eta_seconds": eta,
-        "failure_policy": contract["failure_policy"],
-    }
-    if wakefulness_state is not None:
-        payload["wakefulness"] = dict(wakefulness_state)
-    return payload
 
 
 def _launcher_lock(path: Path):

@@ -1,98 +1,44 @@
-# AGENTS.md - Etudecas multi-agent rules
+# Consignes du pack Etudecas
 
-## Objectif
+Les [consignes du dépôt](../AGENTS.md) et le
+[guide opérationnel](../etudecas/docs/MULTI_AGENT_OPERATIONNEL.md) définissent
+le travail courant. Ce pack conserve le déploiement natif révisable dans
+`native/` ; il ne contient plus de moteur de démonstration.
 
-Etudecas doit rester un moteur de simulation et d'analyse generique. Les cas
-metier vivent dans les donnees, les configs et les graphes de connaissance. Le
-code source doit permettre de regenerer les resultats au lieu de stocker des
-gigaoctets d'artefacts.
+## Routage courant
 
-## Regle principale
+Les profils installés sont dans [`.codex/agents/`](../.codex/agents/) :
 
-Avant une modification, identifier la couche principale touchee puis appliquer
-le role correspondant dans `docs/agents/`.
+- `etudecas_explorer` : repérage en lecture seule des contrats et dépendances ;
+- `etudecas_simulation` : moteur, données et tests du périmètre attribué ;
+- `etudecas_map` : payloads, carte et interactions ;
+- `etudecas_validator` : contre-vérification indépendante et preuves.
 
-## Roles operationnels principaux
+Les skills installés sont dans [`.agents/skills/`](../.agents/skills/) :
+`etudecas-orchestrate`, `etudecas-qualify` et `etudecas-map-review`.
+Le modèle et l'effort sont hérités du parent ; aucun SDK ou service externe
+n'est nécessaire à cette orchestration.
 
-- Orchestration : `docs/agents/orchestrateur.md`
-- Simulation dynamique : `docs/agents/simulation_agent.md`
-- Lotification et genealogie : `docs/agents/lot_trace_agent.md`
-- Sensibilite et risques : `docs/agents/sensitivity_agent.md`
-- Map, HTML et payloads : `docs/agents/map_payload_agent.md`
-- Donnees et graphe de connaissance : `docs/agents/data_knowledge_agent.md`
-- Validation et revue : `docs/agents/validation_agent.md`
+Pour des couches indépendantes, attribuer des objectifs observables et des
+périmètres d'écriture disjoints. Le parent intègre les changements et vérifie
+leurs preuves sur les sources stabilisées. Pour une correction simple,
+travailler directement.
 
-Les anciens fichiers generiques sont ranges dans `docs/agents/reference/`. Ils
-peuvent servir de references specialisees, mais ils ne sont plus le routage
-principal.
+## Vérification
 
-## Quand utiliser plusieurs agents
+Suivre la [procédure de validation](../etudecas/docs/TEST_VALIDATION.md).
+Relire les cas et fixtures, puis sélectionner des identifiants précis.
+Ne pas lancer de suite globale ni les anciens essais d'altération de fichiers,
+de dates ou de disparition simulée. En cas d'alerte ou de refus d'écriture,
+arrêter les exécutions concernées et diagnostiquer en lecture seule.
 
-Utiliser plusieurs agents seulement si les taches sont independantes :
+Préserver les unités physiques entières, les sécurités sources du nominal,
+les deux suivis de lots et la séparation entre observation et simulation.
+Ne pas inventer de donnée industrielle manquante.
 
-- simulation vs affichage ;
-- payload lot trace vs validation invariants ;
-- sensibilite vs politique d'artefacts ;
-- data/knowledge graph vs rendu carte.
+## Historique
 
-Chaque agent doit avoir un perimetre clair, des fichiers a inspecter, des
-livrables et des tests attendus. Eviter deux agents qui modifient le meme
-module en parallele.
-
-## Interdits
-
-- coder une regle metier specifique dans un moteur generique sans config ;
-- ajouter une sortie lourde versionnee ;
-- corriger des donnees sans rapport d'enrichissement ;
-- masquer une incoherence par une valeur par defaut silencieuse ;
-- casser l'autonomie de la carte HTML courante sans alternative ;
-- produire une conclusion numerique sans verifier les invariants ;
-- confondre lot metier et evenement logistique.
-
-## Politique d'artefacts
-
-Par defaut, garder :
-
-- configs ;
-- inputs compacts ;
-- summaries ;
-- registries ;
-- payloads compacts necessaires a l'affichage courant.
-
-Ne garder les sorties completes de simulation que pour un debug court et
-documente. Une etude de sensibilite doit etre regenerable par script.
-
-## Verification minimale
-
-Avant de conclure :
-
-```powershell
-python -m pytest -q etudecas_codex_multiagent_pack/tests
-```
-
-Ajouter des verifications ciblees si la carte, les payloads ou la simulation
-sont touches.
-
-Pour l'application principale, depuis la racine du depot, utiliser
-`python -m etudecas.toolbox tests --path chemin/test_module.py` puis la
-qualification des resultats concernes. Le pack contient un mini-kit distinct,
-pas une copie du moteur industriel. Le deploiement natif est prepare dans
-`native/` ; voir `../etudecas/docs/MULTI_AGENT_OPERATIONNEL.md` pour le statut et les commandes.
-
-## Format de synthese
-
-Chaque tache se termine par :
-
-```text
-Changements realises :
-- ...
-
-Tests executes :
-- ...
-
-Risques / limites :
-- ...
-
-Prochaine etape recommandee :
-- ...
-```
+Les anciens rôles documentaires, prompts et skills sont conservés dans les
+[archives](../etudecas/archive/README.md). Ils ne constituent plus le routage
+courant. Toute restitution précise les changements, les contrôles réellement
+exécutés, leurs preuves et les limites.

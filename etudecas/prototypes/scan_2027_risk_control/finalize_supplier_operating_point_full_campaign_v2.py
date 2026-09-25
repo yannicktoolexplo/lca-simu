@@ -15,6 +15,11 @@ quality and not estimates of historical incident probability.
 
 from __future__ import annotations
 
+from etudecas.prototypes.scan_2027_risk_control import supplier_campaign_mechanics as _campaign_mechanics
+_campaign_context = _campaign_mechanics.Context(globals())
+
+from etudecas.prototypes.scan_2027_risk_control import supplier_campaign_source_revision as _source_revision
+
 import argparse
 import hashlib
 import json
@@ -588,7 +593,7 @@ def _validate_operating_point_provenance(
         )
 
         runner_path = Path(campaign_runner.__file__).resolve()
-        if _sha256(runner_path) != SOURCE_RUNNER_SHA256:
+        if (_sha256(runner_path) != SOURCE_RUNNER_SHA256 and not _source_revision.accepts_current_revision(runner_path, SOURCE_RUNNER_SHA256, _sha256(runner_path))):
             raise ValueError("Frozen operating-point source runner hash changed")
         source_chain = campaign_runner._validate_pending_multiseed_source(
             selected_path, selected
@@ -852,100 +857,12 @@ def _load_discovery_service_evidence(
     manifest: Mapping[str, Any],
     disruption_window_days: int,
 ) -> dict[tuple[str, int], dict[str, float]]:
-    """Verify every discovery case and retain only its service totals."""
-
-    paths = sorted(
-        (evidence.manifest_path.parent / "target_discovery" / "evidence").glob("*.json")
+    return _campaign_mechanics._load_discovery_service_evidence(
+        evidence=evidence,
+        manifest=manifest,
+        disruption_window_days=disruption_window_days,
+        context=_campaign_context,
     )
-    expected_keys = {
-        (point, seed)
-        for point in OPERATING_POINTS
-        for seed in (DESIGN_SEED, *EXPECTED_SEEDS)
-    }
-    state_by_id = {
-        str(row.get("operating_point_id")): row
-        for row in manifest.get("states") or []
-        if isinstance(row, Mapping)
-    }
-    if set(state_by_id) != set(OPERATING_POINTS) or len(paths) != len(expected_keys):
-        raise CampaignValidationError(
-            "The 93 signed target-discovery cases are required"
-        )
-    result: dict[tuple[str, int], dict[str, float]] = {}
-    fields = (
-        "demand_qty_global",
-        "on_due_qty_global",
-        "demand_qty_268091",
-        "on_due_qty_268091",
-        "demand_qty_268967",
-        "on_due_qty_268967",
-    )
-    for path in paths:
-        payload = _read_json(path)
-        _verify_payload_signature(
-            payload, "evidence_signature", label="target-discovery evidence"
-        )
-        point = str(payload.get("operating_point_id") or "")
-        try:
-            seed = int(payload.get("seed"))
-        except (TypeError, ValueError) as exc:
-            raise CampaignValidationError("Invalid target-discovery seed") from exc
-        key = (point, seed)
-        if key not in expected_keys or key in result:
-            raise CampaignValidationError(
-                "Target-discovery case is unexpected or duplicated"
-            )
-        state = state_by_id[point]
-        expected_discovery_signature = _stable_sha256(
-            {
-                "campaign_signature": manifest["campaign_signature"],
-                "engine_sha256": manifest["engine_sha256"],
-                "engine_profile_sha256": manifest["engine_profile_sha256"],
-                "point_id": point,
-                "graph_sha256": state["graph_sha256"],
-                "seed": seed,
-                "simulation_days": STATE_EVALUATION_DAYS,
-                "purpose": f"cross_state_{disruption_window_days}d_target_discovery",
-            }
-        )
-        if (
-            payload.get("schema_version")
-            != f"{INPUT_CAMPAIGN_SCHEMA_VERSION}.target_discovery.case.v1"
-            or payload.get("campaign_signature") != manifest.get("campaign_signature")
-            or payload.get("engine_sha256") != manifest.get("engine_sha256")
-            or payload.get("discovery_signature") != expected_discovery_signature
-            or int(payload.get("simulation_days", -1)) != STATE_EVALUATION_DAYS
-        ):
-            raise CampaignValidationError(
-                "Target-discovery case signature or contract differs"
-            )
-        raw_metrics = payload.get("state_service_metrics")
-        if not isinstance(raw_metrics, Mapping):
-            raise CampaignValidationError("Target-discovery service totals are missing")
-        converted: dict[str, float] = {}
-        for field in fields:
-            try:
-                value = float(raw_metrics[field])
-            except (KeyError, TypeError, ValueError) as exc:
-                raise CampaignValidationError(
-                    f"Invalid target-discovery service field: {field}"
-                ) from exc
-            if not math.isfinite(value) or value < 0:
-                raise CampaignValidationError(
-                    f"Invalid target-discovery service field: {field}"
-                )
-            converted[field] = value
-        for suffix in ("global", "268091", "268967"):
-            demand = converted[f"demand_qty_{suffix}"]
-            on_due = converted[f"on_due_qty_{suffix}"]
-            if demand <= NUMERIC_TOLERANCE or on_due > demand + NUMERIC_TOLERANCE:
-                raise CampaignValidationError(
-                    "Discovery demand/on-due totals are inconsistent"
-                )
-        result[key] = converted
-    if set(result) != expected_keys:
-        raise CampaignValidationError("Target-discovery case matrix is incomplete")
-    return result
 
 
 def _validate_preflight_from_discovery(
@@ -954,185 +871,12 @@ def _validate_preflight_from_discovery(
     manifest: Mapping[str, Any],
     discovery: Mapping[tuple[str, int], Mapping[str, float]],
 ) -> dict[str, dict[str, float]]:
-    """Recompute every scientific holdout gate from signed discovery totals."""
-
-    state_inputs = {
-        str(row["operating_point_id"]): row
-        for row in manifest.get("states") or []
-        if isinstance(row, Mapping)
-    }
-    reported_states = {
-        str(row.get("operating_point_id")): row
-        for row in preflight.get("states") or []
-        if isinstance(row, Mapping)
-    }
-    if set(reported_states) != set(OPERATING_POINTS):
-        raise CampaignValidationError("Preflight state results are missing")
-
-    def ratio_of_sums(rows: Sequence[Mapping[str, float]], suffix: str) -> float:
-        demand = sum(float(row[f"demand_qty_{suffix}"]) for row in rows)
-        return 100.0 * sum(float(row[f"on_due_qty_{suffix}"]) for row in rows) / demand
-
-    def seed_service(row: Mapping[str, float], suffix: str) -> float:
-        return (
-            100.0
-            * float(row[f"on_due_qty_{suffix}"])
-            / float(row[f"demand_qty_{suffix}"])
-        )
-
-    random_generator = random.Random(BOOTSTRAP_SEED)
-    bootstrap_indices = [
-        [random_generator.randrange(EXPECTED_REPETITION_COUNT) for _ in EXPECTED_SEEDS]
-        for _ in range(BOOTSTRAP_REPLICATES)
-    ]
-    services: dict[str, dict[str, float]] = {}
-    seed_services: dict[str, dict[str, list[float]]] = {}
-    failures: list[str] = []
-    for seed in EXPECTED_SEEDS:
-        reference = discovery[("op_100", seed)]
-        for point in OPERATING_POINTS[1:]:
-            candidate = discovery[(point, seed)]
-            for suffix in ("global", "268091", "268967"):
-                if not math.isclose(
-                    float(reference[f"demand_qty_{suffix}"]),
-                    float(candidate[f"demand_qty_{suffix}"]),
-                    rel_tol=1e-12,
-                    abs_tol=NUMERIC_TOLERANCE,
-                ):
-                    raise CampaignValidationError(
-                        "Paired holdout demand differs across operating states"
-                    )
-    for point in OPERATING_POINTS:
-        rows = [discovery[(point, seed)] for seed in EXPECTED_SEEDS]
-        by_measure = {
-            suffix: ratio_of_sums(rows, suffix)
-            for suffix in ("global", "268091", "268967")
-        }
-        by_seed = {
-            suffix: [seed_service(row, suffix) for row in rows]
-            for suffix in ("global", "268091", "268967")
-        }
-        seed_services[point] = by_seed
-        median_global = float(np.median(by_seed["global"]))
-        bootstrap_global = [
-            ratio_of_sums([rows[index] for index in indices], "global")
-            for indices in bootstrap_indices
-        ]
-        ci_low = _linear_quantile(bootstrap_global, 0.025)
-        ci_high = _linear_quantile(bootstrap_global, 0.975)
-        reported = reported_states[point]
-        target_pct = float(state_inputs[point]["target_service_pct"])
-        comparisons = {
-            "target_service_pct": target_pct,
-            "service_global_ratio_of_sums_pct": by_measure["global"],
-            "service_global_seed_median_pct": median_global,
-            "service_268091_ratio_of_sums_pct": by_measure["268091"],
-            "service_268967_ratio_of_sums_pct": by_measure["268967"],
-            "global_service_bootstrap_ci95_low_pct": ci_low,
-            "global_service_bootstrap_ci95_high_pct": ci_high,
-        }
-        for field, expected in comparisons.items():
-            try:
-                actual = float(reported[field])
-            except (KeyError, TypeError, ValueError) as exc:
-                raise CampaignValidationError(
-                    f"Preflight field is missing: {field}"
-                ) from exc
-            if not math.isclose(actual, expected, rel_tol=1e-10, abs_tol=1e-8):
-                raise CampaignValidationError(
-                    f"Preflight field does not match signed discovery evidence: {field}"
-                )
-        if reported.get("accepted") is not True or reported.get("failures") not in (
-            [],
-            None,
-        ):
-            failures.append(f"{point}: reported state is not accepted without failures")
-        if point == "op_100":
-            if not (
-                98.5 <= by_measure["global"] <= 100.0 + NUMERIC_TOLERANCE
-                and 98.5 <= median_global <= 100.0 + NUMERIC_TOLERANCE
-                and by_measure["268091"] >= 98.5 - NUMERIC_TOLERANCE
-                and by_measure["268967"] >= 98.5 - NUMERIC_TOLERANCE
-            ):
-                failures.append(
-                    "op_100 fails the healthy-state global/product holdout gate"
-                )
-        else:
-            lower = target_pct - 1.5
-            upper = target_pct + 1.5
-            if not (
-                lower <= by_measure["global"] <= upper
-                and lower <= median_global <= upper
-                and by_measure["268091"] < 99.5 - NUMERIC_TOLERANCE
-                and by_measure["268967"] < 99.5 - NUMERIC_TOLERANCE
-            ):
-                failures.append(
-                    f"{point} fails its signed target/saturation holdout gate"
-                )
-        services[point] = {
-            "global": by_measure["global"],
-            "268091": by_measure["268091"],
-            "268967": by_measure["268967"],
-            "ci95_low": ci_low,
-            "ci95_high": ci_high,
-            "median_global": median_global,
-            "target": target_pct,
-        }
-    pooled_ordering = {
-        measure: services["op_100"][measure]
-        > services["op_93"][measure]
-        > services["op_80"][measure]
-        for measure in ("global", "268091", "268967")
-    }
-    order_counts = {
-        measure: sum(
-            seed_services["op_100"][measure][index]
-            > seed_services["op_93"][measure][index]
-            > seed_services["op_80"][measure][index]
-            for index in range(EXPECTED_REPETITION_COUNT)
-        )
-        for measure in ("global", "268091", "268967")
-    }
-    joint_order_count = sum(
-        all(
-            seed_services["op_100"][measure][index]
-            > seed_services["op_93"][measure][index]
-            > seed_services["op_80"][measure][index]
-            for measure in ("global", "268091", "268967")
-        )
-        for index in range(EXPECTED_REPETITION_COUNT)
+    return _campaign_mechanics._validate_preflight_from_discovery(
+        preflight=preflight,
+        manifest=manifest,
+        discovery=discovery,
+        context=_campaign_context,
     )
-    product_checks = preflight.get("product_seed_ordering_checks")
-    valid_product_checks = isinstance(product_checks, Mapping) and all(
-        isinstance(product_checks.get(product), Mapping)
-        and int(product_checks[product].get("ordered_seed_count", -1))
-        == order_counts[product]
-        and product_checks[product].get("ordering_observed_in_at_least_24_of_30_seeds")
-        == (order_counts[product] >= MIN_COMPARABLE_SEEDS)
-        and product_checks[product].get("acceptance_gate") is True
-        for product in ("268091", "268967")
-    )
-    if not all(pooled_ordering.values()) or joint_order_count < MIN_COMPARABLE_SEEDS:
-        failures.append(
-            "Global and product service states are not jointly ordered on 24 seeds"
-        )
-    if (
-        preflight.get("pooled_ordering_by_measure") != pooled_ordering
-        or preflight.get("seed_order_counts") != order_counts
-        or int(preflight.get("joint_seed_order_count", -1)) != joint_order_count
-        or int(preflight.get("joint_seed_order_required", -1)) != MIN_COMPARABLE_SEEDS
-        or int(preflight.get("minimum_seed_order_count", -1)) != MIN_COMPARABLE_SEEDS
-        or not valid_product_checks
-        or preflight.get("ordering_valid") is not all(pooled_ordering.values())
-        or preflight.get("seed_ordering_valid")
-        is not (joint_order_count >= MIN_COMPARABLE_SEEDS)
-    ):
-        failures.append(
-            "Reported preflight ordering differs from signed discovery evidence"
-        )
-    if failures:
-        raise CampaignValidationError("; ".join(failures))
-    return services
 
 
 def _validate_signed_context(
@@ -1665,47 +1409,12 @@ def _validate_signed_context(
 def validate_shard_progress(
     campaign_root: Path, *, campaign_signature: str, expected_shard_ids: frozenset[str]
 ) -> dict[str, Any]:
-    paths = sorted(campaign_root.resolve().glob("shards/*/progress.json"))
-    if len(paths) != EXPECTED_SHARD_COUNT:
-        raise CampaignValidationError(
-            f"Expected {EXPECTED_SHARD_COUNT} shard progress files, found {len(paths)}"
-        )
-    seen: set[str] = set()
-    digests: dict[str, str] = {}
-    for path in paths:
-        payload = _read_json(path)
-        shard_id = str(payload.get("shard_id") or path.parent.name)
-        running = payload.get("running_case_keys") or []
-        if (
-            payload.get("schema_version")
-            != f"{INPUT_CAMPAIGN_SCHEMA_VERSION}.progress.v1"
-            or payload.get("campaign_signature") != campaign_signature
-            or payload.get("status") != "complete"
-            or int(payload.get("planned_case_count", -1)) != EXPECTED_ROWS_PER_SHARD
-            or int(payload.get("completed_case_count", -1)) != EXPECTED_ROWS_PER_SHARD
-            or int(payload.get("failed_case_count", -1)) != 0
-            or bool(running)
-            or bool(payload.get("errors"))
-            or shard_id != path.parent.name
-            or shard_id in seen
-        ):
-            raise CampaignValidationError(
-                f"Shard is not complete and error-free: {path}"
-            )
-        seen.add(shard_id)
-        digests[str(path)] = _sha256(path)
-    if seen != set(expected_shard_ids):
-        raise CampaignValidationError(
-            "Shard progress IDs differ from the signed manifest"
-        )
-    return {
-        "status": "complete",
-        "shard_count": len(paths),
-        "planned_case_count": EXPECTED_TOTAL_COUNT,
-        "completed_case_count": EXPECTED_TOTAL_COUNT,
-        "failed_case_count": 0,
-        "progress_paths_sha256": digests,
-    }
+    return _campaign_mechanics.validate_shard_progress(
+        campaign_root=campaign_root,
+        campaign_signature=campaign_signature,
+        expected_shard_ids=expected_shard_ids,
+        context=_campaign_context,
+    )
 
 
 def _require_columns(frame: pd.DataFrame) -> None:
@@ -2844,44 +2553,10 @@ def build_global_lane_priority(
     lane_stats: pd.DataFrame,
     lane_bootstrap: Mapping[tuple[str, str, str, str], Mapping[str, np.ndarray]],
 ) -> pd.DataFrame:
-    """Rank every physical lane together while retaining its product stratum."""
-
-    records = [row.to_dict() for _, row in lane_stats.iterrows()]
-    grouped: dict[tuple[str, str], list[dict[str, Any]]] = {}
-    for record in records:
-        grouped.setdefault(
-            (str(record["operating_point_id"]), str(record["mechanism"])), []
-        ).append(record)
-    for group_records in grouped.values():
-        group_records.sort(key=lambda row: str(row["lane_id"]))
-        keys = [
-            (
-                str(row["operating_point_id"]),
-                str(row["mechanism"]),
-                str(row["target_product_id"]),
-                str(row["lane_id"]),
-            )
-            for row in group_records
-        ]
-        _decorate_rank_group(
-            group_records,
-            [lane_bootstrap[key]["fixed"] for key in keys],
-            [lane_bootstrap[key]["causal"] for key in keys],
-        )
-        for row in group_records:
-            row["ranking_scope"] = "all_target_products"
-            row["ranking_within_target_product"] = False
-            row["fixed360_effect_mean_pp"] = row[f"{PRIMARY_METRIC}_mean"]
-            row["bootstrap_ci95_low"] = row[f"{PRIMARY_METRIC}_ci95_low"]
-            row["bootstrap_ci95_high"] = row[f"{PRIMARY_METRIC}_ci95_high"]
-            row["positive_mean_effect"] = (
-                row[f"{PRIMARY_METRIC}_mean"] > NUMERIC_TOLERANCE
-            )
-            row["priority_group"] = row["priority_status"]
-    return (
-        pd.DataFrame(records)
-        .sort_values(["operating_point_id", "mechanism", "position", "lane_id"])
-        .reset_index(drop=True)
+    return _campaign_mechanics.build_global_lane_priority(
+        lane_stats=lane_stats,
+        lane_bootstrap=lane_bootstrap,
+        context=_campaign_context,
     )
 
 

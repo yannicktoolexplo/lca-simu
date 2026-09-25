@@ -4,18 +4,18 @@ La calibration caractérise des hypothèses de simulation. Elle ne mesure pas
 une performance fournisseur observée et n'autorise pas à promouvoir une action.
 La robustesse des fichiers ne constitue pas une validation scientifique.
 
-## Deux versions explicites
+## Une seule implémentation courante
 
-Le module historique `supplier_service_regime_calibration_runner.py` reste
-inchangé : ses octets sont référencés par des contrats figés. Son écriture peut
-échouer sous Windows avec `WinError 5`, comme reproduit le 17 septembre 2026.
+Le module `supplier_service_regime_calibration_runner.py` contient désormais
+l'implémentation robuste V2, qui utilise `etudecas.atomic_io`. Le fichier suffixé
+`_v2.py` a été retiré après comparaison : les règles de sélection, les graines,
+les commandes de calcul et les indicateurs sont conservés. Le schéma de résultats
+reste explicitement V2 ; le nom du fichier ne détermine pas la version du contrat.
 
-Pour une **nouvelle exécution**, le module
-`supplier_service_regime_calibration_runner_v2.py` utilise `etudecas.atomic_io`.
-Il s'agit d'une copie versionnée, sans modification des règles de sélection,
-des graines ni des empreintes attendues du protocole et du plan. Cette duplication
-est volontaire : toute évolution commune nécessite une comparaison explicite,
-sans réécrire automatiquement la V1. Aucun appelant historique n'est redirigé.
+Les anciennes sources sont conservées dans la capsule de comparaison du tri du
+23 septembre. La V1, dont l'écriture pouvait échouer sous Windows, n'est plus
+une seconde implémentation courante. Ses résultats et signatures historiques
+ne sont ni réécrits ni réutilisés implicitement.
 
 La signature V2 contient sa version, son code et le SHA-256 du module d'écriture.
 Le manifeste expose également la politique d'écriture et cette empreinte.
@@ -25,10 +25,10 @@ Ces empreintes ne couvrent pas automatiquement toutes les dépendances transitiv
 
 ```powershell
 # Lecture et validation seulement : aucune simulation ni création de résultats.
-python -m etudecas.prototypes.scan_2027_risk_control.supplier_service_regime_calibration_runner_v2 --mode validate --plan-dir C:\chemin\plan-signe
+python -m etudecas.prototypes.scan_2027_risk_control.supplier_service_regime_calibration_runner --mode validate --plan-dir C:\chemin\plan-signe
 
 # Nouvelle exécution : dossier distinct de toute campagne V1.
-python -m etudecas.prototypes.scan_2027_risk_control.supplier_service_regime_calibration_runner_v2 --mode screening --plan-dir C:\chemin\plan-signe --output-dir C:\chemin\nouvelle-calibration-v2
+python -m etudecas.prototypes.scan_2027_risk_control.supplier_service_regime_calibration_runner --mode screening --plan-dir C:\chemin\plan-signe --output-dir C:\chemin\nouvelle-calibration-v2
 ```
 
 Le plan doit toujours être celui attendu par le contrat. Les fixtures synthétiques

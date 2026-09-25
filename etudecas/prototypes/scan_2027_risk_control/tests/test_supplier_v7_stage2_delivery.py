@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from etudecas.prototypes.scan_2027_risk_control import (
+    supplier_stage_runtime as stage_runtime,
+)
+
 import csv
 import json
 from contextlib import contextmanager
@@ -17,12 +21,9 @@ from etudecas.prototypes.scan_2027_risk_control import (
 from etudecas.prototypes.scan_2027_risk_control import (
     supplier_v7_stage2_delivery as delivery,
 )
-from etudecas.prototypes.scan_2027_risk_control import (
-    supplier_v7_stage2_pipeline as pipeline,
-)
-from etudecas.prototypes.scan_2027_risk_control import (
-    supplier_v7_stage2_watcher as watcher,
-)
+
+pipeline = stage_runtime.for_profile("v7-stage2")
+watcher = pipeline
 
 
 def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
@@ -886,18 +887,18 @@ def test_prepare_supervision_creates_only_its_owned_directory(tmp_path: Path) ->
 
 
 def test_source_inventory_tamper_is_fail_closed(tmp_path: Path) -> None:
-    inventory = common.build_source_inventory(Path(__file__).resolve().parents[4])
+    inventory = pipeline.build_source_inventory(Path(__file__).resolve().parents[4])
     inventory["entries"][0]["sha256"] = "0" * 64
     unsigned = dict(inventory)
     unsigned.pop("inventory_signature")
     inventory["inventory_signature"] = common.stable_sha256(unsigned)
-    with pytest.raises(common.Stage2Error, match="modifiée ou absente"):
-        common.verify_source_inventory(inventory)
+    with pytest.raises(common.Stage2Error, match="inventory changed"):
+        pipeline.verify_source_inventory(inventory)
 
 
 def test_real_source_inventory_contains_complete_critical_transitive_set() -> None:
     repo = Path(__file__).resolve().parents[4]
-    paths = {path.relative_to(repo).as_posix() for path in common.source_paths(repo)}
+    paths = {path.relative_to(repo).as_posix() for path in pipeline.source_paths(repo)}
     package = "etudecas/prototypes/scan_2027_risk_control"
     expected = {
         "etudecas/__init__.py",
@@ -917,20 +918,30 @@ def test_real_source_inventory_contains_complete_critical_transitive_set() -> No
                 "supplier_v6_full_incident_lot_registry",
                 "supplier_fresh_development_holdout_protocol_v7",
                 "supplier_operating_point_full_campaign_v7",
-                "finalize_supplier_operating_point_full_campaign_v7",
+                "supplier_campaign_adapters",
+                "supplier_campaign_source_revision",
                 "supplier_operating_point_full_campaign_v7_dashboard",
                 "supplier_v7_campaign_trace_package",
                 "build_validated_operating_points_v7",
                 "continue_supplier_full_campaign_v7",
                 "supplier_v7_stage2_common",
                 "supplier_v7_stage2_curves",
-                "supplier_v7_stage2_pipeline",
+                "supplier_stage_runtime",
                 "supplier_v7_stage2_delivery",
-                "supplier_v7_stage2_watcher",
             )
         ),
     }
-    assert len(paths) == 62
+    assert not any(
+        path.endswith(
+            (
+                "_stage2_pipeline.py",
+                "_stage2_watcher.py",
+                "_stage3_pipeline.py",
+                "_stage3_watcher.py",
+            )
+        )
+        for path in paths
+    )
     assert expected <= paths
 
 
@@ -999,10 +1010,10 @@ def test_lot_runner_recovers_partial_plan_root_before_v4_creation(
         assert not paths.lot_replay_root.exists()
         return plan
 
-    monkeypatch.setattr(pipeline.lots_v4, "create_replay_plan", create)
+    monkeypatch.setattr(stage_runtime.lots_v4, "create_replay_plan", create)
     monkeypatch.setattr(pipeline, "_lot_receipt_valid", lambda *_args: {"ok": True})
     monkeypatch.setattr(
-        pipeline.lots_v4,
+        stage_runtime.lots_v4,
         "finalize_replay",
         lambda _root: {
             "status": "complete_validated",
@@ -1044,17 +1055,17 @@ def test_action_runner_recovers_partial_plan_root_before_v4_creation(
         "status": "complete_no_representable_action",
         "validation_signature": "v" * 64,
     }
-    monkeypatch.setattr(pipeline.actions_v4, "create_action_plan", create)
+    monkeypatch.setattr(stage_runtime.actions_v4, "create_action_plan", create)
     monkeypatch.setattr(
-        pipeline.actions_v4, "run_action_replay", lambda *_args, **_kwargs: receipt
+        stage_runtime.actions_v4, "run_action_replay", lambda *_args, **_kwargs: receipt
     )
     monkeypatch.setattr(
-        pipeline.actions_v4,
+        stage_runtime.actions_v4,
         "finalize_action_replay",
         lambda _root: (summary, validation),
     )
     monkeypatch.setattr(
-        pipeline.actions_v4,
+        stage_runtime.actions_v4,
         "validate_action_results",
         lambda _root: (summary, validation),
     )
@@ -1098,13 +1109,14 @@ def test_source_inventory_includes_initializers_and_relative_imports_and_tamper(
         "critical_protocol_sha256": common.EXPECTED_PROTOCOL_SHA256,
     }
     inventory = common.signed(unsigned, "inventory_signature")
-    monkeypatch.setattr(common, "source_paths", lambda _repo: discovered)
-    common.verify_source_inventory(inventory)
+    monkeypatch.setattr(pipeline, "source_paths", lambda _repo: discovered)
+    inventory = pipeline.build_source_inventory(repo)
+    pipeline.verify_source_inventory(inventory)
     (repo / "etudecas/pkg/core.py").write_text(
         "from .. import shared\nVALUE = 2\n", encoding="utf-8"
     )
-    with pytest.raises(common.Stage2Error, match="modifiée ou absente"):
-        common.verify_source_inventory(inventory)
+    with pytest.raises(common.Stage2Error, match="inventory changed"):
+        pipeline.verify_source_inventory(inventory)
 
 
 def test_bound_stage1_receipt_rejects_coherent_upstream_substitution(
@@ -1146,7 +1158,8 @@ def test_pipeline_guard_revalidates_published_upstream_receipt(
     (paths.supervision_dir / common.STAGE1_RECEIPT_NAME).write_text(
         "{}", encoding="utf-8"
     )
-    relay = object.__new__(pipeline.Stage2Pipeline)
+    relay = object.__new__(stage_runtime.Stage2Pipeline)
+    relay.runtime = pipeline
     relay.paths = paths
     relay.contract = {"contract_signature": "c" * 64}
     relay.inventory = {"fixture": True}
@@ -1176,7 +1189,7 @@ def test_guard_rejects_coherent_observed_pack_substitution_after_armament(
     paths = common.Stage2Paths(
         **{**base.__dict__, "observed_2025_dir": observed}
     ).resolved()
-    relay = pipeline.Stage2Pipeline(paths)
+    relay = pipeline.create_pipeline(paths)
 
     bilan_path = observed / "bilan_observed_2025.json"
     bilan = json.loads(bilan_path.read_text(encoding="utf-8"))
@@ -1201,7 +1214,7 @@ def test_watcher_refuses_double_detach_while_previous_child_is_alive(
     paths = _paths(tmp_path)
     paths.supervision_dir.mkdir()
     monkeypatch.setattr(
-        watcher.pipeline,
+        watcher,
         "prepare_supervision",
         lambda _paths: {"contract_signature": "a" * 64},
     )
@@ -1223,13 +1236,11 @@ def test_watcher_recovers_after_dead_process_with_new_attempt(
     paths = _paths(tmp_path)
     paths.supervision_dir.mkdir()
     contract = {"contract_signature": "a" * 64}
-    monkeypatch.setattr(
-        watcher.pipeline, "prepare_supervision", lambda _paths: contract
-    )
+    monkeypatch.setattr(watcher, "prepare_supervision", lambda _paths: contract)
     monkeypatch.setattr(watcher, "_latest_receipt", lambda *_a: {"child_pid": 123})
     monkeypatch.setattr(watcher, "_pid_alive", lambda pid: pid == 456)
     monkeypatch.setattr(
-        watcher.pipeline,
+        watcher,
         "_verify_status",
         lambda *_a: {"status": "waiting"},
     )
@@ -1262,7 +1273,7 @@ def test_watcher_recovers_after_dead_process_with_new_attempt(
         "official_engine_started_before_ready": False,
         "receipt_signature": "b" * 64,
     }
-    monkeypatch.setattr(watcher.subprocess, "Popen", FakeProcess)
+    monkeypatch.setattr(stage_runtime.subprocess, "Popen", FakeProcess)
     monkeypatch.setattr(watcher, "_read_signed", lambda *_a, **_k: receipt)
     result = watcher._detach(  # noqa: SLF001
         paths, poll_seconds=1, max_wait_hours=1, startup_timeout_seconds=1
@@ -1278,11 +1289,9 @@ def test_watcher_complete_status_revalidates_delivery_before_success(
     paths = _paths(tmp_path)
     paths.supervision_dir.mkdir()
     contract = {"contract_signature": "a" * 64}
-    monkeypatch.setattr(watcher.pipeline, "prepare_supervision", lambda _p: contract)
+    monkeypatch.setattr(watcher, "prepare_supervision", lambda _p: contract)
     monkeypatch.setattr(watcher, "_latest_receipt", lambda *_a: None)
-    monkeypatch.setattr(
-        watcher.pipeline, "_verify_status", lambda *_a: {"status": "complete"}
-    )
+    monkeypatch.setattr(watcher, "_verify_status", lambda *_a: {"status": "complete"})
     calls: list[common.Stage2Paths] = []
     monkeypatch.setattr(
         delivery,
@@ -1314,11 +1323,9 @@ def test_watcher_invalid_ready_receipt_stops_spawned_child(
     paths = _paths(tmp_path)
     paths.supervision_dir.mkdir()
     contract = {"contract_signature": "a" * 64}
-    monkeypatch.setattr(watcher.pipeline, "prepare_supervision", lambda _p: contract)
+    monkeypatch.setattr(watcher, "prepare_supervision", lambda _p: contract)
     monkeypatch.setattr(watcher, "_latest_receipt", lambda *_a: None)
-    monkeypatch.setattr(
-        watcher.pipeline, "_verify_status", lambda *_a: {"status": "waiting"}
-    )
+    monkeypatch.setattr(watcher, "_verify_status", lambda *_a: {"status": "waiting"})
     monkeypatch.setattr(
         watcher,
         "_reserve_attempt",
@@ -1358,7 +1365,7 @@ def test_watcher_invalid_ready_receipt_stops_spawned_child(
         "official_engine_started_before_ready": False,
         "receipt_signature": "b" * 64,
     }
-    monkeypatch.setattr(watcher.subprocess, "Popen", FakeProcess)
+    monkeypatch.setattr(stage_runtime.subprocess, "Popen", FakeProcess)
     monkeypatch.setattr(watcher, "_read_signed", lambda *_a, **_k: invalid_receipt)
     monkeypatch.setattr(watcher, "_pid_alive", lambda _pid: True)
     with pytest.raises(watcher.Stage2WatcherError, match="fils vivant et protégé"):
@@ -1374,11 +1381,9 @@ def test_watcher_startup_timeout_stops_spawned_child(
     paths = _paths(tmp_path)
     paths.supervision_dir.mkdir()
     contract = {"contract_signature": "a" * 64}
-    monkeypatch.setattr(watcher.pipeline, "prepare_supervision", lambda _p: contract)
+    monkeypatch.setattr(watcher, "prepare_supervision", lambda _p: contract)
     monkeypatch.setattr(watcher, "_latest_receipt", lambda *_a: None)
-    monkeypatch.setattr(
-        watcher.pipeline, "_verify_status", lambda *_a: {"status": "waiting"}
-    )
+    monkeypatch.setattr(watcher, "_verify_status", lambda *_a: {"status": "waiting"})
     monkeypatch.setattr(
         watcher,
         "_reserve_attempt",
@@ -1405,8 +1410,8 @@ def test_watcher_startup_timeout_stops_spawned_child(
             return -15
 
     ticks = iter((0.0, 0.2))
-    monkeypatch.setattr(watcher.subprocess, "Popen", FakeProcess)
-    monkeypatch.setattr(watcher.time, "monotonic", lambda: next(ticks))
+    monkeypatch.setattr(stage_runtime.subprocess, "Popen", FakeProcess)
+    monkeypatch.setattr(stage_runtime.time, "monotonic", lambda: next(ticks))
     with pytest.raises(watcher.Stage2WatcherError, match="Délai dépassé"):
         watcher._detach(  # noqa: SLF001
             paths, poll_seconds=1, max_wait_hours=1, startup_timeout_seconds=0.1
@@ -1455,7 +1460,7 @@ def test_watcher_timeout_is_terminal_without_downstream_output(
 ) -> None:
     paths = _paths(tmp_path)
     monkeypatch.setattr(
-        watcher.pipeline,
+        watcher,
         "prepare_supervision",
         lambda _paths: {"contract_signature": "a" * 64},
     )
@@ -1466,13 +1471,13 @@ def test_watcher_timeout_is_terminal_without_downstream_output(
         holder["relay"] = _FakeRelay(p)
         return holder["relay"]
 
-    monkeypatch.setattr(watcher.pipeline, "Stage2Pipeline", relay_factory)
+    monkeypatch.setattr(watcher, "create_pipeline", relay_factory)
     monkeypatch.setattr(watcher, "KeepAwake", _FakeKeeper)
     monkeypatch.setattr(
         watcher.common, "probe_stage1", lambda _paths: "waiting_campaign_3330"
     )
     ticks = iter((0.0, 1.0))
-    monkeypatch.setattr(watcher.time, "monotonic", lambda: next(ticks))
+    monkeypatch.setattr(stage_runtime.time, "monotonic", lambda: next(ticks))
     result = watcher._child_main(  # noqa: SLF001
         paths,
         attempt=0,
@@ -1490,7 +1495,7 @@ def test_watcher_stops_immediately_on_signed_scientific_rejection(
 ) -> None:
     paths = _paths(tmp_path)
     monkeypatch.setattr(
-        watcher.pipeline,
+        watcher,
         "prepare_supervision",
         lambda _paths: {"contract_signature": "a" * 64},
     )
@@ -1501,7 +1506,7 @@ def test_watcher_stops_immediately_on_signed_scientific_rejection(
         holder["relay"] = _FakeRelay(p)
         return holder["relay"]
 
-    monkeypatch.setattr(watcher.pipeline, "Stage2Pipeline", relay_factory)
+    monkeypatch.setattr(watcher, "create_pipeline", relay_factory)
     monkeypatch.setattr(watcher, "KeepAwake", _FakeKeeper)
 
     def rejected(_paths: common.Stage2Paths) -> str:

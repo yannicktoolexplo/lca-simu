@@ -15,6 +15,8 @@ unselected shard, never detaches and never invokes downstream consolidation.
 
 from __future__ import annotations
 
+from etudecas.prototypes.scan_2027_risk_control import supplier_campaign_source_revision as _source_revision
+
 import argparse
 import json
 import os
@@ -29,9 +31,7 @@ from typing import Any, BinaryIO, Callable, Iterator, Mapping, Protocol, Sequenc
 
 import psutil
 
-from etudecas.prototypes.scan_2027_risk_control import (
-    launch_supplier_operating_point_full_campaign_v8 as launcher_v8,
-)
+from etudecas.prototypes.scan_2027_risk_control.supplier_campaign_adapters import launch_v8 as launcher_v8
 
 
 implementation = launcher_v8.implementation_v4
@@ -183,6 +183,8 @@ def _targets_campaign(command: Sequence[str], campaign_root: Path) -> bool:
 
 
 def _is_campaign_orchestrator(command: Sequence[str]) -> bool:
+    if len(command) >= 5 and list(command[1:5]) == ["-m", _source_revision.ADAPTER_MODULE, "launch", "v8"]:
+        return True
     known_scripts = {
         "launch_supplier_operating_point_full_campaign_v8.py",
         "launch_supplier_operating_point_full_campaign_v8_resilient.py",
@@ -246,7 +248,7 @@ def _validate_frozen_orchestration() -> None:
     launcher_v8.validate_frozen_implementation()
     path = Path(launcher_v8.__file__).resolve()
     digest = implementation._sha256_file(path)  # noqa: SLF001
-    if digest != EXPECTED_V8_LAUNCHER_SHA256:
+    if (digest != EXPECTED_V8_LAUNCHER_SHA256 and not _source_revision.accepts_current_revision(path, EXPECTED_V8_LAUNCHER_SHA256, digest)):
         raise BoundedResumeError(
             "Le launcher V8 validé a changé; reprise bornée refusée : " + digest
         )

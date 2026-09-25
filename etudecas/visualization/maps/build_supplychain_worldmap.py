@@ -40,16 +40,7 @@ try:
     )
     from etudecas.simulation.lot_trace import build_lot_trace_payload
     from etudecas.simulation.uncertainty import build_uncertainty_diagnostics
-    from etudecas.visualization.maps.supplier_risk_formatting import (
-        risk_pct,
-        risk_ratio,
-        supplier_risk_action_label,
-        supplier_risk_worst_zone,
-        supplier_risk_zone_color,
-        supplier_risk_zone_counts_text,
-        supplier_risk_zone_label,
-        supplier_risk_zone_rank,
-    )
+    from etudecas.visualization.maps.risk_payload import risk_pct, risk_ratio, supplier_risk_action_label, supplier_risk_worst_zone, supplier_risk_zone_color, supplier_risk_zone_counts_text, supplier_risk_zone_label, supplier_risk_zone_rank
 except ModuleNotFoundError:
     sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
     from etudecas.case_config import (
@@ -68,281 +59,110 @@ except ModuleNotFoundError:
     )
     from etudecas.simulation.lot_trace import build_lot_trace_payload
     from etudecas.simulation.uncertainty import build_uncertainty_diagnostics
-    from etudecas.visualization.maps.supplier_risk_formatting import (
-        risk_pct,
-        risk_ratio,
-        supplier_risk_action_label,
-        supplier_risk_worst_zone,
-        supplier_risk_zone_color,
-        supplier_risk_zone_counts_text,
-        supplier_risk_zone_label,
-        supplier_risk_zone_rank,
-    )
+    from etudecas.visualization.maps.risk_payload import risk_pct, risk_ratio, supplier_risk_action_label, supplier_risk_worst_zone, supplier_risk_zone_color, supplier_risk_zone_counts_text, supplier_risk_zone_label, supplier_risk_zone_rank
 
-from etudecas.visualization.maps.shipment_execution import executed_shipment_day, observed_transport_lead
+from etudecas.visualization.maps.simulation_payload import executed_shipment_day, observed_transport_lead
 from etudecas.risk.supplier_criticality.local import (
     build_edge_item_sets,
     build_supplier_local_criticality,
     select_best_supplier_case_pair,
 )
 
-try:
-    from etudecas.visualization.maps.chart_payloads import (
-        build_bar_chart_figure,
-        build_bar_chart_payload,
-        build_combo_bar_line_payload,
-        build_dual_line_multi_panel_figure,
-        build_dual_panel_figure,
-        build_line_chart_figure,
-        build_line_chart_payload,
-        build_note_payload,
-        densify_daily_series,
-        densify_event_spike_series,
-        load_png_payload,
-        png_payload_from_bytes,
-        resolve_plot_payload,
-    )
-    from etudecas.visualization.maps.html_payload_tools import apply_html_payload_mode
-    from etudecas.visualization.maps.global_kpi_tree_payload import build_global_kpi_tree_payload
-    from etudecas.visualization.maps.montecarlo_trajectory_payload import build_montecarlo_trajectory_assets
-except ModuleNotFoundError:
-    sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
-    from etudecas.visualization.maps.chart_payloads import (
-        build_bar_chart_figure,
-        build_bar_chart_payload,
-        build_combo_bar_line_payload,
-        build_dual_line_multi_panel_figure,
-        build_dual_panel_figure,
-        build_line_chart_figure,
-        build_line_chart_payload,
-        build_note_payload,
-        densify_daily_series,
-        densify_event_spike_series,
-        load_png_payload,
-        png_payload_from_bytes,
-        resolve_plot_payload,
-    )
-    from etudecas.visualization.maps.html_payload_tools import apply_html_payload_mode
-    from etudecas.visualization.maps.global_kpi_tree_payload import build_global_kpi_tree_payload
-    from etudecas.visualization.maps.montecarlo_trajectory_payload import build_montecarlo_trajectory_assets
+from etudecas.visualization.maps.chart_payloads import (
+    build_bar_chart_figure,
+    build_bar_chart_payload,
+    build_combo_bar_line_payload,
+    build_dual_line_multi_panel_figure,
+    build_dual_panel_figure,
+    build_line_chart_figure,
+    build_line_chart_payload,
+    build_note_payload,
+    densify_daily_series,
+    densify_event_spike_series,
+    load_png_payload,
+    png_payload_from_bytes,
+    resolve_plot_payload,
+)
+from etudecas.visualization.maps.html_payload_tools import apply_html_payload_mode
+from etudecas.visualization.maps.global_kpi_tree_payload import build_global_kpi_tree_payload
+from etudecas.visualization.maps.montecarlo_trajectory_payload import build_montecarlo_trajectory_assets
 
-try:
-    from etudecas.visualization.maps.map_data_loader import (
-        load_json_dict,
-        output_root_from_csv,
-        read_csv_rows,
-        read_timeline_horizon_days,
-    )
-    from etudecas.visualization.maps.map_render import (
-        data_html_asset,
-        fmt_days,
-        fmt_pct,
-        fmt_qty,
-        html_tooltip_attrs,
-        html_tooltip_class,
-        json_html_asset,
-        metric_label_value,
-        metric_section,
-        render_data_kv,
-        render_data_table,
-    )
-    from etudecas.visualization.maps.map_payload_builder import (
-        attach_generic_payload_contract,
-        build_payload_layers_manifest,
-        compact_graph_payload,
-        display_node_label,
-        display_standard_order_qty,
-        is_pilotage_hidden_edge,
-        is_pilotage_hidden_node,
-        is_simulation_hidden_item,
-        is_upstream_internal_site,
-        merge_hover_payload_maps,
-        standard_order_override_for_edge,
-    )
-    from etudecas.visualization.maps.risk_payload import (
-        build_risk_payload_manifest,
-        build_supplier_risk_campaign_payload,
-        render_supplier_risk_campaign_html,
-        supplier_risk_campaign_status,
-    )
-    from etudecas.visualization.maps.scenario_comparison_payload import (
-        build_scenario_comparison_payload,
-    )
-    from etudecas.visualization.maps.scan_dashboard_payload import (
-        build_scan_dashboard_payload,
-    )
-    from etudecas.visualization.maps.supplier_operations_payload import (
-        build_passive_uncertainty_metric,
-        coefficient_of_variation,
-        compact_order_status,
-        consolidate_order_rows_weekly,
-        display_order_type,
-        effective_order_receipt_day,
-        effective_procurement_lead_days,
-        finite_numeric_values,
-        fmt_order_day,
-        fmt_order_day_range,
-        fmt_uncertainty_band,
-        is_display_order_row,
-        is_opening_order_row,
-        order_placed_day,
-        order_week_start,
-        planned_order_receipt_day,
-        planned_order_to_receipt_days,
-        planned_procurement_lead_days,
-        reference_transport_lead_days,
-        render_factory_nominal_capacities_html,
-        render_order_ledger_html,
-        render_passive_uncertainty_html,
-        render_supplier_nominal_parameters_html,
-        render_supplier_risk_prediction_html,
-        render_supplier_stock_flows_html,
-        resolved_order_day,
-        risk_level,
-        source_planned_material_lead_days,
-        uncertainty_level,
-    )
-    from etudecas.visualization.maps.adapters.etudecas_run_payload import (
-        map_inputs_from_run_package,
-        run_contract_payload,
-    )
-    from etudecas.visualization.maps.supplier_risk_panels import (
-        build_simulated_risk_global_diagnostic_payload,
-        build_simulated_supplier_risk_metrics,
-        build_supplier_risk_hover_payloads,
-        render_supplier_risk_catalog_html,
-    )
-    from etudecas.visualization.maps.sensitivity_payload import (
-        align_series,
-        baseline_sensitivity_row,
-        build_sensitivity_payload_manifest,
-        case_multiplier_value,
-        case_output_dir,
-        case_rows_by_id,
-        cumulative_series,
-        first_case_row,
-        kpi_from_case,
-        local_signal_strength,
-        multiplier_label,
-        safe_case_token,
-    )
-    from etudecas.visualization.maps.simulation_payload import (
-        build_material_balance_table_rows,
-        build_simulation_payload_manifest,
-        render_material_balance_table_html,
-    )
-except ModuleNotFoundError:
-    sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
-    from etudecas.visualization.maps.map_data_loader import (
-        load_json_dict,
-        output_root_from_csv,
-        read_csv_rows,
-        read_timeline_horizon_days,
-    )
-    from etudecas.visualization.maps.map_render import (
-        data_html_asset,
-        fmt_days,
-        fmt_pct,
-        fmt_qty,
-        html_tooltip_attrs,
-        html_tooltip_class,
-        json_html_asset,
-        metric_label_value,
-        metric_section,
-        render_data_kv,
-        render_data_table,
-    )
-    from etudecas.visualization.maps.map_payload_builder import (
-        attach_generic_payload_contract,
-        build_payload_layers_manifest,
-        compact_graph_payload,
-        display_node_label,
-        display_standard_order_qty,
-        is_pilotage_hidden_edge,
-        is_pilotage_hidden_node,
-        is_simulation_hidden_item,
-        is_upstream_internal_site,
-        merge_hover_payload_maps,
-        standard_order_override_for_edge,
-    )
-    from etudecas.visualization.maps.risk_payload import (
-        build_risk_payload_manifest,
-        build_supplier_risk_campaign_payload,
-        render_supplier_risk_campaign_html,
-        supplier_risk_campaign_status,
-    )
-    from etudecas.visualization.maps.scenario_comparison_payload import (
-        build_scenario_comparison_payload,
-    )
-    from etudecas.visualization.maps.scan_dashboard_payload import (
-        build_scan_dashboard_payload,
-    )
-    from etudecas.visualization.maps.supplier_operations_payload import (
-        build_passive_uncertainty_metric,
-        coefficient_of_variation,
-        compact_order_status,
-        consolidate_order_rows_weekly,
-        display_order_type,
-        effective_order_receipt_day,
-        effective_procurement_lead_days,
-        finite_numeric_values,
-        fmt_order_day,
-        fmt_order_day_range,
-        fmt_uncertainty_band,
-        is_display_order_row,
-        is_opening_order_row,
-        order_placed_day,
-        order_week_start,
-        planned_order_receipt_day,
-        planned_order_to_receipt_days,
-        planned_procurement_lead_days,
-        reference_transport_lead_days,
-        render_factory_nominal_capacities_html,
-        render_order_ledger_html,
-        render_passive_uncertainty_html,
-        render_supplier_nominal_parameters_html,
-        render_supplier_risk_prediction_html,
-        render_supplier_stock_flows_html,
-        resolved_order_day,
-        risk_level,
-        source_planned_material_lead_days,
-        uncertainty_level,
-    )
-    from etudecas.visualization.maps.adapters.etudecas_run_payload import (
-        map_inputs_from_run_package,
-        run_contract_payload,
-    )
-    from etudecas.visualization.maps.supplier_risk_panels import (
-        build_simulated_risk_global_diagnostic_payload,
-        build_simulated_supplier_risk_metrics,
-        build_supplier_risk_hover_payloads,
-        render_supplier_risk_catalog_html,
-    )
-    from etudecas.visualization.maps.sensitivity_payload import (
-        align_series,
-        baseline_sensitivity_row,
-        build_sensitivity_payload_manifest,
-        case_multiplier_value,
-        case_output_dir,
-        case_rows_by_id,
-        cumulative_series,
-        first_case_row,
-        kpi_from_case,
-        local_signal_strength,
-        multiplier_label,
-        safe_case_token,
-    )
-    from etudecas.visualization.maps.simulation_payload import (
-        build_material_balance_table_rows,
-        build_simulation_payload_manifest,
-        render_material_balance_table_html,
-    )
+from etudecas.visualization.maps.map_payload_builder import load_json_dict, output_root_from_csv, read_csv_rows, read_timeline_horizon_days
+from etudecas.visualization.maps.map_payload_builder import data_html_asset, fmt_days, fmt_pct, fmt_qty, html_tooltip_attrs, html_tooltip_class, json_html_asset, metric_label_value, metric_section, render_data_kv, render_data_table
+from etudecas.visualization.maps.map_payload_builder import (
+    attach_generic_payload_contract,
+    build_payload_layers_manifest,
+    compact_graph_payload,
+    display_node_label,
+    display_standard_order_qty,
+    is_pilotage_hidden_edge,
+    is_pilotage_hidden_node,
+    is_simulation_hidden_item,
+    is_upstream_internal_site,
+    merge_hover_payload_maps,
+    standard_order_override_for_edge,
+)
+from etudecas.visualization.maps.risk_payload import (
+    build_risk_payload_manifest,
+    build_supplier_risk_campaign_payload,
+    render_supplier_risk_campaign_html,
+    supplier_risk_campaign_status,
+)
+from etudecas.visualization.maps.scenario_comparison_payload import (
+    build_scenario_comparison_payload,
+)
+from etudecas.visualization.maps.scan_dashboard_payload import (
+    build_scan_dashboard_payload,
+)
+from etudecas.visualization.maps.supplier_operations_payload import (
+    build_passive_uncertainty_metric,
+    coefficient_of_variation,
+    compact_order_status,
+    consolidate_order_rows_weekly,
+    display_order_type,
+    effective_order_receipt_day,
+    effective_procurement_lead_days,
+    finite_numeric_values,
+    fmt_order_day,
+    fmt_order_day_range,
+    fmt_uncertainty_band,
+    is_display_order_row,
+    is_opening_order_row,
+    order_placed_day,
+    order_week_start,
+    planned_order_receipt_day,
+    planned_order_to_receipt_days,
+    planned_procurement_lead_days,
+    reference_transport_lead_days,
+    render_factory_nominal_capacities_html,
+    render_order_ledger_html,
+    render_passive_uncertainty_html,
+    render_supplier_nominal_parameters_html,
+    render_supplier_risk_prediction_html,
+    render_supplier_stock_flows_html,
+    resolved_order_day,
+    risk_level,
+    source_planned_material_lead_days,
+    uncertainty_level,
+)
+from etudecas.visualization.maps.adapters.etudecas_run_payload import (
+    map_inputs_from_run_package,
+    run_contract_payload,
+)
+from etudecas.visualization.maps.supplier_risk_panels import (
+    build_simulated_risk_global_diagnostic_payload,
+    build_simulated_supplier_risk_metrics,
+    build_supplier_risk_hover_payloads,
+    render_supplier_risk_catalog_html,
+)
+from etudecas.visualization.maps.scenario_comparison_payload import align_series, baseline_sensitivity_row, build_sensitivity_payload_manifest, case_multiplier_value, case_output_dir, case_rows_by_id, cumulative_series, first_case_row, kpi_from_case, local_signal_strength, multiplier_label, safe_case_token
+from etudecas.visualization.maps.simulation_payload import (
+    build_material_balance_table_rows,
+    build_simulation_payload_manifest,
+    render_material_balance_table_html,
+)
 
-try:
-    from etudecas.visualization.maps.worldmap_html_template import ensure_plotly_offline_assets, html_template
-except ModuleNotFoundError:
-    sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
-    from etudecas.visualization.maps.worldmap_html_template import ensure_plotly_offline_assets, html_template
+from etudecas.visualization.maps.worldmap_html_template import ensure_plotly_offline_assets, html_template
 
 DEFAULT_SUPPLIER_PARAMETER_SENSITIVITY_DIR = Path(
     "etudecas/simulation/sensibility/active_supplier_parameter_result_60_75_guarded"
@@ -2347,64 +2167,6 @@ def stock_target_overlay_series(
     return series_map, series_styles
 
 
-def mrp_inventory_position_overlay_series(
-    mrp_trace_rows: list[dict[str, str]],
-    *,
-    node_id: str,
-    item_ids: set[str],
-    item_labels: dict[str, str],
-) -> tuple[dict[str, list[tuple[int, float]]], dict[str, dict[str, Any]]]:
-    if not mrp_trace_rows or not node_id or not item_ids:
-        return {}, {}
-    series_map: dict[str, list[tuple[int, float]]] = {}
-    series_styles: dict[str, dict[str, Any]] = {}
-    metric_specs = [
-        (
-            "recv_prev_future_qty",
-            "receptions futures MRP",
-            {"color": "#7c3aed", "width": 1.25, "dash": "dot"},
-        ),
-        (
-            "inventory_position_qty",
-            "position inventaire MRP",
-            {"color": "#0f766e", "width": 2.0},
-        ),
-    ]
-    for item_id in sorted(item_ids):
-        if is_simulation_hidden_item(item_id):
-            continue
-        item_name = item_labels.get(item_id, compact_item_label(item_id))
-        for field, suffix, style in metric_specs:
-            pts = aggregate_daily_series(
-                mrp_trace_rows,
-                value_field=field,
-                node_field="node_id",
-                node_id=node_id,
-                item_ids={item_id},
-            )
-            if not any(abs(value) > 1e-9 for _, value in pts):
-                continue
-            label = f"{item_name} - {suffix}"
-            series_map[label] = pts
-            series_styles[label] = dict(style)
-        target_pts: list[tuple[int, float]] = []
-        for field in ("target_stock_display_qty", "target_stock_qty", "safety_floor_qty"):
-            pts = aggregate_daily_series(
-                mrp_trace_rows,
-                value_field=field,
-                node_field="node_id",
-                node_id=node_id,
-                item_ids={item_id},
-            )
-            if any(abs(value) > 1e-9 for _, value in pts):
-                target_pts = pts
-                break
-        if target_pts:
-            target_pts = rolling_average_points(target_pts, MRP_TARGET_DISPLAY_SMOOTHING_DAYS)
-            label = f"{item_name} - cible position MRP (moy. 30j)"
-            series_map[label] = target_pts
-            series_styles[label] = {"color": "#2563eb", "width": 1.65, "dash": "dash"}
-    return series_map, series_styles
 
 
 def mrp_metric_series_by_item(
@@ -4150,30 +3912,6 @@ def build_factory_current_metrics(
     return out
 
 
-def build_supplier_site_detail_payload(
-    supplier_id: str,
-    shipped_series: list[tuple[int, float]],
-    inbound_lead_days: dict[str, float],
-) -> dict[str, Any] | None:
-    if not shipped_series and not inbound_lead_days:
-        return None
-    return {
-        "figure": build_dual_panel_figure(
-            title=f"{supplier_id} - expeditions et lead times entrants",
-            top_title=f"{supplier_id} - expeditions journalieres",
-            top_x_label="Jour",
-            top_y_label="Expedie",
-            top_kind="line",
-            top_x=[day for day, _ in shipped_series],
-            top_y=[float(value) for _, value in shipped_series],
-            bottom_title=f"{supplier_id} - lead time moyen entrants",
-            bottom_x_label="Fournisseur amont",
-            bottom_y_label="Jours",
-            bottom_kind="bar",
-            bottom_x=list(inbound_lead_days.keys()),
-            bottom_y=[float(inbound_lead_days[label]) for label in inbound_lead_days],
-        )
-    }
 
 
 
@@ -5460,6 +5198,10 @@ def build_model_panel_metrics(
     production_constraint_csv: Path,
     write_derived_artifacts: bool = True,
 ) -> dict[str, Any]:
+    """Assemble the site and lane panels from the supplied graph and result rows.
+
+    This is presentation assembly: keep nominal, sensitivity and observed
+    execution fields distinct when editing an individual panel."""
     item_labels = build_item_label_lookup(raw)
     incoming_items, outgoing_items = build_edge_item_sets(raw)
     incoming_sources, outgoing_targets = build_node_relationships(raw)
@@ -7374,7 +7116,7 @@ def build_model_panel_metrics(
                 ),
             ]
         )
-        from etudecas.visualization.maps.unit_scoped_mrp import build_unit_scoped_mrp_assets
+        from etudecas.visualization.maps.supplier_operations_payload import build_unit_scoped_mrp_assets
         unit_assets = build_unit_scoped_mrp_assets(
             raw, node_id, trace_rows=node_trace_rows, order_rows=node_orders,
             stock_rows=(dc_stocks_by_node.get(node_id, []) if node_type == "distribution_center" else supplier_stocks_by_node.get(node_id, []) if node_type == "supplier_dc" else input_stocks_by_node.get(node_id, [])),

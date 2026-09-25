@@ -1,14 +1,16 @@
+"""Research checks grouped by business scope; distinct protocols stay explicit."""
 from __future__ import annotations
 
 import math
 from pathlib import Path
-
 import pytest
+from etudecas.prototypes.scan_2027_risk_control import supplier_021081_active_flow_campaign as campaign
+from etudecas.prototypes.scan_2027_risk_control import supplier_021081_bom_unit_sensitivity as unit_sensitivity
+from etudecas.prototypes.scan_2027_risk_control import supplier_021081_stock773_baseline_calibration as stock_calibration
+from etudecas.prototypes.scan_2027_risk_control import supplier_021081_state_layer_demasking_campaign as state_layers
 
-from etudecas.prototypes.scan_2027_risk_control import (
-    supplier_021081_active_flow_campaign as campaign,
-)
 
+# supplier_021081_active_flow_campaign
 
 def _actual_graph() -> dict[str, object]:
     return campaign.read_json(campaign.DEFAULT_GRAPH)
@@ -573,3 +575,248 @@ def test_extract_case_loads_filtered_lot_events_before_using_them(
         == 3_200_000
     )
     assert row["intermediate_773474_total_production_supply_qty_g"] == 6_400_000
+
+# supplier_021081_bom_unit_sensitivity
+
+def _ratio(graph: dict[str, object]) -> float:
+    for node in graph["nodes"]:  # type: ignore[index]
+        if node.get("id") != "SDC-1450":
+            continue
+        for process in node.get("processes", []):
+            if process.get("id") != "proc:MAKE_773474":
+                continue
+            for row in process.get("inputs", []):
+                if row.get("item_id") == "item:021081":
+                    return float(row["ratio_per_batch"])
+    raise AssertionError("target ratio absent")
+
+
+def test_unit_variants_are_literal_and_declared_hypothesis() -> None:
+    assert [variant.variant_id for variant in unit_sensitivity.UNIT_VARIANTS] == [
+        "literal_graph_ratio",
+        "ratio_divided_by_1000_hypothesis",
+    ]
+    assert unit_sensitivity.UNIT_VARIANTS[0].ratio_per_batch_kg == 8.94
+    assert unit_sensitivity.UNIT_VARIANTS[1].ratio_per_batch_kg == 0.00894
+
+
+def test_ratio_overlay_does_not_mutate_source_graph() -> None:
+    source = campaign.read_json(campaign.DEFAULT_GRAPH)
+    source_hash = campaign.json_sha256(source)
+    alternative = unit_sensitivity.UNIT_VARIANTS[1]
+    graph, audit = unit_sensitivity.graph_with_ratio(source, alternative)
+    assert math.isclose(_ratio(source), 8.94)
+    assert math.isclose(_ratio(graph), 0.00894)
+    assert campaign.json_sha256(source) == source_hash
+    assert audit["ratio_divisor_vs_literal"] == pytest.approx(1000)
+    assert audit["status"] == "unit_to_validate_with_industrial_owner"
+
+# supplier_021081_stock773_baseline_calibration
+
+def test_stock_states_change_only_intermediate_opening_stock() -> None:
+    states = stock_calibration.stock_states(campaign.read_json(campaign.DEFAULT_GRAPH), (180,))
+    assert len(states) == 1
+    state = states[0]
+    assert state.regime_id == "intermediate_stock_only_180d"
+    assert state.component_scale == 1
+    assert state.intermediate_scale < 1
+    assert state.production_open_order_removed is False
+    assert state.reduced_layers == ("stock:item:773474",)
+
+
+def test_candidate_selection_never_interpolates_between_lot_steps() -> None:
+    rows = [
+        {
+            "scenario_id": "baseline_observed_order_book",
+            "state_regime": "stock_180",
+            "state_regime_target_cover_days": 180,
+            "product_on_due_volume_proxy": 0.79,
+        },
+        {
+            "scenario_id": "baseline_observed_order_book",
+            "state_regime": "stock_240",
+            "state_regime_target_cover_days": 240,
+            "product_on_due_volume_proxy": 0.94,
+        },
+    ]
+    result = stock_calibration.target_candidate_rows(
+        rows,
+        targets=(0.93, 0.80),
+        tolerance=0.015,
+    )
+    target_93, target_80 = result
+    assert target_93["nearest_cover_days"] == 240
+    assert target_93["within_tolerance"] is True
+    assert target_80["nearest_cover_days"] == 180
+    assert target_80["within_tolerance"] is True
+    assert all(row["interpolation_claim_allowed"] is False for row in result)
+
+
+def test_unattained_target_reports_bracket_not_fabricated_value() -> None:
+    rows = [
+        {
+            "scenario_id": "baseline_observed_order_book",
+            "state_regime": "stock_180",
+            "state_regime_target_cover_days": 180,
+            "product_on_due_volume_proxy": 0.70,
+        },
+        {
+            "scenario_id": "baseline_observed_order_book",
+            "state_regime": "stock_240",
+            "state_regime_target_cover_days": 240,
+            "product_on_due_volume_proxy": 0.96,
+        },
+    ]
+    result = stock_calibration.target_candidate_rows(
+        rows,
+        targets=(0.80,),
+        tolerance=0.01,
+    )[0]
+    assert result["within_tolerance"] is False
+    assert result["lower_bracket_cover_days"] == 180
+    assert result["upper_bracket_cover_days"] == 240
+    assert "bracket" in result["interpretation"]
+
+
+@pytest.mark.parametrize("raw", ["", "-1", "10,-2"])
+def test_invalid_cover_lists_are_rejected(raw: str) -> None:
+    with pytest.raises(ValueError):
+        stock_calibration.parse_float_list(raw)
+
+# supplier_021081_state_layer_demasking_campaign
+
+def test_design_separates_component_intermediate_and_joint_layers() -> None:
+    graph = campaign.read_json(campaign.DEFAULT_GRAPH)
+    states = state_layers.build_layer_states(graph)
+    assert len(states) == 9
+    assert states[0].regime_id == "observed_all_layers"
+    assert {
+        state.regime_id for state in states if state.cover_days == 30
+    } == {
+        "component_only_30d",
+        "intermediate_stock_only_30d",
+        "intermediate_production_only_30d",
+        "joint_30d",
+    }
+    joint = next(state for state in states if state.regime_id == "joint_90d")
+    assert joint.component_target_qty_kg == pytest.approx(357.6 * 90)
+    assert joint.intermediate_target_total_g == pytest.approx(
+        campaign.INTERMEDIATE_773474_HORIZON_NEED_G / 720 * 90
+    )
+    assert joint.intermediate_target_sdc_g / joint.intermediate_target_total_g == pytest.approx(
+        9_600_000 / 24_193_000
+    )
+    assert set(joint.reduced_layers) == {
+        campaign.ITEM_ID,
+        "stock:" + campaign.INTERMEDIATE_ITEM_ID,
+        "production:" + campaign.INTERMEDIATE_ITEM_ID,
+    }
+    assert joint.production_open_order_removed is True
+    assert joint.production_target_qty_g == pytest.approx(
+        campaign.INTERMEDIATE_773474_HORIZON_NEED_G / 720 * 90
+    )
+    assert all(
+        row["global_lean_claim_allowed"] is False
+        for row in state_layers.state_rows(states)
+    )
+
+
+def test_joint_scale_file_contains_three_explicit_pairs(tmp_path: Path) -> None:
+    states = state_layers.build_layer_states(campaign.read_json(campaign.DEFAULT_GRAPH))
+    joint = next(state for state in states if state.regime_id == "joint_30d")
+    path = state_layers.write_scale_input(tmp_path, joint)
+    assert path is not None
+    rows = campaign.read_csv_rows(path)
+    assert {(row["node_id"], row["item_id"]) for row in rows} == {
+        ("SDC-1450", "item:021081"),
+        ("SDC-1450", "item:773474"),
+        ("M-1430", "item:773474"),
+    }
+
+
+def test_production_overlay_removes_open_order_and_sets_finite_budget() -> None:
+    source = campaign.read_json(campaign.DEFAULT_GRAPH)
+    state = next(
+        state
+        for state in state_layers.build_layer_states(source)
+        if state.regime_id == "intermediate_production_only_30d"
+    )
+    graph, audit = state_layers.graph_for_state(source, state, days=720)
+    opening = [
+        row
+        for row in campaign.opening_order_payload(graph)["rows"]
+        if row.get("order_type") == "production_open_order"
+        and row.get("item_id") == campaign.INTERMEDIATE_ITEM_ID
+        and row.get("dst_node_id") == campaign.DESTINATION_ID
+    ]
+    assert len(opening) == 1
+    assert opening[0]["quantity"] == 0
+    process = next(
+        process
+        for node in graph["nodes"]
+        if node.get("id") == campaign.DESTINATION_ID
+        for process in node.get("processes", [])
+        if process.get("id") == "proc:MAKE_773474"
+    )
+    assert process["capacity"]["max_rate"] == pytest.approx(
+        state.production_target_qty_g / 720
+    )
+    assert audit["opening_773474_production_order_original_qty_g"] == 3_200_000
+    original_opening = [
+        row
+        for row in campaign.opening_order_payload(source)["rows"]
+        if row.get("order_type") == "production_open_order"
+        and row.get("item_id") == campaign.INTERMEDIATE_ITEM_ID
+    ]
+    assert original_opening[0]["quantity"] == 3_200_000
+
+
+def test_optional_180_adds_four_separate_states() -> None:
+    states = state_layers.build_layer_states(
+        campaign.read_json(campaign.DEFAULT_GRAPH),
+        (*state_layers.PRIORITY_COVER_LEVELS_DAYS, state_layers.OPTIONAL_COVER_LEVEL_DAYS),
+    )
+    assert len([state for state in states if state.cover_days == 180]) == 4
+
+
+def test_confirmation_trigger_requires_a_downstream_difference() -> None:
+    no_effect = {
+        "product_on_due_delta_vs_paired_baseline": 0,
+        "product_backlog_qty_days_delta_vs_paired_baseline": 0,
+        "product_268967_released_qty_delta_vs_paired_baseline": 0,
+    }
+    assert state_layers.downstream_effect(no_effect) is False
+    assert state_layers.downstream_effect(
+        {**no_effect, "product_268967_released_qty_delta_vs_paired_baseline": -107_800}
+    ) is True
+
+
+def test_paired_layer_metrics_adds_release_and_intermediate_deltas() -> None:
+    common = {
+        "state_regime": "joint_30d",
+        "seed": 1,
+        "product_on_due_volume_proxy": 1,
+        "product_backlog_qty_days": 0,
+        "component_stock_min_qty_kg": 0,
+        "intermediate_773474_min_total_qty_g": 100,
+        "intermediate_773474_final_total_qty_g": 200,
+        "intermediate_773474_produced_qty_g": 300,
+        "intermediate_773474_released_qty_g": 300,
+        "product_268967_produced_qty": 1_000,
+        "product_268967_released_qty": 1_000,
+    }
+    rows = state_layers.paired_layer_metrics(
+        [
+            {**common, "scenario_id": "baseline_observed_order_book"},
+            {
+                **common,
+                "scenario_id": "all_021081__quality_hold__180",
+                "product_268967_released_qty": 900,
+            },
+        ]
+    )
+    stress = next(
+        row for row in rows if row["scenario_id"] != "baseline_observed_order_book"
+    )
+    assert stress["product_268967_released_qty_delta_vs_paired_baseline"] == -100
+    assert state_layers.downstream_effect(stress) is True

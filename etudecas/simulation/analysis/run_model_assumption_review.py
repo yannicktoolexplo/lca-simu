@@ -371,8 +371,6 @@ def parse_csv(path: Path) -> list[dict[str, Any]]:
         return list(csv.DictReader(f))
 
 
-def kpi_delta(result: dict[str, Any], baseline: dict[str, Any], key: str) -> float:
-    return safe_float(result.get(key)) - safe_float(baseline.get(key))
 
 
 def non_dominated_points(rows: list[dict[str, Any]], fill_key: str, cost_key: str) -> list[dict[str, Any]]:

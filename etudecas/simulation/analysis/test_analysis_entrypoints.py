@@ -1,4 +1,4 @@
-"""Compatibility contracts for the three relocated source-comparison reports."""
+"""Canonical CLI and source-path contracts for the three comparison reports."""
 from __future__ import annotations
 
 import importlib
@@ -19,17 +19,11 @@ REPORTS = (
 
 
 @pytest.mark.parametrize("name", REPORTS)
-def test_legacy_imports_share_canonical_objects_and_configuration(name, monkeypatch, tmp_path):
+def test_report_uses_canonical_configuration(name, monkeypatch, tmp_path):
     canonical = importlib.import_module(f"etudecas.simulation.analysis.{name}")
-    legacy = importlib.import_module(f"etudecas.analysis.from_simulation.{name}")
-
-    assert legacy is canonical
-    assert legacy.build_report is canonical.build_report
     assert canonical.REPO_ROOT == REPO_ROOT
     assert canonical.SOURCE_DIR == REPO_ROOT / "etudecas/data/source"
-    # Existing callers that replace a source directory through the old module
-    # must affect the functions' actual global namespace, not a copied wrapper.
-    monkeypatch.setattr(legacy, "SOURCE_DIR", tmp_path)
+    monkeypatch.setattr(canonical, "SOURCE_DIR", tmp_path)
     assert canonical.build_report.__globals__["SOURCE_DIR"] == tmp_path
 
 
@@ -42,11 +36,11 @@ def test_component_report_retains_its_historical_default_output_directory():
 
 
 @pytest.mark.parametrize("name", REPORTS)
-@pytest.mark.parametrize("mode", ("direct", "module"))
-def test_historical_and_canonical_cli_help_are_equivalent(name, mode, tmp_path):
+def test_direct_and_module_cli_help_are_equivalent(name, tmp_path):
     environment = dict(os.environ, PYTHONPATH="", PYTHONDONTWRITEBYTECODE="1")
     outputs = []
-    for package in ("etudecas.analysis.from_simulation", "etudecas.simulation.analysis"):
+    package = "etudecas.simulation.analysis"
+    for mode in ("direct", "module"):
         if mode == "direct":
             target = REPO_ROOT / Path(*package.split(".")) / f"{name}.py"
             command = [sys.executable, "-B", str(target), "--help"]

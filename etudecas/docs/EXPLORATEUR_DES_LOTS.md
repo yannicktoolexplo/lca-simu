@@ -71,10 +71,10 @@ Les **transports, mouvements détaillés et impacts potentiels** portent sur tou
 
 ## Vérifier et reproduire
 
-Les modules `lot_journey_explorer.js` et `lot_journey_timeline.js` complètent le parcours existant. Les tests sur petits cas vérifient les réservations, départs partiels, transit en fin d’horizon, mélanges, inconnues, substitutions et arrondis KG. Les allocations possibles d’un petit mélange sont énumérées indépendamment pour vérifier les bornes.
+Le module `lot_journey.js` regroupe le parcours, les transports, l’explorateur, la chronologie et les dossiers d’enquête, dans cet ordre. Les tests sur petits cas vérifient les réservations, départs partiels, transit en fin d’horizon, mélanges, inconnues, substitutions et arrondis KG. Les allocations possibles d’un petit mélange sont énumérées indépendamment pour vérifier les bornes.
 
 Les revues Chromium hors ligne rapprochent les quantités datées des CSV, vérifient recherche, pagination, filtres, clics, clavier, visibilité à 1366 × 768 et absence d’erreurs JavaScript. L’audit de toutes les occurrences utilise le même code de bilan que l’interface : il complète les rapprochements indépendants sans les remplacer.
 
-La publication du nominal utilise `python -m etudecas.testing.material_delivery` ; celle d’un scénario distinct utilise `python -m etudecas.testing.journey_scenario_delivery`. Le second refuse un graphe différent de celui du manifeste. Les deux lisent des résultats existants et produisent un nouveau HTML sans rejouer le moteur. Les empreintes de sources et de fichiers produits accompagnent la livraison.
+La publication du nominal utilise `python -m etudecas.visualization.maps.material_delivery` ; celle d’un scénario distinct utilise `python -m etudecas.visualization.maps.material_delivery --mode scenario`. Le second refuse un graphe différent de celui du manifeste. Les deux lisent des résultats existants et produisent un nouveau HTML sans rejouer le moteur. Les empreintes de sources et de fichiers produits accompagnent la livraison.
 
-Voir les [preuves de cette livraison](../artifacts/testing/explorer_20260920/verification-summary.json) et le [bilan daté](changes/2026-09-20-lot-explorer.md).
+Voir les [preuves de cette livraison](../archive/README.md) et le [bilan daté](../archive/README.md).

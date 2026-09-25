@@ -30,4 +30,4 @@ Les tests JavaScript utilisent des petits cas calculables à la main : deux bran
 
 Le registre `docs/rules/material_traceability.json` relie cette règle à l'intégration, à la livraison et aux tests. Le guide et le JavaScript sont suivis par empreinte de texte normalisé ; les références Python le sont par AST. Une modification requiert une revue de la règle avant d'accepter une nouvelle empreinte. Ces empreintes détectent les changements ; elles ne remplacent pas l'exécution des tests.
 
-Voir le [bilan de livraison](changes/2026-09-19-lot-journey.md) et les [preuves de séparation des vues](../artifacts/testing/journey_separate_20260919/verification-summary.json).
+Voir le [bilan de livraison](../archive/README.md) et les [preuves de séparation des vues](../archive/README.md).

@@ -8,6 +8,8 @@ qualification, actions, nominal curves, dashboard and standalone HTML.
 
 from __future__ import annotations
 
+from etudecas.prototypes.scan_2027_risk_control import supplier_campaign_source_revision as _source_revision
+
 import copy
 import json
 import os
@@ -25,9 +27,7 @@ from etudecas.prototypes.scan_2027_risk_control import (
 from etudecas.prototypes.scan_2027_risk_control import (
     continue_supplier_full_campaign_v5 as implementation_v5,
 )
-from etudecas.prototypes.scan_2027_risk_control import (
-    launch_supplier_operating_point_full_campaign_v6 as launcher_v6,
-)
+from etudecas.prototypes.scan_2027_risk_control.supplier_campaign_adapters import launch_v6 as launcher_v6
 from etudecas.prototypes.scan_2027_risk_control import (
     supplier_fresh_holdout_v6 as holdout_v6,
 )
@@ -173,14 +173,15 @@ class FullCampaignRelayV6(implementation_v5.FullCampaignRelayV5):
         )
         rows: list[dict[str, Any]] = []
         for module in dict.fromkeys(modules):
-            path = relay_v4._module_path(self.config.repo, module).resolve()  # noqa: SLF001
+            path = _source_revision.resolve_current_source(relay_v4._module_path(self.config.repo, module))  # noqa: SLF001
             if not path.is_file():
                 raise FullCampaignRelayError(f"Module V6 requis absent : {module}")
             digest = relay_v4.sha256_file(path)
             frozen = implementation_v5.FROZEN_V4_SHA256.get(
                 module
             ) or FROZEN_REUSED_V5_SHA256.get(module)
-            if frozen is not None and digest != frozen:
+            if (frozen is not None and digest != frozen
+                    and not _source_revision.accepts_current_revision(path, frozen, digest)):
                 raise FullCampaignRelayError(
                     f"Dépendance aval figée modifiée : {module} ({digest})"
                 )

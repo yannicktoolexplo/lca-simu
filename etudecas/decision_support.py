@@ -17,7 +17,7 @@ import sys
 
 from etudecas.testing.map_delivery import file_hash, reconcile_run, reconcile_browser
 from etudecas.visualization.maps.scenario_comparison_payload import build_scenario_comparison_payload
-from etudecas.visualization.maps.economic_valuation import economic_cost_view
+from etudecas.visualization.maps.simulation_payload import economic_cost_view
 
 REPO = Path(__file__).resolve().parents[1]
 

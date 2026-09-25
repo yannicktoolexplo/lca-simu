@@ -12,7 +12,9 @@ Set-Location -LiteralPath $repo
 
 $campaignArgs = @(
     "-m",
-    "etudecas.prototypes.scan_2027_risk_control.launch_supplier_operating_point_full_campaign_v8",
+    "etudecas.prototypes.scan_2027_risk_control.supplier_campaign_adapters",
+    "launch",
+    "v8",
     "--campaign-root",
     $campaignRoot,
     "--runner",

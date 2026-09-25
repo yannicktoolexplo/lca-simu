@@ -2,7 +2,7 @@
   "schema_version": "etudecas.documentation.v1",
   "fingerprint_method": "python-ast-v1",
   "business_source_fingerprints": {
-    "etudecas/docs/PROVENANCE.md": "136596597c88f06e51efafe79a8499572a5b6ed6e500a5c4bb476e8ecbed015b",
+    "etudecas/docs/PROVENANCE.md": "9395358967c15a2cc5300a496cce9a5065ba1efd4cbc6d51161d4a1da3cc630e",
     "etudecas/simulation/run_format/README.md": "87e091243cb0f66cb32b38bb5b8b2607c59b131c46eeb2478acfff1a9ed121cf"
   },
   "references": [
@@ -33,7 +33,7 @@
     {
       "id": "mc-rejection-test",
       "kind": "test",
-      "path": "etudecas/test_run_etudecas_pipeline.py",
+      "path": "etudecas/tests/commun/test_run_etudecas_pipeline.py",
       "symbol": "test_shared_montecarlo_rejects_missing_incompatible_or_malformed_provenance",
       "line": 255,
       "fingerprint": "3df53c53de2f75d282692c6aaae7105dfd3610030e211c3c1e6b65c3e6e19a63",
@@ -45,7 +45,7 @@
     {
       "id": "mc-selection-test",
       "kind": "test",
-      "path": "etudecas/test_run_etudecas_pipeline.py",
+      "path": "etudecas/tests/commun/test_run_etudecas_pipeline.py",
       "symbol": "test_montecarlo_summary_fallback_prefers_more_compatible_runs",
       "line": 104,
       "fingerprint": "45ea59a263d1c424073211e453c6a02fea30dd7180bbb16682954cf544cd4003",
@@ -81,7 +81,7 @@
     {
       "id": "source-diagnostic-tests",
       "kind": "test",
-      "path": "etudecas/test_provenance.py",
+      "path": "etudecas/tests/commun/test_provenance.py",
       "symbol": "SourceProvenanceTest",
       "line": 13,
       "fingerprint": "11412225056c52f8bfc89e28d8cb86b6e4d1d85363e64665144aba67ee6ad428",
@@ -165,9 +165,9 @@
     {
       "id": "integrity-tests",
       "kind": "test",
-      "path": "etudecas/simulation/test_run_format.py",
+      "path": "etudecas/tests/commun/test_run_format.py",
       "symbol": "RunFormatIntegrityTest",
-      "line": 32,
+      "line": 396,
       "fingerprint": "57eb45f45414ef875fe1c6b0537665f83d6e912db63cc807b8fcd607ff2b7713",
       "reference_fingerprint": "57eb45f45414ef875fe1c6b0537665f83d6e912db63cc807b8fcd607ff2b7713",
       "changed": false,
@@ -177,9 +177,9 @@
     {
       "id": "disabled-lots-test",
       "kind": "test",
-      "path": "etudecas/simulation/test_run_format.py",
+      "path": "etudecas/tests/commun/test_run_format.py",
       "symbol": "RunFormatExportTest.test_validate_run_package_allows_empty_lot_artifacts_when_lot_trace_disabled",
-      "line": 224,
+      "line": 588,
       "fingerprint": "3f0869fe582eadc0ddc2166c12c2361edca14effe8e064b9594b82dc48fbca8c",
       "reference_fingerprint": "3f0869fe582eadc0ddc2166c12c2361edca14effe8e064b9594b82dc48fbca8c",
       "changed": false,

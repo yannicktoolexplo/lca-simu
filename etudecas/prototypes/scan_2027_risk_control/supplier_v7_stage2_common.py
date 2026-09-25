@@ -30,9 +30,7 @@ from etudecas.prototypes.scan_2027_risk_control import (
 from etudecas.prototypes.scan_2027_risk_control import (
     continue_supplier_full_campaign_v7 as relay_v7,
 )
-from etudecas.prototypes.scan_2027_risk_control import (
-    finalize_supplier_operating_point_full_campaign_v7 as finalizer_v7,
-)
+from etudecas.prototypes.scan_2027_risk_control.supplier_campaign_adapters import finalize_v7 as finalizer_v7
 from etudecas.prototypes.scan_2027_risk_control import (
     supplier_fresh_development_holdout_protocol_v7 as protocol_v7,
 )
@@ -387,72 +385,10 @@ def _transitive_source_paths(roots: set[Path], repo: Path) -> list[Path]:
     return sorted(discovered, key=lambda path: path.relative_to(repo).as_posix())
 
 
-def source_paths(repo: Path) -> list[Path]:
-    repo = repo.resolve()
-    roots = {Path(module.__file__).resolve() for module in DIRECT_SOURCE_MODULES}
-    stage2_directory = Path(__file__).resolve().parent
-    roots.update(stage2_directory.glob("supplier_v7_stage2_*.py"))
-    discovered = _transitive_source_paths(roots, repo)
-    for path in discovered:
-        if not path.is_file() or not path.is_relative_to(repo):
-            raise Stage2Error(f"Source hors dépôt ou absente : {path}")
-    return discovered
 
 
-def build_source_inventory(repo: Path) -> dict[str, Any]:
-    repo = repo.resolve()
-    protocol_path = Path(protocol_v7.__file__).resolve()
-    if sha256_file(protocol_path) != EXPECTED_PROTOCOL_SHA256:
-        raise Stage2Error("Le protocole scientifique V7 figé a changé")
-    entries = [
-        {
-            "relative_path": path.relative_to(repo).as_posix(),
-            "sha256": sha256_file(path),
-            "size_bytes": path.stat().st_size,
-        }
-        for path in source_paths(repo)
-    ]
-    unsigned = {
-        "schema_version": SOURCE_INVENTORY_SCHEMA_VERSION,
-        "repo": str(repo),
-        "entry_count": len(entries),
-        "entries": entries,
-        "critical_protocol_sha256": EXPECTED_PROTOCOL_SHA256,
-    }
-    return signed(unsigned, "inventory_signature")
 
 
-def verify_source_inventory(inventory: Mapping[str, Any]) -> None:
-    verify_signature(inventory, "inventory_signature", "inventaire source étape 2")
-    repo = Path(str(inventory.get("repo") or "")).resolve()
-    entries = inventory.get("entries")
-    if (
-        inventory.get("schema_version") != SOURCE_INVENTORY_SCHEMA_VERSION
-        or not repo.is_dir()
-        or not isinstance(entries, list)
-        or len(entries) != int(inventory.get("entry_count") or -1)
-        or inventory.get("critical_protocol_sha256") != EXPECTED_PROTOCOL_SHA256
-    ):
-        raise Stage2Error("Inventaire source étape 2 incomplet")
-    seen: set[str] = set()
-    for entry in entries:
-        if not isinstance(entry, Mapping):
-            raise Stage2Error("Entrée d'inventaire source invalide")
-        relative = str(entry.get("relative_path") or "")
-        path = (repo / relative).resolve()
-        if (
-            not relative
-            or relative in seen
-            or not path.is_relative_to(repo)
-            or not path.is_file()
-            or path.stat().st_size != int(entry.get("size_bytes") or -1)
-            or sha256_file(path) != str(entry.get("sha256") or "")
-        ):
-            raise Stage2Error(f"Source étape 2 modifiée ou absente : {relative}")
-        seen.add(relative)
-    current = {path.relative_to(repo).as_posix() for path in source_paths(repo)}
-    if current != seen:
-        raise Stage2Error("Le périmètre transitif des sources étape 2 a changé")
 
 
 def _check_upstream_supervision(path: Path) -> dict[str, Any]:

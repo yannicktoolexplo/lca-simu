@@ -369,22 +369,6 @@ def run_base_montecarlo(
     subprocess.run(cmd, check=True, cwd=REPO_ROOT)
 
 
-def copy_selected_artifacts(source_dir: Path, selected_dir: Path) -> None:
-    selected_dir.mkdir(parents=True, exist_ok=True)
-    for name in [
-        "montecarlo_summary.json",
-        "montecarlo_samples.csv",
-        "montecarlo_trajectories.json",
-        "montecarlo_paired_propagation.json",
-        "montecarlo_temporal_propagation.json",
-        "variance_decomposition.json",
-        "montecarlo_cost_diagnostics.json",
-        "montecarlo_report.md",
-        "montecarlo_failed_runs.csv",
-    ]:
-        src = source_dir / name
-        if src.exists():
-            shutil.copy2(src, selected_dir / name)
 
 
 def main() -> None:

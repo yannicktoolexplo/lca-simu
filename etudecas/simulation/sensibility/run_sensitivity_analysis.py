@@ -20,6 +20,9 @@ if str(REPO_ROOT) not in sys.path:
 
 from etudecas.simulation.analysis_batch_common import (
     apply_scales,
+    base_sensitivity_case as base_case,
+    clone_sensitivity_case as clone_case_config,
+    detect_supplier_nodes,
     detect_demand_items,
     detect_production_nodes,
     load_json,
@@ -95,54 +98,6 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def base_case() -> dict[str, Any]:
-    return {
-        "factors": {
-            "demand_scale": 1.0,
-            "lead_time_scale": 1.0,
-            "transport_cost_scale": 1.0,
-            "supplier_stock_scale": 1.0,
-            "production_stock_scale": 1.0,
-            "capacity_scale": 1.0,
-            "supplier_capacity_scale": 1.0,
-            "safety_stock_days_scale": 1.0,
-            "supplier_reliability_scale": 1.0,
-        },
-        "demand_item_scale": {},
-        "capacity_node_scale": {},
-        "supplier_node_scale": {},
-        "supplier_capacity_node_scale": {},
-        "edge_src_lead_time_scale": {},
-        "edge_src_reliability_scale": {},
-    }
-
-
-def clone_case_config(case_cfg: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "factors": dict(case_cfg["factors"]),
-        "demand_item_scale": dict(case_cfg["demand_item_scale"]),
-        "capacity_node_scale": dict(case_cfg["capacity_node_scale"]),
-        "supplier_node_scale": dict(case_cfg["supplier_node_scale"]),
-        "supplier_capacity_node_scale": dict(case_cfg["supplier_capacity_node_scale"]),
-        "edge_src_lead_time_scale": dict(case_cfg["edge_src_lead_time_scale"]),
-        "edge_src_reliability_scale": dict(case_cfg["edge_src_reliability_scale"]),
-    }
-
-
-def detect_supplier_nodes(data: dict[str, Any]) -> list[str]:
-    outgoing_sources = {
-        str(edge.get("from"))
-        for edge in (data.get("edges") or [])
-        if edge.get("from") is not None
-    }
-    out: list[str] = []
-    for node in data.get("nodes", []) or []:
-        node_id = str(node.get("id"))
-        if str(node.get("type") or "") == "supplier_dc" and node_id in outgoing_sources:
-            out.append(node_id)
-    return sorted(set(out))
-
-
 def case_levels(parameter_kind: str, delta: float, severity_profile: str) -> tuple[float, float]:
     lo = 1.0 - delta
     hi = 1.0 + delta
@@ -178,7 +133,6 @@ def build_design(
     production_nodes = detect_production_nodes(data)
     supplier_nodes = detect_supplier_nodes(data)
     lo = 1.0 - delta
-    hi = 1.0 + delta
     if lo <= 0:
         raise ValueError(f"Invalid --delta={delta}. Must be < 1.0")
 

@@ -1,10 +1,9 @@
-# Analyses antérieures et entrées compatibles
+# Analyses spécialisées
 
 [Organisation du projet](../README.md)
 
-Les trois rapports utilisés par le pipeline ont été déplacés dans
-[`simulation/analysis/`](../simulation/analysis/). Leurs anciens fichiers
-de `from_simulation/` restent des relais d'import et de ligne de commande :
+Les trois rapports utilisés par le pipeline sont dans
+[`simulation/analysis/`](../simulation/analysis/). Utiliser ces modules directement :
 
 - `report_component_immobilized_stock.py` ;
 - `report_finished_goods_stock_value.py` ;
@@ -12,10 +11,20 @@ de `from_simulation/` restent des relais d'import et de ligne de commande :
 
 Le pipeline importe directement leurs nouvelles implémentations. Les sources
 de données et les destinations de sortie par défaut ont été conservées.
-Ces rapports rapprochent des sorties du moteur et des données métier. `first_pass/`
-contient une ancienne analyse structurelle du graphe. La présence d'autres
-scripts dans `from_simulation/` ne suffit pas à établir leur usage actuel.
+Ces rapports rapprochent des sorties du moteur et des données métier.
 
-Modifier les rapports dans `simulation/analysis/`, pas dans les relais.
-Les autres analyses et leurs résultats historiques restent à leur emplacement ;
-leur présence dans ce dossier n'autorise pas leur suppression en bloc.
+Deux outils complémentaires restent dans `from_simulation/` :
+
+- `build_observed_2025_supply_bilan.py` produit le bilan des observations ;
+- `audit_order_book_vs_source.py` compare les commandes aux données sources.
+
+Le test du bilan observé reste à côté de son implémentation.
+
+Les trois anciens relais de `from_simulation/` ont été retirés après migration
+des appels et tests. Modifier les rapports dans `simulation/analysis/`.
+Quinze investigations ponctuelles par article ont quitté le code actif le
+25 septembre 2026. Leurs sources exactes restent dans la capsule
+`config/reproduction_20260920/sources/347f4a298c6e11027db7a40513f44abebc8060daec05bb19e75ea2b11e5e4c78.zip`.
+Le bilan observé peut encore lire leurs résultats historiques optionnels,
+explicitement non validés ; ils ne constituent pas une calibration du modèle
+courant. Les anciens CSV conservés comme entrées ne sont pas supprimés ici.

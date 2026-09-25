@@ -238,3 +238,13 @@ python -m etudecas.prototypes.scan_2027_risk_control.continue_supplier_full_camp
 | `tests/test_supplier_v6_completion_path.py` | `3b43186935c27debbfbe7ea0220fbb312c07f41f8cc1333103f36bd4b61326a2` |
 
 Toute différence impose un nouvel audit avant holdout ou relais aval.
+
+
+## Commandes V6 après regroupement du 23 septembre
+
+Les anciens lanceur et finaliseur V6 sont remplacés par les profils explicites
+`python -m etudecas.prototypes.scan_2027_risk_control.supplier_campaign_adapters launch v6`
+et `python -m etudecas.prototypes.scan_2027_risk_control.supplier_campaign_adapters finalize v6`.
+Les options métier suivent le profil. Les SHA du tableau précédent restent historiques ;
+la révision courante est distincte dans `supplier_campaign_source_revision.json`.
+Une ancienne preuve ne devient pas compatible par changement de chemin.

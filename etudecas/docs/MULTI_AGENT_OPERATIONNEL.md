@@ -1,6 +1,6 @@
 # Etudecas : agents natifs et toolbox de preuves
 
-L'orchestration utilise les sous-agents natifs de Codex. La toolbox Python exécute des contrôles déterministes existants ; elle n'appelle aucun modèle et ne lance ni serveur MCP ni SDK externe. Le mini-kit `etudecas_agentkit` reste une démonstration indépendante du moteur principal.
+L'orchestration utilise les sous-agents natifs de Codex. La toolbox Python exécute des contrôles déterministes existants ; elle n'appelle aucun modèle et ne lance ni serveur MCP ni SDK externe. La démonstration Python `etudecas_agentkit` a été retirée ; ses contrats génériques sont conservés dans `etudecas/toolbox/validation_contracts.py`. Aucune installation editable du pack n'est nécessaire.
 
 ## Installation locale et état vérifiable
 
@@ -62,17 +62,26 @@ Les restrictions par fichier sont des instructions, pas un mécanisme de confine
 
 Les skills `etudecas-orchestrate`, `etudecas-qualify`, `etudecas-map-review` routent vers les contrôles concrets. La délégation doit être utile et indépendante ; une modification simple ne nécessite pas quatre agents.
 
+Les anciens rôles, prompts et skills documentaires du pack sont dans les
+[archives](../archive/README.md). Le routage courant utilise les profils de
+`.codex/agents/` et les skills de `.agents/skills/` installés à la racine.
+
 ## Commandes exécutables
 
-Toutes les commandes partent de la racine, avec le Python disposant des dépendances du projet. Python 3.11 minimum pour la toolbox (`tomllib`, `hashlib.file_digest`). Le pack Python conserve son minimum 3.10 et déclare désormais Pillow comme dépendance d'exécution, car son validateur ouvre réellement les images.
+Toutes les commandes partent de la racine, avec Python 3.11 minimum pour la toolbox (`tomllib`, `hashlib.file_digest`). Installer les dépendances explicites avec `python -m pip install -r requirements-etudecas-test.txt`. PyYAML est notamment utilisé pour lire les métadonnées des skills ; aucune installation editable de l'ancienne démonstration n'est nécessaire.
+
+Après l'incident Sophos, relire chaque cas et ses fixtures avant exécution,
+puis sélectionner son identifiant exact. Les anciens essais d'altération de
+fichiers, de dates ou de disparition simulée restent exclus. Ne pas lancer tout
+un fichier ou une suite globale sur la foi d'une ancienne qualification. Voir
+la [procédure de validation](TEST_VALIDATION.md).
 
 ```powershell
-# Tests ciblés : fichiers explicites ou node IDs, sans arguments pytest arbitraires
-python -m etudecas.toolbox tests --path etudecas/toolbox/test_cli.py
-python -m etudecas.toolbox tests --path etudecas/testing/test_report.py
+# Exemple relu : calcul en mémoire rapproché d'un oracle manuel sur deux jours
+python -B -m etudecas.toolbox tests --path etudecas/prototypes/scan_2027_risk_control/tests/test_supplier_campaign_mechanics.py::test_memory_window_metrics_match_manual_two_day_oracle
 
 # Invariants indépendants sur le calcul précis, sans régénérer la simulation
-python -m etudecas.toolbox qualify --run etudecas/simulation/result/_reruns/corrected_map_20260918
+python -m etudecas.toolbox qualify --run CHEMIN_RUN
 
 # Qualification CSV et revue hors ligne des lots, si cette carte correspond bien au calcul
 python -m etudecas.toolbox qualify --run CHEMIN_RUN --html CHEMIN_HTML
@@ -80,7 +89,7 @@ python -m etudecas.toolbox qualify --run CHEMIN_RUN --html CHEMIN_HTML
 # Autre parcours navigateur existant : navigation générale de la carte
 python -m etudecas.toolbox browser --html CHEMIN_HTML
 
-# Synchronisation des registres documentaires du catalogue
+# Contrôle statique des registres documentaires du catalogue
 python -m etudecas.toolbox docs
 
 # Agrégation, en remplaçant les chemins par ceux imprimés par les commandes
@@ -93,7 +102,7 @@ Options communes : `--output` désigne une racine sous `etudecas/artifacts/testi
 
 ## Preuves et refus
 
-`manifest.json` contient schéma, run_id, commande, tâche/propriétaire, état, dates, empreintes des entrées, sources/tests et preuves, arguments effectivement exécutés et code retour. `execution.log`, JUnit et/ou rapports existants sont conservés. L'inventaire couvre Python, JavaScript, CSS, configurations métier, registres des règles et fichiers natifs ; les archives, outputs et preuves générées en sont exclus. L'ajout d'un nouveau fichier couvert invalide aussi l'ancien manifeste. Le code est empreinté avant et après exécution ; une écriture concurrente impose de relancer la vérification sur un état stabilisé.
+`manifest.json` contient schéma, run_id, commande, tâche/propriétaire, état, dates, empreintes des entrées, sources/tests et preuves, arguments effectivement exécutés et code retour. `execution.log`, JUnit et/ou rapports existants sont conservés. L'inventaire couvre Python, JavaScript, CSS, PowerShell (`.ps1`), configurations métier, registres des règles et fichiers natifs ; les archives, outputs et preuves générées en sont exclus. L'ajout d'un nouveau fichier couvert invalide aussi l'ancien manifeste. Le code est empreinté avant et après exécution ; une écriture concurrente impose de relancer la vérification sur un état stabilisé.
 
 Le gate exige les types de contrôles demandés, refuse toute preuve non réussie et recalcule les empreintes des fichiers et l'ensemble des sources. Une preuve disparue, altérée ou calculée sur un autre état de code est refusée. Les identités et SHA-256 sont une protection contre les mélanges ou changements accidentels, pas une signature contre un acteur qui falsifierait ensemble manifeste et fichiers. Le gate n'évalue pas lui-même le sens du correctif et ne remplace pas la contre-relecture.
 
@@ -103,13 +112,20 @@ La qualification réutilise `etudecas.testing.qualification` et `independent_rev
 
 Conventions utilisateur à préserver : jours de sécurité lundi-vendredi, dépôt à 100 % des jours source, conservation des références précédentes et séparation nominal/sensibilités. `tau_process` reste un paramètre de planification à confirmer avant d'en déduire une durée physique d'exécution.
 
-## Validation livrée
+## Validations historiques
 
-Le test bout en bout du pack utilise désormais une copie temporaire de données/configurations et contrôle deux sorties UUID distinctes, le JSON de validation et un PNG réellement décodable. Les anciens outputs globaux ne peuvent plus le satisfaire. Le pack a passé 27 tests après cette correction.
+Les bilans du déploiement natif, du retrait de la démonstration Python et des
+premières qualifications sont conservés dans les [archives](../archive/README.md),
+avec leurs chemins d'origine. Ils décrivent les sources et les exécutions de
+leur date ; leurs compteurs ne constituent pas une qualification du code
+courant ni une autorisation de relancer les anciens essais d'altération de
+fichiers.
 
-Les 21 tests de toolbox exécutent notamment un pytest réussi, un pytest volontairement faux et un pytest entièrement ignoré, puis vérifient que gate refuse les erreurs, preuves modifiées, sources ajoutées et catégories absentes. Ils couvrent aussi JS/CSS/configuration ajoutés ou modifiés, handoff hors périmètre/mauvaise identité, doctor staging, timeouts, entrées manquantes et destinations interdites. Les preuves documentaires incluent le catalogue et toutes les sources métier déclarées : un texte métier modifié invalide aussi le gate. Voir les manifestes d'exécution locaux sous `etudecas/artifacts/testing/native_multiagent_20260920/` pour l'état précis des runs ; un manifeste refusé conserve sa signification même si un contrôle interne a réussi.
-
-Premières exécutions réelles : `doctor-85134ba8264f4ef5a8dcd4dd922e5f5d` et `tests-29fc4dfc57f64fa4a9d8ed93bd00cfa1` ont réussi ; `qualify-768bdead06334cf2a1f79031484006cb` a qualifié les invariants du nominal conservé. La tentative documentaire `docs-122141e44e5648009647ea7f8dd0e8e9` a correctement refusé des registres/empreintes devenus obsolètes pendant les corrections concurrentes. Ces identifiants retracent les essais, ils ne remplacent pas les contrôles finaux après stabilisation du dépôt : toute modification ultérieure de code rend leurs empreintes historiques.
+Les contrats génériques conservés dans `etudecas/toolbox/validation_contracts.py`
+ne remplacent pas les indicateurs industriels. Une livraison actuelle doit
+désigner ses propres manifestes, les contrôles effectivement exécutés et leurs
+limites. Un manifeste refusé conserve sa signification même si un contrôle
+interne a réussi.
 
 ## Sources officielles consultées le 20 septembre 2026
 

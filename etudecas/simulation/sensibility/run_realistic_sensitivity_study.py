@@ -21,13 +21,16 @@ if str(REPO_ROOT) not in sys.path:
 
 from etudecas.simulation.analysis_batch_common import (  # noqa: E402
     apply_scales,
+    base_sensitivity_case as base_case,
+    clone_sensitivity_case as clone_case_config,
+    detect_supplier_nodes,
+    select_active_suppliers,
     detect_demand_items,
     detect_production_nodes,
     load_json,
     numeric_kpis,
     prune_simulation_output,
     run_simulation,
-    safe_name,
     to_float,
     write_json,
 )
@@ -77,81 +80,6 @@ def parse_args() -> argparse.Namespace:
         help="Case id to retain with full detailed outputs even in compact mode. Can be repeated.",
     )
     return parser.parse_args()
-
-
-def base_case() -> dict[str, Any]:
-    return {
-        "factors": {
-            "demand_scale": 1.0,
-            "lead_time_scale": 1.0,
-            "transport_cost_scale": 1.0,
-            "supplier_stock_scale": 1.0,
-            "production_stock_scale": 1.0,
-            "capacity_scale": 1.0,
-            "supplier_capacity_scale": 1.0,
-            "safety_stock_days_scale": 1.0,
-            "supplier_reliability_scale": 1.0,
-        },
-        "demand_item_scale": {},
-        "capacity_node_scale": {},
-        "supplier_node_scale": {},
-        "supplier_capacity_node_scale": {},
-        "edge_src_lead_time_scale": {},
-        "edge_src_reliability_scale": {},
-    }
-
-
-def clone_case_config(case_cfg: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "factors": dict(case_cfg["factors"]),
-        "demand_item_scale": dict(case_cfg["demand_item_scale"]),
-        "capacity_node_scale": dict(case_cfg["capacity_node_scale"]),
-        "supplier_node_scale": dict(case_cfg["supplier_node_scale"]),
-        "supplier_capacity_node_scale": dict(case_cfg["supplier_capacity_node_scale"]),
-        "edge_src_lead_time_scale": dict(case_cfg["edge_src_lead_time_scale"]),
-        "edge_src_reliability_scale": dict(case_cfg["edge_src_reliability_scale"]),
-    }
-
-
-def detect_supplier_nodes(data: dict[str, Any]) -> list[str]:
-    outgoing_sources = {
-        str(edge.get("from"))
-        for edge in (data.get("edges") or [])
-        if edge.get("from") is not None
-    }
-    out: list[str] = []
-    for node in data.get("nodes", []) or []:
-        node_id = str(node.get("id"))
-        if str(node.get("type") or "") == "supplier_dc" and node_id in outgoing_sources:
-            out.append(node_id)
-    return sorted(set(out))
-
-
-def select_active_suppliers(
-    shipment_csv: Path,
-    allowed_suppliers: set[str],
-    top_n: int,
-) -> list[str]:
-    shipped_qty_by_supplier: dict[str, float] = {}
-    if shipment_csv.exists():
-        with shipment_csv.open("r", encoding="utf-8", newline="") as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                src = str(row.get("src_node_id") or "")
-                if src not in allowed_suppliers:
-                    continue
-                shipped_qty_by_supplier[src] = shipped_qty_by_supplier.get(src, 0.0) + max(
-                    0.0,
-                    to_float(row.get("shipped_qty"), 0.0),
-                )
-    ordered = sorted(
-        shipped_qty_by_supplier.items(),
-        key=lambda it: (-it[1], it[0]),
-    )
-    selected = [supplier for supplier, qty in ordered if qty > 1e-9][:top_n]
-    if not selected:
-        selected = sorted(allowed_suppliers)[:top_n]
-    return selected
 
 
 def make_case(

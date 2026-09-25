@@ -51,7 +51,7 @@ from etudecas.simulation.analysis.audit_source_truth_alignment import (  # noqa:
     build_report as build_source_truth_alignment_report,
 )
 from etudecas.simulation.run_format import export_run_package, validate_run_package  # noqa: E402
-from etudecas.simulation.lot_trace.io import LOT_TRACE_CONTRACT_VERSION  # noqa: E402
+from etudecas.simulation.lot_trace.schema import LOT_TRACE_CONTRACT_VERSION  # noqa: E402
 
 SOURCE_DATA_DIR = ROOT / "data" / "source"
 DATA_REPORTS_DIR = ROOT / "data" / "reports"
@@ -3054,7 +3054,7 @@ def parse_args() -> argparse.Namespace:
     graph = sub.add_parser("graph", help="Rebuild the knowledge-graph JSON from XLSX and geocode it.")
 
     enrich = sub.add_parser("enrich-graph", help="Create/apply the generic Excel enrichment workbook for a graph JSON.")
-    enrich.add_argument("--input-json", required=True)
+    enrich.add_argument("--input-json", default="etudecas/data/source/supply_graph_poc.json")
     enrich.add_argument("--excel", default=repo_rel(DEFAULT_ENRICHMENT_EXCEL))
     enrich.add_argument("--output-json", default="etudecas/data/source/supply_graph_poc_enriched_from_excel.json")
     enrich.add_argument("--report-json", default="etudecas/data/reports/supply_graph_excel_enrichment_report.json")

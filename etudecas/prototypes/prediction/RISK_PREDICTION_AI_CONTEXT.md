@@ -59,7 +59,7 @@ Points importants:
 
 La carte HTML est generee par:
 
-`etudecas/affichage_supply_script/build_supplychain_worldmap.py`
+`etudecas/visualization/maps/build_supplychain_worldmap.py`
 
 Elle lit les sorties KPI risque fournisseur par defaut:
 

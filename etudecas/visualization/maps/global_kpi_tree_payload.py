@@ -15,21 +15,25 @@ from etudecas.simulation.kpi_engine import (
     compute_kpi_rows,
     write_kpi_rows_csv,
 )
-from etudecas.visualization.maps.map_data_loader import read_csv_rows
+from etudecas.visualization.maps.map_payload_builder import read_csv_rows
 from etudecas.visualization.maps.map_payload_builder import (
     display_node_label,
     display_standard_order_qty,
     is_simulation_hidden_item,
 )
-from etudecas.visualization.maps.map_render import fmt_pct, fmt_qty
-from etudecas.visualization.maps.economic_valuation import economic_cost_view
+from etudecas.visualization.maps.map_payload_builder import fmt_pct, fmt_qty
+from etudecas.visualization.maps.simulation_payload import economic_cost_view
+from etudecas.visualization.maps.supplier_operations_payload import (
+    to_float,
+    order_placed_day,
+    is_opening_order_row,
+    source_planned_material_lead_days,
+    effective_order_receipt_day,
+    planned_procurement_lead_days,
+    effective_procurement_lead_days,
+)
 
 
-def to_float(x: Any) -> float | None:
-    try:
-        return float(x)
-    except (TypeError, ValueError):
-        return None
 
 
 DAILY_COST_FIELDS = [
@@ -232,67 +236,16 @@ def item_label_lookup(raw: dict[str, Any]) -> dict[str, str]:
     return lookup
 
 
-def order_placed_day(row: dict[str, str]) -> float | None:
-    value = to_float(row.get("order_date_imt"))
-    if value is None or math.isnan(value):
-        value = to_float(row.get("day"))
-    if value is None or math.isnan(value):
-        return None
-    return float(value)
 
 
-def is_opening_order_row(row: dict[str, str]) -> bool:
-    return str(row.get("order_type") or "").startswith("opening_")
 
 
-def source_planned_material_lead_days(row: dict[str, str]) -> float | None:
-    value = to_float(row.get("lead_reference_days"))
-    if value is not None and not math.isnan(value) and value > 0:
-        return float(value)
-    if is_opening_order_row(row):
-        value = to_float(row.get("lead_days"))
-        if value is not None and not math.isnan(value) and value >= 0:
-            return float(value)
-    return None
 
 
-def effective_order_receipt_day(row: dict[str, str]) -> float | None:
-    value = to_float(row.get("actual_receipt_day"))
-    if value is None or math.isnan(value):
-        value = to_float(row.get("arrival_day"))
-    if value is None or math.isnan(value):
-        return None
-    return float(value)
 
 
-def planned_procurement_lead_days(row: dict[str, str]) -> float | None:
-    return source_planned_material_lead_days(row)
 
 
-def effective_procurement_lead_days(row: dict[str, str]) -> float | None:
-    order_day = order_placed_day(row)
-    receipt_day = effective_order_receipt_day(row)
-    if (
-        order_day is not None
-        and receipt_day is not None
-        and not math.isnan(order_day)
-        and not math.isnan(receipt_day)
-    ):
-        return max(0.0, float(receipt_day - order_day))
-
-    release_day = to_float(row.get("release_day"))
-    if (
-        release_day is not None
-        and receipt_day is not None
-        and not math.isnan(release_day)
-        and not math.isnan(receipt_day)
-    ):
-        return max(0.0, float(receipt_day - release_day))
-
-    value = to_float(row.get("lead_days"))
-    if value is not None and not math.isnan(value) and value >= 0:
-        return float(value)
-    return None
 
 
 def build_component_immobilized_series(
@@ -334,9 +287,6 @@ def build_component_immobilized_series(
     return {key: dict(value) for key, value in out.items()}
 
 
-def mean_series(series: dict[int, float]) -> float:
-    values = [max(0.0, float(value)) for value in series.values()]
-    return sum(values) / len(values) if values else 0.0
 
 
 def build_global_kpi_tree_payload(
@@ -348,6 +298,10 @@ def build_global_kpi_tree_payload(
     component_immobilized_stock_csv: Path | None = None,
     write_derived_artifacts: bool = True,
 ) -> dict[str, Any] | None:
+    """Assemble the KPI tree from the supplied daily and summary exports.
+
+    Preserve the declared monetary scope and valuation coverage separately
+    from service, stock, order and production metrics."""
     daily_rows, effective_daily_kpi_csv, cost_source = read_daily_kpi_rows_with_cost_fallback(daily_kpi_csv)
     demand_rows = read_csv_rows(demand_service_csv)
     constraint_rows = read_csv_rows(production_constraint_csv)

@@ -106,6 +106,17 @@ PINNED_V6_MODULE_SHA256 = {
     ),
 }
 
+
+# Reviewed import-only consolidation of the completion-path tests.  Historical
+# pins above remain unchanged; all 26 function/class bodies are identical.
+# New plan inventories record the actual reviewed file hash, so old plans
+# cannot be resumed against the replacement source graph.
+REVIEWED_V6_IMPORT_REFACTOR_SHA256 = {
+    "tests/test_supplier_v6_completion_path.py": (
+        "e086cfe9700fd132de35fe0133c5c923c3e5f3294c7da863364847bc13875ef8"
+    ),
+}
+
 V5_V6_DEVELOPMENT_SEEDS = tuple(range(340287, 340317))
 V5_V6_HOLDOUT_SEEDS = (
     573960646,
@@ -379,7 +390,8 @@ def _assert_seed_contract() -> None:
 def _module_inventory() -> list[dict[str, str]]:
     source_root = Path(__file__).resolve().parent
     rows: list[dict[str, str]] = []
-    for relative, expected in PINNED_V6_MODULE_SHA256.items():
+    for relative, historical in PINNED_V6_MODULE_SHA256.items():
+        expected = REVIEWED_V6_IMPORT_REFACTOR_SHA256.get(relative, historical)
         path = (source_root / relative).resolve()
         if not path.is_file():
             raise V7ProtocolError(f"Pinned V6 file missing: {path}")

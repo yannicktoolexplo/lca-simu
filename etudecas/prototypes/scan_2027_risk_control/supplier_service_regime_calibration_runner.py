@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Execute the signed service-regime calibration plan in resumable stages.
+"""Execute the signed service-regime plan with resilient atomic publication.
+
+This is the single current runner, retaining the V2 evidence contract. Historical
+V1 outputs cannot be resumed here. Business selection and seed scheduling remain
+unchanged from the qualified atomic runner.
 
 The runner is deliberately separate from the calibration protocol.  It accepts
 only the frozen V2 plan artifact, executes the 36 one-seed screening points,
@@ -39,11 +43,14 @@ from etudecas.prototypes.scan_2027_risk_control import (  # noqa: E402
 )
 
 
-SCHEMA_VERSION = "etudecas.supplier_service_regime_calibration_runner.v1"
+from etudecas import atomic_io  # noqa: E402
+
+
+SCHEMA_VERSION = "etudecas.supplier_service_regime_calibration_runner.v2"
 LEDGER_SCHEMA_VERSION = f"{SCHEMA_VERSION}.ledger"
 EVIDENCE_SCHEMA_VERSION = f"{SCHEMA_VERSION}.case_evidence"
 CHECKPOINT_SCHEMA_VERSION = f"{SCHEMA_VERSION}.checkpoint_15_of_30"
-CONTRACT_REVISION = "isolated_regime_screen_select_checkpoint_resume_2026_09"
+CONTRACT_REVISION = "isolated_regime_atomic_io_v2_2026_09_17"
 EXPECTED_PROTOCOL_BUILDER_SHA256 = (
     "6da3c120bc89b26fe578c6d0877c749d94437f1aba647f694a9d32bc89b53ae8"
 )
@@ -108,11 +115,11 @@ def _read_json(path: Path) -> dict[str, Any]:
 
 
 def _write_json(path: Path, payload: Mapping[str, Any]) -> None:
-    campaign_core.write_json_atomic(path, payload)
+    atomic_io.write_json_atomic(path, payload)
 
 
 def _write_csv(path: Path, rows: Sequence[Mapping[str, Any]]) -> None:
-    campaign_core.write_csv_atomic(path, rows)
+    atomic_io.write_csv_atomic(path, rows)
 
 
 def _directory_file_hashes(directory: Path) -> dict[str, str]:
@@ -346,6 +353,8 @@ def _campaign_signature(plan: ValidatedPlan, *, smoke_only: bool) -> str:
             "plan_signature": plan.manifest["plan_signature"],
             "plan_artifact_sha256": plan.plan_artifact_sha256,
             "runner_builder_sha256": _sha256(Path(__file__).resolve()),
+            "atomic_io_policy": atomic_io.POLICY_VERSION,
+            "atomic_io_sha256": _sha256(Path(atomic_io.__file__).resolve()),
             "protocol_builder_sha256": _sha256(Path(protocol.__file__).resolve()),
             "screening_seed": protocol.SCREENING_SEED,
             "confirmation_seeds": list(protocol.FINAL_CONFIRMATION_SEEDS),
@@ -1066,6 +1075,8 @@ def _base_manifest(
         "status": "running",
         "campaign_signature": signature,
         "runner_builder_sha256": _sha256(Path(__file__).resolve()),
+        "atomic_io_policy": atomic_io.POLICY_VERSION,
+        "atomic_io_sha256": _sha256(Path(atomic_io.__file__).resolve()),
         "protocol_builder_sha256": _sha256(Path(protocol.__file__).resolve()),
         "plan_artifact_sha256": plan.plan_artifact_sha256,
         "calibration_plan_sha256": plan.calibration_plan_sha256,
@@ -1372,6 +1383,10 @@ def run_calibration(
                     "runner_source_unchanged_during_invocation": (
                         manifest["runner_builder_sha256"]
                         == _sha256(Path(__file__).resolve())
+                    ),
+                    "atomic_io_source_unchanged_during_invocation": (
+                        manifest["atomic_io_sha256"]
+                        == _sha256(Path(atomic_io.__file__).resolve())
                     ),
                     "confirmatory_release_allowed": False,
                     "action_promotion_allowed": False,

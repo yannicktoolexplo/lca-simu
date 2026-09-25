@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import shutil
 from pathlib import Path
 
 import pytest
+
+from etudecas import atomic_io
 
 from etudecas.prototypes.scan_2027_risk_control import (
     supplier_service_regime_calibration_protocol as protocol,
@@ -15,17 +18,6 @@ from etudecas.prototypes.scan_2027_risk_control import (
 from etudecas.prototypes.scan_2027_risk_control.tests.calibration_fixture import (
     build_synthetic_plan,
 )
-from etudecas.prototypes.scan_2027_risk_control import (
-    supplier_service_regime_calibration_runner_v2 as runner_v2,
-)
-import sys
-
-
-@pytest.fixture(autouse=True, params=[runner, runner_v2], ids=["legacy-v1", "atomic-v2"])
-def runner_version(request, monkeypatch):
-    monkeypatch.setattr(sys.modules[__name__], "runner", request.param)
-
-
 @pytest.fixture
 def synthetic_plan(tmp_path, monkeypatch):
     plan = build_synthetic_plan(tmp_path / "synthetic")
@@ -357,3 +349,138 @@ def test_synthetic_plan_keeps_integrity_checks(synthetic_plan, damage):
         message = "Execution input hash mismatch"
     with pytest.raises(ValueError, match=message):
         runner.validate_plan_artifact(synthetic_plan)
+
+
+def test_current_runner_refuses_v1_output_without_changing_it(tmp_path, synthetic_plan):
+    # Historical V1 manifest projection: no legacy executor is kept or run.
+    validated = runner.validate_plan_artifact(synthetic_plan)
+    legacy_signature_payload = {
+        "schema_version": "etudecas.supplier_service_regime_calibration_runner.v1",
+        "contract_revision": "isolated_regime_screen_select_checkpoint_resume_2026_09",
+        "plan_signature": validated.manifest["plan_signature"],
+        "plan_artifact_sha256": validated.plan_artifact_sha256,
+        "runner_builder_sha256": "54e22075796f6899b43361fe548ffa42c7e5f6983ba216c0ed8c8c676a125fed",
+        "protocol_builder_sha256": hashlib.sha256(Path(runner.protocol.__file__).read_bytes()).hexdigest(),
+        "screening_seed": runner.protocol.SCREENING_SEED,
+        "confirmation_seeds": list(runner.protocol.FINAL_CONFIRMATION_SEEDS),
+        "seed_scheduling_policy": runner.SEED_SCHEDULING_POLICY,
+        "candidate_ids": [candidate.scenario_id for candidate in validated.candidates],
+        "scope": "smoke_one_case_nonreusable",
+    }
+    legacy_signature = runner._stable_sha256(legacy_signature_payload)
+    output = tmp_path / "v1-output"
+    output.mkdir()
+    (output / runner.RUNNER_MANIFEST).write_text(json.dumps({
+        "schema_version": legacy_signature_payload["schema_version"],
+        "contract_revision": legacy_signature_payload["contract_revision"],
+        "campaign_signature": legacy_signature,
+        "smoke_only": True,
+        "custom_executor_used": True,
+        "status": "smoke_complete_nonreusable",
+    }), encoding="utf-8")
+    before = {p.relative_to(output): p.read_bytes() for p in output.rglob("*") if p.is_file()}
+    calls = []
+    with pytest.raises(ValueError, match="another campaign signature"):
+        runner.run_calibration(plan_dir=synthetic_plan, output_dir=output, mode="smoke",
+                               case_executor=_fake_executor(calls))
+    assert calls == []
+    assert before == {p.relative_to(output): p.read_bytes() for p in output.rglob("*") if p.is_file()}
+
+
+def test_changed_v2_source_cannot_resume_existing_output(tmp_path, monkeypatch, synthetic_plan):
+    output = tmp_path / "out"
+    runner.run_calibration(plan_dir=synthetic_plan, output_dir=output, mode="smoke",
+                           case_executor=_fake_executor([]))
+    before = {p.relative_to(output): p.read_bytes() for p in output.rglob("*") if p.is_file()}
+    original_hash = runner._sha256
+    runner_path = Path(runner.__file__).resolve()
+    monkeypatch.setattr(runner, "_sha256", lambda p: "0" * 64 if p == runner_path else original_hash(p))
+    calls = []
+    with pytest.raises(ValueError, match="another campaign signature"):
+        runner.run_calibration(plan_dir=synthetic_plan, output_dir=output, mode="smoke",
+                               case_executor=_fake_executor(calls))
+    assert calls == []
+    assert before == {p.relative_to(output): p.read_bytes() for p in output.rglob("*") if p.is_file()}
+
+
+def test_v1_ledger_rejected_even_with_current_campaign_signature(tmp_path):
+    # A renamed V1 ledger cannot pass the independent ledger schema check.
+    (tmp_path / runner.LEDGER_FILE).write_text(json.dumps({
+        "schema_version": "etudecas.supplier_service_regime_calibration_runner.v1.ledger",
+        "campaign_signature": "current-signature",
+        "case_files": {},
+        "case_file_sha256": {},
+    }), encoding="utf-8")
+    with pytest.raises(ValueError, match="ledger signature/inventory mismatch"):
+        runner._load_ledger(tmp_path, "current-signature")
+
+
+def test_io_source_is_bound_to_signature_and_manifest(synthetic_plan, tmp_path, monkeypatch):
+    validated = runner.validate_plan_artifact(synthetic_plan)
+    signature = runner._campaign_signature(validated, smoke_only=True)
+    manifest = runner._base_manifest(plan=validated, signature=signature,
+        output_dir=tmp_path, workers=1, retention="summary", custom_executor_used=True, smoke_only=True)
+    assert manifest["atomic_io_policy"] == atomic_io.POLICY_VERSION
+    assert manifest["atomic_io_sha256"] == hashlib.sha256(Path(atomic_io.__file__).read_bytes()).hexdigest()
+    original_hash = runner._sha256
+    monkeypatch.setattr(runner, "_sha256", lambda p: "0" * 64 if p == Path(atomic_io.__file__).resolve() else original_hash(p))
+    assert runner._campaign_signature(validated, smoke_only=True) != signature
+
+
+def test_transient_ledger_refusal_and_resume_do_not_repeat_cases(tmp_path, monkeypatch, synthetic_plan):
+    output = tmp_path / "out"
+    replace = atomic_io.os.replace
+    refused = []
+    monkeypatch.setattr(atomic_io.time, "sleep", lambda _: None)
+
+    def replace_with_one_refusal(source, target):
+        if Path(target).name == runner.LEDGER_FILE and not refused:
+            refused.append(True)
+            error = PermissionError("injected ledger lock")
+            error.winerror = 5
+            raise error
+        replace(source, target)
+
+    monkeypatch.setattr(atomic_io.os, "replace", replace_with_one_refusal)
+    calls = []
+    result = runner.run_calibration(plan_dir=synthetic_plan, output_dir=output, mode="smoke",
+                                   case_executor=_fake_executor(calls))
+    assert refused == [True]
+    assert len(calls) == 1
+    assert result["status"] == "smoke_complete_nonreusable"
+    assert result["atomic_io_source_unchanged_during_invocation"] is True
+    calls.clear()
+    runner.run_calibration(plan_dir=synthetic_plan, output_dir=output, mode="smoke",
+                           case_executor=_fake_executor(calls))
+    assert calls == []
+    assert not list(output.rglob("*.tmp"))
+
+
+def test_failed_ledger_commit_cannot_be_silently_resumed(tmp_path, monkeypatch, synthetic_plan):
+    output = tmp_path / "out"
+    replace = atomic_io.os.replace
+    attempts = []
+    monkeypatch.setattr(atomic_io.time, "sleep", lambda _: None)
+
+    def refuse_ledger(source, target):
+        if Path(target).name == runner.LEDGER_FILE:
+            attempts.append(True)
+            error = PermissionError("persistent ledger lock")
+            error.winerror = 32
+            raise error
+        replace(source, target)
+
+    monkeypatch.setattr(atomic_io.os, "replace", refuse_ledger)
+    with pytest.raises(PermissionError, match="persistent ledger lock"):
+        runner.run_calibration(plan_dir=synthetic_plan, output_dir=output, mode="smoke",
+                               case_executor=_fake_executor([]))
+    assert len(attempts) == 6
+    assert json.loads((output / runner.RUNNER_MANIFEST).read_text())["status"] == "failed"
+    assert not (output / runner.LOCK_FILE).exists()
+    assert not list(output.rglob("*.tmp"))
+    monkeypatch.setattr(atomic_io.os, "replace", replace)
+    calls = []
+    with pytest.raises(ValueError, match="Evidence files exist without a ledger"):
+        runner.run_calibration(plan_dir=synthetic_plan, output_dir=output, mode="smoke",
+                               case_executor=_fake_executor(calls))
+    assert calls == []

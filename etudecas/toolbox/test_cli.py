@@ -24,6 +24,25 @@ def invoke(workspace, *arguments):
     return cli.execute(args)
 
 
+@pytest.mark.parametrize("relative", [
+    "etudecas/prototypes/scan_2027_risk_control/supplier_campaign_source_revision.json",
+    ".gitattributes",
+])
+def test_gate_rejects_changed_provenance_inputs(workspace, relative):
+    revision = workspace / relative
+    revision.parent.mkdir(parents=True, exist_ok=True)
+    revision.write_text('{"revision":"before"}', encoding="utf-8")
+    test = workspace / "etudecas/test_good.py"
+    test.write_text("def test_good():\n    assert 1 + 1 == 2\n", encoding="utf-8")
+    manifest, result = invoke(workspace, "tests", "--path", str(test))
+    assert result["status"] == "passed", result
+    assert str(revision) in result["code"]
+    revision.write_text('{"revision":"after"}', encoding="utf-8")
+    _, refused = invoke(workspace, "gate", "--manifest", str(manifest), "--require", "tests")
+    assert refused["status"] == "refused"
+    assert "code" in refused["error"].lower()
+
+
 def test_real_pytest_and_gate_then_reject_tampered_proof(workspace):
     test = workspace / "etudecas/test_good.py"
     test.write_text("def test_sum():\n    assert sum([1, 2]) == 3\n", encoding="utf-8")
@@ -177,7 +196,7 @@ def test_staged_doctor_cannot_establish_installation(workspace):
     assert "does not establish repository installation" in gate["error"]
 
 
-@pytest.mark.parametrize("relative", ["etudecas/map.js", "etudecas/map.css", "etudecas/config/policy.json", "etudecas/docs/rules/rule.json"])
+@pytest.mark.parametrize("relative", ["etudecas/map.js", "etudecas/map.css", "etudecas/run_campaign.ps1", "etudecas/config/policy.json", "etudecas/docs/rules/rule.json"])
 @pytest.mark.parametrize("already_existed", [False, True])
 def test_changed_or_added_presentation_and_configuration_invalidate_evidence(workspace, relative, already_existed):
     source = workspace / relative

@@ -518,7 +518,7 @@ def validate_bridge(path: Path, *, revalidate_source: bool = True) -> dict[str, 
         or not isinstance(hashes, Mapping)
         or set(hashes) != expected_hash_fields
         or hashes.get("v7_protocol_driver_sha256")
-        != trace_package.EXPECTED_V7_PROTOCOL_SHA256
+        != campaign_contract.sha256_file(trace_package.validate_frozen_v7_protocol())
         or not isinstance(points, list)
         or len(points) != 3
         or any(

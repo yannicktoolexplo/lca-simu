@@ -174,8 +174,14 @@ def test_priority_wording_does_not_force_a_top_three() -> None:
     ) == "no_detected_effect"
 
 
-def test_finalizer_pin_matches_frozen_v4_runner() -> None:
-    assert subject._sha256(Path(subject.v4_runner.__file__)) == subject.SOURCE_RUNNER_SHA256
+def test_finalizer_preserves_historical_pin_and_checks_reviewed_revision() -> None:
+    path = Path(subject.v4_runner.__file__)
+    assert subject.SOURCE_RUNNER_SHA256 == (
+        "3bc8795490c6ef9ac1fef25d5dedb22811306ae869477df57e70d483881a5d9d"
+    )
+    assert subject._source_revision.accepts_current_revision(
+        path, subject.SOURCE_RUNNER_SHA256, subject._sha256(path)
+    )
 
 
 def test_backlog_signal_is_separate_from_service_ranking() -> None:

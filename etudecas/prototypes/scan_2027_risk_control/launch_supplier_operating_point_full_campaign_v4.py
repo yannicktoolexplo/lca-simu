@@ -15,6 +15,11 @@ allowed to finish so no engine process is orphaned deliberately.
 
 from __future__ import annotations
 
+from etudecas.prototypes.scan_2027_risk_control import supplier_campaign_source_revision as _source_revision
+
+from etudecas.prototypes.scan_2027_risk_control import supplier_campaign_mechanics as _campaign_mechanics
+_campaign_context = _campaign_mechanics.Context(globals())
+
 import argparse
 import csv
 import hashlib
@@ -362,60 +367,16 @@ def _parse_utc(value: Any) -> datetime | None:
 
 
 def _load_shards(manifest: Mapping[str, Any]) -> list[Shard]:
-    raw = manifest.get("shards")
-    if not isinstance(raw, list) or len(raw) != EXPECTED_SHARD_COUNT:
-        raise ValueError("Campaign manifest must contain exactly 18 shard designs")
-    shards: list[Shard] = []
-    for row in raw:
-        if not isinstance(row, Mapping):
-            raise ValueError("Invalid shard design row")
-        seeds = tuple(int(value) for value in row.get("seed_ids") or [])
-        shard = Shard(
-            shard_id=str(row.get("shard_id") or ""),
-            shard_index=int(row.get("shard_index") or 0),
-            operating_point_id=str(row.get("operating_point_id") or ""),
-            seed_block=int(row.get("seed_block") or 0),
-            seed_ids=seeds,
-        )
-        if (
-            not shard.shard_id
-            or shard.operating_point_id not in set(EXPECTED_OPERATING_POINTS)
-            or shard.seed_block not in range(1, 7)
-            or len(shard.seed_ids) != 5
-            or int(row.get("total_rows") or 0) != EXPECTED_CASES_PER_SHARD
-        ):
-            raise ValueError(f"Invalid shard contract: {row}")
-        shards.append(shard)
-    if {shard.shard_index for shard in shards} != set(range(1, 19)):
-        raise ValueError("Shard indices must be exactly 1 through 18")
-    if len({shard.shard_id for shard in shards}) != EXPECTED_SHARD_COUNT:
-        raise ValueError("Shard ids are not unique")
-    expected_pairs = {
-        (point_id, block_number)
-        for point_id in EXPECTED_OPERATING_POINTS
-        for block_number in range(1, 7)
-    }
-    if {
-        (shard.operating_point_id, shard.seed_block) for shard in shards
-    } != expected_pairs:
-        raise ValueError(
-            "Shard plan must cover each operating point x seed block exactly once"
-        )
-    block_seeds: dict[int, tuple[int, ...]] = {}
-    for shard in shards:
-        previous = block_seeds.setdefault(shard.seed_block, shard.seed_ids)
-        if previous != shard.seed_ids:
-            raise ValueError(
-                "A seed block must be identical across all operating points"
-            )
-    planned_seeds = tuple(int(value) for value in manifest.get("seeds") or [])
-    flattened = tuple(value for block in range(1, 7) for value in block_seeds[block])
-    if len(set(flattened)) != 30 or planned_seeds != flattened:
-        raise ValueError("Shard seed blocks do not match the 30 signed repetitions")
-    return sorted(shards, key=lambda shard: shard.shard_index)
+    return _campaign_mechanics._load_shards(
+        manifest=manifest,
+        context=_campaign_context,
+    )
 
 
 def _verify_signed_design(manifest: Mapping[str, Any]) -> None:
+    if ("source_revision" in manifest
+            or Path(str(manifest.get("runner") or "")).resolve().parent == _source_revision.ROOT):
+        _source_revision.require_manifest_revision(manifest)
     unsigned_fields = {
         "campaign_signature",
         "status",
@@ -475,164 +436,9 @@ def _validate_manifest_sources(manifest: Mapping[str, Any]) -> None:
             )
 
 
-def _legacy_validate_operating_point_source_contract(
-    manifest: Mapping[str, Any]
-) -> None:
-    """Fail closed unless the manifest and source preserve one exact V1/V2/V3 chain."""
-
-    manifest_contract = (
-        str(manifest.get("operating_points_producer") or ""),
-        str(manifest.get("operating_points_schema_version") or ""),
-        str(manifest.get("operating_points_input_status") or ""),
-    )
-    selection_contract = OPERATING_POINT_SOURCE_CONTRACTS.get(manifest_contract)
-    if selection_contract is None:
-        raise ValueError(
-            "Campaign operating points do not preserve an exact signed V1, V2 or V3 "
-            "producer/schema/status contract"
-        )
-    expected_selection_schema, expected_selection_status, tracks_holdout_cases = (
-        selection_contract
-    )
-    producer_module_raw = str(
-        manifest.get("operating_points_producer_module") or ""
-    ).strip()
-    producer_module_sha256 = str(
-        manifest.get("operating_points_producer_module_sha256") or ""
-    )
-    if producer_module_raw or producer_module_sha256:
-        raise ValueError(
-            "Campaign claims unsupported redundant producer identity fields"
-        )
-    if manifest_contract[0] == V3_POINTS_PRODUCER:
-        if (
-            not V3_REFINEMENT_MODULE.is_file()
-            or _sha256_file(V3_REFINEMENT_MODULE) != V3_REFINEMENT_MODULE_SHA256
-        ):
-            raise ValueError("Signed V3 operating-point producer identity is invalid")
-
-    source_path = Path(str(manifest.get("operating_points_source") or "")).resolve()
-    source = _read_json(source_path)
-    source_contract = (
-        manifest_contract[0],
-        str(source.get("schema_version") or ""),
-        str(source.get("status") or ""),
-    )
-    if source_contract != manifest_contract:
-        raise ValueError(
-            "Signed operating-point source schema/status differs from its campaign "
-            "producer contract"
-        )
-
-    unsigned_source = dict(source)
-    source_artifact_signature = str(unsigned_source.pop("artifact_signature", "") or "")
-    if (
-        len(source_artifact_signature) != 64
-        or source_artifact_signature != _stable_sha256(unsigned_source)
-        or source_artifact_signature
-        != str(manifest.get("operating_points_artifact_signature") or "")
-    ):
-        raise ValueError("Signed operating-point artifact signature is invalid")
-
-    source_plan = source.get("plan")
-    if not isinstance(source_plan, Mapping):
-        raise ValueError("Signed operating-point source has no plan reference")
-    source_plan_signature = str(source_plan.get("plan_signature") or "")
-    plan_manifest = _read_json(
-        Path(str(manifest.get("operating_points_calibration_plan") or "")).resolve()
-    )
-    manifest_plan_signature = str(
-        manifest.get("operating_points_calibration_plan_signature") or ""
-    )
-    cohorts = manifest.get("operating_points_cohorts")
-    holdout_contract = manifest.get("operating_points_holdout_contract")
-    changed_holdout_fields = (
-        [
-            field
-            for field, expected in EXPECTED_HOLDOUT_CONTRACT_FIELDS.items()
-            if holdout_contract.get(field) != expected
-        ]
-        if isinstance(holdout_contract, Mapping)
-        else list(EXPECTED_HOLDOUT_CONTRACT_FIELDS)
-    )
-    if (
-        not isinstance(cohorts, Mapping)
-        or not isinstance(holdout_contract, Mapping)
-        or changed_holdout_fields
-        or len(source_plan_signature) != 64
-        or source_plan_signature != manifest_plan_signature
-        or str(plan_manifest.get("plan_signature") or "") != manifest_plan_signature
-        or source.get("source_hashes") != plan_manifest.get("source_hashes")
-        or plan_manifest.get("cohorts") != cohorts
-        or plan_manifest.get("holdout_contract") != holdout_contract
-    ):
-        raise ValueError("Signed operating-point plan signature chain is invalid")
-    if (
-        manifest_contract[0] == V3_POINTS_PRODUCER
-        and dict(plan_manifest.get("source_hashes") or {}).get("v3_driver_sha256")
-        != V3_REFINEMENT_MODULE_SHA256
-    ):
-        raise ValueError("Signed V3 operating-point producer identity is invalid")
-
-    selection = _read_json(
-        Path(str(manifest.get("operating_points_selection") or "")).resolve()
-    )
-    unsigned_selection = dict(selection)
-    selection_signature = str(unsigned_selection.pop("selection_signature", "") or "")
-    manifest_selection_signature = str(
-        manifest.get("operating_points_selection_signature") or ""
-    )
-    if (
-        selection.get("schema_version") != expected_selection_schema
-        or selection.get("status") != expected_selection_status
-        or len(selection_signature) != 64
-        or selection_signature != _stable_sha256(unsigned_selection)
-        or selection_signature != manifest_selection_signature
-        or str(source.get("selection_signature") or "") != manifest_selection_signature
-        or str(selection.get("plan_signature") or "") != manifest_plan_signature
-        or selection.get("calibration_seeds") != list(cohorts.get("calibration") or [])
-        or selection.get("holdout_seeds_sealed_and_unread")
-        != list(cohorts.get("holdout_sealed") or [])
-        or selection.get("selection_contract")
-        != plan_manifest.get("selection_contract")
-        or selection.get("fallback_required") is not False
-    ):
-        raise ValueError("Signed operating-point selection signature chain is invalid")
-
-    if (
-        source.get("cohorts") != cohorts
-        or source.get("holdout_validated") is not False
-        or source.get("simulation_hypotheses_not_observed_performance") is not True
-    ):
-        raise ValueError(
-            "Signed operating-point source does not preserve the sealed holdout"
-        )
-    if not tracks_holdout_cases:
-        return
-
-    source_selection = source.get("selection")
-    if (
-        source.get("holdout_cases_read") != 0
-        or source.get("holdout_contract") != holdout_contract
-        or holdout_contract.get("status") != "sealed_unread"
-        or holdout_contract.get("cases_in_this_plan") != 0
-        or holdout_contract.get("selected_output_status") != manifest_contract[2]
-        or not isinstance(source_selection, Mapping)
-        or source_selection.get("relative_path") != "selection.json"
-        or source_selection.get("schema_version") != expected_selection_schema
-        or source_selection.get("selection_signature") != manifest_selection_signature
-        or selection.get("holdout_cases_read") != 0
-        or selection.get("holdout_contract") != holdout_contract
-        or selection.get("holdout_launch_permitted") is not True
-    ):
-        raise ValueError(
-            "Signed operating-point refinement does not preserve its sealed holdout"
-        )
 
 
-# V4 deliberately supersedes the legacy V1--V3 source dispatcher above without
-# changing those copied routines.  Only the accepted, fully revalidated bridge
-# can reach ``load_campaign_plan``.
+# Only the accepted, fully revalidated V4 bridge can reach ``load_campaign_plan``.
 def _validate_operating_point_source_contract(manifest: Mapping[str, Any]) -> None:
     source_path = Path(str(manifest.get("operating_points_source") or "")).resolve()
     bridge = v4_bridge.validate_bridge(source_path, revalidate_source=True)
@@ -1056,104 +862,6 @@ def _smoke_completion_state(
     return "complete", ""
 
 
-def _legacy_discovery_completion_state(
-    campaign_root: Path, *, manifest: Mapping[str, Any]
-) -> tuple[str, str]:
-    status = str(manifest.get("target_discovery_status") or "")
-    preflight_status = str(manifest.get("operating_point_preflight_status") or "")
-    if status == "rejected" or preflight_status == "rejected":
-        return "rejected", "operating-point scientific preflight rejected the states"
-    if not status and not preflight_status:
-        return "missing", ""
-    if status != "complete" or preflight_status != EXPECTED_PREFLIGHT_STATUS:
-        return "resumable", f"discovery={status!r}, preflight={preflight_status!r}"
-    registry_path = Path(str(manifest.get("target_registry") or "")).resolve()
-    preflight_path = Path(
-        str(manifest.get("operating_point_preflight") or "")
-    ).resolve()
-    expected_registry = (
-        campaign_root.resolve() / "target_discovery" / "target_registry.json"
-    )
-    expected_preflight = (
-        campaign_root.resolve() / "target_discovery" / "operating_point_preflight.json"
-    )
-    if registry_path != expected_registry or preflight_path != expected_preflight:
-        return (
-            "invalid",
-            "discovery evidence paths escape the signed campaign directory",
-        )
-    for path, hash_field, label in (
-        (registry_path, "target_registry_sha256", "target registry"),
-        (preflight_path, "operating_point_preflight_sha256", "state preflight"),
-    ):
-        if not path.is_file():
-            return "resumable", f"missing {label}: {path}"
-        if _sha256_file(path) != str(manifest.get(hash_field) or ""):
-            return "invalid", f"{label} SHA-256 mismatch"
-    registry = _read_json(registry_path)
-    unsigned_registry = dict(registry)
-    registry_signature = str(unsigned_registry.pop("registry_signature", ""))
-    lane_contracts = registry.get("lane_contracts") or []
-    if (
-        registry.get("schema_version") != f"{INPUT_SCHEMA_VERSION}.target_registry.v4"
-        or registry.get("campaign_signature") != manifest.get("campaign_signature")
-        or registry_signature != _stable_sha256(unsigned_registry)
-        or registry_signature != str(manifest.get("target_registry_signature") or "")
-        or len(registry.get("targets") or []) != EXPECTED_TARGET_ROWS
-        or len(lane_contracts) != 18
-        or any(
-            row.get("design_status") != "calibration_design_comparable_42d_window"
-            or int(row.get("comparable_campaign_seed_count") or 0) < 24
-            for row in lane_contracts
-        )
-        or registry.get("states") != list(EXPECTED_OPERATING_POINTS)
-        or registry.get("seeds") != list(manifest.get("seeds") or [])
-        or registry.get("lanes")
-        != [str(row.get("lane_id") or "") for row in manifest.get("lanes") or []]
-        or int(registry.get("disruption_window_days") or 0) != 42
-        or registry.get("all_lane_design_windows_comparable") is not True
-        or registry.get("all_lane_holdout_exposures_comparable") is not True
-        or registry.get("campaign_exposure_gate_passed") is not True
-        or registry.get("exposure_gate_failures") != []
-        or manifest.get("target_exposure_comparability_status") != "accepted"
-    ):
-        return "invalid", "target registry fails its signed V4 contract"
-    preflight = _read_json(preflight_path)
-    unsigned_preflight = dict(preflight)
-    preflight_signature = str(unsigned_preflight.pop("preflight_signature", ""))
-    if (
-        preflight.get("schema_version") != EXPECTED_PREFLIGHT_SCHEMA_VERSION
-        or preflight.get("contract_revision") != EXPECTED_CONTRACT_REVISION
-        or preflight.get("campaign_signature") != manifest.get("campaign_signature")
-        or preflight.get("status") != EXPECTED_PREFLIGHT_STATUS
-        or preflight.get("operating_points_input_status")
-        != manifest.get("operating_points_input_status")
-        or preflight.get("operating_points_artifact_signature")
-        != manifest.get("operating_points_artifact_signature")
-        or preflight.get("operating_points_calibration_plan_signature")
-        != manifest.get("operating_points_calibration_plan_signature")
-        or preflight.get("operating_points_selection_signature")
-        != manifest.get("operating_points_selection_signature")
-        or preflight.get("no_incident_probe_before_holdout_acceptance") is not True
-        or int(preflight.get("campaign_seed_count") or 0) != 30
-        or preflight.get("campaign_seeds") != list(manifest.get("seeds") or [])
-        or preflight.get("holdout_used_once_without_retuning") is not True
-        or preflight.get("ordering_valid") is not True
-        or preflight.get("seed_ordering_valid") is not True
-        or int(preflight.get("joint_seed_order_count") or 0) < 24
-        or len(preflight.get("states") or []) != 3
-        or {
-            str(row.get("operating_point_id") or "")
-            for row in preflight.get("states") or []
-        }
-        != set(EXPECTED_OPERATING_POINTS)
-        or any(row.get("accepted") is not True for row in preflight.get("states") or [])
-        or preflight_signature != _stable_sha256(unsigned_preflight)
-        or preflight_signature
-        != str(manifest.get("operating_point_preflight_signature") or "")
-    ):
-        return "invalid", "operating-point preflight fails its signed contract"
-    return "complete", ""
 
 
 # V4 completion checks the imported-trace binding rather than the obsolete
@@ -1480,59 +1188,26 @@ def _progress_payload(
     discovery_pid: int | None = None,
     discovery_log_path: Path | None = None,
 ) -> dict[str, Any]:
-    elapsed = max(0.0, time.monotonic() - started_monotonic)
-    durations = [
-        value for value in completed.values() if math.isfinite(value) and value > 0
-    ]
-    mean_duration = sum(durations) / len(durations) if durations else 0.0
-    remaining = max(0, len(shards) - len(completed) - len(failed))
-    eta = (
-        mean_duration * remaining / parallel_shards if durations and remaining else 0.0
+    return _campaign_mechanics._progress_payload(
+        manifest=manifest,
+        contract=contract,
+        status=status,
+        parallel_shards=parallel_shards,
+        workers_per_shard=workers_per_shard,
+        started_at_utc=started_at_utc,
+        started_monotonic=started_monotonic,
+        shards=shards,
+        queued=queued,
+        active=active,
+        completed=completed,
+        failed=failed,
+        wakefulness_state=wakefulness_state,
+        phase=phase,
+        discovery_status=discovery_status,
+        discovery_pid=discovery_pid,
+        discovery_log_path=discovery_log_path,
+        context=_campaign_context,
     )
-    payload = {
-        "schema_version": PROGRESS_SCHEMA_VERSION,
-        "campaign_signature": manifest["campaign_signature"],
-        "launch_contract_signature": contract["launch_contract_signature"],
-        "status": status,
-        "phase": phase,
-        "target_discovery_status": discovery_status,
-        "target_discovery_pid": discovery_pid or "",
-        "target_discovery_log_path": (
-            str(discovery_log_path) if discovery_log_path is not None else ""
-        ),
-        "parallel_shards": parallel_shards,
-        "workers_per_shard": workers_per_shard,
-        "maximum_engine_processes": parallel_shards * workers_per_shard,
-        "planned_shard_count": len(shards),
-        "completed_shard_count": len(completed),
-        "failed_shard_count": len(failed),
-        "active_shard_count": len(active),
-        "queued_shard_count": len(queued),
-        "completed_shard_ids": sorted(completed),
-        "queued_shard_ids": [shard.shard_id for shard in queued],
-        "active_shards": [
-            {
-                "shard_id": item.shard.shard_id,
-                "pid": item.process.pid,
-                "started_at_utc": item.started_at_utc,
-                "log_path": str(item.log_path),
-                "command_sha256": _stable_sha256(item.command),
-            }
-            for item in sorted(
-                active.values(), key=lambda value: value.shard.shard_index
-            )
-        ],
-        "failures": list(failed),
-        "started_at_utc": started_at_utc,
-        "updated_at_utc": utc_now(),
-        "elapsed_seconds": elapsed,
-        "mean_completed_shard_seconds": mean_duration,
-        "eta_seconds": eta,
-        "failure_policy": contract["failure_policy"],
-    }
-    if wakefulness_state is not None:
-        payload["wakefulness"] = dict(wakefulness_state)
-    return payload
 
 
 def _launcher_lock(path: Path):

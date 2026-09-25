@@ -16,6 +16,9 @@ Les commandes se lancent depuis la racine du dépôt, qui contient `etudecas/`.
 | Consulter une carte existante | [Accueil des résultats](index.html) | Ouvre les fichiers déjà produits. |
 | Construire le graphe depuis les données source | `python etudecas/run_etudecas_pipeline.py graph` | Écrit le graphe enrichi et géocodé. |
 | Préparer les entrées du moteur | `python etudecas/run_etudecas_pipeline.py prepare` | Écrit un graphe préparé ; ne correspond pas à toute la chaîne de reconstruction. |
+| Recalculer la référence nominale sur cinq ans | `python -m etudecas.regenerate --scenario nominal` | Un calcul de 1 825 jours et ses exports. |
+| Refaire la carte récente avec lots et comparaisons | `python -m etudecas.regenerate --delivery lots` | Quatre calculs, carte et diagnostic ; [périmètre exact](docs/REGENERER_RESULTATS.md). |
+| Choisir une étude | `python -m etudecas.simulation.studies --help` | Sensibilité, rejeux, incertitude temporelle, cascades et études fournisseurs ; chaque mode garde ses règles et ses options. |
 | Recalculer et produire une carte | `python etudecas/run_etudecas_pipeline.py rebuild-map-5y` | Lance des calculs et crée un dossier de résultats ; détails ci-dessous. |
 
 `rebuild-map-5y` utilise par défaut un graphe **déjà préparé** ; il ne rejoue
@@ -27,6 +30,13 @@ un HTML existant avec l'API locale ; il n'est pas un constructeur de carte.
 
 Les exemples de reconstruction qui suivent sont des opérations à lancer
 volontairement, pas des étapes nécessaires pour lire le code.
+
+Les modes d'étude sont `sensitivity`, `targeted`, `paired`, `temporal`,
+`cascade`, `supplier-configurations`, `supplier-calibration` et
+`supplier-campaign`. Commencer par l'aide du mode retenu, par exemple
+`python -m etudecas.simulation.studies cascade --help` ; ses données et
+prérequis restent explicites. La [procédure de vérification](docs/TEST_VALIDATION.md)
+décrit la sélection des contrôles à effectuer après une modification.
 
 ## Installation Minimale
 
@@ -66,8 +76,8 @@ phase finale du profil retenu, précédées d'exécutions de sélection et, par
 défaut, d'une campagne de sensibilité fournisseur. Ce nombre n'est donc pas
 le total des calculs de la commande.
 Pour produire explicitement une carte sans analyse d'incertitude, utiliser
-`--no-require-montecarlo`. La [livraison du 18 septembre 2026](docs/MAP_DELIVERY.md)
-documente ce perimetre, ses resultats et ses controles.
+`--no-require-montecarlo`. La livraison du 18 septembre 2026, conservée dans les
+[archives](archive/README.md), documente ce périmètre et ses contrôles historiques.
 
 Equivalent Windows court :
 

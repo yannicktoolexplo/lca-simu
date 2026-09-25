@@ -28,8 +28,8 @@ Références :
 - implementation : [select_confirmed_top3](<../../../prototypes/scan_2027_risk_control/supplier_post_top3_action_protocol.py#L713>)
 - implementation : [main](<../../../prototypes/scan_2027_risk_control/supplier_post_top3_action_protocol.py#L804>)
 - test : [test_top3_selection_does_not_promote_legacy_consolidated_v2_flags](<../../../prototypes/scan_2027_risk_control/tests/test_supplier_post_top3_action_protocol.py#L264>)
-- test : [test_legacy_protocol_preserves_scientific_candidates_without_action_release](<../../../prototypes/scan_2027_risk_control/tests/test_supplier_v2_controllable_action_selector.py#L567>)
-- test : [test_legacy_protocol_rejects_invalid_supplied_boundary](<../../../prototypes/scan_2027_risk_control/tests/test_supplier_v2_controllable_action_selector.py#L589>)
+- test : [test_legacy_protocol_preserves_scientific_candidates_without_action_release](<../../../prototypes/scan_2027_risk_control/tests/test_supplier_v2_controllable_action_selector.py#L564>)
+- test : [test_legacy_protocol_rejects_invalid_supplied_boundary](<../../../prototypes/scan_2027_risk_control/tests/test_supplier_v2_controllable_action_selector.py#L586>)
 
 ## Référence technique extraite
 
@@ -97,7 +97,7 @@ def test_top3_selection_does_not_promote_legacy_consolidated_v2_flags(tmp_path: 
 
 ### candidate-scopes
 
-[etudecas/prototypes/scan_2027_risk_control/tests/test_supplier_v2_controllable_action_selector.py:567](<../../../prototypes/scan_2027_risk_control/tests/test_supplier_v2_controllable_action_selector.py#L567>)
+[etudecas/prototypes/scan_2027_risk_control/tests/test_supplier_v2_controllable_action_selector.py:564](<../../../prototypes/scan_2027_risk_control/tests/test_supplier_v2_controllable_action_selector.py#L564>)
 
 ```python
 def test_legacy_protocol_preserves_scientific_candidates_without_action_release(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, boundary_kind: str):
@@ -105,7 +105,7 @@ def test_legacy_protocol_preserves_scientific_candidates_without_action_release(
 
 ### invalid-boundary
 
-[etudecas/prototypes/scan_2027_risk_control/tests/test_supplier_v2_controllable_action_selector.py:589](<../../../prototypes/scan_2027_risk_control/tests/test_supplier_v2_controllable_action_selector.py#L589>)
+[etudecas/prototypes/scan_2027_risk_control/tests/test_supplier_v2_controllable_action_selector.py:586](<../../../prototypes/scan_2027_risk_control/tests/test_supplier_v2_controllable_action_selector.py#L586>)
 
 ```python
 def test_legacy_protocol_rejects_invalid_supplied_boundary(tmp_path: Path):

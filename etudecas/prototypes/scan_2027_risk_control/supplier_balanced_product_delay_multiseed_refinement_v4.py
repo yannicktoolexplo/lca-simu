@@ -145,7 +145,9 @@ _JSON_REPLACE_BACKOFF_SECONDS = 0.02
 
 OFFICIAL_EXECUTION_MODE = "official_coarse_execute_candidate"
 TEST_ONLY_EXECUTION_MODE = "test_only_injected_executor"
-RUNTIME_DEPENDENCY_SCHEMA_VERSION = f"{PLAN_SCHEMA_VERSION}.runtime_dependencies.v1"
+HISTORICAL_RUNTIME_DEPENDENCY_SCHEMA_VERSION = f"{PLAN_SCHEMA_VERSION}.runtime_dependencies.v1"
+PREVIOUS_RUNTIME_DEPENDENCY_SCHEMA_VERSION = f"{PLAN_SCHEMA_VERSION}.runtime_dependencies.v2"
+RUNTIME_DEPENDENCY_SCHEMA_VERSION = f"{PLAN_SCHEMA_VERSION}.runtime_dependencies.v3"
 SHIPMENT_TRACE_SCHEMA_VERSION = "etudecas.v4_holdout_shipment_trace.v1"
 SHIPMENT_LANE_CONTRACT_SCHEMA_VERSION = f"{SHIPMENT_TRACE_SCHEMA_VERSION}.lane_contract"
 SHIPMENT_TRACE_COMPRESSION = "gzip_mtime_0_filename_empty_compresslevel_9"
@@ -188,6 +190,7 @@ CAMPAIGN_LANE_FIELDS = frozenset(
 REPO_ROOT = Path(__file__).resolve().parents[3]
 RUNTIME_DEPENDENCY_RELATIVE_PATHS = (
     "etudecas/__init__.py",
+    "etudecas/atomic_io.py",
     "etudecas/case_config.py",
     "etudecas/prototypes/scan_2027_risk_control/__init__.py",
     "etudecas/prototypes/scan_2027_risk_control/calibration.py",
@@ -217,13 +220,9 @@ RUNTIME_DEPENDENCY_RELATIVE_PATHS = (
     "etudecas/simulation/initial_state_policy.py",
     "etudecas/simulation/lot_trace/__init__.py",
     "etudecas/simulation/lot_trace/campaigns.py",
-    "etudecas/simulation/lot_trace/execution.py",
     "etudecas/simulation/lot_trace/indexes.py",
-    "etudecas/simulation/lot_trace/io.py",
     "etudecas/simulation/lot_trace/payload.py",
-    "etudecas/simulation/lot_trace/rules.py",
     "etudecas/simulation/lot_trace/schema.py",
-    "etudecas/simulation/lot_trace/stock_context.py",
     "etudecas/simulation/lot_trace/view_model.py",
     "etudecas/simulation/result_paths.py",
     "etudecas/simulation/run_format/__init__.py",
@@ -367,9 +366,22 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+PREVIOUS_RUNTIME_DEPENDENCY_RELATIVE_PATHS = tuple(
+    path for path in RUNTIME_DEPENDENCY_RELATIVE_PATHS
+    if path != "etudecas/atomic_io.py"
+)
+HISTORICAL_RUNTIME_DEPENDENCY_RELATIVE_PATHS = tuple(sorted((
+    *PREVIOUS_RUNTIME_DEPENDENCY_RELATIVE_PATHS,
+    "etudecas/simulation/lot_trace/execution.py",
+    "etudecas/simulation/lot_trace/io.py",
+    "etudecas/simulation/lot_trace/rules.py",
+    "etudecas/simulation/lot_trace/stock_context.py",
+)))
+
+
 def _runtime_dependency_inventory_from_worktree() -> dict[str, Any]:
     if (
-        len(RUNTIME_DEPENDENCY_RELATIVE_PATHS) != 44
+        len(RUNTIME_DEPENDENCY_RELATIVE_PATHS) != 41
         or tuple(sorted(RUNTIME_DEPENDENCY_RELATIVE_PATHS))
         != RUNTIME_DEPENDENCY_RELATIVE_PATHS
     ):
@@ -404,10 +416,21 @@ def _validate_runtime_dependency_inventory(
         "aggregate_sha256",
     }:
         raise V4ProtocolError("V4 runtime dependency inventory fields changed")
+    # Archive reads retain signed v1/44 and v2/40 inventories unchanged.
+    # Execution compares them with v3/41, which also binds atomic publication.
+    schema = inventory.get("schema_version")
+    if schema == HISTORICAL_RUNTIME_DEPENDENCY_SCHEMA_VERSION:
+        expected_paths = list(HISTORICAL_RUNTIME_DEPENDENCY_RELATIVE_PATHS)
+    elif schema == PREVIOUS_RUNTIME_DEPENDENCY_SCHEMA_VERSION:
+        expected_paths = list(PREVIOUS_RUNTIME_DEPENDENCY_RELATIVE_PATHS)
+    elif schema == RUNTIME_DEPENDENCY_SCHEMA_VERSION:
+        expected_paths = list(RUNTIME_DEPENDENCY_RELATIVE_PATHS)
+    else:
+        raise V4ProtocolError("Unknown V4 runtime dependency inventory schema")
+    count = len(expected_paths)
     files = inventory.get("files")
-    if not isinstance(files, list) or len(files) != 44:
-        raise V4ProtocolError("V4 runtime dependency inventory must contain 44 files")
-    expected_paths = list(RUNTIME_DEPENDENCY_RELATIVE_PATHS)
+    if not isinstance(files, list) or len(files) != count:
+        raise V4ProtocolError(f"V4 runtime dependency inventory must contain {count} files")
     actual_paths: list[str] = []
     for record in files:
         if not isinstance(record, Mapping) or set(record) != {"path", "sha256"}:
@@ -423,13 +446,12 @@ def _validate_runtime_dependency_inventory(
             raise V4ProtocolError("Invalid V4 runtime dependency path or SHA-256")
         actual_paths.append(relative)
     unsigned = {
-        "schema_version": RUNTIME_DEPENDENCY_SCHEMA_VERSION,
-        "file_count": 44,
+        "schema_version": schema,
+        "file_count": count,
         "files": files,
     }
     if (
-        inventory.get("schema_version") != RUNTIME_DEPENDENCY_SCHEMA_VERSION
-        or inventory.get("file_count") != 44
+        inventory.get("file_count") != count
         or actual_paths != expected_paths
         or len(actual_paths) != len(set(actual_paths))
         or inventory.get("aggregate_sha256") != stable_sha256(unsigned)

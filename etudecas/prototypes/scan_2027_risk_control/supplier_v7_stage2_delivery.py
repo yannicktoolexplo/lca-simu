@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from etudecas.prototypes.scan_2027_risk_control import supplier_stage_runtime as stage_runtime
+
 import argparse
 import hashlib
 import json
@@ -15,9 +17,7 @@ from typing import Any
 from etudecas.prototypes.scan_2027_risk_control import (
     supplier_fresh_development_holdout_protocol_v7 as protocol_v7,
 )
-from etudecas.prototypes.scan_2027_risk_control import (
-    finalize_supplier_operating_point_full_campaign_v7 as finalizer_v7,
-)
+from etudecas.prototypes.scan_2027_risk_control.supplier_campaign_adapters import finalize_v7 as finalizer_v7
 from etudecas.prototypes.scan_2027_risk_control import (
     supplier_operating_point_full_campaign_v7_dashboard as dashboard_v7,
 )
@@ -470,9 +470,7 @@ def _incident_lane_rows(paths: common.Stage2Paths) -> list[dict[str, Any]]:
 
 
 def _selection(paths: common.Stage2Paths) -> list[dict[str, Any]]:
-    from etudecas.prototypes.scan_2027_risk_control import (
-        supplier_v7_stage2_pipeline as pipeline,
-    )
+    pipeline = stage_runtime.for_common(common)
 
     return pipeline._selection(paths.results_dir)  # noqa: SLF001
 
@@ -800,9 +798,7 @@ def _detailed_replays(
 ) -> list[dict[str, Any]]:
     if not selection:
         return []
-    from etudecas.prototypes.scan_2027_risk_control import (
-        supplier_v7_stage2_pipeline as pipeline,
-    )
+    pipeline = stage_runtime.for_common(common)
 
     plan = lots_v4.load_and_validate_plan(paths.lot_replay_root)
     validation = pipeline._validate_finalized_lots(  # noqa: SLF001
@@ -1386,9 +1382,7 @@ def collect_payload(
     """Revalidate every source and reduce it to presentation-safe evidence."""
 
     paths = paths.resolved()
-    from etudecas.prototypes.scan_2027_risk_control import (
-        supplier_v7_stage2_pipeline as pipeline_v7,
-    )
+    pipeline_v7 = stage_runtime.for_common(common)
 
     stage2_contract_path = (paths.supervision_dir / pipeline_v7.CONTRACT_NAME).resolve()
     stage2_contract = pipeline_v7.validate_bound_contract(paths)
@@ -1782,9 +1776,7 @@ def build_delivery(paths: common.Stage2Paths) -> dict[str, Any]:
 
 
 def _parser() -> argparse.ArgumentParser:
-    from etudecas.prototypes.scan_2027_risk_control import (
-        supplier_v7_stage2_pipeline as pipeline,
-    )
+    pipeline = stage_runtime.for_common(common)
 
     parser = argparse.ArgumentParser(description=__doc__)
     pipeline.add_path_arguments(parser)
@@ -1792,9 +1784,7 @@ def _parser() -> argparse.ArgumentParser:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    from etudecas.prototypes.scan_2027_risk_control import (
-        supplier_v7_stage2_pipeline as pipeline,
-    )
+    pipeline = stage_runtime.for_common(common)
 
     args = _parser().parse_args(argv)
     try:

@@ -9,8 +9,8 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from etudecas.visualization.maps.chart_payloads import load_png_payload
-from etudecas.visualization.maps.map_data_loader import load_json_dict, read_csv_rows
-from etudecas.visualization.maps.map_render import fmt_qty, render_data_table
+from etudecas.visualization.maps.map_payload_builder import load_json_dict, read_csv_rows
+from etudecas.visualization.maps.map_payload_builder import fmt_qty, render_data_table
 
 
 FREQUENCY_DASHBOARD_SCHEMA_VERSION = "etudecas.scan_frequency_dashboard.v2"

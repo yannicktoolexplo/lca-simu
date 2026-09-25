@@ -3,6 +3,11 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 import sys
+import csv
+import json
+import os
+from types import SimpleNamespace
+import pytest
 
 
 MODULE_PATH = (
@@ -14,6 +19,98 @@ assert SPEC and SPEC.loader
 pilot = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = pilot
 SPEC.loader.exec_module(pilot)
+
+
+@pytest.fixture
+def planned_pair(tmp_path, monkeypatch):
+    from etudecas.simulation import source_fingerprint
+    monkeypatch.setattr(source_fingerprint, "implementation_fingerprint", lambda _: "fixture-source-v1")
+    graph = tmp_path / "graph.json"
+    graph.write_text('{"revision": 1}', encoding="utf-8")
+    log = tmp_path / "engine.log"
+    command = [sys.executable, str(pilot.CANONICAL_ENGINE), "--input", str(graph)]
+    log.write_text("COMMAND " + json.dumps(command), encoding="utf-8")
+    risk = tmp_path / "risk.csv"
+    row = dict(supplier_id=pilot.TARGET_SUPPLIER, item_id=pilot.TARGET_COMPONENT,
+               dst_node_id=pilot.TARGET_FACTORY, risk_type="lead_time_extra_days", multiplier=120,
+               event_id=pilot.PRIMARY_EVENT_PREFIX, start_day=100, end_day=110)
+    with risk.open('w', encoding='utf-8', newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=list(row)); writer.writeheader(); writer.writerow(row)
+    return dict(reference_log=log, risk_csv=risk, output_dir=tmp_path / "out", days=1825,
+                seed=5, families=pilot.DEFAULT_FAMILIES, execute=False)
+
+
+def test_pair_uses_canonical_engine_and_refuses_changed_inputs(planned_pair):
+    manifest = pilot.run_pair(**planned_pair)
+    assert manifest['schema_version'].endswith('.v2')
+    assert all(command[1] == str(pilot.CANONICAL_ENGINE) for command in manifest['commands'].values())
+    again = pilot.run_pair(**planned_pair, engine_override=pilot.CANONICAL_ENGINE)
+    assert again['case_identity'] == manifest['case_identity']
+    graph = planned_pair['reference_log'].parent / 'graph.json'
+    graph.write_text('{"revision": 2}', encoding='utf-8')
+    with pytest.raises(ValueError, match='Incompatible'):
+        pilot.run_pair(**planned_pair)
+
+
+def test_pair_reuses_only_intact_completed_cases(planned_pair, monkeypatch):
+    calls = []
+    def run(command, **kwargs):
+        out = Path(command[command.index('--output-dir') + 1])
+        (out / 'summaries').mkdir()
+        (out / 'summaries/first_simulation_summary.json').write_text('{}', encoding='utf-8')
+        (out / 'observations.csv').write_text('day,qty\n0,10\n', encoding='utf-8')
+        calls.append(command)
+        return SimpleNamespace(returncode=0)
+    monkeypatch.setattr(pilot.subprocess, 'run', run)
+    monkeypatch.setattr(pilot, 'extract_pair', lambda *a, **kw: {'verified_fixture': True})
+    planned_pair['execute'] = True
+    pilot.run_pair(**planned_pair)
+    assert len(calls) == 4
+    pilot.run_pair(**planned_pair)
+    assert len(calls) == 4
+    output = planned_pair['output_dir']
+    next(output.glob('cases/*/observations.csv')).write_text('day,qty\n0,999\n', encoding='utf-8')
+    with pytest.raises(ValueError, match='Unverified or changed'):
+        pilot.run_pair(**planned_pair)
+    assert len(calls) == 4
+
+
+def test_pair_does_not_adopt_historical_output_without_identity(planned_pair):
+    out = planned_pair['output_dir']
+    out.mkdir()
+    (out / 'pilot_manifest.json').write_text('{"schema_version":"historical.v1"}', encoding='utf-8')
+    with pytest.raises(ValueError, match='Incompatible'):
+        pilot.run_pair(**planned_pair)
+
+
+def test_pair_hashes_relative_inputs_against_engine_working_directory(planned_pair, monkeypatch, tmp_path):
+    graph = tmp_path / 'graph.json'
+    command = [sys.executable, str(pilot.CANONICAL_ENGINE), '--input',
+               os.path.relpath(graph, pilot.CANONICAL_ENGINE.parents[3])]
+    planned_pair['reference_log'].write_text('COMMAND ' + json.dumps(command), encoding='utf-8')
+    elsewhere = tmp_path / 'elsewhere'
+    elsewhere.mkdir()
+    monkeypatch.chdir(elsewhere)
+    manifest = pilot.run_pair(**planned_pair)
+    assert str(graph.resolve()) in manifest['input_hashes']
+    graph.write_text('{"revision": 2}', encoding='utf-8')
+    with pytest.raises(ValueError, match='Incompatible'):
+        pilot.run_pair(**planned_pair)
+
+
+def test_pair_does_not_publish_receipt_after_input_changes_during_run(planned_pair, monkeypatch):
+    def run(command, **kwargs):
+        out = Path(command[command.index('--output-dir') + 1])
+        (out / 'summaries').mkdir()
+        (out / 'summaries/first_simulation_summary.json').write_text('{}', encoding='utf-8')
+        graph = planned_pair['reference_log'].parent / 'graph.json'
+        graph.write_text('{"revision": 999}', encoding='utf-8')
+        return SimpleNamespace(returncode=0)
+    monkeypatch.setattr(pilot.subprocess, 'run', run)
+    planned_pair['execute'] = True
+    with pytest.raises(RuntimeError, match='changed during execution'):
+        pilot.run_pair(**planned_pair)
+    assert not list(planned_pair['output_dir'].glob('cases/*/case_receipt.json'))
 
 
 def test_pair_commands_differ_only_by_causal_input(tmp_path: Path) -> None:

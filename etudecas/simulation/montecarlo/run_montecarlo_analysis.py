@@ -691,13 +691,6 @@ def _blend_to_neutral(value: float, strength: float) -> float:
     return round(1.0 + (float(value) - 1.0) * max(0.0, min(1.0, strength)), 6)
 
 
-def _sample_focus_set(rng: random.Random, candidates: list[str], min_count: int, max_count: int) -> set[str]:
-    if not candidates:
-        return set()
-    hi = min(len(candidates), max(1, int(max_count)))
-    lo = min(hi, max(1, int(min_count)))
-    count = rng.randint(lo, hi)
-    return set(rng.sample(candidates, count))
 
 
 def _sample_mixed_focus_set(

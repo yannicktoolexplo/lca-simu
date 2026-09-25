@@ -8,8 +8,8 @@ from pathlib import Path
 
 import pytest
 
-from etudecas.prototypes.scan_2027_risk_control import standalone_single_html
-from etudecas.prototypes.scan_2027_risk_control.standalone_single_html import (
+from etudecas.visualization import standalone_html as standalone_single_html
+from etudecas.visualization.standalone_html import (
     FRAGMENT_TOKEN,
     INVENTORY_PATH,
     PLOTLY_TOKEN,

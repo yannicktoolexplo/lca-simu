@@ -15,9 +15,6 @@ from etudecas.prototypes.scan_2027_risk_control import (
 from etudecas.prototypes.scan_2027_risk_control import (
     supplier_network_post_priority_extensions as planner,
 )
-from etudecas.prototypes.scan_2027_risk_control import (
-    industrial_supply_bilan_dashboard as industrial_dashboard,
-)
 from etudecas.prototypes.scan_2027_risk_control.tests.test_supplier_network_post_priority_extensions import (
     _read_csv,
     _source_artifact,
@@ -1844,8 +1841,6 @@ def test_additive_dashboard_consolidation_copies_only_small_results_and_real_gat
     assert not (consolidated / "cases").exists()
     assert (consolidated / "priority_four_business_causes_summary.csv").is_file()
     assert (consolidated / "causal_lot_attribution_detail.csv").is_file()
-    state = industrial_dashboard._campaign_state(consolidated, kind="network")
-    assert state["state"] != industrial_dashboard.NETWORK_STABILIZED_STATE
     source_hashes_after = {
         path.relative_to(source).as_posix(): planner._sha256(path)
         for path in source.rglob("*")

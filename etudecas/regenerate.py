@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 import subprocess
 import sys
+import time
 import uuid
 
 
@@ -81,7 +82,7 @@ def _command(scenario: str, output: Path, days: int | None, with_map=False) -> l
 
 
 def _record_run(scenario: str, output: Path, command: list[str], *, companions=False,
-                source_bundle: dict | None = None) -> None:
+                source_bundle: dict | None = None, elapsed_seconds: float | None = None) -> None:
     """Record this execution, without copying historical status or code hashes."""
     source = CONFIG / f'{scenario}.json'
     inputs = {}
@@ -106,6 +107,8 @@ def _record_run(scenario: str, output: Path, command: list[str], *, companions=F
     }
     if source_bundle is not None:
         manifest['source_bundle'] = source_bundle
+    if elapsed_seconds is not None:
+        manifest['elapsed_seconds'] = elapsed_seconds
     if companions:
         manifest['companion_runs'] = {
             'state_dependent_full': {
@@ -220,6 +223,7 @@ def _deliver(output: Path, commands: list[tuple[str, Path, list[str]]], map_comm
     from etudecas.testing.map_delivery import reconcile_run
     from etudecas.visualization.maps.portable_diagnostic import build_portable_map
 
+    delivery_started = time.perf_counter()
     bundle = _capture_sources(output, [command for _, _, command in commands])
     _write(output / 'reproduction-plan.json', {
         'schema': 'etudecas.reproduction_delivery.v1', 'delivery': 'lots',
@@ -228,11 +232,14 @@ def _deliver(output: Path, commands: list[tuple[str, Path, list[str]]], map_comm
         'scope': 'Retained model inputs and controls; newly calculated results.',
     })
     validations = []
+    simulation_seconds = {}
     for scenario, run, command in commands:
+        simulation_started = time.perf_counter()
         subprocess.run(command, cwd=ROOT, check=True)
+        simulation_seconds[scenario] = time.perf_counter() - simulation_started
         verified_sources = _check_sources(bundle)
         _record_run(scenario, run, command, companions=scenario == 'nominal',
-                    source_bundle=verified_sources)
+                    source_bundle=verified_sources, elapsed_seconds=simulation_seconds[scenario])
         invariant_result = require_run_invariants(run)
         _write(run / 'reproduction-invariants.json', invariant_result)
         reconciliation = reconcile_run(run)
@@ -242,15 +249,24 @@ def _deliver(output: Path, commands: list[tuple[str, Path, list[str]]], map_comm
         validations.append({'run': str(run), 'ok': True,
                             'invariants_sha256': _hash(run / 'reproduction-invariants.json'),
                             'reconciliation_sha256': _hash(run / 'reproduction-reconciliation.json')})
+    map_started = time.perf_counter()
     subprocess.run(map_command, cwd=ROOT, check=True)
+    map_seconds = time.perf_counter() - map_started
     if not map_path.is_file():
         raise ValueError('Map builder completed without creating the expected HTML')
     diagnostic_path = _assemble_diagnostic(output, map_path, validations)
     packaging = build_portable_map(map_path, diagnostic_path, portable_path)
     _check_sources(bundle)
+    packaging['performance'] = {
+        'simulation_seconds': simulation_seconds,
+        'map_seconds': map_seconds,
+        'delivery_seconds': time.perf_counter() - delivery_started,
+        'scope': 'Wall-clock durations; simulations include their standard exports. Delivery also includes source capture, checks and packaging.',
+    }
     _write(output / 'portable-delivery.json', packaging)
     print(json.dumps({'delivery': 'lots', 'html': str(portable_path),
-                      'html_sha256': packaging['output_sha256'], 'runs': len(commands)}, indent=2))
+                      'html_sha256': packaging['output_sha256'], 'runs': len(commands),
+                      'performance': packaging['performance']}, indent=2))
 
 
 def main() -> None:
@@ -308,10 +324,13 @@ def main() -> None:
         'schema': 'etudecas.reproduction_run.v1', 'scenario': args.scenario, 'command': command,
         'source_bundle': bundle,
     })
+    simulation_started = time.perf_counter()
     result = subprocess.run(command, cwd=ROOT, check=False)
+    elapsed_seconds = time.perf_counter() - simulation_started
     if result.returncode == 0:
         verified_sources = _check_sources(bundle)
-        _record_run(args.scenario, output, command, source_bundle=verified_sources)
+        _record_run(args.scenario, output, command, source_bundle=verified_sources,
+                    elapsed_seconds=elapsed_seconds)
         if args.with_map and not (output / 'maps' / f'supply_graph_{output.name}.html').is_file():
             raise SystemExit('Simulation completed, but the requested basic map was not generated.')
     raise SystemExit(result.returncode)

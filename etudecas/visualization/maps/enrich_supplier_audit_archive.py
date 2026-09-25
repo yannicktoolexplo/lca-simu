@@ -20,7 +20,7 @@ from etudecas.risk.supplier_audit import (
     expand_supplier_audit_coverage, estimate_supplier_audit_profiles,
     supplier_audit_coverage_summary, attach_supplier_audit_panels,
 )
-from etudecas.visualization.maps.compress_html_payload import compress_embedded
+from etudecas.visualization.maps.html_payload_tools import compress_embedded
 from etudecas.visualization.maps.simulation_payload import render_material_balance_table_html
 from etudecas.visualization.maps.worldmap_html_template import html_template
 from etudecas.visualization.maps.worldmap_html_template import plotly_script_tag

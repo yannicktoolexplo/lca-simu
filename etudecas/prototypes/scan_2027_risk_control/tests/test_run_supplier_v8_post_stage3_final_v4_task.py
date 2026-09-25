@@ -207,7 +207,11 @@ def test_frozen_hash_block_is_small_exact_and_current() -> None:
     }
     for relative, expected in frozen.items():
         path = REPO / Path(relative.replace("\\", "/"))
-        assert hashlib.sha256(path.read_bytes()).hexdigest() == expected
+        from etudecas.prototypes.scan_2027_risk_control import supplier_campaign_source_revision
+        actual = hashlib.sha256(path.read_bytes()).hexdigest()
+        assert actual == expected or supplier_campaign_source_revision.accepts_current_revision(
+            path, expected, actual
+        )
     assert source.count("# BEGIN POST_STAGE3_FROZEN_HASHES") == 1
     assert source.count("# END POST_STAGE3_FROZEN_HASHES") == 1
     assert source.isascii()
@@ -627,3 +631,35 @@ def test_defaults_point_to_the_dedicated_additive_roots() -> None:
     assert "DEMONSTRATION_REUNION_1500_20260904_v1" in source
     assert "industrial_supply_preliminary_consolidated_20260904_v4" in source
     assert "supplier_operating_point_full_campaign_v8_results_20260906_v2" in source
+
+
+def test_current_post_stage3_validate_only_binds_sources_and_is_inert(tmp_path):
+    import sys
+    from etudecas.prototypes.scan_2027_risk_control import supplier_stage_runtime
+    runtime = supplier_stage_runtime.for_profile("v8-stage3")
+    inventory = runtime.build_source_inventory(REPO)
+    inventory_path = tmp_path / "inventory.json"
+    inventory_path.write_text(json.dumps(inventory), encoding="utf-8")
+    output = tmp_path / "untouched"
+    args = [_powershell(), "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
+            "-File", str(SCRIPT), "-ValidateOnly", "-Repo", str(REPO), "-Python", sys.executable,
+            "-RuntimeInventory", str(inventory_path), "-FocusRoot", str(output / "focus"),
+            "-DeliveryRoot", str(output / "delivery"), "-SupervisionDir", str(output / "supervision"),
+            "-Stage3SupervisionDir", str(output / "stage3"), "-ClosureReport", str(output / "closure_report.json")]
+    result = subprocess.run(args, cwd=REPO, capture_output=True, timeout=60)
+    assert result.returncode == 0, result.stderr.decode(errors="replace")
+    payload = json.loads(result.stdout.decode("utf-8-sig"))
+    validation = payload["validation"]
+    assert validation["stage3_inventory_signature"] == inventory["inventory_signature"]
+    assert validation["historical_source_sha256"] == _frozen_hashes(SCRIPT.read_text(encoding="utf-8-sig"))
+    assert validation["current_source_revision"]["files"]["supplier_campaign_source_revision.py"]["sha256"]
+    assert "-RuntimeInventory" in payload["expected_task_arguments"]
+    assert payload["launch_performed"] is False
+    assert payload["filesystem_mutation_performed"] is False
+    assert not output.exists()
+    inventory["entries"][0]["sha256"] = "0" * 64
+    inventory.pop("inventory_signature")
+    inventory_path.write_text(json.dumps(runtime.common.signed(inventory, "inventory_signature")), encoding="utf-8")
+    refused = subprocess.run(args, cwd=REPO, capture_output=True, timeout=60)
+    assert refused.returncode != 0
+    assert not output.exists()

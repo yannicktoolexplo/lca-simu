@@ -6,6 +6,8 @@ This checks selected UI journeys, not the scientific validity of the model.
 from __future__ import annotations
 
 import argparse
+import base64
+import gzip
 import hashlib
 import json
 from pathlib import Path
@@ -22,7 +24,7 @@ def review_map(html: Path, output: Path) -> dict:
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(headless=True)
         try:
-            page = browser.new_page(offline=True, viewport=report["viewport"])
+            page = browser.new_page(offline=True, accept_downloads=True, viewport=report["viewport"])
             page.on("pageerror", lambda error: report["javascript_errors"].append(str(error)))
             page.goto(html.resolve().as_uri(), wait_until="load", timeout=60000)
             page.wait_for_function(
@@ -108,19 +110,51 @@ def review_map(html: Path, output: Path) -> dict:
             page.screenshot(path=str(output / "final-nominal.png"))
             decision_link = page.locator("#decisionSupportLink")
             if decision_link.count():
-                decision_link.click()
-                page.wait_for_load_state("load")
-                page.locator("h1").wait_for(state="visible")
                 dashboard = {"name": "decision_dashboard", "ok": False}
-                headings = page.locator("h2").all_text_contents()
-                from urllib.parse import urlsplit
-                from urllib.request import url2pathname
-                local_links = page.locator("a").evaluate_all("links => links.map(a => a.href)")
-                missing = [url for url in local_links if urlsplit(url).scheme != "file"
-                           or not Path(url2pathname(urlsplit(url).path)).exists()]
-                dashboard.update(ok=len(headings) == 5 and not missing,
-                                 headings=headings, missing_links=missing)
-                page.screenshot(path=str(output / "decision-dashboard.png"), full_page=True)
+                if decision_link.get_attribute("data-portable-file") == "diagnostic":
+                    with page.expect_popup() as opened:
+                        decision_link.click()
+                    diagnostic = opened.value
+                    diagnostic.on("pageerror", lambda error: report["javascript_errors"].append(str(error)))
+                    try:
+                        diagnostic.locator("h1").wait_for(state="visible", timeout=60000)
+                        headings = diagnostic.locator("h2").all_text_contents()
+                        script = diagnostic.locator('script[data-portable-support="1"]').text_content()
+                        marker = "const files = "
+                        attachments = json.JSONDecoder().raw_decode(script[script.index(marker) + len(marker):])[0]
+                        expected_names = ("decision-report.json", "constraint-evidence.csv", "lot-causal-evidence.csv", "delivery.json")
+                        downloads = []
+                        for name in expected_names:
+                            entry = attachments[name]
+                            expected = gzip.decompress(base64.b64decode(entry["gzip"], validate=True))
+                            with diagnostic.expect_download() as downloaded:
+                                diagnostic.locator(f'[data-portable-file="{name}"]').click()
+                            download = downloaded.value
+                            actual = Path(download.path()).read_bytes()
+                            digest = hashlib.sha256(actual).hexdigest()
+                            downloads.append({"name": name, "bytes": len(actual), "sha256": digest,
+                                              "ok": actual == expected and len(actual) == entry["bytes"]
+                                              and digest == entry["sha256"] and download.suggested_filename == name})
+                        dashboard.update(ok=len(headings) == 5 and diagnostic.url.startswith("blob:")
+                                         and set(attachments) == set(expected_names) and all(row["ok"] for row in downloads),
+                                         format="portable", headings=headings, downloads=downloads,
+                                         scope="Offline diagnostic popup and exact embedded download bytes; CSV/model reconciliation is separate.")
+                        diagnostic.screenshot(path=str(output / "decision-dashboard.png"), full_page=True)
+                    finally:
+                        diagnostic.close()
+                else:
+                    decision_link.click()
+                    page.wait_for_load_state("load")
+                    page.locator("h1").wait_for(state="visible")
+                    headings = page.locator("h2").all_text_contents()
+                    from urllib.parse import urlsplit
+                    from urllib.request import url2pathname
+                    local_links = page.locator("a").evaluate_all("links => links.map(a => a.href)")
+                    missing = [url for url in local_links if urlsplit(url).scheme != "file"
+                               or not Path(url2pathname(urlsplit(url).path)).exists()]
+                    dashboard.update(ok=len(headings) == 5 and not missing,
+                                     format="multipage", headings=headings, missing_links=missing)
+                    page.screenshot(path=str(output / "decision-dashboard.png"), full_page=True)
                 report["checks"].append(dashboard)
         except Exception as exc:
             report["checks"].append({"name": "browser_execution", "ok": False, "error": str(exc)})
