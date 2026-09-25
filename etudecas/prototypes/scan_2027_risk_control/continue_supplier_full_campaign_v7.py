@@ -13,6 +13,8 @@ delivery stage until their V7 projections are wired and tested.
 
 from __future__ import annotations
 
+from etudecas.prototypes.scan_2027_risk_control import supplier_campaign_source_revision as _source_revision
+
 import argparse
 import json
 import os
@@ -36,12 +38,8 @@ from etudecas.prototypes.scan_2027_risk_control import (
 from etudecas.prototypes.scan_2027_risk_control import (
     continue_supplier_full_campaign_v5 as relay_v5,
 )
-from etudecas.prototypes.scan_2027_risk_control import (
-    finalize_supplier_operating_point_full_campaign_v7 as finalizer_v7,
-)
-from etudecas.prototypes.scan_2027_risk_control import (
-    launch_supplier_operating_point_full_campaign_v7 as launcher_v7,
-)
+from etudecas.prototypes.scan_2027_risk_control.supplier_campaign_adapters import finalize_v7 as finalizer_v7
+from etudecas.prototypes.scan_2027_risk_control.supplier_campaign_adapters import launch_v7 as launcher_v7
 from etudecas.prototypes.scan_2027_risk_control import (
     supplier_fresh_development_holdout_protocol_v7 as protocol_v7,
 )
@@ -269,6 +267,10 @@ class V7CampaignRelayConfig:
 
 
 class FullCampaignRelayV7(relay_v4.FullCampaignRelay):
+    @staticmethod
+    def _python_module(module: str, *arguments: str) -> list[str]:
+        return [sys.executable, "-m", *_source_revision.module_argv(module), *arguments]
+
     """Crash-resumable V7 handoff through consolidated incident results."""
 
     def __init__(
@@ -295,12 +297,13 @@ class FullCampaignRelayV7(relay_v4.FullCampaignRelay):
         dashboard_v7.validate_frozen_implementation()
         rows: list[dict[str, str]] = []
         for module in V7_MODULES:
-            path = relay_v4._module_path(self.config.repo, module).resolve()  # noqa: SLF001
+            path = _source_revision.resolve_current_source(relay_v4._module_path(self.config.repo, module))  # noqa: SLF001
             if not path.is_file():
                 raise FullCampaignRelayError(f"Module V7 requis absent : {module}")
             digest = relay_v4.sha256_file(path)
             frozen = FROZEN_ORCHESTRATOR_SHA256.get(module)
-            if frozen is not None and digest != frozen:
+            if (frozen is not None and digest != frozen
+                    and not _source_revision.accepts_current_revision(path, frozen, digest)):
                 raise FullCampaignRelayError(
                     f"Orchestrateur mature réutilisé modifié : {module} ({digest})"
                 )

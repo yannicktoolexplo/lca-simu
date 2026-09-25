@@ -13,6 +13,8 @@ task; execution must be explicitly authorized by the operator.
 
 from __future__ import annotations
 
+from etudecas.prototypes.scan_2027_risk_control import supplier_campaign_source_revision as _source_revision
+
 import argparse
 import ctypes
 import hashlib
@@ -30,9 +32,7 @@ from typing import Any, Protocol
 
 import psutil
 
-from etudecas.prototypes.scan_2027_risk_control import (
-    launch_supplier_operating_point_full_campaign_v8 as launcher_v8,
-)
+from etudecas.prototypes.scan_2027_risk_control.supplier_campaign_adapters import launch_v8 as launcher_v8
 from etudecas.prototypes.scan_2027_risk_control import (
     launch_supplier_operating_point_full_campaign_v8_resilient as resilient_launcher,
 )
@@ -260,7 +260,8 @@ def is_exact_launcher_process(
     if len(command) < 2:
         return False
     module_match = (
-        len(command) >= 3 and command[1] == "-m" and command[2] in LAUNCHER_MODULES
+        len(command) >= 3 and command[1] == "-m" and (command[2] in LAUNCHER_MODULES
+        or (len(command) >= 5 and list(command[2:5]) == [_source_revision.ADAPTER_MODULE, "launch", "v8"]))
     )
     script_match = _normalized_path(command[1]) in {
         _normalized_path(path) for path in LAUNCHER_PATHS
@@ -677,7 +678,12 @@ def _validate_config(config: SupervisorConfig) -> SupervisorConfig:
         raise RecoverySupervisorError("Runner V8 ou interpréteur Python absent")
     if config.expected_runner_sha256 is not None:
         actual = _sha256_file(config.runner)
-        if actual != config.expected_runner_sha256:
+        if (
+            actual != config.expected_runner_sha256
+            and not _source_revision.accepts_current_revision(
+                config.runner, config.expected_runner_sha256, actual
+            )
+        ):
             raise RecoverySupervisorError(f"Empreinte runner V8 différente : {actual}")
     if config.process_poll_seconds <= 0 or config.max_wait_hours <= 0:
         raise RecoverySupervisorError("Délais de supervision invalides")

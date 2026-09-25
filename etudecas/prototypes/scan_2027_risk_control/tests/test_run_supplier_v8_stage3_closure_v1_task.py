@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 import subprocess
+import sys
 from pathlib import Path
 
 
@@ -55,7 +56,9 @@ def test_wrapper_parses_in_windows_powershell() -> None:
     assert b"PARSE_OK" in completed.stdout
 
 
-def test_validate_only_is_inert_and_checks_frozen_hashes(tmp_path: Path, frozen_wrapper_environment) -> None:
+def test_validate_only_is_inert_and_checks_frozen_hashes(
+    tmp_path: Path, frozen_wrapper_environment
+) -> None:
     closure_dir = tmp_path / "new-closure-root"
     report = closure_dir / "closure_report.json"
     absent_stage3 = tmp_path / "absent-stage3"
@@ -178,15 +181,77 @@ def test_atomic_json_supports_two_real_windows_powershell_5_writes(
     }
 
 
-def test_frozen_hash_bindings_are_exact() -> None:
+def test_current_inventory_binds_migrated_sources_without_reusing_historical_identity() -> (
+    None
+):
+    from etudecas.prototypes.scan_2027_risk_control import supplier_stage_runtime
+
     source = SCRIPT.read_text(encoding="utf-8-sig")
-    assert hashlib.sha256(VERIFIER.read_bytes()).hexdigest() == EXPECTED_VERIFIER_SHA256
-    assert (
-        hashlib.sha256(CHAIN_WRAPPER.read_bytes()).hexdigest() == EXPECTED_CHAIN_SHA256
+    assert hashlib.sha256(VERIFIER.read_bytes()).hexdigest() != EXPECTED_VERIFIER_SHA256
+    inventory = supplier_stage_runtime.for_profile("v8-stage3").build_source_inventory(
+        REPO
     )
-    assert f' = "{EXPECTED_INVENTORY_SIGNATURE}"' in source
-    assert f' = "{EXPECTED_VERIFIER_SHA256}"' in source
-    assert f' = "{EXPECTED_CHAIN_SHA256}"' in source
+    paths = {row["relative_path"]: row for row in inventory["entries"]}
+    for path in (VERIFIER, CHAIN_WRAPPER, SCRIPT):
+        assert (
+            paths[path.relative_to(REPO).as_posix()]["sha256"]
+            == hashlib.sha256(path.read_bytes()).hexdigest()
+        )
+    assert inventory["inventory_signature"] != EXPECTED_INVENTORY_SIGNATURE
+    assert "$ExpectedStage3InventorySignature = $null" in source
+    assert "runtime.verify_source_inventory(inventory)" in source
+
+
+def test_current_closure_validate_only_checks_explicit_inventory_and_is_inert(tmp_path):
+    from etudecas.prototypes.scan_2027_risk_control import supplier_stage_runtime
+
+    runtime = supplier_stage_runtime.for_profile("v8-stage3")
+    inventory = runtime.build_source_inventory(REPO)
+    inventory_path = tmp_path / "inventory.json"
+    inventory_path.write_text(json.dumps(inventory), encoding="utf-8")
+    output = tmp_path / "untouched"
+    args = [
+        _powershell(),
+        "-NoProfile",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        str(SCRIPT),
+        "-ValidateOnly",
+        "-Repo",
+        str(REPO),
+        "-Python",
+        sys.executable,
+        "-RuntimeInventory",
+        str(inventory_path),
+        "-ClosureDir",
+        str(output),
+        "-ReportJson",
+        str(output / "closure_report.json"),
+    ]
+    result = subprocess.run(args, cwd=REPO, capture_output=True, timeout=60)
+    assert result.returncode == 0, result.stderr.decode(errors="replace")
+    payload = json.loads(result.stdout.decode("utf-8-sig"))
+    assert (
+        payload["validation"]["stage3_inventory_signature"]
+        == inventory["inventory_signature"]
+    )
+    assert payload["validation"]["current_source_revision"]["files"]["supplier_campaign_mechanics.py"]["sha256"]
+    assert payload["validation"]["historical_source_sha256"]
+    assert payload["launch_performed"] is False
+    assert payload["filesystem_mutation_performed"] is False
+    assert not output.exists()
+    inventory["entries"][0]["sha256"] = "0" * 64
+    inventory.pop("inventory_signature")
+    inventory_path.write_text(
+        json.dumps(runtime.common.signed(inventory, "inventory_signature")),
+        encoding="utf-8",
+    )
+    result = subprocess.run(args, cwd=REPO, capture_output=True, timeout=60)
+    assert result.returncode != 0
+    assert b"changed" in result.stderr
+    assert not output.exists()
 
 
 def test_task_disable_occurs_only_after_revalidated_technical_verdict() -> None:

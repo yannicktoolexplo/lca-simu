@@ -3,7 +3,7 @@
   "fingerprint_method": "python-ast-v1",
   "title": "Execution physique et verification independante",
   "business_source_fingerprints": {
-    "etudecas/docs/EXECUTION_VERIFICATION.md": "fea42b94139091f8ed79e6669932b05079cf931b2659063a40e8c257886a6772",
+    "etudecas/docs/EXECUTION_VERIFICATION.md": "2667f9ed09c5804b2e9a706f9413920be8ce2c7673657bd747e0c7c52cdbb9c6",
     "etudecas/docs/LOTS_ET_CAMIONS.md": "c9a6584468552f76c41aec73e264ca53497cb0fe635e0d3f34084f3e0290b5cc",
     "etudecas/config/cases/data_poc.json": "c6ba2705775ff4742996fe8318bd774d1faf9b983a5bd60d5c875d6876c710de",
     "etudecas/docs/changes/2026-09-20-cost-rounding-README.md": "1ae6de1ab28ca8bf87ce1e15ee828f47c07ab94a070f621400a8a3d1f5404f22"
@@ -49,7 +49,7 @@
       "path": "etudecas/simulation/lot_trace/payload.py",
       "symbol": "build_lot_trace_payload",
       "kind": "implementation",
-      "reference_fingerprint": "5b08f9e9143c2e20ce62abc293bf9aebef9e6c6f7f58d99096f5f80c8329f299"
+      "reference_fingerprint": "46f635fac566a4ab9837e6c464ca0d09f6a530be9aedefcd87e81ac2d5d0354b"
     },
     {
       "id": "csv-oracle",
@@ -81,49 +81,49 @@
     },
     {
       "id": "known-demand",
-      "path": "etudecas/testing/test_correction_contracts.py",
+      "path": "etudecas/testing/test_independent_review.py",
       "symbol": "test_fractional_forecast_accumulates_without_losing_demand",
       "kind": "test",
       "reference_fingerprint": "f5bd124d029f8d697c5b5207302d0d16a91deafdf847c3a85926ecf04ae743b9"
     },
     {
       "id": "corruption",
-      "path": "etudecas/testing/test_correction_contracts.py",
+      "path": "etudecas/testing/test_independent_review.py",
       "symbol": "test_delivery_gate_refuses_corrupt_stock_and_missing_evidence",
       "kind": "test",
       "reference_fingerprint": "c14e2f29c51e4f97859ca47a6fdd1cd0059c015798808b973cd66f1070420357"
     },
     {
       "id": "bad-factor-test",
-      "path": "etudecas/testing/test_correction_contracts.py",
+      "path": "etudecas/testing/test_independent_review.py",
       "symbol": "test_invalid_sensitivity_cannot_be_recorded_as_applied",
       "kind": "test",
       "reference_fingerprint": "0daa8538dac10d416ce185ad2be53596e54181f49aa8a028d2fd69e9b010f069"
     },
     {
       "id": "causal-test",
-      "path": "etudecas/simulation/test_lot_trace_view_model.py",
+      "path": "etudecas/tests/lots/test_lot_trace_view_model.py",
       "symbol": "LotTraceViewModelTest.test_view_model_excludes_events_outside_selected_contribution",
       "kind": "test",
       "reference_fingerprint": "09ed54328d6e326a27c83b425c439345823964b3022e5ddb111f794b776a7cdc"
     },
     {
       "id": "truck-context",
-      "path": "etudecas/simulation/logistics/display.py",
+      "path": "etudecas/simulation/logistics/io.py",
       "symbol": "build_transport_context",
       "kind": "implementation",
       "reference_fingerprint": "e7d512402a28201b2bb29c7137680b73cd9391d0f4a16807fc9f4f9dbc271afa"
     },
     {
       "id": "truck-groups-test",
-      "path": "etudecas/simulation/logistics/test_display.py",
+      "path": "etudecas/tests/lots/test_logistics.py",
       "symbol": "test_four_shipments_are_three_weekly_groups_not_four_trucks",
       "kind": "test",
       "reference_fingerprint": "d4ce0674e94c0c494bc2f3da0e820c5e58bd677c883891f618db13ea0ce849b4"
     },
     {
       "id": "truck-capacity-test",
-      "path": "etudecas/simulation/logistics/test_display.py",
+      "path": "etudecas/tests/lots/test_logistics.py",
       "symbol": "test_sourced_profile_can_dimension_real_capacity_proposals",
       "kind": "test",
       "reference_fingerprint": "9e953b80a7fb43bd34c6a1c1d1b88146073e74eef92d91be6027d165ac665234"
@@ -137,7 +137,7 @@
     },
     {
       "id": "customer-csv-oracle-test",
-      "path": "etudecas/testing/test_lot_customer_oracle.py",
+      "path": "etudecas/testing/test_lot_journey.py",
       "symbol": "test_customer_oracle_uses_current_csv_split_and_excludes_future_receipts",
       "kind": "test",
       "reference_fingerprint": "b9ea59a4a06dcc3613178c0c6b7ecddc9b20d9651d0a73dbe132953c417b9b8c"
@@ -158,28 +158,28 @@
     },
     {
       "id": "cost-rounding-bound-test",
-      "path": "etudecas/testing/test_map_delivery.py",
+      "path": "etudecas/testing/test_independent_review.py",
       "symbol": "test_cost_rounding_bound_accepts_only_mathematically_possible_error",
       "kind": "test",
       "reference_fingerprint": "aa16cefdf07889996b196532c205d137050a97d8e12453899f99cd018e385d1f"
     },
     {
       "id": "cost-rounding-long-test",
-      "path": "etudecas/testing/test_map_delivery.py",
+      "path": "etudecas/testing/test_independent_review.py",
       "symbol": "test_long_horizon_rounding_accepts_accumulation_but_rejects_one_currency_unit",
       "kind": "test",
       "reference_fingerprint": "d3b151310a21effffa9ebfadd7f3e9959dfdbef310a69a596955d58b6b2c9f19"
     },
     {
       "id": "cost-rounding-precision-test",
-      "path": "etudecas/testing/test_map_delivery.py",
+      "path": "etudecas/testing/test_independent_review.py",
       "symbol": "test_unexpected_cost_export_precision_is_not_silently_tolerated",
       "kind": "test",
       "reference_fingerprint": "e84a51e1f50c71e8567dd9e7c33638e419c53db10a03093f089d0b8edc21c2c0"
     },
     {
       "id": "cost-browser-test",
-      "path": "etudecas/testing/test_map_delivery.py",
+      "path": "etudecas/testing/test_independent_review.py",
       "symbol": "test_browser_values_are_reconciled_with_runs",
       "kind": "test",
       "reference_fingerprint": "1fcc0239ccd7a70f9fb4e58e1e4c89a879d1244a97059f4c04819b7761e6579a"

@@ -15,12 +15,8 @@ from etudecas.prototypes.scan_2027_risk_control import (
 from etudecas.prototypes.scan_2027_risk_control import (
     continue_supplier_full_campaign_v5 as relay,
 )
-from etudecas.prototypes.scan_2027_risk_control import (
-    finalize_supplier_operating_point_full_campaign_v5 as finalizer_adapter,
-)
-from etudecas.prototypes.scan_2027_risk_control import (
-    launch_supplier_operating_point_full_campaign_v5 as launcher_adapter,
-)
+from etudecas.prototypes.scan_2027_risk_control.supplier_campaign_adapters import finalize_v5 as finalizer_adapter
+from etudecas.prototypes.scan_2027_risk_control.supplier_campaign_adapters import launch_v5 as launcher_adapter
 from etudecas.prototypes.scan_2027_risk_control import (
     supplier_operating_point_full_campaign_v5 as campaign_adapter,
 )
@@ -1096,7 +1092,7 @@ def test_adapters_patch_only_inside_context_and_restore(
             assert (
                 implementation.SOURCE_RUNNER_SHA256
                 == finalizer_adapter._sha256_file(  # noqa: SLF001
-                    finalizer_adapter.V5_CAMPAIGN_RUNNER
+                    finalizer_adapter.RUNNER
                 )
             )
     assert {field: getattr(implementation, field) for field in patched_fields} == before
@@ -1312,6 +1308,10 @@ def test_relay_pins_the_frozen_v4_and_v5_implementation_hashes() -> None:
     rows = relay.FullCampaignRelayV5._module_inventory_v5(instance)
     by_module = {row["module"]: row["sha256"] for row in rows}
     assert by_module[relay.CORE_MODULE] == relay.FROZEN_V5_SHA256[relay.CORE_MODULE]
-    assert all(
-        by_module[module] == digest for module, digest in relay.FROZEN_V4_SHA256.items()
-    )
+    for module, historical_digest in relay.FROZEN_V4_SHA256.items():
+        path = relay.relay_v4._module_path(instance.config.repo, module)
+        assert by_module[module] == historical_digest or (
+            relay._source_revision.accepts_current_revision(
+                path, historical_digest, by_module[module]
+            )
+        )

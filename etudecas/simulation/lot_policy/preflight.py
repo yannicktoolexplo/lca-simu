@@ -1,12 +1,12 @@
 from __future__ import annotations
-
 from dataclasses import dataclass
 from decimal import Decimal
 from enum import Enum
 from typing import Any, Iterable
-
-from .models import LotPolicyRegistry, PolicyScope, PolicySource
-from .uom import (
+from .models import (
+    LotPolicyRegistry,
+    PolicyScope,
+    PolicySource,
     IncompatibleUomError,
     as_decimal,
     convert_quantity,

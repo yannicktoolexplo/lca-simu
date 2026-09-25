@@ -17,13 +17,17 @@ optional debug artifacts controlled by retention mode.
 ## Commands
 
 ```bash
-python -m etudecas.simulation.experiments.sensitivity init-example
-python -m etudecas.simulation.experiments.sensitivity design --study etudecas/config/sensitivity/supplier_lead_capacity_example.json
-python -m etudecas.simulation.experiments.sensitivity materialize --study etudecas/config/sensitivity/supplier_lead_capacity_example.json
-python -m etudecas.simulation.experiments.sensitivity ingest --study etudecas/config/sensitivity/supplier_lead_capacity_example.json --case-csv etudecas/simulation/sensibility/active_supplier_parameter_result_60_75_guarded/supplier_parameter_sensitivity_cases.csv
-python -m etudecas.simulation.experiments.sensitivity discover --root etudecas/simulation/sensibility
-python -m etudecas.simulation.experiments.sensitivity consolidate --root etudecas/simulation/sensibility
+python -m etudecas.simulation.studies sensitivity init-example
+python -m etudecas.simulation.studies sensitivity design --study etudecas/config/sensitivity/supplier_lead_capacity_example.json
+python -m etudecas.simulation.studies sensitivity materialize --study etudecas/config/sensitivity/supplier_lead_capacity_example.json
+python -m etudecas.simulation.studies sensitivity ingest --study etudecas/config/sensitivity/supplier_lead_capacity_example.json --case-csv CHEMIN_CSV_REGENERE/scenario_results.csv
+python -m etudecas.simulation.studies sensitivity discover --root etudecas/simulation/sensibility
+python -m etudecas.simulation.studies sensitivity consolidate --root etudecas/simulation/sensibility
 ```
+
+`CHEMIN_CSV_REGENERE/scenario_results.csv` is an illustrative placeholder:
+replace it with the case-level CSV produced by your regenerated study. Historical
+campaign outputs are not required to remain in the repository.
 
 `discover` and `consolidate` intentionally ignore heavy folders such as
 `cases`, `simulation_output`, `data`, `plots`, `maps`, `reports` and

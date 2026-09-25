@@ -25,7 +25,7 @@ Références :
 
 - implementation : [diagnose_source_hash](<../../../provenance.py#L12>)
 - implementation : [main](<../../../provenance.py#L34>)
-- test : [SourceProvenanceTest](<../../../test_provenance.py#L13>)
+- test : [SourceProvenanceTest](<../../../tests/commun/test_provenance.py#L13>)
 
 ### PROVENANCE-MONTECARLO-001 — Rattacher les incertitudes au run affiché
 
@@ -45,8 +45,8 @@ Références :
 
 - implementation : [resolve_montecarlo_summary_for_map](<../../../run_etudecas_pipeline.py#L391>)
 - implementation : [montecarlo_summary_matches_run](<../../../run_etudecas_pipeline.py#L480>)
-- test : [test_shared_montecarlo_rejects_missing_incompatible_or_malformed_provenance](<../../../test_run_etudecas_pipeline.py#L255>)
-- test : [test_montecarlo_summary_fallback_prefers_more_compatible_runs](<../../../test_run_etudecas_pipeline.py#L104>)
+- test : [test_shared_montecarlo_rejects_missing_incompatible_or_malformed_provenance](<../../../tests/commun/test_run_etudecas_pipeline.py#L255>)
+- test : [test_montecarlo_summary_fallback_prefers_more_compatible_runs](<../../../tests/commun/test_run_etudecas_pipeline.py#L104>)
 
 ### PACKAGE-INTEGRITY-001 — Présence et lisibilité des résultats livrés
 
@@ -69,7 +69,7 @@ Références :
 - implementation : [_read_json](<../../../simulation/run_format/validator.py#L13>)
 - implementation : [_load_checked](<../../../simulation/run_format/validator.py#L24>)
 - implementation : [main](<../../../simulation/run_format/cli.py#L18>)
-- test : [RunFormatIntegrityTest](<../../../simulation/test_run_format.py#L32>)
+- test : [RunFormatIntegrityTest](<../../../tests/commun/test_run_format.py#L396>)
 
 ### PACKAGE-TRACE-001 — Traçabilité obligatoire et cohérence des index
 
@@ -89,8 +89,8 @@ Références :
 
 - implementation : [validate_run_package](<../../../simulation/run_format/validator.py#L84>)
 - contract : [CANONICAL_DATA_ARTIFACTS](<../../../simulation/run_format/schema.py#L22>)
-- test : [RunFormatIntegrityTest](<../../../simulation/test_run_format.py#L32>)
-- test : [RunFormatExportTest.test_validate_run_package_allows_empty_lot_artifacts_when_lot_trace_disabled](<../../../simulation/test_run_format.py#L224>)
+- test : [RunFormatIntegrityTest](<../../../tests/commun/test_run_format.py#L396>)
+- test : [RunFormatExportTest.test_validate_run_package_allows_empty_lot_artifacts_when_lot_trace_disabled](<../../../tests/commun/test_run_format.py#L588>)
 
 ## Référence technique extraite
 
@@ -125,7 +125,7 @@ Check declared run association and horizon; reject malformed metadata.
 
 ### mc-rejection-test
 
-[etudecas/test_run_etudecas_pipeline.py:255](<../../../test_run_etudecas_pipeline.py#L255>)
+[etudecas/tests/commun/test_run_etudecas_pipeline.py:255](<../../../tests/commun/test_run_etudecas_pipeline.py#L255>)
 
 ```python
 def test_shared_montecarlo_rejects_missing_incompatible_or_malformed_provenance(tmp_path, monkeypatch, payload):
@@ -133,7 +133,7 @@ def test_shared_montecarlo_rejects_missing_incompatible_or_malformed_provenance(
 
 ### mc-selection-test
 
-[etudecas/test_run_etudecas_pipeline.py:104](<../../../test_run_etudecas_pipeline.py#L104>)
+[etudecas/tests/commun/test_run_etudecas_pipeline.py:104](<../../../tests/commun/test_run_etudecas_pipeline.py#L104>)
 
 ```python
 def test_montecarlo_summary_fallback_prefers_more_compatible_runs(tmp_path, monkeypatch) -> None:
@@ -159,7 +159,7 @@ def main(argv: list[str] | None=None) -> int:
 
 ### source-diagnostic-tests
 
-[etudecas/test_provenance.py:13](<../../../test_provenance.py#L13>)
+[etudecas/tests/commun/test_provenance.py:13](<../../../tests/commun/test_provenance.py#L13>)
 
 ```python
 class SourceProvenanceTest
@@ -219,7 +219,7 @@ CANONICAL_DATA_ARTIFACTS: tuple[ArtifactSpec, ...] = (ArtifactSpec('first_simula
 
 ### integrity-tests
 
-[etudecas/simulation/test_run_format.py:32](<../../../simulation/test_run_format.py#L32>)
+[etudecas/tests/commun/test_run_format.py:396](<../../../tests/commun/test_run_format.py#L396>)
 
 ```python
 class RunFormatIntegrityTest
@@ -227,7 +227,7 @@ class RunFormatIntegrityTest
 
 ### disabled-lots-test
 
-[etudecas/simulation/test_run_format.py:224](<../../../simulation/test_run_format.py#L224>)
+[etudecas/tests/commun/test_run_format.py:588](<../../../tests/commun/test_run_format.py#L588>)
 
 ```python
 def test_validate_run_package_allows_empty_lot_artifacts_when_lot_trace_disabled(self) -> None:

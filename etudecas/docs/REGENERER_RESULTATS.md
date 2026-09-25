@@ -84,21 +84,48 @@ Choisir un dossier parent sans ancienne campagne `risk_amplitude_duration_sweep_
 le lecteur historique explore encore ce voisinage. La commande refuse ce cas avant
 de lancer les calculs, pour éviter tout mélange involontaire.
 
-Vérification complète du 22 septembre : **quatre calculs sur 1 825 jours** réellement
-exécutés, en environ **1 h 35** sur ce poste, avec 248 invariants et quatre rapprochements
-réussis. L'oracle indépendant retrouve 121 fichiers identiques octet par octet et trois
-résumés dont seuls les chemins d'intrants ont changé ; il retrouve leur empreinte
-historique après substitution exacte de ces chemins.
+La reprise du **25 septembre 2026** a vérifié à nouveau quatre calculs de
+1 825 jours, 124 exports exacts, 47 sections de carte, 197 contrôles de contenu
+et provenance et 29 contrôles interactifs contre les CSV. Les trois autres
+présentations ont été réassemblées à l'identique. Voir le
+[dernier bilan](../artifacts/testing/human_code_20260925/BILAN.md) :
+120 tests ciblés et huit comparaisons complémentaires, sans relance des anciennes
+suites d'altération de fichiers.
+Les sorties temporaires ont été retirées après qualification ; les références
+HTML et les preuves compactes restent disponibles.
 
-Les **47 sections de données** de la carte et les cinq volets métier du diagnostic
-concordent : 41 sections sont strictement identiques, les six autres ne diffèrent que
-par les chemins et identifiants de calcul. Aucun écart numérique ni d'arrondi n'a été
-trouvé. Les 184 contrôles d'intégrité de la livraison autonome réussissent également.
-Le lot témoin `PBATCH-411EC755D7110AE0` fait l'objet d'un rapprochement indépendant
-des quantités, dates et transports. Les preuves et les contrôles navigateur sont
-regroupés dans le [bilan de vérification](../artifacts/testing/reproducibility_closure_20260922/closure-summary.json).
-Ces contrôles établissent la conformité à la référence simulée, pas une validation
-des hypothèses industrielles ou de la calibration des risques.
+Vérification historique du 23 septembre 2026, après la quatrième passe : les quatre
+calculs de 1 825 jours retrouvent **124 fichiers identiques octet par octet**.
+Les 47 sections de la carte et les cinq volets métier du diagnostic concordent
+sans tolérance numérique. Les 25 différences de métadonnées autorisées sont
+des chemins ou identifiants examinés ; deux reformulations descriptives déjà
+signalées restent distinctes. L'ordre des listes est conservé.
+
+Les contrôles comprennent 197 vérifications d'intégrité, la qualification des
+62 familles d'invariants du nominal et le navigateur sur les versions autonome
+et multipage. Un parcours complémentaire vérifie 29 interactions contre les CSV :
+deux vues de lots, origines/destinations, bilans datés, transports, impacts et quatre
+téléchargements réels. Le lot témoin `PBATCH-411EC755D7110AE0` retrouve ses
+14 400 unités produites et expédiées. Les trois présentations historiques ont
+également été réassemblées à l'identique.
+
+Le temps d'une livraison inclut quatre simulations, leurs exports, les contrôles
+et l'assemblage ; ce n'est pas le temps d'une seule simulation. Le dernier
+recalcul a activé le relevé des imports et ne constitue pas un benchmark.
+Les durées observées restent dans ses manifestes ; les mesures appariées
+et leurs limites sont détaillées dans le
+[plan de simplification](PLAN_SIMPLIFICATION.md).
+La [synthèse courante](../artifacts/testing/human_code_20260925/verification-summary.json)
+réunit les dernières preuves de recalcul. Les bilans des étapes précédentes sont
+conservés, avec leurs chemins d'origine, dans [l'archive historique](../archive/README.md).
+Ces vérifications établissent la conformité à la référence simulée, pas la
+calibration industrielle ni la validité de toutes les campagnes de recherche.
+
+Les quatre HTML de référence restent inchangés. Les résultats temporaires sont
+retirés après qualification, en gardant les capsules de sources et les preuves
+compactes. Pour refaire les contrôles sur les CSV, régénérer le calcul : les
+chemins des anciens manifestes décrivent une exécution datée. La génération
+seule ne revendique jamais une validation navigateur ; celle-ci reste séparée.
 
 Les commandes et trois entrées déplacées sont conservées sous
 [config/reproduction_20260920](../config/reproduction_20260920/).
@@ -139,18 +166,55 @@ La version intégrée a été vérifiée depuis une copie sans Git, réseau ni a
 sources d'origine : quatre calculs d'un jour réussis, leurs quatre sauvegardes
 automatiques vérifiées, et les 32 CSV du nominal identiques à l'original.
 Ce test valide l'intégration et la présence des entrées ; les événements prévus
-après le premier jour restent couverts par le recalcul complet décrit plus haut,
-exécuté avant l'ajout de cette protection au lanceur.
+après le premier jour étaient couverts par le premier recalcul complet de 1 h 35,
+exécuté avant l'ajout de cette protection au lanceur. La livraison finale de
+35 min 30 utilise bien la protection intégrée.
 
 Cette protection concerne l'entrée `regenerate`. Les anciens scripts de recherche
 ne sont pas encore tous raccordés à ce mécanisme ; leur convergence vers une entrée
 commune reste une étape du plan de simplification.
 
-Deux instantanés compacts sont conservés : celui de la vérification initiale et
-celui du lanceur désormais protégé. Les résultats détaillés et copies HTML créés
+Des instantanés compacts sont conservés pour les versions effectivement vérifiées,
+y compris avant et après optimisation. Les résultats détaillés et copies HTML créés
 pour ces essais sont retirés après validation. Les preuves gardent leur date et
 leurs empreintes ; relancer un contrôle exige de régénérer les données dont il a
 besoin, et non de réutiliser un ancien statut de succès.
+
+Après rangement, trois capsules directement référencées restent dans le dossier
+`sources/`. Les treize autres sont conservées dans
+`archive/preuves_et_documents_20260925.zip`, sous leur chemin d'origine : extraire
+la capsule nécessaire avant de lancer les commandes de vérification ci-dessus.
+
+### Vérifier une simplification ou une optimisation
+
+Le lanceur inscrit maintenant `elapsed_seconds` dans chaque manifeste. Pour la
+livraison complète, `portable-delivery.json` détaille le temps des quatre simulations,
+celui de la construction de carte et le temps total. Le temps d'une simulation
+inclut ses exports ; le total comprend aussi les contrôles et l'assemblage.
+
+Conserver temporairement un calcul avant modification et un calcul après, sur
+**1 825 jours**, avec les mêmes données, options et graines. Comparer leurs exports :
+
+```powershell
+python -B -m etudecas.testing.replay_comparison --before CHEMIN_AVANT --after CHEMIN_APRES --output NOUVELLE_PREUVE.json
+```
+
+Ce contrôle compare tous les fichiers de `data/` et `summaries/`, les en-têtes,
+l'ordre et le texte exact des cellules CSV, et les valeurs JSON sans tolérance
+numérique. Il refuse aussi les fichiers ajoutés, manquants ou modifiés pendant
+la comparaison. Il ne compare pas les manifestes d'exécution ni le HTML.
+
+Si une copie isolée modifie uniquement des chemins techniques, l'option
+`--metadata-rules FICHIER.json` permet une liste explicite de substitutions :
+fichier, pointeur JSON ou colonne CSV, type technique, ancienne et nouvelle valeurs
+exactes. Chaque utilisation est rapportée ; aucune règle ne peut masquer une
+quantité, une date métier, un identifiant de lot ou une graine. Une règle non
+utilisée provoque un refus. Vérifier séparément les empreintes des intrants.
+
+La [première passe de simplification](PLAN_SIMPLIFICATION.md) décrit les mesures
+comparables et les vérifications réellement exécutées. Reconstruire ensuite les
+cartes concernées et vérifier leurs données et interactions ; un résumé identique
+ou un test court ne suffit pas à qualifier la simulation complète.
 
 L'étape d'export autonome est aussi réutilisable séparément après génération
 d'une carte et de son diagnostic :
@@ -233,8 +297,10 @@ Ce plan n'est pas lancé. Il modifie seulement des graphes d'étude, jamais les
 stocks réels ni les cibles de sécurité du nominal. Le protocole de comparaison
 exhaustif représente 3 240 incidents et 90 références, soit **3 330 simulations**,
 hors recalibration ; les essais indiquent plusieurs jours de calcul. La
-[spécification détaillée](../artifacts/testing/reproducibility_closure_20260922/supplier-recalibration-spec.json)
-explicite le budget, les arrêts et les conditions de validation. Le nombre de
+spécification `supplier-recalibration-spec.json`, conservée sous
+`etudecas/artifacts/testing/reproducibility_closure_20260922/` dans
+[l'archive historique](../archive/README.md), explicite le budget, les arrêts
+et les conditions de validation. Le nombre de
 répétitions seul ne suffit pas à qualifier un classement industriel.
 Le mécanisme de manque à livrer de V8 diffère aussi de la réduction de disponibilité
 utilisée dans l'ébauche du HTML 04 : ces expériences ne sont pas interchangeables.

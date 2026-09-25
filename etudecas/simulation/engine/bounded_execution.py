@@ -1,11 +1,9 @@
-"""Bounded subprocess runner for HTTP; historical batch runner remains unchanged."""
+"""HTTP compatibility entry point for the shared batch subprocess runner."""
 from pathlib import Path
+# Preserve the shared module attribute for callers patching subprocess.run here.
 import subprocess
-import sys
 from typing import Any
-from etudecas.simulation.analysis_batch_common import (
-    load_json, merge_living_initial_state_args, resolve_existing_path, summary_path,
-)
+from etudecas.simulation.analysis_batch_common import run_simulation
 
 
 def run_simulation_bounded(
@@ -20,37 +18,9 @@ def run_simulation_bounded(
     use_living_initial_state: bool = True,
     *, timeout_seconds: float,
 ) -> tuple[dict[str, Any], str]:
-    output_dir.mkdir(parents=True, exist_ok=True)
-    cmd = [
-        sys.executable,
-        str(run_script),
-        "--input",
-        str(input_json),
-        "--output-dir",
-        str(output_dir),
-        "--scenario-id",
-        str(scenario_id),
-    ]
-    if days > 0:
-        cmd.extend(["--days", str(days)])
-    if skip_map:
-        cmd.append("--skip-map")
-    if skip_plots:
-        cmd.append("--skip-plots")
-    merged_extra_args = merge_living_initial_state_args(extra_args, enabled=use_living_initial_state)
-    if merged_extra_args:
-        cmd.extend(merged_extra_args)
-
-    proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout_seconds)
-    if proc.returncode != 0:
-        stderr = proc.stderr.strip()
-        stdout = proc.stdout.strip()
-        message = "\n".join([part for part in [stdout, stderr] if part]).strip()
-        raise RuntimeError(f"Simulation failed for {input_json}:\n{message}")
-
-    summary_file = resolve_existing_path(
-        summary_path(output_dir, "first_simulation_summary.json"),
-        output_dir / "first_simulation_summary.json",
+    return run_simulation(
+        run_script, input_json, output_dir, scenario_id,
+        days=days, skip_map=skip_map, skip_plots=skip_plots,
+        extra_args=extra_args, use_living_initial_state=use_living_initial_state,
+        timeout_seconds=timeout_seconds,
     )
-    summary = load_json(summary_file)
-    return summary, proc.stdout

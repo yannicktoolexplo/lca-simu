@@ -33,6 +33,6 @@ Cette exploration porte sur tout l'historique disponible. Elle n'applique aucune
 
 ## Vérification et code
 
-Le module `visualization/maps/lot_journey_operations.js` lit les événements, la généalogie et le contexte logistique existants. Les tests sur petits cas couvrent les chargements mélangés, la réservation suivie du départ, les articles et unités distincts, les branches sans lien, les identités fournisseur, les données manquantes et la préservation des données et de la fenêtre existante.
+La section transports du module `visualization/maps/lot_journey.js` lit les événements, la généalogie et le contexte logistique existants. Les tests sur petits cas couvrent les chargements mélangés, la réservation suivie du départ, les articles et unités distincts, les branches sans lien, les identités fournisseur, les données manquantes et la préservation des données et de la fenêtre existante.
 
 Les contrôles Chromium comparent le contenu des expéditions et le périmètre aval aux CSV, puis vérifient la remise à zéro et les empreintes du registre avant/après navigation. Les regroupements affichés sont rapprochés du contexte logistique existant ; leurs hypothèses industrielles ne sont pas certifiées par ce contrôle. Voir les [preuves de livraison](../artifacts/testing/transport_impacts_20260919/verification-summary.json).

@@ -34,8 +34,6 @@ def plots_path(base_dir: Path | str) -> Path:
     return Path(base_dir) / PLOTS_DIRNAME
 
 
-def run_package_path(base_dir: Path | str) -> Path:
-    return Path(base_dir) / RUN_PACKAGE_DIRNAME
 
 
 def ensure_standard_dirs(base_dir: Path | str) -> dict[str, Path]:

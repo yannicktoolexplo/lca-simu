@@ -127,9 +127,9 @@ Le navigateur compare le périmètre affiché à une traversée indépendante de
 Les preuves de cette livraison sont dans `artifacts/testing/materials_20260919`.
 
 ```powershell
-python -m pytest -c pytest-reference.ini -o addopts= etudecas/simulation/lot_trace/test_materials.py etudecas/simulation/test_lot_trace_payload.py etudecas/simulation/test_lot_trace_view_model.py etudecas/simulation/logistics -q
-python -m etudecas.testing.material_delivery --help
-python -m etudecas.testing.material_browser_review --help
+python -m pytest -c pytest-reference.ini -o addopts= etudecas/tests/lots/test_lot_trace_procurement.py etudecas/tests/lots/test_lot_trace_payload.py etudecas/tests/lots/test_lot_trace_view_model.py etudecas/simulation/logistics -q
+python -m etudecas.visualization.maps.material_delivery --help
+python -m etudecas.testing.historical_browser material --help
 ```
 
 `material_delivery` permet d'ajouter la vue à une carte existante, dans un nouveau

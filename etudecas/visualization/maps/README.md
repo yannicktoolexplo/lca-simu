@@ -1,4 +1,40 @@
-# Map Payload Modes
+# Comprendre les fichiers de la carte
+
+Ce dossier contient le code de la carte et de ses onglets. Ses 26 fichiers de
+tests sont regroupés dans [tests/cartes](../../tests/cartes/). Il reste ici
+20 fichiers Python (dont l'initialisation du paquet), trois JavaScript, un CSS
+et deux documents. Certains outils servent aux options de recherche et de
+publication, en complément de la carte courante.
+
+| Pour comprendre… | Lire… |
+|---|---|
+| La construction complète de la carte | `build_supplychain_worldmap.py` |
+| L'interface, ses panneaux et ses onglets | `worldmap_html_template.py` |
+| Les données préparées pour l'affichage | `map_payload_builder.py`, les `*_payload.py` |
+| Les stocks, transports et valeurs affichées | `simulation_payload.py` |
+| Les informations fournisseur | `supplier_operations_payload.py`, `supplier_risk_panels.py` |
+| Les deux suivis de lots et leur interactivité | `lot_journey.js`, `lot_material_trace.js`, `map_business_ui.js` et le CSS |
+| La publication d'une carte autonome | `html_payload_tools.py`, `portable_diagnostic.py` |
+| Les publications ou enrichissements spécifiques | `material_delivery.py` (`--mode scenario` pour un scénario), `enrich_supplier_audit_archive.py`, `inject_supplier_what_if.py` |
+
+Depuis la racine du dépôt :
+
+```powershell
+# Reconstruire la carte complète avec ses quatre calculs de référence.
+python -B -m etudecas.regenerate --delivery lots
+```
+
+La vérification compare les résultats du nouveau calcul aux références et contrôle
+les interactions de la carte. Les tests ciblés doivent être relus avant exécution,
+conformément aux consignes du dépôt ; ne pas lancer automatiquement une suite complète.
+
+Les JavaScript et le CSS sont incorporés dans l'HTML : ils portent des
+interactions distinctes, comme la chronologie, les transports et l'exploration
+des lots. Le déplacement des tests ne modifie ni ces interactions ni les calculs.
+
+## Options techniques de publication
+
+### Map Payload Modes
 
 Generated maps can use three payload modes.
 
@@ -20,7 +56,7 @@ python etudecas/visualization/maps/build_supplychain_worldmap.py --compress-embe
 or post-process an existing map:
 
 ```bash
-python etudecas/visualization/maps/compress_html_payload.py --input map.html --execute
+python -m etudecas.visualization.maps.html_payload_tools --mode compressed --input map.html --execute
 ```
 
 The map remains a single HTML file. The `DATA` payload is embedded as gzip/base64
@@ -118,7 +154,7 @@ python etudecas/visualization/maps/build_supplychain_worldmap.py --chunked-embed
 or post-process an existing map:
 
 ```bash
-python etudecas/visualization/maps/chunk_html_payload.py --input map.html --execute
+python -m etudecas.visualization.maps.html_payload_tools --mode chunked --input map.html --execute
 ```
 
 The map remains a single HTML file, but every top-level `DATA` key is stored as
@@ -147,7 +183,7 @@ python etudecas/visualization/maps/build_supplychain_worldmap.py --externalize-p
 or post-process an existing map:
 
 ```bash
-python etudecas/visualization/maps/externalize_html_payload.py --input map.html --execute
+python -m etudecas.visualization.maps.html_payload_tools --mode external --input map.html --execute
 ```
 
 This produces a small HTML file and a sibling JSON payload. It is best for web

@@ -13,8 +13,8 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from etudecas.visualization.maps.chart_payloads import load_png_payload
-from etudecas.visualization.maps.map_data_loader import load_json_dict, read_csv_rows
-from etudecas.visualization.maps.map_render import render_data_table
+from etudecas.visualization.maps.map_payload_builder import load_json_dict, read_csv_rows
+from etudecas.visualization.maps.map_payload_builder import render_data_table
 
 
 CONTROL_SYSTEM_DASHBOARD_SCHEMA_VERSION = (

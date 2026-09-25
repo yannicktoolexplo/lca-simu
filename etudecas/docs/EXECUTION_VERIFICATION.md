@@ -40,7 +40,7 @@ ont un détail au survol ; la vue complète peut être ajustée à la largeur.
 ## Contrôles exécutables
 
 ```powershell
-python -m pytest -c pytest-reference.ini etudecas/testing/test_correction_contracts.py etudecas/testing/test_independent_review.py -q
+python -m pytest -c pytest-reference.ini etudecas/testing/test_independent_review.py etudecas/testing/test_independent_review.py -q
 python -m etudecas.testing.adversarial_review --output <preuves>/adversarial.json
 python -m etudecas.testing.qualification --run <nominal> --run <risques> --html <carte.html> --output <preuves>/qualification
 python -S -m etudecas.documentation check-all

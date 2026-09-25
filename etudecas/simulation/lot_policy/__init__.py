@@ -9,6 +9,7 @@ from .engine_adapter import (
     required_component_quantity,
     resolve_canonical_lane_lot,
     resolve_internal_dispatch_multiple,
+    consolidate_transport_requests,
 )
 from .models import (
     Confidence,
@@ -26,22 +27,19 @@ from .models import (
     TransportConsolidationPolicy,
     TransportRequest,
     UomPolicy,
-)
-from .operations import consolidate_transport_requests
-from .preflight import (
-    CandidateLotQuantity,
-    PreflightIssue,
-    PreflightSeverity,
-    preflight_candidate,
-    preflight_graph,
-)
-from .uom import (
     IncompatibleUomError,
     convert_quantity,
     normalize_uom,
     quantity_multiple,
     round_up_to_multiple,
     uom_dimension,
+)
+from .preflight import (
+    CandidateLotQuantity,
+    PreflightIssue,
+    PreflightSeverity,
+    preflight_candidate,
+    preflight_graph,
 )
 
 __all__ = [

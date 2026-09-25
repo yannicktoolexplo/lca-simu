@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+
 import csv
 import hashlib
 import json
@@ -663,3 +664,40 @@ def test_build_refuses_before_any_source_load_when_shards_are_active(
             scanner=lambda: [_runner_process(tmp_path)],
         )
     assert not (tmp_path.parent / "outside").exists()
+
+
+def test_checkpoint_cli_waits_without_publication_then_propagates_failure(
+    tmp_path, monkeypatch, capsys
+):
+    """The supported CLI preserves readiness=2 and never publishes an incomplete checkpoint."""
+    monkeypatch.setattr(subject, "evaluate_readiness", lambda root: {"ready": False})
+    output = tmp_path / "checkpoint"
+    assert subject.main(["--mode", "readiness", "--campaign-root", str(tmp_path)]) == 2
+    assert not output.exists()
+
+    def not_ready(**kwargs):
+        raise subject.CheckpointNotReady("two complete shards required")
+
+    monkeypatch.setattr(subject, "build_checkpoint", not_ready)
+    assert (
+        subject.main(
+            [
+                "--mode",
+                "build",
+                "--campaign-root",
+                str(tmp_path),
+                "--output-dir",
+                str(output),
+            ]
+        )
+        == 2
+    )
+    assert not output.exists()
+    assert '"status": "not_ready"' in capsys.readouterr().out
+
+    def invalid(root):
+        raise subject.CheckpointError("signature mismatch")
+
+    monkeypatch.setattr(subject, "validate_package", invalid)
+    assert subject.main(["--mode", "validate", "--output-dir", str(output)]) == 1
+    assert '"status": "failed_closed"' in capsys.readouterr().out

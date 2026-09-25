@@ -19,17 +19,26 @@ n'accepte pas une empreinte de remplacement. Le statut `content_mismatch`
 signifie « non expliqué par cette normalisation », sans conclure à une différence
 de comportement du code.
 
-Les six premières sources protégées par `text eol=lf` dans `.gitattributes` sont :
+Les six premières sources protégées par `text eol=lf` dans `.gitattributes` étaient :
 `build_industrial_supply_preliminary_complete_v3.py` et
 `supplier_operating_point_full_campaign_v2.py` et
 `supplier_balanced_product_delay_multiseed_refinement_v3.py`, ainsi que
 `launch_supplier_operating_point_full_campaign_v8.py`, et les wrappers
 `run_supplier_v8_v2_to_stage3_v3_chain_task.ps1` et
-`run_supplier_v8_v2_to_stage3_v4_chain_task.ps1`. Leur contenu LF correspond
-exactement à Git et aux empreintes attendues examinées. Les règles empêchent
+`run_supplier_v8_v2_to_stage3_v4_chain_task.ps1`. Lors de ce contrôle historique,
+leur contenu LF correspondait exactement à Git et aux empreintes examinées.
+Ce constat ne décrit pas les versions modifiées depuis. Les règles empêchent
 la conversion automatique CRLF au checkout ; elles ne corrigent pas à elles
 seules une copie de travail déjà existante. Cette politique reste limitée à
-les sources vérifiées, sans réécriture générale des artefacts historiques.
+ces sources vérifiées, sans réécriture générale des artefacts historiques.
+
+La consolidation du 23 septembre utilise un registre de révision distinct,
+`prototypes/scan_2027_risk_control/supplier_campaign_source_revision.json`.
+Ses 34 sources courantes et le registre sont protégés en LF dans Git ; les BOM
+PowerShell sont conservés. Les empreintes courantes portent sur les octets LF
+exacts, sans normalisation permissive pendant la vérification. Les anciennes
+empreintes et capsules restent inchangées. Un ancien plan ne devient pas valide
+par cette migration : une reprise exige la même révision et les mêmes intrants.
 
 Le 17 septembre, 58 autres sources ont été examinées et protégées de la même
 façon, soit 64 au total. L'[inventaire des preuves](quality/2026-09-17-frozen-sources.json)

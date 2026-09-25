@@ -6,6 +6,8 @@ Common helpers for sensitivity and Monte Carlo simulation batches.
 from __future__ import annotations
 
 import copy
+import csv
+import hashlib
 import json
 import math
 import re
@@ -34,10 +36,6 @@ def safe_name(value: str) -> str:
     return re.sub(r"[^A-Za-z0-9_-]+", "_", str(value))
 
 
-def supplier_pair_key(src: Any, dst: Any, item_id: Any) -> str:
-    return f"{str(src or '').strip()}|{str(dst or '').strip()}|{str(item_id or '').strip()}"
-
-
 def parse_supplier_pair_key(value: Any) -> tuple[str, str, str]:
     parts = str(value or "").split("|", 2)
     if len(parts) != 3 or not all(part.strip() for part in parts):
@@ -54,6 +52,217 @@ def load_json(path: Path) -> dict[str, Any]:
 def write_json(path: Path, data: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+
+
+STUDY_CASE_SCHEMA = "etudecas.sensitivity.completed-case.v1"
+STUDY_CASE_RECEIPT = "completed_case.json"
+
+
+def _study_json_hash(value: Any) -> str:
+    payload = json.dumps(
+        value, sort_keys=True, ensure_ascii=True, separators=(",", ":"), allow_nan=False,
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _study_file_hash(path: Path) -> str:
+    with path.open("rb") as handle:
+        return hashlib.file_digest(handle, "sha256").hexdigest()
+
+
+def study_case_identity(
+    *,
+    base_data: dict[str, Any],
+    config: dict[str, Any],
+    run_script: Path,
+    scenario_id: str,
+    days: int,
+    extra_args: list[str],
+    metadata: dict[str, Any],
+    dependency_paths: list[Path] | None = None,
+) -> str:
+    """Strict run identity; source and external data are reread, never cached.
+
+    Relative options have the same working-directory semantics as the runner.
+    The graph/config and ordered arguments include seeds and effective policies.
+    Both engine and study sources matter, including when a custom engine is used.
+    """
+    from etudecas.case_config import DEFAULT_CASE_CONFIG_PATH
+    from etudecas.simulation.source_fingerprint import implementation_fingerprint
+
+    dependencies = [DEFAULT_CASE_CONFIG_PATH, *(dependency_paths or [])]
+    for token in extra_args:
+        raw = str(token).split("=", 1)[-1]
+        if not raw or raw.startswith("--"):
+            continue
+        candidate = Path(raw)
+        data_suffixes = {".csv", ".json", ".xlsx", ".yaml", ".yml", ".toml", ".py"}
+        if candidate.suffix.lower() in data_suffixes or candidate.is_file():
+            dependencies.append(candidate)
+    return _study_json_hash({
+        "schema": STUDY_CASE_SCHEMA,
+        "base_data": base_data,
+        "config": config,
+        "run_script": str(run_script.resolve()),
+        "engine_sha256": _study_file_hash(run_script),
+        "implementation_sha256": implementation_fingerprint(run_script),
+        "study_implementation_sha256": implementation_fingerprint(Path(__file__)),
+        "scenario_id": scenario_id,
+        "days": days,
+        "extra_args": list(extra_args),
+        "metadata": metadata,
+        "dependencies": {str(p.resolve()): _study_file_hash(p) for p in dependencies},
+    })
+
+
+def load_completed_study_case(case_dir: Path, identity: str) -> dict[str, Any] | None:
+    """Only a matching completed receipt permits reuse; old directories are read-only."""
+    if not case_dir.exists() or not any(case_dir.iterdir()):
+        return None
+    try:
+        receipt = load_json(case_dir / STUDY_CASE_RECEIPT)
+        row = receipt["row"]
+        files = receipt["files"]
+        required_summary = {
+            "simulation_output/summaries/first_simulation_summary.json",
+            "simulation_output/first_simulation_summary.json",
+        }
+        if (
+            receipt["schema"] != STUDY_CASE_SCHEMA
+            or receipt["identity"] != identity
+            or row.get("status") != "ok"
+            or "input_case.json" not in files
+            or not required_summary.intersection(files)
+            or receipt["row_sha256"] != _study_json_hash(row)
+        ):
+            raise ValueError("case identity or result differs")
+        for name, expected in files.items():
+            path = (case_dir / name).resolve()
+            if not path.is_relative_to(case_dir.resolve()) or _study_file_hash(path) != expected:
+                raise ValueError("case input or summary differs")
+        return row
+    except (OSError, ValueError, KeyError, TypeError, AttributeError) as exc:
+        raise ValueError(
+            f"Cannot safely resume {case_dir}: missing, incomplete or mismatched "
+            "completed-case receipt. Preserve this directory and use a new output directory."
+        ) from exc
+
+
+def publish_completed_study_case(
+    case_dir: Path,
+    *,
+    identity: str,
+    current_identity: str,
+    prepared_inputs: dict[str, str],
+    row: dict[str, Any],
+) -> None:
+    """Publish after successful execution, metrics and retention, never on partial work."""
+    from etudecas.atomic_io import write_json_atomic
+
+    if identity != current_identity or row.get("status") != "ok":
+        raise ValueError("Study inputs/sources changed during execution, or case did not succeed")
+    if prepared_inputs != study_case_input_hashes(case_dir):
+        raise ValueError("Prepared study inputs changed during execution; no receipt published")
+    output = case_dir / "simulation_output"
+    summary = next((p for p in (
+        output / "summaries" / "first_simulation_summary.json",
+        output / "first_simulation_summary.json",
+    ) if p.is_file()), None)
+    if summary is None:
+        raise ValueError("Cannot publish completed case without simulation summary")
+    paths = [case_dir / "input_case.json", summary]
+    floor = case_dir / "supplier_neutral_floors_case.csv"
+    if floor.is_file():
+        paths.append(floor)
+    write_json_atomic(case_dir / STUDY_CASE_RECEIPT, {
+        "schema": STUDY_CASE_SCHEMA, "identity": identity, "row": row,
+        "row_sha256": _study_json_hash(row),
+        "files": {p.relative_to(case_dir).as_posix(): _study_file_hash(p) for p in paths},
+    })
+
+
+def study_case_input_hashes(case_dir: Path) -> dict[str, str]:
+    """Capture the exact prepared files before launching the engine."""
+    paths = [case_dir / "input_case.json"]
+    floor = case_dir / "supplier_neutral_floors_case.csv"
+    if floor.is_file():
+        paths.append(floor)
+    return {p.name: _study_file_hash(p) for p in paths}
+
+
+def base_sensitivity_case() -> dict[str, Any]:
+    return {
+        "factors": {
+            "demand_scale": 1.0,
+            "lead_time_scale": 1.0,
+            "transport_cost_scale": 1.0,
+            "supplier_stock_scale": 1.0,
+            "production_stock_scale": 1.0,
+            "capacity_scale": 1.0,
+            "supplier_capacity_scale": 1.0,
+            "safety_stock_days_scale": 1.0,
+            "supplier_reliability_scale": 1.0,
+        },
+        "demand_item_scale": {},
+        "capacity_node_scale": {},
+        "supplier_node_scale": {},
+        "supplier_capacity_node_scale": {},
+        "edge_src_lead_time_scale": {},
+        "edge_src_reliability_scale": {},
+    }
+
+
+def clone_sensitivity_case(case_cfg: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "factors": dict(case_cfg["factors"]),
+        "demand_item_scale": dict(case_cfg["demand_item_scale"]),
+        "capacity_node_scale": dict(case_cfg["capacity_node_scale"]),
+        "supplier_node_scale": dict(case_cfg["supplier_node_scale"]),
+        "supplier_capacity_node_scale": dict(case_cfg["supplier_capacity_node_scale"]),
+        "edge_src_lead_time_scale": dict(case_cfg["edge_src_lead_time_scale"]),
+        "edge_src_reliability_scale": dict(case_cfg["edge_src_reliability_scale"]),
+    }
+
+
+def detect_supplier_nodes(data: dict[str, Any]) -> list[str]:
+    outgoing_sources = {
+        str(edge.get("from"))
+        for edge in (data.get("edges") or [])
+        if edge.get("from") is not None
+    }
+    out: list[str] = []
+    for node in data.get("nodes", []) or []:
+        node_id = str(node.get("id"))
+        if str(node.get("type") or "") == "supplier_dc" and node_id in outgoing_sources:
+            out.append(node_id)
+    return sorted(set(out))
+
+
+def select_active_suppliers(
+    shipment_csv: Path,
+    allowed_suppliers: set[str],
+    top_n: int,
+) -> list[str]:
+    shipped_qty_by_supplier: dict[str, float] = {}
+    if shipment_csv.exists():
+        with shipment_csv.open("r", encoding="utf-8", newline="") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                src = str(row.get("src_node_id") or "")
+                if src not in allowed_suppliers:
+                    continue
+                shipped_qty_by_supplier[src] = shipped_qty_by_supplier.get(src, 0.0) + max(
+                    0.0,
+                    to_float(row.get("shipped_qty"), 0.0),
+                )
+    ordered = sorted(
+        shipped_qty_by_supplier.items(),
+        key=lambda it: (-it[1], it[0]),
+    )
+    selected = [supplier for supplier, qty in ordered if qty > 1e-9][:top_n]
+    if not selected:
+        selected = sorted(allowed_suppliers)[:top_n]
+    return selected
 
 
 def choose_scenario(data: dict[str, Any], scenario_id: str) -> dict[str, Any]:
@@ -433,6 +642,8 @@ def run_simulation(
     skip_plots: bool = True,
     extra_args: list[str] | None = None,
     use_living_initial_state: bool = True,
+    *,
+    timeout_seconds: float | None = None,
 ) -> tuple[dict[str, Any], str]:
     output_dir.mkdir(parents=True, exist_ok=True)
     cmd = [
@@ -455,7 +666,10 @@ def run_simulation(
     if merged_extra_args:
         cmd.extend(merged_extra_args)
 
-    proc = subprocess.run(cmd, capture_output=True, text=True)
+    if timeout_seconds is None:
+        proc = subprocess.run(cmd, capture_output=True, text=True)
+    else:
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout_seconds)
     if proc.returncode != 0:
         stderr = proc.stderr.strip()
         stdout = proc.stdout.strip()

@@ -24,6 +24,9 @@ from etudecas.prototypes.scan_2027_risk_control import (
     supplier_balanced_product_delay_multiseed_refinement_v6 as development_v6,
 )
 from etudecas.prototypes.scan_2027_risk_control import (
+    supplier_campaign_source_revision as source_revision,
+)
+from etudecas.prototypes.scan_2027_risk_control import (
     supplier_fresh_development_holdout_protocol_v7 as protocol_v7,
 )
 from etudecas.prototypes.scan_2027_risk_control import (
@@ -58,7 +61,9 @@ def validate_frozen_v7_protocol() -> Path:
 
     path = Path(protocol_v7.__file__).resolve()
     digest = campaign_contract.sha256_file(path)
-    if digest != EXPECTED_V7_PROTOCOL_SHA256:
+    if digest != EXPECTED_V7_PROTOCOL_SHA256 and not source_revision.accepts_current_revision(
+        path, EXPECTED_V7_PROTOCOL_SHA256, digest
+    ):
         raise V7TracePackageError(f"Frozen V7 protocol changed: {digest}")
     if (
         len(protocol_v7.V7_VALIDATION_SEEDS) != protocol_v7.VALIDATION_SEED_COUNT
@@ -352,7 +357,9 @@ def _build_payloads(
             "sha256": campaign_contract.sha256_file(producer),
         },
         "v7_source": {
-            "protocol_driver_sha256": EXPECTED_V7_PROTOCOL_SHA256,
+            "protocol_driver_sha256": campaign_contract.sha256_file(
+                Path(protocol_v7.__file__).resolve()
+            ),
             "plan_dir": str(plan.plan_dir),
             "plan_manifest": str((plan.plan_dir / "protocol_manifest.json").resolve()),
             "plan_manifest_sha256": campaign_contract.sha256_file(

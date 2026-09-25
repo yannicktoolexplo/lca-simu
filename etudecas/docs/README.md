@@ -24,7 +24,8 @@ validation industrielle.
 
 ## Modifier le logiciel
 
-- [Valider une modification](TEST_VALIDATION.md) : dépendances, périmètre de référence et lecture des résultats de tests.
+- [Comprendre et simplifier les fichiers Python](PLAN_SIMPLIFICATION.md) : parcours courant par étude, cible de refonte, dépendances et priorités ; [tableau filtrable par fichier](INVENTAIRE_PYTHON.csv).
+- [Valider une modification](TEST_VALIDATION.md) : tests relus et sélectionnés, comparaisons numériques et limites des preuves.
 - [Utiliser les fixtures](TEST_FIXTURES.md) : données de test autonomes et intégrations historiques explicites.
 - [Travailler avec les agents Codex](MULTI_AGENT_OPERATIONNEL.md) : rôles, périmètres de modification et toolbox locale.
 - [Mettre à jour la documentation du code](AUTOMATION.md) : règles, références, génération et revue des empreintes.
@@ -45,11 +46,12 @@ validation industrielle.
 
 ## Consulter les livraisons et l'historique
 
-Le [bilan de livraison](PROJECT_STATUS.md) identifie les résultats courants et
-leurs limites. Les documents suivants décrivent des états datés :
+L'[accueil des résultats](../index.html) donne accès aux quatre présentations
+conservées ; le [guide de reconstruction](REGENERER_RESULTATS.md) précise leurs
+entrées et leurs limites. Les audits, bilans de livraison et anciennes notes de
+changement sont regroupés dans les [archives](../archive/README.md), avec leurs
+chemins d'origine. Leurs résultats décrivent l'état audité à leur date.
 
-- [Corrections intégrées le 20 septembre](changes/2026-09-20-audit-integrated-corrections.md) et [contre-vérification de la carte](changes/2026-09-20-final-map-numeric-verification.md).
-- [Audit initial du 20 septembre](audit_20260920/README.md).
-- [Revue des fichiers depuis le dernier commit](audit_since_head_20260920/README.md) : périmètre, constats et corrections proposées, sans modification du code pendant cette revue.
-- [Livraison de carte du 18 septembre](MAP_DELIVERY.md) et [recontrôle associé](../../CORRECTIONS_ETUDECAS_2026-09-18.md).
-- [Notes de changements](changes/) : interventions et limites constatées à chaque livraison.
+Deux notes restent dans `changes/` parce que le catalogue les utilise comme
+sources métier : [conventions corrigées du modèle](changes/2026-09-20-audit-model-corrections.md)
+et [coûts et arrondis](changes/2026-09-20-cost-rounding-README.md).

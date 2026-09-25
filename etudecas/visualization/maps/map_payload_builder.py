@@ -1,13 +1,17 @@
+"""Shared map data loading, graph contracts and reusable HTML panel formatting."""
 from __future__ import annotations
-
-from dataclasses import dataclass
+import csv, json, math, html
+from pathlib import Path
 from typing import Any, Iterable
-
+from dataclasses import dataclass
 from etudecas.case_config import (
     display_node_id as case_display_node_id,
     is_upstream_internal_site as case_is_upstream_internal_site,
     standard_order_override,
 )
+
+
+
 
 
 NODE_TYPE_STYLES = {
@@ -311,3 +315,175 @@ def attach_generic_payload_contract(payload: dict[str, Any]) -> dict[str, Any]:
     out = dict(payload)
     out["generic"] = build_generic_payload_contract(payload)
     return out
+
+
+# Consolidated from map_data_loader: unchanged business definitions.
+
+def _map_value_float(value: Any) -> float | None:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def load_json_dict(json_path: Path) -> dict[str, Any]:
+    try:
+        data = json.loads(json_path.read_text(encoding="utf-8")) if json_path.exists() else {}
+    except Exception:
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def read_csv_rows(csv_path: Path) -> list[dict[str, str]]:
+    if not csv_path.exists():
+        nested_data_path = csv_path.parent / "data" / csv_path.name
+        if nested_data_path.exists():
+            csv_path = nested_data_path
+    if not csv_path.exists():
+        return []
+    with csv_path.open("r", encoding="utf-8", newline="") as f:
+        return list(csv.DictReader(f))
+
+
+def output_root_from_csv(csv_path: Path) -> Path:
+    if csv_path.parent.name == "data":
+        return csv_path.parent.parent
+    return csv_path.parent
+
+
+def read_timeline_horizon_days(output_root: Path) -> int | None:
+    summary = load_json_dict(output_root / "summaries" / "first_simulation_summary.json")
+    for key in ("timeline_days", "sim_days", "total_simulated_timeline_days"):
+        value = _map_value_float(summary.get(key))
+        if value is not None and value > 0:
+            return int(math.ceil(value))
+    return None
+
+# Consolidated from map_render: unchanged business definitions.
+
+def render_json_panel_html(title: str, description: str, data: Any) -> str:
+    pretty = json.dumps(data, indent=2, ensure_ascii=False, sort_keys=True)
+    return "".join(
+        [
+            "<div class=\"factoryHtmlPanelContent jsonPanelContent\">",
+            f"<div class=\"orderLedgerTextHeader\">{html.escape(title)}</div>",
+            f"<div class=\"orderLedgerStatus\">{html.escape(description)}</div>",
+            "<div class=\"jsonPanelPreWrap\">",
+            f"<pre class=\"jsonPanelPre\">{html.escape(pretty)}</pre>",
+            "</div>",
+            "</div>",
+        ]
+    )
+
+
+def json_html_asset(title: str, description: str, data: Any) -> dict[str, str]:
+    return {
+        "html": render_json_panel_html(title, description, data),
+    }
+
+
+def render_data_table(headers: list[str], rows: list[list[Any]]) -> str:
+    if not rows:
+        return "<div class=\"panelEmptyState dataEmptyState\">Aucune donnee disponible.</div>"
+    header_html = "".join(f"<th>{html.escape(str(header))}</th>" for header in headers)
+    body_html = "".join(
+        "<tr>"
+        + "".join(f"<td>{html.escape(str(cell if cell is not None else 'n/a'))}</td>" for cell in row)
+        + "</tr>"
+        for row in rows
+    )
+    return (
+        "<div class=\"dataSummaryTableWrap\">"
+        "<table class=\"dataSummaryTable\">"
+        f"<thead><tr>{header_html}</tr></thead>"
+        f"<tbody>{body_html}</tbody>"
+        "</table>"
+        "</div>"
+    )
+
+
+def render_data_kv(rows: list[tuple[str, Any]]) -> str:
+    if not rows:
+        return ""
+    return "".join(
+        [
+            "<div class=\"dataKvGrid\">",
+            *(
+                f"<div class=\"dataKvLabel\">{html.escape(str(label))}</div>"
+                f"<div class=\"dataKvValue\">{html.escape(str(value if value not in (None, '') else 'n/a'))}</div>"
+                for label, value in rows
+            ),
+            "</div>",
+        ]
+    )
+
+
+def html_tooltip_attrs(tooltip: str | None) -> str:
+    return f" data-tooltip=\"{html.escape(tooltip, quote=True)}\" tabindex=\"0\"" if tooltip else ""
+
+
+def html_tooltip_class(base_class: str, tooltip: str | None) -> str:
+    base = base_class.strip()
+    if not tooltip:
+        return base
+    return f"{base} riskTooltipHost".strip()
+
+
+def render_data_panel_html(title: str, subtitle: str, sections: list[tuple[str, str]]) -> str:
+    section_parts: list[str] = []
+    for section_title, content in sections:
+        section_parts.extend(
+            [
+                "<section class=\"dataSummarySection\">",
+                f"<div class=\"dataSummarySectionTitle\">{html.escape(section_title)}</div>",
+                content,
+                "</section>",
+            ]
+        )
+    section_html = "".join(section_parts)
+    return "".join(
+        [
+            "<div class=\"factoryHtmlPanelContent dataSummaryPanelContent\">",
+            f"<div class=\"orderLedgerTextHeader\">{html.escape(title)}</div>",
+            f"<div class=\"orderLedgerStatus\">{html.escape(subtitle)}</div>",
+            "<div class=\"dataSummaryScroll\">",
+            section_html,
+            "</div>",
+            "</div>",
+        ]
+    )
+
+
+def data_html_asset(title: str, subtitle: str, sections: list[tuple[str, str]]) -> dict[str, str]:
+    return {
+        "html": render_data_panel_html(title, subtitle, sections),
+    }
+
+
+def metric_label_value(label: str, value: Any) -> dict[str, str]:
+    return {"label": label, "value": str(value)}
+
+
+def metric_section(title: str) -> dict[str, str]:
+    return {"label": title, "value": ""}
+
+
+def fmt_qty(value: Any, digits: int = 1) -> str:
+    numeric = _map_value_float(value)
+    if numeric is None or math.isnan(numeric):
+        return "n/a"
+    return f"{numeric:,.{digits}f}".replace(",", " ")
+
+
+def fmt_days(value: Any, digits: int = 1) -> str:
+    numeric = _map_value_float(value)
+    if numeric is None or math.isnan(numeric):
+        return "n/a"
+    return f"{numeric:.{digits}f} j"
+
+
+def fmt_pct(value: Any, digits: int = 1) -> str:
+    numeric = _map_value_float(value)
+    if numeric is None or math.isnan(numeric):
+        return "n/a"
+    return f"{numeric:.{digits}f}%"

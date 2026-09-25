@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import argparse
 import csv
-import json
 import math
 import sys
 from datetime import datetime, timezone
@@ -25,17 +24,23 @@ if str(REPO_ROOT) not in sys.path:
 
 from etudecas.simulation.analysis_batch_common import (  # noqa: E402
     apply_scales,
+    detect_supplier_nodes,
+    select_active_suppliers,
     choose_scenario,
     detect_demand_items,
     detect_production_nodes,
     load_json,
     numeric_kpis,
+    study_case_identity,
+    study_case_input_hashes,
+    load_completed_study_case,
+    publish_completed_study_case,
     prune_simulation_output,
     run_simulation,
-    safe_name,
     to_float,
     write_json,
 )
+from etudecas.simulation.initial_state_policy import merge_living_initial_state_args  # noqa: E402
 from etudecas.simulation.sensibility.case_naming import threshold_case_id  # noqa: E402
 
 
@@ -145,44 +150,6 @@ def clone_case_config(case_cfg: dict[str, Any]) -> dict[str, Any]:
         "scenario_scalars": dict(case_cfg["scenario_scalars"]),
         "scenario_flags": dict(case_cfg["scenario_flags"]),
     }
-
-
-def detect_supplier_nodes(data: dict[str, Any]) -> list[str]:
-    outgoing_sources = {
-        str(edge.get("from"))
-        for edge in (data.get("edges") or [])
-        if edge.get("from") is not None
-    }
-    out: list[str] = []
-    for node in data.get("nodes", []) or []:
-        node_id = str(node.get("id"))
-        if str(node.get("type") or "") == "supplier_dc" and node_id in outgoing_sources:
-            out.append(node_id)
-    return sorted(set(out))
-
-
-def select_active_suppliers(
-    shipment_csv: Path,
-    allowed_suppliers: set[str],
-    top_n: int,
-) -> list[str]:
-    shipped_qty_by_supplier: dict[str, float] = {}
-    if shipment_csv.exists():
-        with shipment_csv.open("r", encoding="utf-8", newline="") as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                src = str(row.get("src_node_id") or "")
-                if src not in allowed_suppliers:
-                    continue
-                shipped_qty_by_supplier[src] = shipped_qty_by_supplier.get(src, 0.0) + max(
-                    0.0,
-                    to_float(row.get("shipped_qty"), 0.0),
-                )
-    ordered = sorted(shipped_qty_by_supplier.items(), key=lambda it: (-it[1], it[0]))
-    selected = [supplier for supplier, qty in ordered if qty > 1e-9][:top_n]
-    if not selected:
-        selected = sorted(allowed_suppliers)[:top_n]
-    return selected
 
 
 def parameter_specs(
@@ -418,46 +385,52 @@ def run_case(
     case_dir = cases_root / case_id
     case_input = case_dir / "input_case.json"
     case_output = case_dir / "simulation_output"
-    case_dir.mkdir(parents=True, exist_ok=True)
-    summary_path_candidates = [
-        case_output / "summaries" / "first_simulation_summary.json",
-        case_output / "first_simulation_summary.json",
-    ]
-    summary_file = next((path for path in summary_path_candidates if path.exists()), None)
-    if summary_file is not None and case_input.exists():
-        summary = load_json(summary_file)
-    else:
-        mutated = apply_scales(
-            base_data=base_data,
-            scenario_id=scenario_id,
-            factors=config["factors"],
-            demand_item_scale=config["demand_item_scale"],
-            capacity_node_scale=config["capacity_node_scale"],
-            supplier_node_scale=config["supplier_node_scale"],
-            supplier_capacity_node_scale=config["supplier_capacity_node_scale"],
-            edge_src_lead_time_scale=config["edge_src_lead_time_scale"],
-            edge_src_reliability_scale=config["edge_src_reliability_scale"],
-        )
-        scn = choose_scenario(mutated, scenario_id)
-        for key, value in config["scenario_scalars"].items():
-            scn[str(key)] = round(max(0.0, to_float(value, 0.0)), 6)
-        if config["scenario_flags"]:
-            econ = scn.get("economic_policy")
-            if not isinstance(econ, dict):
-                econ = {}
-            for key, value in config["scenario_flags"].items():
-                econ[str(key)] = bool(value)
-            scn["economic_policy"] = econ
-        write_json(case_input, mutated)
-        summary, _ = run_simulation(
-            run_script=run_script,
-            input_json=case_input,
-            output_dir=case_output,
-            scenario_id=scenario_id,
-            days=days,
-            skip_map=True,
-            skip_plots=True,
-        )
+    identity_args = dict(
+        base_data=base_data, config=config, run_script=run_script,
+        scenario_id=scenario_id, days=days,
+        extra_args=merge_living_initial_state_args([]),
+        metadata={"study": "threshold", "case_id": case_id,
+                  "parameter_key": parameter_key, "parameter_group": parameter_group,
+                  "parameter_label": parameter_label, "realism_focus": realism_focus,
+                  "level": level, "artifact_mode": artifact_mode,
+                  "retain_detail": retain_detail, "case_dir": str(case_dir.resolve())},
+    )
+    identity = study_case_identity(**identity_args)
+    completed = load_completed_study_case(case_dir, identity)
+    if completed is not None:
+        return completed
+    mutated = apply_scales(
+        base_data=base_data,
+        scenario_id=scenario_id,
+        factors=config["factors"],
+        demand_item_scale=config["demand_item_scale"],
+        capacity_node_scale=config["capacity_node_scale"],
+        supplier_node_scale=config["supplier_node_scale"],
+        supplier_capacity_node_scale=config["supplier_capacity_node_scale"],
+        edge_src_lead_time_scale=config["edge_src_lead_time_scale"],
+        edge_src_reliability_scale=config["edge_src_reliability_scale"],
+    )
+    scn = choose_scenario(mutated, scenario_id)
+    for key, value in config["scenario_scalars"].items():
+        scn[str(key)] = round(max(0.0, to_float(value, 0.0)), 6)
+    if config["scenario_flags"]:
+        econ = scn.get("economic_policy")
+        if not isinstance(econ, dict):
+            econ = {}
+        for key, value in config["scenario_flags"].items():
+            econ[str(key)] = bool(value)
+        scn["economic_policy"] = econ
+    write_json(case_input, mutated)
+    prepared_inputs = study_case_input_hashes(case_dir)
+    summary, _ = run_simulation(
+        run_script=run_script,
+        input_json=case_input,
+        output_dir=case_output,
+        scenario_id=scenario_id,
+        days=days,
+        skip_map=True,
+        skip_plots=True,
+    )
     if artifact_mode == "compact" and not retain_detail:
         prune_simulation_output(case_output)
     row: dict[str, Any] = {
@@ -473,6 +446,11 @@ def run_case(
     }
     for key, value in numeric_kpis(summary).items():
         row[f"kpi::{key}"] = value
+    publish_completed_study_case(
+        case_dir, identity=identity,
+        prepared_inputs=prepared_inputs,
+        current_identity=study_case_identity(**identity_args), row=row,
+    )
     return row
 
 

@@ -29,8 +29,8 @@ Références :
 - contract : [WINDOWS_RETRY_ERRORS](<../../../atomic_io.py#L20>)
 - implementation : [write_json_atomic](<../../../atomic_io.py#L62>)
 - implementation : [write_csv_atomic](<../../../atomic_io.py#L70>)
-- test : [test_transient_replacement_preserves_old_file_until_success](<../../../test_atomic_io.py#L18>)
-- test : [test_persistent_or_unrelated_failure_propagates](<../../../test_atomic_io.py#L43>)
+- test : [test_transient_replacement_preserves_old_file_until_success](<../../../tests/commun/test_atomic_io.py#L18>)
+- test : [test_persistent_or_unrelated_failure_propagates](<../../../tests/commun/test_atomic_io.py#L43>)
 
 ### CALIBRATION-EXECUTION-002 — Conserver l'identité de l'exécution et du checkpoint
 
@@ -48,14 +48,14 @@ Sources métier : [CALIBRATION_EXECUTION.md](<../../CALIBRATION_EXECUTION.md>)
 
 Références :
 
-- implementation : [_campaign_signature](<../../../prototypes/scan_2027_risk_control/supplier_service_regime_calibration_runner_v2.py#L347>)
-- implementation : [_base_manifest](<../../../prototypes/scan_2027_risk_control/supplier_service_regime_calibration_runner_v2.py#L1061>)
-- implementation : [run_calibration](<../../../prototypes/scan_2027_risk_control/supplier_service_regime_calibration_runner_v2.py#L1108>)
-- implementation : [_load_ledger](<../../../prototypes/scan_2027_risk_control/supplier_service_regime_calibration_runner_v2.py#L678>)
-- test : [test_screen_checkpoint_and_resume_adds_only_seeds_16_to_30](<../../../prototypes/scan_2027_risk_control/tests/test_supplier_service_regime_calibration_runner.py#L190>)
-- test : [test_v2_refuses_v1_output_without_changing_it](<../../../prototypes/scan_2027_risk_control/tests/test_calibration_atomic_v2.py#L28>)
-- test : [test_failed_ledger_commit_cannot_be_silently_resumed](<../../../prototypes/scan_2027_risk_control/tests/test_calibration_atomic_v2.py#L82>)
-- test : [test_io_source_is_bound_to_signature_and_manifest](<../../../prototypes/scan_2027_risk_control/tests/test_calibration_atomic_v2.py#L40>)
+- implementation : [_campaign_signature](<../../../prototypes/scan_2027_risk_control/supplier_service_regime_calibration_runner.py#L348>)
+- implementation : [_base_manifest](<../../../prototypes/scan_2027_risk_control/supplier_service_regime_calibration_runner.py#L1062>)
+- implementation : [run_calibration](<../../../prototypes/scan_2027_risk_control/supplier_service_regime_calibration_runner.py#L1109>)
+- implementation : [_load_ledger](<../../../prototypes/scan_2027_risk_control/supplier_service_regime_calibration_runner.py#L679>)
+- test : [test_screen_checkpoint_and_resume_adds_only_seeds_16_to_30](<../../../prototypes/scan_2027_risk_control/tests/test_supplier_service_regime_calibration_runner.py#L182>)
+- test : [test_current_runner_refuses_v1_output_without_changing_it](<../../../prototypes/scan_2027_risk_control/tests/test_supplier_service_regime_calibration_runner.py#L354>)
+- test : [test_failed_ledger_commit_cannot_be_silently_resumed](<../../../prototypes/scan_2027_risk_control/tests/test_supplier_service_regime_calibration_runner.py#L459>)
+- test : [test_io_source_is_bound_to_signature_and_manifest](<../../../prototypes/scan_2027_risk_control/tests/test_supplier_service_regime_calibration_runner.py#L418>)
 
 ### CALIBRATION-EXECUTION-003 — Distinguer robustesse technique et validation métier
 
@@ -73,9 +73,9 @@ Sources métier : [CALIBRATION_EXECUTION.md](<../../CALIBRATION_EXECUTION.md>)
 
 Références :
 
-- implementation : [_base_manifest](<../../../prototypes/scan_2027_risk_control/supplier_service_regime_calibration_runner_v2.py#L1061>)
-- implementation : [run_calibration](<../../../prototypes/scan_2027_risk_control/supplier_service_regime_calibration_runner_v2.py#L1108>)
-- test : [test_screen_checkpoint_and_resume_adds_only_seeds_16_to_30](<../../../prototypes/scan_2027_risk_control/tests/test_supplier_service_regime_calibration_runner.py#L190>)
+- implementation : [_base_manifest](<../../../prototypes/scan_2027_risk_control/supplier_service_regime_calibration_runner.py#L1062>)
+- implementation : [run_calibration](<../../../prototypes/scan_2027_risk_control/supplier_service_regime_calibration_runner.py#L1109>)
+- test : [test_screen_checkpoint_and_resume_adds_only_seeds_16_to_30](<../../../prototypes/scan_2027_risk_control/tests/test_supplier_service_regime_calibration_runner.py#L182>)
 
 ## Référence technique extraite
 
@@ -131,7 +131,7 @@ WINDOWS_RETRY_ERRORS = frozenset({5, 32, 33})
 
 ### transient-test
 
-[etudecas/test_atomic_io.py:18](<../../../test_atomic_io.py#L18>)
+[etudecas/tests/commun/test_atomic_io.py:18](<../../../tests/commun/test_atomic_io.py#L18>)
 
 ```python
 def test_transient_replacement_preserves_old_file_until_success(tmp_path, monkeypatch, code):
@@ -139,7 +139,7 @@ def test_transient_replacement_preserves_old_file_until_success(tmp_path, monkey
 
 ### persistent-test
 
-[etudecas/test_atomic_io.py:43](<../../../test_atomic_io.py#L43>)
+[etudecas/tests/commun/test_atomic_io.py:43](<../../../tests/commun/test_atomic_io.py#L43>)
 
 ```python
 def test_persistent_or_unrelated_failure_propagates(tmp_path, monkeypatch, code, attempt_count):
@@ -147,7 +147,7 @@ def test_persistent_or_unrelated_failure_propagates(tmp_path, monkeypatch, code,
 
 ### signature
 
-[etudecas/prototypes/scan_2027_risk_control/supplier_service_regime_calibration_runner_v2.py:347](<../../../prototypes/scan_2027_risk_control/supplier_service_regime_calibration_runner_v2.py#L347>)
+[etudecas/prototypes/scan_2027_risk_control/supplier_service_regime_calibration_runner.py:348](<../../../prototypes/scan_2027_risk_control/supplier_service_regime_calibration_runner.py#L348>)
 
 ```python
 def _campaign_signature(plan: ValidatedPlan, *, smoke_only: bool) -> str:
@@ -155,7 +155,7 @@ def _campaign_signature(plan: ValidatedPlan, *, smoke_only: bool) -> str:
 
 ### manifest
 
-[etudecas/prototypes/scan_2027_risk_control/supplier_service_regime_calibration_runner_v2.py:1061](<../../../prototypes/scan_2027_risk_control/supplier_service_regime_calibration_runner_v2.py#L1061>)
+[etudecas/prototypes/scan_2027_risk_control/supplier_service_regime_calibration_runner.py:1062](<../../../prototypes/scan_2027_risk_control/supplier_service_regime_calibration_runner.py#L1062>)
 
 ```python
 def _base_manifest(*, plan: ValidatedPlan, signature: str, output_dir: Path, workers: int, retention: str, custom_executor_used: bool, smoke_only: bool) -> dict[str, Any]:
@@ -163,7 +163,7 @@ def _base_manifest(*, plan: ValidatedPlan, signature: str, output_dir: Path, wor
 
 ### run
 
-[etudecas/prototypes/scan_2027_risk_control/supplier_service_regime_calibration_runner_v2.py:1108](<../../../prototypes/scan_2027_risk_control/supplier_service_regime_calibration_runner_v2.py#L1108>)
+[etudecas/prototypes/scan_2027_risk_control/supplier_service_regime_calibration_runner.py:1109](<../../../prototypes/scan_2027_risk_control/supplier_service_regime_calibration_runner.py#L1109>)
 
 ```python
 def run_calibration(*, plan_dir: Path, output_dir: Path, mode: str, workers: int=2, retention: str='summary', checkpoint_after_repetitions: int | None=None, case_executor: CaseExecutor | None=None) -> dict[str, Any]:
@@ -171,7 +171,7 @@ def run_calibration(*, plan_dir: Path, output_dir: Path, mode: str, workers: int
 
 ### ledger
 
-[etudecas/prototypes/scan_2027_risk_control/supplier_service_regime_calibration_runner_v2.py:678](<../../../prototypes/scan_2027_risk_control/supplier_service_regime_calibration_runner_v2.py#L678>)
+[etudecas/prototypes/scan_2027_risk_control/supplier_service_regime_calibration_runner.py:679](<../../../prototypes/scan_2027_risk_control/supplier_service_regime_calibration_runner.py#L679>)
 
 ```python
 def _load_ledger(output_dir: Path, signature: str) -> dict[str, Any]:
@@ -179,7 +179,7 @@ def _load_ledger(output_dir: Path, signature: str) -> dict[str, Any]:
 
 ### checkpoint-test
 
-[etudecas/prototypes/scan_2027_risk_control/tests/test_supplier_service_regime_calibration_runner.py:190](<../../../prototypes/scan_2027_risk_control/tests/test_supplier_service_regime_calibration_runner.py#L190>)
+[etudecas/prototypes/scan_2027_risk_control/tests/test_supplier_service_regime_calibration_runner.py:182](<../../../prototypes/scan_2027_risk_control/tests/test_supplier_service_regime_calibration_runner.py#L182>)
 
 ```python
 def test_screen_checkpoint_and_resume_adds_only_seeds_16_to_30(tmp_path: Path, synthetic_plan) -> None:
@@ -187,24 +187,24 @@ def test_screen_checkpoint_and_resume_adds_only_seeds_16_to_30(tmp_path: Path, s
 
 ### version-test
 
-[etudecas/prototypes/scan_2027_risk_control/tests/test_calibration_atomic_v2.py:28](<../../../prototypes/scan_2027_risk_control/tests/test_calibration_atomic_v2.py#L28>)
+[etudecas/prototypes/scan_2027_risk_control/tests/test_supplier_service_regime_calibration_runner.py:354](<../../../prototypes/scan_2027_risk_control/tests/test_supplier_service_regime_calibration_runner.py#L354>)
 
 ```python
-def test_v2_refuses_v1_output_without_changing_it(tmp_path, monkeypatch, plan):
+def test_current_runner_refuses_v1_output_without_changing_it(tmp_path, synthetic_plan):
 ```
 
 ### orphan-test
 
-[etudecas/prototypes/scan_2027_risk_control/tests/test_calibration_atomic_v2.py:82](<../../../prototypes/scan_2027_risk_control/tests/test_calibration_atomic_v2.py#L82>)
+[etudecas/prototypes/scan_2027_risk_control/tests/test_supplier_service_regime_calibration_runner.py:459](<../../../prototypes/scan_2027_risk_control/tests/test_supplier_service_regime_calibration_runner.py#L459>)
 
 ```python
-def test_failed_ledger_commit_cannot_be_silently_resumed(tmp_path, monkeypatch, plan):
+def test_failed_ledger_commit_cannot_be_silently_resumed(tmp_path, monkeypatch, synthetic_plan):
 ```
 
 ### binding-test
 
-[etudecas/prototypes/scan_2027_risk_control/tests/test_calibration_atomic_v2.py:40](<../../../prototypes/scan_2027_risk_control/tests/test_calibration_atomic_v2.py#L40>)
+[etudecas/prototypes/scan_2027_risk_control/tests/test_supplier_service_regime_calibration_runner.py:418](<../../../prototypes/scan_2027_risk_control/tests/test_supplier_service_regime_calibration_runner.py#L418>)
 
 ```python
-def test_io_source_is_bound_to_signature_and_manifest(plan, tmp_path, monkeypatch):
+def test_io_source_is_bound_to_signature_and_manifest(synthetic_plan, tmp_path, monkeypatch):
 ```

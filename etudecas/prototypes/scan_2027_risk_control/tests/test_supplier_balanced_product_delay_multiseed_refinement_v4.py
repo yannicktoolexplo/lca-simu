@@ -541,14 +541,14 @@ def test_decision_plan_and_canonical_validation_without_execution(
     assert validated.manifest["new_development_case_count"] == 120
     assert not (tmp_path / "run").exists()
     runtime = validated.manifest["runtime_dependencies"]
-    assert runtime["file_count"] == len(runtime["files"]) == 44
+    assert runtime["file_count"] == len(runtime["files"]) == 40
     assert [row["path"] for row in runtime["files"]] == list(
         v4.RUNTIME_DEPENDENCY_RELATIVE_PATHS
     )
     assert runtime["aggregate_sha256"] == v4.stable_sha256(
         {
             "schema_version": v4.RUNTIME_DEPENDENCY_SCHEMA_VERSION,
-            "file_count": 44,
+            "file_count": 40,
             "files": runtime["files"],
         }
     )
@@ -1362,3 +1362,42 @@ def test_interrupted_development_resumes_only_missing_cases(
     assert all(thread_id == orchestrator_thread for thread_id, _ in progress_writes)
     selection = v4.finalize_stage(plan, run, stage="development", test_only=True)
     assert selection["status"] == "development_selected_pending_fresh_holdout"
+
+
+@pytest.mark.parametrize("schema,paths,count", [
+    (v4.HISTORICAL_RUNTIME_DEPENDENCY_SCHEMA_VERSION, v4.HISTORICAL_RUNTIME_DEPENDENCY_RELATIVE_PATHS, 44),
+    (v4.PREVIOUS_RUNTIME_DEPENDENCY_SCHEMA_VERSION, v4.PREVIOUS_RUNTIME_DEPENDENCY_RELATIVE_PATHS, 40),
+])
+def test_historical_runtime_inventory_is_readable_but_not_current(schema, paths, count):
+    from types import SimpleNamespace
+    rows = [{"path": path, "sha256": "a" * 64}
+            for path in paths]
+    assert len(rows) == count
+    unsigned = {"schema_version": schema,
+                "file_count": count, "files": rows}
+    historical = {**unsigned, "aggregate_sha256": v4.stable_sha256(unsigned)}
+    assert v4._validate_runtime_dependency_inventory(historical) == historical
+    with pytest.raises(v4.V4ProtocolError):
+        v4._assert_runtime_dependencies_current(SimpleNamespace(manifest={"runtime_dependencies": historical}))
+    invalid = {**historical, "aggregate_sha256": "b" * 64}
+    with pytest.raises(v4.V4ProtocolError):
+        v4._validate_runtime_dependency_inventory(invalid)
+
+
+def test_current_runtime_inventory_binds_atomic_publication():
+    import hashlib
+    from types import SimpleNamespace
+
+    inventory = v4._runtime_dependency_inventory_from_worktree()
+    assert inventory["file_count"] == 41
+    files = {row["path"]: row["sha256"] for row in inventory["files"]}
+    atomic_source = v4.REPO_ROOT / "etudecas/atomic_io.py"
+    assert files["etudecas/atomic_io.py"] == hashlib.sha256(atomic_source.read_bytes()).hexdigest()
+    v4._assert_runtime_dependencies_current(SimpleNamespace(manifest={"runtime_dependencies": inventory}))
+    for row in inventory["files"]:
+        if row["path"] == "etudecas/atomic_io.py":
+            row["sha256"] = "a" * 64
+    unsigned = {key: value for key, value in inventory.items() if key != "aggregate_sha256"}
+    inventory["aggregate_sha256"] = v4.stable_sha256(unsigned)
+    with pytest.raises(v4.V4ProtocolError, match="atomic_io"):
+        v4._assert_runtime_dependencies_current(SimpleNamespace(manifest={"runtime_dependencies": inventory}))

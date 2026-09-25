@@ -6,7 +6,6 @@ manufacturer lots. Exposure is a conservative genealogy scope, not a causal
 estimate of defective output, lost service or delay.
 """
 from __future__ import annotations
-
 from collections import defaultdict, deque
 import math
 import re

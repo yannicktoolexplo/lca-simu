@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from etudecas.prototypes.scan_2027_risk_control import (
+    supplier_stage_runtime as stage_runtime,
+)
+
 import json
 from contextlib import contextmanager
 from pathlib import Path
@@ -14,20 +18,13 @@ from etudecas.prototypes.scan_2027_risk_control import (
     supplier_v6_full_incident_lot_registry as registry_v6,
 )
 from etudecas.prototypes.scan_2027_risk_control import (
-    supplier_v7_stage2_pipeline as legacy_pipeline,
-)
-from etudecas.prototypes.scan_2027_risk_control import (
-    supplier_v7_stage2_watcher as legacy_watcher,
-)
-from etudecas.prototypes.scan_2027_risk_control import (
     supplier_v8_stage2_common as common,
 )
-from etudecas.prototypes.scan_2027_risk_control import (
-    supplier_v8_stage2_pipeline as pipeline,
-)
-from etudecas.prototypes.scan_2027_risk_control import (
-    supplier_v8_stage2_watcher as watcher,
-)
+
+legacy_pipeline = stage_runtime.for_profile("v7-stage2")
+legacy_watcher = stage_runtime.for_profile("v7-stage2")
+pipeline = stage_runtime.for_profile("v8-stage2")
+watcher = pipeline
 
 
 def _write_json(path: Path, payload: dict[str, Any]) -> None:
@@ -234,25 +231,26 @@ def test_v8_consumer_bindings_patch_and_restore(
     assert registry_v6.EXPECTED_SEED_IDS == previous_seeds
 
 
-def test_pipeline_context_is_v8_scoped_and_restored() -> None:
-    previous_common = legacy_pipeline.common
-    previous_schema = legacy_pipeline.SCHEMA_VERSION
-    previous_delivery = legacy_pipeline._delivery  # noqa: SLF001
-    previous_contract_payload = legacy_pipeline._contract_payload  # noqa: SLF001
-
-    with pipeline.patched_v8_pipeline_context():
-        assert legacy_pipeline.common is common
-        assert legacy_pipeline.SCHEMA_VERSION == pipeline.SCHEMA_VERSION
-        assert legacy_pipeline.UPSTREAM_NAME == common.STAGE1_RECEIPT_NAME
-        assert legacy_pipeline._delivery is pipeline._delivery_v8  # noqa: SLF001
-        assert (
-            legacy_pipeline._contract_payload is pipeline._contract_payload_v8  # noqa: SLF001
-        )
-
-    assert legacy_pipeline.common is previous_common
-    assert legacy_pipeline.SCHEMA_VERSION == previous_schema
-    assert legacy_pipeline._delivery is previous_delivery  # noqa: SLF001
-    assert legacy_pipeline._contract_payload is previous_contract_payload  # noqa: SLF001
+def test_pipeline_profile_is_v8_scoped_without_mutating_v7(tmp_path):
+    previous = (
+        legacy_pipeline.common,
+        legacy_pipeline.SCHEMA_VERSION,
+        legacy_pipeline._delivery,
+        legacy_pipeline._contract_payload,
+    )
+    contract = pipeline._contract_payload(
+        _paths(tmp_path), {"inventory_signature": "a" * 64}
+    )
+    assert pipeline.common is common
+    assert pipeline.UPSTREAM_NAME == common.STAGE1_RECEIPT_NAME
+    assert contract["scientific_contract"]["v8_result_overlay_required"] is True
+    assert contract["orchestration"]["profile"] == "v8-stage2"
+    assert (
+        legacy_pipeline.common,
+        legacy_pipeline.SCHEMA_VERSION,
+        legacy_pipeline._delivery,
+        legacy_pipeline._contract_payload,
+    ) == previous
 
 
 def test_prepare_supervision_creates_only_v8_supervision(
@@ -271,8 +269,8 @@ def test_prepare_supervision_creates_only_v8_supervision(
         },
         "inventory_signature",
     )
-    monkeypatch.setattr(common, "build_source_inventory", lambda _repo: inventory)
-    monkeypatch.setattr(common, "verify_source_inventory", lambda _inventory: None)
+    monkeypatch.setattr(pipeline, "build_source_inventory", lambda _repo: inventory)
+    monkeypatch.setattr(pipeline, "verify_source_inventory", lambda _inventory: None)
 
     contract = pipeline.prepare_supervision(paths)
 
@@ -295,19 +293,18 @@ def test_prepare_supervision_creates_only_v8_supervision(
     assert all(not path.exists() for path in paths.output_files)
 
 
-def test_watcher_context_targets_v8_child_and_restores() -> None:
-    previous_common = legacy_watcher.common
-    previous_pipeline = legacy_watcher.pipeline
-    previous_module = legacy_watcher.MODULE_NAME
-
-    with watcher.patched_v8_watcher_context():
-        assert legacy_watcher.common is common
-        assert legacy_watcher.pipeline is pipeline
-        assert legacy_watcher.MODULE_NAME == watcher.MODULE_NAME
-        assert legacy_watcher.RESERVATION_SCHEMA_VERSION.startswith(
-            watcher.SCHEMA_VERSION
-        )
-
-    assert legacy_watcher.common is previous_common
-    assert legacy_watcher.pipeline is previous_pipeline
-    assert legacy_watcher.MODULE_NAME == previous_module
+def test_watcher_profile_targets_v8_without_mutating_v7():
+    previous = (
+        legacy_watcher.common,
+        legacy_watcher.profile,
+        legacy_watcher.RESERVATION_SCHEMA_VERSION,
+    )
+    assert watcher is pipeline
+    assert watcher.common is common
+    assert watcher.profile == "v8-stage2"
+    assert watcher.RESERVATION_SCHEMA_VERSION.startswith(watcher.WATCHER_SCHEMA_VERSION)
+    assert (
+        legacy_watcher.common,
+        legacy_watcher.profile,
+        legacy_watcher.RESERVATION_SCHEMA_VERSION,
+    ) == previous

@@ -20,7 +20,6 @@ at one) is the upper bound.  This prevents false precision and double counting.
 """
 
 from __future__ import annotations
-
 import csv
 import hashlib
 import io

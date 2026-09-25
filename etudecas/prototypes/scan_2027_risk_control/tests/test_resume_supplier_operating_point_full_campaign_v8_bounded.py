@@ -432,6 +432,24 @@ def test_already_complete_selected_shard_is_not_relaunched(
 
 def test_current_v8_launcher_hash_matches_bounded_contract() -> None:
     path = Path(bounded.launcher_v8.__file__).resolve()
-    assert bounded.implementation._sha256_file(path) == (  # noqa: SLF001
-        bounded.EXPECTED_V8_LAUNCHER_SHA256
+    assert bounded.EXPECTED_V8_LAUNCHER_SHA256 == (
+        "bd8f39d03f97766e193a683076884739bdb72dabcc51fe06b2eadd4e9a146405"
     )
+    assert bounded._source_revision.accepts_current_revision(
+        path, bounded.EXPECTED_V8_LAUNCHER_SHA256,
+        bounded.implementation._sha256_file(path),
+    )
+    bounded._validate_frozen_orchestration()
+
+
+def test_bounded_contract_rejects_changed_revision_dependency(monkeypatch):
+    real_read_bytes = Path.read_bytes
+    target = bounded._source_revision.ROOT / "supplier_campaign_mechanics.py"
+
+    def changed(path):
+        raw = real_read_bytes(path)
+        return raw + b"# changed" if path.resolve() == target else raw
+
+    monkeypatch.setattr(Path, "read_bytes", changed)
+    with pytest.raises(RuntimeError):
+        bounded._validate_frozen_orchestration()

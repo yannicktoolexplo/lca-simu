@@ -61,7 +61,7 @@ class SimulationRequest:
     overrides: SimulationOverrides = field(default_factory=SimulationOverrides)
     output_dir: Path | str | None = None
     run_id: str | None = None
-    run_script: Path | str = Path("etudecas/simulation/run_first_simulation.py")
+    run_script: Path | str = Path("etudecas/simulation/engine/run_first_simulation.py")
     skip_map: bool = True
     skip_plots: bool = True
     run_lot_audit: bool = False
@@ -236,7 +236,7 @@ def request_from_dict(payload: dict[str, Any]) -> SimulationRequest:
         overrides=overrides_from_dict(payload.get("overrides")),
         output_dir=payload.get("output_dir"),
         run_id=payload.get("run_id"),
-        run_script=payload.get("run_script") or Path("etudecas/simulation/run_first_simulation.py"),
+        run_script=payload.get("run_script") or Path("etudecas/simulation/engine/run_first_simulation.py"),
         skip_map=bool(payload.get("skip_map", True)),
         skip_plots=bool(payload.get("skip_plots", True)),
         run_lot_audit=bool(payload.get("run_lot_audit", False)),

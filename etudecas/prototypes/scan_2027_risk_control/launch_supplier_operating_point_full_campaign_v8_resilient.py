@@ -18,9 +18,7 @@ from contextlib import contextmanager, suppress
 from pathlib import Path
 from typing import Any
 
-from etudecas.prototypes.scan_2027_risk_control import (
-    launch_supplier_operating_point_full_campaign_v8 as launcher_v8,
-)
+from etudecas.prototypes.scan_2027_risk_control.supplier_campaign_adapters import launch_v8 as launcher_v8
 
 
 SCHEMA_VERSION = "etudecas.supplier_campaign_v8.resilient_launcher.v1"

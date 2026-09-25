@@ -10,7 +10,6 @@ the V7/V8 upstream evidence roots.
 
 from __future__ import annotations
 
-import ast
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from pathlib import Path
@@ -111,170 +110,18 @@ DIRECT_SOURCE_MODULES = (
 )
 
 
-def _module_file(repo: Path, module_name: str) -> Path | None:
-    if module_name != PACKAGE_PREFIX and not module_name.startswith(
-        f"{PACKAGE_PREFIX}."
-    ):
-        return None
-    base = (repo / Path(*module_name.split("."))).resolve()
-    return next(
-        (
-            candidate
-            for candidate in (base.with_suffix(".py"), base / "__init__.py")
-            if candidate.is_file()
-        ),
-        None,
-    )
 
 
-def _imported_local_modules(path: Path, repo: Path) -> set[Path]:
-    try:
-        tree = ast.parse(path.read_text(encoding="utf-8-sig"), filename=str(path))
-    except (OSError, UnicodeDecodeError, SyntaxError) as exc:
-        raise Stage2Error(f"Source Python illisible : {path}") from exc
-    output: set[Path] = set()
-    for node in ast.walk(tree):
-        names: list[str] = []
-        if isinstance(node, ast.Import):
-            names.extend(alias.name for alias in node.names)
-        elif isinstance(node, ast.ImportFrom):
-            if node.level == 0 and node.module:
-                names.append(node.module)
-                names.extend(f"{node.module}.{alias.name}" for alias in node.names)
-            elif node.level > 0:
-                relative = path.resolve().relative_to(repo.resolve())
-                package_parts = list(relative.parent.parts)
-                ascend = node.level - 1
-                if ascend > len(package_parts):
-                    raise Stage2Error(f"Import relatif hors dépôt : {path}")
-                base_parts = package_parts[: len(package_parts) - ascend]
-                if node.module:
-                    base_parts.extend(node.module.split("."))
-                    names.append(".".join(base_parts))
-                    names.extend(
-                        ".".join([*base_parts, alias.name]) for alias in node.names
-                    )
-                else:
-                    names.extend(
-                        ".".join([*base_parts, alias.name]) for alias in node.names
-                    )
-        for name in names:
-            candidate = _module_file(repo, name)
-            if candidate is not None:
-                output.add(candidate)
-    return output
 
 
-def _package_initializers(path: Path, repo: Path) -> set[Path]:
-    output: set[Path] = set()
-    parent = path.resolve().parent
-    repo = repo.resolve()
-    while parent != repo:
-        if not parent.is_relative_to(repo):
-            raise Stage2Error(f"Source hors dépôt : {path}")
-        initializer = parent / "__init__.py"
-        if initializer.is_file():
-            output.add(initializer)
-        parent = parent.parent
-    return output
 
 
-def _transitive_source_paths(roots: set[Path], repo: Path) -> list[Path]:
-    repo = repo.resolve()
-    pending = [path.resolve() for path in roots]
-    discovered = set(pending)
-    while pending:
-        current = pending.pop()
-        dependencies = _imported_local_modules(current, repo) | _package_initializers(
-            current, repo
-        )
-        for dependency in dependencies:
-            if dependency not in discovered:
-                discovered.add(dependency)
-                pending.append(dependency)
-    return sorted(discovered, key=lambda path: path.relative_to(repo).as_posix())
 
 
-def source_paths(repo: Path) -> list[Path]:
-    """Inventory the V8 stage and every local dependency it can execute."""
-
-    repo = repo.resolve()
-    roots = {Path(module.__file__).resolve() for module in DIRECT_SOURCE_MODULES}
-    stage2_directory = Path(__file__).resolve().parent
-    roots.update(stage2_directory.glob("supplier_v8_stage2_*.py"))
-    discovered = _transitive_source_paths(roots, repo)
-    for path in discovered:
-        if not path.is_file() or not path.is_relative_to(repo):
-            raise Stage2Error(f"Source hors dépôt ou absente : {path}")
-    return discovered
 
 
-def build_source_inventory(repo: Path) -> dict[str, Any]:
-    repo = repo.resolve()
-    protocol_path = Path(protocol_v7.__file__).resolve()
-    if sha256_file(protocol_path) != EXPECTED_PROTOCOL_SHA256:
-        raise Stage2Error("Le protocole scientifique V7 accepté a changé")
-    try:
-        finalizer_v8.validate_frozen_implementation()
-    except Exception as exc:
-        raise Stage2Error(
-            "Les dépendances figées de la finalisation V8 ont changé"
-        ) from exc
-    entries = [
-        {
-            "relative_path": path.relative_to(repo).as_posix(),
-            "sha256": sha256_file(path),
-            "size_bytes": path.stat().st_size,
-        }
-        for path in source_paths(repo)
-    ]
-    unsigned = {
-        "schema_version": SOURCE_INVENTORY_SCHEMA_VERSION,
-        "repo": str(repo),
-        "entry_count": len(entries),
-        "entries": entries,
-        "critical_protocol_sha256": EXPECTED_PROTOCOL_SHA256,
-        "v8_campaign_runner_sha256": sha256_file(Path(campaign_v8.__file__).resolve()),
-        "v8_finalizer_sha256": sha256_file(Path(finalizer_v8.__file__).resolve()),
-    }
-    return signed(unsigned, "inventory_signature")
 
 
-def verify_source_inventory(inventory: Mapping[str, Any]) -> None:
-    verify_signature(inventory, "inventory_signature", "inventaire source étape 2 V8")
-    repo = Path(str(inventory.get("repo") or "")).resolve()
-    entries = inventory.get("entries")
-    if (
-        inventory.get("schema_version") != SOURCE_INVENTORY_SCHEMA_VERSION
-        or not repo.is_dir()
-        or not isinstance(entries, list)
-        or len(entries) != int(inventory.get("entry_count") or -1)
-        or inventory.get("critical_protocol_sha256") != EXPECTED_PROTOCOL_SHA256
-        or inventory.get("v8_campaign_runner_sha256")
-        != sha256_file(Path(campaign_v8.__file__).resolve())
-        or inventory.get("v8_finalizer_sha256")
-        != sha256_file(Path(finalizer_v8.__file__).resolve())
-    ):
-        raise Stage2Error("Inventaire source étape 2 V8 incomplet")
-    seen: set[str] = set()
-    for entry in entries:
-        if not isinstance(entry, Mapping):
-            raise Stage2Error("Entrée d'inventaire source V8 invalide")
-        relative = str(entry.get("relative_path") or "")
-        path = (repo / relative).resolve()
-        if (
-            not relative
-            or relative in seen
-            or not path.is_relative_to(repo)
-            or not path.is_file()
-            or path.stat().st_size != int(entry.get("size_bytes") or -1)
-            or sha256_file(path) != str(entry.get("sha256") or "")
-        ):
-            raise Stage2Error(f"Source étape 2 V8 modifiée ou absente : {relative}")
-        seen.add(relative)
-    current = {path.relative_to(repo).as_posix() for path in source_paths(repo)}
-    if current != seen:
-        raise Stage2Error("Le périmètre transitif des sources étape 2 V8 a changé")
 
 
 def _check_launch_completion(

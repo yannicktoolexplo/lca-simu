@@ -1,5 +1,6 @@
 [CmdletBinding()]
 param(
+    [string]$RuntimeInventory = "",
     [string]$Repo = "C:\dev\lca-simu-pr40",
     [string]$Python = "C:\Users\yannick.martz\AppData\Local\Programs\Python\Python311\python.exe",
     [string]$Stage3SupervisionDir = "C:\dev\lca-simu-pr40-validation-artifacts-20260726\supplier_v8_stage3_supervision_20260906_v3",
@@ -21,7 +22,8 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
-$SchemaVersion = "etudecas.supplier_v8_post_stage3_final_v4_wrapper.v1"
+# Historical wrappers keep schema etudecas.supplier_v8_post_stage3_final_v4_wrapper.v1.
+$SchemaVersion = "etudecas.supplier_v8_post_stage3_final_v4_wrapper.runtime.v2"
 $ExpectedTaskName = "Codex-Supplier-V8-Post-Stage3-Final-V4"
 $FocusModule = "etudecas.prototypes.scan_2027_risk_control.supplier_v8_post_stage3_focus_338929"
 $DeliveryModule = "etudecas.prototypes.scan_2027_risk_control.supplier_v8_post_stage3_delivery_v4"
@@ -36,6 +38,8 @@ $ExpectedSourceSha256 = [ordered]@{
 }
 # END POST_STAGE3_FROZEN_HASHES
 
+$script:ExpectedSourceRevisionSha256 = $null
+$script:ExpectedStage3InventorySignature = $null
 $script:WakeActive = $false
 $script:WakeStartedAtUtc = ""
 $script:WakeStoppedAtUtc = ""
@@ -445,19 +449,76 @@ function Assert-StaticInputs {
         }
     }
 
-    $actualHashes = [ordered]@{}
-    foreach ($relativePath in $ExpectedSourceSha256.Keys) {
-        $sourcePath = [IO.Path]::Combine($resolvedRepo, $relativePath)
-        if (-not [IO.File]::Exists($sourcePath)) {
-            throw "Source figee absente : $sourcePath"
-        }
-        $actual = (Get-FileHash -LiteralPath $sourcePath -Algorithm SHA256).Hash.ToLowerInvariant()
-        if ($actual -ne $ExpectedSourceSha256[$relativePath]) {
-            throw "Hash de source figee different : $relativePath ($actual)"
-        }
-        $actualHashes[$relativePath] = $actual
+    # Historical pins stay unchanged; the reviewed current revision is separate.
+    $pinCode = @"
+import hashlib, json, sys
+from pathlib import Path
+from etudecas.prototypes.scan_2027_risk_control import supplier_campaign_source_revision as revision
+repo = Path(sys.argv[1]).resolve()
+if revision.ROOT != (repo / "etudecas/prototypes/scan_2027_risk_control").resolve():
+    raise ValueError("Source revision belongs to another repository")
+current = revision.current_revision()
+pins = json.loads(sys.argv[2])
+actual = {}
+for relative, historical in pins.items():
+    path = (repo / relative.replace(chr(92), "/")).resolve()
+    if not path.is_relative_to(repo):
+        raise ValueError("Source pin escapes repository")
+    digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    if digest != historical and not revision.accepts_current_revision(path, historical, digest):
+        raise ValueError("Unreviewed source revision: " + relative)
+    actual[relative] = digest
+print(json.dumps({"actual": actual, "revision": current}))
+"@
+    $pinResult = Invoke-PythonCapture -Arguments @(
+        "-B", "-c", $pinCode, $resolvedRepo,
+        (ConvertTo-Json -InputObject $ExpectedSourceSha256 -Compress)
+    )
+    if ($pinResult.exit_code -ne 0) {
+        throw "Source revision validation failed: $($pinResult.stderr)"
     }
+    $sourceReceipt = ([string]$pinResult.stdout).Trim() | ConvertFrom-Json
+    if ($null -ne $script:ExpectedSourceRevisionSha256 -and
+        $sourceReceipt.revision.ledger_sha256 -ne $script:ExpectedSourceRevisionSha256) {
+        throw "Source revision changed during this execution."
+    }
+    $script:ExpectedSourceRevisionSha256 = $sourceReceipt.revision.ledger_sha256
+    $actualHashes = $sourceReceipt.actual
+
+    if ([string]::IsNullOrWhiteSpace($RuntimeInventory) -or -not [IO.File]::Exists($RuntimeInventory)) {
+        throw "An explicit -RuntimeInventory signed for the current sources is required."
+    }
+    $inventoryCode = @"
+import sys
+from pathlib import Path
+from etudecas.prototypes.scan_2027_risk_control import supplier_stage_runtime
+runtime = supplier_stage_runtime.for_profile("v8-stage3")
+inventory = runtime.common.read_json(Path(sys.argv[2]))
+if Path(inventory.get("repo", "")).resolve() != Path(sys.argv[1]).resolve():
+    raise ValueError("Runtime inventory repository differs")
+runtime.verify_source_inventory(inventory)
+print(inventory["inventory_signature"])
+"@
+    $inventoryResult = Invoke-PythonCapture -Arguments @(
+        "-B", "-c", $inventoryCode, $resolvedRepo, (Get-FullPath $RuntimeInventory)
+    )
+    if ($inventoryResult.exit_code -ne 0) {
+        throw "Stage3 source inventory validation failed: $($inventoryResult.stderr)"
+    }
+    $inventorySignature = ([string]$inventoryResult.stdout).Trim()
+    if ($inventorySignature -notmatch '^[0-9a-f]{64}$') {
+        throw "Runtime inventory signature is malformed."
+    }
+    if ($null -ne $script:ExpectedStage3InventorySignature -and
+        $inventorySignature -ne $script:ExpectedStage3InventorySignature) {
+        throw "Runtime inventory changed during this execution."
+    }
+    $script:ExpectedStage3InventorySignature = $inventorySignature
     return [ordered]@{
+        stage3_inventory_signature = $inventorySignature
+        runtime_inventory_path = (Get-FullPath $RuntimeInventory)
+        historical_source_sha256 = $ExpectedSourceSha256
+        current_source_revision = $sourceReceipt.revision
         frozen_source_sha256 = $actualHashes
         focus_module = $FocusModule
         delivery_module = $DeliveryModule
@@ -576,6 +637,8 @@ if not report_path.is_file():
     raise SystemExit(0)
 try:
     context = v.load_final_context(stage3)
+    if context.contract.get("source_inventory_signature") != sys.argv[3]:
+        raise RuntimeError("Closure belongs to another runtime source inventory")
     report = json.loads(report_path.read_text(encoding="utf-8-sig"))
     expected = v.build_closure_report(context)
     technical = report.get("technical_verdict") or {}
@@ -604,7 +667,7 @@ except Exception as exc:
     raise SystemExit(3)
 '@
     $result = Invoke-PythonCapture -Arguments @(
-        "-c", $code, (Get-FullPath $Stage3SupervisionDir), (Get-FullPath $ClosureReport)
+        "-B", "-c", $code, (Get-FullPath $Stage3SupervisionDir), (Get-FullPath $ClosureReport), $script:ExpectedStage3InventorySignature
     )
     if ($result.exit_code -ne 0) {
         throw "Le rapport de cloture present n'est pas une preuve technique conforme : $($result.stderr)"
@@ -655,7 +718,7 @@ function Assert-OwnScheduledTask {
     }
     $scriptPath = Get-FullPath $PSCommandPath
     $expectedArguments = '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' +
-        $scriptPath + '"'
+        $scriptPath + '"' + ' -RuntimeInventory "' + (Get-FullPath $RuntimeInventory) + '"'
     if (-not [string]::Equals(
         ([string]$action.Arguments).Trim(),
         $expectedArguments,
@@ -773,7 +836,7 @@ if ($ValidateOnly) {
         task_name = $TaskName
         task_path = $TaskPath
         expected_task_arguments = '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' +
-            (Get-FullPath $PSCommandPath) + '"'
+            (Get-FullPath $PSCommandPath) + '"' + ' -RuntimeInventory "' + (Get-FullPath $RuntimeInventory) + '"'
         stage3_supervision_dir = Get-FullPath $Stage3SupervisionDir
         closure_report = Get-FullPath $ClosureReport
         focus_root = Get-FullPath $FocusRoot

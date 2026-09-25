@@ -26,7 +26,7 @@ run artifacts. This module never fabricates an input from an aggregated result.
 ## Plan a replay
 
 ```powershell
-python -m etudecas.simulation.experiments.targeted_replay `
+python -m etudecas.simulation.studies targeted `
   --source-run etudecas/simulation/result/my_run `
   --output-dir etudecas/simulation/result/_targeted/my_suite `
   --top-k 3
@@ -35,7 +35,7 @@ python -m etudecas.simulation.experiments.targeted_replay `
 ## Execute it
 
 ```powershell
-python -m etudecas.simulation.experiments.targeted_replay `
+python -m etudecas.simulation.studies targeted `
   --source-run etudecas/simulation/result/my_run `
   --output-dir etudecas/simulation/result/_targeted/my_suite `
   --top-k 3 `
@@ -55,7 +55,7 @@ metrics, lot deltas, supply-order deltas, and the comparison manifest without
 rerunning the engine:
 
 ```powershell
-python -m etudecas.simulation.experiments.targeted_replay `
+python -m etudecas.simulation.studies targeted `
   --source-run etudecas/simulation/result/my_run `
   --output-dir etudecas/simulation/result/_targeted/my_suite `
   --top-k 3 `

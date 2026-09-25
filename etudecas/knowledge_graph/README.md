@@ -45,7 +45,7 @@ Les cellules vides ne suppriment pas les donnees existantes.
 Creer un classeur Excel depuis un graphe existant :
 
 ```powershell
-python -m etudecas.knowledge_graph.enrich_graph_from_excel `
+python -m etudecas.run_etudecas_pipeline enrich-graph `
   --input-json etudecas/simulation_prep/result/reference_baseline/_mrp_bom_tests/bom_weekly_mps_lotified_no_static_fallback_physical_floor.json `
   --case-config-json etudecas/config/cases/data_poc.json `
   --excel etudecas/config/cases/data_poc_enrichment_input.xlsx `
@@ -55,7 +55,7 @@ python -m etudecas.knowledge_graph.enrich_graph_from_excel `
 Appliquer le classeur au graphe :
 
 ```powershell
-python -m etudecas.knowledge_graph.enrich_graph_from_excel `
+python -m etudecas.run_etudecas_pipeline enrich-graph `
   --input-json <graph.json> `
   --excel etudecas/config/cases/data_poc_enrichment_input.xlsx `
   --output-json <graph_enriched.json> `
@@ -63,7 +63,7 @@ python -m etudecas.knowledge_graph.enrich_graph_from_excel `
   --apply
 ```
 
-La meme operation est aussi exposee depuis l'entree centrale :
+Pour creer puis appliquer le classeur en une seule commande :
 
 ```powershell
 python etudecas/run_etudecas_pipeline.py enrich-graph `

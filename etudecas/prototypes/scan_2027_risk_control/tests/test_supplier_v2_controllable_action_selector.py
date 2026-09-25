@@ -10,9 +10,6 @@ from pathlib import Path
 import pytest
 
 from etudecas.prototypes.scan_2027_risk_control import (
-    build_industrial_supply_final_package as final_integrator,
-)
-from etudecas.prototypes.scan_2027_risk_control import (
     supplier_v2_controllable_action_selector as selector,
 )
 
@@ -690,21 +687,7 @@ def test_selector_keeps_only_native_controllable_actions_with_all_prerequisites(
         "laboratory_acceleration",
         "unknown_native_action",
     } <= blocked_ids
-    boundary_payload = json.loads(
-        (boundary / "scientific_priority_boundary_audit.json").read_text(
-            encoding="utf-8"
-        )
-    )
-    validated = final_integrator._validate_scientific_action_selection(
-        tmp_path / "selection",
-        network_root=network,
-        boundary_root=boundary,
-        boundary=boundary_payload,
-        network_conclusion="envelope_service_top3_scoped",
-        source_network_hashes=None,
-    )
-    assert validated["schema_version"] == selector.SCHEMA_VERSION
-    for module in (final_integrator, selector.network_dashboard):
+    for module in (selector.network_dashboard,):
         module_path = Path(module.__file__).resolve()
         assert (
             selector._sha256(module_path)

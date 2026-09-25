@@ -23,10 +23,10 @@ Sources métier : [2026-09-20-audit-model-corrections.md](<../../changes/2026-09
 
 Références :
 
-- implementation : [main](<../../../simulation/engine/run_first_simulation.py#L6869>)
-- implementation : [demand_targets_for_day](<../../../simulation/engine/run_first_simulation.py#L2935>)
-- test : [test_engine_preserves_source_demand_and_qualifies_incomplete_costs](<../../../simulation/test_audit_model_semantics.py#L171>)
-- test : [test_engine_preserves_last_day_of_year_and_repeating_source_boundary](<../../../simulation/test_audit_model_semantics.py#L210>)
+- implementation : [main](<../../../simulation/engine/run_first_simulation.py#L6799>)
+- implementation : [demand_targets_for_day](<../../../simulation/engine/run_first_simulation.py#L2864>)
+- test : [test_engine_preserves_source_demand_and_qualifies_incomplete_costs](<../../../tests/moteur/test_audit_model_semantics.py#L299>)
+- test : [test_engine_preserves_last_day_of_year_and_repeating_source_boundary](<../../../tests/moteur/test_audit_model_semantics.py#L338>)
 
 ### AUDITED-SAFETY-001 — Jours de sécurité ouvrés avec ancrage explicite
 
@@ -46,10 +46,10 @@ Références :
 
 - implementation : [safety_calendar_days](<../../../simulation/engine/model_semantics.py#L86>)
 - implementation : [safety_calendar_anchor](<../../../simulation/engine/model_semantics.py#L72>)
-- implementation : [main](<../../../simulation/engine/run_first_simulation.py#L6869>)
-- test : [test_working_day_coverage_matches_independent_calendar](<../../../simulation/test_audit_model_semantics.py#L107>)
-- test : [test_calendar_anchor_and_full_source_target_are_explicit](<../../../simulation/test_audit_model_semantics.py#L118>)
-- test : [test_engine_preserves_source_demand_and_qualifies_incomplete_costs](<../../../simulation/test_audit_model_semantics.py#L171>)
+- implementation : [main](<../../../simulation/engine/run_first_simulation.py#L6799>)
+- test : [test_working_day_coverage_matches_independent_calendar](<../../../tests/moteur/test_audit_model_semantics.py#L205>)
+- test : [test_calendar_anchor_and_full_source_target_are_explicit](<../../../tests/moteur/test_audit_model_semantics.py#L216>)
+- test : [test_engine_preserves_source_demand_and_qualifies_incomplete_costs](<../../../tests/moteur/test_audit_model_semantics.py#L299>)
 
 ### AUDITED-SAFETY-002 — Application intégrale de la sécurité source au dépôt
 
@@ -67,8 +67,8 @@ Sources métier : [2026-09-20-audit-model-corrections.md](<../../changes/2026-09
 
 Références :
 
-- implementation : [scenario_initialization_policy](<../../../simulation/engine/run_first_simulation.py#L4687>)
-- test : [test_calendar_anchor_and_full_source_target_are_explicit](<../../../simulation/test_audit_model_semantics.py#L118>)
+- implementation : [scenario_initialization_policy](<../../../simulation/engine/run_first_simulation.py#L4617>)
+- test : [test_calendar_anchor_and_full_source_target_are_explicit](<../../../tests/moteur/test_audit_model_semantics.py#L216>)
 
 ### AUDITED-VALUATION-001 — Prix inconnu distinct de zéro et coûts incomplets
 
@@ -89,12 +89,12 @@ Références :
 - implementation : [derive_item_unit_value_map](<../../../simulation_prep/prepare_simulation_graph.py#L128>)
 - implementation : [holding_cost_per_unit_day_from_value](<../../../simulation_prep/prepare_simulation_graph.py#L172>)
 - implementation : [inventory_holding_rate](<../../../simulation/engine/model_semantics.py#L10>)
-- implementation : [main](<../../../simulation/engine/run_first_simulation.py#L6869>)
-- test : [test_missing_price_is_not_imputed_from_unrelated_dimension](<../../../simulation/test_audit_model_semantics.py#L27>)
-- test : [test_known_same_material_cost_is_invariant_under_kg_to_g_conversion](<../../../simulation/test_audit_model_semantics.py#L42>)
-- test : [test_piece_price_cannot_silently_become_kg_price](<../../../simulation/test_audit_model_semantics.py#L54>)
-- test : [test_unknown_and_explicit_zero_cost_remain_distinguishable](<../../../simulation/test_audit_model_semantics.py#L62>)
-- test : [test_engine_preserves_source_demand_and_qualifies_incomplete_costs](<../../../simulation/test_audit_model_semantics.py#L171>)
+- implementation : [main](<../../../simulation/engine/run_first_simulation.py#L6799>)
+- test : [test_missing_price_is_not_imputed_from_unrelated_dimension](<../../../tests/moteur/test_audit_model_semantics.py#L125>)
+- test : [test_known_same_material_cost_is_invariant_under_kg_to_g_conversion](<../../../tests/moteur/test_audit_model_semantics.py#L140>)
+- test : [test_piece_price_cannot_silently_become_kg_price](<../../../tests/moteur/test_audit_model_semantics.py#L152>)
+- test : [test_unknown_and_explicit_zero_cost_remain_distinguishable](<../../../tests/moteur/test_audit_model_semantics.py#L160>)
+- test : [test_engine_preserves_source_demand_and_qualifies_incomplete_costs](<../../../tests/moteur/test_audit_model_semantics.py#L299>)
 
 ### AUDITED-OBSERVATION-001 — Délai prévu et délai constaté séparés
 
@@ -113,10 +113,10 @@ Sources métier : [2026-09-20-audit-model-corrections.md](<../../changes/2026-09
 Références :
 
 - implementation : [ReceiptLeadObservations](<../../../simulation/engine/model_semantics.py#L53>)
-- implementation : [main](<../../../simulation/engine/run_first_simulation.py#L6869>)
-- test : [test_receipt_observation_never_reveals_future_sampled_delay](<../../../simulation/test_audit_model_semantics.py#L94>)
-- test : [test_engine_preserves_source_demand_and_qualifies_incomplete_costs](<../../../simulation/test_audit_model_semantics.py#L171>)
-- test : [test_engine_preserves_last_day_of_year_and_repeating_source_boundary](<../../../simulation/test_audit_model_semantics.py#L210>)
+- implementation : [main](<../../../simulation/engine/run_first_simulation.py#L6799>)
+- test : [test_receipt_observation_never_reveals_future_sampled_delay](<../../../tests/moteur/test_audit_model_semantics.py#L192>)
+- test : [test_engine_preserves_source_demand_and_qualifies_incomplete_costs](<../../../tests/moteur/test_audit_model_semantics.py#L299>)
+- test : [test_engine_preserves_last_day_of_year_and_repeating_source_boundary](<../../../tests/moteur/test_audit_model_semantics.py#L338>)
 
 ### AUDITED-TRANSPORT-001 — Base tarifaire déclarée pour le transport
 
@@ -135,8 +135,8 @@ Sources métier : [2026-09-20-audit-model-corrections.md](<../../changes/2026-09
 Références :
 
 - implementation : [transport_charge](<../../../simulation/engine/model_semantics.py#L22>)
-- test : [test_unit_tariff_obeys_declared_unit_not_order_size](<../../../simulation/test_audit_model_semantics.py#L69>)
-- test : [test_batch_tariff_requires_its_own_explicit_conversion](<../../../simulation/test_audit_model_semantics.py#L78>)
+- test : [test_unit_tariff_obeys_declared_unit_not_order_size](<../../../tests/moteur/test_audit_model_semantics.py#L167>)
+- test : [test_batch_tariff_requires_its_own_explicit_conversion](<../../../tests/moteur/test_audit_model_semantics.py#L176>)
 
 ### AUDITED-SHIPMENT-001 — Prévu, réservé, parti et reçu selon les dates physiques
 
@@ -155,10 +155,10 @@ Sources métier : [2026-09-20-audit-model-corrections.md](<../../changes/2026-09
 Références :
 
 - implementation : [shipment_execution_state](<../../../simulation/engine/model_semantics.py#L45>)
-- implementation : [main](<../../../simulation/engine/run_first_simulation.py#L6869>)
-- test : [test_shipment_status_depends_on_physical_dates](<../../../simulation/test_audit_model_semantics.py#L89>)
-- test : [test_engine_preserves_source_demand_and_qualifies_incomplete_costs](<../../../simulation/test_audit_model_semantics.py#L171>)
-- test : [test_engine_preserves_last_day_of_year_and_repeating_source_boundary](<../../../simulation/test_audit_model_semantics.py#L210>)
+- implementation : [main](<../../../simulation/engine/run_first_simulation.py#L6799>)
+- test : [test_shipment_status_depends_on_physical_dates](<../../../tests/moteur/test_audit_model_semantics.py#L187>)
+- test : [test_engine_preserves_source_demand_and_qualifies_incomplete_costs](<../../../tests/moteur/test_audit_model_semantics.py#L299>)
+- test : [test_engine_preserves_last_day_of_year_and_repeating_source_boundary](<../../../tests/moteur/test_audit_model_semantics.py#L338>)
 
 ### AUDITED-TAU-001 — Durée physique tau à confirmer
 
@@ -176,8 +176,8 @@ Sources métier : [2026-09-20-audit-model-corrections.md](<../../changes/2026-09
 
 Références :
 
-- implementation : [main](<../../../simulation/engine/run_first_simulation.py#L6869>)
-- test : [test_engine_preserves_source_demand_and_qualifies_incomplete_costs](<../../../simulation/test_audit_model_semantics.py#L171>)
+- implementation : [main](<../../../simulation/engine/run_first_simulation.py#L6799>)
+- test : [test_engine_preserves_source_demand_and_qualifies_incomplete_costs](<../../../tests/moteur/test_audit_model_semantics.py#L299>)
 
 ### AUDITED-MRP-001 — Besoins MRP statiques encore non validés
 
@@ -195,10 +195,10 @@ Sources métier : [2026-09-20-audit-model-corrections.md](<../../changes/2026-09
 
 Références :
 
-- implementation : [resolve_mrp_requirement_pair_modes](<../../../simulation/engine/run_first_simulation.py#L3813>)
-- implementation : [main](<../../../simulation/engine/run_first_simulation.py#L6869>)
-- test : [test_targeted_dynamic_pair_overrides_inherited_and_cli_static_modes](<../../../simulation/test_supplier_risk_planning_semantics.py#L11>)
-- test : [test_engine_preserves_source_demand_and_qualifies_incomplete_costs](<../../../simulation/test_audit_model_semantics.py#L171>)
+- implementation : [resolve_mrp_requirement_pair_modes](<../../../simulation/engine/run_first_simulation.py#L3743>)
+- implementation : [main](<../../../simulation/engine/run_first_simulation.py#L6799>)
+- test : [test_targeted_dynamic_pair_overrides_inherited_and_cli_static_modes](<../../../tests/risques/test_supplier_risk_planning_semantics.py#L11>)
+- test : [test_engine_preserves_source_demand_and_qualifies_incomplete_costs](<../../../tests/moteur/test_audit_model_semantics.py#L299>)
 
 ### AUDITED-RESERVATION-001 — Propriété du stock réservé encore à définir
 
@@ -216,8 +216,8 @@ Sources métier : [2026-09-20-audit-model-corrections.md](<../../changes/2026-09
 
 Références :
 
-- implementation : [main](<../../../simulation/engine/run_first_simulation.py#L6869>)
-- test : [test_engine_preserves_source_demand_and_qualifies_incomplete_costs](<../../../simulation/test_audit_model_semantics.py#L171>)
+- implementation : [main](<../../../simulation/engine/run_first_simulation.py#L6799>)
+- test : [test_engine_preserves_source_demand_and_qualifies_incomplete_costs](<../../../tests/moteur/test_audit_model_semantics.py#L299>)
 
 ## Référence technique extraite
 
@@ -225,7 +225,7 @@ Les constantes sont affichées comme expressions Python ; les références et d�
 
 ### engine-run
 
-[etudecas/simulation/engine/run_first_simulation.py:6869](<../../../simulation/engine/run_first_simulation.py#L6869>)
+[etudecas/simulation/engine/run_first_simulation.py:6799](<../../../simulation/engine/run_first_simulation.py#L6799>)
 
 ```python
 def main() -> None:
@@ -233,15 +233,15 @@ def main() -> None:
 
 ### demand-profile
 
-[etudecas/simulation/engine/run_first_simulation.py:2935](<../../../simulation/engine/run_first_simulation.py#L2935>)
+[etudecas/simulation/engine/run_first_simulation.py:2864](<../../../simulation/engine/run_first_simulation.py#L2864>)
 
 ```python
-def demand_targets_for_day(demand_profiles: dict[tuple[str, str], list[dict[str, Any]]], day: int, *, window_days: int=1) -> dict[tuple[str, str], float]:
+def demand_targets_for_day(demand_profiles: dict[tuple[str, str], list[dict[str, Any]]], day: int, *, window_days: int=1, value_cache: dict[tuple[int, int], float] | None=None) -> dict[tuple[str, str], float]:
 ```
 
 ### initialization
 
-[etudecas/simulation/engine/run_first_simulation.py:4687](<../../../simulation/engine/run_first_simulation.py#L4687>)
+[etudecas/simulation/engine/run_first_simulation.py:4617](<../../../simulation/engine/run_first_simulation.py#L4617>)
 
 ```python
 def scenario_initialization_policy(scenario: dict[str, Any], *, review_period_days: int, safety_stock_days: float) -> dict[str, Any]:
@@ -319,7 +319,7 @@ def shipment_execution_state(departure_day: int, arrival_day: int, observation_d
 
 ### mrp-modes
 
-[etudecas/simulation/engine/run_first_simulation.py:3813](<../../../simulation/engine/run_first_simulation.py#L3813>)
+[etudecas/simulation/engine/run_first_simulation.py:3743](<../../../simulation/engine/run_first_simulation.py#L3743>)
 
 ```python
 def resolve_mrp_requirement_pair_modes(inherited_static_pairs: Any, cli_static_pairs: Any, cli_dynamic_pairs: Any) -> tuple[list[str], list[str]]:
@@ -329,7 +329,7 @@ Resolve additive static requests and targeted dynamic overrides.
 
 ### demand-integration-test
 
-[etudecas/simulation/test_audit_model_semantics.py:171](<../../../simulation/test_audit_model_semantics.py#L171>)
+[etudecas/tests/moteur/test_audit_model_semantics.py:299](<../../../tests/moteur/test_audit_model_semantics.py#L299>)
 
 ```python
 def test_engine_preserves_source_demand_and_qualifies_incomplete_costs(tmp_path):
@@ -337,7 +337,7 @@ def test_engine_preserves_source_demand_and_qualifies_incomplete_costs(tmp_path)
 
 ### annual-boundary-test
 
-[etudecas/simulation/test_audit_model_semantics.py:210](<../../../simulation/test_audit_model_semantics.py#L210>)
+[etudecas/tests/moteur/test_audit_model_semantics.py:338](<../../../tests/moteur/test_audit_model_semantics.py#L338>)
 
 ```python
 def test_engine_preserves_last_day_of_year_and_repeating_source_boundary(tmp_path):
@@ -345,7 +345,7 @@ def test_engine_preserves_last_day_of_year_and_repeating_source_boundary(tmp_pat
 
 ### calendar-test
 
-[etudecas/simulation/test_audit_model_semantics.py:107](<../../../simulation/test_audit_model_semantics.py#L107>)
+[etudecas/tests/moteur/test_audit_model_semantics.py:205](<../../../tests/moteur/test_audit_model_semantics.py#L205>)
 
 ```python
 def test_working_day_coverage_matches_independent_calendar(weekday, source_days):
@@ -353,7 +353,7 @@ def test_working_day_coverage_matches_independent_calendar(weekday, source_days)
 
 ### calendar-default-test
 
-[etudecas/simulation/test_audit_model_semantics.py:118](<../../../simulation/test_audit_model_semantics.py#L118>)
+[etudecas/tests/moteur/test_audit_model_semantics.py:216](<../../../tests/moteur/test_audit_model_semantics.py#L216>)
 
 ```python
 def test_calendar_anchor_and_full_source_target_are_explicit():
@@ -361,7 +361,7 @@ def test_calendar_anchor_and_full_source_target_are_explicit():
 
 ### unknown-price-test
 
-[etudecas/simulation/test_audit_model_semantics.py:27](<../../../simulation/test_audit_model_semantics.py#L27>)
+[etudecas/tests/moteur/test_audit_model_semantics.py:125](<../../../tests/moteur/test_audit_model_semantics.py#L125>)
 
 ```python
 def test_missing_price_is_not_imputed_from_unrelated_dimension(other_uom, other_price):
@@ -369,7 +369,7 @@ def test_missing_price_is_not_imputed_from_unrelated_dimension(other_uom, other_
 
 ### unit-conversion-test
 
-[etudecas/simulation/test_audit_model_semantics.py:42](<../../../simulation/test_audit_model_semantics.py#L42>)
+[etudecas/tests/moteur/test_audit_model_semantics.py:140](<../../../tests/moteur/test_audit_model_semantics.py#L140>)
 
 ```python
 def test_known_same_material_cost_is_invariant_under_kg_to_g_conversion():
@@ -377,7 +377,7 @@ def test_known_same_material_cost_is_invariant_under_kg_to_g_conversion():
 
 ### incompatible-price-test
 
-[etudecas/simulation/test_audit_model_semantics.py:54](<../../../simulation/test_audit_model_semantics.py#L54>)
+[etudecas/tests/moteur/test_audit_model_semantics.py:152](<../../../tests/moteur/test_audit_model_semantics.py#L152>)
 
 ```python
 def test_piece_price_cannot_silently_become_kg_price():
@@ -385,7 +385,7 @@ def test_piece_price_cannot_silently_become_kg_price():
 
 ### unknown-zero-test
 
-[etudecas/simulation/test_audit_model_semantics.py:62](<../../../simulation/test_audit_model_semantics.py#L62>)
+[etudecas/tests/moteur/test_audit_model_semantics.py:160](<../../../tests/moteur/test_audit_model_semantics.py#L160>)
 
 ```python
 def test_unknown_and_explicit_zero_cost_remain_distinguishable():
@@ -393,7 +393,7 @@ def test_unknown_and_explicit_zero_cost_remain_distinguishable():
 
 ### receipt-observation-test
 
-[etudecas/simulation/test_audit_model_semantics.py:94](<../../../simulation/test_audit_model_semantics.py#L94>)
+[etudecas/tests/moteur/test_audit_model_semantics.py:192](<../../../tests/moteur/test_audit_model_semantics.py#L192>)
 
 ```python
 def test_receipt_observation_never_reveals_future_sampled_delay():
@@ -401,7 +401,7 @@ def test_receipt_observation_never_reveals_future_sampled_delay():
 
 ### unit-tariff-test
 
-[etudecas/simulation/test_audit_model_semantics.py:69](<../../../simulation/test_audit_model_semantics.py#L69>)
+[etudecas/tests/moteur/test_audit_model_semantics.py:167](<../../../tests/moteur/test_audit_model_semantics.py#L167>)
 
 ```python
 def test_unit_tariff_obeys_declared_unit_not_order_size(procurement_lot):
@@ -409,7 +409,7 @@ def test_unit_tariff_obeys_declared_unit_not_order_size(procurement_lot):
 
 ### batch-tariff-test
 
-[etudecas/simulation/test_audit_model_semantics.py:78](<../../../simulation/test_audit_model_semantics.py#L78>)
+[etudecas/tests/moteur/test_audit_model_semantics.py:176](<../../../tests/moteur/test_audit_model_semantics.py#L176>)
 
 ```python
 def test_batch_tariff_requires_its_own_explicit_conversion():
@@ -417,7 +417,7 @@ def test_batch_tariff_requires_its_own_explicit_conversion():
 
 ### execution-state-test
 
-[etudecas/simulation/test_audit_model_semantics.py:89](<../../../simulation/test_audit_model_semantics.py#L89>)
+[etudecas/tests/moteur/test_audit_model_semantics.py:187](<../../../tests/moteur/test_audit_model_semantics.py#L187>)
 
 ```python
 def test_shipment_status_depends_on_physical_dates(observation, status):
@@ -425,7 +425,7 @@ def test_shipment_status_depends_on_physical_dates(observation, status):
 
 ### mrp-modes-test
 
-[etudecas/simulation/test_supplier_risk_planning_semantics.py:11](<../../../simulation/test_supplier_risk_planning_semantics.py#L11>)
+[etudecas/tests/risques/test_supplier_risk_planning_semantics.py:11](<../../../tests/risques/test_supplier_risk_planning_semantics.py#L11>)
 
 ```python
 def test_targeted_dynamic_pair_overrides_inherited_and_cli_static_modes() -> None:

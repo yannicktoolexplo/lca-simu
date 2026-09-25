@@ -23,9 +23,9 @@ Sources métier : [EXECUTION_VERIFICATION.md](<../../EXECUTION_VERIFICATION.md>)
 
 Références :
 
-- implementation : [physical_execution_quantity](<../../../simulation/engine/run_first_simulation.py#L2009>)
-- implementation : [require_physical_integer](<../../../simulation/engine/run_first_simulation.py#L1997>)
-- test : [test_fractional_forecast_accumulates_without_losing_demand](<../../../testing/test_correction_contracts.py#L15>)
+- implementation : [physical_execution_quantity](<../../../simulation/engine/run_first_simulation.py#L1903>)
+- implementation : [require_physical_integer](<../../../simulation/engine/run_first_simulation.py#L1891>)
+- test : [test_fractional_forecast_accumulates_without_losing_demand](<../../../testing/test_independent_review.py#L158>)
 
 ### INPUT-REJECTION-001 — Refus des entrees invalides
 
@@ -44,8 +44,8 @@ Sources métier : [EXECUTION_VERIFICATION.md](<../../EXECUTION_VERIFICATION.md>)
 Références :
 
 - implementation : [simulate](<../../../simulation/engine/api.py#L292>)
-- implementation : [validate_factors](<../../../simulation/analysis_batch_common.py#L100>)
-- test : [test_invalid_sensitivity_cannot_be_recorded_as_applied](<../../../testing/test_correction_contracts.py#L54>)
+- implementation : [validate_factors](<../../../simulation/analysis_batch_common.py#L309>)
+- test : [test_invalid_sensitivity_cannot_be_recorded_as_applied](<../../../testing/test_independent_review.py#L197>)
 
 ### TRACE-SELECTION-001 — Selection causale commune
 
@@ -63,12 +63,12 @@ Sources métier : [EXECUTION_VERIFICATION.md](<../../EXECUTION_VERIFICATION.md>)
 
 Références :
 
-- implementation : [build_lot_trace_view_model](<../../../simulation/lot_trace/view_model.py#L12>)
-- implementation : [build_lot_trace_payload](<../../../simulation/lot_trace/payload.py#L50>)
+- implementation : [build_lot_trace_view_model](<../../../simulation/lot_trace/view_model.py#L6>)
+- implementation : [build_lot_trace_payload](<../../../simulation/lot_trace/payload.py#L42>)
 - implementation : [review](<../../../testing/lot_browser_review.py#L40>)
-- test : [LotTraceViewModelTest.test_view_model_excludes_events_outside_selected_contribution](<../../../simulation/test_lot_trace_view_model.py#L93>)
+- test : [LotTraceViewModelTest.test_view_model_excludes_events_outside_selected_contribution](<../../../tests/lots/test_lot_trace_view_model.py#L91>)
 - implementation : [business_batch_csv_oracle](<../../../testing/lot_browser_review.py#L15>)
-- test : [test_customer_oracle_uses_current_csv_split_and_excludes_future_receipts](<../../../testing/test_lot_customer_oracle.py#L9>)
+- test : [test_customer_oracle_uses_current_csv_split_and_excludes_future_receipts](<../../../testing/test_lot_journey.py#L621>)
 
 ### DELIVERY-PROOF-001 — Livraison sous controle independant
 
@@ -88,7 +88,7 @@ Références :
 
 - implementation : [audit_run](<../../../testing/independent_review.py#L92>)
 - implementation : [require_run_invariants](<../../../testing/qualification.py#L20>)
-- test : [test_delivery_gate_refuses_corrupt_stock_and_missing_evidence](<../../../testing/test_correction_contracts.py#L71>)
+- test : [test_delivery_gate_refuses_corrupt_stock_and_missing_evidence](<../../../testing/test_independent_review.py#L214>)
 - implementation : [implementation_fingerprint](<../../../simulation/source_fingerprint.py#L20>)
 
 ### TRUCK-ESTIMATE-001 — Lots and estimated truck consolidation
@@ -107,9 +107,9 @@ Sources métier : [LOTS_ET_CAMIONS.md](<../../LOTS_ET_CAMIONS.md>), [data_poc.js
 
 Références :
 
-- implementation : [build_transport_context](<../../../simulation/logistics/display.py#L9>)
-- test : [test_four_shipments_are_three_weekly_groups_not_four_trucks](<../../../simulation/logistics/test_display.py#L17>)
-- test : [test_sourced_profile_can_dimension_real_capacity_proposals](<../../../simulation/logistics/test_display.py#L38>)
+- implementation : [build_transport_context](<../../../simulation/logistics/io.py#L269>)
+- test : [test_four_shipments_are_three_weekly_groups_not_four_trucks](<../../../tests/lots/test_logistics.py#L39>)
+- test : [test_sourced_profile_can_dimension_real_capacity_proposals](<../../../tests/lots/test_logistics.py#L60>)
 
 ### COST-EXPORT-ROUNDING-001 — Rapprochement des couts exportes arrondis
 
@@ -129,10 +129,10 @@ Références :
 
 - implementation : [reconcile_exported_cost](<../../../testing/map_delivery.py#L83>)
 - implementation : [reconcile_browser](<../../../testing/map_delivery.py#L111>)
-- test : [test_cost_rounding_bound_accepts_only_mathematically_possible_error](<../../../testing/test_map_delivery.py#L119>)
-- test : [test_long_horizon_rounding_accepts_accumulation_but_rejects_one_currency_unit](<../../../testing/test_map_delivery.py#L126>)
-- test : [test_unexpected_cost_export_precision_is_not_silently_tolerated](<../../../testing/test_map_delivery.py#L138>)
-- test : [test_browser_values_are_reconciled_with_runs](<../../../testing/test_map_delivery.py#L69>)
+- test : [test_cost_rounding_bound_accepts_only_mathematically_possible_error](<../../../testing/test_independent_review.py#L337>)
+- test : [test_long_horizon_rounding_accepts_accumulation_but_rejects_one_currency_unit](<../../../testing/test_independent_review.py#L344>)
+- test : [test_unexpected_cost_export_precision_is_not_silently_tolerated](<../../../testing/test_independent_review.py#L356>)
+- test : [test_browser_values_are_reconciled_with_runs](<../../../testing/test_independent_review.py#L287>)
 
 ## Référence technique extraite
 
@@ -140,7 +140,7 @@ Les constantes sont affichées comme expressions Python ; les références et d�
 
 ### physical
 
-[etudecas/simulation/engine/run_first_simulation.py:2009](<../../../simulation/engine/run_first_simulation.py#L2009>)
+[etudecas/simulation/engine/run_first_simulation.py:1903](<../../../simulation/engine/run_first_simulation.py#L1903>)
 
 ```python
 def physical_execution_quantity(value: Any, uom: Any) -> float:
@@ -153,7 +153,7 @@ Mass and length retain their precision. This never rounds display values.
 
 ### ledger-guard
 
-[etudecas/simulation/engine/run_first_simulation.py:1997](<../../../simulation/engine/run_first_simulation.py#L1997>)
+[etudecas/simulation/engine/run_first_simulation.py:1891](<../../../simulation/engine/run_first_simulation.py#L1891>)
 
 ```python
 def require_physical_integer(value: Any, uom: Any) -> float:
@@ -173,7 +173,7 @@ Run one simulation from structured inputs and return structured outputs.
 
 ### factor-contract
 
-[etudecas/simulation/analysis_batch_common.py:100](<../../../simulation/analysis_batch_common.py#L100>)
+[etudecas/simulation/analysis_batch_common.py:309](<../../../simulation/analysis_batch_common.py#L309>)
 
 ```python
 def validate_factors(factors: dict[str, float]) -> None:
@@ -181,7 +181,7 @@ def validate_factors(factors: dict[str, float]) -> None:
 
 ### view-contract
 
-[etudecas/simulation/lot_trace/view_model.py:12](<../../../simulation/lot_trace/view_model.py#L12>)
+[etudecas/simulation/lot_trace/view_model.py:6](<../../../simulation/lot_trace/view_model.py#L6>)
 
 ```python
 def build_lot_trace_view_model(payload: dict[str, Any], lot_id: str, direction: str='all', indexes: LotTraceIndexes | None=None) -> dict[str, Any]:
@@ -189,7 +189,7 @@ def build_lot_trace_view_model(payload: dict[str, Any], lot_id: str, direction: 
 
 ### view-payload
 
-[etudecas/simulation/lot_trace/payload.py:50](<../../../simulation/lot_trace/payload.py#L50>)
+[etudecas/simulation/lot_trace/payload.py:42](<../../../simulation/lot_trace/payload.py#L42>)
 
 ```python
 def build_lot_trace_payload(lot_events_csv: Path, lot_genealogy_csv: Path, production_plan_events_csv: Path, raw: dict[str, Any] | None=None, input_stocks_csv: Path | None=None, output_products_csv: Path | None=None, dc_stocks_csv: Path | None=None, demand_service_csv: Path | None=None, supplier_stocks_csv: Path | None=None, visible_finished_product_items: Iterable[str] | None=None, production_campaigns_csv: Path | None=None, mrp_orders_csv: Path | None=None, lot_causal_links_csv: Path | None=None, include_causal_links: bool=True, material_traceability_json: Path | None=None) -> dict[str, Any]:
@@ -229,7 +229,7 @@ def implementation_fingerprint(run_script: Path) -> str:
 
 ### known-demand
 
-[etudecas/testing/test_correction_contracts.py:15](<../../../testing/test_correction_contracts.py#L15>)
+[etudecas/testing/test_independent_review.py:158](<../../../testing/test_independent_review.py#L158>)
 
 ```python
 def test_fractional_forecast_accumulates_without_losing_demand():
@@ -237,7 +237,7 @@ def test_fractional_forecast_accumulates_without_losing_demand():
 
 ### corruption
 
-[etudecas/testing/test_correction_contracts.py:71](<../../../testing/test_correction_contracts.py#L71>)
+[etudecas/testing/test_independent_review.py:214](<../../../testing/test_independent_review.py#L214>)
 
 ```python
 def test_delivery_gate_refuses_corrupt_stock_and_missing_evidence(known_run):
@@ -245,7 +245,7 @@ def test_delivery_gate_refuses_corrupt_stock_and_missing_evidence(known_run):
 
 ### bad-factor-test
 
-[etudecas/testing/test_correction_contracts.py:54](<../../../testing/test_correction_contracts.py#L54>)
+[etudecas/testing/test_independent_review.py:197](<../../../testing/test_independent_review.py#L197>)
 
 ```python
 def test_invalid_sensitivity_cannot_be_recorded_as_applied(factors):
@@ -253,7 +253,7 @@ def test_invalid_sensitivity_cannot_be_recorded_as_applied(factors):
 
 ### causal-test
 
-[etudecas/simulation/test_lot_trace_view_model.py:93](<../../../simulation/test_lot_trace_view_model.py#L93>)
+[etudecas/tests/lots/test_lot_trace_view_model.py:91](<../../../tests/lots/test_lot_trace_view_model.py#L91>)
 
 ```python
 def test_view_model_excludes_events_outside_selected_contribution(self) -> None:
@@ -261,7 +261,7 @@ def test_view_model_excludes_events_outside_selected_contribution(self) -> None:
 
 ### truck-context
 
-[etudecas/simulation/logistics/display.py:9](<../../../simulation/logistics/display.py#L9>)
+[etudecas/simulation/logistics/io.py:269](<../../../simulation/logistics/io.py#L269>)
 
 ```python
 def build_transport_context(events, graph, profiles=()):
@@ -269,7 +269,7 @@ def build_transport_context(events, graph, profiles=()):
 
 ### truck-groups-test
 
-[etudecas/simulation/logistics/test_display.py:17](<../../../simulation/logistics/test_display.py#L17>)
+[etudecas/tests/lots/test_logistics.py:39](<../../../tests/lots/test_logistics.py#L39>)
 
 ```python
 def test_four_shipments_are_three_weekly_groups_not_four_trucks():
@@ -277,7 +277,7 @@ def test_four_shipments_are_three_weekly_groups_not_four_trucks():
 
 ### truck-capacity-test
 
-[etudecas/simulation/logistics/test_display.py:38](<../../../simulation/logistics/test_display.py#L38>)
+[etudecas/tests/lots/test_logistics.py:60](<../../../tests/lots/test_logistics.py#L60>)
 
 ```python
 def test_sourced_profile_can_dimension_real_capacity_proposals():
@@ -295,7 +295,7 @@ Read the supplied run's physical customer contributions, never a historical spli
 
 ### customer-csv-oracle-test
 
-[etudecas/testing/test_lot_customer_oracle.py:9](<../../../testing/test_lot_customer_oracle.py#L9>)
+[etudecas/testing/test_lot_journey.py:621](<../../../testing/test_lot_journey.py#L621>)
 
 ```python
 def test_customer_oracle_uses_current_csv_split_and_excludes_future_receipts(tmp_path):
@@ -333,7 +333,7 @@ The score is checked against those quantities, not another payload score.
 
 ### cost-rounding-bound-test
 
-[etudecas/testing/test_map_delivery.py:119](<../../../testing/test_map_delivery.py#L119>)
+[etudecas/testing/test_independent_review.py:337](<../../../testing/test_independent_review.py#L337>)
 
 ```python
 def test_cost_rounding_bound_accepts_only_mathematically_possible_error(daily_terms, summary, expected):
@@ -341,7 +341,7 @@ def test_cost_rounding_bound_accepts_only_mathematically_possible_error(daily_te
 
 ### cost-rounding-long-test
 
-[etudecas/testing/test_map_delivery.py:126](<../../../testing/test_map_delivery.py#L126>)
+[etudecas/testing/test_independent_review.py:344](<../../../testing/test_independent_review.py#L344>)
 
 ```python
 def test_long_horizon_rounding_accepts_accumulation_but_rejects_one_currency_unit():
@@ -349,7 +349,7 @@ def test_long_horizon_rounding_accepts_accumulation_but_rejects_one_currency_uni
 
 ### cost-rounding-precision-test
 
-[etudecas/testing/test_map_delivery.py:138](<../../../testing/test_map_delivery.py#L138>)
+[etudecas/testing/test_independent_review.py:356](<../../../testing/test_independent_review.py#L356>)
 
 ```python
 def test_unexpected_cost_export_precision_is_not_silently_tolerated(value):
@@ -357,7 +357,7 @@ def test_unexpected_cost_export_precision_is_not_silently_tolerated(value):
 
 ### cost-browser-test
 
-[etudecas/testing/test_map_delivery.py:69](<../../../testing/test_map_delivery.py#L69>)
+[etudecas/testing/test_independent_review.py:287](<../../../testing/test_independent_review.py#L287>)
 
 ```python
 def test_browser_values_are_reconciled_with_runs(run, damage):

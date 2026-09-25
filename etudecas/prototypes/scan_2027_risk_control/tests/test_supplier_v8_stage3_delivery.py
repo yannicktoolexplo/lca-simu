@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from etudecas.prototypes.scan_2027_risk_control import (
+    supplier_stage_runtime as stage_runtime,
+)
+
 import copy
 from pathlib import Path
 from types import SimpleNamespace
@@ -270,22 +274,20 @@ def test_manifest_carries_focus_window_and_operational_limits(tmp_path: Path) ->
     assert contract["window_is_average_season"] is False
 
 
-def test_reducer_binding_uses_v3_contract_and_native_reader(tmp_path: Path) -> None:
-    from etudecas.prototypes.scan_2027_risk_control import (
-        supplier_v7_stage2_pipeline as pipeline_v7,
-    )
-    from etudecas.prototypes.scan_2027_risk_control import (
-        supplier_v8_stage3_pipeline as pipeline_v3,
-    )
-
-    original_contract = pipeline_v7._contract_payload  # noqa: SLF001
+def test_reducer_binding_uses_v3_contract_and_native_reader(tmp_path):
+    pipeline_v7 = stage_runtime.for_profile("v7-stage2")
+    original_contract = pipeline_v7._contract_payload
+    original_common = subject.delivery_v7.common
     original_dashboard = subject.delivery_v7.dashboard_v7
-    paths = SimpleNamespace(campaign_root=tmp_path)
-    with subject._v3_reducer_binding(paths):  # noqa: SLF001
-        assert pipeline_v7._contract_payload is pipeline_v3._contract_payload_v3  # noqa: SLF001
+    with subject._v3_reducer_binding(SimpleNamespace(campaign_root=tmp_path)):
+        assert (
+            stage_runtime.for_common(subject.delivery_v7.common).profile == "v8-stage3"
+        )
+        assert pipeline_v7._contract_payload == original_contract
         assert isinstance(
             subject.delivery_v7.dashboard_v7,
             subject.dashboard_v8.NativeV8DashboardReader,
         )
-    assert pipeline_v7._contract_payload is original_contract  # noqa: SLF001
+    assert subject.delivery_v7.common is original_common
     assert subject.delivery_v7.dashboard_v7 is original_dashboard
+    assert pipeline_v7._contract_payload == original_contract

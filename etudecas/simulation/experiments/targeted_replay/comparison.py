@@ -8,7 +8,7 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
-from etudecas.simulation.lot_trace.causality import join_ids
+from etudecas.simulation.lot_trace.causal_links import join_ids
 
 
 LOT_DELTA_FIELDS = [

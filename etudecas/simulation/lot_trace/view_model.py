@@ -1,12 +1,6 @@
 from __future__ import annotations
-
 from typing import Any, Iterable
-
-from .indexes import (
-    LotTraceIndexes,
-    build_lot_trace_indexes,
-    reachable_lot_ids,
-)
+from .indexes import LotTraceIndexes, build_lot_trace_indexes, reachable_lot_ids
 
 
 def build_lot_trace_view_model(

@@ -279,6 +279,41 @@ python POC2026/supply_geo_case/tools/refresh_supplier_context_map.py
 ```
 
 `supply_geo_base_results_map.html` is the single HTML map/dashboard entrypoint.
+The system and component selectors apply jointly to every geographic view,
+including named supplier alternatives and selected cascade maps. Membership is
+resolved through the primary path/site/lane identities, so shared sites remain
+visible only when they belong to a selected path.
+All geographic tabs retain the selected network's existing lanes, with neutral
+background lines completing the thematic risk/cascade layers. Named-supplier
+maps retain all selected scenario routes, including unchanged suppliers. The
+shared `Flux > Afficher` checkbox is enabled initially and controls flow
+visibility without leaving the current tab.
+
+Monthly detail tables, the dashboard traceability journal and cascade lists and
+timelines display oldest months first. Numeric string months are sorted
+numerically, undated rows appear last and simultaneous rows keep their original
+order. The existing embedded extracts remain bounded subsets of the full CSV
+journals; chronological presentation does not expand their coverage or change
+simulation values. Explicit top-impact charts retain their importance ranking.
+
+Site-level simulation metrics
+remain whole-site aggregates; filtering does not recalculate or allocate those
+metrics to a component. General KPI panels remain whole-supply summaries.
+
+To update presentation from existing embedded results without rerunning SDD or
+Brightway, and verify the selection against CSV membership in an offline browser:
+
+```bash
+python POC2026/supply_geo_case/tools/refresh_map_display.py
+python POC2026/supply_geo_case/tools/check_map_selection.py
+```
+
+The browser check writes a unique `outputs/checks/map_selection_*/manifest.json`
+with input hashes, check results and screenshots. It covers system/component
+combinations, tab persistence, France/Europe alternatives, cascades, an empty
+selection and mobile interaction. The refresh requires an existing generated
+map, `source_map_reference.json` and the primary paths/lanes CSVs.
+
 It is an enriched copy of the original `supply_geo` Plotly map: the base filters
 remain available, and added view buttons switch the same page between source
 data, SDD site results, SDD lane risk, localized operational impacts and an

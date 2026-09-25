@@ -19,12 +19,8 @@ from etudecas.prototypes.scan_2027_risk_control import (
 from etudecas.prototypes.scan_2027_risk_control import (
     continue_supplier_v6_calibration as calibration_v6,
 )
-from etudecas.prototypes.scan_2027_risk_control import (
-    finalize_supplier_operating_point_full_campaign_v6 as finalizer_v6,
-)
-from etudecas.prototypes.scan_2027_risk_control import (
-    launch_supplier_operating_point_full_campaign_v6 as launcher_v6,
-)
+from etudecas.prototypes.scan_2027_risk_control.supplier_campaign_adapters import finalize_v6 as finalizer_v6
+from etudecas.prototypes.scan_2027_risk_control.supplier_campaign_adapters import launch_v6 as launcher_v6
 from etudecas.prototypes.scan_2027_risk_control import (
     supplier_balanced_product_delay_multiseed_refinement_v6 as development_v6,
 )

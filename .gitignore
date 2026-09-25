@@ -157,3 +157,6 @@ etudecas/simulation/sensibility/**/*_stderr.log
 etudecas/simulation/sensibility_archives/
 etudecas/simulation/experiments/result/
 etudecas/artifacts/
+
+# Local historical archive exceeds GitHub's regular Git file limit.
+/etudecas/archive/preuves_et_documents_20260925.zip

@@ -1,21 +1,16 @@
 from __future__ import annotations
-
 import math
 import json
 from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any, Iterable
-
-from etudecas.case_config import (
-    build_lot_trace_config,
-    is_upstream_internal_site,
-)
+from etudecas.case_config import build_lot_trace_config, is_upstream_internal_site
 from .campaigns import (
     build_production_campaign_rows,
     deferred_orders_from_campaign_rows,
 )
 from .causal_links import LOT_CAUSAL_LINK_FIELDS
-from .io import (
+from .schema import (
     LOT_TRACE_CONTRACT_VERSION,
     LOT_TRACE_CAMPAIGN_FIELDS,
     LOT_TRACE_EVENT_FIELDS,
@@ -23,27 +18,24 @@ from .io import (
     LOT_TRACE_PLAN_EVENT_FIELDS,
     count_csv_rows,
     read_csv_rows,
+    EVENT_TYPE_LABELS,
+    build_business_lot_label,
+    event_type_label,
+    node_business_label,
+    scope_label as business_scope_label,
+    LotTraceItemClassifier,
+    compact_lot_trace_row,
+    to_float,
 )
 from .indexes import (
     build_lot_trace_indexes,
     lot_trace_downstream_stats,
     lot_trace_upstream_roots,
     lot_trace_upstream_stats,
-)
-from .labels import (
-    EVENT_TYPE_LABELS,
-    build_business_lot_label,
-    event_type_label,
-    node_business_label,
-    scope_label as business_scope_label,
+    LotTraceStockContextSources,
+    build_lot_trace_stock_context,
 )
 from .procurement import enrich_lot_trace_with_procurement
-from .rules import LotTraceItemClassifier
-from .schema import (
-    compact_lot_trace_row,
-    to_float,
-)
-from .stock_context import LotTraceStockContextSources, build_lot_trace_stock_context
 from .materials import build_material_traceability
 
 
@@ -792,7 +784,7 @@ def build_lot_trace_payload(
         payload["view_model_encoding"] = "shared_links_v1"
         payload["default_view_model"] = models.get(default_lot) or build_lot_trace_view_model(payload, default_lot, indexes=view_indexes)
         payload["summary"]["default_view_model_lot"] = default_lot
-    from etudecas.simulation.logistics.display import build_transport_context
+    from etudecas.simulation.logistics.io import build_transport_context
     try:
         payload["truck_consolidation"] = build_transport_context(events_raw, raw or {})
     except ValueError as exc:

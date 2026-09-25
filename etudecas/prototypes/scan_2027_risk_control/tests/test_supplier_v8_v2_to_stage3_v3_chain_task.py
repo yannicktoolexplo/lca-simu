@@ -63,7 +63,7 @@ def _go_payload() -> dict[str, str]:
     }
 
 
-def test_go_template_is_inert_and_bound_to_the_frozen_chain() -> None:
+def test_historical_go_template_is_preserved_and_cannot_authorize_current_chain() -> None:
     payload = json.loads(GO_TEMPLATE.read_text(encoding="utf-8"))
 
     assert payload["decision"] == "WAIT_FOR_EXPLICIT_GO"
@@ -72,8 +72,10 @@ def test_go_template_is_inert_and_bound_to_the_frozen_chain() -> None:
     assert payload["stage3_inventory_signature"] == INVENTORY_SIGNATURE
     assert (
         payload["chain_wrapper_sha256"]
-        == hashlib.sha256(SCRIPT.read_bytes()).hexdigest()
+        == "451e3ab5e7a5f737db6d9375242ca88a179aff65aa2db39bd7ced63c217529b6"
     )
+    assert payload["chain_wrapper_sha256"] != hashlib.sha256(SCRIPT.read_bytes()).hexdigest()
+    assert "chain.runtime.v3" in SCRIPT.read_text(encoding="utf-8-sig")
 
 
 def _validate_only(
@@ -137,9 +139,16 @@ def test_chain_hashes_the_base_launcher_imported_by_resilient_adapter() -> None:
         r"\launch_supplier_operating_point_full_campaign_v8.py"
     )
 
-    assert BASE_V8_LAUNCHER.is_file()
-    assert hashlib.sha256(BASE_V8_LAUNCHER.read_bytes()).hexdigest() == (
-        BASE_V8_LAUNCHER_SHA256
+    assert not BASE_V8_LAUNCHER.exists()
+    from etudecas.prototypes.scan_2027_risk_control import supplier_campaign_source_revision
+    current_launcher = supplier_campaign_source_revision.resolve_current_source(BASE_V8_LAUNCHER)
+    assert current_launcher.name == "supplier_campaign_adapters.py"
+    assert BASE_V8_LAUNCHER_SHA256 == (
+        "bd8f39d03f97766e193a683076884739bdb72dabcc51fe06b2eadd4e9a146405"
+    )
+    assert supplier_campaign_source_revision.accepts_current_revision(
+        current_launcher, BASE_V8_LAUNCHER_SHA256,
+        hashlib.sha256(current_launcher.read_bytes()).hexdigest(),
     )
     assert f'"{relative_path}" = "{BASE_V8_LAUNCHER_SHA256}"' in source
 
@@ -317,7 +326,8 @@ def test_chain_is_foreground_gated_idempotent_and_non_destructive() -> None:
     existing_html_validation_index = runtime.index(
         'Invoke-LoggedPythonStep -Step "03_existing_html_validation"'
     )
-    stage3_index = runtime.index("supplier_v8_stage3_watcher")
+    stage3_index = runtime.index("supplier_stage_runtime")
+    assert '"--profile", "v8-stage3", "--mode", "watch"' in runtime
     html_validation_index = runtime.index(
         'Invoke-LoggedPythonStep -Step "04_validate_html"'
     )
@@ -410,3 +420,74 @@ def test_chain_source_is_utf8_bom_and_contains_no_mojibake() -> None:
     assert raw.startswith(b"\xef\xbb\xbf")
     assert not any(marker in source for marker in bad_markers)
     assert "Cha\u00eene termin\u00e9e" in source
+
+
+@pytest.mark.parametrize("chain_version", [3, 4])
+def test_current_chain_validate_only_checks_absent_valid_and_mismatched_go(tmp_path, chain_version):
+    import sys
+    from etudecas.prototypes.scan_2027_risk_control import supplier_stage_runtime
+    script = SCRIPT.with_name(f"run_supplier_v8_v2_to_stage3_v{chain_version}_chain_task.ps1")
+    runtime = supplier_stage_runtime.for_profile("v8-stage3")
+    inventory = runtime.build_source_inventory(REPO)
+    inventory_path = tmp_path / "inventory.json"
+    inventory_path.write_text(json.dumps(inventory), encoding="utf-8")
+    inputs = tmp_path / "inputs"
+    output = tmp_path / "untouched"
+    args = [_powershell(), "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
+            "-File", str(script), "-ValidateOnly", "-Repo", str(REPO), "-Python", sys.executable,
+            "-RuntimeInventory", str(inventory_path), "-CampaignRunner",
+            str(SCRIPT.with_name("supplier_operating_point_full_campaign_v8.py"))]
+    directories = {}
+    for name in ("CampaignRoot", "V7PlanDir", "V7RunDir", "TracePackageDir", "Observed2025Dir"):
+        directories[name] = inputs / name
+        directories[name].mkdir(parents=True)
+        args += ["-" + name, str(directories[name])]
+    bridge = inputs / "bridge.json"
+    bridge.write_text("{}", encoding="utf-8")
+    go_path = tmp_path / "go.json"
+    args += ["-BridgeJson", str(bridge), "-Stage3GoFile", str(go_path)]
+    for name in ("RecoverySupervisionDir", "ResultsDir", "LotReplayRoot", "QualificationDir",
+                 "ActionReplayRoot", "CurvesDir", "RegistryDir", "Stage3SupervisionDir",
+                 "ChainSupervisionDir", "FinalHtml"):
+        args += ["-" + name, str(output / name)]
+
+    def validate():
+        result = subprocess.run(args, cwd=REPO, capture_output=True, timeout=60)
+        assert not output.exists()
+        return result
+
+    absent = validate()
+    assert absent.returncode == 0, absent.stderr.decode(errors="replace")
+    payload = json.loads(absent.stdout.decode("utf-8-sig"))
+    assert payload["stage3_go_present"] is False
+    assert payload["stage3_go"] is None
+    assert payload["launch_performed"] is False
+    assert payload["scheduled_task_changed"] is False
+    assert payload["filesystem_mutation_performed"] is False
+    assert payload["validation"]["stage3_inventory_signature"] == inventory["inventory_signature"]
+    assert payload["validation"]["current_source_revision"]["files"][script.name]["sha256"] == hashlib.sha256(script.read_bytes()).hexdigest()
+    go = {
+        "schema_version": f"etudecas.supplier_v8_v2_to_stage3_v{chain_version}_chain.runtime.v3.stage3_go.v1",
+        "decision": f"GO_STAGE3_V{chain_version}",
+        "stage3_inventory_signature": inventory["inventory_signature"],
+        "chain_wrapper_sha256": hashlib.sha256(script.read_bytes()).hexdigest(),
+        "approved_by": "synthetic-fixture-not-an-operational-approval",
+        "approved_at_utc": "2026-09-23T00:00:00Z",
+        "campaign_root": str(directories["CampaignRoot"]),
+        "results_dir": str(output / "ResultsDir"),
+        "stage3_supervision_dir": str(output / "Stage3SupervisionDir"),
+        "final_html": str(output / "FinalHtml"),
+    }
+    go_path.write_text(json.dumps(go), encoding="utf-8")
+    accepted = validate()
+    assert accepted.returncode == 0, accepted.stderr.decode(errors="replace")
+    payload = json.loads(accepted.stdout.decode("utf-8-sig"))
+    assert payload["stage3_go_present"] is True
+    assert payload["stage3_go"]["stage3_inventory_signature"] == inventory["inventory_signature"]
+    assert payload["launch_performed"] is False
+    assert payload["scheduled_task_changed"] is False
+    assert payload["filesystem_mutation_performed"] is False
+    go["stage3_inventory_signature"] = "0" * 64
+    go_path.write_text(json.dumps(go), encoding="utf-8")
+    refused = validate()
+    assert refused.returncode != 0

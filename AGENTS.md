@@ -13,3 +13,11 @@ Décisions utilisateur confirmées : les jours de sécurité suivent lundi-vendr
 La toolbox `python -m etudecas.toolbox` fournit doctor, tests ciblés, qualification CSV, navigateur hors ligne, docs et agrégation des preuves. Chaque exécution écrit sous `etudecas/artifacts/testing` dans un dossier unique. Un code retour non nul, une preuve absente ou une empreinte différente interdit de déclarer la vérification réussie. Les invariants ne certifient pas la calibration du modèle.
 
 Le parent restitue changements, tests réellement exécutés, liens des manifestes et limites. Ne pas publier de résultats lourds. Les consignes de rôle limitent l'intention ; elles ne constituent pas une sandbox par fichier.
+
+## Vérifications après l'incident Sophos du 23 septembre 2026
+
+Consigne utilisateur : ne plus exécuter de tests qui altèrent volontairement des fichiers, restaurent leurs dates, simulent leur disparition ou réécrivent en boucle des fichiers factices pour éprouver des contrôles d'intégrité. Ne pas relancer `artifacts/testing/research_triage_20260923/validator/check_source_revision.py` ni une variante de ce test. Conserver les preuves de l'incident pour le service informatique.
+
+Avant de lancer des tests existants, relire les cas sélectionnés et leurs fixtures : ne pas lancer une suite globale susceptible de contenir ces opérations. Privilégier les simulations normales dans un nouveau dossier de résultats, les comparaisons en lecture seule avec les références et les tests de calcul en mémoire. Une vérification exclue reste signalée comme non exécutée ; ne pas la compter comme réussie.
+
+En cas de nouveau refus d'écriture ou d'alerte de sécurité, arrêter les exécutions concernées et diagnostiquer en lecture seule. Ne pas multiplier les sondes d'écriture ni contourner Sophos ; sa gestion relève du service informatique.

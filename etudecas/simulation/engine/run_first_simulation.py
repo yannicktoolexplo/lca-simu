@@ -29,227 +29,121 @@ from etudecas.simulation.engine.model_semantics import (
     safety_calendar_days, shipment_execution_state, transport_charge,
 )
 
-try:
-    from etudecas.case_config import (
-        DEFAULT_PRODUCTION_COST_LINE_PROFILES,
-        DEFAULT_PRODUCTION_COST_LINE_SHARES,
-        DEFAULT_PRODUCTION_COST_UNIT_RATES,
-        LOT_TRACE_DEFAULT_LOGISTICS_ASSUMPTIONS,
-        REFERENCE_TRANSITIONS,
-        is_upstream_internal_site,
-        standard_order_override,
-    )
-except ModuleNotFoundError:
-    sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
-    from etudecas.case_config import (
-        DEFAULT_PRODUCTION_COST_LINE_PROFILES,
-        DEFAULT_PRODUCTION_COST_LINE_SHARES,
-        DEFAULT_PRODUCTION_COST_UNIT_RATES,
-        LOT_TRACE_DEFAULT_LOGISTICS_ASSUMPTIONS,
-        REFERENCE_TRANSITIONS,
-        is_upstream_internal_site,
-        standard_order_override,
-    )
+from etudecas.case_config import (
+    DEFAULT_PRODUCTION_COST_LINE_PROFILES,
+    DEFAULT_PRODUCTION_COST_LINE_SHARES,
+    DEFAULT_PRODUCTION_COST_UNIT_RATES,
+    LOT_TRACE_DEFAULT_LOGISTICS_ASSUMPTIONS,
+    REFERENCE_TRANSITIONS,
+    is_upstream_internal_site,
+    standard_order_override,
+)
 
-try:
-    from etudecas.simulation.lot_trace.campaigns import (
-        PRODUCTION_CAMPAIGN_FIELDS,
-        build_production_campaign_rows,
-    )
-    from etudecas.simulation.lot_trace.causality import (
-        LOT_CAUSAL_EVENT_FIELDS,
-        LOT_CAUSAL_GENEALOGY_FIELDS,
-        PLAN_CAUSAL_FIELDS,
-        causal_status,
-        inherited_causal_fields,
-        join_ids,
-        planned_order_reference,
-        resolved_causal_status,
-        split_ids,
-        stable_reference_id,
-    )
-    from etudecas.simulation.lot_trace.causal_links import (
-        LOT_CAUSAL_LINK_FIELDS,
-        build_lot_causal_link_rows,
-    )
-    from etudecas.simulation.lot_trace.io import LOT_TRACE_CONTRACT_VERSION
-except ModuleNotFoundError:
-    sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
-    from etudecas.simulation.lot_trace.campaigns import (
-        PRODUCTION_CAMPAIGN_FIELDS,
-        build_production_campaign_rows,
-    )
-    from etudecas.simulation.lot_trace.causality import (
-        LOT_CAUSAL_EVENT_FIELDS,
-        LOT_CAUSAL_GENEALOGY_FIELDS,
-        PLAN_CAUSAL_FIELDS,
-        causal_status,
-        inherited_causal_fields,
-        join_ids,
-        planned_order_reference,
-        resolved_causal_status,
-        split_ids,
-        stable_reference_id,
-    )
-    from etudecas.simulation.lot_trace.causal_links import (
-        LOT_CAUSAL_LINK_FIELDS,
-        build_lot_causal_link_rows,
-    )
-    from etudecas.simulation.lot_trace.io import LOT_TRACE_CONTRACT_VERSION
+from etudecas.simulation.lot_trace.campaigns import (
+    PRODUCTION_CAMPAIGN_FIELDS,
+    build_production_campaign_rows,
+)
+from etudecas.simulation.lot_trace.causal_links import LOT_CAUSAL_EVENT_FIELDS, LOT_CAUSAL_GENEALOGY_FIELDS, PLAN_CAUSAL_FIELDS, causal_status, inherited_causal_fields, join_ids, planned_order_reference, resolved_causal_status, split_ids, stable_reference_id
+from etudecas.simulation.lot_trace.causal_links import (
+    LOT_CAUSAL_LINK_FIELDS,
+    build_lot_causal_link_rows,
+)
+from etudecas.simulation.lot_trace.schema import LOT_TRACE_CONTRACT_VERSION
 
-try:
-    from etudecas.simulation.analysis.factory_nervousness import (
-        FACTORY_NERVOUSNESS_FIELDS,
-        build_factory_nervousness_rows,
-    )
-except ModuleNotFoundError:
-    sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
-    from etudecas.simulation.analysis.factory_nervousness import (
-        FACTORY_NERVOUSNESS_FIELDS,
-        build_factory_nervousness_rows,
-    )
+from etudecas.simulation.analysis.factory_nervousness import (
+    FACTORY_NERVOUSNESS_FIELDS,
+    build_factory_nervousness_rows,
+)
 
-try:
-    from etudecas.simulation.lot_trace.execution import (
-        LOT_EXECUTION_SEMANTICS_VERSION,
-        ProductionBatchWip,
-        make_batch_id,
-        physical_batch_target_qty,
-        production_week_index,
-    )
-except ModuleNotFoundError:
-    sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
-    from etudecas.simulation.lot_trace.execution import (
-        LOT_EXECUTION_SEMANTICS_VERSION,
-        ProductionBatchWip,
-        make_batch_id,
-        physical_batch_target_qty,
-        production_week_index,
-    )
+from etudecas.simulation.lot_trace.campaigns import LOT_EXECUTION_SEMANTICS_VERSION, ProductionBatchWip, make_batch_id, physical_batch_target_qty, production_week_index
 
-try:
-    from etudecas.simulation.engine.control_schedule import (
-        CONTROL_LEDGER_COLUMNS,
-        ControlCatalog,
-        ControlScheduleError,
-        ResolvedControl,
-        load_control_schedule,
-    )
-except ModuleNotFoundError:
-    sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
-    from etudecas.simulation.engine.control_schedule import (
-        CONTROL_LEDGER_COLUMNS,
-        ControlCatalog,
-        ControlScheduleError,
-        ResolvedControl,
-        load_control_schedule,
-    )
+from etudecas.simulation.engine.control_schedule import (
+    CONTROL_LEDGER_COLUMNS,
+    ControlCatalog,
+    ControlScheduleError,
+    ResolvedControl,
+    load_control_schedule,
+)
 
-try:
-    from etudecas.simulation.engine.control_provider import (
-        CanonicalObservation,
-        ControlProviderError,
-        StateFeedbackControlProvider,
-        load_state_feedback_control_provider,
-    )
-except ModuleNotFoundError:
-    sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
-    from etudecas.simulation.engine.control_provider import (
-        CanonicalObservation,
-        ControlProviderError,
-        StateFeedbackControlProvider,
-        load_state_feedback_control_provider,
-    )
+from etudecas.simulation.engine.control_provider import (
+    CanonicalObservation,
+    ControlProviderError,
+    StateFeedbackControlProvider,
+    load_state_feedback_control_provider,
+)
 
-try:
-    from etudecas.simulation.engine.control_provider_v2 import (
-        load_state_feedback_control_provider_v2,
-    )
-except ModuleNotFoundError:
-    sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
-    from etudecas.simulation.engine.control_provider_v2 import (
-        load_state_feedback_control_provider_v2,
-    )
+from etudecas.simulation.engine.control_provider_v2 import (
+    load_state_feedback_control_provider_v2,
+)
 
-try:
-    from etudecas.simulation.engine.control_provider_v3 import (
-        load_state_feedback_control_provider_v3,
-    )
-except ModuleNotFoundError:
-    sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
-    from etudecas.simulation.engine.control_provider_v3 import (
-        load_state_feedback_control_provider_v3,
-    )
+from etudecas.simulation.engine.control_provider_v3 import (
+    load_state_feedback_control_provider_v3,
+)
 
-try:
-    from etudecas.simulation.engine.control_probe import (
-        CONTROL_PROBE_ACTIONS,
-        CONTROL_PROBE_COMPOSITION_COLUMNS,
-        CONTROL_PROBE_MODE,
-        ControlProbeError,
-        ProbeResolvedControl,
-        compose_feedback_with_probe,
-        load_control_probe_schedule,
-    )
-except ModuleNotFoundError:
-    sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
-    from etudecas.simulation.engine.control_probe import (
-        CONTROL_PROBE_ACTIONS,
-        CONTROL_PROBE_COMPOSITION_COLUMNS,
-        CONTROL_PROBE_MODE,
-        ControlProbeError,
-        ProbeResolvedControl,
-        compose_feedback_with_probe,
-        load_control_probe_schedule,
-    )
+from etudecas.simulation.engine.control_probe import (
+    CONTROL_PROBE_ACTIONS,
+    CONTROL_PROBE_COMPOSITION_COLUMNS,
+    CONTROL_PROBE_MODE,
+    ControlProbeError,
+    ProbeResolvedControl,
+    compose_feedback_with_probe,
+    load_control_probe_schedule,
+)
 
-try:
-    from etudecas.simulation.engine.demand_perturbation import (
-        DEMAND_MULTIPLIER_MAX,
-        DEMAND_MULTIPLIER_MIN,
-        DEMAND_PERTURBATION_AUDIT_COLUMNS,
-        DemandPerturbationError,
-        load_demand_perturbation_schedule,
-    )
-except ModuleNotFoundError:
-    sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
-    from etudecas.simulation.engine.demand_perturbation import (
-        DEMAND_MULTIPLIER_MAX,
-        DEMAND_MULTIPLIER_MIN,
-        DEMAND_PERTURBATION_AUDIT_COLUMNS,
-        DemandPerturbationError,
-        load_demand_perturbation_schedule,
-    )
-try:
-    from etudecas.simulation.lot_policy import (
-        available_component_quantity,
-        normalize_physical_quantity,
-        required_component_quantity,
-        resolve_canonical_lane_lot,
-        resolve_internal_dispatch_multiple,
-    )
-except ModuleNotFoundError:
-    sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
-    from etudecas.simulation.lot_policy import (
-        available_component_quantity,
-        normalize_physical_quantity,
-        required_component_quantity,
-        resolve_canonical_lane_lot,
-        resolve_internal_dispatch_multiple,
-    )
+from etudecas.simulation.engine.demand_perturbation import (
+    DEMAND_MULTIPLIER_MAX,
+    DEMAND_MULTIPLIER_MIN,
+    DEMAND_PERTURBATION_AUDIT_COLUMNS,
+    DemandPerturbationError,
+    load_demand_perturbation_schedule,
+)
+from etudecas.simulation.lot_policy import (
+    available_component_quantity,
+    normalize_physical_quantity,
+    required_component_quantity,
+    resolve_canonical_lane_lot,
+    resolve_internal_dispatch_multiple,
+)
 
-try:
-    from etudecas.simulation.logistics import estimate_internal_truck_handling
-except ModuleNotFoundError:
-    sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
-    from etudecas.simulation.logistics import estimate_internal_truck_handling
+from etudecas.simulation.logistics import estimate_internal_truck_handling
 
 
 SUPPLIER_FUNCTIONAL_CAPACITY_HEADROOM_FACTOR = 2.5
 FACTORY_NOMINAL_TARGET_UTILIZATION = 0.70
 SUPPLIER_UPSTREAM_SUPPLY_NODE_ID = "SUPPLIER_UPSTREAM_SUPPLY"
 SUPPLIER_UPSTREAM_SUPPLY_EDGE_PREFIX = "SUPPLIER_UPSTREAM_SUPPLY"
+SUPPLIER_STATE_RISK_FAMILIES = (
+    "stock",
+    "capacity",
+    "lead",
+    "availability",
+    "upstream",
+    "reliability",
+    "quality",
+    "cost",
+)
 LOT_TRACE_EPS = 1e-6
+
+
+def _parse_supplier_state_risk_families(value: str) -> tuple[str, ...]:
+    """Parse an explicit state-risk family allowlist in canonical order."""
+
+    tokens = [token.strip().casefold() for token in str(value or "").split(",")]
+    selected = {token for token in tokens if token}
+    if not selected or selected == {"all"}:
+        return SUPPLIER_STATE_RISK_FAMILIES
+    if "all" in selected:
+        raise argparse.ArgumentTypeError(
+            "'all' cannot be combined with explicit supplier state-risk families"
+        )
+    unknown = sorted(selected - set(SUPPLIER_STATE_RISK_FAMILIES))
+    if unknown:
+        raise argparse.ArgumentTypeError(
+            "unknown supplier state-risk families: " + ", ".join(unknown)
+        )
+    return tuple(
+        family for family in SUPPLIER_STATE_RISK_FAMILIES if family in selected
+    )
 
 
 def _nonnegative_finite_float(value: str) -> float:
@@ -2047,15 +1941,6 @@ def normalize_unit(unit: Any) -> str:
     return aliases.get(s, s)
 
 
-def unit_dimension(unit: str) -> str:
-    u = normalize_unit(unit)
-    if u in {"KG", "G"}:
-        return "mass"
-    if u in {"UN"}:
-        return "count"
-    if u in {"M"}:
-        return "length"
-    return "unknown"
 
 
 def can_convert_units(from_unit: str, to_unit: str) -> bool:
@@ -2479,6 +2364,18 @@ def parse_args() -> argparse.Namespace:
             "Enable simple state-dependent supplier risks. When enabled, supplier stock cover, "
             "capacity utilization and observed lead-time drift can trigger temporary future "
             "risk events. Default is disabled to keep baseline runs unchanged."
+        ),
+    )
+    parser.add_argument(
+        "--supplier-state-risk-families",
+        type=_parse_supplier_state_risk_families,
+        default=SUPPLIER_STATE_RISK_FAMILIES,
+        metavar="FAMILY[,FAMILY...]",
+        help=(
+            "State-dependent supplier-risk families allowed to create events. "
+            "Available families: stock, capacity, lead, availability, upstream, "
+            "reliability, quality, cost. Empty or 'all' preserves the default "
+            "behavior (all families)."
         ),
     )
     parser.add_argument(
@@ -2925,8 +2822,40 @@ def profile_value(profile: list[dict[str, Any]], day: int) -> float:
     return 0.0
 
 
-def profile_window_average(profile: list[dict[str, Any]], day: int, window_days: int) -> float:
+def _cached_profile_value(
+    profile: list[dict[str, Any]],
+    day: int,
+    value_cache: dict[tuple[int, int], float],
+) -> float:
+    # The owning run retains its profiles unchanged for the cache's lifetime.
+    # Identity keeps distinct profiles separate, even when their days coincide.
+    key = (id(profile), day)
+    try:
+        return value_cache[key]
+    except KeyError:
+        value = profile_value(profile, day)
+        value_cache[key] = value
+        return value
+
+
+def profile_window_average(
+    profile: list[dict[str, Any]],
+    day: int,
+    window_days: int,
+    *,
+    value_cache: dict[tuple[int, int], float] | None = None,
+) -> float:
+    """Average days in order; an optional cache belongs to one run's fixed profiles."""
     window_days = max(1, int(window_days))
+    if value_cache is not None:
+        if window_days <= 1:
+            return _cached_profile_value(profile, day, value_cache)
+        # Keep the same ordered sum as the uncached evaluator: prefix sums or
+        # rolling sums can change floating-point results and physical decisions.
+        return sum(
+            _cached_profile_value(profile, day + offset, value_cache)
+            for offset in range(window_days)
+        ) / float(window_days)
     if window_days <= 1:
         return profile_value(profile, day)
     return sum(profile_value(profile, day + offset) for offset in range(window_days)) / float(window_days)
@@ -2937,9 +2866,10 @@ def demand_targets_for_day(
     day: int,
     *,
     window_days: int = 1,
+    value_cache: dict[tuple[int, int], float] | None = None,
 ) -> dict[tuple[str, str], float]:
     return {
-        pair: max(0.0, profile_window_average(profile, day, window_days))
+        pair: max(0.0, profile_window_average(profile, day, window_days, value_cache=value_cache))
         for pair, profile in demand_profiles.items()
     }
 
@@ -8028,6 +7958,9 @@ def main() -> None:
         (str(d.get("node_id")), str(d.get("item_id"))): (d.get("profile") or [])
         for d in demand_rows
     }
+    # Fresh for every run, including repeated main() calls in one process.
+    # Profiles are retained by demand_profiles and are not mutated during a run.
+    demand_profile_value_cache: dict[tuple[int, int], float] = {}
     demand_perturbation_path = (
         Path(args.demand_perturbation_csv).resolve()
         if args.demand_perturbation_csv
@@ -8079,6 +8012,7 @@ def main() -> None:
         demand_profiles,
         0,
         window_days=mrp_signal_smoothing_days,
+        value_cache=demand_profile_value_cache,
     )
     if (
         initialization_policy["use_bom_demand_signal_for_mrp"]
@@ -8292,6 +8226,7 @@ def main() -> None:
                 demand_profiles,
                 int(window_start_day),
                 window_days=effective_window_days,
+                value_cache=demand_profile_value_cache,
             )
             if not initialization_policy["use_bom_demand_signal_for_mrp"]:
                 return propagate_demand_rates(demand_target_floor, lanes)
@@ -9232,6 +9167,8 @@ def main() -> None:
         observation_warmup_days = max(0, int(args.supplier_state_risk_observation_warmup_days or 0))
         if not args.supplier_state_dependent_risks or trigger_day < observation_warmup_days:
             return
+        if risk_family not in args.supplier_state_risk_families:
+            return
         key = (risk_family, trigger_metric, supplier_id, item_id, dst_node_id, edge_id)
         if trigger_day <= supplier_state_risk_open_until_by_key.get(key, -1):
             return
@@ -10103,11 +10040,13 @@ def main() -> None:
             demand_profiles,
             profile_day,
             window_days=1,
+            value_cache=demand_profile_value_cache,
         )
         demand_target_today = demand_targets_for_day(
             demand_profiles,
             profile_day,
             window_days=mrp_signal_smoothing_days,
+            value_cache=demand_profile_value_cache,
         )
         base_physical_demand_target_today = raw_demand_target_today
         if record_day and demand_perturbation.enabled:
@@ -10125,7 +10064,12 @@ def main() -> None:
             else profile_day
         )
         mrp_raw_demand_target_today = (
-            demand_targets_for_day(demand_profiles, mrp_target_profile_day, window_days=1)
+            demand_targets_for_day(
+                demand_profiles,
+                mrp_target_profile_day,
+                window_days=1,
+                value_cache=demand_profile_value_cache,
+            )
             if mrp_target_bucket_days > 1
             else raw_demand_target_today
         )
@@ -10134,6 +10078,7 @@ def main() -> None:
                 demand_profiles,
                 mrp_target_profile_day,
                 window_days=mrp_signal_smoothing_days,
+                value_cache=demand_profile_value_cache,
             )
             if mrp_target_bucket_days > 1
             else demand_target_today
@@ -15968,6 +15913,24 @@ def main() -> None:
         },
         "top_backlog_pairs": top_backlog,
     }
+    if args.supplier_state_risk_families != SUPPLIER_STATE_RISK_FAMILIES:
+        state_policy = summary["policy"]["supplier_state_dependent_risk"]
+        state_policy.update({
+            "available_families": list(SUPPLIER_STATE_RISK_FAMILIES),
+            "enabled_families": list(args.supplier_state_risk_families),
+            "excluded_families": [f for f in SUPPLIER_STATE_RISK_FAMILIES if f not in args.supplier_state_risk_families],
+            "family_filter_mode": "allowlist",
+        })
+        for family in ("stock", "capacity", "lead", "upstream"):
+            if family not in args.supplier_state_risk_families:
+                state_policy[family + "_rules"] = []
+        state_policy["reliability_quality_rules"] = [
+            rule for family, rule in zip(("reliability", "quality"), state_policy["reliability_quality_rules"])
+            if family in args.supplier_state_risk_families
+        ]
+        if "cost" not in args.supplier_state_risk_families:
+            state_policy["cost_rule"] = ""
+
 
     for node_id in assumed_supplier_nodes:
         assumptions_ledger_rows.append(
@@ -16682,10 +16645,17 @@ def main() -> None:
         writer.writeheader()
         writer.writerows(lot_ledger.genealogy_rows)
 
+    from etudecas.simulation.run_format.exporter import CsvHashingWriter
+
     with lot_causal_link_path.open("w", encoding="utf-8", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=LOT_CAUSAL_LINK_FIELDS)
+        lot_causal_link_hashing_writer = CsvHashingWriter(f)
+        writer = csv.DictWriter(lot_causal_link_hashing_writer, fieldnames=LOT_CAUSAL_LINK_FIELDS)
         writer.writeheader()
         writer.writerows(lot_causal_link_rows)
+    try:
+        lot_causal_link_written_stat = lot_causal_link_path.stat()
+    except OSError:
+        lot_causal_link_written_stat = None
 
     generated_lot_audit_report_path: str | None = None
     if lot_ledger.enabled and not args.skip_lot_audit:
@@ -17227,6 +17197,7 @@ def main() -> None:
     generated_generic_run_path: str | None = None
     try:
         from etudecas.simulation.run_format import export_run_package
+        from etudecas.simulation.run_format.exporter import profile_written_csv
 
         generic_run_metadata: dict[str, Any] = {
             "producer": "simulation_engine",
@@ -17240,6 +17211,11 @@ def main() -> None:
             input_graph=input_path,
             map_html=Path(generated_map_path) if generated_map_path else None,
             extra_metadata=generic_run_metadata,
+            lot_causal_link_profile=profile_written_csv(
+                lot_causal_link_path, LOT_CAUSAL_LINK_FIELDS,
+                lot_causal_link_rows, lot_causal_link_written_stat,
+                written_sha256=lot_causal_link_hashing_writer.hexdigest(),
+            ),
         )
         generated_generic_run_path = str(generic_run_path)
     except Exception as exc:

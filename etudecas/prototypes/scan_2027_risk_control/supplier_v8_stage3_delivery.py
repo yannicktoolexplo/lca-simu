@@ -10,6 +10,8 @@ lots or actions to it.
 
 from __future__ import annotations
 
+from etudecas.prototypes.scan_2027_risk_control import supplier_stage_runtime as stage_runtime
+
 import argparse
 import hashlib
 import html
@@ -52,38 +54,20 @@ class Stage2DeliveryError(common.Stage2Error):
 def _v3_reducer_binding(paths: common.Stage2Paths) -> Iterator[None]:
     """Bind mature reducers to V3 and the native V8 reader, then restore all."""
 
-    from etudecas.prototypes.scan_2027_risk_control import (
-        supplier_v7_stage2_pipeline as pipeline_v7,
-    )
-    from etudecas.prototypes.scan_2027_risk_control import (
-        supplier_v8_stage3_pipeline as pipeline_v3,
-    )
 
     previous_delivery = {
         "common": delivery_v7.common,
         "dashboard_v7": delivery_v7.dashboard_v7,
         "finalizer_v7": delivery_v7.finalizer_v7,
     }
-    previous_pipeline = {
-        "common": pipeline_v7.common,
-        "SCHEMA_VERSION": pipeline_v7.SCHEMA_VERSION,
-        "UPSTREAM_NAME": pipeline_v7.UPSTREAM_NAME,
-        "_contract_payload": pipeline_v7._contract_payload,  # noqa: SLF001
-    }
     delivery_v7.common = common
     delivery_v7.dashboard_v7 = dashboard_v8.NativeV8DashboardReader(paths.campaign_root)
     delivery_v7.finalizer_v7 = SimpleNamespace(
         V7_RESULT_OVERLAY_NAME=finalizer_v8.V8_RESULT_OVERLAY_NAME
     )
-    pipeline_v7.common = common
-    pipeline_v7.SCHEMA_VERSION = pipeline_v3.SCHEMA_VERSION
-    pipeline_v7.UPSTREAM_NAME = pipeline_v3.UPSTREAM_NAME
-    pipeline_v7._contract_payload = pipeline_v3._contract_payload_v3  # noqa: SLF001
     try:
         yield
     finally:
-        for name, value in previous_pipeline.items():
-            setattr(pipeline_v7, name, value)
         for name, value in previous_delivery.items():
             setattr(delivery_v7, name, value)
 
@@ -366,9 +350,7 @@ def collect_payload(
     paths: common.Stage2Paths,
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     paths = paths.resolved()
-    from etudecas.prototypes.scan_2027_risk_control import (
-        supplier_v8_stage3_pipeline as pipeline_v3,
-    )
+    pipeline_v3 = stage_runtime.for_profile('v8-stage3')
 
     pipeline_v3.validate_bound_contract(paths)
     try:
@@ -664,9 +646,7 @@ def build_delivery(paths: common.Stage2Paths) -> dict[str, Any]:
 
 
 def _parser() -> argparse.ArgumentParser:
-    from etudecas.prototypes.scan_2027_risk_control import (
-        supplier_v8_stage3_pipeline as pipeline_v3,
-    )
+    pipeline_v3 = stage_runtime.for_profile('v8-stage3')
 
     parser = argparse.ArgumentParser(description=__doc__)
     pipeline_v3.add_path_arguments(parser)
@@ -674,9 +654,7 @@ def _parser() -> argparse.ArgumentParser:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    from etudecas.prototypes.scan_2027_risk_control import (
-        supplier_v8_stage3_pipeline as pipeline_v3,
-    )
+    pipeline_v3 = stage_runtime.for_profile('v8-stage3')
 
     args = _parser().parse_args(argv)
     try:

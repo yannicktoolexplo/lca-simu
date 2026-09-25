@@ -1,166 +1,167 @@
-# Etudecas — comprendre le projet
+# Etudecas — comprendre et utiliser le code
 
-Etudecas est le logiciel de l'étude de cas supply chain : il prépare un réseau
-à partir des données métier, exécute les règles de stocks, production et
-transport, puis construit une carte HTML pour explorer les résultats et les lots.
+Etudecas simule les stocks, la production et les transports d'une supply chain,
+puis construit des cartes HTML pour explorer les résultats et suivre les lots.
+Le modèle utilise la dynamique des systèmes : stocks et encours évoluent avec
+les flux, délais et décisions ; certains risques dépendent de l'état du système.
 
-**Cette page est le point d'entrée pour comprendre et modifier le code.**
-La [documentation par sujet](docs/README.md) approfondit les fonctions métier.
-Les [quatre HTML conservés](index.html) ont leur accueil séparé, dont la comparaison des fournisseurs selon la configuration de la supply chain. Les anciens résultats détaillés ont été retirés le 22 septembre ; le [guide de recalcul](docs/REGENERER_RESULTATS.md) distingue reconstruction des présentations et recalcul des simulations, avec leurs limites vérifiées.
+**Le parcours à comprendre : données → scénario → boucle quotidienne → lots et
+transports → indicateurs → carte.** Les études réutilisent ce parcours avec des
+paramètres ou des tirages différents.
 
-## Où commencer selon ce que tu veux faire
+La simplification conserve les fonctionnalités et un parcours courant par étude.
+Les anciens scripts ponctuels quittent le code actif après sauvegarde et examen de
+leurs dépendances. La cible d'environ 50 fichiers de code, tests et interface compris,
+**n'est pas encore atteinte**. Le [plan](docs/PLAN_SIMPLIFICATION.md) décrit la suite ;
+l'[inventaire Python](docs/INVENTAIRE_PYTHON.csv) sert à retrouver une implémentation.
 
-| Besoin | Endroit à ouvrir |
+Pour travailler, utiliser ce guide, [les commandes](OPERATIONS.md),
+[les règles métier](docs/README.md) et [les quatre cartes](index.html).
+Les anciens `tmp`, audits et comptes rendus sont regroupés dans
+[l'archive](archive/README.md). Les références de vérification encore nécessaires
+et les pièces de l'incident Sophos restent identifiées séparément.
+
+## Les commandes courantes
+
+Depuis la racine du dépôt, avec l'environnement Python du projet :
+
+```powershell
+# Recalculer uniquement le nominal sur cinq ans (1 825 jours).
+python -B -m etudecas.regenerate --scenario nominal
+# Recalculer les quatre scénarios et reconstruire la carte récente complète.
+python -B -m etudecas.regenerate --delivery lots
+# Examiner une commande sans lancer le calcul.
+python -B -m etudecas.regenerate --scenario nominal --dry-run
+# Choisir une étude : sensibilité, incertitude, cascades ou fournisseurs.
+python -B -m etudecas.simulation.studies --help
+```
+
+Chaque calcul crée son dossier de résultats. Les quatre HTML conservés sont
+accessibles depuis [l'accueil](index.html). Le [guide de reconstruction](docs/REGENERER_RESULTATS.md)
+précise ce qui peut être recalculé ou seulement réassemblé depuis un HTML historique.
+Le [guide des commandes](OPERATIONS.md) couvre l'installation et la préparation des entrées.
+
+## Choisir une étude
+
+Utiliser `python -B -m etudecas.simulation.studies MODE --help` pour consulter
+les entrées et paramètres du mode choisi. Cette aide ne lance aucun calcul.
+
+| Besoin | Mode |
 |---|---|
-| Comprendre les dossiers et leur rôle | [Organisation ci-dessous](#organisation-des-dossiers) |
-| Savoir où modifier une fonction | [Points de maintenance ci-dessous](#où-modifier-le-code) |
-| Installer ou lancer une commande | [Guide des commandes](OPERATIONS.md) ; chaque commande indique si elle écrit des fichiers |
-| Comprendre les lots, transports ou règles métier | [Sommaire thématique](docs/README.md) |
-| Maintenir la documentation liée au code | [Automatisation documentaire](docs/AUTOMATION.md) |
-| Voir ce qui a été rangé | [Rangement effectué et limites](#rangement-effectué-et-limites) |
+| Préparer et rassembler un plan de sensibilité | `sensitivity` |
+| Classer et rejouer des scénarios choisis | `targeted` |
+| Mesurer l'effet de paramètres incertains dans des contextes appariés | `paired` |
+| Relier la propagation aux périodes et aux lots | `temporal` |
+| Propager un incident et comparer des interventions | `cascade` |
+| Comparer les configurations de supply chain | `supplier-configurations` |
+| Calibrer des configurations de service | `supplier-calibration` |
+| Comparer les incidents fournisseurs sur des fenêtres comparables | `supplier-campaign` |
+
+Les tirages Monte Carlo et leurs distributions restent dans
+[`simulation/montecarlo`](simulation/montecarlo/README.md). Les méthodes de
+[sensibilité](simulation/sensibility/README.md) conservent leurs calculs propres
+(variations locales, seuils, stress temporels) pendant leur regroupement.
+Les études fournisseurs et cascades sont décrites dans le
+[guide de recherche courant](prototypes/scan_2027_risk_control/README.md).
+Un mode commun ne rend pas ces méthodes scientifiques interchangeables.
 
 ## Le chemin principal du logiciel
 
 ```mermaid
 flowchart LR
-    A["Données métier et configuration"] --> B["Construction du graphe"]
-    B --> C["Préparation des entrées"]
-    C --> D["Moteur et règles métier"]
-    D --> E["Fichiers de résultats"]
-    E --> F["Carte HTML et suivi des lots"]
+    A[Données métier et graphe préparé] --> B[Moteur quotidien]
+    B --> C[Résultats et registre des lots]
+    C --> D[Analyses et indicateurs]
+    C --> E[Carte HTML et deux suivis de lots]
+    D --> E
 ```
 
-[run_etudecas_pipeline.py](run_etudecas_pipeline.py) coordonne les commandes.
-Les étapes sont aussi appelables séparément : `graph` reconstruit le graphe,
-`prepare` prépare ses entrées et `simulate` exécute le moteur.
-`rebuild-map-5y` repart par défaut d'un **graphe déjà préparé** ; il ne
-relit pas automatiquement tous les Excel. Les commandes de reconstruction
-sont expliquées dans [OPERATIONS.md](OPERATIONS.md).
+| Repère | Fichier ou dossier | Ce que l'on y trouve |
+|---|---|---|
+| 1. Entrées | [case_config.py](case_config.py), [simulation_prep/](simulation_prep/README.md) | Choix des données et préparation du graphe. |
+| 2. Lancement | [regenerate.py](regenerate.py), [engine/api.py](simulation/engine/api.py) | Scénarios, paramètres, horizon, graines et dossier de sortie. |
+| 3. Calcul | [engine/run_first_simulation.py](simulation/engine/run_first_simulation.py) | Initialisation et boucle quotidienne dans `main` : stocks, besoins, production, transports et risques. |
+| 4. Traçabilité | [lot_trace/](simulation/lot_trace/), [lot_policy/](simulation/lot_policy/), [logistics/](simulation/logistics/README.md) | Généalogie, tailles de lots, palettes, expéditions et camions. Le registre `LotLedger` reste défini dans le moteur. |
+| 5. Résultats | [run_format/](simulation/run_format/README.md), [simulation/analysis/](simulation/analysis/) | CSV détaillés, résumés, index et analyses. |
+| 6. Carte | [build_supplychain_worldmap.py](visualization/maps/build_supplychain_worldmap.py), [worldmap_html_template.py](visualization/maps/worldmap_html_template.py) | Données des panneaux et interface. Les modules `*_payload.py` préparent les informations affichées. |
 
-Ce graphe est actuellement
-`simulation_prep/result/reference_baseline/_mrp_bom_tests/bom_weekly_mps_lotified_no_static_fallback_physical_floor.json`.
-Malgré le mot « tests » dans son chemin, c'est une entrée du pipeline actif.
-L'option `--refresh-input-graph` demande sa reconstruction à partir de l'amont.
+Pour lire le moteur, commencer dans `main` par les paramètres et l'état initial,
+puis chercher `for day in range(total_timeline_days)` : c'est la boucle quotidienne.
+Les classes et fonctions placées avant `main` lui servent d'outils, notamment
+`LotLedger` pour les lots. En fin de `main`, les écritures CSV puis
+`export_run_package` préparent les résultats que la carte pourra lire.
 
-Le code qui produit un résultat et le résultat lui-même ont des rôles différents :
-modifier un CSV ou un HTML sous `result/` ne corrige pas le programme qui le génère.
+Le graphe de référence est dans `simulation_prep/result/reference_baseline/_mrp_bom_tests/` :
+**c'est une entrée active**, malgré son nom. Le pipeline `run_etudecas_pipeline.py`
+coordonne la préparation et les analyses ; `rebuild-map-5y` repart par défaut d'un
+graphe préparé. `launch_interactive_map.py` ouvre un HTML existant avec une API locale.
 
 ## Organisation des dossiers
 
-Les chemins ci-dessous sont relatifs à `etudecas/`. « Utilisé » désigne un
-appel ou une référence trouvé dans le code, pas une certification de tous les
-chemins d'exécution. Les fichiers ignorés par Git peuvent rester présents sur
-ce poste, notamment les résultats, caches et anciennes données.
-
-| Dossier | Rôle et place dans le projet |
+| Rôle | Emplacement |
 |---|---|
-| [data/](data/README.md) | Données métier sous `source/` ; graphes dérivés sous `geocoded/` et rapports sous `reports/`. `MANIFEST.json` identifie les entrées et anciens chemins. Ce dossier contient donc des sources **et** des produits de préparation. |
-| [config/](config/) | Paramètres JSON chargés par `case_config.py` et classeur d'enrichissement traité par `knowledge_graph/`. |
-| [knowledge_graph/](knowledge_graph/README.md) | Lecture/enrichissement du réseau, schéma JSON et interface Excel. |
-| [geocoding/](geocoding/README.md) | Ajout des coordonnées des sites au réseau. |
-| [simulation_prep/](simulation_prep/README.md) | Préparation des graphes et données MRP ; son sous-dossier `result/` contient les graphes préparés. |
-| [simulation/](simulation/) | Code du moteur, règles, analyses et expériences ; **également** les sorties sous `result/`. Détail ci-dessous. |
-| [visualization/](visualization/README.md) | Construction et publication des cartes dans `maps/` ; conditionnement des archives HTML autonomes dans `standalone_html.py`. |
-| [risk/](risk/README.md) | Calculs de risque fournisseur. `supplier_criticality/local.py` fournit le calcul commun au pipeline et à la carte, sans dépendance vers la visualisation. |
-| [analysis/](analysis/README.md) | Anciennes analyses et relais de compatibilité. Les trois rapports utilisés par le pipeline sont désormais implémentés dans `simulation/analysis/`. |
-| [prototypes/](prototypes/README.md) | Recherche, calibrations et développements expérimentaux. L'ancien conditionneur HTML est un relais vers `visualization/standalone_html.py` ; l'enrichisseur de carte n'importe plus les prototypes. |
-| [docs/](docs/README.md) | Guides métier et techniques, règles documentaires, pages générées et comptes rendus datés. |
-| [documentation/](documentation/) | Programme Python qui construit et contrôle les pages de `docs/generated/` à partir des registres. |
-| [testing/](testing/) | Outils de contrôle des CSV, cartes et parcours navigateur. Les anciennes commandes `journey_scenario_delivery.py` et `material_delivery.py` sont des relais ; leur implémentation est dans `visualization/maps/`. |
-| [toolbox/](toolbox/) | Commandes communes pour lancer les contrôles et rassembler leurs preuves. Le code métier reste dans ses modules. |
-| `artifacts/` | Journaux, captures et preuves locales produits par les contrôles. Certains scripts d'audit ponctuels y sont encore rangés. |
-| Historique des résultats | Anciennes sorties retirées après conservation des trois HTML et des entrées de recalcul. Les sources versionnées restent accessibles dans Git. |
-| [affichage_supply_script/](affichage_supply_script/README.md), [supplier_risk_kpi/](supplier_risk_kpi/README.md) | Anciens points d'entrée conservés comme relais vers `visualization/maps/` et `risk/supplier_criticality/`. |
-| `donnees/` | Ancien emplacement remplacé par `data/source/` selon le manifeste ; un classeur subsiste localement. Son retrait demande une comparaison préalable. |
-| `__pycache__/` | Cache Python créé à l'exécution. |
+| Données et préparation | [data/](data/README.md), `config/`, [knowledge_graph/](knowledge_graph/README.md), `geocoding/`, `simulation_prep/` |
+| Moteur et études courantes | `simulation/` : moteur, lots, logistique, analyses, scénarios, sensibilité, Monte Carlo et incertitude |
+| Recherche et analyses spécialisées | [prototypes/](prototypes/README.md), [analysis/](analysis/README.md) |
+| Cartes et présentations autonomes | [visualization/](visualization/README.md) |
+| Vérification et documentation | `testing/`, `toolbox/`, `documentation/`, [docs/](docs/README.md) |
+| Résultats et preuves locales | `resultats/`, `simulation/result/`, `artifacts/testing/` |
 
-### À l'intérieur de simulation/
+Les études de sensibilité, cascades, criticité et audit fournisseur, contexte
+collecté sur Internet, Monte Carlo et propagation des paramètres incertains
+restent les capacités à conserver. Le [plan](docs/PLAN_SIMPLIFICATION.md#ce-qui-doit-rester-possible)
+précise ce périmètre. L'audit et la criticité sont dans [risk/](risk/README.md) ;
+les faits du contexte public conservent leur provenance et se distinguent des
+estimations et hypothèses.
+Les tests du cœur sont regroupés dans [tests/](tests/README.md), par thème.
+Les tests spécialisés restent près du sous-module qu'ils vérifient.
 
-| Ensemble | Fonction |
-|---|---|
-| [engine/](simulation/engine/README.md) | Moteur canonique `run_first_simulation.py`, API Python, serveur HTTP et aides de contrôle. Le fichier `run_first_simulation_state_family_pilot.py` est une implémentation pilote distincte ; aucun appel n'a été trouvé dans les points d'entrée actifs examinés. |
-| [lot_trace/](simulation/lot_trace/), [lot_policy/](simulation/lot_policy/), [logistics/](simulation/logistics/README.md) | Généalogie et suivi des lots, règles de taille des lots, consolidation et présentation des transports. |
-| [run_format/](simulation/run_format/README.md) | Contrat du dossier de résultats : manifeste, objets métier et index des fichiers détaillés. |
-| [analysis/](simulation/analysis/) | Analyses des sorties et valorisations appelées notamment par le pipeline. |
-| [baselines/](simulation/baselines/), [scenarios/](simulation/scenarios/), [risk_scenarios/](simulation/risk_scenarios/) | Construction des références, variantes de scénarios et scénarios de risques. |
-| [experiments/](simulation/experiments/), [sensibility/](simulation/sensibility/README.md) | Expériences ciblées et scripts de sensibilité. Deux familles de développements à inventorier avant de les fusionner. |
-| [montecarlo/](simulation/montecarlo/README.md), [uncertainty/](simulation/uncertainty/) | Campagnes répétées et outils de représentation de l'incertitude. Certains résultats sont encore présents à côté des scripts. |
-| `result/`, `sensibility_archives/` | Sorties et anciennes campagnes ; les chemins sont parfois encore référencés par des guides ou des tests. |
-
-Les fichiers `test_*.py` et dossiers `tests/` sont répartis près des modules :
-ils ne sont pas tous regroupés dans `testing/`.
-Les petits modules directement sous `simulation/` fournissent aussi des
-politiques communes : état initial, feedback, mesures et empreintes des sources.
+Tous ces fichiers ne sont pas chargés pour chaque simulation. Le moteur, la
+carte, les études spécialisées et les tests ont des parcours différents.
+Pour comprendre une simulation courante, suivre les six repères ci-dessus ;
+ouvrir `prototypes/` lorsqu'une question de recherche précise le nécessite.
+Les anciennes versions encore importées peuvent fournir des fonctions au parcours
+courant ; leur présence n'impose pas de lancer toutes les campagnes historiques.
+Les modules retirés restent dans leurs capsules de reproduction. Les dépendances
+et différences de méthode doivent être examinées avant tout nouveau retrait.
 
 ## Où modifier le code
 
-| Fonction | Points de maintenance |
+| Modification | Point de maintenance |
 |---|---|
-| Enchaîner les étapes et choisir les fichiers | [run_etudecas_pipeline.py](run_etudecas_pipeline.py) |
-| Charger la configuration du cas | [case_config.py](case_config.py) et [config/cases/data_poc.json](config/cases/data_poc.json) |
-| Modifier les règles d'exécution | [simulation/engine/run_first_simulation.py](simulation/engine/run_first_simulation.py), puis les modules spécialisés concernés |
-| Modifier l'accès Python ou HTTP au moteur | [simulation/engine/api.py](simulation/engine/api.py), [server.py](simulation/engine/server.py) et [http_contract.py](simulation/engine/http_contract.py) |
-| Modifier la généalogie ou les données du suivi | [simulation/lot_trace/](simulation/lot_trace/) |
-| Construire les données et graphiques de carte | [visualization/maps/build_supplychain_worldmap.py](visualization/maps/build_supplychain_worldmap.py), les modules `*_payload.py` et les adaptateurs de ce dossier |
-| Publier un explorateur ou actualiser la vue matière | [journey_scenario_delivery.py](visualization/maps/journey_scenario_delivery.py) et [material_delivery.py](visualization/maps/material_delivery.py), sous `visualization/maps/` |
-| Calculer la criticité commune au pipeline et à la carte | [risk/supplier_criticality/local.py](risk/supplier_criticality/local.py) |
-| Modifier l'interface de carte | [worldmap_html_template.py](visualization/maps/worldmap_html_template.py), `lot_journey*.js`, `lot_material_trace.js`, `map_business_ui.js` et le CSS de l'explorateur |
-| Modifier le diagnostic et ses actions | [decision_support.py](decision_support.py), [decision_actions.py](decision_actions.py) |
-| Contrôler la provenance et écrire les fichiers | [provenance.py](provenance.py), [atomic_io.py](atomic_io.py) |
-| Vérifier une référence documentaire enregistrée | [reference_status.py](reference_status.py) ; ses résultats concernent le manifeste choisi |
+| Conventions métier | [model_semantics.py](simulation/engine/model_semantics.py), puis le module concerné |
+| API Python / HTTP | `simulation/engine/api.py`, `http_contract.py`, `server.py` |
+| Criticité fournisseur commune | `risk/supplier_criticality/local.py` |
+| Diagnostic et actions | `decision_support.py`, `decision_actions.py` |
+| Parcours interactif des lots | `visualization/maps/lot_journey.js`, `lot_material_trace.js`, template et payloads |
+| Publication d'un suivi de scénario | `python -m etudecas.visualization.maps.material_delivery --mode scenario` |
+| Actualisation de la vue matière | `python -m etudecas.visualization.maps.material_delivery` |
+| Conditionnement des HTML historiques | `visualization/standalone_html.py`, `rebuild_archives.py` |
 
-[launch_interactive_map.py](launch_interactive_map.py) **ouvre une carte existante
-et démarre une API locale**. Il ne construit pas le HTML ; son chemin par défaut
-vise la carte conservée sous `resultats/02_carte_lots_recente.html`. Utiliser un chemin explicite pour cet usage, avec le
-[contrat de l'API](docs/SIMULATION_INPUT_CONTRACT.md).
+## Vérification et limites
 
-Les JavaScript de lots sont encore assemblés dans une portée commune et
-utilisent des fonctions du template. Ils ne sont pas des composants autonomes.
-Le constructeur de carte produit aussi certains rapports et classements ;
-l'option `--read-only-source` encadre ses écritures annexes dans les sources.
+Les retraits, regroupements et contrôles de la passe courante sont détaillés dans
+le [bilan de simplification](artifacts/testing/human_code_20260925/BILAN.md).
+Les quatre HTML conservés restent les références ; la carte récente peut être
+recalculée, tandis que les présentations historiques sont réassemblées à partir
+de leurs données embarquées selon le guide de reconstruction.
 
-[simulation/run_first_simulation.py](simulation/run_first_simulation.py) et
-[affichage_supply_script/build_supplychain_worldmap.py](affichage_supply_script/build_supplychain_worldmap.py)
-sont des relais de compatibilité : modifier leurs implémentations canoniques,
-pas créer une deuxième logique dans ces relais.
+Pour une modification du moteur, vérifier un vrai calcul sur cinq ans : trajectoires,
+commandes, événements, lots et transports. La [toolbox](docs/MULTI_AGENT_OPERATIONNEL.md)
+rassemble tests, invariants CSV et contrôles du navigateur ; la
+[documentation automatique](docs/AUTOMATION.md) relie les règles métier au code.
 
-Le dossier voisin [etudecas_codex_multiagent_pack](../etudecas_codex_multiagent_pack/README.md)
-contient un kit de démonstration et un déploiement préparé des rôles. Les
-instructions actives du travail multi-agent sont à la racine du dépôt dans
-`AGENTS.md`, `.codex/` et `.agents/`, avec le
-[guide opérationnel](docs/MULTI_AGENT_OPERATIONNEL.md).
+Après l'incident Sophos, sélectionner les tests après lecture de leurs cas et
+fixtures. Les tests d'altération de fichiers, de restauration de dates et de
+disparition simulée sont exclus. Utiliser des calculs en mémoire, des simulations
+normales dans de nouveaux dossiers et des comparaisons en lecture seule.
 
-## Rangement effectué et limites
+La réussite de ces contrôles ne certifie pas la calibration industrielle.
+Les conventions confirmées comprennent les quantités physiques entières en UN,
+la sécurité lundi-vendredi, les cibles sources du nominal et 100 % des jours source
+au dépôt ; `tau_process` conserve sa convention actuelle de planification.
 
-Le rangement du code est appliqué. Les anciennes entrées ci-dessous restent
-de petits relais : elles ne contiennent plus une deuxième implémentation.
-Les commandes existantes et leurs chemins de données par défaut sont conservés.
-
-| Fonction rangée | Emplacement de maintenance | Compatibilité conservée |
-|---|---|---|
-| Rapports composants, produits finis et rapprochement aux sources | `simulation/analysis/report_component_immobilized_stock.py`, `report_finished_goods_stock_value.py`, `audit_source_truth_alignment.py` | Relais dans `analysis/from_simulation/`. Le pipeline importe directement le nouvel emplacement. |
-| Criticité locale des fournisseurs | `risk/supplier_criticality/local.py` | Fonction encore importable depuis le constructeur de carte ; pipeline et carte utilisent la même implémentation. |
-| Publication d'un explorateur de scénario et actualisation matière | `visualization/maps/journey_scenario_delivery.py`, `material_delivery.py` | Relais sous `testing/` ; ressources JS, CSS et données résolues aux mêmes endroits. |
-| Archives HTML autonomes | `visualization/standalone_html.py` | Ancien module `prototypes/scan_2027_risk_control/standalone_single_html.py` redirigé ; les outils de visualisation importent le module commun. |
-
-Le moteur et le template HTML restent volumineux. Leur découpage complet
-constitue un refactoring supplémentaire, au-delà de ces déplacements. La
-criticité a déjà été extraite du constructeur de carte ; les interfaces entre
-modules JavaScript restent à séparer progressivement.
-
-Les anciens résultats de simulation ont été retirés le 22 septembre 2026.
-Les graphes d'entrée actifs sont conservés ; les commandes et contrôles de la
-référence récente sont sous `config/reproduction_20260920/`. Les anciens chemins
-ne sont plus maintenus par des jonctions. Les suffixes `v1`, `v2` ou `pilot`
-ne suffisent pas à décider qu'un programme est inutilisé : le tri du code est distinct.
-
-## Documentation et résultats
-
-- [Documentation par sujet](docs/README.md) : guides du code et du métier.
-- [Commandes et effets](OPERATIONS.md) : installation, préparation et exécution.
-- [Résultats locaux](index.html) : cartes déjà produites et bilans de livraison.
-- [Historique des audits](docs/README.md#consulter-les-livraisons-et-lhistorique) : constats et preuves datés, à lire pour leur périmètre.
-
-Cette carte du code est fondée sur les points d'entrée, imports, commandes et
-guides examinés le 20 septembre 2026. Elle ne classe pas chaque ancien script
-comme utilisé ou inutilisé et ne remplace pas les tests lors d'un déplacement.
+Le [pack multi-agent](../etudecas_codex_multiagent_pack/README.md) conserve les
+profils, skills et leur copie de déploiement. Les instructions actives sont à la
+racine dans `AGENTS.md`, `.codex/` et `.agents/`. La toolbox est le point d'entrée
+des contrôles locaux.

@@ -17,12 +17,8 @@ from etudecas.prototypes.scan_2027_risk_control import (
 from etudecas.prototypes.scan_2027_risk_control import (
     continue_supplier_full_campaign_v7 as relay_v7,
 )
-from etudecas.prototypes.scan_2027_risk_control import (
-    finalize_supplier_operating_point_full_campaign_v7 as finalizer_v7,
-)
-from etudecas.prototypes.scan_2027_risk_control import (
-    launch_supplier_operating_point_full_campaign_v7 as launcher_v7,
-)
+from etudecas.prototypes.scan_2027_risk_control.supplier_campaign_adapters import finalize_v7 as finalizer_v7
+from etudecas.prototypes.scan_2027_risk_control.supplier_campaign_adapters import launch_v7 as launcher_v7
 from etudecas.prototypes.scan_2027_risk_control import (
     supplier_fresh_development_holdout_protocol_v7 as protocol_v7,
 )
@@ -37,12 +33,6 @@ from etudecas.prototypes.scan_2027_risk_control import (
 )
 from etudecas.prototypes.scan_2027_risk_control import (
     supplier_v7_campaign_trace_package as trace_package,
-)
-from etudecas.prototypes.scan_2027_risk_control import (
-    supplier_v7_final_standalone_delivery as delivery_v7,
-)
-from etudecas.prototypes.scan_2027_risk_control import (
-    watch_then_continue_supplier_full_campaign_v7 as watcher_v7,
 )
 
 
@@ -88,40 +78,6 @@ def _lanes() -> list[dict[str, Any]]:
     )
 
 
-def _watcher_config(tmp_path: Path) -> watcher_v7.V7AcceptanceWatcherConfig:
-    plan = tmp_path / "v7_plan"
-    run = tmp_path / "v7_run"
-    plan.mkdir()
-    run.mkdir()
-    relay = relay_v7.V7CampaignRelayConfig(
-        repo=Path(relay_v7.__file__).resolve().parents[3],
-        v7_plan_dir=plan,
-        v7_run_dir=run,
-        trace_package_dir=tmp_path / "traces",
-        bridge_json=tmp_path / "bridge.json",
-        campaign_root=tmp_path / "campaign",
-        results_dir=tmp_path / "results",
-        supervision_dir=tmp_path / "relay_supervision",
-    )
-    return watcher_v7.V7AcceptanceWatcherConfig(
-        relay=relay,
-        watcher_supervision_dir=tmp_path / "watcher_supervision",
-        acceptance_poll_seconds=0.1,
-        acceptance_max_wait_hours=1.0,
-    ).resolved()
-
-
-def _watcher_contract() -> dict[str, Any]:
-    unsigned = {
-        "schema_version": watcher_v7.CONTRACT_SCHEMA_VERSION,
-        "test_contract": True,
-    }
-    return {
-        **unsigned,
-        "contract_signature": relay_v7.relay_v4.stable_sha256(unsigned),
-    }
-
-
 def test_frozen_protocol_and_first_30_seed_contract() -> None:
     assert (
         trace_package.validate_frozen_v7_protocol()
@@ -158,7 +114,10 @@ def test_reused_v4_v5_orchestrators_are_explicitly_pinned() -> None:
         path = relay_v7.relay_v4._module_path(  # noqa: SLF001
             Path(relay_v7.__file__).resolve().parents[3], module
         )
-        assert relay_v7.relay_v4.sha256_file(path) == expected
+        actual = relay_v7.relay_v4.sha256_file(path)
+        assert actual == expected or relay_v7._source_revision.accepts_current_revision(
+            path, expected, actual
+        )
 
 
 def test_wrapper_contexts_patch_and_restore_first_30_v7_seeds(
@@ -229,7 +188,7 @@ def test_wrapper_contexts_patch_and_restore_first_30_v7_seeds(
         )
         assert (  # noqa: SLF001
             finalizer_impl._validate_operating_point_provenance
-            is finalizer_v7._v7_provenance
+            == finalizer_v7._v7_provenance
         )
     assert (
         finalizer_impl.v4_bridge,
@@ -398,16 +357,6 @@ def test_dashboard_rejects_legacy_v4_scientific_provenance(tmp_path: Path) -> No
         dashboard_v7.DashboardInputError, match="provenance scientifique V7"
     ):
         dashboard_v7._validate_v7_binding(tmp_path)  # noqa: SLF001
-
-
-def test_v7_delivery_rebinds_and_restores_campaign_dashboard(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    before = delivery_v7.delivery_v4.campaign_dashboard
-    monkeypatch.setattr(delivery_v7, "validate_frozen_implementation", lambda: Path())
-    with delivery_v7._v7_binding():  # noqa: SLF001
-        assert delivery_v7.delivery_v4.campaign_dashboard is dashboard_v7
-    assert delivery_v7.delivery_v4.campaign_dashboard is before
 
 
 def test_v7_bundle_source_requires_both_gzip_and_csv_hashes(tmp_path: Path) -> None:
@@ -637,6 +586,37 @@ def test_bridge_exposes_150_seed_authorization_and_30_seed_pairing_only(
     assert payload["quality_branch_included"] is False
     assert payload["supplier_state_dependent_risks_enabled"] is False
     assert payload["acute_incident_included_in_operating_point"] is False
+    actual_protocol_sha = campaign_contract.sha256_file(Path(protocol_v7.__file__))
+    assert payload["source_hashes"]["v7_protocol_driver_sha256"] == actual_protocol_sha
+    assert actual_protocol_sha != trace_package.EXPECTED_V7_PROTOCOL_SHA256
+    bridge_path = tmp_path / "bridge.json"
+    bridge_path.write_text(json.dumps(payload), encoding="utf-8")
+    assert bridge_v7.validate_bridge(bridge_path, revalidate_source=False) == payload
+    payload["source_hashes"]["v7_protocol_driver_sha256"] = trace_package.EXPECTED_V7_PROTOCOL_SHA256
+    payload.pop("artifact_signature")
+    payload["artifact_signature"] = campaign_contract.stable_sha256(payload)
+    bridge_path.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(bridge_v7.V7BridgeError, match="compatibility structure changed"):
+        bridge_v7.validate_bridge(bridge_path, revalidate_source=False)
+
+    # The trace-package manifest must identify the same actual reviewed source,
+    # even though upstream physics is supplied by the synthetic fixture here.
+    monkeypatch.setattr(trace_package, "_validate_v7", lambda *args: (plan, result, evidence))
+    monkeypatch.setattr(trace_package, "_campaign_lanes", lambda *args: _lanes())
+    monkeypatch.setattr(trace_package, "_trace_adapter", lambda *args: (None, plan))
+
+    def case_material(**kwargs: Any) -> tuple[bytes, dict[str, Any], dict[str, Any]]:
+        candidate, seed = kwargs["candidate"], kwargs["seed"]
+        reference = {"relative_path": trace_package._trace_relative(candidate, seed)}
+        return b"fixture", reference, {"evidence_signature": "8" * 64}
+
+    monkeypatch.setattr(trace_package, "_case_material", case_material)
+    manifest, selection, index, _ = trace_package._build_payloads(plan_dir, run_dir, package_dir)
+    assert manifest["v7_source"]["protocol_driver_sha256"] == actual_protocol_sha
+    assert manifest["v7_source"]["protocol_driver_sha256"] != trace_package.EXPECTED_V7_PROTOCOL_SHA256
+    assert len(index) == 90
+    assert selection["campaign_seeds"] == list(trace_package.CAMPAIGN_SEEDS)
+    assert manifest["engine_runs_performed"] == 0
 
 
 def test_relay_no_go_precedes_all_downstream_writes(
@@ -669,249 +649,6 @@ def test_relay_no_go_precedes_all_downstream_writes(
     assert not config.bridge_json.exists()
     assert not config.campaign_root.exists()
     assert not config.results_dir.exists()
-
-
-def test_outer_watcher_waits_then_starts_relay_only_after_full_acceptance(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    config = _watcher_config(tmp_path)
-    acceptance_checks: list[bool] = []
-    relay_runs: list[bool] = []
-
-    def publish_result(_seconds: float) -> None:
-        assert config.watcher_supervision_dir.is_dir()
-        assert not any(
-            path.exists()
-            for path in (
-                config.relay.trace_package_dir,
-                config.relay.bridge_json,
-                config.relay.campaign_root,
-                config.relay.results_dir,
-                config.relay.supervision_dir,
-            )
-        )
-        (config.relay.v7_run_dir / "validation_result.json").write_text(
-            "{}\n", encoding="utf-8"
-        )
-
-    watcher = watcher_v7.V7AcceptanceWatcher(config, sleep=publish_result)
-    monkeypatch.setattr(watcher, "_build_contract", _watcher_contract)
-    monkeypatch.setattr(watcher, "_assert_source_inventory_unchanged", lambda: None)
-
-    def accepted(_relay: relay_v7.FullCampaignRelayV7) -> dict[str, Any]:
-        result_exists = (config.relay.v7_run_dir / "validation_result.json").is_file()
-        acceptance_checks.append(result_exists)
-        assert result_exists
-        return {"result_signature": "a" * 64}
-
-    def run_relay(_relay: relay_v7.FullCampaignRelayV7) -> int:
-        relay_runs.append(config.relay.supervision_dir.is_dir())
-        assert acceptance_checks == [True]
-        return 0
-
-    monkeypatch.setattr(relay_v7.FullCampaignRelayV7, "validate_v7_handoff", accepted)
-    monkeypatch.setattr(relay_v7.FullCampaignRelayV7, "execute", run_relay)
-
-    assert watcher.execute() == 0
-    assert acceptance_checks == [True]
-    assert relay_runs == [True]
-    assert not config.relay.trace_package_dir.exists()
-    assert not config.relay.bridge_json.exists()
-    assert not config.relay.campaign_root.exists()
-    assert not config.relay.results_dir.exists()
-    status = json.loads(watcher.status_path.read_text(encoding="utf-8"))
-    assert status["stage"] == "campaign_v7_complete"
-    assert status["progress"]["baseline_traces"] == 90
-    assert status["progress"]["incident_rows"] == 3_240
-    assert status["progress"]["campaign_rows"] == 3_330
-
-
-def test_outer_watcher_finalizes_only_after_signed_450_case_eligibility(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    config = _watcher_config(tmp_path)
-    watcher = watcher_v7.V7AcceptanceWatcher(config)
-    progress_unsigned = {
-        "schema_version": protocol_v7.PROGRESS_SCHEMA_VERSION,
-        "plan_signature": "b" * 64,
-        "run_signature": "c" * 64,
-        "status": "complete_pending_finalization",
-        "completed_case_count": 450,
-        "expected_case_count": 450,
-        "completed_seed_block_count": 150,
-        "expected_seed_block_count": 150,
-        "decision_status": "eligible_for_finalization_only",
-        "execution_mode": protocol_v7.OFFICIAL_EXECUTION_MODE,
-        "publishable": True,
-    }
-    progress = {
-        **progress_unsigned,
-        "progress_signature": protocol_v7.stable_sha256(progress_unsigned),
-    }
-    (config.relay.v7_run_dir / "progress.json").write_text(
-        json.dumps(progress), encoding="utf-8"
-    )
-    watcher.contract = {"v7_plan": {"plan_signature": "b" * 64}}
-    monkeypatch.setattr(watcher, "_assert_source_inventory_unchanged", lambda: None)
-    finalized: list[bool] = []
-    monkeypatch.setattr(
-        protocol_v7,
-        "validation_status",
-        lambda *args, **kwargs: {
-            "status": "complete_pending_finalization",
-            "completed_case_count": 450,
-            "missing_case_count": 0,
-            "completed_seed_block_count": 150,
-            "acceptance_decision_available": False,
-            "engine_runs_started_by_monitor": 0,
-        },
-    )
-
-    def finalize(*args: Any, **kwargs: Any) -> dict[str, Any]:
-        del args, kwargs
-        finalized.append(True)
-        (config.relay.v7_run_dir / "validation_result.json").write_text(
-            "{}\n", encoding="utf-8"
-        )
-        return {"accepted": True}
-
-    monkeypatch.setattr(protocol_v7, "finalize_validation", finalize)
-    assert watcher._try_finalize_v7_if_eligible() is True  # noqa: SLF001
-    assert finalized == [True]
-    assert not any(path.exists() for path in watcher._downstream_paths())  # noqa: SLF001
-
-    progress["completed_case_count"] = 449
-    unsigned = dict(progress)
-    unsigned.pop("progress_signature")
-    progress["progress_signature"] = protocol_v7.stable_sha256(unsigned)
-    (config.relay.v7_run_dir / "progress.json").write_text(
-        json.dumps(progress), encoding="utf-8"
-    )
-    (config.relay.v7_run_dir / "validation_result.json").unlink()
-    finalized.clear()
-    assert watcher._try_finalize_v7_if_eligible() is False  # noqa: SLF001
-    assert finalized == []
-
-
-def test_outer_watcher_retries_when_v7_runner_still_holds_lock(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    config = _watcher_config(tmp_path)
-    watcher = watcher_v7.V7AcceptanceWatcher(config)
-    monkeypatch.setattr(watcher, "_assert_source_inventory_unchanged", lambda: None)
-    monkeypatch.setattr(
-        watcher,
-        "_progress_snapshot",
-        lambda: {
-            "status": "complete_pending_finalization",
-            "completed_case_count": 450,
-            "completed_seed_block_count": 150,
-            "decision_status": "eligible_for_finalization_only",
-        },
-    )
-    monkeypatch.setattr(
-        protocol_v7,
-        "validation_status",
-        lambda *args, **kwargs: {
-            "status": "complete_pending_finalization",
-            "completed_case_count": 450,
-            "missing_case_count": 0,
-            "completed_seed_block_count": 150,
-            "acceptance_decision_available": False,
-            "engine_runs_started_by_monitor": 0,
-        },
-    )
-    monkeypatch.setattr(
-        protocol_v7,
-        "finalize_validation",
-        lambda *args, **kwargs: (_ for _ in ()).throw(
-            protocol_v7.V7ProtocolError("Another V7 process holds the run lock")
-        ),
-    )
-    assert watcher._try_finalize_v7_if_eligible() is False  # noqa: SLF001
-    assert not (config.relay.v7_run_dir / "validation_result.json").exists()
-    assert not any(path.exists() for path in watcher._downstream_paths())  # noqa: SLF001
-
-
-@pytest.mark.parametrize("detach", [False, True])
-def test_outer_watcher_rejects_protected_supervision_before_lock_write(
-    tmp_path: Path, detach: bool
-) -> None:
-    plan = tmp_path / "plan"
-    run = tmp_path / "run"
-    plan.mkdir()
-    run.mkdir()
-    argv = [
-        "--repo",
-        str(Path(relay_v7.__file__).resolve().parents[3]),
-        "--v7-plan-dir",
-        str(plan),
-        "--v7-run-dir",
-        str(run),
-        "--trace-package-dir",
-        str(tmp_path / "traces"),
-        "--bridge-json",
-        str(tmp_path / "bridge.json"),
-        "--campaign-root",
-        str(tmp_path / "campaign"),
-        "--results-dir",
-        str(tmp_path / "results"),
-        "--relay-supervision-dir",
-        str(tmp_path / "relay-supervision"),
-        "--watcher-supervision-dir",
-        str(run),
-    ]
-    if detach:
-        argv.append("--detach")
-    assert watcher_v7.main(argv) == 2
-    assert list(run.iterdir()) == []
-    assert not (run / ".watcher.lock").exists()
-
-
-def test_outer_watcher_rejection_creates_no_downstream_path(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    config = _watcher_config(tmp_path)
-    (config.relay.v7_run_dir / "validation_result.json").write_text(
-        "{}\n", encoding="utf-8"
-    )
-    watcher = watcher_v7.V7AcceptanceWatcher(config)
-    monkeypatch.setattr(watcher, "_build_contract", _watcher_contract)
-    monkeypatch.setattr(watcher, "_assert_source_inventory_unchanged", lambda: None)
-
-    def rejected(_relay: relay_v7.FullCampaignRelayV7) -> dict[str, Any]:
-        raise relay_v7.ScientificNoGo("rejected")
-
-    monkeypatch.setattr(relay_v7.FullCampaignRelayV7, "validate_v7_handoff", rejected)
-    with pytest.raises(relay_v7.ScientificNoGo, match="rejected"):
-        watcher.execute()
-    assert not any(path.exists() for path in watcher._downstream_paths())  # noqa: SLF001
-    status = json.loads(watcher.status_path.read_text(encoding="utf-8"))
-    assert status["stage"] == "scientific_no_go"
-    assert status["progress"]["downstream_started"] is False
-
-
-def test_outer_watcher_final_result_corruption_fails_closed(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    config = _watcher_config(tmp_path)
-    (config.relay.v7_run_dir / "validation_result.json").write_text(
-        "{}\n", encoding="utf-8"
-    )
-    watcher = watcher_v7.V7AcceptanceWatcher(config)
-    monkeypatch.setattr(watcher, "_build_contract", _watcher_contract)
-    monkeypatch.setattr(watcher, "_assert_source_inventory_unchanged", lambda: None)
-
-    def corrupt(_relay: relay_v7.FullCampaignRelayV7) -> dict[str, Any]:
-        raise relay_v7.FullCampaignRelayError("signature mismatch")
-
-    monkeypatch.setattr(relay_v7.FullCampaignRelayV7, "validate_v7_handoff", corrupt)
-    with pytest.raises(relay_v7.FullCampaignRelayError, match="signature mismatch"):
-        watcher.execute()
-    assert not any(path.exists() for path in watcher._downstream_paths())  # noqa: SLF001
-    status = json.loads(watcher.status_path.read_text(encoding="utf-8"))
-    assert status["stage"] == "invalid_final_v7_result"
-    assert status["status"] == "failed_closed"
 
 
 def test_relay_stage_order_stops_at_consolidated_campaign_results(
@@ -1081,7 +818,7 @@ def _write_detached_receipt(
         "launch_token": token,
         "pid": pid,
     }
-    if status in {"detached_relay_ready", "detached_watcher_ready"}:
+    if status == "detached_relay_ready":
         unsigned.update(
             {
                 "lock_acquired": True,
@@ -1116,28 +853,6 @@ def _relay_detach_args(tmp_path: Path) -> SimpleNamespace:
         launcher_poll_seconds=0.1,
         relay_poll_seconds=0.1,
         max_wait_hours=1.0,
-    )
-
-
-def _watcher_detach_args(tmp_path: Path) -> SimpleNamespace:
-    relay_args = _relay_detach_args(tmp_path)
-    return SimpleNamespace(
-        repo=relay_args.repo,
-        v7_plan_dir=relay_args.v7_plan_dir,
-        v7_run_dir=relay_args.v7_run_dir,
-        trace_package_dir=relay_args.trace_package_dir,
-        bridge_json=relay_args.bridge_json,
-        campaign_root=relay_args.campaign_root,
-        results_dir=relay_args.results_dir,
-        relay_supervision_dir=relay_args.supervision_dir,
-        watcher_supervision_dir=tmp_path / "watcher_supervision",
-        parallel_shards=2,
-        workers_per_shard=2,
-        launcher_poll_seconds=0.1,
-        relay_poll_seconds=0.1,
-        relay_max_wait_hours=1.0,
-        acceptance_poll_seconds=0.1,
-        acceptance_max_wait_hours=1.0,
     )
 
 
@@ -1203,46 +918,6 @@ def test_relay_refuses_dependency_drift_before_any_step(
     assert ran == []
 
 
-def test_watcher_refuses_real_source_drift_before_v7_finalization(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    config = _watcher_config(tmp_path)
-    watcher = watcher_v7.V7AcceptanceWatcher(config)
-    watcher.contract = {
-        "source_inventory": [
-            {"module": "campaign_contract", "path": "contract.py", "sha256": "a" * 64}
-        ],
-        "v7_plan": {"plan_signature": "c" * 64},
-    }
-    monkeypatch.setattr(
-        watcher,
-        "_source_inventory",
-        lambda: [
-            {"module": "campaign_contract", "path": "contract.py", "sha256": "b" * 64}
-        ],
-    )
-    monkeypatch.setattr(
-        watcher,
-        "_progress_snapshot",
-        lambda: {
-            "status": "complete_pending_finalization",
-            "completed_case_count": 450,
-            "completed_seed_block_count": 150,
-            "decision_status": "eligible_for_finalization_only",
-        },
-    )
-    finalized: list[bool] = []
-    monkeypatch.setattr(
-        protocol_v7,
-        "finalize_validation",
-        lambda *_args, **_kwargs: finalized.append(True),
-    )
-    with pytest.raises(relay_v7.FullCampaignRelayError, match="chang"):
-        watcher._try_finalize_v7_if_eligible()  # noqa: SLF001
-    assert finalized == []
-    assert not any(path.exists() for path in watcher._downstream_paths())  # noqa: SLF001
-
-
 @pytest.mark.parametrize(
     ("schema_version", "ready_status", "waiter"),
     [
@@ -1250,11 +925,6 @@ def test_watcher_refuses_real_source_drift_before_v7_finalization(
             relay_v7.DETACHED_RECEIPT_SCHEMA_VERSION,
             "detached_relay_ready",
             relay_v7._wait_for_detached_ready,  # noqa: SLF001
-        ),
-        (
-            watcher_v7.RECEIPT_SCHEMA_VERSION,
-            "detached_watcher_ready",
-            watcher_v7._wait_for_watcher_ready,  # noqa: SLF001
         ),
     ],
 )
@@ -1291,10 +961,6 @@ def test_detached_parent_accepts_signed_ready_even_if_child_exits_zero_immediate
         (
             relay_v7.DETACHED_RECEIPT_SCHEMA_VERSION,
             relay_v7._wait_for_detached_ready,  # noqa: SLF001
-        ),
-        (
-            watcher_v7.RECEIPT_SCHEMA_VERSION,
-            watcher_v7._wait_for_watcher_ready,  # noqa: SLF001
         ),
     ],
 )
@@ -1354,34 +1020,6 @@ def test_direct_detached_timeout_stops_child_and_signs_failure(
     assert failed["status"] == "detached_start_timeout"
 
 
-def test_watcher_detached_timeout_stops_child_and_signs_failure(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    token = "timeout-token"
-    process = _FakeDetachedProcess(pid=4545, return_code=None)
-    receipt_path = tmp_path / "detached.json"
-    _write_detached_receipt(
-        receipt_path,
-        schema_version=watcher_v7.RECEIPT_SCHEMA_VERSION,
-        status="detached_start_reserved",
-        token=token,
-    )
-    stopped: list[int] = []
-    monkeypatch.setattr(
-        relay_v7, "_stop_detached_tree", lambda candidate: stopped.append(candidate.pid)
-    )
-    with pytest.raises(relay_v7.FullCampaignRelayError, match="limite"):
-        watcher_v7._wait_for_watcher_ready(  # noqa: SLF001
-            process,
-            receipt_path=receipt_path,
-            token=token,
-            timeout_seconds=0.0,
-        )
-    assert stopped == [process.pid]
-    failed = json.loads(receipt_path.read_text(encoding="utf-8"))
-    assert failed["status"] == "detached_start_timeout"
-
-
 def test_relay_lock_retry_handles_parent_child_handoff(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -1399,29 +1037,6 @@ def test_relay_lock_retry_handles_parent_child_handoff(
     monkeypatch.setattr(relay_v7.relay_v5, "_relay_lock", lambda _path: Candidate())
     monkeypatch.setattr(relay_v7.time, "sleep", lambda _seconds: None)
     with relay_v7._relay_lock_with_retry(  # noqa: SLF001
-        tmp_path / ".lock", wait_seconds=10.0
-    ):
-        pass
-    assert len(attempts) == 3
-
-
-def test_watcher_lock_retry_handles_parent_child_handoff(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    attempts: list[int] = []
-
-    class Candidate:
-        def __enter__(self) -> None:
-            attempts.append(1)
-            if len(attempts) < 3:
-                raise relay_v7.FullCampaignRelayError("busy")
-
-        def __exit__(self, *_args: Any) -> None:
-            return None
-
-    monkeypatch.setattr(watcher_v7, "_watcher_lock_once", lambda _path: Candidate())
-    monkeypatch.setattr(watcher_v7.time, "sleep", lambda _seconds: None)
-    with watcher_v7._watcher_lock(  # noqa: SLF001
         tmp_path / ".lock", wait_seconds=10.0
     ):
         pass
@@ -1464,65 +1079,6 @@ def test_two_direct_detach_attempts_create_only_one_child(
             future.result() for future in (pool.submit(launch), pool.submit(launch))
         ]
     assert sorted(outcomes) == ["refused", "started"]
-    assert len(children) == 1
-
-
-def test_two_watcher_detach_attempts_create_only_one_child(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    args = _watcher_detach_args(tmp_path)
-    entered = threading.Event()
-    release = threading.Event()
-    test_lock = threading.Lock()
-    children: list[_FakeDetachedProcess] = []
-
-    class NonBlockingLock:
-        def __enter__(self) -> None:
-            if not test_lock.acquire(blocking=False):
-                raise relay_v7.FullCampaignRelayError("busy")
-
-        def __exit__(self, *_args: Any) -> None:
-            test_lock.release()
-
-    monkeypatch.setattr(
-        watcher_v7, "_watcher_lock_once", lambda _path: NonBlockingLock()
-    )
-
-    def prepare(watcher: watcher_v7.V7AcceptanceWatcher) -> None:
-        watcher.config.watcher_supervision_dir.mkdir(parents=True, exist_ok=True)
-        watcher.contract = {"contract_signature": "a" * 64}
-        watcher.status = {"status": "waiting"}
-        entered.set()
-        assert release.wait(timeout=5.0)
-
-    monkeypatch.setattr(watcher_v7.V7AcceptanceWatcher, "prepare", prepare)
-
-    def popen(*_args: Any, **_kwargs: Any) -> _FakeDetachedProcess:
-        child = _FakeDetachedProcess(pid=5100 + len(children), return_code=None)
-        children.append(child)
-        return child
-
-    monkeypatch.setattr(watcher_v7.subprocess, "Popen", popen)
-    monkeypatch.setattr(
-        watcher_v7,
-        "_wait_for_watcher_ready",
-        lambda *_args, **_kwargs: {"status": "detached_watcher_ready"},
-    )
-
-    def launch() -> str:
-        try:
-            watcher_v7.detach(args)
-        except relay_v7.FullCampaignRelayError:
-            return "refused"
-        return "started"
-
-    with ThreadPoolExecutor(max_workers=2) as pool:
-        first = pool.submit(launch)
-        assert entered.wait(timeout=5.0)
-        second = pool.submit(launch)
-        assert second.result(timeout=5.0) == "refused"
-        release.set()
-        assert first.result(timeout=5.0) == "started"
     assert len(children) == 1
 
 

@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
-"""Fail-closed common contract for the corrected additive V8 Stage2 V3.
+"""Business contract for the native V8 registry and its signed upstream proof.
 
-V3 does not mutate or extend the frozen Stage2 V2 source glob.  Its source
-inventory names every V3 module explicitly and binds the unchanged V2 source
-inventory as predecessor evidence.  The only scientific correction is the
-native V8 target-registry reader used by both upstream validation and delivery.
+Live orchestration/source inventories belong to supplier_stage_runtime. The
+historical predecessor identity below remains available for archive verification;
+it must never be reassigned to the current implementation.
 """
 
 from __future__ import annotations
@@ -31,7 +30,7 @@ STAGE1_RECEIPT_NAME = "stage1_validation_v8_stage3.json"
 PREDECESSOR_INVENTORY_SIGNATURE = (
     "02ed2e5b92828732aec51b4322596e99c3fbaa9ec771e89c3be8cf9011f8191a"
 )
-EXPLICIT_SOURCE_FILENAMES = (
+HISTORICAL_EXPLICIT_SOURCE_FILENAMES = (
     "supplier_v8_stage3_common.py",
     "supplier_v8_stage3_dashboard.py",
     "supplier_v8_stage3_pipeline.py",
@@ -141,96 +140,12 @@ def read_json(path: Path) -> dict[str, Any]:
     return payload
 
 
-def source_paths(repo: Path) -> list[Path]:
-    """Return the explicit V3 roots and their local transitive dependencies."""
-
-    root = repo.resolve()
-    directory = Path(__file__).resolve().parent
-    stage3_roots = {directory / filename for filename in EXPLICIT_SOURCE_FILENAMES}
-    missing = sorted(str(path) for path in stage3_roots if not path.is_file())
-    if missing:
-        raise Stage2Error("Sources V3 absentes : " + ", ".join(missing))
-    discovered = predecessor._transitive_source_paths(stage3_roots, root)  # noqa: SLF001
-    for path in discovered:
-        if not path.is_file() or not path.is_relative_to(root):
-            raise Stage2Error(f"Source V3 hors dépôt ou absente : {path}")
-    return discovered
 
 
-def _predecessor_inventory(repo: Path) -> dict[str, Any]:
-    inventory = predecessor.build_source_inventory(repo)
-    predecessor.verify_source_inventory(inventory)
-    if inventory.get("inventory_signature") != PREDECESSOR_INVENTORY_SIGNATURE:
-        raise Stage2Error(
-            "Le périmètre Stage2 V2 figé a changé; V3 refuse de masquer cette dérive."
-        )
-    return inventory
 
 
-def build_source_inventory(repo: Path) -> dict[str, Any]:
-    root = repo.resolve()
-    previous = _predecessor_inventory(root)
-    entries = [
-        {
-            "relative_path": path.relative_to(root).as_posix(),
-            "sha256": sha256_file(path),
-            "size_bytes": path.stat().st_size,
-        }
-        for path in source_paths(root)
-    ]
-    unsigned = {
-        "schema_version": SOURCE_INVENTORY_SCHEMA_VERSION,
-        "repo": str(root),
-        "entry_count": len(entries),
-        "entries": entries,
-        "explicit_stage3_source_filenames": list(EXPLICIT_SOURCE_FILENAMES),
-        "predecessor_inventory_signature": previous["inventory_signature"],
-        "critical_protocol_sha256": EXPECTED_PROTOCOL_SHA256,
-        "v8_campaign_runner_sha256": previous["v8_campaign_runner_sha256"],
-        "v8_finalizer_sha256": previous["v8_finalizer_sha256"],
-        "native_dashboard_schema_version": dashboard_v8.SCHEMA_VERSION,
-    }
-    return signed(unsigned, "inventory_signature")
 
 
-def verify_source_inventory(inventory: Mapping[str, Any]) -> None:
-    verify_signature(inventory, "inventory_signature", "inventaire source Stage2 V3")
-    root = Path(str(inventory.get("repo") or "")).resolve()
-    entries = inventory.get("entries")
-    if (
-        inventory.get("schema_version") != SOURCE_INVENTORY_SCHEMA_VERSION
-        or not root.is_dir()
-        or not isinstance(entries, list)
-        or len(entries) != int(inventory.get("entry_count") or -1)
-        or inventory.get("explicit_stage3_source_filenames")
-        != list(EXPLICIT_SOURCE_FILENAMES)
-        or inventory.get("predecessor_inventory_signature")
-        != PREDECESSOR_INVENTORY_SIGNATURE
-        or inventory.get("critical_protocol_sha256") != EXPECTED_PROTOCOL_SHA256
-        or inventory.get("native_dashboard_schema_version")
-        != dashboard_v8.SCHEMA_VERSION
-    ):
-        raise Stage2Error("Inventaire source Stage2 V3 incomplet.")
-    _predecessor_inventory(root)
-    seen: set[str] = set()
-    for entry in entries:
-        if not isinstance(entry, Mapping):
-            raise Stage2Error("Entrée d'inventaire Stage2 V3 invalide.")
-        relative = str(entry.get("relative_path") or "")
-        path = (root / relative).resolve()
-        if (
-            not relative
-            or relative in seen
-            or not path.is_relative_to(root)
-            or not path.is_file()
-            or path.stat().st_size != int(entry.get("size_bytes") or -1)
-            or sha256_file(path) != str(entry.get("sha256") or "")
-        ):
-            raise Stage2Error(f"Source Stage2 V3 modifiée ou absente : {relative}")
-        seen.add(relative)
-    current = {path.relative_to(root).as_posix() for path in source_paths(root)}
-    if current != seen:
-        raise Stage2Error("Le périmètre transitif explicite de Stage2 V3 a changé.")
 
 
 @contextmanager

@@ -13,10 +13,10 @@ from pathlib import Path
 from typing import Any, Iterable
 
 try:
-    from etudecas.simulation.lot_trace.io import LOT_TRACE_CONTRACT_VERSION
+    from etudecas.simulation.lot_trace.schema import LOT_TRACE_CONTRACT_VERSION
 except ModuleNotFoundError:
     sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
-    from etudecas.simulation.lot_trace.io import LOT_TRACE_CONTRACT_VERSION
+    from etudecas.simulation.lot_trace.schema import LOT_TRACE_CONTRACT_VERSION
 
 EPS = 1e-9
 ROOT_CREATION_TYPES = {

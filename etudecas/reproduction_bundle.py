@@ -23,7 +23,7 @@ SCHEMA = "etudecas.reproduction_bundle.v1"
 EXCLUDED = {"result", "results", "resultats", "artifacts", "docs", "documentation", "archive",
             "archives", "__pycache__", ".git", ".venv", ".pytest_cache",
             "reproduction_historique", "node_modules"}
-SOURCE_SUFFIXES = {".py", ".js", ".css", ".json", ".toml", ".yaml", ".yml", ".txt"}
+SOURCE_SUFFIXES = {".py", ".js", ".css", ".ps1", ".json", ".toml", ".yaml", ".yml", ".txt"}
 MAX_FILE_BYTES = 64 * 1024 * 1024
 MAX_TOTAL_BYTES = 512 * 1024 * 1024
 

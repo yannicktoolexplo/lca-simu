@@ -1,12 +1,13 @@
-﻿{
-    "name":  "etudecas_codex_multiagent_pack",
-    "description":  "Pack operationnel Codex multi-agent pour Etudecas",
-    "top_level_files":  [
-                            "AGENTS.md",
-                            "README.md",
-                            "pyproject.toml"
-                        ],
-    "package_dir":  "etudecas_agentkit",
-    "skills_dir":  "skills",
-    "generated_files_count":  99
+{
+  "name": "etudecas_codex_multiagent_pack",
+  "description": "Consignes et staging Codex natif pour Etudecas",
+  "top_level_files": [
+    "AGENTS.md",
+    "README.md",
+    "MANIFEST.json"
+  ],
+  "skills_dir": "native/.agents/skills",
+  "native_dir": "native",
+  "demo_retired_from_commit": "34c8e5dc37cd66d606c9d90b80ad0a51a2a61a35",
+  "generic_contracts": "../etudecas/toolbox/validation_contracts.py"
 }

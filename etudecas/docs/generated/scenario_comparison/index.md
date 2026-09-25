@@ -23,13 +23,13 @@ Sources métier : [SCENARIO_COMPARISON.md](<../../SCENARIO_COMPARISON.md>)
 
 Références :
 
-- implementation : [compute_observed_impact](<../../../visualization/maps/scenario_comparison_payload.py#L82>)
-- implementation : [build_scenario_comparison_payload](<../../../visualization/maps/scenario_comparison_payload.py#L130>)
-- test : [ScenarioComparisonPayloadTest.test_observed_score_and_signed_deltas](<../../../visualization/maps/test_scenario_comparison_payload.py#L15>)
-- test : [ScenarioComparisonPayloadTest.test_zero_service_is_total_service_loss](<../../../visualization/maps/test_scenario_comparison_payload.py#L34>)
-- test : [ScenarioComparisonPayloadTest.test_current_run_with_companion_ignores_stale_compact](<../../../visualization/maps/test_scenario_comparison_payload.py#L64>)
-- implementation : [economic_cost_view](<../../../visualization/maps/economic_valuation.py#L6>)
-- test : [SemanticGuardTests.test_unknown_or_incomplete_value_cannot_affect_cost_ranking_or_score](<../../../visualization/maps/test_audit_payload_contracts.py#L137>)
+- implementation : [compute_observed_impact](<../../../visualization/maps/scenario_comparison_payload.py#L87>)
+- implementation : [build_scenario_comparison_payload](<../../../visualization/maps/scenario_comparison_payload.py#L135>)
+- test : [ScenarioComparisonPayloadTest.test_observed_score_and_signed_deltas](<../../../tests/cartes/test_scenario_comparison_payload.py#L15>)
+- test : [ScenarioComparisonPayloadTest.test_zero_service_is_total_service_loss](<../../../tests/cartes/test_scenario_comparison_payload.py#L34>)
+- test : [ScenarioComparisonPayloadTest.test_current_run_with_companion_ignores_stale_compact](<../../../tests/cartes/test_scenario_comparison_payload.py#L64>)
+- implementation : [economic_cost_view](<../../../visualization/maps/simulation_payload.py#L835>)
+- test : [SemanticGuardTests.test_unknown_or_incomplete_value_cannot_affect_cost_ranking_or_score](<../../../tests/cartes/test_audit_payload_contracts.py#L137>)
 
 ### SCENARIO-COMPARE-002 — Lecture metier et restitution navigateur
 
@@ -47,14 +47,14 @@ Sources métier : [SCENARIO_COMPARISON.md](<../../SCENARIO_COMPARISON.md>), [202
 
 Références :
 
-- implementation : [build_scenario_comparison_payload](<../../../visualization/maps/scenario_comparison_payload.py#L130>)
-- test : [ScenarioComparisonPayloadTest.test_current_run_with_companion_ignores_stale_compact](<../../../visualization/maps/test_scenario_comparison_payload.py#L64>)
-- implementation : [review_map](<../../../testing/map_browser.py#L14>)
+- implementation : [build_scenario_comparison_payload](<../../../visualization/maps/scenario_comparison_payload.py#L135>)
+- test : [ScenarioComparisonPayloadTest.test_current_run_with_companion_ignores_stale_compact](<../../../tests/cartes/test_scenario_comparison_payload.py#L64>)
+- implementation : [review_map](<../../../testing/map_browser.py#L16>)
 - implementation : [reconcile_browser](<../../../testing/map_delivery.py#L111>)
-- test : [test_browser_values_are_reconciled_with_runs](<../../../testing/test_map_delivery.py#L69>)
-- test : [SemanticGuardTests.test_preexisting_client_backlog_is_not_attributed_to_unapplied_event](<../../../visualization/maps/test_audit_payload_contracts.py#L226>)
-- test : [SemanticGuardTests.test_fractional_residuals_are_not_whole_unit_backlog](<../../../visualization/maps/test_audit_payload_contracts.py#L177>)
-- test : [test_complete_cost_scopes_use_independent_csv_and_operating_score](<../../../testing/test_map_delivery.py#L144>)
+- test : [test_browser_values_are_reconciled_with_runs](<../../../testing/test_independent_review.py#L287>)
+- test : [SemanticGuardTests.test_preexisting_client_backlog_is_not_attributed_to_unapplied_event](<../../../tests/cartes/test_audit_payload_contracts.py#L226>)
+- test : [SemanticGuardTests.test_fractional_residuals_are_not_whole_unit_backlog](<../../../tests/cartes/test_audit_payload_contracts.py#L177>)
+- test : [test_complete_cost_scopes_use_independent_csv_and_operating_score](<../../../testing/test_independent_review.py#L362>)
 
 ## Référence technique extraite
 
@@ -62,7 +62,7 @@ Les constantes sont affichées comme expressions Python ; les références et d�
 
 ### score
 
-[etudecas/visualization/maps/scenario_comparison_payload.py:82](<../../../visualization/maps/scenario_comparison_payload.py#L82>)
+[etudecas/visualization/maps/scenario_comparison_payload.py:87](<../../../visualization/maps/scenario_comparison_payload.py#L87>)
 
 ```python
 def compute_observed_impact(kpis: dict[str, Any], base_kpis: dict[str, Any]) -> dict[str, float | str]:
@@ -72,7 +72,7 @@ Descriptive weighted impact, not a probability or calibrated decision score.
 
 ### payload
 
-[etudecas/visualization/maps/scenario_comparison_payload.py:130](<../../../visualization/maps/scenario_comparison_payload.py#L130>)
+[etudecas/visualization/maps/scenario_comparison_payload.py:135](<../../../visualization/maps/scenario_comparison_payload.py#L135>)
 
 ```python
 def build_scenario_comparison_payload(current_output_root: Path) -> dict[str, Any]:
@@ -80,7 +80,7 @@ def build_scenario_comparison_payload(current_output_root: Path) -> dict[str, An
 
 ### score-test
 
-[etudecas/visualization/maps/test_scenario_comparison_payload.py:15](<../../../visualization/maps/test_scenario_comparison_payload.py#L15>)
+[etudecas/tests/cartes/test_scenario_comparison_payload.py:15](<../../../tests/cartes/test_scenario_comparison_payload.py#L15>)
 
 ```python
 def test_observed_score_and_signed_deltas(self) -> None:
@@ -88,7 +88,7 @@ def test_observed_score_and_signed_deltas(self) -> None:
 
 ### zero-test
 
-[etudecas/visualization/maps/test_scenario_comparison_payload.py:34](<../../../visualization/maps/test_scenario_comparison_payload.py#L34>)
+[etudecas/tests/cartes/test_scenario_comparison_payload.py:34](<../../../tests/cartes/test_scenario_comparison_payload.py#L34>)
 
 ```python
 def test_zero_service_is_total_service_loss(self) -> None:
@@ -96,7 +96,7 @@ def test_zero_service_is_total_service_loss(self) -> None:
 
 ### payload-test
 
-[etudecas/visualization/maps/test_scenario_comparison_payload.py:64](<../../../visualization/maps/test_scenario_comparison_payload.py#L64>)
+[etudecas/tests/cartes/test_scenario_comparison_payload.py:64](<../../../tests/cartes/test_scenario_comparison_payload.py#L64>)
 
 ```python
 def test_current_run_with_companion_ignores_stale_compact(self) -> None:
@@ -104,7 +104,7 @@ def test_current_run_with_companion_ignores_stale_compact(self) -> None:
 
 ### browser
 
-[etudecas/testing/map_browser.py:14](<../../../testing/map_browser.py#L14>)
+[etudecas/testing/map_browser.py:16](<../../../testing/map_browser.py#L16>)
 
 ```python
 def review_map(html: Path, output: Path) -> dict:
@@ -125,7 +125,7 @@ The score is checked against those quantities, not another payload score.
 
 ### html-csv-test
 
-[etudecas/testing/test_map_delivery.py:69](<../../../testing/test_map_delivery.py#L69>)
+[etudecas/testing/test_independent_review.py:287](<../../../testing/test_independent_review.py#L287>)
 
 ```python
 def test_browser_values_are_reconciled_with_runs(run, damage):
@@ -133,7 +133,7 @@ def test_browser_values_are_reconciled_with_runs(run, damage):
 
 ### valuation
 
-[etudecas/visualization/maps/economic_valuation.py:6](<../../../visualization/maps/economic_valuation.py#L6>)
+[etudecas/visualization/maps/simulation_payload.py:835](<../../../visualization/maps/simulation_payload.py#L835>)
 
 ```python
 def economic_cost_view(summary: dict[str, Any]) -> dict[str, Any]:
@@ -141,7 +141,7 @@ def economic_cost_view(summary: dict[str, Any]) -> dict[str, Any]:
 
 ### valuation-test
 
-[etudecas/visualization/maps/test_audit_payload_contracts.py:137](<../../../visualization/maps/test_audit_payload_contracts.py#L137>)
+[etudecas/tests/cartes/test_audit_payload_contracts.py:137](<../../../tests/cartes/test_audit_payload_contracts.py#L137>)
 
 ```python
 def test_unknown_or_incomplete_value_cannot_affect_cost_ranking_or_score(self):
@@ -149,7 +149,7 @@ def test_unknown_or_incomplete_value_cannot_affect_cost_ranking_or_score(self):
 
 ### association-test
 
-[etudecas/visualization/maps/test_audit_payload_contracts.py:226](<../../../visualization/maps/test_audit_payload_contracts.py#L226>)
+[etudecas/tests/cartes/test_audit_payload_contracts.py:226](<../../../tests/cartes/test_audit_payload_contracts.py#L226>)
 
 ```python
 def test_preexisting_client_backlog_is_not_attributed_to_unapplied_event(self):
@@ -157,7 +157,7 @@ def test_preexisting_client_backlog_is_not_attributed_to_unapplied_event(self):
 
 ### backlog-test
 
-[etudecas/visualization/maps/test_audit_payload_contracts.py:177](<../../../visualization/maps/test_audit_payload_contracts.py#L177>)
+[etudecas/tests/cartes/test_audit_payload_contracts.py:177](<../../../tests/cartes/test_audit_payload_contracts.py#L177>)
 
 ```python
 def test_fractional_residuals_are_not_whole_unit_backlog(self):
@@ -165,7 +165,7 @@ def test_fractional_residuals_are_not_whole_unit_backlog(self):
 
 ### cost-scope-oracle-test
 
-[etudecas/testing/test_map_delivery.py:144](<../../../testing/test_map_delivery.py#L144>)
+[etudecas/testing/test_independent_review.py:362](<../../../testing/test_independent_review.py#L362>)
 
 ```python
 def test_complete_cost_scopes_use_independent_csv_and_operating_score(run, damage):

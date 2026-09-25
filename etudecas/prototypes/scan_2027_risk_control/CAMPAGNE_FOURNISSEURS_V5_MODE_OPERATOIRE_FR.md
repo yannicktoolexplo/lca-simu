@@ -73,6 +73,14 @@ Le budget d’attente configuré à 240 heures couvre les reprises et le pire ca
 
 ## Annexe technique — compatibilité et empreintes
 
+Depuis le regroupement du 23 septembre, les anciens modules de lancement et de
+finalisation V5 sont remplacés par `supplier_campaign_adapters.py`. Les commandes
+courantes sont `python -m etudecas.prototypes.scan_2027_risk_control.supplier_campaign_adapters launch v5`
+et la même commande avec `finalize v5`. Les arguments métier suivent le profil.
+Les empreintes énumérées plus bas décrivent les anciens fichiers ; elles ne sont
+pas les empreintes courantes et ne permettent pas de reprendre une ancienne preuve.
+Le registre `supplier_campaign_source_revision.json` distingue les deux états.
+
 Le moteur d’incidents, le consolidateur, les lots et les actions conservent des composants V4 gelés. Le rendu final est assuré par le compositeur V5, qui contrôle la qualification physique et masque les pages techniques du parcours client. Toute modification d’un composant épinglé bloque la reprise.
 
 ```powershell
@@ -82,8 +90,8 @@ Get-FileHash -Algorithm SHA256 -LiteralPath `
   "$d\build_validated_operating_points_v5.py", `
   "$d\supplier_holdout_curve_sidecar_v5.py", `
   "$d\supplier_operating_point_full_campaign_v5.py", `
-  "$d\launch_supplier_operating_point_full_campaign_v5.py", `
-  "$d\finalize_supplier_operating_point_full_campaign_v5.py", `
+  "$d\supplier_campaign_adapters.py", `
+  "$d\supplier_campaign_source_revision.json", `
   "$d\supplier_physical_cascade_qualification_v5.py", `
   "$d\supplier_v5_final_standalone_delivery.py", `
   "$d\continue_supplier_full_campaign_v5.py", `

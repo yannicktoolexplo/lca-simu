@@ -1,5 +1,6 @@
 [CmdletBinding()]
 param(
+    [string]$RuntimeInventory = "",
     [string]$Repo = "C:\dev\lca-simu-pr40",
     [string]$Python = "C:\Users\yannick.martz\AppData\Local\Programs\Python\Python311\python.exe",
     [string]$Stage3SupervisionDir = "C:\dev\lca-simu-pr40-validation-artifacts-20260726\supplier_v8_stage3_supervision_20260906_v3",
@@ -17,17 +18,18 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
-$SchemaVersion = "etudecas.supplier_v8_stage3_closure_wrapper.v1"
+# Historical runtime-v2 receipts are retained without rewriting.
+$SchemaVersion = "etudecas.supplier_v8_stage3_closure_wrapper.runtime.v3"
 $ExpectedTaskName = "Codex-Supplier-V8-Stage3-Closure-V1"
-$ExpectedStage3InventorySignature = "d56761c3cdd704ec9d31bb2b452ee5dea25e9cdcf1e87c67d787a09e20b5a442"
+# Historical GO receipts retain their original identity and are not re-signed.
+$ExpectedStage3InventorySignature = $null
 $VerifierModule = "etudecas.prototypes.scan_2027_risk_control.verify_supplier_v8_stage3_closure"
 $ExpectedSourceSha256 = [ordered]@{
-    "etudecas\prototypes\scan_2027_risk_control\verify_supplier_v8_stage3_closure.py" = "004ab109ac4d396cc50501b17b58fc0b64798352e97d08cadb941aff0ce6de1a"
-    "etudecas\prototypes\scan_2027_risk_control\run_supplier_v8_v2_to_stage3_v3_chain_task.ps1" = "451e3ab5e7a5f737db6d9375242ca88a179aff65aa2db39bd7ced63c217529b6"
     "etudecas\prototypes\scan_2027_risk_control\launch_supplier_operating_point_full_campaign_v8_resilient.py" = "82c78d47b2fb8e37f028d3568c0697a1c21172df62bf83a30e16ba80655fb3b7"
     "etudecas\prototypes\scan_2027_risk_control\supervise_supplier_operating_point_full_campaign_v8_v2.py" = "2ad3309ca0db131f54998337d663afd9512300fad97fe27b7ec707d31187c254"
 }
 
+$script:ExpectedSourceRevisionSha256 = $null
 $script:WakeActive = $false
 $script:WakeStartedAtUtc = ""
 $script:WakeStoppedAtUtc = ""
@@ -327,7 +329,8 @@ function Get-Stage3Readiness {
 import json, sys
 from pathlib import Path
 from etudecas.prototypes.scan_2027_risk_control import supplier_v8_stage3_common as c
-from etudecas.prototypes.scan_2027_risk_control import supplier_v8_stage3_pipeline as p
+from etudecas.prototypes.scan_2027_risk_control import supplier_stage_runtime
+p = supplier_stage_runtime.for_profile("v8-stage3")
 root = Path(sys.argv[1]).resolve()
 contract_path = root / p.CONTRACT_NAME
 status_path = root / p.STATUS_NAME
@@ -336,6 +339,10 @@ if not contract_path.is_file() or not status_path.is_file():
     raise SystemExit(0)
 contract = c.read_json(contract_path)
 c.verify_signature(contract, "contract_signature", "Stage3 V3 readiness contract")
+if (contract.get("source_inventory_signature") != sys.argv[2]
+    or contract.get("orchestration") != {"revision": supplier_stage_runtime.RUNTIME_REVISION,
+        "profile": "v8-stage3", "module": supplier_stage_runtime.MODULE_NAME}):
+    raise ValueError("Stage3 readiness contract belongs to different runtime sources")
 status = c.read_json(status_path)
 c.verify_signature(status, "status_signature", "Stage3 V3 readiness status")
 ready = (
@@ -349,7 +356,7 @@ ready = (
 print(json.dumps({"readiness": "READY" if ready else "WAIT", "reason": "signed_final" if ready else "signed_not_final", "contract_signature": contract.get("contract_signature"), "status_signature": status.get("status_signature")}))
 '@
     $result = Invoke-PythonCapture -Arguments @(
-        "-c", $readinessCode, (Get-FullPath $Stage3SupervisionDir)
+        "-c", $readinessCode, (Get-FullPath $Stage3SupervisionDir), $ExpectedStage3InventorySignature
     )
     if ($result.exit_code -ne 0) {
         throw "Signed Stage3 readiness validation failed: $($result.stderr)"
@@ -402,32 +409,76 @@ function Assert-StaticInputs {
         }
     }
 
-    $actualHashes = [ordered]@{}
-    foreach ($relativePath in $ExpectedSourceSha256.Keys) {
-        $path = [IO.Path]::Combine($resolvedRepo, $relativePath)
-        if (-not [IO.File]::Exists($path)) {
-            throw "Required frozen source is absent: $path"
-        }
-        $actual = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant()
-        if ($actual -ne $ExpectedSourceSha256[$relativePath]) {
-            throw "Frozen source hash differs: $relativePath ($actual)"
-        }
-        $actualHashes[$relativePath] = $actual
+    # Historical pins stay unchanged; the reviewed current revision is separate.
+    $pinCode = @"
+import hashlib, json, sys
+from pathlib import Path
+from etudecas.prototypes.scan_2027_risk_control import supplier_campaign_source_revision as revision
+repo = Path(sys.argv[1]).resolve()
+if revision.ROOT != (repo / "etudecas/prototypes/scan_2027_risk_control").resolve():
+    raise ValueError("Source revision belongs to another repository")
+current = revision.current_revision()
+pins = json.loads(sys.argv[2])
+actual = {}
+for relative, historical in pins.items():
+    path = (repo / relative.replace(chr(92), "/")).resolve()
+    if not path.is_relative_to(repo):
+        raise ValueError("Source pin escapes repository")
+    digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    if digest != historical and not revision.accepts_current_revision(path, historical, digest):
+        raise ValueError("Unreviewed source revision: " + relative)
+    actual[relative] = digest
+print(json.dumps({"actual": actual, "revision": current}))
+"@
+    $pinResult = Invoke-PythonCapture -Arguments @(
+        "-B", "-c", $pinCode, $resolvedRepo,
+        (ConvertTo-Json -InputObject $ExpectedSourceSha256 -Compress)
+    )
+    if ($pinResult.exit_code -ne 0) {
+        throw "Source revision validation failed: $($pinResult.stderr)"
     }
+    $sourceReceipt = ([string]$pinResult.stdout).Trim() | ConvertFrom-Json
+    if ($null -ne $script:ExpectedSourceRevisionSha256 -and
+        $sourceReceipt.revision.ledger_sha256 -ne $script:ExpectedSourceRevisionSha256) {
+        throw "Source revision changed during this execution."
+    }
+    $script:ExpectedSourceRevisionSha256 = $sourceReceipt.revision.ledger_sha256
+    $actualHashes = $sourceReceipt.actual
 
-    $inventoryCode = "from pathlib import Path; from etudecas.prototypes.scan_2027_risk_control import supplier_v8_stage3_common as c; x=c.build_source_inventory(Path(__import__('sys').argv[1])); print(x['inventory_signature'])"
+    if ([string]::IsNullOrWhiteSpace($RuntimeInventory) -or -not [IO.File]::Exists($RuntimeInventory)) {
+        throw "An explicit -RuntimeInventory signed for the current sources is required."
+    }
+    $inventoryCode = @"
+import sys
+from pathlib import Path
+from etudecas.prototypes.scan_2027_risk_control import supplier_stage_runtime
+runtime = supplier_stage_runtime.for_profile("v8-stage3")
+inventory = runtime.common.read_json(Path(sys.argv[2]))
+if Path(inventory.get("repo", "")).resolve() != Path(sys.argv[1]).resolve():
+    raise ValueError("Runtime inventory repository differs")
+runtime.verify_source_inventory(inventory)
+print(inventory["inventory_signature"])
+"@
     $inventoryResult = Invoke-PythonCapture -Arguments @(
-        "-c", $inventoryCode, $resolvedRepo
+        "-B", "-c", $inventoryCode, $resolvedRepo, (Get-FullPath $RuntimeInventory)
     )
     if ($inventoryResult.exit_code -ne 0) {
         throw "Stage3 source inventory validation failed: $($inventoryResult.stderr)"
     }
     $inventorySignature = ([string]$inventoryResult.stdout).Trim()
-    if ($inventorySignature -ne $ExpectedStage3InventorySignature) {
-        throw "Stage3 source inventory signature differs: $inventorySignature"
+    if ($inventorySignature -notmatch '^[0-9a-f]{64}$') {
+        throw "Runtime inventory signature is malformed."
     }
+    if ($null -ne $script:ExpectedStage3InventorySignature -and
+        $inventorySignature -ne $script:ExpectedStage3InventorySignature) {
+        throw "Runtime inventory changed during this execution."
+    }
+    $script:ExpectedStage3InventorySignature = $inventorySignature
     return [ordered]@{
         stage3_inventory_signature = $inventorySignature
+        runtime_inventory_path = (Get-FullPath $RuntimeInventory)
+        historical_source_sha256 = $ExpectedSourceSha256
+        current_source_revision = $sourceReceipt.revision
         frozen_source_sha256 = $actualHashes
         verifier_module = $VerifierModule
         no_simulation_engine_command = $true
@@ -448,7 +499,7 @@ function Assert-OwnScheduledTask {
     }
     $scriptPath = Get-FullPath $PSCommandPath
     $expectedArguments = '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' +
-        $scriptPath + '"'
+        $scriptPath + '"' + ' -RuntimeInventory "' + (Get-FullPath $RuntimeInventory) + '"'
     if (-not [string]::Equals(
         ([string]$action.Arguments).Trim(),
         $expectedArguments,
@@ -541,7 +592,7 @@ if ($ValidateOnly) {
         task_name = $TaskName
         task_path = $TaskPath
         expected_task_arguments = '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' +
-            (Get-FullPath $PSCommandPath) + '"'
+            (Get-FullPath $PSCommandPath) + '"' + ' -RuntimeInventory "' + (Get-FullPath $RuntimeInventory) + '"'
         closure_dir = Get-FullPath $ClosureDir
         report_json = Get-FullPath $ReportJson
         planned_steps = @(

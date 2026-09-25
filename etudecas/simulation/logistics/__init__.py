@@ -1,7 +1,8 @@
 """Auditable truck consolidation for simulated logistics flows."""
 
-from .consolidation import consolidate_shipments, quantify_line
-from .engine_adapter import (
+from .consolidation import (
+    consolidate_shipments,
+    quantify_line,
     InternalTruckEstimate,
     estimate_internal_truck_handling,
 )

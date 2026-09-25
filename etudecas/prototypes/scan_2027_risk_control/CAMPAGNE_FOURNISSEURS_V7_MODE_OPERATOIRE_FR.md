@@ -20,7 +20,7 @@ développement du protocole et au dimensionnement, jamais comme preuves V7.
 - Le bootstrap comporte exactement 50 000 rééchantillonnages de blocs complets
   de graines. Il ne constitue pas 50 000 nouvelles simulations physiques.
 - La même graine définit un bloc statistique commun aux trois états. L'audit RNG
-  signé ne met en évidence aucune anomalie. Les calendriers physiques pouvant
+  signé est une entrée requise du protocole. Les calendriers physiques pouvant
   diverger, un appariement aléatoire exact événement par événement n'est ni
   requis ni revendiqué.
 - Un rejet interdit toute correction sur cette cohorte : il faut un nouveau
@@ -51,15 +51,25 @@ python -m etudecas.prototypes.scan_2027_risk_control.supplier_fresh_development_
 python -m etudecas.prototypes.scan_2027_risk_control.supplier_fresh_development_holdout_protocol_v7 validate-result
 ```
 
-While an official `run-validation` is active, use the additive monitor below
-instead of the frozen protocol's `status` command. It is strictly read-only:
-it validates the plan, run, latest signed progress, and each committed proof.
-Attempts without a proof (active or orphaned) are reported separately; they
-are neither counted as evidence nor modified.
+Le moniteur additionnel a été retiré du code actif. La commande conservée est
+`status`, déjà indiquée dans la séquence ci-dessus.
 
-```powershell
-python -m etudecas.prototypes.scan_2027_risk_control.supplier_fresh_development_holdout_monitor_v7
-```
+**Exécuter `status` après l'arrêt du runner, sur un dossier stable.** En mode
+officiel, cette commande appelle `_validate_official_attempt_cleanliness` avant
+de compter les preuves. Elle refuse un dossier de tentative contenant encore
+des répertoires de calcul, ce qui peut être normal pendant une exécution active.
+Elle ne remplace donc pas l'ancien moniteur concurrent. Elle lit les fichiers
+sans lancer, finaliser ni nettoyer une simulation ; elle ne prend pas de verrou
+assurant une vue cohérente pendant les écritures du runner.
+
+Pendant le calcul, `progress.json` fournit une indication enregistrée de
+l'avancement. Sa lecture ne constitue pas une nouvelle validation des preuves.
+Ne pas employer un mode de test, supprimer des répertoires ou modifier un
+registre pour faire accepter un statut refusé.
+
+Cette limite a été vérifiée par lecture de `validation_status`,
+`_validate_official_attempt_cleanliness` et `_assert_official_case_pruned`,
+sans lancer de campagne.
 
 `run-validation` reprend les seules preuves signées déjà valides. En reprise
 officielle et avant de relire les preuves, il purge de façon idempotente les seuls
@@ -97,3 +107,13 @@ teste ni incident qualité, ni cascade de risques, ni action corrective, ni coû
 ni politique en boucle fermée. La trace d'expéditions est une sortie brute du
 profil compact ; elle ne devient une preuve de campagne incidents/lots qu'après
 un post-traitement séparé et explicitement validé.
+
+## Documentation aval
+
+Les anciens modes opératoires V6 et le guide aval V7 avec watcher et livraison
+intermédiaire ont été retirés de l'arborescence active. Leurs octets originaux
+sont conservés dans [l'archive documentaire](../../artifacts/testing/human_code_20260925/docs-retired.zip).
+Les modules de protocole, de traces et de passerelle encore consommés par le
+parcours courant restent dans le code ; le retrait du guide ne valide pas une
+nouvelle campagne ni ne transforme des résultats historiques en résultats du
+moteur actuel.

@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from etudecas.prototypes.scan_2027_risk_control import (
+    supplier_stage_runtime as stage_runtime,
+)
+
 import copy
 from contextlib import contextmanager
 from pathlib import Path
@@ -149,21 +153,17 @@ def test_dashboard_reader_requires_v8_overlay_inside_both_contexts(
     ]
 
 
-def test_reducer_binding_uses_v8_contract_builder_and_restores(
-    tmp_path: Path,
-) -> None:
-    from etudecas.prototypes.scan_2027_risk_control import (
-        supplier_v7_stage2_pipeline as pipeline_v7,
-    )
-    from etudecas.prototypes.scan_2027_risk_control import (
-        supplier_v8_stage2_pipeline as pipeline_v8,
-    )
-
-    original = pipeline_v7._contract_payload  # noqa: SLF001
-    paths = SimpleNamespace(campaign_root=tmp_path)
-    with subject._v8_reducer_binding(paths):  # noqa: SLF001
-        assert pipeline_v7._contract_payload is pipeline_v8._contract_payload_v8  # noqa: SLF001
-    assert pipeline_v7._contract_payload is original  # noqa: SLF001
+def test_reducer_binding_selects_v8_runtime_without_mutating_v7(tmp_path):
+    pipeline_v7 = stage_runtime.for_profile("v7-stage2")
+    original_contract = pipeline_v7._contract_payload
+    original_common = subject.delivery_v7.common
+    with subject._v8_reducer_binding(SimpleNamespace(campaign_root=tmp_path)):
+        assert (
+            stage_runtime.for_common(subject.delivery_v7.common).profile == "v8-stage2"
+        )
+        assert pipeline_v7._contract_payload == original_contract
+    assert subject.delivery_v7.common is original_common
+    assert pipeline_v7._contract_payload == original_contract
 
 
 def test_manifest_declares_no_future_result_or_quality(tmp_path: Path) -> None:

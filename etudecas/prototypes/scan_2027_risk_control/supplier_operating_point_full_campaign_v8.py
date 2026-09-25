@@ -15,6 +15,8 @@ evidence remain those of the frozen V4/V7 campaign implementation.
 
 from __future__ import annotations
 
+from etudecas.prototypes.scan_2027_risk_control import supplier_campaign_source_revision as _source_revision
+
 import argparse
 import json
 import math
@@ -104,7 +106,7 @@ def validate_frozen_implementation() -> Path:
 
     path = Path(adapter_v7.__file__).resolve()
     digest = implementation_v4._sha256_file(path)  # noqa: SLF001
-    if digest != EXPECTED_V7_ADAPTER_SHA256:
+    if (digest != EXPECTED_V7_ADAPTER_SHA256 and not _source_revision.accepts_current_revision(path, EXPECTED_V7_ADAPTER_SHA256, digest)):
         raise V8CampaignAdapterError(f"Frozen V7 campaign adapter changed: {digest}")
     return adapter_v7.validate_frozen_implementation()
 

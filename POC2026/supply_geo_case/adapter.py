@@ -12726,6 +12726,7 @@ def build_general_kpi_payload(
         "event_exposure": event_exposure,
         "event_exposure_all": event_exposure_all,
         "path_scatter": scatter_rows,
+        "selection_paths": build_map_selection_paths(path_rows, lane_rows),
         "horizon_adaptation": build_horizon_adaptation_payload(),
         "brightway_model": {
             "schema_version": brightway_model.get("schema_version"),
@@ -13046,6 +13047,29 @@ def write_sdd_results_map_html(
     path.write_text(document, encoding="utf-8")
 
 
+def build_map_selection_paths(path_rows, lane_rows):
+    """Keep joint system/component membership and actual lane identities."""
+    lanes_by_path = defaultdict(list)
+    for row in lane_rows:
+        lanes_by_path[clean(row.get("path_id"))].append(
+            {key: row.get(key, "") for key in ("from_site_uid", "to_site_uid", "edge")}
+        )
+    return [
+        {
+            "path_id": row.get("path_id", ""),
+            "system": row.get("system", ""),
+            "component": row.get("component", ""),
+            "site_uids": list(dict.fromkeys(
+                clean(row.get(f"{role}_site_uid"))
+                for role in ("t4", "t3", "t2", "t1", "oem")
+                if clean(row.get(f"{role}_site_uid"))
+            )),
+            "lanes": lanes_by_path[clean(row.get("path_id"))],
+        }
+        for row in path_rows
+    ]
+
+
 def write_enriched_base_map_html(
     path: Path,
     *,
@@ -13110,6 +13134,8 @@ def write_enriched_base_map_html(
                 "high_risk_lane_count": sum(1 for row in lanes if safe_float(row.get("avg_transport_risk")) >= 0.35),
             },
         }
+    if "selection_paths" in dashboard_payload:
+        payload["selection_paths"] = dashboard_payload["selection_paths"]
     payload_json = json_for_script(payload)
     compact_dashboard_payload = {
         "schema_version": "poc2026.supply_geo_case.base_map_dashboard.v1",
@@ -13758,10 +13784,49 @@ const BASE_DASHBOARD_PAYLOAD = __BASE_DASHBOARD_PAYLOAD__;
   const siteByUid = new Map(sites.map(site => [String(site.site_uid || ""), site]));
   const laneKey = lane => `${lane.from_site_uid || ""}|${lane.to_site_uid || ""}|${lane.edge || ""}`;
   const laneByKey = new Map(lanes.map(lane => [laneKey(lane), lane]));
+  const selectionPaths = payload.selection_paths || [];
+  let selectionCache = null;
   let currentView = "source";
   let sourceState = null;
   let selectedSddObject = null;
   let selectedCascadeId = cascades[0]?.cascade_id || "";
+
+  function mapSelection() {
+    const system = document.getElementById("systemSel")?.value || "All";
+    const component = document.getElementById("componentSel")?.value || "All";
+    const key = JSON.stringify([system, component]);
+    if (selectionCache?.key === key) return selectionCache;
+    const paths = selectionPaths.filter(row =>
+      (system === "All" || row.system === system) &&
+      (component === "All" || row.component === component));
+    selectionCache = {
+      key, active: system !== "All" || component !== "All",
+      pathIds: new Set(paths.map(row => row.path_id)),
+      siteIds: new Set(paths.flatMap(row => row.site_uids || [])),
+      laneKeys: new Set(paths.flatMap(row => (row.lanes || []).map(laneKey)))
+    };
+    return selectionCache;
+  }
+
+  function visibleSites() {
+    const scope = mapSelection();
+    return scope.active ? sites.filter(row => scope.siteIds.has(row.site_uid)) : sites;
+  }
+
+  function visibleLanes() {
+    const scope = mapSelection();
+    return scope.active ? lanes.filter(row => scope.laneKeys.has(laneKey(row))) : lanes;
+  }
+
+  function pathInSelection(row) {
+    const scope = mapSelection();
+    return !scope.active || scope.pathIds.has(row.path_id);
+  }
+
+  function cascadeInSelection(row) {
+    const scope = mapSelection();
+    return !scope.active || cascadeList(row.path_ids).some(id => scope.pathIds.has(id));
+  }
 
   function clone(value) {
     return JSON.parse(JSON.stringify(value));
@@ -13801,6 +13866,17 @@ const BASE_DASHBOARD_PAYLOAD = __BASE_DASHBOARD_PAYLOAD__;
 
   function truthy(value) {
     return value === true || value === 1 || value === "1" || value === "true" || value === "True";
+  }
+
+  function chronologicalRows(rows, key = "month_index") {
+    const position = row => {
+      const raw = row?.[key];
+      if (raw == null || String(raw).trim() === "") return Infinity;
+      const month = Number(raw);
+      return Number.isFinite(month) && month > 0 ? month : Infinity;
+    };
+    // Sort a copy: keep cached results and the order of simultaneous events intact.
+    return [...(rows || [])].sort((a, b) => position(a) - position(b));
   }
 
   function showChartCanvas() {
@@ -14033,8 +14109,8 @@ const BASE_DASHBOARD_PAYLOAD = __BASE_DASHBOARD_PAYLOAD__;
     const previousStatus = document.getElementById("ledgerStatusFilter")?.value || "";
     const previousSearch = document.getElementById("ledgerSearchFilter")?.value || "";
     const kind = previousKind || "echanges";
-    const rows = ledgerSourceRows(kind)
-      .filter(row => ledgerRowMatches(row, { q: previousSearch, role: previousRole, mechanism: previousMechanism, status: previousStatus }))
+    const rows = chronologicalRows(ledgerSourceRows(kind)
+      .filter(row => ledgerRowMatches(row, { q: previousSearch, role: previousRole, mechanism: previousMechanism, status: previousStatus })))
       .slice(0, 80);
 
     const columnsByKind = {
@@ -15328,6 +15404,7 @@ const BASE_DASHBOARD_PAYLOAD = __BASE_DASHBOARD_PAYLOAD__;
   }
 
   function cascadeMatches(row, filters) {
+    if (!cascadeInSelection(row)) return false;
     if (filters.siteUid && String(row.site_uid || "") !== filters.siteUid) return false;
     if (filters.family && !cascadeList(row.risk_families).includes(filters.family)) return false;
     if (filters.stage && String(row.impact_stage || "") !== filters.stage) return false;
@@ -15352,10 +15429,10 @@ const BASE_DASHBOARD_PAYLOAD = __BASE_DASHBOARD_PAYLOAD__;
 
   function filteredCascades() {
     const filters = cascadeFilterValues();
-    return cascades.filter(row => cascadeMatches(row, filters));
+    return chronologicalRows(cascades.filter(row => cascadeMatches(row, filters)));
   }
 
-  function selectedCascade(rows = cascades) {
+  function selectedCascade(rows = filteredCascades()) {
     return rows.find(row => String(row.cascade_id || "") === selectedCascadeId) || rows[0] || null;
   }
 
@@ -15452,7 +15529,7 @@ const BASE_DASHBOARD_PAYLOAD = __BASE_DASHBOARD_PAYLOAD__;
   }
 
   function cascadeTimelineHtml(row) {
-    const steps = cascadeList(row?.timeline_steps).slice(0, 30);
+    const steps = chronologicalRows(cascadeList(row?.timeline_steps)).slice(0, 30);
     const body = steps.map(step => `<tr>
       <td>M${escapeHtml(step.month_index ?? "")}</td>
       <td>${escapeHtml(step.role || "")}</td>
@@ -15664,8 +15741,8 @@ const BASE_DASHBOARD_PAYLOAD = __BASE_DASHBOARD_PAYLOAD__;
   }
 
   function renderSelectedCascadeMap(row = selectedCascade()) {
-    if (!row) return;
-    selectedCascadeId = row.cascade_id || selectedCascadeId;
+    if (row && !cascadeInSelection(row)) row = selectedCascade();
+    selectedCascadeId = row?.cascade_id || "";
     currentView = "cascade_map";
     setActiveButton();
     renderPlot(
@@ -15675,7 +15752,8 @@ const BASE_DASHBOARD_PAYLOAD = __BASE_DASHBOARD_PAYLOAD__;
         siteTrace("avg_disruption_index", "Sites"),
         cascadeNodeTrace(row)
       ],
-      `Cascade ${row.supplier || ""} - mois ${row.month_index || ""}: ${row.impact_stage_label || ""}`
+      row ? `Cascade ${row.supplier || ""} - mois ${row.month_index || ""}: ${row.impact_stage_label || ""}`
+        : "Aucune cascade pour cette selection"
     );
   }
 
@@ -15854,6 +15932,7 @@ const BASE_DASHBOARD_PAYLOAD = __BASE_DASHBOARD_PAYLOAD__;
   }
 
   function detailTable(rows, columns, emptyText = "Aucune ligne") {
+    if (columns.some(([key]) => key === "month_index")) rows = chronologicalRows(rows);
     const header = columns.map(([, label]) => `<th>${escapeHtml(label)}</th>`).join("");
     const body = (rows || []).map(row => `<tr>${columns.map(([key]) => `<td>${escapeHtml(row[key] ?? "")}</td>`).join("")}</tr>`).join("");
     return `<table class="sdd-detail-table"><thead><tr>${header}</tr></thead><tbody>${body || `<tr><td colspan="${columns.length}">${escapeHtml(emptyText)}</td></tr>`}</tbody></table>`;
@@ -15946,7 +16025,7 @@ const BASE_DASHBOARD_PAYLOAD = __BASE_DASHBOARD_PAYLOAD__;
       ${detailTable(detail.exchange_rows || [], [["month_index", "Mois"], ["mechanism", "Poste"], ["exchange_category", "Categorie"], ["exchange_name", "Echange"], ["status", "Statut"], ["delta_kgco2e", "kgCO2e"]])}
     `;
     panel.classList.add("visible");
-    const series = Array.isArray(detail.month_series) ? detail.month_series : [];
+    const series = chronologicalRows(Array.isArray(detail.month_series) ? detail.month_series : []);
     const months = series.map(row => num(row, "month_index"));
     const trend = document.getElementById("sddClickPanelTrend");
     if (trend) {
@@ -16007,7 +16086,7 @@ const BASE_DASHBOARD_PAYLOAD = __BASE_DASHBOARD_PAYLOAD__;
     if (!Number.isFinite(lon) || !Number.isFinite(lat)) return null;
     let best = null;
     let bestScore = Infinity;
-    sites.forEach(site => {
+    visibleSites().forEach(site => {
       const siteLon = Number(site.lon);
       const siteLat = Number(site.lat);
       if (!Number.isFinite(siteLon) || !Number.isFinite(siteLat) || !site.site_uid) return;
@@ -16053,6 +16132,7 @@ const BASE_DASHBOARD_PAYLOAD = __BASE_DASHBOARD_PAYLOAD__;
   }
 
   function siteTrace(metric, name = "Sites SDD") {
+    const sites = visibleSites();
     const maxMass = maxOf(sites, "allocated_mass_kg") || 1;
     const scale = colorScaleForMetric(metric);
     return {
@@ -16078,12 +16158,13 @@ const BASE_DASHBOARD_PAYLOAD = __BASE_DASHBOARD_PAYLOAD__;
     };
   }
 
-  function laneBucketTrace(name, minRisk, maxRisk, color, width) {
+  function laneBucketTrace(name, minRisk, maxRisk, color, width, excludedKeys = new Set()) {
     const lon = [];
     const lat = [];
     const text = [];
     const customdata = [];
-    lanes.forEach(lane => {
+    visibleLanes().forEach(lane => {
+      if (excludedKeys.has(laneKey(lane))) return;
       const risk = Number(lane.avg_transport_risk || 0);
       if (risk < minRisk || risk >= maxRisk) return;
       const hover = laneHover(lane);
@@ -16108,6 +16189,7 @@ const BASE_DASHBOARD_PAYLOAD = __BASE_DASHBOARD_PAYLOAD__;
   }
 
   function laneKgKmBucketTrace(name, minRatio, maxRatio, color, width) {
+    const lanes = visibleLanes();
     const maxKgKm = maxOf(lanes, "allocated_kg_km") || 1;
     const lon = [];
     const lat = [];
@@ -16144,6 +16226,7 @@ const BASE_DASHBOARD_PAYLOAD = __BASE_DASHBOARD_PAYLOAD__;
     const customdata = [];
     cascadeList(cascade?.route_lanes).forEach(routeLane => {
       const key = laneKey(routeLane);
+      if (mapSelection().active && !mapSelection().laneKeys.has(key)) return;
       const lane = laneByKey.get(key) || routeLane;
       const fromSite = siteByUid.get(String(routeLane.from_site_uid || ""));
       const toSite = siteByUid.get(String(routeLane.to_site_uid || ""));
@@ -16181,7 +16264,7 @@ const BASE_DASHBOARD_PAYLOAD = __BASE_DASHBOARD_PAYLOAD__;
   function cascadeNodeTrace(cascade) {
     const rows = cascadeList(cascade?.route_nodes)
       .map(row => ({ ...row, site: siteByUid.get(String(row.site_uid || "")) }))
-      .filter(row => row.site);
+      .filter(row => row.site && (!mapSelection().active || mapSelection().siteIds.has(row.site_uid)));
     const roleColors = { T4: "#2563eb", T3: "#3182bd", T2: "#756bb1", T1: "#e6550d", OEM: "#d62728" };
     return {
       type: "scattergeo",
@@ -16223,8 +16306,8 @@ const BASE_DASHBOARD_PAYLOAD = __BASE_DASHBOARD_PAYLOAD__;
         showocean: true,
         oceancolor: "#f8fafc"
       },
-      margin: { l: 0, r: 0, t: 48, b: 0 },
-      legend: { orientation: "h", x: 0.01, y: 1.03 },
+      margin: { l: 0, r: 0, t: 72, b: 0 },
+      legend: { orientation: "h", x: 0.01, y: 1, yanchor: "top" },
       paper_bgcolor: "#ffffff",
       plot_bgcolor: "#ffffff"
     };
@@ -16237,6 +16320,14 @@ const BASE_DASHBOARD_PAYLOAD = __BASE_DASHBOARD_PAYLOAD__;
 
   function renderPlot(traces, title) {
     showChartCanvas();
+    if (document.getElementById("showFlows")?.checked !== false) {
+      const drawnLanes = new Set(traces.flatMap(trace => trace.customdata || [])
+        .filter(value => value?.[0] === "lane").map(value => value[1]));
+      const remaining = laneBucketTrace("Liaisons de la selection", -Infinity, Infinity, "#94a3b8", 1.6, drawnLanes);
+      if (remaining.lon.length) traces = [remaining, ...traces];
+    } else {
+      traces = traces.filter(trace => trace.mode !== "lines");
+    }
     Plotly.react("chart", traces, geoLayout(title), { displayModeBar: true, responsive: true });
     setTimeout(bindSddClickHandlers, 0);
   }
@@ -16367,9 +16458,9 @@ const BASE_DASHBOARD_PAYLOAD = __BASE_DASHBOARD_PAYLOAD__;
     const select = document.getElementById("sddAlternativeScenarioSelect");
     const scenarioId = select?.value || "france_named_alternatives";
     const assignments = (Array.isArray(seat.named_supplier_assignments) ? seat.named_supplier_assignments : [])
-      .filter(row => row.scenario_id === scenarioId);
+      .filter(row => row.scenario_id === scenarioId && pathInSelection(row));
     const routes = (Array.isArray(seat.named_supplier_routes) ? seat.named_supplier_routes : [])
-      .filter(row => row.scenario_id === scenarioId);
+      .filter(row => row.scenario_id === scenarioId && pathInSelection(row));
     const nodeMap = new Map();
     assignments.forEach(row => {
       const key = `${row.selected_supplier}|${row.selected_lat}|${row.selected_lon}|${row.role}`;
@@ -16381,12 +16472,10 @@ const BASE_DASHBOARD_PAYLOAD = __BASE_DASHBOARD_PAYLOAD__;
       nodeMap.set(key, current);
     });
     const nodes = [...nodeMap.values()].filter(row => Number.isFinite(Number(row.selected_lat)) && Number.isFinite(Number(row.selected_lon)));
-    const namedSuppliers = new Set(assignments.filter(row => truthy(row.is_named_alternative)).map(row => String(row.selected_supplier || "")));
-    const connectedRoutes = routes.filter(row => namedSuppliers.has(String(row.from_supplier || "")) || namedSuppliers.has(String(row.to_supplier || "")));
     const routeLon = [];
     const routeLat = [];
     const routeText = [];
-    connectedRoutes.forEach(row => {
+    routes.forEach(row => {
       const hover = [
         `<b>${escapeHtml(row.from_supplier)} -> ${escapeHtml(row.to_supplier)}</b>`,
         `${escapeHtml(row.edge)} | ${escapeHtml(row.component)}`,
@@ -16400,13 +16489,13 @@ const BASE_DASHBOARD_PAYLOAD = __BASE_DASHBOARD_PAYLOAD__;
     const routeTrace = {
       type: "scattergeo",
       mode: "lines",
-      name: "Routes affectees aux alternatives",
+      name: "Liaisons du scenario selectionne",
       lon: routeLon,
       lat: routeLat,
       text: routeText,
       hoverinfo: "text",
       line: { color: scenarioId.startsWith("france") ? "#238b45" : "#3182bd", width: 1.4 },
-      opacity: 0.35
+      opacity: 0.6
     };
     const retained = nodes.filter(row => !truthy(row.is_named_alternative));
     const alternatives = nodes.filter(row => truthy(row.is_named_alternative));
@@ -16437,7 +16526,11 @@ const BASE_DASHBOARD_PAYLOAD = __BASE_DASHBOARD_PAYLOAD__;
       : "Europe prioritaire: fournisseurs secondaires nommes et routes reconstruites";
     Plotly.react(
       "chart",
-      [routeTrace, nodeTrace(retained, "Fournisseurs primaires conserves", "#9ca3af", "circle"), nodeTrace(alternatives, "Fournisseurs secondaires retenus", scenarioId.startsWith("france") ? "#238b45" : "#3182bd", "diamond")],
+      [
+        ...(document.getElementById("showFlows")?.checked !== false ? [routeTrace] : []),
+        nodeTrace(retained, "Fournisseurs primaires conserves", "#9ca3af", "circle"),
+        nodeTrace(alternatives, "Fournisseurs secondaires retenus", scenarioId.startsWith("france") ? "#238b45" : "#3182bd", "diamond")
+      ],
       geoLayout(title),
       { displayModeBar: true, responsive: true }
     );
@@ -16522,6 +16615,34 @@ const BASE_DASHBOARD_PAYLOAD = __BASE_DASHBOARD_PAYLOAD__;
     note.textContent = `${payload.stats?.site_count || 0} sites SDD, ${payload.stats?.lane_count || 0} liaisons, service moyen ${fmt(Number(payload.stats?.avg_service || 0) * 100, 1)}%, ${cascadePayload.stats?.total_cascade_count || 0} cascades, contexte ${payload.supplier_context?.summary_count || 0} sites`;
     toolbar.appendChild(note);
 
+    const showFlows = document.getElementById("showFlows");
+    if (showFlows) {
+      showFlows.checked = true;
+      showFlows.addEventListener("change", event => {
+        event.stopImmediatePropagation();
+        if (currentView === "source") renderSource();
+        else renderCurrentSddView();
+      }, true);
+    }
+
+    // The source listeners call draw() unconditionally; handle selection first.
+    for (const id of ["systemSel", "componentSel"]) {
+      document.getElementById(id)?.addEventListener("change", event => {
+        event.stopImmediatePropagation();
+        const system = document.getElementById("systemSel");
+        const component = document.getElementById("componentSel");
+        const previous = component.value;
+        const components = ["All", ...new Set(DATA.records
+          .filter(row => system.value === "All" || row.system === system.value)
+          .map(row => row.component).filter(Boolean))];
+        fillSelect(component, components);
+        component.value = components.includes(previous) ? previous : "All";
+        closeSddClickPanel();
+        if (currentView === "source") renderSource();
+        else renderCurrentSddView();
+      }, true);
+    }
+
     tabs.querySelector('[data-sdd-view="source"]').addEventListener("click", renderSource);
     tabs.querySelector('[data-sdd-view="sites"]').addEventListener("click", renderSddSites);
     tabs.querySelector('[data-sdd-view="lanes"]').addEventListener("click", renderSddLanes);
@@ -16568,6 +16689,7 @@ const BASE_DASHBOARD_PAYLOAD = __BASE_DASHBOARD_PAYLOAD__;
     setTimeout(() => {
       captureSourceState();
       installControls();
+      renderSource();
       bindSddClickHandlers();
       const requestedView = new URLSearchParams(window.location.search).get("view");
       if (requestedView === "cascades") renderCascades();

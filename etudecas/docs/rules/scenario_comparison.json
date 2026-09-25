@@ -24,21 +24,21 @@
     {
       "id": "score-test",
       "kind": "test",
-      "path": "etudecas/visualization/maps/test_scenario_comparison_payload.py",
+      "path": "etudecas/tests/cartes/test_scenario_comparison_payload.py",
       "symbol": "ScenarioComparisonPayloadTest.test_observed_score_and_signed_deltas",
       "reference_fingerprint": "9495d65f2467536afdc53060bbab3af20d64a62223fb2e5ca20b0c1d82ac3bfc"
     },
     {
       "id": "zero-test",
       "kind": "test",
-      "path": "etudecas/visualization/maps/test_scenario_comparison_payload.py",
+      "path": "etudecas/tests/cartes/test_scenario_comparison_payload.py",
       "symbol": "ScenarioComparisonPayloadTest.test_zero_service_is_total_service_loss",
       "reference_fingerprint": "192215d70855cd7eed5c684838dfad3ccb23599a342d2d5ab011502ad86e8ca6"
     },
     {
       "id": "payload-test",
       "kind": "test",
-      "path": "etudecas/visualization/maps/test_scenario_comparison_payload.py",
+      "path": "etudecas/tests/cartes/test_scenario_comparison_payload.py",
       "symbol": "ScenarioComparisonPayloadTest.test_current_run_with_companion_ignores_stale_compact",
       "reference_fingerprint": "d355234715933f172e49071a1638c4e55302c96797a6f684527f1003abbd3c02"
     },
@@ -47,7 +47,7 @@
       "kind": "implementation",
       "path": "etudecas/testing/map_browser.py",
       "symbol": "review_map",
-      "reference_fingerprint": "3baf44816e9acc9c1cf414f7e31063f72f4a380e5fa1919f8b77fad4d5430800"
+      "reference_fingerprint": "5409d3084c24930067428cbb9a3b28840390e2729bfb8b3a53d05944cd9db720"
     },
     {
       "id": "html-csv",
@@ -59,42 +59,42 @@
     {
       "id": "html-csv-test",
       "kind": "test",
-      "path": "etudecas/testing/test_map_delivery.py",
+      "path": "etudecas/testing/test_independent_review.py",
       "symbol": "test_browser_values_are_reconciled_with_runs",
       "reference_fingerprint": "1fcc0239ccd7a70f9fb4e58e1e4c89a879d1244a97059f4c04819b7761e6579a"
     },
     {
       "id": "valuation",
       "kind": "implementation",
-      "path": "etudecas/visualization/maps/economic_valuation.py",
+      "path": "etudecas/visualization/maps/simulation_payload.py",
       "symbol": "economic_cost_view",
       "reference_fingerprint": "57dbaee22a98851564acd39e579144cfd2c460ff0dd981ac2016145a0e34110e"
     },
     {
       "id": "valuation-test",
       "kind": "test",
-      "path": "etudecas/visualization/maps/test_audit_payload_contracts.py",
+      "path": "etudecas/tests/cartes/test_audit_payload_contracts.py",
       "symbol": "SemanticGuardTests.test_unknown_or_incomplete_value_cannot_affect_cost_ranking_or_score",
       "reference_fingerprint": "fca0fdb45ced07c10d26e76fb2c14aaae546e320fdf4149cf780933f54e056d2"
     },
     {
       "id": "association-test",
       "kind": "test",
-      "path": "etudecas/visualization/maps/test_audit_payload_contracts.py",
+      "path": "etudecas/tests/cartes/test_audit_payload_contracts.py",
       "symbol": "SemanticGuardTests.test_preexisting_client_backlog_is_not_attributed_to_unapplied_event",
       "reference_fingerprint": "d51060cc13e287eb71e8dd8cdbdb729b861ca2b2155fcfea6a493d8433587f60"
     },
     {
       "id": "backlog-test",
       "kind": "test",
-      "path": "etudecas/visualization/maps/test_audit_payload_contracts.py",
+      "path": "etudecas/tests/cartes/test_audit_payload_contracts.py",
       "symbol": "SemanticGuardTests.test_fractional_residuals_are_not_whole_unit_backlog",
       "reference_fingerprint": "7ba93581876527c9dc2fb86a9bab79825a127178b92bc0a95f2c8657981df72f"
     },
     {
       "id": "cost-scope-oracle-test",
       "kind": "test",
-      "path": "etudecas/testing/test_map_delivery.py",
+      "path": "etudecas/testing/test_independent_review.py",
       "symbol": "test_complete_cost_scopes_use_independent_csv_and_operating_score",
       "reference_fingerprint": "5cbbb4e9706cb1eb10db8758e5131389f0aed613b18d95288845f4b496e813ca"
     }

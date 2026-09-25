@@ -158,9 +158,6 @@ def display_node_id(node_id: Any) -> str:
     return UPSTREAM_INTERNAL_SITE_DISPLAY_LABELS.get(canonical, canonical)
 
 
-def item_display_reference_note(item_id: Any, fallback: str = "") -> str:
-    item = normalize_item_id(item_id)
-    return ITEM_DISPLAY_REFERENCE_NOTES.get(item, fallback or item)
 
 
 def standard_order_override(src: Any, dst: Any, item_id: Any) -> dict[str, Any] | None:

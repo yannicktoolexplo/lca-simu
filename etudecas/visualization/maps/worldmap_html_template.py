@@ -4618,24 +4618,7 @@ def html_template(
       return `${{range}}, ${{trucks}}`;
     }}
 
-    function lotTraceLogisticsShortText(itemId, qty) {{
-      const estimate = lotTraceLogisticsEstimate(itemId, qty);
-      const text = lotTracePalletRangeText(estimate);
-      return text ? `hyp. ~${{text}}` : "";
-    }}
 
-    function lotTraceLogisticsDetailText(itemId, qty) {{
-      const estimate = lotTraceLogisticsEstimate(itemId, qty);
-      if (!estimate) return "";
-      const pallets = lotTracePalletRangeText(estimate);
-      const tons = estimate.identifiableMassKg / 1000;
-      const policy = LOT_TRACE_LOGISTICS_ASSUMPTIONS[lotTraceNormalizeItemId(itemId)] || {{}};
-      const unitLabel = policy.unitLabel ? String(policy.unitLabel) : "unites";
-      const caseText = policy.unitsPerCase
-        ? ` (${{policy.unitsPerCase}} ${{unitLabel}}/caisse)`
-        : "";
-      return `hyp. ~${{estimate.cases.toLocaleString("fr-FR")}} caisses${{caseText}}; ${{pallets}}; ${{lotTraceQtyText(estimate.volumeM3, 1)}} m3; ${{lotTraceQtyText(tons, 2)}} t ident.`;
-    }}
 
     function lotTraceEventLabel(eventType) {{
       const configuredLabels = (((LOT_TRACE || {{}}).nomenclature || {{}}).event_type_labels || {{}});
@@ -5070,96 +5053,8 @@ def html_template(
       return null;
     }}
 
-    function selectedLotTraceDays() {{
-      const order = selectedDeferredOrder();
-      if (order) {{
-        const range = currentTimelineDayRange();
-        return deferredOrderDays(order).filter(day => day >= range.startDay && day <= range.endDay);
-      }}
-      const snapshot = selectedLotTraceSnapshot();
-      if (!snapshot) return [];
-      const range = currentTimelineDayRange();
-      return snapshot.days.filter(day => Number.isFinite(day) && day >= range.startDay && day <= range.endDay);
-    }}
 
-    function selectedLotTraceDaysForContext(contextNodeId = "", contextNodeType = "") {{
-      const order = selectedDeferredOrder();
-      if (order && contextNodeType !== "edge") {{
-        const nodeId = String(order.node_id || "");
-        if (nodeId && String(contextNodeId || "") === nodeId) {{
-          const range = currentTimelineDayRange();
-          return deferredOrderDays(order)
-            .filter(day => Number.isFinite(day) && day >= range.startDay && day <= range.endDay)
-            .sort((a, b) => a - b);
-        }}
-      }}
-      const snapshot = selectedLotTraceSnapshot();
-      if (!snapshot || !contextNodeId) return [];
-      const days = new Set();
-      const rootLotId = String(snapshot.lotId || "");
-      const downstreamLotSet = new Set(snapshot.downstreamLots || []);
-      function eventBelongsToFocusedPath(row) {{
-        const lotId = String(row.lot_id || "");
-        const eventType = String(row.event_type || "");
-        if (lotId === rootLotId) return true;
-        if (eventType === "demand_service" && downstreamLotSet.has(lotId)) return true;
-        return false;
-      }}
-      if (contextNodeType === "edge") {{
-        snapshot.events.forEach((row) => {{
-          if (eventBelongsToFocusedPath(row) && lotTraceSourceEdgeId(row.source_id) === contextNodeId) {{
-            const day = lotTraceDay(row);
-            if (day !== null) days.add(day);
-          }}
-        }});
-        snapshot.links.forEach((row) => {{
-          if (lotTraceSourceEdgeId(row.source_id) === contextNodeId) {{
-            const day = lotTraceDay(row);
-            if (day !== null) days.add(day);
-          }}
-        }});
-      }} else {{
-        snapshot.events.forEach((row) => {{
-          if (eventBelongsToFocusedPath(row) && String(row.node_id || "") === contextNodeId) {{
-            const day = lotTraceDay(row);
-            if (day !== null) days.add(day);
-          }}
-        }});
-        snapshot.links.forEach((row) => {{
-          if (String(row.parent_node_id || "") === contextNodeId || String(row.child_node_id || "") === contextNodeId) {{
-            const day = lotTraceDay(row);
-            if (day !== null) days.add(day);
-          }}
-        }});
-        snapshot.planEvents.forEach((row) => {{
-          if (String(row.node_id || "") === contextNodeId) {{
-            const day = lotTraceDay(row);
-            if (day !== null) days.add(day);
-          }}
-        }});
-      }}
-      const range = currentTimelineDayRange();
-      return Array.from(days)
-        .filter(day => Number.isFinite(day) && day >= range.startDay && day <= range.endDay)
-        .sort((a, b) => a - b);
-    }}
 
-    function selectedLotRootProductionDaysForContext(contextNodeId = "", contextNodeType = "") {{
-      if (contextNodeType === "edge") return [];
-      const snapshot = selectedLotTraceSnapshot();
-      if (!snapshot || !contextNodeId) return [];
-      const rootLotId = String(snapshot.lotId || "");
-      const range = currentTimelineDayRange();
-      const days = new Set();
-      (snapshot.events || []).forEach((row) => {{
-        if (String(row.lot_id || "") !== rootLotId) return;
-        if (String(row.event_type || "") !== "production_output") return;
-        if (String(row.node_id || "") !== String(contextNodeId || "")) return;
-        const day = lotTraceDay(row);
-        if (day !== null && day >= range.startDay && day <= range.endDay) days.add(day);
-      }});
-      return Array.from(days).sort((a, b) => a - b);
-    }}
 
     function lotTracePlotCategory(plotlyFigure, contextNodeType = "") {{
       const explicitCategory = String((((plotlyFigure || {{}}).layout || {{}}).meta || {{}}).lot_trace_category || "");
@@ -5886,55 +5781,6 @@ def html_template(
       return parts.length ? `autre part: ${{parts.join(" + ")}}` : "";
     }}
 
-    function renderLotTraceTransportLinksTable(rows, limit = 40) {{
-      const transportRows = (rows || []).filter(row => String(row.link_type || "") === "transport");
-      if (!transportRows.length) return '<div class="lotTraceEmpty">Aucun flux logistique visible pour la direction selectionnee.</div>';
-      const visibleRows = transportRows.slice(0, limit);
-      const overflow = transportRows.length > limit ? `<div class="lotTracePanelMeta">${{transportRows.length - limit}} flux logistiques supplementaires masques.</div>` : "";
-      return `
-        <table class="lotTraceTable">
-          <thead><tr><th>Flux</th><th>Depart / arrivee</th><th>Route</th><th>Lot metier source</th><th>Occurrence source</th><th>Lot metier recu</th><th>Occurrence recue</th><th>Unite logistique</th><th class="num">Part tracee</th><th class="num">Total recu</th><th>Tracabilite</th></tr></thead>
-          <tbody>
-            ${{visibleRows.map(row => {{
-              const childLot = String(row.child_lot_id || "");
-              const parentLot = String(row.parent_lot_id || "");
-              const childInfo = lotTraceLotInfo(childLot);
-              const parentInfo = lotTraceLotInfo(parentLot);
-              const uom = childInfo.uom || parentInfo.uom || "";
-              const tracedQty = Number(row.contribution_qty > 0 ? row.contribution_qty : (row.parent_qty || row.child_qty || 0));
-              const totalQty = lotTraceLotTotalQty(childLot) || Number(row.child_qty || tracedQty || 0);
-              const otherText = totalQty > tracedQty + 1e-6
-                ? lotTraceOtherTransportParentsText(childLot, parentLot, uom)
-                : "";
-              const departureDay = lotTraceFirstDay(row, ["departure_day", "ship_day"]);
-              const arrivalDay = lotTraceFirstDay(row, ["arrival_day", "receipt_day", "day"]);
-              const dayText = `${{departureDay === null ? "depart n/a" : `depart J${{departureDay}}`}} / ${{arrivalDay === null ? "arrivee n/a" : `arrivee J${{arrivalDay}}`}}`;
-              const traceability = lotTraceTraceabilityText(row) || otherText || "Tracabilite non documentee";
-              return `
-                <tr>
-                  <td>${{escapeTableHtml(lotTraceFlowLabel(row))}}</td>
-                  <td>${{escapeTableHtml(dayText)}}</td>
-                  <td>${{escapeTableHtml(`${{lotTraceDisplayNodeId(row.parent_node_id)}} -> ${{lotTraceDisplayNodeId(row.child_node_id)}} / ${{row.parent_item_id || row.child_item_id || ""}}`)}}</td>
-                  <td>${{escapeTableHtml(lotTraceBusinessIdentityLabel(Object.assign({{}}, parentInfo, {{
-                    business_lot_id: lotTraceFirstText(row, ["parent_business_lot_id", "parent_business_batch_id"], "")
-                  }}), parentLot))}}</td>
-                  <td>${{escapeTableHtml(lotTraceFirstText(row, ["parent_stock_occurrence_id", "parent_lot_occurrence_id"], lotTraceStockOccurrenceId(row, lotTraceStockOccurrenceId(parentInfo, parentLot))))}}</td>
-                  <td>${{escapeTableHtml(lotTraceBusinessIdentityLabel(Object.assign({{}}, childInfo, {{
-                    business_lot_id: lotTraceFirstText(row, ["child_business_lot_id", "child_business_batch_id"], "")
-                  }}), childLot))}}</td>
-                  <td>${{escapeTableHtml(lotTraceFirstText(row, ["child_stock_occurrence_id", "child_lot_occurrence_id"], lotTraceStockOccurrenceId(childInfo, childLot)))}}</td>
-                  <td>${{escapeTableHtml([lotTraceHandlingUnitId(row), lotTraceTruckCapacityText(row)].filter(Boolean).join(" | ") || "n/a")}}</td>
-                  <td class="num">${{escapeTableHtml(`${{lotTraceQtyText(tracedQty)}} ${{uom}}`)}}</td>
-                  <td class="num">${{escapeTableHtml(`${{lotTraceQtyText(totalQty)}} ${{uom}}`)}}</td>
-                  <td>${{escapeTableHtml(traceability)}}</td>
-                </tr>
-              `;
-            }}).join("")}}
-          </tbody>
-        </table>
-        ${{overflow}}
-      `;
-    }}
 
     function lotTraceMixedLotRows(snapshot, selected) {{
       if (!snapshot || !selected) return [];
@@ -6583,16 +6429,6 @@ def html_template(
         if (srcType === "supplier_dc") return "Flux fournisseur";
         return "Flux logistique";
       }}
-      function lotTraceRouteFromSource(sourceId, fallbackNodeId = "") {{
-        const raw = String(sourceId || "");
-        if (raw.startsWith("edge:")) {{
-          const route = lotTraceRoutePartsFromSource(raw);
-          if (route.src || route.dst) return `${{lotTraceDisplayNodeId(route.src)}} -> ${{lotTraceDisplayNodeId(route.dst)}}`;
-          const body = raw.slice(5);
-          return body;
-        }}
-        return fallbackNodeId || raw || "flux inconnu";
-      }}
       function lotTraceStockContext(nodeId, itemId, day) {{
         const dayNum = Number(day);
         if (!Number.isFinite(dayNum)) return null;
@@ -7109,11 +6945,6 @@ def html_template(
         if (lotTraceTransportRowStartsFromRoot(row, snapshot)) return true;
         if (lotTraceTransportRowArrivesAtRoot(row, snapshot)) return false;
         return true;
-      }}
-      function lotTraceTransportRowsForDirection(rows, snapshot, direction) {{
-        if (direction === "upstream") return (rows || []).filter(row => lotTraceIsUpstreamTransportRow(row, snapshot));
-        if (direction === "downstream") return (rows || []).filter(row => lotTraceIsDownstreamTransportRow(row, snapshot));
-        return rows || [];
       }}
       function lotTraceTransportLinkToIndividualRow(link) {{
         const src = String(link.parent_node_id || "");
@@ -8303,10 +8134,6 @@ def html_template(
 
     {Path(__file__).with_name('lot_material_trace.js').read_text(encoding='utf-8')}
     {Path(__file__).with_name('lot_journey.js').read_text(encoding='utf-8')}
-    {Path(__file__).with_name('lot_journey_operations.js').read_text(encoding='utf-8')}
-{Path(__file__).with_name('lot_journey_explorer.js').read_text(encoding='utf-8')}
-{Path(__file__).with_name('lot_journey_timeline.js').read_text(encoding='utf-8')}
-{Path(__file__).with_name('lot_journey_case.js').read_text(encoding='utf-8')}
 {Path(__file__).with_name('map_business_ui.js').read_text(encoding='utf-8')}
 
     function lotTraceTruckPlanningHtml(selected) {{
@@ -10413,12 +10240,6 @@ def html_template(
       return Math.max(0, Math.min(1, high - risk));
     }}
 
-    function riskPredictionUncertaintyColor(meta) {{
-      const spread = riskPredictionUncertainty(meta);
-      if (spread >= 0.20) return "#7c3aed";
-      if (spread >= 0.10) return "#2563eb";
-      return "#38bdf8";
-    }}
 
     function nodeMarkerColor(n, style) {{
       if (currentPanelMode === "uncertainty") {{
@@ -14001,11 +13822,6 @@ def html_template(
         const physics = asset.physics || {{}};
         const sourceValues = smooth ? smoothValues(values || []) : (values || []);
         return filterPhysicsSeriesByTimeline(physics.days || [], sourceValues).values;
-      }}
-      function physicsWindowDays(values, smooth = true) {{
-        const physics = asset.physics || {{}};
-        const sourceValues = smooth ? smoothValues(values || []) : (values || []);
-        return filterPhysicsSeriesByTimeline(physics.days || [], sourceValues).days;
       }}
       function filterPhysicsSeriesByTimeline(days, values) {{
         const physics = asset.physics || {{}};

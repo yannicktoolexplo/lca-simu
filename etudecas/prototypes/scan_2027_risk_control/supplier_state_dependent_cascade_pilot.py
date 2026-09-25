@@ -26,6 +26,16 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
 
+CANONICAL_ENGINE = Path(__file__).resolve().parents[2] / "simulation/engine/run_first_simulation.py"
+
+
+def _case_output_hashes(case_dir: Path) -> dict[str, str]:
+    """Bind every CSV/JSON consumed by extraction to a completed case."""
+    return {p.relative_to(case_dir).as_posix(): sha256_file(p)
+            for p in sorted(case_dir.rglob("*"))
+            if p.is_file() and p.suffix in {".csv", ".json"} and p.name != "case_receipt.json"}
+
+
 DEFAULT_REFERENCE_LOG = Path(
     r"C:\dev\lca-simu-pr40-validation-artifacts-20260726"
     r"\supplier_network_risk_screen_20260902_v2\cases"
@@ -1028,11 +1038,9 @@ def run_pair(
         )
     reference_command = command_from_log(reference_log)
     reference_engine = Path(reference_command[1]).resolve()
-    engine = engine_override.resolve() if engine_override is not None else reference_engine
+    engine = engine_override.resolve() if engine_override is not None else CANONICAL_ENGINE
     if not engine.is_file():
         raise FileNotFoundError(engine)
-    if engine_override is not None and engine == reference_engine:
-        raise ValueError("--engine-override must designate an additive engine copy")
     engine_text = engine.read_text(encoding="utf-8")
     if "--supplier-state-risk-families" not in engine_text:
         raise RuntimeError("The engine state-risk family allowlist is not installed yet")
@@ -1059,16 +1067,17 @@ def run_pair(
             engine_path=engine,
         )
     manifest = {
-        "schema_version": "etudecas.supplier_state_cascade_pilot_manifest.v1",
+        "schema_version": "etudecas.supplier_state_cascade_pilot_manifest.v2",
         "created_utc": utc_now(),
         "status": "planned" if not execute else "running",
         "reference_log": str(reference_log.resolve()),
         "reference_log_sha256": sha256_file(reference_log),
         "reference_engine": str(reference_engine),
-        "reference_engine_sha256": sha256_file(reference_engine),
+        "reference_engine_sha256": sha256_file(reference_engine) if reference_engine.is_file() else None,
         "executed_engine": str(engine),
         "executed_engine_sha256": sha256_file(engine),
         "engine_override_used": engine_override is not None,
+        "engine_policy": "canonical_model_with_explicit_family_filter; historical pilot results are not equivalent",
         "risk_csv": str(risk_csv.resolve()),
         "risk_csv_sha256": sha256_file(risk_csv),
         "seed": seed,
@@ -1077,6 +1086,34 @@ def run_pair(
         "families": list(families),
         "commands": commands,
     }
+    # The old pilot accepted any existing summary. A canonical-engine study is
+    # a new protocol: reuse requires matching inputs and intact completed cases.
+    if str(CANONICAL_ENGINE.parents[3]) not in sys.path:
+        sys.path.insert(0, str(CANONICAL_ENGINE.parents[3]))
+    from etudecas.simulation.source_fingerprint import implementation_fingerprint
+    input_hashes = {
+        str(path.resolve()): sha256_file(path)
+        for command in commands.values() for value in command[1:]
+        if not value.startswith("--")
+        for path in [CANONICAL_ENGINE.parents[3] / value]
+        if path.is_file()
+    }
+    manifest["input_hashes"] = input_hashes
+    manifest["implementation_sha256"] = implementation_fingerprint(engine)
+    identity = {key: manifest[key] for key in (
+        "schema_version", "reference_log_sha256", "executed_engine_sha256",
+        "risk_csv_sha256", "commands", "input_hashes", "implementation_sha256",
+    )}
+    manifest["case_identity"] = hashlib.sha256(
+        json.dumps(identity, sort_keys=True, ensure_ascii=False).encode("utf-8")
+    ).hexdigest()
+    manifest_path = output_dir / "pilot_manifest.json"
+    if manifest_path.exists():
+        previous = read_json(manifest_path)
+        if previous.get("case_identity") != manifest["case_identity"]:
+            raise ValueError("Incompatible pilot inputs or sources; select a new output directory")
+    elif output_dir.exists() and any(output_dir.iterdir()):
+        raise ValueError("Unidentified pilot output; select a new output directory")
     write_json(output_dir / "pilot_manifest.json", manifest)
     if not execute:
         return manifest
@@ -1084,7 +1121,12 @@ def run_pair(
     def execute_case(case: PairCase) -> None:
         case_dir = output_dir / "cases" / case.key
         summary_path = case_dir / "summaries" / "first_simulation_summary.json"
+        receipt_path = case_dir / "case_receipt.json"
         if summary_path.is_file():
+            receipt = read_json(receipt_path) if receipt_path.is_file() else {}
+            if (receipt.get("identity") != manifest["case_identity"]
+                    or receipt.get("outputs") != _case_output_hashes(case_dir)):
+                raise ValueError(f"Unverified or changed pilot case: {case_dir}")
             return
         if case_dir.exists() and any(case_dir.iterdir()):
             raise RuntimeError(f"Partial case directory requires review: {case_dir}")
@@ -1094,7 +1136,7 @@ def run_pair(
             stream.write(f"[{utc_now()}] COMMAND {json.dumps(commands[case.key], ensure_ascii=False)}\n")
             completed = subprocess.run(
                 commands[case.key],
-                cwd=reference_engine.parents[3],
+                cwd=CANONICAL_ENGINE.parents[3],
                 stdout=stream,
                 stderr=subprocess.STDOUT,
                 text=True,
@@ -1102,14 +1144,16 @@ def run_pair(
             )
         if completed.returncode != 0:
             raise RuntimeError(f"Engine failed for {case.key}; see {log_path}")
+        if not summary_path.is_file():
+            raise RuntimeError(f"Engine did not publish a summary: {case_dir}")
+        if (implementation_fingerprint(engine) != manifest["implementation_sha256"]
+                or any(not Path(path).is_file() or sha256_file(Path(path)) != expected
+                       for path, expected in input_hashes.items())):
+            raise RuntimeError("Pilot sources or inputs changed during execution; no receipt published")
+        write_json(receipt_path, {"identity": manifest["case_identity"],
+                                  "outputs": _case_output_hashes(case_dir)})
 
-    pending_cases = [
-        case
-        for case in resolved_cases
-        if not (
-            output_dir / "cases" / case.key / "summaries" / "first_simulation_summary.json"
-        ).is_file()
-    ]
+    pending_cases = list(resolved_cases)
     with ThreadPoolExecutor(max_workers=max(1, min(int(workers), len(pending_cases) or 1))) as pool:
         futures = {pool.submit(execute_case, case): case for case in pending_cases}
         for future in as_completed(futures):
@@ -1144,8 +1188,8 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         "--engine-override",
         type=Path,
         help=(
-            "Use a tested additive copy of the engine. Only the executable script "
-            "path in the reconstructed command is replaced."
+            "Use an explicitly selected engine supporting the family filter. "
+            "By default use the canonical engine; historical pilot sources remain archived."
         ),
     )
     parser.add_argument(

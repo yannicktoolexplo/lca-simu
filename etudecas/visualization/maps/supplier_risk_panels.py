@@ -11,27 +11,11 @@ from typing import Any
 
 from etudecas.case_config import ITEM_DISPLAY_REFERENCE_NOTES
 from etudecas.visualization.maps.chart_payloads import build_line_chart_figure
-from etudecas.visualization.maps.map_data_loader import load_json_dict, read_csv_rows
+from etudecas.visualization.maps.map_payload_builder import load_json_dict, read_csv_rows
 from etudecas.visualization.maps.map_payload_builder import display_node_label
-from etudecas.visualization.maps.map_render import (
-    data_html_asset,
-    fmt_days,
-    fmt_pct,
-    fmt_qty,
-    render_data_kv,
-    render_data_table,
-)
+from etudecas.visualization.maps.map_payload_builder import data_html_asset, fmt_days, fmt_pct, fmt_qty, render_data_kv, render_data_table
 from etudecas.visualization.maps.risk_payload import SIMULATED_RISK_FAMILY_INFO, to_float
-from etudecas.visualization.maps.supplier_risk_formatting import (
-    risk_pct,
-    risk_ratio,
-    supplier_risk_action_label,
-    supplier_risk_worst_zone,
-    supplier_risk_zone_color,
-    supplier_risk_zone_counts_text,
-    supplier_risk_zone_label,
-    supplier_risk_zone_rank,
-)
+from etudecas.visualization.maps.risk_payload import risk_pct, risk_ratio, supplier_risk_action_label, supplier_risk_worst_zone, supplier_risk_zone_color, supplier_risk_zone_counts_text, supplier_risk_zone_label, supplier_risk_zone_rank
 
 
 def compact_item_label(item_id: str) -> str:
@@ -2270,6 +2254,10 @@ def build_simulated_risk_global_diagnostic_payload(
     output_root: Path,
     simulated_risk_metrics: dict[str, Any],
 ) -> dict[str, Any]:
+    """Assemble configured risks, recorded events and downstream associations.
+
+    Event exposure, scenario-level service and demonstrated physical links
+    are separate fields; an association is not a causal effect estimate."""
     data_root = output_root / "data"
     summary = load_json_dict(output_root / "summaries" / "first_simulation_summary.json")
     kpis = (summary.get("kpis") or {}) if isinstance(summary, dict) else {}

@@ -27,9 +27,9 @@ Références :
 - implementation : [_float_mapping](<../../../simulation/engine/api.py#L148>)
 - implementation : [_bool_mapping](<../../../simulation/engine/api.py#L167>)
 - implementation : [overrides_from_dict](<../../../simulation/engine/api.py#L177>)
-- test : [test_request_rejects_coercions](<../../../simulation/test_request_contract.py#L14>)
-- test : [test_scales_require_finite_nonnegative_numbers](<../../../simulation/test_request_contract.py#L20>)
-- test : [test_false_zero_and_internal_controls_are_preserved](<../../../simulation/test_request_contract.py#L32>)
+- test : [test_request_rejects_coercions](<../../../tests/moteur/test_request_contract.py#L14>)
+- test : [test_scales_require_finite_nonnegative_numbers](<../../../tests/moteur/test_request_contract.py#L20>)
+- test : [test_false_zero_and_internal_controls_are_preserved](<../../../tests/moteur/test_request_contract.py#L32>)
 
 ### SIMULATION-INPUT-002 — Réserver le moteur et les sorties au serveur
 
@@ -50,9 +50,9 @@ Références :
 - implementation : [request_from_http](<../../../simulation/engine/http_contract.py#L41>)
 - implementation : [confined_file](<../../../simulation/engine/http_contract.py#L21>)
 - contract : [HTTP_FIELDS](<../../../simulation/engine/http_contract.py#L13>)
-- test : [test_http_rejects_internal_fields_and_unbounded_horizon](<../../../simulation/test_http_contract.py#L24>)
-- test : [test_http_paths_cannot_escape_input_root](<../../../simulation/test_http_contract.py#L42>)
-- test : [test_http_assigns_engine_and_unique_output_without_writing](<../../../simulation/test_http_contract.py#L32>)
+- test : [test_http_rejects_internal_fields_and_unbounded_horizon](<../../../tests/moteur/test_http_contract.py#L24>)
+- test : [test_http_paths_cannot_escape_input_root](<../../../tests/moteur/test_http_contract.py#L42>)
+- test : [test_http_assigns_engine_and_unique_output_without_writing](<../../../tests/moteur/test_http_contract.py#L32>)
 
 ### SIMULATION-INPUT-003 — Contrôler l'accès local et les exécutions simultanées
 
@@ -73,11 +73,11 @@ Références :
 - implementation : [SimulationApiServer](<../../../simulation/engine/server.py#L24>)
 - implementation : [SimulationApiHandler._check_origin_and_host](<../../../simulation/engine/server.py#L105>)
 - implementation : [SimulationApiHandler.do_POST](<../../../simulation/engine/server.py#L128>)
-- implementation : [run_simulation_bounded](<../../../simulation/engine/bounded_execution.py#L11>)
-- test : [test_http_rejects_before_simulation](<../../../simulation/test_http_contract.py#L102>)
-- test : [test_busy_and_timeout_release_slot](<../../../simulation/test_http_contract.py#L128>)
-- test : [test_real_subprocess_timeout](<../../../simulation/test_http_contract.py#L158>)
-- test : [test_partial_body_times_out_and_releases_slot](<../../../simulation/test_http_contract.py#L145>)
+- implementation : [run_simulation_bounded](<../../../simulation/engine/bounded_execution.py#L9>)
+- test : [test_http_rejects_before_simulation](<../../../tests/moteur/test_http_contract.py#L102>)
+- test : [test_busy_and_timeout_release_slot](<../../../tests/moteur/test_http_contract.py#L128>)
+- test : [test_real_subprocess_timeout](<../../../tests/moteur/test_http_contract.py#L158>)
+- test : [test_partial_body_times_out_and_releases_slot](<../../../tests/moteur/test_http_contract.py#L145>)
 
 ### SIMULATION-INPUT-004 — Rapporter les graphes mal formés et les nombres non finis
 
@@ -194,7 +194,7 @@ def do_POST(self):
 
 ### bounded
 
-[etudecas/simulation/engine/bounded_execution.py:11](<../../../simulation/engine/bounded_execution.py#L11>)
+[etudecas/simulation/engine/bounded_execution.py:9](<../../../simulation/engine/bounded_execution.py#L9>)
 
 ```python
 def run_simulation_bounded(run_script: Path, input_json: Path, output_dir: Path, scenario_id: str, days: int=0, skip_map: bool=True, skip_plots: bool=True, extra_args: list[str] | None=None, use_living_initial_state: bool=True, *, timeout_seconds: float) -> tuple[dict[str, Any], str]:
@@ -228,7 +228,7 @@ def _is_number(value: Any) -> bool:
 
 ### types-test
 
-[etudecas/simulation/test_request_contract.py:14](<../../../simulation/test_request_contract.py#L14>)
+[etudecas/tests/moteur/test_request_contract.py:14](<../../../tests/moteur/test_request_contract.py#L14>)
 
 ```python
 def test_request_rejects_coercions(field, value):
@@ -236,7 +236,7 @@ def test_request_rejects_coercions(field, value):
 
 ### scales-test
 
-[etudecas/simulation/test_request_contract.py:20](<../../../simulation/test_request_contract.py#L20>)
+[etudecas/tests/moteur/test_request_contract.py:20](<../../../tests/moteur/test_request_contract.py#L20>)
 
 ```python
 def test_scales_require_finite_nonnegative_numbers(value):
@@ -244,7 +244,7 @@ def test_scales_require_finite_nonnegative_numbers(value):
 
 ### false-test
 
-[etudecas/simulation/test_request_contract.py:32](<../../../simulation/test_request_contract.py#L32>)
+[etudecas/tests/moteur/test_request_contract.py:32](<../../../tests/moteur/test_request_contract.py#L32>)
 
 ```python
 def test_false_zero_and_internal_controls_are_preserved():
@@ -252,7 +252,7 @@ def test_false_zero_and_internal_controls_are_preserved():
 
 ### forbidden-test
 
-[etudecas/simulation/test_http_contract.py:24](<../../../simulation/test_http_contract.py#L24>)
+[etudecas/tests/moteur/test_http_contract.py:24](<../../../tests/moteur/test_http_contract.py#L24>)
 
 ```python
 def test_http_rejects_internal_fields_and_unbounded_horizon(tmp_path, field, value):
@@ -260,7 +260,7 @@ def test_http_rejects_internal_fields_and_unbounded_horizon(tmp_path, field, val
 
 ### paths-test
 
-[etudecas/simulation/test_http_contract.py:42](<../../../simulation/test_http_contract.py#L42>)
+[etudecas/tests/moteur/test_http_contract.py:42](<../../../tests/moteur/test_http_contract.py#L42>)
 
 ```python
 def test_http_paths_cannot_escape_input_root(tmp_path, field):
@@ -268,7 +268,7 @@ def test_http_paths_cannot_escape_input_root(tmp_path, field):
 
 ### unique-test
 
-[etudecas/simulation/test_http_contract.py:32](<../../../simulation/test_http_contract.py#L32>)
+[etudecas/tests/moteur/test_http_contract.py:32](<../../../tests/moteur/test_http_contract.py#L32>)
 
 ```python
 def test_http_assigns_engine_and_unique_output_without_writing(tmp_path):
@@ -276,7 +276,7 @@ def test_http_assigns_engine_and_unique_output_without_writing(tmp_path):
 
 ### access-test
 
-[etudecas/simulation/test_http_contract.py:102](<../../../simulation/test_http_contract.py#L102>)
+[etudecas/tests/moteur/test_http_contract.py:102](<../../../tests/moteur/test_http_contract.py#L102>)
 
 ```python
 def test_http_rejects_before_simulation(tmp_path, monkeypatch, headers, status):
@@ -284,7 +284,7 @@ def test_http_rejects_before_simulation(tmp_path, monkeypatch, headers, status):
 
 ### busy-test
 
-[etudecas/simulation/test_http_contract.py:128](<../../../simulation/test_http_contract.py#L128>)
+[etudecas/tests/moteur/test_http_contract.py:128](<../../../tests/moteur/test_http_contract.py#L128>)
 
 ```python
 def test_busy_and_timeout_release_slot(tmp_path, monkeypatch):
@@ -292,7 +292,7 @@ def test_busy_and_timeout_release_slot(tmp_path, monkeypatch):
 
 ### deadline-test
 
-[etudecas/simulation/test_http_contract.py:158](<../../../simulation/test_http_contract.py#L158>)
+[etudecas/tests/moteur/test_http_contract.py:158](<../../../tests/moteur/test_http_contract.py#L158>)
 
 ```python
 def test_real_subprocess_timeout(tmp_path):
@@ -300,7 +300,7 @@ def test_real_subprocess_timeout(tmp_path):
 
 ### partial-test
 
-[etudecas/simulation/test_http_contract.py:145](<../../../simulation/test_http_contract.py#L145>)
+[etudecas/tests/moteur/test_http_contract.py:145](<../../../tests/moteur/test_http_contract.py#L145>)
 
 ```python
 def test_partial_body_times_out_and_releases_slot(tmp_path):
