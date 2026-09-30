@@ -1,0 +1,168 @@
+{
+  "schema": 1,
+  "scope": "Frozen analytical MRP baseline; no full physical simulation checkpoint",
+  "archive": "baseline.zip",
+  "archive_sha256": "a87b3e8e30f4d837a9ce83e652665a46be0b265c2f16c5501d13a75be9638b4a",
+  "archive_bytes": 3034595,
+  "members": {
+    "etudecas/data/source/Flow_Data_MRP_results.xlsx": {
+      "sha256": "c0a1715fbd135be2477a48adbad04c1654179e0da859f4fef44a30276cc78701",
+      "bytes": 2475474
+    },
+    "etudecas/data/source/Flow_Data_Inventory_and_Replenishment_rules.xlsx": {
+      "sha256": "549598fa1aab06cd8f3e3d76e73026d09c46ddbf188a3bb1c2019cb3310a4b0c",
+      "bytes": 158266
+    },
+    "etudecas/data/source/268091.xlsx": {
+      "sha256": "d3bba88179b92bf059b4bba1d61c0aebedf4c69f5bc73fe02e03ac3fa1d1773d",
+      "bytes": 19735
+    },
+    "etudecas/data/source/Extract_En_cours.xlsx": {
+      "sha256": "96e99bdb075c4a89052f805c1521c7d63f6a3ba8054bb31451817ab9f6a9d025",
+      "bytes": 20206
+    },
+    "etudecas/artifacts/testing/mrp_common_rules_20260930/grouping/analysis.json": {
+      "sha256": "736a30990e637940d10a33a7c361cfd1132be34512ace2171a776228d8f06870",
+      "bytes": 1080301
+    },
+    "etudecas/artifacts/testing/mrp_source_driven_20260928/source_supply/autonomous_projection.json": {
+      "sha256": "d33620a37502d1f2af8b729648c403a15c28827d8dd592b6416819dca40db7b4",
+      "bytes": 494474
+    },
+    "etudecas/visualization/maps/portable_diagnostic.py": {
+      "sha256": "0867b3822770fdc332fa3a3f786f838011bbeca56066d6d5bb23ecf28cf9c8a6",
+      "bytes": 11234
+    },
+    "etudecas/artifacts/testing/mrp_reconstruction_20260930/engine/reconstruct.py": {
+      "sha256": "07ee28446802cc679c55890a1537e1e8b6beaa8805c748ebe3482cbd6afdd19d",
+      "bytes": 14453
+    },
+    "etudecas/artifacts/testing/mrp_reconstruction_20260930/engine/reconstruction.json": {
+      "sha256": "58ce0e27d24f02d220e0add5d959ca5fe464ea2f06b27fd34e68966a16965156",
+      "bytes": 8058107
+    },
+    "etudecas/artifacts/testing/mrp_reconstruction_20260930/engine/bilan.md": {
+      "sha256": "9c2346095942bbd6444ea47624962d24e2b503daa00ca90d61b68d99998b9375",
+      "bytes": 7949
+    },
+    "etudecas/artifacts/testing/mrp_reconstruction_20260930/map/build.py": {
+      "sha256": "1a204a9d58d4e1424213ac52b02e155b48b72ac46b0017dced2e3cd5ce89be87",
+      "bytes": 5116
+    },
+    "etudecas/artifacts/testing/mrp_reconstruction_20260930/map/view.html": {
+      "sha256": "111e77c11da76cb84a6f0f39f6b4780557182893cf0dd85952c40ff0aa1556ee",
+      "bytes": 16752
+    },
+    "etudecas/artifacts/testing/mrp_reconstruction_20260930/map/delivery.json": {
+      "sha256": "24aaaabfdaf37b0af0bbb9b1d5d97b3f4f312166afa34760065d2f55016595e8",
+      "bytes": 2731
+    },
+    "etudecas/artifacts/testing/mrp_reconstruction_20260930/validation/verify_reconstruction.py": {
+      "sha256": "5cee018af33639606af97115497bc94ad960718ff99561ce4e2b286736cf887e",
+      "bytes": 15293
+    },
+    "etudecas/artifacts/testing/mrp_reconstruction_20260930/validation/reconstruction_check_final.json": {
+      "sha256": "a6c4dfc38cd7630f7ffeb05a87b4effaf33df7e333f80267ce9c9d888a68483e",
+      "bytes": 14367
+    },
+    "etudecas/artifacts/testing/mrp_reconstruction_20260930/validation/review_panel.py": {
+      "sha256": "2d0600ce4f4f2fcdf4b60812155cf9485aba46ae5fbbe7b9108fda53a37cda48",
+      "bytes": 16230
+    },
+    "etudecas/artifacts/testing/mrp_reconstruction_20260930/validation/BILAN.md": {
+      "sha256": "2fa7d3206c2b3bf54e35151ec411abe1908f03ebe47d77632d79ddf643faeb5e",
+      "bytes": 5713
+    },
+    "etudecas/artifacts/testing/mrp_reconstruction_20260930/validation/ui-5bb2c9bbaa9e46638d6fd1efbb93db7a/manifest.json": {
+      "sha256": "26d962272bcc3464b99c1e75f47a9fd8fcb295cac20f12dbd4798a8614b188cd",
+      "bytes": 2028
+    },
+    "etudecas/artifacts/testing/mrp_reconstruction_20260930/validation/ui-5bb2c9bbaa9e46638d6fd1efbb93db7a/review.json": {
+      "sha256": "0889977886d303c9502f65982206274e8be5e24618ccc750363452801ad2fa94",
+      "bytes": 2786288
+    },
+    "etudecas/artifacts/testing/mrp_reconstruction_20260930/validation/toolbox/browser-f08c9b73f2274b72aea563ae6a058c7e/manifest.json": {
+      "sha256": "8f804b2bbfd97f88391a5d0828144866a0a03d8a9e893eebf4c178c820ab23f3",
+      "bytes": 96773
+    },
+    "etudecas/artifacts/testing/mrp_reconstruction_20260930/native/doctor-7c64f10089054abf86e48b173f93be24/manifest.json": {
+      "sha256": "e9fb6cfcada61f2c802e385ecbc86ffb1d224c87ed87c35c62d02524603eb63e",
+      "bytes": 94586
+    },
+    "etudecas/artifacts/testing/mrp_reconstruction_20260930/native/gate-b60277e48733420a823b7f22c5f1502b/manifest.json": {
+      "sha256": "dd250ca2f06d3c8b41f16c6c133860edc7be754e8896e768bc6e369f90b187e3",
+      "bytes": 94056
+    },
+    "etudecas/artifacts/testing/mrp_reconstruction_20260930/BILAN.md": {
+      "sha256": "19e16b1c878553f6e1c86452f13f87f84278e8bd984e08e51fdc9e8e9df9c2b5",
+      "bytes": 5681
+    },
+    "etudecas/artifacts/testing/mrp_reconstruction_20260930/manifest.json": {
+      "sha256": "be84cc4099c664a161738c56d440e0d8b573235dc83870c76cbdf2feba61f83c",
+      "bytes": 7282
+    },
+    "etudecas/artifacts/testing/mrp_reconstruction_20260930/references.json": {
+      "sha256": "8548e46a6fe8f251741d1d24a73583be73ca9f30c69257ee7bcad1093e478c80",
+      "bytes": 1108
+    }
+  },
+  "local_map_references": [
+    {
+      "name": "regroupement_001757",
+      "path": "etudecas/resultats/regroupement_001757_20260929/carte.html",
+      "sha256": "a59769d272985cdbc32d1507a26527801438b1300a8981c627152346ae0e756f",
+      "prior_manifest": "etudecas/artifacts/testing/batching_001757_20260929/manifest.json",
+      "prior_manifest_sha256": "39f80cb36718708e7b28de889c50bae6c38b8db5b30e13cbaf689a78400e06c6",
+      "matching_fields": [
+        "etudecas\\resultats\\regroupement_001757_20260929\\carte.html"
+      ]
+    },
+    {
+      "name": "mrp_source_driven",
+      "path": "etudecas/resultats/mrp_source_driven_20260928/carte_corrigee.html",
+      "sha256": "109cd3a0a75cd1a6d22830f0158253799f3b9c5f66308d5dc890cbac24978fa5",
+      "prior_manifest": "etudecas/artifacts/testing/mrp_source_driven_20260928/manifest.json",
+      "prior_manifest_sha256": "67c984c6d3a95cfa103ee32aa90452a41e42a8ca0db9676b65c65e536e36faf8",
+      "matching_fields": [
+        "html_sha256"
+      ]
+    }
+  ],
+  "delivered_map": "etudecas\\resultats\\regroupement_001757_20260929\\carte_reconstitution_mrp.html",
+  "delivered_map_sha256": "1aa9aa2b28389289e6889ae02151d241dfc4dc75840f1ec706f15950ce35ea16",
+  "dependencies": {
+    "python": "3.11.9",
+    "openpyxl": "3.1.5"
+  },
+  "limitations": [
+    "The two large original HTML maps are retained locally, not stored in Git. Standalone MRP comparison is fully reproducible from this archive; rebuilding the complete map additionally requires those original files with matching hashes.",
+    "Historical native manifests refer to the wider working tree and local screenshots, which are not all included; they document past checks, not a fresh qualification of any checkout.",
+    "Other uncommitted repository changes are outside this analytical checkpoint."
+  ],
+  "reproduction_verification": {
+    "command": "python -B etudecas/config/mrp_reconstruction_20260930/reproduce.py --with-map",
+    "exit_code": 0,
+    "numerical_checks": 317070,
+    "all_reconstructed_values_equal": true,
+    "ignored_metadata_field": "replaces_unqualified_reconstruction_sha256",
+    "complete_html_sha256": "1aa9aa2b28389289e6889ae02151d241dfc4dc75840f1ec706f15950ce35ea16",
+    "complete_html_identical_to_qualified_delivery": true,
+    "reproduce_script_sha256": "792235c6f06f829371062b926ef920a0f5be2ca8858002bce7b703b2726e9d63",
+    "local_report": "etudecas/artifacts/testing/mrp_reproduction_1349d40d84334ad49abe36a4f092ff3d/reproduction.json",
+    "physical_simulation_executed": false,
+    "browser_rerun": false,
+    "generated_HTML_retention": "Removed after exact-byte validation; reproducible outputs, original local maps retained."
+  },
+  "cleanup": {
+    "empty_failed_browser_directory_removed": true,
+    "reproduction_HTML_copies_removed": [
+      "comparaison_mrp.html",
+      "etudecas/resultats/regroupement_001757_20260929/carte.html",
+      "etudecas/resultats/mrp_source_driven_20260928/carte_corrigee.html",
+      "etudecas/resultats/regroupement_001757_20260929/carte_reconstitution_mrp.html"
+    ],
+    "removed_HTML_bytes": 176477145,
+    "original_maps_preserved": true,
+    "scope": "Only generated duplicate HTMLs inside the new reproduction run; all numeric inputs and proofs retained."
+  }
+}
