@@ -163,7 +163,11 @@ def compact_graph_payload(raw: dict[str, Any]) -> dict[str, Any]:
             {
                 "id": node.get("id"),
                 "type": node.get("type", "unknown"),
-                "name": node.get("name", ""),
+                "name": ("Gaillac — fabrication et stockage"
+                         if str((node.get("attrs") or {}).get("physical_site_code")) == "1450"
+                         and {"storage", "manufacturing"}.issubset(
+                             (node.get("attrs") or {}).get("site_functions") or [])
+                         else node.get("name", "")),
                 "location_ID": location_id,
                 "country": country,
                 "lat": lat,

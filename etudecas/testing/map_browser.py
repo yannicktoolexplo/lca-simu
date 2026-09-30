@@ -13,6 +13,71 @@ import json
 from pathlib import Path
 
 
+def review_source_comparison(page, output: Path) -> dict:
+    """Check an optional source panel through its actual controls and displayed data."""
+    page.locator('#sourceComparisonOpenBtn').click()
+    frame = page.frame_locator('#sourceComparisonFrame')
+    root = frame.locator('#sourceComparisonRoot')
+    root.wait_for(state='visible', timeout=60000)
+    tabs = frame.locator('[role=tab][data-tab]').evaluate_all('xs => xs.map(x=>x.dataset.tab)')
+    empirical_rows_checked = 0
+    for tab in tabs:
+        frame.locator(f'[data-tab="{tab}"]').click()
+        if not frame.locator('#sourceComparisonPanel').inner_text().strip():
+            raise ValueError(f'Empty source comparison tab: {tab}')
+        if tab == 'flows' and frame.locator('#sourceComparisonEmpiricalDelivery').count():
+            frame.locator('#sourceComparisonEmpiricalDelivery summary').click()
+            empirical_rows_checked = frame.locator('#sourceComparisonEmpiricalOrders tbody tr').count()
+            if empirical_rows_checked < 1 or 'historique encore insuffisant' not in frame.locator('#sourceComparisonEmpiricalOrders').inner_text():
+                raise ValueError('Expected empirical delivery fallback explanation is missing')
+    details = {'tabs': tabs, 'empirical_order_rows_checked': empirical_rows_checked}
+    if 'gaillac' in tabs:
+        frame.locator('[data-tab="gaillac"]').click()
+        table = frame.locator('#sourceComparisonSiteStocks')
+        ids = table.locator('tbody tr td:first-child').all_text_contents()
+        if set(ids) != {'001893', '002612', '021081', '693055', '773474'}:
+            raise ValueError('Gaillac stock view does not contain the five source articles')
+        frame.locator('#sourceComparisonSitePhoto').select_option('0')
+        opening_rows = table.locator('tbody tr').evaluate_all('xs=>xs.map(x=>[...x.cells].map(c=>c.textContent))')
+        if any(any(value != '—' for value in row[5:9]) for row in opening_rows):
+            raise ValueError('Opening photo was compared to a fabricated previous-day stock')
+        frame.locator('#sourceComparisonSitePhoto').select_option('362')
+        page.screenshot(path=str(output / 'gaillac-stocks.png'))
+        details['gaillac_rows'] = table.locator('tbody tr').count()
+    frame.locator('[data-tab="stocks"]').click()
+    if frame.locator('#sourceComparisonPair option[value="039668/1810"]').count():
+        frame.locator('#sourceComparisonPair').select_option('039668/1810')
+    frame.locator('#sourceComparisonReset').click()
+    if frame.locator('#sourceComparisonBasis option[value="physical"]').count():
+        frame.locator('#sourceComparisonBasis').select_option('physical')
+    state = root.evaluate('()=>SOURCE_COMPARISON_VIEW.getState()')
+    raw = frame.locator('#sourceComparisonPayload').evaluate('el=>{const d=JSON.parse(el.textContent);return d.pairs[SOURCE_COMPARISON_VIEW.getState().pair]}')
+    count = 0
+    for run in state['runs']:
+        actual = root.evaluate('(el,key)=>SOURCE_COMPARISON_VIEW.getComparisonRows(key)', run)
+        column = {'physical': 5, 'available': 1, 'onsite': 3, 'held': 4, 'reserved': 2}.get(state['basis'], 5)
+        stocks = {r[0]: r[column] for r in raw['simulations'][run]['stock']}
+        expected = [(d, q, stocks[d - 1]) for d, q, _ in raw['observed']
+                    if d > 0 and isinstance(stocks.get(d - 1), (int, float))]
+        if len(actual) != len(expected):
+            raise ValueError('Rendered photo comparison count differs from the payload')
+        for row, (day, observed, simulated) in zip(actual, expected):
+            if row['day'] != day or abs(row['observed'] - observed) > 1e-6 or abs(row['simulated'] - simulated) > 1e-6:
+                raise ValueError('Rendered photo comparison values differ from the payload')
+            count += 1
+    frame.locator('#sourceComparisonZoomIn').click()
+    zoomed = root.evaluate('()=>SOURCE_COMPARISON_VIEW.getState()')
+    if zoomed['end'] - zoomed['start'] >= state['end'] - state['start']:
+        raise ValueError('Comparison zoom did not reduce the time window')
+    frame.locator('#sourceComparisonReset').click()
+    page.screenshot(path=str(output / 'source-comparison-stocks.png'))
+    page.locator('#sourceComparisonCloseBtn').click()
+    page.locator('#sourceComparisonModal').wait_for(state='hidden')
+    return {'name': 'source_comparison', 'ok': True, 'photo_values_checked': count,
+            'pair': state['pair'], **details,
+            'scope': 'Tabs, Gaillac dates, selected stock photo values and zoom; no claim of exhaustive interaction coverage.'}
+
+
 def review_map(html: Path, output: Path) -> dict:
     from playwright.sync_api import sync_playwright
 
@@ -108,6 +173,8 @@ def review_map(html: Path, output: Path) -> dict:
                 "scope": "Annual range endpoints; a single-year horizon has one position.",
             })
             page.screenshot(path=str(output / "final-nominal.png"))
+            if page.locator('#sourceComparisonOpenBtn').count():
+                report['checks'].append(review_source_comparison(page, output))
             decision_link = page.locator("#decisionSupportLink")
             if decision_link.count():
                 dashboard = {"name": "decision_dashboard", "ok": False}

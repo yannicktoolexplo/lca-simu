@@ -1,10 +1,192 @@
 """Hand-computed planning oracles; memory only, no filesystem fixtures."""
 from copy import deepcopy
+from datetime import date, timedelta
 import math
 
 import pytest
 
 from etudecas.simulation.engine import run_first_simulation as engine
+
+
+RECEIPT_HOLIDAYS_2025 = [
+    "2025-01-01", "2025-04-21", "2025-05-01", "2025-05-08", "2025-05-29",
+    "2025-06-09", "2025-07-14", "2025-08-15", "2025-11-01", "2025-11-11", "2025-12-25",
+]
+
+
+def receipt_closure_row(pair=("SDC-1450", "item:021081")):
+    return {"node_id": pair[0], "item_id": pair[1], "receipt_days": 75,
+            "source_file": "Flow_Data_MRP_results.xlsx", "source_cells": "Feuille1!E277",
+            "nonworking_dates": ["2025-08-04"], "calendar_id": "dated_receipt_candidate",
+            "calendar_status": "conditional_source_supported_not_universal",
+            "calendar_source": "Explicit receipt-only experimental dates"}
+
+
+def receipt_closure_payload(rows):
+    return {"schema_version": 1, "calendar": "monday_friday", "rows": rows}
+
+
+@pytest.mark.parametrize("physical,days,expected", [(2,1,5), (3,1,5), (0,13,19), (364,1,365)])
+def test_receipt_closure_absent_preserves_weekdays_and_next_year(physical, days, expected):
+    assert engine.supplier_receipt_available_day(physical, days, origin_date="2025-01-01") == expected
+    assert engine.supplier_receipt_available_day(
+        physical, days, origin_date="2025-01-01", nonworking_dates=frozenset()) == expected
+
+
+@pytest.mark.parametrize("source_row,physical,expected", [
+    (23,"2025-04-16","2025-08-21"), (25,"2025-05-20","2025-09-19"),
+    (30,"2025-05-12","2025-09-11"), (39,"2025-04-16","2025-08-21"),
+    (42,"2025-05-05","2025-09-05"),
+])
+def test_receipt_closure_matches_five_gaillac_source_dates(source_row, physical, expected):
+    # Extract_En_cours.xlsx/Sheet1 G/H/I; independent source audit identifies
+    # these five rows as the only discriminants among 104 opening-book rows.
+    closure = [(date(2025,8,4)+timedelta(days=n)).isoformat() for n in range(14)]
+    dates = engine.parse_supplier_receipt_nonworking_dates(sorted(set(RECEIPT_HOLIDAYS_2025 + closure)))
+    origin = date(2025,1,1)
+    available = engine.supplier_receipt_available_day(
+        (date.fromisoformat(physical)-origin).days, 75, origin_date=origin.isoformat(), nonworking_dates=dates)
+    assert origin+timedelta(days=available) == date.fromisoformat(expected), source_row
+
+
+@pytest.mark.parametrize("physical,days,expected", [
+    ("2025-04-30",1,"2025-05-02"), ("2025-12-24",2,"2025-12-29"),
+    ("2025-12-25",0,"2025-12-25"), ("2025-12-31",1,"2026-01-01"),
+    ("2026-08-03",1,"2026-08-04"),
+])
+def test_receipt_closure_counts_absolute_dates_once_and_does_not_recur(physical, days, expected):
+    origin = date(2025,1,1)
+    dates = engine.parse_supplier_receipt_nonworking_dates(RECEIPT_HOLIDAYS_2025 + ["2025-08-04"])
+    available = engine.supplier_receipt_available_day(
+        (date.fromisoformat(physical)-origin).days, days, origin_date=origin.isoformat(), nonworking_dates=dates)
+    assert origin+timedelta(days=available) == date.fromisoformat(expected)
+
+
+@pytest.mark.parametrize("invalid", [
+    None, True, "2025-08-04", [None], [True], [date(2025,8,4)],
+    ["20250804"], ["2025-8-4"], ["2025-02-30"], ["2025-08-04 "],
+    ["2025-08-04T00:00:00"], ["2025-08-04", "2025-08-04"],
+])
+def test_receipt_closure_rejects_noncanonical_or_missing_dates(invalid):
+    with pytest.raises(ValueError):
+        engine.parse_supplier_receipt_nonworking_dates(invalid)
+
+
+@pytest.mark.parametrize("invalid", [["2025-08-04"], None, frozenset({"2025-08-04"}), frozenset({True})])
+def test_receipt_closure_helper_requires_compiled_date_values(invalid):
+    with pytest.raises(ValueError):
+        engine.supplier_receipt_available_day(0,1,origin_date="2025-01-01",nonworking_dates=invalid)
+
+
+def test_receipt_closure_resolver_is_pair_scoped_and_does_not_mutate_source():
+    gaillac = ("SDC-1450", "item:021081")
+    avene = ("M-1810", "item:001757")
+    row = receipt_closure_row(gaillac)
+    other = {"node_id": avene[0], "item_id": avene[1], "receipt_days":13,
+             "source_file":"Flow_Data_MRP_results.xlsx", "source_cells":"Feuille1!E2"}
+    payload = receipt_closure_payload([row,other])
+    before = deepcopy(payload)
+    result = engine.resolve_supplier_receipt_nonworking_dates(
+        payload,execution_mode="dated",eligible_pairs={gaillac,avene})
+    assert result == {gaillac:frozenset({date(2025,8,4)})}
+    assert payload == before
+    # At the same physical receipt, only the opted-in receiving site skips Monday.
+    assert engine.supplier_receipt_available_day(212,1,origin_date="2025-01-01",nonworking_dates=result[gaillac]) == 216
+    assert engine.supplier_receipt_available_day(212,1,origin_date="2025-01-01") == 215
+
+
+@pytest.mark.parametrize("mode", ["historical", "availability"])
+def test_receipt_closure_rejects_inactive_execution_modes(mode):
+    row=receipt_closure_row()
+    with pytest.raises(ValueError):
+        engine.resolve_supplier_receipt_nonworking_dates(
+            receipt_closure_payload([row]),execution_mode=mode,eligible_pairs={(row['node_id'],row['item_id'])})
+
+
+def test_receipt_closure_legacy_metadata_has_no_effect_or_required_extension():
+    payload=receipt_closure_payload([{"node_id":"M-1810","item_id":"item:001757","receipt_days":13}])
+    for mode in ["historical","availability","dated"]:
+        assert engine.resolve_supplier_receipt_nonworking_dates(payload,execution_mode=mode,eligible_pairs=set()) == {}
+    assert engine.resolve_supplier_receipt_nonworking_dates(None,execution_mode="historical",eligible_pairs=set()) == {}
+
+
+@pytest.mark.parametrize("field,value", [
+    ("calendar_id",None), ("calendar_status",""), ("calendar_source"," "), ("nonworking_dates",None),
+])
+def test_receipt_closure_requires_complete_calendar_provenance(field,value):
+    row=receipt_closure_row()
+    pair=(row['node_id'],row['item_id'])
+    for missing in [True,False]:
+        changed=deepcopy(row)
+        if missing:
+            changed.pop(field)
+        else:
+            changed[field]=value
+        with pytest.raises(ValueError):
+            engine.resolve_supplier_receipt_nonworking_dates(
+                receipt_closure_payload([changed]),execution_mode="dated",eligible_pairs={pair})
+
+
+def test_receipt_closure_rejects_internal_pairs_duplicates_and_conflicting_ids():
+    row=receipt_closure_row()
+    pair=(row['node_id'],row['item_id'])
+    with pytest.raises(ValueError):
+        engine.resolve_supplier_receipt_nonworking_dates(
+            receipt_closure_payload([row]),execution_mode="dated",eligible_pairs=set())
+    with pytest.raises(ValueError):
+        engine.resolve_supplier_receipt_nonworking_dates(
+            receipt_closure_payload([row,row]),execution_mode="dated",eligible_pairs={pair})
+    other=receipt_closure_row(("M-1810","item:001757"))
+    other['nonworking_dates']=["2025-08-05"]
+    with pytest.raises(ValueError):
+        engine.resolve_supplier_receipt_nonworking_dates(
+            receipt_closure_payload([row,other]),execution_mode="dated",
+            eligible_pairs={pair,(other['node_id'],other['item_id'])})
+
+
+def test_fia_provenance_matches_real_excel_rows_in_both_readers():
+    from pathlib import Path
+    from openpyxl import load_workbook
+    from etudecas.knowledge_graph import update_supply_graph_from_case_data as source
+
+    directory = Path(__file__).resolve().parents[2] / "data" / "source"
+    checked = 0
+    for name in ("268091.xlsx", "268967.xlsx", "773474.xlsx"):
+        path = directory / name
+        book = load_workbook(path, read_only=True, data_only=True)
+        expected = {row: values for row, values in enumerate(
+            book["FIA"].iter_rows(min_row=2, values_only=True), start=2)
+            if values[0] not in (None, "")}
+        book.close()
+        for reader in (source.load_workbook_rows, source.load_workbook_rows_from_zip):
+            _, rows = reader(path, "FIA")
+            rows = [row for row in rows if row.get("Numéro d'article") not in (None, "")]
+            assert len(rows) == len(expected)
+            for row in rows:
+                physical = expected[row["_source_row"]]
+                assert str(row["Numéro d'article"]) == str(physical[0])
+                assert row["Numéro de compte fournisseur"] == physical[1]
+                edge = {"id": "lane", "attrs": {"source_sheet": "Relations_acteurs", "source_row": 999}}
+                report = {"updated_edges": []}
+                source.update_edge_from_fia(edge, row, name, name[:-5], report)
+                assert edge["attrs"]["source_row"] == row["_source_row"]
+                assert edge["attrs"]["source_workbook"] == name
+                assert edge["attrs"]["source_sheet"] == "FIA"
+                assert report["updated_edges"][0]["source_row"] == row["_source_row"]
+                assert edge["order_terms"]["sell_price"] == physical[2]
+                assert edge["order_terms"]["price_base"] == physical[3]
+                checked += 1
+    assert checked == 70
+
+
+def test_fia_without_source_row_does_not_keep_an_unrelated_cell_reference():
+    from etudecas.knowledge_graph import update_supply_graph_from_case_data as source
+
+    edge = {"id": "lane", "attrs": {"source_row": 8}}
+    source.update_edge_from_fia(edge, {"Montant": 5.43, "Base de prix": 1},
+                                "268091.xlsx", "268091", {"updated_edges": []})
+    assert edge["attrs"]["source_row"] is None
+    assert edge["order_terms"]["sell_price"] == 5.43
 
 
 PF = ("C", "item:PF")

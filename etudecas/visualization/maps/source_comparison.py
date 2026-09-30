@@ -91,12 +91,34 @@ EXTERNAL_FORECAST_AUDIT_FIELDS = (
 FLOW_TYPES = {'lane_receipt': 0, 'opening_purchase_order_receipt': 0,
               'external_procurement_receipt': 0, 'production_consume': 1,
               'production_consume_reference_transition': 1, 'lane_ship': 2}
+SITE_FLOW_FIELDS = ('external_receipt', 'production_output', 'transport_receipt',
+                    'transport_shipment', 'availability_release', 'core_consumption',
+                    'other_consumption', 'simplified_supply')
+
+
+def site_flow_kind(row):
+    """Keep the ledger's business distinctions; boundary supply is not fabrication."""
+    event = row['event_type']
+    if event == 'external_procurement_receipt':
+        return ('simplified_supply' if row.get('source_type') == 'source_boundary_receipt'
+                else 'external_receipt')
+    if event.startswith(('production_consume', 'opening_production_consume')):
+        return 'core_consumption'
+    return {'opening_purchase_order_receipt': 'external_receipt',
+            'production_output': 'production_output',
+            'opening_production_order': 'production_output',
+            'lane_receipt': 'transport_receipt', 'lane_ship': 'transport_shipment',
+            'stock_availability_release': 'availability_release',
+            'external_component_consume': 'other_consumption'}.get(event)
+
+
 WEEKLY_CONVENTIONS = {
     'sunday_start': {'label': 'Dimanche repère de début · dimanche–samedi', 'start_offset': 0, 'end_offset': 6},
     'monday_after': {'label': 'Lundi suivant le repère · lundi–dimanche', 'start_offset': 1, 'end_offset': 7},
     'sunday_end': {'label': 'Historique : dimanche repère de fin · lundi–dimanche', 'start_offset': -6, 'end_offset': 0},
 }
 COLUMNS = {
+    'site_flows_daily': ['day', *SITE_FLOW_FIELDS],
     'observed': ['day', 'total_qty', 'excel_row'],
     'mrp': ['target_day', 'incoming_H', 'outgoing_I', 'dated_contribution_J',
             'projected_balance_K', 'excel_row'],
@@ -591,6 +613,7 @@ def _run_payload(label, run, pairs):
     daily, trace, produced = defaultdict(dict), defaultdict(dict), defaultdict(dict)
     availability = defaultdict(dict)
     reservations, movements = [], defaultdict(lambda: defaultdict(lambda: [0., 0., 0.]))
+    site_flows = defaultdict(lambda: defaultdict(lambda: [0.] * len(SITE_FLOW_FIELDS)))
     production_without_process = defaultdict(lambda: defaultdict(float))
     production_sites, production_item, service_item = defaultdict(set), defaultdict(dict), defaultdict(dict)
     openings, stock_sources, policy = {}, {}, defaultdict(lambda: defaultdict(set))
@@ -720,6 +743,11 @@ def _run_payload(label, run, pairs):
                         **{field: _number(row.get(field)) for field in (
                             'delivery_reference_days', 'delivery_sampled_days', 'receipt_source_days')},
                         'receipt_calendar': row.get('receipt_calendar'),
+                        **({'empirical_sample_id': row.get('empirical_sample_id'),
+                            'empirical_status': row['empirical_status'],
+                            **{field: _number(row.get(field)) for field in (
+                                'empirical_known_day', 'empirical_pool_size', 'empirical_delta_days',
+                                'empirical_unclipped_lead_days')}} if row.get('empirical_status') else {}),
                         **_sourcing_order(row, unit, factor),
                         **_batching_order(row, factor),
                     })
@@ -749,6 +777,9 @@ def _run_payload(label, run, pairs):
         if unit != pairs[lookup[pair]]['unit']:
             raise ValueError(f'Event unit mismatch: {pair}')
         quantity = _number(row['qty'], factor, physical_unit=unit)
+        flow_kind = site_flow_kind(row)
+        if flow_kind:
+            site_flows[pair][day][SITE_FLOW_FIELDS.index(flow_kind)] += quantity
         if core_event:
             core_component_consumption[pair][day] += quantity
         if event == 'external_component_consume':
@@ -944,6 +975,8 @@ def _run_payload(label, run, pairs):
                             av[d][1] if d in av else None, av[d][3] if d in av else None]
                            for d, q in sorted(stock.items())],
                   'availability_release': [[d, v[4]] for d, v in sorted(av.items())],
+                  'site_flows_daily': [[d, *v] for d, v in sorted(site_flows[pair].items())],
+                  'site_flows_source': 'production_lot_events.csv',
                   'has_availability': bool(av),
                   'stock_scope': {
                       'model_scope': ('outside_simulated_stock' if not stock else
@@ -961,6 +994,7 @@ def _run_payload(label, run, pairs):
                   'initial_orders': initial_orders[pair],
                   'initial_purchase_execution': initial_purchase_execution[pair],
                   'supplier_purchase_execution': supplier_purchase_execution[pair],
+                  'supplier_purchase_documented': dated_execution and order_file.is_file(),
                   'sourcing_policy': _sourcing_scope(sourcing_config, pair, entry['unit']),
                   'procurement_batching': _batching_scope(batching_config, pair, entry['unit']),
                   'internal_component_policy': _internal_component_scope(internal_policy, pair, entry['unit']),
@@ -1005,6 +1039,7 @@ def _run_payload(label, run, pairs):
     if manifest.is_file():
         recorded(manifest)
     return {'label': LABELS.get(label, label), 'path': str(run), 'days': summary['sim_days'],
+            'chain_bom_268967': chain_bom_factors(graph),
             'kind': 'nominal' if label == 'nominal' else 'diagnostic', 'warmup_days': 0,
             'common_random_numbers': summary.get('policy', {}).get('common_random_numbers'),
             'mrp_receipt_netting_mode': summary.get('policy', {}).get('mrp_receipt_netting_mode'),
@@ -1025,6 +1060,65 @@ def _run_payload(label, run, pairs):
                 'initialization_policy', {}).get('opening_production_order_bom_issue_mode'),
             'origin_basis': 'Date du carnet initial du graphe, sans période de chauffe.',
             'scenario_id': summary['scenario_id']}, files
+
+
+def chain_bom_factors(graph):
+    """Convert documented chain stocks to theoretical PF equivalents, not allocation."""
+    def ratio(node_id, output_item, input_item, output_unit):
+        node = next((n for n in graph.get('nodes', []) if n['id'] == node_id), {})
+        processes = [p for p in node.get('processes', [])
+                     if any(o.get('item_id') == output_item for o in p.get('outputs', []))]
+        if len(processes) != 1:
+            return None
+        process = processes[0]
+        inputs = [r for r in process.get('inputs', []) if r.get('item_id') == input_item]
+        if len(inputs) != 1:
+            return None
+        raw_unit, raw_factor = _unit(inputs[0]['ratio_unit'])
+        batch_unit, batch_factor = _unit(process['batch_size_unit'])
+        if raw_unit != 'KG' or batch_unit != output_unit:
+            return None
+        qty, batch = float(inputs[0]['ratio_per_batch']) * raw_factor, float(process['batch_size']) * batch_factor
+        if not math.isfinite(qty) or not math.isfinite(batch) or qty <= 0 or batch <= 0:
+            return None
+        return qty / batch
+
+    raw = ratio('SDC-1450', 'item:773474', 'item:021081', 'KG')
+    intermediate = ratio('M-1430', 'item:268967', 'item:773474', 'UN')
+    if raw is None or intermediate is None:
+        return None
+    return {'raw_kg_per_intermediate_kg': raw, 'intermediate_kg_per_pf': intermediate,
+            'pf_per_stock_unit': {'021081/1450': 1 / (raw * intermediate),
+                '773474/1450': 1 / intermediate, '773474/1430': 1 / intermediate, '268967/1920': 1.}}
+
+
+def chain_stock_equivalence(pairs, runs):
+    """Sum distinct documented stock positions; missing positions remain unknown."""
+    positions = ('021081/1450', '773474/1450', '773474/1430', '268967/1920')
+    days = sorted({row[0] for key in positions for row in pairs.get(key, {}).get('observed', [])})
+    observed = {key: {r[0]: r[1] for r in pairs.get(key, {}).get('observed', [])} for key in positions}
+    physical = {(key, run): {r[0]: r[5] for r in pairs.get(key, {}).get('simulations', {}).get(run, {}).get('stock', [])}
+                for key in positions for run in runs}
+
+    def total(values, factors):
+        if not factors or any(not isinstance(values.get(key), (int, float)) or not math.isfinite(values[key]) for key in positions):
+            return None
+        return sum(values[key] * factors['pf_per_stock_unit'][key] for key in positions)
+
+    rows = []
+    for day in days:
+        rows.append({'day': day,
+            'observed_pf_equivalent': total({key: observed[key].get(day) for key in positions}, runs['nominal'].get('chain_bom_268967')),
+            'simulations': {run: total({key: physical[key, run].get(day - 1) for key in positions}, info.get('chain_bom_268967'))
+                            for run, info in runs.items()}})
+    return {'title': 'Stocks documentés de la chaîne 268967 · équivalent PF théorique',
+        'description': 'Conversion BOM des matières à Gaillac, du 773474 à Gaillac et Gien, et des PF au dépôt. Photos comparées à la clôture simulée de la veille.',
+        'positions': list(positions), 'factors_by_run': {key: value.get('chain_bom_268967') for key, value in runs.items()},
+        'limitations': ['Stocks PF à l’usine, transit et encours exclus : ce tableau ne couvre pas toutes les positions physiques.',
+            'Les stocks sources peuvent servir plusieurs produits. L’équivalent suppose leur conversion théorique vers 268967, sans prouver cette allocation ni la disponibilité des autres composants.',
+            'La cible d’un an concerne la chaîne entière ; aucun seuil par site ni couverture industrielle en jours n’est déduit de ces seuls stocks.',
+            'Une photo, un état physique ou une nomenclature absents rendent le total inconnu. Le 1er janvier n’a pas de clôture simulée de la veille.'],
+        'rows': rows}
 
 
 def build_comparison_payload(inventory_path: Path, mrp_path: Path,
@@ -1061,6 +1155,7 @@ def build_comparison_payload(inventory_path: Path, mrp_path: Path,
         'columns': COLUMNS, 'runs': run_info, 'pairs': dict(sorted(pairs.items())),
         'weekly_conventions': WEEKLY_CONVENTIONS, 'default_weekly_alignment': 'sunday_start',
         'coverage': coverage, 'source_lot_rules': lot_rules,
+        'site_overviews': {'1450': {'chain_coverage': chain_stock_equivalence(pairs, run_info)}},
         'provenance': {'source_workbooks': source_hashes, 'run_inputs': csv_hashes,
                        'extractor_sha256': _hash(Path(__file__))},
         'conventions': [

@@ -138,7 +138,7 @@ def load_workbook_rows_from_zip(path: Path, sheet_name: str) -> tuple[list[str],
     except (KeyError, zipfile.BadZipFile, ET.ParseError):
         return [], []
 
-    raw_rows: list[list[Any]] = []
+    raw_rows: list[tuple[int, list[Any]]] = []
     for row in sheet_root.findall(".//a:sheetData/a:row", XLSX_NS):
         values: list[Any] = []
         for cell in row.findall("a:c", XLSX_NS):
@@ -146,16 +146,18 @@ def load_workbook_rows_from_zip(path: Path, sheet_name: str) -> tuple[list[str],
             while len(values) <= idx:
                 values.append("")
             values[idx] = xlsx_cell_value(cell, shared_strings)
-        raw_rows.append(values)
+        raw_rows.append((int(row.attrib["r"]), values))
 
     if not raw_rows:
         return [], []
-    headers = [str(value).strip() if value not in (None, "") else "" for value in raw_rows[0]]
+    headers = [str(value).strip() if value not in (None, "") else "" for value in raw_rows[0][1]]
     rows: list[dict[str, Any]] = []
-    for raw in raw_rows[1:]:
+    for source_row, raw in raw_rows[1:]:
         if not any(value not in (None, "") for value in raw):
             continue
-        rows.append({headers[idx]: raw[idx] if idx < len(raw) else "" for idx in range(len(headers)) if headers[idx]})
+        record = {headers[idx]: raw[idx] if idx < len(raw) else "" for idx in range(len(headers)) if headers[idx]}
+        record["_source_row"] = source_row
+        rows.append(record)
     return headers, rows
 
 
@@ -168,17 +170,21 @@ def load_workbook_rows(path: Path, sheet_name: str) -> tuple[list[str], list[dic
     if openpyxl is not None:
         wb = openpyxl.load_workbook(path, data_only=True, read_only=True)
         if sheet_name not in wb.sheetnames:
+            wb.close()
             return [], []
         ws = wb[sheet_name]
         raw_rows = list(ws.iter_rows(values_only=True))
+        wb.close()
         if not raw_rows:
             return [], []
         headers = [str(value).strip() if value is not None else "" for value in raw_rows[0]]
         rows: list[dict[str, Any]] = []
-        for raw in raw_rows[1:]:
+        for source_row, raw in enumerate(raw_rows[1:], start=2):
             if not any(value not in (None, "") for value in raw):
                 continue
-            rows.append({headers[idx]: raw[idx] for idx in range(min(len(headers), len(raw)))})
+            record = {headers[idx]: raw[idx] for idx in range(min(len(headers), len(raw)))}
+            record["_source_row"] = source_row
+            rows.append(record)
         return headers, rows
 
     headers, rows = load_workbook_rows_from_zip(path, sheet_name)
@@ -223,6 +229,7 @@ try {
     $rows = New-Object System.Collections.Generic.List[object]
     for ($r = 2; $r -le $rowCount; $r++) {
         $obj = [ordered]@{}
+        $obj['_source_row'] = $worksheet.UsedRange.Row + $r - 1
         for ($c = 1; $c -le $colCount; $c++) {
             $header = $headers[$c - 1]
             if ([string]::IsNullOrWhiteSpace($header)) {
@@ -274,9 +281,9 @@ try {
     for row in parsed_rows:
         for key in row.keys():
             key_text = str(key).strip()
-            if key_text and key_text not in headers:
+            if key_text and key_text != "_source_row" and key_text not in headers:
                 headers.append(key_text)
-    rows = [{header: row.get(header) for header in headers} for row in parsed_rows]
+    rows = [{**{header: row.get(header) for header in headers}, "_source_row": row.get("_source_row")} for row in parsed_rows]
     return headers, rows
 
 
@@ -456,16 +463,28 @@ def make_supplier_name(actor_code: str) -> str:
 
 
 def make_upstream_site_name(actor_code: str) -> str:
-    return f"Internal PFI Site - {UPSTREAM_DISPLAY_CODE}"
+    return f"Gaillac — fabrication et stockage ({UPSTREAM_DISPLAY_CODE})"
+
+
+def annotate_upstream_site(node: dict[str, Any]) -> None:
+    """Describe the physical site's functions without changing its stock or flows."""
+    if node.get("id") != UPSTREAM_PRODUCER_ID:
+        return
+    node["type"] = "factory"
+    node["name"] = make_upstream_site_name(actor_code_from_node_id(UPSTREAM_PRODUCER_ID))
+    node["role_raw"] = "Fabrication et stockage"
+    attrs = node.setdefault("attrs", {})
+    # Preserve the legacy role consumed by existing preparation/visualization code.
+    attrs["site_role"] = "internal_upstream_semi_finished"
+    attrs["site_functions"] = ["receiving", "storage", "manufacturing", "shipping"]
+    attrs["physical_site_code"] = "1450"
 
 
 def make_supplier_node(actor_code: str, supplier_id: str, location_id: str | None) -> dict[str, Any]:
     attrs: dict[str, Any] = {"source_sheet": "FIA"}
     if location_id:
         attrs["location_source"] = LOCATION_WORKBOOK
-    if supplier_id == UPSTREAM_PRODUCER_ID:
-        attrs["site_role"] = "internal_upstream_semi_finished"
-    return {
+    node = {
         "id": supplier_id,
         "type": "factory" if supplier_id == UPSTREAM_PRODUCER_ID else "supplier_dc",
         "name": make_upstream_site_name(actor_code) if supplier_id == UPSTREAM_PRODUCER_ID else make_supplier_name(actor_code),
@@ -480,6 +499,8 @@ def make_supplier_node(actor_code: str, supplier_id: str, location_id: str | Non
         "defaults": {"geo": True},
         "role_raw": "Internal PFI Site" if supplier_id == UPSTREAM_PRODUCER_ID else "Supplier Distribution Center",
     }
+    annotate_upstream_site(node)
+    return node
 
 
 def ensure_supplier_node(
@@ -497,10 +518,7 @@ def ensure_supplier_node(
         node_by_id[supplier_id] = node
         report["created_nodes"].append(supplier_id)
     if supplier_id == UPSTREAM_PRODUCER_ID:
-        node["type"] = "factory"
-        node["name"] = make_upstream_site_name(actor_code)
-        node["role_raw"] = "Internal PFI Site"
-        node.setdefault("attrs", {})["site_role"] = "internal_upstream_semi_finished"
+        annotate_upstream_site(node)
     elif not str(node.get("name") or "").strip() or str(node.get("name")) == supplier_id:
         node["name"] = make_supplier_name(actor_code)
     if location_id and not str(node.get("location_ID") or "").strip():
@@ -614,6 +632,7 @@ def update_edge_from_fia(
     attrs.update(
         {
             "source_sheet": "FIA",
+            "source_row": row.get("_source_row"),
             "source_workbook": workbook_name,
             "product_code": product_code,
             "supplier_account": row.get("Numéro de compte fournisseur"),
@@ -626,6 +645,8 @@ def update_edge_from_fia(
         {
             "edge_id": str(edge.get("id")),
             "workbook": workbook_name,
+            "source_sheet": "FIA",
+            "source_row": row.get("_source_row"),
             "product_code": product_code,
             "lead_time_days": lead_days,
             "sell_price": price,
@@ -1010,11 +1031,8 @@ def main() -> None:
                 {"node_id": node_id, "location_ID": location_id, "action": "filled_missing"}
             )
         if node_id == UPSTREAM_PRODUCER_ID and location_id:
-            node["type"] = "factory"
-            node["role_raw"] = "Internal PFI Site"
-            node.setdefault("attrs", {})["site_role"] = "internal_upstream_semi_finished"
+            annotate_upstream_site(node)
             node["location_ID"] = location_id
-            node["name"] = make_upstream_site_name(actor_code)
 
     workbooks = [parse_product_workbook(data_dir / name) for name in PRODUCT_WORKBOOKS]
     for workbook in workbooks:
@@ -1184,10 +1202,7 @@ def main() -> None:
 
     upstream_node = node_by_id.get(UPSTREAM_PRODUCER_ID)
     if isinstance(upstream_node, dict):
-        upstream_node["type"] = "factory"
-        upstream_node["name"] = make_upstream_site_name(actor_code_from_node_id(UPSTREAM_PRODUCER_ID))
-        upstream_node["role_raw"] = "Internal PFI Site"
-        upstream_node.setdefault("attrs", {})["site_role"] = "internal_upstream_semi_finished"
+        annotate_upstream_site(upstream_node)
 
     meta["source_file"] = BASE_WORKBOOK
     meta["source_files"] = [BASE_WORKBOOK, LOCATION_WORKBOOK, *PRODUCT_WORKBOOKS, OPEN_ORDERS_WORKBOOK]

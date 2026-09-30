@@ -405,3 +405,193 @@ def test_native_internal_audit_understands_total_child_quantity_on_each_parent_l
     invalid = Evidence()
     audit_internal_transfer_availability([order], ledger.event_rows, damaged_links, 20, {PAIR}, invalid)
     assert invalid.checks["internal_transfer_genealogy_parent_quantity"]["failed"] == 1
+
+
+class NoSupplierLeadDraw:
+    """Any accidental random operation would fail this memory-only oracle."""
+    def random(self):
+        raise AssertionError("A source delivery must not draw a random value")
+
+    gammavariate = gauss = triangular = lambda self, *args: self.random()
+
+
+def fia_delivery_lane(days=35):
+    return {"lead_days": days, "lead_days_mean": float(days), "lead_stages": 4,
+            "lead_time_type": "erlang", "lead_time_source": "case_data_fia",
+            "lead_time_is_default": False, "delay_step_limit": 999}
+
+
+def test_source_delivery_keeps_35_FIA_days_and_applies_receipt_9_days_only_after_G():
+    lane = fia_delivery_lane()
+    saved = deepcopy(lane)
+    delivery = engine.supplier_delivery_lead_days(lane, NoSupplierLeadDraw(),
+        mode="source", stochastic=True)
+    assert delivery == 35 and lane == saved
+    # 1 January +35 calendar days =5 February; +9 Monday-Friday days =18 February.
+    assert supplier_receipt_available_day(delivery, 9, origin_date="2025-01-01") == 48
+    # The comparison option must not also remove the existing prudence buffer:
+    # ceil(35 +1.65 *35/sqrt(4)) =64, versus35 under the older global flag.
+    assert engine.lead_time_cover_days(lane, True, "erlang") == 64
+    assert engine.lead_time_cover_days(lane, False, "erlang") == 35
+
+
+@pytest.mark.parametrize("days", [14, 21, 28, 35, 42, 56, 84, 120, 154])
+def test_source_delivery_is_common_to_all_explicit_FIA_references_without_RNG(days):
+    for distribution in ("erlang", "industrial"):
+        for stochastic in (False, True):
+            assert engine.supplier_delivery_lead_days(fia_delivery_lane(days), NoSupplierLeadDraw(),
+                mode="source", stochastic=stochastic, distribution_mode=distribution) == days
+
+
+@pytest.mark.parametrize("field,value", [
+    ("lead_time_source", "default"), ("lead_time_source", None), ("lead_time_is_default", True),
+    ("lead_days_mean", None), ("lead_days_mean", True), ("lead_days_mean", 0),
+    ("lead_days_mean", -1), ("lead_days_mean", 35.5), ("lead_days_mean", float("nan")),
+    ("lead_days_mean", float("inf")),
+])
+def test_source_delivery_refuses_unproven_or_invalid_reference_instead_of_defaulting(field, value):
+    lane = fia_delivery_lane()
+    lane[field] = value
+    with pytest.raises(ValueError, match="explicit positive whole-day FIA"):
+        engine.supplier_delivery_lead_days(lane, NoSupplierLeadDraw(), mode="source", stochastic=True)
+
+
+def test_sampled_supplier_delivery_preserves_the_real_legacy_draw_and_rounding():
+    class FixedGamma:
+        calls = []
+
+        def gammavariate(self, shape, scale):
+            self.calls.append((shape, scale))
+            return 81.2
+
+    rng = FixedGamma()
+    assert engine.supplier_delivery_lead_days(fia_delivery_lane(), rng,
+        mode="sampled", stochastic=True, distribution_mode="erlang") == 82
+    assert rng.calls == [(4, 8.75)]
+    assert engine.supplier_delivery_lead_days(fia_delivery_lane(), NoSupplierLeadDraw(),
+        mode="sampled", stochastic=False) == 35
+
+
+def test_unknown_supplier_delivery_mode_is_rejected():
+    with pytest.raises(ValueError, match="sampled or source"):
+        engine.supplier_delivery_lead_days(fia_delivery_lane(), NoSupplierLeadDraw(),
+            mode="unrecognized", stochastic=True)
+
+
+def empirical_policy_memory():
+    return {"schema_version": 1, "origin_date": "2025-01-01", "min_samples": 5,
+            "observations": [{"id": str(i), "known_day": 10+i, "delta_days": i-2,
+                              "lower_days": i-5, "upper_days": i+1, "observed_end_day": 10+i}
+                             for i in range(6)]}
+
+
+def test_empirical_delivery_has_no_future_leak_and_no_erlang_fallback():
+    policy = engine.resolve_empirical_supplier_delivery_policy(empirical_policy_memory(), origin_date="2025-01-01")
+    class NoDraw:
+        def randrange(self, *args):
+            raise AssertionError("Insufficient history must not sample")
+    days, evidence = engine.empirical_supplier_delivery_draw(fia_delivery_lane(), NoDraw(),
+        policy=policy, decision_day=13, stochastic=True)
+    assert days == 35 and evidence["empirical_pool_size"] == 4
+    assert evidence["empirical_status"] == "fallback_insufficient_history"
+    days, evidence = engine.empirical_supplier_delivery_draw(fia_delivery_lane(), NoDraw(),
+        policy=policy, decision_day=100, stochastic=False)
+    assert days == 35 and evidence["empirical_status"] == "deterministic"
+
+
+def test_empirical_delivery_sample_records_source_identity_and_separate_receipt():
+    class LastKnown:
+        def randrange(self, n):
+            assert n == 5  # sixth observation is only known tomorrow
+            return n-1
+    policy = empirical_policy_memory()
+    days, evidence = engine.empirical_supplier_delivery_draw(fia_delivery_lane(), LastKnown(),
+        policy=policy, decision_day=14, stochastic=True)
+    assert days == 37 and evidence["empirical_sample_id"] == "4"
+    assert evidence["empirical_known_day"] == 14 and evidence["empirical_delta_days"] == 2
+    # Arrival day 51 = Friday21February; 1 processing workday -> Monday24February J54.
+    assert supplier_receipt_available_day(14+days, 1, origin_date="2025-01-01") == 54
+
+
+def test_empirical_delivery_clips_only_negative_duration_and_reports_it():
+    class First:
+        def randrange(self, n):
+            return 0
+    policy = empirical_policy_memory()
+    policy["observations"][0].update(delta_days=-50, lower_days=-56, upper_days=-44)
+    days, evidence = engine.empirical_supplier_delivery_draw(fia_delivery_lane(), First(),
+        policy=policy, decision_day=100, stochastic=True)
+    assert days == 1 and evidence["empirical_unclipped_lead_days"] == -15
+    assert evidence["empirical_status"] == "sampled_clipped_at_one_day"
+
+
+@pytest.mark.parametrize("mutation", ["duplicate", "future_photo", "float_days", "bad_interval", "small_pool", "wrong_origin"])
+def test_empirical_policy_rejects_invalid_or_unavailable_evidence(mutation):
+    policy = empirical_policy_memory()
+    if mutation == "duplicate": policy["observations"][1]["id"] = "0"
+    elif mutation == "future_photo": policy["observations"][0]["observed_end_day"] = 20
+    elif mutation == "float_days": policy["observations"][0]["delta_days"] = float("nan")
+    elif mutation == "bad_interval": policy["observations"][0]["lower_days"] = 50
+    elif mutation == "small_pool": policy["min_samples"] = 1
+    elif mutation == "wrong_origin": policy["origin_date"] = "2026-01-01"
+    with pytest.raises(ValueError):
+        engine.resolve_empirical_supplier_delivery_policy(policy, origin_date="2025-01-01")
+
+
+def test_explicit_sourcing_audit_never_claims_legacy_30_70_quotas_or_mutates_inputs():
+    legacy = {"item_id": "item:001848", "mrp_share": 0.3, "mrp_rank": 2,
+              "mrp_share_basis": "legacy_fixed_split", "release_qty": 6000}
+    saved = deepcopy(legacy)
+    assert engine.sourcing_allocation_audit_fields(legacy, explicit_policy=False) == {}
+    fields = engine.sourcing_allocation_audit_fields(legacy, explicit_policy=True)
+    assert fields == {"mrp_share": "", "mrp_rank": "",
+                      "mrp_share_basis": "explicit_primary_backup_no_fixed_quota"}
+    assert legacy == saved
+    exported = {**legacy, **fields}
+    stream = io.StringIO()
+    writer = csv.DictWriter(stream, fieldnames=list(exported))
+    writer.writeheader()
+    writer.writerow(exported)
+    row = next(csv.DictReader(io.StringIO(stream.getvalue())))
+    assert row["mrp_share"] == row["mrp_rank"] == ""
+    assert row["release_qty"] == "6000"
+
+
+def test_opening_source_order_is_not_relabelled_as_a_new_sourcing_decision():
+    opening = {"order_type": "opening_purchase_order", "mrp_share": 0.7,
+               "release_qty": 4000, "source_row": 9, "arrival_day": 48}
+    fields = engine.sourcing_allocation_audit_fields(opening, explicit_policy=True)
+    assert fields == {"mrp_share": "", "mrp_share_basis": "opening_source_order_no_model_quota"}
+    assert opening["source_row"] == 9 and opening["arrival_day"] == 48
+
+
+def test_gaillac_site_functions_preserve_physical_state_and_legacy_role():
+    from etudecas.knowledge_graph.update_supply_graph_from_case_data import annotate_upstream_site
+
+    node = {"id": "SDC-1450", "type": "factory", "attrs": {"source_sheet": "Acteurs"},
+            "inventory": {"states": [{"item_id": "item:021081", "initial": 1142100, "uom": "KG"}]},
+            "processes": [{"id": "proc:MAKE_773474", "inputs": [{"item_id": "item:021081"}]}]}
+    stock, processes = deepcopy(node["inventory"]), deepcopy(node["processes"])
+    annotate_upstream_site(node)
+    assert node["type"] == "factory" and node["id"] == "SDC-1450"
+    assert node["attrs"]["site_functions"] == ["receiving", "storage", "manufacturing", "shipping"]
+    assert node["attrs"]["physical_site_code"] == "1450"
+    assert node["attrs"]["site_role"] == "internal_upstream_semi_finished"
+    assert node["attrs"]["source_sheet"] == "Acteurs"
+    assert node["inventory"] == stock and node["processes"] == processes
+    once = deepcopy(node)
+    annotate_upstream_site(node)
+    assert node == once
+
+
+def test_gaillac_annotation_does_not_relabel_other_sites_or_create_flows():
+    from etudecas.knowledge_graph.update_supply_graph_from_case_data import annotate_upstream_site, make_supplier_node
+
+    for identifier in ["DC-1450", "M-1810", "SDC-VD0951020A"]:
+        node = {"id": identifier, "type": "distribution_center", "inventory": {"states": []}}
+        saved = deepcopy(node)
+        annotate_upstream_site(node)
+        assert node == saved
+    created = make_supplier_node("D1450", "SDC-1450", None)
+    assert created["attrs"]["physical_site_code"] == "1450"
+    assert created["inventory"]["states"] == [] and created["processes"] == []

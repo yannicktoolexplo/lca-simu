@@ -1,5 +1,710 @@
 # Règles MRP : analyse des sources industrielles et comparaison avec le moteur
 
+## Choix courant : délai prévisionnel fournisseur fixe
+
+Décision utilisateur : suspendre l'estimation des avances/retards et retenir le **délai prévisionnel FIA du fournisseur choisi**, sans tirage Erlang ni décalage empirique pour les nouvelles livraisons fournisseurs du MRP daté. Le traitement à réception reste une étape séparée ; les sécurités sources sont conservées.
+
+Pour poursuivre cette étude, reprendre la commande `commands.source` du [plan reproductible](../../artifacts/testing/empirical_delivery_20261001/study/plan.json), avec `--supplier-delivery-mode source` et un nouveau dossier de sortie. Le calcul `study/source` existe déjà sur 1 825 jours : il constitue la base retenue pour la suite. Les anciens scénarios et le défaut historique du moteur ne sont pas modifiés par cette décision documentée. La couverture de planification conserve encore sa convention précédente ; ce choix porte sur le délai physique fournisseur, pas sur une révision des autres règles MRP.
+
+Les analyses de variabilité ci-dessous restent des travaux exploratoires conservés ; leur loi empirique n'est plus la règle retenue pour poursuivre la comparaison.
+
+## Bilan annuel des avances et retards fournisseurs — toutes les données 2025 disponibles
+
+Le [rapport annuel](../../artifacts/testing/supplier_delivery_dates_20261001/annual_final/rapport_annuel.md) étend le rapprochement aux **douze mois et 52 versions MRP**, au-delà du carnet initial. Les dernières photos datent du **29 décembre 2025** : aucune arrivée du 30–31 décembre n'est inventée. Le périmètre d'origine externe FIA + carnet couvre **23 couples article/site, 1 146 intervalles et 300 hausses nettes**.
+
+**278 hausses ont une prévision historique candidate ; 44 rapprochements sont retenus pour une statistique conditionnelle**, sur **16 références**, avec au moins un cas chaque mois. La sélection n'est pas un recensement de toutes les livraisons : consommations masquant une entrée, regroupements, révisions, corrections et identités manquantes limitent le rapprochement. Les 300 fenêtres et tous leurs motifs restent dans le [tableau détaillé](../../artifacts/testing/supplier_delivery_dates_20261001/annual_final/annual_arrival_windows.csv).
+
+La référence de date est **G du carnet initial** lorsqu'un lien unique est possible (3 cas retenus), sinon la **première prévision suivie entrant dans l'horizon du délai fournisseur FIA** (41 cas). Ce franchissement est une convention d'estimation commune, pas une date de commande observée. Pour plusieurs délais fournisseurs possibles, les références alternatives sont conservées sans inventer le fournisseur exécutant. Le suivi des versions privilégie une date cible stable ; un changement de date n'est lié par quantité que si celle-ci est unique dans les deux versions. Les quantités modifiées après la référence, traces partagées et références trop récentes restent hors statistique principale. Les révisions avant la référence figée restent documentées sans invalider automatiquement le rapprochement.
+
+| Résultat sur les 44 fenêtres retenues | Nombre |
+|---|---:|
+| Intervalle entièrement après la prévision : retard reconstitué | **8** |
+| Intervalle recouvrant la période prévue : signe indécidable | **36** |
+| Intervalle entièrement avant la prévision | **0** |
+
+La moyenne des **milieux d'intervalle** est **+2,75 jours**, médiane **+1,5 jour**, écart-type descriptif **9,72 jours**. Avec les bornes possibles des dates, la moyenne peut aller de **−3,55 à +9,05 jours** : ce n'est pas un intervalle de confiance. Les centres de 36 cas sont dans ±7 jours, mais seuls trois intervalles complets y tiennent. **Ni 36/44 ni 8/44 ne sont un taux de ponctualité/retard de tous les fournisseurs.** Zéro avance entièrement identifiable ne signifie pas zéro arrivée anticipée ; 12 centres d'intervalle sont négatifs.
+
+Les retards reconstitués incluent **042342 : 30–43 jours**, **333362 : 37–50 jours puis 16–29 jours**, et cinq cas de **2–15 jours** pour 001848, 007923 et 333362. Les deux grands retards ont été relus dans les versions successives et les photos : les H persistent en étant reportés, puis disparaissent autour d'une hausse compatible. Il n'est pas démontré qu'ils correspondent à des commandes individuelles inchangées.
+
+La partition des 300 fenêtres est complète : **44 retenues**, **8 sans H contemporain**, **14 sans référence historique exploitable**, puis, par priorité de motif, **59 avec hausse supérieure au H**, **60 avec trace partagée**, **64 avec quantité révisée après référence**, **51 avec référence trop récente**. Les motifs détaillés peuvent se cumuler ; cette partition n'en compte qu'un par fenêtre. Une analyse plus restrictive excluant les références déjà dans l'horizon au premier point connu conserve **17 cas**, dont **5 retards**, moyenne centrale **+3,09 jours** ; la composition de l'échantillon change.
+
+Livrables : [par mois](../../artifacts/testing/supplier_delivery_dates_20261001/annual_final/statistiques_mensuelles.csv), [par article](../../artifacts/testing/supplier_delivery_dates_20261001/annual_final/statistiques_articles.csv), [traces et cellules sources](../../artifacts/testing/supplier_delivery_dates_20261001/annual_final/annual_results.json), [preuve indépendante](../../artifacts/testing/supplier_delivery_dates_20261001/annual_final/validation/report.json). Le calcul arithmétique et la relecture ne certifient pas une loi industrielle ; aucune simulation ni distribution du moteur n'est modifiée par ce bilan.
+
+## Avance/retard des livraisons fournisseurs : ancrage dans les engagements sources
+
+**Question métier : date d'arrivée physique repérée dans les stocks moins date de livraison prévue par les sources.** Ce calcul est distinct de la concordance générale entre les hausses de stock et les H MRP de la section suivante. Aucun résultat simulé n'est utilisé ici.
+
+Le [nouvel audit fournisseur](../../artifacts/testing/supplier_delivery_dates_20261001/results.json) relit le carnet `Extract_En_cours`, les photos et les plans MRP. Le carnet fournit **82 achats externes** AVICDE/ECHCDE, avec fournisseur, quantité et **date physique prévue G** ; **66** ont des photos au même article/site (15 couples, dates prévues janvier–mai). La colonne **I** est une disponibilité prévue après traitement de réception et ne mesure jamais une arrivée réelle. Le délai FIA est renseigné lorsque le fournisseur du carnet est retrouvé ; il n'est pas confondu avec le traitement de réception. Sans date d'émission de commande, le délai complet réellement écoulé depuis l'achat reste inconnu.
+
+Le périmètre annuel des origines externes est l'union **FIA + carnet**, pas FIA seule : **23 couples avec photos, 1 146 intervalles, 300 hausses nettes**. Cela ajoute **001848/Gien**, fournisseur VD0951020A explicitement renseigné en ligne 7 du carnet. Pour **734545**, le carnet ligne 104 cite **VD0525906A**, tandis que la FIA cite VD1095770A : une seule offre FIA n'établit pas l'identité de toutes les livraisons réelles. L'identifiant fournisseur affecté aux anciens rapprochements est donc une attribution par catalogue, pas une preuve d'exécution.
+
+Chaque engagement est comparé à **toutes** les hausses voisines, avec trois fenêtres de recherche ±21, ±42 et ±84 jours pour rendre visible la dépendance au rayon. Un candidat corroboré exige une hausse ne dépassant pas la quantité de l'engagement et un H de même quantité dans l'une des deux dernières versions connues à la photo, sur une semaine recouvrant la hausse. Aucun I prévisionnel n'est transformé en consommation réelle. Aucun candidat n'est retenu parce qu'il est simplement le plus proche de la date prévue. Les liens uniques dans les deux sens restent conditionnels : achats non listés, fractionnements/regroupements, révisions et corrections de stock peuvent les invalider.
+
+Exemples de fenêtres **conditionnelles** trouvées à ±21 jours (pas un histogramme industriel) :
+
+| Article/site | Fournisseur du carnet | Quantité prévue | Livraison prévue G | Photos encadrant la hausse | Écart possible |
+|---|---|---:|---|---|---|
+| 001757/Avène | VD0951020A | 2 000 kg | 5 mars | 10–17 mars | +5 à +12 jours |
+| 001757/Avène | VD0951020A | 4 000 kg | 28 janvier | 27 janvier–3 février | −1 à +6 jours |
+| 001848/Avène | VD0951020A | 6 000 kg | 20 février | 17–24 février | −3 à +4 jours |
+| 038005/Gien | VD0520132A | 10 000 kg | 7 avril | 24–31 mars | −14 à −7 jours |
+| 055703/Avène | VD0914320A | 300 kg | 17 janvier | 20–27 janvier | +3 à +10 jours |
+| 734545/Gien | VD0525906A | 6 400 unités | 6 janvier | 6–13 janvier | 0 à +7 jours |
+
+Les bornes sont les dates des photos, sans précision inventée sur l'heure de prise. Pour 001848, le H de 6 000 kg reste dans les sept versions du 5 janvier au 16 février, semaine cible du 16 février, puis disparaît du plan du 23 février ; la hausse réelle est 5 819,8 kg. Pour 055703, H=300 kg est reporté de la semaine du 12 à celle du 19 janvier, puis disparaît au 26 janvier ; la hausse est 222,09 kg. Ces traces renforcent les hypothèses sans identifier une transaction exécutée.
+
+**La statistique globale de retard fournisseur n'est pas identifiée par cette sélection.** À ±21 jours, seuls 6 engagements sur les 66 couverts ont un lien corroboré unique (2 fenêtres tardives, 1 précoce, 3 compatibles avec la date prévue). À ±42 jours, 4 restent uniques ; à ±84 jours, 3. Les ensembles changent, et la moyenne des centres passe de +1,83 à +10,50 puis +12,83 jours : cela démontre l'instabilité de l'appariement, pas une mesure du retard moyen industriel. Les cas ambigus ne sont pas des livraisons à l'heure. Le carnet initial ne couvre pas les nouveaux achats du reste de 2025.
+
+Les [300 hausses du périmètre externe](../../artifacts/testing/supplier_delivery_dates_20261001/annual_stock_rises.csv) et [tous les candidats, sources et motifs](../../artifacts/testing/supplier_delivery_dates_20261001/candidates.csv) restent consultables. Aucune loi du moteur n'a été recalibrée avec ces résultats.
+
+## Reprise exhaustive des variations de stock et des plans MRP 2025
+
+**Statut : analyse des données sources, sans changement du moteur ni de la loi de livraison. La loi à quatorze rapprochements ci-dessous reste expérimentale ; elle ne représente pas une distribution industrielle validée.**
+
+Le [rapport exhaustif](../../artifacts/testing/stock_mrp_exhaustive_20261001/rapport.md) couvre les **1 646 photos**, **32 couples article/site** et **1 614 intervalles** : **411 hausses**, **846 baisses**, **357 périodes stables**. Les **53 398 lignes MRP** sont rapprochées directement des Excel par un validateur indépendant. Le MRP possède 33 couples : 029313/Gien n'a pas de photo ; 344135/Gien n'en possède que trois. La dernière photo est datée du 29 décembre 2025.
+
+Avec la convention dimanche début de semaine et la dernière version connue au début de chaque semaine cible, **410/411 hausses** sont couvertes par des lignes MRP : **388** rencontrent une entrée H dans les semaines recouvrantes, **22** aucune. **52 hausses dépassent même tout le H possible de ces semaines** ; ce décompte inclut les 22 sans H. Ces nombres sont des concordances de calendrier et de quantité, pas des taux de ponctualité. Les bornes de quantité n'imposent pas une répartition journalière uniforme.
+
+Sur une cohorte commune de **253 hausses** dont les quatre anticipations sont disponibles, un H recouvrant existe dans **241 cas** avec le plan récent, **201** à 14 jours, **190** à 28 jours et **193** à 56 jours. Les volumes H possibles suffisent à couvrir la hausse nette dans respectivement **225, 169, 165 et 167 cas**. Cela distingue les révisions des plans d'une comparaison faite sur des populations différentes. Le calendrier alternatif où le dimanche clôt la semaine est également calculé ; aucune convention n'est sélectionnée uniquement pour améliorer le résultat.
+
+Le calcul conditionnel `entrées = variation de stock + I prévu` est effectué pour **toutes les périodes couvertes**, même sans hausse. Il donne **68 résultats négatifs sur 1 583 périodes couvertes** avec le plan récent et **258 sur 1 033** à 14 jours. Ces résultats restent négatifs et signalés ; ils ne sont pas corrigés arbitrairement. Les I, notamment courants, peuvent inclure des besoins reportés et ne prouvent pas la consommation exécutée. Les semaines absentes restent inconnues, jamais zéro.
+
+Le rapprochement cumulé FIFO permet regroupements et fractionnements, conserve les volumes non rapprochés et s'interrompt aux données manquantes ou reconstructions négatives. Les profils temporels ainsi calculés dépendent fortement des volumes et des consommations supposées : **ils ne fournissent pas un taux de retard fournisseur réel ni une loi à réinjecter dans le moteur**. Un contrôle de sensibilité conserve séparément les blocs d'au moins deux périodes où les quantités projetées et reconstituées diffèrent d'au plus 10 % ; ce seuil descriptif n'identifie pas les commandes. KG, UN et M restent séparés.
+
+Contrôle complémentaire : **1 131 égalités / 1 615** rapprochements entre ΣJ du plan du dimanche et photo du lundi, **484 écarts**. J décrit du stock déjà présent et n'est jamais additionné aux réceptions H. Pour **039668**, toutes les cinq hausses sont conservées, dont quatre importantes et **0,030 kg** le 17 novembre ; cette dernière ne prouve pas une réception.
+
+Livrables : [synthèse des 32 références](../../artifacts/testing/stock_mrp_exhaustive_20261001/summary_by_reference.csv), [toutes les périodes et huit conventions](../../artifacts/testing/stock_mrp_exhaustive_20261001/intervals.csv), [bornes H](../../artifacts/testing/stock_mrp_exhaustive_20261001/weekly_bounds.csv), [statistiques et limites](../../artifacts/testing/stock_mrp_exhaustive_20261001/summary.json), [preuve indépendante](../../artifacts/testing/stock_mrp_exhaustive_20261001/validation/report.json). Les **12 912 calculs de périodes**, **6 227 allocations** et **2 056 blocs** ont été contre-vérifiés sans importer les fonctions de l'analyse. Les simulations et cartes précédentes restent inchangées.
+
+## Distribution empirique des décalages de réception — mise en application
+
+Le mode `--supplier-delivery-mode empirical` remplace le tirage Erlang des **nouveaux achats externes agrégés**, dans le parcours MRP daté. Il utilise une politique explicite `meta.empirical_supplier_delivery_policy`. Les références historiques restent reproductibles avec `sampled`, et le témoin `source` conserve le délai FIA fixe. Les transferts internes ne sont pas calibrés avec les réceptions fournisseurs. La loi ne change ni les quantités standard, ni les sécurités sources, ni les engagements initiaux, ni le délai de traitement de réception. La couverture de planification conserve sa convention précédente afin d'isoler l'effet physique ; ce mode n'est donc pas une suppression de toute convention Erlang à tous les niveaux du modèle.
+
+**Ce que mesure la loi :** un décalage estimé entre une semaine de réception projetée H et une fenêtre de remontée du stock physique. Elle ne mesure pas directement le délai entre émission d'une commande identifiée et réception. Son application sous la forme `délai FIA + décalage` est une hypothèse commune explicite, autorisée pour cette reconstitution. Les incertitudes d'identification, de périmètre, de calendrier et de consommation ne disparaissent pas avec le tirage.
+
+### Rapprochement conservateur et traçable
+
+Le module [empirical_delivery.py](../../simulation/experiments/empirical_delivery.py) rapproche les sources déjà auditées des photos Excel relues directement. Il vérifie leurs empreintes ; il refuse les données modifiées au lieu de réutiliser silencieusement une ancienne extraction. Le calcul conserve les motifs d'exclusion et les cellules d'origine.
+
+1. Couple article/site avec une origine externe unique renseignée par la FIA ; fournisseurs multiples, origine interne et absence de photos exclus de l'estimation.
+2. Deux photos de stock espacées d'au plus sept jours, avec hausse nette positive. Quantités G converties en kg, ZUN traitées comme unités.
+3. Dernier plan connu **au moins quatorze jours avant le début** de cette fenêtre, jamais le plan publié après la remontée. Une seule entrée H positive dans le voisinage de recherche ±21 jours ; sinon rapprochement ambigu.
+4. Hausse nette entre 50 % et 102 % du H candidat ; différence `H − hausse − I prévu sur la fenêtre` inférieure ou égale à 25 % de H. Les I sont proratisés sur les seuls jours couverts et les semaines absentes entraînent un rejet. Ces seuils sélectionnent des cas compatibles, pas des commandes industrielles certaines.
+5. Un H daté ne peut expliquer deux remontées. Déduplication chronologique : un nouvel événement ne retire jamais rétroactivement une observation déjà connue. J, y compris futur, n'est jamais une nouvelle réception.
+
+Les photos encadrent la réception possible entre le lendemain de la première et la seconde. Le H est représenté par sa semaine dimanche–samedi, convention explicite. On conserve l'intervalle complet du décalage et on utilise son milieu arrondi pour le tirage ; les bornes ne sont pas présentées comme des dates mesurées. Une autre orientation de la semaine déplacerait les estimations de six jours. La distinction H arrivée physique/disponibilité reste à confirmer et peut affecter l'interprétation.
+
+### Loi obtenue et utilisation sans connaissance du futur
+
+**14 événements compatibles, six couples article/site** : 029313, 039668, 338928, 426331 à Avène ; 708073 et 734545 à Gien. Chaque événement pèse une fois, sans prétendre qu'il correspond à une commande unique.
+
+| Décalage central estimé | Événements dans le pool complet |
+|---|---:|
+| −12 jours | 1 |
+| −5 jours | 4 |
+| +2 jours | 8 |
+| +9 jours | 1 |
+
+La moyenne de ces valeurs vaut −0,5 jour et leur écart-type de population environ 5,03 jours. Ce ne sont pas la moyenne et l'écart-type des délais fournisseurs réels. Les hausses visibles favorisent les réceptions peu masquées par consommation ; la fenêtre de recherche tronque les décalages extrêmes. Aucun taux de ponctualité industriel ni loi individuelle fournisseur n'est déduit de quatorze cas.
+
+À chaque commande, le moteur ne retient que les événements dont la photo finale est déjà connue (`known_day <= decision_day`). Avant cinq événements, il conserve le **délai FIA fixe, sans tirage**, plutôt qu'un retour à Erlang. Le cinquième devient connu **le 21 avril 2025, J110**. Ensuite, un événement admissible est tiré uniformément ; le délai vaut FIA + son décalage, avec minimum physique d'un jour et valeur avant bornage tracée. Les bornes Erlang historiques ne sont pas appliquées à cette loi. Le traitement de réception E intervient ensuite, selon son calendrier propre. Le mode empirique refuse actuellement un préchauffage non nul pour éviter de décaler implicitement les dates de connaissance.
+
+Les colonnes `empirical_sample_id`, `empirical_known_day`, `empirical_pool_size`, `empirical_delta_days`, `empirical_status`, `empirical_unclipped_lead_days` permettent de vérifier chaque achat exécuté. Elles n'apparaissent que dans les sorties du mode empirique, afin de conserver le format des références. Le résumé enregistre la politique complète et ses limites. Après 2025, le pool acquis reste connu ; aucun nouvel historique industriel n'est inventé.
+
+Pour **039668**, deux événements sont retenus (juin et décembre). **Mars est exclu de l'apprentissage** : les 300 kg de l'ancien plan sont incompatibles avec une hausse nette de 426,115 kg selon le critère fixé. La première commande simulée de mars utilise donc les 35 jours FIA par repli, pas une valeur ajustée pour forcer la photo du 31 mars.
+
+### Reproduction et contrôle
+
+La [politique finale](../../artifacts/testing/empirical_delivery_20261001/calibration/final/empirical_policy.json) et les [exclusions](../../artifacts/testing/empirical_delivery_20261001/calibration/final/excluded_intervals.json) sont produites par `python -B -m etudecas.simulation.experiments.empirical_delivery --output etudecas/artifacts/testing/NOUVEAU_DOSSIER`. La commande utilise l'extraction détaillée `mrp_full_flow_audit_20260930/flows/results.json` et vérifie les Excel associés ; cette extraction reste une entrée nécessaire à la recalibration.
+
+Le [protocole comparatif](../../artifacts/testing/empirical_delivery_20261001/study/plan.json) conserve les prévisions révisées de 039668 dans **les trois calculs de 1 825 jours** : Erlang, FIA fixe, empirique. Il ne mélange pas la correction des prévisions et celle des délais. Les graines et l'appariement par liaison/date sont conservés ; des décisions différentes peuvent néanmoins changer les dates et donc les tirages correspondants. Le témoin Erlang doit reproduire la variante révisée précédente. Les photos sources ne portent que sur 2025 ; les années suivantes vérifient la propagation et la stabilité, sans validation industrielle pluriannuelle.
+
+L'oracle indépendant a vérifié directement les Excel, les conversions, les quatorze rapprochements et les différences autorisées des graphes : [130 contrôles des entrées](../../artifacts/testing/empirical_delivery_20261001/validation/inputs.json). Les rapprochements chronologiques et le tirage sans données futures sont également couverts par les tests ciblés en mémoire. Une bonne cohérence technique ne démontre pas que cette petite loi conditionnelle reproduit toute la variabilité industrielle.
+
+### Résultats des trois simulations terminées
+
+[Carte complète](../../resultats/regroupement_001757_20260929/carte_delais_empiriques.html) · [comparaison directe](../../resultats/regroupement_001757_20260929/comparaison_delais_empiriques.html). Les autres vues et les deux suivis de lots restent historiques. Le panneau de comparaison contient les trois nouveaux calculs et l'onglet Gaillac. Dans « Entrées / sorties », **Pourquoi ce délai fournisseur ?** détaille chaque achat empirique : taille du pool connu, décalage, événement et date de connaissance, ou repli fixe.
+
+| 039668 / Avène, 2025 | Erlang, mêmes prévisions révisées | FIA fixe | Loi empirique |
+|---|---:|---:|---:|
+| Première commande | 5 mars | 5 mars | 5 mars |
+| Première livraison physique | 14 mai | 9 avril | 9 avril |
+| Première disponibilité | 15 mai | 10 avril | 10 avril |
+| Écart absolu moyen aux 52 photos, kg | 178,27 | 137,12 | 140,21 |
+| Clôtures à stock physique nul | 29 jours | 2 jours | 4 jours |
+| Nouveaux ordres émis en 2025 | 4 × 450 kg | 4 × 450 kg | 4 × 450 kg |
+| Réceptions physiques pendant 2025 | 1 350 kg | 1 350 kg | 1 350 kg |
+
+La première réception avance de **35 jours** grâce au repli FIA fixe avant acquisition de l'historique suffisant. La photo source remonte dès le 31 mars : l'écart restant d'environ neuf jours jusqu'à la livraison du 9 avril ne doit pas être masqué par un ajustement supplémentaire de la distribution. Il reste à expliquer le besoin daté et le lancement du 5 mars. Les quatre délais empiriques de 039668 valent **35, 37, 30 et 37 jours** ; les livraisons de la dernière commande tombent en janvier 2026. Le cas fixe explique que la réduction de dispersion fait l'essentiel du progrès sur cette référence ; la distribution estimée n'optimise pas sa courbe.
+
+Sur les **29 couples comparables**, la variante empirique améliore l'écart absolu moyen aux stocks sources pour **19**, le dégrade pour **8**, le conserve pour **2**. Le témoin fixe donne 16/8/5. Le couple partiel 001848/Gien, représenté seulement par engagements initiaux, figure parmi les inchangés ; aucune somme des kg, mètres et UN. Exemples : 001848/Avène passe de 2 323,62 à 2 114,05 kg ; 338929/Avène de 1 006 918,69 à 909 712,04 UN. En revanche, 001757/Avène passe de 2 634,33 à 2 639,49 kg. Ces résultats sont propres au scénario et à la graine testés, pas une preuve de supériorité statistique générale.
+
+Les **385 achats externes lancés en 2025** sous loi empirique comprennent 157 replis fixes et 228 tirages depuis les observations déjà connues. Les décalages effectivement tirés cette année vont de −5 à +9 jours ; le −12 devient connu en décembre et n'a pas été tiré sur ces commandes. L'écart absolu moyen aux FIA tombe à 2,10 jours, avec 365/385 achats dans ±7 jours. Une partie de cette faible dispersion provient nécessairement du repli fixe : ce n'est pas un taux de ponctualité industriel observé. Le témoin Erlang avec ces mêmes prévisions compte 391 achats, écart absolu moyen 24,05 jours, 85 dans ±7 jours.
+
+**Contrepartie réseau à conserver dans le bilan :** les deux variantes servent 28 800 UN de moins de 268091 pendant 2025 (3 499 453 contre 3 528 253), avec reliquat de fin d'année 76 989 au lieu de 48 189 UN. Le cumul quantité × jours de retard 2025 augmente également (304 797 contre 153 684 UN·jours). Cela ne permet pas d'attribuer la différence au seul composant 039668 : les délais de tous les achats externes ont changé. Sur cinq ans, le total servi reste identique ; le cumul de retard de 268091 diminue de 495,07 millions d'UN·jours à 460,94 millions en empirique, ou 452,25 millions en fixe. Le service de 268967 reste identique. Une amélioration des stocks d'un composant ne démontre donc pas une amélioration générale du service.
+
+Le décompte limité aux **28 couples disposant de 52 photos** donne 18 améliorations, huit dégradations et deux inchangés pour l'empirique. Le 29e couple, 344135/Gien, n'a que trois photos ; son amélioration explique le total 19 ci-dessus. Le périmètre physique partiel de 001848/Gien reste une autre limite, distincte du nombre de photos.
+
+Les trois exécutions se terminent avec code retour nul et moteur inchangé, en environ 11,5 minutes chacune sur ce poste, lancées en parallèle. Les 19 tests ciblés en mémoire et les trois qualifications physiques passent. La [contre-vérification finale](../../artifacts/testing/empirical_delivery_20261001/validation/outputs.json) passe 202 contrôles : 37 CSV Erlang strictement identiques à la référence révisée, 6 229 achats sur cinq ans contrôlés, tirages empiriques sans données futures, quantités UN entières, réceptions et disponibilités, champs exportés dans la carte et écarts de stock recalculés. Les [résultats détaillés](../../artifacts/testing/empirical_delivery_20261001/analysis.json) et le [manifeste de livraison](../../artifacts/testing/empirical_delivery_20261001/manifest.json) distinguent la cohérence technique de la calibration industrielle limitée. La loi est appliquée au nouveau scénario ; l'Erlang historique reste conservé comme référence.
+
+## Dispersion des délais : sources et simulation — 30 septembre 2026
+
+**La dispersion physique du modèle est une hypothèse non calibrée sur les commandes industrielles.** L'import FIA prend le délai source comme moyenne d'une loi Erlang à quatre étapes et fixe la borne haute à `max(délai + 14, 2 × délai)` (`update_supply_graph_from_case_data.py`, fonction d'application FIA). Seule la moyenne est renseignée par la FIA ; les quatre étapes et la borne sont des conventions. Le mode courant est `erlang`, avec délais stochastiques activés. Pour une référence de 35 jours, l'écart-type théorique avant arrondi et plafonnement vaut 17,5 jours et le plafond 70 jours. Une option nommée `industrial` existe, mais sa docstring précise également qu'elle est une approximation sans historique de commandes ; son nom ne constitue pas une validation industrielle.
+
+Mesure sur la référence de cinq ans `gaillac_039668_20260930/study/reference`, nouveaux achats externes uniquement, hors carnet initial, transferts et apports amont simplifiés. Les groupes annuels suivent la **date de lancement**, même si la livraison intervient l'année suivante. Le délai mesuré va du lancement à la réception physique ; le traitement de réception avant disponibilité est exclu.
+
+| Référence de délai | Achats lancés en 2025 | Délais physiques simulés min–max | Écarts par rapport à la référence |
+|---|---:|---:|---:|
+| 35 jours, quatre couples article/site | 35 | 10–70 jours | −25 à +35 jours |
+| 42 jours, 338929/Avène | 30 | 11–80 jours | −31 à +38 jours |
+| 84 jours, 001757/Avène | 147 | 6–168 jours | −78 à +84 jours |
+
+Sur les **389 nouveaux achats externes lancés en 2025**, 84 sont dans ±7 jours de la référence (21,6 %), 242 s'en écartent de plus de 14 jours (62,2 %). L'écart absolu moyen est 24,10 jours, mais il mélange des délais de référence de 15 à 154 jours et donne un poids identique à chaque commande. Sur les **2 093 achats des cinq ans**, ces compteurs sont respectivement 477, 1 245 et 24,49 jours. Les 389 tirages 2025 utilisent tous quatre étapes Erlang. Les deux achats 039668 de la référence reçoivent 56 et 21 jours ; les quatre achats du scénario révisé reçoivent 70, 33, 27 et 52 jours. Ces valeurs ne sont pas des délais industriels mesurés.
+
+**Dans les données sources, la mesure identifiable est différente : la stabilité des prochaines entrées projetées.** Pour chacun des 22 couples munis d'offres externes, on compare deux versions hebdomadaires consécutives et la première semaine H positive de chacune. On exclut le roulement normal lorsque l'ancienne échéance est déjà atteinte à la nouvelle version, ainsi que l'absence de H positif. Sur 1 087 transitions : 617 exclues pour échéance atteinte, sept sans prochaine entrée ; **463 comparaisons retenues**. Les dates sont inchangées dans 360 cas (77,8 %), se déplacent d'au plus sept jours dans 432 cas (93,3 %), d'au plus quatorze dans 448 (96,8 %). Les quantités restent identiques dans 417 cas ; elles changent dans 46. Les cibles incluent 2026 dans 67 comparaisons. La sélection concerne la prochaine entrée, pas toutes les réceptions, et n'identifie pas une même commande entre versions. Les décalages extrêmes, de −126 à +91 jours, peuvent notamment refléter suppressions, substitutions et modifications du plan ; ils ne doivent pas devenir une distribution de retards fournisseurs.
+
+Pour **039668**, 46 comparaisons : 27 dates stables, onze avances de sept jours, six reports de sept jours, un de quatorze et un de vingt-huit. Exemple recoupé directement : `Feuille1!H398` annonce 300 kg le 13 avril dans le plan du 5 janvier ; `H5395` les situe au 30 mars dans celui du 9 février ; `H11417` au 6 avril dans celui du 23 mars ; `H12443` porte 450 kg au 30 mars dans celui du 30 mars. Les photos `Stocks!E1272` et `E1047` passent de 132,725 kg le 24 mars à 558,840 kg le 31 mars. Cette hausse corrobore une entrée fin mars ; elle n'identifie ni la date de commande ni un délai fournisseur réellement exécuté de 35 jours.
+
+Le carnet initial ne contient pas non plus la date de création des commandes. Son intervalle livraison→disponibilité porte sur le traitement de réception : 99 dates sur 104 sont expliquées par les jours ouvrés et fériés dans l'audit précédent ; ce n'est pas une statistique de ponctualité du fournisseur. **Les 93,3 % de stabilité des plans et les 21,6 % de délais simulés proches de la référence ne sont donc pas deux mesures comparables directement.** Les sources ne justifient actuellement ni la forte dispersion Erlang du nominal ni, inversement, une nouvelle hypothèse arbitraire « fournisseurs toujours à ±7 jours ».
+
+Aucun moteur ni résultat de simulation n'a été modifié pour cette analyse. La prochaine comparaison causale doit séparer délai FIA déterministe pour identifier les décisions MRP, traitement de réception documenté et scénario d'incertitude distinct. La variabilité empirique des fournisseurs reste à estimer avec des rapprochements explicitement qualifiés.
+
+Preuves : [mesures simulées](../../artifacts/testing/gaillac_039668_20260930/delivery_variation.json), [révisions des plans et lignes sources](../../artifacts/testing/gaillac_039668_20260930/delivery_source_revision.json). Le parent et un agent en lecture seule retrouvent indépendamment les compteurs sources. L'agent a également contre-vérifié les 2 093 identités délai = réception physique − lancement, l'unicité des ordres et les statistiques simulées indiquées ci-dessus : 2 130 contrôles, aucun écart ; les percentiles accessoires du JSON ne sont pas inclus dans cette contre-vérification. Cette analyse de fichiers existants n'est pas une nouvelle qualification de simulation.
+
+## Livraison Gaillac et diagnostic 039668 — 30 septembre 2026
+
+La [carte complète](../../resultats/regroupement_001757_20260929/carte_gaillac_039668.html) conserve les vues historiques et leurs deux suivis de lots. Son bouton « Gaillac et 039668 · comparaison » ouvre les deux nouveaux calculs ; la [comparaison directe](../../resultats/regroupement_001757_20260929/comparaison_gaillac_039668.html) présente les mêmes données. Les références précédentes sont conservées. Les autres onglets historiques ne sont pas présentés comme les résultats du nouvel essai.
+
+### Gaillac : représentation livrée et limites physiques
+
+Le site actif `SDC-1450` reste une usine et porte désormais explicitement les fonctions réception, stockage, fabrication et expédition. Son nom devient « Gaillac — fabrication et stockage (D-1450) ». Aucun stock, procédé ni transport n'est créé par ce changement. Le nœud vide `DC-1450` était déjà absent de la carte compacte historique ; il ne s'agit pas d'un nouvel entrepôt supprimé.
+
+L'onglet **Gaillac · fabrication et stockage** présente les cinq articles sources, la date de photo sélectionnable, les stocks disponible, indisponible et réservé, et les mouvements simulés séparés : achats, production, transport, consommation et libération. 001893 et 002612 y restent explicitement hors simulation physique. Le réapprovisionnement agrégé de 693055 apparaît comme « apport amont simplifié », sans le transformer en fabrication démontrée. Les liens des articles ouvrent leurs courbes.
+
+Un tableau convertit quatre positions distinctes en **équivalent théorique de PF 268967** : 021081 à Gaillac, 773474 à Gaillac et à Gien, 268967 au dépôt. Les BOM donnent 8,94 kg de matière par kg intermédiaire et 0,009654718 kg intermédiaire par PF. Les résultats ne constituent pas une couverture industrielle : stocks potentiellement partagés, absence d'allocation, transit, encours et PF en usine exclus. Un stock ou un facteur absent donne une valeur absente, jamais zéro. L'objectif d'un an sur la chaîne ne devient pas un an de sécurité par site.
+
+Deux simulations de **1 825 jours** sont terminées. La référence reproduit tous les résultats physiques antérieurs : **36 CSV identiques octet pour octet ; dans le 37e, seul le nom de Gaillac change sur trois lignes**. Le moteur est resté identique pendant les deux exécutions. La comparaison industrielle concerne uniquement 2025.
+
+### 039668 : sources recoupées
+
+| Paramètre | Valeur et provenance |
+|---|---|
+| Usage dans 268091 | 40,6 g pour 1 000 PF, soit 0,0000406 kg/PF ; `268091.xlsx/BOM!A8:F8`, `demand_PF.xlsx/BOM` ligne 40 |
+| Fournisseur renseigné | VD1096202A ; `268091.xlsx/FIA!A14:H14` |
+| Prix | 12,21 EUR/kg |
+| Délai fournisseur de référence | 35 jours calendaires, `FIA!F14` |
+| Quantité standard | 450 kg, `FIA!G14:H14` ; ne prouve pas un multiple obligatoire pour chaque ordre |
+| Réception | 1 jour, E du flux MRP, constant dans les 52 versions |
+| Sécurité | 7 jours ouvrés ; stock de sécurité fixe nul, sans supprimer la protection temporelle ; politique source ligne 18, ancienne politique ligne 10 |
+| Stock initial | 459 695 g = 459,695 kg ; ancienne feuille Stocks ligne 15, nouvelle ligne 1045 |
+| Valeur initiale | 5 612,87595 EUR = 459,695 × 12,21 ; nouvelle feuille Stocks F1045 |
+
+Ces rapprochements ne montrent pas d'erreur d'un facteur 1 000. Aucun ordre initial de 039668 n'est repris du carnet. Les photos hebdomadaires concernent tout le stock Avène ; la BOM étudiée ne couvre que 268091.
+
+**Premier défaut identifié : le complément de besoins pour les autres produits est figé sur janvier.** La référence conserve 34 périodes futures issues du premier plan, totalisant 823,065439 kg, et aucune période après le 25 octobre. Cette absence est une limite du scénario, pas une consommation industrielle nulle démontrée. Le plan initial contient 993,35 kg de besoins futurs, ou 1 026,35 kg en incluant la semaine courante. La part complémentaire estimée est 82,8575466 % ; ce n'est pas une allocation industrielle connue.
+
+L'essai isolé réutilise le mécanisme commun de prévisions versionnées : 52 versions, 1 773 lignes futures, uniquement les versions connues à la date de décision, semaine courante figée. Il conserve la part initiale estimée, les quantités standard, prix, sécurité et politiques de délai. Il n'utilise ni les stocks futurs ni H/K pour ajuster cette part. Les I restent des besoins prévus, non des consommations exécutées observées.
+
+### Résultats de l'essai — référence conservée
+
+| Indicateur 039668 / Avène en 2025 | Référence | Prévisions révisées |
+|---|---:|---:|
+| Écart absolu moyen aux 52 photos, kg | 175,27 | 178,27 |
+| Biais moyen simulé − source, kg | −150,44 | −92,66 |
+| Nouveaux ordres lancés | 2 × 450 kg | 4 × 450 kg |
+| Quantité physiquement reçue pendant 2025 | 450 kg | 1 350 kg |
+| Consommation simulée pour 268091 | 46,7712 kg | 46,7712 kg |
+| Consommation complémentaire estimée | 823,0654 kg | 1 657,3995 kg |
+| Jours de clôture avec stock physique nul | 15 | 29 |
+| Stock physique au 31 décembre | 39,8584 kg | 105,5243 kg |
+
+Les photos sont rapprochées de la clôture simulée de la veille, ouverture exclue. Le 29 décembre, la source indique **479,795 kg** : ce n'est pas une photo au 31 décembre. La variante réduit le biais, mais dégrade l'écart absolu moyen de 1,71 % et augmente les jours de stock physique nul ; **elle ne remplace pas la référence**. Les améliorations de juillet et novembre ne compensent pas les dégradations d'avril et octobre. Sur les 29 couples comparables : 7 écarts moyens diminuent, 8 augmentent, 14 sont inchangés ; aucune somme entre unités. L'un des couples inchangés, 001848/Gien, n'a qu'un périmètre partiel d'engagements initiaux.
+
+Le service client 2025 est identique dans les deux essais. Sur cinq ans, les quantités servies restent identiques ; le cumul quantité × jours de retard de 268091 diminue, de 542,33 à 495,07 millions d'UN·jours. Ce résultat ne valide pas une calibration industrielle sur cinq ans : les versions sources disponibles s'arrêtent en 2025.
+
+**Deuxième problème à isoler : les délais tirés ne sont pas appariés entre les commandes des deux calculs.** Dans la référence, la première commande part le 23 mars, reçoit un délai fournisseur de 56 jours au lieu des 35 jours de référence, arrive le 18 mai et devient disponible le 19 mai. Dans l'essai, elle part le 5 mars, mais reçoit 70 jours : arrivée le 14 mai, disponibilité le 15 mai. À graine égale, une décision modifiée ne garantit pas les mêmes tirages par commande ; cet essai ne mesure donc pas l'effet pur du seul calendrier des besoins. Les délais tirés des quatre commandes de l'essai sont 70, 33, 27 et 52 jours, toujours pour une référence de 35 jours.
+
+Les H de la semaine courante des plans du 30 mars, 22 juin, 26 octobre et 7 décembre portent respectivement **450, 450, 250 et 399,85 kg** (`Feuille1!H12443`, `H24453`, `H43135`, `H49534`). Des hausses de stocks proches suivent dans les photos. Cela corrobore des entrées à ces périodes, sans identifier quatre commandes exécutées ni leurs dates de création. Même avec 35 jours fixes après un lancement le 23 mars, la disponibilité tomberait le 28 avril : le tirage aléatoire n'explique donc pas à lui seul le décalage par rapport à la hausse source de fin mars.
+
+**Suite commune à tester :** conserver la reconstruction des versions connues, mais comparer d'abord deux essais avec délais de référence déterministes pour isoler le déclenchement. Vérifier ensuite, pour chaque besoin daté, le stock utilisable, les engagements attendus, la sécurité et la taille standard au moment où une proposition devient nécessaire. Confronter les dates et quantités obtenues aux semaines H et aux photos, puis tester cette même règle sur d'autres matières. Ne pas ajouter de coefficient propre à 039668, forcer une réception sur une photo, ni considérer toutes les variations de I comme des consommations industrielles certaines.
+
+Preuves : [protocole de référence](../../artifacts/testing/gaillac_039668_20260930/study/plan.json), [protocole de la variante](../../artifacts/testing/gaillac_039668_20260930/study/revisions_plan.json), [analyse des résultats](../../artifacts/testing/gaillac_039668_20260930/analysis.json), [97 contrôles indépendants](../../artifacts/testing/gaillac_039668_20260930/validation/final.json), [manifeste de livraison](../../artifacts/testing/gaillac_039668_20260930/manifest.json). Les contrôles arithmétiques ne certifient pas les règles industrielles absentes des sources.
+
+## Gaillac : fabrication et stockage — revue du 30 septembre 2026
+
+**Gaillac doit être traité comme un site assurant plusieurs fonctions : réception, stockage, fabrication et expédition.** Le stockage est déjà partiellement représenté ; le défaut principal est son périmètre incomplet, puis la représentation incomplète de la fabrication de 693055. Cette revue ne modifie pas le moteur, les flux ni les simulations de référence.
+
+Le rapprochement porte sur le graphe effectivement utilisé par les derniers témoins (`artifacts/testing/mrp_delivery_rules_20260930/study/graph.json`), les sources Excel et les [plans MRP déjà audités](../../artifacts/testing/mrp_full_flow_audit_20260930/flows/results.json). Les quinze entrées enregistrées de cet audit ont été relues et leurs empreintes sont inchangées. Deux analyses indépendantes ont couvert les sources et le modèle ; aucun nouveau test, navigateur ou calcul physique n'a été lancé pour cette revue.
+
+### Cinq stocks industriels, trois dans le modèle
+
+Quantités en **kg**, y compris 693055 et 773474 convertis depuis les grammes sources. Les valeurs de fin sont les **photos du 29 décembre**, pas une clôture inventée au 31 décembre. Chaque article dispose de 53 photos, ouverture du 1er janvier comprise.
+
+| Article à Gaillac | Stock au 1er janvier 2025 | Stock au 29 décembre 2025 | Représentation actuelle |
+|---|---:|---:|---|
+| 001893 | 1 094 | 979,5 | Stock source présent, absent du périmètre physique simulé |
+| 002612 | 414 | 277,5 | Stock source présent, absent du périmètre physique simulé |
+| 021081 | 1 142 100 | 1 534 614 | Stock représenté ; matière de la fabrication de 773474 |
+| 693055 | 1 800 | 10 | Stock et transfert vers Avène représentés ; fabrication amont agrégée |
+| 773474 | 9 600 | 35 200 | Stock, fabrication locale et transfert vers Gien représentés |
+
+Provenance : `Flow_Data_Inventory_and_Replenishment_rules.xlsx/Stocks`, colonne E pour la quantité et H pour la date. Lignes initiale/finale respectives : 001893 **1406/845**, 002612 **1435/817**, 021081 **1576/579**, 693055 **1051/1474**, 773474 **209/1528**. Les deux stocks absents du modèle figuraient déjà dans `Extract_Données_Complémentaires.xlsx/Stocks`, lignes 5 et 7 : ce ne sont pas de nouveaux stocks apparus seulement dans le fichier hebdomadaire.
+
+### Fonctions et routes prouvées, sorties restant à attribuer
+
+`demand_PF.xlsx/Acteurs!A7:K7` décrit Gaillac comme fabricant de **693055 et 773474**. Les ordres `O.Proc` du carnet initial, `Extract_En_cours.xlsx/Sheet1`, lignes **103 et 105**, portent respectivement 600 kg et 3 200 kg de ces produits à Gaillac.
+
+- **021081 → 773474 à Gaillac** : BOM de `773474.xlsx`, ligne 2, 8,94 kg de matière pour 1 kg de produit intermédiaire.
+- **773474 : Gaillac → Gien** : `demand_PF.xlsx/Relations_acteurs`, ligne 9, et `268967.xlsx/FIA`, ligne 9. Les 10 jours FIA sont un délai d'approvisionnement interne ; ils ne prouvent pas dix jours de trajet routier.
+- **693055 : Gaillac → Avène** : `demand_PF.xlsx/Relations_acteurs`, ligne 36, et `268091.xlsx/FIA`, ligne 22. Même distinction pour les 70 jours indiqués. Le BOM amont de 693055 manque ; le moteur représente actuellement son réapprovisionnement agrégé par 600 kg avec une convention de délai, pas sa fabrication physique complète.
+- **001893 et 002612 à Gaillac** : le stockage et des besoins MRP sont prouvés, mais les sources examinées ne donnent pas de route Gaillac → Avène pour ces matières. Les routes renseignées vers Avène viennent de fournisseurs externes. Les ordres du carnet en division **1820** ne doivent pas être réaffectés à 1450 ou 1810 sans correspondance explicite.
+
+Pour le plan du 5 janvier, les sorties I de Gaillac comprennent **607,103 kg de 001893** le 23 février et le 13 juillet (`Feuille1!I115`, `I117`), puis **1 300 et 245 kg de 002612** les 23 février et 16 mars (`I160`, `I161`). Le rapprochement exploratoire de toutes les versions, sur les cibles 2025, trouve **zéro égalité de quantité** entre ces I à Gaillac et un H à Avène la même semaine ou la suivante : 92 occurrences positives examinées pour 001893, 215 pour 002612. Ce sont des occurrences dans des plans révisés, pas des commandes annuelles. L'absence de correspondance directe ne prouve pas l'absence de transferts fractionnés, regroupés ou décalés ; elle interdit simplement de présenter un routage vers Avène comme déjà reconstitué.
+
+### Correction à préparer sans inventer les flux
+
+1. **Un seul site physique Gaillac, plusieurs fonctions.** Le graphe porte `SDC-1450`, type `factory`, avec les trois stocks actifs, et un `DC-1450` vide, isolé. Ce second nœud ne représente pas un second entrepôt industriel démontré. Conserver l'identifiant actif et réconcilier les alias avant de retirer le doublon d'affichage ; ne pas dupliquer les quantités.
+2. **Présenter les cinq stocks dans la vue site**, avec les deux matières manquantes explicitement marquées « stock source ; flux non représentés ». Leur future intégration physique exige d'attribuer leurs entrées et sorties ; ajouter un stock initial immobile ne reproduirait pas leur gestion réelle.
+3. **Séparer les opérations** : achat externe, fabrication locale, transfert interne, consommation et libération du stock déjà détenu. Le passage indisponible → disponible conserve la quantité physique. Exemple 773474 au 5 janvier : 6 400 kg disponibles + 3 200 kg disponibles plus tard = 9 600 kg déjà présents (`Feuille1!J968`, `J970`), pas 3 200 kg de nouvelle réception.
+4. **Séparer les calendriers et les limites** : fermeture de production, réception, libération et expédition ne sont pas interchangeables. Aucune capacité maximale d'entreposage documentée n'est actuellement portée par le graphe. Le maximum de stock observé n'est pas une capacité d'entrepôt ; les limites de lots de fabrication n'en sont pas une non plus. Les coûts d'entreposage actuels sont des conventions, et ceux des deux PFI ne disposent pas d'un taux exploitable : un coût nul par défaut ne signifie pas stockage gratuit.
+5. **Calculer la couverture de 268967 sur toute la chaîne** : convertir les stocks distincts de 021081, de 773474 et des PF en équivalent PF avec les BOM et rendements applicables, en distinguant disponible, indisponible et transit. L'objectif utilisateur d'environ un an concerne le total de la chaîne, pas une année de sécurité ajoutée à chaque site ; il ne s'applique pas automatiquement à 001893, 002612 ou 693055. Une matière déjà consommée ne doit plus figurer simultanément en stock amont et dans le produit fabriqué.
+
+**Décision de cette revue :** rôle mixte Gaillac confirmé ; routages PFI confirmés ; rôle de réserve des deux autres matières pour Avène non établi. Priorité à compléter la vue des stocks et à expliquer leurs mouvements, avant de modifier le pilotage MRP ou de créer des transferts. Les soldes nets des photos et les H/I prévisionnels ne suffisent pas à attribuer chaque mouvement exécuté.
+
+## Essai du calendrier de réception dans le moteur — 30 septembre 2026
+
+Une option **désactivée par défaut** accepte désormais des dates non ouvrées explicites dans chaque politique de réception fournisseur : `nonworking_dates`, `calendar_id`, `calendar_status`, `calendar_source`. L'opérateur commun compte les jours lundi–vendredi après la livraison G, en excluant les dates renseignées, jusqu'à atteindre E jours de réception. E = 0 conserve G. Les dates sont absolues : aucune répétition annuelle n'est déduite d'une liste 2025.
+
+Le calendrier intervient aux trois endroits du parcours d'achat externe daté : délai de référence au jour de décision, calendrier des offres principal/secours, disponibilité I des nouveaux ordres lancés. Les dates G/I du carnet initial, J détenu initialement, le délai fournisseur FIA, la sécurité, les fabrications et les transferts internes ne sont pas recalculés par cette option. Les 39 cas ciblés en mémoire passent ; le comportement historique sans dates supplémentaires reste couvert.
+
+Le [protocole comparatif](../../artifacts/testing/mrp_receipt_calendar_20260930/study/plan.json) prévoit deux simulations de **1 825 jours**, mêmes paramètres et aléas configurés. `reference` conserve le graphe précédent ; `calendar` ajoute seulement les fériés métropolitains 2025 aux **22 couples d'achats externes concernés**, plus la fermeture du 4 au 17 août pour le seul couple 021081/Gaillac. Cette portée reste une hypothèse conditionnelle de calendrier de réception, pas un arrêt généralisé de l'entreprise. La comparaison industrielle porte uniquement sur 2025 ; les années suivantes testent la stabilité et la propagation, sans calendrier annuel extrapolé.
+
+**Point de contrôle causal :** la référence n'a aucun nouvel achat de 021081 en 2025 ; le premier est au jour 554, le 9 juillet 2026. Les engagements initiaux ont déjà leurs dates G/I renseignées. On n'attend donc aucun effet direct de la fermeture 2025 sur les nouvelles réceptions de ce composant ; un changement à Gaillac peut venir indirectement du reste du réseau. L'expérience ne doit pas être présentée comme une correction des 23 commandes initiales.
+
+**Limite du planificateur :** hors sourcing explicite, les propositions futures utilisent encore un délai entier recalculé au jour de décision. Chaque ordre réellement lancé recalcule sa disponibilité exacte depuis sa livraison et son calendrier ; le calendrier des offres principal/secours est également daté. Une résolution exacte de toutes les dates futures de proposition relève d'un changement distinct. Les comparaisons H/K des plans restent diagnostiques, notamment parce que H source et les entrées simulées ne sont pas forcément datés au même stade physique/disponible.
+
+Les preuves sources et le différentiel des graphes sont contre-vérifiés dans [input_check.json](../../artifacts/testing/mrp_receipt_calendar_20260930/validation/input_check.json). Les deux simulations de 1 825 jours sont terminées, avec le moteur inchangé pendant les calculs. Sans activation du calendrier, les 37 CSV du témoin reproduisent ceux de la référence précédente à l'identique. Les invariants des deux calculs et le recalcul indépendant des dates G/E/I, des stocks tenus et des lots passent ; voir [la contre-vérification](../../artifacts/testing/mrp_receipt_calendar_20260930/validation/runs_check.json) et [le manifeste de cette passe](../../artifacts/testing/mrp_receipt_calendar_20260930/manifest.json). La même graine aléatoire est conservée ; après une modification des décisions, cela ne garantit pas un tirage identique pour chaque commande correspondante.
+
+### Résultat et décision
+
+**Le calendrier est mieux explicité, mais cette variante ne constitue pas une amélioration générale de calibration. Elle reste optionnelle et ne remplace pas la référence.** Sur les 28 couples article/site avec stock représenté dans le graphe et photos comparables, l'écart absolu moyen aux stocks sources diminue pour 14, augmente pour 11 et reste identique pour 3. Le 29e couple comparable, 001848/Gien, n'est représenté que par les engagements initiaux ; son résultat inchangé est compté séparément. Les unités ne sont pas additionnées entre articles.
+
+L'écart ci-dessous compare le stock physique simulé (disponible + réservé + indisponible) en clôture de la veille aux photos du lundi de 2025. La photo initiale n'entre pas dans cette moyenne et les données absentes ne sont pas remplacées par zéro.
+
+| Article / site | Unité | Écart moyen de référence | Avec calendrier | Lecture |
+|---|---|---:|---:|---|
+| 001757 / Avène | kg | 2 637,03 | 2 802,79 | Dégradation de 165,75 kg |
+| 001848 / Avène | kg | 2 325,64 | 2 321,37 | Amélioration faible |
+| 002612 / Avène | kg | 70 412,23 | 69 066,11 | Amélioration, écart encore important |
+| 038005 / Gien | kg | 26 458,01 | 28 752,57 | Dégradation |
+| 042342 / Gien | UN | 35 955 023,48 | 36 242 836,54 | Dégradation ; périmètre partagé toujours à considérer |
+| 338929 / Avène | UN | 1 005 257,15 | 1 004 517,35 | Amélioration faible |
+| 021081 / Gaillac | kg | 233 299,65 | 233 299,65 | Aucun effet, conformément au contrôle causal |
+
+Le **service client 2025 reste identique** : 3 528 253 UN servies pour 268091, avec environ 48 189 UN en attente en fin d'année ; 1 575 985 UN servies pour 268967, avec un reliquat prévisionnel inférieur à une unité. Sur les cinq ans, les quantités totales servies et le cumul quantité × jours de retard sont également identiques. Cela ne démontre pas une correspondance avec le service industriel réel.
+
+À dates de livraison G, délais E et quantités de commande du témoin fixés, l'ajout du calendrier reporte la disponibilité de **79 nouveaux ordres sur 389 lancés en 2025**, de 1 à 5 jours calendaires ; les 310 autres restent identiques. Ce calcul isole l'effet direct sur les dates et n'est pas une troisième simulation. Dans la simulation complète, les décisions peuvent ensuite changer : 001757 passe de **147 à 141 nouveaux ordres**, pour **34 700 kg commandés dans les deux cas** ; 001848 conserve quatre ordres et 22 000 kg, dont trois ordres au principal et un au secours. Ces compteurs excluent les engagements initiaux et ne sont pas des nombres de commandes industrielles déduits des versions hebdomadaires MRP.
+
+Les projections MRP ne donnent pas non plus une amélioration uniforme. Pour 001757, l'écart moyen de K projeté passe de 2 947,41 à 3 104,19 kg. Pour 693055/Gaillac, il reste proche de 1 387 kg. Les comparaisons de H restent diagnostiques tant que les dates physiques et disponibles ne sont pas strictement alignées ; les versions successives d'un plan ne sont pas additionnées comme des flux exécutés.
+
+**Suite prioritaire :** expliquer le déclenchement et le regroupement des propositions à partir des besoins datés, du stock disponible, des engagements et de la sécurité. Utiliser 001757 pour identifier une règle candidate, puis la confronter à 001848, 693055 et aux autres articles sans coefficients ajustés par période. Le calendrier testé est une brique métier distincte, pas une justification pour modifier les quantités de sécurité ou forcer les courbes de stock.
+
+Résultats complets : [comparaison par couple](../../artifacts/testing/mrp_receipt_calendar_20260930/stock_comparison.csv), [flux, service et projections](../../artifacts/testing/mrp_receipt_calendar_20260930/comparison.json). Les durées des calculs parallèles sont d'environ 618 et 623 secondes ; ce ne sont pas des mesures isolées de performance. Aucune nouvelle carte HTML n'a été générée dans cette passe.
+
+## Complément : fermeture d'août 2025 — 30 septembre 2026
+
+L'utilisateur indique une fermeture de l'entreprise pendant les **deux ou trois premières semaines d'août**. Les dates exactes et le périmètre (sites, production, réception, contrôle/libération) ne sont pas encore précisés. Cette information justifie une passe ciblée sur les calendriers et les signatures de stock ; elle ne transforme pas toutes les semaines sans mouvement en fermetures démontrées.
+
+Quatre interprétations calendaires ont été fixées avant le calcul, sans recherche automatique des dates donnant le meilleur ajustement. Toutes conservent lundi–vendredi et les jours fériés métropolitains 2025, puis suspendent le compteur du délai de réception pendant l'intervalle candidat. Les dates de livraison G, durées H et disponibilités I des **104 lignes du carnet initial** sont relues directement.
+
+| Fermeture candidate, bornes incluses | Dates I reproduites | Écarts restants |
+|---|---:|---|
+| Aucune fermeture estivale, jours fériés seulement | 99/104 | Cinq lignes de 021081/Gaillac |
+| **4–17 août : deux premières semaines complètes** | **104/104** | Aucun |
+| 4–24 août : trois premières semaines complètes | 99/104 | Les cinq dates sont prédites sept jours trop tard |
+| 1–14 août : quatorze premiers jours calendaires | 99/104 | Les mêmes cinq lignes restent décalées |
+| 1–21 août : vingt et un premiers jours calendaires | 99/104 | Les cinq dates sont prédites sept jours trop tard |
+
+**Les neuf jours supplémentaires sont expliqués par les 4–8 et 11–14 août**, le vendredi 15 août étant déjà exclu comme férié. Exemple `Extract_En_cours/Sheet1!G23:I23` : livraison le 16 avril, temps de réception 75 jours, disponibilité indiquée le **21 août**. Le calcul donne le 7 août sans fermeture estivale, **le 21 août avec fermeture 4–17 août**, et le 28 août avec fermeture 4–24 août. Autre exemple, ligne 25 : livraison le 20 mai, disponibilité le **19 septembre**, reproduite par la même règle, sans coefficient propre à l'article ou au mois.
+
+**Portée de la preuve :** seules cinq lignes (23, 25, 30, 39 et 42), toutes sur 021081 à Gaillac, permettent de départager les candidats. Les 99 autres restent identiques dans tous les essais ; deux des cinq lignes partagent les mêmes dates. Le résultat étaye donc fortement ce **calendrier de réception/disponibilité à Gaillac parmi les hypothèses testées**, mais ne démontre pas deux semaines de fermeture pour toutes les usines et toutes les fonctions. Une fermeture de production de trois semaines peut coexister avec une disponibilité qualité reprenant plus tôt. Les dates du carnet sont des dates documentées, pas la preuve de leur exécution industrielle ultérieure.
+
+La règle candidate se formule ainsi : **date disponible = avancer depuis la date de livraison du nombre de jours de réception renseigné, en utilisant le calendrier applicable à la fonction et au site**. Elle ne change ni le délai fournisseur FIA, ni les jours de sécurité, ni les dates déjà explicites du carnet. L'intégration dans le moteur reste à qualifier séparément ; aucune modification du nominal n'est faite par cette passe.
+
+Cette hypothèse suspend le **décompte des jours de réception pendant la fermeture** ; il ne suffit pas de déplacer au jour de reprise une disponibilité qui tomberait pendant les congés. La ligne 25 le montre : sans fermeture, le calcul donne le 8 septembre, déjà hors août ; le carnet donne le 19 septembre. Le décompte suspendu retrouve le 19 septembre. Cela ne démontre pas que tous les phénomènes physiques ou chimiques sont suspendus, seulement que ce calendrier explique le délai de gestion représenté par les dates du carnet.
+
+### Croisement avec les photos et les plans de l'été
+
+La passe complémentaire couvre tous les couples dans les plans de juin à septembre. Le tableau indique le nombre de références dont la quantité physique photographiée est **strictement identique entre les deux lundis**. Les références sans deux photos sont exclues, pas remplacées par zéro.
+
+| Site | 28 juillet → 4 août | 4 → 11 août | 11 → 18 août | 18 → 25 août |
+|---|---:|---:|---:|---:|
+| Avène | 15/15 | 15/15 | 15/15 | 0/15 |
+| Gaillac | 5/5 | 5/5 | 5/5 | 4/5 |
+| Gien | 3/9 | 2/9 | 9/9 | 5/9 |
+| Dépôt Muret | 0/2 | 0/2 | 0/2 | 0/2 |
+
+À Avène, les 15 stocks changent également du 21 au 28 juillet : le plateau commun est donc borné par les photos **28 juillet–18 août**, soit trois intervalles hebdomadaires, puis tous changent du 18 au 25 août. À Gaillac, les cinq stocks étaient déjà stables du 21 au 28 juillet ; on ne peut pas y dater le début de fermeture à partir de ce seul plateau. Gien montre des changements plus tardifs et le dépôt continue à varier. C'est compatible avec des calendriers différents selon le site ou la fonction. Une photo inchangée peut aussi refléter des mouvements compensés ou une photo reconduite : elle ne démontre pas à elle seule l'absence de tout flux brut.
+
+Deux exemples expliquent pourquoi il faut séparer les flux :
+
+- **001757/Avène**, plans des 27 juillet, 3 et 10 août : H = 2 000 kg et I = 1 200 kg sont reconduits, avec J courant = 3 855,020 kg et J futur = 1 975 kg. Les photos restent à 5 830,020 kg. Les I répétés ne constituent pas une preuve de consommations réalisées pendant la fermeture (`I29064/I30080/I31120`).
+- **021081/Gaillac**, plans des 17 et 24 août : J courant passe de **455 560 à 955 320 kg**, J futur de **1 319 640 à 819 880 kg**, mais le total reste **1 775 200 kg**, égal aux photos correspondantes. Les 499 760 kg passent du stock détenu disponible plus tard au stock courant (`J32433`, puis `J33461`) : ce n'est pas une nouvelle livraison physique de 499 760 kg.
+
+Ces observations ne justifient pas un blocage unique de tout le réseau pendant trois semaines. La suite doit distinguer les calendriers de **fabrication, réception physique, mise à disposition et expédition**, ainsi que le report des besoins non exécutés. Le calendrier fournisseur et le calcul de sécurité ne doivent pas être modifiés par propagation implicite de la fermeture de l'usine. Les années autres que 2025 nécessitent leur propre calendrier ou une convention explicitement déclarée.
+
+Les détails de cette passe sont dans [les rapprochements été](../../artifacts/testing/mrp_august_closure_20260930/flows/results.json) et [la contre-vérification des photos](../../artifacts/testing/mrp_august_closure_20260930/validation/august_stock_check.json).
+
+Preuves : [calcul des candidats](../../artifacts/testing/mrp_august_closure_20260930/calendar.json), [oracle indépendant](../../artifacts/testing/mrp_august_closure_20260930/validation/closure_check.json), [manifeste de cette passe](../../artifacts/testing/mrp_august_closure_20260930/manifest.json). La conclusion de l'audit antérieur « cinq dates restent inexpliquées » est désormais précisée par cette nouvelle information utilisateur et cette hypothèse testée ; ses preuves historiques restent conservées.
+
+## Audit exhaustif des flux et des stocks 2025 — 30 septembre 2026
+
+**Conclusion : les données permettent un rapprochement beaucoup plus précis, mais il serait faux de dire que toutes les règles industrielles sont déjà respectées par la simulation.** Les conversions BOM sont cohérentes ; les stocks détenus et disponibles sont distingués ; les principales incertitudes concernent les calendriers de réception, les usages partagés, les catalogues fournisseurs et le déclenchement des achats/fabrications. Cet audit ne change ni le moteur, ni les Excel, ni le nominal, ni les cartes conservées.
+
+La preuve courante est [le manifeste de cet audit](../../artifacts/testing/mrp_full_flow_audit_20260930/manifest.json). Il rassemble une extraction exhaustive, une lecture du code et une contre-vérification indépendante. Les simulations utilisées sont les calculs existants `mrp_delivery_rules_20260930/study/reference` et `fia_fixe`, exécutés sur 1 825 jours ; **seule leur première année, 2025, est rapprochée ici**. Aucune nouvelle simulation ni campagne de tests artificiels n'a été exécutée pour cet audit en lecture seule.
+
+### Périmètre et sens des données
+
+- **53 398 lignes MRP**, 26 articles, 33 couples article/site, quatre sites et 52 dates de plan globales ; **1 637 plans article/site**. Tous les couples n'ont pas 52 versions : 029313/Gien en a huit, 344135/Gien en a 17, à partir du 7 septembre.
+- **1 646 photos de stock sur 32 couples**, dont 31 photos au 1er janvier et 1 615 photos du lundi. 029313/Gien n'a pas de photo ; 344135/Gien n'en a que trois.
+- **104 lignes du carnet initial** : 53 `AVICDE`, 29 `ECHCDE`, 22 `O.Proc`. Ce sont des éléments existants, pas un historique des commandes créées pendant toute l'année ; aucun identifiant d'ordre ni date de création n'est ajouté par l'audit.
+- **35 offres FIA**, dont 33 externes et deux approvisionnements internes, pour 24 couples. Six couples ont plusieurs offres. Le détail des prix, bases, devises, standards, délais et cellules se trouve dans le [catalogue fournisseurs](../../artifacts/testing/mrp_purchase_parameters_20260930/extraction/purchase_offers.csv), dont les 12 empreintes Excel ont été revérifiées.
+- **24 lignes de nomenclature industrielle**, normalisées et rapprochées des anciens classeurs et du graphe réellement simulé : [détail BOM](../../artifacts/testing/mrp_full_flow_audit_20260930/bom_crosswalk.csv).
+
+Dans `Flow_Data_MRP_results/Feuille1`, **H = entrées projetées**, **I = besoins**, **J = stock déjà détenu, ventilé selon sa disponibilité**, **K = solde projeté**. La colonne E contient le temps de réception, pas le délai fournisseur FIA. Les unités G sont converties en KG ; ZUN en UN ; M reste en mètres. Toutes les lignes sont lues, y compris masquées.
+
+Les 53 398 bilans `K = K précédent + J + H − I` concordent, sans doublon de clé. Cela vérifie la cohérence arithmétique de l'export, pas sa réalisation physique. **19 359 semaines internes ne sont pas renseignées**, dans 1 480 plans ; 1 492 plans s'arrêtent avant la borne de 364 jours. Aucun besoin ni flux brut n'est déclaré nul dans ces semaines par l'audit. Un bilan net inchangé entre deux lignes ne permet pas de séparer les entrées et sorties absentes.
+
+### Quantités et fréquence, pour chacun des 33 couples
+
+Le tableau donne les échéances 2025 du **premier plan disponible par couple** : 5 janvier, sauf 344135/Gien au 7 septembre. « Sem. H+ » compte les semaines où une entrée est projetée : **ce n'est pas le nombre de commandes individuelles réellement passées**. Les semaines absentes sont exclues, sans annualisation. Le [CSV complet](../../artifacts/testing/mrp_full_flow_audit_20260930/flows/summary.csv) ajoute les besoins, tailles médianes, intervalles entre entrées et une seconde lecture des semaines courantes des versions successives ; cette seconde lecture reste un ensemble de prévisions, pas un historique exécuté.
+
+La dernière colonne mesure l'écart absolu moyen entre les stocks physiques de la simulation de référence et les photos réelles de 2025, dans l'unité de la ligne. La clôture simulée de la veille est comparée à chaque photo du lundi ; 52 photos par couple, **sauf 344135 : trois seulement**. « Absent » signifie pas de comparaison, jamais stock nul. Les quatre absences sont trois couples hors du registre physique simulé et 029313/Gien sans photo. Les périmètres industriels partagés restent à considérer : une erreur de stock ne mesure pas à elle seule la qualité de la règle MRP.
+
+Sites : 1810 Avène ; 1430 Gien ; 1450 Gaillac ; 1920 dépôt Muret. E est le temps de réception déclaré dans le flux MRP.
+
+| Article/site | Unité | Sem. renseignées | Sem. H+ | Quantité H projetée | E jours | Écart moyen stock référence |
+|---|---|---:|---:|---:|---:|---:|
+| 001757/1810 | KG | 32 | 10 | 18000.000 | 13 | 2637.0 |
+| 001848/1430 | KG | 48 | 14 | 98000.000 | 26 | 23408.3 |
+| 001848/1810 | KG | 30 | 2 | 9331.160 | 13 | 2325.6 |
+| 001893/1450 | KG | 5 | 2 | 700.000 | 5 | absent |
+| 001893/1810 | KG | 40 | 32 | 188308.217 | 24 | 37166.9 |
+| 002612/1450 | KG | 4 | 2 | 2500.000 | 5 | absent |
+| 002612/1810 | KG | 40 | 10 | 210505.604 | 9 | 70412.2 |
+| 007923/1430 | KG | 1 | 0 | 0.000 | 0 | absent |
+| 007923/1810 | KG | 38 | 6 | 114510.000 | 6 | 25951.4 |
+| 016332/1810 | KG | 36 | 21 | 6892.960 | 1 | 484.4 |
+| 021081/1450 | KG | 35 | 14 | 1320000.000 | 75 | 233299.7 |
+| 029313/1430 | KG | 1 | 0 | 0.000 | 0 | absent |
+| 029313/1810 | KG | 31 | 3 | 859.175 | 1 | 138.2 |
+| 038005/1430 | KG | 39 | 15 | 160000.000 | 14 | 26458.0 |
+| 039668/1810 | KG | 35 | 2 | 572.655 | 1 | 175.3 |
+| 042342/1430 | UN | 24 | 8 | 240000000.000 | 14 | 35955023.5 |
+| 049371/1810 | KG | 29 | 8 | 21600.000 | 9 | 3891.3 |
+| 055703/1810 | KG | 35 | 5 | 1301.565 | 13 | 451.4 |
+| 099439/1810 | KG | 37 | 24 | 38257.258 | 1 | 2792.1 |
+| 268091/1920 | UN | 48 | 48 | 4450277.000 | 10 | 491987.6 |
+| 268967/1920 | UN | 52 | 30 | 1594134.000 | 15 | 388933.9 |
+| 333362/1430 | UN | 18 | 9 | 1346000.000 | 5 | 338282.1 |
+| 338928/1810 | UN | 41 | 32 | 4431930.000 | 6 | 605222.6 |
+| 338929/1810 | UN | 39 | 23 | 3055636.000 | 6 | 1005257.2 |
+| 344135/1430 | UN | 3 | 2 | 331537.000 | 4 | 564999.0 |
+| 426331/1810 | UN | 41 | 10 | 108560.000 | 1 | 7251.0 |
+| 693055/1450 | KG | 26 | 16 | 11400.000 | 28 | 856.9 |
+| 693055/1810 | KG | 39 | 17 | 10800.000 | 7 | 708.4 |
+| 708073/1430 | KG | 37 | 3 | 30000.000 | 5 | 3873.6 |
+| 730384/1430 | M | 13 | 3 | 261000.000 | 5 | 152343.4 |
+| 734545/1430 | UN | 41 | 6 | 38400.000 | 1 | 2240.8 |
+| 773474/1430 | KG | 27 | 12 | 73600.000 | 6 | 11636.2 |
+| 773474/1450 | KG | 17 | 10 | 64000.000 | 33 | 20307.7 |
+
+Exemple qui interdit de compter chaque H courant comme une nouvelle commande : pour **001757**, les versions des 27 juillet, 3 août et 10 août reprennent H = 2 000 kg, I = 1 200 kg, J courant = 3 855,020 kg et J futur = 1 975 kg. Les photos des 28 juillet, 4 août et 11 août restent toutes à **5 830,020 kg**. Références MRP : H29064/H30080/H31120 et J29066/J30082/J31122 ; inventaire : E1583/E1381/E612. Additionner H donnerait 6 000 kg sans preuve de trois nouveaux achats. Cela reste compatible avec des propositions/engagements reconduits, sans identification certaine d'une même commande.
+
+Dans la simulation, les identifiants permettent en revanche un vrai décompte : la référence a lancé en 2025 **147 achats de 001757 pour 34 700 kg**, quatre de 001848 pour 22 000 kg, six de 002612 pour 135 000 kg et 30 de 338929 pour 2 151 600 UN. Ce sont les nouveaux achats externes par année de lancement, hors carnet initial et hors transferts ; pas les réceptions de l'année. Tous les couples et la variante FIA fixe figurent dans [simulation_2025.csv](../../artifacts/testing/mrp_full_flow_audit_20260930/simulation_2025.csv).
+
+### Ce que l'évolution réelle des stocks apporte
+
+La comparaison de **la somme J du seul plan courant** à la photo du lundi suivant donne **1 131 égalités sur 1 615 rapprochements**, soit environ 70 %. Comparer seulement J immédiatement disponible ne donne que 890 égalités : le stock déjà détenu mais disponible plus tard est indispensable. Les 484 écarts restants ne sont pas tous des erreurs de quantité : statuts exclus, réservations et différence d'horodatage restent des explications à départager.
+
+- 001757, 001848/Avène, 002612/Avène, 007923/Avène et 338929 concordent **51 semaines sur 52** ; le 2 mars concentre 29 écarts parmi les couples, ce qui invite à traiter cette version commune avant d'inventer 29 règles différentes.
+- 042342/Gien présente un écart de **−1 500 000 UN sur 42 semaines** entre J total et la photo. 002612/Gaillac présente **−19 kg sur 51 semaines** ; 693055/Gaillac **−10 kg sur 51 semaines**. Ce sont des différences de périmètre/statut possibles, pas des coefficients de consommation établis.
+- Les deux PF au dépôt ne concordent jamais exactement entre J et le stock total : cette différence doit être conservée dans le rapprochement des stocks disponibles, réservés et physiques.
+- La source actuelle contient bien **1 250 kg** pour 002612/Gaillac le 6 janvier (`Stocks!E946`). L'ancienne anomalie à 1 250 414 ne doit plus être utilisée comme valeur du fichier courant. J vaut 395 kg dans le plan du 5 janvier (`Feuille1!J158`) : cet autre écart reste visible.
+- L'ancien inventaire au 1er janvier se raccorde au nouveau sur 31 couples : 28 concordances au seuil de 0,000001 unité ; écarts de +0,00328125 kg pour 002612/Avène, −0,000172 kg pour 038005/Gien et +1 UN pour 042342/Gien. 344135 n'a pas de photo récente au 1er janvier. Ces petites différences ne justifient pas les grands écarts ultérieurs.
+
+Le [rapprochement hebdomadaire](../../artifacts/testing/mrp_full_flow_audit_20260930/stock_2025_bridge.csv) conserve **1 583 intervalles de sept jours**. Il compare le changement réel de stock à H−I de la semaine suivante annoncé par le plan précédent ; une semaine source absente reste vide. Ce rapprochement repose sur une hypothèse d'alignement temporel déclarée : son résidu ne permet pas d'identifier séparément les réceptions exécutées, les prélèvements, les ajustements et les transferts. J futur n'est jamais ajouté comme une nouvelle arrivée physique.
+
+### Délais : une nouvelle hypothèse commune étayée
+
+Il faut traiter séparément **délai fournisseur FIA**, **réception/disponibilité** et **sécurité**. La FIA ne précise pas le calendrier de son délai ; le simulateur le traite comme calendaire. Les jours de sécurité suivent la convention utilisateur lundi–vendredi. Le carnet donne des dates G de livraison et I de disponibilité, ainsi qu'un nombre H de jours de réception.
+
+Sur **toutes les 104 lignes du carnet** :
+
+| Calcul de disponibilité depuis G | Dates I reproduites |
+|---|---:|
+| Ajouter H jours calendaires | 3/104 |
+| Ajouter H jours lundi–vendredi | 70/104 |
+| Ajouter H jours lundi–vendredi en excluant les jours fériés métropolitains 2025 | **99/104** |
+
+Le calendrier candidat reprend la [liste officielle des jours fériés 2025](https://calendrier.api.gouv.fr/jours-feries/metropole/2025.json), consultée le 30 septembre 2026. La [preuve de calcul](../../artifacts/testing/mrp_full_flow_audit_20260930/receipt_calendar.json) conserve toutes les dates candidates, les 104 prédictions et les écarts. Les cinq restants concernent **021081/Gaillac**, lignes 23, 25, 30, 39 et 42 : chaque intervalle contient **neuf jours ouvrés non fériés de plus** que les 75 jours indiqués. Fermeture estivale ou autre indisponibilité commune est une hypothèse ; les dates exactes de fermeture ne sont pas identifiées. Ce calcul rétrospectif n'active aucun nouveau calendrier et ne modifie pas la sécurité.
+
+Le champ E du MRP est constant pour chaque couple, mais diffère du carnet sur huit couples : 001848/Gien 14→26 ; 002612/Avène 8→9 ; 049371/Avène 8→9 ; 333362/Gien 4→5 ; 338929/Avène 4→6 ; 693055/Gaillac 21→28 ; 734545/Gien 0→1 ; 773474/Gaillac 26→33. Ne pas additionner deux valeurs concurrentes d'un même temps de réception.
+
+Exemple 002612/Avène : fournisseur retenu FIA **35 jours**, réception MRP **9 jours**, sécurité **20 jours ouvrés**. Dans la référence, les six nouveaux achats reçoivent des délais de livraison simulés de **24 à 70 jours** ; ce sont des tirages du moteur, pas des retards industriels mesurés. La variante FIA fixe applique 35 jours, puis la réception ; elle conserve la couverture prudente antérieure. Cela n'établit pas que l'industriel utilise cette couverture.
+
+### BOM, tailles, prix et catalogues : correspondances et limites
+
+Les **24 coefficients BOM** correspondent au graphe simulé et à `demand_PF.xlsx`. `Data_poc.xlsx` n'en couvre que 22 : il utilise encore 693710 à la place de 007923 pour 268091 et ne porte pas la recette 021081→773474. Ces deux écarts sont déjà résolus dans le graphe courant. Pour 1 000 PF 268091 : 1,624 kg de 001757, 1,218 kg de 001848, 2,03 kg de 002612, 3,248 kg de 007923 et 1 000 UN de 338929. Pour 1 kg de 773474 : 8,94 kg de 021081. La base 1 000 de la recette n'est pas un lot de production.
+
+Les ratios empêchent d'attribuer automatiquement tous les besoins I aux seuls PF étudiés : dans le premier plan, 001757, 016332 et 049371 représentent chacun **15,813 millions de PF équivalents** par leur coefficient BOM, contre **178,712 millions pour 002612** et **46,728 millions pour 007923**. Les horizons renseignés diffèrent et ce sont des besoins planifiés, pas une production exécutée ; ces valeurs servent à détecter le périmètre, **pas à calculer un diviseur de stock définitif**. Même les emballages 338928/338929, tous deux à un pour un, ont des besoins différents. Les indications utilisateur sur les matières partagées restent une autre source d'information, distincte de ce diagnostic numérique. Les usages partagés et autres conditionnements doivent rester distincts du besoin explosé de nos seuls PF.
+
+La FIA indique une **quantité standard**, sans colonne « multiple obligatoire », minimum d'achat ou maximum. Les quantités projetées fournissent des contre-exemples au multiple imposé partout. Les lots de fabrication sont des paramètres séparés : 268091 minimum 28 800 et maximum 142 485 UN dans la source récente ; avec le multiple de 14 400 retenu par le modèle, le maximum réalisé par campagne est 129 600. 773474 a un lot fixe de 3 200 kg et 693055 de 600 kg après conversion depuis G, unité retrouvée dans les autres sources.
+
+Sur les premières versions des 24 couples avec FIA, **277 semaines ont H positif : 110 sont compatibles avec au moins un multiple de standard, 167 ne le sont pas**. Pour 338929, aucune des 23 entrées hebdomadaires initiales n'est un multiple de 5 000 UN ; pour 002612, neuf sur dix sont compatibles avec 22 500 kg, mais H189 indique 8 005,604 kg. Pour 001757, le plan initial est compatible avec des pas de 100 et de 1 000 kg ; les versions ultérieures montrent aussi 1 500 kg (`H4028`) et 500 kg (`H47027`). Cela réfute « chaque H est une commande complète au standard », pas nécessairement un standard contraignant sur chaque commande individuelle : réception partielle et agrégation doivent rester possibles.
+
+Deux catalogues fournisseurs sont incomplets au regard du carnet : **049371/Avène** a onze lignes de 1 800 kg chez VD0518550B (58–68), alors que sa FIA donne VD0520132A, standard 1 600 kg et 147 jours ; **734545/Gien** a 6 400 UN chez VD0525906A (ligne 104), alors que sa FIA donne VD1095770A, standard 6 300 UN et 21 jours. Le carnet peut représenter des conditions antérieures ou d'autres fournisseurs ; leurs prix/délais non renseignés ne sont pas déduits du fournisseur FIA. D'autres lignes concernent la division 1820 hors périmètre MRP fourni ; une offre Avène n'est pas automatiquement une offre au même prix pour Gien.
+
+Les 64 rapprochements tarifaires FIA–relations de l'extraction antérieure concordent après division par la base et conversion d'unité ; leurs sources sont inchangées. Pas de facteur 1 000 sur les prix 002612/338929. Pour 021081, les prix restent en **USD/kg**, sans conversion FX implicite ; un total monétaire multidevise ne doit pas être présenté comme un coût euro validé. Un prix source nul n'est pas une preuve de matière gratuite.
+
+### Les règles de base sont-elles réellement appliquées ?
+
+| Règle | Constat dans la configuration de référence actuelle | Statut |
+|---|---|---|
+| Sécurité achats lundi–vendredi, facteur 100 % | Conversion quotidienne et facteurs 1 ; `run_first_simulation.py:11055,13781`. | Conforme à la convention, pour les paramètres retenus ; traduction ERP en cible de stock non démontrée. |
+| Sécurité pour déclencher la fabrication | `--production-mrp-safety-targets` absent ; contrôleurs `:11841,12754` gardent leur cible historique. Pour 773474 au jour 0, CSV trace : sécurité convertie 28 jours mais activation 0 et cible dédiée 0. | **Sécurité chargée ne signifie pas utilisée dans tous les contrôleurs.** |
+| Livraison FIA et délai jusqu'à disponibilité | Champs séparés ; `:14827–14881`. Par exemple 338929 : FIA 42, référence disponibilité 50, livraison tirée 32, disponibilité réalisée 40 jours. | Distinction correcte ; le calendrier et l'aléa fournisseur sont des conventions. |
+| Couverture prudente | Erlang 4 étages et marge 1,65 écart-type (`:4654`), ajoutés par le modèle. `fia_fixe` les conserve. | Hypothèse non extraite de l'ERP ; peut augmenter l'anticipation au-delà de FIA + sécurité. |
+| Disponibilité des commandes initiales | G/I conservées séparément, stock détenu crédité une fois. | Cohérent ; les dates initiales de création restent inconnues. |
+| Calendrier de réception | Nouveaux achats : lundi–vendredi sans fériés. | **La piste 99/104 montre une amélioration à tester**, séparément de la sécurité. |
+| Standards et regroupement | Arrondi standard par défaut ; exceptions 338929/333362 ; `procurement_batching` non activé dans le graphe courant. | **Pas encore de règle commune de regroupement validée partout.** |
+| Fournisseurs multiples | Politique principal/secours propre à 001848 ; ailleurs classement historique transport/délai et parts prédéfinies. | Règle prix/urgence générale non établie ; catalogues partiels pour deux autres matières. |
+| Horizon | 364 jours glissants, dernière version connue à la décision ; pas d'injection de prévision future. | Implémenté ; queues absentes dans les sources et années ultérieures non calibrées. |
+| BOM et quantités physiques | 24 coefficients et unités rapprochés ; UN physiques entières. | Cohérent sur le périmètre renseigné ; ne prouve pas tous les usages industriels. |
+| Fabrication 693055 | Approvisionnement amont agrégé 600 kg, délai 28 jours issu de E, capacité inconnue. | Convention de frontière, **pas fabrication physique complètement reconstruite**. |
+
+Trois paramètres récents sont bien appliqués au graphe daté : sécurité 426331 = 10 jours, sécurité 268967/DC = 60 jours, minimum 268091 = 28 800. **268091/DC reste à 20 jours alors que la source récente indique 00** : l'étude a interprété l'instruction antérieure « pas d'essai à zéro » comme maintien du nominal (`mrp_rules_integration_20260928/study.py:77–81`). Cette interprétation antérieure doit être distinguée d'une confirmation métier spécifique du 20 ; aucune nouvelle modification n'est faite dans cet audit. Le registre séparé `simulation/lot_policy/engine_adapter.py:59` conserve par ailleurs le minimum historique 14 400, alors que le contrôleur de campagne utilise 28 800 : rapprochement des registres nécessaire.
+
+### Suite prioritaire, selon les preuves
+
+1. Tester **le même calendrier de réception** sur tous les couples, avec les fériés candidats et sans inventer les neuf jours de fermeture résiduels. Conserver les dates G/I explicites du carnet et la sécurité nominale.
+2. Réconcilier **stock physique total / stock MRP détenu / stock disponible** et la version commune du 2 mars, avant de modifier les règles de consommation pour compenser ces écarts.
+3. Traiter les **paramètres chargés mais non utilisés par la fabrication**, le conflit 268091/DC et les deux registres de minimum de fabrication ; chaque essai reste séparé de la référence.
+4. Croiser **fournisseur, standard, prix, engagements et reports** pour reconstruire une règle commune de proposition. Les 52 versions révisées ne doivent pas devenir 52 historiques d'exécution ; les deux fournisseurs absents de FIA restent signalés.
+5. Reprendre les essais transférables avec trois jugements distincts : H/I/K planifiés, évolution des stocks physiques 2025 et service PF. Une amélioration de quelques stocks ne suffit pas à accepter une règle si elle détériore le service ou d'autres articles.
+
+## Registre courant des règles communes — 30 septembre 2026
+
+**Point d'entrée pour la suite.** Une règle commune signifie un même calcul utilisant les paramètres du couple article/site/fournisseur et l'état des ordres. Elle ne signifie pas une même quantité ou un même nombre de jours pour tous les articles. Aucune règle différente selon le mois ou selon le morceau de courbe à reproduire n'est admise sans donnée métier correspondante.
+
+Les statuts ci-dessous ont un sens précis : **confirmé** par les données ou l'utilisateur ; **convention du moteur** vérifiée dans le code mais non démontrée comme règle ERP ; **candidat** soumis à comparaison ; **réfuté comme règle universelle** lorsqu'un contre-exemple l'empêche de s'appliquer partout. Les sections historiques suivantes restent conservées pour comprendre les essais et leurs limites.
+
+| Identifiant | Règle commune, en termes métier | Statut et portée | Dans le moteur |
+|---|---|---|---|
+| MRP-01 | Recalculer à partir de la dernière prévision connue à la date de décision ; ne jamais additionner plusieurs versions comme des besoins exécutés. | Confirmé : 52 versions de plans, distinctes de leur horizon futur. | `ExternalComponentDemandCalendar`, sélection datée des prévisions. |
+| MRP-02 | Compter le stock existant une seule fois et respecter sa date de disponibilité. Un stock en qualité n'est pas une future livraison fournisseur. | Confirmé par rapprochement J/photos et confirmation utilisateur. | Stock disponible, `FirmReceipt(state="held")`, registre de disponibilité initiale. |
+| MRP-03 | Déduire les quantités déjà engagées avant de proposer un achat supplémentaire ; distinguer reliquat et quantité déjà reçue. | Le rapprochement H/J étaye les réceptions partielles. La conservation de tout engagement même tardif est une convention du moteur, pas une règle ERP entièrement identifiée. | `plan_dated_requirements`, engagements identifiés et allocations tardives exposées. |
+| MRP-04 | Une proposition future non lancée peut être recalculée ; une commande engagée n'est pas annulée au seul motif que la prévision change. | Distinction étayée par les révisions. La frontière exacte entre proposition et engagement n'est pas fournie par H. | Propositions révocables jusqu'au lancement ; carnet engagé conservé. Le préfixe FIA du banc reste seulement supposé engagé. |
+| MRP-05 | Protéger les besoins futurs datés, sans transformer cette protection en consommation supplémentaire. | Candidat : couvertures 7/7/6/3 semaines étudiées pour 001757/001848/002612/338929. L'opérateur est commun ; sa conversion depuis les durées industrielles reste à établir. | Primitive générique `plan_with_stock_protection` déjà présente. Son activation dans la simulation complète reste limitée et ne doit pas être confondue avec le banc de comparaison. |
+| MRP-06 | Regrouper les besoins encore découverts, puis réutiliser le surplus d'arrondi pour les besoins suivants. | Convention explicite ; fenêtre ancrée au premier besoin non couvert. Une fréquence fixe de commande n'est pas déduite de la seule fréquence hebdomadaire de l'export. | `grouping_days`, `ProcurementGroup`, allocation du surplus une fois. |
+| MRP-07 | Distinguer quantité standard de référence, minimum, multiple obligatoire, maximum par ordre et contrainte physique de conditionnement. | Les lots fixes de fabrication sont confirmés par la feuille dédiée. La FIA ne prouve pas à elle seule un multiple obligatoire pour chaque entrée hebdomadaire H. | `LotSizing` et arrondi d'exécution `mrp_purchase_order_quantity` ; vérifier les deux niveaux avant de modifier une proposition. |
+| MRP-08 | Choisir le fournisseur et dimensionner le secours en tenant compte du manque avant disponibilité du principal. | Principal moins cher/secours plus rapide confirmé pour 001848 uniquement. Pour 002612, les standards 22 500 et 23 750 kg ne suffisent pas à identifier automatiquement le fournisseur choisi. | `plan_sourced_requirements` ; ne pas généraliser une identité fournisseur ou une règle tarifaire sans preuve. |
+| MRP-09 | Garder l'horizon prévisionnel après la fin de la période de résultats affichée. | Horizon source jusqu'à 364 jours futurs. Une dernière ligne plus proche n'est pas une preuve de demande nulle ensuite. | `mrp_planning_horizon_days: 364` ; distinguer horizon de décision et durée d'exécution. |
+| MRP-10 | Appliquer les jours de sécurité sur lundi–vendredi et conserver intégralement les jours source du dépôt. | Confirmé par l'utilisateur. Le calendrier des autres durées et des fermetures reste à documenter. | Conventions de sécurité conservées ; aucun essai de sécurité à zéro adopté. |
+| MRP-11 | Ajuster systématiquement le dernier achat pour terminer à stock nul. | **Réfuté comme règle universelle.** Des soldes finaux positifs, voire négatifs, existent dans les sources. Une fermeture arithmétique du bilan ne prouve pas les bonnes quantités aux bonnes dates. | Aucun plafonnement terminal universel ajouté au nominal. |
+| MRP-12 | Respecter les dates possibles de réception ; ne pas confondre réception physique, disponibilité qualité et semaine d'affichage. | Livraison/disponibilité distinctes confirmées. Une anticipation avant fermeture est une piste ; un jour férié ne démontre pas une fermeture industrielle de toute la semaine. | Dates distinctes ; calendrier de réception supplémentaire à qualifier séparément. |
+| MRP-13 | Comparer le plan aux délais prévisionnels fournisseurs, puis étudier séparément les aléas de livraison. | Paramètres FIA connus ; distributions des retards industriels non identifiées par ces fichiers. Jours FIA conservés comme calendaires par convention. | `--supplier-delivery-mode source` pour les nouveaux achats externes datés ; mode aléatoire conservé pour les études qui le demandent. |
+
+### Comment une règle passe de l'hypothèse au moteur
+
+Chaque essai doit préciser les cellules sources, l'unité, les dates de décision et d'échéance, les données reprises comme engagements et les semaines absentes. Il compare au minimum les réceptions positives exactes **à la même date et pour la même quantité**, l'erreur de quantité, le solde projeté et la première divergence. Les semaines où les deux calculs donnent zéro ne doivent pas masquer des commandes mal reproduites.
+
+Le banc à entrées identiques utilise les besoins I, le stock J daté et les engagements initiaux supposés. Les H/K ultérieurs ne servent qu'à évaluer le résultat. Il est distinct de la simulation physique, dont les besoins résultent aussi des productions, consommations des articles partagés, disponibilités et transports.
+
+Une intégration doit conserver les sécurités source, les UN physiques entières, les engagements existants et les deux suivis de lots. Elle doit également vérifier que l'exécution ne réarrondit pas une quantité différemment du plan. La réussite du banc n'autorise pas à déclarer la simulation annuelle calibrée : cette dernière exige sa propre comparaison et qualification.
+
+La passe courante et ses preuves sont conservées sous `etudecas/artifacts/testing/mrp_common_policy_20260930`. Le point de reprise précédent est reproductible avec `etudecas/config/mrp_reconstruction_20260930/reproduce.py`.
+
+### Processus itératif : apprendre sur un article, transférer la règle sans retouche
+
+Le protocole du 30 septembre 2026 ajoute une étape obligatoire avant toute nouvelle intégration : **classer plusieurs règles sur un seul article, puis conserver exactement leur formule pour les autres articles**. Une règle commune utilise les paramètres industriels de chaque article ; elle ne choisit pas un nombre de semaines ou un arrondi différent pour mieux suivre chaque courbe. Le [protocole figé](../../artifacts/testing/mrp_rule_transfer_20260930/protocol.json) contient les candidats, les critères et l'ordre de transfert avant l'exécution.
+
+Le premier article est **338929 à Avène**, mono-fournisseur, sur les échéances janvier–juin du plan du 5 janvier. Le transfert porte d'abord sur **001757**, également mono-fournisseur, puis sur **001848 et 002612**, dont le multisourcing ajoute une difficulté distincte. Le plan du 6 juillet teste ensuite juillet–décembre pour les quatre articles. Les 52 versions servent uniquement à vérifier la stabilité : elles ne représentent pas 52 historiques de commandes indépendants. Ces sources ayant déjà été examinées, il s'agit d'une validation rétrospective à paramètres gelés, pas d'un test aveugle.
+
+Sept candidats sont définis. `S` désigne les jours ouvrés de sécurité source, `R` les jours de réception source et `Q` la quantité standard du fournisseur. Le calendrier ouvré de `R` reste une hypothèse, contrairement à celui de `S`. Le fournisseur est l'unique offre ou, à titre de convention commune pour ce banc, l'offre au prix unitaire comparable le plus bas ; les quantités H ne servent jamais à choisir rétrospectivement le fournisseur.
+
+| Candidat | Mécanisme | Quantité proposée |
+|---|---|---|
+| A | Couvrir les besoins futurs sur `S/5` semaines, arrondi supérieur | Multiple supérieur de `Q` |
+| B | Couvrir sur `(S+R)/5` semaines, arrondi supérieur | Multiple supérieur de `Q` |
+| C | Couvrir sur `(S+R)/5` semaines, arrondi au plus proche | Multiple supérieur de `Q` |
+| D | Même couverture que C | Minimum `Q`, sans multiple imposé |
+| E | Même couverture que C | Besoin net, standard seulement indicatif |
+| F | Regrouper les besoins encore découverts dans la fenêtre C, à partir du premier manque | Multiple supérieur de `Q` |
+| G | Même regroupement que F | Besoin net, standard seulement indicatif |
+
+La formule arrondie de C/E retrouve certains nombres de semaines étudiés auparavant ; cette origine rétrospective est déclarée. F/G isolent le regroupement sans ajouter un plancher de sécurité : ce sont des comparateurs de mécanisme, pas une suppression des sécurités du nominal. Les quantités physiques UN restent entières, y compris lorsque le standard est indicatif. Aucun arrondi au millier n'est introduit spécialement pour 001757.
+
+Les sept candidats utilisent **les mêmes semaines comparables** sur chaque plan. Les H supposés engagés avant le délai fournisseur sont imposés identiquement et exclus des scores ; leur influence sur le stock restant est explicitement reconnue. J est compté une seule fois à sa date. Après ce préfixe, H et K servent uniquement à évaluer les résultats. Les semaines absentes, les fenêtres tronquées et les propositions hors semaine renseignée restent distinguées ; le sous-ensemble sans trou futur n'efface pas l'effet d'éventuels trous antérieurs.
+
+Le classement utilise seulement l'erreur de réceptions de 338929 au premier semestre, puis l'erreur de stock projeté pour départager les candidats. Les règles sont ensuite transférées dans cet ordre sans ajustement. Une réception n'est exacte que si **semaine et quantité** concordent ; les achats manqués, supplémentaires et de mauvaise quantité sont comptés séparément. K reste un stock **projeté**, distinct des photos d'inventaire physique. Un contre-exemple suffit à rejeter l'affirmation de règle commune exacte ; un candidat partiel conserve ses réussites et ses échecs. Moins de trois réceptions positives comparables ne suffisent pas à soutenir une généralisation.
+
+Une nouvelle idée après échec devra être formulée dans une nouvelle version du protocole et rejouée sur tous les articles. Une exception n'est admissible que si elle correspond à une condition métier issue des sources, telle qu'un véritable minimum contractuel ou un état d'engagement, et non au code article ou à une période qui améliore le score. La simulation physique sur cinq ans intervient après ce filtrage, lorsqu'une modification du moteur est effectivement proposée ; le banc seul ne qualifie ni le service client ni les stocks physiques.
+
+**Premier cycle exécuté : sept candidats sur 208 plans, soit 1 456 calculs de planification.** Les résultats sont dans le [tableau CSV](../../artifacts/testing/mrp_rule_transfer_20260930/scores.csv) et la [matrice détaillée avec contre-exemples](../../artifacts/testing/mrp_rule_transfer_20260930/results.json). Les 208 plans sont les quatre articles et leurs 52 versions ; ils ne constituent pas 208 observations industrielles indépendantes. Le programme appelle les fonctions existantes du moteur et ne simule pas d'exécution physique.
+
+Le classement sur le seul apprentissage 338929 est **D/E ex æquo, puis C, B, A, G, F**. D et E donnent exactement les mêmes H/K sur ses semaines scorées : on ne peut donc pas déduire de cet article seul si le standard doit être un minimum. Leurs 11 réceptions positives exactes sur 13 ne suffisent pas non plus à expliquer tous les volumes : leur erreur absolue totale de réceptions représente encore 31,1 % du volume source de la fenêtre.
+
+Réceptions positives retrouvées **à la même semaine et pour la même quantité**, avec les paramètres gelés et les mêmes semaines comparables pour tous les candidats :
+
+| Article à Avène | D : standard minimum, H1 | D, H2 | E : standard indicatif, H1 | E, H2 |
+|---|---:|---:|---:|---:|
+| 338929, apprentissage H1 | 11/13 | 10/11 | 11/13 | 10/11 |
+| 001757, transfert mono-fournisseur | 0/6 | 0/6 | 0/6 | 0/6 |
+| 001848, transfert multi-fournisseur | 0/1 | 0/1 | 0/1 | 0/1 |
+| 002612, transfert multi-fournisseur | 7/7 | 1/9 | 0/7 | 0/9 |
+
+Le transfert départage donc des mécanismes indiscernables à l'apprentissage : D retrouve toutes les réceptions comparables et K de 002612 en H1, E ne les retrouve pas. Mais D échoue en H2 et sur 001757. Les sept candidats sont écartés **comme explications exactes communes dans les conditions du banc**, sans remplacement du nominal. Les correspondances partielles restent documentées ; aucun paramètre propre à un article n'est ajusté pour sauver le résultat.
+
+Le résultat **7/7 de 002612 en H1** subsiste sur ses **19 semaines sans trou dans la fenêtre future ni dans l'historique**. À l'inverse, pour 338929 en H1, le sous-ensemble aussi strict retrouve huit réceptions sur neuf : même en retirant l'ambiguïté des semaines manquantes, il reste un contre-exemple à la règle proposée.
+
+Trois contre-exemples localisent le prochain travail. Pour **001757**, le 6 avril, D/E proposent 780,328 kg et C arrondit à 800 kg, contre 1 000 kg en `Feuille1!H14` : le standard FIA de 100 kg ne suffit pas à expliquer le regroupement. Pour **001848**, les 3 331,16 kg du 18 mai (`H101`) et les 4 000 kg du 2 novembre (`H26194`) ne sont pas reproduits par un minimum global de 6 000 kg. La seconde quantité est compatible avec le fournisseur de secours connu, mais la compatibilité de quantité ne remplace pas une identité d'ordre. Pour **338929**, D/E calculent 144 616 UN le 13 avril, contre 289 232 en `H719`, puis placent 144 616 la semaine suivante : une règle de date ou de regroupement reste à expliquer. Ajouter un facteur constant à toutes les quantités ne corrigerait pas ces mécanismes différents.
+
+Les limites du jeu de données comptent dans le verdict. En H2 de 002612, le premier écart K du 17 août inclut déjà une proposition de 22 500 kg dans une semaine antérieure absente : ce n'est pas, à lui seul, une réception source explicitement contradictoire. Pour 001757, aucune semaine H2 ne garde une fenêtre future entièrement renseignée ; pour 001757 et 001848, les périodes principales ont toutes des trous antérieurs. Les scores principaux reposent donc sur l'hypothèse déclarée de zéros internes. Les sous-scores stricts sont fournis et ne sont pas remplacés par des zéros quand ils sont vides. Ces limites empêchent de confondre rejet d'une reconstruction exacte et preuve exhaustive du fonctionnement de l'ERP.
+
+La prochaine itération devra séparer **protection des besoins**, **politique réelle de lot de commande** et **sélection fournisseur selon l'état du besoin et des engagements**. Elle devra garder les cas qui concordent et expliquer les contre-exemples ci-dessus avec des conditions métier vérifiables. Il n'est pas justifié à ce stade d'imposer partout un minimum, un multiple du standard, un multiplicateur dix, ni une période de fermeture supposée. Les anciens candidats « stock final systématiquement nul » et « toute semaine fériée fermée » restent rejetés comme règles universelles.
+
+Reproduction : `python -B etudecas/artifacts/testing/mrp_rule_transfer_20260930/study.py --protocol CHEMIN_PROTOCOLE --output DOSSIER_NEUF_SOUS_ARTIFACTS_TESTING`. Le [script unique](../../artifacts/testing/mrp_rule_transfer_20260930/study.py) refuse d'écraser ses résultats ; les candidats restent explicites et les formules nouvelles exigent une implémentation relue. Le protocole et les entrées sont empreintés. Ce cycle n'ajoute aucun fichier au moteur et ne régénère aucune carte.
+
+**Vérification de ce cycle.** Les huit tests ciblés en mémoire des fonctions de couverture et regroupement passent, ainsi que le [contrôle de leurs preuves natives](../../artifacts/testing/mrp_rule_transfer_20260930/native/gate-2d9b74cff7ee4e4992500517b1149570/manifest.json). Un agent distinct a relu directement les quatre classeurs utiles et recalculé les paramètres, les semaines comparables, les scores, les ex æquo et les verdicts. Son [oracle indépendant](../../artifacts/testing/mrp_rule_transfer_20260930/validation/transfer_check.json) n'importe ni les fonctions du moteur ni celles du banc : il reproduit les sept trajectoires sur chacun des 208 plans par une récurrence arithmétique distincte. Les 333 381 rapprochements ne comportent aucun échec ; ils vérifient le calcul livré, pas l'identification de l'ERP. Le [manifeste de ce cycle](../../artifacts/testing/mrp_rule_transfer_20260930/manifest.json) regroupe les empreintes, les preuves et la décision de ne pas intégrer ces candidats comme règle commune exacte.
+
+### Comparaison avec les fonctions réellement utilisées par le simulateur
+
+La [carte des règles communes](../../resultats/regroupement_001757_20260929/carte_regles_communes.html) ajoute un panneau indépendant à la carte de regroupement de référence. Il propose quatre articles, leurs 52 versions et trois calculs : besoins datés seuls, couverture datée, hypothèse calendaire. Les autres onglets et les deux suivis de lots restent ceux de la référence historique. Le candidat calendrier utilise un calcul analytique séparé ; les deux autres variantes appellent les fonctions existantes du moteur.
+
+Le script `compare_engine.py` appelle directement `plan_dated_requirements` et `plan_with_stock_protection`. Sur les 208 plans, ce second helper retrouve les propositions du replay analytique précédent, à la tolérance numérique près. Ce raccord est nouveau ; les scores de la couverture ne constituent pas une nouvelle amélioration par rapport au replay précédent.
+
+| Article | Réceptions positives exactes H1 : daté simple → couverture | Réceptions positives exactes H2 : daté simple → couverture |
+|---|---:|---:|
+| 001757 | 0/6 → 4/6 | 1/6 → 3/6 |
+| 001848 | 0/1 → 0/1 | 0/1 → 0/1 |
+| 002612, standard 22 500 kg | 1/7 → 7/7 | 2/9 → 1/9 |
+| 338929 | 0/13 → 11/13 | 4/11 → 10/11 |
+
+H1 = échéances janvier–juin du plan du 5 janvier ; H2 = juillet–décembre du plan du 6 juillet. Les préfixes imposés, dates sources absentes et fenêtres de couverture incomplètes sont exclus. Le calcul « daté simple » du banc n'inclut pas la réserve technique du runtime complet, son multisourcing ou l'exécution physique : il ne faut pas attribuer ces scores à la simulation nominale entière.
+
+**Règle de protection testée :** à une date donnée, protéger la somme des besoins bruts des N semaines suivantes. Les quantités J déjà présentes sont fournies une seule fois au planificateur, comme stock disponible ou stock à libérer plus tard. Elles ne sont pas déduites une seconde fois de cette cible. L'enveloppe cumulée des besoins et de la protection déclenche les achats sans compter la protection comme une consommation.
+
+Les paramètres 7/7/6/3 semaines et 1 000/6 000/22 500/1 comme arrondis sont des candidats documentés. La couverture datée améliore plusieurs cas par rapport au helper simple mais ne résout pas le choix fournisseur de 002612 ni le traitement des dernières propositions de 001848. Son intégration générale au runtime nécessite encore de composer proprement protection, sourcing et regroupement : leurs gardes actuelles interdisent certaines combinaisons.
+
+### Paramètres d'achat : prix, délais, standards et choix fournisseur
+
+**Complément du 30 septembre 2026.** Le prix doit être ramené à sa base et à son unité avant toute comparaison : montant / base de prix, puis conversion d'unité si nécessaire. La devise reste explicite. Une quantité standard d'achat n'est ni une quantité minimale démontrée, ni une palette, ni un maximum de fabrication. La FIA identifie l'article et le fournisseur ; elle ne fournit pas à elle seule le site destinataire.
+
+L'inventaire couvre **12 classeurs, 35 feuilles et 35 lignes FIA**, dont 33 offres externes et deux approvisionnements internes, rattachés à 24 couples article/site. Les six couples multisourcing sont 001848, 001893, 002612, 007923 et 055703 à Avène, et 021081 à Gaillac. Les 64 rapprochements de prix FIA/relations concordent après normalisation de la base et de l'unité. Les quatre offres de 021081 sont cependant en **USD/kg** : 12,10 / 12,10 / 12,15 / 15,00, toutes à 120 jours et 20 000 kg de standard. Elles restent séparées des offres EUR ; aucun taux de change industriel n'est ajouté.
+
+Dans les 72 lignes de relations recensées, les champs fréquence, priorité, limite de délai et coût de transport sont vides. Les parts fournisseurs, fréquences de regroupement et coûts transport utilisés par la simulation ne peuvent donc pas être présentés comme provenant de ces cellules. Les différences numériques entre anciennes et nouvelles politiques portent sur trois sécurités — 426331/Avène : 7→10 jours ; 268091/dépôt1920 : 20→0 ; 268967/dépôt1920 : 25→60 — et sur le minimum de fabrication de 268091 : 14 400→28 800 UN. Ce sont des divergences entre fichiers, sans date d'effet explicite ; l'audit ne remplace pas les paramètres du nominal. Les sept différences purement typographiques, comme `07` et `7`, ne sont pas classées comme conflits.
+
+Les huit offres ci-dessous sont lues directement dans `268091.xlsx/FIA`. Le rapprochement avec les relations du graphe et le carnet concerne ici Avène ; les autres sites ne sont pas fusionnés.
+
+| Article | Fournisseur | Prix d'achat normalisé | Délai livraison prévisionnel source, jours | Quantité standard source | Ligne FIA |
+|---|---|---:|---:|---:|---:|
+| 001757 | VD0951020A | 5,43 EUR/kg | 84 | 100 kg | 2 |
+| 001848 | VD0519670A | 4,20 EUR/kg | 21 | 4 000 kg | 3 |
+| 001848 | VD0951020A | 1,58 EUR/kg | 56 | 6 000 kg | 4 |
+| 002612 | VD0500655A | 1,34 EUR/kg | 28 | 21 600 kg | 8 |
+| 002612 | VD0910216A | 0,82 EUR/kg | 35 | 22 500 kg | 9 |
+| 002612 | VD0990780A | 1,295 EUR/kg | 35 | 23 750 kg | 10 |
+| 002612 | VD1091642A | 1,225 EUR/kg | 35 | 22 500 kg | 11 |
+| 338929, étui | VD0914360C | 0,21585 EUR/UN | 42 | 5 000 UN | 20 |
+
+Cellules : A = article, B = fournisseur, C = montant, D = base de prix, E = devise, F = délai, G = quantité standard, H = unité. Ainsi `C9/D9 = 820/1 000 = 0,82 EUR/kg` pour 002612 ; `C20/D20 = 215,85/1 000 = 0,21585 EUR/UN` pour l'étui. Aucun facteur 1 000 erroné n'est constaté sur ces prix dans le graphe de référence examiné. Le calendrier du délai fournisseur n'est pas précisé dans la FIA ; son interprétation en jours calendaires dans le moteur reste une convention distincte des jours de sécurité confirmés.
+
+**001757 : distinguer la source de l'hypothèse de regroupement.** La FIA donne 100 kg. Les 1 000 kg utilisés dans le banc de reconstruction sont un arrondi candidat issu des flux MRP, pas une correction de cette cellule source. Retrouver des entrées hebdomadaires de 1 000 kg ne prouve pas que chaque commande individuelle impose ce minimum.
+
+**002612 : quatre offres, pas seulement deux.** Deux fournisseurs ont le même standard de 22 500 kg. Les deux commandes initiales d'Avène sont explicitement affectées à VD0910216A, le moins cher (`Extract_En_cours.xlsx/Sheet1!D14:D15`). En revanche, les H futurs ne portent pas le fournisseur. Dans les 52 versions, 365 cellules H valent exactement 22 500 kg et 113 valent 23 750 kg ; ces dernières apparaissent dans 49 versions, dès le plan du 19 janvier pour le 23 février (`Feuille1!H2136`). **Ce sont des occurrences dans des projections alternatives, pas 478 commandes exécutées.** Elles contredisent le standard unique de 22 500 kg imposé partout, mais ne prouvent pas à elles seules un changement de fournisseur.
+
+**Délai fournisseur, livraison et disponibilité restent trois informations distinctes.** Sur les sept commandes initiales d'Avène concernant ces quatre articles, les sept quantités correspondent à H dans la semaine de livraison G ; une seule correspond dans la semaine de disponibilité I. Les treize commandes sélectionnées, autres sites compris, ont un intervalle G→I compatible avec le nombre de jours lundi–vendredi indiqué dans leur carnet. Cela ne démontre pas le calendrier de tous les autres ordres : voir la section 18 pour l'analyse incluant les jours fériés.
+
+Des paramètres diffèrent déjà entre sources : réception de 002612/Avène = 8 jours dans `Extract_En_cours!H14:H15`, contre 9 dans Flow MRP ; 338929/Avène = 4 jours en `H101`, contre 6 ; 001848/Gien = 14 jours en `H7`, contre 26. La date de validité d'un changement de paramètre n'est pas fournie. Il faut conserver les dates explicites des engagements initiaux et documenter le paramètre utilisé pour les nouvelles propositions, sans réécrire rétroactivement le carnet.
+
+### Ce que la référence simulée applique effectivement
+
+L'examen porte sur le témoin historique `mrp_policy_20260929/study/reference_figee`, pas sur une nouvelle simulation. Le CSV `data/mrp_orders_daily.csv` est filtré sur les nouveaux achats fournisseurs destinés à Avène, lancés aux jours 0 à 364 ; les ordres d'ouverture sont exclus. Chaque ligne retenue possède un identifiant MRP distinct. Une commande lancée en 2025 peut être livrée en 2026. Ces nombres d'ordres ne se comparent pas directement au nombre de cellules H, qui agrègent les réceptions prévues par semaine.
+
+| Article | Nouveaux ordres lancés | Quantité commandée | Fournisseurs effectivement utilisés |
+|---|---:|---:|---|
+| 001757 | 147 | 34 700 kg | VD0951020A |
+| 001848 | 4 | 22 000 kg | VD0951020A : 3 × 6 000 kg ; VD0519670A : 1 × 4 000 kg |
+| 002612 | 6 | 135 000 kg | VD0910216A : 6 × 22 500 kg |
+| 338929 | 30 | 2 151 600 UN | VD0914360C |
+
+Pour 002612, le paramétrage multisourcing historique est `legacy`, avec des parts 70/20/5/5 triées selon le coût de transport puis le délai et l'identifiant. Ce n'est pas une politique industrielle démontrée. **Les parts configurées ne sont pas les parts réalisées** : dans ce témoin, arrondis et traitement successif des besoins conduisent aux six achats ci-dessus chez le seul fournisseur à 0,82 EUR/kg. Le choix principal/secours confirmé de 001848 s'applique séparément ; son CSV conserve pourtant `mrp_share=0.3` au principal et `0.7` au secours, champs hérités qui ne représentent pas leurs parts effectivement commandées.
+
+Les délais sont également différents selon ce que l'on mesure. Le témoin utilise des délais aléatoires Erlang : pour les six commandes de 002612, le délai fournisseur source de 35 jours donne des délais tirés de **24, 27, 31, 43, 60 et 70 jours**. Pour 001757, la référence est 84 jours, mais les tirages des 147 ordres vont de 6 à 168 jours. Ces tirages sont des conventions du simulateur, pas des délais industriels mesurés dans les Excel. La recherche de la règle MRP doit comparer d'abord des plans aux mêmes besoins et délais prévisionnels ; les aléas d'exécution se vérifient séparément.
+
+Le standard de 5 000 UN de 338929 est conservé comme donnée source mais explicitement non contraignant dans ce témoin. Cela explique que les achats simulés ne soient pas tous des multiples de 5 000. La source fournit un contre-exemple concret au multiple obligatoire : `Extract_En_cours.xlsx/Sheet1!E101` porte **57 600 UN**, chez le fournisseur identifié VD0914360C (`D101`), alors que 57 600 n'est pas divisible par 5 000. Cette convention est distincte des quantités physiques UN, qui doivent rester entières.
+
+**Points techniques identifiés, sans correction silencieuse pendant l'audit.** L'import FIA (`knowledge_graph/update_supply_graph_from_case_data.py`, `update_edge_from_fia`) met à jour le nom de feuille mais conserve parfois un ancien numéro de ligne : le graphe témoin cite la ligne 8 pour 001757 alors que la FIA le contient en ligne 2. La préparation (`simulation_prep/prepare_simulation_graph.py`) peut aussi réécrire les prix depuis les relations `Data_poc`/`demand_PF`, sans arbitrage explicite de validité ; les quatre prix examinés restent cependant corrects. Enfin, les achats génériques ne contrôlent pas la devise comme le fait la politique spécifique de 001848. Un prix USD ne doit donc pas être comparé ou additionné à un prix EUR sans conversion documentée. Ces constats nécessitent un traitement séparé de la provenance et des conventions économiques ; ils ne prouvent pas une erreur de prix sur les quatre références ci-dessus.
+
+**Suite de l'identification :** confronter pour chaque fournisseur le prix d'achat normalisé, le délai jusqu'à livraison, le temps jusqu'à disponibilité, les engagements existants et le caractère réellement contraignant du standard. Traiter les signatures de quantités comme des indices, pas comme des identifiants fournisseur. Pour 002612, expliquer les 23 750 kg projetés et leurs révisions sans inventer un basculement saisonnier ; pour 001757, expliquer le regroupement des besoins au-delà du standard de 100 kg. Aucun paramètre source ni règle du nominal n'est modifié par cet audit.
+
+Preuves de cette passe : [inventaire des offres](../../artifacts/testing/mrp_purchase_parameters_20260930/extraction/purchase_offers.csv), [contre-vérification des quatre articles](../../artifacts/testing/mrp_purchase_parameters_20260930/validation/purchase_source_check.json), [rapprochement des dates du carnet](../../artifacts/testing/mrp_purchase_parameters_20260930/validation/initial_receipts_check.json), [achats effectivement simulés](../../artifacts/testing/mrp_purchase_parameters_20260930/runtime_purchase_check.json). Le manifeste de livraison regroupe les empreintes et les limites de ces contrôles ; il ne certifie pas l'identification complète du système industriel.
+
+### Intégration du délai fournisseur source : comparaison contrôlée
+
+Le mode `--supplier-delivery-mode source` applique à chaque nouvel achat externe agrégé du MRP daté le délai FIA explicite de sa liaison. Il refuse un délai absent, par défaut ou non entier, plutôt que de l'appeler « donnée source ». Il n'effectue pas de tirage aléatoire pour cette livraison. Les contraintes et incidents explicitement activés restent applicables ; le scénario de comparaison est BASE.
+
+Ce mode conserve les dates G/I des engagements initiaux, les jours de sécurité, la couverture prudente existante, les transferts internes et la frontière de production 693055. Le délai de réception E s'applique toujours après la livraison. Son calendrier lundi–vendredi sans jours fériés reste une convention candidate, distincte des jours de sécurité confirmés. Ainsi, une commande au 1er janvier avec 35 jours FIA est livrée au 5 février ; avec neuf jours lundi–vendredi de réception, elle devient disponible au 18 février.
+
+Le défaut `sampled` permet de reproduire les anciens calculs. L'option globale existante `--no-stochastic-lead-times` fixe aussi les autres délais et change les couvertures prudentes. Pour une liaison Erlang à quatre étapes de moyenne 35 jours, la couverture prudente existante est de 64 jours ; le mode fournisseur `source` ne la supprime pas. Cette différence justifie les trois variantes séparées de la recette `etudecas/artifacts/testing/mrp_delivery_rules_20260930/study.py` : témoin, livraison fournisseur seule fixe, puis délais fixes globaux.
+
+Les constats d'audit suivants ont également été corrigés : les imports FIA conservent désormais leur véritable ligne Excel, et les exports de sourcing explicite affichent une part historique non applicable comme vide avec son motif, au lieu de faire croire à un quota 30/70 exécuté. Les paramètres de prix, standards et décisions physiques ne changent pas du fait de ces corrections de provenance et d'affichage. Les hypothèses de couverture, de regroupement, de calendrier industriel et de sélection fournisseur non démontrées restent séparées ; elles ne deviennent pas des règles générales par cette intégration.
+
+La référence des délais avant correction est vérifiée dans [les six commandes 002612](../../artifacts/testing/mrp_delivery_rules_20260930/validation/deliveries_002612.json) : livraisons après 24 à 70 jours, moyenne 42,5, pour 35 jours FIA ; disponibilité après 35 à 83 jours, moyenne 55,17. Ces dates viennent de la simulation historique, pas de livraisons industrielles observées.
+
+Les trois nouveaux calculs de **1 825 jours** sont terminés. Dans la variante fournisseur fixe, les six nouvelles commandes 002612 lancées en 2025 sont livrées après **35 jours** et disponibles après **48 jours**, une fois les neuf jours de réception lundi–vendredi écoulés. Ce résultat vérifie la convention programmée ; il ne mesure pas la ponctualité réelle du fournisseur. La source ne confirme pas encore le calendrier des jours FIA.
+
+La [nouvelle carte des délais fournisseurs](../../resultats/regroupement_001757_20260929/carte_delais_fournisseurs.html), bouton **Comparaisons 2025**, conserve le témoin et ajoute les deux variantes. Elle ouvre 002612/Avène avec le témoin et la livraison au délai annoncé. Les autres onglets, le panneau « Règles communes MRP » et les deux suivis de lots gardent leurs résultats historiques. Leur contenu extérieur au panneau de comparaison est préservé ; ces vues ne sont pas présentées comme les résultats des trois nouveaux calculs.
+
+Erreur absolue moyenne entre les **52 photos de stock 2025** et le stock physique simulé à la clôture de la veille, sans mélanger kg et unités :
+
+| Article à Avène | Unité | Témoin, délais aléatoires | Livraison au délai fournisseur | Délais fixes globaux, couverture également modifiée |
+|---|---|---:|---:|---:|
+| 001757 | kg | 2 637 | 2 597 | 2 545 |
+| 001848 | kg | 2 326 | 1 999 | 2 256 |
+| 002612 | kg | 70 412 | 68 694 | 68 512 |
+| 338929 | UN | 1 005 257 | 909 712 | 590 682 |
+
+La seule fixation des livraisons améliore ces quatre erreurs de respectivement **1,5 %, 14,1 %, 2,4 % et 9,5 %**. Cela ne suffit pas à retrouver les stocks industriels : pour 002612, la moyenne simulée reste proche de 41 009 kg contre 105 740 kg dans les photos ; pour 338929, elle reste à 1 359 243 UN contre 521 515 UN. Pour 001848, l'erreur absolue baisse, mais le biais moyen devient plus négatif. L'effet d'une correction se juge donc sur la trajectoire, les volumes et le niveau moyen, pas sur un indicateur seul. La variante globale améliore davantage 338929 tout en étant moins bonne que la variante fournisseur seule sur 001848 ; elle n'est pas adoptée comme règle industrielle universelle.
+
+Sur l'ensemble des **29 couples comparables** du panneau, la variante fournisseur seule réduit l'erreur dans **16 cas**, l'augmente dans **huit** et la conserve dans **cinq** ; quatre autres couples n'ont pas de métrique comparable. Ce comptage vient des métriques exportées, dont le contre-calcul direct Excel/CSV de cette étape porte sur les quatre articles du tableau. La variante globale réduit 17 erreurs, en augmente onze et en conserve une. Les couples n'ont pas tous le même nombre de photos ni le même périmètre représenté ; ce bilan n'est pas un score industriel global.
+
+Les temps de calcul mesurés sont **857,4 s**, **857,9 s** et **930,8 s**, respectivement. Des exécutions indépendantes ont tourné en parallèle : ces durées ne sont pas un benchmark de performance. Les années sans nouvelles versions industrielles des prévisions prolongent les conventions du modèle ; la comparaison aux sources porte uniquement sur 2025.
+
+Le contrôle du service client interdit également de conclure à une amélioration générale : pour 268091 en 2025, le volume servi passe de **3 528 253 UN** dans le témoin à **3 499 453 UN** avec la livraison fournisseur fixe, soit **28 800 UN de moins** ; les jours avec au moins une unité de reliquat passent de sept à neuf. La variante globale sert 3 125 053 UN et compte 35 jours avec reliquat. La demande physique est identique. Les délais annoncés sont utiles pour isoler les hypothèses du MRP, mais la variante n'est pas adoptée comme nouveau nominal sur la seule amélioration des écarts de stock.
+
+Le déficit de 28 800 UN apparaît dans le service des **26–28 décembre**. Le 30 novembre (J333), le témoin fabrique un lot supplémentaire de 28 800 UN, tandis que la variante fournisseur fixe ne le fabrique pas : le registre signale une contrainte sur **693055**, avec une capacité de fabrication non limitante. Le témoin reçoit ce jour-là 50 kg de 693055, puis consomme 11,6928 kg pour ce lot ; la variante n'a pas cette réception au même jour. Ce rapprochement établit la chaîne locale matière–fabrication–service. Il ne permet pas d'attribuer directement ce manque aux 35 jours de 002612 : les trajectoires et les autres aléas peuvent diverger après modification des décisions. Le [diagnostic daté](../../artifacts/testing/mrp_delivery_rules_20260930/validation/service_268091_timing.json) conserve les lignes CSV et les huit contrôles correspondants.
+
+Les **26 cas de tests ciblés** et les **trois qualifications CSV** passent. L'[oracle indépendant](../../artifacts/testing/mrp_delivery_rules_20260930/validation/runs_check.json) réalise **770 459 contrôles** : dates de livraison/disponibilité, identité des lots, carnet initial conservé, demande PF identique sur cinq ans, quantités UN entières et conservation des couvertures entre témoin et variante fournisseur seule. Il recalcule directement depuis les Excel et CSV les douze erreurs de stock du tableau, puis les rapproche du contenu de la carte. Ces contrôles valident les conventions programmées, pas l'identification complète du MRP industriel.
+
+Le [parcours navigateur natif](../../artifacts/testing/mrp_delivery_rules_20260930/browser/native/browser-f4bbbd1d9df64c21b9d96336de1d5377/manifest.json) et le [regroupement des preuves natives](../../artifacts/testing/mrp_delivery_rules_20260930/validation/native/gate-82be5a235d8d4798853c7c766642d5f4/manifest.json) passent. La revue supplémentaire reste **partielle** : le parcours étendu rencontre des délais d'attente sur certains clics. Le parcours court avec clics souris visibles valide les courbes stocks/flux des deux articles et l'export de 002612, mais son sélecteur de scénarios devient ambigu pour 001848, car l'attribut `data-run` existe aussi sur des lignes de commandes. Cela limite la preuve du script ; ce n'est pas une erreur démontrée des valeurs affichées. La [preuve détaillée](../../artifacts/testing/mrp_delivery_rules_20260930/browser/review-4bb9a32d42a74c2aaf4aec2033c7b535/manifest.json) conserve cette limite, sans transformer un contrôle échoué en réussite.
+
+La [capture 002612 examinée](../../artifacts/testing/mrp_delivery_rules_20260930/browser/review-4bb9a32d42a74c2aaf4aec2033c7b535/002612_stock_reference_delais_fixes.png) montre les courbes et légendes lisibles, les points sources distincts et les périmètres explicites. La carte reconstruit néanmoins de grandes tables, même repliées, à chaque changement de vue : c'est une limite de performance à traiter séparément. Le [manifeste de livraison](../../artifacts/testing/mrp_delivery_rules_20260930/manifest.json) distingue qualification du moteur, contrôle des résultats et couverture partielle de l'interface.
+
+Les commandes exactes, le graphe commun et leurs empreintes sont dans le [plan de reproduction](../../artifacts/testing/mrp_delivery_rules_20260930/study/plan.json). La [recette](../../artifacts/testing/mrp_delivery_rules_20260930/study.py) applique `prepare`, puis `run --variant reference`, `run --variant fia_fixe`, `run --variant fixe_global` et `render`. Elle refuse les destinations existantes : pour une nouvelle reproduction, adapter son dossier d'étude et son nom de carte. Elle dépend des références antérieures indiquées dans le plan ; aucun résultat antérieur n'a été écrasé. Les [métriques détaillées](../../artifacts/testing/mrp_delivery_rules_20260930/comparison_metrics.json) gardent le périmètre et l'unité de chaque couple article/site.
+
+### Deux hypothèses générales testées et non adoptées
+
+**Plafond de fin de plan.** Ramener la dernière proposition au besoin net restant retrouve les 3 331,16 kg de 001848 au 18 mai dans le plan du 5 janvier. Sur les 52 versions, cependant, il retrouve le solde final nul mais seulement trois dernières réceptions à la bonne semaine et pour la bonne quantité. Pour 001757, il dégrade les 52 soldes finaux auparavant exacts. Le plafond n'est donc pas intégré comme règle universelle. De plus, 206 des 208 plans s'arrêtent avant la borne des 52 semaines : le dernier point exporté ne peut pas être traité sans hypothèse comme la fin des besoins connus.
+
+**Fermeture d'une semaine contenant un jour férié.** Les jours fériés 2025/2026 sont vérifiés dans le [calendrier public métropolitain](https://calendrier.api.gouv.fr/jours-feries/metropole.json), consulté le 30 septembre 2026. La fermeture de toute la semaine reste une hypothèse, distincte de ces dates officielles. Le test anticipe les besoins sur la semaine ouverte précédente et n'altère pas les engagements du préfixe.
+
+Pour 001757, ce candidat explique les 3 000 kg du 13 avril (`Feuille1!H15`) : avant les semaines de Pâques, du 1er mai et du 8 mai, la couverture passe de sept à dix semaines. L'erreur moyenne H1 baisse de 500 à 71,43 kg ; mais celle de H2 augmente de 500 à 666,67 kg. Le même calendrier dégrade 002612. Les sources contiennent aussi des réceptions positives pendant les semaines supposées fermées : la fermeture hebdomadaire n'est pas une règle commune identifiée.
+
+**Contre-exemple à surveiller dans les courbes :** pour 338929/H2, le candidat calendrier retrouve le solde K sur les lignes comparées, mais place 144 631 UN au 2 novembre, une semaine absente de la source, au lieu du 9 novembre (`H26757`). Un stock projeté exact ne suffit donc pas à valider les dates de réception.
+
+Les quantités et calendriers du nominal restent inchangés à l'issue de ces contre-épreuves. Les vérifications indépendantes figurent dans `validation/analysis_check.json`, `validation/engine_comparison_check.json` et `validation/calendar_check.json` de cette passe ; elles certifient les calculs annoncés, pas l'identification complète de l'ERP.
+
 Analyse du 28 septembre 2026. **Objectif : reproduire le comportement de la supply chain réelle**, en retrouvant les stocks hebdomadaires, les plans et les décisions compatibles avec les données. Les sections 1–14 décrivent l'audit initial ; la section 15 corrige la comparaison ; la section 16 conserve les essais antérieurs non retenus ; les sections 17–18 rapprochent les prévisions et le carnet initial. **La section 19 décrit la séparation livraison/disponibilité et le calcul des achats par échéance.** La variante à zéro jour est abandonnée comme piste de calibration.
 
 Les deux classeurs apportent des paramètres explicites et des résultats de planification. Ils ne contiennent pas le code du MRP industriel. Le rapport distingue donc les règles écrites, les comportements vérifiés dans les chiffres et les règles qui restent à identifier. Il complète les nomenclatures, délais, capacités, commandes ouvertes et confirmations métier déjà disponibles dans les autres sources.

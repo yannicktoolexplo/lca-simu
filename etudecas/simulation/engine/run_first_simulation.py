@@ -17,6 +17,7 @@ import sys
 from bisect import bisect_left, bisect_right
 from collections import defaultdict, deque
 from datetime import date, timedelta
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -2097,6 +2098,10 @@ MRP_NETWORK_PLAN_FIELDS = [
 SUPPLIER_DELIVERY_ORDER_FIELDS = [
     "delivery_reference_days", "delivery_sampled_days", "receipt_source_days", "receipt_calendar",
 ]
+EMPIRICAL_DELIVERY_ORDER_FIELDS = [
+    "empirical_sample_id", "empirical_known_day", "empirical_pool_size", "empirical_delta_days",
+    "empirical_status", "empirical_unclipped_lead_days",
+]
 SOURCING_PLAN_FIELDS = [
     "sourcing_policy_id", "sourcing_primary_available_day", "sourcing_physical_shortage_before_primary_qty",
     "sourcing_backup_proposed_qty", "sourcing_backup_released_qty", "sourcing_primary_released_qty",
@@ -2106,7 +2111,7 @@ SOURCING_ORDER_FIELDS = [
     "sourcing_policy_id", "sourcing_role", "sourcing_reason", "sourcing_purchase_unit_cost",
     "sourcing_price_uom", "sourcing_currency", "sourcing_primary_available_day",
     "sourcing_requirement_due_day", "sourcing_backup_required_qty", "sourcing_proposal_id",
-    "sourcing_purchase_cost", "sourcing_transport_cost",
+    "sourcing_purchase_cost", "sourcing_transport_cost", "mrp_share_basis",
 ]
 PROCUREMENT_BATCH_ORDER_FIELDS = [
     "procurement_batch_policy_id", "procurement_batch_group_id", "procurement_batch_first_need_day",
@@ -2208,6 +2213,27 @@ def resolve_sourcing_policies(payload, *, execution_mode, lanes_by_dest_item, it
             raise ValueError("Confirmed principal must be the cheapest comparable purchase offer")
         policies[pair] = dict(row, _lanes_by_supplier=lanes, _offers_by_supplier=offers)
     return policies
+
+
+def sourcing_allocation_audit_fields(row: dict[str, Any], *, explicit_policy: bool) -> dict[str, Any]:
+    """Do not display inactive legacy quotas as explicit sourcing decisions.
+
+    Export fields only: the lane weights and physical planning inputs are not
+    modified. Empty means not applicable, never an allocation of zero percent.
+    """
+    if not explicit_policy:
+        return {}
+    fields = {
+        "mrp_share": "",
+        "mrp_share_basis": (
+            "opening_source_order_no_model_quota"
+            if str(row.get("order_type") or "").startswith("opening_")
+            else "explicit_primary_backup_no_fixed_quota"
+        ),
+    }
+    if "mrp_rank" in row:
+        fields["mrp_rank"] = ""
+    return fields
 
 
 STOCK_PROTECTION_FIELDS = ["dated_protection_target_qty", "dated_protection_max_shortfall_qty",
@@ -2899,12 +2925,76 @@ class OpeningPurchaseAvailability:
         row["released"] = True
 
 
+def parse_supplier_receipt_nonworking_dates(values: Any) -> frozenset[date]:
+    """Compile explicit, absolute dates once; never infer or repeat a closure."""
+    if not isinstance(values, list):
+        raise ValueError("Receipt nonworking_dates must be a list of ISO YYYY-MM-DD strings")
+    dates = set()
+    for value in values:
+        if not isinstance(value, str):
+            raise ValueError("Receipt nonworking dates require ISO YYYY-MM-DD strings")
+        try:
+            parsed = date.fromisoformat(value)
+        except ValueError as exc:
+            raise ValueError("Invalid receipt nonworking date") from exc
+        if parsed.isoformat() != value or parsed in dates:
+            raise ValueError("Receipt nonworking dates must be canonical and unique")
+        dates.add(parsed)
+    return frozenset(dates)
+
+
+def resolve_supplier_receipt_nonworking_dates(
+    payload: Any, *, execution_mode: str, eligible_pairs: set[tuple[str, str]],
+) -> dict[tuple[str, str], frozenset[date]]:
+    """Optional receipt-only calendars, separate from serializable source policies."""
+    fields = {"nonworking_dates", "calendar_id", "calendar_status", "calendar_source"}
+    rows = payload.get("rows", ()) if isinstance(payload, dict) else ()
+    if not isinstance(rows, (list, tuple)):
+        return {}
+    resolved, calendars_by_id = {}, {}
+    for row in rows:
+        if not isinstance(row, dict) or not fields.intersection(row):
+            continue
+        pair = (row.get("node_id"), row.get("item_id"))
+        if (execution_mode != "dated" or type(payload.get("schema_version")) is not int
+                or payload.get("schema_version") != 1 or payload.get("calendar") != "monday_friday"
+                or pair not in eligible_pairs or pair in resolved
+                or not fields.issubset(row)
+                or any(not isinstance(row.get(key), str) or not row[key].strip()
+                       for key in ("calendar_id", "calendar_status", "calendar_source"))):
+            raise ValueError("Explicit receipt calendars require a unique dated external pair and complete provenance")
+        dates = parse_supplier_receipt_nonworking_dates(row["nonworking_dates"])
+        previous = calendars_by_id.get(row["calendar_id"])
+        if previous is not None and previous != dates:
+            raise ValueError("One receipt calendar_id cannot designate different nonworking dates")
+        calendars_by_id[row["calendar_id"]] = dates
+        resolved[pair] = dates
+    return resolved
+
+
+@lru_cache(maxsize=128)
+def _check_supplier_receipt_nonworking_dates(values: frozenset[date]) -> None:
+    # Pure callers receive the same strict type check, but repeated offer-date
+    # evaluations do not revalidate every date in an already compiled calendar.
+    if any(type(value) is not date for value in values):
+        raise ValueError("Receipt nonworking dates must be compiled date objects")
+
+
 def supplier_receipt_available_day(physical_day: int, receipt_days: int, *, origin_date: str,
-                                   calendar: str = "monday_friday") -> int:
-    """Candidate receipt calendar; no holiday or closure is silently inferred."""
+                                   calendar: str = "monday_friday",
+                                   nonworking_dates: frozenset[date] = frozenset()) -> int:
+    """Exclude G, count E eligible dates; E=0 keeps G even on a closed date.
+
+    Without explicit dates this is the historical Monday-Friday calculation.
+    Supplied dates affect receipt processing only and never recur annually.
+    """
     if (type(physical_day) is not int or physical_day < 0 or type(receipt_days) is not int
             or receipt_days < 0 or calendar != "monday_friday"):
         raise ValueError("Supplier receipt requires nonnegative integer days and explicit monday_friday calendar")
+    if type(nonworking_dates) is not frozenset:
+        raise ValueError("Receipt nonworking dates must be a compiled frozenset")
+    if nonworking_dates:
+        _check_supplier_receipt_nonworking_dates(nonworking_dates)
     try:
         origin = date.fromisoformat(origin_date)
     except (TypeError, ValueError) as exc:
@@ -2913,7 +3003,7 @@ def supplier_receipt_available_day(physical_day: int, receipt_days: int, *, orig
     remaining = receipt_days
     while remaining:
         current += timedelta(days=1)
-        if current.weekday() < 5:
+        if current.weekday() < 5 and current not in nonworking_dates:
             remaining -= 1
     return (current - origin).days
 
@@ -3567,6 +3657,18 @@ def parse_args() -> argparse.Namespace:
         action=argparse.BooleanOptionalAction,
         default=True,
         help="Enable stochastic lead times sampled from transport-flow metadata (default: enabled).",
+    )
+    parser.add_argument(
+        "--supplier-delivery-mode",
+        choices=["sampled", "source", "empirical"],
+        default="sampled",
+        help=(
+            "Dated external purchases only: source executes the FIA delivery reference without "
+            "a random draw, then applies the separate receipt delay. Coverage sizing, opening "
+            "commitments and other transport delays are unchanged. Empirical uses the explicitly "
+            "configured historical receipt residuals known at the decision date, with fixed FIA "
+            "fallback before enough evidence is available. Default sampled preserves history."
+        ),
     )
     parser.add_argument(
         "--lead-time-distribution-mode",
@@ -4544,6 +4646,76 @@ def sample_lead_days(
     sampled_days = int(max(1, math.ceil(sampled)))
     delay_limit = int(round(max(1.0, to_float(lane.get("delay_step_limit"), 999.0))))
     return min(sampled_days, delay_limit)
+
+
+def supplier_delivery_lead_days(
+    lane: dict[str, Any], rng: random.Random | None, *, mode: str,
+    stochastic: bool, distribution_mode: str = "erlang",
+) -> int:
+    """Execute one FIA supplier delivery, independently of coverage sizing.
+
+    FIA days retain the current calendar-day assumption. Receipt/availability
+    days are applied separately by the caller. The historical branch delegates
+    unchanged; the source branch never reads or advances a random stream.
+    """
+    if mode == "sampled":
+        return sample_lead_days(lane, rng, stochastic, distribution_mode)
+    if mode != "source":
+        raise ValueError("Supplier delivery mode must be sampled or source")
+    value = lane.get("lead_days_mean")
+    if (lane.get("lead_time_source") != "case_data_fia" or lane.get("lead_time_is_default")
+            or isinstance(value, bool) or not isinstance(value, (int, float))
+            or not math.isfinite(value) or value <= 0 or float(value) != int(value)):
+        raise ValueError("Source supplier delivery requires an explicit positive whole-day FIA reference")
+    return int(value)
+
+
+def resolve_empirical_supplier_delivery_policy(payload, *, origin_date):
+    """Validate estimated receipt residuals; never infer order creation dates."""
+    if (not isinstance(payload, dict) or type(payload.get("schema_version")) is not int
+            or payload["schema_version"] != 1 or payload.get("origin_date") != origin_date
+            or type(payload.get("min_samples")) is not int or payload["min_samples"] < 5
+            or not isinstance(payload.get("observations"), list)):
+        raise ValueError("Empirical deliveries require an explicit dated calibration with at least five samples")
+    identities = set()
+    for row in payload["observations"]:
+        if not isinstance(row, dict) or not isinstance(row.get("id"), str) or not row["id"]:
+            raise ValueError("Empirical observation requires an identity")
+        if row["id"] in identities:
+            raise ValueError("Duplicate empirical observation")
+        identities.add(row["id"])
+        if any(type(row.get(k)) is not int for k in ("known_day", "delta_days", "lower_days", "upper_days")):
+            raise ValueError("Empirical days must be finite integers")
+        if row["known_day"] < 0 or not row["lower_days"] <= row["delta_days"] <= row["upper_days"]:
+            raise ValueError("Invalid empirical observation interval")
+        if "observed_end_day" in row and (type(row["observed_end_day"]) is not int
+                or row["known_day"] < row["observed_end_day"]):
+            raise ValueError("Empirical observation cannot be known before its closing photo")
+    return payload
+
+
+def empirical_supplier_delivery_draw(lane, rng, *, policy, decision_day, stochastic):
+    """FIA plus one estimated residual, sampled only from already known photos.
+
+    The midpoint represents a censored weekly interval, not a measured exact
+    supplier delay. Sparse history uses FIA deterministically, never Erlang.
+    """
+    if type(decision_day) is not int or decision_day < 0:
+        raise ValueError("Empirical delivery decision day must be a nonnegative integer")
+    reference = supplier_delivery_lead_days(lane, None, mode="source", stochastic=False)
+    eligible = [r for r in policy["observations"] if r["known_day"] <= decision_day]
+    evidence = {"empirical_sample_id": "", "empirical_known_day": "",
+                "empirical_pool_size": len(eligible), "empirical_delta_days": 0,
+                "empirical_unclipped_lead_days": reference,
+                "empirical_status": "deterministic" if not stochastic else "fallback_insufficient_history"}
+    if not stochastic or len(eligible) < policy["min_samples"]:
+        return reference, evidence
+    sample = eligible[rng.randrange(len(eligible))]
+    raw_lead = reference + sample["delta_days"]
+    evidence.update(empirical_sample_id=sample["id"], empirical_known_day=sample["known_day"],
+                    empirical_delta_days=sample["delta_days"], empirical_unclipped_lead_days=raw_lead,
+                    empirical_status="sampled_clipped_at_one_day" if raw_lead < 1 else "sampled")
+    return max(1, raw_lead), evidence
 
 
 def compose_controlled_lane_lead_days(
@@ -8360,6 +8532,10 @@ def main() -> None:
     forecast_production_signal = args.production_signal_source == "forecast"
     dated_mrp_execution = args.mrp_execution_mode != "historical"
     dated_component_planning = args.mrp_execution_mode == "dated"
+    if args.supplier_delivery_mode in {"source", "empirical"} and not dated_component_planning:
+        raise ValueError("Source/empirical delivery modes require dated aggregate external purchases")
+    if args.supplier_delivery_mode == "empirical" and warmup_days:
+        raise ValueError("Empirical source dates currently require a zero-warmup calendar")
     configured_mrp_horizon_days = graph_meta.get("mrp_planning_horizon_days")
     if "mrp_planning_horizon_days" in graph_meta:
         if configured_mrp_horizon_days is None:
@@ -10463,6 +10639,11 @@ def main() -> None:
             raise ValueError("Sourcing policy requires an aggregate supplier delivery boundary")
         if set(procurement_batching_policies) - aggregate_delivery_pairs:
             raise ValueError("Procurement batching requires an aggregate supplier delivery boundary")
+        if args.supplier_delivery_mode in {"source", "empirical"}:
+            for pair in sorted(aggregate_delivery_pairs):
+                for lane in lanes_by_dest_item[pair]:
+                    # Reject an absent/default FIA before starting physical execution.
+                    supplier_delivery_lead_days(lane, None, mode="source", stochastic=args.stochastic_lead_times)
         for pair in produced_pairs:
             network_leads[pair] = max(1, int(math.ceil(process_tau_days_by_pair.get(pair, 0.0))))
         for pair, lot_policy in production_lot_policy_by_pair.items():
@@ -10496,6 +10677,13 @@ def main() -> None:
                 planning_commitments_by_pair[(row["node_id"], row["item_id"])]["held:" + row["source_row"]] = (
                     row["release_day"], row["quantity"], "held",
                 )
+    supplier_receipt_nonworking_dates_by_pair = resolve_supplier_receipt_nonworking_dates(
+        graph_meta.get("supplier_delivery_receipt_policy"), execution_mode=args.mrp_execution_mode,
+        eligible_pairs=aggregate_delivery_pairs,
+    )
+    empirical_delivery_policy = (resolve_empirical_supplier_delivery_policy(
+        graph_meta.get("empirical_supplier_delivery_policy"), origin_date=safety_calendar["start_date"])
+        if args.supplier_delivery_mode == "empirical" else None)
     lot_arrivals_pipeline: dict[int, list[dict[str, Any]]] = defaultdict(list)
     lot_departure_pipeline: dict[int, list[dict[str, Any]]] = defaultdict(list)
 
@@ -13607,6 +13795,7 @@ def main() -> None:
                 physical_day = day + max(lead_time_reference_days(lane) for lane in delivery_lanes)
                 network_leads[delivery_pair] = supplier_receipt_available_day(
                     physical_day, receipt_policy["receipt_days"], origin_date=safety_calendar["start_date"],
+                    nonworking_dates=supplier_receipt_nonworking_dates_by_pair.get(delivery_pair, frozenset()),
                 ) - day
             for delivery_pair, internal_policy in internal_component_policies.items():
                 if "receipt_days" in internal_policy:
@@ -13751,6 +13940,7 @@ def main() -> None:
                     delivery_days = lead_time_reference_days(lane)
                     calendar = tuple((release, supplier_receipt_available_day(
                         release + delivery_days, receipt_days, origin_date=safety_calendar["start_date"],
+                        nonworking_dates=supplier_receipt_nonworking_dates_by_pair.get(sourcing_pair, frozenset()),
                     )) for release in range(day, end_release + 1))
                     standard = max(0.0, to_float(lane.get("standard_order_qty"), 0.0))
                     binding = policy_pair_key(*sourcing_pair) not in nonbinding_standard_order_pair_keys
@@ -13804,6 +13994,7 @@ def main() -> None:
                     "dated_horizon_days": horizon, "dated_lead_days": network_leads.get(planned_pair, 1),
                     "dated_lead_basis": ("process_tau_planning_estimate_active_campaign_bounded_by_component_allocations_not_physical_duration" if planned_pair in produced_pairs
                                          else "source_boundary_receipt_convention" if planned_pair in source_boundary_policies
+                                         else "FIA_supplier_delivery_once_then_source_receipt_explicit_nonworking_dates_candidate" if planned_pair in supplier_receipt_nonworking_dates_by_pair
                                          else "FIA_supplier_delivery_once_then_source_receipt_monday_friday_candidate" if planned_pair in aggregate_delivery_pairs
                                          else "internal_reference_delivery_plus_receipt_current_decision_calendar_future_scalar_candidate" if "receipt_days" in internal_component_policies.get(planned_pair, {})
                                           else "lane_delivery_reference_calendar_convention"),
@@ -14764,10 +14955,19 @@ def main() -> None:
                     received = physical_execution_quantity(ordered * rel, uom)
                     if ordered <= LOT_TRACE_EPS or received <= LOT_TRACE_EPS:
                         return 0.0
-                    delivery_lead = sample_lead_days(
-                        lane, paired_lane_rng(measured_day=output_day, lane=lane, source_mode=source_mode),
-                        args.stochastic_lead_times, lead_time_distribution_mode,
-                    )
+                    empirical_evidence = {}
+                    if empirical_delivery_policy is not None:
+                        delivery_lead, empirical_evidence = empirical_supplier_delivery_draw(
+                            lane, paired_lane_rng(measured_day=output_day, lane=lane, source_mode=source_mode),
+                            policy=empirical_delivery_policy, decision_day=day,
+                            stochastic=args.stochastic_lead_times)
+                    else:
+                        delivery_lead = supplier_delivery_lead_days(
+                            lane, (None if args.supplier_delivery_mode == "source" else
+                                   paired_lane_rng(measured_day=output_day, lane=lane, source_mode=source_mode)),
+                            mode=args.supplier_delivery_mode, stochastic=args.stochastic_lead_times,
+                            distribution_mode=lead_time_distribution_mode,
+                        )
                     delivery_lead = compose_controlled_lane_lead_days(
                         transport_lead_days_before_quality=float(delivery_lead) * max(0.05, to_float(risk_mult.get("lead_time"), 1.0))
                         + max(0.0, to_float(risk_mult.get("lead_time_extra_days"), 0.0)),
@@ -14781,6 +14981,7 @@ def main() -> None:
                     receipt_policy = supplier_receipt_policies[pair]
                     available_day = supplier_receipt_available_day(
                         physical_day, receipt_policy["receipt_days"], origin_date=safety_calendar["start_date"],
+                        nonworking_dates=supplier_receipt_nonworking_dates_by_pair.get(pair, frozenset()),
                     )
                     order_id = next_mrp_order_identity(
                         source_mode="external_procurement_supplier_delivery", src_node_id=src_pair[0],
@@ -14818,7 +15019,9 @@ def main() -> None:
                             "planning_status": "supplier_promise_confirmed", "release_status": "order_placed_departure_unknown",
                             "delivery_reference_days": lead_time_reference_days(lane),
                             "delivery_sampled_days": physical_day - day,
-                            "receipt_source_days": receipt_policy["receipt_days"], "receipt_calendar": "monday_friday_candidate",
+                            "receipt_source_days": receipt_policy["receipt_days"],
+                            "receipt_calendar": receipt_policy.get("calendar_id", "monday_friday_candidate"),
+                            **empirical_evidence,
                         })
                         if sourcing_proposal is not None:
                             policy = sourcing_policies[pair]
@@ -17010,6 +17213,7 @@ def main() -> None:
 
     for order_row in mrp_order_rows:
         pair = (str(order_row["node_id"]), str(order_row["item_id"]))
+        order_row.update(sourcing_allocation_audit_fields(order_row, explicit_policy=pair in sourcing_policies))
         order_row["safety_time_source_days"] = pair_mrp_safety_source_days.get(pair, 0.0)
         order_row["safety_time_calendar"] = args.safety_time_calendar
         if order_row.get("order_type") == "external_procurement_supplier_delivery":
@@ -17046,6 +17250,9 @@ def main() -> None:
         stochastic_lead_times=args.stochastic_lead_times,
         lead_time_distribution_mode=lead_time_distribution_mode,
     )
+    for parameter_row in supplier_nominal_parameter_rows:
+        pair = (str(parameter_row["dst_node_id"]), str(parameter_row["item_id"]))
+        parameter_row.update(sourcing_allocation_audit_fields(parameter_row, explicit_policy=pair in sourcing_policies))
     factory_nominal_capacity_rows = build_factory_nominal_capacity_rows(
         nodes=nodes,
         production_constraint_rows=production_constraint_rows,
@@ -17763,8 +17970,22 @@ def main() -> None:
                 "future_production_schedule": "net_forecast_projection_is_not_the_future_SD_launch_schedule_current_campaign_remaining_BOM_counted_once",
                 "daily_csv": "data/mrp_dated_plan_daily.csv", "weekly_csv": "data/mrp_dated_plan_weekly.csv" if args.output_profile == "full" else "",
                 "supplier_boundary": "FIA_order_to_physical_delivery_once_no_departure_or_supplier_stock_claim_receipt_G_to_I_same_lot",
-                "supplier_receipt_calendar": "monday_friday_candidate_without_holidays_not_user_confirmed_receipt_calendar",
+                "supplier_receipt_calendar": ("monday_friday_with_pair_explicit_nonworking_dates_conditional_candidate"
+                                              if supplier_receipt_nonworking_dates_by_pair else
+                                              "monday_friday_candidate_without_holidays_not_user_confirmed_receipt_calendar"),
                 "supplier_receipt_policy": list(supplier_receipt_policies.values()),
+                **({"supplier_receipt_nonworking_dates": {
+                    "scope": "new_aggregate_external_supplier_receipt_processing_G_excluded_I_included_only",
+                    "application": "reference_lead_sourcing_offer_dates_and_executed_new_purchase_availability",
+                    "dates": "absolute_explicit_dates_only_no_annual_repetition_unlisted_dates_keep_monday_friday",
+                    "zero_receipt_days": "I_equals_G_even_on_an_excluded_date",
+                    "preserved": "explicit_opening_G_I_initial_stock_J_safety_FIA_internal_transfers_production_and_source_boundaries",
+                    "industrial_scope": "conditional_source_supported_calendars_not_a_universal_company_closure",
+                    "pairs": [{"node_id": pair[0], "item_id": pair[1],
+                               "calendar_id": supplier_receipt_policies[pair]["calendar_id"],
+                               "nonworking_date_count": len(dates)}
+                              for pair, dates in sorted(supplier_receipt_nonworking_dates_by_pair.items())],
+                }} if supplier_receipt_nonworking_dates_by_pair else {}),
                 "supplier_capacity_and_cost": "existing_declared_lane_capacity_reliability_and_procurement_cost_assumptions_not_industrial_measurements",
                 "inactive_supplier_stock": "historical_initial_supplier_stock_retained_but_not_used_to_net_aggregate_delivery_promises",
                 "annual_portfolio_minimum": "no_extra_orders_outside_dated_requirements_for_component_scope",
@@ -17792,7 +18013,16 @@ def main() -> None:
                 "allocation_priority": "physical_requirements_before_technical_reserve_in_sourced_plan_only",
                 "commitments": "keep_all_firms_net_new_backup_before_new_primary_never_rescue_a_committed_backup_again",
                 "bridge_surplus": "positive_extra_proposed_volume_vs_primary_only_same_requirements_and_firms_not_observed_stock",
-                "calendar": "existing_FIA_delivery_then_pair_specific_E_monday_friday_candidate_actual_delays_still_sampled",
+                "calendar": ("FIA_plus_known_empirical_receipt_residual_then_separate_pair_E_calendar"
+                             if args.supplier_delivery_mode == "empirical" else
+                             (("existing_FIA_delivery_then_pair_specific_E_explicit_nonworking_dates_candidate_actual_delays_still_sampled"
+                              if args.supplier_delivery_mode == "sampled" and args.stochastic_lead_times else
+                              "fixed_FIA_delivery_then_pair_specific_E_explicit_nonworking_dates_candidate")
+                             if set(sourcing_policies) & set(supplier_receipt_nonworking_dates_by_pair) else
+                             "existing_FIA_delivery_then_pair_specific_E_monday_friday_candidate_actual_delays_still_sampled"
+                             if args.supplier_delivery_mode == "sampled" and args.stochastic_lead_times else
+                             "fixed_FIA_delivery_then_pair_specific_E_monday_friday_candidate")),
+                "allocation_export": "mrp_share_and_legacy_rank_empty_not_zero_explicit_roles_no_fixed_quota_opening_orders_keep_source_identity",
                 "execution": "existing_review_capacity_reliability_risk_controls_and_physical_lots_preserved",
                 "industrial_ERP_trigger_confirmed": False,
             }} if sourcing_policies else {}),
@@ -17808,7 +18038,11 @@ def main() -> None:
                 "physical_constraints": "existing_review_capacity_reliability_risk_and_dispatch_constraints_preserved_no_second_stagger",
                 "rounding": "candidate_multiple_applied_in_plan_and_execution_no_purchase_if_available_capacity_is_below_one_multiple",
                 "source_standard": "source_standard_quantity_kept_in_lane_and_order_field_not_a_daily_capacity",
-                "calendar": "existing_nominal_FIA_plus_pair_receipt_lead_for_plan_actual_sampled_FIA_then_E_on_each_order",
+                "calendar": ("existing_FIA_plus_E_plan_empirical_physical_delivery_then_separate_E"
+                             if args.supplier_delivery_mode == "empirical" else
+                             "existing_nominal_FIA_plus_pair_receipt_lead_for_plan_actual_sampled_FIA_then_E_on_each_order"
+                             if args.supplier_delivery_mode == "sampled" and args.stochastic_lead_times else
+                             "existing_nominal_FIA_plus_pair_receipt_lead_for_plan_fixed_FIA_then_E_on_each_order"),
                 "industrial_rule_confirmed": False,
             }} if procurement_batching_policies else {}),
             **({"external_component_demands": {
@@ -17949,6 +18183,29 @@ def main() -> None:
             ),
             "unmodeled_supplier_source_mode": unmodeled_supplier_source_mode,
             "stochastic_lead_times": bool(args.stochastic_lead_times),
+            **({"supplier_delivery_policy": {
+                "mode": "empirical", "scope": "new_dated_aggregate_external_supplier_purchases_only",
+                "calibration": empirical_delivery_policy,
+                "delivery": "FIA_reference_plus_uniform_draw_of_one_known_estimated_receipt_residual_midpoint",
+                "history": "known_day_at_or_before_decision_no_future_photos_no_annual_reset",
+                "fallback": "fixed_FIA_without_random_draw_before_min_samples_or_when_stochastic_disabled",
+                "minimum_lead": "one_day_with_explicit_unclipped_value_no_legacy_Erlang_cap",
+                "receipt": "existing_separate_E_calendar_not_sampled_by_this_law",
+                "preserved": "source_safeties_planning_coverage_opening_commitments_internal_transports_and_controls",
+                "limits": "weekly_interval_estimates_not_identified_order_leads_pooled_transfer_to_other_external_suppliers_is_a_hypothesis",
+            }} if empirical_delivery_policy is not None else {}),
+            **({"supplier_delivery_policy": {
+                "mode": "source", "scope": "new_dated_aggregate_external_supplier_purchases_only",
+                "delivery": "source_FIA_whole_days_calendar_day_assumption_no_random_draw_then_separate_receipt_E",
+                "source_required": "case_data_fia_not_default_positive_integer_days",
+                "coverage": "existing_stochastic_lead_time_coverage_flag_unchanged_by_this_option",
+                "preserved": "opening_G_I_commitments_other_transports_source_boundary_production_and_physical_constraints",
+                "controls": "existing_explicit_delivery_controls_if_present_remain_effective",
+                "legacy_column": "delivery_sampled_days_keeps_name_and_records_executed_configured_delivery_duration_even_without_draw",
+                "calendar_limit": ("FIA_calendar_not_confirmed_receipt_pair_specific_explicit_dates_conditional_candidate"
+                                   if supplier_receipt_nonworking_dates_by_pair else
+                                   "FIA_calendar_not_confirmed_receipt_monday_friday_candidate_no_holidays_assumed"),
+            }} if args.supplier_delivery_mode == "source" else {}),
             "lead_time_distribution_mode": lead_time_distribution_mode,
             "seed": int(args.seed),
             "common_random_numbers": bool(args.common_random_numbers),
@@ -19478,6 +19735,8 @@ def main() -> None:
             ])
         if dated_component_planning:
             mrp_order_fields.extend(SUPPLIER_DELIVERY_ORDER_FIELDS)
+            if empirical_delivery_policy is not None:
+                mrp_order_fields.extend(EMPIRICAL_DELIVERY_ORDER_FIELDS)
         if sourcing_policies:
             mrp_order_fields.extend(SOURCING_ORDER_FIELDS)
         if procurement_batching_policies:
