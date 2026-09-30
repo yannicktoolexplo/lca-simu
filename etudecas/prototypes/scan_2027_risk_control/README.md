@@ -40,12 +40,40 @@ tirages appariés, validation indépendante et méthodes de sélection doivent r
 explicites. La comparaison préliminaire de criticité est conservée, mais ne
 remplace pas la validation de la campagne V8.
 
+La préparation du protocole ne demande plus les anciens essais 021081/773474
+pour rédiger son bilan historique. Pour joindre cette comparaison, fournir
+ensemble `--legacy-combined` et `--legacy-stock` à
+`supplier_service_regime_calibration_protocol`. Sans ces options, leur absence
+est indiquée, sans chiffre déduit. Les données et preuves de la référence de
+calcul restent requises. Le runner de calibration conserve son verrou sur
+l'artefact V2 validé : préparer un autre plan ne suffit pas à autoriser son exécution.
+
 ## Ce qui a quitté le parcours courant
+
+Le lanceur et le finaliseur V2, avec leurs deux fichiers de tests propres, sont
+retirés. Le lancement et la consolidation courants utilisent V4 et les profils
+V5–V8. Deux tests de contrat et de classement ex aequo sont conservés côté V4.
+Le runner V2 reste présent : la prévalidation fine utilise son lecteur et une
+validation historique exige encore son identité exacte. Retirer ce dernier
+fichier demande de traiter ces dépendances, pas de substituer silencieusement V4.
+Les quatre fichiers retirés sont sauvegardés dans la
+[capsule avant retrait](../../config/reproduction_20260920/sources/a99c4246c2be2b0dcc0a690e1cadff454c259e3184f05ee408e832fe1227b9d1.zip).
+Les plans existants gardent leur révision de sources ; ils ne deviennent pas
+automatiquement exécutables avec le nouveau code.
 
 Les anciennes publications intermédiaires, démos de réunion, moniteurs ponctuels,
 relais d'une exécution passée et replays présélectionnés top 4/toutes les liaisons
 ont quitté le code actif avec leurs tests propres. Leur sélection historique
 exacte ne devient pas celle du parcours actuel.
+
+Les cinq campagnes ponctuelles `supplier_021081_*` et
+`supplier_orderbook_only_lane_campaign.py`, ainsi que leurs deux tests exclusifs,
+sont également retirées. Le moteur conserve les commandes ouvertes, les incidents
+fournisseurs et les variations explicites de stock et de BOM. Le calendrier FIFO
+estimé de l'ancien essai 021081 reste une hypothèse historique, sans équivalent
+natif identique. Une sensibilité BOM demande encore de préparer des graphes distincts.
+Ces sept fichiers sont conservés dans la
+[capsule de référence avant cette passe](../../config/reproduction_20260920/sources/f2a5da74a73edb13a9cb9f44f0c7f4e24cdbd52d196e87d483d911160a1f1ec7.zip).
 
 Leurs sources sont conservées à l'identique dans la
 [capsule antérieure](../../config/reproduction_20260920/sources/347f4a298c6e11027db7a40513f44abebc8060daec05bb19e75ea2b11e5e4c78.zip).

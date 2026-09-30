@@ -9,15 +9,12 @@ import argparse
 from importlib import import_module
 import json
 from pathlib import Path
-from etudecas.simulation.experiments.sensitivity.designs import build_scenario_designs, write_scenario_design_csv
-from etudecas.simulation.experiments.sensitivity.discovery import consolidate_case_csvs, discover_case_csvs
+from etudecas.simulation.experiments.sensitivity.designs import StudySpec, example_study_dict, build_scenario_designs, write_scenario_design_csv
 from etudecas.simulation.experiments.sensitivity.materialize import materialize_cases
-from etudecas.simulation.experiments.sensitivity.results import ingest_case_csvs, registry_rows, summarize_metrics, write_csv, write_json
-from etudecas.simulation.experiments.sensitivity.schema import StudySpec, example_study_dict
-from etudecas.simulation.experiments.targeted_replay.discovery import discover_replay_catalog
-from etudecas.simulation.experiments.targeted_replay.ranking import rank_scenarios
+from etudecas.simulation.experiments.sensitivity.results import consolidate_case_csvs, discover_case_csvs, ingest_case_csvs, registry_rows, summarize_metrics, write_csv, write_json
+from etudecas.simulation.experiments.targeted_replay.sources import discover_replay_catalog
+from etudecas.simulation.experiments.targeted_replay.ranking import DEFAULT_KPI_SPECS, KpiSpec, rank_scenarios
 from etudecas.simulation.experiments.targeted_replay.runner import TargetedReplayRunner
-from etudecas.simulation.experiments.targeted_replay.schema import DEFAULT_KPI_SPECS, KpiSpec
 import concurrent.futures
 import csv
 import sys
@@ -468,6 +465,9 @@ def temporal_main(argv: list[str] | None = None) -> None:
 
 def main(argv: list[str] | None = None) -> int | None:
     arguments = list(sys.argv[1:] if argv is None else argv)
+    if arguments and arguments[0] == 'shared-components':
+        from etudecas.simulation.experiments.shared_components import main as shared_main
+        return shared_main(arguments[1:])
     modes = {
         "sensitivity": sensitivity_main,
         "targeted": targeted_main,
@@ -483,7 +483,7 @@ def main(argv: list[str] | None = None) -> int | None:
         "supplier-campaign": "supplier_operating_point_full_campaign_v8",
     }
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=(*modes, *research_modes))
+    parser.add_argument("mode", choices=(*modes, *research_modes, 'shared-components'))
     # Each existing parser owns its arguments, defaults and refusal behavior.
     if not arguments or arguments[0] not in (*modes, *research_modes):
         parser.parse_args(arguments)

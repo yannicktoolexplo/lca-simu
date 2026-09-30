@@ -269,9 +269,12 @@ def count_csv_rows(csv_path: Path) -> int:
 # Labels
 
 EVENT_TYPE_LABELS = {
+    "stock_availability_hold": "Stock présent, disponibilité différée",
+    "stock_availability_release": "Stock rendu disponible (sans réception)",
     "create": "Création du lot",
     "opening_stock": "Stock initial",
     "opening_production_order": "Ordre de production en cours à J0",
+    "opening_purchase_order_receipt": "Réception physique d’un achat du carnet initial",
     "opening_production_consume": "Composant déjà engagé avant J0",
     "stock_reconciliation": "Régularisation du stock lotifié",
     "production_output": "Production terminée",

@@ -9,6 +9,18 @@ Ce dossier contient les donnees actives du cas.
 - `profile_source_files.py` : controle leger des sources canoniques et generation
   de `reports/source_data_profile.json` / `.md`.
 
+L'[analyse des deux classeurs Flow](reports/mrp_source_rules.md) recense les
+sécurités, lots et délais, vérifie les projections MRP sur 52 semaines et les
+rapproche des stocks hebdomadaires. L'objectif confirmé est de reproduire le
+comportement réel de la supply chain. Pour 268967 (Permixon), la couverture
+visée est d'un an sur l'ensemble Gaillac → Gien → dépôt, en équivalent produit
+fini. Les quantités « Stock_physique » du MRP positionnées dans le futur sont
+du stock déjà présent, disponible plus tard (qualité, etc.), selon confirmation
+utilisateur ; elles ne sont pas de nouvelles réceptions. Ces confirmations
+complètent les règles sources. Les contradictions entre anciens et nouveaux
+paramètres restent à dater avant application ; aucune baisse de sécurité ni
+nouvelle simulation à zéro jour n'est autorisée par cette analyse.
+
 Les fichiers CSV `CA_Perdu_Réel.csv`, `Dispo_PF_Projeté.csv`,
 `Stock_Composants_Immobilisé_*.csv` et `Stock_PF_Immobilisé.csv` sont traites
 comme references metier de validation. Ils servent a comparer la simulation aux

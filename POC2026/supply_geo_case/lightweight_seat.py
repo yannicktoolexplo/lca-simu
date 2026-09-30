@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import math
+import csv
+import hashlib
+import io
 import subprocess
 import sys
 import tempfile
@@ -41,6 +44,62 @@ LOCALIZATION_SCENARIO_IDS = (
 )
 
 
+def _finite_number(value: Any) -> float | None:
+    try:
+        number = float(value)
+    except (TypeError, ValueError, OverflowError):
+        return None
+    return number if math.isfinite(number) else None
+
+
+def _result_provenance(row: dict[str, Any]) -> dict[str, Any]:
+    factor = _finite_number(row.get("fuel_factor_raw_per_kg"))
+    cached = row.get("cached_result_status", "not_cached")
+    return {
+        "fuel_factor_status": "unavailable" if factor is None else (
+            "historical_unvalidated" if cached == "historical_unvalidated" else "available"
+        ),
+        "cached_result_status": cached,
+        "cache_source_path": row.get("cache_source_path"),
+        "cache_content_sha256": row.get("cache_content_sha256"),
+        "runtime_warning": row.get("runtime_warning", ""),
+    }
+
+
+def _read_cached_rows(path: Path) -> list[dict[str, Any]]:
+    """Read legacy evidence without asserting equivalence to current inputs."""
+    if not path.exists():
+        return []
+    try:
+        content = path.read_bytes()
+        rows = list(csv.DictReader(io.StringIO(content.decode("utf-8-sig"))))
+    except (UnicodeError, csv.Error):
+        return []
+    digest = hashlib.sha256(content).hexdigest()
+    return [dict(
+        row,
+        cached_result_status="historical_unvalidated",
+        fuel_factor_status="historical_unvalidated" if _finite_number(row.get("fuel_factor_raw_per_kg")) is not None else "unavailable",
+        cache_source_path=str(path),
+        cache_content_sha256=digest,
+        runtime_warning="Historical cache; current parameters and runner have not been revalidated.",
+    ) for row in rows]
+
+
+def _transport_factors_match(
+    rows: list[dict[str, Any]], scenarios: list[dict[str, Any]],
+) -> bool:
+    factors = {str(row.get("scenario_id")): _finite_number(row.get("transport_amount_factor"))
+               for row in scenarios}
+    for row in rows:
+        expected = factors.get(str(row.get("sourcing_scenario_id")))
+        actual = _finite_number(row.get("transport_amount_factor"))
+        # The persisted CSV rounds to six decimals; do not use relative tolerance.
+        if expected is None or actual is None or not math.isclose(actual, expected, rel_tol=0, abs_tol=5.00001e-7):
+            return False
+    return bool(rows)
+
+
 def is_exact_brightway_rows(rows: list[dict[str, Any]]) -> bool:
     """Return whether rows are a complete, usable Brightway result set."""
     if len(rows) != len(INDICATOR_METHODS):
@@ -48,6 +107,11 @@ def is_exact_brightway_rows(rows: list[dict[str, Any]]) -> bool:
     if {str(row.get("indicator_id") or "") for row in rows} != set(INDICATOR_METHODS):
         return False
     if not all(str(row.get("calculation_status") or "").startswith("brightway_exact") for row in rows):
+        return False
+    if any(_finite_number(row.get("fuel_factor_raw_per_kg")) is None for row in rows):
+        return False
+    if any(_finite_number(row.get(key)) is None for row in rows
+           for key in ('baseline_production_raw', 'lightweight_production_raw')):
         return False
     climate = next((row for row in rows if row.get("indicator_id") == "Climate Change - total"), {})
     return float(climate.get("fuel_factor_raw_per_kg") or 0.0) > 0.0
@@ -59,9 +123,7 @@ def is_exact_localization_rows(rows: list[dict[str, Any]]) -> bool:
         return False
     for scenario_id in LOCALIZATION_SCENARIO_IDS:
         scenario_rows = [row for row in rows if row.get("sourcing_scenario_id") == scenario_id]
-        if {str(row.get("indicator_id") or "") for row in scenario_rows} != set(INDICATOR_METHODS):
-            return False
-        if not all(str(row.get("calculation_status") or "").startswith("brightway_exact") for row in scenario_rows):
+        if not is_exact_brightway_rows(scenario_rows):
             return False
     climate = next(
         (
@@ -336,7 +398,10 @@ def _fallback_exact_rows(
             "raw_unit": "",
             "baseline_production_raw": values[0],
             "lightweight_production_raw": values[1],
-            "fuel_factor_raw_per_kg": 0.0,
+            "fuel_factor_raw_per_kg": None,
+            "fuel_factor_status": "unavailable",
+            "cached_result_status": "unavailable",
+            "runtime_warning": "No usable exact cache or runtime result; use impacts are unavailable.",
             "calculation_status": "screening_detailed_workbook_scaled",
         }
         for label, values in grouped.items()
@@ -350,17 +415,10 @@ def run_exact_brightway(
     runner_path: Path,
 ) -> list[dict[str, Any]]:
     persisted_path = runner_path.parents[1] / "outputs" / "data" / "lightweight_seat_exact_lcia.csv"
-    if persisted_path.exists() and persisted_path.stat().st_mtime >= max(
-        config_path.stat().st_mtime,
-        runner_path.stat().st_mtime,
-    ):
-        import csv
-
-        with persisted_path.open("r", encoding="utf-8", newline="") as stream:
-            persisted_rows = list(csv.DictReader(stream))
-        if is_exact_brightway_rows(persisted_rows):
-            return persisted_rows
-    if not runtime.get("can_execute_brightway") or not runner_path.exists():
+    persisted_rows = _read_cached_rows(persisted_path)
+    if is_exact_brightway_rows(persisted_rows):
+        return persisted_rows
+    if runtime.get("cached_only") or not runtime.get("can_execute_brightway") or not runner_path.exists():
         return []
     external = runtime.get("external_python") if isinstance(runtime.get("external_python"), dict) else {}
     current = runtime.get("current_python") if isinstance(runtime.get("current_python"), dict) else {}
@@ -406,17 +464,10 @@ def run_exact_localization_scenarios(
     if runner_path is None:
         return []
     persisted_path = runner_path.parents[1] / "outputs" / "data" / "lightweight_seat_localization_exact_lcia.csv"
-    if persisted_path.exists() and persisted_path.stat().st_mtime >= max(
-        config_path.stat().st_mtime,
-        runner_path.stat().st_mtime,
-    ):
-        import csv
-
-        with persisted_path.open("r", encoding="utf-8", newline="") as stream:
-            persisted_rows = list(csv.DictReader(stream))
-        if is_exact_localization_rows(persisted_rows):
-            return persisted_rows
-    if not runtime.get("can_execute_brightway") or not runner_path.exists():
+    persisted_rows = _read_cached_rows(persisted_path)
+    if is_exact_localization_rows(persisted_rows):
+        return persisted_rows
+    if runtime.get("cached_only") or not runtime.get("can_execute_brightway") or not runner_path.exists():
         return []
     python = _runtime_python(runtime)
     if not python:
@@ -442,9 +493,7 @@ def is_exact_named_supplier_rows(rows: list[dict[str, Any]], scenario_ids: list[
         return False
     for scenario_id in scenario_ids:
         scenario_rows = [row for row in rows if row.get("sourcing_scenario_id") == scenario_id]
-        if {str(row.get("indicator_id") or "") for row in scenario_rows} != set(INDICATOR_METHODS):
-            return False
-        if not all(str(row.get("calculation_status") or "").startswith("brightway_exact") for row in scenario_rows):
+        if not is_exact_brightway_rows(scenario_rows):
             return False
     return True
 
@@ -460,25 +509,10 @@ def run_exact_named_supplier_scenarios(
         return []
     scenario_ids = [str(row.get("scenario_id") or "") for row in supplier_scenarios if row.get("scenario_id")]
     persisted_path = runner_path.parents[1] / "outputs" / "data" / "lightweight_seat_named_supplier_exact_lcia.csv"
-    if persisted_path.exists() and persisted_path.stat().st_mtime >= max(
-        config_path.stat().st_mtime,
-        runner_path.stat().st_mtime,
-    ):
-        import csv
-
-        with persisted_path.open("r", encoding="utf-8", newline="") as stream:
-            persisted_rows = list(csv.DictReader(stream))
-        factors = {
-            str(row.get("scenario_id")): round(float(row.get("transport_amount_factor") or 1.0), 9)
-            for row in supplier_scenarios
-        }
-        cache_factors = {
-            str(row.get("sourcing_scenario_id")): round(float(row.get("transport_amount_factor") or 1.0), 9)
-            for row in persisted_rows
-        }
-        if is_exact_named_supplier_rows(persisted_rows, scenario_ids) and all(cache_factors.get(key) == value for key, value in factors.items()):
-            return persisted_rows
-    if not runtime.get("can_execute_brightway") or not runner_path.exists():
+    persisted_rows = _read_cached_rows(persisted_path)
+    if is_exact_named_supplier_rows(persisted_rows, scenario_ids) and _transport_factors_match(persisted_rows, supplier_scenarios):
+        return persisted_rows
+    if runtime.get("cached_only") or not runtime.get("can_execute_brightway") or not runner_path.exists():
         return []
     python = _runtime_python(runtime)
     if not python:
@@ -535,6 +569,8 @@ def build_localization_results(
     ordered_scenario_ids = list(scenario_ids or LOCALIZATION_SCENARIO_IDS)
     for sourcing_id in ordered_scenario_ids:
         source_rows = [row for row in exact_rows if row.get("sourcing_scenario_id") == sourcing_id]
+        if not is_exact_brightway_rows(source_rows):
+            source_rows = []
         scenario_indicators: list[dict[str, Any]] = []
         for exact in source_rows:
             indicator_id = str(exact.get("indicator_id") or "")
@@ -546,7 +582,9 @@ def build_localization_results(
             baseline_production = float(exact.get("baseline_production_raw") or 0.0)
             scenario_production = float(exact.get("lightweight_production_raw") or 0.0)
             baseline_use = float(meta.get("use_phase_person_equivalent") or 0.0) * norm
-            fuel_factor = float(exact.get("fuel_factor_raw_per_kg") or 0.0)
+            fuel_factor = _finite_number(exact.get("fuel_factor_raw_per_kg"))
+            if fuel_factor is None:
+                continue
             avoided_use = min(baseline_use, avoided_fuel.get("central", 0.0) * fuel_factor)
             scenario_use = baseline_use - avoided_use
             baseline_total = baseline_production + baseline_use
@@ -565,6 +603,7 @@ def build_localization_results(
                 "localized_lightweight_total_central_weighted_point": round(scenario_total / norm * weight, 12) if norm else "",
                 "baseline_total_central_weighted_point": round(baseline_total / norm * weight, 12) if norm else "",
                 "calculation_status": exact.get("calculation_status"),
+                **_result_provenance(exact),
             }
             scenario_indicators.append(row)
             indicator_rows.append(row)
@@ -594,14 +633,18 @@ def build_localization_results(
             "aluminium_replacements": int(float(first.get("aluminium_replacements") or 0)),
             "transport_scaled_exchanges": int(float(first.get("transport_scaled_exchanges") or 0)),
             "production_climate_kgco2e": climate.get("localized_lightweight_production_raw", ""),
-            "cycle_climate_central_kgco2e": climate.get("localized_lightweight_total_central_raw", ""),
-            "weighted_point": round(weighted_scenario, 9),
+            "cycle_climate_central_kgco2e": climate.get("localized_lightweight_total_central_raw"),
+            "weighted_point": round(weighted_scenario, 9) if scenario_indicators else None,
             "weighted_reduction_vs_reference_pct": round(
                 100.0 * (weighted_baseline - weighted_scenario) / weighted_baseline,
                 6,
-            ) if weighted_baseline else "",
+            ) if weighted_baseline else None,
             "indicator_count": len(scenario_indicators),
             "calculation_status": first.get("calculation_status", ""),
+            **_result_provenance(first or {
+                "cached_result_status": "unavailable",
+                "runtime_warning": "No usable exact cache or runtime result; use impacts are unavailable.",
+            }),
         })
 
     reference_scenario_id = "current_export" if "current_export" in ordered_scenario_ids else ordered_scenario_ids[0] if ordered_scenario_ids else ""
@@ -622,7 +665,7 @@ def build_localization_results(
     current_weighted = float(current_summary.get("weighted_point") or 0.0)
     for row in summaries:
         production = float(row.get("production_climate_kgco2e") or 0.0)
-        weighted = float(row.get("weighted_point") or 0.0)
+        weighted = _finite_number(row.get("weighted_point"))
         row["production_climate_delta_vs_lightweight_current_pct"] = round(
             100.0 * (production - current_climate) / abs(current_climate),
             6,
@@ -630,7 +673,7 @@ def build_localization_results(
         row["weighted_delta_vs_lightweight_current_pct"] = round(
             100.0 * (weighted - current_weighted) / abs(current_weighted),
             6,
-        ) if current_weighted else ""
+        ) if current_weighted and weighted is not None else None
     return indicator_rows, summaries
 
 
@@ -654,8 +697,11 @@ def build_lightweight_scenario(
     mass_rows = build_mass_budget_rows(family_masses, config)
     exact_rows = run_exact_brightway(runtime=runtime, config_path=config_path, runner_path=runner_path)
     runtime_error = next((row for row in exact_rows if row.get("indicator_id") == "runtime_error"), None)
-    if not exact_rows or runtime_error:
+    if not is_exact_brightway_rows(exact_rows) or runtime_error:
         exact_rows = _fallback_exact_rows(impact_rows, mass_rows, config)
+        if runtime_error:
+            for row in exact_rows:
+                row["runtime_warning"] += " " + str(runtime_error.get("error") or "")
     metadata = _indicator_metadata(
         indicator_unit_views,
         reference_person_equivalent_results,
@@ -732,7 +778,7 @@ def build_lightweight_scenario(
     current_lightweight_weighted = float(current_lightweight_summary.get("weighted_point") or 0.0)
     for row in supplier_summaries:
         production = float(row.get("production_climate_kgco2e") or 0.0)
-        weighted = float(row.get("weighted_point") or 0.0)
+        weighted = _finite_number(row.get("weighted_point"))
         row["production_climate_delta_vs_lightweight_current_pct"] = round(
             100.0 * (production - current_lightweight_climate) / abs(current_lightweight_climate),
             6,
@@ -740,7 +786,7 @@ def build_lightweight_scenario(
         row["weighted_delta_vs_lightweight_current_pct"] = round(
             100.0 * (weighted - current_lightweight_weighted) / abs(current_lightweight_weighted),
             6,
-        ) if current_lightweight_weighted else ""
+        ) if current_lightweight_weighted and weighted is not None else None
 
     indicator_rows: list[dict[str, Any]] = []
     for exact in exact_rows:
@@ -753,7 +799,7 @@ def build_lightweight_scenario(
         baseline_production = float(exact.get("baseline_production_raw") or 0.0)
         scenario_production = float(exact.get("lightweight_production_raw") or 0.0)
         baseline_use = float(meta.get("use_phase_person_equivalent") or 0.0) * norm
-        fuel_factor = float(exact.get("fuel_factor_raw_per_kg") or 0.0)
+        fuel_factor = _finite_number(exact.get("fuel_factor_raw_per_kg"))
         row: dict[str, Any] = {
             "scenario_id": config.get("scenario_id"),
             "indicator_id": indicator_id,
@@ -767,12 +813,24 @@ def build_lightweight_scenario(
                 6,
             ) if baseline_production else "",
             "baseline_use_raw": round(baseline_use, 12),
-            "fuel_factor_raw_per_kg": round(fuel_factor, 12),
+            "fuel_factor_raw_per_kg": round(fuel_factor, 12) if fuel_factor is not None else None,
             "normalization_factor_per_person_year": round(norm, 12),
             "ef30_weight_fraction": round(weight, 9),
             "calculation_status": exact.get("calculation_status"),
+            **_result_provenance(exact),
         }
         for bound in ("low", "central", "high"):
+            if fuel_factor is None:
+                combined_baseline = baseline_production + baseline_use
+                row[f"avoided_fuel_{bound}_kg"] = round(avoided_fuel.get(bound, 0.0), 6)
+                row[f"baseline_total_{bound}_raw"] = round(combined_baseline, 12)
+                row[f"baseline_total_{bound}_person_equivalent"] = round(combined_baseline / norm, 12) if norm else ""
+                row[f"baseline_total_{bound}_weighted_point"] = round(combined_baseline / norm * weight, 12) if norm else ""
+                for field in ("avoided_use", "lightweight_use", "lightweight_total", "total_delta"):
+                    row[f"{field}_{bound}_raw"] = None
+                row[f"lightweight_total_{bound}_person_equivalent"] = None
+                row[f"lightweight_total_{bound}_weighted_point"] = None
+                continue
             avoided_use = min(baseline_use, avoided_fuel.get(bound, 0.0) * fuel_factor)
             scenario_use = baseline_use - avoided_use
             combined_baseline = baseline_production + baseline_use
@@ -790,7 +848,11 @@ def build_lightweight_scenario(
         indicator_rows.append(row)
 
     weighted_baseline = sum(float(row.get("baseline_total_central_weighted_point") or 0.0) for row in indicator_rows)
-    weighted_scenario = sum(float(row.get("lightweight_total_central_weighted_point") or 0.0) for row in indicator_rows)
+    weighted_scenario = (
+        sum(float(row.get("lightweight_total_central_weighted_point") or 0.0) for row in indicator_rows)
+        if indicator_rows and all(row.get("fuel_factor_status") != "unavailable" for row in indicator_rows)
+        else None
+    )
     climate = next((row for row in indicator_rows if row.get("indicator_id") == "Climate Change - total"), {})
     mass_baseline_computed = sum(float(row.get("baseline_mass_kg") or 0.0) for row in mass_rows)
     mass_target_computed = sum(float(row.get("target_mass_kg") or 0.0) for row in mass_rows)
@@ -824,6 +886,10 @@ def build_lightweight_scenario(
         "named_supplier_candidate_audit": supplier_payload.get("candidate_audit", []),
         "named_supplier_loads": supplier_payload.get("supplier_loads", []),
         "summary": {
+            **_result_provenance(exact_rows[0] if exact_rows else {
+                "cached_result_status": "unavailable",
+                "runtime_warning": "No usable exact cache or runtime result; use impacts are unavailable.",
+            }),
             "baseline_mass_kg": round(mass_baseline_computed, 6),
             "target_mass_kg": round(mass_target_computed, 6),
             "mass_saved_kg": round(mass_baseline_computed - mass_target_computed, 6),
@@ -835,15 +901,15 @@ def build_lightweight_scenario(
             "baseline_production_kgco2e": climate.get("baseline_production_raw", ""),
             "lightweight_production_kgco2e": climate.get("lightweight_production_raw", ""),
             "baseline_use_kgco2e": climate.get("baseline_use_raw", ""),
-            "lightweight_use_central_kgco2e": climate.get("lightweight_use_central_raw", ""),
-            "avoided_use_low_kgco2e": climate.get("avoided_use_low_raw", ""),
-            "avoided_use_central_kgco2e": climate.get("avoided_use_central_raw", ""),
-            "avoided_use_high_kgco2e": climate.get("avoided_use_high_raw", ""),
+            "lightweight_use_central_kgco2e": climate.get("lightweight_use_central_raw"),
+            "avoided_use_low_kgco2e": climate.get("avoided_use_low_raw"),
+            "avoided_use_central_kgco2e": climate.get("avoided_use_central_raw"),
+            "avoided_use_high_kgco2e": climate.get("avoided_use_high_raw"),
             "baseline_total_central_kgco2e": climate.get("baseline_total_central_raw", ""),
-            "lightweight_total_central_kgco2e": climate.get("lightweight_total_central_raw", ""),
+            "lightweight_total_central_kgco2e": climate.get("lightweight_total_central_raw"),
             "weighted_baseline_point": round(weighted_baseline, 9),
-            "weighted_lightweight_point": round(weighted_scenario, 9),
-            "weighted_reduction_pct": round(100.0 * (weighted_baseline - weighted_scenario) / weighted_baseline, 6) if weighted_baseline else "",
+            "weighted_lightweight_point": round(weighted_scenario, 9) if weighted_scenario is not None else None,
+            "weighted_reduction_pct": round(100.0 * (weighted_baseline - weighted_scenario) / weighted_baseline, 6) if weighted_baseline and weighted_scenario is not None else None,
             "indicator_count": len(indicator_rows),
             "localization_scenario_count": len(localization_summaries),
             "localization_indicator_count": len(localization_indicator_rows),

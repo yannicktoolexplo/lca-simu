@@ -141,6 +141,7 @@ etudecas/simulation/sensibility/_*/
 # Etudecas generated simulation artifacts
 # Local result organization: physical folders; former paths remain compatible.
 etudecas/resultats/*.html
+etudecas/resultats/**/*.html
 etudecas/simulation/result/01_reference_actuelle_2026-09-20/
 etudecas/simulation/result/02_reference_monte_carlo_2026-07-24/
 etudecas/simulation/result/archive/

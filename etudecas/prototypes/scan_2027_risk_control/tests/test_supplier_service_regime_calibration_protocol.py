@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import math
+from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -194,3 +196,41 @@ def test_selection_rejects_incomplete_or_invalid_screening() -> None:
     rows[0]["valid"] = False
     with pytest.raises(ValueError, match="screening row is invalid"):
         protocol.select_target_candidates(rows)
+
+
+def test_historical_comparison_is_optional_and_does_not_read_files() -> None:
+    args = protocol.parse_args([])
+    assert args.legacy_combined is None and args.legacy_stock is None
+    with patch.object(protocol, "read_csv_rows", side_effect=AssertionError("No historical input")):
+        audit = protocol._legacy_audit(None, None)
+    assert audit == {"status": "not_provided", "scope": "optional_historical_comparison"}
+
+
+@pytest.mark.parametrize("combined,stock", [(Path("combined"), None), (None, Path("stock"))])
+def test_partial_historical_comparison_is_rejected_before_any_output(combined, stock) -> None:
+    with patch.object(Path, "mkdir", side_effect=AssertionError("No output allowed")):
+        with pytest.raises(ValueError, match="Provide both"):
+            protocol.prepare(output_dir=Path("unused"), legacy_combined=combined, legacy_stock=stock)
+
+
+def test_explicit_unavailable_historical_input_fails_before_any_output() -> None:
+    with patch.object(protocol, "read_csv_rows", side_effect=FileNotFoundError("Historical CSV unavailable")):
+        with patch.object(Path, "mkdir", side_effect=AssertionError("No output allowed")):
+            with pytest.raises(FileNotFoundError, match="Historical CSV unavailable"):
+                protocol.prepare(output_dir=Path("unused"), legacy_combined=Path("combined"), legacy_stock=Path("stock"))
+
+
+def test_report_without_history_retains_calibration_definition() -> None:
+    report = protocol._business_report(
+        audit=protocol._legacy_audit(None, None),
+        plan={"run_budget": {
+            "new_screening_runs": 36, "maximum_selected_candidates": 20,
+            "maximum_new_runs_through_preliminary": 336,
+            "maximum_incremental_runs_preliminary_to_final": 300,
+        }},
+    )
+    assert "Les anciennes campagnes ne sont pas fournies" in report
+    assert "268091 et 268967" in report
+    assert "720 jours mesurés" in report
+    assert "Aucune simulation nouvelle n'a été lancée" in report
+    assert "cover_300d_proxy" not in report

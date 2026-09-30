@@ -3,6 +3,10 @@
 from __future__ import annotations
 
 import json
+import argparse
+import shutil
+import uuid
+import csv
 import sys
 from pathlib import Path
 
@@ -27,6 +31,7 @@ from POC2026.supply_geo_case.lightweight_seat import (  # noqa: E402
     load_scenario_config,
 )
 from POC2026.supply_geo_case.supplier_alternatives import build_supplier_alternative_scenarios  # noqa: E402
+from POC2026.supply_geo_case.lca_comparison import build_lca_comparison
 
 
 def embedded_json(html: str, variable: str, next_variable: str) -> dict:
@@ -42,7 +47,16 @@ def embedded_json(html: str, variable: str, next_variable: str) -> dict:
     return json.loads(html[start:end])
 
 
+def exact_csv(path):
+    # Keep small normalization factors at source precision, not six decimals.
+    with path.open(encoding='utf-8-sig', newline='') as stream:
+        return list(csv.DictReader(stream))
+
+
 def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--cached-only', action='store_true')
+    args = parser.parse_args()
     output_root = CASE_ROOT / "outputs"
     data = output_root / "data"
     summaries = output_root / "summaries"
@@ -51,8 +65,11 @@ def main() -> int:
     dashboard_path = summaries / "general_kpis.json"
     if not map_path.exists() or not dashboard_path.exists():
         raise RuntimeError("Existing base map and general KPI payload are required")
+    archive = output_root / 'checks' / ('lightweight_refresh_' + uuid.uuid4().hex)
+    archive.mkdir(parents=True)
+    shutil.copy2(summaries / 'lightweight_seat_scenario.json', archive / 'previous_lightweight_seat_scenario.json')
 
-    units = read_csv_rows(data / "brightway_indicator_unit_views.csv")
+    units = exact_csv(data / "brightway_indicator_unit_views.csv")
     for row in units:
         row["include_in_person_equivalent"] = str(row.get("include_in_person_equivalent", "")).lower() == "true"
     lightweight_config = load_scenario_config(LIGHTWEIGHT_SEAT_CONFIG)
@@ -66,12 +83,12 @@ def main() -> int:
     result = build_lightweight_scenario(
         config_path=LIGHTWEIGHT_SEAT_CONFIG,
         masterboard_path=BW_TRISTAN_ROOT / "STELIA Masterboard LCA SEATS 6.0.xlsx",
-        runtime=brightway_runtime_status(),
+        runtime={'cached_only': True, 'can_execute_brightway': False} if args.cached_only else brightway_runtime_status(),
         runner_path=CASE_ROOT / "tools" / "run_lightweight_seat_scenario.py",
         impact_rows=read_csv_rows(data / "brightway_component_impacts.csv"),
         indicator_unit_views=units,
-        reference_person_equivalent_results=read_csv_rows(data / "brightway_reference_person_equivalent_results.csv"),
-        reference_weighting_factors=read_csv_rows(data / "brightway_reference_weighting_factors.csv"),
+        reference_person_equivalent_results=exact_csv(data / "brightway_reference_person_equivalent_results.csv"),
+        reference_weighting_factors=exact_csv(data / "brightway_reference_weighting_factors.csv"),
         localization_runner_path=CASE_ROOT / "tools" / "run_lightweight_localization_scenarios.py",
         regional_scenarios=read_csv_rows(data / "brightway_parametric_regional_scenarios.csv"),
         supplier_alternative_payload=supplier_alternatives,
@@ -82,15 +99,15 @@ def main() -> int:
     write_csv(data / "lightweight_seat_indicator_results.csv", result.get("indicator_results", []))
     write_csv(data / "lightweight_seat_certification_gates.csv", result.get("certification_gates", []))
     exact_rows = result.get("exact_runtime_rows", [])
-    if is_exact_brightway_rows(exact_rows):
+    if is_exact_brightway_rows(exact_rows) and not any(r.get('cached_result_status') == 'historical_unvalidated' for r in exact_rows):
         write_csv(data / "lightweight_seat_exact_lcia.csv", exact_rows)
     localization_exact_rows = result.get("localization_exact_runtime_rows", [])
-    if localization_exact_rows:
+    if localization_exact_rows and not any(r.get('cached_result_status') == 'historical_unvalidated' for r in localization_exact_rows):
         write_csv(data / "lightweight_seat_localization_exact_lcia.csv", localization_exact_rows)
     write_csv(data / "lightweight_seat_localization_indicators.csv", result.get("localization_indicator_results", []))
     write_csv(data / "lightweight_seat_localization_scenarios.csv", result.get("localization_scenarios", []))
     named_exact_rows = result.get("named_supplier_exact_runtime_rows", [])
-    if named_exact_rows:
+    if named_exact_rows and not any(r.get('cached_result_status') == 'historical_unvalidated' for r in named_exact_rows):
         write_csv(data / "lightweight_seat_named_supplier_exact_lcia.csv", named_exact_rows)
     write_csv(data / "lightweight_seat_named_supplier_indicators.csv", result.get("named_supplier_indicator_results", []))
     write_csv(data / "lightweight_seat_named_supplier_scenarios.csv", result.get("named_supplier_scenarios", []))
@@ -102,6 +119,11 @@ def main() -> int:
 
     dashboard = json.loads(dashboard_path.read_text(encoding="utf-8"))
     dashboard.setdefault("brightway_model", {})["lightweight_seat"] = result
+    comparison = build_lca_comparison(dashboard['brightway_model'])
+    dashboard['lca_comparison'] = comparison
+    write_json(summaries / 'lca_comparison.json', comparison)
+    write_csv(data / 'lca_comparison_totals.csv', comparison['totals'])
+    write_csv(data / 'lca_comparison_indicators.csv', comparison['indicators'])
     write_json(dashboard_path, dashboard)
 
     old_html = map_path.read_text(encoding="utf-8")

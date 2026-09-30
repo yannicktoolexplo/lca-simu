@@ -289,6 +289,14 @@ maps retain all selected scenario routes, including unchanged suppliers. The
 shared `Flux > Afficher` checkbox is enabled initially and controls flow
 visibility without leaving the current tab.
 
+The shared search field filters the selected supply paths by material, component,
+supplier name and recorded supplier context, ignoring case and accents. Multiple
+words must all match. Connected sites and lanes on matching paths remain visible.
+Named-supplier scenarios search the suppliers actually assigned to that scenario;
+the source map searches its own supplier records. Search persists across tabs and
+combines with system/component selection. Group relationships are searchable only
+where their names are present in the recorded data; no ownership is inferred.
+
 Monthly detail tables, the dashboard traceability journal and cascade lists and
 timelines display oldest months first. Numeric string months are sorted
 numerically, undated rows appear last and simultaneous rows keep their original
@@ -322,3 +330,37 @@ commissioning, monthly use-phase mechanisms, cumulative calendar emissions and
 full-lifetime impacts attributed to deliveries. The `Validation Excel` tab
 shows the original workbook, detailed workbook and Brightway reconciliation
 without presenting calibrated values as independent validation.
+
+### Comparaison siege allege et ponderation STELIA
+
+L'[audit fournisseurs](SUPPLIER_ROLE_AUDIT.md) distingue les fonctions modelisees,
+les entreprises et les etapes supposees. Les conclusions et alertes de
+localisation figurent dans la fiche du noeud et dans Dashboard KPI. Cet audit
+ne reclassifie pas automatiquement les fournisseurs et ne recalcule pas les
+resultats historiques.
+
+Les onglets Utilisation en vol et Siege allege comparent maintenant la reference
+et la masse reduite. La comparaison temporelle conserve la meme flotte active :
+impact d'utilisation par siege / duree de vie en mois x sieges actifs.
+Elle ne simule pas une nouvelle aerodynamique ni une certification du siege.
+
+Le dashboard et le siege allege affichent le score multicritere selon le classeur
+historique : somme des PE x (16 x poids EF), avec 16 categories completes et sans
+double comptage des sous-categories. Le facteur 16 vient de la ponderation de
+reference uniforme, pas du nombre de sieges dans une cabine. Les valeurs brutes,
+unites et PE restent disponibles par categorie et par phase. La comparaison
+production/livraison + utilisation exclut la fin de vie ; elle ne reproduit donc
+pas le perimetre du total historique Excel. Le delta SDD climat seul ne permet
+pas encore un score multicritere dynamique complet.
+
+`tools/refresh_lightweight_seat_outputs.py --cached-only` reutilise les calculs
+Brightway historiques sans lancer Brightway et sans reecrire les caches exacts.
+Le statut `historical_unvalidated` signifie que leur compatibilite avec les
+parametres actuels reste a revalider. Un facteur absent produit une valeur
+indisponible, pas un gain nul. Les comparaisons sont exportees dans
+`outputs/data/lca_comparison_{totals,indicators}.csv`.
+
+Verification ciblee : `python -B -m pytest POC2026/tests/test_lightweight_seat.py
+POC2026/tests/test_lca_comparison.py -q -p no:cacheprovider`, puis
+`python -B POC2026/supply_geo_case/tools/check_lca_comparison.py` (Chromium local,
+reseau bloque, preuves et captures dans un nouveau dossier outputs/checks).

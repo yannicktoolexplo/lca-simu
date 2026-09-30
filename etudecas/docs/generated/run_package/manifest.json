@@ -155,7 +155,7 @@
       "kind": "contract",
       "path": "etudecas/simulation/run_format/schema.py",
       "symbol": "CANONICAL_DATA_ARTIFACTS",
-      "line": 22,
+      "line": 25,
       "fingerprint": "7a5f62a4e5abc7621116c90b10f3277e043faeb267b08bdc10fe070e4a16aaee",
       "reference_fingerprint": "7a5f62a4e5abc7621116c90b10f3277e043faeb267b08bdc10fe070e4a16aaee",
       "changed": false,

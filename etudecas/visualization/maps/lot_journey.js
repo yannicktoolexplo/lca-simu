@@ -99,12 +99,12 @@ function journeyLotBalance(id, atDay = null) {
   const lot = lotTraceLotInfo(id);
   let events = [...(journeyIndex().events.get(id) || [])];
   if (!events.length) return {status: 'unavailable', reason: 'Aucun événement de stock disponible.'};
-  const entries = new Set(['opening_stock', 'production_output', 'opening_production_order', 'lane_receipt', 'external_procurement_receipt', 'stock_reconciliation', 'estimated_source_receipt', 'estimated_capacity_receipt']);
+  const entries = new Set(['opening_stock', 'production_output', 'opening_production_order', 'opening_purchase_order_receipt', 'lane_receipt', 'external_procurement_receipt', 'stock_reconciliation', 'estimated_source_receipt', 'estimated_capacity_receipt']);
   const totals = {entered: 0, consumed: 0, shipped: 0, served: 0, written_off: 0, pending: 0, remaining: 0};
   const dates = {}, seen = new Set(), reserved = new Map();
   const numeric = value => value !== '' && value != null && Number.isFinite(Number(value));
   const close = (a,b) => Math.abs(a-b) <= 0.00002;
-  let balance = 0, creation = null;
+  let balance = 0, creation = null, held = 0, availabilityEvents = 0, released = 0;
   function add(key, qty, day) {
     totals[key] += qty;
     if (!dates[key]) dates[key] = {first: day, last: day};
@@ -133,7 +133,12 @@ function journeyLotBalance(id, atDay = null) {
         if (type === 'production_consume' || type === 'production_consume_reference_transition') { delta = -qty; add('consumed', qty, day); }
         else if (type === 'demand_service') { delta = -qty; add('served', qty, day); }
         else if (type === 'writeoff' || type === 'stock_writeoff') { delta = -qty; add('written_off', qty, day); }
-        else if (type === 'shipment_reserve') {
+        else if (type === 'stock_availability_hold') {
+          held += qty; availabilityEvents += 1;
+        } else if (type === 'stock_availability_release') {
+          if (qty > held + 0.00002) throw new Error('Libération supérieure au stock détenu non utilisable.');
+          held = Math.max(0, held - qty); released += qty; availabilityEvents += 1;
+        } else if (type === 'shipment_reserve') {
           if (!row.shipment_id) throw new Error('Réservation sans expédition identifiée.');
           delta = -qty; reserved.set(row.shipment_id, (reserved.get(row.shipment_id) || 0) + qty);
         } else if (type === 'lane_ship') {
@@ -147,11 +152,13 @@ function journeyLotBalance(id, atDay = null) {
       }
       balance += delta;
       if (!close(balance, after)) throw new Error('Le solde enregistré ne correspond pas aux mouvements.');
+      if (held > balance + 0.00002) throw new Error('Stock détenu non utilisable supérieur au solde physique.');
     }
     totals.pending = [...reserved.values()].reduce((sum,qty)=>sum+qty,0);
     totals.remaining = Number(events.at(-1).qty_after);
     if (!numeric(lot.qty) || !close(totals.entered, Number(lot.qty))) throw new Error('Quantité initiale différente de la fiche du registre.');
-    return {status:'balanced', totals, dates, entry_type:creation.event_type, last_day:Number(events.at(-1).day), event_count:events.length};
+    return {status:'balanced', totals, dates, entry_type:creation.event_type, last_day:Number(events.at(-1).day), event_count:events.length,
+      availability:availabilityEvents?{held,available:Math.max(0,balance-held),physical_onsite:balance+totals.pending,released,event_count:availabilityEvents}:null};
   } catch (error) { return {status:'invalid', reason:error.message}; }
 }
 
@@ -161,7 +168,7 @@ function journeyLotSummaryHtml(id) {
   const origins = [...new Set(receipts.flatMap(r=>r.origins.map(p=>p.origin_id)))].map(key=>LOT_TRACE.material_traceability.origins[key]);
   const identity = lot.created_event_type==='production_output' ? 'Fabrication simulée identifiée par son lot métier ; matières à consulter en amont'
     : origins.length ? origins.map(o=>`${e(o.batch_number)} (${o.status==='observed'?'documenté':'simulé'})`).join(', ') + ' ; allocations détaillées dans le registre matières' : 'Non documentée';
-  const entryNames = {opening_stock:'Stock initial', production_output:'Quantité produite', opening_production_order:'Production issue du carnet initial', lane_receipt:'Quantité reçue', external_procurement_receipt:'Approvisionnement reçu', stock_reconciliation:'Entrée de régularisation', estimated_source_receipt:'Entrée estimée', estimated_capacity_receipt:'Entrée estimée'};
+  const entryNames = {opening_stock:'Stock initial', production_output:'Quantité produite', opening_production_order:'Production issue du carnet initial', opening_purchase_order_receipt:'Achat initial reçu sur site', lane_receipt:'Quantité reçue', external_procurement_receipt:'Approvisionnement reçu', stock_reconciliation:'Entrée de régularisation', estimated_source_receipt:'Entrée estimée', estimated_capacity_receipt:'Entrée estimée'};
   const labels = {entered:entryNames[result.entry_type], consumed:'Consommée en fabrication', shipped:'Expédiée', served:'Affectée au service client', written_off:'Sortie en perte / rebut', pending:'Réservée, en attente de départ', remaining:'Solde au site'};
   const dates = key => {
     const d=result.dates[key];
@@ -169,7 +176,8 @@ function journeyLotSummaryHtml(id) {
   };
   const figures = result.status === 'balanced' ? `<div class="journeyBalanceGrid">${Object.entries(labels).filter(([key])=>!['written_off','pending'].includes(key) || result.totals[key]>0).map(([key,label])=>
     `<div data-journey-metric="${key}" data-quantity="${result.totals[key]}"><small>${label}</small><strong>${lotTraceQtyText(result.totals[key])} ${e(lot.uom)}</strong><small>${['remaining','pending'].includes(key)?'Au dernier événement : '+journeyDay(result.last_day):dates(key)}</small></div>`).join('')}</div>
-    <p data-journey-balance-status="balanced">Bilan rapproché sur ${result.event_count} événements : entrée = consommation + expédition + service client + pertes + réservation en attente + solde au site.</p>`
+    <p data-journey-balance-status="balanced">Bilan rapproché sur ${result.event_count} événements : entrée = consommation + expédition + service client + pertes + réservation en attente + solde au site.</p>
+    ${result.availability?`<p data-journey-availability data-held="${result.availability.held}" data-available="${result.availability.available}" data-physical="${result.availability.physical_onsite}">Dans le solde au site : ${lotTraceQtyText(result.availability.available)} ${e(lot.uom)} disponibles et ${lotTraceQtyText(result.availability.held)} ${e(lot.uom)} détenues non utilisables. Physique sur site, réservation comprise : ${lotTraceQtyText(result.availability.physical_onsite)} ${e(lot.uom)}. Mise en attente et libération changent la disponibilité, sans entrée ni sortie physique ; le détenu est déjà inclus dans le solde.</p>`:''}`
     : `<p role="status" data-journey-balance-status="${result.status}">Bilan ${result.status==='invalid'?'incohérent — quantités récapitulatives non affichées':'indisponible'} : ${e(result.reason)}</p>`;
   return `<article class="journeyLotSummary" data-journey-summary-lot="${e(id)}"><h3>Fiche du lot · ${e(lot.business_lot_id || id)}</h3>
     <p>${e(lot.node_id)} · ${e(lot.item_id)} · Occurrence ${e(id)}. Origine fabricant : ${identity}.</p>
@@ -622,10 +630,12 @@ function journeyNetworkBalance(root, atDay) {
     return part;
   };
   const put=(map,id,part)=>{if(!map.has(id))map.set(id,zero());const c=map.get(id);c.qty+=part.qty;plus(c,part);};
+  let hasAvailability = false;
   try {
     for (const id of ids) {
       const check=journeyLotBalance(id,atDay);
       if (!['balanced','not_created'].includes(check.status)) throw new Error(id+' : '+check.reason);
+      hasAvailability ||= Boolean(check.availability);
     }
     const rows=(LOT_TRACE.events || []).filter(r=>ids.has(r.lot_id) && (atDay===null || Number(r.day)<=atDay))
       .map((row,order)=>({row,order})).sort((a,b)=>Number(a.row.day)-Number(b.row.day)||a.order-b.order);
@@ -652,6 +662,8 @@ function journeyNetworkBalance(root, atDay) {
           if (linked>qty+eps) throw new Error('Liens entrants supérieurs à la réception.');
         }
         stocks.set(id,c);
+      } else if (type==='stock_availability_hold' || type==='stock_availability_release') {
+        // Usability changes only: stock quantity and its origin bounds stay put.
       } else if (type==='shipment_reserve') {
         if (!ship) throw new Error('Réservation sans expédition.');
         put(reserved,key(id,ship),take(stocks.get(id),qty));
@@ -689,7 +701,7 @@ function journeyNetworkBalance(root, atDay) {
     }
     const exact=Object.values(totals).every(c=>Math.abs(c.lo-c.hi)<eps);
     if(exact && Math.abs(Object.values(totals).reduce((n,c)=>n+c.lo,0)-entered)>eps) throw new Error('Bilan réseau non conservé.');
-    return {status:'balanced',exact,entered,totals,received,locations,lot_ids:[...ids],day:atDay,uom:reference.uom};
+    return {status:'balanced',exact,entered,totals,received,locations,lot_ids:[...ids],day:atDay,uom:reference.uom,has_availability:hasAvailability};
   } catch(error){return {status:'unavailable',reason:error.message};}
 }
 
@@ -700,6 +712,7 @@ function journeyNetworkHtml(id) {
   const text=c=>Math.abs(c.lo-c.hi)<0.00002?lotTraceQtyText(c.lo):lotTraceQtyText(c.lo)+' à '+lotTraceQtyText(c.hi);
   return `<details class="journeyNetwork" open data-journey-network-status="${r.exact?'exact':'bounds'}"><summary>Où est la quantité du point de départ ? · ${journeyExplorer.day===null?'fin de l’historique':'fin de J'+e(journeyExplorer.day)}</summary>
     <p>${e(id)} · ${lotTraceQtyText(r.entered)} ${e(r.uom)} entrées. Suivi de cette quantité par transports, jusqu’à sa consommation, son service ou sa perte. Les PF fabriqués avec une matière utilisent une autre quantité : voir le graphe.</p>
+    ${r.has_availability?'<p>Les stocks par site incluent les quantités détenues non utilisables. Leur mise en attente ou libération reste au même site et ne crée aucun flux physique supplémentaire ; le détail de disponibilité figure dans la fiche du lot.</p>':''}
     <div class="journeyNetworkGrid">${Object.entries(r.totals).filter(([k,c])=>c.hi>0 || ['factory','depot','customer','transit'].includes(k)).map(([k,c])=>`<span data-network-category="${k}" data-low="${c.lo}" data-high="${c.hi}"><small>${labels[k]}</small><strong>${text(c)} ${e(r.uom)}</strong></span>`).join('')}</div>
     <p>Reçu chez les clients (cumul des passages enregistrés, distinct du stock) : <span data-network-received data-low="${r.received.lo}" data-high="${r.received.hi}">${text(r.received)} ${e(r.uom)}</span>.</p>
     ${!r.exact?'<p role="status">Attribution incertaine après mélange : bornes compatibles avec les mouvements. Les intervalles sont liés entre eux et ne doivent pas être additionnés comme des quantités exactes.</p>':''}

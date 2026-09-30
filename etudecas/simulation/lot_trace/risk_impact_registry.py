@@ -56,6 +56,7 @@ CAMPAIGN_SENTINELS = (
 CREATION_EVENT_TYPES = {
     "opening_stock",
     "opening_production_order",
+    "opening_purchase_order_receipt",
     "external_procurement_receipt",
     "estimated_source_receipt",
     "estimated_capacity_receipt",

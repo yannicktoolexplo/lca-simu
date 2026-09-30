@@ -1,0 +1,1091 @@
+"""Build the offline 2025 comparison from source workbooks and ordinary full runs.
+
+No simulation parameter is changed. ``build_comparison_payload`` reads its inputs
+and returns JSON-compatible data; the caller owns publication and provenance.
+Days are offsets from 2025-01-01. Mapping keys are article/division and run label.
+Compact row contracts are published in ``payload['columns']``. Missing series
+remain empty, missing values remain None, and only complete seven-day windows
+are aggregated under explicitly selectable conventions. Source MRP plans retain their original Sunday dates and vintage;
+their H/I/J/K columns are never confused with executed material movements.
+"""
+from __future__ import annotations
+
+from collections import defaultdict
+import csv
+from datetime import date, datetime
+import hashlib
+import json
+import math
+from pathlib import Path
+
+import openpyxl
+
+
+ORIGIN = date(2025, 1, 1)
+DAYS = 365
+ROOT = Path(__file__).resolve().parents[3]
+SITES = {'1430': 'M-1430', '1450': 'SDC-1450', '1810': 'M-1810', '1920': 'DC-1920'}
+SITE_NAMES = {'1430': 'Gien', '1450': 'Gaillac', '1810': 'Avène', '1920': 'Muret'}
+LABELS = {'nominal': 'Nominal conservé',
+          'reference_datee': 'Référence datée · stock global conservé',
+          'usages_complementaires': 'Autres usages estimés · stock global conservé',
+          'reference_appariee': 'Règles sources · référence à aléas appariés',
+          'receptions_datees': 'Réceptions retenues à leur échéance',
+          'receptions_et_fabrication': 'Réceptions datées + sécurité de fabrication',
+          'regles_sources': 'Règles sources · sécurité et lots',
+          'regles_disponibilite': 'Règles sources et disponibilité datée',
+          'retrait_statique_338929': '338929 : retrait du forçage statique',
+          'dynamique_338929': '338929 : mode dynamique explicite'}
+TRACE_FIELDS = ('bb_demand_signal_qty', 'bb_demand_signal_raw_qty',
+                'target_stock_qty', 'safety_floor_qty', 'bn_qty',
+                'recv_prev_future_qty', 'coverage_target_qty')
+OPTIONAL_TRACE_FIELDS = (
+    'recv_prev_within_cover_qty', 'recv_prev_after_cover_qty', 'receipt_cover_end_day',
+    'mrp_receipt_netting_mode', 'mrp_receipt_netting_scope',
+    'decision_receipt_cover_end_day', 'decision_recv_prev_future_qty',
+    'decision_recv_prev_within_cover_qty', 'decision_recv_prev_after_cover_qty',
+    'decision_stock_proj_qty', 'decision_target_with_backlog_qty',
+    'decision_held_release_within_cover_qty', 'decision_bn_qty', 'decision_controlled_bn_qty',
+    'production_mrp_safety_enabled', 'production_target_signal_qty',
+    'production_historical_target_qty', 'production_safety_floor_qty',
+    'production_applied_target_qty', 'production_safety_time_days',
+    'production_safety_stock_qty', 'production_target_multiplier', 'production_stock_position_qty',
+    'mrp_execution_mode', 'recv_prev_undelivered_qty', 'held_pending_availability_qty',
+    'available_release_today_qty',
+    'dated_action_scope', 'dated_requirement_qty', 'dated_campaign_remaining_qty', 'dated_reserve_requirement_qty',
+    'dated_stock_qty', 'dated_firm_held_qty', 'dated_firm_transit_qty', 'dated_firm_production_qty',
+    'dated_proposed_qty', 'dated_release_today_qty', 'dated_released_executed_qty',
+    'dated_late_qty', 'dated_late_qty_days', 'dated_first_shortage_day',
+    'dated_reserve_late_qty', 'dated_requirement_late_qty',
+    'dated_min_projected_qty', 'dated_horizon_days', 'dated_lead_days', 'dated_lead_basis',
+    'external_demand_qty', 'external_consumed_qty', 'external_backlog_qty', 'dated_external_requirement_qty',
+    'sourcing_policy_id', 'sourcing_primary_available_day',
+    'sourcing_physical_shortage_before_primary_qty', 'sourcing_backup_proposed_qty',
+    'sourcing_backup_released_qty', 'sourcing_primary_released_qty',
+    'sourcing_retained_firm_qty', 'sourcing_bridge_surplus_qty',
+    'dated_protection_target_qty', 'dated_protection_max_shortfall_qty',
+    'dated_protection_first_shortfall_day',
+)
+SOURCING_ORDER_FIELDS = (
+    'sourcing_policy_id', 'sourcing_role', 'sourcing_reason', 'sourcing_purchase_unit_cost',
+    'sourcing_price_uom', 'sourcing_currency', 'sourcing_primary_available_day',
+    'sourcing_requirement_due_day', 'sourcing_backup_required_qty', 'sourcing_proposal_id',
+)
+BATCHING_ORDER_FIELDS = (
+    'procurement_batch_policy_id', 'procurement_batch_group_id',
+    'procurement_batch_first_need_day', 'procurement_batch_window_end_day_exclusive',
+    'procurement_batch_net_qty', 'procurement_batch_physical_net_qty',
+    'procurement_batch_reserve_net_qty', 'procurement_batch_proposed_qty',
+    'procurement_batch_rounding_multiple_qty', 'procurement_batch_grouping_days',
+    'procurement_batch_proposal_id',
+)
+EXTERNAL_COMPONENT_FIELDS = (
+    'demand_qty', 'backlog_start_qty', 'required_qty', 'consumed_qty', 'backlog_end_qty',
+    'available_before_qty', 'available_after_qty', 'core_consumed_qty', 'total_component_consumed_qty',
+)
+EXTERNAL_FORECAST_AUDIT_FIELDS = (
+    'forecast_selection_mode', 'forecast_vintage_id', 'forecast_known_day',
+    'forecast_latest_known_vintage_id', 'forecast_latest_known_day', 'forecast_period_start_day',
+    'forecast_source_covered', 'forecast_coverage_reason', 'forecast_source_file', 'forecast_source_cells',
+)
+FLOW_TYPES = {'lane_receipt': 0, 'opening_purchase_order_receipt': 0,
+              'external_procurement_receipt': 0, 'production_consume': 1,
+              'production_consume_reference_transition': 1, 'lane_ship': 2}
+WEEKLY_CONVENTIONS = {
+    'sunday_start': {'label': 'Dimanche repère de début · dimanche–samedi', 'start_offset': 0, 'end_offset': 6},
+    'monday_after': {'label': 'Lundi suivant le repère · lundi–dimanche', 'start_offset': 1, 'end_offset': 7},
+    'sunday_end': {'label': 'Historique : dimanche repère de fin · lundi–dimanche', 'start_offset': -6, 'end_offset': 0},
+}
+COLUMNS = {
+    'observed': ['day', 'total_qty', 'excel_row'],
+    'mrp': ['target_day', 'incoming_H', 'outgoing_I', 'dated_contribution_J',
+            'projected_balance_K', 'excel_row'],
+    'stock': ['day', 'available_qty', 'reserved_not_shipped_qty', 'available_plus_reserved_qty',
+              'held_not_usable_qty', 'physical_total_qty'],
+    'availability_release': ['day', 'released_existing_stock_qty'],
+    'initial_purchase_daily': ['day', 'physically_received_qty', 'became_available_qty'],
+    'external_component_daily': ['day', *EXTERNAL_COMPONENT_FIELDS],
+    'external_component_forecast_audit': ['day', *EXTERNAL_FORECAST_AUDIT_FIELDS],
+    'dated_projection': ['sunday_day', 'firm_available_qty', 'proposed_available_qty',
+                         'requirement_qty', 'reserve_requirement_qty', 'available_balance_excluding_reserve',
+                         'period_start_day', 'period_end_day'],
+    'dated_stock_protection': ['sunday_day', 'maintained_target_qty'],
+    'trace': ['day', 'used_need_per_day', 'raw_need_per_day', 'target_qty',
+              'safety_floor_qty', 'net_need_eod_qty', 'all_future_receipts_qty', 'coverage_target_qty',
+              *OPTIONAL_TRACE_FIELDS],
+    'weekly': ['sunday_day', 'executed_receipts', 'executed_consumption',
+               'executed_shipments', 'produced_available_qty', 'used_need_sum', 'raw_need_sum'],
+    'weekly_alignments': ['source_sunday_day', 'executed_receipts', 'executed_consumption',
+                          'executed_shipments', 'produced_available_qty', 'used_need_sum',
+                          'raw_need_sum', 'period_start_day', 'period_end_day'],
+    'production': ['day', 'produced_available_qty'],
+    'service': ['day', 'forecast_demand_qty', 'executed_served_qty', 'backlog_eod_qty'],
+}
+
+
+def _hash(path: Path) -> str:
+    with path.open('rb') as stream:
+        return hashlib.file_digest(stream, 'sha256').hexdigest()
+
+
+def _day(value) -> int:
+    value = value.date() if isinstance(value, datetime) else value
+    if not isinstance(value, date):
+        value = date.fromisoformat(str(value)[:10])
+    return (value - ORIGIN).days
+
+
+def _unit(value: str) -> tuple[str, float]:
+    return {'G': ('KG', .001), 'KG': ('KG', 1.), 'ZUN': ('UN', 1.),
+            'UN': ('UN', 1.), 'M': ('M', 1.)}[str(value).strip().upper()]
+
+
+def _number(value, factor=1., *, physical_unit=None):
+    if value is None or value == '':
+        return None
+    result = float(value) * factor
+    if not math.isfinite(result):
+        raise ValueError(f'Non-finite quantity: {value}')
+    if physical_unit == 'UN' and abs(result - round(result)) > 1e-6:
+        raise ValueError(f'Fractional physical units: {result}')
+    return result
+
+
+def _trace_values(row, factor):
+    """Keep the seven legacy quantities first; optional dates are never scaled.
+
+    Old runs and days without a decision snapshot retain missing values. A zero
+    is meaningful only when it was actually written by the simulation.
+    """
+    result = [_number(row[field], factor) for field in TRACE_FIELDS]
+    for field in OPTIONAL_TRACE_FIELDS:
+        value = row.get(field)
+        if field in ('mrp_receipt_netting_mode', 'mrp_receipt_netting_scope', 'mrp_execution_mode', 'dated_lead_basis', 'dated_action_scope', 'sourcing_policy_id'):
+            result.append(value or None)
+        else:
+            result.append(_number(value, factor if field.endswith(('_qty', '_qty_days')) else 1.))
+    return result
+
+
+def _metrics(values):
+    if not values:
+        return None
+    count = len(values)
+    observed = sum(o for o, _ in values) / count
+    errors = [s - o for o, s in values]
+    mae = sum(abs(e) for e in errors) / count
+    return {'n': count, 'observed_mean': observed,
+            'predicted_mean': sum(s for _, s in values) / count,
+            'mae': mae, 'bias': sum(errors) / count,
+            'normalized_mae_pct': 100 * mae / observed if observed else None}
+
+
+def _weekly_windows(convention):
+    """Sunday labels with seven daily observations wholly inside the first year."""
+    definition = WEEKLY_CONVENTIONS[convention]
+    first_sunday = (6 - ORIGIN.weekday()) % 7
+    for sunday in range(first_sunday, DAYS, 7):
+        start, end = sunday + definition['start_offset'], sunday + definition['end_offset']
+        if 0 <= start <= end < DAYS:
+            yield sunday, start, end
+
+
+def _projection_rows(opening, buckets, decision, end_day):
+    """Weekly projected balances, including future dates but never reserve consumption."""
+    balance, result = opening, []
+    for start in range(decision, end_day + 1, 7):
+        end = min(start + 6, end_day)
+        totals = [sum(buckets.get(day, (0., 0., 0., 0.))[i]
+                      for day in range(start, end + 1)) for i in range(4)]
+        balance += totals[0] + totals[1] - totals[2]
+        result.append([start, *totals, balance, start, end])
+    return result
+
+
+def _projection_protection_levels(levels, decision, end_day):
+    """Each checkpoint persists until the next one; aggregate by maximum, not sum."""
+    points = iter(sorted(levels.items()))
+    pending = next(points, None)
+    level, result = None, []
+    for start in range(decision, end_day + 1, 7):
+        values = []
+        for day in range(start, min(start + 6, end_day) + 1):
+            while pending is not None and pending[0] <= day:
+                level = pending[1]
+                pending = next(points, None)
+            if level is not None:
+                values.append(level)
+        result.append([start, max(values) if values else None])
+    return result
+
+
+def _weekly_rows(daily_movements, daily_production, daily_trace, has_stock, alignment):
+    """Aggregate a complete event ledger and optional daily series, in memory.
+
+    A missing event means no executed movement only when a stock series exists.
+    Missing production/need observations stay None; partial weeks are excluded.
+    Rows use COLUMNS['weekly_alignments'], including the seven-day bounds.
+    """
+    result = []
+    for sunday, start, end in _weekly_windows(alignment):
+        days = range(start, end + 1)
+        flows = [sum(daily_movements.get(d, (0., 0., 0.))[i] for d in days)
+                 if has_stock else None for i in range(3)]
+        production = (sum(daily_production[d] for d in days)
+                      if all(d in daily_production for d in days) else None)
+        needs = [sum(daily_trace[d][i] for d in days)
+                 if all(d in daily_trace for d in days) else None for i in range(2)]
+        result.append([sunday, *flows, production, *needs, start, end])
+    return result
+
+
+def _entry(pairs, item, division, unit, name=None):
+    item, division = str(item).zfill(6), str(division)
+    key = f'{item}/{division}'
+    standard, _ = _unit(unit)
+    entry = pairs.setdefault(key, {
+        'item': item, 'division': division, 'site': SITES[division],
+        'site_name': name or SITE_NAMES[division], 'unit': standard,
+        'source_unit': str(unit), 'observed': [], 'mrp': {}, 'mrp_meta': {},
+        'simulations': {}, 'rules': {'source': {}, 'model': {}}, 'warnings': [],
+    })
+    if entry['unit'] != standard:
+        raise ValueError(f'Incompatible units for {key}: {unit}')
+    return entry
+
+
+def _read_sources(inventory_path, mrp_path):
+    pairs, rule_rows, lot_rows = {}, [], []
+    book = openpyxl.load_workbook(inventory_path, read_only=True, data_only=True)
+    try:
+        keys = set()
+        for line, row in enumerate(book['Stocks'].iter_rows(min_row=2, values_only=True), 2):
+            item, _, division, name, quantity, _, unit, photo = row
+            entry = _entry(pairs, item, division, unit, name)
+            day = _day(photo)
+            if not 0 <= day < DAYS:
+                raise ValueError(f'Stock photo outside 2025, row {line}')
+            key = (entry['item'], entry['division'], day)
+            if key in keys:
+                raise ValueError(f'Duplicate stock photo {key}')
+            keys.add(key)
+            _, factor = _unit(unit)
+            entry['observed'].append([day, _number(quantity, factor, physical_unit=entry['unit']), line])
+        for line, row in enumerate(book['Politique de stock MRP'].iter_rows(min_row=2, values_only=True), 2):
+            item, _, division, _, safety_days, safety_qty, unit, _ = row
+            entry = _entry(pairs, item, division, unit)
+            _, factor = _unit(unit)
+            rule = {'safety_days': _number(safety_days), 'safety_qty': _number(safety_qty, factor),
+                    'calendar': 'Lundi–vendredi', 'unit': entry['unit'], 'excel_row': line}
+            entry['rules']['source'].update(rule)
+            rule_rows.append({'pair': f'{entry["item"]}/{entry["division"]}', **rule})
+        for line, row in enumerate(book['Taile de Lot'].iter_rows(min_row=2, values_only=True), 2):
+            item, _, division, _, fixed, maximum, minimum, _ = row
+            item, division = str(item).zfill(6), str(division)
+            known_units = {e['unit'] for e in pairs.values() if e['item'] == item}
+            # This sheet has no unit column. Preserve values and state inference.
+            source_units = {e['source_unit'] for e in pairs.values() if e['item'] == item}
+            source_unit = next(iter(source_units)) if len(source_units) == 1 else None
+            unit, factor = _unit(source_unit) if source_unit else (None, 1.)
+            lot_rows.append({'item': item, 'division': division, 'site': SITES[division],
+                'fixed_qty': _number(fixed, factor), 'max_qty': _number(maximum, factor),
+                'min_qty': _number(minimum, factor), 'unit': unit if len(known_units) == 1 else None,
+                'unit_basis': 'Unité inférée des stocks du même article ; absente de la feuille des lots.',
+                'excel_row': line})
+    finally:
+        book.close()
+    trajectories = defaultdict(list)
+    metadata = defaultdict(lambda: {'receipt_days': set(), 'source_rows': 0})
+    mrp_keys = set()
+    book = openpyxl.load_workbook(mrp_path, read_only=True, data_only=True)
+    try:
+        for line, row in enumerate(book['Feuille1'].iter_rows(min_row=2, values_only=True), 2):
+            snapshot, item, _, division, lead, unit, target, incoming, outgoing, physical, end = row
+            entry = _entry(pairs, item, division, unit)
+            key, vintage, day = f'{entry["item"]}/{entry["division"]}', _day(snapshot), _day(target)
+            if not 0 <= vintage < DAYS or day < vintage:
+                raise ValueError(f'Invalid MRP chronology, row {line}')
+            if (key, vintage, day) in mrp_keys:
+                raise ValueError(f'Duplicate MRP row: {key}, {vintage}, {day}')
+            mrp_keys.add((key, vintage, day))
+            _, factor = _unit(unit)
+            values = [_number(v, factor) for v in (incoming, outgoing, physical, end)]
+            if any(v is None for v in values):
+                raise ValueError(f'Missing MRP quantity, row {line}')
+            trajectories[key, vintage].append([day, *values, line])
+            metadata[key, vintage]['receipt_days'].add(_number(lead))
+            metadata[key, vintage]['source_rows'] += 1
+    finally:
+        book.close()
+    residual, displayed = 0., 0
+    for (key, vintage), rows in trajectories.items():
+        rows.sort()
+        previous = 0.
+        for _, incoming, outgoing, contribution, balance, _ in rows:
+            residual = max(residual, abs(balance - (previous + incoming - outgoing + contribution)))
+            previous = balance
+        visible = [r for r in rows if r[0] < DAYS]
+        pairs[key]['mrp'][str(vintage)] = visible
+        pairs[key].setdefault('mrp_full', {})[str(vintage)] = rows
+        displayed += len(visible)
+        meta = metadata[key, vintage]
+        pairs[key]['mrp_meta'][str(vintage)] = {
+            'receipt_days': sorted(meta['receipt_days']), 'source_rows': meta['source_rows'],
+            'displayed_rows': len(visible), 'full_plan_last_day': rows[-1][0],
+            'sum_j_full_plan': sum(r[3] for r in rows), 'initial_j': rows[0][3],
+            'current_week_j': next((r[3] for r in rows if r[0] == vintage), None),
+            'future_dated_j': sum(r[3] for r in rows if r[0] > vintage),
+        }
+    if residual > 1e-6:
+        raise ValueError(f'MRP recurrence failed: {residual}')
+    for entry in pairs.values():
+        entry['observed'].sort()
+        entry['rules']['source']['lot_rules_for_article'] = [r for r in lot_rows if r['item'] == entry['item']]
+        if not entry['observed']:
+            entry['warnings'].append('Aucune photo de stock dans le classeur 2025 pour ce couple.')
+        elif len(entry['observed']) < 53:
+            entry['warnings'].append(f'Seulement {len(entry["observed"])} photos : couverture annuelle partielle.')
+    anomaly = pairs.get('002612/1450')
+    if anomaly and any(d == 5 and q == 1250414 for d, q, _ in anomaly['observed']):
+        anomaly['warnings'].append('Photo du 06/01 : 1 250 414 KG, contre 1 664 KG le 13/01. Valeur suspecte conservée sans correction.')
+    return pairs, {'photos': len(keys), 'observed_pairs': sum(bool(e['observed']) for e in pairs.values()),
+        'source_pairs': len(pairs), 'mrp_rows': len(mrp_keys), 'mrp_rows_displayed_2025': displayed,
+        'mrp_trajectories': len(trajectories), 'mrp_recurrence_max_error': residual,
+        'complete_flow_weeks': 51}, lot_rows
+
+
+def _event_unit_evidence(rows, missing_pairs):
+    """Resolve export units from explicit ledger rows, never from source stocks."""
+    evidence = {}
+    for line, row in enumerate(rows, 2):
+        pair = row['node_id'], row['item_id']
+        if pair not in missing_pairs or not row.get('uom'):
+            continue
+        current = _unit(row['uom'])
+        if pair in evidence and _unit(evidence[pair]['uom']) != current:
+            raise ValueError(f'Conflicting ledger units for dynamic pair: {pair}')
+        evidence.setdefault(pair, {'uom': row['uom'], 'evidence_file': 'production_lot_events.csv',
+                                   'csv_line': line})
+    return evidence
+
+
+def _ledger_quantity_matches(reported, recorded, *, unit, report_factor, event_factor_sum, event_count):
+    """Compare one rounded daily export with a sum of independently rounded events.
+
+    Both engine CSV exports round to six decimals in their own unit. A mass
+    converted from G therefore has a thousandth of the KG rounding allowance.
+    Physical UN are exact integers and receive no mass-rounding allowance.
+    """
+    if unit == 'UN':
+        return reported == recorded
+    rounding = .5e-6 * (report_factor + event_factor_sum)
+    arithmetic = (event_count + 2) * math.ulp(max(abs(reported), abs(recorded), 1.))
+    return abs(reported - recorded) <= rounding + arithmetic
+
+
+def _external_component_rows(rows, source_units):
+    """Read the optional estimated-use ledger without manufacturing missing days."""
+    result = defaultdict(dict)
+    physical = {'consumed_qty', 'available_before_qty', 'available_after_qty',
+                'core_consumed_qty', 'total_component_consumed_qty'}
+    for line, row in enumerate(rows, 2):
+        pair, day = (row['node_id'], row['item_id']), int(row['day'])
+        if pair not in source_units or not 0 <= day < DAYS:
+            continue
+        unit, factor = _unit(row['uom'])
+        if unit != source_units[pair]:
+            raise ValueError(f'External component unit mismatch: {pair}, line {line}')
+        values = {field: _number(row[field], factor, physical_unit=unit if field in physical else None)
+                  for field in EXTERNAL_COMPONENT_FIELDS}
+        if any(value is None or value < -1e-6 for value in values.values()):
+            raise ValueError(f'Invalid external component quantity: {pair}, line {line}')
+        checks = (
+            values['required_qty'] - values['demand_qty'] - values['backlog_start_qty'],
+            values['backlog_end_qty'] - values['required_qty'] + values['consumed_qty'],
+            values['available_after_qty'] - values['available_before_qty'] + values['consumed_qty'],
+            values['total_component_consumed_qty'] - values['core_consumed_qty'] - values['consumed_qty'],
+        )
+        if any(abs(value) > 2e-6 for value in checks):
+            raise ValueError(f'External component balance mismatch: {pair}, line {line}')
+        if day in result[pair]:
+            raise ValueError(f'Duplicate external component day: {pair}, {day}')
+        result[pair][day] = [day, *(values[field] for field in EXTERNAL_COMPONENT_FIELDS)]
+    for pair, days in result.items():
+        for day, row in days.items():
+            if day - 1 in days and abs(row[2] - days[day - 1][5]) > 2e-6:
+                raise ValueError(f'External component backlog discontinuity: {pair}, {day}')
+    return {pair: [row for _, row in sorted(days.items())] for pair, days in result.items()}
+
+
+def _external_component_scope(config, pair):
+    """Preserve pair-specific forecast provenance without adding its vintages."""
+    key = pair[1].removeprefix('item:') + '/' + pair[0].rsplit('-', 1)[-1]
+    scope = {
+        'evidence_file': 'external_component_demand_daily.csv',
+        'method': 'Estimated incremental use outside the modelled products; global stock retained.',
+        'semantics': config.get('semantics'), 'origin': config.get('origin'),
+        'schema_version': config.get('schema_version'),
+        'repeat_period_days': config.get('repeat_period_days'),
+        'estimation_audit': next((row for row in config.get('estimation_audit', [])
+                                  if row.get('pair') == key), None),
+        'sources': [row for row in config.get('rows', [])
+                    if (row.get('node_id'), row.get('item_id')) == pair],
+    }
+    versions = [row for row in config.get('versioned_series', [])
+                if (row.get('node_id'), row.get('item_id')) == pair]
+    if len(versions) > 1:
+        raise ValueError(f'Duplicate versioned component series: {pair}')
+    if versions:
+        scope.update(versioned_series=versions[0],
+                     repeat_period_days=versions[0].get('repeat_period_days'),
+                     forecast_update_mode='rolling_vintages_future_replacement_current_week_frozen')
+    return scope
+
+
+def _external_forecast_audit(rows):
+    """Read optional decision provenance; absence never means observed zero."""
+    result = defaultdict(dict)
+    dates = {'forecast_known_day', 'forecast_latest_known_day', 'forecast_period_start_day'}
+    for row in rows:
+        day = int(row['day'])
+        if not 0 <= day < DAYS or not any(field in row for field in EXTERNAL_FORECAST_AUDIT_FIELDS):
+            continue
+        if not all(field in row for field in EXTERNAL_FORECAST_AUDIT_FIELDS):
+            raise ValueError('Incomplete external forecast audit columns')
+        pair = row['node_id'], row['item_id']
+        if day in result[pair]:
+            raise ValueError(f'Duplicate external forecast audit day: {pair}, {day}')
+        values = []
+        for field in EXTERNAL_FORECAST_AUDIT_FIELDS:
+            raw = row[field]
+            value = None if raw in ('', None) else raw
+            if value is not None and (field in dates or field == 'forecast_source_covered'):
+                value = int(value)
+                if field.endswith('known_day') and value > day:
+                    raise ValueError(f'Forecast not yet known on audit day: {pair}, {day}')
+                if field == 'forecast_source_covered' and value not in (0, 1):
+                    raise ValueError('Invalid external forecast source coverage')
+            values.append(value)
+        result[pair][day] = [day, *values]
+    return {pair: [row for _, row in sorted(days.items())] for pair, days in result.items()}
+
+
+def _sourcing_price(value, price_uom, target_unit):
+    price = _number(value)
+    if price is None:
+        return None
+    if not price_uom:
+        raise ValueError('Sourcing price has no explicit unit')
+    unit, factor = _unit(price_uom)
+    if unit != target_unit or price < 0:
+        raise ValueError('Invalid sourcing price unit or amount')
+    # A price per gram becomes a price per kilogram by division, not multiplication.
+    return price / factor
+
+
+def _sourcing_order(row, target_unit, quantity_factor):
+    if not row.get('sourcing_policy_id'):
+        return {}
+    if any(field not in row for field in SOURCING_ORDER_FIELDS):
+        raise ValueError('Incomplete sourcing order audit')
+    result = {field: row[field] or None for field in SOURCING_ORDER_FIELDS}
+    result['sourcing_purchase_unit_cost'] = _sourcing_price(
+        row['sourcing_purchase_unit_cost'], row['sourcing_price_uom'], target_unit)
+    result['sourcing_price_uom'] = target_unit if row.get('sourcing_price_uom') else None
+    for field in ('sourcing_primary_available_day', 'sourcing_requirement_due_day'):
+        result[field] = _number(row[field])
+    result['sourcing_backup_required_qty'] = _number(row['sourcing_backup_required_qty'], quantity_factor)
+    return result
+
+
+def _sourcing_scope(config, pair, target_unit):
+    rows = [row for row in config.get('rows', [])
+            if (row.get('node_id'), row.get('item_id')) == pair]
+    if len(rows) > 1:
+        raise ValueError(f'Duplicate sourcing policy for {pair}')
+    if not rows:
+        return None
+    rule = rows[0]
+    return {**rule, 'offers': [{**offer,
+        'display_purchase_unit_cost': _sourcing_price(
+            offer.get('purchase_unit_cost'), offer.get('price_uom'), target_unit),
+        'display_price_uom': target_unit} for offer in rule.get('offers', [])]}
+
+
+def _batching_scope(config, pair, target_unit):
+    rows = [row for row in config.get('rows', [])
+            if (row.get('node_id'), row.get('item_id')) == pair]
+    if len(rows) > 1:
+        raise ValueError(f'Duplicate procurement batching policy for {pair}')
+    if not rows:
+        return None
+    rule = rows[0]
+    unit, factor = _unit(rule.get('uom'))
+    if unit != target_unit:
+        raise ValueError(f'Procurement batching unit mismatch: {pair}')
+    return {**rule, 'display_uom': unit,
+            'display_rounding_multiple_qty': _number(
+                rule.get('rounding_multiple_qty'), factor, physical_unit=unit)}
+
+
+def _internal_component_scope(config, pair, target_unit):
+    rules = [row for row in config.get('rows', [])
+             if (row.get('node_id'), row.get('item_id')) == pair]
+    if len(rules) > 1:
+        raise ValueError(f'Duplicate internal component policy for {pair}')
+    if not rules:
+        return None
+    rule = rules[0]
+    result = {**rule, 'display_uom': target_unit}
+    if rule.get('transfer_multiple_qty') is not None:
+        unit, factor = _unit(rule.get('uom'))
+        if unit != target_unit:
+            raise ValueError(f'Internal component policy unit mismatch: {pair}')
+        result['display_transfer_multiple_qty'] = _number(
+            rule['transfer_multiple_qty'], factor, physical_unit=unit)
+    return result
+
+
+def _batching_order(row, quantity_factor):
+    if not row.get('procurement_batch_policy_id'):
+        return {}
+    if any(field not in row for field in BATCHING_ORDER_FIELDS):
+        raise ValueError('Incomplete procurement batching order audit')
+    return {field: (_number(row[field], quantity_factor if field.endswith('_qty') else 1)
+                    if field.endswith(('_qty', '_day', '_days', '_day_exclusive'))
+                    else row[field] or None) for field in BATCHING_ORDER_FIELDS}
+
+
+def _run_payload(label, run, pairs):
+    files = {}
+
+    def recorded(path):
+        files[str(path)] = _hash(path)
+        return path
+
+    def rows(name):
+        with recorded(run / 'data' / name).open(encoding='utf-8-sig', newline='') as stream:
+            yield from csv.DictReader(stream)
+
+    summary = json.loads(recorded(run / 'summaries/first_simulation_summary.json').read_text(encoding='utf-8'))
+    if summary.get('warmup_days') != 0 or int(summary['sim_days']) < DAYS:
+        raise ValueError('2025 comparison requires at least 365 days and no warm-up.')
+    if not summary.get('policy', {}).get('lot_trace_enabled'):
+        raise ValueError('Executed flow comparison requires the lot event ledger.')
+    graph_path = Path(summary['input_file'])
+    if not graph_path.is_absolute():
+        graph_path = ROOT / graph_path
+    if _hash(graph_path) != summary['input_sha256']:
+        raise ValueError(f'Graph changed since simulation: {graph_path}')
+    graph = json.loads(recorded(graph_path).read_text(encoding='utf-8'))
+    if graph.get('meta', {}).get('opening_open_orders', {}).get('snapshot_date') != ORIGIN.isoformat():
+        raise ValueError('Model opening snapshot does not establish 2025-01-01 as day zero.')
+    states = {(n['id'], s['item_id']): s for n in graph['nodes']
+              for s in n.get('inventory', {}).get('states', [])}
+    units = {p: s['uom'] for p, s in states.items()}
+    lookup = {(e['site'], 'item:' + e['item']): key for key, e in pairs.items()}
+    missing_units = set(lookup) - set(units)
+    dynamic_unit_evidence = (_event_unit_evidence(rows('production_lot_events.csv'), missing_units)
+                             if missing_units else {})
+    units.update({pair: evidence['uom'] for pair, evidence in dynamic_unit_evidence.items()})
+    daily, trace, produced = defaultdict(dict), defaultdict(dict), defaultdict(dict)
+    availability = defaultdict(dict)
+    reservations, movements = [], defaultdict(lambda: defaultdict(lambda: [0., 0., 0.]))
+    production_without_process = defaultdict(lambda: defaultdict(float))
+    production_sites, production_item, service_item = defaultdict(set), defaultdict(dict), defaultdict(dict)
+    openings, stock_sources, policy = {}, {}, defaultdict(lambda: defaultdict(set))
+    initial_orders = defaultdict(list)
+    initial_purchase_execution = defaultdict(list)
+    supplier_purchase_execution = defaultdict(list)
+    projected_events = defaultdict(lambda: defaultdict(list))
+    initial_purchase_lots, availability_events = set(), defaultdict(list)
+    initial_purchase_daily = defaultdict(lambda: defaultdict(lambda: [0., 0.]))
+    external_consumption = defaultdict(lambda: defaultdict(float))
+    core_component_consumption = defaultdict(lambda: defaultdict(float))
+    consumption_rounding = defaultdict(lambda: defaultdict(lambda: [0., 0]))
+    external_file = run / 'data/external_component_demand_daily.csv'
+    external_source_rows = list(rows(external_file.name)) if external_file.is_file() else []
+    external_forecast_audit = _external_forecast_audit(external_source_rows)
+    external_daily = (_external_component_rows(external_source_rows,
+                       {pair: pairs[key]['unit'] for pair, key in lookup.items()}) if external_file.is_file() else {})
+    external_factors = {(row['node_id'], row['item_id'], int(row['day'])): _unit(row['uom'])[1]
+                        for row in external_source_rows if 0 <= int(row['day']) < DAYS}
+    external_config = graph.get('meta', {}).get('external_component_demands') or {}
+    sourcing_config = summary.get('policy', {}).get('sourcing_policy') or {}
+    batching_config = summary.get('policy', {}).get('procurement_batching') or {}
+    planning_horizon = summary.get('policy', {}).get('mrp_planning_horizon') or {}
+    internal_policy = summary.get('policy', {}).get('internal_component_policy') or {}
+    if (external_config.get('rows') or external_config.get('versioned_series')) and not external_file.is_file():
+        raise ValueError(f'External component demands require their daily audit: {external_file}')
+    dated_execution = summary.get('policy', {}).get('mrp_execution_mode') in ('availability', 'dated')
+
+    def conversion(pair):
+        if pair not in units:
+            raise ValueError(f'No explicit model unit for exported pair: {pair}')
+        standard, factor = _unit(units[pair])
+        if pair in lookup and pairs[lookup[pair]]['unit'] != standard:
+            raise ValueError(f'Model/source units differ: {pair}')
+        return standard, factor
+
+    for filename in ('production_input_stocks_daily.csv', 'production_output_products_daily.csv',
+                     'production_dc_stocks_daily.csv'):
+        for row in rows(filename):
+            day, pair = int(row['day']), (row['node_id'], row['item_id'])
+            if not 0 <= day < DAYS:
+                continue
+            # Historical replacement references (e.g. EX-344135) can appear in
+            # input stocks without an active graph state. Only source pairs are
+            # compared here; production outputs remain available as BOM context.
+            if filename != 'production_output_products_daily.csv' and pair not in lookup:
+                continue
+            unit, factor = conversion(pair)
+            if filename == 'production_output_products_daily.csv':
+                q = _number(row['produced_qty'], factor, physical_unit=unit)
+                produced[pair][day] = q
+                production_sites[pair[1]].add(pair[0])
+                production_item[pair[1]][day] = production_item[pair[1]].get(day, 0.) + q
+            if pair in lookup:
+                if day in daily[pair]:
+                    raise ValueError(f'Duplicate stock series: {pair}, {day}')
+                daily[pair][day] = _number(row['stock_end_of_day'], factor, physical_unit=unit)
+                stock_sources[pair] = filename + ':stock_end_of_day'
+    for row in rows('mrp_trace_daily.csv'):
+        day, pair = int(row['day']), (row['node_id'], row['item_id'])
+        if pair not in lookup or not 0 <= day < DAYS:
+            continue
+        unit, factor = conversion(pair)
+        if day in trace[pair]:
+            raise ValueError(f'Duplicate MRP trace: {pair}, {day}')
+        trace[pair][day] = _trace_values(row, factor)
+        for field in ('gross_requirement_basis', 'safety_time_source_days', 'review_period_days',
+                      'safety_time_calendar', 'mrp_demand_signal_source'):
+            policy[pair][field].add(row[field])
+        policy[pair]['safety_stock_qty'].add(_number(row['safety_stock_qty'], factor))
+        # This non-process inventory state has no dedicated daily stock export.
+        if pair == ('SDC-1450', 'item:693055'):
+            daily[pair][day] = _number(row['stock_proj_qty'], factor, physical_unit=unit)
+            stock_sources[pair] = 'mrp_trace_daily.csv:stock_proj_qty'
+    for row in rows('initialization_observed_stock.csv'):
+        pair = row['node_id'], row['item_id']
+        if pair in lookup:
+            unit, factor = _unit(row['uom'])
+            if unit != pairs[lookup[pair]]['unit']:
+                raise ValueError(f'Opening stock unit mismatch: {pair}')
+            openings[pair] = _number(row['opening_stock_qty'], factor, physical_unit=unit)
+    initial_pipeline_file = run / 'data/initialization_pipeline.csv'
+    if initial_pipeline_file.is_file():
+        for line, row in enumerate(rows(initial_pipeline_file.name), 2):
+            pair = row['node_id'], row['item_id']
+            if pair not in lookup or pair not in units:
+                continue
+            unit, factor = conversion(pair)
+            initial_orders[pair].append({
+                'qty': _number(row['seeded_pipeline_qty'], factor, physical_unit=unit),
+                'unit': unit, 'category': row['category'],
+                'planning_element': row.get('planning_element'),
+                'physical_delivery_day': _number(row.get('physical_delivery_day')),
+                'usable_day': _number(row.get('usable_day')),
+                'receipt_release_days': _number(row.get('receipt_release_days')),
+                'lane_src': row.get('lane_src'), 'source_file': row.get('source_file'),
+                'evidence_file': initial_pipeline_file.name, 'csv_line': line,
+            })
+    order_file = run / 'data/mrp_orders_daily.csv'
+    if dated_execution and order_file.is_file():
+        for line, row in enumerate(rows(order_file.name), 2):
+            pair = row['node_id'], row['item_id']
+            order_type = row.get('order_type')
+            if pair not in lookup or order_type not in ('opening_purchase_order', 'external_procurement_supplier_delivery'):
+                continue
+            unit, factor = conversion(pair)
+            execution = {
+                'order_id': row.get('mrp_order_id'),
+                'qty': _number(row['planned_receipt_qty'], factor, physical_unit=unit),
+                'unit': unit,
+                **{field: _number(row.get(field)) for field in (
+                    'physical_delivery_day', 'available_day',
+                    'actual_physical_receipt_day', 'actual_available_day')},
+                'status_end_of_run': row.get('order_status_end_of_run'),
+                'source_file': row.get('source_file'), 'source_row': row.get('source_row'),
+                'evidence_file': order_file.name, 'csv_line': line,
+            }
+            if order_type == 'opening_purchase_order':
+                initial_purchase_execution[pair].append(execution)
+            else:
+                release_day = _number(row.get('release_day'))
+                if release_day is not None and 0 <= release_day < DAYS:
+                    execution.update({
+                        'release_day': release_day,
+                        'ordered_qty': _number(row['release_qty'], factor, physical_unit=unit),
+                        'supplier': row.get('src_node_id'), 'release_status': row.get('release_status'),
+                        **{field: _number(row.get(field)) for field in (
+                            'delivery_reference_days', 'delivery_sampled_days', 'receipt_source_days')},
+                        'receipt_calendar': row.get('receipt_calendar'),
+                        **_sourcing_order(row, unit, factor),
+                        **_batching_order(row, factor),
+                    })
+                    supplier_purchase_execution[pair].append(execution)
+    projection_file = run / 'data/mrp_dated_plan_weekly.csv'
+    if projection_file.is_file():
+        for row in rows(projection_file.name):
+            pair = row['node_id'], row['item_id']
+            decision = int(row['decision_day'])
+            if pair not in lookup or not 0 <= decision < DAYS:
+                continue
+            unit, factor = _unit(row['uom'])
+            if unit != pairs[lookup[pair]]['unit']:
+                raise ValueError(f'Projection unit mismatch: {pair}')
+            projected_events[pair][decision].append((row['kind'], int(row['target_day']),
+                                                     _number(row['qty'], factor), row['action_scope']))
+    for row in rows('production_lot_events.csv'):
+        day, pair = int(row['day']), (row['node_id'], row['item_id'])
+        if pair not in lookup or not 0 <= day < DAYS:
+            continue
+        event = row['event_type']
+        core_event = event in ('production_consume', 'production_consume_reference_transition',
+                              'opening_production_consume', 'opening_production_consume_reference_transition')
+        if event not in FLOW_TYPES and not core_event and event not in ('shipment_reserve', 'opening_production_order', 'production_output', 'stock_availability_release', 'external_component_consume'):
+            continue
+        unit, factor = _unit(row['uom'])
+        if unit != pairs[lookup[pair]]['unit']:
+            raise ValueError(f'Event unit mismatch: {pair}')
+        quantity = _number(row['qty'], factor, physical_unit=unit)
+        if core_event:
+            core_component_consumption[pair][day] += quantity
+        if event == 'external_component_consume':
+            external_consumption[pair][day] += quantity
+        if core_event or event == 'external_component_consume':
+            rounding = consumption_rounding[pair][(day, 'core' if core_event else 'external')]
+            rounding[0] += factor
+            rounding[1] += 1
+        if event == 'opening_purchase_order_receipt':
+            initial_purchase_lots.add(row['lot_id'])
+            initial_purchase_daily[pair][day][0] += quantity
+        elif event == 'stock_availability_release':
+            availability_events[pair].append((day, row['lot_id'], quantity))
+        # Opening orders may supply an article with no active process (693055).
+        # For ordinary outputs the production CSV already includes these orders.
+        if event in ('opening_production_order', 'production_output') and pair not in produced:
+            production_without_process[pair][day] += quantity
+        if event in FLOW_TYPES:
+            movements[pair][day][FLOW_TYPES[event]] += quantity
+        if event in ('shipment_reserve', 'lane_ship'):
+            reservations.append((day, row['event_id'], pair, row['lot_id'], row['shipment_id'], event, quantity))
+    for pair, events in availability_events.items():
+        for day, lot, quantity in events:
+            if lot in initial_purchase_lots:
+                initial_purchase_daily[pair][day][1] += quantity
+    for pair, values in production_without_process.items():
+        production_sites[pair[1]].add(pair[0])
+        for day in range(DAYS):
+            quantity = values.get(day, 0.)
+            produced[pair][day] = quantity
+            production_item[pair[1]][day] = production_item[pair[1]].get(day, 0.) + quantity
+    by_shipment, by_pair, reserved = defaultdict(float), defaultdict(float), defaultdict(dict)
+    reservations.sort(key=lambda r: (r[0], r[1]))
+    position = 0
+    for day in range(DAYS):
+        while position < len(reservations) and reservations[position][0] == day:
+            _, _, pair, lot, shipment, event, quantity = reservations[position]
+            key = pair, lot, shipment
+            if event == 'shipment_reserve':
+                by_shipment[key] += quantity
+                by_pair[pair] += quantity
+            elif by_shipment[key] > 1e-6:
+                if quantity > by_shipment[key] + 1e-6:
+                    raise ValueError(f'Shipment exceeds prior reservation: {key}')
+                by_shipment[key] -= quantity
+                by_pair[pair] -= quantity
+            position += 1
+        for pair in lookup:
+            if by_pair[pair] < -1e-6:
+                raise ValueError(f'Negative reservation: {pair}, {day}')
+            reserved[pair][day] = max(0., by_pair[pair])
+    availability_file = run / 'data/production_stock_availability_daily.csv'
+    has_availability = availability_file.is_file()
+    if has_availability:
+        for row in rows(availability_file.name):
+            day, pair = int(row['day']), (row['node_id'], row['item_id'])
+            if pair not in lookup or not 0 <= day < DAYS:
+                continue
+            unit, factor = _unit(row['uom'])
+            if unit != pairs[lookup[pair]]['unit']:
+                raise ValueError(f'Availability unit mismatch: {pair}')
+            if day in availability[pair]:
+                raise ValueError(f'Duplicate availability: {pair}, {day}')
+            values = [_number(row[field], factor, physical_unit=unit) for field in
+                      ('available_qty', 'held_qty', 'reserved_qty', 'physical_qty', 'released_qty')]
+            if any(value is None or value < -1e-6 for value in values):
+                raise ValueError(f'Invalid availability quantity: {pair}, {day}')
+            available, held, reserved_qty, physical, _ = values
+            if abs(physical - available - held - reserved_qty) > 2e-6:
+                raise ValueError(f'Physical stock partition mismatch: {pair}, {day}')
+            if day in daily[pair] and abs(available - daily[pair][day]) > 2e-6:
+                raise ValueError(f'Legacy available stock mismatch: {pair}, {day}')
+            if abs(reserved_qty - reserved[pair].get(day, 0.)) > 2e-6:
+                raise ValueError(f'Ledger reservation mismatch: {pair}, {day}')
+            availability[pair][day] = values
+            daily[pair][day] = available
+            reserved[pair][day] = reserved_qty
+            stock_sources[pair] = availability_file.name + ':available_qty'
+    for row in rows('production_demand_service_daily.csv'):
+        day, pair = int(row['day']), (row['node_id'], row['item_id'])
+        if not 0 <= day < DAYS:
+            continue
+        unit, factor = conversion(pair)
+        target = service_item[pair[1]].setdefault(day, [0., 0., 0.])
+        for index, field in enumerate(('demand_qty', 'served_qty', 'backlog_end_qty')):
+            target[index] += _number(row[field], factor, physical_unit=unit if field == 'served_qty' else None)
+
+    products, downstream = {}, defaultdict(set)
+    for node in graph['nodes']:
+        for process in node.get('processes', []):
+            outputs = {o['item_id'] for o in process.get('outputs', [])}
+            for output in outputs:
+                products[output] = (node['id'], process)
+            for component in process.get('inputs', []):
+                downstream[component['item_id']].update(outputs)
+
+    def contexts(item):
+        distances, todo = {item: 0}, [item]
+        while todo:
+            current = todo.pop()
+            for output in downstream[current]:
+                if output not in distances:
+                    distances[output] = distances[current] + 1
+                    todo.append(output)
+        result = []
+        for target, distance in sorted(distances.items()):
+            if not production_item.get(target) and not service_item.get(target):
+                continue
+            candidate = next((p for p in units if p[1] == target), None)
+            unit, _ = _unit(units[candidate])
+            result.append({'item': target.removeprefix('item:'), 'unit': unit,
+                'sites': sorted(production_sites[target]),
+                'relation': ('article sélectionné' if distance == 0 else
+                             'composant direct de la nomenclature' if distance == 1 else 'aval de la nomenclature'),
+                'production': [[d, q] for d, q in sorted(production_item[target].items())],
+                'service': [[d, *v] for d, v in sorted(service_item[target].items())],
+                'service_scope': 'Tous les clients simulés de cet article, hors site sélectionné.',
+                'relation_scope': 'Lien par article dans la nomenclature du modèle ; ne prouve pas la consommation d’un lot du site sélectionné.',
+                'production_scope': 'Quantité devenue disponible en usine ; ordres initiaux compris. Pas une production industrielle observée.'})
+        return result
+
+    for pair, key in lookup.items():
+        entry, ts, stock = pairs[key], trace[pair], daily[pair]
+        external_rows = external_daily.get(pair, [])
+        external_by_day = {row[0]: row for row in external_rows}
+        if external_rows and set(external_by_day) != set(range(DAYS)):
+            raise ValueError(f'Incomplete external component daily coverage: {label}, {pair}')
+        for day in set(external_by_day) | set(external_consumption[pair]):
+            row = external_by_day.get(day)
+            if row is None:
+                raise ValueError(f'External component CSV/lot-ledger mismatch: {label}, {pair}, {day}')
+            for kind, column, ledger in [('external', 4, external_consumption),
+                                         ('core', 8, core_component_consumption)]:
+                factor_sum, count = consumption_rounding[pair][(day, kind)]
+                ledger_qty = ledger[pair].get(day, 0.)
+                if not _ledger_quantity_matches(row[column], ledger_qty, unit=entry['unit'],
+                        report_factor=external_factors[(*pair, day)],
+                        event_factor_sum=factor_sum, event_count=count):
+                    raise ValueError(f'{kind.title()} component CSV/lot-ledger mismatch: '
+                                     f'{label}, {pair}, {day}, CSV={row[column]}, ledger={ledger_qty}')
+        if stock and set(stock) != set(range(DAYS)):
+            raise ValueError(f'Incomplete daily stock coverage: {label}, {pair}')
+        if ts and set(ts) != set(range(DAYS)):
+            raise ValueError(f'Incomplete daily MRP coverage: {label}, {pair}')
+        av = availability[pair]
+        projections = {}
+        for decision, events in sorted(projected_events[pair].items()):
+            opening = [qty for kind, _, qty, _ in events if kind == 'opening_available']
+            if len(opening) != 1:
+                raise ValueError(f'Projection must have exactly one opening state: {pair}, {decision}')
+            buckets = defaultdict(lambda: [0., 0., 0., 0.])
+            protection_levels = {}
+            for kind, target, qty, _ in events:
+                if kind == 'opening_available':
+                    continue
+                if kind == 'stock_protection':
+                    if qty is None or qty < 0:
+                        raise ValueError(f'Invalid stock protection level: {pair}, {decision}, {target}')
+                    if target in protection_levels and protection_levels[target] != qty:
+                        raise ValueError(f'Conflicting stock protection levels: {pair}, {decision}, {target}')
+                    protection_levels[target] = qty
+                    continue
+                position = {'requirement': 2, 'reserve': 3, 'proposal': 1}.get(kind)
+                if kind.startswith('firm_'):
+                    position = 0
+                if position is None:
+                    raise ValueError(f'Unknown dated projection event: {kind}')
+                target = max(decision, target)
+                buckets[target][position] += qty
+            projected_rows = _projection_rows(opening[0], buckets, decision, DAYS - 1)
+            projections[str(decision)] = {
+                'rows': projected_rows, 'opening_available_qty': opening[0],
+                'source_event_count': len(events), 'last_event_day': max(day for _, day, _, _ in events),
+                'action_scope': sorted({scope for _, _, _, scope in events}),
+                'balance_basis': 'available_projection_excluding_reserve_requirements',
+                'receipt_date_basis': 'availability_I_not_physical_delivery_G',
+            }
+            if protection_levels:
+                projections[str(decision)]['stock_protection_levels'] = _projection_protection_levels(
+                    protection_levels, decision, DAYS - 1)
+                projections[str(decision)]['stock_protection_basis'] = 'checkpoint_level_persists_to_horizon_weekly_maximum_not_sum_or_consumption'
+            if planning_horizon.get('configured_days'):
+                end_day = decision + int(planning_horizon['configured_days'])
+                projections[str(decision)].update(
+                    horizon_end_day=end_day,
+                    horizon_rows=_projection_rows(opening[0], buckets, decision, end_day))
+                if protection_levels:
+                    projections[str(decision)]['horizon_stock_protection_levels'] = _projection_protection_levels(
+                        protection_levels, decision, end_day)
+        if has_availability and stock and set(av) != set(range(DAYS)):
+            raise ValueError(f'Incomplete daily availability coverage: {label}, {pair}')
+        result = {'stock': [[d, q, reserved[pair][d], q + reserved[pair][d],
+                            av[d][1] if d in av else None, av[d][3] if d in av else None]
+                           for d, q in sorted(stock.items())],
+                  'availability_release': [[d, v[4]] for d, v in sorted(av.items())],
+                  'has_availability': bool(av),
+                  'stock_scope': {
+                      'model_scope': ('outside_simulated_stock' if not stock else
+                                      'opening_orders_only' if pair not in states else 'graph_inventory'),
+                      'model_unit_evidence': dynamic_unit_evidence.get(pair),
+                      'unavailable_stock_documented': bool(av),
+                      'represented_physical_basis': ('available_reserved_held' if av else 'available_reserved_only'),
+                      'limit': (('Hors périmètre des stocks simulés : aucune série de stock pour cet article/site. Les éventuels ordres documentés ne reconstituent pas son inventaire industriel. ' if not stock else
+                                 'Périmètre partiel : article/site absent des stocks initiaux du graphe ; seuls les ordres connus et leurs états sont représentés. Le zéro simulé avant réception ne prouve pas un stock industriel nul. Le stock industriel initial reste non renseigné. ' if pair not in states else '') +
+                                ('Le registre documente les états représentés par ce scénario ; il ne prouve pas que toutes les indisponibilités industrielles sont modélisées.' if av else
+                                 'Stock indisponible non représenté séparément dans ce run. Disponible + réservé décrit seulement le physique représenté. Le stock total simulé comparable à l’inventaire industriel n’est pas entièrement reconstitué.')),
+                  },
+                  'trace': [[d, *v] for d, v in sorted(ts.items())], 'weekly': [],
+                  'weekly_alignments': {},
+                  'initial_orders': initial_orders[pair],
+                  'initial_purchase_execution': initial_purchase_execution[pair],
+                  'supplier_purchase_execution': supplier_purchase_execution[pair],
+                  'sourcing_policy': _sourcing_scope(sourcing_config, pair, entry['unit']),
+                  'procurement_batching': _batching_scope(batching_config, pair, entry['unit']),
+                  'internal_component_policy': _internal_component_scope(internal_policy, pair, entry['unit']),
+                  'dated_projections': projections,
+                  'initial_purchase_daily': ([[d, *initial_purchase_daily[pair].get(d, [0., 0.])]
+                                               for d in range(DAYS)] if dated_execution and stock else []),
+                  'external_component_daily': external_rows,
+                  'external_component_forecast_audit': external_forecast_audit.get(pair, []),
+                  'external_component_scope': (_external_component_scope(external_config, pair)
+                                               if external_rows else None),
+                  'initial_orders_documented': initial_pipeline_file.is_file() and pair in units,
+                  'opening': openings.get(pair), 'stock_source': stock_sources.get(pair), 'metrics': {},
+                  'opening_basis': 'Stock initial avant opérations et avant séparation de disponibilité.',
+                  'production_context': contexts(pair[1]),
+                  'production': [[d, q] for d, q in sorted(production_item.get(pair[1], {}).items())],
+                  'production_site': sorted(production_sites[pair[1]]),
+                  'service': [[d, *v] for d, v in sorted(service_item.get(pair[1], {}).items())],
+                  'service_scope': 'Tous les clients simulés de cet article, hors site sélectionné.'}
+        for convention in WEEKLY_CONVENTIONS:
+            result['weekly_alignments'][convention] = _weekly_rows(
+                movements[pair], produced[pair], ts, bool(stock), convention)
+        # Keep the original row contract and calendar for existing consumers.
+        result['weekly'] = [row[:7] for row in result['weekly_alignments']['sunday_end']]
+        for name, offset in (('previous_day', -1), ('same_day', 0)):
+            photos = [(d + offset, q) for d, q, _ in entry['observed'] if d > 0 and d + offset in stock]
+            result['metrics'][name] = _metrics([(q, stock[d]) for d, q in photos])
+            result['metrics'][name + '_onsite'] = _metrics([(q, stock[d] + reserved[pair][d]) for d, q in photos])
+            result['metrics'][name + '_physical'] = _metrics([(q, av[d][3]) for d, q in photos if d in av])
+        rule = {f: sorted(v) for f, v in policy[pair].items()}
+        rule['graph_mrp_policy'] = states.get(pair, {}).get('mrp_policy')
+        if pair[1] in products:
+            factory, process = products[pair[1]]
+            lot = dict(process.get('lot_sizing', {}))
+            if lot.get('uom'):
+                unit, factor = _unit(lot['uom'])
+                lot = {k: _number(v, factor) if k.endswith('_qty') else v for k, v in lot.items()}
+                lot['uom'] = unit
+            rule['production_lot'] = {'site': factory, **lot}
+        entry['rules']['model'][label] = rule
+        entry['simulations'][label] = result
+    manifest = run / 'run_manifest.json'
+    if manifest.is_file():
+        recorded(manifest)
+    return {'label': LABELS.get(label, label), 'path': str(run), 'days': summary['sim_days'],
+            'kind': 'nominal' if label == 'nominal' else 'diagnostic', 'warmup_days': 0,
+            'common_random_numbers': summary.get('policy', {}).get('common_random_numbers'),
+            'mrp_receipt_netting_mode': summary.get('policy', {}).get('mrp_receipt_netting_mode'),
+            'mrp_execution_mode': summary.get('policy', {}).get('mrp_execution_mode'),
+            'opening_purchase_availability': summary.get('policy', {}).get('opening_purchase_availability'),
+            'production_mrp_safety_targets': summary.get('policy', {}).get('production_mrp_safety_targets'),
+            'production_mrp_safety_scope': summary.get('policy', {}).get('production_mrp_safety_scope'),
+            'has_availability': has_availability,
+            'initial_stock_availability': summary.get('initial_stock_availability'),
+            'external_component_demands': ({key: value for key, value in
+                (summary.get('policy', {}).get('external_component_demands') or external_config).items()
+                if key not in ('rows', 'versioned_series')} if external_config else None),
+            'sourcing_policy': {key: value for key, value in sourcing_config.items() if key != 'rows'} or None,
+            'procurement_batching': {key: value for key, value in batching_config.items() if key != 'rows'} or None,
+            'mrp_planning_horizon': planning_horizon or None,
+            'internal_component_policy': {key: value for key, value in internal_policy.items() if key != 'rows'} or None,
+            'opening_production_order_bom_issue_mode': summary.get('policy', {}).get(
+                'initialization_policy', {}).get('opening_production_order_bom_issue_mode'),
+            'origin_basis': 'Date du carnet initial du graphe, sans période de chauffe.',
+            'scenario_id': summary['scenario_id']}, files
+
+
+def build_comparison_payload(inventory_path: Path, mrp_path: Path,
+                             runs: dict[str, Path]) -> dict:
+    """Read full runs and both Excel files; return the self-contained UI payload.
+
+    Each run needs daily stock/production/service/MRP CSVs, initialization stock,
+    the lot event ledger, its summary and the unchanged input graph. At least the
+    ``nominal`` run is mandatory. No historical artifact is used at runtime.
+    """
+    if 'nominal' not in runs:
+        raise ValueError('The unchanged nominal run must be supplied.')
+    inventory_path, mrp_path = Path(inventory_path), Path(mrp_path)
+    source_hashes = {str(p): _hash(p) for p in (inventory_path, mrp_path)}
+    pairs, coverage, lot_rules = _read_sources(inventory_path, mrp_path)
+    run_info, csv_hashes = {}, {}
+    for label, run in runs.items():
+        run_info[label], csv_hashes[label] = _run_payload(label, Path(run), pairs)
+    for path, digest in source_hashes.items():
+        if _hash(Path(path)) != digest:
+            raise ValueError(f'Workbook changed during comparison: {path}')
+    coverage['runs'] = {label: {
+        'simulated_pairs': sum(bool(e['simulations'][label]['stock']) for e in pairs.values()),
+        'missing_stock_pairs': [k for k, e in pairs.items() if not e['simulations'][label]['stock']],
+        'weekly_photos_compared': sum((e['simulations'][label]['metrics']['previous_day'] or {}).get('n', 0)
+                                      for e in pairs.values()),
+    } for label in runs}
+    coverage['weekly_conventions'] = {key: {
+        'complete_weeks': len(windows := list(_weekly_windows(key))),
+        'first_start_day': windows[0][1] if windows else None,
+        'last_end_day': windows[-1][2] if windows else None,
+    } for key in WEEKLY_CONVENTIONS}
+    return {'schema_version': 6, 'origin': ORIGIN.isoformat(), 'end': '2025-12-31',
+        'columns': COLUMNS, 'runs': run_info, 'pairs': dict(sorted(pairs.items())),
+        'weekly_conventions': WEEKLY_CONVENTIONS, 'default_weekly_alignment': 'sunday_start',
+        'coverage': coverage, 'source_lot_rules': lot_rules,
+        'provenance': {'source_workbooks': source_hashes, 'run_inputs': csv_hashes,
+                       'extractor_sha256': _hash(Path(__file__))},
+        'conventions': [
+            'Exécution et photos comparées sur la première année seulement : J0–J364, du 01/01 au 31/12/2025, sans chauffe. Un tableau prévisionnel peut prolonger les plans connus sur 52 semaines, sans créer une exécution en 2026.',
+            'Photo du lundi rapprochée par défaut de la clôture du dimanche précédent ; heure de photo inconnue. Autre alignement disponible.',
+            'Stock total observé, disponible simulé et disponible + réservé non expédié ont des périmètres distincts. Lorsqu’un registre de disponibilité existe, le physique total simulé = disponible + réservé non expédié + détenu non utilisable ; il exclut le transit. Sans ce registre, détenu et physique total restent non renseignés.',
+            'Une libération de stock détenu modifie sa disponibilité, sans réception, production ni nouvel approvisionnement. Les motifs industriels précis, qualité ou autre, ne sont pas tous documentés.',
+            'Réservations reconstituées par shipment_reserve moins lane_ship. Elles ne sont pas une réception future.',
+            'MRP source : 52 versions conservées séparément ; H entrée prévue, I sortie prévue, J stock déjà détenu réparti selon sa date de disponibilité, K solde projeté. J futur est du stock présent qui devient utilisable plus tard, jamais une nouvelle livraison.',
+            'Pour une version MRP, J de la semaine courante + toutes les contributions J futures décrit le stock détenu réparti dans ce plan ; ce total peut différer de la photo du lundi suivant. L’écart inexpliqué ne constitue pas automatiquement du stock en contrôle qualité.',
+            'Récurrence K = K précédent + H − I + J vérifiée sur toutes les lignes sources. Les courbes restent limitées aux cibles 2025 ; les lignes futures du plan source demeurent disponibles dans le tableau prévisionnel étendu.',
+            'Les dates MRP du dimanche restent les repères bruts sources. Trois rattachements sont disponibles : dimanche–samedi à partir du repère, lundi–dimanche suivant, ou lundi–dimanche se terminant au repère (historique). Seules les fenêtres de sept jours entièrement en 2025 sont agrégées ; aucune absence source remplacée par zéro et aucune annualisation.',
+            'Le choix par défaut est dimanche repère de début. Les 14 entrées positives H de 021081 du plan du 5 janvier concordent avec les 23 dates de livraison du carnet dans la semaine suivante. Ce rapprochement ne tranche pas la frontière dimanche/lundi et ne confirme pas la convention des autres articles ou des sorties I.',
+            'Les soldes K et disponibilités J conservent le repère hebdomadaire source : celui-ci ne prouve pas une clôture quotidienne ni une date exacte de libération. Le sélecteur de convention agit sur les agrégations hebdomadaires de flux et de besoins, pas sur les photos ni les clôtures quotidiennes.',
+            'Besoins MRP utilisés/bruts et cibles sont des signaux prévisionnels, distincts des consommations exécutées du registre matière.',
+            'Besoin net MRP relevé en fin de journée après les commandes : sa valeur seule ne reconstitue pas la décision de début de journée. Les disponibilités futures agrégées peuvent comprendre des achats non livrés et des achats déjà sur site, encore indisponibles, lorsque le scénario distingue ces états.',
+            'Le mode daté représente les achats du carnet initial par une réception physique à G, puis une libération à I, sur le même lot. La libération ne crée ni seconde réception ni transport fournisseur documenté. Les dates exécutées sont celles de la simulation ; elles ne prouvent pas une exécution industrielle.',
+            'Dans le mode d’achat agrégé, le délai fournisseur FIA est compté une seule fois entre commande et livraison, puis la réception sépare livraison et disponibilité. Le détail fabrication et transport amont reste inconnu : aucun trajet ni camion fournisseur n’est déduit de ce délai. Le calendrier de réception lundi–vendredi sans fériés est une convention candidate, distincte du calendrier de sécurité confirmé.',
+            'Les règles industrielles ne sont pas entièrement identifiées : l’anticipation des besoins, le regroupement des commandes, le calendrier de réception et l’assiette du stock de sécurité restent à vérifier. Une quantité standard FIA ne constitue pas à elle seule un minimum, un multiple ou une capacité journalière.',
+            'Si les traces le documentent, les réceptions attendues sont séparées selon leur date prévue de disponibilité : dans l’horizon de couverture existant ou après sa borne incluse. Cette distinction concerne le réapprovisionnement par transport ; elle ne constitue pas encore un calcul MRP complet semaine par semaine.',
+            'Les snapshots avant commande sont distincts des positions de fin de journée. Un champ de décision absent signifie absence de relevé à cette date, notamment hors revue ou hors réapprovisionnement par transport ; il ne vaut ni besoin nul ni commande nulle.',
+            'La cible utilisée pour une fabrication est relevée séparément de la cible MRP diagnostique. Elle ne devient visible que si le run exporte ce relevé ; une cible absente ne vaut pas zéro et une cible supérieure ne prouve pas que la quantité a pu être fabriquée.',
+            'Production = quantité devenue disponible, ordres initiaux inclus ; service = clients agrégés par article. Ces contextes sont hors du site sélectionné et gardent leur propre unité.',
+            'Moyennes des écarts calculées seulement aux photos disponibles, hors ouverture du 1er janvier ; absence de simulation affichée comme absence, jamais comme zéro.',
+            'Unités normalisées G → KG et ZUN → UN. Pas de somme entre articles ou unités hétérogènes.',
+            'Règles des nouveaux classeurs affichées pour comparaison, sans les appliquer au nominal. Période de validité à confirmer.',
+            'Variantes séparées du nominal. Même graine ne garantit pas les mêmes aléas après changement des ordres ; essais exploratoires non validés comme remplacement du modèle.',
+        ]}

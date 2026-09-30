@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 import hashlib
 import json
+import unicodedata
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
@@ -225,6 +226,62 @@ def main():
                 page.click('[data-sdd-view="supplier_alternatives"]')
                 assert page.evaluate("() => document.getElementById('chart').data.every(t => !t.lon.length)")
                 report["checks"].append({"view": "empty_cascade_and_alternatives", "nodes": 0})
+
+                select("All", "All")
+                site_context = page.evaluate("() => SDD_MAP_PAYLOAD.sites")
+                context_by_uid = {r['site_uid']: r for r in site_context}
+                def normalized(value):
+                    return ''.join(c for c in unicodedata.normalize('NFD', str(value or '')) if not unicodedata.combining(c)).lower()
+
+                async_search = page.locator('#sddMapSearch')
+                for query in ('ALUMINIUM', 'alcoa', 'zzzz_no_supplier_matches'):
+                    expected_paths = []
+                    for row in paths:
+                        fields = [row.get(k, '') for k in ('system','component','family','t4','t3','t2','t1','oem')]
+                        for role in ('t4','t3','t2','t1','oem'):
+                            site = context_by_uid.get(row[f'{role}_site_uid'], {})
+                            fields.extend(site.get(k, '') for k in ('name','location','context_short_summary'))
+                        if all(term in normalized(' '.join(str(v or '') for v in fields)) for term in normalized(query).split()):
+                            expected_paths.append(row)
+                    expected_sites = {r[f'{role}_site_uid'] for r in expected_paths for role in ('t4','t3','t2','t1','oem')} & known_sites
+                    expected_ids = {r['path_id'] for r in expected_paths}
+                    expected_lanes = {'|'.join(r[k] for k in ('from_site_uid','to_site_uid','edge')) for r in lanes if r['path_id'] in expected_ids}
+                    async_search.fill(query)
+                    page.wait_for_timeout(250)
+                    for view in VIEWS:
+                        page.click(f'[data-sdd-view="{view}"]')
+                        actual = page.evaluate("() => document.getElementById('chart').data.flatMap(t => t.customdata || []).filter(Boolean)")
+                        assert {v[1] for v in actual if v[0] == 'site'} == expected_sites, (query, view)
+                        assert {v[1] for v in actual if v[0] == 'lane'} == expected_lanes, (query, view, 'flows')
+                        assert async_search.input_value() == query
+                        report['checks'].append({'search': query, 'view': view, 'sites': len(expected_sites), 'lanes': len(expected_lanes)})
+
+                for scenario in ('france_named_alternatives', 'europe_named_alternatives'):
+                    page.click('[data-sdd-view="supplier_alternatives"]')
+                    page.select_option('#sddAlternativeScenarioSelect', scenario)
+                    async_search.fill('ALUMINIUM')
+                    page.wait_for_timeout(250)
+                    actual = page.evaluate("() => document.getElementById('chart').data.filter(t => t.mode === 'markers').reduce((n,t) => n+t.lon.length,0)")
+                    assert actual > 0
+                    async_search.fill('zzzz_no_supplier_matches')
+                    page.wait_for_timeout(250)
+                    assert page.evaluate("() => document.getElementById('chart').data.every(t => !t.lon.length)")
+                    report['checks'].append({'search_alternatives': scenario, 'matching_and_empty': 'passed'})
+
+                page.click('[data-sdd-view="source"]')
+                async_search.fill('ALUMINIUM')
+                page.wait_for_timeout(250)
+                assert page.evaluate("() => document.getElementById('chart').data.some(t => t.mode === 'markers' && t.lon.length)")
+                async_search.fill('zzzz_no_supplier_matches')
+                page.wait_for_timeout(250)
+                assert page.evaluate("() => document.getElementById('chart').data.every(t => !t.lon.length)")
+                report['checks'].append({'search_source': 'passed'})
+                async_search.fill('aluminium')
+                page.click('[data-sdd-view="context"]')
+                page.wait_for_timeout(250)
+                page.screenshot(path=str(evidence / 'search_aluminium.png'))
+                async_search.fill('')
+                page.wait_for_timeout(250)
 
                 select(system, component)
                 page.screenshot(path=str(evidence / "filtered_alternatives.png"))

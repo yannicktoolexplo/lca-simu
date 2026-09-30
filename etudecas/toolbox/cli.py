@@ -66,7 +66,8 @@ def code_fingerprint() -> dict[str, str]:
     for directory in (ROOT / "etudecas",):
         for folder, directories, names in os.walk(directory):
             directories[:] = sorted(name for name in directories if name not in excluded)
-            files.extend(Path(folder) / name for name in names if Path(name).suffix.lower() in {".py", ".js", ".css", ".ps1"})
+            files.extend(Path(folder) / name for name in names if Path(name).suffix.lower() in {".py", ".js", ".css", ".ps1"}
+                         or (Path(folder) == ROOT / "etudecas/visualization/maps" and name == "source_comparison_view.html"))
     for directory in (ROOT / "etudecas/config", ROOT / "etudecas/docs/rules"):
         files.extend(p for p in directory.rglob("*") if p.is_file() and p.suffix.lower() in {".json", ".yaml", ".yml", ".toml", ".csv"})
     # This executable revision contract lives beside its research adapters.

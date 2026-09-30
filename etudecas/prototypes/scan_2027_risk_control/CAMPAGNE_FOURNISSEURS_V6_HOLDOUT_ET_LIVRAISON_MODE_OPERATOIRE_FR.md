@@ -1,5 +1,11 @@
 # V6 — holdout frais et livraison industrielle
 
+> **Proc?dure historique.** Les superviseurs de calibration V5/V6 et la livraison
+> autonome V6 ont quitt? le code actif le 28 septembre 2026. Les commandes
+> correspondantes ci-dessous demandent l?environnement de leur
+> [capsule de reproduction](../../config/reproduction_20260920/sources/751eeb379d930441fc7a7ee44ca457caadbf5ed396f8f109a448f14de4c183e7.zip).
+> Pour les ?tudes courantes, consulter le [parcours fournisseur](README.md).
+
 ## Statut et barrière d'activation
 
 Le développement V6 peut être planifié ou actif après le no-go terminal V5.

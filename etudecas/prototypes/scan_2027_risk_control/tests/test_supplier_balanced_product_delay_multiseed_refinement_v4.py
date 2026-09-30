@@ -1367,6 +1367,7 @@ def test_interrupted_development_resumes_only_missing_cases(
 @pytest.mark.parametrize("schema,paths,count", [
     (v4.HISTORICAL_RUNTIME_DEPENDENCY_SCHEMA_VERSION, v4.HISTORICAL_RUNTIME_DEPENDENCY_RELATIVE_PATHS, 44),
     (v4.PREVIOUS_RUNTIME_DEPENDENCY_SCHEMA_VERSION, v4.PREVIOUS_RUNTIME_DEPENDENCY_RELATIVE_PATHS, 40),
+    (v4.ATOMIC_RUNTIME_DEPENDENCY_SCHEMA_VERSION, v4.ATOMIC_RUNTIME_DEPENDENCY_RELATIVE_PATHS, 41),
 ])
 def test_historical_runtime_inventory_is_readable_but_not_current(schema, paths, count):
     from types import SimpleNamespace
@@ -1389,7 +1390,7 @@ def test_current_runtime_inventory_binds_atomic_publication():
     from types import SimpleNamespace
 
     inventory = v4._runtime_dependency_inventory_from_worktree()
-    assert inventory["file_count"] == 41
+    assert inventory["file_count"] == 40
     files = {row["path"]: row["sha256"] for row in inventory["files"]}
     atomic_source = v4.REPO_ROOT / "etudecas/atomic_io.py"
     assert files["etudecas/atomic_io.py"] == hashlib.sha256(atomic_source.read_bytes()).hexdigest()

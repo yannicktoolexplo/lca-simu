@@ -35,9 +35,11 @@ import yaml
 try:
     from .lightweight_seat import build_lightweight_scenario, is_exact_brightway_rows
     from .supplier_alternatives import build_supplier_alternative_scenarios
+    from .lca_comparison import build_lca_comparison
 except ImportError:
     from lightweight_seat import build_lightweight_scenario, is_exact_brightway_rows
     from supplier_alternatives import build_supplier_alternative_scenarios
+    from lca_comparison import build_lca_comparison
 
 
 SCHEMA_VERSION = "poc2026.supply_geo_case.v1"
@@ -13064,6 +13066,8 @@ def build_map_selection_paths(path_rows, lane_rows):
                 for role in ("t4", "t3", "t2", "t1", "oem")
                 if clean(row.get(f"{role}_site_uid"))
             )),
+            "search_text": " ".join(clean(row.get(key)) for key in
+                                    ("system", "component", "family", "t4", "t3", "t2", "t1", "oem")),
             "lanes": lanes_by_path[clean(row.get("path_id"))],
         }
         for row in path_rows
@@ -13136,8 +13140,18 @@ def write_enriched_base_map_html(
         }
     if "selection_paths" in dashboard_payload:
         payload["selection_paths"] = dashboard_payload["selection_paths"]
+    audit = dashboard_payload.get('supplier_role_audit')
+    audit_path = CASE_ROOT / 'outputs' / 'summaries' / 'supplier_role_audit.json'
+    if audit_path.exists():
+        audit = json.loads(audit_path.read_text(encoding='utf-8'))
+    if audit:
+        audit_rows = {row['site_uid']: row for row in audit.get('rows', [])}
+        for site in payload.get('sites', []):
+            site['role_audit'] = audit_rows.get(site.get('site_uid'), {})
     payload_json = json_for_script(payload)
     compact_dashboard_payload = {
+        "supplier_role_audit": audit or {},
+        "lca_comparison": build_lca_comparison(dashboard_payload.get("brightway_model", {})),
         "schema_version": "poc2026.supply_geo_case.base_map_dashboard.v1",
         "cards": dashboard_payload.get("cards", []),
         "top_sites_by_mass": dashboard_payload.get("top_sites_by_mass", []),
@@ -13167,11 +13181,11 @@ def write_enriched_base_map_html(
         "scenario_resilience": {
             "summary": scenario_suite.get(
                 "summary",
-                (dashboard_payload.get("climate_robustness", {}) or {}).get("summary", []),
+                (dashboard_payload.get("scenario_resilience") or dashboard_payload.get("climate_robustness") or {}).get("summary", []),
             ),
             "monthly": scenario_suite.get(
                 "monthly",
-                (dashboard_payload.get("climate_robustness", {}) or {}).get("monthly", []),
+                (dashboard_payload.get("scenario_resilience") or dashboard_payload.get("climate_robustness") or {}).get("monthly", []),
             ),
             "order_ok": scenario_suite.get("order_ok"),
         },
@@ -13629,6 +13643,8 @@ def write_enriched_base_map_html(
     <div id="baseMapKpiBwRawIndicatorPlot" class="sdd-dashboard-plot"></div>
     <div id="baseMapKpiBwUnitCoveragePlot" class="sdd-dashboard-plot"></div>
     <div id="baseMapKpiBwReferenceWeightedPlot" class="sdd-dashboard-plot"></div>
+    <div id="sddLcaScoreComparison" class="sdd-dashboard-plot sdd-ledger-table-panel"></div>
+    <div id="sddSupplierRoleAudit" class="sdd-dashboard-plot sdd-ledger-table-panel"></div>
     <div id="baseMapKpiBwReferencePhasePlot" class="sdd-dashboard-plot"></div>
     <div id="baseMapKpiBwReferenceScenarioPlot" class="sdd-dashboard-plot"></div>
     <div id="baseMapKpiBwReferenceClimateContributorPlot" class="sdd-dashboard-plot"></div>
@@ -13677,7 +13693,17 @@ def write_enriched_base_map_html(
     </div>
   </div>
   <div id="sddAircraftUseCards" class="sdd-dashboard-cards"></div>
+  <div class="sdd-ledger-toolbar">
+    <label for="sddAircraftUseMetric">Comparaison des masses</label>
+    <select id="sddAircraftUseMetric">
+      <option value="climate_kgco2e">Climat - tCO2e</option>
+      <option value="weighted_score_excel">Score pondere - convention Excel STELIA</option>
+    </select>
+    <span id="sddAircraftUseComparisonStatus"></span>
+  </div>
   <div class="sdd-dashboard-grid">
+    <div id="sddAircraftUseMassMonthlyPlot" class="sdd-dashboard-plot"></div>
+    <div id="sddAircraftUseMassCumulativePlot" class="sdd-dashboard-plot"></div>
     <div id="sddAircraftUseFleetPlot" class="sdd-dashboard-plot"></div>
     <div id="sddAircraftUseCommissioningPlot" class="sdd-dashboard-plot"></div>
     <div id="sddAircraftUseMonthlyImpactPlot" class="sdd-dashboard-plot"></div>
@@ -13696,6 +13722,7 @@ def write_enriched_base_map_html(
   </div>
   <div id="sddLightweightSeatCards" class="sdd-dashboard-cards"></div>
   <div class="sdd-dashboard-grid">
+    <div id="sddLightweightScoreComparison" class="sdd-dashboard-plot sdd-ledger-table-panel"></div>
     <div id="sddLightweightMassPlot" class="sdd-dashboard-plot"></div>
     <div id="sddLightweightClimatePlot" class="sdd-dashboard-plot"></div>
     <div id="sddLightweightIndicatorPePlot" class="sdd-dashboard-plot sdd-validation-tall"></div>
@@ -13791,16 +13818,50 @@ const BASE_DASHBOARD_PAYLOAD = __BASE_DASHBOARD_PAYLOAD__;
   let selectedSddObject = null;
   let selectedCascadeId = cascades[0]?.cascade_id || "";
 
+  function normalizeSearch(value) {
+    return String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  }
+
+  function searchMatches(text) {
+    const terms = normalizeSearch(document.getElementById("sddMapSearch")?.value).trim().split(/\s+/).filter(Boolean);
+    const normalized = normalizeSearch(text);
+    return terms.every(term => normalized.includes(term));
+  }
+
+  function pathSearchText(row, scenario) {
+    if (scenario) {
+      const assignments = dashboardPayload.brightway_model?.lightweight_seat?.named_supplier_assignments || [];
+      return [row.system, row.component, ...assignments
+        .filter(item => item.scenario_id === scenario && item.path_id === row.path_id)
+        .flatMap(item => [item.family, item.selected_supplier, item.selected_location])].join(" ");
+    }
+    return [row.search_text, row.system, row.component, ...(row.site_uids || []).flatMap(uid => {
+      const site = siteByUid.get(uid) || {};
+      return [site.name, site.location, site.context_short_summary];
+    })].join(" ");
+  }
+
+  const sourceRecordMatches = window.recordMatches;
+  window.recordMatches = (row, filters) => sourceRecordMatches(row, filters) && searchMatches([
+    row.system, row.component, ...Object.values(row.tiers || {}).flat()
+      .filter(supplier => !filters.onlyPrimary || supplier.is_primary)
+      .flatMap(supplier => [supplier.supplier, supplier.description, supplier.country])
+  ].join(" "));
+
   function mapSelection() {
     const system = document.getElementById("systemSel")?.value || "All";
     const component = document.getElementById("componentSel")?.value || "All";
-    const key = JSON.stringify([system, component]);
+    const query = document.getElementById("sddMapSearch")?.value || "";
+    const scenario = currentView === "supplier_alternatives"
+      ? document.getElementById("sddAlternativeScenarioSelect")?.value : "";
+    const key = JSON.stringify([system, component, query, scenario]);
     if (selectionCache?.key === key) return selectionCache;
     const paths = selectionPaths.filter(row =>
       (system === "All" || row.system === system) &&
-      (component === "All" || row.component === component));
+      (component === "All" || row.component === component) &&
+      (!query.trim() || searchMatches(pathSearchText(row, scenario))));
     selectionCache = {
-      key, active: system !== "All" || component !== "All",
+      key, active: system !== "All" || component !== "All" || Boolean(query.trim()),
       pathIds: new Set(paths.map(row => row.path_id)),
       siteIds: new Set(paths.flatMap(row => row.site_uids || [])),
       laneKeys: new Set(paths.flatMap(row => (row.lanes || []).map(laneKey)))
@@ -14177,6 +14238,8 @@ const BASE_DASHBOARD_PAYLOAD = __BASE_DASHBOARD_PAYLOAD__;
     currentView = "dashboard";
     setActiveButton();
     showDashboardCanvas();
+    renderLcaScoreComparison("sddLcaScoreComparison");
+    renderSupplierRoleAudit();
     renderDashboardCards();
 
     const cumulative = dashboardRows("sdd_cumulative");
@@ -14716,6 +14779,21 @@ const BASE_DASHBOARD_PAYLOAD = __BASE_DASHBOARD_PAYLOAD__;
     });
   }
 
+  function renderLcaScoreComparison(id) {
+    const node = document.getElementById(id);
+    if (!node) return;
+    const data = dashboardPayload.lca_comparison || {};
+    if (!node.querySelector('select')) {
+      node.innerHTML = `<h3>Comparaison ACV multicritere par siege</h3><label>Perimetre <select><option value="production_use">Production et utilisation</option><option value="production">Production et livraison</option><option value="use">Utilisation</option></select></label><p>${escapeHtml(data.formula || '')}. Ce score n'est ni une masse de CO2 ni une somme simple des personnes-equivalentes.</p><p>${escapeHtml(data.scope || '')}</p><div id="${id}Plot"></div><div style="overflow:auto;max-height:360px"><table><thead><tr><th>Scenario</th><th>Indicateur</th><th>Impact brut</th><th>Unite</th><th>Personnes-equivalentes</th><th>Poids EF (%)</th><th>Score pondere STELIA</th></tr></thead><tbody></tbody></table></div><p>${escapeHtml(data.dynamic_weighted_status || '')}</p>`;
+      node.querySelector('select').addEventListener('change', () => renderLcaScoreComparison(id));
+    }
+    const phase = node.querySelector('select').value;
+    const totals = (data.totals || []).filter(r => r.phase === phase);
+    const printable = v => v == null ? 'Indisponible' : fmt(v, 4);
+    renderDashboardPlot(id + 'Plot', [{type:'bar', x:totals.map(r=>r.label), y:totals.map(r=>r.weighted_score_excel), marker:{color:'#287f8e'}}], {...dashboardLayout('Score pondere - convention Excel STELIA', 'score / siege'), margin:{l:70,r:25,t:55,b:140}});
+    node.querySelector('tbody').innerHTML = (data.indicators || []).filter(r=>r.phase===phase).map(r=>`<tr><td>${escapeHtml(r.label)}</td><td>${escapeHtml(r.indicator_id)}</td><td>${printable(r.raw_value)}</td><td>${escapeHtml(r.raw_unit || '')}</td><td>${printable(r.person_equivalent)}</td><td>${printable(r.ef_weight_fraction == null ? null : 100*r.ef_weight_fraction)}</td><td>${printable(r.weighted_score_excel)}</td></tr>`).join('');
+  }
+
   function renderAircraftUse() {
     currentView = "aircraft_use";
     setActiveButton();
@@ -14738,6 +14816,24 @@ const BASE_DASHBOARD_PAYLOAD = __BASE_DASHBOARD_PAYLOAD__;
     const scenarioId = select?.value || summaries[0]?.scenario_id || "";
     const rows = monthly.filter(row => row.scenario_id === scenarioId);
     const months = rows.map(row => num(row, "month_index"));
+    const metricSelect = document.getElementById('sddAircraftUseMetric');
+    if (!metricSelect.dataset.ready) {
+      metricSelect.addEventListener('change', renderAircraftUse);
+      metricSelect.dataset.ready = '1';
+    }
+    const metric = metricSelect.value;
+    const divisor = metric === 'climate_kgco2e' ? 1000 : 1;
+    const unit = metric === 'climate_kgco2e' ? 'tCO2e' : 'score pondere STELIA';
+    const totals = dashboardPayload.lca_comparison?.totals || [];
+    const impact = (scenario, phase) => {
+      const v = totals.find(r=>r.scenario_id===scenario && r.phase===phase)?.[metric];
+      return v == null ? null : v / divisor;
+    };
+    const lifetime = Number(profile.lifetime_months || Number(profile.lifetime_years)*12);
+    const comparisonTraces = ['reference','lightweight'].map((scenario,i)=>({type:'scatter',mode:'lines',name:i?'Siege allege de 50 %':'Siege de reference',x:months,y:rows.map(r=>impact(scenario,'use') == null || !(lifetime>0) ? null : impact(scenario,'use')*num(r,'active_seat_equivalent')/lifetime),line:{color:i?'#24936e':'#bd493b'}}));
+    renderDashboardPlot('sddAircraftUseMassMonthlyPlot',comparisonTraces,dashboardLayout('Utilisation - meme flotte active, deux masses',unit+'/mois'));
+    renderDashboardPlot('sddAircraftUseMassCumulativePlot',comparisonTraces.map(t=>{let sum=0;return {...t,y:t.y.map(v=>v==null?null:(sum+=v))};}),dashboardLayout("Utilisation cumulee - effet de l'allegement",unit));
+    document.getElementById('sddAircraftUseComparisonStatus').textContent = 'Usage de reference calibre STELIA ; gain marginal de carburant. Facteurs Brightway historiques conserves, compatibilite actuelle non revalidee.';
     const last = rows[rows.length - 1] || {};
     const calendarCumulative = rows.reduce((sum, row) => sum + num(row, "aircraft_use_calendar_kgco2e"), 0);
     const attributedCumulative = rows.reduce((sum, row) => sum + num(row, "aircraft_use_full_lifetime_attributed_kgco2e"), 0);
@@ -14797,22 +14893,7 @@ const BASE_DASHBOARD_PAYLOAD = __BASE_DASHBOARD_PAYLOAD__;
       ],
       dashboardLayout("Deux lectures de l'utilisation", "tCO2e cumulees")
     );
-    renderDashboardPlot(
-      "sddAircraftUsePerSeatPlot",
-      [{
-        type: "bar",
-        x: ["Production", "Autres phases", "Amont carburant", "Emissions en vol", "Nettoyage"],
-        y: [
-          num(profile, "production_kgco2e_per_seat") / 1000,
-          num(profile, "other_lifecycle_kgco2e_per_seat") / 1000,
-          num(profile, "fuel_upstream_kgco2e_per_seat") / 1000,
-          num(profile, "inflight_mass_burden_kgco2e_per_seat") / 1000,
-          num(profile, "cleaning_kgco2e_per_seat") / 1000
-        ],
-        marker: { color: ["#3182bd", "#969696", "#9ecae1", "#fb6a4a", "#74c476"] }
-      }],
-      dashboardLayout("Cycle de vie par siege", "tCO2e/siege")
-    );
+    renderDashboardPlot('sddAircraftUsePerSeatPlot', ['reference','lightweight'].map((scenario,i)=>({type:'bar',name:i?'Siege allege de 50 %':'Siege de reference',x:['Production et livraison','Utilisation','Production + utilisation'],y:['production','use','production_use'].map(p=>impact(scenario,p))})), {...dashboardLayout('Comparaison par siege - hors fin de vie',unit+'/siege'),barmode:'group'});
     setTimeout(() => {
       [
         "sddAircraftUseFleetPlot",
@@ -14832,6 +14913,7 @@ const BASE_DASHBOARD_PAYLOAD = __BASE_DASHBOARD_PAYLOAD__;
     currentView = "lightweight_seat";
     setActiveButton();
     showLightweightSeatCanvas();
+    renderLcaScoreComparison('sddLightweightScoreComparison');
     const scenario = dashboardPayload.brightway_model?.lightweight_seat || {};
     const summary = scenario.summary || {};
     const massRows = Array.isArray(scenario.mass_budget) ? scenario.mass_budget : [];
@@ -14847,7 +14929,9 @@ const BASE_DASHBOARD_PAYLOAD = __BASE_DASHBOARD_PAYLOAD__;
     const gates = Array.isArray(scenario.certification_gates) ? scenario.certification_gates : [];
     const confidenceLabel = value => ({ low: "faible", medium: "moyenne", high: "elevee" }[String(value || "").toLowerCase()] || value || "non renseignee");
     const gateStatusLabel = value => ({ non_demontre: "A demontrer", passed: "Demontre", failed: "Non conforme" }[String(value || "").toLowerCase()] || value || "non renseigne");
-    const calculationLabel = String(summary.calculation_status || "").startsWith("brightway_exact")
+    const calculationLabel = summary.cached_result_status === 'historical_unvalidated'
+      ? 'Resultats Brightway historiques conserves - compatibilite actuelle non revalidee'
+      : String(summary.calculation_status || "").startsWith("brightway_exact")
       ? "Brightway exact sur inventaire OPERA mis a l'echelle"
       : "Estimation issue du classeur detaille";
     const localizationLabel = value => ({
@@ -15878,14 +15962,16 @@ const BASE_DASHBOARD_PAYLOAD = __BASE_DASHBOARD_PAYLOAD__;
     return [
       `<b>${escapeHtml(site.name || "Site")}</b>`,
       `Pays: ${escapeHtml(site.country_code || "")} - ${escapeHtml(site.location || "localisation n/a")}`,
-      `Role dans la chaine: ${escapeHtml(site.roles || "")}`,
+      `Role suppose dans le modele: ${escapeHtml(site.roles || "")}`,
+      `Audit: ${site.role_audit?.node_geometry_collision ? 'Localisations fusionnees - ' : ''}${escapeHtml(site.role_audit?.status_label || 'A documenter')}`,
+      `Fonction proposee: ${escapeHtml(site.role_audit?.proposed_role || 'Non etablie')}`,
       `<b>Contexte internet</b>`,
       `Ce qu'on apprend: ${escapeHtml(site.context_business_status || "contexte non recherche")}`,
       `Info principale: ${escapeHtml(site.context_short_summary || site.context_top_title || "n/a")}`,
       `Source principale: ${escapeHtml(site.context_top_domain || "n/a")}`,
       `Signaux faibles: ${escapeHtml(site.context_signal_label || "aucun signal faible explicite")}`,
       `<b>Criticite fournisseur</b>`,
-      `Score officiel: ${fmt(Number(site.supplier_criticality_score || 0) * 100, 1)}% (${escapeHtml(site.criticality_level || "n/a")})`,
+      `Score du modele: ${fmt(Number(site.supplier_criticality_score || 0) * 100, 1)}% (${escapeHtml(site.criticality_level || "n/a")})`,
       `Score exploratoire web: ${fmt(Number(site.exploratory_supplier_criticality_score || 0) * 100, 1)}%`,
       `Activation du contexte: ${escapeHtml(site.context_model_activation_status || "inactive")} - ${Number(site.context_verified_evidence_count || 0)} preuve(s) verifiee(s)`,
       `Importance supply: ${fmt(Number(site.structural_importance_score || 0) * 100, 1)}%`,
@@ -15970,6 +16056,31 @@ const BASE_DASHBOARD_PAYLOAD = __BASE_DASHBOARD_PAYLOAD__;
     if (panel) panel.classList.remove("visible");
   }
 
+  function roleAuditHtml(audit) {
+    if (!audit) return '';
+    const urls = (audit.source_urls || []).filter(u=>u.startsWith('https://') || u.startsWith('http://'));
+    return `<div class="sdd-detail-section-title">Audit du role fournisseur</div>
+      <p><b>${escapeHtml(audit.status_label || 'A documenter')}</b> - ${escapeHtml(audit.nature_label || '')}</p>
+      ${audit.node_geometry_collision ? '<p><b>Alerte : plusieurs localisations sont fusionnees sous ce noeud. Exposition climatique a revalider.</b></p>' : ''}
+      <p>Role du modele : ${escapeHtml(audit.roles_model || '')}. Fonction proposee : ${escapeHtml(audit.proposed_role || 'Non etablie')}.</p>
+      <p>${escapeHtml(audit.documented_activity || '')}</p><p>${escapeHtml(audit.rationale || '')}</p>
+      <p>Portee des sources : ${escapeHtml(audit.source_scope || 'Aucune validation documentaire individuelle')}.</p>
+      <p>${urls.map((u,i)=>`<a href="${escapeHtml(u)}" target="_blank" rel="noopener noreferrer">Source ${i+1}</a>`).join(' | ')}</p>
+      <p>Les rangs T4 a T1 representent des fonctions supposees, pas des relations commerciales prouvees. La simulation et sa criticite ne sont pas recalculees par cet audit.</p>`;
+  }
+
+  function renderSupplierRoleAudit() {
+    const node = document.getElementById('sddSupplierRoleAudit');
+    if (!node) return;
+    const audit = dashboardPayload.supplier_role_audit || {};
+    if (!node.querySelector('input')) {
+      node.innerHTML = `<h3>Audit des fournisseurs et des roles</h3><label>Recherche <input type="search" placeholder="Fournisseur, matiere, role" aria-label="Recherche dans l'audit fournisseurs"></label><p>Entreprises, sites et etapes supposees sont distingues. Un rang coherent ne prouve pas un contrat ni un flux. Resultats de simulation inchanges.</p><div style="overflow:auto;max-height:500px"><table><thead><tr><th>Fournisseur</th><th>Role modele</th><th>Nature</th><th>Conclusion</th><th>Fonction proposee</th><th>Motif</th></tr></thead><tbody></tbody></table></div>`;
+      node.querySelector('input').addEventListener('input',renderSupplierRoleAudit);
+    }
+    const query = node.querySelector('input').value.toLowerCase();
+    node.querySelector('tbody').innerHTML = (audit.rows || []).filter(r=>JSON.stringify(r).toLowerCase().includes(query)).map(r=>`<tr><td>${escapeHtml(r.name || r.supplier || '')}</td><td>${escapeHtml(r.roles_model || '')}</td><td>${escapeHtml(r.nature_label || '')}</td><td>${r.node_geometry_collision ? '<b>Localisations fusionnees</b><br>' : ''}${escapeHtml(r.status_label || '')}</td><td>${escapeHtml(r.proposed_role || '')}</td><td>${escapeHtml(r.rationale || '')}</td></tr>`).join('');
+  }
+
   function renderSiteClickPanel(siteUid) {
     const site = siteByUid.get(String(siteUid || ""));
     if (!site) return closeSddClickPanel();
@@ -15985,10 +16096,11 @@ const BASE_DASHBOARD_PAYLOAD = __BASE_DASHBOARD_PAYLOAD__;
     title.textContent = site.name || "Site supply";
     meta.textContent = `${site.roles || "role n/a"} - ${site.country_code || "pays n/a"} - ${site.dominant_supply_regime_label || "regime n/a"}`;
     body.innerHTML = `
+      ${roleAuditHtml(site.role_audit)}
       <div class="sdd-detail-grid">
         ${detailCard("Service moyen", fmt(Number(site.avg_service_level || 0) * 100, 1), "%")}
         ${detailCard("Regime dominant", site.dominant_supply_regime_label || "n/a")}
-        ${detailCard("Criticite officielle", fmt(Number(site.supplier_criticality_score || 0) * 100, 1), "%")}
+        ${detailCard("Criticite du modele", fmt(Number(site.supplier_criticality_score || 0) * 100, 1), "%")}
         ${detailCard("Criticite exploratoire", fmt(Number(site.exploratory_supplier_criticality_score || 0) * 100, 1), "%")}
         ${detailCard("Niveau", site.criticality_level || "n/a")}
         ${detailCard("Importance supply", fmt(Number(site.structural_importance_score || 0) * 100, 1), "%")}
@@ -16614,6 +16726,27 @@ const BASE_DASHBOARD_PAYLOAD = __BASE_DASHBOARD_PAYLOAD__;
     note.className = "sdd-map-note";
     note.textContent = `${payload.stats?.site_count || 0} sites SDD, ${payload.stats?.lane_count || 0} liaisons, service moyen ${fmt(Number(payload.stats?.avg_service || 0) * 100, 1)}%, ${cascadePayload.stats?.total_cascade_count || 0} cascades, contexte ${payload.supplier_context?.summary_count || 0} sites`;
     toolbar.appendChild(note);
+
+    const searchLabel = document.createElement("label");
+    searchLabel.textContent = "Recherche ";
+    searchLabel.style.cssText = "display:flex;align-items:center;gap:8px;max-width:100%;flex-wrap:wrap";
+    const search = document.createElement("input");
+    search.type = "search";
+    search.id = "sddMapSearch";
+    search.placeholder = "Matiere, composant, fournisseur, groupe";
+    search.setAttribute("aria-label", "Rechercher dans la carte");
+    search.style.cssText = "width:340px;max-width:100%;box-sizing:border-box;padding:6px 8px;border:1px solid #ccc;border-radius:6px";
+    searchLabel.appendChild(search);
+    toolbar.insertBefore(searchLabel, tabs);
+    let searchTimer;
+    search.addEventListener("input", () => {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(() => {
+        closeSddClickPanel();
+        if (currentView === "source") renderSource();
+        else renderCurrentSddView();
+      }, 180);
+    });
 
     const showFlows = document.getElementById("showFlows");
     if (showFlows) {

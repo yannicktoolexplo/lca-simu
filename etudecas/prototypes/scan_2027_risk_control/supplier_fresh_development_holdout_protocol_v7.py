@@ -117,6 +117,15 @@ REVIEWED_V6_IMPORT_REFACTOR_SHA256 = {
     ),
 }
 
+# Reviewed retirement of obsolete V5/V6 supervisors and their exclusive tests.
+# Historical pins and the previous import-only revision remain above for provenance.
+# Only this exact current hash is accepted for newly built plans.
+REVIEWED_V6_SUPERVISOR_RETIREMENT_SHA256 = {
+    "tests/test_supplier_v6_completion_path.py": (
+        "a9ec4bd6d2249aa205f3230b1ab399114c3dd348fadbd102c774ab3fa3e3edf0"
+    ),
+}
+
 V5_V6_DEVELOPMENT_SEEDS = tuple(range(340287, 340317))
 V5_V6_HOLDOUT_SEEDS = (
     573960646,
@@ -391,7 +400,9 @@ def _module_inventory() -> list[dict[str, str]]:
     source_root = Path(__file__).resolve().parent
     rows: list[dict[str, str]] = []
     for relative, historical in PINNED_V6_MODULE_SHA256.items():
-        expected = REVIEWED_V6_IMPORT_REFACTOR_SHA256.get(relative, historical)
+        expected = REVIEWED_V6_SUPERVISOR_RETIREMENT_SHA256.get(
+            relative, REVIEWED_V6_IMPORT_REFACTOR_SHA256.get(relative, historical)
+        )
         path = (source_root / relative).resolve()
         if not path.is_file():
             raise V7ProtocolError(f"Pinned V6 file missing: {path}")

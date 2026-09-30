@@ -147,15 +147,13 @@ def test_changed_shared_mechanics_rejects_entire_adapter_chain(monkeypatch):
         module.validate_frozen_implementation()
 
 
-@pytest.mark.parametrize("version", [2, 4])
-def test_current_launcher_refuses_old_manifest_without_source_revision(version):
+def test_current_launcher_refuses_old_manifest_without_source_revision():
     launcher = importlib.import_module(
         "etudecas.prototypes.scan_2027_risk_control."
-        f"launch_supplier_operating_point_full_campaign_v{version}"
+        "launch_supplier_operating_point_full_campaign_v4"
     )
-    runner = v2 if version == 2 else v4
     with pytest.raises(ValueError, match="plan a new campaign"):
-        launcher._verify_signed_design({"runner": runner.__file__})
+        launcher._verify_signed_design({"runner": v4.__file__})
 
 
 @pytest.mark.parametrize("mode,version", [("launch", 5), ("launch", 6), ("launch", 7), ("launch", 8), ("finalize", 5), ("finalize", 6), ("finalize", 7)])

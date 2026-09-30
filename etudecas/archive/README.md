@@ -21,10 +21,10 @@ ses 207 Mo dépassent la limite de GitHub pour un fichier Git ordinaire.
 Elle est exclue du suivi Git et ne sera donc pas disponible dans un nouveau
 clone du dépôt. Son empreinte reste indiquée dans le relevé du rangement.
 
-Les [dernières preuves de simulation](../artifacts/testing/human_code_20260925/BILAN.md),
+Les [dernières preuves de simplification et de simulation](../artifacts/testing/simplification_campagnes_20260928/simplification.json),
 les outils de comparaison encore utilisés et les
 [pièces de l'incident Sophos](../artifacts/testing/research_triage_20260923/)
-restent dépliés. Les trois capsules directement référencées restent dans
+restent dépliés. Les capsules de sources directement référencées restent dans
 `config/reproduction_20260920/sources/`. Les autres capsules sont dans l'archive
 historique, sous leur chemin d'origine.
 
@@ -34,3 +34,9 @@ Les recalculs courants utilisent `etudecas.regenerate` ; voir le
 
 Les procédures de tests archivées décrivent leur époque. Les consignes actuelles,
 notamment les exclusions décidées après Sophos, sont celles du projet courant.
+
+La tranche de regroupement du 28 septembre conserve ses neuf anciens chemins
+Python dans la capsule `751eeb379d930441fc7a7ee44ca457caadbf5ed396f8f109a448f14de4c183e7.zip`
+sous `etudecas/config/reproduction_20260920/sources/`. Quatre chemins rejoignent
+trois modules courants ; les quatre superviseurs V5/V6 et leur test exclusif
+restent historiques. Les correspondances sont dans `docs/ARBORESCENCE_CIBLE.csv`.

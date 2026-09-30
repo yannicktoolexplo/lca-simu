@@ -147,7 +147,8 @@ OFFICIAL_EXECUTION_MODE = "official_coarse_execute_candidate"
 TEST_ONLY_EXECUTION_MODE = "test_only_injected_executor"
 HISTORICAL_RUNTIME_DEPENDENCY_SCHEMA_VERSION = f"{PLAN_SCHEMA_VERSION}.runtime_dependencies.v1"
 PREVIOUS_RUNTIME_DEPENDENCY_SCHEMA_VERSION = f"{PLAN_SCHEMA_VERSION}.runtime_dependencies.v2"
-RUNTIME_DEPENDENCY_SCHEMA_VERSION = f"{PLAN_SCHEMA_VERSION}.runtime_dependencies.v3"
+ATOMIC_RUNTIME_DEPENDENCY_SCHEMA_VERSION = f"{PLAN_SCHEMA_VERSION}.runtime_dependencies.v3"
+RUNTIME_DEPENDENCY_SCHEMA_VERSION = f"{PLAN_SCHEMA_VERSION}.runtime_dependencies.v4"
 SHIPMENT_TRACE_SCHEMA_VERSION = "etudecas.v4_holdout_shipment_trace.v1"
 SHIPMENT_LANE_CONTRACT_SCHEMA_VERSION = f"{SHIPMENT_TRACE_SCHEMA_VERSION}.lane_contract"
 SHIPMENT_TRACE_COMPRESSION = "gzip_mtime_0_filename_empty_compresslevel_9"
@@ -188,7 +189,7 @@ CAMPAIGN_LANE_FIELDS = frozenset(
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-RUNTIME_DEPENDENCY_RELATIVE_PATHS = (
+ATOMIC_RUNTIME_DEPENDENCY_RELATIVE_PATHS = (
     "etudecas/__init__.py",
     "etudecas/atomic_io.py",
     "etudecas/case_config.py",
@@ -366,8 +367,12 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+RUNTIME_DEPENDENCY_RELATIVE_PATHS = tuple(
+    path for path in ATOMIC_RUNTIME_DEPENDENCY_RELATIVE_PATHS
+    if path != "etudecas/simulation/run_format/loader.py"
+)
 PREVIOUS_RUNTIME_DEPENDENCY_RELATIVE_PATHS = tuple(
-    path for path in RUNTIME_DEPENDENCY_RELATIVE_PATHS
+    path for path in ATOMIC_RUNTIME_DEPENDENCY_RELATIVE_PATHS
     if path != "etudecas/atomic_io.py"
 )
 HISTORICAL_RUNTIME_DEPENDENCY_RELATIVE_PATHS = tuple(sorted((
@@ -381,7 +386,7 @@ HISTORICAL_RUNTIME_DEPENDENCY_RELATIVE_PATHS = tuple(sorted((
 
 def _runtime_dependency_inventory_from_worktree() -> dict[str, Any]:
     if (
-        len(RUNTIME_DEPENDENCY_RELATIVE_PATHS) != 41
+        len(RUNTIME_DEPENDENCY_RELATIVE_PATHS) != 40
         or tuple(sorted(RUNTIME_DEPENDENCY_RELATIVE_PATHS))
         != RUNTIME_DEPENDENCY_RELATIVE_PATHS
     ):
@@ -416,13 +421,15 @@ def _validate_runtime_dependency_inventory(
         "aggregate_sha256",
     }:
         raise V4ProtocolError("V4 runtime dependency inventory fields changed")
-    # Archive reads retain signed v1/44 and v2/40 inventories unchanged.
-    # Execution compares them with v3/41, which also binds atomic publication.
+    # Archive reads retain signed v1/44, v2/40 and v3/41 inventories unchanged.
+    # Execution binds v4/40: the run reader now lives in schema.py.
     schema = inventory.get("schema_version")
     if schema == HISTORICAL_RUNTIME_DEPENDENCY_SCHEMA_VERSION:
         expected_paths = list(HISTORICAL_RUNTIME_DEPENDENCY_RELATIVE_PATHS)
     elif schema == PREVIOUS_RUNTIME_DEPENDENCY_SCHEMA_VERSION:
         expected_paths = list(PREVIOUS_RUNTIME_DEPENDENCY_RELATIVE_PATHS)
+    elif schema == ATOMIC_RUNTIME_DEPENDENCY_SCHEMA_VERSION:
+        expected_paths = list(ATOMIC_RUNTIME_DEPENDENCY_RELATIVE_PATHS)
     elif schema == RUNTIME_DEPENDENCY_SCHEMA_VERSION:
         expected_paths = list(RUNTIME_DEPENDENCY_RELATIVE_PATHS)
     else:

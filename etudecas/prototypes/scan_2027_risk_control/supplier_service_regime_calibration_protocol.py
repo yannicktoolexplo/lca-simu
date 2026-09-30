@@ -33,16 +33,6 @@ DEFAULT_OUTPUT_DIR = (
 DEFAULT_REFERENCE_CAMPAIGN = (
     ARTIFACT_PARENT / "supplier_network_risk_screen_20260902_v2"
 )
-DEFAULT_LEGACY_COMBINED = (
-    ARTIFACT_PARENT
-    / "supplier_risk_influence_20260829_v1"
-    / "calibration_probe"
-    / "paired_replays_v2"
-)
-DEFAULT_LEGACY_STOCK = (
-    ARTIFACT_PARENT
-    / "supplier_021081_stock773_calibrated_incidents_20260902_v1"
-)
 DEFAULT_GRAPH = (
     REPO_ROOT
     / "etudecas"
@@ -1012,8 +1002,15 @@ def missing_confirmation_jobs(
 
 
 def _legacy_audit(
-    legacy_combined: Path, legacy_stock: Path
+    legacy_combined: Path | None, legacy_stock: Path | None
 ) -> dict[str, Any]:
+    """Optional historical context; never an input to scientific calibration."""
+    if (legacy_combined is None) != (legacy_stock is None):
+        raise ValueError("Provide both --legacy-combined and --legacy-stock, or neither")
+    if legacy_combined is None:
+        return {"status": "not_provided", "scope": "optional_historical_comparison"}
+    legacy_combined = legacy_combined.resolve()
+    legacy_stock = legacy_stock.resolve()
     combined_rows = read_csv_rows(legacy_combined / "paired_replay_results.csv")
     hypothesis = [row for row in combined_rows if row.get("variant") == "target_hypothesis"]
     stock_rows = read_csv_rows(legacy_stock / "baseline_calibration_metrics.csv")
@@ -1089,17 +1086,21 @@ def _business_report(
     audit: Mapping[str, Any],
     plan: Mapping[str, Any],
 ) -> str:
-    combined = audit["legacy_combined_campaign"]
-    stock = audit["legacy_stock_773474_campaign"]
-    return f"""# Calibration préliminaire des niveaux de service 93 % et 80 %
-
-## Ce que les anciens calculs disent réellement
-
+    history = "Les anciennes campagnes ne sont pas fournies. Aucun résultat historique n'est déduit ; la calibration utilise sa référence, ses candidats et ses critères ci-dessous."
+    if audit.get("status") != "not_provided":
+        combined = audit["legacy_combined_campaign"]
+        stock = audit["legacy_stock_773474_campaign"]
+        history = f"""\
 - L'ancienne combinaison de trois réglages a produit, sur {combined['seed_count']} répétitions, un service de 268091 compris entre {100*combined['min_fill_268091']:.2f} % et {100*combined['max_fill_268091']:.2f} % (moyenne {100*combined['mean_fill_268091']:.2f} %), tandis que 268967 était à {100*combined['mean_fill_268967']:.2f} %. Elle ne constitue donc ni une référence globale à 93 %, ni une référence globale à 80 %.
 - La réduction du stock 773474 donne un indicateur proche de 80 % à 300 jours de couverture ({100*stock['cover_300d_proxy']:.2f} %), mais saute de {100*stock['cover_384d_proxy']:.2f} % à 384 jours à {100*stock['cover_385d_proxy']:.2f} % à 385 jours. Il n'existe pas de point simulé à 93 % dans cette série.
 - Les {stock['tested_incident_row_count']} comparaisons d'incident de cette série ont toutes un écart de service nul. Cela signifie que les incidents testés sont masqués dans cette configuration, pas que la supply est invulnérable.
 
-Ces résultats restent utiles pour comprendre les effets de lots et de stocks, mais ils ne doivent pas être présentés comme une calibration réseau confirmée.
+Ces résultats restent utiles pour comprendre les effets de lots et de stocks, mais ils ne doivent pas être présentés comme une calibration réseau confirmée."""
+    return f"""# Calibration préliminaire des niveaux de service 93 % et 80 %
+
+## Ce que les anciens calculs disent réellement
+
+{history}
 
 ## Nouvelle définition proposée
 
@@ -1147,9 +1148,10 @@ def prepare(
     graph_path: Path = DEFAULT_GRAPH,
     engine_path: Path = DEFAULT_ENGINE,
     profile_path: Path = DEFAULT_PROFILE,
-    legacy_combined: Path = DEFAULT_LEGACY_COMBINED,
-    legacy_stock: Path = DEFAULT_LEGACY_STOCK,
+    legacy_combined: Path | None = None,
+    legacy_stock: Path | None = None,
 ) -> dict[str, Any]:
+    audit = _legacy_audit(legacy_combined, legacy_stock)
     output_dir = output_dir.resolve()
     if output_dir.exists() and any(output_dir.iterdir()):
         raise FileExistsError(
@@ -1160,8 +1162,6 @@ def prepare(
     graph_path = graph_path.resolve()
     engine_path = engine_path.resolve()
     profile_path = profile_path.resolve()
-    legacy_combined = legacy_combined.resolve()
-    legacy_stock = legacy_stock.resolve()
 
     reference_audit = validate_reference(
         reference_campaign=reference_campaign,
@@ -1179,7 +1179,6 @@ def prepare(
     design_rows = scenario_design_rows(candidates, input_inventory)
     design_path = output_dir / "scenario_design.csv"
     write_csv(design_path, design_rows)
-    audit = _legacy_audit(legacy_combined, legacy_stock)
     write_json(output_dir / "existing_results_audit.json", audit)
 
     plan_core: dict[str, Any] = {
@@ -1371,8 +1370,8 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--graph", type=Path, default=DEFAULT_GRAPH)
     parser.add_argument("--engine", type=Path, default=DEFAULT_ENGINE)
     parser.add_argument("--profile", type=Path, default=DEFAULT_PROFILE)
-    parser.add_argument("--legacy-combined", type=Path, default=DEFAULT_LEGACY_COMBINED)
-    parser.add_argument("--legacy-stock", type=Path, default=DEFAULT_LEGACY_STOCK)
+    parser.add_argument("--legacy-combined", type=Path, help="Optional historical comparison; requires --legacy-stock.")
+    parser.add_argument("--legacy-stock", type=Path, help="Optional historical comparison; requires --legacy-combined.")
     return parser.parse_args(argv)
 
 

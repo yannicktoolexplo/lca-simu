@@ -165,6 +165,25 @@ def _lot_selection_fixture(tmp_path):
     return context, pd.DataFrame(paired_rows), pd.DataFrame(priority_rows), risk_dir
 
 
+def test_finalizer_contract_matches_adaptive_runner() -> None:
+    runner = subject.v4_runner
+    assert subject.INPUT_CAMPAIGN_SCHEMA_VERSION == runner.SCHEMA_VERSION
+    assert subject.INPUT_METRIC_SCHEMA_VERSION == runner.CASE_SCHEMA_VERSION
+    assert subject.REQUIRED_COLUMNS <= set(runner.METRIC_FIELDS)
+    assert subject.EXPECTED_SEEDS == runner.SEEDS
+    assert tuple(item.key for item in runner.MECHANISMS) == subject.MECHANISMS
+    assert runner.INCIDENT_DISRUPTION_DAYS > 1
+
+
+def test_rank_bounds_preserve_ties_and_priority_is_not_forced() -> None:
+    rank_min, rank_max = subject._rank_bounds(np.array([5.0, 3.0, 3.0, 0.0]))
+    assert rank_min.tolist() == [1, 2, 2, 4]
+    assert rank_max.tolist() == [1, 3, 3, 4]
+    assert subject._priority_status(
+        detected=False, robust_probability=1.0, possible_probability=1.0
+    ) == "no_detected_effect"
+
+
 def test_priority_wording_does_not_force_a_top_three() -> None:
     assert subject._priority_status(
         detected=True, robust_probability=0.1, possible_probability=0.5

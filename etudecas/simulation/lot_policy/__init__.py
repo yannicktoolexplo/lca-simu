@@ -1,7 +1,7 @@
 """Canonical, engine-independent lot policies for etudecas simulations."""
 
-from .catalog import canonical_lot_policy_registry
 from .engine_adapter import (
+    canonical_lot_policy_registry,
     LaneLotDecision,
     available_component_quantity,
     normalize_item_id,

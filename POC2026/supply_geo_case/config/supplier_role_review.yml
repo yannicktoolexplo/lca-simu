@@ -1,0 +1,154 @@
+review_date: '2026-09-29'
+scope: "Audit documentaire des fonctions industrielles. Ne valide ni contrat, ni usine livrante, ni rang commercial. Simulation de reference conservee."
+decisions:
+  - supplier_id: sabic
+    documented_activity: "Groupe chimique producteur de polymeres ; Riyad est le siege du groupe."
+    role_assessment: review_identity
+    proposed_role: "T4 resine plausible ; usine non identifiee"
+    confidence: high
+    rationale: "La localisation du siege ne prouve pas une usine de production LEXAN. Le noeud T3 colocataire est une etape supposee ; l'exposition meteo locale ne doit pas etre interpretee comme celle d'une usine verifiee."
+    source_scope: "Siege documente ; localisation industrielle du produit non confirmee"
+    source_urls:
+      - https://www.sabic.com/en/about
+  - supplier_id: ensinger
+    documented_activity: "Demi-produits et pieces en plastiques techniques, injection et usinage."
+    role_assessment: review_role
+    proposed_role: "T2 polymere plausible ; sangle et electronique a documenter separement"
+    confidence: high
+    rationale: "La capacite en plasturgie ne valide pas le tissage du nylon des ceintures, ni l'assemblage des telecommandes. Examiner R111-R115, R117, R139 et R130, sans changer les autres fonctions par defaut."
+    source_scope: "Activites documentees ; pieces et liens commerciaux non confirmes"
+    source_urls:
+      - https://www.ensingerplastics.com/en/engineering
+  - supplier_id: shandong_loyal_chemical_co_ltd
+    documented_activity: "Identite chimique a desambiguiser ; sources du contexte non suffisantes."
+    role_assessment: review_identity
+    proposed_role: "Amont resines inconnu ; fabricant des plaques KYDEX a corriger dans la filiere"
+    confidence: medium
+    rationale: "R103-R109 suivent Shandong-Toray-Ensinger pour KYDEX. Le fabricant officiel des plaques KYDEX est SEKISUI KYDEX. Cela ne prouve pas son usine livrante ni ses fournisseurs de resine ; ne pas remplacer automatiquement l'ensemble de la chaine."
+    source_scope: "Fabricant de marque documente ; identite et role de Shandong non confirmes"
+    source_urls:
+      - https://kydex.com/faq/
+  - supplier_id: toray_industries
+    documented_activity: "Groupe multi-activites ; plusieurs implantations et roles confondus dans l'export."
+    role_assessment: review_identity
+    proposed_role: "Separer sites et produits ; revoir T3 pour les plaques KYDEX"
+    confidence: medium
+    rationale: "Le meme site_uid couvre Nagoya et Masaki. R103-R109 attribuent la transformation KYDEX a Toray alors que le fabricant de marque est SEKISUI KYDEX. L'eventuelle distribution reste a demontrer."
+    source_scope: "Collision verifiee dans primary_supply_nodes.csv ; fabricant de marque officiel"
+    source_urls:
+      - https://kydex.com/faq/
+  - supplier_id: dupont_de_nemours
+    documented_activity: "Activite fibre/matiere proposee ; fonction T2 propre au tissu non etablie."
+    role_assessment: review_role
+    proposed_role: "Distinguer fibre, tissage et ruban auto-agrippant ; sites a confirmer"
+    confidence: low
+    rationale: "Les chemins R140-R143 et R149 passent par un amont DuPont suppose, Zhejiang puis DuPont. Cette succession et les transports associes ne sont pas demontres par les recherches de contexte."
+    source_scope: "Analyse des chemins internes ; sources de contexte encore a valider"
+    source_urls: []
+  - supplier_id: safran_seats_safran_internal_group
+    documented_activity: "OEM commun de la simulation ; site de reception du programme non demontre."
+    role_assessment: review_identity
+    proposed_role: "Distinguer entite OEM et usine destinataire"
+    confidence: medium
+    rationale: "Les 172 chemins aboutissent au meme identifiant. L'adresse de Plaisir ne suffit pas a prouver que toutes les pieces du programme y sont assemblees ou livrees."
+    source_scope: "Structure de la simulation ; allocation industrielle du programme absente"
+    source_urls: []
+  - supplier_id: alcoa
+    documented_activity: "Production d'aluminium primaire ; separation entre fonderie et laminoir de Warrick."
+    role_assessment: coherent_function
+    proposed_role: "T4 plausible pour metal primaire ; site et lien vers AMAG a confirmer"
+    confidence: high
+    rationale: "Alcoa a conserve la fonderie de Warrick lors de la cession du laminoir a Kaiser en 2021. La source ne prouve pas un approvisionnement d'AMAG. Ne pas confondre metal primaire, tole et siege social historique."
+    source_scope: "Activite et transaction documentees ; relation Alcoa-AMAG non prouvee"
+    source_urls:
+      - https://investors.alcoa.com/press-releases/press-release-details/2021/Alcoa-Completes-Divestiture-of-Warrick-Rolling-Mill-to-Kaiser-Aluminum-Corporation-for-670-Million/default.aspx
+  - supplier_id: amag_austria_metall
+    documented_activity: "Laminage et fonderie/recyclage a Ranshofen ; participation dans Alouette au Canada."
+    role_assessment: coherent_function
+    proposed_role: "T3 laminage ; distinguer filiere primaire et filiere recyclee"
+    confidence: high
+    rationale: "Le rapport AMAG distingue les fonctions et les sites. Imposer Alcoa comme unique amont n'est pas justifie par ce document ; ne pas remplacer automatiquement ce lien par Alouette."
+    source_scope: "Rapport officiel 2025 ; flux du composant et taux recycle propres au produit non confirmes"
+    source_urls:
+      - https://www.amag-al4u.com/fileadmin/user_upload/amag/Investor_Relations/Hauptversammlung/Hauptversammlung_2026/EN/2025_AMAG_Jahresfinanzbericht_EN_Web.pdf
+  - supplier_id: aluminium_corporation_of_china_chalco
+    documented_activity: "Production d'aluminium primaire au Qinghai, documentee dans le rapport 2022."
+    role_assessment: coherent_function
+    proposed_role: "T4 plausible ; laminoir ou extrudeur intermediaire a identifier"
+    confidence: medium
+    rationale: "La fonction amont est plausible, mais le trajet direct vers Euralliage ne documente ni le producteur de demi-produits, ni la relation commerciale, ni l'usine livrante actuelle."
+    source_scope: "Source officielle historique ; livraison a Euralliage non prouvee"
+    source_urls:
+      - https://www.chalco.com.cn/en/report/2022/202304/P020230426252056775767.pdf
+  - supplier_id: euralliage_ile_de_france
+    documented_activity: "Stockage, negoce et decoupe de metaux non ferreux."
+    role_assessment: review_role
+    proposed_role: "Distribution / centre de service ; premiere transformation amont a identifier"
+    confidence: high
+    rationale: "Vendre et scier des toles ou barres ne prouve pas que l'entreprise produit ces demi-produits par laminage ou extrusion. La fonction T3 premiere transformation est trop affirmative."
+    source_scope: "Specialite du groupe ; etablissement Ile-de-France et lien Chalco a confirmer"
+    source_urls:
+      - https://www.euralliage.com/competences_english.htm
+  - supplier_id: thyssenkrupp_materials_france_tier3_first_transformation
+    documented_activity: "Fourniture de demi-produits, services logistiques, decoupe et parachevement."
+    role_assessment: review_role
+    proposed_role: "Distribution / centre de service, transformation selon produit"
+    confidence: high
+    rationale: "Ne pas assimiler la branche Materials Services a une usine de production primaire ni a un laminoir. Les services de transformation existent mais le procede affecte au composant reste a documenter."
+    source_scope: "Catalogue officiel ; flux commercial du composant non prouve"
+    source_urls:
+      - https://www.thyssenkrupp-materials.fr/fr/produits/metaux-non-ferreux
+  - supplier_id: saarstahl
+    documented_activity: "Acierie, laminage, demi-produits et produits longs, selon le site."
+    role_assessment: review_role
+    proposed_role: "T4 acierie ou T3 laminage selon produit et usine"
+    confidence: high
+    rationale: "Le groupe couvre plusieurs etapes. Le rang T4 ne suffit pas a etablir une livraison de metal a Aubert & Duval ; verifier nuance, forme livree et site pour eviter deux transformations metallurgiques supposees."
+    source_scope: "Organisation industrielle officielle ; relation avec Aubert & Duval non prouvee"
+    source_urls:
+      - https://www.saarstahl.com/saarstahl/unternehmen/saarstahl-gruppe/
+  - supplier_id: saarstahl__tier4_raw_material
+    documented_activity: "Acierie, laminage et produits longs ; second identifiant Saarstahl."
+    role_assessment: review_identity
+    proposed_role: "Verifier si doublon du meme site avant separation des risques"
+    confidence: medium
+    rationale: "Deux identifiants du meme groupe ne constituent pas deux fournisseurs independants. Verifier les sites et la dependance commune sans fusion automatique."
+    source_scope: "Groupe documente ; separation des sites du modele non validee"
+    source_urls:
+      - https://www.saarstahl.com/saarstahl/unternehmen/saarstahl-gruppe/
+  - supplier_id: aurubis
+    documented_activity: "Metallurgie et recyclage du cuivre ; cathodes et produits transformes."
+    role_assessment: review_role
+    proposed_role: "T4 metallurgie ou T3 demi-produit selon site ; amont presume a distinguer"
+    confidence: high
+    rationale: "Le modele contient aussi Aurubis - copper source assumption. Ces deux noeuds ne prouvent ni deux sites ni deux fournisseurs distincts."
+    source_scope: "Activites documentees ; lien entre noeuds presume"
+    source_urls:
+      - https://www.aurubis.com/en/dam/jcr%3A70b6c19f-a408-4165-98f4-74b15e7c3fb3/copperbook-2024.pdf
+  - supplier_id: mitsubishi_chemical
+    documented_activity: "A Tielt, MCAM propose notamment injection, outillage et operations secondaires ; Ertalon est une gamme de demi-produits."
+    role_assessment: review_role
+    proposed_role: "T3/T2 selon produit et usine ; T4 resine non demontre a ce site"
+    confidence: high
+    rationale: "La presence d'un groupe chimique ne justifie pas d'affecter toute son activite a un producteur de resine. Le noeud relocalise a Tielt doit etre distingue du groupe et de la filiere resine."
+    source_scope: "Specialisation du site documentee ; filiere Mitsubishi-Toray-Ensinger non prouvee"
+    source_urls:
+      - https://www.mcam.com/en/services/production/injection-molding
+      - https://www.mcam.com/de/products/nylons
+  - supplier_id: krohne
+    documented_activity: "Instrumentation de mesure industrielle : debit, pression, niveau, temperature."
+    role_assessment: review_identity
+    proposed_role: "Fournisseur des ecrans IFE et powerbox a identifier"
+    confidence: high
+    rationale: "Les 4 chemins affectent Krohne a des ecrans LCD ou une powerbox. Le catalogue consulte ne justifie pas ce role ; homonymie ou mauvais rattachement possible, pas preuve d'absence absolue de cette activite."
+    source_scope: "Catalogue officiel consulte ; identite dans la nomenclature a confirmer"
+    source_urls:
+      - https://www.krohne.com/en-us/products
+  - supplier_id: krupp
+    documented_activity: "Nom de groupe historique insuffisant pour identifier une entite et une usine actuelles."
+    role_assessment: review_identity
+    proposed_role: "Entite juridique, site et produit a identifier"
+    confidence: low
+    rationale: "Le libelle Krupp ne permet pas de deduire la branche, le procede ni la relation avec Baosteel. Aucun reclassement automatique vers thyssenkrupp Materials."
+    source_scope: "Anomalie d'identification interne ; pas de validation web de ce noeud"
+    source_urls: []

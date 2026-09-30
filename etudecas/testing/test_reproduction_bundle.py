@@ -14,6 +14,45 @@ from etudecas.testing.report import main, summarize
 
 # Reproduction bundle
 
+def test_comparison_source_inventory_is_pure_and_excludes_excel_owner_markers():
+    assert rb._source_name('etudecas/visualization/maps/source_comparison_view.html')
+    assert rb._source_name('etudecas/data/source/Flow_Data_MRP_results.xlsx')
+    assert not rb._source_name('etudecas/data/source/~$Flow_Data_MRP_results.xlsx')
+    assert not rb._source_name('etudecas/resultats/02_carte_lots_recente.html')
+
+
+def test_comparison_marker_removal_preserves_original_map_in_memory():
+    from etudecas.visualization.maps.portable_diagnostic import (
+        COMPARISON_START, COMPARISON_END, strip_comparison,
+    )
+    original = '<html>\r\n<script>const s="</html>";</script><body>lots</body>\r\n</html>\r\n'
+    head, marker, tail = original.rpartition('</html>')
+    enriched = head + COMPARISON_START + '<script>comparison</script>' + COMPARISON_END + marker + tail
+    assert strip_comparison(enriched) == original
+    assert strip_comparison(original) == original
+    with pytest.raises(ValueError, match='Ambiguous'):
+        strip_comparison(enriched + COMPARISON_START)
+
+
+def test_comparison_commands_keep_nominal_and_bound_the_two_diagnostics():
+    # Read retained inputs only; this path is never created or executed.
+    output = regen.ROOT / 'etudecas/artifacts/testing/not_executed_comparison_command'
+    commands = regen._comparison_commands(output, 1825)
+    assert [name for name, _, _ in commands] == ['nominal', 'retrait_statique_338929', 'dynamique_338929']
+    def normalized(command):
+        command = command[:]
+        command[command.index('--output-dir') + 1] = 'OUTPUT'
+        return command
+    nominal = normalized(commands[0][2])
+    retained = regen._command('nominal', output, 1825)
+    retained[retained.index('--output-profile') + 1] = 'full'
+    assert nominal == normalized(retained)
+    without = nominal[:]
+    at = next(i for i in range(len(without)-1) if without[i:i+2] == ['--mrp-static-requirement-pair', 'M-1810,item:338929'])
+    del without[at:at+2]
+    assert normalized(commands[1][2]) == without
+    assert normalized(commands[2][2]) == without + ['--mrp-dynamic-requirement-pair', 'M-1810,item:338929']
+
 def workspace(tmp_path):
     root = tmp_path / "source"
     root.mkdir()

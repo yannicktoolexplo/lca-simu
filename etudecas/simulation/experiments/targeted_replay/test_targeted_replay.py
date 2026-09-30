@@ -1,24 +1,28 @@
 from __future__ import annotations
 
 import json
+import csv
+import io
 from pathlib import Path
 import sys
 import tempfile
 import textwrap
 import unittest
+from unittest.mock import patch
 
-from etudecas.simulation.experiments.targeted_replay.discovery import (
+from etudecas.simulation.experiments.targeted_replay.sources import (
     discover_replay_catalog,
+    lot_trace_evidence,
 )
-from etudecas.simulation.experiments.targeted_replay.metrics import lot_trace_evidence
-from etudecas.simulation.experiments.targeted_replay.ranking import rank_scenarios
+from etudecas.simulation.experiments.targeted_replay import sources
+from etudecas.simulation.experiments.targeted_replay.ranking import (
+    KpiSpec,
+    ScenarioCandidate,
+    rank_scenarios,
+)
 from etudecas.simulation.experiments.targeted_replay.runner import (
     TargetedReplayRunner,
     build_replay_command,
-)
-from etudecas.simulation.experiments.targeted_replay.schema import (
-    KpiSpec,
-    ScenarioCandidate,
 )
 
 
@@ -186,6 +190,96 @@ def _write_fake_engine(path: Path) -> None:
         + "\n",
         encoding="utf-8",
     )
+
+
+class StreamingSourceTests(unittest.TestCase):
+    def test_csv_counts_match_standard_readers_in_memory(self) -> None:
+        texts = [
+            "", "\n", "severity\n", "severity\n\nwarning\n\nERROR\n",
+            'severity,note\ncritical,"two\nlines"\nwarning,ok\n',
+            "causal_status,causal_event_ids,causal_root_ids\nnominal,E1,\n\n",
+            "causal_status,causal_root_ids\nscenario_affected,R1\nnominal,R2\n",
+            "causal_status,causal_root_ids,causal_status\nnominal,R1\n",
+            "causal_root_id,causal_root_id\nR1\nR2,R3\n,R4,extra\n",
+            "\nvalue,extra\n\n", 'severity\n""\ncritical,extra\n',
+        ]
+        for text in texts:
+            records = list(csv.DictReader(io.StringIO(text, newline="")))
+            raw_rows = list(csv.reader(io.StringIO(text, newline="")))
+            expected = {
+                "rows": max(0, len(raw_rows) - 1),
+                "records": len(records),
+                "nominal_causes": sum(
+                    str(row.get("causal_status") or "").strip() == "nominal"
+                    and bool(str(row.get("causal_event_ids") or "").strip()
+                             or str(row.get("causal_root_ids") or "").strip())
+                    for row in records
+                ),
+                "causal_roots": sum(bool(str(row.get("causal_root_id") or "").strip()) for row in records),
+                "audit_errors": sum(str(row.get("severity") or "").strip().lower() in {"error", "critical"} for row in records),
+            }
+            for mode, key in [("", ""), ("causes", "nominal_causes"), ("links", "causal_roots"), ("audit", "audit_errors")]:
+                with self.subTest(text=text, mode=mode):
+                    reader = csv.reader(io.StringIO(text, newline=""))
+                    actual = sources._csv_evidence((next(reader, []), reader), mode)
+                    self.assertEqual(actual["rows"], expected["rows"])
+                    self.assertEqual(actual["records"], expected["records"])
+                    if key:
+                        self.assertEqual(actual[key], expected[key])
+
+    @staticmethod
+    def evidence_texts() -> dict[str, str]:
+        return {
+            "production_lot_events.csv": "event_id,business_batch_id,lot_occurrence_id,shipment_id,planned_order_id,origin_production_order_ids,origin_production_contributions_json,causal_event_ids,causal_root_ids,causal_status\nE1,B1,O1,,P1,P1,{},,,nominal\n\n",
+            "production_lot_genealogy.csv": "parent_lot_id,child_lot_id,component_allocation_share,planned_order_id,replacement_transition_id,causal_root_ids,causal_status\nL0,L1,1,P1,,,nominal\n\n",
+            "production_campaigns.csv": "campaign_id\nC1\n\n",
+            "lot_causal_links.csv": "causal_root_id,relation_type,entity_type,entity_id,basis\n,structural,lot,L1,registry\n\n",
+            "supplier_state_dependent_risk_events.csv": "event_id\n",
+            "lot_path_audit_issues.csv": "severity,code\nwarning,example\n\n",
+        }
+
+    def evaluate_evidence(self, texts: dict[str, str], streams: list[tuple[str, io.StringIO]], fail_markers: bool = False) -> dict:
+        class MemoryCSV(io.StringIO):
+            def __next__(self):
+                line = super().__next__()
+                if fail_markers and line.startswith("ERROR_"):
+                    raise ValueError(line.strip())
+                return line
+
+        def open_memory(path, *args, **kwargs):
+            self.assertEqual(args, ("r",))
+            self.assertEqual(kwargs, {"encoding": "utf-8-sig", "newline": ""})
+            stream = MemoryCSV(texts[path.name], newline="")
+            streams.append((path.name, stream))
+            return stream
+
+        summary = {"production_tracking": {"lot_trace": {"enabled": True, "lot_trace_contract_version": "3.0"}}}
+        with patch.object(Path, "exists", return_value=True), patch.object(Path, "open", open_memory), patch.object(sources, "load_json", side_effect=lambda path: {"capabilities": {"lot_trace_enabled": True}} if path.name == "run_manifest.json" else summary):
+            return sources.lot_trace_evidence(Path("memory_run"))
+
+    def test_evidence_reads_six_streams_and_keeps_raw_blank_rows(self) -> None:
+        streams = []
+        evidence = self.evaluate_evidence(self.evidence_texts(), streams)
+        self.assertEqual(len(streams), 6)
+        self.assertEqual(len({name for name, _ in streams}), 6)
+        self.assertTrue(all(stream.closed for _, stream in streams))
+        self.assertTrue(evidence["valid"])
+        for key in ("event_rows", "genealogy_rows", "campaign_rows"):
+            self.assertEqual(evidence[key], 2)
+        self.assertEqual(evidence["causal_link_rows"], 1)
+        self.assertEqual(evidence["structural_link_rows"], 1)
+        self.assertEqual(evidence["audit_issue_rows"], 1)
+        self.assertEqual(evidence["audit_error_rows"], 0)
+        self.assertEqual(evidence["nominal_event_rows_with_causes"], 0)
+
+    def test_parse_error_order_and_stream_closure_in_memory(self) -> None:
+        texts = self.evidence_texts()
+        for name, marker in [("production_lot_events.csv", "ERROR_events"), ("lot_path_audit_issues.csv", "ERROR_audit")]:
+            texts[name] = texts[name].splitlines()[0] + "\n" + marker + "\n"
+        streams = []
+        with self.assertRaisesRegex(ValueError, "ERROR_audit"):
+            self.evaluate_evidence(texts, streams, fail_markers=True)
+        self.assertTrue(all(stream.closed for _, stream in streams))
 
 
 class KpiSpecTests(unittest.TestCase):

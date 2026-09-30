@@ -40,6 +40,7 @@ from etudecas.prototypes.scan_2027_risk_control import (  # noqa: E402
 )
 from etudecas.prototypes.scan_2027_risk_control import (  # noqa: E402
     supplier_service_regime_calibration_protocol as protocol,
+    supplier_campaign_source_revision as _source_revision,
 )
 
 
@@ -186,7 +187,12 @@ def _plan_signature_payload(
 def validate_plan_artifact(plan_dir: Path) -> ValidatedPlan:
     plan_dir = plan_dir.resolve()
     protocol_hash = _sha256(Path(protocol.__file__).resolve())
-    if protocol_hash != EXPECTED_PROTOCOL_BUILDER_SHA256:
+    if (
+        protocol_hash != EXPECTED_PROTOCOL_BUILDER_SHA256
+        and not _source_revision.accepts_current_revision(
+            Path(protocol.__file__), EXPECTED_PROTOCOL_BUILDER_SHA256, protocol_hash
+        )
+    ):
         raise ValueError(
             "Calibration protocol builder differs from the frozen V2 contract"
         )
