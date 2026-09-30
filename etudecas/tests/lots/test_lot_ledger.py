@@ -14,6 +14,35 @@ from pathlib import Path
 # Test lot ledger
 
 class LotLedgerTest(unittest.TestCase):
+    def test_closed_campaign_rejects_unlinked_consumption_in_memory(self) -> None:
+        from etudecas.testing.independent_review import Evidence, audit_production_consumption
+        evidence = Evidence()
+        audit_production_consumption(
+            {("pack", "closed"): 28801.0},
+            {("pack", "closed"): 28879.0, ("missing", "closed"): 1.0},
+            {"closed"}, evidence,
+        )
+        self.assertEqual(evidence.checks["closed_campaign_material_genealogy"]["failed"], 2)
+
+    def test_open_campaign_keeps_wip_but_cannot_overlink_in_memory(self) -> None:
+        from etudecas.testing.independent_review import Evidence, audit_production_consumption
+        evidence = Evidence()
+        audit_production_consumption(
+            {("pack", "open"): 10.0}, {("pack", "open"): 15.0}, set(), evidence,
+        )
+        self.assertEqual(evidence.checks["genealogy_consumption_within_recorded"]["failed"], 0)
+        audit_production_consumption(
+            {("pack", "open"): 16.0}, {("pack", "open"): 15.0}, set(), evidence,
+        )
+        self.assertEqual(evidence.checks["genealogy_consumption_within_recorded"]["failed"], 1)
+
+    def test_closed_campaign_accepts_conserved_material_in_memory(self) -> None:
+        from etudecas.testing.independent_review import Evidence, audit_production_consumption
+        evidence = Evidence()
+        quantities = {("pack", "closed"): 28801.0, ("raw", "closed"): 12.375}
+        audit_production_consumption(quantities, quantities, {"closed"}, evidence)
+        self.assertEqual(evidence.checks["closed_campaign_material_genealogy"]["failed"], 0)
+
     def test_fifo_consumption_and_production_genealogy(self) -> None:
         ledger = LotLedger(enabled=True)
         ledger.create_lot(

@@ -1,6 +1,6 @@
 {
   "schema": "supplier-campaign-source-revision.v1",
-  "revision": "capability-simplification-20260925-v8",
+  "revision": "structure-and-historical-supervisor-retirement-20260928-v10",
   "historical_receipts_policy": "unchanged; new plans bind this revision; incompatible resume refused",
   "files": {
     "build_validated_operating_points_v7.py": {
@@ -15,22 +15,10 @@
         "4a42e97e20233c7907a1cd5e6b202aa4f3a24b56e5da3b029d2ab4bc11cb21cd"
       ]
     },
-    "continue_supplier_full_campaign_v6.py": {
-      "sha256": "317489382e62d230ed779e61e8b0af9bab0a41ac84dc0974f78b8c9c27bf6580",
-      "historical_sha256": [
-        "b087250de5ccc483e08668b9074a943cf978a6589f3d9e74e733b38bd83512ad"
-      ]
-    },
     "continue_supplier_full_campaign_v7.py": {
       "sha256": "ff7dbbde432b19a4a36ec5c19fa07a67a02d9b28b71376faa81218da4c10dce4",
       "historical_sha256": [
         "0e8ed879fc9a9458a3fc33d237b9728b4a39b99e5b0c8d996fe3af15bf8a18b5"
-      ]
-    },
-    "finalize_supplier_operating_point_full_campaign_v2.py": {
-      "sha256": "e6927766a9d42ca961022c9457ad446a078c4bea9aa20e6165a7066315773ec1",
-      "historical_sha256": [
-        "124332a2930e2912708c399eb74db40be5747a3df05099b1a674f7e008664a86"
       ]
     },
     "finalize_supplier_operating_point_full_campaign_v4.py": {
@@ -49,12 +37,6 @@
       "sha256": "c5517688178dc3e8987206f27dd640a5f004e31ef3821754b68f610cd8ee535f",
       "historical_sha256": [
         "87718a8349d9f8318136af27c7a8507c6e23d0d0b93e255cd71a3d8dbdda6523"
-      ]
-    },
-    "launch_supplier_operating_point_full_campaign_v2.py": {
-      "sha256": "d1d4af7f21c820956009001015d68f76461d0cdf1888553b34e0d6985985c03d",
-      "historical_sha256": [
-        "5374f624c6c43abb23d5687818358156dfd68475b76a0e8f4ef805aa56a13251"
       ]
     },
     "launch_supplier_operating_point_full_campaign_v4.py": {
@@ -107,9 +89,10 @@
     },
     "supplier_balanced_product_delay_multiseed_refinement_v4.py": {
       "historical_sha256": [
-        "f1e79797820cda882bd1317f26d7e564ad8fc0fe2f86c606da8a59a82cb627f8"
+        "f1e79797820cda882bd1317f26d7e564ad8fc0fe2f86c606da8a59a82cb627f8",
+        "21c2c5bd4505b6ca112a35227ab56af5bbe8ae4fba4a32e8772d2d923cac4425"
       ],
-      "sha256": "21c2c5bd4505b6ca112a35227ab56af5bbe8ae4fba4a32e8772d2d923cac4425"
+      "sha256": "725d32522ca9ea2274a66a66bbe9bcce2350a00d410cc6c1fc4eb646b141a2bb"
     },
     "supplier_campaign_adapters.py": {
       "historical_sha256": [
@@ -131,7 +114,7 @@
       "sha256": "13d9a07c34fd7a992e2732696d8876942da8461f0f54477a75e4d072dd59a545"
     },
     "supplier_campaign_mechanics.py": {
-      "sha256": "2d9ee428797eb6a3980a7753b2ef1ceef71515fc5ae1caae0b29cd04883cb1d6",
+      "sha256": "51225d41943e79aacb7109c28e1551d719039c346b54c256c505e1a1644faab3",
       "historical_sha256": []
     },
     "supplier_campaign_source_revision.py": {
@@ -139,9 +122,10 @@
       "historical_sha256": []
     },
     "supplier_fresh_development_holdout_protocol_v7.py": {
-      "sha256": "63bbddad8fef989f603ba400b130783d221f6e5958f8d1d285c6d694acbed670",
+      "sha256": "32d3d9bfc5a7bc9df7bfa1d9f853c1b31912f164adade8b038a196bbcd61361a",
       "historical_sha256": [
-        "f11ba2523bd319e210e5d5d82a25beb1e88a2fc5bd17a181540f8662526a63e5"
+        "f11ba2523bd319e210e5d5d82a25beb1e88a2fc5bd17a181540f8662526a63e5",
+        "63bbddad8fef989f603ba400b130783d221f6e5958f8d1d285c6d694acbed670"
       ]
     },
     "supplier_operating_point_full_campaign_v2.py": {
@@ -208,6 +192,18 @@
       "sha256": "eb548202c24b307baf3a09c1cca0ab2c7890efb78b946193ed0a7ffbb5a69546",
       "historical_sha256": [
         "004ab109ac4d396cc50501b17b58fc0b64798352e97d08cadb941aff0ce6de1a"
+      ]
+    },
+    "supplier_service_regime_calibration_protocol.py": {
+      "sha256": "51c8211697dd6dab813b1ce669de6210dd8e3b9ffe4f6afd4f631c5150920498",
+      "historical_sha256": [
+        "6da3c120bc89b26fe578c6d0877c749d94437f1aba647f694a9d32bc89b53ae8"
+      ]
+    },
+    "supplier_service_regime_calibration_runner.py": {
+      "sha256": "2e4d33386924426b6ee874e77959a4154989a36f608744de9a921f66b1481020",
+      "historical_sha256": [
+        "c729de99930af1ddce47e96836a75da8978ff04ccbd418c727a752c918a4655a"
       ]
     }
   },
@@ -312,6 +308,54 @@
       ],
       "archive": "etudecas/config/reproduction_20260920/sources/347f4a298c6e11027db7a40513f44abebc8060daec05bb19e75ea2b11e5e4c78.zip",
       "member": "etudecas/prototypes/scan_2027_risk_control/supplier_v6_holdout_campaign_once_relay.py",
+      "replacement": null
+    },
+    "launch_supplier_operating_point_full_campaign_v2.py": {
+      "sha256": "d1d4af7f21c820956009001015d68f76461d0cdf1888553b34e0d6985985c03d",
+      "historical_sha256": [
+        "5374f624c6c43abb23d5687818358156dfd68475b76a0e8f4ef805aa56a13251"
+      ],
+      "archive": "etudecas/config/reproduction_20260920/sources/a99c4246c2be2b0dcc0a690e1cadff454c259e3184f05ee408e832fe1227b9d1.zip",
+      "member": "etudecas/prototypes/scan_2027_risk_control/launch_supplier_operating_point_full_campaign_v2.py",
+      "replacement": null
+    },
+    "finalize_supplier_operating_point_full_campaign_v2.py": {
+      "sha256": "e6927766a9d42ca961022c9457ad446a078c4bea9aa20e6165a7066315773ec1",
+      "historical_sha256": [
+        "124332a2930e2912708c399eb74db40be5747a3df05099b1a674f7e008664a86"
+      ],
+      "archive": "etudecas/config/reproduction_20260920/sources/a99c4246c2be2b0dcc0a690e1cadff454c259e3184f05ee408e832fe1227b9d1.zip",
+      "member": "etudecas/prototypes/scan_2027_risk_control/finalize_supplier_operating_point_full_campaign_v2.py",
+      "replacement": null
+    },
+    "continue_supplier_full_campaign_v6.py": {
+      "sha256": "317489382e62d230ed779e61e8b0af9bab0a41ac84dc0974f78b8c9c27bf6580",
+      "historical_sha256": [
+        "b087250de5ccc483e08668b9074a943cf978a6589f3d9e74e733b38bd83512ad"
+      ],
+      "archive": "etudecas/config/reproduction_20260920/sources/751eeb379d930441fc7a7ee44ca457caadbf5ed396f8f109a448f14de4c183e7.zip",
+      "member": "etudecas/prototypes/scan_2027_risk_control/continue_supplier_full_campaign_v6.py",
+      "replacement": null
+    },
+    "continue_supplier_v6_calibration.py": {
+      "sha256": "9af8432e26435aa4b2fb99157a944fa270c1427247087af133b2d9eb8adaa047",
+      "historical_sha256": [],
+      "archive": "etudecas/config/reproduction_20260920/sources/751eeb379d930441fc7a7ee44ca457caadbf5ed396f8f109a448f14de4c183e7.zip",
+      "member": "etudecas/prototypes/scan_2027_risk_control/continue_supplier_v6_calibration.py",
+      "replacement": null
+    },
+    "launch_supplier_v5_calibration.py": {
+      "sha256": "8b48dac42238a9235b644bf2846f061dd2ea6bc9fa6d40d3c8fd7a2faa4ae233",
+      "historical_sha256": [],
+      "archive": "etudecas/config/reproduction_20260920/sources/751eeb379d930441fc7a7ee44ca457caadbf5ed396f8f109a448f14de4c183e7.zip",
+      "member": "etudecas/prototypes/scan_2027_risk_control/launch_supplier_v5_calibration.py",
+      "replacement": null
+    },
+    "supplier_v6_final_standalone_delivery.py": {
+      "sha256": "3b52c8b85d9eff7f8e15a6b256276ca05da0144b2d1b53fa9ae7850d7b8c74dd",
+      "historical_sha256": [],
+      "archive": "etudecas/config/reproduction_20260920/sources/751eeb379d930441fc7a7ee44ca457caadbf5ed396f8f109a448f14de4c183e7.zip",
+      "member": "etudecas/prototypes/scan_2027_risk_control/supplier_v6_final_standalone_delivery.py",
       "replacement": null
     }
   }

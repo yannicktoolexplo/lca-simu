@@ -7,7 +7,7 @@ native CSV files by default.
 """
 
 from etudecas.simulation.run_format.exporter import export_run_package
-from etudecas.simulation.run_format.loader import RunPackage, load_run_package
+from etudecas.simulation.run_format.schema import RunPackage, load_run_package
 from etudecas.simulation.run_format.validator import validate_run_package
 
 __all__ = ["RunPackage", "export_run_package", "load_run_package", "validate_run_package"]

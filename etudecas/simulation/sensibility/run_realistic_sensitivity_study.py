@@ -34,7 +34,7 @@ from etudecas.simulation.analysis_batch_common import (  # noqa: E402
     to_float,
     write_json,
 )
-from etudecas.simulation.sensibility.case_naming import realistic_case_id  # noqa: E402
+from etudecas.simulation.experiments.sensitivity.designs import realistic_case_id  # noqa: E402
 
 
 def parse_args() -> argparse.Namespace:

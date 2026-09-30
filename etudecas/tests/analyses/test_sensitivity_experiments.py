@@ -16,7 +16,7 @@ from etudecas.simulation.experiments.sensitivity import (
     write_scenario_design_csv,
 )
 from etudecas.simulation.experiments.sensitivity.results import registry_rows, write_csv
-from etudecas.simulation.experiments.sensitivity.schema import example_study_dict
+from etudecas.simulation.experiments.sensitivity.designs import example_study_dict
 
 
 class SensitivityExperimentsTest(unittest.TestCase):

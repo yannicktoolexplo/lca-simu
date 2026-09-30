@@ -48,10 +48,10 @@ Sources métier : [CALIBRATION_EXECUTION.md](<../../CALIBRATION_EXECUTION.md>)
 
 Références :
 
-- implementation : [_campaign_signature](<../../../prototypes/scan_2027_risk_control/supplier_service_regime_calibration_runner.py#L348>)
-- implementation : [_base_manifest](<../../../prototypes/scan_2027_risk_control/supplier_service_regime_calibration_runner.py#L1062>)
-- implementation : [run_calibration](<../../../prototypes/scan_2027_risk_control/supplier_service_regime_calibration_runner.py#L1109>)
-- implementation : [_load_ledger](<../../../prototypes/scan_2027_risk_control/supplier_service_regime_calibration_runner.py#L679>)
+- implementation : [_campaign_signature](<../../../prototypes/scan_2027_risk_control/supplier_service_regime_calibration_runner.py#L354>)
+- implementation : [_base_manifest](<../../../prototypes/scan_2027_risk_control/supplier_service_regime_calibration_runner.py#L1068>)
+- implementation : [run_calibration](<../../../prototypes/scan_2027_risk_control/supplier_service_regime_calibration_runner.py#L1115>)
+- implementation : [_load_ledger](<../../../prototypes/scan_2027_risk_control/supplier_service_regime_calibration_runner.py#L685>)
 - test : [test_screen_checkpoint_and_resume_adds_only_seeds_16_to_30](<../../../prototypes/scan_2027_risk_control/tests/test_supplier_service_regime_calibration_runner.py#L182>)
 - test : [test_current_runner_refuses_v1_output_without_changing_it](<../../../prototypes/scan_2027_risk_control/tests/test_supplier_service_regime_calibration_runner.py#L354>)
 - test : [test_failed_ledger_commit_cannot_be_silently_resumed](<../../../prototypes/scan_2027_risk_control/tests/test_supplier_service_regime_calibration_runner.py#L459>)
@@ -73,8 +73,8 @@ Sources métier : [CALIBRATION_EXECUTION.md](<../../CALIBRATION_EXECUTION.md>)
 
 Références :
 
-- implementation : [_base_manifest](<../../../prototypes/scan_2027_risk_control/supplier_service_regime_calibration_runner.py#L1062>)
-- implementation : [run_calibration](<../../../prototypes/scan_2027_risk_control/supplier_service_regime_calibration_runner.py#L1109>)
+- implementation : [_base_manifest](<../../../prototypes/scan_2027_risk_control/supplier_service_regime_calibration_runner.py#L1068>)
+- implementation : [run_calibration](<../../../prototypes/scan_2027_risk_control/supplier_service_regime_calibration_runner.py#L1115>)
 - test : [test_screen_checkpoint_and_resume_adds_only_seeds_16_to_30](<../../../prototypes/scan_2027_risk_control/tests/test_supplier_service_regime_calibration_runner.py#L182>)
 
 ## Référence technique extraite
@@ -147,7 +147,7 @@ def test_persistent_or_unrelated_failure_propagates(tmp_path, monkeypatch, code,
 
 ### signature
 
-[etudecas/prototypes/scan_2027_risk_control/supplier_service_regime_calibration_runner.py:348](<../../../prototypes/scan_2027_risk_control/supplier_service_regime_calibration_runner.py#L348>)
+[etudecas/prototypes/scan_2027_risk_control/supplier_service_regime_calibration_runner.py:354](<../../../prototypes/scan_2027_risk_control/supplier_service_regime_calibration_runner.py#L354>)
 
 ```python
 def _campaign_signature(plan: ValidatedPlan, *, smoke_only: bool) -> str:
@@ -155,7 +155,7 @@ def _campaign_signature(plan: ValidatedPlan, *, smoke_only: bool) -> str:
 
 ### manifest
 
-[etudecas/prototypes/scan_2027_risk_control/supplier_service_regime_calibration_runner.py:1062](<../../../prototypes/scan_2027_risk_control/supplier_service_regime_calibration_runner.py#L1062>)
+[etudecas/prototypes/scan_2027_risk_control/supplier_service_regime_calibration_runner.py:1068](<../../../prototypes/scan_2027_risk_control/supplier_service_regime_calibration_runner.py#L1068>)
 
 ```python
 def _base_manifest(*, plan: ValidatedPlan, signature: str, output_dir: Path, workers: int, retention: str, custom_executor_used: bool, smoke_only: bool) -> dict[str, Any]:
@@ -163,7 +163,7 @@ def _base_manifest(*, plan: ValidatedPlan, signature: str, output_dir: Path, wor
 
 ### run
 
-[etudecas/prototypes/scan_2027_risk_control/supplier_service_regime_calibration_runner.py:1109](<../../../prototypes/scan_2027_risk_control/supplier_service_regime_calibration_runner.py#L1109>)
+[etudecas/prototypes/scan_2027_risk_control/supplier_service_regime_calibration_runner.py:1115](<../../../prototypes/scan_2027_risk_control/supplier_service_regime_calibration_runner.py#L1115>)
 
 ```python
 def run_calibration(*, plan_dir: Path, output_dir: Path, mode: str, workers: int=2, retention: str='summary', checkpoint_after_repetitions: int | None=None, case_executor: CaseExecutor | None=None) -> dict[str, Any]:
@@ -171,7 +171,7 @@ def run_calibration(*, plan_dir: Path, output_dir: Path, mode: str, workers: int
 
 ### ledger
 
-[etudecas/prototypes/scan_2027_risk_control/supplier_service_regime_calibration_runner.py:679](<../../../prototypes/scan_2027_risk_control/supplier_service_regime_calibration_runner.py#L679>)
+[etudecas/prototypes/scan_2027_risk_control/supplier_service_regime_calibration_runner.py:685](<../../../prototypes/scan_2027_risk_control/supplier_service_regime_calibration_runner.py#L685>)
 
 ```python
 def _load_ledger(output_dir: Path, signature: str) -> dict[str, Any]:

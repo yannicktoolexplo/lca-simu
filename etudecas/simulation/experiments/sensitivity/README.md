@@ -3,6 +3,13 @@
 This package separates sensitivity study orchestration from historical
 `sensibility` runners.
 
+The implementation has three modules: `designs.py` defines the study and its
+scenarios, `materialize.py` prepares their inputs and commands, and `results.py`
+discovers, normalizes and consolidates their results. Public package imports
+remain available from `etudecas.simulation.experiments.sensitivity`.
+`designs.py` also keeps the stable case identifiers used by the local and
+threshold sensitivity runners, including their short names and hash suffixes.
+
 ## Contract
 
 - `study_manifest.json`: study definition and reproducibility context.

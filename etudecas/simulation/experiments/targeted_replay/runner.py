@@ -12,10 +12,8 @@ import sys
 from typing import Any, Iterable
 
 from .comparison import write_lot_delta_report
-from .discovery import ReplayCatalog
-from .metrics import extract_run_metrics, lot_trace_evidence
-from .ranking import RankedScenario
-from .schema import KpiSpec, ScenarioCandidate
+from .sources import ReplayCatalog, extract_run_metrics, lot_trace_evidence
+from .ranking import KpiSpec, RankedScenario, ScenarioCandidate
 
 SCHEMA_VERSION = "etudecas.targeted_lot_replay.v1"
 REPO_ROOT = Path(__file__).resolve().parents[4]

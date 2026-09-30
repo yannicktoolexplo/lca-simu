@@ -15,6 +15,13 @@ leurs dépendances. La cible d'environ 50 fichiers de code, tests et interface c
 **n'est pas encore atteinte**. Le [plan](docs/PLAN_SIMPLIFICATION.md) décrit la suite ;
 l'[inventaire Python](docs/INVENTAIRE_PYTHON.csv) sert à retrouver une implémentation.
 
+Le nombre de fichiers Python annoncé comprend le code applicatif, les fichiers
+de tests et les `__init__.py` qui organisent les paquets. Il exclut les résultats
+CSV/JSON, les cartes HTML, les archives, la documentation et les preuves locales.
+Un fichier Python n'est pas nécessairement une commande : des modules fournissent
+des fonctions aux autres fichiers. Les commandes du parcours courant sont
+présentées ci-dessous.
+
 Pour travailler, utiliser ce guide, [les commandes](OPERATIONS.md),
 [les règles métier](docs/README.md) et [les quatre cartes](index.html).
 Les anciens `tmp`, audits et comptes rendus sont regroupés dans
@@ -140,8 +147,10 @@ et différences de méthode doivent être examinées avant tout nouveau retrait.
 
 ## Vérification et limites
 
-Les retraits, regroupements et contrôles de la passe courante sont détaillés dans
-le [bilan de simplification](artifacts/testing/human_code_20260925/BILAN.md).
+Le [plan de simplification](docs/PLAN_SIMPLIFICATION.md) décrit les regroupements.
+Le [dernier relevé vérifié](artifacts/testing/simplification_structure_20260928/simplification.json)
+donne les retraits, les contrôles et leurs limites : 511 fichiers Python restent
+actifs après cette passe, contre 518 auparavant.
 Les quatre HTML conservés restent les références ; la carte récente peut être
 recalculée, tandis que les présentations historiques sont réassemblées à partir
 de leurs données embarquées selon le guide de reconstruction.

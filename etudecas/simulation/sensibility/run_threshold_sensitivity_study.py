@@ -41,7 +41,7 @@ from etudecas.simulation.analysis_batch_common import (  # noqa: E402
     write_json,
 )
 from etudecas.simulation.initial_state_policy import merge_living_initial_state_args  # noqa: E402
-from etudecas.simulation.sensibility.case_naming import threshold_case_id  # noqa: E402
+from etudecas.simulation.experiments.sensitivity.designs import threshold_case_id  # noqa: E402
 
 
 def parse_args() -> argparse.Namespace:

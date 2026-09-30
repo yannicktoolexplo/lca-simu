@@ -269,22 +269,103 @@ def _deliver(output: Path, commands: list[tuple[str, Path, list[str]]], map_comm
                       'performance': packaging['performance']}, indent=2))
 
 
+def _comparison_commands(output: Path, days: int | None) -> list[tuple[str, Path, list[str]]]:
+    """Three explicit diagnostics; never modify the retained nominal config."""
+    nominal = _command('nominal', output / 'nominal', days)
+    nominal[nominal.index('--output-profile') + 1] = 'full'
+    dynamic = []
+    removed = 0
+    index = 0
+    while index < len(nominal):
+        if nominal[index:index + 2] == ['--mrp-static-requirement-pair', 'M-1810,item:338929']:
+            removed += 1
+            index += 2
+        else:
+            dynamic.append(nominal[index])
+            index += 1
+    if removed != 1:
+        raise ValueError('Expected exactly one retained static requirement override for 338929/M-1810')
+    commands = []
+    for name, command in (
+        ('nominal', nominal), ('retrait_statique_338929', dynamic),
+        ('dynamique_338929', dynamic + ['--mrp-dynamic-requirement-pair', 'M-1810,item:338929']),
+    ):
+        command = command[:]
+        run = output / name
+        command[command.index('--output-dir') + 1] = str(run)
+        commands.append((name, run, command))
+    return commands
+
+
+def _deliver_comparison(output: Path, commands: list[tuple[str, Path, list[str]]], base_map: Path) -> None:
+    from etudecas.testing.qualification import require_run_invariants
+    from etudecas.visualization.maps.source_comparison import build_comparison_payload
+    from etudecas.visualization.maps.portable_diagnostic import build_comparison_map
+
+    inventory = ROOT / 'etudecas/data/source/Flow_Data_Inventory_and_Replenishment_rules.xlsx'
+    mrp = ROOT / 'etudecas/data/source/Flow_Data_MRP_results.xlsx'
+    for path in (inventory, mrp, base_map):
+        if not path.is_file():
+            raise ValueError(f'Missing comparison input: {path}')
+    map_sha256 = _hash(base_map)
+    bundle = _capture_sources(output, [command for _, _, command in commands])
+    _write(output / 'reproduction-plan.json', {
+        'delivery': 'comparaison_2025', 'source_bundle': bundle,
+        'commands': {name: command for name, _, command in commands},
+        'base_map': str(base_map), 'base_map_sha256': map_sha256,
+        'source_hashes': {str(p): _hash(p) for p in (inventory, mrp)},
+        'scope': 'Recalculate 2025 comparisons in three separate runs; existing map views preserved.',
+    })
+    runs = {}
+    validations = []
+    for name, run, command in commands:
+        started = time.perf_counter()
+        subprocess.run(command, cwd=ROOT, check=True)
+        _record_run('nominal', run, command, elapsed_seconds=time.perf_counter() - started,
+                    source_bundle=_check_sources(bundle))
+        check = require_run_invariants(run)
+        _write(run / 'reproduction-invariants.json', check)
+        validations.append({'name': name, 'run': str(run), 'ok': True})
+        runs[name] = run
+    payload = build_comparison_payload(inventory, mrp, runs)
+    _write(output / 'comparison.json', payload)
+    if _hash(base_map) != map_sha256:
+        raise ValueError('The map source changed during the comparison calculation')
+    html = output / 'maps/02_carte_lots_recente.html'
+    package = build_comparison_map(base_map, payload, html)
+    _check_sources(bundle)
+    _write(output / 'comparison-delivery.json', {
+        **package, 'runs': validations, 'browser_verified': False,
+        'scope': 'New comparison panel only; original map and lot views preserved byte for byte outside the marked addition.',
+        'limitations': ['Industrial stock scope and source MRP semantics remain partly unconfirmed.',
+                        'Single-seed exploratory diagnostics; not a calibrated replacement of nominal.',
+                        'The original map is an input to this packaging, not recalculated by this command.'],
+    })
+    print(json.dumps({'delivery': 'comparaison_2025', 'html': str(html),
+                      'runs': len(commands), 'browser_verified': False}, ensure_ascii=False))
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--scenario', choices=('nominal', 'risques', 'securite_150', 'acceleration_50'), default='nominal')
     parser.add_argument('--days', type=int, help='Omit to keep the retained 1825-day horizon.')
     parser.add_argument('--output-dir', type=Path)
     parser.add_argument('--with-map', action='store_true', help='Build a basic map of this single run; use --delivery lots for the full portable comparison and diagnostic.')
-    parser.add_argument('--delivery', choices=('lots',), help='Recreate all four retained runs, their comparison, and a portable map with its diagnostic.')
+    parser.add_argument('--delivery', choices=('lots', 'comparaison_2025'), help='Recreate the lots delivery or add source/MRP comparisons and two separate diagnostics to the retained map.')
+    parser.add_argument('--base-map', type=Path, help='For comparaison_2025 only: existing map to enrich; defaults to resultats/02_carte_lots_recente.html.')
     parser.add_argument('--dry-run', action='store_true')
     args = parser.parse_args()
     if args.days is not None and args.days < 1:
         parser.error('--days must be positive')
     if args.delivery and (args.scenario != 'nominal' or args.with_map):
-        parser.error('--delivery lots already includes all scenarios and the map; omit --scenario and --with-map')
-    if args.delivery and args.days is not None and args.days < 300:
+        parser.error('--delivery already includes its scenarios and map; omit --scenario and --with-map')
+    if args.base_map is not None and args.delivery != 'comparaison_2025':
+        parser.error('--base-map is only supported with --delivery comparaison_2025')
+    if args.delivery == 'lots' and args.days is not None and args.days < 300:
         parser.error('--delivery lots requires at least 300 days for the scenario comparison; use --scenario for shorter checks')
-    label = 'lots' if args.delivery else args.scenario
+    if args.delivery == 'comparaison_2025' and args.days is not None and args.days < 365:
+        parser.error('--delivery comparaison_2025 requires at least 365 days')
+    label = args.delivery or args.scenario
     output = args.output_dir or Path('etudecas/simulation/result') / f'{label}_{datetime.now():%Y%m%d_%H%M%S}'
     output = output.resolve() if output.is_absolute() else (ROOT / output).resolve()
     if args.delivery and output.name == 'state_dependent_full':
@@ -293,7 +374,21 @@ def main() -> None:
         parser.error('Choose an output directory in a parent without risk_amplitude_duration_sweep_5y; the legacy comparison reader also scans that neighbouring campaign')
     if output.exists() and (not output.is_dir() or any(output.iterdir())):
         parser.error(f'Output must be new or empty: {output}')
-    if args.delivery:
+    if args.delivery == 'comparaison_2025':
+        base_map = (args.base_map or ROOT / 'etudecas/resultats/02_carte_lots_recente.html').resolve()
+        if not base_map.is_file():
+            parser.error(f'Missing base map: {base_map}')
+        try:
+            commands = _comparison_commands(output, args.days)
+        except ValueError as exc:
+            parser.error(str(exc))
+        if args.dry_run:
+            print(json.dumps({'delivery': args.delivery, 'commands': {name: cmd for name, _, cmd in commands},
+                              'base_map': str(base_map), 'output': str(output)}, ensure_ascii=False, indent=2))
+            return
+        _deliver_comparison(output, commands, base_map)
+        return
+    if args.delivery == 'lots':
         runs = [('nominal', output), ('risques', output / 'scenario_runs/state_dependent_full'),
                 ('securite_150', output / 'decision_support/actions/safety_150'),
                 ('acceleration_50', output / 'decision_support/actions/expedite_50')]

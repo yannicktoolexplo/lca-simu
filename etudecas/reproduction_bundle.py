@@ -23,7 +23,7 @@ SCHEMA = "etudecas.reproduction_bundle.v1"
 EXCLUDED = {"result", "results", "resultats", "artifacts", "docs", "documentation", "archive",
             "archives", "__pycache__", ".git", ".venv", ".pytest_cache",
             "reproduction_historique", "node_modules"}
-SOURCE_SUFFIXES = {".py", ".js", ".css", ".ps1", ".json", ".toml", ".yaml", ".yml", ".txt"}
+SOURCE_SUFFIXES = {".py", ".js", ".css", ".html", ".ps1", ".json", ".toml", ".yaml", ".yml", ".txt"}
 MAX_FILE_BYTES = 64 * 1024 * 1024
 MAX_TOTAL_BYTES = 512 * 1024 * 1024
 
@@ -63,6 +63,10 @@ def _local(path: Path, root: Path) -> Path:
 
 def _source_name(name: str) -> bool:
     path = PurePosixPath(name)
+    # Excel's transient owner/lock marker is not a workbook input. Opening or
+    # closing a source workbook must not change the reproducible source set.
+    if path.name.startswith("~$") and path.suffix.lower() in {".xlsx", ".xlsm", ".xls"}:
+        return False
     if any(part in EXCLUDED for part in path.parts):
         return False
     if not name.startswith("etudecas/"):

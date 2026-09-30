@@ -10,6 +10,8 @@ from typing import Any
 
 from etudecas.simulation.lot_trace.causal_links import join_ids
 
+from .sources import read_csv_rows as _read_csv
+
 
 LOT_DELTA_FIELDS = [
     "scenario_id",
@@ -85,13 +87,6 @@ SUPPLY_ORDER_DELTA_FIELDS = [
     "quantity_changed",
     "physical_trace_semantics",
 ]
-
-
-def _read_csv(path: Path) -> list[dict[str, str]]:
-    if not path.exists():
-        return []
-    with path.open("r", encoding="utf-8-sig", newline="") as handle:
-        return list(csv.DictReader(handle))
 
 
 def _float(value: Any) -> float:

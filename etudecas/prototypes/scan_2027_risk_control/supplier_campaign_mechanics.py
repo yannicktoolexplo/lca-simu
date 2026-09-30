@@ -14,10 +14,10 @@ if TYPE_CHECKING:
     import numpy as np
     import pandas as pd
 
-    from etudecas.prototypes.scan_2027_risk_control.finalize_supplier_operating_point_full_campaign_v2 import (
+    from etudecas.prototypes.scan_2027_risk_control.finalize_supplier_operating_point_full_campaign_v4 import (
         InputEvidence,
     )
-    from etudecas.prototypes.scan_2027_risk_control.launch_supplier_operating_point_full_campaign_v2 import (
+    from etudecas.prototypes.scan_2027_risk_control.launch_supplier_operating_point_full_campaign_v4 import (
         ActiveShard,
         Shard,
     )

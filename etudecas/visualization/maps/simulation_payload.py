@@ -707,11 +707,33 @@ def apply_physical_material_balances(
         if 0 <= day < horizon_days:
             snapshots[(stock.get("node_id"), stock.get("item_id"))][day] = number(stock.get("stock_end_of_day"))
 
-    receipt_types = {"lane_receipt", "external_procurement_receipt", "estimated_source_receipt", "estimated_capacity_receipt"}
+    receipt_types = {"lane_receipt", "opening_purchase_order_receipt", "external_procurement_receipt", "estimated_source_receipt", "estimated_capacity_receipt"}
     consume_types = {"production_consume", "production_consume_reference_transition"}
     outflow_types = {"shipment_reserve", "demand_service", "writeoff", "stock_writeoff"}
     adjustment_types = {"stock_reconciliation", "production_output"}
-    known_types = receipt_types | consume_types | outflow_types | adjustment_types | {"opening_stock", "lane_ship", "opening_production_order"}
+    availability_types = {"stock_availability_hold", "stock_availability_release"}
+    known_types = receipt_types | consume_types | outflow_types | adjustment_types | availability_types | {"opening_stock", "lane_ship", "opening_production_order"}
+
+    for pair, pair_events in ledger.items():
+        held_changes = defaultdict(float)
+        for event in pair_events:
+            kind = event.get("event_type")
+            if kind in availability_types:
+                held_changes[int(number(event.get("day")))] += (
+                    number(event.get("qty")) * (1 if kind == "stock_availability_hold" else -1)
+                )
+        if not held_changes:
+            continue
+        # Historical stock CSVs contain usable stock after reservations. Held
+        # quantities remain physically present; a release changes usability only.
+        changes = sorted(held_changes.items())
+        position = 0
+        held_qty = 0.0
+        for day in sorted(snapshots[pair]):
+            while position < len(changes) and changes[position][0] <= day:
+                held_qty += changes[position][1]
+                position += 1
+            snapshots[pair][day] += held_qty
 
     for row in rows:
         scope = row.get("scope")
@@ -735,6 +757,8 @@ def apply_physical_material_balances(
         mismatched_units = sorted({str(event.get("uom")) for event in pair_events if event.get("uom") and str(event["uom"]).upper() != expected_unit})
         available = bool(source_available and pair_events and not unknown and not mismatched_units)
         notes = ["Consommations et réceptions : événements physiques datés du registre des lots ; clôtures : stocks journaliers."]
+        if any(event.get("event_type") in availability_types for event in pair_events):
+            notes.append("Clôtures physiques hors réservations : stock utilisable + stock détenu indisponible à cette date ; les libérations ne sont pas des réceptions.")
         if unknown:
             notes.append("Types d'événements non rapprochés : " + ", ".join(unknown))
         if mismatched_units:

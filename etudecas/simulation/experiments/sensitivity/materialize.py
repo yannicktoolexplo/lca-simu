@@ -2,15 +2,14 @@
 
 from __future__ import annotations
 
-import csv
 import json
 from pathlib import Path
 from typing import Any
 
 from etudecas.simulation.analysis_batch_common import apply_scales, load_json, write_json, validate_factors
 
-from .designs import ScenarioDesign, build_scenario_designs
-from .schema import StudySpec
+from .designs import ScenarioDesign, StudySpec, build_scenario_designs
+from .results import write_csv
 
 
 FACTOR_ALIASES = {
@@ -101,9 +100,6 @@ def materialize_cases(study: StudySpec, output_dir: str | Path) -> list[dict[str
 
 
 def write_materialized_cases_csv(path: str | Path, rows: list[dict[str, Any]]) -> None:
-    target = Path(path)
-    target.parent.mkdir(parents=True, exist_ok=True)
-    fieldnames = sorted({key for row in rows for key in row})
     preferred = [
         "scenario_id",
         "study_id",
@@ -114,11 +110,5 @@ def write_materialized_cases_csv(path: str | Path, rows: list[dict[str, Any]]) -
         "parameter_values_json",
         "applied_factors_json",
     ]
-    fieldnames = [field for field in preferred if field in fieldnames] + [
-        field for field in fieldnames if field not in preferred
-    ]
-    with target.open("w", encoding="utf-8", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows(rows)
+    write_csv(path, rows, preferred=preferred)
 

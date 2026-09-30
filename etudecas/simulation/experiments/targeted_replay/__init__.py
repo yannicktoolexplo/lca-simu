@@ -1,9 +1,8 @@
 """Targeted replay of influential scenarios with lot trace enabled."""
 
-from .discovery import ReplayCatalog, discover_replay_catalog
-from .ranking import RankedScenario, rank_scenarios
+from .sources import ReplayCatalog, discover_replay_catalog
+from .ranking import KpiSpec, RankedScenario, ScenarioCandidate, rank_scenarios
 from .runner import TargetedReplayRunner
-from .schema import KpiSpec, ScenarioCandidate
 
 __all__ = [
     "KpiSpec",

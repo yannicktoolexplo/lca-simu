@@ -4,6 +4,13 @@ This module ranks already simulated business scenarios, then replays only the
 nominal and the most influential scenarios with lot trace explicitly enabled.
 It does not modify or import the simulation engine.
 
+Read `ranking.py` for the scenario and KPI contracts and the selection rule,
+`sources.py` for recorded runs, their provenance, KPIs and lot-trace evidence,
+`runner.py` for replay execution, and `comparison.py` for lot and supply-order
+differences. Lot evidence scans each CSV once, keeping raw row counts distinct
+from nonblank records. Public package imports remain available from
+`etudecas.simulation.experiments.targeted_replay`.
+
 The source must be a pipeline output with:
 
 - a root `run_manifest.json`;

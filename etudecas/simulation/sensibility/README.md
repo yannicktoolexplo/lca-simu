@@ -1,16 +1,19 @@
-# Sensibility
+# Études de sensibilité
 
-Ce dossier contient les runners historiques de sensibilite. La cible de
-developpement est maintenant `etudecas/simulation/experiments/sensitivity`,
-qui porte le contrat generique `study_manifest.json`, `metrics.csv`,
-`registry.csv` et `summary.json`.
+Ce dossier conserve les lanceurs de méthodes spécialisées. Le parcours
+`python -B -m etudecas.simulation.studies sensitivity` prépare les plans et
+rassemble les résultats au format commun ; il ne lance pas implicitement
+les calculs. Son implémentation est dans `experiments/sensitivity`.
 
-Les scripts historiques restent utiles comme recipes metier:
+Les méthodes disponibles restent distinctes :
 
 - `run_sensitivity_analysis.py`
 - `run_targeted_experiment_plan.py`
 - `run_supplier_parameter_sensitivity.py`
 - `run_supplier_risk_campaign.py`
+- `run_realistic_sensitivity_study.py`
+- `run_threshold_sensitivity_study.py`
+- `run_shock_campaign.py`
 
 ## Commandes
 
@@ -29,13 +32,15 @@ Options frequentes:
 
 Ne pas conserver les sorties completes de simulation pour tous les cas.
 
-Modes de retention:
+Le lanceur général, l'étude réaliste et l'étude de seuils proposent
+`--artifact-mode compact` (par défaut) ou `full`. `--keep-detailed-case`
+permet de conserver un cas détaillé en mode compact. La sensibilité des
+paramètres fournisseurs propose aussi le mode `summary` ; les options ne
+sont donc pas interchangeables entre lanceurs. Consulter leur `--help`.
 
-- `summary`: mode par defaut, garde uniquement manifests, summaries, reports et petits CSV de diagnostic.
-- `compact`: garde quelques CSV operationnels selectionnes, sans `mrp_trace_daily.csv` par defaut.
-- `full`: garde tout `simulation_output`, uniquement pour debug cible.
-
-Voir `ARTIFACT_POLICY.md` pour la commande de nettoyage.
+Voir [la politique de conservation](ARTIFACT_POLICY.md). Les anciens outils
+d'alias et de nettoyage collectif ont été retirés ; le code du nommage des cas
+est maintenant dans `experiments/sensitivity/designs.py`.
 
 ## Sorties a privilegier
 

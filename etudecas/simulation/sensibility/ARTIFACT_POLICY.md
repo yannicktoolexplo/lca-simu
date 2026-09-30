@@ -1,57 +1,26 @@
-# Sensibility Artifact Policy
+# Conservation des résultats de sensibilité
 
-The sensitivity runners should not keep complete simulation outputs for every
-case by default. Full case outputs are useful for debugging, but they make the
-workspace too large for normal development.
+Les lanceurs `run_sensitivity_analysis.py`, `run_realistic_sensitivity_study.py`
+et `run_threshold_sensitivity_study.py` gèrent les résultats à chaque calcul :
 
-## Retention modes
+- `--artifact-mode compact` est leur valeur par défaut. Après extraction des
+  indicateurs, les données détaillées, cartes et figures des cas sont retirées ;
+  leurs synthèses et rapports restent disponibles, ainsi que les entrées des cas.
+- `--artifact-mode full` conserve les sorties détaillées de tous les cas.
+- `--keep-detailed-case IDENTIFIANT` conserve un cas complet en mode compact.
+  L'option peut être répétée. Le nominal est conservé par défaut ; les lanceurs
+  général et réaliste conservent aussi sa répétition `baseline_repeat`.
 
-- `summary`: default. Keep case inputs, summaries, reports and small diagnostic
-  CSVs only.
-- `compact`: keep summaries/reports plus selected operational CSVs needed for
-  quick inspection. Do not keep `mrp_trace_daily.csv` by default.
-- `full`: keep the entire `simulation_output` directory. Use only for a small
-  number of cases being debugged.
+Pour reconstruire une carte détaillée, conserver le cas correspondant avec
+`--keep-detailed-case` ou le recalculer en mode `full`.
 
-## Existing heavy outputs
+Le parcours générique `python -m etudecas.simulation.studies sensitivity`
+prépare les scénarios et consolide leurs indicateurs ; ses commandes `design`
+et `materialize` ne lancent pas la simulation. Voir son
+[guide](../experiments/sensitivity/README.md) pour les sorties compactes.
 
-Inventory dry-run:
-
-```powershell
-python etudecas\simulation\sensibility\cleanup_sensibility_outputs.py
-```
-
-Archive a small batch first:
-
-```powershell
-python etudecas\simulation\sensibility\cleanup_sensibility_outputs.py --execute --limit 10
-```
-
-Archive all non-kept `simulation_output` directories:
-
-```powershell
-python etudecas\simulation\sensibility\cleanup_sensibility_outputs.py --execute
-```
-
-Delete all non-kept `simulation_output` directories when the study is
-reproducible from scripts and compact summaries are enough:
-
-```powershell
-python etudecas\simulation\sensibility\cleanup_sensibility_outputs.py --delete --execute
-```
-
-Keep paths containing a token:
-
-```powershell
-python etudecas\simulation\sensibility\cleanup_sensibility_outputs.py --keep baseline --keep selected_case --execute
-```
-
-The script writes:
-
-- `sensibility_artifact_manifest.csv`
-- `sensibility_artifact_manifest.json`
-
-It moves outputs to `etudecas/simulation/sensibility_archives` by default. Use
-`--archive-root` to place the archive outside the repository. With `--delete`,
-it removes only discovered `simulation_output` directories and keeps the root
-summaries, reports, case registry CSVs and input files.
+Les anciens utilitaires de création d'alias et de nettoyage collectif des
+résultats ont été retirés du code actif. Leurs sources restent dans la capsule
+de reproduction `a99c4246c2be2b0dcc0a690e1cadff454c259e3184f05ee408e832fe1227b9d1.zip`
+sous `etudecas/config/reproduction_20260920/sources/`. Ils ne sont pas nécessaires
+au calcul des études ni à la reconstruction des cartes.

@@ -687,10 +687,12 @@ def test_cli_exposes_plan_runner_monitor_and_finalizer() -> None:
 def test_reviewed_v6_inventory_records_actual_hash_and_preserves_history() -> None:
     relative = "tests/test_supplier_v6_completion_path.py"
     historical = "3b43186935c27debbfbe7ea0220fbb312c07f41f8cc1333103f36bd4b61326a2"
-    current = "e086cfe9700fd132de35fe0133c5c923c3e5f3294c7da863364847bc13875ef8"
+    previous = "e086cfe9700fd132de35fe0133c5c923c3e5f3294c7da863364847bc13875ef8"
+    current = "a9ec4bd6d2249aa205f3230b1ab399114c3dd348fadbd102c774ab3fa3e3edf0"
     inventory = {row["relative_path"]: row for row in v7._module_inventory()}
     assert v7.PINNED_V6_MODULE_SHA256[relative] == historical
-    assert v7.REVIEWED_V6_IMPORT_REFACTOR_SHA256 == {relative: current}
+    assert v7.REVIEWED_V6_IMPORT_REFACTOR_SHA256 == {relative: previous}
+    assert v7.REVIEWED_V6_SUPERVISOR_RETIREMENT_SHA256 == {relative: current}
     assert inventory[relative]["sha256"] == current
     assert v7.sha256_file(Path(inventory[relative]["path"])) == current
 
