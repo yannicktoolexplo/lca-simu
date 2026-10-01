@@ -14,6 +14,7 @@ import pytest
 from etudecas.simulation.engine.mrp_planning import (
     FirmReceipt, LotSizing, Requirement, StockProtection,
     plan_dated_requirements, plan_with_stock_protection,
+    IndustrialComponentPlanningCalendar, IndustrialPlanningWindow, reconcile_industrial_requirements,
 )
 from etudecas.simulation.engine.run_first_simulation import supplier_receipt_available_day
 from etudecas.simulation.engine import run_first_simulation as engine
@@ -222,8 +223,300 @@ def test_G_revision_converts_canonical_KG_once_preserving_dates_and_provenance()
     assert [r["source_cells"] for r in rows] == ["Feuille1!I11", "Feuille1!I12"]
 
 
+def test_UN_revision_keeps_fractional_forecast_but_rounds_each_week_once():
+    from etudecas.simulation.engine.mrp_planning import ExternalComponentDemandCalendar
+
+    records = [
+        {"known_day": 4, "day": 4, "qty": 999, "unit": "UN", "row": 1},
+        {"known_day": 4, "day": 11, "qty": 25, "unit": "UN", "row": 2},
+        {"known_day": 4, "day": 18, "qty": 21, "unit": "UN", "row": 3},
+        {"known_day": 11, "day": 18, "qty": 31, "unit": "UN", "row": 4},
+    ]
+    saved = deepcopy(records)
+    series = revision_series(records, [4, 11], "042342/1430", 0.5,
+                             planning_horizon_days=364, output_uom="UN")
+    assert records == saved
+    assert [r["qty"] for v in series["versions"] for r in v["rows"]] == [13, 11, 16]
+    assert [json.loads(r["estimation_basis"])["unrounded_canonical_qty"]
+            for v in series["versions"] for r in v["rows"]] == [12.5, 10.5, 15.5]
+    pair = ("M-1430", "item:042342")
+    calendar = ExternalComponentDemandCalendar({
+        "schema_version": 3, "origin": "2025-01-01", "scenario_id": "memory-unit-revisions",
+        "semantics": "incremental_non_modelled_component_use", "repeat_period_days": None,
+        "rows": [], "versioned_series": [series],
+    }, pair_uoms={pair: "UN"}, origin_date="2025-01-01", horizon_days=1825)
+    # Half-up once per week: 12.5 -> 13, then cumulative allocation over 7 days.
+    assert [sum(r.qty for r in calendar.due(day).get(pair, ()))
+            for day in range(11, 18)] == [1, 2, 2, 2, 2, 2, 2]
+    before = calendar.requirements(decision_day=10, first_day=18, through_day=24)[pair]
+    after = calendar.requirements(decision_day=11, first_day=18, through_day=24)[pair]
+    assert sum(r.qty for r in before) == 11
+    assert sum(r.qty for r in after) == 16  # Replaced, never added to the old eleven.
+    assert all(r.qty == int(r.qty) for r in before + after)
+
+
+@pytest.mark.parametrize("source_unit,output_unit", [("UN", "KG"), ("UN", "G"), ("KG", "UN")])
+def test_revision_rejects_mass_to_unit_conversion(source_unit, output_unit):
+    with pytest.raises(ValueError):
+        revision_series([{"known_day": 4, "day": 11, "qty": 100, "unit": source_unit, "row": 2}],
+                        [4], "042342/1430", 0.5, planning_horizon_days=364, output_uom=output_unit)
+
+
 PAIR = ("M-1810", "item:693055")
 ORIGIN_PAIR = ("SDC-1450", PAIR[1])
+
+
+def supplier_planning_candidate():
+    pair = ("factory", "item:shared")
+    payload = {"schema_version": 1, "rows": [{
+        "policy_id": "explicit-selection", "node_id": pair[0], "item_id": pair[1],
+        "uom": "KG", "selected_supplier_id": "fast", "status": "candidate_not_inferred_ERP",
+        "source_refs": {"offer": "FIA!F16:H16", "safety": "source30workingdays"},
+    }]}
+    lanes = {pair: [dict(src=supplier, lead_days=days, lead_days_mean=float(days),
+                        lead_time_source="case_data_fia", lead_time_is_default=False)
+                    for supplier, days in [("fast", 21), ("slow", 42)]]}
+    return pair, payload, lanes
+
+
+def test_supplier_planning_absent_is_inert_and_explicit_selection_keeps_21_not_max42():
+    pair, payload, lanes = supplier_planning_candidate()
+    saved = deepcopy((payload, lanes))
+    assert engine.resolve_supplier_planning_policies(None, execution_mode="historical",
+        lanes_by_dest_item=lanes, item_unit_map={pair[1]: "KG"}) == {}
+    policies = engine.resolve_supplier_planning_policies(payload, execution_mode="dated",
+        lanes_by_dest_item=lanes, item_unit_map={pair[1]: "KG"})
+    chosen = next(lane for lane in lanes[pair] if lane["src"] == policies[pair]["selected_supplier_id"])
+    assert engine.supplier_delivery_lead_days(chosen, None, mode="source", stochastic=False) == 21
+    # Jan22 + 13 Mon-Fri processing days = Feb10, versus Mar3 for the slow offer.
+    assert supplier_receipt_available_day(21, 13, origin_date="2025-01-01") == 40
+    assert supplier_receipt_available_day(42, 13, origin_date="2025-01-01") == 61
+    assert (payload, lanes) == saved
+
+
+@pytest.mark.parametrize("fault", ["unknown_supplier", "unit", "missing_source", "duplicate",
+                                 "unknown_field", "mode", "invented_delivery", "protection"])
+def test_supplier_planning_candidate_rejects_ambiguous_or_unsupported_parameters(fault):
+    pair, payload, lanes = supplier_planning_candidate()
+    row = payload["rows"][0]
+    if fault == "unknown_supplier": row["selected_supplier_id"] = "absent"
+    elif fault == "unit": row["uom"] = "UN"
+    elif fault == "missing_source": row["source_refs"] = {}
+    elif fault == "duplicate": payload["rows"].append(deepcopy(row))
+    elif fault == "unknown_field": row["safety_override"] = 0
+    elif fault == "invented_delivery": lanes[pair][0]["lead_time_source"] = "assumed"
+    elif fault == "protection": row["protection_mode"] = "replace_stock"
+    with pytest.raises(ValueError):
+        engine.resolve_supplier_planning_policies(payload,
+            execution_mode="historical" if fault == "mode" else "dated",
+            lanes_by_dest_item=lanes, item_unit_map={pair[1]: "KG"})
+
+
+def test_supplier_floor_differs_from_coverage_without_rebuying_initial_held_stock():
+    pair = ("factory", "item:shared")
+    kwargs = dict(decision_day=0, requirements_by_pair={pair: [Requirement("use", 50, 300)]},
+        available_by_pair={pair: 300}, firm_receipts_by_pair={pair: [FirmReceipt("initial-held", 10, 300, "held")]},
+        transport_sources_by_pair={}, bom_by_pair={}, lead_days_by_pair={pair: 40},
+        lot_sizing_by_pair={pair: LotSizing(minimum=300, multiple=300)},
+        reserve_targets_by_pair={pair: 300}, coverage_days_by_pair={pair: 120}, active_campaigns_by_pair={})
+    saved = deepcopy(kwargs)
+    legacy, _, _ = engine.plan_component_network(**kwargs)
+    # 600 committed minus 300 use leaves300: no extra order for a300 floor.
+    maintained, requirements, audits = engine.plan_component_network(**kwargs,
+        protection_by_pair={pair: [StockProtection("source-safety", 1, 300)]})
+    assert legacy[pair].proposals == maintained[pair].proposals == ()
+    assert maintained[pair].closing_projected_qty == 300
+    assert audits[pair]["reserve_requirement_qty"] == 0
+    assert sum(row.qty for row in requirements[pair]) == 300
+    # Same initial held300, but a400 floor needs one300 lot: physical use stays300.
+    raised, requirements, _ = engine.plan_component_network(**kwargs,
+        protection_by_pair={pair: [StockProtection("source-safety", 1, 400)]})
+    assert raised[pair].proposed_qty == 300
+    assert raised[pair].closing_projected_qty == 600
+    assert sum(row.qty for row in requirements[pair]) == 300
+    assert kwargs == saved
+
+
+def coverage_floor_network(*, target=50, floor=15, stock=25, firms=(), lead=3, combined=True):
+    pair = ("factory", "item:shared")
+    return engine.plan_component_network(decision_day=0,
+        requirements_by_pair={pair: [Requirement("early", 2, 10), Requirement("later", 5, 20)]},
+        available_by_pair={pair: stock}, firm_receipts_by_pair={pair: firms},
+        transport_sources_by_pair={}, bom_by_pair={}, lead_days_by_pair={pair: lead},
+        lot_sizing_by_pair={pair: LotSizing()}, reserve_targets_by_pair={pair: target},
+        coverage_days_by_pair={pair: 5}, active_campaigns_by_pair={},
+        protection_by_pair={pair: [StockProtection("source-safety", 1, floor)]},
+        coverage_protection_pairs={pair} if combined else None)
+
+
+def test_coverage_floor_uses_maximum_at_original_dates_without_double_counting():
+    pair = ("factory", "item:shared")
+    plans, needs, audits = coverage_floor_network()
+    assert plans[pair].proposed_qty == 25  # 30 real use + max(15,20) -25 stock.
+    assert [(p.release_day, p.available_day, p.qty) for p in plans[pair].proposals] == [(0, 3, 5), (2, 5, 20)]
+    assert [(p.day, p.minimum_qty) for p in audits[pair]["protection_points"]] == [(1, 15), (3, 20)]
+    assert audits[pair]["dated_coverage_complement_qty"] == 20
+    assert audits[pair]["reserve_requirement_qty"] == 0
+    assert sum(n.qty for n in needs[pair]) == 30
+    assert all(not n.requirement_id.startswith("reserve:") for n in needs[pair])
+    # Adding C+S would wrongly buy40, including an extra15 units.
+    assert plans[pair].proposed_qty != 30 + 20 + 15 - 25
+
+
+def test_coverage_below_safety_preserves_previous_floor_plan():
+    pair = ("factory", "item:shared")
+    old, _, _ = coverage_floor_network(target=35, combined=False)
+    new, _, _ = coverage_floor_network(target=35, combined=True)
+    assert old[pair] == new[pair] and new[pair].proposed_qty == 20
+
+
+def test_coverage_with_zero_safety_keeps_its_nominal_arrival_date():
+    pair = ("factory", "item:shared")
+    plans, _, audits = coverage_floor_network(floor=0)
+    assert plans[pair].proposed_qty == 25
+    assert [(p.day, p.minimum_qty) for p in audits[pair]["protection_points"]] == [(1, 0), (3, 20)]
+
+
+@pytest.mark.parametrize("lead,expected", [(0, [(0, 20), (1, 20)]), (1, [(1, 20)])])
+def test_coverage_floor_zero_or_one_day_lead_never_lowers_or_duplicates_protection(lead, expected):
+    pair = ("factory", "item:shared")
+    plans, _, audits = coverage_floor_network(lead=lead)
+    assert [(p.day, p.minimum_qty) for p in audits[pair]["protection_points"]] == expected
+    assert plans[pair].proposed_qty == 25
+
+
+def test_coverage_floor_nets_initial_held_commitment_once():
+    pair = ("factory", "item:shared")
+    firms = [FirmReceipt("initial-held", 3, 25, "held")]
+    saved = deepcopy(firms)
+    plans, _, audits = coverage_floor_network(firms=firms)
+    assert plans[pair].proposals == ()
+    assert plans[pair].closing_projected_qty == 20
+    assert firms == saved and audits[pair]["reserve_requirement_qty"] == 0
+
+
+def test_coverage_floor_recovers_observed_708073_day93_release_pressure():
+    # Minimal reconstruction of the observed release arithmetic, not a replay
+    # of all future weeks: stock4416.778811, C4406.584316, due128, safety2000.
+    pair = ("factory", "item:shared")
+    stock, complement, by_arrival = 4416.778811, 4406.584316, 716.981738
+    kwargs = dict(decision_day=93, requirements_by_pair={pair: [Requirement("covered-use", 128, by_arrival)]},
+        available_by_pair={pair: stock}, firm_receipts_by_pair={}, transport_sources_by_pair={}, bom_by_pair={},
+        lead_days_by_pair={pair: 35}, lot_sizing_by_pair={pair: LotSizing()},
+        reserve_targets_by_pair={pair: complement + by_arrival}, coverage_days_by_pair={pair: 120},
+        active_campaigns_by_pair={}, protection_by_pair={pair: [StockProtection("source-safety", 94, 2000)]})
+    old, _, _ = engine.plan_component_network(**kwargs)
+    new, _, audits = engine.plan_component_network(**kwargs, coverage_protection_pairs={pair})
+    assert old[pair].proposals == ()
+    assert len(new[pair].proposals) == 1
+    proposal = new[pair].proposals[0]
+    assert (proposal.release_day, proposal.available_day) == (93, 128)
+    assert proposal.qty == pytest.approx(706.787243)
+    assert audits[pair]["dated_coverage_complement_qty"] == pytest.approx(complement)
+    assert engine.mrp_purchase_order_quantity(proposal.qty, 5000, 5000, binding=True, uom="KG") == 5000
+
+
+def industrial_window(quantity=100, first=11, end=18):
+    return IndustrialPlanningWindow(11, first, end, quantity, 4, "Flow.xlsx", "I2")
+
+
+def test_industrial_total_replaces_future_estimate_after_weekly_own_not_daily_maximum():
+    own = Requirement("derived:core", 11, 100)
+    estimated = Requirement("external:old", 12, 80)
+    saved = [own, estimated]
+    result, audit = reconcile_industrial_requirements(saved, [industrial_window()], pair=("site", "item:x"), decision_day=4)
+    assert result == [own] and saved == [own, estimated]
+    assert audit[0]["source_qty"] == audit[0]["own_qty"] == audit[0]["planning_qty"] == 100
+    assert audit[0]["reconstructed_external_qty"] == 80 and audit[0]["complement_qty"] == 0
+    # A daily maximum would incorrectly plan100+6*(100/7)=185.714.
+    assert sum(row.qty for row in result) == 100
+
+
+def test_industrial_partial_week_keeps_prior_consumption_out_of_future_complement():
+    # Source100/7, three future days remain; only20 own units are still due.
+    window = industrial_window(100 * 3 / 7, first=15, end=18)
+    needs = [Requirement("derived:own", 16, 20), Requirement("external:old", 17, 50),
+             Requirement("external:already-due", 12, 9)]
+    result, audit = reconcile_industrial_requirements(needs, [window], pair=("site", "item:x"), decision_day=14)
+    assert audit[0]["complement_qty"] == pytest.approx(100 * 3 / 7 - 20)
+    assert sum(row.qty for row in result if row.due_day > 14) == pytest.approx(100 * 3 / 7)
+    assert next(row for row in result if row.requirement_id == "external:already-due").qty == 9
+
+
+def test_industrial_explicit_zero_preserves_own_excess_and_backlog_missing_preserves_estimate():
+    needs = [Requirement("campaign:committed", 11, 20), Requirement("external:estimated", 12, 80),
+             Requirement("external:backlog", 4, 7)]
+    zero, audit = reconcile_industrial_requirements(needs, [industrial_window(0)], pair=("site", "item:x"), decision_day=4)
+    assert zero == [needs[0], needs[2]]
+    assert audit[0]["source_qty"] == 0 and audit[0]["source_excess_own_qty"] == 20
+    missing, missing_audit = reconcile_industrial_requirements(needs, [], pair=("site", "item:x"), decision_day=4)
+    assert missing == needs and missing_audit == []
+
+
+def test_industrial_calendar_is_causal_retains_zero_and_fractional_UN_forecasts():
+    series = revision_series([
+        {"known_day": 4, "day": 11, "qty": 12.5, "unit": "KG", "row": 2},
+        {"known_day": 4, "day": 18, "qty": 0, "unit": "KG", "row": 3},
+        {"known_day": 11, "day": 18, "qty": 21, "unit": "KG", "row": 4},
+    ], [4, 11], "055703/1810", 1, planning_horizon_days=364)
+    series["uom"] = "UN"  # Deliberately fractional forecast; no physical calendar.
+    pair = ("M-1810", "item:055703")
+    payload = dict(schema_version=1, origin="2025-01-01", scenario_id="memory",
+        semantics="industrial_total_gross_requirements_planning_only", versioned_series=[series])
+    saved = deepcopy(payload)
+    calendar = IndustrialComponentPlanningCalendar(payload, pair_uoms={pair: "UN"}, origin_date="2025-01-01")
+    assert calendar.windows(pair, decision_day=3, first_day=4, through_day=24) == ()
+    known = calendar.windows(pair, decision_day=4, first_day=5, through_day=24)
+    assert [(w.qty, w.known_day) for w in known] == [(12.5, 4), (0, 4)]
+    revised = calendar.windows(pair, decision_day=12, first_day=13, through_day=24)
+    assert [(w.qty, w.known_day) for w in revised] == [(pytest.approx(12.5 * 5 / 7), 4), (21, 11)]
+    assert payload == saved
+
+
+def test_industrial_network_reconciles_after_BOM_and_recomputes_targets_without_double_order():
+    component, product = ("factory", "item:component"), ("factory", "item:product")
+    window = IndustrialPlanningWindow(11, 11, 18, 100, 4, "Flow.xlsx", "I2")
+    kwargs = dict(decision_day=4,
+        requirements_by_pair={product: [Requirement("customer", 18, 100)],
+                              component: [Requirement("external:old", 12, 80)]},
+        available_by_pair={component: 0, product: 0},
+        firm_receipts_by_pair={component: [FirmReceipt("initial-held", 11, 100, "held")]},
+        transport_sources_by_pair={}, bom_by_pair={product: [(component, 1)]},
+        lead_days_by_pair={product: 7, component: 7}, lot_sizing_by_pair={},
+        reserve_targets_by_pair={component: 1000}, coverage_days_by_pair={component: 14}, active_campaigns_by_pair={},
+        protection_by_pair={component: [StockProtection("safety", 5, 100)]},
+        industrial_windows_by_pair={component: [window]}, industrial_target_context_by_pair={component: {
+            "window_days": 14, "fixed_floor_qty": 0, "target_days": 14,
+            "safety_floor_qty": 0, "safety_days": 7, "legacy_rate": 100}})
+    saved = deepcopy(kwargs)
+    plans, requirements, audits = engine.plan_component_network(**kwargs)
+    audit = audits[component]
+    assert audit["industrial_source_requirement_qty"] == audit["industrial_own_requirement_qty"] == 100
+    assert audit["industrial_planning_complement_qty"] == 0
+    assert audit["industrial_target_rate_qty"] == pytest.approx(100 / 14)
+    assert audit["protection_points"][0].minimum_qty == 50
+    assert sum(row.qty for row in requirements[component]) == 100
+    assert plans[component].proposed_qty == 50  # Firm100 covers use100, only floor50 missing.
+    assert plans[component].closing_projected_qty == 50
+    assert kwargs == saved
+
+
+def test_industrial_source_beyond_target_window_keeps_legacy_target_and_protection():
+    pair = ("factory", "item:component")
+    kwargs = dict(decision_day=4, requirements_by_pair={pair: [Requirement("derived:own", 11, 15)]},
+        available_by_pair={}, firm_receipts_by_pair={}, transport_sources_by_pair={}, bom_by_pair={},
+        lead_days_by_pair={pair: 7}, lot_sizing_by_pair={}, reserve_targets_by_pair={pair: 1000},
+        coverage_days_by_pair={pair: 14}, active_campaigns_by_pair={},
+        protection_by_pair={pair: [StockProtection("safety", 5, 100)]}, coverage_protection_pairs={pair})
+    _, _, old_audit = engine.plan_component_network(**kwargs)
+    _, _, new_audit = engine.plan_component_network(**kwargs,
+        industrial_windows_by_pair={pair: [IndustrialPlanningWindow(200, 200, 207, 100, 4, "Flow.xlsx", "I9")]},
+        industrial_target_context_by_pair={pair: {"window_days": 14, "fixed_floor_qty": 0, "target_days": 14,
+            "safety_floor_qty": 0, "safety_days": 7, "legacy_rate": 100}})
+    assert new_audit[pair]["industrial_target_rate_qty"] == 100
+    assert new_audit[pair]["industrial_core_rate"] is None
+    assert new_audit[pair]["protection_points"] == old_audit[pair]["protection_points"]
+    assert new_audit[pair]["dated_coverage_complement_qty"] == 985
 
 
 def internal_policy():
@@ -595,3 +888,132 @@ def test_gaillac_annotation_does_not_relabel_other_sites_or_create_flows():
     created = make_supplier_node("D1450", "SDC-1450", None)
     assert created["attrs"]["physical_site_code"] == "1450"
     assert created["inventory"]["states"] == [] and created["processes"] == []
+
+
+def prospective_memory(*, needs=(), decision=0, days=1, through=20, known=None,
+                       fixed=0, legacy=20, activation=3, complement=0):
+    from etudecas.simulation.engine.mrp_planning import prospective_stock_protection
+    return prospective_stock_protection(decision_day=decision, requirements=needs,
+        source_working_days=days, origin_weekday=2, forecast_through_day=through,
+        covered_days=range(decision + 1, through + 1) if known is None else known,
+        fixed_floor_qty=fixed, legacy_floor_qty=legacy,
+        coverage_activation_day=activation, coverage_complement_qty=complement)
+
+
+def test_prospective_window_excludes_current_day_includes_weekend_and_last_day():
+    # At Friday31January close (J30), one working day ends Monday3February J33.
+    needs = [Requirement(str(d), d, q) for d,q in [(30,99),(31,5),(32,7),(33,11),(34,100)]]
+    saved = deepcopy(needs)
+    points, audit = prospective_memory(needs=needs, decision=29, days=1, through=40, activation=35)
+    first = audit['prospective_checkpoints'][30]
+    assert first == dict(safety_window_end_day=33, safety_window_need_qty=23,
+                         safety_window_covered=1, safety_source_floor_qty=23)
+    assert points[0].day == 30 and audit['prospective_safety_tomorrow_qty'] == 23
+    assert needs == saved
+
+
+@pytest.mark.parametrize('days', [0,1,7,10,30])
+def test_prospective_calendar_matches_independent_date_iteration_across_month(days):
+    from datetime import date, timedelta
+    needs = [Requirement(str(d), d, d + 0.25) for d in range(1,100)]
+    points, audit = prospective_memory(needs=needs, days=days, through=99, activation=3)
+    origin = date(2025,1,1)
+    for when, row in audit['prospective_checkpoints'].items():
+        end_date = origin + timedelta(days=when)
+        count = 0
+        while count < days:
+            end_date += timedelta(days=1)
+            if end_date.weekday() < 5:
+                count += 1
+        end = (end_date - origin).days
+        assert row['safety_window_end_day'] == end
+        complete = end <= 99
+        assert row['safety_window_covered'] == int(complete)
+        if complete:
+            expected = sum(r.qty for r in needs if when < r.due_day <= end)
+            assert row['safety_window_need_qty'] == expected
+        else:
+            assert row['safety_window_need_qty'] == ''
+            assert row['safety_source_floor_qty'] == 20
+
+
+def test_prospective_explicit_zero_is_known_missing_day_and_tail_use_legacy():
+    points, known = prospective_memory(needs=(), fixed=5, legacy=20, known=range(1,21))
+    assert known['prospective_safety_basis'] == 'dated_known_window'
+    assert known['prospective_safety_tomorrow_qty'] == 5
+    _, missing = prospective_memory(needs=(), fixed=5, legacy=20, known=range(3,21))
+    assert missing['prospective_safety_basis'] == 'fallback_incomplete_forecast'
+    assert missing['prospective_safety_tomorrow_qty'] == 20
+    assert points[-1].minimum_qty == 20
+    assert known['prospective_safety_dated_days'] + known['prospective_safety_fallback_days'] == 20
+    _, empty = prospective_memory(needs=(), days=0, fixed=5, legacy=20, known=[])
+    assert empty['prospective_safety_tomorrow_qty'] == 5  # Empty window requires no source dates.
+
+
+def test_prospective_floor_coverage_maximum_and_held_commitment_counted_once():
+    needs = [Requirement('use',4,80)]
+    points, audit = prospective_memory(needs=needs, days=1, through=10,
+        fixed=10, legacy=20, activation=2, complement=15)
+    result = protected(needs, stock=0, firms=[FirmReceipt('held',2,100,'held')], points=points, lead=2)
+    assert result.plan.proposals == ()
+    assert result.plan.closing_projected_qty == 20
+    assert sum(r.qty for r in result.plan.allocations) == 80
+    assert max(p.minimum_qty for p in points) == 80  # Not80+15.
+    assert points[0].day == 1
+
+
+def test_prospective_default_network_unchanged_and_empty_coverage_is_legacy():
+    pair = ('factory','item:shared')
+    kwargs = dict(decision_day=0, requirements_by_pair={pair:[Requirement('use',5,30)]},
+        available_by_pair={pair:25}, firm_receipts_by_pair={}, transport_sources_by_pair={}, bom_by_pair={},
+        lead_days_by_pair={pair:3}, lot_sizing_by_pair={}, reserve_targets_by_pair={pair:50},
+        coverage_days_by_pair={pair:5}, active_campaigns_by_pair={},
+        protection_by_pair={pair:[StockProtection('source',1,15)]}, coverage_protection_pairs={pair})
+    saved = deepcopy(kwargs)
+    old = engine.plan_component_network(**kwargs)
+    explicit_none = engine.plan_component_network(**kwargs, prospective_safety_by_pair=None)
+    assert old == explicit_none and kwargs == saved
+    new = engine.plan_component_network(**kwargs, prospective_safety_by_pair={pair:dict(
+        source_working_days=1, origin_weekday=2, forecast_through_day=10,
+        covered_days=[], fixed_floor_qty=0)})
+    assert new[0] == old[0] and new[1] == old[1]
+    assert new[2][pair]['prospective_safety_tomorrow_qty'] == 15
+    assert new[2][pair]['prospective_safety_dated_days'] == 0
+
+
+def test_prospective_after_BOM_and_total_source_reconciliation_keeps_requirements_once():
+    component, product = ('factory','item:component'), ('factory','item:product')
+    kwargs = dict(decision_day=4, requirements_by_pair={product:[Requirement('customer',18,100)],
+        component:[Requirement('external:old',12,80)]}, available_by_pair={}, firm_receipts_by_pair={},
+        transport_sources_by_pair={}, bom_by_pair={product:[(component,1)]},
+        lead_days_by_pair={product:7,component:7}, lot_sizing_by_pair={},
+        reserve_targets_by_pair={component:0}, coverage_days_by_pair={component:14}, active_campaigns_by_pair={},
+        protection_by_pair={component:[StockProtection('source',5,50)]}, coverage_protection_pairs={component},
+        industrial_windows_by_pair={component:[IndustrialPlanningWindow(11,11,18,100,4,'Flow.xlsx','I2')]},
+        industrial_target_context_by_pair={component:dict(window_days=14,fixed_floor_qty=0,target_days=0,
+            safety_floor_qty=0,safety_days=7,legacy_rate=50)},
+        prospective_safety_by_pair={component:dict(source_working_days=5,origin_weekday=2,
+            forecast_through_day=25,covered_days=range(5,26),fixed_floor_qty=0)})
+    plans, requirements, audits = engine.plan_component_network(**kwargs)
+    assert sum(r.qty for r in requirements[component]) == 100
+    assert audits[component]['prospective_safety_tomorrow_qty'] == 100  # Monday6Jan throughMonday13Jan.
+    assert audits[component]['industrial_planning_complement_qty'] == 0
+
+
+@pytest.mark.parametrize('shortage,expected', [(299,300),(300,300),(305,600),(600,600),(601,900)])
+def test_prospective_keeps_existing_physical_purchase_rounding(shortage,expected):
+    assert engine.mrp_purchase_order_quantity(shortage,10000,300,binding=True,uom='KG') == expected
+
+
+def test_prospective_external_coverage_retains_explicit_zero_and_causal_vintage():
+    from etudecas.simulation.engine.mrp_planning import ExternalComponentDemandCalendar
+    series = revision_series([dict(known_day=4,day=11,qty=0,unit='KG',row=2),
+        dict(known_day=11,day=18,qty=70,unit='KG',row=3)], [4,11], '055703/1810',1,planning_horizon_days=364)
+    pair = ('M-1810','item:055703')
+    payload = dict(schema_version=3,origin='2025-01-01',scenario_id='memory',
+        semantics='incremental_non_modelled_component_use',rows=[],versioned_series=[series])
+    cal = ExternalComponentDemandCalendar(payload,pair_uoms={pair:'KG'},origin_date='2025-01-01',horizon_days=800)
+    assert cal.covered_days(pair,decision_day=3,first_day=4,through_day=24) == frozenset()
+    assert cal.covered_days(pair,decision_day=4,first_day=5,through_day=24) == frozenset(range(11,18))
+    assert cal.requirements(decision_day=4,first_day=5,through_day=24) == {}
+    assert cal.covered_days(pair,decision_day=12,first_day=13,through_day=24) == frozenset(range(13,25))

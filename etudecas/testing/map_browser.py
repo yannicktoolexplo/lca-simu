@@ -51,7 +51,9 @@ def review_source_comparison(page, output: Path) -> dict:
     if frame.locator('#sourceComparisonBasis option[value="physical"]').count():
         frame.locator('#sourceComparisonBasis').select_option('physical')
     state = root.evaluate('()=>SOURCE_COMPARISON_VIEW.getState()')
-    raw = frame.locator('#sourceComparisonPayload').evaluate('el=>{const d=JSON.parse(el.textContent);return d.pairs[SOURCE_COMPARISON_VIEW.getState().pair]}')
+    # Do not materialize a DOM handle for a script node whose text may exceed
+    # 100 MB; inspect it within the frame and return only the selected article.
+    raw = root.evaluate('()=>{const d=JSON.parse(document.getElementById("sourceComparisonPayload").textContent);return d.pairs[SOURCE_COMPARISON_VIEW.getState().pair]}')
     count = 0
     for run in state['runs']:
         actual = root.evaluate('(el,key)=>SOURCE_COMPARISON_VIEW.getComparisonRows(key)', run)

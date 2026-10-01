@@ -1,5 +1,268 @@
 # Règles MRP : analyse des sources industrielles et comparaison avec le moteur
 
+## Fin 2025 : étendre la protection du stock partagé à 001757 et 002612
+
+**Résultat : amélioration nette de 001757 et 002612, sans ajout de réceptions partielles ni modification des jours de sécurité.** Les deux nouveaux calculs de cinq ans ont terminé avec retour nul et empreintes inchangées (875,063 et 882,907 secondes). La variante `total_extension` est la meilleure des deux sur l'écart annuel de ces matières ; l'ancienne référence reste conservée pour comparaison.
+
+| Écart absolu moyen aux photos 2025, kg | Référence | Sécurité partagée | Sécurité + besoins industriels totaux |
+|---|---:|---:|---:|
+| 001757 / année entière | 2 504,086 | 1 906,032 | **1 425,327** |
+| 001757 / octobre–décembre | 4 276,469 | 2 549,027 | **1 275,801** |
+| 002612 / année entière | 58 360,198 | 28 230,845 | **27 365,461** |
+| 002612 / octobre–décembre | 68 019,345 | **34 202,691** | **34 202,691** |
+| 055703 / année entière | 147,241 | 147,230 | 147,230 |
+| 055703 / octobre–décembre | 119,403 | 113,826 | 113,826 |
+
+Les écarts du dernier trimestre diminuent d'environ **70 % pour 001757** et **50 % pour 002612**. Pour ce dernier, le gain vient surtout de la sécurité persistante : le rapprochement du total I améliore légèrement certaines dates antérieures mais n'ajoute pas de gain au quatrième trimestre. Pour 001757, les deux mécanismes contribuent.
+
+| Dernière photo, 29 décembre, stock physique en kg | Source | Référence simulée | Sécurité + besoins totaux |
+|---|---:|---:|---:|
+| 001757 / Avène | 9 368,378 | 4 498,613 | 7 824,444 |
+| 002612 / Avène | 114 339,772 | 22 731,290 | 67 263,578 |
+| 055703 / Avène | 933,345 | 979,698 | 960,989 |
+
+Le résidu de **47 076 kg sur 002612** reste important : ces résultats ne justifient pas de déclarer sa calibration achevée ni d'augmenter arbitrairement la sécurité. Pour 055703, aucun paramètre d'achat n'a changé ; les 18,70848 kg supplémentaires consommés par la production expliquent le changement de stock final. L'écart annuel est pratiquement inchangé : ce n'est pas une nouvelle règle de calendrier validée pour cette matière.
+
+### Disponibilité, service et effets sur les autres matières
+
+Pour 002612, les jours à stock physique nul passent de **12 à zéro**, et ceux à stock disponible nul de **166 à zéro**, sur 2025. Le service simulé du PF268091 passe de **3 211 453 à 3 441 853 UN**, soit 230 400 UN de plus ; le reliquat de demande en fin d'année passe de 364 989 à 134 589 UN. La demande et le service du PF268967 sont inchangés. Les scénarios de demandes physiques des autres usages sont identiques ; leur consommation et la production sont contrôlées séparément.
+
+Sur les cinq années simulées, la quantité totale livrée aux clients est identique ; la demande est rattrapée plus tôt. Aucun jour ne présente un arriéré client supérieur à celui de la référence dans les deux variantes.
+
+Sur 29 couples comparables : **11 améliorent leur écart annuel, 12 restent identiques, 6 se dégradent légèrement**. Les six dégradations restent inférieures à 1,1 % sur cet indicateur : 001893/Avène (+158,078 kg de MAE), 029313 (+1,797 kg), 049371 (+36,763 kg), 099439 (+2,333 kg), 693055/Avène (+5,867 kg) et 426331 (+32,327 UN). Les unités ne sont pas additionnées pour fabriquer un score global. Ces effets aval accompagnent la production supplémentaire et restent visibles dans les courbes.
+
+[Comparaison interactive, ouverte sur 001757](../../resultats/regroupement_001757_20260929/comparaison_mrp_securite_partagee.html) · [carte complète avec ce panneau](../../resultats/regroupement_001757_20260929/carte_mrp_securite_partagee.html) · [indicateurs annuels, dernier trimestre et service](../../artifacts/testing/mrp_year_end_20261001/analysis.json). Les autres panneaux et les deux suivis de lots de la carte complète restent historiques ; ils ne représentent pas les nouveaux calculs.
+
+Étude isolée `mrp_year_end_20261001`, depuis la référence conservée du précédent essai. L'objectif est de rapprocher les stocks de fin d'année sans ajouter de réceptions partielles. **Le moteur n'est pas modifié** : deux graphes activent des mécanismes existants, en conservant les commandes et cartes antérieures.
+
+Le premier candidat, `safety_extension`, applique à 001757/Avène et 002612/Avène la protection persistante déjà utilisée pour 055703 : garder la sécurité source dans le solde projeté, sans la consommer comme un besoin supplémentaire. La quantité est calculée avec la moyenne prévisionnelle globale existante et les **20 jours ouvrés sources**, puis combinée par maximum avec le complément de couverture. Cela ne réactive pas la protection sur besoins datés rejetée lors de l'essai précédent. Le second candidat, `total_extension`, ajoute uniquement le rapprochement hebdomadaire des besoins propres avec le total industriel I renseigné, comme pour 055703.
+
+| Paramètre conservé | 001757 / Avène | 002612 / Avène |
+|---|---:|---:|
+| Fournisseur déjà utilisé par la référence | VD0951020A | VD0910216A |
+| Prix FIA normalisé | 5,43 €/kg | 0,82 €/kg |
+| Délai fournisseur | 84 jours | 35 jours |
+| Traitement à réception | 13 jours ouvrés | 9 jours ouvrés |
+| Standard de commande | 100 kg | 22 500 kg |
+| Sécurité source | 20 jours ouvrés | 20 jours ouvrés |
+
+La sélection explicite conserve les fournisseurs des 383 achats 001757 et des 42 achats 002612 de la référence sur cinq ans. Elle ne prouve pas une exclusivité industrielle. Les délais, stocks initiaux, hypothèses de demandes physiques des autres produits et nomenclatures restent identiques ; les consommations exécutées peuvent évoluer si la disponibilité permet davantage de production.
+
+### Diagnostic avant essai
+
+Les prévisions ne s'arrêtent pas au 31 décembre : l'horizon simulé reste de 364 jours et les versions MRP connues en automne portent déjà des besoins de 2026. Dans le plan du 28 décembre, I projeté en 2026 totalise 30 720 kg pour 001757, 312 131,346 kg pour 002612 et 2 135,6 kg pour 055703. Les quantités proviennent d'une seule version, jamais de la somme des plans successifs.
+
+La référence ne déclare pas de protection persistante pour les deux premières matières. Le 26 octobre, la sécurité issue du taux global et des 20 jours ouvrés représente environ 2 977 kg pour 001757 et 42 333 kg pour 002612 ; l'exigence complémentaire de réserve du plan vaut respectivement environ 126 kg et zéro. Une partie de la cible est absorbée par les besoins déjà présents dans la couverture : cela ne maintient pas nécessairement cette sécurité disponible au fil du plan. Les champs historiques `safety_floor_qty` et `target_stock_qty` sont ceux du périmètre propre ; ils ne doivent pas être présentés comme toute la protection du stock industriel partagé.
+
+La réconciliation du total I doit être examinée séparément. La quote-part de 72,18 % de 001757 n'est **pas** une preuve de 27,82 % de besoins totaux manquants : les besoins propres s'y ajoutent. Sur les semaines renseignées du plan du 26 octobre, le modèle représente environ 27 752 kg contre 30 480 kg sources ; pour 002612, le rapprochement se situe déjà autour de 100 %. La différence de répartition hebdomadaire peut compter même lorsque le total sur l'horizon est proche.
+
+Pour la dernière photo de 002612, `Stocks!E1393 = 114 339,772 kg`. Dans le plan du 28 décembre, `Feuille1!J52500 = 98 089,772 kg` et `J52501 = 16 250 kg` disponibles plus tard : leur somme égale le stock physique. Les 16 250 kg ne constituent pas une réception future à ajouter. Le stock simulé comparable est de 22 731,290 kg. Pour 001757, la dernière photo vaut 9 368,378 kg contre 4 498,613 kg simulés. Pour 055703, le déficit se concentre sur certaines dates de réception ; le dernier stock simulé de 979,698 kg dépasse légèrement la photo de 933,345 kg.
+
+[Protocole des deux calculs de cinq ans](../../artifacts/testing/mrp_year_end_20261001/plan.json) · [lecture des sources](../../artifacts/testing/mrp_year_end_20261001/source_review.json) · [contrôle indépendant des graphes et des 3 549 lignes I ajoutées](../../artifacts/testing/mrp_year_end_20261001/independent_preflight.json).
+
+Précision d'unité : 002612/Avène est déjà en **KG** dans le Flow MRP ; 001757 et 055703 y sont en **G**. Les lectures appliquent l'unité de chaque ligne. Aucune conversion globale supplémentaire n'est effectuée. Le diagnostic complémentaire 055703 ne permet pas d'identifier une nouvelle règle commune d'anticipation : les occurrences H de 300 kg restent souvent 40 à 50 jours ouvrés avant le manque théorique, mais H, les engagements fermes et le traitement à réception ne sont pas suffisamment distingués pour en déduire une sécurité à augmenter. [Calcul contrefactuel et limites](../../artifacts/testing/mrp_year_end_20261001/source_055703_timing.json).
+
+### Résidu 002612 : les achats ne sont pas l'unique explication possible
+
+Le candidat reçoit 720 000 kg en 2025 et consomme 806 258,059 kg, dont 804 036,427 kg pour les autres usages estimés. Si cette consommation représentait exactement la consommation industrielle, le stock source final impliquerait environ 767 076 kg d'entrées, soit 47 076 kg de plus. C'est une identité **conditionnelle**, pas une mesure de livraisons manquantes.
+
+Les 52 versions montrent 16 apparitions ou augmentations de J futur, en évitant de recompter les répétitions, mais ce registre n'est pas exhaustif : des hausses physiques de 28 991 kg le 25 août, 38 103 kg le 13 octobre et 12 312 kg le 3 novembre ne sont accompagnées d'aucun nouveau J futur visible. La somme J concorde avec 51 photos sur 52 ; le plan du 2 mars présente un désaccord de 13 026 kg avec la photo suivante. Ni le total de J apparus ni les seules hausses de stock ne reconstituent donc toutes les entrées.
+
+Une reconstruction très restrictive du 6 octobre au 29 décembre, sans livraison masquée et avec des lots FIA supposés sur les hausses non expliquées, donnerait 112 917 à 119 367 kg de sorties nettes, contre 157 123 kg consommés dans la simulation. Cela illustre une autre explication possible du résidu : des consommations estimées trop élevées. **Ce n'est ni un intervalle de confiance ni une preuve permettant de réduire la demande physique.** Des entrées masquées par des consommations peuvent invalider ce calcul. Aucun paramètre de consommation n'est ajusté sur cette hypothèse. [Épisodes, cellules, bornes et hypothèses détaillées](../../artifacts/testing/mrp_year_end_20261001/source_002612_balance.json).
+
+Validation de l'essai : les CSV des deux nouveaux calculs et la navigation de la carte complète passent la toolbox. Les preuves de 28 tests ciblés et du doctor existants sont réutilisées après vérification des empreintes, puisque le moteur est inchangé ; elles ne sont pas présentées comme de nouveaux tests exécutés pour cet essai. La contre-vérification indépendante contrôle 3 285 bilans physiques quotidiens, 10 950 contrôles de sécurité et 7 186 fenêtres de rapprochement I. Le navigateur vérifie 4 377 valeurs de stock, 117 valeurs filtrées sur le dernier trimestre et 64 cellules MRP, sans erreur JavaScript. [Contre-vérification](../../artifacts/testing/mrp_year_end_20261001/independent_final_review.json) · [preuves regroupées](../../artifacts/testing/mrp_year_end_20261001/native_final/gate-0b36ba13940f41a99e8c37625671560c/manifest.json).
+
+## Essai de sécurité sur besoins datés et vérification des arrondis
+
+**Résultat : ne pas retenir cette option comme nouvelle référence.** Les trois simulations de cinq ans ont terminé normalement. Le témoin reproduit les 38 CSV précédents à l'octet près. Sur les 29 couples article/site comparables en 2025, aucun n'améliore son écart moyen absolu aux photos ; 055703 se dégrade et les 28 autres restent identiques à cette précision. Les consommations et le service client sont inchangés dans ces essais.
+
+| Écart moyen absolu aux 52 photos hebdomadaires | Référence | Protection par besoins datés |
+|---|---:|---:|
+| 055703 / Avène | 147,241 kg | 151,025 kg |
+| 039668 / Avène | 135,971 kg | 135,971 kg |
+| 708073 / Gien | 3 969,257 kg | 3 969,257 kg |
+
+Le stock physique 055703 au 29 juin reste à 879,585 kg dans les trois calculs, contre 1 170,790 kg dans la photo du 30 juin. Dix nouvelles commandes de 300 kg et 3 300 kg reçus dans l'année, engagement initial compris, sont conservés. La nouvelle règle décale quelques commandes sans résoudre l'écart de juin. Pour 039668, la moyenne sur photos masque même deux jours supplémentaires à stock physique nul : trois au lieu d'un. La comparaison hebdomadaire ne suffit donc pas à vérifier tous les effets quotidiens.
+
+Le 6 avril, le nouveau calcul augmente le besoin net à lancer de 22,919911 à 132,985770 kg ; **les deux donnent toujours 300 kg après arrondi**, le même jour. Le complément de couverture vaut zéro sur 361 des 365 jours de 055703 : il n'est pas la cause principale de ce faible effet. Les fenêtres futures intégralement connues sont présentes 226 jours sur 365 ; les 139 autres lendemains conservent explicitement la protection historique. L'essai ne démontre ni que toutes les sécurités datées sont inutiles, ni que la moyenne explique à elle seule le système réel.
+
+[Comparaison interactive de l'essai](../../resultats/regroupement_001757_20260929/comparaison_mrp_securite_besoins_dates.html) · [résultats numériques](../../artifacts/testing/mrp_dated_safety_20261001/analysis.json) · [reproduction du témoin](../../artifacts/testing/mrp_dated_safety_20261001/baseline_equivalence.json). L'option reste expérimentale, désactivée dans la référence conservée. Les anciens panneaux et suivis de lots de la carte complète gardent leurs données historiques ; seuls les panneaux de comparaison présentent ces trois nouveaux calculs.
+
+Contrôles exécutés : 28 cas ciblés en mémoire, qualification des CSV des trois calculs et navigation hors ligne de la carte complète. La contre-vérification indépendante contrôle notamment 7 300 décisions quotidiennes et 75 920 niveaux de protection reconstruits sans les helpers de production. Le rapprochement navigateur porte sur 4 377 valeurs de stock, 90 cellules du tableau de sécurité et 2 190 points des nouvelles courbes, sans erreur JavaScript. Ces contrôles vérifient le calcul et son affichage ; l'essai reste négatif pour la calibration industrielle. [Contre-vérification](../../artifacts/testing/mrp_dated_safety_20261001/independent_final_review.json) · [rapport navigateur détaillé](../../artifacts/testing/mrp_dated_safety_20261001/view_2ea73c62/report.json).
+
+Protocole `mrp_dated_safety_20261001` : trois calculs distincts de 1 825 jours à partir du dernier candidat 055703 utilisant tout le besoin MRP renseigné. Le témoin conserve la protection par moyenne ; le deuxième modifie uniquement 055703/Avène ; le troisième applique la même modification à 055703/Avène, 039668/Avène et 708073/Gien. Les prévisions de ces deux dernières matières restent celles de la référence : le test ne leur ajoute pas simultanément le total industriel. [Protocole et commandes](../../artifacts/testing/mrp_dated_safety_20261001/plan.json).
+
+Pour chaque clôture projetée `t`, l'option `dated_requirements_with_coverage` protège :
+
+`P(t) = max(quantité fixe de sécurité source, somme des besoins datés dans ]t ; t + N jours ouvrés sources])`.
+
+Le calendrier lundi–vendredi détermine la borne finale ; les besoins alloués aux samedis et dimanches à l'intérieur de cette fenêtre ne disparaissent pas. La protection débute le lendemain de la décision. Les besoins propres sont propagés par la BOM avant le rapprochement avec le total industriel et avant ce calcul de protection. Il n'y a ni consommation supplémentaire, ni cumul de la protection de chaque jour comme s'il s'agissait de nouvelles sorties.
+
+La fenêtre doit être intégralement renseignée dans les prévisions connues à la décision. Les valeurs nulles explicites comptent comme renseignées ; une période absente, une version encore inconnue ou une fin d'horizon ne devient pas un besoin industriel nul. Dans ces cas, l'option conserve explicitement le plancher historique. Le complément historique de couverture reste activé à sa date précédente ; son maximum avec P(t) est utilisé, jamais leur somme. Les métadonnées et les traces distinguent fenêtres renseignées et retour à la moyenne.
+
+### L'arrondi au multiple supérieur existe déjà pour les commandes
+
+Dans la voie d'achat agrégée de 055703, le moteur déduit d'abord stocks et engagements du besoin. Les propositions futures peuvent encore être au besoin net exact ; lors du lancement, la somme à émettre est arrondie au standard supérieur, dans la limite de la capacité représentée. Avec une capacité suffisante et un standard de 300 kg :
+
+| Besoin net à commander | Commande émise |
+|---:|---:|
+| 299 kg | 300 kg |
+| 300 kg | 300 kg |
+| 305 kg | 600 kg |
+| 600 kg | 600 kg |
+| 601 kg | 900 kg |
+
+305 kg de besoin **brut** avec 5 kg déjà disponibles, ou engagés et affectés, ne laisse que 300 kg nets : la commande est alors de 300 kg. Les propositions futures de 055703 ne sont donc pas identiques à des commandes déjà émises. Appliquer le multiple dès la proposition serait une expérience distincte ; le présent test de sécurité ne modifie pas cet arrondi. La quantité standard de la FIA ne prouve pas seule qu'un multiple est contractuellement obligatoire : il s'agit de la convention actuelle, compatible avec les lots 055703 représentés. [Audit de l'arrondi](../../artifacts/testing/mrp_dated_safety_20261001/rounding_review.json).
+
+### Les arrondis visibles dans les plans industriels
+
+Lecture des 53 398 lignes de `Flow_Data_MRP_results.xlsx`, versions du 5 janvier au 28 décembre 2025. Les valeurs H de ces trois matières sont exprimées en grammes dans la source et converties ici en kg. **Les comptes ci-dessous sont des cellules dans 52 versions successives, pas des commandes distinctes ni des achats annuels.** Toutes les semaines projetées des versions 2025 sont incluses, y compris celles de 2026.
+
+| Matière | Standard FIA | Quantités positives H dans les plans |
+|---|---:|---|
+| 055703 / Avène | 300 kg | 187 cellules à 300 kg ; 2 à 450 kg ; 52 inférieures à 300 kg |
+| 039668 / Avène | 450 kg | 55 cellules à 450 kg ; 24 à 300 kg ; 54 autres inférieures à 450 kg |
+| 708073 / Gien | 5 000 kg | 32 cellules à 5 000 kg ; 209 à 10 000 kg |
+
+Pour 055703, **chacune des 52 versions comporte exactement une dernière entrée positive inférieure au standard**. Exemples : `Feuille1!H494`, plan du 5 janvier, semaine du 15 juin, 101,564999 kg ; `H52811`, plan du 28 décembre, semaine du 21 juin 2026, 135,254979 kg. Les exceptions à 450 kg se trouvent en `H1441` et `H3470`. Pour 039668, la dernière entrée positive est également inférieure à 450 kg dans les 52 versions, mais 26 autres entrées inférieures précèdent ces dernières entrées. Pour 708073, les 108 cellules positives visant une semaine de 2025 sont toutes de 10 000 kg, soit deux standards.
+
+Cela justifie d'étudier séparément le regroupement des besoins, l'arrondi des commandes émises et le traitement du dernier approvisionnement projeté. Le motif de fin de plan est observé ; son mécanisme ERP reste à établir. H représente des entrées hebdomadaires prévues et agrégées, pas des réceptions exécutées. Des multiples ne prouvent pas à eux seuls un `ceil(besoin net / standard)` sans reconstruire l'état connu à la décision. [Audit source avec cellules, fournisseurs, prix, délais et empreintes](../../artifacts/testing/mrp_dated_safety_20261001/source_rounding_review.json).
+
+## 055703 : distinguer consommation et calendrier des réceptions
+
+Cette contre-analyse utilise le candidat `mrp_055703_full_needs_20261001` sans le modifier ni recalculer une nouvelle trajectoire. Elle reprend directement les deux classeurs sources, les 53 photos (ouverture incluse), les 52 versions MRP et les registres du calcul. [Calcul reproductible](../../artifacts/testing/mrp_055703_balance_20261001/audit.py) · [résultats détaillés](../../artifacts/testing/mrp_055703_balance_20261001/analysis.json) · [preuves et limites](../../artifacts/testing/mrp_055703_balance_20261001/manifest.json).
+
+**Le résidu de juin indique surtout un décalage des approvisionnements, pas une consommation physique à majorer de 81 % à 100 %.** Les sources présentent sept hausses importantes avant le 30 juin, chacune accompagnée de 300 kg en J futur dans le même plan : matière déjà présente, en attente de disponibilité. Sur l'année, onze épisodes sont corroborés. La petite hausse de 0,22 kg au 29 décembre ne constitue pas une livraison standard.
+
+Ces épisodes permettent une reconstruction conditionnelle, pas une identification certaine de chaque livraison. Sous l'hypothèse d'un arrivage de 300 kg par épisode et sans mouvement supplémentaire masqué :
+
+`sorties nettes reconstituées = stock initial + réceptions reconstituées − stock photographié`
+
+Les sorties nettes peuvent inclure consommation, transfert, perte ou correction. La colonne H des plans reste une prévision et n'est jamais utilisée comme preuve de réception exécutée.
+
+| Cumul au 30 juin, simulation à la clôture du 29 juin | Sources / reconstruction conditionnelle | Simulation |
+|---|---:|---:|
+| Stock initial | 569,805 kg | 569,805 kg |
+| Réceptions physiques | 2 100 kg, sept épisodes | 1 800 kg, six réceptions |
+| Sorties nettes / consommations | 1 499,015 kg | 1 490,220 kg |
+| Stock physique final | 1 170,790 kg | 879,585 kg |
+
+Ainsi, `291,205 kg de différence de stock = 300 kg de différence d'entrées − 8,795 kg de différence de sorties`. L'écart de sorties représente environ 0,59 % des sorties nettes reconstituées. La proximité est un indice fort, mais dépend de l'hypothèse d'arrivages et ne prouve pas l'absence de mouvements masqués.
+
+À la dernière photo du 29 décembre, les réceptions cumulées reconstituées et simulées sont toutes deux de 3 300 kg. Les sorties nettes sources sont de 2 936,460 kg, contre 2 890,107 kg consommés en simulation ; les stocks valent respectivement 933,345 et 979,698 kg. L'écart de sorties est d'environ 1,58 %. Les volumes cumulés annuels sont donc proches, tandis que la répartition des réceptions au cours de l'année reste différente.
+
+### Ce que signifie réellement la part de 81,07 %
+
+La part provient du premier plan connu : 1 799,35 kg de besoins industriels sur l'horizon commun et 340,5691212 kg de besoin théorique déduit de la prévision du PF et de la BOM. Le résidu vaut 1 458,7808788 kg, soit 81,0726583933 %. C'est une **hypothèse de répartition des usages**, pas un paramètre de l'ERP ni une mesure de consommation. L'horizon commun contient des semaines sans ligne : il ne faut pas présenter cette fraction comme une mesure annuelle exhaustive.
+
+Depuis la correction précédente, les futurs achats de 055703 utilisent le total industriel renseigné, réconcilié avec les besoins propres. Les sorties physiques des autres usages gardent cette estimation et la sélection causale des versions. Le présent bilan ne justifie pas de les remplacer mécaniquement par 100 % de I : cela augmenterait les sorties alors que leur cumul est déjà proche de la reconstruction source.
+
+### Disponibilité : une semaine n'est pas une date d'exécution exacte
+
+`J25530` place les 300 kg du plan du 29 juin dans **la semaine commençant le 6 juillet**. Le 6 juillet ne prouve pas une libération exactement ce jour-là. L'ancien commentaire « 6 juillet contre 14 juillet » donnait une précision quotidienne excessive. Le modèle libère le 14 juillet après réception le 25 juin et treize jours lundi–vendredi. Avec la convention de buckets dimanche–samedi, une réception industrielle le 24 juin suivie de treize jours ouvrés aboutirait au 11 juillet, dans le bucket source. Les photos hebdomadaires ne donnent pas le jour exact de réception.
+
+La convention de treize jours est aussi cohérente avec l'engagement initial `Extract_En_cours.xlsx`, ligne 69 : réception prévue le 17 janvier, disponibilité prévue le 5 février. Les autres épisodes annuels sont compatibles avec treize jours ouvrés pour au moins une date de réception dans leur intervalle photographique. **Aucune correction automatique du délai qualité à sept jours n'est justifiée.**
+
+### Deux précautions sources importantes
+
+- Plan du 2 mars : `J8465 + J8467 = 1 006,945002 kg`, contre 746,790002 kg sur la photo du 3 mars (`Stocks!E1374`). Le total MRP correspond à la photo du 10 mars. Ce décalage de 260,155 kg reste signalé ; le lot de 300 kg n'est pas compté deux fois. Les 51 autres rapprochements hebdomadaires concordent.
+- Les photos des 28 juillet, 4 août, 11 août et 18 août restent à 786,625001 kg, alors que I en semaine courante conserve 65,6 kg. Un besoin MRP courant n'est donc pas une consommation exécutée. Cette période est cohérente avec une activité réduite ou arrêtée ; elle ne permet pas, seule, d'identifier chaque mouvement.
+
+La prochaine correction du modèle doit porter sur le déclenchement daté des achats et être testée contre ces cumuls, en conservant les consommations et les sécurités sources. Le bilan ne justifie pas d'ajouter arbitrairement un lot ni d'injecter les réceptions reconstituées comme commandes fermes.
+
+### Piste de déclenchement identifiée, encore à tester
+
+Le simulateur transforme les trente jours ouvrés de sécurité en une quantité calculée avec une **moyenne prévisionnelle sur 120 jours**. Cette moyenne peut masquer la concentration des besoins à court terme. Le 16 mars (J74), une révision fait passer la protection d'environ 491,77 kg au 12 mars à 372,84 kg, alors que le total des besoins industriels sur l'horizon exporté augmente d'environ 1 876,65 à 2 182,64 kg. Ces deux mesures ne portent pas sur la même fenêtre : la baisse de la moyenne proche n'est donc pas, en soi, une erreur de somme.
+
+Le 5 avril, la protection reste à 372,01 kg et ne déclenche pas d'achat. Le 6 avril, une nouvelle version fait passer le taux moyen de 9,0733 à 10,2762 kg/jour et la protection à 411,05 kg. Un besoin net de 22,9199 kg déclenche alors une commande standard de 300 kg, reçue le 27 avril. Or le plan industriel du 16 mars porte déjà une entrée H de 300 kg pour la semaine du 23 mars (`Feuille1!H10460`). Cette entrée demeure une prévision, pas un ordre identifié.
+
+**Hypothèse commune à éprouver ensuite :** préserver les trente jours ouvrés sources, mais comparer la protection fondée sur une moyenne à une protection calculée sur les besoins réellement datés de la fenêtre concernée. Le scénario industriel et le simulateur n'ont déjà plus le même stock à ces dates : cette observation ne suffit pas à démontrer que la moyenne sur 120 jours est l'unique cause, ni que sa suppression améliorera les autres matières. Aucune modification de cette règle n'est appliquée dans le présent diagnostic.
+
+## 055703 : utiliser le total industriel dans la planification des achats
+
+Demande utilisateur : prendre en compte **100 % des besoins MRP sources de 055703 à Avène**. La règle commune est activée pour ce seul couple dans l'essai `mrp_055703_full_needs_20261001`, à partir du scénario de couverture conservée précédent. Il s'agit des besoins prévus colonne I, pas d'ordres industriels injectés dans le modèle.
+
+Pour chaque semaine renseignée de la version connue à la date du calcul, après propagation de nos besoins de fabrication :
+
+`complément de planning = max(total industriel I − besoins propres déjà datés, 0)`
+
+`besoins retenus = besoins propres + complément de planning`
+
+Le complément remplace les futurs besoins « autres usages » estimés sur cette semaine. Il ne s'ajoute pas à leur ancienne quote-part de 81,0726583933 %. Ainsi, un total source de 100 kg et 30 kg de besoins propres donnent 70 kg de complément et **100 kg à planifier**, pas 130 ou 180 kg. Lorsque nos besoins propres dépassent le total industriel, ils sont conservés et le dépassement reste visible. Ce cas n'est pas présenté comme une égalité à la source.
+
+Les périodes sont rapprochées **par semaine**, pas par maximum quotidien : un besoin propre de 100 kg concentré sur un seul jour est déjà inclus dans une semaine source de 100 kg. La partie restante d'une semaine est proratisée selon la répartition uniforme existante ; le fichier ne donne pas le calendrier quotidien réel. La semaine courante reste figée, les révisions remplacent les prévisions futures et aucune version future n'est utilisée avant sa date de connaissance. Une semaine absente conserve les besoins reconstruits précédents ; une valeur I égale à zéro reste une donnée distincte. Pour 055703, le contrôle direct du classeur compte **52 versions, 1 725 lignes futures I, dont 10 zéros explicites**.
+
+La moyenne de besoins utilisée pour calculer sécurité et couverture suit le plan ainsi réconcilié. Les jours et quantités fixes de sécurité, prix, fournisseurs, standards de commande, délais FIA et stocks initiaux restent inchangés. Les arriérés physiques déjà dus restent comptés séparément ; leur éventuelle inclusion dans I n'est pas identifiable dans ces extractions.
+
+**La correction porte sur les besoins de planification, pas sur une consommation physique supplémentaire.** Les fabrications consomment leurs composants et les autres usages suivent leur scénario documenté. Transformer le complément de planning en sortie physique créerait un double compte ou modifierait le périmètre sans preuve. Les effets sur stocks et surstock doivent donc être mesurés par la simulation, même si les courbes de besoins sont désormais cohérentes avec les sources.
+
+### Résultats de la correction sur 2025
+
+[Comparaison interactive](../../resultats/regroupement_001757_20260929/comparaison_mrp_055703_besoins_complets.html) · [carte complète](../../resultats/regroupement_001757_20260929/carte_mrp_055703_besoins_complets.html) · [protocole reproductible](../../artifacts/testing/mrp_055703_full_needs_20261001/plan.json).
+
+| Indicateur 055703 / Avène | Avant | Besoins industriels complets |
+|---|---:|---:|
+| Écart absolu moyen aux 52 photos de stock physique | 205,14 kg | **147,24 kg** |
+| Stock simulé à la clôture du 29 juin, pour la photo du 30 juin | 579,59 kg | **879,59 kg** |
+| Écart à la photo du 30 juin : 1 170,79 kg | −591,20 kg | **−291,20 kg** |
+| Réceptions physiques annuelles, engagements initiaux inclus | 3 300 kg | 3 300 kg |
+| Stock physique simulé au 31 décembre | 979,70 kg | 979,70 kg |
+
+L'écart moyen diminue de **28,22 %**. Le gain provient du calendrier des réceptions, sans augmentation du volume annuel reçu. Les consommations 2025 restent identiques : 70,1568 kg pour le produit étudié et 2 819,950287 kg pour les autres usages estimés. Le service client est inchangé. Sur les 29 couples comparables, seul l'écart de 055703 change ; les 28 autres restent identiques.
+
+Le lot de 300 kg qui explique le gain de juin est lancé le **4 juin au lieu du 11 juin**, reçu physiquement le **25 juin au lieu du 2 juillet**, et disponible le **14 juillet au lieu du 21 juillet**. Les 300 kg supplémentaires à la clôture du 29 juin sont donc en attente de disponibilité qualité. Les achats nouveaux restent **10 commandes de 300 kg**, soit 3 000 kg commandés et reçus sur 2025, auxquels s'ajoute une réception de 300 kg issue des engagements initiaux. Le calendrier de disponibilité reste imparfait : la source situe 300 kg déjà présents au 29 juin comme disponibles dans la semaine commençant le 6 juillet, sans date d'exécution quotidienne certaine.
+
+Validation : 14 tests ciblés en mémoire, deux simulations de cinq ans qualifiées, oracle indépendant sur 1 825 décisions et 1 772 fenêtres hebdomadaires, puis navigateur hors ligne (2 918 valeurs de stock et 294 valeurs du graphique de projection rapprochées des exports). Dans 162 fenêtres, les besoins propres dépassent I : le maximum est conservé et ce désaccord reste explicite. [Bilan des preuves et limites](../../artifacts/testing/mrp_055703_full_needs_20261001/manifest.json).
+
+Le stock de juin est mieux reproduit, mais il manque encore environ **291 kg** par rapport à la photo source. Reprendre tout le besoin prévisionnel ne démontre pas que toutes les conventions industrielles de déclenchement, d'engagement et de réception sont retrouvées. L'essai reste distinct du nominal. Les deux calculs de 1 825 jours ont terminé avec un code retour nul, en environ 58 minutes chacun sur cette exécution ralentie ; cela n'est pas un benchmark de performance comparable au passage précédent. Les 38 CSV du témoin sont identiques octet par octet à la référence conservée.
+
+## Essai suivant : conserver la couverture en maintenant la sécurité
+
+La protection de sécurité seule avait supprimé une partie de la couverture historique et retardé les achats de 708073. Le nouvel essai `mrp_coverage_floor_20261001` teste donc une règle commune sur 055703/Avène, 039668/Avène et 708073/Gien : **conserver le plus grand des deux niveaux, sans les additionner**. Il reste un candidat explicite, pas une règle ERP démontrée ni un remplacement du nominal.
+
+Au jour du calcul `d`, le complément historique `C` est la cible de couverture moins les besoins physiques déjà représentés jusqu'à `d + couverture`, avec un minimum de zéro. La sécurité `S` conserve les jours ouvrés et la quantité fixe sources. Elle s'applique dès `d + 1` ; le complément historique garde son échéance `d + délai`. Après activation des deux, le niveau protégé est `max(S, C)`. Avant, seul le niveau déjà activé s'applique. Le calcul déduit une seule fois le stock disponible et les engagements ; cette protection ne devient jamais une consommation de matière.
+
+Le témoin reproduit l'ancien essai à protection seule sur les trois couples. Les deux nouveaux calculs durent 1 825 jours, avec les mêmes prévisions, parts des usages partagés, stocks, sécurités, offres fournisseurs, délais FIA fixes et arrondis de commande. Le seul changement des graphes est le mode de protection des trois couples. La validation industrielle reste limitée aux photos et plans 2025 ; les années après les dernières prévisions ne valident pas une calibration sur cinq ans.
+
+[Nouvelle comparaison interactive](../../resultats/regroupement_001757_20260929/comparaison_mrp_couverture_securite.html) · [carte complète](../../resultats/regroupement_001757_20260929/carte_mrp_couverture_securite.html) · [protocole et commandes](../../artifacts/testing/mrp_coverage_floor_20261001/plan.json).
+
+Résultats 2025, écart absolu moyen du stock physique aux 52 photos, clôture de la veille :
+
+| Article / site | Couverture historique (kg) | Sécurité seule, essai précédent (kg) | Couverture conservée et sécurité (kg) |
+|---|---:|---:|---:|
+| 055703 / Avène | 308,34 | 205,14 | 205,14 |
+| 039668 / Avène | 141,27 | 135,97 | 135,97 |
+| 708073 / Gien | 3 969,26 | 6 177,34 | 3 969,26 |
+
+La régression de 708073 est corrigée : **35 à 0 jours de stock disponible nul**, réceptions annuelles **20 000 à 25 000 kg**, consommation propre **13 677,664 à 15 387,372 kg**. Au 4 avril (J93), le stock disponible est inchangé à 4 416,778811 kg ; la sécurité est 2 000 kg, le complément historique 4 406,584316 kg, activé à J128. Un besoin net de 706,787243 kg retrouve une commande standard de **5 000 kg**, avec réception physique à J121 et disponibilité à J128. Le service des PF reste identique.
+
+**Aucun progrès supplémentaire sur l'écart moyen aux photos de 055703 ou 039668** avec cette correction. Les trajectoires de 055703 sont identiques ; pour 039668, une réception avance d'un jour (J99 à J98), ce qui modifie trois clôtures quotidiennes sans changer cet indicateur. Le creux de juin de 055703 reste présent : son complément historique est déjà inférieur à la sécurité à cette période. Le présent résultat répare la perte de couverture de 708073, sans démontrer une meilleure reconstruction des achats industriels sur toutes les matières. Le témoin conserve ses **38 CSV strictement identiques** à l'essai précédent.
+
+Le contrôle ne se limite pas aux trois articles : parmi les **29 couples comparables**, trois écarts de stock diminuent, sept augmentent et dix-neuf restent identiques par rapport à la sécurité seule. La reprise des consommations de 708073 modifie la production et les stocks liés, sans changer le service client annuel. Par exemple, l'écart de 268967 au dépôt passe de 318 449 à 413 811 UN ; celui de 344135/Gien, de 420 596 à 564 996 UN. Les améliorations concernent 708073, 734545 et 773474. **La restauration de la couverture n'est donc pas une amélioration générale de calibration** ; conserver cet essai séparé, et ne pas additionner des erreurs exprimées dans des unités différentes.
+
+### Autre cause identifiée sur 055703 : besoins projetés incomplets à court terme
+
+Les besoins « autres produits » représentent une fraction fixe du besoin industriel, estimée sur le premier plan : **81,0726583933 %** pour 055703. La différence est censée être apportée par les fabrications de 268091. Or, après déduction des stocks et engagements de PF, notre planning ne place aucun besoin propre sur les fenêtres suivantes. La projection matière reste donc inférieure au total industriel, même lorsque la consommation cumulée passée est proche.
+
+Comparaison sur les mêmes semaines, de la semaine suivante à sept semaines après la date du plan, semaine courante exclue :
+
+| Plan connu | Besoins MRP sources (kg) | Besoins projetés du simulateur (kg) | Cellules sources |
+|---|---:|---:|---|
+| 4 mai 2025 | 613,200 | 497,138 | Feuille1!I17536:I17542 |
+| 18 mai 2025 | 602,400 | 488,382 | Feuille1!I19530:I19536 |
+| 1er juin 2025 | 684,200 | 554,699 | Feuille1!I21539:I21545 |
+| 29 juin 2025 | 381,800 | 309,535 | Feuille1!I25530:I25533 ; semaines sans ligne omises |
+
+Ces valeurs proviennent du `run_transfer` conservé de l'essai précédent et de `Flow_Data_MRP_results.xlsx`. La fraction initiale vient de `1458,7808788 / 1799,35`, avec 340,5691212 kg théoriques attribués au PF étudié. Son statut reste `hypothesis_only`. Une fraction correcte sur l'horizon initial ne garantit pas une répartition correcte à chaque date.
+
+La source confirme aussi une réception physique avant fin juin : le plan du 29 juin porte 870,790001 kg immédiatement disponibles (`J25529`) et 300 kg déjà présents mais disponibles le 6 juillet (`J25530`). Leur total, **1 170,790001 kg**, correspond à la photo du 30 juin (`Stocks!E417/H417`). Dans l'ancien essai, le lot commandé le 11 juin arrive physiquement le 2 juillet et devient disponible le 21 juillet. Une réception prévue H n'est pas une preuve de commande ferme identifiée ; les révisions successives de H ne permettent pas d'affirmer qu'il s'agit du même ordre.
+
+La prochaine hypothèse à éprouver porte donc sur la **réconciliation des besoins industriels agrégés avec les besoins propres et les autres usages**, en séparant prévision d'achat et consommation physique. Ne pas augmenter les jours de sécurité ni ajouter une seconde consommation pour compenser cette différence. Le présent essai de couverture ne modifie pas cette décomposition.
+
+Contre-vérification sur les mêmes quatre fenêtres de mai/juin : 039668 ne reconstitue que **82,8575466251 %** des besoins sources et 708073 **38,6267607778 %**, exactement leurs parts fixes « autres produits ». Aucun besoin BOM propre ne complète ces fenêtres. Au plan du 1er juin, cela donne respectivement **322,482 / 389,200 kg** (`Feuille1!I21470:I21476`) et **1 483,849 / 3 841,504 kg** (`Feuille1!I21914:I21918`). Ce constat est commun aux trois références ; il ne démontre pas que leur sécurité est insuffisante.
+
+Une règle candidate serait de rapprocher, à chaque semaine et millésime, le besoin industriel total du besoin propre simulé : complément de **planning** `max(0, total industriel − propre simulé)`. Elle n'est pas encore appliquée. Lorsque le besoin propre dépasse le total industriel, le désaccord doit rester visible ; aucune consommation négative ne doit être créée. Utiliser ce total pour acheter tout en conservant des consommations physiques plus basses pourrait créer du surstock : la cohérence entre le périmètre des prévisions et celui des consommations doit être testée conjointement. Les H restent des résultats de comparaison, sans injection dans les achats simulés.
+
 ## Choix courant : délai prévisionnel fournisseur fixe
 
 Décision utilisateur : suspendre l'estimation des avances/retards et retenir le **délai prévisionnel FIA du fournisseur choisi**, sans tirage Erlang ni décalage empirique pour les nouvelles livraisons fournisseurs du MRP daté. Le traitement à réception reste une étape séparée ; les sécurités sources sont conservées.
@@ -7,6 +270,203 @@ Décision utilisateur : suspendre l'estimation des avances/retards et retenir le
 Pour poursuivre cette étude, reprendre la commande `commands.source` du [plan reproductible](../../artifacts/testing/empirical_delivery_20261001/study/plan.json), avec `--supplier-delivery-mode source` et un nouveau dossier de sortie. Le calcul `study/source` existe déjà sur 1 825 jours : il constitue la base retenue pour la suite. Les anciens scénarios et le défaut historique du moteur ne sont pas modifiés par cette décision documentée. La couverture de planification conserve encore sa convention précédente ; ce choix porte sur le délai physique fournisseur, pas sur une révision des autres règles MRP.
 
 Les analyses de variabilité ci-dessous restent des travaux exploratoires conservés ; leur loi empirique n'est plus la règle retenue pour poursuivre la comparaison.
+
+## Essai général : actualiser les besoins complémentaires des 19 couples concernés
+
+[Comparaison interactive de toutes les références](../../resultats/regroupement_001757_20260929/comparaison_mrp_revisions_generalisees.html) · [carte complète](../../resultats/regroupement_001757_20260929/carte_mrp_revisions_generalisees.html) · [plan reproductible](../../artifacts/testing/mrp_all_revisions_20261001/plan.json).
+
+À la demande utilisateur, la règle d'actualisation des besoins futurs a été appliquée aux **quinze couples restés figés**, en conservant les quatre séries déjà révisées. Le candidat contient 19 séries versionnées et aucune ligne complémentaire fixe. Les 478 anciennes lignes des quinze couples sont remplacées par 780 versions / 27 072 lignes futures, toutes rapprochées directement du fichier MRP. Prix, sécurités, stocks initiaux, fournisseurs, standards, engagements initiaux et délais prévisionnels fixes restent identiques. **Cet essai ne remplace pas automatiquement le point de départ.**
+
+La règle reste commune : dernière version connue pour le futur, semaine courante figée selon la dernière version antérieure, horizon de planification de 52 semaines. Les parts estimées des autres usages restent celles du premier plan. Pour 021081, la part conserve la déduction initiale de 276 421,84455 kg de besoins induits en aval ; aucune seconde déduction n'est appliquée. Les rapports entre usages peuvent toutefois évoluer : conserver cette fraction ne démontre pas qu'elle reste exacte toute l'année.
+
+L'unique extension du code de préparation concerne `revision_series` : elle accepte aussi UN. Le besoin hebdomadaire fractionnaire estimé est conservé dans la provenance, puis arrondi une fois selon `floor(q + 0.5)`, comme l'estimation initiale ; le calendrier répartit ensuite des quantités journalières entières. Les parcours KG/G sont conservés, les conversions masse/UN sont refusées. Aucun changement du moteur physique n'est introduit.
+
+### Résultats sur les quinze couples directement modifiés
+
+L'indicateur ci-dessous est l'écart absolu moyen du **stock physique total** aux photos 2025, simulation à la clôture de la veille. Une baisse est une amélioration de proximité des stocks, pas une preuve de meilleure disponibilité.
+
+| Article / site | Unité | Avant | Essai général | Évolution de l'écart |
+|---|---|---:|---:|---:|
+| 002612 / Avène | kg | 68 694,19 | 58 360,20 | −15,0 % |
+| 007923 / Avène | kg | 25 537,80 | 25 811,46 | +1,1 % |
+| 016332 / Avène | kg | 480,05 | 558,41 | +16,3 % |
+| 021081 / Gaillac | kg | 233 299,65 | 260 232,01 | +11,5 % |
+| 029313 / Avène | kg | 113,29 | 165,17 | +45,8 % |
+| 038005 / Gien | kg | 25 626,69 | 22 978,49 | −10,3 % |
+| 042342 / Gien | UN | 36 180 055,21 | 24 890 781,02 | −31,2 % |
+| 049371 / Avène | kg | 3 877,99 | 3 774,79 | −2,7 % |
+| 055703 / Avène | kg | 463,40 | 308,34 | −33,5 % |
+| 099439 / Avène | kg | 2 672,11 | 2 398,93 | −10,2 % |
+| 426331 / Avène | UN | 7 160,35 | 7 703,88 | +7,6 % |
+| 693055 / Avène | kg | 722,74 | 925,99 | +28,1 % |
+| 708073 / Gien | kg | 4 056,13 | 3 969,26 | −2,1 % |
+| 734545 / Gien | UN | 2 347,44 | 2 259,38 | −3,8 % |
+| 773474 / Gien | kg | 11 592,64 | 11 886,90 | +2,5 % |
+
+**Huit améliorations, sept dégradations parmi les quinze.** Sur l'ensemble des 29 couples comparables, y compris les effets indirects, 11 écarts diminuent, 17 augmentent et un reste identique. La baisse de 344135/Gien est négligeable (3 UN sur environ 565 000 UN d'erreur) ; elle reste comptée comme variation numérique, pas comme progrès industriel significatif. Quatre couples restent non comparables dans le payload. Ne pas additionner les écarts exprimés dans des unités différentes.
+
+Les effets indirects touchent aussi les références déjà actualisées : l'écart de 001848/Avène augmente de 14,7 %, celui de 039668 de 3,0 %, tandis que ceux de 001757 et 001893 diminuent légèrement. Leurs séries de prévisions n'ont pas été modifiées ; leurs trajectoires peuvent changer via la production et les autres composants.
+
+### Disponibilité et production : raison de conserver l'essai séparé
+
+Pour 268091, les quantités servies en 2025 passent de **3 499 453 à 3 211 453 UN**, soit **288 000 UN de moins**, avec un retard final passant d'environ 76 989 à 364 989 UN. Le service de 268967 est inchangé. Les quantités totales servies sur cinq ans restent identiques, mais les années après les dernières prévisions ne permettent pas de conclure à une amélioration industrielle.
+
+Le registre `production_constraint_daily.csv` identifie pour 268091 à Avène :
+
+- 001893 limitant sur 45 jours dans les deux scénarios ;
+- 002612 limitant sur **81 jours** dans le candidat, contre aucun dans la référence ;
+- 693055 limitant sur 28 jours contre 65 ;
+- 029313 limitant sur six jours, et 049371 sur un jour, dans le candidat.
+
+Ces jours signalent un manque par rapport au plan de lot ; ils ne sont ni un décompte d'ordres perdus ni une attribution causale exclusive des 288 000 UN. Les stocks physiques nuls passent notamment de 0 à 12 jours pour 002612, de 0 à 50 pour 029313 et de 101 à 182 pour 693055/Avène. Le cas 002612 montre qu'un stock moyen plus proche des photos peut coexister avec une disponibilité moins bonne. La prochaine analyse doit rapprocher les réceptions engagées au démarrage, leurs dates de disponibilité, le dimensionnement des achats et l'estimation des autres usages ; augmenter arbitrairement une sécurité ne résout pas ce diagnostic.
+
+### Vérifications et limites
+
+Simulation normale **1 825 jours, retour 0, 418,954 secondes**. Code et entrées inchangés pendant le calcul. Les dix tests ciblés en mémoire passent, ainsi que la qualification des exports. L'oracle indépendant contrôle 5 475 demandes journalières, les unités physiques entières et les quinze bilans matière (résidu maximal inférieur à 0,00005 kg). La comparaison autonome est vérifiée hors ligne sur 29 couples et 2 918 valeurs affichées, sans erreur JavaScript. La carte complète passe aussi sa revue ; une première tentative avait expiré pendant la navigation et reste conservée dans les preuves. Le [manifeste de livraison](../../artifacts/testing/mrp_all_revisions_20261001/manifest.json) regroupe la contre-vérification indépendante, les preuves natives et la revue de la carte ; les [chiffres par couple et service](../../artifacts/testing/mrp_all_revisions_20261001/analysis.json) et le [diagnostic de contraintes](../../artifacts/testing/mrp_all_revisions_20261001/production_diagnostic.json) restent consultables.
+
+Les I projetés restent des hypothèses de consommation physique complémentaire. Les semaines absentes ne sont pas des consommations réelles nulles démontrées : 042342 n'a ainsi que 231 jours 2025 couverts. Les 19 séries ne se répètent pas après leurs dernières périodes fournies, situées en 2026 ; aucune prévision 2027–2029 n'est inventée. Certaines phrases du champ `assumptions`, hérité du graphe historique et conservé pour contrôler les différences, parlent encore de répétition annuelle ou d'autres articles inchangés : **elles ne décrivent pas cet essai**. Les séries effectives, le plan d'exécution et la présente documentation font foi pour son périmètre. Les autres vues de la carte et les deux suivis de lots restent historiques.
+
+## Essai 055703 : fournisseur cohérent, protection datée et vérification sur deux autres matières
+
+Étude isolée du 1er octobre 2026 : [comparaison interactive, ouverte sur 055703](../../resultats/regroupement_001757_20260929/comparaison_mrp_protection_055703.html) · [carte complète avec ce panneau](../../resultats/regroupement_001757_20260929/carte_mrp_protection_055703.html) · [plan des quatre simulations](../../artifacts/testing/mrp_055703_policies_20261001/plan.json).
+
+**Décision : conserver les résultats comme expériences ; ne pas généraliser ni remplacer automatiquement la référence.** La protection améliore 055703, mais ne résout pas son écart de juin et dégrade nettement 708073. Une meilleure courbe sur un article ne démontre pas une règle commune du MRP industriel.
+
+### Règle expérimentale et différences contrôlées
+
+Une option générique `meta.supplier_planning_policy` permet de déclarer l'offre fournisseur utilisée à la fois pour les dates du plan et pour les nouveaux achats. Le mode facultatif `protection_mode: dated_stock_floor` maintient un niveau disponible projeté : `max(stock de sécurité source, taux global des besoins connus × durée calendaire correspondant aux jours ouvrés de sécurité)`. La durée est recalculée à la date de décision ; 30 jours ouvrés ne valent pas toujours 42 jours calendaires. La protection persiste après les consommations prévues, sans être elle-même consommée. Elle remplace, dans ce candidat, l'ancienne réserve complémentaire de couverture ; **elle ne s'y ajoute pas**.
+
+Sans option, le moteur conserve son comportement. La déclaration exige une offre existante issue de FIA, une unité compatible et une provenance ; elle refuse les politiques concurrentes de sourcing ou de regroupement. Aucun article n'est codé en dur dans cette extension. Les autres offres restent dans le graphe ; les engagements historiques ne sont pas réaffectés. La sélection est exclusive pour les nouveaux achats de cet essai : aucun secours hypothétique n'est ajouté. La fenêtre historique servant au calcul de couverture n'est pas unifiée avec le nouveau délai.
+
+Quatre calculs de **1 825 jours**, mêmes prévisions et parts des autres usages, stocks initiaux, prix, standards et sécurités sources :
+
+1. Référence : nouvelle option absente, recalcul du scénario à dix-neuf prévisions actualisées.
+2. Délai : offre 055703/VD0914320A à 21 jours utilisée au plan comme à l'exécution, puis 13 jours de réception selon le calendrier candidat lundi–vendredi.
+3. Protection : même sélection, avec les **30 jours ouvrés sources** interprétés comme un plancher disponible daté.
+4. Vérification sur d'autres matières, choisies **avant les résultats** : même règle aussi sur 039668/Avène (7 jours, stock fixe nul) et 708073/Gien (10 jours, stock fixe 2 000 kg), chacun avec son fournisseur unique et ses paramètres propres.
+
+### Résultats et cause de la non-généralisation
+
+Écarts absolus moyens du stock physique en kg, aux 52 photos après ouverture, clôture simulée de la veille :
+
+| Article / site | Référence | Délai seul sur 055703 | Protection sur 055703 | Même règle sur les trois matières |
+|---|---:|---:|---:|---:|
+| 055703 / Avène | 308,34 | 462,34 | **205,14** | 205,14 |
+| 039668 / Avène | 141,27 | 141,27 | 141,27 | **135,97** |
+| 708073 / Gien | 3 969,26 | 3 969,26 | 3 969,26 | **6 177,34** |
+
+Pour 055703, raccourcir le délai de planification retarde les commandes : la première passe de J39 à J64. Le dernier achat est physiquement reçu en J378, hors de 2025 ; le stock final tombe de 679,698 à 379,698 kg. Avec protection, l'écart moyen diminue de **33,47 %** par rapport à la référence et le stock final atteint **979,698 kg**, contre 933,345 kg dans la dernière photo source. Les jours sans disponible valent respectivement 0, 4 et 0. Mais **le 30 juin reste à 579,585 kg simulés contre 1 170,790 kg sources**, pour la référence comme pour la protection : l'amélioration annuelle ne corrige pas toute la cadence d'approvisionnement.
+
+Pour 039668, le gain reste modeste (environ 3,8 %) ; les jours sans disponible passent de 6 à 4. Pour 708073, l'écart moyen augmente d'environ 55,6 % et les jours sans disponible passent de **0 à 35**, dont 15 jours sans stock physique. Les réceptions 2025 passent de **25 000 à 20 000 kg**.
+
+Le contre-exemple 708073 est identifié **avant toute divergence de consommation** : au J93 (4 avril), les deux scénarios ont 4 416,778811 kg de stock disponible et les mêmes besoins physiques projetés, 44 847,667827 kg. La référence ajoute une réserve de couverture de **4 406,584316 kg**, tandis que le candidat la remplace par un plancher de **2 000 kg**. La référence demande un lancement immédiat de 706,787243 kg, arrondi au standard de 5 000 kg ; le candidat n'en demande aucun. Le premier lancement passe ainsi du **4 avril au 26 mai**, la réception physique du **2 mai au 23 juin**, et la disponibilité du **9 mai au 30 juin**. La règle candidate réduit ici une protection existante plus élevée : elle n'est donc pas une amélioration universelle.
+
+Le service annuel et son retard cumulé restent identiques dans les quatre calculs : 3 211 453 UN servies pour 268091, 1 575 985 UN pour 268967. Cela n'annule pas la dégradation matière de 708073 : sa consommation par la production représentée baisse de 15 387,372 à 13 677,664 kg, et des stocks intermédiaires/finis peuvent absorber des écarts. Aucun gain de service n'est attribué à cette expérience.
+
+La suite pertinente consiste à comprendre comment articuler **couverture existante, protection datée et anticipation des engagements**, sans remplacer aveuglément la première par un plancher plus bas, ni additionner deux fois la même sécurité. Les jours sources restent inchangés. Aucun achat industriel n'est injecté pour forcer la courbe.
+
+### Vérifications, reproduction et limites
+
+Les quatre simulations terminent avec code retour 0, code moteur et entrées stables : 518,172 s / 519,032 s / 505,328 s / 520,859 s. Deux calculs ont tourné simultanément au maximum : ces temps ne constituent pas un benchmark de performance. La [contrepreuve de référence](../../artifacts/testing/mrp_055703_policies_20261001/baseline_equivalence.json) rapproche **38 CSV récursifs identiques octet pour octet** (37 dans `data`, un dans `reports`) au calcul antérieur.
+
+Les **16 tests ciblés de calcul en mémoire** et les quatre qualifications CSV passent. L'oracle indépendant confronte directement les photos Excel aux stocks, les bilans des trois matières, les prévisions et les disponibilités calculées. Les scénarios conservent les mêmes 34 675 lignes de demande complémentaire et de provenance, sans création de consommation de protection. Les quantités physiques UN restent entières. [Chiffres affichés et service](../../artifacts/testing/mrp_055703_policies_20261001/analysis.json) · [manifeste de livraison et preuves](../../artifacts/testing/mrp_055703_policies_20261001/manifest.json).
+
+La comparaison autonome passe la revue hors ligne sur **5 836 valeurs aux photos**, les quatre scénarios, les onglets et le zoom. La carte complète passe également son parcours natif, sans erreur JavaScript. Deux premières tentatives de ce parcours restent conservées comme refusées : attente du panneau, puis manipulation du très gros nœud contenant le JSON. Le panneau est désormais chargé par une URL Blob au lieu d'un attribut `srcdoc` volumineux ; le contrôleur lit le JSON dans la page et ne retourne que l'article sélectionné. Les données embarquées restent identiques. La fermeture et la réouverture réutilisent la même iframe et sont vérifiées. Ce correctif de chargement ne réduit pas la taille des données ni ne démontre une limite précise du navigateur.
+
+La [recette](../../artifacts/testing/mrp_055703_policies_20261001/study.py) et les commandes exactes du plan décrivent les quatre calculs ; les sorties existantes ne doivent pas être écrasées. Les HTML antérieurs sont conservés. Dans la carte complète, les autres onglets et les deux suivis de lots restent ceux du scénario historique ; les nouveaux résultats figurent dans le panneau comparatif. Seule l'année 2025 est confrontée aux photos sources. Les prévisions s'arrêtent en 2026, sans répétition artificielle : exécuter cinq ans ne constitue pas cinq ans de calibration industrielle. Les propositions à dates futures conservent par ailleurs le délai scalaire calculé au jour de décision, hors des parcours disposant d'un calendrier futur spécifique.
+
+## Diagnostic 055703 à Avène — après généralisation des prévisions révisées
+
+Analyse du 1er octobre 2026, première année 2025 de `mrp_all_revisions_20261001/run`, comparée à `mrp_001893_revisions_20260930/run`. Aucun paramètre, moteur ou HTML modifié pour ce diagnostic. [Comparaison existante, sélectionner 055703 / Avène](../../resultats/regroupement_001757_20260929/comparaison_mrp_revisions_generalisees.html).
+
+### Paramètres et cohérence des sources
+
+| Donnée | Valeur vérifiée | Source |
+|---|---|---|
+| Fournisseur utilisé | VD0914320A : 20,35 EUR/kg, 21 jours, standard 300 kg | `268091.xlsx/FIA!A16:H16` |
+| Autre offre | VD0964290A : 49,20 EUR/kg, 42 jours, standard 300 kg | `FIA!A17:H17` |
+| Nomenclature 268091 | 81,2 g pour 1 000 PF | `268091.xlsx/BOM!C10:F10` |
+| Sécurité | 30 jours ouvrés, quantité fixe nulle | Inventory, `Politique de stock MRP!E10:G10` |
+| Traitement à réception | 13 jours dans les 52 versions ; calendrier lundi–vendredi candidat | Flow MRP, `Feuille1!E473` et versions suivantes |
+| Engagement initial | 300 kg, livraison prévue le 17 janvier, disponibilité le 5 février | `Extract_En_cours.xlsx/Sheet1!A69:I69` |
+
+Le fournisseur utilisé est moins cher **et** plus rapide : l'autre n'est pas un secours rapide démontré. L'ancien stock initial (569,805000976563 kg) et le nouveau (569,805001 kg) concordent à l'arrondi près ; l'ancienne sécurité vaut également 30 jours. Aucune anomalie g/kg identifiée. La valorisation comptable des photos est de 18,99 EUR/kg : elle ne constitue pas un prix d'achat FIA supplémentaire.
+
+### Ce qui s'améliore et ce qui reste différent
+
+L'écart absolu moyen du stock physique aux 52 photos après ouverture passe de **463,40 à 308,34 kg (−33,5 %)**. Dans l'essai général, 2 819,950287 kg sont consommés par les autres usages estimés et 70,1568 kg par la production représentée, soit **2 890,107087 kg**. Les achats physiquement reçus passent de quatre à dix lots de 300 kg, engagement initial inclus : **1 200 → 3 000 kg**. La part complémentaire de 81,07 % reste une estimation issue du premier plan, pas une ventilation industrielle démontrée.
+
+Les photos sources montrent onze hausses importantes (plus de 100 kg), les 27 janvier, 17 février, 10 mars, 31 mars, 5 mai, 26 mai, 30 juin, 1er septembre, 27 octobre, 17 novembre et 15 décembre. Toutes sont compatibles avec 300 kg reçus moins les sorties de la semaine. Les espacements varient de 21 à 63 jours : ce n'est pas un calendrier fixe établi.
+
+**Reconstruction conditionnelle**, sans autre entrée ni ajustement masqué : onze réceptions de 300 kg donnent `569,805001 + 3 300 − 933,345021 = 2 936,459980 kg` de sorties nettes jusqu'à la dernière photo. C'est 46,352893 kg de plus que la consommation simulée, soit environ 1,6 %. Ce rapprochement ne transforme pas les photos en registre exact des réceptions ou consommations.
+
+| Date de photo | Stock source kg | Stock simulé kg | Entrées sources reconstituées kg | Entrées simulées kg | Sorties sources reconstituées kg | Consommation simulée kg |
+|---|---:|---:|---:|---:|---:|---:|
+| 31 mars | 1 124,790 | 571,592 | 1 200 | 600 | 645,015 | 598,213 |
+| 30 juin | 1 170,790 | 579,585 | 2 100 | 1 500 | 1 499,015 | 1 490,220 |
+| 29 décembre | 933,345 | 679,698 | 3 300 | 3 000 | 2 936,460 | 2 890,107 |
+
+Flux cumulés depuis l'ouverture ; simulation à la clôture de la veille. Au 30 juin, environ **591 kg d'écart** correspondent à **600 kg d'entrées en moins**, compensés par environ 9 kg de consommation en moins, sous l'hypothèse précitée. Fin décembre, **253,647 kg d'écart** correspondent à 300 kg d'entrées en moins, compensés par 46,353 kg de consommation en moins. Le stock simulé final contient déjà **300 kg présents mais indisponibles jusqu'au 7 janvier 2026** ; cette quantité est bien incluse dans les 679,698 kg physiques.
+
+### Précautions sur les versions MRP et piste commune
+
+Le premier H de 300 kg est présent en `H474` puis `H1435`, reporté en `H2442`, puis se retrouve vraisemblablement dans le J futur de `J3468`. Le 26 janvier, `J3467 + J3468 = 396,280001 + 300 = 696,280001 kg`, exactement la photo du 27 janvier (`Stocks!E744`). C'est vraisemblablement un même approvisionnement reporté puis disponible plus tard, pas plusieurs achats. Les quatre H de 300 kg du premier plan ne prouvent pas quatre engagements fermes : certaines versions suivantes proposent 450 kg et déplacent les échéances. Ne pas injecter arbitrairement tous les H initiaux comme commandes fermes.
+
+Sur 52 versions, 51 sommes J concordent avec la photo suivante. Exception : le 2 mars, J vaut 1 006,945002 kg contre 746,790002 kg sur la photo du 3 mars ; la photo du 10 mars vaut justement 1 006,945002 kg. Ce décalage apparent reste signalé, sans correction arbitraire. Les J futurs répétés et les 14 H positifs de semaine courante ne sont pas des décomptes de commandes annuelles.
+
+La piste prioritaire est **l'anticipation et le déclenchement des lots, avec la protection du stock partagé**. Dans le contrôleur actuel, une réserve complémentaire est calculée après déduction des besoins déjà présents dans l'horizon (`plan_component_network`) ; elle n'est pas automatiquement équivalente à un minimum de stock conservé à chaque date. Une réserve complémentaire nulle ne signifie donc pas, à elle seule, que la sécurité est ignorée. L'interprétation des 30 jours doit être testée comme règle commune, sans augmenter cette valeur source ni ajouter artificiellement un lot pour ajuster la courbe.
+
+Le facteur de sécurité de cet essai vaut explicitement 1. Exemple de différence entre conventions : au jour 330, le disponible vaut 356,939 kg, contre `9,971982 kg/j × 42 jours calendaires = 418,823 kg` pour un plancher calculé sur les 30 jours ouvrés et les besoins globaux connus. Les 300 kg complémentaires sont encore indisponibles. Cela ne prouve pas que le MRP industriel applique ce plancher. Dans les traces, `target_stock_qty` reste une cible du périmètre du produit étudié (190,080 kg ce jour-là), tandis que `dated_global_target_rate_qty` inclut les autres usages : ne pas présenter ces deux indicateurs comme une même cible globale.
+
+Autre incohérence de convention identifiée : sans politique de sourcing explicite pour ce couple, le planificateur retient le maximum des deux délais fournisseurs, soit 42 jours plus réception (59–61 jours au total), tandis que les achats sont exécutés avec le fournisseur à 21 jours plus réception (38–40 jours). À échéance de besoin identique, cet écart avance le lancement calculé de 21 jours par rapport à un délai cohérent avec le fournisseur retenu ; il n'explique pas directement un stock trop bas. Il faut isoler son effet avant toute généralisation.
+
+Contrôles exécutés : relecture indépendante des Excel et du code ; **730 bilans physiques journaliers** et décompositions disponible/bloqué/réservé rapprochés des CSV des deux calculs, sans erreur au seuil 0,0001 kg. [Calcul reproductible en lecture des entrées](../../artifacts/testing/mrp_all_revisions_20261001/audit_055703.py) · [chiffres, achats, photos et empreintes des entrées](../../artifacts/testing/mrp_all_revisions_20261001/audit_055703.json). Aucune nouvelle simulation ni qualification globale lancée : ces contrôles ciblés expliquent les résultats existants et ne certifient pas encore une nouvelle règle industrielle.
+
+## Diagnostic 001893 à Avène — base au délai fournisseur fixe
+
+Périmètre : `empirical_delivery_20261001/study/source`, première année 2025, article `item:001893`, site `M-1810`. Analyse seule ; aucun paramètre ni résultat de simulation modifié.
+
+**Fin décembre, l'écart de stock porte presque entièrement sur le stock déjà présent mais disponible en janvier.** Le plan du 28 décembre donne 37 157,928 kg dans la semaine courante (`Flow_Data_MRP_results.xlsx/Feuille1!J52451`), 20 900 kg disponibles le 4 janvier 2026 (`J52452`) et 44 820 kg le 25 janvier (`J52455`). Leur somme, 102 877,928 kg, correspond exactement à la photo du 29 décembre (`Flow_Data_Inventory_and_Replenishment_rules.xlsx/Stocks!E1183`). Selon la définition confirmée de J, ces 65 720 kg futurs sont déjà physiquement présents, pas des achats restant à recevoir.
+
+À la clôture du 28 décembre (J361), le CSV `production_stock_availability_daily.csv` contient 37 025,088714 kg disponibles et physiques, sans indisponible. L'écart au total source est donc 65 852,839286 kg, dont 65 720 kg de disponibilité future source ; l'écart au seul disponible source est 132,839286 kg. Cette proximité ponctuelle du disponible ne valide pas toute la trajectoire : le 3 février, la photo vaut 14 623,304 kg, contre 71 760 kg physiques simulés à la clôture précédente, tous encore indisponibles.
+
+Le registre `mrp_orders_daily.csv` contient six achats externes lancés et physiquement reçus en 2025 : 71 760 kg puis cinq fois 23 920 kg, soit **191 360 kg**, tous auprès de VD0910216A, à 28 jours de livraison puis 24 jours ouvrés de traitement à réception. La première commande part le 5 janvier, arrive le 2 février et devient disponible le 6 mars. Aucun ordre initial 001893/1810 n'est importé : les cinq lignes 001893 du carnet (`Extract_En_cours`, lignes 9–13) concernent 1820 et ne doivent pas être réaffectées sans preuve.
+
+Le bilan physique simulé 2025 se ferme : 9 783,5 kg initiaux + 191 360 kg reçus − 164 118,411286 kg consommés = 37 025,088714 kg finaux (écart inférieur à 0,00001 kg en additionnant les exports arrondis). Les consommations comprennent 155 454,046486 kg estimés pour les autres produits et environ 8 664,365 kg pour les produits représentés. Les 53 photos sources donnent 253 974,674 kg de hausses positives cumulées, soit 62 614,674 kg de plus que toutes les réceptions simulées. C'est un cumul de hausses nettes, pas une mesure exhaustive des livraisons : consommations simultanées, transferts ou corrections éventuelles restent à distinguer.
+
+**Défaut d'entrée identifié : les besoins partagés restent figés au premier plan du 5 janvier pour cette référence.** Ses 40 lignes (`Feuille1!118:157`) s'arrêtent au 19 octobre, sans besoin renseigné en novembre/décembre. L'estimation des autres usages retient 82,7728 % des besoins futurs de ce premier plan ; cette part est une hypothèse, pas une nomenclature industrielle complète. Les versions sources ultérieures contiennent bien des besoins de fin d'année et de 2026. Dans le calcul, l'achat suivant n'est lancé qu'à J369 (5 janvier 2026), pour réception à J397. La priorité est de présenter au planificateur les versions connues et leurs besoins futurs, avant de calibrer davantage les regroupements.
+
+Les trois offres FIA (`FIA268091`, lignes 5–7) sont 4,40 €/kg / 56 jours / 22 800 kg ; 4,64 €/kg / 28 jours / 23 920 kg ; 5,105 €/kg / 42 jours / 20 900 kg. La sécurité source reste 15 jours ouvrés, stock de sécurité fixe nul. Les projections H ne se réduisent pas aux multiples de 23 920 kg : 950 kg est fréquent au début, puis 19 000, 20 900, 22 800 et 23 920 kg apparaissent. Une quantité projetée ne suffit pas à identifier un fournisseur, une commande ou une palette. Le choix fournisseur et le fractionnement des réceptions restent à rapprocher des données, sans multiplier arbitrairement la sécurité.
+
+Contrôles : lectures des CSV du calcul conservé, rapprochement direct et indépendant des cellules Excel, fermeture du bilan matière. Aucune nouvelle simulation ni qualification globale exécutée pour ce diagnostic.
+
+### Essai séparé : prévisions 001893 révisées sur un horizon de 52 semaines
+
+[Comparaison interactive](../../resultats/regroupement_001757_20260929/comparaison_001893_revisions.html) · [carte complète](../../resultats/regroupement_001757_20260929/carte_001893_revisions.html) · [plan reproductible](../../artifacts/testing/mrp_001893_revisions_20260930/plan.json).
+
+Règle commune appliquée : **à chaque publication d'un plan MRP, remplacer les besoins futurs par la dernière version connue, sans additionner les versions ni réécrire la semaine en cours**. Le mécanisme existant est réutilisé pour 001893/1810 : 38 lignes complémentaires fixes sont remplacées par 52 versions, soit 2 023 lignes futures. La part initiale estimée de 82,7728067775 % reste inchangée. Prix, choix fournisseur, standards, stocks initiaux, délais fixes et sécurités sont strictement identiques au point de départ. Le moteur n'a pas été modifié ; ce résultat reste un scénario séparé, reproductible avec `study.py prepare`, puis `study.py run` dans le dossier de preuves (les fichiers existants sont protégés contre l'écrasement).
+
+| Indicateur 001893/Avène, 2025 | Point de départ | Besoins révisés |
+|---|---:|---:|
+| Écart absolu moyen du physique aux 52 photos | 37 355,43 kg | **18 953,16 kg (−49,26 %)** |
+| Écart absolu moyen du disponible au J de la semaine courante | 19 641,19 kg | **15 350,47 kg (−21,85 %)** |
+| Nouveaux achats lancés | 6 / 191 360 kg | 17 / 454 480 kg |
+| Réceptions physiques dans l'année | 191 360 kg | 430 560 kg |
+| Consommation complémentaire estimée exécutée | 155 454,05 kg | 342 599,25 kg |
+| Consommation des produits représentés | 8 664,36 kg | 8 664,36 kg |
+| Jours de stock physique nul / disponible nul | 15 / 47 | 15 / 47 |
+
+La comparaison du disponible utilise ici le J courant du plan, pas le stock total des photos. Sur 45 des 52 semaines, la somme des J datés concorde exactement avec la photo voisine ; les sept autres gardent leur écart de source/date. Ce rapprochement n'identifie pas des consommations observées.
+
+**Rapprochement du 29 décembre, à clôture simulée du 28 décembre :** le physique passe de 37 025,09 à **65 159,89 kg**, contre 102 877,93 kg en source. Le candidat se décompose en 41 239,89 kg disponibles et 23 920 kg indisponibles, contre respectivement 37 157,93 et 65 720 kg dans le MRP source. Il reçoit 23 920 kg supplémentaires **le 30 décembre**, et termine le 31 à 89 079,89 kg physiques, dont 47 840 kg indisponibles. Cette valeur du 31 ne doit pas être présentée comme une comparaison à date identique avec la photo du 29.
+
+La correction rétablit des besoins et achats de fin d'année mais ne résout pas les ruptures initiales ni tous les décalages de réception. Les 17 achats restent tous sur VD0910216A : 71 760 kg une fois puis 23 920 kg seize fois, livraison fixe 28 jours puis traitement de réception 24 jours ouvrés. Le rapprochement fournisseur/fractionnement reste ouvert : les H source peuvent être des échéances regroupées ou fractionnées et ne prouvent ni un quota d'achat ni un fournisseur exécutant. Aucune quantité standard source ni règle de sélection n'a été ajustée pour améliorer la courbe.
+
+Les métriques de stock 2025 des autres couples représentés sont inchangées, comme le service PF 2025. Sur cinq ans, les quantités servies totales sont identiques ; le cumul des retards de 268091 change, ce qui ne constitue pas une validation industrielle des années sans nouvelles données. Les autres onglets de la carte et les deux suivis de lots conservent leur scénario historique ; seul le panneau de comparaison contient cet essai.
+
+**Vérification :** exécution normale de 1 825 jours terminée en 429,734 s, retour 0, seize fichiers moteur/calcul et toutes les entrées inchangés. Quatorze tests ciblés en mémoire passent, ainsi que la qualification des exports. La [contre-vérification indépendante](../../artifacts/testing/mrp_001893_revisions_20260930/validation/independent.json) rapproche directement les 2 023 cellules Excel, les 365 demandes journalières, les dates de livraison/disponibilité et le bilan des lots (résidu inférieur à 0,00002 kg). La [revue ciblée de la comparaison](../../artifacts/testing/mrp_001893_revisions_20260930/view_001893_4899dfa9/report.json) vérifie hors ligne six onglets, les deux scénarios, 208 valeurs aux dates des photos, les bases physique/disponible et le zoom, sans erreur JavaScript. Les preuves sont regroupées dans le [manifeste de livraison](../../artifacts/testing/mrp_001893_revisions_20260930/manifest.json).
+
+Limites conservées : les I projetés restent une hypothèse de consommation physique ; la part des autres usages n'est pas une nomenclature industrielle complète. Les prévisions de cet article ne sont pas répétées artificiellement après leur fin, le 7 novembre 2026. En 2025, 329 jours sont couverts ; les périodes 1–11 janvier, 27 juillet–16 août et 28–31 décembre restent non fournies, pas des demandes industrielles nulles démontrées. La simulation de cinq ans vérifie l'exécution ; elle ne calibre pas les besoins industriels de 2027–2029.
 
 ## Bilan annuel des avances et retards fournisseurs — toutes les données 2025 disponibles
 

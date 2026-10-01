@@ -61,7 +61,8 @@ COMPARISON_RUNTIME = r'''
      const bytes=Uint8Array.from(atob(entry.gzip),c=>c.charCodeAt(0));
      const content=await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();
      frame.onload=()=>{status.hidden=true;frame.hidden=false;};
-     frame.srcdoc=new TextDecoder('utf-8').decode(content);ready=true;
+     // A Blob avoids copying large comparisons into a UTF-16 srcdoc attribute.
+     frame.src=URL.createObjectURL(new Blob([content],{type:'text/html;charset=utf-8'}));ready=true;
    } catch(error){status.textContent='Impossible de charger les comparaisons : '+error.message;}
    finally{pending=false;}
  };
