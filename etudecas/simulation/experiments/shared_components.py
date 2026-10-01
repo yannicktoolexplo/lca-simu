@@ -224,8 +224,8 @@ def revision_series(records, vintages, pair, fraction, *, planning_horizon_days=
     """Replace future forecasts; never inject the current, possibly overdue bucket."""
     if planning_horizon_days is not None and (type(planning_horizon_days) is not int or planning_horizon_days != 364):
         raise ValueError('Rolling source forecasts require exactly 52 weeks')
-    if output_uom not in ('KG', 'G'):
-        raise ValueError('Revised mass forecasts require KG or G output')
+    if output_uom not in ('KG', 'G', 'UN'):
+        raise ValueError('Revised forecasts require KG, G or UN output')
     output_factor = 1000. if output_uom == 'G' else 1.
     item, division = pair.split('/')
     versions = []
@@ -235,16 +235,22 @@ def revision_series(records, vintages, pair, fraction, *, planning_horizon_days=
             end = known + planning_horizon_days + 1 if planning_horizon_days is not None else 365
             if record['known_day'] != known or record['day'] <= known or record['day'] >= end:
                 continue
-            if record['unit'] != 'KG':
-                raise ValueError('The isolated revision study supports KG only')
+            if record['unit'] != ('UN' if output_uom == 'UN' else 'KG'):
+                raise ValueError('Revised forecasts require matching canonical mass or unit quantities')
             length = 7 if planning_horizon_days is not None else min(7, 365 - record['day'])
+            quantity = record['qty'] * fraction * length / 7 * output_factor
+            basis = {'method': 'fixed_first_plan_share_revised_future', 'fraction': fraction}
+            if output_uom == 'UN':
+                # Keep the fractional forecast as evidence; the complementary
+                # physical weekly scenario follows estimate_first_plan rounding.
+                basis['unrounded_canonical_qty'] = quantity
+                quantity = math.floor(quantity + .5)
             rows.append({'demand_id': f'shared-revision:{item}:{division}:{record["day"]}',
                          'period_start_day': record['day'], 'period_days': length,
-                         'qty': record['qty'] * fraction * length / 7 * output_factor,
+                         'qty': quantity,
                          'source_file': 'Flow_Data_MRP_results.xlsx',
                          'source_cells': f'Feuille1!I{record["row"]}',
-                         'estimation_basis': json.dumps({'method': 'fixed_first_plan_share_revised_future',
-                                                        'fraction': fraction}, sort_keys=True)})
+                         'estimation_basis': json.dumps(basis, sort_keys=True)})
         if len({r['period_start_day'] for r in rows}) != len(rows):
             raise ValueError('Duplicate target week in a revision')
         versions.append({'vintage_id': f'mrp:{known}', 'known_day': known,

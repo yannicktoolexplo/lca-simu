@@ -65,6 +65,16 @@ OPTIONAL_TRACE_FIELDS = (
     'sourcing_retained_firm_qty', 'sourcing_bridge_surplus_qty',
     'dated_protection_target_qty', 'dated_protection_max_shortfall_qty',
     'dated_protection_first_shortfall_day',
+    'dated_source_protection_target_qty', 'dated_coverage_complement_qty',
+    'dated_coverage_activation_day',
+    'industrial_source_requirement_qty', 'industrial_own_requirement_qty',
+    'industrial_reconstructed_external_qty', 'industrial_planning_complement_qty',
+    'industrial_planning_requirement_qty', 'industrial_source_covered_days',
+    'industrial_source_excess_own_qty', 'industrial_target_rate_qty',
+    'industrial_target_window_days', 'industrial_forecast_source_cells',
+    'prospective_safety_basis', 'prospective_safety_source_days',
+    'prospective_safety_tomorrow_qty', 'prospective_safety_legacy_qty',
+    'prospective_safety_dated_days', 'prospective_safety_fallback_days',
 )
 SOURCING_ORDER_FIELDS = (
     'sourcing_policy_id', 'sourcing_role', 'sourcing_reason', 'sourcing_purchase_unit_cost',
@@ -182,7 +192,7 @@ def _trace_values(row, factor):
     result = [_number(row[field], factor) for field in TRACE_FIELDS]
     for field in OPTIONAL_TRACE_FIELDS:
         value = row.get(field)
-        if field in ('mrp_receipt_netting_mode', 'mrp_receipt_netting_scope', 'mrp_execution_mode', 'dated_lead_basis', 'dated_action_scope', 'sourcing_policy_id'):
+        if field in ('mrp_receipt_netting_mode', 'mrp_receipt_netting_scope', 'mrp_execution_mode', 'dated_lead_basis', 'dated_action_scope', 'sourcing_policy_id', 'industrial_forecast_source_cells', 'prospective_safety_basis'):
             result.append(value or None)
         else:
             result.append(_number(value, factor if field.endswith(('_qty', '_qty_days')) else 1.))
@@ -934,6 +944,14 @@ def _run_payload(label, run, pairs):
             protection_levels = {}
             for kind, target, qty, _ in events:
                 if kind == 'opening_available':
+                    continue
+                if kind in {'industrial_source', 'industrial_own', 'industrial_prior_external',
+                            'industrial_complement', 'industrial_own_excess'}:
+                    # Audit decomposition only: actual planning requirements
+                    # are exported once with kind=requirement. Never add these
+                    # source/BOM/complement subtotals to projected consumption.
+                    if qty is None or qty < 0:
+                        raise ValueError(f'Invalid industrial planning audit: {pair}, {decision}, {kind}')
                     continue
                 if kind == 'stock_protection':
                     if qty is None or qty < 0:

@@ -24,6 +24,118 @@ class Requirement:
 
 
 @dataclass(frozen=True)
+class IndustrialPlanningWindow:
+    period_start_day: int
+    first_day: int
+    end_day_exclusive: int
+    qty: float
+    known_day: int
+    source_file: str
+    source_cells: str
+
+
+class IndustrialComponentPlanningCalendar:
+    """Total industrial forecasts used only for planning, never physical demand.
+
+    Complete supplied weeks include explicit zero. Unprovided weeks remain
+    absent. Current weeks freeze the preceding vintage; future weeks use the
+    latest vintage actually known at the decision. Fractional UN forecasts are
+    legitimate here: the physical external-use calendar is separate.
+    """
+
+    def __init__(self, payload, *, pair_uoms: Mapping, origin_date: str):
+        if (not isinstance(payload, dict)
+                or set(payload) != {"schema_version", "origin", "scenario_id", "semantics", "versioned_series"}
+                or type(payload["schema_version"]) is not int or payload["schema_version"] != 1
+                or payload["origin"] != origin_date
+                or payload["semantics"] != "industrial_total_gross_requirements_planning_only"
+                or not isinstance(payload["scenario_id"], str) or not payload["scenario_id"].strip()
+                or not isinstance(payload["versioned_series"], list) or not payload["versioned_series"]):
+            raise ValueError("Industrial planning requires explicit total-forecast schema1 and matching origin")
+        self._series = {}
+        for series in payload["versioned_series"]:
+            pair = (series.get("node_id"), series.get("item_id"))
+            if (pair not in pair_uoms or pair in self._series or series.get("uom") != pair_uoms[pair]
+                    or series.get("repeat_period_days") != 0 or series.get("period_days") != 7
+                    or series.get("period_anchor_day") != 4
+                    or series.get("current_bucket_policy") != "freeze_previous_exclude_current_vintage"
+                    or series.get("missing_future_policy") != "unprovided_not_observed_zero"):
+                raise ValueError("Industrial planning series requires a unique modeled pair and dated non-repeating weeks")
+            versions, days = [], set()
+            if not isinstance(series.get("versions"), list) or not series["versions"]:
+                raise ValueError("Industrial planning requires explicit vintages")
+            for version in series["versions"]:
+                known = version.get("known_day")
+                if type(known) is not int or not 0 <= known < 365 or known in days or not isinstance(version.get("rows"), list):
+                    raise ValueError("Industrial planning vintages require unique year-one knowledge dates")
+                days.add(known)
+                periods = {}
+                for row in version["rows"]:
+                    start = row.get("period_start_day")
+                    if (type(start) is not int or not known < start <= known + 364
+                            or (start - 4) % 7 or row.get("period_days") != 7 or start in periods):
+                        raise ValueError("Industrial forecast weeks must be future Sundays inside the known 52-week horizon")
+                    quantity = _number(row.get("qty"), "industrial total forecast")
+                    if quantity < 0 or any(not isinstance(row.get(k), str) or not row[k].strip()
+                                           for k in ("source_file", "source_cells")):
+                        raise ValueError("Industrial forecasts require nonnegative quantities and cell provenance")
+                    periods[start] = dict(row, qty=quantity)
+                versions.append((known, periods))
+            versions.sort(key=lambda entry: entry[0])
+            self._series[pair] = ([known for known, _ in versions], versions)
+        self.pairs = tuple(sorted(self._series))
+
+    def windows(self, pair, *, decision_day: int, first_day: int, through_day: int):
+        if (any(type(day) is not int for day in (decision_day, first_day, through_day))
+                or first_day <= decision_day or through_day < first_day):
+            raise ValueError("Industrial planning windows must be explicitly future at the decision")
+        known_days, versions = self._series[pair]
+        result = []
+        first_period = 4 + ((first_day - 4) // 7) * 7
+        for start in range(first_period, through_day + 1, 7):
+            index = bisect_right(known_days, min(decision_day, start - 1)) - 1
+            row = versions[index][1].get(start) if index >= 0 else None
+            if row is None:
+                continue
+            first, end = max(start, first_day), min(start + 7, through_day + 1)
+            qty = float(Decimal(str(row["qty"])) * Decimal(end - first) / Decimal(7))
+            result.append(IndustrialPlanningWindow(start, first, end, qty,
+                versions[index][0], row["source_file"], row["source_cells"]))
+        return tuple(result)
+
+
+def reconcile_industrial_requirements(requirements, windows, *, pair, decision_day):
+    """Keep dated own BOM; replace future complementary demand once per week."""
+    original, audits = tuple(requirements), []
+    replaced, added, covered = set(), [], set()
+    for window in windows:
+        dates = set(range(window.first_day, window.end_day_exclusive))
+        if window.first_day <= decision_day or covered & dates:
+            raise ValueError("Industrial reconciliation requires disjoint future windows")
+        covered.update(dates)
+        rows = [row for row in original if row.due_day in dates]
+        own = sum((Decimal(str(row.qty)) for row in rows if not row.requirement_id.startswith("external:")), Decimal(0))
+        external = [row for row in rows if row.requirement_id.startswith("external:")]
+        old_extra = sum((Decimal(str(row.qty)) for row in external), Decimal(0))
+        total = Decimal(str(window.qty))
+        complement = max(Decimal(0), total - own)
+        replaced.update(row.requirement_id for row in external)
+        length = window.end_day_exclusive - window.first_day
+        for offset, due in enumerate(range(window.first_day, window.end_day_exclusive)):
+            quantity = complement * Decimal(offset + 1) / length - complement * Decimal(offset) / length
+            if quantity > 0:
+                added.append(Requirement(f"external:industrial-planning:{pair[0]}:{pair[1]}:W{window.period_start_day}:D{due}", due, float(quantity)))
+        audits.append(dict(period_start_day=window.period_start_day, first_day=window.first_day,
+            end_day_exclusive=window.end_day_exclusive, known_day=window.known_day,
+            source_file=window.source_file, source_cells=window.source_cells,
+            source_qty=float(total), own_qty=float(own), reconstructed_external_qty=float(old_extra),
+            complement_qty=float(complement), planning_qty=float(own + complement),
+            source_excess_own_qty=float(max(Decimal(0), own - total))))
+    reconciled = [row for row in original if row.requirement_id not in replaced] + added
+    return reconciled, audits
+
+
+@dataclass(frozen=True)
 class ExternalComponentService:
     """Physical allocations to uses outside the modeled finished products."""
 
@@ -82,6 +194,7 @@ class ExternalComponentDemandCalendar:
         self._daily: dict = defaultdict(list)
         self._provenance: dict = {}
         self._fixed_day_audit: dict = {}
+        self._coverage_periods: dict = defaultdict(list)
         self._revision_series: dict = {}
         self._revision_identity: dict = {}
         self.version_count = 0
@@ -118,6 +231,7 @@ class ExternalComponentDemandCalendar:
                           for i in range(length + 1)]
             for cycle in cycles:
                 shift = cycle * (repeat or 0)
+                self._coverage_periods[pair].append((known + shift, start + shift, start + shift + length))
                 for offset in range(length):
                     due_day = start + shift + offset
                     if due_day >= horizon_days:
@@ -255,6 +369,23 @@ class ExternalComponentDemandCalendar:
             if selected:
                 result[pair] = tuple(selected)
         return result
+
+    def covered_days(self, pair, *, decision_day: int, first_day: int, through_day: int) -> frozenset[int]:
+        """Dates explicitly forecast in this snapshot, including declared zero.
+
+        This uses exactly the causal vintage selection of requirements(). A
+        missing week is not inferred from neighboring nonzero requirements.
+        """
+        for value in (decision_day, first_day, through_day):
+            _day(value, "external component coverage day")
+        if first_day <= decision_day or through_day < first_day:
+            raise ValueError("Coverage requires a strictly future interval")
+        stop = min(through_day, self.horizon_days - 1)
+        if pair in self._revision_series:
+            return frozenset(day for day in range(first_day, stop + 1)
+                if self._revision_selection(pair, decision_day=decision_day, due_day=day)[2] is not None)
+        return frozenset(day for known, start, end in self._coverage_periods.get(pair, ())
+            if known <= decision_day for day in range(max(first_day, start), min(stop + 1, end)))
 
     def due(self, day: int) -> dict:
         return self.requirements(decision_day=day, first_day=day, through_day=day)
@@ -696,6 +827,88 @@ def _complete_plan(decision_day, available, needs, receipts, proposals, supplies
         float(after),
         tuple(procurement_groups),
     )
+
+
+def prospective_stock_protection(
+    *, decision_day: int, requirements: Iterable[Requirement], source_working_days: int,
+    origin_weekday: int, forecast_through_day: int, covered_days: Iterable[int],
+    fixed_floor_qty: float, legacy_floor_qty: float,
+    coverage_activation_day: int, coverage_complement_qty: float,
+) -> tuple[tuple[StockProtection, ...], dict]:
+    """Experimental non-consumable floor from complete dated forecast windows.
+
+    At the close of t, protect requirements strictly in (t, t+N workdays].
+    Weekends are skipped to determine the endpoint, not to remove demand.
+    Missing dates or the forecast tail use the explicit legacy floor. Prefix
+    sums make this linear in the planning horizon plus the requirement count.
+    """
+    for value, label in ((decision_day, "decision day"), (forecast_through_day, "forecast end"),
+                         (coverage_activation_day, "coverage activation")):
+        _day(value, label)
+    if (type(source_working_days) is not int or source_working_days < 0
+            or type(origin_weekday) is not int or not 0 <= origin_weekday < 7
+            or forecast_through_day < decision_day or coverage_activation_day < decision_day):
+        raise ValueError("Prospective protection requires whole working days and a valid forecast interval")
+    for value in (fixed_floor_qty, legacy_floor_qty, coverage_complement_qty):
+        _number(value, "prospective protection floor")
+    horizon = forecast_through_day - decision_day
+    amounts = [Decimal(0) for _ in range(horizon + 1)]
+    for need in requirements:
+        _day(need.due_day, "requirement day")
+        _number(need.qty, "requirement qty")
+        if decision_day < need.due_day <= forecast_through_day:
+            amounts[need.due_day - decision_day] += Decimal(str(need.qty))
+    known = set(covered_days)
+    prefix, missing = [Decimal(0)], [0]
+    for offset in range(1, horizon + 1):
+        prefix.append(prefix[-1] + amounts[offset])
+        missing.append(missing[-1] + (decision_day + offset not in known))
+    elapsed = {}
+    for weekday in range(7):
+        days = workdays = 0
+        while workdays < source_working_days:
+            days += 1
+            workdays += (weekday + days) % 7 < 5
+        elapsed[weekday] = days
+    points, details, dated_count, fallback_count = [], {}, 0, 0
+    previous_signature = None
+    # The last checkpoint explicitly restores legacy after the known horizon.
+    dates = sorted(set(range(decision_day + 1, forecast_through_day + 2)) | {coverage_activation_day})
+    tomorrow_floor = legacy_floor_qty
+    tomorrow_basis = "fallback_incomplete_forecast"
+    for when in dates:
+        end = when + elapsed[(origin_weekday + when) % 7]
+        complete = (when > decision_day and end <= forecast_through_day
+                    and missing[end - decision_day] == missing[when - decision_day])
+        need_qty = float(prefix[end - decision_day] - prefix[when - decision_day]) if complete else None
+        source_floor = max(fixed_floor_qty, need_qty) if complete else legacy_floor_qty
+        # Preserve legacy zero-lead coverage without creating a safety floor on
+        # the decision day: source protection starts tomorrow in every mode.
+        if when == decision_day:
+            source_floor = 0.0
+        floor_qty = max(source_floor, coverage_complement_qty if when >= coverage_activation_day else 0.0)
+        basis = "dated_known_window" if complete else "fallback_incomplete_forecast"
+        if decision_day < when <= forecast_through_day:
+            dated_count += int(complete)
+            fallback_count += int(not complete)
+        if when == decision_day + 1:
+            tomorrow_floor, tomorrow_basis = source_floor, basis
+        detail = {"safety_window_end_day": end, "safety_window_need_qty": need_qty if complete else "",
+                  "safety_window_covered": int(complete), "safety_source_floor_qty": source_floor}
+        signature = (floor_qty, basis)
+        if signature != previous_signature or when == coverage_activation_day:
+            points.append(StockProtection(f"prospective:{when}:{basis}", when, floor_qty))
+            details[when] = detail
+            previous_signature = signature
+    return tuple(points), {
+        "prospective_safety_basis": tomorrow_basis,
+        "prospective_safety_source_days": source_working_days,
+        "prospective_safety_tomorrow_qty": tomorrow_floor,
+        "prospective_safety_legacy_qty": legacy_floor_qty,
+        "prospective_safety_dated_days": dated_count,
+        "prospective_safety_fallback_days": fallback_count,
+        "prospective_checkpoints": details,
+    }
 
 
 def plan_with_stock_protection(
