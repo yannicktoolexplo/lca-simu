@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import argparse
 import sys
 from pathlib import Path
 
@@ -25,11 +26,16 @@ def embedded_payload(html: str, name: str) -> dict:
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--dashboard-json', type=Path)
+    args = parser.parse_args()
     output = CASE_ROOT / "outputs"
     target = output / "maps" / "supply_geo_base_results_map.html"
     html = target.read_text(encoding="utf-8")
     payload = embedded_payload(html, "SDD_MAP_PAYLOAD")
     dashboard = embedded_payload(html, "BASE_DASHBOARD_PAYLOAD")
+    if args.dashboard_json:
+        dashboard = json.loads(args.dashboard_json.read_text(encoding='utf-8'))
     dashboard["selection_paths"] = build_map_selection_paths(
         read_csv_rows(output / "data" / "primary_supply_paths.csv"),
         read_csv_rows(output / "data" / "primary_supply_lanes.csv"),

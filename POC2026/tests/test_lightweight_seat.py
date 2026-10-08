@@ -142,19 +142,27 @@ def test_named_transport_checks_every_row_and_csv_precision_in_memory():
 
 
 @pytest.mark.parametrize("cached", [False, True])
-def test_summary_use_and_weighted_memory_oracle(monkeypatch, cached):
+@pytest.mark.parametrize("article", [False, True])
+def test_summary_use_and_weighted_memory_oracle(monkeypatch, cached, article):
     config = {"baseline_mass_kg": 10, "target_mass_kg": 5,
               "flight_use": {"average_flight_distance_km": 1000, "annual_flight_cycles": 2,
                              "lifetime_years": 1, "marginal_fuel_kg_per_kg_1000km":
                              {"low": 0.1, "central": 0.2, "high": 0.3}}}
+    if article:
+        config.update(baseline_mass_kg=109.967, target_mass_kg=54.9835)
+        config["flight_use"].update(calculation_method="steinegger_a322_2017",
+            average_flight_distance_km=5556, annual_flight_cycles=700,
+            lifetime_years=7, allow_extrapolation=True)
     monkeypatch.setattr(seat, "load_scenario_config", lambda path: config)
     monkeypatch.setattr(seat, "extract_reconciled_mass_budget", lambda *a: ({}, {}))
     monkeypatch.setattr(seat, "build_mass_budget_rows", lambda *a: [
         {"family_id": "test", "baseline_mass_kg": 10, "target_mass_kg": 5,
          "lca_exchange_scale_factor": 0.5}])
     monkeypatch.setattr(seat, "run_exact_brightway", lambda **k: _memory_exact_rows() if cached else [])
-    monkeypatch.setattr(seat, "run_exact_localization_scenarios", lambda **k: [])
-    monkeypatch.setattr(seat, "run_exact_named_supplier_scenarios", lambda **k: [])
+    monkeypatch.setattr(seat, "run_exact_localization_scenarios", lambda **k:
+                        _memory_exact_rows(LOCALIZATION_SCENARIO_IDS) if article and cached else [])
+    monkeypatch.setattr(seat, "run_exact_named_supplier_scenarios", lambda **k:
+                        _memory_exact_rows(("named_supplier",)) if article and cached else [])
     label = "Climate Change - total"
     result = seat.build_lightweight_scenario(
         config_path=Path("memory"), masterboard_path=Path("memory"), runtime={}, runner_path=Path("memory"),
@@ -163,8 +171,42 @@ def test_summary_use_and_weighted_memory_oracle(monkeypatch, cached):
                                "normalization_factor_per_person_year": 10}],
         reference_person_equivalent_results=[{"short_label": label, "use_phase_person_equivalent": 20}],
         reference_weighting_factors=[{"category": "Climate change", "ef30_weight_pct": 50}],
+        supplier_alternative_payload={"scenario_summaries": [{"scenario_id": "named_supplier"}]},
     )
     summary = result["summary"]
+    if article:
+        from decimal import Decimal
+
+        # Independent decimal oracle, without calling the mission implementation.
+        baseline_fuel = Decimal("109.967") * 4900 * Decimal(".18224")
+        assert result["mission"]["baseline_fuel_kg"] == pytest.approx(float(baseline_fuel))
+        assert summary["use_method"] == "steinegger_a322_2017"
+        assert summary["avoided_fuel_central_kg"] == pytest.approx(float(baseline_fuel / 2))
+        assert summary["avoided_fuel_low_kg"] is None
+        assert summary["avoided_fuel_high_kg"] is None
+        row = result["indicator_results"][0]
+        assert row["historical_baseline_use_raw"] == 200
+        assert row["lightweight_use_low_raw"] is None
+        assert row["baseline_total_high_raw"] is None
+        if cached:
+            baseline_use = float(baseline_fuel * Decimal("4.148118595"))
+            assert summary["baseline_use_kgco2e"] == pytest.approx(baseline_use)
+            assert summary["lightweight_use_central_kgco2e"] == pytest.approx(baseline_use / 2)
+            assert summary["weighted_baseline_point"] == pytest.approx((100 + baseline_use) / 20)
+            assert row["fuel_factor_status"] == "historical_unvalidated"
+            for key in ("localization_indicator_results", "named_supplier_indicator_results"):
+                assert result[key]
+                for localized in result[key]:
+                    assert localized["baseline_use_raw"] == pytest.approx(baseline_use)
+                    assert localized["lightweight_use_central_raw"] == pytest.approx(baseline_use / 2)
+                    assert localized["localized_lightweight_total_central_raw"] == pytest.approx(50 + baseline_use / 2)
+        else:
+            assert summary["baseline_use_kgco2e"] is None
+            assert summary["lightweight_use_central_kgco2e"] is None
+            assert summary["baseline_total_central_kgco2e"] is None
+            assert summary["weighted_baseline_point"] is None
+            assert summary["weighted_lightweight_point"] is None
+        return
     assert summary["baseline_use_kgco2e"] == 200
     assert summary["avoided_fuel_central_kg"] == 2
     if cached:
@@ -179,6 +221,38 @@ def test_summary_use_and_weighted_memory_oracle(monkeypatch, cached):
         assert summary["weighted_lightweight_point"] is None
         assert summary["weighted_reduction_pct"] is None
         assert summary["fuel_factor_status"] == "unavailable"
+
+
+@pytest.mark.parametrize("scenario_id", ["current_export", "named_supplier"])
+@pytest.mark.parametrize("factor", [None, 4.0, -2.0, 0.0])
+def test_article_localization_and_named_memory_oracle(scenario_id, factor):
+    rows = _memory_exact_rows((scenario_id,))
+    for row in rows:
+        row["fuel_factor_raw_per_kg"] = factor
+    result, summaries = seat.build_localization_results(
+        exact_rows=rows,
+        metadata={"Climate Change - total": {"normalization_factor": 10,
+                  "weight_fraction": .5, "use_phase_person_equivalent": 20}},
+        avoided_fuel={"central": 99999}, regional_scenarios=[], scenario_ids=[scenario_id],
+        mission={"calculation_method": "steinegger_a322_2017", "baseline_fuel_kg": 1000,
+                 "target_fuel_kg": 500, "avoided_fuel_kg": 500},
+    )
+    row = result[0]
+    assert row["historical_baseline_use_raw"] == 200
+    assert row["lightweight_use_high_raw"] is None
+    if factor is None:
+        assert row["baseline_use_raw"] is None
+        assert row["lightweight_use_central_raw"] is None
+        assert row["localized_lightweight_total_central_raw"] is None
+        assert summaries[0]["weighted_point"] is None
+        assert summaries[0]["weighted_reduction_vs_reference_pct"] is None
+    else:
+        assert row["baseline_use_raw"] == 1000 * factor
+        assert row["lightweight_use_central_raw"] == 500 * factor
+        assert row["avoided_use_central_raw"] == 500 * factor
+        assert row["localized_lightweight_total_central_raw"] == 50 + 500 * factor
+        assert summaries[0]["weighted_point"] == (50 + 500 * factor) / 20
+        assert row["fuel_factor_status"] == "historical_unvalidated"
 
 
 def test_lightweight_mass_budget_closes_at_half_opera_mass() -> None:

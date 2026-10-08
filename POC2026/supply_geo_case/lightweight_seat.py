@@ -16,6 +16,11 @@ from typing import Any
 
 import yaml
 
+try:
+    from .aircraft_mission import build_mission
+except ImportError:
+    from aircraft_mission import build_mission
+
 
 INDICATOR_METHODS = {
     "Acidification": "acidification",
@@ -554,6 +559,34 @@ def run_exact_named_supplier_scenarios(
         output_path.unlink(missing_ok=True)
 
 
+def _article_use_fields(
+    mission: dict[str, Any], factor: float | None, baseline_production: float,
+    target_production: float, norm: float, weight: float,
+) -> dict[str, Any]:
+    """Keep absent factors and unsupported sensitivity bounds explicitly unknown."""
+    baseline_use = mission["baseline_fuel_kg"] * factor if factor is not None else None
+    target_use = mission["target_fuel_kg"] * factor if factor is not None else None
+    fields: dict[str, Any] = {"baseline_use_raw": baseline_use,
+                              "use_method": mission["calculation_method"]}
+    for bound in ("low", "central", "high"):
+        known = bound == "central" and factor is not None
+        baseline_total = baseline_production + baseline_use if known else None
+        target_total = target_production + target_use if known else None
+        fields.update({
+            f"avoided_fuel_{bound}_kg": mission["avoided_fuel_kg"] if bound == "central" else None,
+            f"avoided_use_{bound}_raw": baseline_use - target_use if known else None,
+            f"lightweight_use_{bound}_raw": target_use if known else None,
+            f"baseline_total_{bound}_raw": baseline_total,
+            f"lightweight_total_{bound}_raw": target_total,
+            f"total_delta_{bound}_raw": target_total - baseline_total if known else None,
+        })
+        for prefix, total in (("baseline", baseline_total), ("lightweight", target_total)):
+            pe = total / norm if total is not None and norm else None
+            fields[f"{prefix}_total_{bound}_person_equivalent"] = pe
+            fields[f"{prefix}_total_{bound}_weighted_point"] = pe * weight if pe is not None else None
+    return fields
+
+
 def build_localization_results(
     *,
     exact_rows: list[dict[str, Any]],
@@ -561,6 +594,7 @@ def build_localization_results(
     avoided_fuel: dict[str, float],
     regional_scenarios: list[dict[str, Any]],
     scenario_ids: list[str] | tuple[str, ...] | None = None,
+    mission: dict[str, Any] | None = None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     profiles = {str(row.get("scenario_id") or ""): row for row in regional_scenarios}
     indicator_rows: list[dict[str, Any]] = []
@@ -569,7 +603,7 @@ def build_localization_results(
     ordered_scenario_ids = list(scenario_ids or LOCALIZATION_SCENARIO_IDS)
     for sourcing_id in ordered_scenario_ids:
         source_rows = [row for row in exact_rows if row.get("sourcing_scenario_id") == sourcing_id]
-        if not is_exact_brightway_rows(source_rows):
+        if mission is None and not is_exact_brightway_rows(source_rows):
             source_rows = []
         scenario_indicators: list[dict[str, Any]] = []
         for exact in source_rows:
@@ -583,9 +617,9 @@ def build_localization_results(
             scenario_production = float(exact.get("lightweight_production_raw") or 0.0)
             baseline_use = float(meta.get("use_phase_person_equivalent") or 0.0) * norm
             fuel_factor = _finite_number(exact.get("fuel_factor_raw_per_kg"))
-            if fuel_factor is None:
+            if fuel_factor is None and mission is None:
                 continue
-            avoided_use = min(baseline_use, avoided_fuel.get("central", 0.0) * fuel_factor)
+            avoided_use = min(baseline_use, avoided_fuel.get("central", 0.0) * (fuel_factor or 0.0)) if mission is None else 0.0
             scenario_use = baseline_use - avoided_use
             baseline_total = baseline_production + baseline_use
             scenario_total = scenario_production + scenario_use
@@ -605,6 +639,13 @@ def build_localization_results(
                 "calculation_status": exact.get("calculation_status"),
                 **_result_provenance(exact),
             }
+            if mission is not None:
+                article = _article_use_fields(mission, fuel_factor, baseline_production,
+                                              scenario_production, norm, weight)
+                row.update(article)
+                row["historical_baseline_use_raw"] = baseline_use
+                for suffix in ("raw", "person_equivalent", "weighted_point"):
+                    row[f"localized_lightweight_total_central_{suffix}"] = article[f"lightweight_total_central_{suffix}"]
             scenario_indicators.append(row)
             indicator_rows.append(row)
 
@@ -614,6 +655,9 @@ def build_localization_results(
         )
         weighted_baseline = sum(float(row.get("baseline_total_central_weighted_point") or 0.0) for row in scenario_indicators)
         weighted_scenario = sum(float(row.get("localized_lightweight_total_central_weighted_point") or 0.0) for row in scenario_indicators)
+        complete_use = bool(scenario_indicators) and all(
+            row.get("localized_lightweight_total_central_weighted_point") is not None
+            for row in scenario_indicators)
         first = source_rows[0] if source_rows else {}
         profile = profiles.get(sourcing_id, {})
         summaries.append({
@@ -634,11 +678,11 @@ def build_localization_results(
             "transport_scaled_exchanges": int(float(first.get("transport_scaled_exchanges") or 0)),
             "production_climate_kgco2e": climate.get("localized_lightweight_production_raw", ""),
             "cycle_climate_central_kgco2e": climate.get("localized_lightweight_total_central_raw"),
-            "weighted_point": round(weighted_scenario, 9) if scenario_indicators else None,
+            "weighted_point": round(weighted_scenario, 9) if complete_use else None,
             "weighted_reduction_vs_reference_pct": round(
                 100.0 * (weighted_baseline - weighted_scenario) / weighted_baseline,
                 6,
-            ) if weighted_baseline else None,
+            ) if weighted_baseline and complete_use else None,
             "indicator_count": len(scenario_indicators),
             "calculation_status": first.get("calculation_status", ""),
             **_result_provenance(first or {
@@ -693,6 +737,7 @@ def build_lightweight_scenario(
     supplier_runner_path: Path | None = None,
 ) -> dict[str, Any]:
     config = load_scenario_config(config_path)
+    mission = build_mission(config)
     family_masses, reconciliation = extract_reconciled_mass_budget(masterboard_path, config)
     mass_rows = build_mass_budget_rows(family_masses, config)
     exact_rows = run_exact_brightway(runtime=runtime, config_path=config_path, runner_path=runner_path)
@@ -722,6 +767,8 @@ def build_lightweight_scenario(
         bound: mass_saved * lifetime_distance / 1000.0 * float(coefficient or 0.0)
         for bound, coefficient in fuel_coefficients.items()
     }
+    if mission is not None:
+        avoided_fuel = {"central": mission["avoided_fuel_kg"]}
     localization_exact_rows = run_exact_localization_scenarios(
         runtime=runtime,
         config_path=config_path,
@@ -732,6 +779,7 @@ def build_lightweight_scenario(
         metadata=metadata,
         avoided_fuel=avoided_fuel,
         regional_scenarios=regional_scenarios or [],
+        mission=mission,
     )
     supplier_payload = supplier_alternative_payload or {}
     supplier_scenario_inputs = supplier_payload.get("scenario_summaries", [])
@@ -748,6 +796,7 @@ def build_lightweight_scenario(
         avoided_fuel=avoided_fuel,
         regional_scenarios=supplier_scenario_inputs,
         scenario_ids=supplier_scenario_ids,
+        mission=mission,
     )
     supplier_lcia_by_id = {str(row.get("sourcing_scenario_id") or ""): row for row in supplier_lcia_summaries}
     supplier_summaries = [
@@ -819,6 +868,12 @@ def build_lightweight_scenario(
             "calculation_status": exact.get("calculation_status"),
             **_result_provenance(exact),
         }
+        if mission is not None:
+            row["historical_baseline_use_raw"] = baseline_use
+            row.update(_article_use_fields(mission, fuel_factor, baseline_production,
+                                           scenario_production, norm, weight))
+            indicator_rows.append(row)
+            continue
         for bound in ("low", "central", "high"):
             if fuel_factor is None:
                 combined_baseline = baseline_production + baseline_use
@@ -848,6 +903,10 @@ def build_lightweight_scenario(
         indicator_rows.append(row)
 
     weighted_baseline = sum(float(row.get("baseline_total_central_weighted_point") or 0.0) for row in indicator_rows)
+    if mission is not None and (not indicator_rows or any(
+        row.get("baseline_total_central_weighted_point") is None for row in indicator_rows
+    )):
+        weighted_baseline = None
     weighted_scenario = (
         sum(float(row.get("lightweight_total_central_weighted_point") or 0.0) for row in indicator_rows)
         if indicator_rows and all(row.get("fuel_factor_status") != "unavailable" for row in indicator_rows)
@@ -869,6 +928,7 @@ def build_lightweight_scenario(
         "label": config.get("label"),
         "status": config.get("status"),
         "functional_unit": config.get("functional_unit"),
+        "mission": mission,
         "mass_reconciliation": reconciliation,
         "mass_budget": mass_rows,
         "certification_gates": gates,
@@ -886,6 +946,10 @@ def build_lightweight_scenario(
         "named_supplier_candidate_audit": supplier_payload.get("candidate_audit", []),
         "named_supplier_loads": supplier_payload.get("supplier_loads", []),
         "summary": {
+            "use_method": mission["calculation_method"] if mission is not None else "legacy_marginal_fuel",
+            "baseline_fuel_kg": mission["baseline_fuel_kg"] if mission is not None else None,
+            "target_fuel_kg": mission["target_fuel_kg"] if mission is not None else None,
+            "avoided_fuel_kg": mission["avoided_fuel_kg"] if mission is not None else avoided_fuel.get("central"),
             **_result_provenance(exact_rows[0] if exact_rows else {
                 "cached_result_status": "unavailable",
                 "runtime_warning": "No usable exact cache or runtime result; use impacts are unavailable.",
@@ -895,9 +959,9 @@ def build_lightweight_scenario(
             "mass_saved_kg": round(mass_baseline_computed - mass_target_computed, 6),
             "mass_reduction_pct": round(100.0 * (mass_baseline_computed - mass_target_computed) / mass_baseline_computed, 4),
             "lifetime_distance_km": round(lifetime_distance, 3),
-            "avoided_fuel_low_kg": round(avoided_fuel.get("low", 0.0), 6),
+            "avoided_fuel_low_kg": None if mission is not None else round(avoided_fuel.get("low", 0.0), 6),
             "avoided_fuel_central_kg": round(avoided_fuel.get("central", 0.0), 6),
-            "avoided_fuel_high_kg": round(avoided_fuel.get("high", 0.0), 6),
+            "avoided_fuel_high_kg": None if mission is not None else round(avoided_fuel.get("high", 0.0), 6),
             "baseline_production_kgco2e": climate.get("baseline_production_raw", ""),
             "lightweight_production_kgco2e": climate.get("lightweight_production_raw", ""),
             "baseline_use_kgco2e": climate.get("baseline_use_raw", ""),
@@ -907,7 +971,7 @@ def build_lightweight_scenario(
             "avoided_use_high_kgco2e": climate.get("avoided_use_high_raw"),
             "baseline_total_central_kgco2e": climate.get("baseline_total_central_raw", ""),
             "lightweight_total_central_kgco2e": climate.get("lightweight_total_central_raw"),
-            "weighted_baseline_point": round(weighted_baseline, 9),
+            "weighted_baseline_point": round(weighted_baseline, 9) if weighted_baseline is not None else None,
             "weighted_lightweight_point": round(weighted_scenario, 9) if weighted_scenario is not None else None,
             "weighted_reduction_pct": round(100.0 * (weighted_baseline - weighted_scenario) / weighted_baseline, 6) if weighted_baseline and weighted_scenario is not None else None,
             "indicator_count": len(indicator_rows),

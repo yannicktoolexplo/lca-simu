@@ -56,6 +56,7 @@ def exact_csv(path):
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument('--cached-only', action='store_true')
+    parser.add_argument('--skip-map', action='store_true')
     args = parser.parse_args()
     output_root = CASE_ROOT / "outputs"
     data = output_root / "data"
@@ -125,6 +126,10 @@ def main() -> int:
     write_csv(data / 'lca_comparison_totals.csv', comparison['totals'])
     write_csv(data / 'lca_comparison_indicators.csv', comparison['indicators'])
     write_json(dashboard_path, dashboard)
+
+    if args.skip_map:
+        print('Lightweight results refreshed; map deferred until cohort refresh')
+        return 0
 
     old_html = map_path.read_text(encoding="utf-8")
     map_payload = embedded_json(old_html, "SDD_MAP_PAYLOAD", "BASE_DASHBOARD_PAYLOAD")

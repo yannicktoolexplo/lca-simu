@@ -35,14 +35,27 @@ def main():
             page.on('pageerror', lambda error: errors.append(str(error)))
             page.goto(HTML.as_uri(), wait_until='load')
             page.click('[data-sdd-view="aircraft_use"]')
-            for metric in ['climate_kgco2e', 'weighted_score_excel']:
+            mission = page.evaluate('() => BASE_DASHBOARD_PAYLOAD.brightway_model.lightweight_seat.mission')
+            assert mission['average_flight_distance_km'] == 5556
+            assert mission['annual_flight_cycles'] == 700 and mission['lifetime_years'] == 7
+            assert mission['status'] == 'extrapolated_not_validated'
+            assert abs(mission['baseline_fuel_kg'] - 98197.891792) < 1e-6
+            report['mission'] = mission
+            for metric in ['climate_kgco2e', 'weighted_score_excel', 'direct_co2_kg', 'fuel_kg']:
                 page.select_option('#sddAircraftUseMetric', metric)
                 data = page.evaluate("() => document.getElementById('sddAircraftUsePerSeatPlot').data.map(t=>Array.from(t.y))")
-                assert 0 < data[1][1] < data[0][1], data
+                physical = metric in {'direct_co2_kg', 'fuel_kg'}
+                use_index = 0 if physical else 1
+                assert len(data) == 2 and all(len(row) == (1 if physical else 3) for row in data), data
+                assert data[0][use_index] > 0 and abs(data[1][use_index]/data[0][use_index] - .5) < 1e-9, data
+                if physical:
+                    for actual, prefix in zip((data[0][0], data[1][0]), ('baseline', 'target')):
+                        assert abs(actual - mission[f'{prefix}_{metric}']/1000) < 1e-6
                 curves = page.evaluate("() => document.getElementById('sddAircraftUseMassMonthlyPlot').data.map(t=>Array.from(t.y))")
                 assert len(curves[0]) > 100 and max(curves[0]) > 0
                 ratios = [b/a for a,b in zip(*curves) if a>0]
-                assert all(abs(r-data[1][1]/data[0][1])<1e-9 for r in ratios)
+                assert ratios and all(abs(r-.5)<1e-9 for r in ratios)
+                assert 'EXTRAPOLATION' in page.locator('#sddAircraftUseComparisonStatus').inner_text()
                 report['checks'].append({'metric':metric,'per_seat':data,'months':len(curves[0])})
             page.screenshot(path=str(out/'usage_desktop.png'))
             for tab, panel in [('lightweight_seat','sddLightweightScoreComparison'),('dashboard','sddLcaScoreComparison')]:

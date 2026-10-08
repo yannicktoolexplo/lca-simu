@@ -7,10 +7,16 @@ target_mass_kg: 54.9835
 functional_unit: un siege affaires livre et utilise pendant 7 ans
 
 flight_use:
+  calculation_method: steinegger_a322_2017
+  aircraft: A320-200
+  allow_extrapolation: true
+  extrapolation_status: hypothesis_not_validated_by_article
+  source: Steinegger 2017 version 1.1, page 11, A322 marginal fuel burn
+  scope: Transport de la masse du siege uniquement; hors IFE, nettoyage et effets non-CO2 en altitude
   lifetime_years: 7
   average_flight_distance_km: 5556
   annual_flight_cycles: 700
-  marginal_fuel_kg_per_kg_1000km:
+  historical_marginal_fuel_kg_per_kg_1000km:
     low: 0.020
     central: 0.025
     high: 0.030
