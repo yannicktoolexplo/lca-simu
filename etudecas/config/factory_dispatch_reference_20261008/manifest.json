@@ -1,0 +1,38 @@
+{
+  "schema": "etudecas.factory_dispatch_snapshot.v1",
+  "archive": "reference.zip",
+  "archive_sha256": "a6edcd635e5ce445c3eaeafe1f516ab5af8b3413ec7b2f810988a8be3c87c59e",
+  "archive_bytes": 7698107,
+  "html": "etudecas/resultats/factory_dispatch_20261008/comparaison.html",
+  "html_sha256": "1b4ad5492140c079dc1365632d2b43a39bc39c5f9dc7b649f09ddb3043f62408",
+  "entries_sha256": {
+    "etudecas/resultats/factory_dispatch_20261008/comparaison.html": "1b4ad5492140c079dc1365632d2b43a39bc39c5f9dc7b649f09ddb3043f62408",
+    "etudecas/artifacts/testing/factory_dispatch_20261008/manifest.json": "bcc86ffbc71bcdc07f901f7eedbd82108646aa4b3fb5d12b7ba24687cd4a0582",
+    "etudecas/artifacts/testing/factory_dispatch_20261008/render.py": "d45dacbad1c07e733ba9b8f1194110d21d7b6793a0db8dbcd238f3eaa6fa5bd7",
+    "etudecas/artifacts/testing/factory_dispatch_20261008/render.json": "5bd09dae5635e6e78a94be92fee5c262b5782bc38fa1564c42a4be72ef7a8db7",
+    "etudecas/artifacts/testing/factory_dispatch_20261008/validation.py": "f1bcd49613d703c40965cc1cbbfe2846e51b6922dec6cef5b85773f33d862ff2",
+    "etudecas/artifacts/testing/factory_dispatch_20261008/validation.json": "ac3837d4fed118378bcbc945b03f6cd9b764c72348f3825d1ad6a389621733aa",
+    "etudecas/artifacts/testing/factory_dispatch_20261008/javascript_review.js": "629ee31f7769ffe5e439a6df98acb7aaad5713b307287a8771e5a7979406dabf",
+    "etudecas/artifacts/testing/factory_dispatch_20261008/javascript.json": "14cbfaf3398a75f8102b58c2fe56cd02bf7c61c6b67ad877e73b8b1564dfa0fa",
+    "etudecas/artifacts/testing/toolbox/tests-27a4b80eaafd4d8281e7cfaf0668081d/manifest.json": "e1588f6057255cf893401f9d9eaa349649fd9b107bcfa0ce55ebe62d1706ce45",
+    "etudecas/artifacts/testing/toolbox/tests-27a4b80eaafd4d8281e7cfaf0668081d/execution.log": "0adb72fb142c2867fef00924f505c10b9725e242404c097daebc8aa1380cab20",
+    "etudecas/artifacts/testing/toolbox/tests-27a4b80eaafd4d8281e7cfaf0668081d/junit.xml": "eae3702c4028d48e14b90e1f7a9b1f401d9ae4b425126c0ab476c32a5a37933f",
+    "etudecas/artifacts/testing/toolbox/tests-27a4b80eaafd4d8281e7cfaf0668081d/result.json": "379500715ae69535307adc735cc8bdc9a577c834c4d897afeeea237fe7f166cc",
+    "etudecas/artifacts/testing/toolbox/doctor-b234abbb06904747a75d1b7fcc0856fd/manifest.json": "0fc853cd7ed09499a2c7a33e19f8824b1ca3f9c298faae2f321c90965af56755",
+    "etudecas/artifacts/testing/toolbox/doctor-b234abbb06904747a75d1b7fcc0856fd/result.json": "7bb91cedc74fe0d40603950a48af8ad26b4962457692fb7481a181dfb7ed48fd"
+  },
+  "validation_status": "numerical_and_in_memory_ui_checks_passed_browser_not_executed",
+  "tests_passed": 26,
+  "browser_executed": false,
+  "simulation_rerun": false,
+  "restoration": "Extract reference.zip at the repository root to restore the exact HTML and local evidence.",
+  "limits": [
+    "Historique magnitudes are only an assumption for physical depot outbound; inferred quantities are not observed factory dispatches.",
+    "Raw ZUN stocks/movements are interpreted as physical units as in the frozen accepted source contract; no additional conversion is introduced.",
+    "Two negative source reconstructions remain raw anomalies and absent curve values, not zero departures.",
+    "Two days is established from matched executed simulation events; applying this lag to industrial movements remains an adjustable hypothesis.",
+    "No observed daily factory dispatch schedule is supplied and none is invented.",
+    "UI cases are independent expected data; their actual JavaScript evaluation is a separate parent proof, not a browser validation.",
+    "Frozen numerical agreement and technical invariants do not certify industrial calibration."
+  ]
+}
