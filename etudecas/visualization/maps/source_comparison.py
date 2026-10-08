@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 import csv
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 import hashlib
 import json
 import math
@@ -573,6 +573,251 @@ def _customer_response_payload(customer_demand, pairs, run_info):
                 columns=CUSTOMER_RESPONSE_COLUMNS, products=products,
                 date_basis='Photos aux lundis de début et de fin ; simulation aux clôtures de la veille. Les flux couvrent lundi–dimanche inclus.',
                 missing_basis='Une absence est null ; une quantité explicitement nulle reste 0. Les événements absents du registre complet valent zéro uniquement pour un circuit client documenté.')
+
+
+FACTORY_DISPATCH_FACTORIES = {'268091': ('M-1810', 'Avène'), '268967': ('M-1430', 'Gien')}
+
+
+def _factory_dispatch_quantity(value, *, signed=False):
+    """Keep physical UN integers without turning a missing source into zero."""
+    result = _number(value, physical_unit='UN')
+    if result is None:
+        return None
+    if not signed and result < 0:
+        raise ValueError('Negative factory dispatch physical quantity')
+    return int(round(result))
+
+
+def _factory_dispatch_observed(product, entry):
+    def indexed(rows, column, kind):
+        result = {}
+        for row in rows:
+            if row[column] in result:
+                raise ValueError(f'Duplicate factory dispatch {kind}: {row[column]}')
+            result[row[column]] = row
+        return result
+
+    history = indexed(product.get('history', []), 0, 'history')
+    photos = indexed(entry.get('observed', []), 0, 'photo')
+    movements = indexed(entry.get('source_movements', {}).get('rows', []), 1, 'movement')
+    observed = []
+    for _, start, end in _weekly_windows('monday_after'):
+        h, op, cl, mv = history.get(start), photos.get(start), photos.get(end + 1), movements.get(start)
+        if mv is not None and (mv[0] != start - 1 or mv[2] != end):
+            raise ValueError('Factory dispatch source movement interval mismatch')
+        opening = _factory_dispatch_quantity(op[1]) if op is not None else None
+        closing = _factory_dispatch_quantity(cl[1]) if cl is not None else None
+        outbound = _factory_dispatch_quantity(h[1]) if h is not None else None
+        other = _factory_dispatch_quantity(mv[3], signed=True) if mv is not None else None
+        delta = closing - opening if opening is not None and closing is not None else None
+        raw = delta + outbound - other if all(v is not None for v in (delta, outbound, other)) else None
+        status = 'missing_source' if raw is None else 'negative_reconstruction' if raw < 0 else 'reconstructed'
+        observed.append(dict(
+            arrival_start_day=start, arrival_end_day=end,
+            arrival_start_date=(ORIGIN + timedelta(days=start)).isoformat(),
+            arrival_end_date=(ORIGIN + timedelta(days=end)).isoformat(),
+            stock_open_qty=opening, stock_close_qty=closing, stock_delta_qty=delta,
+            history_outbound_assumption_qty=outbound, other_net_qty=other,
+            reconstructed_receipt_raw_qty=raw,
+            reconstructed_receipt_qty=raw if raw is not None and raw >= 0 else None,
+            status=status, history_excel_row=h[3] if h is not None else None,
+            history_date=(ORIGIN + timedelta(days=h[0])).isoformat() if h is not None else None,
+            opening_photo_excel_row=op[2] if op is not None else None,
+            opening_photo_date=(ORIGIN + timedelta(days=op[0])).isoformat() if op is not None else None,
+            closing_photo_excel_row=cl[2] if cl is not None else None,
+            closing_photo_date=(ORIGIN + timedelta(days=cl[0])).isoformat() if cl is not None else None,
+            movement_excel_row=mv[7] if mv is not None else None,
+            movement_label_date=(ORIGIN + timedelta(days=mv[0])).isoformat() if mv is not None else None))
+    return observed
+
+
+def _factory_dispatch_run(availability_rows, event_rows, edges, *, has_event_ledger=True):
+    """Read executed factory-to-DC shipments using graph endpoints, in memory.
+
+    Legacy edge identifiers can name DC-1910 while their actual destination is
+    DC-1920. Never infer the destination from an identifier substring. Daily
+    zero requires an event ledger and documented factory/DC availability. Delay
+    evidence comes from linked executed receipts, never their planned dates.
+    """
+    dc = 'DC-1920'
+    routes = {item: {} for item in FACTORY_DISPATCH_FACTORIES}
+    for edge in edges:
+        for item, (factory, _) in FACTORY_DISPATCH_FACTORIES.items():
+            if (edge.get('type') == 'transport' and edge.get('from') == factory
+                    and edge.get('to') == dc and f'item:{item}' in edge.get('items', [])):
+                if edge['id'] in routes[item]:
+                    raise ValueError(f'Duplicate factory dispatch route: {edge["id"]}')
+                routes[item][edge['id']] = edge
+    stocks, shipments, receipts, event_ids = set(), {}, [], set()
+
+    def quantity(row, field):
+        unit, factor = _unit(row['uom'])
+        if unit != 'UN' or factor != 1:
+            raise ValueError('Factory dispatch requires physical UN registers')
+        value = _factory_dispatch_quantity(row[field])
+        if value is None:
+            raise ValueError(f'Missing factory dispatch register quantity: {field}')
+        return value
+
+    for row in availability_rows:
+        item = row['item_id'].removeprefix('item:')
+        if item not in routes:
+            continue
+        day, node = int(row['day']), row['node_id']
+        if not 0 <= day < DAYS or node not in (FACTORY_DISPATCH_FACTORIES[item][0], dc):
+            continue
+        key = item, node, day
+        if key in stocks:
+            raise ValueError(f'Duplicate factory dispatch availability: {key}')
+        quantity(row, 'physical_qty')
+        stocks.add(key)
+    daily = defaultdict(lambda: defaultdict(int))
+    for row in event_rows:
+        item, kind = row['item_id'].removeprefix('item:'), row['event_type']
+        if item not in routes or kind not in ('lane_ship', 'lane_receipt'):
+            continue
+        day, node, route = int(row['day']), row['node_id'], row.get('source_id')
+        if not 0 <= day < DAYS or route not in routes[item]:
+            continue
+        expected_node = FACTORY_DISPATCH_FACTORIES[item][0] if kind == 'lane_ship' else dc
+        if node != expected_node:
+            raise ValueError('Factory dispatch event disagrees with graph route endpoint')
+        identity, shipment_id = row.get('event_id'), row.get('shipment_id')
+        if not identity or identity in event_ids or not shipment_id:
+            raise ValueError('Missing or duplicate factory dispatch event/shipment identity')
+        event_ids.add(identity)
+        qty = quantity(row, 'qty')
+        key = item, shipment_id
+        if kind == 'lane_receipt':
+            receipts.append((key, day, route, qty, identity))
+            continue
+        shipment = shipments.setdefault(key, dict(shipment_id=shipment_id, route_id=route,
+            departure_day=day, shipped_qty=0, received_qty=0, departure_event_ids=[],
+            receipt_event_ids=[], receipt_days=set()))
+        if shipment['departure_day'] != day or shipment['route_id'] != route:
+            raise ValueError('Factory dispatch shipment changes day or route')
+        shipment['shipped_qty'] += qty
+        shipment['departure_event_ids'].append(identity)
+        daily[item][day] += qty
+    unmatched_receipts = defaultdict(list)
+    for key, day, route, qty, identity in receipts:
+        shipment = shipments.get(key)
+        if shipment is None:
+            unmatched_receipts[key[0]].append(dict(shipment_id=key[1], receipt_day=day,
+                                                  received_qty=qty, event_id=identity))
+            continue
+        if shipment['route_id'] != route or day < shipment['departure_day']:
+            raise ValueError('Factory receipt precedes dispatch or changes route')
+        shipment['received_qty'] += qty
+        if shipment['received_qty'] > shipment['shipped_qty']:
+            raise ValueError('Factory receipts exceed dispatched shipment')
+        shipment['receipt_event_ids'].append(identity)
+        shipment['receipt_days'].add(day)
+    result = {}
+    for item, (factory, _) in FACTORY_DISPATCH_FACTORIES.items():
+        documented_days = sorted(day for day in range(DAYS)
+            if (item, factory, day) in stocks and (item, dc, day) in stocks)
+        covered = set(documented_days) if has_event_ledger and routes[item] else set()
+        matched, incomplete, delays = [], [], set()
+        for (shipment_item, _), shipment in shipments.items():
+            if shipment_item != item:
+                continue
+            evidence = {**shipment, 'receipt_days': sorted(shipment['receipt_days'])}
+            if (shipment['received_qty'] == shipment['shipped_qty']
+                    and shipment['shipped_qty'] > 0 and shipment['receipt_days']):
+                evidence['transport_delay_days'] = sorted(day - shipment['departure_day']
+                                                         for day in shipment['receipt_days'])
+                delays.update(evidence['transport_delay_days'])
+                matched.append(evidence)
+            else:
+                incomplete.append(evidence)
+        result[item] = dict(
+            daily=[dict(day=day, shipped_qty=daily[item][day] if day in covered else None)
+                   for day in range(DAYS)],
+            documented_days=documented_days, route_ids=sorted(routes[item]),
+            transport_delay_days=next(iter(delays)) if len(delays) == 1 else None,
+            transport_delay_evidence=dict(observed_delays_days=sorted(delays),
+                matched_shipments=matched, incomplete_shipments=incomplete,
+                unmatched_receipts=unmatched_receipts[item],
+                basis='Écart entre lane_ship et lane_receipt exécutés, appariés par article, shipment_id et liaison du graphe ; quantités reçues entièrement rapprochées.'),
+            has_event_ledger=has_event_ledger,
+            missing_basis='Zéro seulement si la liaison usine–dépôt, le registre des événements et les états quotidiens des deux sites sont documentés ; sinon null.')
+    return result
+
+
+def build_factory_dispatch_comparison(customer_demand, pairs, runs: dict[str, Path]):
+    """Augment a frozen comparison payload without rerunning or changing it.
+
+    The returned observed data is a weekly *hypothesis*, not measured industrial
+    dispatches. Callers shift each arrival interval backwards by a selectable
+    integer lag and sum simulated departures on that same shifted interval.
+    The source weeks are never distributed into invented daily observations.
+    """
+    if customer_demand is None:
+        return None
+    products = {}
+    for item, (factory, factory_name) in FACTORY_DISPATCH_FACTORIES.items():
+        product, entry = customer_demand.get('products', {}).get(item), pairs.get(f'{item}/1920')
+        if product is None or entry is None:
+            continue
+        if product.get('unit', 'UN') != 'UN' or entry.get('unit', 'UN') != 'UN':
+            raise ValueError('Factory dispatch source requires UN')
+        products[item] = dict(item=item, name=product.get('name', item), unit='UN',
+            factory_id=factory, factory_name=factory_name, dc_id='DC-1920', dc_name='Muret',
+            observed=_factory_dispatch_observed(product, entry), simulations={})
+    provenance = {}
+    for label, folder in runs.items():
+        run, files = Path(folder), {}
+
+        def recorded(path):
+            files[str(path)] = _hash(path)
+            return path
+
+        def rows(name):
+            path = run / 'data' / name
+            if not path.is_file():
+                return []
+            with recorded(path).open(encoding='utf-8-sig', newline='') as stream:
+                return list(csv.DictReader(stream))
+
+        summary = json.loads(recorded(run / 'summaries/first_simulation_summary.json').read_text(encoding='utf-8'))
+        if summary.get('warmup_days') != 0:
+            raise ValueError('Factory dispatch comparison requires no warm-up')
+        graph_path = Path(summary['input_file'])
+        if not graph_path.is_absolute():
+            graph_path = ROOT / graph_path
+        if _hash(recorded(graph_path)) != summary['input_sha256']:
+            raise ValueError(f'Graph changed since factory dispatch simulation: {graph_path}')
+        graph = json.loads(graph_path.read_text(encoding='utf-8'))
+        if graph.get('meta', {}).get('opening_open_orders', {}).get('snapshot_date') != ORIGIN.isoformat():
+            raise ValueError('Factory dispatch graph does not establish 2025-01-01 as day zero')
+        event_path = run / 'data/production_lot_events.csv'
+        has_ledger = event_path.is_file() and bool(summary.get('policy', {}).get('lot_trace_enabled'))
+        simulations = _factory_dispatch_run(rows('production_stock_availability_daily.csv'),
+            rows(event_path.name), graph.get('edges', []), has_event_ledger=has_ledger)
+        for item, product in products.items():
+            product['simulations'][label] = simulations[item]
+        for path, digest in files.items():
+            if _hash(Path(path)) != digest:
+                raise ValueError(f'Input changed during factory dispatch comparison: {path}')
+        provenance[label] = dict(run_directory=str(run), sim_days=summary['sim_days'], inputs=files)
+    simulations = [sim for product in products.values() for sim in product['simulations'].values()]
+    delays = {sim['transport_delay_days'] for sim in simulations}
+    default_lag = next(iter(delays)) if simulations and len(delays) == 1 and None not in delays else None
+    return dict(schema_version=1, origin=ORIGIN.isoformat(), products=products,
+        calendar='monday_sunday_complete_2025', default_transport_lag_days=default_lag,
+        transport_lag_basis=('Délai constant constaté entre départ et réception simulés ; son application aux flux industriels reste une hypothèse réglable.'
+                             if default_lag is not None else 'Aucun délai constant commun démontré ; choisir une hypothèse de délai explicite.'),
+        formula='stock_close_qty - stock_open_qty + history_outbound_assumption_qty - other_net_qty',
+        hypothesis='HYPOTHÈSE : Actual Demand de Flow_Data_Customer_Demand.xlsx / Historique représente les sorties clients du dépôt pendant la semaine. Cette équivalence n’est pas prouvée.',
+        comparison_basis='La réception hebdomadaire reconstituée est décalée en bloc vers le passé du délai choisi. Les départs usine simulés sont sommés sur exactement cette même fenêtre décalée, bornes incluses.',
+        source_columns=dict(history='Historique / Actual Demand (valeur absolue)',
+                            other_net='Feuille1 / G Divers signé ; ni I net ni somme G+H+I+J'),
+        limits=['Aucun départ industriel journalier n’est observé ; les photos hebdomadaires et la demande ne prouvent pas les dates de transport.',
+                'Une reconstruction négative reste dans le tableau brut et est exclue de la courbe, sans écrêtage à zéro.',
+                'Une source manquante reste null. Les 51 semaines complètes vont du 6 janvier au 28 décembre 2025.',
+                'Réservations, fabrication, libérations et départs dépôt–clients sont exclus des départs usine.'],
+        provenance=provenance)
 
 
 CUSTOMER_FORECAST_FIELDS = (
@@ -1794,6 +2039,7 @@ def build_comparison_payload(inventory_path: Path, mrp_path: Path,
     return {'schema_version': 7 if customer_demand or movements_path else 6, 'origin': ORIGIN.isoformat(), 'end': '2025-12-31',
         'customer_demand': customer_demand,
         'customer_response': _customer_response_payload(customer_demand, pairs, run_info),
+        'factory_dispatch': build_factory_dispatch_comparison(customer_demand, pairs, runs),
         'movements_source': Path(movements_path).name if movements_path else None,
         'columns': COLUMNS, 'runs': run_info, 'pairs': dict(sorted(pairs.items())),
         'weekly_conventions': WEEKLY_CONVENTIONS, 'default_weekly_alignment': 'sunday_start',

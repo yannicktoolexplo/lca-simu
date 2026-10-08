@@ -9,6 +9,22 @@ d'exécution et les preuves. Cette adoption conserve explicitement la nature
 **estimée** de la réponse industrielle et les quatre semaines non estimables.
 Elle ne signifie pas que tous les stocks amont sont calibrés.
 
+**Sorties d'usines reconstituées — comparaison ajoutée le 8 octobre.**
+L'[onglet Usines → Muret](../resultats/factory_dispatch_20261008/comparaison.html)
+compare les deux PF sans changer cette référence client ni les règles du moteur.
+La reconstitution utilise `entrées Muret estimées = stock lundi suivant − stock
+lundi + historique Flow − Divers`, sous l'hypothèse explicite que cet historique
+représente les sorties clients. La colonne I des mouvements, qui contient un
+solde net, n'est pas utilisée comme livraison brute.
+Les volumes sont attribués à une fenêtre de départ estimée en reculant les
+bornes de réception du délai retenu ; les départs simulés `lane_ship` de l'usine
+vers Muret sont sommés sur exactement cette fenêtre. Le décalage initial de
+deux jours correspond aux dates exécutées dans les simulations, pas à une
+mesure du transport industriel ; il est modifiable dans l'affichage.
+Une valeur négative reconstituée signale une incohérence : elle reste dans le
+tableau de calcul et interrompt la courbe, sans devenir zéro. Les dates exactes
+des départs industriels et leur fréquence dans la semaine restent inconnues.
+
 **Comparaison client — affichage rectifié le 8 octobre.** Le premier graphique
 affiche la demande `demand_PF!Demande/E` utilisée par l'essai et les quantités
 effectivement servies aux clients dans la simulation (`served_qty`). Il ne

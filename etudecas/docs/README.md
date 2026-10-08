@@ -8,6 +8,7 @@ Les [résultats locaux](../index.html) ont leur propre accueil.
 
 | Sujet | Guide et références |
 |---|---|
+| Comprendre les données industrielles et leurs versions | [Bilan des données sources](DONNEES_SOURCES.md) ; couverture, unités, calendriers, redondances et contradictions vérifiées le 8 octobre 2026 |
 | Règles MRP courantes et application par liaison | [Les règles simplement](REGLES_MRP.md) ; prévisions, achats, fabrication, transferts et conventions encore à confirmer |
 | Reprendre la conception du MRP à partir des sources | [Refondation du MRP](REFONDATION_MRP.md) ; noyau commun, politiques locales, identification et validation avant remplacement |
 | Entrées de simulation et API locale | [Contrat des entrées](SIMULATION_INPUT_CONTRACT.md) · [Règles liées au code](generated/simulation_input/index.md) |

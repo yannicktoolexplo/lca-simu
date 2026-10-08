@@ -24,6 +24,9 @@ présentées ci-dessous.
 
 Pour travailler, utiliser ce guide, [les commandes](OPERATIONS.md),
 [les règles métier](docs/README.md) et [les quatre cartes](index.html).
+Le [bilan des données sources](docs/DONNEES_SOURCES.md) rassemble la connaissance
+des 22 fichiers : stocks, mouvements, MRP, demande, achats et fournisseurs,
+avec leurs versions, rapprochements vérifiés et incertitudes restantes.
 Les anciens `tmp`, audits et comptes rendus sont regroupés dans
 [l'archive](archive/README.md). Les références de vérification encore nécessaires
 et les pièces de l'incident Sophos restent identifiées séparément.
@@ -48,6 +51,21 @@ Il contient `comparaison.html`, `graph.json`, `execution.json` (commande de
 simulation et paramètres) et les trois preuves de rendu/validation.
 Le graphe et le HTML sont vérifiés à l'identique dans l'archive ; les volumineux
 registres quotidiens restent locaux et peuvent être recalculés avec le moteur.
+
+La [comparaison des sorties d'usines vers Muret](resultats/factory_dispatch_20261008/comparaison.html)
+ajoute un onglet « Usines → Muret » pour Cicalfate et Permixon. Les volumes
+reconstitués supposent que l'historique Flow représente les sorties clients :
+variation du stock Muret + historique − ajustements Divers. Ils sont comparés
+aux départs d'usine exécutés dans la simulation sur les mêmes fenêtres, décalées
+du transport retenu. Le décalage est réglable ; les bilans négatifs restent
+signalés. Les données et graphiques de la référence client sont conservés.
+Cet ajout d'affichage réutilise les calculs existants, sans nouvelle simulation.
+Son [instantané compressé](config/factory_dispatch_reference_20261008/reference.zip)
+conserve le HTML exact et les preuves de vérification (7,7 Mo). Extraire cette
+archive à la racine du dépôt restaure les chemins ci-dessus ; le
+[manifeste](config/factory_dispatch_reference_20261008/manifest.json) indique les
+empreintes et les limites des contrôles, notamment l'absence de contrôle visuel
+dans un navigateur.
 
 La [carte actuelle avec le dernier MRP](resultats/forecast_dispatch_20261008/carte.html)
 réunit le réseau, les courbes de simulation 2025, les deux suivis de lots et le
