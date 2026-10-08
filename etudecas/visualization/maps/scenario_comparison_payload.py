@@ -377,7 +377,7 @@ def build_scenario_comparison_payload(current_output_root: Path) -> dict[str, An
         if root.name in label_overrides:
             scenario_label = label_overrides[root.name]
         if root.resolve() == current_output_root.resolve() and scenario_kind == "nominal":
-            scenario_label = "Nominal 5 ans"
+            scenario_label = f"Nominal · {horizon} jours"
         if is_sweep:
             scenario_family = str(sweep_row.get("family") or scenario_kind)
         elif root.name in family_overrides:

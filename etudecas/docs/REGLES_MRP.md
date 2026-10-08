@@ -1,5 +1,122 @@
 # Les règles MRP, simplement
 
+**Référence acceptée — demande client et centre de distribution, 8 octobre 2026.**
+Décision utilisateur : conserver le résultat `demand_pf_20261008` comme point
+de départ sur ce périmètre. Le [registre](reference/mrp_current.json) identifie
+le scénario exécuté sur 362 jours, le HTML et leurs empreintes. Un instantané
+compressé conserve le graphe exact, la comparaison autonome, la commande
+d'exécution et les preuves. Cette adoption conserve explicitement la nature
+**estimée** de la réponse industrielle et les quatre semaines non estimables.
+Elle ne signifie pas que tous les stocks amont sont calibrés.
+
+**Comparaison client — affichage rectifié le 8 octobre.** Le premier graphique
+affiche la demande `demand_PF!Demande/E` utilisée par l'essai et les quantités
+effectivement servies aux clients dans la simulation (`served_qty`). Il ne
+remplace pas le service client par les départs simulés du dépôt.
+La correction des quatre demandes négatives de Permixon à zéro reste une
+hypothèse de cet essai, explicitement indiquée, pas une mesure industrielle.
+
+Après la précision utilisateur demandant de croiser demande, sorties et CA
+perdu, la troisième courbe est une **réponse réelle estimée**, explicitement
+distincte d'un comptage des livraisons :
+`livré estimé = demande PF × CA livré / (CA livré + CA perdu)`.
+Cette formule suppose mêmes périmètres et même prix moyen pour les quantités
+livrées et non livrées. Le complément donne le non-livré estimé. Aucun prix
+client n'est inventé. Les quatre semaines de demande PF nulle avec du CA
+positif restent inconnues, pas zéro, et interrompent la courbe Permixon.
+
+Un tableau rapproche ces valeurs avec la colonne I signée des mouvements
+de Muret et le service simulé. Cette colonne n'est pas transformée en livraison
+brute : elle contient aussi des mouvements positifs et se rapproche des
+variations nettes de stock. La nature de `Actual Demand` (commandes ou ventes)
+reste à confirmer ; la série n'est pas renommée en livraison mesurée.
+Le CA reste aussi consultable séparément, sans comparaison de son taux avec
+le quotient hebdomadaire des unités simulées. Les références historiques
+93 % / 80 % n'ont pas de définition suffisamment établie pour ce rapprochement.
+
+Le second graphique compare les **besoins prévus** : colonne I du plan MRP
+industriel et besoins projetés par la simulation au même jour, pour le PF à
+Muret. Le choix de version est indépendant du site sélectionné ailleurs.
+Les semaines de projection suivent la convention dimanche–samedi existante ;
+les quantités clients sont agrégées lundi–dimanche. Les entrées prévues et les
+stocks projetés restent dans l'onglet MRP. Aucun plan n'est une livraison exécutée.
+La simulation n'est pas recalculée pour cette correction d'affichage.
+La [vérification indépendante de l'affichage précédent](../artifacts/testing/demand_pf_20261008/quantity_view_validation.json)
+rapproche 17 711 contrôles sans erreur : demande, service et besoins MRP des
+deux produits avec leurs sources Excel/CSV. Les
+[22 contrôles JavaScript historiques en mémoire](../artifacts/testing/demand_pf_20261008/quantity_view_javascript.json)
+vérifient notamment l'ordre des graphiques et le changement de version MRP.
+Le navigateur n'a pas été exécuté ; ces preuves ne certifient pas la calibration.
+Le [rendu des trois courbes](../artifacts/testing/demand_pf_20261008/quantity_reconciliation_revision.json)
+conserve exactement les mêmes données et résultats de simulation. Ses
+[contrôles JavaScript](../artifacts/testing/demand_pf_20261008/quantity_reconciliation_javascript.json)
+vérifient les trois rôles, le calcul estimé et les quatre semaines incohérentes.
+
+**Essai demandé le 8 octobre — retour à la demande `demand_PF`.**
+La comparaison `demand_pf_20261008` utilise `demand_PF.xlsx`, feuille
+`Demande`, colonne E (`real demand`), comme demande physique des clients.
+Pour cet essai seulement, `demande = max(0, real demand)` : les quatre
+valeurs négatives de Permixon deviennent zéro, sans réduire les demandes
+positives suivantes. Le brut signé et les cellules sources restent visibles.
+L'historique de `Flow_Data_Customer_Demand` est affiché séparément ; il
+n'est pas renommé en expéditions industrielles mesurées.
+
+Les prévisions datées `Flow / Projection`, les règles MRP, les stocks et
+engagements initiaux sont conservés. Seul `meta.customer_demand_history`
+change dans le graphe de l'essai. La répartition quotidienne reste entière
+et la simulation expédie uniquement pour satisfaire la demande connue.
+La réponse simulée comparée est le service exécuté au client, après transport.
+
+La source PF contient des numéros de semaine, sans dates explicites.
+Convention de comparaison : `step 1 = lundi 30 décembre 2024`.
+Ses 52 semaines se terminent le 28 décembre 2025 ; l'exécution couvre donc
+362 jours, sans fabriquer la demande des 29–31 décembre. La part des deux
+jours de 2024 n'est pas redistribuée en 2025. Les totaux des 51 semaines
+complètes affichées se distinguent de ceux des 362 jours exécutés.
+La référence de travail précédente reste conservée comme témoin. La décision
+utilisateur ci-dessus promeut cet essai sur le périmètre demande / dépôt ;
+elle ne prouve pas le sens industriel des valeurs négatives.
+
+Résultat vérifié : l'écart absolu moyen de stock à Muret, sur les mêmes
+52 photos (celle du 29 décembre représente la clôture du 28), passe de
+240 023 à 289 191 UN pour Cicalfate et de 177 434 à 177 680 UN pour Permixon.
+Ce retour à la demande PF ne suffit donc pas à améliorer ces deux stocks.
+La [comparaison interactive](../resultats/demand_pf_20261008/comparaison.html)
+conserve les deux calculs ; la [vérification indépendante](../artifacts/testing/demand_pf_20261008/validation.json)
+rapproche sources, quantités quotidiennes, événements et valeurs du HTML.
+Le [rapport d'exécution](../artifacts/testing/demand_pf_20261008/report_pf_zero.json)
+et le [contrôle des bilans et tests](../artifacts/testing/demand_pf_20261008/toolbox/gate-83c1f1c7841c42939a294f9315f3874d/manifest.json)
+documentent cet essai ; aucun contrôle navigateur n'a été exécuté.
+
+**Référence MRP 2025 précédente — conservée pour comparaison.** La version
+`customer_orders_only_20261008/run_candidate_365`, avec son graphe
+`graph_candidate.json`, était le point de départ avant l'adoption de la
+référence demande / centre de distribution ci-dessus.
+Elle conserve les règles amont C8R et limite les départs clients à la demande
+connue (`known_demand_only_v1`). C8R devient un témoin historique, hors du
+parcours courant ; ses résultats restent conservés pour mesurer les progrès
+et les régressions. Ce choix corrige une incohérence métier, mais ne signifie
+pas que tous les stocks se rapprochent des sources : les écarts de Cicalfate
+baissent et ceux de Permixon augmentent sur les 52 photos 2025. Le nominal
+historique de cinq ans et ses campagnes de risques restent distincts de cette
+référence de travail annuelle.
+Le [registre de cette référence](reference/mrp_current.json) fixe le graphe,
+les paramètres de la commande exécutée, les fichiers du moteur et les résultats.
+
+**Comparaison prévisions / départs.** Pour chaque semaine complète de 2025,
+retenir une seule valeur prévisionnelle de cette semaine, dans la dernière
+version qui la renseigne et qui était connue au lundi d'ouverture. Si le
+nouveau plan omet la semaine courante, conserver sa dernière valeur explicite
+du plan antérieur ; une absence n'est pas un zéro. Ne pas sommer les versions
+mensuelles. Le total ainsi obtenu est un total de prévisions glissantes,
+pas celui d'un plan annuel unique. Les départs simulés sont les événements
+`lane_ship` de Muret vers le client, non les réceptions ni le service après
+transport. `Actual Demand` reste l'historique client source, sans être assimilé
+à des expéditions industrielles tant que son sens physique n'est pas confirmé.
+Les mouvements signés du dépôt ne permettent pas de reconstruire ces départs
+bruts avec certitude. La concordance historique/départs simulés n'est pas un
+test indépendant, puisque cet historique alimente aussi la simulation.
+
 **Clarification client du 8 octobre — commandes connues uniquement.** L'utilisateur
 confirme qu'il s'agit de clients, sans politique de stock de distribution à
 réapprovisionner depuis une prévision. Les prévisions servent à planifier les

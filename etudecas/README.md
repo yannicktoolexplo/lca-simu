@@ -28,7 +28,38 @@ Les anciens `tmp`, audits et comptes rendus sont regroupés dans
 [l'archive](archive/README.md). Les références de vérification encore nécessaires
 et les pièces de l'incident Sophos restent identifiées séparément.
 
-La [dernière comparaison des étuis sur 2025](resultats/mrp_packaging_solutions_20261006/comparaison_corrigee.html)
+La [référence demande client et centre de distribution](resultats/demand_pf_20261008/comparaison.html)
+a été acceptée le 8 octobre : demande `demand_PF!Demande/real demand`, négatifs
+ramenés à zéro, prévisions Flow conservées. Le calcul couvre le 1er janvier au
+28 décembre 2025 et compare stocks, flux et service client avec le calcul précédent.
+Le premier graphique compare trois séries : demande PF, réponse réelle
+estimée depuis la part de CA livré/perdu, et quantités servies simulées.
+L'estimation suppose un prix moyen et un périmètre communs ; ce n'est pas
+un comptage des livraisons. Le tableau associé rapproche aussi les sorties de stock.
+Le second graphique compare les besoins MRP industriels et simulés au même jour
+de planification. Le CA livré/perdu reste un détail financier séparé.
+Le [registre de référence](docs/reference/mrp_current.json) conserve les
+empreintes et l'instantané compressé du scénario et du HTML. La carte complète
+ci-dessous conserve encore le calcul précédent ; sa mise à jour est distincte.
+
+Pour retrouver exactement cet état, extraire
+`config/customer_dc_reference_20261008/reference.zip` dans un nouveau dossier.
+Il contient `comparaison.html`, `graph.json`, `execution.json` (commande de
+simulation et paramètres) et les trois preuves de rendu/validation.
+Le graphe et le HTML sont vérifiés à l'identique dans l'archive ; les volumineux
+registres quotidiens restent locaux et peuvent être recalculés avec le moteur.
+
+La [carte actuelle avec le dernier MRP](resultats/forecast_dispatch_20261008/carte.html)
+réunit le réseau, les courbes de simulation 2025, les deux suivis de lots et le
+bouton « Comparaisons 2025 » (33 couples référence/site, prévisions, historique
+client et départs simulés de Muret). Le [registre de référence MRP 2025](docs/reference/mrp_current.json)
+identifie cette référence de travail ; C8R reste un témoin historique. Elle utilise le calcul annuel corrigé déjà vérifié, sans nouvelle
+simulation. Les anciennes cartes restent conservées ; leurs scénarios de risques
+ne sont pas recalculés dans ce document. La calibration industrielle reste partielle.
+La [provenance du rendu](artifacts/testing/forecast_dispatch_20261008/render.json)
+identifie le calcul et la comparaison embarquée.
+
+La [comparaison précédente des étuis sur 2025](resultats/mrp_packaging_solutions_20261006/comparaison_corrigee.html)
 présente le meilleur compromis parmi neuf variantes annuelles testées : C8,
 réexécuté avec le moteur final sous le nom C8R et comparé à B3. L'écart moyen de stock baisse de 33 % pour 338929 à Avène et
 59 % pour 333362 à Gien. Des écarts importants subsistent ; ce résultat ne
